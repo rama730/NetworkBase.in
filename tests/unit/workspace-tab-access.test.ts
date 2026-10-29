@@ -16,7 +16,7 @@ function access(input: { visibility?: string; status?: string; owner?: boolean; 
   const isMember = Boolean(input.member);
   const parentOrgRole = input.orgRole ?? null;
   return {
-    project: { id: "p", ownerId: "o", kind: "project", parentId: parentOrgRole ? "org" : null, visibility: input.visibility ?? "public", status: input.status ?? "active", publicTabVisibility: input.tabs },
+    project: { id: "p", ownerId: "o", kind: "workspace", parentId: parentOrgRole ? "org" : null, visibility: input.visibility ?? "public", status: input.status ?? "active", publicTabVisibility: input.tabs },
     isOwner,
     isMember,
     memberRole: isMember ? "member" : null,

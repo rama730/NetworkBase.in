@@ -176,7 +176,7 @@ async function handleIntent(userId: string, body: z.infer<typeof intentSchema>) 
     projectId: body.projectId,
     bucket,
     storageKey,
-    scope: "project_file",
+    scope: "workspace_file",
     kind: "file",
     expectedMimeType: body.mimeType,
     expectedSize: body.size,
@@ -308,7 +308,7 @@ async function handleFinalize(userId: string, body: z.infer<typeof finalizeSchem
     storageKey: intent.storageKey,
     userId,
     projectId: intent.projectId,
-    expectedScope: "project_file",
+    expectedScope: "workspace_file",
     expectedKind: "file",
   });
   const [verifiedAsset] = verifiedIntent.assetId

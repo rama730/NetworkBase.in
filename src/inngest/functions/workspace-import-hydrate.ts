@@ -138,7 +138,7 @@ export const projectImportHydrate = inngest.createFunction(
                             projectId,
                             bucket: "project-files",
                             storageKey: s3Key,
-                            scope: "project_file",
+                            scope: "workspace_file",
                             kind: "file",
                             expectedMimeType: mimeType,
                             expectedSize: size,
@@ -171,7 +171,7 @@ export const projectImportHydrate = inngest.createFunction(
                             storageKey: intent.storageKey,
                             userId,
                             projectId,
-                            expectedScope: "project_file",
+                            expectedScope: "workspace_file",
                             expectedKind: "file",
                         });
                         if (!verifiedIntent.assetId) throw new Error("Hydrated asset is unavailable");

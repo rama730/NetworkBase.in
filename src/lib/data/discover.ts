@@ -78,7 +78,7 @@ type RawProjectRow = {
     leadFocus: string | null;
     externalLinks: import('@/lib/profile/normalization').SocialLinkStorage | null;
     githubRepoUrl: string | null;
-    kind: 'project' | 'organization';
+    kind: 'workspace' | 'organization';
     orgType: string | null;
     /** Other's own label and "Part of" for the org card (report §34.11). */
     orgCard: { typeLabel?: string | null; partOf?: string | null } | null;
@@ -342,7 +342,7 @@ export const buildBaseConditions = (
                 AND (o.suspended_at IS NOT NULL OR o.deletion_scheduled_at IS NOT NULL)))`,
     ];
     const show = showKeeps(filters.show ?? 'all');
-    if (show.projectKind) conditions.push(eq(workspaces.kind, show.projectKind as 'project' | 'organization'));
+    if (show.projectKind) conditions.push(eq(workspaces.kind, show.projectKind as 'workspace' | 'organization'));
     if (filters.org) {
         // "Show everything from CSE-3A": the org itself and its public child projects.
         conditions.push(sql<boolean>`(${workspaces.slug} = ${filters.org} AND ${workspaces.kind} = 'organization'

@@ -74,7 +74,7 @@ test("doc versions: outsiders read only the published version; overrides and dra
       await tx`UPDATE public.workspace_documents SET published_version_id = ${versions[0]!} WHERE id = ${d!.id}`;
       return d!.id as string;
     }
-    await doc(projectId, "readme", "inherit_project");
+    await doc(projectId, "readme", "inherit_workspace");
     await doc(projectId, "team", "members_only");
     await doc(projectId, "leads", "leaders_only");
     const draft = await createProject(tx, owner, { status: "draft" });

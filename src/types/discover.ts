@@ -117,7 +117,7 @@ export interface Workspace {
   updatedAt?: string | null;
 
   /** Cards (report §24.1, §24.2): org cards show their type and projects; child cards an org line. */
-  kind?: "project" | "organization";
+  kind?: "workspace" | "organization";
   orgType?: string | null;
   /** The type as people read it and the body it belongs to (report §34.11). */
   orgTypeLabel?: string | null;

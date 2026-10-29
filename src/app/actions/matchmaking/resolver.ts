@@ -83,14 +83,13 @@ export async function getProfileToRoleAlignmentAction(
   }
 
   // 2. Experience Level Check
-  // Map experience hierarchy: junior=1, mid=2, senior=3, lead=4, founder=5, student=0
+  // Map experience hierarchy: student=0, junior=1, mid=2, senior=3, lead=4
   const hierarchy: Record<string, number> = {
     student: 0,
     junior: 1,
     mid: 2,
     senior: 3,
     lead: 4,
-    founder: 5,
   };
   const requiredExp = role.experienceRequired || null;
   const actualExp = profile.experienceLevel || null;

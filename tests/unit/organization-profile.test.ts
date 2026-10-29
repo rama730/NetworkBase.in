@@ -16,7 +16,7 @@ test("new public orgs reach Discover after 3 members and 7 days, or when verifie
 test("Show keeps cards by kind and update cards only for Everything and Updates", () => {
   assert.deepEqual(showKeeps("all"), { projectKind: null, cards: true, updates: true });
   assert.deepEqual(showKeeps("organizations"), { projectKind: "organization", cards: true, updates: false });
-  assert.deepEqual(showKeeps("projects"), { projectKind: "project", cards: true, updates: false });
+  assert.deepEqual(showKeeps("projects"), { projectKind: "workspace", cards: true, updates: false });
   assert.deepEqual(showKeeps("updates"), { projectKind: null, cards: false, updates: true });
 });
 

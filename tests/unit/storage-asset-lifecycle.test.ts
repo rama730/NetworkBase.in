@@ -60,8 +60,8 @@ describe("storage asset lifecycle", () => {
     assert.match(source, /limitInputPixels: 16_000_000/);
     assert.match(source, /width \* height \* pages > 16_000_000/);
     assert.match(source, /intent\.scope === "profile_image"/);
-    assert.match(source, /intent\.scope === "project_cover"/);
-    assert.match(source, /intent\.scope === "project_update_media"/);
+    assert.match(source, /intent\.scope === "workspace_cover"/);
+    assert.match(source, /intent\.scope === "workspace_update_media"/);
   });
 
   it("publishes profile images only through a sanitized public derivative", () => {

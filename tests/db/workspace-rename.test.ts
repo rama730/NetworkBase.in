@@ -107,3 +107,21 @@ test("the owner membership row is canonical: workspaces.owner_id follows it and 
     );
   });
 });
+
+test("0265: stored values say workspace; founder and old document visibility are gone", async () => {
+  await inRollback(async (tx) => {
+    const owner = await createUser(tx);
+    const id = randomUUID();
+    await tx`INSERT INTO public.workspaces (id, owner_id, title, slug) VALUES (${id}, ${owner}, 'Kind', ${`w-${id}`})`;
+    const [row] = await tx`SELECT kind FROM public.workspaces WHERE id = ${id}`;
+    assert.equal(row!.kind, "workspace");
+    await assert.rejects(tx.savepoint((sp) => sp`UPDATE public.workspaces SET kind = 'project' WHERE id = ${id}`), /workspaces_kind_check/);
+    await assert.rejects(tx.savepoint((sp) => sp`UPDATE public.profiles SET experience_level = 'founder' WHERE id = ${owner}`), /profiles_experience_level_check/);
+    const [doc] = await tx`SELECT column_default FROM information_schema.columns WHERE table_name = 'workspace_documents' AND column_name = 'settings'`;
+    assert.match(String(doc!.column_default), /"inherit_workspace"/);
+    const [reason] = await tx`SELECT pg_get_constraintdef(oid) AS def FROM pg_constraint WHERE conname = 'content_reports_reason_check'`;
+    assert.match(String(reason!.def), /hate_speech/);
+    const stale = await tx`SELECT proname FROM pg_proc WHERE prosrc LIKE '%inherit_project%'`;
+    assert.deepEqual([...stale], []);
+  });
+});

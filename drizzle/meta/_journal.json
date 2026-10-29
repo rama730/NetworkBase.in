@@ -1835,6 +1835,13 @@
       "when": 1792886426000,
       "tag": "0264_workspace_rename",
       "breakpoints": true
+    },
+    {
+      "idx": 262,
+      "version": "7",
+      "when": 1792972826000,
+      "tag": "0265_workspace_stored_values",
+      "breakpoints": true
     }
   ]
 }

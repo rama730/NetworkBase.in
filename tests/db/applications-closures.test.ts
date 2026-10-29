@@ -94,7 +94,7 @@ test("a pending invitation blocks applying; joining another way closes the pendi
     // The applicant joins through an invitation: their pending application is closed as accepted.
     const { addWorkspaceMemberInternal } = await loadAppModule(() => import("../../src/lib/workspaces/collaborator-lifecycle"));
     const { db } = await loadAppModule(() => import("../../src/lib/db"));
-    await db.transaction((tx: never) => addWorkspaceMemberInternal(tx, { projectId, userId: one, actorId: owner, source: "project_invite" }));
+    await db.transaction((tx: never) => addWorkspaceMemberInternal(tx, { projectId, userId: one, actorId: owner, source: "workspace_invite" }));
     assert.equal((await state(a1)).status, "accepted");
     assert.ok((await lines(a1)).some((line) => /joined the workspace/.test(line)));
   });

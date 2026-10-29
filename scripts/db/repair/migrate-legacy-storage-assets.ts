@@ -170,7 +170,7 @@ async function loadReferences(sql: postgres.Sql): Promise<LegacyReference[]> {
   for (const row of covers) references.push({
     kind: "project_cover", subjectId: row.subjectId, ownerUserId: row.ownerUserId,
     projectId: row.subjectId, bucket: row.bucket, storageKey: row.storageKey,
-    purpose: "project_cover:cover", expectedSize: null, expectedMimeType: null,
+    purpose: "workspace_cover:cover", expectedSize: null, expectedMimeType: null,
     expectedHash: null, maxBytes: 2 * 1024 * 1024, allowEmpty: false,
   });
 

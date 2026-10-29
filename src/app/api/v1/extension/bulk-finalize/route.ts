@@ -166,7 +166,7 @@ export async function POST(request: Request) {
         storageKey: intent.storageKey,
         userId: user.id,
         projectId,
-        expectedScope: "project_file",
+        expectedScope: "workspace_file",
         expectedKind: "file",
       }).catch(async (error: unknown) => {
         if (intent.status === "pending") await markIntentFailed(intent.id, error instanceof Error ? error.message : "Upload verification failed");

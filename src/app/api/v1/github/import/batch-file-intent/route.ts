@@ -137,7 +137,7 @@ export async function POST(request: NextRequest) {
       projectId: job.projectId,
       bucket,
       storageKey: item.storageKey,
-      scope: 'project_file' as const,
+      scope: 'workspace_file' as const,
       kind: 'file' as const,
       expectedMimeType: item.file.mimeType,
       expectedSize: item.file.size,

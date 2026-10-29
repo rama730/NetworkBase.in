@@ -168,7 +168,7 @@ async function main() {
             content_hash, metadata, expires_at, verified_at, backup_state, last_error_code
           ) VALUES (
             ${candidate.ownerUserId}, ${candidate.projectId}, 'project-files', ${candidate.nodeKey},
-            'project_file:file', ${values.state}, ${values.mimeType}, ${values.size},
+            'workspace_file:file', ${values.state}, ${values.mimeType}, ${values.size},
             ${verified.state === "verified" ? values.mimeType : null},
             ${verified.state === "verified" ? values.size : null},
             ${values.contentHash},

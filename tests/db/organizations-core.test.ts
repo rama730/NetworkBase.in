@@ -47,7 +47,7 @@ test("two levels only: orgs have no parent, parents are orgs, an org with childr
     await rejects(tx, (sp) => sp`UPDATE public.workspaces SET parent_id = ${orgId} WHERE id = ${secondOrg}`, /workspaces_org_has_no_parent/);
     await rejects(tx, (sp) => sp`UPDATE public.workspaces SET parent_id = ${plain} WHERE id = ${other}`, /project_parent_must_be_org/);
     await rejects(tx, (sp) => sp`UPDATE public.workspaces SET parent_id = ${kid} WHERE id = ${other}`, /project_parent_must_be_org/);
-    await rejects(tx, (sp) => sp`UPDATE public.workspaces SET kind = 'project' WHERE id = ${orgId}`, /org_has_child_projects/);
+    await rejects(tx, (sp) => sp`UPDATE public.workspaces SET kind = 'workspace' WHERE id = ${orgId}`, /org_has_child_projects/);
     await rejects(tx, (sp) => sp`UPDATE public.workspaces SET kind = 'team' WHERE id = ${plain}`, /workspaces_kind_check/);
   });
 });

@@ -38,7 +38,7 @@ const INVALID_UPLOAD_DELETE_MARGIN_MS = 5 * 60 * 1000;
 const MAX_INTENTS_PER_BATCH = 50;
 const INTENT_CONCURRENCY = 8;
 
-export type UploadIntentScope = "project_file" | "project_update_media" | "profile_image" | "project_cover" | "chat_attachment" | "recovery_draft" | "import_manifest" | "sync_snapshot" | "contribution_image";
+export type UploadIntentScope = "workspace_file" | "workspace_update_media" | "profile_image" | "workspace_cover" | "chat_attachment" | "recovery_draft" | "import_manifest" | "sync_snapshot" | "contribution_image";
 export type UploadIntentKind = "file" | "avatar" | "banner" | "cover" | "draft" | "manifest" | "snapshot";
 
 type CreateUploadIntentParams = {
@@ -804,8 +804,8 @@ export async function finalizeUploadIntent(params: {
         expectedMimeType: intent.expectedMimeType,
         decodeImage: (intent.scope === "chat_attachment" && intent.expectedMimeType.startsWith("image/"))
           || intent.scope === "profile_image"
-          || intent.scope === "project_cover"
-          || intent.scope === "project_update_media"
+          || intent.scope === "workspace_cover"
+          || intent.scope === "workspace_update_media"
           || intent.scope === "contribution_image",
       }));
     }

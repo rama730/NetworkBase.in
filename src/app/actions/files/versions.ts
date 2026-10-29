@@ -250,7 +250,7 @@ export async function applyUploadedFileRevision(input: {
     bucket: "project-files",
     userId: user.id,
     projectId: input.projectId,
-    expectedScope: "project_file",
+    expectedScope: "workspace_file",
     expectedKind: "file",
   });
 

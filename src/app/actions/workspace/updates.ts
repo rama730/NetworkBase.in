@@ -1372,7 +1372,7 @@ export async function createWorkspaceUpdateMediaUploadUrlAction(projectId: strin
             projectId,
             bucket: WORKSPACE_UPDATE_MEDIA_BUCKET,
             storageKey,
-            scope: "project_update_media",
+            scope: "workspace_update_media",
             kind: "file",
             expectedMimeType: mimeType,
             expectedSize: sizeBytes,
@@ -1427,7 +1427,7 @@ export async function finalizeWorkspaceUpdateMediaUploadAction(projectId: string
             bucket: WORKSPACE_UPDATE_MEDIA_BUCKET,
             userId: viewer.userId,
             projectId,
-            expectedScope: "project_update_media",
+            expectedScope: "workspace_update_media",
             expectedKind: "file",
         });
         const media: WorkspaceUpdateMediaItem = {

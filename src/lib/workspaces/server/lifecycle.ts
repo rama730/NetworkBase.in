@@ -1649,7 +1649,7 @@ export async function createWorkspaceCoverImageUploadUrlAction(input: {
       projectId: input.projectId,
       bucket: WORKSPACE_COVER_UPLOAD_BUCKET,
       storageKey: storagePath,
-      scope: "project_cover",
+      scope: "workspace_cover",
       kind: "cover",
       expectedMimeType: normalizedMimeType,
       expectedSize,
@@ -1728,7 +1728,7 @@ export async function finalizeWorkspaceCoverImageUploadAction(input: {
       bucket: WORKSPACE_COVER_UPLOAD_BUCKET,
       userId: user.id,
       projectId: input.projectId,
-      expectedScope: "project_cover",
+      expectedScope: "workspace_cover",
       expectedKind: "cover",
     });
     if (!intent.assetId) throw new Error("Verified workspace image is missing lifecycle identity");

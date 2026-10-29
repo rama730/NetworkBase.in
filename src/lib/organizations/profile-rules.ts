@@ -14,7 +14,7 @@ export type DiscoverShow = "all" | "projects" | "organizations" | "updates";
 /** What the Show filter keeps (report §24.3): cards by kind, and whether update cards appear. */
 export function showKeeps(show: DiscoverShow) {
   return {
-    projectKind: show === "projects" ? "project" : show === "organizations" ? "organization" : null,
+    projectKind: show === "projects" ? "workspace" : show === "organizations" ? "organization" : null,
     cards: show !== "updates",
     updates: show === "all" || show === "updates",
   };

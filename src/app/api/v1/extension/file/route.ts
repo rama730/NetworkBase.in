@@ -306,7 +306,7 @@ export async function PUT(request: Request) {
       projectId,
       bucket: "project-files",
       storageKey: s3Key,
-      scope: "project_file",
+      scope: "workspace_file",
       kind: "file",
       expectedMimeType: mimeType,
       expectedSize: size,
@@ -377,7 +377,7 @@ export async function PUT(request: Request) {
       storageKey: intent.storageKey,
       userId: user.id,
       projectId,
-      expectedScope: "project_file",
+      expectedScope: "workspace_file",
       expectedKind: "file",
     });
     if (!verifiedIntent.assetId) {

@@ -100,7 +100,7 @@ export function WorkspaceDocRail({
     activeSlug,
     canEdit = false,
     rail: passedRail,
-    visibility = "inherit_project",
+    visibility = "inherit_workspace",
 }: {
     projectId: string;
     activeSlug: string;

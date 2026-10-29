@@ -107,7 +107,7 @@ export async function POST(request: NextRequest) {
             storageKey: intent.storageKey,
             userId: user.id,
             projectId: job.projectId,
-            expectedScope: 'project_file',
+            expectedScope: 'workspace_file',
             expectedKind: 'file',
         }, intent);
         if (!finalizedIntent.assetId || finalizedIntent.finalizedSize === null || !finalizedIntent.finalizedMimeType) {

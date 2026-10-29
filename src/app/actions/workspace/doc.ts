@@ -61,7 +61,7 @@ const docSlugSchema = z.string().optional().default("readme").transform((value) 
 const readmeSettingsSchema = z.object({
     docSlug: docSlugSchema,
     editPolicy: z.enum(["leaders", "members"]).optional(),
-    publicVisibility: z.literal("inherit_project").optional(),
+    publicVisibility: z.literal("inherit_workspace").optional(),
     externalImages: z.boolean().optional(),
     projectBlocks: z.boolean().optional(),
 });

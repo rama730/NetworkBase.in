@@ -107,7 +107,7 @@ export const profileUpdateSchema = z.object({
     openToCustomRoles: z.array(z.string()).optional(),
     preferredCategories: z.array(z.string()).optional(),
     messagePrivacy: z.enum(['everyone', 'connections']).optional(),
-    experienceLevel: z.enum(['student', 'junior', 'mid', 'senior', 'lead', 'founder']).nullable().optional(),
+    experienceLevel: z.enum(['student', 'junior', 'mid', 'senior', 'lead']).nullable().optional(),
     hoursPerWeek: z.enum(['lt_5', 'h_5_10', 'h_10_20', 'h_20_40', 'h_40_plus']).nullable().optional(),
     genderIdentity: z.enum(['male', 'female', 'non_binary', 'prefer_not_to_say', 'other']).nullable().optional(),
     pronouns: z.string().trim().max(60).nullable().optional(),

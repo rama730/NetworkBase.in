@@ -6,7 +6,7 @@ export type OnboardingVisibility = typeof ONBOARDING_VISIBILITY_VALUES[number]
 export const ONBOARDING_MESSAGE_PRIVACY_VALUES = ['everyone', 'connections'] as const
 export type OnboardingMessagePrivacy = typeof ONBOARDING_MESSAGE_PRIVACY_VALUES[number]
 
-export const ONBOARDING_EXPERIENCE_LEVEL_VALUES = ['student', 'junior', 'mid', 'senior', 'lead', 'founder'] as const
+export const ONBOARDING_EXPERIENCE_LEVEL_VALUES = ['student', 'junior', 'mid', 'senior', 'lead'] as const
 export type OnboardingExperienceLevel = typeof ONBOARDING_EXPERIENCE_LEVEL_VALUES[number]
 
 export const ONBOARDING_HOURS_PER_WEEK_VALUES = ['lt_5', 'h_5_10', 'h_10_20', 'h_20_40', 'h_40_plus'] as const

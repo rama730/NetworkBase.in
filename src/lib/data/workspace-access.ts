@@ -22,7 +22,7 @@ export type WorkspaceAccess = {
     project: {
         id: string;
         ownerId: string;
-        kind: "project" | "organization";
+        kind: "workspace" | "organization";
         parentId: string | null;
         visibility: Visibility;
         status: Status;
