@@ -48,7 +48,7 @@ export function TaskCompletionSettings({ projectId }: { projectId: string }) {
   return (
     <SettingsCard
       title="Task completion"
-      description="Choose whether completed work needs a project lead’s approval."
+      description="Choose whether completed work needs approval from an owner or admin."
     >
       {policy.isPending ? (
         <p role="status" className="nb-compact text-muted-foreground">
@@ -80,7 +80,7 @@ export function TaskCompletionSettings({ projectId }: { projectId: string }) {
                 className="nb-compact text-muted-foreground"
               >
                 Off: marking a task as done completes it immediately. On: it
-                enters In review until a project owner or co-leader approves it.
+                enters In review until an owner or admin approves it.
               </p>
             </div>
             <SettingsSwitch

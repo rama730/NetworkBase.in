@@ -739,7 +739,7 @@ export default function TasksTab({
   return (
     <div className="flex min-h-0 flex-col space-y-4">
       <p className="nb-meta flex flex-wrap items-center gap-2 text-muted-foreground">
-        {completionPolicy.isPending ? "Loading completion workflow…" : completionPolicy.isError ? "Completion workflow unavailable; the server will apply the current project setting." : completionPolicy.data?.reviewRequired ? "Marking work as done submits it for review. A project lead approves completion." : "Marking work as done completes it immediately."}
+        {completionPolicy.isPending ? "Loading completion workflow…" : completionPolicy.isError ? "Completion workflow unavailable; the server will apply the current project setting." : completionPolicy.data?.reviewRequired ? "Marking work as completed sends it to a reviewer. An owner or admin approves it." : "Marking work as done completes it immediately."}
         {completionPolicy.data?.canManage ? <a className="underline" href={`/projects/${projectSlug || projectId}?tab=settings&section=tasks-workflow`}>Completion settings</a> : null}
       </p>
       <div className="w-full shrink-0">
