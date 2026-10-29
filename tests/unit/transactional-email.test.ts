@@ -195,7 +195,7 @@ test("redesigned task email renders open layout, Ponytail avatar, subtasks and f
   assert.match(emailA.html, /Oct 14, 2026/);
 
   // Verify Subtasks & Scope
-  assert.match(emailA.html, /Subtasks &amp; Scope/);
+  assert.match(emailA.html, /Subtasks and Scope/);
   assert.match(emailA.html, /1 of 2 completed/);
   assert.match(emailA.html, /Calibration check for Level 1 sensors/);
   assert.match(emailA.html, /Core stress test sequence under load/);
@@ -205,7 +205,7 @@ test("redesigned task email renders open layout, Ponytail avatar, subtasks and f
   assert.match(emailA.html, /420 KB/);
 
   // Verify referenced files section
-  assert.match(emailA.html, /Referenced Files &amp; Assets/);
+  assert.match(emailA.html, /Referenced Files and Assets/);
   assert.match(emailA.html, /floor_topology\.dwg/);
   assert.match(emailA.html, /4\.8 MB/);
 
@@ -303,7 +303,7 @@ test("redesigned welcome email renders Ponytail avatar, profile identity, skills
   assert.match(welcomeWithAvatar.html, /color-scheme/);
 
   // Skills rendered as clean pills
-  assert.match(welcomeWithAvatar.html, /Focus &amp; Skills/);
+  assert.match(welcomeWithAvatar.html, /Focus and Skills/);
   assert.match(welcomeWithAvatar.html, /TypeScript/);
   assert.match(welcomeWithAvatar.html, /Distributed Systems/);
 
@@ -323,7 +323,7 @@ test("redesigned welcome email renders Ponytail avatar, profile identity, skills
   assert.match(welcomeWithAvatar.text, /Welcome to NetworkBase, Sarah Connor!/);
   assert.match(welcomeWithAvatar.text, /@sconnor/);
   assert.match(welcomeWithAvatar.text, /Autonomous Systems Lead/);
-  assert.match(welcomeWithAvatar.text, /Focus & Skills: TypeScript, Next.js, Distributed Systems/);
+  assert.match(welcomeWithAvatar.text, /Focus and Skills: TypeScript, Next.js, Distributed Systems/);
   assert.match(welcomeWithAvatar.text, /https:\/\/networkbase\.in\/discover/);
   assert.match(welcomeWithAvatar.text, /https:\/\/networkbase\.in\/sconnor/);
 

@@ -2389,9 +2389,9 @@ export function RepositorySync({
             )}
             {push
               ? value.newBranch
-                ? "Create branch & publish"
+                ? "Create branch and publish"
                 : value.newRepository
-                  ? "Create repository & publish"
+                  ? "Create repository and publish"
                   : value.mode === "pr"
                     ? "Open pull request"
                     : "Push reviewed files"
@@ -2801,7 +2801,7 @@ export function RepositorySync({
               setView("attribution");
             }}
           >
-            Commit attribution & team access
+            Commit attribution and team access
           </button>
         </div>
         <div className={styles.rule}>

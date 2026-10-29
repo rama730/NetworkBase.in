@@ -133,12 +133,12 @@ export function canRetryRun(run: SyncRunView, now = Date.now()) {
 export function runProgress(run: SyncRunView) {
   const labels =
     run.direction === "push"
-      ? ["Queued", "Validate & prepare", "Publish to GitHub", "Verify & record"]
+      ? ["Queued", "Validate and prepare", "Publish to GitHub", "Verify and record"]
       : [
           "Queued",
           "Validate selection",
           "Apply to project files",
-          "Verify & record",
+          "Verify and record",
         ];
   const stage = run.stage.toLowerCase();
   const index =

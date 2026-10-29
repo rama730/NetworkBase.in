@@ -365,7 +365,7 @@ export default function CreateTaskModal({
 
               {/* Section 2: Planning & Assignment */}
               <div className="space-y-3.5">
-                <SectionDivider title="Planning & Assignment" />
+                <SectionDivider title="Planning and Assignment" />
 
                 <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
                   <Field
@@ -486,7 +486,7 @@ export default function CreateTaskModal({
 
               {/* Section 3: Schedule & Estimate */}
               <div className="space-y-3.5">
-                <SectionDivider title="Schedule & Estimate" />
+                <SectionDivider title="Schedule and Estimate" />
 
                 <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
                   <Field
@@ -600,7 +600,7 @@ export default function CreateTaskModal({
 
               {/* Section 4: Subtasks & References */}
               <div className="space-y-3.5">
-                <SectionDivider title="Subtasks & References">
+                <SectionDivider title="Subtasks and References">
                   <div className="flex items-center gap-2">
                     {subtasks.length > 0 && (
                       <span className="inline-flex h-4 min-w-4 items-center justify-center rounded-[3px] border border-border bg-muted/40 px-1 font-mono text-[10px] max-md:text-[11px] font-semibold text-muted-foreground">

@@ -24,8 +24,8 @@ test("project access tab renders one open access section with immediate toggle c
   assert.doesNotMatch(accessBlock, /title="Viewer access matrix"/, "Viewer access matrix card must be removed from Access tab");
   assert.doesNotMatch(accessBlock, /title="Access impact"/, "Access impact card must be removed from Access tab");
 
-  // Exactly 1 Canonical SettingsCard: "Project access & visibility"
-  assert.match(accessBlock, /<SettingsCard[\s\S]*?title="Project access & visibility"/, "Canonical Project access & visibility card must exist");
+  // Exactly 1 Canonical SettingsCard: "Project access and visibility"
+  assert.match(accessBlock, /<SettingsCard[\s\S]*?title="Project access and visibility"/, "Canonical Project access and visibility card must exist");
   const cardMatches = accessBlock.match(/<SettingsCard/g) || [];
   assert.equal(cardMatches.length, 1, "Access tab must render exactly 1 canonical SettingsCard to eliminate extra cards");
 

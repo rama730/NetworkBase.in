@@ -17,7 +17,7 @@ export function notifyChoices(channel: NotifyChannel): { value: ChatNotify; labe
   if (channel.kind === "dm") return [{ value: "all", label: "All messages" }, { value: "mute", label: "Mute" }];
   return notifiesEveryMessage(channel)
     ? [{ value: "all", label: "All messages" }, { value: "mentions", label: "Mentions only" }, { value: "mute", label: "Mute" }]
-    : [{ value: "mentions", label: "Mentions & threads" }, { value: "mute", label: "Mute" }];
+    : [{ value: "mentions", label: "Mentions and threads" }, { value: "mute", label: "Mute" }];
 }
 
 /** The selected choice: in channels "all" behaves (and shows) as mentions & threads; a DM is all or muted. */

@@ -228,7 +228,7 @@ export function OrgAccessSection({ orgId, organization, maxMembers }: SectionPro
     const regen = useSave()
     return (
         <Section id="org-access">
-            <SettingsCard title="Access & joining" headingLevel={2} description="Who can join and how. Public or private is set in Access & Visibility." footer={<LastChanged organization={organization} section="access" />}>
+            <SettingsCard title="Access and joining" headingLevel={2} description="Who can join and how. Public or private is set in Access and Visibility." footer={<LastChanged organization={organization} section="access" />}>
                 <div className="space-y-6">
                     <div>
                         <p className={labelClass}>Join code</p>
@@ -295,7 +295,7 @@ export function OrgPeopleSection({ orgId, organization, role }: SectionProps) {
     const isOwner = role === 'owner'
     return (
         <Section id="org-people">
-            <SettingsCard title="People & roles" headingLevel={2} description="Role names and what each role can do. Only the owner manages admins." footer={<LastChanged organization={organization} section="people" />}>
+            <SettingsCard title="People and roles" headingLevel={2} description="Role names and what each role can do. Only the owner manages admins." footer={<LastChanged organization={organization} section="people" />}>
                 <div className="space-y-6">
                     <div>
                         <p className={labelClass}>Role names</p>

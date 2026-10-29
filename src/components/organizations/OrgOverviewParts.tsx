@@ -22,7 +22,7 @@ const ago = (iso: string) => formatDistanceToNow(new Date(iso), { addSuffix: tru
 const day = (iso: string) => new Date(iso).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })
 const row = 'flex min-w-0 items-center justify-between gap-3 py-1.5 text-sm'
 const STATE: Record<string, string> = { not_started: 'not started', in_progress: 'in progress', submitted: 'Submitted', returned: 'Returned', done: 'Done', missing: 'Missing', excused: 'Excused' }
-const FILTERS = [['all', 'All'], ['assignments', 'Assignments'], ['people', 'People'], ['files', 'Files & docs'], ['projects', 'Projects']] as const
+const FILTERS = [['all', 'All'], ['assignments', 'Assignments'], ['people', 'People'], ['files', 'Files and docs'], ['projects', 'Projects']] as const
 
 /** The org Dashboard for people in the org (report §27). */
 export function OrgDashboard({ orgId, orgSlug }: { orgId: string; orgSlug: string | null }) {

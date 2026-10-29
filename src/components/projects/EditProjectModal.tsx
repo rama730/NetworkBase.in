@@ -62,9 +62,9 @@ interface EditProjectModalProps {
 const TABS = [
     { id: "essentials", label: "Essentials", icon: Layout },
     { id: "details", label: "Details", icon: FileText },
-    { id: "stack", label: "Stack & Links", icon: Layers },
+    { id: "stack", label: "Stack and Links", icon: Layers },
     { id: "journey", label: "Journey", icon: CheckCircle },
-    { id: "roles", label: "Team & Roles", icon: Users },
+    { id: "roles", label: "Team and Roles", icon: Users },
 ] as const;
 
 // --- Components ---
@@ -73,7 +73,7 @@ function StatusSelector({ value, onChange }: { value: string; onChange: (val: st
     const options = [
         { id: "draft", label: "Forming", desc: "Just getting started", color: "bg-blue-50 border-blue-200 text-blue-700" },
         { id: "active", label: "Building", desc: "Actively building", color: "bg-emerald-50 border-emerald-200 text-emerald-700" },
-        { id: "completed", label: "Shipped", desc: "Finished & Live", color: "bg-purple-50 border-purple-200 text-purple-700" },
+        { id: "completed", label: "Shipped", desc: "Finished and Live", color: "bg-purple-50 border-purple-200 text-purple-700" },
     ];
 
     return (

@@ -192,7 +192,7 @@ export function OrgDocAdminTools({ data, doc, visibility }: { data: OrgDocsData;
                 <Input value={summary} onChange={(e) => setSummary(e.target.value)} maxLength={200} placeholder="What changed? (optional)" aria-label="Change summary" className="h-8 text-[12px]" />
                 <label className={box}><input type="checkbox" checked={reread} onChange={(e) => setReread(e.target.checked)} /> Ask members to re-read</label>
                 <div className="flex flex-wrap gap-1.5">
-                    <Button type="button" size="sm" disabled={pending} onClick={() => run(() => publishOrgDocAction(data.orgId, doc.id, { summary, reread, notify: true }), 'Members notified')}>Publish &amp; notify</Button>
+                    <Button type="button" size="sm" disabled={pending} onClick={() => run(() => publishOrgDocAction(data.orgId, doc.id, { summary, reread, notify: true }), 'Members notified')}>Publish and notify</Button>
                     {reread ? <Button type="button" size="sm" variant="outline" disabled={pending} onClick={() => run(() => publishOrgDocAction(data.orgId, doc.id, { summary, reread: true, notify: false }), 'Marked New for everyone')}>Re-read only</Button> : null}
                 </div>
             </div>

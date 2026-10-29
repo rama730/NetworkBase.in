@@ -10,7 +10,7 @@ export const PROJECT_TYPE_OPTIONS = [
     { id: "game", label: "Game Dev", description: "Video game project" },
     { id: "web_app", label: "Web App", description: "Web application" },
     { id: "ecommerce", label: "E-Commerce", description: "Online store" },
-    { id: "tool", label: "Developer Tool", description: "Dev tools & utilities" },
+    { id: "tool", label: "Developer Tool", description: "Dev tools and utilities" },
     { id: "content", label: "Content/Blog", description: "Content platform" },
     { id: "podcast", label: "Podcast/Audio", description: "Audio content" },
     { id: "video", label: "Video/Media", description: "Video content" },

@@ -5,7 +5,7 @@ export type DocGroup = { id: string; name: string };
 
 export const DEFAULT_DOC_GROUPS: DocGroup[] = [
   { id: "start", name: "Getting started" },
-  { id: "guides", name: "Guides & policies" },
+  { id: "guides", name: "Guides and policies" },
   { id: "notes", name: "Unit notes" },
   { id: "templates", name: "Templates" },
 ];

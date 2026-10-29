@@ -730,7 +730,7 @@ export function PresentationViewerDriver({
               variant={showNotes ? "secondary" : "ghost"}
               onClick={() => setShowNotes((prev) => !prev)}
               className="h-7 px-2 text-xs"
-              title="Toggle Slide Notes & Text Transcript (N)"
+              title="Toggle Slide Notes and Text Transcript (N)"
             >
               <FileText className="mr-1 h-3.5 w-3.5" />
               <span className="hidden sm:inline">Notes</span>
@@ -1042,7 +1042,7 @@ export function PresentationViewerDriver({
             <div className="flex items-center justify-between border-b border-border/60 pb-2">
               <span className="text-xs font-semibold text-foreground flex items-center gap-1.5">
                 <FileText className="h-3.5 w-3.5 text-primary" />
-                Slide {currentSlideIndex + 1} Notes & Transcript
+                Slide {currentSlideIndex + 1} Notes and Transcript
               </span>
               <Button
                 size="sm"

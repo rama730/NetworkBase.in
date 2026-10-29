@@ -83,7 +83,7 @@ test('the role card opens Role preferences; draft switch and categories save tog
   await expect(dialog.getByRole('tab', { name: 'Role preferences' })).toHaveAttribute('data-state', 'active');
   await dialog.getByRole('switch', { name: 'Open to collaborate', exact: true }).click();
   await dialog.getByRole('button', { name: 'Design', exact: true }).click();
-  await dialog.getByRole('tab', { name: 'Skills & expertise' }).click();
+  await dialog.getByRole('tab', { name: 'Skills and expertise' }).click();
   await dialog.getByRole('tab', { name: 'Role preferences' }).click();
   await expect(dialog.getByRole('switch', { name: 'Open to collaborate', exact: true })).toBeChecked();
   expect(await page.evaluate(() => (window as any).profileFixture.calls.length)).toBe(0);
@@ -416,7 +416,7 @@ test('edit profile uses a full page, preserves section links on refresh and keep
   const editor=page.getByRole('region',{name:'Edit profile',exact:true});await expect(editor).toBeVisible();await expect(page.getByRole('dialog')).toHaveCount(0);await expect(page).toHaveURL(/\/my-profile\/edit\?section=general/);
   const bounds=await editor.boundingBox();expect(bounds!.y).toBe(56);expect(bounds!.y+bounds!.height).toBe(1000);
   await editor.getByRole('tab',{name:'Role preferences'}).click();await expect(page).toHaveURL(/section=opportunity/);await page.reload();await expect(editor.getByRole('tab',{name:'Role preferences'})).toHaveAttribute('data-state','active');
-  await editor.getByRole('button',{name:'Design',exact:true}).click();await editor.getByRole('tab',{name:'Skills & expertise'}).click();await editor.getByRole('tab',{name:'Role preferences'}).click();await expect(editor.getByRole('button',{name:'Design',exact:true})).toHaveAttribute('aria-pressed','true');expect(await page.evaluate(()=>(window as any).profileFixture.calls.length)).toBe(0);
+  await editor.getByRole('button',{name:'Design',exact:true}).click();await editor.getByRole('tab',{name:'Skills and expertise'}).click();await editor.getByRole('tab',{name:'Role preferences'}).click();await expect(editor.getByRole('button',{name:'Design',exact:true})).toHaveAttribute('aria-pressed','true');expect(await page.evaluate(()=>(window as any).profileFixture.calls.length)).toBe(0);
 });
 
 test('dirty drafts warn on browser Back, keep editing on cancel, and leave on confirmation',async({page})=>{
@@ -501,7 +501,7 @@ test('editor sections form a left navigation rail beside the form and use vertic
 test('editor keeps save controls visible on mobile and does not create horizontal scrolling',async({page})=>{
   await page.setViewportSize({width:320,height:740});await page.getByRole('button',{name:'Edit role preferences',exact:true}).click();const editor=page.getByRole('region',{name:'Edit profile',exact:true});
   await expect(editor.getByRole('button',{name:'Save changes',exact:true})).toBeInViewport();expect(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth)).toBe(false);
-  const nav=editor.getByRole('tablist');expect(await nav.evaluate(e=>e.scrollWidth>e.clientWidth)).toBe(false);await editor.getByRole('tab',{name:'Skills & expertise'}).focus();await page.keyboard.press('ArrowRight');await expect(editor.getByRole('tab',{name:'Social presence'})).toBeFocused();
+  const nav=editor.getByRole('tablist');expect(await nav.evaluate(e=>e.scrollWidth>e.clientWidth)).toBe(false);await editor.getByRole('tab',{name:'Skills and expertise'}).focus();await page.keyboard.press('ArrowRight');await expect(editor.getByRole('tab',{name:'Social presence'})).toBeFocused();
   await editor.getByRole('tab',{name:'Role preferences'}).click();
   await editor.getByRole('button',{name:'Design',exact:true}).click();
   const assertReachable=async()=>{
@@ -564,7 +564,7 @@ test('editor typography, control density and selection colors follow the design 
     expect(await selected.evaluate(el=>getComputedStyle(el).borderRadius)).toBe('3px');
     expect(await selected.evaluate(el=>getComputedStyle(el).backgroundColor)).toBe(await editor.evaluate(el=>getComputedStyle(el).color));
   }
-  await editor.getByRole('tab',{name:'Skills & expertise'}).click();
+  await editor.getByRole('tab',{name:'Skills and expertise'}).click();
   await editor.getByRole('button',{name:'All',exact:true}).click();
   await editor.getByRole('option',{name:/React/}).click();
   await expect(editor.getByRole('button',{name:'Remove React',exact:true})).toBeVisible();
@@ -577,7 +577,7 @@ test.describe('profile editor touch reflow',()=>{
   await page.evaluate(()=>{const f=(window as any).profileFixture;f.saved={...f.saved,username:'builder_with_a_long_username',skills:['React'],socialLinks:[{id:'github',platform:'github',url:'https://github.com/builder',order:0},{id:'linkedin',platform:'linkedin',url:'https://www.linkedin.com/in/builder',order:1}]};f.refresh();});
   await page.getByRole('button',{name:'Edit profile',exact:true}).click();
   const editor=page.getByRole('region',{name:'Edit profile',exact:true});
-  const sections=['General properties','Project contributions','Skills & expertise','Social presence','Role preferences'];
+  const sections=['General properties','Project contributions','Skills and expertise','Social presence','Role preferences'];
   for(const width of [320,768,1024]) {
     await page.setViewportSize({width,height:900});
     for(const section of sections) {

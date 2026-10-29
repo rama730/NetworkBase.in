@@ -242,7 +242,7 @@ export function ProjectRolesEditor({
             <div className="space-y-3.5">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-border">
                     <div className="space-y-0.5">
-                        <h3 className="nb-card-title text-base font-semibold text-foreground">Project Roles & Team Assignments</h3>
+                        <h3 className="nb-card-title text-base font-semibold text-foreground">Project Roles and Team Assignments</h3>
                         <p className="nb-compact text-xs text-muted-foreground">
                             All roles in a single row · {occupiedEntries.length} occupied {occupiedEntries.length === 1 ? "seat" : "seats"} · {openEntries.length} open {openEntries.length === 1 ? "position" : "positions"}
                         </p>
@@ -549,7 +549,7 @@ export function ProjectRolesEditor({
 
                             <div className="space-y-1.5">
                                 <label className="nb-ui-label text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                                    Role Description & Responsibilities
+                                    Role Description and Responsibilities
                                 </label>
                                 <textarea
                                     {...register(`roles.${activeIndex}.description`)}
@@ -662,7 +662,7 @@ export function ProjectRolesEditor({
 
                             <div className="space-y-1.5">
                                 <label className="nb-ui-label text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                                    Role Description & Responsibilities
+                                    Role Description and Responsibilities
                                 </label>
                                 <textarea
                                     {...register(`roles.${activeIndex}.description`)}

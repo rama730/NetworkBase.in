@@ -99,7 +99,7 @@ const EDIT_SECTIONS: Array<{
 }> = [
     { id: "general", label: "General properties", icon: SlidersHorizontal },
     { id: "experience", label: "Project contributions", icon: Briefcase },
-    { id: "skills", label: "Skills & expertise", icon: Wrench },
+    { id: "skills", label: "Skills and expertise", icon: Wrench },
     { id: "social", label: "Social presence", icon: Globe },
     { id: "opportunity", label: "Role preferences", icon: UserCheck },
 ];
@@ -446,7 +446,7 @@ export function EditProfileTabs({
                         {/* About & details */}
                         <div className="space-y-4">
                             <div>
-                                <h3 className="nb-card-title text-foreground">About & details</h3>
+                                <h3 className="nb-card-title text-foreground">About and details</h3>
                                 <p className="nb-compact mt-0.5 text-muted-foreground">
                                     Extended background information, location, and your personal website.
                                 </p>
@@ -554,7 +554,7 @@ export function EditProfileTabs({
                     </TabsContent>
 
                     <TabsContent value="skills" className="space-y-6 mt-0">
-                        <h2 className="nb-section-title text-foreground">Skills & expertise</h2>
+                        <h2 className="nb-section-title text-foreground">Skills and expertise</h2>
                         <SkillsEditor
                             skills={profile.skills ?? []}
                             onChange={(skills) => updateForm("skills", skills)}

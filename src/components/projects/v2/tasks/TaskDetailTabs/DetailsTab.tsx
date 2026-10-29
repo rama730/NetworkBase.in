@@ -329,7 +329,7 @@ export default function DetailsTab({
                     className="nb-touch-target inline-flex h-[34px] items-center gap-1.5 px-3 rounded-[5px] bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
                   >
                     <Check className="size-3.5" />
-                    {isApproving ? "Saving…" : "Approve & complete"}
+                    {isApproving ? "Saving…" : "Approve and complete"}
                   </button>
                   <button
                     type="button"

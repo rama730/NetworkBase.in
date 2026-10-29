@@ -30,7 +30,7 @@ export function SkillPicker({
     onChange,
     maxSkills = 25,
     allowCustom = true,
-    label = 'Skills & expertise',
+    label = 'Skills and expertise',
     description = 'Search the market catalog or add a custom skill.',
     compact = false,
     dense = false,

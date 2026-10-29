@@ -710,7 +710,7 @@ export function ChatSections({ variant, onSelect, onNewMessage, onInbox }: Props
           </Link>
           {/* Waiting drafts aren't unread: a plain number, not a badge. */}
           <Link href="/messages/drafts" className="nb-chat-row" aria-current={here("/messages/drafts")}>
-            <Pencil size={16} aria-hidden="true" /><span className="flex-1">Drafts &amp; scheduled</span>
+            <Pencil size={16} aria-hidden="true" /><span className="flex-1">Drafts and scheduled</span>
             {draftCount ? <span className="nb-meta">{draftCount > 99 ? "99+" : draftCount}<span className="sr-only"> waiting</span></span> : null}
           </Link>
         </div>

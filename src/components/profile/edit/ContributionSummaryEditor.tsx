@@ -458,8 +458,8 @@ export function ContributionSummaryEditor({
         <span className="text-muted-foreground py-1">Writing starters</span>
         {[
           "What I worked on",
-          "Decisions & challenges",
-          "Outcomes & lessons",
+          "Decisions and challenges",
+          "Outcomes and lessons",
         ].map((text) => (
           <button
             key={text}

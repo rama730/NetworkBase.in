@@ -311,7 +311,7 @@ export function validateAndSanitizeLifecycleStages(rawStages: string[]): string[
             throw new Error(`Stage name "${trimmed}" must be between 2 and 35 characters`);
         }
         if (!stageNameRegex.test(trimmed)) {
-            throw new Error(`Stage name "${trimmed}" contains invalid characters (only alphanumeric, spaces, and & are allowed)`);
+            throw new Error(`Stage name "${trimmed}" contains invalid characters (only letters, numbers, spaces and “&” are allowed)`);
         }
 
         const lower = trimmed.toLowerCase();

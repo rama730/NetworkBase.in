@@ -131,7 +131,7 @@ for (const surface of ['profile', 'project']) {
     await open(page, `surface=sticky-${surface}`);
     const root = page.getByTestId('detail-page-scroll');
     const rail = page.getByRole('complementary', { name: label });
-    const main = surface === 'profile' ? page.getByTestId('detail-main') : page.getByRole('heading', { name: 'Vision & Description' });
+    const main = surface === 'profile' ? page.getByTestId('detail-main') : page.getByRole('heading', { name: 'Vision and Description' });
     const initial = (await rail.boundingBox())!;
     await root.evaluate(el => el.scrollTo({ top: 100 }));
     await expect.poll(async () => (await rail.boundingBox())!.y).toBeCloseTo(initial.y - 100, 0);
@@ -421,7 +421,7 @@ test('project rail preserves Journey controls, activity links and role managemen
   await rail.getByRole('button', { name: 'Manage roles' }).click();
   expect(await page.evaluate(() => (window as any).railsFixture.events)).toEqual(['advance', 'previous', 'manage-roles']);
   await expect(rail.getByRole('link', { name: 'Ada joined the project' })).toHaveAttribute('href', '/projects/example?tab=team');
-  await expect(page.getByRole('heading', { name: 'Vision & Description' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Vision and Description' })).toBeVisible();
 });
 
 test('project empty, visitor and pending states keep permission boundaries', async ({ page }) => {

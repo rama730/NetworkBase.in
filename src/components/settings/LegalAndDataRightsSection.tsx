@@ -30,13 +30,13 @@ const governingDocuments = [
   { href: "/privacy", title: "Privacy Policy" },
   { href: "/eula", title: "End User License Agreement" },
   { href: "/acceptable-use", title: "Acceptable Use Policy" },
-  { href: "/cookies", title: "Cookies & Local Storage" },
+  { href: "/cookies", title: "Cookies and Local Storage" },
   { href: "/subprocessors", title: "Service Providers" },
   { href: "/dpa", title: "Data Processing Agreement" },
-  { href: "/copyright", title: "Copyright & Takedowns" },
+  { href: "/copyright", title: "Copyright and Takedowns" },
   { href: "/open-source", title: "Open-source notices" },
   { href: "/security-reporting", title: "Security Reporting" },
-  { href: "/grievances", title: "Grievances & Redressal" },
+  { href: "/grievances", title: "Grievances and Redressal" },
   { href: "/support", title: "Support" },
 ] as const;
 
@@ -114,7 +114,7 @@ export function LegalAndDataRightsSection() {
       {/* 1. Agreement Status */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h4 className="nb-ui-label text-foreground">Terms of Service &amp; EULA</h4>
+          <h4 className="nb-ui-label text-foreground">Terms of Service and EULA</h4>
           <p className="nb-compact mt-0.5 text-muted-foreground">
             {fetchError
               ? "Unable to verify current agreement status. Please retry."
@@ -142,7 +142,7 @@ export function LegalAndDataRightsSection() {
           ) : state?.current ? (
             <span role="status" className="inline-flex items-center gap-1.5 rounded-full border border-[var(--status-success)]/30 bg-[var(--status-success-soft)] px-2.5 py-1 nb-meta font-medium text-[var(--status-success)]">
               <CheckCircle2 className="size-3.5" aria-hidden="true" />
-              Current &amp; Active
+              Current and Active
             </span>
           ) : (
             <span role="status" className="inline-flex items-center gap-1.5 rounded-full border border-[var(--status-warning)]/30 bg-[var(--status-warning-soft)] px-2.5 py-1 nb-meta font-medium text-[var(--status-warning)]">

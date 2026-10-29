@@ -73,9 +73,6 @@
   "src/app/(site)/(main)/error.tsx": {
    "please": 1
   },
-  "src/app/(site)/(main)/messages/(lists)/drafts/page.tsx": {
-   "ampersand": 1
-  },
   "src/app/(site)/(main)/messages/(lists)/inbox/page.tsx": {
    "title-case": 1
   },
@@ -112,9 +109,6 @@
   "src/app/(site)/(onboarding)/onboarding/page.tsx": {
    "please": 1,
    "project": 1
-  },
-  "src/app/(site)/admin/notifications/page.tsx": {
-   "ampersand": 1
   },
   "src/app/(site)/page.tsx": {
    "project": 15,
@@ -337,7 +331,6 @@
   },
   "src/components/layout/header/CommandPalette.tsx": {
    "project": 10,
-   "ampersand": 1,
    "please": 1
   },
   "src/components/layout/header/GlobalSearch.tsx": {
@@ -357,8 +350,7 @@
   "src/components/layout/header/global-search.ts": {
    "project": 12,
    "log-in": 5,
-   "british": 1,
-   "ampersand": 2
+   "british": 1
   },
   "src/components/legal/LegalLinks.tsx": {
    "title-case": 2,
@@ -391,8 +383,7 @@
   },
   "src/components/messages/MessagesViews.tsx": {
    "project": 2,
-   "title-case": 2,
-   "ampersand": 1
+   "title-case": 2
   },
   "src/components/messages/OrgBrowseProjects.tsx": {
    "project": 2
@@ -481,12 +472,10 @@
    "british": 1
   },
   "src/components/organizations/OrgOverviewParts.tsx": {
-   "ampersand": 1,
    "project": 20
   },
   "src/components/organizations/OrgSettingsSections.tsx": {
-   "project": 22,
-   "ampersand": 3
+   "project": 22
   },
   "src/components/organizations/OrgSprintParts.tsx": {
    "project": 6
@@ -507,19 +496,16 @@
    "title-case": 1
   },
   "src/components/profile/edit/ContributionEditor.tsx": {
-   "project": 30,
-   "ampersand": 7
+   "project": 30
   },
   "src/components/profile/edit/ContributionSummaryEditor.tsx": {
-   "project": 2,
-   "ampersand": 2
+   "project": 2
   },
   "src/components/profile/edit/EditProfileEditor.tsx": {
    "project": 3
   },
   "src/components/profile/edit/EditProfileTabs.tsx": {
    "project": 2,
-   "ampersand": 3,
    "title-case": 4
   },
   "src/components/profile/v2/ProfileShell.tsx": {
@@ -541,12 +527,10 @@
    "project": 6
   },
   "src/components/projects/EditProjectModal.tsx": {
-   "ampersand": 3,
    "title-case": 9,
    "project": 14
   },
   "src/components/projects/LifecycleEditor.tsx": {
-   "ampersand": 2,
    "project": 3
   },
   "src/components/projects/ProjectAvatar.tsx": {
@@ -601,8 +585,7 @@
   "src/components/projects/create-wizard/useCreateProjectWizard.ts": {
    "title-case": 1,
    "project": 4,
-   "please": 2,
-   "ampersand": 1
+   "please": 2
   },
   "src/components/projects/dashboard/InviteCollaboratorModal.tsx": {
    "project": 8,
@@ -622,7 +605,6 @@
    "project": 23
   },
   "src/components/projects/dashboard/ProjectOverviewCard.tsx": {
-   "ampersand": 2,
    "title-case": 2,
    "project": 3
   },
@@ -652,8 +634,7 @@
    "please": 1
   },
   "src/components/projects/settings/GeneralSettingsSection.tsx": {
-   "project": 20,
-   "ampersand": 1
+   "project": 20
   },
   "src/components/projects/settings/LifecycleSettingsEditor.tsx": {
    "project": 2
@@ -667,8 +648,7 @@
   },
   "src/components/projects/settings/ProjectRolesEditor.tsx": {
    "title-case": 16,
-   "project": 4,
-   "ampersand": 3
+   "project": 4
   },
   "src/components/projects/settings/ProjectSettingsNavigation.tsx": {
    "project": 5
@@ -684,7 +664,6 @@
   },
   "src/components/projects/tabs/ProjectSettingsTab.tsx": {
    "project": 36,
-   "ampersand": 3,
    "title-case": 2
   },
   "src/components/projects/tabs/SprintPlanning.tsx": {
@@ -783,7 +762,6 @@
   },
   "src/components/projects/v2/files-tab/RepositorySync.tsx": {
    "project": 16,
-   "ampersand": 3,
    "british": 2
   },
   "src/components/projects/v2/files-tab/TaskFilesCollection.tsx": {
@@ -862,8 +840,7 @@
   },
   "src/components/projects/v2/preview/drivers/PresentationViewerDriver.tsx": {
    "please": 1,
-   "title-case": 9,
-   "ampersand": 2
+   "title-case": 9
   },
   "src/components/projects/v2/preview/drivers/SheetViewerDriver.tsx": {
    "please": 1,
@@ -876,8 +853,7 @@
    "title-case": 7
   },
   "src/components/projects/v2/tasks/CreateTaskModal.tsx": {
-   "title-case": 5,
-   "ampersand": 3
+   "title-case": 5
   },
   "src/components/projects/v2/tasks/KanbanBoard.tsx": {
    "title-case": 3,
@@ -897,7 +873,6 @@
   },
   "src/components/projects/v2/tasks/TaskDetailTabs/DetailsTab.tsx": {
    "title-case": 1,
-   "ampersand": 1,
    "project": 1
   },
   "src/components/projects/v2/tasks/components/MentionAutocomplete.tsx": {
@@ -939,7 +914,6 @@
    "please": 1
   },
   "src/components/settings/LegalAndDataRightsSection.tsx": {
-   "ampersand": 3,
    "title-case": 2,
    "please": 1,
    "project": 1
@@ -965,9 +939,6 @@
   },
   "src/components/sharing/SharePreviewCard.tsx": {
    "project": 2
-  },
-  "src/components/skills/SkillPicker.tsx": {
-   "ampersand": 1
   },
   "src/components/ui/ConfirmDialog.tsx": {
    "please": 1
@@ -1041,8 +1012,7 @@
   },
   "src/lib/email/contracts.ts": {
    "title-case": 1,
-   "project": 10,
-   "ampersand": 2
+   "project": 10
   },
   "src/lib/email/org-templates.ts": {
    "project": 3
@@ -1052,7 +1022,6 @@
    "british": 2
   },
   "src/lib/extension/ide-protocol.ts": {
-   "ampersand": 3,
    "title-case": 1
   },
   "src/lib/feedback/copy.ts": {
@@ -1089,7 +1058,6 @@
    "project": 4
   },
   "src/lib/github/repository-sync.ts": {
-   "ampersand": 3,
    "project": 1,
    "british": 1
   },
@@ -1112,9 +1080,6 @@
   "src/lib/messaging/canvas-store.ts": {
    "project": 5
   },
-  "src/lib/messaging/channel-view.ts": {
-   "ampersand": 1
-  },
   "src/lib/messaging/errors.ts": {
    "project": 5
   },
@@ -1128,7 +1093,6 @@
    "project": 23
   },
   "src/lib/notifications/project-policy.ts": {
-   "ampersand": 6,
    "project": 19,
    "title-case": 2,
    "british": 2
@@ -1138,9 +1102,6 @@
   },
   "src/lib/notifications/task-file.ts": {
    "project": 2
-  },
-  "src/lib/onboarding/step-ui-config.ts": {
-   "ampersand": 1
   },
   "src/lib/organizations/assignments.ts": {
    "project": 1
@@ -1155,9 +1116,6 @@
    "project": 7,
    "title-case": 3
   },
-  "src/lib/organizations/doc-rules.ts": {
-   "ampersand": 1
-  },
   "src/lib/organizations/members.ts": {
    "project": 1
   },
@@ -1165,7 +1123,6 @@
    "project": 9
   },
   "src/lib/organizations/settings.ts": {
-   "ampersand": 2,
    "project": 2
   },
   "src/lib/organizations/sprint-notify.ts": {
@@ -1210,7 +1167,6 @@
   },
   "src/lib/profile/role-preferences.ts": {
    "project": 11,
-   "ampersand": 10,
    "title-case": 1
   },
   "src/lib/projects/collaborator-lifecycle.ts": {
@@ -1232,7 +1188,6 @@
    "project": 5
   },
   "src/lib/projects/lifecycle-templates.ts": {
-   "ampersand": 2,
    "title-case": 4
   },
   "src/lib/projects/merge-sandbox.ts": {
@@ -1240,8 +1195,7 @@
   },
   "src/lib/projects/project-create-options.ts": {
    "title-case": 5,
-   "project": 5,
-   "ampersand": 1
+   "project": 5
   },
   "src/lib/projects/project-detail-metadata.ts": {
    "project": 5
@@ -1283,9 +1237,6 @@
   },
   "src/lib/projects/settings-policies.ts": {
    "project": 30
-  },
-  "src/lib/projects/social-links.ts": {
-   "ampersand": 8
   },
   "src/lib/projects/sprint-detail.ts": {
    "title-case": 3,
@@ -1359,8 +1310,7 @@
    "please": 2
   },
   "src/lib/validations/project.ts": {
-   "project": 2,
-   "ampersand": 1
+   "project": 2
   },
   "src/lib/validations/username.ts": {
    "exclamation": 1
