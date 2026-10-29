@@ -163,7 +163,7 @@ export async function updateTaskFieldAction(
         } else {
           const num = typeof value === "number" ? value : Number(value);
           if (!Number.isInteger(num) || num < 0 || num > 100) {
-            throw new Error("Story points must be between 0 and 100");
+            throw new Error("Estimate must be between 0 and 100");
           }
           updates.storyPoints = num;
         }

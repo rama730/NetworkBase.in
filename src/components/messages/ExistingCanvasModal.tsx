@@ -59,8 +59,8 @@ export function ExistingCanvasModal({ open, onOpenChange, onSelectExisting, proj
                 <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   type="text"
-                  placeholder="Search canvases…"
-                  aria-label="Search canvases"
+                  placeholder="Search channel notes…"
+                  aria-label="Search channel notes"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   className="pl-9 text-[13px]"
@@ -83,10 +83,10 @@ export function ExistingCanvasModal({ open, onOpenChange, onSelectExisting, proj
                   </p>
                 </button>
               ))}
-              {list.isError ? <ErrorNotice what="Canvases" onRetry={() => void list.refetch()} /> : null}
+              {list.isError ? <ErrorNotice what="Channel notes" onRetry={() => void list.refetch()} /> : null}
               {!list.isLoading && !list.isError && canvases.length === 0 ? (
                 <p className="px-3 py-6 text-center text-[13px] text-muted-foreground">
-                  {search ? `No canvases match "${search}"` : projectId ? "No other canvases in this workspace yet." : "Canvases from other channels show here."}
+                  {search ? `No channel notes match "${search}"` : projectId ? "No other channel notes in this workspace yet." : "Channel notes from other channels show here."}
                 </p>
               ) : null}
             </div>
@@ -95,7 +95,7 @@ export function ExistingCanvasModal({ open, onOpenChange, onSelectExisting, proj
             <div className="flex h-12 flex-none items-center justify-between border-b border-border px-6">
               <div className="flex min-w-0 items-center gap-2">
                 <FileText size={16} className="shrink-0 text-muted-foreground" />
-                <h3 className="nb-ui-label truncate text-foreground">{selected?.title || "Canvas preview"}</h3>
+                <h3 className="nb-ui-label truncate text-foreground">{selected?.title || "Note preview"}</h3>
               </div>
               <button type="button" onClick={() => onOpenChange(false)} aria-label="Close dialog" className="nb-icon-button nb-touch-target size-8">
                 <X size={16} />
@@ -103,9 +103,9 @@ export function ExistingCanvasModal({ open, onOpenChange, onSelectExisting, proj
             </div>
             <div className="app-scroll app-scroll-y flex-1 p-6 sm:p-8">
               {selected && full.data ? <CanvasPreview markdown={full.data.body} /> : selected && full.isError ? (
-                <ErrorNotice what="This canvas" onRetry={() => void full.refetch()} />
+                <ErrorNotice what="This note" onRetry={() => void full.refetch()} />
               ) : (
-                <div role={selected ? "status" : undefined} className="grid h-full place-items-center text-[13px] text-muted-foreground">{selected ? "Loading…" : "Select a canvas to preview"}</div>
+                <div role={selected ? "status" : undefined} className="grid h-full place-items-center text-[13px] text-muted-foreground">{selected ? "Loading…" : "Select a note to preview"}</div>
               )}
             </div>
             <div className="flex h-14 flex-none items-center justify-end gap-2 border-t border-border bg-muted px-6">

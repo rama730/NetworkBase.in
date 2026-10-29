@@ -546,7 +546,7 @@ export default function CreateTaskModal({
 
                   <div data-story-point>
                   <Field
-                    label="Story points"
+                    label="Estimate"
                     htmlFor="task-story-points"
                     error={fieldErrors.storyPoints}
                   >

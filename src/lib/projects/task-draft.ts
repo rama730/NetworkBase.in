@@ -39,7 +39,7 @@ const optionalStoryPoints = z
   })
   .refine(
     (val) => val === null || (Number.isInteger(val) && val >= 0 && val <= 100),
-    "Story points must be between 0 and 100",
+    "Estimate must be between 0 and 100",
   );
 
 export const taskEditorDraftSchema = z.object({

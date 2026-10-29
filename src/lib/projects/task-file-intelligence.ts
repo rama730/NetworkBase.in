@@ -322,7 +322,7 @@ export function buildTaskFileReadinessWarnings(input: {
         warnings.push({
           code: "warning_missing_deliverable",
           message:
-            "No task files are linked yet, so there is no clear deliverable for this task.",
+            "No task files are linked yet, so there is no clear final file for this task.",
         });
       } else {
         const roles = attachments.map(inferTaskFileRole);
@@ -333,7 +333,7 @@ export function buildTaskFileReadinessWarnings(input: {
           warnings.push({
             code: "warning_only_reference_files",
             message:
-              "Only reference-style files are linked. Add or classify a likely deliverable before closing the loop.",
+              "Only reference-style files are linked. Add or classify a likely final file before closing the loop.",
           });
         }
       }

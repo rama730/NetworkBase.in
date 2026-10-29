@@ -757,7 +757,7 @@ export function FilesTabSidebar({
                         }}
                       >
                         <FileUp className="w-4 h-4 mr-2" />
-                        Upload revision…
+                        Upload version…
                       </DropdownMenuItem>
                     )}
                     {canEdit && (

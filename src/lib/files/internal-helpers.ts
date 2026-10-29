@@ -406,7 +406,7 @@ export async function assertValidMoveDestination(
     tx: { query: typeof db.query } = db,
 ) {
     if (sourceTaskId) {
-        throw new Error("Task working files must be published to Workspace Files before they can be relocated");
+        throw new Error("Task draft files must be published to Workspace Files before they can be relocated");
     }
     const parent = await assertValidParentFolder(projectId, parentId, tx);
     if (!parent) return null;

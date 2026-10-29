@@ -319,7 +319,7 @@ export default function MyWorkRequestsTab({ isActive = true }: MyWorkRequestsTab
                                     actions={(
                                         <>
                                             <Button size="sm" disabled={busy} onClick={() => void resolveConnection(request.id, "accept")}>Accept</Button>
-                                            <Button size="sm" variant="outline" disabled={busy} onClick={() => void resolveConnection(request.id, "reject")}>Reject</Button>
+                                            <Button size="sm" variant="outline" disabled={busy} onClick={() => void resolveConnection(request.id, "reject")}>Decline</Button>
                                         </>
                                     )}
                                 />

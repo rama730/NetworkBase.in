@@ -226,7 +226,7 @@ test('Members (§20): bulk Remind, the Outside people filter, and the drawer has
 test('Files (§23): storage nearly full, group deliverables, Update copy and opening an org file in place', async ({ page }) => {
     await open(page, 'files', 1280);
     await expect(page.getByTestId('org-storage')).toContainText('4.3 GB of 5 GB used · nearly full');
-    await page.getByText('Deliverables from workspaces · 1').click();
+    await page.getByText('Final files from workspaces · 1').click();
     await expect(page.getByRole('link', { name: 'parser.zip' })).toBeVisible();
     await page.getByText('From the organization').click();
     await expect(page.getByRole('button', { name: 'Update copy' })).toBeVisible();

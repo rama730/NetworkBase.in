@@ -93,7 +93,7 @@ export async function prepareSubmissionsExport(input: { masterId: string }): Pro
         bucket: row.bucket ?? "project-files", storageKey: row.storage_key ?? row.s3_key, assetId: row.asset_id, size: Number(row.verified_size ?? row.size ?? 0),
       });
     }
-    if (!list.some((entry) => entry.type === "file")) throw new Error("No handed-in files to download yet");
+    if (!list.some((entry) => entry.type === "file")) throw new Error("No submitted files to download yet");
     // Never a partial zip: the person folders count toward the entry cap too.
     if (list.length > FOLDER_EXPORT_MAX_ENTRIES) throw new Error(`Submissions are limited to ${FOLDER_EXPORT_MAX_ENTRIES.toLocaleString("en")} files per download`);
     await pinExportAssets(tx, list, operationId, expiresAt);

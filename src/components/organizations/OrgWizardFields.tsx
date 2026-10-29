@@ -409,7 +409,7 @@ export function OrgSettingsFields() {
             <div>
                 <p className={labelClass}>Work defaults</p>
                 <p className={helpClass} data-testid="create-org-work-summary">
-                    Review {work.reviewRequired ? 'on' : 'off'} · Late work {LATE[work.lateRule].toLowerCase()} · Reminders {REMINDERS[work.reminders].toLowerCase()} · Story points {work.storyPoints}
+                    Review {work.reviewRequired ? 'on' : 'off'} · Late work {LATE[work.lateRule].toLowerCase()} · Reminders {REMINDERS[work.reminders].toLowerCase()} · Estimate {work.storyPoints}
                     {' · '}<button type="button" className="font-medium text-foreground underline underline-offset-4" aria-expanded={open} onClick={() => setOpen((v) => !v)}>{open ? 'Done' : 'Change'}</button>
                 </p>
                 {open ? (
@@ -425,7 +425,7 @@ export function OrgSettingsFields() {
                                 {Object.entries(REMINDERS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
                             </select>
                         </label>
-                        <label className="text-[13px] text-muted-foreground">Story points
+                        <label className="text-[13px] text-muted-foreground">Estimate
                             <select className={selectClass} value={work.storyPoints} onChange={(e) => set({ story_points: e.target.value as 'shown' | 'hidden' })}>
                                 <option value="shown">Shown</option>
                                 <option value="hidden">Hidden</option>

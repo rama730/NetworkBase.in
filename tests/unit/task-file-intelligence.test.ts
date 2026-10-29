@@ -330,7 +330,7 @@ test("inferTaskFileRole does not treat parent folder name substrings as keywords
       name: "hello.py",
       type: "file",
       path: "/hello.py",
-      annotation: "Final deliverable for the sprint",
+      annotation: "Final file for the sprint",
     }),
     "deliverable",
   );

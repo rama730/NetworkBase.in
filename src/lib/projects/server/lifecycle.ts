@@ -650,7 +650,7 @@ export async function createProjectAction(
       const looseOutsiders = unassignedPeople.filter((id) => outsiders.has(id));
       if (looseOutsiders.length > 0) {
         looseOutsiders.forEach((id) => dropped.add(id));
-        childNotices.push(`${looseOutsiders.length === 1 ? "1 person" : `${looseOutsiders.length} people`} outside ${org.title} left out: put them in a unit to invite them.`);
+        childNotices.push(`${looseOutsiders.length === 1 ? "1 person" : `${looseOutsiders.length} people`} outside ${org.title} left out: put them in a team to invite them.`);
       }
       if (dropped.size > 0) {
         input.roles = input.roles?.map((unit) => ({ ...unit, people: unit.people?.filter((person) => !dropped.has(person.user_id)),
@@ -660,7 +660,7 @@ export async function createProjectAction(
         if (ruleDropped > 0) childNotices.push(`${ruleDropped === 1 ? "1 person" : `${ruleDropped} people`} outside ${org.title} left out: ${org.title} no longer allows outside people.`);
       }
       // Members send invitations, which need a unit; admins add people directly (decision 8).
-      if (!isOrgAdmin && unassignedPeople.length > 0) return refuse("Put invited people in a unit.");
+      if (!isOrgAdmin && unassignedPeople.length > 0) return refuse("Put invited people in a team.");
       const asked = input.visibility === "public" || input.visibility === "private" ? input.visibility : "org";
       child = {
         orgTitle: org.title,

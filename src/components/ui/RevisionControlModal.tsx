@@ -46,7 +46,7 @@ export function RevisionControlModal({
         </DialogHeader>
 
         {/* Options grid */}
-        <div role="radiogroup" aria-label="How to save this revision" className="flex flex-col gap-3 my-4">
+        <div role="radiogroup" aria-label="How to save this version" className="flex flex-col gap-3 my-4">
           {/* Commit as New Revision */}
           <label
             className={`flex items-start gap-3 p-3 rounded-[6px] border cursor-pointer transition-[color,background-color,border-color,box-shadow,opacity,transform] focus-within:bg-muted/30 ${
@@ -55,12 +55,12 @@ export function RevisionControlModal({
                 : "border-border hover:border-border/80"
             }`}
           >
-            <input type="radio" name="file-revision-mode" value="commit" checked={selected === "commit"} onChange={() => setSelected("commit")} className="sr-only" aria-label="Commit as new revision" />
+            <input type="radio" name="file-revision-mode" value="commit" checked={selected === "commit"} onChange={() => setSelected("commit")} className="sr-only" aria-label="Commit as new version" />
             <div className={`p-1.5 rounded-[6px] ${selected === "commit" ? "bg-[#FCF0EA] dark:bg-[#D14E24]/20" : "bg-muted"}`}>
               <FileText className={`h-4 w-4 ${selected === "commit" ? "text-[#D14E24]" : "text-muted-foreground"}`} />
             </div>
             <div className="flex-1">
-              <h4 className="text-xs font-semibold text-foreground">Commit as new revision</h4>
+              <h4 className="text-xs font-semibold text-foreground">Commit as new version</h4>
               <p className="mt-0.5 text-[11px] text-muted-foreground">
                 Creates an incremental version log. Safe for tracking milestones and history.
               </p>
@@ -75,14 +75,14 @@ export function RevisionControlModal({
                 : "border-border hover:border-border/80"
             }`}
           >
-            <input type="radio" name="file-revision-mode" value="overwrite" checked={selected === "overwrite"} onChange={() => setSelected("overwrite")} className="sr-only" aria-label="Apply to active revision" />
+            <input type="radio" name="file-revision-mode" value="overwrite" checked={selected === "overwrite"} onChange={() => setSelected("overwrite")} className="sr-only" aria-label="Apply to active version" />
             <div className={`p-1.5 rounded-[6px] ${selected === "overwrite" ? "bg-amber-100 dark:bg-amber-950" : "bg-muted"}`}>
               <Edit className={`h-4 w-4 ${selected === "overwrite" ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground"}`} />
             </div>
             <div className="flex-1">
-              <h4 className="text-xs font-semibold text-foreground">Apply to active revision</h4>
+              <h4 className="text-xs font-semibold text-foreground">Apply to active version</h4>
               <p className="mt-0.5 text-[11px] text-muted-foreground">
-                Replaces the contents of this version without preserving its previous contents. Use a new revision to keep that history.
+                Replaces the contents of this version without preserving its previous contents. Use a new version to keep that history.
               </p>
             </div>
           </label>

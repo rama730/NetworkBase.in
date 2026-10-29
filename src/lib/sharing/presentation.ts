@@ -124,10 +124,10 @@ export function portfolioSummary(count: number | null, title: string | null = nu
 export function genericSharePreview(resource: ShareResource, state: SharePreview['state'] = 'unknown'): SharePreview {
   const title = resource.kind === 'application' ? 'NetworkBase' : `${resource.kind === 'profile' ? 'Profile' : 'Workspace'} on NetworkBase`;
   return { kind: resource.kind, state, url: resource.url, title,
-    description: resource.kind === 'application' ? 'Professional social network for builders.'
+    description: resource.kind === 'application' ? 'Professional social network for people.'
       : state === 'unavailable' ? `This ${resource.kind} is unavailable.`
       : state === 'unknown' ? 'Preview details could not load. You can still open the link.' : `Open this ${resource.kind} on NetworkBase.`,
-    image: new URL('/og/routes-card.png', resource.url).href, imageAlt: 'NetworkBase — professional network for builders',
+    image: new URL('/og/routes-card.png', resource.url).href, imageAlt: 'NetworkBase — professional network for people',
     indexable: resource.kind === 'application', portfolio: null, skills: [], skillOverflow: 0, openToCollaborate: false };
 }
 

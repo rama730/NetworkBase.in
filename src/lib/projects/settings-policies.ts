@@ -1021,7 +1021,7 @@ export function buildProjectFilePolicy() {
       "The owner and admins can always upload, replace, organize and review files.",
       "Members can upload files only when their per-member upload toggle is on.",
       "Viewers can inspect allowed file surfaces but cannot upload or replace files.",
-      "Task-file notes use the task link annotation source of truth.",
+      "Task-file notes use the task link note source of truth.",
       "Version history stays on file rows.",
       "File review notifications target task participants only when responsibility is created.",
     ],

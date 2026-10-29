@@ -360,7 +360,7 @@ export async function remindLeadsAction(orgId: string, projectIds: string[]): Pr
     let reminded = 0;
     for (const row of read.rows.filter((r) => projectIds.includes(r.id) && r.lead)) {
         const what = row.groupCopy && ['missing', 'returned', 'not_started', 'in_progress'].includes(row.groupCopy.state)
-            ? `${row.groupCopy.title} is ${row.groupCopy.state === 'missing' ? 'missing' : row.groupCopy.state === 'returned' ? 'returned' : 'not handed in yet'}`
+            ? `${row.groupCopy.title} is ${row.groupCopy.state === 'missing' ? 'missing' : row.groupCopy.state === 'returned' ? 'returned' : 'not submitted yet'}`
             : row.overdue ? `${row.overdue} ${row.overdue === 1 ? 'task is' : 'tasks are'} overdue in ${row.title}` : null;
         if (!what) continue;
         await notifyOrg({ orgId, eventKey: 'assignments.due_changed', actorId: v.userId, to: [row.lead!.id], title: `${v.org.title} reminded you: ${what}`,

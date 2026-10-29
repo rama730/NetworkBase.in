@@ -237,8 +237,8 @@ export function TaskSearchPicker({
           <span className="mr-1 font-mono text-[11px] uppercase tracking-wider text-[#4C5A61]">Add as</span>
           {([
             ["reference", "Reference"],
-            ["working", "Working file"],
-            ["deliverable", "Deliverable"],
+            ["working", "Draft file"],
+            ["deliverable", "Final file"],
           ] as const).map(([value, label]) => (
             <label
               key={value}

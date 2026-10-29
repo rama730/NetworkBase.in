@@ -300,7 +300,7 @@ export function SprintTimelineContent({
                     {/* Deliverables Section */}
                     {task.linkedFiles && task.linkedFiles.filter(f => f.role === "deliverable").length > 0 && (
                       <div className="mt-4 space-y-2">
-                        <h4 className="font-mono text-[11px] font-medium uppercase tracking-[0.09em] text-[color:var(--status-success)]">Final deliverables</h4>
+                        <h4 className="font-mono text-[11px] font-medium uppercase tracking-[0.09em] text-[color:var(--status-success)]">Final files</h4>
                         <ul className="space-y-1.5">
                           {task.linkedFiles.filter(f => f.role === "deliverable").map((file) => (
                             <li key={file.nodeId} className="flex items-center gap-2 text-xs font-medium text-foreground">

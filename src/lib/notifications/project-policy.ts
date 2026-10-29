@@ -352,7 +352,7 @@ export const PROJECT_NOTIFICATION_EVENT_REGISTRY = {
         key: "applications.decision",
         group: "roles_applications",
         label: "Application decision",
-        description: "Notify the applicant when their application is accepted, rejected, or reopened.",
+        description: "Notify the applicant when their application is accepted, declined, or reopened.",
         category: "applications",
         notificationKind: "application_decision",
         defaultEnabled: true,

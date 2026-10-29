@@ -1127,7 +1127,7 @@ export async function acceptApplicationAction(
                 return toApplicationSuccess(traceId, { idempotent: true, applicationId });
             }
             if (application.status === 'rejected') {
-                return toApplicationFailure(traceId, 'INVALID_STATE', 'This application has already been rejected');
+                return toApplicationFailure(traceId, 'INVALID_STATE', 'This application has already been declined');
             }
             if (application.status === 'withdrawn') {
                 return toApplicationFailure(traceId, 'INVALID_STATE', 'The applicant withdrew this application');
@@ -1502,7 +1502,7 @@ export async function rejectApplicationAction(
         if (error instanceof Error && error.message === 'Application already processed') {
             return toApplicationFailure(traceId, 'ALREADY_PROCESSED', 'This application has already been processed');
         }
-        return toApplicationFailure(traceId, 'INTERNAL_ERROR', 'Couldn’t reject application');
+        return toApplicationFailure(traceId, 'INTERNAL_ERROR', 'Couldn’t decline application');
     }
 }
 
@@ -1785,7 +1785,7 @@ export async function reopenApplicationAction(
             return toApplicationFailure(traceId, 'INVALID_STATE', 'Accepted applications cannot be reopened');
         }
         if (application.status !== 'rejected') {
-            return toApplicationFailure(traceId, 'INVALID_STATE', 'Only rejected applications can be reopened');
+            return toApplicationFailure(traceId, 'INVALID_STATE', 'Only declined applications can be reopened');
         }
 
         const decisionTimestampSource = application.decisionAt ?? application.updatedAt;

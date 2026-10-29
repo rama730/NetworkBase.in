@@ -84,7 +84,7 @@ function SubmitDialog({ copyId, submissionType, title, open, onOpenChange, onDon
             <DialogContent className="max-w-md">
                 <DialogHeader>
                     <DialogTitle>Submit {title}</DialogTitle>
-                    <DialogDescription>{submissionType === 'file' ? 'Attach your file to this task first (Tasks → open the card → Files), then submit.' : 'Hand in your work. You can resubmit until it is reviewed.'}</DialogDescription>
+                    <DialogDescription>{submissionType === 'file' ? 'Attach your file to this task first (Tasks → open the card → Files), then submit.' : 'Submit your work. You can resubmit until it is reviewed.'}</DialogDescription>
                 </DialogHeader>
                 {submissionType === 'link' ? <Input value={link} onChange={(e) => setLink(e.target.value)} placeholder="https://" aria-label="Link to your work" /> : null}
                 {submissionType === 'link' && projectDocs.length > 0 ? (
@@ -204,7 +204,7 @@ function AssignmentComposer({ orgId, open, onOpenChange, onCreated }: { orgId: s
             <DialogContent className="max-h-[90dvh] max-w-2xl overflow-y-auto">
                 <DialogHeader>
                     <DialogTitle>New assignment</DialogTitle>
-                    <DialogDescription>Each person (or team, or workspace) gets their own copy to hand in.</DialogDescription>
+                    <DialogDescription>Each person (or team, or workspace) gets their own assignment to submit.</DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4">
                     <label className="block text-sm font-medium">Title<Input value={title} onChange={(e) => setTitle(e.target.value)} maxLength={200} className="mt-1" placeholder="Lab 1" /></label>
@@ -281,7 +281,7 @@ function AssignmentComposer({ orgId, open, onOpenChange, onCreated }: { orgId: s
                                         </div>
                                     </div>
                                 ))}
-                                {individuals.length > 0 ? <p className="text-xs text-muted-foreground">Not in a team (own copy): {roster.filter((p) => individuals.includes(p.userId)).map((p) => p.name).join(', ')}</p> : null}
+                                {individuals.length > 0 ? <p className="text-xs text-muted-foreground">Not in a team (own assignment): {roster.filter((p) => individuals.includes(p.userId)).map((p) => p.name).join(', ')}</p> : null}
                             </div>
                         ) : null}
                         {mode === 'children' ? (
@@ -414,7 +414,7 @@ export function RosterDialog({ row, orgId, open, onOpenChange, onChanged }: { ro
                                                     onChange={(e) => { const v = e.target.value; if (!v) return; if (v === 'excuse') { const reason = window.prompt(`Why is ${p.name} excused?`); if (reason) run(() => excuseTeamMemberAction(r.copyId, p.id, reason)); return } run(() => moveTeamMemberAction(row.masterId, p.id, v === 'own' ? null : v)) }}>
                                                     <option value="">{p.name}…</option>
                                                     {rows.filter((o) => o.copyId !== r.copyId && o.people && o.state !== 'submitted' && o.state !== 'done').map((o) => <option key={o.copyId} value={o.copyId}>Move to {o.label}</option>)}
-                                                    <option value="own">Own copy</option>
+                                                    <option value="own">Own assignment</option>
                                                     <option value="excuse">Excuse {p.name}</option>
                                                 </select>
                                             </span>
@@ -469,7 +469,7 @@ export function AssignmentsPanel({ orgId, onBoardChanged, startComposing = false
                 ) : null}
             </div>
             {reviewing ? <ReviewQueue orgId={orgId} onChanged={refresh} /> : null}
-            {rows.length === 0 ? <p className="mt-2 text-sm text-muted-foreground">No assignments yet. Give everyone (or teams, or each workspace) their own copy to hand in.</p> : null}
+            {rows.length === 0 ? <p className="mt-2 text-sm text-muted-foreground">No assignments yet. Give everyone (or teams, or each workspace) their own assignment to submit.</p> : null}
             <ul className="mt-3 divide-y divide-border">
                 {rows.map((row) => (
                     <li key={row.masterId} className="flex flex-wrap items-center gap-x-3 gap-y-1 py-2 text-sm">

@@ -111,7 +111,7 @@ export function TaskFileRow({
   const rolePresentation = {
     reference: "Reference",
     working: "Working",
-    deliverable: "Deliverable",
+    deliverable: "Final file",
   } satisfies Record<TaskFileRole, string>;
 
   const [isEditingLabel, setIsEditingLabel] = useState(false);

@@ -262,7 +262,7 @@ export function ProfileSearchResultCard({ result, onOpen, onConnect, isConnectin
                     Connect
                 </button>
             ) : null}
-            ariaLabel={`Open builder profile ${result.title}`}
+            ariaLabel={`Open profile ${result.title}`}
         >
             <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
                 <span className="truncate text-[15px] font-semibold text-foreground transition-colors group-hover:text-primary">{result.title}</span>

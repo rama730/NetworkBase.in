@@ -174,9 +174,9 @@ export function FileActionsBar({
         window.dispatchEvent(new CustomEvent("project:task-files-changed", { detail: { projectId } }));
         toast.success(
           role === "deliverable"
-            ? "File attached as a deliverable"
+            ? "File attached as a final file"
             : role === "working"
-              ? "File attached as a working file"
+              ? "File attached as a draft file"
               : "File attached as a reference",
         );
       } catch (err) {
@@ -390,10 +390,10 @@ export function FileActionsBar({
               onSelect={handleReplaceClick}
               disabled={isReplacing || mode === "edit"}
               className="gap-2 cursor-pointer"
-              aria-label="Upload a file revision"
+              aria-label="Upload a file version"
             >
               <FileUp className={cn("h-4 w-4 opacity-70", isReplacing && "animate-none")} />
-              <span>{lockConflict ? "Retry upload revision…" : "Upload revision…"}</span>
+              <span>{lockConflict ? "Try uploading again…" : "Upload new version…"}</span>
             </DropdownMenuItem>
           )}
 

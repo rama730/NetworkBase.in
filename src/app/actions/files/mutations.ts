@@ -284,7 +284,7 @@ export async function createFileNode(projectId: string, parentId: string | null,
     assertValidNodeName(safeName);
     if (file.taskId && !UUID_RE.test(file.taskId)) throw new Error("Invalid task");
     if (file.taskLink && (!file.taskId || (file.taskLink.role && !["working", "reference", "deliverable"].includes(file.taskLink.role)))) throw new Error("Invalid task link");
-    if (file.taskLink?.annotation && file.taskLink.annotation.length > 2000) throw new Error("Task file annotation is too long");
+    if (file.taskLink?.annotation && file.taskLink.annotation.length > 2000) throw new Error("Task file note is too long");
     const finalizedIntent = await finalizeUploadIntent({
         intentId: file.uploadIntentId,
         storageKey: file.s3Key,
@@ -886,7 +886,7 @@ export async function moveProjectNodes(
         }
         const isPublishing = options?.mode === "publish";
         if (!isPublishing && movers.some((node) => node.taskId)) {
-            throw new Error("Task working files must be published to Workspace Files before they can be relocated");
+            throw new Error("Task draft files must be published to Workspace Files before they can be relocated");
         }
         if (isPublishing && movers.some((node) => !node.taskId)) {
             throw new Error("Only task-owned files or folders can be published with this action");
@@ -989,7 +989,7 @@ export async function moveProjectNodes(
                 ? `${result.nodes.length} task file${result.nodes.length === 1 ? "" : "s"} published`
                 : `${result.nodes.length} file${result.nodes.length === 1 ? "" : "s"} moved`,
             body: options?.mode === "publish"
-                ? "Task working files were published to Workspace Files."
+                ? "Task draft files were published to Workspace Files."
                 : "Workspace files were reorganized.",
             aggregateCount: result.nodes.length,
             sourceEventId: operationId,

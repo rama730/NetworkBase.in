@@ -48,7 +48,7 @@ export function TeamTaskDialog({ projectId, members, open, onOpenChange, onCreat
                     <fieldset>
                         <legend className="text-sm font-medium">Assign to</legend>
                         <div className="mt-1 flex gap-4 text-sm">
-                            <label className="flex items-center gap-1.5"><input type="radio" name="team-task-mode" checked={mode === 'units'} onChange={() => setMode('units')} /> Each unit</label>
+                            <label className="flex items-center gap-1.5"><input type="radio" name="team-task-mode" checked={mode === 'units'} onChange={() => setMode('units')} /> Each team</label>
                             <label className="flex items-center gap-1.5"><input type="radio" name="team-task-mode" checked={mode === 'teams'} onChange={() => setMode('teams')} /> Teams</label>
                         </div>
                     </fieldset>

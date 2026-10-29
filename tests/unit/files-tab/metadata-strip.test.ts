@@ -673,12 +673,12 @@ describe("FileActionsBar — Replace… button (Req 11.1, 11.2, 24.1)", () => {
     );
     assert.match(
       FILE_ACTIONS_BAR_SRC,
-      /aria-label="Upload a file revision"/,
+      /aria-label="Upload a file version"/,
       "Replace button must have an accessible label in source code",
     );
     assert.match(
       FILE_ACTIONS_BAR_SRC,
-      /Upload revision…/,
+      /Upload new version…/,
       "Version upload must use explicit action copy",
     );
     assert.match(
@@ -728,7 +728,7 @@ describe("FileActionsBar — Replace… source-level contracts (Req 11.4–11.6,
       /disabled=\{isReplacing \|\| mode === "edit"\}/,
       "Replacement cannot discard an active editor or start a duplicate upload",
     );
-    assert.match(FILE_ACTIONS_BAR_SRC, /Retry upload revision/);
+    assert.match(FILE_ACTIONS_BAR_SRC, /Try uploading again/);
   });
 
   it("emits files_tab.version_replaced telemetry with source: files_tab (Req 16.3)", () => {

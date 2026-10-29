@@ -161,7 +161,7 @@ export function NotificationList(props: {
             ref={containerRef}
             onKeyDown={handleKeyDown}
             role="region"
-            aria-label="Notifications list. Press J or down arrow to move down, K or up arrow to move up, Enter to open, E to dismiss, R to mark a seen notification as new."
+            aria-label="Notifications list. Press J or down arrow to move down, K or up arrow to move up, Enter to open, E to dismiss, R to mark as unread."
             className="pb-3"
         >
             {importantItems.length > 0 ? (

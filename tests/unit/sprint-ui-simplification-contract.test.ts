@@ -76,7 +76,7 @@ describe("sprint tab target architecture contract", () => {
     assert.match(sprintTimelineSource, /role === "deliverable"/);
     assert.match(sprintTimelineSource, /role === "working"/);
     assert.match(sprintTimelineSource, /role === "reference"/);
-    assert.match(sprintTimelineSource, /Final deliverables/);
+    assert.match(sprintTimelineSource, /Final files/);
     assert.match(sprintTimelineSource, /Task references/);
     assert.match(sprintTimelineSource, /TASK_WORKING_FILES_TITLE/);
     assert.doesNotMatch(

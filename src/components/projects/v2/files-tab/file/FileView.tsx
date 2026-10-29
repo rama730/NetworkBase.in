@@ -406,7 +406,7 @@ export function FileView({
             useFilesStore.getState().setNodes(projectId, [result.node]);
             toast.success("Active version updated");
           } else {
-            throw new Error(result.error || "Couldn’t update active revision");
+            throw new Error(result.error || "Couldn’t update active version");
           }
         }
       } catch (err) {

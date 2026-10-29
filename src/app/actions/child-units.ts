@@ -52,14 +52,14 @@ export async function updateUnitAction(projectId: string, unitId: string, patch:
     const m = await manager(projectId);
     if (!m) return DENIED;
     const [unit] = await db.select().from(projectOpenRoles).where(and(eq(projectOpenRoles.id, unitId), eq(projectOpenRoles.projectId, projectId))).limit(1);
-    if (!unit) return { success: false, error: 'That unit is gone.' };
+    if (!unit) return { success: false, error: 'That team is gone.' };
     const set: Partial<typeof projectOpenRoles.$inferInsert> = { updatedAt: new Date() };
     if (patch.title !== undefined) {
         const title = patch.title.trim().slice(0, 100);
-        if (!title) return { success: false, error: 'A unit needs a name.' };
+        if (!title) return { success: false, error: 'A team needs a name.' };
         const [clash] = await db.select({ id: projectOpenRoles.id }).from(projectOpenRoles)
             .where(and(eq(projectOpenRoles.projectId, projectId), ne(projectOpenRoles.id, unitId), sql`lower(coalesce(${projectOpenRoles.title}, ${projectOpenRoles.role})) = lower(${title})`)).limit(1);
-        if (clash) return { success: false, error: 'Another unit already has that name.' };
+        if (clash) return { success: false, error: 'Another team already has that name.' };
         set.role = title;
         set.title = title;
     }
@@ -98,8 +98,8 @@ export async function moveMemberToUnitAction(projectId: string, userId: string, 
             if (unitId) {
                 const [target] = await tx.select({ filled: projectOpenRoles.filled, count: projectOpenRoles.count }).from(projectOpenRoles)
                     .where(and(eq(projectOpenRoles.id, unitId), eq(projectOpenRoles.projectId, projectId))).for('update').limit(1);
-                if (!target) throw new Error('That unit is gone.');
-                if (target.filled >= target.count) throw new Error('That unit is full. Add a seat first.');
+                if (!target) throw new Error('That team is gone.');
+                if (target.filled >= target.count) throw new Error('That team is full. Add a seat first.');
                 await tx.update(projectOpenRoles).set({ filled: sql`${projectOpenRoles.filled} + 1`, updatedAt: new Date() }).where(eq(projectOpenRoles.id, unitId));
             }
             if (member.unitId) {
@@ -157,7 +157,7 @@ export async function createTeamTasksAction(projectId: string, input: {
             const people = members.filter((x) => x.unitId === u.id).map((x) => x.userId);
             return people.length ? [{ name: u.title || u.role, userIds: people, leadId: u.leadUserId && people.includes(u.leadUserId) ? u.leadUserId : people[0]! }] : [];
         });
-        if (teams.length === 0) return { success: false, error: 'No unit has people in it yet.' };
+        if (teams.length === 0) return { success: false, error: 'No team has people in it yet.' };
     } else {
         const seen = new Set<string>();
         teams = [];

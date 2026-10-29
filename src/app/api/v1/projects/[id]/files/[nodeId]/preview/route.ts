@@ -153,7 +153,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
   const requestedRevision = request.nextUrl.searchParams.get("revision");
   const revisionNumber = requestedRevision == null ? null : Number(requestedRevision);
   if (requestedRevision != null && (!Number.isSafeInteger(revisionNumber) || revisionNumber! < 1)) {
-    return noStore("Invalid revision", 400);
+    return noStore("Invalid version", 400);
   }
   const historical = revisionNumber == null
     ? null

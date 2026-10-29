@@ -757,7 +757,7 @@ export function useConnectionMutations() {
     const rejectRequest = useMutation({
         mutationFn: async ({ id, reason }: { id: string; reason?: string }) => {
             const result = await rejectConnectionRequest(id, reason);
-            if (!result.success) throw new Error(result.error || 'Couldn’t reject request');
+            if (!result.success) throw new Error(result.error || 'Couldn’t decline request');
             return { id, undoUntil: result.undoUntil, serverNow: result.serverNow };
         },
         onMutate: async ({ id }) => {
@@ -806,7 +806,7 @@ export function useConnectionMutations() {
     const undoRejectRequest = useMutation({
         mutationFn: async (id: string) => {
             const result = await undoRejectConnectionRequest(id);
-            if (!result.success) throw new Error(result.error || 'Couldn’t undo reject');
+            if (!result.success) throw new Error(result.error || 'Couldn’t undo decline');
             return { id };
         },
         onSettled: (_data, _err, vars) => invalidateAll(connectionMutationTargetId(vars)),
@@ -924,7 +924,7 @@ export function useConnectionMutations() {
     const rejectAllIncoming = useMutation({
         mutationFn: async (limit: number | undefined) => {
             const result = await rejectAllIncomingConnectionRequests(limit);
-            if (!result.success) throw new Error(result.error || 'Couldn’t reject all requests');
+            if (!result.success) throw new Error(result.error || 'Couldn’t decline all requests');
             return result;
         },
         onMutate: async () => {

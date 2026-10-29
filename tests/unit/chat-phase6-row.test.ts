@@ -27,12 +27,12 @@ test("header and tabs: archive icon, no delete key, ?tab= in the URL, canvas con
   // Menu items take the shared sizing and the destructive variant (round 3 #153).
   assert.match(view, /<DropdownMenuItem variant="destructive" onSelect=\{\(\) => setConfirm\("archive"\)\}>\s*<Archive \/> Archive channel/);
   assert.match(view, /conversationHref\(channelId, id === "messages" \? \{ tab: null \} : \{ tab: id, m: null \}/);
-  assert.match(view, /title=\{confirm === "replace" \? "Replace the canvas\?"/);
+  assert.match(view, /title=\{confirm === "replace" \? "Replace the note\?"/);
   assert.match(view, /key=\{`\$\{channelId\}:\$\{timeline\.epoch\}`\}/);
   const tabs = read("src/components/messages/ChannelTabBar.tsx");
   assert.doesNotMatch(tabs, /"Backspace"|onContextMenu/);
-  assert.match(tabs, /hasCanvas \? "Open canvas" : "New canvas"/);
-  assert.match(read("src/components/messages/ChannelCanvas.tsx"), /Clear the canvas for everyone\?/);
+  assert.match(tabs, /hasCanvas \? "Open note" : "New note"/);
+  assert.match(read("src/components/messages/ChannelCanvas.tsx"), /Clear the note for everyone\?/);
   // #87 then #152: Details and the header share notifyChoices, whose mute choice reads "Mute".
   assert.match(read("src/components/messages/DetailsPane.tsx"), /notifyChoices\(channel\)\.map/);
   assert.match(read("src/lib/messaging/channel-view.ts"), /\{ value: "mute", label: "Mute" \}/);

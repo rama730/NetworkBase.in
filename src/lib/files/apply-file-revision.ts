@@ -87,7 +87,7 @@ export async function applyFileRevision(
       ),
     });
     if (!current || current.deletedAt) throw new Error("File not found");
-    if (current.type !== "file") throw new Error("Only file nodes support revisions");
+    if (current.type !== "file") throw new Error("Only file nodes support versions");
     const operationId = typeof input.eventMetadata?.operationId === "string" ? input.eventMetadata.operationId : null;
     if(operationId) {
       const committed = await tx.query.projectNodeEvents.findFirst({where:and(eq(projectNodeEvents.projectId,input.projectId),eq(projectNodeEvents.actorId,input.actorUserId),sql`${projectNodeEvents.metadata}->>'operationId' = ${operationId}`)});
@@ -183,7 +183,7 @@ export async function applyFileRevision(
           uploadedAt: now,
         })
         .returning();
-      if (!inserted) throw new Error("Couldn’t create file revision");
+      if (!inserted) throw new Error("Couldn’t create file version");
       version = inserted;
     } else if (currentVersion) {
       const [updated] = await tx
@@ -201,7 +201,7 @@ export async function applyFileRevision(
         })
         .where(eq(fileVersions.id, currentVersion.id))
         .returning();
-      if (!updated) throw new Error("Couldn’t update active revision");
+      if (!updated) throw new Error("Couldn’t update active version");
       version = updated;
     } else {
       const [inserted] = await tx
@@ -220,7 +220,7 @@ export async function applyFileRevision(
           uploadedAt: now,
         })
         .returning();
-      if (!inserted) throw new Error("Couldn’t initialize active revision");
+      if (!inserted) throw new Error("Couldn’t initialize active version");
       version = inserted;
     }
 

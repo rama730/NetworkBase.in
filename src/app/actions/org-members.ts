@@ -374,7 +374,7 @@ export async function addMembersToChildAction(orgId: string, childProjectId: str
     if (!child) return { success: false, error: 'That workspace is no longer in this organization.' };
     if (unitId) {
         const [unit] = await db.select({ id: projectOpenRoles.id }).from(projectOpenRoles).where(and(eq(projectOpenRoles.id, unitId), eq(projectOpenRoles.projectId, child.id))).limit(1);
-        if (!unit) return { success: false, error: 'That unit is no longer in the workspace.' };
+        if (!unit) return { success: false, error: 'That team is no longer in the workspace.' };
     }
     const inOrg = await rolesOf(orgId, viewer.ownerId, userIds);
     const people = userIds.filter((id) => inOrg.has(id));

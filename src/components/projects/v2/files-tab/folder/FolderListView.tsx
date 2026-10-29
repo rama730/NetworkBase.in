@@ -886,10 +886,10 @@ export function FolderListView({
                   {canEdit && (
                     <DropdownMenuItem
                       onSelect={() => triggerRevisionFileInput(menuNode)}
-                      aria-label="Upload a file revision"
+                      aria-label="Upload a file version"
                     >
                       <FileUp className="mr-2 size-4" />
-                      Upload revision…
+                      Upload version…
                     </DropdownMenuItem>
                   )}
                   {canEdit && workspace?.canReadTasks && (

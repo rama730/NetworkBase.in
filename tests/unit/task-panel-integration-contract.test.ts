@@ -154,12 +154,12 @@ test("subtasks tab adheres to precision drafting redesign with counts and filter
   assert.doesNotMatch(subtasks, /rounded-full/);
 });
 
-test("details tab supports Story points with Fibonacci presets and clean un-carded drafting layout without progress bars, subtask card, or files section", () => {
+test("details tab supports Estimate with Fibonacci presets and clean un-carded drafting layout without progress bars, subtask card, or files section", () => {
   const details = read(
     "src/components/projects/v2/tasks/TaskDetailTabs/DetailsTab.tsx",
   );
 
-  assert.match(details, /Story points/);
+  assert.match(details, /Estimate/);
   assert.match(details, /\[1, 2, 3, 5, 8, 13\]/);
   assert.match(details, /storyPoints/);
   assert.match(details, /Created by/);

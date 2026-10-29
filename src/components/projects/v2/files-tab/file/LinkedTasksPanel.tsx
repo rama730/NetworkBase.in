@@ -232,8 +232,8 @@ function LinkedTaskRow({
               value={annotationDraft}
               onChange={(e) => setAnnotationDraft(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Add annotation…"
-              aria-label="Edit annotation"
+              placeholder="Add note…"
+              aria-label="Edit note"
               data-testid={`linked-task-annotation-input-${task.taskId}`}
               className={cn(
                 "h-6 flex-1 rounded-[4px] border border-border bg-muted/40 px-1.5 text-xs text-foreground outline-none",
@@ -245,7 +245,7 @@ function LinkedTaskRow({
               type="button"
               onClick={handleSaveAnnotation}
               disabled={isSaving}
-              aria-label="Save annotation"
+              aria-label="Save note"
               data-testid={`linked-task-annotation-save-${task.taskId}`}
               className="rounded-[4px] p-0.5 text-emerald-600 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-950"
             >
@@ -282,7 +282,7 @@ function LinkedTaskRow({
                   setAnnotationDraft(task.annotation ?? "");
                   setIsEditing(true);
                 }}
-                aria-label="Edit annotation"
+                aria-label="Edit note"
                 data-testid={`linked-task-annotation-edit-${task.taskId}`}
                 className="min-h-10 min-w-10 rounded-[4px] p-0.5 text-muted-foreground hover:bg-muted"
               >
@@ -301,7 +301,7 @@ function LinkedTaskRow({
             data-testid={`linked-task-annotation-add-${task.taskId}`}
             className="text-xs text-muted-foreground hover:text-foreground transition-colors"
           >
-            + Add annotation
+            + Add note
           </button>
         ) : null}
       </div>

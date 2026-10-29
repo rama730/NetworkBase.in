@@ -81,7 +81,7 @@ test("Remind once per 12 hours; a step after publish reaches every copy; a due m
   assert.ok((await titles(o.b)).some((t) => t.startsWith("Lab 2: due date moved to")));
 });
 
-test("teams after publish: move a person, add a late joiner, lock once handed in, excuse one; Copy teams from; the review queue", async () => {
+test("teams after publish: move a person, add a late joiner, lock once submitted, excuse one; Copy teams from; the review queue", async () => {
   const o = await org();
   const m = await publish(o, { target: { mode: "teams", teams: [{ name: "Team A", userIds: [o.a, o.b], leadId: o.a }, { name: "Team B", userIds: [o.c], leadId: o.c }], individuals: [] } });
   const teamA = (await copyOf(m, o.a))!;
@@ -98,7 +98,7 @@ test("teams after publish: move a person, add a late joiner, lock once handed in
   assert.ok((await assignments.submitAssignmentAction(teamB, { link: "https://example.com/team-b" })).success);
   viewerId = o.owner;
   const locked = await assignments.moveTeamMemberAction(m, o.b, teamA);
-  assert.equal(locked.success, false, "Team B handed in, so it is locked");
+  assert.equal(locked.success, false, "Team B submitted, so it is locked");
 
   assert.ok((await assignments.excuseTeamMemberAction(teamA, o.d, "Medical leave")).success);
   const [excused] = await sql`SELECT excused_reason FROM tasks WHERE assignment_id = ${m} AND assignee_id = ${o.d} AND team_name IS NULL AND deleted_at IS NULL`;

@@ -282,7 +282,7 @@ test("Task Files Design Specification Conformance Contract", async (t) => {
     );
     assert.match(
       taskFilesCollection,
-      /<DropdownMenuRadioItem value="deliverable">Deliverables<\/DropdownMenuRadioItem>/,
+      /<DropdownMenuRadioItem value="deliverable">Final files<\/DropdownMenuRadioItem>/,
       "TaskFilesCollection must include Deliverables in in-task File purpose dropdown",
     );
     assert.match(

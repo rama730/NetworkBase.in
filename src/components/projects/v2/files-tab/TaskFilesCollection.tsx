@@ -485,15 +485,15 @@ export function TaskFilesCollection({ projectId }: { projectId: string }) {
   const taskMenuItems = taskId ? <>
     <DropdownMenuSub><DropdownMenuSubTrigger><Filter className="size-4" />File purpose</DropdownMenuSubTrigger><DropdownMenuSubContent><DropdownMenuRadioGroup aria-label="File purpose" value={role} onValueChange={value => setRole(value as "all" | "deliverable" | "reference" | "working")}>
       <DropdownMenuRadioItem value="all">All files</DropdownMenuRadioItem>
-      <DropdownMenuRadioItem value="deliverable">Deliverables</DropdownMenuRadioItem>
-      <DropdownMenuRadioItem value="working">Working files</DropdownMenuRadioItem>
+      <DropdownMenuRadioItem value="deliverable">Final files</DropdownMenuRadioItem>
+      <DropdownMenuRadioItem value="working">Draft files</DropdownMenuRadioItem>
       <DropdownMenuRadioItem value="reference">References</DropdownMenuRadioItem>
     </DropdownMenuRadioGroup></DropdownMenuSubContent></DropdownMenuSub>
     <DropdownMenuItem asChild><a href={`?tab=tasks&drawerType=task&drawerId=${taskId}&panelTab=files`} onClick={event => { event.currentTarget.href = taskFilesHref(window.location.search, taskId!); }}><ArrowRight className="size-4" />Open task files…</a></DropdownMenuItem>
   </> : null;
   return (
     <div
-      aria-label={view === "deliverables" ? "Deliverables" : "Task files"}
+      aria-label={view === "deliverables" ? "Final files" : "Task files"}
       className={cn(
         styles.container,
         "flex h-full min-h-0 min-w-0 flex-col overflow-hidden bg-card dark:bg-background relative",
@@ -540,10 +540,10 @@ export function TaskFilesCollection({ projectId }: { projectId: string }) {
                   visibleEntries.map((entry) => [
                     entry.node.id,
                     entry.role === "deliverable" || view === "deliverables"
-                      ? `Deliverable · ${deliverableReviewLabel(entry, selected.reviewStatus)}`
+                      ? `Final file · ${deliverableReviewLabel(entry, selected.reviewStatus)}`
                       : entry.role === "reference"
                         ? "Reference"
-                        : "Working file",
+                        : "Draft file",
                   ]),
                 ),
                 taskLabels,
@@ -615,7 +615,7 @@ export function TaskFilesCollection({ projectId }: { projectId: string }) {
 
           <div
             role="table"
-            aria-label={view === "deliverables" ? "Deliverables listing" : "Task files listing"}
+            aria-label={view === "deliverables" ? "Final files listing" : "Task files listing"}
             className="flex min-h-0 flex-1 flex-col"
           >
             {/* Status Filter Segmented Control Bar with Live Counts & Search */}
@@ -750,8 +750,8 @@ export function TaskFilesCollection({ projectId }: { projectId: string }) {
                             : "0 files";
                     const sizeTooltip =
                       view === "deliverables"
-                        ? `${group.deliverables} deliverables`
-                        : `${group.deliverables} deliverables, ${group.working} working, ${group.references} references (${count} total)`;
+                        ? `${group.deliverables} final files`
+                        : `${group.deliverables} final files, ${group.working} working, ${group.references} references (${count} total)`;
                   const updatedText = group.updatedAt
                     ? formatRelativeTime(group.updatedAt)
                     : "—";

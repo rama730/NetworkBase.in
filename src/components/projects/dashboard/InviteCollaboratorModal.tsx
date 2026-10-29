@@ -117,7 +117,7 @@ function remainingRoles(role: ParticipationRole) {
 }
 
 function displayName(candidate: Candidate) {
-    return candidate.fullName || candidate.username || "Builder";
+    return candidate.fullName || candidate.username || "Person";
 }
 
 function queryBucket(query: string) {

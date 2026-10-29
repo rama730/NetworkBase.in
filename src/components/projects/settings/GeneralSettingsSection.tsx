@@ -801,7 +801,7 @@ export function GeneralSettingsSection({
                         customValue={customCategory}
                         onChoiceChange={setCategoryChoice}
                         onCustomChange={setCustomCategory}
-                        description="Primary category to help builders discover your workspace."
+                        description="Primary category to help people discover your workspace."
                     />
                 </div>
             </fieldset>

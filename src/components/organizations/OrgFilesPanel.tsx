@@ -237,7 +237,7 @@ function GroupDeliverables({ orgId }: { orgId: string }) {
     if (!rows.length) return null
     return (
         <details className="mb-4 rounded-lg border border-border bg-card p-3" data-testid="org-group-deliverables">
-            <summary className="cursor-pointer text-sm font-medium">Deliverables from workspaces · {rows.length}</summary>
+            <summary className="cursor-pointer text-sm font-medium">Final files from workspaces · {rows.length}</summary>
             <ul className="divide-y divide-border pt-2 text-sm">
                 {rows.map((r) => (
                     <li key={r.nodeId} className="flex flex-wrap items-center gap-x-2 py-1.5">

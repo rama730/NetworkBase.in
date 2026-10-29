@@ -227,7 +227,7 @@ export function OrgProjectsTab({ orgId, orgSlug }: { orgId: string; orgSlug?: st
                                 <Link href={`/projects/${encodeURIComponent(r.slug ?? r.id)}`} className="font-medium hover:underline">{r.title}</Link>
                                 <span className="rounded-[3px] border border-border px-1 text-[11px] text-muted-foreground">{r.visibility === 'org' ? 'Organization' : r.visibility === 'private' ? 'Private' : 'Public'}</span>
                                 {r.newInOrg ? <span className="nb-status" data-status="active">New in this org</span> : null}
-                                <span className="text-muted-foreground">{r.lead?.name} (lead) · {r.members} {r.members === 1 ? 'member' : 'members'}{r.units ? ` · ${r.units} units` : ''}</span>
+                                <span className="text-muted-foreground">{r.lead?.name} (lead) · {r.members} {r.members === 1 ? 'member' : 'members'}{r.units ? ` · ${r.units} teams` : ''}</span>
                                 {r.sprint ? <span className="text-muted-foreground">· {r.sprint.name}{r.sprint.inOrgSprint ? ' · in the org sprint' : ''}</span> : null}
                                 {r.stage ? <span className="text-muted-foreground">· {r.stage}</span> : null}
                                 {messageLead(r)}
@@ -284,7 +284,7 @@ export function ChildUnitsLine({ projectId, members }: { projectId: string; memb
     if (!units?.length) return null
     const nameOf = (id: string) => { const m = members.find((x) => x.id === id); return m ? m.fullName || m.username || 'Member' : null }
     return (
-        <section aria-label="Team by unit" className="mb-4 space-y-1 text-sm">
+        <section aria-label="Members by team" className="mb-4 space-y-1 text-sm">
             {units.map((unit) => {
                 const names = unit.memberIds.map((id) => ({ id, name: nameOf(id) })).filter((p): p is { id: string; name: string } => Boolean(p.name))
                 const open = Math.max(0, unit.count - unit.filled)

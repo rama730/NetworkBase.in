@@ -89,7 +89,7 @@ export function useCanvasEditor(options: { content: string; editable?: boolean; 
       if (transaction.getMeta("canvas-remote")) return;
       onChange.current?.(canvasMarkdown(editor));
     },
-    editorProps: { attributes: { class: "nb-canvas outline-none", "aria-label": "Canvas" } },
+    editorProps: { attributes: { class: "nb-canvas outline-none", "aria-label": "Channel notes" } },
   });
 }
 
@@ -345,7 +345,7 @@ export function printCanvas(title: string, html: string) {
   const doc = frame.contentDocument;
   const win = frame.contentWindow;
   if (!doc || !win) return frame.remove();
-  doc.title = title || "Canvas";
+  doc.title = title || "Channel notes";
   const style = doc.createElement("style");
   style.textContent = PRINT_CSS;
   doc.head.appendChild(style);

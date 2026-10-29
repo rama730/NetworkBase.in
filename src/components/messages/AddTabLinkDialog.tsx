@@ -44,10 +44,10 @@ export function AddTabLinkDialog({ open, onOpenChange, onAddTab }: Props) {
             <div className="grid size-8 place-items-center rounded-md bg-muted text-muted-foreground">
               <Link2 size={16} />
             </div>
-            <DialogTitle>Add a bookmark</DialogTitle>
+            <DialogTitle>Add a link</DialogTitle>
           </div>
           <DialogDescription>
-            Keep a doc, dashboard, design or repo one click away. Everyone in the channel sees the bookmark.
+            Keep a doc, dashboard, design or repo one click away. Everyone in the channel sees the link.
           </DialogDescription>
         </DialogHeader>
 
@@ -77,7 +77,7 @@ export function AddTabLinkDialog({ open, onOpenChange, onAddTab }: Props) {
 
           <div className="space-y-1.5">
             <label htmlFor="tab-title-input" className="text-[13px] font-medium text-foreground">
-              Bookmark name <span className="font-normal text-muted-foreground">(optional)</span>
+              Link name <span className="font-normal text-muted-foreground">(optional)</span>
             </label>
             <Input
               id="tab-title-input"
@@ -96,7 +96,7 @@ export function AddTabLinkDialog({ open, onOpenChange, onAddTab }: Props) {
 
           <DialogFooter paper>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-            <Button type="submit">Add bookmark</Button>
+            <Button type="submit">Add link</Button>
           </DialogFooter>
         </form>
       </DialogContent>
