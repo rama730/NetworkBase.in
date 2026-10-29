@@ -487,7 +487,7 @@ export function OrgChatSection({ orgId, organization }: { orgId: string; organiz
     const [generalNotify, setGeneralNotify] = useState(defaults.generalNotify)
     const { pending, save, status } = useSave()
     return (
-        <SettingsCard title="Messages" headingLevel={2} description="How the organization’s chat works for everyone in it.">
+        <SettingsCard title="Messages" headingLevel={2} description="How the organization’s messages work for everyone in it.">
             <div className="space-y-5">
                 <div className="flex items-start justify-between gap-4">
                     <div>

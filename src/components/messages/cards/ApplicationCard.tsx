@@ -211,7 +211,7 @@ export function ApplicationStatusBar({ applicationId }: { applicationId: string 
       <ApplicationActions view={view} layout="bar" />
       {view.status === "accepted" ? (
         <span className="flex flex-wrap gap-x-3 text-[13px]">
-          {view.project_chat_id ? <Link href={conversationHref(view.project_chat_id)} className="font-medium text-primary hover:underline">Workspace chat</Link> : null}
+          {view.project_chat_id ? <Link href={conversationHref(view.project_chat_id)} className="font-medium text-primary hover:underline">Open general channel</Link> : null}
           <Link href={`/projects/${view.project_slug ?? view.project_id}${view.is_applicant ? "?source=application_accepted" : ""}`} className="font-medium text-primary hover:underline">Open workspace</Link>
         </span>
       ) : null}

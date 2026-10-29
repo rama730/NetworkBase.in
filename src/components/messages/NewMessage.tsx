@@ -184,7 +184,7 @@ export function NewMessage({ onOpen }: { onOpen?: (channelId: string) => void })
             />
           ) : null}
         </div>
-        {full ? <p className="mt-1 text-[13px] text-muted-foreground">A group chat holds up to {CHAT_MAX_GROUP_OTHERS + 1} people, you included. Remove someone to add another.</p> : null}
+        {full ? <p className="mt-1 text-[13px] text-muted-foreground">A group message holds up to {CHAT_MAX_GROUP_OTHERS + 1} people, you included. Remove someone to add another.</p> : null}
         {candidates.length && !full ? (
           <div className="mt-2">
             <p className="nb-micro px-2 py-1">

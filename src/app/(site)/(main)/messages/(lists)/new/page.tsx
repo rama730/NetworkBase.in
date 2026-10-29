@@ -2,7 +2,7 @@ import { NewMessage } from "@/components/messages/NewMessage";
 import { buildRouteMetadata } from "@/lib/metadata/route-metadata";
 
 export function generateMetadata() {
-  return buildRouteMetadata({ title: "New message | NetworkBase", description: "Start a conversation or a group chat.", path: "/messages/new" });
+  return buildRouteMetadata({ title: "New message | NetworkBase", description: "Start a direct message or a group message.", path: "/messages/new" });
 }
 
 export default function MessagesNewPage() {
