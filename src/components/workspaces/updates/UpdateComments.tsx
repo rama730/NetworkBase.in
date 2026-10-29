@@ -17,7 +17,8 @@ import {
     Trash2,
     X,
 } from "lucide-react";
-import { ReportButton } from "@/components/reports/ReportDialog";
+import { ItemMenu } from "@/components/reports/ItemMenu";
+import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { toast, feedbackError } from "@/lib/feedback";
 import { createWorkspaceUpdateCommentAction, deleteWorkspaceUpdateCommentAction, readWorkspaceUpdateCommentsAction, type WorkspaceUpdateCommentView, type WorkspaceUpdateView } from "@/app/actions/workspace/updates";
 import { UserAvatar } from "@/components/ui/UserAvatar";
@@ -214,18 +215,11 @@ function CommentRow({
                           </div>
                         )}
                       </div>
-                      {c.canDelete ? (
-                        <button
-                          type="button"
-                          onClick={() => onDelete(c.id)}
-                          className="nb-touch-target ml-2 flex size-7 shrink-0 items-center justify-center rounded-[4px] text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
-                          aria-label="Delete comment"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
-                      ) : currentUserId ? (
-                        <ReportButton kind="update_comment" targetId={c.id} noun="comment" className="nb-touch-target ml-2 flex size-7 shrink-0 items-center justify-center rounded-[4px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"><Flag className="h-3.5 w-3.5" aria-label="Report comment" /></ReportButton>
-                      ) : null}
+                      {/* One "⋯" menu per comment (C15): Delete for its author or the workspace's leaders, Report for everyone else. */}
+                      <ItemMenu label="Comment actions" className="ml-2" isOwn={c.userId === currentUserId}
+                        report={{ kind: "update_comment", targetId: c.id, noun: "comment" }}>
+                        {c.canDelete ? <DropdownMenuItem variant="destructive" onSelect={() => onDelete(c.id)}><Trash2 className="size-4" aria-hidden="true" />Delete comment</DropdownMenuItem> : null}
+                      </ItemMenu>
                     </div>
                     <p className="mt-1 whitespace-pre-wrap break-words text-[13px] leading-[1.5] text-foreground/90">
                       {renderCommentContent(c.content)}
@@ -794,18 +788,10 @@ export function UpdateComments({
                       </div>
                     )}
                   </div>
-                  {c.canDelete ? (
-                    <button
-                      type="button"
-                      onClick={() => deleteCommentMutation.mutate(c.id)}
-                      className="nb-touch-target ml-2 flex size-7 shrink-0 items-center justify-center rounded-[4px] text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
-                      aria-label="Delete comment"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
-                  ) : currentUserId ? (
-                    <ReportButton kind="update_comment" targetId={c.id} noun="comment" className="nb-touch-target ml-2 flex size-7 shrink-0 items-center justify-center rounded-[4px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"><Flag className="h-3.5 w-3.5" aria-label="Report comment" /></ReportButton>
-                  ) : null}
+                  <ItemMenu label="Comment actions" className="ml-2" isOwn={c.userId === currentUserId}
+                    report={{ kind: "update_comment", targetId: c.id, noun: "comment" }}>
+                    {c.canDelete ? <DropdownMenuItem variant="destructive" onSelect={() => deleteCommentMutation.mutate(c.id)}><Trash2 className="size-4" aria-hidden="true" />Delete comment</DropdownMenuItem> : null}
+                  </ItemMenu>
                 </div>
                 <p className="mt-1 whitespace-pre-wrap break-words text-[13px] leading-5 text-foreground/90">
                   {renderCommentContent(c.content)}

@@ -617,6 +617,7 @@ export default function InvitationsClient({
                                             name={displayName}
                                             description="would like to connect with you"
                                             note={invitation.message}
+                                            report={{ kind: "connection_request", targetId: invitation.id, noun: "connection request", personName: displayName }}
                                             onAccept={() =>
                                                 acceptConnection(
                                                     invitation.id,
@@ -673,6 +674,7 @@ export default function InvitationsClient({
                                         <PersonCardReview
                                             name={displayName}
                                             description={`Invitation to ${invitation.projectTitle} · ${invitation.roleTitle}`}
+                                            report={{ kind: "invitation", targetId: invitation.id, noun: "invitation", personName: displayName }}
                                             onAccept={() =>
                                                 resolveProjectInvitation(
                                                     invitation.id,

@@ -393,19 +393,6 @@ export async function listPins(input: { channelId: string }) {
   }
 }
 
-export async function reportMessage(input: { channelId: string; seq: number; reason: string }) {
-  const user = await requireChatUser();
-  if (!user) return unauthorized;
-  if (!isUuid(input?.channelId) || !isMessageSeq(input.seq) || typeof input.reason !== "string") return invalidInput;
-  if (!(await rateLimit(`chat:report:${user.id}`, 10, 3600))) return { success: false as const, error: "chat_rate_limited" };
-  try {
-    await chatRows(sql`SELECT app_private.chat_report(${input.channelId}::uuid, ${input.seq}::bigint, ${user.id}::uuid, ${input.reason.slice(0, 1000)})`);
-    return { success: true as const };
-  } catch (error) {
-    return chatFailure(error, "report");
-  }
-}
-
 /** "Created from message" on a task: the chat messages whose task card points at it (viewer must be a member). */
 export async function listTaskSourceMessages(input: { taskId: string }) {
   const user = await requireChatUser();

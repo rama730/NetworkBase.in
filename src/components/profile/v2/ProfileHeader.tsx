@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { UserAvatar } from '@/components/ui/UserAvatar'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import { ItemMenu } from '@/components/reports/ItemMenu'
 import { Ban, ChevronDown, Lock, MapPin, Link2, Pencil, MessageSquare, Share2, Smile, UserPlus, UserCheck, UserMinus, Clock, Users, Loader2 } from 'lucide-react'
 import { buildPrivacyPresentation } from '@/lib/privacy/presentation'
 import type { ConnectionState, ProfilePrivacyRelationship, ProfileStats } from './types'
@@ -400,6 +401,11 @@ export function ProfileHeader({
                                     <Ban className="mr-1 w-3.5 h-3.5" />
                                     {privacyPresentation.blockedBannerText || 'You cannot interact with this account'}
                                 </span>
+                            ) : null}
+                            {/* Report a person (C15): its own "⋯", also while blocked, never on your own profile. */}
+                            {profile?.id && isAuthenticated ? (
+                                <ItemMenu label={`More actions for ${name}`} className="size-[var(--ui-control-height)] rounded-[5px] border border-border"
+                                    report={{ kind: 'person', targetId: profile.id, noun: 'person', personName: name }} />
                             ) : null}
                         </div>
                         </>

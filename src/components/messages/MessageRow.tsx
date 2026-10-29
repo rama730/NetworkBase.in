@@ -10,14 +10,14 @@ import {
 } from "lucide-react";
 import { toast, feedbackError, deferredFeedback } from "@/lib/feedback";
 
-import { createTaskFromMessage, deleteMessage, editMessage, hideLinkPreview, listReactors, markUnread, pinMessage, react, reportMessage } from "@/app/actions/chat/messages";
+import { createTaskFromMessage, deleteMessage, editMessage, hideLinkPreview, listReactors, markUnread, pinMessage, react } from "@/app/actions/chat/messages";
 import { useConversationContext } from "@/components/messages/conversation-context";
 import { MessageBody, firstLink } from "@/components/messages/MessageBody";
 import { MessageCard } from "@/components/messages/cards/MessageCard";
 import { MessageAttachmentsV2, type ChatAttachmentV2 } from "@/components/messages/parts/message-attachments";
 import { MessageLinkPreview } from "@/components/messages/parts/MessageLinkPreview";
 import { ReactionQuickBar } from "@/components/messages/parts/ReactionQuickBar";
-import { ReportMessageDialog } from "@/components/messages/parts/ReportMessageDialog";
+import { ReportDialog } from "@/components/reports/ReportDialog";
 import { useUpdatePages } from "@/components/messages/useConversation";
 import { noteReaction, useQuickReactions } from "@/components/messages/useQuickReactions";
 import { discardSend, editFailedSend, failedSend, retrySend } from "@/components/messages/failed-sends";
@@ -724,11 +724,11 @@ export const MessageRow = memo(function MessageRow({ message, grouped, highlight
         onPick={(at) => ctx.setSaved?.(message.seq, true, at.toISOString())}
         onClose={() => setCustomRemind(null)}
       />
-      <ReportMessageDialog
-        isOpen={reportOpen}
-        onClose={() => setReportOpen(false)}
-        onSubmit={(reason, details) => reportMessage({ channelId: ctx.channelId, seq: message.seq, reason: details ? `${reason}: ${details}` : reason })}
-      />
+      {reportOpen ? (
+        // The app-wide report flow (docs/trust-and-safety-concept.md): a case staff see, with the 5 messages before it.
+        <ReportDialog kind="chat_message" targetId={ctx.channelId} seq={message.seq} noun="message"
+          personName={message.author?.full_name || message.author?.username || null} open={reportOpen} onOpenChange={setReportOpen} />
+      ) : null}
     </div>
   );
 });

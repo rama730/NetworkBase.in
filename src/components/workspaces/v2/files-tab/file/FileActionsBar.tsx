@@ -28,6 +28,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { ReportMenuItem, useReportDialog } from "@/components/reports/ReportDialog";
 import { isTextLike as isTextFile } from "../../utils/fileKind";
 import { cn } from "@/lib/utils";
 import { logger } from "@/lib/logger";
@@ -100,6 +101,8 @@ export function FileActionsBar({
   // Default to read-only when no provider is mounted so the Edit control
   // stays hidden rather than defaulting to a mutation-capable state.
   const canEdit = roleCtx?.canEdit ?? false;
+  // Report a file from its menu (C15); people who can rename or trash it fix it instead.
+  const reportFile = useReportDialog({ kind: "file", targetId: nodeId ?? "", noun: "file" });
   const node = useFilesStore(state => projectId && nodeId ? state.byProjectId[projectId]?.nodesById[nodeId] : undefined);
   const canOrganize = organizationActions && canEdit && node && !isInternalTaskWorkingFilesNode(node) && !node.deletedAt && mode !== "edit";
   const starred = useFilesStore(state => !!(projectId && nodeId && state.byProjectId[projectId]?.favorites[nodeId]));
@@ -446,8 +449,10 @@ export function FileActionsBar({
             {roleCtx?.canManageFiles && organizationActions?.move && <DropdownMenuItem onSelect={organizationActions.move}><FolderInput className="size-4" />Move…</DropdownMenuItem>}
             <DropdownMenuItem className="text-red-600" onSelect={organizationActions?.trash}><Trash2 className="size-4" />Move to Trash</DropdownMenuItem>
           </>}
+          {nodeId && !canOrganize ? <ReportMenuItem noun="file" onReport={reportFile.open} /> : null}
         </DropdownMenuContent>
       </DropdownMenu>
+      {reportFile.dialog}
 
       {/* Lock conflict indicator (Req 5.2, 11.5) */}
       {lockConflict && (

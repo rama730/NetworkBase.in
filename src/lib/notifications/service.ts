@@ -139,6 +139,8 @@ export function resolveNotificationDeliveryPolicy(params: {
     const { recipientUserId, actorUserId, kind, category, entityRefs, preferenceMap } = params;
     const now = params.now ?? new Date();
     if (actorUserId && actorUserId === recipientUserId) return { allowed: false, reason: "actor_self" };
+    // Safety notices (reports, decisions, restrictions, appeals) skip categories, mutes, pauses and quiet hours.
+    if (kind === "trust_safety") return { allowed: true, delayUntil: null, delayReason: null };
     const preferences = preferenceMap.get(recipientUserId) ?? DEFAULT_NOTIFICATION_PREFERENCES;
     // Reminders the user set themselves ("Remind me about this") come through whatever category is off.
     if (kind !== "chat_reminder" && !preferences[category]) return { allowed: false, reason: "category_off" };

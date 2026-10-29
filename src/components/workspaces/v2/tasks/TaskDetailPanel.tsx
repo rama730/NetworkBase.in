@@ -71,6 +71,7 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { ReportMenuItem, useReportDialog } from "@/components/reports/ReportDialog";
 
 interface TaskDetailPanelProps {
   task: TaskSurfaceRecord | any;
@@ -148,6 +149,8 @@ export default function TaskDetailPanel({
     members,
     onTaskUpdated,
   });
+  // Report a task from its "⋯" (C15); the server refuses your own task with a plain message.
+  const reportTask = useReportDialog({ kind: "task", targetId: resource.task.id, noun: "task" });
 
   const canEditTask = canEdit && !resource.isDeleted;
 
@@ -451,8 +454,10 @@ export default function TaskDetailPanel({
                         </DropdownMenuItem>
                       </>
                     ) : null}
+                    <ReportMenuItem noun="task" onReport={reportTask.open} />
                   </DropdownMenuContent>
                 </DropdownMenu>
+                {reportTask.dialog}
               </div>
             </div>
 

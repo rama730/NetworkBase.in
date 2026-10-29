@@ -2,15 +2,19 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, Flag } from 'lucide-react';
+import { useReportDialog, type ReportTarget } from '@/components/reports/ReportDialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 
 /** Review keeps two decision buttons out of a narrow person-card header/footer. */
-export function PersonCardReview({ name, description, note, onAccept, onDecline }: {
+export function PersonCardReview({ name, description, note, onAccept, onDecline, report }: {
     name: string; description: string; note?: string | null;
     onAccept: () => Promise<unknown>; onDecline: () => Promise<unknown>;
+    /** Report this request or invitation (C15); it opens over the review. */
+    report?: ReportTarget;
 }) {
+    const reporting = useReportDialog(report ?? { kind: 'person', targetId: '', noun: '' });
     const [open, setOpen] = useState(false);
     const [busy, setBusy] = useState<'accept' | 'decline' | null>(null);
     const [error, setError] = useState<string | null>(null);
@@ -35,6 +39,8 @@ export function PersonCardReview({ name, description, note, onAccept, onDecline 
                 <button className="nb-person-connect" disabled={Boolean(busy)} onClick={() => void decide('accept')}>{busy === 'accept' ? 'Accepting…' : 'Accept'}</button>
                 <button className="nb-person-control" disabled={Boolean(busy)} onClick={() => void decide('decline')}>{busy === 'decline' ? 'Declining…' : 'Decline'}</button>
             </div>
+            {report ? <button type="button" className="nb-compact inline-flex items-center gap-1.5 self-start text-muted-foreground underline-offset-4 hover:text-foreground hover:underline" onClick={reporting.open}><Flag className="size-3.5" aria-hidden="true" />Report this {report.noun}</button> : null}
+            {reporting.dialog}
         </DialogContent>
     </Dialog>;
 }

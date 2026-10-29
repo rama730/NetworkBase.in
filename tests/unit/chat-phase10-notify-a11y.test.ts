@@ -119,7 +119,8 @@ test("#171 theme token and report dialog", () => {
   const css = read("src/app/globals.css");
   assert.doesNotMatch(css, /--chat-accent/);
   assert.match(css, /\.nb-nav-count, \.nb-chat-count \{/);
-  const report = read("src/components/messages/parts/ReportMessageDialog.tsx");
+  // Messages use the app-wide report dialog (docs/trust-and-safety-concept.md).
+  const report = read("src/components/reports/ReportDialog.tsx");
   assert.match(report, /<DialogContent/);
   assert.doesNotMatch(report, /text-red-500|bg-red-500/);
 });

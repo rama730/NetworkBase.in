@@ -18,6 +18,7 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { ReportMenuItem, useReportDialog } from "@/components/reports/ReportDialog";
 import { messageUserInWindow } from "@/components/messages/message-user";
 import { CONNECTION_COPY } from "@/lib/connections/copy";
 
@@ -104,6 +105,8 @@ function PersonCard({
     const [blocking, setBlocking] = useState(false);
     const status = localStatus ?? profile.connectionStatus;
     const displayName = personCardName(profile);
+    // Report a person from their card (C15): the last item of the card's menu.
+    const reporting = useReportDialog({ kind: "person", targetId: profile.id, noun: "person", personName: displayName });
     useEffect(() => {
         setLocalStatus(null);
     }, [profile.connectionStatus]);
@@ -228,6 +231,7 @@ function PersonCard({
                     <Ban className="size-4" />
                     Block
                 </DropdownMenuItem>
+                <ReportMenuItem noun="person" onReport={reporting.open} />
             </DropdownMenuContent>
         </DropdownMenu>
     ) : status === "pending_received" ? (
@@ -265,13 +269,14 @@ function PersonCard({
                         View profile
                     </Link>
                 </DropdownMenuItem>
+                <ReportMenuItem noun="person" onReport={reporting.open} />
             </DropdownMenuContent>
         </DropdownMenu>
     ) : status === "blocked" ? (
         <span className="nb-meta">{CONNECTION_COPY.blocked}</span>
     ) : null;
 
-    return <PersonCardContent person={profile} variant={variant} action={<div ref={actionSlot} className="contents">{action}</div>} viewerSkills={viewerSkills} priority={priority} className={className} connected={status === "connected"} />;
+    return <>{reporting.dialog}<PersonCardContent person={profile} variant={variant} action={<div ref={actionSlot} className="contents">{action}</div>} viewerSkills={viewerSkills} priority={priority} className={className} connected={status === "connected"} /></>;
 }
 
 export default memo(PersonCard);

@@ -41,6 +41,7 @@ const KIND_REASON: Record<NotificationKind, NotificationReason> = {
     org_assignment: "assigned",
     org_announcement: "update",
     org_credit: "update",
+    trust_safety: "safety",
 };
 
 export const REASON_LABELS: Record<NotificationReason, string> = {
@@ -54,6 +55,7 @@ export const REASON_LABELS: Record<NotificationReason, string> = {
     workflow: "In review",
     file: "File",
     update: "Update",
+    safety: "Safety",
 };
 
 export function getNotificationReason(kind: NotificationKind, refs?: NotificationEntityRefs | null): NotificationReason {
@@ -103,6 +105,7 @@ const AGGREGATE_NOUNS: Record<NotificationKind, { singular: string; plural: stri
     org_assignment: { singular: "assignment update", plural: "assignment updates" },
     org_announcement: { singular: "announcement", plural: "announcements" },
     org_credit: { singular: "profile credit update", plural: "profile credit updates" },
+    trust_safety: { singular: "safety notice", plural: "safety notices" },
 };
 
 export function getAggregateLabel(kind: NotificationKind, count: number): string | null {

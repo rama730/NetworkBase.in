@@ -30,7 +30,9 @@ export type NotificationKind =
     | "org_membership"
     | "org_assignment"
     | "org_announcement"
-    | "org_credit";
+    | "org_credit"
+    /** Reports, decisions, restrictions and appeals (docs/trust-and-safety-concept.md). Always delivered. */
+    | "trust_safety";
 
 export type NotificationImportance = "important" | "more";
 
@@ -44,7 +46,8 @@ export type NotificationReason =
     | "done"
     | "workflow"
     | "file"
-    | "update";
+    | "update"
+    | "safety";
 
 export type NotificationPreferenceCategory =
     | "mentions"

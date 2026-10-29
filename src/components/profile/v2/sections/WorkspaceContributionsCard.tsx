@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import { ItemMenu } from "@/components/reports/ItemMenu";
 import { EyeOff, FolderGit2, Pencil, Plus } from "lucide-react";
 import { Card } from "./Card";
 import type { ProfileCollaborationContribution } from "@/lib/profile/collaboration";
@@ -119,6 +120,8 @@ export function WorkspaceContributionsCard({
                   </p>
                 )}
                 <OrgEntryLine c={c} isOwner={isOwner} />
+                {/* Report a contribution story (C15); not on your own profile. */}
+                {!isOwner ? <div className="flex justify-end pt-3"><ItemMenu label="Contribution actions" report={{ kind: "contribution", targetId: c.id, noun: "contribution story" }} /></div> : null}
                 <ContributionStoryView
                   contribution={{ ...c, draftStory: null }}
                   onProjectIntent={onProjectIntent}
