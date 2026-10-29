@@ -152,7 +152,7 @@ export function useExplorerBoot(options: {
           if (mode === "refresh") {
             setAccessError(getErrorMessage(e, "Failed to load files"));
           } else {
-            showToast("Failed to load more files", "error");
+            showToast("Couldn’t load more files", "error");
           }
           throw e;
         } finally {

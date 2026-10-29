@@ -124,7 +124,7 @@ export async function updateProjectWorkflowColumnsAction(projectId: string, work
         revalidatePath(`/projects/${projectId}`);
         return { success: true as const };
     } catch (error) {
-        return { success: false as const, error: error instanceof Error ? error.message : "Failed to save workflow" };
+        return { success: false as const, error: error instanceof Error ? error.message : "Couldn’t save workflow" };
     }
 }
 
@@ -175,6 +175,6 @@ export async function deleteProjectWorkflowColumnAction(projectId: string, colum
         if (refusal) return { success: false as const, error: refusal };
         return { success: true as const };
     } catch (error) {
-        return { success: false as const, error: error instanceof Error ? error.message : "Failed to delete section" };
+        return { success: false as const, error: error instanceof Error ? error.message : "Couldn’t delete section" };
     }
 }

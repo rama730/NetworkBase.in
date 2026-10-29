@@ -195,7 +195,7 @@ test("GIF avatar optimizations: 2MB preflight guard, adaptive draft UI, revocabl
     const globalsCss = readFileSync(resolve(ROOT, "src/app/globals.css"), "utf-8");
 
     // 1. Instant 2MB preflight check on file selection before memory allocation
-    assert.match(settingsSource, /if\s*\(file\.size > PROJECT_IMAGE_UPLOAD_MAX_BYTES\)\s*\{\s*toast\.error/);
+    assert.match(settingsSource, /if\s*\(file\.size > PROJECT_IMAGE_UPLOAD_MAX_BYTES\)\s*\{\s*toast\.warning/);
 
     // 2. Adaptive draft UI for GIFs (disables drag/zoom sliders, indicates 1:1 direct preservation)
     assert.match(settingsSource, /const isDraftGif = coverDraft\.file\.type === "image\/gif"/);

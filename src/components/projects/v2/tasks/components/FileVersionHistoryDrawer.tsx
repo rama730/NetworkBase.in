@@ -111,7 +111,7 @@ export function FileVersionHistoryDrawer({
         nextCursor: page.nextCursor,
       });
     } catch (error) {
-      toast.error(feedbackError(error instanceof Error ? error.message : "Failed to load older versions", "Failed to load older versions"));
+      toast.error(feedbackError(error instanceof Error ? error.message : "Couldn’t load older versions", "Couldn’t load older versions"));
     } finally {
       setPendingAction(null);
     }

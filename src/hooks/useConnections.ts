@@ -40,7 +40,7 @@ export function getConnectionRequestSuccessMessage(status?: string) {
     if (status === 'pending_sent') return 'Connection request already pending';
     if (status === 'pending_received') return 'They already sent you a request';
     if (status === 'connected') return 'Already connected';
-    return 'Connection request sent';
+    return 'Request sent';
 }
 
 export type NetworkConnectionItem = {
@@ -570,7 +570,7 @@ export function useConnectionMutations() {
     const sendRequest = useMutation({
         mutationFn: async (variables: { userId: string; message?: string }) => {
             const result = await sendConnectionRequest(variables.userId, requestKeyFor(variables), variables.message);
-            if (!result.success) throw new Error(result.error || 'Failed to send request');
+            if (!result.success) throw new Error(result.error || 'Request wasn’t sent');
             return { ...result, userId: variables.userId };
         },
         onMutate: async ({ userId }) => {
@@ -916,7 +916,7 @@ export function useConnectionMutations() {
                 }
             }
             if (context?.previousStats) queryClient.setQueryData(['connections', 'stats'], context.previousStats);
-            toast.error("Failed to cancel sent requests");
+            toast.error("Couldn’t cancel sent requests");
         },
         onSettled: () => invalidateAll(),
     });

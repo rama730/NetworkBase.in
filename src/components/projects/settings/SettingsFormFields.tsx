@@ -143,7 +143,7 @@ export function ReadOnlySlugField({ slug }: { slug: string }) {
             window.setTimeout(() => setCopied(false), 1600);
         } catch (error) {
             console.error("Failed to copy project slug", error);
-            toast.error("Failed to copy slug.");
+            toast.error("Couldn’t copy slug");
         }
     }, [slug]);
 

@@ -569,7 +569,7 @@ export async function getProjectAccessTransitionPreflightAction(
     return {
       success: false,
       errorCode: "INTERNAL_ERROR",
-      message: "Failed to prepare access transition.",
+      message: "Couldn’t prepare access transition",
     };
   }
 }

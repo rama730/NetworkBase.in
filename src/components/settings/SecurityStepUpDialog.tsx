@@ -103,7 +103,7 @@ export default function SecurityStepUpDialog({
       const contentType = response.headers.get("content-type") || "";
       const json = contentType.includes("application/json") ? await response.json() : null;
       if (!response.ok || json?.success === false) {
-        throw new Error(json?.message || "Failed to verify this device");
+        throw new Error(json?.message || "Couldn’t verify this device");
       }
 
       // The action that follows reports its own result; a second "verified" toast would stack on it.
@@ -111,7 +111,7 @@ export default function SecurityStepUpDialog({
       setSubmitting(false);
       onOpenChange(false);
     } catch (error) {
-      toast.error(feedbackError(error instanceof Error ? error.message : "Failed to verify this device", "Failed to verify this device"));
+      toast.error(feedbackError(error instanceof Error ? error.message : "Couldn’t verify this device", "Couldn’t verify this device"));
     } finally {
       setSubmitting(false);
     }

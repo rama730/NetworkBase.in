@@ -49,21 +49,21 @@ const CONNECTION_OPTIONS = [
 async function patchPrivacy(url: string, body: Record<string, unknown>) {
   const res = await fetch(url, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
   const json = await res.json().catch(() => null);
-  if (!res.ok || json?.success === false) throw new Error((typeof json?.error === "string" && json.error) || (typeof json?.message === "string" && json.message) || "Failed to update privacy settings");
+  if (!res.ok || json?.success === false) throw new Error((typeof json?.error === "string" && json.error) || (typeof json?.message === "string" && json.message) || "Couldn’t update privacy settings");
   return json?.data;
 }
 
 async function fetchBlockedPage(cursor: string) {
   const res = await fetch(`/api/v1/privacy/blocks?cursor=${encodeURIComponent(cursor)}`, { cache: "no-store" });
   const json = await res.json().catch(() => null);
-  if (!res.ok || json?.success === false) throw new Error("Failed to load more blocked accounts");
+  if (!res.ok || json?.success === false) throw new Error("Couldn’t load more blocked accounts");
   return json.data as { accounts: PrivacyBlockedAccount[]; nextCursor: string | null };
 }
 
 async function unblockAccount(userId: string) {
   const res = await fetch(`/api/v1/privacy/blocks/${userId}`, { method: "DELETE" });
   const json = await res.json().catch(() => null);
-  if (!res.ok || json?.success === false) throw new Error((typeof json?.error === "string" && json.error) || (typeof json?.message === "string" && json.message) || "Failed to unblock account");
+  if (!res.ok || json?.success === false) throw new Error((typeof json?.error === "string" && json.error) || (typeof json?.message === "string" && json.message) || "Couldn’t unblock account");
   return json?.data;
 }
 
@@ -100,7 +100,7 @@ export default function PrivacySettings() {
   const updateMutation = useMutation({
     mutationFn: (update: { url: string; body: Record<string, unknown>; successMessage: string }) => patchPrivacy(update.url, update.body),
     onSuccess: async (_data, update) => { toast.success(update.successMessage); await refreshPrivacy(); },
-    onError: (error) => toast.error(feedbackError(error instanceof Error ? error.message : "Failed to update privacy settings", "Failed to update privacy settings")),
+    onError: (error) => toast.error(feedbackError(error instanceof Error ? error.message : "Couldn’t update privacy settings", "Couldn’t update privacy settings")),
   });
   const presence = useMyPresenceSettings();
   const refreshPresence = useRefreshPresence();
@@ -115,7 +115,7 @@ export default function PrivacySettings() {
   const unblockMutation = useMutation({
     mutationFn: unblockAccount,
     onSuccess: async () => { toast.success("Account unblocked"); setMore(null); await refreshPrivacy(); },
-    onError: (error) => toast.error(feedbackError(error instanceof Error ? error.message : "Failed to unblock account", "Failed to unblock account")),
+    onError: (error) => toast.error(feedbackError(error instanceof Error ? error.message : "Couldn’t unblock account", "Couldn’t unblock account")),
   });
 
   const settings = data?.settings;
@@ -131,7 +131,7 @@ export default function PrivacySettings() {
       const page = await fetchBlockedPage(nextBlockedCursor);
       setMore({ base: data?.blockedAccounts, accounts: [...(extra?.accounts ?? []), ...page.accounts], cursor: page.nextCursor });
     } catch (error) {
-      toast.error(feedbackError(error instanceof Error ? error.message : "Failed to load more blocked accounts", "Failed to load more blocked accounts"));
+      toast.error(feedbackError(error instanceof Error ? error.message : "Couldn’t load more blocked accounts", "Couldn’t load more blocked accounts"));
     } finally {
       setLoadingMore(false);
     }

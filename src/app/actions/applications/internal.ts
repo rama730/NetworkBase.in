@@ -905,7 +905,7 @@ export async function applyToRoleAction(
                 columns: { id: true },
             });
             if (pendingInvitation) {
-                return toApplicationFailure(traceId, 'INVALID_STATE', 'You have an invitation to this project. Accept or decline it first.');
+                return toApplicationFailure(traceId, 'INVALID_STATE', 'Workspace invitation pending');
             }
             const sameRolePending = existingApp?.status === 'pending' && existingApp.roleId === roleId;
             if (!sameRolePending && role.filled >= role.count) {

@@ -1474,7 +1474,7 @@ export async function sendConnectionRequest(
     } catch (error) {
         if (error instanceof IdempotencyConflictError) return { success: false, error: 'Your request is still being sent. Try again in a moment.' };
         console.error('Error sending connection request:', error);
-        return { success: false, error: 'Failed to send request' };
+        return { success: false, error: 'Request wasn’t sent' };
     }
 }
 
@@ -1683,7 +1683,7 @@ async function sendConnectionRequestNow(
         });
 
         if (!txResult.connectionId) {
-            return await returnFailure(txResult.error || 'Failed to send request');
+            return await returnFailure(txResult.error || 'Request wasn’t sent');
         }
 
         const connectionId = txResult.connectionId;
@@ -1733,7 +1733,7 @@ async function sendConnectionRequestNow(
         return { success: true, connectionId: txResult.connectionId, status: txResult.status ?? 'created' };
     } catch (error) {
         console.error('Error sending connection request:', error);
-        return { success: false, error: 'Failed to send request' };
+        return { success: false, error: 'Request wasn’t sent' };
     }
 }
 

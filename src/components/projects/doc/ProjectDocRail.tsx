@@ -60,7 +60,7 @@ export function useDocRail(projectId: string, activeSlug: string): DocRailState 
             queryClient.invalidateQueries({ queryKey: PROJECT_DOCS_QUERY_KEY(projectId) }),
         ]);
         if (removing.slug === activeSlug) navigate(null, true);
-        toast.success("Removed from Docs");
+        toast.success("Removed from Documents");
     };
 
     const dialogs = (

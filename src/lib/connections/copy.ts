@@ -7,10 +7,10 @@ export const CONNECTION_COPY = {
     notAccepting: "Not accepting requests",
     blocked: "Blocked",
     sending: "Sending request…",
-    sendFailed: "Failed to send request",
+    sendFailed: "Request wasn’t sent",
     nameFallback: "Member",
     blocking: "Blocking…",
-    blockFailed: "Failed to block",
+    blockFailed: "Person wasn’t blocked",
     blocked_toast: (name: string) => `Blocked ${name}`,
     shared: (count: number) => `${count} shared ${count === 1 ? "connection" : "connections"}`,
 } as const;

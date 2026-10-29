@@ -255,8 +255,8 @@ export function EditProfileEditor({
             setContributionErrors(validationErrors);
             setActiveSection("experience");
             setSaveState("error");
-            setSaveErrorMessage("Fix the highlighted project contribution before saving.");
-            toast.error("Fix the highlighted project contribution before saving.");
+            setSaveErrorMessage("Fix the highlighted workspace contribution before saving");
+            toast.error("Fix the highlighted workspace contribution before saving");
             return;
         }
 
@@ -350,7 +350,7 @@ export function EditProfileEditor({
             invalidateProfileReads(profilePayload);
             void refreshProfile().catch(() => undefined);
             await onSaved?.(lastKnownUpdatedAtRef.current, mutations.length > 0);
-            toast.success("Profile updated successfully");
+            toast.success("Profile updated");
             if (closeOnSuccess) onClose();
         } catch (error) {
             if (profileSaved) {
@@ -468,7 +468,7 @@ export function EditProfileEditor({
         setConflictProfile(null);
         setSaveState("idle");
         setSaveErrorMessage(null);
-        toast.info("Latest saved changes loaded. Your draft edits are kept; review and save again.");
+        toast.info("Latest version loaded");
     };
 
     const handleSave = (e?: React.MouseEvent) => {

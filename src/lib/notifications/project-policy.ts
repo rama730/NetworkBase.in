@@ -744,7 +744,7 @@ export const PROJECT_NOTIFICATION_EVENT_REGISTRY = {
     "security.project_archived": E({
         key: "security.project_archived",
         group: "security_audit",
-        label: "Project archived",
+        label: "Workspace archived",
         description: "Notify members when the project is archived.",
         category: "projects",
         notificationKind: "project_security_alert",

@@ -138,7 +138,7 @@ function PersonCard({
             const idToCancel = profile.connectionId || profile.id;
             await toast.promise(cancelRequest.mutateAsync(idToCancel), {
                 loading: "Cancelling request...",
-                success: "Connection request cancelled",
+                success: "Request canceled",
                 error: (err) => err instanceof Error ? err.message : "Failed to cancel request",
             }).unwrap();
         } catch {

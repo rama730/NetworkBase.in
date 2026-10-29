@@ -360,7 +360,7 @@ export function FilesTabRoot(props: FilesTabRootProps): React.JSX.Element {
           ? "The deep link is too long."
           : failure.kind === "empty"
             ? "The deep link is empty."
-            : "Deep link target not found.";
+            : "Deep link target not found";
       setDeepLinkError(reason);
       toast.error(feedbackError(reason, "Action couldn’t finish"));
     },
@@ -417,7 +417,7 @@ export function FilesTabRoot(props: FilesTabRootProps): React.JSX.Element {
       .then((result) => {
         if (cancelled) return;
         if (!result.success) {
-          toast.error(feedbackError(result.message || "The requested file is not available.", "The requested file is not available."));
+          toast.error(feedbackError(result.message || "The requested file is not available", "The requested file is not available"));
           completeInitialFileResolution(initialOpenFileId);
           return;
         }
@@ -427,7 +427,7 @@ export function FilesTabRoot(props: FilesTabRootProps): React.JSX.Element {
         );
         if (!node || node.type !== "file") {
           toast.error(
-            "The requested file is not available or you do not have access.",
+            "The requested file is not available or you do not have access",
           );
           completeInitialFileResolution(initialOpenFileId);
           return;
@@ -445,7 +445,7 @@ export function FilesTabRoot(props: FilesTabRootProps): React.JSX.Element {
           error,
         });
         toast.error(
-          "The requested file is not available or you do not have access.",
+          "The requested file is not available or you do not have access",
         );
         completeInitialFileResolution(initialOpenFileId);
       })
@@ -479,7 +479,7 @@ export function FilesTabRoot(props: FilesTabRootProps): React.JSX.Element {
       initialOpenFileId && handledInitialFileId !== initialOpenFileId,
     ),
     onPopStateError: () => {
-      toast.error("Deep link target not found.");
+      toast.error("Deep link target not found");
     },
   });
 

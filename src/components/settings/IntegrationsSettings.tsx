@@ -279,7 +279,7 @@ export default function IntegrationsSettings() {
       const current = res.data?.sessions || [];
       const newActiveCount = current.filter((s) => s.clientVersion !== "pending" && (s.editorPlatform || s.editorName)).length;
       if (newActiveCount > activeSessions.length) {
-        toast.success("Editor connected successfully!");
+        toast.success("Editor connected");
         setGeneratedToken(null);
         setShowTokenGen(false);
         setDeviceLabel("");
@@ -300,10 +300,10 @@ export default function IntegrationsSettings() {
       } else if ("stepUpRequired" in result && result.stepUpRequired) {
         await requestStepUp("token");
       } else {
-        toast.error(feedbackError(result.error || "Failed to generate token", "Failed to generate token"));
+        toast.error(feedbackError(result.error || "Couldn’t generate token", "Couldn’t generate token"));
       }
     } catch {
-      toast.error("Failed to generate token");
+      toast.error("Couldn’t generate token");
     } finally {
       setGeneratingToken(false);
     }
@@ -337,7 +337,7 @@ export default function IntegrationsSettings() {
           )
         : [];
       if (!methods.length) {
-        toast.warning(purpose === "token" ? "Add a password or authenticator in Security before creating a token" : purpose === "unlink" ? "Add a password or authenticator in Security before disconnecting a sign-in method" : "Add a password or authenticator in Security before replacing GitHub");
+        toast.warning(purpose === "token" ? "Add a password or authenticator in Security before creating a token" : purpose === "unlink" ? "Add a password or authenticator in Security before disconnecting a sign-in method" : "Add a sign-in method first");
         return;
       }
       setStepUpPurpose(purpose);

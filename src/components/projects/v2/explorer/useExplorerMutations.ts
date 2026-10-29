@@ -95,7 +95,7 @@ export function useExplorerMutations({
 
   const mutationQueueRef = useRef<Promise<void>>(Promise.resolve());
   const refreshAfterMutation = useCallback(async (parentId: string | null, mode: "append" | "refresh" = "refresh") => {
-    await loadFolderContent(parentId, mode).catch(() => showToast("Change saved. Folder refresh failed; the list will retry automatically.", "warning"));
+    await loadFolderContent(parentId, mode).catch(() => showToast("Saved · refreshing list", "warning"));
   }, [loadFolderContent, showToast]);
   const mutationInFlightKeysRef = useRef<Set<string>>(new Set());
 
@@ -183,7 +183,7 @@ export function useExplorerMutations({
         const siblingIds = childrenByParentId[filesParentKey(parentId)] || [];
         const siblings = siblingIds.map((id) => nodesById[id]).filter(Boolean);
         const dup = siblings.some((s) => s?.name.toLowerCase() === name.toLowerCase());
-        if (dup) throw new Error("A file/folder with that name already exists here.");
+        if (dup) throw new Error("A file/folder with that name already exists here");
 
         if (createDialog.kind === "folder") {
           return (await createFolder(projectId, parentId, name)) as ProjectNode;
@@ -324,7 +324,7 @@ function isNonRetryableUploadError(message?: string): boolean {
         if (!eligible.length) return skipped;
         const abortController = new AbortController();
         transferId = transferRef.current?.start(validatedFiles.length === 1 ? validatedFiles[0]!.name : `${validatedFiles.length} files`, eligible.length);
-        const cancelUpload = () => { uploadCancelled = true; abortController.abort(); toast.message("Upload cancelled", { id: progress, description: "Completed files kept." }); };
+        const cancelUpload = () => { uploadCancelled = true; abortController.abort(); toast.message("Upload canceled", { id: progress, description: "Completed files kept." }); };
         if (transferId) transferRef.current?.update(transferId, { abort: cancelUpload });
         progress = toast.loading(`Uploading ${eligible.length} files`, { id: progress,
           progress: { completed: 0, total: eligible.length }, action: { label: "Cancel", onClick: cancelUpload } });
@@ -442,7 +442,7 @@ function isNonRetryableUploadError(message?: string): boolean {
         const current = useFilesWorkspaceStore.getState().byProjectId[projectId]?.childrenByParentId[filesParentKey(parentId)] ?? [];
         setChildren(projectId, parentId, [...new Set([...current, ...createdNodes.map(node => node.id)])]);
         if (parentId) toggleExpanded(projectId, parentId, true);
-        void loadFolderContent(parentId, "refresh").catch(() => showToast("Files uploaded. Folder refresh failed; the list will retry automatically.", "warning"));
+        void loadFolderContent(parentId, "refresh").catch(() => showToast("Saved · refreshing list", "warning"));
         window.dispatchEvent(new CustomEvent("project:task-files-changed", { detail: { projectId } }));
       }
       const totalFailed = failed.length + nonRetryableFailed.length;
@@ -460,10 +460,10 @@ function isNonRetryableUploadError(message?: string): boolean {
         input.click();
       };
       if (uploadCancelled) {
-        toast.message("Upload cancelled", { id: progress, description: "Completed files kept." });
-        if (transferId) transferRef.current?.update(transferId, { status: "error", error: "Upload cancelled", retry: undefined });
+        toast.message("Upload canceled", { id: progress, description: "Completed files kept." });
+        if (transferId) transferRef.current?.update(transferId, { status: "error", error: "Upload canceled", retry: undefined });
       } else if (nonRetryableFailed.length > 0 && failed.length === 0) {
-        const reason = nonRetryableErrors[0] || "File exceeds maximum upload size limit";
+        const reason = nonRetryableErrors[0] || "File too large";
         toast.warning(reason, { id: progress, dismissOnAction: false, action: { label: "Choose file", onClick: chooseReplacement } });
       } else if (failed.length) {
         toast.warning(`${createdNodes.length} uploaded · ${failed.length + nonRetryableFailed.length} failed`, {
@@ -485,8 +485,8 @@ function isNonRetryableUploadError(message?: string): boolean {
         retry: isNonRetryable ? undefined : () => uploadFiles(files, parentId, progress),
       });
       outcomeShown = true;
-      if (uploadCancelled) toast.message("Upload cancelled", { id: progress, description: "Completed files kept." });
-      else if (isNonRetryable) toast.warning(feedbackError(errorMsg, "Check the file requirements"), { id: progress });
+      if (uploadCancelled) toast.message("Upload canceled", { id: progress, description: "Completed files kept." });
+      else if (isNonRetryable) toast.warning(feedbackError(errorMsg, "Check file requirements"), { id: progress });
       else {
         // Reconcile collisions before retry, so an unknown outcome cannot duplicate committed files.
         toast.error("Upload interrupted", { id: progress, description: "Completed files safe.",
@@ -549,7 +549,7 @@ function isNonRetryableUploadError(message?: string): boolean {
       .filter(Boolean)
       .some((s) => s?.id !== node.id && s?.name.toLowerCase() === nextName.toLowerCase());
     if (duplicateSibling) {
-      showToast("A file/folder with that name already exists here.", "error");
+      showToast("A file/folder with that name already exists here", "error");
       return;
     }
 
@@ -820,7 +820,7 @@ function isNonRetryableUploadError(message?: string): boolean {
             payloadNodes.map((node) => node.path),
           );
           if (await chooseUploadCollision(collisions) === "cancel") {
-            showToast("Upload cancelled", "info");
+            showToast("Upload canceled", "info");
             return;
           }
           const existingFiles = new Set(collisions.existingFiles);
@@ -834,7 +834,7 @@ function isNonRetryableUploadError(message?: string): boolean {
 
           const createdNodes: ProjectNode[] = [];
           const abortController = new AbortController();
-          const cancelFolderUpload = () => { abortController.abort(); toast.message("Upload cancelled", { id: progress, description: "Completed files kept." }); };
+          const cancelFolderUpload = () => { abortController.abort(); toast.message("Upload canceled", { id: progress, description: "Completed files kept." }); };
           transferId = transferRef.current?.start(`Folder upload · ${uploadPayloadNodes.length} files`, uploadPayloadNodes.length);
           if (transferId) transferRef.current?.update(transferId, { abort: cancelFolderUpload });
           const CHUNK_SIZE = 2000;
@@ -951,8 +951,8 @@ function isNonRetryableUploadError(message?: string): boolean {
           const publishedCount = createdNodes.length;
           outcomeShown = true;
           if (abortController.signal.aborted) {
-            toast.message("Upload cancelled", { id: progress, description: "Completed files kept." });
-            if (transferId) transferRef.current?.update(transferId, { status: "error", error: "Upload cancelled", retry: undefined });
+            toast.message("Upload canceled", { id: progress, description: "Completed files kept." });
+            if (transferId) transferRef.current?.update(transferId, { status: "error", error: "Upload canceled", retry: undefined });
           } else if (failed.length > 0) {
             if (transferId) transferRef.current?.update(transferId, {
               status: "error",
@@ -967,7 +967,7 @@ function isNonRetryableUploadError(message?: string): boolean {
             toast.success(`${publishedCount} file${publishedCount === 1 ? "" : "s"} uploaded`, { id: progress });
           }
 
-          await loadFolderContent(parentId, "refresh").catch(() => toast.warning("Files saved · list is refreshing", { id: progress }));
+          await loadFolderContent(parentId, "refresh").catch(() => toast.warning("Saved · refreshing list", { id: progress }));
           if (parentId) toggleExpanded(projectId, parentId, true);
           window.dispatchEvent(new CustomEvent("project:task-files-changed", { detail: { projectId } }));
           return createdNodes;
@@ -984,7 +984,7 @@ function isNonRetryableUploadError(message?: string): boolean {
           });
         }
         outcomeShown = true;
-        if (isNonRetryable) toast.warning(feedbackError(errorMsg, "Check the file requirements"), { id: progress });
+        if (isNonRetryable) toast.warning(feedbackError(errorMsg, "Check file requirements"), { id: progress });
         else toast.error("Upload interrupted", { id: progress, description: "Completed files safe.", action: { label: "Retry", onClick: () => uploadFilesDirectly(validatedFiles, parentId, progress) } });
         return [];
       } finally {

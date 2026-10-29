@@ -440,6 +440,6 @@ export async function POST(request: Request) {
       status: 500,
       errorCode: "INTERNAL_ERROR",
     });
-    return jsonError("Failed to verify this device", 500, "INTERNAL_ERROR");
+    return jsonError("Couldn’t verify this device", 500, "INTERNAL_ERROR");
   }
 }

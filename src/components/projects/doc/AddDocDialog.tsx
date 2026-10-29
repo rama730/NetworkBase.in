@@ -114,10 +114,10 @@ export function AddDocDialog({
             params.set("tab", "docs");
             params.set("doc", result.slug);
             router.replace(`${pathname}?${params.toString()}`, { scroll: false });
-            toast.success("Added to Docs");
+            toast.success("Added to Documents");
             onOpenChange(false);
         } catch {
-            toast.error("Failed to add doc");
+            toast.error("Couldn’t add document");
         } finally {
             setPendingId(null);
         }

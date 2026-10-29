@@ -918,7 +918,7 @@ export async function readProjectDocSettingsAction(projectId: string, docSlug: s
         if (!context.permission.canManageSettings) return { success: false as const, error: "You cannot manage document settings." };
         return { success: true as const, settings: context.settings, permission: context.permission };
     } catch (error) {
-        return { success: false as const, error: "Failed to load document settings." };
+        return { success: false as const, error: "Couldn’t load document settings" };
     }
 }
 

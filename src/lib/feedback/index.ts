@@ -13,9 +13,32 @@ let accountEpoch = 0;
 /** Catalog keys use ’ and …; code may still send ' and ... (report §22.2 T2). */
 const catalogKey = (message: string) => message.replace(/'/g, '’').replace(/\.{3}/g, '…');
 
+export function fillTemplate(template: string, values: Record<string, string | number>) {
+  return template.replace(/\{(\w+)\}/g, (whole, name: string) => (name in values ? String(values[name]) : whole));
+}
+
+/** Catalog keys with {placeholders} match real text ("{count} files moved"), decision 44. */
+const TEMPLATES = Object.entries(FEEDBACK_COPY).filter(([key]) => key.includes('{')).map(([key, entry]) => {
+  const names: string[] = [];
+  const source = key.split(/(\{\w+\})/).map((part) => (/^\{\w+\}$/.test(part) ? (names.push(part.slice(1, -1)), '(.+?)') : part.replace(/[.*+?^$()|[\]\\]/g, '\\$&'))).join('');
+  return { pattern: new RegExp(`^${source}$`), names, entry };
+});
+
+function catalogEntry(message: string) {
+  const exact = FEEDBACK_COPY[message];
+  if (exact) return exact;
+  for (const { pattern, names, entry } of TEMPLATES) {
+    const match = pattern.exec(message);
+    if (!match) continue;
+    const values = Object.fromEntries(names.map((name, i) => [name, match[i + 1]!]));
+    return { ...entry, title: fillTemplate(entry.title, values), description: entry.description && fillTemplate(entry.description, values) };
+  }
+  return undefined;
+}
+
 export function compactFeedback(message: ReactNode, type: FeedbackType, options: FeedbackOptions = {}) {
   if (typeof message !== 'string') return { message, type, options };
-  const contract = FEEDBACK_COPY[catalogKey(message)];
+  const contract = catalogEntry(catalogKey(message));
   if (contract) return { message: contract.title, type: contract.type ?? type, options: { ...options, description: options.description ?? contract.description } };
   if (/file.*(?:too large|exceed.*(?:size|limit))|(?:maximum|max).*upload size|file size.*exceed/i.test(message)) {
     const limit = message.match(/\b\d+(?:\.\d+)?\s*(?:KB|MB|GB)\b/i)?.[0];
@@ -24,7 +47,7 @@ export function compactFeedback(message: ReactNode, type: FeedbackType, options:
   if (/^Project created[,\.]/.test(message)) {
     const count = message.match(/(\d+) file/);
     const description = /picture|image/i.test(message) ? 'Image upload failed.' : /leaders only/i.test(message) ? 'Docs stay leaders-only.' : count ? `${count[1]} files failed.` : undefined;
-    if (description) return { message: 'Project created', type: 'warning' as const, options: { ...options, description } };
+    if (description) return { message: 'Workspace created', type: 'warning' as const, options: { ...options, description } };
   }
   const progress = message.match(/^Uploading (\d+) (?:of|\/) (\d+) files?[….]*$/i);
   if (progress) return { message: `Uploading ${progress[2]} files`, type, options: { ...options, progress: { completed: Number(progress[1]), total: Number(progress[2]) } } };
@@ -39,7 +62,7 @@ export function compactFeedback(message: ReactNode, type: FeedbackType, options:
 /** Runtime errors are allowlisted; callers retain an operation-specific safe fallback. */
 export function feedbackError(value: unknown, fallback = 'Action couldn’t finish'): string {
   const message = catalogKey(value instanceof Error ? value.message : typeof value === 'string' ? value : '');
-  if (FEEDBACK_COPY[message]) return message;
+  if (catalogEntry(message)) return message;
   if (/into (?:its )?(?:own )?(?:descendant|itself|subfolder)|move.*inside itself/i.test(message)) return 'Invalid move destination';
   if (/file.*(?:too large|exceed.*size)|file size.*exceed|maximum upload size/i.test(message)) return message;
   return fallback;

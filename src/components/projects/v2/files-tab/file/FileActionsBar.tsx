@@ -198,16 +198,16 @@ export function FileActionsBar({
       const { unlinkProjectDocAction } = await import("@/app/actions/project/doc");
       const result = await unlinkProjectDocAction(projectId, linkedDoc.slug);
       if (!result.success) {
-        toast.error(feedbackError(result.error || "Failed to remove from Docs", "Failed to remove from Docs"));
+        toast.error(feedbackError(result.error || "Couldn’t remove from Documents", "Couldn’t remove from Documents"));
         return;
       }
-      toast.success("Removed from Docs");
+      toast.success("Removed from Documents");
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: PROJECT_DOC_LIST_QUERY_KEY(projectId) }),
         queryClient.invalidateQueries({ queryKey: PROJECT_DOCS_QUERY_KEY(projectId) })
       ]);
     } catch (err) {
-      toast.error(feedbackError(err instanceof Error ? err.message : "Failed to remove from Docs", "Failed to remove from Docs"));
+      toast.error(feedbackError(err instanceof Error ? err.message : "Couldn’t remove from Documents", "Couldn’t remove from Documents"));
     } finally {
       setIsImportingReadme(false);
     }
@@ -265,8 +265,8 @@ export function FileActionsBar({
 
         if (result.success) {
           toast.success(choice.option === "commit"
-              ? "New revision committed successfully"
-              : "Active revision updated successfully");
+              ? "New version committed"
+              : "Active version updated");
           useFilesWorkspaceStore.getState().setNodes(projectId, [result.node]);
           window.dispatchEvent(new CustomEvent("project:task-files-changed", { detail: { projectId } }));
 
@@ -281,7 +281,7 @@ export function FileActionsBar({
         } else if (result.lockConflict) {
           setLockConflict(result.lockConflict);
         } else {
-          toast.error(feedbackError(result.error || "Failed to save revision", "Failed to save revision"));
+          toast.error(feedbackError(result.error || "Couldn’t save version", "Couldn’t save version"));
         }
       } catch (err) {
         const message = err instanceof Error ? err.message : "Failed to replace file";

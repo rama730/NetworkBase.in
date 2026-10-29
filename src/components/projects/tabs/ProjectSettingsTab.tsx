@@ -450,7 +450,7 @@ function ProjectSettingsContent({
             setLoadError("danger", "Unable to load these settings. Please retry.");
             console.error("Failed to load danger-zone preflight", error);
 
-            toast.error("Failed to load danger-zone checks.");
+            toast.error("Couldn’t load danger-zone checks");
         } finally {
             setDangerPreflightLoading(false);
         }
@@ -504,7 +504,7 @@ function ProjectSettingsContent({
             setLoadError("collaborators", "Unable to load these settings. Please retry.");
             console.error("Failed to load collaborators", error);
 
-            toast.error("Failed to load collaborators.");
+            toast.error("Couldn’t load members");
         } finally {
             if (seq === collaboratorRequestSeqRef.current) {
                 setCollaboratorLoading(false);
@@ -566,7 +566,7 @@ function ProjectSettingsContent({
             setLoadError("notifications", "Unable to load these settings. Please retry.");
             console.error("Failed to load project notification settings", error);
 
-            toast.error("Failed to load project notification settings.");
+            toast.error("Couldn’t load workspace notification settings");
         } finally {
             setProjectNotificationLoading(false);
         }
@@ -594,7 +594,7 @@ function ProjectSettingsContent({
             if (!mountedRef.current) return;
             setLoadError("readme", "Unable to load these settings. Please retry.");
             console.error("Failed to load document settings", error);
-            toast.error("Failed to load document settings.");
+            toast.error("Couldn’t load document settings");
         } finally {
             setReadmeSettingsLoading(false);
         }
@@ -676,7 +676,7 @@ function ProjectSettingsContent({
                         deletedRoleIds,
                     });
                     if (!result?.success) {
-                        toast.error("Failed to update project roles.");
+                        toast.error("Couldn’t update workspace roles");
                         return;
                     }
 
@@ -685,17 +685,17 @@ function ProjectSettingsContent({
                     const nextRoles = leadRole ? [leadRole, ...nextOpenRoles] : nextOpenRoles;
                     resetRolesForm({ roles: nextRoles });
                     setDeletedRoleIds([]);
-                    toast.success("Project roles updated.");
+                    toast.success("Workspace roles updated");
                     onProjectUpdated();
                 } catch (error) {
                     console.error("Failed to save project roles", error);
-                    toast.error(feedbackError(error instanceof Error ? error.message : "Failed to update project roles.", "Failed to update project roles."));
+                    toast.error(feedbackError(error instanceof Error ? error.message : "Couldn’t update workspace roles", "Couldn’t update workspace roles"));
                 } finally {
                     setSavingRoles(false);
                 }
             },
             () => {
-                toast.error("Fix role fields before saving.");
+                toast.error("Fix role fields before saving");
             },
         )();
     }, [deletedRoleIds, handleRolesSubmit, isProjectOwner, onProjectUpdated, projectId, resetRolesForm, router, savingRoles]);
@@ -727,7 +727,7 @@ function ProjectSettingsContent({
             setPublicTabVisibility(previous);
             setSavedPublicTabVisibility(previous);
             console.error("Failed to update public tab visibility", error);
-            toast.error("Failed to update tab visibility.");
+            toast.error("Couldn’t update tab visibility");
         } finally {
             setSavingPublicTabId(null);
         }
@@ -762,7 +762,7 @@ function ProjectSettingsContent({
             });
         } catch (error) {
             console.error("Failed to prepare access transition", error);
-            toast.error("Failed to prepare access transition.");
+            toast.error("Couldn’t prepare access transition");
         } finally {
             setSavingAccess(false);
         }
@@ -804,7 +804,7 @@ function ProjectSettingsContent({
         } catch (error) {
             if (previousData) setFileWorkspaceData(previousData);
             console.error("Failed to update file upload permission", error);
-            toast.error("Failed to update file upload permission.");
+            toast.error("Couldn’t update file upload permission");
         } finally {
             setFileWorkspaceSavingMemberId(null);
         }
@@ -847,7 +847,7 @@ function ProjectSettingsContent({
         } catch (error) {
             if (previousData) setFileWorkspaceData(previousData);
             console.error("Failed to update file upload defaults", error);
-            toast.error("Failed to update file upload defaults.");
+            toast.error("Couldn’t update file upload defaults");
             return false;
         } finally {
             setFileWorkspaceBulkSaving(false);
@@ -887,10 +887,10 @@ function ProjectSettingsContent({
             }
             setProjectNotificationData(result.data);
             setProjectNotificationDraft(result.data.policy);
-            toast.success(result.message ?? "Project notification settings updated.");
+            toast.success(result.message ?? "Workspace notification settings updated");
         } catch (error) {
             console.error("Failed to save project notification settings", error);
-            toast.error("Failed to save project notification settings.");
+            toast.error("Couldn’t save workspace notification settings");
         } finally {
             setSavingNotifications(false);
         }
@@ -912,19 +912,19 @@ function ProjectSettingsContent({
             if (!result.success) {
                 setReadmeSettingsDraft(previous);
                 setReadmeSettings(previous);
-                toast.error(feedbackError(result.error || "Failed to update document setting.", "Failed to update document setting."));
+                toast.error(feedbackError(result.error || "Couldn’t update document setting", "Couldn’t update document setting"));
                 return;
             }
             const normalized = normalizeProjectDocSettings(result.settings);
             setReadmeSettings(normalized);
             setReadmeSettingsDraft(normalized);
-            toast.success("Document setting updated.");
+            toast.success("Document setting updated");
             onProjectUpdated();
         } catch (error) {
             setReadmeSettingsDraft(previous);
             setReadmeSettings(previous);
             console.error("Failed to save document setting", error);
-            toast.error("Failed to save document setting.");
+            toast.error("Couldn’t save document setting");
         } finally {
             setSavingReadmeKey(null);
         }
@@ -940,10 +940,10 @@ function ProjectSettingsContent({
             }
             setProjectNotificationData(result.data);
             setProjectNotificationDraft(result.data.policy);
-            toast.success(result.message ?? "Project notification settings reset.");
+            toast.success(result.message ?? "Workspace notification settings reset");
         } catch (error) {
             console.error("Failed to reset project notification settings", error);
-            toast.error("Failed to reset project notification settings.");
+            toast.error("Couldn’t reset workspace notification settings");
         } finally {
             setSavingNotifications(false);
         }
@@ -971,7 +971,7 @@ function ProjectSettingsContent({
             setMemberNotificationDraft(result.data.overrides);
         } catch (error) {
             console.error("Failed to load member notification settings", error);
-            toast.error("Failed to load member notification settings.");
+            toast.error("Couldn’t load member notification settings");
             setConfirmAction(null);
         } finally {
             setMemberNotificationLoading(false);
@@ -989,10 +989,10 @@ function ProjectSettingsContent({
             }
             setMemberNotificationData(result.data);
             setMemberNotificationDraft(result.data.overrides);
-            toast.success(result.message ?? "Member notification preferences updated.");
+            toast.success(result.message ?? "Member notification preferences updated");
         } catch (error) {
             console.error("Failed to save member notification settings", error);
-            toast.error("Failed to save member notification settings.");
+            toast.error("Couldn’t save member notification settings");
         } finally {
             setMemberNotificationSaving(false);
         }
@@ -1009,10 +1009,10 @@ function ProjectSettingsContent({
             }
             setMemberNotificationData(result.data);
             setMemberNotificationDraft(result.data.overrides);
-            toast.success(result.message ?? "Member notification preferences reset.");
+            toast.success(result.message ?? "Member notification preferences reset");
         } catch (error) {
             console.error("Failed to reset member notification settings", error);
-            toast.error("Failed to reset member notification settings.");
+            toast.error("Couldn’t reset member notification settings");
         } finally {
             setMemberNotificationSaving(false);
         }
@@ -1030,15 +1030,15 @@ function ProjectSettingsContent({
             });
             if (!result?.success) {
                 setMemberUpdatesEnabled(previous);
-                toast.error("Failed to update member publishing permissions.");
+                toast.error("Couldn’t update member publishing permissions");
                 return;
             }
-            toast.success("Member publishing permissions updated.");
+            toast.success("Member publishing permissions updated");
             onProjectUpdated();
         } catch (error) {
             setMemberUpdatesEnabled(previous);
             console.error("Failed to save updates settings", error);
-            toast.error(feedbackError(error instanceof Error ? error.message : "Failed to save updates settings.", "Failed to save updates settings."));
+            toast.error(feedbackError(error instanceof Error ? error.message : "Couldn’t save updates settings", "Couldn’t save updates settings"));
         } finally {
             setSavingMemberUpdates(false);
         }
@@ -1054,14 +1054,14 @@ function ProjectSettingsContent({
             const result = await updateProject(projectId, { memberFileUploadDefault: enabled });
             if (!result?.success) {
                 setMemberFileUploadDefault(previous);
-                toast.error("Failed to update the upload default for new members.");
+                toast.error("Couldn’t update the upload default for new members");
                 return;
             }
-            toast.success("Upload default for new members updated.");
+            toast.success("Upload default for new members updated");
             onProjectUpdated();
         } catch (error) {
             setMemberFileUploadDefault(previous);
-            toast.error(feedbackError(error instanceof Error ? error.message : "Failed to update the upload default for new members.", "Failed to update the upload default for new members."));
+            toast.error(feedbackError(error instanceof Error ? error.message : "Couldn’t update the upload default for new members", "Couldn’t update the upload default for new members"));
         } finally {
             setSavingMemberFileUploadDefault(false);
         }
@@ -1114,7 +1114,7 @@ function ProjectSettingsContent({
             toast.success(result.message);
         } catch (error) {
             console.error("Failed to archive project:", error);
-            toast.error("Failed to archive project.");
+            toast.error("Couldn’t archive workspace");
         } finally {
             setConfirmLoading(false);
         }
@@ -1125,7 +1125,7 @@ function ProjectSettingsContent({
         try {
             const result = await transferProjectOwnership(projectId, candidate.id);
             if (!result.success) {
-                toast.error(feedbackError(result.error ?? "Failed to transfer ownership.", "Failed to transfer ownership."));
+                toast.error(feedbackError(result.error ?? "Couldn’t transfer ownership", "Couldn’t transfer ownership"));
                 return;
             }
             await loadCollaborators("refresh");
@@ -1134,10 +1134,10 @@ function ProjectSettingsContent({
             setTransferModalOpen(false);
             setSelectedTransferCandidate(null);
             setTransferOwnerId("");
-            toast.success("Project ownership transferred successfully.");
+            toast.success("Workspace ownership transferred");
         } catch (error) {
             console.error("Failed to transfer ownership:", error);
-            toast.error("Failed to transfer ownership.");
+            toast.error("Couldn’t transfer ownership");
         } finally {
             setConfirmLoading(false);
         }
@@ -1145,11 +1145,11 @@ function ProjectSettingsContent({
 
     const prepareArchive = useCallback(() => {
         if (!dangerPreflight) {
-            toast.error("Run danger-zone preflight before archiving.");
+            toast.error("Run danger-zone preflight before archiving");
             return;
         }
         if (dangerPreflight && !dangerPreflight.canArchive) {
-            toast.error("Project is already archived.");
+            toast.error("Workspace is already archived");
             return;
         }
         setArchiveModalOpen(true);
@@ -1163,7 +1163,7 @@ function ProjectSettingsContent({
     const prepareTransfer = useCallback(() => {
         const candidate = rolePolicy.transferCandidates.find((member) => member.id === transferOwnerId);
         if (!candidate) {
-            toast.error("Choose a member before transferring ownership.");
+            toast.error("Choose a member before transferring ownership");
             return;
         }
         prepareTransferToMember(candidate);
@@ -1184,7 +1184,7 @@ function ProjectSettingsContent({
             nextRole,
         });
         if (!policy.canChangeRole) {
-            toast.error(feedbackError(policy.blockedReason ?? "This member role cannot be changed.", "This member role cannot be changed."));
+            toast.error(feedbackError(policy.blockedReason ?? "This member role cannot be changed", "This member role cannot be changed"));
             return;
         }
         setConfirmAction({
@@ -1212,7 +1212,7 @@ function ProjectSettingsContent({
             targetRole: currentRole,
         });
         if (!policy.canRemove) {
-            toast.error(feedbackError(policy.blockedReason ?? "This member cannot be removed.", "This member cannot be removed."));
+            toast.error(feedbackError(policy.blockedReason ?? "This member cannot be removed", "This member cannot be removed"));
             return;
         }
 
@@ -1250,7 +1250,7 @@ function ProjectSettingsContent({
             });
         } catch (error) {
             console.error("Failed to load member removal preflight", error);
-            toast.error("Failed to load removal impact.");
+            toast.error("Couldn’t load removal impact");
         }
     }, [actorProjectRole, isProjectOwner, ownerId, projectId]);
 
@@ -1267,7 +1267,7 @@ function ProjectSettingsContent({
             router.push(result.data.redirectTo || "/projects");
         } catch (error) {
             console.error("Failed to delete project:", error);
-            toast.error("Failed to delete project.");
+            toast.error("Couldn’t delete workspace");
         } finally {
             setConfirmLoading(false);
         }
@@ -1275,11 +1275,11 @@ function ProjectSettingsContent({
 
     const prepareDelete = useCallback(() => {
         if (!dangerPreflight) {
-            toast.error("Run danger-zone preflight before deleting.");
+            toast.error("Run danger-zone preflight before deleting");
             return;
         }
         if (dangerPreflight && !dangerPreflight.canDelete) {
-            toast.error("Project cannot be deleted.");
+            toast.error("Workspace cannot be deleted");
             return;
         }
         setDeleteModalOpen(true);
@@ -1903,14 +1903,14 @@ function ProjectSettingsContent({
                                     try {
                                         const result = await updateProjectLifecycleAction(projectId, stages, currentActiveStage);
                                         if (result.success) {
-                                            toast.success("Lifecycle updated.");
+                                            toast.success("Lifecycle updated");
                                             onProjectUpdated();
                                         } else {
-                                            toast.error(feedbackError(result.error || "Failed to update lifecycle.", "Failed to update lifecycle."));
+                                            toast.error(feedbackError(result.error || "Couldn’t update lifecycle", "Couldn’t update lifecycle"));
                                         }
                                     } catch (error) {
                                         console.error("Failed to update lifecycle", error);
-                                        toast.error("Failed to update lifecycle.");
+                                        toast.error("Couldn’t update lifecycle");
                                     } finally {
                                         setSavingLifecycle(false);
                                     }

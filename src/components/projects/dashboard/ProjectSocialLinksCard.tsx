@@ -627,7 +627,7 @@ export function ProjectLinksManager({
             onSaved?.(saved);
             onOpenChange?.(false);
             router.refresh();
-            toast.success('Project links saved');
+            toast.success('Workspace links saved');
         } catch (error) {
             setSaveError(error instanceof Error ? error.message : 'Unable to save project links. Your changes are retained.');
         } finally {

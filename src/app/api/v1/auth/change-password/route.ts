@@ -327,7 +327,7 @@ export async function POST(request: Request) {
       success: true,
       status: 200,
     });
-    return jsonSuccess(undefined, "Password updated successfully");
+    return jsonSuccess(undefined, "Password updated");
   } catch (error) {
     logger.error("[api/v1/auth/change-password] failed", { module: 'api', error: error instanceof Error ? error.message : String(error) });
     logApiRoute(request, {

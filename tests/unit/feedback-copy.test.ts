@@ -38,3 +38,14 @@ test('action labels are never rewritten', () => {
   const shown = compactFeedback('Group created', 'success', { action: { label: 'Open details', onClick() {} } });
   assert.equal((shown.options.action as { label: string }).label, 'Open details');
 });
+
+test('catalog templates fill placeholders and match real text (decision 44)', async () => {
+  const { fillTemplate } = await import('../../src/lib/feedback');
+  const { FEEDBACK_COPY } = await import('../../src/lib/feedback/copy');
+  assert.equal(fillTemplate('{uploaded} uploaded · {failed} failed', { uploaded: 6, failed: 2 }), '6 uploaded · 2 failed');
+  const shown = compactFeedback('6 uploaded · 2 failed', 'success');
+  assert.equal(shown.type, 'warning');
+  assert.equal(shown.options.description, 'Finished files were saved.');
+  assert.equal(compactFeedback('Asha mentioned you', 'info').message, 'Asha mentioned you');
+  for (const key of Object.keys(FEEDBACK_COPY)) assert.doesNotMatch(key, /Kavya|Fieldnotes|^\d|· \d/, key);
+});

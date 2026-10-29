@@ -535,14 +535,14 @@ export function useCreateProjectWizard({ onClose, onSuccess, initialValues, init
                 if (importType === 'github') {
                     const repoUrl = (getValues('import_source.repoUrl') || '').trim();
                     if (!repoUrl) {
-                        toast.error('Please paste a GitHub repository link.');
+                        toast.error('Please paste a GitHub repository link');
                         return;
                     }
 
                     const metadata = (getValues('import_source.metadata') || {}) as Record<string, unknown>;
                     const preflightReady = metadata.githubPreflightStatus === 'ok';
                     if (!preflightReady) {
-                        toast.info('Run GitHub import checks before continuing.');
+                        toast.info('Run GitHub import checks before continuing');
                         return;
                     }
 
@@ -553,12 +553,12 @@ export function useCreateProjectWizard({ onClose, onSuccess, initialValues, init
                 }
                 if (importType === 'upload') {
                     if (!uploadFiles || uploadFiles.length === 0) {
-                        toast.error('Please select a folder first.');
+                        toast.error('Please select a folder first');
                         return;
                     }
                     const metadata = (getValues('import_source.metadata') || {}) as Record<string, unknown>;
                     if (metadata.uploadValidationStatus !== 'ok') {
-                        toast.error(feedbackError(String(metadata.uploadValidationError || 'Resolve blocked files before continuing.'), "Resolve blocked files before continuing."));
+                        toast.error(feedbackError(String(metadata.uploadValidationError || 'Resolve blocked files before continuing'), "Resolve blocked files before continuing"));
                         return;
                     }
                 }
@@ -596,7 +596,7 @@ export function useCreateProjectWizard({ onClose, onSuccess, initialValues, init
             } else if (phase === 4) {
                 setPhase4ValidationAttempted(true);
                 if (phase4LinkComposerPending) {
-                    toast.error('Finish adding the project link or clear the URL before continuing.');
+                    toast.error('Finish the workspace link');
                     isValid = false;
                 } else {
                     isValid = (await trigger(['visibility', 'external_links'], { shouldFocus: true })) && (await trigger(['lifecycle_stages']));
@@ -655,7 +655,7 @@ export function useCreateProjectWizard({ onClose, onSuccess, initialValues, init
         const creationWarnings: string[] = [];
         const warnCreation = (message: string) => {
             if (!creationWarnings.includes(message)) creationWarnings.push(message);
-            toast.warning('Project created', { id: creationToastId, description: creationWarnings.join(' ') });
+            toast.warning('Workspace created', { id: creationToastId, description: creationWarnings.join(' ') });
         };
         let createdProjectId: string | null = null;
         let createdOrganization: import('@/components/organizations/OrganizationCreatedScreen').CreatedOrganization | undefined;
@@ -999,7 +999,7 @@ export function useCreateProjectWizard({ onClose, onSuccess, initialValues, init
                 await applyReadmeSetup(createdProjectId);
             }
             if (createdProjectId) await applyLaunchSettingsAfterCreate(createdProjectId);
-            if (!creationWarnings.length) toast.success(importType === 'upload' ? 'Project & files ready' : 'Project created', { id: creationToastId });
+            if (!creationWarnings.length) toast.success(importType === 'upload' ? 'Project & files ready' : 'Workspace created', { id: creationToastId });
 
             const { draftStore } = await import('@/lib/storage/draft-store');
             await draftStore.clear(userId);
@@ -1035,7 +1035,7 @@ export function useCreateProjectWizard({ onClose, onSuccess, initialValues, init
                     },
                 });
             }
-            else toast.error(feedbackError(error.message || 'Failed to create project', 'Failed to create project'), { id: creationToastId });
+            else toast.error(feedbackError(error.message || 'Couldn’t create workspace', 'Couldn’t create workspace'), { id: creationToastId });
         } finally {
             submissionRef.current = false;
             setIsSubmitting(false);

@@ -23,7 +23,7 @@ async function acquireTransferSlot(signal?: AbortSignal) {
     const onAbort = () => {
       const index = transferWaiters.indexOf(onReady);
       if (index >= 0) transferWaiters.splice(index, 1);
-      reject(new DOMException("Upload cancelled", "AbortError"));
+      reject(new DOMException("Upload canceled", "AbortError"));
     };
     const onReady = () => {
       signal?.removeEventListener("abort", onAbort);
@@ -63,7 +63,7 @@ async function acquireResumableSlot(signal?: AbortSignal) {
     const onAbort = () => {
       const index = resumableWaiters.indexOf(onReady);
       if (index >= 0) resumableWaiters.splice(index, 1);
-      reject(new DOMException("Upload cancelled", "AbortError"));
+      reject(new DOMException("Upload canceled", "AbortError"));
     };
     const onReady = () => {
       signal?.removeEventListener("abort", onAbort);
@@ -102,7 +102,7 @@ function abortableDelay(milliseconds: number, signal?: AbortSignal) {
     }, milliseconds);
     const onAbort = () => {
       clearTimeout(timer);
-      reject(new DOMException("Upload cancelled", "AbortError"));
+      reject(new DOMException("Upload canceled", "AbortError"));
     };
     signal?.addEventListener("abort", onAbort, { once: true });
     if (signal?.aborted) onAbort();
@@ -143,7 +143,7 @@ function uploadStandardOnce(
     };
     const onAbort = () => {
       xhr.abort();
-      finish(new DOMException("Upload cancelled", "AbortError"));
+      finish(new DOMException("Upload canceled", "AbortError"));
     };
 
     options.signal?.addEventListener("abort", onAbort, { once: true });
@@ -164,7 +164,7 @@ function uploadStandardOnce(
       }
     });
     xhr.addEventListener("error", () => finish(new Error("Upload network request failed")));
-    xhr.addEventListener("abort", () => finish(new DOMException("Upload cancelled", "AbortError")));
+    xhr.addEventListener("abort", () => finish(new DOMException("Upload canceled", "AbortError")));
     xhr.open("PUT", session.uploadUrl);
     xhr.setRequestHeader("x-upsert", "false");
     const body = new FormData();
@@ -284,7 +284,7 @@ async function uploadResumable(
         }, TRANSFER_IDLE_TIMEOUT_MS);
       };
       const onAbort = () => {
-        void finish({ error: new DOMException("Upload cancelled", "AbortError") }, true);
+        void finish({ error: new DOMException("Upload canceled", "AbortError") }, true);
       };
       const fingerprintScope = session.accountScope || session.storagePath.split("/")[0] || "anonymous";
       const upload = new tus.Upload(file, {
@@ -356,7 +356,7 @@ export async function uploadToSupabaseSignedUrl(
   file: Blob,
   options: SignedUploadOptions = {},
 ) {
-  if (options.signal?.aborted) throw new DOMException("Upload cancelled", "AbortError");
+  if (options.signal?.aborted) throw new DOMException("Upload canceled", "AbortError");
   await acquireTransferSlot(options.signal);
   try {
     if (file.size > RESUMABLE_THRESHOLD_BYTES) {
@@ -378,7 +378,7 @@ export async function uploadToSupabaseSignedUrl(
         cacheControl: cacheControlForProfile(options.cacheProfile),
         contentType: session.contentType,
       });
-    if (options.signal?.aborted) throw new DOMException("Upload cancelled", "AbortError");
+    if (options.signal?.aborted) throw new DOMException("Upload canceled", "AbortError");
     if (error) throw new Error(error.message || "Failed to upload file.");
     if (!data || (!data.path && !data.fullPath)) throw new Error("Upload succeeded with no data returned.");
     options.onProgress?.(file.size, file.size);

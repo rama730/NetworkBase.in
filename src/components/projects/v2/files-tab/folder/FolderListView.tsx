@@ -371,7 +371,7 @@ export function FolderListView({
   React.useEffect(() => { setSelectedNodeIds(projectId, []); setSelectionMode(false); }, [projectId, folderId, search, sort, workspace?.view, workspace?.taskId, collection?.preserveOrder, setSelectedNodeIds]);
   const selectItem = React.useCallback((id: string, selected: boolean) => {
     const current = useFilesWorkspaceStore.getState().byProjectId[projectId]?.selectedNodeIds ?? [];
-    if (selected && current.length >= 200) { toast.info("Select up to 200 items per operation."); return; }
+    if (selected && current.length >= 200) { toast.info("Select up to 200 items per operation"); return; }
     setSelectedNodeIds(projectId, selected ? [...new Set([...current, id])] : current.filter(value => value !== id));
   }, [projectId, setSelectedNodeIds]);
 
@@ -537,8 +537,8 @@ export function FolderListView({
 
         if (result.success) {
           toast.success(choice.option === "commit"
-            ? "New revision committed successfully"
-            : "Active revision updated successfully");
+            ? "New version committed"
+            : "Active version updated");
           upsertNodes(projectId, [result.node]);
           window.dispatchEvent(new CustomEvent("project:task-files-changed", { detail: { projectId } }));
 
@@ -551,10 +551,10 @@ export function FolderListView({
             newVersion: result.version.version,
           });
         } else {
-          toast.error(feedbackError(result.error || "Failed to save revision", "Failed to save revision"));
+          toast.error(feedbackError(result.error || "Couldn’t save version", "Couldn’t save version"));
         }
       } catch {
-        toast.error("Failed to save revision");
+        toast.error("Couldn’t save version");
       }
     },
     [pendingRevisionFile, targetRevisionNode, projectId, upsertNodes]
@@ -688,13 +688,13 @@ export function FolderListView({
             mode: "new_revision",
           });
           if (!saveRes.success) {
-            throw new Error(saveRes.error || "Failed to save new version");
+            throw new Error(saveRes.error || "Couldn’t save new version");
           }
           toast.success(`Saved ${file.name} as a new version.`);
           upsertNodes(projectId, [saveRes.node]);
           await loadFolderContent(folderId, "refresh");
         } catch (err) {
-          toast.error(feedbackError((err as Error).message || "Failed to save new version", "Failed to save new version"));
+          toast.error(feedbackError((err as Error).message || "Couldn’t save new version", "Couldn’t save new version"));
         } finally {
           setIsProcessingDrop(false);
           setPendingUploadFiles(null);
@@ -735,7 +735,7 @@ export function FolderListView({
           }
         })
         .catch((err) => {
-          toast.error(feedbackError((err as Error).message || "Failed to upload files", "Failed to upload files"));
+          toast.error(feedbackError((err as Error).message || "Couldn’t upload files", "Couldn’t upload files"));
         });
     },
     [pendingUploadFiles, projectId, folderId, targetDropFolderId, uploadFilesDirectly, upsertNodes, loadFolderContent, resetDragState],

@@ -515,7 +515,7 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
 
   const addFiles = (files: FileList | File[] | null) => {
     if (!files?.length) return;
-    if (send) return void toast.message("Add files once the conversation has started.");
+    if (send) return void toast.message("Add files once the conversation has started");
     const room = CHAT_MAX_ATTACHMENTS - uploads.length;
     const picked = Array.from(files);
     if (picked.length > room) toast.warning(`Up to ${CHAT_MAX_ATTACHMENTS} files per message; ${picked.length - Math.max(room, 0)} skipped.`);

@@ -85,8 +85,8 @@ export function TaskFilesExplorer({
       if (result.nodes.length > 0) {
         toast.success(
           locationDialog.mode === "publish"
-            ? "Published to Project Files"
-            : "Moved in Project Files",
+            ? "Published to Workspace Files"
+            : "Moved in Workspace Files",
         );
         await onFilesChanged?.();
       }
@@ -135,7 +135,7 @@ export function TaskFilesExplorer({
       }));
       setChildCursors((prev) => ({ ...prev, [folderId]: res.nextCursor }));
     } catch (error) {
-      toast.error(feedbackError(error instanceof Error ? error.message : "Failed to load more files", "Failed to load more files"));
+      toast.error(feedbackError(error instanceof Error ? error.message : "Couldn’t load more files", "Couldn’t load more files"));
     } finally {
       setLoadingFolders((prev) => ({ ...prev, [folderId]: false }));
     }

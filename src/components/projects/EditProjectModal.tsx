@@ -202,12 +202,12 @@ export default function EditProjectModal({ project, isOpen, onClose, onSaved }: 
                     const lifecycle = await updateProjectLifecycleAction(project.id, lifecycleStages, currentStageName ?? "");
                     if (!lifecycle.success) throw new Error(lifecycle.error);
                 }
-                toast.success("Project updated successfully");
+                toast.success("Workspace updated");
                 if (onSaved) onSaved();
                 onClose();
             } catch (error) {
                 console.error(error);
-                toast.error("Failed to update project");
+                toast.error("Couldn’t update workspace");
             }
         });
     };

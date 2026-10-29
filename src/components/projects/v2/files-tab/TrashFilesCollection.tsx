@@ -293,7 +293,7 @@ export function TrashFilesCollection({ projectId }: { projectId: string }) {
       );
       if (response.status === "pending") {
         toast.warning(
-          "Deletion is pending storage cleanup. It remains in Trash and will be retried automatically; you can also retry from its menu.",
+          "Cleanup pending",
         );
       } else {
         for (const id of response.deletedIds) {

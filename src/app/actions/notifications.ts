@@ -139,7 +139,7 @@ export async function markNotificationReadAction(notificationId: string) {
             module: "notifications",
             error: error instanceof Error ? error.message : String(error),
         });
-        return { success: false as const, error: (error instanceof Error && error.message) || "Failed to mark notification read", item: null };
+        return { success: false as const, error: (error instanceof Error && error.message) || "Couldn’t mark notification read", item: null };
     }
 }
 
@@ -193,7 +193,7 @@ export async function markNotificationUnreadAction(notificationId: string) {
             module: "notifications",
             error: error instanceof Error ? error.message : String(error),
         });
-        return { success: false as const, error: (error instanceof Error && error.message) || "Failed to mark notification unread", item: null };
+        return { success: false as const, error: (error instanceof Error && error.message) || "Couldn’t mark notification unread", item: null };
     }
 }
 
@@ -216,7 +216,7 @@ export async function dismissNotificationAction(notificationId: string) {
             module: "notifications",
             error: error instanceof Error ? error.message : String(error),
         });
-        return { success: false as const, error: (error instanceof Error && error.message) || "Failed to dismiss notification", item: null };
+        return { success: false as const, error: (error instanceof Error && error.message) || "Couldn’t dismiss notification", item: null };
     }
 }
 
@@ -236,7 +236,7 @@ export async function dismissAllNotificationsAction() {
             module: "notifications",
             error: error instanceof Error ? error.message : String(error),
         });
-        return { success: false as const, error: (error instanceof Error && error.message) || "Failed to clear notifications" };
+        return { success: false as const, error: (error instanceof Error && error.message) || "Couldn’t clear notifications" };
     }
 }
 
@@ -379,6 +379,6 @@ export async function snoozeNotificationAction(notificationId: string, snoozedUn
             module: "notifications",
             error: error instanceof Error ? error.message : String(error),
         });
-        return { success: false as const, error: (error instanceof Error && error.message) || "Failed to snooze notification", item: null };
+        return { success: false as const, error: (error instanceof Error && error.message) || "Couldn’t snooze notification", item: null };
     }
 }
