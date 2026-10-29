@@ -7,7 +7,7 @@ import { logger } from '@/lib/logger'
 // Types
 // ---------------------------------------------------------------------------
 
-export interface ProjectFilesChannelOptions {
+export interface WorkspaceFilesChannelOptions {
     projectId: string
     scope?: string
     onFileLeaseChange?: () => void
@@ -46,9 +46,9 @@ const activeChannelIds = new Set<string>()
  * Returns the RealtimeChannel instance. Call `supabase.removeChannel(channel)`
  * to unsubscribe.
  */
-export function subscribeProjectFilesChannel(
+export function subscribeWorkspaceFilesChannel(
     supabase: SupabaseClient,
-    options: ProjectFilesChannelOptions,
+    options: WorkspaceFilesChannelOptions,
 ): RealtimeChannel {
     const { projectId, scope = 'files-root', onFileLeaseChange, onStatus } = options
 

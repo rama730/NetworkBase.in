@@ -10,7 +10,7 @@ import {
 import {
     syncContributionSkills,
     syncProfileSkills,
-    syncProjectSkills,
+    syncWorkspaceSkills,
     syncRoleSkills,
 } from '../../../src/lib/skills/service'
 
@@ -79,7 +79,7 @@ async function backfillProjects() {
             stats.labels += source.length
             if (!APPLY) return
             await db.transaction(async (tx) => {
-                const resolved = await syncProjectSkills(tx, project.id, source, project.ownerId)
+                const resolved = await syncWorkspaceSkills(tx, project.id, source, project.ownerId)
                 await tx.update(projects).set({ skills: resolved.map((skill) => skill.name) }).where(inArray(projects.id, [project.id]))
             })
         },

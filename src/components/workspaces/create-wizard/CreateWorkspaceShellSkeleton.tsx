@@ -3,7 +3,7 @@ import { WIZARD_PHASES } from "@/constants/workspace-wizard";
 import { WIZARD_COLUMN } from "./WizardFooter";
 
 /** Mirrors the create-project page inside the app shell: header band, 1000px column, footer band. */
-export function CreateProjectShellSkeleton() {
+export function CreateWorkspaceShellSkeleton() {
     return (
         <div role="status" aria-live="polite" aria-label="Loading workspace creation" className="flex h-full min-h-0 flex-col bg-card">
             <span className="sr-only">Loading workspace creation…</span>

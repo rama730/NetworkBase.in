@@ -332,7 +332,7 @@ export async function releaseFileLease(input: {
   return released;
 }
 
-export async function getProjectFileLeases(projectId: string): Promise<FileLeaseView[]> {
+export async function getWorkspaceFileLeases(projectId: string): Promise<FileLeaseView[]> {
   const rows = await db
     .select({
       nodeId: projectNodeLocks.nodeId,

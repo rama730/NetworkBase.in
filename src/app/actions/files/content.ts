@@ -5,21 +5,21 @@ import { projectNodes } from "@/lib/db/schema";
 import { eq, and, } from "drizzle-orm";
 import { createClient } from "@/lib/supabase/server";
 import { runInFlightDeduped } from "@/lib/utils/inflight-dedupe";
-import { parseProjectFileKey } from "@/lib/storage/workspace-file-key";
+import { parseWorkspaceFileKey } from "@/lib/storage/workspace-file-key";
 import {
-    assertProjectFileReadAccess,
+    assertWorkspaceFileReadAccess,
     assertFileNodeVisible,
 } from "@/lib/files/internal-helpers";
-import { FileContentUnavailableError, readProjectFileText } from "@/lib/files/content-reader";
+import { FileContentUnavailableError, readWorkspaceFileText } from "@/lib/files/content-reader";
 
 /** Files-tab read: the caller must be allowed to see this project's Files (COR-002). */
-export async function getProjectFileContent(projectId: string, nodeId: string) {
+export async function getWorkspaceFileContent(projectId: string, nodeId: string) {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     const actorId = user?.id ?? null;
     return await runInFlightDeduped(`files:content:${projectId}:${nodeId}:${actorId ?? "anon"}`, async () => {
-        const access = await assertProjectFileReadAccess(projectId, actorId);
-        return readProjectFileText(access, projectId, nodeId);
+        const access = await assertWorkspaceFileReadAccess(projectId, actorId);
+        return readWorkspaceFileText(access, projectId, nodeId);
     });
 }
 
@@ -33,7 +33,7 @@ export async function getFilePreviewUrl(projectId: string, nodeId: string, downl
     const actorId = user?.id ?? null;
     return await runInFlightDeduped(`files:preview-url:${projectId}:${nodeId}:${download}:${actorId ?? "anon"}`, async () => {
         // Verify read access (works for public projects too)
-        const access = await assertProjectFileReadAccess(projectId, actorId);
+        const access = await assertWorkspaceFileReadAccess(projectId, actorId);
 
         const node = await db.query.projectNodes.findFirst({
             where: and(eq(projectNodes.id, nodeId), eq(projectNodes.projectId, projectId)),
@@ -49,7 +49,7 @@ export async function getFilePreviewUrl(projectId: string, nodeId: string, downl
         if (!currentS3Key) {
             throw new FileContentUnavailableError();
         }
-        const parsedKey = parseProjectFileKey(currentS3Key);
+        const parsedKey = parseWorkspaceFileKey(currentS3Key);
         if (!parsedKey || parsedKey.projectId !== projectId) {
             throw new Error("File key does not belong to this workspace");
         }
@@ -60,6 +60,6 @@ export async function getFilePreviewUrl(projectId: string, nodeId: string, downl
 }
 
 /** @deprecated Use getFilePreviewUrl; kept only until FileView migrates. The expiry argument is ignored. */
-export async function getProjectFileSignedUrl(projectId: string, nodeId: string, _ttlSeconds: number = 300, download: boolean = false) {
+export async function getWorkspaceFileSignedUrl(projectId: string, nodeId: string, _ttlSeconds: number = 300, download: boolean = false) {
     return getFilePreviewUrl(projectId, nodeId, download);
 }

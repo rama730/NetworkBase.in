@@ -26,7 +26,7 @@ export const LIFECYCLE_TEMPLATES: Record<LifecycleTemplateId, readonly string[]>
  * Maps the existing `project_type` ids to a lifecycle template.
  * Source of project types: `src/components/projects/create-wizard/phases/Phase1TypeSelection.tsx`
  */
-export const PROJECT_TYPE_TO_TEMPLATE: Record<string, LifecycleTemplateId> = {
+export const WORKSPACE_TYPE_TO_TEMPLATE: Record<string, LifecycleTemplateId> = {
   // Product/Web
   side_project: "productWeb",
   startup: "productWeb",
@@ -55,9 +55,9 @@ export const PROJECT_TYPE_TO_TEMPLATE: Record<string, LifecycleTemplateId> = {
   game: "gameDev",
 };
 
-export function getLifecycleStagesForProjectType(projectType: string | null | undefined): string[] {
+export function getLifecycleStagesForWorkspaceType(projectType: string | null | undefined): string[] {
   const key = (projectType || "").trim();
-  const templateId = PROJECT_TYPE_TO_TEMPLATE[key] || "productWeb";
+  const templateId = WORKSPACE_TYPE_TO_TEMPLATE[key] || "productWeb";
   return [...LIFECYCLE_TEMPLATES[templateId]];
 }
 

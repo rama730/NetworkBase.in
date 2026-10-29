@@ -15,13 +15,13 @@ test("task-board workflow is hydrated and synchronized through its dedicated col
     const migration = readProjectFile("drizzle/0139_project_workflow_columns.sql");
     const realtimeMigration = readProjectFile("drizzle/0142_project_workflow_columns_realtime.sql");
 
-    assert.match(taskTab, /getProjectWorkflowColumnsAction/);
+    assert.match(taskTab, /getWorkspaceWorkflowColumnsAction/);
     assert.match(taskTab, /subscribeActiveResource/);
     assert.match(taskTab, /table: "project_workflow_columns"/);
     assert.match(taskTab, /scheduleWorkflowRefresh/);
     assert.match(taskTab, /if \(!result\.success \|\| !result\.columns\)/);
     assert.match(taskTab, /normalizeAssignableMembers\(members\)/);
-    assert.match(action, /updateProjectWorkflowColumnsAction/);
+    assert.match(action, /updateWorkspaceWorkflowColumnsAction/);
     assert.match(schema, /projectWorkflowColumns/);
     assert.match(subscriptions, /'project_workflow'/);
     assert.match(migration, /project_workflow_columns/);
@@ -39,8 +39,8 @@ test("workflow columns keep four default categories while allowing two project-s
     const legacyBackfill = readProjectFile("drizzle/0141_project_workflow_legacy_presentation_backfill.sql");
 
     assert.match(action, /\.min\(4\)\.max\(6\)/);
-    assert.match(action, /createProjectWorkflowColumnAction/);
-    assert.match(action, /deleteProjectWorkflowColumnAction/);
+    assert.match(action, /createWorkspaceWorkflowColumnAction/);
+    assert.match(action, /deleteWorkspaceWorkflowColumnAction/);
     assert.match(taskTab, /Add section/);
     assert.match(taskTab, /<Dialog/);
     assert.doesNotMatch(taskTab, /window\.prompt/);

@@ -11,7 +11,7 @@ function uniqueList(values: unknown[] | undefined) {
     return Array.from(new Set((values || []).map((value) => cleanLine(value)).filter(Boolean)));
 }
 
-export function buildProjectDocStarterDraft(input: {
+export function buildWorkspaceDocStarterDraft(input: {
     title: string;
     shortDescription?: string | null;
     description?: string | null;

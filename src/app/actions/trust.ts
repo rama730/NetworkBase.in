@@ -6,7 +6,7 @@ import { z } from 'zod';
 
 import { db } from '@/lib/db';
 import { contentReports, projectDocs, projects, projectUpdateComments, projectUpdates, taskComments, tasks } from '@/lib/db/schema';
-import { getProjectAccessById } from '@/lib/data/workspace-access';
+import { getWorkspaceAccessById } from '@/lib/data/workspace-access';
 import { logger } from '@/lib/logger';
 import { notifyOrg, orgHref, orgLabel } from '@/lib/organizations/notify';
 import { REPORT_REASONS, verificationDomain, type ReportTargetKind } from '@/lib/organizations/trust-rules';
@@ -63,7 +63,7 @@ export async function reportContentAction(input: z.input<typeof reportSchema>): 
     const rate = await consumeRateLimit(`report:create:${user.id}`, 20, 3600);
     if (!rate.allowed) return { success: false, error: 'Too many reports. Try again later.' };
     const projectId = await reportedProject(parsed.data.kind, parsed.data.targetId);
-    if (!projectId || !(await getProjectAccessById(projectId, user.id)).canRead) return { success: false, error: 'That is no longer available.' };
+    if (!projectId || !(await getWorkspaceAccessById(projectId, user.id)).canRead) return { success: false, error: 'That is no longer available.' };
     await db.insert(contentReports).values({
         reporterId: user.id, targetKind: parsed.data.kind, targetId: parsed.data.targetId, projectId,
         reason: parsed.data.reason, details: parsed.data.details || null,
@@ -165,7 +165,7 @@ export async function unsuspendOrgAction(orgId: string): Promise<{ success: true
 export async function requestOrgVerificationAction(orgId: string): Promise<{ success: true; verified: boolean } | Failure> {
     const user = await signedInUser();
     if (!user) return DENIED;
-    const access = await getProjectAccessById(orgId, user.id);
+    const access = await getWorkspaceAccessById(orgId, user.id);
     if (access.project?.kind !== 'organization' || !access.isOwner) return DENIED;
     const [org] = await db.select({ links: projects.externalLinks, verifiedAt: projects.verifiedAt }).from(projects).where(eq(projects.id, orgId)).limit(1);
     if (org?.verifiedAt) return { success: true, verified: true };

@@ -21,7 +21,7 @@ test("project docs/readme tab eliminates duplicate header and redundant cards, r
     // 2. Extract readme section block
     const readmeBlock =
         settingsTab.split('id="project-settings-readme"')[1]?.split('id="project-settings-updates"')[0] ?? "";
-    assert.ok(readmeBlock.length > 0, "readme settings block must exist in ProjectSettingsTab");
+    assert.ok(readmeBlock.length > 0, "readme settings block must exist in WorkspaceSettingsTab");
 
     // 3. Redundant SummaryCard, fragmented cards, and outer AdvancedDisclosure removed
     assert.doesNotMatch(
@@ -151,29 +151,29 @@ test("project docs settings and components adhere to NetworkBase drafting-table 
     assert.doesNotMatch(
         smartBlock,
         /rounded-full/,
-        "ProjectDocSmartBlock must not use circular rounded-full pills or buttons",
+        "WorkspaceDocSmartBlock must not use circular rounded-full pills or buttons",
     );
     assert.match(
         smartBlock,
         /rounded-\[5px\]/,
-        "ProjectDocSmartBlock must use drafting-table rounded-[5px] geometry",
+        "WorkspaceDocSmartBlock must use drafting-table rounded-[5px] geometry",
     );
 
     const refPreview = source("src/components/workspaces/doc/WorkspaceDocReferencePreview.tsx");
     assert.doesNotMatch(
         refPreview,
         /rounded-full/,
-        "ProjectDocReferencePreview must not use circular rounded-full avatars or badges",
+        "WorkspaceDocReferencePreview must not use circular rounded-full avatars or badges",
     );
     assert.match(
         refPreview,
         /rounded-\[5px\] border border-border/,
-        "ProjectDocReferencePreview avatars must use drafting-table rounded-[5px] squared geometry",
+        "WorkspaceDocReferencePreview avatars must use drafting-table rounded-[5px] squared geometry",
     );
     assert.match(
         refPreview,
         /rounded-\[3px\][\s\S]*?font-mono text-\[11px\] uppercase tracking-\[0\.09em\]/,
-        "ProjectDocReferencePreview must use Section 10 contract for badges",
+        "WorkspaceDocReferencePreview must use Section 10 contract for badges",
     );
 
 });

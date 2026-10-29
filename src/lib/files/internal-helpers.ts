@@ -1,34 +1,34 @@
 import { db } from "@/lib/db";
 import { ConflictError, ForbiddenError, NotFoundError } from "@/lib/errors/domain";
 import { projectEventCounters, projectMembers, projectNodeEvents, projectNodeLocks, projectNodes, projects, tasks } from "@/lib/db/schema";
-import { assertProjectTabReadAccess, canReadProjectTab, getProjectAccessById, type ProjectAccess } from "@/lib/data/workspace-access";
+import { assertWorkspaceTabReadAccess, canReadWorkspaceTab, getWorkspaceAccessById, type WorkspaceAccess } from "@/lib/data/workspace-access";
 import { eq, and, isNull, sql, ne, gt, type SQL } from "drizzle-orm";
 import { isWithParent } from "@/app/actions/files/_constants";
-import { requireProjectCapability } from "@/lib/workspaces/collaborator-lifecycle";
-import { canProjectMemberUploadFiles, projectMemberCan } from "@/lib/workspaces/settings-policies";
+import { requireWorkspaceCapability } from "@/lib/workspaces/collaborator-lifecycle";
+import { canWorkspaceMemberUploadFiles, projectMemberCan } from "@/lib/workspaces/settings-policies";
 
 type DbTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
-type ExistingProjectAccess = ProjectAccess & { project: NonNullable<ProjectAccess["project"]> };
+type ExistingProjectAccess = WorkspaceAccess & { project: NonNullable<WorkspaceAccess["project"]> };
 
 async function getProjectAccess(projectId: string, userId: string | null): Promise<ExistingProjectAccess> {
-    const access = await getProjectAccessById(projectId, userId);
+    const access = await getWorkspaceAccessById(projectId, userId);
     if (!access.project) throw new NotFoundError("Workspace not found");
     return access as ExistingProjectAccess;
 }
 
-export async function assertProjectReadAccess(projectId: string, userId: string | null) {
+export async function assertWorkspaceReadAccess(projectId: string, userId: string | null) {
     const access = await getProjectAccess(projectId, userId);
     if (!access.canRead) throw new ForbiddenError("You don’t have access to this");
     return access;
 }
 
-export async function assertProjectFileReadAccess(projectId: string, userId: string | null) {
-    return assertProjectTabReadAccess(projectId, userId, "files");
+export async function assertWorkspaceFileReadAccess(projectId: string, userId: string | null) {
+    return assertWorkspaceTabReadAccess(projectId, userId, "files");
 }
 
 /** Files visibility does not implicitly publish task-only attachments. */
-export function canReadProjectTaskFiles(access: ExistingProjectAccess): boolean {
-    return canReadProjectTab(access, "tasks");
+export function canReadWorkspaceTaskFiles(access: ExistingProjectAccess): boolean {
+    return canReadWorkspaceTab(access, "tasks");
 }
 
 /** SQL: ordinary project content, i.e. not owned by a task and not under /.system. */
@@ -42,7 +42,7 @@ const NODE_COLUMNS: NodeRef = { projectId: projectNodes.projectId, path: project
  * members and guests never see Admins-only folders or other people's assignment copies, and visitors see only
  * what sits under a Public folder. Owners and admins see everything. Other projects: no extra rule.
  */
-type OrgFileViewer = Pick<ProjectAccess, "isOwner" | "isMember" | "memberRole" | "viewerId"> & { project: { kind?: string | null } | null };
+type OrgFileViewer = Pick<WorkspaceAccess, "isOwner" | "isMember" | "memberRole" | "viewerId"> & { project: { kind?: string | null } | null };
 
 export function orgFileAccessSql(access: OrgFileViewer, node: NodeRef = NODE_COLUMNS): SQL | undefined {
     if (access.project?.kind !== "organization" || access.isOwner || access.memberRole === "admin") return undefined;
@@ -72,12 +72,12 @@ export function orgFileAccessSql(access: OrgFileViewer, node: NodeRef = NODE_COL
 
 /** Listing filter for file readers: task-file readers see all nodes, everyone else project content only. */
 export function visibleFileNodesSql(access: ExistingProjectAccess): SQL | undefined {
-    return and(canReadProjectTaskFiles(access) ? undefined : projectContentNodeSql, orgFileAccessSql(access));
+    return and(canReadWorkspaceTaskFiles(access) ? undefined : projectContentNodeSql, orgFileAccessSql(access));
 }
 
 export function assertTaskFileNodeVisible(access: ExistingProjectAccess, node: { taskId?: string | null; path?: string | null; deletedAt?: unknown }) {
     if (node.deletedAt) throw new NotFoundError("File not found");
-    if ((node.taskId || node.path?.startsWith("/.system/")) && !canReadProjectTaskFiles(access)) {
+    if ((node.taskId || node.path?.startsWith("/.system/")) && !canReadWorkspaceTaskFiles(access)) {
         throw new ForbiddenError("Task files are not available to this viewer.");
     }
 }
@@ -121,23 +121,23 @@ async function assertOrgWrite(executor: Executor, projectId: string, userId: str
     if (rows.length === 0) throw new ForbiddenError("Only organization owners and admins can change the organization’s files.");
 }
 
-export async function assertProjectWriteAccess(projectId: string, userId: string, target?: OwnCopyTarget) {
+export async function assertWorkspaceWriteAccess(projectId: string, userId: string, target?: OwnCopyTarget) {
     const access = await getProjectAccess(projectId, userId);
     if (!access.canWrite) throw new ForbiddenError("You don’t have access to this");
     if (access.project.kind === "organization") await assertOrgWrite(db, projectId, userId, access.isOwner || access.memberRole === "admin", target);
-    await requireProjectCapability(projectId, userId, "upload_files");
+    await requireWorkspaceCapability(projectId, userId, "upload_files");
     return { ...access, canWrite: true };
 }
 
-export async function assertProjectManageFilesAccess(projectId: string, userId: string) {
+export async function assertWorkspaceManageFilesAccess(projectId: string, userId: string) {
     const access = await getProjectAccess(projectId, userId);
     if (!access.canWrite) throw new ForbiddenError("You don’t have access to this");
     if (access.project.kind === "organization") await assertOrgWrite(db, projectId, userId, access.isOwner || access.memberRole === "admin");
-    await requireProjectCapability(projectId, userId, "manage_files");
+    await requireWorkspaceCapability(projectId, userId, "manage_files");
     return { ...access, canManageFiles: true };
 }
 
-export async function assertProjectUploadAccess(projectId: string, userId: string, target?: OwnCopyTarget) {
+export async function assertWorkspaceUploadAccess(projectId: string, userId: string, target?: OwnCopyTarget) {
     const access = await getProjectAccess(projectId, userId);
     if (access.isOwner) return { ...access, canUpload: true };
     if (access.project.kind === "organization") {
@@ -152,13 +152,13 @@ export async function assertProjectUploadAccess(projectId: string, userId: strin
             .where(and(eq(projectMembers.projectId, projectId), eq(projectMembers.userId, userId)))
             .limit(1)
         : [];
-    if (!canProjectMemberUploadFiles({ role: access.memberRole, fileUploadEnabled: member?.fileUploadEnabled ?? null })) {
+    if (!canWorkspaceMemberUploadFiles({ role: access.memberRole, fileUploadEnabled: member?.fileUploadEnabled ?? null })) {
         throw new ForbiddenError("File uploads are disabled for this workspace member.");
     }
     return { ...access, canUpload: true };
 }
 
-export async function assertProjectWriteAccessTx(
+export async function assertWorkspaceWriteAccessTx(
     tx: DbTransaction,
     projectId: string,
     userId: string,
@@ -212,7 +212,7 @@ export async function assertProjectWriteAccessTx(
     };
 }
 
-export async function assertProjectManageFilesAccessTx(
+export async function assertWorkspaceManageFilesAccessTx(
     tx: DbTransaction,
     projectId: string,
     userId: string,
@@ -254,7 +254,7 @@ export async function assertProjectManageFilesAccessTx(
     };
 }
 
-export async function assertProjectUploadAccessTx(
+export async function assertWorkspaceUploadAccessTx(
     tx: DbTransaction,
     projectId: string,
     userId: string,
@@ -296,7 +296,7 @@ export async function assertProjectUploadAccessTx(
     if (project.kind === "organization") {
         if (!member) throw new ForbiddenError("You don’t have access to this");
         await assertOrgWrite(tx, projectId, userId, member.role === "admin", target);
-    } else if (!member || !canProjectMemberUploadFiles({ role: member.role, fileUploadEnabled: member.file_upload_enabled })) {
+    } else if (!member || !canWorkspaceMemberUploadFiles({ role: member.role, fileUploadEnabled: member.file_upload_enabled })) {
         throw new ForbiddenError("File uploads are disabled for this workspace member.");
     }
 
@@ -306,7 +306,7 @@ export async function assertProjectUploadAccessTx(
     };
 }
 
-export async function getTaskProjectId(taskId: string): Promise<string> {
+export async function getTaskWorkspaceId(taskId: string): Promise<string> {
     const rows = await db
         .select({ projectId: tasks.projectId })
         .from(tasks)

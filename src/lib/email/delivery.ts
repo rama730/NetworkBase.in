@@ -9,8 +9,8 @@ import { createAdminClient } from "@/lib/supabase/server";
 import { logger } from "@/lib/logger";
 import { normalizeNotificationPreferences } from "@/lib/notifications/preferences";
 import { resolveNotificationDeliveryPolicy } from "@/lib/notifications/service";
-import { isProjectMemberEligibleFor } from "@/lib/workspaces/collaborator-lifecycle";
-import { resolveProjectNotificationDecision, normalizeProjectNotificationPolicy, normalizeProjectMemberNotificationOverrides } from "@/lib/notifications/workspace-policy";
+import { isWorkspaceMemberEligibleFor } from "@/lib/workspaces/collaborator-lifecycle";
+import { resolveWorkspaceNotificationDecision, normalizeWorkspaceNotificationPolicy, normalizeWorkspaceMemberNotificationOverrides } from "@/lib/notifications/workspace-policy";
 import { resolveIdeFromSession, SUPPORTED_IDES } from "@/lib/extension/ide-protocol";
 import { resolveAuthBaseUrl } from "@/lib/auth/redirects";
 import { ALWAYS_SENT_EMAILS, buildOrgEmail, orgMuteToken, type OrgEmailData } from "./org-templates";
@@ -190,7 +190,7 @@ async function prepareEmail(row: OutboxRow): Promise<Prepared> {
     .leftJoin(actorProfile, row.actorId ? eq(actorProfile.id, row.actorId) : sql`false`)
     .where(and(eq(tasks.id, row.taskId), eq(tasks.projectId, row.projectId), isNull(tasks.deletedAt), isNull(projects.deletedAt))).limit(1);
   if (!context || context.task.assigneeId !== row.userId ||
-    (context.project.ownerId !== row.userId && !context.member?.role) || !isProjectMemberEligibleFor(
+    (context.project.ownerId !== row.userId && !context.member?.role) || !isWorkspaceMemberEligibleFor(
     context.project.ownerId === row.userId ? "owner" : context.member?.role, "assign",
   )) {
     return { drop: "assignment_or_access_changed" };
@@ -206,10 +206,10 @@ async function prepareEmail(row: OutboxRow): Promise<Prepared> {
   }
   const preferences = normalizeNotificationPreferences(profile.notificationPreferences);
   if (!preferences.delivery.email) return { drop: "email_opt_out" };
-  const projectPolicy = resolveProjectNotificationDecision({
+  const projectPolicy = resolveWorkspaceNotificationDecision({
     eventKey: source === `${row.taskId}-created` ? "tasks.created_assigned" : "tasks.assigned",
-    projectPolicy: normalizeProjectNotificationPolicy(context.project.notificationPreferences),
-    memberOverrides: normalizeProjectMemberNotificationOverrides(context.member?.notificationPreferences),
+    projectPolicy: normalizeWorkspaceNotificationPolicy(context.project.notificationPreferences),
+    memberOverrides: normalizeWorkspaceMemberNotificationOverrides(context.member?.notificationPreferences),
   });
   if (!projectPolicy.enabled) return { drop: "project_policy_off" };
   const check = resolveNotificationDeliveryPolicy({

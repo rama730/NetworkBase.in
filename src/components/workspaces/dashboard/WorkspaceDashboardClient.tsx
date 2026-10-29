@@ -7,26 +7,26 @@ import { toast, feedbackError } from "@/lib/feedback";
 import { Loader2, Lock } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import { createClient } from '@/lib/supabase/client';
-import ProjectLayout from '@/components/workspaces/dashboard/WorkspaceLayout';
+import WorkspaceLayout from '@/components/workspaces/dashboard/WorkspaceLayout';
 import { PlainContentHeadings } from '@/components/workspaces/PlainContentHeadings';
 import { TabErrorBoundary } from '@/components/workspaces/TabErrorBoundary';
-import type { Project } from '@/types/discover';
-import { toggleProjectFollowAction, updateProjectStageAction, incrementProjectViewAction } from '@/app/actions/workspace';
+import type { Workspace } from '@/types/discover';
+import { toggleWorkspaceFollowAction, updateWorkspaceStageAction, incrementWorkspaceViewAction } from '@/app/actions/workspace';
 import { ROUTES } from '@/constants/routes';
 import { getApplicationStatusAction, withdrawApplicationAction, type ApplicationStatusResult } from '@/app/actions/applications';
 import type { ApplicationStatusLoad } from '@/lib/applications/card-state';
 import { useRoleApplicationCounts } from '@/hooks/useRoleApplicationCounts';
 import { userTopic } from '@/lib/messaging/constants';
 import { subscribeBroadcast } from '@/lib/realtime/private-broadcast';
-import { resolveProjectInvitationAction } from '@/app/actions/workspace/guidance';
-import { useProjectMembers } from '@/hooks/workspaces/useWorkspaceMembers';
+import { resolveWorkspaceInvitationAction } from '@/app/actions/workspace/guidance';
+import { useWorkspaceMembers } from '@/hooks/workspaces/useWorkspaceMembers';
 import { queryKeys } from '@/lib/query-keys';
 import { logger } from '@/lib/logger';
-import { subscribeProjectStage } from '@/lib/realtime/subscriptions';
+import { subscribeWorkspaceStage } from '@/lib/realtime/subscriptions';
 import type { SprintDetailPayload } from '@/lib/workspaces/sprint-detail';
 import type { TaskPanelTab } from '@/hooks/useTaskPanelResource';
-import { normalizeProjectDocSlug } from '@/lib/workspaces/doc-slug';
-import { canProjectMemberUploadFiles, isProjectTabVisibleToViewer, normalizeProjectMemberRole, normalizeProjectPublicTabVisibility, PROJECT_MEMBER_ROLE_LABELS, resolveAllowedProjectTab, type ProjectMemberRole } from '@/lib/workspaces/settings-policies';
+import { normalizeWorkspaceDocSlug } from '@/lib/workspaces/doc-slug';
+import { canWorkspaceMemberUploadFiles, isWorkspaceTabVisibleToViewer, normalizeWorkspaceMemberRole, normalizeWorkspacePublicTabVisibility, WORKSPACE_MEMBER_ROLE_LABELS, resolveAllowedWorkspaceTab, type WorkspaceMemberRole } from '@/lib/workspaces/settings-policies';
 import {
     useUIStore,
     MY_WORK_TASK_HANDOFF_STORAGE_KEY,
@@ -34,28 +34,28 @@ import {
     type MyWorkTaskHandoff,
 } from '@/stores/ui-store';
 
-import { DashboardTab, DocTab, UpdatesTab, TasksTab, FilesTab, SprintPlanning, ProjectSettingsTab } from '@/components/workspaces/dashboard/WorkspaceTabsRegistry';
+import { DashboardTab, DocTab, UpdatesTab, TasksTab, FilesTab, SprintPlanning, WorkspaceSettingsTab } from '@/components/workspaces/dashboard/WorkspaceTabsRegistry';
 import { SkeletonSprints } from '@/components/workspaces/skeletons/SkeletonSprints';
 import { OrgAboutTab } from '@/components/organizations/OrgAboutTab';
 import { AssignmentsPanel, GroupCopiesPanel } from '@/components/organizations/AssignmentsPanel';
 import { OrgFilesPanel, OrgSprintMaterials } from '@/components/organizations/OrgFilesPanel';
 import { OrgMembersTab } from '@/components/organizations/OrgMembersTab';
-import { ChildOrgLine, ChildUnitsLine, OrgDashboard, OrgProjectsTab } from '@/components/organizations/OrgOverviewParts';
+import { ChildOrgLine, ChildUnitsLine, OrgDashboard, OrgWorkspacesTab } from '@/components/organizations/OrgOverviewParts';
 import { OrgInviteBanner } from '@/components/organizations/OrgInviteBanner';
 import { ChildOrgChips, OrgBreadcrumb, OrgCompactMark, OrgHeaderMenu, OrgIdentityLine, OrgInviteDialog, OrgNewItems, OrgNewMenu, OrgStatusBanner, OrgVisitorActions, type OrgNewKind } from '@/components/organizations/OrgHeaderParts';
 import { readOrgTabBadgesAction, type OrgTabBadges } from '@/app/actions/assignments';
-import { isProjectPubliclyReadableVisibility } from '@/lib/workspaces/workspace-visibility';
+import { isWorkspacePubliclyReadableVisibility } from '@/lib/workspaces/workspace-visibility';
 import { confirmFileNavigation } from '@/lib/files/unsaved-navigation';
 import { useFilesStore } from '@/stores/filesStore';
 
-const EditProjectModal = dynamic(() => import('@/components/workspaces/EditWorkspaceModal'), { ssr: false, loading: () => null });
+const EditWorkspaceModal = dynamic(() => import('@/components/workspaces/EditWorkspaceModal'), { ssr: false, loading: () => null });
 
 const WithdrawApplicationDialog = dynamic(() => import('@/components/workspaces/dashboard/WithdrawApplicationDialog'), { ssr: false, loading: () => null });
 const InviteCollaboratorModal = dynamic(() => import('@/components/workspaces/dashboard/InviteCollaboratorModal'), { ssr: false, loading: () => null });
 
 const ApplyRoleModal = dynamic(() => import('@/components/workspaces/ApplyRoleModal'), { ssr: false, loading: () => null });
 
-const ProjectOnboardingModal = dynamic(() => import('@/components/workspaces/WorkspaceOnboardingModal').then((mod) => mod.ProjectOnboardingModal), { ssr: false, loading: () => null });
+const WorkspaceOnboardingModal = dynamic(() => import('@/components/workspaces/WorkspaceOnboardingModal').then((mod) => mod.WorkspaceOnboardingModal), { ssr: false, loading: () => null });
 
 function normalizeProjectDetailTabParam(value: string | null | undefined) {
     const tab = value?.trim();
@@ -133,8 +133,8 @@ function clearProjectDetailScopedParams(params: URLSearchParams, activeTab: stri
     return changed;
 }
 
-interface ExtendedProjectDetail extends Omit<Project, 'publicTabVisibility'> {
-    publicTabVisibility?: Project['publicTabVisibility'] | string;
+interface ExtendedProjectDetail extends Omit<Workspace, 'publicTabVisibility'> {
+    publicTabVisibility?: Workspace['publicTabVisibility'] | string;
     public_tab_visibility?: string;
     hasPublishedReadme?: boolean;
     isFollowed?: boolean;
@@ -160,7 +160,7 @@ interface ProjectDashboardClientProps {
 }
 
 const ResourceShareDialog = dynamic(() => import('@/components/sharing/ShareDialog').then(mod => mod.ShareDialog), { ssr: false });
-export default function ProjectDashboardClient({ project, currentUserId, viewerDisplayName = null, viewerAvatarUrl = null, isOwner, isMember, memberRole = null, initialSprintData = null }: ProjectDashboardClientProps) {
+export default function WorkspaceDashboardClient({ project, currentUserId, viewerDisplayName = null, viewerAvatarUrl = null, isOwner, isMember, memberRole = null, initialSprintData = null }: ProjectDashboardClientProps) {
     const router = useRouter();
     const pathname = usePathname();
     const queryClient = useQueryClient();
@@ -266,14 +266,14 @@ export default function ProjectDashboardClient({ project, currentUserId, viewerD
     const organization = project.organization ?? null;
     const isOrganization = Boolean(organization);
     const canonicalProjectHref = useMemo(() => `${isOrganization ? '/org' : '/workspaces'}/${project.slug || project.id}`, [isOrganization, project.id, project.slug]);
-    const publicTabVisibility = useMemo(() => normalizeProjectPublicTabVisibility(project.publicTabVisibility ?? project.public_tab_visibility), [project]);
+    const publicTabVisibility = useMemo(() => normalizeWorkspacePublicTabVisibility(project.publicTabVisibility ?? project.public_tab_visibility), [project]);
     const isOwnerOrMember = isOwner || isMember;
     // Org admins read every tab of their org's child projects and manage its org link (report §29.4);
     // the project's own admin tools stay with its team.
     const parentOrg = project.parentOrg ?? null;
     const isInheritedAdmin = Boolean(parentOrg?.viewerIsInheritedAdmin) && !isOwnerOrMember;
     const canSeeAllTabs = isOwnerOrMember || isInheritedAdmin;
-    const resolvedActiveTab = resolveAllowedProjectTab({
+    const resolvedActiveTab = resolveAllowedWorkspaceTab({
         requestedTab: normalizeProjectDetailTabParam(searchParams?.get('tab')),
         isOwnerOrMember: canSeeAllTabs,
         canManageSettings: isOwner,
@@ -394,7 +394,7 @@ export default function ProjectDashboardClient({ project, currentUserId, viewerD
         setInvitationLoading(true);
         try {
             if (!applicationStatus.invitationId) throw new Error('No active invitation ID found.');
-            const res = await resolveProjectInvitationAction({
+            const res = await resolveWorkspaceInvitationAction({
                 invitationId: applicationStatus.invitationId,
                 action,
             });
@@ -431,7 +431,7 @@ export default function ProjectDashboardClient({ project, currentUserId, viewerD
     useEffect(() => {
         if (!project?.id) return;
         const supabase = createClient();
-        const channel = subscribeProjectStage({
+        const channel = subscribeWorkspaceStage({
             supabase,
             projectId: project.id,
             subscriberId: 'dashboard',
@@ -546,7 +546,7 @@ export default function ProjectDashboardClient({ project, currentUserId, viewerD
     const {
         data: membersData,
         isLoading: loadingMembers,
-    } = useProjectMembers(project.id, collaboratorUsers || [], {
+    } = useWorkspaceMembers(project.id, collaboratorUsers || [], {
         enabled: shouldLoadMembers,
         initialHasMore: project.membersHasMore,
         initialCursor: project.membersNextCursor,
@@ -564,16 +564,16 @@ export default function ProjectDashboardClient({ project, currentUserId, viewerD
         }
         return list;
     }, [membersData, collaboratorUsers, project, extendedProject]);
-    const currentProjectRole: ProjectMemberRole | null = isOwner
+    const currentProjectRole: WorkspaceMemberRole | null = isOwner
         ? 'owner'
-        : isMember ? normalizeProjectMemberRole(memberRole, 'member') : null;
+        : isMember ? normalizeWorkspaceMemberRole(memberRole, 'member') : null;
     const canManageProjectSettings = isOwner || currentProjectRole === 'admin';
     const canEditTasks = isOwner || currentProjectRole === 'admin' || currentProjectRole === 'member';
     const canManageFiles = isOwner || currentProjectRole === 'admin';
     const currentFileMember = allMembers.find((item: any) => item?.id === currentUserId);
     // Org files: only owners and admins write the org tree; members add files to their own copies (report §23.4).
-    const canUploadFiles = isOrganization ? canManageFiles : isOwner || canProjectMemberUploadFiles({ role: currentProjectRole, fileUploadEnabled: currentFileMember?.fileUploadEnabled });
-    const canReadTaskFiles = isProjectTabVisibleToViewer({ tabId: 'tasks', isOwnerOrMember: canSeeAllTabs, publicTabVisibility });
+    const canUploadFiles = isOrganization ? canManageFiles : isOwner || canWorkspaceMemberUploadFiles({ role: currentProjectRole, fileUploadEnabled: currentFileMember?.fileUploadEnabled });
+    const canReadTaskFiles = isWorkspaceTabVisibleToViewer({ tabId: 'tasks', isOwnerOrMember: canSeeAllTabs, publicTabVisibility });
 
     const currentUserName = useMemo(() => {
         if (!currentUserId) return undefined;
@@ -606,7 +606,7 @@ export default function ProjectDashboardClient({ project, currentUserId, viewerD
         (tabId: string) => {
             if (!confirmFileNavigation(project.id)) return;
             if (
-                !isProjectTabVisibleToViewer({
+                !isWorkspaceTabVisibleToViewer({
                     tabId,
                     isOwnerOrMember: canSeeAllTabs,
                     canManageSettings: canManageProjectSettings,
@@ -663,7 +663,7 @@ export default function ProjectDashboardClient({ project, currentUserId, viewerD
         const nextParams = new URLSearchParams(searchParams?.toString() ?? window.location.search);
         const requestedTab = normalizeProjectDetailTabParam(nextParams.get('tab'));
         const normalizedRequestedTab = requestedTab;
-        const allowedTab = resolveAllowedProjectTab({
+        const allowedTab = resolveAllowedWorkspaceTab({
             requestedTab: normalizedRequestedTab,
             isOwnerOrMember: canSeeAllTabs,
             canManageSettings: canManageProjectSettings,
@@ -688,7 +688,7 @@ export default function ProjectDashboardClient({ project, currentUserId, viewerD
 
         if (allowedTab === 'readme') {
             const currentDocSlug = nextParams.get('doc');
-            const normalizedDocSlug = normalizeProjectDocSlug(currentDocSlug || 'readme');
+            const normalizedDocSlug = normalizeWorkspaceDocSlug(currentDocSlug || 'readme');
             if (currentDocSlug !== normalizedDocSlug) {
                 nextParams.set('doc', normalizedDocSlug);
                 changed = true;
@@ -718,7 +718,7 @@ export default function ProjectDashboardClient({ project, currentUserId, viewerD
         const searchTab = searchParams?.get('tab');
         const requestedTab = normalizeProjectDetailTabParam(searchTab);
         const normalizedRequestedTab = requestedTab;
-        const nextTab = resolveAllowedProjectTab({
+        const nextTab = resolveAllowedWorkspaceTab({
             requestedTab: normalizedRequestedTab,
             isOwnerOrMember: canSeeAllTabs,
             canManageSettings: canManageProjectSettings,
@@ -792,7 +792,7 @@ export default function ProjectDashboardClient({ project, currentUserId, viewerD
         try {
             setFollowLoading(true);
             followInFlightRef.current = true;
-            const result = await toggleProjectFollowAction(project.id, newIsFollowing);
+            const result = await toggleWorkspaceFollowAction(project.id, newIsFollowing);
             if (!isMountedRef.current || requestId !== followRequestRef.current) return;
             if (!result.success) throw new Error(result.error);
             if (result.followersCount !== undefined) {
@@ -852,7 +852,7 @@ export default function ProjectDashboardClient({ project, currentUserId, viewerD
 
         const incrementView = () => {
             if (cancelled || document.visibilityState !== 'visible') return;
-            incrementProjectViewAction(project.id).then((result) => {
+            incrementWorkspaceViewAction(project.id).then((result) => {
                 if (cancelled) return;
                 if (!isMountedRef.current) return;
                 const nextViewCount = result.viewCount;
@@ -988,7 +988,7 @@ export default function ProjectDashboardClient({ project, currentUserId, viewerD
             const requestId = ++stageRequestRef.current;
             setIsStageUpdatingSafe(true);
             try {
-                const result = await updateProjectStageAction(project.id, targetIndex, {
+                const result = await updateWorkspaceStageAction(project.id, targetIndex, {
                     expectedUpdatedAt: expectedUpdatedAt || undefined,
                 });
 
@@ -1016,7 +1016,7 @@ export default function ProjectDashboardClient({ project, currentUserId, viewerD
                     }
 
                     const retryTarget = Math.min(Math.max(0, lifecycleStageNames.length - 1), latestIndex + 1);
-                    const retryResult = await updateProjectStageAction(project.id, retryTarget, {
+                    const retryResult = await updateWorkspaceStageAction(project.id, retryTarget, {
                         expectedUpdatedAt: latestVersion || undefined,
                     });
 
@@ -1142,7 +1142,7 @@ export default function ProjectDashboardClient({ project, currentUserId, viewerD
     return (
         <PlainContentHeadings>
         {shareOpen ? <ResourceShareDialog kind="project" path={canonicalProjectHref} returnFocusElement={shareTrigger.current} onClose={() => setShareOpen(false)} /> : null}
-        <ProjectLayout project={projectWithLiveStats} isOwner={isOwner} canManageSettings={canManageProjectSettings} isOwnerOrMember={canSeeAllTabs} publicTabVisibility={publicTabVisibility} activeTab={activeTab ?? ''} onTabChange={handleTabChange} followersCount={followersCount} viewCount={viewCount} filesSyncBadge={filesSyncBadge} isFollowing={isFollowing} onFollow={handleFollow} followLoading={followLoading} onShare={handleShare} onInvite={() => (isOrganization ? setIsOrgInviteOpen(true) : setIsInviteModalOpen(true))} canInvite={canManageProjectSettings}
+        <WorkspaceLayout project={projectWithLiveStats} isOwner={isOwner} canManageSettings={canManageProjectSettings} isOwnerOrMember={canSeeAllTabs} publicTabVisibility={publicTabVisibility} activeTab={activeTab ?? ''} onTabChange={handleTabChange} followersCount={followersCount} viewCount={viewCount} filesSyncBadge={filesSyncBadge} isFollowing={isFollowing} onFollow={handleFollow} followLoading={followLoading} onShare={handleShare} onInvite={() => (isOrganization ? setIsOrgInviteOpen(true) : setIsInviteModalOpen(true))} canInvite={canManageProjectSettings}
             isOrganization={isOrganization}
             canOpenSettings={isInheritedAdmin}
             breadcrumb={parentOrg ? <OrgBreadcrumb parentOrg={parentOrg} /> : null}
@@ -1152,8 +1152,8 @@ export default function ProjectDashboardClient({ project, currentUserId, viewerD
             compactChip={organization ? (activeSprintName ? <span className="nb-status shrink-0" data-status="active">{activeSprintName}</span> : null) : undefined}
             compactPrefix={parentOrg ? <OrgCompactMark parentOrg={parentOrg} /> : null}
             compactMenuItems={canStartNew ? <OrgNewItems onNew={startNew} prefix="New " /> : null}
-            actionsStart={organization ? <>{canStartNew ? <OrgNewMenu onNew={startNew} /> : null}{!isOwnerOrMember && currentUserId ? <OrgInviteBanner orgId={project.id} /> : null}{!isOwnerOrMember && isProjectPubliclyReadableVisibility(project.visibility) && project.status !== 'archived' && !organization.suspended ? <OrgVisitorActions orgId={project.id} href={canonicalProjectHref} joinMode={organization.joinMode} requestPending={organization.viewerRequestPending} loggedIn={Boolean(currentUserId)} /> : null}{currentUserId && !isOwner ? <OrgHeaderMenu orgId={project.id} /> : null}</> : null}
-            showFollow={!organization || (!isOwnerOrMember && isProjectPubliclyReadableVisibility(project.visibility))} onTabHover={handleTabHover} members={allMembers} loadingMembers={loadingMembers} stageLabel={lifecycleStageNames[optimisticStageIndex] ?? null} stageIndex={optimisticStageIndex} stageCount={lifecycleStageNames.length} applicationLabel={applicationHeaderLabel} openRolesCount={rolesWithFilled.filter((role: any) => (role?.count || 0) - (role?.filled || 0) > 0).length}>
+            actionsStart={organization ? <>{canStartNew ? <OrgNewMenu onNew={startNew} /> : null}{!isOwnerOrMember && currentUserId ? <OrgInviteBanner orgId={project.id} /> : null}{!isOwnerOrMember && isWorkspacePubliclyReadableVisibility(project.visibility) && project.status !== 'archived' && !organization.suspended ? <OrgVisitorActions orgId={project.id} href={canonicalProjectHref} joinMode={organization.joinMode} requestPending={organization.viewerRequestPending} loggedIn={Boolean(currentUserId)} /> : null}{currentUserId && !isOwner ? <OrgHeaderMenu orgId={project.id} /> : null}</> : null}
+            showFollow={!organization || (!isOwnerOrMember && isWorkspacePubliclyReadableVisibility(project.visibility))} onTabHover={handleTabHover} members={allMembers} loadingMembers={loadingMembers} stageLabel={lifecycleStageNames[optimisticStageIndex] ?? null} stageIndex={optimisticStageIndex} stageCount={lifecycleStageNames.length} applicationLabel={applicationHeaderLabel} openRolesCount={rolesWithFilled.filter((role: any) => (role?.count || 0) - (role?.filled || 0) > 0).length}>
             {!activeTab && (
                 <div className="w-full h-full min-h-[40vh] flex items-center justify-center p-8">
                     <div className="nb-empty-state max-w-md text-center py-12" role="status">
@@ -1182,7 +1182,7 @@ export default function ProjectDashboardClient({ project, currentUserId, viewerD
             {isOrganization && activeTab === 'about' && (
                 <div className="w-full h-full min-h-0">
                     <TabErrorBoundary tabName="About">
-                        <OrgAboutTab project={projectWithLiveStats} isCreator={isOwner} onEdit={handleEdit} visitorActions={organization && !isOwnerOrMember && isProjectPubliclyReadableVisibility(project.visibility) ? <OrgVisitorActions orgId={project.id} href={canonicalProjectHref} joinMode={organization.joinMode} requestPending={organization.viewerRequestPending} loggedIn={Boolean(currentUserId)} /> : undefined} />
+                        <OrgAboutTab project={projectWithLiveStats} isCreator={isOwner} onEdit={handleEdit} visitorActions={organization && !isOwnerOrMember && isWorkspacePubliclyReadableVisibility(project.visibility) ? <OrgVisitorActions orgId={project.id} href={canonicalProjectHref} joinMode={organization.joinMode} requestPending={organization.viewerRequestPending} loggedIn={Boolean(currentUserId)} /> : undefined} />
                     </TabErrorBoundary>
                 </div>
             )}
@@ -1190,7 +1190,7 @@ export default function ProjectDashboardClient({ project, currentUserId, viewerD
             {isOrganization && isOwnerOrMember && activeTab === 'projects' && (
                 <div className="w-full h-full min-h-0">
                     <TabErrorBoundary tabName="Workspaces">
-                        <OrgProjectsTab orgId={project.id} orgSlug={project.slug} />
+                        <OrgWorkspacesTab orgId={project.id} orgSlug={project.slug} />
                     </TabErrorBoundary>
                 </div>
             )}
@@ -1255,7 +1255,7 @@ export default function ProjectDashboardClient({ project, currentUserId, viewerD
             {(canManageProjectSettings || isInheritedAdmin || (isOrganization && isOwnerOrMember)) && activeTab === 'settings' && (
                 <div className="w-full h-full min-h-0">
                     <TabErrorBoundary tabName="Settings">
-                        <ProjectSettingsTab projectId={project.id} project={projectWithLiveStats} onProjectUpdated={handleProjectSettingsUpdated} isProjectOwner={isOwner} actorRole={currentProjectRole} members={allMembers} loadingMembers={loadingMembers} />
+                        <WorkspaceSettingsTab projectId={project.id} project={projectWithLiveStats} onProjectUpdated={handleProjectSettingsUpdated} isProjectOwner={isOwner} actorRole={currentProjectRole} members={allMembers} loadingMembers={loadingMembers} />
                     </TabErrorBoundary>
                 </div>
             )}
@@ -1265,7 +1265,7 @@ export default function ProjectDashboardClient({ project, currentUserId, viewerD
             ) : null}
 
             {isOnboardingOpen ? (
-                <ProjectOnboardingModal
+                <WorkspaceOnboardingModal
                     isOpen={isOnboardingOpen}
                     onClose={() => setIsOnboardingOpen(false)}
                     projectTitle={project.title}
@@ -1281,7 +1281,7 @@ export default function ProjectDashboardClient({ project, currentUserId, viewerD
                 />
             ) : null}
 
-            {isEditModalOpen ? <EditProjectModal project={extendedProject} isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} onSaved={() => refreshProjectData()} /> : null}
+            {isEditModalOpen ? <EditWorkspaceModal project={extendedProject} isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} onSaved={() => refreshProjectData()} /> : null}
 
             {isApplyModalOpen && (rolesWithFilled.length > 0 || isEditApplicationOpen) && (
                 <ApplyRoleModal
@@ -1333,7 +1333,7 @@ export default function ProjectDashboardClient({ project, currentUserId, viewerD
                     canAppointGuidance={isOwner}
                 />
             )}
-        </ProjectLayout>
+        </WorkspaceLayout>
         </PlainContentHeadings>
     );
 }

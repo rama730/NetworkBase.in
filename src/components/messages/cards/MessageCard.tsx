@@ -5,7 +5,7 @@ import { useState } from "react";
 
 import { Check, ChevronDown } from "lucide-react";
 
-import { resolveProjectInvitationAction } from "@/app/actions/workspace/guidance";
+import { resolveWorkspaceInvitationAction } from "@/app/actions/workspace/guidance";
 import { updateTaskStatusAction, type TaskStatus } from "@/app/actions/task";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import TaskStatusBadge from "@/components/workspaces/v2/tasks/badges/TaskStatusBadge";
@@ -145,12 +145,12 @@ function InviteCard({ view }: { view: InviteCardView }) {
         <Actions>
           {view.is_candidate ? (
             <>
-              <button type="button" className={primary} disabled={busy} onClick={() => void run(() => resolveProjectInvitationAction({ invitationId: view.id, action: "accept" }), "Invitation accepted")}>Accept</button>
-              <button type="button" className={secondary} disabled={busy} onClick={() => void run(() => resolveProjectInvitationAction({ invitationId: view.id, action: "decline" }), "Invitation declined")}>Decline</button>
+              <button type="button" className={primary} disabled={busy} onClick={() => void run(() => resolveWorkspaceInvitationAction({ invitationId: view.id, action: "accept" }), "Invitation accepted")}>Accept</button>
+              <button type="button" className={secondary} disabled={busy} onClick={() => void run(() => resolveWorkspaceInvitationAction({ invitationId: view.id, action: "decline" }), "Invitation declined")}>Decline</button>
             </>
           ) : null}
           {view.can_cancel ? (
-            <button type="button" className={secondary} disabled={busy} onClick={() => void run(() => resolveProjectInvitationAction({ invitationId: view.id, action: "cancel" }), "Invitation canceled")}>Cancel invitation</button>
+            <button type="button" className={secondary} disabled={busy} onClick={() => void run(() => resolveWorkspaceInvitationAction({ invitationId: view.id, action: "cancel" }), "Invitation canceled")}>Cancel invitation</button>
           ) : null}
         </Actions>
       ) : null}

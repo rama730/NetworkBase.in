@@ -12,9 +12,9 @@
 //        `if (!user) throw new Error("Sign in to continue")` +
 //        a project write/upload access assertion so unauthorized callers are
 //        refused before any DB mutation runs. The shared helper
-//        `assertProjectWriteAccess` (in `_shared.ts`) is itself asserted
+//        `assertWorkspaceWriteAccess` (in `_shared.ts`) is itself asserted
 //        to throw `"You don’t have access to this"` on no-access paths, matching the
-//        `requireProjectCapability("upload_files")` rule which rejects
+//        `requireWorkspaceCapability("upload_files")` rule which rejects
 //        the viewer role via `projectMemberCan`.
 //   (iii) Unauthenticated arrival via deep link redirects to sign-in
 //        without disclosing target name / path / content / metadata:
@@ -244,10 +244,10 @@ describe("Server-side mutation authorization (Req 19.6)", () => {
   //
   //    const { data: { user } } = await supabase.auth.getUser();
   //    if (!user) throw new Error("Sign in to continue");
-  //    await assertProjectWriteAccess(projectId, user.id);
-  //    // Upload-specific mutations use assertProjectUploadAccess instead.
+  //    await assertWorkspaceWriteAccess(projectId, user.id);
+  //    // Upload-specific mutations use assertWorkspaceUploadAccess instead.
   //
-  // `assertProjectWriteAccess` calls `requireProjectCapability(...,
+  // `assertWorkspaceWriteAccess` calls `requireWorkspaceCapability(...,
   // "upload_files")` which rejects the `viewer` role via
   // `projectMemberCan`. The net effect is that a Role_Viewer who
   // crafts a direct server-action invocation receives an authorization
@@ -261,7 +261,7 @@ describe("Server-side mutation authorization (Req 19.6)", () => {
     { fn: "createFolder", src: () => MUTATIONS_SRC },
     { fn: "createFileNode", src: () => MUTATIONS_SRC },
     { fn: "renameNode", src: () => MUTATIONS_SRC },
-    { fn: "moveProjectNodes", src: () => MUTATIONS_SRC },
+    { fn: "moveWorkspaceNodes", src: () => MUTATIONS_SRC },
     { fn: "restoreNode", src: () => MUTATIONS_SRC },
     { fn: "bulkTrashNodes", src: () => MUTATIONS_SRC },
     { fn: "bulkRestoreNodes", src: () => MUTATIONS_SRC },
@@ -285,7 +285,7 @@ describe("Server-side mutation authorization (Req 19.6)", () => {
     for (const action of ["getPermanentDeleteImpact", "permanentlyDeleteTrashedNode"]) {
       const body = extractFunctionBody(source, action);
       assert.match(body, /await actor\(projectId, nodeId\)/);
-      assert.match(body, /await assertProjectManageFilesAccessTx\(tx, projectId, user.id\)/);
+      assert.match(body, /await assertWorkspaceManageFilesAccessTx\(tx, projectId, user.id\)/);
     }
   });
 
@@ -313,7 +313,7 @@ describe("Server-side mutation authorization (Req 19.6)", () => {
       // mutations use the broader write policy. Both reject Role_Viewer.
       assert.match(
         body,
-        /\bassertProject(?:Write|Upload|ManageFiles)Access(?:Tx)?\s*\(|\bassertLinkTargetsTx\s*\(/,
+        /\bassertWorkspace(?:Write|Upload|ManageFiles)Access(?:Tx)?\s*\(|\bassertLinkTargetsTx\s*\(/,
         `${fn} must assert write/upload access before any DB mutation (Req 19.6)`,
       );
     });
@@ -332,12 +332,12 @@ describe("Server-side mutation authorization (Req 19.6)", () => {
       );
       assert.match(
         source,
-        /assertProjectWriteAccess\([\s\S]*auth\.user!\.id\)/,
+        /assertWorkspaceWriteAccess\([\s\S]*auth\.user!\.id\)/,
         `${label}: route must reject viewer/read-only users before mutating leases`,
       );
       assert.match(
         source,
-        new RegExp(`assertProjectWriteAccess[\\s\\S]*${serviceCall}\\(`),
+        new RegExp(`assertWorkspaceWriteAccess[\\s\\S]*${serviceCall}\\(`),
         `${label}: write access must be checked before ${serviceCall}`,
       );
     }
@@ -358,15 +358,15 @@ describe("Server-side mutation authorization (Req 19.6)", () => {
     }
   });
 
-  it("assertProjectWriteAccess helper throws 'You don’t have access to this' for callers without write capability", () => {
+  it("assertWorkspaceWriteAccess helper throws 'You don’t have access to this' for callers without write capability", () => {
     // The shared helper is the single choke-point where the viewer
     // role is refused. This source-level assertion pins the contract
     // so a refactor cannot silently drop the capability gate.
-    const helperBody = extractFunctionBody(SHARED_SRC, "assertProjectWriteAccess");
-    assert.ok(helperBody, "assertProjectWriteAccess must exist in _shared.ts");
+    const helperBody = extractFunctionBody(SHARED_SRC, "assertWorkspaceWriteAccess");
+    assert.ok(helperBody, "assertWorkspaceWriteAccess must exist in _shared.ts");
 
     // It must re-check project existence and delegate capability
-    // resolution to `requireProjectCapability("upload_files")` which
+    // resolution to `requireWorkspaceCapability("upload_files")` which
     // fails closed for the `viewer` role.
     assert.match(
       helperBody,
@@ -375,20 +375,20 @@ describe("Server-side mutation authorization (Req 19.6)", () => {
     );
     assert.match(
       helperBody,
-      /requireProjectCapability\(\s*projectId\s*,\s*userId\s*,\s*["']upload_files["']\s*\)/,
-      "must delegate capability check to requireProjectCapability (rejects viewer role)",
+      /requireWorkspaceCapability\(\s*projectId\s*,\s*userId\s*,\s*["']upload_files["']\s*\)/,
+      "must delegate capability check to requireWorkspaceCapability (rejects viewer role)",
     );
   });
 
-  it("assertProjectWriteAccessTx row-locks the workspace + membership before mutation", () => {
+  it("assertWorkspaceWriteAccessTx row-locks the workspace + membership before mutation", () => {
     // SEC-H5 / SEC-M1: the Tx variant is what transactional mutations
     // call so a concurrent role removal cannot race an already-open
     // viewer request into a successful write.
     const helperBody = extractFunctionBody(
       SHARED_SRC,
-      "assertProjectWriteAccessTx",
+      "assertWorkspaceWriteAccessTx",
     );
-    assert.ok(helperBody, "assertProjectWriteAccessTx must exist");
+    assert.ok(helperBody, "assertWorkspaceWriteAccessTx must exist");
     assert.match(
       helperBody,
       /FOR UPDATE/,
@@ -417,7 +417,7 @@ describe("Server-side mutation authorization (Req 19.6)", () => {
       /if\s*\(!user\)\s*throw\s+new\s+Error\(\s*["']Sign in to continue["']\s*\)/,
     );
     // Folder trees create upload rows, so they need upload access, not just membership.
-    assert.match(body, /await\s+assertProjectUploadAccess\(/);
+    assert.match(body, /await\s+assertWorkspaceUploadAccess\(/);
   });
 });
 
@@ -428,12 +428,12 @@ describe("Unauthenticated deep-link arrival (Req 19.7, Req 19.5)", () => {
     const body = extractFunctionBody(NODES_SRC, "findNodeByPathAny");
     assert.ok(body);
     const firstQueryIdx = body.indexOf("projectNodes.findFirst");
-    const accessIdx = body.search(/await\s+assertProjectFileReadAccess\(/);
+    const accessIdx = body.search(/await\s+assertWorkspaceFileReadAccess\(/);
     assert.ok(accessIdx >= 0 && accessIdx < firstQueryIdx);
     assert.match(body, /user\?\.id \?\? null/);
-    const taskGate = body.indexOf("!canReadProjectTaskFiles(access)");
+    const taskGate = body.indexOf("!canReadWorkspaceTaskFiles(access)");
     assert.ok(taskGate > accessIdx && taskGate < firstQueryIdx);
-    assert.match(body, /canReadProjectTaskFiles\(access\) \? sql`true` : isNull\(projectNodes.taskId\)/);
+    assert.match(body, /canReadWorkspaceTaskFiles\(access\) \? sql`true` : isNull\(projectNodes.taskId\)/);
   });
 
   it("resolveDeepLinkFromSearch classifies a thrown Unauthorized as 'not_found' (no disclosure)", async () => {

@@ -9,7 +9,7 @@ import { and, eq, isNull, sql } from "drizzle-orm";
 
 import { storageAssets, storageQuotaScopes } from "../../../src/lib/db/schema";
 import {
-  PROJECT_STORAGE_LIMIT_BYTES,
+  WORKSPACE_STORAGE_LIMIT_BYTES,
   USER_STORAGE_LIMIT_BYTES,
 } from "../../../src/lib/storage/storage-quota";
 
@@ -73,7 +73,7 @@ async function measuredUsage(scopeType: ScopeType, scopeId: string) {
 }
 
 async function reconcileScope(scopeType: ScopeType, scopeId: string) {
-  const limitBytes = scopeType === "project" ? PROJECT_STORAGE_LIMIT_BYTES : USER_STORAGE_LIMIT_BYTES;
+  const limitBytes = scopeType === "project" ? WORKSPACE_STORAGE_LIMIT_BYTES : USER_STORAGE_LIMIT_BYTES;
   if (!APPLY) return measuredUsage(scopeType, scopeId);
 
   return db.transaction(async (tx) => {
@@ -129,7 +129,7 @@ async function reconcileType(scopeType: ScopeType) {
     for (const row of page) {
       if (!row.id) continue;
       const usage = await reconcileScope(scopeType, row.id);
-      const limit = scopeType === "project" ? PROJECT_STORAGE_LIMIT_BYTES : USER_STORAGE_LIMIT_BYTES;
+      const limit = scopeType === "project" ? WORKSPACE_STORAGE_LIMIT_BYTES : USER_STORAGE_LIMIT_BYTES;
       scopes += 1;
       if (usage.reservedBytes + usage.retainedBytes > limit) overLimit += 1;
       cursor = row.id;

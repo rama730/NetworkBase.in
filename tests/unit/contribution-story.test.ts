@@ -9,7 +9,7 @@ import {
   positionDuration,
   removeStoryPosition,
   mergeContributionStory,
-  storyProjectLinks,
+  storyWorkspaceLinks,
   referenceToken,
   storyReferences,
   sortedStoryPositions,
@@ -261,7 +261,7 @@ test("website and repository classification is safe while incomplete URLs are be
     { id: randomUUID(), label: "Code", url: "https://github.com/example/app" },
     { id: randomUUID(), label: "Website", url: "htt" },
   ];
-  const result = storyProjectLinks(links);
+  const result = storyWorkspaceLinks(links);
   assert.equal(result.identity.length, 2);
   assert.equal(result.supporting.length, 1);
   assert.equal(result.supporting[0]!.label, "Usability report");

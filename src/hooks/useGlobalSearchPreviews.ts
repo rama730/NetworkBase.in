@@ -6,10 +6,10 @@ import { useDebounce } from "use-debounce";
 import { get as getIdb, set as setIdb } from "idb-keyval";
 
 import { getConnectionsFeed, type SuggestedProfile } from "@/app/actions/connections";
-import { fetchDiscoverProjectsAction } from "@/app/actions/discover";
-import { fetchProjectLinkPreviewsAction, fetchProjectTaskPreviewsAction } from "@/app/actions/workspace";
+import { fetchDiscoverWorkspacesAction } from "@/app/actions/discover";
+import { fetchWorkspaceLinkPreviewsAction, fetchWorkspaceTaskPreviewsAction } from "@/app/actions/workspace";
 import { searchOrgPreviewsAction } from "@/app/actions/org-workspace";
-import { FILTER_VIEWS, PROJECT_STATUS, PROJECT_TYPE, SORT_OPTIONS } from "@/constants/discover";
+import { FILTER_VIEWS, WORKSPACE_STATUS, WORKSPACE_TYPE, SORT_OPTIONS } from "@/constants/discover";
 import { normalizeGlobalSearchQuery, type GlobalSearchContext, type NetworkSearchScope } from "@/components/layout/header/global-search";
 import { profileHref } from "@/lib/routing/identifiers";
 import { queryKeys } from "@/lib/query-keys";
@@ -25,7 +25,7 @@ type GlobalSearchPreviewBase = {
     matchReason: string | null;
 };
 
-export type GlobalSearchProjectPreview = GlobalSearchPreviewBase & {
+export type GlobalSearchWorkspacePreview = GlobalSearchPreviewBase & {
     kind: "project";
     username: string | null;
     status?: string | null;
@@ -84,7 +84,7 @@ export type GlobalSearchOrgPreview = GlobalSearchPreviewBase & {
     chip: string | null;
 };
 
-export type GlobalSearchPreview = GlobalSearchProjectPreview | GlobalSearchProfilePreview | GlobalSearchTaskPreview | GlobalSearchSkillPreview | GlobalSearchLinkPreview | GlobalSearchOrgPreview;
+export type GlobalSearchPreview = GlobalSearchWorkspacePreview | GlobalSearchProfilePreview | GlobalSearchTaskPreview | GlobalSearchSkillPreview | GlobalSearchLinkPreview | GlobalSearchOrgPreview;
 
 function isNullableString(value: unknown): value is string | null {
     return value === null || typeof value === "string";
@@ -160,9 +160,9 @@ function textIncludes(value: string | null | undefined, query: string) {
 }
 
 async function fetchProjectPreviews(query: string): Promise<GlobalSearchPreview[]> {
-    const result = await fetchDiscoverProjectsAction({
-        status: PROJECT_STATUS.ALL,
-        type: PROJECT_TYPE.ALL,
+    const result = await fetchDiscoverWorkspacesAction({
+        status: WORKSPACE_STATUS.ALL,
+        type: WORKSPACE_TYPE.ALL,
         tech: [],
         sort: SORT_OPTIONS.NEWEST,
         search: query,
@@ -277,7 +277,7 @@ async function fetchProfilePreviews(query: string, scope: NetworkSearchScope): P
 }
 
 async function fetchTaskPreviews(projectIdentifier: string, query: string): Promise<GlobalSearchPreview[]> {
-    const result = await fetchProjectTaskPreviewsAction({ slugOrId: projectIdentifier, search: query, limit: PREVIEW_LIMIT });
+    const result = await fetchWorkspaceTaskPreviewsAction({ slugOrId: projectIdentifier, search: query, limit: PREVIEW_LIMIT });
     if (!result.success) throw toSearchPreviewError(
         result.error || "Task preview search failed",
         result.code as SearchErrorCode | undefined,
@@ -314,7 +314,7 @@ async function fetchTaskPreviews(projectIdentifier: string, query: string): Prom
 async function fetchProjectContextPreviews(projectIdentifier: string, query: string): Promise<GlobalSearchPreview[]> {
     const [tasks, linkResult] = await Promise.all([
         fetchTaskPreviews(projectIdentifier, query),
-        fetchProjectLinkPreviewsAction({ slugOrId: projectIdentifier, search: query, limit: PREVIEW_LIMIT }),
+        fetchWorkspaceLinkPreviewsAction({ slugOrId: projectIdentifier, search: query, limit: PREVIEW_LIMIT }),
     ]);
     const links = linkResult.success ? linkResult.links.map((link) => ({
         id: `link:${link.id}`,

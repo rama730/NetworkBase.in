@@ -7,7 +7,7 @@ import { z } from 'zod';
 import { inngest } from '@/inngest/client';
 import { db } from '@/lib/db';
 import { projects } from '@/lib/db/schema';
-import { getProjectAccessById, writeBlockedMessage } from '@/lib/data/workspace-access';
+import { getWorkspaceAccessById, writeBlockedMessage } from '@/lib/data/workspace-access';
 import { ORG_LIMITS } from '@/lib/organizations/config';
 import { validateOrgHandle } from '@/lib/organizations/handle';
 import { isOrgHandleAvailable } from '@/lib/organizations/join';
@@ -15,7 +15,7 @@ import { archiveOrg, orgLifecyclePreview, restoreOrg, scheduleOrgDeletion, unarc
 import { getViewerAuthContext } from '@/lib/server/viewer-context';
 
 // Archive, Duplicate, Delete and Restore (report §30.5): the owner's danger zone. Transfer lives in
-// transferProjectOwnership (admins only for orgs).
+// transferWorkspaceOwnership (admins only for orgs).
 
 type Failure = { success: false; error: string };
 const DENIED: Failure = { success: false, error: 'Only the owner can do this.' };
@@ -23,7 +23,7 @@ const DENIED: Failure = { success: false, error: 'Only the owner can do this.' }
 async function orgOwner(orgId: string) {
     const { userId } = await getViewerAuthContext();
     if (!userId) return null;
-    const access = await getProjectAccessById(orgId, userId);
+    const access = await getWorkspaceAccessById(orgId, userId);
     if (access.project?.kind !== 'organization' || !access.isOwner) return null;
     return { userId, access, slug: access.project.slug ?? null };
 }

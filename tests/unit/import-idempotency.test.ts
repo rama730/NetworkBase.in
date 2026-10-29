@@ -2,7 +2,7 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 
 import {
-  buildProjectImportEventId,
+  buildWorkspaceImportEventId,
   buildUploadManifestHash,
   normalizeImportIdComponent,
 } from "../../src/lib/import/idempotency";
@@ -14,13 +14,13 @@ describe("import idempotency helpers", () => {
   });
 
   it("builds deterministic event ids", () => {
-    const first = buildProjectImportEventId({
+    const first = buildWorkspaceImportEventId({
       projectId: "Project_123",
       source: "github",
       normalizedTarget: "HTTPS://github.com/Org/Repo",
       branchOrManifestHash: "Main",
     });
-    const second = buildProjectImportEventId({
+    const second = buildWorkspaceImportEventId({
       projectId: "project_123",
       source: "github",
       normalizedTarget: "https://github.com/org/repo",

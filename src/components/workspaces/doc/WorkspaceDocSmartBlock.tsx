@@ -3,12 +3,12 @@
 import Link from "next/link";
 import { AlertCircle, FileText, FolderKanban, FolderOpen, ListTodo, Sparkles, Timer, Users } from "lucide-react";
 
-import { ProjectDocSmartBlockPreviewCard } from "@/components/workspaces/doc/WorkspaceDocReferencePreview";
-import type { ProjectDocSmartBlock, ProjectDocSmartBlockPreview } from "@/lib/workspaces/doc-blocks";
-import type { Project } from "@/types/discover";
+import { WorkspaceDocSmartBlockPreviewCard } from "@/components/workspaces/doc/WorkspaceDocReferencePreview";
+import type { WorkspaceDocSmartBlock, WorkspaceDocSmartBlockPreview } from "@/lib/workspaces/doc-blocks";
+import type { Workspace } from "@/types/discover";
 import { cn } from "@/lib/utils";
 
-const BLOCK_COPY: Record<ProjectDocSmartBlock["kind"], { title: string; icon: typeof Sparkles; tab: string; description: string }> = {
+const BLOCK_COPY: Record<WorkspaceDocSmartBlock["kind"], { title: string; icon: typeof Sparkles; tab: string; description: string }> = {
     roles: {
         title: "Open roles",
         icon: Users,
@@ -53,21 +53,21 @@ const BLOCK_COPY: Record<ProjectDocSmartBlock["kind"], { title: string; icon: ty
     },
 };
 
-export function ProjectDocSmartBlock({
+export function WorkspaceDocSmartBlock({
     block,
     project,
     editorMode = false,
     preview,
     loading = false,
 }: {
-    block: ProjectDocSmartBlock;
-    project: Project;
+    block: WorkspaceDocSmartBlock;
+    project: Workspace;
     editorMode?: boolean;
-    preview?: ProjectDocSmartBlockPreview | null;
+    preview?: WorkspaceDocSmartBlockPreview | null;
     loading?: boolean;
 }) {
     if (block.kind === "unknown" && !editorMode) return null;
-    if (preview) return <ProjectDocSmartBlockPreviewCard preview={preview} />;
+    if (preview) return <WorkspaceDocSmartBlockPreviewCard preview={preview} />;
     if (loading && block.kind !== "unknown") {
         return (
             <div className="my-4 rounded-[8px] border border-border bg-card/60 p-4">

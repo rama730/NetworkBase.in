@@ -6,14 +6,14 @@ import { z } from 'zod';
 
 import { db } from '@/lib/db';
 import { docOpens, projectDocs, projectMembers, projectNodes, projectOpenRoles, projects, projectSprints, sprintMaterials } from '@/lib/db/schema';
-import { getProjectAccessById } from '@/lib/data/workspace-access';
-import { enqueueProjectNotificationEvent } from '@/lib/notifications/workspace-events';
+import { getWorkspaceAccessById } from '@/lib/data/workspace-access';
+import { enqueueWorkspaceNotificationEvent } from '@/lib/notifications/workspace-events';
 import { ORG_LIMITS } from '@/lib/organizations/config';
 import { readViewerOrgRole } from '@/lib/organizations/detail';
 import { docFileName, docLabel, fillDocTemplate, readDocGroups, readOrgDocOptions, templateCopyTitle, type DocGroup, type OrgDocOptions } from '@/lib/organizations/doc-rules';
-import { normalizeProjectDocSettings } from '@/lib/workspaces/doc';
+import { normalizeWorkspaceDocSettings } from '@/lib/workspaces/doc';
 import { getViewerAuthContext } from '@/lib/server/viewer-context';
-import { listProjectDocsAction, readProjectDocAction } from '@/app/actions/workspace/doc';
+import { listWorkspaceDocsAction, readWorkspaceDocAction } from '@/app/actions/workspace/doc';
 import { createFolder } from '@/app/actions/files/mutations';
 
 // Org Docs (report §19): groups, Required / Template / Show in child projects, New and Updated labels,
@@ -57,7 +57,7 @@ async function orgDocRow(orgId: string, docId: string) {
 }
 
 async function writeOrgOptions(docId: string, settings: unknown, patch: Partial<OrgDocOptions>, extra: Record<string, unknown> = {}) {
-    const current = normalizeProjectDocSettings(settings);
+    const current = normalizeWorkspaceDocSettings(settings);
     await db.update(projectDocs).set({
         settings: { ...current, ...extra, org: { ...(current.org ?? {}), ...patch } },
         updatedAt: new Date(),
@@ -80,7 +80,7 @@ export async function readOrgDocsAction(projectId: string): Promise<{ success: t
     const [org, role] = await Promise.all([readOrg(orgId), readViewerOrgRole(orgId, userId)]);
     if (!org || (mode === 'child' && !role)) return { success: true, data: null };
 
-    const listed = await listProjectDocsAction(orgId);
+    const listed = await listWorkspaceDocsAction(orgId);
     if (!listed.success) return { success: false, error: listed.error };
     const ids = listed.docs.map((d) => d.id);
     const groups = readDocGroups((org.orgSettings as { docGroups?: unknown } | null)?.docGroups);
@@ -96,7 +96,7 @@ export async function readOrgDocsAction(projectId: string): Promise<{ success: t
     const openById = new Map(opens.map((o) => [o.docId, o]));
     const sprintById = new Map(sprints.map((s) => [s.docId, s]));
     const docs = listed.docs.flatMap((d): OrgDocItem[] => {
-        const options = readOrgDocOptions(normalizeProjectDocSettings(byId.get(d.id)?.settings).org, groups);
+        const options = readOrgDocOptions(normalizeWorkspaceDocSettings(byId.get(d.id)?.settings).org, groups);
         if (mode === 'child' && !options.showInChildren) return [];
         const opened = openById.get(d.id);
         return [{
@@ -160,12 +160,12 @@ export async function publishOrgDocAction(orgId: string, docId: string, input: z
     const [doc, org] = await Promise.all([orgDocRow(orgId, docId), readOrg(orgId)]);
     if (!doc || !org) return { success: false, error: 'That doc is no longer available.' };
     if (parsed.data.reread) {
-        const current = readOrgDocOptions(normalizeProjectDocSettings(doc.settings).org);
+        const current = readOrgDocOptions(normalizeWorkspaceDocSettings(doc.settings).org);
         await writeOrgOptions(doc.id, doc.settings, { readVersion: current.readVersion + 1 });
     }
     if (parsed.data.notify) {
         const name = doc.filename.replace(/\.(md|mdx|markdown)$/i, '');
-        await enqueueProjectNotificationEvent({
+        await enqueueWorkspaceNotificationEvent({
             projectId: orgId,
             actorUserId: userId,
             eventKey: 'readme.published',
@@ -184,11 +184,11 @@ export async function publishOrgDocAction(orgId: string, docId: string, input: z
 export async function markDocOpenedAction(orgId: string, docSlug: string): Promise<{ success: true } | Failure> {
     const { userId } = await getViewerAuthContext();
     if (!userId) return DENIED;
-    const listed = await listProjectDocsAction(orgId);
+    const listed = await listWorkspaceDocsAction(orgId);
     const visible = listed.success ? listed.docs.find((d) => d.slug === docSlug) : null;
     if (!visible || !(await readOrg(orgId))) return { success: false, error: 'That doc is no longer available.' };
     const [doc] = await db.select({ settings: projectDocs.settings }).from(projectDocs).where(eq(projectDocs.id, visible.id)).limit(1);
-    const version = readOrgDocOptions(normalizeProjectDocSettings(doc?.settings).org).readVersion;
+    const version = readOrgDocOptions(normalizeWorkspaceDocSettings(doc?.settings).org).readVersion;
     await db.insert(docOpens).values({ docId: visible.id, userId, version, openedAt: new Date() })
         .onConflictDoUpdate({ target: [docOpens.docId, docOpens.userId], set: { version, openedAt: new Date() } });
     return { success: true };
@@ -226,13 +226,13 @@ export async function readOrgTemplateCopyAction(childProjectId: string, orgDocId
     if (!child?.parentId) return DENIED;
     const [role, access, org, doc] = await Promise.all([
         readViewerOrgRole(child.parentId, userId),
-        getProjectAccessById(child.id, userId),
+        getWorkspaceAccessById(child.id, userId),
         readOrg(child.parentId),
         orgDocRow(child.parentId, orgDocId),
     ]);
     if (!role || !access.canWrite || !org) return DENIED; // outside people get no org templates
-    if (!doc || !readOrgDocOptions(normalizeProjectDocSettings(doc.settings).org).template) return { success: false, error: 'That template is no longer available.' };
-    const source = await readProjectDocAction(org.id, doc.slug);
+    if (!doc || !readOrgDocOptions(normalizeWorkspaceDocSettings(doc.settings).org).template) return { success: false, error: 'That template is no longer available.' };
+    const source = await readWorkspaceDocAction(org.id, doc.slug);
     if (!source.success || !source.data.version) return { success: false, error: 'That template is no longer available.' };
     const [unit] = await db.select({ name: sql<string | null>`coalesce(${projectOpenRoles.title}, ${projectOpenRoles.role})` })
         .from(projectMembers).innerJoin(projectOpenRoles, eq(projectOpenRoles.id, projectMembers.unitId))

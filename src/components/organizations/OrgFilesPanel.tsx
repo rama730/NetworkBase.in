@@ -20,7 +20,7 @@ import {
     type GroupDeliverableRow,
     type SprintMaterialsGroup,
 } from '@/app/actions/org-files'
-import { uploadProjectFile } from '@/components/organizations/OrgDocParts'
+import { uploadWorkspaceFile } from '@/components/organizations/OrgDocParts'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import type { FolderAccess } from '@/lib/organizations/file-rules'
@@ -144,7 +144,7 @@ function FromOrgFiles({ projectId, canCopy }: { projectId: string; canCopy: bool
         try {
             const response = await fetch(`/api/v1/workspaces/${data.org.id}/files/${file.id}/preview?download=1`)
             if (!response.ok) throw new Error('Couldn’t read the file')
-            const created = await uploadProjectFile(projectId, null, file.name, await response.blob())
+            const created = await uploadWorkspaceFile(projectId, null, file.name, await response.blob())
             const recorded = await recordOrgCopyAction(projectId, created.id, file.id)
             if (!recorded.success) throw new Error(recorded.error)
             toast.success(`Copied ${file.name} to this workspace`)

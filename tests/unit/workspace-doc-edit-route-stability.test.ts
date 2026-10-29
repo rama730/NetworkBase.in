@@ -51,7 +51,7 @@ test("project docs isolate published document identity across URLs and cache", (
 
     assert.match(
         docTab,
-        /normalizeProjectDocSlug\(paramDoc\)/,
+        /normalizeWorkspaceDocSlug\(paramDoc\)/,
         "DocTab should normalize the URL doc slug before it reaches queries or server actions",
     );
     assert.match(
@@ -61,7 +61,7 @@ test("project docs isolate published document identity across URLs and cache", (
     );
     assert.match(
         queryHook,
-        /docSlug \? normalizeProjectDocSlug\(docSlug\) : "default"/,
+        /docSlug \? normalizeWorkspaceDocSlug\(docSlug\) : "default"/,
         "React Query document keys should use the canonical document slug",
     );
 });
@@ -71,7 +71,7 @@ test("project detail reads retry transient Supabase pooler DNS failures", () => 
 
     assert.match(
         projectActions,
-        /PROJECT_DETAIL_TRANSIENT_DB_ERROR_CODES/,
+        /WORKSPACE_DETAIL_TRANSIENT_DB_ERROR_CODES/,
         "project detail read path should classify transient DB connection failures",
     );
     assert.match(
@@ -81,12 +81,12 @@ test("project detail reads retry transient Supabase pooler DNS failures", () => 
     );
     assert.match(
         projectActions,
-        /retryProjectDetailRead\(\s*["']resolve_project_detail_target["']/,
+        /retryWorkspaceDetailRead\(\s*["']resolve_project_detail_target["']/,
         "project metadata resolution should retry transient read failures before returning an internal error",
     );
     assert.match(
         projectActions,
-        /retryProjectDetailRead\(\s*["']project_detail_shell_data["']/,
+        /retryWorkspaceDetailRead\(\s*["']project_detail_shell_data["']/,
         "project shell loading should retry transient read failures before the route throws",
     );
 });

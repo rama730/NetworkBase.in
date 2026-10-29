@@ -2,14 +2,14 @@
 
 import { Loader2 } from "lucide-react";
 import {
-    PROJECT_PUBLIC_TAB_DESCRIPTIONS,
-    PROJECT_PUBLIC_TAB_LABELS,
-    type ProjectPublicTabId,
-    type ProjectPublicTabVisibility,
+    WORKSPACE_PUBLIC_TAB_DESCRIPTIONS,
+    WORKSPACE_PUBLIC_TAB_LABELS,
+    type WorkspacePublicTabId,
+    type WorkspacePublicTabVisibility,
 } from "@/lib/workspaces/settings-policies";
 import { SettingsSwitch } from "@/components/settings/ui/SettingsSwitch";
 
-const PUBLIC_TAB_ORDER: ProjectPublicTabId[] = ["dashboard", "readme", "updates", "sprints", "tasks", "files"];
+const PUBLIC_TAB_ORDER: WorkspacePublicTabId[] = ["dashboard", "readme", "updates", "sprints", "tasks", "files"];
 
 export function PublicTabVisibilityEditor({
     value,
@@ -17,10 +17,10 @@ export function PublicTabVisibilityEditor({
     disabled,
     savingTabId,
 }: {
-    value: ProjectPublicTabVisibility;
-    onChange: (tabId: ProjectPublicTabId, enabled: boolean) => void;
+    value: WorkspacePublicTabVisibility;
+    onChange: (tabId: WorkspacePublicTabId, enabled: boolean) => void;
     disabled?: boolean;
-    savingTabId?: ProjectPublicTabId | null;
+    savingTabId?: WorkspacePublicTabId | null;
 }) {
     return (
         <div className="divide-y divide-border">
@@ -33,8 +33,8 @@ export function PublicTabVisibilityEditor({
                         className="flex min-h-16 items-start justify-between gap-4 py-3 sm:items-center"
                     >
                         <div className="min-w-0 flex-1">
-                            <p className="nb-ui-label text-foreground">{PROJECT_PUBLIC_TAB_LABELS[tabId]}</p>
-                            <p className="mt-1 nb-compact text-muted-foreground leading-relaxed">{PROJECT_PUBLIC_TAB_DESCRIPTIONS[tabId]}</p>
+                            <p className="nb-ui-label text-foreground">{WORKSPACE_PUBLIC_TAB_LABELS[tabId]}</p>
+                            <p className="mt-1 nb-compact text-muted-foreground leading-relaxed">{WORKSPACE_PUBLIC_TAB_DESCRIPTIONS[tabId]}</p>
                         </div>
                         <div className="flex shrink-0 items-center gap-3">
                             <span className="nb-meta text-muted-foreground select-none w-6 text-right flex items-center justify-end">
@@ -49,7 +49,7 @@ export function PublicTabVisibilityEditor({
                             <SettingsSwitch
                                 checked={isEnabled}
                                 disabled={disabled || Boolean(savingTabId)}
-                                aria-label={`Toggle public ${PROJECT_PUBLIC_TAB_LABELS[tabId]} visibility`}
+                                aria-label={`Toggle public ${WORKSPACE_PUBLIC_TAB_LABELS[tabId]} visibility`}
                                 onCheckedChange={(checked) => onChange(tabId, checked)}
                             />
                         </div>

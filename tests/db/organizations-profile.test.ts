@@ -62,7 +62,7 @@ async function contribution(profileId: string, projectId: string, verifiedBy: st
 }
 
 const feed = async (filters: Record<string, unknown>) =>
-  (await discover.getDiscoverProjects({ status: "all", type: "all", tech: [], sort: "newest", ...filters } as never, undefined, 60, { view: "all", viewerId: null })).projects;
+  (await discover.getDiscoverWorkspaces({ status: "all", type: "all", tech: [], sort: "newest", ...filters } as never, undefined, 60, { view: "all", viewerId: null })).projects;
 
 test("Discover: orgs are org cards with their projects count; children carry the org line; new orgs wait", async () => {
   const o = await org();
@@ -116,10 +116,10 @@ test("profile: Show on my profile off hides the org entry, its project entries a
   assert.ok(!pub.includes(o.orgId) && !pub.includes(o.child), JSON.stringify(pub));
   const own = (await collab.getProfileContributions(o.member, { includePrivate: true })).contributions.map((c) => c.projectId);
   assert.ok(own.includes(o.orgId), "the owner still sees it");
-  const portfolio = (await collab.getProfilePortfolioProjects(o.member)).projects.map((p) => p.id);
+  const portfolio = (await collab.getProfilePortfolioWorkspaces(o.member)).projects.map((p) => p.id);
   assert.ok(!portfolio.includes(o.orgId) && !portfolio.includes(o.child));
   await sql`UPDATE project_members SET show_on_profile = true WHERE project_id = ${o.orgId} AND user_id = ${o.member}`;
-  const shown = (await collab.getProfilePortfolioProjects(o.member)).projects;
+  const shown = (await collab.getProfilePortfolioWorkspaces(o.member)).projects;
   assert.equal(shown.find((p) => p.id === o.orgId)?.kind, "organization");
   assert.equal(shown.find((p) => p.id === o.child)?.cardOrg?.title, `CSE ${o.tag}`);
 });
@@ -129,7 +129,7 @@ test("§24 pass: guests get no automatic entry; story helpers; opt-in Work recor
   const lifecycle = await loadAppModule(() => import("../../src/lib/workspaces/collaborator-lifecycle"));
   const { db } = await loadAppModule(() => import("../../src/lib/db"));
   const guest = await sql.begin((tx) => createUser(tx));
-  await lifecycle.addProjectMemberInternal(db as never, { projectId: o.orgId, userId: guest, role: "viewer", actorId: o.owner, source: "email_invite" } as never);
+  await lifecycle.addWorkspaceMemberInternal(db as never, { projectId: o.orgId, userId: guest, role: "viewer", actorId: o.owner, source: "email_invite" } as never);
   assert.equal((await sql`SELECT count(*)::int AS n FROM profile_project_contributions WHERE profile_id = ${guest} AND project_id = ${o.orgId}`)[0]!.n, 0);
 
   await sql`UPDATE projects SET description = 'Data Structures, Section A.' WHERE id = ${o.orgId}`;
@@ -151,7 +151,7 @@ test("§24 pass: guests get no automatic entry; story helpers; opt-in Work recor
 
   // Following the org lists its public child project.
   await sql`INSERT INTO project_follows (project_id, user_id) VALUES (${o.orgId}, ${o.admin})`;
-  const following = (await discover.getDiscoverProjects({ status: "all", type: "all", tech: [], sort: "newest" } as never, undefined, 60, { view: "following", viewerId: o.admin })).projects.map((p) => p.id);
+  const following = (await discover.getDiscoverWorkspaces({ status: "all", type: "all", tech: [], sort: "newest" } as never, undefined, 60, { view: "following", viewerId: o.admin })).projects.map((p) => p.id);
   assert.ok(following.includes(o.child) && !following.includes(o.orgOnly), JSON.stringify(following));
 
   // Detached child: "with <org> (until …)"; deleted org: name kept, no link.

@@ -2,7 +2,7 @@ import type { FilterView } from "@/constants/discover";
 import type { DiscoverFilters } from "@/types/discover";
 
 const asNullable = (value?: string | null) => value ?? null;
-type ProjectTaskScope = "all" | "backlog" | "sprint" | "review";
+type WorkspaceTaskScope = "all" | "backlog" | "sprint" | "review";
 
 export const queryKeys = {
   sharing: {
@@ -127,7 +127,7 @@ export const queryKeys = {
         ["project", projectId, "detail", "tasks"] as const,
       tasks: (
         projectId: string,
-        scope: ProjectTaskScope = "all",
+        scope: WorkspaceTaskScope = "all",
         search = "",
       ) =>
         search

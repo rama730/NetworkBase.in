@@ -1,4 +1,4 @@
-import type { ProjectDocQualityReport } from "@/lib/workspaces/doc";
+import type { WorkspaceDocQualityReport } from "@/lib/workspaces/doc";
 
 const SECTION_PATTERNS = {
     overview: /(^|\n)#{1,3}\s+(overview|about|introduction)\b/i,
@@ -15,7 +15,7 @@ const MARKDOWN_IMAGE_PATTERN = /!\[([^\]]*)\]\(([^)\s]+)(?:\s+["'][^"']*["'])?\)
 const HTML_IMAGE_PATTERN = /<img\b[^>]*>/gi;
 const TABLE_ROW_PATTERN = /^\s*\|.+\|\s*$/gm;
 const QUALITY_CACHE_LIMIT = 24;
-const qualityCache = new Map<string, ProjectDocQualityReport>();
+const qualityCache = new Map<string, WorkspaceDocQualityReport>();
 
 function stableQualityCacheKey(content: string) {
     let hash = 2166136261;
@@ -26,7 +26,7 @@ function stableQualityCacheKey(content: string) {
     return `${content.length}:${hash >>> 0}`;
 }
 
-function rememberQualityReport(key: string, report: ProjectDocQualityReport) {
+function rememberQualityReport(key: string, report: WorkspaceDocQualityReport) {
     if (qualityCache.has(key)) qualityCache.delete(key);
     qualityCache.set(key, report);
     while (qualityCache.size > QUALITY_CACHE_LIMIT) {
@@ -110,7 +110,7 @@ function analyzeReadmeVisuals(content: string) {
     };
 }
 
-export function evaluateProjectDocQuality(content: string): ProjectDocQualityReport {
+export function evaluateWorkspaceDocQuality(content: string): WorkspaceDocQualityReport {
     const cacheKey = stableQualityCacheKey(content);
     const cached = qualityCache.get(cacheKey);
     if (cached) return cached;
@@ -119,7 +119,7 @@ export function evaluateProjectDocQuality(content: string): ProjectDocQualityRep
     const sectionPresence = Object.fromEntries(
         Object.entries(SECTION_PATTERNS).map(([key, pattern]) => [key, pattern.test(content)])
     );
-    const issues: ProjectDocQualityReport["issues"] = [];
+    const issues: WorkspaceDocQualityReport["issues"] = [];
 
     const add = (id: string, severity: "info" | "warning" | "error", label: string, description: string) => {
         issues.push({ id, severity, label, description });

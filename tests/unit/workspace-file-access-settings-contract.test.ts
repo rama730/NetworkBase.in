@@ -21,7 +21,7 @@ test("workspace files-workspace tab eliminates duplicate header and redundant ca
     // 2. Extract files-workspace section block
     const filesWorkspaceBlock =
         settingsTab.split('id="project-settings-files-workspace"')[1]?.split(/id="project-settings-(?:readme|notifications)"/)[0] ?? "";
-    assert.ok(filesWorkspaceBlock.length > 0, "files-workspace settings block must exist in ProjectSettingsTab");
+    assert.ok(filesWorkspaceBlock.length > 0, "files-workspace settings block must exist in WorkspaceSettingsTab");
 
     // 3. Redundant SummaryCard, separate Bulk card, separate Enforced policy card, and outer AdvancedDisclosure removed
     assert.doesNotMatch(
@@ -94,7 +94,7 @@ test("workspace files-workspace tab eliminates duplicate header and redundant ca
 test("file permissions provide compact identity rows, server filters, pagination, and explicit bulk scope", () => {
     const members = source("src/components/workspaces/settings/FileAccessMembers.tsx");
     assert.match(members, /<UserAvatar/);
-    assert.match(members, /getProjectMemberRoleLabel/);
+    assert.match(members, /getWorkspaceMemberRoleLabel/);
     assert.match(members, /label="Search file permissions"/);
     assert.match(members, /onFilterChange/);
     assert.match(members, /Load more members/);

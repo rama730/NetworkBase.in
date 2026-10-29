@@ -8,13 +8,13 @@ import {
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import {
-    groupProjectNotificationEntries,
-    resolveProjectNotificationDecision,
-    type ProjectMemberNotificationOverrides,
-    type ProjectNotificationPolicy,
-    type ProjectNotificationRegistryEntry,
+    groupWorkspaceNotificationEntries,
+    resolveWorkspaceNotificationDecision,
+    type WorkspaceMemberNotificationOverrides,
+    type WorkspaceNotificationPolicy,
+    type WorkspaceNotificationRegistryEntry,
 } from "@/lib/notifications/workspace-policy";
-import { type ProjectMemberRole } from "@/lib/workspaces/settings-policies";
+import { type WorkspaceMemberRole } from "@/lib/workspaces/settings-policies";
 import { SettingsSwitch } from "@/components/settings/ui/SettingsSwitch";
 
 export type MemberNotificationSettingsData = {
@@ -23,10 +23,10 @@ export type MemberNotificationSettingsData = {
         username: string | null;
         fullName: string | null;
         avatarUrl: string | null;
-        membershipRole: ProjectMemberRole;
+        membershipRole: WorkspaceMemberRole;
     };
     canEdit: boolean;
-    overrides: ProjectMemberNotificationOverrides;
+    overrides: WorkspaceMemberNotificationOverrides;
 };
 
 export function MemberNotificationSettingsEditor({
@@ -40,15 +40,15 @@ export function MemberNotificationSettingsEditor({
     onReset,
 }: {
     data: MemberNotificationSettingsData | null;
-    draft: ProjectMemberNotificationOverrides;
+    draft: WorkspaceMemberNotificationOverrides;
     isLoading: boolean;
     isSaving: boolean;
-    projectPolicy: ProjectNotificationPolicy;
-    onDraftChange: React.Dispatch<React.SetStateAction<ProjectMemberNotificationOverrides>>;
+    projectPolicy: WorkspaceNotificationPolicy;
+    onDraftChange: React.Dispatch<React.SetStateAction<WorkspaceMemberNotificationOverrides>>;
     onSave: () => void | Promise<void>;
     onReset: () => void | Promise<void>;
 }) {
-    const groups = useMemo(() => groupProjectNotificationEntries(), []);
+    const groups = useMemo(() => groupWorkspaceNotificationEntries(), []);
     const memberName = data?.member.fullName || data?.member.username || data?.member.id || "Member";
 
     if (isLoading) {
@@ -160,14 +160,14 @@ function MemberNotificationRuleRow({
     canEdit,
     onDraftChange,
 }: {
-    entry: ProjectNotificationRegistryEntry;
-    projectPolicy: ProjectNotificationPolicy;
-    draft: ProjectMemberNotificationOverrides;
+    entry: WorkspaceNotificationRegistryEntry;
+    projectPolicy: WorkspaceNotificationPolicy;
+    draft: WorkspaceMemberNotificationOverrides;
     canEdit: boolean;
-    onDraftChange: React.Dispatch<React.SetStateAction<ProjectMemberNotificationOverrides>>;
+    onDraftChange: React.Dispatch<React.SetStateAction<WorkspaceMemberNotificationOverrides>>;
 }) {
-    const decision = resolveProjectNotificationDecision({ eventKey: entry.key, projectPolicy, memberOverrides: draft });
-    const projectDecision = resolveProjectNotificationDecision({ eventKey: entry.key, projectPolicy });
+    const decision = resolveWorkspaceNotificationDecision({ eventKey: entry.key, projectPolicy, memberOverrides: draft });
+    const projectDecision = resolveWorkspaceNotificationDecision({ eventKey: entry.key, projectPolicy });
     const disabled = !canEdit || entry.mandatory || !entry.allowMemberOverride || !projectDecision.enabled;
     const checked = decision.enabled;
 

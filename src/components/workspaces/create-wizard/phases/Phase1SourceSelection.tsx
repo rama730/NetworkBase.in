@@ -7,7 +7,7 @@ import { useFormContext } from 'react-hook-form';
 import { Check, ChevronDown, ChevronRight, CircleHelp, File, Folder, FolderUp, GitBranch, Github, Loader2, RefreshCcw } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { toast, feedbackError } from "@/lib/feedback";
-import type { CreateProjectInput } from '@/lib/validations/workspace';
+import type { CreateWorkspaceInput } from '@/lib/validations/workspace';
 import { logger } from '@/lib/logger';
 import { getAuthHardeningPhase } from '@/lib/auth/hardening';
 import { buildOAuthRedirectTo, resolveAuthBaseUrl } from '@/lib/auth/redirects';
@@ -24,20 +24,20 @@ import { areSealedImportTokensEqual, getSealedImportTokenFingerprint } from '@/l
 import { SkillList } from '@/components/skills/SkillList';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Phase1SourceMethodGroup, type ProjectSourceType, type StartingPoint } from '@/components/workspaces/create-wizard/phase1/Phase1SourceMethodGroup';
+import { Phase1SourceMethodGroup, type WorkspaceSourceType, type StartingPoint } from '@/components/workspaces/create-wizard/phase1/Phase1SourceMethodGroup';
 import type { OrgType } from '@/lib/organizations/config';
 import { OrgTypePicker } from '@/components/organizations/OrgWizardFields';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
 import { buildUploadManifest, type UploadManifest } from '@/components/workspaces/create-wizard/phase1/upload-manifest';
-import { clearGithubOAuthResume, getCreateProjectReturnPath, saveGithubOAuthResume } from '@/components/workspaces/create-wizard/github-oauth-resume';
+import { clearGithubOAuthResume, getCreateWorkspaceReturnPath, saveGithubOAuthResume } from '@/components/workspaces/create-wizard/github-oauth-resume';
 import { isGithubAccessRefreshError } from '@/components/workspaces/create-wizard/phase1/github-access';
 import { normalizeGithubRepoUrl } from '@/lib/github/repo-validation';
 
 const UploadManifestPreview = dynamic(() => import('@/components/workspaces/create-wizard/phase1/UploadManifestPreview').then((mod) => mod.UploadManifestPreview));
 const GithubImportDetails = dynamic(() => import('@/components/workspaces/create-wizard/phase1/GithubImportDetails').then((mod) => mod.GithubImportDetails));
 
-type SourceType = ProjectSourceType;
+type SourceType = WorkspaceSourceType;
 
 type GithubPreviewEntry = {
     name: string;
@@ -89,7 +89,7 @@ export default function Phase1SourceSelection({
     onSourceChange?: (source: SourceType | null) => void;
     isResumingGithubOAuth?: boolean;
 }) {
-    const { getValues, setValue, watch, getFieldState } = useFormContext<CreateProjectInput>();
+    const { getValues, setValue, watch, getFieldState } = useFormContext<CreateWorkspaceInput>();
     const importSourceType = watch('import_source.type') as SourceType | undefined;
     const repoUrl = watch('import_source.repoUrl');
     const branch = watch('import_source.branch');
@@ -326,7 +326,7 @@ export default function Phase1SourceSelection({
         try {
             setIsConnectingGithub(true);
             const returnUrl = new URL(window.location.href);
-            const resume = saveGithubOAuthResume(getValues(), getCreateProjectReturnPath(returnUrl));
+            const resume = saveGithubOAuthResume(getValues(), getCreateWorkspaceReturnPath(returnUrl));
             if (!resume) {
                 throw new Error('Your workspace setup could not be saved before connecting GitHub. Allow session storage and try again.');
             }

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { childProjectsOf, defaultChannelName, orgChatSettings, workspaceProjects } from "../../src/lib/organizations/chat-rules";
+import { childWorkspacesOf, defaultChannelName, orgChatSettings, workspaceWorkspaces } from "../../src/lib/organizations/chat-rules";
 
 test("a child project's default channel is its handle; others stay #general", () => {
   assert.equal(defaultChannelName("compiler_lab", true), "compiler-lab");
@@ -23,6 +23,6 @@ test("child projects live inside their org's workspace; outside people see their
     { id: "north", title: "North region", parent_id: "acme", parent_title: "Acme Sales" },
     { id: "solo", title: "Side project" },
   ];
-  assert.deepEqual(workspaceProjects(projects).map((p) => [p.id, p.guestOf ?? null]), [["org", null], ["north", "Acme Sales"], ["solo", null]]);
-  assert.deepEqual(childProjectsOf(projects, "org").map((p) => p.id), ["lab"]);
+  assert.deepEqual(workspaceWorkspaces(projects).map((p) => [p.id, p.guestOf ?? null]), [["org", null], ["north", "Acme Sales"], ["solo", null]]);
+  assert.deepEqual(childWorkspacesOf(projects, "org").map((p) => p.id), ["lab"]);
 });

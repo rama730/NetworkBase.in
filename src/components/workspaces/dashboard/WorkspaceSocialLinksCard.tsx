@@ -4,7 +4,7 @@ import { forwardRef, useCallback, useEffect, useId, useImperativeHandle, useMemo
 import { AlertTriangle, ExternalLink, Globe, Link2, Loader2, LockKeyhole, Pencil, Plus, RefreshCw, Trash2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { toast } from '@/lib/feedback';
-import { updateProjectExternalLinksAction } from '@/app/actions/workspace';
+import { updateWorkspaceExternalLinksAction } from '@/app/actions/workspace';
 import { SocialPresenceIcon } from '@/components/profile/SocialPresenceIcon';
 import { SortableLinkList } from '@/components/links/SortableLinkList';
 import { Button } from '@/components/ui/button';
@@ -29,58 +29,58 @@ import { useOpenSettingsSections } from '@/components/settings/ui/SettingsSectio
 import { fetchLinkPreview, useLinkPreview } from '@/hooks/useLinkPreview';
 import { normalizeLinkDestinationTitle } from '@/lib/links/destination-title';
 import {
-    areProjectSocialLinksEqual,
-    countProjectLinkChanges,
-    extractProjectLinkUrls,
-    hydrateProjectSocialLinks,
-    inferProjectLinkPurpose,
-    isProjectLinkMetadataStale,
-    PROJECT_LINK_PURPOSE_LABELS,
-    resolveProjectSocialLinks,
-    type ProjectRepositoryContext,
-    type ResolvedProjectSocialLink,
+    areWorkspaceSocialLinksEqual,
+    countWorkspaceLinkChanges,
+    extractWorkspaceLinkUrls,
+    hydrateWorkspaceSocialLinks,
+    inferWorkspaceLinkPurpose,
+    isWorkspaceLinkMetadataStale,
+    WORKSPACE_LINK_PURPOSE_LABELS,
+    resolveWorkspaceSocialLinks,
+    type WorkspaceRepositoryContext,
+    type ResolvedWorkspaceSocialLink,
 } from '@/lib/workspaces/social-links';
 import {
     findSensitiveLinkParameters,
-    PROJECT_LINK_PURPOSES,
+    WORKSPACE_LINK_PURPOSES,
     resolveSocialPresence,
     mergeSocialLinkCollections,
     socialLinkItemsFromStorage,
-    type ProjectLinkAudience,
-    type ProjectLinkMetadataRecord,
-    type ProjectLinkPurpose,
+    type WorkspaceLinkAudience,
+    type WorkspaceLinkMetadataRecord,
+    type WorkspaceLinkPurpose,
     type SocialLinkItem,
     validateSocialLinkCollection,
 } from '@/lib/profile/normalization';
 
-type LinkHealth = ProjectLinkMetadataRecord;
+type LinkHealth = WorkspaceLinkMetadataRecord;
 
-export type ProjectLinkEditorHandle = {
+export type WorkspaceLinkEditorHandle = {
     prepareForSave: () => Promise<{ success: true; links: SocialLinkItem[] } | { success: false }>;
 };
 
-function linkTitle(link: ResolvedProjectSocialLink) {
+function linkTitle(link: ResolvedWorkspaceSocialLink) {
     return link.customLabel || link.platformLabel;
 }
 
-function ProjectLinkIcon({ link, className = 'h-4 w-4' }: { link: Pick<ResolvedProjectSocialLink, 'iconKey'>; className?: string }) {
+function ProjectLinkIcon({ link, className = 'h-4 w-4' }: { link: Pick<ResolvedWorkspaceSocialLink, 'iconKey'>; className?: string }) {
     return link.iconKey
         ? <SocialPresenceIcon iconKey={link.iconKey} className={className} />
         : <Globe aria-hidden="true" className={className} />;
 }
 
-function linkHref(projectId: string, link: ResolvedProjectSocialLink) {
+function linkHref(projectId: string, link: ResolvedWorkspaceSocialLink) {
     return `/go/project/${encodeURIComponent(projectId)}/${encodeURIComponent(link.id || link.canonicalKey)}`;
 }
 
-function ProjectLinkAnchor({ projectId, link, className }: { projectId: string; link: ResolvedProjectSocialLink; className?: string }) {
+function ProjectLinkAnchor({ projectId, link, className }: { projectId: string; link: ResolvedWorkspaceSocialLink; className?: string }) {
     const title = linkTitle(link);
     const repoRoleLabel = link.repositoryRole === 'cloned' || link.managed === 'github-cloned-repo'
         ? ' · Imported from GitHub'
         : link.managed
             ? ' · Connected to GitHub'
             : '';
-    const description = `${title} · ${link.accountLabel} · ${PROJECT_LINK_PURPOSE_LABELS[link.purpose]}${link.audience === 'members' ? ' · Members only' : ''}${repoRoleLabel}`;
+    const description = `${title} · ${link.accountLabel} · ${WORKSPACE_LINK_PURPOSE_LABELS[link.purpose]}${link.audience === 'members' ? ' · Members only' : ''}${repoRoleLabel}`;
     return (
         <Tooltip>
             <TooltipTrigger asChild>
@@ -99,7 +99,7 @@ function ProjectLinkAnchor({ projectId, link, className }: { projectId: string; 
     );
 }
 
-function ProjectLinkOverflow({ projectId, links, className, labelled = false }: { projectId: string; links: ResolvedProjectSocialLink[]; className?: string; labelled?: boolean }) {
+function ProjectLinkOverflow({ projectId, links, className, labelled = false }: { projectId: string; links: ResolvedWorkspaceSocialLink[]; className?: string; labelled?: boolean }) {
     if (!links.length) return null;
     return (
         <DropdownMenu>
@@ -120,7 +120,7 @@ function ProjectLinkOverflow({ projectId, links, className, labelled = false }: 
                             <span className="min-w-0 flex-1">
                                 <span className="block truncate font-medium">{linkTitle(link)}</span>
                                 <span className="block truncate text-xs text-muted-foreground">
-                                    {link.accountLabel} · {PROJECT_LINK_PURPOSE_LABELS[link.purpose]}{link.audience === 'members' ? ' · Members only' : ''}
+                                    {link.accountLabel} · {WORKSPACE_LINK_PURPOSE_LABELS[link.purpose]}{link.audience === 'members' ? ' · Members only' : ''}
                                 </span>
                             </span>
                             <ExternalLink className="h-3.5 w-3.5" />
@@ -132,7 +132,7 @@ function ProjectLinkOverflow({ projectId, links, className, labelled = false }: 
     );
 }
 
-export const ProjectLinkEditorFields = forwardRef<ProjectLinkEditorHandle, {
+export const WorkspaceLinkEditorFields = forwardRef<WorkspaceLinkEditorHandle, {
     links: unknown;
     onChange: (links: SocialLinkItem[]) => void;
     savedLinks?: unknown;
@@ -144,7 +144,7 @@ export const ProjectLinkEditorFields = forwardRef<ProjectLinkEditorHandle, {
     disabled?: boolean;
     onPendingChange?: (pending: boolean) => void;
     commitContext?: 'settings' | 'project-create';
-}>(function ProjectLinkEditorFields({
+}>(function WorkspaceLinkEditorFields({
     links,
     onChange,
     savedLinks,
@@ -158,13 +158,13 @@ export const ProjectLinkEditorFields = forwardRef<ProjectLinkEditorHandle, {
     commitContext = 'settings',
 }, ref) {
     const openSections = useOpenSettingsSections();
-    const draft = useMemo(() => hydrateProjectSocialLinks(links, health), [health, links]);
+    const draft = useMemo(() => hydrateWorkspaceSocialLinks(links, health), [health, links]);
     const saved = useMemo(() => savedLinks === undefined ? null : socialLinkItemsFromStorage(savedLinks), [savedLinks]);
     const [url, setUrl] = useState('');
     const [customLabel, setCustomLabel] = useState('');
     const [destinationLabel, setDestinationLabel] = useState('');
-    const [purpose, setPurpose] = useState<ProjectLinkPurpose | ''>('');
-    const [audience, setAudience] = useState<ProjectLinkAudience>('public');
+    const [purpose, setPurpose] = useState<WorkspaceLinkPurpose | ''>('');
+    const [audience, setAudience] = useState<WorkspaceLinkAudience>('public');
     const [metadataUrl, setMetadataUrl] = useState<string | null>(null);
     const [editingId, setEditingId] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
@@ -180,7 +180,7 @@ export const ProjectLinkEditorFields = forwardRef<ProjectLinkEditorHandle, {
     const preview = previewItem ? resolveSocialPresence(previewItem.platform, previewItem.url) : null;
     const isCustomPreview = ['website', 'portfolio', 'other'].includes(preview?.platform || '');
 
-    const repositoryContext = useMemo<ProjectRepositoryContext | null>(() => {
+    const repositoryContext = useMemo<WorkspaceRepositoryContext | null>(() => {
         if (importSource || githubSyncConnection) {
             return { importSource, githubSyncConnection };
         }
@@ -189,11 +189,11 @@ export const ProjectLinkEditorFields = forwardRef<ProjectLinkEditorHandle, {
 
     const managedRepositories = useMemo(() => {
         if (repositoryContext) {
-            return resolveProjectSocialLinks([], null, repositoryContext).filter(
+            return resolveWorkspaceSocialLinks([], null, repositoryContext).filter(
                 (link) => link.managed === 'github-sync-connection' || link.managed === 'github-cloned-repo',
             );
         }
-        return resolveProjectSocialLinks([], githubRepoUrl).filter((link) => Boolean(link.managed));
+        return resolveWorkspaceSocialLinks([], githubRepoUrl).filter((link) => Boolean(link.managed));
     }, [githubRepoUrl, repositoryContext]);
 
     const previewUrl = preview?.url || null;
@@ -210,7 +210,7 @@ export const ProjectLinkEditorFields = forwardRef<ProjectLinkEditorHandle, {
         ? normalizeLinkDestinationTitle(metadataQuery.data?.title, preview?.platform)
         : null;
     const effectiveDestinationLabel = destinationLabel.trim() || metadataTitle || '';
-    const effectivePurpose = purpose || (preview ? inferProjectLinkPurpose(preview) : 'other');
+    const effectivePurpose = purpose || (preview ? inferWorkspaceLinkPurpose(preview) : 'other');
     const metadataPending = Boolean(previewUrl) && (metadataUrl !== previewUrl || metadataQuery.isFetching);
     const sensitiveParameters = previewUrl ? findSensitiveLinkParameters(previewUrl) : [];
     const projectTypeHint = useMemo(() => {
@@ -256,7 +256,7 @@ export const ProjectLinkEditorFields = forwardRef<ProjectLinkEditorHandle, {
         setUrl(item.url);
         setCustomLabel(item.label || '');
         setDestinationLabel(item.destinationLabel || '');
-        setPurpose(item.purpose || (link ? inferProjectLinkPurpose(link) : 'other'));
+        setPurpose(item.purpose || (link ? inferWorkspaceLinkPurpose(link) : 'other'));
         setAudience(item.audience === 'members' ? 'members' : 'public');
         setDuplicateId(null);
         setError(null);
@@ -337,7 +337,7 @@ export const ProjectLinkEditorFields = forwardRef<ProjectLinkEditorHandle, {
                 ...item,
                 ...(useComposerValues && isCustomPreview && customLabel.trim() ? { label: customLabel.trim() } : {}),
                 ...(useComposerValues && effectiveDestinationLabel ? { destinationLabel: effectiveDestinationLabel } : {}),
-                purpose: useComposerValues ? effectivePurpose : inferProjectLinkPurpose(resolved),
+                purpose: useComposerValues ? effectivePurpose : inferWorkspaceLinkPurpose(resolved),
                 audience: useComposerValues ? audience : 'public',
                 metadata: {
                     health: useComposerValues ? metadataQuery.data?.health ?? 'unknown' : 'unknown',
@@ -390,7 +390,7 @@ export const ProjectLinkEditorFields = forwardRef<ProjectLinkEditorHandle, {
     }), [addOrUpdate]);
 
     const stageText = (value: string) => {
-        const extracted = extractProjectLinkUrls(value);
+        const extracted = extractWorkspaceLinkUrls(value);
         return stageUrls(extracted.length ? extracted : [value.trim()], editingId && extracted.length <= 1 ? editingId : null);
     };
 
@@ -452,11 +452,11 @@ export const ProjectLinkEditorFields = forwardRef<ProjectLinkEditorHandle, {
                         if (!link) return null;
                         const title = item.label || link.platformLabel;
                         const unavailable = (item.metadata || health[item.id])?.health === 'unavailable';
-                        const itemPurpose = item.purpose || inferProjectLinkPurpose(link);
-                        const staleMetadata = isProjectLinkMetadataStale(item.metadata || health[item.id]);
+                        const itemPurpose = item.purpose || inferWorkspaceLinkPurpose(link);
+                        const staleMetadata = isWorkspaceLinkMetadataStale(item.metadata || health[item.id]);
                         const savedItem = saved?.find((candidate) => candidate.id === item.id);
                         const draftState = commitContext === 'settings' && saved
-                            ? !savedItem ? 'New' : !areProjectSocialLinksEqual([savedItem], [item]) ? 'Edited' : null
+                            ? !savedItem ? 'New' : !areWorkspaceSocialLinksEqual([savedItem], [item]) ? 'Edited' : null
                             : null;
                         const opaqueName = (link.platform === 'youtube' && ['watch', 'shorts', 'live'].includes(link.accountLabel.toLowerCase()))
                             || (link.platform === 'google-scholar' && ['scholar profile', 'publication'].includes(link.accountLabel.toLowerCase()));
@@ -468,7 +468,7 @@ export const ProjectLinkEditorFields = forwardRef<ProjectLinkEditorHandle, {
                                     <span aria-live="polite" className={cn('flex items-center gap-1 truncate text-xs', opaqueName && !item.destinationLabel && !identifyingIds.has(item.id) ? 'text-amber-700 dark:text-amber-300' : 'text-muted-foreground')}>
                                         {identifyingIds.has(item.id) ? <><RefreshCw className="h-3 w-3 shrink-0 animate-spin motion-reduce:animate-none" />Identifying destination…</> : item.destinationLabel || (opaqueName ? 'Name needed — you can add it manually' : link.accountLabel)}
                                     </span>
-                                    <span className="mt-1 inline-flex h-5 items-center rounded-[3px] border border-border bg-muted/60 px-[7px] font-mono text-[11px] uppercase tracking-[0.09em] leading-none text-muted-foreground">{PROJECT_LINK_PURPOSE_LABELS[itemPurpose]}</span>
+                                    <span className="mt-1 inline-flex h-5 items-center rounded-[3px] border border-border bg-muted/60 px-[7px] font-mono text-[11px] uppercase tracking-[0.09em] leading-none text-muted-foreground">{WORKSPACE_LINK_PURPOSE_LABELS[itemPurpose]}</span>
                                     {staleMetadata ? <span className="ml-1 mt-1 inline-flex h-5 items-center rounded-[3px] border border-amber-500/20 bg-amber-500/10 px-[7px] font-mono text-[11px] uppercase tracking-[0.09em] leading-none text-amber-700 dark:text-amber-300">Name may be out of date</span> : null}
                                 </span>
                                 <button type="button" disabled={disabled} onClick={() => editItem(item)} className="nb-touch-target nb-icon-button inline-flex h-[28px] w-[28px] items-center justify-center rounded-[5px] border border-border/70 text-muted-foreground transition-colors duration-[180ms] ease-[cubic-bezier(.2,.8,.3,1)] hover:bg-muted hover:text-foreground disabled:opacity-40" aria-label={`Edit ${title}`}><Pencil className="h-3.5 w-3.5" /></button>
@@ -502,7 +502,7 @@ export const ProjectLinkEditorFields = forwardRef<ProjectLinkEditorHandle, {
                         onChange={(event) => { setUrl(event.target.value); setDestinationLabel(''); setDuplicateId(null); setError(null); }}
                         onPaste={(event) => {
                             const text = event.clipboardData.getData('text');
-                            const urls = extractProjectLinkUrls(text);
+                            const urls = extractWorkspaceLinkUrls(text);
                             if (!urls.length && !text.trim()) return;
                             event.preventDefault();
                             stageText(text);
@@ -534,13 +534,13 @@ export const ProjectLinkEditorFields = forwardRef<ProjectLinkEditorHandle, {
                     <div className="mt-3 grid min-w-0 gap-3 sm:grid-cols-2">
                         <label className="min-w-0 nb-ui-label block text-foreground">
                             Purpose
-                            <select value={effectivePurpose} onChange={(event) => { const value = event.target.value as ProjectLinkPurpose; setPurpose(value); updateEditingItem({ purpose: value }); }} disabled={disabled} className="nb-touch-target mt-1.5 h-[34px] min-w-0 max-w-full w-full rounded-[5px] border border-border bg-card px-3 text-[13px] leading-[1.5] text-foreground outline-none transition-colors focus-visible:ring-1 focus-visible:ring-ring">
-                                {PROJECT_LINK_PURPOSES.map((value) => <option key={value} value={value}>{PROJECT_LINK_PURPOSE_LABELS[value]}</option>)}
+                            <select value={effectivePurpose} onChange={(event) => { const value = event.target.value as WorkspaceLinkPurpose; setPurpose(value); updateEditingItem({ purpose: value }); }} disabled={disabled} className="nb-touch-target mt-1.5 h-[34px] min-w-0 max-w-full w-full rounded-[5px] border border-border bg-card px-3 text-[13px] leading-[1.5] text-foreground outline-none transition-colors focus-visible:ring-1 focus-visible:ring-ring">
+                                {WORKSPACE_LINK_PURPOSES.map((value) => <option key={value} value={value}>{WORKSPACE_LINK_PURPOSE_LABELS[value]}</option>)}
                             </select>
                         </label>
                         <label className="min-w-0 nb-ui-label block text-foreground">
                             Visibility
-                            <select value={audience} onChange={(event) => { const value = event.target.value as ProjectLinkAudience; setAudience(value); updateEditingItem({ audience: value }); }} disabled={disabled} className="nb-touch-target mt-1.5 h-[34px] min-w-0 max-w-full w-full rounded-[5px] border border-border bg-card px-3 text-[13px] leading-[1.5] text-foreground outline-none transition-colors focus-visible:ring-1 focus-visible:ring-ring">
+                            <select value={audience} onChange={(event) => { const value = event.target.value as WorkspaceLinkAudience; setAudience(value); updateEditingItem({ audience: value }); }} disabled={disabled} className="nb-touch-target mt-1.5 h-[34px] min-w-0 max-w-full w-full rounded-[5px] border border-border bg-card px-3 text-[13px] leading-[1.5] text-foreground outline-none transition-colors focus-visible:ring-1 focus-visible:ring-ring">
                                 <option value="public">Public</option>
                                 <option value="members">Workspace members only</option>
                             </select>
@@ -557,7 +557,7 @@ export const ProjectLinkEditorFields = forwardRef<ProjectLinkEditorHandle, {
     );
 });
 
-export function ProjectLinksManager({
+export function WorkspaceLinksManager({
     projectId,
     links,
     githubRepoUrl,
@@ -583,20 +583,20 @@ export function ProjectLinksManager({
     onSaved?: (links: SocialLinkItem[]) => void;
 }) {
     const router = useRouter();
-    const editorRef = useRef<ProjectLinkEditorHandle>(null);
-    const [draft, setDraft] = useState<SocialLinkItem[]>(() => hydrateProjectSocialLinks(links, health ?? {}));
+    const editorRef = useRef<WorkspaceLinkEditorHandle>(null);
+    const [draft, setDraft] = useState<SocialLinkItem[]>(() => hydrateWorkspaceSocialLinks(links, health ?? {}));
     const [baseline, setBaseline] = useState<SocialLinkItem[]>(() => socialLinkItemsFromStorage(links));
     const [saving, setSaving] = useState(false);
     const [saveError, setSaveError] = useState<string | null>(null);
     const [hasComposerDraft, setHasComposerDraft] = useState(false);
-    const changeCount = countProjectLinkChanges(baseline, draft);
+    const changeCount = countWorkspaceLinkChanges(baseline, draft);
     const removedCount = baseline.filter((savedLink) => !draft.some((draftLink) => draftLink.id === savedLink.id)).length;
     const hasUnsavedChanges = changeCount > 0 || hasComposerDraft;
 
     useEffect(() => {
         if (mode === 'inline' && hasUnsavedChanges) return;
         if (mode === 'inline' || open) {
-            const next = hydrateProjectSocialLinks(links, health ?? {});
+            const next = hydrateWorkspaceSocialLinks(links, health ?? {});
             setDraft(next);
             setBaseline(next);
         }
@@ -610,7 +610,7 @@ export function ProjectLinksManager({
             const prepared = await editorRef.current?.prepareForSave();
             if (prepared && !prepared.success) return;
             const linksToSave = prepared?.links ?? draft;
-            const result = await updateProjectExternalLinksAction(projectId, linksToSave, baseline);
+            const result = await updateWorkspaceExternalLinksAction(projectId, linksToSave, baseline);
             if (!result.success) {
                 if ('conflict' in result && result.conflict) {
                     const current = socialLinkItemsFromStorage(result.currentData);
@@ -620,7 +620,7 @@ export function ProjectLinksManager({
                 setSaveError(result.error);
                 return;
             }
-            const saved = hydrateProjectSocialLinks(result.data, result.metadata ?? {});
+            const saved = hydrateWorkspaceSocialLinks(result.data, result.metadata ?? {});
             setDraft(saved);
             setBaseline(saved);
             setHasComposerDraft(false);
@@ -650,7 +650,7 @@ export function ProjectLinksManager({
                 }
             }}
         >
-            <ProjectLinkEditorFields
+            <WorkspaceLinkEditorFields
                 ref={editorRef}
                 links={draft}
                 savedLinks={baseline}
@@ -742,7 +742,7 @@ export function ProjectLinksManager({
     );
 }
 
-export function ProjectLinkCluster({
+export function WorkspaceLinkCluster({
     projectId,
     links,
     githubRepoUrl,
@@ -765,7 +765,7 @@ export function ProjectLinkCluster({
     const [savedLinks, setSavedLinks] = useState<SocialLinkItem[]>(() => socialLinkItemsFromStorage(links));
     useEffect(() => setSavedLinks(socialLinkItemsFromStorage(links)), [links]);
 
-    const repositoryContext = useMemo<ProjectRepositoryContext | null>(() => {
+    const repositoryContext = useMemo<WorkspaceRepositoryContext | null>(() => {
         if (importSource || githubSyncConnection) {
             return { importSource, githubSyncConnection };
         }
@@ -773,7 +773,7 @@ export function ProjectLinkCluster({
     }, [importSource, githubSyncConnection]);
 
     const resolved = useMemo(() => {
-        return resolveProjectSocialLinks(savedLinks, githubRepoUrl, repositoryContext);
+        return resolveWorkspaceSocialLinks(savedLinks, githubRepoUrl, repositoryContext);
     }, [savedLinks, githubRepoUrl, repositoryContext]);
 
     if (!resolved.length && !canManage) return null;
@@ -802,7 +802,7 @@ export function ProjectLinkCluster({
                     </Tooltip>
                 ) : null}
             </div>
-            {canManage && editorOpen ? <ProjectLinksManager projectId={projectId} links={savedLinks} githubRepoUrl={githubRepoUrl} importSource={importSource} githubSyncConnection={githubSyncConnection} health={health} projectType={projectType} open={editorOpen} onOpenChange={setEditorOpen} onSaved={setSavedLinks} /> : null}
+            {canManage && editorOpen ? <WorkspaceLinksManager projectId={projectId} links={savedLinks} githubRepoUrl={githubRepoUrl} importSource={importSource} githubSyncConnection={githubSyncConnection} health={health} projectType={projectType} open={editorOpen} onOpenChange={setEditorOpen} onSaved={setSavedLinks} /> : null}
         </TooltipProvider>
     );
 }

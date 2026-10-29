@@ -46,7 +46,7 @@ test("project realtime subscription reconciles canonical lease snapshots", () =>
   const store = read("src/stores/files/editorSlice.ts");
   assert.match(channel, /table: 'project_node_locks'/);
   assert.match(channel, /filter: `project_id=eq\.\$\{projectId\}`/);
-  assert.match(rootView, /fetchProjectFileLeases/);
+  assert.match(rootView, /fetchWorkspaceFileLeases/);
   assert.match(rootView, /onFileLeaseChange: reconcileLocks/);
   assert.match(store, /const nextLocks: Record<string, SoftLock> = \{\}/);
 });

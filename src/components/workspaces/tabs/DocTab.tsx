@@ -6,11 +6,11 @@ import { useSearchParams } from "next/navigation";
 
 import { AddDocDialog } from "@/components/workspaces/doc/AddDocDialog";
 import { Button } from "@/components/ui/button";
-import { ProjectDocViewer } from "@/components/workspaces/doc/WorkspaceDocViewer";
+import { WorkspaceDocViewer } from "@/components/workspaces/doc/WorkspaceDocViewer";
 import { SkeletonDoc } from "@/components/workspaces/skeletons/SkeletonDoc";
-import { useProjectDoc } from "@/hooks/workspaces/useWorkspaceDocData";
-import { normalizeProjectDocSlug } from "@/lib/workspaces/doc";
-import type { Project } from "@/types/discover";
+import { useWorkspaceDoc } from "@/hooks/workspaces/useWorkspaceDocData";
+import { normalizeWorkspaceDocSlug } from "@/lib/workspaces/doc";
+import type { Workspace } from "@/types/discover";
 import { OrgDocBanner, useMarkOrgDocOpened, useOrgDocs } from "@/components/organizations/OrgDocParts";
 import { ReportButton } from "@/components/reports/ReportDialog";
 
@@ -19,18 +19,18 @@ export default function DocTab({
     project,
 }: {
     projectId: string;
-    project: Project;
+    project: Workspace;
 }) {
     const searchParams = useSearchParams();
     const paramDoc = searchParams?.get("doc");
     // ?from=org: an org doc read in place inside a child project (report §19.7).
     if (searchParams?.get("from") === "org" && paramDoc) {
-        return <OrgDocInPlace project={project} docSlug={normalizeProjectDocSlug(paramDoc)} />;
+        return <OrgDocInPlace project={project} docSlug={normalizeWorkspaceDocSlug(paramDoc)} />;
     }
     return <OwnDocs projectId={projectId} project={project} paramDoc={paramDoc ?? null} />;
 }
 
-function OrgDocInPlace({ project, docSlug }: { project: Project; docSlug: string }) {
+function OrgDocInPlace({ project, docSlug }: { project: Workspace; docSlug: string }) {
     const orgQuery = useOrgDocs(project.id);
     const org = orgQuery.data?.mode === "child" ? orgQuery.data : null;
     if (orgQuery.isLoading) return <SkeletonDoc />;
@@ -46,14 +46,14 @@ function OrgDocInPlace({ project, docSlug }: { project: Project; docSlug: string
     return <OrgDocFrame project={project} orgId={org.orgId} orgTitle={org.orgTitle} orgSlug={org.orgSlug} docSlug={docSlug} />;
 }
 
-function OrgDocFrame({ project, orgId, orgTitle, orgSlug, docSlug }: { project: Project; orgId: string; orgTitle: string; orgSlug: string | null; docSlug: string }) {
-    const query = useProjectDoc(orgId, docSlug);
+function OrgDocFrame({ project, orgId, orgTitle, orgSlug, docSlug }: { project: Workspace; orgId: string; orgTitle: string; orgSlug: string | null; docSlug: string }) {
+    const query = useWorkspaceDoc(orgId, docSlug);
     useMarkOrgDocOpened(query.data?.version ? orgId : null, docSlug, project.id);
     if (query.isLoading) return <SkeletonDoc />;
     if (!query.data?.version) return null;
     const projectSlug = project.slug || project.id;
     return (
-        <ProjectDocViewer
+        <WorkspaceDocViewer
             key={`${orgId}:${docSlug}:${query.data.version.id}`}
             project={{ ...project, id: orgId, slug: orgSlug ?? undefined, title: orgTitle }}
             payload={{ ...query.data, canEdit: false }}
@@ -67,8 +67,8 @@ function OrgDocFrame({ project, orgId, orgTitle, orgSlug, docSlug }: { project: 
     );
 }
 
-function OwnDocs({ projectId, project, paramDoc }: { projectId: string; project: Project; paramDoc: string | null }) {
-    const readmeQuery = useProjectDoc(projectId, paramDoc ? normalizeProjectDocSlug(paramDoc) : null);
+function OwnDocs({ projectId, project, paramDoc }: { projectId: string; project: Workspace; paramDoc: string | null }) {
+    const readmeQuery = useWorkspaceDoc(projectId, paramDoc ? normalizeWorkspaceDocSlug(paramDoc) : null);
     const docSlug = readmeQuery.data?.docSlug ?? "readme";
     const canEdit = readmeQuery.data?.canEdit ?? false;
     const hasDocs = (readmeQuery.data?.docs?.length ?? 0) > 0;
@@ -106,7 +106,7 @@ function OwnDocs({ projectId, project, paramDoc }: { projectId: string; project:
 
     if (readmeQuery.data?.version) {
         return (
-            <ProjectDocViewer
+            <WorkspaceDocViewer
                 key={`${projectId}:${docSlug}:${readmeQuery.data.version.id}`}
                 project={project}
                 payload={readmeQuery.data}

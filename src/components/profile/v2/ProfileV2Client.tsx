@@ -6,7 +6,7 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import type { ProfilePageData, ProfilePrivacyRelationship, ProfileStats, ProfileTabKey } from './types'
-import type { ProfileCollaborationSummary, ProfileInviteProjectOption } from '@/lib/profile/collaboration'
+import type { ProfileCollaborationSummary, ProfileInviteWorkspaceOption } from '@/lib/profile/collaboration'
 import { ProfileShell } from './ProfileShell'
 import { ProfileTabs } from './ProfileTabs'
 import { toast, feedbackError } from "@/lib/feedback";
@@ -32,8 +32,8 @@ const ResourceShareDialog = dynamic(() => import('@/components/sharing/ShareDial
 import { ProfileHeader } from './ProfileHeader'
 import { ProfileRightRail } from './ProfileRightRail'
 import { OpenToRolesCard } from './sections/OpenToRolesCard'
-import { ProjectContributionsCard } from './sections/WorkspaceContributionsCard'
-import { ProjectsGridCard } from './sections/WorkspacesGridCard'
+import { WorkspaceContributionsCard } from './sections/WorkspaceContributionsCard'
+import { WorkspacesGridCard } from './sections/WorkspacesGridCard'
 import { OrgChipsRow } from './sections/OrgChipsRow'
 
 type UserConnectionsModalComponent = typeof import('@/components/profile/v2/UserConnectionsModal')['UserConnectionsModal'];
@@ -117,7 +117,7 @@ async function fetchInviteOptions(profileId: string) {
         headers: { accept: 'application/json' },
         credentials: 'include',
     })
-    return readApiData<{ projects: ProfileInviteProjectOption[] }>(response)
+    return readApiData<{ projects: ProfileInviteWorkspaceOption[] }>(response)
 }
 
 export function ProfileV2Client({
@@ -500,7 +500,7 @@ export function ProfileV2Client({
                                     <button type="button" className="nb-ui-label text-primary hover:underline" onClick={() => void portfolioQuery.refetch()}>Try again</button>
                                 </div>
                             )}
-                            <ProjectsGridCard
+                            <WorkspacesGridCard
                                 projects={portfolioProjects}
                                 title="Portfolio"
                                 description={portfolioDescription}
@@ -520,7 +520,7 @@ export function ProfileV2Client({
         if (lockedShell || (activeTab !== 'overview' && activeTab !== 'portfolio')) return null
         return (
             <ComponentErrorBoundary fallbackMessage="Couldn’t load workspace contributions.">
-                <ProjectContributionsCard
+                <WorkspaceContributionsCard
                     contributions={collaborationContributions}
                     profileId={profile.id}
                     isOwner={isOwner}

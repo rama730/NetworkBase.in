@@ -4,13 +4,13 @@ import Link from "next/link";
 import type { OrgFeedInfo } from '@/components/organizations/OrgUpdateParts';
 import { useEffect, useState } from "react";
 import { type InfiniteData } from "@tanstack/react-query";
-import { type ProjectUpdateCommentView, type ProjectUpdateMovementSummary, type ProjectUpdateView } from "@/app/actions/workspace/updates";
+import { type WorkspaceUpdateCommentView, type WorkspaceUpdateMovementSummary, type WorkspaceUpdateView } from "@/app/actions/workspace/updates";
 
 export type UpdatesPage = {
-  updates: ProjectUpdateView[];
+  updates: WorkspaceUpdateView[];
   nextCursor: string | null;
   hasMore: boolean;
-  movementSummary?: ProjectUpdateMovementSummary | null;
+  movementSummary?: WorkspaceUpdateMovementSummary | null;
   /** Org feeds only (report §17.8): when the viewer last opened them, for New markers. */
   lastSeenAt?: string | null;
   org?: OrgFeedInfo | null;
@@ -83,11 +83,11 @@ export function UpdateTime({ date, className, style = "narrow" }: { date: string
   );
 }
 
-export function updateAuthorName(update: ProjectUpdateView) {
+export function updateAuthorName(update: WorkspaceUpdateView) {
   return update.author?.fullName || update.author?.username || "Former member";
 }
 
-export function updateAuthorRoleLabel(update: ProjectUpdateView) {
+export function updateAuthorRoleLabel(update: WorkspaceUpdateView) {
   return (
     update.author?.roleLabel ??
     update.author?.roleTitle ??
@@ -96,9 +96,9 @@ export function updateAuthorRoleLabel(update: ProjectUpdateView) {
   );
 }
 
-type ProjectUpdateContextItem = NonNullable<ProjectUpdateView["context"]["references"]>[number];
+type ProjectUpdateContextItem = NonNullable<WorkspaceUpdateView["context"]["references"]>[number];
 
-export function updateContextItems(update: ProjectUpdateView): ProjectUpdateContextItem[] {
+export function updateContextItems(update: WorkspaceUpdateView): ProjectUpdateContextItem[] {
   const orderedReferences = update.context.references ?? [];
   if (orderedReferences.length > 0) return orderedReferences;
   return [
@@ -136,7 +136,7 @@ export function realtimeStringField(record: unknown, key: string) {
 
 export function prependUpdate(
   existing: InfiniteData<UpdatesPage> | undefined,
-  update: ProjectUpdateView,
+  update: WorkspaceUpdateView,
 ): InfiniteData<UpdatesPage> {
   if (!existing)
     return {
@@ -159,7 +159,7 @@ export function prependUpdate(
 export function replaceUpdate(
   existing: InfiniteData<UpdatesPage> | undefined,
   oldId: string,
-  next: ProjectUpdateView,
+  next: WorkspaceUpdateView,
 ): InfiniteData<UpdatesPage> {
   // A cache that isn't a set of pages (empty, or another shape) has nothing to patch.
   if (!existing || !Array.isArray(existing.pages)) return existing!;
@@ -188,7 +188,7 @@ export function removeUpdate(
 
 export function updatePages(
   existing: InfiniteData<UpdatesPage> | undefined,
-  transform: (item: ProjectUpdateView) => ProjectUpdateView,
+  transform: (item: WorkspaceUpdateView) => WorkspaceUpdateView,
 ): InfiniteData<UpdatesPage> {
   if (!existing) return existing!;
   return {
@@ -203,10 +203,10 @@ export function updatePages(
 
 export function getDescendants(
   rootId: string,
-  allComments: ProjectUpdateCommentView[],
-): { comment: ProjectUpdateCommentView; replyingTo: string | null }[] {
-  const repliesByParentId = new Map<string, ProjectUpdateCommentView[]>();
-  const commentMap = new Map<string, ProjectUpdateCommentView>();
+  allComments: WorkspaceUpdateCommentView[],
+): { comment: WorkspaceUpdateCommentView; replyingTo: string | null }[] {
+  const repliesByParentId = new Map<string, WorkspaceUpdateCommentView[]>();
+  const commentMap = new Map<string, WorkspaceUpdateCommentView>();
 
   for (const c of allComments) {
     commentMap.set(c.id, c);
@@ -221,7 +221,7 @@ export function getDescendants(
     list.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
   }
 
-  const result: { comment: ProjectUpdateCommentView; replyingTo: string | null }[] = [];
+  const result: { comment: WorkspaceUpdateCommentView; replyingTo: string | null }[] = [];
 
   function traverse(commentId: string) {
     const children = repliesByParentId.get(commentId) || [];

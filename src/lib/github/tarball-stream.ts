@@ -3,7 +3,7 @@ import zlib from 'zlib';
 import { pipeline } from 'stream/promises';
 import { Readable } from 'stream';
 import { shouldIgnorePath, isTooLarge } from '@/lib/import/import-filters';
-import { normalizeAndValidateUploadRelativePath, PROJECT_UPLOAD_MAX_FILE_BYTES } from '@/lib/upload/security';
+import { normalizeAndValidateUploadRelativePath, WORKSPACE_UPLOAD_MAX_FILE_BYTES } from '@/lib/upload/security';
 
 export interface TarballFile {
     path: string; // The path within the repo
@@ -98,7 +98,7 @@ export async function* fetchAndParseTarball(
             let oversize = false;
             stream.on('data', (chunk: Buffer) => {
                 entryBytes += chunk.length;
-                if (entryBytes > PROJECT_UPLOAD_MAX_FILE_BYTES) {
+                if (entryBytes > WORKSPACE_UPLOAD_MAX_FILE_BYTES) {
                     // Over the per-file limit: discard this entry without failing the archive.
                     oversize = true;
                     chunks.length = 0;

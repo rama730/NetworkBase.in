@@ -1,16 +1,16 @@
 import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { profileProjectContributionStages, profileProjectContributions, profiles, projects } from "@/lib/db/schema";
-import { isGenericProjectUpdateRoleTitle, sanitizeProjectUpdateRoleTitle } from "@/lib/workspaces/updates";
+import { isGenericWorkspaceUpdateRoleTitle, sanitizeWorkspaceUpdateRoleTitle } from "@/lib/workspaces/updates";
 
 export type RoleTitleTarget = { projectId: string; userId: string | null | undefined };
 
-/** The key a title is stored under in the map `readProjectRoleTitles` returns. */
+/** The key a title is stored under in the map `readWorkspaceRoleTitles` returns. */
 export const roleTitleKey = (projectId: string, userId: string) => `${projectId}:${userId}`;
 
 function specificTitle(value: unknown) {
-    const title = sanitizeProjectUpdateRoleTitle(value);
-    return title && !isGenericProjectUpdateRoleTitle(title) ? title : null;
+    const title = sanitizeWorkspaceUpdateRoleTitle(value);
+    return title && !isGenericWorkspaceUpdateRoleTitle(title) ? title : null;
 }
 
 /**
@@ -19,7 +19,7 @@ function specificTitle(value: unknown) {
  * never carry two different labels. Order of trust: the title on an active contribution stage, then on the
  * contribution, then the owner's "lead focus", then (last) the profile headline.
  */
-export async function readProjectRoleTitles(targets: RoleTitleTarget[]): Promise<Map<string, string>> {
+export async function readWorkspaceRoleTitles(targets: RoleTitleTarget[]): Promise<Map<string, string>> {
     const wanted = new Set<string>();
     for (const { projectId, userId } of targets) if (projectId && userId) wanted.add(roleTitleKey(projectId, userId));
     const titles = new Map<string, string>();

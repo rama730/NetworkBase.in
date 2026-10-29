@@ -8,12 +8,12 @@ import { toast } from "@/lib/feedback";
 
 import { AddDocDialog } from "@/components/workspaces/doc/AddDocDialog";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
-import { normalizeProjectDocSlug } from "@/lib/workspaces/doc";
-import type { ProjectDocListItem } from "@/lib/workspaces/doc";
+import { normalizeWorkspaceDocSlug } from "@/lib/workspaces/doc";
+import type { WorkspaceDocListItem } from "@/lib/workspaces/doc";
 import {
-    PROJECT_DOC_LIST_QUERY_KEY,
-    PROJECT_DOCS_QUERY_KEY,
-    useProjectDocList,
+    WORKSPACE_DOC_LIST_QUERY_KEY,
+    WORKSPACE_DOCS_QUERY_KEY,
+    useWorkspaceDocList,
 } from "@/hooks/workspaces/useWorkspaceDocData";
 import { cn } from "@/lib/utils";
 import { FromOrgDocs, OrgDocAdminTools, OrgDocChips, useOrgDocs } from "@/components/organizations/OrgDocParts";
@@ -22,11 +22,11 @@ const ACTIVE_ITEM = "border-foreground/20 bg-muted text-foreground font-semibold
 const IDLE_ITEM = "border-border bg-card text-muted-foreground hover:border-foreground/20 hover:text-foreground hover:bg-muted/40";
 
 export type DocRailState = {
-    docs: ProjectDocListItem[];
+    docs: WorkspaceDocListItem[];
     isLoading: boolean;
     navigate: (slug: string | null, replace?: boolean) => void;
     openAdd: () => void;
-    askRemove: (doc: ProjectDocListItem | null) => void;
+    askRemove: (doc: WorkspaceDocListItem | null) => void;
     dialogs: React.JSX.Element;
 };
 
@@ -36,28 +36,28 @@ export function useDocRail(projectId: string, activeSlug: string): DocRailState 
     const pathname = usePathname();
     const searchParams = useSearchParams();
     const queryClient = useQueryClient();
-    const { data: docs = [], isLoading } = useProjectDocList(projectId);
+    const { data: docs = [], isLoading } = useWorkspaceDocList(projectId);
     const [addOpen, setAddOpen] = useState(false);
-    const [removing, setRemoving] = useState<ProjectDocListItem | null>(null);
+    const [removing, setRemoving] = useState<WorkspaceDocListItem | null>(null);
 
     // Opening a doc is a history entry; leaving a removed doc replaces it.
     const navigate = (slug: string | null, replace = false) => {
         const params = new URLSearchParams(searchParams ? searchParams.toString() : "");
         params.set("tab", "docs");
         params.delete("from"); // own docs, not an org doc opened in place
-        if (slug) params.set("doc", normalizeProjectDocSlug(slug));
+        if (slug) params.set("doc", normalizeWorkspaceDocSlug(slug));
         else params.delete("doc");
         router[replace ? "replace" : "push"](`${pathname}?${params.toString()}`, { scroll: false });
     };
 
     const confirmRemove = async () => {
         if (!removing) return;
-        const { unlinkProjectDocAction } = await import("@/app/actions/workspace/doc");
-        const result = await unlinkProjectDocAction(projectId, removing.slug);
+        const { unlinkWorkspaceDocAction } = await import("@/app/actions/workspace/doc");
+        const result = await unlinkWorkspaceDocAction(projectId, removing.slug);
         if (!result.success) throw new Error(result.error);
         await Promise.all([
-            queryClient.invalidateQueries({ queryKey: PROJECT_DOC_LIST_QUERY_KEY(projectId) }),
-            queryClient.invalidateQueries({ queryKey: PROJECT_DOCS_QUERY_KEY(projectId) }),
+            queryClient.invalidateQueries({ queryKey: WORKSPACE_DOC_LIST_QUERY_KEY(projectId) }),
+            queryClient.invalidateQueries({ queryKey: WORKSPACE_DOCS_QUERY_KEY(projectId) }),
         ]);
         if (removing.slug === activeSlug) navigate(null, true);
         toast.success("Removed from Documents");
@@ -95,7 +95,7 @@ function AddDocButton({ onClick, className }: { onClick: () => void; className?:
     );
 }
 
-export function ProjectDocRail({
+export function WorkspaceDocRail({
     projectId,
     activeSlug,
     canEdit = false,
@@ -192,7 +192,7 @@ export function ProjectDocRail({
     );
 }
 
-export function ProjectDocMobileBar({
+export function WorkspaceDocMobileBar({
     projectId,
     activeSlug,
     canEdit = false,

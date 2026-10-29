@@ -2,32 +2,32 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import type { ProjectSettingsSection } from "@/components/workspaces/settings/WorkspaceSettingsNavigation";
-import type { ProjectSettingsSectionId } from "@/lib/workspaces/settings-policies";
+import type { WorkspaceSettingsSection } from "@/components/workspaces/settings/WorkspaceSettingsNavigation";
+import type { WorkspaceSettingsSectionId } from "@/lib/workspaces/settings-policies";
 import {
-  resolveProjectSettingsSection,
+  resolveWorkspaceSettingsSection,
   selectVisibleSettingsSection,
 } from "@/lib/workspaces/settings-navigation";
 
-export function useProjectSettingsNavigation(
-  sections: ProjectSettingsSection[],
+export function useWorkspaceSettingsNavigation(
+  sections: WorkspaceSettingsSection[],
 ) {
   const router = useRouter();
   const params = useSearchParams();
   const [activeSection, setActiveSection] = useState(() =>
-    resolveProjectSettingsSection(
+    resolveWorkspaceSettingsSection(
       params.get("settings") || params.get("section"),
       sections,
     ),
   );
-  const targetRef = useRef<ProjectSettingsSectionId | null>(null);
-  const anchorRef = useRef<ProjectSettingsSectionId | null>(null);
+  const targetRef = useRef<WorkspaceSettingsSectionId | null>(null);
+  const anchorRef = useRef<WorkspaceSettingsSectionId | null>(null);
   const targetTopRef = useRef(0);
-  const localRef = useRef<ProjectSettingsSectionId | null>(null);
+  const localRef = useRef<WorkspaceSettingsSectionId | null>(null);
   const initialRef = useRef(true);
 
   const scrollToSection = useCallback(
-    (id: ProjectSettingsSectionId, smooth: boolean) => {
+    (id: WorkspaceSettingsSectionId, smooth: boolean) => {
       const scrollRoot = document.querySelector<HTMLElement>(
         '[data-scroll-root="route"]',
       );
@@ -68,7 +68,7 @@ export function useProjectSettingsNavigation(
   );
 
   const navigate = useCallback(
-    (id: ProjectSettingsSectionId) => {
+    (id: WorkspaceSettingsSectionId) => {
       localRef.current = id;
       const next = new URLSearchParams(window.location.search);
       next.set("tab", "settings");
@@ -89,7 +89,7 @@ export function useProjectSettingsNavigation(
       const currentParams = new URLSearchParams(window.location.search);
       const requested =
         hash || currentParams.get("settings") || currentParams.get("section");
-      const id = resolveProjectSettingsSection(requested, sections);
+      const id = resolveWorkspaceSettingsSection(requested, sections);
       if (localRef.current === id) {
         localRef.current = null;
         return;

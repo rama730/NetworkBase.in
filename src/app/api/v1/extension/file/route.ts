@@ -5,18 +5,18 @@ import { requireAuthenticatedUser, jsonSuccess, jsonError } from "@/app/api/v1/_
 import { db } from "@/lib/db";
 import { projectNodes, fileVersions, storageAssets } from "@/lib/db/schema";
 import { eq, and, isNull } from "drizzle-orm";
-import { getProjectFileContent } from "@/app/actions/files/content";
+import { getWorkspaceFileContent } from "@/app/actions/files/content";
 import { applyFileRevision } from "@/lib/files/apply-file-revision";
 import { isFileRevisionMode, normalizeRevisionComment, parseFileRevisionMode } from "@/lib/files/revision-policy";
 import { createAdminClient } from "@/lib/supabase/server";
 import { createUploadIntent, finalizeUploadIntent } from "@/lib/upload/upload-intents";
-import { parseProjectFileKey } from "@/lib/storage/workspace-file-key";
+import { parseWorkspaceFileKey } from "@/lib/storage/workspace-file-key";
 import { logger } from "@/lib/logger";
 import { streamPrivateObject } from "@/lib/storage/private-object-response";
 import { readBoundedStorageBytes } from "@/lib/storage/bounded-object-read";
 import { withIdempotentRoute } from "@/lib/security/idempotency";
 import { recordExtensionMetric } from "@/lib/extension/observability";
-import { assertProjectFileReadAccess, assertFileNodeVisible } from "@/lib/files/internal-helpers";
+import { assertWorkspaceFileReadAccess, assertFileNodeVisible } from "@/lib/files/internal-helpers";
 import { validateCsrf } from "@/lib/security/csrf";
 import {
   assertNoExtensionWriteConflict,
@@ -61,7 +61,7 @@ export async function GET(request: Request) {
       return jsonError("Missing projectId or path", 400, "BAD_REQUEST");
     }
 
-    const access = await assertProjectFileReadAccess(projectId, user.id);
+    const access = await assertWorkspaceFileReadAccess(projectId, user.id);
 
     // Find the node
     const node = await db.query.projectNodes.findFirst({
@@ -107,7 +107,7 @@ export async function GET(request: Request) {
       return jsonError("Extension inline responses are limited to 512 KiB", 400, "NOT_SUPPORTED");
     }
     if (transfer === "raw" && node.s3Key) {
-      const parsedKey = parseProjectFileKey(node.s3Key);
+      const parsedKey = parseWorkspaceFileKey(node.s3Key);
       if (!parsedKey || parsedKey.projectId !== projectId) {
         return jsonError("File key does not belong to this workspace", 409, "CONFLICT");
       }
@@ -126,7 +126,7 @@ export async function GET(request: Request) {
       });
     }
     if (useSignedTransfer && node.s3Key) {
-      const parsedKey = parseProjectFileKey(node.s3Key);
+      const parsedKey = parseWorkspaceFileKey(node.s3Key);
       if (!parsedKey || parsedKey.projectId !== projectId) {
         return jsonError("File key does not belong to this workspace", 409, "CONFLICT");
       }
@@ -171,7 +171,7 @@ export async function GET(request: Request) {
 
     let contentBuffer: Uint8Array;
     if (node.s3Key) {
-      const parsedKey = parseProjectFileKey(node.s3Key);
+      const parsedKey = parseWorkspaceFileKey(node.s3Key);
       if (!parsedKey || parsedKey.projectId !== projectId) {
         return jsonError("File key does not belong to this workspace", 409, "CONFLICT");
       }
@@ -182,7 +182,7 @@ export async function GET(request: Request) {
         timeoutMs: 30_000,
       });
     } else {
-      const content = await getProjectFileContent(projectId, node.id);
+      const content = await getWorkspaceFileContent(projectId, node.id);
       contentBuffer = Buffer.from(content, "utf8");
     }
 

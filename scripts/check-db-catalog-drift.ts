@@ -4,9 +4,9 @@ import * as dotenv from "dotenv";
 import postgres from "postgres";
 
 import {
-  PROJECT_UPDATE_ALLOWED_IMAGE_MIME_TYPES,
-  PROJECT_UPDATE_MEDIA_BUCKET,
-  PROJECT_UPDATE_SCHEMA_CONTRACT,
+  WORKSPACE_UPDATE_ALLOWED_IMAGE_MIME_TYPES,
+  WORKSPACE_UPDATE_MEDIA_BUCKET,
+  WORKSPACE_UPDATE_SCHEMA_CONTRACT,
 } from "../src/lib/workspaces/updates";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -226,10 +226,10 @@ async function main() {
     JOIN pg_namespace n ON n.oid = c.relnamespace
     WHERE n.nspname = 'public'
       AND c.relkind IN ('r', 'p')
-      AND c.relname = ANY(${PROJECT_UPDATE_SCHEMA_CONTRACT.tables})
+      AND c.relname = ANY(${WORKSPACE_UPDATE_SCHEMA_CONTRACT.tables})
   `;
   const tables = new Set(tableRows.map((row) => row.table_name));
-  for (const table of PROJECT_UPDATE_SCHEMA_CONTRACT.tables) {
+  for (const table of WORKSPACE_UPDATE_SCHEMA_CONTRACT.tables) {
     if (!tables.has(table)) errors.push(`missing project update table public.${table}`);
   }
 
@@ -237,11 +237,11 @@ async function main() {
     SELECT tablename, COUNT(*)::int AS count
     FROM pg_policies
     WHERE schemaname = 'public'
-      AND tablename = ANY(${PROJECT_UPDATE_SCHEMA_CONTRACT.tables})
+      AND tablename = ANY(${WORKSPACE_UPDATE_SCHEMA_CONTRACT.tables})
     GROUP BY tablename
   `;
   const policies = new Map(policyRows.map((row) => [row.tablename, row.count]));
-  const minPolicyCounts = PROJECT_UPDATE_SCHEMA_CONTRACT.minPolicyCounts as Record<string, number>;
+  const minPolicyCounts = WORKSPACE_UPDATE_SCHEMA_CONTRACT.minPolicyCounts as Record<string, number>;
   for (const [table, minPolicyCount] of Object.entries(minPolicyCounts)) {
     const count = policies.get(table) ?? 0;
     if (count < minPolicyCount) {
@@ -271,20 +271,20 @@ async function main() {
   }[]>`
     SELECT id, public, file_size_limit, allowed_mime_types
     FROM storage.buckets
-    WHERE id = ${PROJECT_UPDATE_MEDIA_BUCKET}
+    WHERE id = ${WORKSPACE_UPDATE_MEDIA_BUCKET}
     LIMIT 1
   `;
   if (!bucketRow) {
-    errors.push(`missing storage bucket ${PROJECT_UPDATE_MEDIA_BUCKET}`);
+    errors.push(`missing storage bucket ${WORKSPACE_UPDATE_MEDIA_BUCKET}`);
   } else {
-    if (bucketRow.public !== false) errors.push(`${PROJECT_UPDATE_MEDIA_BUCKET} bucket must be private`);
+    if (bucketRow.public !== false) errors.push(`${WORKSPACE_UPDATE_MEDIA_BUCKET} bucket must be private`);
     if (Number(bucketRow.file_size_limit ?? 0) !== 8 * 1024 * 1024) {
-      errors.push(`${PROJECT_UPDATE_MEDIA_BUCKET} bucket file_size_limit differs from the 8 MiB application contract`);
+      errors.push(`${WORKSPACE_UPDATE_MEDIA_BUCKET} bucket file_size_limit differs from the 8 MiB application contract`);
     }
     const allowedMimeTypes = [...(bucketRow.allowed_mime_types ?? [])].sort();
-    const expectedMimeTypes = Array.from(PROJECT_UPDATE_ALLOWED_IMAGE_MIME_TYPES).sort();
+    const expectedMimeTypes = Array.from(WORKSPACE_UPDATE_ALLOWED_IMAGE_MIME_TYPES).sort();
     if (JSON.stringify(allowedMimeTypes) !== JSON.stringify(expectedMimeTypes)) {
-      errors.push(`${PROJECT_UPDATE_MEDIA_BUCKET} bucket MIME allowlist differs from the canonical contract`);
+      errors.push(`${WORKSPACE_UPDATE_MEDIA_BUCKET} bucket MIME allowlist differs from the canonical contract`);
     }
   }
 
@@ -308,12 +308,12 @@ async function main() {
     WHERE schemaname = 'storage'
       AND tablename = 'objects'
       AND (
-        qual LIKE '%' || ${PROJECT_UPDATE_MEDIA_BUCKET} || '%'
-        OR with_check LIKE '%' || ${PROJECT_UPDATE_MEDIA_BUCKET} || '%'
+        qual LIKE '%' || ${WORKSPACE_UPDATE_MEDIA_BUCKET} || '%'
+        OR with_check LIKE '%' || ${WORKSPACE_UPDATE_MEDIA_BUCKET} || '%'
       )
   `;
   if (storagePolicyRows.length > 0) {
-    errors.push(`${PROJECT_UPDATE_MEDIA_BUCKET} must not have direct browser storage policies`);
+    errors.push(`${WORKSPACE_UPDATE_MEDIA_BUCKET} must not have direct browser storage policies`);
   }
 
   const restrictedBucketRows = await sql<{ id: string; allowed_mime_types: string[] | null }[]>`

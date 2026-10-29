@@ -4,9 +4,9 @@ import { and, eq, isNull } from 'drizzle-orm';
 import { enforceRouteLimit } from '@/app/api/v1/_shared';
 import { db } from '@/lib/db';
 import { githubSyncConnections, profiles, projects } from '@/lib/db/schema';
-import { getProjectAccessById } from '@/lib/data/workspace-access';
+import { getWorkspaceAccessById } from '@/lib/data/workspace-access';
 import { normalizeSocialLinks } from '@/lib/profile/normalization';
-import { resolveProjectSocialLinks } from '@/lib/workspaces/social-links';
+import { resolveWorkspaceSocialLinks } from '@/lib/workspaces/social-links';
 import { resolvePrivacyRelationship } from '@/lib/privacy/resolver';
 import { assertPublicNetworkUrl } from '@/lib/security/outbound-url';
 import { createClient } from '@/lib/supabase/server';
@@ -61,7 +61,7 @@ export async function GET(
         linkPlatform = link?.serviceKey ?? link?.platform ?? linkPlatform;
         editHref = user?.id === profile.id ? '/my-profile' : null;
     } else if (ownerType === 'project') {
-        const access = await getProjectAccessById(ownerId, user?.id ?? null);
+        const access = await getWorkspaceAccessById(ownerId, user?.id ?? null);
         if (!access.project || !access.canRead) return blocked('This link is not available.', 404);
         const [project] = await db
             .select({
@@ -76,7 +76,7 @@ export async function GET(
             .leftJoin(githubSyncConnections, eq(projects.id, githubSyncConnections.projectId))
             .where(and(eq(projects.id, ownerId), isNull(projects.deletedAt)))
             .limit(1);
-        const link = resolveProjectSocialLinks(
+        const link = resolveWorkspaceSocialLinks(
             project?.externalLinks ?? {},
             project?.githubRepoUrl,
             {

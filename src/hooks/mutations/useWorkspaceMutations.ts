@@ -1,8 +1,8 @@
 'use client';
 
 import { useMutation, useQueryClient, type InfiniteData } from '@tanstack/react-query';
-import type { Project } from '@/types/discover';
-import { toggleProjectFollowAction } from '@/app/actions/workspace';
+import type { Workspace } from '@/types/discover';
+import { toggleWorkspaceFollowAction } from '@/app/actions/workspace';
 import { queryKeys } from '@/lib/query-keys';
 
 interface ToggleFollowParams {
@@ -13,12 +13,12 @@ interface ToggleFollowParams {
 
 
 
-export function useToggleProjectFollow() {
+export function useToggleWorkspaceFollow() {
     const queryClient = useQueryClient();
 
     return useMutation({
         mutationFn: async (params: ToggleFollowParams) => {
-            const result = await toggleProjectFollowAction(params.projectId, !params.currentStatus);
+            const result = await toggleWorkspaceFollowAction(params.projectId, !params.currentStatus);
             if (!result.success) throw new Error(result.error);
             return result;
         },
@@ -33,7 +33,7 @@ export function useToggleProjectFollow() {
             });
             if (typeof result.followersCount === 'number') {
                 const followersCount = result.followersCount;
-                queryClient.setQueriesData<InfiniteData<{ projects: Project[] }>>({ queryKey: queryKeys.discover.projectsSimpleRoot() }, (old) => old && ({
+                queryClient.setQueriesData<InfiniteData<{ projects: Workspace[] }>>({ queryKey: queryKeys.discover.projectsSimpleRoot() }, (old) => old && ({
                     ...old,
                     pages: old.pages.map((page) => ({
                         ...page,

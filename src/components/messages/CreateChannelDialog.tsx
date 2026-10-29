@@ -6,7 +6,7 @@ import { toast } from "@/lib/feedback";
 
 import { createChannel } from "@/app/actions/chat/channels";
 import { useChatShell } from "@/components/messages/ChatShellProvider";
-import { useSelectedProject } from "@/components/messages/useSelectedWorkspace";
+import { useSelectedWorkspace } from "@/components/messages/useSelectedWorkspace";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogFooter, DialogHeader, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -23,7 +23,7 @@ import { conversationHref } from "@/lib/messaging/routes";
 export function CreateChannelDialog({ projectId: initialProjectId, open, onOpenChange }: { projectId: string; open: boolean; onOpenChange: (open: boolean) => void }) {
   const router = useRouter();
   const { data, refresh } = useChatShell();
-  const allView = useSelectedProject() === null;
+  const allView = useSelectedWorkspace() === null;
   const [projectId, setProjectId] = useState(initialProjectId);
   const projects = data?.projects ?? [];
   const projectTitle = projects.find((p) => p.id === projectId)?.title;

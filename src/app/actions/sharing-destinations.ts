@@ -1,10 +1,10 @@
 "use server";
 
 import { sql } from "drizzle-orm";
-import { shareDestinationProjection } from "@/lib/sharing/destination-read";
+import { shareDestinationWorkspaceion } from "@/lib/sharing/destination-read";
 import { chatFailure, chatRows, invalidInput, isUuid, requireChatUser, unauthorized } from "@/lib/messaging/server";
 import type { ConversationScope } from "@/lib/sharing/destination-scope";
-import type { ShareDestination, ShareProject } from "@/lib/sharing/destination-scope";
+import type { ShareDestination, ShareWorkspace } from "@/lib/sharing/destination-scope";
 
 type Cursor = { id: string; starred: number; default: number; name: string; time: string };
 type Row = ShareDestination & { sort_time: string | Date; sort_name: string; sort_star: number; sort_default: number };
@@ -49,7 +49,7 @@ export async function listShareDestinations(input: { scope: ConversationScope; q
     }
     const rows = await chatRows<Row>(sql`
       WITH eligible AS (
-        SELECT ${shareDestinationProjection(user.id)}, coalesce(c.last_message_at,m.joined_at)::text AS sort_time,
+        SELECT ${shareDestinationWorkspaceion(user.id)}, coalesce(c.last_message_at,m.joined_at)::text AS sort_time,
           left(lower(coalesce(c.name,c.title,c.id::text)),300) AS sort_name,
           m.starred::int AS sort_star, c.is_default::int AS sort_default
         FROM chat_channel_members m JOIN chat_channels c ON c.id = m.channel_id
@@ -78,7 +78,7 @@ export async function getShareDestination(input:{channelId:string;expectedActorI
   if(!user||input?.expectedActorId!==user.id)return unauthorized;
   if(!isUuid(input.channelId))return invalidInput;
   try {
-    const [channel]=await chatRows<ShareDestination>(sql`SELECT ${shareDestinationProjection(user.id)}, TRUE AS is_member
+    const [channel]=await chatRows<ShareDestination>(sql`SELECT ${shareDestinationWorkspaceion(user.id)}, TRUE AS is_member
       FROM chat_channel_members m JOIN chat_channels c ON c.id=m.channel_id LEFT JOIN projects p ON p.id=c.project_id
       WHERE m.user_id=${user.id}::uuid AND c.id=${input.channelId}::uuid`);
     if(!channel)return {success:false as const,error:'chat_not_member'};
@@ -87,7 +87,7 @@ export async function getShareDestination(input:{channelId:string;expectedActorI
 }
 
 /** Projects are fetched for sharing only; the Messages bootstrap and sorting are unchanged. */
-export async function listShareProjects(input:{expectedActorId:string;query?:string;cursor?:string|null;limit?:number}) {
+export async function listShareWorkspaces(input:{expectedActorId:string;query?:string;cursor?:string|null;limit?:number}) {
   const user=await requireChatUser();
   if(!user||input?.expectedActorId!==user.id)return unauthorized;
   if(input.query!==undefined&&(typeof input.query!=='string'||input.query.length>100))return invalidInput;
@@ -98,7 +98,7 @@ export async function listShareProjects(input:{expectedActorId:string;query?:str
   const pattern=`%${query.replace(/[%_\\]/g,'\\$&')}%`;
   const limit=Number.isInteger(input.limit)?Math.min(50,Math.max(1,input.limit!)):50;
   try {
-    const rows=await chatRows<ShareProject&{sort_name:string}>(sql`
+    const rows=await chatRows<ShareWorkspace&{sort_name:string}>(sql`
       SELECT p.id,p.title,p.slug,p.cover_image,m.role,left(lower(p.title),300) AS sort_name,
         (SELECT count(*)::int FROM chat_channel_members cm JOIN chat_channels c ON c.id=cm.channel_id
           WHERE cm.user_id=${user.id}::uuid AND c.project_id=p.id AND c.application_id IS NULL AND cm.archived_at IS NULL AND c.archived_at IS NULL) AS joined_channels,

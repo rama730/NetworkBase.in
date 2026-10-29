@@ -10,7 +10,7 @@ import {
     cancelDetachRequestAction,
     cancelMoveInAction,
     detachChildAction,
-    moveProjectToOrgAction,
+    moveWorkspaceToOrgAction,
     requestDetachAction,
     setChildVisibilityAction,
 } from '@/app/actions/organizations'
@@ -18,7 +18,7 @@ import { SettingsCard } from '@/components/workspaces/settings/SettingsFormField
 import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { allowedChildVisibilities, type ChildVisibility } from '@/lib/organizations/child-rules'
-import type { Project } from '@/types/discover'
+import type { Workspace } from '@/types/discover'
 
 // Settings → Organization (report §21.6): the child's org link, the rules it inherits as locked rows,
 // visibility within the cap, inherited admins, and detach. For a personal project: Move to an organization.
@@ -49,7 +49,7 @@ function LockedRow({ label, value, org }: { label: string; value: string; org: s
     )
 }
 
-export function ChildOrgSection({ project, isLead, canManage }: { project: Project; isLead: boolean; canManage: boolean }) {
+export function ChildOrgSection({ project, isLead, canManage }: { project: Workspace; isLead: boolean; canManage: boolean }) {
     const parentOrg = project.parentOrg ?? null
     const { pending, run, status } = useRun()
     const [confirm, setConfirm] = useState<'detach' | 'archive' | null>(null)
@@ -74,7 +74,7 @@ export function ChildOrgSection({ project, isLead, canManage }: { project: Proje
                                 {targets.map((t) => <option key={t.id} value={t.id}>{t.title}</option>)}
                             </select>
                             <Button disabled={pending || !target} onClick={() => run(async () => {
-                                const result = await moveProjectToOrgAction(projectId, target)
+                                const result = await moveWorkspaceToOrgAction(projectId, target)
                                 return result.success ? { success: true, error: undefined } : result
                             }, 'Done. If you are not an admin there, your request waits for one.')}>Move to organization</Button>
                         </div>

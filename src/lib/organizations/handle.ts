@@ -1,4 +1,4 @@
-import { isReservedProjectSlug } from "@/lib/utils/slug";
+import { isReservedWorkspaceSlug } from "@/lib/utils/slug";
 import { CORE_RESERVED_USERNAMES, normalizeUsername } from "@/lib/validations/username";
 
 const ORG_RESERVED = new Set<string>([
@@ -19,6 +19,6 @@ export type OrgHandleResult = { ok: true; handle: string } | { ok: false; reason
 export function validateOrgHandle(raw: string): OrgHandleResult {
   const handle = normalizeUsername(raw);
   if (!HANDLE_PATTERN.test(handle) || handle.includes("--")) return { ok: false, reason: "format" };
-  if (ORG_RESERVED.has(handle) || isReservedProjectSlug(handle)) return { ok: false, reason: "reserved" };
+  if (ORG_RESERVED.has(handle) || isReservedWorkspaceSlug(handle)) return { ok: false, reason: "reserved" };
   return { ok: true, handle };
 }

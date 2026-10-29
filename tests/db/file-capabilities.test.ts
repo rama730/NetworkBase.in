@@ -11,7 +11,7 @@ before(async () => {
 });
 after(async () => { await sql.end(); await closeAppDb(); });
 
-const forUser = async (projectId: string, userId: string | null) => caps.buildFileCapabilities(await access.getProjectAccessById(projectId, userId));
+const forUser = async (projectId: string, userId: string | null) => caps.buildFileCapabilities(await access.getWorkspaceAccessById(projectId, userId));
 
 // API-006: the capability projection must agree with what the file actions enforce.
 test("capabilities follow file authorization, including the member upload switch and Files visibility", async () => {

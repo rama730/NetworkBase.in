@@ -5,10 +5,10 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 import { SettingsCard } from "../../src/components/workspaces/settings/SettingsFormFields";
 import { OpenSettingsSections } from "../../src/components/settings/ui/SettingsSectionLayout";
-import { ProjectSettingsNavigation } from "../../src/components/workspaces/settings/WorkspaceSettingsNavigation";
-import { getVisibleProjectSettingsSections } from "../../src/lib/workspaces/settings-policies";
+import { WorkspaceSettingsNavigation } from "../../src/components/workspaces/settings/WorkspaceSettingsNavigation";
+import { getVisibleWorkspaceSettingsSections } from "../../src/lib/workspaces/settings-policies";
 import {
-  resolveProjectSettingsSection,
+  resolveWorkspaceSettingsSection,
   selectVisibleSettingsSection,
 } from "../../src/lib/workspaces/settings-navigation";
 import {
@@ -95,10 +95,10 @@ test("refresh errors keep authoritative values mounted and disable mutations", (
 });
 
 test("navigation exposes all permitted sections with one current item in each responsive menu", () => {
-  const sections = getVisibleProjectSettingsSections();
+  const sections = getVisibleWorkspaceSettingsSections();
   assert.equal(sections.length, 12);
   const markup = renderToStaticMarkup(
-    h(ProjectSettingsNavigation, {
+    h(WorkspaceSettingsNavigation, {
       sections,
       activeSection: "notifications",
       onNavigate: noop,
@@ -111,7 +111,7 @@ test("navigation exposes all permitted sections with one current item in each re
     /Project preferences|Project Profile|Workspace Policies/,
   );
   const filtered = renderToStaticMarkup(
-    h(ProjectSettingsNavigation, {
+    h(WorkspaceSettingsNavigation, {
       sections: sections.filter(
         (section) => section.id !== "danger" && section.id !== "general",
       ),
@@ -126,7 +126,7 @@ test("navigation exposes all permitted sections with one current item in each re
 });
 
 test("section routing preserves aliases, anchors and accessible fallbacks", () => {
-  const sections = getVisibleProjectSettingsSections();
+  const sections = getVisibleWorkspaceSettingsSections();
   for (const alias of [
     "privacy",
     "privacy-terms",
@@ -134,18 +134,18 @@ test("section routing preserves aliases, anchors and accessible fallbacks", () =
     "#project-settings-privacy-policies",
   ]) {
     assert.equal(
-      resolveProjectSettingsSection(alias, sections),
+      resolveWorkspaceSettingsSection(alias, sections),
       "privacy-policies",
     );
   }
   for (const alias of [null, "unknown", "security-audit", "security-data"])
-    assert.equal(resolveProjectSettingsSection(alias, sections), "general");
+    assert.equal(resolveWorkspaceSettingsSection(alias, sections), "general");
   const admin = sections.filter(
     (section) => section.id !== "general" && section.id !== "danger",
   );
-  assert.equal(resolveProjectSettingsSection("danger", admin), "links");
+  assert.equal(resolveWorkspaceSettingsSection("danger", admin), "links");
   assert.equal(
-    resolveProjectSettingsSection("#project-settings-tasks-workflow", sections),
+    resolveWorkspaceSettingsSection("#project-settings-tasks-workflow", sections),
     "tasks-workflow",
   );
 });
@@ -217,7 +217,7 @@ test("pagination remains scoped to project capabilities with project-wide totals
   const server = source("src/lib/workspaces/server/settings.ts");
   const read = server
     .split("export async function readFileAccessSettings")[1]!
-    .split("export async function updateProjectMemberFileUploadAction")[0]!;
+    .split("export async function updateWorkspaceMemberFileUploadAction")[0]!;
   assert.match(read, /capabilityFromAccess[\s\S]*?"manage_files"/);
   assert.match(
     read,
@@ -247,7 +247,7 @@ test("independent drafts and pending states survive section navigation and unrel
   );
   assert.equal((general.match(/Save changes/g) ?? []).length, 1);
   assert.match(general, /if \(identityDirty\) return/);
-  assert.match(general, /setSavedIdentity\(resetIdentityFromProject/);
+  assert.match(general, /setSavedIdentity\(resetIdentityFromWorkspace/);
   const tab = source("src/components/workspaces/tabs/WorkspaceSettingsTab.tsx");
   assert.match(tab, /key=\{props.projectId\}/);
   assert.match(tab, /savingAccess/);

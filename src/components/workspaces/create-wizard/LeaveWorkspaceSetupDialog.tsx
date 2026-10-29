@@ -18,7 +18,7 @@ type LeaveProjectSetupDialogProps = {
 };
 
 /** A deliberate, task-specific exit decision for the project-creation flow. */
-export default function LeaveProjectSetupDialog({ open, onOpenChange, onLeave }: LeaveProjectSetupDialogProps) {
+export default function LeaveWorkspaceSetupDialog({ open, onOpenChange, onLeave }: LeaveProjectSetupDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent

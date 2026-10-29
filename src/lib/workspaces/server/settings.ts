@@ -1,22 +1,22 @@
 import "server-only";
 import { encodeFilePermissionCursor, normalizeFilePermissionOptions, type FilePermissionOptions } from "@/lib/workspaces/file-permission-pagination";
 
-import { type ProjectVisibility, normalizeProjectVisibility } from "@/lib/workspaces/workspace-visibility";
-import { type ProjectNotificationPolicy, summarizeProjectNotificationPolicy, type ProjectMemberNotificationOverrides, normalizeProjectNotificationPolicy, type ProjectNotificationPreset, buildDefaultProjectNotificationPolicy, normalizeProjectMemberNotificationOverrides } from "@/lib/notifications/workspace-policy";
+import { type WorkspaceVisibility, normalizeWorkspaceVisibility } from "@/lib/workspaces/workspace-visibility";
+import { type WorkspaceNotificationPolicy, summarizeWorkspaceNotificationPolicy, type WorkspaceMemberNotificationOverrides, normalizeWorkspaceNotificationPolicy, type WorkspaceNotificationPreset, buildDefaultWorkspaceNotificationPolicy, normalizeWorkspaceMemberNotificationOverrides } from "@/lib/notifications/workspace-policy";
 import { db } from "@/lib/db";
 import { tasks, taskNodeLinks, projectNodes, roleApplications, chatChannelMembers, chatChannels, projectOpenRoles, projectMembers, profiles, projects, projectNodeEvents } from "@/lib/db/schema";
 import { sql, and, eq, isNull, inArray, desc, or, ilike } from "drizzle-orm";
 import { createClient } from "@/lib/supabase/server";
-import { capabilityFromAccess, requireProjectCapability, changeProjectMemberRoleInternal, canProjectRoleManageTarget, readProjectMemberRemovalImpact, removeProjectMemberInternal } from "@/lib/workspaces/collaborator-lifecycle";
-import { canProjectMemberUploadFiles } from "@/lib/workspaces/settings-policies";
+import { capabilityFromAccess, requireWorkspaceCapability, changeWorkspaceMemberRoleInternal, canWorkspaceRoleManageTarget, readWorkspaceMemberRemovalImpact, removeWorkspaceMemberInternal } from "@/lib/workspaces/collaborator-lifecycle";
+import { canWorkspaceMemberUploadFiles } from "@/lib/workspaces/settings-policies";
 import { logger } from "@/lib/logger";
-import { enqueueProjectNotificationEvent, enqueueProjectNotificationEvents } from "@/lib/notifications/workspace-events";
+import { enqueueWorkspaceNotificationEvent, enqueueWorkspaceNotificationEvents } from "@/lib/notifications/workspace-events";
 import { z } from "zod";
 import { queueCounterRefreshBestEffort } from "@/lib/my-work/counter-buffer";
 import { wakeEmailWorker } from "@/lib/email/outbox";
-import { getProjectAccessById, type ProjectAccess } from "@/lib/data/workspace-access";
-import { readProjectDocSettingsAction } from "@/app/actions/workspace/doc";
-import { type ProjectSettingsErrorCode, type ProjectSettingsMutationResult, revalidateProjectPaths, actorNotificationSnapshot, enqueueProjectNotificationBestEffort, loadOwnedProjectForSettings } from "./common";
+import { getWorkspaceAccessById, type WorkspaceAccess } from "@/lib/data/workspace-access";
+import { readWorkspaceDocSettingsAction } from "@/app/actions/workspace/doc";
+import { type WorkspaceSettingsErrorCode, type WorkspaceSettingsMutationResult, revalidateWorkspacePaths, actorNotificationSnapshot, enqueueWorkspaceNotificationBestEffort, loadOwnedWorkspaceForSettings } from "./common";
 
 
 type ProjectDangerZonePreflightResult =
@@ -31,7 +31,7 @@ type ProjectDangerZonePreflightResult =
         canDelete: boolean;
       };
     }
-  | { success: false; message: string; errorCode: ProjectSettingsErrorCode };
+  | { success: false; message: string; errorCode: WorkspaceSettingsErrorCode };
 
 
 type ProjectFileAccessSettingsResult =
@@ -60,7 +60,7 @@ type ProjectFileAccessSettingsResult =
         nextCursor: string | null;
       };
     }
-  | { success: false; message: string; errorCode: ProjectSettingsErrorCode };
+  | { success: false; message: string; errorCode: WorkspaceSettingsErrorCode };
 
 
 type ProjectCollaboratorRole = "owner" | "admin" | "member" | "viewer";
@@ -92,7 +92,7 @@ type ProjectCollaboratorSettingsResult =
         nextCursor: string | null;
       };
     }
-  | { success: false; message: string; errorCode: ProjectSettingsErrorCode };
+  | { success: false; message: string; errorCode: WorkspaceSettingsErrorCode };
 
 
 type ProjectCollaboratorSettingsOptions = {
@@ -120,7 +120,7 @@ type ProjectMemberRemovalPreflightResult =
         fileReviews: number;
         acceptedApplications: number;
         projectGroupParticipant: boolean;
-        visibility: ProjectVisibility;
+        visibility: WorkspaceVisibility;
         activeAssignedTaskItems: Array<{
           id: string;
           title: string;
@@ -155,7 +155,7 @@ type ProjectMemberRemovalPreflightResult =
         }>;
       };
     }
-  | { success: false; message: string; errorCode: ProjectSettingsErrorCode };
+  | { success: false; message: string; errorCode: WorkspaceSettingsErrorCode };
 
 
 type ProjectMemberMutationResult =
@@ -164,7 +164,7 @@ type ProjectMemberMutationResult =
       success: false;
       message: string;
       errorCode:
-        | ProjectSettingsErrorCode
+        | WorkspaceSettingsErrorCode
         | "INVALID_ROLE"
         | "OWNER_TARGET"
         | "NOT_A_MEMBER";
@@ -175,11 +175,11 @@ type ProjectNotificationSettingsResult =
   | {
       success: true;
       data: {
-        policy: ProjectNotificationPolicy;
-        summary: ReturnType<typeof summarizeProjectNotificationPolicy>;
+        policy: WorkspaceNotificationPolicy;
+        summary: ReturnType<typeof summarizeWorkspaceNotificationPolicy>;
       };
     }
-  | { success: false; message: string; errorCode: ProjectSettingsErrorCode };
+  | { success: false; message: string; errorCode: WorkspaceSettingsErrorCode };
 
 
 type ProjectMemberNotificationSettingsResult =
@@ -194,10 +194,10 @@ type ProjectMemberNotificationSettingsResult =
           membershipRole: ProjectCollaboratorRole;
         };
         canEdit: boolean;
-        overrides: ProjectMemberNotificationOverrides;
+        overrides: WorkspaceMemberNotificationOverrides;
       };
     }
-  | { success: false; message: string; errorCode: ProjectSettingsErrorCode };
+  | { success: false; message: string; errorCode: WorkspaceSettingsErrorCode };
 
 
 function normalizeCollaboratorRole(
@@ -419,7 +419,7 @@ async function readProjectRoleCounts(projectId: string, ownerId: string) {
  * The signed-in person and a memoized read of their access to one project. Sections of the settings
  * page that are loaded together share it, so authorization and the project lookup happen once.
  */
-export type SettingsViewer = { userId: string; access: (projectId: string) => Promise<ProjectAccess> };
+export type SettingsViewer = { userId: string; access: (projectId: string) => Promise<WorkspaceAccess> };
 
 export async function signedInSettingsViewer(): Promise<SettingsViewer | null> {
   const supabase = await createClient();
@@ -427,13 +427,13 @@ export async function signedInSettingsViewer(): Promise<SettingsViewer | null> {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return null;
-  const reads = new Map<string, Promise<ProjectAccess>>();
+  const reads = new Map<string, Promise<WorkspaceAccess>>();
   return {
     userId: user.id,
     access: (projectId) => {
       const cached = reads.get(projectId);
       if (cached) return cached;
-      const read = getProjectAccessById(projectId, user.id);
+      const read = getWorkspaceAccessById(projectId, user.id);
       reads.set(projectId, read);
       return read;
     },
@@ -446,7 +446,7 @@ const UNAUTHORIZED_SETTINGS = {
   message: "You must be signed in.",
 };
 
-export async function getProjectCollaboratorSettingsAction(
+export async function getWorkspaceCollaboratorSettingsAction(
   projectId: string,
   optionsOrLimit: ProjectCollaboratorSettingsOptions | number = 40,
   legacyCursor?: string,
@@ -694,7 +694,7 @@ function formatFileUploadPermission(
 
 
 
-export async function getProjectFileAccessSettingsAction(
+export async function getWorkspaceFileAccessSettingsAction(
   projectId: string,
   options: FilePermissionOptions = {},
 ): Promise<ProjectFileAccessSettingsResult> {
@@ -761,7 +761,7 @@ export async function readFileAccessSettings(
         row.role,
         row.userId === capability.project.ownerId ? "owner" : "member",
       );
-      const uploadEnabled = canProjectMemberUploadFiles({
+      const uploadEnabled = canWorkspaceMemberUploadFiles({
         role,
         fileUploadEnabled: row.fileUploadEnabled,
       });
@@ -825,11 +825,11 @@ export async function readFileAccessSettings(
 }
 
 
-export async function updateProjectMemberFileUploadAction(
+export async function updateWorkspaceMemberFileUploadAction(
   projectId: string,
   memberUserId: string,
   enabled: boolean,
-): Promise<ProjectSettingsMutationResult> {
+): Promise<WorkspaceSettingsMutationResult> {
   try {
     const supabase = await createClient();
     const {
@@ -841,7 +841,7 @@ export async function updateProjectMemberFileUploadAction(
         errorCode: "UNAUTHORIZED",
         message: "You must be signed in.",
       };
-    const capability = await requireProjectCapability(
+    const capability = await requireWorkspaceCapability(
       projectId,
       user.id,
       "manage_files",
@@ -917,9 +917,9 @@ export async function updateProjectMemberFileUploadAction(
       });
     });
 
-    await revalidateProjectPaths(projectId);
+    await revalidateWorkspacePaths(projectId);
     try {
-      await enqueueProjectNotificationEvent({
+      await enqueueWorkspaceNotificationEvent({
         projectId,
         actorUserId: user.id,
         ...actorNotificationSnapshot(user),
@@ -975,10 +975,10 @@ export async function updateProjectMemberFileUploadAction(
 }
 
 
-export async function updateProjectFileUploadDefaultsAction(
+export async function updateWorkspaceFileUploadDefaultsAction(
   projectId: string,
   enabled: boolean,
-): Promise<ProjectSettingsMutationResult> {
+): Promise<WorkspaceSettingsMutationResult> {
   try {
     const supabase = await createClient();
     const {
@@ -990,7 +990,7 @@ export async function updateProjectFileUploadDefaultsAction(
         errorCode: "UNAUTHORIZED",
         message: "You must be signed in.",
       };
-    const capability = await requireProjectCapability(
+    const capability = await requireWorkspaceCapability(
       projectId,
       user.id,
       "manage_files",
@@ -1026,7 +1026,7 @@ export async function updateProjectFileUploadDefaultsAction(
       return rows.length;
     });
 
-    await revalidateProjectPaths(projectId);
+    await revalidateWorkspacePaths(projectId);
     try {
       const affectedUserIds = await db
         .select({ userId: projectMembers.userId })
@@ -1037,7 +1037,7 @@ export async function updateProjectFileUploadDefaultsAction(
             eq(projectMembers.role, "member"),
           ),
         );
-      await enqueueProjectNotificationEvent({
+      await enqueueWorkspaceNotificationEvent({
         projectId,
         actorUserId: user.id,
         ...actorNotificationSnapshot(user),
@@ -1091,7 +1091,7 @@ export async function updateProjectFileUploadDefaultsAction(
 }
 
 
-export async function readProjectNotificationSettingsAction(
+export async function readWorkspaceNotificationSettingsAction(
   projectId: string,
 ): Promise<ProjectNotificationSettingsResult> {
   const viewer = await signedInSettingsViewer();
@@ -1118,14 +1118,14 @@ export async function readNotificationSettings(
         message: "Workspace not found.",
       };
 
-    const policy = normalizeProjectNotificationPolicy(
+    const policy = normalizeWorkspaceNotificationPolicy(
       project.notificationPreferences,
     );
     return {
       success: true,
       data: {
         policy,
-        summary: summarizeProjectNotificationPolicy(policy),
+        summary: summarizeWorkspaceNotificationPolicy(policy),
       },
     };
   } catch (error) {
@@ -1151,7 +1151,7 @@ export async function readNotificationSettings(
 }
 
 
-export async function updateProjectNotificationSettingsAction(
+export async function updateWorkspaceNotificationSettingsAction(
   projectId: string,
   input: unknown,
 ): Promise<ProjectNotificationSettingsResult & { message?: string }> {
@@ -1166,12 +1166,12 @@ export async function updateProjectNotificationSettingsAction(
         errorCode: "UNAUTHORIZED",
         message: "You must be signed in.",
       };
-    const capability = await requireProjectCapability(
+    const capability = await requireWorkspaceCapability(
       projectId,
       user.id,
       "manage_notifications",
     );
-    const policy = normalizeProjectNotificationPolicy(input);
+    const policy = normalizeWorkspaceNotificationPolicy(input);
 
     await db.transaction(async (tx) => {
       await tx
@@ -1185,20 +1185,20 @@ export async function updateProjectNotificationSettingsAction(
         type: "project_notification_settings.updated",
         metadata: {
           preset: policy.preset,
-          summary: summarizeProjectNotificationPolicy(policy),
+          summary: summarizeWorkspaceNotificationPolicy(policy),
           actorRole: capability.role,
         },
         createdAt: new Date(),
       });
     });
 
-    await revalidateProjectPaths(projectId);
+    await revalidateWorkspacePaths(projectId);
     return {
       success: true,
       message: "Workspace notification settings updated",
       data: {
         policy,
-        summary: summarizeProjectNotificationPolicy(policy),
+        summary: summarizeWorkspaceNotificationPolicy(policy),
       },
     };
   } catch (error) {
@@ -1224,13 +1224,13 @@ export async function updateProjectNotificationSettingsAction(
 }
 
 
-export async function resetProjectNotificationSettingsAction(
+export async function resetWorkspaceNotificationSettingsAction(
   projectId: string,
-  preset: ProjectNotificationPreset = "balanced",
+  preset: WorkspaceNotificationPreset = "balanced",
 ): Promise<ProjectNotificationSettingsResult & { message?: string }> {
-  return updateProjectNotificationSettingsAction(
+  return updateWorkspaceNotificationSettingsAction(
     projectId,
-    buildDefaultProjectNotificationPolicy(preset),
+    buildDefaultWorkspaceNotificationPolicy(preset),
   );
 }
 
@@ -1242,7 +1242,7 @@ async function canViewProjectMemberNotificationSettings(
 ) {
   if (actorUserId === memberUserId) return true;
   try {
-    await requireProjectCapability(
+    await requireWorkspaceCapability(
       projectId,
       actorUserId,
       "manage_notifications",
@@ -1254,7 +1254,7 @@ async function canViewProjectMemberNotificationSettings(
 }
 
 
-export async function readProjectMemberNotificationSettingsAction(
+export async function readWorkspaceMemberNotificationSettingsAction(
   projectId: string,
   memberUserId: string,
 ): Promise<ProjectMemberNotificationSettingsResult> {
@@ -1327,7 +1327,7 @@ export async function readProjectMemberNotificationSettingsAction(
           ),
         },
         canEdit: user.id === memberUserId,
-        overrides: normalizeProjectMemberNotificationOverrides(
+        overrides: normalizeWorkspaceMemberNotificationOverrides(
           member.notificationPreferences,
         ),
       },
@@ -1348,7 +1348,7 @@ export async function readProjectMemberNotificationSettingsAction(
 }
 
 
-export async function updateProjectMemberNotificationSettingsAction(
+export async function updateWorkspaceMemberNotificationSettingsAction(
   projectId: string,
   memberUserId: string,
   input: unknown,
@@ -1372,7 +1372,7 @@ export async function updateProjectMemberNotificationSettingsAction(
           "Members can only update their own workspace notification settings.",
       };
     }
-    const overrides = normalizeProjectMemberNotificationOverrides(input);
+    const overrides = normalizeWorkspaceMemberNotificationOverrides(input);
 
     const [updated] = await db
       .update(projectMembers)
@@ -1403,8 +1403,8 @@ export async function updateProjectMemberNotificationSettingsAction(
       },
       createdAt: new Date(),
     });
-    await revalidateProjectPaths(projectId);
-    const read = await readProjectMemberNotificationSettingsAction(
+    await revalidateWorkspacePaths(projectId);
+    const read = await readWorkspaceMemberNotificationSettingsAction(
       projectId,
       memberUserId,
     );
@@ -1426,11 +1426,11 @@ export async function updateProjectMemberNotificationSettingsAction(
 }
 
 
-export async function resetProjectMemberNotificationSettingsAction(
+export async function resetWorkspaceMemberNotificationSettingsAction(
   projectId: string,
   memberUserId: string,
 ): Promise<ProjectMemberNotificationSettingsResult & { message?: string }> {
-  return updateProjectMemberNotificationSettingsAction(
+  return updateWorkspaceMemberNotificationSettingsAction(
     projectId,
     memberUserId,
     {
@@ -1442,7 +1442,7 @@ export async function resetProjectMemberNotificationSettingsAction(
 }
 
 
-export async function updateProjectMemberRoleAction(
+export async function updateWorkspaceMemberRoleAction(
   projectId: string,
   memberUserId: string,
   nextRole: "admin" | "member" | "viewer",
@@ -1468,7 +1468,7 @@ export async function updateProjectMemberRoleAction(
 
     const result = await db.transaction(async (tx) => {
       try {
-        const lifecycle = await changeProjectMemberRoleInternal(tx, {
+        const lifecycle = await changeWorkspaceMemberRoleInternal(tx, {
           projectId,
           actorId: user.id,
           targetUserId: memberUserId,
@@ -1506,13 +1506,13 @@ export async function updateProjectMemberRoleAction(
         message: result.message,
       };
     }
-    await revalidateProjectPaths(projectId);
+    await revalidateWorkspacePaths(projectId);
     if (result.lifecycle.changed) {
       const actor = actorNotificationSnapshot(user);
       const nextRoleLabel = collaboratorRoleLabel(
         result.lifecycle.nextRole ?? nextRole,
       );
-      await enqueueProjectNotificationBestEffort(
+      await enqueueWorkspaceNotificationBestEffort(
         {
           projectId,
           actorUserId: user.id,
@@ -1568,7 +1568,7 @@ export async function updateProjectMemberRoleAction(
 }
 
 
-export async function getProjectMemberRemovalPreflightAction(
+export async function getWorkspaceMemberRemovalPreflightAction(
   projectId: string,
   memberUserId: string,
 ): Promise<ProjectMemberRemovalPreflightResult> {
@@ -1583,7 +1583,7 @@ export async function getProjectMemberRemovalPreflightAction(
         errorCode: "UNAUTHORIZED",
         message: "You must be signed in.",
       };
-    const capability = await requireProjectCapability(
+    const capability = await requireWorkspaceCapability(
       projectId,
       user.id,
       "manage_collaborators",
@@ -1625,7 +1625,7 @@ export async function getProjectMemberRemovalPreflightAction(
       memberRow.role,
       memberUserId === capability.project.ownerId ? "owner" : "member",
     );
-    if (!canProjectRoleManageTarget({ actorRole, targetRole })) {
+    if (!canWorkspaceRoleManageTarget({ actorRole, targetRole })) {
       return {
         success: false,
         errorCode: "FORBIDDEN",
@@ -1648,7 +1648,7 @@ export async function getProjectMemberRemovalPreflightAction(
         [memberUserId],
       )
     ).get(memberUserId);
-    const impact = await readProjectMemberRemovalImpact(
+    const impact = await readWorkspaceMemberRemovalImpact(
       db,
       projectId,
       memberUserId,
@@ -1670,7 +1670,7 @@ export async function getProjectMemberRemovalPreflightAction(
         fileReviews: counts?.fileReviews ?? 0,
         acceptedApplications: counts?.acceptedApplications ?? 0,
         projectGroupParticipant: counts?.projectGroupParticipant ?? false,
-        visibility: normalizeProjectVisibility(projectRow?.visibility),
+        visibility: normalizeWorkspaceVisibility(projectRow?.visibility),
         activeAssignedTaskItems: impact.assignedTasks,
         activeCreatedTaskItems: impact.createdTasks,
         fileReviewItems: impact.fileReviews,
@@ -1734,7 +1734,7 @@ const removeProjectMemberSchema = z.object({
 });
 
 
-export async function removeProjectMemberAction(
+export async function removeWorkspaceMemberAction(
   projectId: string,
   memberUserId: string,
   options?: {
@@ -1765,7 +1765,7 @@ export async function removeProjectMemberAction(
       };
 
     const txResult = await db.transaction(async (tx) => {
-        const lifecycle = await removeProjectMemberInternal(tx, {
+        const lifecycle = await removeWorkspaceMemberInternal(tx, {
           projectId,
           actorId: user.id,
           targetUserId: memberUserId,
@@ -1813,12 +1813,12 @@ export async function removeProjectMemberAction(
         message: txResult.message,
       };
     }
-    await revalidateProjectPaths(projectId);
+    await revalidateWorkspacePaths(projectId);
     await queueCounterRefreshBestEffort([memberUserId, parsed.data.reassignToUserId ?? null]);
     if (txResult.lifecycle.assignmentNotifications.length) {
       await wakeEmailWorker();
       try {
-        await enqueueProjectNotificationEvents(txResult.lifecycle.assignmentNotifications);
+        await enqueueWorkspaceNotificationEvents(txResult.lifecycle.assignmentNotifications);
       } catch (error) {
         logger.warn("project.notification_policy_enqueue_failed", {
           module: "projects", projectId, action: "member_removal_task_reassignment",
@@ -1827,7 +1827,7 @@ export async function removeProjectMemberAction(
       }
     }
     const actor = actorNotificationSnapshot(user);
-    await enqueueProjectNotificationBestEffort(
+    await enqueueWorkspaceNotificationBestEffort(
       {
         projectId,
         actorUserId: user.id,
@@ -1873,7 +1873,7 @@ export async function removeProjectMemberAction(
 }
 
 
-export async function getProjectDangerZonePreflightAction(
+export async function getWorkspaceDangerZonePreflightAction(
   projectId: string,
 ): Promise<ProjectDangerZonePreflightResult> {
   const viewer = await signedInSettingsViewer();
@@ -1886,7 +1886,7 @@ export async function readDangerZonePreflight(
   projectId: string,
 ): Promise<ProjectDangerZonePreflightResult> {
   try {
-    const owned = await loadOwnedProjectForSettings(projectId, viewer.userId);
+    const owned = await loadOwnedWorkspaceForSettings(projectId, viewer.userId);
     if (!owned.ok)
       return {
         success: false,
@@ -1956,7 +1956,7 @@ export async function readDangerZonePreflight(
 }
 
 
-export async function readProjectSettingsBootstrapAction(
+export async function readWorkspaceSettingsBootstrapAction(
   projectId: string,
   collaborators: ProjectCollaboratorSettingsOptions,
 ) {
@@ -1980,7 +1980,7 @@ export async function readProjectSettingsBootstrapAction(
     readCollaboratorSettings(viewer, projectId, collaborators),
     readFileAccessSettings(viewer, projectId),
     readNotificationSettings(viewer, projectId),
-    readProjectDocSettingsAction(projectId),
+    readWorkspaceDocSettingsAction(projectId),
     isOwner ? readDangerZonePreflight(viewer, projectId) : Promise.resolve({ success: false as const, errorCode: "FORBIDDEN" as const, message: "Only the owner can manage the workspace." }),
   ]);
   return { collaboratorSettings, fileAccess: fileAccess, notifications, docSettings, dangerPreflight };

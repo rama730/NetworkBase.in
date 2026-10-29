@@ -1,13 +1,13 @@
 import type { Metadata } from 'next';
 
-import { generateProjectRouteMetadata, ProjectRoute, type RouteSearchParams } from './workspace-route';
+import { generateWorkspaceRouteMetadata, WorkspaceRoute, type RouteSearchParams } from './workspace-route';
 
 type Props = { params: Promise<{ slug: string }>; searchParams: Promise<RouteSearchParams> };
 
 export function generateMetadata(props: Props): Promise<Metadata> {
-    return generateProjectRouteMetadata(props);
+    return generateWorkspaceRouteMetadata(props);
 }
 
-export default function ProjectDetailPage(props: Props) {
-    return <ProjectRoute base="/workspaces" {...props} />;
+export default function WorkspaceDetailPage(props: Props) {
+    return <WorkspaceRoute base="/workspaces" {...props} />;
 }

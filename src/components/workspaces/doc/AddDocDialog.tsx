@@ -9,9 +9,9 @@ import { toast, feedbackError } from "@/lib/feedback";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import {
-    PROJECT_DOC_LIST_QUERY_KEY,
-    PROJECT_DOCS_QUERY_KEY,
-    useProjectDocList,
+    WORKSPACE_DOC_LIST_QUERY_KEY,
+    WORKSPACE_DOCS_QUERY_KEY,
+    useWorkspaceDocList,
 } from "@/hooks/workspaces/useWorkspaceDocData";
 import { Button } from "@/components/ui/button";
 import { createDocFile, ORG_DOCS_QUERY_KEY, useOrgDocs } from "@/components/organizations/OrgDocParts";
@@ -34,7 +34,7 @@ export function AddDocDialog({
     const queryClient = useQueryClient();
     const [filter, setFilter] = useState("");
     const [pendingId, setPendingId] = useState<string | null>(null);
-    const { data: docs = [] } = useProjectDocList(projectId, open);
+    const { data: docs = [] } = useWorkspaceDocList(projectId, open);
     const org = useOrgDocs(projectId, open).data ?? null;
     const templates = org?.mode === "child" ? org.docs.filter((doc) => doc.template) : [];
     const [title, setTitle] = useState("");
@@ -52,8 +52,8 @@ export function AddDocDialog({
                 await updateOrgDocOptionsAction(org.orgId, created.id, { visibility: "members_only" });
             }
             await Promise.all([
-                queryClient.invalidateQueries({ queryKey: PROJECT_DOC_LIST_QUERY_KEY(projectId) }),
-                queryClient.invalidateQueries({ queryKey: PROJECT_DOCS_QUERY_KEY(projectId) }),
+                queryClient.invalidateQueries({ queryKey: WORKSPACE_DOC_LIST_QUERY_KEY(projectId) }),
+                queryClient.invalidateQueries({ queryKey: WORKSPACE_DOCS_QUERY_KEY(projectId) }),
                 queryClient.invalidateQueries({ queryKey: ORG_DOCS_QUERY_KEY(projectId) }),
             ]);
             const path = (created.node.path ?? "").split("/").filter(Boolean).map(encodeURIComponent).join("/");
@@ -79,9 +79,9 @@ export function AddDocDialog({
         enabled: open,
         initialPageParam: undefined as string | undefined,
         queryFn: async ({ pageParam }) => {
-            const { getProjectNodes } = await import("@/app/actions/files/nodes");
-            // ponytail: server name search for ".md", then exact extension filter here. ceiling: files whose name lacks ".md" (e.g. ".markdown") are missed. upgrade: extension filter param on getProjectNodes.
-            return getProjectNodes(projectId, null, ".md", 100, pageParam, { itemType: "file", sort: "name" });
+            const { getWorkspaceNodes } = await import("@/app/actions/files/nodes");
+            // ponytail: server name search for ".md", then exact extension filter here. ceiling: files whose name lacks ".md" (e.g. ".markdown") are missed. upgrade: extension filter param on getWorkspaceNodes.
+            return getWorkspaceNodes(projectId, null, ".md", 100, pageParam, { itemType: "file", sort: "name" });
         },
         getNextPageParam: (page) => page.nextCursor ?? undefined,
         staleTime: 30_000,
@@ -100,15 +100,15 @@ export function AddDocDialog({
         if (pendingId) return;
         setPendingId(nodeId);
         try {
-            const { linkProjectDocAction } = await import("@/app/actions/workspace/doc");
-            const result = await linkProjectDocAction(projectId, nodeId);
+            const { linkWorkspaceDocAction } = await import("@/app/actions/workspace/doc");
+            const result = await linkWorkspaceDocAction(projectId, nodeId);
             if (!result.success) {
                 toast.error(feedbackError(result.error, "Action couldn’t finish"));
                 return;
             }
             await Promise.all([
-                queryClient.invalidateQueries({ queryKey: PROJECT_DOC_LIST_QUERY_KEY(projectId) }),
-                queryClient.invalidateQueries({ queryKey: PROJECT_DOCS_QUERY_KEY(projectId) }),
+                queryClient.invalidateQueries({ queryKey: WORKSPACE_DOC_LIST_QUERY_KEY(projectId) }),
+                queryClient.invalidateQueries({ queryKey: WORKSPACE_DOCS_QUERY_KEY(projectId) }),
             ]);
             const params = new URLSearchParams(searchParams?.toString() ?? "");
             params.set("tab", "docs");

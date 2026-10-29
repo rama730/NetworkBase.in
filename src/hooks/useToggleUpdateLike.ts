@@ -1,7 +1,7 @@
 'use client';
 
 import { useMutation, useQueryClient, type QueryKey } from '@tanstack/react-query';
-import { toggleProjectUpdateLikeAction } from '@/app/actions/workspace/updates';
+import { toggleWorkspaceUpdateLikeAction } from '@/app/actions/workspace/updates';
 import { updatePages } from '@/components/workspaces/updates/update-helpers';
 import { feedbackError, toast } from '@/lib/feedback';
 import { queryKeys } from '@/lib/query-keys';
@@ -31,7 +31,7 @@ export function useToggleUpdateLike(projectId: string, updateId: string) {
 
     const mutation = useMutation({
         mutationFn: async () => {
-            const result = await toggleProjectUpdateLikeAction(projectId, updateId);
+            const result = await toggleWorkspaceUpdateLikeAction(projectId, updateId);
             if (!result.success) throw new Error(result.error || 'Failed to update like');
             return result;
         },

@@ -3,7 +3,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { useShallow } from "zustand/react/shallow";
-import type { ProjectFilesState, FilesStoreState } from "./types";
+import type { WorkspaceFilesState, FilesStoreState } from "./types";
 import {
   defaultFilesState,
   FALLBACK_FILES_STATE,
@@ -43,7 +43,7 @@ export const useFilesStore = create<FilesStoreState>()(
       name: "files-workspace-v3",
       partialize: (state) => ({
         byProjectId: Object.fromEntries(
-          Object.entries(state.byProjectId).map(([projectId, ws]: [string, ProjectFilesState]) => [
+          Object.entries(state.byProjectId).map(([projectId, ws]: [string, WorkspaceFilesState]) => [
             projectId,
             // Files tab v3 persist shape (Req 15.19, Req 21.7; design § Migration Note).
             // Persist ONLY the fields listed below. Any legacy key from a
@@ -60,7 +60,7 @@ export const useFilesStore = create<FilesStoreState>()(
                 sidebarCollapsed: ws.ui.sidebarCollapsed,
                 quickOpenOpen: ws.ui.quickOpenOpen,
               },
-            } as Partial<ProjectFilesState>,
+            } as Partial<WorkspaceFilesState>,
           ])
         ),
       }),
@@ -73,15 +73,15 @@ export const useFilesStore = create<FilesStoreState>()(
           return currentState;
         }
 
-        const persisted = persistedState as { byProjectId?: Record<string, Partial<ProjectFilesState>> };
+        const persisted = persistedState as { byProjectId?: Record<string, Partial<WorkspaceFilesState>> };
         if (!persisted.byProjectId) return currentState;
 
-        const mergedByProjectId: Record<string, ProjectFilesState> = { ...currentState.byProjectId };
+        const mergedByProjectId: Record<string, WorkspaceFilesState> = { ...currentState.byProjectId };
 
         for (const [projectId, persistedProjectState] of Object.entries(persisted.byProjectId)) {
           const fresh = defaultFilesState();
-          const partial = (persistedProjectState ?? {}) as Partial<ProjectFilesState> & {
-            ui?: Partial<ProjectFilesState["ui"]>;
+          const partial = (persistedProjectState ?? {}) as Partial<WorkspaceFilesState> & {
+            ui?: Partial<WorkspaceFilesState["ui"]>;
           };
           // Merge `ui` separately so we only accept the two persisted ui keys
           // and keep every other default ui value untouched.
@@ -153,7 +153,7 @@ export const useFilesActions = () =>
     }))
   );
 
-export function useFilesProjectSlice(projectId: string) {
+export function useFilesWorkspaceSlice(projectId: string) {
   return useFilesStore((s) => s.byProjectId[projectId]);
 }
 
@@ -169,7 +169,7 @@ export type {
   NodeEventSummary,
   FileState,
   EditorSymbol,
-  ProjectFilesState,
+  WorkspaceFilesState,
   FilesStoreState,
   GitState,
   UiState,
@@ -191,6 +191,6 @@ export {
   getFileContent,
   setFileContent,
   deleteFileContent,
-  clearProjectContent,
+  clearWorkspaceContent,
   contentMapSize,
 } from "./contentMap";

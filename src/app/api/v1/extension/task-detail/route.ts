@@ -5,7 +5,7 @@ import { db } from "@/lib/db";
 import { taskActivityEvents, projects, profiles, tasks, taskSubtasks, projectSprints, projectNodes, taskNodeLinks, taskPushes, } from "@/lib/db/schema";
 import { and, desc, eq, isNull, sql } from "drizzle-orm";
 import { logger } from "@/lib/logger";
-import { canReadProjectTab, getProjectAccessById } from "@/lib/data/workspace-access";
+import { canReadWorkspaceTab, getWorkspaceAccessById } from "@/lib/data/workspace-access";
 import { orgFileAccessSql, projectContentNodeSql } from "@/lib/files/internal-helpers";
 
 import { taskReviewSnapshot } from "@/lib/workspaces/task-review-snapshot";
@@ -40,10 +40,10 @@ export async function GET(request: Request) {
 
     // Canonical rule: drafts/private for owners+members only, task data needs
     // Tasks visibility, linked project files also need Files (AUTH-002).
-    const access = await getProjectAccessById(row.projectId, user.id);
-    if (!canReadProjectTab(access, "tasks")) return jsonError("You don’t have access to this", 403, "FORBIDDEN");
+    const access = await getWorkspaceAccessById(row.projectId, user.id);
+    if (!canReadWorkspaceTab(access, "tasks")) return jsonError("You don’t have access to this", 403, "FORBIDDEN");
     if (!(await canSeeOrgTask(access, user.id, taskId))) return jsonError("You don’t have access to this", 403, "FORBIDDEN");
-    const canReadFiles = canReadProjectTab(access, "files");
+    const canReadFiles = canReadWorkspaceTab(access, "files");
 
     const fullTask = await db.query.tasks.findFirst({where:eq(tasks.id,taskId)});
     if (!fullTask) return jsonError("Task not found",404,"NOT_FOUND");

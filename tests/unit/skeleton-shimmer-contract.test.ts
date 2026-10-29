@@ -43,7 +43,7 @@ test("shared skeleton shimmer contract", async (t) => {
     assert.match(hubPage, /DiscoverRouteSkeleton/);
     assert.match(hubSkeleton, /nb-discover-columns/);
     assert.match(hubSkeleton, /nb-discover-rail/);
-    assert.match(hubSkeleton, /ProjectCardSkeleton/);
+    assert.match(hubSkeleton, /WorkspaceCardSkeleton/);
     assert.doesNotMatch(hubPage, /lg:grid-cols-3/);
   });
 

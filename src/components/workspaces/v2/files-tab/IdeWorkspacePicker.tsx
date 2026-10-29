@@ -14,13 +14,13 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 
-export interface IdeProject {
+export interface IdeWorkspace {
   id: string;
   name: string;
   slug?: string;
 }
 type ProjectPage = {
-  projects: IdeProject[];
+  projects: IdeWorkspace[];
   projectPage: { hasMore: boolean; nextCursor: string | null };
 };
 
@@ -41,7 +41,7 @@ async function loadProjects(
 }
 
 /** My Work has no implicit project; never launch an arbitrary or empty workspace. */
-export function IdeProjectPicker({
+export function IdeWorkspacePicker({
   open,
   onOpenChange,
   editorName,
@@ -50,7 +50,7 @@ export function IdeProjectPicker({
   open: boolean;
   onOpenChange: (open: boolean) => void;
   editorName: string;
-  onSelect: (project: IdeProject) => void;
+  onSelect: (project: IdeWorkspace) => void;
 }) {
   const { user } = useAuth();
   const [search, setSearch] = useState("");

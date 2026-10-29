@@ -192,14 +192,14 @@ export function normalizeGlobalSearchQuery(query: string) {
     return normalizeSearchQuery(query);
 }
 
-export function isProjectDetailPath(pathname: string | null) {
+export function isWorkspaceDetailPath(pathname: string | null) {
     const segments = pathname?.split("/").filter(Boolean) ?? [];
     // An org page (/org/<handle>) searches that org: "Search CSE-3A" first (report §30.1).
     return segments.length === 2 && (segments[0] === "workspaces" || segments[0] === "org") && segments[1] !== "new";
 }
 
-export function getProjectIdentifierFromPathname(pathname: string | null) {
-    if (!isProjectDetailPath(pathname)) return null;
+export function getWorkspaceIdentifierFromPathname(pathname: string | null) {
+    if (!isWorkspaceDetailPath(pathname)) return null;
     const segment = pathname?.split("/").filter(Boolean)[1];
     if (!segment) return null;
     try {
@@ -210,7 +210,7 @@ export function getProjectIdentifierFromPathname(pathname: string | null) {
 }
 
 export function resolveGlobalSearchContext(pathname: string | null, searchParams?: URLSearchParams | null): SearchContext {
-    if (isProjectDetailPath(pathname) && pathname?.startsWith("/org/")) {
+    if (isWorkspaceDetailPath(pathname) && pathname?.startsWith("/org/")) {
         return {
             context: "project",
             placeholder: "Search this organization…",
@@ -218,7 +218,7 @@ export function resolveGlobalSearchContext(pathname: string | null, searchParams
             description: "Docs, assignments, workspaces, files you can open, sprints and tasks in this organization.",
         };
     }
-    if (isProjectDetailPath(pathname)) {
+    if (isWorkspaceDetailPath(pathname)) {
         return {
             context: "project",
             placeholder: "Search this workspace’s tasks…",

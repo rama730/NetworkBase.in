@@ -11,7 +11,7 @@ import {
 import { and, eq, inArray, sql } from 'drizzle-orm';
 import { jsonError, jsonSuccess } from '@/app/api/v1/_envelope';
 import { validateCsrf } from '@/lib/security/csrf';
-import { assertProjectWriteAccess } from '@/lib/files/internal-helpers';
+import { assertWorkspaceWriteAccess } from '@/lib/files/internal-helpers';
 import { enforceRouteLimit, requireAuthenticatedUser } from '@/app/api/v1/_shared';
 import { z } from 'zod';
 
@@ -62,7 +62,7 @@ export async function POST(request: NextRequest) {
             return jsonError(`Cannot abort import job that is already in '${job.status}' state`, 400, 'BAD_REQUEST');
         }
 
-        await assertProjectWriteAccess(job.projectId, user.id);
+        await assertWorkspaceWriteAccess(job.projectId, user.id);
 
         // 2. Resolve lifecycle identities. Raw object keys are never deletion authority.
         const filesWithKeys = await db.query.importJobFiles.findMany({

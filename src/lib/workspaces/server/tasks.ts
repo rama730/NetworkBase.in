@@ -2,7 +2,7 @@ import { orgTaskReadFilter } from "@/lib/organizations/assignments";
 import { lockTaskForWrite, transitionTaskTx, afterTaskTransition } from "@/lib/workspaces/task-transition-service";
 import "server-only";
 
-import { type ProjectAccess, getProjectAccessById, canReadProjectTab, ProjectTabForbiddenError, getProjectAccessByIdentifier, assertProjectTabReadAccess } from "@/lib/data/workspace-access";
+import { type WorkspaceAccess, getWorkspaceAccessById, canReadWorkspaceTab, WorkspaceTabForbiddenError, getWorkspaceAccessByIdentifier, assertWorkspaceTabReadAccess } from "@/lib/data/workspace-access";
 import { normalizeSearchQuery, containsLikePattern, escapeLikePattern, tokenizeSearchQuery } from "@/lib/search/query";
 import { sql, eq, and, or, isNull, isNotNull, ilike, desc, inArray } from "drizzle-orm";
 import { tasks, taskReadReceipts, projects, projectMembers, roleApplications, projectOpenRoles, projectSprints, projectWorkflowColumns, sprintTaskMemberships, taskActivityEvents, projectNodes, taskNodeLinks, taskSubtasks } from "@/lib/db/schema";
@@ -13,18 +13,18 @@ import { normalizeTaskSurfaceRecord } from "@/lib/workspaces/task-presentation";
 import { createClient } from "@/lib/supabase/server";
 import { isLooseUuid } from "@/lib/validations/uuid";
 import { z } from "zod";
-import { resolveProjectSocialLinks, PROJECT_LINK_PURPOSE_LABELS } from "@/lib/workspaces/social-links";
+import { resolveWorkspaceSocialLinks, WORKSPACE_LINK_PURPOSE_LABELS } from "@/lib/workspaces/social-links";
 import { getCachedData, cacheData } from "@/lib/redis";
 import { recordGlobalSearchMetric } from "@/lib/search/observability";
 import { getViewerIdentityContext } from "@/lib/server/viewer-context";
 import { createTaskSchema as baseCreateTaskSchema, taskSubtaskTitleSchema } from "@/lib/validations/task";
 import { requireAuthenticatedUser } from "@/app/api/v1/_shared";
-import { requireProjectCapability, isProjectMemberEligibleFor } from "@/lib/workspaces/collaborator-lifecycle";
+import { requireWorkspaceCapability, isWorkspaceMemberEligibleFor } from "@/lib/workspaces/collaborator-lifecycle";
 import { queueEmail, wakeEmailWorker } from "@/lib/email/outbox";
 import { replaceTaskFileRoleTag } from "@/lib/workspaces/task-file-intelligence";
 import { queueCounterRefreshBestEffort } from "@/lib/my-work/counter-buffer";
 import { revalidatePath } from "next/cache";
-import { actorNotificationSnapshot, enqueueProjectNotificationBestEffort } from "./common";
+import { actorNotificationSnapshot, enqueueWorkspaceNotificationBestEffort } from "./common";
 
 
 type TaskPaginationCursor = {
@@ -99,7 +99,7 @@ async function fetchProjectTasksForActor(
   cursor?: string,
   scope: "all" | "backlog" | "sprint" | "review" = "all",
   search: string = "",
-  authorizedAccess?: ProjectAccess,
+  authorizedAccess?: WorkspaceAccess,
   surface: "full" | "preview" = "full",
 ) {
   const safeLimit = Math.min(Math.max(limit, 1), 200);
@@ -150,9 +150,9 @@ async function fetchProjectTasksForActor(
       const access =
         authorizedAccess?.project?.id === projectId
           ? authorizedAccess
-          : await getProjectAccessById(projectId, actorId);
+          : await getWorkspaceAccessById(projectId, actorId);
       if (!access.project) throw new Error("Workspace not found");
-      if (!canReadProjectTab(access, "tasks")) throw new ProjectTabForbiddenError("tasks");
+      if (!canReadWorkspaceTab(access, "tasks")) throw new WorkspaceTabForbiddenError("tasks");
 
       const projectTasks = await db.query.tasks.findMany({
         where: (t, { eq, and, or, lt, isNull, isNotNull, ilike }) => {
@@ -418,8 +418,8 @@ export async function markTaskAsReadAction(taskId: string) {
       .where(and(eq(tasks.id, taskId), isNull(tasks.deletedAt)))
       .limit(1);
     if (!task) return { success: false, error: "Task not found" };
-    const access = await getProjectAccessById(task.projectId, user.id);
-    if (!access.project || !canReadProjectTab(access, "tasks"))
+    const access = await getWorkspaceAccessById(task.projectId, user.id);
+    if (!access.project || !canReadWorkspaceTab(access, "tasks"))
       return { success: false, error: "Task not found" };
 
     await db
@@ -438,7 +438,7 @@ export async function markTaskAsReadAction(taskId: string) {
 }
 
 
-export async function fetchProjectTasksAction(
+export async function fetchWorkspaceTasksAction(
   projectId: string,
   limit: number = 100,
   cursor?: string,
@@ -472,7 +472,7 @@ const projectTaskPreviewInputSchema = z.object({
 });
 
 
-export async function fetchProjectLinkPreviewsAction(input: {
+export async function fetchWorkspaceLinkPreviewsAction(input: {
   slugOrId: string;
   search: string;
   limit?: number;
@@ -482,7 +482,7 @@ export async function fetchProjectLinkPreviewsAction(input: {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     const actorId = user?.id ?? null;
-    const access = await getProjectAccessByIdentifier(parsed.slugOrId, actorId);
+    const access = await getWorkspaceAccessByIdentifier(parsed.slugOrId, actorId);
     if (!access.project) return { success: false as const, code: "NOT_FOUND" as const, error: "Workspace not found" };
     if (!access.canRead) return { success: false as const, code: "FORBIDDEN" as const, error: "You don’t have access to this" };
 
@@ -495,13 +495,13 @@ export async function fetchProjectLinkPreviewsAction(input: {
 
     const query = parsed.search.toLocaleLowerCase();
     const canViewMemberLinks = access.isOwner || Boolean(access.memberRole);
-    const links = resolveProjectSocialLinks(project.externalLinks, project.githubRepoUrl)
+    const links = resolveWorkspaceSocialLinks(project.externalLinks, project.githubRepoUrl)
       .filter((link) => link.audience !== "members" || canViewMemberLinks)
       .filter((link) => [
         link.customLabel,
         link.platformLabel,
         link.accountLabel,
-        PROJECT_LINK_PURPOSE_LABELS[link.purpose],
+        WORKSPACE_LINK_PURPOSE_LABELS[link.purpose],
         link.serviceKey,
       ].some((value) => value?.toLocaleLowerCase().includes(query)))
       .slice(0, parsed.limit)
@@ -526,7 +526,7 @@ export async function fetchProjectLinkPreviewsAction(input: {
 }
 
 
-export async function fetchProjectTaskPreviewsAction(input: {
+export async function fetchWorkspaceTaskPreviewsAction(input: {
   slugOrId: string;
   search: string;
   limit?: number;
@@ -541,14 +541,14 @@ export async function fetchProjectTaskPreviewsAction(input: {
       data: { user },
     } = await supabase.auth.getUser();
     const actorId = user?.id ?? null;
-    const access = await getProjectAccessByIdentifier(parsed.slugOrId, actorId);
+    const access = await getWorkspaceAccessByIdentifier(parsed.slugOrId, actorId);
     if (!access.project)
       return {
         success: false as const,
         code: "NOT_FOUND" as const,
         error: "Workspace not found",
       };
-    if (!canReadProjectTab(access, "tasks"))
+    if (!canReadWorkspaceTab(access, "tasks"))
       return {
         success: false as const,
         code: "FORBIDDEN" as const,
@@ -633,14 +633,14 @@ export async function fetchProjectTaskPreviewsAction(input: {
 }
 
 
-export async function getProjectTaskDetailAction(
+export async function getWorkspaceTaskDetailAction(
   projectId: string,
   taskId: string,
 ) {
   try {
     const viewerIdentity = await getViewerIdentityContext();
     const actorId = viewerIdentity.user?.id ?? null;
-    const access = await assertProjectTabReadAccess(projectId, actorId, "tasks");
+    const access = await assertWorkspaceTabReadAccess(projectId, actorId, "tasks");
 
     const isUuid = isLooseUuid(taskId);
     let taskWhere;
@@ -758,7 +758,7 @@ export async function getProjectTaskDetailAction(
 }
 
 
-export async function getProjectMembersAction(
+export async function getWorkspaceMembersAction(
   projectId: string,
   limit: number = 20,
   cursor?: string,
@@ -776,12 +776,12 @@ export async function getProjectMembersAction(
     return await runInFlightDeduped(
       `project:members:${projectId}:${actorId ?? "anon"}:${safeLimit}:${cursorKey}`,
       async () => {
-        await assertProjectTabReadAccess(projectId, actorId, "dashboard");
+        await assertWorkspaceTabReadAccess(projectId, actorId, "dashboard");
         const whereConditions: any[] = [
           eq(projectMembers.projectId, projectId),
         ];
         // Outsiders see only people with "Show on my profile" on (report §20.8).
-        const access = actorId ? await getProjectAccessById(projectId, actorId) : null;
+        const access = actorId ? await getWorkspaceAccessById(projectId, actorId) : null;
         const inside = Boolean(access && (access.isOwner || access.isMember || access.isInheritedAdmin));
         if (!inside) whereConditions.push(eq(projectMembers.showOnProfile, true));
 
@@ -922,13 +922,13 @@ export async function createTaskAction(data: z.infer<typeof createTaskSchema>) {
     if (!user) throw new Error("Sign in to continue");
 
     const validated = createTaskSchema.parse(data);
-    await requireProjectCapability(
+    await requireWorkspaceCapability(
       validated.projectId,
       user.id,
       "create_tasks",
     );
     if (validated.sprintId) {
-      const sprintAccess = await getProjectAccessById(
+      const sprintAccess = await getWorkspaceAccessById(
         validated.projectId,
         user.id,
       );
@@ -939,7 +939,7 @@ export async function createTaskAction(data: z.infer<typeof createTaskSchema>) {
     }
 
     if (validated.assigneeId) {
-      await requireProjectCapability(
+      await requireWorkspaceCapability(
         validated.projectId,
         user.id,
         "assign_tasks",
@@ -954,7 +954,7 @@ export async function createTaskAction(data: z.infer<typeof createTaskSchema>) {
       if (!assigneeMember) {
         throw new Error("Assignee must be a workspace member");
       }
-      if (!isProjectMemberEligibleFor(assigneeMember.role, "assign")) {
+      if (!isWorkspaceMemberEligibleFor(assigneeMember.role, "assign")) {
         throw new Error("Assignee must be an assignable workspace member");
       }
     }
@@ -1199,7 +1199,7 @@ export async function createTaskAction(data: z.infer<typeof createTaskSchema>) {
 
     if (validated.assigneeId && validated.assigneeId !== user.id) {
       const actor = actorNotificationSnapshot(user);
-      await enqueueProjectNotificationBestEffort(
+      await enqueueWorkspaceNotificationBestEffort(
         {
           projectId: validated.projectId,
           actorUserId: user.id,

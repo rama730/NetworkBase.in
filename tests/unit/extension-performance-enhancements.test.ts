@@ -34,7 +34,7 @@ describe("IDE & Editor Extension Performance & Architecture Enhancements", () =>
     assert.match(workspaceRoute, /.get\("mode"\)\s*===\s*"summary"/, "must detect summary mode in query params");
     assert.match(workspaceRoute, /x-nb-workspace-mode/, "must detect summary mode in headers");
     assert.match(workspaceRoute, /isSummaryMode/, "must branch execution for summary mode");
-    assert.match(workspaceRoute, /getProjectTaskCountMap\(projectIds\)/, "summary mode must return taskCount");
+    assert.match(workspaceRoute, /getWorkspaceTaskCountMap\(projectIds\)/, "summary mode must return taskCount");
   });
 
   it("IntegrationsSettings implements optimistic revocation, auto-reconciliation, and custom device labeling", () => {

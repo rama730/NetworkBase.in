@@ -9,11 +9,11 @@ import {
     DialogDescription,
     DialogTitle,
 } from "@/components/ui/dialog";
-import type { ProjectUpdateMediaItem } from "@/lib/workspaces/updates";
+import type { WorkspaceUpdateMediaItem } from "@/lib/workspaces/updates";
 import { cn } from "@/lib/utils";
 
 type ProjectUpdateMediaFrameItem = Pick<
-    ProjectUpdateMediaItem,
+    WorkspaceUpdateMediaItem,
     "altText" | "height" | "label" | "mimeType" | "type" | "url" | "width"
 >;
 
@@ -44,12 +44,12 @@ function mediaAspectRatio(item: ProjectUpdateMediaFrameItem) {
     return "16 / 9";
 }
 
-export function isProjectUpdateVideoMedia(item: ProjectUpdateMediaFrameItem, src = item.url ?? "") {
+export function isWorkspaceUpdateVideoMedia(item: ProjectUpdateMediaFrameItem, src = item.url ?? "") {
     if (item.mimeType?.toLowerCase().startsWith("video/")) return true;
     return /\.(mp4|m4v|mov|webm|ogg)(?:[?#].*)?$/i.test(src);
 }
 
-export function ProjectUpdateMediaFrame({
+export function WorkspaceUpdateMediaFrame({
     item,
     src,
     alt,
@@ -72,7 +72,7 @@ export function ProjectUpdateMediaFrame({
 }) {
     const orientation = mediaOrientation(item);
     const isPortrait = orientation === "portrait";
-    const isVideo = isProjectUpdateVideoMedia(item, src);
+    const isVideo = isWorkspaceUpdateVideoMedia(item, src);
     const [loadState, setLoadState] = useState<ProjectUpdateMediaLoadState>("loading");
 
     useEffect(() => {
@@ -186,15 +186,15 @@ export function ProjectUpdateMediaFrame({
     );
 }
 
-export function ProjectUpdateMediaViewer({
+export function WorkspaceUpdateMediaViewer({
     item,
     onOpenChange,
 }: {
-    item: ProjectUpdateMediaItem | null;
+    item: WorkspaceUpdateMediaItem | null;
     onOpenChange: (open: boolean) => void;
 }) {
     const src = item?.url ?? "";
-    const isVideo = item ? isProjectUpdateVideoMedia(item, src) : false;
+    const isVideo = item ? isWorkspaceUpdateVideoMedia(item, src) : false;
     const title = item?.label || item?.altText || "Workspace update media";
 
     return (

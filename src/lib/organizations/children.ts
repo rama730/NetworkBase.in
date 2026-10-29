@@ -9,7 +9,7 @@ import { readOrgRules } from "@/lib/organizations/settings";
 import { unlinkSprints } from "@/lib/organizations/sprints";
 import { releaseGroupCopies } from "@/lib/organizations/assignments";
 import { notifyOrg } from "@/lib/organizations/notify";
-import { isProjectPubliclyReadableVisibility } from "@/lib/workspaces/workspace-visibility";
+import { isWorkspacePubliclyReadableVisibility } from "@/lib/workspaces/workspace-visibility";
 
 type Executor = typeof db | Parameters<Parameters<typeof db.transaction>[0]>[0];
 
@@ -20,7 +20,7 @@ async function readOrgCap(executor: Executor, orgId: string) {
     .where(and(eq(projects.id, orgId), eq(projects.kind, "organization"), isNull(projects.deletedAt)))
     .limit(1);
   if (!org) return null;
-  return { cap: readOrgRules(org.orgSettings).visibilityCap, orgPublic: isProjectPubliclyReadableVisibility(org.visibility), outsidePeople: readOrgRules(org.orgSettings).outsidePeople };
+  return { cap: readOrgRules(org.orgSettings).visibilityCap, orgPublic: isWorkspacePubliclyReadableVisibility(org.visibility), outsidePeople: readOrgRules(org.orgSettings).outsidePeople };
 }
 
 /**
@@ -81,7 +81,7 @@ export async function countOutsidePeople(projectId: string, orgId: string): Prom
 export async function moveIntoOrg(projectId: string, orgId: string, currentVisibility: string | null) {
   const org = await readOrgCap(db, orgId);
   if (!org) throw new Error("Organization not found.");
-  const requested: ChildVisibility = isProjectPubliclyReadableVisibility(currentVisibility) ? "public" : currentVisibility === "org" ? "org" : "private";
+  const requested: ChildVisibility = isWorkspacePubliclyReadableVisibility(currentVisibility) ? "public" : currentVisibility === "org" ? "org" : "private";
   await db.update(projects).set({
     parentId: orgId,
     visibility: capChildVisibility(requested, org.cap, org.orgPublic),

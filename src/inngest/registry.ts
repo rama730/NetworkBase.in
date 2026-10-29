@@ -4,12 +4,12 @@ export type InngestExecutionRole = "web" | "worker";
 
 function getWorkerOnlyFunctions() {
   const loadModule = createRequire(import.meta.url);
-  const { flushProjectViews } = loadModule("./functions/flush-views");
+  const { flushWorkspaceViews } = loadModule("./functions/flush-views");
   const { flushUpdateLikes } = loadModule("./functions/flush-likes");
-  const { cleanupProjectUpdate } = loadModule("./functions/cleanup-update");
+  const { cleanupWorkspaceUpdate } = loadModule("./functions/cleanup-update");
   const { gitPull, gitPush, gitSyncRecovery, lockCleanup, uploadIntentCleanup } = loadModule("./functions/git-sync");
   const { finishPendingFileDeletions } = loadModule("./functions/workspace-files-permanent-delete");
-  const { reconcileProjectFiles } = loadModule("./functions/workspace-files-reconciliation");
+  const { reconcileWorkspaceFiles } = loadModule("./functions/workspace-files-reconciliation");
   const { projectImport } = loadModule("./functions/workspace-import");
   const { projectImportHydrate } = loadModule("./functions/workspace-import-hydrate");
   const { projectImportStaleReconcile } = loadModule("./functions/workspace-import-reconcile");
@@ -42,10 +42,10 @@ function getWorkerOnlyFunctions() {
     gitSyncRecovery,
     lockCleanup,
     uploadIntentCleanup,
-    flushProjectViews,
+    flushWorkspaceViews,
     flushUpdateLikes,
-    cleanupProjectUpdate,
-    reconcileProjectFiles,
+    cleanupWorkspaceUpdate,
+    reconcileWorkspaceFiles,
     finishPendingFileDeletions,
     projectImportStaleReconcile,
     reconcileMyWorkProfileCounters,

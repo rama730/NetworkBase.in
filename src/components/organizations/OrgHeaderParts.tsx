@@ -13,7 +13,7 @@ import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import type { OrgDetail, ParentOrgLink } from '@/lib/organizations/detail'
 
-// The organization parts of the project header (report §18.1–18.2, §18.6). ProjectLayout keeps its layout;
+// The organization parts of the project header (report §18.1–18.2, §18.6). WorkspaceLayout keeps its layout;
 // these fill the identity line, the facts and the visitor's actions.
 
 /** `@handle · Education · Teacher`, plus the archived line (report §18.1, §18.6). */

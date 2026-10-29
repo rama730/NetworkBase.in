@@ -341,7 +341,7 @@ export function removeStoryPosition(
     ),
   };
 }
-export function storyProjectLinks(links: ContributionStory["links"]) {
+export function storyWorkspaceLinks(links: ContributionStory["links"]) {
   const repository = (link: ContributionStory["links"][number]) => {
     if (/^(repository|repo|source(?: code)?)$/i.test(link.label.trim()))
       return true;

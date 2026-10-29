@@ -30,7 +30,7 @@ import { cn } from "@/lib/utils";
 import type { TaskFileRole } from "@/lib/workspaces/task-file-intelligence";
 import { useFilesStore } from "@/stores/filesStore";
 import { formatBytes } from "../folder/format";
-import { DEFAULT_PROJECT_UPLOAD_MAX_FILE_BYTES } from "@/lib/files/upload-validator";
+import { DEFAULT_WORKSPACE_UPLOAD_MAX_FILE_BYTES } from "@/lib/files/upload-validator";
 
 const FolderPicker = dynamic(() => import("@/components/workspaces/v2/explorer/ExplorerDialogsHost").then((mod) => mod.FolderPicker), { ssr: false });
 
@@ -169,7 +169,7 @@ export function FilesTabUploadModal({
   );
 
   const oversizedFiles = useMemo(
-    () => fileList.filter((f) => (f.size || 0) > DEFAULT_PROJECT_UPLOAD_MAX_FILE_BYTES),
+    () => fileList.filter((f) => (f.size || 0) > DEFAULT_WORKSPACE_UPLOAD_MAX_FILE_BYTES),
     [fileList],
   );
 
@@ -182,7 +182,7 @@ export function FilesTabUploadModal({
     sizeFeedbackId.current = toast.warning("File too large", {
       id: sizeFeedbackId.current ?? undefined,
       dismissOnAction: false,
-      description: `Upload limit: ${formatBytes(DEFAULT_PROJECT_UPLOAD_MAX_FILE_BYTES)}.`,
+      description: `Upload limit: ${formatBytes(DEFAULT_WORKSPACE_UPLOAD_MAX_FILE_BYTES)}.`,
       action: { label: "Choose file", onClick: () => {
         const input = document.createElement("input"); input.type = "file"; input.multiple = true;
         input.onchange = () => { if (input.files?.length) setFileList(Array.from(input.files)); };
@@ -259,8 +259,8 @@ export function FilesTabUploadModal({
     setLoadingTasks(true);
 
     import("@/app/actions/files/links")
-      .then(({ searchProjectTasks }) =>
-        searchProjectTasks(projectId, taskQuery, 20),
+      .then(({ searchWorkspaceTasks }) =>
+        searchWorkspaceTasks(projectId, taskQuery, 20),
       )
       .then((tasks) => {
         if (!cancelled) {
@@ -516,7 +516,7 @@ export function FilesTabUploadModal({
         {oversizedFiles.length > 0 && <div className="space-y-2 border-t border-border pt-2" aria-label="Files that can’t be uploaded">
           {oversizedFiles.map((file, index) => <div key={`${file.name}-${index}`} className="flex items-start gap-2 text-[12px] leading-4">
             <AlertCircle className="mt-0.5 size-3.5 shrink-0 text-[var(--status-warning)]" aria-hidden="true" />
-            <div className="min-w-0 flex-1"><strong className="block break-all font-medium">{file.name}</strong><span className="text-muted-foreground">{formatBytes(file.size)} · Limit {formatBytes(DEFAULT_PROJECT_UPLOAD_MAX_FILE_BYTES)} · Not uploaded</span></div>
+            <div className="min-w-0 flex-1"><strong className="block break-all font-medium">{file.name}</strong><span className="text-muted-foreground">{formatBytes(file.size)} · Limit {formatBytes(DEFAULT_WORKSPACE_UPLOAD_MAX_FILE_BYTES)} · Not uploaded</span></div>
           </div>)}
         </div>}
 

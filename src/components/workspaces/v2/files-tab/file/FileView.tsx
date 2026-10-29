@@ -59,18 +59,18 @@ import {
 } from "lucide-react";
 
 import { useRouter, usePathname } from "next/navigation";
-import { useProjectDocList } from "@/hooks/workspaces/useWorkspaceDocData";
+import { useWorkspaceDocList } from "@/hooks/workspaces/useWorkspaceDocData";
 
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { ComponentErrorBoundary } from "@/components/ui/ComponentErrorBoundary";
 import { getFilePreviewUrl } from "@/app/actions/files/content";
-import { getProjectFileContent } from "@/app/actions/files/content";
+import { getWorkspaceFileContent } from "@/app/actions/files/content";
 import { listFileVersions } from "@/app/actions/files/versions";
 import type { ProjectNode } from "@/lib/db/schema";
 import { computeContentHash } from "@/lib/files/content-hash";
-import { normalizeProjectDocSlug } from "@/lib/workspaces/doc-slug";
+import { normalizeWorkspaceDocSlug } from "@/lib/workspaces/doc-slug";
 import { cn } from "@/lib/utils";
 import { useFilesStore } from "@/stores/filesStore";
 import { useFileVersions } from "@/hooks/useFileVersions";
@@ -202,14 +202,14 @@ export function FileView({
   const projectSlug = pathname?.split("/")[2] || "";
 
   // Query list of documents to see if this node is linked to any of them
-  const { data: docs = [] } = useProjectDocList(projectId);
+  const { data: docs = [] } = useWorkspaceDocList(projectId);
   const linkedDoc = React.useMemo(() => {
     return docs.find((doc: any) => doc.linkedNodeId === node.id);
   }, [docs, node.id]);
 
   const handleNavigateToDoc = React.useCallback((slug: string) => {
     if (!confirmFileNavigation(projectId)) return;
-    router.push(`/workspaces/${projectSlug}?tab=docs&doc=${normalizeProjectDocSlug(slug)}`, { scroll: false });
+    router.push(`/workspaces/${projectSlug}?tab=docs&doc=${normalizeWorkspaceDocSlug(slug)}`, { scroll: false });
   }, [router, projectSlug, projectId]);
 
   // ── LinkedTasksPanel toggle state (Req 8.1, 8.6) ───────────────────
@@ -474,7 +474,7 @@ export function FileView({
 
     (async () => {
       try {
-        const text = await getProjectFileContent(projectId, node.id);
+        const text = await getWorkspaceFileContent(projectId, node.id);
         if (cancelled) return;
         setMdContent(text);
       } catch (err) {

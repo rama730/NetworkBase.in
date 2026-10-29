@@ -18,7 +18,7 @@ test.beforeAll(async () => {
       export const redirect=()=>{}; export const notFound=()=>{};`,
     "@/components/messages/MessagesChrome": "export const MessagesChrome=()=>null;",
     "@/components/messages/MessagesSidebar": "export const MessagesSidebar=()=>null;",
-    "@/components/messages/MessagesViews": "export const InboxView=()=>null; export const SavedView=()=>null; export const DraftsView=()=>null; export const SearchView=()=>null; export const ProjectLanding=()=>null; export const BrowseChannels=()=>null;",
+    "@/components/messages/MessagesViews": "export const InboxView=()=>null; export const SavedView=()=>null; export const DraftsView=()=>null; export const SearchView=()=>null; export const WorkspaceLanding=()=>null; export const BrowseChannels=()=>null;",
     "@/components/messages/NewMessage": "export const NewMessage=()=>null;",
     "@/components/messages/MessagesIndex": "export const MessagesIndex=()=>null;",
     "@/components/messages/ListSkeleton": "export const ListSkeleton=()=>null;",

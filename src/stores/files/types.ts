@@ -157,7 +157,7 @@ export interface Problem {
 }
 
 // ─── Per-project workspace state ─────────────────────────────────────
-export type ProjectFilesState = {
+export type WorkspaceFilesState = {
   treeVersion: number;
   tabsVersion: number;
   selectionVersion: number;
@@ -225,10 +225,10 @@ export type ProjectFilesState = {
 
 // ─── Top-level store state ───────────────────────────────────────────
 export type FilesStoreState = {
-  byProjectId: Record<string, ProjectFilesState>;
+  byProjectId: Record<string, WorkspaceFilesState>;
 
   // getters
-  _get: (projectId: string) => ProjectFilesState;
+  _get: (projectId: string) => WorkspaceFilesState;
   ensureProjectFilesState: (projectId: string) => void;
 
   // explorer actions
@@ -370,7 +370,7 @@ export const DEFAULT_UI_STATE: UiState = {
 export const ROOT_KEY = "__root__";
 export const parentKey = (parentId: string | null) => parentId ?? ROOT_KEY;
 
-export function defaultFilesState(): ProjectFilesState {
+export function defaultFilesState(): WorkspaceFilesState {
   return {
     treeVersion: 0,
     tabsVersion: 0,
@@ -450,6 +450,6 @@ export function symbolsEqual(a: EditorSymbol[], b: EditorSymbol[]): boolean {
  * React 19 + useSyncExternalStore requires selector results to be stable.
  * This fallback must be a stable reference — never mutate it.
  */
-export const FALLBACK_FILES_STATE: ProjectFilesState = Object.freeze(
+export const FALLBACK_FILES_STATE: WorkspaceFilesState = Object.freeze(
   defaultFilesState()
-) as ProjectFilesState;
+) as WorkspaceFilesState;

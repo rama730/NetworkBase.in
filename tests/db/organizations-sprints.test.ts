@@ -107,14 +107,14 @@ test("sprint detail carries the org context: linked projects for the org, the or
   const { org, child, owner, lead } = await orgWithChild();
   viewerId = owner;
   const co = await sprints.createSprintAction({ projectId: org, name: "CO1", startDate: "2027-04-01", endDate: "2027-04-08", createMatching: true });
-  const orgDetail = await sprints.readProjectSprintDetail({ slugOrId: org, sprintId: co.sprint!.id });
+  const orgDetail = await sprints.readWorkspaceSprintDetail({ slugOrId: org, sprintId: co.sprint!.id });
   assert.equal(orgDetail.success, true, JSON.stringify(orgDetail));
   const linked = orgDetail.success ? orgDetail.data.org?.linkedProjects : undefined;
   assert.equal(linked?.length, 1);
   assert.equal(orgDetail.success && orgDetail.data.org?.notLinkedCount, 0);
 
   viewerId = lead;
-  const childDetail = await sprints.readProjectSprintDetail({ slugOrId: child });
+  const childDetail = await sprints.readWorkspaceSprintDetail({ slugOrId: child });
   assert.equal(childDetail.success, true, JSON.stringify(childDetail));
   const context = childDetail.success ? childDetail.data.org : null;
   assert.equal(context?.parentSprint?.name, "CO1");
@@ -129,14 +129,14 @@ test("materials: admins attach org docs and files to an org sprint", async () =>
   const [node] = await sql`INSERT INTO project_nodes (project_id, type, name, path) VALUES (${org}, 'file', 'Syllabus.pdf', '/Syllabus.pdf') RETURNING id`;
   const added = await sprints.addSprintMaterialAction({ projectId: org, sprintId: co.sprint!.id, nodeId: node!.id as string });
   assert.equal(added.success, true, JSON.stringify(added));
-  const detail = await sprints.readProjectSprintDetail({ slugOrId: org, sprintId: co.sprint!.id });
+  const detail = await sprints.readWorkspaceSprintDetail({ slugOrId: org, sprintId: co.sprint!.id });
   assert.deepEqual(detail.success && detail.data.materials?.map((m) => m.title), ["Syllabus.pdf"]);
   viewerId = lead;
   assert.equal((await sprints.addSprintMaterialAction({ projectId: org, sprintId: co.sprint!.id, nodeId: node!.id as string })).success, false, "members don't attach");
   // Visitors on a public Sprints tab get names and dates only (report §15.4).
   await sql`UPDATE projects SET public_tab_visibility = public_tab_visibility || '{"sprints": true}'::jsonb WHERE id = ${org}`;
   viewerId = "";
-  const visitor = await sprints.readProjectSprintDetail({ slugOrId: org, sprintId: co.sprint!.id });
+  const visitor = await sprints.readWorkspaceSprintDetail({ slugOrId: org, sprintId: co.sprint!.id });
   assert.equal(visitor.success, true, JSON.stringify(visitor));
   assert.deepEqual(visitor.success && visitor.data.materials, []);
 });

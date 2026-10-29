@@ -26,7 +26,7 @@ import {
     type ConnectionRequestHistoryStatus,
 } from '@/lib/connections/request-history';
 import { runInFlightDeduped } from '@/lib/utils/inflight-dedupe';
-import { canReviewProjectSql, countReviewableApplications } from '@/lib/applications/reviewers';
+import { canReviewWorkspaceSql, countReviewableApplications } from '@/lib/applications/reviewers';
 import { redis, getCachedData, cacheData } from '@/lib/redis';
 import { visibleLastActiveAt } from '@/lib/presence/sql';
 import {
@@ -2644,8 +2644,8 @@ export async function checkConnectionStatus(
                 .where(
                     // The two people are an applicant and one of the project's reviewers (its owner or an admin).
                     or(
-                        and(eq(roleApplications.applicantId, user.id), canReviewProjectSql(otherUserId, sql`${roleApplications.projectId}`)),
-                        and(eq(roleApplications.applicantId, otherUserId), canReviewProjectSql(user.id, sql`${roleApplications.projectId}`))
+                        and(eq(roleApplications.applicantId, user.id), canReviewWorkspaceSql(otherUserId, sql`${roleApplications.projectId}`)),
+                        and(eq(roleApplications.applicantId, otherUserId), canReviewWorkspaceSql(user.id, sql`${roleApplications.projectId}`))
                     )
                 )
                 .orderBy(desc(roleApplications.updatedAt), desc(roleApplications.id))

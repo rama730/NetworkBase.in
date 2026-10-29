@@ -1,10 +1,10 @@
 'use client';
 
 import { keepPreviousData, useInfiniteQuery } from '@tanstack/react-query';
-import { Project, DiscoverFilters } from '@/types/discover';
+import { Workspace, DiscoverFilters } from '@/types/discover';
 import { SORT_OPTIONS, type FilterView } from '@/constants/discover';
 import { queryKeys } from '@/lib/query-keys';
-import { mapPublicProjectToDiscoverProject, type PublicProjectsFeedItem } from '@/lib/workspaces/public-feed';
+import { mapPublicWorkspaceToDiscoverWorkspace, type PublicWorkspacesFeedItem } from '@/lib/workspaces/public-feed';
 
 const PAGE_SIZE = 24;
 
@@ -25,7 +25,7 @@ export class DiscoverFeedError extends Error {
 type PublicProjectsApiResponse = {
     success: true
     data: {
-        projects: PublicProjectsFeedItem[]
+        projects: PublicWorkspacesFeedItem[]
         nextCursor: string | null
     }
 } | {
@@ -49,7 +49,7 @@ async function fetchPublicProjectsPage(cursor: string | undefined) {
     if (!response.ok || !payload?.success) throw new DiscoverFeedError('TRANSIENT');
 
     return {
-        projects: payload.data.projects.map(mapPublicProjectToDiscoverProject),
+        projects: payload.data.projects.map(mapPublicWorkspaceToDiscoverWorkspace),
         nextCursor: payload.data.nextCursor || undefined,
         hasMore: Boolean(payload.data.nextCursor),
     };
@@ -84,7 +84,7 @@ async function fetchDiscoverPage(filters: DiscoverFilters, view: FilterView, cur
     });
     const body = await response.json().catch(() => null) as {
         success?: boolean;
-        data?: { projects: Project[]; nextCursor: string | null; hasMore: boolean };
+        data?: { projects: Workspace[]; nextCursor: string | null; hasMore: boolean };
         details?: { code?: string };
     } | null;
     if (response.ok && body?.success && body.data) {
@@ -96,13 +96,13 @@ async function fetchDiscoverPage(filters: DiscoverFilters, view: FilterView, cur
     throw new DiscoverFeedError('TRANSIENT');
 }
 
-export function useDiscoverProjects(
+export function useDiscoverWorkspaces(
     viewerId: string | null,
     filters: DiscoverFilters,
     view: FilterView,
     isDefault: boolean,
     initialProjectsPage?: {
-        projects?: Project[];
+        projects?: Workspace[];
         nextCursor?: string;
         hasMore?: boolean;
         renderedAt?: number;

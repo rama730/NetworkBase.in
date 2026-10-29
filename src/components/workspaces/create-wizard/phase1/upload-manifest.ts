@@ -1,5 +1,5 @@
 import {
-  PROJECT_UPLOAD_MAX_FILE_BYTES,
+  WORKSPACE_UPLOAD_MAX_FILE_BYTES,
   normalizeAndValidateMimeType,
   normalizeAndValidateUploadRelativePath,
 } from "@/lib/upload/security";
@@ -63,9 +63,9 @@ export function buildUploadManifest(files: ArrayLike<File>): UploadManifest {
       }
     }
 
-    if (state !== "blocked" && file.size > PROJECT_UPLOAD_MAX_FILE_BYTES) {
+    if (state !== "blocked" && file.size > WORKSPACE_UPLOAD_MAX_FILE_BYTES) {
       state = "blocked";
-      message = `Exceeds ${formatUploadBytes(PROJECT_UPLOAD_MAX_FILE_BYTES)} per-file limit`;
+      message = `Exceeds ${formatUploadBytes(WORKSPACE_UPLOAD_MAX_FILE_BYTES)} per-file limit`;
     } else if (state !== "blocked" && file.size === 0) {
       state = "warning";
       message = "Empty file";

@@ -1,4 +1,4 @@
-export type ProjectRoleFormValue = {
+export type WorkspaceRoleFormValue = {
     id?: string;
     role: string;
     count: number;
@@ -6,11 +6,11 @@ export type ProjectRoleFormValue = {
     skills?: string[];
 };
 
-export type ProjectRolesFormValues = {
-    roles: ProjectRoleFormValue[];
+export type WorkspaceRolesFormValues = {
+    roles: WorkspaceRoleFormValue[];
 };
 
-export function normalizeProjectRoleFormValues(openRoles: unknown): ProjectRoleFormValue[] {
+export function normalizeWorkspaceRoleFormValues(openRoles: unknown): WorkspaceRoleFormValue[] {
     if (!Array.isArray(openRoles)) return [];
 
     return openRoles

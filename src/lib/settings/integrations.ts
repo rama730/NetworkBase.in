@@ -9,7 +9,7 @@ import {
 } from "@/lib/auth/account-identity";
 import { isEmailVerified } from "@/lib/auth/email-verification";
 import { buildGithubAccountConnectionState } from "@/lib/github/connection-state";
-import type { AuthConnectionMethod, ExternalAccountHealth, GithubLinkedProject, GithubServiceConnection, IntegrationsData } from "@/types/settingsTypes";
+import type { AuthConnectionMethod, ExternalAccountHealth, GithubLinkedWorkspace, GithubServiceConnection, IntegrationsData } from "@/types/settingsTypes";
 
 type BuildIntegrationsDataInput = {
   user: User;
@@ -17,7 +17,7 @@ type BuildIntegrationsDataInput = {
   githubLastSyncAt: string | null;
   passwordLastChangedAt: string | null;
   githubAccountHealth?: ExternalAccountHealth;
-  githubProjects?: GithubLinkedProject[];
+  githubProjects?: GithubLinkedWorkspace[];
 };
 
 function normalizeProvider(value: string | null): AccountAuthProvider | null {
@@ -61,7 +61,7 @@ function githubService(input: {
   username: string | null;
   health: ExternalAccountHealth;
   hasFallbackIdentity: boolean;
-  projects?: GithubLinkedProject[];
+  projects?: GithubLinkedWorkspace[];
 }): GithubServiceConnection {
   const username = input.health.profile?.username ?? input.username;
   const unavailable = input.health.state === "unavailable";

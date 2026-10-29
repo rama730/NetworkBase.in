@@ -27,10 +27,10 @@ test("Docs tab never paints orange highlight", () => {
 
 test("Removing a doc deletes the row for every slug", () => {
     const actions = read("src/app/actions/workspace/doc.ts");
-    const unlink = actions.slice(actions.indexOf("export async function unlinkProjectDocAction"), actions.indexOf("export async function listProjectDocsAction"));
+    const unlink = actions.slice(actions.indexOf("export async function unlinkWorkspaceDocAction"), actions.indexOf("export async function listWorkspaceDocsAction"));
     assert.doesNotMatch(unlink, /docSlug === "readme"/, "readme must not be special-cased");
     assert.match(unlink, /db\.delete\(projectDocs\)/);
-    const link = actions.slice(actions.indexOf("export async function linkProjectDocAction"), actions.indexOf("export async function unlinkProjectDocAction"));
+    const link = actions.slice(actions.indexOf("export async function linkWorkspaceDocAction"), actions.indexOf("export async function unlinkWorkspaceDocAction"));
     assert.doesNotMatch(link, /docSlug: string/, "slug is derived server-side");
     assert.match(link, /nextFreeDocSlug\(/);
     const migrations = fs.readdirSync(path.join(root, "drizzle")).filter((f) => f.endsWith(".sql"));
@@ -47,8 +47,8 @@ test("Docs are added only from the Docs tab", () => {
         "src/components/workspaces/v2/files-tab/file/FileActionsBar.tsx",
     ]) {
         const source = read(file);
-        assert.doesNotMatch(source, /Use as (a )?doc|\blinkProjectDocAction\(/i, `${file} must not add docs`);
+        assert.doesNotMatch(source, /Use as (a )?doc|\blinkWorkspaceDocAction\(/i, `${file} must not add docs`);
     }
-    assert.match(read("src/components/workspaces/doc/AddDocDialog.tsx"), /\blinkProjectDocAction\(/);
+    assert.match(read("src/components/workspaces/doc/AddDocDialog.tsx"), /\blinkWorkspaceDocAction\(/);
     assert.match(read("src/components/workspaces/v2/files-tab/file/FileActionsBar.tsx"), /Remove from docs/);
 });

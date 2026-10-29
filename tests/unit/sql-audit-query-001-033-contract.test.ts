@@ -21,7 +21,7 @@ test("QRY-007..012 authorize before sensitive reads and keep file reads side-eff
   const matchmaking = source("src/app/actions/matchmaking/resolver.ts");
   const content = source("src/lib/files/content-reader.ts");
 
-  assert.ok(matchmaking.indexOf("const access = await getProjectAccessById") < matchmaking.indexOf("db.query.profiles.findFirst"));
+  assert.ok(matchmaking.indexOf("const access = await getWorkspaceAccessById") < matchmaking.indexOf("db.query.profiles.findFirst"));
   assert.match(matchmaking, /!access\.isOwner && access\.memberRole !== 'admin'/);
   assert.match(content, /class FileContentUnavailableError/);
 });

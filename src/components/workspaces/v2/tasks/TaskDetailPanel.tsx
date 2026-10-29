@@ -22,7 +22,7 @@ import { deleteTaskAction, markTaskAsReadAction } from "@/app/actions/workspace"
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { queryKeys } from "@/lib/query-keys";
-import { removeTaskFromProjectTaskCaches } from "@/lib/workspaces/task-cache";
+import { removeTaskFromWorkspaceTaskCaches } from "@/lib/workspaces/task-cache";
 import { formatTaskId } from "@/lib/workspace-key";
 import { cn } from "@/lib/utils";
 import { logger } from "@/lib/logger";
@@ -269,7 +269,7 @@ export default function TaskDetailPanel({
         throw new Error(result.error || "Couldn’t delete task");
       }
 
-      removeTaskFromProjectTaskCaches(queryClient, projectId, resource.task.id);
+      removeTaskFromWorkspaceTaskCaches(queryClient, projectId, resource.task.id);
       await queryClient.invalidateQueries({
         queryKey: queryKeys.project.detail.sprintDetailRoot(projectId),
       });

@@ -4,7 +4,7 @@ import { test } from "node:test";
 import { QueryClient } from "@tanstack/react-query";
 
 import { queryKeys } from "@/lib/query-keys";
-import { patchProjectTaskCaches } from "@/lib/workspaces/task-cache";
+import { patchWorkspaceTaskCaches } from "@/lib/workspaces/task-cache";
 import {
   compareTaskSurfaceRecords,
   formatTaskDueDate,
@@ -24,7 +24,7 @@ test("edits reach searched boards too, and only tasks a search already shows", (
   const searchKey = queryKeys.project.detail.tasks("p1", "all", "KEY-12");
   client.setQueryData(searchKey, { pages: [{ tasks: [task({ id: "t1", title: "old" })] }], pageParams: [null] });
   client.setQueryData(queryKeys.project.detail.tasks("p1", "all", "other"), { pages: [{ tasks: [] }], pageParams: [null] });
-  patchProjectTaskCaches(client, "p1", task({ id: "t1", title: "new", updatedAt: "2026-04-02T00:00:00.000Z" }), { reconcile: false });
+  patchWorkspaceTaskCaches(client, "p1", task({ id: "t1", title: "new", updatedAt: "2026-04-02T00:00:00.000Z" }), { reconcile: false });
   const searched = client.getQueryData<{ pages: { tasks: TaskSurfaceRecord[] }[] }>(searchKey)!;
   assert.equal(searched.pages[0]!.tasks[0]!.title, "new");
   const other = client.getQueryData<{ pages: { tasks: TaskSurfaceRecord[] }[] }>(queryKeys.project.detail.tasks("p1", "all", "other"))!;

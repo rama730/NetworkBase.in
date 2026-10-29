@@ -6,11 +6,11 @@ import { Camera } from "lucide-react";
 import Link from "next/link";
 import { isToday, isAfter, subDays } from "@/lib/utils/date";
 import { cn } from "@/lib/utils";
-import { ProjectPresenceBadge } from "@/components/presence/PersonPresence";
+import { WorkspacePresenceBadge } from "@/components/presence/PersonPresence";
 import { isLooseUuid } from "@/lib/validations/uuid";
-import type { Project } from "@/types/discover";
+import type { Workspace } from "@/types/discover";
 
-export function getProjectAvatarUrl(project: Partial<Project> | null | undefined): string | null {
+export function getWorkspaceAvatarUrl(project: Partial<Workspace> | null | undefined): string | null {
     if (!project) return null;
     const raw = project.coverImage ?? (project as any).cover_image ?? (project as any).coverImageUrl ?? (project as any).cover_image_url;
     if (typeof raw !== "string") return null;
@@ -44,7 +44,7 @@ dateFormatterCache.set("en-US", projectDateFormatter);
 
 const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
-export function formatProjectOfflinePresenceLabel(
+export function formatWorkspaceOfflinePresenceLabel(
     value: string | Date | null | undefined,
     locale?: string
 ): string {
@@ -65,7 +65,7 @@ export function formatProjectOfflinePresenceLabel(
 /**
  * Fine-grained relative recency for active projects (< 7 days)
  */
-export function formatProjectActivePresenceLabel(value: string | Date | null | undefined): string | null {
+export function formatWorkspaceActivePresenceLabel(value: string | Date | null | undefined): string | null {
     if (!value) return null;
     const d = value instanceof Date ? value : new Date(value);
     const time = d.getTime();
@@ -93,7 +93,7 @@ export function formatProjectActivePresenceLabel(value: string | Date | null | u
 /**
  * Broadcast project metadata and cover updates across local windows and tabs (1M users scale)
  */
-export function broadcastProjectUpdated(projectId: string, update?: { coverImage?: string | null }) {
+export function broadcastWorkspaceUpdated(projectId: string, update?: { coverImage?: string | null }) {
     if (typeof window === "undefined") return;
     window.dispatchEvent(new CustomEvent("nb-project-updated", { detail: { projectId, update } }));
     if (typeof BroadcastChannel !== "undefined") {
@@ -122,7 +122,7 @@ if (typeof window !== "undefined" && typeof BroadcastChannel !== "undefined") {
     }
 }
 
-export function ProjectPresenceDot({
+export function WorkspacePresenceDot({
     lastActiveAt,
     compact = false,
     projectId,
@@ -167,12 +167,12 @@ export function ProjectPresenceDot({
 
     // Status (set by owners) and activity come from the shared Node badge;
     // the local event above keeps activity instant after your own changes.
-    const activityLabel = formatProjectActivePresenceLabel(liveActiveAt) ?? formatProjectOfflinePresenceLabel(liveActiveAt, clientLocale);
+    const activityLabel = formatWorkspaceActivePresenceLabel(liveActiveAt) ?? formatWorkspaceOfflinePresenceLabel(liveActiveAt, clientLocale);
     // 18 on a card's 44px avatar, 30 on the detail page's 80px one, 14 beside a title; the corner offset grows with the badge.
     const size = standalone ? 14 : compact ? 18 : 30;
     const offset = -Math.round(size * 0.2);
     return (
-        <ProjectPresenceBadge
+        <WorkspacePresenceBadge
             projectId={projectId && isLooseUuid(projectId) ? projectId : null}
             updatedAt={liveActiveAt ?? null}
             size={size}
@@ -186,7 +186,7 @@ export function ProjectPresenceDot({
 }
 
 interface ProjectAvatarProps {
-    project: Partial<Project>;
+    project: Partial<Workspace>;
     size?: "detail" | "card";
     className?: string;
     showPresence?: boolean;
@@ -195,7 +195,7 @@ interface ProjectAvatarProps {
     priority?: boolean;
 }
 
-export function ProjectAvatar({
+export function WorkspaceAvatar({
     project,
     size = "detail",
     className,
@@ -204,7 +204,7 @@ export function ProjectAvatar({
     slugOrId,
     priority,
 }: ProjectAvatarProps) {
-    const avatarUrl = getProjectAvatarUrl(project);
+    const avatarUrl = getWorkspaceAvatarUrl(project);
     const [hasError, setHasError] = useState(false);
 
     useEffect(() => {
@@ -257,7 +257,7 @@ export function ProjectAvatar({
                 )}
             </div>
             {showPresence && (
-                <ProjectPresenceDot
+                <WorkspacePresenceDot
                     lastActiveAt={project.updatedAt}
                     compact={!isDetail}
                     projectId={project.id || project.slug}
@@ -267,4 +267,4 @@ export function ProjectAvatar({
     );
 }
 
-export default ProjectAvatar;
+export default WorkspaceAvatar;

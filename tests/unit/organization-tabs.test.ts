@@ -2,12 +2,12 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import { orgSettingsSectionIds } from "../../src/lib/organizations/settings";
-import { isProjectTabVisibleToViewer, resolveAllowedProjectTab } from "../../src/lib/workspaces/settings-policies";
+import { isWorkspaceTabVisibleToViewer, resolveAllowedWorkspaceTab } from "../../src/lib/workspaces/settings-policies";
 
 // Report §18.3 (org tab bar by person) and §21.4 (who sees which settings sections).
 const publicTabs = { dashboard: true, readme: true, updates: true, files: true, sprints: false, tasks: false };
 const visible = (tabId: string, member: boolean, isOrganization = true) =>
-  isProjectTabVisibleToViewer({ tabId, isOwnerOrMember: member, canManageSettings: false, publicTabVisibility: publicTabs, isOrganization });
+  isWorkspaceTabVisibleToViewer({ tabId, isOwnerOrMember: member, canManageSettings: false, publicTabVisibility: publicTabs, isOrganization });
 
 test("org visitors see About and the public tabs; never Dashboard, Tasks or Settings", () => {
   for (const tab of ["about", "updates", "readme", "files"]) assert.equal(visible(tab, false), true, tab);
@@ -25,11 +25,11 @@ test("normal projects have no About tab and keep Settings for managers", () => {
 
 test("visitors land on About, people in the org on Dashboard", () => {
   const base = { isOwnerOrMember: false, publicTabVisibility: publicTabs, isOrganization: true };
-  assert.equal(resolveAllowedProjectTab({ ...base }), "about");
-  assert.equal(resolveAllowedProjectTab({ ...base, requestedTab: "dashboard" }), "about", "a hidden tab falls back to the landing tab");
-  assert.equal(resolveAllowedProjectTab({ ...base, isOwnerOrMember: true }), "dashboard");
-  assert.equal(resolveAllowedProjectTab({ ...base, isOwnerOrMember: true, requestedTab: "about" }), "about");
-  assert.equal(resolveAllowedProjectTab({ isOwnerOrMember: false, publicTabVisibility: publicTabs, requestedTab: "about" }), "dashboard", "no About outside orgs");
+  assert.equal(resolveAllowedWorkspaceTab({ ...base }), "about");
+  assert.equal(resolveAllowedWorkspaceTab({ ...base, requestedTab: "dashboard" }), "about", "a hidden tab falls back to the landing tab");
+  assert.equal(resolveAllowedWorkspaceTab({ ...base, isOwnerOrMember: true }), "dashboard");
+  assert.equal(resolveAllowedWorkspaceTab({ ...base, isOwnerOrMember: true, requestedTab: "about" }), "about");
+  assert.equal(resolveAllowedWorkspaceTab({ isOwnerOrMember: false, publicTabVisibility: publicTabs, requestedTab: "about" }), "dashboard", "no About outside orgs");
 });
 
 test("settings sections by org role", () => {
@@ -46,11 +46,11 @@ test("settings sections by org role", () => {
 
 test("Members is for org owners and admins only (report §20.8)", () => {
   const managers = { tabId: "members", isOwnerOrMember: true, publicTabVisibility: publicTabs, isOrganization: true };
-  assert.equal(isProjectTabVisibleToViewer({ ...managers, canManageSettings: true }), true);
-  assert.equal(isProjectTabVisibleToViewer({ ...managers, canManageSettings: false }), false, "members and guests");
-  assert.equal(isProjectTabVisibleToViewer({ ...managers, canManageSettings: true, isOrganization: false }), false, "not in normal projects");
-  assert.equal(resolveAllowedProjectTab({ ...managers, requestedTab: "members", canManageSettings: true }), "members");
-  assert.equal(resolveAllowedProjectTab({ ...managers, requestedTab: "members", canManageSettings: false }), "dashboard");
+  assert.equal(isWorkspaceTabVisibleToViewer({ ...managers, canManageSettings: true }), true);
+  assert.equal(isWorkspaceTabVisibleToViewer({ ...managers, canManageSettings: false }), false, "members and guests");
+  assert.equal(isWorkspaceTabVisibleToViewer({ ...managers, canManageSettings: true, isOrganization: false }), false, "not in normal projects");
+  assert.equal(resolveAllowedWorkspaceTab({ ...managers, requestedTab: "members", canManageSettings: true }), "members");
+  assert.equal(resolveAllowedWorkspaceTab({ ...managers, requestedTab: "members", canManageSettings: false }), "dashboard");
 });
 
 test("Projects is for people in the org (report §28.5)", () => {

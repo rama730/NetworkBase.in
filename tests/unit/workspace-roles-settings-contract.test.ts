@@ -21,7 +21,7 @@ test("project roles editor tab eliminates duplicate headers and renders a single
   // Extract roles-applications block
   const rolesBlock =
     settingsTab.split('id="project-settings-roles-applications"')[1]?.split(/id="project-settings-(?:tasks-workflow|readme)"/)[0] ?? "";
-  assert.ok(rolesBlock.length > 0, "roles-applications settings block must exist in ProjectSettingsTab");
+  assert.ok(rolesBlock.length > 0, "roles-applications settings block must exist in WorkspaceSettingsTab");
 
   // Redundant SummaryCard, AdvancedDisclosure, and Application behavior cards removed
   assert.doesNotMatch(rolesBlock, /<SummaryCard/, "Redundant SummaryCard must be removed from Project Roles tab");
@@ -40,13 +40,13 @@ test("project roles editor tab eliminates duplicate headers and renders a single
   assert.match(rolesBlock, /disabled=\{!rolesDirty \|\| savingRoles\}/, "Cancel and Save changes buttons must be disabled when clean or saving");
 });
 
-test("ProjectRolesEditor features a single-row layout with separate Occupied and Open roles segments", () => {
+test("WorkspaceRolesEditor features a single-row layout with separate Occupied and Open roles segments", () => {
   const editorSrc = source("src/components/workspaces/settings/WorkspaceRolesEditor.tsx");
 
   // Ban raw color classes (zinc, indigo, blue)
-  assert.doesNotMatch(editorSrc, /zinc-/, "ProjectRolesEditor must not contain raw zinc-* color classes");
-  assert.doesNotMatch(editorSrc, /indigo-/, "ProjectRolesEditor must not contain raw indigo-* color classes");
-  assert.doesNotMatch(editorSrc, /blue-/, "ProjectRolesEditor must not contain raw blue-* color classes");
+  assert.doesNotMatch(editorSrc, /zinc-/, "WorkspaceRolesEditor must not contain raw zinc-* color classes");
+  assert.doesNotMatch(editorSrc, /indigo-/, "WorkspaceRolesEditor must not contain raw indigo-* color classes");
+  assert.doesNotMatch(editorSrc, /blue-/, "WorkspaceRolesEditor must not contain raw blue-* color classes");
 
   // Uses drafting table design typography
   assert.match(editorSrc, /nb-card-title/, "Section title must use nb-card-title token");
@@ -65,7 +65,7 @@ test("ProjectRolesEditor features a single-row layout with separate Occupied and
   assert.match(editorSrc, /Add position/, "Single row contains Add position CTA");
 });
 
-test("ProjectRolesEditor provides rich master-detail workspaces for Occupied and Open roles", () => {
+test("WorkspaceRolesEditor provides rich master-detail workspaces for Occupied and Open roles", () => {
   const editorSrc = source("src/components/workspaces/settings/WorkspaceRolesEditor.tsx");
 
   // Occupant profile inspection
@@ -88,11 +88,11 @@ test("project roles editor enforces 1 member = 1 seat invariant and unifies lead
   const settingsTab = componentSource("src/components/workspaces/tabs/WorkspaceSettingsTab.tsx");
   const editorSrc = source("src/components/workspaces/settings/WorkspaceRolesEditor.tsx");
 
-  // ProjectSettingsTab checks if openRoles already define the lead focus to prevent duplicate role synthesis
+  // WorkspaceSettingsTab checks if openRoles already define the lead focus to prevent duplicate role synthesis
   assert.match(settingsTab, /leadHasOpenRole/, "Must check leadHasOpenRole to prevent duplicate lead-role synthesis");
   assert.match(settingsTab, /if\s*\(leadHasOpenRole\)\s*\{\s*return\s*\{\s*roles:\s*openRoles\s*\};?\s*\}/, "Must return openRoles without duplicate lead-role when lead focus is already represented");
 
-  // ProjectRolesEditor enforces 1 member = 1 seat tracking
+  // WorkspaceRolesEditor enforces 1 member = 1 seat tracking
   assert.match(editorSrc, /assignedMemberIds/, "Must track assignedMemberIds to guarantee each member appears at most once in occupied");
   assert.match(editorSrc, /if\s*\(assignedMemberIds\.has\(m\.id\)\)\s*return\s*false;?/, "Must skip members who are already assigned to an occupied seat");
 

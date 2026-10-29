@@ -55,7 +55,7 @@ export function RunningOrgSprintPrompt({ org, canCreate, onCreateLinked }: { org
 }
 
 /** Org sprint: the child projects' linked sprints, and how many have none (report §15.4). */
-export function LinkedProjectsBlock({ org }: { org: SprintOrgContext }) {
+export function LinkedWorkspacesBlock({ org }: { org: SprintOrgContext }) {
     if (org.linkedProjects.length === 0 && org.notLinkedCount === 0) return null
     return (
         <section aria-label="Linked workspaces" className="mb-4 rounded-md border border-border p-3">

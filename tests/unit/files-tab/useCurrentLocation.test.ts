@@ -11,7 +11,7 @@ import assert from "node:assert/strict";
 import type { ProjectNode } from "@/lib/db/schema";
 import {
   defaultFilesState,
-  type ProjectFilesState,
+  type WorkspaceFilesState,
 } from "@/stores/files/types";
 import { selectCurrentLocation } from "@/components/workspaces/v2/files-tab/hooks/useCurrentLocation";
 
@@ -61,7 +61,7 @@ function makeFile(id: string, parentId: string | null): ProjectNode {
   } as unknown as ProjectNode;
 }
 
-function seedWorkspace(overrides: Partial<ProjectFilesState> = {}): ProjectFilesState {
+function seedWorkspace(overrides: Partial<WorkspaceFilesState> = {}): WorkspaceFilesState {
   return { ...defaultFilesState(), ...overrides };
 }
 

@@ -8,9 +8,9 @@ import Link from "@tiptap/extension-link";
 import { referenceLinkBackspaceExtension } from "@/lib/editor/reference-link-backspace";
 import { ListTodo, Paperclip, Timer } from "lucide-react";
 
-import type { ProjectUpdateContextKind } from "@/lib/workspaces/updates";
+import type { WorkspaceUpdateContextKind } from "@/lib/workspaces/updates";
 
-export interface ProjectUpdateEditorRef {
+export interface WorkspaceUpdateEditorRef {
     insertTextAtCursor: (text: string) => void;
 }
 
@@ -38,7 +38,7 @@ export function transformOutgoingContent(content: string): string {
     });
 }
 
-export function ProjectUpdateRichTextEditor({
+export function WorkspaceUpdateRichTextEditor({
     content,
     placeholder,
     onChange,
@@ -49,9 +49,9 @@ export function ProjectUpdateRichTextEditor({
     content: string;
     placeholder: string;
     onChange: (value: string) => void;
-    onCommand: (kind: ProjectUpdateContextKind) => void;
+    onCommand: (kind: WorkspaceUpdateContextKind) => void;
     onMention?: () => void;
-    editorRef?: React.MutableRefObject<ProjectUpdateEditorRef | null>;
+    editorRef?: React.MutableRefObject<WorkspaceUpdateEditorRef | null>;
 }) {
     const editorRootRef = useRef<HTMLDivElement | null>(null);
     const [slashMenuOpen, setSlashMenuOpen] = useState(false);
@@ -146,7 +146,7 @@ export function ProjectUpdateRichTextEditor({
         requestAnimationFrame(() => editor.commands.focus("end"));
     }, [editor]);
 
-    const runCommand = (kind: ProjectUpdateContextKind) => {
+    const runCommand = (kind: WorkspaceUpdateContextKind) => {
         if (editor) {
             const from = Math.max(1, editor.state.selection.from - 1);
             editor.commands.deleteRange({ from, to: editor.state.selection.from });

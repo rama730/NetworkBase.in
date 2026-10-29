@@ -5,8 +5,8 @@ import type {
     NotificationPreferenceCategory,
 } from "@/lib/notifications/types";
 
-export type ProjectNotificationPreset = "quiet" | "balanced" | "active";
-export type ProjectNotificationGroupId =
+export type WorkspaceNotificationPreset = "quiet" | "balanced" | "active";
+export type WorkspaceNotificationGroupId =
     | "membership_access"
     | "roles_applications"
     | "project_lifecycle"
@@ -21,7 +21,7 @@ export type ProjectNotificationGroupId =
     | "org_announcements"
     | "org_credit"
     | "org_sprints";
-export type ProjectNotificationRecipientGroup =
+export type WorkspaceNotificationRecipientGroup =
     | "owner"
     | "co_leaders"
     | "members"
@@ -33,9 +33,9 @@ export type ProjectNotificationRecipientGroup =
     | "applicant"
     | "affected_member"
     | "task_participants";
-export type ProjectNotificationAggregatePolicy = "none" | "burst_10m" | "digest_only";
+export type WorkspaceNotificationAggregatePolicy = "none" | "burst_10m" | "digest_only";
 
-export type ProjectNotificationEventKey =
+export type WorkspaceNotificationEventKey =
     | "members.joined"
     | "members.role_changed"
     | "members.removed"
@@ -109,67 +109,67 @@ export type OrgNotificationEventKey =
     | "org_sprints.completed"
     | "org_sprints.notice";
 
-export type ProjectNotificationRule = {
+export type WorkspaceNotificationRule = {
     enabled: boolean;
     importance: NotificationImportance;
-    aggregate?: ProjectNotificationAggregatePolicy;
+    aggregate?: WorkspaceNotificationAggregatePolicy;
 };
 
-export type ProjectNotificationPolicy = {
+export type WorkspaceNotificationPolicy = {
     version: 1;
-    preset: ProjectNotificationPreset;
-    rules: Record<ProjectNotificationEventKey, ProjectNotificationRule>;
+    preset: WorkspaceNotificationPreset;
+    rules: Record<WorkspaceNotificationEventKey, WorkspaceNotificationRule>;
 };
 
-export type ProjectMemberNotificationOverrides = {
+export type WorkspaceMemberNotificationOverrides = {
     version: 1;
     mode: "inherit" | "custom";
-    rules: Partial<Record<ProjectNotificationEventKey, boolean>>;
+    rules: Partial<Record<WorkspaceNotificationEventKey, boolean>>;
 };
 
-export type ProjectNotificationRegistryEntry = {
-    key: ProjectNotificationEventKey;
-    group: ProjectNotificationGroupId;
+export type WorkspaceNotificationRegistryEntry = {
+    key: WorkspaceNotificationEventKey;
+    group: WorkspaceNotificationGroupId;
     label: string;
     description: string;
     category: NotificationPreferenceCategory;
     notificationKind: NotificationKind;
     defaultEnabled: boolean;
     defaultImportance: NotificationImportance;
-    defaultRecipients: readonly ProjectNotificationRecipientGroup[];
+    defaultRecipients: readonly WorkspaceNotificationRecipientGroup[];
     allowMemberOverride: boolean;
     mandatory: boolean;
-    aggregate: ProjectNotificationAggregatePolicy;
+    aggregate: WorkspaceNotificationAggregatePolicy;
     visible: boolean;
 };
 
 /** Decision 38: every group belongs to one category of the single list in src/lib/copy/terms.ts. */
-const GROUP_CATEGORY: Record<ProjectNotificationGroupId, NotificationCategory | null> = {
+const GROUP_CATEGORY: Record<WorkspaceNotificationGroupId, NotificationCategory | null> = {
     membership_access: "members", roles_applications: "applications", project_lifecycle: "sprints", tasks_workflow: "tasks",
     files_workspace: "files", readme: "files", updates: "updates", security_audit: "security", future: null,
     org_membership: "members", org_assignments: "assignments", org_announcements: "updates", org_credit: "members", org_sprints: "sprints",
 };
-const categoryOf = (id: ProjectNotificationGroupId) => NOTIFICATION_CATEGORIES.find((c) => c.id === GROUP_CATEGORY[id]);
+const categoryOf = (id: WorkspaceNotificationGroupId) => NOTIFICATION_CATEGORIES.find((c) => c.id === GROUP_CATEGORY[id]);
 
-export const PROJECT_NOTIFICATION_GROUPS: Array<{
-    id: ProjectNotificationGroupId;
+export const WORKSPACE_NOTIFICATION_GROUPS: Array<{
+    id: WorkspaceNotificationGroupId;
     title: string;
     description: string;
     visible: boolean;
-}> = (Object.keys(GROUP_CATEGORY) as ProjectNotificationGroupId[]).map((id) => ({
+}> = (Object.keys(GROUP_CATEGORY) as WorkspaceNotificationGroupId[]).map((id) => ({
     id,
     title: categoryOf(id)?.label ?? "",
     description: categoryOf(id)?.description ?? "",
     visible: GROUP_CATEGORY[id] !== null,
 }));
 
-const ORG_GROUP_IDS = new Set<ProjectNotificationGroupId>(["org_membership", "org_assignments", "org_announcements", "org_credit", "org_sprints"]);
+const ORG_GROUP_IDS = new Set<WorkspaceNotificationGroupId>(["org_membership", "org_assignments", "org_announcements", "org_credit", "org_sprints"]);
 
 const ORG_KIND: Record<string, NotificationKind> = { org_membership: "org_membership", org_assignments: "org_assignment", org_announcements: "org_announcement", org_credit: "org_credit", org_sprints: "project_sprint_activity" };
 
 /** One line per org event: recipients are chosen by the trigger, so defaultRecipients only labels them. */
-const orgEvent = (key: OrgNotificationEventKey, group: ProjectNotificationGroupId, label: string, description: string,
-    importance: NotificationImportance, opts: { aggregate?: ProjectNotificationAggregatePolicy; mandatory?: boolean; recipients?: ProjectNotificationRecipientGroup[] } = {}): ProjectNotificationRegistryEntry => ({
+const orgEvent = (key: OrgNotificationEventKey, group: WorkspaceNotificationGroupId, label: string, description: string,
+    importance: NotificationImportance, opts: { aggregate?: WorkspaceNotificationAggregatePolicy; mandatory?: boolean; recipients?: WorkspaceNotificationRecipientGroup[] } = {}): WorkspaceNotificationRegistryEntry => ({
     key, group, label, description,
     category: group === "org_assignments" ? "tasks" : "projects",
     notificationKind: ORG_KIND[group]!,
@@ -179,9 +179,9 @@ const orgEvent = (key: OrgNotificationEventKey, group: ProjectNotificationGroupI
     aggregate: opts.aggregate ?? "none", visible: true,
 });
 
-const E = (entry: ProjectNotificationRegistryEntry) => entry;
+const E = (entry: WorkspaceNotificationRegistryEntry) => entry;
 
-export const PROJECT_NOTIFICATION_EVENT_REGISTRY = {
+export const WORKSPACE_NOTIFICATION_EVENT_REGISTRY = {
     "members.joined": E({
         key: "members.joined",
         group: "membership_access",
@@ -874,15 +874,15 @@ export const PROJECT_NOTIFICATION_EVENT_REGISTRY = {
     "org_sprints.started": orgEvent("org_sprints.started", "org_sprints", "Sprint started", "Members hear when an org sprint starts, if Notify on start is on.", "important", { recipients: ["members"] }),
     "org_sprints.completed": orgEvent("org_sprints.completed", "org_sprints", "Sprint closed", "Members hear an org sprint closed and how much of it they finished.", "more"),
     "org_sprints.notice": orgEvent("org_sprints.notice", "org_sprints", "Sprint steps", "Leads hear to plan or close their linked sprint; admins hear a sprint couldn’t start.", "important"),
-} as const satisfies Record<ProjectNotificationEventKey, ProjectNotificationRegistryEntry>;
+} as const satisfies Record<WorkspaceNotificationEventKey, WorkspaceNotificationRegistryEntry>;
 
-export const PROJECT_NOTIFICATION_EVENT_KEYS = Object.keys(PROJECT_NOTIFICATION_EVENT_REGISTRY) as ProjectNotificationEventKey[];
+export const WORKSPACE_NOTIFICATION_EVENT_KEYS = Object.keys(WORKSPACE_NOTIFICATION_EVENT_REGISTRY) as WorkspaceNotificationEventKey[];
 
-export function isProjectNotificationEventKey(value: unknown): value is ProjectNotificationEventKey {
-    return typeof value === "string" && value in PROJECT_NOTIFICATION_EVENT_REGISTRY;
+export function isWorkspaceNotificationEventKey(value: unknown): value is WorkspaceNotificationEventKey {
+    return typeof value === "string" && value in WORKSPACE_NOTIFICATION_EVENT_REGISTRY;
 }
 
-function defaultRuleFor(entry: ProjectNotificationRegistryEntry): ProjectNotificationRule {
+function defaultRuleFor(entry: WorkspaceNotificationRegistryEntry): WorkspaceNotificationRule {
     return {
         enabled: entry.mandatory ? true : entry.defaultEnabled,
         importance: entry.defaultImportance,
@@ -890,10 +890,10 @@ function defaultRuleFor(entry: ProjectNotificationRegistryEntry): ProjectNotific
     };
 }
 
-export function buildDefaultProjectNotificationPolicy(preset: ProjectNotificationPreset = "balanced"): ProjectNotificationPolicy {
-    const rules = {} as Record<ProjectNotificationEventKey, ProjectNotificationRule>;
-    for (const key of PROJECT_NOTIFICATION_EVENT_KEYS) {
-        const entry = PROJECT_NOTIFICATION_EVENT_REGISTRY[key];
+export function buildDefaultWorkspaceNotificationPolicy(preset: WorkspaceNotificationPreset = "balanced"): WorkspaceNotificationPolicy {
+    const rules = {} as Record<WorkspaceNotificationEventKey, WorkspaceNotificationRule>;
+    for (const key of WORKSPACE_NOTIFICATION_EVENT_KEYS) {
+        const entry = WORKSPACE_NOTIFICATION_EVENT_REGISTRY[key];
         const rule = defaultRuleFor(entry);
         if (!entry.mandatory) {
             if (preset === "quiet" && entry.defaultImportance !== "important") rule.enabled = false;
@@ -904,7 +904,7 @@ export function buildDefaultProjectNotificationPolicy(preset: ProjectNotificatio
     return { version: 1, preset, rules };
 }
 
-function normalizePreset(value: unknown): ProjectNotificationPreset {
+function normalizePreset(value: unknown): WorkspaceNotificationPreset {
     return value === "quiet" || value === "active" || value === "balanced" ? value : "balanced";
 }
 
@@ -912,23 +912,23 @@ function normalizeImportance(value: unknown, fallback: NotificationImportance): 
     return value === "important" || value === "more" ? value : fallback;
 }
 
-function normalizeAggregate(value: unknown, fallback: ProjectNotificationAggregatePolicy): ProjectNotificationAggregatePolicy {
+function normalizeAggregate(value: unknown, fallback: WorkspaceNotificationAggregatePolicy): WorkspaceNotificationAggregatePolicy {
     return value === "none" || value === "burst_10m" || value === "digest_only" ? value : fallback;
 }
 
-export function normalizeProjectNotificationPolicy(value: unknown): ProjectNotificationPolicy {
+export function normalizeWorkspaceNotificationPolicy(value: unknown): WorkspaceNotificationPolicy {
     const candidate = value && typeof value === "object" ? value as {
         preset?: unknown;
         rules?: Record<string, unknown>;
     } : {};
     const preset = normalizePreset(candidate.preset);
-    const base = buildDefaultProjectNotificationPolicy(preset);
+    const base = buildDefaultWorkspaceNotificationPolicy(preset);
     const rawRules = candidate.rules && typeof candidate.rules === "object" ? candidate.rules : {};
-    for (const key of PROJECT_NOTIFICATION_EVENT_KEYS) {
-        const entry = PROJECT_NOTIFICATION_EVENT_REGISTRY[key];
+    for (const key of WORKSPACE_NOTIFICATION_EVENT_KEYS) {
+        const entry = WORKSPACE_NOTIFICATION_EVENT_REGISTRY[key];
         const raw = rawRules[key];
         if (!raw || typeof raw !== "object") continue;
-        const rawRule = raw as Partial<Record<keyof ProjectNotificationRule, unknown>>;
+        const rawRule = raw as Partial<Record<keyof WorkspaceNotificationRule, unknown>>;
         base.rules[key] = {
             enabled: entry.mandatory ? true : typeof rawRule.enabled === "boolean" ? rawRule.enabled : base.rules[key].enabled,
             importance: normalizeImportance(rawRule.importance, base.rules[key].importance),
@@ -938,17 +938,17 @@ export function normalizeProjectNotificationPolicy(value: unknown): ProjectNotif
     return base;
 }
 
-export function normalizeProjectMemberNotificationOverrides(value: unknown): ProjectMemberNotificationOverrides {
+export function normalizeWorkspaceMemberNotificationOverrides(value: unknown): WorkspaceMemberNotificationOverrides {
     const candidate = value && typeof value === "object" ? value as {
         mode?: unknown;
         rules?: Record<string, unknown>;
     } : {};
     const mode = candidate.mode === "custom" ? "custom" : "inherit";
-    const rules: ProjectMemberNotificationOverrides["rules"] = {};
+    const rules: WorkspaceMemberNotificationOverrides["rules"] = {};
     if (candidate.rules && typeof candidate.rules === "object") {
         for (const [key, enabled] of Object.entries(candidate.rules)) {
-            if (!isProjectNotificationEventKey(key)) continue;
-            const entry = PROJECT_NOTIFICATION_EVENT_REGISTRY[key];
+            if (!isWorkspaceNotificationEventKey(key)) continue;
+            const entry = WORKSPACE_NOTIFICATION_EVENT_REGISTRY[key];
             if (entry.mandatory || !entry.allowMemberOverride) continue;
             if (typeof enabled === "boolean") rules[key] = enabled;
         }
@@ -956,12 +956,12 @@ export function normalizeProjectMemberNotificationOverrides(value: unknown): Pro
     return { version: 1, mode, rules };
 }
 
-export function resolveProjectNotificationDecision(params: {
-    eventKey: ProjectNotificationEventKey;
-    projectPolicy: ProjectNotificationPolicy;
-    memberOverrides?: ProjectMemberNotificationOverrides | null;
+export function resolveWorkspaceNotificationDecision(params: {
+    eventKey: WorkspaceNotificationEventKey;
+    projectPolicy: WorkspaceNotificationPolicy;
+    memberOverrides?: WorkspaceMemberNotificationOverrides | null;
 }) {
-    const entry = PROJECT_NOTIFICATION_EVENT_REGISTRY[params.eventKey];
+    const entry = WORKSPACE_NOTIFICATION_EVENT_REGISTRY[params.eventKey];
     const projectRule = params.projectPolicy.rules[params.eventKey] ?? defaultRuleFor(entry);
     if (entry.mandatory) {
         return { enabled: true, mandatory: true, rule: { ...projectRule, enabled: true } };
@@ -982,16 +982,16 @@ export function resolveProjectNotificationDecision(params: {
 }
 
 /** Org event groups show only for organizations; everything else is unchanged for projects. */
-export function getVisibleProjectNotificationEntries(isOrg = false) {
-    return PROJECT_NOTIFICATION_EVENT_KEYS
-        .map((key) => PROJECT_NOTIFICATION_EVENT_REGISTRY[key] as ProjectNotificationRegistryEntry)
+export function getVisibleWorkspaceNotificationEntries(isOrg = false) {
+    return WORKSPACE_NOTIFICATION_EVENT_KEYS
+        .map((key) => WORKSPACE_NOTIFICATION_EVENT_REGISTRY[key] as WorkspaceNotificationRegistryEntry)
         .filter((entry) => entry.visible && (isOrg || !ORG_GROUP_IDS.has(entry.group)));
 }
 
-export function groupProjectNotificationEntries(entries = getVisibleProjectNotificationEntries()) {
+export function groupWorkspaceNotificationEntries(entries = getVisibleWorkspaceNotificationEntries()) {
     // Groups in the same category (workspace and organization rules) show as one section.
-    const sections = new Map<string, (typeof PROJECT_NOTIFICATION_GROUPS)[number] & { entries: typeof entries }>();
-    for (const group of PROJECT_NOTIFICATION_GROUPS.filter((g) => g.visible)) {
+    const sections = new Map<string, (typeof WORKSPACE_NOTIFICATION_GROUPS)[number] & { entries: typeof entries }>();
+    for (const group of WORKSPACE_NOTIFICATION_GROUPS.filter((g) => g.visible)) {
         const own = entries.filter((entry) => entry.group === group.id);
         const section = sections.get(group.title);
         if (section) section.entries.push(...own);
@@ -1001,9 +1001,9 @@ export function groupProjectNotificationEntries(entries = getVisibleProjectNotif
     return [...sections.values()].filter((group) => group.entries.length > 0).sort((x, y) => order(x.title) - order(y.title));
 }
 
-export function summarizeProjectNotificationPolicy(policy: ProjectNotificationPolicy, isOrg = false) {
-    const visible = getVisibleProjectNotificationEntries(isOrg);
-    const enabled = visible.filter((entry) => resolveProjectNotificationDecision({ eventKey: entry.key, projectPolicy: policy }).enabled);
+export function summarizeWorkspaceNotificationPolicy(policy: WorkspaceNotificationPolicy, isOrg = false) {
+    const visible = getVisibleWorkspaceNotificationEntries(isOrg);
+    const enabled = visible.filter((entry) => resolveWorkspaceNotificationDecision({ eventKey: entry.key, projectPolicy: policy }).enabled);
     const mandatory = visible.filter((entry) => entry.mandatory);
     return {
         visibleCount: visible.length,
@@ -1018,23 +1018,23 @@ export function summarizeProjectNotificationPolicy(policy: ProjectNotificationPo
  * security stay on (mandatory events are never switched off). Switched-off rows disable the
  * non-mandatory events in their groups; switched-on rows keep the balanced defaults.
  */
-export const CREATE_PROJECT_NOTIFICATION_ROWS = [
+export const CREATE_WORKSPACE_NOTIFICATION_ROWS = [
     { id: "roles_applications", label: "Roles and applications", description: "Applications, decisions, and role changes.", groups: ["roles_applications"] },
     { id: "work", label: "Tasks and workflow", description: "Assignments, lifecycle stages, and file reviews.", groups: ["tasks_workflow", "project_lifecycle", "files_workspace"] },
     { id: "updates_docs", label: "Updates and doc changes", description: "Progress posts and documentation publishing.", groups: ["updates", "readme"] },
-] as const satisfies ReadonlyArray<{ id: string; label: string; description: string; groups: readonly ProjectNotificationGroupId[] }>;
+] as const satisfies ReadonlyArray<{ id: string; label: string; description: string; groups: readonly WorkspaceNotificationGroupId[] }>;
 
-export type CreateProjectNotificationRowId = (typeof CREATE_PROJECT_NOTIFICATION_ROWS)[number]["id"];
+export type CreateWorkspaceNotificationRowId = (typeof CREATE_WORKSPACE_NOTIFICATION_ROWS)[number]["id"];
 
-export function buildCreateProjectNotificationPolicy(
-    rows: Partial<Record<CreateProjectNotificationRowId, boolean>> | null | undefined,
-): ProjectNotificationPolicy {
-    const policy = buildDefaultProjectNotificationPolicy("balanced");
-    const offGroups = new Set<ProjectNotificationGroupId>(
-        CREATE_PROJECT_NOTIFICATION_ROWS.filter((row) => rows?.[row.id] === false).flatMap((row) => row.groups),
+export function buildCreateWorkspaceNotificationPolicy(
+    rows: Partial<Record<CreateWorkspaceNotificationRowId, boolean>> | null | undefined,
+): WorkspaceNotificationPolicy {
+    const policy = buildDefaultWorkspaceNotificationPolicy("balanced");
+    const offGroups = new Set<WorkspaceNotificationGroupId>(
+        CREATE_WORKSPACE_NOTIFICATION_ROWS.filter((row) => rows?.[row.id] === false).flatMap((row) => row.groups),
     );
-    for (const key of PROJECT_NOTIFICATION_EVENT_KEYS) {
-        const entry = PROJECT_NOTIFICATION_EVENT_REGISTRY[key];
+    for (const key of WORKSPACE_NOTIFICATION_EVENT_KEYS) {
+        const entry = WORKSPACE_NOTIFICATION_EVENT_REGISTRY[key];
         if (!entry.mandatory && offGroups.has(entry.group)) policy.rules[key].enabled = false;
     }
     return policy;

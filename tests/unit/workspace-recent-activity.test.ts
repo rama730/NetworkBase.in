@@ -6,24 +6,24 @@ import {
   describeGithubPush,
   describeMembershipEvent,
   isPublishableFileMetadata,
-  newestProjectActivities,
+  newestWorkspaceActivities,
   recentActivityAudience,
-  type ProjectRecentActivityItem,
+  type WorkspaceRecentActivityItem,
 } from "../../src/lib/workspaces/recent-activity";
 
 const root = process.cwd();
 
 test("recent activity orders all four categories and suppresses duplicate source events", () => {
-  const item = (id: string, type: ProjectRecentActivityItem["type"], minute: number): ProjectRecentActivityItem => ({
+  const item = (id: string, type: WorkspaceRecentActivityItem["type"], minute: number): WorkspaceRecentActivityItem => ({
     id, type, text: id, occurredAt: new Date(Date.UTC(2026, 8, 20, 12, minute)).toISOString(), href: "/workspaces/example",
   });
-  assert.deepEqual(newestProjectActivities([
+  assert.deepEqual(newestWorkspaceActivities([
     item("member:1", "member", 1), item("task:2", "task", 2), item("file:3", "file", 3),
     item("github:4", "github", 4), item("github:4", "github", 4),
   ]).map((entry) => entry.id), ["github:4", "file:3", "task:2"]);
   const file = item("file:first", "file", 1);
   const retry = { ...item("file:retry", "file", 4), href: file.href };
-  assert.deepEqual(newestProjectActivities([file, item("task:transition", "task", 2), retry]).map((entry) => entry.id),
+  assert.deepEqual(newestWorkspaceActivities([file, item("task:transition", "task", 2), retry]).map((entry) => entry.id),
     ["file:retry", "task:transition"]);
 });
 

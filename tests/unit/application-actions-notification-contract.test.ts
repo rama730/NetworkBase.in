@@ -28,7 +28,7 @@ test('reject application decision notifications are best-effort after persistenc
     assert.match(rejectAction, /await enqueueApplicationDecisionBestEffort\(\{[\s\S]*status:\s*'rejected'/);
     assert.match(rejectAction, /actorUserId:\s*user\.id/);
     assert.match(rejectAction, /traceId/);
-    assert.match(enqueueBestEffort, /try\s*\{[\s\S]*await enqueueProjectNotificationEvent\(\{/);
+    assert.match(enqueueBestEffort, /try\s*\{[\s\S]*await enqueueWorkspaceNotificationEvent\(\{/);
     assert.match(enqueueBestEffort, /catch \(notificationError\) \{[\s\S]*Failed to enqueue application decision notification/);
 
     const notificationStart = rejectAction.indexOf('await enqueueApplicationDecisionBestEffort');

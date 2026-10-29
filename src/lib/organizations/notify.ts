@@ -8,7 +8,7 @@ import { emailEnabled, type OrgEmailKind } from "@/lib/email/contracts";
 import { queueEmail, queueEmails, wakeEmailWorker } from "@/lib/email/outbox";
 import type { OrgEmailData, OrgEmailPerson } from "@/lib/email/org-templates";
 import { logger } from "@/lib/logger";
-import { enqueueProjectNotificationEvent } from "@/lib/notifications/workspace-events";
+import { enqueueWorkspaceNotificationEvent } from "@/lib/notifications/workspace-events";
 import type { OrgNotificationEventKey } from "@/lib/notifications/workspace-policy";
 import type { NotificationEntityRefs } from "@/lib/notifications/types";
 import { audienceAllows, type UpdateAudience } from "@/lib/organizations/update-rules";
@@ -49,7 +49,7 @@ export async function orgEmailBase(orgId: string, actorId?: string | null): Prom
 
 export async function notifyOrg(notice: OrgNotice) {
   try {
-    await enqueueProjectNotificationEvent({
+    await enqueueWorkspaceNotificationEvent({
       projectId: notice.orgId,
       eventKey: notice.eventKey,
       actorUserId: notice.actorId ?? null,

@@ -62,7 +62,7 @@ import fc from "fast-check";
 import type { ProjectNode } from "@/lib/db/schema";
 import {
   defaultFilesState,
-  type ProjectFilesState,
+  type WorkspaceFilesState,
 } from "@/stores/files/types";
 import { selectCurrentLocation } from "@/components/workspaces/v2/files-tab/hooks/useCurrentLocation";
 
@@ -274,7 +274,7 @@ function expectedMetadata(
   nodesById: Record<string, ProjectNode>,
   currentLocationId: string | null,
 ): ExpectedMetadata {
-  const workspace: ProjectFilesState = {
+  const workspace: WorkspaceFilesState = {
     ...defaultFilesState(),
     nodesById,
     currentLocationId,
@@ -308,7 +308,7 @@ describe("metadata_matches_selection — Property 2 (Task 2.8)", () => {
           // a simple assignment is equivalent.
           currentLocationId = target;
 
-          const workspace: ProjectFilesState = {
+          const workspace: WorkspaceFilesState = {
             ...defaultFilesState(),
             nodesById: flat.nodesById,
             currentLocationId,

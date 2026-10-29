@@ -224,10 +224,10 @@ test("§20 pass: Max members holds for invites; bulk Remind; drawer activity; Ou
   await sql`UPDATE projects SET visibility = 'public', status = 'active' WHERE id = ${o.orgId}`;
   const tasksServer = await loadAppModule(() => import("../../src/lib/workspaces/server/tasks"));
   viewerId = outsider;
-  const seen = await tasksServer.getProjectMembersAction(o.orgId, 50);
+  const seen = await tasksServer.getWorkspaceMembersAction(o.orgId, 50);
   const ids = (seen as { members?: Array<{ id: string }> }).members?.map((x) => x.id) ?? [];
   assert.ok(ids.length > 0 && !ids.includes(o.b), JSON.stringify(seen).slice(0, 300));
   viewerId = o.admin;
-  const inside = (await tasksServer.getProjectMembersAction(o.orgId, 50)) as { members?: Array<{ id: string }> };
+  const inside = (await tasksServer.getWorkspaceMembersAction(o.orgId, 50)) as { members?: Array<{ id: string }> };
   assert.ok(inside.members?.some((x) => x.id === o.b), "members still see everyone");
 });

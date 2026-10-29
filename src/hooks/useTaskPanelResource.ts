@@ -6,7 +6,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import { getTaskAttachments } from "@/app/actions/files/links";
 import {
-  getProjectTaskDetailAction,
+  getWorkspaceTaskDetailAction,
 } from "@/app/actions/workspace";
 import {
   createSubtaskAction,
@@ -516,7 +516,7 @@ export function useTaskPanelResource(params: {
 
   const loadTask = useCallback(async () => {
     const requestedTaskId = task.id;
-    const result = await getProjectTaskDetailAction(projectId, task.id);
+    const result = await getWorkspaceTaskDetailAction(projectId, task.id);
     if (taskIdRef.current !== requestedTaskId) return;
     // COR-026: a task deleted elsewhere turns the drawer read-only instead of failing each edit.
     if (!result.success || !result.task) {

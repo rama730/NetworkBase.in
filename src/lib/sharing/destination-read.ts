@@ -2,7 +2,7 @@ import 'server-only';
 import {sql} from 'drizzle-orm';
 
 /** Canonical channel identity/read state, used only by sharing destination reads (c, m, p aliases). */
-export function shareDestinationProjection(viewerId: string) {
+export function shareDestinationWorkspaceion(viewerId: string) {
   return sql`c.id, c.kind, c.name, CASE WHEN c.application_id IS NOT NULL THEN coalesce(nullif(c.title,''),(
       SELECT concat_ws(' · ',coalesce(ap.full_name,ap.username,'Applicant'),coalesce(nullif(a.accepted_role_title,''),nullif(r.title,''),nullif(r.role,''),'Application'))
       FROM role_applications a LEFT JOIN project_open_roles r ON r.id = a.role_id

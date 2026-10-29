@@ -19,7 +19,7 @@ const IMPORT_UTILS_SRC = readFileSync(
 test("GitHub project import enqueue has a local inline fallback", () => {
   assert.match(
     PROJECT_ACTIONS_SRC,
-    /import\s*\{\s*runGithubProjectImport\s*\}\s*from\s*['"]@\/lib\/github\/workspace-import-runner['"]/,
+    /import\s*\{\s*runGithubWorkspaceImport\s*\}\s*from\s*['"]@\/lib\/github\/workspace-import-runner['"]/,
     "project actions must import the shared GitHub import runner",
   );
   assert.match(
@@ -34,7 +34,7 @@ test("GitHub project import enqueue has a local inline fallback", () => {
   );
   assert.match(
     PROJECT_ACTIONS_SRC,
-    /runGithubProjectImport\s*\(/,
+    /runGithubWorkspaceImport\s*\(/,
     "queue failure fallback must execute the shared import runner",
   );
 
@@ -51,7 +51,7 @@ test("GitHub project import enqueue has a local inline fallback", () => {
 test("Inngest project import function delegates to the shared runner", () => {
   assert.match(
     PROJECT_IMPORT_FUNCTION_SRC,
-    /runGithubProjectImport/,
+    /runGithubWorkspaceImport/,
     "Inngest project import must use the same runner as inline fallback",
   );
 });

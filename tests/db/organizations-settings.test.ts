@@ -164,7 +164,7 @@ test("§21 Work: type defaults, admins save the section, composer and sprint def
   await sql`INSERT INTO project_members (project_id, user_id, role, unit_id) VALUES (${child}, ${member}, 'owner', NULL), (${child}, ${outsider}, 'member', ${unit!.id})`;
   const settingsServer = await loadAppModule(() => import("../../src/lib/workspaces/server/settings"));
   viewerId = member;
-  const collab = await settingsServer.getProjectCollaboratorSettingsAction(child, {});
+  const collab = await settingsServer.getWorkspaceCollaboratorSettingsAction(child, {});
   assert.ok(collab.success, JSON.stringify(collab).slice(0, 300));
   const row = collab.success ? collab.data.members.find((m) => m.id === outsider) : undefined;
   const [{ title: orgTitle }] = await sql`SELECT title FROM projects WHERE id = ${id}`;

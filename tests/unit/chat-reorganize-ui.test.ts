@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { conversationTabs } from "@/lib/messaging/channel-tabs";
-import { channelTitle, channelsByProject, needsAttention, sectionsFor } from "@/lib/messaging/channel-view";
+import { channelTitle, channelsByWorkspace, needsAttention, sectionsFor } from "@/lib/messaging/channel-view";
 import { asDetailsTab, conversationHref, threadHref } from "@/lib/messaging/routes";
 import type { ChatBootstrap, ChatChannelSummary } from "@/lib/messaging/types";
 
@@ -59,7 +59,7 @@ test("sidebar: starred by recent activity, All workspaces grouping, unread atten
     ],
   };
   assert.deepEqual(sectionsFor(data, null).starred.map((c) => c.id), ["b", "a"]);
-  const groups = channelsByProject(data);
+  const groups = channelsByWorkspace(data);
   assert.deepEqual(groups.get("p1")?.map((c) => c.id), ["a", "b"]);
   assert.deepEqual(groups.get("p2")?.map((c) => c.id), ["c", "muted"], "default first; application threads live in their own section");
   assert.deepEqual(sectionsFor(data, null).applications.map((c) => c.id), ["d"]);

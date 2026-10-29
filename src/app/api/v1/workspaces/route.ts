@@ -3,15 +3,15 @@ import { z } from 'zod'
 
 import { jsonError, jsonSuccess } from '@/app/api/v1/_envelope'
 import { consumeRateLimitForRoute } from '@/lib/security/rate-limit'
-import { decodePublicProjectsCursor } from '@/lib/workspaces/public-feed'
+import { decodePublicWorkspacesCursor } from '@/lib/workspaces/public-feed'
 import {
-    PUBLIC_PROJECTS_FEED_DEFAULT_LIMIT,
-    PUBLIC_PROJECTS_FEED_MAX_LIMIT,
-    queryAndCachePublicProjectsFeed,
-    readPublicProjectsFeedCache,
+    PUBLIC_WORKSPACES_FEED_DEFAULT_LIMIT,
+    PUBLIC_WORKSPACES_FEED_MAX_LIMIT,
+    queryAndCachePublicWorkspacesFeed,
+    readPublicWorkspacesFeedCache,
     forViewer,
 } from '@/lib/workspaces/public-feed-service'
-import type { PublicProjectsFeedItem } from '@/lib/workspaces/public-feed'
+import type { PublicWorkspacesFeedItem } from '@/lib/workspaces/public-feed'
 import { getViewerAuthContext } from '@/lib/server/viewer-context'
 import { logger } from '@/lib/logger'
 import { getTrustedRequestIp } from '@/lib/security/request-ip'
@@ -70,7 +70,7 @@ function cacheHeaders(state: 'fresh' | 'stale', viewerId: string | null) {
 }
 
 /** The ETag covers the whole body, so any change to any project (or the cursor) is a new tag. */
-function feedETag(body: { projects: PublicProjectsFeedItem[]; nextCursor: string | null }) {
+function feedETag(body: { projects: PublicWorkspacesFeedItem[]; nextCursor: string | null }) {
     return `W/"feed-${createHash('sha1').update(JSON.stringify(body)).digest('hex').slice(0, 20)}"`
 }
 
@@ -104,8 +104,8 @@ const projectsQuerySchema = z.object({
     limit: z
         .string()
         .optional()
-        .transform((v) => (v ? Number(v) : PUBLIC_PROJECTS_FEED_DEFAULT_LIMIT))
-        .pipe(z.number().int().min(1).max(PUBLIC_PROJECTS_FEED_MAX_LIMIT)),
+        .transform((v) => (v ? Number(v) : PUBLIC_WORKSPACES_FEED_DEFAULT_LIMIT))
+        .pipe(z.number().int().min(1).max(PUBLIC_WORKSPACES_FEED_MAX_LIMIT)),
     cursor: z.string().optional(),
 })
 
@@ -133,7 +133,7 @@ export async function GET(request: Request) {
 
     const limit = queryParse.data.limit
     const rawCursor = queryParse.data.cursor ?? null
-    const cursor = decodePublicProjectsCursor(rawCursor)
+    const cursor = decodePublicWorkspacesCursor(rawCursor)
     // A cursor that doesn't decode is a bad request, not page 1 again (that would repeat the feed).
     if (rawCursor && !cursor) {
         logProjectsRequest(request, { requestId, startedAt, status: 400, success: false, source: 'request', errorCode: 'BAD_REQUEST' })
@@ -164,7 +164,7 @@ export async function GET(request: Request) {
     }
 
     const respond = async (
-        page: { projects: PublicProjectsFeedItem[]; nextCursor: string | null },
+        page: { projects: PublicWorkspacesFeedItem[]; nextCursor: string | null },
         state: 'fresh' | 'stale',
         source: 'redis' | 'redis-stale' | 'database',
         cacheState: 'fresh' | 'stale' | 'miss',
@@ -183,9 +183,9 @@ export async function GET(request: Request) {
 
     // One try for every path, and every respond() awaited, so a failure anywhere (cache, block lookup,
     // database) reaches the stale fallback or the 503 below.
-    let staleCache: Awaited<ReturnType<typeof readPublicProjectsFeedCache>>['stale'] = null
+    let staleCache: Awaited<ReturnType<typeof readPublicWorkspacesFeedCache>>['stale'] = null
     try {
-        const cached = await readPublicProjectsFeedCache(limit, cursor)
+        const cached = await readPublicWorkspacesFeedCache(limit, cursor)
         if (cached.fresh) return await respond(cached.fresh.value, 'fresh', 'redis', 'fresh')
         staleCache = cached.stale
 
@@ -213,7 +213,7 @@ export async function GET(request: Request) {
         }
 
         // The cache was just read and missed: go straight to the database (no second Redis read).
-        const payload = await queryAndCachePublicProjectsFeed(limit, cursor)
+        const payload = await queryAndCachePublicWorkspacesFeed(limit, cursor)
         return await respond(payload, 'fresh', 'database', 'miss')
     } catch (error) {
         if (staleCache) {

@@ -47,7 +47,7 @@ import {
 } from "@/lib/files/file-lock-service";
 import {
   recordNodeEvent,
-  assertProjectWriteAccessTx,
+  assertWorkspaceWriteAccessTx,
 } from "@/lib/files/internal-helpers";
 
 type Transaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
@@ -509,7 +509,7 @@ export async function runReviewedGitHubSync(
       // A PR branch is published but is not a baseline for the configured destination branch.
       if (manifest.mode === "direct")
         await db.transaction(async (tx) => {
-          await assertProjectWriteAccessTx(tx, projectId, actorId);
+          await assertWorkspaceWriteAccessTx(tx, projectId, actorId);
           const locked = await tx.execute(
             sql`SELECT id FROM github_sync_runs WHERE id=${runId} AND lease_id=${leaseId} AND status='running' FOR UPDATE`,
           );
@@ -677,7 +677,7 @@ export async function runReviewedGitHubSync(
                 });
               } else
                 await db.transaction(async (tx) => {
-                  await assertProjectWriteAccessTx(tx, projectId, actorId);
+                  await assertWorkspaceWriteAccessTx(tx, projectId, actorId);
                   await assertOwnedFileLease(tx, {
                     projectId,
                     nodeId: file.nodeId!,
@@ -722,7 +722,7 @@ export async function runReviewedGitHubSync(
             file.snapshotKey,
           );
           await db.transaction(async (tx) => {
-            await assertProjectWriteAccessTx(tx, projectId, actorId);
+            await assertWorkspaceWriteAccessTx(tx, projectId, actorId);
             const collision = await tx.query.projectNodes.findFirst({
               where: and(
                 eq(projectNodes.projectId, projectId),
@@ -788,7 +788,7 @@ export async function runReviewedGitHubSync(
     await update({ result, stage: "Recording synchronization result" });
     const taskCompletion = await db.transaction(async (tx) => {
       let completion: { taskId: string; locked: Awaited<ReturnType<typeof lockTaskForWrite>>; result: Awaited<ReturnType<typeof transitionTaskTx>> } | null = null;
-      await assertProjectWriteAccessTx(tx, projectId, actorId);
+      await assertWorkspaceWriteAccessTx(tx, projectId, actorId);
       const locked = await tx.execute(
         sql`SELECT id FROM github_sync_runs WHERE id=${runId} AND lease_id=${leaseId} AND status='running' FOR UPDATE`,
       );

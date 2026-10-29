@@ -10,7 +10,7 @@ import { profileAuditEvents, profiles, storageAssets, storageQuotaScopes } from 
 import { eq, and, desc, inArray, sql } from 'drizzle-orm'
 import { revalidatePath, revalidateTag } from 'next/cache'
 import { DISCOVER_ANON_CACHE_TAG } from '@/constants/discover'
-import { invalidatePublicProjectsFeedCache } from '@/lib/workspaces/public-feed-service'
+import { invalidatePublicWorkspacesFeedCache } from '@/lib/workspaces/public-feed-service'
 import { consumeRateLimit } from '@/lib/security/rate-limit'
 import {
     normalizeProfileUpdateInput,
@@ -764,7 +764,7 @@ export async function updateProfileAction(data: UpdateProfileInput): Promise<Upd
         }
         // Discover shows creators' names and avatars, masked when private: drop its caches when any of that changes.
         if (patch.visibility !== undefined || patch.fullName !== undefined || patch.username !== undefined || patch.avatarUrl !== undefined) {
-            await invalidatePublicProjectsFeedCache().catch(() => undefined)
+            await invalidatePublicWorkspacesFeedCache().catch(() => undefined)
             revalidateTag(DISCOVER_ANON_CACHE_TAG, { expire: 0 })
         }
         if (patch.openToCollaborate !== undefined || patch.openTo !== undefined || patch.openToCustomRoles !== undefined || patch.preferredCategories !== undefined) {

@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { Plus, Search, X, ChevronRight, ChevronDown } from "lucide-react";
 
 import {
-  buildProjectSprintDetailHref,
+  buildWorkspaceSprintDetailHref,
   formatSprintDateRange,
   SPRINT_STATUS_PRESENTATION,
   type SprintListItem,
@@ -144,7 +144,7 @@ export function SprintLeftRail({
         value={selectedSprintId ?? ""}
         onChange={(event) => {
           const sprint = sprints.find((item) => item.id === event.target.value);
-          if (sprint) router.push(buildProjectSprintDetailHref(projectSlug, sprint.id, { sprintCode: sprint.code }));
+          if (sprint) router.push(buildWorkspaceSprintDetailHref(projectSlug, sprint.id, { sprintCode: sprint.code }));
         }}
         className="h-11 min-w-0 flex-1 rounded-[5px] border border-border bg-card px-3 text-[16px] text-foreground"
       >
@@ -281,7 +281,7 @@ export function SprintLeftRail({
                       return (
                         <Link
                           key={sprint.id}
-                          href={buildProjectSprintDetailHref(
+                          href={buildWorkspaceSprintDetailHref(
                             projectSlug,
                             sprint.id,
                             { sprintCode: sprint.code },

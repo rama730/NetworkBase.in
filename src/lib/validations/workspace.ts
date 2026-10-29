@@ -1,7 +1,7 @@
 import { ORG_TYPES } from '@/lib/organizations/config';
 import { z } from 'zod';
 import { isValidGithubBranchName, normalizeGithubRepoUrl } from '@/lib/github/repo-validation';
-import { validateProjectSocialLinks } from '@/lib/workspaces/social-links';
+import { validateWorkspaceSocialLinks } from '@/lib/workspaces/social-links';
 
 // Open Role Schema
 export const openRoleSchema = z.object({
@@ -62,7 +62,7 @@ export const externalLinksSchema = z.union([
     legacyExternalLinksSchema,
     z.array(orderedExternalLinkSchema).max(20),
 ]).superRefine((value, ctx) => {
-    const validation = validateProjectSocialLinks(value);
+    const validation = validateWorkspaceSocialLinks(value);
     if (!validation.success) ctx.addIssue({ code: z.ZodIssueCode.custom, message: validation.error });
 });
 
@@ -76,8 +76,8 @@ export const projectPublicTabsSchema = z.object({
     tasks: z.boolean(),
 });
 
-// Three create-time switches over the project notification policy groups (see CREATE_PROJECT_NOTIFICATION_ROWS).
-export const createProjectNotificationRowsSchema = z.object({
+// Three create-time switches over the project notification policy groups (see CREATE_WORKSPACE_NOTIFICATION_ROWS).
+export const createWorkspaceNotificationRowsSchema = z.object({
     roles_applications: z.boolean().default(true),
     work: z.boolean().default(true),
     updates_docs: z.boolean().default(true),
@@ -93,10 +93,10 @@ export const projectDocCreationIntentSchema = z.object({
 });
 
 // Main Project Schema
-// updateProject: owner edits from the modal and Settings. Archive and stage moves have their own
+// updateWorkspace: owner edits from the modal and Settings. Archive and stage moves have their own
 // guarded actions, so neither `archived` nor `currentStageIndex` is accepted here.
 const boundedText = (max: number) => z.string().trim().max(max);
-export const updateProjectSchema = z.object({
+export const updateWorkspaceSchema = z.object({
     title: boundedText(100).min(1, 'Title is required').optional(),
     shortDescription: boundedText(200).nullable().optional(),
     description: boundedText(5000).nullable().optional(),
@@ -118,11 +118,11 @@ export const updateProjectSchema = z.object({
     memberUpdatesEnabled: z.boolean().optional(),
     memberFileUploadDefault: z.boolean().optional(),
 }).strict();
-export type UpdateProjectInput = z.infer<typeof updateProjectSchema>;
+export type UpdateWorkspaceInput = z.infer<typeof updateWorkspaceSchema>;
 
 const orgRoleName = z.string().trim().min(1, 'Give every role a name.').max(30);
 
-export const createProjectSchema = z.object({
+export const createWorkspaceSchema = z.object({
     title: z.string().trim().min(3, 'Title must be at least 3 characters').max(100, 'Use 100 characters or fewer'),
     description: z.string().trim().min(20, 'Description must be at least 20 characters').max(5000, 'Description must be 5000 characters or fewer'),
     short_description: z.string().trim().max(200).optional(),
@@ -148,7 +148,7 @@ export const createProjectSchema = z.object({
     member_updates_enabled: z.boolean().default(true),
     member_file_upload_default: z.boolean().default(true),
     doc_edit_policy: z.enum(['leaders', 'members']).default('leaders'),
-    notification_rows: createProjectNotificationRowsSchema.optional(),
+    notification_rows: createWorkspaceNotificationRowsSchema.optional(),
     readme: projectDocCreationIntentSchema.default({
         mode: 'starter',
         sourcePath: null,
@@ -292,7 +292,7 @@ export const createProjectSchema = z.object({
     }
 });
 
-export type CreateProjectInput = z.infer<typeof createProjectSchema>;
+export type CreateWorkspaceInput = z.infer<typeof createWorkspaceSchema>;
 
 export function validateAndSanitizeLifecycleStages(rawStages: string[]): string[] {
     if (!rawStages || rawStages.length === 0) {

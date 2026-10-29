@@ -67,16 +67,16 @@ export async function saveCanvas(input: { channelId: string; title: string; body
   }
 }
 
-export type ProjectCanvas = { channel_id: string; channel_name: string | null; title: string; preview: string; updated_at: string; updated_by_name: string | null };
+export type WorkspaceCanvas = { channel_id: string; channel_name: string | null; title: string; preview: string; updated_at: string; updated_by_name: string | null };
 
 /** Canvases in the user's other channels of a project, for "Existing canvas". */
-export async function listProjectCanvases(input: { projectId: string; exceptChannelId?: string }) {
+export async function listWorkspaceCanvases(input: { projectId: string; exceptChannelId?: string }) {
   const user = await requireChatUser();
   if (!user) return unauthorized;
   if (!isUuid(input?.projectId)) return invalidInput;
   const except = isUuid(input.exceptChannelId) ? input.exceptChannelId : null;
   try {
-    const canvases = await chatRows<ProjectCanvas>(sql`
+    const canvases = await chatRows<WorkspaceCanvas>(sql`
       SELECT c.channel_id, ch.name AS channel_name, c.title, left(c.body, 160) AS preview, c.updated_at,
              coalesce(p.full_name, p.username) AS updated_by_name
       FROM chat_canvases c

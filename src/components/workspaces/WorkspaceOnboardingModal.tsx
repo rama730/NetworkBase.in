@@ -14,7 +14,7 @@ interface ProjectOnboardingModalProps {
     onViewDocs: () => void;
 }
 
-export function ProjectOnboardingModal({
+export function WorkspaceOnboardingModal({
     isOpen,
     onClose,
     projectTitle,

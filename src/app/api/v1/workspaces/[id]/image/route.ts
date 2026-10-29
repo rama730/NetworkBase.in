@@ -4,7 +4,7 @@ import { and, eq, isNull } from "drizzle-orm";
 
 import { db } from "@/lib/db";
 import { projects, storageAssets } from "@/lib/db/schema";
-import { getProjectAccessById } from "@/lib/data/workspace-access";
+import { getWorkspaceAccessById } from "@/lib/data/workspace-access";
 import { createAdminClient, createClient } from "@/lib/supabase/server";
 import { logger } from "@/lib/logger";
 import { streamPrivateObject } from "@/lib/storage/private-object-response";
@@ -40,7 +40,7 @@ export async function GET(
     }
     // Access check and cover lookup don't depend on each other.
     const [access, [project]] = await Promise.all([
-        getProjectAccessById(projectId, user?.id ?? null),
+        getWorkspaceAccessById(projectId, user?.id ?? null),
         db
             .select({ bucket: projects.coverImageBucket, key: projects.coverImageKey })
             .from(projects)

@@ -46,8 +46,8 @@ import {
 import { redactSyncManifest } from "@/lib/github/sync-contract";
 import { buildGithubAccountConnectionState } from "@/lib/github/connection-state";
 import { loadGithubLinkedUser } from "@/lib/github/linked-user";
-import { assertProjectFileReadAccess } from "@/lib/files/internal-helpers";
-import { assertProjectTabReadAccess } from "@/lib/data/workspace-access";
+import { assertWorkspaceFileReadAccess } from "@/lib/files/internal-helpers";
+import { assertWorkspaceTabReadAccess } from "@/lib/data/workspace-access";
 import { ensureDefaultGithubContributorIdentity } from "@/lib/github/contributor-identity";
 import { resolveGithubUserAccessToken } from "@/lib/github/user-access-token";
 import { GITHUB_SYNC_LIMITS } from "@/lib/github/sync-limits";
@@ -746,7 +746,7 @@ export async function getHeaderGitHubSyncStatus(projectId: string) {
   return result(async () => {
     idSchema.parse(projectId);
     const { user, token } = await session();
-    await assertProjectFileReadAccess(projectId, user.id);
+    await assertWorkspaceFileReadAccess(projectId, user.id);
 
     const [connection, latestRun] = await Promise.all([
       db.query.githubSyncConnections.findFirst({
@@ -1041,12 +1041,12 @@ export async function approveGitHubCommitIdentity(email: string) {
   });
 }
 
-export async function getProjectSyncTasks(projectId: string) {
+export async function getWorkspaceSyncTasks(projectId: string) {
   return result(async () => {
     idSchema.parse(projectId);
     const { user } = await session();
     // Task titles are Tasks-tab data, not Files data (COR-038).
-    await assertProjectTabReadAccess(projectId, user.id, "tasks");
+    await assertWorkspaceTabReadAccess(projectId, user.id, "tasks");
     const project = await db.query.projects.findFirst({
       where: and(eq(projects.id, projectId), isNull(projects.deletedAt)),
       columns: { key: true },

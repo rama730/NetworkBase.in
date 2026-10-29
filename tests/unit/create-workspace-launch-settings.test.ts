@@ -3,24 +3,24 @@ import { existsSync, readFileSync } from 'node:fs';
 import test from 'node:test';
 
 import {
-    PROJECT_NOTIFICATION_EVENT_KEYS,
-    PROJECT_NOTIFICATION_EVENT_REGISTRY,
-    buildCreateProjectNotificationPolicy,
-    buildDefaultProjectNotificationPolicy,
+    WORKSPACE_NOTIFICATION_EVENT_KEYS,
+    WORKSPACE_NOTIFICATION_EVENT_REGISTRY,
+    buildCreateWorkspaceNotificationPolicy,
+    buildDefaultWorkspaceNotificationPolicy,
 } from '../../src/lib/notifications/workspace-policy';
-import { createProjectSchema } from '../../src/lib/validations/workspace';
+import { createWorkspaceSchema } from '../../src/lib/validations/workspace';
 import { projectActionsSource } from "./_workspace-actions-source";
 
 const read = (path: string) => readFileSync(path, 'utf8');
 
 test('step 4 notification switches: on keeps defaults, off silences only that area, mandatory stays on', () => {
-    const defaults = buildDefaultProjectNotificationPolicy('balanced');
-    assert.deepEqual(buildCreateProjectNotificationPolicy(undefined), defaults);
-    assert.deepEqual(buildCreateProjectNotificationPolicy({ roles_applications: true, work: true, updates_docs: true }), defaults);
+    const defaults = buildDefaultWorkspaceNotificationPolicy('balanced');
+    assert.deepEqual(buildCreateWorkspaceNotificationPolicy(undefined), defaults);
+    assert.deepEqual(buildCreateWorkspaceNotificationPolicy({ roles_applications: true, work: true, updates_docs: true }), defaults);
 
-    const policy = buildCreateProjectNotificationPolicy({ work: false });
-    for (const key of PROJECT_NOTIFICATION_EVENT_KEYS) {
-        const entry = PROJECT_NOTIFICATION_EVENT_REGISTRY[key];
+    const policy = buildCreateWorkspaceNotificationPolicy({ work: false });
+    for (const key of WORKSPACE_NOTIFICATION_EVENT_KEYS) {
+        const entry = WORKSPACE_NOTIFICATION_EVENT_REGISTRY[key];
         const inWork = ['tasks_workflow', 'project_lifecycle', 'files_workspace'].includes(entry.group);
         const expected = inWork && !entry.mandatory ? false : defaults.rules[key].enabled;
         assert.equal(policy.rules[key].enabled, expected, key);
@@ -29,7 +29,7 @@ test('step 4 notification switches: on keeps defaults, off silences only that ar
 });
 
 test('launch settings parse with Workspace settings defaults when untouched', () => {
-    const parsed = createProjectSchema.parse({
+    const parsed = createWorkspaceSchema.parse({
         title: 'Launch-ready project',
         description: 'A sufficiently detailed description for project creation validation.',
         project_type: 'web_app',
@@ -42,10 +42,10 @@ test('launch settings parse with Workspace settings defaults when untouched', ()
 
 test('create saves every step 4 setting; new members inherit the upload default', () => {
     const action = projectActionsSource();
-    assert.match(action, /publicTabVisibility: normalizeProjectPublicTabVisibility\(input\.public_tab_visibility\)/);
+    assert.match(action, /publicTabVisibility: normalizeWorkspacePublicTabVisibility\(input\.public_tab_visibility\)/);
     assert.match(action, /memberUpdatesEnabled: input\.member_updates_enabled !== false/);
     assert.match(action, /memberFileUploadDefault: input\.member_file_upload_default !== false/);
-    assert.match(action, /notificationPreferences: buildCreateProjectNotificationPolicy\(input\.notification_rows\)/);
+    assert.match(action, /notificationPreferences: buildCreateWorkspaceNotificationPolicy\(input\.notification_rows\)/);
     assert.match(action, /updateValues\.memberFileUploadDefault = raw\.memberFileUploadDefault/);
 
     const lifecycle = read('src/lib/workspaces/collaborator-lifecycle.ts');
@@ -58,7 +58,7 @@ test('create saves every step 4 setting; new members inherit the upload default'
 
     const settings = read('src/components/workspaces/tabs/WorkspaceSettingsTab.tsx');
     assert.match(settings, /aria-label="New members can upload files"/);
-    assert.match(settings, /updateProject\(projectId, \{ memberFileUploadDefault: enabled \}\)/);
+    assert.match(settings, /updateWorkspace\(projectId, \{ memberFileUploadDefault: enabled \}\)/);
 });
 
 test('step 4 shows the eight Workspace settings sections in order; picture and doc editing apply after create', () => {
@@ -73,8 +73,8 @@ test('step 4 shows the eight Workspace settings sections in order; picture and d
     assert.match(phase, /useWatch\(\{/);
 
     const hook = read('src/components/workspaces/create-wizard/useCreateWorkspaceWizard.ts');
-    assert.match(hook, /await uploadProjectImage\(projectId, projectImage\)/);
-    assert.match(hook, /updateProjectDocSettingsAction\(projectId, \{ editPolicy: 'members' \}\)/);
+    assert.match(hook, /await uploadWorkspaceImage\(projectId, projectImage\)/);
+    assert.match(hook, /updateWorkspaceDocSettingsAction\(projectId, \{ editPolicy: 'members' \}\)/);
     assert.match(hook, /if \(createdProjectId\) await applyLaunchSettingsAfterCreate\(createdProjectId\);/);
 });
 

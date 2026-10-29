@@ -168,7 +168,7 @@ export interface AuthConnectionMethod {
   secondaryDetail?: string | null;
 }
 
-export interface GithubLinkedProject {
+export interface GithubLinkedWorkspace {
   id: string;
   slug: string;
   title: string;
@@ -187,7 +187,7 @@ export interface GithubServiceConnection {
   lastUsedAt?: string | null;
   githubUsername?: string | null;
   recoveryAction?: "replace_account" | "add_fallback_sign_in" | null;
-  projects?: GithubLinkedProject[];
+  projects?: GithubLinkedWorkspace[];
 }
 
 export interface IntegrationsData {

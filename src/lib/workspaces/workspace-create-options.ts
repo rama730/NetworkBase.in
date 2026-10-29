@@ -1,4 +1,4 @@
-export const PROJECT_TYPE_OPTIONS = [
+export const WORKSPACE_TYPE_OPTIONS = [
     { id: "side_project", label: "Side project", description: "Personal workspace or hobby" },
     { id: "startup", label: "Startup", description: "Building a business" },
     { id: "open_source", label: "Open source", description: "Community contribution" },
@@ -16,9 +16,9 @@ export const PROJECT_TYPE_OPTIONS = [
     { id: "video", label: "Video/Media", description: "Video content" },
 ] as const;
 
-export const OTHER_PROJECT_TYPE_ID = "other";
+export const OTHER_WORKSPACE_TYPE_ID = "other";
 
-export const POPULAR_PROJECT_TAGS = [
+export const POPULAR_WORKSPACE_TAGS = [
     "AI/ML",
     "Web3",
     "SaaS",
@@ -31,6 +31,6 @@ export const POPULAR_PROJECT_TAGS = [
     "DevTools",
 ];
 
-export function isKnownProjectType(value: string) {
-    return value === OTHER_PROJECT_TYPE_ID || PROJECT_TYPE_OPTIONS.some((type) => type.id === value);
+export function isKnownWorkspaceType(value: string) {
+    return value === OTHER_WORKSPACE_TYPE_ID || WORKSPACE_TYPE_OPTIONS.some((type) => type.id === value);
 }

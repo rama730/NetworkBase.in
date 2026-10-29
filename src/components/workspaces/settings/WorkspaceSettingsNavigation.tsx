@@ -21,10 +21,10 @@ import {
   Users,
   Workflow,
 } from "lucide-react";
-import type { ProjectSettingsSectionId } from "@/lib/workspaces/settings-policies";
+import type { WorkspaceSettingsSectionId } from "@/lib/workspaces/settings-policies";
 
-export type ProjectSettingsSection = {
-  id: ProjectSettingsSectionId;
+export type WorkspaceSettingsSection = {
+  id: WorkspaceSettingsSectionId;
   label: string;
   description: string;
 };
@@ -52,14 +52,14 @@ const icons = {
   "child-org": Building2,
 };
 
-export function ProjectSettingsNavigation({
+export function WorkspaceSettingsNavigation({
   sections,
   activeSection,
   onNavigate,
 }: {
-  sections: ProjectSettingsSection[];
-  activeSection: ProjectSettingsSectionId;
-  onNavigate: (id: ProjectSettingsSectionId) => void;
+  sections: WorkspaceSettingsSection[];
+  activeSection: WorkspaceSettingsSectionId;
+  onNavigate: (id: WorkspaceSettingsSectionId) => void;
 }) {
   const links = (
     <nav aria-label="Workspace settings sections" className="flex flex-col gap-1">

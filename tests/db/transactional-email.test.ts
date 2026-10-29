@@ -229,7 +229,7 @@ test("collaborator removal reassigns only active tasks with fresh activities, no
     if (title === "Deleted task") await sql`UPDATE tasks SET deleted_at = now() WHERE id = ${result.task!.id}`;
   }
   const wakeBefore = wakeCalls;
-  const removed = await projectActions.removeProjectMemberAction(projectId, a.id, { mode: "reassign_active_tasks", reassignToUserId: b.id });
+  const removed = await projectActions.removeWorkspaceMemberAction(projectId, a.id, { mode: "reassign_active_tasks", reassignToUserId: b.id });
   assert.equal(removed.success, true, removed.message);
   assert.ok(wakeCalls > wakeBefore);
   const activities = await sql`SELECT id, payload FROM task_activity_events WHERE project_id = ${projectId} AND event_type = 'assigned' AND payload->>'assigneeId' = ${b.id}`;
@@ -258,7 +258,7 @@ test("collaborator removal reassigns only active tasks with fresh activities, no
 
 test("bulk reassignment preserves self-assignment exclusion and email opt-out", async () => {
   const { owner, a, b, projectId, taskId } = await assignedTask();
-  const self = await projectActions.removeProjectMemberAction(projectId, a.id, { mode: "reassign_active_tasks", reassignToUserId: owner.id });
+  const self = await projectActions.removeWorkspaceMemberAction(projectId, a.id, { mode: "reassign_active_tasks", reassignToUserId: owner.id });
   assert.equal(self.success, true, self.message);
   assert.equal((await sql`SELECT id FROM email_outbox WHERE user_id = ${owner.id}`).length, 0);
   assert.equal((await sql`SELECT id FROM user_notifications WHERE user_id = ${owner.id} AND kind = 'task_assigned'`).length, 0);
@@ -266,7 +266,7 @@ test("bulk reassignment preserves self-assignment exclusion and email opt-out", 
   await sql.begin((tx) => addMember(tx, projectId, a.id));
   assert.equal((await taskActions.assignTaskAction(taskId, a.id, projectId)).success, true);
   await sql`UPDATE profiles SET notification_preferences = '{"delivery":{"email":false}}' WHERE id = ${b.id}`;
-  const optedOut = await projectActions.removeProjectMemberAction(projectId, a.id, { mode: "reassign_active_tasks", reassignToUserId: b.id });
+  const optedOut = await projectActions.removeWorkspaceMemberAction(projectId, a.id, { mode: "reassign_active_tasks", reassignToUserId: b.id });
   assert.equal(optedOut.success, true, optedOut.message);
   await delivery.drainEmailOutbox();
   assert.equal(fetched.length, 0);
@@ -275,9 +275,9 @@ test("bulk reassignment preserves self-assignment exclusion and email opt-out", 
 
 test("bulk reassignment rolls back assignment, activity, membership removal and queued mail together", async () => {
   const { owner, a, b, projectId, taskId } = await assignedTask();
-  const { removeProjectMemberInternal } = await import("@/lib/workspaces/collaborator-lifecycle");
+  const { removeWorkspaceMemberInternal } = await import("@/lib/workspaces/collaborator-lifecycle");
   await assert.rejects(db.transaction(async (tx) => {
-    await removeProjectMemberInternal(tx, { projectId, actorId: owner.id, targetUserId: a.id, mode: "reassign_active_tasks", reassignToUserId: b.id });
+    await removeWorkspaceMemberInternal(tx, { projectId, actorId: owner.id, targetUserId: a.id, mode: "reassign_active_tasks", reassignToUserId: b.id });
     throw new Error("forced rollback after removal");
   }), /forced rollback/);
   assert.equal((await sql`SELECT assignee_id FROM tasks WHERE id = ${taskId}`)[0]!.assignee_id, a.id);
@@ -285,7 +285,7 @@ test("bulk reassignment rolls back assignment, activity, membership removal and 
   assert.equal((await sql`SELECT id FROM project_members WHERE project_id = ${projectId} AND user_id = ${a.id}`).length, 1);
   assert.equal((await sql`SELECT id FROM email_outbox WHERE user_id = ${b.id}`).length, 0);
   await sql`UPDATE project_members SET role = 'viewer' WHERE project_id = ${projectId} AND user_id = ${b.id}`;
-  const invalid = await projectActions.removeProjectMemberAction(projectId, a.id, { mode: "reassign_active_tasks", reassignToUserId: b.id });
+  const invalid = await projectActions.removeWorkspaceMemberAction(projectId, a.id, { mode: "reassign_active_tasks", reassignToUserId: b.id });
   assert.equal(invalid.success, false);
   assert.equal((await sql`SELECT assignee_id FROM tasks WHERE id = ${taskId}`)[0]!.assignee_id, a.id);
 });

@@ -231,7 +231,7 @@ function InlineReply({ channelId, rootSeq, label, alsoSendTo, onDone, onSent }: 
 }
 
 /** /messages/w/[workspaceId]: select the project; displays channels in sidebar while main pane shows placeholder. */
-export function ProjectLanding({ projectId }: { projectId: string }) {
+export function WorkspaceLanding({ projectId }: { projectId: string }) {
   const setProject = useChatUi((state) => state.setProject);
   const { data } = useChatShell();
   const router = useRouter();

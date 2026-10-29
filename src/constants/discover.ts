@@ -1,5 +1,5 @@
 // Hub Constants
-import { PROJECT_TYPE_OPTIONS } from '@/lib/workspaces/workspace-create-options';
+import { WORKSPACE_TYPE_OPTIONS } from '@/lib/workspaces/workspace-create-options';
 
 export const FILTER_VIEWS = {
     ALL: 'all',
@@ -8,15 +8,15 @@ export const FILTER_VIEWS = {
     FOLLOWING: 'following',
 } as const;
 
-export const PROJECT_STATUS = {
+export const WORKSPACE_STATUS = {
     ALL: 'all',
     IDEA: 'draft',       // Maps to schema 'draft'
     IN_PROGRESS: 'active', // Maps to schema 'active'
     LAUNCHED: 'completed', // Maps to schema 'completed'
 } as const;
 
-// The types themselves are the ones a project is created with (PROJECT_TYPE_OPTIONS).
-export const PROJECT_TYPE = {
+// The types themselves are the ones a project is created with (WORKSPACE_TYPE_OPTIONS).
+export const WORKSPACE_TYPE = {
     ALL: 'all',
 } as const;
 
@@ -30,8 +30,8 @@ export const SORT_OPTIONS = {
 
 // Type exports
 export type FilterView = 'all' | 'trending' | 'recommendations' | 'following';
-export type ProjectStatus = typeof PROJECT_STATUS[keyof typeof PROJECT_STATUS];
-export type ProjectType = typeof PROJECT_TYPE.ALL | (typeof PROJECT_TYPE_OPTIONS)[number]['id'];
+export type WorkspaceStatus = typeof WORKSPACE_STATUS[keyof typeof WORKSPACE_STATUS];
+export type WorkspaceType = typeof WORKSPACE_TYPE.ALL | (typeof WORKSPACE_TYPE_OPTIONS)[number]['id'];
 export type SortOption = typeof SORT_OPTIONS[keyof typeof SORT_OPTIONS];
 
 /** Tag on the anonymous Discover page cache; revalidated whenever a project's public data changes. */

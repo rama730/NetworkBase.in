@@ -4,17 +4,17 @@ import { useCallback, useEffect, useMemo, useRef } from "react";
 import dynamic from "next/dynamic";
 
 import { 
-    useProjectDocSmartBlockPreviews,
+    useWorkspaceDocSmartBlockPreviews,
 } from "@/hooks/workspaces/useWorkspaceDocData";
-import { normalizeProjectDocSlug, type ProjectDocPublishedPayload } from "@/lib/workspaces/doc";
-import type { ProjectDocSmartBlockPreview } from "@/lib/workspaces/doc-blocks";
+import { normalizeWorkspaceDocSlug, type WorkspaceDocPublishedPayload } from "@/lib/workspaces/doc";
+import type { WorkspaceDocSmartBlockPreview } from "@/lib/workspaces/doc-blocks";
 import { decodeReadmeHashTarget } from "@/lib/workspaces/doc-navigation";
-import { buildProjectDocViewModel } from "@/lib/workspaces/doc-view-model";
-import { ProjectDocRail, ProjectDocMobileBar, useDocRail } from "@/components/workspaces/doc/WorkspaceDocRail";
-import type { Project } from "@/types/discover";
+import { buildWorkspaceDocViewModel } from "@/lib/workspaces/doc-view-model";
+import { WorkspaceDocRail, WorkspaceDocMobileBar, useDocRail } from "@/components/workspaces/doc/WorkspaceDocRail";
+import type { Workspace } from "@/types/discover";
 
-const ProjectDocRenderer = dynamic(
-    () => import("@/components/workspaces/doc/WorkspaceDocRenderer").then((mod) => mod.ProjectDocRenderer),
+const WorkspaceDocRenderer = dynamic(
+    () => import("@/components/workspaces/doc/WorkspaceDocRenderer").then((mod) => mod.WorkspaceDocRenderer),
     { loading: () => null, ssr: false },
 );
 
@@ -105,26 +105,26 @@ function scrollReadmeTargetIntoView(target: HTMLElement, behavior: ScrollBehavio
     window.scrollTo({ top, behavior });
 }
 
-export function ProjectDocViewer({
+export function WorkspaceDocViewer({
     project,
     payload,
     docSlug = "readme",
     inPlaceBanner,
 }: {
-    project: Project;
-    payload: ProjectDocPublishedPayload;
+    project: Workspace;
+    payload: WorkspaceDocPublishedPayload;
     docSlug?: string;
     /** An org doc read inside a child project: this banner instead of the doc rail (report §19.7). */
     inPlaceBanner?: React.ReactNode;
 }) {
-    const normalizedDocSlug = useMemo(() => normalizeProjectDocSlug(docSlug), [docSlug]);
+    const normalizedDocSlug = useMemo(() => normalizeWorkspaceDocSlug(docSlug), [docSlug]);
     const rail = useDocRail(project.id, normalizedDocSlug);
     
     const version = payload.version;
     const readmeContent = version?.content ?? "";
     const storedReadmeHeadings = version?.headings;
     const readmeExcerpt = version?.excerpt ?? null;
-    const readmeViewModel = useMemo(() => buildProjectDocViewModel({
+    const readmeViewModel = useMemo(() => buildWorkspaceDocViewModel({
         content: readmeContent,
         contentHash: version?.contentHash,
         excerpt: readmeExcerpt,
@@ -133,14 +133,14 @@ export function ProjectDocViewer({
     const previewBlocks = payload.settings.projectBlocks
         ? readmeViewModel.previewBlocks
         : readmeViewModel.referencePreviewBlocks;
-    const readmePreviewsQuery = useProjectDocSmartBlockPreviews(
+    const readmePreviewsQuery = useWorkspaceDocSmartBlockPreviews(
         project.id,
         previewBlocks,
         previewBlocks.length > 0,
         normalizedDocSlug,
     );
     const previewByKey = useMemo(() => {
-        const map = new Map<string, ProjectDocSmartBlockPreview>();
+        const map = new Map<string, WorkspaceDocSmartBlockPreview>();
         for (const preview of readmePreviewsQuery.data ?? []) map.set(preview.key, preview);
         return map;
     }, [readmePreviewsQuery.data]);
@@ -265,7 +265,7 @@ export function ProjectDocViewer({
     if (!version) return null;
 
     const renderer = (
-        <ProjectDocRenderer
+        <WorkspaceDocRenderer
             content={version.content}
             project={project}
             docSlug={normalizedDocSlug}
@@ -290,7 +290,7 @@ export function ProjectDocViewer({
 
     return (
         <div className="relative mx-auto w-full max-w-[1240px] px-0 py-0">
-            <ProjectDocMobileBar
+            <WorkspaceDocMobileBar
                 projectId={project.id}
                 activeSlug={normalizedDocSlug}
                 canEdit={payload.canEdit}
@@ -300,7 +300,7 @@ export function ProjectDocViewer({
                 <div className="min-w-0">
                     {renderer}
                 </div>
-                <ProjectDocRail
+                <WorkspaceDocRail
                     projectId={project.id}
                     activeSlug={normalizedDocSlug}
                     canEdit={payload.canEdit}

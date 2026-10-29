@@ -132,7 +132,7 @@ test('portfolio project cards reuse Discovery and versioned local image URLs rem
   assert.match(config, /pathname: '\/api\/v1\/workspaces\/\*\/image'/)
   assert.match(projects, /import ProjectCard from "@\/components\/workspaces\/WorkspaceCard"/)
   assert.match(projects, /<ProjectCard/)
-  assert.match(projects, /toProjectCardViewModel\(cardProject\)/)
+  assert.match(projects, /toWorkspaceCardViewModel\(cardProject\)/)
   assert.doesNotMatch(projects, /from "next\/image"/)
 
   // Full parity with Discovery: links, open roles count, and single-column full-width layout

@@ -118,10 +118,10 @@ test("recent activity on an org follows the copy and folder rules", async () => 
   const [key] = await sql`INSERT INTO project_nodes (project_id, parent_id, path, type, name) VALUES (${o.orgId}, ${staff!.id}, '/Staff/answer-key.pdf', 'file', 'answer-key.pdf') RETURNING id`;
   await sql`INSERT INTO project_node_events (project_id, node_id, actor_id, type) VALUES (${o.orgId}, ${key!.id}, ${o.owner}, 'create_file')`;
   viewerId = o.b;
-  const items = await recent.readProjectRecentActivityAction(o.orgId);
+  const items = await recent.readWorkspaceRecentActivityAction(o.orgId);
   assert.ok(!items.some((i) => i.text.includes("answer-key") || i.type === "task"), JSON.stringify(items));
   viewerId = o.admin;
-  const adminItems = await recent.readProjectRecentActivityAction(o.orgId);
+  const adminItems = await recent.readWorkspaceRecentActivityAction(o.orgId);
   assert.ok(adminItems.some((i) => i.text.includes("answer-key")));
 });
 
@@ -129,7 +129,7 @@ test("Projects tab: admins see Private workspaces and Needs attention; members d
   const o = await org();
   for (let i = 0; i < 3; i += 1) await sql`INSERT INTO tasks (project_id, title, creator_id, due_date, status) VALUES (${o.child}, ${`Task ${i}`}, ${o.a}, now() - interval '2 days', 'todo')`;
   viewerId = o.admin;
-  const all = await dash.readOrgProjectsAction(o.orgId);
+  const all = await dash.readOrgWorkspacesAction(o.orgId);
   assert.equal(all.success, true);
   if (all.success) {
     assert.deepEqual(all.rows.map((r) => r.title).sort(), ["Compiler Lab", "Secret Lab"]);
@@ -139,7 +139,7 @@ test("Projects tab: admins see Private workspaces and Needs attention; members d
     assert.equal(all.summary.attention, 2);
   }
   viewerId = o.a;
-  const mine = await dash.readOrgProjectsAction(o.orgId);
+  const mine = await dash.readOrgWorkspacesAction(o.orgId);
   assert.deepEqual(mine.success ? mine.rows.map((r) => [r.title, r.mine]) : [], [["Compiler Lab", true]]);
 });
 
@@ -205,7 +205,7 @@ test("§28 pass: rows carry stage, sprint inside the org sprint and New in <org>
   await sql`INSERT INTO project_sprints (project_id, sprint_number, name, start_date, end_date, status, parent_sprint_id) VALUES (${o.child}, 1, 'Parser week', now() - interval '1 day', now() + interval '2 days', 'active', ${o.sprint})`;
   await o.copy(o.a, { project: o.child, due: "-1 day" });
   viewerId = o.owner;
-  const read = await dash.readOrgProjectsAction(o.orgId);
+  const read = await dash.readOrgWorkspacesAction(o.orgId);
   assert.ok(read.success);
   const row = read.success ? read.rows.find((r) => r.id === o.child)! : null;
   assert.deepEqual([row?.stage, row?.sprint, row?.newInOrg], ["Build", { name: "Parser week", inOrgSprint: true }, true]);

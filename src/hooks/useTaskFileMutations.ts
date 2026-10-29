@@ -10,7 +10,7 @@ import {
   getUploadCollisionSummary,
 } from "@/app/actions/files/mutations";
 import { getUploadPresignedUrl } from "@/app/actions/upload";
-import { buildProjectFileKey } from "@/lib/storage/workspace-file-key";
+import { buildWorkspaceFileKey } from "@/lib/storage/workspace-file-key";
 import type { DroppedFolder } from "@/lib/files/folder-drop";
 import { newClientId } from "@/lib/utils/client-id";
 import { saveFileAsNewVersion as saveFileAsNewVersionOrig } from "@/hooks/useFileVersions";
@@ -85,7 +85,7 @@ export function useTaskFileMutations(params: {
     try {
       const fileExt = extOf(file.name);
       const opaque = newClientId();
-      storagePath = buildProjectFileKey(projectId, `${opaque}${fileExt ? `.${fileExt}` : ""}`);
+      storagePath = buildWorkspaceFileKey(projectId, `${opaque}${fileExt ? `.${fileExt}` : ""}`);
       const contentType = file.type || "application/octet-stream";
 
       const uploadSession = await getUploadPresignedUrl(storagePath, contentType, file.size);

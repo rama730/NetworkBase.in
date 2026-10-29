@@ -5,7 +5,7 @@ import { profiles, projectOpenRoles } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 import { rolePreferenceLabel, weeklyCapacityLabel, experienceLevelLabel } from '@/lib/profile/role-preferences';
 import { getAuthUser } from '@/lib/supabase/auth-user';
-import { getProjectAccessById } from '@/lib/data/workspace-access';
+import { getWorkspaceAccessById } from '@/lib/data/workspace-access';
 import { resolvePrivacyRelationship } from '@/lib/privacy/resolver';
 
 export interface AttributeAlignment {
@@ -42,7 +42,7 @@ export async function getProfileToRoleAlignmentAction(
     };
   }
 
-  const access = await getProjectAccessById(role.projectId, viewer.id);
+  const access = await getWorkspaceAccessById(role.projectId, viewer.id);
   if (!access.project || (!access.isOwner && access.memberRole !== 'admin')) {
     throw new Error('You can only inspect candidate alignment for workspaces you manage');
   }

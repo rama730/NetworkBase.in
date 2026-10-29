@@ -18,6 +18,6 @@ test("the workspace-setup exit dialog favors recovery and clearly isolates the d
   assert.match(dialog, /aria-describedby="leave-project-setup-description"/);
   // "Leave setup" discards on purpose, so it skips the save-on-leave draft before closing.
   assert.match(wizard, /const leaveSetup = \(\) => \{\s*markLeaving\(\);\s*onClose\(\);/);
-  assert.match(wizard, /<LeaveProjectSetupDialog[\s\S]*onLeave=\{leaveSetup\}/);
+  assert.match(wizard, /<LeaveWorkspaceSetupDialog[\s\S]*onLeave=\{leaveSetup\}/);
   assert.doesNotMatch(wizard, /<ConfirmDialog/);
 });

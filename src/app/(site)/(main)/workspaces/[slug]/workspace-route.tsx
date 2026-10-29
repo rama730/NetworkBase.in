@@ -2,22 +2,22 @@ import { notFound, redirect } from 'next/navigation';
 import { headers } from 'next/headers';
 import type { Metadata } from 'next';
 import { cache, Suspense } from 'react';
-import ProjectDashboardClient from '@/components/workspaces/dashboard/WorkspaceDashboardClient';
-import { readProjectDetailShell, readProjectSprintDetail } from '@/app/actions/workspace';
-import ProjectDetailLoading from './loading';
+import WorkspaceDashboardClient from '@/components/workspaces/dashboard/WorkspaceDashboardClient';
+import { readWorkspaceDetailShell, readWorkspaceSprintDetail } from '@/app/actions/workspace';
+import WorkspaceDetailLoading from './loading';
 import { PrivateOrgHeader } from '@/components/organizations/PrivateOrgHeader';
 import { readOrgCard, resolveHeldOrgHandle } from '@/lib/organizations/detail';
 import { getViewerIdentityContext, toClientViewer } from '@/lib/server/viewer-context';
 import { shareMetadata } from '@/lib/sharing/metadata';
 import { readSharePreview } from '@/lib/sharing/read';
 import { genericSharePreview, isShareCrawler, shareOrigin } from '@/lib/sharing/presentation';
-import { isProjectTabVisibleToViewer } from '@/lib/workspaces/settings-policies';
+import { isWorkspaceTabVisibleToViewer } from '@/lib/workspaces/settings-policies';
 
-const readProjectSprintDetailCached = cache((slugOrId: string, limit?: number, sprintId?: string, taskReference?: string) => readProjectSprintDetail({ slugOrId, limit, sprintId, taskReference }));
+const readProjectSprintDetailCached = cache((slugOrId: string, limit?: number, sprintId?: string, taskReference?: string) => readWorkspaceSprintDetail({ slugOrId, limit, sprintId, taskReference }));
 
 export type RouteSearchParams = Record<string, string | string[] | undefined>;
 /** Projects live at /workspaces/<slug>; organizations at /org/<handle> (report §24). Same page underneath. */
-export type ProjectRouteBase = '/workspaces' | '/org';
+export type WorkspaceRouteBase = '/workspaces' | '/org';
 
 function queryStringOf(searchParams: RouteSearchParams | undefined) {
     // Repeated params survive as repeated params (`a=1&a=2`), never as a joined "1,2".
@@ -38,19 +38,19 @@ function firstParam(value: string | string[] | undefined) {
 const readProjectRouteShell = cache(async (slugOrId: string) => {
     const [viewerIdentity, result] = await Promise.all([
         getViewerIdentityContext(),
-        readProjectDetailShell({ slugOrId }),
+        readWorkspaceDetailShell({ slugOrId }),
     ]);
     return { viewerIdentity, result };
 });
 
-export async function generateProjectRouteMetadata({
+export async function generateWorkspaceRouteMetadata({
     params,
     searchParams,
     base = '/workspaces',
 }: {
     params: Promise<{ slug: string }>; 
     searchParams: Promise<RouteSearchParams>;
-    base?: ProjectRouteBase;
+    base?: WorkspaceRouteBase;
 }): Promise<Metadata> {
     const [{ slug }, _searchParams] = await Promise.all([params, searchParams]);
     const url = new URL(`${base}/${encodeURIComponent(slug)}`, shareOrigin()).href;
@@ -79,7 +79,7 @@ export async function generateProjectRouteMetadata({
                 const { project, capabilities } = result.data;
                 const isOwnerOrMember = capabilities.isOwner || capabilities.isMember;
                 const canManageSettings = capabilities.isOwner || capabilities.memberRole === 'admin';
-                const isVisible = isProjectTabVisibleToViewer({
+                const isVisible = isWorkspaceTabVisibleToViewer({
                     tabId: tab === 'privacy' ? 'settings' : tab,
                     isOwnerOrMember,
                     canManageSettings,
@@ -101,7 +101,7 @@ async function ResolvedProjectDashboard({
     params,
     searchParams
 }: {
-    base: ProjectRouteBase;
+    base: WorkspaceRouteBase;
     params: Promise<{ slug: string }>;
     searchParams: Promise<RouteSearchParams>;
 }) {
@@ -133,16 +133,16 @@ async function ResolvedProjectDashboard({
         if (result.errorCode === 'NOT_FOUND' || result.errorCode === 'FORBIDDEN') {
             notFound();
         }
-        throw new Error(`[ProjectDetailPage] ${result.errorCode}: ${result.message}`);
+        throw new Error(`[WorkspaceDetailPage] ${result.errorCode}: ${result.message}`);
     }
 
     const { project, capabilities } = result.data;
     // Canonical address: the human-readable slug, under /org for organizations and /projects otherwise.
-    const canonicalBase: ProjectRouteBase = project.organization ? '/org' : '/workspaces';
+    const canonicalBase: WorkspaceRouteBase = project.organization ? '/org' : '/workspaces';
     if ((project.slug && slug !== project.slug) || base !== canonicalBase) {
         redirect(`${canonicalBase}/${encodeURIComponent(project.slug || project.id)}${queryStringOf(_searchParams)}`);
     }
-    const canViewSprints = isProjectTabVisibleToViewer({
+    const canViewSprints = isWorkspaceTabVisibleToViewer({
         tabId: "sprints",
         isOwnerOrMember: capabilities.isOwner || capabilities.isMember,
         publicTabVisibility: project.publicTabVisibility,
@@ -153,7 +153,7 @@ async function ResolvedProjectDashboard({
         : null;
 
     return (
-        <ProjectDashboardClient
+        <WorkspaceDashboardClient
             project={project}
             currentUserId={user?.id || null}
             viewerDisplayName={clientViewer.displayName}
@@ -166,12 +166,12 @@ async function ResolvedProjectDashboard({
     );
 }
 
-export function ProjectRoute({
+export function WorkspaceRoute({
     base,
     params,
     searchParams,
 }: {
-    base: ProjectRouteBase;
+    base: WorkspaceRouteBase;
     params: Promise<{ slug: string }>;
     searchParams: Promise<RouteSearchParams>;
 }) {
@@ -180,7 +180,7 @@ export function ProjectRoute({
             data-scroll-root="route"
             className="h-full min-h-0 app-scroll app-scroll-y app-scroll-gutter overscroll-y-contain bg-background"
         >
-            <Suspense fallback={<ProjectDetailLoading />}>
+            <Suspense fallback={<WorkspaceDetailLoading />}>
                 <ResolvedProjectDashboard base={base} params={params} searchParams={searchParams} />
             </Suspense>
         </div>

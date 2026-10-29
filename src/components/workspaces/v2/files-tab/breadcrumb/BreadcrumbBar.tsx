@@ -44,7 +44,7 @@ import {
 } from "@/stores/filesStore";
 import {
   getTaskWorkingFilesDisplayName,
-  isProjectSystemRoot,
+  isWorkspaceSystemRoot,
   TASK_WORKING_FILES_TITLE,
 } from "@/lib/files/task-working-files";
 
@@ -113,7 +113,7 @@ export function deriveBreadcrumbSegments(
   if (location === null || location.type === "root") return segments;
 
   for (const node of chain) {
-    if (isProjectSystemRoot(node)) continue;
+    if (isWorkspaceSystemRoot(node)) continue;
     const displayName = getTaskWorkingFilesDisplayName(node);
     if (node.type === "file") {
       segments.push({ kind: "file", id: node.id, name: displayName });

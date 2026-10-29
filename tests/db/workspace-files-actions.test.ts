@@ -172,11 +172,11 @@ test("bulk move rejects a name clash and a move into a descendant", async () => 
     const dest = await insertNode(projectId, owner, "folder", "dest", "/dest", null);
     await insertNode(projectId, owner, "file", "Same.txt", "/dest/Same.txt", dest);
     const clash = await insertNode(projectId, owner, "file", "same.txt", "/same.txt", null);
-    await assert.rejects(mutations.moveProjectNodes([clash], dest, projectId), /already exists/);
+    await assert.rejects(mutations.moveWorkspaceNodes([clash], dest, projectId), /already exists/);
     const child = await insertNode(projectId, owner, "folder", "inner", "/dest/inner", dest);
-    await assert.rejects(mutations.moveProjectNodes([dest], child, projectId), /descendant/);
+    await assert.rejects(mutations.moveWorkspaceNodes([dest], child, projectId), /descendant/);
     const ok = await insertNode(projectId, owner, "file", "b.txt", "/b.txt", null);
-    const moved = await mutations.moveProjectNodes([ok], dest, projectId);
+    const moved = await mutations.moveWorkspaceNodes([ok], dest, projectId);
     assert.equal(moved.nodes[0]?.path, "/dest/b.txt");
   });
 });

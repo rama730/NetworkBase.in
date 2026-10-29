@@ -3,8 +3,8 @@
 import dynamic from "next/dynamic";
 import { useEffect } from "react";
 
-import { restoredProject, useChatUi } from "@/components/messages/chat-ui-store";
-import { useSelectedProject } from "@/components/messages/useSelectedWorkspace";
+import { restoredWorkspace, useChatUi } from "@/components/messages/chat-ui-store";
+import { useSelectedWorkspace } from "@/components/messages/useSelectedWorkspace";
 import { useChatShell } from "@/components/messages/ChatShellProvider";
 import { QuickSwitcher } from "@/components/messages/QuickSwitcher";
 import { ShortcutsDialog } from "@/components/messages/ShortcutsDialog";
@@ -35,7 +35,7 @@ function useMessagesKeyboardShortcuts(confirmMarkAll: (rows: ChatChannelSummary[
   const router = useRouter();
   const pathname = usePathname();
   const { data, refresh, applyRead } = useChatShell();
-  const projectId = useSelectedProject();
+  const projectId = useSelectedWorkspace();
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -115,7 +115,7 @@ export function MessagesChrome() {
   // A reload keeps the project picked earlier in this tab (pages whose URL has no project).
   useEffect(() => {
     const ui = useChatUi.getState();
-    const stored = restoredProject();
+    const stored = restoredWorkspace();
     if (ui.projectId === undefined && stored !== undefined) ui.setProject(stored);
   }, []);
   const markAll = useMarkAllRead();

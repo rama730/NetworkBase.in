@@ -10,7 +10,7 @@ import "server-only";
 import { isMissingRelationError } from "@/lib/db/errors";
 import { db } from "@/lib/db";
 import { sql, and, eq, inArray, desc, ilike, isNull, or } from "drizzle-orm";
-import { getProjectAccessById, assertProjectTabReadAccess, type ProjectAccess, canReadProjectTab, ProjectTabForbiddenError } from "@/lib/data/workspace-access";
+import { getWorkspaceAccessById, assertWorkspaceTabReadAccess, type WorkspaceAccess, canReadWorkspaceTab, WorkspaceTabForbiddenError } from "@/lib/data/workspace-access";
 import { createClient } from "@/lib/supabase/server";
 import { runInFlightDeduped } from "@/lib/utils/inflight-dedupe";
 import { type SprintTaskTimelineEntity, type SprintListItem, buildSprintHealthSummary, type SprintDetailPayload, buildSprintPermissionSet, isSprintReadyToClose } from "@/lib/workspaces/sprint-detail";
@@ -21,9 +21,9 @@ import { inferTaskFileRole } from "@/lib/workspaces/task-file-intelligence";
 import { type SprintTimelineTaskInput, buildSprintTimeline } from "@/lib/workspaces/sprint-timeline";
 import { recordSprintMetric } from "@/lib/workspaces/sprint-observability";
 import { getViewerAuthContext } from "@/lib/server/viewer-context";
-import { isProjectTabVisibleToViewer } from "@/lib/workspaces/settings-policies";
+import { isWorkspaceTabVisibleToViewer } from "@/lib/workspaces/settings-policies";
 import { type CreateSprintInput, createSprintSchema, parseSprintDateInput, type UpdateSprintInput, updateSprintSchema, type DeleteSprintResult, deleteSprintSchema } from "@/lib/workspaces/sprints";
-import { isMissingColumn, resolveProjectDetailTarget, resolveProjectDetailViewerState, actorNotificationSnapshot, revalidateProjectPaths, enqueueProjectNotificationBestEffort } from "./common";
+import { isMissingColumn, resolveWorkspaceDetailTarget, resolveWorkspaceDetailViewerState, actorNotificationSnapshot, revalidateWorkspacePaths, enqueueWorkspaceNotificationBestEffort } from "./common";
 
 const isMissingTable = isMissingRelationError;
 
@@ -56,11 +56,11 @@ async function hasProjectSprintDescriptionColumn() {
 }
 
 
-async function assertProjectReadAccess(
+async function assertWorkspaceReadAccess(
   projectId: string,
   userId: string | null,
 ) {
-  const access = await getProjectAccessById(projectId, userId);
+  const access = await getWorkspaceAccessById(projectId, userId);
   if (!access.project) throw new Error("Workspace not found");
   if (!access.canRead) throw new Error("You don’t have access to this");
   return access;
@@ -111,7 +111,7 @@ function encodeSprintDetailPaginationCursor(
 }
 
 
-export async function fetchProjectSprintsAction(
+export async function fetchWorkspaceSprintsAction(
   projectId: string,
   limit: number = 120,
 ) {
@@ -126,7 +126,7 @@ export async function fetchProjectSprintsAction(
     return await runInFlightDeduped(
       `project:sprints:${projectId}:${actorId ?? "anon"}:${safeLimit}`,
       async () => {
-        await assertProjectTabReadAccess(projectId, actorId, "sprints");
+        await assertWorkspaceTabReadAccess(projectId, actorId, "sprints");
 
         const projectSprintsList = await readProjectSprintsList(
           projectId,
@@ -920,7 +920,7 @@ const NO_SPRINT_TASK_PAGE: Awaited<ReturnType<typeof readSprintTaskActivityPage>
 
 async function buildSprintDetailPayload(input: {
   projectId: string;
-  access: ProjectAccess;
+  access: WorkspaceAccess;
   sprintId?: string | null;
   taskReference?: string | null;
   cursor?: string;
@@ -931,9 +931,9 @@ async function buildSprintDetailPayload(input: {
 
   const access = input.access;
   if (!access.project) throw new Error("Workspace not found");
-  if (!canReadProjectTab(access, "sprints")) throw new ProjectTabForbiddenError("sprints");
+  if (!canReadWorkspaceTab(access, "sprints")) throw new WorkspaceTabForbiddenError("sprints");
   // Sprints visibility exposes sprint list and health; task rows also need Tasks visibility (COR-043).
-  const showTasks = canReadProjectTab(access, "tasks");
+  const showTasks = canReadWorkspaceTab(access, "tasks");
   // A read must not mutate Sprint lifecycle state. The scheduler
   // remains the sole owner of time-based transitions.
   const permissions = buildSprintPermissionSet({
@@ -1033,7 +1033,7 @@ async function buildSprintDetailPayload(input: {
 
 async function buildSprintTimelinePagePayload(input: {
   projectId: string;
-  access: ProjectAccess;
+  access: WorkspaceAccess;
   sprintId: string | null;
   cursor?: string;
   limit?: number;
@@ -1046,9 +1046,9 @@ async function buildSprintTimelinePagePayload(input: {
   const parsedCursor = parseSprintDetailPaginationCursor(input.cursor);
   const access = input.access;
   if (!access.project) throw new Error("Workspace not found");
-  if (!canReadProjectTab(access, "sprints")) throw new ProjectTabForbiddenError("sprints");
+  if (!canReadWorkspaceTab(access, "sprints")) throw new WorkspaceTabForbiddenError("sprints");
   // Sprints visibility exposes sprint list and health; task rows also need Tasks visibility (COR-043).
-  const showTasks = canReadProjectTab(access, "tasks");
+  const showTasks = canReadWorkspaceTab(access, "tasks");
 
   const selectedSprint = await readProjectSprintListItem(
     input.projectId,
@@ -1096,7 +1096,7 @@ async function buildSprintTimelinePagePayload(input: {
 }
 
 
-export async function fetchProjectSprintDetailAction(input: {
+export async function fetchWorkspaceSprintDetailAction(input: {
   projectId: string;
   sprintId?: string | null;
   taskReference?: string | null;
@@ -1117,7 +1117,7 @@ export async function fetchProjectSprintDetailAction(input: {
     const data = await runInFlightDeduped(
       `project:sprint-detail:${input.projectId}:${sprintKey}:${taskKey}:${actorId ?? "anon"}:${cursorKey}:${input.limit ?? 30}`,
       async () => {
-        const access = await getProjectAccessById(input.projectId, actorId);
+        const access = await getWorkspaceAccessById(input.projectId, actorId);
         if (!access.project) {
           throw new Error("Workspace not found");
         }
@@ -1161,7 +1161,7 @@ export async function fetchProjectSprintDetailAction(input: {
 }
 
 
-export async function fetchProjectSprintTimelinePageAction(input: {
+export async function fetchWorkspaceSprintTimelinePageAction(input: {
   projectId: string;
   sprintId: string | null;
   cursor?: string;
@@ -1180,7 +1180,7 @@ export async function fetchProjectSprintTimelinePageAction(input: {
     const data = await runInFlightDeduped(
       `project:sprint-timeline-page:${input.projectId}:${sprintKey}:${actorId ?? "anon"}:${cursorKey}:${input.limit ?? 30}`,
       async () => {
-        const access = await getProjectAccessById(input.projectId, actorId);
+        const access = await getWorkspaceAccessById(input.projectId, actorId);
         if (!access.project) {
           throw new Error("Workspace not found");
         }
@@ -1233,7 +1233,7 @@ type ProjectSprintDetailInput = {
 
 
 /** Session-scoped sprint detail (COR-042). */
-export async function readProjectSprintDetail(input: ProjectSprintDetailInput) {
+export async function readWorkspaceSprintDetail(input: ProjectSprintDetailInput) {
   const { userId } = await getViewerAuthContext();
   return readProjectSprintDetailForActor({ ...input, actorUserId: userId });
 }
@@ -1241,7 +1241,7 @@ export async function readProjectSprintDetail(input: ProjectSprintDetailInput) {
 
 async function readProjectSprintDetailForActor(input: ProjectSprintDetailInput & { actorUserId: string | null }) {
   try {
-    const project = await resolveProjectDetailTarget(
+    const project = await resolveWorkspaceDetailTarget(
       input.slugOrId,
       input.actorUserId ?? null,
     );
@@ -1254,7 +1254,7 @@ async function readProjectSprintDetailForActor(input: ProjectSprintDetailInput &
     }
 
     const parentOrgRole = project.parentId ? await readViewerOrgRole(project.parentId, input.actorUserId ?? null) : null;
-    const viewerState = resolveProjectDetailViewerState({
+    const viewerState = resolveWorkspaceDetailViewerState({
       projectId: project.id,
       ownerId: project.ownerId,
       visibility: project.visibility,
@@ -1273,7 +1273,7 @@ async function readProjectSprintDetailForActor(input: ProjectSprintDetailInput &
       };
     }
     if (
-      !isProjectTabVisibleToViewer({
+      !isWorkspaceTabVisibleToViewer({
         tabId: "sprints",
         isOwnerOrMember: viewerState.isOwner || viewerState.isMember || parentOrgRole === "owner" || parentOrgRole === "admin",
         publicTabVisibility: project.publicTabVisibility,
@@ -1287,7 +1287,7 @@ async function readProjectSprintDetailForActor(input: ProjectSprintDetailInput &
       };
     }
 
-    const access = await assertProjectReadAccess(
+    const access = await assertWorkspaceReadAccess(
       project.id,
       input.actorUserId ?? null,
     );
@@ -1313,7 +1313,7 @@ async function readProjectSprintDetailForActor(input: ProjectSprintDetailInput &
       data,
     };
   } catch (error) {
-    console.error("[readProjectSprintDetail] failed", error);
+    console.error("[readWorkspaceSprintDetail] failed", error);
     return {
       success: false as const,
       errorCode: "INTERNAL_ERROR" as const,
@@ -1408,9 +1408,9 @@ export async function createSprintAction(data: CreateSprintInput) {
       throw new Error("Couldn’t load created sprint");
     }
 
-    await revalidateProjectPaths(validated.projectId);
+    await revalidateWorkspacePaths(validated.projectId);
 
-    await enqueueProjectNotificationBestEffort(
+    await enqueueWorkspaceNotificationBestEffort(
       {
         projectId: validated.projectId,
         actorUserId: user.id,
@@ -1555,9 +1555,9 @@ export async function updateSprintAction(data: UpdateSprintInput) {
     );
     if (!sprintListItem) throw new Error("Couldn’t reload updated sprint");
 
-    await revalidateProjectPaths(validated.projectId);
+    await revalidateWorkspacePaths(validated.projectId);
 
-    await enqueueProjectNotificationBestEffort(
+    await enqueueWorkspaceNotificationBestEffort(
       {
         projectId: validated.projectId,
         actorUserId: user.id,
@@ -1708,9 +1708,9 @@ export async function deleteSprintAction(data: {
       };
     }
 
-    await revalidateProjectPaths(validated.projectId);
+    await revalidateWorkspacePaths(validated.projectId);
 
-    await enqueueProjectNotificationBestEffort(
+    await enqueueWorkspaceNotificationBestEffort(
       {
         projectId: validated.projectId,
         actorUserId: user.id,
@@ -1776,7 +1776,7 @@ type CompleteSprintOptions = {
 
 
 async function requireSprintOwner(projectId: string, userId: string) {
-  const access = await getProjectAccessById(projectId, userId);
+  const access = await getWorkspaceAccessById(projectId, userId);
   if (!access.project) throw new Error("Workspace not found");
   // Inherited org admins plan and run a child project's sprints too (report §15.5).
   if (!access.isOwner && access.memberRole !== "admin" && !access.isInheritedAdmin)
@@ -1904,9 +1904,9 @@ export async function completeSprintAction(
       });
     });
     const sprint = await readLifecycleSprint(projectId, sprintId);
-    await revalidateProjectPaths(projectId);
+    await revalidateWorkspacePaths(projectId);
     // Orgs tell each member how much of the sprint they finished instead (report §26 C).
-    if (!(await notifyOrgSprintCompleted(sprintId, projectId, user.id))) await enqueueProjectNotificationBestEffort(
+    if (!(await notifyOrgSprintCompleted(sprintId, projectId, user.id))) await enqueueWorkspaceNotificationBestEffort(
       {
         projectId,
         actorUserId: user.id,
@@ -1987,7 +1987,7 @@ export async function archiveSprintAction(sprintId: string, projectId: string) {
       });
     });
     const sprint = await readLifecycleSprint(projectId, sprintId);
-    await revalidateProjectPaths(projectId);
+    await revalidateWorkspacePaths(projectId);
     recordSprintMetric("project.sprint.lifecycle.result", {
       projectId,
       sprintId,
@@ -2080,7 +2080,7 @@ export async function cancelSprintAction(sprintId: string, projectId: string) {
     });
     await notifyChildSprintsUnlinked(projectId, sprintId, unlinked, user.id);
     const sprint = await readLifecycleSprint(projectId, sprintId);
-    await revalidateProjectPaths(projectId);
+    await revalidateWorkspacePaths(projectId);
     recordSprintMetric("project.sprint.lifecycle.result", {
       projectId,
       sprintId,
@@ -2147,7 +2147,7 @@ export async function planSprintSeriesAction(input: { projectId: string; prefix:
         });
       }
     });
-    await revalidateProjectPaths(input.projectId);
+    await revalidateWorkspacePaths(input.projectId);
     return { success: true as const, created: series.length };
   } catch (error) {
     return { success: false as const, error: error instanceof Error ? error.message : "Couldn’t plan the series" };
@@ -2166,7 +2166,7 @@ export async function startSprintNowAction(sprintId: string, projectId: string, 
       const [project] = await db.select({ kind: projects.kind }).from(projects).where(eq(projects.id, projectId)).limit(1);
       if (project?.kind === "organization") await postOrgAnnouncement(projectId, user.id, announcement);
     }
-    await revalidateProjectPaths(projectId);
+    await revalidateWorkspacePaths(projectId);
     return { success: true as const };
   } catch (error) {
     return { success: false as const, error: error instanceof Error ? error.message : "Couldn’t start the sprint" };
@@ -2187,7 +2187,7 @@ export async function addSprintMaterialAction(input: { projectId: string; sprint
       : await db.select({ id: projectDocs.id }).from(projectDocs).where(and(eq(projectDocs.id, input.docId!), eq(projectDocs.projectId, input.projectId))).limit(1);
     if (target.length === 0) throw new Error("That file or doc isn’t in this workspace.");
     await db.insert(sprintMaterials).values({ sprintId: input.sprintId, nodeId: input.nodeId ?? null, docId: input.docId ?? null, addedBy: user.id }).onConflictDoNothing();
-    await revalidateProjectPaths(input.projectId);
+    await revalidateWorkspacePaths(input.projectId);
     return { success: true as const };
   } catch (error) {
     return { success: false as const, error: error instanceof Error ? error.message : "Couldn’t add the material" };
@@ -2202,7 +2202,7 @@ export async function removeSprintMaterialAction(input: { projectId: string; mat
       eq(sprintMaterials.id, input.materialId),
       sql`${sprintMaterials.sprintId} IN (SELECT id FROM ${projectSprints} WHERE project_id = ${input.projectId})`,
     ));
-    await revalidateProjectPaths(input.projectId);
+    await revalidateWorkspacePaths(input.projectId);
     return { success: true as const };
   } catch (error) {
     return { success: false as const, error: error instanceof Error ? error.message : "Couldn’t remove the material" };

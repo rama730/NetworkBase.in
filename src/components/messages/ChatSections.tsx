@@ -15,17 +15,17 @@ import { ErrorNotice } from "@/components/ui/ErrorNotice";
 import { Skeleton } from "@/components/ui/skeleton";
 import { readChatUi, saveAccountUi, useChatUi, useDrafts } from "@/components/messages/chat-ui-store";
 import { useChatShell } from "@/components/messages/ChatShellProvider";
-import { useSelectedProject } from "@/components/messages/useSelectedWorkspace";
-import { ProjectBadge } from "@/components/workspaces/WorkspaceBadge";
+import { useSelectedWorkspace } from "@/components/messages/useSelectedWorkspace";
+import { WorkspaceBadge } from "@/components/workspaces/WorkspaceBadge";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { PresenceAvatar, ProjectPresenceBadge } from "@/components/presence/PersonPresence";
+import { PresenceAvatar, WorkspacePresenceBadge } from "@/components/presence/PersonPresence";
 import { usePersonPresence } from "@/components/presence/usePresence";
 import { UserAvatar } from "@/components/ui/UserAvatar";
 import { useAuth } from "@/hooks/useAuth";
 import {
-  DM_SIDEBAR_LIMIT, attention, channelTitle, channelsByProject, counterpart, formatChatTime, fullTime, isApplicationThread, isDirectLike, isSelfDm, isUnread, needsAttention,
+  DM_SIDEBAR_LIMIT, attention, channelTitle, channelsByWorkspace, counterpart, formatChatTime, fullTime, isApplicationThread, isDirectLike, isSelfDm, isUnread, needsAttention,
   projectBadges, projectsByActivity, rowCount, sectionsFor, swipeButtons, workspaceBadges,
 } from "@/lib/messaging/channel-view";
 import { chatErrorMessage } from "@/lib/messaging/errors";
@@ -33,8 +33,8 @@ import { APPLICATION_STATUS_LABEL, APPLICATION_STATUS_TONE, isDecidedApplication
 import type { ChatChannelSummary, ChatNotify } from "@/lib/messaging/types";
 import { copyWithToast } from "@/lib/clipboard";
 import { conversationHref } from "@/lib/messaging/routes";
-import { childProjectsOf, workspaceProjects } from "@/lib/organizations/chat-rules";
-import { OrgBrowseProjects } from "@/components/messages/OrgBrowseWorkspaces";
+import { childWorkspacesOf, workspaceWorkspaces } from "@/lib/organizations/chat-rules";
+import { OrgBrowseWorkspaces } from "@/components/messages/OrgBrowseWorkspaces";
 import { ConversationIcon } from "@/components/messages/ConversationIcon";
 import { useConversationExit } from "@/components/messages/useConversationExit";
 import { useMarkAllRead } from "@/components/messages/useMarkAllRead";
@@ -419,14 +419,14 @@ const modKeyHint = () => keyLabel("mod+k");
  */
 function ProjectSwitcher({ inPage, unreadsOnly, onToggleUnreads }: { inPage: boolean; unreadsOnly: boolean; onToggleUnreads: () => void }) {
   const { data } = useChatShell();
-  const projectId = useSelectedProject();
+  const projectId = useSelectedWorkspace();
   const setProject = useChatUi((state) => state.setProject);
   const setInviteFor = useChatUi((state) => state.setInviteFor);
   const router = useRouter();
   // On the Messages page the project lives in the URL (reload keeps it); the floating window has no URL.
   const pick = (id: string | null) => (inPage ? router.push(id ? `/messages/w/${id}` : "/messages") : setProject(id));
   // Orgs and personal projects get a row; child projects live inside their org (report §25.1).
-  const projects = workspaceProjects(projectsByActivity(data));
+  const projects = workspaceWorkspaces(projectsByActivity(data));
   const badges = workspaceBadges(data);
   const open = projectsByActivity(data).find((project) => project.id === projectId) ?? null;
   const canManage = open?.role === "owner" || open?.role === "admin";
@@ -440,7 +440,7 @@ function ProjectSwitcher({ inPage, unreadsOnly, onToggleUnreads }: { inPage: boo
       <DropdownMenu>
         <DropdownMenuTrigger className="nb-chat-row min-w-0 flex-1 font-semibold text-foreground" aria-label={`${open ? open.title : "All workspaces"}, switch workspace${otherUnread ? ", unread in other workspaces" : ""}`} data-testid="chat-project-switcher">
           {open ? (
-            <span className="relative inline-flex flex-none"><ProjectBadge project={open} size="sm" /><ProjectPresenceBadge projectId={open.id} size={10} className="absolute" style={{ right: -3, bottom: -3 }} /></span>
+            <span className="relative inline-flex flex-none"><WorkspaceBadge project={open} size="sm" /><WorkspacePresenceBadge projectId={open.id} size={10} className="absolute" style={{ right: -3, bottom: -3 }} /></span>
           ) : (
             <LayoutGrid size={16} aria-hidden="true" />
           )}
@@ -457,7 +457,7 @@ function ProjectSwitcher({ inPage, unreadsOnly, onToggleUnreads }: { inPage: boo
             </DropdownMenuRadioItem>
             {projects.map((project) => (
               <DropdownMenuRadioItem key={project.id} value={project.id} data-testid={`chat-project-${project.id}`}>
-                <span className="relative inline-flex flex-none"><ProjectBadge project={project} size="sm" /><ProjectPresenceBadge projectId={project.id} size={10} className="absolute" style={{ right: -3, bottom: -3 }} /></span>
+                <span className="relative inline-flex flex-none"><WorkspaceBadge project={project} size="sm" /><WorkspacePresenceBadge projectId={project.id} size={10} className="absolute" style={{ right: -3, bottom: -3 }} /></span>
                 <span className="min-w-0 flex-1 truncate">{project.guestOf ? `${project.guestOf} · Viewer` : project.title}</span>
                 <Count value={badges.get(project.id) ?? 0} noun="mentions" />
               </DropdownMenuRadioItem>
@@ -533,7 +533,7 @@ export function ChatSections({ variant, onSelect, onNewMessage, onInbox }: Props
   const pathname = usePathname() ?? "";
   const here = (href: string) => (pathname === href ? "page" as const : undefined);
   const meId = user?.id ?? null;
-  const projectId = useSelectedProject();
+  const projectId = useSelectedWorkspace();
   const setCreateFor = useChatUi((state) => state.setCreateChannelFor);
   const setSwitcherOpen = useChatUi((state) => state.setSwitcherOpen);
   const inPage = !onSelect;
@@ -580,7 +580,7 @@ export function ChatSections({ variant, onSelect, onNewMessage, onInbox }: Props
 
   const sections = useMemo(() => sectionsFor(data, projectId), [data, projectId]);
   const projects = projectsByActivity(data);
-  const byProject = useMemo(() => channelsByProject(data), [data]);
+  const byProject = useMemo(() => channelsByWorkspace(data), [data]);
   const badges = projectBadges(data);
   const open = projects.find((project) => project.id === projectId) ?? null;
   const keep = (channel: ChatChannelSummary) => !unreadsOnly || needsAttention(channel);
@@ -766,14 +766,14 @@ export function ChatSections({ variant, onSelect, onNewMessage, onInbox }: Props
       {/* An org workspace: each child project is a channel group under Projects (report §25.1, §25.7). */}
       {open && open.kind === "organization" ? (
         <>
-          {childProjectsOf(data.projects ?? [], open.id).map((child) => {
+          {childWorkspacesOf(data.projects ?? [], open.id).map((child) => {
             const rows = (byProject.get(child.id) ?? []).filter((c) => !c.starred).filter(keep);
             if (unreadsOnly && !rows.length) return null;
             return (
               <Section
                 key={child.id}
                 id={`project:${child.id}`}
-                title={<span className="inline-flex items-center gap-1.5"><ProjectBadge project={child} size="sm" />{child.title}</span>}
+                title={<span className="inline-flex items-center gap-1.5"><WorkspaceBadge project={child} size="sm" />{child.title}</span>}
                 plainTitle
                 count={rows.reduce((sum, c) => sum + attention(c), 0)}
                 noun="mentions"
@@ -785,7 +785,7 @@ export function ChatSections({ variant, onSelect, onNewMessage, onInbox }: Props
               </Section>
             );
           })}
-          {(open.role === "owner" || open.role === "admin") && !unreadsOnly ? <OrgBrowseProjects orgId={open.id} onOpen={(channelId) => (onSelect ? onSelect(channelId) : router.push(conversationHref(channelId)))} onJoined={() => void refresh()} /> : null}
+          {(open.role === "owner" || open.role === "admin") && !unreadsOnly ? <OrgBrowseWorkspaces orgId={open.id} onOpen={(channelId) => (onSelect ? onSelect(channelId) : router.push(conversationHref(channelId)))} onJoined={() => void refresh()} /> : null}
         </>
       ) : null}
       {open ? null : projects.length ? (
@@ -799,7 +799,7 @@ export function ChatSections({ variant, onSelect, onNewMessage, onInbox }: Props
             <Section
               key={project.id}
               id={`project:${project.id}`}
-              title={<span className="inline-flex items-center gap-1.5"><ProjectBadge project={project} size="sm" />{project.title}</span>}
+              title={<span className="inline-flex items-center gap-1.5"><WorkspaceBadge project={project} size="sm" />{project.title}</span>}
               plainTitle
               count={count}
               noun="mentions"

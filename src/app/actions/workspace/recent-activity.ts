@@ -4,23 +4,23 @@ import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { db } from "@/lib/db";
 import { githubSyncRuns, profiles, projectMembers, projectNodeEvents, projectNodes, taskActivityEvents, tasks } from "@/lib/db/schema";
-import { getProjectAccessById } from "@/lib/data/workspace-access";
+import { getWorkspaceAccessById } from "@/lib/data/workspace-access";
 import { orgFileAccessSql } from "@/lib/files/internal-helpers";
 import { orgTaskReadFilter } from "@/lib/organizations/assignments";
 import { getViewerIdentityContext } from "@/lib/server/viewer-context";
-import { normalizeProjectPublicTabVisibility } from "@/lib/workspaces/settings-policies";
-import { activityActorName, describeGithubPush, describeMembershipEvent, isPublishableFileMetadata, newestProjectActivities, recentActivityAudience, type ProjectRecentActivityItem } from "@/lib/workspaces/recent-activity";
+import { normalizeWorkspacePublicTabVisibility } from "@/lib/workspaces/settings-policies";
+import { activityActorName, describeGithubPush, describeMembershipEvent, isPublishableFileMetadata, newestWorkspaceActivities, recentActivityAudience, type WorkspaceRecentActivityItem } from "@/lib/workspaces/recent-activity";
 
 const actor = alias(profiles, "recent_activity_actor");
 const member = alias(profiles, "recent_activity_member");
 
 /** Only the three latest publishable project events cross this server-action boundary. */
-export async function readProjectRecentActivityAction(projectId: string): Promise<ProjectRecentActivityItem[]> {
+export async function readWorkspaceRecentActivityAction(projectId: string): Promise<WorkspaceRecentActivityItem[]> {
   const viewer = await getViewerIdentityContext();
-  const access = await getProjectAccessById(projectId, viewer.userId);
+  const access = await getWorkspaceAccessById(projectId, viewer.userId);
   if (!access.project || !access.canRead) throw new Error("Workspace not found");
   const isMember = access.isOwner || access.isMember;
-  const visibility = normalizeProjectPublicTabVisibility(access.project.publicTabVisibility);
+  const visibility = normalizeWorkspacePublicTabVisibility(access.project.publicTabVisibility);
   if (!isMember && !visibility.dashboard) throw new Error("Workspace not found");
   const audience = recentActivityAudience(isMember, visibility);
   const projectHref = `/workspaces/${encodeURIComponent(access.project.slug || projectId)}`;
@@ -101,7 +101,7 @@ export async function readProjectRecentActivityAction(projectId: string): Promis
   const [memberEvents, taskEvents, fileEvents, githubEvents] = await Promise.all([
     memberEventsPromise, taskEventsPromise, fileEventsPromise, githubEventsPromise,
   ]);
-  const items: ProjectRecentActivityItem[] = [];
+  const items: WorkspaceRecentActivityItem[] = [];
   for (const event of memberEvents) {
     const metadata = event.metadata ?? {};
     const name = activityActorName({ fullName: event.name, username: event.username });
@@ -131,5 +131,5 @@ export async function readProjectRecentActivityAction(projectId: string): Promis
       occurredAt: event.updatedAt.toISOString(),
       href: isMember ? `${projectHref}?tab=files&filesView=github` : projectHref });
   }
-  return newestProjectActivities(items);
+  return newestWorkspaceActivities(items);
 }

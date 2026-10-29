@@ -29,7 +29,7 @@ export function normalizeImportIdComponent(value: string | null | undefined, fal
  * Format:
  *   project-import:{projectId}:{source}:{normalizedTarget}:{branchOrManifestHash}
  */
-export function buildProjectImportEventId(input: {
+export function buildWorkspaceImportEventId(input: {
   projectId: string;
   source: ImportSourceKind;
   normalizedTarget: string;

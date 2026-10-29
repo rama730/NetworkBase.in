@@ -43,7 +43,7 @@ test("round 2: caches drop a project or creator that goes private at once", () =
   const profile = read("src/app/actions/profile.ts");
   assert.doesNotMatch(project, /revalidateTag\(DISCOVER_ANON_CACHE_TAG, "max"\)/);
   assert.match(project, /revalidateTag\(DISCOVER_ANON_CACHE_TAG, \{ expire: 0 \}\)/);
-  assert.match(profile, /invalidatePublicProjectsFeedCache\(\)/);
+  assert.match(profile, /invalidatePublicWorkspacesFeedCache\(\)/);
   assert.match(read("src/app/api/og/workspace/[slug]/route.tsx"), /s-maxage=3600/);
 });
 
@@ -127,8 +127,8 @@ test("round 2: cards get counts, not every role or member; filtered reads go thr
 
 test("round 2: following clears only its own project page, and the index migration fails loudly on an invalid index", () => {
   const project = projectActionsSource();
-  const follow = project.slice(project.indexOf("const revalidateProjectFollowers"), project.indexOf("const revalidateProjectPaths"));
-  assert.doesNotMatch(follow, /PUBLIC_PROJECT_DETAIL_SHELL_CACHE_TAG/);
+  const follow = project.slice(project.indexOf("const revalidateProjectFollowers"), project.indexOf("const revalidateWorkspacePaths"));
+  assert.doesNotMatch(follow, /PUBLIC_WORKSPACE_DETAIL_SHELL_CACHE_TAG/);
   const migration = read("drizzle/0211_discover_index_hygiene.sql");
   assert.match(migration, /RAISE EXCEPTION 'A projects_discover_\* index is invalid/);
   assert.match(migration, /DROP INDEX CONCURRENTLY IF EXISTS public\.projects_feed_newest_idx;/);

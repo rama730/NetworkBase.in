@@ -1,4 +1,4 @@
-export function decodeProjectDocHtmlEntities(value: string) {
+export function decodeWorkspaceDocHtmlEntities(value: string) {
     return value
         .replace(/&nbsp;/gi, " ")
         .replace(/&amp;/gi, "&")
@@ -16,12 +16,12 @@ export function decodeProjectDocHtmlEntities(value: string) {
         });
 }
 
-export function buildProjectDocPlainText(content: string | null | undefined, options: {
+export function buildWorkspaceDocPlainText(content: string | null | undefined, options: {
     maxLength?: number;
     stripCodeBlocks?: boolean;
 } = {}) {
     const stripCodeBlocks = options.stripCodeBlocks !== false;
-    let plain = decodeProjectDocHtmlEntities(content ?? "")
+    let plain = decodeWorkspaceDocHtmlEntities(content ?? "")
         .replace(/<!--[\s\S]*?-->/g, " ")
         .replace(/<script[\s\S]*?<\/script>/gi, " ")
         .replace(/<style[\s\S]*?<\/style>/gi, " ")

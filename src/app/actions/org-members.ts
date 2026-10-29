@@ -7,15 +7,15 @@ import { UUID_RE } from '@/lib/validations/uuid';
 
 import { db } from '@/lib/db';
 import { applicationEvents, orgEmailInvites, orgJoinBlocks, profiles, projectMembers, projectOpenRoles, projects, roleApplications, taskTeamMembers, tasks } from '@/lib/db/schema';
-import { getProjectAccessById } from '@/lib/data/workspace-access';
+import { getWorkspaceAccessById } from '@/lib/data/workspace-access';
 import { notifyNewCopies } from '@/lib/organizations/assignment-notify';
 import { copyState } from '@/lib/organizations/assignment-rules';
 import { createCopiesForNewMember } from '@/lib/organizations/assignments';
 import { ORG_LIMITS } from '@/lib/organizations/config';
 import { orgMemberCap } from '@/lib/organizations/join-rules';
-import { acceptOrgInvite, createOrgEmailInvites, INVITE_DAYS, ledChildProjects, notifyInvites, notifySeatsReopened, openInvitesFor, removeFromOrg } from '@/lib/organizations/members';
+import { acceptOrgInvite, createOrgEmailInvites, INVITE_DAYS, ledChildWorkspaces, notifyInvites, notifySeatsReopened, openInvitesFor, removeFromOrg } from '@/lib/organizations/members';
 import { memberChangeBlock, memberStatus, parseInviteEmails, workSummary, type OrgMemberRole, type RosterRow } from '@/lib/organizations/member-rules';
-import { addProjectMemberInternal, changeProjectMemberRoleInternal } from '@/lib/workspaces/collaborator-lifecycle';
+import { addWorkspaceMemberInternal, changeWorkspaceMemberRoleInternal } from '@/lib/workspaces/collaborator-lifecycle';
 import { getViewerAuthContext } from '@/lib/server/viewer-context';
 import { namesOf, notifyJoined, notifyOrg, orgHref, orgLabel, queueOrgInviteSignupEmails } from '@/lib/organizations/notify';
 
@@ -29,7 +29,7 @@ const DENIED: Failure = { success: false, error: "You don’t have permission to
 async function orgManager(orgId: string, mode: 'read' | 'write' = 'write'): Promise<{ userId: string; role: 'owner' | 'admin'; slug: string | null; ownerId: string } | null> {
     const { userId } = await getViewerAuthContext();
     if (!userId) return null;
-    const access = await getProjectAccessById(orgId, userId);
+    const access = await getWorkspaceAccessById(orgId, userId);
     if (mode === 'write' && access.writeBlocked) return null;
     if (access.project?.kind !== 'organization') return null;
     const role = access.isOwner ? 'owner' : access.memberRole === 'admin' ? 'admin' : null;
@@ -158,7 +158,7 @@ export async function approveJoinRequestsAction(orgId: string, applicationIds: s
         if (n + pending.length > max) return { success: false as const, error: `This organization is full (${max} members). Raise Max members in Settings first.` };
         const now = new Date();
         for (const request of pending) {
-            await addProjectMemberInternal(tx, { projectId: orgId, userId: request.userId, role: 'member', actorId: viewer.userId, source: 'application_accept', applicationId: request.id });
+            await addWorkspaceMemberInternal(tx, { projectId: orgId, userId: request.userId, role: 'member', actorId: viewer.userId, source: 'application_accept', applicationId: request.id });
             await createCopiesForNewMember(tx, orgId, request.userId);
             await tx.update(roleApplications).set({ status: 'accepted', decisionAt: now, decisionBy: viewer.userId, updatedAt: now }).where(eq(roleApplications.id, request.id));
             await tx.insert(applicationEvents).values({ applicationId: request.id, actorId: viewer.userId, kind: 'accepted', fromStatus: 'pending', toStatus: 'accepted', metadata: { source: 'org_request' } });
@@ -301,7 +301,7 @@ export async function changeMemberRoleAction(orgId: string, userIds: string[], r
         for (const id of userIds) {
             if (roles.get(id) === role) continue;
             // The lifecycle helper checks ranks against the project's own members; the owner acts for admin changes.
-            await changeProjectMemberRoleInternal(tx, { projectId: orgId, actorId: viewer.ownerId, targetUserId: id, nextRole: role });
+            await changeWorkspaceMemberRoleInternal(tx, { projectId: orgId, actorId: viewer.ownerId, targetUserId: id, nextRole: role });
         }
     });
     touch(viewer.slug, orgId);
@@ -340,7 +340,7 @@ export async function removeMembersAction(orgId: string, userIds: string[], opti
         if (id === viewer.userId) return { success: false, error: 'Use Leave organization to remove yourself.' };
         const block = roles.has(id) ? memberChangeBlock(viewer.role, roles.get(id)!, null) : 'That person is no longer a member.';
         if (block) return { success: false, error: block };
-        if ((await ledChildProjects(db, orgId, id)).length > 0) return { success: false, error: 'This person leads a workspace here. Transfer or detach it first.' };
+        if ((await ledChildWorkspaces(db, orgId, id)).length > 0) return { success: false, error: 'This person leads a workspace here. Transfer or detach it first.' };
     }
     const seats = await db.transaction(async (tx) => {
         const opened = [];
@@ -379,7 +379,7 @@ export async function addMembersToChildAction(orgId: string, childProjectId: str
     const inOrg = await rolesOf(orgId, viewer.ownerId, userIds);
     const people = userIds.filter((id) => inOrg.has(id));
     await db.transaction(async (tx) => {
-        for (const id of people) await addProjectMemberInternal(tx, { projectId: child.id, userId: id, role: 'member', actorId: child.ownerId, source: 'manual', roleId: unitId });
+        for (const id of people) await addWorkspaceMemberInternal(tx, { projectId: child.id, userId: id, role: 'member', actorId: child.ownerId, source: 'manual', roleId: unitId });
     });
     touch(viewer.slug, orgId);
     if (people.length) {

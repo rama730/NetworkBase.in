@@ -93,7 +93,7 @@ test("an org at 2,000 members: fan-out, roster, dashboard, projects and My work 
   assert.ok(roster.success && roster.rows.length === size);
   assert.ok((await timed("Dashboard", 3_000, () => dash.readOrgDashboardAction(orgId))).success);
   assert.ok((await timed("About (org page)", 2_000, () => dash.readOrgAboutAction(orgId))).success);
-  const projectsTab = await timed("Projects tab", 2_000, () => dash.readOrgProjectsAction(orgId));
+  const projectsTab = await timed("Projects tab", 2_000, () => dash.readOrgWorkspacesAction(orgId));
   assert.ok(projectsTab.success && projectsTab.rows.length === 20);
   assert.ok((await timed("Assignments list (admin)", 2_000, () => assignments.listAssignmentsAction(orgId))).success);
   const assignmentRoster = await timed("Assignment roster", 3_000, () => assignments.readAssignmentRosterAction(created.success ? created.masterId : ""));

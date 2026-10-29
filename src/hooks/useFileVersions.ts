@@ -6,7 +6,7 @@ import { extOf } from "@/components/workspaces/v2/utils/fileKind";
 import type { FileVersion, ProjectNode } from "@/lib/db/schema";
 import { applyUploadedFileRevision, listFileVersionsPage, restoreFileVersion, deleteFileVersionAction } from "@/app/actions/files/versions";
 import { getUploadPresignedUrl } from "@/app/actions/upload";
-import { buildProjectFileKey } from "@/lib/storage/workspace-file-key";
+import { buildWorkspaceFileKey } from "@/lib/storage/workspace-file-key";
 import { computeContentHash } from "@/lib/files/content-hash";
 import type { FileRevisionMode } from "@/lib/files/revision-policy";
 import {
@@ -134,7 +134,7 @@ export async function saveFileRevision(params: {
     ownedLease = ownedLease ?? await acquireBrowserFileLease(projectId, nodeId);
     const fileExt = extOf(file.name);
     const opaque = newClientId();
-    storagePath = buildProjectFileKey(
+    storagePath = buildWorkspaceFileKey(
       projectId,
       `${opaque}${fileExt ? `.${fileExt}` : ""}`,
     );

@@ -307,7 +307,7 @@ export async function syncProfileSkills(
     return resolved
 }
 
-export async function syncProjectSkills(
+export async function syncWorkspaceSkills(
     executor: SkillDbExecutor,
     projectId: string,
     labels: readonly string[],

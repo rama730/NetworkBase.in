@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import test from 'node:test';
-import { createProjectSchema } from '../../src/lib/validations/workspace';
+import { createWorkspaceSchema } from '../../src/lib/validations/workspace';
 
 function source(relativePath: string) {
     return fs.readFileSync(path.join(process.cwd(), relativePath), 'utf8');
@@ -63,7 +63,7 @@ test('Phase 3 roles participate in form drafts, validation, and final project cr
 });
 
 test('Phase 3 rejects duplicate role titles before the workspace can be created', () => {
-    const result = createProjectSchema.safeParse({
+    const result = createWorkspaceSchema.safeParse({
         title: 'Product collaboration space',
         description: 'A clear project description that meets the minimum validation length.',
         project_type: 'web_app',

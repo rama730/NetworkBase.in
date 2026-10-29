@@ -4,7 +4,7 @@ import { inngest } from "../client";
 import { redis } from "@/lib/redis";
 import { flushRedisCounterHash, type FlushRedis } from "@/lib/counters/redis-flush";
 
-export const flushProjectViews = inngest.createFunction(
+export const flushWorkspaceViews = inngest.createFunction(
     { id: "flush-project-views", name: "Flush Workspace Views from Redis" },
     { cron: "*/15 * * * *" },
     async ({ step }) => {

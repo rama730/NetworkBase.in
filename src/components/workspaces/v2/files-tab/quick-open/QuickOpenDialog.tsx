@@ -18,7 +18,7 @@ import type { ProjectNode } from "@/lib/db/schema";
 import { useFilesStore } from "@/stores/filesStore";
 import {
   getTaskWorkingFilesDisplayName,
-  isProjectSystemRoot,
+  isWorkspaceSystemRoot,
 } from "@/lib/files/task-working-files";
 
 import { useNavigateTo } from "../hooks/useNavigateTo";
@@ -56,7 +56,7 @@ export function buildNodePathMap(
     const displayName = getTaskWorkingFilesDisplayName(node);
     if (seen.has(nodeId)) return displayName; // defensive: cycle guard
     seen.add(nodeId);
-    if (isProjectSystemRoot(node)) {
+    if (isWorkspaceSystemRoot(node)) {
       cache.set(nodeId, "");
       return "";
     }
@@ -138,9 +138,9 @@ export function QuickOpenDialog({
     initialPageParam: undefined as string | undefined,
     queryFn: async ({ pageParam }) => {
       // ponytail: dynamic import inside queryFn keeps server actions and DB driver out of module evaluation in unit test environments. ceiling: on-demand quick-open search. upgrade: static import when tree-shaking handles server-only boundaries.
-      const { getProjectNodes } = await import("@/app/actions/files/nodes");
-      // getProjectNodes(projectId, null, rawQuery, MAX_RESULTS)
-      return getProjectNodes(projectId, null, rawQuery, MAX_RESULTS, pageParam, {
+      const { getWorkspaceNodes } = await import("@/app/actions/files/nodes");
+      // getWorkspaceNodes(projectId, null, rawQuery, MAX_RESULTS)
+      return getWorkspaceNodes(projectId, null, rawQuery, MAX_RESULTS, pageParam, {
         itemType: includeFolders ? undefined : "file",
       });
     },

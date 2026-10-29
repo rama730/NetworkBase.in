@@ -1,4 +1,4 @@
-export type ProjectDocMediaProject = {
+export type WorkspaceDocMediaWorkspace = {
     id?: string | null;
     visibility?: string | null;
     githubRepoUrl?: string | null;
@@ -6,20 +6,20 @@ export type ProjectDocMediaProject = {
     importSource?: unknown;
 };
 
-export type ProjectDocGithubSource = {
+export type WorkspaceDocGithubSource = {
     owner: string;
     repo: string;
     branch: string;
 };
 
-export type ProjectDocImageKind = "badge" | "icon" | "logo" | "diagram" | "content";
+export type WorkspaceDocImageKind = "badge" | "icon" | "logo" | "diagram" | "content";
 
-export type ProjectDocResolvedImage = {
+export type WorkspaceDocResolvedImage = {
     src: string | null;
     blockedReason: "invalid" | "external" | null;
     trustedExternal: boolean;
     originalSrc: string;
-    kind: ProjectDocImageKind;
+    kind: WorkspaceDocImageKind;
     width: number | null;
     height: number | null;
     widthPercent: number | null;
@@ -56,7 +56,7 @@ function normalizeBranch(value: unknown) {
     return typeof value === "string" && value.trim() ? value.trim() : "main";
 }
 
-function readImportSource(project: ProjectDocMediaProject) {
+function readImportSource(project: WorkspaceDocMediaWorkspace) {
     const importSource = project.importSource && typeof project.importSource === "object"
         ? project.importSource as Record<string, unknown>
         : {};
@@ -72,7 +72,7 @@ function readMetadataGithubRepoUrl(metadata: Record<string, unknown>) {
     return owner && name ? `https://github.com/${owner}/${name}` : null;
 }
 
-export function parseProjectDocGithubRepoUrl(value: unknown): Pick<ProjectDocGithubSource, "owner" | "repo"> | null {
+export function parseWorkspaceDocGithubRepoUrl(value: unknown): Pick<WorkspaceDocGithubSource, "owner" | "repo"> | null {
     if (typeof value !== "string") return null;
     const trimmed = value.trim();
     if (!trimmed) return null;
@@ -84,14 +84,14 @@ export function parseProjectDocGithubRepoUrl(value: unknown): Pick<ProjectDocGit
     return owner && repo ? { owner, repo } : null;
 }
 
-export function resolveProjectDocGithubSource(project: ProjectDocMediaProject): ProjectDocGithubSource | null {
+export function resolveWorkspaceDocGithubSource(project: WorkspaceDocMediaWorkspace): WorkspaceDocGithubSource | null {
     const { importSource, metadata } = readImportSource(project);
     const repoUrl = project.githubRepoUrl
         ?? (typeof importSource.repoUrl === "string" ? importSource.repoUrl : null)
         ?? (typeof metadata.normalizedRepoUrl === "string" ? metadata.normalizedRepoUrl : null)
         ?? (typeof metadata.repoUrl === "string" ? metadata.repoUrl : null)
         ?? readMetadataGithubRepoUrl(metadata);
-    const repo = parseProjectDocGithubRepoUrl(repoUrl);
+    const repo = parseWorkspaceDocGithubRepoUrl(repoUrl);
     if (!repo) return null;
     const branch = normalizeBranch(importSource.branch ?? project.githubDefaultBranch ?? metadata.branch);
     return { ...repo, branch };
@@ -130,7 +130,7 @@ function normalizeRelativeReadmeAssetPath(value: string) {
     return `${normalizedPath.map(encodeURIComponent).join("/")}${suffix}`;
 }
 
-function resolveGithubRawImage(value: string, source: ProjectDocGithubSource | null) {
+function resolveGithubRawImage(value: string, source: WorkspaceDocGithubSource | null) {
     if (!source) return null;
     const relativePath = normalizeRelativeReadmeAssetPath(value);
     if (!relativePath) return null;
@@ -141,7 +141,7 @@ function normalizeProtocolRelativeImageUrl(value: string) {
     return value.startsWith("//") ? `https:${value}` : value;
 }
 
-function resolveGithubRepositoryImageUrl(url: URL, source: ProjectDocGithubSource | null) {
+function resolveGithubRepositoryImageUrl(url: URL, source: WorkspaceDocGithubSource | null) {
     if (url.hostname.toLowerCase() !== "github.com") return null;
     const parts = url.pathname.split("/").filter(Boolean);
     if (parts.length < 5) return null;
@@ -168,7 +168,7 @@ function isProjectStorageImage(value: string) {
     return value.startsWith("/api/v1/workspaces/") || value.startsWith("/_next/") || value.startsWith("/images/");
 }
 
-function isTrustedReadmeImageUrl(url: URL, project: ProjectDocMediaProject, source: ProjectDocGithubSource | null) {
+function isTrustedReadmeImageUrl(url: URL, project: WorkspaceDocMediaWorkspace, source: WorkspaceDocGithubSource | null) {
     if (!TRUSTED_PUBLIC_README_IMAGE_HOSTS.has(url.hostname.toLowerCase())) return false;
     if (url.hostname.toLowerCase() === "raw.githubusercontent.com") {
         if (!source) return false;
@@ -185,7 +185,7 @@ export function classifyReadmeImage(input: {
     title?: string | null;
     width: number | null;
     height: number | null;
-}) : ProjectDocImageKind {
+}) : WorkspaceDocImageKind {
     const value = input.src.toLowerCase();
     const label = `${input.alt ?? ""} ${input.title ?? ""}`.toLowerCase();
     const width = input.width ?? 0;
@@ -202,15 +202,15 @@ export function classifyReadmeImage(input: {
     return "content";
 }
 
-export function resolveProjectDocImage(input: {
+export function resolveWorkspaceDocImage(input: {
     src: unknown;
     alt?: unknown;
     title?: unknown;
     width?: unknown;
     height?: unknown;
     allowExternalImages: boolean;
-    project: ProjectDocMediaProject;
-}): ProjectDocResolvedImage {
+    project: WorkspaceDocMediaWorkspace;
+}): WorkspaceDocResolvedImage {
     const originalSrc = typeof input.src === "string" ? input.src.replace(CONTROL_CHARS_REGEX, "").trim() : "";
     const width = parseReadmeHtmlDimension(input.width);
     const height = parseReadmeHtmlDimension(input.height);
@@ -233,7 +233,7 @@ export function resolveProjectDocImage(input: {
         if (isProjectStorageImage(normalizedSrc)) {
             return { src: normalizedSrc, blockedReason: null, trustedExternal: false, originalSrc, kind, width, height, widthPercent };
         }
-        const githubSrc = resolveGithubRawImage(normalizedSrc, resolveProjectDocGithubSource(input.project));
+        const githubSrc = resolveGithubRawImage(normalizedSrc, resolveWorkspaceDocGithubSource(input.project));
         if (githubSrc) {
             return { src: githubSrc, blockedReason: null, trustedExternal: true, originalSrc, kind, width, height, widthPercent };
         }
@@ -241,7 +241,7 @@ export function resolveProjectDocImage(input: {
     }
 
     try {
-        const source = resolveProjectDocGithubSource(input.project);
+        const source = resolveWorkspaceDocGithubSource(input.project);
         const parsed = new URL(normalizedSrc);
         if (!SAFE_IMAGE_PROTOCOLS.has(parsed.protocol)) {
             return { src: null, blockedReason: "invalid", trustedExternal: false, originalSrc, kind, width, height, widthPercent };

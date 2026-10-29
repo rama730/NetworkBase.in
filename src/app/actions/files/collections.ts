@@ -4,16 +4,16 @@ import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { projectNodes } from "@/lib/db/schema";
 import { createClient } from "@/lib/supabase/server";
-import { assertProjectFileReadAccess, canReadProjectTaskFiles, orgFileAccessSql } from "@/lib/files/internal-helpers";
+import { assertWorkspaceFileReadAccess, canReadWorkspaceTaskFiles, orgFileAccessSql } from "@/lib/files/internal-helpers";
 import { getFileAttributionByNodeId } from "@/lib/files/file-attribution";
-import type { ProjectNodeWithAttribution } from "./nodes";
+import type { WorkspaceNodeWithAttribution } from "./nodes";
 import { taskFileAssociationsSql as associations, taskFileEntriesSql } from "@/lib/files/task-file-collection-query";
 import { UUID_RE } from "./_constants";
 import { getApprovedTaskFileVersion, isApprovedTaskFileRevision } from "@/lib/workspaces/task-file-intelligence";
 
 export type TaskCollectionRole = "reference" | "working" | "deliverable";
 export type TaskCollectionEntry = {
-    node: ProjectNodeWithAttribution;
+    node: WorkspaceNodeWithAttribution;
     role: TaskCollectionRole;
     annotation?: string | null;
     approvedVersion: number | null;
@@ -36,8 +36,8 @@ async function authorize(projectId: string) {
     if (!UUID_RE.test(projectId)) throw new Error("Invalid workspace");
     const client = await createClient();
     const { data: { user } } = await client.auth.getUser();
-    const access = await assertProjectFileReadAccess(projectId, user?.id ?? null);
-    if (!canReadProjectTaskFiles(access)) throw new Error("Task files are not available to this viewer.");
+    const access = await assertWorkspaceFileReadAccess(projectId, user?.id ?? null);
+    if (!canReadWorkspaceTaskFiles(access)) throw new Error("Task files are not available to this viewer.");
     return access;
 }
 
@@ -51,7 +51,7 @@ async function loadEntries(access: Awaited<ReturnType<typeof authorize>>, projec
         where: and(eq(projectNodes.projectId, projectId), isNull(projectNodes.deletedAt), inArray(projectNodes.id, nodeIds), orgFileAccessSql(access)),
     });
     const attribution = await getFileAttributionByNodeId(nodes);
-    const byId = new Map(nodes.map(node => [node.id, { ...node, ...attribution.get(node.id) } as ProjectNodeWithAttribution]));
+    const byId = new Map(nodes.map(node => [node.id, { ...node, ...attribution.get(node.id) } as WorkspaceNodeWithAttribution]));
     return new Map(taskIds.map(taskId => {
         const matching = rows.filter(row => row.task_id === taskId);
         const page = matching.slice(0, 50);

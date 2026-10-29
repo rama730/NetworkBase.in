@@ -13,9 +13,9 @@ const fnBody = (source: string, name: string) => {
 
 test("COR-002: the file-content server action has no caller-controlled bypass", () => {
   const action = read("src/app/actions/files/content.ts");
-  const facade = fnBody(action, "export async function getProjectFileContent(");
-  assert.match(facade, /getProjectFileContent\(projectId: string, nodeId: string\)/);
-  assert.match(facade, /assertProjectFileReadAccess\(projectId, actorId\)/);
+  const facade = fnBody(action, "export async function getWorkspaceFileContent(");
+  assert.match(facade, /getWorkspaceFileContent\(projectId: string, nodeId: string\)/);
+  assert.match(facade, /assertWorkspaceFileReadAccess\(projectId, actorId\)/);
   assert.doesNotMatch(action, /skipFileTabCheck/);
   const reader = read("src/lib/files/content-reader.ts");
   assert.doesNotMatch(reader, /^"use server"/m, "the private reader must not be a server action");
@@ -33,20 +33,20 @@ test("COR-034/COR-035: doc reads honor draft status, hide task files and never d
   const doc = read("src/app/actions/workspace/doc.ts");
   assert.equal((doc.match(/projectStatus: project\.status/g) ?? []).length, 2);
   assert.equal((doc.match(/fileScope\)/g) ?? []).length, 2);
-  const readAction = fnBody(doc, "export async function readProjectDocAction(");
+  const readAction = fnBody(doc, "export async function readWorkspaceDocAction(");
   assert.doesNotMatch(readAction, /db\.delete\(projectDocs\)/);
   assert.match(readAction, /eq\(projectNodes\.projectId, projectId\)/);
 });
 
 test("COR-003: Files task search returns nothing without Tasks visibility", () => {
-  const search = fnBody(read("src/app/actions/files/links.ts"), "export async function searchProjectTasks(");
-  const guard = search.indexOf("if (!canReadProjectTaskFiles(access)) return [];");
+  const search = fnBody(read("src/app/actions/files/links.ts"), "export async function searchWorkspaceTasks(");
+  const guard = search.indexOf("if (!canReadWorkspaceTaskFiles(access)) return [];");
   assert.ok(guard > 0 && guard < search.indexOf("db\n") + 1e9 && guard < search.indexOf(".from(tasks)"), "guard before any task query");
 });
 
 test("COR-022: project statuses use the canonical readability rule (drafts hidden)", () => {
-  const statuses = fnBody(read("src/app/actions/presence.ts"), "export async function getProjectStatuses(");
-  assert.match(statuses, /getProjectAccessByIds\(ids, user\?\.id \?\? null\)/);
+  const statuses = fnBody(read("src/app/actions/presence.ts"), "export async function getWorkspaceStatuses(");
+  assert.match(statuses, /getWorkspaceAccessByIds\(ids, user\?\.id \?\? null\)/);
   assert.match(statuses, /access\[id\]\?\.canRead/);
   assert.doesNotMatch(statuses, /coalesce\(p\.visibility, 'public'\) <> 'private'/);
 });
@@ -54,26 +54,26 @@ test("COR-022: project statuses use the canonical readability rule (drafts hidde
 test("COR-043: task, sprint and member loaders gate on their tab, sprint task rows on Tasks", () => {
   const project = projectActionsSource();
   const tasks = fnBody(project, "async function fetchProjectTasksForActor(");
-  assert.match(tasks, /canReadProjectTab\(access, "tasks"\)/);
-  assert.match(fnBody(project, "export async function fetchProjectSprintsAction("), /assertProjectTabReadAccess\(projectId, actorId, "sprints"\)/);
-  assert.match(fnBody(project, "export async function getProjectTaskDetailAction("), /assertProjectTabReadAccess\(projectId, actorId, "tasks"\)/);
+  assert.match(tasks, /canReadWorkspaceTab\(access, "tasks"\)/);
+  assert.match(fnBody(project, "export async function fetchWorkspaceSprintsAction("), /assertWorkspaceTabReadAccess\(projectId, actorId, "sprints"\)/);
+  assert.match(fnBody(project, "export async function getWorkspaceTaskDetailAction("), /assertWorkspaceTabReadAccess\(projectId, actorId, "tasks"\)/);
   for (const name of ["async function buildSprintDetailPayload(", "async function buildSprintTimelinePagePayload("]) {
     const body = fnBody(project, name);
-    assert.match(body, /canReadProjectTab\(access, "sprints"\)/, name);
+    assert.match(body, /canReadWorkspaceTab\(access, "sprints"\)/, name);
     assert.match(body, /showTasks \? readSprintTaskActivityPage/, name);
   }
-  assert.equal((project.match(/resolveProjectDocPermission\(\{/g) ?? []).length, 2, "shell + public metadata README gated by doc permission");
+  assert.equal((project.match(/resolveWorkspaceDocPermission\(\{/g) ?? []).length, 2, "shell + public metadata README gated by doc permission");
 });
 
 test("COR-042: exported project readers derive the actor from the session", () => {
   const project = projectActionsSource();
-  assert.match(fnBody(project, "export async function readProjectDetailShell("), /getViewerAuthContext\(\)/);
-  assert.match(fnBody(project, "export async function readProjectSprintDetail("), /getViewerAuthContext\(\)/);
+  assert.match(fnBody(project, "export async function readWorkspaceDetailShell("), /getViewerAuthContext\(\)/);
+  assert.match(fnBody(project, "export async function readWorkspaceSprintDetail("), /getViewerAuthContext\(\)/);
   assert.doesNotMatch(project, /export async function getProjectDetailShellAction/);
 });
 
 test("COR-044: profile role picker is session-scoped and lists only publicly readable non-draft projects", () => {
-  const picker = fnBody(projectActionsSource(), "export async function getProfileProjectsWithOpenRolesAction(");
+  const picker = fnBody(projectActionsSource(), "export async function getProfileWorkspacesWithOpenRolesAction(");
   assert.match(picker, /\(\s*targetProfileId: string,\s*input:/);
   assert.match(picker, /getViewerAuthContext\(\)/);
   assert.match(picker, /relationship\?\.canViewProfile/);
@@ -88,29 +88,29 @@ test("COR-038: update references hydrate only from visible tabs; sync task list 
   assert.match(summaries, /canReadSprints && sprintIds\.size > 0/);
   assert.match(summaries, /canReadFiles && fileIds\.size > 0/);
   assert.match(summaries, /canReadTasks \? undefined : projectContentNodeSql/);
-  assert.match(fnBody(updates, "export async function resolveProjectUpdateMentionTargetAction("), /canReadProjectUpdateTargetTab\(access, "task"\) \? undefined : projectContentNodeSql/);
-  assert.match(fnBody(read("src/app/actions/github-sync.ts"), "export async function getProjectSyncTasks("), /assertProjectTabReadAccess\(projectId, user\.id, "tasks"\)/);
+  assert.match(fnBody(updates, "export async function resolveWorkspaceUpdateMentionTargetAction("), /canReadProjectUpdateTargetTab\(access, "task"\) \? undefined : projectContentNodeSql/);
+  assert.match(fnBody(read("src/app/actions/github-sync.ts"), "export async function getWorkspaceSyncTasks("), /assertWorkspaceTabReadAccess\(projectId, user\.id, "tasks"\)/);
 });
 
 test("AUTH-002/AUTH-004/VALID-001: extension readers and heartbeat use the canonical tab rules", () => {
   for (const route of ["workspace-summary", "workspace-tasks"]) {
-    assert.match(read(`src/app/api/v1/extension/${route}/route.ts`), /canReadProjectTab\(access, "tasks"\)/, route);
+    assert.match(read(`src/app/api/v1/extension/${route}/route.ts`), /canReadWorkspaceTab\(access, "tasks"\)/, route);
   }
   const folder = read("src/app/api/v1/extension/folder/route.ts");
-  assert.match(folder, /canReadProjectTab\(access, "files"\)/);
-  assert.match(folder, /canReadProjectTab\(access, "tasks"\) \? undefined : projectContentNodeSql/);
+  assert.match(folder, /canReadWorkspaceTab\(access, "files"\)/);
+  assert.match(folder, /canReadWorkspaceTab\(access, "tasks"\) \? undefined : projectContentNodeSql/);
   const detail = read("src/app/api/v1/extension/task-detail/route.ts");
-  assert.match(detail, /canReadProjectTab\(access, "tasks"\)/);
+  assert.match(detail, /canReadWorkspaceTab\(access, "tasks"\)/);
   assert.doesNotMatch(detail, /row\.visibility === "public"/);
   const heartbeat = read("src/app/api/v1/extension/heartbeat/route.ts");
-  assert.match(heartbeat, /getProjectAccessByIds\(Object\.keys\(parsed\.data\.projectWatermarks\), user\.id\)/);
+  assert.match(heartbeat, /getWorkspaceAccessByIds\(Object\.keys\(parsed\.data\.projectWatermarks\), user\.id\)/);
   assert.match(heartbeat, /\.record\(z\.string\(\)\.uuid\(\), z\.string\(\)\.max\(64\)\)/);
   assert.match(heartbeat, /consumeRateLimit\(`extension-heartbeat:/);
 });
 
 test("AUTH-013: profile project projections carry public links only; cached summaries re-versioned", () => {
   const collaboration = read("src/lib/profile/collaboration.ts");
-  assert.match(collaboration, /externalLinks: filterProjectLinksForAudience\(row\.external_links, false\)/);
+  assert.match(collaboration, /externalLinks: filterWorkspaceLinksForAudience\(row\.external_links, false\)/);
   assert.doesNotMatch(collaboration, /externalLinks: row\.external_links/);
   assert.match(collaboration, /const SUMMARY_VERSION = (7|8);/);
 });

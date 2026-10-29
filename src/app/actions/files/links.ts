@@ -7,11 +7,11 @@ import { eq, and, isNull, inArray, sql, desc, ilike } from "drizzle-orm";
 import { createClient } from "@/lib/supabase/server";
 import { notifyTaskParticipantsForFileEvent } from "@/lib/notifications/task-file";
 import {
-    assertProjectFileReadAccess,
-    canReadProjectTaskFiles,
-    assertProjectWriteAccess,
-    assertProjectWriteAccessTx,
-    getTaskProjectId,
+    assertWorkspaceFileReadAccess,
+    canReadWorkspaceTaskFiles,
+    assertWorkspaceWriteAccess,
+    assertWorkspaceWriteAccessTx,
+    getTaskWorkspaceId,
 } from "@/lib/files/internal-helpers";
 import {
     replaceTaskFileRoleTag,
@@ -37,7 +37,7 @@ type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
 // COR-023: authority, the live task and the live file are re-read in the write transaction.
 async function assertLinkTargetsTx(tx: Tx, projectId: string, userId: string, taskId: string, nodeId: string) {
-    await assertProjectWriteAccessTx(tx, projectId, userId);
+    await assertWorkspaceWriteAccessTx(tx, projectId, userId);
     const [task] = await tx.select({ id: tasks.id }).from(tasks)
         .where(and(eq(tasks.id, taskId), eq(tasks.projectId, projectId), isNull(tasks.deletedAt))).limit(1);
     if (!task) throw new Error("Task not found");
@@ -59,8 +59,8 @@ function withStoredApprovalTags(tags: readonly string[]) {
 export async function getTaskLinkCounts(projectId: string, nodeIds: string[]) {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
-    const access = await assertProjectFileReadAccess(projectId, user?.id ?? null);
-    if (!canReadProjectTaskFiles(access)) return {} as Record<string, number>;
+    const access = await assertWorkspaceFileReadAccess(projectId, user?.id ?? null);
+    if (!canReadWorkspaceTaskFiles(access)) return {} as Record<string, number>;
 
     const unique = Array.from(new Set(nodeIds)).filter(Boolean);
     if (unique.length === 0) return {} as Record<string, number>;
@@ -100,8 +100,8 @@ export interface LinkedTask {
 export async function getTaskLinksForNode(projectId: string, nodeId: string): Promise<LinkedTask[]> {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
-    const access = await assertProjectFileReadAccess(projectId, user?.id ?? null);
-    if (!canReadProjectTaskFiles(access)) return [];
+    const access = await assertWorkspaceFileReadAccess(projectId, user?.id ?? null);
+    if (!canReadWorkspaceTaskFiles(access)) return [];
 
     // Confirm the node belongs to the project
     const node = await db.query.projectNodes.findFirst({
@@ -153,7 +153,7 @@ export async function linkNodeToTask(
     if (options?.role && !["reference", "working", "deliverable"].includes(options.role))
         throw new Error("Invalid file role");
     const user = await requireLinkWriter(options?.annotation);
-    const projectId = await getTaskProjectId(taskId);
+    const projectId = await getTaskWorkspaceId(taskId);
 
     const { row, changed } = await db.transaction(async (tx) => {
         await assertLinkTargetsTx(tx, projectId, user.id, taskId, nodeId);
@@ -213,8 +213,8 @@ export async function unlinkNodeFromTask(taskId: string, nodeId: string) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error("Sign in to continue");
 
-    const projectId = await getTaskProjectId(taskId);
-    await assertProjectWriteAccess(projectId, user.id);
+    const projectId = await getTaskWorkspaceId(taskId);
+    await assertWorkspaceWriteAccess(projectId, user.id);
 
     // Ensure node belongs to the same project (prevents unlinking arbitrary links across projects)
     const node = await db.query.projectNodes.findFirst({
@@ -226,7 +226,7 @@ export async function unlinkNodeFromTask(taskId: string, nodeId: string) {
     // Removing from a task must never delete a project file. Deletion remains an
     // explicit Files action; this operation only removes the task relationship.
     await db.transaction(async tx => {
-        await assertProjectWriteAccessTx(tx, projectId, user.id);
+        await assertWorkspaceWriteAccessTx(tx, projectId, user.id);
         // PURE OPTIMIZATION (Item 11): Consolidate link deletion and node metadata detachment into 1 atomic query.
         await tx.execute(sql`
             WITH deleted_link AS (
@@ -248,8 +248,8 @@ export async function getTaskAttachments(projectId: string, taskId: string) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error("Sign in to continue");
 
-    const access = await assertProjectFileReadAccess(projectId, user.id);
-    if (!canReadProjectTaskFiles(access)) throw new Error("Task files are not available to this viewer.");
+    const access = await assertWorkspaceFileReadAccess(projectId, user.id);
+    if (!canReadWorkspaceTaskFiles(access)) throw new Error("Task files are not available to this viewer.");
 
     const rows = await db
         .select({
@@ -285,7 +285,7 @@ export async function updateTaskNodeLink(taskId: string, nodeId: string, updates
         throw new Error("Invalid file labels");
     if (updates.order !== undefined && !Number.isSafeInteger(updates.order)) throw new Error("Invalid file order");
     const user = await requireLinkWriter(updates.annotation);
-    const projectId = await getTaskProjectId(taskId);
+    const projectId = await getTaskWorkspaceId(taskId);
     if (Object.keys(updates).length === 0) return;
 
     const needsReview = await db.transaction(async (tx) => {
@@ -325,16 +325,16 @@ export interface SearchableTask {
     assigneeName: string | null;
 }
 
-export async function searchProjectTasks(
+export async function searchWorkspaceTasks(
     projectId: string,
     query: string,
     limit: number = 30,
 ): Promise<SearchableTask[]> {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
-    const access = await assertProjectFileReadAccess(projectId, user?.id ?? null);
+    const access = await assertWorkspaceFileReadAccess(projectId, user?.id ?? null);
     // Task titles, status and assignees are Tasks-tab data, not Files data (COR-003).
-    if (!canReadProjectTaskFiles(access)) return [];
+    if (!canReadWorkspaceTaskFiles(access)) return [];
 
     const safeLimit = Math.min(Math.max(limit, 1), 100);
     const trimmed = (query || "").trim();

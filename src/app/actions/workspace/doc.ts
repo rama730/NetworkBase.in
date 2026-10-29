@@ -4,8 +4,8 @@ import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { revalidatePath, revalidateTag } from "next/cache";
 import { z } from "zod";
 
-import { readProjectFileText } from "@/lib/files/content-reader";
-import { getProjectAccessById } from "@/lib/data/workspace-access";
+import { readWorkspaceFileText } from "@/lib/files/content-reader";
+import { getWorkspaceAccessById } from "@/lib/data/workspace-access";
 import { db } from "@/lib/db";
 import {
     profiles,
@@ -24,39 +24,39 @@ import { isUuid } from "@/lib/validations/uuid";
 import { getViewerAuthContext } from "@/lib/server/viewer-context";
 import { orgFileAccessSql, projectContentNodeSql, recordNodeEvent } from "@/lib/files/internal-helpers";
 import {
-    getOrBuildProjectDocPublishMetadata,
-    DEFAULT_PROJECT_DOC_SETTINGS,
-    buildProjectDocQualityReport,
-    normalizeProjectDocContent,
-    normalizeProjectDocHeadings,
-    normalizeProjectDocSettings,
-    normalizeProjectDocSlug,
-    resolveProjectDocPermission,
-    type ProjectDocPublishedPayload,
-    type ProjectDocQualityReport,
-    type ProjectDocSettings,
-    type ProjectDocVersion,
-    type ProjectDocListItem,
+    getOrBuildWorkspaceDocPublishMetadata,
+    DEFAULT_WORKSPACE_DOC_SETTINGS,
+    buildWorkspaceDocQualityReport,
+    normalizeWorkspaceDocContent,
+    normalizeWorkspaceDocHeadings,
+    normalizeWorkspaceDocSettings,
+    normalizeWorkspaceDocSlug,
+    resolveWorkspaceDocPermission,
+    type WorkspaceDocPublishedPayload,
+    type WorkspaceDocQualityReport,
+    type WorkspaceDocSettings,
+    type WorkspaceDocVersion,
+    type WorkspaceDocListItem,
 } from "@/lib/workspaces/doc";
-import { normalizeProjectPublicTabVisibility } from "@/lib/workspaces/settings-policies";
+import { normalizeWorkspacePublicTabVisibility } from "@/lib/workspaces/settings-policies";
 import type {
-    ProjectDocReferenceKind,
-    ProjectDocReferenceOption,
-    ProjectDocSmartBlock,
-    ProjectDocSmartBlockPreview,
+    WorkspaceDocReferenceKind,
+    WorkspaceDocReferenceOption,
+    WorkspaceDocSmartBlock,
+    WorkspaceDocSmartBlockPreview,
 } from "@/lib/workspaces/doc-blocks";
-import { parseProjectDocSmartBlocks } from "@/lib/workspaces/doc-blocks";
+import { parseWorkspaceDocSmartBlocks } from "@/lib/workspaces/doc-blocks";
 import { nextFreeDocSlug } from "@/lib/workspaces/doc-slug";
 
-const PUBLIC_PROJECT_DETAIL_SHELL_CACHE_TAG = "public-project-detail-shell";
-const PUBLIC_PROJECT_DETAIL_METADATA_CACHE_TAG = "public-project-detail-metadata";
+const PUBLIC_WORKSPACE_DETAIL_SHELL_CACHE_TAG = "public-project-detail-shell";
+const PUBLIC_WORKSPACE_DETAIL_METADATA_CACHE_TAG = "public-project-detail-metadata";
 const profileDisplayNameSql = (userId: unknown) => sql<string | null>`(
     SELECT COALESCE(NULLIF(full_name, ''), NULLIF(username, ''))
     FROM profiles
     WHERE id = ${userId}
     LIMIT 1
 )`;
-const docSlugSchema = z.string().optional().default("readme").transform((value) => normalizeProjectDocSlug(value));
+const docSlugSchema = z.string().optional().default("readme").transform((value) => normalizeWorkspaceDocSlug(value));
 
 const readmeSettingsSchema = z.object({
     docSlug: docSlugSchema,
@@ -81,9 +81,9 @@ const smartBlockPreviewSchema = z.array(z.object({
     raw: z.string().max(300).optional(),
 })).max(20);
 
-function normalizeStoredQualityReport(value: unknown, fallbackContent: string): ProjectDocQualityReport {
+function normalizeStoredQualityReport(value: unknown, fallbackContent: string): WorkspaceDocQualityReport {
     if (value && typeof value === "object") {
-        const report = value as Partial<ProjectDocQualityReport>;
+        const report = value as Partial<WorkspaceDocQualityReport>;
         if (
             typeof report.score === "number"
             && Array.isArray(report.issues)
@@ -93,19 +93,19 @@ function normalizeStoredQualityReport(value: unknown, fallbackContent: string): 
         ) {
             return {
                 score: report.score,
-                issues: report.issues as ProjectDocQualityReport["issues"],
+                issues: report.issues as WorkspaceDocQualityReport["issues"],
                 sectionPresence: report.sectionPresence as Record<string, boolean>,
                 contentBytes: report.contentBytes,
             };
         }
     }
-    return buildProjectDocQualityReport(fallbackContent);
+    return buildWorkspaceDocQualityReport(fallbackContent);
 }
 
-function toDocVersion(row: (typeof projectDocVersions.$inferSelect & { createdByName?: string | null }) | null | undefined, displayVersionNumber?: number, coAuthorsData?: { id: string; name: string; avatarUrl: string | null }[]): ProjectDocVersion | null {
+function toDocVersion(row: (typeof projectDocVersions.$inferSelect & { createdByName?: string | null }) | null | undefined, displayVersionNumber?: number, coAuthorsData?: { id: string; name: string; avatarUrl: string | null }[]): WorkspaceDocVersion | null {
     if (!row) return null;
-    const content = normalizeProjectDocContent(row.content);
-    const cleanedMetadata = content === row.content ? null : getOrBuildProjectDocPublishMetadata(content);
+    const content = normalizeWorkspaceDocContent(row.content);
+    const cleanedMetadata = content === row.content ? null : getOrBuildWorkspaceDocPublishMetadata(content);
     return {
         id: row.id,
         projectId: row.projectId,
@@ -113,7 +113,7 @@ function toDocVersion(row: (typeof projectDocVersions.$inferSelect & { createdBy
         displayVersionNumber: displayVersionNumber ?? row.versionNumber,
         content,
         excerpt: cleanedMetadata?.excerpt ?? row.excerpt,
-        headings: cleanedMetadata?.headings ?? normalizeProjectDocHeadings(row.headings),
+        headings: cleanedMetadata?.headings ?? normalizeWorkspaceDocHeadings(row.headings),
         qualityReport: cleanedMetadata?.qualityReport ?? normalizeStoredQualityReport(row.qualityReport, content),
         contentHash: cleanedMetadata?.contentHash ?? row.contentHash,
         changeSummary: row.changeSummary,
@@ -180,9 +180,9 @@ type DocProjectBase = Awaited<ReturnType<typeof loadDocProjectBase>>;
 function docContext(base: DocProjectBase, actorUserId: string | null, docSlug: string) {
     const { project, membership } = base;
     const readme = base.docs.find((doc) => doc.slug === docSlug);
-    const settings = normalizeProjectDocSettings(readme?.settings);
+    const settings = normalizeWorkspaceDocSettings(readme?.settings);
     const hasPublishedReadme = Boolean(readme?.publishedVersionId) || Boolean(readme?.linkedNodeId);
-    const permission = resolveProjectDocPermission({
+    const permission = resolveWorkspaceDocPermission({
         actorUserId,
         projectVisibility: project.visibility,
         projectStatus: project.status,
@@ -199,16 +199,16 @@ function docContext(base: DocProjectBase, actorUserId: string | null, docSlug: s
 function visibleDocs(base: DocProjectBase, actorUserId: string | null) {
     const { project, membership } = base;
     const isOwner = actorUserId === project.ownerId;
-    const results: ProjectDocListItem[] = [];
+    const results: WorkspaceDocListItem[] = [];
     for (const doc of base.docs) {
         const linkedAlive = Boolean(doc.linkedNodeId && doc.linkedNode && !doc.linkedNode.deletedAt);
         if (!linkedAlive && !doc.publishedVersionId) continue;
-        const permission = resolveProjectDocPermission({
+        const permission = resolveWorkspaceDocPermission({
             actorUserId,
             projectVisibility: project.visibility,
             projectStatus: project.status,
             publicTabVisibility: project.publicTabVisibility,
-            settings: normalizeProjectDocSettings(doc.settings),
+            settings: normalizeWorkspaceDocSettings(doc.settings),
             membershipRole: isOwner ? "owner" : membership?.role,
             isOwner,
             isActiveMember: isOwner || Boolean(membership),
@@ -226,11 +226,11 @@ function visibleDocs(base: DocProjectBase, actorUserId: string | null) {
 }
 
 async function getDocProjectContext(projectId: string, actorUserId: string | null, docSlug: string = "readme") {
-    return docContext(await loadDocProjectBase(projectId, actorUserId), actorUserId, normalizeProjectDocSlug(docSlug));
+    return docContext(await loadDocProjectBase(projectId, actorUserId), actorUserId, normalizeWorkspaceDocSlug(docSlug));
 }
 
-async function getOrCreateMarkdown(projectId: string, userId: string, docSlug: string = "readme", settings: ProjectDocSettings = DEFAULT_PROJECT_DOC_SETTINGS) {
-    docSlug = normalizeProjectDocSlug(docSlug);
+async function getOrCreateMarkdown(projectId: string, userId: string, docSlug: string = "readme", settings: WorkspaceDocSettings = DEFAULT_WORKSPACE_DOC_SETTINGS) {
+    docSlug = normalizeWorkspaceDocSlug(docSlug);
     const existing = await db.query.projectDocs.findFirst({
         where: and(eq(projectDocs.projectId, projectId), eq(projectDocs.slug, docSlug)),
     });
@@ -259,8 +259,8 @@ async function readPublishedVersion(versionId: string | null | undefined) {
 function revalidateProjectDoc(project: { id: string; slug: string | null }) {
     const slugOrId = project.slug || project.id;
     revalidatePath(`/workspaces/${slugOrId}`);
-    revalidateTag(PUBLIC_PROJECT_DETAIL_SHELL_CACHE_TAG, "max");
-    revalidateTag(PUBLIC_PROJECT_DETAIL_METADATA_CACHE_TAG, "max");
+    revalidateTag(PUBLIC_WORKSPACE_DETAIL_SHELL_CACHE_TAG, "max");
+    revalidateTag(PUBLIC_WORKSPACE_DETAIL_METADATA_CACHE_TAG, "max");
 }
 
 function projectHref(project: { id: string; slug: string | null }, tab: string) {
@@ -304,12 +304,12 @@ function normalizeReferenceCount(value: number | null | undefined) {
 }
 
 function canReadReferenceKind(
-    kind: ProjectDocReferenceKind,
+    kind: WorkspaceDocReferenceKind,
     context: Awaited<ReturnType<typeof getDocProjectContext>>,
 ) {
     if (context.permission.canEdit || context.permission.accessLevel === "owner" || context.membership) return true;
     if (context.project.visibility !== "public" || !context.permission.canReadPublished) return false;
-    const tabs = normalizeProjectPublicTabVisibility(context.project.publicTabVisibility);
+    const tabs = normalizeWorkspacePublicTabVisibility(context.project.publicTabVisibility);
     if (kind === "files") return tabs.files;
     if (kind === "tasks") return tabs.tasks;
     if (kind === "sprints") return tabs.sprints;
@@ -317,11 +317,11 @@ function canReadReferenceKind(
     return true;
 }
 
-function blockKey(block: Pick<ProjectDocSmartBlock, "kind" | "ids" | "index">) {
+function blockKey(block: Pick<WorkspaceDocSmartBlock, "kind" | "ids" | "index">) {
     return `${block.kind}:${block.ids.join(",")}:${block.index}`;
 }
 
-function unavailablePreview(block: Pick<ProjectDocSmartBlock, "kind" | "ids" | "index">, description = "This workspace reference is not available to this viewer."): ProjectDocSmartBlockPreview {
+function unavailablePreview(block: Pick<WorkspaceDocSmartBlock, "kind" | "ids" | "index">, description = "This workspace reference is not available to this viewer."): WorkspaceDocSmartBlockPreview {
     return {
         key: blockKey({ kind: block.kind, ids: block.ids ?? [], index: block.index ?? 0 }),
         kind: block.kind,
@@ -400,7 +400,7 @@ type TaskReferenceRow = Pick<typeof tasks.$inferSelect,
     creatorName?: string | null;
 };
 
-function optionFromTask(row: TaskReferenceRow, project: { id: string; slug: string | null; key?: string | null }): ProjectDocReferenceOption {
+function optionFromTask(row: TaskReferenceRow, project: { id: string; slug: string | null; key?: string | null }): WorkspaceDocReferenceOption {
     const assignee = truncateReferenceText(row.assigneeName, 40);
     const creator = truncateReferenceText(row.creatorName, 40);
     const assignment = assignee ? `assigned to ${assignee}` : creator ? `created by ${creator}` : "unassigned";
@@ -424,7 +424,7 @@ function optionFromTask(row: TaskReferenceRow, project: { id: string; slug: stri
 function optionFromSprint(
     row: Pick<typeof projectSprints.$inferSelect, "id" | "name" | "goal" | "description" | "status" | "startDate" | "endDate">,
     project: { id: string; slug: string | null }
-): ProjectDocReferenceOption {
+): WorkspaceDocReferenceOption {
     const dateRange = formatSprintDateRange(row.startDate, row.endDate);
     return {
         id: row.id,
@@ -442,7 +442,7 @@ function optionFromSprint(
 function optionFromFile(
     row: Pick<typeof projectNodes.$inferSelect, "id" | "name" | "path" | "currentVersion" | "mimeType">,
     project: { id: string; slug: string | null }
-): ProjectDocReferenceOption {
+): WorkspaceDocReferenceOption {
     const versions = row.currentVersion > 1 ? `${row.currentVersion} versions` : "1 version";
     const fileType = formatFileType(row as typeof projectNodes.$inferSelect);
     return {
@@ -467,7 +467,7 @@ function optionFromRole(
         filled: number;
     },
     project: { id: string; slug: string | null },
-): ProjectDocReferenceOption {
+): WorkspaceDocReferenceOption {
     const count = normalizeReferenceCount(row.count);
     const filled = count > 0
         ? Math.min(normalizeReferenceCount(row.filled), count)
@@ -496,7 +496,7 @@ function optionFromContributor(row: {
     username: string | null;
     avatarUrl: string | null;
     projectRoleTitle?: string | null;
-}, project: { id: string; slug: string | null; ownerId?: string | null }): ProjectDocReferenceOption {
+}, project: { id: string; slug: string | null; ownerId?: string | null }): WorkspaceDocReferenceOption {
     const roleLabel = formatMemberRole(row.role, row.userId === project.ownerId);
     const projectRoleTitle = truncateReferenceText(row.projectRoleTitle, 48);
     return {
@@ -514,15 +514,15 @@ function optionFromContributor(row: {
     };
 }
 
-export async function readProjectDocAction(projectId: string, requestedSlug: string | null = null): Promise<
-    | { success: true; data: ProjectDocPublishedPayload }
+export async function readWorkspaceDocAction(projectId: string, requestedSlug: string | null = null): Promise<
+    | { success: true; data: WorkspaceDocPublishedPayload }
     | { success: false; error: string; code?: "NOT_FOUND" | "FORBIDDEN" }
 > {
     try {
         const actorUserId = await getOptionalUserId();
         const base = await loadDocProjectBase(projectId, actorUserId);
         const docs = visibleDocs(base, actorUserId);
-        const requested = requestedSlug ? normalizeProjectDocSlug(requestedSlug) : null;
+        const requested = requestedSlug ? normalizeWorkspaceDocSlug(requestedSlug) : null;
         // A link to a doc that is gone (or never visible) says so instead of silently showing another doc.
         // "readme" is the tab's default, so its absence is the ordinary "no docs yet" state.
         if (requested && requested !== "readme" && !docs.some((doc) => doc.slug === requested)) {
@@ -554,10 +554,10 @@ export async function readProjectDocAction(projectId: string, requestedSlug: str
                 try {
                     // The doc permission above authorizes this exact linked file; the
                     // reader still hides task-owned files from viewers without Tasks.
-                    const access = await getProjectAccessById(projectId, actorUserId);
+                    const access = await getWorkspaceAccessById(projectId, actorUserId);
                     if (!access.project || !access.canRead) throw new Error("Workspace not readable");
-                    const content = await readProjectFileText({ ...access, project: access.project }, projectId, node.id);
-                    const metadata = getOrBuildProjectDocPublishMetadata(content);
+                    const content = await readWorkspaceFileText({ ...access, project: access.project }, projectId, node.id);
+                    const metadata = getOrBuildWorkspaceDocPublishMetadata(content);
                     versionRow = {
                         id: `linked-${node.id}`,
                         projectId,
@@ -609,7 +609,7 @@ export async function readProjectDocAction(projectId: string, requestedSlug: str
                 permission: context.permission,
                 settings: context.settings,
                 version: normalizedVersion,
-                smartBlocks: normalizedVersion ? parseProjectDocSmartBlocks(normalizedVersion.content) : [],
+                smartBlocks: normalizedVersion ? parseWorkspaceDocSmartBlocks(normalizedVersion.content) : [],
                 linkedNodeId: context.readme?.linkedNodeId ?? null,
                 linkedNode,
             },
@@ -624,8 +624,8 @@ export async function readProjectDocAction(projectId: string, requestedSlug: str
     }
 }
 
-export async function readProjectDocSmartBlockPreviewsAction(projectId: string, input: unknown, docSlug: string = "readme"): Promise<
-    | { success: true; previews: ProjectDocSmartBlockPreview[] }
+export async function readWorkspaceDocSmartBlockPreviewsAction(projectId: string, input: unknown, docSlug: string = "readme"): Promise<
+    | { success: true; previews: WorkspaceDocSmartBlockPreview[] }
     | { success: false; error: string }
 > {
     try {
@@ -642,9 +642,9 @@ export async function readProjectDocSmartBlockPreviewsAction(projectId: string, 
             ids: (block.ids ?? []).filter((id) => isUuid(id)).slice(0, 12),
             index: block.index ?? index,
         }));
-        const readableKinds = new Set<ProjectDocReferenceKind>();
-        const idsByKind = new Map<ProjectDocReferenceKind, Set<string>>();
-        const needsRecent = new Set<ProjectDocReferenceKind>();
+        const readableKinds = new Set<WorkspaceDocReferenceKind>();
+        const idsByKind = new Map<WorkspaceDocReferenceKind, Set<string>>();
+        const needsRecent = new Set<WorkspaceDocReferenceKind>();
 
         for (const block of normalizedBlocks) {
             if (block.kind === "unknown" || !canReadReferenceKind(block.kind, context)) continue;
@@ -658,8 +658,8 @@ export async function readProjectDocSmartBlockPreviewsAction(projectId: string, 
             }
         }
 
-        const tasksById = new Map<string, ProjectDocReferenceOption>();
-        let recentTasks: ProjectDocReferenceOption[] = [];
+        const tasksById = new Map<string, WorkspaceDocReferenceOption>();
+        let recentTasks: WorkspaceDocReferenceOption[] = [];
         if (readableKinds.has("tasks")) {
             const taskIds = [...(idsByKind.get("tasks") ?? [])];
             const [selectedRows, recentRows] = await Promise.all([
@@ -704,8 +704,8 @@ export async function readProjectDocSmartBlockPreviewsAction(projectId: string, 
             recentTasks = recentRows.map((row) => optionFromTask(row, context.project));
         }
 
-        const sprintsById = new Map<string, ProjectDocReferenceOption>();
-        let recentSprints: ProjectDocReferenceOption[] = [];
+        const sprintsById = new Map<string, WorkspaceDocReferenceOption>();
+        let recentSprints: WorkspaceDocReferenceOption[] = [];
         if (readableKinds.has("sprints")) {
             const sprintIds = [...(idsByKind.get("sprints") ?? [])];
             const [selectedRows, recentRows] = await Promise.all([
@@ -726,13 +726,13 @@ export async function readProjectDocSmartBlockPreviewsAction(projectId: string, 
             recentSprints = recentRows.map((row) => optionFromSprint(row, context.project));
         }
 
-        const filesById = new Map<string, ProjectDocReferenceOption>();
-        let recentFiles: ProjectDocReferenceOption[] = [];
+        const filesById = new Map<string, WorkspaceDocReferenceOption>();
+        let recentFiles: WorkspaceDocReferenceOption[] = [];
         if (readableKinds.has("files")) {
             const fileIds = [...(idsByKind.get("files") ?? [])];
             // Task-owned and /.system files need Tasks visibility (COR-034).
             // Org Files: no Admins-only files or other people's copies in a doc's file blocks (report §23.9).
-            const fileScope = and(canReadReferenceKind("tasks", context) ? undefined : projectContentNodeSql, orgFileAccessSql(await getProjectAccessById(projectId, actorUserId)));
+            const fileScope = and(canReadReferenceKind("tasks", context) ? undefined : projectContentNodeSql, orgFileAccessSql(await getWorkspaceAccessById(projectId, actorUserId)));
             const [selectedRows, recentRows] = await Promise.all([
                 fileIds.length ? db.query.projectNodes.findMany({
                     where: and(eq(projectNodes.projectId, projectId), eq(projectNodes.type, "file"), isNull(projectNodes.deletedAt), inArray(projectNodes.id, fileIds), fileScope),
@@ -751,8 +751,8 @@ export async function readProjectDocSmartBlockPreviewsAction(projectId: string, 
             recentFiles = recentRows.map((row) => optionFromFile(row, context.project));
         }
 
-        const rolesById = new Map<string, ProjectDocReferenceOption>();
-        let recentRoles: ProjectDocReferenceOption[] = [];
+        const rolesById = new Map<string, WorkspaceDocReferenceOption>();
+        let recentRoles: WorkspaceDocReferenceOption[] = [];
         if (readableKinds.has("roles")) {
             const roleIds = [...(idsByKind.get("roles") ?? [])];
             const [selectedRows, recentRows] = await Promise.all([
@@ -773,8 +773,8 @@ export async function readProjectDocSmartBlockPreviewsAction(projectId: string, 
             recentRoles = recentRows.map((row) => optionFromRole(row, context.project));
         }
 
-        const contributorsById = new Map<string, ProjectDocReferenceOption>();
-        let recentContributors: ProjectDocReferenceOption[] = [];
+        const contributorsById = new Map<string, WorkspaceDocReferenceOption>();
+        let recentContributors: WorkspaceDocReferenceOption[] = [];
         if (readableKinds.has("contributors")) {
             const contributorIds = [...(idsByKind.get("contributors") ?? [])];
             const selectedRows = contributorIds.length ? await db
@@ -815,7 +815,7 @@ export async function readProjectDocSmartBlockPreviewsAction(projectId: string, 
 
         // Projects block (report §19.5): the org's child projects; visitors see public ones only.
         const isInside = Boolean(context.permission.canEdit || context.permission.accessLevel === "owner" || context.membership);
-        const childProjects: ProjectDocReferenceOption[] = readableKinds.has("projects")
+        const childProjects: WorkspaceDocReferenceOption[] = readableKinds.has("projects")
             ? (await db.select({ id: projects.id, title: projects.title, slug: projects.slug, visibility: projects.visibility })
                 .from(projects)
                 .where(and(
@@ -833,7 +833,7 @@ export async function readProjectDocSmartBlockPreviewsAction(projectId: string, 
                 }))
             : [];
 
-        const previewFor = (block: (typeof normalizedBlocks)[number]): ProjectDocSmartBlockPreview => {
+        const previewFor = (block: (typeof normalizedBlocks)[number]): WorkspaceDocSmartBlockPreview => {
             if (block.kind === "unknown") return unavailablePreview(block, "This document block is not recognized.");
             if (!canReadReferenceKind(block.kind, context)) return unavailablePreview(block);
             if (block.kind === "projects") {
@@ -874,7 +874,7 @@ export async function readProjectDocSmartBlockPreviewsAction(projectId: string, 
                         : block.kind === "roles"
                             ? recentRoles
                             : recentContributors;
-            const items = block.ids.length ? block.ids.map((id) => byId.get(id)).filter((item): item is ProjectDocReferenceOption => Boolean(item)) : recent;
+            const items = block.ids.length ? block.ids.map((id) => byId.get(id)).filter((item): item is WorkspaceDocReferenceOption => Boolean(item)) : recent;
 
             return {
                 key: blockKey(block),
@@ -910,9 +910,9 @@ export async function readProjectDocSmartBlockPreviewsAction(projectId: string, 
     }
 }
 
-export async function readProjectDocSettingsAction(projectId: string, docSlug: string = "readme") {
+export async function readWorkspaceDocSettingsAction(projectId: string, docSlug: string = "readme") {
     try {
-        docSlug = normalizeProjectDocSlug(docSlug);
+        docSlug = normalizeWorkspaceDocSlug(docSlug);
         const userId = await requireUserId();
         const context = await getDocProjectContext(projectId, userId);
         if (!context.permission.canManageSettings) return { success: false as const, error: "You cannot manage document settings." };
@@ -922,7 +922,7 @@ export async function readProjectDocSettingsAction(projectId: string, docSlug: s
     }
 }
 
-export async function updateProjectDocSettingsAction(projectId: string, input: unknown) {
+export async function updateWorkspaceDocSettingsAction(projectId: string, input: unknown) {
     try {
         const userId = await requireUserId();
         const parsed = readmeSettingsSchema.parse(input);
@@ -930,14 +930,14 @@ export async function updateProjectDocSettingsAction(projectId: string, input: u
         const context = await getDocProjectContext(projectId, userId, docSlug);
         if (!context.permission.canManageSettings) return { success: false as const, error: "You cannot manage settings." };
         const readme = await getOrCreateMarkdown(projectId, userId, docSlug, context.settings);
-        const nextSettings = normalizeProjectDocSettings({ ...context.settings, ...parsed });
+        const nextSettings = normalizeWorkspaceDocSettings({ ...context.settings, ...parsed });
         const [updated] = await db.update(projectDocs)
             .set({ settings: nextSettings, updatedAt: new Date() })
             .where(eq(projectDocs.id, readme.id))
             .returning();
         await recordNodeEvent(projectId, userId, null, "project_readme.settings_updated", { settings: nextSettings });
         revalidateProjectDoc(context.project);
-        return { success: true as const, settings: normalizeProjectDocSettings(updated?.settings) };
+        return { success: true as const, settings: normalizeWorkspaceDocSettings(updated?.settings) };
     } catch (error) {
         logger.error("project_readme.settings_update_failed", {
             module: "projects",
@@ -948,7 +948,7 @@ export async function updateProjectDocSettingsAction(projectId: string, input: u
     }
 }
 
-export async function linkProjectDocAction(projectId: string, nodeId: string) {
+export async function linkWorkspaceDocAction(projectId: string, nodeId: string) {
     try {
         const userId = await requireUserId();
         const base = await loadDocProjectBase(projectId, userId);
@@ -975,7 +975,7 @@ export async function linkProjectDocAction(projectId: string, nodeId: string) {
 
         // Rows with no file and no published content are dead weight; reuse their slug.
         const taken = new Set(base.docs.filter((doc) => doc.linkedNodeId || doc.publishedVersionId).map((doc) => doc.slug));
-        const slug = nextFreeDocSlug(normalizeProjectDocSlug(node.name, "doc"), taken);
+        const slug = nextFreeDocSlug(normalizeWorkspaceDocSlug(node.name, "doc"), taken);
         const [linked] = await db
             .insert(projectDocs)
             // A new doc takes the project's defaults, never another doc's org options (Required, group…).
@@ -994,9 +994,9 @@ export async function linkProjectDocAction(projectId: string, nodeId: string) {
     }
 }
 
-export async function unlinkProjectDocAction(projectId: string, docSlug: string) {
+export async function unlinkWorkspaceDocAction(projectId: string, docSlug: string) {
     try {
-        docSlug = normalizeProjectDocSlug(docSlug);
+        docSlug = normalizeWorkspaceDocSlug(docSlug);
         const userId = await requireUserId();
         const context = await getDocProjectContext(projectId, userId, docSlug);
         if (!context.permission.canEdit) {
@@ -1013,7 +1013,7 @@ export async function unlinkProjectDocAction(projectId: string, docSlug: string)
     }
 }
 
-export async function listProjectDocsAction(projectId: string) {
+export async function listWorkspaceDocsAction(projectId: string) {
     try {
         const actorUserId = await getOptionalUserId();
         const base = await loadDocProjectBase(projectId, actorUserId);
@@ -1062,7 +1062,7 @@ export async function applyCreationIntentAction(projectId: string, input: unknow
                 }
                 if (!readme) throw new Error("Couldn’t initialize readme record");
 
-                const metadata = getOrBuildProjectDocPublishMetadata(starterText);
+                const metadata = getOrBuildWorkspaceDocPublishMetadata(starterText);
                 let versionId: string | null = null;
                 const existingVersion = await tx.query.projectDocVersions.findFirst({
                     where: and(eq(projectDocVersions.docId, readme.id), eq(projectDocVersions.versionNumber, 1)),

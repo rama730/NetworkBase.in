@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import {
-  getProjectNodesWithCounts,
-  initializeProjectFilesRoot,
+  getWorkspaceNodesWithCounts,
+  initializeWorkspaceFilesRoot,
 } from "@/app/actions/files/nodes";
 import { filesParentKey, useFilesStore } from "@/stores/filesStore";
 import type { ProjectNode } from "@/lib/db/schema";
@@ -102,7 +102,7 @@ export function useExplorerBoot(options: {
           let nextCursor: string | null = null;
           let taskCounts: Record<string, number> | null = null;
           do {
-            const payload = await getProjectNodesWithCounts(
+            const payload = await getWorkspaceNodesWithCounts(
               projectId,
               parentId,
               undefined,
@@ -203,7 +203,7 @@ export function useExplorerBoot(options: {
       const rootAfterLoad = useFilesStore.getState()
         .byProjectId[projectId]?.childrenByParentId[filesParentKey(null)] ?? [];
       if (rootAfterLoad.length === 0 && canEdit) {
-        const createdRoot = await initializeProjectFilesRoot(projectId);
+        const createdRoot = await initializeWorkspaceFilesRoot(projectId);
         if (createdRoot) await loadFolderContent(null, "refresh");
       }
 

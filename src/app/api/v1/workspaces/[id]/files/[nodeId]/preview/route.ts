@@ -4,8 +4,8 @@ import { and, eq, isNull } from "drizzle-orm";
 
 import { db } from "@/lib/db";
 import { fileVersions, projectNodes, storageAssets } from "@/lib/db/schema";
-import { assertProjectFileReadAccess, assertFileNodeVisible } from "@/lib/files/internal-helpers";
-import { parseProjectFileKey } from "@/lib/storage/workspace-file-key";
+import { assertWorkspaceFileReadAccess, assertFileNodeVisible } from "@/lib/files/internal-helpers";
+import { parseWorkspaceFileKey } from "@/lib/storage/workspace-file-key";
 import { createAdminClient, createClient } from "@/lib/supabase/server";
 import { streamPrivateObject } from "@/lib/storage/private-object-response";
 import { UUID_RE } from "@/app/actions/files/_constants";
@@ -117,7 +117,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
   const { data: { user } } = await supabase.auth.getUser();
   const limited = await enforceRouteLimit(request, "files:preview", 600, 60, "default", user?.id);
   if (limited) return noStore("Too many attempts. Try again in a minute.", 429);
-  const access = await assertProjectFileReadAccess(projectId, user?.id ?? null).catch(() => null);
+  const access = await assertWorkspaceFileReadAccess(projectId, user?.id ?? null).catch(() => null);
   if (!access) {
     return noStore("You don’t have access to this", 403);
   }
@@ -165,7 +165,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
         columns: { s3Key: true, assetId: true, size: true, mimeType: true, contentHash: true },
       });
   const target = historical ?? node;
-  if (!target?.s3Key || !target.assetId || parseProjectFileKey(target.s3Key)?.projectId !== projectId) {
+  if (!target?.s3Key || !target.assetId || parseWorkspaceFileKey(target.s3Key)?.projectId !== projectId) {
     return noStore("File content is unavailable", 404);
   }
   const [asset] = await db.select({

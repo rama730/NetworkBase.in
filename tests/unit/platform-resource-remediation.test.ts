@@ -84,7 +84,7 @@ test("account cleanup preserves lifecycle evidence before domain cascades", () =
 
 test("project-file reconciliation quarantines path-correlated objects pending proof", () => {
   const reconciliation = read("src/inngest/functions/workspace-files-reconciliation.ts");
-  assert.match(reconciliation, /buildProjectFileKey/);
+  assert.match(reconciliation, /buildWorkspaceFileKey/);
   assert.match(reconciliation, /metadataMatches/);
   assert.match(reconciliation, /storage_reconcile_unclaimed_candidate/);
   assert.match(reconciliation, /quarantineRequired: true/);
@@ -100,7 +100,7 @@ test("compatibility and typing behavior have one exact owner", () => {
   const avatars = read("src/lib/services/avatar-service.ts");
 
   // The follow catch returns the failure; the pre-counter fallback is gone (followers_count is NOT NULL in every migrated database).
-  const catchStart = projects.indexOf('} catch (error) {', projects.indexOf("toggleProjectFollowAction"));
+  const catchStart = projects.indexOf('} catch (error) {', projects.indexOf("toggleWorkspaceFollowAction"));
   assert.ok(projects.indexOf('return { success: false, error: "Couldn’t update follow status" };', catchStart) > catchStart);
   assert.doesNotMatch(projects.slice(catchStart, catchStart + 400), /fallback/i);
   assert.doesNotMatch(avatars, /uploadAvatarWithPreview|fileToDataUrl|export async function uploadAvatar\(/);

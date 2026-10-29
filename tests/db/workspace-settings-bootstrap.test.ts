@@ -14,7 +14,7 @@ let accessReads = 0;
 moduleStubs.set("@/lib/data/workspace-access", new Proxy({} as Record<string, unknown>, {
   get(_target, name: string) {
     const real = realProjectAccess[name];
-    if (name === "getProjectAccessById" && typeof real === "function") {
+    if (name === "getWorkspaceAccessById" && typeof real === "function") {
       return (...args: unknown[]) => { accessReads += 1; return (real as (...a: unknown[]) => unknown)(...args); };
     }
     return real;
@@ -47,14 +47,14 @@ test("settings readers count roles and upload permissions in SQL for the whole t
     }
     await sql`UPDATE project_members SET file_upload_enabled = false WHERE project_id = ${projectId} AND user_id = ${members[2]!}`;
 
-    const collaborators = await actions.getProjectCollaboratorSettingsAction(projectId, { limit: 2 });
+    const collaborators = await actions.getWorkspaceCollaboratorSettingsAction(projectId, { limit: 2 });
     assert.equal(collaborators.success, true, "message" in collaborators ? collaborators.message : "");
     if (!collaborators.success) return;
     assert.deepEqual(collaborators.data.roleCounts, { owner: 1, admin: 1, member: 3, viewer: 1 });
     assert.equal(collaborators.data.members.length, 2);
     assert.equal(collaborators.data.hasMore, true);
 
-    const files = await actions.getProjectFileAccessSettingsAction(projectId);
+    const files = await actions.getWorkspaceFileAccessSettingsAction(projectId);
     assert.equal(files.success, true, "message" in files ? files.message : "");
     if (!files.success) return;
     assert.equal(files.data.members.length, 6);
@@ -62,7 +62,7 @@ test("settings readers count roles and upload permissions in SQL for the whole t
     // owner + admin always allowed; 3 members of which one has uploads off; the viewer counts nowhere.
     assert.deepEqual(files.data.summary, { alwaysAllowedCount: 2, enabledMemberCount: 2, disabledMemberCount: 1 });
 
-    const bootstrap = await actions.readProjectSettingsBootstrapAction(projectId, { limit: 40 });
+    const bootstrap = await actions.readWorkspaceSettingsBootstrapAction(projectId, { limit: 40 });
     assert.equal(bootstrap.collaboratorSettings.success, true);
     assert.equal(bootstrap.fileAccess.success, true);
   } finally {
@@ -80,7 +80,7 @@ test("the settings bootstrap reads project access once for all of its sections",
     const projectId = await sql.begin((tx) => createProject(tx, owner));
     await sql.begin((tx) => addMember(tx, projectId, owner, "owner"));
     accessReads = 0;
-    const bootstrap = await actions.readProjectSettingsBootstrapAction(projectId, { limit: 10 }, true);
+    const bootstrap = await actions.readWorkspaceSettingsBootstrapAction(projectId, { limit: 10 }, true);
     assert.equal(bootstrap.collaboratorSettings.success, true);
     assert.equal(bootstrap.fileAccess.success, true);
     assert.equal(bootstrap.notifications.success, true);

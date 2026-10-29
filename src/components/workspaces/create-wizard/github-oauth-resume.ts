@@ -1,22 +1,22 @@
-import type { CreateProjectInput } from '@/lib/validations/workspace';
+import type { CreateWorkspaceInput } from '@/lib/validations/workspace';
 
 const GITHUB_OAUTH_RESUME_STORAGE_KEY = 'create-project:github-oauth-resume:v1';
 const GITHUB_OAUTH_RESUME_MAX_AGE_MS = 5 * 60 * 1000;
 
-export type CreateProjectGithubOAuthResume = {
+export type CreateWorkspaceGithubOAuthResume = {
     id: string;
     startedAt: number;
     returnPath: string;
-    values: CreateProjectInput;
+    values: CreateWorkspaceInput;
 };
 
-export type CreateProjectSource = 'scratch' | 'github' | 'upload';
+export type CreateWorkspaceSource = 'scratch' | 'github' | 'upload';
 
-export function parseCreateProjectSource(raw: string | null | undefined): CreateProjectSource | null {
+export function parseCreateWorkspaceSource(raw: string | null | undefined): CreateWorkspaceSource | null {
     return raw === 'github' || raw === 'upload' || raw === 'scratch' ? raw : null;
 }
 
-export function getCreateProjectReturnPath(location: Pick<Location, 'pathname' | 'search' | 'hash'>): string {
+export function getCreateWorkspaceReturnPath(location: Pick<Location, 'pathname' | 'search' | 'hash'>): string {
     const searchParams = new URLSearchParams(location.search);
     searchParams.delete('createProject');
     searchParams.delete('createProjectSource');
@@ -27,16 +27,16 @@ export function getCreateProjectReturnPath(location: Pick<Location, 'pathname' |
     return `${location.pathname}${search ? `?${search}` : ''}${location.hash}`;
 }
 
-function isFresh(resume: CreateProjectGithubOAuthResume): boolean {
+function isFresh(resume: CreateWorkspaceGithubOAuthResume): boolean {
     return Number.isFinite(resume.startedAt) && Date.now() - resume.startedAt <= GITHUB_OAUTH_RESUME_MAX_AGE_MS;
 }
 
-function readStoredResume(): CreateProjectGithubOAuthResume | null {
+function readStoredResume(): CreateWorkspaceGithubOAuthResume | null {
     if (typeof window === 'undefined') return null;
     try {
         const raw = window.sessionStorage.getItem(GITHUB_OAUTH_RESUME_STORAGE_KEY);
         if (!raw) return null;
-        const parsed = JSON.parse(raw) as Partial<CreateProjectGithubOAuthResume>;
+        const parsed = JSON.parse(raw) as Partial<CreateWorkspaceGithubOAuthResume>;
         if (
             typeof parsed.id !== 'string'
             || typeof parsed.returnPath !== 'string'
@@ -46,7 +46,7 @@ function readStoredResume(): CreateProjectGithubOAuthResume | null {
             window.sessionStorage.removeItem(GITHUB_OAUTH_RESUME_STORAGE_KEY);
             return null;
         }
-        const resume = parsed as CreateProjectGithubOAuthResume;
+        const resume = parsed as CreateWorkspaceGithubOAuthResume;
         if (!isFresh(resume)) {
             window.sessionStorage.removeItem(GITHUB_OAUTH_RESUME_STORAGE_KEY);
             return null;
@@ -57,13 +57,13 @@ function readStoredResume(): CreateProjectGithubOAuthResume | null {
     }
 }
 
-export function saveGithubOAuthResume(values: CreateProjectInput, returnPath: string): CreateProjectGithubOAuthResume | null {
+export function saveGithubOAuthResume(values: CreateWorkspaceInput, returnPath: string): CreateWorkspaceGithubOAuthResume | null {
     if (typeof window === 'undefined') return null;
     try {
         // GitHub authorization is a source-only flow. FileList uploads are never part
         // of this form snapshot, so resuming does not claim to retain local files.
-        const copiedValues = JSON.parse(JSON.stringify(values)) as CreateProjectInput;
-        const resume: CreateProjectGithubOAuthResume = {
+        const copiedValues = JSON.parse(JSON.stringify(values)) as CreateWorkspaceInput;
+        const resume: CreateWorkspaceGithubOAuthResume = {
             id: typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
                 ? crypto.randomUUID()
                 : `github-oauth-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
@@ -78,7 +78,7 @@ export function saveGithubOAuthResume(values: CreateProjectInput, returnPath: st
     }
 }
 
-export function readGithubOAuthResume(returnPath: string): CreateProjectGithubOAuthResume | null {
+export function readGithubOAuthResume(returnPath: string): CreateWorkspaceGithubOAuthResume | null {
     const resume = readStoredResume();
     return resume?.returnPath === returnPath ? resume : null;
 }

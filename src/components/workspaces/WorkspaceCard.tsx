@@ -7,16 +7,16 @@ import { useAuth } from "@/hooks/useAuth";
 import { ROUTES } from "@/constants/routes";
 import { ErrorNotice } from "@/components/ui/ErrorNotice";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import type { Project } from "@/types/discover";
+import type { Workspace } from "@/types/discover";
 import type { ApplicationCardChip } from "@/app/actions/applications";
-import { toProjectCardViewModel, type ProjectCardViewModel } from "@/lib/view-models/workspace-card";
-import { useToggleProjectFollow } from "@/hooks/mutations/useWorkspaceMutations";
+import { toWorkspaceCardViewModel, type WorkspaceCardViewModel } from "@/lib/view-models/workspace-card";
+import { useToggleWorkspaceFollow } from "@/hooks/mutations/useWorkspaceMutations";
 import { UserAvatar } from "@/components/ui/UserAvatar";
 import { SkillIcon } from "@/components/skills/SkillIcon";
 import { resolveClientSkill, useSkillCatalog } from "@/lib/skills/client";
 import { SocialPresenceIcon } from "@/components/profile/SocialPresenceIcon";
-import { resolveProjectSocialLinks } from "@/lib/workspaces/social-links";
-import ProjectAvatar, { getProjectAvatarUrl } from "@/components/workspaces/WorkspaceAvatar";
+import { resolveWorkspaceSocialLinks } from "@/lib/workspaces/social-links";
+import WorkspaceAvatar, { getWorkspaceAvatarUrl } from "@/components/workspaces/WorkspaceAvatar";
 import { ReportDialog } from "@/components/reports/ReportDialog";
 
 const MAX_PROJECT_CARD_SKILL_ICONS = 6;
@@ -24,9 +24,9 @@ const APPLICATION_CHIP_LABEL = { applied: "Applied", declined: "Declined", invit
 const APPLICATION_CHIP_TONE = { applied: "draft", declined: "blocked", invited: "active" } as const;
 
 interface ProjectCardProps {
-    project: Project;
+    project: Workspace;
     /** Built from `project` when not given, so the card memoizes on the project itself. */
-    viewModel?: ProjectCardViewModel;
+    viewModel?: WorkspaceCardViewModel;
     isFollowing?: boolean;
     followersCount?: number;
     /** The viewer's own application or invitation on this project (read per viewer, since the feed is public and cached). */
@@ -38,7 +38,7 @@ export default memo(function ProjectCard({ project, viewModel, isFollowing = fal
     useSkillCatalog();
     const { user } = useAuth();
     const [reporting, setReporting] = useState(false);
-    const { mutateAsync } = useToggleProjectFollow();
+    const { mutateAsync } = useToggleWorkspaceFollow();
     const [following, setFollowing] = useState(isFollowing);
     // An unknown count reads as a dash, never as a confident zero (state matrix).
     const [followers, setFollowers] = useState<number | undefined>(initialFollowers);
@@ -47,9 +47,9 @@ export default memo(function ProjectCard({ project, viewModel, isFollowing = fal
     const followLock = useRef(false);
     useEffect(() => { setFollowing(isFollowing); }, [isFollowing]);
     useEffect(() => { setFollowers(initialFollowers); }, [initialFollowers]);
-    const { techStack, collaborators, totalOpenRoles, teamSize } = useMemo(() => viewModel ?? toProjectCardViewModel(project), [viewModel, project]);
+    const { techStack, collaborators, totalOpenRoles, teamSize } = useMemo(() => viewModel ?? toWorkspaceCardViewModel(project), [viewModel, project]);
     const hiddenTechStackCount = Math.max(0, techStack.length - MAX_PROJECT_CARD_SKILL_ICONS);
-    const links = resolveProjectSocialLinks(project.externalLinks, project.githubRepoUrl);
+    const links = resolveWorkspaceSocialLinks(project.externalLinks, project.githubRepoUrl);
     const primaryProjectLink = links.find(link => !link.managed) ?? links[0] ?? null;
     const orderedLinks = primaryProjectLink ? [primaryProjectLink, ...links.filter(link => link !== primaryProjectLink)] : [];
     const visibleLinks = orderedLinks.slice(0, 4);
@@ -94,13 +94,13 @@ export default memo(function ProjectCard({ project, viewModel, isFollowing = fal
         }
     }
 
-    const coverUrl = getProjectAvatarUrl(project);
+    const coverUrl = getWorkspaceAvatarUrl(project);
 
     return <article className="nb-project-card group h-full" data-project-id={project.id} data-testid={`project-card-${project.id}`} data-kind={project.kind ?? "project"}>
         {orgLine}
         {coverUrl ? (
             <div className="flex items-center gap-3">
-                <ProjectAvatar project={project} size="card" />
+                <WorkspaceAvatar project={project} size="card" />
                 <div className="min-w-0 flex-1">
                     {typeChip ? <div className="float-right">{typeChip}</div> : null}
                     <h3 className="nb-project-card-title min-w-0">

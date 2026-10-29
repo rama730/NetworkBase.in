@@ -1,11 +1,11 @@
-import type { ProjectUpdateView } from "@/app/actions/workspace/updates";
+import type { WorkspaceUpdateView } from "@/app/actions/workspace/updates";
 import type { DiscoverUpdateView } from "@/types/discover";
 
 /**
  * A Discover update in the shape the shared thread panel reads. What Discover never sends (linked work,
  * metadata, storage keys) is empty here rather than guessed, and a masked author keeps no identity.
  */
-export function toProjectUpdateView(update: DiscoverUpdateView): ProjectUpdateView {
+export function toWorkspaceUpdateView(update: DiscoverUpdateView): WorkspaceUpdateView {
     const author = update.author;
     return {
         id: update.id,

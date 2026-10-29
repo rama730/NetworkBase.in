@@ -10,7 +10,7 @@ import {
 } from "@/app/api/v1/extension/_file-revision";
 import { db } from "@/lib/db";
 import { uploadIntents } from "@/lib/db/schema";
-import { getProjectAccessById } from "@/lib/data/workspace-access";
+import { getWorkspaceAccessById } from "@/lib/data/workspace-access";
 import { createAdminClient } from "@/lib/supabase/server";
 import { applyFileRevision } from "@/lib/files/apply-file-revision";
 import { finalizeUploadIntent } from "@/lib/upload/upload-intents";
@@ -71,7 +71,7 @@ export async function POST(request: Request) {
 
     const { projectId, files, uploadSessionId } = parsed.data;
 
-    const access = await getProjectAccessById(projectId, user.id);
+    const access = await getWorkspaceAccessById(projectId, user.id);
     if (!access.project) return jsonError("Workspace not found", 404, "NOT_FOUND");
     if (!access.canWrite) return jsonError("You don’t have access to this", 403, "FORBIDDEN");
 

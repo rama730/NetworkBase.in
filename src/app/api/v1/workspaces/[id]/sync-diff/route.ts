@@ -8,7 +8,7 @@ import {
 import { db } from "@/lib/db";
 import { projectEventCounters, projectNodeEvents, projectNodes, projects, taskNodeLinks, tasks } from "@/lib/db/schema";
 import { and, eq, gt, inArray, isNull, sql } from "drizzle-orm";
-import { getProjectAccessById } from "@/lib/data/workspace-access";
+import { getWorkspaceAccessById } from "@/lib/data/workspace-access";
 import { isLooseUuid } from "@/lib/validations/uuid";
 import { z } from "zod";
 
@@ -47,7 +47,7 @@ export async function GET(
         return jsonError("Invalid workspace id", 400, "BAD_REQUEST");
     }
 
-    const access = await getProjectAccessById(projectId, user.id);
+    const access = await getWorkspaceAccessById(projectId, user.id);
     if (!access.project) {
         return jsonError("Workspace not found", 404, "NOT_FOUND");
     }

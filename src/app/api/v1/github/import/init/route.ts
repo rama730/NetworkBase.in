@@ -4,7 +4,7 @@ import { db } from '@/lib/db';
 import { importJobs } from '@/lib/db/schema';
 import { jsonError, jsonSuccess } from '@/app/api/v1/_envelope';
 import { validateCsrf } from '@/lib/security/csrf';
-import { assertProjectWriteAccess } from '@/lib/files/internal-helpers';
+import { assertWorkspaceWriteAccess } from '@/lib/files/internal-helpers';
 import { enforceRouteLimit, requireAuthenticatedUser } from '@/app/api/v1/_shared';
 import { z } from 'zod';
 import { randomUUID } from 'crypto';
@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
         }
 
         const { projectId, manifestHash, manifestSize, totalFiles } = parsed.data;
-        await assertProjectWriteAccess(projectId, user.id);
+        await assertWorkspaceWriteAccess(projectId, user.id);
 
         const jobId = randomUUID();
         const manifestS3Key = `imports/${jobId}/manifest.json`;

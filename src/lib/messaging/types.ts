@@ -47,7 +47,7 @@ export type ChatChannelSummary = {
   members_preview: ChatPerson[] | null;
 };
 
-export type ChatProjectSummary = {
+export type ChatWorkspaceSummary = {
   id: string;
   title: string;
   slug: string | null;
@@ -71,7 +71,7 @@ export type ChatBootstrap = {
   /** Saved items whose reminder time has come: the Saved row's badge. */
   saved_due?: number;
   channels: ChatChannelSummary[];
-  projects: ChatProjectSummary[] | null;
+  projects: ChatWorkspaceSummary[] | null;
 };
 
 export type ChatAttachmentView = {

@@ -7,7 +7,7 @@ import { orgEmailInvites, profiles, projectMembers, projects } from "@/lib/db/sc
 import { createCopiesForNewMember, releaseCopiesOnLeave } from "@/lib/organizations/assignments";
 import { notifyNewCopies } from "@/lib/organizations/assignment-notify";
 import { namesOf, notifyOrg, orgLabel, queueOrgInviteSignupEmails, ROLE_LABEL } from "@/lib/organizations/notify";
-import { addProjectMemberInternal, removeProjectMemberInternal } from "@/lib/workspaces/collaborator-lifecycle";
+import { addWorkspaceMemberInternal, removeWorkspaceMemberInternal } from "@/lib/workspaces/collaborator-lifecycle";
 import { orgMemberCap } from "@/lib/organizations/join-rules";
 
 type Executor = typeof db | Parameters<Parameters<typeof db.transaction>[0]>[0];
@@ -76,7 +76,7 @@ export async function acceptOrgInvite(userId: string, inviteId: string): Promise
       .where(and(eq(orgEmailInvites.id, inviteId), isNull(orgEmailInvites.acceptedAt), gt(orgEmailInvites.expiresAt, sql`now()`)))
       .returning();
     if (!invite) return null;
-    await addProjectMemberInternal(tx, { projectId: invite.orgId, userId, role: invite.role, actorId: userId, source: "email_invite" });
+    await addWorkspaceMemberInternal(tx, { projectId: invite.orgId, userId, role: invite.role, actorId: userId, source: "email_invite" });
     if (invite.role === "member") await createCopiesForNewMember(tx, invite.orgId, userId);
     if (invite.title) {
       await tx.update(projectMembers).set({ title: invite.title })
@@ -85,7 +85,7 @@ export async function acceptOrgInvite(userId: string, inviteId: string): Promise
     if (invite.childProjectId) {
       const [child] = await tx.select({ id: projects.id }).from(projects)
         .where(and(eq(projects.id, invite.childProjectId), eq(projects.parentId, invite.orgId), isNull(projects.deletedAt))).limit(1);
-      if (child) await addProjectMemberInternal(tx, { projectId: child.id, userId, role: "member", actorId: invite.invitedBy ?? userId, source: "email_invite", roleId: invite.unitId });
+      if (child) await addWorkspaceMemberInternal(tx, { projectId: child.id, userId, role: "member", actorId: invite.invitedBy ?? userId, source: "email_invite", roleId: invite.unitId });
     }
     return invite.orgId;
   });
@@ -110,7 +110,7 @@ export async function openInvitesFor(userId: string, orgId?: string) {
 }
 
 /** Child projects of the org this person leads; they transfer or detach those before leaving (report §20.7). */
-export async function ledChildProjects(executor: Executor, orgId: string, userId: string) {
+export async function ledChildWorkspaces(executor: Executor, orgId: string, userId: string) {
   return executor.select({ id: projects.id }).from(projects)
     .where(and(eq(projects.parentId, orgId), eq(projects.ownerId, userId), isNull(projects.deletedAt)));
 }
@@ -130,9 +130,9 @@ export async function removeFromOrg(executor: Executor, orgId: string, userId: s
   await releaseCopiesOnLeave(executor, orgId, userId);
   for (const { projectId, leadId } of childMemberships) {
     // Org admins act with the lead's powers in child projects (report §29.4), so the lead is the actor there.
-    await removeProjectMemberInternal(executor, { projectId, actorId: self ? userId : leadId, targetUserId: userId, mode: "unassign_active_tasks", allowSelf: self });
+    await removeWorkspaceMemberInternal(executor, { projectId, actorId: self ? userId : leadId, targetUserId: userId, mode: "unassign_active_tasks", allowSelf: self });
   }
-  await removeProjectMemberInternal(executor, { projectId: orgId, actorId, targetUserId: userId, mode: "unassign_active_tasks", allowSelf: self });
+  await removeWorkspaceMemberInternal(executor, { projectId: orgId, actorId, targetUserId: userId, mode: "unassign_active_tasks", allowSelf: self });
   return childMemberships.flatMap((m) => (m.unit ? [{ projectId: m.projectId, slug: m.slug, leadId: m.leadId, unit: m.unit }] : []));
 }
 

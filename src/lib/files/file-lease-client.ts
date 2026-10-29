@@ -100,7 +100,7 @@ export async function releaseBrowserFileLease(
   return readEnvelope<{ released: boolean }>(response);
 }
 
-export async function fetchProjectFileLeases(projectId: string) {
+export async function fetchWorkspaceFileLeases(projectId: string) {
   const response = await fetch(`/api/v1/files/locks?projectId=${encodeURIComponent(projectId)}`, {
     cache: "no-store",
   });

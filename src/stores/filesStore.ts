@@ -5,7 +5,7 @@ export {
   FILES_ROOT_KEY,
   filesParentKey,
   useFilesActions,
-  useFilesProjectSlice,
+  useFilesWorkspaceSlice,
   defaultFilesState,
   symbolsEqual,
   FALLBACK_FILES_STATE,
@@ -18,7 +18,7 @@ export {
   getFileContent,
   setFileContent,
   deleteFileContent,
-  clearProjectContent,
+  clearWorkspaceContent,
   contentMapSize,
 } from "./files";
 
@@ -34,7 +34,7 @@ export type {
   NodeEventSummary,
   FileState,
   EditorSymbol,
-  ProjectFilesState,
+  WorkspaceFilesState,
   FilesStoreState,
   GitState,
   UiState,

@@ -3,7 +3,7 @@
 import { ChildOrgSection } from "@/components/organizations/ChildOrgSection";
 import { ChildUnitsPanel } from "@/components/organizations/ChildUnitsPanel";
 import { OrgDangerZone } from "@/components/organizations/OrgDangerZone";
-import { OrgAccessSection, OrgChatSection, OrgNotificationsSection, OrgVerificationSection, OrgLeaveSection, OrgMembershipSection, OrgPeopleSection, OrgProfileSection, OrgProjectsSection, OrgWorkSection } from "@/components/organizations/OrgSettingsSections";
+import { OrgAccessSection, OrgChatSection, OrgNotificationsSection, OrgVerificationSection, OrgLeaveSection, OrgMembershipSection, OrgPeopleSection, OrgProfileSection, OrgWorkspacesSection, OrgWorkSection } from "@/components/organizations/OrgSettingsSections";
 import { ORG_SECTION_DEFS, orgSettingsSectionIds, type OrgMemberRole, type OrgSettingsSectionId } from "@/lib/organizations/settings";
 import { useRoleApplicationCounts } from "@/hooks/useRoleApplicationCounts";
 import { TaskCompletionSettings } from "@/components/workspaces/settings/TaskCompletionSettings";
@@ -17,76 +17,76 @@ import { Archive, Crown, Loader2, Lock, RefreshCw, Shield, Trash2, Users } from 
 import { toast, feedbackError } from "@/lib/feedback";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import {
-    ProjectArchiveModal,
-    ProjectTransferOwnershipModal,
-    ProjectDeleteModal,
+    WorkspaceArchiveModal,
+    WorkspaceTransferOwnershipModal,
+    WorkspaceDeleteModal,
 } from "@/components/workspaces/settings/WorkspaceDangerModals";
 import { Button } from "@/components/ui/button";
-import { transferProjectOwnership } from "@/app/actions/account";
-import { archiveProjectAction, deleteProject, getProjectAccessTransitionPreflightAction, getProjectCollaboratorSettingsAction, getProjectDangerZonePreflightAction, getProjectFileAccessSettingsAction, getProjectMemberRemovalPreflightAction, readProjectMemberNotificationSettingsAction, readProjectNotificationSettingsAction, readProjectSettingsBootstrapAction, removeProjectMemberAction, resetProjectMemberNotificationSettingsAction, resetProjectNotificationSettingsAction, updateProject, updateProjectLifecycleAction, updateProjectFileUploadDefaultsAction, updateProjectMemberFileUploadAction, updateProjectMemberNotificationSettingsAction, updateProjectMemberRoleAction, updateProjectNotificationSettingsAction, updateProjectPublicTabVisibilityAction, updateProjectVisibilityAction } from "@/app/actions/workspace";
-import { readProjectDocSettingsAction, updateProjectDocSettingsAction } from "@/app/actions/workspace/doc";
+import { transferWorkspaceOwnership } from "@/app/actions/account";
+import { archiveWorkspaceAction, deleteWorkspace, getWorkspaceAccessTransitionPreflightAction, getWorkspaceCollaboratorSettingsAction, getWorkspaceDangerZonePreflightAction, getWorkspaceFileAccessSettingsAction, getWorkspaceMemberRemovalPreflightAction, readWorkspaceMemberNotificationSettingsAction, readWorkspaceNotificationSettingsAction, readWorkspaceSettingsBootstrapAction, removeWorkspaceMemberAction, resetWorkspaceMemberNotificationSettingsAction, resetWorkspaceNotificationSettingsAction, updateWorkspace, updateWorkspaceLifecycleAction, updateWorkspaceFileUploadDefaultsAction, updateWorkspaceMemberFileUploadAction, updateWorkspaceMemberNotificationSettingsAction, updateWorkspaceMemberRoleAction, updateWorkspaceNotificationSettingsAction, updateWorkspacePublicTabVisibilityAction, updateWorkspaceVisibilityAction } from "@/app/actions/workspace";
+import { readWorkspaceDocSettingsAction, updateWorkspaceDocSettingsAction } from "@/app/actions/workspace/doc";
 import { cn } from "@/lib/utils";
 import {
-    buildDefaultProjectNotificationPolicy,
-    getVisibleProjectNotificationEntries,
-    groupProjectNotificationEntries,
-    normalizeProjectMemberNotificationOverrides,
-    normalizeProjectNotificationPolicy,
-    resolveProjectNotificationDecision,
-    summarizeProjectNotificationPolicy,
-    type ProjectMemberNotificationOverrides,
-    type ProjectNotificationEventKey,
-    type ProjectNotificationPolicy,
-    type ProjectNotificationPreset,
+    buildDefaultWorkspaceNotificationPolicy,
+    getVisibleWorkspaceNotificationEntries,
+    groupWorkspaceNotificationEntries,
+    normalizeWorkspaceMemberNotificationOverrides,
+    normalizeWorkspaceNotificationPolicy,
+    resolveWorkspaceNotificationDecision,
+    summarizeWorkspaceNotificationPolicy,
+    type WorkspaceMemberNotificationOverrides,
+    type WorkspaceNotificationEventKey,
+    type WorkspaceNotificationPolicy,
+    type WorkspaceNotificationPreset,
 } from "@/lib/notifications/workspace-policy";
 import {
-    buildProjectFilePolicy,
-    buildProjectMemberMutationPolicy,
-    buildProjectMemberRemovalPreflight,
-    buildProjectRolePolicy,
-    buildProjectSettingsPreflight,
-    areProjectPublicTabVisibilitiesEqual,
-    getProjectMemberDisplayName,
-    getProjectMemberRoleLabel,
-    normalizeProjectPublicTabVisibility,
-    getVisibleProjectSettingsSections,
-    normalizeProjectVisibility,
-    PROJECT_PUBLIC_TAB_LABELS,
-    type ProjectMemberRole,
-    type ProjectPublicTabId,
-    type ProjectPublicTabVisibility,
-    type ProjectSettingsMember,
-    type ProjectSettingsSectionId,
-    type ProjectSettingsVisibility,
+    buildWorkspaceFilePolicy,
+    buildWorkspaceMemberMutationPolicy,
+    buildWorkspaceMemberRemovalPreflight,
+    buildWorkspaceRolePolicy,
+    buildWorkspaceSettingsPreflight,
+    areWorkspacePublicTabVisibilitiesEqual,
+    getWorkspaceMemberDisplayName,
+    getWorkspaceMemberRoleLabel,
+    normalizeWorkspacePublicTabVisibility,
+    getVisibleWorkspaceSettingsSections,
+    normalizeWorkspaceVisibility,
+    WORKSPACE_PUBLIC_TAB_LABELS,
+    type WorkspaceMemberRole,
+    type WorkspacePublicTabId,
+    type WorkspacePublicTabVisibility,
+    type WorkspaceSettingsMember,
+    type WorkspaceSettingsSectionId,
+    type WorkspaceSettingsVisibility,
 } from "@/lib/workspaces/settings-policies";
 import {
-    DEFAULT_PROJECT_DOC_SETTINGS,
-    normalizeProjectDocSettings,
-    type ProjectDocSettings,
+    DEFAULT_WORKSPACE_DOC_SETTINGS,
+    normalizeWorkspaceDocSettings,
+    type WorkspaceDocSettings,
 } from "@/lib/workspaces/doc";
-import { ProjectRolesEditor } from "@/components/workspaces/settings/WorkspaceRolesEditor";
-import { ProjectLinksManager } from "@/components/workspaces/dashboard/WorkspaceSocialLinksCard";
+import { WorkspaceRolesEditor } from "@/components/workspaces/settings/WorkspaceRolesEditor";
+import { WorkspaceLinksManager } from "@/components/workspaces/dashboard/WorkspaceSocialLinksCard";
 import { SettingsSwitch } from "@/components/settings/ui/SettingsSwitch";
 import { OpenSettingsSections } from "@/components/settings/ui/SettingsSectionLayout";
 import { SettingsPageHeader } from "@/components/settings/ui/SettingsPageHeader";
-import { ProjectSettingsNavigation } from "@/components/workspaces/settings/WorkspaceSettingsNavigation";
-import { useProjectSettingsNavigation } from "@/hooks/useWorkspaceSettingsNavigation";
+import { WorkspaceSettingsNavigation } from "@/components/workspaces/settings/WorkspaceSettingsNavigation";
+import { useWorkspaceSettingsNavigation } from "@/hooks/useWorkspaceSettingsNavigation";
 import { LegalAndDataRightsSection } from "@/components/settings/LegalAndDataRightsSection";
 import {
-    normalizeProjectRoleFormValues,
-    type ProjectRoleFormValue,
-    type ProjectRolesFormValues,
+    normalizeWorkspaceRoleFormValues,
+    type WorkspaceRoleFormValue,
+    type WorkspaceRolesFormValues,
 } from "@/lib/workspaces/workspace-roles-form";
 import { SettingsCard } from '@/components/workspaces/settings/SettingsFormFields';
 import type { AccessTransitionPreflightData, RemovalPreflightData } from '@/components/workspaces/settings/SettingsPolicyDetails';
-import { ProjectNotificationCategoryCard } from '@/components/workspaces/settings/WorkspaceNotificationSettings';
+import { WorkspaceNotificationCategoryCard } from '@/components/workspaces/settings/WorkspaceNotificationSettings';
 import { CollaboratorSearchField } from '@/components/workspaces/settings/CollaboratorSearchField';
 import type { MemberNotificationSettingsData } from '@/components/workspaces/settings/MemberNotificationSettingsEditor';
 import { FileAccessMembers, type FileAccessSettingsData } from '@/components/workspaces/settings/FileAccessMembers';
 import { CollaboratorCard, projectMemberRole } from '@/components/workspaces/settings/CollaboratorCard';
 import { LifecycleSettingsEditor } from '@/components/workspaces/settings/LifecycleSettingsEditor';
 import { PublicTabVisibilityEditor } from '@/components/workspaces/settings/PublicTabVisibilityEditor';
-import { GeneralSettingsSection, resetIdentityFromProject } from '@/components/workspaces/settings/GeneralSettingsSection';
+import { GeneralSettingsSection, resetIdentityFromWorkspace } from '@/components/workspaces/settings/GeneralSettingsSection';
 
 const AccessTransitionDetails = dynamic(() => import("@/components/workspaces/settings/SettingsPolicyDetails").then((mod) => mod.AccessTransitionDetails));
 const RemovalImpactDetails = dynamic(() => import("@/components/workspaces/settings/SettingsPolicyDetails").then((mod) => mod.RemovalImpactDetails));
@@ -118,21 +118,21 @@ type DangerPreflight = {
 };
 
 type CollaboratorSettingsData = {
-    members: ProjectSettingsMember[];
-    roleCounts: Record<ProjectMemberRole, number>;
+    members: WorkspaceSettingsMember[];
+    roleCounts: Record<WorkspaceMemberRole, number>;
     hasMore: boolean;
     nextCursor: string | null;
 };
 
 type ProjectNotificationSettingsData = {
-    policy: ProjectNotificationPolicy;
-    summary: ReturnType<typeof summarizeProjectNotificationPolicy>;
+    policy: WorkspaceNotificationPolicy;
+    summary: ReturnType<typeof summarizeWorkspaceNotificationPolicy>;
 };
 
 type CollaboratorFilter = "all" | "admin" | "member" | "viewer";
 type RemovalMode = "preserve_history" | "unassign_active_tasks" | "reassign_active_tasks";
 const VISIBILITY_OPTIONS: Array<{
-    id: ProjectSettingsVisibility;
+    id: WorkspaceSettingsVisibility;
     title: string;
     description: string;
     detail: string;
@@ -167,29 +167,29 @@ function projectOwnerId(project: any): string | null {
 
 function resetSettingsFromProject(project: any) {
     return {
-        visibility: normalizeProjectVisibility(project?.visibility),
-        publicTabVisibility: normalizeProjectPublicTabVisibility(project?.publicTabVisibility ?? project?.public_tab_visibility),
+        visibility: normalizeWorkspaceVisibility(project?.visibility),
+        publicTabVisibility: normalizeWorkspacePublicTabVisibility(project?.publicTabVisibility ?? project?.public_tab_visibility),
         memberUpdatesEnabled: project?.memberUpdatesEnabled ?? project?.member_updates_enabled ?? true,
         memberFileUploadDefault: project?.memberFileUploadDefault ?? project?.member_file_upload_default ?? true,
     };
 }
 
-const NOTIFICATION_GROUPS = groupProjectNotificationEntries();
+const NOTIFICATION_GROUPS = groupWorkspaceNotificationEntries();
 // Organizations add their own event groups (report §26.8).
-const ORG_NOTIFICATION_GROUPS = groupProjectNotificationEntries(getVisibleProjectNotificationEntries(true));
-const FILE_POLICY = buildProjectFilePolicy();
+const ORG_NOTIFICATION_GROUPS = groupWorkspaceNotificationEntries(getVisibleWorkspaceNotificationEntries(true));
+const FILE_POLICY = buildWorkspaceFilePolicy();
 
 interface ProjectSettingsTabProps {
     projectId: string;
     project: any;
     onProjectUpdated: (updates?: { coverImage?: string | null }) => void;
     isProjectOwner: boolean;
-    actorRole?: ProjectMemberRole | null;
-    members?: ProjectSettingsMember[];
+    actorRole?: WorkspaceMemberRole | null;
+    members?: WorkspaceSettingsMember[];
     loadingMembers?: boolean;
 }
 
-export default function ProjectSettingsTab(props: ProjectSettingsTabProps) {
+export default function WorkspaceSettingsTab(props: ProjectSettingsTabProps) {
     return <ProjectSettingsContent key={props.projectId} {...props} />;
 }
 
@@ -214,7 +214,7 @@ function ProjectSettingsContent({
     const orgRole = (isProjectOwner ? "owner" : actorProjectRole) as OrgMemberRole;
     const sections = useMemo(() => {
         // A child project's role boxes are its units (report §21 #6, "Units & open seats").
-        const visible = getVisibleProjectSettingsSections().map((section) => (project?.parentOrg && section.id === "roles-applications"
+        const visible = getVisibleWorkspaceSettingsSections().map((section) => (project?.parentOrg && section.id === "roles-applications"
             ? { ...section, label: "Teams and open seats", description: "Teams, their seats and team leads; open seats org members can apply to." } : section));
         if (organization) {
             // Report §21.4: You sections for everyone, org sections for admins, owner extras for the owner.
@@ -230,11 +230,11 @@ function ProjectSettingsContent({
         if (project?.parentOrg?.viewerIsInheritedAdmin && !isProjectOwner && actorProjectRole !== "admin") return [childOrgSection];
         if (isProjectOwner) return showsChildOrg ? visible.flatMap((section) => (section.id === "general" ? [section, childOrgSection] : [section])) : visible;
         if (actorProjectRole === "admin" && project?.parentOrg) {
-            const adminSections: ProjectSettingsSectionId[] = ["links", "access", "collaborators", "roles-applications", "readme", "updates", "tasks-workflow", "files-workspace", "notifications", "privacy-policies", "privacy-terms"];
+            const adminSections: WorkspaceSettingsSectionId[] = ["links", "access", "collaborators", "roles-applications", "readme", "updates", "tasks-workflow", "files-workspace", "notifications", "privacy-policies", "privacy-terms"];
             return [childOrgSection, ...visible.filter((section) => adminSections.includes(section.id))];
         }
         if (actorProjectRole === "admin") {
-            const adminSections: ProjectSettingsSectionId[] = [
+            const adminSections: WorkspaceSettingsSectionId[] = [
                 "links",
                 "access",
                 "collaborators",
@@ -251,7 +251,7 @@ function ProjectSettingsContent({
         }
         return visible.filter((section) => section.id === "collaborators" || section.id === "privacy-policies" || section.id === "privacy-terms");
     }, [actorProjectRole, isProjectOwner, organization, orgRole, project?.parentOrg, project?.pendingMoveIn, project?.moveTargets?.length]);
-    const { activeSection, navigate: handleNavigateSection } = useProjectSettingsNavigation(sections);
+    const { activeSection, navigate: handleNavigateSection } = useWorkspaceSettingsNavigation(sections);
     const [savingAccess, setSavingAccess] = useState(false);
     const [savingRoles, setSavingRoles] = useState(false);
     const [savingNotifications, setSavingNotifications] = useState(false);
@@ -263,7 +263,7 @@ function ProjectSettingsContent({
     const [transferOwnerId, setTransferOwnerId] = useState("");
     const [archiveModalOpen, setArchiveModalOpen] = useState(false);
     const [transferModalOpen, setTransferModalOpen] = useState(false);
-    const [selectedTransferCandidate, setSelectedTransferCandidate] = useState<ProjectSettingsMember | null>(null);
+    const [selectedTransferCandidate, setSelectedTransferCandidate] = useState<WorkspaceSettingsMember | null>(null);
     const [deleteModalOpen, setDeleteModalOpen] = useState(false);
     const [collaboratorData, setCollaboratorData] = useState<CollaboratorSettingsData | null>(null);
     const [collaboratorLoading, setCollaboratorLoading] = useState(true);
@@ -282,17 +282,17 @@ function ProjectSettingsContent({
     const [fileAccessBulkSaving, setFileAccessBulkSaving] = useState(false);
     const projectNotificationDataRef = useRef<ProjectNotificationSettingsData | null>(null);
     const [projectNotificationData, setProjectNotificationData] = useState<ProjectNotificationSettingsData | null>(null);
-    const [projectNotificationDraft, setProjectNotificationDraft] = useState<ProjectNotificationPolicy>(() => buildDefaultProjectNotificationPolicy());
+    const [projectNotificationDraft, setProjectNotificationDraft] = useState<WorkspaceNotificationPolicy>(() => buildDefaultWorkspaceNotificationPolicy());
     useEffect(() => { projectNotificationDataRef.current = projectNotificationData; }, [projectNotificationData]);
     const [projectNotificationLoading, setProjectNotificationLoading] = useState(true);
     const [expandedNotificationGroups, setExpandedNotificationGroups] = useState<Record<string, boolean>>({});
-    const [, setReadmeSettings] = useState<ProjectDocSettings>(() => DEFAULT_PROJECT_DOC_SETTINGS);
-    const [readmeSettingsDraft, setReadmeSettingsDraft] = useState<ProjectDocSettings>(() => DEFAULT_PROJECT_DOC_SETTINGS);
+    const [, setReadmeSettings] = useState<WorkspaceDocSettings>(() => DEFAULT_WORKSPACE_DOC_SETTINGS);
+    const [readmeSettingsDraft, setReadmeSettingsDraft] = useState<WorkspaceDocSettings>(() => DEFAULT_WORKSPACE_DOC_SETTINGS);
     const [readmeSettingsLoading, setReadmeSettingsLoading] = useState(true);
-    const [savingReadmeKey, setSavingReadmeKey] = useState<keyof ProjectDocSettings | null>(null);
+    const [savingReadmeKey, setSavingReadmeKey] = useState<keyof WorkspaceDocSettings | null>(null);
     const [savingMemberUpdates, setSavingMemberUpdates] = useState(false);
     const [memberNotificationData, setMemberNotificationData] = useState<MemberNotificationSettingsData | null>(null);
-    const [memberNotificationDraft, setMemberNotificationDraft] = useState<ProjectMemberNotificationOverrides>(() => normalizeProjectMemberNotificationOverrides(null));
+    const [memberNotificationDraft, setMemberNotificationDraft] = useState<WorkspaceMemberNotificationOverrides>(() => normalizeWorkspaceMemberNotificationOverrides(null));
     const [memberNotificationLoading, setMemberNotificationLoading] = useState(false);
     const [memberNotificationSaving, setMemberNotificationSaving] = useState(false);
     const [removalMode, setRemovalMode] = useState<RemovalMode>("preserve_history");
@@ -304,9 +304,9 @@ function ProjectSettingsContent({
     const collaboratorRequestSeqRef = useRef(0);
 
     const initialSettings = useMemo(() => resetSettingsFromProject(project), [project]);
-    const initialIdentity = useMemo(() => resetIdentityFromProject(project), [project]);
-    const initialRoles = useMemo<ProjectRolesFormValues>(() => {
-        const openRoles = normalizeProjectRoleFormValues(project?.openRoles ?? project?.open_roles);
+    const initialIdentity = useMemo(() => resetIdentityFromWorkspace(project), [project]);
+    const initialRoles = useMemo<WorkspaceRolesFormValues>(() => {
+        const openRoles = normalizeWorkspaceRoleFormValues(project?.openRoles ?? project?.open_roles);
         const metadata = (project?.importSource?.metadata || project?.import_source?.metadata || {}) as any;
         const leadFocus = typeof metadata.leadFocus === "string" ? metadata.leadFocus.trim() : "";
 
@@ -319,7 +319,7 @@ function ProjectSettingsContent({
             return { roles: openRoles };
         }
 
-        const leadRole: ProjectRoleFormValue = {
+        const leadRole: WorkspaceRoleFormValue = {
             id: "lead-role",
             role: leadFocus || "Owner",
             count: 1,
@@ -330,11 +330,11 @@ function ProjectSettingsContent({
             roles: [leadRole, ...openRoles],
         };
     }, [project]);
-    const [visibility, setVisibility] = useState<ProjectSettingsVisibility>(initialSettings.visibility);
-    const [publicTabVisibility, setPublicTabVisibility] = useState<ProjectPublicTabVisibility>(initialSettings.publicTabVisibility);
-    const [savedVisibility, setSavedVisibility] = useState<ProjectSettingsVisibility>(initialSettings.visibility);
-    const [savedPublicTabVisibility, setSavedPublicTabVisibility] = useState<ProjectPublicTabVisibility>(initialSettings.publicTabVisibility);
-    const [savingPublicTabId, setSavingPublicTabId] = useState<ProjectPublicTabId | null>(null);
+    const [visibility, setVisibility] = useState<WorkspaceSettingsVisibility>(initialSettings.visibility);
+    const [publicTabVisibility, setPublicTabVisibility] = useState<WorkspacePublicTabVisibility>(initialSettings.publicTabVisibility);
+    const [savedVisibility, setSavedVisibility] = useState<WorkspaceSettingsVisibility>(initialSettings.visibility);
+    const [savedPublicTabVisibility, setSavedPublicTabVisibility] = useState<WorkspacePublicTabVisibility>(initialSettings.publicTabVisibility);
+    const [savingPublicTabId, setSavingPublicTabId] = useState<WorkspacePublicTabId | null>(null);
     const [memberUpdatesEnabled, setMemberUpdatesEnabled] = useState<boolean>(initialSettings.memberUpdatesEnabled);
     const [memberFileUploadDefault, setMemberFileUploadDefault] = useState<boolean>(initialSettings.memberFileUploadDefault);
     const [savingMemberFileUploadDefault, setSavingMemberFileUploadDefault] = useState(false);
@@ -347,7 +347,7 @@ function ProjectSettingsContent({
         handleSubmit: handleRolesSubmit,
         reset: resetRolesForm,
         formState: { errors: roleErrors, isDirty: rolesFormDirty },
-    } = useForm<ProjectRolesFormValues>({
+    } = useForm<WorkspaceRolesFormValues>({
         resolver: zodResolver(projectRoleSettingsSchema),
         defaultValues: initialRoles,
     });
@@ -400,10 +400,10 @@ function ProjectSettingsContent({
 
     const ownerId = projectOwnerId(project);
     const collaboratorMembers = collaboratorData?.members ?? members;
-    const rolePolicy = buildProjectRolePolicy({ isOwner: isProjectOwner, actorRole: actorProjectRole, ownerId, members: collaboratorMembers });
+    const rolePolicy = buildWorkspaceRolePolicy({ isOwner: isProjectOwner, actorRole: actorProjectRole, ownerId, members: collaboratorMembers });
     const filteredCollaborators = rolePolicy.members.filter((member) => projectMemberRole(member, ownerId) !== "owner");
     const notificationGroups = organization ? ORG_NOTIFICATION_GROUPS : NOTIFICATION_GROUPS;
-    const notificationSummary = summarizeProjectNotificationPolicy(projectNotificationDraft, Boolean(organization));
+    const notificationSummary = summarizeWorkspaceNotificationPolicy(projectNotificationDraft, Boolean(organization));
     const toggleNotificationGroup = (groupId: string) => {
         setExpandedNotificationGroups((prev) => ({
             ...prev,
@@ -422,20 +422,20 @@ function ProjectSettingsContent({
             setExpandedNotificationGroups(next);
         }
     }, [areAllNotificationGroupsExpanded, notificationGroups]);
-    const preflightPolicy = buildProjectSettingsPreflight(dangerPreflight);
+    const preflightPolicy = buildWorkspaceSettingsPreflight(dangerPreflight);
 
     const visibilityDirty = visibility !== savedVisibility;
-    const publicTabVisibilityDirty = !areProjectPublicTabVisibilitiesEqual(publicTabVisibility, savedPublicTabVisibility);
+    const publicTabVisibilityDirty = !areWorkspacePublicTabVisibilitiesEqual(publicTabVisibility, savedPublicTabVisibility);
     const rolesDirty = rolesFormDirty || deletedRoleIds.length > 0;
-    const notificationDirty = JSON.stringify(projectNotificationDraft) !== JSON.stringify(projectNotificationData?.policy ?? buildDefaultProjectNotificationPolicy());
+    const notificationDirty = JSON.stringify(projectNotificationDraft) !== JSON.stringify(projectNotificationData?.policy ?? buildDefaultWorkspaceNotificationPolicy());
     const dangerPreflightLoadedRef = useRef(false);
-    const loadDangerPreflight = useCallback(async (force = false, pending?: ReturnType<typeof getProjectDangerZonePreflightAction>) => {
+    const loadDangerPreflight = useCallback(async (force = false, pending?: ReturnType<typeof getWorkspaceDangerZonePreflightAction>) => {
         if (!isProjectOwner) return;
         if (dangerPreflightLoadedRef.current && !force) return;
         setDangerPreflightLoading(true);
         setLoadError("danger", null);
         try {
-            const result = await (pending ?? getProjectDangerZonePreflightAction(projectId));
+            const result = await (pending ?? getWorkspaceDangerZonePreflightAction(projectId));
             if (!mountedRef.current) return;
             if (!result.success) {
                 setLoadError("danger", result.message);
@@ -456,7 +456,7 @@ function ProjectSettingsContent({
         }
     }, [isProjectOwner, projectId, setLoadError]);
 
-    const loadCollaborators = useCallback(async (mode: "initial" | "refresh" | "more" = "initial", pending?: ReturnType<typeof getProjectCollaboratorSettingsAction>) => {
+    const loadCollaborators = useCallback(async (mode: "initial" | "refresh" | "more" = "initial", pending?: ReturnType<typeof getWorkspaceCollaboratorSettingsAction>) => {
         const seq = ++collaboratorRequestSeqRef.current;
         const cursor = mode === "more" ? collaboratorDataRef.current?.nextCursor ?? undefined : undefined;
         if (mode === "refresh") {
@@ -474,7 +474,7 @@ function ProjectSettingsContent({
         }
         setLoadError("collaborators", null);
         try {
-            const result = await (pending ?? getProjectCollaboratorSettingsAction(projectId, {
+            const result = await (pending ?? getWorkspaceCollaboratorSettingsAction(projectId, {
                 limit: 40,
                 cursor,
                 query: collaboratorSearch,
@@ -514,14 +514,14 @@ function ProjectSettingsContent({
         }
     }, [collaboratorFilter, collaboratorSearch, projectId, setLoadError]);
 
-    const loadFileAccessSettings = useCallback(async (mode: "replace" | "more" = "replace", pending?: ReturnType<typeof getProjectFileAccessSettingsAction>) => {
+    const loadFileAccessSettings = useCallback(async (mode: "replace" | "more" = "replace", pending?: ReturnType<typeof getWorkspaceFileAccessSettingsAction>) => {
         const more = mode === "more";
         if (more && !fileAccessDataRef.current?.nextCursor) return;
         const seq = ++fileAccessRequestRef.current;
         if (more) setFileAccessLoadingMore(true); else setFileAccessLoading(true);
         setLoadError("files", null);
         try {
-            const result = await (pending ?? getProjectFileAccessSettingsAction(projectId, {
+            const result = await (pending ?? getWorkspaceFileAccessSettingsAction(projectId, {
                 query: fileAccessQuery, permissionFilter: fileAccessFilter,
                 cursor: more ? fileAccessDataRef.current?.nextCursor : undefined,
             }));
@@ -545,12 +545,12 @@ function ProjectSettingsContent({
     }, [fileAccessQuery, fileAccessFilter, loadFileAccessSettings]);
 
     const projectNotificationLoadedRef = useRef(false);
-    const loadProjectNotificationSettings = useCallback(async (force = false, pending?: ReturnType<typeof readProjectNotificationSettingsAction>) => {
+    const loadProjectNotificationSettings = useCallback(async (force = false, pending?: ReturnType<typeof readWorkspaceNotificationSettingsAction>) => {
         if (projectNotificationLoadedRef.current && !force) return;
         setProjectNotificationLoading(true);
         setLoadError("notifications", null);
         try {
-            const result = await (pending ?? readProjectNotificationSettingsAction(projectId));
+            const result = await (pending ?? readWorkspaceNotificationSettingsAction(projectId));
             if (!mountedRef.current) return;
             if (!result.success) {
                 setLoadError("notifications", result.message);
@@ -573,12 +573,12 @@ function ProjectSettingsContent({
     }, [projectId, setLoadError]);
 
     const readmeLoadedRef = useRef(false);
-    const loadReadmeSettings = useCallback(async (force = false, pending?: ReturnType<typeof readProjectDocSettingsAction>) => {
+    const loadReadmeSettings = useCallback(async (force = false, pending?: ReturnType<typeof readWorkspaceDocSettingsAction>) => {
         if (readmeLoadedRef.current && !force) return;
         setReadmeSettingsLoading(true);
         setLoadError("readme", null);
         try {
-            const result = await (pending ?? readProjectDocSettingsAction(projectId));
+            const result = await (pending ?? readWorkspaceDocSettingsAction(projectId));
             if (!mountedRef.current) return;
             if (!result.success) {
                 setLoadError("readme", result.error);
@@ -587,7 +587,7 @@ function ProjectSettingsContent({
             }
             readmeLoadedRef.current = true;
             setReadmeLoaded(true);
-            const normalized = normalizeProjectDocSettings(result.settings);
+            const normalized = normalizeWorkspaceDocSettings(result.settings);
             setReadmeSettings(normalized);
             setReadmeSettingsDraft(normalized);
         } catch (error) {
@@ -604,7 +604,7 @@ function ProjectSettingsContent({
     useEffect(() => {
         if (!canManageSettings || bootstrappedProjectRef.current === projectId) return;
         bootstrappedProjectRef.current = projectId;
-        const bootstrap = readProjectSettingsBootstrapAction(projectId, {
+        const bootstrap = readWorkspaceSettingsBootstrapAction(projectId, {
             limit: 40,
             query: collaboratorSearch,
             roleFilter: collaboratorFilter,
@@ -628,14 +628,14 @@ function ProjectSettingsContent({
     const saveAccessSettings = useCallback(async (confirmationToken: string) => {
         const messages: string[] = [];
         if (visibilityDirty) {
-            const result = await updateProjectVisibilityAction(projectId, visibility, confirmationToken);
+            const result = await updateWorkspaceVisibilityAction(projectId, visibility, confirmationToken);
             if (!result.success) {
                 return { success: false, message: result.message };
             }
             messages.push(result.message);
         }
         if (publicTabVisibilityDirty) {
-            const result = await updateProjectPublicTabVisibilityAction(projectId, publicTabVisibility);
+            const result = await updateWorkspacePublicTabVisibilityAction(projectId, publicTabVisibility);
             if (!result.success) {
                 return { success: false, message: result.message };
             }
@@ -671,7 +671,7 @@ function ProjectSettingsContent({
             async (values) => {
                 setSavingRoles(true);
                 try {
-                    const result = await updateProject(projectId, {
+                    const result = await updateWorkspace(projectId, {
                         roles: values.roles,
                         deletedRoleIds,
                     });
@@ -681,7 +681,7 @@ function ProjectSettingsContent({
                     }
 
                     const leadRole = values.roles.find((r) => r.id === "lead-role");
-                    const nextOpenRoles = normalizeProjectRoleFormValues((result as { openRoles?: unknown }).openRoles);
+                    const nextOpenRoles = normalizeWorkspaceRoleFormValues((result as { openRoles?: unknown }).openRoles);
                     const nextRoles = leadRole ? [leadRole, ...nextOpenRoles] : nextOpenRoles;
                     resetRolesForm({ roles: nextRoles });
                     setDeletedRoleIds([]);
@@ -700,10 +700,10 @@ function ProjectSettingsContent({
         )();
     }, [deletedRoleIds, handleRolesSubmit, isProjectOwner, onProjectUpdated, projectId, resetRolesForm, router, savingRoles]);
 
-    const handleTogglePublicTab = useCallback(async (tabId: ProjectPublicTabId, enabled: boolean) => {
+    const handleTogglePublicTab = useCallback(async (tabId: WorkspacePublicTabId, enabled: boolean) => {
         if (savingPublicTabId || savingAccess) return;
         const previous = publicTabVisibility;
-        const next: ProjectPublicTabVisibility = {
+        const next: WorkspacePublicTabVisibility = {
             ...previous,
             [tabId]: enabled,
         };
@@ -713,7 +713,7 @@ function ProjectSettingsContent({
         setSavingPublicTabId(tabId);
 
         try {
-            const result = await updateProjectPublicTabVisibilityAction(projectId, next);
+            const result = await updateWorkspacePublicTabVisibilityAction(projectId, next);
             if (!result.success) {
                 // Rollback on failure
                 setPublicTabVisibility(previous);
@@ -721,7 +721,7 @@ function ProjectSettingsContent({
                 toast.error(feedbackError(result.message, "Action couldn’t finish"));
                 return;
             }
-            toast.success(`${PROJECT_PUBLIC_TAB_LABELS[tabId]} visibility updated`);
+            toast.success(`${WORKSPACE_PUBLIC_TAB_LABELS[tabId]} visibility updated`);
             onProjectUpdated();
         } catch (error) {
             setPublicTabVisibility(previous);
@@ -733,11 +733,11 @@ function ProjectSettingsContent({
         }
     }, [onProjectUpdated, projectId, publicTabVisibility, router, savingPublicTabId, savingAccess]);
 
-    const handleSelectVisibility = async (nextVisibility: ProjectSettingsVisibility) => {
+    const handleSelectVisibility = async (nextVisibility: WorkspaceSettingsVisibility) => {
         if (savingAccess || confirmLoading || nextVisibility === visibility) return;
         setSavingAccess(true);
         try {
-            const preflightResult = await getProjectAccessTransitionPreflightAction(projectId, nextVisibility);
+            const preflightResult = await getWorkspaceAccessTransitionPreflightAction(projectId, nextVisibility);
             if (!preflightResult.success) {
                 toast.error(feedbackError(preflightResult.message, "Action couldn’t finish"));
                 return;
@@ -751,7 +751,7 @@ function ProjectSettingsContent({
                 variant: isPrivateTransition ? "destructive" : "default",
                 content: <AccessTransitionDetails preflight={preflight} />,
                 action: async () => {
-                    const result = await updateProjectVisibilityAction(projectId, nextVisibility, preflight.confirmationToken);
+                    const result = await updateWorkspaceVisibilityAction(projectId, nextVisibility, preflight.confirmationToken);
                     if (!result.success) {
                         return { success: false, message: result.message };
                     }
@@ -794,7 +794,7 @@ function ProjectSettingsContent({
             });
         }
         try {
-            const result = await updateProjectMemberFileUploadAction(projectId, member.id, enabled);
+            const result = await updateWorkspaceMemberFileUploadAction(projectId, member.id, enabled);
             if (!result.success) {
                 if (previousData) setFileAccessData(previousData);
                 toast.error(feedbackError(result.message, "Action couldn’t finish"));
@@ -835,7 +835,7 @@ function ProjectSettingsContent({
             });
         }
         try {
-            const result = await updateProjectFileUploadDefaultsAction(projectId, enabled);
+            const result = await updateWorkspaceFileUploadDefaultsAction(projectId, enabled);
             if (!result.success) {
                 if (previousData) setFileAccessData(previousData);
                 toast.error(feedbackError(result.message, "Action couldn’t finish"));
@@ -854,14 +854,14 @@ function ProjectSettingsContent({
         }
     }, [fileAccessData, projectId, fileAccessSavingMemberId, fileAccessBulkSaving, savingMemberFileUploadDefault, fileAccessLoading, settingsErrors.files]);
 
-    const handleProjectNotificationPreset = (preset: ProjectNotificationPreset) => {
-        setProjectNotificationDraft(buildDefaultProjectNotificationPolicy(preset));
+    const handleProjectNotificationPreset = (preset: WorkspaceNotificationPreset) => {
+        setProjectNotificationDraft(buildDefaultWorkspaceNotificationPolicy(preset));
     };
 
-    const handleProjectNotificationToggle = useCallback((eventKey: ProjectNotificationEventKey, enabled: boolean) => {
+    const handleProjectNotificationToggle = useCallback((eventKey: WorkspaceNotificationEventKey, enabled: boolean) => {
         setProjectNotificationDraft((current) => {
-            const normalized = normalizeProjectNotificationPolicy(current);
-            const entryDecision = resolveProjectNotificationDecision({ eventKey, projectPolicy: normalized });
+            const normalized = normalizeWorkspaceNotificationPolicy(current);
+            const entryDecision = resolveWorkspaceNotificationDecision({ eventKey, projectPolicy: normalized });
             if (entryDecision.mandatory) return normalized;
             return {
                 ...normalized,
@@ -880,7 +880,7 @@ function ProjectSettingsContent({
         if (savingNotifications || !projectNotificationData || settingsErrors.notifications) return;
         setSavingNotifications(true);
         try {
-            const result = await updateProjectNotificationSettingsAction(projectId, projectNotificationDraft);
+            const result = await updateWorkspaceNotificationSettingsAction(projectId, projectNotificationDraft);
             if (!result.success) {
                 toast.error(feedbackError(result.message, "Action couldn’t finish"));
                 return;
@@ -896,10 +896,10 @@ function ProjectSettingsContent({
         }
     };
 
-    const handleToggleReadmeSetting = async (key: keyof ProjectDocSettings, enabled: boolean) => {
+    const handleToggleReadmeSetting = async (key: keyof WorkspaceDocSettings, enabled: boolean) => {
         if (!readmeLoaded || savingReadmeKey || settingsErrors.readme) return;
         const previous = readmeSettingsDraft;
-        const next: ProjectDocSettings = {
+        const next: WorkspaceDocSettings = {
             ...previous,
             [key]: enabled,
         };
@@ -908,14 +908,14 @@ function ProjectSettingsContent({
         setSavingReadmeKey(key);
 
         try {
-            const result = await updateProjectDocSettingsAction(projectId, next);
+            const result = await updateWorkspaceDocSettingsAction(projectId, next);
             if (!result.success) {
                 setReadmeSettingsDraft(previous);
                 setReadmeSettings(previous);
                 toast.error(feedbackError(result.error || "Couldn’t update document setting", "Couldn’t update document setting"));
                 return;
             }
-            const normalized = normalizeProjectDocSettings(result.settings);
+            const normalized = normalizeWorkspaceDocSettings(result.settings);
             setReadmeSettings(normalized);
             setReadmeSettingsDraft(normalized);
             toast.success("Document setting updated");
@@ -933,7 +933,7 @@ function ProjectSettingsContent({
     const handleResetNotifications = async () => {
         setSavingNotifications(true);
         try {
-            const result = await resetProjectNotificationSettingsAction(projectId, "balanced");
+            const result = await resetWorkspaceNotificationSettingsAction(projectId, "balanced");
             if (!result.success) {
                 toast.error(feedbackError(result.message, "Action couldn’t finish"));
                 return;
@@ -949,19 +949,19 @@ function ProjectSettingsContent({
         }
     };
 
-    const openMemberNotificationSettings = useCallback(async (member: ProjectSettingsMember) => {
+    const openMemberNotificationSettings = useCallback(async (member: WorkspaceSettingsMember) => {
         setMemberNotificationData(null);
-        setMemberNotificationDraft(normalizeProjectMemberNotificationOverrides(null));
+        setMemberNotificationDraft(normalizeWorkspaceMemberNotificationOverrides(null));
         setMemberNotificationLoading(true);
         setConfirmAction({
             title: "Member notification settings",
-            description: `Review ${getProjectMemberDisplayName(member)}'s workspace notification preferences.`,
+            description: `Review ${getWorkspaceMemberDisplayName(member)}'s workspace notification preferences.`,
             confirmLabel: "Close",
             variant: "default",
             action: async () => ({ success: true, message: "Notification settings closed." }),
         });
         try {
-            const result = await readProjectMemberNotificationSettingsAction(projectId, member.id);
+            const result = await readWorkspaceMemberNotificationSettingsAction(projectId, member.id);
             if (!result.success) {
                 toast.error(feedbackError(result.message, "Action couldn’t finish"));
                 setConfirmAction(null);
@@ -982,7 +982,7 @@ function ProjectSettingsContent({
         if (!memberNotificationData) return;
         setMemberNotificationSaving(true);
         try {
-            const result = await updateProjectMemberNotificationSettingsAction(projectId, memberNotificationData.member.id, memberNotificationDraft);
+            const result = await updateWorkspaceMemberNotificationSettingsAction(projectId, memberNotificationData.member.id, memberNotificationDraft);
             if (!result.success) {
                 toast.error(feedbackError(result.message, "Action couldn’t finish"));
                 return;
@@ -1002,7 +1002,7 @@ function ProjectSettingsContent({
         if (!memberNotificationData) return;
         setMemberNotificationSaving(true);
         try {
-            const result = await resetProjectMemberNotificationSettingsAction(projectId, memberNotificationData.member.id);
+            const result = await resetWorkspaceMemberNotificationSettingsAction(projectId, memberNotificationData.member.id);
             if (!result.success) {
                 toast.error(feedbackError(result.message, "Action couldn’t finish"));
                 return;
@@ -1025,7 +1025,7 @@ function ProjectSettingsContent({
         setSavingMemberUpdates(true);
 
         try {
-            const result = await updateProject(projectId, {
+            const result = await updateWorkspace(projectId, {
                 memberUpdatesEnabled: enabled,
             });
             if (!result?.success) {
@@ -1051,7 +1051,7 @@ function ProjectSettingsContent({
         setMemberFileUploadDefault(enabled);
         setSavingMemberFileUploadDefault(true);
         try {
-            const result = await updateProject(projectId, { memberFileUploadDefault: enabled });
+            const result = await updateWorkspace(projectId, { memberFileUploadDefault: enabled });
             if (!result?.success) {
                 setMemberFileUploadDefault(previous);
                 toast.error("Couldn’t update the upload default for new members");
@@ -1067,7 +1067,7 @@ function ProjectSettingsContent({
         }
     };
     const handleCancelNotifications = useCallback(() => {
-        setProjectNotificationDraft(projectNotificationData?.policy ?? buildDefaultProjectNotificationPolicy());
+        setProjectNotificationDraft(projectNotificationData?.policy ?? buildDefaultWorkspaceNotificationPolicy());
     }, [projectNotificationData?.policy]);
 
     const runConfirmAction = useCallback(async () => {
@@ -1088,7 +1088,7 @@ function ProjectSettingsContent({
             setConfirmAction(null);
             setRemovalPreflightDialog(null);
             setMemberNotificationData(null);
-            setMemberNotificationDraft(normalizeProjectMemberNotificationOverrides(null));
+            setMemberNotificationDraft(normalizeWorkspaceMemberNotificationOverrides(null));
             if (result.redirectTo) {
                 router.push(result.redirectTo);
             }
@@ -1103,7 +1103,7 @@ function ProjectSettingsContent({
     const handleExecuteArchive = useCallback(async () => {
         setConfirmLoading(true);
         try {
-            const result = await archiveProjectAction(projectId);
+            const result = await archiveWorkspaceAction(projectId);
             if (!result.success) {
                 toast.error(feedbackError(result.message, "Action couldn’t finish"));
                 return;
@@ -1120,10 +1120,10 @@ function ProjectSettingsContent({
         }
     }, [loadDangerPreflight, onProjectUpdated, projectId]);
 
-    const handleExecuteTransfer = useCallback(async (candidate: ProjectSettingsMember) => {
+    const handleExecuteTransfer = useCallback(async (candidate: WorkspaceSettingsMember) => {
         setConfirmLoading(true);
         try {
-            const result = await transferProjectOwnership(projectId, candidate.id);
+            const result = await transferWorkspaceOwnership(projectId, candidate.id);
             if (!result.success) {
                 toast.error(feedbackError(result.error ?? "Couldn’t transfer ownership", "Couldn’t transfer ownership"));
                 return;
@@ -1155,7 +1155,7 @@ function ProjectSettingsContent({
         setArchiveModalOpen(true);
     }, [dangerPreflight]);
 
-    const prepareTransferToMember = useCallback((candidate: ProjectSettingsMember) => {
+    const prepareTransferToMember = useCallback((candidate: WorkspaceSettingsMember) => {
         setSelectedTransferCandidate(candidate);
         setTransferModalOpen(true);
     }, []);
@@ -1169,13 +1169,13 @@ function ProjectSettingsContent({
         prepareTransferToMember(candidate);
     }, [prepareTransferToMember, rolePolicy.transferCandidates, transferOwnerId]);
 
-    const prepareRoleChange = useCallback((member: ProjectSettingsMember, nextRole: Exclude<ProjectMemberRole, "owner">) => {
+    const prepareRoleChange = useCallback((member: WorkspaceSettingsMember, nextRole: Exclude<WorkspaceMemberRole, "owner">) => {
         const currentRole = projectMemberRole(member, ownerId);
         if (currentRole === nextRole) {
-            toast.info(`${getProjectMemberDisplayName(member)} is already ${getProjectMemberRoleLabel(nextRole)}`);
+            toast.info(`${getWorkspaceMemberDisplayName(member)} is already ${getWorkspaceMemberRoleLabel(nextRole)}`);
             return;
         }
-        const policy = buildProjectMemberMutationPolicy({
+        const policy = buildWorkspaceMemberMutationPolicy({
             actorIsOwner: isProjectOwner,
             actorRole: actorProjectRole,
             ownerId,
@@ -1188,12 +1188,12 @@ function ProjectSettingsContent({
             return;
         }
         setConfirmAction({
-            title: `Change access level to ${getProjectMemberRoleLabel(nextRole)}`,
-            description: `${getProjectMemberDisplayName(member)} will move from ${getProjectMemberRoleLabel(currentRole as ProjectMemberRole)} to ${getProjectMemberRoleLabel(nextRole)}. Their tasks, files, applications and notifications change to match.`,
+            title: `Change access level to ${getWorkspaceMemberRoleLabel(nextRole)}`,
+            description: `${getWorkspaceMemberDisplayName(member)} will move from ${getWorkspaceMemberRoleLabel(currentRole as WorkspaceMemberRole)} to ${getWorkspaceMemberRoleLabel(nextRole)}. Their tasks, files, applications and notifications change to match.`,
             confirmLabel: "Change access level",
             variant: nextRole === "viewer" ? "destructive" : "default",
             action: async () => {
-                const result = await updateProjectMemberRoleAction(projectId, member.id, nextRole);
+                const result = await updateWorkspaceMemberRoleAction(projectId, member.id, nextRole);
                 if (!result.success) {
                     return { success: false, message: result.message };
                 }
@@ -1202,9 +1202,9 @@ function ProjectSettingsContent({
         });
     }, [actorProjectRole, isProjectOwner, ownerId, projectId]);
 
-    const prepareRemoveMember = useCallback(async (member: ProjectSettingsMember) => {
+    const prepareRemoveMember = useCallback(async (member: WorkspaceSettingsMember) => {
         const currentRole = projectMemberRole(member, ownerId);
-        const policy = buildProjectMemberMutationPolicy({
+        const policy = buildWorkspaceMemberMutationPolicy({
             actorIsOwner: isProjectOwner,
             actorRole: actorProjectRole,
             ownerId,
@@ -1217,13 +1217,13 @@ function ProjectSettingsContent({
         }
 
         try {
-            const result = await getProjectMemberRemovalPreflightAction(projectId, member.id);
+            const result = await getWorkspaceMemberRemovalPreflightAction(projectId, member.id);
             if (!result.success) {
                 toast.error(feedbackError(result.message, "Action couldn’t finish"));
                 return;
             }
             const preflight: RemovalPreflightData = result.data;
-            const policyPreview = buildProjectMemberRemovalPreflight(preflight);
+            const policyPreview = buildWorkspaceMemberRemovalPreflight(preflight);
             setRemovalMode(policyPreview.defaultMode);
             setRemovalReassignToUserId(preflight.reassignmentCandidates?.[0]?.id ?? "");
             setRemovalPreflightDialog(preflight);
@@ -1238,7 +1238,7 @@ function ProjectSettingsContent({
                     if (nextMode === "reassign_active_tasks" && !reassignToUserId) {
                         return { success: false, message: "Choose a replacement assignee." };
                     }
-                    const removeResult = await removeProjectMemberAction(projectId, member.id, {
+                    const removeResult = await removeWorkspaceMemberAction(projectId, member.id, {
                         mode: nextMode,
                         reassignToUserId: nextMode === "reassign_active_tasks" ? reassignToUserId : null,
                     });
@@ -1257,7 +1257,7 @@ function ProjectSettingsContent({
     const handleExecuteDelete = useCallback(async () => {
         setConfirmLoading(true);
         try {
-            const result = await deleteProject(projectId);
+            const result = await deleteWorkspace(projectId);
             if (!result.success) {
                 toast.error(feedbackError(result.message, "Action couldn’t finish"));
                 return;
@@ -1300,7 +1300,7 @@ function ProjectSettingsContent({
     }
 
     const confirmDialogContent = removalPreflightDialog ? (() => {
-        const policyPreview = buildProjectMemberRemovalPreflight(removalPreflightDialog);
+        const policyPreview = buildWorkspaceMemberRemovalPreflight(removalPreflightDialog);
         return (
             <div className="space-y-4 text-sm">
                 <div className="rounded-lg border border-destructive/20 bg-destructive/10 p-3 text-destructive">
@@ -1348,7 +1348,7 @@ function ProjectSettingsContent({
                         >
                             {(removalPreflightDialog.reassignmentCandidates ?? []).map((candidate) => (
                                 <option key={candidate.id} value={candidate.id}>
-                                    {getProjectMemberDisplayName(candidate)} · {getProjectMemberRoleLabel(candidate.membershipRole)}
+                                    {getWorkspaceMemberDisplayName(candidate)} · {getWorkspaceMemberRoleLabel(candidate.membershipRole)}
                                 </option>
                             ))}
                         </select>
@@ -1375,7 +1375,7 @@ function ProjectSettingsContent({
     return (
         <OpenSettingsSections>
         <div className="grid w-full min-w-0 grid-cols-1 bg-card xl:grid-cols-[var(--nb-sidebar-width)_minmax(0,1fr)]">
-            <ProjectSettingsNavigation sections={sections} activeSection={activeSection} onNavigate={handleNavigateSection} />
+            <WorkspaceSettingsNavigation sections={sections} activeSection={activeSection} onNavigate={handleNavigateSection} />
             <main data-project-settings-document className="mx-auto min-w-0 w-full max-w-4xl space-y-12 p-4 md:p-[calc(var(--ui-panel-padding)+4px)] [&>[data-project-settings-section]]:border-b [&>[data-project-settings-section]]:border-border [&>[data-project-settings-section]]:pb-8 [&>[data-project-settings-section]:last-child]:border-b-0">
                 {organization && sections.some((s) => s.id === "you-membership") && <OrgMembershipSection orgId={projectId} organization={organization} role={orgRole} />}
                 {organization && sections.some((s) => s.id === "you-leave") && <OrgLeaveSection orgId={projectId} organization={organization} role={orgRole} title={project?.title ?? "this organization"} />}
@@ -1400,7 +1400,7 @@ function ProjectSettingsContent({
                                 headingLevel={2}
                                 description="External project destinations and connected repositories displayed beside the project title and across public surfaces."
                             >
-                                <ProjectLinksManager
+                                <WorkspaceLinksManager
                                     mode="inline"
                                     projectId={projectId}
                                     links={project?.externalLinks ?? project?.external_links}
@@ -1499,7 +1499,7 @@ function ProjectSettingsContent({
                 )}
                 {organization && sections.some((s) => s.id === "org-access") && <OrgAccessSection orgId={projectId} organization={organization} role={orgRole} maxMembers={project?.maxCollaborators ?? null} />}
                 {organization && sections.some((s) => s.id === "org-people") && <OrgPeopleSection orgId={projectId} organization={organization} role={orgRole} />}
-                {organization && sections.some((s) => s.id === "org-projects") && <OrgProjectsSection orgId={projectId} organization={organization} role={orgRole} />}
+                {organization && sections.some((s) => s.id === "org-projects") && <OrgWorkspacesSection orgId={projectId} organization={organization} role={orgRole} />}
                 {organization && sections.some((s) => s.id === "org-work") && <OrgWorkSection orgId={projectId} organization={organization} role={orgRole} />}
                 {sections.some((s) => s.id === "collaborators") && (
                     <section id="project-settings-collaborators" data-project-settings-section className="space-y-6">
@@ -1765,7 +1765,7 @@ function ProjectSettingsContent({
                                     )
                                 }
                             >
-                                <ProjectRolesEditor
+                                <WorkspaceRolesEditor
                                     fields={roleFields}
                                     register={registerRoles}
                                     control={rolesControl}
@@ -1901,7 +1901,7 @@ function ProjectSettingsContent({
                                 onSave={async (stages: string[], currentActiveStage: string) => {
                                     setSavingLifecycle(true);
                                     try {
-                                        const result = await updateProjectLifecycleAction(projectId, stages, currentActiveStage);
+                                        const result = await updateWorkspaceLifecycleAction(projectId, stages, currentActiveStage);
                                         if (result.success) {
                                             toast.success("Lifecycle updated");
                                             onProjectUpdated();
@@ -2061,7 +2061,7 @@ function ProjectSettingsContent({
                                     {/* Categories retain their controls during a background refresh. */}
                                     <div className="space-y-3">
                                         {notificationGroups.map((group) => (
-                                            <ProjectNotificationCategoryCard
+                                            <WorkspaceNotificationCategoryCard
                                                 key={group.id}
                                                 group={group}
                                                 policy={projectNotificationDraft}
@@ -2192,7 +2192,7 @@ function ProjectSettingsContent({
                                                 <option value="">Choose an existing member…</option>
                                                 {rolePolicy.transferCandidates.map((member) => (
                                                     <option key={member.id} value={member.id}>
-                                                        {getProjectMemberDisplayName(member)} · {getProjectMemberRoleLabel(projectMemberRole(member, ownerId))}
+                                                        {getWorkspaceMemberDisplayName(member)} · {getWorkspaceMemberRoleLabel(projectMemberRole(member, ownerId))}
                                                     </option>
                                                 ))}
                                             </select>
@@ -2216,10 +2216,10 @@ function ProjectSettingsContent({
                                             <div className="flex items-center justify-between rounded-[5px] border border-border bg-muted/20 px-3 py-2 text-xs">
                                                 <div className="flex items-center gap-2 min-w-0">
                                                     <div className="flex size-6 shrink-0 items-center justify-center rounded-[3px] bg-muted font-mono text-[10px] max-md:text-[11px] font-semibold text-muted-foreground uppercase">
-                                                        {getProjectMemberDisplayName(selectedMember).slice(0, 2)}
+                                                        {getWorkspaceMemberDisplayName(selectedMember).slice(0, 2)}
                                                     </div>
                                                     <span className="nb-ui-label truncate text-foreground font-medium">
-                                                        {getProjectMemberDisplayName(selectedMember)}
+                                                        {getWorkspaceMemberDisplayName(selectedMember)}
                                                     </span>
                                                     {selectedMember.username ? (
                                                         <span className="nb-meta text-muted-foreground truncate">
@@ -2228,7 +2228,7 @@ function ProjectSettingsContent({
                                                     ) : null}
                                                 </div>
                                                 <span className="inline-flex h-5 shrink-0 items-center rounded-[3px] border border-border bg-muted/60 px-[7px] font-mono text-[11px] font-medium uppercase tracking-[0.09em] leading-none text-muted-foreground">
-                                                    {getProjectMemberRoleLabel(projectMemberRole(selectedMember, ownerId))}
+                                                    {getWorkspaceMemberRoleLabel(projectMemberRole(selectedMember, ownerId))}
                                                 </span>
                                             </div>
                                         );
@@ -2299,7 +2299,7 @@ function ProjectSettingsContent({
                         setConfirmAction(null);
                         setRemovalPreflightDialog(null);
                         setMemberNotificationData(null);
-                        setMemberNotificationDraft(normalizeProjectMemberNotificationOverrides(null));
+                        setMemberNotificationDraft(normalizeWorkspaceMemberNotificationOverrides(null));
                     }
                 }}
                 title={confirmAction?.title ?? ""}
@@ -2315,7 +2315,7 @@ function ProjectSettingsContent({
             </ConfirmDialog>
 
             {/* Workspace management Specific High-Stakes Confirmation Modals */}
-            <ProjectArchiveModal
+            <WorkspaceArchiveModal
                 open={archiveModalOpen}
                 onOpenChange={setArchiveModalOpen}
                 isArchived={preflightPolicy.status === "archived"}
@@ -2325,7 +2325,7 @@ function ProjectSettingsContent({
                 onConfirmArchive={handleExecuteArchive}
             />
 
-            <ProjectTransferOwnershipModal
+            <WorkspaceTransferOwnershipModal
                 open={transferModalOpen}
                 onOpenChange={setTransferModalOpen}
                 candidate={selectedTransferCandidate}
@@ -2335,7 +2335,7 @@ function ProjectSettingsContent({
                 onConfirmTransfer={handleExecuteTransfer}
             />
 
-            <ProjectDeleteModal
+            <WorkspaceDeleteModal
                 open={deleteModalOpen}
                 onOpenChange={setDeleteModalOpen}
                 projectSlug={project.slug || ""}

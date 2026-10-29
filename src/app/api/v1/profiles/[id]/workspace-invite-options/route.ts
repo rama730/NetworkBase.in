@@ -1,5 +1,5 @@
 import { getRequestId, jsonError, jsonSuccess, logApiRoute, requireAuthenticatedUser } from "@/app/api/v1/_shared";
-import { getProfileInviteProjectOptions } from "@/lib/profile/collaboration";
+import { getProfileInviteWorkspaceOptions } from "@/lib/profile/collaboration";
 import { resolvePrivacyRelationship } from "@/lib/privacy/resolver";
 import { logger } from "@/lib/logger";
 import { isUuid } from "@/lib/validations/uuid";
@@ -31,7 +31,7 @@ export async function GET(
     }
 
     const url = new URL(request.url);
-    const page = await getProfileInviteProjectOptions(auth.user.id, id, {
+    const page = await getProfileInviteWorkspaceOptions(auth.user.id, id, {
       search: url.searchParams.get("search") ?? undefined,
       cursor: url.searchParams.get("cursor") ?? undefined,
       limit: Number(url.searchParams.get("limit") || 20),

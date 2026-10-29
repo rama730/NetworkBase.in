@@ -4,7 +4,7 @@ import { useCallback, useRef, useState } from "react";
 import { toast, feedbackError } from "@/lib/feedback";
 import type { ProjectNode } from "@/lib/db/schema";
 import {
-  moveProjectNodes,
+  moveWorkspaceNodes,
   bulkRestoreNodes,
   bulkTrashNodes,
   createFileNode,
@@ -18,7 +18,7 @@ import { getBatchUploadUrls, getUploadPresignedUrl } from "@/app/actions/upload"
 import { filesParentKey, useFilesStore } from "@/stores/filesStore";
 import type { ExplorerOperation } from "./explorerTypes";
 import { getErrorMessage } from "./explorerTypes";
-import { buildProjectFileKey } from "@/lib/storage/workspace-file-key";
+import { buildWorkspaceFileKey } from "@/lib/storage/workspace-file-key";
 import { runWithConcurrency } from "@/lib/utils/concurrency";
 import { FILES_RUNTIME_BUDGETS } from "@/lib/files/runtime-budgets";
 import { planUploadCopyNames, selectUploadFiles } from "@/lib/files/upload-collisions";
@@ -190,7 +190,7 @@ export function useExplorerMutations({
         }
 
         const fileExt = name.includes(".") ? name.split(".").pop() : "txt";
-        const storagePath = buildProjectFileKey(projectId, `${Math.random().toString(36).substring(2)}.${fileExt}`);
+        const storagePath = buildWorkspaceFileKey(projectId, `${Math.random().toString(36).substring(2)}.${fileExt}`);
         const emptyBlob = new Blob([""], { type: "text/plain" });
         const uploadSession = await uploadWithPresignedUrl(storagePath, emptyBlob, "text/plain", emptyBlob.size);
 
@@ -333,7 +333,7 @@ function isNonRetryableUploadError(message?: string): boolean {
         for (let offset = 0; offset < eligible.length; offset += 50) {
           if (abortController.signal.aborted) break;
           const plans = eligible.slice(offset, offset + 50).map(file => ({
-            file, key: buildProjectFileKey(projectId, crypto.randomUUID()),
+            file, key: buildWorkspaceFileKey(projectId, crypto.randomUUID()),
             contentType: resolveFileMimeType(file), sizeBytes: file.size,
           }));
           const batch = await getBatchUploadUrls(plans.map(({ key, contentType, sizeBytes }) => ({ key, contentType, sizeBytes })));
@@ -645,7 +645,7 @@ function isNonRetryableUploadError(message?: string): boolean {
           if (oldParentId !== target) staleParents.add(oldParentId);
         }
 
-        const moveResult = await moveProjectNodes(nodeIds, target, projectId);
+        const moveResult = await moveWorkspaceNodes(nodeIds, target, projectId);
         const updatedNodes = moveResult.nodes;
         if (updatedNodes.length > 0) upsertNodes(projectId, updatedNodes);
 
@@ -673,7 +673,7 @@ function isNonRetryableUploadError(message?: string): boolean {
               for (const [parentKey, ids] of Object.entries(groupedByParent)) {
                 const parentId = parentKey === "__root__" ? null : parentKey;
                 if (ids.length > 0) {
-                  await moveProjectNodes(ids, parentId, projectId, {
+                  await moveWorkspaceNodes(ids, parentId, projectId, {
                     expectedParentByNode: Object.fromEntries(ids.map((id) => [id, target])),
                   });
                   await refreshAfterMutation(parentId, "refresh");

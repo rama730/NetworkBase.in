@@ -16,7 +16,7 @@ import {
 } from "@/app/api/v1/_shared";
 import { routeErrorResponse } from "@/app/api/v1/_error";
 import {
-  assertProjectFileReadAccess,
+  assertWorkspaceFileReadAccess,
   visibleFileNodesSql,
 } from "@/lib/files/internal-helpers";
 import { readBoundedStorageBytes } from "@/lib/storage/bounded-object-read";
@@ -51,7 +51,7 @@ export async function GET(request: Request) {
         "BAD_REQUEST",
       );
     const { projectId, q, cursor } = parsed.data;
-    const access = await assertProjectFileReadAccess(projectId, auth.user.id);
+    const access = await assertWorkspaceFileReadAccess(projectId, auth.user.id);
     const counter = await db.query.projectEventCounters.findFirst({
       where: eq(projectEventCounters.projectId, projectId),
     });

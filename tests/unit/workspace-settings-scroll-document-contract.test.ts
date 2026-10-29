@@ -15,7 +15,7 @@ test("project settings tab renders a continuous single-scroll document with all 
     assert.match(
         settingsTab,
         /<main[^>]*data-project-settings-document/,
-        "ProjectSettingsTab must render <main data-project-settings-document> continuous scroll container",
+        "WorkspaceSettingsTab must render <main data-project-settings-document> continuous scroll container",
     );
 
     // 2. All 12 canonical section IDs must be present as continuous section containers
@@ -38,7 +38,7 @@ test("project settings tab renders a continuous single-scroll document with all 
         assert.match(
             settingsTab,
             new RegExp(`id="project-settings-${sectionId}"`),
-            `Section #project-settings-${sectionId} must exist in ProjectSettingsTab`,
+            `Section #project-settings-${sectionId} must exist in WorkspaceSettingsTab`,
         );
         assert.match(
             settingsTab,

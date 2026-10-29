@@ -4,9 +4,9 @@ import { SkillPicker } from '@/components/skills/SkillPicker';
 import { Checkbox } from '@/components/ui/checkbox';
 import { FilterPanel } from '@/components/ui/filter-panel';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { PROJECT_STATUS, PROJECT_TYPE, type ProjectStatus, type ProjectType } from '@/constants/discover';
+import { WORKSPACE_STATUS, WORKSPACE_TYPE, type WorkspaceStatus, type WorkspaceType } from '@/constants/discover';
 import { DISCOVER_STATUSES, type DiscoverQuery } from '@/lib/discover/query';
-import { PROJECT_TYPE_OPTIONS } from '@/lib/workspaces/workspace-create-options';
+import { WORKSPACE_TYPE_OPTIONS } from '@/lib/workspaces/workspace-create-options';
 import { projectStageLabel } from '@/lib/workspaces/status-presentation';
 
 const MAX_SKILLS = 8;
@@ -24,7 +24,7 @@ export function DiscoverFiltersPanel({ open, onOpenChange, query, onChange, onCl
     /** Filters set: Clear all does nothing at 0, so it's off. */
     activeFilters: number;
 }) {
-    const statuses: ProjectStatus[] = [PROJECT_STATUS.ALL, ...DISCOVER_STATUSES];
+    const statuses: WorkspaceStatus[] = [WORKSPACE_STATUS.ALL, ...DISCOVER_STATUSES];
 
     return (
         <FilterPanel open={open} onOpenChange={onOpenChange} onClear={onClear} activeFilters={activeFilters}>
@@ -42,7 +42,7 @@ export function DiscoverFiltersPanel({ open, onOpenChange, query, onChange, onCl
                                 onChange={() => onChange({ status })}
                                 className="peer sr-only"
                             />
-                            {status === PROJECT_STATUS.ALL ? 'Any' : projectStageLabel(status)}
+                            {status === WORKSPACE_STATUS.ALL ? 'Any' : projectStageLabel(status)}
                         </label>
                     ))}
                 </div>
@@ -50,13 +50,13 @@ export function DiscoverFiltersPanel({ open, onOpenChange, query, onChange, onCl
 
             <div>
                 <label htmlFor="discover-filter-type" className="nb-ui-label mb-2 block">Type</label>
-                <Select value={query.type} onValueChange={(value) => onChange({ type: value as ProjectType })}>
+                <Select value={query.type} onValueChange={(value) => onChange({ type: value as WorkspaceType })}>
                     <SelectTrigger id="discover-filter-type" className="bg-card pointer-coarse:h-11">
                         <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                        <SelectItem value={PROJECT_TYPE.ALL}>Any type</SelectItem>
-                        {PROJECT_TYPE_OPTIONS.map((type) => <SelectItem key={type.id} value={type.id}>{type.label}</SelectItem>)}
+                        <SelectItem value={WORKSPACE_TYPE.ALL}>Any type</SelectItem>
+                        {WORKSPACE_TYPE_OPTIONS.map((type) => <SelectItem key={type.id} value={type.id}>{type.label}</SelectItem>)}
                     </SelectContent>
                 </Select>
             </div>

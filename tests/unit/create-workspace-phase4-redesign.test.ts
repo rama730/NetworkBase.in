@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import test from 'node:test';
-import { createProjectSchema } from '../../src/lib/validations/workspace';
+import { createWorkspaceSchema } from '../../src/lib/validations/workspace';
 import { projectActionsSource } from "./_workspace-actions-source";
 
 function source(relativePath: string) {
@@ -68,7 +68,7 @@ test('creation derives recruiting and open-role counts from valid submitted role
 });
 
 test('removed creation-time terms are safely omitted from parsed project input', () => {
-    const result = createProjectSchema.parse({
+    const result = createWorkspaceSchema.parse({
         title: 'Launch-ready project',
         description: 'A sufficiently detailed description for project creation validation.',
         project_type: 'web_app',

@@ -23,7 +23,7 @@ import { formatTaskId } from "@/lib/workspace-key";
 import { getTaskTitlePresentation } from "@/lib/workspaces/task-presentation";
 import { cn } from "@/lib/utils";
 import type { TaskFileRole } from "@/lib/workspaces/task-file-intelligence";
-import { searchProjectTasks } from "@/app/actions/files/links";
+import { searchWorkspaceTasks } from "@/app/actions/files/links";
 
 // ─── Constants ───────────────────────────────────────────────────────
 
@@ -89,7 +89,7 @@ export function TaskSearchPicker({
     setIsLoading(true);
     setError(false);
 
-    searchProjectTasks(projectId, debouncedQuery, MAX_RESULTS)
+    searchWorkspaceTasks(projectId, debouncedQuery, MAX_RESULTS)
       .then((tasks) => {
         if (!cancelled) {
           itemRefs.current = [];

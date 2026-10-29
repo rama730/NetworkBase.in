@@ -5,7 +5,7 @@ import test from "node:test";
 import {
   getTaskWorkingFilesDisplayName,
   isInternalTaskWorkingFilesNode,
-  isProjectSystemRoot,
+  isWorkspaceSystemRoot,
   TASK_WORKING_FILES_TITLE,
 } from "@/lib/files/task-working-files";
 import { buildNodePathMap } from "@/components/workspaces/v2/files-tab/quick-open/QuickOpenDialog";
@@ -15,7 +15,7 @@ test("internal task storage paths stay hidden behind a user-facing collection", 
   const system = { name: ".system", path: "/.system", parentId: null };
   const collection = { name: "tasks", path: "/.system/tasks" };
 
-  assert.equal(isProjectSystemRoot(system), true);
+  assert.equal(isWorkspaceSystemRoot(system), true);
   assert.equal(isInternalTaskWorkingFilesNode(collection), true);
   assert.equal(
     getTaskWorkingFilesDisplayName(collection),
@@ -111,7 +111,7 @@ test("quick-open paths omit .system and task UUID storage segments", () => {
 
 test("Files metadata reads apply task visibility without hiding authorized linked files", () => {
   const nodes = readFileSync("src/app/actions/files/nodes.ts", "utf8");
-  assert.match(nodes, /canReadProjectTaskFiles\(readAccess\)/);
+  assert.match(nodes, /canReadWorkspaceTaskFiles\(readAccess\)/);
   assert.match(nodes, /normalizedQuery \|\| parentId/);
   assert.match(nodes, /assertFileNodeVisible/);
 });

@@ -4,13 +4,13 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AssignmentsPanel } from '@/components/organizations/AssignmentsPanel';
 import { OrgFilesPanel } from '@/components/organizations/OrgFilesPanel';
 import { OrgMembersTab } from '@/components/organizations/OrgMembersTab';
-import { OrgProjectsTab } from '@/components/organizations/OrgOverviewParts';
+import { OrgWorkspacesTab } from '@/components/organizations/OrgOverviewParts';
 import { SidebarWorkspaces } from '@/components/layout/SidebarWorkspaces';
 import { FormProvider, useForm } from 'react-hook-form';
 import { ChildLeadAndUnassigned, InheritedAdminRows, UnitPeople } from '@/components/organizations/ChildTeamFields';
 import { ChildUnitsPanel } from '@/components/organizations/ChildUnitsPanel';
 import { CreateLocationProvider } from '@/components/organizations/CreateLocation';
-import ProjectLayout from '@/components/workspaces/dashboard/WorkspaceLayout';
+import WorkspaceLayout from '@/components/workspaces/dashboard/WorkspaceLayout';
 import { OrgNewItems, OrgNewMenu } from '@/components/organizations/OrgHeaderParts';
 
 // The org Tasks, Members, Files and Projects tabs and the sidebar tree (report §31.2 G13, G16), one per ?tab=.
@@ -39,11 +39,11 @@ function Header() {
     const [picked, setPicked] = React.useState<string | null>(null);
     const project = { id: 'org', title: 'CSE-3A 2026', slug: 'cse-3a', visibility: 'org', status: 'active', tags: [], links: [] } as never;
     return (
-        <ProjectLayout project={project} isOwner isOwnerOrMember canManageSettings isOrganization activeTab={active} onTabChange={setActive}
+        <WorkspaceLayout project={project} isOwner isOwnerOrMember canManageSettings isOrganization activeTab={active} onTabChange={setActive}
             tabBadges={{ tasks: 5, updates: 'dot', members: 2 }} compactChip={<span className="nb-status shrink-0" data-status="active">CO1</span>}
             compactMenuItems={<OrgNewItems onNew={setPicked} prefix="New " />} actionsStart={<OrgNewMenu onNew={setPicked} />} showFollow={false}>
             <p data-testid="picked">{picked ?? 'none'}</p>
-        </ProjectLayout>
+        </WorkspaceLayout>
     );
 }
 
@@ -51,7 +51,7 @@ createRoot(document.getElementById('root')!).render(
     <QueryClientProvider client={client}>
         <main style={{ padding: 16 }}>
             {tab === 'members' ? <OrgMembersTab orgId="org" /> : null}
-            {tab === 'projects' ? <OrgProjectsTab orgId="org" /> : null}
+            {tab === 'projects' ? <OrgWorkspacesTab orgId="org" /> : null}
             {tab === 'tasks' ? <AssignmentsPanel orgId="org" /> : null}
             {tab === 'files' ? <><OrgFilesPanel projectId="child" mode="child" canCopy /><OrgFilesPanel projectId="org" mode="org-admin" canCopy={false} /></> : null}
             {tab === 'team' ? <Team /> : null}

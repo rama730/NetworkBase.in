@@ -7,7 +7,7 @@ export function taskFileCountKey(projectId: string, taskId: string) {
   return `${projectId}:${taskId}`;
 }
 
-export async function getProjectTaskSummary(projectId: string) {
+export async function getWorkspaceTaskSummary(projectId: string) {
   const [summary] = await db
     .select({
       taskCount: sql<number>`count(*)`,
@@ -21,7 +21,7 @@ export async function getProjectTaskSummary(projectId: string) {
   };
 }
 
-export async function getProjectTaskCountMap(projectIds: string[]) {
+export async function getWorkspaceTaskCountMap(projectIds: string[]) {
   if (projectIds.length === 0) return new Map<string, number>();
   const rows = await db
     .select({
@@ -54,7 +54,7 @@ export async function getTaskFileCountMap(projectId: string, taskIds: string[]) 
   return new Map(rows.map((row) => [row.taskId, Number(row.count) || 0]));
 }
 
-export async function getProjectTaskFileCountMap(projectIds: string[]) {
+export async function getWorkspaceTaskFileCountMap(projectIds: string[]) {
   if (projectIds.length === 0) return new Map<string, number>();
   const rows = await db
     .select({

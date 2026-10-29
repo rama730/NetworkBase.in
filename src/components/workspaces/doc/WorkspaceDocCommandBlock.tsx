@@ -5,7 +5,7 @@ import { Check, Copy } from "lucide-react";
 import { projectDocEditorTargetId } from "@/lib/workspaces/doc-editor-source-map";
 import { cn } from "@/lib/utils";
 
-export type ProjectDocCommandLineTarget = {
+export type WorkspaceDocCommandLineTarget = {
     id: string;
     startLine: number;
     endLine: number;
@@ -31,7 +31,7 @@ async function copyTextWithFallback(value: string) {
     if (!copied) throw new Error("Couldn’t copy");
 }
 
-export function ProjectDocCommandBlock({
+export function WorkspaceDocCommandBlock({
     code,
     language,
     id,
@@ -42,14 +42,14 @@ export function ProjectDocCommandBlock({
     code: string;
     language?: string | null;
     id?: string;
-    lineTargets?: ProjectDocCommandLineTarget[];
+    lineTargets?: WorkspaceDocCommandLineTarget[];
     sourceLine?: number | null;
     sourceOffset?: number | null;
 }) {
     const [copied, setCopied] = useState(false);
     const codeLines = code.trimEnd().split("\n");
     const lineTargetByStartLine = useMemo(() => {
-        const map = new Map<number, ProjectDocCommandLineTarget>();
+        const map = new Map<number, WorkspaceDocCommandLineTarget>();
         lineTargets.forEach((target) => map.set(target.startLine, target));
         return map;
     }, [lineTargets]);
@@ -61,7 +61,7 @@ export function ProjectDocCommandBlock({
             setCopied(true);
             window.setTimeout(() => setCopied(false), 1400);
         } catch (error) {
-            console.error("[ProjectDocCommandBlock] Copy failed", error);
+            console.error("[WorkspaceDocCommandBlock] Copy failed", error);
         }
     };
 

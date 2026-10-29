@@ -1,8 +1,8 @@
 import { z } from "zod";
 
 import { jsonError, jsonSuccess } from "@/app/api/v1/_envelope";
-import { getProjectFileLeases } from "@/lib/files/file-lock-service";
-import { assertProjectFileReadAccess } from "@/lib/files/internal-helpers";
+import { getWorkspaceFileLeases } from "@/lib/files/file-lock-service";
+import { assertWorkspaceFileReadAccess } from "@/lib/files/internal-helpers";
 import { createClient } from "@/lib/supabase/server";
 
 export async function GET(request: Request) {
@@ -11,9 +11,9 @@ export async function GET(request: Request) {
     if (!projectId.success) return jsonError("Invalid workspace id", 400, "BAD_REQUEST");
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
-    await assertProjectFileReadAccess(projectId.data, user?.id ?? null);
+    await assertWorkspaceFileReadAccess(projectId.data, user?.id ?? null);
     return jsonSuccess(
-      { locks: await getProjectFileLeases(projectId.data) },
+      { locks: await getWorkspaceFileLeases(projectId.data) },
       undefined,
       { headers: { "Cache-Control": "private, max-age=10, stale-while-revalidate=30" } },
     );

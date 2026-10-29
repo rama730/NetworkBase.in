@@ -28,11 +28,11 @@ import { hasSkillIcon } from "@/lib/skills/icon-policy";
 import { SocialPresenceIcon } from "@/components/profile/SocialPresenceIcon";
 import { UserAvatar } from "@/components/ui/UserAvatar";
 import { PersonPresenceDot } from "@/components/network/PersonPresenceDot";
-import ProjectAvatar from "@/components/workspaces/WorkspaceAvatar";
+import WorkspaceAvatar from "@/components/workspaces/WorkspaceAvatar";
 import type {
     GlobalSearchPreview,
     GlobalSearchProfilePreview,
-    GlobalSearchProjectPreview,
+    GlobalSearchWorkspacePreview,
     GlobalSearchLinkPreview,
     GlobalSearchTaskPreview,
     GlobalSearchOrgPreview,
@@ -152,11 +152,11 @@ function relativeDate(value: string | null) {
     return formatDistanceToNow(date, { addSuffix: true });
 }
 
-export function ProjectSearchResultCard({ result, onOpen, onRemove, ...interaction }: ResultInteractionProps & { result: GlobalSearchProjectPreview; onOpen: (result: GlobalSearchPreview) => void; onRemove?: () => void }) {
+export function WorkspaceSearchResultCard({ result, onOpen, onRemove, ...interaction }: ResultInteractionProps & { result: GlobalSearchWorkspacePreview; onOpen: (result: GlobalSearchPreview) => void; onRemove?: () => void }) {
     const connectedFriendLabels = result.connectedFriends.map((friend) => `${friend.name} · ${friend.role}`);
     const hasAvatar = Boolean(result.coverImage && result.coverImage.trim().length > 0);
     const leading = hasAvatar ? (
-        <ProjectAvatar
+        <WorkspaceAvatar
             project={{
                 coverImage: result.coverImage,
                 title: result.title,

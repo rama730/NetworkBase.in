@@ -46,7 +46,7 @@ import {
   DropdownMenuRadioItem,
 } from "@/components/ui/dropdown-menu";
 import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
-import { getProjectNodes } from "@/app/actions/files/nodes";
+import { getWorkspaceNodes } from "@/app/actions/files/nodes";
 import { getFilePreviewUrl } from "@/app/actions/files/content";
 import { useFilesViews } from "../FilesViews";
 import { FilesViewsMenu, FilesHeaderSlot } from "../FilesHeader";
@@ -56,7 +56,7 @@ import type { ProjectNode } from "@/lib/db/schema";
 import { cn } from "@/lib/utils";
 import {
   isInternalTaskWorkingFilesNode,
-  isProjectSystemRoot,
+  isWorkspaceSystemRoot,
 } from "@/lib/files/task-working-files";
 import { useFilesStore } from "@/stores/filesStore";
 
@@ -335,7 +335,7 @@ export function FolderListView({
     queryKey: ["files-directory", projectId, folderId, search, sort],
     enabled: !collection && (!!search || sort !== "name"),
     initialPageParam: undefined as string | undefined,
-    queryFn: ({ pageParam }) => getProjectNodes(projectId, folderId, search, 100, pageParam, { sort }),
+    queryFn: ({ pageParam }) => getWorkspaceNodes(projectId, folderId, search, 100, pageParam, { sort }),
     getNextPageParam: page => page.nextCursor ?? undefined,
     staleTime: 60_000,
     // ponytail: back off idle polling to 5m to eliminate client-side egress churn. ceiling: 5m polling interval. upgrade: WebSocket Realtime push invalidation for remote lists.
@@ -353,7 +353,7 @@ export function FolderListView({
     if (folder.status !== "ready") return [];
     const sorted = !collection || collection.preserveOrder ? folder.children as FolderListRowNode[] : sortFolderListNodes(folder.children, sort) as FolderListRowNode[];
     return folderId === null
-      ? sorted.filter((node) => !isProjectSystemRoot(node))
+      ? sorted.filter((node) => !isWorkspaceSystemRoot(node))
       : sorted;
   }, [folder.status, folder.children, folderId, sort, collection]);
   const scrollRef = React.useRef<HTMLDivElement>(null);

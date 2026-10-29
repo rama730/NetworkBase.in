@@ -14,7 +14,7 @@ import {
   type TaskStatus,
 } from "@/app/actions/task";
 import { queryKeys } from "@/lib/query-keys";
-import { patchProjectTaskCaches } from "@/lib/workspaces/task-cache";
+import { patchWorkspaceTaskCaches } from "@/lib/workspaces/task-cache";
 import type { TaskFileReadinessWarning } from "@/lib/workspaces/task-file-intelligence";
 import { recordSprintMetric } from "@/lib/workspaces/sprint-observability";
 import {
@@ -104,7 +104,7 @@ export function useTaskSurfaceMutations(params: {
 
   const applyOptimisticTask = useCallback(
     (nextTask: TaskSurfaceRecord, field: string) => {
-      patchProjectTaskCaches(queryClient, projectId, nextTask);
+      patchWorkspaceTaskCaches(queryClient, projectId, nextTask);
       onTaskChange(nextTask);
       recordSprintMetric("project.sprint.optimistic_patch", {
         projectId,

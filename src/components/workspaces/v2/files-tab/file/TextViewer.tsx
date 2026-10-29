@@ -52,7 +52,7 @@ import { cn } from "@/lib/utils";
 
 import { useFilesStore } from "@/stores/filesStore";
 import { saveFileRevision } from "@/hooks/useFileVersions";
-import { getProjectFileContent } from "@/app/actions/files/content";
+import { getWorkspaceFileContent } from "@/app/actions/files/content";
 import { listFileVersions } from "@/app/actions/files/versions";
 import type { BrowserFileLease, FileLeaseView } from "@/lib/files/file-lease-client";
 import type { FileLeaseStatus } from "../hooks/useFileLease";
@@ -417,7 +417,7 @@ export function TextViewer({
     void (async () => {
       try {
         const [text, versions] = await Promise.all([
-          getProjectFileContent(projectId, node.id),
+          getWorkspaceFileContent(projectId, node.id),
           mode === "edit" ? listFileVersions(projectId, node.id, 1) : Promise.resolve([]),
         ]);
         if (cancelled) return;

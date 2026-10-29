@@ -1,8 +1,8 @@
 'use server';
 
-import { DISCOVER_ANON_CACHE_TAG, FILTER_VIEWS, PROJECT_STATUS, PROJECT_TYPE, SORT_OPTIONS, type FilterView } from '@/constants/discover';
+import { DISCOVER_ANON_CACHE_TAG, FILTER_VIEWS, WORKSPACE_STATUS, WORKSPACE_TYPE, SORT_OPTIONS, type FilterView } from '@/constants/discover';
 import { consumeRateLimit, consumeRateLimitForRoute } from '@/lib/security/rate-limit';
-import { getDiscoverProjects, InvalidDiscoverCursorError, StaleDiscoverFeedError } from '@/lib/data/discover';
+import { getDiscoverWorkspaces, InvalidDiscoverCursorError, StaleDiscoverFeedError } from '@/lib/data/discover';
 import { getCachedData, cacheData } from '@/lib/redis';
 import { DISCOVER_RANKING_SCHEMA_VERSION } from '@/lib/discover/ranking-config';
 import { buildDiscoverSnapshotKey } from '@/lib/discover/snapshot-cache';
@@ -15,14 +15,14 @@ import { getTrustedHeadersIp } from '@/lib/security/request-ip';
 import { normalizeSearchQuery, tokenizeSearchQuery } from '@/lib/search/query';
 import { recordGlobalSearchMetric } from '@/lib/search/observability';
 import { createHash } from 'node:crypto';
-import { PROJECT_TYPE_OPTIONS } from '@/lib/workspaces/workspace-create-options';
+import { WORKSPACE_TYPE_OPTIONS } from '@/lib/workspaces/workspace-create-options';
 import { z } from 'zod';
 
 const hubSearchInputSchema = z.object({
     filters: z.object({
         // Only values Discover offers: anything else would reach a Postgres enum and fail there.
-        status: z.enum([PROJECT_STATUS.ALL, PROJECT_STATUS.IN_PROGRESS, PROJECT_STATUS.LAUNCHED]),
-        type: z.enum([PROJECT_TYPE.ALL, ...PROJECT_TYPE_OPTIONS.map((type) => type.id)]),
+        status: z.enum([WORKSPACE_STATUS.ALL, WORKSPACE_STATUS.IN_PROGRESS, WORKSPACE_STATUS.LAUNCHED]),
+        type: z.enum([WORKSPACE_TYPE.ALL, ...WORKSPACE_TYPE_OPTIONS.map((type) => type.id)]),
         tech: z.array(z.string().trim().min(1).max(100)).max(20),
         sort: z.enum(Object.values(SORT_OPTIONS) as [string, ...string[]]),
         search: z.string().max(200).optional(),
@@ -37,7 +37,7 @@ const hubSearchInputSchema = z.object({
     // The trending order belongs to the Trending view (a ranked list); elsewhere it would be an unindexed full sort.
     .refine((input) => input.filters.sort !== SORT_OPTIONS.TRENDING || input.view === FILTER_VIEWS.TRENDING);
 
-export async function fetchDiscoverProjectsAction(
+export async function fetchDiscoverWorkspacesAction(
     filters: DiscoverFilters,
     cursor?: string,
     limit: number = 24,
@@ -125,7 +125,7 @@ export async function fetchDiscoverProjectsAction(
 
         if (shouldUseAnonEdgeCache) {
             const getCachedAnonymousDiscoverPage = unstable_cache(
-                async () => getDiscoverProjects(normalizedFilters, undefined, normalizedLimit, {
+                async () => getDiscoverWorkspaces(normalizedFilters, undefined, normalizedLimit, {
                     view: normalizedView,
                     viewerId: null,
                     surface,
@@ -152,8 +152,8 @@ export async function fetchDiscoverProjectsAction(
                 recordPreview('success', cached.projects.length);
                 return {
                     success: true as const,
-                    projects: cached.projects as Awaited<ReturnType<typeof getDiscoverProjects>>['projects'],
-                    nextCursor: cached.nextCursor as Awaited<ReturnType<typeof getDiscoverProjects>>['nextCursor'],
+                    projects: cached.projects as Awaited<ReturnType<typeof getDiscoverWorkspaces>>['projects'],
+                    nextCursor: cached.nextCursor as Awaited<ReturnType<typeof getDiscoverWorkspaces>>['nextCursor'],
                     hasMore: cached.hasMore as boolean,
                     schemaVersion: cached.schemaVersion as string | number,
                 };
@@ -171,7 +171,7 @@ export async function fetchDiscoverProjectsAction(
         ].join(':');
 
         return await runInFlightDeduped(dedupeKey, async () => {
-            const result = await getDiscoverProjects(normalizedFilters, normalizedCursor, normalizedLimit, {
+            const result = await getDiscoverWorkspaces(normalizedFilters, normalizedCursor, normalizedLimit, {
                 view: normalizedView,
                 viewerId: user?.id ?? null,
                 surface,

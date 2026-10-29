@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { buildPrivacyPresentation, buildProjectOwnerPresentation } from "@/lib/privacy/presentation";
+import { buildPrivacyPresentation, buildWorkspaceOwnerPresentation } from "@/lib/privacy/presentation";
 import { derivePrivacyRelationshipState } from "@/lib/privacy/relationship-state";
 
 describe("privacy presentation", () => {
@@ -29,7 +29,7 @@ describe("privacy presentation", () => {
             connectionPrivacy: "everyone",
         });
 
-        const owner = buildProjectOwnerPresentation({
+        const owner = buildWorkspaceOwnerPresentation({
             id: "target",
             username: "private-user",
             fullName: "Private User",

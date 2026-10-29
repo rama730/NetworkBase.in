@@ -83,12 +83,12 @@ test("members see the master and their own copy only; admins see every copy in t
   const master = await publish(o);
   await sql`INSERT INTO tasks (project_id, title, assignee_id) VALUES (${o.org}, 'Prepare CO2 quiz', ${o.owner})`;
   viewerId = o.a;
-  const mine = await tasks.fetchProjectTasksAction(o.org);
+  const mine = await tasks.fetchWorkspaceTasksAction(o.org);
   assert.equal(mine.success, true, JSON.stringify(mine));
   const titles = mine.success ? mine.tasks.map((t) => `${t.title}:${t.assigneeId === o.a ? "me" : t.assigneeId ?? "master"}`) : [];
   assert.deepEqual(titles.sort(), ["Lab 1:master", "Lab 1:me"].sort());
   viewerId = o.owner;
-  const board = await tasks.fetchProjectTasksAction(o.org);
+  const board = await tasks.fetchWorkspaceTasksAction(o.org);
   assert.deepEqual(board.success ? board.tasks.map((t) => t.title).sort() : [], ["Lab 1", "Prepare CO2 quiz"].sort(), "copies stay off the admin board");
   const roster = await assignments.readAssignmentRosterAction(master);
   assert.equal(roster.success && roster.rows.length, 3);
@@ -133,7 +133,7 @@ test("teams: one copy per team, any teammate submits, other teams never see it",
   viewerId = o.b;
   assert.equal((await assignments.submitAssignmentAction(team.id, { link: "https://example.com/deck" })).success, true, "a teammate submits for the team");
   viewerId = o.c;
-  const cView = await tasks.fetchProjectTasksAction(o.org);
+  const cView = await tasks.fetchWorkspaceTasksAction(o.org);
   assert.equal(cView.success && cView.tasks.some((t) => t.id === team.id), false);
 });
 

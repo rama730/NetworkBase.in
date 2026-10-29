@@ -1,7 +1,7 @@
-import { Project } from '@/types/discover';
+import { Workspace } from '@/types/discover';
 
 /** What a project card shows beyond the project itself: skills, the visible team, open seats. */
-export interface ProjectCardViewModel {
+export interface WorkspaceCardViewModel {
     techStack: string[];
     collaborators: Array<{
         full_name?: string | null;
@@ -13,11 +13,11 @@ export interface ProjectCardViewModel {
     teamSize: number;
 }
 
-export function toProjectCardViewModel(project: Project): ProjectCardViewModel {
+export function toWorkspaceCardViewModel(project: Workspace): WorkspaceCardViewModel {
     const extendedProject = project as any; // Handle flexible types
 
     // The owner first (a masked one as a neutral "Private creator" avatar), then members, once each.
-    const collaborators: ProjectCardViewModel['collaborators'] = [];
+    const collaborators: WorkspaceCardViewModel['collaborators'] = [];
     if (extendedProject.owner?.isMasked) {
         collaborators.push({ full_name: 'Private creator', avatar_url: null, username: null });
     } else if (extendedProject.owner) {

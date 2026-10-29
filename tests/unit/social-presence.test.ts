@@ -9,15 +9,15 @@ import {
     validateSocialLinkCollection,
 } from '@/lib/profile/normalization';
 import {
-    areProjectSocialLinksEqual,
-    countProjectLinkChanges,
-    extractProjectLinkUrls,
-    filterProjectLinksForAudience,
-    hydrateProjectSocialLinks,
-    inferProjectLinkPurpose,
-    isProjectLinkMetadataStale,
-    resolveProjectSocialLinks,
-    splitProjectSocialLinks,
+    areWorkspaceSocialLinksEqual,
+    countWorkspaceLinkChanges,
+    extractWorkspaceLinkUrls,
+    filterWorkspaceLinksForAudience,
+    hydrateWorkspaceSocialLinks,
+    inferWorkspaceLinkPurpose,
+    isWorkspaceLinkMetadataStale,
+    resolveWorkspaceSocialLinks,
+    splitWorkspaceSocialLinks,
 } from '@/lib/workspaces/social-links';
 import { DOMAIN_PRESENCE_ICON_KEYS, DOMAIN_PRESENCE_RULES, SECTOR_ICON_KEYS } from '@/lib/profile/domain-presence';
 import { normalizeLinkDestinationTitle } from '@/lib/links/destination-title';
@@ -173,7 +173,7 @@ test('recognises Heliyon publications without mislabelling other Cell Press jour
     assert.equal(heliyon?.platformLabel, 'Heliyon');
     assert.equal(heliyon?.iconKey, 'heliyon');
     assert.equal(heliyon?.url, url);
-    assert.equal(inferProjectLinkPurpose(heliyon!), 'research-publication');
+    assert.equal(inferWorkspaceLinkPurpose(heliyon!), 'research-publication');
 
     const otherJournal = resolveSocialPresence('website', 'https://www.cell.com/cell/fulltext/example');
     assert.notEqual(otherJournal?.serviceKey, 'heliyon');
@@ -317,18 +317,18 @@ test('workspace links infer a cross-sector purpose while preserving explicit own
     const scholar = resolveSocialPresence('website', 'https://scholar.google.com/citations?user=abc');
     const behance = resolveSocialPresence('website', 'https://behance.net/example');
     assert.ok(github && scholar && behance);
-    assert.equal(inferProjectLinkPurpose(github!), 'source-code');
-    assert.equal(inferProjectLinkPurpose(scholar!), 'research-publication');
-    assert.equal(inferProjectLinkPurpose(behance!), 'design-prototype');
+    assert.equal(inferWorkspaceLinkPurpose(github!), 'source-code');
+    assert.equal(inferWorkspaceLinkPurpose(scholar!), 'research-publication');
+    assert.equal(inferWorkspaceLinkPurpose(behance!), 'design-prototype');
 
-    const resolved = resolveProjectSocialLinks([{ id: 'repo', url: github!.url, purpose: 'documentation', audience: 'members' }]);
+    const resolved = resolveWorkspaceSocialLinks([{ id: 'repo', url: github!.url, purpose: 'documentation', audience: 'members' }]);
     assert.equal(resolved[0]?.purpose, 'documentation');
     assert.equal(resolved[0]?.audience, 'members');
 });
 
 test('derived project-link metadata is split from persisted user intent and can be hydrated again', () => {
     const checkedAt = '2026-08-30T00:00:00.000Z';
-    const split = splitProjectSocialLinks([{
+    const split = splitWorkspaceSocialLinks([{
         id: 'paper',
         url: 'https://arxiv.org/abs/2401.12345',
         audience: 'public',
@@ -339,9 +339,9 @@ test('derived project-link metadata is split from persisted user intent and can 
     assert.equal(split.links[0]?.metadata, undefined);
     assert.equal(split.links[0]?.purpose, 'research-publication');
     assert.equal(split.metadata.paper?.nameSource, 'open_graph');
-    assert.equal(hydrateProjectSocialLinks(split.links, split.metadata)[0]?.metadata?.health, 'active');
-    assert.equal(isProjectLinkMetadataStale(split.metadata.paper, new Date('2026-09-15T00:00:00.000Z').getTime()), false);
-    assert.equal(isProjectLinkMetadataStale(split.metadata.paper, new Date('2026-10-15T00:00:00.000Z').getTime()), true);
+    assert.equal(hydrateWorkspaceSocialLinks(split.links, split.metadata)[0]?.metadata?.health, 'active');
+    assert.equal(isWorkspaceLinkMetadataStale(split.metadata.paper, new Date('2026-09-15T00:00:00.000Z').getTime()), false);
+    assert.equal(isWorkspaceLinkMetadataStale(split.metadata.paper, new Date('2026-10-15T00:00:00.000Z').getTime()), true);
 });
 
 test('member-only workspace links are excluded from public read models', () => {
@@ -349,8 +349,8 @@ test('member-only workspace links are excluded from public read models', () => {
         { id: 'public', url: 'https://example.com', audience: 'public' as const },
         { id: 'internal', url: 'https://notion.site/internal', audience: 'members' as const },
     ];
-    assert.deepEqual(filterProjectLinksForAudience(links, false).map((link) => link.id), ['public']);
-    assert.deepEqual(filterProjectLinksForAudience(links, true).map((link) => link.id), ['public', 'internal']);
+    assert.deepEqual(filterWorkspaceLinksForAudience(links, false).map((link) => link.id), ['public']);
+    assert.deepEqual(filterWorkspaceLinksForAudience(links, true).map((link) => link.id), ['public', 'internal']);
 });
 
 test('credential-like query parameters are surfaced without mutating the URL', () => {
@@ -373,13 +373,13 @@ test('normalization preserves distinct resource state on the same account', () =
 });
 
 test('workspace links use the same local platform presentation', () => {
-    const links = resolveProjectSocialLinks({ github: 'https://github.com/network-for-builders/app' });
+    const links = resolveWorkspaceSocialLinks({ github: 'https://github.com/network-for-builders/app' });
     assert.equal(links[0]?.platformLabel, 'GitHub');
     assert.equal(links[0]?.accountLabel, 'network for builders/app');
 });
 
 test('connected repositories are managed workspace links and deduplicate the same manual URL', () => {
-    const links = resolveProjectSocialLinks(
+    const links = resolveWorkspaceSocialLinks(
         [
             { id: 'repo', platform: 'github', url: 'https://github.com/network-for-builders/app/', order: 0 },
             { id: 'site', platform: 'website', url: 'https://example.dev', order: 1 },
@@ -393,7 +393,7 @@ test('connected repositories are managed workspace links and deduplicate the sam
 });
 
 test('invalid connected repository data never becomes a workspace link', () => {
-    assert.deepEqual(resolveProjectSocialLinks([], 'https://example.dev/not-github'), []);
+    assert.deepEqual(resolveWorkspaceSocialLinks([], 'https://example.dev/not-github'), []);
 });
 
 test('link collections reject values beyond the shared display limit', () => {
@@ -467,7 +467,7 @@ test('project-link concurrency checks ignore object insertion order and hydrated
         purpose: 'demo-media' as const,
     }];
 
-    assert.equal(areProjectSocialLinksEqual(storedLegacyLink, editorBaseline), true);
+    assert.equal(areWorkspaceSocialLinksEqual(storedLegacyLink, editorBaseline), true);
 });
 
 test('project-link concurrency checks still detect meaningful edits and reorders', () => {
@@ -478,13 +478,13 @@ test('project-link concurrency checks still detect meaningful edits and reorders
     const renamed = original.map((link, index) => index === 0 ? { ...link, destinationLabel: 'New title' } : link);
     const reordered = [{ ...original[1]!, order: 0 }, { ...original[0]!, order: 1 }];
 
-    assert.equal(areProjectSocialLinksEqual(original, renamed), false);
-    assert.equal(areProjectSocialLinksEqual(original, reordered), false);
+    assert.equal(areWorkspaceSocialLinksEqual(original, renamed), false);
+    assert.equal(areWorkspaceSocialLinksEqual(original, reordered), false);
 });
 
 test('project-link paste extracts several unique URLs and change counts include reorder-only drafts', () => {
     assert.deepEqual(
-        extractProjectLinkUrls('Watch https://youtu.be/abc, paper https://arxiv.org/abs/123. Again: https://youtu.be/abc'),
+        extractWorkspaceLinkUrls('Watch https://youtu.be/abc, paper https://arxiv.org/abs/123. Again: https://youtu.be/abc'),
         ['https://youtu.be/abc', 'https://arxiv.org/abs/123'],
     );
 
@@ -492,7 +492,7 @@ test('project-link paste extracts several unique URLs and change counts include 
         { id: 'video', url: 'https://youtu.be/abc', order: 0 },
         { id: 'paper', url: 'https://arxiv.org/abs/123', order: 1 },
     ];
-    assert.equal(countProjectLinkChanges(saved, saved), 0);
-    assert.equal(countProjectLinkChanges(saved, [{ ...saved[1]!, order: 0 }, { ...saved[0]!, order: 1 }]), 1);
-    assert.equal(countProjectLinkChanges(saved, [...saved, { id: 'site', url: 'https://example.com', order: 2 }]), 1);
+    assert.equal(countWorkspaceLinkChanges(saved, saved), 0);
+    assert.equal(countWorkspaceLinkChanges(saved, [{ ...saved[1]!, order: 0 }, { ...saved[0]!, order: 1 }]), 1);
+    assert.equal(countWorkspaceLinkChanges(saved, [...saved, { id: 'site', url: 'https://example.com', order: 2 }]), 1);
 });

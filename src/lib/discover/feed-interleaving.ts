@@ -1,4 +1,4 @@
-import type { DiscoverFeedItem, DiscoverUpdateView, Project } from "@/types/discover";
+import type { DiscoverFeedItem, DiscoverUpdateView, Workspace } from "@/types/discover";
 
 /** An update goes after every third project card. */
 const GROUP = 3;
@@ -17,7 +17,7 @@ const SPACING = 6;
  * built. If updates ever lag behind, a late page could fill an empty slot above the viewer; key the slot to the
  * update's id if that shows.
  */
-export function interleaveProjectsAndUpdates(projects: Project[], updates: DiscoverUpdateView[]): DiscoverFeedItem[] {
+export function interleaveWorkspacesAndUpdates(projects: Workspace[], updates: DiscoverUpdateView[]): DiscoverFeedItem[] {
     if (projects.length === 0) return updates.map((data) => ({ kind: "update" as const, data }));
 
     const items: DiscoverFeedItem[] = [];

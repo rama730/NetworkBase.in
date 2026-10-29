@@ -11,7 +11,7 @@ import {
 } from "@/app/api/v1/_file-lease-route";
 import { db } from "@/lib/db";
 import { projectNodes } from "@/lib/db/schema";
-import { getProjectAccessById } from "@/lib/data/workspace-access";
+import { getWorkspaceAccessById } from "@/lib/data/workspace-access";
 import { validateCsrf } from "@/lib/security/csrf";
 import {
   acquireFileLease,
@@ -68,7 +68,7 @@ async function resolveEditableNode(projectId: string, path: string, userId: stri
     }
     return { node: { id: resolved.node.id } };
   }
-  const access = await getProjectAccessById(projectId, userId);
+  const access = await getWorkspaceAccessById(projectId, userId);
   if (!access.project) return { error: jsonError("Workspace not found", 404, "NOT_FOUND") };
   if (!access.canWrite) return { error: jsonError("You don’t have access to this", 403, "FORBIDDEN") };
   const node = await db.query.projectNodes.findFirst({

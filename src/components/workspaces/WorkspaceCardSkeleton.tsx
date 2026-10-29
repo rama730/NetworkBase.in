@@ -1,7 +1,7 @@
 import { Skeleton } from "@/components/ui/skeleton";
 
 /** The card's shape while it loads: title, two summary lines, 22px tags, the 28px footer row. Announced once by its list. */
-export default function ProjectCardSkeleton() {
+export default function WorkspaceCardSkeleton() {
     return <div className="nb-project-card" aria-hidden="true">
         <Skeleton className="h-[22px] w-2/3 rounded-sm" />
         <div className="space-y-1.5"><Skeleton className="h-4 w-full rounded-sm" /><Skeleton className="h-4 w-4/5 rounded-sm" /></div>

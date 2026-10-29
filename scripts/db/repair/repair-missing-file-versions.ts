@@ -18,7 +18,7 @@ import {
   storageAssets,
   storageRepairFailures,
 } from "../../../src/lib/db/schema";
-import { parseProjectFileKey } from "../../../src/lib/storage/workspace-file-key";
+import { parseWorkspaceFileKey } from "../../../src/lib/storage/workspace-file-key";
 import { createAdminClient } from "../../../src/lib/supabase/server";
 
 const APPLY = process.argv.includes("--apply");
@@ -144,7 +144,7 @@ async function repairCandidate(
   if (!Number.isSafeInteger(size) || size < 0 || size > MAX_FILE_BYTES) {
     throw new Error("UNSUPPORTED_OBJECT_SIZE");
   }
-  const parsed = parseProjectFileKey(storageKey);
+  const parsed = parseWorkspaceFileKey(storageKey);
   if (!parsed || parsed.projectId !== candidate.projectId) {
     throw new Error("AMBIGUOUS_STORAGE_KEY");
   }

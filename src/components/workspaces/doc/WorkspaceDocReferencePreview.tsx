@@ -3,7 +3,7 @@
 import { AlertTriangle, FileText, FolderKanban, ListTodo, Timer, Users } from "lucide-react";
 import Image from "next/image";
 
-import type { ProjectDocReferenceOption, ProjectDocSmartBlockPreview } from "@/lib/workspaces/doc-blocks";
+import type { WorkspaceDocReferenceOption, WorkspaceDocSmartBlockPreview } from "@/lib/workspaces/doc-blocks";
 import { getTaskTitlePresentation } from "@/lib/workspaces/task-presentation";
 import { cn } from "@/lib/utils";
 
@@ -17,11 +17,11 @@ const KIND_ICON = {
     unknown: AlertTriangle,
 } as const;
 
-function referenceMeta(option: ProjectDocReferenceOption) {
+function referenceMeta(option: WorkspaceDocReferenceOption) {
     return option.context || [option.status, option.meta, option.subtitle].filter(Boolean).join(" · ") || "Workspace reference";
 }
 
-export function ProjectDocReferenceOptionCard({ option }: { option: ProjectDocReferenceOption }) {
+export function WorkspaceDocReferenceOptionCard({ option }: { option: WorkspaceDocReferenceOption }) {
     const Icon = KIND_ICON[option.kind] ?? FileText;
     const titlePresentation = option.kind === "tasks"
         ? getTaskTitlePresentation(option)
@@ -66,7 +66,7 @@ export function ProjectDocReferenceOptionCard({ option }: { option: ProjectDocRe
     return <div className="rounded-[5px] border border-border bg-card px-3 py-2">{content}</div>;
 }
 
-export function ProjectDocSmartBlockPreviewCard({ preview }: { preview: ProjectDocSmartBlockPreview }) {
+export function WorkspaceDocSmartBlockPreviewCard({ preview }: { preview: WorkspaceDocSmartBlockPreview }) {
     const Icon = KIND_ICON[preview.kind] ?? FileText;
     return (
         <div
@@ -95,7 +95,7 @@ export function ProjectDocSmartBlockPreviewCard({ preview }: { preview: ProjectD
                     </div>
                     {preview.items.length > 0 ? (
                         <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-                            {preview.items.slice(0, 4).map((item) => <ProjectDocReferenceOptionCard key={`${item.kind}-${item.id}`} option={item} />)}
+                            {preview.items.slice(0, 4).map((item) => <WorkspaceDocReferenceOptionCard key={`${item.kind}-${item.id}`} option={item} />)}
                         </div>
                     ) : null}
                     {preview.unavailableCount > 0 ? (

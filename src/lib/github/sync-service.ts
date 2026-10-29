@@ -60,8 +60,8 @@ import {
   finalizeUploadIntent,
 } from "@/lib/upload/upload-intents";
 import {
-  buildProjectFileKey,
-  parseProjectIdFromProjectFileKey,
+  buildWorkspaceFileKey,
+  parseWorkspaceIdFromWorkspaceFileKey,
 } from "@/lib/storage/workspace-file-key";
 
 interface CachedBlobMeta {
@@ -161,7 +161,7 @@ export async function readStoredSyncContent(
   key: string,
   storageOverride?: any,
 ) {
-  if (parseProjectIdFromProjectFileKey(key) !== projectId)
+  if (parseWorkspaceIdFromWorkspaceFileKey(key) !== projectId)
     throw new Error("File content is outside this workspace");
   const storage =
     storageOverride ||
@@ -870,7 +870,7 @@ export async function createSyncReview(
           } else if (content) {
             assertSafeSyncContent(content);
             const { hash, blobSha } = contentHashes(content);
-            item.snapshotKey = buildProjectFileKey(
+            item.snapshotKey = buildWorkspaceFileKey(
               ctx.project.id,
               `sync-snapshots/${id}/${offset + batchIndex}`,
             );

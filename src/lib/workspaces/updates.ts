@@ -2,7 +2,7 @@ import {
     splitMarkdownByInlineReferences,
 } from "@/lib/workspaces/doc-blocks";
 
-export const PROJECT_UPDATE_TYPES = [
+export const WORKSPACE_UPDATE_TYPES = [
     "progress",
     "milestone",
     "release",
@@ -15,23 +15,23 @@ export const PROJECT_UPDATE_TYPES = [
     "discussion",
 ] as const;
 
-export type ProjectUpdateType = typeof PROJECT_UPDATE_TYPES[number];
-export type ProjectUpdateVisibility = "public" | "members";
-export type ProjectUpdateReplyPolicy = "logged_in" | "members" | "closed";
+export type WorkspaceUpdateType = typeof WORKSPACE_UPDATE_TYPES[number];
+export type WorkspaceUpdateVisibility = "public" | "members";
+export type WorkspaceUpdateReplyPolicy = "logged_in" | "members" | "closed";
 /** "from_projects" is the org feed's view of posts shared up from child projects. */
-export type ProjectUpdateFilter = "all" | "from_projects" | ProjectUpdateType;
+export type WorkspaceUpdateFilter = "all" | "from_projects" | WorkspaceUpdateType;
 
-export type ProjectUpdateEntityRefs = {
+export type WorkspaceUpdateEntityRefs = {
     taskId?: string | null;
     sprintId?: string | null;
     fileId?: string | null;
     readmeVersionId?: string | null;
     roleId?: string | null;
     milestoneId?: string | null;
-    references?: ProjectUpdateReference[];
+    references?: WorkspaceUpdateReference[];
 };
 
-export type ProjectUpdateMediaItem = {
+export type WorkspaceUpdateMediaItem = {
     assetId?: string | null;
     type: "image" | "file" | "link";
     url?: string | null;
@@ -45,14 +45,14 @@ export type ProjectUpdateMediaItem = {
     storageKey?: string | null;
 };
 
-export type ProjectUpdateContextKind = "task" | "sprint" | "file";
+export type WorkspaceUpdateContextKind = "task" | "sprint" | "file";
 
-export type ProjectUpdateReference = {
-    kind: ProjectUpdateContextKind;
+export type WorkspaceUpdateReference = {
+    kind: WorkspaceUpdateContextKind;
     id: string;
 };
 
-export type ProjectUpdateCommentView = {
+export type WorkspaceUpdateCommentView = {
     id: string;
     updateId: string;
     projectId: string;
@@ -73,8 +73,8 @@ export type ProjectUpdateCommentView = {
     targetUsername?: string | null;
 };
 
-export type ProjectUpdateContextOption = {
-    kind: ProjectUpdateContextKind;
+export type WorkspaceUpdateContextOption = {
+    kind: WorkspaceUpdateContextKind;
     id: string;
     label: string;
     description: string | null;
@@ -82,58 +82,58 @@ export type ProjectUpdateContextOption = {
     status?: string | null;
 };
 
-export type ProjectUpdateContextSummary = {
-    task?: ProjectUpdateContextOption | null;
-    sprint?: ProjectUpdateContextOption | null;
-    file?: ProjectUpdateContextOption | null;
-    references?: ProjectUpdateContextOption[];
+export type WorkspaceUpdateContextSummary = {
+    task?: WorkspaceUpdateContextOption | null;
+    sprint?: WorkspaceUpdateContextOption | null;
+    file?: WorkspaceUpdateContextOption | null;
+    references?: WorkspaceUpdateContextOption[];
 };
 
-export type ProjectUpdateAuthorRoleSource = "snapshot" | "project_role" | "membership";
+export type WorkspaceUpdateAuthorRoleSource = "snapshot" | "project_role" | "membership";
 
-export type ProjectUpdateAuthorRoleSnapshot = {
+export type WorkspaceUpdateAuthorRoleSnapshot = {
     displayRoleLabel: string | null;
     roleTitle: string | null;
     membershipRoleLabel: string | null;
-    source: ProjectUpdateAuthorRoleSource;
+    source: WorkspaceUpdateAuthorRoleSource;
     capturedAt: string;
 };
 
-export const PROJECT_UPDATE_PAGE_SIZE = 20;
-export const PROJECT_UPDATE_COMMENT_PAGE_SIZE = 20;
-export const PROJECT_UPDATE_VIRTUALIZE_THRESHOLD = 80;
-export const PROJECT_UPDATE_MAX_MEDIA_ITEMS = 4;
-export const PROJECT_UPDATE_MAX_REFERENCES = 8;
-export const PROJECT_UPDATE_MEDIA_BUCKET = "project-updates-media";
-export const PROJECT_UPDATE_MEDIA_MAX_BYTES = 8 * 1024 * 1024;
-export const PROJECT_UPDATE_ALLOWED_IMAGE_MIME_TYPES = new Set([
+export const WORKSPACE_UPDATE_PAGE_SIZE = 20;
+export const WORKSPACE_UPDATE_COMMENT_PAGE_SIZE = 20;
+export const WORKSPACE_UPDATE_VIRTUALIZE_THRESHOLD = 80;
+export const WORKSPACE_UPDATE_MAX_MEDIA_ITEMS = 4;
+export const WORKSPACE_UPDATE_MAX_REFERENCES = 8;
+export const WORKSPACE_UPDATE_MEDIA_BUCKET = "project-updates-media";
+export const WORKSPACE_UPDATE_MEDIA_MAX_BYTES = 8 * 1024 * 1024;
+export const WORKSPACE_UPDATE_ALLOWED_IMAGE_MIME_TYPES = new Set([
     "image/jpeg",
     "image/png",
     "image/webp",
     "image/gif",
 ]);
-export const PROJECT_UPDATE_MAX_SYNC_NOTIFICATION_RECIPIENTS = 120;
+export const WORKSPACE_UPDATE_MAX_SYNC_NOTIFICATION_RECIPIENTS = 120;
 
 export function projectUpdateMediaApplicationUrl(
     bucket: unknown,
     storageKey: unknown,
 ): string | null {
-    if (bucket !== PROJECT_UPDATE_MEDIA_BUCKET || typeof storageKey !== "string") return null;
+    if (bucket !== WORKSPACE_UPDATE_MEDIA_BUCKET || typeof storageKey !== "string") return null;
     const key = storageKey.trim();
     const match = /^projects\/([0-9a-f-]{36})\/update-media\//i.exec(key);
     if (!match || key.includes("..")) return null;
     return `/api/v1/workspaces/${encodeURIComponent(match[1]!)}/update-media?key=${encodeURIComponent(key)}`;
 }
 
-export const PROJECT_UPDATE_PERFORMANCE_BUDGETS = {
+export const WORKSPACE_UPDATE_PERFORMANCE_BUDGETS = {
     readMs: 100,
     createMs: 300,
     commentMs: 250,
-    fanoutSyncRecipients: PROJECT_UPDATE_MAX_SYNC_NOTIFICATION_RECIPIENTS,
+    fanoutSyncRecipients: WORKSPACE_UPDATE_MAX_SYNC_NOTIFICATION_RECIPIENTS,
     initialPayloadKb: 80,
 } as const;
 
-export const PROJECT_UPDATE_SCHEMA_CONTRACT = {
+export const WORKSPACE_UPDATE_SCHEMA_CONTRACT = {
     tables: ["project_updates", "project_update_likes", "project_update_comments", "project_update_drafts"],
     indexes: [
         "project_updates_project_pinned_created_idx",
@@ -159,20 +159,20 @@ export const PROJECT_UPDATE_SCHEMA_CONTRACT = {
     },
 } as const;
 
-export function isProjectUpdateType(value: unknown): value is ProjectUpdateType {
-    return typeof value === "string" && PROJECT_UPDATE_TYPES.includes(value as ProjectUpdateType);
+export function isWorkspaceUpdateType(value: unknown): value is WorkspaceUpdateType {
+    return typeof value === "string" && WORKSPACE_UPDATE_TYPES.includes(value as WorkspaceUpdateType);
 }
 
-export function normalizeProjectUpdateType(value: unknown): ProjectUpdateType | null {
-    return isProjectUpdateType(value) ? value : null;
+export function normalizeWorkspaceUpdateType(value: unknown): WorkspaceUpdateType | null {
+    return isWorkspaceUpdateType(value) ? value : null;
 }
 
-export function normalizeProjectUpdateFilter(value: unknown): ProjectUpdateFilter {
+export function normalizeWorkspaceUpdateFilter(value: unknown): WorkspaceUpdateFilter {
     if (value === "all" || value === "from_projects") return value;
-    return normalizeProjectUpdateType(value) ?? "all";
+    return normalizeWorkspaceUpdateType(value) ?? "all";
 }
 
-export function sanitizeProjectUpdateContent(value: unknown, maxLength = 2_000) {
+export function sanitizeWorkspaceUpdateContent(value: unknown, maxLength = 2_000) {
     return typeof value === "string" ? value.trim().slice(0, maxLength) : "";
 }
 
@@ -209,18 +209,18 @@ export function projectUpdateDraftStorageKey(projectId: string, userId: string |
     return `nb.project-updates.draft.${projectId}.${userId || "anonymous"}`;
 }
 
-export function sanitizeProjectUpdateRoleTitle(value: unknown, maxLength = 80) {
+export function sanitizeWorkspaceUpdateRoleTitle(value: unknown, maxLength = 80) {
     if (typeof value !== "string") return null;
     const normalized = value.replace(/\s+/g, " ").trim().slice(0, maxLength);
     return normalized.length > 0 ? normalized : null;
 }
 
-export function composeProjectUpdateRoleLabel(input: {
+export function composeWorkspaceUpdateRoleLabel(input: {
     roleTitle?: string | null;
     membershipRoleLabel?: string | null;
 }) {
-    const roleTitle = sanitizeProjectUpdateRoleTitle(input.roleTitle);
-    const membershipRoleLabel = sanitizeProjectUpdateRoleTitle(input.membershipRoleLabel);
+    const roleTitle = sanitizeWorkspaceUpdateRoleTitle(input.roleTitle);
+    const membershipRoleLabel = sanitizeWorkspaceUpdateRoleTitle(input.membershipRoleLabel);
     if (!roleTitle) return membershipRoleLabel;
     if (!membershipRoleLabel) return roleTitle;
     const normalizedMembership = membershipRoleLabel.toLowerCase();
@@ -232,21 +232,21 @@ export function composeProjectUpdateRoleLabel(input: {
     return roleTitle;
 }
 
-export function isGenericProjectUpdateRoleTitle(value: unknown, membershipRoleLabel?: string | null) {
-    const roleTitle = sanitizeProjectUpdateRoleTitle(value);
+export function isGenericWorkspaceUpdateRoleTitle(value: unknown, membershipRoleLabel?: string | null) {
+    const roleTitle = sanitizeWorkspaceUpdateRoleTitle(value);
     if (!roleTitle) return false;
     const normalizedTitle = roleTitle.toLowerCase();
-    const normalizedMembership = sanitizeProjectUpdateRoleTitle(membershipRoleLabel)?.toLowerCase() ?? null;
+    const normalizedMembership = sanitizeWorkspaceUpdateRoleTitle(membershipRoleLabel)?.toLowerCase() ?? null;
     return normalizedTitle === normalizedMembership
         || ["lead", "co-lead", "co lead", "admin", "member", "viewer", "owner", "contributor"].includes(normalizedTitle);
 }
 
-export function normalizeProjectUpdateAuthorRoleSnapshot(value: unknown): ProjectUpdateAuthorRoleSnapshot | null {
+export function normalizeWorkspaceUpdateAuthorRoleSnapshot(value: unknown): WorkspaceUpdateAuthorRoleSnapshot | null {
     if (!value || typeof value !== "object") return null;
     const source = value as Record<string, unknown>;
-    const displayRoleLabel = sanitizeProjectUpdateRoleTitle(source.displayRoleLabel);
-    const roleTitle = sanitizeProjectUpdateRoleTitle(source.roleTitle);
-    const membershipRoleLabel = sanitizeProjectUpdateRoleTitle(source.membershipRoleLabel);
+    const displayRoleLabel = sanitizeWorkspaceUpdateRoleTitle(source.displayRoleLabel);
+    const roleTitle = sanitizeWorkspaceUpdateRoleTitle(source.roleTitle);
+    const membershipRoleLabel = sanitizeWorkspaceUpdateRoleTitle(source.membershipRoleLabel);
     const roleSource = source.source === "project_role" || source.source === "membership"
         ? source.source
         : "snapshot";
@@ -254,7 +254,7 @@ export function normalizeProjectUpdateAuthorRoleSnapshot(value: unknown): Projec
         ? source.capturedAt
         : new Date(0).toISOString();
     if (!displayRoleLabel && !roleTitle && !membershipRoleLabel) return null;
-    const composedRoleLabel = composeProjectUpdateRoleLabel({ roleTitle, membershipRoleLabel });
+    const composedRoleLabel = composeWorkspaceUpdateRoleLabel({ roleTitle, membershipRoleLabel });
     return {
         displayRoleLabel: composedRoleLabel ?? displayRoleLabel ?? roleTitle ?? membershipRoleLabel,
         roleTitle,
@@ -264,21 +264,21 @@ export function normalizeProjectUpdateAuthorRoleSnapshot(value: unknown): Projec
     };
 }
 
-export function resolveProjectUpdateAuthorRoleDisplay(input: {
-    snapshot?: ProjectUpdateAuthorRoleSnapshot | null;
+export function resolveWorkspaceUpdateAuthorRoleDisplay(input: {
+    snapshot?: WorkspaceUpdateAuthorRoleSnapshot | null;
     projectRoleTitle?: string | null;
     membershipRoleLabel?: string | null;
 }) {
     const snapshot = input.snapshot ?? null;
     if (snapshot?.displayRoleLabel) {
-        const projectRoleTitle = sanitizeProjectUpdateRoleTitle(input.projectRoleTitle);
+        const projectRoleTitle = sanitizeWorkspaceUpdateRoleTitle(input.projectRoleTitle);
         const effectiveMembershipRoleLabel = snapshot.membershipRoleLabel ?? input.membershipRoleLabel;
-        const snapshotRoleTitle = isGenericProjectUpdateRoleTitle(snapshot.roleTitle, effectiveMembershipRoleLabel)
+        const snapshotRoleTitle = isGenericWorkspaceUpdateRoleTitle(snapshot.roleTitle, effectiveMembershipRoleLabel)
             ? null
-            : sanitizeProjectUpdateRoleTitle(snapshot.roleTitle);
+            : sanitizeWorkspaceUpdateRoleTitle(snapshot.roleTitle);
         const effectiveRoleTitle = projectRoleTitle ?? snapshotRoleTitle;
         return {
-            roleLabel: composeProjectUpdateRoleLabel({
+            roleLabel: composeWorkspaceUpdateRoleLabel({
                 roleTitle: effectiveRoleTitle,
                 membershipRoleLabel: effectiveMembershipRoleLabel,
             }) ?? snapshot.displayRoleLabel,
@@ -287,16 +287,16 @@ export function resolveProjectUpdateAuthorRoleDisplay(input: {
             roleSource: projectRoleTitle ? "project_role" as const : "snapshot" as const,
         };
     }
-    const projectRoleTitle = sanitizeProjectUpdateRoleTitle(input.projectRoleTitle);
+    const projectRoleTitle = sanitizeWorkspaceUpdateRoleTitle(input.projectRoleTitle);
     if (projectRoleTitle) {
         return {
-            roleLabel: composeProjectUpdateRoleLabel({ roleTitle: projectRoleTitle, membershipRoleLabel: input.membershipRoleLabel }),
+            roleLabel: composeWorkspaceUpdateRoleLabel({ roleTitle: projectRoleTitle, membershipRoleLabel: input.membershipRoleLabel }),
             roleTitle: projectRoleTitle,
             membershipRoleLabel: input.membershipRoleLabel ?? null,
             roleSource: "project_role" as const,
         };
     }
-    const membershipRoleLabel = sanitizeProjectUpdateRoleTitle(input.membershipRoleLabel);
+    const membershipRoleLabel = sanitizeWorkspaceUpdateRoleTitle(input.membershipRoleLabel);
     return {
         roleLabel: membershipRoleLabel,
         roleTitle: null,
@@ -305,7 +305,7 @@ export function resolveProjectUpdateAuthorRoleDisplay(input: {
     };
 }
 
-export function isSafeProjectUpdateUrl(value: unknown): value is string {
+export function isSafeWorkspaceUpdateUrl(value: unknown): value is string {
     if (typeof value !== "string") return false;
     const trimmed = value.trim();
     if (trimmed.startsWith("/api/v1/workspaces/")) return true;
@@ -317,18 +317,18 @@ export function isSafeProjectUpdateUrl(value: unknown): value is string {
     }
 }
 
-export function normalizeProjectUpdateReferenceKind(value: unknown): ProjectUpdateContextKind | null {
+export function normalizeWorkspaceUpdateReferenceKind(value: unknown): WorkspaceUpdateContextKind | null {
     return value === "task" || value === "sprint" || value === "file" ? value : null;
 }
 
-export function normalizeProjectUpdateReferences(value: unknown, maxItems = PROJECT_UPDATE_MAX_REFERENCES): ProjectUpdateReference[] {
+export function normalizeWorkspaceUpdateReferences(value: unknown, maxItems = WORKSPACE_UPDATE_MAX_REFERENCES): WorkspaceUpdateReference[] {
     if (!Array.isArray(value)) return [];
     const seen = new Set<string>();
-    const references: ProjectUpdateReference[] = [];
+    const references: WorkspaceUpdateReference[] = [];
     for (const item of value) {
         if (!item || typeof item !== "object") continue;
         const source = item as Record<string, unknown>;
-        const kind = normalizeProjectUpdateReferenceKind(source.kind);
+        const kind = normalizeWorkspaceUpdateReferenceKind(source.kind);
         const id = typeof source.id === "string" ? source.id.trim() : "";
         if (!kind || !id) continue;
         const key = `${kind}:${id}`;
@@ -340,7 +340,7 @@ export function normalizeProjectUpdateReferences(value: unknown, maxItems = PROJ
     return references;
 }
 
-export function normalizeProjectUpdateMediaItems(value: unknown, maxItems = PROJECT_UPDATE_MAX_MEDIA_ITEMS): ProjectUpdateMediaItem[] {
+export function normalizeWorkspaceUpdateMediaItems(value: unknown, maxItems = WORKSPACE_UPDATE_MAX_MEDIA_ITEMS): WorkspaceUpdateMediaItem[] {
     if (!Array.isArray(value)) return [];
     return value.slice(0, maxItems).flatMap((item) => {
         if (!item || typeof item !== "object") return [];
@@ -351,7 +351,7 @@ export function normalizeProjectUpdateMediaItems(value: unknown, maxItems = PROJ
         const bucket = typeof source.bucket === "string" ? source.bucket.trim().slice(0, 160) : null;
         const storedMediaUrl = projectUpdateMediaApplicationUrl(bucket, storageKey);
         const sourceUrl = typeof source.url === "string" ? source.url.trim().slice(0, 2_000) : null;
-        if (!storedMediaUrl && sourceUrl && !isSafeProjectUpdateUrl(sourceUrl)) return [];
+        if (!storedMediaUrl && sourceUrl && !isSafeWorkspaceUpdateUrl(sourceUrl)) return [];
         return [{
             type,
             assetId: typeof source.assetId === "string" ? source.assetId.trim().slice(0, 64) : null,
@@ -368,11 +368,11 @@ export function normalizeProjectUpdateMediaItems(value: unknown, maxItems = PROJ
     });
 }
 
-export function hasProjectUpdateLinkedContext(entityRefs: ProjectUpdateEntityRefs | null | undefined, media: ProjectUpdateMediaItem[] | null | undefined) {
+export function hasWorkspaceUpdateLinkedContext(entityRefs: WorkspaceUpdateEntityRefs | null | undefined, media: WorkspaceUpdateMediaItem[] | null | undefined) {
     return Boolean(
         entityRefs && (
             Object.values(entityRefs).some((value) => typeof value === "string" && value.length > 0)
-            || normalizeProjectUpdateReferences(entityRefs.references).length > 0
+            || normalizeWorkspaceUpdateReferences(entityRefs.references).length > 0
         )
         || media?.some((item) => Boolean(item.url || item.label)),
     );
@@ -385,13 +385,13 @@ export function projectUpdateImageExtensionFromMimeType(mimeType: string) {
     return "jpg";
 }
 
-export function shouldNotifyProjectUpdateFollowers(input: {
+export function shouldNotifyWorkspaceUpdateFollowers(input: {
     content: string;
-    entityRefs?: ProjectUpdateEntityRefs | null;
-    media?: ProjectUpdateMediaItem[] | null;
+    entityRefs?: WorkspaceUpdateEntityRefs | null;
+    media?: WorkspaceUpdateMediaItem[] | null;
 }) {
-    const content = sanitizeProjectUpdateContent(input.content);
+    const content = sanitizeWorkspaceUpdateContent(input.content);
     if (content.length >= 80) return true;
     if (/[.!?]\s*$/.test(content) && content.length >= 40) return true;
-    return hasProjectUpdateLinkedContext(input.entityRefs, input.media);
+    return hasWorkspaceUpdateLinkedContext(input.entityRefs, input.media);
 }

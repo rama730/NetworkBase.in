@@ -18,14 +18,14 @@ export function orgChatSettings(orgSettings: unknown, orgType: string | null) {
   };
 }
 
-export type ChatWorkspaceProject = { id: string; title: string; kind?: string | null; parent_id?: string | null; parent_title?: string | null; role?: string | null };
+export type ChatWorkspaceWorkspace = { id: string; title: string; kind?: string | null; parent_id?: string | null; parent_title?: string | null; role?: string | null };
 
 /**
  * The workspace list (report §25.1, §25.7): orgs and personal projects get a tile; a child project lives inside
  * its org's workspace. Someone in a child project but not in its org (an outside person) sees it on its own,
  * labelled "<Org> · Viewer".
  */
-export function workspaceProjects<T extends ChatWorkspaceProject>(projects: T[]): Array<T & { guestOf?: string }> {
+export function workspaceWorkspaces<T extends ChatWorkspaceWorkspace>(projects: T[]): Array<T & { guestOf?: string }> {
   const ids = new Set(projects.map((p) => p.id));
   return projects.flatMap((p) => {
     if (!p.parent_id) return [p];
@@ -35,6 +35,6 @@ export function workspaceProjects<T extends ChatWorkspaceProject>(projects: T[])
 }
 
 /** The child project groups inside an org workspace, by title. */
-export function childProjectsOf<T extends ChatWorkspaceProject>(projects: T[], orgId: string): T[] {
+export function childWorkspacesOf<T extends ChatWorkspaceWorkspace>(projects: T[], orgId: string): T[] {
   return projects.filter((p) => p.parent_id === orgId).sort((a, b) => a.title.localeCompare(b.title));
 }

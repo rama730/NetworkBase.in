@@ -3,19 +3,19 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { useFieldArray, useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { createProjectSchema, type CreateProjectInput, type OpenRoleInput } from '@/lib/validations/workspace';
-import { DEFAULT_PROJECT_PUBLIC_TAB_VISIBILITY } from '@/lib/workspaces/settings-policies';
+import { createWorkspaceSchema, type CreateWorkspaceInput, type OpenRoleInput } from '@/lib/validations/workspace';
+import { DEFAULT_WORKSPACE_PUBLIC_TAB_VISIBILITY } from '@/lib/workspaces/settings-policies';
 import { toast, feedbackError } from "@/lib/feedback";
 import { TOTAL_PHASES, WizardPhaseId } from '@/constants/workspace-wizard';
-import { createProjectAction } from '@/app/actions/workspace';
+import { createWorkspaceAction } from '@/app/actions/workspace';
 import { checkOrgHandleAction } from '@/app/actions/organizations';
 import { parseGithubRepo } from '@/lib/github/repo-preview';
 import { fetchGithubImportPreviewFolder, fetchGithubImportPreviewRoot } from '@/lib/github/import-client';
 import { shouldIgnorePath } from '@/lib/import/import-filters';
-import { getLifecycleStagesForProjectType } from '@/lib/workspaces/lifecycle-templates';
-import { buildProjectDocStarterDraft } from '@/lib/workspaces/doc-create-intent';
-import { buildProjectImportEventId, buildUploadManifestHash } from '@/lib/import/idempotency';
-import { buildProjectFileKey } from '@/lib/storage/workspace-file-key';
+import { getLifecycleStagesForWorkspaceType } from '@/lib/workspaces/lifecycle-templates';
+import { buildWorkspaceDocStarterDraft } from '@/lib/workspaces/doc-create-intent';
+import { buildWorkspaceImportEventId, buildUploadManifestHash } from '@/lib/import/idempotency';
+import { buildWorkspaceFileKey } from '@/lib/storage/workspace-file-key';
 import { useAuth } from '@/hooks/use-auth';
 
 export interface WizardContextType {
@@ -31,15 +31,15 @@ export interface WizardContextType {
 interface UseCreateProjectWizardProps {
     onClose: () => void;
     onSuccess?: (projectId: string, organization?: import('@/components/organizations/OrganizationCreatedScreen').CreatedOrganization) => void;
-    initialValues?: CreateProjectInput;
+    initialValues?: CreateWorkspaceInput;
     initialPhase?: WizardPhaseId;
 }
 
 /**
- * useCreateProjectWizard - The master hook for project creation.
+ * useCreateWorkspaceWizard - The master hook for project creation.
  * Pure Optimization: Unified constants, reactive draft management, and scalable logic.
  */
-export function useCreateProjectWizard({ onClose, onSuccess, initialValues, initialPhase = 1 }: UseCreateProjectWizardProps) {
+export function useCreateWorkspaceWizard({ onClose, onSuccess, initialValues, initialPhase = 1 }: UseCreateProjectWizardProps) {
     const { user } = useAuth();
     const userId = user?.id || null;
     const [phase, setPhase] = useState<WizardPhaseId>(initialPhase);
@@ -77,8 +77,8 @@ export function useCreateProjectWizard({ onClose, onSuccess, initialValues, init
     } | null>(null);
 
     // Form Setup
-    const methods = useForm<CreateProjectInput>({
-        resolver: zodResolver(createProjectSchema) as any,
+    const methods = useForm<CreateWorkspaceInput>({
+        resolver: zodResolver(createWorkspaceSchema) as any,
         mode: 'onChange',
         defaultValues: initialValues ?? {
             title: '',
@@ -99,7 +99,7 @@ export function useCreateProjectWizard({ onClose, onSuccess, initialValues, init
             import_source: { type: 'scratch' },
             external_links: [],
             // Step 4 launch settings; defaults match Project settings so Continue works untouched.
-            public_tab_visibility: { ...DEFAULT_PROJECT_PUBLIC_TAB_VISIBILITY },
+            public_tab_visibility: { ...DEFAULT_WORKSPACE_PUBLIC_TAB_VISIBILITY },
             member_updates_enabled: true,
             member_file_upload_default: true,
             doc_edit_policy: 'leaders',
@@ -145,7 +145,7 @@ export function useCreateProjectWizard({ onClose, onSuccess, initialValues, init
 
         // If empty, always autofill from template.
         if (!watchedLifecycleStages || watchedLifecycleStages.length === 0) {
-            const next = getLifecycleStagesForProjectType(type);
+            const next = getLifecycleStagesForWorkspaceType(type);
             setValue('lifecycle_stages', next, { shouldDirty: true });
             lastAutofilledStagesRef.current = next;
             return;
@@ -153,7 +153,7 @@ export function useCreateProjectWizard({ onClose, onSuccess, initialValues, init
 
         // If the user hasn't edited (still equals last autofill), update when type changes.
         if (lastAutofilledStagesRef.current && arraysEqual(watchedLifecycleStages, lastAutofilledStagesRef.current)) {
-            const next = getLifecycleStagesForProjectType(type);
+            const next = getLifecycleStagesForWorkspaceType(type);
             if (!arraysEqual(next, watchedLifecycleStages)) {
                 setValue('lifecycle_stages', next, { shouldDirty: true });
                 lastAutofilledStagesRef.current = next;
@@ -164,7 +164,7 @@ export function useCreateProjectWizard({ onClose, onSuccess, initialValues, init
         // If stages equal the server generic default (legacy), consider it “un-edited” and upgrade to template once.
         const legacyDefault = ["Concept", "Team formation", "MVP", "Beta", "Launch"];
         if (arraysEqual(watchedLifecycleStages, legacyDefault)) {
-            const next = getLifecycleStagesForProjectType(type);
+            const next = getLifecycleStagesForWorkspaceType(type);
             setValue('lifecycle_stages', next, { shouldDirty: true });
             lastAutofilledStagesRef.current = next;
         }
@@ -644,7 +644,7 @@ export function useCreateProjectWizard({ onClose, onSuccess, initialValues, init
     }, [hasUnsavedWizardChanges, onClose]);
 
     // --- Submission ---
-    const onSubmit = useCallback(async (data: CreateProjectInput) => {
+    const onSubmit = useCallback(async (data: CreateWorkspaceInput) => {
         if (phase !== TOTAL_PHASES || !isReviewReady || phaseTransitionRef.current || submissionRef.current) return;
 
         submissionRef.current = true;
@@ -686,7 +686,7 @@ export function useCreateProjectWizard({ onClose, onSuccess, initialValues, init
                 const orgDoc = data.organization?.org_type
                     ? (await import('@/lib/organizations/creation')).orgStarterDoc(data.organization.org_type, { title: data.title, description: data.description, audience: data.problem_statement, activities: data.solution_statement })
                     : null;
-                const starterContent = fromTemplate?.success ? fromTemplate.content : orgDoc ?? buildProjectDocStarterDraft({
+                const starterContent = fromTemplate?.success ? fromTemplate.content : orgDoc ?? buildWorkspaceDocStarterDraft({
                     title: data.title,
                     shortDescription: data.short_description,
                     description: data.description,
@@ -718,7 +718,7 @@ export function useCreateProjectWizard({ onClose, onSuccess, initialValues, init
         // both stay editable in Project settings.
         // Report §23.6: copy an org Template folder into the new project (same files, recorded as org copies).
         const copyOrgTemplateFolder = async (projectId: string, orgFolderId: string) => {
-            const [{ browseOrgFilesAction, listOrgTemplateFoldersAction, recordOrgCopyAction }, { createFolder }, { uploadProjectFile }] = await Promise.all([
+            const [{ browseOrgFilesAction, listOrgTemplateFoldersAction, recordOrgCopyAction }, { createFolder }, { uploadWorkspaceFile }] = await Promise.all([
                 import('@/app/actions/org-files'), import('@/app/actions/files/mutations'), import('@/components/organizations/OrgDocParts'),
             ]);
             let copied = 0;
@@ -733,7 +733,7 @@ export function useCreateProjectWizard({ onClose, onSuccess, initialValues, init
                     }
                     const response = await fetch(`/api/v1/workspaces/${listed.org.id}/files/${node.id}/preview?download=1`);
                     if (!response.ok) continue;
-                    const created = await uploadProjectFile(projectId, targetId, node.name, await response.blob());
+                    const created = await uploadWorkspaceFile(projectId, targetId, node.name, await response.blob());
                     await recordOrgCopyAction(projectId, created.id, node.id);
                     copied += 1;
                 }
@@ -753,16 +753,16 @@ export function useCreateProjectWizard({ onClose, onSuccess, initialValues, init
             }
             if (projectImage) {
                 try {
-                    const { uploadProjectImage } = await import('@/lib/upload/workspace-image-upload-client');
-                    await uploadProjectImage(projectId, projectImage);
+                    const { uploadWorkspaceImage } = await import('@/lib/upload/workspace-image-upload-client');
+                    await uploadWorkspaceImage(projectId, projectImage);
                 } catch (error) {
                     console.warn('[create-project] Project picture upload failed', error);
                     warnCreation('Image upload failed.');
                 }
             }
             if (readmeIntent.mode !== 'skip' && data.doc_edit_policy === 'members') {
-                const { updateProjectDocSettingsAction } = await import('@/app/actions/workspace/doc');
-                const result = await updateProjectDocSettingsAction(projectId, { editPolicy: 'members' });
+                const { updateWorkspaceDocSettingsAction } = await import('@/app/actions/workspace/doc');
+                const result = await updateWorkspaceDocSettingsAction(projectId, { editPolicy: 'members' });
                 if (!result.success) warnCreation('Documents stay visible to the owner and admins only.');
             }
         };
@@ -777,7 +777,7 @@ export function useCreateProjectWizard({ onClose, onSuccess, initialValues, init
                 }
             }
 
-            const result = await createProjectAction({
+            const result = await createWorkspaceAction({
                 ...data,
                 roles: resolvedRoles,
             });
@@ -812,7 +812,7 @@ export function useCreateProjectWizard({ onClose, onSuccess, initialValues, init
                 const filesArr = Array.from(uploadFiles);
                 const meta = filesArr.map((f) => {
                     const relativePath = f.webkitRelativePath || f.name;
-                    const key = buildProjectFileKey(uploadProjectId, relativePath);
+                    const key = buildWorkspaceFileKey(uploadProjectId, relativePath);
                     return {
                         key,
                         relativePath,
@@ -829,7 +829,7 @@ export function useCreateProjectWizard({ onClose, onSuccess, initialValues, init
                         mimeType: entry.mimeType,
                     }))
                 );
-                const importEventId = buildProjectImportEventId({
+                const importEventId = buildWorkspaceImportEventId({
                     projectId: uploadProjectId,
                     source: 'upload',
                     normalizedTarget: 'upload',
@@ -1010,8 +1010,8 @@ export function useCreateProjectWizard({ onClose, onSuccess, initialValues, init
             // If upload import failed after project creation, mark syncStatus=failed so Files tab can show retry UI.
             try {
                 if (createdProjectId && importType === 'upload') {
-                    const { markProjectSyncFailedAction } = await import('@/app/actions/upload-import');
-                    await markProjectSyncFailedAction(createdProjectId, {
+                    const { markWorkspaceSyncFailedAction } = await import('@/app/actions/upload-import');
+                    await markWorkspaceSyncFailedAction(createdProjectId, {
                         sessionId: uploadSessionContext?.sessionId,
                         manifestHash: uploadSessionContext?.manifestHash,
                         reason: error?.message || 'Upload import failed',

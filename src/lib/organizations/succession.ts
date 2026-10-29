@@ -4,7 +4,7 @@ import { and, asc, eq, isNotNull, isNull, ne, sql } from "drizzle-orm";
 
 import { db } from "@/lib/db";
 import { profiles, projectMembers, projects } from "@/lib/db/schema";
-import { syncProjectChat } from "@/lib/messaging/integrations";
+import { syncWorkspaceChat } from "@/lib/messaging/integrations";
 import { notifyOrg } from "@/lib/organizations/notify";
 
 // Account deletion and organizations (report §30.7): owners of an org can't delete their account; child projects
@@ -39,7 +39,7 @@ async function makeOwner(executor: Executor, projectId: string, from: string, to
   await executor.insert(projectMembers).values({ projectId, userId: to, role: "owner" })
     .onConflictDoUpdate({ target: [projectMembers.projectId, projectMembers.userId], set: { role: "owner" } });
   await executor.update(projectMembers).set({ role: "member" }).where(and(eq(projectMembers.projectId, projectId), eq(projectMembers.userId, from)));
-  await syncProjectChat(executor, projectId, to, "role");
+  await syncWorkspaceChat(executor, projectId, to, "role");
 }
 
 /**
@@ -47,7 +47,7 @@ async function makeOwner(executor: Executor, projectId: string, from: string, to
  * lead, else the org owner, flagged "needs a new lead" for the org's admins until ownership changes again.
  * ponytail: "unit lead" is the longest-serving member placed in a unit (units have no lead column yet).
  */
-export async function handOverLedChildProjects(executor: Executor, userId: string) {
+export async function handOverLedChildWorkspaces(executor: Executor, userId: string) {
   const led = await executor.select({ id: projects.id, orgOwnerId: sql<string>`(SELECT o.owner_id FROM projects o WHERE o.id = ${projects.parentId})` })
     .from(projects).where(and(eq(projects.ownerId, userId), isNotNull(projects.parentId), isNull(projects.deletedAt)));
   for (const child of led) {

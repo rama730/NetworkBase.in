@@ -7,7 +7,7 @@ import { db } from "@/lib/db";
  * (its owner or an admin). Reviewers come from project membership, so an ownership transfer or an
  * admin change moves the queue; `role_applications.creator_id` is history only.
  */
-export function canReviewProjectSql(userId: string, projectId: SQL): SQL {
+export function canReviewWorkspaceSql(userId: string, projectId: SQL): SQL {
   return sql`EXISTS (
     SELECT 1 FROM projects rp
     WHERE rp.id = ${projectId} AND rp.deleted_at IS NULL
@@ -27,7 +27,7 @@ export async function countReviewableApplications(userId: string): Promise<numbe
     FROM role_applications a
     JOIN profiles ap ON ap.id = a.applicant_id AND ap.deleted_at IS NULL
     WHERE a.status = 'pending' AND a.applicant_id <> ${userId}::uuid
-      AND ${canReviewProjectSql(userId, sql`a.project_id`)}
+      AND ${canReviewWorkspaceSql(userId, sql`a.project_id`)}
       AND NOT EXISTS (
         SELECT 1 FROM connections b
         WHERE b.status = 'blocked'

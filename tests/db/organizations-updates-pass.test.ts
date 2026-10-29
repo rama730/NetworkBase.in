@@ -59,7 +59,7 @@ async function org(settings: Record<string, unknown> = {}) {
 
 async function post(projectId: string, as: string, extra: Record<string, unknown> = {}) {
   viewerId = as;
-  const r = await updates.createProjectUpdateAction(projectId, { content: `Post ${Math.random().toString(36).slice(2, 7)}`, visibility: "members", ...extra } as never);
+  const r = await updates.createWorkspaceUpdateAction(projectId, { content: `Post ${Math.random().toString(36).slice(2, 7)}`, visibility: "members", ...extra } as never);
   assert.equal(r.success, true, JSON.stringify(r));
   return (r as { data?: { id: string } }).data!.id;
 }
@@ -69,18 +69,18 @@ test("an org admin pins a shared post in the org feed only; it counts toward the
   const o = await org();
   const shared = await post(o.child, o.member, { shareToOrg: true, content: "Closed Contoso" });
   viewerId = o.admin;
-  const pinned = await updates.toggleProjectUpdatePinAction(o.id, shared, true);
+  const pinned = await updates.toggleWorkspaceUpdatePinAction(o.id, shared, true);
   assert.equal(pinned.success, true, JSON.stringify(pinned));
   assert.equal(pinned.success && pinned.data?.isPinned, true);
   const [childRow] = await sql`SELECT is_pinned FROM project_updates WHERE id = ${shared}`;
   assert.equal(childRow!.is_pinned, false, "the child's own pin is untouched");
-  const feed = await updates.readProjectUpdatesAction(o.id, {});
+  const feed = await updates.readWorkspaceUpdatesAction(o.id, {});
   assert.ok(feed.success && feed.data.updates[0]!.id === shared, "pinned first in the org feed");
   for (const n of [1, 2]) await post(o.id, o.admin, { updateType: "announcement", content: `Pin ${n}`, pin: true });
   viewerId = o.admin;
   const fourth = await post(o.id, o.admin, { updateType: "announcement", content: "One too many" });
   viewerId = o.admin;
-  const refused = await updates.toggleProjectUpdatePinAction(o.id, fourth, true);
+  const refused = await updates.toggleWorkspaceUpdatePinAction(o.id, fourth, true);
   assert.equal(refused.success, false, "three pins already, one of them the shared post");
 });
 
@@ -88,15 +88,15 @@ test("Notify again tells the audience; removing someone else's post needs a reas
   const o = await org();
   const id = await post(o.id, o.admin, { updateType: "announcement", content: "Pricing from Nov 1" });
   viewerId = o.admin;
-  assert.ok((await updates.editProjectUpdateAction(o.id, id, { content: "Pricing from Nov 3", notifyAgain: true })).success);
+  assert.ok((await updates.editWorkspaceUpdateAction(o.id, id, { content: "Pricing from Nov 3", notifyAgain: true })).success);
   assert.ok((await titles(o.member)).includes("Updated: Pricing from Nov 3"), JSON.stringify(await titles(o.member)));
 
   const discussion = await post(o.id, o.member, { updateType: "discussion", content: "Off-topic post" });
   viewerId = o.admin;
-  const blocked = await updates.deleteProjectUpdateAction(o.id, discussion);
+  const blocked = await updates.deleteWorkspaceUpdateAction(o.id, discussion);
   assert.equal(blocked.success, false);
   assert.ok(!blocked.success && blocked.error.startsWith("Say why"));
-  assert.ok((await updates.deleteProjectUpdateAction(o.id, discussion, "Off topic for this feed")).success);
+  assert.ok((await updates.deleteWorkspaceUpdateAction(o.id, discussion, "Off topic for this feed")).success);
   assert.ok((await titles(o.member)).includes("Your post was removed: Off topic for this feed"));
 });
 

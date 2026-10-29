@@ -46,7 +46,7 @@ test("sprint detail paginates while lifecycle remains persisted", () => {
   );
 
   assert.match(data, /useInfiniteQuery/);
-  assert.match(data, /fetchProjectSprintTimelinePageAction/);
+  assert.match(data, /fetchWorkspaceSprintTimelinePageAction/);
   assert.match(data, /mergeSprintDetailPages/);
   assert.match(detail, /return sprint\.status/);
   assert.match(header, /Starts automatically on schedule/);
@@ -80,7 +80,7 @@ test("files search, navigation, versions, trash, and pagination share owned path
   assert.match(folder, /nextCursor/);
   assert.match(folder, /Load more/);
   assert.match(quickOpen, /import\("@\/app\/actions\/files\/nodes"\)/);
-  assert.match(quickOpen, /getProjectNodes\(projectId, null, rawQuery, MAX_RESULTS\)/);
+  assert.match(quickOpen, /getWorkspaceNodes\(projectId, null, rawQuery, MAX_RESULTS\)/);
   assert.match(trash, /getTrashPage/);
   assert.match(trash, /restoreNode/);
   assert.match(versions, /onVersionChangeStart/);

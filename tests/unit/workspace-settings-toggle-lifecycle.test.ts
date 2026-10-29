@@ -14,8 +14,8 @@ test("Project Settings Access tab implements immediate in-memory and background 
     // 1. Toggles must update in-memory state and trigger background persistence immediately
     assert.match(
         settingsTab,
-        /const handleTogglePublicTab = useCallback\(async \([\s\S]*?setPublicTabVisibility\(next\)[\s\S]*?updateProjectPublicTabVisibilityAction/,
-        "handleTogglePublicTab must update publicTabVisibility immediately and call updateProjectPublicTabVisibilityAction",
+        /const handleTogglePublicTab = useCallback\(async \([\s\S]*?setPublicTabVisibility\(next\)[\s\S]*?updateWorkspacePublicTabVisibilityAction/,
+        "handleTogglePublicTab must update publicTabVisibility immediately and call updateWorkspacePublicTabVisibilityAction",
     );
 
     // 2. Saved state is tracked separately from active edit state to enable rollback on failure

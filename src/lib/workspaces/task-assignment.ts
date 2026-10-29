@@ -2,7 +2,7 @@ import { sql } from "drizzle-orm";
 import type { db } from "@/lib/db";
 import { taskActivityEvents } from "@/lib/db/schema";
 import { queueEmail } from "@/lib/email/outbox";
-import type { EnqueueProjectNotificationEventInput } from "@/lib/notifications/workspace-events";
+import type { EnqueueWorkspaceNotificationEventInput } from "@/lib/notifications/workspace-events";
 
 type Executor = typeof db | Parameters<Parameters<typeof db.transaction>[0]>[0];
 type Snapshot = { fullName: string | null; avatarUrl: string | null };
@@ -47,7 +47,7 @@ export function taskAssignmentNotification(input: {
   projectKey: string | null; taskNumber: number | null; title: string;
   actorId: string; actorName: string | null; actorAvatarUrl: string | null;
   assigneeId: string; eventId: string;
-}): EnqueueProjectNotificationEventInput {
+}): EnqueueWorkspaceNotificationEventInput {
   return {
     projectId: input.projectId, actorUserId: input.actorId,
     actorName: input.actorName, actorAvatarUrl: input.actorAvatarUrl,

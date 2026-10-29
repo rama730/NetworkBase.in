@@ -13,10 +13,10 @@ import {
   skills,
 } from "@/lib/db/schema";
 import { logger } from "@/lib/logger";
-import { normalizeProjectDescription, normalizeProjectTitle, trimDisplayText, trimOptionalDisplayText } from "@/lib/profile/display";
+import { normalizeWorkspaceDescription, normalizeWorkspaceTitle, trimDisplayText, trimOptionalDisplayText } from "@/lib/profile/display";
 import { syncContributionSkills } from "@/lib/skills/service";
-import { formatProjectTeamRole } from "@/lib/workspaces/settings-policies";
-import { filterProjectLinksForAudience } from "@/lib/workspaces/social-links";
+import { formatWorkspaceTeamRole } from "@/lib/workspaces/settings-policies";
+import { filterWorkspaceLinksForAudience } from "@/lib/workspaces/social-links";
 import { runInFlightDeduped } from "@/lib/utils/inflight-dedupe";
 import { containsLikePattern, normalizeSearchQuery } from "@/lib/search/query";
 import { isUuid } from "@/lib/validations/uuid";
@@ -34,7 +34,7 @@ export type ProfileCollaborationMemberPreview = {
   avatarUrl: string | null;
 };
 
-export type ProfileCollaborationProject = {
+export type ProfileCollaborationWorkspace = {
   /** Organizations group first on Portfolio; child cards carry their org line (report §24.4). */
   kind?: "project" | "organization";
   cardOrg?: { title: string; slug: string | null } | null;
@@ -136,7 +136,7 @@ export type ProfileCollaborationContribution = {
 export type ProfileCollaborationSummary = {
   version: number;
   generatedAt: string;
-  projects: ProfileCollaborationProject[];
+  projects: ProfileCollaborationWorkspace[];
   contributions: ProfileCollaborationContribution[];
   stats: {
     projectsCount: number;
@@ -146,7 +146,7 @@ export type ProfileCollaborationSummary = {
   cacheStatus?: "hit" | "miss" | "bypass";
 };
 
-export type ProfileInviteProjectOption = {
+export type ProfileInviteWorkspaceOption = {
   id: string;
   title: string;
   slug: string | null;
@@ -343,7 +343,7 @@ function roleLabel(row: ProfileProjectRow) {
   if (!['owner', 'admin', 'member', 'viewer'].includes(roleKind)) {
     return projectRoleTitle || defaultRoleTitle(roleKind);
   }
-  return formatProjectTeamRole({
+  return formatWorkspaceTeamRole({
     membershipRole: roleKind,
     projectRoleTitle,
     leadFocus: row.lead_focus,
@@ -388,9 +388,9 @@ function roleStages(value: unknown, fallbackContributionId: string | null): Prof
     });
 }
 
-function projectFromRow(row: ProfileProjectRow): ProfileCollaborationProject {
-  const title = normalizeProjectTitle(row.title);
-  const description = normalizeProjectDescription(row.description, row.short_description);
+function projectFromRow(row: ProfileProjectRow): ProfileCollaborationWorkspace {
+  const title = normalizeWorkspaceTitle(row.title);
+  const description = normalizeWorkspaceDescription(row.description, row.short_description);
   const href = buildProjectHref({ id: row.project_id, slug: row.slug });
   const roleKind = trimDisplayText(row.user_role) || "contributor";
   return {
@@ -424,7 +424,7 @@ function projectFromRow(row: ProfileProjectRow): ProfileCollaborationProject {
     githubRepoUrl: trimOptionalDisplayText(row.github_repo_url),
     // Profile portfolios and the shared public summary are public projections:
     // members-only project links never leave the project page (AUTH-013).
-    externalLinks: filterProjectLinksForAudience(row.external_links, false),
+    externalLinks: filterWorkspaceLinksForAudience(row.external_links, false),
     openRolesCount: numberOrNull(row.open_roles_count) ?? 0,
   };
 }
@@ -473,17 +473,17 @@ function contributionFromRow(row: ProfileContributionRow): ProfileCollaborationC
   const normalizedStages = stages.length ? stages : [fallbackStage];
   const activeStage = normalizedStages.find((stage) => stage.currentlyActive) ?? normalizedStages[0] ?? fallbackStage;
   const projectTitle = row.project_id
-    ? normalizeProjectTitle(row.project_title)
+    ? normalizeWorkspaceTitle(row.project_title)
     : trimDisplayText(row.project_title_override) || "External project";
   const projectHref = row.project_link_hidden
     ? null
     : row.project_id
       ? buildProjectHref({ id: row.project_id, slug: row.project_slug })
       : trimOptionalDisplayText(row.project_url);
-  const publicProjectLinks=filterProjectLinksForAudience(row.project_external_links,false);
+  const publicProjectLinks=filterWorkspaceLinksForAudience(row.project_external_links,false);
   const website=publicProjectLinks.find(link=>link.purpose==='live-product'||link.platform==='website');
   const repository=publicProjectLinks.find(link=>link.purpose==='source-code');
-  const repositoryIsMembersOnly=filterProjectLinksForAudience(row.project_external_links,true).some(link=>link.audience==='members'&&link.url===row.project_github_repo_url);
+  const repositoryIsMembersOnly=filterWorkspaceLinksForAudience(row.project_external_links,true).some(link=>link.audience==='members'&&link.url===row.project_github_repo_url);
   const identityLinks:ContributionStory["links"] = row.project_id ? [
     ...(website?[{id:row.contribution_id,label:'Workspace website',url:website.url}]:[]),
     ...(repository||(row.project_github_repo_url&&!repositoryIsMembersOnly)?[{id:row.contribution_id,label:'Repository',url:repository?.url??row.project_github_repo_url!}]:[]),
@@ -1007,7 +1007,7 @@ export async function getProfileContributions(profileId: string, options: {
   };
 }
 
-export async function getProfilePortfolioProjects(profileId: string, options: {
+export async function getProfilePortfolioWorkspaces(profileId: string, options: {
   includePrivate?: boolean;
   limit?: number;
   offset?: number;
@@ -1030,11 +1030,11 @@ export async function getProfilePortfolioProjects(profileId: string, options: {
   };
 }
 
-export async function getProfileInviteProjectOptions(
+export async function getProfileInviteWorkspaceOptions(
   inviterId: string,
   targetProfileId: string,
   input: { search?: string; cursor?: string; limit?: number; projectId?: string } = {},
-): Promise<{ projects: ProfileInviteProjectOption[]; nextCursor: string | null }> {
+): Promise<{ projects: ProfileInviteWorkspaceOption[]; nextCursor: string | null }> {
   if (!inviterId || !targetProfileId || inviterId === targetProfileId) return { projects: [], nextCursor: null };
   const requestedLimit = Number(input.limit ?? 20);
   const limit = Number.isFinite(requestedLimit) ? Math.max(1, Math.min(Math.trunc(requestedLimit), 50)) : 20;
@@ -1094,7 +1094,7 @@ export async function getProfileInviteProjectOptions(
   return {
     projects: visible.map((row) => ({
     id: row.id,
-    title: normalizeProjectTitle(row.title),
+    title: normalizeWorkspaceTitle(row.title),
     slug: row.slug,
     role: row.role === "admin" ? "admin" : "owner",
     href: buildProjectHref({ id: row.id, slug: row.slug }),
@@ -1131,7 +1131,7 @@ export async function markProfileCollaborationSummaryStale(
     });
 }
 
-export async function upsertProfileProjectContributionFromMembership(
+export async function upsertProfileWorkspaceContributionFromMembership(
   executor: DbExecutor,
   params: {
     profileId: string;
@@ -1264,7 +1264,7 @@ export async function upsertProfileProjectContributionFromMembership(
   await markProfileCollaborationSummaryStale(params.profileId, executor);
 }
 
-export async function endProfileProjectContributionMembership(
+export async function endProfileWorkspaceContributionMembership(
   executor: DbExecutor,
   params: { profileId: string; projectId: string; verifiedBy: string | null; eventId?: string | null; endedAt?: Date },
 ) {
@@ -1290,7 +1290,7 @@ export async function endProfileProjectContributionMembership(
   await markProfileCollaborationSummaryStale(params.profileId, executor);
 }
 
-export async function markProjectCollaboratorsSummaryStale(projectId: string, executor: DbExecutor = db) {
+export async function markWorkspaceCollaboratorsSummaryStale(projectId: string, executor: DbExecutor = db) {
   if (!projectId) return;
   const rows = await executor
     .select({ profileId: profileProjectContributions.profileId })

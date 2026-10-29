@@ -91,7 +91,7 @@ export function deleteFileContent(
 }
 
 /** Evict all content entries for a given project. */
-export function clearProjectContent(projectId: string): void {
+export function clearWorkspaceContent(projectId: string): void {
     const prefix = `${projectId}::`;
     for (const [key, val] of _contentMap.entries()) {
         if (key.startsWith(prefix)) {

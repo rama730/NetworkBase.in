@@ -1,6 +1,6 @@
 import "server-only";
 
-import { handOverLedChildProjects, notifyLeadHandovers, orgsOwnedBy } from "@/lib/organizations/succession";
+import { handOverLedChildWorkspaces, notifyLeadHandovers, orgsOwnedBy } from "@/lib/organizations/succession";
 import { and, eq, isNull, or, sql } from "drizzle-orm";
 
 import { db } from "@/lib/db";
@@ -70,7 +70,7 @@ export async function scheduleAccountDeletionForUser(input: {
     const ownedOrgs = await orgsOwnedBy(input.userId, tx);
     if (ownedOrgs.length > 0) return { ok: false, code: "OWNS_ORG", orgs: ownedOrgs } as const;
     // Child projects they lead never go with the account: they pass on before the soft delete.
-    await handOverLedChildProjects(tx, input.userId);
+    await handOverLedChildWorkspaces(tx, input.userId);
 
     const [peers, ownedProjects] = await Promise.all([
       tx.select({ requesterId: connections.requesterId, addresseeId: connections.addresseeId })

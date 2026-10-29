@@ -20,21 +20,21 @@ import { UserAvatar } from "@/components/ui/UserAvatar";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import {
-    buildProjectMemberMutationPolicy,
-    buildProjectPersonReference,
-    getProjectMemberDisplayName,
-    getProjectMemberRoleLabel,
-    type ProjectMemberRole,
-    type ProjectSettingsMember,
+    buildWorkspaceMemberMutationPolicy,
+    buildWorkspacePersonReference,
+    getWorkspaceMemberDisplayName,
+    getWorkspaceMemberRoleLabel,
+    type WorkspaceMemberRole,
+    type WorkspaceSettingsMember,
 } from "@/lib/workspaces/settings-policies";
 import { formatJoinedAt } from '@/components/workspaces/settings/FileAccessMembers';
 
-export function projectMemberRole(member: ProjectSettingsMember, ownerId: string | null) {
+export function projectMemberRole(member: WorkspaceSettingsMember, ownerId: string | null) {
     if (member.membershipRole) return member.membershipRole;
     return ownerId && member.id === ownerId ? "owner" : "member";
 }
 
-function responsibilityHints(member: ProjectSettingsMember) {
+function responsibilityHints(member: WorkspaceSettingsMember) {
     const counts = member.responsibilityCounts;
     if (!counts) return [];
     return [
@@ -57,28 +57,28 @@ export function CollaboratorCard({
     onTransfer,
     onNotificationSettings,
 }: {
-    member: ProjectSettingsMember;
+    member: WorkspaceSettingsMember;
     ownerId: string | null;
     isProjectOwner: boolean;
-    actorRole: ProjectMemberRole;
+    actorRole: WorkspaceMemberRole;
     disabled?: boolean;
-    onRoleChange: (member: ProjectSettingsMember, role: Exclude<ProjectMemberRole, "owner">) => void;
-    onRemove: (member: ProjectSettingsMember) => void | Promise<void>;
-    onTransfer: (member: ProjectSettingsMember) => void;
-    onNotificationSettings: (member: ProjectSettingsMember) => void | Promise<void>;
+    onRoleChange: (member: WorkspaceSettingsMember, role: Exclude<WorkspaceMemberRole, "owner">) => void;
+    onRemove: (member: WorkspaceSettingsMember) => void | Promise<void>;
+    onTransfer: (member: WorkspaceSettingsMember) => void;
+    onNotificationSettings: (member: WorkspaceSettingsMember) => void | Promise<void>;
 }) {
-    const role = projectMemberRole(member, ownerId) as ProjectMemberRole;
-    const reference = buildProjectPersonReference({
+    const role = projectMemberRole(member, ownerId) as WorkspaceMemberRole;
+    const reference = buildWorkspacePersonReference({
         person: {
             id: member.id,
-            fullName: getProjectMemberDisplayName(member),
+            fullName: getWorkspaceMemberDisplayName(member),
             username: member.username ?? null,
             avatarUrl: member.avatarUrl ?? null,
         },
         membershipRole: role,
         isActiveMember: true,
     });
-    const mutationPolicy = buildProjectMemberMutationPolicy({
+    const mutationPolicy = buildWorkspaceMemberMutationPolicy({
         actorIsOwner: isProjectOwner,
         actorRole,
         ownerId,
@@ -86,7 +86,7 @@ export function CollaboratorCard({
         targetRole: role,
     });
     const hints = responsibilityHints(member);
-    const roleOptions: Array<Exclude<ProjectMemberRole, "owner">> = ["admin", "member", "viewer"];
+    const roleOptions: Array<Exclude<WorkspaceMemberRole, "owner">> = ["admin", "member", "viewer"];
 
     return (
         <article className="flex min-w-0 flex-col justify-between border-b border-border py-4">
@@ -155,7 +155,7 @@ export function CollaboratorCard({
                         <DropdownMenuContent align="end" className="w-52">
                             {role !== "owner" ? (
                                 roleOptions.map((option) => {
-                                    const optionPolicy = buildProjectMemberMutationPolicy({
+                                    const optionPolicy = buildWorkspaceMemberMutationPolicy({
                                         actorIsOwner: isProjectOwner,
                                         actorRole,
                                         ownerId,
@@ -177,7 +177,7 @@ export function CollaboratorCard({
                                             ) : (
                                                 <Users className="h-3.5 w-3.5 text-muted-foreground" />
                                             )}
-                                            <span>Change access level to {getProjectMemberRoleLabel(option)}</span>
+                                            <span>Change access level to {getWorkspaceMemberRoleLabel(option)}</span>
                                             {role === option ? (
                                                 <span className="ml-auto text-[10px] max-md:text-[11px] text-muted-foreground">(Current)</span>
                                             ) : null}

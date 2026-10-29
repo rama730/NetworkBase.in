@@ -6,10 +6,10 @@ import type { ProjectNode } from "@/lib/db/schema";
 import { eq, and, isNull, ilike, inArray, sql, asc, desc } from "drizzle-orm";
 import { createClient } from "@/lib/supabase/server";
 import { runInFlightDeduped } from "@/lib/utils/inflight-dedupe";
-import { canProjectMemberUploadFiles } from "@/lib/workspaces/settings-policies";
+import { canWorkspaceMemberUploadFiles } from "@/lib/workspaces/settings-policies";
 import {
-    assertProjectFileReadAccess,
-    canReadProjectTaskFiles,
+    assertWorkspaceFileReadAccess,
+    canReadWorkspaceTaskFiles,
     assertFileNodeVisible,
     orgFileAccessSql,
     ensureSystemRootFolder,
@@ -33,12 +33,12 @@ import {
     type FileAttribution,
 } from "@/lib/files/file-attribution";
 
-export type GetProjectNodesResult = {
-    nodes: ProjectNodeWithAttribution[];
+export type GetWorkspaceNodesResult = {
+    nodes: WorkspaceNodeWithAttribution[];
     nextCursor: string | null;
 };
 
-export type ProjectNodeWithAttribution = ProjectNode & FileAttribution;
+export type WorkspaceNodeWithAttribution = ProjectNode & FileAttribution;
 
 type BreadcrumbRow = {
     id: string;
@@ -86,7 +86,7 @@ async function labelTaskWorkingFilesBreadcrumbs(
 
 async function enrichNodesWithLatestVersionAttribution(
     nodes: ProjectNode[],
-): Promise<ProjectNodeWithAttribution[]> {
+): Promise<WorkspaceNodeWithAttribution[]> {
     const taskFolderIds = Array.from(new Set(nodes.flatMap((node) => {
         const taskPathMatch = node.path.match(/^\/\.system\/tasks\/([^/]+)(?:\/|$)/);
         if (!taskPathMatch || !UUID_RE.test(taskPathMatch[1] ?? "")) return [];
@@ -150,7 +150,7 @@ async function enrichNodesWithLatestVersionAttribution(
     });
 }
 
-export async function getProjectNodes(
+export async function getWorkspaceNodes(
     projectId: string,
     parentId: string | null = null,
     query?: string,
@@ -161,16 +161,16 @@ export async function getProjectNodes(
         sort?: "name" | "updated" | "type";
         itemType?: "file" | "folder";
     },
-): Promise<GetProjectNodesResult> {
+): Promise<GetWorkspaceNodesResult> {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!projectId) {
-        console.error("getProjectNodes called with undefined projectId");
+        console.error("getWorkspaceNodes called with undefined projectId");
         return { nodes: [], nextCursor: null };
     }
 
-    const readAccess = await assertProjectFileReadAccess(projectId, user?.id ?? null);
+    const readAccess = await assertWorkspaceFileReadAccess(projectId, user?.id ?? null);
 
     const sort = options?.sort ?? "name";
     if (!["name", "updated", "type"].includes(sort)) throw new Error("Invalid file sort");
@@ -212,14 +212,14 @@ export async function getProjectNodes(
         ? eq(projectNodes.type, options.itemType)
         : undefined;
     // ponytail: exact parentId scopes directory reads, allowing managed task subtrees while root reads stay public. ceiling: directory parentId scoping. upgrade: granular ACL evaluation per node if custom per-node ACLs introduced.
-    const scopeCondition = !canReadProjectTaskFiles(readAccess)
+    const scopeCondition = !canReadWorkspaceTaskFiles(readAccess)
         ? projectContentNodeSql
         : options?.taskId
         ? sql`(${projectNodes.taskId} IS NULL OR ${projectNodes.taskId} = ${options.taskId})`
         : normalizedQuery || parentId
             ? sql`true`
         : projectContentNodeSql;
-    const finishPage = async (rawNodes: ProjectNodeWithAttribution[]) => {
+    const finishPage = async (rawNodes: WorkspaceNodeWithAttribution[]) => {
         const nodes = await enrichNodesWithLatestVersionAttribution(rawNodes);
         let nextCursor: string | null = null;
         if (nodes.length > pageLimit) {
@@ -288,18 +288,18 @@ export async function getProjectNodes(
  * Reads remain side-effect free; callers invoke this only when an editable,
  * scratch-style project needs its initial system root.
  */
-export async function initializeProjectFilesRoot(projectId: string) {
+export async function initializeWorkspaceFilesRoot(projectId: string) {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error("Sign in to continue");
 
-    const access = await assertProjectFileReadAccess(projectId, user.id);
+    const access = await assertWorkspaceFileReadAccess(projectId, user.id);
     const importType = access.project.importSource?.type;
     const isScratchLike = !importType || importType === "scratch";
     const isReady = access.project.syncStatus === "ready";
     const canCreateFilesRoot =
         access.project.ownerId === user.id
-        || ("member" in access && !!access.member && canProjectMemberUploadFiles({
+        || ("member" in access && !!access.member && canWorkspaceMemberUploadFiles({
             role: access.member.role,
             fileUploadEnabled: access.member.fileUploadEnabled,
         }));
@@ -325,7 +325,7 @@ export async function getNodesByIds(projectId: string, nodeIds: string[]) {
     const idsKey = unique.slice().sort().join(",");
 
     return await runInFlightDeduped(`files:nodes-by-ids:${projectId}:${idsKey}:${actorId ?? "anon"}`, async () => {
-        const access = await assertProjectFileReadAccess(projectId, actorId);
+        const access = await assertWorkspaceFileReadAccess(projectId, actorId);
         const nodes = await db.query.projectNodes.findMany({
             where: and(
                 eq(projectNodes.projectId, projectId),
@@ -343,7 +343,7 @@ export async function getNodeMetadataBatch(
     projectId: string,
     nodeIds: string[],
     options?: { includeBreadcrumbs?: boolean }
-): Promise<FilesActionResult<{ nodes: ProjectNodeWithAttribution[]; breadcrumbsByNodeId?: Record<string, Array<{ id: string; name: string }>> }>> {
+): Promise<FilesActionResult<{ nodes: WorkspaceNodeWithAttribution[]; breadcrumbsByNodeId?: Record<string, Array<{ id: string; name: string }>> }>> {
     try {
         const nodes = await getNodesByIds(projectId, nodeIds);
         if (!options?.includeBreadcrumbs) {
@@ -406,7 +406,7 @@ export async function getBreadcrumbs(projectId: string, folderId: string | null)
     if (!folderId) return [];
 
     return await runInFlightDeduped(`files:breadcrumbs:${projectId}:${folderId}:${actorId ?? "anon"}`, async () => {
-        const access = await assertProjectFileReadAccess(projectId, actorId);
+        const access = await assertWorkspaceFileReadAccess(projectId, actorId);
         const folder = await db.query.projectNodes.findFirst({
             where: and(eq(projectNodes.id, folderId), eq(projectNodes.projectId, projectId)),
             columns: { path: true, taskId: true, deletedAt: true }
@@ -440,16 +440,16 @@ export async function getBreadcrumbs(projectId: string, folderId: string | null)
 export async function findNodeByPathAny(projectId: string, path: string[]) {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
-    const access = await assertProjectFileReadAccess(projectId, user?.id ?? null);
+    const access = await assertWorkspaceFileReadAccess(projectId, user?.id ?? null);
 
     if (!path.length) return null;
-    if (!canReadProjectTaskFiles(access) && (path[0] === TASK_WORKING_FILES_TITLE || path[0] === ".system")) return null;
+    if (!canReadWorkspaceTaskFiles(access) && (path[0] === TASK_WORKING_FILES_TITLE || path[0] === ".system")) return null;
     const found = await findNodeByPathUnchecked(projectId, path, access);
     // Org Files: a hidden node resolves like a missing one (report §23.9 #3).
     return found && !(await assertFileNodeVisible(access, found).then(() => false, () => true)) ? found : null;
 }
 
-async function findNodeByPathUnchecked(projectId: string, path: string[], access: Awaited<ReturnType<typeof assertProjectFileReadAccess>>) {
+async function findNodeByPathUnchecked(projectId: string, path: string[], access: Awaited<ReturnType<typeof assertWorkspaceFileReadAccess>>) {
 
     // Task working files have a readable, public presentation path. The
     // physical `.system/tasks/<uuid>` hierarchy never reaches the URL.
@@ -515,20 +515,20 @@ async function findNodeByPathUnchecked(projectId: string, path: string[], access
             eq(projectNodes.projectId, projectId),
             eq(projectNodes.path, `/${path.join("/")}`),
             isNull(projectNodes.deletedAt),
-            canReadProjectTaskFiles(access) ? sql`true` : isNull(projectNodes.taskId),
+            canReadWorkspaceTaskFiles(access) ? sql`true` : isNull(projectNodes.taskId),
         ),
     })) ?? null;
 }
 
-export async function getProjectNodesWithCounts(
+export async function getWorkspaceNodesWithCounts(
     projectId: string,
     parentId: string | null = null,
     query?: string,
     limit: number = 100,
     cursor?: string
-): Promise<FilesActionResult<{ nodes: ProjectNodeWithAttribution[]; nextCursor: string | null; taskLinkCounts: Record<string, number> }>> {
+): Promise<FilesActionResult<{ nodes: WorkspaceNodeWithAttribution[]; nextCursor: string | null; taskLinkCounts: Record<string, number> }>> {
     try {
-        const result = await getProjectNodes(projectId, parentId, query, limit, cursor);
+        const result = await getWorkspaceNodes(projectId, parentId, query, limit, cursor);
         const fileIds = result.nodes.filter((node) => node.type === "file").map((node) => node.id);
         const taskLinkCounts = fileIds.length ? await getTaskLinkCounts(projectId, fileIds) : {};
         return {

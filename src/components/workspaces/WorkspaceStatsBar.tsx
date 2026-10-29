@@ -12,7 +12,7 @@ interface ProjectStatsBarProps {
     testIdPrefix?: string;
 }
 
-export default function ProjectStatsBar({
+export default function WorkspaceStatsBar({
     viewCount = 0,
     followersCount = 0,
 

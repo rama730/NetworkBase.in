@@ -1,11 +1,11 @@
-import type { Project } from '@/types/discover'
+import type { Workspace } from '@/types/discover'
 
-export type PublicProjectsCursor = {
+export type PublicWorkspacesCursor = {
     createdAt: string
     id: string
 }
 
-export type PublicProjectsFeedItem = {
+export type PublicWorkspacesFeedItem = {
     id: string
     slug: string | null
     title: string
@@ -61,9 +61,9 @@ export type PublicProjectsFeedItem = {
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 /** Only a real timestamp and a project id: anything else would mint cache keys or fail in SQL. */
-function isValidCursor(value: unknown): value is PublicProjectsCursor {
+function isValidCursor(value: unknown): value is PublicWorkspacesCursor {
     if (!value || typeof value !== 'object') return false
-    const { createdAt, id } = value as PublicProjectsCursor
+    const { createdAt, id } = value as PublicWorkspacesCursor
     return typeof createdAt === 'string'
         && createdAt.length <= 40
         && Number.isFinite(Date.parse(createdAt))
@@ -71,12 +71,12 @@ function isValidCursor(value: unknown): value is PublicProjectsCursor {
         && UUID.test(id)
 }
 
-export function encodePublicProjectsCursor(cursor: PublicProjectsCursor | null): string | null {
+export function encodePublicWorkspacesCursor(cursor: PublicWorkspacesCursor | null): string | null {
     if (!cursor) return null
     return Buffer.from(JSON.stringify(cursor), 'utf8').toString('base64url')
 }
 
-export function decodePublicProjectsCursor(cursor: string | null | undefined): PublicProjectsCursor | null {
+export function decodePublicWorkspacesCursor(cursor: string | null | undefined): PublicWorkspacesCursor | null {
     if (!cursor) return null
 
     try {
@@ -88,20 +88,20 @@ export function decodePublicProjectsCursor(cursor: string | null | undefined): P
     }
 }
 
-export function buildPublicProjectsCacheKey(limit: number, cursor: PublicProjectsCursor | null) {
+export function buildPublicWorkspacesCacheKey(limit: number, cursor: PublicWorkspacesCursor | null) {
     const suffix = cursor ? `${cursor.createdAt}:${cursor.id}` : 'origin'
     // v5: owners masked and members-only links removed on the server.
     return `projects:public:v5:limit:${limit}:cursor:${suffix}`
 }
 
-function normalizeProjectStatus(status: string | null): Project['status'] {
+function normalizeProjectStatus(status: string | null): Workspace['status'] {
     if (status === 'active' || status === 'completed' || status === 'archived') {
         return status
     }
     return 'draft'
 }
 
-export function mapPublicProjectToDiscoverProject(project: PublicProjectsFeedItem): Project {
+export function mapPublicWorkspaceToDiscoverWorkspace(project: PublicWorkspacesFeedItem): Workspace {
     const ownerVisibility = project.profiles.visibility || 'public'
     const shouldMaskOwner = ownerVisibility !== 'public'
     return {

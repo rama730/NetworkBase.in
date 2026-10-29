@@ -11,19 +11,19 @@ import {
 import { resolvePrivacyRelationship } from "@/lib/privacy/resolver";
 import { getGuidanceCapacityState } from "@/lib/workspaces/guidance-capacity";
 import {
-    addProjectMemberInternal,
-    type ProjectCollaboratorExecutor,
+    addWorkspaceMemberInternal,
+    type WorkspaceCollaboratorExecutor,
 } from "@/lib/workspaces/collaborator-lifecycle";
 
 const INVITATION_TTL_MS = 14 * 24 * 60 * 60 * 1000;
 
-export type ProjectInvitationKind = "ordinary_role" | "guidance_appointment";
+export type WorkspaceInvitationKind = "ordinary_role" | "guidance_appointment";
 
-export type CreateProjectInvitationInput = {
+export type CreateWorkspaceInvitationInput = {
     actorId: string;
     candidateId: string;
     projectId: string;
-    kind: ProjectInvitationKind;
+    kind: WorkspaceInvitationKind;
     roleId?: string | null;
     note?: string | null;
     guidanceLabel?: string | null;
@@ -31,7 +31,7 @@ export type CreateProjectInvitationInput = {
     idempotencyKey?: string | null;
 };
 
-type InvitationExecutor = ProjectCollaboratorExecutor;
+type InvitationExecutor = WorkspaceCollaboratorExecutor;
 
 function cleanOptionalText(value: string | null | undefined, limit: number) {
     const cleaned = value?.trim().replace(/\s+/g, " ") ?? "";
@@ -79,7 +79,7 @@ async function activeGuidanceCount(executor: InvitationExecutor, guideUserId: st
     return row?.count ?? 0;
 }
 
-export async function createProjectInvitation(input: CreateProjectInvitationInput) {
+export async function createWorkspaceInvitation(input: CreateWorkspaceInvitationInput) {
     const now = new Date();
     const idempotencyKey = cleanOptionalText(input.idempotencyKey, 160);
     const privacy = await resolvePrivacyRelationship(input.actorId, input.candidateId);
@@ -244,7 +244,7 @@ export async function createProjectInvitation(input: CreateProjectInvitationInpu
     });
 }
 
-export async function resolveProjectInvitationInternal(
+export async function resolveWorkspaceInvitationInternal(
     executor: InvitationExecutor,
     input: { invitationId: string; actorId: string; action: "accept" | "decline" | "cancel" },
 ) {
@@ -322,7 +322,7 @@ export async function resolveProjectInvitationInternal(
         if (getGuidanceCapacityState(count) === "blocked") throw new Error("This person has reached the active guidance appointment limit");
     }
 
-    const lifecycle = await addProjectMemberInternal(executor, {
+    const lifecycle = await addWorkspaceMemberInternal(executor, {
         projectId: invitation.projectId,
         userId: invitation.candidateId,
         role: invitation.kind === "guidance_appointment" ? "admin" : "member",

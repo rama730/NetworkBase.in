@@ -1,10 +1,10 @@
 "use server";
 
 import { readViewerOrgRole } from "@/lib/organizations/detail";
-import { orgFeedWhere, orgLivePinSql, readLastSeenUpdates, readOrgUpdateContext, readProjectTitles, readSharedPins, type OrgUpdateContext } from "@/lib/organizations/org-updates";
+import { orgFeedWhere, orgLivePinSql, readLastSeenUpdates, readOrgUpdateContext, readWorkspaceTitles, readSharedPins, type OrgUpdateContext } from "@/lib/organizations/org-updates";
 import { isPinnedNow, type UpdateAudience } from "@/lib/organizations/update-rules";
 import { shareToOrgGeneral } from "@/lib/organizations/org-chat";
-import { readProjectRoleTitles, roleTitleKey } from "@/lib/workspaces/update-roles";
+import { readWorkspaceRoleTitles, roleTitleKey } from "@/lib/workspaces/update-roles";
 import { randomUUID } from "node:crypto";
 import { alias } from "drizzle-orm/pg-core";
 import {
@@ -48,8 +48,8 @@ import {
     storageLegacyCleanupTargets,
     tasks,
 } from "@/lib/db/schema";
-import { computeProjectReadAccess } from "@/lib/data/workspace-access";
-import { enqueueProjectNotificationEvent } from "@/lib/notifications/workspace-events";
+import { computeWorkspaceReadAccess } from "@/lib/data/workspace-access";
+import { enqueueWorkspaceNotificationEvent } from "@/lib/notifications/workspace-events";
 import { notifyAnnouncement, notifyOrg } from "@/lib/organizations/notify";
 import { consumeRateLimit } from "@/lib/security/rate-limit";
 import { getViewerAuthContext, getViewerProfileContext } from "@/lib/server/viewer-context";
@@ -57,50 +57,50 @@ import { createAdminClient } from "@/lib/supabase/server";
 import { createUploadIntent, finalizeUploadIntent } from "@/lib/upload/upload-intents";
 import { normalizeAndValidateFileSize, normalizeAndValidateMimeType } from "@/lib/upload/security";
 import {
-    getProjectMemberRoleLabel,
-    isProjectTabVisibleToViewer,
-    normalizeProjectMemberRole,
+    getWorkspaceMemberRoleLabel,
+    isWorkspaceTabVisibleToViewer,
+    normalizeWorkspaceMemberRole,
 } from "@/lib/workspaces/settings-policies";
 import {
-    normalizeProjectUpdateFilter,
-    normalizeProjectUpdateMediaItems,
-    normalizeProjectUpdateReferences,
-    normalizeProjectUpdateType,
-    PROJECT_UPDATE_ALLOWED_IMAGE_MIME_TYPES,
-    PROJECT_UPDATE_COMMENT_PAGE_SIZE,
-    PROJECT_UPDATE_MEDIA_BUCKET,
-    PROJECT_UPDATE_MEDIA_MAX_BYTES,
-    PROJECT_UPDATE_PAGE_SIZE,
-    PROJECT_UPDATE_PERFORMANCE_BUDGETS,
+    normalizeWorkspaceUpdateFilter,
+    normalizeWorkspaceUpdateMediaItems,
+    normalizeWorkspaceUpdateReferences,
+    normalizeWorkspaceUpdateType,
+    WORKSPACE_UPDATE_ALLOWED_IMAGE_MIME_TYPES,
+    WORKSPACE_UPDATE_COMMENT_PAGE_SIZE,
+    WORKSPACE_UPDATE_MEDIA_BUCKET,
+    WORKSPACE_UPDATE_MEDIA_MAX_BYTES,
+    WORKSPACE_UPDATE_PAGE_SIZE,
+    WORKSPACE_UPDATE_PERFORMANCE_BUDGETS,
     projectUpdateImageExtensionFromMimeType,
     projectUpdateMediaApplicationUrl,
-    composeProjectUpdateRoleLabel,
-    isGenericProjectUpdateRoleTitle,
-    normalizeProjectUpdateAuthorRoleSnapshot,
+    composeWorkspaceUpdateRoleLabel,
+    isGenericWorkspaceUpdateRoleTitle,
+    normalizeWorkspaceUpdateAuthorRoleSnapshot,
     projectUpdateExcerpt,
-    resolveProjectUpdateAuthorRoleDisplay,
-    sanitizeProjectUpdateContent,
-    sanitizeProjectUpdateRoleTitle,
-    shouldNotifyProjectUpdateFollowers,
-    type ProjectUpdateAuthorRoleSnapshot,
-    type ProjectUpdateContextKind,
-    type ProjectUpdateContextOption,
-    type ProjectUpdateContextSummary,
-    type ProjectUpdateEntityRefs,
-    type ProjectUpdateFilter,
-    type ProjectUpdateMediaItem,
-    type ProjectUpdateReference,
-    type ProjectUpdateReplyPolicy,
-    type ProjectUpdateType,
-    type ProjectUpdateVisibility,
+    resolveWorkspaceUpdateAuthorRoleDisplay,
+    sanitizeWorkspaceUpdateContent,
+    sanitizeWorkspaceUpdateRoleTitle,
+    shouldNotifyWorkspaceUpdateFollowers,
+    type WorkspaceUpdateAuthorRoleSnapshot,
+    type WorkspaceUpdateContextKind,
+    type WorkspaceUpdateContextOption,
+    type WorkspaceUpdateContextSummary,
+    type WorkspaceUpdateEntityRefs,
+    type WorkspaceUpdateFilter,
+    type WorkspaceUpdateMediaItem,
+    type WorkspaceUpdateReference,
+    type WorkspaceUpdateReplyPolicy,
+    type WorkspaceUpdateType,
+    type WorkspaceUpdateVisibility,
 } from "@/lib/workspaces/updates";
 import { logger } from "@/lib/logger";
 
-const UPDATES_PAGE_SIZE = PROJECT_UPDATE_PAGE_SIZE;
-const COMMENTS_PAGE_SIZE = PROJECT_UPDATE_COMMENT_PAGE_SIZE;
+const UPDATES_PAGE_SIZE = WORKSPACE_UPDATE_PAGE_SIZE;
+const COMMENTS_PAGE_SIZE = WORKSPACE_UPDATE_COMMENT_PAGE_SIZE;
 type DbTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
-function updateMediaBinding(item: ProjectUpdateMediaItem) {
+function updateMediaBinding(item: WorkspaceUpdateMediaItem) {
     return `${item.bucket ?? ""}\0${item.storageKey ?? ""}`;
 }
 
@@ -109,13 +109,13 @@ async function queueRemovedLegacyUpdateMedia(params: {
     sourceType: "project_update_media" | "project_update_draft_media";
     sourceId: string;
     projectId: string;
-    previous: ProjectUpdateMediaItem[] | null | undefined;
-    next: ProjectUpdateMediaItem[];
+    previous: WorkspaceUpdateMediaItem[] | null | undefined;
+    next: WorkspaceUpdateMediaItem[];
 }) {
     const retained = new Set(params.next.map(updateMediaBinding));
     const targets = normalizeMedia(params.previous).filter((item) => (
         !item.assetId
-        && item.bucket === PROJECT_UPDATE_MEDIA_BUCKET
+        && item.bucket === WORKSPACE_UPDATE_MEDIA_BUCKET
         && !!item.storageKey
         && item.storageKey.startsWith(`projects/${params.projectId}/update-media/`)
         && !retained.has(updateMediaBinding(item))
@@ -126,7 +126,7 @@ async function queueRemovedLegacyUpdateMedia(params: {
             sourceType: params.sourceType,
             sourceId: params.sourceId,
             sourceProjectId: params.projectId,
-            bucket: PROJECT_UPDATE_MEDIA_BUCKET,
+            bucket: WORKSPACE_UPDATE_MEDIA_BUCKET,
             storageKey: item.storageKey!,
             nextAttemptAt: new Date(),
         })))
@@ -138,7 +138,7 @@ async function replaceUpdateMediaAssetRefs(params: {
     updateId: string;
     projectId: string;
     ownerUserId: string;
-    media: ProjectUpdateMediaItem[];
+    media: WorkspaceUpdateMediaItem[];
     allowedLegacyBindings?: Set<string>;
 }) {
     const previous = await params.tx
@@ -162,7 +162,7 @@ async function replaceUpdateMediaAssetRefs(params: {
         }
         if (
             !isLooseUuid(item.assetId) ||
-            item.bucket !== PROJECT_UPDATE_MEDIA_BUCKET ||
+            item.bucket !== WORKSPACE_UPDATE_MEDIA_BUCKET ||
             !item.storageKey ||
             attachedAssetIds.has(item.assetId)
         ) {
@@ -177,7 +177,7 @@ async function replaceUpdateMediaAssetRefs(params: {
                 eq(storageAssets.id, item.assetId),
                 eq(storageAssets.ownerUserId, params.ownerUserId),
                 eq(storageAssets.projectId, params.projectId),
-                eq(storageAssets.bucket, PROJECT_UPDATE_MEDIA_BUCKET),
+                eq(storageAssets.bucket, WORKSPACE_UPDATE_MEDIA_BUCKET),
                 eq(storageAssets.storageKey, item.storageKey),
                 eq(storageAssets.state, "verified"),
             ))
@@ -202,7 +202,7 @@ async function replaceDraftMediaAssetRefs(params: {
     tx: DbTransaction;
     projectId: string;
     userId: string;
-    media: ProjectUpdateMediaItem[];
+    media: WorkspaceUpdateMediaItem[];
     allowedLegacyBindings?: Set<string>;
 }) {
     const previous = await params.tx
@@ -230,7 +230,7 @@ async function replaceDraftMediaAssetRefs(params: {
         }
         if (
             !isLooseUuid(item.assetId) ||
-            item.bucket !== PROJECT_UPDATE_MEDIA_BUCKET ||
+            item.bucket !== WORKSPACE_UPDATE_MEDIA_BUCKET ||
             !item.storageKey ||
             attachedAssetIds.has(item.assetId)
         ) {
@@ -245,7 +245,7 @@ async function replaceDraftMediaAssetRefs(params: {
                 eq(storageAssets.id, item.assetId),
                 eq(storageAssets.ownerUserId, params.userId),
                 eq(storageAssets.projectId, params.projectId),
-                eq(storageAssets.bucket, PROJECT_UPDATE_MEDIA_BUCKET),
+                eq(storageAssets.bucket, WORKSPACE_UPDATE_MEDIA_BUCKET),
                 eq(storageAssets.storageKey, item.storageKey),
                 eq(storageAssets.state, "verified"),
             ))
@@ -278,7 +278,7 @@ type ProjectUpdateCommentCursor = {
     id: string;
 };
 
-export type ProjectUpdateAuthorView = {
+export type WorkspaceUpdateAuthorView = {
     id: string | null;
     fullName: string | null;
     username: string | null;
@@ -289,18 +289,18 @@ export type ProjectUpdateAuthorView = {
     roleSource: "snapshot" | "project_role" | "membership" | null;
 };
 
-export type ProjectUpdateView = {
+export type WorkspaceUpdateView = {
     id: string;
     projectId: string;
     authorId: string | null;
-    author: ProjectUpdateAuthorView | null;
+    author: WorkspaceUpdateAuthorView | null;
     content: string;
-    updateType: ProjectUpdateType | null;
-    visibility: ProjectUpdateVisibility;
-    replyPolicy: ProjectUpdateReplyPolicy;
-    entityRefs: ProjectUpdateEntityRefs;
-    context: ProjectUpdateContextSummary;
-    media: ProjectUpdateMediaItem[];
+    updateType: WorkspaceUpdateType | null;
+    visibility: WorkspaceUpdateVisibility;
+    replyPolicy: WorkspaceUpdateReplyPolicy;
+    entityRefs: WorkspaceUpdateEntityRefs;
+    context: WorkspaceUpdateContextSummary;
+    media: WorkspaceUpdateMediaItem[];
     metadata: Record<string, unknown>;
     isPinned: boolean;
     pinnedUntil: string | null;
@@ -322,13 +322,13 @@ export type ProjectUpdateView = {
     updatedAt: string;
 };
 
-export type ProjectUpdateCommentView = {
+export type WorkspaceUpdateCommentView = {
     id: string;
     updateId: string;
     projectId: string;
     parentId: string | null;
     userId: string | null;
-    author: ProjectUpdateAuthorView | null;
+    author: WorkspaceUpdateAuthorView | null;
     content: string;
     canDelete: boolean;
     deletedAt: string | null;
@@ -338,7 +338,7 @@ export type ProjectUpdateCommentView = {
     targetUsername: string | null;
 };
 
-export type ProjectUpdateMovementSummary = {
+export type WorkspaceUpdateMovementSummary = {
     totalUpdates: number;
     totalContributors: number;
     publicUpdates: number;
@@ -421,20 +421,20 @@ function decodeCommentCursor(value: string | null | undefined): ProjectUpdateCom
     }
 }
 
-function normalizeEntityRefs(value: unknown): ProjectUpdateEntityRefs {
+function normalizeEntityRefs(value: unknown): WorkspaceUpdateEntityRefs {
     if (!value || typeof value !== "object") return {};
     const source = value as Record<string, unknown>;
-    const pick = (key: keyof ProjectUpdateEntityRefs) => {
+    const pick = (key: keyof WorkspaceUpdateEntityRefs) => {
         const raw = source[key];
         return typeof raw === "string" && raw.trim().length > 0 ? raw.trim() : null;
     };
-    const legacyReferences: ProjectUpdateReference[] = [
+    const legacyReferences: WorkspaceUpdateReference[] = [
         pick("taskId") ? { kind: "task", id: pick("taskId")! } : null,
         pick("sprintId") ? { kind: "sprint", id: pick("sprintId")! } : null,
         pick("fileId") ? { kind: "file", id: pick("fileId")! } : null,
-    ].filter((item): item is ProjectUpdateReference => Boolean(item));
-    const references = normalizeProjectUpdateReferences([
-        ...normalizeProjectUpdateReferences(source.references),
+    ].filter((item): item is WorkspaceUpdateReference => Boolean(item));
+    const references = normalizeWorkspaceUpdateReferences([
+        ...normalizeWorkspaceUpdateReferences(source.references),
         ...legacyReferences,
     ]);
     return {
@@ -448,8 +448,8 @@ function normalizeEntityRefs(value: unknown): ProjectUpdateEntityRefs {
     };
 }
 
-function normalizeMedia(value: unknown): ProjectUpdateMediaItem[] {
-    return normalizeProjectUpdateMediaItems(value);
+function normalizeMedia(value: unknown): WorkspaceUpdateMediaItem[] {
+    return normalizeWorkspaceUpdateMediaItems(value);
 }
 
 function normalizeMetadata(value: unknown): Record<string, unknown> {
@@ -459,7 +459,7 @@ function normalizeMetadata(value: unknown): Record<string, unknown> {
 }
 
 async function readProjectRoleTitleMap(projectId: string, userIds: Array<string | null | undefined>) {
-    const titles = await readProjectRoleTitles(userIds.map((userId) => ({ projectId, userId })));
+    const titles = await readWorkspaceRoleTitles(userIds.map((userId) => ({ projectId, userId })));
     const byUser = new Map<string, string>();
     for (const userId of userIds) {
         const title = userId ? titles.get(roleTitleKey(projectId, userId)) : null;
@@ -492,7 +492,7 @@ async function hydrateCommentRowsWithRoleTitles<T extends { userId: string | nul
 
 function authorRoleSnapshotFromMetadata(metadata: unknown) {
     const normalized = normalizeMetadata(metadata);
-    return normalizeProjectUpdateAuthorRoleSnapshot(normalized.authorRoleSnapshot);
+    return normalizeWorkspaceUpdateAuthorRoleSnapshot(normalized.authorRoleSnapshot);
 }
 
 async function readAuthorRoleSnapshot(params: {
@@ -500,15 +500,15 @@ async function readAuthorRoleSnapshot(params: {
     userId: string;
     projectOwnerId: string | null;
     memberRole: ProjectUpdateAccess["memberRole"];
-}): Promise<ProjectUpdateAuthorRoleSnapshot> {
+}): Promise<WorkspaceUpdateAuthorRoleSnapshot> {
     const role = params.userId === params.projectOwnerId
         ? "owner"
-        : normalizeProjectMemberRole(params.memberRole, "member");
-    const membershipRoleLabel = getProjectMemberRoleLabel(role);
+        : normalizeWorkspaceMemberRole(params.memberRole, "member");
+    const membershipRoleLabel = getWorkspaceMemberRoleLabel(role);
     const roleTitles = await readProjectRoleTitleMap(params.projectId, [params.userId]);
-    const roleTitle = sanitizeProjectUpdateRoleTitle(roleTitles.get(params.userId));
+    const roleTitle = sanitizeWorkspaceUpdateRoleTitle(roleTitles.get(params.userId));
     return {
-        displayRoleLabel: composeProjectUpdateRoleLabel({ roleTitle, membershipRoleLabel }) ?? membershipRoleLabel,
+        displayRoleLabel: composeWorkspaceUpdateRoleLabel({ roleTitle, membershipRoleLabel }) ?? membershipRoleLabel,
         roleTitle,
         membershipRoleLabel,
         source: roleTitle ? "project_role" : "membership",
@@ -549,22 +549,22 @@ function projectFileHref(project: { id: string; slug: string | null }, row: { id
         : `${projectBaseHref(project)}?tab=files&fileId=${fileId}`;
 }
 
-function normalizeProjectUpdateMentionKind(kind: unknown): ProjectUpdateContextKind | null {
+function normalizeProjectUpdateMentionKind(kind: unknown): WorkspaceUpdateContextKind | null {
     if (kind === "task" || kind === "tasks") return "task";
     if (kind === "sprint" || kind === "sprints") return "sprint";
     if (kind === "file" || kind === "files") return "file";
     return null;
 }
 
-function projectUpdateTargetUnavailableMessage(kind: ProjectUpdateContextKind) {
+function projectUpdateTargetUnavailableMessage(kind: WorkspaceUpdateContextKind) {
     if (kind === "task") return "This task is not available or you do not have access.";
     if (kind === "sprint") return "This sprint is not available or you do not have access.";
     return "This file is not available or you do not have access.";
 }
 
-function canReadProjectUpdateTargetTab(access: ProjectUpdateAccess, kind: ProjectUpdateContextKind) {
+function canReadProjectUpdateTargetTab(access: ProjectUpdateAccess, kind: WorkspaceUpdateContextKind) {
     if (!access.project) return false;
-    return isProjectTabVisibleToViewer({
+    return isWorkspaceTabVisibleToViewer({
         tabId: kind === "task" ? "tasks" : kind === "sprint" ? "sprints" : "files",
         isOwnerOrMember: access.isOwner || access.isMember,
         canManageSettings: access.isOwner,
@@ -572,7 +572,7 @@ function canReadProjectUpdateTargetTab(access: ProjectUpdateAccess, kind: Projec
     });
 }
 
-export async function resolveProjectUpdateMentionTargetAction(projectId: string, input: {
+export async function resolveWorkspaceUpdateMentionTargetAction(projectId: string, input: {
     kind?: string | null;
     id?: string | null;
 }) {
@@ -686,7 +686,7 @@ function taskContextOption(row: {
     title: string;
     status: string;
     taskNumber: number | null;
-}, project: { id: string; slug: string | null }): ProjectUpdateContextOption {
+}, project: { id: string; slug: string | null }): WorkspaceUpdateContextOption {
     return {
         kind: "task",
         id: row.id,
@@ -702,7 +702,7 @@ function sprintContextOption(row: {
     name: string;
     status: string;
     goal: string | null;
-}, project: { id: string; slug: string | null }): ProjectUpdateContextOption {
+}, project: { id: string; slug: string | null }): WorkspaceUpdateContextOption {
     return {
         kind: "sprint",
         id: row.id,
@@ -718,7 +718,7 @@ function fileContextOption(row: {
     name: string;
     path: string;
     mimeType: string | null;
-}, project: { id: string; slug: string | null }): ProjectUpdateContextOption {
+}, project: { id: string; slug: string | null }): WorkspaceUpdateContextOption {
     return {
         kind: "file",
         id: row.id,
@@ -785,13 +785,13 @@ async function resolveProjectUpdateAccess(projectId: string, viewerId: string | 
     const memberRole = isOwner
         ? "owner"
         : membership
-            ? normalizeProjectMemberRole(membership.role, "member")
+            ? normalizeWorkspaceMemberRole(membership.role, "member")
             : null;
     // Org only child projects and inherited org admins (report §29.4).
     const parentOrgRole = project.parentId && !isOwner && !isMember ? await readViewerOrgRole(project.parentId, viewerId) : null;
     const isInheritedAdmin = parentOrgRole === "owner" || parentOrgRole === "admin";
     const isOwnerOrMember = isOwner || isMember;
-    const canRead = computeProjectReadAccess(project.visibility, project.status, isOwner, isMember, parentOrgRole) && isProjectTabVisibleToViewer({
+    const canRead = computeWorkspaceReadAccess(project.visibility, project.status, isOwner, isMember, parentOrgRole) && isWorkspaceTabVisibleToViewer({
         tabId: "updates",
         isOwnerOrMember: isOwnerOrMember || isInheritedAdmin,
         canManageSettings: isOwner,
@@ -828,13 +828,13 @@ function normalizeAuthor(row: {
     authorAvatarUrl: string | null;
     authorMembershipRole?: string | null;
     authorProjectRoleTitle?: string | null;
-}, projectOwnerId: string | null, snapshot?: ProjectUpdateAuthorRoleSnapshot | null): ProjectUpdateAuthorView | null {
+}, projectOwnerId: string | null, snapshot?: WorkspaceUpdateAuthorRoleSnapshot | null): WorkspaceUpdateAuthorView | null {
     if (!row.authorId) return null;
     const role = row.authorId === projectOwnerId
         ? "owner"
-        : normalizeProjectMemberRole(row.authorMembershipRole, "member");
-    const membershipRoleLabel = getProjectMemberRoleLabel(role);
-    const roleDisplay = resolveProjectUpdateAuthorRoleDisplay({
+        : normalizeWorkspaceMemberRole(row.authorMembershipRole, "member");
+    const membershipRoleLabel = getWorkspaceMemberRoleLabel(role);
+    const roleDisplay = resolveWorkspaceUpdateAuthorRoleDisplay({
         snapshot,
         projectRoleTitle: row.authorProjectRoleTitle,
         membershipRoleLabel,
@@ -854,9 +854,9 @@ function normalizeAuthor(row: {
 function normalizeUpdate(row: UpdateRow, params: {
     access: ProjectUpdateAccess;
     likedIds: Set<string>;
-    contextByUpdateId?: Map<string, ProjectUpdateContextSummary>;
+    contextByUpdateId?: Map<string, WorkspaceUpdateContextSummary>;
     fromProjects?: Map<string, { title: string; slug: string | null }>;
-}): ProjectUpdateView {
+}): WorkspaceUpdateView {
     const shared = row.projectId !== params.access.project?.id;
     const viewerId = params.access.viewerId;
     const canModerate = params.access.canManage;
@@ -868,7 +868,7 @@ function normalizeUpdate(row: UpdateRow, params: {
         authorId: row.authorId,
         author: normalizeAuthor(row, params.access.project?.ownerId ?? null, authorRoleSnapshotFromMetadata(row.metadata)),
         content: deleted ? "" : row.content,
-        updateType: normalizeProjectUpdateType(row.updateType),
+        updateType: normalizeWorkspaceUpdateType(row.updateType),
         visibility: row.visibility === "members" ? "members" : "public",
         replyPolicy: row.replyPolicy === "members" || row.replyPolicy === "closed" ? row.replyPolicy : "logged_in",
         entityRefs: normalizeEntityRefs(row.entityRefs),
@@ -900,8 +900,8 @@ function normalizeUpdate(row: UpdateRow, params: {
 }
 
 function projectUpdateContextFallbackLabel(
-    context: ProjectUpdateContextSummary | null | undefined,
-    media: ProjectUpdateMediaItem[] | null | undefined,
+    context: WorkspaceUpdateContextSummary | null | undefined,
+    media: WorkspaceUpdateMediaItem[] | null | undefined,
 ) {
     const references = context?.references?.length
         ? context.references
@@ -909,7 +909,7 @@ function projectUpdateContextFallbackLabel(
             context?.task ?? null,
             context?.sprint ?? null,
             context?.file ?? null,
-        ].filter((item): item is ProjectUpdateContextOption => Boolean(item));
+        ].filter((item): item is WorkspaceUpdateContextOption => Boolean(item));
     if (references.length > 0) {
         return references.slice(0, 3).map((item) => item.label).join(", ");
     }
@@ -925,8 +925,8 @@ function projectUpdateContextFallbackLabel(
 
 function projectUpdateNotificationBody(input: {
     content: string;
-    context?: ProjectUpdateContextSummary | null;
-    media?: ProjectUpdateMediaItem[] | null;
+    context?: WorkspaceUpdateContextSummary | null;
+    media?: WorkspaceUpdateMediaItem[] | null;
     maxLength?: number;
 }) {
     const body = projectUpdateExcerpt(input.content, input.maxLength ?? 180);
@@ -993,13 +993,13 @@ async function likedUpdateIds(updateIds: string[], viewerId: string | null) {
 }
 
 async function contextSummariesForRows(rows: Array<Pick<UpdateRow, "id" | "entityRefs">>, access: ProjectUpdateAccess) {
-    const summaries = new Map<string, ProjectUpdateContextSummary>();
+    const summaries = new Map<string, WorkspaceUpdateContextSummary>();
     if (!access.project || rows.length === 0) return summaries;
 
     const taskIds = new Set<string>();
     const sprintIds = new Set<string>();
     const fileIds = new Set<string>();
-    const refsByUpdate = new Map<string, ProjectUpdateEntityRefs>();
+    const refsByUpdate = new Map<string, WorkspaceUpdateEntityRefs>();
 
     rows.forEach((row) => {
         const refs = normalizeEntityRefs(row.entityRefs);
@@ -1082,7 +1082,7 @@ async function contextSummariesForRows(rows: Array<Pick<UpdateRow, "id" | "entit
                     refs.taskId ? taskOptions.get(refs.taskId) ?? null : null,
                     refs.sprintId ? sprintOptions.get(refs.sprintId) ?? null : null,
                     refs.fileId ? fileOptions.get(refs.fileId) ?? null : null,
-                ].filter((option): option is ProjectUpdateContextOption => Boolean(option)),
+                ].filter((option): option is WorkspaceUpdateContextOption => Boolean(option)),
         });
     });
 
@@ -1109,9 +1109,9 @@ function updateCursorCondition(cursor: ProjectUpdateCursor | null, pinned: SQL<b
     return and(sql`NOT ${pinned}`, sql`(${projectUpdates.createdAt}, ${projectUpdates.id}) < (${cursorDate}, ${cursor.id}::uuid)`);
 }
 
-export async function readProjectUpdatesAction(projectId: string, params?: {
+export async function readWorkspaceUpdatesAction(projectId: string, params?: {
     cursor?: string | null;
-    filter?: ProjectUpdateFilter | string | null;
+    filter?: WorkspaceUpdateFilter | string | null;
 }) {
     const startedAt = performance.now();
     try {
@@ -1121,7 +1121,7 @@ export async function readProjectUpdatesAction(projectId: string, params?: {
             return { success: false as const, error: "Project updates are unavailable.", data: { updates: [], nextCursor: null, hasMore: false, movementSummary: null } };
         }
 
-        const filter = normalizeProjectUpdateFilter(params?.filter ?? "all");
+        const filter = normalizeWorkspaceUpdateFilter(params?.filter ?? "all");
         const cursor = decodeUpdateCursor(params?.cursor);
         // The org feed (report §17.5): own posts by audience plus posts shared up from child projects.
         const orgFeed = access.org?.kind === "org" ? access.org : null;
@@ -1182,7 +1182,7 @@ export async function readProjectUpdatesAction(projectId: string, params?: {
         const [likedIds, contextByUpdateId, fromProjects, lastSeenAt] = await Promise.all([
             likedUpdateIds(updateIds, viewer.userId),
             contextSummariesForRows(pageRows, access),
-            readProjectTitles([...new Set(pageRows.filter((row) => row.projectId !== projectId).map((row) => row.projectId))]),
+            readWorkspaceTitles([...new Set(pageRows.filter((row) => row.projectId !== projectId).map((row) => row.projectId))]),
             orgFeed ? readLastSeenUpdates(orgFeed.orgId, viewer.userId) : null,
         ]);
         const updates = pageRows.map((row) => normalizeUpdate(row, { access, likedIds, contextByUpdateId, fromProjects }));
@@ -1197,7 +1197,7 @@ export async function readProjectUpdatesAction(projectId: string, params?: {
             hasMore: rows.length > UPDATES_PAGE_SIZE,
             cursor: params?.cursor ? "present" : "initial",
         });
-        if (durationMs > PROJECT_UPDATE_PERFORMANCE_BUDGETS.readMs) {
+        if (durationMs > WORKSPACE_UPDATE_PERFORMANCE_BUDGETS.readMs) {
             logger.warn("project_updates.read_budget_exceeded", {
                 module: "projects",
                 projectId,
@@ -1234,7 +1234,7 @@ export async function readProjectUpdatesAction(projectId: string, params?: {
     }
 }
 
-export async function readProjectUpdateAction(projectId: string, updateId: string) {
+export async function readWorkspaceUpdateAction(projectId: string, updateId: string) {
     try {
         const viewer = await getViewerAuthContext();
         const access = await resolveProjectUpdateAccess(projectId, viewer.userId);
@@ -1257,7 +1257,7 @@ export async function readProjectUpdateAction(projectId: string, updateId: strin
 async function readContextOptionsForKind(params: {
     projectId: string;
     project: { id: string; slug: string | null };
-    kind: ProjectUpdateContextKind;
+    kind: WorkspaceUpdateContextKind;
     query: string;
     limit: number;
 }) {
@@ -1312,8 +1312,8 @@ async function readContextOptionsForKind(params: {
     return rows.map((row) => fileContextOption(row, params.project));
 }
 
-export async function readProjectUpdateContextOptionsAction(projectId: string, input?: {
-    kind?: ProjectUpdateContextKind | "all" | string | null;
+export async function readWorkspaceUpdateContextOptionsAction(projectId: string, input?: {
+    kind?: WorkspaceUpdateContextKind | "all" | string | null;
     query?: string | null;
     limit?: number | null;
 }) {
@@ -1329,12 +1329,12 @@ export async function readProjectUpdateContextOptionsAction(projectId: string, i
             : "all";
         const query = typeof input?.query === "string" ? input.query.trim().slice(0, 80) : "";
         const limit = Math.max(1, Math.min(12, Math.trunc(Number(input?.limit ?? 6))));
-        const kinds: ProjectUpdateContextKind[] = requestedKind === "all" ? ["task", "sprint", "file"] : [requestedKind];
+        const kinds: WorkspaceUpdateContextKind[] = requestedKind === "all" ? ["task", "sprint", "file"] : [requestedKind];
         const entries = await Promise.all(kinds.map(async (kind) => [
             kind,
             await readContextOptionsForKind({ projectId, project: access.project!, kind, query, limit }),
         ] as const));
-        const data: Record<ProjectUpdateContextKind, ProjectUpdateContextOption[]> = { task: [], sprint: [], file: [] };
+        const data: Record<WorkspaceUpdateContextKind, WorkspaceUpdateContextOption[]> = { task: [], sprint: [], file: [] };
         entries.forEach(([kind, options]) => { data[kind] = options; });
         return { success: true as const, data };
     } catch (error) {
@@ -1347,7 +1347,7 @@ export async function readProjectUpdateContextOptionsAction(projectId: string, i
     }
 }
 
-export async function createProjectUpdateMediaUploadUrlAction(projectId: string, input: {
+export async function createWorkspaceUpdateMediaUploadUrlAction(projectId: string, input: {
     mimeType?: string | null;
     sizeBytes?: number | null;
     altText?: string | null;
@@ -1361,16 +1361,16 @@ export async function createProjectUpdateMediaUploadUrlAction(projectId: string,
         if (!rate.allowed) return { success: false as const, error: "Too many media uploads. Please wait and try again." };
 
         const mimeType = normalizeAndValidateMimeType(input.mimeType);
-        if (!PROJECT_UPDATE_ALLOWED_IMAGE_MIME_TYPES.has(mimeType)) {
+        if (!WORKSPACE_UPDATE_ALLOWED_IMAGE_MIME_TYPES.has(mimeType)) {
             return { success: false as const, error: "Unsupported image type. Use JPG, PNG, WebP, or GIF." };
         }
-        const sizeBytes = normalizeAndValidateFileSize(input.sizeBytes, PROJECT_UPDATE_MEDIA_MAX_BYTES, "Update image");
+        const sizeBytes = normalizeAndValidateFileSize(input.sizeBytes, WORKSPACE_UPDATE_MEDIA_MAX_BYTES, "Update image");
         const extension = projectUpdateImageExtensionFromMimeType(mimeType);
         const storageKey = `projects/${projectId}/update-media/${viewer.userId}/${Date.now()}-${randomUUID()}.${extension}`;
         const intent = await createUploadIntent({
             userId: viewer.userId,
             projectId,
-            bucket: PROJECT_UPDATE_MEDIA_BUCKET,
+            bucket: WORKSPACE_UPDATE_MEDIA_BUCKET,
             storageKey,
             scope: "project_update_media",
             kind: "file",
@@ -1384,7 +1384,7 @@ export async function createProjectUpdateMediaUploadUrlAction(projectId: string,
         });
         const admin = await createAdminClient();
         const { data, error } = await admin.storage
-            .from(PROJECT_UPDATE_MEDIA_BUCKET)
+            .from(WORKSPACE_UPDATE_MEDIA_BUCKET)
             .createSignedUploadUrl(storageKey, { upsert: false });
         if (error || !data?.signedUrl || !data?.token) {
             return { success: false as const, error: "Failed to prepare update image upload." };
@@ -1396,7 +1396,7 @@ export async function createProjectUpdateMediaUploadUrlAction(projectId: string,
             uploadIntentId: intent.id,
             operationId: intent.id,
             storagePath: storageKey,
-            bucket: PROJECT_UPDATE_MEDIA_BUCKET,
+            bucket: WORKSPACE_UPDATE_MEDIA_BUCKET,
             contentType: mimeType,
         };
     } catch (error) {
@@ -1409,7 +1409,7 @@ export async function createProjectUpdateMediaUploadUrlAction(projectId: string,
     }
 }
 
-export async function finalizeProjectUpdateMediaUploadAction(projectId: string, input: {
+export async function finalizeWorkspaceUpdateMediaUploadAction(projectId: string, input: {
     uploadIntentId?: string | null;
     altText?: string | null;
     label?: string | null;
@@ -1424,13 +1424,13 @@ export async function finalizeProjectUpdateMediaUploadAction(projectId: string, 
         if (!input.uploadIntentId) return { success: false as const, error: "Missing upload intent." };
         const intent = await finalizeUploadIntent({
             intentId: input.uploadIntentId,
-            bucket: PROJECT_UPDATE_MEDIA_BUCKET,
+            bucket: WORKSPACE_UPDATE_MEDIA_BUCKET,
             userId: viewer.userId,
             projectId,
             expectedScope: "project_update_media",
             expectedKind: "file",
         });
-        const media: ProjectUpdateMediaItem = {
+        const media: WorkspaceUpdateMediaItem = {
             type: "image",
             assetId: intent.assetId,
             url: projectUpdateMediaApplicationUrl(intent.bucket, intent.storageKey),
@@ -1468,7 +1468,7 @@ function futureDate(value: string | null | undefined) {
 }
 
 /** Org post rules (report §17.2–17.6): announcement and discussion types, audience, notify, pin, comments off, share up. */
-async function resolveOrgPostOptions(access: ProjectUpdateAccess, updateType: ProjectUpdateType | null, input: {
+async function resolveOrgPostOptions(access: ProjectUpdateAccess, updateType: WorkspaceUpdateType | null, input: {
     audience?: UpdateAudience | null;
     notifyLevel?: string | null;
     pin?: boolean;
@@ -1503,13 +1503,13 @@ async function resolveOrgPostOptions(access: ProjectUpdateAccess, updateType: Pr
     };
 }
 
-export async function createProjectUpdateAction(projectId: string, input: {
+export async function createWorkspaceUpdateAction(projectId: string, input: {
     content: string;
-    updateType?: ProjectUpdateType | string | null;
-    visibility?: ProjectUpdateVisibility | string | null;
-    replyPolicy?: ProjectUpdateReplyPolicy | string | null;
-    entityRefs?: ProjectUpdateEntityRefs | null;
-    media?: ProjectUpdateMediaItem[] | null;
+    updateType?: WorkspaceUpdateType | string | null;
+    visibility?: WorkspaceUpdateVisibility | string | null;
+    replyPolicy?: WorkspaceUpdateReplyPolicy | string | null;
+    entityRefs?: WorkspaceUpdateEntityRefs | null;
+    media?: WorkspaceUpdateMediaItem[] | null;
     /** Org options (report §17): admins only, except shareToOrg in child projects. */
     audience?: UpdateAudience | null;
     notifyLevel?: "in_app" | "email" | null;
@@ -1530,16 +1530,16 @@ export async function createProjectUpdateAction(projectId: string, input: {
         const access = await resolveProjectUpdateAccess(projectId, viewer.userId);
         if (!access.canCreate || !access.project) return { success: false as const, error: "You do not have permission to post project updates." };
 
-        const updateType = normalizeProjectUpdateType(input.updateType);
-        const visibility: ProjectUpdateVisibility = input.visibility === "members" ? "members" : "public";
+        const updateType = normalizeWorkspaceUpdateType(input.updateType);
+        const visibility: WorkspaceUpdateVisibility = input.visibility === "members" ? "members" : "public";
         const orgOptions = await resolveOrgPostOptions(access, updateType, input);
         if ("error" in orgOptions) return { success: false as const, error: orgOptions.error };
-        const replyPolicy: ProjectUpdateReplyPolicy = orgOptions.commentsOff ? "closed" : input.replyPolicy === "members" ? "members"
+        const replyPolicy: WorkspaceUpdateReplyPolicy = orgOptions.commentsOff ? "closed" : input.replyPolicy === "members" ? "members"
             : input.replyPolicy === "logged_in" ? "logged_in" : access.org?.kind === "org" ? access.org.replyDefault : "logged_in";
         const entityRefs = normalizeEntityRefs(input.entityRefs);
         const media = normalizeMedia(input.media);
-        const content = sanitizeProjectUpdateContent(input.content);
-        const hasReferences = normalizeProjectUpdateReferences(entityRefs.references).length > 0
+        const content = sanitizeWorkspaceUpdateContent(input.content);
+        const hasReferences = normalizeWorkspaceUpdateReferences(entityRefs.references).length > 0
             || Boolean(entityRefs.taskId || entityRefs.sprintId || entityRefs.fileId);
         const hasMedia = media.length > 0;
         if (!content && !hasReferences && !hasMedia) return { success: false as const, error: "Update cannot be empty." };
@@ -1591,7 +1591,7 @@ export async function createProjectUpdateAction(projectId: string, input: {
 
         const shouldNotifyFollowers = visibility === "public"
             && access.project.visibility === "public"
-            && shouldNotifyProjectUpdateFollowers({ content, entityRefs, media });
+            && shouldNotifyWorkspaceUpdateFollowers({ content, entityRefs, media });
         if (shouldNotifyFollowers) {
             try {
                 const actorName = viewer.profile?.fullName ?? viewer.profile?.username ?? null;
@@ -1600,7 +1600,7 @@ export async function createProjectUpdateAction(projectId: string, input: {
                     context: update?.context ?? null,
                     media,
                 });
-                await enqueueProjectNotificationEvent({
+                await enqueueWorkspaceNotificationEvent({
                     projectId,
                     actorUserId: viewer.userId,
                     actorName,
@@ -1623,7 +1623,7 @@ export async function createProjectUpdateAction(projectId: string, input: {
                         secondaryText: null,
                     },
                     sourceEventId: inserted.id,
-                    maxRecipients: PROJECT_UPDATE_PERFORMANCE_BUDGETS.fanoutSyncRecipients,
+                    maxRecipients: WORKSPACE_UPDATE_PERFORMANCE_BUDGETS.fanoutSyncRecipients,
                 });
             } catch (notifyError) {
                 logger.warn("project_updates.notification_failed", {
@@ -1658,7 +1658,7 @@ export async function createProjectUpdateAction(projectId: string, input: {
             count: content.length,
             status: shouldNotifyFollowers ? "notified" : "feed-only",
         });
-        if (durationMs > PROJECT_UPDATE_PERFORMANCE_BUDGETS.createMs) {
+        if (durationMs > WORKSPACE_UPDATE_PERFORMANCE_BUDGETS.createMs) {
             logger.warn("project_updates.create_budget_exceeded", {
                 module: "projects",
                 projectId,
@@ -1674,11 +1674,11 @@ export async function createProjectUpdateAction(projectId: string, input: {
     }
 }
 
-export async function editProjectUpdateAction(projectId: string, updateId: string, input: {
+export async function editWorkspaceUpdateAction(projectId: string, updateId: string, input: {
     content: string;
-    updateType?: ProjectUpdateType | string | null;
-    entityRefs?: ProjectUpdateEntityRefs | null;
-    media?: ProjectUpdateMediaItem[] | null;
+    updateType?: WorkspaceUpdateType | string | null;
+    entityRefs?: WorkspaceUpdateEntityRefs | null;
+    media?: WorkspaceUpdateMediaItem[] | null;
     /** Org announcements (report §17.4): an edit tells the audience again only when asked. */
     notifyAgain?: boolean;
 }) {
@@ -1687,10 +1687,10 @@ export async function editProjectUpdateAction(projectId: string, updateId: strin
         if (!viewer.userId) return { success: false as const, error: "Please log in to edit updates." };
         const access = await resolveProjectUpdateAccess(projectId, viewer.userId);
         if (!access.canRead || !access.project) return { success: false as const, error: "Project update unavailable." };
-        const content = sanitizeProjectUpdateContent(input.content);
+        const content = sanitizeWorkspaceUpdateContent(input.content);
         const entityRefs = normalizeEntityRefs(input.entityRefs);
         const media = normalizeMedia(input.media);
-        const hasReferences = normalizeProjectUpdateReferences(entityRefs.references).length > 0
+        const hasReferences = normalizeWorkspaceUpdateReferences(entityRefs.references).length > 0
             || Boolean(entityRefs.taskId || entityRefs.sprintId || entityRefs.fileId);
         const hasMedia = media.length > 0;
         if (!content && !hasReferences && !hasMedia) return { success: false as const, error: "Update cannot be empty." };
@@ -1734,7 +1734,7 @@ export async function editProjectUpdateAction(projectId: string, updateId: strin
                 .set({
                     content,
                     // An edit that leaves the type out keeps it, so an announcement stays one.
-                    ...(input.updateType === undefined ? {} : { updateType: normalizeProjectUpdateType(input.updateType) }),
+                    ...(input.updateType === undefined ? {} : { updateType: normalizeWorkspaceUpdateType(input.updateType) }),
                     entityRefs,
                     media,
                     editedAt: now,
@@ -1757,7 +1757,7 @@ export async function editProjectUpdateAction(projectId: string, updateId: strin
     }
 }
 
-export async function deleteProjectUpdateAction(projectId: string, updateId: string, reason?: string | null) {
+export async function deleteWorkspaceUpdateAction(projectId: string, updateId: string, reason?: string | null) {
     try {
         const viewer = await getViewerAuthContext();
         if (!viewer.userId) return { success: false as const, error: "Please log in to delete updates." };
@@ -1875,7 +1875,7 @@ async function pinSharedInOrgFeed(tx: Parameters<Parameters<typeof db.transactio
     return true;
 }
 
-export async function toggleProjectUpdatePinAction(projectId: string, updateId: string, pinned: boolean, pinnedUntil?: string | null) {
+export async function toggleWorkspaceUpdatePinAction(projectId: string, updateId: string, pinned: boolean, pinnedUntil?: string | null) {
     try {
         const viewer = await getViewerAuthContext();
         if (!viewer.userId) return { success: false as const, error: "Please log in to pin updates." };
@@ -1926,7 +1926,7 @@ export async function toggleProjectUpdatePinAction(projectId: string, updateId: 
     }
 }
 
-export async function toggleProjectUpdateLikeAction(projectId: string, updateId: string) {
+export async function toggleWorkspaceUpdateLikeAction(projectId: string, updateId: string) {
     try {
         const viewer = await getViewerAuthContext();
         if (!viewer.userId) return { success: false as const, error: "Please log in to like updates." };
@@ -1999,7 +1999,7 @@ type CommentRow = typeof projectUpdateComments.$inferSelect & {
     targetUsername: string | null;
 };
 
-function normalizeComment(row: CommentRow, access: ProjectUpdateAccess): ProjectUpdateCommentView {
+function normalizeComment(row: CommentRow, access: ProjectUpdateAccess): WorkspaceUpdateCommentView {
     const canModerate = access.canManage;
     const isAuthor = Boolean(access.viewerId && row.userId === access.viewerId);
     const deleted = Boolean(row.deletedAt);
@@ -2060,7 +2060,7 @@ async function assertReadableUpdate(projectId: string, updateId: string, access:
     return update ?? null;
 }
 
-export async function readProjectUpdateCommentsAction(projectId: string, updateId: string, cursor?: string | null) {
+export async function readWorkspaceUpdateCommentsAction(projectId: string, updateId: string, cursor?: string | null) {
     const startedAt = performance.now();
     try {
         const viewer = await getViewerAuthContext();
@@ -2116,7 +2116,7 @@ export async function readProjectUpdateCommentsAction(projectId: string, updateI
             hasMore: rows.length > COMMENTS_PAGE_SIZE,
             cursor: cursor ? "present" : "initial",
         });
-        if (durationMs > PROJECT_UPDATE_PERFORMANCE_BUDGETS.commentMs) {
+        if (durationMs > WORKSPACE_UPDATE_PERFORMANCE_BUDGETS.commentMs) {
             logger.warn("project_updates.comments_read_budget_exceeded", {
                 module: "projects",
                 projectId,
@@ -2139,7 +2139,7 @@ export async function readProjectUpdateCommentsAction(projectId: string, updateI
     }
 }
 
-export async function createProjectUpdateCommentAction(projectId: string, updateId: string, contentInput: string, parentId?: string | null) {
+export async function createWorkspaceUpdateCommentAction(projectId: string, updateId: string, contentInput: string, parentId?: string | null) {
     const startedAt = performance.now();
     try {
         const viewer = await getViewerProfileContext();
@@ -2154,7 +2154,7 @@ export async function createProjectUpdateCommentAction(projectId: string, update
         if (update.replyPolicy === "members" && !access.isOwner && !access.isMember) {
             return { success: false as const, error: "Only project members can comment on this update." };
         }
-        const content = sanitizeProjectUpdateContent(contentInput, 1_000);
+        const content = sanitizeWorkspaceUpdateContent(contentInput, 1_000);
         if (!content) return { success: false as const, error: "Comment cannot be empty." };
         const createdAt = new Date();
 
@@ -2207,7 +2207,7 @@ export async function createProjectUpdateCommentAction(projectId: string, update
             // 1. Notify target comment author if it's a reply
             if (targetUserId && targetUserId !== viewer.userId) {
                 try {
-                    await enqueueProjectNotificationEvent({
+                    await enqueueWorkspaceNotificationEvent({
                         projectId,
                         actorUserId: viewer.userId,
                         actorName,
@@ -2247,7 +2247,7 @@ export async function createProjectUpdateCommentAction(projectId: string, update
             // 2. Notify original update author
             if (update.authorId && update.authorId !== viewer.userId && update.authorId !== targetUserId) {
                 try {
-                    await enqueueProjectNotificationEvent({
+                    await enqueueWorkspaceNotificationEvent({
                         projectId,
                         actorUserId: viewer.userId,
                         actorName,
@@ -2324,7 +2324,7 @@ export async function createProjectUpdateCommentAction(projectId: string, update
             commentId: inserted.id,
             durationMs,
         });
-        if (durationMs > PROJECT_UPDATE_PERFORMANCE_BUDGETS.commentMs) {
+        if (durationMs > WORKSPACE_UPDATE_PERFORMANCE_BUDGETS.commentMs) {
             logger.warn("project_updates.comments_create_budget_exceeded", {
                 module: "projects",
                 projectId,
@@ -2340,7 +2340,7 @@ export async function createProjectUpdateCommentAction(projectId: string, update
     }
 }
 
-export async function deleteProjectUpdateCommentAction(projectId: string, commentId: string) {
+export async function deleteWorkspaceUpdateCommentAction(projectId: string, commentId: string) {
     try {
         const viewer = await getViewerAuthContext();
         if (!viewer.userId) return { success: false as const, error: "Please log in to delete comments." };
@@ -2381,7 +2381,7 @@ export async function deleteProjectUpdateCommentAction(projectId: string, commen
     }
 }
 
-export async function readProjectUpdateDraftAction(projectId: string) {
+export async function readWorkspaceUpdateDraftAction(projectId: string) {
     const auth = await getViewerAuthContext();
     if (!auth || !auth.userId) return { success: false, error: "Unauthorized" };
     const userId = auth.userId;
@@ -2407,13 +2407,13 @@ export async function readProjectUpdateDraftAction(projectId: string) {
     }
 }
 
-export async function saveProjectUpdateDraftAction(
+export async function saveWorkspaceUpdateDraftAction(
     projectId: string,
     input: {
         content: string;
         visibility: string;
-        entityRefs: ProjectUpdateEntityRefs;
-        media: ProjectUpdateMediaItem[];
+        entityRefs: WorkspaceUpdateEntityRefs;
+        media: WorkspaceUpdateMediaItem[];
         updateType: string | null;
     }
 ) {
@@ -2425,12 +2425,12 @@ export async function saveProjectUpdateDraftAction(
     if (!access.canCreate) return { success: false, error: "Not found" };
 
     try {
-        const content = sanitizeProjectUpdateContent(input.content, 2_200);
-        const visibility: ProjectUpdateVisibility = input.visibility === "members" ? "members" : "public";
-        const updateType = normalizeProjectUpdateType(input.updateType);
+        const content = sanitizeWorkspaceUpdateContent(input.content, 2_200);
+        const visibility: WorkspaceUpdateVisibility = input.visibility === "members" ? "members" : "public";
+        const updateType = normalizeWorkspaceUpdateType(input.updateType);
         const entityRefs = normalizeEntityRefs(input.entityRefs);
         const media = normalizeMedia(input.media);
-        const hasReferences = normalizeProjectUpdateReferences(entityRefs.references).length > 0
+        const hasReferences = normalizeWorkspaceUpdateReferences(entityRefs.references).length > 0
             || Boolean(entityRefs.taskId || entityRefs.sprintId || entityRefs.fileId || entityRefs.readmeVersionId || entityRefs.roleId || entityRefs.milestoneId);
         if (!content.trim() && !hasReferences && media.length === 0) {
             await db.transaction(async (tx) => {

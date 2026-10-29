@@ -8,16 +8,16 @@ import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { SettingsSwitch } from "@/components/settings/ui/SettingsSwitch";
 import { CollaboratorSearchField } from "./CollaboratorSearchField";
 import {
-  buildProjectFilePolicy,
-  getProjectMemberDisplayName,
-  getProjectMemberRoleLabel,
-  type ProjectSettingsMember,
+  buildWorkspaceFilePolicy,
+  getWorkspaceMemberDisplayName,
+  getWorkspaceMemberRoleLabel,
+  type WorkspaceSettingsMember,
 } from "@/lib/workspaces/settings-policies";
 import type { FilePermissionFilter } from "@/lib/workspaces/file-permission-pagination";
 
 export type FileAccessSettingsData = {
   members: Array<
-    ProjectSettingsMember & {
+    WorkspaceSettingsMember & {
       fileUploadEnabled: boolean;
       uploadPermissionLocked: boolean;
       uploadPermissionLabel: string;
@@ -63,7 +63,7 @@ export function FileAccessMembers({
     enabled: boolean,
   ) => void | Promise<void>;
   onBulkToggle: (enabled: boolean) => boolean | void | Promise<boolean | void>;
-  filePolicy: ReturnType<typeof buildProjectFilePolicy>;
+  filePolicy: ReturnType<typeof buildWorkspaceFilePolicy>;
   query: string;
   permissionFilter: FilePermissionFilter;
   onQueryChange: (query: string) => void;
@@ -138,7 +138,7 @@ export function FileAccessMembers({
       ) : null}
       <div className="divide-y divide-border">
         {members.map((member) => {
-          const displayName = getProjectMemberDisplayName(member);
+          const displayName = getWorkspaceMemberDisplayName(member);
           const saving = savingMemberId === member.id;
           return (
             <div
@@ -161,7 +161,7 @@ export function FileAccessMembers({
                     {displayName}
                   </p>
                   <p className="nb-compact text-muted-foreground">
-                    {getProjectMemberRoleLabel(
+                    {getWorkspaceMemberRoleLabel(
                       member.membershipRole ?? "member",
                     )}
                     {member.projectRoleTitle

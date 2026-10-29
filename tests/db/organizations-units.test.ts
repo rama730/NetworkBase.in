@@ -64,10 +64,10 @@ async function org(settings: Record<string, unknown> = {}): Promise<Org> {
 
 async function create(o: Org, as: string, extra: Record<string, unknown> = {}) {
   viewerId = as;
-  const result = await lifecycle.createProjectAction({
+  const result = await lifecycle.createWorkspaceAction({
     title: `Compiler Lab ${Math.random().toString(36).slice(2, 6)}`, description: "A tiny compiler for a C subset, built in weekly sprints.",
     project_type: "education", parent_org_id: o.id, ...extra,
-  } as unknown as Parameters<typeof lifecycle.createProjectAction>[0]);
+  } as unknown as Parameters<typeof lifecycle.createWorkspaceAction>[0]);
   viewerId = "";
   return result;
 }

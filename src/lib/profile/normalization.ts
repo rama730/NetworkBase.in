@@ -181,15 +181,15 @@ export type SocialLinkItem = {
     /** Resolved or owner-confirmed name of the exact profile/resource. */
     destinationLabel?: string;
     /** What this destination contributes to a project, independent of vendor. */
-    purpose?: ProjectLinkPurpose;
+    purpose?: WorkspaceLinkPurpose;
     /** Project members can keep operational destinations out of public surfaces. */
-    audience?: ProjectLinkAudience;
+    audience?: WorkspaceLinkAudience;
     /** Draft-only enrichment. Project write paths split this into derived metadata. */
-    metadata?: ProjectLinkMetadata;
+    metadata?: WorkspaceLinkMetadata;
     order?: number;
 };
 
-export const PROJECT_LINK_PURPOSES = [
+export const WORKSPACE_LINK_PURPOSES = [
     'live-product',
     'source-code',
     'documentation',
@@ -205,21 +205,21 @@ export const PROJECT_LINK_PURPOSES = [
     'other',
 ] as const;
 
-export type ProjectLinkPurpose = typeof PROJECT_LINK_PURPOSES[number];
-export type ProjectLinkAudience = 'public' | 'members';
-export type ProjectLinkNameSource = 'provider' | 'open_graph' | 'html_title' | 'url' | 'manual';
-export type ProjectLinkHealth = 'unknown' | 'active' | 'unavailable';
+export type WorkspaceLinkPurpose = typeof WORKSPACE_LINK_PURPOSES[number];
+export type WorkspaceLinkAudience = 'public' | 'members';
+export type WorkspaceLinkNameSource = 'provider' | 'open_graph' | 'html_title' | 'url' | 'manual';
+export type WorkspaceLinkHealth = 'unknown' | 'active' | 'unavailable';
 
-export type ProjectLinkMetadata = {
-    health: ProjectLinkHealth;
+export type WorkspaceLinkMetadata = {
+    health: WorkspaceLinkHealth;
     checkedAt?: string;
-    nameSource?: ProjectLinkNameSource;
+    nameSource?: WorkspaceLinkNameSource;
     fetchedAt?: string;
     resolvedHost?: string;
     contentType?: string;
 };
 
-export type ProjectLinkMetadataRecord = Record<string, ProjectLinkMetadata>;
+export type WorkspaceLinkMetadataRecord = Record<string, WorkspaceLinkMetadata>;
 
 export type SocialLinkStorage = Record<string, string> | SocialLinkItem[];
 
@@ -251,9 +251,9 @@ export function socialLinkItemsFromStorage(value: unknown): SocialLinkItem[] {
                 platform: typeof item.platform === 'string' ? item.platform : undefined,
                 label: typeof item.label === 'string' ? item.label : undefined,
                 destinationLabel: typeof item.destinationLabel === 'string' ? item.destinationLabel : undefined,
-                purpose: PROJECT_LINK_PURPOSES.includes(item.purpose as ProjectLinkPurpose) ? item.purpose as ProjectLinkPurpose : undefined,
+                purpose: WORKSPACE_LINK_PURPOSES.includes(item.purpose as WorkspaceLinkPurpose) ? item.purpose as WorkspaceLinkPurpose : undefined,
                 audience: item.audience === 'members' ? 'members' : item.audience === 'public' ? 'public' : undefined,
-                metadata: sanitizeProjectLinkMetadata(item.metadata),
+                metadata: sanitizeWorkspaceLinkMetadata(item.metadata),
                 order: typeof item.order === 'number' ? item.order : undefined,
             });
         }
@@ -314,9 +314,9 @@ export function validateSocialLinkCollection(links: unknown):
             platform: resolved.platform,
             ...(isGeneric && requestedLabel ? { label: requestedLabel } : {}),
             ...(destinationLabel ? { destinationLabel } : {}),
-            ...(item.purpose && PROJECT_LINK_PURPOSES.includes(item.purpose) ? { purpose: item.purpose } : {}),
+            ...(item.purpose && WORKSPACE_LINK_PURPOSES.includes(item.purpose) ? { purpose: item.purpose } : {}),
             audience: item.audience === 'members' ? 'members' : 'public',
-            ...(item.metadata ? { metadata: sanitizeProjectLinkMetadata(item.metadata) } : {}),
+            ...(item.metadata ? { metadata: sanitizeWorkspaceLinkMetadata(item.metadata) } : {}),
             order: normalized.length,
         });
     }
@@ -329,12 +329,12 @@ function safeMetadataTimestamp(value: unknown): string | undefined {
     return Number.isNaN(date.getTime()) ? undefined : date.toISOString();
 }
 
-export function sanitizeProjectLinkMetadata(value: unknown): ProjectLinkMetadata | undefined {
+export function sanitizeWorkspaceLinkMetadata(value: unknown): WorkspaceLinkMetadata | undefined {
     if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined;
     const input = value as Record<string, unknown>;
-    const health: ProjectLinkHealth = input.health === 'active' || input.health === 'unavailable' ? input.health : 'unknown';
+    const health: WorkspaceLinkHealth = input.health === 'active' || input.health === 'unavailable' ? input.health : 'unknown';
     const nameSource = ['provider', 'open_graph', 'html_title', 'url', 'manual'].includes(String(input.nameSource || ''))
-        ? input.nameSource as ProjectLinkNameSource
+        ? input.nameSource as WorkspaceLinkNameSource
         : undefined;
     const resolvedHost = typeof input.resolvedHost === 'string'
         ? input.resolvedHost.trim().toLowerCase().slice(0, 253)

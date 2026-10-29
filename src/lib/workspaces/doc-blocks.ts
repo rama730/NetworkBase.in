@@ -1,25 +1,25 @@
 /** "projects" is the org Projects block (report §19.5): the org's child projects, live. */
-export type ProjectDocReferenceKind = "roles" | "contributors" | "files" | "tasks" | "sprints" | "projects";
-export type ProjectDocSmartBlockKind = ProjectDocReferenceKind | "unknown";
+export type WorkspaceDocReferenceKind = "roles" | "contributors" | "files" | "tasks" | "sprints" | "projects";
+export type WorkspaceDocSmartBlockKind = WorkspaceDocReferenceKind | "unknown";
 
-export type ProjectDocSmartBlock = {
+export type WorkspaceDocSmartBlock = {
     raw: string;
-    kind: ProjectDocSmartBlockKind;
+    kind: WorkspaceDocSmartBlockKind;
     ids: string[];
     index: number;
 };
 
-export type ProjectDocInlineReference = {
+export type WorkspaceDocInlineReference = {
     raw: string;
-    kind: ProjectDocReferenceKind;
+    kind: WorkspaceDocReferenceKind;
     id: string;
     label: string;
     index: number;
 };
 
-export type ProjectDocReferenceOption = {
+export type WorkspaceDocReferenceOption = {
     id: string;
-    kind: ProjectDocReferenceKind;
+    kind: WorkspaceDocReferenceKind;
     title: string;
     kindLabel?: string | null;
     subtitle?: string | null;
@@ -32,13 +32,13 @@ export type ProjectDocReferenceOption = {
     href?: string | null;
 };
 
-export type ProjectDocSmartBlockPreview = {
+export type WorkspaceDocSmartBlockPreview = {
     key: string;
-    kind: ProjectDocSmartBlockKind;
+    kind: WorkspaceDocSmartBlockKind;
     title: string;
     description: string;
     href?: string | null;
-    items: ProjectDocReferenceOption[];
+    items: WorkspaceDocReferenceOption[];
     unavailableCount: number;
     safeUnavailable?: boolean;
 };
@@ -48,12 +48,12 @@ const INLINE_REFERENCE_REGEX = /\{%\s*ref\.([a-z_]+)\s+id="([^"]+)"(?:\s+label="
 const IDS_REGEX = /\bids\s*=\s*"([^"]+)"/i;
 const INLINE_REFERENCE_HREF_PREFIX = "/__readme-ref/";
 
-function fallbackReferenceLabel(kind: ProjectDocReferenceKind) {
+function fallbackReferenceLabel(kind: WorkspaceDocReferenceKind) {
     const singular = kind.endsWith("s") ? kind.slice(0, -1) : kind;
     return `${singular || "project"} reference`;
 }
 
-export function normalizeReadmeReferenceLabel(kind: ProjectDocReferenceKind, value: string | null | undefined) {
+export function normalizeReadmeReferenceLabel(kind: WorkspaceDocReferenceKind, value: string | null | undefined) {
     const clean = unescapeReadmeReferenceLabel(value ?? "").replace(/\s+/g, " ").trim();
     const fallback = fallbackReferenceLabel(kind);
     if (!clean || /^[a-f0-9-]{24,}$/i.test(clean)) return fallback;
@@ -105,14 +105,14 @@ export function normalizeReadmeReferenceLabel(kind: ProjectDocReferenceKind, val
     return clean;
 }
 
-function normalizeSmartBlockKind(value: string): ProjectDocSmartBlockKind {
+function normalizeSmartBlockKind(value: string): WorkspaceDocSmartBlockKind {
     if (value === "roles" || value === "contributors" || value === "files" || value === "tasks" || value === "sprints" || value === "projects") {
         return value;
     }
     return "unknown";
 }
 
-function normalizeReferenceKind(value: string): ProjectDocReferenceKind | null {
+function normalizeReferenceKind(value: string): WorkspaceDocReferenceKind | null {
     const kind = normalizeSmartBlockKind(value);
     return kind === "unknown" ? null : kind;
 }
@@ -121,11 +121,11 @@ export function unescapeReadmeReferenceLabel(value: string) {
     return value.replace(/&quot;/g, '"').replace(/\\\\/g, "\\").trim();
 }
 
-export function readmeReferenceHref(kind: ProjectDocReferenceKind, id: string) {
+export function readmeReferenceHref(kind: WorkspaceDocReferenceKind, id: string) {
     return `${INLINE_REFERENCE_HREF_PREFIX}${kind}/${id}`;
 }
 
-export function parseReadmeReferenceHref(value: string | null | undefined): { kind: ProjectDocReferenceKind; id: string } | null {
+export function parseReadmeReferenceHref(value: string | null | undefined): { kind: WorkspaceDocReferenceKind; id: string } | null {
     if (!value?.startsWith(INLINE_REFERENCE_HREF_PREFIX)) return null;
     const rest = value.slice(INLINE_REFERENCE_HREF_PREFIX.length);
     const [kindValue, id] = rest.split("/");
@@ -134,7 +134,7 @@ export function parseReadmeReferenceHref(value: string | null | undefined): { ki
     return { kind, id };
 }
 
-export function parseProjectDocSmartBlocks(content: string): ProjectDocSmartBlock[] {
+export function parseWorkspaceDocSmartBlocks(content: string): WorkspaceDocSmartBlock[] {
     return Array.from(content.matchAll(SMART_BLOCK_REGEX)).map((match, index) => {
         const raw = match[0];
         const kind = normalizeSmartBlockKind(match[1]?.toLowerCase() ?? "");
@@ -146,7 +146,7 @@ export function parseProjectDocSmartBlocks(content: string): ProjectDocSmartBloc
     });
 }
 
-export function parseProjectDocInlineReferences(content: string): ProjectDocInlineReference[] {
+export function parseWorkspaceDocInlineReferences(content: string): WorkspaceDocInlineReference[] {
     return Array.from(content.matchAll(INLINE_REFERENCE_REGEX)).flatMap((match, index) => {
         const raw = match[0];
         const kind = normalizeReferenceKind(match[1]?.toLowerCase() ?? "");
@@ -158,12 +158,12 @@ export function parseProjectDocInlineReferences(content: string): ProjectDocInli
 }
 
 export function splitMarkdownByInlineReferences(content: string) {
-    const references = parseProjectDocInlineReferences(content);
+    const references = parseWorkspaceDocInlineReferences(content);
     if (references.length === 0) return [{ kind: "markdown" as const, content }];
 
     const segments: Array<
         | { kind: "markdown"; content: string }
-        | { kind: "reference"; reference: ProjectDocInlineReference }
+        | { kind: "reference"; reference: WorkspaceDocInlineReference }
     > = [];
     let cursor = 0;
     for (const reference of references) {
@@ -177,7 +177,7 @@ export function splitMarkdownByInlineReferences(content: string) {
     return segments;
 }
 
-export function inlineReferencesToSmartBlocks(references: ProjectDocInlineReference[]): ProjectDocSmartBlock[] {
+export function inlineReferencesToSmartBlocks(references: WorkspaceDocInlineReference[]): WorkspaceDocSmartBlock[] {
     return references.map((reference, index) => ({
         raw: reference.raw,
         kind: reference.kind,
@@ -196,11 +196,11 @@ export function replaceInlineReadmeReferencesWithMarkdown(content: string) {
 }
 
 export function splitMarkdownBySmartBlocks(content: string) {
-    const blocks = parseProjectDocSmartBlocks(content);
+    const blocks = parseWorkspaceDocSmartBlocks(content);
     if (blocks.length === 0) return [{ kind: "markdown" as const, content }];
     const segments: Array<
         | { kind: "markdown"; content: string }
-        | { kind: "block"; block: ProjectDocSmartBlock }
+        | { kind: "block"; block: WorkspaceDocSmartBlock }
     > = [];
     let cursor = 0;
     for (const block of blocks) {

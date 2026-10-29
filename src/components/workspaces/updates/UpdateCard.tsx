@@ -22,7 +22,7 @@ import {
 } from "lucide-react";
 import { toast, feedbackError } from "@/lib/feedback";
 import { useToggleUpdateLike } from "@/hooks/useToggleUpdateLike";
-import { deleteProjectUpdateAction, editProjectUpdateAction, toggleProjectUpdatePinAction, type ProjectUpdateView } from "@/app/actions/workspace/updates";
+import { deleteWorkspaceUpdateAction, editWorkspaceUpdateAction, toggleWorkspaceUpdatePinAction, type WorkspaceUpdateView } from "@/app/actions/workspace/updates";
 import { Button } from "@/components/ui/button";
 import {
     DropdownMenu,
@@ -35,7 +35,7 @@ import { UserAvatar } from "@/components/ui/UserAvatar";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { cn } from "@/lib/utils";
 import { isUpdateCardControl, removeUpdate, updateAuthorName, updateContextItems, updatePages, updateRelativeTime, type UpdatesPage } from '@/components/workspaces/updates/update-helpers';
-import { ProjectUpdateContent, UpdateContextAndMedia } from '@/components/workspaces/updates/UpdateContent';
+import { WorkspaceUpdateContent, UpdateContextAndMedia } from '@/components/workspaces/updates/UpdateContent';
 
 function UpdateCard({
   projectId: feedProjectId,
@@ -50,7 +50,7 @@ function UpdateCard({
 }: {
   projectId: string;
   projectSlug?: string | null;
-  update: ProjectUpdateView;
+  update: WorkspaceUpdateView;
   updatesQueryKey: readonly unknown[];
   onHide: (updateId: string) => void;
   onOpenDetail: (updateId: string) => void;
@@ -82,7 +82,7 @@ function UpdateCard({
 
   const editMutation = useMutation({
     mutationFn: async () => {
-      const result = await editProjectUpdateAction(projectId, update.id, {
+      const result = await editWorkspaceUpdateAction(projectId, update.id, {
         content: draft,
         entityRefs: update.entityRefs,
         media: update.media,
@@ -112,12 +112,12 @@ function UpdateCard({
 
   const deleteMutation = useMutation({
     mutationFn: async () => {
-      let result = await deleteProjectUpdateAction(projectId, update.id);
+      let result = await deleteWorkspaceUpdateAction(projectId, update.id);
       // Removing someone else's post in an org needs a reason the author will see (report §17.4).
       if (!result.success && result.error?.startsWith("Say why")) {
         const reason = window.prompt(result.error);
         if (!reason?.trim()) throw new Error("Not removed: a reason is needed.");
-        result = await deleteProjectUpdateAction(projectId, update.id, reason);
+        result = await deleteWorkspaceUpdateAction(projectId, update.id, reason);
       }
       if (!result.success)
         throw new Error(result.error || "Failed to delete update");
@@ -141,7 +141,7 @@ function UpdateCard({
   const pinMutation = useMutation({
     mutationFn: async () => {
       // A shared post is pinned in the feed it is shown in (the org's), never in its own project (report §17.6).
-      const result = await toggleProjectUpdatePinAction(
+      const result = await toggleWorkspaceUpdatePinAction(
         update.fromProject ? feedProjectId : projectId,
         update.id,
         !update.isPinned,
@@ -357,7 +357,7 @@ function UpdateCard({
               </div>
             </div>
           ) : update.content.trim() ? (
-            <ProjectUpdateContent
+            <WorkspaceUpdateContent
               content={update.content}
               projectId={projectId}
               projectSlug={projectSlug}

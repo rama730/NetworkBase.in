@@ -4,15 +4,15 @@ import { DELIVERY_LEVEL_LABELS } from "@/lib/copy/terms";
 import { ChevronDown, Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
-  resolveProjectNotificationDecision,
-  type ProjectNotificationEventKey,
-  type ProjectNotificationGroupId,
-  type ProjectNotificationPolicy,
-  type ProjectNotificationRegistryEntry,
+  resolveWorkspaceNotificationDecision,
+  type WorkspaceNotificationEventKey,
+  type WorkspaceNotificationGroupId,
+  type WorkspaceNotificationPolicy,
+  type WorkspaceNotificationRegistryEntry,
 } from "@/lib/notifications/workspace-policy";
 import { SettingsSwitch } from "@/components/settings/ui/SettingsSwitch";
 
-export function ProjectNotificationCategoryCard({
+export function WorkspaceNotificationCategoryCard({
   group,
   policy,
   isExpanded,
@@ -21,23 +21,23 @@ export function ProjectNotificationCategoryCard({
   disabled,
 }: {
   group: {
-    id: ProjectNotificationGroupId;
+    id: WorkspaceNotificationGroupId;
     title: string;
     description: string;
-    entries: ProjectNotificationRegistryEntry[];
+    entries: WorkspaceNotificationRegistryEntry[];
   };
-  policy: ProjectNotificationPolicy;
+  policy: WorkspaceNotificationPolicy;
   isExpanded: boolean;
   onToggleExpand: () => void;
   onToggleRule: (
-    eventKey: ProjectNotificationEventKey,
+    eventKey: WorkspaceNotificationEventKey,
     enabled: boolean,
   ) => void;
   disabled: boolean;
 }) {
   const enabledCount = group.entries.filter(
     (entry) =>
-      resolveProjectNotificationDecision({
+      resolveWorkspaceNotificationDecision({
         eventKey: entry.key,
         projectPolicy: policy,
       }).enabled,
@@ -93,14 +93,14 @@ export function ProjectNotificationCategoryCard({
 }
 
 function formatProjectNotificationRecipients(
-  entry: ProjectNotificationRegistryEntry,
+  entry: WorkspaceNotificationRegistryEntry,
 ) {
   return entry.defaultRecipients
     .map((recipient) => recipient.replace(/_/g, " "))
     .join(", ");
 }
 function formatProjectNotificationAggregate(
-  entry: ProjectNotificationRegistryEntry,
+  entry: WorkspaceNotificationRegistryEntry,
 ) {
   if (entry.aggregate === "burst_10m") return "Grouped every 10 minutes";
   if (entry.aggregate === "digest_only") return DELIVERY_LEVEL_LABELS.digest;
@@ -112,12 +112,12 @@ function ProjectNotificationRuleRow({
   disabled,
   onToggle,
 }: {
-  entry: ProjectNotificationRegistryEntry;
-  policy: ProjectNotificationPolicy;
+  entry: WorkspaceNotificationRegistryEntry;
+  policy: WorkspaceNotificationPolicy;
   disabled: boolean;
-  onToggle: (eventKey: ProjectNotificationEventKey, enabled: boolean) => void;
+  onToggle: (eventKey: WorkspaceNotificationEventKey, enabled: boolean) => void;
 }) {
-  const decision = resolveProjectNotificationDecision({
+  const decision = resolveWorkspaceNotificationDecision({
     eventKey: entry.key,
     projectPolicy: policy,
   });

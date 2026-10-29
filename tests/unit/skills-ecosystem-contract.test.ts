@@ -52,12 +52,12 @@ describe('skills ecosystem contract', () => {
         const project = projectActionsSource()
         const collaboration = source('src/lib/profile/collaboration.ts')
 
-        for (const functionName of ['syncProfileSkills', 'syncProjectSkills', 'syncRoleSkills', 'syncContributionSkills']) {
+        for (const functionName of ['syncProfileSkills', 'syncWorkspaceSkills', 'syncRoleSkills', 'syncContributionSkills']) {
             assert.match(service, new RegExp(`export async function ${functionName}`))
         }
         assert.match(profile, /syncProfileSkills/)
         assert.match(onboarding, /syncProfileSkills/)
-        assert.match(project, /syncProjectSkills/)
+        assert.match(project, /syncWorkspaceSkills/)
         assert.match(project, /syncRoleSkills/)
         assert.match(collaboration, /syncContributionSkills/)
     })

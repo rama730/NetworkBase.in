@@ -15,14 +15,14 @@ test("all recruitment entry points use the Invite members surface", () => {
     const guidance = source("src/app/actions/workspace/guidance.ts");
 
     assert.match(composer, /mode\?: "invite" \| "apply"/);
-    assert.match(composer, /createProjectInvitationAction/);
+    assert.match(composer, /createWorkspaceInvitationAction/);
     assert.match(composer, /applyToRoleAction/);
     assert.match(composer, /Search connections or people/);
     assert.match(composer, /Invite as mentor/);
     assert.match(composer, /query\.length < 2/);
     assert.match(composer, /recruitment-application-draft:v2:\$\{user\?\.id/);
     assert.match(composer, /crypto\.subtle\.digest\("SHA-256"/);
-    assert.match(composer, /getProjectGuidancePreflightAction/);
+    assert.match(composer, /getWorkspaceGuidancePreflightAction/);
     assert.match(composer, /queryLengthBucket/);
     assert.match(composer, /searchCache/);
     assert.match(composer, /guidancePreflightCache/);
@@ -36,7 +36,7 @@ test("all recruitment entry points use the Invite members surface", () => {
     assert.match(composer, /absolute inset-x-0 top-full/);
     assert.doesNotMatch(composer, /selectedProjectId && !showProjectPicker/);
     assert.doesNotMatch(composer, /<select ref=\{projectSelectRef\}/);
-    assert.match(guidance, /export async function getProjectGuidancePreflightAction/);
+    assert.match(guidance, /export async function getWorkspaceGuidancePreflightAction/);
     assert.match(guidance, /project\.ownerId !== user\.id/);
     assert.match(guidance, /notExists\(db/);
     assert.match(applicationEntry, /InviteCollaboratorModal[\s\S]*mode="apply"/);
@@ -49,7 +49,7 @@ test("application entry points exclude existing project members", () => {
     const dashboard = source("src/components/workspaces/dashboard/WorkspaceDashboardClient.tsx");
 
     // The viewer to exclude comes from the session, never from the caller (COR-044).
-    assert.match(profilePage, /getProfileProjectsWithOpenRolesAction\(data\.profile\.id\)/);
+    assert.match(profilePage, /getProfileWorkspacesWithOpenRolesAction\(data\.profile\.id\)/);
     assert.match(projectAction, /const \{ userId: excludeMemberUserId \} = await getViewerAuthContext\(\)/);
     assert.match(projectAction, /NOT EXISTS \([\s\S]*project_members AS excluded_member/);
     assert.match(dashboard, /Workspace members cannot apply for an additional role/);
@@ -57,7 +57,7 @@ test("application entry points exclude existing project members", () => {
 
 test("recruitment search preserves the rate limit for incomplete queries and filters members in SQL", () => {
     const guidance = source("src/app/actions/workspace/guidance.ts");
-    const search = guidance.slice(guidance.indexOf("export async function searchProjectInviteCandidatesAction"));
+    const search = guidance.slice(guidance.indexOf("export async function searchWorkspaceInviteCandidatesAction"));
 
     assert.ok(search.indexOf('if (query && query.length < 2)') < search.indexOf('consumeRateLimit'));
     assert.match(search, /isNotProjectMember = notExists/);
@@ -85,7 +85,7 @@ test("guidance invitations use the existing Open Roles invitation lifecycle", ()
     assert.match(statusAction, /invitationKind: durableInvitation\.kind/);
     assert.match(statusAction, /invitationId: durableInvitation\.id/);
     assert.match(statusAction, /guidanceLabel \|\| "Mentor"/);
-    assert.match(dashboard, /resolveProjectInvitationAction/);
+    assert.match(dashboard, /resolveWorkspaceInvitationAction/);
     assert.match(dashboard, /applicationStatus\.invitationId/);
     assert.doesNotMatch(dashboard, /rolesWithFilled\.length === 0\) return/);
     assert.match(openRoles, /applicationStatus\.invitationKind === "guidance_appointment"/);

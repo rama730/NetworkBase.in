@@ -11,7 +11,7 @@ import { publicPersonSkillsSql } from "@/lib/network/person-filter-sql";
 import { readPersonCardDetails } from "@/lib/network/person-card-read";
 import type { PersonCardIdentity } from "@/lib/network/person-card";
 import { logger } from "@/lib/logger";
-import { canReviewProjectSql } from "@/lib/applications/reviewers";
+import { canReviewWorkspaceSql } from "@/lib/applications/reviewers";
 
 export type NetworkInvitation = {
   id: string;
@@ -138,7 +138,7 @@ export async function readNetworkInvitationsAction(
                 FROM role_applications a JOIN projects p ON p.id=a.project_id LEFT JOIN project_open_roles r ON r.id=a.role_id
                     LEFT JOIN chat_channels ch ON ch.application_id=a.id
                 WHERE a.status IN ('accepted','rejected','withdrawn') AND a.updated_at>now()-interval '30 days'
-                    AND ${canReviewProjectSql(user.id, sql`a.project_id`)}` : sql`
+                    AND ${canReviewWorkspaceSql(user.id, sql`a.project_id`)}` : sql`
                 SELECT c.id,'connection'::text AS source,CASE WHEN c.requester_id=${user.id}::uuid THEN 'sent' ELSE 'received' END AS direction,
                     c.created_at,c.message AS note,NULL::uuid AS project_id,NULL::text AS project_title,NULL::text AS project_slug,NULL::text AS role_title,
                     NULL::text AS application_status,NULL::text AS decision_reason,NULL::uuid AS channel_id,NULL::text AS decision_code,NULL::jsonb AS details,
@@ -155,7 +155,7 @@ export async function readNetworkInvitationsAction(
                 SELECT a.id,'application','received',${pendingApplicationDate},a.message,a.project_id,p.title,p.slug,coalesce(r.title,r.role,'Role removed'),NULL,NULL,ch.id,NULL,a.details,a.applicant_id
                 FROM role_applications a JOIN projects p ON p.id=a.project_id LEFT JOIN project_open_roles r ON r.id=a.role_id
                     LEFT JOIN chat_channels ch ON ch.application_id=a.id
-                WHERE a.status='pending' AND ${canReviewProjectSql(user.id, sql`a.project_id`)}
+                WHERE a.status='pending' AND ${canReviewWorkspaceSql(user.id, sql`a.project_id`)}
                 UNION ALL
                 SELECT a.id,'application','sent',${applicationActivityDate},a.message,a.project_id,p.title,p.slug,coalesce(r.title,r.role,'Role removed'),
                     a.status::text,a.decision_reason_text,ch.id,a.decision_reason_code,NULL,p.owner_id

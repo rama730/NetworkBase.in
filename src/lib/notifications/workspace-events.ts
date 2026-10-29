@@ -9,13 +9,13 @@ import {
 } from "@/lib/db/schema";
 import { logger } from "@/lib/logger";
 import {
-    PROJECT_NOTIFICATION_EVENT_REGISTRY,
-    normalizeProjectMemberNotificationOverrides,
-    normalizeProjectNotificationPolicy,
-    resolveProjectNotificationDecision,
-    type ProjectMemberNotificationOverrides,
-    type ProjectNotificationEventKey,
-    type ProjectNotificationRecipientGroup,
+    WORKSPACE_NOTIFICATION_EVENT_REGISTRY,
+    normalizeWorkspaceMemberNotificationOverrides,
+    normalizeWorkspaceNotificationPolicy,
+    resolveWorkspaceNotificationDecision,
+    type WorkspaceMemberNotificationOverrides,
+    type WorkspaceNotificationEventKey,
+    type WorkspaceNotificationRecipientGroup,
 } from "@/lib/notifications/workspace-policy";
 import { emitNotificationWrites } from "@/lib/notifications/fanout";
 import type {
@@ -34,12 +34,12 @@ type ProjectNotificationRecipientContext = {
     directRecipientIds?: string[] | null;
 };
 
-export type EnqueueProjectNotificationEventInput = ProjectNotificationRecipientContext & {
+export type EnqueueWorkspaceNotificationEventInput = ProjectNotificationRecipientContext & {
     projectId: string;
     actorUserId?: string | null;
     actorName?: string | null;
     actorAvatarUrl?: string | null;
-    eventKey: ProjectNotificationEventKey;
+    eventKey: WorkspaceNotificationEventKey;
     title?: string | null;
     body?: string | null;
     href?: string | null;
@@ -72,13 +72,13 @@ function displayProjectTitle(project: ProjectRow) {
     return project.title || "Workspace";
 }
 
-function actorLabel(input: EnqueueProjectNotificationEventInput) {
+function actorLabel(input: EnqueueWorkspaceNotificationEventInput) {
     return input.actorName || "Someone";
 }
 
-function titleFor(input: EnqueueProjectNotificationEventInput, project: ProjectRow) {
+function titleFor(input: EnqueueWorkspaceNotificationEventInput, project: ProjectRow) {
     if (input.title?.trim()) return input.title.trim();
-    const entry = PROJECT_NOTIFICATION_EVENT_REGISTRY[input.eventKey];
+    const entry = WORKSPACE_NOTIFICATION_EVENT_REGISTRY[input.eventKey];
     switch (input.eventKey) {
         case "members.joined":
             return `${actorLabel(input)} joined ${displayProjectTitle(project)}`;
@@ -130,10 +130,10 @@ function titleFor(input: EnqueueProjectNotificationEventInput, project: ProjectR
     }
 }
 
-function defaultHref(input: EnqueueProjectNotificationEventInput, project: ProjectRow) {
+function defaultHref(input: EnqueueWorkspaceNotificationEventInput, project: ProjectRow) {
     if (input.href !== undefined) return input.href;
     const slugOrId = project.slug || project.id;
-    switch (PROJECT_NOTIFICATION_EVENT_REGISTRY[input.eventKey].group) {
+    switch (WORKSPACE_NOTIFICATION_EVENT_REGISTRY[input.eventKey].group) {
         case "files_workspace":
             return `/workspaces/${encodeURIComponent(slugOrId)}?tab=files`;
         case "readme":
@@ -151,20 +151,20 @@ function defaultHref(input: EnqueueProjectNotificationEventInput, project: Proje
     }
 }
 
-function previewFor(input: EnqueueProjectNotificationEventInput, project: ProjectRow): NotificationPreview | null {
+function previewFor(input: EnqueueWorkspaceNotificationEventInput, project: ProjectRow): NotificationPreview | null {
     if (input.preview) return input.preview;
     return {
         actorName: input.actorName ?? null,
         actorAvatarUrl: input.actorAvatarUrl ?? null,
         contextLabel: displayProjectTitle(project),
         contextKind: "project",
-        secondaryText: PROJECT_NOTIFICATION_EVENT_REGISTRY[input.eventKey].label,
+        secondaryText: WORKSPACE_NOTIFICATION_EVENT_REGISTRY[input.eventKey].label,
     };
 }
 
-async function normalizeProjectNotificationActor(input: EnqueueProjectNotificationEventInput) {
+async function normalizeProjectNotificationActor(input: EnqueueWorkspaceNotificationEventInput) {
     if (!input.actorUserId) return input;
-    const actor = await readProjectNotificationActorSnapshot(input.actorUserId);
+    const actor = await readWorkspaceNotificationActorSnapshot(input.actorUserId);
     const actorName = actor.actorName ?? input.actorName ?? input.preview?.actorName ?? null;
     const actorAvatarUrl = actor.actorAvatarUrl ?? input.actorAvatarUrl ?? input.preview?.actorAvatarUrl ?? null;
     return {
@@ -183,7 +183,7 @@ function uniqueIds(values: Array<string | null | undefined>) {
 
 function addGroupRecipients(params: {
     ids: Set<string>;
-    group: ProjectNotificationRecipientGroup;
+    group: WorkspaceNotificationRecipientGroup;
     project: ProjectRow;
     members: MemberRow[];
     input: ProjectNotificationRecipientContext;
@@ -227,13 +227,13 @@ function addGroupRecipients(params: {
     }
 }
 
-function bucketForAggregate(eventKey: ProjectNotificationEventKey, now = new Date()) {
-    const entry = PROJECT_NOTIFICATION_EVENT_REGISTRY[eventKey];
+function bucketForAggregate(eventKey: WorkspaceNotificationEventKey, now = new Date()) {
+    const entry = WORKSPACE_NOTIFICATION_EVENT_REGISTRY[eventKey];
     if (entry.aggregate !== "burst_10m") return null;
     return Math.floor(now.getTime() / (10 * 60 * 1000)).toString(36);
 }
 
-function dedupeKeyFor(input: EnqueueProjectNotificationEventInput, recipientUserId: string) {
+function dedupeKeyFor(input: EnqueueWorkspaceNotificationEventInput, recipientUserId: string) {
     const bucket = bucketForAggregate(input.eventKey);
     const source = bucket
         ? `burst:${bucket}`
@@ -241,12 +241,12 @@ function dedupeKeyFor(input: EnqueueProjectNotificationEventInput, recipientUser
     return `project:${input.projectId}:${input.eventKey}:${source}:${recipientUserId}`;
 }
 
-export async function resolveProjectNotificationRecipients(params: {
+export async function resolveWorkspaceNotificationRecipients(params: {
     projectId: string;
-    eventKey: ProjectNotificationEventKey;
+    eventKey: WorkspaceNotificationEventKey;
     input?: ProjectNotificationRecipientContext;
 }) {
-    const entry = PROJECT_NOTIFICATION_EVENT_REGISTRY[params.eventKey];
+    const entry = WORKSPACE_NOTIFICATION_EVENT_REGISTRY[params.eventKey];
     const [project] = await db
         .select({
             id: projects.id,
@@ -291,13 +291,13 @@ export async function resolveProjectNotificationRecipients(params: {
 }
 
 function buildProjectNotificationWrites(params: {
-    input: EnqueueProjectNotificationEventInput;
+    input: EnqueueWorkspaceNotificationEventInput;
     project: ProjectRow;
     members: MemberRow[];
     followerIds: string[];
 }) {
     const { input, project, members, followerIds } = params;
-    const entry = PROJECT_NOTIFICATION_EVENT_REGISTRY[input.eventKey];
+    const entry = WORKSPACE_NOTIFICATION_EVENT_REGISTRY[input.eventKey];
     const recipientSet = new Set<string>();
     for (const group of entry.defaultRecipients) {
         addGroupRecipients({ ids: recipientSet, group, project, members, input });
@@ -322,10 +322,10 @@ function buildProjectNotificationWrites(params: {
     }
 
     const actorId = input.actorUserId ?? null;
-    const projectPolicy = normalizeProjectNotificationPolicy(project.notificationPreferences);
-    const overridesByUser = new Map<string, ProjectMemberNotificationOverrides>();
+    const projectPolicy = normalizeWorkspaceNotificationPolicy(project.notificationPreferences);
+    const overridesByUser = new Map<string, WorkspaceMemberNotificationOverrides>();
     members.forEach((member) => {
-        overridesByUser.set(member.userId, normalizeProjectMemberNotificationOverrides(member.notificationPreferences));
+        overridesByUser.set(member.userId, normalizeWorkspaceMemberNotificationOverrides(member.notificationPreferences));
     });
 
     const writes: NotificationFanoutWrite[] = [];
@@ -336,7 +336,7 @@ function buildProjectNotificationWrites(params: {
         input.eventKey === "members.ownership_transferred";
     for (const recipientUserId of cappedRecipientIds) {
         if (!recipientUserId || (recipientUserId === actorId && !canNotifyActor)) continue;
-        const decision = resolveProjectNotificationDecision({
+        const decision = resolveWorkspaceNotificationDecision({
             eventKey: input.eventKey,
             projectPolicy,
             memberOverrides: overridesByUser.get(recipientUserId) ?? null,
@@ -377,8 +377,8 @@ function buildProjectNotificationWrites(params: {
  * notification fanout. Callers that already hold several linked task events
  * should use this owner instead of repeating the project policy queries.
  */
-export async function enqueueProjectNotificationEvents(
-    sourceInputs: EnqueueProjectNotificationEventInput[],
+export async function enqueueWorkspaceNotificationEvents(
+    sourceInputs: EnqueueWorkspaceNotificationEventInput[],
     options?: { actorName?: string | null; actorAvatarUrl?: string | null },
 ) {
     if (sourceInputs.length === 0) return { enqueued: 0 };
@@ -407,7 +407,7 @@ export async function enqueueProjectNotificationEvents(
             }
             : input.preview,
     }));
-    const { project, members } = await resolveProjectNotificationRecipients({
+    const { project, members } = await resolveWorkspaceNotificationRecipients({
         projectId,
         eventKey: inputs[0]!.eventKey,
         input: inputs[0],
@@ -415,7 +415,7 @@ export async function enqueueProjectNotificationEvents(
     if (!project) return { enqueued: 0 };
 
     const needsFollowers = project.visibility === "public" && inputs.some((input) =>
-        PROJECT_NOTIFICATION_EVENT_REGISTRY[input.eventKey].defaultRecipients.includes("followers"),
+        WORKSPACE_NOTIFICATION_EVENT_REGISTRY[input.eventKey].defaultRecipients.includes("followers"),
     );
     const followerIds = needsFollowers
         ? (await db
@@ -445,11 +445,11 @@ export async function enqueueProjectNotificationEvents(
     return result;
 }
 
-export async function enqueueProjectNotificationEvent(sourceInput: EnqueueProjectNotificationEventInput) {
-    return enqueueProjectNotificationEvents([sourceInput]);
+export async function enqueueWorkspaceNotificationEvent(sourceInput: EnqueueWorkspaceNotificationEventInput) {
+    return enqueueWorkspaceNotificationEvents([sourceInput]);
 }
 
-export async function readProjectNotificationActorSnapshot(userId: string | null | undefined) {
+export async function readWorkspaceNotificationActorSnapshot(userId: string | null | undefined) {
     if (!userId) return { actorName: null, actorAvatarUrl: null };
     const [profile] = await db
         .select({

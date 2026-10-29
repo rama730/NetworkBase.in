@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import { History } from "lucide-react";
-import { type ProjectUpdateView } from "@/app/actions/workspace/updates";
+import { type WorkspaceUpdateView } from "@/app/actions/workspace/updates";
 import { UserAvatar } from "@/components/ui/UserAvatar";
 import { updateAuthorName, updateAuthorRoleLabel, updateRelativeTime } from '@/components/workspaces/updates/update-helpers';
 
@@ -10,12 +10,12 @@ export function UpdatesRightRail({
   updates,
   onOpenDetail,
 }: {
-  updates: ProjectUpdateView[];
+  updates: WorkspaceUpdateView[];
   onOpenDetail: (updateId: string) => void;
 }) {
   const postingMembers = useMemo(
     () => {
-      const latestByAuthor = new Map<string, ProjectUpdateView>();
+      const latestByAuthor = new Map<string, WorkspaceUpdateView>();
       updates
         .filter((update) => !update.deletedAt)
         .forEach((update) => {

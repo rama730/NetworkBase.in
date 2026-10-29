@@ -5,7 +5,7 @@ import { describe, it } from "node:test";
 import {
   assertStorageQuotaAdmission,
   MAX_OUTSTANDING_UPLOADS_PER_USER,
-  PROJECT_STORAGE_LIMIT_BYTES,
+  WORKSPACE_STORAGE_LIMIT_BYTES,
   StorageQuotaError,
   USER_STORAGE_LIMIT_BYTES,
 } from "../../src/lib/storage/storage-quota";
@@ -13,7 +13,7 @@ import {
 describe("storage quota admission", () => {
   it("defines the agreed personal and project limits", () => {
     assert.equal(USER_STORAGE_LIMIT_BYTES, 1024 ** 3);
-    assert.equal(PROJECT_STORAGE_LIMIT_BYTES, 10 * 1024 ** 3);
+    assert.equal(WORKSPACE_STORAGE_LIMIT_BYTES, 10 * 1024 ** 3);
   });
 
   it("reconciliation preserves reservations until physical deletion", () => {

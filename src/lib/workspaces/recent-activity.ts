@@ -1,8 +1,8 @@
-export type ProjectRecentActivityType = "member" | "task" | "file" | "github";
+export type WorkspaceRecentActivityType = "member" | "task" | "file" | "github";
 
-export type ProjectRecentActivityItem = {
+export type WorkspaceRecentActivityItem = {
   id: string;
-  type: ProjectRecentActivityType;
+  type: WorkspaceRecentActivityType;
   text: string;
   occurredAt: string;
   href: string;
@@ -17,7 +17,7 @@ export function recentActivityAudience(isMember: boolean, tabs: { tasks: boolean
   };
 }
 
-export function newestProjectActivities(items: ProjectRecentActivityItem[], limit = 3) {
+export function newestWorkspaceActivities(items: WorkspaceRecentActivityItem[], limit = 3) {
   const seen = new Set<string>();
   return items.slice()
     .sort((a, b) => Date.parse(b.occurredAt) - Date.parse(a.occurredAt) || a.id.localeCompare(b.id))

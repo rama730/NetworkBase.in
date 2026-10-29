@@ -13,7 +13,7 @@ import {
 } from "@/lib/db/schema";
 import { and, eq, sql, desc } from "drizzle-orm";
 import {
-  assertProjectFileReadAccess,
+  assertWorkspaceFileReadAccess,
   visibleFileNodesSql,
 } from "@/lib/files/internal-helpers";
 import { z } from "zod";
@@ -33,7 +33,7 @@ export async function GET(request: Request) {
     if (!parsed.success)
       return jsonError("Invalid operation query", 400, "BAD_REQUEST");
     const { projectId, operationId } = parsed.data;
-    const access = await assertProjectFileReadAccess(projectId, auth.user.id);
+    const access = await assertWorkspaceFileReadAccess(projectId, auth.user.id);
     // Receipts come from the committed event, not a guess based on today's file bytes.
     const rows = await db
       .select({

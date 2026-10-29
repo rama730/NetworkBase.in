@@ -21,7 +21,7 @@ test("workspace updates tab eliminates duplicate header and redundant cards, ren
     // 2. Extract updates section block
     const updatesBlock =
         settingsTab.split('id="project-settings-updates"')[1]?.split('id="project-settings-tasks-workflow"')[0] ?? "";
-    assert.ok(updatesBlock.length > 0, "updates settings block must exist in ProjectSettingsTab");
+    assert.ok(updatesBlock.length > 0, "updates settings block must exist in WorkspaceSettingsTab");
 
     // 3. Redundant SummaryCard, fragmented split cards, and outer AdvancedDisclosure removed
     assert.doesNotMatch(
@@ -137,6 +137,6 @@ test("project dashboard client enforces memberUpdatesEnabled permission for auth
     assert.match(
         dashboardClient,
         /canCreateUpdates[\s\S]*?memberUpdatesEnabled/,
-        "canCreateUpdates in ProjectDashboardClient must enforce memberUpdatesEnabled permission",
+        "canCreateUpdates in WorkspaceDashboardClient must enforce memberUpdatesEnabled permission",
     );
 });

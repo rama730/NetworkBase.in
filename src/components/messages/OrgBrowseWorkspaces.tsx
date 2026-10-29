@@ -4,21 +4,21 @@ import { useState } from "react";
 import { Compass } from "lucide-react";
 
 import { joinChannel } from "@/app/actions/chat/channels";
-import { browseOrgProjectChannelsAction, type BrowseProjectRow } from "@/app/actions/org-chat";
+import { browseOrgWorkspaceChannelsAction, type BrowseWorkspaceRow } from "@/app/actions/org-chat";
 import { toast } from "@/lib/feedback";
 
 /** Browse projects (report §25.1, §25.3): org admins open any child project's channel, mentions only. */
-export function OrgBrowseProjects({ orgId, onOpen, onJoined }: { orgId: string; onOpen: (channelId: string) => void; onJoined: () => void }) {
-  const [rows, setRows] = useState<BrowseProjectRow[] | null>(null);
+export function OrgBrowseWorkspaces({ orgId, onOpen, onJoined }: { orgId: string; onOpen: (channelId: string) => void; onJoined: () => void }) {
+  const [rows, setRows] = useState<BrowseWorkspaceRow[] | null>(null);
   const [open, setOpen] = useState(false);
   const toggle = async () => {
     setOpen((v) => !v);
     if (!rows) {
-      const result = await browseOrgProjectChannelsAction(orgId);
+      const result = await browseOrgWorkspaceChannelsAction(orgId);
       setRows(result.success ? result.rows : []);
     }
   };
-  const openProject = async (row: BrowseProjectRow) => {
+  const openProject = async (row: BrowseWorkspaceRow) => {
     if (!row.channelId) return;
     if (!row.joined) {
       const result = await joinChannel({ channelId: row.channelId });

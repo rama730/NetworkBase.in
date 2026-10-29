@@ -6,7 +6,7 @@ import { z } from 'zod';
 
 import { db } from '@/lib/db';
 import { profiles, projects, projectSprints, projectWorkflowColumns, taskActivityEvents, taskTeamMembers, tasks } from '@/lib/db/schema';
-import { getProjectAccessById, writeBlockedMessage } from '@/lib/data/workspace-access';
+import { getWorkspaceAccessById, writeBlockedMessage } from '@/lib/data/workspace-access';
 import { createClient } from '@/lib/supabase/server';
 import { canStillSubmit, copyState, type AssignmentSettings, type AssignmentTarget, type CopyState } from '@/lib/organizations/assignment-rules';
 import { createCopies, createMasterTask, resolveRecipients } from '@/lib/organizations/assignments';
@@ -31,7 +31,7 @@ async function viewerId() {
 async function orgRole(orgId: string, mode: 'read' | 'write' = 'write') {
     const userId = await viewerId();
     if (!userId) return null;
-    const access = await getProjectAccessById(orgId, userId);
+    const access = await getWorkspaceAccessById(orgId, userId);
     if (mode === 'write' && access.writeBlocked) return null;
     if (access.project?.kind !== 'organization') return null;
     const role = access.isOwner ? 'owner' : access.memberRole;
@@ -228,7 +228,7 @@ export async function submitAssignmentAction(copyId: string, input: z.input<type
     const [teammate] = await db.select({ userId: taskTeamMembers.userId }).from(taskTeamMembers).where(and(eq(taskTeamMembers.taskId, copyId), eq(taskTeamMembers.userId, userId))).limit(1);
     if (copy.assigneeId !== userId && !teammate) return DENIED;
     if (copy.excusedAt) return { success: false, error: "You’re excused from this one." };
-    const copyAccess = await getProjectAccessById(copy.projectId, userId);
+    const copyAccess = await getWorkspaceAccessById(copy.projectId, userId);
     if (copyAccess.writeBlocked) return { success: false, error: writeBlockedMessage(copyAccess.writeBlocked) };
     if (!canStillSubmit(master.settings, copy.dueDate)) return { success: false, error: master.settings.closedAt ? 'This assignment is closed.' : 'Late submissions are not accepted.' };
     const { link, text } = parsed.data;
@@ -473,9 +473,9 @@ export async function readAssignmentComposerOptionsAction(orgId: string) {
 export type GroupCopyRow = { copyId: string; title: string; orgTitle: string; dueDate: string | null; state: CopyState; late: boolean; submissionType: string; canSubmit: boolean };
 
 /** A child project's group assignment copies, "From CSE-3A" (report §16.6), with Submit for whoever holds them. */
-export async function listProjectGroupCopiesAction(projectId: string): Promise<{ success: true; rows: GroupCopyRow[] } | Failure> {
+export async function listWorkspaceGroupCopiesAction(projectId: string): Promise<{ success: true; rows: GroupCopyRow[] } | Failure> {
     const userId = await viewerId();
-    const access = await getProjectAccessById(projectId, userId);
+    const access = await getWorkspaceAccessById(projectId, userId);
     if (!access.project?.parentId || !(access.isOwner || access.isMember || access.isInheritedAdmin)) return { success: true, rows: [] };
     const copies = await db.select({
         id: tasks.id, assigneeId: tasks.assigneeId, status: tasks.status, reviewStatus: tasks.reviewStatus, dueDate: tasks.dueDate,

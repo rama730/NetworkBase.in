@@ -1,6 +1,6 @@
 import { isLooseUuid } from "@/lib/validations/uuid";
 
-export type ProjectDetailMetadataSource = {
+export type WorkspaceDetailMetadataSource = {
   slug?: string | null;
   title?: string | null;
   shortDescription?: string | null;
@@ -11,7 +11,7 @@ export type ProjectDetailMetadataSource = {
   coverImageHeight?: number | null;
 };
 
-export function getProjectTitleFromSlug(slug: string) {
+export function getWorkspaceTitleFromSlug(slug: string) {
   let decoded = "";
   try {
     decoded = decodeURIComponent(slug || "").trim();
@@ -31,11 +31,11 @@ export function getProjectTitleFromSlug(slug: string) {
   return normalized ? normalized.slice(0, 80) : "Workspace";
 }
 
-export function buildProjectDetailMetadataInput(
+export function buildWorkspaceDetailMetadataInput(
   slug: string,
-  project?: ProjectDetailMetadataSource | null,
+  project?: WorkspaceDetailMetadataSource | null,
 ) {
-  const fallbackTitle = getProjectTitleFromSlug(slug);
+  const fallbackTitle = getWorkspaceTitleFromSlug(slug);
   const resolvedTitle = project?.title?.trim() || fallbackTitle;
   const canonicalSlug = (project?.slug?.trim() || slug).trim();
   const description =

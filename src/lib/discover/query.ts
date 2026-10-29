@@ -1,14 +1,14 @@
 import {
     FILTER_VIEWS,
-    PROJECT_STATUS,
-    PROJECT_TYPE,
+    WORKSPACE_STATUS,
+    WORKSPACE_TYPE,
     SORT_OPTIONS,
     type FilterView,
-    type ProjectStatus,
-    type ProjectType,
+    type WorkspaceStatus,
+    type WorkspaceType,
     type SortOption,
 } from '@/constants/discover';
-import { PROJECT_TYPE_OPTIONS } from '@/lib/workspaces/workspace-create-options';
+import { WORKSPACE_TYPE_OPTIONS } from '@/lib/workspaces/workspace-create-options';
 import type { DiscoverFilters as PeopleFilters } from '@/app/actions/connections';
 
 /** Discover's people rail: people you can see and connect with. The server render and the rail use the same filters. */
@@ -20,8 +20,8 @@ export const DISCOVER_RAIL_PEOPLE_LIMIT = DISCOVER_RAIL_CARD_COUNT + 4;
 export type DiscoverQuery = {
     q: string;
     view: FilterView;
-    status: ProjectStatus;
-    type: ProjectType;
+    status: WorkspaceStatus;
+    type: WorkspaceType;
     sort: SortOption;
     tech: string[];
     hideOpened: boolean;
@@ -34,9 +34,9 @@ const SHOWS = ['all', 'projects', 'organizations', 'updates'] as const;
 
 const VIEWS: readonly string[] = [FILTER_VIEWS.ALL, FILTER_VIEWS.TRENDING, FILTER_VIEWS.RECOMMENDATIONS, FILTER_VIEWS.FOLLOWING];
 // Discover never lists drafts, so "Idea" isn't a filter here.
-export const DISCOVER_STATUSES: readonly ProjectStatus[] = [PROJECT_STATUS.IN_PROGRESS, PROJECT_STATUS.LAUNCHED];
+export const DISCOVER_STATUSES: readonly WorkspaceStatus[] = [WORKSPACE_STATUS.IN_PROGRESS, WORKSPACE_STATUS.LAUNCHED];
 export const DISCOVER_SORTS: readonly SortOption[] = [SORT_OPTIONS.NEWEST, SORT_OPTIONS.OLDEST, SORT_OPTIONS.MOST_VIEWED, SORT_OPTIONS.MOST_FOLLOWED];
-const TYPES: readonly string[] = PROJECT_TYPE_OPTIONS.map((type) => type.id);
+const TYPES: readonly string[] = WORKSPACE_TYPE_OPTIONS.map((type) => type.id);
 
 const pick = <T extends string>(value: string | null, allowed: readonly string[], fallback: T): T =>
     value && allowed.includes(value) ? (value as T) : fallback;
@@ -47,8 +47,8 @@ export function parseDiscoverQuery(get: (key: string) => string | null | undefin
     return {
         q: (read('q') ?? '').trim().slice(0, 200),
         view: pick(read('view'), VIEWS, FILTER_VIEWS.ALL),
-        status: pick(read('status'), DISCOVER_STATUSES, PROJECT_STATUS.ALL),
-        type: pick(read('type'), TYPES, PROJECT_TYPE.ALL),
+        status: pick(read('status'), DISCOVER_STATUSES, WORKSPACE_STATUS.ALL),
+        type: pick(read('type'), TYPES, WORKSPACE_TYPE.ALL),
         sort: pick(read('sort'), DISCOVER_SORTS, SORT_OPTIONS.NEWEST),
         tech: Array.from(new Set((read('tech') ?? '').split(',').map((value) => value.trim()).filter(Boolean))).slice(0, 8),
         hideOpened: read('hideOpened') === 'true',
@@ -60,8 +60,8 @@ export function parseDiscoverQuery(get: (key: string) => string | null | undefin
 /** The unfiltered newest feed: the one the server renders and the shared cache serves. "Hide opened" is client-only. */
 export function isDefaultDiscoverQuery(query: DiscoverQuery): boolean {
     return query.view === FILTER_VIEWS.ALL
-        && query.status === PROJECT_STATUS.ALL
-        && query.type === PROJECT_TYPE.ALL
+        && query.status === WORKSPACE_STATUS.ALL
+        && query.type === WORKSPACE_TYPE.ALL
         && query.sort === SORT_OPTIONS.NEWEST
         && query.tech.length === 0
         && !query.q
@@ -71,8 +71,8 @@ export function isDefaultDiscoverQuery(query: DiscoverQuery): boolean {
 
 /** The filters shown as tags (status, type, skills, hide opened): the Filters button's count. */
 export function activeFilterCount(query: DiscoverQuery): number {
-    return (query.status !== PROJECT_STATUS.ALL ? 1 : 0)
-        + (query.type !== PROJECT_TYPE.ALL ? 1 : 0)
+    return (query.status !== WORKSPACE_STATUS.ALL ? 1 : 0)
+        + (query.type !== WORKSPACE_TYPE.ALL ? 1 : 0)
         + query.tech.length
         + (query.hideOpened ? 1 : 0)
         + (query.org ? 1 : 0);

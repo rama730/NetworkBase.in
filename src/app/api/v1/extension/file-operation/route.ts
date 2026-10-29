@@ -8,7 +8,7 @@ import {
 import { routeErrorResponse } from "@/app/api/v1/_error";
 import {
   renameNode,
-  moveProjectNodes,
+  moveWorkspaceNodes,
   bulkTrashNodes,
 } from "@/app/actions/files/mutations";
 import { z } from "zod";
@@ -48,7 +48,7 @@ export async function POST(request: Request) {
     const i = parsed.data;
     if (i.kind === "move")
       return jsonSuccess(
-        await moveProjectNodes([i.nodeId], i.parentId, i.projectId, {
+        await moveWorkspaceNodes([i.nodeId], i.parentId, i.projectId, {
           expectedUpdatedAtByNode: { [i.nodeId]: i.expectedUpdatedAt },
         }),
       );

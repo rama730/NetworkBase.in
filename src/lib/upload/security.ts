@@ -60,16 +60,16 @@ const MAGIC_BYTE_CHECKERS: Record<string, (bytes: Uint8Array) => boolean> = {
 };
 
 // This must not exceed the project-files/task-files Storage bucket contract.
-const DEFAULT_PROJECT_UPLOAD_MAX_FILE_BYTES = 10 * 1024 * 1024; // 10 MiB
+const DEFAULT_WORKSPACE_UPLOAD_MAX_FILE_BYTES = 10 * 1024 * 1024; // 10 MiB
 // The browser can't read server env: it checks against this default, and a server set lower
 // still refuses with a 4xx the composer shows as the reason (no Retry).
 export const DEFAULT_ATTACHMENT_UPLOAD_MAX_FILE_BYTES = 50 * 1024 * 1024; // 50MB
 const MAX_UPLOAD_PATH_LENGTH = 1024;
 const MAX_PATH_SEGMENT_LENGTH = 255;
 
-export const PROJECT_UPLOAD_MAX_FILE_BYTES = positiveIntegerOr(
+export const WORKSPACE_UPLOAD_MAX_FILE_BYTES = positiveIntegerOr(
   process.env.PROJECT_UPLOAD_MAX_FILE_BYTES,
-  DEFAULT_PROJECT_UPLOAD_MAX_FILE_BYTES,
+  DEFAULT_WORKSPACE_UPLOAD_MAX_FILE_BYTES,
 );
 
 export const ATTACHMENT_UPLOAD_MAX_FILE_BYTES = positiveIntegerOr(

@@ -18,7 +18,7 @@ export type PrivacyPresentation = {
   ownerBadgeText: string | null;
 };
 
-export type ProjectOwnerPresentation = ProjectOwnerInput & {
+export type WorkspaceOwnerPresentation = ProjectOwnerInput & {
   displayName: string;
   isMasked: boolean;
   canOpenProfile: boolean;
@@ -105,10 +105,10 @@ export function buildPrivacyPresentation(
   };
 }
 
-export function buildProjectOwnerPresentation(
+export function buildWorkspaceOwnerPresentation(
   owner: ProjectOwnerInput | null,
   relationship: PrivacyRelationshipState | null,
-): ProjectOwnerPresentation | null {
+): WorkspaceOwnerPresentation | null {
   if (!owner) return null;
 
   const presentation = buildPrivacyPresentation(relationship);

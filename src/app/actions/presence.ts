@@ -4,7 +4,7 @@ import { sql } from "drizzle-orm";
 
 import { db } from "@/lib/db";
 import { withDbRetry } from "@/lib/db/retry";
-import { getProjectAccessByIds } from "@/lib/data/workspace-access";
+import { getWorkspaceAccessByIds } from "@/lib/data/workspace-access";
 import { logger } from "@/lib/logger";
 import { uuidArray } from "@/lib/messaging/server";
 import {
@@ -16,7 +16,7 @@ import {
   validStatusExpiry,
   type PersonPresence,
   type PersonStatus,
-  type ProjectStatus,
+  type WorkspaceStatus,
   type StatusVisibility,
 } from "@/lib/presence/model";
 import { getRedisClient } from "@/lib/redis";
@@ -280,13 +280,13 @@ export async function setShowActivity(input: { show: boolean }) {
 type ProjectStatusRow = { id: string; status_emoji: string | null; status_text: string | null; status_expires_at: string | null; updated_at: string | null };
 
 /** Status and last activity of projects the viewer can read. */
-export async function getProjectStatuses(input: { projectIds: string[] }) {
+export async function getWorkspaceStatuses(input: { projectIds: string[] }) {
   const user = await getAuthUser();
   const ids = Array.from(new Set((Array.isArray(input?.projectIds) ? input.projectIds : []).filter(isUuid))).slice(0, MAX_BATCH);
   if (ids.length === 0) return { success: true as const, projects: [] };
   // Same readability rule as every other project reader: drafts and private
   // projects only for owners/members (COR-022).
-  const access = await getProjectAccessByIds(ids, user?.id ?? null);
+  const access = await getWorkspaceAccessByIds(ids, user?.id ?? null);
   const readable = ids.filter((id) => access[id]?.canRead);
   if (readable.length === 0) return { success: true as const, projects: [] };
   const found = await rows<ProjectStatusRow>(sql`
@@ -300,7 +300,7 @@ export async function getProjectStatuses(input: { projectIds: string[] }) {
       projectId: row.id,
       updatedAt: row.updated_at ? new Date(row.updated_at).toISOString() : null,
       status: row.status_emoji || row.status_text
-        ? activeStatus<ProjectStatus>({ emoji: row.status_emoji, text: row.status_text, expiresAt: row.status_expires_at ? new Date(row.status_expires_at).toISOString() : null })
+        ? activeStatus<WorkspaceStatus>({ emoji: row.status_emoji, text: row.status_text, expiresAt: row.status_expires_at ? new Date(row.status_expires_at).toISOString() : null })
         : null,
     })),
   };
@@ -318,7 +318,7 @@ async function canManageProject(projectId: string, userId: string) {
 }
 
 /** Owners and admins set the project's status. */
-export async function setProjectStatus(input: { projectId: string; emoji?: string | null; text?: string | null; expiresAt: string | null }) {
+export async function setWorkspaceStatus(input: { projectId: string; emoji?: string | null; text?: string | null; expiresAt: string | null }) {
   const user = await getAuthUser();
   if (!user) return unauthorized;
   if (!isUuid(input?.projectId)) return invalid;
@@ -338,7 +338,7 @@ export async function setProjectStatus(input: { projectId: string; emoji?: strin
   return { success: true as const };
 }
 
-export async function clearProjectStatus(input: { projectId: string }) {
+export async function clearWorkspaceStatus(input: { projectId: string }) {
   const user = await getAuthUser();
   if (!user) return unauthorized;
   if (!isUuid(input?.projectId)) return invalid;

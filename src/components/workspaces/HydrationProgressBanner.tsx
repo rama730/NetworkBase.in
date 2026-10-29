@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { subscribeActiveResource } from "@/lib/realtime/subscriptions";
-import { getProjectHydrationProgressAction } from "@/app/actions/workspace";
+import { getWorkspaceHydrationProgressAction } from "@/app/actions/workspace";
 
 export interface HydrationProgressBannerProps {
   projectId: string;
@@ -37,7 +37,7 @@ export function HydrationProgressBanner({ projectId }: HydrationProgressBannerPr
     // Polls only while an import is running; a project that was never imported costs one read.
     const fetchProgress = async () => {
       if (!active) return;
-      const meta = await getProjectHydrationProgressAction(projectId).catch(() => undefined);
+      const meta = await getWorkspaceHydrationProgressAction(projectId).catch(() => undefined);
       if (!active) return;
       if (meta === undefined) {
         fallbackPolling = true;

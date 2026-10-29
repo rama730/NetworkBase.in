@@ -23,7 +23,7 @@ describe("extension crash recovery contract", () => {
     assert.match(migration, /ENABLE ROW LEVEL SECURITY/);
     assert.match(migration, /auth\.uid\(\) = user_id/);
     assert.match(route, /requireAuthenticatedUser/);
-    assert.match(route, /getProjectAccessById/);
+    assert.match(route, /getWorkspaceAccessById/);
     assert.match(route, /createSignedUploadUrl/);
     assert.match(route, /streamPrivateObject/);
     assert.match(route, /finalizeUploadIntent/);

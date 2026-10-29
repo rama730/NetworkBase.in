@@ -6,7 +6,7 @@ import { and, eq, inArray, isNotNull, isNull, ne, or, sql, type SQL } from "driz
 
 import { db } from "@/lib/db";
 import { projectMembers, projectSprints, projectWorkflowColumns, projects, sprintTaskMemberships, taskSubtasks, taskTeamMembers, tasks } from "@/lib/db/schema";
-import type { ProjectAccess } from "@/lib/data/workspace-access";
+import type { WorkspaceAccess } from "@/lib/data/workspace-access";
 import type { AssignmentSettings, AssignmentTarget } from "@/lib/organizations/assignment-rules";
 
 // Assignments (report §16, §16.11): a master task on the org and one copy per person, team or child project.
@@ -20,7 +20,7 @@ export type CopyRecipient = { projectId: string; assigneeId: string; teamName?: 
  * members and guests see the masters, their own copies and their team's copies; owners and admins see all,
  * with copies kept off their board (they live in the roster and the Review queue).
  */
-export function orgTaskReadFilter(access: ProjectAccess, viewerId: string | null, scope: string = "all"): SQL | undefined {
+export function orgTaskReadFilter(access: WorkspaceAccess, viewerId: string | null, scope: string = "all"): SQL | undefined {
   if (access.project?.kind !== "organization") return undefined;
   const isAdmin = access.isOwner || access.memberRole === "admin";
   if (isAdmin) return scope === "review" ? undefined : isNull(tasks.assignmentId);
@@ -34,7 +34,7 @@ export function orgTaskReadFilter(access: ProjectAccess, viewerId: string | null
 }
 
 /** Whether one task passes the same rule (task detail, sprint rows, the extension). */
-export async function canSeeOrgTask(access: ProjectAccess, viewerId: string | null, taskId: string) {
+export async function canSeeOrgTask(access: WorkspaceAccess, viewerId: string | null, taskId: string) {
   const filter = orgTaskReadFilter(access, viewerId, "review");
   if (!filter) return true;
   const [row] = await db.select({ id: tasks.id }).from(tasks).where(and(eq(tasks.id, taskId), filter)).limit(1);

@@ -5,7 +5,7 @@ import { useCreateLocation } from '@/components/organizations/CreateLocation';
 import { OrgPeopleFields } from '@/components/organizations/OrgWizardFields';
 import { type ReactNode, useEffect, useState } from 'react';
 import { useFormContext } from 'react-hook-form';
-import { CreateProjectInput, type OpenRoleInput } from '@/lib/validations/workspace';
+import { CreateWorkspaceInput, type OpenRoleInput } from '@/lib/validations/workspace';
 import { WizardContextType } from '../useCreateWorkspaceWizard';
 import { ChevronDown, Plus, Trash2 } from 'lucide-react';
 import { SkillPicker } from '@/components/skills/SkillPicker';
@@ -62,7 +62,7 @@ function SectionHeading({ eyebrow, title, description, id }: { eyebrow: string; 
 }
 
 export default function Phase3TeamRoles({ wizardContext, showValidationSummary = false }: Phase3TeamRolesProps) {
-    const { getValues, setValue, watch, formState: { errors } } = useFormContext<CreateProjectInput>();
+    const { getValues, setValue, watch, formState: { errors } } = useFormContext<CreateWorkspaceInput>();
     const { openRoles, openRoleIds, addRole, updateRole, removeRole, prefillUnits } = wizardContext;
     const { org } = useCreateLocation();
     // Default units pre-fill an empty team (report §14.4 additions); Education hides compensation (§14.4).

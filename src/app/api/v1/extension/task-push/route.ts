@@ -3,7 +3,7 @@ import {db} from '@/lib/db';
 import {taskPushes,tasks,projectNodes,taskNodeLinks,fileVersions} from '@/lib/db/schema';
 import {eq,and,inArray,isNull,sql} from 'drizzle-orm';
 import {routeErrorResponse} from '@/app/api/v1/_error';
-import {assertProjectWriteAccessTx,recordNodeEventsBatch} from '@/lib/files/internal-helpers';
+import {assertWorkspaceWriteAccessTx,recordNodeEventsBatch} from '@/lib/files/internal-helpers';
 import {replaceTaskFileRoleTag} from '@/lib/workspaces/task-file-intelligence';
 import {validateCsrf} from '@/lib/security/csrf';
 import {consumeRateLimit} from '@/lib/security/rate-limit';
@@ -18,7 +18,7 @@ export async function POST(request:Request){
   const operationId=request.headers.get('idempotency-key')?.trim();if(!operationId||operationId.length>200)return jsonError('A stable operation id is required',400,'BAD_REQUEST');
   if(!(await consumeRateLimit(`extension-task-push:${user.id}`,60,60)).allowed)return jsonError('Too many attempts. Try again in a minute.',429,'RATE_LIMITED');
   const pushRow=await db.transaction(async tx=>{
-   await assertProjectWriteAccessTx(tx,projectId,user.id);
+   await assertWorkspaceWriteAccessTx(tx,projectId,user.id);
    // The project lock serializes receipts even when Redis is unavailable or a response is lost.
    const existing=await tx.query.taskPushes.findFirst({where:and(eq(taskPushes.taskId,taskId),eq(taskPushes.projectId,projectId),eq(taskPushes.pushedBy,user.id),sql`${taskPushes.filesJson} @> ${JSON.stringify([{operationId}])}::jsonb`)});if(existing){const recorded=Array.isArray(existing.filesJson)?existing.filesJson as Array<{nodeId:string;version:number;contentHash:string;taskAction:string}>:[];const normalize=(items:typeof recorded)=>JSON.stringify(items.map(f=>({nodeId:f.nodeId,version:f.version,contentHash:f.contentHash,taskAction:f.taskAction})).sort((a,b)=>a.nodeId.localeCompare(b.nodeId)));if(normalize(recorded)!==normalize(files.map(f=>({...f,taskAction}))))throw new Error('Operation ID was already used for different task file effects');return existing;}
    const task=await tx.query.tasks.findFirst({where:and(eq(tasks.id,taskId),eq(tasks.projectId,projectId),isNull(tasks.deletedAt))});if(!task)throw new Error('Task is unavailable');

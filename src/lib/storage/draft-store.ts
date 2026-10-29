@@ -1,12 +1,12 @@
 'use client';
 
 import { get, set, del } from 'idb-keyval';
-import { CreateProjectInput } from '@/lib/validations/workspace';
+import { CreateWorkspaceInput } from '@/lib/validations/workspace';
 
 const DEFAULT_DRAFT_KEY = 'project_wizard_draft';
 const EXPIRY_DAYS = 3;  // Draft expires after 3 days
 
-export interface WizardDraft extends Partial<CreateProjectInput> {
+export interface WizardDraft extends Partial<CreateWorkspaceInput> {
     _timestamp: number;
     _phase: number;
 }
@@ -32,7 +32,7 @@ export const draftStore = {
     /**
      * Save draft to IndexedDB (scoped by user ID)
      */
-    async save(data: Partial<CreateProjectInput>, phase: number, userId?: string | null): Promise<void> {
+    async save(data: Partial<CreateWorkspaceInput>, phase: number, userId?: string | null): Promise<void> {
         const key = getDraftKey(userId);
         const draft: WizardDraft = {
             ...data,

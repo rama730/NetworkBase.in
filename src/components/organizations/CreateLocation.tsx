@@ -8,7 +8,7 @@ import { Building2, Lock } from 'lucide-react'
 import { messageUserInWindow } from '@/components/messages/message-user'
 
 import { capChildVisibility, type VisibilityCap } from '@/lib/organizations/child-rules'
-import type { CreateProjectInput } from '@/lib/validations/workspace'
+import type { CreateWorkspaceInput } from '@/lib/validations/workspace'
 
 // Where a new project goes (report §14.1): Personal or one of the person's orgs, carried through the wizard.
 
@@ -25,13 +25,13 @@ export function CreateLocationProvider({ value, children }: { value: CreateLocat
 /** The chosen org (or null for Personal), with its rules. */
 export function useCreateLocation() {
     const state = useContext(LocationContext)
-    const parentOrgId = useWatch<CreateProjectInput, 'parent_org_id'>({ name: 'parent_org_id' })
+    const parentOrgId = useWatch<CreateWorkspaceInput, 'parent_org_id'>({ name: 'parent_org_id' })
     return { ...state, org: state.locations.find((location) => location.id === parentOrgId) ?? null }
 }
 
 /** Phase 1: a locked "In CSE-3A" chip when opened from the org, otherwise the Where picker. */
 export function WherePicker() {
-    const { setValue, getValues } = useFormContext<CreateProjectInput>()
+    const { setValue, getValues } = useFormContext<CreateWorkspaceInput>()
     const { locations, locked, notice, org } = useCreateLocation()
     if (locations.length === 0 && !notice) return null
 

@@ -14,7 +14,7 @@ test("project detail has an immediate route shell and a shared server read", () 
   assert.match(page, /const readProjectRouteShell = cache/);
   assert.match(page, /readProjectRouteShell\(slug\)/);
   assert.match(page, /getViewerIdentityContext\(\)/);
-  assert.doesNotMatch(page, /readProjectDetailMetadata/);
+  assert.doesNotMatch(page, /readWorkspaceDetailMetadata/);
   assert.match(loading, /aria-label="Loading workspace"/);
 });
 

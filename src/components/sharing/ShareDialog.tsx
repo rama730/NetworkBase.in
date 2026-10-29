@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { useAuth } from '@/hooks/use-auth';
 import { useChatShell } from '@/components/messages/ChatShellProvider';
 import { channelTitle } from '@/lib/messaging/channel-view';
-import { PROJECTS_SCOPE,type ConversationScope } from '@/lib/sharing/destination-scope';
+import { WORKSPACES_SCOPE,type ConversationScope } from '@/lib/sharing/destination-scope';
 import { ShareDestinationBrowser,type ConversationListMemory } from './ShareDestinationBrowser';
 import { getShareDestination } from '@/app/actions/sharing-destinations';
 import { chatErrorMessage } from '@/lib/messaging/errors';
@@ -54,7 +54,7 @@ export function ShareDialog({ kind, path, onClose, ownerUsernameSetup, returnFoc
   const [manual, setManual] = useState(false);
   const [target, setTarget] = useState('');
   const [note, setNote] = useState('');
-  const [scope,setScope]=useState<ConversationScope>(PROJECTS_SCOPE);
+  const [scope,setScope]=useState<ConversationScope>(WORKSPACES_SCOPE);
   const [listMemory]=useState<ConversationListMemory>(()=>new Map());
   const [username, setUsername] = useState('');
   const [busy, setBusy] = useState(false);
@@ -89,7 +89,7 @@ export function ShareDialog({ kind, path, onClose, ownerUsernameSetup, returnFoc
   useEffect(() => { setNativeAvailable(window.isSecureContext && typeof navigator.share === 'function'); }, []);
   useEffect(() => {
     if (userId && draftAccount && userId !== draftAccount) {
-      setNote(''); setTarget(''); setScope(PROJECTS_SCOPE); listMemory.clear(); setUsername(''); setNewPath(null); draftIntent.current = null; setReceiptState('none'); composeEntity.current = null;
+      setNote(''); setTarget(''); setScope(WORKSPACES_SCOPE); listMemory.clear(); setUsername(''); setNewPath(null); draftIntent.current = null; setReceiptState('none'); composeEntity.current = null;
       setMessage('Account changed. Choose a conversation for this account.');
     }
     if (userId) setDraftAccount(userId);
@@ -208,7 +208,7 @@ export function ShareDialog({ kind, path, onClose, ownerUsernameSetup, returnFoc
         {ownerUsernameSetup && !canonicalUrl ? <Button onClick={() => { setStep('username'); setMessage(''); }}>Set username</Button> : <>
           <Button disabled={!canonicalUrl || unavailable} onClick={() => void copy()}><Copy className="size-4" />Copy link</Button>
           {nativeAvailable ? <Button variant="outline" disabled={!canonicalUrl || unavailable} onClick={() => void nativeShare()}><Share2 className="size-4" />Share to…</Button> : null}
-          {<Button variant="outline" disabled={!canonicalUrl || unavailable} onClick={() => { setScope(PROJECTS_SCOPE);setTarget('');setStep('send');setMessage('');shell.refresh(); }}><Send className="size-4" />{userId?'Send in NetworkBase':'Sign in to send in NetworkBase'}</Button>}
+          {<Button variant="outline" disabled={!canonicalUrl || unavailable} onClick={() => { setScope(WORKSPACES_SCOPE);setTarget('');setStep('send');setMessage('');shell.refresh(); }}><Send className="size-4" />{userId?'Send in NetworkBase':'Sign in to send in NetworkBase'}</Button>}
         </>}
       </>}
       <p role="status" aria-live="polite" className="min-h-5 break-words text-[12px] text-muted-foreground">{message}</p>

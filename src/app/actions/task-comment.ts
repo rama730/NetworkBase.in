@@ -33,7 +33,7 @@ import {
   type TaskDiscussionThreadPage,
 } from "@/lib/workspaces/task-discussion";
 import { parseMentions } from "@/lib/workspaces/mention-tokens";
-import { enqueueProjectNotificationEvent } from "@/lib/notifications/workspace-events";
+import { enqueueWorkspaceNotificationEvent } from "@/lib/notifications/workspace-events";
 import { enqueueTaskCommentMentionNotifications } from "@/lib/notifications/task-comment-mention";
 import { consumeRateLimit } from "@/lib/security/rate-limit";
 import { getViewerProfileContext } from "@/lib/server/viewer-context";
@@ -711,7 +711,7 @@ export async function createTaskCommentAction(
     ) {
       try {
         const actorName = viewer.profile?.fullName ?? viewer.profile?.username ?? null;
-        await enqueueProjectNotificationEvent({
+        await enqueueWorkspaceNotificationEvent({
           projectId,
           actorUserId: viewer.userId,
           actorName,

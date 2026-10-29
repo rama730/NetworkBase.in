@@ -1,4 +1,4 @@
-import ProjectCardSkeleton from "@/components/workspaces/WorkspaceCardSkeleton";
+import WorkspaceCardSkeleton from "@/components/workspaces/WorkspaceCardSkeleton";
 import { Skeleton } from "@/components/ui/skeleton";
 
 /**
@@ -29,7 +29,7 @@ export function DiscoverRouteSkeleton() {
             </div>
             <div className="flex flex-col gap-4">
               {/* The same count as the feed's own skeleton, so nothing jumps when it takes over. */}
-              {[1, 2, 3, 4].map((item) => <ProjectCardSkeleton key={item} />)}
+              {[1, 2, 3, 4].map((item) => <WorkspaceCardSkeleton key={item} />)}
             </div>
           </section>
           <aside className="nb-discover-rail">

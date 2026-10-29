@@ -4,7 +4,7 @@ import { and, eq, inArray, isNull, sql } from 'drizzle-orm';
 
 import { db } from '@/lib/db';
 import { profileProjectContributions, projectMembers } from '@/lib/db/schema';
-import { getProjectAccessById } from '@/lib/data/workspace-access';
+import { getWorkspaceAccessById } from '@/lib/data/workspace-access';
 import { markProfileCollaborationSummaryStale } from '@/lib/profile/collaboration';
 import { getViewerAuthContext } from '@/lib/server/viewer-context';
 import { namesOf, notifyOrg, orgLabel } from '@/lib/organizations/notify';
@@ -18,7 +18,7 @@ const DENIED: Failure = { success: false, error: "You don’t have permission to
 async function orgAdmin(orgId: string) {
     const { userId } = await getViewerAuthContext();
     if (!userId) return null;
-    const access = await getProjectAccessById(orgId, userId);
+    const access = await getWorkspaceAccessById(orgId, userId);
     // Archiving prompts admins to verify, so an archived org still allows it; a suspended one doesn't.
     if (access.writeBlocked && access.writeBlocked !== 'archived') return null;
     return access.project?.kind === 'organization' && (access.isOwner || access.memberRole === 'admin') ? userId : null;

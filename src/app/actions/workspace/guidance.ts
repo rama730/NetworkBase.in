@@ -19,10 +19,10 @@ import { resolvePrivacyRelationships } from "@/lib/privacy/resolver";
 import { getGuidanceCapacityState } from "@/lib/workspaces/guidance-capacity";
 import { consumeRateLimit } from "@/lib/security/rate-limit";
 import {
-    createProjectInvitation,
+    createWorkspaceInvitation,
     projectInvitationDisplayRole,
-    resolveProjectInvitationInternal,
-    type ProjectInvitationKind,
+    resolveWorkspaceInvitationInternal,
+    type WorkspaceInvitationKind,
 } from "@/lib/workspaces/workspace-invitations";
 import { postInviteCard } from "@/lib/messaging/integrations";
 import { conversationHref } from "@/lib/messaging/routes";
@@ -30,7 +30,7 @@ import { conversationHref } from "@/lib/messaging/routes";
 type CreateInvitationActionInput = {
     projectId: string;
     candidateId: string;
-    kind: ProjectInvitationKind;
+    kind: WorkspaceInvitationKind;
     roleId?: string | null;
     note?: string | null;
     guidanceLabel?: string | null;
@@ -44,14 +44,14 @@ function parseReviewAt(value: string | null | undefined) {
     return Number.isNaN(date.getTime()) ? null : date;
 }
 
-export async function createProjectInvitationAction(input: CreateInvitationActionInput) {
+export async function createWorkspaceInvitationAction(input: CreateInvitationActionInput) {
     const user = await getAuthUser();
     if (!user) return { success: false as const, error: "Sign in to continue" };
     const reviewAt = parseReviewAt(input.reviewAt);
     if (input.reviewAt?.trim() && !reviewAt) return { success: false as const, error: "Invalid review date" };
 
     try {
-        const created = await createProjectInvitation({
+        const created = await createWorkspaceInvitation({
             actorId: user.id,
             candidateId: input.candidateId,
             projectId: input.projectId,
@@ -113,8 +113,8 @@ export async function createProjectInvitationAction(input: CreateInvitationActio
     }
 }
 
-/** Small, Lead-only preview for the shared recruitment composer. Final checks stay in createProjectInvitation. */
-export async function getProjectGuidancePreflightAction(input: { projectId: string; candidateId: string }) {
+/** Small, Lead-only preview for the shared recruitment composer. Final checks stay in createWorkspaceInvitation. */
+export async function getWorkspaceGuidancePreflightAction(input: { projectId: string; candidateId: string }) {
     const user = await getAuthUser();
     if (!user) return { success: false as const, error: "Sign in to continue" };
     const [project] = await db
@@ -154,7 +154,7 @@ export async function getProjectGuidancePreflightAction(input: { projectId: stri
     };
 }
 
-export async function resolveProjectInvitationAction(input: {
+export async function resolveWorkspaceInvitationAction(input: {
     invitationId: string;
     action: "accept" | "decline" | "cancel";
 }) {
@@ -163,7 +163,7 @@ export async function resolveProjectInvitationAction(input: {
     const { allowed } = await consumeRateLimit(`project-invitation-resolve:${user.id}`, 60, 60);
     if (!allowed) return { success: false as const, error: "Too many requests. Try again later." };
     try {
-        const result = await db.transaction((tx) => resolveProjectInvitationInternal(tx, {
+        const result = await db.transaction((tx) => resolveWorkspaceInvitationInternal(tx, {
             invitationId: input.invitationId,
             actorId: user.id,
             action: input.action,
@@ -176,7 +176,7 @@ export async function resolveProjectInvitationAction(input: {
     }
 }
 
-export async function getMyPendingProjectInvitationsAction() {
+export async function getMyPendingWorkspaceInvitationsAction() {
     const user = await getAuthUser();
     if (!user) return { success: false as const, error: "Sign in to continue", invitations: [] };
     const now = new Date();
@@ -213,7 +213,7 @@ export async function getMyPendingProjectInvitationsAction() {
     return { success: true as const, invitations };
 }
 
-export async function searchProjectInviteCandidatesAction(input: { projectId: string; query?: string | null }) {
+export async function searchWorkspaceInviteCandidatesAction(input: { projectId: string; query?: string | null }) {
     const user = await getAuthUser();
     if (!user) return { success: false as const, error: "Sign in to continue", items: [] };
     const query = input.query?.trim().replace(/^@/, "") ?? "";

@@ -71,9 +71,9 @@ test("archive: read-only everywhere, join code off, child projects archived with
   const o = await org();
   const [{ join_code: oldCode }] = await sql`SELECT join_code FROM projects WHERE id = ${o.id}`;
   await lifecycle.archiveOrg(o.id, o.owner);
-  const owner = await access.getProjectAccessById(o.id, o.owner);
+  const owner = await access.getWorkspaceAccessById(o.id, o.owner);
   assert.deepEqual([owner.writeBlocked, owner.canWrite, owner.canRead], ["archived", false, true]);
-  assert.equal((await access.getProjectAccessById(o.child, o.lead)).writeBlocked, "archived", "archived with the org");
+  assert.equal((await access.getWorkspaceAccessById(o.child, o.lead)).writeBlocked, "archived", "archived with the org");
   await assert.rejects(post(o.id, o.owner), /project_read_only/, "even the database refuses new posts");
   const [row] = await sql`SELECT join_code_enabled, (SELECT status FROM projects WHERE id = ${o.child}) AS child_status FROM projects WHERE id = ${o.id}`;
   assert.deepEqual([row!.join_code_enabled, row!.child_status], [false, "archived"]);
@@ -91,12 +91,12 @@ test("delete: 30-day grace (owner only, members lose access), children detached;
   await lifecycle.scheduleOrgDeletion(o.id, o.owner, "detach");
   const [child] = await sql`SELECT parent_id FROM projects WHERE id = ${o.child}`;
   assert.equal(child!.parent_id, null, "detached to its lead at once");
-  assert.equal((await access.getProjectAccessById(o.id, o.a)).canRead, false);
-  assert.equal((await access.getProjectAccessById(o.id, o.owner)).canRead, true, "the owner can open it to restore");
+  assert.equal((await access.getWorkspaceAccessById(o.id, o.a)).canRead, false);
+  assert.equal((await access.getWorkspaceAccessById(o.id, o.owner)).canRead, true, "the owner can open it to restore");
   assert.equal((await join.findOrgByJoinCode((await sql`SELECT join_code FROM projects WHERE id = ${o.id}`)[0]!.join_code))?.available ?? false, false);
 
   assert.equal(await lifecycle.restoreOrg(o.id, o.owner), true);
-  assert.equal((await access.getProjectAccessById(o.id, o.a)).canRead, true);
+  assert.equal((await access.getWorkspaceAccessById(o.id, o.a)).canRead, true);
 
   await lifecycle.scheduleOrgDeletion(o.id, o.owner, "delete");
   assert.equal((await lifecycle.purgeDueOrgs(new Date())).purged, 0, "not before 30 days");
@@ -175,8 +175,8 @@ test("reports and suspension: a report reaches the admin queue; suspend makes th
 
   const orgReport = queue!.reports.find((r) => r.target_id === o.id)!;
   assert.equal((await trust.suspendOrgAction({ orgId: o.id, reason: "Impersonation", reportId: orgReport.id })).success, true);
-  assert.equal((await access.getProjectAccessById(o.id, o.owner)).writeBlocked, "suspended");
-  assert.equal((await access.getProjectAccessById(o.child, o.lead)).writeBlocked, "suspended", "child projects too");
+  assert.equal((await access.getWorkspaceAccessById(o.id, o.owner)).writeBlocked, "suspended");
+  assert.equal((await access.getWorkspaceAccessById(o.child, o.lead)).writeBlocked, "suspended", "child projects too");
   await assert.rejects(post(o.child, o.lead), /project_read_only/);
   const [{ join_code: code }] = await sql`SELECT join_code FROM projects WHERE id = ${o.id}`;
   assert.equal((await join.findOrgByJoinCode(code))?.available ?? false, false, "join codes stop");

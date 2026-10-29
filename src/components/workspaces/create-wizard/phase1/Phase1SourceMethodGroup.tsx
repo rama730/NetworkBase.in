@@ -3,9 +3,9 @@
 import { Building2, Code2, FolderUp, Github, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-export type ProjectSourceType = "scratch" | "github" | "upload";
+export type WorkspaceSourceType = "scratch" | "github" | "upload";
 /** The cards: the three project sources, plus Organization when organizations are on. */
-export type StartingPoint = ProjectSourceType | "organization";
+export type StartingPoint = WorkspaceSourceType | "organization";
 
 const SOURCE_OPTIONS: Array<{
   type: StartingPoint;

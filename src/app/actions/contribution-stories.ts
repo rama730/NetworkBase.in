@@ -958,7 +958,7 @@ export async function finalizeContributionImageAction(
   };
 }
 
-export async function importContributionProjectImageAction(
+export async function importContributionWorkspaceImageAction(
   contributionId: string,
   nodeId: string,
 ) {
@@ -1021,7 +1021,7 @@ export async function importContributionProjectImageAction(
   );
 }
 
-export async function listContributionLinkProjectsAction(query: string) {
+export async function listContributionLinkWorkspacesAction(query: string) {
   const userId = await ownerId();
   const pattern = "%" + query.slice(0, 100).replace(/[\\%_]/g, "\\$&") + "%";
   const rows = await db.execute<{ id: string; title: string }>(

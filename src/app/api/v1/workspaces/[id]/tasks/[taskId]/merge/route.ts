@@ -5,7 +5,7 @@ import {
     jsonSuccess,
     requireAuthenticatedUser,
 } from "@/app/api/v1/_shared";
-import { getProjectAccessById } from "@/lib/data/workspace-access";
+import { getWorkspaceAccessById } from "@/lib/data/workspace-access";
 import { projectMemberCan } from "@/lib/workspaces/settings-policies";
 import { mergeSandboxTask } from "@/lib/workspaces/merge-sandbox";
 import { validateCsrf } from "@/lib/security/csrf";
@@ -65,7 +65,7 @@ export async function POST(
         const { sessionId } = parsed.data;
 
         // Check project access and role
-        const access = await getProjectAccessById(projectId, user.id);
+        const access = await getWorkspaceAccessById(projectId, user.id);
         if (!access.project) {
             return jsonError("Workspace not found", 404, "NOT_FOUND");
         }

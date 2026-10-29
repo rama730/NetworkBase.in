@@ -4,13 +4,13 @@ import { useState } from "react";
 import { Smile } from "lucide-react";
 import { toast, feedbackError } from "@/lib/feedback";
 
-import { clearProjectStatus, setProjectStatus } from "@/app/actions/presence";
+import { clearWorkspaceStatus, setWorkspaceStatus } from "@/app/actions/presence";
 import { EmojiChoice } from "@/components/presence/EmojiChoice";
 import { StatusInline } from "@/components/presence/StatusInline";
 import { useRefreshPresence } from "@/components/presence/useMyPresence";
-import { useProjectPresence } from "@/components/presence/usePresence";
+import { useWorkspacePresence } from "@/components/presence/usePresence";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
-import { PROJECT_STATUS_SUGGESTIONS, STATUS_TEXT_MAX, clearAfterToDate } from "@/lib/presence/model";
+import { WORKSPACE_STATUS_SUGGESTIONS, STATUS_TEXT_MAX, clearAfterToDate } from "@/lib/presence/model";
 
 function localInput(date: Date) {
   const pad = (n: number) => String(n).padStart(2, "0");
@@ -21,8 +21,8 @@ function localInput(date: Date) {
  * The project's status in its header: any emoji + text, Slack style. Owners
  * and admins open it to set or clear; everyone else just sees it.
  */
-export function ProjectStatusControl({ projectId, canManage }: { projectId: string; canManage: boolean }) {
-  const presence = useProjectPresence(projectId);
+export function WorkspaceStatusControl({ projectId, canManage }: { projectId: string; canManage: boolean }) {
+  const presence = useWorkspacePresence(projectId);
   const refresh = useRefreshPresence();
   const [open, setOpen] = useState(false);
   const [emoji, setEmoji] = useState<string | null>(null);
@@ -46,7 +46,7 @@ export function ProjectStatusControl({ projectId, canManage }: { projectId: stri
 
   const save = async () => {
     if (!emoji && !text.trim()) return void toast.error("Add an emoji or some text");
-    const result = await setProjectStatus({ projectId, emoji, text: text.trim() || null, expiresAt: until ? new Date(until).toISOString() : null });
+    const result = await setWorkspaceStatus({ projectId, emoji, text: text.trim() || null, expiresAt: until ? new Date(until).toISOString() : null });
     if (!result.success) return void toast.error(feedbackError(result.error === "forbidden" ? "Only owners and admins can set the workspace status" : "Couldn’t set the workspace status. Check the end time.", "Couldn’t set the workspace status. Check the end time."));
     await refresh();
     setOpen(false);
@@ -54,7 +54,7 @@ export function ProjectStatusControl({ projectId, canManage }: { projectId: stri
   };
 
   const clear = async () => {
-    const result = await clearProjectStatus({ projectId });
+    const result = await clearWorkspaceStatus({ projectId });
     if (!result.success) return void toast.error("Couldn’t clear the team status");
     await refresh();
     setOpen(false);
@@ -99,7 +99,7 @@ export function ProjectStatusControl({ projectId, canManage }: { projectId: stri
             </div>
             <div className="flex flex-col gap-0.5">
               <span className="font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground">Suggestions</span>
-              {PROJECT_STATUS_SUGGESTIONS.map((suggestion) => (
+              {WORKSPACE_STATUS_SUGGESTIONS.map((suggestion) => (
                 <button
                   key={suggestion.text}
                   type="button"

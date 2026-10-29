@@ -1,6 +1,6 @@
 import { and, eq, isNull, lte, sql } from "drizzle-orm";
 
-import { handOverLedChildProjects, handOverOwnedOrgs, notifyLeadHandovers } from "@/lib/organizations/succession";
+import { handOverLedChildWorkspaces, handOverOwnedOrgs, notifyLeadHandovers } from "@/lib/organizations/succession";
 import { db } from "@/lib/db";
 import { anonymizeChatAuthor, deleteDirectMessagesSql } from "@/lib/messaging/account";
 import {
@@ -90,7 +90,7 @@ export async function executeHardDelete(
       // Report §30.7: child projects pass on (again: someone may have made them lead during the grace), an org
       // still owned passes to its longest-serving admin, and only then do owned projects go. Individual
       // assignment copies go; team copies stay, shown as "Deleted user" (assignee set null by the cascade).
-      await handOverLedChildProjects(tx, userId);
+      await handOverLedChildWorkspaces(tx, userId);
       if (await handOverOwnedOrgs(tx, userId)) return "org_owner_without_admin" as const;
       await tx.execute(sql`
         DELETE FROM tasks t WHERE t.assignee_id = ${userId}::uuid AND t.assignment_id IS NOT NULL

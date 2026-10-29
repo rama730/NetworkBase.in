@@ -6,7 +6,7 @@ import { AppSidebar } from './AppSidebar'
 import TopNav from '@/components/layout/header/TopNav'
 import { PendingDeletionNotice } from './PendingDeletionNotice'
 import { MyWorkDrawerHost } from '@/components/my-work/MyWorkDrawerHost'
-import { CREATE_PROJECT_PATH, rememberCreateProjectReturnPath } from '@/components/workspaces/create-wizard/create-workspace-return'
+import { CREATE_WORKSPACE_PATH, rememberCreateWorkspaceReturnPath } from '@/components/workspaces/create-wizard/create-workspace-return'
 import { noteNavigation } from '@/lib/navigation/in-app-history'
 
 interface MainLayoutProps {
@@ -20,7 +20,7 @@ export function MainLayout({ children }: MainLayoutProps) {
 
     // Closing the create-project page returns to wherever the user was before it.
     useEffect(() => {
-        if (pathname !== CREATE_PROJECT_PATH) rememberCreateProjectReturnPath(`${window.location.pathname}${window.location.search}`)
+        if (pathname !== CREATE_WORKSPACE_PATH) rememberCreateWorkspaceReturnPath(`${window.location.pathname}${window.location.search}`)
     }, [pathname])
 
     // In-app Back (Messages) only goes back when there's one of our pages behind this one.
