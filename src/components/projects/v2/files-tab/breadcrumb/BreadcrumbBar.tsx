@@ -30,7 +30,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { ChevronRight, Home, MoreHorizontal } from "lucide-react";
-import { useFilesWorkspaceView } from "../FilesWorkspaceViews";
+import { useFilesViews } from "../FilesViews";
 import { useFilesTabRole } from "../FilesTabRoleContext";
 
 import {
@@ -40,8 +40,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
-  useFilesWorkspaceStore,
-} from "@/stores/filesWorkspaceStore";
+  useFilesStore,
+} from "@/stores/filesStore";
 import {
   getTaskWorkingFilesDisplayName,
   isProjectSystemRoot,
@@ -187,14 +187,14 @@ export function BreadcrumbBar({
   location,
 }: BreadcrumbBarProps): React.JSX.Element {
   const navigateTo = useNavigateTo(projectId);
-  const workspace = useFilesWorkspaceView();
+  const workspace = useFilesViews();
   const { canReadTasks } = useFilesTabRole();
   // Subscribe to the node cache with a narrow selector: re-render only when
   // the project's `nodesById` changes, not on every unrelated store write.
-  const nodesById = useFilesWorkspaceStore(
+  const nodesById = useFilesStore(
     (s) => s.byProjectId[projectId]?.nodesById ?? EMPTY_NODES,
   );
-  const upsertNodes = useFilesWorkspaceStore((s) => s.upsertNodes);
+  const upsertNodes = useFilesStore((s) => s.upsertNodes);
 
   // For a file location, the breadcrumb walks the PARENT folder chain and
   // appends the file as a terminal segment. Using the file's own id in

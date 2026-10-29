@@ -23,7 +23,7 @@ import {
 } from "@/components/projects/settings/ProjectDangerModals";
 import { Button } from "@/components/ui/button";
 import { transferProjectOwnership } from "@/app/actions/account";
-import { archiveProjectAction, deleteProject, getProjectAccessTransitionPreflightAction, getProjectCollaboratorSettingsAction, getProjectDangerZonePreflightAction, getProjectFileWorkspaceSettingsAction, getProjectMemberRemovalPreflightAction, readProjectMemberNotificationSettingsAction, readProjectNotificationSettingsAction, readProjectSettingsBootstrapAction, removeProjectMemberAction, resetProjectMemberNotificationSettingsAction, resetProjectNotificationSettingsAction, updateProject, updateProjectLifecycleAction, updateProjectFileUploadDefaultsAction, updateProjectMemberFileUploadAction, updateProjectMemberNotificationSettingsAction, updateProjectMemberRoleAction, updateProjectNotificationSettingsAction, updateProjectPublicTabVisibilityAction, updateProjectVisibilityAction } from "@/app/actions/project";
+import { archiveProjectAction, deleteProject, getProjectAccessTransitionPreflightAction, getProjectCollaboratorSettingsAction, getProjectDangerZonePreflightAction, getProjectFileAccessSettingsAction, getProjectMemberRemovalPreflightAction, readProjectMemberNotificationSettingsAction, readProjectNotificationSettingsAction, readProjectSettingsBootstrapAction, removeProjectMemberAction, resetProjectMemberNotificationSettingsAction, resetProjectNotificationSettingsAction, updateProject, updateProjectLifecycleAction, updateProjectFileUploadDefaultsAction, updateProjectMemberFileUploadAction, updateProjectMemberNotificationSettingsAction, updateProjectMemberRoleAction, updateProjectNotificationSettingsAction, updateProjectPublicTabVisibilityAction, updateProjectVisibilityAction } from "@/app/actions/project";
 import { readProjectDocSettingsAction, updateProjectDocSettingsAction } from "@/app/actions/project/doc";
 import { cn } from "@/lib/utils";
 import {
@@ -82,7 +82,7 @@ import type { AccessTransitionPreflightData, RemovalPreflightData } from '@/comp
 import { ProjectNotificationCategoryCard } from '@/components/projects/settings/ProjectNotificationSettings';
 import { CollaboratorSearchField } from '@/components/projects/settings/CollaboratorSearchField';
 import type { MemberNotificationSettingsData } from '@/components/projects/settings/MemberNotificationSettingsEditor';
-import { FileWorkspaceMembers, type FileWorkspaceSettingsData } from '@/components/projects/settings/FileWorkspaceMembers';
+import { FileAccessMembers, type FileAccessSettingsData } from '@/components/projects/settings/FileAccessMembers';
 import { CollaboratorCard, projectMemberRole } from '@/components/projects/settings/CollaboratorCard';
 import { LifecycleSettingsEditor } from '@/components/projects/settings/LifecycleSettingsEditor';
 import { PublicTabVisibilityEditor } from '@/components/projects/settings/PublicTabVisibilityEditor';
@@ -271,15 +271,15 @@ function ProjectSettingsContent({
     const [collaboratorLoadingMore, setCollaboratorLoadingMore] = useState(false);
     const [collaboratorFilter, setCollaboratorFilter] = useState<CollaboratorFilter>("all");
     const [collaboratorSearch, setCollaboratorSearch] = useState("");
-    const [fileWorkspaceData, setFileWorkspaceData] = useState<FileWorkspaceSettingsData | null>(null);
-    const [fileWorkspaceQuery, setFileWorkspaceQuery] = useState("");
-    const [fileWorkspaceFilter, setFileWorkspaceFilter] = useState<"all" | "enabled" | "disabled">("all");
-    const [fileWorkspaceLoadingMore, setFileWorkspaceLoadingMore] = useState(false);
-    const fileWorkspaceDataRef = useRef<FileWorkspaceSettingsData | null>(null);
-    const fileWorkspaceRequestRef = useRef(0);
-    const [fileWorkspaceLoading, setFileWorkspaceLoading] = useState(true);
-    const [fileWorkspaceSavingMemberId, setFileWorkspaceSavingMemberId] = useState<string | null>(null);
-    const [fileWorkspaceBulkSaving, setFileWorkspaceBulkSaving] = useState(false);
+    const [fileAccessData, setFileAccessData] = useState<FileAccessSettingsData | null>(null);
+    const [fileAccessQuery, setFileAccessQuery] = useState("");
+    const [fileAccessFilter, setFileAccessFilter] = useState<"all" | "enabled" | "disabled">("all");
+    const [fileAccessLoadingMore, setFileAccessLoadingMore] = useState(false);
+    const fileAccessDataRef = useRef<FileAccessSettingsData | null>(null);
+    const fileAccessRequestRef = useRef(0);
+    const [fileAccessLoading, setFileAccessLoading] = useState(true);
+    const [fileAccessSavingMemberId, setFileAccessSavingMemberId] = useState<string | null>(null);
+    const [fileAccessBulkSaving, setFileAccessBulkSaving] = useState(false);
     const projectNotificationDataRef = useRef<ProjectNotificationSettingsData | null>(null);
     const [projectNotificationData, setProjectNotificationData] = useState<ProjectNotificationSettingsData | null>(null);
     const [projectNotificationDraft, setProjectNotificationDraft] = useState<ProjectNotificationPolicy>(() => buildDefaultProjectNotificationPolicy());
@@ -376,7 +376,7 @@ function ProjectSettingsContent({
         if (!savingMemberUpdates) setMemberUpdatesEnabled(initialMemberUpdates);
     }, [initialMemberUpdates]);
     useEffect(() => {
-        if (!savingMemberFileUploadDefault && !fileWorkspaceBulkSaving) setMemberFileUploadDefault(initialFileUploadDefault);
+        if (!savingMemberFileUploadDefault && !fileAccessBulkSaving) setMemberFileUploadDefault(initialFileUploadDefault);
     }, [initialFileUploadDefault]);
 
     const initialRolesKey = JSON.stringify(initialRoles);
@@ -514,35 +514,35 @@ function ProjectSettingsContent({
         }
     }, [collaboratorFilter, collaboratorSearch, projectId, setLoadError]);
 
-    const loadFileWorkspaceSettings = useCallback(async (mode: "replace" | "more" = "replace", pending?: ReturnType<typeof getProjectFileWorkspaceSettingsAction>) => {
+    const loadFileAccessSettings = useCallback(async (mode: "replace" | "more" = "replace", pending?: ReturnType<typeof getProjectFileAccessSettingsAction>) => {
         const more = mode === "more";
-        if (more && !fileWorkspaceDataRef.current?.nextCursor) return;
-        const seq = ++fileWorkspaceRequestRef.current;
-        if (more) setFileWorkspaceLoadingMore(true); else setFileWorkspaceLoading(true);
+        if (more && !fileAccessDataRef.current?.nextCursor) return;
+        const seq = ++fileAccessRequestRef.current;
+        if (more) setFileAccessLoadingMore(true); else setFileAccessLoading(true);
         setLoadError("files", null);
         try {
-            const result = await (pending ?? getProjectFileWorkspaceSettingsAction(projectId, {
-                query: fileWorkspaceQuery, permissionFilter: fileWorkspaceFilter,
-                cursor: more ? fileWorkspaceDataRef.current?.nextCursor : undefined,
+            const result = await (pending ?? getProjectFileAccessSettingsAction(projectId, {
+                query: fileAccessQuery, permissionFilter: fileAccessFilter,
+                cursor: more ? fileAccessDataRef.current?.nextCursor : undefined,
             }));
-            if (!mountedRef.current || seq !== fileWorkspaceRequestRef.current) return;
+            if (!mountedRef.current || seq !== fileAccessRequestRef.current) return;
             if (!result.success) { setLoadError("files", result.message); return; }
-            setFileWorkspaceData((current) => {
+            setFileAccessData((current) => {
                 const existing = new Set(current?.members.map((member) => member.id));
                 return more && current ? { ...result.data, members: [...current.members, ...result.data.members.filter((member) => !existing.has(member.id))] } : result.data;
             });
         } catch {
-            if (mountedRef.current && seq === fileWorkspaceRequestRef.current) setLoadError("files", "Unable to load file permissions. Please retry.");
+            if (mountedRef.current && seq === fileAccessRequestRef.current) setLoadError("files", "Unable to load file permissions. Please retry.");
         } finally {
-            if (mountedRef.current && seq === fileWorkspaceRequestRef.current) { setFileWorkspaceLoading(false); setFileWorkspaceLoadingMore(false); }
+            if (mountedRef.current && seq === fileAccessRequestRef.current) { setFileAccessLoading(false); setFileAccessLoadingMore(false); }
         }
-    }, [projectId, fileWorkspaceQuery, fileWorkspaceFilter, setLoadError]);
-    useEffect(() => { fileWorkspaceDataRef.current = fileWorkspaceData; }, [fileWorkspaceData]);
+    }, [projectId, fileAccessQuery, fileAccessFilter, setLoadError]);
+    useEffect(() => { fileAccessDataRef.current = fileAccessData; }, [fileAccessData]);
     const initialFileFilterRef = useRef(false);
     useEffect(() => {
         if (!initialFileFilterRef.current) { initialFileFilterRef.current = true; return; }
-        void loadFileWorkspaceSettings();
-    }, [fileWorkspaceQuery, fileWorkspaceFilter, loadFileWorkspaceSettings]);
+        void loadFileAccessSettings();
+    }, [fileAccessQuery, fileAccessFilter, loadFileAccessSettings]);
 
     const projectNotificationLoadedRef = useRef(false);
     const loadProjectNotificationSettings = useCallback(async (force = false, pending?: ReturnType<typeof readProjectNotificationSettingsAction>) => {
@@ -610,11 +610,11 @@ function ProjectSettingsContent({
             roleFilter: collaboratorFilter,
         });
         void loadCollaborators("initial", bootstrap.then((data) => data.collaboratorSettings));
-        void loadFileWorkspaceSettings("replace", bootstrap.then((data) => data.fileWorkspace));
+        void loadFileAccessSettings("replace", bootstrap.then((data) => data.fileAccess));
         void loadProjectNotificationSettings(false, bootstrap.then((data) => data.notifications));
         void loadReadmeSettings(false, bootstrap.then((data) => data.docSettings));
         if (isProjectOwner) void loadDangerPreflight(false, bootstrap.then((data) => data.dangerPreflight));
-    }, [collaboratorFilter, collaboratorSearch, loadCollaborators, loadDangerPreflight, loadFileWorkspaceSettings, loadProjectNotificationSettings, loadReadmeSettings, projectId, canManageSettings, isProjectOwner]);
+    }, [collaboratorFilter, collaboratorSearch, loadCollaborators, loadDangerPreflight, loadFileAccessSettings, loadProjectNotificationSettings, loadReadmeSettings, projectId, canManageSettings, isProjectOwner]);
 
     const initialCollaboratorFilterRef = useRef(false);
     useEffect(() => {
@@ -768,10 +768,10 @@ function ProjectSettingsContent({
         }
     };
 
-    const handleToggleMemberFileUpload = useCallback(async (member: FileWorkspaceSettingsData["members"][number], enabled: boolean) => {
-        if (member.uploadPermissionLocked || fileWorkspaceSavingMemberId || fileWorkspaceBulkSaving || savingMemberFileUploadDefault || fileWorkspaceLoading || settingsErrors.files) return;
-        setFileWorkspaceSavingMemberId(member.id);
-        const previousData = fileWorkspaceData;
+    const handleToggleMemberFileUpload = useCallback(async (member: FileAccessSettingsData["members"][number], enabled: boolean) => {
+        if (member.uploadPermissionLocked || fileAccessSavingMemberId || fileAccessBulkSaving || savingMemberFileUploadDefault || fileAccessLoading || settingsErrors.files) return;
+        setFileAccessSavingMemberId(member.id);
+        const previousData = fileAccessData;
         if (previousData) {
             const nextMembers = previousData.members.map((m) => {
                 if (m.id === member.id) {
@@ -783,7 +783,7 @@ function ProjectSettingsContent({
             const changed = member.fileUploadEnabled !== enabled;
             const enabledMemberCount = previousData.summary.enabledMemberCount + (changed ? (enabled ? 1 : -1) : 0);
             const disabledMemberCount = previousData.summary.disabledMemberCount + (changed ? (enabled ? -1 : 1) : 0);
-            setFileWorkspaceData({
+            setFileAccessData({
                 ...previousData,
                 members: nextMembers,
                 summary: {
@@ -796,24 +796,24 @@ function ProjectSettingsContent({
         try {
             const result = await updateProjectMemberFileUploadAction(projectId, member.id, enabled);
             if (!result.success) {
-                if (previousData) setFileWorkspaceData(previousData);
+                if (previousData) setFileAccessData(previousData);
                 toast.error(feedbackError(result.message, "Action couldn’t finish"));
                 return;
             }
             toast.success(result.message);
         } catch (error) {
-            if (previousData) setFileWorkspaceData(previousData);
+            if (previousData) setFileAccessData(previousData);
             console.error("Failed to update file upload permission", error);
             toast.error("Couldn’t update file upload permission");
         } finally {
-            setFileWorkspaceSavingMemberId(null);
+            setFileAccessSavingMemberId(null);
         }
-    }, [fileWorkspaceData, projectId, fileWorkspaceSavingMemberId, fileWorkspaceBulkSaving, savingMemberFileUploadDefault, fileWorkspaceLoading, settingsErrors.files]);
+    }, [fileAccessData, projectId, fileAccessSavingMemberId, fileAccessBulkSaving, savingMemberFileUploadDefault, fileAccessLoading, settingsErrors.files]);
 
     const handleBulkFileUploadPermission = useCallback(async (enabled: boolean) => {
-        if (fileWorkspaceSavingMemberId || fileWorkspaceBulkSaving || savingMemberFileUploadDefault || fileWorkspaceLoading || !fileWorkspaceData || settingsErrors.files) return false;
-        setFileWorkspaceBulkSaving(true);
-        const previousData = fileWorkspaceData;
+        if (fileAccessSavingMemberId || fileAccessBulkSaving || savingMemberFileUploadDefault || fileAccessLoading || !fileAccessData || settingsErrors.files) return false;
+        setFileAccessBulkSaving(true);
+        const previousData = fileAccessData;
         if (previousData) {
             const nextMembers = previousData.members.map((m) => {
                 if (!m.uploadPermissionLocked) {
@@ -824,7 +824,7 @@ function ProjectSettingsContent({
             const configurableTotal = previousData.summary.enabledMemberCount + previousData.summary.disabledMemberCount;
             const enabledMemberCount = enabled ? configurableTotal : 0;
             const disabledMemberCount = enabled ? 0 : configurableTotal;
-            setFileWorkspaceData({
+            setFileAccessData({
                 ...previousData,
                 members: nextMembers,
                 summary: {
@@ -837,7 +837,7 @@ function ProjectSettingsContent({
         try {
             const result = await updateProjectFileUploadDefaultsAction(projectId, enabled);
             if (!result.success) {
-                if (previousData) setFileWorkspaceData(previousData);
+                if (previousData) setFileAccessData(previousData);
                 toast.error(feedbackError(result.message, "Action couldn’t finish"));
                 return false;
             }
@@ -845,14 +845,14 @@ function ProjectSettingsContent({
             toast.success(result.message);
             return true;
         } catch (error) {
-            if (previousData) setFileWorkspaceData(previousData);
+            if (previousData) setFileAccessData(previousData);
             console.error("Failed to update file upload defaults", error);
             toast.error("Couldn’t update file upload defaults");
             return false;
         } finally {
-            setFileWorkspaceBulkSaving(false);
+            setFileAccessBulkSaving(false);
         }
-    }, [fileWorkspaceData, projectId, fileWorkspaceSavingMemberId, fileWorkspaceBulkSaving, savingMemberFileUploadDefault, fileWorkspaceLoading, settingsErrors.files]);
+    }, [fileAccessData, projectId, fileAccessSavingMemberId, fileAccessBulkSaving, savingMemberFileUploadDefault, fileAccessLoading, settingsErrors.files]);
 
     const handleProjectNotificationPreset = (preset: ProjectNotificationPreset) => {
         setProjectNotificationDraft(buildDefaultProjectNotificationPolicy(preset));
@@ -1082,7 +1082,7 @@ function ProjectSettingsContent({
             toast.success(result.message);
             if (result.refresh) {
                 void loadCollaborators("refresh");
-                void loadFileWorkspaceSettings();
+                void loadFileAccessSettings();
                 onProjectUpdated();
             }
             setConfirmAction(null);
@@ -1098,7 +1098,7 @@ function ProjectSettingsContent({
         } finally {
             setConfirmLoading(false);
         }
-    }, [confirmAction, loadCollaborators, loadFileWorkspaceSettings, onProjectUpdated, router]);
+    }, [confirmAction, loadCollaborators, loadFileAccessSettings, onProjectUpdated, router]);
 
     const handleExecuteArchive = useCallback(async () => {
         setConfirmLoading(true);
@@ -1922,31 +1922,31 @@ function ProjectSettingsContent({
                 {sections.some((s) => s.id === "files-workspace") && (
                     <section id="project-settings-files-workspace" data-project-settings-section className="space-y-6">
                         <SettingsCard
-                            title="Files and workspace"
+                            title="Files"
                                 headingLevel={2}
-                                loadState={{ allowInteractionWhileLoading: true, loading: fileWorkspaceLoading, hasData: Boolean(fileWorkspaceData), error: settingsErrors.files ?? null, retry: () => void loadFileWorkspaceSettings() }}
+                                loadState={{ allowInteractionWhileLoading: true, loading: fileAccessLoading, hasData: Boolean(fileAccessData), error: settingsErrors.files ?? null, retry: () => void loadFileAccessSettings() }}
                             description="Control file intake clearly: leaders can always upload, members can be toggled on or off, and viewers stay read-focused."
                             footer={
                                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 w-full">
                                     <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                                         <span className="nb-meta inline-flex items-center gap-1.5">
                                             <span className="size-1.5 rounded-[1px] bg-primary" />
-                                            {fileWorkspaceData?.summary.alwaysAllowedCount ?? 0} leaders always allowed
+                                            {fileAccessData?.summary.alwaysAllowedCount ?? 0} leaders always allowed
                                         </span>
                                         <span>·</span>
-                                        <span className="nb-meta">{fileWorkspaceData?.summary.enabledMemberCount ?? 0} members enabled</span>
+                                        <span className="nb-meta">{fileAccessData?.summary.enabledMemberCount ?? 0} members enabled</span>
                                         <span>·</span>
-                                        <span className="nb-meta">{fileWorkspaceData?.summary.disabledMemberCount ?? 0} disabled</span>
+                                        <span className="nb-meta">{fileAccessData?.summary.disabledMemberCount ?? 0} disabled</span>
                                     </div>
                                     <Button
                                         type="button"
                                         variant="outline"
                                         size="sm"
-                                        disabled={fileWorkspaceLoading || fileWorkspaceLoadingMore || fileWorkspaceBulkSaving || Boolean(fileWorkspaceSavingMemberId)}
-                                        onClick={() => void loadFileWorkspaceSettings()}
+                                        disabled={fileAccessLoading || fileAccessLoadingMore || fileAccessBulkSaving || Boolean(fileAccessSavingMemberId)}
+                                        onClick={() => void loadFileAccessSettings()}
                                         className="nb-touch-target h-[34px] rounded-[5px] px-3.5 text-[13px] font-medium gap-2 self-start sm:self-auto border-border hover:bg-muted/50"
                                     >
-                                        <RefreshCw className={cn("size-3.5", fileWorkspaceLoading && "animate-spin")} />
+                                        <RefreshCw className={cn("size-3.5", fileAccessLoading && "animate-spin")} />
                                         Refresh
                                     </Button>
                                 </div>
@@ -1964,22 +1964,22 @@ function ProjectSettingsContent({
                                 </div>
                                 <SettingsSwitch
                                     checked={memberFileUploadDefault}
-                                    disabled={savingMemberFileUploadDefault || fileWorkspaceBulkSaving || !isProjectOwner}
+                                    disabled={savingMemberFileUploadDefault || fileAccessBulkSaving || !isProjectOwner}
                                     aria-label="New members can upload files"
                                     onCheckedChange={(checked) => void handleToggleMemberFileUploadDefault(checked)}
                                 />
                             </div>
-                            <FileWorkspaceMembers
-                                query={fileWorkspaceQuery}
-                                permissionFilter={fileWorkspaceFilter}
-                                onQueryChange={setFileWorkspaceQuery}
-                                onFilterChange={setFileWorkspaceFilter}
-                                onLoadMore={() => void loadFileWorkspaceSettings("more")}
-                                loadingMore={fileWorkspaceLoadingMore}
-                                data={fileWorkspaceData}
-                                isLoading={fileWorkspaceLoading}
-                                savingMemberId={fileWorkspaceSavingMemberId}
-                                bulkSaving={fileWorkspaceBulkSaving || Boolean(fileWorkspaceSavingMemberId) || savingMemberFileUploadDefault}
+                            <FileAccessMembers
+                                query={fileAccessQuery}
+                                permissionFilter={fileAccessFilter}
+                                onQueryChange={setFileAccessQuery}
+                                onFilterChange={setFileAccessFilter}
+                                onLoadMore={() => void loadFileAccessSettings("more")}
+                                loadingMore={fileAccessLoadingMore}
+                                data={fileAccessData}
+                                isLoading={fileAccessLoading}
+                                savingMemberId={fileAccessSavingMemberId}
+                                bulkSaving={fileAccessBulkSaving || Boolean(fileAccessSavingMemberId) || savingMemberFileUploadDefault}
                                 onToggle={handleToggleMemberFileUpload}
                                 onBulkToggle={handleBulkFileUploadPermission}
                                 filePolicy={FILE_POLICY}

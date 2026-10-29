@@ -1,6 +1,6 @@
 import type { StateCreator } from "zustand";
-import type { FilesWorkspaceState, EditorPreferences, NodeEventSummary, SoftLock } from "./types";
-import { defaultWorkspace } from "./types";
+import type { FilesStoreState, EditorPreferences, NodeEventSummary, SoftLock } from "./types";
+import { defaultFilesState } from "./types";
 import { FILES_RUNTIME_BUDGETS, clampNumber } from "@/lib/files/runtime-budgets";
 
 function normalizeLockedByName(value: string | null | undefined) {
@@ -31,10 +31,10 @@ export interface EditorSlice {
 
 }
 
-export const createEditorSlice: StateCreator<FilesWorkspaceState, [], [], EditorSlice> = (set) => ({
+export const createEditorSlice: StateCreator<FilesStoreState, [], [], EditorSlice> = (set) => ({
   setPrefs: (projectId, prefs) =>
     set((state) => {
-      const ws = state.byProjectId[projectId] ?? defaultWorkspace();
+      const ws = state.byProjectId[projectId] ?? defaultFilesState();
       const nextPrefs: EditorPreferences = {
         ...ws.prefs,
         ...prefs,
@@ -59,7 +59,7 @@ export const createEditorSlice: StateCreator<FilesWorkspaceState, [], [], Editor
     }),
   setLocks: (projectId, locks) =>
     set((state) => {
-      const ws = state.byProjectId[projectId] ?? defaultWorkspace();
+      const ws = state.byProjectId[projectId] ?? defaultFilesState();
       const nextLocks: Record<string, SoftLock> = {};
 
       for (const l of locks) {
@@ -93,7 +93,7 @@ export const createEditorSlice: StateCreator<FilesWorkspaceState, [], [], Editor
     }),
   setLastNodeEventSummary: (projectId, nodeId, summary) =>
     set((state) => {
-      const ws = state.byProjectId[projectId] ?? defaultWorkspace();
+      const ws = state.byProjectId[projectId] ?? defaultFilesState();
       const prev = ws.lastNodeEventsByNodeId[nodeId];
       if (
         prev &&
@@ -120,7 +120,7 @@ export const createEditorSlice: StateCreator<FilesWorkspaceState, [], [], Editor
 
   clearLastNodeEventSummary: (projectId, nodeId) =>
     set((state) => {
-      const ws = state.byProjectId[projectId] ?? defaultWorkspace();
+      const ws = state.byProjectId[projectId] ?? defaultFilesState();
       if (!(nodeId in ws.lastNodeEventsByNodeId)) {
         return state;
       }

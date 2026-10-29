@@ -23,8 +23,8 @@
 
 import { useShallow } from "zustand/react/shallow";
 
-import { useFilesWorkspaceStore } from "@/stores/filesWorkspaceStore";
-import type { ProjectWorkspaceState } from "@/stores/filesWorkspaceStore";
+import { useFilesStore } from "@/stores/filesStore";
+import type { ProjectFilesState } from "@/stores/filesStore";
 
 import type { CurrentLocation } from "../navigation";
 
@@ -33,7 +33,7 @@ import type { CurrentLocation } from "../navigation";
  * exercise every branch without mounting React.
  */
 export function selectCurrentLocation(
-  workspace: ProjectWorkspaceState | undefined,
+  workspace: ProjectFilesState | undefined,
 ): CurrentLocation | null {
   if (!workspace) return null;
 
@@ -52,7 +52,7 @@ export function selectCurrentLocation(
 }
 
 export function useCurrentLocation(projectId: string): CurrentLocation | null {
-  return useFilesWorkspaceStore(
+  return useFilesStore(
     useShallow((s) => selectCurrentLocation(s.byProjectId[projectId])),
   );
 }

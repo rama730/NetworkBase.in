@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 
 describe("Reviewed GitHub Sync destinations", () => {
   const source = readFileSync(
-    "src/components/projects/v2/files-tab/GitHubSyncWorkspace.tsx",
+    "src/components/projects/v2/files-tab/RepositorySync.tsx",
     "utf8",
   );
   it("keeps repository context compact and target edits behind settings", () => {

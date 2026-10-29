@@ -38,8 +38,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useFilesWorkspaceStore } from "@/stores/filesWorkspaceStore";
-import { useFilesWorkspaceView } from "./FilesWorkspaceViews";
+import { useFilesStore } from "@/stores/filesStore";
+import { useFilesViews } from "./FilesViews";
 import { useFilesTabRole } from "./FilesTabRoleContext";
 import { formatRelativeTime, formatBytes, type NodeType } from "./folder/format";
 import { FileTypeChip } from "./FileTypeChip";
@@ -50,7 +50,7 @@ import {
   FolderListError,
 } from "./folder/FolderListStates";
 import { FOLDER_LIST_GRID_TEMPLATE } from "./folder/layout";
-import { FilesWorkspaceMenu, FilesHeaderSlot } from "./FilesWorkspaceHeader";
+import { FilesViewsMenu, FilesHeaderSlot } from "./FilesHeader";
 import { UserAvatar } from "@/components/ui/UserAvatar";
 import styles from "./folder/FolderList.module.css";
 import { cn } from "@/lib/utils";
@@ -64,7 +64,7 @@ function originalLocation(path: string) {
 type CategoryFilter = "all" | "files" | "folders";
 
 export function TrashFilesCollection({ projectId }: { projectId: string }) {
-  const { query } = useFilesWorkspaceView()!;
+  const { query } = useFilesViews()!;
   const { canEdit, canManageFiles } = useFilesTabRole();
   const [busy, setBusy] = useState<string | null>(null);
   const [deletion, setDeletion] = useState<
@@ -297,7 +297,7 @@ export function TrashFilesCollection({ projectId }: { projectId: string }) {
         );
       } else {
         for (const id of response.deletedIds) {
-          useFilesWorkspaceStore.getState().removeNodeFromCaches(projectId, id);
+          useFilesStore.getState().removeNodeFromCaches(projectId, id);
         }
         toast.success("Permanently deleted", { description: "This cannot be undone." });
       }
@@ -335,7 +335,7 @@ export function TrashFilesCollection({ projectId }: { projectId: string }) {
       const reviewed = Object.keys(bulk.impact.fingerprints).length;
       const result = await permanentlyDeleteTrashedNodes(projectId, bulk.impact.fingerprints);
       for (const id of result.deletedIds) {
-        useFilesWorkspaceStore.getState().removeNodeFromCaches(projectId, id);
+        useFilesStore.getState().removeNodeFromCaches(projectId, id);
       }
       const deletedRoots = reviewed - result.pendingIds.length - result.failed.length;
       const plural = (n: number) => `${n} ${n === 1 ? "item" : "items"}`;
@@ -368,7 +368,7 @@ export function TrashFilesCollection({ projectId }: { projectId: string }) {
         "flex h-full min-h-0 min-w-0 flex-col overflow-hidden bg-card dark:bg-background relative",
       )}
     >
-      <FilesWorkspaceMenu projectId={projectId} />
+      <FilesViewsMenu projectId={projectId} />
 
       {/* Header Slot Actions (Gated by canManageFiles) */}
       {canManageFiles && nodes.length > 0 && (

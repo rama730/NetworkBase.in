@@ -46,7 +46,7 @@ import { ChildOrgChips, OrgBreadcrumb, OrgCompactMark, OrgHeaderMenu, OrgIdentit
 import { readOrgTabBadgesAction, type OrgTabBadges } from '@/app/actions/assignments';
 import { isProjectPubliclyReadableVisibility } from '@/lib/projects/project-visibility';
 import { confirmFileNavigation } from '@/lib/files/unsaved-navigation';
-import { useFilesWorkspaceStore } from '@/stores/filesWorkspaceStore';
+import { useFilesStore } from '@/stores/filesStore';
 
 const EditProjectModal = dynamic(() => import('@/components/projects/EditProjectModal'), { ssr: false, loading: () => null });
 
@@ -1120,7 +1120,7 @@ export default function ProjectDashboardClient({ project, currentUserId, viewerD
     }, [hideStoryPoints]);
     const canStartNew = isOrganization && canManageProjectSettings && project.status !== 'archived' && !organization?.suspended;
     const activeSprintName = (sprints as Array<{ status?: string; name?: string }>).find((s) => s.status === 'active')?.name ?? null;
-    const filesSyncBadge = useFilesWorkspaceStore((s) => s.byProjectId[project.id]?.git?.syncBadge ?? null);
+    const filesSyncBadge = useFilesStore((s) => s.byProjectId[project.id]?.git?.syncBadge ?? null);
     // `drawerType=task&drawerId=` is the task link; `taskId` is the legacy form some old links carry.
     const initialTaskDrawerId = (searchParams?.get('drawerType') === 'task' ? searchParams.get('drawerId') : null)
         ?? (activeTab === 'tasks' ? searchParams?.get('taskId') ?? null : null);

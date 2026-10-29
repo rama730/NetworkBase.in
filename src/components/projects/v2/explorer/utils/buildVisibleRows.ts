@@ -1,5 +1,5 @@
 import type { ProjectNode } from "@/lib/db/schema";
-import { filesParentKey } from "@/stores/filesWorkspaceStore";
+import { filesParentKey } from "@/stores/filesStore";
 import { FILES_RUNTIME_BUDGETS } from "@/lib/files/runtime-budgets";
 
 export type VisibleRow =

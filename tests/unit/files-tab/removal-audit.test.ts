@@ -22,7 +22,7 @@
 //                        test). Informational; excluded from the "unexpected"
 //                        bucket.
 //   - `likely-collision` — a store-method name matched in a file that does
-//                        NOT import `@/stores/filesWorkspaceStore` — almost
+//                        NOT import `@/stores/filesStore` — almost
 //                        certainly an unrelated local identifier (e.g. a
 //                        React `useState` setter called `setActiveTab`).
 //                        Demoted so reviewers can ignore noise.
@@ -72,12 +72,12 @@ const LEGACY_SATELLITES = new Set<string>();
 const STORE_DECLARATION_FILES = new Set<string>([
   "src/stores/files/types.ts",
   "src/stores/files/index.ts",
-  "src/stores/files/workspaceSlice.ts",
+  "src/stores/files/navigationSlice.ts",
   "src/stores/files/explorerSlice.ts",
   "src/stores/files/editorSlice.ts",
   "src/stores/files/gitSlice.ts",
   "src/stores/files/selectors.ts",
-  "src/stores/filesWorkspaceStore.ts",
+  "src/stores/filesStore.ts",
 ]);
 
 // Paths that should be ignored when classifying references (spec docs,
@@ -411,7 +411,7 @@ function emptyCounts(): Record<Classification, number> {
 /**
  * Cache of whether a given source file imports the files workspace store.
  * Store-method hits only count as `unexpected` when the host file also
- * imports `@/stores/filesWorkspaceStore` or a `@/stores/files/` slice —
+ * imports `@/stores/filesStore` or a `@/stores/files/` slice —
  * otherwise the hit is a local identifier collision (e.g. an unrelated
  * `const [activeTab, setActiveTab] = useState(...)` somewhere else in the
  * product) and is classified `likely-collision` instead.
@@ -427,7 +427,7 @@ function fileImportsWorkspaceStore(relFile: string): boolean {
     // Read only once per file; cap size to keep the test fast.
     const contents = readFileSync(abs, "utf8");
     imports =
-      contents.includes("@/stores/filesWorkspaceStore") ||
+      contents.includes("@/stores/filesStore") ||
       contents.includes("@/stores/files/");
   } catch {
     imports = false;
@@ -468,7 +468,7 @@ function auditFileTarget(target: FileTarget, tool: SearchTool): TargetReport {
  * count its own `export function setSplitEnabled(...)` as "unexpected").
  */
 const SLICE_PATHS: Record<string, string> = {
-  workspaceSlice: "src/stores/files/workspaceSlice.ts",
+  workspaceSlice: "src/stores/files/navigationSlice.ts",
   explorerSlice: "src/stores/files/explorerSlice.ts",
   editorSlice: "src/stores/files/editorSlice.ts",
   gitSlice: "src/stores/files/gitSlice.ts",

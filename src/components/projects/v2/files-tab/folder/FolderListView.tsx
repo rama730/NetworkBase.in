@@ -48,8 +48,8 @@ import {
 import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import { getProjectNodes } from "@/app/actions/files/nodes";
 import { getFilePreviewUrl } from "@/app/actions/files/content";
-import { useFilesWorkspaceView } from "../FilesWorkspaceViews";
-import { FilesWorkspaceMenu, FilesHeaderSlot } from "../FilesWorkspaceHeader";
+import { useFilesViews } from "../FilesViews";
+import { FilesViewsMenu, FilesHeaderSlot } from "../FilesHeader";
 import type { TaskFileRole } from "@/lib/projects/task-file-intelligence";
 import { isTextLike as isTextFile } from "../../utils/fileKind";
 import type { ProjectNode } from "@/lib/db/schema";
@@ -58,7 +58,7 @@ import {
   isInternalTaskWorkingFilesNode,
   isProjectSystemRoot,
 } from "@/lib/files/task-working-files";
-import { useFilesWorkspaceStore } from "@/stores/filesWorkspaceStore";
+import { useFilesStore } from "@/stores/filesStore";
 
 import { EMPTY_ARRAY, EMPTY_OBJECT } from "../../explorer/explorerTypes";
 import { useExplorerDragDrop } from "../../explorer/useExplorerDragDrop";
@@ -252,58 +252,58 @@ export function FolderListView({
   collection,
 }: FolderListViewProps): React.JSX.Element {
   // ── Store selectors ───────────────────────────────────────────────
-  const nodesById = useFilesWorkspaceStore(
+  const nodesById = useFilesStore(
     (s) => s.byProjectId[projectId]?.nodesById || EMPTY_OBJECT,
   ) as Record<string, ProjectNode>;
-  const childrenByParentId = useFilesWorkspaceStore(
+  const childrenByParentId = useFilesStore(
     (s) => s.byProjectId[projectId]?.childrenByParentId || EMPTY_OBJECT,
   ) as Record<string, string[]>;
-  const loadedChildren = useFilesWorkspaceStore(
+  const loadedChildren = useFilesStore(
     (s) => s.byProjectId[projectId]?.loadedChildren || EMPTY_OBJECT,
   ) as Record<string, boolean>;
-  const favorites = useFilesWorkspaceStore(
+  const favorites = useFilesStore(
     (s) => s.byProjectId[projectId]?.favorites || EMPTY_OBJECT,
   ) as Record<string, boolean>;
-  const sort = useFilesWorkspaceStore(s => s.byProjectId[projectId]?.sort ?? "name");
-  const setSort = useFilesWorkspaceStore(s => s.setSort);
-  const selectedFolderId = useFilesWorkspaceStore(
+  const sort = useFilesStore(s => s.byProjectId[projectId]?.sort ?? "name");
+  const setSort = useFilesStore(s => s.setSort);
+  const selectedFolderId = useFilesStore(
     (s) => s.byProjectId[projectId]?.selectedFolderId ?? null,
   );
-  const storeSelectedNodeIds = useFilesWorkspaceStore(
+  const storeSelectedNodeIds = useFilesStore(
     (s) => s.byProjectId[projectId]?.selectedNodeIds || EMPTY_ARRAY,
   ) as string[];
-  const gitChangedFiles = useFilesWorkspaceStore(
+  const gitChangedFiles = useFilesStore(
     (s) =>
       s.byProjectId[projectId]?.git?.changedFiles ?? EMPTY_GIT_CHANGED_FILES,
   );
-  const folderPage = useFilesWorkspaceStore(
+  const folderPage = useFilesStore(
     (s) =>
       s.byProjectId[projectId]?.folderMeta?.[folderId ?? "__root__"] ??
       EMPTY_FOLDER_PAGE,
   );
 
-  const taskLinkCounts = useFilesWorkspaceStore(
+  const taskLinkCounts = useFilesStore(
     (s) => s.byProjectId[projectId]?.taskLinkCounts || EMPTY_OBJECT,
   ) as Record<string, number>;
   const currentFolderIsSystemManaged = Boolean(
     folderId && nodesById[folderId] && isInternalTaskWorkingFilesNode(nodesById[folderId]),
   );
   const canEditCurrentFolder = canEdit && !currentFolderIsSystemManaged;
-  const workspace = useFilesWorkspaceView();
+  const workspace = useFilesViews();
   const [selectionMode, setSelectionMode] = React.useState(false);
   const [editingLabelNodeId, setEditingLabelNodeId] = React.useState<string | null>(null);
   // Search is committed from the dialog, not on every keystroke. Applying it
   // synchronously prevents stale, clickable rows under a new query label.
   const search = workspace?.query ?? "";
 
-  const upsertNodes = useFilesWorkspaceStore((s) => s.upsertNodes);
-  const setChildren = useFilesWorkspaceStore((s) => s.setChildren);
-  const setSelectedNode = useFilesWorkspaceStore((s) => s.setSelectedNode);
-  const setSelectedNodeIds = useFilesWorkspaceStore(
+  const upsertNodes = useFilesStore((s) => s.upsertNodes);
+  const setChildren = useFilesStore((s) => s.setChildren);
+  const setSelectedNode = useFilesStore((s) => s.setSelectedNode);
+  const setSelectedNodeIds = useFilesStore(
     (s) => s.setSelectedNodeIds,
   );
-  const toggleExpanded = useFilesWorkspaceStore((s) => s.toggleExpanded);
-  const toggleFavorite = useFilesWorkspaceStore((s) => s.toggleFavorite);
+  const toggleExpanded = useFilesStore((s) => s.toggleExpanded);
+  const toggleFavorite = useFilesStore((s) => s.toggleFavorite);
 
   // ── Navigation (single write path to currentLocationId) ───────────
   const navigateTo = useNavigateTo(projectId);
@@ -370,7 +370,7 @@ export function FolderListView({
   );
   React.useEffect(() => { setSelectedNodeIds(projectId, []); setSelectionMode(false); }, [projectId, folderId, search, sort, workspace?.view, workspace?.taskId, collection?.preserveOrder, setSelectedNodeIds]);
   const selectItem = React.useCallback((id: string, selected: boolean) => {
-    const current = useFilesWorkspaceStore.getState().byProjectId[projectId]?.selectedNodeIds ?? [];
+    const current = useFilesStore.getState().byProjectId[projectId]?.selectedNodeIds ?? [];
     if (selected && current.length >= 200) { toast.info("Select up to 200 items per operation"); return; }
     setSelectedNodeIds(projectId, selected ? [...new Set([...current, id])] : current.filter(value => value !== id));
   }, [projectId, setSelectedNodeIds]);
@@ -1064,7 +1064,7 @@ export function FolderListView({
           </div>
         </FilesHeaderSlot>
       )}
-      <FilesWorkspaceMenu projectId={projectId} selectionMode={selectionMode}>
+      <FilesViewsMenu projectId={projectId} selectionMode={selectionMode}>
         {selectionMode ? <>
           <DropdownMenuItem onSelect={() => setSelectedNodeIds(projectId, sortedChildren.filter(node => !isInternalTaskWorkingFilesNode(node)).slice(0, 200).map(node => node.id))}>Select loaded items (up to 200)</DropdownMenuItem>
           {canManageFiles && <DropdownMenuItem disabled={!selectedItems.length} onSelect={() => openMove(selectedItems)}><FolderInput className="size-4" />Move…</DropdownMenuItem>}
@@ -1088,7 +1088,7 @@ export function FolderListView({
           </>}
           {canEditCurrentFolder && <><DropdownMenuSeparator /><DropdownMenuItem onSelect={() => { setSelectionMode(true); setSelectedNodeIds(projectId, []); }}>Select items</DropdownMenuItem></>}
         </>}
-      </FilesWorkspaceMenu>
+      </FilesViewsMenu>
       {selectionMode && <FilesHeaderSlot slot="status"><span role="status">{selectedItems.length} selected</span><button type="button" className="min-h-10 rounded px-2 hover:bg-muted" onClick={() => { setSelectionMode(false); setSelectedNodeIds(projectId, []); }}>Done</button></FilesHeaderSlot>}
       <div role="table" aria-label="File listing" className="flex min-h-0 flex-1 flex-col">
       <FolderListHeader sort={collection?.preserveOrder ? undefined : sort} />

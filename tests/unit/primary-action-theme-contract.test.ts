@@ -9,7 +9,7 @@ function source(relativePath: string) {
 test("primary actions derive hover and pressed states from the active light or dark accent", () => {
   const css = source("src/app/globals.css");
   const topNav = source("src/components/layout/header/TopNav.tsx");
-  const githubSync = source("src/components/projects/v2/files-tab/GitHubSyncWorkspace.tsx");
+  const githubSync = source("src/components/projects/v2/files-tab/RepositorySync.tsx");
   const folderList = source("src/components/projects/v2/files-tab/folder/FolderListView.tsx");
 
   assert.match(css, /--theme-action-hover-light: color-mix/);

@@ -15,7 +15,7 @@ import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { useShallow } from "zustand/react/shallow";
 
 import type { ProjectNode } from "@/lib/db/schema";
-import { useFilesWorkspaceStore } from "@/stores/filesWorkspaceStore";
+import { useFilesStore } from "@/stores/filesStore";
 import {
   getTaskWorkingFilesDisplayName,
   isProjectSystemRoot,
@@ -105,7 +105,7 @@ export function QuickOpenDialog({
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Single shallow subscription to the slice bits we render from.
-  const { nodesById, recents } = useFilesWorkspaceStore(
+  const { nodesById, recents } = useFilesStore(
     useShallow((s) => {
       const ws = s.byProjectId[projectId];
       return {
@@ -172,7 +172,7 @@ export function QuickOpenDialog({
       && !(node.type === "folder" && isInternalTaskWorkingFilesNode(node)));
   }, [showRecents, recentFiles.data, search.data, rawQuery, includeFolders]);
   useEffect(() => {
-    useFilesWorkspaceStore.getState().upsertNodes(projectId, results);
+    useFilesStore.getState().upsertNodes(projectId, results);
   }, [results, projectId]);
 
   // ── Active (focused) result index + scroll into view (Req 9.4) ────
@@ -219,7 +219,7 @@ export function QuickOpenDialog({
       // server-side delete may have removed the node since the memoized
       // `results` array was last computed. Req 9.6: show inline error,
       // leave `currentLocationId` alone.
-      const fresh = useFilesWorkspaceStore.getState().byProjectId[projectId]?.nodesById[candidate.id];
+      const fresh = useFilesStore.getState().byProjectId[projectId]?.nodesById[candidate.id];
       if (!fresh || fresh.deletedAt || (!includeFolders && fresh.type !== "file")) {
         setMissingNodeError(
           `"${candidate.name}" is no longer available. It may have been deleted or moved.`,

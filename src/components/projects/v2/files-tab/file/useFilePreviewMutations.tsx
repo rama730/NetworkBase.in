@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 import { useContext } from "react";
 import { toast } from "@/lib/feedback";
-import { useFilesWorkspaceStore } from "@/stores/filesWorkspaceStore";
+import { useFilesStore } from "@/stores/filesStore";
 import { useExplorerMutations } from "../../explorer/useExplorerMutations";
 import { useExplorerOperationLog } from "../../explorer/useExplorerOperationLog";
 import { FilesTabBootContext } from "../hooks/useFolderContents";
@@ -21,8 +21,8 @@ export function useFilePreviewMutations(
   canEdit: boolean,
   canManageFiles: boolean,
 ) {
-  const ws = useFilesWorkspaceStore((state) => state.byProjectId[projectId]);
-  const state = useFilesWorkspaceStore.getState();
+  const ws = useFilesStore((state) => state.byProjectId[projectId]);
+  const state = useFilesStore.getState();
   const boot = useContext(FilesTabBootContext);
   const navigateTo = useNavigateTo(projectId);
   const { recordOperation } = useExplorerOperationLog();

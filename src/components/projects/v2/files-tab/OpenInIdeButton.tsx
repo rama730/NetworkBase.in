@@ -289,7 +289,7 @@ export function OpenInIdeButton({
             />
             <DialogTitle>Connect {fallbackIde.name}</DialogTitle>
             <DialogDescription className="text-[13px] leading-relaxed">
-              If nothing opened, install the NetworkBase WorkSpace extension in{" "}
+              If nothing opened, install NetworkBase for VS Code in{" "}
               {fallbackIde.name}, then try again.
             </DialogDescription>
           </DialogHeader>

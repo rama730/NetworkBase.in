@@ -12,9 +12,9 @@ import {
   changeLabel,
   formatSyncBytes,
   formatSyncDate,
-} from "@/lib/github/sync-workspace";
+} from "@/lib/github/repository-sync";
 import { quietButton } from "./sync-styles";
-import styles from "./SyncWorkspace.module.css";
+import styles from "./RepositorySync.module.css";
 import { formatRelativeTime } from "../folder/format";
 
 export function SyncHeading({

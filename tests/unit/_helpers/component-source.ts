@@ -11,7 +11,7 @@ const SPLIT_COMPONENTS: Record<string, string[]> = {
     "src/components/projects/settings/SettingsPolicyDetails.tsx",
     "src/components/projects/settings/ProjectNotificationSettings.tsx",
     "src/components/projects/settings/MemberNotificationSettingsEditor.tsx",
-    "src/components/projects/settings/FileWorkspaceMembers.tsx",
+    "src/components/projects/settings/FileAccessMembers.tsx",
     "src/components/projects/settings/CollaboratorCard.tsx",
     "src/components/projects/settings/LifecycleSettingsEditor.tsx",
     "src/components/projects/settings/PublicTabVisibilityEditor.tsx",

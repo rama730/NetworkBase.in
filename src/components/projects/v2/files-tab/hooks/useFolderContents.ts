@@ -34,7 +34,7 @@ import {
   useState,
 } from "react";
 import type { ProjectNode } from "@/lib/db/schema";
-import { filesParentKey, useFilesWorkspaceStore } from "@/stores/filesWorkspaceStore";
+import { filesParentKey, useFilesStore } from "@/stores/filesStore";
 
 // ─── Public types ────────────────────────────────────────────────────
 
@@ -168,14 +168,14 @@ export function useFolderContents(
 
   // Narrow selectors so the hook re-renders only when the relevant slice of
   // the project workspace changes, not on every unrelated write.
-  const childIds = useFilesWorkspaceStore(
+  const childIds = useFilesStore(
     (s) =>
       (s.byProjectId[projectId]?.childrenByParentId[key] ?? EMPTY_IDS) as readonly string[],
   );
-  const loaded = useFilesWorkspaceStore(
+  const loaded = useFilesStore(
     (s) => s.byProjectId[projectId]?.loadedChildren[key] === true,
   );
-  const nodesById = useFilesWorkspaceStore(
+  const nodesById = useFilesStore(
     (s) => s.byProjectId[projectId]?.nodesById ?? EMPTY_NODES,
   );
 

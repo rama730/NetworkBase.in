@@ -1,6 +1,6 @@
 import type { StateCreator } from "zustand";
-import type { FilesWorkspaceState, GitState } from "./types";
-import { defaultWorkspace } from "./types";
+import type { FilesStoreState, GitState } from "./types";
+import { defaultFilesState } from "./types";
 
 export interface GitSlice {
   setGitRepo: (projectId: string, repoUrl: string, branch: string) => void;
@@ -10,10 +10,10 @@ export interface GitSlice {
   setGitSyncBadge: (projectId: string, badge: GitState["syncBadge"]) => void;
 }
 
-export const createGitSlice: StateCreator<FilesWorkspaceState, [], [], GitSlice> = (set) => ({
+export const createGitSlice: StateCreator<FilesStoreState, [], [], GitSlice> = (set) => ({
   setGitRepo: (projectId, repoUrl, branch) =>
     set((state) => {
-      const ws = state.byProjectId[projectId] ?? defaultWorkspace();
+      const ws = state.byProjectId[projectId] ?? defaultFilesState();
       return {
         byProjectId: {
           ...state.byProjectId,
@@ -27,7 +27,7 @@ export const createGitSlice: StateCreator<FilesWorkspaceState, [], [], GitSlice>
 
   setGitBranch: (projectId, branch) =>
     set((state) => {
-      const ws = state.byProjectId[projectId] ?? defaultWorkspace();
+      const ws = state.byProjectId[projectId] ?? defaultFilesState();
       return {
         byProjectId: {
           ...state.byProjectId,
@@ -41,7 +41,7 @@ export const createGitSlice: StateCreator<FilesWorkspaceState, [], [], GitSlice>
 
   setGitChangedFiles: (projectId, files) =>
     set((state) => {
-      const ws = state.byProjectId[projectId] ?? defaultWorkspace();
+      const ws = state.byProjectId[projectId] ?? defaultFilesState();
       return {
         byProjectId: {
           ...state.byProjectId,
@@ -54,7 +54,7 @@ export const createGitSlice: StateCreator<FilesWorkspaceState, [], [], GitSlice>
     }),
   setGitStatusLoaded: (projectId, loaded) =>
     set((state) => {
-      const ws = state.byProjectId[projectId] ?? defaultWorkspace();
+      const ws = state.byProjectId[projectId] ?? defaultFilesState();
       return {
         byProjectId: {
           ...state.byProjectId,
@@ -67,7 +67,7 @@ export const createGitSlice: StateCreator<FilesWorkspaceState, [], [], GitSlice>
     }),
   setGitSyncBadge: (projectId, badge) =>
     set((state) => {
-      const ws = state.byProjectId[projectId] ?? defaultWorkspace();
+      const ws = state.byProjectId[projectId] ?? defaultFilesState();
       return {
         byProjectId: {
           ...state.byProjectId,

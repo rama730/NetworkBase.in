@@ -145,7 +145,7 @@ async function workspace(
     "./OrgStoryHelpers": `export function OrgStoryHelpers(){return null;}`,
   };
   const result = await build({
-    entryPoints: ["src/components/profile/edit/ContributionWorkspace.tsx"],
+    entryPoints: ["src/components/profile/edit/ContributionEditor.tsx"],
     bundle: true,
     write: false,
     platform: "node",
@@ -170,7 +170,7 @@ async function workspace(
     ],
   });
   const compiledModule = {
-    exports: {} as { ContributionWorkspace: (props: any) => Element },
+    exports: {} as { ContributionEditor: (props: any) => Element },
   };
   new Function("require", "module", "exports", result.outputFiles![0]!.text)(
     createRequire(import.meta.url),
@@ -225,7 +225,7 @@ async function workspace(
     for (let attempts = 0; attempts < 25; attempts++) {
       index = 0;
       dirty = false;
-      tree = compiledModule.exports.ContributionWorkspace(props);
+      tree = compiledModule.exports.ContributionEditor(props);
       const pending = effects.splice(0);
       for (const effect of pending) effect();
       await Promise.resolve();

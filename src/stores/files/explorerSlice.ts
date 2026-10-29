@@ -1,13 +1,13 @@
 import type { StateCreator } from "zustand";
 import type { ProjectNode } from "@/lib/db/schema";
 import type {
-  FilesWorkspaceState,
+  FilesStoreState,
   ExplorerMode,
   FilesViewMode,
   ExplorerSort,
-  WorkspacePane,
+  EditorPane,
 } from "./types";
-import { defaultWorkspace, parentKey } from "./types";
+import { defaultFilesState, parentKey } from "./types";
 import { deleteFileContent } from "./contentMap";
 
 
@@ -169,10 +169,10 @@ export interface ExplorerSlice {
 
 }
 
-export const createExplorerSlice: StateCreator<FilesWorkspaceState, [], [], ExplorerSlice> = (set) => ({
+export const createExplorerSlice: StateCreator<FilesStoreState, [], [], ExplorerSlice> = (set) => ({
   setExplorerMode: (projectId, mode) =>
     set((state) => {
-      const ws = state.byProjectId[projectId] ?? defaultWorkspace();
+      const ws = state.byProjectId[projectId] ?? defaultFilesState();
       const nextViewMode = ws.viewModeByExplorerMode[mode] ?? ws.viewMode;
       return {
         byProjectId: {
@@ -188,7 +188,7 @@ export const createExplorerSlice: StateCreator<FilesWorkspaceState, [], [], Expl
 
   setViewMode: (projectId, mode) =>
     set((state) => {
-      const ws = state.byProjectId[projectId] ?? defaultWorkspace();
+      const ws = state.byProjectId[projectId] ?? defaultFilesState();
       return {
         byProjectId: {
           ...state.byProjectId,
@@ -206,7 +206,7 @@ export const createExplorerSlice: StateCreator<FilesWorkspaceState, [], [], Expl
 
   setSelectedNode: (projectId, nodeId, parentId) =>
     set((state) => {
-      const ws = state.byProjectId[projectId] ?? defaultWorkspace();
+      const ws = state.byProjectId[projectId] ?? defaultFilesState();
       const nextSelectedFolderId =
         parentId !== undefined ? parentId : ws.selectedFolderId;
       const changed =
@@ -226,7 +226,7 @@ export const createExplorerSlice: StateCreator<FilesWorkspaceState, [], [], Expl
 
   setSelectedNodeIds: (projectId, nodeIds) =>
     set((state) => {
-      const ws = state.byProjectId[projectId] ?? defaultWorkspace();
+      const ws = state.byProjectId[projectId] ?? defaultFilesState();
       const firstId = nodeIds[0];
       const nextSelectedNodeId =
         nodeIds.length === 1 && firstId !== undefined ? firstId : (nodeIds.length === 0 ? null : ws.selectedNodeId);
@@ -249,7 +249,7 @@ export const createExplorerSlice: StateCreator<FilesWorkspaceState, [], [], Expl
 
   toggleExpanded: (projectId, folderId, expanded) =>
     set((state) => {
-      const ws = state.byProjectId[projectId] ?? defaultWorkspace();
+      const ws = state.byProjectId[projectId] ?? defaultFilesState();
       const current = !!ws.expandedFolderIds[folderId];
       const next = expanded !== undefined ? expanded : !current;
       return {
@@ -269,7 +269,7 @@ export const createExplorerSlice: StateCreator<FilesWorkspaceState, [], [], Expl
 
   setSearchQuery: (projectId, query) =>
     set((state) => {
-      const ws = state.byProjectId[projectId] ?? defaultWorkspace();
+      const ws = state.byProjectId[projectId] ?? defaultFilesState();
       return {
         byProjectId: {
           ...state.byProjectId,
@@ -280,7 +280,7 @@ export const createExplorerSlice: StateCreator<FilesWorkspaceState, [], [], Expl
 
   setSort: (projectId, sort) =>
     set((state) => {
-      const ws = state.byProjectId[projectId] ?? defaultWorkspace();
+      const ws = state.byProjectId[projectId] ?? defaultFilesState();
       return {
         byProjectId: {
           ...state.byProjectId,
@@ -291,7 +291,7 @@ export const createExplorerSlice: StateCreator<FilesWorkspaceState, [], [], Expl
 
   setFoldersFirst: (projectId, foldersFirst) =>
     set((state) => {
-      const ws = state.byProjectId[projectId] ?? defaultWorkspace();
+      const ws = state.byProjectId[projectId] ?? defaultFilesState();
       return {
         byProjectId: {
           ...state.byProjectId,
@@ -302,7 +302,7 @@ export const createExplorerSlice: StateCreator<FilesWorkspaceState, [], [], Expl
 
   addRecent: (projectId, nodeId) =>
     set((state) => {
-      const ws = state.byProjectId[projectId] ?? defaultWorkspace();
+      const ws = state.byProjectId[projectId] ?? defaultFilesState();
       const next = [nodeId, ...ws.recents.filter((id) => id !== nodeId)].slice(0, 30);
       return {
         byProjectId: {
@@ -314,7 +314,7 @@ export const createExplorerSlice: StateCreator<FilesWorkspaceState, [], [], Expl
 
   toggleFavorite: (projectId, nodeId) =>
     set((state) => {
-      const ws = state.byProjectId[projectId] ?? defaultWorkspace();
+      const ws = state.byProjectId[projectId] ?? defaultFilesState();
       const next = { ...ws.favorites };
       if (next[nodeId]) {
         delete next[nodeId];
@@ -350,7 +350,7 @@ export const createExplorerSlice: StateCreator<FilesWorkspaceState, [], [], Expl
 
   upsertNodes: (projectId, nodes) =>
     set((state) => {
-      const ws = state.byProjectId[projectId] ?? defaultWorkspace();
+      const ws = state.byProjectId[projectId] ?? defaultFilesState();
       if (nodes.length === 0) return state;
       const nextById = { ...ws.nodesById };
       let changed = false;
@@ -384,7 +384,7 @@ export const createExplorerSlice: StateCreator<FilesWorkspaceState, [], [], Expl
 
   setChildren: (projectId, parentId, childIds) =>
     set((state) => {
-      const ws = state.byProjectId[projectId] ?? defaultWorkspace();
+      const ws = state.byProjectId[projectId] ?? defaultFilesState();
       const key = parentKey(parentId);
       const nextChildren = { ...ws.childrenByParentId, [key]: Array.from(new Set(childIds)) };
 
@@ -402,7 +402,7 @@ export const createExplorerSlice: StateCreator<FilesWorkspaceState, [], [], Expl
 
   setFolderPayload: (projectId, parentId, payload) =>
     set((state) => {
-      const ws = state.byProjectId[projectId] ?? defaultWorkspace();
+      const ws = state.byProjectId[projectId] ?? defaultFilesState();
       const key = parentKey(parentId);
       const nextChildren = { ...ws.childrenByParentId, [key]: Array.from(new Set(payload.childIds)) };
 
@@ -427,7 +427,7 @@ export const createExplorerSlice: StateCreator<FilesWorkspaceState, [], [], Expl
 
   setNodesAndChildren: (projectId, nodes, parentId, childIds, payload) =>
     set((state) => {
-      const ws = state.byProjectId[projectId] ?? defaultWorkspace();
+      const ws = state.byProjectId[projectId] ?? defaultFilesState();
       const key = parentKey(parentId);
       const nextById = { ...ws.nodesById };
       for (const n of nodes) nextById[n.id] = n;
@@ -460,7 +460,7 @@ export const createExplorerSlice: StateCreator<FilesWorkspaceState, [], [], Expl
 
   markChildrenLoaded: (projectId, parentId) =>
     set((state) => {
-      const ws = state.byProjectId[projectId] ?? defaultWorkspace();
+      const ws = state.byProjectId[projectId] ?? defaultFilesState();
       const key = parentKey(parentId);
       return {
         byProjectId: {
@@ -476,7 +476,7 @@ export const createExplorerSlice: StateCreator<FilesWorkspaceState, [], [], Expl
 
   setFolderMeta: (projectId, folderId, meta) =>
     set((state) => {
-      const ws = state.byProjectId[projectId] ?? defaultWorkspace();
+      const ws = state.byProjectId[projectId] ?? defaultFilesState();
       const key = parentKey(folderId);
       return {
         byProjectId: {
@@ -492,7 +492,7 @@ export const createExplorerSlice: StateCreator<FilesWorkspaceState, [], [], Expl
 
   removeNodeFromCaches: (projectId, nodeId, options) =>
     set((state) => {
-      const ws = state.byProjectId[projectId] ?? defaultWorkspace();
+      const ws = state.byProjectId[projectId] ?? defaultFilesState();
       const nextById = { ...ws.nodesById };
       const node = nextById[nodeId];
       delete nextById[nodeId];
@@ -528,7 +528,7 @@ export const createExplorerSlice: StateCreator<FilesWorkspaceState, [], [], Expl
       deleteFileContent(projectId, nodeId);
       deleteFileContent(projectId, `${nodeId}::saved`);
 
-      const closeFromPane = (pane: WorkspacePane) => ({
+      const closeFromPane = (pane: EditorPane) => ({
         ...pane,
         openTabIds: pane.openTabIds.filter((id) => id !== nodeId),
         activeTabId: pane.activeTabId === nodeId ? null : pane.activeTabId,
@@ -597,7 +597,7 @@ export const createExplorerSlice: StateCreator<FilesWorkspaceState, [], [], Expl
 
   setNodes: (projectId, nodes) =>
     set((state) => {
-      const ws = state.byProjectId[projectId] ?? defaultWorkspace();
+      const ws = state.byProjectId[projectId] ?? defaultFilesState();
       const nodesById = { ...ws.nodesById };
       const childrenByParentId = { ...ws.childrenByParentId };
 
@@ -631,7 +631,7 @@ export const createExplorerSlice: StateCreator<FilesWorkspaceState, [], [], Expl
     }),
   batchUpdateStore: (projectId, payloads, nodes = []) =>
     set((state) => {
-      const ws = state.byProjectId[projectId] ?? defaultWorkspace();
+      const ws = state.byProjectId[projectId] ?? defaultFilesState();
       const nextById = { ...ws.nodesById };
       for (const n of nodes) {
         nextById[n.id] = n;

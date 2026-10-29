@@ -109,9 +109,9 @@ test("Files workspace hands initial pane scrolling to the route-owned project he
 
     assert.doesNotMatch(layoutSource, /FILES_WORKSPACE_SCROLL_EVENT/);
     assert.match(layoutSource, /data-project-identity-height=\{projectIdentityHeight\}/);
-    assert.match(filesRootSource, /onScrollCapture=\{handleWorkspaceScroll\}/, "Both Files panes should report scrolling through their shared root");
-    assert.match(filesRootSource, /addEventListener\("wheel", handleWorkspaceWheel, \{ passive: false, capture: true \}\)/);
-    assert.match(filesRootSource, /addEventListener\("touchmove", handleWorkspaceTouchMove, \{ passive: false, capture: true \}\)/);
+    assert.match(filesRootSource, /onScrollCapture=\{handleFilesScroll\}/, "Both Files panes should report scrolling through their shared root");
+    assert.match(filesRootSource, /addEventListener\("wheel", handleFilesWheel, \{ passive: false, capture: true \}\)/);
+    assert.match(filesRootSource, /addEventListener\("touchmove", handleFilesTouchMove, \{ passive: false, capture: true \}\)/);
     assert.match(filesRootSource, /routeRoot\.scrollTop \+= routeDelta/);
     assert.match(filesRootSource, /target\.scrollTop = currentScrollTop - routeDelta/);
     assert.match(filesRootSource, /scrollPane\.scrollTop <= 0/);

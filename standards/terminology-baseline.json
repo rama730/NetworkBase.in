@@ -664,13 +664,13 @@
   "src/components/profile/OpenToCollaborateBadge.tsx": {
    "title-case": 1
   },
+  "src/components/profile/edit/ContributionEditor.tsx": {
+   "project": 30,
+   "ampersand": 7
+  },
   "src/components/profile/edit/ContributionSummaryEditor.tsx": {
    "project": 2,
    "ampersand": 2
-  },
-  "src/components/profile/edit/ContributionWorkspace.tsx": {
-   "project": 30,
-   "ampersand": 7
   },
   "src/components/profile/edit/EditProfileEditor.tsx": {
    "project": 3
@@ -840,7 +840,7 @@
    "banned": 2,
    "ellipsis": 1
   },
-  "src/components/projects/settings/FileWorkspaceMembers.tsx": {
+  "src/components/projects/settings/FileAccessMembers.tsx": {
    "project": 2,
    "please": 1
   },
@@ -974,23 +974,17 @@
   "src/components/projects/v2/files-tab/FileTransfers.tsx": {
    "british": 1
   },
+  "src/components/projects/v2/files-tab/FilesHeader.tsx": {
+   "project": 3
+  },
   "src/components/projects/v2/files-tab/FilesTabMain.tsx": {
    "ellipsis": 1
   },
   "src/components/projects/v2/files-tab/FilesTabSidebar.tsx": {
    "project": 1
   },
-  "src/components/projects/v2/files-tab/FilesWorkspaceHeader.tsx": {
-   "project": 3
-  },
-  "src/components/projects/v2/files-tab/FilesWorkspaceViews.tsx": {
+  "src/components/projects/v2/files-tab/FilesViews.tsx": {
    "project": 1
-  },
-  "src/components/projects/v2/files-tab/GitHubSyncWorkspace.tsx": {
-   "project": 18,
-   "ampersand": 3,
-   "british": 2,
-   "banned": 2
   },
   "src/components/projects/v2/files-tab/IdeProjectPicker.tsx": {
    "project": 14,
@@ -999,6 +993,12 @@
   "src/components/projects/v2/files-tab/OpenInIdeButton.tsx": {
    "project": 1,
    "title-case": 1
+  },
+  "src/components/projects/v2/files-tab/RepositorySync.tsx": {
+   "project": 18,
+   "ampersand": 3,
+   "british": 2,
+   "banned": 2
   },
   "src/components/projects/v2/files-tab/TaskFilesCollection.tsx": {
    "title-case": 3,
@@ -1373,6 +1373,11 @@
    "project": 4,
    "ellipsis": 1
   },
+  "src/lib/github/repository-sync.ts": {
+   "ampersand": 3,
+   "project": 1,
+   "british": 1
+  },
   "src/lib/github/sync-runner.ts": {
    "ellipsis": 1
   },
@@ -1380,11 +1385,6 @@
    "banned": 1,
    "project": 3,
    "please": 2
-  },
-  "src/lib/github/sync-workspace.ts": {
-   "ampersand": 3,
-   "project": 1,
-   "british": 1
   },
   "src/lib/import/idempotency.ts": {
    "project": 1
@@ -1811,7 +1811,7 @@
   "src/components/projects/doc/ProjectDocViewer.tsx",
   "src/components/projects/settings/CollaboratorCard.tsx",
   "src/components/projects/settings/CollaboratorSearchField.tsx",
-  "src/components/projects/settings/FileWorkspaceMembers.tsx",
+  "src/components/projects/settings/FileAccessMembers.tsx",
   "src/components/projects/settings/GeneralSettingsSection.tsx",
   "src/components/projects/settings/LifecycleSettingsEditor.tsx",
   "src/components/projects/settings/MemberNotificationSettingsEditor.tsx",
@@ -1870,16 +1870,16 @@
   "src/components/projects/v2/files-tab/DesktopIdePicker.tsx",
   "src/components/projects/v2/files-tab/FileTransfers.tsx",
   "src/components/projects/v2/files-tab/FileTypeChip.tsx",
+  "src/components/projects/v2/files-tab/FilesHeader.tsx",
   "src/components/projects/v2/files-tab/FilesHeaderSlot.tsx",
   "src/components/projects/v2/files-tab/FilesTabMain.tsx",
   "src/components/projects/v2/files-tab/FilesTabRoleContext.tsx",
   "src/components/projects/v2/files-tab/FilesTabRoot.tsx",
   "src/components/projects/v2/files-tab/FilesTabSidebar.tsx",
-  "src/components/projects/v2/files-tab/FilesWorkspaceHeader.tsx",
-  "src/components/projects/v2/files-tab/FilesWorkspaceViews.tsx",
-  "src/components/projects/v2/files-tab/GitHubSyncWorkspace.tsx",
+  "src/components/projects/v2/files-tab/FilesViews.tsx",
   "src/components/projects/v2/files-tab/IdeProjectPicker.tsx",
   "src/components/projects/v2/files-tab/OpenInIdeButton.tsx",
+  "src/components/projects/v2/files-tab/RepositorySync.tsx",
   "src/components/projects/v2/files-tab/SavedFilesCollection.tsx",
   "src/components/projects/v2/files-tab/TaskFilesCollection.tsx",
   "src/components/projects/v2/files-tab/TaskLinkChip.tsx",
@@ -1907,8 +1907,8 @@
   "src/components/projects/v2/files-tab/folder/layout.ts",
   "src/components/projects/v2/files-tab/folder/sort.ts",
   "src/components/projects/v2/files-tab/github-sync/ContributorIdentitySection.tsx",
+  "src/components/projects/v2/files-tab/github-sync/RepositorySync.module.css",
   "src/components/projects/v2/files-tab/github-sync/SyncPrimitives.tsx",
-  "src/components/projects/v2/files-tab/github-sync/SyncWorkspace.module.css",
   "src/components/projects/v2/files-tab/github-sync/secret-scan.ts",
   "src/components/projects/v2/files-tab/github-sync/sync-styles.ts",
   "src/components/projects/v2/files-tab/hooks/useCurrentLocation.ts",
@@ -2095,9 +2095,9 @@
   "tests/unit/project-doc-no-highlight-contract.test.ts",
   "tests/unit/project-doc.test.ts",
   "tests/unit/project-docs-settings-contract.test.ts",
+  "tests/unit/project-file-access-settings-contract.test.ts",
   "tests/unit/project-file-key.test.ts",
   "tests/unit/project-files-phase3.test.ts",
-  "tests/unit/project-files-workspace-settings-contract.test.ts",
   "tests/unit/project-finalization-active-task.test.ts",
   "tests/unit/project-general-settings-contract.test.ts",
   "tests/unit/project-layout-scroll-contract.test.ts",

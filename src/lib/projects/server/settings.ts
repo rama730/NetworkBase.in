@@ -34,7 +34,7 @@ type ProjectDangerZonePreflightResult =
   | { success: false; message: string; errorCode: ProjectSettingsErrorCode };
 
 
-type ProjectFileWorkspaceSettingsResult =
+type ProjectFileAccessSettingsResult =
   | {
       success: true;
       data: {
@@ -694,20 +694,20 @@ function formatFileUploadPermission(
 
 
 
-export async function getProjectFileWorkspaceSettingsAction(
+export async function getProjectFileAccessSettingsAction(
   projectId: string,
   options: FilePermissionOptions = {},
-): Promise<ProjectFileWorkspaceSettingsResult> {
+): Promise<ProjectFileAccessSettingsResult> {
   const viewer = await signedInSettingsViewer();
   if (!viewer) return UNAUTHORIZED_SETTINGS;
-  return readFileWorkspaceSettings(viewer, projectId, options);
+  return readFileAccessSettings(viewer, projectId, options);
 }
 
-export async function readFileWorkspaceSettings(
+export async function readFileAccessSettings(
   viewer: SettingsViewer,
   projectId: string,
   options: FilePermissionOptions = {},
-): Promise<ProjectFileWorkspaceSettingsResult> {
+): Promise<ProjectFileAccessSettingsResult> {
   try {
     const capability = capabilityFromAccess(await viewer.access(projectId), "manage_files");
 
@@ -1966,7 +1966,7 @@ export async function readProjectSettingsBootstrapAction(
   if (!viewer) {
     return {
       collaboratorSettings: UNAUTHORIZED_SETTINGS,
-      fileWorkspace: UNAUTHORIZED_SETTINGS,
+      fileAccess: UNAUTHORIZED_SETTINGS,
       notifications: UNAUTHORIZED_SETTINGS,
       docSettings: { ...UNAUTHORIZED_SETTINGS, error: "You must be signed in." },
       dangerPreflight: UNAUTHORIZED_SETTINGS,
@@ -1976,12 +1976,12 @@ export async function readProjectSettingsBootstrapAction(
   // Ownership is verified on the server, never supplied by the caller.
   const isOwner = (await viewer.access(projectId)).isOwner;
 
-  const [collaboratorSettings, fileWorkspace, notifications, docSettings, dangerPreflight] = await Promise.all([
+  const [collaboratorSettings, fileAccess, notifications, docSettings, dangerPreflight] = await Promise.all([
     readCollaboratorSettings(viewer, projectId, collaborators),
-    readFileWorkspaceSettings(viewer, projectId),
+    readFileAccessSettings(viewer, projectId),
     readNotificationSettings(viewer, projectId),
     readProjectDocSettingsAction(projectId),
     isOwner ? readDangerZonePreflight(viewer, projectId) : Promise.resolve({ success: false as const, errorCode: "FORBIDDEN" as const, message: "Only the project owner can access danger zone settings." }),
   ]);
-  return { collaboratorSettings, fileWorkspace, notifications, docSettings, dangerPreflight };
+  return { collaboratorSettings, fileAccess: fileAccess, notifications, docSettings, dangerPreflight };
 }

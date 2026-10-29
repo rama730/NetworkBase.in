@@ -53,7 +53,7 @@ import {
     getRolePreferences,
     replaceRolePreferences,
 } from "@/lib/profile/role-preferences";
-import { ContributionWorkspace } from "./ContributionWorkspace";
+import { ContributionEditor } from "./ContributionEditor";
 import {
     resolveSocialPresence,
     socialLinkItemsFromStorage,
@@ -549,7 +549,7 @@ export function EditProfileTabs({
 
                     <TabsContent value="experience" forceMount hidden={section !== "experience"} className="mt-0">
                         <fieldset disabled={section !== "experience"} className="min-w-0">
-                        <ContributionWorkspace profileId={contributionProfileId} profileVisibility={contributionProfileVisibility} items={profile.experience ?? []} hasMore={contributionHasMore} loadingMore={contributionsLoadingMore} onLoadMore={onLoadMoreContributions} footerContainer={contributionFooterHost} onCancel={onCancelContribution}/>
+                        <ContributionEditor profileId={contributionProfileId} profileVisibility={contributionProfileVisibility} items={profile.experience ?? []} hasMore={contributionHasMore} loadingMore={contributionsLoadingMore} onLoadMore={onLoadMoreContributions} footerContainer={contributionFooterHost} onCancel={onCancelContribution}/>
                         </fieldset>
                     </TabsContent>
 

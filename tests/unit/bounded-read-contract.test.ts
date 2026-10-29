@@ -26,7 +26,7 @@ describe("bounded read contracts", () => {
   it("keeps file-tree reads side-effect free and initialization explicit", () => {
     const source = read("src/app/actions/files/nodes.ts");
     const readStart = source.indexOf("export async function getProjectNodes");
-    const initStart = source.indexOf("export async function initializeProjectWorkspaceRoot");
+    const initStart = source.indexOf("export async function initializeProjectFilesRoot");
     assert.ok(readStart >= 0 && initStart > readStart);
     assert.doesNotMatch(source.slice(readStart, initStart), /\.insert\(|createProjectRoot/);
     assert.match(source.slice(initStart), /ensureSystemRootFolder\(projectId, user\.id/);

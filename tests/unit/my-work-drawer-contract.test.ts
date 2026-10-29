@@ -89,13 +89,13 @@ describe("My work drawer contracts", () => {
   it("keeps workspace refreshes scoped to task and request notifications", () => {
     const provider = read("src/components/providers/NetworkNotificationsProvider.tsx");
 
-    assert.match(provider, /WORKSPACE_NOTIFICATION_KINDS/);
+    assert.match(provider, /MY_WORK_NOTIFICATION_KINDS/);
     assert.match(provider, /event\.kind !== "notification"/);
     assert.match(provider, /task_assigned/);
     assert.match(provider, /application_received/);
     assert.match(provider, /connection_request_received/);
     assert.match(provider, /queryKeys.myWork\.root\(\)/);
-    assert.match(provider, /workspaceInvalidationDomains/);
+    assert.match(provider, /myWorkInvalidationDomains/);
     assert.match(provider, /pendingInvalidationDomainsRef/);
   });
 
@@ -146,7 +146,7 @@ it("keeps actionable workspace state visible without task-tab scaffolding", () =
   const tasks = read("src/components/my-work/MyWorkTasksTab.tsx");
   const drawer = read("src/components/my-work/MyWorkDrawer.tsx");
 
-  assert.match(indicator, /readShellPart\("workspaceSummary"\)/);
+  assert.match(indicator, /readShellPart\("myWorkSummary"\)/);
   assert.match(indicator, /useNetworkNotifications/);
   assert.match(indicator, /summary\.taskCount \+ summary\.requestCount \+ pendingConnections/);
   assert.match(indicator, /className="nb-nav-count"/);

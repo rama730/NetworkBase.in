@@ -29,8 +29,8 @@ import {
   type NavigateTo,
   type NavigateToDeps,
 } from "@/components/projects/v2/files-tab/hooks/useNavigateTo";
-import { useFilesWorkspaceStore } from "@/stores/filesWorkspaceStore";
-import { defaultWorkspace } from "@/stores/files/types";
+import { useFilesStore } from "@/stores/filesStore";
+import { defaultFilesState } from "@/stores/files/types";
 
 // ─── Fixtures ────────────────────────────────────────────────────────
 
@@ -181,7 +181,7 @@ function HookProbe(props: {
 // middleware's in-memory snapshot is the same across every test file in
 // the suite since they all share the module.
 function resetStore(): void {
-  useFilesWorkspaceStore.setState({ byProjectId: {} });
+  useFilesStore.setState({ byProjectId: {} });
 }
 
 /**
@@ -192,8 +192,8 @@ function resetStore(): void {
  * behaviourally equivalent and hermetic.
  */
 function seedNodes(projectId: string, nodes: ProjectNode[]): void {
-  useFilesWorkspaceStore.setState((state) => {
-    const existing = state.byProjectId[projectId] ?? defaultWorkspace();
+  useFilesStore.setState((state) => {
+    const existing = state.byProjectId[projectId] ?? defaultFilesState();
     const nodesById = { ...existing.nodesById };
     for (const node of nodes) {
       nodesById[node.id] = node;
@@ -226,7 +226,7 @@ describe("useNavigateTo — React hook (Task 2.3)", () => {
       }),
     );
 
-    const ws = useFilesWorkspaceStore.getState().byProjectId[PROJECT_ID];
+    const ws = useFilesStore.getState().byProjectId[PROJECT_ID];
     assert.ok(ws, "workspace entry should exist after navigate");
     assert.equal(ws.currentLocationId, "button", "currentLocationId was set");
     assert.equal(
@@ -260,7 +260,7 @@ describe("useNavigateTo — React hook (Task 2.3)", () => {
       }),
     );
 
-    const ws = useFilesWorkspaceStore.getState().byProjectId[PROJECT_ID]!;
+    const ws = useFilesStore.getState().byProjectId[PROJECT_ID]!;
     assert.equal(ws.expandedFolderIds["a"], true);
     assert.equal(ws.expandedFolderIds["b"], true);
     assert.equal(ws.expandedFolderIds["c"], true);
@@ -278,7 +278,7 @@ describe("useNavigateTo — React hook (Task 2.3)", () => {
       }),
     );
 
-    const ws = useFilesWorkspaceStore.getState().byProjectId[PROJECT_ID]!;
+    const ws = useFilesStore.getState().byProjectId[PROJECT_ID]!;
     assert.equal(ws.currentLocationId, "docs");
     assert.deepEqual(ws.recents, [], "folder navigation must not touch recents");
   });
@@ -286,7 +286,7 @@ describe("useNavigateTo — React hook (Task 2.3)", () => {
   it("does NOT record a recent when navigating to the root (null)", () => {
     resetStore();
     // Seed a prior recent so we can confirm it is left alone.
-    useFilesWorkspaceStore.getState().addRecent(PROJECT_ID, "prior-file");
+    useFilesStore.getState().addRecent(PROJECT_ID, "prior-file");
 
     renderToStaticMarkup(
       React.createElement(HookProbe, {
@@ -296,7 +296,7 @@ describe("useNavigateTo — React hook (Task 2.3)", () => {
       }),
     );
 
-    const ws = useFilesWorkspaceStore.getState().byProjectId[PROJECT_ID]!;
+    const ws = useFilesStore.getState().byProjectId[PROJECT_ID]!;
     assert.equal(ws.currentLocationId, null);
     assert.deepEqual(
       ws.recents,
@@ -365,7 +365,7 @@ describe("useNavigateTo — React hook (Task 2.3)", () => {
     captured.a!("file-in-a");
     captured.b!("file-in-b");
 
-    const all = useFilesWorkspaceStore.getState().byProjectId;
+    const all = useFilesStore.getState().byProjectId;
     assert.equal(all["project-A"]?.currentLocationId, "file-in-a");
     assert.equal(all["project-B"]?.currentLocationId, "file-in-b");
     assert.notEqual(
@@ -399,7 +399,7 @@ describe("useNavigateTo — React hook (Task 2.3)", () => {
     // and record it as a recent.
     navigate!("late-file");
 
-    const ws = useFilesWorkspaceStore.getState().byProjectId[PROJECT_ID]!;
+    const ws = useFilesStore.getState().byProjectId[PROJECT_ID]!;
     assert.equal(ws.currentLocationId, "late-file");
     assert.equal(
       ws.recents[0],

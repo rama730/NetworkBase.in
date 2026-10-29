@@ -38,8 +38,8 @@ import {
 } from "@/hooks/projects/useProjectDocData";
 
 import { FilesTabRoleContext } from "../FilesTabRoleContext";
-import { useFilesWorkspaceView } from "../FilesWorkspaceViews";
-import { useFilesWorkspaceStore } from "@/stores/filesWorkspaceStore";
+import { useFilesViews } from "../FilesViews";
+import { useFilesStore } from "@/stores/filesStore";
 import { Star, FolderInput, Trash2 } from "lucide-react";
 import { isInternalTaskWorkingFilesNode } from "@/lib/files/task-working-files";
 
@@ -96,13 +96,13 @@ export function FileActionsBar({
   organizationActions,
 }: FileActionsBarProps): React.JSX.Element {
   const roleCtx = React.useContext(FilesTabRoleContext);
-  const workspace = useFilesWorkspaceView();
+  const workspace = useFilesViews();
   // Default to read-only when no provider is mounted so the Edit control
   // stays hidden rather than defaulting to a mutation-capable state.
   const canEdit = roleCtx?.canEdit ?? false;
-  const node = useFilesWorkspaceStore(state => projectId && nodeId ? state.byProjectId[projectId]?.nodesById[nodeId] : undefined);
+  const node = useFilesStore(state => projectId && nodeId ? state.byProjectId[projectId]?.nodesById[nodeId] : undefined);
   const canOrganize = organizationActions && canEdit && node && !isInternalTaskWorkingFilesNode(node) && !node.deletedAt && mode !== "edit";
-  const starred = useFilesWorkspaceStore(state => !!(projectId && nodeId && state.byProjectId[projectId]?.favorites[nodeId]));
+  const starred = useFilesStore(state => !!(projectId && nodeId && state.byProjectId[projectId]?.favorites[nodeId]));
 
   const queryClient = useQueryClient();
 
@@ -253,7 +253,7 @@ export function FileActionsBar({
 
       try {
         const { saveFileRevision } = await import("@/hooks/useFileVersions");
-        const node = useFilesWorkspaceStore.getState().byProjectId[projectId]?.nodesById?.[nodeId];
+        const node = useFilesStore.getState().byProjectId[projectId]?.nodesById?.[nodeId];
         const result = await saveFileRevision({
           projectId,
           nodeId,
@@ -267,7 +267,7 @@ export function FileActionsBar({
           toast.success(choice.option === "commit"
               ? "New version committed"
               : "Active version updated");
-          useFilesWorkspaceStore.getState().setNodes(projectId, [result.node]);
+          useFilesStore.getState().setNodes(projectId, [result.node]);
           window.dispatchEvent(new CustomEvent("project:task-files-changed", { detail: { projectId } }));
 
           logger.metric("files_tab.version_replaced", {
@@ -299,7 +299,7 @@ export function FileActionsBar({
     setDownloading(true);
     try {
       const { getFilePreviewUrl, getProjectFileContent } = await import("@/app/actions/files/content");
-      const node = useFilesWorkspaceStore.getState().byProjectId[projectId]?.nodesById[nodeId];
+      const node = useFilesStore.getState().byProjectId[projectId]?.nodesById[nodeId];
       let url: string;
       let local = false;
       if (node?.s3Key) url = (await getFilePreviewUrl(projectId, nodeId, true)).url;
@@ -355,7 +355,7 @@ export function FileActionsBar({
         <DropdownMenuContent align="end" collisionPadding={8} className="w-56 max-w-[calc(100vw-16px)] rounded-[8px] border border-[#DBD5C8] bg-white p-1 shadow-md dark:border-border dark:bg-card [&_[role=menuitem]]:min-h-10 [&_[role=menuitem]]:rounded-[5px]">
           {workspace && <DropdownMenuItem onSelect={() => workspace.setInspector(current => current === "details" ? null : "details")}><Info className="size-4" />Details</DropdownMenuItem>}
           {projectId && nodeId && <>
-            <DropdownMenuItem onSelect={() => useFilesWorkspaceStore.getState().toggleFavorite(projectId, nodeId)}><Star className="size-4" fill={starred ? "currentColor" : "none"} />{starred ? "Unstar" : "Star"}</DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => useFilesStore.getState().toggleFavorite(projectId, nodeId)}><Star className="size-4" fill={starred ? "currentColor" : "none"} />{starred ? "Unstar" : "Star"}</DropdownMenuItem>
             <DropdownMenuItem disabled={downloading} onSelect={() => void downloadFile()} className="gap-2"><Download className="size-4" />{downloading ? "Downloading…" : "Download"}</DropdownMenuItem>
             <DropdownMenuItem onSelect={() => void copyLink()} className="gap-2"><Copy className="size-4" />Copy file link</DropdownMenuItem>
             <DropdownMenuSeparator />

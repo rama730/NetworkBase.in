@@ -59,7 +59,7 @@ test("shared skeleton shimmer contract", async (t) => {
 
   await t.test("GitHub Sync subsystem uses unified layout-matched shimmer skeleton across all stages", () => {
     const gitHubSyncFile = read("src/components/projects/skeletons/SkeletonGitHubSync.tsx");
-    const workspace = read("src/components/projects/v2/files-tab/GitHubSyncWorkspace.tsx");
+    const workspace = read("src/components/projects/v2/files-tab/RepositorySync.tsx");
     const filesTabMain = read("src/components/projects/v2/files-tab/FilesTabMain.tsx");
 
     assert.match(gitHubSyncFile, /import \{ Skeleton \} from "@\/components\/ui\/skeleton"/);

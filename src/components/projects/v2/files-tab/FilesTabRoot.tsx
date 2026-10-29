@@ -14,7 +14,7 @@ import React, {
   useState,
 } from "react";
 
-import { useFilesWorkspaceStore } from "@/stores/filesWorkspaceStore";
+import { useFilesStore } from "@/stores/filesStore";
 import { createClient } from "@/lib/supabase/client";
 import { subscribeProjectFilesChannel } from "@/lib/realtime/project-files-channel";
 import { getNodeMetadataBatch } from "@/app/actions/files/nodes";
@@ -33,7 +33,7 @@ import { useFilesTabUrlSync } from "./hooks/useFilesTabUrlSync";
 import { useNavigateTo } from "./hooks/useNavigateTo";
 import { fetchProjectFileLeases } from "@/lib/files/file-lease-client";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
-import { FilesWorkspaceViews } from "./FilesWorkspaceViews";
+import { FilesViews } from "./FilesViews";
 import { FileTransfersProvider } from "./FileTransfers";
 import { confirmFileNavigation } from "@/lib/files/unsaved-navigation";
 import { fetchGithubImportAccessState } from "@/lib/github/import-client";
@@ -111,9 +111,9 @@ function findVerticalScrollPane(target: EventTarget | null, boundary: HTMLElemen
   return null;
 }
 
-function getFilesRouteScrollContext(workspaceRoot: HTMLElement) {
+function getFilesRouteScrollContext(filesRoot: HTMLElement) {
   const routeRoot = document.querySelector<HTMLElement>('[data-scroll-root="route"]');
-  const projectLayout = workspaceRoot.closest<HTMLElement>('[data-project-identity-height]');
+  const projectLayout = filesRoot.closest<HTMLElement>('[data-project-identity-height]');
   const headerScrollRange = Number(projectLayout?.dataset.projectIdentityHeight ?? 0);
   return { routeRoot, headerScrollRange };
 }
@@ -136,12 +136,12 @@ export function FilesTabRoot(props: FilesTabRootProps): React.JSX.Element {
     initialOpenFileId,
   } = props;
   // ── 1. Ensure the project workspace entry exists ──────────────────
-  const ensureProjectWorkspace = useFilesWorkspaceStore(
-    (s) => s.ensureProjectWorkspace,
+  const ensureProjectFilesState = useFilesStore(
+    (s) => s.ensureProjectFilesState,
   );
   useEffect(() => {
-    ensureProjectWorkspace(projectId);
-  }, [ensureProjectWorkspace, projectId]);
+    ensureProjectFilesState(projectId);
+  }, [ensureProjectFilesState, projectId]);
 
   // ── 2. Role derivation ───────────────────────────────────────────
   //
@@ -184,11 +184,11 @@ export function FilesTabRoot(props: FilesTabRootProps): React.JSX.Element {
   const canOpenGitHub = Boolean(
     githubAccess?.linked === true && (isOwner || isOwnerOrMember) && !props.isOrganization,
   );
-  const pendingNavigation = useFilesWorkspaceStore(
+  const pendingNavigation = useFilesStore(
     (state) => state.byProjectId[projectId]?.pendingNavigation ?? null,
   );
   const navigateToInitialFile = useNavigateTo(projectId);
-  const dirtyFileId = useFilesWorkspaceStore(
+  const dirtyFileId = useFilesStore(
     (state) => state.byProjectId[projectId]?.dirtyFileId ?? null,
   );
   useEffect(() => {
@@ -236,7 +236,7 @@ export function FilesTabRoot(props: FilesTabRootProps): React.JSX.Element {
   }, [projectId, dirtyFileId]);
   const confirmPendingNavigation = useCallback(() => {
     if (!pendingNavigation) return;
-    const state = useFilesWorkspaceStore.getState();
+    const state = useFilesStore.getState();
     const dirtyFileId = state.byProjectId[projectId]?.dirtyFileId ?? null;
     if (dirtyFileId) state.setDirtyFile(projectId, dirtyFileId, false);
     state.setPendingNavigation(projectId, null);
@@ -366,8 +366,8 @@ export function FilesTabRoot(props: FilesTabRootProps): React.JSX.Element {
     },
   });
 
-  const upsertNodes = useFilesWorkspaceStore((s) => s.upsertNodes);
-  const initialOpenFileExists = useFilesWorkspaceStore((s) =>
+  const upsertNodes = useFilesStore((s) => s.upsertNodes);
+  const initialOpenFileExists = useFilesStore((s) =>
     Boolean(
       initialOpenFileId &&
       s.byProjectId[projectId]?.nodesById[initialOpenFileId]?.type === "file",
@@ -489,11 +489,11 @@ export function FilesTabRoot(props: FilesTabRootProps): React.JSX.Element {
   // state reconciles from the authoritative folder query after mutations and
   // when the visible tab regains focus; this avoids workspace-wide events and
   // dead `project_nodes` subscriptions.
-  const setLocks = useFilesWorkspaceStore((s) => s.setLocks);
-  const currentLocationId = useFilesWorkspaceStore(
+  const setLocks = useFilesStore((s) => s.setLocks);
+  const currentLocationId = useFilesStore(
     (s) => s.byProjectId[projectId]?.currentLocationId ?? null,
   );
-  const currentLocationNode = useFilesWorkspaceStore((s) =>
+  const currentLocationNode = useFilesStore((s) =>
     currentLocationId
       ? (s.byProjectId[projectId]?.nodesById[currentLocationId] ?? null)
       : null,
@@ -570,7 +570,7 @@ export function FilesTabRoot(props: FilesTabRootProps): React.JSX.Element {
     const expirySweep = window.setInterval(() => {
       if (document.hidden) return;
       const current =
-        useFilesWorkspaceStore.getState().byProjectId[projectId]
+        useFilesStore.getState().byProjectId[projectId]
           ?.locksByNodeId ?? {};
       const locks = Object.values(current);
       if (locks.some((lock) => lock.expiresAt <= Date.now())) {
@@ -602,7 +602,7 @@ export function FilesTabRoot(props: FilesTabRootProps): React.JSX.Element {
   // ── 9. Quick Open state + ⌘P / Ctrl+P toggle (Req 9.1) ────────────
   const [quickOpenOpen, setQuickOpenOpen] = useState(false);
   const [quickOpenQuery, setQuickOpenQuery] = useState("");
-  const workspaceRootRef = useRef<HTMLDivElement>(null);
+  const filesRootRef = useRef<HTMLDivElement>(null);
   const paneScrollPositionsRef = useRef(new WeakMap<HTMLElement, number>());
   const touchScrollRef = useRef<{ y: number; pane: HTMLElement | null } | null>(null);
 
@@ -611,7 +611,7 @@ export function FilesTabRoot(props: FilesTabRootProps): React.JSX.Element {
     if (!next) setQuickOpenQuery(""); // Req 9.7 discards input on close
   }, []);
 
-  const handleWorkspaceScroll = useCallback(
+  const handleFilesScroll = useCallback(
     (event: React.UIEvent<HTMLDivElement>) => {
       const target = event.target;
       if (!(target instanceof HTMLElement)) return;
@@ -636,16 +636,16 @@ export function FilesTabRoot(props: FilesTabRootProps): React.JSX.Element {
     [],
   );
 
-  const handleWorkspaceWheel = useCallback(
+  const handleFilesWheel = useCallback(
     (event: WheelEvent) => {
       if (event.ctrlKey || Math.abs(event.deltaY) <= Math.abs(event.deltaX)) return;
 
-      const workspaceRoot = workspaceRootRef.current;
-      if (!workspaceRoot) return;
-      const { routeRoot, headerScrollRange } = getFilesRouteScrollContext(workspaceRoot);
+      const filesRoot = filesRootRef.current;
+      if (!filesRoot) return;
+      const { routeRoot, headerScrollRange } = getFilesRouteScrollContext(filesRoot);
       if (!routeRoot || headerScrollRange <= 0) return;
 
-      const scrollPane = findVerticalScrollPane(event.target, workspaceRoot);
+      const scrollPane = findVerticalScrollPane(event.target, filesRoot);
       const shouldMoveHeaderDown = event.deltaY > 0 && routeRoot.scrollTop < headerScrollRange;
       const shouldRevealHeader =
         event.deltaY < 0 &&
@@ -670,31 +670,31 @@ export function FilesTabRoot(props: FilesTabRootProps): React.JSX.Element {
     [],
   );
 
-  const handleWorkspaceTouchStart = useCallback(
+  const handleFilesTouchStart = useCallback(
     (event: TouchEvent) => {
       const touch = event.touches[0];
-      const workspaceRoot = workspaceRootRef.current;
-      if (!touch || !workspaceRoot) return;
+      const filesRoot = filesRootRef.current;
+      if (!touch || !filesRoot) return;
       touchScrollRef.current = {
         y: touch.clientY,
-        pane: findVerticalScrollPane(event.target, workspaceRoot),
+        pane: findVerticalScrollPane(event.target, filesRoot),
       };
     },
     [],
   );
 
-  const handleWorkspaceTouchMove = useCallback(
+  const handleFilesTouchMove = useCallback(
     (event: TouchEvent) => {
       const touch = event.touches[0];
       const touchState = touchScrollRef.current;
-      const workspaceRoot = workspaceRootRef.current;
-      if (!touch || !touchState || !workspaceRoot) return;
+      const filesRoot = filesRootRef.current;
+      if (!touch || !touchState || !filesRoot) return;
 
       const deltaY = touchState.y - touch.clientY;
       touchState.y = touch.clientY;
       if (Math.abs(deltaY) < 0.5) return;
 
-      const { routeRoot, headerScrollRange } = getFilesRouteScrollContext(workspaceRoot);
+      const { routeRoot, headerScrollRange } = getFilesRouteScrollContext(filesRoot);
       if (!routeRoot || headerScrollRange <= 0) return;
 
       const shouldMoveHeaderDown = deltaY > 0 && routeRoot.scrollTop < headerScrollRange;
@@ -722,19 +722,19 @@ export function FilesTabRoot(props: FilesTabRootProps): React.JSX.Element {
   );
 
   useEffect(() => {
-    const workspaceRoot = workspaceRootRef.current;
-    if (!workspaceRoot) return;
+    const filesRoot = filesRootRef.current;
+    if (!filesRoot) return;
 
-    workspaceRoot.addEventListener("wheel", handleWorkspaceWheel, { passive: false, capture: true });
-    workspaceRoot.addEventListener("touchstart", handleWorkspaceTouchStart, { passive: true, capture: true });
-    workspaceRoot.addEventListener("touchmove", handleWorkspaceTouchMove, { passive: false, capture: true });
+    filesRoot.addEventListener("wheel", handleFilesWheel, { passive: false, capture: true });
+    filesRoot.addEventListener("touchstart", handleFilesTouchStart, { passive: true, capture: true });
+    filesRoot.addEventListener("touchmove", handleFilesTouchMove, { passive: false, capture: true });
 
     return () => {
-      workspaceRoot.removeEventListener("wheel", handleWorkspaceWheel, { capture: true });
-      workspaceRoot.removeEventListener("touchstart", handleWorkspaceTouchStart, { capture: true });
-      workspaceRoot.removeEventListener("touchmove", handleWorkspaceTouchMove, { capture: true });
+      filesRoot.removeEventListener("wheel", handleFilesWheel, { capture: true });
+      filesRoot.removeEventListener("touchstart", handleFilesTouchStart, { capture: true });
+      filesRoot.removeEventListener("touchmove", handleFilesTouchMove, { capture: true });
     };
-  }, [handleWorkspaceTouchMove, handleWorkspaceTouchStart, handleWorkspaceWheel]);
+  }, [handleFilesTouchMove, handleFilesTouchStart, handleFilesWheel]);
 
   // Use a ref so the listener identity stays stable across renders; the
   // ref carries the freshest `open` value without re-binding the handler.
@@ -793,7 +793,7 @@ export function FilesTabRoot(props: FilesTabRootProps): React.JSX.Element {
         canReadTasks={canReadTasks}
       >
         <FileTransfersProvider>
-          <FilesWorkspaceViews
+          <FilesViews
             projectId={projectId}
             canReadTasks={canReadTasks}
             canOpenGitHub={canOpenGitHub}
@@ -801,10 +801,10 @@ export function FilesTabRoot(props: FilesTabRootProps): React.JSX.Element {
             viewLabels={props.isOrganization ? { project: "Org files", ...(props.orgType === "education" ? { deliverables: "Submissions" } : {}) } : undefined}
           >
             <div
-              ref={workspaceRootRef}
+              ref={filesRootRef}
               data-testid="files-tab-root"
               data-startup-stage={stage}
-              onScrollCapture={handleWorkspaceScroll}
+              onScrollCapture={handleFilesScroll}
               className="relative flex h-full min-h-0 w-full"
             >
               <HydrationProgressBanner projectId={projectId} />
@@ -835,7 +835,7 @@ export function FilesTabRoot(props: FilesTabRootProps): React.JSX.Element {
                 open={Boolean(pendingNavigation)}
                 onOpenChange={(open) => {
                   if (!open) {
-                    useFilesWorkspaceStore
+                    useFilesStore
                       .getState()
                       .setPendingNavigation(projectId, null);
                   }
@@ -847,7 +847,7 @@ export function FilesTabRoot(props: FilesTabRootProps): React.JSX.Element {
                 onConfirm={confirmPendingNavigation}
               />
             </div>
-          </FilesWorkspaceViews>
+          </FilesViews>
         </FileTransfersProvider>
       </FilesTabRoleProvider>
     </FilesTabBootContext.Provider>

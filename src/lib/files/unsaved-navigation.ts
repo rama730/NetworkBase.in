@@ -1,10 +1,10 @@
 "use client";
 
-import { useFilesWorkspaceStore } from "@/stores/filesWorkspaceStore";
+import { useFilesStore } from "@/stores/filesStore";
 
 /** Cross-tab/router navigation cannot use a dialog owned by an unmounting preview. */
 export function confirmFileNavigation(projectId: string): boolean {
-  const state = useFilesWorkspaceStore.getState();
+  const state = useFilesStore.getState();
   const dirty = state.byProjectId[projectId]?.dirtyFileId;
   if (!dirty) return true;
   if (!window.confirm("Discard unsaved file changes and leave this file?"))

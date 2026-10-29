@@ -13,7 +13,7 @@ describe("Files tab revision experience", () => {
     const header = source("src/components/projects/v2/files-tab/file/FileInspectorPanelHeader.tsx");
 
     assert.match(fileView, /workspace\?\.inspector/);
-    const workspace = source("src/components/projects/v2/files-tab/FilesWorkspaceViews.tsx");
+    const workspace = source("src/components/projects/v2/files-tab/FilesViews.tsx");
     for (const panel of ["details", "linked_tasks", "version_history", "github"]) assert.ok(workspace.includes(`| "${panel}"`));
     assert.match(fileView, /FileInspectorContainer/);
     assert.match(fileView, /setActiveInspectorPanel/);

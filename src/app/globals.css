@@ -1389,7 +1389,7 @@ html[data-reduce-motion="true"] .nb-typing-dots > span { animation: none; opacit
 /* Contribution stories share the open Edit profile section grammar. */
 .nb-contribution-story { content-visibility: auto; contain-intrinsic-size: 0 160px; }
 .nb-contribution-story .nb-contribution-markdown { line-height:1.55; text-wrap:pretty; }
-.nb-contribution-workspace { container-type:inline-size; min-width:0; }
+.nb-contribution-editor { container-type:inline-size; min-width:0; }
 .nb-story-section { border-bottom:1px solid var(--border); padding-bottom:24px; margin-bottom:32px; scroll-margin-top:24px; }
 .nb-story-field { display:flex; min-width:0; flex-direction:column; gap:8px; font-size:13px; font-weight:500; }
 .nb-story-field small { font-size:13px; font-weight:400; color:var(--muted-foreground); }

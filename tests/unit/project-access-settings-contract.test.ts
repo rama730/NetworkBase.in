@@ -50,7 +50,7 @@ test("project access tab components adhere to NetworkBase drafting-table design 
   const settingsTab = componentSource("src/components/projects/tabs/ProjectSettingsTab.tsx");
 
   // Public tab visibility editor tokens
-  const editorDef = settingsTab.split("function PublicTabVisibilityEditor({")[1]?.split("function FileWorkspaceMembers({")[0] ?? "";
+  const editorDef = settingsTab.split("function PublicTabVisibilityEditor({")[1]?.split("function FileAccessMembers({")[0] ?? "";
   assert.ok(editorDef.length > 0, "PublicTabVisibilityEditor definition must exist");
   assert.match(editorDef, /divide-y divide-border/, "Editor uses divide-y divide-border");
   assert.match(editorDef, /<SettingsSwitch/, "PublicTabVisibilityEditor must use SettingsSwitch component");

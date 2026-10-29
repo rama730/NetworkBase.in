@@ -20,7 +20,7 @@ import {
 } from "lucide-react";
 import { useFilesTabRole } from "./FilesTabRoleContext";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
-import { useFilesWorkspaceStore } from "@/stores/filesWorkspaceStore";
+import { useFilesStore } from "@/stores/filesStore";
 import { FILES_NAVIGATED_EVENT, useNavigateTo } from "./hooks/useNavigateTo";
 
 export type FilesInspector =
@@ -28,7 +28,7 @@ export type FilesInspector =
   | "linked_tasks"
   | "version_history"
   | null;
-export type FilesWorkspaceView =
+export type FilesViewId =
   | "project"
   | "tasks"
   | "deliverables"
@@ -48,9 +48,9 @@ export const fileCollectionViews = [
 
 export type FileRoleFilter = "all" | "deliverable" | "reference" | "working";
 
-const WorkspaceContext = createContext<{
+const FilesViewsContext = createContext<{
   scrollOffsets: React.RefObject<Map<string, number>>;
-  view: FilesWorkspaceView;
+  view: FilesViewId;
   inspector: FilesInspector;
   setInspector: React.Dispatch<React.SetStateAction<FilesInspector>>;
   taskId: string | null;
@@ -66,14 +66,14 @@ const WorkspaceContext = createContext<{
   canReadTasks: boolean;
   canOpenGitHub: boolean;
   /** Orgs rename collections (report §23.3): "Org files", and "Submissions" in Education. */
-  viewLabel: (view: FilesWorkspaceView) => string;
+  viewLabel: (view: FilesViewId) => string;
   returnToCollection: () => void;
-  selectView: (view: FilesWorkspaceView) => void;
+  selectView: (view: FilesViewId) => void;
   selectTask: (id: string | null) => void;
 } | null>(null);
-export const useFilesWorkspaceView = () => useContext(WorkspaceContext);
+export const useFilesViews = () => useContext(FilesViewsContext);
 
-export function FilesWorkspaceViews({
+export function FilesViews({
   projectId,
   canReadTasks,
   canOpenGitHub,
@@ -85,22 +85,22 @@ export function FilesWorkspaceViews({
   canReadTasks: boolean;
   canOpenGitHub: boolean;
   githubAccessResolved: boolean;
-  viewLabels?: Partial<Record<FilesWorkspaceView, string>>;
+  viewLabels?: Partial<Record<FilesViewId, string>>;
   children: React.ReactNode;
 }) {
   const viewLabel = useCallback(
-    (id: FilesWorkspaceView) => viewLabels?.[id] ?? fileCollectionViews.find((item) => item.id === id)!.label,
+    (id: FilesViewId) => viewLabels?.[id] ?? fileCollectionViews.find((item) => item.id === id)!.label,
     [viewLabels],
   );
   const scrollOffsets = useRef(new Map<string, number>());
   const { canEdit } = useFilesTabRole();
   const [inspector, setInspector] = useState<FilesInspector>(null);
   const [pendingChange, setPendingChange] = useState<{
-    view: FilesWorkspaceView;
+    view: FilesViewId;
     taskId: string | null;
     preserveQuery: boolean;
   } | null>(null);
-  const [view, setView] = useState<FilesWorkspaceView>("project");
+  const [view, setView] = useState<FilesViewId>("project");
   const [taskId, setTaskId] = useState<string | null>(null);
   const [taskHeading, setTaskHeading] = useState({
     id: null as string | null,
@@ -145,7 +145,7 @@ export function FilesWorkspaceViews({
   }, [projectId]);
   const restoreView = useCallback(() => {
     const params = new URLSearchParams(window.location.search);
-    const value = params.get("filesView") as FilesWorkspaceView;
+    const value = params.get("filesView") as FilesViewId;
     if (value === "github" && !githubAccessResolved) return;
     const nextView =
       fileCollectionViews.some((item) => item.id === value) &&
@@ -195,11 +195,11 @@ export function FilesWorkspaceViews({
     return () => window.removeEventListener("popstate", restoreView);
   }, [restoreView]);
   function change(
-    nextView: FilesWorkspaceView,
+    nextView: FilesViewId,
     nextTask: string | null,
     preserveQuery = false,
   ) {
-    if (useFilesWorkspaceStore.getState().byProjectId[projectId]?.dirtyFileId) {
+    if (useFilesStore.getState().byProjectId[projectId]?.dirtyFileId) {
       setPendingChange({ view: nextView, taskId: nextTask, preserveQuery });
       return;
     }
@@ -239,7 +239,7 @@ export function FilesWorkspaceViews({
     else url.searchParams.delete("filesTask");
     window.history.pushState(window.history.state, "", url);
   }
-  const selectView = (value: FilesWorkspaceView) => change(value, null);
+  const selectView = (value: FilesViewId) => change(value, null);
   const selectTask = (id: string | null) => change(view, id, true);
   function setNavigation(mode: "collections" | "tree") {
     setSidebarMode(mode);
@@ -314,7 +314,7 @@ export function FilesWorkspaceViews({
   );
 
   return (
-    <WorkspaceContext.Provider value={contextValue}>
+    <FilesViewsContext.Provider value={contextValue}>
       <div className="h-full min-h-0 min-w-0">{children}</div>
       <ConfirmDialog
         open={!!pendingChange}
@@ -327,7 +327,7 @@ export function FilesWorkspaceViews({
         variant="destructive"
         onConfirm={() => {
           if (!pendingChange) return;
-          const state = useFilesWorkspaceStore.getState();
+          const state = useFilesStore.getState();
           const dirty = state.byProjectId[projectId]?.dirtyFileId;
           if (dirty) state.setDirtyFile(projectId, dirty, false);
           change(
@@ -338,6 +338,6 @@ export function FilesWorkspaceViews({
           setPendingChange(null);
         }}
       />
-    </WorkspaceContext.Provider>
+    </FilesViewsContext.Provider>
   );
 }

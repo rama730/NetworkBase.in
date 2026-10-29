@@ -12,9 +12,9 @@ import { describe, it, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 
 import type { ProjectNode } from "@/lib/db/schema";
-import { useFilesWorkspaceStore } from "@/stores/filesWorkspaceStore";
+import { useFilesStore } from "@/stores/filesStore";
 import { hasNodeCacheDifference } from "@/stores/files/explorerSlice";
-import { defaultWorkspace } from "@/stores/files/types";
+import { defaultFilesState } from "@/stores/files/types";
 
 // ─── Fixture builders ────────────────────────────────────────────────
 
@@ -47,25 +47,25 @@ function seedWorkspace(nodes: ProjectNode[], childrenByParentId?: Record<string,
   for (const n of nodes) nodesById[n.id] = n;
 
   const ws = {
-    ...defaultWorkspace(),
+    ...defaultFilesState(),
     nodesById,
     childrenByParentId: childrenByParentId ?? { __root__: nodes.map((n) => n.id) },
     treeVersion: 5,
   };
 
-  useFilesWorkspaceStore.setState((state) => ({
+  useFilesStore.setState((state) => ({
     byProjectId: { ...state.byProjectId, [PROJECT_ID]: ws },
   }));
 }
 
 function getWs() {
-  return useFilesWorkspaceStore.getState().byProjectId[PROJECT_ID]!;
+  return useFilesStore.getState().byProjectId[PROJECT_ID]!;
 }
 
 // ─── Reset ───────────────────────────────────────────────────────────
 
 beforeEach(() => {
-  useFilesWorkspaceStore.setState({ byProjectId: {} });
+  useFilesStore.setState({ byProjectId: {} });
 });
 
 // ─── patchNodeVersion ────────────────────────────────────────────────
@@ -75,7 +75,7 @@ describe("patchNodeVersion — patches currentVersion in place (Req 3.5)", () =>
     const file = makeFile("file-1", "readme.md", null, 3);
     seedWorkspace([file]);
 
-    useFilesWorkspaceStore.getState().patchNodeVersion(PROJECT_ID, "file-1", 7);
+    useFilesStore.getState().patchNodeVersion(PROJECT_ID, "file-1", 7);
 
     const node = getWs().nodesById["file-1"];
     assert.equal(node.currentVersion, 7, "currentVersion should be patched to 7");
@@ -86,7 +86,7 @@ describe("patchNodeVersion — patches currentVersion in place (Req 3.5)", () =>
     seedWorkspace([file]);
 
     const before = getWs().treeVersion;
-    useFilesWorkspaceStore.getState().patchNodeVersion(PROJECT_ID, "file-1", 2);
+    useFilesStore.getState().patchNodeVersion(PROJECT_ID, "file-1", 2);
     const after = getWs().treeVersion;
 
     assert.equal(after, before + 1, "treeVersion should increment by 1");
@@ -98,7 +98,7 @@ describe("patchNodeVersion — patches currentVersion in place (Req 3.5)", () =>
     seedWorkspace([file], children);
 
     const childrenBefore = getWs().childrenByParentId;
-    useFilesWorkspaceStore.getState().patchNodeVersion(PROJECT_ID, "file-1", 5);
+    useFilesStore.getState().patchNodeVersion(PROJECT_ID, "file-1", 5);
     const childrenAfter = getWs().childrenByParentId;
 
     assert.deepEqual(childrenAfter, childrenBefore, "childrenByParentId must not change");
@@ -109,7 +109,7 @@ describe("patchNodeVersion — patches currentVersion in place (Req 3.5)", () =>
     seedWorkspace([file]);
 
     // Seed some folderMeta
-    useFilesWorkspaceStore.setState((state) => ({
+    useFilesStore.setState((state) => ({
       byProjectId: {
         ...state.byProjectId,
         [PROJECT_ID]: {
@@ -120,7 +120,7 @@ describe("patchNodeVersion — patches currentVersion in place (Req 3.5)", () =>
     }));
 
     const metaBefore = getWs().folderMeta;
-    useFilesWorkspaceStore.getState().patchNodeVersion(PROJECT_ID, "file-1", 3);
+    useFilesStore.getState().patchNodeVersion(PROJECT_ID, "file-1", 3);
     const metaAfter = getWs().folderMeta;
 
     assert.deepEqual(metaAfter, metaBefore, "folderMeta must not change");
@@ -130,9 +130,9 @@ describe("patchNodeVersion — patches currentVersion in place (Req 3.5)", () =>
     const file = makeFile("file-1", "readme.md", null, 1);
     seedWorkspace([file]);
 
-    const stateBefore = useFilesWorkspaceStore.getState();
-    useFilesWorkspaceStore.getState().patchNodeVersion("nonexistent-project", "file-1", 99);
-    const stateAfter = useFilesWorkspaceStore.getState();
+    const stateBefore = useFilesStore.getState();
+    useFilesStore.getState().patchNodeVersion("nonexistent-project", "file-1", 99);
+    const stateAfter = useFilesStore.getState();
 
     assert.equal(stateBefore, stateAfter, "state reference should not change for unknown project");
   });
@@ -141,9 +141,9 @@ describe("patchNodeVersion — patches currentVersion in place (Req 3.5)", () =>
     const file = makeFile("file-1", "readme.md", null, 1);
     seedWorkspace([file]);
 
-    const stateBefore = useFilesWorkspaceStore.getState();
-    useFilesWorkspaceStore.getState().patchNodeVersion(PROJECT_ID, "nonexistent-node", 99);
-    const stateAfter = useFilesWorkspaceStore.getState();
+    const stateBefore = useFilesStore.getState();
+    useFilesStore.getState().patchNodeVersion(PROJECT_ID, "nonexistent-node", 99);
+    const stateAfter = useFilesStore.getState();
 
     assert.equal(stateBefore, stateAfter, "state reference should not change for unknown node");
   });
@@ -174,19 +174,19 @@ describe("setTaskLinkCounts — accepts zero values for unlink (Req 3.7)", () =>
     seedWorkspace([]);
 
     // First set a non-zero count
-    useFilesWorkspaceStore.getState().setTaskLinkCounts(PROJECT_ID, { "node-a": 3 });
+    useFilesStore.getState().setTaskLinkCounts(PROJECT_ID, { "node-a": 3 });
     assert.equal(getWs().taskLinkCounts["node-a"], 3);
 
     // Now set it to zero — should write 0, not delete the key
-    useFilesWorkspaceStore.getState().setTaskLinkCounts(PROJECT_ID, { "node-a": 0 });
+    useFilesStore.getState().setTaskLinkCounts(PROJECT_ID, { "node-a": 0 });
     assert.equal(getWs().taskLinkCounts["node-a"], 0, "zero must be written, not filtered");
   });
 
   it("merges counts without removing existing entries", () => {
     seedWorkspace([]);
 
-    useFilesWorkspaceStore.getState().setTaskLinkCounts(PROJECT_ID, { "node-a": 2, "node-b": 5 });
-    useFilesWorkspaceStore.getState().setTaskLinkCounts(PROJECT_ID, { "node-b": 0, "node-c": 1 });
+    useFilesStore.getState().setTaskLinkCounts(PROJECT_ID, { "node-a": 2, "node-b": 5 });
+    useFilesStore.getState().setTaskLinkCounts(PROJECT_ID, { "node-b": 0, "node-c": 1 });
 
     const counts = getWs().taskLinkCounts;
     assert.equal(counts["node-a"], 2, "node-a should remain unchanged");
@@ -197,9 +197,9 @@ describe("setTaskLinkCounts — accepts zero values for unlink (Req 3.7)", () =>
   it("is a no-op when projectId does not exist", () => {
     seedWorkspace([]);
 
-    const stateBefore = useFilesWorkspaceStore.getState();
-    useFilesWorkspaceStore.getState().setTaskLinkCounts("nonexistent-project", { "x": 1 });
-    const stateAfter = useFilesWorkspaceStore.getState();
+    const stateBefore = useFilesStore.getState();
+    useFilesStore.getState().setTaskLinkCounts("nonexistent-project", { "x": 1 });
+    const stateAfter = useFilesStore.getState();
 
     assert.equal(stateBefore, stateAfter, "state reference should not change for unknown project");
   });

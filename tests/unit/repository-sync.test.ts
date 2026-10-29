@@ -21,7 +21,7 @@ import {
   selectionProblem,
   setupProblem,
   type SyncDraft,
-} from "../../src/lib/github/sync-workspace";
+} from "../../src/lib/github/repository-sync";
 
 const file = (overrides: Partial<SyncFile> = {}): SyncFile => ({
   path: "README.md",
@@ -360,7 +360,7 @@ test("outgoing rename detection only consolidates one exact source and one desti
 
 test("literal prototype-like filenames are never selected by default or dropped on restoration", async () => {
   const { syncChoice, selectEligibleChanges } =
-    await import("../../src/lib/github/sync-workspace");
+    await import("../../src/lib/github/repository-sync");
   for (const path of ["__proto__", "constructor", "toString"])
     assert.equal(syncChoice({}, path), undefined);
   const files = ["__proto__", "constructor", "toString"].map((path) =>

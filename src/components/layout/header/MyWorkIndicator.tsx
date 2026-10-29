@@ -15,7 +15,7 @@ export default function MyWorkIndicator() {
     const { pendingConnections } = useNetworkNotifications();
     const { data: summary } = useQuery({
         queryKey: queryKeys.myWork.summary(),
-        queryFn: () => readShellPart("workspaceSummary"),
+        queryFn: () => readShellPart("myWorkSummary"),
         staleTime: 30_000,
         refetchOnWindowFocus: false,
     });

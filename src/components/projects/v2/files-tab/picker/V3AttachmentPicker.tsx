@@ -10,7 +10,7 @@ import {
   getNodeMetadataBatch,
 } from "@/app/actions/files/nodes";
 import type { ProjectNode } from "@/lib/db/schema";
-import { useFilesWorkspaceStore } from "@/stores/filesWorkspaceStore";
+import { useFilesStore } from "@/stores/filesStore";
 import { FileIcon } from "../../explorer/FileIcons";
 import { logger } from "@/lib/logger";
 
@@ -47,7 +47,7 @@ export function V3AttachmentPicker({
   const [folder, setFolder] = useState<ProjectNode | null>(null);
   const [ancestors, setAncestors] = useState<ProjectNode[]>([]);
   const [recent, setRecent] = useState(false);
-  const recents = useFilesWorkspaceStore(
+  const recents = useFilesStore(
     (state) => state.byProjectId[projectId]?.recents ?? EMPTY_IDS,
   );
   const excluded = useMemo(() => new Set(excludedNodeIds), [excludedNodeIds]);
@@ -123,7 +123,7 @@ export function V3AttachmentPicker({
   // Metadata only: a partial page must never mark a shared directory complete.
   useEffect(() => {
     const nodes = files.data?.pages.flatMap((page) => page.nodes);
-    if (nodes) useFilesWorkspaceStore.getState().upsertNodes(projectId, nodes);
+    if (nodes) useFilesStore.getState().upsertNodes(projectId, nodes);
   }, [files.data, projectId]);
   function select(node: ProjectNode) {
     if (node.type === "folder") {

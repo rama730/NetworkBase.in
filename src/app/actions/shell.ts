@@ -6,7 +6,7 @@ import { readNotificationPreferencesAction, readNotificationUnreadCountAction } 
 import { getMyWorkSummaryAction } from "@/app/actions/my-work";
 
 const SHELL_READERS = {
-    workspaceSummary: getMyWorkSummaryAction,
+    myWorkSummary: getMyWorkSummaryAction,
     notificationUnreadCount: readNotificationUnreadCountAction,
     notificationPreferences: readNotificationPreferencesAction,
     chatSummary: () => readChatSummary(),

@@ -54,7 +54,7 @@ const CONTEXT_PRESENTATION = {
     discover: { label: "Discover / Projects", hints: ["Project name", "Technology", "Category"] },
     network: { label: "Network / Builders", hints: ["Name", "Skill", "Location"] },
     project: { label: "Project / Work & Links", hints: ["Task title", "Destination name", "Link purpose"] },
-    settings: { label: "Workspace / Settings", hints: ["Theme", "Privacy", "Integrations"] },
+    settings: { label: "Settings", hints: ["Theme", "Privacy", "Integrations"] },
     messages: { label: "Messages", hints: [] },
 } satisfies Record<GlobalSearchContext, { label: string; hints: string[] }>;
 

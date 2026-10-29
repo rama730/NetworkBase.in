@@ -3,39 +3,39 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { useShallow } from "zustand/react/shallow";
-import type { ProjectWorkspaceState, FilesWorkspaceState } from "./types";
+import type { ProjectFilesState, FilesStoreState } from "./types";
 import {
-  defaultWorkspace,
-  FALLBACK_WORKSPACE,
+  defaultFilesState,
+  FALLBACK_FILES_STATE,
   ROOT_KEY,
   parentKey,
 } from "./types";
 import { createExplorerSlice } from "./explorerSlice";
-import { createWorkspaceSlice } from "./workspaceSlice";
+import { createNavigationSlice } from "./navigationSlice";
 import { createEditorSlice } from "./editorSlice";
 import { createGitSlice } from "./gitSlice";
 
 
-export const useFilesWorkspaceStore = create<FilesWorkspaceState>()(
+export const useFilesStore = create<FilesStoreState>()(
   persist(
     (set, get, api) => ({
       byProjectId: {},
 
-      _get: (projectId) => get().byProjectId[projectId] ?? FALLBACK_WORKSPACE,
+      _get: (projectId) => get().byProjectId[projectId] ?? FALLBACK_FILES_STATE,
 
-      ensureProjectWorkspace: (projectId) =>
+      ensureProjectFilesState: (projectId) =>
         set((state) => {
           if (state.byProjectId[projectId]) return state;
           return {
             byProjectId: {
               ...state.byProjectId,
-              [projectId]: defaultWorkspace(),
+              [projectId]: defaultFilesState(),
             },
           };
         }),
 
       ...createExplorerSlice(set, get, api),
-      ...createWorkspaceSlice(set, get, api),
+      ...createNavigationSlice(set, get, api),
       ...createEditorSlice(set, get, api),
       ...createGitSlice(set, get, api),
     }),
@@ -43,12 +43,12 @@ export const useFilesWorkspaceStore = create<FilesWorkspaceState>()(
       name: "files-workspace-v3",
       partialize: (state) => ({
         byProjectId: Object.fromEntries(
-          Object.entries(state.byProjectId).map(([projectId, ws]: [string, ProjectWorkspaceState]) => [
+          Object.entries(state.byProjectId).map(([projectId, ws]: [string, ProjectFilesState]) => [
             projectId,
             // Files tab v3 persist shape (Req 15.19, Req 21.7; design § Migration Note).
             // Persist ONLY the fields listed below. Any legacy key from a
             // `files-workspace-v2` blob is ignored by the updated merge function,
-            // which overlays the persisted partial onto a fresh `defaultWorkspace()`.
+            // which overlays the persisted partial onto a fresh `defaultFilesState()`.
             {
               currentLocationId: ws.currentLocationId,
               expandedFolderIds: ws.expandedFolderIds,
@@ -60,7 +60,7 @@ export const useFilesWorkspaceStore = create<FilesWorkspaceState>()(
                 sidebarCollapsed: ws.ui.sidebarCollapsed,
                 quickOpenOpen: ws.ui.quickOpenOpen,
               },
-            } as Partial<ProjectWorkspaceState>,
+            } as Partial<ProjectFilesState>,
           ])
         ),
       }),
@@ -73,15 +73,15 @@ export const useFilesWorkspaceStore = create<FilesWorkspaceState>()(
           return currentState;
         }
 
-        const persisted = persistedState as { byProjectId?: Record<string, Partial<ProjectWorkspaceState>> };
+        const persisted = persistedState as { byProjectId?: Record<string, Partial<ProjectFilesState>> };
         if (!persisted.byProjectId) return currentState;
 
-        const mergedByProjectId: Record<string, ProjectWorkspaceState> = { ...currentState.byProjectId };
+        const mergedByProjectId: Record<string, ProjectFilesState> = { ...currentState.byProjectId };
 
         for (const [projectId, persistedProjectState] of Object.entries(persisted.byProjectId)) {
-          const fresh = defaultWorkspace();
-          const partial = (persistedProjectState ?? {}) as Partial<ProjectWorkspaceState> & {
-            ui?: Partial<ProjectWorkspaceState["ui"]>;
+          const fresh = defaultFilesState();
+          const partial = (persistedProjectState ?? {}) as Partial<ProjectFilesState> & {
+            ui?: Partial<ProjectFilesState["ui"]>;
           };
           // Merge `ui` separately so we only accept the two persisted ui keys
           // and keep every other default ui value untouched.
@@ -143,7 +143,7 @@ export const FILES_ROOT_KEY = ROOT_KEY;
 export const filesParentKey = parentKey;
 
 export const useFilesActions = () =>
-  useFilesWorkspaceStore(
+  useFilesStore(
     useShallow((s) => ({
       upsertNodes: s.upsertNodes,
       setChildren: s.setChildren,
@@ -154,7 +154,7 @@ export const useFilesActions = () =>
   );
 
 export function useFilesProjectSlice(projectId: string) {
-  return useFilesWorkspaceStore((s) => s.byProjectId[projectId]);
+  return useFilesStore((s) => s.byProjectId[projectId]);
 }
 
 export type {
@@ -163,22 +163,22 @@ export type {
   FilesViewMode,
   SavedExplorerView,
   EditorPreferences,
-  WorkspaceTab,
-  WorkspacePane,
+  EditorTab,
+  EditorPane,
   SoftLock,
   NodeEventSummary,
   FileState,
   EditorSymbol,
-  ProjectWorkspaceState,
-  FilesWorkspaceState,
+  ProjectFilesState,
+  FilesStoreState,
   GitState,
   UiState,
 } from "./types";
 
 export {
-  defaultWorkspace,
+  defaultFilesState,
   symbolsEqual,
-  FALLBACK_WORKSPACE,
+  FALLBACK_FILES_STATE,
   DEFAULT_PREFS,
   DEFAULT_GIT_STATE,
   DEFAULT_UI_STATE,

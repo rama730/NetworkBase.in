@@ -54,7 +54,7 @@ test("settings readers count roles and upload permissions in SQL for the whole t
     assert.equal(collaborators.data.members.length, 2);
     assert.equal(collaborators.data.hasMore, true);
 
-    const files = await actions.getProjectFileWorkspaceSettingsAction(projectId);
+    const files = await actions.getProjectFileAccessSettingsAction(projectId);
     assert.equal(files.success, true, "message" in files ? files.message : "");
     if (!files.success) return;
     assert.equal(files.data.members.length, 6);
@@ -64,7 +64,7 @@ test("settings readers count roles and upload permissions in SQL for the whole t
 
     const bootstrap = await actions.readProjectSettingsBootstrapAction(projectId, { limit: 40 });
     assert.equal(bootstrap.collaboratorSettings.success, true);
-    assert.equal(bootstrap.fileWorkspace.success, true);
+    assert.equal(bootstrap.fileAccess.success, true);
   } finally {
     await sql`DELETE FROM projects WHERE owner_id = ANY(${ids}::uuid[])`;
   }
@@ -82,7 +82,7 @@ test("the settings bootstrap reads project access once for all of its sections",
     accessReads = 0;
     const bootstrap = await actions.readProjectSettingsBootstrapAction(projectId, { limit: 10 }, true);
     assert.equal(bootstrap.collaboratorSettings.success, true);
-    assert.equal(bootstrap.fileWorkspace.success, true);
+    assert.equal(bootstrap.fileAccess.success, true);
     assert.equal(bootstrap.notifications.success, true);
     assert.equal(bootstrap.dangerPreflight.success, true);
     assert.equal(accessReads, 1, "one project access read for every section");

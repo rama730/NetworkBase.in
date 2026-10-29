@@ -8,7 +8,7 @@ const TARGET_DIRS = [
 ];
 
 const ALLOWED_EXACT = new Set([
-  "@/stores/filesWorkspaceStore",
+  "@/stores/filesStore",
 ]);
 
 const ALLOWED_PREFIX = [
