@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState, useTransition } from 'react'
 import { BadgeCheck, ScrollText, ShieldCheck } from 'lucide-react'
-import { toast } from 'sonner'
+import { toast } from '@/lib/feedback'
 
 import { auditExportedAction, decideVerificationAction, liftActionAction, unsuspendOrgAction } from '@/app/actions/moderation-staff'
 import { FIELD } from '@/components/trust/NewCaseDialog'

@@ -1,6 +1,6 @@
 'use client'
 
-import { toast } from 'sonner'
+import { toast } from '@/lib/feedback'
 
 export function CopyText({ text }: { text: string }) {
     return (

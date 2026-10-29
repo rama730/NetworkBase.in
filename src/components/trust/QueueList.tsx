@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Fragment, useEffect, useState, useTransition } from 'react'
 import { Inbox } from 'lucide-react'
-import { toast } from 'sonner'
+import { toast } from '@/lib/feedback'
 
 import { bulkDecideAction, claimCaseAction } from '@/app/actions/moderation-staff'
 import { Deadline, SeverityBadge } from '@/components/trust/format'
