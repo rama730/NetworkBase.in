@@ -352,7 +352,7 @@ export async function readChildOrgLineAction(childProjectId: string) {
  */
 export async function remindLeadsAction(orgId: string, projectIds: string[]): Promise<{ success: true; reminded: number } | Failure> {
     const v = await orgViewer(orgId);
-    if (!v?.isAdmin || !v.userId || projectIds.length === 0) return v?.isAdmin ? { success: true, reminded: 0 } : DENIED;
+    if (!v?.isAdmin || !v.userId) return DENIED;
     const read = await readOrgProjectsAction(orgId);
     if (!read.success) return read;
     const { notifyOrg } = await import('@/lib/organizations/notify');

@@ -1,5 +1,6 @@
 import { assertOrgSprintRules, createMatchingChildSprints, readSprintMaterials, readSprintOrgContext, unlinkSprints } from "@/lib/organizations/sprints";
 import { buildSprintSeries } from "@/lib/organizations/sprint-rules";
+import { readOrgWork } from "@/lib/organizations/settings";
 import { readViewerOrgRole } from "@/lib/organizations/detail";
 import { startSprint } from "@/lib/projects/sprint-schedule";
 import { postOrgAnnouncement } from "@/lib/organizations/org-updates";
@@ -2117,10 +2118,10 @@ export async function planSprintSeriesAction(input: { projectId: string; prefix:
     const series = buildSprintSeries({ ...input, prefix });
     await db.transaction(async (tx) => {
       await tx.execute(sql`SELECT id FROM ${projects} WHERE id = ${input.projectId} FOR UPDATE`);
-      const [project] = await tx.select({ kind: projects.kind, orgSettings: projects.orgSettings }).from(projects).where(eq(projects.id, input.projectId)).limit(1);
+      const [project] = await tx.select({ kind: projects.kind, orgSettings: projects.orgSettings, orgType: projects.orgType }).from(projects).where(eq(projects.id, input.projectId)).limit(1);
       if (project?.kind !== "organization") throw new Error("Series are planned on an organization.");
       // The org's Work defaults apply to every planned sprint (report §21).
-      const work = (project.orgSettings ?? {}) as { sprintAutoStart?: unknown; sprintShowInChildren?: unknown; sprintNotifyOnStart?: unknown };
+      const work = readOrgWork(project.orgSettings, project.orgType);
       for (const item of series) {
         const startDate = parseSprintDateInput(item.startDate);
         const endDate = parseSprintDateInput(item.endDate);
@@ -2133,9 +2134,9 @@ export async function planSprintSeriesAction(input: { projectId: string; prefix:
           startDate,
           endDate,
           status: "planning",
-          autoStart: work.sprintAutoStart !== false,
-          showInChildren: work.sprintShowInChildren !== false,
-          notifyOnStart: work.sprintNotifyOnStart !== false,
+          autoStart: work.sprintAutoStart,
+          showInChildren: work.sprintShowInChildren,
+          notifyOnStart: work.sprintNotifyOnStart,
         }).returning({ id: projectSprints.id });
         await tx.insert(projectSprintEvents).values({
           projectId: input.projectId,

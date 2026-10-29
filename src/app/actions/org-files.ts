@@ -11,6 +11,7 @@ import { readViewerOrgRole } from '@/lib/organizations/detail';
 import { effectiveAccess, folderAccessBlock, readFolderAccess, type FolderAccess } from '@/lib/organizations/file-rules';
 import { getViewerAuthContext } from '@/lib/server/viewer-context';
 import { ORG_LIMITS } from '@/lib/organizations/config';
+import { UUID_RE } from '@/lib/validations/uuid';
 
 // Org Files (report §23): folder access and Template marks for admins; the From <org> view and copies in
 // child projects. Reads elsewhere go through orgFileAccessSql / assertFileNodeVisible.
@@ -183,6 +184,7 @@ export async function listOrgCopiesAction(childProjectId: string): Promise<{ suc
  * assignment or task reference, a template folder or a doc. Empty outside orgs and for anything unused.
  */
 export async function readOrgFileUsageAction(orgId: string, nodeIds: string[]): Promise<string[]> {
+    nodeIds = nodeIds.filter((id) => UUID_RE.test(id));
     if (nodeIds.length === 0 || !(await orgAdmin(orgId, 'read'))) return [];
     const rows = await db.execute<{ label: string }>(sql`
         WITH picked AS (SELECT path FROM project_nodes WHERE project_id = ${orgId} AND id IN ${nodeIds.slice(0, 200)} AND deleted_at IS NULL),

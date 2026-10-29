@@ -113,23 +113,20 @@ export default function Phase4Settings({ showValidationSummary = false, linkComp
     const { control, setValue, getFieldState, formState: { errors } } = useFormContext<CreateProjectInput>();
     const isOrganization = Boolean(useWatch({ control, name: 'organization' }));
     const childOrg = useCreateLocation().org;
-    // Report §19.7: the starter doc lists the org's templates first.
+    // Report §19.7 and §23.6: the starter doc lists the org's templates first; files can start from a Template folder.
     const [orgTemplates, setOrgTemplates] = useState<Array<{ id: string; filename: string }>>([]);
-    useEffect(() => {
-        if (!childOrg) return setOrgTemplates([]);
-        let live = true;
-        void readOrgDocsAction(childOrg.id).then((r) => {
-            if (live) setOrgTemplates(r.success && r.data ? r.data.docs.filter((d) => d.template).map((d) => ({ id: d.id, filename: d.filename })) : []);
-        });
-        return () => { live = false; };
-    }, [childOrg]);
-    // Report §23.6: start the project's files from one of the org's Template folders.
     const [templateFolders, setTemplateFolders] = useState<Array<{ id: string; name: string }>>([]);
     const templateFolderId = useWatch({ control, name: 'org_template_folder_id' });
     useEffect(() => {
-        if (!childOrg) return setTemplateFolders([]);
+        setOrgTemplates([]);
+        setTemplateFolders([]);
+        if (!childOrg) return;
         let live = true;
-        void listOrgTemplateFoldersAction(childOrg.id).then((folders) => { if (live) setTemplateFolders(folders); });
+        void Promise.all([readOrgDocsAction(childOrg.id), listOrgTemplateFoldersAction(childOrg.id)]).then(([docs, folders]) => {
+            if (!live) return;
+            setOrgTemplates(docs.success && docs.data ? docs.data.docs.filter((d) => d.template).map((d) => ({ id: d.id, filename: d.filename })) : []);
+            setTemplateFolders(folders);
+        });
         return () => { live = false; };
     }, [childOrg]);
     // Report §14.3 Phase 4: member permissions start from the org's values, unless already changed here.

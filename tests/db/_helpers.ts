@@ -26,6 +26,14 @@ const originalLoad = moduleWithLoad._load;
 export const moduleStubs = new Map<string, unknown>([["server-only", {}]]);
 moduleWithLoad._load = (request, parent, isMain) => (moduleStubs.has(request) ? moduleStubs.get(request) : originalLoad(request, parent, isMain));
 
+/** Post-response work (next/server after) runs inline; the action returns before it settles, as in a request. */
+export function stubNextAfter() {
+  moduleStubs.set("next/server", {
+    after: (task: unknown) => { void Promise.resolve(typeof task === "function" ? (task as () => unknown)() : task).catch(() => undefined); },
+    NextResponse: class {}, NextRequest: class {},
+  });
+}
+
 const DISPOSABLE_URL = requireDisposableDatabaseUrl("test:db");
 export const sql = postgres(DISPOSABLE_URL, { max: 4, prepare: false, onnotice: () => undefined });
 export type Tx = postgres.TransactionSql;
