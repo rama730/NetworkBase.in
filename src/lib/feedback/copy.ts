@@ -205,7 +205,7 @@ export const FEEDBACK_COPY: Record<string, { title: string; description?: string
   "Hidden until you reload": { "title": "Hidden until you reload" },
   "Use a valid http or https link": { "title": "Use a valid http or https link" },
   "Use JPG, PNG, WebP, or GIF images": { "title": "Use JPG, PNG, WebP, or GIF images" },
-  "Please log in to like updates": { "title": "Sign in to like updates" },
+  "Sign in to like updates": { "title": "Sign in to like updates" },
   "Please log in to comment": { "title": "Sign in to comment" },
   "This item is not available or you do not have access": { "title": "This item is not available or you do not have access" },
   "Undoing change…": { "title": "Undoing change…" },
