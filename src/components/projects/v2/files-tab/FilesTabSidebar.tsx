@@ -485,7 +485,7 @@ export function FilesTabSidebar({
     mode: "default",
     canEdit,
     canMove: canManageFiles,
-    projectName: projectName || "Project",
+    projectName: projectName || "Workspace",
     effectiveMode: "tree",
     renameNodeId: renameState.nodeId,
     renameValue: renameState.value,

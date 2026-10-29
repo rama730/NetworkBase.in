@@ -10,7 +10,7 @@ export type ClosedApplication = { id: string; applicantId: string; roleId: strin
 export type ClosingReason = 'project_closed' | 'role_removed' | 'role_filled';
 
 const CLOSING_LINE: Record<ClosingReason, string> = {
-    project_closed: 'closed this application: the project is no longer taking applications',
+    project_closed: 'closed this application: the workspace is no longer taking applications',
     role_removed: 'closed this application: the role was removed',
     role_filled: 'closed this application: the role was filled',
 };
@@ -98,7 +98,7 @@ export async function resolveApplicationsOnJoin(executor: Executor, params: { pr
             toStatus: 'accepted',
             metadata: { source: 'joined_another_way' },
         });
-        await postApplicationUpdate(executor, application.id, params.actorId, 'joined the project, so this application is closed');
+        await postApplicationUpdate(executor, application.id, params.actorId, 'joined the workspace, so this application is closed');
     }
     return resolved.length;
 }

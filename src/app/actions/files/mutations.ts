@@ -256,7 +256,7 @@ export async function createFolder(
         ...actorNotificationSnapshot(user),
         eventKey: "files.folder_created",
         title: `Folder created: ${safeName}`,
-        body: "A new folder was added to the project workspace.",
+        body: "A new folder was added to the workspace.",
         sourceEventId: node.id,
         entityRefs: { projectId, fileId: node.id },
     });
@@ -339,7 +339,7 @@ export async function createFileNode(projectId: string, parentId: string | null,
                 isNull(projectNodes.taskId),
                 isNull(projectNodes.deletedAt),
             )).limit(1).for("update");
-            if (!canonical) throw new Error("Canonical file not found in this project");
+            if (!canonical) throw new Error("Canonical file not found in this workspace");
         }
         if (file.taskLink) await assertProjectWriteAccessTx(tx, projectId, user.id, { taskId: file.taskId });
         const parentPath = await resolveParentAndCheckSibling(tx, projectId, parentId, safeName);
@@ -385,7 +385,7 @@ export async function createFileNode(projectId: string, parentId: string | null,
         ...actorNotificationSnapshot(user),
         eventKey: "files.uploaded",
         title: `File uploaded: ${safeName}`,
-        body: "A file was added to the project workspace.",
+        body: "A file was added to the workspace.",
         sourceEventId: node.id,
         entityRefs: { projectId, fileId: node.id },
     });
@@ -624,7 +624,7 @@ export async function finalizeBatchUpload(
         ...actorNotificationSnapshot(user),
         eventKey: createdNodes.length === 1 ? "files.uploaded" : "files.bulk_uploaded",
         title: createdNodes.length === 1 ? `File uploaded: ${firstNode.name}` : `${createdNodes.length} files uploaded`,
-        body: "Files were added to the project workspace.",
+        body: "Files were added to the workspace.",
         sourceEventId: firstNode.id,
         aggregateCount: createdNodes.length,
         entityRefs: { projectId, fileId: firstNode.id },
@@ -811,7 +811,7 @@ export async function renameNode(nodeId: string, newName: string, projectId: str
         ...actorNotificationSnapshot(user),
         eventKey: "files.organized",
         title: `File renamed: ${safeName}`,
-        body: "A project file or folder was renamed.",
+        body: "A workspace file or folder was renamed.",
         sourceEventId: `${nodeId}:rename:${safeName}`,
         entityRefs: { projectId, fileId: nodeId },
     });
@@ -886,7 +886,7 @@ export async function moveProjectNodes(
         }
         const isPublishing = options?.mode === "publish";
         if (!isPublishing && movers.some((node) => node.taskId)) {
-            throw new Error("Task working files must be published to Project Files before they can be relocated");
+            throw new Error("Task working files must be published to Workspace Files before they can be relocated");
         }
         if (isPublishing && movers.some((node) => !node.taskId)) {
             throw new Error("Only task-owned files or folders can be published with this action");
@@ -989,8 +989,8 @@ export async function moveProjectNodes(
                 ? `${result.nodes.length} task file${result.nodes.length === 1 ? "" : "s"} published`
                 : `${result.nodes.length} file${result.nodes.length === 1 ? "" : "s"} moved`,
             body: options?.mode === "publish"
-                ? "Task working files were published to Project Files."
-                : "Project files were reorganized.",
+                ? "Task working files were published to Workspace Files."
+                : "Workspace files were reorganized.",
             aggregateCount: result.nodes.length,
             sourceEventId: operationId,
             entityRefs: { projectId },
@@ -1054,7 +1054,7 @@ export async function restoreNode(nodeId: string, projectId: string) {
         ...actorNotificationSnapshot(user),
         eventKey: "files.deleted_restored",
         title: "File restored",
-        body: "A project file or folder was restored.",
+        body: "A workspace file or folder was restored.",
         sourceEventId: `${nodeId}:restore`,
         entityRefs: { projectId, fileId: nodeId },
     });
@@ -1142,7 +1142,7 @@ export async function bulkTrashNodes(nodeIds: string[], projectId: string, expec
             ...actorNotificationSnapshot(user),
             eventKey: "files.deleted_restored",
             title: `${result.trashedIds.length} file${result.trashedIds.length === 1 ? "" : "s"} moved to trash`,
-            body: "Project files were moved to trash.",
+            body: "Workspace files were moved to trash.",
             aggregateCount: result.trashedIds.length,
             sourceEventId: `bulk-trash:${result.selectedTrashedIds.slice(0, 50).join(",")}:${result.trashedIds.length}`,
             entityRefs: { projectId },
@@ -1256,7 +1256,7 @@ export async function bulkRestoreNodes(nodeIds: string[], projectId: string, exp
             ...actorNotificationSnapshot(user),
             eventKey: "files.deleted_restored",
             title: `${result.restoredIds.length} file${result.restoredIds.length === 1 ? "" : "s"} restored`,
-            body: "Project files were restored from trash.",
+            body: "Workspace files were restored from trash.",
             aggregateCount: result.restoredIds.length,
             sourceEventId: `bulk-restore:${result.restoredIds.join(",")}`,
             entityRefs: { projectId },

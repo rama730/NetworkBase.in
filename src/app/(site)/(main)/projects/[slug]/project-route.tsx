@@ -70,7 +70,7 @@ export async function generateProjectRouteMetadata({
             files: "Files",
             tasks: "Tasks",
             members: "Members",
-            projects: "Projects",
+            projects: "Workspaces",
         };
         const tabTitle = tabTitleMap[tab];
         if (tabTitle) {
@@ -108,7 +108,7 @@ async function ResolvedProjectDashboard({
     const [{ slug }, _searchParams] = await Promise.all([params, searchParams]);
     if (isShareCrawler((await headers()).get('user-agent'))) {
         const preview = await readSharePreview(new URL(`/projects/${encodeURIComponent(slug)}`, shareOrigin()).href);
-        return <article className="p-6"><h1>{preview?.title ?? 'Project on NetworkBase'}</h1><p>{preview?.description ?? 'Open this project on NetworkBase.'}</p><a href={preview?.url ?? '/discover'}>Open NetworkBase</a></article>;
+        return <article className="p-6"><h1>{preview?.title ?? 'Workspace on NetworkBase'}</h1><p>{preview?.description ?? 'Open this workspace on NetworkBase.'}</p><a href={preview?.url ?? '/discover'}>Open NetworkBase</a></article>;
     }
     const selectedTab = firstParam(_searchParams?.tab) || "dashboard";
     const sprintId = firstParam(_searchParams?.sprint) ?? firstParam(_searchParams?.sprintId);

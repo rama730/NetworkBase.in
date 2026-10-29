@@ -44,7 +44,7 @@ export async function getProfileToRoleAlignmentAction(
 
   const access = await getProjectAccessById(role.projectId, viewer.id);
   if (!access.project || (!access.isOwner && access.memberRole !== 'admin')) {
-    throw new Error('You can only inspect candidate alignment for projects you manage');
+    throw new Error('You can only inspect candidate alignment for workspaces you manage');
   }
 
   // Managing the role does not authorize reading the person: the candidate's

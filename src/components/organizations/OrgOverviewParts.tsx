@@ -22,7 +22,7 @@ const ago = (iso: string) => formatDistanceToNow(new Date(iso), { addSuffix: tru
 const day = (iso: string) => new Date(iso).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })
 const row = 'flex min-w-0 items-center justify-between gap-3 py-1.5 text-sm'
 const STATE: Record<string, string> = { not_started: 'not started', in_progress: 'in progress', submitted: 'Submitted', returned: 'Returned', done: 'Done', missing: 'Missing', excused: 'Excused' }
-const FILTERS = [['all', 'All'], ['assignments', 'Assignments'], ['people', 'People'], ['files', 'Files and docs'], ['projects', 'Projects']] as const
+const FILTERS = [['all', 'All'], ['assignments', 'Assignments'], ['people', 'People'], ['files', 'Files and docs'], ['projects', 'Workspaces']] as const
 
 /** The org Dashboard for people in the org (report §27). */
 export function OrgDashboard({ orgId, orgSlug }: { orgId: string; orgSlug: string | null }) {
@@ -86,9 +86,9 @@ export function OrgDashboard({ orgId, orgSlug }: { orgId: string; orgSlug: strin
                 </RailSection>
             </div>
             <aside aria-label="Organization details" className="min-w-0 space-y-6 lg:col-span-4">
-                <RailSection title="Projects" action={<Link href={`${base}?tab=projects`} className="text-[12px] underline underline-offset-4">See all</Link>}>
+                <RailSection title="Workspaces" action={<Link href={`${base}?tab=projects`} className="text-[12px] underline underline-offset-4">See all</Link>}>
                     {data.projects.length ? <ul>{data.projects.map((p) => <li key={p.id} className={row}><Link href={`/projects/${encodeURIComponent(p.slug ?? p.id)}`} className="truncate hover:underline">{p.title}</Link><span className="shrink-0 font-mono text-[11px] text-muted-foreground">{ago(p.lastActivityAt)}</span></li>)}</ul>
-                        : <p className="text-sm text-muted-foreground">{data.role === 'admin' ? 'No projects yet.' : "You’re not in a project yet."}</p>}
+                        : <p className="text-sm text-muted-foreground">{data.role === 'admin' ? 'No workspaces yet.' : "You’re not in a workspace yet."}</p>}
                 </RailSection>
                 <RailSection title="People">
                     <p className="text-sm">{data.people.avatars.map((p) => p.name.split(' ')[0]).join(', ')}{data.people.total > data.people.avatars.length ? ` +${data.people.total - data.people.avatars.length}` : ''}</p>
@@ -136,7 +136,7 @@ export function OrgProjectsTab({ orgId, orgSlug }: { orgId: string; orgSlug?: st
             && (!mine || r.mine),
         ).sort((a, b) => sort === 'name' ? a.title.localeCompare(b.title) : sort === 'overdue' ? b.overdue - a.overdue : b.lastActivityAt.localeCompare(a.lastActivityAt))
     }, [data, lead, mine, q, sort, sprint, stage, status, visibility])
-    if (!data) return <p className="py-10 text-center text-sm text-muted-foreground">Loading projects…</p>
+    if (!data) return <p className="py-10 text-center text-sm text-muted-foreground">Loading workspaces…</p>
     const layout = view ?? (data.isAdmin ? 'list' : 'cards')
     const stages = [...new Set(data.rows.map((r) => r.stage).filter((s): s is string => Boolean(s)))].sort()
     const leads = [...new Map(data.rows.flatMap((r) => (r.lead ? [[r.lead.id, r.lead.name] as const] : []))).entries()].sort((a, b) => a[1].localeCompare(b[1]))
@@ -144,7 +144,7 @@ export function OrgProjectsTab({ orgId, orgSlug }: { orgId: string; orgSlug?: st
     const remind = () => startTransition(async () => {
         const r = await remindLeadsAction(orgId, [...selected])
         if (!r.success) return void toast.error(r.error)
-        toast.success(r.reminded ? `Reminded ${r.reminded} ${r.reminded === 1 ? 'lead' : 'leads'}` : 'Nothing overdue or missing in those projects')
+        toast.success(r.reminded ? `Reminded ${r.reminded} ${r.reminded === 1 ? 'lead' : 'leads'}` : 'Nothing overdue or missing in those workspaces')
         setSelected(new Set())
     })
     const projectHref = (r: OrgProjectRow) => `/projects/${encodeURIComponent(r.slug ?? r.id)}`
@@ -166,11 +166,11 @@ export function OrgProjectsTab({ orgId, orgSlug }: { orgId: string; orgSlug?: st
                 {data.isAdmin ? <>
                     {' · '}<button type="button" className="hover:underline" onClick={() => setStatus('attention')}>{data.summary.attention} need attention</button>
                     {' · '}<button type="button" className="hover:underline" onClick={() => setStatus('quiet')}>{data.summary.quiet} quiet</button>
-                    {' · '}{data.summary.notInProject} members not in a project
+                    {' · '}{data.summary.notInProject} members not in a workspace
                 </> : null}
             </p>
             <div className="flex flex-wrap items-center gap-2">
-                <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search…" aria-label="Search projects" className="h-9 w-full sm:w-52" />
+                <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search…" aria-label="Search workspaces" className="h-9 w-full sm:w-52" />
                 <select aria-label="Status" className={sel} value={status} onChange={(e) => setStatus(e.target.value as typeof status)}>
                     <option value="all">Active</option>{data.isAdmin ? <option value="attention">Needs attention</option> : null}<option value="quiet">Quiet 7 days</option><option value="archived">Archived</option>
                 </select>
@@ -192,7 +192,7 @@ export function OrgProjectsTab({ orgId, orgSlug }: { orgId: string; orgSlug?: st
                 <select aria-label="Sort" className={sel} value={sort} onChange={(e) => setSort(e.target.value as typeof sort)}>
                     <option value="active">Recently active</option><option value="name">Name</option><option value="overdue">Most overdue</option>
                 </select>
-                {data.canCreate ? <Button asChild size="sm" className="ml-auto"><Link href={`/projects/new?org=${encodeURIComponent(orgSlug ?? orgId)}`}>+ New project</Link></Button> : null}
+                {data.canCreate ? <Button asChild size="sm" className="ml-auto"><Link href={`/projects/new?org=${encodeURIComponent(orgSlug ?? orgId)}`}>+ New workspace</Link></Button> : null}
                 {data.isAdmin && selected.size ? <Button type="button" size="sm" variant="outline" disabled={pending} onClick={remind}>Remind leads</Button> : null}
                 {data.isAdmin && selected.size ? <Button type="button" size="sm" variant="outline" disabled={pending} onClick={() => { if (window.confirm(`Archive ${selected.size} ${selected.size === 1 ? 'project' : 'projects'}?`)) archive() }}>Archive {selected.size}</Button> : null}
                 <span className="flex rounded-md border border-border text-[12px]" role="group" aria-label="View">
@@ -200,8 +200,8 @@ export function OrgProjectsTab({ orgId, orgSlug }: { orgId: string; orgSlug?: st
                 </span>
             </div>
             {layout === 'cards' ? (
-                <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3" aria-label="Projects">
-                    {rows.length === 0 ? <li className="text-sm text-muted-foreground">{data.rows.length === 0 ? 'No projects yet.' : 'No projects match.'}</li> : null}
+                <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3" aria-label="Workspaces">
+                    {rows.length === 0 ? <li className="text-sm text-muted-foreground">{data.rows.length === 0 ? 'No workspaces yet.' : 'No workspaces match.'}</li> : null}
                     {page.map((r) => (
                         <li key={r.id} className="rounded-lg border border-border bg-card p-3 text-sm">
                             <p className="flex items-center gap-1.5">
@@ -218,7 +218,7 @@ export function OrgProjectsTab({ orgId, orgSlug }: { orgId: string; orgSlug?: st
                 </ul>
             ) : null}
             {layout === 'list' ? <ul className="divide-y divide-border rounded-lg border border-border">
-                {rows.length === 0 ? <li className="p-4 text-sm text-muted-foreground">{data.rows.length === 0 ? (data.isAdmin ? 'Create projects for your groups.' : 'No projects yet.') : 'No projects match.'}</li> : null}
+                {rows.length === 0 ? <li className="p-4 text-sm text-muted-foreground">{data.rows.length === 0 ? (data.isAdmin ? 'Create workspaces for your groups.' : 'No workspaces yet.') : 'No workspaces match.'}</li> : null}
                 {page.map((r) => (
                     <li key={r.id} className="flex items-start gap-3 px-3 py-2.5 text-sm">
                         {data.isAdmin ? <input type="checkbox" className="mt-1" aria-label={`Select ${r.title}`} checked={selected.has(r.id)} onChange={(e) => setSelected((cur) => { const next = new Set(cur); if (e.target.checked) next.add(r.id); else next.delete(r.id); return next })} /> : null}

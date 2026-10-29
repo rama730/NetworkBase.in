@@ -88,7 +88,7 @@ export function ComposerReferenceOptions<T extends ComposerReferenceOption>({
           </div>
         ) : !options.length ? (
           <p className="rounded-[5px] bg-muted/30 px-3 py-2.5 text-xs text-muted-foreground">
-            No matching project context.
+            No matching workspace context.
           </p>
         ) : (
           options.map((option) => {

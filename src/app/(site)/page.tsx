@@ -24,9 +24,9 @@ const anchors = [
 ];
 
 const steps = [
-  { label: "01 / Discover", title: "Find work you want to be part of.", body: "Browse projects by skills and interests. See the idea, the team and the roles they still need.", href: buildAuthPageHref("/signup", "/discover"), action: "Explore workspaces" },
+  { label: "01 / Discover", title: "Find work you want to be part of.", body: "Browse workspaces by skills and interests. See the idea, the team and the roles they still need.", href: buildAuthPageHref("/signup", "/discover"), action: "Explore workspaces" },
   { label: "02 / Connect", title: "Meet people through what they do.", body: "Profiles are built around skills and contributions. Find people and start a conversation.", href: buildAuthPageHref("/signup", "/network"), action: "Meet people" },
-  { label: "03 / Build", title: "Give your project a place to grow.", body: "Tasks, sprints, documents, files and messages live together, with clear roles for everyone.", href: buildAuthPageHref("/signup", "/projects/new"), action: "Create a workspace" },
+  { label: "03 / Build", title: "Give your workspace a place to grow.", body: "Tasks, sprints, documents, files and messages live together, with clear roles for everyone.", href: buildAuthPageHref("/signup", "/projects/new"), action: "Create a workspace" },
 ];
 
 // Example content only: labelled as such on the page, never presented as real people or counts.
@@ -49,10 +49,10 @@ const modules = [
   { icon: FileText, title: "Documents", body: "Specs, notes and decisions, written next to the work." },
   { icon: FolderOpen, title: "Files", body: "One place for designs, code and assets, with previews." },
   { icon: Megaphone, title: "Updates", body: "Share progress with your team and the people following along." },
-  { icon: MessagesSquare, title: "Messages", body: "Channels and direct messages for every project." },
+  { icon: MessagesSquare, title: "Messages", body: "Channels and direct messages for every workspace." },
   { icon: BarChart3, title: "Dashboard", body: "Activity, progress and contributions at a glance." },
-  { icon: KeyRound, title: "Roles and permissions", body: "Decide who can view, edit and manage each project." },
-  { icon: Code2, title: "Editor sync", body: "Work on project files and tasks from VS Code, Cursor or Windsurf." },
+  { icon: KeyRound, title: "Roles and permissions", body: "Decide who can view, edit and manage each workspace." },
+  { icon: Code2, title: "Editor sync", body: "Work on workspace files and tasks from VS Code, Cursor or Windsurf." },
 ];
 
 const trust = [
@@ -85,8 +85,8 @@ const exampleProjects = [
 
 function ExampleProjects() {
   return (
-    <div className="w-full space-y-3" role="img" aria-label="Example project cards: skills, team, open roles, views and followers">
-      <p className="nb-micro">Example projects</p>
+    <div className="w-full space-y-3" role="img" aria-label="Example workspace cards: skills, team, open roles, views and followers">
+      <p className="nb-micro">Example workspaces</p>
       {exampleProjects.map(({ title, body, skills, team, openRoles, views, followers }) => (
         <div key={title} className="nb-project-card" aria-hidden="true">
           <p className="nb-project-card-title">{title}</p>
@@ -134,7 +134,7 @@ export default function HomePage() {
           <div className="space-y-6">
             <p className="nb-micro text-primary">A place for people who build</p>
             <h1 id="hero-title" className="max-w-[12ch] text-[40px] font-semibold leading-[1.06] tracking-[-.03em] sm:text-6xl">Find your people.<br />Build something together.</h1>
-            <p className="max-w-[52ch] text-[17px] leading-relaxed text-muted-foreground">NetworkBase connects people who want to build with the projects that need them, then gives the team one place to plan, write, share and ship.</p>
+            <p className="max-w-[52ch] text-[17px] leading-relaxed text-muted-foreground">NetworkBase connects people who want to build with the workspaces that need them, then gives the team one place to plan, write, share and ship.</p>
             <div className="flex flex-wrap items-center gap-3">
               <Button size="lg" asChild><Link href="/signup">Get started <ArrowRight size={16} aria-hidden="true" /></Link></Button>
               <Button variant="outline" size="lg" asChild><a href="#how-it-works">See how it works</a></Button>
@@ -145,7 +145,7 @@ export default function HomePage() {
       </section>
 
       <section className="nb-site-section nb-site-anchor" id="how-it-works" aria-labelledby="how-title">
-        <SectionHeading id="how-title" eyebrow="How it works" title={<>The people, the project,<br />and the work in between.</>} />
+        <SectionHeading id="how-title" eyebrow="How it works" title={<>The people, the workspace,<br />and the work in between.</>} />
         <div className="grid gap-4 md:grid-cols-3">
           {steps.map(({ label, title, body, href, action }) => (
             <article key={label} className="nb-site-preview flex flex-col items-start gap-4 p-6">
@@ -161,9 +161,9 @@ export default function HomePage() {
       <section className="nb-site-section nb-site-anchor !pt-0" id="people" aria-labelledby="people-title">
         <div className="grid items-start gap-12 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
           <div>
-            <SectionHeading id="people-title" eyebrow="The talent pool" title="Find people by what they can do." body="Every profile shows skills, experience, weekly availability and the projects someone has worked on. Search by skill, or post an open role and let the right people find you." />
+            <SectionHeading id="people-title" eyebrow="The talent pool" title="Find people by what they can do." body="Every profile shows skills, experience, weekly availability and the workspaces someone has worked on. Search by skill, or post an open role and let the right people find you." />
             <ul className="space-y-3 text-sm">
-              {["Search by skill, role and experience level", "See who is open to collaborate and how many hours they have", "Post open roles on your project", "Start a conversation from any profile"].map((point) => (
+              {["Search by skill, role and experience level", "See who is open to collaborate and how many hours they have", "Post open roles in your workspace", "Start a conversation from any profile"].map((point) => (
                 <li key={point} className="flex gap-3"><Users className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden="true" />{point}</li>
               ))}
             </ul>
@@ -200,7 +200,7 @@ export default function HomePage() {
       </section>
 
       <section className="nb-site-section nb-site-anchor border-t border-border" id="workspace" aria-labelledby="workspace-title">
-        <SectionHeading id="workspace-title" eyebrow="The workspace" title="Everything a project needs, in one place." body="When the team comes together, the work has somewhere to live. No more scattered links, chats and spreadsheets." />
+        <SectionHeading id="workspace-title" eyebrow="The workspace" title="Everything a workspace needs, in one place." body="When the team comes together, the work has somewhere to live. No more scattered links, chats and spreadsheets." />
         <div className="grid gap-px overflow-hidden rounded-lg border border-border bg-border sm:grid-cols-2 lg:grid-cols-4">
           {modules.map(({ icon: Icon, title, body }) => (
             <div key={title} className="space-y-2 bg-card p-5">
@@ -220,7 +220,7 @@ export default function HomePage() {
             <p className="nb-inverse-muted max-w-[36ch]">Start small, find the people who care about the same problem, and build your way forward.</p>
           </div>
           <ol className="space-y-6">
-            {["Set up your profile and add your skills.", "Find a project or create one of your own.", "Invite members and agree on the next steps.", "Share your progress as the work takes shape."].map((text, index) => (
+            {["Set up your profile and add your skills.", "Find a workspace or create one of your own.", "Invite members and agree on the next steps.", "Share your progress as the work takes shape."].map((text, index) => (
               <li key={text} className="flex gap-4 border-b border-white/15 pb-5"><span className="font-mono text-sm text-[var(--accent-inverse)]">0{index + 1}</span><span>{text}</span></li>
             ))}
           </ol>

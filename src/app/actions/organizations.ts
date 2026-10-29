@@ -482,7 +482,7 @@ export async function approveMoveInAction(projectId: string): Promise<{ success:
     if (!pending || !isAdminRole(await readViewerOrgRole(pending.orgId, userId))) return DENIED;
     const org = await readOrgCap(db, pending.orgId);
     if (org && !org.outsidePeople && (await countOutsidePeople(projectId, pending.orgId)) > 0) {
-        return { success: false, error: 'This project now has people outside the organization.' };
+        return { success: false, error: 'This workspace now has people outside the organization.' };
     }
     await moveIntoOrg(projectId, pending.orgId, pending.project.visibility);
     revalidatePath(`/projects/${pending.project.slug ?? projectId}`);

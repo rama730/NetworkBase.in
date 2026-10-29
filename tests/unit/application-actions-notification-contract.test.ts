@@ -18,7 +18,7 @@ function extractFunction(source: string, functionName: string) {
 test('reject application decision notifications are best-effort after persistence', () => {
     const source = readProjectFile('src/app/actions/applications/internal.ts');
     const rejectAction = extractFunction(source, 'rejectApplicationAction');
-    // The notification builders live in lib/applications/notifications.ts (the project lifecycle uses them too).
+    // The notification builders live in lib/applications/notifications.ts (the workspace lifecycle uses them too).
     const notifications = readProjectFile('src/lib/applications/notifications.ts');
     const helperStart = notifications.indexOf('async function enqueueApplicationDecisionBestEffort');
     const helperEnd = notifications.indexOf('\nexport async function ', helperStart + 1);

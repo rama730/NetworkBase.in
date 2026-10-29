@@ -169,7 +169,7 @@ test("GitHub Sync is a linked-account collection with state-driven, reviewed act
   assert.match(main, /fetchGithubImportBranches/);
   assert.doesNotMatch(main, /<GitHubCommitIdentity \/>/);
   assert.doesNotMatch(main, /aria-label="Sync operation history"/);
-  assert.doesNotMatch(main, /aria-label="Project file contributors"/);
+  assert.doesNotMatch(main, /aria-label="Workspace file contributors"/);
   assert.doesNotMatch(main, /Connect \/ reauthorize GitHub/);
 });
 

@@ -63,7 +63,7 @@ export async function GET(request: Request) {
 
     const access = await getProjectAccessById(projectId, user.id);
     if (!access.project) {
-      return jsonError("Project not found", 404, "NOT_FOUND");
+      return jsonError("Workspace not found", 404, "NOT_FOUND");
     }
     // Files visibility for the listing; task-owned and /.system nodes also need Tasks (AUTH-002).
     if (!canReadProjectTab(access, "files")) {

@@ -117,7 +117,7 @@ test("publication validates content, overall dates, position bounds and image pe
     storyValidation(story, { publish: true })
       .map((e) => e.message)
       .join(" "),
-    /project name/,
+    /workspace or project name/,
   );
   const invalid = {
     ...story,

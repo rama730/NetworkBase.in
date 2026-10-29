@@ -347,7 +347,7 @@ export default function SprintPlanning({
           </h2>
           <p className="text-sm leading-6 text-muted-foreground">
             {isForbidden
-              ? "You do not have permission to view sprints for this project."
+              ? "You do not have permission to view sprints for this workspace."
               : (error instanceof Error ? error.message : "Try again.")}
           </p>
           {!isForbidden ? (

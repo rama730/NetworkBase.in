@@ -16,7 +16,7 @@ describe("sprint member access contract", () => {
     assert.match(
       projectActionsText,
       /resolveProjectDetailTarget\(\s*input\.slugOrId,\s*input\.actorUserId\s*\?\?\s*null,?\s*\)/,
-      "readProjectSprintDetail must pass actorUserId so project membership is included in the project lookup",
+      "readProjectSprintDetail must pass actorUserId so project membership is included in the workspace lookup",
     );
   });
 
@@ -29,7 +29,7 @@ describe("sprint member access contract", () => {
     assert.match(
       projectActionsBarrelSource,
       /\bfetchProjectSprintDetailAction\b/,
-      "the project action barrel must expose fetchProjectSprintDetailAction directly",
+      "the workspace action barrel must expose fetchProjectSprintDetailAction directly",
     );
     assert.doesNotMatch(
       projectActionsBarrelSource,

@@ -217,13 +217,13 @@ export const PROJECT_PUBLIC_TAB_DESCRIPTIONS: Record<
   string
 > = {
   dashboard:
-    "Public project overview, summary, roles, team preview, and high-level progress.",
+    "Public workspace overview, summary, roles, team preview, and high-level progress.",
   readme:
-    "Published project documentation, setup notes, screenshots, commands, and contribution guidance.",
+    "Published workspace documentation, setup notes, screenshots, commands, and contribution guidance.",
   updates:
     "Public progress posts, milestone notes, releases, blockers, and follower-facing discussion.",
   files:
-    "Public project files and shared workspace materials that are safe for visitors.",
+    "Public workspace files and shared workspace materials that are safe for visitors.",
   sprints:
     "Sprint history and planning details, usually best kept member-only.",
   tasks:
@@ -428,7 +428,7 @@ export function buildProjectPersonReference(input: {
   const displayName =
     person?.fullName?.trim() ||
     person?.username?.trim() ||
-    (id ? "Project member" : "User unavailable");
+    (id ? "Workspace member" : "User unavailable");
   const avatarUrl = person?.avatarUrl?.trim() || null;
   const role = normalizeProjectMemberRole(input.membershipRole, "member");
   const isActiveMember = Boolean(input.isActiveMember);
@@ -478,7 +478,7 @@ export function buildProjectPersonReference(input: {
       displayName,
       avatarUrl,
       roleLabel: "No access",
-      subtext: "No longer has project access",
+      subtext: "No longer has workspace access",
       state: "lost_access",
       isAssignable: false,
       isMentionable: false,
@@ -491,7 +491,7 @@ export function buildProjectPersonReference(input: {
       displayName,
       avatarUrl,
       roleLabel: "Former member",
-      subtext: "Removed from project",
+      subtext: "Removed from workspace",
       state: input.isExternal ? "external_user" : "former_member",
       isAssignable: false,
       isMentionable: false,
@@ -618,14 +618,14 @@ export function buildProjectAccessPolicy(
   const affectedAreasByVisibility: Record<ProjectSettingsVisibility, string[]> =
     {
       public: [
-        "Project cards, Discover, search, and public profile references can show the project",
-        "Shared links can show the project title, description, and project image preview",
-        "Followers may receive public project updates when an update creates attention",
+        "Workspace cards, Discover, search, and public profile references can show the workspace",
+        "Shared links can show the workspace title, description, and workspace image preview",
+        "Followers may receive public workspace updates when an update creates attention",
         "Docs, Updates, Files, and Applications inherit their own public/member-safe access checks",
       ],
       private: [
-        "Only the owner and approved project members can open project detail surfaces",
-        "Discover, public search, public profile cards, and anonymous metadata hide the project",
+        "Only the owner and approved workspace members can open workspace detail surfaces",
+        "Discover, public search, public profile cards, and anonymous metadata hide the workspace",
         "Shared links resolve only for members; outsiders get a safe unavailable response",
         "Files, tasks, Docs, Updates, applications, and notifications use member-only access",
       ],
@@ -658,14 +658,14 @@ export function buildProjectAccessPolicy(
       },
       {
         viewer: "Anyone with the link",
-        publicAccess: "Can open public project pages and share previews",
-        privateAccess: "Cannot view project content or metadata",
+        publicAccess: "Can open public workspace pages and share previews",
+        privateAccess: "Cannot view workspace content or metadata",
       },
     ],
     summary:
       visibility === "private"
-        ? "Member-only project access is enforced across project surfaces."
-        : "The project is discoverable and visible to everyone.",
+        ? "Member-only workspace access is enforced across workspace surfaces."
+        : "The workspace is discoverable and visible to everyone.",
   };
 }
 
@@ -706,7 +706,7 @@ export function buildProjectAccessImpact(
       detail:
         visibility === "private"
           ? "Lose public discovery and update visibility unless they are members."
-          : "Can discover public project updates.",
+          : "Can discover public workspace updates.",
     },
     {
       label: "Open roles",
@@ -732,15 +732,15 @@ export function buildProjectAccessImpact(
   const transitionChecklist =
     visibility === "private"
       ? [
-          "Hide the project from Discover, public search, and public profile project cards.",
+          "Hide the workspace from Discover, public search, and public profile workspace cards.",
           "Return safe unavailable metadata for anonymous shared links.",
           "Keep owner and approved member access unchanged.",
           "Keep pending applicant context limited to their own application or conversation.",
           "Keep files, tasks, Doc, Updates, and notifications behind member-safe access checks.",
         ]
       : [
-          "Restore Discover, public search, and public profile project cards.",
-          "Allow shared links to show project title, description, and project image metadata.",
+          "Restore Discover, public search, and public profile workspace cards.",
+          "Allow shared links to show workspace title, description, and workspace image metadata.",
           "Keep write access role-based; Public does not grant edit rights.",
           "Allow open roles and applications to be discovered publicly.",
           "Keep files/tasks governed by their own member-safe controls where required.",
@@ -749,7 +749,7 @@ export function buildProjectAccessImpact(
   const summary =
     visibility === "private"
       ? [
-          `${formatCount(membersCount, "member")} keep project access.`,
+          `${formatCount(membersCount, "member")} keep workspace access.`,
           `${formatCount(followersCount, "follower")} lose public discovery unless already members.`,
           `${formatCount(openRolesCount, "open role")} are hidden from public intake.`,
         ]
@@ -796,14 +796,14 @@ export function buildProjectAccessTransitionPolicy(
   const irreversibleNotes =
     nextVisibility === "private"
       ? [
-          "Anonymous project metadata is replaced with safe unavailable copy.",
+          "Anonymous workspace metadata is replaced with safe unavailable copy.",
           hasManagedProjectImage
-            ? "The project image is served only through the visibility-aware project image route."
+            ? "The workspace image is served only through the visibility-aware workspace image route."
             : "Legacy public image URLs are hidden from public metadata.",
           "Existing external social previews may stay cached outside this app.",
         ]
       : [
-          "Project title, description, and image route become public share metadata.",
+          "Workspace title, description, and image route become public share metadata.",
           "Open roles and application intake become discoverable again.",
           "Followers can discover public updates again.",
         ];
@@ -888,7 +888,7 @@ export function buildProjectRolePolicy(input: {
     capabilityMatrix: PROJECT_MEMBER_ROLE_CAPABILITIES,
     affectedAreas: [
       "Task assignment and ownership routing",
-      "Project Files and task Files permissions",
+      "Workspace Files and task Files permissions",
       "Applications and members",
       "Danger-zone permissions and audit history",
     ],
@@ -989,11 +989,11 @@ export function buildProjectMemberRemovalPreflight(
       ? `${formatCount(acceptedApplications, "accepted role")} may update role capacity after removal.`
       : "No accepted role capacity impact found.",
     projectGroupParticipant
-      ? "Project group conversation access will be removed."
-      : "No project group conversation participant row found.",
+      ? "Workspace group conversation access will be removed."
+      : "No workspace group conversation participant row found.",
     visibility === "private"
-      ? "Private project access is revoked immediately."
-      : "Public project pages may remain visible, but member-only controls are revoked.",
+      ? "Private workspace access is revoked immediately."
+      : "Public workspace pages may remain visible, but member-only controls are revoked.",
   ];
   const warnings = affectedAreas.filter((item) => !item.startsWith("No "));
 
@@ -1026,7 +1026,7 @@ export function buildProjectFilePolicy() {
       "File review notifications target task participants only when responsibility is created.",
     ],
     affectedAreas: [
-      "Project Files tab",
+      "Workspace Files tab",
       "Task panel Files tab",
       "Direct upload URLs and batch upload URLs",
       "Folder/file creation and file version replacement",
@@ -1073,5 +1073,5 @@ export function buildProjectSettingsPreflight(
 }
 
 export function getProjectMemberDisplayName(member: ProjectSettingsMember) {
-  return member.fullName || member.username || "Project member";
+  return member.fullName || member.username || "Workspace member";
 }

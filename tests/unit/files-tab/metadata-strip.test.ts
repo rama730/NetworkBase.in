@@ -209,7 +209,7 @@ describe("MetadataStrip — all fields rendered (Req 5.1)", () => {
     assert.match(fieldText(html, "updated-at") ?? "", /^Last updated .+ by alex$/);
   });
 
-  it("resolves the active uploader id through the project-member cache", () => {
+  it("resolves the active uploader id through the workspace-member cache", () => {
     const html = renderToStaticMarkup(
       React.createElement(
         QueryClientProvider,

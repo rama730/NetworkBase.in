@@ -87,7 +87,7 @@ test("Messages system adheres to design specification contracts", () => {
     assert.match(
         chatSectionsSource,
         /label=\{`Mark \$\{projectTitle\(id\)\} read`\}/,
-        "Project headers offer Mark read, naming the project it clears (round 2 #41)",
+        "Project headers offer Mark read, naming the workspace it clears (round 2 #41)",
     );
     assert.match(
         chatSectionsSource,
@@ -650,7 +650,7 @@ test("Section 6 (Slack-Parity Canvas Redesign) contracts", () => {
     assert.match(
         existingModalSource,
         /listProjectCanvases/,
-        "ExistingCanvasModal must list real canvases from the project",
+        "ExistingCanvasModal must list real canvases from the workspace",
     );
     assert.match(
         tabBarSource,
@@ -708,7 +708,7 @@ test("Section 7 (Header Ergonomics & Message Action Menu Fixes) contracts", () =
     assert.match(
         conversationViewSource,
         /channel\.project_title \? <span[^>]*>\{channel\.project_title\}<\/span>/,
-        "Project title must appear on the quiet line under the channel name",
+        "Workspace title must appear on the quiet line under the channel name",
     );
 
     // 7.4 Star: after the title only when starred (no empty hover slot), in the accent colour
@@ -727,7 +727,7 @@ test("Section 7 (Header Ergonomics & Message Action Menu Fixes) contracts", () =
     assert.match(
         chatDrawerSource,
         /channel\.project_title \? ` · \$\{channel\.project_title\}` : ""/,
-        "The drawer subtitle includes the project title after the channel name",
+        "The drawer subtitle includes the workspace title after the channel name",
     );
     assert.match(
         channelScreensSource,
@@ -906,12 +906,12 @@ test("Section 9 (Project Selection First & Professional Empty Placeholder) contr
     assert.match(
         homePaneSource,
         /<ProjectBadge project=\{project\} size="sm"/,
-        "HomePane must render ProjectBadge when a project is chosen",
+        "HomePane must render ProjectBadge when a workspace is chosen",
     );
     assert.match(
         homePaneSource,
         /Browse channels/,
-        "HomePane must offer 'Browse channels' action when a project is chosen",
+        "HomePane must offer 'Browse channels' action when a workspace is chosen",
     );
     assert.match(
         homePaneSource,
@@ -1048,7 +1048,7 @@ test("Section 12 (Messages reorganization, 96-item plan) contracts", () => {
     assert.match(sections, /data\?\.inbox_unread/, "The Inbox badge counts unread Inbox items (same rule as the list)");
 
     // B. Sidebar: switcher header, unreads filter, row menus, drafts markers.
-    assert.match(sections, /function ProjectSwitcher[\s\S]*All projects/, "Project switcher header with an All projects mode");
+    assert.match(sections, /function ProjectSwitcher[\s\S]*All workspaces/, "Project switcher header with an All workspaces mode");
     assert.match(sections, /onClick=\{onToggleUnreads\}\s*aria-pressed=\{unreadsOnly\}/, "Unreads filter is a visible toggle in the sidebar header (plan #66)");
     assert.doesNotMatch(sections, /role="menuitemcheckbox"/, "Unreads filter is no longer buried in ⋯");
     assert.doesNotMatch(sections, /aria-label="Search messages and conversations"/, "No local search box: the app header search covers it");

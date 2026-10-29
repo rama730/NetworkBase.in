@@ -58,12 +58,12 @@ export function CreateChannelDialog({ projectId: initialProjectId, open, onOpenC
       <DialogContent className="sm:max-w-[460px]">
         <DialogHeader>
           <DialogTitle>Create channel</DialogTitle>
-          <DialogDescription>{projectTitle ? <>In <span className="font-medium text-foreground">{projectTitle}</span>. </> : null}Channels are where your project talks about a topic.</DialogDescription>
+          <DialogDescription>{projectTitle ? <>In <span className="font-medium text-foreground">{projectTitle}</span>. </> : null}Channels are where your workspace talks about a topic.</DialogDescription>
         </DialogHeader>
         <form className="space-y-4" onSubmit={submit}>
           {allView && projects.length > 1 ? (
             <div className="space-y-1.5">
-              <span id="create-channel-project" className="text-[13px] font-medium">Project</span>
+              <span id="create-channel-project" className="text-[13px] font-medium">Workspace</span>
               <Select value={projectId} onValueChange={setProjectId}>
                 <SelectTrigger aria-labelledby="create-channel-project" className="pointer-coarse:h-11"><SelectValue /></SelectTrigger>
                 <SelectContent>

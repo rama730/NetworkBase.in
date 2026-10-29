@@ -143,12 +143,12 @@ export const JourneyTimeline = memo(function JourneyTimeline({
                     <div
                         ref={scrollContainerRef}
                         className="app-scroll app-scroll-x app-scroll-hidden overflow-x-auto pb-2 select-none max-md:snap-x max-md:snap-mandatory"
-                        aria-label="Project journey stages"
+                        aria-label="Workspace journey stages"
                     >
                         <div
                             role="list"
                             className="relative grid min-w-full gap-0 list-none p-0 m-0"
-                            aria-label="Project journey stages"
+                            aria-label="Workspace journey stages"
                             style={{
                                 gridTemplateColumns: `repeat(${Math.max(1, stages.length)}, minmax(7rem, 1fr))`,
                                 width: timelineWidth,

@@ -347,7 +347,7 @@ describe("Stage timeout — FilesTabRoot integration wiring", () => {
   // FilesTabRoot". Because jsdom is not available in this repo's unit
   // suite (see file-header note above), we confirm the wiring at the
   // source level: FilesTabRoot must import and call
-  // `useFilesTabStartupStage(projectId)`, passing the project id
+  // `useFilesTabStartupStage(projectId)`, passing the workspace id
   // through. This is the single point where the timeout surface reaches
   // the component tree, so guarding it at source level prevents
   // silent regression.

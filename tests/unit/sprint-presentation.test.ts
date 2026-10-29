@@ -7,7 +7,7 @@ import {
 
 describe("sprint presentation", () => {
   it("uses neutral attribution fallbacks", () => {
-    assert.equal(sprintTimelinePersonName(null), "A project member");
+    assert.equal(sprintTimelinePersonName(null), "A workspace member");
     assert.equal(sprintTimelinePersonName({ fullName: "  Ramanaidu Ch  " }), "Ramanaidu Ch");
   });
 });

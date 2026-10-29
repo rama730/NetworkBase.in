@@ -98,7 +98,7 @@ const AGGREGATE_NOUNS: Record<NotificationKind, { singular: string; plural: stri
     project_task_activity: { singular: "task update", plural: "task updates" },
     project_file_activity: { singular: "file update", plural: "file updates" },
     project_security_alert: { singular: "security update", plural: "security updates" },
-    project_update_activity: { singular: "project update", plural: "project updates" },
+    project_update_activity: { singular: "workspace update", plural: "workspace updates" },
     org_membership: { singular: "membership update", plural: "membership updates" },
     org_assignment: { singular: "assignment update", plural: "assignment updates" },
     org_announcement: { singular: "announcement", plural: "announcements" },
@@ -264,7 +264,7 @@ export function buildNotificationMuteScopes(item: NotificationItem): Notificatio
     }];
     const refs = item.entityRefs ?? {};
     if (refs.orgId) scopes.push({ kind: "organization", value: refs.orgId, label: "This organization", mutedAt: null });
-    if (refs.projectId && refs.projectId !== refs.orgId) scopes.push({ kind: "project", value: refs.projectId, label: item.preview?.contextLabel ?? "This project", mutedAt: null });
+    if (refs.projectId && refs.projectId !== refs.orgId) scopes.push({ kind: "project", value: refs.projectId, label: item.preview?.contextLabel ?? "This workspace", mutedAt: null });
     if (refs.taskId) scopes.push({ kind: "task", value: refs.taskId, label: item.body ?? item.title, mutedAt: null });
     if (item.actorUserId) scopes.push({ kind: "person", value: item.actorUserId, label: item.preview?.actorName ?? "This person", mutedAt: null });
     return scopes;

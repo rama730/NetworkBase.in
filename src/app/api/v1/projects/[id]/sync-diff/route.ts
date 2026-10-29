@@ -44,12 +44,12 @@ export async function GET(
 
     const { id: projectId } = await context.params;
     if (!isLooseUuid(projectId)) {
-        return jsonError("Invalid project id", 400, "BAD_REQUEST");
+        return jsonError("Invalid workspace id", 400, "BAD_REQUEST");
     }
 
     const access = await getProjectAccessById(projectId, user.id);
     if (!access.project) {
-        return jsonError("Project not found", 404, "NOT_FOUND");
+        return jsonError("Workspace not found", 404, "NOT_FOUND");
     }
     if (!access.canRead) {
         return jsonError("You don’t have access to this", 403, "FORBIDDEN");

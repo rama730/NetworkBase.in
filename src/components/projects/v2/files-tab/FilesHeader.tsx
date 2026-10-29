@@ -397,9 +397,9 @@ function HeaderGitHubSyncButton({ projectId }: { projectId: string }) {
 }
 
 const collectionInfo = {
-  github: "Review selected project files before publishing to GitHub or importing changes. Task drafts and Trash are excluded. GitHub permissions and project membership remain separate.",
+  github: "Review selected workspace files before publishing to GitHub or importing changes. Task drafts and Trash are excluded. GitHub permissions and workspace membership remain separate.",
   project:
-    "Project files are stored in folders. Search finds accessible filenames across the project, not just the currently loaded rows. Upload and New use the open folder.",
+    "Workspace files are stored in folders. Search finds accessible filenames across the workspace, not just the currently loaded rows. Upload and New use the open folder.",
   tasks:
     "Working files and references are grouped by task. Linked files stay in their original location. Open a task to add or link files with an explicit role.",
   deliverables:

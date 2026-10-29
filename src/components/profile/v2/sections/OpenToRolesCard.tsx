@@ -114,7 +114,7 @@ export function OpenToRolesCard({
               <Button type="button" variant="outline" size="sm" onClick={onInvite} onMouseEnter={onInviteIntent} onFocus={onInviteIntent}
                 className="min-h-11 w-full">
                 <Briefcase className="h-4 w-4" aria-hidden="true" />
-                Invite to project
+                Invite to workspace
               </Button>
             ) : null}
           </div>

@@ -149,12 +149,12 @@ export function ReadOnlySlugField({ slug }: { slug: string }) {
 
     return (
         <div className="space-y-1.5">
-            <span className="nb-ui-label text-foreground">Project slug</span>
+            <span className="nb-ui-label text-foreground">Workspace slug</span>
             <div className="flex flex-col gap-2 rounded-[5px] border border-border bg-muted/40 px-3.5 py-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="min-w-0">
                     <p className="truncate font-mono text-sm font-medium text-foreground">{normalizedSlug}</p>
                     <p className="nb-compact mt-1 text-muted-foreground">
-                        Project links use this slug. Editing is locked for now to avoid broken links and stale share previews.
+                        Workspace links use this slug. Editing is locked for now to avoid broken links and stale share previews.
                     </p>
                 </div>
                 {slug.trim() ? (

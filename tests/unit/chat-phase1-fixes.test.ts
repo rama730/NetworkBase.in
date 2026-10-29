@@ -35,7 +35,7 @@ const data: ChatBootstrap = {
 
 test("sidebarOrder follows the sidebar: applications, starred once, then channels, DMs", () => {
   assert.deepEqual(sidebarOrder(data, "p1").map((c) => c.id), ["app-mine", "design", "general", "dm"]);
-  // All projects: groups by latest activity (Atlas first), each #general first.
+  // All workspaces: groups by latest activity (Atlas first), each #general first.
   assert.deepEqual(sidebarOrder(data, null).map((c) => c.id), ["app-mine", "design", "atlas-general", "general", "dm"]);
 });
 

@@ -95,7 +95,7 @@ const ProjectOverviewCard = memo(function ProjectOverviewCard({
     if (isEmpty) {
         return (
             <div className="flex flex-col items-center justify-center rounded-[8px] border border-border bg-card p-8 text-center">
-                <p className="nb-card-title text-foreground">No project details yet</p>
+                <p className="nb-card-title text-foreground">No workspace details yet</p>
                 <p className="nb-compact mt-1 text-muted-foreground">No details yet.</p>
                 {isCreator && onEdit ? (
                     <button
@@ -103,7 +103,7 @@ const ProjectOverviewCard = memo(function ProjectOverviewCard({
                         onClick={onEdit}
                         className="nb-touch-target mt-4 inline-flex h-[34px] items-center justify-center rounded-[5px] border border-border bg-card px-4 text-[13px] font-medium text-foreground hover:bg-muted"
                     >
-                        Edit project details
+                        Edit workspace details
                     </button>
                 ) : null}
             </div>

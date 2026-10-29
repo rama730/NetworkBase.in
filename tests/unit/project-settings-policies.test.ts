@@ -57,7 +57,7 @@ test("project access policy normalizes unknown visibility fail-closed", () => {
 
     const policy = buildProjectAccessPolicy({ visibility: "private" });
     assert.equal(policy.visibility, "private");
-    assert.ok(policy.affectedAreas.some((area) => area.includes("Only the owner and approved project members")));
+    assert.ok(policy.affectedAreas.some((area) => area.includes("Only the owner and approved workspace members")));
     assert.ok(policy.viewerRows.some((row) => row.viewer === "Anyone with the link"));
 });
 
@@ -300,7 +300,7 @@ test("project person resolver and removal preflight preserve former-member seman
         isActiveMember: false,
     });
     assert.equal(former.state, "former_member");
-    assert.equal(former.subtext, "Removed from project");
+    assert.equal(former.subtext, "Removed from workspace");
     assert.equal(former.isAssignable, false);
 
     const preflight = buildProjectMemberRemovalPreflight({
@@ -314,7 +314,7 @@ test("project person resolver and removal preflight preserve former-member seman
     });
     assert.equal(preflight.defaultMode, "preserve_history");
     assert.ok(preflight.warnings.some((warning) => warning.includes("Needs reassignment")));
-    assert.ok(preflight.affectedAreas.some((area) => area.includes("Private project access is revoked")));
+    assert.ok(preflight.affectedAreas.some((area) => area.includes("Private workspace access is revoked")));
 });
 
 test("project danger preflight removes finalize and keeps archive/delete policy", () => {

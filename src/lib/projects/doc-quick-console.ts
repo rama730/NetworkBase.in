@@ -579,7 +579,7 @@ function buildReadmeLimitations(input: {
     }
     if (!input.commands.length) limitations.push("No copyable setup commands detected");
     if (!input.headings.length) limitations.push("No section outline detected");
-    if (!input.references.length) limitations.push("No project links detected");
+    if (!input.references.length) limitations.push("No workspace links detected");
     return limitations.slice(0, 3);
 }
 
@@ -599,7 +599,7 @@ function buildReadmeSummaryItems(input: {
         )).length;
         items.push({ label: "Commands", value: installCount ? `${installCount} install/setup paths` : `${input.commands.length} copyable commands` });
     }
-    if (input.references.length) items.push({ label: "Links", value: `${input.references.length} project references` });
+    if (input.references.length) items.push({ label: "Links", value: `${input.references.length} workspace references` });
     if (input.headings.length) items.push({ label: "Outline", value: `${input.headings.length} sections` });
     if (/\b(?:benchmark|saved|saving|token|report|kvm)\b/i.test(input.content)) {
         items.push({ label: "Report", value: "Doc includes measurable results" });
@@ -633,7 +633,7 @@ function buildReadmeBriefItems(input: {
     if (setupCommands.length) items.push({ label: "Setup paths", value: `${setupCommands.length} install or agent setup command${setupCommands.length === 1 ? "" : "s"}` });
     if (platforms.length) items.push({ label: "Platforms", value: platforms.join(", ") });
     if (input.headings.length) items.push({ label: "Structure", value: `${input.headings.length} Doc section${input.headings.length === 1 ? "" : "s"}` });
-    if (input.references.length) items.push({ label: "Project links", value: `${input.references.length} linked project item${input.references.length === 1 ? "" : "s"}` });
+    if (input.references.length) items.push({ label: "Workspace links", value: `${input.references.length} linked workspace item${input.references.length === 1 ? "" : "s"}` });
     if (warnings.length) items.push({ label: "Review", value: warnings.join(", ") });
     if (lowConfidenceCount) items.push({ label: "Check", value: `${lowConfidenceCount} low-confidence command match${lowConfidenceCount === 1 ? "" : "es"}` });
     if (limitations.length) items.push({ label: "Missing", value: limitations.join(", ") });
@@ -660,7 +660,7 @@ export function buildProjectDocRailReport(input: {
             : "weak";
     const signals = new Set<string>();
     if (input.commands.length) signals.add(`${input.commands.length} command${input.commands.length === 1 ? "" : "s"}`);
-    if (input.references.length) signals.add(`${input.references.length} project link${input.references.length === 1 ? "" : "s"}`);
+    if (input.references.length) signals.add(`${input.references.length} workspace link${input.references.length === 1 ? "" : "s"}`);
     if (input.headings.length) signals.add(`${input.headings.length} section${input.headings.length === 1 ? "" : "s"}`);
     if (input.commands.some((command) => command.group === "claude")) signals.add("Claude install");
     if (input.commands.some((command) => command.group === "config")) signals.add("Config");

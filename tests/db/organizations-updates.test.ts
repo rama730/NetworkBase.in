@@ -111,14 +111,14 @@ test("comments off refuses replies", async () => {
   assert.equal(reply.success, false);
 });
 
-test("share up: a child post appears under From projects; Private projects and an org switch-off block it", async () => {
+test("share up: a child post appears under From workspaces; Private workspaces and an org switch-off block it", async () => {
   const o = await orgWithChild();
   const shared = await post(o.child, o.member, { content: "Parser passes all tests", shareToOrg: true });
   assert.equal(shared.success, true, JSON.stringify(shared));
   const fromProjects = await feed(o.org, o.other, "from_projects");
   assert.deepEqual(fromProjects!.updates.map((u) => [u.content, u.fromProject?.title ?? null]), [["Parser passes all tests", (await sql`SELECT title FROM projects WHERE id = ${o.child}`)[0]!.title]]);
   await sql`UPDATE projects SET visibility = 'private' WHERE id = ${o.child}`;
-  assert.equal((await feed(o.org, o.other, "from_projects"))!.updates.length, 0, "a Private project's posts leave the org feed");
+  assert.equal((await feed(o.org, o.other, "from_projects"))!.updates.length, 0, "a Private workspace's posts leave the org feed");
   assert.equal((await post(o.child, o.member, { shareToOrg: true })).success, false);
   await sql`UPDATE projects SET visibility = 'org' WHERE id = ${o.child}`;
   await sql`UPDATE projects SET org_settings = org_settings || '{"childShare": false}'::jsonb WHERE id = ${o.org}`;
@@ -139,7 +139,7 @@ test("the pinned org line in a child project, and New markers", async () => {
   assert.ok((await feed(o.org, o.member))!.lastSeenAt);
 });
 
-test("inherited org admins moderate child project updates", async () => {
+test("inherited org admins moderate child workspace updates", async () => {
   const o = await orgWithChild();
   const r = await post(o.child, o.member);
   viewerId = o.admin;

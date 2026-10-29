@@ -13,7 +13,7 @@ const BLOCK_COPY: Record<ProjectDocSmartBlock["kind"], { title: string; icon: ty
         title: "Open roles",
         icon: Users,
         tab: "settings",
-        description: "Role needs and application context from the project.",
+        description: "Role needs and application context from the workspace.",
     },
     contributors: {
         title: "Contributors",
@@ -31,7 +31,7 @@ const BLOCK_COPY: Record<ProjectDocSmartBlock["kind"], { title: string; icon: ty
         title: "Referenced tasks",
         icon: ListTodo,
         tab: "tasks",
-        description: "Project work items linked from the Doc.",
+        description: "Workspace work items linked from the Doc.",
     },
     sprints: {
         title: "Sprint story",
@@ -40,10 +40,10 @@ const BLOCK_COPY: Record<ProjectDocSmartBlock["kind"], { title: string; icon: ty
         description: "Planning rhythm and sprint movement.",
     },
     projects: {
-        title: "Projects",
+        title: "Workspaces",
         icon: FolderKanban,
         tab: "projects",
-        description: "Projects inside this organization, live.",
+        description: "Workspaces inside this organization, live.",
     },
     unknown: {
         title: "Unknown doc block",
@@ -99,7 +99,7 @@ export function ProjectDocSmartBlock({
                     : block.kind === "sprints"
                         ? "Open sprint rhythm"
                         : block.kind === "projects"
-                        ? "Open the organization’s projects"
+                        ? "Open the organization’s workspaces"
                         : "Needs editing";
 
     return (

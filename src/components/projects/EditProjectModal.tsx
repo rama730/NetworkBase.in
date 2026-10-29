@@ -255,13 +255,13 @@ export default function EditProjectModal({ project, isOpen, onClose, onSaved }: 
                     {/* Header */}
                     <div className="flex items-center justify-between px-6 py-4 border-b border-border shrink-0">
                         <div>
-                            <DialogTitle className="text-xl font-semibold text-foreground">Edit project</DialogTitle>
+                            <DialogTitle className="text-xl font-semibold text-foreground">Edit workspace</DialogTitle>
                             <DialogDescription className="text-xs text-muted-foreground font-medium">Edit workspace details</DialogDescription>
                         </div>
                         <button 
                             type="button"
                             onClick={handleAttemptClose}
-                            aria-label="Close edit project modal"
+                            aria-label="Close edit workspace modal"
                             className="p-2 rounded-lg hover:bg-muted text-muted-foreground transition-colors"
                         >
                             <X className="w-5 h-5" />
@@ -269,7 +269,7 @@ export default function EditProjectModal({ project, isOpen, onClose, onSaved }: 
                     </div>
 
                     {/* Mobile Tab Strip (visible on small screens) */}
-                    <div className="app-scroll app-scroll-x app-scroll-hidden flex md:hidden gap-1 border-b border-border bg-muted/30 p-2 shrink-0" role="tablist" aria-label="Edit project sections">
+                    <div className="app-scroll app-scroll-x app-scroll-hidden flex md:hidden gap-1 border-b border-border bg-muted/30 p-2 shrink-0" role="tablist" aria-label="Edit workspace sections">
                         {TABS.map((tab) => {
                             const Icon = tab.icon;
                             const isActive = activeTab === tab.id;
@@ -297,7 +297,7 @@ export default function EditProjectModal({ project, isOpen, onClose, onSaved }: 
                     {/* Body */}
                     <div className="flex flex-1 min-h-0">
                         {/* Sidebar (md+) */}
-                        <div className="w-64 border-r border-border bg-muted/20 hidden md:flex flex-col p-4 gap-1 overflow-y-auto shrink-0" role="tablist" aria-label="Edit project sections">
+                        <div className="w-64 border-r border-border bg-muted/20 hidden md:flex flex-col p-4 gap-1 overflow-y-auto shrink-0" role="tablist" aria-label="Edit workspace sections">
                             {TABS.map((tab) => (
                                 <button
                                     key={tab.id}
@@ -344,7 +344,7 @@ export default function EditProjectModal({ project, isOpen, onClose, onSaved }: 
 
                                             <div className="space-y-4">
                                                 <div>
-                                                    <label htmlFor="edit-project-title" className="block text-sm font-medium mb-1.5 text-foreground">Project title</label>
+                                                    <label htmlFor="edit-project-title" className="block text-sm font-medium mb-1.5 text-foreground">Workspace title</label>
                                                     <input
                                                         id="edit-project-title"
                                                         {...register("title")}
@@ -359,7 +359,7 @@ export default function EditProjectModal({ project, isOpen, onClose, onSaved }: 
                                                         id="edit-project-tagline"
                                                         {...register("shortDescription")}
                                                         className="w-full px-4 py-3 rounded-lg border border-border bg-transparent outline-none transition-[color,background-color,border-color,box-shadow,opacity,transform] text-foreground"
-                                                        placeholder="A brief pitch for your project…"
+                                                        placeholder="A brief pitch for your workspace…"
                                                     />
                                                     {errors.shortDescription && <p className="text-red-500 text-sm mt-1">{errors.shortDescription.message}</p>}
                                                 </div>
@@ -377,7 +377,7 @@ export default function EditProjectModal({ project, isOpen, onClose, onSaved }: 
                                                     {...register("description")}
                                                     onInput={(e: any) => adjustHeight(e)}
                                                     className="w-full px-4 py-3 min-h-[150px] rounded-lg border border-border bg-transparent outline-none transition-[color,background-color,border-color,box-shadow,opacity,transform] resize-none text-foreground"
-                                                    placeholder="Tell the full story of your project…"
+                                                    placeholder="Tell the full story of your workspace…"
                                                 />
                                             </div>
                                             <div className="grid gap-6">
@@ -398,7 +398,7 @@ export default function EditProjectModal({ project, isOpen, onClose, onSaved }: 
                                                         {...register("solutionStatement")}
                                                         onInput={(e: any) => adjustHeight(e)}
                                                         className="w-full px-4 py-3 min-h-[100px] rounded-lg border border-border bg-transparent outline-none transition-[color,background-color,border-color,box-shadow,opacity,transform] resize-none text-foreground"
-                                                        placeholder={isOrg ? "What do members do here?" : "How does your project solve it?"}
+                                                        placeholder={isOrg ? "What do members do here?" : "How does your workspace solve it?"}
                                                     />
                                                 </div>
                                             </div>
@@ -410,11 +410,11 @@ export default function EditProjectModal({ project, isOpen, onClose, onSaved }: 
                                         <div className="min-w-0 space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-[260ms]">
                                             {/* Tech Stack */}
                                             <div>
-                                                <SkillPicker value={technologies} onChange={(next) => setValue("skills", next, { shouldDirty: true, shouldValidate: true })} label="Project skills and technologies" />
+                                                <SkillPicker value={technologies} onChange={(next) => setValue("skills", next, { shouldDirty: true, shouldValidate: true })} label="Workspace skills and technologies" />
                                             </div>
 
                                             <div>
-                                                <h3 className="mb-2 text-lg font-semibold text-zinc-900 dark:text-zinc-100">Project links</h3>
+                                                <h3 className="mb-2 text-lg font-semibold text-zinc-900 dark:text-zinc-100">Workspace links</h3>
                                                 <p className="mb-4 text-sm text-zinc-500">Links appear next to the workspace name.</p>
                                                 <ProjectLinkEditorFields
                                                     ref={projectLinksRef}
@@ -464,7 +464,7 @@ export default function EditProjectModal({ project, isOpen, onClose, onSaved }: 
                                         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-[260ms]">
                                             <div>
                                                 <h3 className="nb-card-title text-foreground mb-1">Journey</h3>
-                                                <p className="nb-compact text-muted-foreground mb-4">Customize the stages your project will progress through.</p>
+                                                <p className="nb-compact text-muted-foreground mb-4">Customize the stages your workspace will progress through.</p>
                                                 
                                                 <div className="bg-card p-6 rounded-lg border border-border">
                                                     <LifecycleEditor 

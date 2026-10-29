@@ -11,7 +11,7 @@ function OrgEntryLine({ c, isOwner, nested }: { c: ProfileCollaborationContribut
   const parts: string[] = [];
   if (c.goneOrgTitle) parts.push("Organization no longer on NetworkBase");
   else if (c.projectKind === "organization") parts.push(c.orgVerified ? `✓ Verified by ${c.projectTitle}` : "Organization");
-  else if (c.parentOrg && !nested) parts.push(`Project of ${c.parentOrg.title}`);
+  else if (c.parentOrg && !nested) parts.push(`Workspace of ${c.parentOrg.title}`);
   else if (c.formerOrg) parts.push(`with ${c.formerOrg.title} (until ${c.formerOrg.until})`);
   if (c.orgOnly && c.parentOrg && !c.projectHref) parts.push(`Visible to ${c.parentOrg.title} members`);
   if (isOwner && c.verificationRevokedReason) parts.push(`Verification removed: ${c.verificationRevokedReason}`);
@@ -91,7 +91,7 @@ export function ProjectContributionsCard({
         isOwner && onAdd ? (
           <button
             type="button"
-            aria-label="Edit project contributions"
+            aria-label="Edit workspace contributions"
             onClick={onAdd}
             className="nb-touch-target rounded-[3px] p-1.5 text-muted-foreground hover:bg-muted"
           >
@@ -124,7 +124,7 @@ export function ProjectContributionsCard({
                   onProjectIntent={onProjectIntent}
                 />
                 {c.children.length ? (
-                  <div className="mb-4 ml-4 border-l border-border pl-4" aria-label={`Projects in ${c.projectTitle}`}>
+                  <div className="mb-4 ml-4 border-l border-border pl-4" aria-label={`Workspaces in ${c.projectTitle}`}>
                     {c.children.map((child) => (
                       <div key={child.id}>
                         <OrgEntryLine c={child} isOwner={isOwner} nested />
@@ -153,11 +153,11 @@ export function ProjectContributionsCard({
         ) : (
           <div className="nb-empty-state nb-grid-ground py-8 text-center">
             <FolderGit2 className="nb-empty-state-icon mb-2" />
-            <p className="nb-card-title">No project contributions</p>
+            <p className="nb-card-title">No workspace contributions</p>
             <p className="nb-compact mt-1 text-muted-foreground">
               {isOwner
                 ? "Add your external projects or contribute to projects on NetworkBase."
-                : "No public project contributions yet."}
+                : "No public workspace contributions yet."}
             </p>
             {isOwner && onAdd && (
               <button

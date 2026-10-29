@@ -224,8 +224,8 @@ async function enqueueMemberJoinedBestEffort(params: {
             actorName: params.actorName,
             actorAvatarUrl: params.actorAvatarUrl ?? null,
             eventKey: "members.joined",
-            title: `${params.targetName} joined ${params.projectTitle || "the project"}`,
-            body: "A new member joined the project.",
+            title: `${params.targetName} joined ${params.projectTitle || "the workspace"}`,
+            body: "A new member joined the workspace.",
             href: `/projects/${encodeURIComponent(params.projectSlug || params.projectId)}?tab=settings&settings=collaborators`,
             entityRefs: {
                 projectId: params.projectId,
@@ -237,9 +237,9 @@ async function enqueueMemberJoinedBestEffort(params: {
             preview: {
                 actorName: params.targetName,
                 actorAvatarUrl: params.targetAvatarUrl ?? null,
-                contextLabel: params.projectTitle ?? "Project",
+                contextLabel: params.projectTitle ?? "Workspace",
                 contextKind: "project",
-                secondaryText: "New project member",
+                secondaryText: "New workspace member",
             },
             sourceEventId: params.sourceEventId ?? `${params.targetUserId}:member-joined`,
         });
@@ -477,9 +477,9 @@ async function guardProjectForApplication(
     applicantId: string,
     otherPartyId: string,
 ): Promise<ApplicationGuardFailure | null> {
-    if (project.deletedAt) return { code: 'PROJECT_NOT_FOUND', message: 'Project not found' };
+    if (project.deletedAt) return { code: 'PROJECT_NOT_FOUND', message: 'Workspace not found' };
     if (project.status === 'archived' || project.status === 'completed') {
-        return { code: 'PROJECT_CLOSED', message: 'This project is no longer taking applications' };
+        return { code: 'PROJECT_CLOSED', message: 'This workspace is no longer taking applications' };
     }
     const relationship = await resolvePrivacyRelationship(applicantId, otherPartyId);
     if (relationship && (relationship.blockedByViewer || relationship.blockedByTarget)) {
@@ -847,7 +847,7 @@ export async function applyToRoleAction(
                 APPLICATION_APPLY_COOLDOWN_PER_PROJECT_SECONDS
             );
             if (!projectApplyRate.allowed) {
-                return toApplicationFailure(traceId, 'RATE_LIMITED', 'Too many attempts for this project. Retry shortly.');
+                return toApplicationFailure(traceId, 'RATE_LIMITED', 'Too many attempts for this workspace. Retry shortly.');
             }
 
             const [project, role, existingMember, existingApp] = await Promise.all([
@@ -879,13 +879,13 @@ export async function applyToRoleAction(
             ]);
 
             if (!project) {
-                return toApplicationFailure(traceId, 'PROJECT_NOT_FOUND', 'Project not found');
+                return toApplicationFailure(traceId, 'PROJECT_NOT_FOUND', 'Workspace not found');
             }
             if (project.ownerId === user.id) {
-                return toApplicationFailure(traceId, 'FORBIDDEN', 'You cannot apply to your own project');
+                return toApplicationFailure(traceId, 'FORBIDDEN', 'You cannot apply to your own workspace');
             }
             if (existingMember) {
-                return toApplicationFailure(traceId, 'ALREADY_MEMBER', 'You are already on this project');
+                return toApplicationFailure(traceId, 'ALREADY_MEMBER', 'You are already in this workspace');
             }
             const blocked = await guardProjectForApplication(project, user.id, project.ownerId);
             if (blocked) {
@@ -920,7 +920,7 @@ export async function applyToRoleAction(
                 project.parentId ? await readViewerOrgRole(project.parentId, user.id) : null,
             );
             if (!canReadProject && (!existingApp || existingApp.status === 'rejected')) {
-                return toApplicationFailure(traceId, 'FORBIDDEN', 'This project is private.');
+                return toApplicationFailure(traceId, 'FORBIDDEN', 'This workspace is private.');
             }
 
             const roleTitleText = role.title || role.role || 'Unknown role';
@@ -966,13 +966,13 @@ export async function applyToRoleAction(
                         traceId,
                     }));
                     if (editedChannelId === null) {
-                        return toApplicationFailure(traceId, 'ALREADY_PENDING', 'You already have a pending application for this project. Nothing was changed.');
+                        return toApplicationFailure(traceId, 'ALREADY_PENDING', 'You already have a pending application for this workspace. Nothing was changed.');
                     }
                     revalidatePath(`/projects/${project.slug || projectId}`);
                     return toApplicationSuccess(traceId, { applicationId: existingApp.id, channelId: editedChannelId, outcome: 'updated' });
                 }
                 if (existingApp.status === 'proposed') {
-                    return toApplicationFailure(traceId, 'INVALID_STATE', 'Respond to your invitation for this project first');
+                    return toApplicationFailure(traceId, 'INVALID_STATE', 'Respond to your invitation for this workspace first');
                 }
                 if (existingApp.status === 'rejected') {
                     // The cooldown is for declines. Withdrawing yourself or losing the role to someone else is not one.
@@ -1807,7 +1807,7 @@ export async function reopenApplicationAction(
         // A decline the project caused (role filled, role removed, project closed) is not the reviewer's to undo; and a role
         // with no spot left cannot take the person back.
         if (application.decisionReasonCode === 'project_closed' || application.decisionReasonCode === 'role_removed' || !application.role) {
-            return toApplicationFailure(traceId, 'ROLE_REMOVED', 'This application was closed with its role or project and cannot be reopened.');
+            return toApplicationFailure(traceId, 'ROLE_REMOVED', 'This application was closed with its role or workspace and cannot be reopened.');
         }
         if (application.role.filled >= application.role.count) {
             return toApplicationFailure(traceId, 'ROLE_FULL', 'This role has no spots left, so this application cannot be reopened.');
@@ -1959,7 +1959,7 @@ export async function getIncomingApplicationsAction(
             return {
             id: app.id,
             projectId: app.projectId,
-            projectTitle: app.project?.title || 'Unknown project',
+            projectTitle: app.project?.title || 'Unknown workspace',
             projectSlug: app.project?.slug,
             roleTitle: app.role?.title || app.role?.role || 'Unknown role',
             // `applicant` remains for existing consumers; new UI reads the
@@ -1987,7 +1987,7 @@ export async function getIncomingApplicationsAction(
             return {
                 id: invite.id,
                 projectId: invite.projectId,
-                projectTitle: invite.projectTitle || 'Unknown project',
+                projectTitle: invite.projectTitle || 'Unknown workspace',
                 projectSlug: invite.projectSlug,
                 roleTitle: invite.roleTitle || invite.guidanceLabel || 'Member',
                 actor,
@@ -2077,7 +2077,7 @@ export async function getProjectInviteOptionsAction(projectId: string): Promise<
             .from(projects)
             .where(eq(projects.id, projectId))
             .limit(1);
-        if (!project) return { success: false, error: 'Project not found', connections: [], openRoles: [] };
+        if (!project) return { success: false, error: 'Workspace not found', connections: [], openRoles: [] };
         if (project.ownerId !== user.id) {
             const [membership] = await db
                 .select({ role: projectMembers.role })
@@ -2349,11 +2349,11 @@ export async function cancelSentProjectInvitationAction(input: {
         }
 
         if (!didCancel) {
-            return { success: false as const, error: cancelError || 'Couldn’t cancel project invitation' };
+            return { success: false as const, error: cancelError || 'Couldn’t cancel workspace invitation' };
         }
 
         return { success: true as const };
     } catch (error) {
-        return { success: false as const, error: error instanceof Error ? error.message : 'Couldn’t cancel project invitation' };
+        return { success: false as const, error: error instanceof Error ? error.message : 'Couldn’t cancel workspace invitation' };
     }
 }

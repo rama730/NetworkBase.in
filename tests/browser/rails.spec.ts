@@ -404,7 +404,7 @@ test('profile empty and visitor states retain visibility and collaboration actio
   await open(page, 'surface=profile&audience=visitor');
   await expect(page.getByRole('heading', { name: 'Profile completeness' })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Edit role preferences' })).toHaveCount(0);
-  await page.getByRole('button', { name: 'Invite to project' }).click();
+  await page.getByRole('button', { name: 'Invite to workspace' }).click();
   await page.getByRole('button', { name: 'Apply for a role' }).click();
   expect(await page.evaluate(() => (window as any).railsFixture.events)).toEqual(['invite', 'apply-profile']);
   await open(page, 'surface=profile&audience=visitor&paused');
@@ -420,7 +420,7 @@ test('project rail preserves Journey controls, activity links and role managemen
   await rail.getByRole('button', { name: 'Return to previous stage' }).click();
   await rail.getByRole('button', { name: 'Manage roles' }).click();
   expect(await page.evaluate(() => (window as any).railsFixture.events)).toEqual(['advance', 'previous', 'manage-roles']);
-  await expect(rail.getByRole('link', { name: 'Ada joined the project' })).toHaveAttribute('href', '/projects/example?tab=team');
+  await expect(rail.getByRole('link', { name: 'Ada joined the workspace' })).toHaveAttribute('href', '/projects/example?tab=team');
   await expect(page.getByRole('heading', { name: 'About this workspace' })).toBeVisible();
 });
 
@@ -449,7 +449,7 @@ test('activity loading and retry render under the same external heading', async 
   await expect(page.getByRole('alert')).toContainText('Recent activity could not be loaded.');
   await page.evaluate(() => { (window as any).railsFixture.activityFails = false; });
   await page.getByRole('button', { name: 'Try again' }).click();
-  await expect(page.getByRole('link', { name: 'Ada joined the project' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Ada joined the workspace' })).toBeVisible();
   await checkHeading(page, 'Recent activity');
 });
 

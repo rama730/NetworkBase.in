@@ -8,7 +8,7 @@ import { createClient } from "@/lib/supabase/server";
 export async function GET(request: Request) {
   try {
     const projectId = z.string().uuid().safeParse(new URL(request.url).searchParams.get("projectId"));
-    if (!projectId.success) return jsonError("Invalid project id", 400, "BAD_REQUEST");
+    if (!projectId.success) return jsonError("Invalid workspace id", 400, "BAD_REQUEST");
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     await assertProjectFileReadAccess(projectId.data, user?.id ?? null);

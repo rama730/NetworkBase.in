@@ -163,7 +163,7 @@ test.describe("Files tab v3 — viewer role + unauthenticated deep link (Task 12
       try {
         // Navigate to the deep-link URL WITHOUT logging in. The
         // Supabase middleware should redirect to /login, never serving
-        // the project page or its target metadata.
+        // the workspace page or its target metadata.
         const targetName = `secret-target-${Date.now()}.md`;
         await page.goto(
           `${PROJECT_BASE}?tab=files&path=${encodeURIComponent(targetName)}`,
@@ -200,7 +200,7 @@ test.describe("Files tab v3 — viewer role + unauthenticated deep link (Task 12
 
         // `onLogin` is the expected branch when middleware is configured
         // for protected project routes. `v3Rendered=false` is the
-        // fallback when the project is gated by another mechanism.
+        // fallback when the workspace is gated by another mechanism.
         if (!onLogin) {
           // Confirm via toast/console that no target metadata leaked.
           // The "no disclosure" assertion above already enforces this.

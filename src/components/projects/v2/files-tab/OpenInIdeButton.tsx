@@ -302,7 +302,7 @@ export function OpenInIdeButton({
               in your editor’s extensions.
             </li>
             <li>Install the extension and sign in to NetworkBase.</li>
-            <li>Open your project or task in your connected editor.</li>
+            <li>Open your workspace or task in your connected editor.</li>
           </ol>
 
           <DialogFooter className="flex-col gap-2 pt-2 sm:flex-col">

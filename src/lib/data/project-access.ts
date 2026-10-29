@@ -100,7 +100,7 @@ export function canReadProjectTab(access: ProjectAccess, tab: ProjectPublicTabId
 
 export class ProjectTabForbiddenError extends ForbiddenError {
     constructor(readonly tab: ProjectPublicTabId) {
-        super(`This project’s ${tab} are not available to this viewer.`);
+        super(`This workspace’s ${tab} are not available to this viewer.`);
         this.name = "ProjectTabForbiddenError";
     }
 }

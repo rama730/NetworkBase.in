@@ -41,17 +41,17 @@ export default function GlobalSearch({ onOpenCommandPalette, condensed = false }
         const contextLabel = (() => {
             switch (context) {
                 case "discover":
-                    return "Search projects";
+                    return "Search workspaces";
                 case "network":
                     return placeholder.replace(/\.\.\.$/, "");
                 case "messages":
                     return "Find a conversation";
                 case "project":
-                    return "Search this project";
+                    return "Search this workspace";
                 case "settings":
                     return "Search settings";
                 default:
-                    return "Search projects";
+                    return "Search workspaces";
             }
         })();
 

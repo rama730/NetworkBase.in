@@ -64,7 +64,7 @@ export function LifecycleSettingsEditor({
     return (
         <SettingsCard
             title="Stages"
-            description="Define the journey stages used by the project dashboard, roadmap, and milestone tracking."
+            description="Define the journey stages used by the workspace dashboard, roadmap, and milestone tracking."
             footer={
                 !isOwner ? (
                     <p className="nb-compact text-xs text-muted-foreground italic">

@@ -291,11 +291,11 @@ export default function MyWorkTasksTab({ isActive = true }: MyWorkTasksTabProps)
     const groups = useMemo(() => {
         const grouped = new Map<string, { id: string; slug: string | null; title: string; key: string; tasks: MyWorkTask[] }>();
         for (const task of visibleTasks) {
-            const project = task.project || { id: "unknown", slug: null, title: "Project", key: "TASK" };
+            const project = task.project || { id: "unknown", slug: null, title: "Workspace", key: "TASK" };
             const group = grouped.get(project.id) ?? {
                 id: project.id,
                 slug: project.slug ?? null,
-                title: task.org?.context || project.title || "Project",
+                title: task.org?.context || project.title || "Workspace",
                 key: project.key || "TASK",
                 tasks: [],
             };
@@ -448,7 +448,7 @@ export default function MyWorkTasksTab({ isActive = true }: MyWorkTasksTabProps)
                                 value={search}
                                 onChange={(event) => setSearch(event.target.value)}
                                 onKeyDown={(event) => event.stopPropagation()}
-                                placeholder="Search tasks or projects"
+                                placeholder="Search tasks or workspaces"
                                 className="nb-touch-target h-9 w-full rounded-md border border-input bg-background pl-8 pr-3 text-xs text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
                             />
                         </label>
@@ -521,7 +521,7 @@ export default function MyWorkTasksTab({ isActive = true }: MyWorkTasksTabProps)
                     <ListChecks className="nb-empty-state-icon" aria-hidden="true" />
                     <h4 className="nb-card-title text-foreground">{filteredEmpty ? "No tasks match these filters" : "No open tasks in this view"}</h4>
                     <p className="nb-compact mx-auto mt-1 max-w-xs text-muted-foreground">
-                        {filteredEmpty ? "Try another status, scope, or search phrase." : scope === "my" ? "You have no active tasks assigned to you right now." : scope === "team" ? "No other team tasks are open right now." : "No open tasks are available in your projects right now."}
+                        {filteredEmpty ? "Try another status, scope, or search phrase." : scope === "my" ? "You have no active tasks assigned to you right now." : scope === "team" ? "No other team tasks are open right now." : "No open tasks are available in your workspaces right now."}
                     </p>
                     {filteredEmpty ? <button type="button" onClick={() => { setSearch(""); setStatus("all"); }} className="mt-3 text-xs font-semibold text-primary hover:underline">Clear filters</button> : null}
                 </div>
@@ -557,7 +557,7 @@ export default function MyWorkTasksTab({ isActive = true }: MyWorkTasksTabProps)
                                     className="text-[11px] text-muted-foreground hover:text-primary transition-colors hidden sm:inline-block"
                                     aria-label={`Open ${group.title} tasks`}
                                 >
-                                    Open project
+                                    Open workspace
                                 </Link>
                                 {index === 0 ? taskFiltersMenu : null}
                             </div>
@@ -613,7 +613,7 @@ export default function MyWorkTasksTab({ isActive = true }: MyWorkTasksTabProps)
                         disabled={limit >= MAX_PAGE_SIZE}
                         className="text-xs font-semibold text-primary hover:underline disabled:cursor-not-allowed disabled:text-muted-foreground disabled:no-underline"
                     >
-                        {limit >= MAX_PAGE_SIZE ? "Open a project to view more" : "Load more tasks"}
+                        {limit >= MAX_PAGE_SIZE ? "Open a workspace to view more" : "Load more tasks"}
                     </button>
                 </div>
             ) : null}

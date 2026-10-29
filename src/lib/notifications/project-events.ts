@@ -69,7 +69,7 @@ type MemberRow = {
 };
 
 function displayProjectTitle(project: ProjectRow) {
-    return project.title || "Project";
+    return project.title || "Workspace";
 }
 
 function actorLabel(input: EnqueueProjectNotificationEventInput) {
@@ -83,9 +83,9 @@ function titleFor(input: EnqueueProjectNotificationEventInput, project: ProjectR
         case "members.joined":
             return `${actorLabel(input)} joined ${displayProjectTitle(project)}`;
         case "access.visibility_changed":
-            return `${actorLabel(input)} changed project visibility`;
+            return `${actorLabel(input)} changed workspace visibility`;
         case "access.public_tabs_changed":
-            return `${actorLabel(input)} changed public project surfaces`;
+            return `${actorLabel(input)} changed public workspace surfaces`;
         case "access.file_upload_permission_changed":
             return `${actorLabel(input)} changed your file upload access`;
         case "sprints.created":
@@ -102,29 +102,29 @@ function titleFor(input: EnqueueProjectNotificationEventInput, project: ProjectR
             return `${actorLabel(input)} moved a task in the sprint plan`;
         case "files.uploaded":
         case "files.bulk_uploaded":
-            return `${actorLabel(input)} uploaded project files`;
+            return `${actorLabel(input)} uploaded workspace files`;
         case "files.folder_created":
-            return `${actorLabel(input)} created a project folder`;
+            return `${actorLabel(input)} created a folder`;
         case "files.organized":
-            return `${actorLabel(input)} organized project files`;
+            return `${actorLabel(input)} organized workspace files`;
         case "files.deleted_restored":
-            return `${actorLabel(input)} changed project file availability`;
+            return `${actorLabel(input)} changed workspace file availability`;
         case "files.git_sync_status":
-            return `${actorLabel(input)} updated project sync status`;
+            return `${actorLabel(input)} updated workspace sync status`;
         case "security.protected_action":
-            return "Protected project action needs attention";
+            return "Protected workspace action needs attention";
         case "security.data_export_ready":
-            return "Project data export is ready";
+            return "Workspace data export is ready";
         case "security.project_archived":
             return `${actorLabel(input)} archived ${displayProjectTitle(project)}`;
         case "security.delete_scheduled":
-            return `${actorLabel(input)} scheduled project deletion`;
+            return `${actorLabel(input)} scheduled workspace deletion`;
         case "updates.published":
-            return `${actorLabel(input)} posted a project update`;
+            return `${actorLabel(input)} posted a workspace update`;
         case "updates.comment":
-            return `${actorLabel(input)} commented on your project update`;
+            return `${actorLabel(input)} commented in your workspace update`;
         case "updates.follower_digest":
-            return `${displayProjectTitle(project)} has new project updates`;
+            return `${displayProjectTitle(project)} has new workspace updates`;
         default:
             return `${actorLabel(input)}: ${entry.label}`;
     }
@@ -385,7 +385,7 @@ export async function enqueueProjectNotificationEvents(
     const projectId = sourceInputs[0]!.projectId;
     const actorUserId = sourceInputs[0]!.actorUserId ?? null;
     if (sourceInputs.some((input) => input.projectId !== projectId || (input.actorUserId ?? null) !== actorUserId)) {
-        throw new Error("Batched project notification events must share one project and actor");
+        throw new Error("Batched workspace notification events must share one workspace and actor");
     }
 
     const normalizedActor = options

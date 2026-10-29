@@ -47,7 +47,7 @@ export function ProjectStatusControl({ projectId, canManage }: { projectId: stri
   const save = async () => {
     if (!emoji && !text.trim()) return void toast.error("Add an emoji or some text");
     const result = await setProjectStatus({ projectId, emoji, text: text.trim() || null, expiresAt: until ? new Date(until).toISOString() : null });
-    if (!result.success) return void toast.error(feedbackError(result.error === "forbidden" ? "Only owners and admins can set the workspace status" : "Couldn’t set the project status. Check the end time.", "Couldn’t set the project status. Check the end time."));
+    if (!result.success) return void toast.error(feedbackError(result.error === "forbidden" ? "Only owners and admins can set the workspace status" : "Couldn’t set the workspace status. Check the end time.", "Couldn’t set the workspace status. Check the end time."));
     await refresh();
     setOpen(false);
     toast.success("Workspace status updated");
@@ -66,13 +66,13 @@ export function ProjectStatusControl({ projectId, canManage }: { projectId: stri
       <button
         type="button"
         onClick={start}
-        aria-label={presence.status ? `Project status: ${presence.statusLine}. Change` : "Set project status"}
+        aria-label={presence.status ? `Workspace status: ${presence.statusLine}. Change` : "Set workspace status"}
         className="rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         {chip ?? (
           <span className="inline-flex h-7 items-center gap-1.5 rounded-full border border-dashed border-border px-3 text-[13px] text-muted-foreground hover:bg-muted hover:text-foreground">
             <Smile size={14} aria-hidden="true" />
-            Set project status
+            Set workspace status
           </span>
         )}
       </button>

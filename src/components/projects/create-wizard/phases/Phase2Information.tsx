@@ -132,7 +132,7 @@ export default function Phase2Information({ showValidationSummary = false }: Pha
 
             {showValidationSummary && validationErrors.length > 0 ? (
                 <div role="alert" aria-live="assertive" className="border-l-2 border-destructive bg-[var(--status-danger-soft)] px-4 py-3 text-[13px] leading-[1.5] text-foreground">
-                    <p className="font-semibold">Check the required project details</p>
+                    <p className="font-semibold">Check the required workspace details</p>
                     <ul className="mt-1 list-disc space-y-0.5 pl-4 text-muted-foreground">
                         {validationErrors.map((err) => (
                             <li key={err.id}>
@@ -158,13 +158,13 @@ export default function Phase2Information({ showValidationSummary = false }: Pha
                 <SectionHeading
                     id="project-identity-heading"
                     eyebrow="Identity"
-                    title={orgCopy ? 'Name your organization' : 'Name and classify the project'}
-                    description={orgCopy ? 'What people see first on cards, search and the About tab.' : 'Start with the information people see first when they encounter your project.'}
+                    title={orgCopy ? 'Name your organization' : 'Name and classify the workspace'}
+                    description={orgCopy ? 'What people see first on cards, search and the About tab.' : 'Start with the information people see first when they encounter your workspace.'}
                 />
 
                 <div className="mt-5 space-y-5">
                     {orgCopy ? <OrgSubjectField /> : <div>
-                        <FieldLabel htmlFor="create-project-category" required>Project category</FieldLabel>
+                        <FieldLabel htmlFor="create-project-category" required>Workspace category</FieldLabel>
                         <Controller
                             name="project_type"
                             control={control}
@@ -218,14 +218,14 @@ export default function Phase2Information({ showValidationSummary = false }: Pha
 
                     <div>
                         <div className="flex items-end justify-between gap-3">
-                            <FieldLabel htmlFor="create-project-title" required>{orgCopy ? 'Name' : 'Project title'}</FieldLabel>
+                            <FieldLabel htmlFor="create-project-title" required>{orgCopy ? 'Name' : 'Workspace title'}</FieldLabel>
                             <TitleCount />
                         </div>
                         <Input
                             id="create-project-title"
                             {...register('title')}
                             className={fieldClass}
-                            placeholder={orgCopy?.name ?? 'Name your project'}
+                            placeholder={orgCopy?.name ?? 'Name your workspace'}
                             maxLength={100}
                             aria-invalid={Boolean(errors.title)}
                             aria-describedby="create-project-title-help create-project-title-error"
@@ -233,7 +233,7 @@ export default function Phase2Information({ showValidationSummary = false }: Pha
                         />
                         <p id="create-project-title-help" className="mt-1.5 text-[13px] leading-[1.5] text-muted-foreground">{orgCopy ? 'The name members know it by.' : 'Use a clear, specific name people will recognize.'}</p>
                         <FieldError id="create-project-title-error" message={errors.title?.message} />
-                        {titleTaken && org ? <p role="status" className="mt-1.5 text-[13px] leading-[1.5] text-[var(--status-warning)]">Another project in {org.title} is already called this. You can keep it.</p> : null}
+                        {titleTaken && org ? <p role="status" className="mt-1.5 text-[13px] leading-[1.5] text-[var(--status-warning)]">Another workspace in {org.title} is already called this. You can keep it.</p> : null}
                     </div>
 
 
@@ -246,11 +246,11 @@ export default function Phase2Information({ showValidationSummary = false }: Pha
                             id="create-project-tagline"
                             {...register('short_description')}
                             className={fieldClass}
-                            placeholder={orgCopy?.tagline ?? 'A short sentence that explains the project'}
+                            placeholder={orgCopy?.tagline ?? 'A short sentence that explains the workspace'}
                             maxLength={200}
                             aria-describedby="create-project-tagline-help"
                         />
-                        <p id="create-project-tagline-help" className="mt-1.5 text-[13px] leading-[1.5] text-muted-foreground">{orgCopy ? 'Optional. One line people see on cards and search results.' : 'Optional. This appears beside the project name in compact contexts.'}</p>
+                        <p id="create-project-tagline-help" className="mt-1.5 text-[13px] leading-[1.5] text-muted-foreground">{orgCopy ? 'Optional. One line people see on cards and search results.' : 'Optional. This appears beside the workspace name in compact contexts.'}</p>
                     </div>
 
                     {orgCopy ? <OrgIdentityFields /> : null}
@@ -260,7 +260,7 @@ export default function Phase2Information({ showValidationSummary = false }: Pha
             <section aria-labelledby="project-story-heading" className="border-t border-border pt-6">
                 <SectionHeading
                     id="project-story-heading"
-                    eyebrow={orgCopy ? 'About' : 'Project story'}
+                    eyebrow={orgCopy ? 'About' : 'Workspace story'}
                     title={orgCopy ? 'What happens here' : 'Explain the work'}
                     description={orgCopy ? 'What future members want to know before they join.' : 'Give future members enough context to decide whether this workspace is a fit.'}
                 />
@@ -276,7 +276,7 @@ export default function Phase2Information({ showValidationSummary = false }: Pha
                             {...register('description')}
                             rows={6}
                             className={textAreaClass}
-                            placeholder={orgCopy?.about ?? 'Describe the problem, the project’s goals, and what a contributor should understand before joining.'}
+                            placeholder={orgCopy?.about ?? 'Describe the problem, the workspace’s goals, and what a contributor should understand before joining.'}
                             maxLength={5000}
                             aria-invalid={Boolean(errors.description)}
                             aria-describedby="create-project-description-help create-project-description-error"
@@ -304,7 +304,7 @@ export default function Phase2Information({ showValidationSummary = false }: Pha
                                 {...register('solution_statement')}
                                 rows={4}
                                 className={`${textAreaClass} min-h-32`}
-                                placeholder={orgCopy?.activities ?? 'How does this project address it?'}
+                                placeholder={orgCopy?.activities ?? 'How does this workspace address it?'}
                             />
                         </div>
                     </div>
@@ -316,7 +316,7 @@ export default function Phase2Information({ showValidationSummary = false }: Pha
                 <SectionHeading
                     id="project-discovery-heading"
                     eyebrow="Discovery"
-                    title={orgCopy ? 'Help the right people find it' : 'Make the project easier to find'}
+                    title={orgCopy ? 'Help the right people find it' : 'Make the workspace easier to find'}
                     description={orgCopy ? 'Shown on Discover only when the organization is public (Setup step).' : 'Add concise topics and the skills people will use while contributing.'}
                 />
 
@@ -381,7 +381,7 @@ export default function Phase2Information({ showValidationSummary = false }: Pha
                         <SkillPicker
                             value={technologies}
                             onChange={(next) => setValue('technologies_used', next, { shouldDirty: true, shouldValidate: true })}
-                            label="Project skills and technologies"
+                            label="Workspace skills and technologies"
                             description="Search for the skills contributors will use."
                             compact
                             progressive

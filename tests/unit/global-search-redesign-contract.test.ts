@@ -24,11 +24,11 @@ test("CommandPalette enforces canonical max-w-640px geometry, rounded-12px radiu
 
     // Monospace Micro-Label Section Headers
     assert.match(palette, /className="nb-micro uppercase tracking-\[0\.09em\] text-muted-foreground"/);
-    assert.match(palette, /Projects · \$\{projectResults\.length\}/);
+    assert.match(palette, /Workspaces · \$\{projectResults\.length\}/);
     assert.match(palette, /Builders · \$\{profileResults\.length\}/);
 
     // Related Skills as Drafting-Table Chips
-    assert.match(palette, /Skills in these projects/);
+    assert.match(palette, /Skills in these workspaces/);
     assert.match(palette, /data-testid="related-skills-scroll"/);
     assert.match(palette, /rounded-\[3px\] border px-2\.5 text-xs font-mono/);
     assert.doesNotMatch(palette, /Scroll to explore/, "Must not include redundant 'Scroll to explore' text");

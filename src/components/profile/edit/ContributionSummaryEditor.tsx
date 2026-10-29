@@ -369,7 +369,7 @@ export function ContributionSummaryEditor({
                     ? insert({
                         kind: "activity",
                         id: projectId,
-                        label: `Contributed to ${fileCount} project files`,
+                        label: `Contributed to ${fileCount} workspace files`,
                         href: null,
                         available: true,
                       })
@@ -401,7 +401,7 @@ export function ContributionSummaryEditor({
                   : `${referenceKind[0]!.toUpperCase() + referenceKind.slice(1)} context`}
               </p>
               <p className="text-xs text-muted-foreground">
-                Only public teammates and publicly accessible project items.
+                Only public teammates and publicly accessible workspace items.
                 Mentions send no notification.
               </p>
             </div>

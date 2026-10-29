@@ -255,7 +255,7 @@ export function V3AttachmentPicker({
                   onChange={(event) => setSearchInput(event.target.value)}
                   aria-label="Search files"
                   data-testid="v3-attachment-picker-search"
-                  placeholder="Search all project files…"
+                  placeholder="Search all workspace files…"
                   className="h-10 w-full min-w-0 bg-transparent text-sm outline-none focus-visible:ring-2"
                 />
               </label>

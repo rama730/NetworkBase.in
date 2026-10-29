@@ -61,7 +61,7 @@ async function assertProjectReadAccess(
   userId: string | null,
 ) {
   const access = await getProjectAccessById(projectId, userId);
-  if (!access.project) throw new Error("Project not found");
+  if (!access.project) throw new Error("Workspace not found");
   if (!access.canRead) throw new Error("You don’t have access to this");
   return access;
 }
@@ -930,7 +930,7 @@ async function buildSprintDetailPayload(input: {
   const parsedCursor = parseSprintDetailPaginationCursor(input.cursor);
 
   const access = input.access;
-  if (!access.project) throw new Error("Project not found");
+  if (!access.project) throw new Error("Workspace not found");
   if (!canReadProjectTab(access, "sprints")) throw new ProjectTabForbiddenError("sprints");
   // Sprints visibility exposes sprint list and health; task rows also need Tasks visibility (COR-043).
   const showTasks = canReadProjectTab(access, "tasks");
@@ -1045,7 +1045,7 @@ async function buildSprintTimelinePagePayload(input: {
   const safeLimit = Math.min(Math.max(input.limit ?? 30, 1), 50);
   const parsedCursor = parseSprintDetailPaginationCursor(input.cursor);
   const access = input.access;
-  if (!access.project) throw new Error("Project not found");
+  if (!access.project) throw new Error("Workspace not found");
   if (!canReadProjectTab(access, "sprints")) throw new ProjectTabForbiddenError("sprints");
   // Sprints visibility exposes sprint list and health; task rows also need Tasks visibility (COR-043).
   const showTasks = canReadProjectTab(access, "tasks");
@@ -1119,7 +1119,7 @@ export async function fetchProjectSprintDetailAction(input: {
       async () => {
         const access = await getProjectAccessById(input.projectId, actorId);
         if (!access.project) {
-          throw new Error("Project not found");
+          throw new Error("Workspace not found");
         }
 
         return buildSprintDetailPayload({
@@ -1182,7 +1182,7 @@ export async function fetchProjectSprintTimelinePageAction(input: {
       async () => {
         const access = await getProjectAccessById(input.projectId, actorId);
         if (!access.project) {
-          throw new Error("Project not found");
+          throw new Error("Workspace not found");
         }
         return buildSprintTimelinePagePayload({
           projectId: input.projectId,
@@ -1249,7 +1249,7 @@ async function readProjectSprintDetailForActor(input: ProjectSprintDetailInput &
       return {
         success: false as const,
         errorCode: "NOT_FOUND" as const,
-        message: "Project not found.",
+        message: "Workspace not found.",
       };
     }
 
@@ -1283,7 +1283,7 @@ async function readProjectSprintDetailForActor(input: ProjectSprintDetailInput &
       return {
         success: false as const,
         errorCode: "FORBIDDEN" as const,
-        message: "Sprint details are members-only for this project.",
+        message: "Sprint details are members-only for this workspace.",
       };
     }
 
@@ -1417,7 +1417,7 @@ export async function createSprintAction(data: CreateSprintInput) {
         ...actorNotificationSnapshot(user),
         eventKey: "sprints.created",
         title: `Sprint created: ${sprintListItem.name}`,
-        body: sprintListItem.goal ?? "A new sprint was added to the project.",
+        body: sprintListItem.goal ?? "A new sprint was added to the workspace.",
         sourceEventId: sprintListItem.id,
         entityRefs: {
           projectId: validated.projectId,
@@ -1777,7 +1777,7 @@ type CompleteSprintOptions = {
 
 async function requireSprintOwner(projectId: string, userId: string) {
   const access = await getProjectAccessById(projectId, userId);
-  if (!access.project) throw new Error("Project not found");
+  if (!access.project) throw new Error("Workspace not found");
   // Inherited org admins plan and run a child project's sprints too (report §15.5).
   if (!access.isOwner && access.memberRole !== "admin" && !access.isInheritedAdmin)
     throw new Error("Only the owner and admins can manage sprints");
@@ -2185,7 +2185,7 @@ export async function addSprintMaterialAction(input: { projectId: string; sprint
     const target = input.nodeId
       ? await db.select({ id: projectNodes.id }).from(projectNodes).where(and(eq(projectNodes.id, input.nodeId), eq(projectNodes.projectId, input.projectId), isNull(projectNodes.deletedAt))).limit(1)
       : await db.select({ id: projectDocs.id }).from(projectDocs).where(and(eq(projectDocs.id, input.docId!), eq(projectDocs.projectId, input.projectId))).limit(1);
-    if (target.length === 0) throw new Error("That file or doc isn’t in this project.");
+    if (target.length === 0) throw new Error("That file or doc isn’t in this workspace.");
     await db.insert(sprintMaterials).values({ sprintId: input.sprintId, nodeId: input.nodeId ?? null, docId: input.docId ?? null, addedBy: user.id }).onConflictDoNothing();
     await revalidateProjectPaths(input.projectId);
     return { success: true as const };

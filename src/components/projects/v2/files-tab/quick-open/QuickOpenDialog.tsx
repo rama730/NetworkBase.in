@@ -272,7 +272,7 @@ export function QuickOpenDialog({
   return (
     <Dialog open={open} onOpenChange={value => { if (!value) close(); }}>
       <DialogContent showCloseButton onOpenAutoFocus={event => { event.preventDefault(); inputRef.current?.focus(); }} aria-describedby={undefined} data-testid="files-tab-quick-open" className="block max-w-[calc(100vw-2rem)] max-h-[calc(100dvh-2rem)] overflow-y-auto p-0 sm:max-w-2xl">
-        <DialogTitle className="px-4 pb-1 pt-4 text-sm">{onApplyQuery ? "Search project files" : "Quick open"}</DialogTitle>
+        <DialogTitle className="px-4 pb-1 pt-4 text-sm">{onApplyQuery ? "Search workspace files" : "Quick open"}</DialogTitle>
       <div
         className="w-full max-w-2xl rounded-[8px] border border-border bg-card shadow-2xl overflow-hidden"
         onMouseDown={(e) => {
@@ -288,8 +288,8 @@ export function QuickOpenDialog({
             autoFocus
             type="text"
             className="nb-touch-target w-full h-9 px-3 rounded-[6px] border border-border bg-background text-sm text-foreground outline-none"
-            placeholder={onApplyQuery ? "Search filenames across the project…" : "Quick open files…"}
-            aria-label={onApplyQuery ? "Search project files" : "Quick open files"}
+            placeholder={onApplyQuery ? "Search filenames across the workspace…" : "Quick open files…"}
+            aria-label={onApplyQuery ? "Search workspace files" : "Quick open files"}
             value={query}
             // Req 9.3: input is bounded to 1..256 chars; enforce the upper
             // bound at the UI level so typed/pasted input cannot exceed
@@ -322,7 +322,7 @@ export function QuickOpenDialog({
           </div>
         ) : isSearchingServer ? (
           <div role="status" aria-live="polite" className="border-b border-border px-4 py-2 text-xs text-muted-foreground">
-            Searching the full project…
+            Searching the full workspace…
           </div>
         ) : null}
         <div

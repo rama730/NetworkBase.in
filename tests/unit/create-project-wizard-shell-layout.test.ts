@@ -24,7 +24,7 @@ test("create-project shell keeps progress in a compact centered header and save 
   assert.match(wizard, /<WizardFooter[\s\S]*saveStatus=\{saveStatus\}[\s\S]*lastSaved=\{lastSaved\}/);
 });
 
-test("create-project is a normal page inside the app shell: no modal, one 1000px column", async () => {
+test("create-workspace is a normal page inside the app shell: no modal, one 1000px column", async () => {
   const [wizard, footer, layout, loading, hook, chat] = await Promise.all([
     readFile("src/components/projects/create-wizard/CreateProjectWizard.tsx", "utf8"),
     readFile("src/components/projects/create-wizard/WizardFooter.tsx", "utf8"),
@@ -59,7 +59,7 @@ test("create-project page refinements: no Esc close, clickable finished steps, c
 
   // 1. A page, not a dialog: no Esc-to-close; an explicit Cancel.
   assert.doesNotMatch(wizard, /'Escape'/);
-  assert.match(header, /aria-label="Cancel project setup"/);
+  assert.match(header, /aria-label="Cancel workspace setup"/);
   assert.match(header, /<span className="max-md:hidden">Cancel<\/span>/);
 
   // 2. Finished steps jump back; later steps stay locked.
@@ -67,7 +67,7 @@ test("create-project page refinements: no Esc close, clickable finished steps, c
   assert.match(header, /onClick=\{\(\) => onStepSelect\(wizardPhase\.id\)\}/);
   assert.match(wizard, /onStepSelect=\{goToPhase\}/);
 
-  // 3. New project reads as the current page on /projects/new.
+  // 3. New workspace reads as the current page on /projects/new.
   assert.match(topNav, /aria-current=\{isCreateProjectRoute \? 'page' : undefined\}/);
   assert.match(mobileMenu, /aria-current=\{pathname === "\/projects\/new" \? "page" : undefined\}/);
 

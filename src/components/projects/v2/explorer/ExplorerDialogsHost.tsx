@@ -402,8 +402,8 @@ export function FolderPicker({
           <Input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Search project folders"
-            aria-label="Search project folders"
+            placeholder="Search workspace folders"
+            aria-label="Search workspace folders"
             className="pl-8 rounded-[5px] border-[#DBD5C8] focus-visible:ring-[#D14E24]"
           />
         </label>
@@ -759,7 +759,7 @@ export function DeleteDialog({
           <div role="alert" className="rounded-[5px] border border-amber-500/30 bg-amber-500/10 p-3 text-[13px] text-foreground">
             <p className="font-medium">Still in use</p>
             <ul className="mt-1 list-disc pl-5">{usage.map((label) => <li key={label}>{label}</li>)}</ul>
-            <p className="mt-1 text-muted-foreground">References will show “File in Trash”; a trashed template leaves the project wizard.</p>
+            <p className="mt-1 text-muted-foreground">References will show “File in Trash”; a trashed template leaves the workspace wizard.</p>
           </div>
         ) : null}
         <DialogFooter className="bg-muted/50 border-t border-border -mx-6 -mb-6 px-6 py-3 rounded-b-[12px] flex items-center justify-end gap-2">
@@ -858,7 +858,7 @@ export function MoveDialog({
           <DialogDescription>
             {mode === "publish"
               ? "Choose a folder in Files. The file stays a draft on the task."
-              : "Choose a new location in Project Files. Task role and final-deliverable status are unchanged."}
+              : "Choose a new location in Workspace Files. Task role and final-deliverable status are unchanged."}
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-2">

@@ -64,7 +64,7 @@ export async function POST(
         status: 403,
         errorCode: "FORBIDDEN",
       });
-      return jsonError("You can only invite this profile to projects you manage", 403, "FORBIDDEN");
+      return jsonError("You can only invite this profile to workspaces you manage", 403, "FORBIDDEN");
     }
 
     const result = await createProjectInvitationAction({
@@ -102,7 +102,7 @@ export async function POST(
     return jsonSuccess({
       invitationId: result.invitationId,
       project: selected,
-    }, "Project invite sent");
+    }, "Workspace invite sent");
   } catch (error) {
     logger.error("[api/v1/profiles/project-invites] failed", {
       module: "api",
@@ -120,6 +120,6 @@ export async function POST(
       status: 500,
       errorCode: "INTERNAL_ERROR",
     });
-    return jsonError("Couldn’t send project invite", 500, "INTERNAL_ERROR");
+    return jsonError("Couldn’t send workspace invite", 500, "INTERNAL_ERROR");
   }
 }

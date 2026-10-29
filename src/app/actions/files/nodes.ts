@@ -204,7 +204,7 @@ export async function getProjectNodes(
                 return sql`(${rank} > ${value.rank} OR (${sameRank} AND (${typeKey} > ${value.mime} COLLATE "C" OR (${typeKey} = ${value.mime} COLLATE "C" AND ${afterName}))))`;
             }
             return sql`(${rank} > ${value.rank} OR (${sameRank} AND ${afterName}))`;
-        } catch { throw new Error("Invalid project nodes cursor; reopen the folder to restart the listing"); }
+        } catch { throw new Error("Invalid workspace nodes cursor; reopen the folder to restart the listing"); }
     })();
     const pageLimit = Math.min(Math.max(1, limit), MAX_TREE_PAGE_SIZE);
     const normalizedQuery = normalizeSearchQuery(query);
@@ -312,7 +312,7 @@ export async function initializeProjectFilesRoot(projectId: string) {
         .where(eq(projects.id, projectId))
         .limit(1);
 
-    return ensureSystemRootFolder(projectId, user.id, project?.title || "Project");
+    return ensureSystemRootFolder(projectId, user.id, project?.title || "Workspace");
 }
 
 export async function getNodesByIds(projectId: string, nodeIds: string[]) {

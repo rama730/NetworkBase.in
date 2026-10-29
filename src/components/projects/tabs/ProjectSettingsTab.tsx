@@ -140,13 +140,13 @@ const VISIBILITY_OPTIONS: Array<{
     {
         id: "public",
         title: "Public",
-        description: "Anyone can discover and view the public project surface.",
-        detail: "Best for open collaboration, public updates, and shareable project profiles.",
+        description: "Anyone can discover and view the public workspace surface.",
+        detail: "Best for open collaboration, public updates, and shareable workspace profiles.",
     },
     {
         id: "private",
         title: "Private",
-        description: "Only the owner and approved members can view project content.",
+        description: "Only the owner and approved members can view workspace content.",
         detail: "Best when files, tasks, applications, and updates should stay member-only.",
     },
 ];
@@ -225,7 +225,7 @@ function ProjectSettingsContent({
             });
         }
         // Settings → Organization (report §21.6): second for the lead, first for admins, alone for inherited org admins.
-        const childOrgSection = { id: "child-org" as const, label: "Organization", description: "The organization this project belongs to, and its rules." };
+        const childOrgSection = { id: "child-org" as const, label: "Organization", description: "The organization this workspace belongs to, and its rules." };
         const showsChildOrg = Boolean(project?.parentOrg || project?.pendingMoveIn || project?.moveTargets?.length);
         if (project?.parentOrg?.viewerIsInheritedAdmin && !isProjectOwner && actorProjectRole !== "admin") return [childOrgSection];
         if (isProjectOwner) return showsChildOrg ? visible.flatMap((section) => (section.id === "general" ? [section, childOrgSection] : [section])) : visible;
@@ -745,7 +745,7 @@ function ProjectSettingsContent({
             const preflight: AccessTransitionPreflightData = preflightResult.data;
             const isPrivateTransition = preflight.nextVisibility === "private";
             setConfirmAction({
-                title: isPrivateTransition ? "Make project private" : "Make project public",
+                title: isPrivateTransition ? "Make workspace private" : "Make workspace public",
                 description: preflight.policy.confirmationSummary.join(" "),
                 confirmLabel: isPrivateTransition ? "Make private" : "Make public",
                 variant: isPrivateTransition ? "destructive" : "default",
@@ -955,7 +955,7 @@ function ProjectSettingsContent({
         setMemberNotificationLoading(true);
         setConfirmAction({
             title: "Member notification settings",
-            description: `Review ${getProjectMemberDisplayName(member)}'s project notification preferences.`,
+            description: `Review ${getProjectMemberDisplayName(member)}'s workspace notification preferences.`,
             confirmLabel: "Close",
             variant: "default",
             action: async () => ({ success: true, message: "Notification settings closed." }),
@@ -1317,7 +1317,7 @@ function ProjectSettingsContent({
                 <fieldset className="space-y-2">
                     <legend className="nb-micro text-muted-foreground">Removal mode</legend>
                     {([
-                        ["preserve_history", "Preserve history", "Keep active assignments in place and label them Removed from project · Needs reassignment."],
+                        ["preserve_history", "Preserve history", "Keep active assignments in place and label them Removed from workspace · Needs reassignment."],
                         ["unassign_active_tasks", "Unassign active tasks", "Their tasks become unassigned. Their comments and files stay."],
                         ["reassign_active_tasks", "Reassign active tasks", "Give their tasks to another member."],
                     ] as const).map(([mode, label, detail]) => (
@@ -1396,7 +1396,7 @@ function ProjectSettingsContent({
                     <section id="project-settings-links" data-project-settings-section className="space-y-6">
                         <div className="space-y-6">
                             <SettingsCard
-                                title="Project links"
+                                title="Workspace links"
                                 headingLevel={2}
                                 description="External project destinations and connected repositories displayed beside the project title and across public surfaces."
                             >
@@ -1419,14 +1419,14 @@ function ProjectSettingsContent({
                     <section id="project-settings-access" data-project-settings-section className="space-y-6">
                         <div className="space-y-6">
                             <SettingsCard
-                                title="Project access and visibility"
+                                title="Workspace access and visibility"
                                 headingLevel={2}
-                                description="This one owner-controlled policy is used by project cards, detail pages, search, files, applications, notifications, and public surfaces."
+                                description="This one owner-controlled policy is used by workspace cards, detail pages, search, files, applications, notifications, and public surfaces."
                             >
                                 <div className="divide-y divide-border">
                                     <div className="pb-6">
                                         <div className="mb-4">
-                                            <h3 className="nb-ui-label text-sm font-semibold text-foreground">Project visibility</h3>
+                                            <h3 className="nb-ui-label text-sm font-semibold text-foreground">Workspace visibility</h3>
                                             <p className="nb-compact mt-0.5 text-xs text-muted-foreground">
                                                 Choose who can find and see this workspace.
                                             </p>
@@ -1437,7 +1437,7 @@ function ProjectSettingsContent({
                                                 <button type="button" className="font-medium text-foreground underline underline-offset-4" onClick={() => handleNavigateSection("child-org")}>Organization</button>.
                                             </p>
                                         ) : isProjectOwner ? (
-                                            <div role="group" aria-label="Project visibility" className="grid gap-3 sm:grid-cols-2">
+                                            <div role="group" aria-label="Workspace visibility" className="grid gap-3 sm:grid-cols-2">
                                                 {VISIBILITY_OPTIONS.map((option) => {
                                                     const isSelected = visibility === option.id;
                                                     return (
@@ -1469,7 +1469,7 @@ function ProjectSettingsContent({
                                             <div className="rounded-lg border border-border bg-muted/20 p-4 text-sm text-muted-foreground">
                                                 <p className="font-medium text-foreground">Only the owner can change visibility</p>
                                                 <p className="mt-1 nb-compact">
-                                                    This project is currently <strong className="text-foreground">{visibility === "public" ? "Public" : "Private"}</strong>. Only the owner can change visibility.
+                                                    This workspace is currently <strong className="text-foreground">{visibility === "public" ? "Public" : "Private"}</strong>. Only the owner can change visibility.
                                                 </p>
                                             </div>
                                         )}
@@ -1489,7 +1489,7 @@ function ProjectSettingsContent({
                                             savingTabId={savingPublicTabId}
                                         />
                                         <div className="mt-4 border-t border-border pt-4 text-xs leading-relaxed text-muted-foreground">
-                                            Defaults are Dashboard, Docs, Updates, and Files on; Sprints and Tasks off. If the project is Private, these settings are saved but only apply after the project becomes Public again.
+                                            Defaults are Dashboard, Docs, Updates, and Files on; Sprints and Tasks off. If the workspace is Private, these settings are saved but only apply after the workspace becomes Public again.
                                         </div>
                                     </div>
                                 </div>
@@ -1724,7 +1724,7 @@ function ProjectSettingsContent({
                     <section id="project-settings-roles-applications" data-project-settings-section className="space-y-6">
                         <div className="space-y-6">
                             <SettingsCard
-                                title="Project roles"
+                                title="Workspace roles"
                                 headingLevel={2}
                                 description="Add open roles, how many people each needs, and the skills you’re looking for."
                                 footer={
@@ -1736,8 +1736,8 @@ function ProjectSettingsContent({
                                         <>
                                             <p className="nb-compact text-xs text-muted-foreground">
                                                 {rolesDirty
-                                                    ? "You have unsaved changes in project roles."
-                                                    : "All project roles are saved."}
+                                                    ? "You have unsaved changes in workspace roles."
+                                                    : "All workspace roles are saved."}
                                             </p>
                                             <div className="flex items-center gap-3">
                                                 <Button
@@ -1796,7 +1796,7 @@ function ProjectSettingsContent({
 
                                         <div className="grid gap-3">
                                             {([
-                                                ["externalImages", "External images", "Allow embedding externally hosted images in documentation. Keep this disabled for private or sensitive projects to prevent tracking pixels and referrer leaks."],
+                                                ["externalImages", "External images", "Allow embedding externally hosted images in documentation. Keep this disabled for private or sensitive workspaces to prevent tracking pixels and referrer leaks."],
                                             ] as const).map(([key, title, description]) => (
                                                 <div
                                                     key={key}
@@ -1838,7 +1838,7 @@ function ProjectSettingsContent({
                             {/* Org chat rules sit with Updates (report §25.4: Settings → Updates & messages). */}
                             {organization ? <OrgChatSection orgId={projectId} organization={organization} /> : null}
                             <SettingsCard
-                                title="Project updates"
+                                title="Workspace updates"
                                 headingLevel={2}
                                 description="Choose who can post updates."
                             >
@@ -1890,7 +1890,7 @@ function ProjectSettingsContent({
                 )}
                 {sections.some((s) => s.id === "tasks-workflow") && (
                     <section id="project-settings-tasks-workflow" data-project-settings-section className="space-y-8">
-                        <SettingsPageHeader level={2} title="Stages and workflow" description="Manage task completion and your project’s lifecycle stages." />
+                        <SettingsPageHeader level={2} title="Stages and workflow" description="Manage task completion and your workspace’s lifecycle stages." />
                         <TaskCompletionSettings projectId={projectId} />
                         <div className="space-y-6">
                             <LifecycleSettingsEditor
@@ -1991,10 +1991,10 @@ function ProjectSettingsContent({
                     <section id="project-settings-notifications" data-project-settings-section className="space-y-6">
                         <div className="space-y-6">
                             <SettingsCard
-                                title="Project notification policy"
+                                title="Workspace notification policy"
                                 headingLevel={2}
                                 loadState={{ loading: projectNotificationLoading, hasData: Boolean(projectNotificationData), error: settingsErrors.notifications ?? null, retry: () => void loadProjectNotificationSettings(true) }}
-                                description="Configure workflow event triggers and delivery rules for your project. Critical responsibility and safety events stay locked on."
+                                description="Configure workflow event triggers and delivery rules for your workspace. Critical responsibility and safety events stay locked on."
                                 footer={
                                     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 w-full">
                                         <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
@@ -2080,7 +2080,7 @@ function ProjectSettingsContent({
                 )}
                 {sections.some((s) => s.id === "privacy-policies" || s.id === "privacy-terms") && (
                     <section id="project-settings-privacy-policies" data-project-settings-section className="space-y-6">
-                        <SettingsPageHeader level={2} title="Privacy" description="These agreements and data rights apply to your signed-in account, not everyone on this project." />
+                        <SettingsPageHeader level={2} title="Privacy" description="These agreements and data rights apply to your signed-in account, not everyone in this workspace." />
                         <LegalAndDataRightsSection />
                     </section>
                 )}
@@ -2090,7 +2090,7 @@ function ProjectSettingsContent({
                             title="Workspace management"
                                 headingLevel={2}
                                 loadState={{ loading: dangerPreflightLoading, hasData: Boolean(dangerPreflight), error: settingsErrors.danger ?? null, retry: () => void loadDangerPreflight(true) }}
-                            description="Irreversible and sensitive project operations. Archive to preserve read-only history, transfer ownership to a team member, or permanently delete."
+                            description="Irreversible and sensitive workspace operations. Archive to preserve read-only history, transfer ownership to a team member, or permanently delete."
                             danger
                         footer={
                             <>
@@ -2128,7 +2128,7 @@ function ProjectSettingsContent({
                                 <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                                     <div className="min-w-0 flex-1 space-y-1.5">
                                         <div className="flex flex-wrap items-center gap-2">
-                                            <span className="nb-ui-label text-sm font-semibold text-foreground">Archive this project</span>
+                                            <span className="nb-ui-label text-sm font-semibold text-foreground">Archive this workspace</span>
                                             <span className="inline-flex h-5 items-center rounded-[3px] border border-border bg-muted/60 px-[7px] font-mono text-[11px] font-medium uppercase tracking-[0.09em] leading-none text-muted-foreground">
                                                 {preflightPolicy.status === "archived" ? "ARCHIVED" : "ACTIVE"}
                                             </span>
@@ -2138,8 +2138,8 @@ function ProjectSettingsContent({
                                         </div>
                                         <p className="nb-compact text-[13px] leading-[1.5] text-muted-foreground max-w-[64ch]">
                                             {preflightPolicy.status === "archived"
-                                                ? "This project is currently archived and in read-only mode. Existing members retain historical access to all records."
-                                                : "Mark this project as read-only. Existing members keep historical access, but tasks, intake, and publishing are paused."}
+                                                ? "This workspace is currently archived and in read-only mode. Existing members retain historical access to all records."
+                                                : "Mark this workspace as read-only. Existing members keep historical access, but tasks, intake, and publishing are paused."}
                                         </p>
                                         {dangerPreflight && preflightPolicy.status !== "archived" && (preflightPolicy.activeTasksCount > 0 || preflightPolicy.openRolesCount > 0) ? (
                                             <p className="nb-meta text-[11px] text-muted-foreground/80">
@@ -2155,7 +2155,7 @@ function ProjectSettingsContent({
                                             className="nb-touch-target h-[34px] gap-2 rounded-[5px] border-border px-3.5 text-[13px] font-medium"
                                         >
                                             <Archive className="h-4 w-4" />
-                                            {preflightPolicy.status === "archived" ? "Archived" : "Archive project"}
+                                            {preflightPolicy.status === "archived" ? "Archived" : "Archive workspace"}
                                         </Button>
                                     </div>
                                 </div>
@@ -2175,7 +2175,7 @@ function ProjectSettingsContent({
                                             </span>
                                         </div>
                                         <p className="nb-compact text-[13px] leading-[1.5] text-muted-foreground max-w-[64ch]">
-                                            Transfer primary ownership and administrative authority of this project to an existing team member. You will become an administrator and surrender destructive management privileges.
+                                            Transfer primary ownership and administrative authority of this workspace to an existing team member. You will become an administrator and surrender destructive management privileges.
                                         </p>
                                     </div>
 
@@ -2240,7 +2240,7 @@ function ProjectSettingsContent({
                                         </p>
                                     ) : rolePolicy.transferCandidates.length === 0 ? (
                                         <p className="nb-compact text-xs text-amber-700 dark:text-amber-400">
-                                            Add at least one team member to this project before ownership can be transferred.
+                                            Add at least one team member to this workspace before ownership can be transferred.
                                         </p>
                                     ) : null}
                                 </div>
@@ -2251,7 +2251,7 @@ function ProjectSettingsContent({
                                 <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                                     <div className="min-w-0 flex-1 space-y-1.5">
                                         <div className="flex flex-wrap items-center gap-2">
-                                            <span className="nb-ui-label text-sm font-semibold text-destructive">Delete this project</span>
+                                            <span className="nb-ui-label text-sm font-semibold text-destructive">Delete this workspace</span>
                                             <span className="inline-flex h-5 items-center rounded-[3px] border border-destructive/20 bg-destructive/10 px-[7px] font-mono text-[11px] font-medium uppercase tracking-[0.09em] leading-none text-destructive">
                                                 PERMANENT
                                             </span>
@@ -2260,7 +2260,7 @@ function ProjectSettingsContent({
                                             </span>
                                         </div>
                                         <p className="nb-compact text-[13px] leading-[1.5] text-muted-foreground max-w-[64ch]">
-                                            Permanently delete this project and all associated workspaces, tasks, documents, and discussions. Once deleted, this action cannot be recovered.
+                                            Permanently delete this workspace and all associated workspaces, tasks, documents, and discussions. Once deleted, this action cannot be recovered.
                                         </p>
                                         {dangerPreflight && preflightPolicy.affectedAreas.length > 0 ? (
                                             <p className="nb-meta text-[11px] text-destructive/80">
@@ -2281,7 +2281,7 @@ function ProjectSettingsContent({
                                             className="nb-touch-target h-[34px] gap-2 rounded-[5px] px-3.5 text-[13px] font-medium"
                                         >
                                             <Trash2 className="h-4 w-4" />
-                                            Delete project
+                                            Delete workspace
                                         </Button>
                                     </div>
                                 </div>

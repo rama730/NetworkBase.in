@@ -76,7 +76,7 @@ test.describe("mobile 375px", () => {
     await page.goto("/discover");
     await page.getByRole("button", { name: "Open mobile menu" }).click();
     const drawer = page.locator("#mobile-menu");
-    await expect(drawer.getByRole("button", { name: "New project" })).toBeVisible();
+    await expect(drawer.getByRole("button", { name: "New workspace" })).toBeVisible();
     const labels = await drawer.locator(".nb-nav-link").allInnerTexts();
     const names = labels.map((label) => label.replace(/\s+\d+\+?$/, "").trim());
     const order = ["Discover", "Network", "Messages", "My profile", "My work"].map((name) => names.findIndex((n) => n.startsWith(name)));

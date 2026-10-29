@@ -198,10 +198,10 @@ export function UpdateContextAndMedia({
             key={`${item.url}-${index}`}
             item={item}
             src={item.url}
-            alt={item.altText || item.label || "Project update image"}
+            alt={item.altText || item.label || "Workspace update image"}
             className={compact ? "max-h-[220px] w-full object-cover" : undefined}
             onOpen={item.type === "image" ? () => setViewerMedia(item) : undefined}
-            openLabel={`Open ${item.label || item.altText || "project update media"}`}
+            openLabel={`Open ${item.label || item.altText || "workspace update media"}`}
           />
         ) : (
           <a

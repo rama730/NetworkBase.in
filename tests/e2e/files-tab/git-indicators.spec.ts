@@ -112,7 +112,7 @@ test.describe("Files tab v3 — git change indicators (Task 12.10)", () => {
             result: "not_applicable",
             justification:
               `No git change badges in folder list of project "${PROJECT_SLUG}". ` +
-              `Either the project is not git-linked, or the fixture has no uncommitted changes. ` +
+              `Either the workspace is not git-linked, or the fixture has no uncommitted changes. ` +
               `Set E2E_GIT_FIXTURE_PROJECT_SLUG to a git-linked fixture with M/A/D changes ` +
               `to exercise the full pass path.`,
           };

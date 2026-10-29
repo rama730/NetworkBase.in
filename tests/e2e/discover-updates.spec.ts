@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 import { hasE2ECredentials, login } from './_helpers/auth';
 import { attachPageMonitoring } from './_helpers/monitoring';
 
-// Needs a signed-in fixture user and at least one public project update to show in the feed.
+// Needs a signed-in fixture user and at least one public workspace update to show in the feed.
 test.describe('Discover update cards', () => {
     test.skip(!hasE2ECredentials, 'E2E_USER_EMAIL and E2E_USER_PASSWORD are required.');
 

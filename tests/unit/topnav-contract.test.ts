@@ -243,7 +243,7 @@ test("top-nav keeps one accessible, route-aligned implementation", () => {
   assert.doesNotMatch(networkPeople, /type="search"|Search your connections/);
   assert.match(taskAction, /project-task-search/);
   assert.match(taskAction, /ilike\(t\.title, searchPattern\)/);
-  assert.match(commandPalette, /Skills in these projects/);
+  assert.match(commandPalette, /Skills in these workspaces/);
   assert.match(commandPalette, /<SkillIcon skill=\{resolveClientSkill\(result\.title\)\}/);
   assert.match(commandPalette, /<AppScrollArea axis="x" variant="hidden"/);
   assert.match(commandPalette, /shrink-0 items-center/);

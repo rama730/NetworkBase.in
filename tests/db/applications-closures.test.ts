@@ -96,7 +96,7 @@ test("a pending invitation blocks applying; joining another way closes the pendi
     const { db } = await loadAppModule(() => import("../../src/lib/db"));
     await db.transaction((tx: never) => addProjectMemberInternal(tx, { projectId, userId: one, actorId: owner, source: "project_invite" }));
     assert.equal((await state(a1)).status, "accepted");
-    assert.ok((await lines(a1)).some((line) => /joined the project/.test(line)));
+    assert.ok((await lines(a1)).some((line) => /joined the workspace/.test(line)));
   });
 });
 
@@ -124,7 +124,7 @@ test("reopen refuses a closed role; a second reviewer is told who already decide
     assert.match(String(row!.decision_reason_text), /availability|schedule/i);
     assert.match(String(row!.decision_reason_text), /not this time/, "the note adds to the reason");
 
-    // An admin cannot accept someone who blocked the project's lead.
+    // An admin cannot accept someone who blocked the workspace's lead.
     await sql`UPDATE project_open_roles SET filled = 0 WHERE id = ${roleA}`;
     await sql`UPDATE role_applications SET status = 'pending', decision_at = NULL, decision_by = NULL, decision_reason_code = NULL, decision_reason_text = NULL WHERE id = ${a1}`;
     await sql`INSERT INTO connections (requester_id, addressee_id, status, blocked_by, blocked_at) VALUES (${one}, ${owner}, 'blocked', ${one}, now())`;

@@ -112,7 +112,7 @@ function formatFileSize(bytes: number | null | undefined) {
 }
 
 function defaultAltText(file: File) {
-    return file.name.replace(/\.[^.]+$/, "").replace(/[-_]+/g, " ").trim() || "Project update image";
+    return file.name.replace(/\.[^.]+$/, "").replace(/[-_]+/g, " ").trim() || "Workspace update image";
 }
 
 function newUploadId() {
@@ -733,10 +733,10 @@ export function ProjectUpdateComposer({
                         {activePanel === "link"
                             ? "Add one supporting reference to this update."
                             : activePanel === "task"
-                            ? "Connect this post to active project work."
+                            ? "Connect this post to active workspace work."
                             : activePanel === "sprint"
-                            ? "Connect this post to active project work."
-                            : "Connect this post to active project work."}
+                            ? "Connect this post to active workspace work."
+                            : "Connect this post to active workspace work."}
                     </p>
                 </div>
                 <button type="button" onClick={() => setActivePanel(null)} className="nb-touch-target size-7 rounded-[5px] flex items-center justify-center text-muted-foreground hover:bg-muted hover:text-foreground transition-colors" aria-label="Close composer panel">
@@ -752,7 +752,7 @@ export function ProjectUpdateComposer({
                     placeholder={`Find ${activeContextKind}`}
                     options={activeContextOptions}
                     loading={contextOptionsQuery.isLoading}
-                    error={contextOptionsQuery.isError ? "Couldn’t load project context." : null}
+                    error={contextOptionsQuery.isError ? "Couldn’t load workspace context." : null}
                     onRetry={() => { void contextOptionsQuery.refetch(); }}
                     onSelect={selectContext}
                     onClose={() => setActivePanel(null)}
@@ -912,7 +912,7 @@ export function ProjectUpdateComposer({
                             "block truncate text-[13px]",
                             draftPreview ? "text-foreground font-medium" : "text-muted-foreground",
                         )}>
-                            {draftPreview || `Share a project update for ${projectName}…`}
+                            {draftPreview || `Share a workspace update for ${projectName}…`}
                         </span>
                         {draftPreview ? (
                             <span className="mt-1 inline-block font-mono text-[10px] max-md:text-[11px] font-semibold uppercase tracking-[0.09em] text-primary">Draft saved</span>
@@ -927,13 +927,13 @@ export function ProjectUpdateComposer({
                                 className="inline-flex items-center gap-1.5 rounded-[3px] border border-border bg-muted/40 px-2.5 py-1 font-mono text-[11px] font-medium uppercase tracking-[0.09em] text-foreground transition hover:border-foreground/30 hover:bg-muted"
                             >
                                 {visibility === "public" ? <Globe2 className="h-3.5 w-3.5 text-muted-foreground" /> : <Users className="h-3.5 w-3.5 text-muted-foreground" />}
-                                {visibility === "public" ? "Public" : "Project members"}
+                                {visibility === "public" ? "Public" : "Workspace members"}
                             </button>
                         </div>
                         <div className="rounded-[8px] border border-border bg-card p-3 transition focus-within:border-foreground/30">
                             <ProjectUpdateRichTextEditor
                                 content={content}
-                                placeholder={`Share a project update for ${projectName}…`}
+                                placeholder={`Share a workspace update for ${projectName}…`}
                                 onChange={setContent}
                                 onCommand={openPanel}
                                 onMention={() => openPanel("task")}
@@ -978,7 +978,7 @@ export function ProjectUpdateComposer({
                                 key={`${item.url}-${index}`}
                                 item={item}
                                 src={item.url}
-                                alt={item.altText || item.label || "Project update image"}
+                                alt={item.altText || item.label || "Workspace update image"}
                                 actions={(
                                     <button type="button" className="absolute right-2 top-2 size-6 rounded-[3px] flex items-center justify-center bg-foreground/80 p-1 text-background hover:bg-foreground transition-colors" onClick={() => removeMedia(index)} aria-label="Remove image">
                                         <X className="h-3.5 w-3.5" />
@@ -1094,7 +1094,7 @@ export function ProjectUpdateComposer({
                 initialAttachments={[]}
                 onConfirm={(nodes) => {
                     nodes.forEach((node) => {
-                        const normalizedLabel = normalizeReadmeReferenceLabel("files", node.name || "Project file");
+                        const normalizedLabel = normalizeReadmeReferenceLabel("files", node.name || "Workspace file");
                         const escapedLabel = normalizedLabel.replace(/\\/g, "\\\\").replace(/"/g, "&quot;").replace(/\s+/g, " ").trim();
                         const refText = `{% ref.files id="${node.id}" label="${escapedLabel}" %}`;
                         if (editorRef.current) {

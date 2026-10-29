@@ -158,7 +158,7 @@ export function NetworkFilters({
                 <SelectItem value="all">All requests</SelectItem>
                 <SelectItem value="connections">Connection requests</SelectItem>
                 <SelectItem value="projects">
-                  Project invitations and applications
+                  Workspace invitations and applications
                 </SelectItem>
                 <SelectItem value="decided">Reviewed applications</SelectItem>
               </SelectContent>

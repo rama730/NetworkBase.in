@@ -10,7 +10,7 @@ test.describe('context-aware global search', () => {
 
     test('routes Hub and Connections searches through their canonical query state', async ({ page }) => {
         await page.goto('/discover');
-        await page.getByRole('button', { name: 'Search projects' }).click();
+        await page.getByRole('button', { name: 'Search workspaces' }).click();
         await expect(page.getByText('Start typing to preview matching projects.')).toBeVisible();
         const hubSearch = page.getByRole('searchbox', { name: /search hub \/ projects/i });
         await expect(page.getByRole('button', { name: 'Close search' })).toHaveText('Esc');
@@ -25,7 +25,7 @@ test.describe('context-aware global search', () => {
         await expect(page).toHaveURL(/\/hub\?(?:.*&)?q=design(?:\+|%20)systems(?:&|$)/);
         await page.getByRole('button', { name: 'Clear search' }).click();
         await expect(page).toHaveURL(/\/hub$/);
-        await page.getByRole('button', { name: 'Search projects' }).click();
+        await page.getByRole('button', { name: 'Search workspaces' }).click();
         const recentSearch = page.getByRole('button', { name: 'Use recent search design systems' });
         await expect(recentSearch).toBeVisible();
         await recentSearch.hover();

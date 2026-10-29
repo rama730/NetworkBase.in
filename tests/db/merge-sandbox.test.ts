@@ -5,7 +5,7 @@ import { after, before, test } from "node:test";
 import { closeAppDb, createProject, createUser, loadAppModule, sql, type Tx } from "./_helpers";
 
 // mergeSandboxTask runs its own transaction, so fixtures are committed and
-// removed by deleting the projects afterwards.
+// removed by deleting the workspaces afterwards.
 let merge: typeof import("../../src/lib/projects/merge-sandbox").mergeSandboxTask;
 const createdProjects: string[] = [];
 before(async () => {

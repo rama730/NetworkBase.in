@@ -100,7 +100,7 @@ test("LifecycleEditor adheres to NetworkBase drafting-table design tokens, canon
     );
     assert.match(
         editorSource,
-        /<h5 className="nb-ui-label font-semibold text-foreground">Project journey stages<\/h5>/,
+        /<h5 className="nb-ui-label font-semibold text-foreground">Workspace journey stages<\/h5>/,
         "Stages list must have canonical nb-ui-label section header",
     );
     assert.match(

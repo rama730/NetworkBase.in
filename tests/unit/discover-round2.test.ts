@@ -16,7 +16,7 @@ test("round 2: shared type and control classes sit in the components layer (util
   assert.match(css, /\.nb-icon-button\[aria-pressed="true"\]/);
 });
 
-test("round 2: the projects route never fails open and varies on the session", () => {
+test("round 2: the workspaces route never fails open and varies on the session", () => {
   const route = read("src/app/api/v1/projects/route.ts");
   assert.match(route, /return unavailable\('AUTH_UNAVAILABLE', error\)/);
   assert.doesNotMatch(route, /getViewerAuthContext\(\)\.catch\(\(\) => null\)/);

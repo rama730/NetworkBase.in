@@ -120,11 +120,11 @@ test("Presence dot enhancements: fine-grained recency, in-tab BroadcastChannel s
     assert.match(presenceBadgeSource, /className="nb-presence-badge"/);
 });
 
-test("Projects without a profile picture render standalone presence dot beside the project title and keep Line 3 cleanly separated", () => {
+test("Projects without a profile picture render standalone presence dot beside the workspace title and keep Line 3 cleanly separated", () => {
     const layoutSource = readFileSync(resolve(ROOT, "src/components/projects/dashboard/ProjectLayout.tsx"), "utf-8");
 
     assert.match(layoutSource, /const hasProjectAvatar = Boolean\(getProjectAvatarUrl\(project\)\);/);
-    // Presence dot is placed beside the project title
+    // Presence dot is placed beside the workspace title
     assert.match(layoutSource, /<h1 className="nb-page-title[^"]*">\s*\{project\?\.title\}\s*<\/h1>\s*<ProjectPresenceDot/);
     
     // Line 3 (projectIdentityMetadata) does NOT have a presence dot
@@ -133,7 +133,7 @@ test("Projects without a profile picture render standalone presence dot beside t
     assert.match(metadataBlock, /<ProjectTeamAvatars/);
 });
 
-test("Header architecture: Created by and Guided by are completely removed, team avatars and project links are separated by divider line", () => {
+test("Header architecture: Created by and Guided by are completely removed, team avatars and workspace links are separated by divider line", () => {
     const layoutSource = readFileSync(resolve(ROOT, "src/components/projects/dashboard/ProjectLayout.tsx"), "utf-8");
 
     // 1. Verify "Created by" and "Guided by" are completely removed
@@ -143,7 +143,7 @@ test("Header architecture: Created by and Guided by are completely removed, team
     assert.doesNotMatch(layoutSource, /guidanceName/);
     assert.doesNotMatch(layoutSource, /guidanceHref/);
 
-    // 2. Verify divider line between team avatars and project links on Line 3
+    // 2. Verify divider line between team avatars and workspace links on Line 3
     assert.match(layoutSource, /<ProjectTeamAvatars[\s\S]*?<div className="mx-(?:0\.5|1) h-4 w-px bg-border(?: shrink-0)?" aria-hidden="true" \/>[\s\S]*?<ProjectLinkCluster/);
 
     // 3. Verify clean right actions column

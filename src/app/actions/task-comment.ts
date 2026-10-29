@@ -127,10 +127,10 @@ async function assertTaskAccess(params: {
     throw new Error("Task not found");
   }
   if (row.projectId !== params.projectId) {
-    throw new Error("Task does not belong to this project");
+    throw new Error("Task does not belong to this workspace");
   }
   if (row.deletedAt) {
-    throw new Error("Project not found");
+    throw new Error("Workspace not found");
   }
 
   const isOwner = row.ownerId === params.userId;
@@ -139,7 +139,7 @@ async function assertTaskAccess(params: {
       throw new Error("You don’t have access to this");
     }
     if (params.mode === "write" && row.role.toLowerCase() === "viewer") {
-      throw new Error("You do not have permission to perform this project action");
+      throw new Error("You do not have permission to perform this workspace action");
     }
   }
 
@@ -190,10 +190,10 @@ async function assertCommentAccess(params: {
     throw new Error("Comment not found");
   }
   if (row.projectId !== params.projectId) {
-    throw new Error("Comment does not belong to this project");
+    throw new Error("Comment does not belong to this workspace");
   }
   if (row.projectDeletedAt) {
-    throw new Error("Project not found");
+    throw new Error("Workspace not found");
   }
 
   const isOwner = row.ownerId === params.userId;
@@ -202,7 +202,7 @@ async function assertCommentAccess(params: {
       throw new Error("You don’t have access to this");
     }
     if (params.mode === "write" && row.role.toLowerCase() === "viewer") {
-      throw new Error("You do not have permission to perform this project action");
+      throw new Error("You do not have permission to perform this workspace action");
     }
   }
 

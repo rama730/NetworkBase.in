@@ -29,7 +29,7 @@ describe("project upload publication", () => {
         "33333333-3333-4333-8333-333333333333/file.txt",
         "text/plain",
       ),
-      /project does not match/i,
+      /workspace does not match/i,
     );
   });
 

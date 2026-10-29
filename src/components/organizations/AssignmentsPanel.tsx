@@ -88,9 +88,9 @@ function SubmitDialog({ copyId, submissionType, title, open, onOpenChange, onDon
                 </DialogHeader>
                 {submissionType === 'link' ? <Input value={link} onChange={(e) => setLink(e.target.value)} placeholder="https://" aria-label="Link to your work" /> : null}
                 {submissionType === 'link' && projectDocs.length > 0 ? (
-                    <select defaultValue="" aria-label="Or pick a project doc" className="h-9 rounded-md border border-border bg-background px-2 text-sm"
+                    <select defaultValue="" aria-label="Or pick a workspace doc" className="h-9 rounded-md border border-border bg-background px-2 text-sm"
                         onChange={(e) => { if (e.target.value) setLink(`${window.location.origin}/projects/${encodeURIComponent(docsProjectId!)}?tab=docs&doc=${encodeURIComponent(e.target.value)}`) }}>
-                        <option value="">Or pick a project doc…</option>
+                        <option value="">Or pick a workspace doc…</option>
                         {projectDocs.map((doc) => <option key={doc.slug} value={doc.slug}>{doc.filename}</option>)}
                     </select>
                 ) : null}
@@ -204,7 +204,7 @@ function AssignmentComposer({ orgId, open, onOpenChange, onCreated }: { orgId: s
             <DialogContent className="max-h-[90dvh] max-w-2xl overflow-y-auto">
                 <DialogHeader>
                     <DialogTitle>New assignment</DialogTitle>
-                    <DialogDescription>Each person (or team, or project) gets their own copy to hand in.</DialogDescription>
+                    <DialogDescription>Each person (or team, or workspace) gets their own copy to hand in.</DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4">
                     <label className="block text-sm font-medium">Title<Input value={title} onChange={(e) => setTitle(e.target.value)} maxLength={200} className="mt-1" placeholder="Lab 1" /></label>
@@ -226,8 +226,8 @@ function AssignmentComposer({ orgId, open, onOpenChange, onCreated }: { orgId: s
                             <option value="role">Admins</option>
                             <option value="people">Selected people</option>
                             <option value="teams">Teams</option>
-                            <option value="each_child">Each project in the organization</option>
-                            <option value="children">Selected projects</option>
+                            <option value="each_child">Each workspace in the organization</option>
+                            <option value="children">Selected workspaces</option>
                         </select>
                         {mode === 'people' || mode === 'teams' ? (
                             <ul className="max-h-48 divide-y divide-border overflow-y-auto rounded-md border border-border" aria-label="People">
@@ -285,7 +285,7 @@ function AssignmentComposer({ orgId, open, onOpenChange, onCreated }: { orgId: s
                             </div>
                         ) : null}
                         {mode === 'children' ? (
-                            <ul className="max-h-40 overflow-y-auto rounded-md border border-border" aria-label="Projects">
+                            <ul className="max-h-40 overflow-y-auto rounded-md border border-border" aria-label="Workspaces">
                                 {options.children.map((c) => (
                                     <li key={c.id}><label className="flex items-center gap-2 px-3 py-1.5 text-sm">
                                         <input type="checkbox" checked={childIds.includes(c.id)} onChange={(e) => setChildIds((cur) => e.target.checked ? [...cur, c.id] : cur.filter((id) => id !== c.id))} />{c.title}
@@ -469,7 +469,7 @@ export function AssignmentsPanel({ orgId, onBoardChanged, startComposing = false
                 ) : null}
             </div>
             {reviewing ? <ReviewQueue orgId={orgId} onChanged={refresh} /> : null}
-            {rows.length === 0 ? <p className="mt-2 text-sm text-muted-foreground">No assignments yet. Give everyone (or teams, or each project) their own copy to hand in.</p> : null}
+            {rows.length === 0 ? <p className="mt-2 text-sm text-muted-foreground">No assignments yet. Give everyone (or teams, or each workspace) their own copy to hand in.</p> : null}
             <ul className="mt-3 divide-y divide-border">
                 {rows.map((row) => (
                     <li key={row.masterId} className="flex flex-wrap items-center gap-x-3 gap-y-1 py-2 text-sm">
@@ -524,7 +524,7 @@ export function GroupCopiesPanel({ projectId, onBoardChanged }: { projectId: str
                         <span className="text-muted-foreground">{due(row.dueDate)} · Reviewed by {row.orgTitle}</span>
                         <Status text={STATE_LABEL[row.state] + (row.late ? ' · Late' : '')} tone={row.state === 'done' ? 'completed' : 'draft'} />
                         {row.canSubmit && ['not_started', 'in_progress', 'returned', 'missing', 'submitted'].includes(row.state) ? (
-                            <Button type="button" size="sm" variant="outline" className="ml-auto" onClick={() => setSubmitting(row)}>{row.state === 'submitted' ? 'Resubmit' : 'Submit for the project'}</Button>
+                            <Button type="button" size="sm" variant="outline" className="ml-auto" onClick={() => setSubmitting(row)}>{row.state === 'submitted' ? 'Resubmit' : 'Submit for the workspace'}</Button>
                         ) : null}
                     </li>
                 ))}

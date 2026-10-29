@@ -214,7 +214,7 @@ const NEW_ITEMS: Array<{ kind: OrgNewKind; label: string; icon: typeof Plus }> =
     { kind: 'assignment', label: 'Assignment', icon: ListTodo },
     { kind: 'announcement', label: 'Announcement', icon: Megaphone },
     { kind: 'sprint', label: 'Sprint', icon: IterationCcw },
-    { kind: 'project', label: 'Project', icon: FolderKanban },
+    { kind: 'project', label: 'Workspace', icon: FolderKanban },
 ]
 
 /** The New items, for the header menu and the mobile ⋯ menu (report §18.2, §18.7). */

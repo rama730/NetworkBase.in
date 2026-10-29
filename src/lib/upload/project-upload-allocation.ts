@@ -9,7 +9,7 @@ export function allocateProjectObjectKey(
 ): string {
   const parsed = parseProjectFileKey(requestedKey);
   if (!parsed || parsed.projectId !== projectId) {
-    throw new Error("Upload request project does not match the allocation scope");
+    throw new Error("Upload request workspace does not match the allocation scope");
   }
   const requestedExtension = parsed.relativePath.split(".").pop()?.toLowerCase() || "";
   const mimeExtension = contentType.split("/")[1]?.split("+")[0]?.toLowerCase() || "";

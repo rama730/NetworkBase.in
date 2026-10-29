@@ -126,7 +126,7 @@ function buildTree(inits: NodeInit[]): Record<string, ProjectNode> {
 /**
  * Build a linear folder chain of the requested depth starting under the
  * project root. Returns `(nodesById, leafId)` so tests can resolve the
- * leaf via `ancestorChain`. Segment 0 is the project-root-level folder
+ * leaf via `ancestorChain`. Segment 0 is the workspace-root-level folder
  * `f0`, segment 1 is `f1` nested inside, etc.
  */
 function buildLinearFolders(depth: number): {

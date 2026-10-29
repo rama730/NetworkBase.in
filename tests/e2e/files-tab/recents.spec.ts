@@ -235,7 +235,7 @@ async function openFileRow(page: Page, nodeId: string): Promise<void> {
         .toBe(true);
 }
 
-/** Navigates back to the project root so the next file click is cheap. */
+/** Navigates back to the workspace root so the next file click is cheap. */
 async function navigateToFolderRoot(page: Page): Promise<void> {
     // Click the breadcrumb root segment. `BreadcrumbBar` renders the
     // root as a `<button>` with `data-breadcrumb-segment-id` matching

@@ -54,7 +54,7 @@ export function CanvasTemplateModal({
     }
   };
 
-  const groups = (["Team", "Meetings", "Projects", "Operations"] as const)
+  const groups = (["Team", "Meetings", "Planning", "Operations"] as const)
     .map((category) => ({ category, items: filteredTemplates.filter((t) => t.category === category) }))
     .filter((group) => group.items.length);
 

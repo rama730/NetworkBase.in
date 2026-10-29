@@ -169,11 +169,11 @@ export function LifecycleEditor({ stages, onChange: emitChange, currentStageInde
             <div className={cn("space-y-3", !disabled && "pt-6")}>
                 <div className="flex items-center justify-between">
                     <div>
-                        <h5 className="nb-ui-label font-semibold text-foreground">Project journey stages</h5>
+                        <h5 className="nb-ui-label font-semibold text-foreground">Workspace journey stages</h5>
                         <p className="nb-compact text-muted-foreground mt-0.5">
                             {disabled
-                                ? "Milestone journey stages configured for this project."
-                                : "Drag stages using the grip handle to reorder the project roadmap timeline."}
+                                ? "Milestone journey stages configured for this workspace."
+                                : "Drag stages using the grip handle to reorder the workspace roadmap timeline."}
                         </p>
                     </div>
                     <span className="inline-flex items-center h-5 px-[7px] rounded-[3px] border border-border bg-muted/40 font-mono text-[11px] leading-none text-muted-foreground">

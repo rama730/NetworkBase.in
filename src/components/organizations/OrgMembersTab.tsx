@@ -79,8 +79,8 @@ export function OrgMembersTab({ orgId, roleNames }: { orgId: string; roleNames?:
                     <select aria-label="Role" className={select} value={filter.role ?? 'all'} onChange={(e) => setFilter({ ...filter, role: e.target.value as RosterFilter['role'] })}>
                         <option value="all">All roles</option><option value="admins">Admins</option><option value="members">Members</option><option value="guests">Viewers</option>
                     </select>
-                    <select aria-label="Project" className={select} value={filter.project ?? 'all'} onChange={(e) => setFilter({ ...filter, project: e.target.value })}>
-                        <option value="all">All projects</option><option value="none">Not in a project</option>
+                    <select aria-label="Workspace" className={select} value={filter.project ?? 'all'} onChange={(e) => setFilter({ ...filter, project: e.target.value })}>
+                        <option value="all">All workspaces</option><option value="none">Not in a workspace</option>
                         {data.children.map((c) => <option key={c.id} value={c.id}>{c.title}</option>)}
                     </select>
                     <select aria-label="Status" className={select} value={filter.invited ? 'invited' : filter.outside ? 'outside' : filter.status ?? 'all'}
@@ -143,7 +143,7 @@ export function OrgMembersTab({ orgId, roleNames }: { orgId: string; roleNames?:
                                         {r.title ? <span className="text-muted-foreground">· {r.title}</span> : null}
                                     </span>
                                     <span className="mt-0.5 block truncate text-[12px] text-muted-foreground">
-                                        {r.projects.length ? r.projects.map((p) => (p.unit ? `${p.title} · ${p.unit}` : p.title)).join(', ') : '— not in a project'}
+                                        {r.projects.length ? r.projects.map((p) => (p.unit ? `${p.title} · ${p.unit}` : p.title)).join(', ') : '— not in a workspace'}
                                     </span>
                                     <span className={cn('mt-0.5 block text-[12px] sm:hidden', r.behind ? 'text-destructive' : 'text-muted-foreground')}>{workLine(r.work)} · active {ago(r.lastActiveAt)}</span>
                                 </button>
@@ -162,7 +162,7 @@ export function OrgMembersTab({ orgId, roleNames }: { orgId: string; roleNames?:
                     <button type="button" className="block hover:underline" onClick={() => setFilter({ sort: 'name' })}>{s.members} members</button>
                     <button type="button" className="block hover:underline" onClick={() => setFilter({ role: 'admins' })}>{s.admins} owners and admins · {s.guests} guests</button>
                     <button type="button" className="block hover:underline" onClick={() => setFilter({ status: 'behind', sort: 'behind' })}>{s.behind} behind</button>
-                    <button type="button" className="block hover:underline" onClick={() => setFilter({ project: 'none' })}>{s.notInProject} not in a project</button>
+                    <button type="button" className="block hover:underline" onClick={() => setFilter({ project: 'none' })}>{s.notInProject} not in a workspace</button>
                     <button type="button" className="block hover:underline" onClick={() => setFilter({ status: 'inactive' })}>{s.inactive} inactive for 14 days</button>
                 </section>
             </aside>
@@ -197,7 +197,7 @@ function BulkBar({ orgId, data, label, ids, pending, run, onClear }: { orgId: st
                 {data.viewerRole === 'owner' ? <option value="admin">Admin</option> : null}
             </select>
             <select aria-label="Workspace" className={select} value={childId} onChange={(e) => { setChildId(e.target.value); setUnitId('') }}>
-                <option value="">Add to project…</option>
+                <option value="">Add to workspace…</option>
                 {data.children.map((c) => <option key={c.id} value={c.id}>{c.title}</option>)}
             </select>
             {childId ? (
@@ -206,14 +206,14 @@ function BulkBar({ orgId, data, label, ids, pending, run, onClear }: { orgId: st
                         <option value="">No unit</option>
                         {units.map((u) => <option key={u.id} value={u.id}>{u.title}</option>)}
                     </select>
-                    <Button type="button" size="sm" disabled={pending} onClick={() => run(() => addMembersToChildAction(orgId, childId, ids, unitId || null), 'Added to the project')}>Add</Button>
+                    <Button type="button" size="sm" disabled={pending} onClick={() => run(() => addMembersToChildAction(orgId, childId, ids, unitId || null), 'Added to the workspace')}>Add</Button>
                 </>
             ) : null}
             {/* End-of-term verification (report §20.6, §24.5): role and dates, never the story text. */}
             <Button type="button" size="sm" variant="outline" disabled={pending} onClick={() => run(() => verifyOrgContributionsAction(orgId, ids), 'Contributions verified')}>Verify contributions</Button>
             <label className="ml-auto flex items-center gap-1.5 text-[12px]"><input type="checkbox" checked={block} onChange={(e) => setBlock(e.target.checked)} /> Block from rejoining</label>
             <Button type="button" size="sm" variant="destructive" disabled={pending} onClick={() => {
-                if (window.confirm(`Remove ${ids.length} ${ids.length === 1 ? 'person' : 'people'}? They leave every project here; handed-in work stays.`)) run(() => removeMembersAction(orgId, ids, { block }), 'Removed')
+                if (window.confirm(`Remove ${ids.length} ${ids.length === 1 ? 'person' : 'people'}? They leave every workspace here; handed-in work stays.`)) run(() => removeMembersAction(orgId, ids, { block }), 'Removed')
             }}>Remove</Button>
             <Button type="button" size="sm" variant="ghost" onClick={onClear}>Clear</Button>
         </div>
@@ -283,7 +283,7 @@ function InviteBox({ orgId, data, label, pending, run, onCode }: { orgId: string
                 </div>
                 <div className="flex gap-1.5">
                     <select aria-label="Workspace" className={cn(select, 'flex-1')} value={childId} onChange={(e) => { setChildId(e.target.value); setUnitId('') }}>
-                        <option value="">No project</option>
+                        <option value="">No workspace</option>
                         {data.children.map((c) => <option key={c.id} value={c.id}>{c.title}</option>)}
                     </select>
                     {childId ? (
@@ -343,8 +343,8 @@ function MemberDrawer({ orgId, row, data, label, pending, run }: { orgId: string
                 </div>
             </section>
             <section className="space-y-1">
-                <h4 className="font-semibold">Projects and units</h4>
-                {row.projects.length === 0 ? <p className="text-muted-foreground">Not in a project.</p> : row.projects.map((p) => <p key={p.id}>{p.title}{p.unit ? ` · ${p.unit}` : ''}</p>)}
+                <h4 className="font-semibold">Workspaces and units</h4>
+                {row.projects.length === 0 ? <p className="text-muted-foreground">Not in a workspace.</p> : row.projects.map((p) => <p key={p.id}>{p.title}{p.unit ? ` · ${p.unit}` : ''}</p>)}
             </section>
             <section className="space-y-1.5">
                 <h4 className="font-semibold">Recent activity</h4>
@@ -372,7 +372,7 @@ function MemberDrawer({ orgId, row, data, label, pending, run }: { orgId: string
                             {data.viewerRole === 'owner' ? <option value="admin">{label('admin')}</option> : null}
                         </select>
                         <Button type="button" size="sm" variant="destructive" disabled={pending} onClick={() => {
-                            if (window.confirm(`Remove ${row.name}? They leave every project here; handed-in work stays.`)) run(() => removeMembersAction(orgId, [row.userId], { block: false }), 'Removed')
+                            if (window.confirm(`Remove ${row.name}? They leave every workspace here; handed-in work stays.`)) run(() => removeMembersAction(orgId, [row.userId], { block: false }), 'Removed')
                         }}>Remove</Button>
                     </div>
                 ) : null}

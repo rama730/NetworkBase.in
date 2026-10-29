@@ -41,7 +41,7 @@ test("an open project shows its channels (#general first); applications and DMs 
   const sections = sectionsFor(data, "p1");
   // Starred #design sits in Starred only (not repeated under Channels).
   assert.deepEqual(sections.channels.map((c) => c.id), ["general", "muted"]);
-  // Every application thread is in one section: the ones you review and the ones you sent, whatever project is open.
+  // Every application thread is in one section: the ones you review and the ones you sent, whatever workspace is open.
   assert.deepEqual(sections.applications.map((c) => c.id).sort(), ["app-mine", "app-review"]);
   assert.deepEqual(sections.dms.map((c) => c.id), ["dm", "self"]);
   assert.deepEqual(sections.starred.map((c) => c.id), ["design"]);

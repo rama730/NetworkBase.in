@@ -119,7 +119,7 @@ test('send picker starts with projects, isolates channels and retains notes acro
   await dialog.getByRole('radio').check();
   await expect(dialog.getByText('Send to Ponytail / #general',{exact:true})).toBeVisible();
   await dialog.getByRole('textbox',{name:'Note (optional)'}).fill('Keep this note while browsing');
-  await dialog.getByRole('button',{name:'All projects',exact:true}).click();
+  await dialog.getByRole('button',{name:'All workspaces',exact:true}).click();
   await dialog.getByRole('button',{name:/DeepScope AI/}).click();
   await expect(dialog.getByRole('radio')).toHaveCount(1);
   await expect(dialog.getByRole('radio')).not.toBeChecked();
@@ -257,10 +257,10 @@ test('ordinary external previews retain their existing loading and card behavior
 
 
 test('project share preview presents the approved team, statistics and open role caps without a missing-image box',async({page})=>{
-  await openMessages(page,{path:'/projects/ponytail',kind:'project'});const card=page.locator('.msg-first-party-preview');await expect(card.getByLabel('Project team')).toBeVisible();await expect(card.getByRole('img',{name:'Builder One · Lead / Product Engineer'})).toBeVisible();await expect(card.getByRole('img',{name:'2 more permitted team members'})).toBeVisible();await expect(card.getByLabel('12345 views')).toHaveCount(0);await expect(card.getByLabel('12,345 views',{exact:true})).toBeVisible();await expect(card.getByLabel('0 followers',{exact:true})).toBeVisible();await expect(card.getByLabel('Open role titles')).toContainText('Researcher');await expect(card.getByLabel('2 more open roles')).toBeVisible();await expect(card.getByText('By Builder One')).toHaveCount(0);expect(await card.locator('a button,a [tabindex]').count()).toBe(0);
+  await openMessages(page,{path:'/projects/ponytail',kind:'project'});const card=page.locator('.msg-first-party-preview');await expect(card.getByLabel('Workspace team')).toBeVisible();await expect(card.getByRole('img',{name:'Builder One · Lead / Product Engineer'})).toBeVisible();await expect(card.getByRole('img',{name:'2 more permitted team members'})).toBeVisible();await expect(card.getByLabel('12345 views')).toHaveCount(0);await expect(card.getByLabel('12,345 views',{exact:true})).toBeVisible();await expect(card.getByLabel('0 followers',{exact:true})).toBeVisible();await expect(card.getByLabel('Open role titles')).toContainText('Researcher');await expect(card.getByLabel('2 more open roles')).toBeVisible();await expect(card.getByText('By Builder One')).toHaveCount(0);expect(await card.locator('a button,a [tabindex]').count()).toBe(0);
   const owner=card.getByRole('img',{name:'Builder One · Lead / Product Engineer'});await owner.focus();await expect(page.getByRole('tooltip')).toContainText('Builder One');await expect(page.getByRole('tooltip')).toContainText('Lead / Product Engineer');await page.keyboard.press('Escape');
   const member=card.getByRole('img',{name:'Collaborator 1 · Designer · Member'});await member.focus();await expect(page.getByRole('tooltip').filter({hasText:'Collaborator 1'})).toContainText('Designer · Member');await page.keyboard.press('Escape');
-  for(const target of [owner,card.getByRole('img',{name:'2 more permitted team members'}),card.getByLabel('Project skills').locator('.nb-tag').first(),card.getByLabel('Open role titles').locator('.nb-tag').first(),card.getByLabel('2 more open roles')]) expect(await target.evaluate(el=>parseFloat(getComputedStyle(el).borderTopLeftRadius))).toBeLessThanOrEqual(5);
+  for(const target of [owner,card.getByRole('img',{name:'2 more permitted team members'}),card.getByLabel('Workspace skills').locator('.nb-tag').first(),card.getByLabel('Open role titles').locator('.nb-tag').first(),card.getByLabel('2 more open roles')]) expect(await target.evaluate(el=>parseFloat(getComputedStyle(el).borderTopLeftRadius))).toBeLessThanOrEqual(5);
   expect(await owner.locator('[data-slot=user-avatar]').evaluate(el=>getComputedStyle(el).borderTopLeftRadius)).toBe('5px');
   const title=card.getByText('Ponytail',{exact:true});const delta=await title.evaluate(e=>e.getBoundingClientRect().left-e.closest('.msg-first-party-preview')!.getBoundingClientRect().left);expect(delta).toBeLessThan(18);await page.setViewportSize({width:320,height:900});expect(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth)).toBe(false);
 });

@@ -333,7 +333,7 @@ test("project and position current checkboxes stay consistent in the editor and 
       assert.ok(parent, `Checkbox missing: ${label}`);
       return nodes(parent).find((n) => n.type === "input")!;
     };
-    check("I currently contribute to this project").props!.onChange({
+    check("I currently contribute to this workspace").props!.onChange({
       target: { checked: false },
     });
     await h.render();
@@ -351,7 +351,7 @@ test("project and position current checkboxes stay consistent in the editor and 
     });
     await h.render();
     assert.equal(
-      check("I currently contribute to this project").props!.checked,
+      check("I currently contribute to this workspace").props!.checked,
       true,
     );
     await h.button("Save draft").props!.onClick();

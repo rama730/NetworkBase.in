@@ -130,7 +130,7 @@ function route({ validBearer = true, publicProject = false } = {}) {
     cookieReads: () => cookieReads,
   };
 }
-test("private project images use the verified device identity without browser cookies", async () => {
+test("private workspace images use the verified device identity without browser cookies", async () => {
   const r = route();
   const response = await r.get("Bearer nb_dev_private");
   assert.equal(response.status, 200);

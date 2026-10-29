@@ -74,7 +74,7 @@ async function create(o: Org, as: string, extra: Record<string, unknown> = {}) {
 
 const titles = async (userId: string) => (await sql<{ title: string }[]>`SELECT title FROM user_notifications WHERE user_id = ${userId}`).map((r) => r.title);
 
-test("an admin's units: the unit lead is stored and told, added people hear it, admins hear the project was made", async () => {
+test("an admin's units: the unit lead is stored and told, added people hear it, admins hear the workspace was made", async () => {
   const o = await org();
   const result = await create(o, o.admin, { roles: [{ role: "Frontend developers", count: 3, people: [{ user_id: o.a, label: "A" }, { user_id: o.b, label: "B" }], lead_user_id: o.b }] });
   assert.equal(result.success, true, JSON.stringify(result));
@@ -176,6 +176,6 @@ test("Needs your attentionr attention: a group assignment with no projects to go
   const viewer = { userId: o.owner, isAdmin: true, isInside: true, isGuest: false, access: null, org: { id: o.id, title: "CSE-3A", slug: `cse-${o.id.slice(0, 8)}`, status: "active" } } as never;
   const rows = await needsYou.readNeedsYou(viewer, new Date());
   const row = rows.find((r) => r.kind === "needs_projects");
-  assert.equal(row?.label, "Mini-project needs projects · Create one");
+  assert.equal(row?.label, "Mini-project needs workspaces · Create one");
   assert.equal(row?.href, `/projects/new?org=cse-${o.id.slice(0, 8)}`);
 });

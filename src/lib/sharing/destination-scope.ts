@@ -22,6 +22,6 @@ export function channelInScope(channel:ChatChannelSummary,scope:ConversationScop
   }
 }
 export function conversationScopeTitle(scope:ConversationScope,data?:{projects?:{id:string;title:string}[]}){
-  if('projectId' in scope)return data?.projects?.find(p=>p.id===scope.projectId)?.title??'Project conversations';
-  return {projects:'Projects',dms:'Direct messages',more:'More conversations',groups:'Group conversations',applications:'Application conversations',unavailable:'Conversation unavailable'}[scope.kind];
+  if('projectId' in scope)return data?.projects?.find(p=>p.id===scope.projectId)?.title??'Workspace conversations';
+  return {projects:'Workspaces',dms:'Direct messages',more:'More conversations',groups:'Group conversations',applications:'Application conversations',unavailable:'Conversation unavailable'}[scope.kind];
 }

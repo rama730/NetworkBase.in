@@ -62,7 +62,7 @@ test('Phase 3 roles participate in form drafts, validation, and final project cr
     assert.match(review, /font-mono text-\[11px\] uppercase tracking-\[0\.09em\]/);
 });
 
-test('Phase 3 rejects duplicate role titles before the project can be created', () => {
+test('Phase 3 rejects duplicate role titles before the workspace can be created', () => {
     const result = createProjectSchema.safeParse({
         title: 'Product collaboration space',
         description: 'A clear project description that meets the minimum validation length.',

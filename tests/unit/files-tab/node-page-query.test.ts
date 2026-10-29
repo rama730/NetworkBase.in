@@ -15,7 +15,7 @@ test("pagination uses parameterized, database-normalized cursor names", async ()
 });
 test("malformed, legacy and mismatched-sort cursors fail before reading files", async () => {
   for (const cursor of ["not-json", encode({ rank: 9 }), encode({ id: "foreign" }), encode({ v: 1 }), encode({ sort: "updated" })]) {
-    await assert.rejects(captureNodePageQuery(project, "name", cursor), /Invalid project nodes cursor/);
+    await assert.rejects(captureNodePageQuery(project, "name", cursor), /Invalid workspace nodes cursor/);
   }
 });
 

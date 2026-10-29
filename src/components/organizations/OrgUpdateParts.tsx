@@ -136,7 +136,7 @@ const FILTERS: Array<{ value: OrgFeedFilter; label: string }> = [
     { value: 'all', label: 'All' },
     { value: 'announcement', label: 'Announcements' },
     { value: 'discussion', label: 'Discussions' },
-    { value: 'from_projects', label: 'From projects' },
+    { value: 'from_projects', label: 'From workspaces' },
 ]
 
 export function OrgFeedFilters({ value, onChange }: { value: OrgFeedFilter; onChange: (next: OrgFeedFilter) => void }) {

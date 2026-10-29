@@ -179,12 +179,12 @@ export function sanitizeProjectUpdateContent(value: unknown, maxLength = 2_000) 
 const LEGACY_PROJECT_UPDATE_SMART_BLOCK_REGEX = /\{%\s*project\.([a-z_]+)([^%]*)%\}/gi;
 
 function legacySmartBlockLabel(kind: string) {
-    if (kind === "tasks") return "Project tasks";
-    if (kind === "sprints") return "Project sprints";
+    if (kind === "tasks") return "Workspace tasks";
+    if (kind === "sprints") return "Workspace sprints";
     if (kind === "files") return "All files";
-    if (kind === "roles") return "Project roles";
-    if (kind === "contributors") return "Project contributors";
-    return "Project reference";
+    if (kind === "roles") return "Workspace roles";
+    if (kind === "contributors") return "Workspace contributors";
+    return "Workspace reference";
 }
 
 export function projectUpdateDisplayText(value: string) {

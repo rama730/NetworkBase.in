@@ -59,7 +59,7 @@ export function ProjectArchiveModal({
                         </div>
                         <div>
                             <DialogTitle className="nb-card-title text-base text-foreground">
-                                {isArchived ? "Unarchive project" : "Archive project"}
+                                {isArchived ? "Unarchive workspace" : "Archive workspace"}
                             </DialogTitle>
                             <div className="flex items-center gap-2 mt-1">
                                 <span className="inline-flex h-5 items-center rounded-[3px] border border-border bg-muted/60 px-[7px] font-mono text-[11px] font-medium uppercase tracking-[0.09em] leading-none text-muted-foreground">
@@ -73,8 +73,8 @@ export function ProjectArchiveModal({
                     </div>
                     <DialogDescription className="nb-compact mt-2 text-xs text-muted-foreground">
                         {isArchived
-                            ? "Restore active collaboration, intake, notifications, and publishing on this project."
-                            : "Archive marks this project as read-only. Existing members keep safe access for historical context."}
+                            ? "Restore active collaboration, intake, notifications, and publishing in this workspace."
+                            : "Archive marks this workspace as read-only. Existing members keep safe access for historical context."}
                     </DialogDescription>
                 </DialogHeader>
 
@@ -141,7 +141,7 @@ export function ProjectArchiveModal({
                         className="nb-touch-target h-[34px] gap-2 rounded-[5px] px-4 text-[13px] font-medium"
                     >
                         {loading ? <Loader2 className="size-4 animate-spin" /> : <Archive className="size-4" />}
-                        {isArchived ? "Unarchive project" : "Archive project"}
+                        {isArchived ? "Unarchive workspace" : "Archive workspace"}
                     </Button>
                 </DialogFooter>
             </DialogContent>
@@ -203,7 +203,7 @@ export function ProjectTransferOwnershipModal({
                         </div>
                         <div>
                             <DialogTitle className="nb-card-title text-base text-foreground">
-                                Transfer project ownership
+                                Transfer workspace ownership
                             </DialogTitle>
                             <div className="flex items-center gap-2 mt-1">
                                 <span className="inline-flex h-5 items-center rounded-[3px] border border-amber-500/20 bg-amber-500/10 px-[7px] font-mono text-[11px] font-medium uppercase tracking-[0.09em] leading-none text-amber-700 dark:text-amber-400">
@@ -216,7 +216,7 @@ export function ProjectTransferOwnershipModal({
                         </div>
                     </div>
                     <DialogDescription className="nb-compact mt-2 text-xs text-muted-foreground">
-                        You are about to transfer primary administrative ownership of &ldquo;{projectTitle}&rdquo;. This action permanently changes project control.
+                        You are about to transfer primary administrative ownership of &ldquo;{projectTitle}&rdquo;. This action permanently changes workspace control.
                     </DialogDescription>
                 </DialogHeader>
 
@@ -261,7 +261,7 @@ export function ProjectTransferOwnershipModal({
                             </li>
                             <li className="flex items-start gap-1.5">
                                 <span className="font-bold">•</span>
-                                <span><strong>{candidateDisplayName}</strong> will gain full Owner control over project visibility, team roster, settings, and deletion.</span>
+                                <span><strong>{candidateDisplayName}</strong> will gain full Owner control over workspace visibility, team roster, settings, and deletion.</span>
                             </li>
                             <li className="flex items-start gap-1.5">
                                 <span className="font-bold">•</span>
@@ -373,7 +373,7 @@ export function ProjectDeleteModal({
                         </div>
                         <div>
                             <DialogTitle className="nb-card-title text-base text-destructive">
-                                Delete project permanently
+                                Delete workspace permanently
                             </DialogTitle>
                             <div className="flex items-center gap-2 mt-1">
                                 <span className="inline-flex h-5 items-center rounded-[3px] border border-destructive/20 bg-destructive/10 px-[7px] font-mono text-[11px] font-medium uppercase tracking-[0.09em] leading-none text-destructive">
@@ -398,7 +398,7 @@ export function ProjectDeleteModal({
                             Warning: Irreversible destruction
                         </p>
                         <p className="nb-compact text-xs leading-5 text-destructive/90">
-                            Once confirmed, this project is purged immediately. Cloud S3 files, task records, sprint data, and member permissions cannot be recovered or restored.
+                            Once confirmed, this workspace is purged immediately. Cloud S3 files, task records, sprint data, and member permissions cannot be recovered or restored.
                         </p>
                     </div>
 
@@ -426,7 +426,7 @@ export function ProjectDeleteModal({
                             </li>
                             <li className="flex items-center gap-1.5">
                                 <span>•</span>
-                                <span>Project documents, update announcements, and comments</span>
+                                <span>Workspace documents, update announcements, and comments</span>
                             </li>
                             <li className="flex items-center gap-1.5">
                                 <span>•</span>
@@ -474,7 +474,7 @@ export function ProjectDeleteModal({
                         className="nb-touch-target h-[34px] gap-2 rounded-[5px] px-4 text-[13px] font-medium"
                     >
                         {loading ? <Loader2 className="size-4 animate-spin" /> : <Trash2 className="size-4" />}
-                        Delete project permanently
+                        Delete workspace permanently
                     </Button>
                 </DialogFooter>
             </DialogContent>

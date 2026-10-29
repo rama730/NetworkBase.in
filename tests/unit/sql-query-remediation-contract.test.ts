@@ -6,7 +6,7 @@ import { projectActionsSource } from "./_project-actions-source";
 const read = (path: string) => readFileSync(path, "utf8");
 
 describe("SQL audit query remediations", () => {
-  it("persists and advances the project-file reconciliation keyset", () => {
+  it("persists and advances the workspace-file reconciliation keyset", () => {
     const source = read("src/inngest/functions/project-files-reconciliation.ts");
     assert.match(source, /jobHeartbeats\.lastPayload/);
     assert.match(source, /projectNodes\.projectId}, \$\{projectNodes\.id}\) > /);

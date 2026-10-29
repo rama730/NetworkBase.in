@@ -176,7 +176,7 @@ export function EditProfileEditor({
             })
             .catch((error) => {
                 if (openGenerationRef.current !== generation) return;
-                const message = error instanceof Error ? error.message : "Couldn’t load all project contributions";
+                const message = error instanceof Error ? error.message : "Couldn’t load all workspace contributions";
                 setSaveErrorMessage(message);
                 toast.error(feedbackError(message, "Action couldn’t finish"));
             })
@@ -359,7 +359,7 @@ export function EditProfileEditor({
             }
             const errorMessage = error instanceof Error ? error.message : "An unexpected error occurred while saving your profile.";
             const message = profileSaved && mutations.length > 0
-                ? `Profile details were saved, but project contributions were not: ${errorMessage}`
+                ? `Profile details were saved, but contributions were not: ${errorMessage}`
                 : errorMessage;
             setSaveState("error");
             setSaveErrorMessage(message);
@@ -404,7 +404,7 @@ export function EditProfileEditor({
                 baseEntries.length + additions.length < Math.min(page.total, 500) && page.hasMore,
             );
         } catch (error) {
-            const message = error instanceof Error ? error.message : "Couldn’t load more project contributions";
+            const message = error instanceof Error ? error.message : "Couldn’t load more workspace contributions";
             setSaveErrorMessage(message);
             toast.error(feedbackError(message, "Action couldn’t finish"));
         } finally {

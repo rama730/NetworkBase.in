@@ -52,7 +52,7 @@ export function IncomingProjectApplicationRow({
   const actor = app.actor ?? app.applicant;
   const actorName = actor.fullName || actor.username || "User";
   const projectHref = `/projects/${app.projectSlug || app.projectId}`;
-  const sourceLabel = app.isInvitation ? "Workspace invitation" : "Project application";
+  const sourceLabel = app.isInvitation ? "Workspace invitation" : "Workspace application";
   const receivedAt = app.createdAt
     ? formatDistanceToNowStrict(new Date(app.createdAt), { addSuffix: true })
     : null;

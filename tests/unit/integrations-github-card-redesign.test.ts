@@ -92,7 +92,7 @@ describe("GitHub Card Redesign & Integrations Settings Contract", () => {
     // Must preserve spacing before the commit-attribution controls.
     assert.ok(
       content.includes('<div className="pt-5"><GitHubCommitAttributionSettings /></div>'),
-      "Must separate commit attribution from the project list",
+      "Must separate commit attribution from the workspace list",
     );
   });
 

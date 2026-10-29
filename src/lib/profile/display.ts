@@ -19,7 +19,7 @@ export function trimOptionalDisplayText(value: unknown): string | null {
 
 export function normalizeProjectTitle(value: unknown): string {
     const trimmed = trimDisplayText(value);
-    return trimmed.length > 0 ? trimmed : "Untitled project";
+    return trimmed.length > 0 ? trimmed : "Untitled workspace";
 }
 
 export function normalizeProjectDescription(...values: unknown[]): string {

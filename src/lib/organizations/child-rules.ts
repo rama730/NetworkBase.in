@@ -11,7 +11,7 @@ export function childCreationBlock(role: OrgMemberRoleOrNone, childCreation: "me
   if (!role) return "You’re not a member of this organization.";
   if (!orgOpen) return "This organization is archived.";
   if (role === "viewer") return "Viewers can’t create workspaces.";
-  if (role === "member" && childCreation === "admins") return "Only admins create projects here.";
+  if (role === "member" && childCreation === "admins") return "Only admins create workspaces here.";
   return null;
 }
 

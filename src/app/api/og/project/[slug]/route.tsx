@@ -8,6 +8,6 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
   if (limited) return limited;
   const { slug } = await params;
   const resource = parseShareResource(new URL(`/projects/${encodeURIComponent(slug)}`, shareOrigin()).href);
-  if (!resource) return new Response('Invalid project', { status:400,headers:{'Cache-Control':'no-store'} });
+  if (!resource) return new Response('Invalid workspace', { status:400,headers:{'Cache-Control':'no-store'} });
   return renderShareImage(resource.url);
 }

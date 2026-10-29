@@ -8,7 +8,7 @@ function source(path: string) {
     return readFileSync(new URL(`../../${path}`, import.meta.url), 'utf8');
 }
 
-test('project link redirects use immutable ids, retain legacy keys, and suppress referrers', () => {
+test('workspace link redirects use immutable ids, retain legacy keys, and suppress referrers', () => {
     const route = source('src/app/go/[ownerType]/[ownerId]/[linkKey]/route.ts');
     const surface = source('src/components/projects/dashboard/ProjectSocialLinksCard.tsx');
     assert.match(surface, /link\.id \|\| link\.canonicalKey/);
@@ -57,7 +57,7 @@ test('project-link saves use semantic concurrency checks and a viewport-containe
     assert.match(surface, /overflow-x-hidden overflow-y-auto/);
 });
 
-test('the project-link editor stages paste and drop, flushes on save, and exposes one commit action', () => {
+test('the workspace-link editor stages paste and drop, flushes on save, and exposes one commit action', () => {
     const surface = source('src/components/projects/dashboard/ProjectSocialLinksCard.tsx');
     const create = source('src/components/projects/create-wizard/phases/Phase4Settings.tsx');
     const edit = source('src/components/projects/EditProjectModal.tsx');
@@ -66,7 +66,7 @@ test('the project-link editor stages paste and drop, flushes on save, and expose
     assert.match(surface, /extractProjectLinkUrls/);
     assert.match(surface, /prepareForSave/);
     assert.match(surface, /event\.metaKey \|\| event\.ctrlKey/);
-    assert.match(surface, /Discard your unsaved project link changes/);
+    assert.match(surface, /Discard your unsaved workspace link changes/);
     assert.match(surface, /sticky -bottom-4/);
     assert.match(surface, /Save changes/);
     assert.doesNotMatch(surface, />Add link</);

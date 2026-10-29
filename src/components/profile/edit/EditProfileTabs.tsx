@@ -268,7 +268,7 @@ export function EditProfileTabs({
                                         <div className="min-w-0 flex-1">
                                             <h3 className="nb-card-title text-foreground">Profile photo</h3>
                                             <p className="nb-compact mt-0.5 text-muted-foreground">
-                                                Square avatar displayed on your profile, project cards, and directory.
+                                                Square avatar displayed on your profile, workspace cards, and directory.
                                             </p>
                                             <div className="nb-meta mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-muted-foreground">
                                                 <span>JPG, PNG, or WebP</span>

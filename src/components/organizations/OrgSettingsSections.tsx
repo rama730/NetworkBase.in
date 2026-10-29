@@ -280,7 +280,7 @@ const PEOPLE_ROWS: Array<[OrgAction, string]> = [
     ['open_dashboard', 'Open the dashboard'],
     ['post_discussion', 'Post discussions'],
     ['submit_own', 'Submit their own work'],
-    ['create_child_project', 'Create projects'],
+    ['create_child_project', 'Create workspaces'],
     ['create_assignments', 'Create tasks and assignments'],
     ['remove_members_guests', 'Remove members and guests'],
     ['manage_admins', 'Manage admins'],
@@ -340,9 +340,9 @@ export function OrgPeopleSection({ orgId, organization, role }: SectionProps) {
 }
 
 const CAP_OPTIONS = [
-    { value: 'public', label: 'Public allowed', hint: 'Projects choose Public, Org only or Private.' },
+    { value: 'public', label: 'Public allowed', hint: 'Workspaces choose Public, Org only or Private.' },
     { value: 'org', label: 'Org only at most', hint: 'Nothing leaves the organization.' },
-    { value: 'private', label: 'Private only', hint: 'Each project is seen by its team and admins only.' },
+    { value: 'private', label: 'Private only', hint: 'Each workspace is seen by its team and admins only.' },
 ] as const
 
 export function OrgProjectsSection({ orgId, organization }: SectionProps) {
@@ -363,11 +363,11 @@ export function OrgProjectsSection({ orgId, organization }: SectionProps) {
     }
     return (
         <Section id="org-projects">
-            <SettingsCard title="Projects" headingLevel={2} description="Who creates projects inside the organization, and who can be added to them." footer={<LastChanged organization={organization} section="projects" />}>
+            <SettingsCard title="Workspaces" headingLevel={2} description="Who creates workspaces inside the organization, and who can be added to them." footer={<LastChanged organization={organization} section="projects" />}>
                 <div className="space-y-6">
                     <fieldset>
-                        <legend className={labelClass}>Who can create projects</legend>
-                        <p className={helpClass}>Owners and admins always can. Changing this affects new projects only.</p>
+                        <legend className={labelClass}>Who can create workspaces</legend>
+                        <p className={helpClass}>Owners and admins always can. Changing this affects new workspaces only.</p>
                         <div className="mt-2 space-y-2 text-sm">
                             <label className="flex items-center gap-2"><input type="radio" name="org-child-creation" checked={childCreation === 'members'} onChange={() => setChildCreation('members')} /> All members</label>
                             <label className="flex items-center gap-2"><input type="radio" name="org-child-creation" checked={childCreation === 'admins'} onChange={() => setChildCreation('admins')} /> Admins only</label>
@@ -375,7 +375,7 @@ export function OrgProjectsSection({ orgId, organization }: SectionProps) {
                     </fieldset>
                     <fieldset>
                         <legend className={labelClass}>Visibility cap</legend>
-                        <p className={helpClass}>The most open a project here can be. Tightening it lowers projects above it.</p>
+                        <p className={helpClass}>The most open a workspace here can be. Tightening it lowers workspaces above it.</p>
                         <div className="mt-2 space-y-2 text-sm">
                             {CAP_OPTIONS.map((option) => (
                                 <label key={option.value} className="flex items-start gap-2">
@@ -388,29 +388,29 @@ export function OrgProjectsSection({ orgId, organization }: SectionProps) {
                     </fieldset>
                     <div className="flex items-start justify-between gap-4">
                         <div>
-                            <p className={labelClass}>People outside the organization can be added to its projects</p>
-                            <p className={helpClass}>Off by default. They see only that project, never the organization’s content.</p>
+                            <p className={labelClass}>People outside the organization can be added to its workspaces</p>
+                            <p className={helpClass}>Off by default. They see only that workspace, never the organization’s content.</p>
                         </div>
-                        <SettingsSwitch checked={outside} onCheckedChange={setOutside} aria-label="People outside the organization can be added to its projects" />
+                        <SettingsSwitch checked={outside} onCheckedChange={setOutside} aria-label="People outside the organization can be added to its workspaces" />
                     </div>
                     <div className="flex items-start justify-between gap-4">
                         <div>
-                            <p className={labelClass}>Projects can share updates to the organization</p>
-                            <p className={helpClass}>Shared posts show in the organization’s Updates under From projects. Private projects never share.</p>
+                            <p className={labelClass}>Workspaces can share updates to the organization</p>
+                            <p className={helpClass}>Shared posts show in the organization’s Updates under From workspaces. Private workspaces never share.</p>
                         </div>
-                        <SettingsSwitch checked={childShare} onCheckedChange={setChildShare} aria-label="Projects can share updates to the organization" />
+                        <SettingsSwitch checked={childShare} onCheckedChange={setChildShare} aria-label="Workspaces can share updates to the organization" />
                     </div>
                     <div>
                         <label htmlFor="org-default-units" className={labelClass}>Default units</label>
-                        <p className={helpClass}>Pre-fill the team of every new project, one per line, for example Frontend, Backend, Testing. Still editable per project.</p>
+                        <p className={helpClass}>Pre-fill the team of every new workspace, one per line, for example Frontend, Backend, Testing. Still editable per workspace.</p>
                         <textarea id="org-default-units" value={defaultUnits} onChange={(e) => setDefaultUnits(e.target.value)} rows={3} className="mt-2 w-full rounded-md border border-border bg-background p-2 text-sm" />
                     </div>
                     <div className="flex items-start justify-between gap-4">
                         <div>
-                            <p className={labelClass}>New projects follow org sprints</p>
-                            <p className={helpClass}>On by default. A new project’s sprints link to the organization’s sprint holding their dates; the lead can turn it off.</p>
+                            <p className={labelClass}>New workspaces follow org sprints</p>
+                            <p className={helpClass}>On by default. A new workspace’s sprints link to the organization’s sprint holding their dates; the lead can turn it off.</p>
                         </div>
-                        <SettingsSwitch checked={followSprints} onCheckedChange={setFollowSprints} aria-label="New projects follow org sprints" />
+                        <SettingsSwitch checked={followSprints} onCheckedChange={setFollowSprints} aria-label="New workspaces follow org sprints" />
                     </div>
                     <div className="flex items-center gap-3">
                         <Button disabled={pending} onClick={() => save(() => updateOrgSettingsAction(orgId, 'projects', { follow_sprints: followSprints, child_creation: childCreation, outside_people: outside, child_share: childShare, default_units: defaultUnits.split('\n').map((u) => u.trim()).filter(Boolean).slice(0, 20), ...(cap !== organization.visibilityCap ? { visibility_cap: cap } : {}) }))}>Save</Button>
@@ -464,8 +464,8 @@ export function OrgWorkSection({ orgId, organization }: SectionProps) {
                     <p className="nb-ui-label text-[11px] font-semibold uppercase tracking-[0.09em] text-muted-foreground">Sprints</p>
                     {toggle('sprintAutoStart', 'Start automatically', 'A sprint starts on its start date, for example CO1 on Aug 5.')}
                     {toggle('sprintNotifyOnStart', 'Notify on start', 'Members hear when a sprint starts.')}
-                    {toggle('sprintShowInChildren', 'Show in every workspace in the organization', 'Projects see the running org sprint and can link theirs to it.')}
-                    {toggle('sprintCreateMatching', 'Create matching sprints', 'Off by default. Each project following org sprints gets its own sprint with the same dates.')}
+                    {toggle('sprintShowInChildren', 'Show in every workspace in the organization', 'Workspaces see the running org sprint and can link theirs to it.')}
+                    {toggle('sprintCreateMatching', 'Create matching sprints', 'Off by default. Each workspace following org sprints gets its own sprint with the same dates.')}
                     <div className="flex items-center gap-3">
                         <Button disabled={pending} onClick={() => save(() => updateOrgSettingsAction(orgId, 'work', {
                             review_required: work.reviewRequired, late_rule: work.lateRule, reminders: work.reminders, story_points: work.storyPoints,
@@ -499,7 +499,7 @@ export function OrgChatSection({ orgId, organization }: { orgId: string; organiz
                 <div className="flex items-start justify-between gap-4">
                     <div>
                         <p className={labelClass}>Members can create organization channels</p>
-                        <p className={helpClass}>Project teams always create channels in their own projects.</p>
+                        <p className={helpClass}>Workspace teams always create channels in their own workspaces.</p>
                     </div>
                     <SettingsSwitch checked={membersCreate} onCheckedChange={setMembersCreate} aria-label="Members can create organization channels" />
                 </div>

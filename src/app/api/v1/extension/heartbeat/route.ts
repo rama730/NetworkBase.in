@@ -33,7 +33,7 @@ const heartbeatSchema = z.object({
     .optional(),
   projectWatermarks: z
     .record(z.string().uuid(), z.string().max(64))
-    .refine((watermarks) => Object.keys(watermarks).length <= MAX_WATERMARK_PROJECTS, "Too many projects")
+    .refine((watermarks) => Object.keys(watermarks).length <= MAX_WATERMARK_PROJECTS, "Too many workspaces")
     .optional(),
 });
 

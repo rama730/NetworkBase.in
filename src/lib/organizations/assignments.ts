@@ -78,7 +78,7 @@ export async function resolveRecipients(executor: Executor, orgId: string, targe
     .from(projects)
     .where(and(eq(projects.parentId, orgId), isNull(projects.deletedAt), ne(projects.status, "archived")));
   const picked = target.mode === "children" ? children.filter((c) => target.projectIds.includes(c.id)) : children;
-  if (picked.length === 0) throw new Error("Create projects in the organization first.");
+  if (picked.length === 0) throw new Error("Create workspaces in the organization first.");
   return picked.map((child) => ({ projectId: child.id, assigneeId: child.ownerId }));
 }
 

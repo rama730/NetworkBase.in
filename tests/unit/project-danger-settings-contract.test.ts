@@ -90,9 +90,9 @@ test("project danger zone tab is redesigned into 1 canonical SettingsCard with l
     );
 
     // 3. Three core operations cleanly presented: Archive, Transfer Ownership, Delete
-    assert.match(dangerBlock, /Archive this project/, "Must present Archive project operation");
+    assert.match(dangerBlock, /Archive this workspace/, "Must present Archive workspace operation");
     assert.match(dangerBlock, /Transfer ownership/, "Must present Transfer ownership operation");
-    assert.match(dangerBlock, /Delete this project/, "Must present Delete project operation");
+    assert.match(dangerBlock, /Delete this workspace/, "Must present Delete workspace operation");
 
     // 4. Section 10 badge contracts and control standards
     assert.match(dangerBlock, /font-mono text-\[11px\]/, "Must use Section 10 badge typography");

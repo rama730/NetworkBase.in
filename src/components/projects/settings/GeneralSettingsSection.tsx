@@ -507,7 +507,7 @@ export function GeneralSettingsSection({
         try {
             const result = await clearProjectCoverImageAction(projectId);
             if (!result?.success) {
-                throw new Error(result.error || "Couldn’t remove project avatar");
+                throw new Error(result.error || "Couldn’t remove workspace avatar");
             }
             setCoverImage("");
             toast.success("Workspace avatar removed");
@@ -529,7 +529,7 @@ export function GeneralSettingsSection({
 
     return (
     <section id="project-settings-general" data-project-settings-section className="space-y-8">
-        <SettingsPageHeader level={2} title="General" description="Manage your project’s avatar, public identity, tags, and skills." />
+        <SettingsPageHeader level={2} title="General" description="Manage your workspace’s avatar, public identity, tags, and skills." />
         <div className="space-y-8 divide-y divide-border [&>section]:pb-6">
         <section
             data-testid="project-avatar-settings-card"
@@ -542,7 +542,7 @@ export function GeneralSettingsSection({
                             {coverImageUrl ? (
                                 <Image
                                     src={coverImageUrl}
-                                    alt={`${projectTitle || "Project"} avatar`}
+                                    alt={`${projectTitle || "Workspace"} avatar`}
                                     fill
                                     style={{ objectFit: "cover" }}
                                     className="object-cover"
@@ -559,7 +559,7 @@ export function GeneralSettingsSection({
                         <div className="min-w-0 flex-1">
                             <h3 className="nb-card-title text-foreground">Workspace image</h3>
                             <p className="nb-compact mt-1 text-muted-foreground">
-                                Square avatar displayed on project cards, header, and link previews.
+                                Square avatar displayed on workspace cards, header, and link previews.
                             </p>
                             <div className="nb-meta mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-muted-foreground">
                                 <span>JPG, PNG, WebP, GIF</span>
@@ -628,7 +628,7 @@ export function GeneralSettingsSection({
                         <div className="grid place-items-center rounded-lg border border-border bg-muted/20 p-4">
                             <div
                                 role="img"
-                                aria-label={`${projectTitle || "Project"} image adjustment preview`}
+                                aria-label={`${projectTitle || "Workspace"} image adjustment preview`}
                                 className="relative h-56 w-56 touch-none overflow-hidden rounded-lg border border-border bg-muted/40 shadow-inner"
                                 onPointerDown={isDraftGif ? undefined : handleProjectImagePointerDown}
                                 onPointerMove={isDraftGif ? undefined : handleProjectImagePointerMove}
@@ -758,8 +758,8 @@ export function GeneralSettingsSection({
         </section>
 
         <SettingsCard
-            title="Workspace or project"
-            description="Shown on the workspace page, cards, search and notifications."
+            title="Workspace or workspace"
+            description="Shown in the workspace page, cards, search and notifications."
 
         >
             <fieldset disabled={savingSettings} className="min-w-0 divide-y divide-border">
@@ -769,30 +769,30 @@ export function GeneralSettingsSection({
                 <div className="py-6">
                     <TextField
                         id="settings-project-name"
-                        error={identitySubmitted && !projectTitle.trim() ? "Project name is required." : undefined}
-                        label="Project name"
+                        error={identitySubmitted && !projectTitle.trim() ? "Workspace name is required." : undefined}
+                        label="Workspace name"
                         description="The public title shown in headers, cards, and search."
                         value={projectTitle}
                         onChange={onProjectTitleChange}
-                        placeholder="Project name"
+                        placeholder="Workspace name"
                     />
                 </div>
                 <div className="py-6">
                     <TextField
                         label="Short description"
-                        description="A one-line project summary for cards and search previews (recommended under 160 characters)."
+                        description="A one-line workspace summary for cards and search previews (recommended under 160 characters)."
                         value={shortDescription}
                         onChange={setShortDescription}
-                        placeholder="A one-line project summary"
+                        placeholder="A one-line workspace summary"
                     />
                 </div>
                 <div className="py-6">
                     <TextAreaField
                         label="Description"
-                        description="Detailed overview explaining what this project does and why it matters."
+                        description="Detailed overview explaining what this workspace does and why it matters."
                         value={description}
                         onChange={setDescription}
-                        placeholder="Describe what this project does and why it matters"
+                        placeholder="Describe what this workspace does and why it matters"
                     />
                 </div>
                 <div className="pt-6">
@@ -801,7 +801,7 @@ export function GeneralSettingsSection({
                         customValue={customCategory}
                         onChoiceChange={setCategoryChoice}
                         onCustomChange={setCustomCategory}
-                        description="Primary category to help builders discover your project."
+                        description="Primary category to help builders discover your workspace."
                     />
                 </div>
             </fieldset>
@@ -809,7 +809,7 @@ export function GeneralSettingsSection({
 
         <SettingsCard
             title="Tags and skills"
-            description="Select the technologies and professional disciplines associated with this project."
+            description="Select the technologies and professional disciplines associated with this workspace."
             footer={
                 <>
                     <p className="nb-compact text-muted-foreground">
@@ -857,8 +857,8 @@ export function GeneralSettingsSection({
                         value={skills}
                         onChange={setSkills}
                         maxSkills={PROJECT_SKILL_LIMIT}
-                        label="Project skills and technologies"
-                        description="Select the technologies and professional skills used by this project (up to 12 skills)."
+                        label="Workspace skills and technologies"
+                        description="Select the technologies and professional skills used by this workspace (up to 12 skills)."
                     />
                 </div>
             </fieldset>

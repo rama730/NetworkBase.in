@@ -84,7 +84,7 @@ export default function MobileMenu(props: {
                         : "border-primary bg-primary text-primary-foreground hover:bg-[var(--primary-hover)] active:bg-[var(--primary-active)]"}`}
                 >
                     <Plus className="size-3.5" aria-hidden="true" />
-                    New project
+                    New workspace
                 </Link>
 
                 <SidebarNav />

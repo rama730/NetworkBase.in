@@ -50,7 +50,7 @@ test.describe("Create workspace wizard", () => {
     await login(page);
     await page.goto("/discover", { waitUntil: "domcontentloaded" });
 
-    await page.getByRole("link", { name: /new project/i }).click();
+    await page.getByRole("link", { name: /new workspace/i }).click();
     await expect(page).toHaveURL(/\/projects\/new$/);
     await page.getByTestId("create-project-source-card-github").click();
     await expect(page.getByTestId("create-project-source-view-github")).toBeVisible();

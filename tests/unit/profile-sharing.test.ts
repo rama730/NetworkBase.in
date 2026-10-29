@@ -27,7 +27,7 @@ test('portfolio never guesses current work; one canonical title differs from a m
   assert.equal(portfolioSummary(0),null);
   assert.equal(portfolioSummary(1,'Ponytail'),'Public portfolio · Ponytail');
   assert.equal(portfolioSummary(1,null),'Explore public portfolio');
-  assert.equal(portfolioSummary(4,'Not a singled-out project'),'Public portfolio · 4 projects');
+  assert.equal(portfolioSummary(4,'Not a singled-out project'),'Public portfolio · 4 contributions');
   assert.equal(portfolioSummary(null,null,true),'Explore public portfolio');
   assert.equal(portfolioSummary(null,null,false),null);
 });
@@ -66,7 +66,7 @@ test('in-app preview normalization strips identity from restricted payloads and 
 test('project accessible metadata uses full approved fields and generic alt for an unsupported image script',()=>{
   const resource=parseShareResource(origin+'/projects/one')!;
   const preview={...genericSharePreview(resource,'ready'),title:'Project 一',description:'A useful public project',identity:{name:'Project 一',username:null,avatarUrl:null,headline:null}};
-  const metadata=shareMetadata(preview);assert.equal((metadata.openGraph as any).images[0].alt,'NetworkBase project link');assert.equal(metadata.title,preview.title);
+  const metadata=shareMetadata(preview);assert.equal((metadata.openGraph as any).images[0].alt,'NetworkBase workspace link');assert.equal(metadata.title,preview.title);
 });
 
 test('explicit project content destinations preserve only bounded known route state',async()=>{
@@ -91,7 +91,7 @@ test('project payload normalization bounds people and roles and never turns unkn
   const restricted=normalizeLinkPreview({...value,firstParty:{...value.firstParty,state:'restricted'}},resource.url)!;assert.equal(restricted.firstParty?.project,undefined);
 });
 
-test('optional team scripts do not suppress a renderable project image and drafts never promise public access',async()=>{
+test('optional team scripts do not suppress a renderable workspace image and drafts never promise public access',async()=>{
   const {socialImageCanRender,projectRolesFitImage}=await import('../../src/lib/sharing/presentation');const resource=parseShareResource(origin+'/projects/one')!;
   const preview={...genericSharePreview(resource,'ready'),title:'Project',description:'A public project',visibility:'public' as const,identity:{name:'Project',username:null,avatarUrl:null,headline:null},draft:true,project:{team:[{id:'11111111-1111-4111-8111-111111111111',name:'李雷',username:null,avatarUrl:null,role:'Team member'}],teamOverflow:0,roles:[{id:'11111111-1111-4111-8111-111111111111',title:'设计师'}],roleOverflow:0,views:0,followers:0}};
   assert.equal(socialImageCanRender(preview),true);assert.equal(projectRolesFitImage(preview),false);assert.match(accessCopy(preview),/Draft.*unpublished/);assert.doesNotMatch(accessCopy({...preview,draft:false,state:'restricted'}),/Anyone/);

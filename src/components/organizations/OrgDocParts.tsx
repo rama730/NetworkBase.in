@@ -246,7 +246,7 @@ export function OrgDocBanner({ orgTitle, href, backHref }: { orgTitle: string; h
             <span className="font-medium">From {orgTitle}</span>
             <span className="text-muted-foreground">· read-only</span>
             <Link href={href} className="ml-auto underline underline-offset-4">Open in {orgTitle} →</Link>
-            <Link href={backHref} className={cn('text-muted-foreground underline underline-offset-4')}>Project docs</Link>
+            <Link href={backHref} className={cn('text-muted-foreground underline underline-offset-4')}>Workspace docs</Link>
         </div>
     )
 }

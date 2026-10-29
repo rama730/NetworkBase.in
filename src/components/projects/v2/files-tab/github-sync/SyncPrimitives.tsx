@@ -125,7 +125,7 @@ export function TransferRoute({
   const local = (
     <div className={styles.endpoint}>
       <small>NetworkBase</small>
-      <strong dir="auto">{projectName} / Project files</strong>
+      <strong dir="auto">{projectName} / Workspace files</strong>
     </div>
   );
   const remote = (

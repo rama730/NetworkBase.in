@@ -197,7 +197,7 @@ export function TaskFileUploadModal({
                 </div>
                 <div className="text-xs text-muted-foreground">
                   The completed output of this task. Optionally choose its
-                  project folder.
+                  folder.
                 </div>
               </div>
             </button>

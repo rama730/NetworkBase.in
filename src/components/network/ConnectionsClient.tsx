@@ -271,7 +271,7 @@ export default function ConnectionsClient({
                         ? `Block ${pendingBlock.name}?`
                         : "Block profile?"
                 }
-                description="They will not be able to view your profile, send you messages, or invite you to projects."
+                description="They will not be able to view your profile, send you messages, or invite you to workspaces."
                 confirmLabel="Block"
                 variant="destructive"
                 loading={blockProfile.isPending}

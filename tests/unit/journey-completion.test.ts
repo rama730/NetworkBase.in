@@ -12,7 +12,7 @@ test('journey completion dates use a stable UTC calendar date', () => {
     assert.equal(getStageCompletionTooltip('2026-08-30T23:30:00-07:00'), 'Finished on Aug 31, 2026');
 });
 
-test('missing or invalid legacy history never borrows a mutable project update date', () => {
+test('missing or invalid legacy history never borrows a mutable workspace update date', () => {
     assert.equal(getStageCompletionTooltip(), 'Finished — date not recorded');
     assert.equal(getStageCompletionTooltip('invalid'), 'Finished — date not recorded');
 });

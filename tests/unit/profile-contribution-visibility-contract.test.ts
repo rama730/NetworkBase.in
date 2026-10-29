@@ -188,7 +188,7 @@ test("normalized contribution mapping is canonical and dirty detection is order-
 
 test("external drafts are validated before a separate contribution write and surface actionable field feedback", () => {
   const draft = createExternalContributionDraft();
-  assert.equal(validateContributionEditorEntry(draft), "Project name is required.");
+  assert.equal(validateContributionEditorEntry(draft), "Workspace name is required.");
   assert.equal(validateContributionEditorEntry({
     ...draft,
     projectTitle: "External project",
@@ -254,7 +254,7 @@ test("the contribution editor loads real pages and preserves the loaded baseline
   assert.match(workspace, /draftStorage/);
   assert.match(workspace, /mergeContributionStory/);
   assert.match(modal, /validateContributionEditorEntry/);
-  assert.match(modal, /Profile details were saved, but project contributions were not/);
+  assert.match(modal, /Profile details were saved, but contributions were not/);
 });
 
 test("parent visibility is the UI and read authority while owners retain a private preview", () => {

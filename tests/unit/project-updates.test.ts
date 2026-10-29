@@ -30,7 +30,7 @@ import {
 } from "../../src/lib/projects/updates";
 import { componentSource } from "./_helpers/component-source";
 
-test("project update normalization fails closed for unknown types and filters", () => {
+test("workspace update normalization fails closed for unknown types and filters", () => {
     assert.equal(isProjectUpdateType("progress"), true);
     assert.equal(isProjectUpdateType("on_track"), false);
     assert.equal(isProjectUpdateType("at_risk"), false);
@@ -43,7 +43,7 @@ test("project update normalization fails closed for unknown types and filters", 
     assert.equal(normalizeProjectUpdateFilter(null), "all");
 });
 
-test("project update content and excerpts are bounded for feed and notification surfaces", () => {
+test("workspace update content and excerpts are bounded for feed and notification surfaces", () => {
     assert.equal(sanitizeProjectUpdateContent("  shipped beta  "), "shipped beta");
     assert.equal(sanitizeProjectUpdateContent(42), "");
     assert.equal(sanitizeProjectUpdateContent("abcdef", 4), "abcd");
@@ -51,7 +51,7 @@ test("project update content and excerpts are bounded for feed and notification 
     assert.equal(projectUpdateExcerpt("A long update body", 8), "A long…");
 });
 
-test("project update display text converts legacy reference tokens into readable labels", () => {
+test("workspace update display text converts legacy reference tokens into readable labels", () => {
     const fileToken = '{% ref.files id="9a0966ed-c08c-4b52-98a1-3453fad1e26d" label="SECURITY.md" %}';
     const taskToken = '{% ref.tasks id="9fbd8943-e594-473c-8f82-5830851d1d7a" label="Task: Update the related files" %}';
     assert.equal(
@@ -64,11 +64,11 @@ test("project update display text converts legacy reference tokens into readable
     );
     assert.equal(
         projectUpdateExcerpt("{% project.tasks ids=\"task-1,task-2\" %}", 120),
-        "Project tasks",
+        "Workspace tasks",
     );
 });
 
-test("project update notification signal avoids noisy follower fanout", () => {
+test("workspace update notification signal avoids noisy follower fanout", () => {
     assert.equal(shouldNotifyProjectUpdateFollowers({ content: "tiny" }), false);
     assert.equal(shouldNotifyProjectUpdateFollowers({ content: "We finished the first integration pass and merged the end-to-end update flow." }), true);
     assert.equal(shouldNotifyProjectUpdateFollowers({ content: "Linked task", entityRefs: { taskId: "task-1" } }), true);
@@ -76,7 +76,7 @@ test("project update notification signal avoids noisy follower fanout", () => {
     assert.equal(shouldNotifyProjectUpdateFollowers({ content: "Link", media: [{ type: "link", url: "https://example.com" }] }), true);
 });
 
-test("project update media normalization keeps only safe public links", () => {
+test("workspace update media normalization keeps only safe public links", () => {
     assert.equal(isSafeProjectUpdateUrl("https://example.com/demo"), true);
     assert.equal(isSafeProjectUpdateUrl("/api/v1/projects/project-1/update-media?key=abc"), true);
     assert.equal(isSafeProjectUpdateUrl("blob:https://example.com/demo"), false);
@@ -142,7 +142,7 @@ test("stored update media always uses the authorized application route", () => {
     }])[0]?.url, expected);
 });
 
-test("project update media route authorizes normalized assets and streams bytes", () => {
+test("workspace update media route authorizes normalized assets and streams bytes", () => {
     const routeSource = readFileSync(path.join(process.cwd(), "src/app/api/v1/projects/[id]/update-media/route.ts"), "utf8");
     const accessSource = readFileSync(path.join(process.cwd(), "src/lib/data/project-access.ts"), "utf8");
 
@@ -159,7 +159,7 @@ test("project update media route authorizes normalized assets and streams bytes"
     assert.match(routeSource, /etag:/);
 });
 
-test("project update references and image upload contracts stay bounded", () => {
+test("workspace update references and image upload contracts stay bounded", () => {
     assert.deepEqual(normalizeProjectUpdateReferences([
         { kind: "task", id: " task-1 " },
         { kind: "task", id: "task-1" },
@@ -185,7 +185,7 @@ test("project update references and image upload contracts stay bounded", () => 
     assert.equal(projectUpdateImageExtensionFromMimeType("image/jpeg"), "jpg");
 });
 
-test("project update draft and schema contracts are stable", () => {
+test("workspace update draft and schema contracts are stable", () => {
     assert.equal(projectUpdateDraftStorageKey("project-1", "user-1"), "nb.project-updates.draft.project-1.user-1");
     assert.equal(PROJECT_UPDATE_SCHEMA_CONTRACT.tables.includes("project_updates"), true);
     assert.equal(PROJECT_UPDATE_SCHEMA_CONTRACT.tables.includes("project_update_drafts"), true);
@@ -196,7 +196,7 @@ test("project update draft and schema contracts are stable", () => {
     assert.equal(PROJECT_UPDATE_SCHEMA_CONTRACT.minPolicyCounts.project_update_drafts, 1);
 });
 
-test("project update comment threading schema is present in baseline and repair migrations", () => {
+test("workspace update comment threading schema is present in baseline and repair migrations", () => {
     const schemaSource = readFileSync(path.join(process.cwd(), "src/lib/db/schema/index.ts"), "utf8");
     const baselineMigration = readFileSync(path.join(process.cwd(), "drizzle/0063_database_setup_authority_backfill.sql"), "utf8");
     const repairMigration = readFileSync(path.join(process.cwd(), "drizzle/0090_project_update_comment_threads.sql"), "utf8");
@@ -211,7 +211,7 @@ test("project update comment threading schema is present in baseline and repair 
     assert.match(journal, /0090_project_update_comment_threads/);
 });
 
-test("project update composer stores selected project records as structured refs", () => {
+test("workspace update composer stores selected project records as structured refs", () => {
     const source = readFileSync(path.join(process.cwd(), "src/components/projects/updates/ProjectUpdateComposer.tsx"), "utf8");
     assert.match(source, /const addContextReference = \(/);
     assert.match(source, /addContextReference\("file", node\.id/);
@@ -220,7 +220,7 @@ test("project update composer stores selected project records as structured refs
     assert.equal(source.includes("insertTextAtCursor(markdown"), false);
 });
 
-test("project update notifications avoid duplicate body and secondary text", () => {
+test("workspace update notifications avoid duplicate body and secondary text", () => {
     const actionSource = readFileSync(path.join(process.cwd(), "src/app/actions/project/updates.ts"), "utf8");
     const rowSource = readFileSync(path.join(process.cwd(), "src/components/notifications/NotificationRow.tsx"), "utf8");
     assert.match(actionSource, /function projectUpdateNotificationBody/);
@@ -240,7 +240,7 @@ test("updates tab loads feed data once from the client-owned query path", () => 
     assert.match(actionSource, /movementSummary:\s*null/);
 });
 
-test("project update draft hydration does not immediately autosave an unchanged empty draft", () => {
+test("workspace update draft hydration does not immediately autosave an unchanged empty draft", () => {
     const composerSource = readFileSync(path.join(process.cwd(), "src/components/projects/updates/ProjectUpdateComposer.tsx"), "utf8");
 
     assert.match(composerSource, /let initialContent = ""/);
@@ -252,7 +252,7 @@ test("project update draft hydration does not immediately autosave an unchanged 
     assert.match(composerSource, /media: initialMedia/);
 });
 
-test("project update comments share one project-scoped wildcard postgres binding", () => {
+test("workspace update comments share one project-scoped wildcard postgres binding", () => {
     const tabSource = componentSource("src/components/projects/tabs/UpdatesTab.tsx");
     const subscriptionsSource = readFileSync(path.join(process.cwd(), "src/lib/realtime/subscriptions.ts"), "utf8");
 
@@ -265,7 +265,7 @@ test("project update comments share one project-scoped wildcard postgres binding
     assert.match(subscriptionsSource, /const event = grouped\.length === 1 \? firstBinding\.event : "\*"/);
 });
 
-test("project update likes persist counters synchronously", () => {
+test("workspace update likes persist counters synchronously", () => {
     const actionSource = readFileSync(path.join(process.cwd(), "src/app/actions/project/updates.ts"), "utf8");
 
     assert.match(actionSource, /export async function toggleProjectUpdateLikeAction/);
@@ -275,7 +275,7 @@ test("project update likes persist counters synchronously", () => {
     assert.equal(actionSource.includes("redis.hincrby"), false);
 });
 
-test("project update author roles compose membership and current project position", () => {
+test("workspace update author roles compose membership and current project position", () => {
     assert.equal(sanitizeProjectUpdateRoleTitle("  Lead   Front-end Developer  "), "Lead Front-end Developer");
     assert.equal(composeProjectUpdateRoleLabel({ roleTitle: "Front-end Developer", membershipRoleLabel: "Lead" }), "Lead Front-end Developer");
     assert.equal(composeProjectUpdateRoleLabel({ roleTitle: "UX Designer", membershipRoleLabel: "Co-lead" }), "Co-lead UX Designer");
@@ -324,7 +324,7 @@ test("project update author roles compose membership and current project positio
     });
 });
 
-test("project update author roles repair stale open-role snapshots with authoritative project roles", () => {
+test("workspace update author roles repair stale open-role snapshots with authoritative project roles", () => {
     assert.deepEqual(resolveProjectUpdateAuthorRoleDisplay({
         snapshot: normalizeProjectUpdateAuthorRoleSnapshot({
             displayRoleLabel: "Lead Full stack developer",
@@ -398,7 +398,7 @@ test("updates tab owns one composer placement and refreshes realtime posts direc
     assert.equal(composerSource.includes("openSignal"), false);
 });
 
-test("project update composer renders structured context and image media before posting", () => {
+test("workspace update composer renders structured context and image media before posting", () => {
     const composerSource = readFileSync(path.join(process.cwd(), "src/components/projects/updates/ProjectUpdateComposer.tsx"), "utf8");
 
     assert.match(composerSource, /ImagePlus/);
@@ -514,7 +514,7 @@ test("updates feed and detail render context references and actual images", () =
     assert.equal(cardSource.includes("Object.values(update.context"), false);
 });
 
-test("project update comments and replies use the compact feed conversation layout", () => {
+test("workspace update comments and replies use the compact feed conversation layout", () => {
     const tabSource = componentSource("src/components/projects/tabs/UpdatesTab.tsx");
     const commentRowStart = tabSource.indexOf("function CommentRow");
     const updateCommentsStart = tabSource.indexOf("function UpdateComments");
@@ -552,14 +552,14 @@ test("project update comments and replies use the compact feed conversation layo
     assert.equal(updateCommentsSource.includes("mt-1 whitespace-pre-wrap break-words text-sm"), false);
 });
 
-test("project updates use the feed icon in project navigation", () => {
+test("workspace updates use the feed icon in project navigation", () => {
     const layoutSource = readFileSync(path.join(process.cwd(), "src/components/projects/dashboard/ProjectLayout.tsx"), "utf8");
 
     assert.match(layoutSource, /\{ id: "updates", label: "Updates", icon: Newspaper \}/);
     assert.equal(layoutSource.includes('icon: Megaphone'), false);
 });
 
-test("project update backend treats references as first-class linked work", () => {
+test("workspace update backend treats references as first-class linked work", () => {
     const actionsSource = readFileSync(path.join(process.cwd(), "src/app/actions/project/updates.ts"), "utf8");
 
     assert.match(actionsSource, /const refs = normalizeEntityRefs\(row\.entityRefs\)/);
@@ -579,7 +579,7 @@ test("project update backend treats references as first-class linked work", () =
     assert.equal(actionsSource.includes("encodeURIComponent(pathOrName)"), false);
 });
 
-test("project update file mentions survive the dashboard and Files V3 handoff", () => {
+test("workspace update file mentions survive the dashboard and Files V3 handoff", () => {
     const dashboardSource = readFileSync(path.join(process.cwd(), "src/components/projects/dashboard/ProjectDashboardClient.tsx"), "utf8");
     const tabsRegistrySource = readFileSync(path.join(process.cwd(), "src/components/projects/dashboard/ProjectTabsRegistry.tsx"), "utf8");
     const filesRootSource = readFileSync(path.join(process.cwd(), "src/components/projects/v2/files-tab/FilesTabRoot.tsx"), "utf8");
@@ -597,7 +597,7 @@ test("project update file mentions survive the dashboard and Files V3 handoff", 
     assert.match(filesRootSource, /stage: initialOpenFileId \? "diagnostics" : stage/);
 });
 
-test("project update task mentions keep retrying until the task panel opens", () => {
+test("workspace update task mentions keep retrying until the task panel opens", () => {
     const tasksTabSource = readFileSync(path.join(process.cwd(), "src/components/projects/v2/TasksTab.tsx"), "utf8");
 
     assert.match(tasksTabSource, /const loadingInitialOpenTaskRef = useRef<string \| null>\(null\)/);

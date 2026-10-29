@@ -412,7 +412,7 @@ export function buildEmail(input: BuildEmailInput): EmailPayload {
   const title = welcome ? "Welcome to NetworkBase" : "A task has been assigned to you";
   const greeting = `Hi ${input.name || "there"},`;
   const taskTitle = input.taskTitle || "Task";
-  const projectTitle = input.projectTitle || "your project";
+  const projectTitle = input.projectTitle || "your workspace";
   const button = welcome ? "Explore NetworkBase" : "View task";
   const footer = welcome
     ? "Need help? Reply to this email."
@@ -441,7 +441,7 @@ export function buildEmail(input: BuildEmailInput): EmailPayload {
     if (input.skills && input.skills.length > 0) {
       welcomeText += `Focus and Skills: ${input.skills.join(", ")}\n`;
     }
-    welcomeText += `\nExplore Projects: ${discoverUrl}\n`;
+    welcomeText += `\nExplore workspaces: ${discoverUrl}\n`;
     welcomeText += `View Profile: ${profileUrl}\n\n`;
     welcomeText += `Need help? Reply to this email or visit support: ${supportUrl}\n`;
     welcomeText += `Privacy: ${privacyUrl}\nSecurity: ${securityUrl}\nTerms: ${termsUrl}\n`;
@@ -456,7 +456,7 @@ export function buildEmail(input: BuildEmailInput): EmailPayload {
       skillsHtml = `<div style="margin:16px 0 0 0;"><div style="font-size:11px;font-weight:700;letter-spacing:0.05em;color:#6B7280;text-transform:uppercase;margin-bottom:8px;">Focus and Skills</div>${pills}</div>`;
     }
 
-    const previewSnippet = `Welcome to NetworkBase, ${displayName} — Your profile is live. Explore projects, connect with developers, and collaborate seamlessly.`;
+    const previewSnippet = `Welcome to NetworkBase, ${displayName} — Your profile is live. Find people, join workspaces and manage your work in one place.`;
 
     return {
       from: "NetworkBase <welcome@networkbase.in>",
@@ -481,14 +481,14 @@ export function buildEmail(input: BuildEmailInput): EmailPayload {
                 Welcome to NetworkBase
               </h1>
               <p style="margin:14px 0 0 0;font-size:14px;line-height:1.6;color:#4B5563;">
-                Your profile is live. Connect with developers, collaborate on projects, and manage tasks seamlessly across your workspace.
+                Your profile is live. Find people, join workspaces and manage your work in one place.
               </p>
               ${skillsHtml}
             </td>
           </tr>`,
         buttonsHtml: `                  <td class="action-btn-cell" style="padding:0 8px 0 0;vertical-align:middle;">
                     <a href="${escapeHtml(discoverUrl)}" class="action-btn" style="display:inline-block;padding:9px 18px;font-size:13px;font-weight:600;color:#FFFFFF;background-color:#C24720;text-decoration:none;border-radius:6px;line-height:1.4;white-space:nowrap;text-align:center;">
-                      Explore Projects &rarr;
+                      Explore workspaces &rarr;
                     </a>
                   </td>
                   <td class="action-btn-cell" style="padding:0;vertical-align:middle;">
@@ -538,7 +538,7 @@ export function buildEmail(input: BuildEmailInput): EmailPayload {
 
   // Build Plain Text Version
   let text = `${title}\n\n`;
-  text += `Project: ${projectTitle}\n`;
+  text += `Workspace: ${projectTitle}\n`;
   text += `Assigned to: ${assigneeDisplayName}${assigneeUsername ? ` (@${assigneeUsername})` : ""}${assigneeHeadline ? ` • ${assigneeHeadline}` : ""}\n`;
   if (assignerText) text += `${assignerText}\n`;
   text += `\nTask: ${taskTitle}${taskNumberTag ? ` (${taskNumberTag})` : ""}\n`;
@@ -567,7 +567,7 @@ export function buildEmail(input: BuildEmailInput): EmailPayload {
   }
 
   text += `\nView Task: ${url}\n`;
-  text += `Project: ${projectUrl}\n`;
+  text += `Workspace: ${projectUrl}\n`;
   if (desktopIdeLaunchUrl) {
     text += `Open in ${input.connectedDesktopIde?.name || "Code editor"}: ${desktopIdeLaunchUrl}\n`;
   }

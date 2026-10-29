@@ -123,24 +123,24 @@ export default function AccountDeletionWizard({ onClose, onDeleted }: Props) {
                 <div className="space-y-2 rounded-lg border border-[var(--status-warning)]/30 bg-[var(--status-warning-soft)] p-3 text-foreground">
                     <p className="font-medium">What happens to your data</p>
                     <ul className="list-disc space-y-1 pl-4 text-muted-foreground">
-                        <li>Projects you own are deleted, including for the people working in them.</li>
+                        <li>Workspaces you own are deleted, including for the people working in them.</li>
                         <li>Your direct messages are deleted. Your messages in group chats stay, without your name.</li>
                         <li>We keep a record of your email and username for 180 days so they can’t be taken over.</li>
                     </ul>
                     {owned === null && !ownedFailed ? (
-                        <p className="nb-meta text-muted-foreground" role="status">Checking your projects…</p>
+                        <p className="nb-meta text-muted-foreground" role="status">Checking your workspaces…</p>
                     ) : ownedFailed ? (
-                        <p className="nb-meta text-muted-foreground">We couldn’t check your projects. Review them on your Projects page before continuing.</p>
+                        <p className="nb-meta text-muted-foreground">We couldn’t check your workspaces. Review them on your Workspaces page before continuing.</p>
                     ) : owned && owned.length > 0 ? (
                         <p>
                             You own {owned.length} project{owned.length === 1 ? "" : "s"}
                             {sharedProjects.length > 0
                                 ? `, ${sharedProjects.length} with other people in ${sharedProjects.length === 1 ? "it" : "them"}: ${sharedProjects.slice(0, 3).map((project) => project.title).join(", ")}${sharedProjects.length > 3 ? "…" : ""}`
                                 : ""}.
-                            {" "}Transfer any you want to keep from each project’s Settings tab. <Link href="/projects" onClick={onClose} className="text-primary hover:underline">Open your projects</Link>
+                            {" "}Transfer any you want to keep from each workspace’s Settings tab. <Link href="/projects" onClick={onClose} className="text-primary hover:underline">Open your workspaces</Link>
                         </p>
                     ) : (
-                        <p className="text-muted-foreground">You don’t own any projects.</p>
+                        <p className="text-muted-foreground">You don’t own any workspaces.</p>
                     )}
                     {handedOver.length > 0 ? (
                         <p>{handedOver.map((project) => project.title).join(", ")} {handedOver.length === 1 ? "passes" : "pass"} to a new lead in {handedOver.length === 1 ? "its" : "their"} organization, so {handedOver.length === 1 ? "it isn’t" : "they aren’t"} deleted.</p>

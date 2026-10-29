@@ -8,7 +8,7 @@ function source(relativePath: string) {
   return fs.readFileSync(path.join(process.cwd(), relativePath), "utf8");
 }
 
-test("project links tab eliminates duplicate headers, summary cards, and leaves one clean SettingsCard", () => {
+test("workspace links tab eliminates duplicate headers, summary cards, and leaves one clean SettingsCard", () => {
   const settingsTab = componentSource("src/components/projects/tabs/ProjectSettingsTab.tsx");
 
   // SectionHeader is suppressed on links tab
@@ -22,12 +22,12 @@ test("project links tab eliminates duplicate headers, summary cards, and leaves 
   assert.doesNotMatch(linksBlock, /<SummaryCard/, "Redundant SummaryCard must be removed from Project Links tab");
 
   // Single canonical SettingsCard hosting ProjectLinksManager
-  assert.match(linksBlock, /<SettingsCard[\s\S]*?title="Project links"/, "Canonical SettingsCard must be used");
+  assert.match(linksBlock, /<SettingsCard[\s\S]*?title="Workspace links"/, "Canonical SettingsCard must be used");
   assert.match(linksBlock, /<ProjectLinksManager[\s\S]*?mode="inline"/, "ProjectLinksManager must be rendered in inline mode");
   assert.equal((linksBlock.match(/<ProjectLinksManager/g) ?? []).length, 1, "Exactly one ProjectLinksManager in links tab");
 });
 
-test("project links components adhere to NetworkBase drafting-table design tokens and typography", () => {
+test("workspace links components adhere to NetworkBase drafting-table design tokens and typography", () => {
   const cardSource = source("src/components/projects/dashboard/ProjectSocialLinksCard.tsx");
 
   // Zero legacy zinc, emerald, or blue classes

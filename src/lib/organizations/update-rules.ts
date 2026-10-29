@@ -28,7 +28,7 @@ export function isPinnedNow(isPinned: boolean, pinnedUntil: Date | null, now: Da
 
 /** Why a child project can't share a post up to its org, or null (report §17.6). */
 export function shareBlock(input: { childVisibility: string | null; orgAllowsShare: boolean }): string | null {
-  if (input.childVisibility === "private") return "Private projects can’t share to the org.";
+  if (input.childVisibility === "private") return "Private workspaces can’t share to the org.";
   if (!input.orgAllowsShare) return "The organization turned sharing off.";
   return null;
 }

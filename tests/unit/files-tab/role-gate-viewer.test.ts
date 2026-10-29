@@ -238,7 +238,7 @@ describe("Role_Viewer — mutation UI is absent (Req 19.3, Req 5.4)", () => {
 // ─── (ii) Server-side rejection of Viewer mutations (Req 19.6) ───────
 
 describe("Server-side mutation authorization (Req 19.6)", () => {
-  // Every server action that MUTATES the project's Files graph MUST
+  // Every server action that MUTATES the workspace's Files graph MUST
   // refuse unauthorized callers before any DB write. The canonical
   // pattern across this codebase is:
   //
@@ -380,7 +380,7 @@ describe("Server-side mutation authorization (Req 19.6)", () => {
     );
   });
 
-  it("assertProjectWriteAccessTx row-locks the project + membership before mutation", () => {
+  it("assertProjectWriteAccessTx row-locks the workspace + membership before mutation", () => {
     // SEC-H5 / SEC-M1: the Tx variant is what transactional mutations
     // call so a concurrent role removal cannot race an already-open
     // viewer request into a successful write.
@@ -392,7 +392,7 @@ describe("Server-side mutation authorization (Req 19.6)", () => {
     assert.match(
       helperBody,
       /FOR UPDATE/,
-      "must SELECT ... FOR UPDATE the project row",
+      "must SELECT ... FOR UPDATE the workspace row",
     );
     assert.match(
       helperBody,
@@ -494,7 +494,7 @@ describe("Unauthenticated deep-link arrival (Req 19.7, Req 19.5)", () => {
     );
     // And the `not_found` failure must dispatch `navigateTo(null)`
     // (root) before surfacing the inline error — so the main area
-    // renders the project root, not the requested target.
+    // renders the workspace root, not the requested target.
     assert.match(
       RESOLVER_SRC,
       /navigateRef\.current\(null, \{ preserveQuery: true \}\)/,
@@ -509,7 +509,7 @@ describe("Unauthenticated deep-link arrival (Req 19.7, Req 19.5)", () => {
     // fallback for "project requires authentication" per Req 19.7.
     //
     // The contract we assert here is the middleware shape: it builds
-    // the redirect URL without reading the project DB (no DB calls
+    // the redirect URL without reading the workspace DB (no DB calls
     // happen in the middleware import graph) and pins the next-path
     // via `normalizeAuthNextPath`.
     const MW_SRC = readFileSync(

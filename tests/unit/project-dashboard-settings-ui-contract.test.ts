@@ -136,7 +136,7 @@ test("journey stage transitions record all crossed stages and lifecycle edits re
   assert.match(actions, /const updatedDates = buildJourneyCompletionDates\(/);
 });
 
-test("project links resolve and persist exact destination names", () => {
+test("workspace links resolve and persist exact destination names", () => {
   const editor = source("src/components/projects/dashboard/ProjectSocialLinksCard.tsx");
   const previewRoute = source("src/app/api/v1/link-preview/route.ts");
   const normalization = source("src/lib/profile/normalization.ts");

@@ -878,7 +878,7 @@ export default function DetailsTab({
             </DropdownMenu>
             {currentAssigneeUnavailable ? (
               <p className="text-xs text-amber-600 dark:text-amber-400">
-                Removed from project · needs reassignment
+                Removed from workspace · needs reassignment
               </p>
             ) : null}
           </div>

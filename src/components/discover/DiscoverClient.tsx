@@ -405,7 +405,7 @@ export default function DiscoverClient({
     const announcement = settled && (!isDefault || hideOpened)
         ? feedItems.length
             ? `${visibleProjects.length}${plus} ${visibleProjects.length === 1 && !hasNextPage ? 'project' : 'projects'}${shownUpdates.length ? ` and ${shownUpdates.length}${plus} ${shownUpdates.length === 1 && !hasNextPage ? 'update' : 'updates'}` : ''}`
-            : 'No projects match'
+            : 'No workspaces match'
         : '';
 
     const emptyState = (() => {
@@ -413,12 +413,12 @@ export default function DiscoverClient({
             return <EmptyState icon={Search} title="Nothing matches" description="Try other words or fewer filters." action={<Button type="button" variant="outline" onClick={clearAll}>{q ? 'Clear search and filters' : 'Clear filters'}</Button>} />;
         }
         if (view === FILTER_VIEWS.FOLLOWING) {
-            return <EmptyState icon={Bell} title="Projects you follow show up here" description="Follow a project to get its updates in this view." action={<Button type="button" variant="outline" onClick={() => { updateUrlFilters({ view: FILTER_VIEWS.ALL }); focusFeed(); }}>Browse all projects</Button>} />;
+            return <EmptyState icon={Bell} title="Workspaces you follow show up here" description="Follow a workspace to get its updates in this view." action={<Button type="button" variant="outline" onClick={() => { updateUrlFilters({ view: FILTER_VIEWS.ALL }); focusFeed(); }}>Browse all workspaces</Button>} />;
         }
         if (view === FILTER_VIEWS.RECOMMENDATIONS) {
-            return <EmptyState icon={Sparkles} title="No matches yet" description="Add skills and interests to your profile to get projects that fit you." action={<Button asChild variant="outline"><Link href={ROUTES.MY_PROFILE}>Edit your profile</Link></Button>} />;
+            return <EmptyState icon={Sparkles} title="No matches yet" description="Add skills and interests to your profile to get workspaces that fit you." action={<Button asChild variant="outline"><Link href={ROUTES.MY_PROFILE}>Edit your profile</Link></Button>} />;
         }
-        return <EmptyState icon={Compass} title={isDefault ? 'No projects yet' : 'No projects here yet'} description="Start one and invite people to build it with you." action={<Button asChild><Link href="/projects/new"><Plus className="size-4" aria-hidden="true" /> New project</Link></Button>} />;
+        return <EmptyState icon={Compass} title={isDefault ? 'No workspaces yet' : 'No workspaces here yet'} description="Start one and invite people to build it with you." action={<Button asChild><Link href="/projects/new"><Plus className="size-4" aria-hidden="true" /> New workspace</Link></Button>} />;
     })();
 
     const firstPageError = error && visibleProjects.length === 0;
@@ -432,7 +432,7 @@ export default function DiscoverClient({
             <ErrorNotice message={error.message} onRetry={clearAll} actionLabel="Clear filters" />
         ) : (
             <ErrorNotice
-                message={error instanceof DiscoverFeedError ? error.message : "Projects didn’t load. Check your connection and try again."}
+                message={error instanceof DiscoverFeedError ? error.message : "Workspaces didn’t load. Check your connection and try again."}
                 onRetry={() => void refetch()}
             />
         )

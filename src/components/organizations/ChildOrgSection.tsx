@@ -60,7 +60,7 @@ export function ChildOrgSection({ project, isLead, canManage }: { project: Proje
         const targets = project.moveTargets ?? []
         return (
             <section id="project-settings-child-org" data-project-settings-section className="space-y-6">
-                <SettingsCard title="Organization" headingLevel={2} description="Move this project into an organization you belong to. Its admins gain access and its rules apply.">
+                <SettingsCard title="Organization" headingLevel={2} description="Move this workspace into an organization you belong to. Its admins gain access and its rules apply.">
                     {project.pendingMoveIn ? (
                         <div className="space-y-3">
                             <p className="text-sm">Request pending: move into {project.pendingMoveIn.orgTitle}. An admin there decides.</p>
@@ -90,7 +90,7 @@ export function ChildOrgSection({ project, isLead, canManage }: { project: Proje
     const current = (project.visibility === 'unlisted' ? 'public' : project.visibility) as ChildVisibility
     return (
         <section id="project-settings-child-org" data-project-settings-section className="space-y-6">
-            <SettingsCard title="Organization" headingLevel={2} description={`This project is part of ${parentOrg.title}. Some rules come from there.`}>
+            <SettingsCard title="Organization" headingLevel={2} description={`This workspace is part of ${parentOrg.title}. Some rules come from there.`}>
                 <div className="space-y-6">
                     <p className="text-sm">
                         In <Link href={`/org/${parentOrg.slug ?? parentOrg.id}`} className="font-medium underline underline-offset-4">{parentOrg.title}</Link>
@@ -125,13 +125,13 @@ export function ChildOrgSection({ project, isLead, canManage }: { project: Proje
                     </div>
                     <div className="space-y-3 border-t border-border pt-4">
                         <p className="nb-ui-label text-sm font-semibold text-foreground">Leave {parentOrg.title}</p>
-                        <p className="nb-compact text-muted-foreground">Detaching makes this a Private personal project. Its org views go away.</p>
+                        <p className="nb-compact text-muted-foreground">Detaching makes this a Private personal workspace. Its org views go away.</p>
                         {inherited ? (
                             <div className="flex flex-wrap gap-2">
                                 {parentOrg.detachRequested ? <p className="basis-full text-sm">The lead asked to detach.</p> : null}
                                 <Button variant="destructive" disabled={pending} onClick={() => setConfirm('detach')}>{parentOrg.detachRequested ? 'Approve and detach' : 'Detach now'}</Button>
                                 {parentOrg.detachRequested ? <Button variant="outline" disabled={pending} onClick={() => run(() => cancelDetachRequestAction(projectId), 'Request declined.')}>Decline request</Button> : null}
-                                {project.status !== 'archived' ? <Button variant="outline" disabled={pending} onClick={() => setConfirm('archive')}>Archive project</Button> : null}
+                                {project.status !== 'archived' ? <Button variant="outline" disabled={pending} onClick={() => setConfirm('archive')}>Archive workspace</Button> : null}
                             </div>
                         ) : isLead ? (
                             parentOrg.detachRequested ? (
@@ -150,8 +150,8 @@ export function ChildOrgSection({ project, isLead, canManage }: { project: Proje
             <ConfirmDialog
                 open={confirm !== null}
                 onOpenChange={(open) => { if (!open) setConfirm(null) }}
-                title={confirm === 'archive' ? 'Archive this project?' : `Detach from ${parentOrg.title}?`}
-                description={confirm === 'archive' ? 'Everything becomes read-only. The lead can unarchive it.' : 'It becomes a Private personal project of its lead.'}
+                title={confirm === 'archive' ? 'Archive this workspace?' : `Detach from ${parentOrg.title}?`}
+                description={confirm === 'archive' ? 'Everything becomes read-only. The lead can unarchive it.' : 'It becomes a Private personal workspace of its lead.'}
                 confirmLabel={confirm === 'archive' ? 'Archive' : 'Detach'}
                 variant="destructive"
                 onConfirm={() => run(() => (confirm === 'archive' ? archiveChildAction(projectId) : detachChildAction(projectId)), confirm === 'archive' ? 'Archived.' : 'Detached.')}

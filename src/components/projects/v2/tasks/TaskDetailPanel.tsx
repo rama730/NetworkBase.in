@@ -622,7 +622,7 @@ export default function TaskDetailPanel({
                 aria-labelledby={`task-tab-${activeTab}`}
                 className="p-6 text-sm text-muted-foreground"
               >
-                {activeTab === "comments" ? "Comments" : "Files"} on tasks are visible to project members.
+                {activeTab === "comments" ? "Comments" : "Files"} on tasks are visible to workspace members.
               </div>
             ) : null}
 
@@ -722,7 +722,7 @@ export default function TaskDetailPanel({
         open={showDeleteConfirm}
         onOpenChange={setShowDeleteConfirm}
         title="Delete task"
-        description="The task is removed from the board. Its working files move to a “Recovered task files” folder in Project Files."
+        description="The task is removed from the board. Its working files move to a “Recovered task files” folder in Workspace Files."
         confirmLabel="Delete"
         variant="destructive"
         overlayClassName="z-[300] bg-black/60"

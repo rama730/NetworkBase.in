@@ -13,7 +13,7 @@ function source(path: string) {
 
 test("account integrations keeps repository synchronization on project surfaces", () => {
   const ui = source("src/components/settings/IntegrationsSettings.tsx");
-  assert.match(ui, /Repository access is managed from each project/);
+  assert.match(ui, /Repository access is managed from each workspace/);
   assert.match(ui, /href=\{`\/projects\/\$\{project\.slug\}`\}/);
   assert.doesNotMatch(ui, /getSyncPreviewAction|retryGithubImportAction/);
   assert.doesNotMatch(ui, /role="progressbar"|setSyncRequesting|onSync/);

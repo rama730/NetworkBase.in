@@ -125,11 +125,11 @@ export function evaluateProjectDocQuality(content: string): ProjectDocQualityRep
         issues.push({ id, severity, label, description });
     };
 
-    if (!sectionPresence.overview) add("missing-overview", "warning", "Missing overview", "Add a short explanation of what this project does and why it matters.");
+    if (!sectionPresence.overview) add("missing-overview", "warning", "Missing overview", "Add a short explanation of what this workspace does and why it matters.");
     if (!sectionPresence.setup) add("missing-setup", "warning", "Add a ’Getting started’ section", "Add setup instructions for new members.");
-    if (!sectionPresence.usage) add("missing-usage", "info", "Add usage instructions", "Show how someone should use or run the project after setup.");
+    if (!sectionPresence.usage) add("missing-usage", "info", "Add usage instructions", "Show how someone should use or run the workspace after setup.");
     if (!sectionPresence.contributing) add("missing-contributing", "info", "Add a ’How to contribute’ section", "Explain how people can take part, apply or ask for help.");
-    if (!sectionPresence.screenshots) add("missing-demo", "info", "Missing demo or screenshot", "Add a visual preview when the project benefits from one.");
+    if (!sectionPresence.screenshots) add("missing-demo", "info", "Missing demo or screenshot", "Add a visual preview when the workspace benefits from one.");
     if (!sectionPresence.commands) add("missing-command", "info", "No command block", "Add copyable terminal commands for setup, test, or run steps.");
     if (UNSAFE_URL_PATTERN.test(content)) add("unsafe-url", "error", "Unsafe link", "Remove javascript:, data:, or other unsafe link protocols.");
 
@@ -141,7 +141,7 @@ export function evaluateProjectDocQuality(content: string): ProjectDocQualityRep
     if (visuals.imageInTable) add("image-table-layout", "info", "Image inside table", "Use smaller before/after widths in table cells so comparisons stay readable on narrow screens.");
 
     const projectLinks = Array.from(content.matchAll(PROJECT_LINK_PATTERN));
-    if (projectLinks.length > 20) add("many-project-links", "info", "Many project links", "Consider grouping project links into an Important Links section.");
+    if (projectLinks.length > 20) add("many-project-links", "info", "Many workspace links", "Consider grouping workspace links into an Important Links section.");
     if (bytes > 500 * 1024) add("too-large", "error", "Doc too large", "Keep Doc content under 500 KiB and move long docs into files.");
 
     const score = Math.max(0, 100 - issues.reduce((total, issue) => {

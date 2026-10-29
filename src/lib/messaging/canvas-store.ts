@@ -29,7 +29,7 @@ export function canvasAssetUrl(assetId: string) {
 export type CanvasTemplate = {
   id: string;
   name: string;
-  category: "Team" | "Meetings" | "Projects" | "Operations";
+  category: "Team" | "Meetings" | "Planning" | "Operations";
   /** When to use it, one line. */
   description: string;
   generate: (channelName: string, projectName?: string | null) => {
@@ -66,7 +66,7 @@ _One or two sentences: what this channel is for and who should be here._
     id: "onboarding",
     name: "Onboarding checklist",
     category: "Team",
-    description: "A first-week plan for someone joining the project.",
+    description: "A first-week plan for someone joining the workspace.",
     generate: (_channelName, projectName) => ({
       title: `Welcome to ${projectName || "the team"}`,
       content: `## Start here
@@ -74,7 +74,7 @@ _A short welcome and what the first week should achieve._
 
 ## First week
 - [ ] Get access to the tools you need
-- [ ] Read the channel overview and project brief
+- [ ] Read the channel overview and workspace brief
 - [ ] Meet the people below
 - [ ] Pick up a first small task
 
@@ -140,7 +140,7 @@ _A short welcome and what the first week should achieve._
   {
     id: "project-brief",
     name: "Workspace brief",
-    category: "Projects",
+    category: "Planning",
     description: "Problem, goals, scope and milestones before work starts.",
     generate: (channelName, projectName) => ({
       title: `${projectName || channelName} brief`,
@@ -164,7 +164,7 @@ _Who has the problem, and why it matters now._
   {
     id: "decision-record",
     name: "Decision",
-    category: "Projects",
+    category: "Planning",
     description: "Write down a decision, the options and why you chose one.",
     generate: () => ({
       title: "Decision: ",

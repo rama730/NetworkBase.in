@@ -270,7 +270,7 @@ async function handleFinalize(userId: string, body: z.infer<typeof finalizeSchem
     return jsonError("Upload intent expired", 409, "CONFLICT");
   }
   if (!intent.projectId) {
-    await markIntentFailed(intent.id, "Upload intent is missing project id");
+    await markIntentFailed(intent.id, "Upload intent is missing workspace id");
     return jsonError("Invalid upload intent", 400, "BAD_REQUEST");
   }
 

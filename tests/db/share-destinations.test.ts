@@ -35,7 +35,7 @@ after(async()=>{
   await sql.end();await closeAppDb();
 });
 const input=(scope:any,extra:any={})=>({scope,expectedActorId:owner,...extra});
-test('root projects are member-only and page by stable identity without exposing channel names',async()=>{
+test('root workspaces are member-only and page by stable identity without exposing channel names',async()=>{
   const first=await projects({expectedActorId:owner,limit:1});assert.ok(first.success);assert.equal(first.projects.length,1);assert.ok(first.nextCursor);
   const second=await projects({expectedActorId:owner,limit:1,cursor:first.nextCursor});assert.ok(second.success);assert.equal(second.projects.length,1);assert.equal(second.nextCursor,null);
   assert.deepEqual(new Set([first.projects[0]!.id,second.projects[0]!.id]),new Set([p1,p2]));

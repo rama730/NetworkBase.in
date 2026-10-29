@@ -451,7 +451,7 @@ export async function loadOwnedProjectForSettings(projectId: string, userId: str
     return {
       ok: false as const,
       errorCode: "NOT_FOUND" as const,
-      message: "Project not found.",
+      message: "Workspace not found.",
     };
   }
   if (project.ownerId !== userId) {

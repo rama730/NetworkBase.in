@@ -81,7 +81,7 @@ export async function readProjectFileText(
     }
     const parsedKey = parseProjectFileKey(node.s3Key);
     if (!parsedKey || parsedKey.projectId !== projectId) {
-        throw new Error("File key does not belong to this project");
+        throw new Error("File key does not belong to this workspace");
     }
 
     try {

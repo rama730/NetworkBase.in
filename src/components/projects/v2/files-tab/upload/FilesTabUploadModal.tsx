@@ -506,7 +506,7 @@ export function FilesTabUploadModal({
           </div>
           <DialogDescription>
             {expandedCard === "project"
-              ? "Select the destination folder for these project files."
+              ? "Select the destination folder for these workspace files."
               : expandedCard === "deliverable"
                 ? "Select the destination folder for this deliverable."
                 : "What are these files for?"}
@@ -636,7 +636,7 @@ export function FilesTabUploadModal({
               <span className="font-semibold">Matching file detected: </span>
               <span className="font-mono">{matchingExistingFile.name}</span>
               <p className="mt-0.5 text-amber-700/90 dark:text-amber-300/90">
-                You can save this upload directly as a new version or choose to place it as a separate project file.
+                You can save this upload directly as a new version or choose to place it as a separate workspace file.
               </p>
             </div>
           </div>
@@ -679,7 +679,7 @@ export function FilesTabUploadModal({
                     )}
                   </div>
                   <div className="text-xs text-muted-foreground mt-0.5">
-                    Place among existing files in {destinationFolderName}. Click to browse project tree.
+                    Place among existing files in {destinationFolderName}. Click to browse workspace tree.
                   </div>
                 </div>
               </div>
@@ -893,7 +893,7 @@ export function FilesTabUploadModal({
                       <Search className="absolute left-2.5 top-2 size-3.5 text-muted-foreground" />
                       <input
                         type="text"
-                        placeholder="Search project tasks to link…"
+                        placeholder="Search workspace tasks to link…"
                         value={taskQuery}
                         onChange={(e) => setTaskQuery(e.target.value)}
                         className="w-full rounded-md border border-border bg-background pl-8 pr-3 py-1 text-xs text-foreground"
@@ -1006,7 +1006,7 @@ export function FilesTabUploadModal({
                     <Search className="absolute left-2.5 top-2 size-3.5 text-muted-foreground" />
                     <input
                       type="text"
-                      placeholder="Search project task for this deliverable…"
+                      placeholder="Search workspace task for this deliverable…"
                       value={taskQuery}
                       onChange={(e) => setTaskQuery(e.target.value)}
                       className="w-full rounded-md border border-border bg-background pl-8 pr-3 py-1 text-xs text-foreground"

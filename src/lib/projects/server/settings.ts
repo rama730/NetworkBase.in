@@ -653,11 +653,11 @@ export async function readCollaboratorSettings(
   } catch (error) {
     console.error("Couldn’t load member settings:", error);
     const message = error instanceof Error ? error.message : String(error);
-    if (message.includes("Project not found")) {
+    if (message.includes("Workspace not found")) {
       return {
         success: false,
         errorCode: "NOT_FOUND",
-        message: "Project not found.",
+        message: "Workspace not found.",
       };
     }
     if (message.includes("permission")) {
@@ -801,11 +801,11 @@ export async function readFileAccessSettings(
       error: error instanceof Error ? error.message : String(error),
     });
     const message = error instanceof Error ? error.message : String(error);
-    if (message.includes("Project not found")) {
+    if (message.includes("Workspace not found")) {
       return {
         success: false,
         errorCode: "NOT_FOUND",
-        message: "Project not found.",
+        message: "Workspace not found.",
       };
     }
     if (message.includes("permission")) {
@@ -867,7 +867,7 @@ export async function updateProjectMemberFileUploadAction(
       return {
         success: false,
         errorCode: "NOT_FOUND",
-        message: "Project member not found.",
+        message: "Workspace member not found.",
       };
     const targetRole = normalizeCollaboratorRole(
       target.role,
@@ -908,7 +908,7 @@ export async function updateProjectMemberFileUploadAction(
         metadata: {
           targetUserId: memberUserId,
           targetDisplayName:
-            target.fullName || target.username || "Project member",
+            target.fullName || target.username || "Workspace member",
           previous: target.fileUploadEnabled !== false,
           next: enabled,
           actorRole: capability.role,
@@ -929,8 +929,8 @@ export async function updateProjectMemberFileUploadAction(
           ? "File uploads enabled for you"
           : "File uploads disabled for you",
         body: enabled
-          ? "You can upload files to this project workspace."
-          : "You can no longer upload files to this project workspace.",
+          ? "You can upload files to this workspace."
+          : "You can no longer upload files to this workspace.",
         sourceEventId: `${projectId}:file-upload:${memberUserId}:${enabled}`,
         entityRefs: { projectId, targetUserId: memberUserId },
       });
@@ -1044,11 +1044,11 @@ export async function updateProjectFileUploadDefaultsAction(
         eventKey: "access.file_upload_permission_changed",
         directRecipientIds: affectedUserIds.map((row) => row.userId),
         title: enabled
-          ? "Project file uploads enabled"
-          : "Project file uploads disabled",
+          ? "Workspace file uploads enabled"
+          : "Workspace file uploads disabled",
         body: enabled
-          ? "Members can upload files to this project workspace."
-          : "Members can no longer upload files to this project workspace.",
+          ? "Members can upload files to this workspace."
+          : "Members can no longer upload files to this workspace.",
         sourceEventId: `${projectId}:file-upload-defaults:${enabled}`,
         entityRefs: { projectId },
       });
@@ -1115,7 +1115,7 @@ export async function readNotificationSettings(
       return {
         success: false,
         errorCode: "NOT_FOUND",
-        message: "Project not found.",
+        message: "Workspace not found.",
       };
 
     const policy = normalizeProjectNotificationPolicy(
@@ -1139,7 +1139,7 @@ export async function readNotificationSettings(
       return {
         success: false,
         errorCode: "FORBIDDEN",
-        message: "You do not have permission to manage project notifications.",
+        message: "You do not have permission to manage workspace notifications.",
       };
     }
     return {
@@ -1212,13 +1212,13 @@ export async function updateProjectNotificationSettingsAction(
       return {
         success: false,
         errorCode: "FORBIDDEN",
-        message: "You do not have permission to manage project notifications.",
+        message: "You do not have permission to manage workspace notifications.",
       };
     }
     return {
       success: false,
       errorCode: "INTERNAL_ERROR",
-      message: "Couldn’t update project notification settings.",
+      message: "Couldn’t update workspace notification settings.",
     };
   }
 }
@@ -1309,7 +1309,7 @@ export async function readProjectMemberNotificationSettingsAction(
       return {
         success: false,
         errorCode: "NOT_FOUND",
-        message: "Project member not found.",
+        message: "Workspace member not found.",
       };
     }
 
@@ -1369,7 +1369,7 @@ export async function updateProjectMemberNotificationSettingsAction(
         success: false,
         errorCode: "FORBIDDEN",
         message:
-          "Members can only update their own project notification settings.",
+          "Members can only update their own workspace notification settings.",
       };
     }
     const overrides = normalizeProjectMemberNotificationOverrides(input);
@@ -1388,7 +1388,7 @@ export async function updateProjectMemberNotificationSettingsAction(
       return {
         success: false,
         errorCode: "NOT_FOUND",
-        message: "Project member not found.",
+        message: "Workspace member not found.",
       };
 
     await db.insert(projectNodeEvents).values({
@@ -1409,7 +1409,7 @@ export async function updateProjectMemberNotificationSettingsAction(
       memberUserId,
     );
     if (!read.success) return read;
-    return { ...read, message: "Project notification preferences updated." };
+    return { ...read, message: "Workspace notification preferences updated." };
   } catch (error) {
     logger.error("project.member_notification_settings_update_failed", {
       module: "projects",
@@ -1477,11 +1477,11 @@ export async function updateProjectMemberRoleAction(
         return { ok: true as const, lifecycle };
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
-        if (message.includes("Project not found")) {
+        if (message.includes("Workspace not found")) {
           return {
             ok: false as const,
             errorCode: "NOT_FOUND" as const,
-            message: "Project not found.",
+            message: "Workspace not found.",
           };
         }
         if (message.includes("permission")) {
@@ -1519,7 +1519,7 @@ export async function updateProjectMemberRoleAction(
           ...actor,
           eventKey: "members.role_changed",
           affectedMemberId: memberUserId,
-          title: `${actor.actorName || "Someone"} updated your project role`,
+          title: `${actor.actorName || "Someone"} updated your workspace role`,
           body: result.lifecycle.project.title
             ? `${result.lifecycle.project.title}: ${nextRoleLabel}`
             : `New role: ${nextRoleLabel}`,
@@ -1536,7 +1536,7 @@ export async function updateProjectMemberRoleAction(
           preview: {
             actorName: actor.actorName,
             actorAvatarUrl: actor.actorAvatarUrl,
-            contextLabel: result.lifecycle.project.title ?? "Project",
+            contextLabel: result.lifecycle.project.title ?? "Workspace",
             contextKind: "project",
             secondaryText: `Role changed to ${nextRoleLabel}`,
           },
@@ -1617,7 +1617,7 @@ export async function getProjectMemberRemovalPreflightAction(
       return {
         success: false,
         errorCode: "NOT_FOUND",
-        message: "This user is no longer a project member.",
+        message: "This user is no longer a workspace member.",
       };
     }
     const actorRole = capability.role;
@@ -1699,11 +1699,11 @@ export async function getProjectMemberRemovalPreflightAction(
   } catch (error) {
     console.error("Failed to load member removal preflight:", error);
     const message = error instanceof Error ? error.message : String(error);
-    if (message.includes("Project not found")) {
+    if (message.includes("Workspace not found")) {
       return {
         success: false,
         errorCode: "NOT_FOUND",
-        message: "Project not found.",
+        message: "Workspace not found.",
       };
     }
     if (message.includes("permission")) {
@@ -1775,11 +1775,11 @@ export async function removeProjectMemberAction(
         return { ok: true as const, lifecycle };
     }).catch((error: unknown) => {
         const message = error instanceof Error ? error.message : String(error);
-        if (message.includes("Project not found")) {
+        if (message.includes("Workspace not found")) {
           return {
             ok: false as const,
             errorCode: "NOT_FOUND" as const,
-            message: "Project not found.",
+            message: "Workspace not found.",
           };
         }
         if (message.includes("permission") || message.includes("owner")) {
@@ -1834,8 +1834,8 @@ export async function removeProjectMemberAction(
         ...actor,
         eventKey: "members.removed",
         affectedMemberId: memberUserId,
-        title: `${actor.actorName || "Someone"} removed you from a project`,
-        body: txResult.lifecycle.project.title ?? "Project access removed",
+        title: `${actor.actorName || "Someone"} removed you from a workspace`,
+        body: txResult.lifecycle.project.title ?? "Workspace access removed",
         href: `/projects/${encodeURIComponent(txResult.lifecycle.project.slug || projectId)}`,
         entityRefs: {
           projectId,
@@ -1845,9 +1845,9 @@ export async function removeProjectMemberAction(
         preview: {
           actorName: actor.actorName,
           actorAvatarUrl: actor.actorAvatarUrl,
-          contextLabel: txResult.lifecycle.project.title ?? "Project",
+          contextLabel: txResult.lifecycle.project.title ?? "Workspace",
           contextKind: "project",
-          secondaryText: "Removed from project",
+          secondaryText: "Removed from workspace",
         },
         sourceEventId:
           txResult.lifecycle.eventId ??

@@ -485,7 +485,7 @@ function contributionFromRow(row: ProfileContributionRow): ProfileCollaborationC
   const repository=publicProjectLinks.find(link=>link.purpose==='source-code');
   const repositoryIsMembersOnly=filterProjectLinksForAudience(row.project_external_links,true).some(link=>link.audience==='members'&&link.url===row.project_github_repo_url);
   const identityLinks:ContributionStory["links"] = row.project_id ? [
-    ...(website?[{id:row.contribution_id,label:'Project website',url:website.url}]:[]),
+    ...(website?[{id:row.contribution_id,label:'Workspace website',url:website.url}]:[]),
     ...(repository||(row.project_github_repo_url&&!repositoryIsMembersOnly)?[{id:row.contribution_id,label:'Repository',url:repository?.url??row.project_github_repo_url!}]:[]),
   ] : [];
   return {

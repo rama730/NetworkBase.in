@@ -54,7 +54,7 @@ describe("integrations settings builder", () => {
     });
     assert.equal(data.githubService.status, "action_required");
     assert.equal(data.githubService.summary, "GitHub account unavailable.");
-    assert.match(data.githubService.detail, /Imported project data remains available/);
+    assert.match(data.githubService.detail, /Imported workspace data remains available/);
     assert.equal(data.githubService.recoveryAction, "replace_account");
   });
 

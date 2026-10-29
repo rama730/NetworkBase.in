@@ -21,8 +21,8 @@ export function buildProjectDocStarterDraft(input: {
     roles?: OpenRoleInput[];
     includeRoles?: boolean;
 }) {
-    const title = cleanLine(input.title, "Project doc") || "Project doc";
-    const summary = cleanLine(input.shortDescription) || cleanLine(input.description) || "Describe what this project does, who it helps, and why it exists.";
+    const title = cleanLine(input.title, "Workspace doc") || "Workspace doc";
+    const summary = cleanLine(input.shortDescription) || cleanLine(input.description) || "Describe what this workspace does, who it helps, and why it exists.";
     const type = cleanLine(input.projectType);
     const technologies = uniqueList(input.technologies);
     const tags = uniqueList(input.tags);
@@ -46,7 +46,7 @@ export function buildProjectDocStarterDraft(input: {
         "npm run dev",
         "```",
         "",
-        "## Project focus",
+        "## Workspace focus",
         "",
     ];
 
@@ -54,7 +54,7 @@ export function buildProjectDocStarterDraft(input: {
     if (technologies.length > 0) lines.push(`- Stack: ${technologies.join(", ")}`);
     if (tags.length > 0) lines.push(`- Tags: ${tags.join(", ")}`);
     if (!type && technologies.length === 0 && tags.length === 0) {
-        lines.push("- Add the project scope, stack, and important links here.");
+        lines.push("- Add the workspace scope, stack, and important links here.");
     }
 
     if (input.includeRoles !== false && roles.length > 0) {
@@ -65,7 +65,7 @@ export function buildProjectDocStarterDraft(input: {
         }
     }
 
-    lines.push("", "## Notes", "", "Add screenshots, demos, commands, and project references as the project grows.");
+    lines.push("", "## Notes", "", "Add screenshots, demos, commands, and workspace references as the workspace grows.");
 
     return `${lines.join("\n").trim()}\n`;
 }

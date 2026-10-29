@@ -301,7 +301,7 @@ test.describe("Files tab v3 — breadcrumb navigation (root + intermediate + ell
     "E2E_USER_EMAIL and E2E_USER_PASSWORD are required.",
   );
 
-  test("clicking the root segment navigates to the project root (Req 3.5)", async ({ browser }) => {
+  test("clicking the root segment navigates to the workspace root (Req 3.5)", async ({ browser }) => {
     const area = "breadcrumb navigation / root segment click";
     await runScenario(area, async () => {
       const context = await browser.newContext();

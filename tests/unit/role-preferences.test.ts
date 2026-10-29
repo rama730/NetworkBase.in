@@ -14,7 +14,7 @@ import {
 test('role preferences normalize legacy aliases into stable display order', () => {
   assert.deepEqual(
     getRolePreferences(['freelance', 'Full-time roles', 'cofounder', 'freelance']),
-    ['Full-time roles', 'Freelance projects', 'Co-founder opportunities'],
+    ['Full-time roles', 'Freelance workspaces', 'Co-founder opportunities'],
   )
   assert.equal(rolePreferenceLabel('contract'), 'Contract')
   assert.equal(weeklyCapacityLabel('h_10_20'), '10–20 hours a week')
@@ -52,7 +52,7 @@ test('designated categories list contains curated disciplines', () => {
 
 test('role aliases normalize extended role types', () => {
   assert.equal(canonicalRolePreference('advisor'), 'Advisory roles')
-  assert.equal(canonicalRolePreference('consultant'), 'Consulting projects')
+  assert.equal(canonicalRolePreference('consultant'), 'Consulting workspaces')
   assert.equal(canonicalRolePreference('fractional'), 'Fractional leadership')
   assert.equal(canonicalRolePreference('board member'), 'Board member roles')
   assert.equal(canonicalRolePreference('volunteer'), 'Volunteer / Pro bono')

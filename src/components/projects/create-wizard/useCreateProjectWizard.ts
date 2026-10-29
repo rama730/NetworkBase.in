@@ -650,7 +650,7 @@ export function useCreateProjectWizard({ onClose, onSuccess, initialValues, init
         submissionRef.current = true;
         setIsSubmitting(true);
         const importType = data.import_source?.type || 'scratch';
-        const creationToastId = toast.loading('Creating project…');
+        const creationToastId = toast.loading('Creating workspace…');
         const creationWarnings: string[] = [];
         const warnCreation = (message: string) => {
             if (!creationWarnings.includes(message)) creationWarnings.push(message);
@@ -806,7 +806,7 @@ export function useCreateProjectWizard({ onClose, onSuccess, initialValues, init
                 const { registerUploadedFolderAction, updateUploadSessionAction } = importActions;
                 const uploadProjectId = createdProjectId;
                 if (!uploadProjectId) {
-                    throw new Error('Project creation did not return a project ID.');
+                    throw new Error('Workspace creation did not return a workspace ID.');
                 }
 
                 const filesArr = Array.from(uploadFiles);
@@ -998,7 +998,7 @@ export function useCreateProjectWizard({ onClose, onSuccess, initialValues, init
                 await applyReadmeSetup(createdProjectId);
             }
             if (createdProjectId) await applyLaunchSettingsAfterCreate(createdProjectId);
-            if (!creationWarnings.length) toast.success(importType === 'upload' ? 'Project and files ready' : 'Workspace created', { id: creationToastId });
+            if (!creationWarnings.length) toast.success(importType === 'upload' ? 'Workspace and files ready' : 'Workspace created', { id: creationToastId });
 
             const { draftStore } = await import('@/lib/storage/draft-store');
             await draftStore.clear(userId);

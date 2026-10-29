@@ -151,7 +151,7 @@ async function fetchProjectTasksForActor(
         authorizedAccess?.project?.id === projectId
           ? authorizedAccess
           : await getProjectAccessById(projectId, actorId);
-      if (!access.project) throw new Error("Project not found");
+      if (!access.project) throw new Error("Workspace not found");
       if (!canReadProjectTab(access, "tasks")) throw new ProjectTabForbiddenError("tasks");
 
       const projectTasks = await db.query.tasks.findMany({
@@ -483,7 +483,7 @@ export async function fetchProjectLinkPreviewsAction(input: {
     const { data: { user } } = await supabase.auth.getUser();
     const actorId = user?.id ?? null;
     const access = await getProjectAccessByIdentifier(parsed.slugOrId, actorId);
-    if (!access.project) return { success: false as const, code: "NOT_FOUND" as const, error: "Project not found" };
+    if (!access.project) return { success: false as const, code: "NOT_FOUND" as const, error: "Workspace not found" };
     if (!access.canRead) return { success: false as const, code: "FORBIDDEN" as const, error: "You don’t have access to this" };
 
     const [project] = await db
@@ -491,7 +491,7 @@ export async function fetchProjectLinkPreviewsAction(input: {
       .from(projects)
       .where(and(eq(projects.id, access.project.id), isNull(projects.deletedAt)))
       .limit(1);
-    if (!project) return { success: false as const, code: "NOT_FOUND" as const, error: "Project not found" };
+    if (!project) return { success: false as const, code: "NOT_FOUND" as const, error: "Workspace not found" };
 
     const query = parsed.search.toLocaleLowerCase();
     const canViewMemberLinks = access.isOwner || Boolean(access.memberRole);
@@ -520,7 +520,7 @@ export async function fetchProjectLinkPreviewsAction(input: {
     return {
       success: false as const,
       code: error instanceof z.ZodError ? "VALIDATION" as const : "TRANSIENT" as const,
-      error: "Couldn’t fetch project link previews",
+      error: "Couldn’t fetch workspace link previews",
     };
   }
 }
@@ -546,7 +546,7 @@ export async function fetchProjectTaskPreviewsAction(input: {
       return {
         success: false as const,
         code: "NOT_FOUND" as const,
-        error: "Project not found",
+        error: "Workspace not found",
       };
     if (!canReadProjectTab(access, "tasks"))
       return {
@@ -616,7 +616,7 @@ export async function fetchProjectTaskPreviewsAction(input: {
         ? ("VALIDATION" as const)
         : message === "You don’t have access to this"
           ? ("FORBIDDEN" as const)
-          : message === "Project not found"
+          : message === "Workspace not found"
             ? ("NOT_FOUND" as const)
             : ("TRANSIENT" as const);
     return {
@@ -895,7 +895,7 @@ export async function getProjectMembersAction(
     console.error("Failed to fetch project members:", error);
     return {
       success: false as const,
-      error: "Couldn’t fetch project members",
+      error: "Couldn’t fetch workspace members",
     };
   }
 }
@@ -932,7 +932,7 @@ export async function createTaskAction(data: z.infer<typeof createTaskSchema>) {
         validated.projectId,
         user.id,
       );
-      if (!sprintAccess.project) throw new Error("Project not found");
+      if (!sprintAccess.project) throw new Error("Workspace not found");
       if (!sprintAccess.isOwner) {
         throw new Error("Only the owner can add tasks to a sprint");
       }
@@ -952,10 +952,10 @@ export async function createTaskAction(data: z.infer<typeof createTaskSchema>) {
         columns: { id: true, role: true },
       });
       if (!assigneeMember) {
-        throw new Error("Assignee must be a project member");
+        throw new Error("Assignee must be a workspace member");
       }
       if (!isProjectMemberEligibleFor(assigneeMember.role, "assign")) {
-        throw new Error("Assignee must be an assignable project member");
+        throw new Error("Assignee must be an assignable workspace member");
       }
     }
 
@@ -968,7 +968,7 @@ export async function createTaskAction(data: z.infer<typeof createTaskSchema>) {
                 FOR UPDATE
             `);
       const current = Array.from(counterRows)[0];
-      if (!current) throw new Error("Project not found");
+      if (!current) throw new Error("Workspace not found");
 
       if (validated.sprintId) {
         const sprintRows = await tx.execute<{ id: string; status: string }>(sql`
@@ -1095,7 +1095,7 @@ export async function createTaskAction(data: z.infer<typeof createTaskSchema>) {
         });
         if (attachmentNodes.length !== uniqueAttachmentIds.length) {
           throw new Error(
-            "One or more attachments are invalid for this project",
+            "One or more attachments are invalid for this workspace",
           );
         }
 
@@ -1261,7 +1261,7 @@ export async function deleteTaskAction(taskId: string, projectId: string) {
       where: eq(projects.id, projectId),
       columns: { ownerId: true, slug: true },
     });
-    if (!project) throw new Error("Project not found");
+    if (!project) throw new Error("Workspace not found");
 
     if (project.ownerId !== user.id) {
       throw new Error("Only the owner can delete tasks");
@@ -1280,7 +1280,7 @@ export async function deleteTaskAction(taskId: string, projectId: string) {
       });
 
       if (!existingTask) {
-        throw new Error("Task not found in this project");
+        throw new Error("Task not found in this workspace");
       }
 
       // Soft-deleting a task must not strand its private working files behind

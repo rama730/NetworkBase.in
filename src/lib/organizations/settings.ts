@@ -13,7 +13,7 @@ export const ORG_SECTION_DEFS: Record<OrgSettingsSectionId, { label: string; des
   "org-profile": { label: "Organization profile", description: "Handle, type, term, time zone and the welcome note." },
   "org-access": { label: "Access and joining", description: "Who can join and how." },
   "org-people": { label: "People and roles", description: "Role names and what each role can do." },
-  "org-projects": { label: "Projects", description: "Who creates projects inside the organization and who can be added to them." },
+  "org-projects": { label: "Workspaces", description: "Who creates workspaces inside the organization and who can be added to them." },
   "org-work": { label: "Work", description: "Defaults for new assignments and sprints, and reminders." },
 };
 

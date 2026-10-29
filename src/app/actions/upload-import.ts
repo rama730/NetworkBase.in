@@ -225,7 +225,7 @@ export async function updateUploadSessionAction(
     .where(eq(projects.id, projectId))
     .limit(1);
 
-  if (!project) throw new Error('Project not found');
+  if (!project) throw new Error('Workspace not found');
   if (project.ownerId !== user.id) throw new Error('Sign in to continue');
 
   const nowIso = new Date().toISOString();
@@ -340,7 +340,7 @@ export async function registerUploadedFolderAction(
     .where(eq(projects.id, projectId))
     .limit(1);
 
-  if (!project) throw new Error('Project not found');
+  if (!project) throw new Error('Workspace not found');
   if (project.ownerId !== user.id) throw new Error('Sign in to continue');
 
   if (!Array.isArray(manifest) || manifest.length > 5_000) {
@@ -1048,7 +1048,7 @@ export async function markProjectSyncFailedAction(
     .where(eq(projects.id, projectId))
     .limit(1);
 
-  if (!project) throw new Error('Project not found');
+  if (!project) throw new Error('Workspace not found');
   if (project.ownerId !== user.id) throw new Error('Sign in to continue');
 
   const currentImportSource = getProjectImportSource(project.importSource);

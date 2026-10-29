@@ -103,13 +103,13 @@ export function contributionEntryChanged(
  */
 export function validateContributionEditorEntry(entry: ContributionEditorEntry) {
   if (entry.kind === "external" && !entry.projectTitle.trim()) {
-    return "Project name is required.";
+    return "Workspace name is required.";
   }
   if (entry.startedAt && entry.endedAt && entry.endedAt < entry.startedAt) {
     return "Ended date cannot be earlier than Joined date.";
   }
   if (entry.projectUrl.trim() && !isSafeHttpUrl(entry.projectUrl)) {
-    return "Project URL must use http(s) and point to a public host.";
+    return "Workspace URL must use http(s) and point to a public host.";
   }
   if (entry.repositoryUrl.trim() && !isSafeHttpUrl(entry.repositoryUrl)) {
     return "Repository URL must use http(s) and point to a public host.";

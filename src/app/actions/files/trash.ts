@@ -134,7 +134,7 @@ async function purgeTrashedRoot(
 const BULK_PURGE_ROOT_LIMIT = 500;
 
 async function bulkActor(projectId: string) {
-  if (!UUID_RE.test(projectId)) throw new Error("Invalid project");
+  if (!UUID_RE.test(projectId)) throw new Error("Invalid workspace");
   const client = await createClient();
   const { data: { user } } = await client.auth.getUser();
   if (!user) throw new Error("Sign in to continue");

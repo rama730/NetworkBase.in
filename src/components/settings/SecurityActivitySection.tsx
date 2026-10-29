@@ -42,8 +42,8 @@ const EVENT_LABELS: Record<SecurityActivityEntry["eventType"], string> = {
   editor_token_created: "Editor token created",
   account_deletion_scheduled: "Account deletion scheduled",
   account_deletion_cancelled: "Account deletion canceled",
-  project_ownership_transferred_out: "Project ownership handed over",
-  project_ownership_transferred_in: "Project ownership received",
+  project_ownership_transferred_out: "Workspace ownership handed over",
+  project_ownership_transferred_in: "Workspace ownership received",
 };
 
 function getEventSummary(entry: SecurityActivityEntry): string | null {

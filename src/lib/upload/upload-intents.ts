@@ -412,7 +412,7 @@ export async function createUploadIntent(rawParams: CreateUploadIntentParams) {
           .limit(1)
           .for("update")
       : [null];
-    if (projectId && !projectQuota) throw new Error("Couldn’t lock project upload quota");
+    if (projectId && !projectQuota) throw new Error("Couldn’t lock workspace upload quota");
 
     // A same-key request can finish while this transaction waits on the user
     // quota row. Re-read after locking so retries never reserve twice.
@@ -747,7 +747,7 @@ export async function finalizeUploadIntent(params: {
     throw new Error("Upload intent kind mismatch");
   }
   if (params.projectId !== undefined && intent.projectId !== (params.projectId ?? null)) {
-    throw new Error("Upload intent project mismatch");
+    throw new Error("Upload intent workspace mismatch");
   }
   if (intent.status === "finalized") return intent;
   assertPendingIntent(intent);

@@ -64,7 +64,7 @@ test('Details: organization words, Part of and Where, no problem/solution or ski
         await expect(page.getByLabel(label, { exact: false }).first()).toBeVisible();
     }
     await expect(page.getByText('Problem statement')).toHaveCount(0);
-    await expect(page.getByText('Project category')).toHaveCount(0);
+    await expect(page.getByText('Workspace category')).toHaveCount(0);
     await expect(page.getByPlaceholder('Students of B.Tech CSE, 3rd semester, Section A')).toBeVisible();
     await page.locator('#create-project-title').fill('CSE-3A 2026');
     await expect(page.getByLabel(/Handle/)).toHaveValue('cse-3a-2026');

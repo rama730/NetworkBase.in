@@ -456,7 +456,7 @@ export function ContributionEditor({
         .then((options) => {
           if (!cancelled) setLinkOptions(options);
         })
-        .catch(() => setError("Couldn’t load your projects. Try again."));
+        .catch(() => setError("Couldn’t load your workspaces. Try again."));
     }, 180);
     return () => {
       cancelled = true;
@@ -756,7 +756,7 @@ export function ContributionEditor({
     if (incomplete) {
       nav(incomplete.id);
       setStatus(
-        "Finish or remove the current external-project draft before adding another.",
+        "Finish or remove the current external project draft before adding another.",
       );
       return;
     }
@@ -1127,7 +1127,7 @@ export function ContributionEditor({
               <h3 className="nb-card-title">
                 {search
                   ? "No matching contributions"
-                  : "No project contributions yet"}
+                  : "No workspace contributions yet"}
               </h3>
               <p className="nb-compact mt-2 text-muted-foreground">
                 {search
@@ -1163,7 +1163,7 @@ export function ContributionEditor({
                 className="-ml-2 h-8 gap-1.5 rounded-[6px] px-2.5 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
               >
                 <ArrowLeft className="size-3.5" aria-hidden="true" />
-                Back to project contributions
+                Back to workspace contributions
               </Button>
             </div>
 
@@ -1180,7 +1180,7 @@ export function ContributionEditor({
                     {active.projectId ? (
                       <>
                         <ShieldCheck className="size-3 text-primary" aria-hidden="true" />
-                        Linked NetworkBase project
+                        Linked NetworkBase workspace
                       </>
                     ) : (
                       "External project · self-reported"
@@ -1189,7 +1189,7 @@ export function ContributionEditor({
                 </div>
                 <p className="nb-compact text-muted-foreground">
                   {active.projectId
-                    ? "Tell the story behind your contributions, roles, and highlights for this project."
+                    ? "Tell the story behind your contributions, roles, and highlights for this workspace."
                     : "Tell the story behind your work on this external project."}
                 </p>
               </div>
@@ -1258,7 +1258,7 @@ export function ContributionEditor({
             className="nb-tabs-list mb-8 flex min-h-10 w-full items-center gap-6 border-b border-border overflow-x-auto"
           >
             {[
-              ...(!active.projectId ? [["identity", "Workspace or project"]] : []),
+              ...(!active.projectId ? [["identity", "Workspace or workspace"]] : []),
               ["summary", "Summary"],
               ["positions", "Roles and dates"],
               ["work", "Work samples"],
@@ -1280,8 +1280,8 @@ export function ContributionEditor({
           </nav>
           {!active.projectId && (
             <section className="nb-story-section" id="contribution-identity">
-              <h3 className="nb-section-title">Workspace or project</h3>
-              <Field label="Project name">
+              <h3 className="nb-section-title">Workspace or workspace</h3>
+              <Field label="Workspace name">
                 <input
                   className="nb-story-input"
                   maxLength={120}
@@ -1303,7 +1303,7 @@ export function ContributionEditor({
           <section className="nb-story-section" id="contribution-summary">
             <h3 className="nb-section-title">Your contribution</h3>
             <p className="nb-compact mt-1 mb-5 text-muted-foreground">
-              Explain your part in the project, in your own words.
+              Explain your part in the workspace, in your own words.
             </p>
             {active.projectKind === "organization" ? (
               <OrgStoryHelpers
@@ -1375,7 +1375,7 @@ export function ContributionEditor({
                   }
                   className="size-4 rounded-[4px] border-border text-[#D14E24] focus:ring-[#D14E24]"
                 />
-                <span>I currently contribute to this project</span>
+                <span>I currently contribute to this workspace</span>
               </label>
             </div>
             <p className="nb-compact mt-1.5 text-muted-foreground">
@@ -1577,12 +1577,12 @@ export function ContributionEditor({
                               </label>
                             </div>
                             <p className="nb-compact text-muted-foreground">
-                              A current position also marks this project as
+                              A current position also marks this workspace as
                               ongoing.
                             </p>
                             <Field
                               label="Responsibilities and outcomes"
-                              help="Optional. Describe this period without repeating the whole project summary."
+                              help="Optional. Describe this period without repeating the whole workspace summary."
                             >
                               <textarea
                                 className="nb-story-input min-h-28"
@@ -1698,7 +1698,7 @@ export function ContributionEditor({
                 }}
               >
                 <FileText className="size-3.5" />
-                From project
+                From workspace
               </Button>
             </div>
             <input
@@ -1998,7 +1998,7 @@ export function ContributionEditor({
                             }))
                           }
                         />
-                        I have permission to publish this project image.
+                        I have permission to publish this workspace image.
                         {validationIssues.find(
                           (issue) =>
                             issue.imageId === image.id &&
@@ -2263,11 +2263,11 @@ export function ContributionEditor({
         <DialogContent className="flex max-h-[85dvh] flex-col overflow-hidden">
           <DialogTitle>
             {picker?.images
-              ? "Choose a project image"
+              ? "Choose a workspace image"
               : `Mention a ${picker?.kind ?? "teammate"}`}
           </DialogTitle>
           <DialogDescription>
-            Only public teammates and publicly accessible project items can be
+            Only public teammates and publicly accessible workspace items can be
             included. Mentioning someone sends no notification.
           </DialogDescription>
           <input
@@ -2362,7 +2362,7 @@ export function ContributionEditor({
                           );
                         } catch {
                           setError(
-                            "Couldn’t add this project image. Try again.",
+                            "Couldn’t add this workspace image. Try again.",
                           );
                         }
                       } else {
@@ -2384,7 +2384,7 @@ export function ContributionEditor({
             )}
             {!optionsLoading && !options.length && (
               <p className="nb-compact p-3 text-muted-foreground">
-                No available items. Private project content stays private.
+                No available items. Private workspace content stays private.
               </p>
             )}
           </div>
@@ -2440,12 +2440,12 @@ export function ContributionEditor({
         <DialogContent>
           <DialogTitle>
             {confirm === "unlisted"
-              ? "Share an unlisted project on your profile?"
+              ? "Share an unlisted workspace on your profile?"
               : "Remove this external contribution?"}
           </DialogTitle>
           <DialogDescription>
             {confirm === "unlisted"
-              ? "People who visit your profile will be able to discover this project through your contribution."
+              ? "People who visit your profile will be able to discover this workspace through your contribution."
               : "The contribution will disappear from your profile. You can undo removal."}
           </DialogDescription>
           {confirm === "unlisted" ? (
@@ -2456,7 +2456,7 @@ export function ContributionEditor({
                   checked={consent}
                   onChange={(e) => setConsent(e.target.checked)}
                 />
-                I want this unlisted project listed on my profile.
+                I want this unlisted workspace listed on my profile.
               </label>
               <Button
                 type="button"
@@ -2560,21 +2560,21 @@ export function ContributionEditor({
         }}
       >
         <DialogContent className="max-h-[85dvh] overflow-auto">
-          <DialogTitle>Link your contribution to a project</DialogTitle>
+          <DialogTitle>Link your contribution to a workspace</DialogTitle>
           <DialogDescription>
             Your story stays in a private draft. Existing public content is
             unchanged.
           </DialogDescription>
           <input
             className="nb-story-input"
-            aria-label="Search your projects"
-            placeholder="Search your projects…"
+            aria-label="Search your workspaces"
+            placeholder="Search your workspaces…"
             value={linkQuery}
             onChange={(e) => setLinkQuery(e.target.value)}
           />
           <select
             className="nb-story-input"
-            aria-label="Project to link"
+            aria-label="Workspace to link"
             value={linkTarget}
             onChange={(e) => {
               setLinkTarget(e.target.value);
@@ -2582,7 +2582,7 @@ export function ContributionEditor({
               setMergeConsent(false);
             }}
           >
-            <option value="">Choose a project</option>
+            <option value="">Choose a workspace</option>
             {linkOptions.map((project) => (
               <option key={project.id} value={project.id}>
                 {project.title}
@@ -2592,7 +2592,7 @@ export function ContributionEditor({
           {duplicateId && (
             <>
               <p className="nb-compact">
-                This project already has a contribution. The stories will be
+                This workspace already has a contribution. The stories will be
                 combined in its private draft. The external entry can be
                 restored after removal.
               </p>

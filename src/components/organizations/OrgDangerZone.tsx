@@ -59,7 +59,7 @@ function RestoreCard({ orgId, at }: { orgId: string; at: string }) {
     return (
         <SettingsCard title="Scheduled for deletion" headingLevel={2} danger description={`This organization will be removed for good on ${DATE.format(purgeAt)}. Until then you can bring it back.`}>
             <div className="flex items-center gap-3">
-                <Button disabled={pending} onClick={() => run(() => restoreOrgAction(orgId), 'Restored. Detached projects stay personal; they can move back in.')}>Restore</Button>
+                <Button disabled={pending} onClick={() => run(() => restoreOrgAction(orgId), 'Restored. Detached workspaces stay personal; they can move back in.')}>Restore</Button>
                 {status}
             </div>
         </SettingsCard>
@@ -101,7 +101,7 @@ function ArchiveRow({ orgId, archived, preview }: { orgId: string; archived: boo
                 ? 'Everything opens again with a new join code (off until you switch it on). Sprints never start late.'
                 : 'Everything becomes read-only: the join code turns off, reminders and digests stop, and chat is read-only. Members keep read access and you are asked to verify contributions.'}</p>
             {!archived && confirming && preview ? (
-                <p className="mt-2 text-sm text-foreground">{preview.children} {preview.children === 1 ? 'project is' : 'projects are'} archived with it; {preview.sprints} planned or active {preview.sprints === 1 ? 'sprint stops' : 'sprints stop'}; {preview.members} members are told by email.</p>
+                <p className="mt-2 text-sm text-foreground">{preview.children} {preview.children === 1 ? 'workspace is' : 'workspaces are'} archived with it; {preview.sprints} planned or active {preview.sprints === 1 ? 'sprint stops' : 'sprints stop'}; {preview.members} members are told by email.</p>
             ) : null}
             <div className="mt-2 flex items-center gap-3">
                 {archived
@@ -135,7 +135,7 @@ function DuplicateRow({ orgId, handle, termStart }: { orgId: string; handle: str
     return (
         <div>
             <p className={label}>Duplicate</p>
-            <p className={help}>A new organization for the next term. Never members, projects, submissions, messages, posts, contributions or the join code.</p>
+            <p className={help}>A new organization for the next term. Never members, workspaces, submissions, messages, posts, contributions or the join code.</p>
             {!open ? <Button className="mt-2" variant="outline" onClick={() => setOpen(true)}>Duplicate…</Button> : (
                 <div className="mt-3 space-y-3">
                     <div className="grid gap-2 sm:grid-cols-3">
@@ -177,7 +177,7 @@ function DeleteRow({ orgId, handle, preview }: { orgId: string; handle: string |
                     {preview && preview.children > 0 ? (
                         <fieldset className="space-y-1.5 text-sm">
                             <legend className={label}>Workspaces in this organization</legend>
-                            <label className="flex items-center gap-2"><input type="radio" name="org-delete-children" checked={childMode === 'detach'} onChange={() => setChildMode('detach')} /> Give them to their leads as personal projects (now)</label>
+                            <label className="flex items-center gap-2"><input type="radio" name="org-delete-children" checked={childMode === 'detach'} onChange={() => setChildMode('detach')} /> Give them to their leads as personal workspaces (now)</label>
                             <label className="flex items-center gap-2"><input type="radio" name="org-delete-children" checked={childMode === 'delete'} onChange={() => setChildMode('delete')} /> Delete them with the organization (same 30 days)</label>
                         </fieldset>
                     ) : null}

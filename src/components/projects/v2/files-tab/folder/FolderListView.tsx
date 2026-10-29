@@ -1259,7 +1259,7 @@ export function FolderListView({
               Drop files to upload
             </p>
             <p className="text-xs text-muted-foreground">
-              Categorize into project files, task references, or file versions
+              Categorize into workspace files, task references, or file versions
             </p>
           </div>
         </div>

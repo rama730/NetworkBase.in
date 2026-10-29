@@ -345,7 +345,7 @@ test("ownership, strict validation and invalid images fail without partial datab
     id: randomUUID(),
     assetId: randomUUID(),
     caption: "",
-    alt: "A project image",
+    alt: "A workspace image",
     positionId: null,
     projectFileId: null,
     permission: true,

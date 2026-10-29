@@ -111,7 +111,7 @@ describe("Upload Security & Selection Validation", () => {
     assert.match(res.error || "", /directory traversal is prohibited/i);
   });
 
-  it("accepts valid project files and folders", () => {
+  it("accepts valid workspace files and folders", () => {
     const validFiles = [
       createMockFile("index.ts", "my-project/src/index.ts"),
       createMockFile("Button.tsx", "my-project/src/components/Button.tsx"),

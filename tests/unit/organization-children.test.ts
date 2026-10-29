@@ -8,7 +8,7 @@ test("who can create child projects", () => {
   assert.equal(childCreationBlock("owner", "admins", true), null);
   assert.equal(childCreationBlock("admin", "admins", true), null);
   assert.equal(childCreationBlock("member", "members", true), null);
-  assert.equal(childCreationBlock("member", "admins", true), "Only admins create projects here.");
+  assert.equal(childCreationBlock("member", "admins", true), "Only admins create workspaces here.");
   assert.equal(childCreationBlock("viewer", "members", true), "Viewers can’t create workspaces.");
   assert.equal(childCreationBlock(null, "members", true), "You’re not a member of this organization.");
   assert.equal(childCreationBlock("owner", "members", false), "This organization is archived.");

@@ -135,7 +135,7 @@ export default function UpdatesTab({
         filter: orgFilter,
       });
       if (!result.success)
-        throw new Error(result.error || "Couldn’t load project updates");
+        throw new Error(result.error || "Couldn’t load workspace updates");
       return result.data as UpdatesPage;
     },
     getNextPageParam: (lastPage) => lastPage.nextCursor,
@@ -481,7 +481,7 @@ export default function UpdatesTab({
       <p className="nb-empty-state-desc">
         {canCreate
           ? "Share the first progress post so followers can see what is moving."
-          : "Follow this project to get notified when the team shares progress."}
+          : "Follow this workspace to get notified when the team shares progress."}
       </p>
     </div>
   ) : shouldVirtualizeFeed ? (
@@ -536,7 +536,7 @@ export default function UpdatesTab({
               Updates
             </h2>
             <p className="nb-compact text-muted-foreground">
-              Progress posts for followers and project visitors.
+              Progress posts for followers and workspace visitors.
             </p>
           </div>
           <button

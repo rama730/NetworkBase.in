@@ -35,7 +35,7 @@ test("production pagination predicates keep project, Trash and task visibility f
   } finally { await connection.end(); }
 });
 
-test("task collection SQL: role parity, linked files, legacy ownership, project isolation and deletion", { skip: process.env.FILES_COLLECTION_READONLY_AUDIT !== "1" }, async () => {
+test("task collection SQL: role parity, linked files, legacy ownership, workspace isolation and deletion", { skip: process.env.FILES_COLLECTION_READONLY_AUDIT !== "1" }, async () => {
   const connection = postgres(process.env.DATABASE_URL!, { max: 1, prepare: false, connect_timeout: 10 });
   const dialect = new PgDialect();
   try {

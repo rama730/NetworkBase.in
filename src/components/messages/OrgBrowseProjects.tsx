@@ -31,11 +31,11 @@ export function OrgBrowseProjects({ orgId, onOpen, onJoined }: { orgId: string; 
   return (
     <div>
       <button type="button" className="nb-chat-row text-muted-foreground" aria-expanded={open} onClick={() => void toggle()}>
-        <Compass size={16} aria-hidden="true" /><span className="flex-1 text-left">Browse projects{rows ? ` (${rows.length})` : ""}</span>
+        <Compass size={16} aria-hidden="true" /><span className="flex-1 text-left">Browse workspaces{rows ? ` (${rows.length})` : ""}</span>
       </button>
       {open ? (
         rows === null ? <p className="px-2.5 py-1 text-[13px] text-muted-foreground">Loading…</p>
-          : rows.length === 0 ? <p className="px-2.5 py-1 text-[13px] text-muted-foreground">No projects yet.</p>
+          : rows.length === 0 ? <p className="px-2.5 py-1 text-[13px] text-muted-foreground">No workspaces yet.</p>
             : rows.map((row) => (
               <button key={row.projectId} type="button" disabled={!row.channelId} className="nb-chat-row pl-8" onClick={() => void openProject(row)}>
                 <span className="min-w-0 flex-1 truncate text-left">{row.title}</span>

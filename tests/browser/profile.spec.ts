@@ -398,7 +398,7 @@ test('visitor status shares the collaboration badge row and presence stays on th
 test('visitor role actions fit the rail and have a full touch target', async ({page}) => {
   await page.evaluate(()=>{const f=(window as any).profileFixture;f.viewer=true;f.saved.openToCollaborate=true;f.refresh();});
   const card=page.locator('#profile-open-to-roles');
-  const action=card.getByRole('button',{name:'Invite to project',exact:true});
+  const action=card.getByRole('button',{name:'Invite to workspace',exact:true});
   await expect(action).toBeVisible();
   for(const width of [320,280]) {
     await card.evaluate((el,w)=>{el.style.width=`${w}px`;},width);

@@ -5,7 +5,7 @@ export async function generateMetadata({ params }: { params: Promise<{ channelId
   const { channelId } = await params;
   return buildRouteMetadata({
     title: "Messages | NetworkBase",
-    description: "Channels and direct messages for your projects.",
+    description: "Channels and direct messages for your workspaces.",
     path: isUuid(channelId) ? `/messages/${channelId}` : "/messages",
   });
 }

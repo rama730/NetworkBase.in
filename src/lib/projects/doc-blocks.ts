@@ -82,14 +82,14 @@ export function normalizeReadmeReferenceLabel(kind: ProjectDocReferenceKind, val
         return clean
             .replace(/\s*·\s*\d+\s+versions?$/i, "")
             .replace(/\s*(?:[·.-]\s*)?(?:version|v)\s*\d+$/i, "")
-            .trim() || "Project file";
+            .trim() || "Workspace file";
     }
 
     if (kind === "contributors") {
         return clean
             .replace(/\s*[·-]\s*@[\w.-]+$/i, "")
             .replace(/\s*·\s*(?:owner|co-leader|member|viewer|contributor)(?:\s*·.*)?$/i, "")
-            .trim() || "Project member";
+            .trim() || "Workspace member";
     }
 
     if (kind === "roles") {

@@ -147,7 +147,7 @@ function FromOrgFiles({ projectId, canCopy }: { projectId: string; canCopy: bool
             const created = await uploadProjectFile(projectId, null, file.name, await response.blob())
             const recorded = await recordOrgCopyAction(projectId, created.id, file.id)
             if (!recorded.success) throw new Error(recorded.error)
-            toast.success(`Copied ${file.name} to this project`)
+            toast.success(`Copied ${file.name} to this workspace`)
             loadCopies()
         } catch (error) {
             toast.error(feedbackError(error instanceof Error ? error.message : 'Copy failed', 'Copy failed'))
@@ -177,7 +177,7 @@ function FromOrgFiles({ projectId, canCopy }: { projectId: string; canCopy: bool
                             : <button type="button" className="min-w-0 flex-1 truncate text-left hover:underline" onClick={() => setPeek(n)}>{n.name}</button>}
                         <FolderAccessChip metadata={{ access: n.access }} />
                         {n.type === 'file' && n.currentVersion > 1 ? <span className="text-[11px] text-muted-foreground">v{n.currentVersion}</span> : null}
-                        {n.type === 'file' && canCopy ? <Button type="button" size="sm" variant="outline" aria-label={`Copy ${n.name} to this project`} disabled={copying !== null} onClick={() => void copy(n)}>{copying === n.id ? 'Copying…' : <><span className="sm:hidden">Copy</span><span className="hidden sm:inline">Copy to this project</span></>}</Button> : null}
+                        {n.type === 'file' && canCopy ? <Button type="button" size="sm" variant="outline" aria-label={`Copy ${n.name} to this workspace`} disabled={copying !== null} onClick={() => void copy(n)}>{copying === n.id ? 'Copying…' : <><span className="sm:hidden">Copy</span><span className="hidden sm:inline">Copy to this workspace</span></>}</Button> : null}
                     </li>
                 ))}
             </ul>
@@ -237,7 +237,7 @@ function GroupDeliverables({ orgId }: { orgId: string }) {
     if (!rows.length) return null
     return (
         <details className="mb-4 rounded-lg border border-border bg-card p-3" data-testid="org-group-deliverables">
-            <summary className="cursor-pointer text-sm font-medium">Deliverables from projects · {rows.length}</summary>
+            <summary className="cursor-pointer text-sm font-medium">Deliverables from workspaces · {rows.length}</summary>
             <ul className="divide-y divide-border pt-2 text-sm">
                 {rows.map((r) => (
                     <li key={r.nodeId} className="flex flex-wrap items-center gap-x-2 py-1.5">

@@ -24,7 +24,7 @@ test('normalizeOnboardingPayload sanitizes optional fields and dedupes tags', ()
     assert.equal(payload.fullName, 'Builder User')
     assert.deepEqual(payload.skills, ['React', 'TypeScript'])
     assert.deepEqual(payload.interests, ['AI', 'Open source'])
-    assert.deepEqual(payload.openTo, ['Freelance projects'])
+    assert.deepEqual(payload.openTo, ['Freelance workspaces'])
     assert.equal(payload.pronouns, 'they/them')
 })
 

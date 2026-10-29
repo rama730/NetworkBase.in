@@ -49,13 +49,13 @@ test("application sidebar supports a persisted accessible icon-only state", () =
   assert.match(css, /@media \(min-width:768px\) and \(max-width:1023px\)/);
 });
 
-test("workspace project links in application sidebar render titles without file/folder icons", () => {
+test("workspace workspace links in application sidebar render titles without file/folder icons", () => {
   const sidebar = read("src/components/layout/AppSidebar.tsx");
 
   // 1. FolderKanban is not imported or rendered in AppSidebar
   assert.doesNotMatch(sidebar, /FolderKanban/);
 
-  // 2. Workspaces project links render title directly in nb-sidebar-label without leading icon
+  // 2. Workspaces workspace links render title directly in nb-sidebar-label without leading icon
   // With organizations on, SidebarWorkspaces renders the tree (report §29.3); the plain list stays the fallback.
   assert.match(sidebar, /<section className="nb-sidebar-workspace[\s\S]*?(?:\{|\{workspaces \? <SidebarWorkspaces data=\{workspaces\} \/> : )projects\.map\(\(project\) => \{/);
   assert.match(sidebar, /<Link key=\{project\.id\} href=\{project\.href\} className="nb-nav-link"[^>]*>\s*<span className="nb-sidebar-label truncate">\{project\.title\}<\/span>\s*<\/Link>/);

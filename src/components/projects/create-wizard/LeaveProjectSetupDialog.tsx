@@ -37,7 +37,7 @@ export default function LeaveProjectSetupDialog({ open, onOpenChange, onLeave }:
                   Unsaved changes
                 </p>
                 <DialogTitle className="mt-1 text-[19px] tracking-[-0.02em] text-foreground">
-                  Leave project setup?
+                  Leave workspace setup?
                 </DialogTitle>
               </div>
             </div>
@@ -59,7 +59,7 @@ export default function LeaveProjectSetupDialog({ open, onOpenChange, onLeave }:
 
         <div className="mx-5 flex items-center gap-2 border-t border-border py-3 text-[12px] leading-5 text-muted-foreground sm:mx-6">
           <Save className="size-3.5 shrink-0" aria-hidden="true" />
-          Saved drafts can be resumed from the same project-creation flow.
+          Saved drafts can be resumed from the same workspace-creation flow.
         </div>
 
         <DialogFooter className="border-t border-border bg-secondary/35 px-5 py-4 sm:px-6 sm:py-4">

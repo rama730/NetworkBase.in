@@ -227,7 +227,7 @@ export async function inviteByEmailAction(orgId: string, input: z.input<typeof i
     let unitId = parsed.data.unitId ?? null;
     if (parsed.data.childProjectId) {
         const [child] = await db.select({ id: projects.id }).from(projects).where(and(eq(projects.id, parsed.data.childProjectId), eq(projects.parentId, orgId), isNull(projects.deletedAt))).limit(1);
-        if (!child) return { success: false, error: 'That project is no longer in this organization.' };
+        if (!child) return { success: false, error: 'That workspace is no longer in this organization.' };
         if (unitId) {
             const [unit] = await db.select({ id: projectOpenRoles.id }).from(projectOpenRoles).where(and(eq(projectOpenRoles.id, unitId), eq(projectOpenRoles.projectId, child.id))).limit(1);
             unitId = unit?.id ?? null;
@@ -340,7 +340,7 @@ export async function removeMembersAction(orgId: string, userIds: string[], opti
         if (id === viewer.userId) return { success: false, error: 'Use Leave organization to remove yourself.' };
         const block = roles.has(id) ? memberChangeBlock(viewer.role, roles.get(id)!, null) : 'That person is no longer a member.';
         if (block) return { success: false, error: block };
-        if ((await ledChildProjects(db, orgId, id)).length > 0) return { success: false, error: 'This person leads a project here. Transfer or detach it first.' };
+        if ((await ledChildProjects(db, orgId, id)).length > 0) return { success: false, error: 'This person leads a workspace here. Transfer or detach it first.' };
     }
     const seats = await db.transaction(async (tx) => {
         const opened = [];
@@ -371,10 +371,10 @@ export async function addMembersToChildAction(orgId: string, childProjectId: str
     if (!viewer) return DENIED;
     const [child] = await db.select({ id: projects.id, ownerId: projects.ownerId, title: projects.title, slug: projects.slug }).from(projects)
         .where(and(eq(projects.id, childProjectId), eq(projects.parentId, orgId), isNull(projects.deletedAt))).limit(1);
-    if (!child) return { success: false, error: 'That project is no longer in this organization.' };
+    if (!child) return { success: false, error: 'That workspace is no longer in this organization.' };
     if (unitId) {
         const [unit] = await db.select({ id: projectOpenRoles.id }).from(projectOpenRoles).where(and(eq(projectOpenRoles.id, unitId), eq(projectOpenRoles.projectId, child.id))).limit(1);
-        if (!unit) return { success: false, error: 'That unit is no longer in the project.' };
+        if (!unit) return { success: false, error: 'That unit is no longer in the workspace.' };
     }
     const inOrg = await rolesOf(orgId, viewer.ownerId, userIds);
     const people = userIds.filter((id) => inOrg.has(id));

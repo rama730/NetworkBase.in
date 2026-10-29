@@ -132,7 +132,7 @@ export default memo(function ProjectCard({ project, viewModel, isFollowing = fal
             </>
         )}
         {(project.rankingReasons?.length ?? 0) > 0 && <p className="nb-meta">{project.rankingReasons!.join(" · ")}</p>}
-        {techStack.length > 0 && <div className="flex flex-wrap gap-1.5" role="group" aria-label="Project skills">
+        {techStack.length > 0 && <div className="flex flex-wrap gap-1.5" role="group" aria-label="Workspace skills">
             {techStack.slice(0, MAX_PROJECT_CARD_SKILL_ICONS).map(name => { const skill = resolveClientSkill(name); return <span key={skill.canonicalKey} className="nb-tag"><SkillIcon skill={skill} size={14} />{skill.name}</span>; })}
             {/* Above the card's stretched link, so its tooltip shows; the names are read out too. */}
             {hiddenTechStackCount > 0 && <span className="nb-tag relative z-10" title={techStack.slice(MAX_PROJECT_CARD_SKILL_ICONS).join(", ")}>+{hiddenTechStackCount}<span className="sr-only">: {techStack.slice(MAX_PROJECT_CARD_SKILL_ICONS).join(", ")}</span></span>}
@@ -147,7 +147,7 @@ export default memo(function ProjectCard({ project, viewModel, isFollowing = fal
                 {isOrg ? <>
                     {typeof project.childProjectCount === "number" ? <span className="nb-meta">{project.childProjectCount} {project.childProjectCount === 1 ? "project" : "projects"}</span> : null}
                     {project.slug ? <Link href={`/discover?org=${encodeURIComponent(project.slug)}`} className="nb-meta relative z-10 hover:text-foreground hover:underline" title={`Show everything from ${project.title}`}>Show everything</Link> : null}
-                </> : applicationChip ? <span className="nb-status relative z-10" data-status={APPLICATION_CHIP_TONE[applicationChip]} title="Your application on this project">{APPLICATION_CHIP_LABEL[applicationChip]}</span>
+                </> : applicationChip ? <span className="nb-status relative z-10" data-status={APPLICATION_CHIP_TONE[applicationChip]} title="Your application in this workspace">{APPLICATION_CHIP_LABEL[applicationChip]}</span>
                     : totalOpenRoles > 0 && <span className="nb-meta text-primary">{totalOpenRoles} open {totalOpenRoles === 1 ? "role" : "roles"}</span>}
             </div>
             <div className="relative z-10 flex flex-wrap items-center gap-1">
@@ -188,7 +188,7 @@ export default memo(function ProjectCard({ project, viewModel, isFollowing = fal
         </div>
         {error === "signed-out" ? (
             <p role="alert" className="relative z-10 nb-compact text-muted-foreground">
-                <Link href={`${ROUTES.LOGIN}?redirect=${encodeURIComponent(href)}`} className="font-medium text-primary hover:underline">Sign in</Link> to follow projects.
+                <Link href={`${ROUTES.LOGIN}?redirect=${encodeURIComponent(href)}`} className="font-medium text-primary hover:underline">Sign in</Link> to follow workspaces.
             </p>
         ) : error === "failed" ? (
             <ErrorNotice message="Couldn’t update your follow." onRetry={() => void toggleFollow()} className="relative z-10" />

@@ -177,7 +177,7 @@ export function ProjectSearchResultCard({ result, onOpen, onRemove, ...interacti
             removeLabel={`Remove ${result.title} from recent searches`}
             leading={leading}
             trailing={<span className="hidden self-center sm:block"><SkillIconRail skills={result.skills} /></span>}
-            ariaLabel={`Open project ${result.title}`}
+            ariaLabel={`Open workspace ${result.title}`}
         >
             <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
                 <span className="truncate text-[15px] font-semibold text-foreground transition-colors group-hover:text-primary">{result.title}</span>
@@ -342,7 +342,7 @@ export function LinkSearchResultCard({ result, onOpen, onRemove, ...interaction 
             onRemove={onRemove}
             removeLabel={`Remove ${result.title} from recent searches`}
             leading={<span className="inline-flex size-10 shrink-0 items-center justify-center rounded-[5px] border border-border bg-muted/40 text-muted-foreground">{result.iconKey ? <SocialPresenceIcon iconKey={result.iconKey as SocialPresenceIconKey} className="size-4" /> : <Link2 className="size-4" aria-hidden />}</span>}
-            ariaLabel={`Open project link ${result.title}: ${result.subtitle}`}
+            ariaLabel={`Open workspace link ${result.title}: ${result.subtitle}`}
         >
             <div className="flex min-w-0 items-center gap-2">
                 <span className="truncate text-[15px] font-semibold text-foreground transition-colors group-hover:text-primary">{result.title}</span>
@@ -382,7 +382,7 @@ export function SettingsSearchResultCard({ result, onOpen, ...interaction }: Res
     );
 }
 
-const ORG_KIND_LABEL: Record<GlobalSearchOrgPreview["orgKind"], string> = { org: "Organization", assignment: "Assignment", doc: "Doc", child: "Project", sprint: "Sprint", member: "Member", file: "File", action: "Action" };
+const ORG_KIND_LABEL: Record<GlobalSearchOrgPreview["orgKind"], string> = { org: "Organization", assignment: "Assignment", doc: "Doc", child: "Workspace", sprint: "Sprint", member: "Member", file: "File", action: "Action" };
 
 /** Organizations, assignments, docs and "Search <org>" results (report §30.1). */
 export function OrgSearchResultCard({ result, onOpen, onRemove, ...interaction }: ResultInteractionProps & { result: GlobalSearchOrgPreview; onOpen: (result: GlobalSearchPreview) => void; onRemove?: () => void }) {

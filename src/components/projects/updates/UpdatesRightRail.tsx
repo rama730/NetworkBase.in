@@ -89,7 +89,7 @@ export function UpdatesRightRail({
             No updates yet
           </p>
           <p className="nb-empty-state-desc">
-            Project members will appear here after their first post.
+            Workspace members will appear here after their first post.
           </p>
         </div>
       )}
