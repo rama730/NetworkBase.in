@@ -68,7 +68,7 @@ export function useTaskLinks(projectId: string, nodeId: string): UseTaskLinksRet
         notifyChanged();
         return { success: true };
       } catch (err) {
-        const message = err instanceof Error ? err.message : "Failed to link task";
+        const message = err instanceof Error ? err.message : "Couldn’t link task";
         return { success: false, error: message };
       }
     },
@@ -83,7 +83,7 @@ export function useTaskLinks(projectId: string, nodeId: string): UseTaskLinksRet
         notifyChanged();
         return { success: true };
       } catch (err) {
-        const message = err instanceof Error ? err.message : "Failed to unlink task";
+        const message = err instanceof Error ? err.message : "Couldn’t unlink task";
         return { success: false, error: message };
       }
     },
@@ -98,7 +98,7 @@ export function useTaskLinks(projectId: string, nodeId: string): UseTaskLinksRet
         notifyChanged();
         return { success: true };
       } catch (err) {
-        const message = err instanceof Error ? err.message : "Failed to update annotation";
+        const message = err instanceof Error ? err.message : "Couldn’t update annotation";
         return { success: false, error: message };
       }
     },

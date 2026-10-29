@@ -103,7 +103,7 @@ export default function CreateProjectWizard({ onClose, onSuccess, initialSource 
             return null;
         };
         const firstMsg = getFirstError(errors) || 'Please complete all required fields before creating.';
-        toast.error('Please complete required fields before creating', { description: firstMsg });
+        toast.error('Complete required fields before creating', { description: firstMsg });
     }, []);
     // Subscribe, don't watch(): Phase 1 replaces the whole import_source object, which react-hook-form
     // does not re-render this component for. A stale type kept Continue greyed out after GitHub -> Scratch.

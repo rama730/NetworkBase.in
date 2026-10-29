@@ -247,7 +247,7 @@ export function useFileVersions(projectId: string, nodeId: string): UseFileVersi
       setNextCursor(page.nextCursor);
       return page.versions;
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to load versions";
+      const message = err instanceof Error ? err.message : "Couldn’t load versions";
       setError(message);
       return [];
     } finally {
@@ -268,7 +268,7 @@ export function useFileVersions(projectId: string, nodeId: string): UseFileVersi
       setNextCursor(page.nextCursor);
       return merged;
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load more versions");
+      setError(err instanceof Error ? err.message : "Couldn’t load more versions");
       return versions;
     } finally {
       setIsLoading(false);

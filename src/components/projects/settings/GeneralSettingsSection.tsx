@@ -369,7 +369,7 @@ export function GeneralSettingsSection({
         const isGif = file.type === "image/gif" || file.name.toLowerCase().endsWith(".gif");
         const fileType = file.type || (isGif ? "image/gif" : "");
         if (!ALLOWED_PROJECT_IMAGE_MIME_TYPES.has(fileType)) {
-            toast.error("Unsupported image type. Use JPG, PNG, WebP, or GIF.");
+            toast.error("Unsupported image type", { description: "Use JPG, PNG, WebP, or GIF." });
             return;
         }
 

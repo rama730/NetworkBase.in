@@ -385,7 +385,7 @@ export function ProfileV2Client({
                 setStatus('pending_outgoing');
                 const { sendConnectionRequest } = await import('@/app/actions/connections');
                 await toast.promise(failed(sendConnectionRequest(profile.id, connectionRequestKey())), {
-                    loading: 'Sending request...',
+                    loading: 'Sending request…',
                     success: 'Request sent',
                     error: (err) => err instanceof Error ? err.message : 'Request wasn’t sent'
                 }).unwrap();
@@ -395,9 +395,9 @@ export function ProfileV2Client({
                 const connectionId = await resolveConnectionId();
                 const { acceptConnectionRequest } = await import('@/app/actions/connections');
                 await toast.promise(failed(acceptConnectionRequest(connectionId, { idempotencyKey: connectionId })), {
-                    loading: 'Accepting request...',
-                    success: 'Connection accepted',
-                    error: (err) => err instanceof Error ? err.message : 'Failed to accept request'
+                    loading: 'Accepting request…',
+                    success: `You’re now connected with ${profile.fullName || profile.username || 'them'}`,
+                    error: (err) => err instanceof Error ? err.message : 'Couldn’t accept request'
                 }).unwrap();
                 await refreshViewerOverlay();
             }
@@ -425,9 +425,9 @@ export function ProfileV2Client({
                 const connectionId = await resolveConnectionId();
                 const { cancelConnectionRequest } = await import('@/app/actions/connections');
                 await toast.promise(failed(cancelConnectionRequest(connectionId)), {
-                    loading: 'Cancelling request...',
-                    success: 'Request cancelled',
-                    error: (err) => err instanceof Error ? err.message : 'Failed to cancel request'
+                    loading: 'Canceling request…',
+                    success: 'Request canceled',
+                    error: (err) => err instanceof Error ? err.message : 'Couldn’t cancel request'
                 }).unwrap();
                 await refreshViewerOverlay();
             } else if (status === 'pending_incoming') {
@@ -435,9 +435,9 @@ export function ProfileV2Client({
                 const connectionId = await resolveConnectionId();
                 const { rejectConnectionRequest } = await import('@/app/actions/connections');
                 await toast.promise(failed(rejectConnectionRequest(connectionId)), {
-                    loading: 'Declining request...',
+                    loading: 'Declining request…',
                     success: 'Request declined',
-                    error: (err) => err instanceof Error ? err.message : 'Failed to decline request'
+                    error: (err) => err instanceof Error ? err.message : 'Couldn’t decline request'
                 }).unwrap();
                 await refreshViewerOverlay();
             } else if (status === 'accepted') {
@@ -445,9 +445,9 @@ export function ProfileV2Client({
                 const connectionId = await resolveConnectionId();
                 const { removeConnection } = await import('@/app/actions/connections');
                 await toast.promise(failed(removeConnection(connectionId)), {
-                    loading: 'Disconnecting...',
+                    loading: 'Disconnecting…',
                     success: 'Disconnected',
-                    error: (err) => err instanceof Error ? err.message : 'Failed to disconnect'
+                    error: (err) => err instanceof Error ? err.message : 'Couldn’t disconnect'
                 }).unwrap();
                 await refreshViewerOverlay();
             }
@@ -620,7 +620,7 @@ export function ProfileV2Client({
 
     const handleOpenApplyModal = useCallback(() => {
         if (applicationsCapReached) {
-            toast.error('You have 20 pending applications. Withdraw one to apply.')
+            toast.error('You have 20 pending applications', { description: 'Withdraw one to apply.' })
             return
         }
         setIsApplyModalOpen(true)

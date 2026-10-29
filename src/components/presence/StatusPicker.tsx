@@ -127,7 +127,7 @@ export function StatusPicker() {
       toast.success(hasStatus ? "Status updated" : "Saved");
       setOpen(false);
     } catch {
-      toast.error("Couldn't save your status. Check the end time and try again.");
+      toast.error("Couldn’t save your status", { description: "Check the end time and try again." });
     } finally {
       setSaving(false);
     }
@@ -137,7 +137,7 @@ export function StatusPicker() {
     setSaving(true);
     const result = await clearMyStatus();
     setSaving(false);
-    if (!result.success) return void toast.error("Couldn't clear your status.");
+    if (!result.success) return void toast.error("Couldn’t clear your status");
     await refresh();
     toast.success("Status cleared");
     setOpen(false);

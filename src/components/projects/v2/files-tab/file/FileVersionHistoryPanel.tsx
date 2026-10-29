@@ -162,7 +162,7 @@ export function FileVersionHistoryPanel({
       try {
         const result = await restoreVersion(version.version);
         if (result.success) {
-          toast.success(`Restored v${version.version} successfully`);
+          toast.success(`Restored v${version.version}`);
           
           useFilesWorkspaceStore.getState().setNodes(projectId, [result.node]);
           window.dispatchEvent(new CustomEvent("project:task-files-changed", { detail: { projectId } }));
@@ -234,7 +234,7 @@ export function FileVersionHistoryPanel({
       try {
         const result = await deleteVersion(version.version);
         if (result.success) {
-          toast.success(`Deleted version ${version.version} successfully`);
+          toast.success(`Deleted version ${version.version}`);
           
           if (result.node) {
             useFilesWorkspaceStore.getState().setNodes(projectId, [result.node]);

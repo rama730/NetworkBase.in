@@ -256,7 +256,7 @@ export default function InvitationsClient({
                                 void refreshInvitationSurfaces();
                             })
                             .catch(() => {
-                                toast.error("Could not undo");
+                                toast.error("Couldn’t undo");
                             });
                     },
                 },

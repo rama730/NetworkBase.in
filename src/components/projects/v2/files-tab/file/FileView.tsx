@@ -480,7 +480,7 @@ export function FileView({
       } catch (err) {
         if (cancelled) return;
         const message =
-          err instanceof Error ? err.message : "Failed to load markdown";
+          err instanceof Error ? err.message : "Couldn’t load markdown";
         setMdError(message);
       }
     })();
@@ -511,7 +511,7 @@ export function FileView({
           url = res?.url ?? null;
         }
         if (!url) {
-          toast.error("Could not prepare raw file");
+          toast.error("Couldn’t prepare raw file");
           return;
         }
         window.open(url, "_blank", "noopener,noreferrer");

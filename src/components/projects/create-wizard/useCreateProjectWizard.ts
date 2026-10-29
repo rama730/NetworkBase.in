@@ -427,7 +427,7 @@ export function useCreateProjectWizard({ onClose, onSuccess, initialValues, init
         } catch (error) {
             console.error('[create-project] Failed to save draft', error);
             setSaveStatus('error');
-            if (!silent) toast.error('Draft could not be saved. Please try again.');
+            if (!silent) toast.error('Couldn’t save the draft', { description: 'Try again.' });
         } finally {
             if (!silent) setIsSavingDraft(false);
         }
@@ -535,7 +535,7 @@ export function useCreateProjectWizard({ onClose, onSuccess, initialValues, init
                 if (importType === 'github') {
                     const repoUrl = (getValues('import_source.repoUrl') || '').trim();
                     if (!repoUrl) {
-                        toast.error('Please paste a GitHub repository link');
+                        toast.error('Paste a GitHub repository link');
                         return;
                     }
 
@@ -548,12 +548,12 @@ export function useCreateProjectWizard({ onClose, onSuccess, initialValues, init
 
                     const previewReady = githubPreview.status === 'ready' && githubPreview.repoUrl === repoUrl;
                     if (!previewReady) {
-                        toast.info('Continuing without full preview. Import checks passed.');
+                        toast.info('Continuing without full preview', { description: 'Import checks passed.' });
                     }
                 }
                 if (importType === 'upload') {
                     if (!uploadFiles || uploadFiles.length === 0) {
-                        toast.error('Please select a folder first');
+                        toast.error('Select a folder first');
                         return;
                     }
                     const metadata = (getValues('import_source.metadata') || {}) as Record<string, unknown>;
@@ -564,7 +564,7 @@ export function useCreateProjectWizard({ onClose, onSuccess, initialValues, init
                 }
                 const organization = getValues('organization');
                 if (organization && (!organization.org_type || (organization.org_type === 'other' && !organization.type_label?.trim()))) {
-                    toast.warning(organization.org_type ? 'Say what you call it, for example Nonprofit.' : 'Choose what kind of organization this is.');
+                    toast.warning(organization.org_type ? 'Say what you call it, for example Nonprofit' : 'Choose what kind of organization this is');
                     return;
                 }
 

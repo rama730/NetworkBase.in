@@ -118,7 +118,7 @@ export function ImageViewerDriver({
       if (typeof ClipboardItem !== "undefined" && navigator.clipboard?.write) {
         await navigator.clipboard.write([new ClipboardItem({ [blob.type || "image/png"]: blob })]);
         setCopied(true);
-        toast.success("Copied image to clipboard");
+        toast.success("Image copied");
         setTimeout(() => setCopied(false), 2000);
       }
     } catch {
@@ -228,7 +228,7 @@ export function ImageViewerDriver({
     try {
       await navigator.clipboard.writeText(svgSource);
       setCopied(true);
-      toast.success("SVG code copied to clipboard");
+      toast.success("Code copied");
       setTimeout(() => setCopied(false), 2000);
     } catch {
       toast.error("Couldn’t copy the SVG code");

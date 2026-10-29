@@ -182,7 +182,7 @@ export function FileActionsBar({
       } catch (err) {
         // On failure: show error toast, keep picker open for retry (Req 9.5).
         const message =
-          err instanceof Error ? err.message : "Failed to attach file to task";
+          err instanceof Error ? err.message : "Couldn’t attach file to task";
         toast.error(feedbackError(message, "Action couldn’t finish"));
       } finally {
         setIsLinking(false);
@@ -284,7 +284,7 @@ export function FileActionsBar({
           toast.error(feedbackError(result.error || "Couldn’t save version", "Couldn’t save version"));
         }
       } catch (err) {
-        const message = err instanceof Error ? err.message : "Failed to replace file";
+        const message = err instanceof Error ? err.message : "Couldn’t replace file";
         toast.error(feedbackError(message, "Action couldn’t finish"));
       } finally {
         setIsReplacing(false);
@@ -328,8 +328,8 @@ export function FileActionsBar({
     } else {
       url.hash = "";
     }
-    try { await navigator.clipboard.writeText(url.toString()); toast.success("File link copied. Recipients still need access."); }
-    catch { toast.error("Could not copy the link. Check browser clipboard permissions."); }
+    try { await navigator.clipboard.writeText(url.toString()); toast.success("File link copied", { description: "Recipients still need access." }); }
+    catch { toast.error("Couldn’t copy the link", { description: "Check browser clipboard permissions." }); }
   }
 
   return (

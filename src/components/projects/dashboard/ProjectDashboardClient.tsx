@@ -1011,7 +1011,7 @@ export default function ProjectDashboardClient({ project, currentUserId, viewerD
                     setStageVersionSafe(latestVersion);
 
                     if (latestIndex >= targetIndex) {
-                        toast.info('Stage updated from another session. Synced latest stage.');
+                        toast.info('Stage updated from another session', { description: 'Synced latest stage.' });
                         return true;
                     }
 

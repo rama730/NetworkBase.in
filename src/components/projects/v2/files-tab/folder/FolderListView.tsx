@@ -477,7 +477,7 @@ export function FolderListView({
         window.dispatchEvent(new CustomEvent("project:task-files-changed", { detail: { projectId, taskId } }));
         setAttachTaskNode(null);
       } catch (err) {
-        const msg = err instanceof Error ? err.message : "Failed to attach file to task";
+        const msg = err instanceof Error ? err.message : "Couldn’t attach file to task";
         toast.error(feedbackError(msg, "Action couldn’t finish"));
       } finally {
         setIsAttachingTask(false);
@@ -831,7 +831,7 @@ export function FolderListView({
 
   const copyLink = React.useCallback(async (node: FolderListRowNode) => {
     const url = new URL(window.location.href); url.searchParams.set("tab", "files"); url.searchParams.set("fileId", node.id); url.searchParams.delete("path");
-    try { await navigator.clipboard.writeText(url.toString()); toast.success("File link copied"); } catch { toast.error("Could not copy the link"); }
+    try { await navigator.clipboard.writeText(url.toString()); toast.success("File link copied"); } catch { toast.error("Couldn’t copy the link"); }
   }, []);
 
   const openInspector = React.useCallback((node: FolderListRowNode, panel: string) => {

@@ -211,7 +211,7 @@ export function DataGridDriver({
       const dataLines = filteredRows.map((r) => r.join("\t")).join("\n");
       const tsv = `${headerLine}\n${dataLines}`;
       await navigator.clipboard.writeText(tsv);
-      toast.success(`Copied ${filteredRows.length} rows to clipboard (TSV format)`);
+      toast.success(`Table copied`);
     } catch {
       toast.error("Couldn’t copy the table");
     }

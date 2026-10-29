@@ -48,7 +48,7 @@ export function CreateProjectRouteClient({
         const resume = readGithubOAuthResume(returnPath)
 
         if (params.get('githubIdentity') === 'error' || params.has('error')) {
-            toast.error('GitHub authorization was not completed. Your draft was preserved.')
+            toast.error('GitHub authorization was not completed', { description: 'Your draft was preserved.' })
         }
 
         const rawParamSource = params.get('source') ?? params.get('createProjectSource')

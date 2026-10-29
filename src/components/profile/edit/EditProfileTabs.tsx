@@ -638,7 +638,7 @@ function RolePreferencesEditor({ profile, onChange }: { profile: any; onChange: 
 
         const alreadyExists = customRoles.some((r: string) => r.toLowerCase() === trimmed.toLowerCase());
         if (alreadyExists) {
-            toast.info(`"${trimmed}" is already in your desired roles.`);
+            toast.info(`"${trimmed}" is already in your desired roles`);
             setCustomRoleInput("");
             return;
         }
@@ -692,7 +692,7 @@ function RolePreferencesEditor({ profile, onChange }: { profile: any; onChange: 
 
         const alreadyExists = categories.some((c: string) => c.toLowerCase() === canonicalName.toLowerCase());
         if (alreadyExists) {
-            toast.info(`"${canonicalName}" is already in your categories.`);
+            toast.info(`"${canonicalName}" is already in your categories`);
             setCustomCategoryInput("");
             return;
         }

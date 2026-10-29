@@ -458,7 +458,7 @@ export function PresentationViewerDriver({
         }
       } catch (err: unknown) {
         if (active) {
-          const msg = err instanceof Error ? err.message : "Failed to parse presentation";
+          const msg = err instanceof Error ? err.message : "Couldn’t parse presentation";
           setError(msg);
           setLoading(false);
         }

@@ -536,12 +536,8 @@
    "project": 2
   },
   "src/components/network/NetworkPeopleTab.tsx": {
-   "please": 2,
-   "log-in": 2
-  },
-  "src/components/network/PersonCard.tsx": {
-   "ellipsis": 1,
-   "british": 1
+   "please": 1,
+   "log-in": 1
   },
   "src/components/network/PersonCardReview.tsx": {
    "please": 1,
@@ -648,11 +644,11 @@
    "banned": 1
   },
   "src/components/presence/ProjectStatusControl.tsx": {
-   "project": 7,
-   "apostrophe": 3
+   "project": 6,
+   "apostrophe": 2
   },
   "src/components/presence/StatusPicker.tsx": {
-   "apostrophe": 5,
+   "apostrophe": 3,
    "project": 2
   },
   "src/components/profile/OpenToCollaborateBadge.tsx": {
@@ -680,8 +676,6 @@
    "project": 1
   },
   "src/components/profile/v2/ProfileV2Client.tsx": {
-   "ellipsis": 4,
-   "british": 2,
    "project": 4
   },
   "src/components/profile/v2/UserConnectionsModal.tsx": {
@@ -729,7 +723,7 @@
    "project": 2
   },
   "src/components/projects/create-wizard/CreateProjectWizard.tsx": {
-   "please": 2
+   "please": 1
   },
   "src/components/projects/create-wizard/LeaveProjectSetupDialog.tsx": {
    "project": 2
@@ -773,9 +767,9 @@
   },
   "src/components/projects/create-wizard/useCreateProjectWizard.ts": {
    "title-case": 1,
-   "please": 5,
    "project": 4,
    "banned": 1,
+   "please": 2,
    "ampersand": 1
   },
   "src/components/projects/dashboard/InviteCollaboratorModal.tsx": {
@@ -881,7 +875,6 @@
    "ampersand": 3,
    "banned": 25,
    "title-case": 4,
-   "please": 1,
    "ellipsis": 3
   },
   "src/components/projects/tabs/SprintPlanning.tsx": {
@@ -1014,7 +1007,6 @@
    "title-case": 4
   },
   "src/components/projects/v2/files-tab/file/FileVersionHistoryPanel.tsx": {
-   "successfully": 2,
    "title-case": 1
   },
   "src/components/projects/v2/files-tab/file/FileView.tsx": {
@@ -1183,7 +1175,7 @@
   },
   "src/components/settings/NotificationsSettings.tsx": {
    "project": 2,
-   "apostrophe": 8
+   "apostrophe": 5
   },
   "src/components/settings/OrgNotificationChoices.tsx": {
    "banned": 1,
@@ -1334,7 +1326,7 @@
    "title-case": 1
   },
   "src/lib/feedback/copy.ts": {
-   "please": 9,
+   "please": 4,
    "log-in": 3
   },
   "src/lib/feedback/index.ts": {

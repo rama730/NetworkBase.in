@@ -19,7 +19,7 @@ export function ReportDialog({ kind, targetId, noun, open, onOpenChange }: { kin
         if (!reason) return
         const result = await reportContentAction({ kind, targetId, reason, details: details.trim() || undefined })
         if (!result.success) return void toast.error(result.error)
-        toast.success('Thanks. Our team will review it.')
+        toast.success('Report submitted', { description: 'Our team will review it.' })
         onOpenChange(false)
         setReason(null)
         setDetails('')

@@ -299,7 +299,7 @@ export function TrashFilesCollection({ projectId }: { projectId: string }) {
         for (const id of response.deletedIds) {
           useFilesWorkspaceStore.getState().removeNodeFromCaches(projectId, id);
         }
-        toast.success("Permanently deleted. This cannot be undone.");
+        toast.success("Permanently deleted", { description: "This cannot be undone." });
       }
       setSelectedIds((prev) => {
         const next = new Set(prev);
@@ -339,7 +339,7 @@ export function TrashFilesCollection({ projectId }: { projectId: string }) {
       }
       const deletedRoots = reviewed - result.pendingIds.length - result.failed.length;
       const plural = (n: number) => `${n} ${n === 1 ? "item" : "items"}`;
-      if (deletedRoots > 0) toast.success(`Permanently deleted ${plural(deletedRoots)}.`);
+      if (deletedRoots > 0) toast.success(`Permanently deleted ${plural(deletedRoots)}`);
       if (result.pendingIds.length > 0) {
         toast.warning(`${plural(result.pendingIds.length)} pending storage cleanup; they stay in Trash and retry automatically.`);
       }

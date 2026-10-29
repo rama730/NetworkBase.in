@@ -237,7 +237,7 @@ export function ChipEditor({
         const nextValue = rawValue.trim();
         if (!nextValue) return;
         if (values.length >= limit) {
-            toast.warning(`${label} can include up to ${limit} items.`);
+            toast.warning(`${label} can include up to ${limit} items`);
             return;
         }
         if (values.some((value) => value.toLowerCase() === nextValue.toLowerCase())) {
