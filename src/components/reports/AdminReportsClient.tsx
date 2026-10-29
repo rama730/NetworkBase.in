@@ -28,7 +28,7 @@ export function AdminReportsClient({ data }: { data: Data }) {
     return (
         <main className="mx-auto max-w-4xl space-y-10 px-4 py-8">
             <header>
-                <h1 className="nb-page-title text-foreground">Reports</h1>
+                <h1 className="nb-page-title text-foreground">Moderation</h1>
                 <p className="nb-compact mt-1 text-muted-foreground">Dismiss, hide from Discover, remove content or suspend an organization.</p>
                 {message ? <p role="status" className="mt-2 text-sm text-muted-foreground">{message}</p> : null}
             </header>

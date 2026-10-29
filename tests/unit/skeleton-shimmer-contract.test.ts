@@ -64,7 +64,7 @@ test("shared skeleton shimmer contract", async (t) => {
 
     assert.match(gitHubSyncFile, /import \{ Skeleton \} from "@\/components\/ui\/skeleton"/);
     assert.match(gitHubSyncFile, /role="status"/);
-    assert.match(gitHubSyncFile, /aria-label="Loading GitHub Sync"/);
+    assert.match(gitHubSyncFile, /aria-label="Loading repository sync"/);
 
     assert.match(filesTabMain, /import \{ SkeletonGitHubSync \}/);
     assert.match(filesTabMain, /loading:\s*\(\)\s*=>\s*<SkeletonGitHubSync/);

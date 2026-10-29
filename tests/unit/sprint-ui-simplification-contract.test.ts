@@ -97,7 +97,7 @@ describe("sprint tab target architecture contract", () => {
   });
 
   it("groups current and historical Sprints and removes the obsolete drawer", () => {
-    assert.match(sprintLeftRailSource, /Current/);
+    assert.match(sprintLeftRailSource, /label: "Active"/);
     assert.match(sprintLeftRailSource, /Upcoming/);
     assert.match(sprintLeftRailSource, /Completed/);
     assert.match(sprintLeftRailSource, /Canceled/);
