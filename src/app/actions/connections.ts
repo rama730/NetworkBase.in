@@ -16,7 +16,7 @@ import { connectionSuggestionDismissals, connectionSuggestions, connections, pro
 import { countPendingInvitationsForCandidate } from '@/lib/workspaces/workspace-invitations';
 import { getAuthUser } from '@/lib/supabase/auth-user';
 import { IdempotencyConflictError, runIdempotent } from '@/lib/security/idempotency';
-import { eq, and, or, desc, asc, sql, inArray, isNull, type SQL } from 'drizzle-orm';
+import { eq, and, or, desc, asc, gte, sql, inArray, isNull, type SQL } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 import { after } from 'next/server';
 import { consumeRateLimit } from '@/lib/security/rate-limit';
@@ -2303,7 +2303,7 @@ export async function undoRejectConnectionRequest(
                     eq(connections.id, connectionId),
                     eq(connections.addresseeId, user.id),
                     eq(connections.status, 'rejected'),
-                    sql`${connections.updatedAt} >= ${cutoff}`
+                    gte(connections.updatedAt, cutoff)
                 )
             )
             .returning({

@@ -41,3 +41,20 @@ test("shared update media stays verified; referenced pending deletions are resto
     await sql`DELETE FROM public.workspaces WHERE id = ${fixture.projectId}`;
   }
 });
+
+// The abandoned-upload sweep failed on every run in production: a raw Date inside sql`` reached the driver unserialized.
+test("the abandoned-upload sweep schedules an expired, unreferenced asset", async () => {
+  const fixture = await sql.begin(async (tx) => {
+    const owner = await createUser(tx);
+    const projectId = await createProject(tx, owner);
+    return { projectId, abandoned: await verifiedAsset(tx, projectId, owner, `${projectId}/abandoned.png`) };
+  });
+  try {
+    const result = await assets.scheduleAbandonedStorageAssets();
+    assert.ok(result.scheduled >= 1);
+    const [row] = await sql`SELECT state FROM public.storage_assets WHERE id = ${fixture.abandoned}`;
+    assert.equal(row?.state, "delete_pending");
+  } finally {
+    await sql`DELETE FROM public.workspaces WHERE id = ${fixture.projectId}`;
+  }
+});
