@@ -9,7 +9,7 @@ const read = (file: string) => fs.readFileSync(path.join(root, file), "utf8");
 test("shared skeleton shimmer contract", async (t) => {
   const styles = read("src/app/globals.css");
   const primitive = read("src/components/ui/skeleton.tsx");
-  const registry = read("src/components/projects/dashboard/ProjectTabsRegistry.tsx");
+  const registry = read("src/components/workspaces/dashboard/WorkspaceTabsRegistry.tsx");
 
   await t.test("uses semantic neutral tokens and honors both motion preferences", () => {
     assert.match(primitive, /nb-skeleton/);
@@ -23,14 +23,14 @@ test("shared skeleton shimmer contract", async (t) => {
 
   await t.test("all seven project tab fallbacks have a layout-matched loading surface", () => {
     for (const file of ["SkeletonDashboard", "SkeletonDoc", "SkeletonFiles", "SkeletonSprints", "SkeletonTasks", "SkeletonSettings", "SkeletonGitHubSync"]) {
-      assert.ok(fs.existsSync(path.join(root, "src/components/projects/skeletons", `${file}.tsx`)), `${file} should exist`);
+      assert.ok(fs.existsSync(path.join(root, "src/components/workspaces/skeletons", `${file}.tsx`)), `${file} should exist`);
     }
     assert.match(registry, /SkeletonDashboard/);
     assert.match(registry, /SkeletonUpdates/);
     assert.doesNotMatch(registry, /animate-none/);
     assert.doesNotMatch(registry, /SkeletonAnalytics/);
 
-    const sprintSkeleton = read("src/components/projects/skeletons/SkeletonSprints.tsx");
+    const sprintSkeleton = read("src/components/workspaces/skeletons/SkeletonSprints.tsx");
     assert.match(sprintSkeleton, /lg:grid-cols-\[240px_minmax\(0,1fr\)\]/);
     assert.match(sprintSkeleton, /border-r/);
     assert.match(sprintSkeleton, /aria-label="Loading sprints"/);
@@ -48,8 +48,8 @@ test("shared skeleton shimmer contract", async (t) => {
   });
 
   await t.test("reuses one layout for tab-chunk and task or sprint data loading", () => {
-    const tasksTab = read("src/components/projects/v2/TasksTab.tsx");
-    const sprintsTab = read("src/components/projects/tabs/SprintPlanning.tsx");
+    const tasksTab = read("src/components/workspaces/v2/TasksTab.tsx");
+    const sprintsTab = read("src/components/workspaces/tabs/SprintPlanning.tsx");
 
     assert.match(tasksTab, /import \{ SkeletonTasks \}/);
     assert.match(tasksTab, /return <SkeletonTasks \/>;/);
@@ -58,9 +58,9 @@ test("shared skeleton shimmer contract", async (t) => {
   });
 
   await t.test("GitHub Sync subsystem uses unified layout-matched shimmer skeleton across all stages", () => {
-    const gitHubSyncFile = read("src/components/projects/skeletons/SkeletonGitHubSync.tsx");
-    const workspace = read("src/components/projects/v2/files-tab/RepositorySync.tsx");
-    const filesTabMain = read("src/components/projects/v2/files-tab/FilesTabMain.tsx");
+    const gitHubSyncFile = read("src/components/workspaces/skeletons/SkeletonGitHubSync.tsx");
+    const workspace = read("src/components/workspaces/v2/files-tab/RepositorySync.tsx");
+    const filesTabMain = read("src/components/workspaces/v2/files-tab/FilesTabMain.tsx");
 
     assert.match(gitHubSyncFile, /import \{ Skeleton \} from "@\/components\/ui\/skeleton"/);
     assert.match(gitHubSyncFile, /role="status"/);

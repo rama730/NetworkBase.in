@@ -6,11 +6,11 @@ import path from "node:path";
 describe("Files Tab Trash Redesign Specification Conformance Contract", () => {
   const trashPath = path.resolve(
     process.cwd(),
-    "src/components/projects/v2/files-tab/TrashFilesCollection.tsx",
+    "src/components/workspaces/v2/files-tab/TrashFilesCollection.tsx",
   );
   const headerPath = path.resolve(
     process.cwd(),
-    "src/components/projects/v2/files-tab/folder/FolderListHeader.tsx",
+    "src/components/workspaces/v2/files-tab/folder/FolderListHeader.tsx",
   );
 
   const trashSource = readFileSync(trashPath, "utf-8");
@@ -225,7 +225,7 @@ describe("Files Tab Trash Redesign Specification Conformance Contract", () => {
   it("suppresses Git Sync and Code editor buttons in header when viewing Trash", () => {
     const workspaceHeaderPath = path.resolve(
       process.cwd(),
-      "src/components/projects/v2/files-tab/FilesHeader.tsx",
+      "src/components/workspaces/v2/files-tab/FilesHeader.tsx",
     );
     const headerCode = readFileSync(workspaceHeaderPath, "utf-8");
     assert.match(

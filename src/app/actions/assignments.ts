@@ -6,7 +6,7 @@ import { z } from 'zod';
 
 import { db } from '@/lib/db';
 import { profiles, projects, projectSprints, projectWorkflowColumns, taskActivityEvents, taskTeamMembers, tasks } from '@/lib/db/schema';
-import { getProjectAccessById, writeBlockedMessage } from '@/lib/data/project-access';
+import { getProjectAccessById, writeBlockedMessage } from '@/lib/data/workspace-access';
 import { createClient } from '@/lib/supabase/server';
 import { canStillSubmit, copyState, type AssignmentSettings, type AssignmentTarget, type CopyState } from '@/lib/organizations/assignment-rules';
 import { createCopies, createMasterTask, resolveRecipients } from '@/lib/organizations/assignments';
@@ -261,7 +261,7 @@ export async function submitAssignmentAction(copyId: string, input: z.input<type
             payload: { version: 1, source: 'assignment_submit', taskTitle: copy.title, taskStatus: 'done', teamName: copy.teamName },
         });
     });
-    revalidatePath(`/projects/${copy.projectId}`);
+    revalidatePath(`/workspaces/${copy.projectId}`);
     await notifyAssignmentSubmitted(copyId, userId);
     return { success: true };
 }

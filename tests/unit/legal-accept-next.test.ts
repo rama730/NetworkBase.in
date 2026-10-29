@@ -9,7 +9,7 @@ test('the shared normalizer refuses every open-redirect shape the old check let 
     for (const value of ['/\\evil.com', '/\\/evil.com', '//evil.com', 'https://evil.com', 'javascript:alert(1)', '/auth/callback?next=x']) {
         assert.equal(normalizeAuthNextPath(value), '/discover', value)
     }
-    assert.equal(normalizeAuthNextPath('/projects/abc?tab=files'), '/projects/abc?tab=files')
+    assert.equal(normalizeAuthNextPath('/workspaces/abc?tab=files'), '/workspaces/abc?tab=files')
 })
 
 test('the legal acceptance page navigates only through the shared normalizer', () => {

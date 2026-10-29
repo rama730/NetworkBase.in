@@ -7,19 +7,19 @@ const read = (path: string) => readFileSync(path, "utf8");
 const mutations = read("src/app/actions/files/mutations.ts");
 const helpers = read("src/lib/files/internal-helpers.ts");
 const picker = read(
-  "src/components/projects/v2/explorer/ExplorerDialogsHost.tsx",
+  "src/components/workspaces/v2/explorer/ExplorerDialogsHost.tsx",
 );
 const taskRow = read(
-  "src/components/projects/v2/tasks/components/TaskFileRow.tsx",
+  "src/components/workspaces/v2/tasks/components/TaskFileRow.tsx",
 );
 const taskExplorer = read(
-  "src/components/projects/v2/tasks/components/TaskFilesExplorer.tsx",
+  "src/components/workspaces/v2/tasks/components/TaskFilesExplorer.tsx",
 );
 const treeRow = read(
-  "src/components/projects/v2/explorer/FileTreeRow.tsx",
+  "src/components/workspaces/v2/explorer/FileTreeRow.tsx",
 );
-const realtime = read("src/lib/realtime/project-files-channel.ts");
-const filesRoot = read("src/components/projects/v2/files-tab/FilesTabRoot.tsx");
+const realtime = read("src/lib/realtime/workspace-files-channel.ts");
+const filesRoot = read("src/components/workspaces/v2/files-tab/FilesTabRoot.tsx");
 
 test("one move action owns single, bulk, publish, audit, and undo validation", () => {
   assert.match(mutations, /export async function moveProjectNodes/);

@@ -11,14 +11,14 @@ const REPO_ROOT = process.cwd();
 const TARGET_PREFIXES = [
   "src/components/my-work/",
   "src/components/discover/",
-  "src/hooks/projects/",
+  "src/hooks/workspaces/",
   "src/hooks/useWorkspace",
   "src/hooks/useMessages",
   "src/components/messages/",
 ];
 
 const TARGET_FILES = new Set<string>([
-  "src/hooks/mutations/useProjectMutations.ts",
+  "src/hooks/mutations/useWorkspaceMutations.ts",
   "src/hooks/useSettingsQueries.ts",
   "src/hooks/useProfileData.ts",
   "src/hooks/useMessagesData.ts",

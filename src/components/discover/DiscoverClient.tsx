@@ -7,17 +7,17 @@ import { Bell, Compass, Plus, Search, Sparkles } from 'lucide-react';
 import { Virtuoso, type Components } from 'react-virtuoso';
 import { useQueryClient, type InfiniteData } from '@tanstack/react-query';
 
-import { DiscoverFeedError, useDiscoverProjects } from '@/hooks/discover/useDiscoverProjects';
+import { DiscoverFeedError, useDiscoverProjects } from '@/hooks/discover/useDiscoverWorkspaces';
 import { useAuth } from '@/hooks/useAuth';
 import { useDiscoverSessionSeen } from '@/hooks/discover/useDiscoverSessionSeen';
-import { useUserFollowedProjects } from '@/hooks/projects/useUserInteractions';
-import { useMyApplicationStates } from '@/hooks/projects/useMyApplicationStates';
+import { useUserFollowedProjects } from '@/hooks/workspaces/useUserInteractions';
+import { useMyApplicationStates } from '@/hooks/workspaces/useMyApplicationStates';
 import { useDiscoverUrlFilters } from '@/hooks/discover/useDiscoverUrlFilters';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { useSuggestedPeople } from '@/hooks/useConnections';
 
-import ProjectCard from '@/components/projects/ProjectCard';
-import ProjectCardSkeleton from '@/components/projects/ProjectCardSkeleton';
+import ProjectCard from '@/components/workspaces/WorkspaceCard';
+import ProjectCardSkeleton from '@/components/workspaces/WorkspaceCardSkeleton';
 import DiscoverUpdateCard from '@/components/discover/DiscoverUpdateCard';
 import DiscoverUpdateCardSkeleton from '@/components/discover/DiscoverUpdateCardSkeleton';
 import DiscoverHeader from '@/components/discover/DiscoverHeader';
@@ -418,7 +418,7 @@ export default function DiscoverClient({
         if (view === FILTER_VIEWS.RECOMMENDATIONS) {
             return <EmptyState icon={Sparkles} title="No matches yet" description="Add skills and interests to your profile to get workspaces that fit you." action={<Button asChild variant="outline"><Link href={ROUTES.MY_PROFILE}>Edit your profile</Link></Button>} />;
         }
-        return <EmptyState icon={Compass} title={isDefault ? 'No workspaces yet' : 'No workspaces here yet'} description="Start one and invite people to build it with you." action={<Button asChild><Link href="/projects/new"><Plus className="size-4" aria-hidden="true" /> New workspace</Link></Button>} />;
+        return <EmptyState icon={Compass} title={isDefault ? 'No workspaces yet' : 'No workspaces here yet'} description="Start one and invite people to build it with you." action={<Button asChild><Link href="/workspaces/new"><Plus className="size-4" aria-hidden="true" /> New workspace</Link></Button>} />;
     })();
 
     const firstPageError = error && visibleProjects.length === 0;

@@ -5,7 +5,7 @@ import { and, asc, eq, gte, isNotNull, isNull, lt, or, sql } from "drizzle-orm";
 import { readOrgDocsAction } from "@/app/actions/org-docs";
 import { db } from "@/lib/db";
 import { projectMembers, projects, projectSprints, roleApplications, taskTeamMembers, tasks } from "@/lib/db/schema";
-import type { ProjectAccess } from "@/lib/data/project-access";
+import type { ProjectAccess } from "@/lib/data/workspace-access";
 import { copyState } from "@/lib/organizations/assignment-rules";
 import { JOIN_SPIKE_PER_HOUR } from "@/lib/organizations/trust-rules";
 
@@ -77,7 +77,7 @@ export async function readNeedsYou(v: OrgViewer, now: Date): Promise<NeedsYouRow
         .where(and(eq(projects.parentId, v.org.id), eq(projects.ownerId, v.userId), isNull(projects.deletedAt), isNotNull(tasks.assignmentId), isNull(tasks.deletedAt)));
     for (const c of group) {
         const { state } = stateOf(c, now);
-        if (state !== 'done' && state !== 'excused' && state !== 'submitted') rows.push({ kind: 'group', label: `${c.project} · ${c.title} for the workspace`, href: `/projects/${encodeURIComponent(c.slug ?? c.projectId)}?tab=tasks` });
+        if (state !== 'done' && state !== 'excused' && state !== 'submitted') rows.push({ kind: 'group', label: `${c.project} · ${c.title} for the workspace`, href: `/workspaces/${encodeURIComponent(c.slug ?? c.projectId)}?tab=tasks` });
     }
     rows.push(...await leadSprintRows(v.org.id, v.userId));
     // Important (emailed) announcements stay in Needs you until the Updates tab is opened (report §17.4).
@@ -127,7 +127,7 @@ async function adminStateRows(orgId: string, base: string, now: Date): Promise<N
     ]);
     for (const t of teams) rows.push({ kind: 'team', label: `${plural(t.n, 'new member')} not in a team · ${t.title}`, href: `${base}?tab=tasks` });
     if (unplaced && unplaced.children > 0 && unplaced.n > 0) rows.push({ kind: 'unplaced', label: `${plural(unplaced.n, 'member')} not in a workspace`, href: `${base}?tab=projects` });
-    if (unplaced && unplaced.children === 0 && unplaced.group_title) rows.push({ kind: 'needs_projects', label: `${unplaced.group_title} needs workspaces · Create one`, href: `/projects/new?org=${encodeURIComponent(base.slice('/org/'.length))}` });
+    if (unplaced && unplaced.children === 0 && unplaced.group_title) rows.push({ kind: 'needs_projects', label: `${unplaced.group_title} needs workspaces · Create one`, href: `/workspaces/new?org=${encodeURIComponent(base.slice('/org/'.length))}` });
     for (const b of blocked) rows.push({ kind: 'autostart', label: `${b.name} couldn’t start: ${b.active} is still active`, href: `${base}?tab=sprints` });
     return rows;
 }
@@ -149,7 +149,7 @@ export async function leadSprintRows(orgId: string, userId: string): Promise<Nee
             OR (c.id IS NOT NULL AND (c.start_date < o.start_date OR c.end_date > o.end_date)))
         ORDER BY o.start_date DESC LIMIT 10`);
     return rows.map((r) => {
-        const href = `/projects/${encodeURIComponent(r.slug ?? r.id)}?tab=sprints`;
+        const href = `/workspaces/${encodeURIComponent(r.slug ?? r.id)}?tab=sprints`;
         if (r.kind === 'plan') return { kind: 'plan_sprint', label: `${r.org_sprint} started. Plan your sprint in ${r.title}`, href };
         if (r.kind === 'complete') return { kind: 'complete_sprint', label: `${r.org_sprint} closed · Complete ${r.child_sprint}?`, href };
         return { kind: 'sprint_dates', label: `${r.child_sprint} is outside ${r.org_sprint}'s dates`, href };

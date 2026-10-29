@@ -5,7 +5,7 @@ import { and, eq, inArray, isNotNull, isNull, or, sql } from 'drizzle-orm';
 import type { AssignmentRow } from '@/app/actions/assignments';
 import { db } from '@/lib/db';
 import { profiles, projectSprintEvents, projects, taskTeamMembers, tasks } from '@/lib/db/schema';
-import { getProjectAccessById } from '@/lib/data/project-access';
+import { getProjectAccessById } from '@/lib/data/workspace-access';
 import type { AssignmentSettings, CopyState } from '@/lib/organizations/assignment-rules';
 import { stateOf } from '@/lib/organizations/needs-you';
 import { getViewerAuthContext } from '@/lib/server/viewer-context';

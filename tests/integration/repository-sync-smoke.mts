@@ -37,7 +37,7 @@ try {
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
   await page.waitForURL((url) => url.pathname !== "/login", { timeout: 45000 });
   await page.goto(
-    `${base}/projects/${project.slug || project.id}?tab=files&filesView=github`,
+    `${base}/workspaces/${project.slug || project.id}?tab=files&filesView=github`,
   );
   const githubNavigation = page.getByRole("button", {
     name: "GitHub Sync",

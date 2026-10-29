@@ -31,7 +31,7 @@ import { recordAudit } from "./audit";
 
 const fixtureProjectSlug =
   process.env.E2E_FILES_PROJECT_SLUG || "e2e-files-workspace-controls";
-const filesTabUrl = `/projects/${fixtureProjectSlug}?tab=files`;
+const filesTabUrl = `/workspaces/${fixtureProjectSlug}?tab=files`;
 const AREA = "move";
 
 test.describe("Files tab V3 — move", () => {
@@ -42,7 +42,7 @@ test.describe("Files tab V3 — move", () => {
     const page = await context.newPage();
     const monitor = attachPageMonitoring(page, {
       monitorConsoleTypes: ["error", "warning"],
-      allowedHttpUrlPatterns: [new RegExp(`/projects/${fixtureProjectSlug}\\?tab=files$`, "i")],
+      allowedHttpUrlPatterns: [new RegExp(`/workspaces/${fixtureProjectSlug}\\?tab=files$`, "i")],
       allowedConsolePatterns: [
         /The result of getSnapshot should be cached to avoid an infinite loop/i,
         // V3 dev-only surface-disagreement warnings (Req 6.4) are informational.

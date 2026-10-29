@@ -7,7 +7,7 @@ import { orgEmailInvites, profiles, projectMembers, projects } from "@/lib/db/sc
 import { createCopiesForNewMember, releaseCopiesOnLeave } from "@/lib/organizations/assignments";
 import { notifyNewCopies } from "@/lib/organizations/assignment-notify";
 import { namesOf, notifyOrg, orgLabel, queueOrgInviteSignupEmails, ROLE_LABEL } from "@/lib/organizations/notify";
-import { addProjectMemberInternal, removeProjectMemberInternal } from "@/lib/projects/collaborator-lifecycle";
+import { addProjectMemberInternal, removeProjectMemberInternal } from "@/lib/workspaces/collaborator-lifecycle";
 import { orgMemberCap } from "@/lib/organizations/join-rules";
 
 type Executor = typeof db | Parameters<Parameters<typeof db.transaction>[0]>[0];
@@ -141,6 +141,6 @@ export async function notifySeatsReopened(orgId: string, seats: ReopenedSeat[]) 
   const stamp = Date.now();
   for (const seat of seats) {
     await notifyOrg({ orgId, eventKey: "org.child_notice", to: [seat.leadId], title: `1 seat open in ${seat.unit}`,
-      href: `/projects/${encodeURIComponent(seat.slug ?? seat.projectId)}?tab=settings`, sourceEventId: `seat:${seat.projectId}:${seat.unit}:${stamp}`, refs: { projectId: seat.projectId } });
+      href: `/workspaces/${encodeURIComponent(seat.slug ?? seat.projectId)}?tab=settings`, sourceEventId: `seat:${seat.projectId}:${seat.unit}:${stamp}`, refs: { projectId: seat.projectId } });
   }
 }

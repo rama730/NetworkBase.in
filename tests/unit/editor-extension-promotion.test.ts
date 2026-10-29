@@ -130,7 +130,7 @@ describe("Editor extension Desktop Deep-Linking & Promotion Contract", () => {
   describe("Open in IDE hands off to the browser's own prompt", () => {
     it("has no imitation 'Open …?' modal, no preset 'Always allow', and no premature 'Opening…' toast", () => {
       const content = fs.readFileSync(
-        path.resolve(process.cwd(), "src/components/projects/v2/files-tab/OpenInIdeButton.tsx"),
+        path.resolve(process.cwd(), "src/components/workspaces/v2/files-tab/OpenInIdeButton.tsx"),
         "utf-8",
       );
       assert.doesNotMatch(content, /confirmModalOpen|Always allow|AlwaysOpenDirect/);
@@ -143,7 +143,7 @@ describe("Editor extension Desktop Deep-Linking & Promotion Contract", () => {
     it("does not render WorkspaceExtensionPromotionCard in TasksTab.tsx", () => {
       const tasksTabPath = path.resolve(
         process.cwd(),
-        "src/components/projects/v2/TasksTab.tsx",
+        "src/components/workspaces/v2/TasksTab.tsx",
       );
       const content = fs.readFileSync(tasksTabPath, "utf-8");
 
@@ -158,7 +158,7 @@ describe("Editor extension Desktop Deep-Linking & Promotion Contract", () => {
     it("renders OpenInIdeButton in FilesHeader.tsx", () => {
       const headerPath = path.resolve(
         process.cwd(),
-        "src/components/projects/v2/files-tab/FilesHeader.tsx",
+        "src/components/workspaces/v2/files-tab/FilesHeader.tsx",
       );
       const content = fs.readFileSync(headerPath, "utf-8");
 
@@ -175,7 +175,7 @@ describe("Editor extension Desktop Deep-Linking & Promotion Contract", () => {
     it("FilesTabMain passes projectSlug down to FilesHeader", () => {
       const mainPath = path.resolve(
         process.cwd(),
-        "src/components/projects/v2/files-tab/FilesTabMain.tsx",
+        "src/components/workspaces/v2/files-tab/FilesTabMain.tsx",
       );
       const content = fs.readFileSync(mainPath, "utf-8");
 
@@ -188,7 +188,7 @@ describe("Editor extension Desktop Deep-Linking & Promotion Contract", () => {
     it("OpenInIdeButton implements state-aware flow: shows laptop IDEs when unconnected, only connected IDEs when authenticated", () => {
       const buttonPath = path.resolve(
         process.cwd(),
-        "src/components/projects/v2/files-tab/OpenInIdeButton.tsx",
+        "src/components/workspaces/v2/files-tab/OpenInIdeButton.tsx",
       );
       const content = fs.readFileSync(buttonPath, "utf-8");
 
@@ -213,7 +213,7 @@ describe("Editor extension Desktop Deep-Linking & Promotion Contract", () => {
     it("renders OpenInIdeButton at the top of TaskDetailPanel.tsx with taskId context", () => {
       const taskDetailPath = path.resolve(
         process.cwd(),
-        "src/components/projects/v2/tasks/TaskDetailPanel.tsx",
+        "src/components/workspaces/v2/tasks/TaskDetailPanel.tsx",
       );
       const content = fs.readFileSync(taskDetailPath, "utf-8");
 
@@ -244,7 +244,7 @@ describe("Editor extension Desktop Deep-Linking & Promotion Contract", () => {
     it("renders OpenInIdeButton before New section in TasksTab.tsx", () => {
       const tasksTabPath = path.resolve(
         process.cwd(),
-        "src/components/projects/v2/TasksTab.tsx",
+        "src/components/workspaces/v2/TasksTab.tsx",
       );
       const content = fs.readFileSync(tasksTabPath, "utf-8");
 
@@ -305,7 +305,7 @@ describe("Editor extension Desktop Deep-Linking & Promotion Contract", () => {
     it("OpenInIdeButton integrates useLaptopInstalledIdes", () => {
       const buttonPath = path.resolve(
         process.cwd(),
-        "src/components/projects/v2/files-tab/OpenInIdeButton.tsx",
+        "src/components/workspaces/v2/files-tab/OpenInIdeButton.tsx",
       );
       const buttonContent = fs.readFileSync(buttonPath, "utf-8");
 
@@ -313,7 +313,7 @@ describe("Editor extension Desktop Deep-Linking & Promotion Contract", () => {
         buttonContent.includes("useLaptopInstalledIdes"),
         "OpenInIdeButton must import useLaptopInstalledIdes",
       );
-      const pickerContent = fs.readFileSync(path.resolve(process.cwd(), "src/components/projects/v2/files-tab/DesktopIdePicker.tsx"), "utf-8");
+      const pickerContent = fs.readFileSync(path.resolve(process.cwd(), "src/components/workspaces/v2/files-tab/DesktopIdePicker.tsx"), "utf-8");
       assert.ok(
         pickerContent.includes("Installed on your"),
         "OpenInIdeButton must render 'Installed on Your' section when detected",

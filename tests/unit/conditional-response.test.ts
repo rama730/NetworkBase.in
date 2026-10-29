@@ -30,9 +30,9 @@ test("a 304 only stands for the exact representation", async () => {
 
 test("conditional routes use the shared helper instead of hand-built validators", () => {
   for (const route of [
-    "src/app/api/v1/extension/project-tasks/route.ts",
-    "src/app/api/v1/extension/project-summary/route.ts",
-    "src/app/api/v1/projects/[id]/capabilities/route.ts",
+    "src/app/api/v1/extension/workspace-tasks/route.ts",
+    "src/app/api/v1/extension/workspace-summary/route.ts",
+    "src/app/api/v1/workspaces/[id]/capabilities/route.ts",
   ]) {
     const source = readFileSync(route, "utf8");
     assert.match(source, /jsonSuccessConditional\(/, route);

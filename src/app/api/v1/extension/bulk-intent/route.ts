@@ -6,7 +6,7 @@ import {
   checksumSchema,
   resolveWritableExtensionFile,
 } from "@/app/api/v1/extension/_file-revision";
-import { getProjectAccessById } from "@/lib/data/project-access";
+import { getProjectAccessById } from "@/lib/data/workspace-access";
 import { createAdminClient } from "@/lib/supabase/server";
 import { createUploadIntents } from "@/lib/upload/upload-intents";
 import { validateCsrf } from "@/lib/security/csrf";

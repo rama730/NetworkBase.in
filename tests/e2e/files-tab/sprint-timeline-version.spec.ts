@@ -29,7 +29,7 @@ import { recordAudit, type AuditResult } from "./audit";
 
 const PROJECT_SLUG =
   process.env.E2E_FILES_PROJECT_SLUG || "e2e-files-workspace-controls";
-const PROJECT_BASE = `/projects/${PROJECT_SLUG}`;
+const PROJECT_BASE = `/workspaces/${PROJECT_SLUG}`;
 
 const V3_ROOT_TESTID = "files-tab-root";
 const V3_DETECT_TIMEOUT_MS = 15_000;

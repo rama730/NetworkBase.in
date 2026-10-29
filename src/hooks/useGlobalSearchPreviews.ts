@@ -7,7 +7,7 @@ import { get as getIdb, set as setIdb } from "idb-keyval";
 
 import { getConnectionsFeed, type SuggestedProfile } from "@/app/actions/connections";
 import { fetchDiscoverProjectsAction } from "@/app/actions/discover";
-import { fetchProjectLinkPreviewsAction, fetchProjectTaskPreviewsAction } from "@/app/actions/project";
+import { fetchProjectLinkPreviewsAction, fetchProjectTaskPreviewsAction } from "@/app/actions/workspace";
 import { searchOrgPreviewsAction } from "@/app/actions/org-workspace";
 import { FILTER_VIEWS, PROJECT_STATUS, PROJECT_TYPE, SORT_OPTIONS } from "@/constants/discover";
 import { normalizeGlobalSearchQuery, type GlobalSearchContext, type NetworkSearchScope } from "@/components/layout/header/global-search";
@@ -181,7 +181,7 @@ async function fetchProjectPreviews(query: string): Promise<GlobalSearchPreview[
         kind: "project" as const,
         title: project.title,
         subtitle: project.shortDescription || project.description || project.owner?.displayName || project.owner?.fullName || "Workspace",
-        href: `/projects/${project.slug || project.id}?fromTab=projects`,
+        href: `/workspaces/${project.slug || project.id}?fromTab=projects`,
         username: project.owner?.username ?? null,
         status: project.status ?? null,
         skills: project.skills || [],
@@ -291,7 +291,7 @@ async function fetchTaskPreviews(projectIdentifier: string, query: string): Prom
             kind: "task" as const,
             title: task.title,
             subtitle: task.description || "No description",
-            href: `/projects/${encodeURIComponent(projectIdentifier)}?tab=tasks&drawerType=task&drawerId=${encodeURIComponent(taskCode)}`,
+            href: `/workspaces/${encodeURIComponent(projectIdentifier)}?tab=tasks&drawerType=task&drawerId=${encodeURIComponent(taskCode)}`,
             taskCode,
             status: task.status,
             reviewStatus: task.reviewStatus,

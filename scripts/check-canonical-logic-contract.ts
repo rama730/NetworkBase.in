@@ -21,7 +21,7 @@ const CANONICAL_AVATAR_SURFACES = [
   "src/components/network/PersonCardContent.tsx",
   "src/components/network/ConnectionsClient.tsx",
   "src/components/network/InvitationsClient.tsx",
-  "src/components/projects/ProjectCard.tsx",
+  "src/components/workspaces/WorkspaceCard.tsx",
   "src/components/settings/PrivacySettings.tsx",
 ] as const;
 

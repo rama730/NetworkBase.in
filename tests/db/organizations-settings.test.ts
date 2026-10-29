@@ -162,7 +162,7 @@ test("§21 Work: type defaults, admins save the section, composer and sprint def
   await sql`UPDATE projects SET parent_id = ${id}, title = 'Compiler Lab' WHERE id = ${child}`;
   const [unit] = await sql`INSERT INTO project_open_roles (project_id, role, count) VALUES (${child}, 'Frontend', 3) RETURNING id`;
   await sql`INSERT INTO project_members (project_id, user_id, role, unit_id) VALUES (${child}, ${member}, 'owner', NULL), (${child}, ${outsider}, 'member', ${unit!.id})`;
-  const settingsServer = await loadAppModule(() => import("../../src/lib/projects/server/settings"));
+  const settingsServer = await loadAppModule(() => import("../../src/lib/workspaces/server/settings"));
   viewerId = member;
   const collab = await settingsServer.getProjectCollaboratorSettingsAction(child, {});
   assert.ok(collab.success, JSON.stringify(collab).slice(0, 300));

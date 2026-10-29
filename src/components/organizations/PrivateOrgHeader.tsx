@@ -1,6 +1,6 @@
 import Link from 'next/link'
 
-import { ProjectAvatar } from '@/components/projects/ProjectAvatar'
+import { ProjectAvatar } from '@/components/workspaces/WorkspaceAvatar'
 import { Button } from '@/components/ui/button'
 
 /** What people outside a private org see (report §18.2): picture, name, "Private organization", Join with code. */

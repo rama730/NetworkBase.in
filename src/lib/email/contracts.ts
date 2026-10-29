@@ -396,12 +396,12 @@ export function buildEmail(input: BuildEmailInput): EmailPayload {
 
   const url = welcome
     ? new URL("/discover", origin).toString()
-    : new URL(`/projects/${encodeURIComponent(input.projectSlug!)}?tab=tasks&drawerType=task&drawerId=${encodeURIComponent(input.taskId!)}`, origin).toString();
+    : new URL(`/workspaces/${encodeURIComponent(input.projectSlug!)}?tab=tasks&drawerType=task&drawerId=${encodeURIComponent(input.taskId!)}`, origin).toString();
   const projectUrl = !welcome && input.projectSlug
-    ? new URL(`/projects/${encodeURIComponent(input.projectSlug)}`, origin).toString()
+    ? new URL(`/workspaces/${encodeURIComponent(input.projectSlug)}`, origin).toString()
     : url;
   const filesUrl = !welcome && input.projectSlug
-    ? new URL(`/projects/${encodeURIComponent(input.projectSlug)}?tab=files`, origin).toString()
+    ? new URL(`/workspaces/${encodeURIComponent(input.projectSlug)}?tab=files`, origin).toString()
     : null;
   const settingsUrl = new URL("/settings#settings-notifications", origin).toString();
   const supportUrl = "mailto:support@networkbase.in";

@@ -7,16 +7,16 @@ import {
   classifyReadmeImage,
   parseReadmeHtmlDimension,
   parseReadmeHtmlWidthPercent,
-} from "@/lib/projects/doc-media";
+} from "@/lib/workspaces/doc-media";
 
 describe("MarkdownPreview and Media Rendering Engine (Ponytail shrink: reuse)", () => {
   const previewFilePath = path.join(
     process.cwd(),
-    "src/components/projects/v2/preview/MarkdownPreview.tsx"
+    "src/components/workspaces/v2/preview/MarkdownPreview.tsx"
   );
   const rendererFilePath = path.join(
     process.cwd(),
-    "src/components/projects/doc/ProjectDocRenderer.tsx"
+    "src/components/workspaces/doc/WorkspaceDocRenderer.tsx"
   );
   const previewSource = fs.readFileSync(previewFilePath, "utf8");
   const rendererSource = fs.readFileSync(rendererFilePath, "utf8");
@@ -24,7 +24,7 @@ describe("MarkdownPreview and Media Rendering Engine (Ponytail shrink: reuse)", 
   it("re手を reuses ProjectDocRenderer directly from doc tab (Ponytail shrink: principle)", () => {
     assert.match(
       previewSource,
-      /import\("@\/components\/projects\/doc\/ProjectDocRenderer"\)/,
+      /import\("@\/components\/workspaces\/doc\/WorkspaceDocRenderer"\)/,
       "MarkdownPreview must reuse ProjectDocRenderer as-is instead of maintaining a parallel engine"
     );
     assert.match(

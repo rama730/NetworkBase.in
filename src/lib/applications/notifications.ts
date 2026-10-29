@@ -4,7 +4,7 @@ import { db } from '@/lib/db';
 import { applicationEvents } from '@/lib/db/schema';
 import { announceApplicationChange } from '@/lib/messaging/integrations';
 import { conversationHref } from '@/lib/messaging/routes';
-import { enqueueProjectNotificationEvent } from '@/lib/notifications/project-events';
+import { enqueueProjectNotificationEvent } from '@/lib/notifications/workspace-events';
 import { createNotification } from '@/lib/notifications/service';
 
 // The notifications an application sends (to its reviewers, its applicant, and back). They are best effort:
@@ -271,7 +271,7 @@ export async function notifyExpiredInvitations(
                 importance: 'more',
                 title: `Your invitation to ${context.projectTitle || 'the workspace'} expired`,
                 body: context.roleTitle ? `The ${context.roleTitle} role was filled.` : 'The role was filled.',
-                href: `/projects/${context.projectSlug || context.projectId}`,
+                href: `/workspaces/${context.projectSlug || context.projectId}`,
                 entityRefs: { projectId: context.projectId, projectSlug: context.projectSlug ?? null, targetUserId: candidateId },
                 preview: { contextLabel: context.projectTitle ?? 'Workspace', contextKind: 'workflow', secondaryText: 'Invitation expired' },
                 dedupeKey: `project-invitation-expired:${context.projectId}:${candidateId}:${context.eventId ?? Date.now()}`,

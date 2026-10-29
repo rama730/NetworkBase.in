@@ -4,7 +4,7 @@ import {taskPushes,tasks,projectNodes,taskNodeLinks,fileVersions} from '@/lib/db
 import {eq,and,inArray,isNull,sql} from 'drizzle-orm';
 import {routeErrorResponse} from '@/app/api/v1/_error';
 import {assertProjectWriteAccessTx,recordNodeEventsBatch} from '@/lib/files/internal-helpers';
-import {replaceTaskFileRoleTag} from '@/lib/projects/task-file-intelligence';
+import {replaceTaskFileRoleTag} from '@/lib/workspaces/task-file-intelligence';
 import {validateCsrf} from '@/lib/security/csrf';
 import {consumeRateLimit} from '@/lib/security/rate-limit';
 import {z} from 'zod';

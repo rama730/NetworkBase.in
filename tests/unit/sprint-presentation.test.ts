@@ -3,7 +3,7 @@ import { describe, it } from "node:test";
 
 import {
   sprintTimelinePersonName,
-} from "@/lib/projects/sprint-presentation";
+} from "@/lib/workspaces/sprint-presentation";
 
 describe("sprint presentation", () => {
   it("uses neutral attribution fallbacks", () => {

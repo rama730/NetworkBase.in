@@ -49,16 +49,16 @@ export async function contributionReferenceOptions(
       WHERE ${kind}='person' AND p.deleted_at IS NULL AND p.visibility='public'
         AND (p.id=j.owner_id OR EXISTS(SELECT 1 FROM project_members m WHERE m.project_id=j.id AND m.user_id=p.id))
       UNION ALL
-      SELECT n.id::text,n.name,'/projects/'||COALESCE(j.slug,j.id::text)||'?tab=files&fileId='||n.id::text,n.mime_type,NULL::text
+      SELECT n.id::text,n.name,'/workspaces/'||COALESCE(j.slug,j.id::text)||'?tab=files&fileId='||n.id::text,n.mime_type,NULL::text
       FROM project_nodes n,project j WHERE ${kind}='file' AND n.project_id=j.id AND n.type='file'
         AND n.deleted_at IS NULL AND n.task_id IS NULL AND n.path NOT LIKE '/.system/%'
         AND j.visibility IN ('public','unlisted') AND j.status<>'draft' AND COALESCE((j.public_tab_visibility->>'files')::boolean,false)
       UNION ALL
-      SELECT t.id::text,t.title,'/projects/'||COALESCE(j.slug,j.id::text)||'?tab=tasks&drawerType=task&drawerId='||t.id::text,NULL::text,NULL::text
+      SELECT t.id::text,t.title,'/workspaces/'||COALESCE(j.slug,j.id::text)||'?tab=tasks&drawerType=task&drawerId='||t.id::text,NULL::text,NULL::text
       FROM tasks t,project j WHERE ${kind}='task' AND t.project_id=j.id AND t.deleted_at IS NULL
         AND j.visibility IN ('public','unlisted') AND j.status<>'draft' AND COALESCE((j.public_tab_visibility->>'tasks')::boolean,false)
       UNION ALL
-      SELECT s.id::text,s.name,'/projects/'||COALESCE(j.slug,j.id::text)||'?tab=sprints&sprintId='||s.id::text,NULL::text,NULL::text
+      SELECT s.id::text,s.name,'/workspaces/'||COALESCE(j.slug,j.id::text)||'?tab=sprints&sprintId='||s.id::text,NULL::text,NULL::text
       FROM project_sprints s,project j WHERE ${kind}='sprint' AND s.project_id=j.id
         AND j.visibility IN ('public','unlisted') AND j.status<>'draft' AND COALESCE((j.public_tab_visibility->>'sprints')::boolean,false)
     ) SELECT * FROM candidates WHERE (${wanted}) AND (label ILIKE ${like} OR search_text ILIKE ${like}) ORDER BY label,id LIMIT ${ids ? 200 : 30}

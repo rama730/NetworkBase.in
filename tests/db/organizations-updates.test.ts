@@ -15,7 +15,7 @@ moduleStubs.set("@/lib/supabase/server", {
 moduleStubs.set("next/cache", { revalidatePath: () => undefined, revalidateTag: () => undefined, unstable_cache: (fn: unknown) => fn, updateTag: () => undefined });
 moduleStubs.set("next/headers", { headers: async () => new Headers({ "x-forwarded-for": "203.0.113.14" }) });
 
-let updates: typeof import("../../src/app/actions/project/updates");
+let updates: typeof import("../../src/app/actions/workspace/updates");
 let orgUpdates: typeof import("../../src/app/actions/org-updates");
 before(async () => {
   const viewerContext = await loadAppModule(() => import("../../src/lib/server/viewer-context"));
@@ -24,7 +24,7 @@ before(async () => {
     getViewerAuthContext: async () => ({ supabase: null, snapshot: null, user: viewerId ? { id: viewerId } : null, userId: viewerId || null, emailVerified: true }),
     getViewerProfileContext: async () => ({ supabase: null, snapshot: null, user: viewerId ? { id: viewerId } : null, userId: viewerId || null, emailVerified: true, profile: null }),
   });
-  updates = await loadAppModule(() => import("../../src/app/actions/project/updates"));
+  updates = await loadAppModule(() => import("../../src/app/actions/workspace/updates"));
   orgUpdates = await loadAppModule(() => import("../../src/app/actions/org-updates"));
 });
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { buildProjectFileKey } from '@/lib/storage/project-file-key';
+import { buildProjectFileKey } from '@/lib/storage/workspace-file-key';
 import { uploadToSupabaseSignedUrl } from '@/lib/upload/supabase-signed-upload-client';
 
 export interface UploadProgress {

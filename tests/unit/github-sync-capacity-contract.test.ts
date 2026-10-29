@@ -40,7 +40,7 @@ test("large reviewed selections are prepared in bounded failure-safe batches", (
 test("the action and UI use the shared selection limit with readable errors", () => {
   const action = readFileSync("src/app/actions/github-sync.ts", "utf8");
   const workspace = readFileSync(
-    "src/components/projects/v2/files-tab/RepositorySync.tsx",
+    "src/components/workspaces/v2/files-tab/RepositorySync.tsx",
     "utf8",
   );
 
@@ -98,7 +98,7 @@ test("getGitHubSyncState executes runs, identity, files count, and members queri
 
 test("explorer boot restores unloaded folders with append mode without forced refresh cascades", () => {
   const boot = readFileSync(
-    "src/components/projects/v2/explorer/useExplorerBoot.ts",
+    "src/components/workspaces/v2/explorer/useExplorerBoot.ts",
     "utf8",
   );
 

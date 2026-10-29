@@ -13,19 +13,19 @@ describe("toPrivacySafeRouteMetric", () => {
   it("redacts usernames, slugs, and identifiers", () => {
     assert.equal(toPrivacySafeRouteMetric("/u/alice-private"), "/u/:dynamic");
     assert.equal(
-      toPrivacySafeRouteMetric("/projects/private-project/settings"),
-      "/projects/:dynamic/settings",
+      toPrivacySafeRouteMetric("/workspaces/private-project/settings"),
+      "/workspaces/:dynamic/settings",
     );
     assert.equal(
-      toPrivacySafeRouteMetric("/projects/0190da2b-6fa1-733a-9abc-112233445566/files"),
-      "/projects/:id/files",
+      toPrivacySafeRouteMetric("/workspaces/0190da2b-6fa1-733a-9abc-112233445566/files"),
+      "/workspaces/:id/files",
     );
   });
 
   it("drops query strings and bounds label depth", () => {
     assert.equal(
-      toPrivacySafeRouteMetric("/api/v1/projects/123/files/456/preview?token=secret"),
-      "/api/v1/projects/:id/files/:id",
+      toPrivacySafeRouteMetric("/api/v1/workspaces/123/files/456/preview?token=secret"),
+      "/api/v1/workspaces/:id/files/:id",
     );
   });
 });

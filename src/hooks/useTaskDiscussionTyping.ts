@@ -3,7 +3,7 @@
 import { useCallback, useMemo } from 'react';
 
 import { toPresenceTypingUser, type PresenceMemberState } from '@/lib/realtime/presence-types';
-import type { TaskDiscussionTypingUser } from '@/lib/projects/task-discussion';
+import type { TaskDiscussionTypingUser } from '@/lib/workspaces/task-discussion';
 
 import { usePresenceTyping } from './usePresenceTyping';
 

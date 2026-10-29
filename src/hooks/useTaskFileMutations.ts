@@ -10,11 +10,11 @@ import {
   getUploadCollisionSummary,
 } from "@/app/actions/files/mutations";
 import { getUploadPresignedUrl } from "@/app/actions/upload";
-import { buildProjectFileKey } from "@/lib/storage/project-file-key";
+import { buildProjectFileKey } from "@/lib/storage/workspace-file-key";
 import type { DroppedFolder } from "@/lib/files/folder-drop";
 import { newClientId } from "@/lib/utils/client-id";
 import { saveFileAsNewVersion as saveFileAsNewVersionOrig } from "@/hooks/useFileVersions";
-import type { TaskFileRole } from "@/lib/projects/task-file-intelligence";
+import type { TaskFileRole } from "@/lib/workspaces/task-file-intelligence";
 import { confirmUploadCollisions } from "@/lib/files/upload-collisions";
 import { uploadToSupabaseSignedUrl } from "@/lib/upload/supabase-signed-upload-client";
 

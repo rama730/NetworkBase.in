@@ -40,7 +40,7 @@ import path from "node:path";
 import type { ProjectNode } from "@/lib/db/schema";
 import {
   buildNodePathMap,
-} from "@/components/projects/v2/files-tab/quick-open/QuickOpenDialog";
+} from "@/components/workspaces/v2/files-tab/quick-open/QuickOpenDialog";
 
 // ─── Fixture builders ────────────────────────────────────────────────
 
@@ -152,7 +152,7 @@ describe("buildNodePathMap — path joining", () => {
 const DIALOG_SOURCE = readFileSync(
   path.resolve(
     __dirname,
-    "../../../src/components/projects/v2/files-tab/quick-open/QuickOpenDialog.tsx",
+    "../../../src/components/workspaces/v2/files-tab/quick-open/QuickOpenDialog.tsx",
   ),
   "utf8",
 );
@@ -160,7 +160,7 @@ const DIALOG_SOURCE = readFileSync(
 const ROOT_SOURCE = readFileSync(
   path.resolve(
     __dirname,
-    "../../../src/components/projects/v2/files-tab/FilesTabRoot.tsx",
+    "../../../src/components/workspaces/v2/files-tab/FilesTabRoot.tsx",
   ),
   "utf8",
 );

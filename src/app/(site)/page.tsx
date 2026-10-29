@@ -26,7 +26,7 @@ const anchors = [
 const steps = [
   { label: "01 / Discover", title: "Find work you want to be part of.", body: "Browse workspaces by skills and interests. See the idea, the team and the roles they still need.", href: buildAuthPageHref("/signup", "/discover"), action: "Explore workspaces" },
   { label: "02 / Connect", title: "Meet people through what they do.", body: "Profiles are built around skills and contributions. Find people and start a conversation.", href: buildAuthPageHref("/signup", "/network"), action: "Meet people" },
-  { label: "03 / Build", title: "Give your workspace a place to grow.", body: "Tasks, sprints, documents, files and messages live together, with clear roles for everyone.", href: buildAuthPageHref("/signup", "/projects/new"), action: "Create a workspace" },
+  { label: "03 / Build", title: "Give your workspace a place to grow.", body: "Tasks, sprints, documents, files and messages live together, with clear roles for everyone.", href: buildAuthPageHref("/signup", "/workspaces/new"), action: "Create a workspace" },
 ];
 
 // Example content only: labelled as such on the page, never presented as real people or counts.

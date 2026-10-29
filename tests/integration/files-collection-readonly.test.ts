@@ -5,7 +5,7 @@ import { sql } from "drizzle-orm";
 import { PgDialect } from "drizzle-orm/pg-core";
 import { captureNodePageQuery } from "../helpers/files-node-page-query";
 import { taskFileAssociationsSql, taskFileRoleSql, taskFileEntriesSql } from "../../src/lib/files/task-file-collection-query";
-import { inferTaskFileRole, type TaskLinkedNode } from "../../src/lib/projects/task-file-intelligence";
+import { inferTaskFileRole, type TaskLinkedNode } from "../../src/lib/workspaces/task-file-intelligence";
 
 test("production pagination predicates keep project, Trash and task visibility filters on every sort/page", { skip: process.env.FILES_COLLECTION_READONLY_AUDIT !== "1" }, async () => {
   const connection = postgres(process.env.DATABASE_URL!, { max: 1, prepare: false, connect_timeout: 10 });

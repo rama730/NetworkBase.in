@@ -18,8 +18,8 @@ describe("page performance contract", () => {
   });
 
   it("resolves dynamic route contracts from concrete URLs", () => {
-    const projectRoute = resolveRouteContract("/projects/network-for-builders");
-    assert.equal(projectRoute?.routeId, "/projects/[slug]");
+    const projectRoute = resolveRouteContract("/workspaces/network-for-builders");
+    assert.equal(projectRoute?.routeId, "/workspaces/[slug]");
 
     const userRoute = resolveRouteContract("/u/ch_rama1");
     assert.equal(userRoute?.routeId, "/u/[username]");

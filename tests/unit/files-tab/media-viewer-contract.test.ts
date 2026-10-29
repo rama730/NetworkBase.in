@@ -6,11 +6,11 @@ import path from "node:path";
 test("Media Viewer & Video Player Contract Conformance", async (t) => {
   const mediaDriverPath = path.join(
     process.cwd(),
-    "src/components/projects/v2/preview/drivers/MediaViewerDriver.tsx"
+    "src/components/workspaces/v2/preview/drivers/MediaViewerDriver.tsx"
   );
   const previewRoutePath = path.join(
     process.cwd(),
-    "src/app/api/v1/projects/[id]/files/[nodeId]/preview/route.ts"
+    "src/app/api/v1/workspaces/[id]/files/[nodeId]/preview/route.ts"
   );
 
   const mediaDriver = fs.readFileSync(mediaDriverPath, "utf-8");

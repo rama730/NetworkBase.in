@@ -7,7 +7,7 @@ import { orgHandleHolds, profiles, projectMembers, projects, roleApplications } 
 import { orgRoleNames, orgTypeLabel, type OrgType } from "@/lib/organizations/config";
 import { childCreationBlock, type VisibilityCap } from "@/lib/organizations/child-rules";
 import { readOrgRules, readOrgWork, type OrgWork } from "@/lib/organizations/settings";
-import { isProjectPubliclyReadableVisibility } from "@/lib/projects/project-visibility";
+import { isProjectPubliclyReadableVisibility } from "@/lib/workspaces/workspace-visibility";
 
 type OrgSettingsRecord = {
   joinMode?: string;

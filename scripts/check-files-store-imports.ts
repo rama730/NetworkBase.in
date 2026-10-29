@@ -3,8 +3,8 @@ import path from "node:path";
 
 const ROOT = process.cwd();
 const TARGET_DIRS = [
-  "src/components/projects/v2/workspace",
-  "src/components/projects/v2/explorer",
+  "src/components/workspaces/v2/workspace",
+  "src/components/workspaces/v2/explorer",
 ];
 
 const ALLOWED_EXACT = new Set([

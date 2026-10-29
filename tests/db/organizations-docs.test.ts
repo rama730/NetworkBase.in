@@ -16,7 +16,7 @@ moduleStubs.set("next/cache", { revalidatePath: () => undefined, revalidateTag: 
 moduleStubs.set("next/headers", { headers: async () => new Headers({ "x-forwarded-for": "203.0.113.15" }) });
 
 let docs: typeof import("../../src/app/actions/org-docs");
-let projectDoc: typeof import("../../src/app/actions/project/doc");
+let projectDoc: typeof import("../../src/app/actions/workspace/doc");
 before(async () => {
   const viewerContext = await loadAppModule(() => import("../../src/lib/server/viewer-context"));
   moduleStubs.set("@/lib/server/viewer-context", {
@@ -25,7 +25,7 @@ before(async () => {
     getViewerProfileContext: async () => ({ supabase: null, snapshot: null, user: viewerId ? { id: viewerId } : null, userId: viewerId || null, emailVerified: true, profile: null }),
   });
   docs = await loadAppModule(() => import("../../src/app/actions/org-docs"));
-  projectDoc = await loadAppModule(() => import("../../src/app/actions/project/doc"));
+  projectDoc = await loadAppModule(() => import("../../src/app/actions/workspace/doc"));
 });
 
 const created: string[] = [];

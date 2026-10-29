@@ -6,7 +6,7 @@ import {
   TASK_WORKFLOW_STATUSES,
   getTaskPriorityPresentation,
   getTaskStatusPresentation,
-} from "@/lib/projects/task-workflow";
+} from "@/lib/workspaces/task-workflow";
 
 describe("task workflow config", () => {
 

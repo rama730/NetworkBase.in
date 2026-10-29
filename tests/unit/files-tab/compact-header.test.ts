@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { test } from "node:test";
 
 const read = (file: string) =>
-  readFileSync(`src/components/projects/v2/files-tab/${file}`, "utf8");
+  readFileSync(`src/components/workspaces/v2/files-tab/${file}`, "utf8");
 
 test("one fixed-height workspace header owns sidebar reopen and action/status slots", () => {
   const header = read("FilesHeader.tsx");

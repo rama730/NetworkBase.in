@@ -10,13 +10,13 @@
 //
 // The members endpoint is stubbed at the network layer so the test does not
 // depend on real project membership. The task-panel URL is supplied via
-// `E2E_TASK_PANEL_URL` (e.g. `/projects/<slug>/tasks/<taskId>?tab=comments`)
+// `E2E_TASK_PANEL_URL` (e.g. `/workspaces/<slug>/tasks/<taskId>?tab=comments`)
 // and the test auto-skips when it is not set, matching the rest of the suite.
 //
 // To enable locally:
 //   export E2E_USER_EMAIL=...
 //   export E2E_USER_PASSWORD=...
-//   export E2E_TASK_PANEL_URL=/projects/<slug>?taskId=<taskId>&tab=comments
+//   export E2E_TASK_PANEL_URL=/workspaces/<slug>?taskId=<taskId>&tab=comments
 //   pnpm test:e2e -- task-panel-mentions-smoke
 // ============================================================================
 
@@ -52,7 +52,7 @@ test.describe("Task panel @mention smoke", () => {
 
     // Stub the members API so the autocomplete returns a deterministic
     // single-row roster. Using `**/members*` so any project id matches.
-    await page.route("**/api/v1/projects/*/members*", async (route) => {
+    await page.route("**/api/v1/workspaces/*/members*", async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",

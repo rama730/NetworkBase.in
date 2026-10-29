@@ -6,7 +6,7 @@ import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { TextViewer, type TextViewerMode } from "@/components/projects/v2/files-tab/file/TextViewer";
+import { TextViewer, type TextViewerMode } from "@/components/workspaces/v2/files-tab/file/TextViewer";
 import type { ProjectNode } from "@/lib/db/schema";
 
 const node = {

@@ -30,7 +30,7 @@ import path from "node:path";
 const SRC = readFileSync(
   path.resolve(
     __dirname,
-    "../../../src/components/projects/v2/files-tab/FilesTabMain.tsx",
+    "../../../src/components/workspaces/v2/files-tab/FilesTabMain.tsx",
   ),
   "utf8",
 );

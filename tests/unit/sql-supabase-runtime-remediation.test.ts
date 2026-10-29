@@ -18,7 +18,7 @@ test("Supabase Auth and database clients keep one native owner", () => {
 test("application wrappers do not compete with native Realtime reconnect", () => {
   const provider = source("src/components/providers/RealtimeProvider.tsx");
   const taskResource = source("src/lib/realtime/task-resource.ts");
-  const projectFiles = source("src/lib/realtime/project-files-channel.ts");
+  const projectFiles = source("src/lib/realtime/workspace-files-channel.ts");
 
   for (const implementation of [provider, taskResource, projectFiles]) {
     assert.doesNotMatch(implementation, /scheduleReconnect|reconnectTimer|reconnectAttempt|MAX_BACKOFF_MS|BACKOFF_START_MS/);
@@ -45,7 +45,7 @@ test("Realtime health distinguishes authentication startup from terminal channel
 });
 
 test("hydration is Realtime-first with a bounded fallback", () => {
-  const hydration = source("src/components/projects/HydrationProgressBanner.tsx");
+  const hydration = source("src/components/workspaces/HydrationProgressBanner.tsx");
 
   assert.match(hydration, /REALTIME_MISSED_PROGRESS_MS = 30_000/);
   assert.match(hydration, /FALLBACK_POLL_MS = 15_000/);

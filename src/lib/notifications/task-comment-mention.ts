@@ -1,4 +1,4 @@
-import { enqueueProjectNotificationEvent } from "@/lib/notifications/project-events";
+import { enqueueProjectNotificationEvent } from "@/lib/notifications/workspace-events";
 import { logger } from "@/lib/logger";
 
 export interface EnqueueTaskCommentMentionParams {
@@ -50,7 +50,7 @@ export async function enqueueTaskCommentMentionNotifications(
             directRecipientIds: recipientUserIds,
             title: `${params.authorDisplayName || "Someone"} mentioned you in a task comment`,
             body: trimmedPreview,
-            href: `/projects/${encodeURIComponent(params.projectSlug || params.projectId)}?tab=tasks&drawerType=task&drawerId=${encodeURIComponent(params.taskId)}&panelTab=comments&commentId=${encodeURIComponent(params.commentId)}`,
+            href: `/workspaces/${encodeURIComponent(params.projectSlug || params.projectId)}?tab=tasks&drawerType=task&drawerId=${encodeURIComponent(params.taskId)}&panelTab=comments&commentId=${encodeURIComponent(params.commentId)}`,
             entityRefs: {
                 projectId: params.projectId,
                 projectSlug: params.projectSlug ?? null,

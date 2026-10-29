@@ -3,10 +3,10 @@ import { after, before, test } from "node:test";
 
 import { closeAppDb, createProject, createUser, loadAppModule, sql } from "./_helpers";
 
-let invitations: typeof import("../../src/lib/projects/project-invitations");
+let invitations: typeof import("../../src/lib/workspaces/workspace-invitations");
 let appDb: typeof import("../../src/lib/db").db;
 before(async () => {
-  invitations = await loadAppModule(() => import("../../src/lib/projects/project-invitations"));
+  invitations = await loadAppModule(() => import("../../src/lib/workspaces/workspace-invitations"));
   appDb = (await loadAppModule(() => import("../../src/lib/db"))).db;
 });
 after(async () => { await sql.end(); await closeAppDb(); });

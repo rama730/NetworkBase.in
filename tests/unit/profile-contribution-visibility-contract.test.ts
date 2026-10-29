@@ -12,7 +12,7 @@ import {
 } from "@/lib/profile/contribution-editor";
 import { profileContributionBatchSchema } from "@/lib/profile/contribution-contract";
 import type { ProfileCollaborationContribution } from "@/lib/profile/collaboration";
-import { formatProjectTeamRole } from "@/lib/projects/settings-policies";
+import { formatProjectTeamRole } from "@/lib/workspaces/settings-policies";
 import { profileUpdateSchema } from "@/lib/validations/profile";
 
 const read = (path: string) => readFileSync(path, "utf8");
@@ -29,7 +29,7 @@ function contribution(
     version: 3,
     title: "Lead / Frontend developer",
     projectTitle: "Ponytail",
-    projectHref: "/projects/ponytail",
+    projectHref: "/workspaces/ponytail",
     projectUrl: "https://example.test/projects/ponytail",
     repoUrl: "https://github.com/example/ponytail",
     description: "Built the editor",
@@ -203,8 +203,8 @@ test("external drafts are validated before a separate contribution write and sur
   assert.equal(validateContributionEditorEntry({
     ...draft,
     projectTitle: "External project",
-    projectUrl: "https://example.test/project",
-    repositoryUrl: "https://github.com/example/project",
+    projectUrl: "https://example.test/workspace",
+    repositoryUrl: "https://github.com/example/workspace",
   }), null);
 });
 
@@ -260,7 +260,7 @@ test("the contribution editor loads real pages and preserves the loaded baseline
 test("parent visibility is the UI and read authority while owners retain a private preview", () => {
   const collaboration = read("src/lib/profile/collaboration.ts");
   const editor = read("src/components/profile/edit/EditProfileTabs.tsx");
-  const card = read("src/components/profile/v2/sections/ProjectContributionsCard.tsx");
+  const card = read("src/components/profile/v2/sections/WorkspaceContributionsCard.tsx");
   const retiredStageRoute = read("src/app/api/v1/profiles/[id]/collaboration-stages/[stageId]/route.ts");
   assert.doesNotMatch(collaboration, /updateProfileProjectContributionStage/);
   assert.doesNotMatch(collaboration, /stage\.visibility/);
@@ -282,7 +282,7 @@ test("profile contributions preserve recorded team terminology while stories use
   assert.equal(formatProjectTeamRole({ membershipRole: "owner", projectRoleTitle: "Lead", leadFocus: "Tester" }), "Owner / Tester");
   assert.equal(formatProjectTeamRole({ membershipRole: "member", projectRoleTitle: "QA Engineer" }), "QA Engineer · Member");
 
-  const card = read("src/components/profile/v2/sections/ProjectContributionsCard.tsx");
+  const card = read("src/components/profile/v2/sections/WorkspaceContributionsCard.tsx");
   assert.doesNotMatch(card, /statusLabel: contribution\.currentlyActive \? 'Current'/);
   assert.doesNotMatch(card, /Present/);
   assert.doesNotMatch(card, /formatRange/);

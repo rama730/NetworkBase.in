@@ -11,9 +11,9 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { ProjectUpdateContent } from "@/components/projects/updates/UpdateContent";
-import { ProjectUpdateMediaViewer } from "@/components/projects/updates/ProjectUpdateMediaFrame";
-import { UpdateTime, isUpdateCardControl } from "@/components/projects/updates/update-helpers";
+import { ProjectUpdateContent } from "@/components/workspaces/updates/UpdateContent";
+import { ProjectUpdateMediaViewer } from "@/components/workspaces/updates/WorkspaceUpdateMediaFrame";
+import { UpdateTime, isUpdateCardControl } from "@/components/workspaces/updates/update-helpers";
 import { useToggleUpdateLike } from "@/hooks/useToggleUpdateLike";
 import { cn } from "@/lib/utils";
 import type { DiscoverUpdateMedia, DiscoverUpdateView } from "@/types/discover";
@@ -101,7 +101,7 @@ function UpdateMedia({ media, author }: { media: DiscoverUpdateMedia[]; author: 
 /** The project's name (and its picture, when it has one: no placeholder otherwise, like the project cards). */
 function ProjectLink({ update, onVisit }: { update: DiscoverUpdateView; onVisit: () => void }) {
     const [coverFailed, setCoverFailed] = useState(false);
-    const href = `/projects/${encodeURIComponent(update.projectSlug || update.projectId)}`;
+    const href = `/workspaces/${encodeURIComponent(update.projectSlug || update.projectId)}`;
     return (
         <Link
             href={href}
@@ -123,7 +123,7 @@ export default memo(function DiscoverUpdateCard({ update, viewerId, onOpen, onHi
     const masked = !author || author.masked;
     const authorName = masked ? "Private member" : author.fullName || author.username || "Member";
     const canExpand = update.content.length > CLAMP_AT || update.content.split("\n").length > SHOW_MORE_LINES;
-    const projectHref = `/projects/${encodeURIComponent(update.projectSlug || update.projectId)}`;
+    const projectHref = `/workspaces/${encodeURIComponent(update.projectSlug || update.projectId)}`;
     const directHref = `${projectHref}?tab=updates&updateId=${encodeURIComponent(update.id)}`;
     const titleId = `discover-update-${update.id}-title`;
     const signInHref = `/login?redirect=${encodeURIComponent(`/discover?updateId=${update.id}`)}`;

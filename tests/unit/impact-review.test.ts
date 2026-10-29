@@ -60,7 +60,7 @@ describe("check-impact-review script", () => {
 
     const result = validateImpactReview(tmp, {
       strict: true,
-      changedPaths: ["src/app/api/v1/projects/route.ts"],
+      changedPaths: ["src/app/api/v1/workspaces/route.ts"],
     });
 
     assert.ok(result.errors.length > 0, "Expected violations but none were reported");

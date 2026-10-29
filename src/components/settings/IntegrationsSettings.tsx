@@ -461,8 +461,8 @@ export default function IntegrationsSettings() {
             const repoName = project.syncRepository || project.githubRepoUrl || project.importSource?.repoUrl;
             const connectionType = project.syncRepository ? "GitHub sync" : "Repository";
             return <div key={project.id} className="flex min-h-16 items-center justify-between gap-3 py-3">
-              <div className="min-w-0"><div className="flex flex-wrap items-center gap-x-3 gap-y-1"><Link href={`/projects/${project.slug}`} className="nb-ui-label block truncate text-foreground hover:text-primary">{project.title}</Link><span className="nb-meta text-muted-foreground">{connectionType}</span></div>{repoName ? <p className="nb-meta mt-1 flex items-center gap-1.5 truncate text-muted-foreground"><GitBranch className="size-3.5 shrink-0" strokeWidth={1.75} />{repoName}{project.syncBranch ? ` · ${project.syncBranch}` : ""}</p> : null}</div>
-              <Button variant="ghost" size="sm" asChild><Link href={`/projects/${project.slug}`}>Open<ExternalLink className="size-4" strokeWidth={1.75} /></Link></Button>
+              <div className="min-w-0"><div className="flex flex-wrap items-center gap-x-3 gap-y-1"><Link href={`/workspaces/${project.slug}`} className="nb-ui-label block truncate text-foreground hover:text-primary">{project.title}</Link><span className="nb-meta text-muted-foreground">{connectionType}</span></div>{repoName ? <p className="nb-meta mt-1 flex items-center gap-1.5 truncate text-muted-foreground"><GitBranch className="size-3.5 shrink-0" strokeWidth={1.75} />{repoName}{project.syncBranch ? ` · ${project.syncBranch}` : ""}</p> : null}</div>
+              <Button variant="ghost" size="sm" asChild><Link href={`/workspaces/${project.slug}`}>Open<ExternalLink className="size-4" strokeWidth={1.75} /></Link></Button>
             </div>;
           }) : <p className="nb-compact py-4 text-muted-foreground">No connected workspaces.</p>}
         </div>

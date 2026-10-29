@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
 
-const source = readFileSync("src/components/projects/v2/files-tab/TaskLinkPopover.tsx", "utf8");
+const source = readFileSync("src/components/workspaces/v2/files-tab/TaskLinkPopover.tsx", "utf8");
 test("linked-task popover delegates collision handling and dismissal to installed Radix", () => {
   assert.match(source, /from "@radix-ui\/react-popover"/);
   assert.match(source, /<Popover.Portal>/);

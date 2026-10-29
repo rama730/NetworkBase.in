@@ -21,7 +21,7 @@ test("task panel listens to its task row and exposes connection state", () => {
 });
 
 test("an open task panel is a working link: its drawer params are in the URL", () => {
-  const taskTab = read("src/components/projects/v2/TasksTab.tsx");
+  const taskTab = read("src/components/workspaces/v2/TasksTab.tsx");
   const hook = read("src/hooks/useTaskPanelResource.ts");
   const links = read("src/app/actions/files/links.ts");
   const fileMutations = read("src/hooks/useTaskFileMutations.ts");
@@ -41,9 +41,9 @@ test("an open task panel is a working link: its drawer params are in the URL", (
 test("workspace task handoff opens the task panel without leaking drawer IDs into the URL", () => {
   const workspaceTasks = read("src/components/my-work/MyWorkTasksTab.tsx");
   const dashboard = read(
-    "src/components/projects/dashboard/ProjectDashboardClient.tsx",
+    "src/components/workspaces/dashboard/WorkspaceDashboardClient.tsx",
   );
-  const taskTab = read("src/components/projects/v2/TasksTab.tsx");
+  const taskTab = read("src/components/workspaces/v2/TasksTab.tsx");
 
   assert.match(workspaceTasks, /setMyWorkTaskHandoff/);
   assert.match(workspaceTasks, /router\.push\(/);
@@ -53,7 +53,7 @@ test("workspace task handoff opens the task panel without leaking drawer IDs int
 });
 
 test("task panel close is a single deterministic URL replacement", () => {
-  const taskTab = read("src/components/projects/v2/TasksTab.tsx");
+  const taskTab = read("src/components/workspaces/v2/TasksTab.tsx");
 
   assert.match(taskTab, /const isTaskPanelClosingRef = useRef\(false\)/);
   assert.match(taskTab, /if \(isTaskPanelClosingRef\.current\) return;/);
@@ -64,7 +64,7 @@ test("task panel close is a single deterministic URL replacement", () => {
 });
 
 test("task panels no longer mount an activity surface or query", () => {
-  const panel = read("src/components/projects/v2/tasks/TaskDetailPanel.tsx");
+  const panel = read("src/components/workspaces/v2/tasks/TaskDetailPanel.tsx");
   const hook = read("src/hooks/useTaskPanelResource.ts");
 
   assert.doesNotMatch(panel, /ActivityTab|id: "activity"/);
@@ -72,13 +72,13 @@ test("task panels no longer mount an activity surface or query", () => {
 });
 
 test("nested task links reach comment and file targets", () => {
-  const taskTab = read("src/components/projects/v2/TasksTab.tsx");
-  const panel = read("src/components/projects/v2/tasks/TaskDetailPanel.tsx");
+  const taskTab = read("src/components/workspaces/v2/TasksTab.tsx");
+  const panel = read("src/components/workspaces/v2/tasks/TaskDetailPanel.tsx");
   const comments = read(
-    "src/components/projects/v2/tasks/TaskDetailTabs/CommentsTab.tsx",
+    "src/components/workspaces/v2/tasks/TaskDetailTabs/CommentsTab.tsx",
   );
   const files = read(
-    "src/components/projects/v2/tasks/TaskDetailTabs/FilesTab.tsx",
+    "src/components/workspaces/v2/tasks/TaskDetailTabs/FilesTab.tsx",
   );
   assert.match(taskTab, /preserveNestedTarget/);
   assert.match(panel, /initialCommentId=\{initialCommentId\}/);
@@ -89,17 +89,17 @@ test("nested task links reach comment and file targets", () => {
 
 test("task comments use the shared ThreadRail primitive aligned with Updates tab while preserving task capabilities", () => {
   const comments = read(
-    "src/components/projects/v2/tasks/TaskDetailTabs/CommentsTab.tsx",
+    "src/components/workspaces/v2/tasks/TaskDetailTabs/CommentsTab.tsx",
   );
-  const updates = componentSource("src/components/projects/tabs/UpdatesTab.tsx");
+  const updates = componentSource("src/components/workspaces/tabs/UpdatesTab.tsx");
   const threadRail = read(
     "src/components/ui/ThreadRail.tsx",
   );
   const composer = read(
-    "src/components/projects/v2/tasks/components/MentionComposer.tsx",
+    "src/components/workspaces/v2/tasks/components/MentionComposer.tsx",
   );
   const presence = read("src/hooks/usePresenceTyping.ts");
-  const panel = read("src/components/projects/v2/tasks/TaskDetailPanel.tsx");
+  const panel = read("src/components/workspaces/v2/tasks/TaskDetailPanel.tsx");
 
   assert.match(comments, /from ["']@\/components\/ui\/ThreadRail["']/);
   assert.match(comments, /ThreadAvatarRail/);
@@ -130,7 +130,7 @@ test("task comments use the shared ThreadRail primitive aligned with Updates tab
 
   // Mention autocomplete and discussion sorting contract:
   const autocomplete = read(
-    "src/components/projects/v2/tasks/components/MentionAutocomplete.tsx",
+    "src/components/workspaces/v2/tasks/components/MentionAutocomplete.tsx",
   );
   assert.doesNotMatch(autocomplete, /createPortal/);
   assert.match(composer, /maxLeft/);
@@ -141,7 +141,7 @@ test("task comments use the shared ThreadRail primitive aligned with Updates tab
 
 test("subtasks tab adheres to precision drafting redesign with counts and filters without progress bars", () => {
   const subtasks = read(
-    "src/components/projects/v2/tasks/TaskDetailTabs/SubtasksTab.tsx",
+    "src/components/workspaces/v2/tasks/TaskDetailTabs/SubtasksTab.tsx",
   );
 
   assert.match(subtasks, /filter === "all"/);
@@ -156,7 +156,7 @@ test("subtasks tab adheres to precision drafting redesign with counts and filter
 
 test("details tab supports Estimate with Fibonacci presets and clean un-carded drafting layout without progress bars, subtask card, or files section", () => {
   const details = read(
-    "src/components/projects/v2/tasks/TaskDetailTabs/DetailsTab.tsx",
+    "src/components/workspaces/v2/tasks/TaskDetailTabs/DetailsTab.tsx",
   );
 
   assert.match(details, /Estimate/);
@@ -189,7 +189,7 @@ test("details tab supports Estimate with Fibonacci presets and clean un-carded d
 
   // Click-to-copy Task Identifier in TaskDetailPanel
   const panel = read(
-    "src/components/projects/v2/tasks/TaskDetailPanel.tsx",
+    "src/components/workspaces/v2/tasks/TaskDetailPanel.tsx",
   );
   assert.match(panel, /copiedTaskId/);
   assert.match(panel, /navigator\.clipboard\.writeText/);
@@ -198,7 +198,7 @@ test("details tab supports Estimate with Fibonacci presets and clean un-carded d
 
 test("task file row implements two-row layout with flex-wrap overflow flowing", () => {
   const row = read(
-    "src/components/projects/v2/tasks/components/TaskFileRow.tsx",
+    "src/components/workspaces/v2/tasks/components/TaskFileRow.tsx",
   );
 
   assert.match(row, /flex min-w-0 flex-1 flex-col justify-center gap-1/);
@@ -210,13 +210,13 @@ test("task file row implements two-row layout with flex-wrap overflow flowing", 
 
 test("task-file navigation preserves fileId until the file viewer hydrates", () => {
   const files = read(
-    "src/components/projects/v2/tasks/TaskDetailTabs/FilesTab.tsx",
+    "src/components/workspaces/v2/tasks/TaskDetailTabs/FilesTab.tsx",
   );
   const filesRoot = read(
-    "src/components/projects/v2/files-tab/FilesTabRoot.tsx",
+    "src/components/workspaces/v2/files-tab/FilesTabRoot.tsx",
   );
   const urlSync = read(
-    "src/components/projects/v2/files-tab/hooks/useFilesTabUrlSync.ts",
+    "src/components/workspaces/v2/files-tab/hooks/useFilesTabUrlSync.ts",
   );
 
   assert.match(
@@ -231,10 +231,10 @@ test("task-file navigation preserves fileId until the file viewer hydrates", () 
 
 test("task uploads preserve the selected intent and destination", () => {
   const files = read(
-    "src/components/projects/v2/tasks/TaskDetailTabs/FilesTab.tsx",
+    "src/components/workspaces/v2/tasks/TaskDetailTabs/FilesTab.tsx",
   );
   const modal = read(
-    "src/components/projects/v2/tasks/components/TaskFileUploadModal.tsx",
+    "src/components/workspaces/v2/tasks/components/TaskFileUploadModal.tsx",
   );
 
   assert.match(
@@ -251,7 +251,7 @@ test("task uploads preserve the selected intent and destination", () => {
 });
 
 test("task deletion confirmation is layered above the detail panel", () => {
-  const panel = read("src/components/projects/v2/tasks/TaskDetailPanel.tsx");
+  const panel = read("src/components/workspaces/v2/tasks/TaskDetailPanel.tsx");
   const confirmDialog = read("src/components/ui/ConfirmDialog.tsx");
 
   assert.match(panel, /overlayClassName="z-\[300\]/);
@@ -261,12 +261,12 @@ test("task deletion confirmation is layered above the detail panel", () => {
 });
 
 test("task file move dialog is roomy and layered above the detail panel", () => {
-  const panel = read("src/components/projects/v2/tasks/TaskDetailPanel.tsx");
+  const panel = read("src/components/workspaces/v2/tasks/TaskDetailPanel.tsx");
   const row = read(
-    "src/components/projects/v2/tasks/components/TaskFileRow.tsx",
+    "src/components/workspaces/v2/tasks/components/TaskFileRow.tsx",
   );
   const dialogs = read(
-    "src/components/projects/v2/explorer/ExplorerDialogsHost.tsx",
+    "src/components/workspaces/v2/explorer/ExplorerDialogsHost.tsx",
   );
 
   assert.match(panel, /sm:w-\[580px\]/);
@@ -284,7 +284,7 @@ test("task file move dialog is roomy and layered above the detail panel", () => 
 });
 
 test("task detail panel dimensions match the workspace drawer specification exactly", () => {
-  const panel = read("src/components/projects/v2/tasks/TaskDetailPanel.tsx");
+  const panel = read("src/components/workspaces/v2/tasks/TaskDetailPanel.tsx");
   const workspaceDrawer = read("src/components/my-work/MyWorkDrawer.tsx");
 
   assert.match(workspaceDrawer, /sm:w-\[520px\]/);

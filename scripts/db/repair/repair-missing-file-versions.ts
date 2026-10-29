@@ -18,7 +18,7 @@ import {
   storageAssets,
   storageRepairFailures,
 } from "../../../src/lib/db/schema";
-import { parseProjectFileKey } from "../../../src/lib/storage/project-file-key";
+import { parseProjectFileKey } from "../../../src/lib/storage/workspace-file-key";
 import { createAdminClient } from "../../../src/lib/supabase/server";
 
 const APPLY = process.argv.includes("--apply");

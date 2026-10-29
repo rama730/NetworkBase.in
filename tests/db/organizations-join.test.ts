@@ -17,9 +17,9 @@ moduleStubs.set("next/headers", { headers: async () => new Headers({ "x-forwarde
 
 let orgs: typeof import("../../src/app/actions/organizations");
 let join: typeof import("../../src/lib/organizations/join");
-let lifecycle: typeof import("../../src/lib/projects/server/lifecycle");
+let lifecycle: typeof import("../../src/lib/workspaces/server/lifecycle");
 before(async () => {
-  lifecycle = await loadAppModule(() => import("../../src/lib/projects/server/lifecycle"));
+  lifecycle = await loadAppModule(() => import("../../src/lib/workspaces/server/lifecycle"));
   orgs = await loadAppModule(() => import("../../src/app/actions/organizations"));
   join = await loadAppModule(() => import("../../src/lib/organizations/join"));
 });

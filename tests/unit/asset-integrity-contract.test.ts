@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
-import { projectActionsSource } from "./_project-actions-source";
+import { projectActionsSource } from "./_workspace-actions-source";
 
 const read = (path: string) => readFileSync(path, "utf8");
 
@@ -24,7 +24,7 @@ test("COR-004: every file revision carries its verified asset and the asset's di
 
 test("COR-045: detached assets are retired only through the live-reference guard", () => {
   for (const path of [
-    "src/app/actions/project/updates.ts",
+    "src/app/actions/workspace/updates.ts",
     "src/lib/files/apply-file-revision.ts",
     "src/lib/github/sync-service.ts",
     "src/lib/files/permanent-delete.ts",

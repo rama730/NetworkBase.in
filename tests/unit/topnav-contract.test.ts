@@ -4,7 +4,7 @@ import path from "node:path";
 import test from "node:test";
 
 import { settingsTabHref } from "@/constants/routes";
-import { projectActionsSource } from "./_project-actions-source";
+import { projectActionsSource } from "./_workspace-actions-source";
 import {
   buildGlobalSearchClearHref,
   buildGlobalSearchHref,
@@ -28,12 +28,12 @@ function source(relativePath: string) {
 
 test("top-nav routes use tabbed settings and correctly classify project detail routes", () => {
   assert.equal(settingsTabHref("notifications"), "/settings?tab=notifications");
-  assert.equal(isProjectDetailPath("/projects/new"), false);
-  assert.equal(isProjectDetailPath("/projects/deepscope-ai"), true);
-  assert.equal(getProjectIdentifierFromPathname("/projects/deepscope-ai"), "deepscope-ai");
-  assert.equal(getProjectIdentifierFromPathname("/projects/new"), null);
-  assert.equal(resolveGlobalSearchContext("/projects/new").context, "default");
-  assert.equal(resolveGlobalSearchContext("/projects/deepscope-ai").context, "project");
+  assert.equal(isProjectDetailPath("/workspaces/new"), false);
+  assert.equal(isProjectDetailPath("/workspaces/deepscope-ai"), true);
+  assert.equal(getProjectIdentifierFromPathname("/workspaces/deepscope-ai"), "deepscope-ai");
+  assert.equal(getProjectIdentifierFromPathname("/workspaces/new"), null);
+  assert.equal(resolveGlobalSearchContext("/workspaces/new").context, "default");
+  assert.equal(resolveGlobalSearchContext("/workspaces/deepscope-ai").context, "project");
   assert.equal(resolveGlobalSearchContext("/settings").context, "settings");
   assert.equal(resolveGlobalSearchContext("/messages").context, "messages");
 });
@@ -50,20 +50,20 @@ test("global-search preserves unrelated filters and only resets task pagination"
   );
   assert.equal(
     buildGlobalSearchClearHref({
-      pathname: "/projects/deepscope-ai",
+      pathname: "/workspaces/deepscope-ai",
       searchParams: new URLSearchParams("tab=docs&search=design&page=4"),
       context: "project",
     }),
-    "/projects/deepscope-ai?tab=docs&page=4",
+    "/workspaces/deepscope-ai?tab=docs&page=4",
   );
   assert.equal(
     buildGlobalSearchHref({
-      pathname: "/projects/deepscope-ai",
+      pathname: "/workspaces/deepscope-ai",
       searchParams: new URLSearchParams("tab=docs&page=4"),
       context: "project",
       query: "roadmap",
     }),
-    "/projects/deepscope-ai?tab=tasks&page=1&search=roadmap",
+    "/workspaces/deepscope-ai?tab=tasks&page=1&search=roadmap",
   );
   assert.equal(
     buildGlobalSearchHref({
@@ -155,7 +155,7 @@ test("recent global-search storage isolates users and contexts and tolerates mal
     assert.deepEqual(readRecentGlobalSearches("alice", "discover").map((item) => item.label), ["React"]);
     assert.deepEqual(removeRecentGlobalSearch("alice", "network:discover", "missing").map((item) => item.label), ["Lakshmi"]);
 
-    const preview = { id: "project:ponytail", title: "Ponytail", kind: "project" as const, href: "/projects/ponytail" };
+    const preview = { id: "project:ponytail", title: "Ponytail", kind: "project" as const, href: "/workspaces/ponytail" };
     rememberRecentGlobalSearchPreview("alice", "discover", preview);
     const selected = readRecentGlobalSearches("alice", "discover")[0];
     assert.equal(selected?.kind, "preview");
@@ -218,7 +218,7 @@ test("top-nav keeps one accessible, route-aligned implementation", () => {
   assert.match(topNav, /className="nb-mobile-menu-trigger[^\"]*md:hidden"\s+aria-label=\{chatUnread \? "Open mobile menu, unread messages" : "Open mobile menu"\}/);
   assert.match(globals, /@media \(min-width:768px\) \{[\s\S]*?\.nb-mobile-menu-trigger \{ display:none; \}/);
   assert.doesNotMatch(topNav, /createProject=1/);
-  assert.match(topNav, /href="\/projects\/new"/);
+  assert.match(topNav, /href="\/workspaces\/new"/);
   assert.match(topNav, /className="flex shrink-0 items-center gap-2"/);
   assert.match(topNav, /recentSearchOwnerId=\{user\?\.id\}/);
   assert.match(mobileMenu, /<Dialog open=\{props\.isOpen\}/);

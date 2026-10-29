@@ -223,7 +223,7 @@ test("details are stored beside the message, edits replace them, and the status 
 test("a profile's apply picker leaves out projects the viewer cannot apply to right now", async () => {
   // The picker reads the viewer from the request; here the viewer is whoever the test says it is.
   moduleStubs.set("@/lib/server/viewer-context", { getViewerAuthContext: async () => ({ userId: viewerId }) });
-  const lifecycle = await loadAppModule(() => import("../../src/lib/projects/server/lifecycle"));
+  const lifecycle = await loadAppModule(() => import("../../src/lib/workspaces/server/lifecycle"));
   await withProject(async ({ owner, projectId, roleId }) => {
     await sql`UPDATE projects SET open_roles_count = 1 WHERE id = ${projectId}`;
     const offered = async () => (await lifecycle.getProfileProjectsWithOpenRolesAction(owner)).items.some((item: { id: string }) => item.id === projectId);

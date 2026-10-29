@@ -78,7 +78,7 @@ test("invalid sequence parameters are removed without dropping tab state", async
 });
 
 test("all route generators keep private social metadata and query-free canonicals", async ({ page }) => {
-  const routes = ["/messages", "/messages/inbox", "/messages/saved", "/messages/drafts", "/messages/search", "/messages/new", `/messages/${id}`, `/messages/p/${id}`, `/messages/p/${id}/browse`];
+  const routes = ["/messages", "/messages/inbox", "/messages/saved", "/messages/drafts", "/messages/search", "/messages/new", `/messages/${id}`, `/messages/w/${id}`, `/messages/w/${id}/browse`];
   for (const route of routes) {
     await page.evaluate(href => (window as any).messagingFixture.navigate(href), `${route}?q=secret&filter=threads`);
     await expect(page.locator('link[rel="canonical"]')).toHaveAttribute("href", origin + route);

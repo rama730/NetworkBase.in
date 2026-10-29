@@ -4,7 +4,7 @@ import { describe, it } from "node:test";
 import {
   buildTaskSubmitPayload,
   taskEditorDraftSchema,
-} from "@/lib/projects/task-draft";
+} from "@/lib/workspaces/task-draft";
 
 const projectId = "123e4567-e89b-42d3-a456-426614174000";
 

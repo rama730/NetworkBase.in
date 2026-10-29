@@ -1,4 +1,4 @@
-import ProjectCardSkeleton from "@/components/projects/ProjectCardSkeleton";
+import ProjectCardSkeleton from "@/components/workspaces/WorkspaceCardSkeleton";
 import { Skeleton } from "@/components/ui/skeleton";
 
 /**

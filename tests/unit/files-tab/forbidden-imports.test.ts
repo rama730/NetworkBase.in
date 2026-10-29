@@ -4,7 +4,7 @@
 //
 // Contract under test:
 //
-//   Starting from `src/components/projects/v2/files-tab/FilesTabRoot.tsx`
+//   Starting from `src/components/workspaces/v2/files-tab/FilesTabRoot.tsx`
 //   and walking every *static* `import` / `export ... from` edge, no path
 //   must reach any module on the forbidden list below. A **static** edge
 //   is a top-level `import`/`export-from` statement. A **dynamic** edge —
@@ -84,7 +84,7 @@ const REPORT_PATH = path.join(
   "files-tab-forbidden-imports.json",
 );
 
-const ENTRY_REL = "src/components/projects/v2/files-tab/FilesTabRoot.tsx";
+const ENTRY_REL = "src/components/workspaces/v2/files-tab/FilesTabRoot.tsx";
 const ENTRY_ABS = path.join(REPO_ROOT, ENTRY_REL);
 
 // ---------------------------------------------------------------------------

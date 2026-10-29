@@ -11,7 +11,7 @@ import {
 } from "@/app/api/v1/_file-lease-route";
 import { db } from "@/lib/db";
 import { projectNodes } from "@/lib/db/schema";
-import { getProjectAccessById } from "@/lib/data/project-access";
+import { getProjectAccessById } from "@/lib/data/workspace-access";
 import { validateCsrf } from "@/lib/security/csrf";
 import {
   acquireFileLease,

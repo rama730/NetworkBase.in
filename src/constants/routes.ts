@@ -6,7 +6,7 @@ export const ROUTES = {
     DISCOVER: '/discover',
     NETWORK: '/network',
     MESSAGES: '/messages',
-    PROJECTS: '/projects',
+    PROJECTS: '/workspaces',
     SETTINGS: '/settings',
     MY_PROFILE: '/my-profile',
 } as const

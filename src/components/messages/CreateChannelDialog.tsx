@@ -6,7 +6,7 @@ import { toast } from "@/lib/feedback";
 
 import { createChannel } from "@/app/actions/chat/channels";
 import { useChatShell } from "@/components/messages/ChatShellProvider";
-import { useSelectedProject } from "@/components/messages/useSelectedProject";
+import { useSelectedProject } from "@/components/messages/useSelectedWorkspace";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogFooter, DialogHeader, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";

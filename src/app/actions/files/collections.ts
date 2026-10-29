@@ -9,7 +9,7 @@ import { getFileAttributionByNodeId } from "@/lib/files/file-attribution";
 import type { ProjectNodeWithAttribution } from "./nodes";
 import { taskFileAssociationsSql as associations, taskFileEntriesSql } from "@/lib/files/task-file-collection-query";
 import { UUID_RE } from "./_constants";
-import { getApprovedTaskFileVersion, isApprovedTaskFileRevision } from "@/lib/projects/task-file-intelligence";
+import { getApprovedTaskFileVersion, isApprovedTaskFileRevision } from "@/lib/workspaces/task-file-intelligence";
 
 export type TaskCollectionRole = "reference" | "working" | "deliverable";
 export type TaskCollectionEntry = {

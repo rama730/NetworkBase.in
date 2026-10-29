@@ -1,5 +1,5 @@
 // Hub Constants
-import { PROJECT_TYPE_OPTIONS } from '@/lib/projects/project-create-options';
+import { PROJECT_TYPE_OPTIONS } from '@/lib/workspaces/workspace-create-options';
 
 export const FILTER_VIEWS = {
     ALL: 'all',

@@ -15,8 +15,8 @@ moduleStubs.set("@/lib/supabase/server", {
 moduleStubs.set("next/cache", { revalidatePath: () => undefined, revalidateTag: () => undefined, unstable_cache: (fn: unknown) => fn, updateTag: () => undefined });
 moduleStubs.set("next/headers", { headers: async () => new Headers({ "x-forwarded-for": "203.0.113.12" }) });
 
-let sprints: typeof import("../../src/lib/projects/server/sprints");
-let schedule: typeof import("../../src/lib/projects/sprint-schedule");
+let sprints: typeof import("../../src/lib/workspaces/server/sprints");
+let schedule: typeof import("../../src/lib/workspaces/sprint-schedule");
 let orgs: typeof import("../../src/app/actions/organizations");
 before(async () => {
   const viewerContext = await loadAppModule(() => import("../../src/lib/server/viewer-context"));
@@ -24,8 +24,8 @@ before(async () => {
     ...viewerContext,
     getViewerAuthContext: async () => ({ supabase: null, snapshot: null, user: viewerId ? { id: viewerId } : null, userId: viewerId || null, emailVerified: true }),
   });
-  sprints = await loadAppModule(() => import("../../src/lib/projects/server/sprints"));
-  schedule = await loadAppModule(() => import("../../src/lib/projects/sprint-schedule"));
+  sprints = await loadAppModule(() => import("../../src/lib/workspaces/server/sprints"));
+  schedule = await loadAppModule(() => import("../../src/lib/workspaces/sprint-schedule"));
   orgs = await loadAppModule(() => import("../../src/app/actions/organizations"));
 });
 

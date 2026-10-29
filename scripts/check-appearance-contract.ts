@@ -17,9 +17,9 @@ const CORE_APPEARANCE_FILES = [
   "src/components/messages/Composer.tsx",
   "src/components/messages/ConversationView.tsx",
   "src/components/settings/AppearanceSettings.tsx",
-  "src/components/projects/dashboard/ProjectLayout.tsx",
-  "src/components/projects/dashboard/ProjectOverviewCard.tsx",
-  "src/components/projects/v2/TasksTab.tsx",
+  "src/components/workspaces/dashboard/WorkspaceLayout.tsx",
+  "src/components/workspaces/dashboard/WorkspaceOverviewCard.tsx",
+  "src/components/workspaces/v2/TasksTab.tsx",
   "src/components/profile/v2/ProfileHeader.tsx",
 ];
 

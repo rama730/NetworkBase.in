@@ -12,7 +12,7 @@ let script: string, css: string;
 test.beforeAll(async () => {
     const mocks: Record<string, string> = {
         'next/link': `import React from 'react';export default ({href,children,prefetch,...p})=>React.createElement('a',{href,...p},children);`,
-        'next/navigation': `export const usePathname=()=>'/projects/new',useRouter=()=>({refresh(){},push(){},replace(){}});`,
+        'next/navigation': `export const usePathname=()=>'/workspaces/new',useRouter=()=>({refresh(){},push(){},replace(){}});`,
         '@/app/actions/organizations': `export const checkOrgHandleAction=async(h)=>({available:h!=='taken',message:h==='taken'?'@taken is taken.':'@'+h+' is free.',handle:h}),childTitleTakenAction=async()=>false;`,
         '@/components/organizations/people-search': `export const findPeople=async(q)=>[{id:'11111111-1111-4111-8111-111111111111',name:'Kiran Rao',username:'kiran'}].filter(p=>p.name.toLowerCase().includes(q.toLowerCase()));`,
         '@/components/skills/SkillPicker': `export const SkillPicker=()=>null;`,

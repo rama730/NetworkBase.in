@@ -6,7 +6,7 @@ import { z } from 'zod';
 
 import { db } from '@/lib/db';
 import { contentReports, projectDocs, projects, projectUpdateComments, projectUpdates, taskComments, tasks } from '@/lib/db/schema';
-import { getProjectAccessById } from '@/lib/data/project-access';
+import { getProjectAccessById } from '@/lib/data/workspace-access';
 import { logger } from '@/lib/logger';
 import { notifyOrg, orgHref, orgLabel } from '@/lib/organizations/notify';
 import { REPORT_REASONS, verificationDomain, type ReportTargetKind } from '@/lib/organizations/trust-rules';

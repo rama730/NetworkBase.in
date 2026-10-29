@@ -360,7 +360,7 @@ function PersonDetails({ channel, meId, setState, onClose }: { channel: ChannelD
           {context.data.sharedProjects.length ? (
             <div>
               <p className="nb-micro mb-1">Workspaces in common</p>
-              {context.data.sharedProjects.map((p) => <Link key={p.id} href={`/projects/${p.slug ?? p.id}`} className="block truncate py-0.5 text-[13px] text-primary hover:underline">{p.title}</Link>)}
+              {context.data.sharedProjects.map((p) => <Link key={p.id} href={`/workspaces/${p.slug ?? p.id}`} className="block truncate py-0.5 text-[13px] text-primary hover:underline">{p.title}</Link>)}
             </div>
           ) : null}
           {context.data.sharedChannels.length ? (
@@ -554,7 +554,7 @@ export function DetailsPane({ channelId, tab, onTab }: { channelId: string; tab:
               {channel.project_title ? (
                 <div className="p-4">
                   <span className="nb-ui-label">Workspace</span>
-                  <p className="mt-1 text-[13px]"><Link href={`/projects/${channel.project_slug ?? channel.project_id}`} className="font-medium text-primary hover:underline">{channel.project_title}</Link></p>
+                  <p className="mt-1 text-[13px]"><Link href={`/workspaces/${channel.project_slug ?? channel.project_id}`} className="font-medium text-primary hover:underline">{channel.project_title}</Link></p>
                 </div>
               ) : null}
               <div className="p-4">

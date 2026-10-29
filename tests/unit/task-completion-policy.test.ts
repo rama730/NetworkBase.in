@@ -8,12 +8,12 @@ import { z } from "zod";
 import {
   completionActionLabel,
   isTaskCompleted,
-} from "@/lib/projects/task-completion-policy";
+} from "@/lib/workspaces/task-completion-policy";
 import {
   getTaskTitlePresentation,
   calculateTaskTimeHealth,
-} from "@/lib/projects/task-presentation";
-import { patchTaskQueryData } from "@/lib/projects/task-cache";
+} from "@/lib/workspaces/task-presentation";
+import { patchTaskQueryData } from "@/lib/workspaces/task-cache";
 
 const sql = Object.assign(
   (strings: TemplateStringsArray, ...values: unknown[]) => ({
@@ -130,7 +130,7 @@ function policyAction(role = "admin", ownerId = "owner") {
       },
     }),
   };
-  const action = load("src/app/actions/project/task-completion.ts", {
+  const action = load("src/app/actions/workspace/task-completion.ts", {
     "@/app/api/v1/_shared": {
       requireAuthenticatedUser: async () => ({ user: { id: "user" } }),
     },
@@ -243,16 +243,16 @@ function approval() {
       consumeRateLimit: async () => ({ allowed: true }),
     },
     "@/lib/db": { db: { transaction: (fn: any) => fn(tx) } },
-    "@/lib/projects/task-transition-service": {
+    "@/lib/workspaces/task-transition-service": {
       lockTaskForWrite: async () => locked,
       afterTaskTransition: async () => {
         sideEffects++;
       },
     },
-    "@/lib/projects/task-review-snapshot": {
+    "@/lib/workspaces/task-review-snapshot": {
       taskReviewSnapshot: async () => snapshot,
     },
-    "@/lib/projects/task-file-intelligence": {
+    "@/lib/workspaces/task-file-intelligence": {
       inferTaskFileRole: () => "deliverable",
       markTaskFileVersionApproved: () => ["deliverable", "approved_version:2"],
     },
@@ -312,7 +312,7 @@ test("valid co-leader approval completes the task, stamps submitted deliverables
 });
 
 test("the snapshot changes with requirements, checklist completion and active file revision", async () => {
-  const helper = load("src/lib/projects/task-review-snapshot.ts", {
+  const helper = load("src/lib/workspaces/task-review-snapshot.ts", {
     "node:crypto": crypto,
   });
   const snapshot = {

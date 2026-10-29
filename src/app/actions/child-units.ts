@@ -4,10 +4,10 @@ import { and, asc, eq, isNull, ne, sql } from 'drizzle-orm';
 
 import { db } from '@/lib/db';
 import { profiles, projectMembers, projectOpenRoles, projects } from '@/lib/db/schema';
-import { getProjectAccessById } from '@/lib/data/project-access';
+import { getProjectAccessById } from '@/lib/data/workspace-access';
 import { notifyOrg } from '@/lib/organizations/notify';
 import { insertTask } from '@/lib/organizations/assignments';
-import { enqueueProjectNotificationEvent } from '@/lib/notifications/project-events';
+import { enqueueProjectNotificationEvent } from '@/lib/notifications/workspace-events';
 import { taskTeamMembers } from '@/lib/db/schema';
 import { getViewerAuthContext } from '@/lib/server/viewer-context';
 
@@ -81,7 +81,7 @@ export async function updateUnitAction(projectId: string, unitId: string, patch:
     await db.update(projectOpenRoles).set(set).where(eq(projectOpenRoles.id, unitId));
     if (newLead && m.project.parentId) {
         await notifyOrg({ orgId: m.project.parentId, eventKey: 'org.role_changed', actorId: m.userId, to: [newLead], title: `You’re team lead of ${set.title ?? unit.title ?? unit.role}`,
-            href: `/projects/${encodeURIComponent(m.project.slug ?? projectId)}`, sourceEventId: `unit-lead:${projectId}:${unitId}:${newLead}:${Date.now()}`, refs: { projectId } });
+            href: `/workspaces/${encodeURIComponent(m.project.slug ?? projectId)}`, sourceEventId: `unit-lead:${projectId}:${unitId}:${newLead}:${Date.now()}`, refs: { projectId } });
     }
     return { success: true };
 }

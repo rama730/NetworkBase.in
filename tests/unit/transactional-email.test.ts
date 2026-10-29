@@ -55,7 +55,7 @@ test("two small branded multipart templates escape dynamic content and use the t
   assert.doesNotMatch(task.subject, /[\r\n]/);
   assert.doesNotMatch(task.html, /<script>/);
   assert.match(task.html, /&lt;script&gt;/);
-  assert.match(task.text, /projects\/project%2F1\?tab=tasks&drawerType=task&drawerId=task%2F1/);
+  assert.match(task.text, /workspaces\/project%2F1\?tab=tasks&drawerType=task&drawerId=task%2F1/);
   assert.match(task.text, /settings#settings-notifications/);
   assert.throws(() => buildEmail({ kind: "task_assignment", email: "ada@example.com", name: "Ada" }), /Missing task/);
 });
@@ -152,7 +152,7 @@ test("redesigned task email renders open layout, Ponytail avatar, subtasks and f
   // Verify breadcrumb & header with canonical squircle brand mark and clickable project name
   assert.match(emailA.html, /NetworkBase/);
   assert.match(emailA.html, /DeepScope AI/);
-  assert.match(emailA.html, /href="https:\/\/networkbase\.in\/projects\/deepscope-ai"/);
+  assert.match(emailA.html, /href="https:\/\/networkbase\.in\/workspaces\/deepscope-ai"/);
   assert.match(emailA.html, /width:7px;height:7px;border-radius:2px;background-color:#C24720;/);
   assert.doesNotMatch(emailA.html, /●/);
   assert.match(emailA.text, /Workspace: DeepScope AI/);
@@ -213,8 +213,8 @@ test("redesigned task email renders open layout, Ponytail avatar, subtasks and f
   assert.match(emailA.html, /View Task &rarr;/);
   assert.match(emailA.html, /DeepScope AI &#8599;/);
   assert.match(emailA.html, /Open in Cursor &#8599;/);
-  assert.match(emailA.text, /View Task: https:\/\/networkbase\.in\/projects\/deepscope-ai\?tab=tasks&drawerType=task&drawerId=task-101/);
-  assert.match(emailA.text, /Workspace: https:\/\/networkbase\.in\/projects\/deepscope-ai/);
+  assert.match(emailA.text, /View Task: https:\/\/networkbase\.in\/workspaces\/deepscope-ai\?tab=tasks&drawerType=task&drawerId=task-101/);
+  assert.match(emailA.text, /Workspace: https:\/\/networkbase\.in\/workspaces\/deepscope-ai/);
   assert.match(emailA.text, /Open in Cursor: https:\/\/networkbase\.in\/open\/ide\?projectId=deepscope-ai&slug=deepscope-ai&taskId=task-101&ide=cursor/);
 
   // Verify Footer links: Contact Support, Privacy, Security, Terms and Conditions

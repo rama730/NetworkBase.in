@@ -7,7 +7,7 @@ import { consumeRateLimit } from "@/lib/security/rate-limit";
 import { createClient } from "@/lib/supabase/server";
 import { taskSubtaskTitleSchema } from "@/lib/validations/task";
 
-import { lockSubtaskWriteScope } from "@/lib/projects/subtask-write-scope";
+import { lockSubtaskWriteScope } from "@/lib/workspaces/subtask-write-scope";
 
 async function requireSubtaskWriter() {
     const supabase = await createClient();

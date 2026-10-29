@@ -1,0 +1,507 @@
+"use client";
+
+import { toast, feedbackError } from "@/lib/feedback";
+import { useState, useRef, useEffect, useCallback } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { Loader2 } from "lucide-react";
+
+import { Skeleton } from "@/components/ui/skeleton";
+import type { ProjectNode } from "@/lib/db/schema";
+import { TaskFilesExplorer } from "@/components/workspaces/v2/tasks/components/TaskFilesExplorer";
+import { TaskFilesActionMenu } from "@/components/workspaces/v2/tasks/components/TaskFilesActionMenu";
+import { SingleAttachmentPicker } from "@/components/workspaces/v2/files-tab/picker/SingleAttachmentPicker";
+import { TaskFilesEmptyState } from "@/components/workspaces/v2/tasks/components/TaskFilesEmptyState";
+import { FileVersionHistoryDrawer } from "@/components/workspaces/v2/tasks/components/FileVersionHistoryDrawer";
+import {
+  TaskFileUploadModal,
+  type UploadIntent,
+} from "@/components/workspaces/v2/tasks/components/TaskFileUploadModal";
+import { cn } from "@/lib/utils";
+import type { TaskFileRole } from "@/lib/workspaces/task-file-intelligence";
+import {
+  extractFoldersFromDataTransfer,
+  type DroppedFolder,
+} from "@/lib/files/folder-drop";
+import { validateUploadSelection } from "@/lib/files/upload-validator";
+import { DropZoneOverlay } from "@/components/ui/drop-zone-overlay";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+
+interface FilesTabProps {
+  projectId: string;
+  projectSlug?: string;
+  taskId: string;
+  canEdit: boolean;
+  canManageFiles?: boolean;
+  attachments: (ProjectNode & { annotation?: string | null; tags?: string[] | null })[];
+  isLoading: boolean;
+  error: string | null;
+  isUploading: boolean;
+  onUploadFiles: (
+    files: File[],
+    options?: { annotation?: string; parentId?: string; role?: TaskFileRole },
+  ) => Promise<{ success: boolean; error?: string }>;
+  onUploadFolders?: (
+    folders: DroppedFolder[],
+    options?: { role?: TaskFileRole; parentId?: string | null },
+  ) => Promise<{ success: boolean; error?: string }>;
+  onUnlink: (nodeId: string) => Promise<{ success: boolean; error?: string }>;
+  onSaveAsNewVersion?: (
+    nodeId: string,
+    file: File,
+    options?: { comment?: string | null },
+  ) => Promise<{ success: boolean; error?: string }>;
+  initialFileId?: string | null;
+  onFilesChanged?: () => Promise<unknown> | void;
+}
+
+export default function FilesTab({
+  projectId,
+  projectSlug,
+  taskId,
+  canEdit,
+  canManageFiles = false,
+  attachments,
+  isLoading,
+  error,
+  isUploading,
+  onUploadFiles,
+  onUploadFolders,
+  onUnlink,
+  onSaveAsNewVersion,
+  initialFileId = null,
+  onFilesChanged,
+}: FilesTabProps) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const folderInputRef = useRef<HTMLInputElement>(null);
+
+  const [historyNode, setHistoryNode] = useState<ProjectNode | null>(null);
+  const [isDragActive, setIsDragActive] = useState(false);
+  const [isProcessingDrop, setIsProcessingDrop] = useState(false);
+  const [v3PickerOpen, setV3PickerOpen] = useState(false);
+  const [pendingUploadFiles, setPendingUploadFiles] = useState<File[] | null>(
+    null,
+  );
+  const [pendingUploadFolders, setPendingUploadFolders] = useState<DroppedFolder[] | null>(null);
+  const [unreadableSkipDialog, setUnreadableSkipDialog] = useState<{
+    count: number;
+    shown: string[];
+    moreCount: number;
+    folders: DroppedFolder[];
+    looseFiles: File[];
+  } | null>(null);
+  const dragCounterRef = useRef(0);
+
+  const proceedWithExtracted = useCallback(
+    (extracted: { folders: DroppedFolder[]; looseFiles: File[] }) => {
+      if (
+        extracted.folders.length === 0 &&
+        extracted.looseFiles.length === 0
+      ) {
+        return;
+      }
+      if (extracted.folders.length > 0 && onUploadFolders) {
+        setPendingUploadFolders(extracted.folders);
+      }
+      if (extracted.looseFiles.length > 0) {
+        setPendingUploadFiles(extracted.looseFiles);
+      }
+      if (extracted.folders.length > 0 && !onUploadFolders) {
+        const flat = extracted.folders.flatMap((folder) =>
+          folder.files.map((entry) => entry.file),
+        );
+        if (flat.length > 0) setPendingUploadFiles(flat);
+      }
+    },
+    [onUploadFolders],
+  );
+
+  // URL state routing for Universal Task File Preview (Ponytail Phase 4)
+  const handleOpenFile = useCallback(
+    async (node: ProjectNode) => {
+      const routeProject =
+        projectSlug || pathname?.match(/^\/(?:workspaces|projects)\/([^/]+)/)?.[1] || projectId;
+      router.push(
+        `/workspaces/${encodeURIComponent(routeProject)}?tab=files&fileId=${encodeURIComponent(node.id)}`,
+      );
+    },
+    [pathname, projectId, projectSlug, router],
+  );
+
+  const handleDroppedFiles = useCallback(
+    async (files: File[]) => {
+      if (!canEdit || files.length === 0) return;
+      const validation = validateUploadSelection(files, { isFolder: false });
+      if (!validation.valid) {
+        if (validation.error) toast.error(feedbackError(validation.error, "Action couldn’t finish"));
+        return;
+      }
+      setPendingUploadFiles(validation.files);
+    },
+    [canEdit],
+  );
+
+  const handleUploadIntentConfirm = async (
+    intent: UploadIntent,
+    targetNodeId?: string,
+    label?: string,
+  ) => {
+    if (!pendingUploadFiles && !pendingUploadFolders) return;
+    const files = pendingUploadFiles;
+    const folders = pendingUploadFolders;
+
+    if (
+      intent === "version" &&
+      targetNodeId &&
+      onSaveAsNewVersion &&
+      files?.[0]
+    ) {
+      setIsProcessingDrop(true);
+      try {
+        const file = files[0]!;
+        const result = await onSaveAsNewVersion(targetNodeId, file);
+        if (result.success) {
+          toast.success(`Saved ${file.name} as a new version.`);
+          setPendingUploadFiles(null);
+          setPendingUploadFolders(null);
+        } else {
+          toast.error(feedbackError(result.error || "Couldn’t save new version", "Couldn’t save new version"));
+        }
+      } catch {
+        toast.error("Couldn’t save new version");
+      } finally {
+        setIsProcessingDrop(false);
+      }
+      return;
+    }
+
+    setIsProcessingDrop(true);
+    try {
+      const role: TaskFileRole =
+        intent === "deliverable"
+          ? "deliverable"
+          : intent === "reference"
+            ? "reference"
+            : "working";
+      const annotation = intent === "deliverable" ? "#deliverable" : label || undefined;
+      const parentId = intent === "deliverable" ? targetNodeId : undefined;
+      const results: Array<{ success: boolean; error?: string }> = [];
+      if (folders?.length) {
+        if (onUploadFolders) {
+          results.push(await onUploadFolders(folders, { role, parentId }));
+        } else {
+          results.push(
+            await onUploadFiles(
+              folders.flatMap((folder) => folder.files.map((entry) => entry.file)),
+              { annotation, parentId, role },
+            ),
+          );
+        }
+      }
+      if (files?.length) {
+        results.push(await onUploadFiles(files, { annotation, parentId, role }));
+      }
+      const failed = results.find((result) => !result.success);
+      if (failed) {
+        toast.error(feedbackError(failed.error || "Couldn’t upload files", "Couldn’t upload files"));
+        return;
+      }
+      setPendingUploadFiles(null);
+      setPendingUploadFolders(null);
+    } catch {
+      toast.error("Couldn’t upload files");
+    } finally {
+      setIsProcessingDrop(false);
+    }
+  };
+
+  const handleDropZoneDragEnter = useCallback(
+    (event: React.DragEvent<HTMLDivElement>) => {
+      if (!canEdit) return;
+      if (!event.dataTransfer.types.includes("Files")) return;
+      event.preventDefault();
+      dragCounterRef.current += 1;
+      setIsDragActive(true);
+    },
+    [canEdit],
+  );
+
+  const handleDropZoneDragOver = useCallback(
+    (event: React.DragEvent<HTMLDivElement>) => {
+      if (!canEdit) return;
+      if (!event.dataTransfer.types.includes("Files")) return;
+      event.preventDefault();
+      event.dataTransfer.dropEffect = "copy";
+    },
+    [canEdit],
+  );
+
+  const handleDropZoneDragLeave = useCallback(() => {
+    dragCounterRef.current = Math.max(0, dragCounterRef.current - 1);
+    if (dragCounterRef.current === 0) setIsDragActive(false);
+  }, []);
+
+  const handleDropZoneDrop = useCallback(
+    (event: React.DragEvent<HTMLDivElement>) => {
+      if (!canEdit) return;
+      event.preventDefault();
+      event.stopPropagation();
+      dragCounterRef.current = 0;
+      setIsDragActive(false);
+
+      const dataTransfer = event.dataTransfer;
+      void (async () => {
+        setIsProcessingDrop(true);
+        try {
+          const extracted = await extractFoldersFromDataTransfer(dataTransfer);
+          if (extracted.unreadable.length > 0) {
+            // A partial selection is only uploaded when the person agrees to leave those out.
+            setUnreadableSkipDialog({
+              count: extracted.unreadable.length,
+              shown: extracted.unreadable.slice(0, 5),
+              moreCount: Math.max(0, extracted.unreadable.length - 5),
+              folders: extracted.folders,
+              looseFiles: extracted.looseFiles,
+            });
+            return;
+          }
+          if (
+            extracted.folders.length === 0 &&
+            extracted.looseFiles.length === 0
+          ) {
+            const files = Array.from(dataTransfer.files || []);
+            if (files.length > 0) setPendingUploadFiles(files);
+            return;
+          }
+          proceedWithExtracted(extracted);
+        } catch (error) {
+          toast.error(
+            feedbackError(error instanceof Error ? error.message : "Couldn’t read the dropped files", "Couldn’t read the dropped files"),
+          );
+        } finally {
+          setIsProcessingDrop(false);
+        }
+      })();
+    },
+    [canEdit, onUploadFolders],
+  );
+
+  const hasAttachments = attachments.length > 0;
+
+  useEffect(() => {
+    if (!initialFileId || isLoading) return;
+    document
+      .querySelector<HTMLElement>(
+        `[data-task-file-row][data-node-id="${CSS.escape(initialFileId)}"]`,
+      )
+      ?.scrollIntoView({ block: "center" });
+  }, [attachments, initialFileId, isLoading]);
+
+  return (
+    <div className="flex h-full w-full flex-col min-h-0">
+      <div className="flex items-center justify-between border-b border-border px-4 py-3">
+        <h2 className="text-sm font-semibold text-foreground">
+          Files
+        </h2>
+        <div className="shrink-0">
+          <TaskFilesActionMenu
+            canEdit={canEdit}
+            onPickFiles={() => fileInputRef.current?.click()}
+            onPickFolder={() => folderInputRef.current?.click()}
+            onPickExisting={() => setV3PickerOpen(true)}
+            disabled={isUploading || isProcessingDrop}
+            variant="primary"
+          />
+        </div>
+      </div>
+
+      <div
+        data-testid="task-files-tab-body"
+        data-loading={isLoading ? "true" : "false"}
+        className={cn(
+          "relative flex-1 overflow-y-auto px-4 py-4 min-h-0 transition-[color,background-color,border-color,box-shadow,opacity,transform] duration-[180ms]",
+          isDragActive && "bg-primary/5",
+        )}
+        onDragEnter={handleDropZoneDragEnter}
+        onDragOver={handleDropZoneDragOver}
+        onDragLeave={handleDropZoneDragLeave}
+        onDrop={handleDropZoneDrop}
+      >
+        <DropZoneOverlay visible={isDragActive} />
+
+        {isLoading ? (
+          <div className="space-y-2 py-1" role="status" aria-label="Loading files">
+            <span className="sr-only">Loading files…</span>
+            {[0, 1, 2].map((idx) => (
+              <div
+                key={idx}
+                className="flex items-center gap-3 rounded-[6px] border border-border/70 bg-card p-2.5"
+                aria-hidden="true"
+              >
+                <Skeleton className="size-8 shrink-0 rounded-[4px]" />
+                <div className="min-w-0 flex-1 space-y-1.5">
+                  <Skeleton className="h-3.5 w-1/3 rounded-xs" />
+                  <Skeleton className="h-2.5 w-1/5 rounded-xs" />
+                </div>
+                <Skeleton className="size-6 shrink-0 rounded-[4px]" />
+              </div>
+            ))}
+          </div>
+        ) : error ? (
+          <div className="flex h-full items-center justify-center text-sm text-destructive">
+            {error}
+          </div>
+        ) : !hasAttachments ? (
+          <TaskFilesEmptyState
+            isDragActive={isDragActive}
+            canEdit={canEdit}
+            onPickFiles={() => fileInputRef.current?.click()}
+            onPickFolder={() => folderInputRef.current?.click()}
+            onPickExisting={() => setV3PickerOpen(true)}
+          />
+        ) : (
+          <div className="space-y-6">
+            <TaskFilesExplorer
+              taskId={taskId}
+              projectId={projectId}
+              linkedNodes={attachments}
+              canEdit={canEdit}
+              canManageFiles={canManageFiles}
+              onUnlink={onUnlink}
+              onOpenFile={handleOpenFile}
+              onShowHistory={(node) => setHistoryNode(node)}
+              onReplaceWithNewVersion={
+                onSaveAsNewVersion
+                  ? (node, file) => onSaveAsNewVersion(node.id, file)
+                  : undefined
+              }
+              highlightedNodeId={initialFileId}
+              onFilesChanged={onFilesChanged}
+            />
+          </div>
+        )}
+
+        {(isUploading || isProcessingDrop) ? (
+          <div role="status" aria-live="polite" className="pointer-events-none sticky bottom-3 mx-auto flex w-fit items-center gap-2 rounded-[5px] border border-border bg-card px-3 py-1.5 font-mono text-xs font-medium text-foreground shadow-2xs">
+            <Loader2 aria-hidden="true" className="size-3.5 animate-spin text-primary" />
+            {isUploading ? "Uploading task files…" : "Preparing files…"}
+          </div>
+        ) : null}
+
+        <input
+          type="file"
+          ref={fileInputRef}
+          className="hidden"
+          multiple
+          onChange={(e) => {
+            const files = Array.from(e.target.files || []);
+            const validation = validateUploadSelection(files, { isFolder: false });
+            if (!validation.valid) {
+              if (validation.error) toast.error(feedbackError(validation.error, "Action couldn’t finish"));
+              e.target.value = "";
+              return;
+            }
+            if (validation.files.length > 0) void handleDroppedFiles(validation.files);
+            e.target.value = "";
+          }}
+        />
+        <input
+          type="file"
+          ref={folderInputRef}
+          className="hidden"
+          multiple
+          /* @ts-expect-error webkitdirectory is non-standard but widely supported */
+          webkitdirectory=""
+          onChange={(e) => {
+            const files = Array.from(e.target.files || []);
+            const validation = validateUploadSelection(files, { isFolder: true });
+            if (!validation.valid) {
+              if (validation.error) toast.error(feedbackError(validation.error, "Action couldn’t finish"));
+              e.target.value = "";
+              return;
+            }
+            const validFiles = validation.files;
+            if (validFiles.length > 0) {
+              const syntheticFolder: DroppedFolder = {
+                name: validation.folderName || validFiles[0]?.webkitRelativePath.split("/")[0] || "Folder",
+                files: validFiles.map((f) => ({
+                  file: f,
+                  relativePath: f.webkitRelativePath
+                    .split("/")
+                    .slice(1)
+                    .join("/"),
+                })),
+              };
+              if (onUploadFolders) {
+                setPendingUploadFolders([syntheticFolder]);
+              } else {
+                setPendingUploadFiles(validFiles);
+              }
+            }
+            e.target.value = "";
+          }}
+        />
+      </div>
+
+      <SingleAttachmentPicker
+        projectId={projectId}
+        taskId={taskId}
+        isOpen={v3PickerOpen}
+        onClose={() => setV3PickerOpen(false)}
+        existingAttachments={attachments}
+        onLinked={onFilesChanged}
+      />
+
+      {historyNode && (
+        <FileVersionHistoryDrawer
+          open={!!historyNode}
+          onOpenChange={(open) => !open && setHistoryNode(null)}
+          node={historyNode}
+          projectId={projectId}
+          canEdit={canEdit}
+        />
+      )}
+
+      {(pendingUploadFiles || pendingUploadFolders) && (
+        <TaskFileUploadModal
+          projectId={projectId}
+          isOpen={true}
+          files={pendingUploadFiles ?? pendingUploadFolders?.flatMap((folder) => folder.files.map((entry) => entry.file)) ?? []}
+          folderCount={pendingUploadFolders?.length ?? 0}
+          existingFiles={attachments}
+          onConfirm={handleUploadIntentConfirm}
+          onCancel={() => { setPendingUploadFiles(null); setPendingUploadFolders(null); }}
+        />
+      )}
+
+      <ConfirmDialog
+        open={Boolean(unreadableSkipDialog)}
+        onOpenChange={(open) => {
+          if (!open) setUnreadableSkipDialog(null);
+        }}
+        title="Skip unreadable files?"
+        description={`${unreadableSkipDialog?.count ?? 0} item(s) could not be read and will be skipped. Upload the rest?`}
+        confirmLabel="Upload the rest"
+        cancelLabel="Cancel"
+        onConfirm={() => {
+          if (unreadableSkipDialog) {
+            proceedWithExtracted(unreadableSkipDialog);
+            setUnreadableSkipDialog(null);
+          }
+        }}
+      >
+        {unreadableSkipDialog && unreadableSkipDialog.shown.length > 0 && (
+          <div className="mt-2 rounded bg-muted/50 p-2 font-mono text-xs text-muted-foreground">
+            {unreadableSkipDialog.shown.map((item, idx) => (
+              <div key={idx} className="truncate">{item}</div>
+            ))}
+            {unreadableSkipDialog.moreCount > 0 && (
+              <div className="mt-1 text-[11px] italic">…and {unreadableSkipDialog.moreCount} more</div>
+            )}
+          </div>
+        )}
+      </ConfirmDialog>
+    </div>
+  );
+}

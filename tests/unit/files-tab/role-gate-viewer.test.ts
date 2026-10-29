@@ -46,8 +46,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   FilesTabRoleProvider,
   type Role,
-} from "@/components/projects/v2/files-tab/FilesTabRoleContext";
-import { FileActionsBar } from "@/components/projects/v2/files-tab/file/FileActionsBar";
+} from "@/components/workspaces/v2/files-tab/FilesTabRoleContext";
+import { FileActionsBar } from "@/components/workspaces/v2/files-tab/file/FileActionsBar";
 
 const testQueryClient = new QueryClient({
   defaultOptions: {
@@ -59,11 +59,11 @@ const testQueryClient = new QueryClient({
 import {
   DEEP_LINK_MAX_LENGTH,
   evaluateDeepLinkPath,
-} from "@/components/projects/v2/files-tab/url";
+} from "@/components/workspaces/v2/files-tab/url";
 import {
   resolveDeepLinkFromSearch,
   type ResolveDeepLinkResult,
-} from "@/components/projects/v2/files-tab/hooks/useDeepLinkResolver";
+} from "@/components/workspaces/v2/files-tab/hooks/useDeepLinkResolver";
 
 // ─── Source readers ──────────────────────────────────────────────────
 
@@ -131,7 +131,7 @@ describe("Role_Viewer — mutation UI is absent (Req 19.3, Req 5.4)", () => {
   const FILE_ACTIONS_BAR_SRC = readFileSync(
     path.resolve(
       __dirname,
-      "../../../src/components/projects/v2/files-tab/file/FileActionsBar.tsx",
+      "../../../src/components/workspaces/v2/files-tab/file/FileActionsBar.tsx",
     ),
     "utf8",
   );
@@ -207,7 +207,7 @@ describe("Role_Viewer — mutation UI is absent (Req 19.3, Req 5.4)", () => {
     const SIDEBAR_SRC = readFileSync(
       path.resolve(
         __dirname,
-        "../../../src/components/projects/v2/files-tab/FilesTabSidebar.tsx",
+        "../../../src/components/workspaces/v2/files-tab/FilesTabSidebar.tsx",
       ),
       "utf8",
     );
@@ -476,7 +476,7 @@ describe("Unauthenticated deep-link arrival (Req 19.7, Req 19.5)", () => {
     const RESOLVER_SRC = readFileSync(
       path.resolve(
         __dirname,
-        "../../../src/components/projects/v2/files-tab/hooks/useDeepLinkResolver.ts",
+        "../../../src/components/workspaces/v2/files-tab/hooks/useDeepLinkResolver.ts",
       ),
       "utf8",
     );

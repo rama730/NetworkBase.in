@@ -14,7 +14,7 @@ import {
   roleApplications,
 } from "@/lib/db/schema";
 import { decideOrgJoin, orgMemberCap, type OrgJoinMode, type OrgJoinOutcome } from "@/lib/organizations/join-rules";
-import { addProjectMemberInternal } from "@/lib/projects/collaborator-lifecycle";
+import { addProjectMemberInternal } from "@/lib/workspaces/collaborator-lifecycle";
 import { createCopiesForNewMember } from "@/lib/organizations/assignments";
 import { notifyNewCopies } from "@/lib/organizations/assignment-notify";
 import { acceptOrgInvite } from "@/lib/organizations/members";

@@ -9,11 +9,11 @@ function source(relativePath: string) {
 
 describe("Files tab revision experience", () => {
   it("keeps one closeable inspector and restores focus to Actions", () => {
-    const fileView = source("src/components/projects/v2/files-tab/file/FileView.tsx");
-    const header = source("src/components/projects/v2/files-tab/file/FileInspectorPanelHeader.tsx");
+    const fileView = source("src/components/workspaces/v2/files-tab/file/FileView.tsx");
+    const header = source("src/components/workspaces/v2/files-tab/file/FileInspectorPanelHeader.tsx");
 
     assert.match(fileView, /workspace\?\.inspector/);
-    const workspace = source("src/components/projects/v2/files-tab/FilesViews.tsx");
+    const workspace = source("src/components/workspaces/v2/files-tab/FilesViews.tsx");
     for (const panel of ["details", "linked_tasks", "version_history", "github"]) assert.ok(workspace.includes(`| "${panel}"`));
     assert.match(fileView, /FileInspectorContainer/);
     assert.match(fileView, /setActiveInspectorPanel/);
@@ -25,7 +25,7 @@ describe("Files tab revision experience", () => {
   });
 
   it("never offers Compare on the active version", () => {
-    const history = source("src/components/projects/v2/files-tab/file/FileVersionHistoryPanel.tsx");
+    const history = source("src/components/workspaces/v2/files-tab/file/FileVersionHistoryPanel.tsx");
     assert.match(history, /onCompareClick && !isCurrent/);
     assert.match(history, /Compare with active/);
   });
@@ -62,9 +62,9 @@ describe("Files tab revision experience", () => {
   });
 
   it("sends active browser edits through immutable upload intents", () => {
-    const viewer = source("src/components/projects/v2/files-tab/file/TextViewer.tsx");
-    const actions = source("src/components/projects/v2/files-tab/file/FileActionsBar.tsx");
-    const fileView = source("src/components/projects/v2/files-tab/file/FileView.tsx");
+    const viewer = source("src/components/workspaces/v2/files-tab/file/TextViewer.tsx");
+    const actions = source("src/components/workspaces/v2/files-tab/file/FileActionsBar.tsx");
+    const fileView = source("src/components/workspaces/v2/files-tab/file/FileView.tsx");
 
     for (const implementation of [viewer, actions, fileView]) {
       assert.match(implementation, /active_revision/);
@@ -75,8 +75,8 @@ describe("Files tab revision experience", () => {
   it("reconciles version metadata through bounded authoritative reads", () => {
     const nodes = source("src/app/actions/files/nodes.ts");
     const attribution = source("src/lib/files/file-attribution.ts");
-    const channel = source("src/lib/realtime/project-files-channel.ts");
-    const root = source("src/components/projects/v2/files-tab/FilesTabRoot.tsx");
+    const channel = source("src/lib/realtime/workspace-files-channel.ts");
+    const root = source("src/components/workspaces/v2/files-tab/FilesTabRoot.tsx");
 
     assert.match(nodes, /getFileAttributionByNodeId/);
     assert.match(attribution, /pn\.current_version = fv\.version/);

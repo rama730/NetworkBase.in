@@ -13,7 +13,7 @@ import {
 } from "@/app/actions/applications";
 import { DecisionDialog, type DecisionInput } from "@/components/applications/DecisionDialog";
 import { Actions, primary, secondary, Shell, STATUS_TONE, useCardAction, useCardQuery } from "@/components/messages/cards/card-parts";
-import WithdrawApplicationDialog from "@/components/projects/dashboard/WithdrawApplicationDialog";
+import WithdrawApplicationDialog from "@/components/workspaces/dashboard/WithdrawApplicationDialog";
 import { UserAvatar } from "@/components/ui/UserAvatar";
 import { reopenState, safeHttpUrl } from "@/lib/applications/utils";
 import { APPLICATION_STATUS_LABEL } from "@/lib/messaging/application-status";
@@ -134,7 +134,7 @@ export function ApplicationLinks({ view }: { view: ApplicationCardView }) {
   return (
     <p className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-[13px]">
       {view.project_chat_id ? <Link href={conversationHref(view.project_chat_id)} className="font-medium text-primary hover:underline">Open workspace chat</Link> : null}
-      <Link href={`/projects/${view.project_slug ?? view.project_id}${view.is_applicant ? "?source=application_accepted" : ""}`} className="font-medium text-primary hover:underline">Open workspace</Link>
+      <Link href={`/workspaces/${view.project_slug ?? view.project_id}${view.is_applicant ? "?source=application_accepted" : ""}`} className="font-medium text-primary hover:underline">Open workspace</Link>
     </p>
   );
 }
@@ -164,7 +164,7 @@ export function ApplicationCard({ view }: { view: ApplicationCardView }) {
           <p className="text-[15px] leading-snug">
             <Link href={profileHref(view.applicant)} className="font-medium hover:underline">{name}</Link>{" "}
             applied for <span className="font-medium">{role}</span> in{" "}
-            <Link href={`/projects/${view.project_slug ?? view.project_id}`} className="text-primary hover:underline">{view.project_title}</Link>
+            <Link href={`/workspaces/${view.project_slug ?? view.project_id}`} className="text-primary hover:underline">{view.project_title}</Link>
           </p>
           {view.applicant_headline ? <p className="mt-0.5 truncate text-xs text-muted-foreground">{view.applicant_headline}</p> : null}
         </div>
@@ -205,14 +205,14 @@ export function ApplicationStatusBar({ applicationId }: { applicationId: string 
     <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 border-b border-border bg-muted/30 px-3 py-2 sm:px-4" role="group" aria-label={`Application status: ${APPLICATION_STATUS_LABEL[view.status] ?? view.status}`}>
       <span className="nb-status" data-status={STATUS_TONE[view.status] ?? "archived"} aria-live="polite">{APPLICATION_STATUS_LABEL[view.status] ?? view.status}</span>
       <p className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
-        <Link href={`/projects/${view.project_slug ?? view.project_id}`} className="hover:text-foreground hover:underline">{role} · {view.project_title}</Link>
+        <Link href={`/workspaces/${view.project_slug ?? view.project_id}`} className="hover:text-foreground hover:underline">{role} · {view.project_title}</Link>
         {outcome ? <span> · {outcome}</span> : null}
       </p>
       <ApplicationActions view={view} layout="bar" />
       {view.status === "accepted" ? (
         <span className="flex flex-wrap gap-x-3 text-[13px]">
           {view.project_chat_id ? <Link href={conversationHref(view.project_chat_id)} className="font-medium text-primary hover:underline">Open general channel</Link> : null}
-          <Link href={`/projects/${view.project_slug ?? view.project_id}${view.is_applicant ? "?source=application_accepted" : ""}`} className="font-medium text-primary hover:underline">Open workspace</Link>
+          <Link href={`/workspaces/${view.project_slug ?? view.project_id}${view.is_applicant ? "?source=application_accepted" : ""}`} className="font-medium text-primary hover:underline">Open workspace</Link>
         </span>
       ) : null}
     </div>

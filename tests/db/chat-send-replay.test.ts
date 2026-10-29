@@ -27,7 +27,7 @@ moduleStubs.set("@/lib/supabase/auth-user", { getAuthUser: async () => ({ id: vi
 moduleStubs.set("@/lib/messaging/publish", { publishUser: () => undefined, publishUsers: () => undefined, publishChannel: () => undefined, publishSentMessage: () => undefined });
 moduleStubs.set("@/lib/messaging/send-bucket", { takeSendToken: () => true, takeReactToken: () => true });
 moduleStubs.set("@/lib/redis", { getRedisClient: () => fakeRedis, rateLimit: async () => ({ allowed: true }), redis: fakeRedis });
-moduleStubs.set("@/app/actions/project", {
+moduleStubs.set("@/app/actions/workspace", {
   createTaskAction: async (data: { title: string }) => {
     taskCreates += 1;
     if (failTaskCreates > 0) { failTaskCreates -= 1; return { success: false, error: "boom" }; }

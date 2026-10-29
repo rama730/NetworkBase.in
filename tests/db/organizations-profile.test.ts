@@ -126,7 +126,7 @@ test("profile: Show on my profile off hides the org entry, its project entries a
 
 test("§24 pass: guests get no automatic entry; story helpers; opt-in Work record; detached and deleted-org labels; Following adds an org's public projects", async () => {
   const o = await org();
-  const lifecycle = await loadAppModule(() => import("../../src/lib/projects/collaborator-lifecycle"));
+  const lifecycle = await loadAppModule(() => import("../../src/lib/workspaces/collaborator-lifecycle"));
   const { db } = await loadAppModule(() => import("../../src/lib/db"));
   const guest = await sql.begin((tx) => createUser(tx));
   await lifecycle.addProjectMemberInternal(db as never, { projectId: o.orgId, userId: guest, role: "viewer", actorId: o.owner, source: "email_invite" } as never);

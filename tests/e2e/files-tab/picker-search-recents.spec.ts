@@ -26,7 +26,7 @@ import { recordAudit, type AuditResult } from "./audit";
 
 const PROJECT_SLUG =
   process.env.E2E_FILES_PROJECT_SLUG || "e2e-files-workspace-controls";
-const FILES_TAB_URL = `/projects/${PROJECT_SLUG}?tab=files`;
+const FILES_TAB_URL = `/workspaces/${PROJECT_SLUG}?tab=files`;
 
 const V3_ROOT_TESTID = "files-tab-root";
 const V3_DETECT_TIMEOUT_MS = 15_000;

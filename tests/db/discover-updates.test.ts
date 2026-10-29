@@ -142,7 +142,7 @@ test("internal storage keys, raw metadata and linked work never reach the browse
   for (const secret of ["\"bucket\"", "\"storageKey\"", "\"assetId\"", "asset-1", "authorRoleSnapshot", "internal", "entityRefs", "Secret title"]) {
     assert.ok(!wire.includes(secret), `${secret} must not be sent`);
   }
-  assert.match(update!.media[0]!.url ?? "", /^\/api\/v1\/projects\/.+\/update-media\?/, "media goes through the authorized route");
+  assert.match(update!.media[0]!.url ?? "", /^\/api\/v1\/workspaces\/.+\/update-media\?/, "media goes through the authorized route");
   assert.equal(update!.media[0]!.altText, "Chart");
 });
 

@@ -4,7 +4,7 @@ import { sql } from "drizzle-orm";
 
 import { db } from "@/lib/db";
 import { withDbRetry } from "@/lib/db/retry";
-import { getProjectAccessByIds } from "@/lib/data/project-access";
+import { getProjectAccessByIds } from "@/lib/data/workspace-access";
 import { logger } from "@/lib/logger";
 import { uuidArray } from "@/lib/messaging/server";
 import {

@@ -10,7 +10,7 @@ import { profileAuditEvents, profiles, storageAssets, storageQuotaScopes } from 
 import { eq, and, desc, inArray, sql } from 'drizzle-orm'
 import { revalidatePath, revalidateTag } from 'next/cache'
 import { DISCOVER_ANON_CACHE_TAG } from '@/constants/discover'
-import { invalidatePublicProjectsFeedCache } from '@/lib/projects/public-feed-service'
+import { invalidatePublicProjectsFeedCache } from '@/lib/workspaces/public-feed-service'
 import { consumeRateLimit } from '@/lib/security/rate-limit'
 import {
     normalizeProfileUpdateInput,

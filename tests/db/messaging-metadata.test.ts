@@ -19,7 +19,7 @@ moduleStubs.set("@/lib/supabase/server", { createAdminClient: async () => ({ sto
 }) } }) });
 moduleStubs.set("@/lib/supabase/auth-user", { getAuthUser: async () => ({ id: viewer }) });
 moduleStubs.set("@/lib/messaging/publish", { publishSentMessage: (input: unknown) => published.push(input), publishUser() {}, publishUsers() {}, publishChannel() {} });
-moduleStubs.set("@/app/actions/project", { createTaskAction: async () => ({ success: false }) });
+moduleStubs.set("@/app/actions/workspace", { createTaskAction: async () => ({ success: false }) });
 let messages: typeof import("../../src/app/actions/chat/messages");
 let send: typeof import("../../src/lib/messaging/send");
 

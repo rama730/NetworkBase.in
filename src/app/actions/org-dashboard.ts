@@ -4,13 +4,13 @@ import { and, asc, desc, eq, gt, gte, inArray, isNotNull, isNull, lt, ne, or, sq
 
 import { db } from '@/lib/db';
 import { profiles, projectMembers, projectNodeEvents, projectNodes, projectOpenRoles, projects, projectSprints, projectUpdates, roleApplications, taskActivityEvents, taskTeamMembers, tasks } from '@/lib/db/schema';
-import { getProjectAccessById, type ProjectAccess } from '@/lib/data/project-access';
+import { getProjectAccessById, type ProjectAccess } from '@/lib/data/workspace-access';
 import { orgFileAccessSql } from '@/lib/files/internal-helpers';
 import { copyState, type CopyState } from '@/lib/organizations/assignment-rules';
 import { activityVisible, getStartedSteps, journeyFromSprints, needsAttention, type ActivityKind } from '@/lib/organizations/dashboard-rules';
 import { readViewerOrgRole } from '@/lib/organizations/detail';
 import { readOrgDocsAction } from '@/app/actions/org-docs';
-import { normalizeProjectPublicTabVisibility } from '@/lib/projects/settings-policies';
+import { normalizeProjectPublicTabVisibility } from '@/lib/workspaces/settings-policies';
 import { getViewerAuthContext } from '@/lib/server/viewer-context';
 import { copyColumns, leadSprintRows, ownCopies, plural, readNeedsYou, stateOf, type NeedsYouRow, type OrgViewer } from '@/lib/organizations/needs-you';
 
@@ -71,7 +71,7 @@ async function readActivity(v: OrgViewer, filter: string, opts: { publicOnly?: b
     for (const c of children) {
         const seen = c.visibility === 'public' || (v.isInside && (c.visibility !== 'private' || v.isAdmin));
         if ((opts.publicOnly && c.visibility !== 'public') || !seen) continue;
-        items.push({ id: `project:${c.id}`, kind: 'project', text: `${c.title} was created`, at: c.createdAt.toISOString(), href: `/projects/${encodeURIComponent(c.slug ?? c.id)}`, actorId: c.ownerId });
+        items.push({ id: `project:${c.id}`, kind: 'project', text: `${c.title} was created`, at: c.createdAt.toISOString(), href: `/workspaces/${encodeURIComponent(c.slug ?? c.id)}`, actorId: c.ownerId });
     }
     if (joins[0] && joins[0].n > 0) items.push({ id: 'joins:week', kind: 'joins', text: `${plural(joins[0].n, 'person')} joined this week`.replace('persons', 'people'), at: new Date().toISOString(), href: base, actorId: null });
     for (const p of posts) {
@@ -336,7 +336,7 @@ export async function readChildOrgLineAction(childProjectId: string) {
     const now = new Date();
     const open = due.filter((c) => ['not_started', 'in_progress', 'returned', 'missing'].includes(stateOf(c, now).state));
     // What's happening (report §27.5): the org's group copies for this project and, for the lead, linked-sprint items.
-    const projectHref = `/projects/${encodeURIComponent(child.slug ?? childProjectId)}`;
+    const projectHref = `/workspaces/${encodeURIComponent(child.slug ?? childProjectId)}`;
     const needsYou: NeedsYouRow[] = open.map((c) => ({ kind: 'group', label: `${c.title} for the workspace${stateOf(c, now).state === 'missing' ? ' · missing' : ''}`, href: `${projectHref}?tab=tasks` }));
     if (userId && child.ownerId === userId) needsYou.push(...(await leadSprintRows(child.parentId, userId)).filter((r) => r.href.startsWith(projectHref)));
     return {
@@ -364,7 +364,7 @@ export async function remindLeadsAction(orgId: string, projectIds: string[]): Pr
             : row.overdue ? `${row.overdue} ${row.overdue === 1 ? 'task is' : 'tasks are'} overdue in ${row.title}` : null;
         if (!what) continue;
         await notifyOrg({ orgId, eventKey: 'assignments.due_changed', actorId: v.userId, to: [row.lead!.id], title: `${v.org.title} reminded you: ${what}`,
-            href: `/projects/${encodeURIComponent(row.slug ?? row.id)}?tab=tasks`, sourceEventId: `remind-lead:${row.id}:${window}` });
+            href: `/workspaces/${encodeURIComponent(row.slug ?? row.id)}?tab=tasks`, sourceEventId: `remind-lead:${row.id}:${window}` });
         reminded += 1;
     }
     return { success: true, reminded };

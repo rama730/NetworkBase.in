@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { runInNewContext } from "node:vm";
 import { test } from "node:test";
 import ts from "typescript";
-import { parseProjectFileKey } from "../../../src/lib/storage/project-file-key";
+import { parseProjectFileKey } from "../../../src/lib/storage/workspace-file-key";
 
 const project = "11111111-1111-4111-8111-111111111111";
 const source = readFileSync("src/lib/files/permanent-delete.ts", "utf8");
@@ -135,7 +135,7 @@ function fixture(
         transaction: async (run: (tx: unknown) => Promise<unknown>) => run(tx),
       },
     },
-    "@/lib/storage/project-file-key": { parseProjectFileKey },
+    "@/lib/storage/workspace-file-key": { parseProjectFileKey },
     "@/lib/storage/asset-deletion": {
       scheduleAssetDeletionIfUnreferenced: async (_tx: unknown, ids: string[]) => {
         events.push("schedule");

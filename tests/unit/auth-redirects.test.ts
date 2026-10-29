@@ -30,7 +30,7 @@ describe('auth redirects', () => {
 
     it('normalizes valid internal next paths', () => {
         assert.equal(normalizeAuthNextPath('/discover'), '/discover')
-        assert.equal(normalizeAuthNextPath('/projects/abc?tab=files'), '/projects/abc?tab=files')
+        assert.equal(normalizeAuthNextPath('/workspaces/abc?tab=files'), '/workspaces/abc?tab=files')
     })
 
     it('rejects malformed or external next paths', () => {
@@ -129,8 +129,8 @@ describe('auth redirects', () => {
     it('builds auth page href from normalized redirect path', () => {
         assert.equal(buildAuthPageHref('/signup', '/discover'), '/signup')
         assert.equal(
-            buildAuthPageHref('/login', '/projects/a?tab=files'),
-            '/login?redirect=%2Fprojects%2Fa%3Ftab%3Dfiles',
+            buildAuthPageHref('/login', '/workspaces/a?tab=files'),
+            '/login?redirect=%2Fworkspaces%2Fa%3Ftab%3Dfiles',
         )
     })
 })

@@ -75,8 +75,8 @@ export default function TopNav() {
     const profileMenuTriggerRef = useRef<HTMLButtonElement>(null);
     const mobileMenuTriggerRef = useRef<HTMLButtonElement>(null);
 
-    const isProjectDetailRoute = pathname.startsWith('/projects/');
-    const isCreateProjectRoute = pathname === '/projects/new';
+    const isProjectDetailRoute = pathname.startsWith('/workspaces/');
+    const isCreateProjectRoute = pathname === '/workspaces/new';
 
 
     const closeGlobalSearch = useCallback(() => {
@@ -180,7 +180,7 @@ export default function TopNav() {
                     {authUiState === "signed-in" && (
                         // Project creation is its own page (spec §18), not a modal. On that page the button reads as "you are here".
                         <Link
-                            href="/projects/new"
+                            href="/workspaces/new"
                             aria-current={isCreateProjectRoute ? 'page' : undefined}
                             className={`nb-ui-label hidden h-[var(--ui-control-height)] items-center gap-2 rounded-md border px-4 transition-[background-color,border-color,color,transform] duration-150 ease-in-out active:translate-y-px md:inline-flex ${isCreateProjectRoute
                                 ? 'pointer-events-none border-border bg-muted text-muted-foreground'

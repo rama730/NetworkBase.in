@@ -19,7 +19,7 @@ export default function robots(): MetadataRoute.Robots {
         "/dpa",
         "/open-source",
         "/u/",
-        "/projects/",
+        "/workspaces/",
         "/org/",
       ],
       disallow: [

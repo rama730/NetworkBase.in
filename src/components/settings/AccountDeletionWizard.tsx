@@ -137,7 +137,7 @@ export default function AccountDeletionWizard({ onClose, onDeleted }: Props) {
                             {sharedProjects.length > 0
                                 ? `, ${sharedProjects.length} with other people in ${sharedProjects.length === 1 ? "it" : "them"}: ${sharedProjects.slice(0, 3).map((project) => project.title).join(", ")}${sharedProjects.length > 3 ? "…" : ""}`
                                 : ""}.
-                            {" "}Transfer any you want to keep from each workspace’s Settings tab. <Link href="/projects" onClick={onClose} className="text-primary hover:underline">Open your workspaces</Link>
+                            {" "}Transfer any you want to keep from each workspace’s Settings tab. <Link href="/workspaces" onClick={onClose} className="text-primary hover:underline">Open your workspaces</Link>
                         </p>
                     ) : (
                         <p className="text-muted-foreground">You don’t own any workspaces.</p>

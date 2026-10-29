@@ -1,8 +1,8 @@
 "use client";
 
-import InviteCollaboratorModal, { type ParticipationProject } from "@/components/projects/dashboard/InviteCollaboratorModal";
+import InviteCollaboratorModal, { type ParticipationProject } from "@/components/workspaces/dashboard/InviteCollaboratorModal";
 import type { ProfileInviteProjectOption } from "@/lib/profile/collaboration";
-import { PlainContentHeadings } from "@/components/projects/PlainContentHeadings";
+import { PlainContentHeadings } from "@/components/workspaces/PlainContentHeadings";
 
 interface ProfileInviteModalProps {
     isOpen: boolean;

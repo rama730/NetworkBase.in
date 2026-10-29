@@ -1,11 +1,11 @@
 import { db } from "@/lib/db";
 import { ConflictError, ForbiddenError, NotFoundError } from "@/lib/errors/domain";
 import { projectEventCounters, projectMembers, projectNodeEvents, projectNodeLocks, projectNodes, projects, tasks } from "@/lib/db/schema";
-import { assertProjectTabReadAccess, canReadProjectTab, getProjectAccessById, type ProjectAccess } from "@/lib/data/project-access";
+import { assertProjectTabReadAccess, canReadProjectTab, getProjectAccessById, type ProjectAccess } from "@/lib/data/workspace-access";
 import { eq, and, isNull, sql, ne, gt, type SQL } from "drizzle-orm";
 import { isWithParent } from "@/app/actions/files/_constants";
-import { requireProjectCapability } from "@/lib/projects/collaborator-lifecycle";
-import { canProjectMemberUploadFiles, projectMemberCan } from "@/lib/projects/settings-policies";
+import { requireProjectCapability } from "@/lib/workspaces/collaborator-lifecycle";
+import { canProjectMemberUploadFiles, projectMemberCan } from "@/lib/workspaces/settings-policies";
 
 type DbTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
 type ExistingProjectAccess = ProjectAccess & { project: NonNullable<ProjectAccess["project"]> };

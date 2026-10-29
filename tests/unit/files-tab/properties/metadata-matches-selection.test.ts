@@ -64,7 +64,7 @@ import {
   defaultFilesState,
   type ProjectFilesState,
 } from "@/stores/files/types";
-import { selectCurrentLocation } from "@/components/projects/v2/files-tab/hooks/useCurrentLocation";
+import { selectCurrentLocation } from "@/components/workspaces/v2/files-tab/hooks/useCurrentLocation";
 
 // ---------------------------------------------------------------------------
 // Tree generation
@@ -367,7 +367,7 @@ describe("metadata_matches_selection — Property 2 (Task 2.8)", () => {
 
 const REPO_COMPONENT_DIR = path.resolve(
   __dirname,
-  "../../../../src/components/projects/v2/files-tab",
+  "../../../../src/components/workspaces/v2/files-tab",
 );
 
 function readComponent(relPath: string): string {

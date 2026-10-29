@@ -25,7 +25,7 @@ import {
   runFolderLoad,
   type DeriveFolderContentsInput,
   type LoadFolderContent,
-} from "../../../src/components/projects/v2/files-tab/hooks/useFolderContents";
+} from "../../../src/components/workspaces/v2/files-tab/hooks/useFolderContents";
 
 // ─── Fixtures ────────────────────────────────────────────────────────
 

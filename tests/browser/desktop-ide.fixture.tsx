@@ -4,7 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   OpenInIdeButton,
   OpenInIdeSheet,
-} from "@/components/projects/v2/files-tab/OpenInIdeButton";
+} from "@/components/workspaces/v2/files-tab/OpenInIdeButton";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import MyWorkDrawer from "@/components/my-work/MyWorkDrawer";
 import { useUIStore } from "@/stores/ui-store";

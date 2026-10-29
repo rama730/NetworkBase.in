@@ -33,7 +33,7 @@ import type { ProjectNode } from "@/lib/db/schema";
 import {
   computeVisibleIdsForSearch,
   FILES_TAB_SIDEBAR_WIDTH_PX,
-} from "@/components/projects/v2/files-tab/sidebarSearch";
+} from "@/components/workspaces/v2/files-tab/sidebarSearch";
 import { useFilesStore } from "@/stores/filesStore";
 import { defaultFilesState } from "@/stores/files/types";
 
@@ -258,7 +258,7 @@ describe("FilesTabSidebar — collapse toggle store action (Req 2.4, 2.5)", () =
 const SIDEBAR_SOURCE = readFileSync(
   path.resolve(
     __dirname,
-    "../../../src/components/projects/v2/files-tab/FilesTabSidebar.tsx",
+    "../../../src/components/workspaces/v2/files-tab/FilesTabSidebar.tsx",
   ),
   "utf8",
 );

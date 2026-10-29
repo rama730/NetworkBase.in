@@ -2,7 +2,7 @@
 
 import { sql } from "drizzle-orm";
 
-import { createTaskAction } from "@/app/actions/project";
+import { createTaskAction } from "@/app/actions/workspace";
 import { hydrateCards } from "@/lib/messaging/cards";
 import { CHAT_MAX_BODY } from "@/lib/messaging/constants";
 import { publishChannel, publishUser, publishUsers } from "@/lib/messaging/publish";

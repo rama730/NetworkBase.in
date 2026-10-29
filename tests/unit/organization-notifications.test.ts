@@ -3,7 +3,7 @@ import { test } from "node:test";
 
 import type { OrgEmailKind } from "@/lib/email/contracts";
 import { ALWAYS_SENT_EMAILS, buildOrgEmail, formatEmailWhen, orgMuteToken, readOrgMuteToken, type OrgEmailData } from "@/lib/email/org-templates";
-import { getVisibleProjectNotificationEntries, groupProjectNotificationEntries } from "@/lib/notifications/project-policy";
+import { getVisibleProjectNotificationEntries, groupProjectNotificationEntries } from "@/lib/notifications/workspace-policy";
 import { DEFAULT_NOTIFICATION_PREFERENCES, normalizeNotificationPreferences, orgChoiceBlocks } from "@/lib/notifications/preferences";
 import { notificationMatchesMuteScope } from "@/lib/notifications/presentation";
 import { digestIsEmpty, localClock, nextDate } from "@/lib/organizations/notify-rules";

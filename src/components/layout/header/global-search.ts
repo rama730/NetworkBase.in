@@ -195,7 +195,7 @@ export function normalizeGlobalSearchQuery(query: string) {
 export function isProjectDetailPath(pathname: string | null) {
     const segments = pathname?.split("/").filter(Boolean) ?? [];
     // An org page (/org/<handle>) searches that org: "Search CSE-3A" first (report §30.1).
-    return segments.length === 2 && (segments[0] === "projects" || segments[0] === "org") && segments[1] !== "new";
+    return segments.length === 2 && (segments[0] === "workspaces" || segments[0] === "org") && segments[1] !== "new";
 }
 
 export function getProjectIdentifierFromPathname(pathname: string | null) {

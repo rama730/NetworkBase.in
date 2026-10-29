@@ -4,11 +4,11 @@ import { readFileSync } from "node:fs";
 
 describe("Approved compact GitHub Sync setup", () => {
   const source = readFileSync(
-    "src/components/projects/v2/files-tab/RepositorySync.tsx",
+    "src/components/workspaces/v2/files-tab/RepositorySync.tsx",
     "utf8",
   );
   const css = readFileSync(
-    "src/components/projects/v2/files-tab/github-sync/RepositorySync.module.css",
+    "src/components/workspaces/v2/files-tab/github-sync/RepositorySync.module.css",
     "utf8",
   );
   it("uses one heading, a back arrow and compact mode choices", () => {

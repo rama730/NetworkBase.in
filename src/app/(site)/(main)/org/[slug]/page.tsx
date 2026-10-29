@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 
-import { generateProjectRouteMetadata, ProjectRoute, type RouteSearchParams } from '../../projects/[slug]/project-route';
+import { generateProjectRouteMetadata, ProjectRoute, type RouteSearchParams } from '../../workspaces/[slug]/workspace-route';
 
 type Props = { params: Promise<{ slug: string }>; searchParams: Promise<RouteSearchParams> };
 

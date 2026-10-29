@@ -35,7 +35,7 @@ import path from "node:path";
 const LINKED_TASKS_PANEL_SRC = readFileSync(
   path.resolve(
     __dirname,
-    "../../../src/components/projects/v2/files-tab/file/LinkedTasksPanel.tsx",
+    "../../../src/components/workspaces/v2/files-tab/file/LinkedTasksPanel.tsx",
   ),
   "utf8",
 );
@@ -43,7 +43,7 @@ const LINKED_TASKS_PANEL_SRC = readFileSync(
 const FILE_VERSION_HISTORY_PANEL_SRC = readFileSync(
   path.resolve(
     __dirname,
-    "../../../src/components/projects/v2/files-tab/file/FileVersionHistoryPanel.tsx",
+    "../../../src/components/workspaces/v2/files-tab/file/FileVersionHistoryPanel.tsx",
   ),
   "utf8",
 );
@@ -51,7 +51,7 @@ const FILE_VERSION_HISTORY_PANEL_SRC = readFileSync(
 const V3_ATTACHMENT_PICKER_SRC = readFileSync(
   path.resolve(
     __dirname,
-    "../../../src/components/projects/v2/files-tab/picker/V3AttachmentPicker.tsx",
+    "../../../src/components/workspaces/v2/files-tab/picker/V3AttachmentPicker.tsx",
   ),
   "utf8",
 );

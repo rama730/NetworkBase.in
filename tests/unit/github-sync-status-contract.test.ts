@@ -14,7 +14,7 @@ function source(path: string) {
 test("account integrations keeps repository synchronization on project surfaces", () => {
   const ui = source("src/components/settings/IntegrationsSettings.tsx");
   assert.match(ui, /Repository access is managed from each workspace/);
-  assert.match(ui, /href=\{`\/projects\/\$\{project\.slug\}`\}/);
+  assert.match(ui, /href=\{`\/workspaces\/\$\{project\.slug\}`\}/);
   assert.doesNotMatch(ui, /getSyncPreviewAction|retryGithubImportAction/);
   assert.doesNotMatch(ui, /role="progressbar"|setSyncRequesting|onSync/);
 });
@@ -22,7 +22,7 @@ test("account integrations keeps repository synchronization on project surfaces"
 test("review and queued synchronization survive workspace remounts", () => {
   const action = source("src/app/actions/github-sync.ts");
   const workspace = source(
-    "src/components/projects/v2/files-tab/RepositorySync.tsx",
+    "src/components/workspaces/v2/files-tab/RepositorySync.tsx",
   );
 
   assert.match(action, /process\.env\.NODE_ENV !== "production"/);
@@ -45,7 +45,7 @@ test("workflow files request GitHub's dedicated permission and retain a retry pa
   const oauth = source("src/lib/github/oauth-client.ts");
   const action = source("src/app/actions/github-sync.ts");
   const workspace = source(
-    "src/components/projects/v2/files-tab/RepositorySync.tsx",
+    "src/components/workspaces/v2/files-tab/RepositorySync.tsx",
   );
 
   assert.match(oauth, /repo workflow user:email read:org/);

@@ -14,7 +14,7 @@ import assert from "node:assert/strict";
 import {
   formatBytes,
   formatRelativeTime,
-} from "@/components/projects/v2/files-tab/folder/format";
+} from "@/components/workspaces/v2/files-tab/folder/format";
 
 // ---------------------------------------------------------------------------
 // formatBytes — Req 4.5

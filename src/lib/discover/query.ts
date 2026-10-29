@@ -8,7 +8,7 @@ import {
     type ProjectType,
     type SortOption,
 } from '@/constants/discover';
-import { PROJECT_TYPE_OPTIONS } from '@/lib/projects/project-create-options';
+import { PROJECT_TYPE_OPTIONS } from '@/lib/workspaces/workspace-create-options';
 import type { DiscoverFilters as PeopleFilters } from '@/app/actions/connections';
 
 /** Discover's people rail: people you can see and connect with. The server render and the rail use the same filters. */

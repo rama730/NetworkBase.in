@@ -9,7 +9,7 @@ import {
   getDefaultSprintDateRange,
   getSprintDurationSummary,
   parseSprintDateInput,
-} from "@/lib/projects/sprints";
+} from "@/lib/workspaces/sprints";
 
 describe("sprint validation", () => {
   it("builds a valid default sprint date range", () => {

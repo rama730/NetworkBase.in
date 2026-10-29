@@ -7,7 +7,7 @@ import { z } from 'zod';
 import { inngest } from '@/inngest/client';
 import { db } from '@/lib/db';
 import { projects } from '@/lib/db/schema';
-import { getProjectAccessById, writeBlockedMessage } from '@/lib/data/project-access';
+import { getProjectAccessById, writeBlockedMessage } from '@/lib/data/workspace-access';
 import { ORG_LIMITS } from '@/lib/organizations/config';
 import { validateOrgHandle } from '@/lib/organizations/handle';
 import { isOrgHandleAvailable } from '@/lib/organizations/join';
@@ -30,7 +30,7 @@ async function orgOwner(orgId: string) {
 
 const touch = (slug: string | null, id: string) => {
     revalidatePath(`/org/${slug ?? id}`);
-    revalidatePath(`/projects/${slug ?? id}`);
+    revalidatePath(`/workspaces/${slug ?? id}`);
 };
 
 export async function readOrgLifecyclePreviewAction(orgId: string) {
@@ -71,7 +71,7 @@ export async function deleteOrgAction(orgId: string, input: z.input<typeof delet
     if (parsed.data.confirmHandle.toLowerCase() !== (owner.slug ?? '').toLowerCase()) return { success: false, error: "That isn’t this organization’s handle." };
     const { deleteAt } = await scheduleOrgDeletion(orgId, owner.userId, parsed.data.childMode);
     touch(owner.slug, orgId);
-    revalidatePath('/projects');
+    revalidatePath('/workspaces');
     return { success: true, deleteAt: deleteAt.toISOString() };
 }
 

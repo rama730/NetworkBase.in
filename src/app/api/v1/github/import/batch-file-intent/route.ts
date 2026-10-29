@@ -8,7 +8,7 @@ import { validateCsrf } from '@/lib/security/csrf';
 import { assertProjectWriteAccess } from '@/lib/files/internal-helpers';
 import { enforceRouteLimit, requireAuthenticatedUser } from '@/app/api/v1/_shared';
 import { z } from 'zod';
-import { buildProjectFileKey } from '@/lib/storage/project-file-key';
+import { buildProjectFileKey } from '@/lib/storage/workspace-file-key';
 import { createUploadIntents } from '@/lib/upload/upload-intents';
 import {
   normalizeAndValidateFileSize,

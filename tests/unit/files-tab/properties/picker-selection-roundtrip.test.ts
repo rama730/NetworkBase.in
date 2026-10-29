@@ -210,7 +210,7 @@ describe("Picker Selection Round-Trip — Property 1 (Task 13.1)", () => {
 
 const PICKER_DIR = path.resolve(
   __dirname,
-  "../../../../src/components/projects/v2/files-tab/picker",
+  "../../../../src/components/workspaces/v2/files-tab/picker",
 );
 
 function readPickerFile(filename: string): string {

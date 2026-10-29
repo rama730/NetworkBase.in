@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import test from 'node:test';
-import { projectActionsSource } from "./_project-actions-source";
+import { projectActionsSource } from "./_workspace-actions-source";
 
 function readProjectFile(relativePath: string) {
     return fs.readFileSync(path.join(process.cwd(), relativePath), 'utf8');
@@ -79,21 +79,21 @@ test('profile enrichment failure does not prevent durable notification writes', 
 });
 
 test('every user-visible project notification preference has a concrete source trigger', () => {
-    const policy = readProjectFile('src/lib/notifications/project-policy.ts');
+    const policy = readProjectFile('src/lib/notifications/workspace-policy.ts');
     const sourceFiles = [
-        'src/app/actions/project/index.ts',
-        'src/lib/projects/server/common.ts',
-        'src/lib/projects/server/detail.ts',
-        'src/lib/projects/server/lifecycle.ts',
-        'src/lib/projects/server/access.ts',
-        'src/lib/projects/server/settings.ts',
-        'src/lib/projects/server/tasks.ts',
-        'src/lib/projects/server/sprints.ts',
+        'src/app/actions/workspace/index.ts',
+        'src/lib/workspaces/server/common.ts',
+        'src/lib/workspaces/server/detail.ts',
+        'src/lib/workspaces/server/lifecycle.ts',
+        'src/lib/workspaces/server/access.ts',
+        'src/lib/workspaces/server/settings.ts',
+        'src/lib/workspaces/server/tasks.ts',
+        'src/lib/workspaces/server/sprints.ts',
         'src/app/actions/task.ts',
         'src/app/actions/task-comment.ts',
-        'src/app/actions/project/doc.ts',
+        'src/app/actions/workspace/doc.ts',
         'src/app/actions/org-docs.ts',
-        'src/app/actions/project/updates.ts',
+        'src/app/actions/workspace/updates.ts',
         'src/app/actions/account.ts',
         'src/app/actions/files/mutations.ts',
         'src/app/actions/files/versions.ts',
@@ -101,8 +101,8 @@ test('every user-visible project notification preference has a concrete source t
         'src/lib/applications/notifications.ts',
         'src/lib/notifications/task-file.ts',
         'src/lib/notifications/task-comment-mention.ts',
-        'src/lib/projects/task-assignment.ts',
-        'src/lib/projects/task-transition-service.ts',
+        'src/lib/workspaces/task-assignment.ts',
+        'src/lib/workspaces/task-transition-service.ts',
     ].map(readProjectFile).join('\n');
     const visibleEntries = Array.from(policy.matchAll(/^    "([^"]+)": E\(\{[\s\S]*?\n    \}\),/gm))
         .filter((entry) => /visible: true/.test(entry[0]));
@@ -116,9 +116,9 @@ test('every user-visible project notification preference has a concrete source t
 
 test('normal and collaborator-removal assignments use the canonical activity and notification flow', () => {
     const actions = readProjectFile('src/app/actions/task.ts');
-    const lifecycle = readProjectFile('src/lib/projects/collaborator-lifecycle.ts');
+    const lifecycle = readProjectFile('src/lib/workspaces/collaborator-lifecycle.ts');
     const projectActions = projectActionsSource();
-    const assignment = readProjectFile('src/lib/projects/task-assignment.ts');
+    const assignment = readProjectFile('src/lib/workspaces/task-assignment.ts');
     for (const source of [actions, lifecycle]) {
         assert.match(source, /await recordTaskAssignment\(/);
         assert.match(source, /taskAssignmentNotification\(/);

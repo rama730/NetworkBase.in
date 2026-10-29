@@ -22,7 +22,7 @@ export function useConversationExit(channel: ExitTarget) {
   const pathname = usePathname();
   const queryClient = useQueryClient();
   const shell = useChatShell();
-  const home = channel.project_id ? `/messages/p/${channel.project_id}` : "/messages";
+  const home = channel.project_id ? `/messages/w/${channel.project_id}` : "/messages";
   const refresh = () => {
     void queryClient.invalidateQueries({ queryKey: queryKeys.chat.channel(channel.id) });
     shell.refresh();

@@ -23,7 +23,7 @@ delete process.env.UPSTASH_REDIS_REST_TOKEN;
 let assignments: typeof import("../../src/app/actions/assignments");
 let units: typeof import("../../src/app/actions/child-units");
 let subtasks: typeof import("../../src/app/actions/subtask");
-let tasksServer: typeof import("../../src/lib/projects/server/tasks");
+let tasksServer: typeof import("../../src/lib/workspaces/server/tasks");
 before(async () => {
   const viewerContext = await loadAppModule(() => import("../../src/lib/server/viewer-context"));
   moduleStubs.set("@/lib/server/viewer-context", {
@@ -33,7 +33,7 @@ before(async () => {
   assignments = await loadAppModule(() => import("../../src/app/actions/assignments"));
   units = await loadAppModule(() => import("../../src/app/actions/child-units"));
   subtasks = await loadAppModule(() => import("../../src/app/actions/subtask"));
-  tasksServer = await loadAppModule(() => import("../../src/lib/projects/server/tasks"));
+  tasksServer = await loadAppModule(() => import("../../src/lib/workspaces/server/tasks"));
 });
 
 const created: string[] = [];

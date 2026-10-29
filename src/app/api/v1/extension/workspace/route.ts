@@ -20,7 +20,7 @@ import {
   getProjectTaskCountMap,
   getProjectTaskFileCountMap,
   taskFileCountKey,
-} from "@/app/api/v1/extension/_project-counts";
+} from "@/app/api/v1/extension/_workspace-counts";
 
 export async function GET(request: Request) {
   try {

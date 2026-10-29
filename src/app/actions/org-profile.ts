@@ -4,7 +4,7 @@ import { and, eq, inArray, isNull, sql } from 'drizzle-orm';
 
 import { db } from '@/lib/db';
 import { profileProjectContributions, projectMembers } from '@/lib/db/schema';
-import { getProjectAccessById } from '@/lib/data/project-access';
+import { getProjectAccessById } from '@/lib/data/workspace-access';
 import { markProfileCollaborationSummaryStale } from '@/lib/profile/collaboration';
 import { getViewerAuthContext } from '@/lib/server/viewer-context';
 import { namesOf, notifyOrg, orgLabel } from '@/lib/organizations/notify';

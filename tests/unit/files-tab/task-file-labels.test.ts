@@ -2,12 +2,12 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
-import { extractLabel, composeAnnotation } from "@/lib/projects/task-file-label";
+import { extractLabel, composeAnnotation } from "@/lib/workspaces/task-file-label";
 
 test("Task File Labels & Inline Editing Contract in Files Tab", async (t) => {
   const filesTabDir = path.join(
     process.cwd(),
-    "src/components/projects/v2/files-tab",
+    "src/components/workspaces/v2/files-tab",
   );
   const folderListRowSource = fs.readFileSync(
     path.join(filesTabDir, "folder/FolderListRow.tsx"),

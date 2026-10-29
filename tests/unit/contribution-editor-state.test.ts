@@ -64,7 +64,7 @@ async function workspace(
     version: 1,
     title: "Member",
     projectTitle: "Ponytail",
-    projectHref: "/projects/pony",
+    projectHref: "/workspaces/pony",
     projectUrl: null,
     repoUrl: null,
     description: "Published story.",

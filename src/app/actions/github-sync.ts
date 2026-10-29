@@ -47,7 +47,7 @@ import { redactSyncManifest } from "@/lib/github/sync-contract";
 import { buildGithubAccountConnectionState } from "@/lib/github/connection-state";
 import { loadGithubLinkedUser } from "@/lib/github/linked-user";
 import { assertProjectFileReadAccess } from "@/lib/files/internal-helpers";
-import { assertProjectTabReadAccess } from "@/lib/data/project-access";
+import { assertProjectTabReadAccess } from "@/lib/data/workspace-access";
 import { ensureDefaultGithubContributorIdentity } from "@/lib/github/contributor-identity";
 import { resolveGithubUserAccessToken } from "@/lib/github/user-access-token";
 import { GITHUB_SYNC_LIMITS } from "@/lib/github/sync-limits";

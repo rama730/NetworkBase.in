@@ -18,9 +18,9 @@ moduleStubs.set("next/cache", { revalidatePath: () => undefined, revalidateTag: 
 moduleStubs.set("next/headers", { headers: async () => new Headers({ "x-forwarded-for": "203.0.113.10" }) });
 stubNextAfter();
 
-let lifecycle: typeof import("../../src/lib/projects/server/lifecycle");
+let lifecycle: typeof import("../../src/lib/workspaces/server/lifecycle");
 before(async () => {
-  lifecycle = await loadAppModule(() => import("../../src/lib/projects/server/lifecycle"));
+  lifecycle = await loadAppModule(() => import("../../src/lib/workspaces/server/lifecycle"));
 });
 const created: string[] = [];
 after(async () => {
@@ -29,7 +29,7 @@ after(async () => {
   await closeAppDb();
 });
 
-type Input = Parameters<typeof import("../../src/lib/projects/server/lifecycle").createProjectAction>[0];
+type Input = Parameters<typeof import("../../src/lib/workspaces/server/lifecycle").createProjectAction>[0];
 const base = (handle: string, organization: Record<string, unknown>) => ({
   title: "Civic Hackers Bengaluru",
   description: "A volunteer group building small tools for the city.",

@@ -16,8 +16,8 @@ moduleStubs.set("next/cache", { revalidatePath: () => undefined, revalidateTag: 
 moduleStubs.set("next/headers", { headers: async () => new Headers({ "x-forwarded-for": "203.0.113.11" }) });
 
 let orgs: typeof import("../../src/app/actions/organizations");
-let lifecycle: typeof import("../../src/lib/projects/server/lifecycle");
-let detail: typeof import("../../src/lib/projects/server/detail");
+let lifecycle: typeof import("../../src/lib/workspaces/server/lifecycle");
+let detail: typeof import("../../src/lib/workspaces/server/detail");
 before(async () => {
   // The workspace page reads the session, not just the user: stand the viewer in directly.
   const viewerContext = await loadAppModule(() => import("../../src/lib/server/viewer-context"));
@@ -26,8 +26,8 @@ before(async () => {
     getViewerAuthContext: async () => ({ supabase: null, snapshot: null, user: viewerId ? { id: viewerId } : null, userId: viewerId || null, emailVerified: true }),
   });
   orgs = await loadAppModule(() => import("../../src/app/actions/organizations"));
-  lifecycle = await loadAppModule(() => import("../../src/lib/projects/server/lifecycle"));
-  detail = await loadAppModule(() => import("../../src/lib/projects/server/detail"));
+  lifecycle = await loadAppModule(() => import("../../src/lib/workspaces/server/lifecycle"));
+  detail = await loadAppModule(() => import("../../src/lib/workspaces/server/detail"));
 });
 
 const created: string[] = [];

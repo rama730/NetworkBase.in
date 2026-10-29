@@ -37,7 +37,7 @@ import { recordAudit } from "./audit";
 
 const fixtureProjectSlug =
     process.env.E2E_FILES_PROJECT_SLUG || "e2e-files-workspace-controls";
-const filesTabUrl = `/projects/${fixtureProjectSlug}?tab=files`;
+const filesTabUrl = `/workspaces/${fixtureProjectSlug}?tab=files`;
 const AREA = "folder upload";
 
 /** Synthetic "folder" payload. `FileChooser.setFiles` accepts arbitrary file
@@ -72,7 +72,7 @@ test.describe("Files tab V3 — folder upload", () => {
         const monitor = attachPageMonitoring(page, {
             monitorConsoleTypes: ["error", "warning"],
             allowedHttpUrlPatterns: [
-                new RegExp(`/projects/${fixtureProjectSlug}\\?tab=files$`, "i"),
+                new RegExp(`/workspaces/${fixtureProjectSlug}\\?tab=files$`, "i"),
             ],
             allowedConsolePatterns: [
                 /The result of getSnapshot should be cached to avoid an infinite loop/i,

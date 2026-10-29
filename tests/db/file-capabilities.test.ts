@@ -3,11 +3,11 @@ import { after, before, test } from "node:test";
 
 import { addMember, closeAppDb, createProject, createUser, loadAppModule, sql } from "./_helpers";
 
-let access: typeof import("../../src/lib/data/project-access");
-let caps: typeof import("../../src/lib/projects/file-capabilities");
+let access: typeof import("../../src/lib/data/workspace-access");
+let caps: typeof import("../../src/lib/workspaces/file-capabilities");
 before(async () => {
-  access = await loadAppModule(() => import("../../src/lib/data/project-access"));
-  caps = await loadAppModule(() => import("../../src/lib/projects/file-capabilities"));
+  access = await loadAppModule(() => import("../../src/lib/data/workspace-access"));
+  caps = await loadAppModule(() => import("../../src/lib/workspaces/file-capabilities"));
 });
 after(async () => { await sql.end(); await closeAppDb(); });
 

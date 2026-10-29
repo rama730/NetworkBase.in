@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
-import { projectActionsSource } from "./_project-actions-source";
+import { projectActionsSource } from "./_workspace-actions-source";
 
 const read = (path: string) => readFileSync(path, "utf8");
 
@@ -17,7 +17,7 @@ test("round 2: shared type and control classes sit in the components layer (util
 });
 
 test("round 2: the workspaces route never fails open and varies on the session", () => {
-  const route = read("src/app/api/v1/projects/route.ts");
+  const route = read("src/app/api/v1/workspaces/route.ts");
   assert.match(route, /return unavailable\('AUTH_UNAVAILABLE', error\)/);
   assert.doesNotMatch(route, /getViewerAuthContext\(\)\.catch\(\(\) => null\)/);
   assert.match(route, /Vary: 'Cookie, Authorization'/);
@@ -44,7 +44,7 @@ test("round 2: caches drop a project or creator that goes private at once", () =
   assert.doesNotMatch(project, /revalidateTag\(DISCOVER_ANON_CACHE_TAG, "max"\)/);
   assert.match(project, /revalidateTag\(DISCOVER_ANON_CACHE_TAG, \{ expire: 0 \}\)/);
   assert.match(profile, /invalidatePublicProjectsFeedCache\(\)/);
-  assert.match(read("src/app/api/og/project/[slug]/route.tsx"), /s-maxage=3600/);
+  assert.match(read("src/app/api/og/workspace/[slug]/route.tsx"), /s-maxage=3600/);
 });
 
 test("round 2: Escape in an open combobox closes its list, not the dialog", () => {
@@ -75,9 +75,9 @@ test("round 2: Connect sends once per click and a failure puts the row back at o
 
 test("round 2: follow state stays true everywhere", () => {
   assert.match(projectActionsSource(), /relationship\?\.blockedByViewer \|\| relationship\?\.blockedByTarget/);
-  assert.match(read("src/components/projects/dashboard/ProjectDashboardClient.tsx"), /queryKeys\.discover\.userFollowedProjects\(currentUserId\)/);
-  assert.match(read("src/components/profile/v2/sections/ProjectsGridCard.tsx"), /isFollowing=\{followed\.has\(cardProject\.id\)\}/);
-  assert.match(read("src/hooks/mutations/useProjectMutations.ts"), /query\.queryKey\[3\] === 'following'/);
+  assert.match(read("src/components/workspaces/dashboard/WorkspaceDashboardClient.tsx"), /queryKeys\.discover\.userFollowedProjects\(currentUserId\)/);
+  assert.match(read("src/components/profile/v2/sections/WorkspacesGridCard.tsx"), /isFollowing=\{followed\.has\(cardProject\.id\)\}/);
+  assert.match(read("src/hooks/mutations/useWorkspaceMutations.ts"), /query\.queryKey\[3\] === 'following'/);
 });
 
 test("round 2: keyboard focus shows everywhere (a tone, never a ring)", () => {
@@ -105,23 +105,23 @@ test("round 2: legal links and the card avatar read cleanly", () => {
   assert.match(legal, /!showCopyright && className/);
   assert.match(legal, /suppressHydrationWarning/);
   assert.doesNotMatch(legal, /muted-foreground\/80/);
-  assert.match(read("src/components/projects/ProjectAvatar.tsx"), /alt=\{size === "card" \? ""/);
+  assert.match(read("src/components/workspaces/WorkspaceAvatar.tsx"), /alt=\{size === "card" \? ""/);
 });
 
 test("round 2: cards get counts, not every role or member; filtered reads go through a cancellable GET", () => {
-  const pub = read("src/lib/projects/public-feed-service.ts");
+  const pub = read("src/lib/workspaces/public-feed-service.ts");
   assert.match(pub, /sum\(greatest\(\$\{projectOpenRoles\.count\} - \$\{projectOpenRoles\.filled\}, 0\)\)/);
   assert.match(pub, /lte\(rankedSub\.memberRank, 8\)/);
   assert.doesNotMatch(pub, /const roleRows = projectIds/);
   const data = read("src/lib/data/discover.ts");
   assert.match(data, /lte\(ranked\.memberRank, 8\)/);
   assert.match(data, /coalesce\(\$\{profiles\.visibility\}, 'public'\) = 'public' OR \$\{projectMembers\.userId\} = \$\{viewerId\}/);
-  const route = read("src/app/api/v1/discover/projects/route.ts");
+  const route = read("src/app/api/v1/discover/workspaces/route.ts");
   assert.match(route, /jsonSuccess\(\{ projects: result\.projects/);
   assert.match(route, /status = result\.code === "RATE_LIMITED" \? 429/);
   assert.doesNotMatch(route, /export const /);
-  const hook = read("src/hooks/discover/useDiscoverProjects.ts");
-  assert.match(hook, /\/api\/v1\/discover\/projects\?/);
+  const hook = read("src/hooks/discover/useDiscoverWorkspaces.ts");
+  assert.match(hook, /\/api\/v1\/discover\/workspaces\?/);
   assert.match(hook, /queryFn: async \(\{ pageParam = undefined as string \| undefined, signal \}\)/);
 });
 

@@ -213,19 +213,19 @@ describe("Design & UX Hardening Contracts (Darkening & Upload Scenarios)", () =>
   const dialogPath = path.resolve(process.cwd(), "src/components/ui/dialog.tsx");
   const explorerDialogsPath = path.resolve(
     process.cwd(),
-    "src/components/projects/v2/explorer/ExplorerDialogsHost.tsx"
+    "src/components/workspaces/v2/explorer/ExplorerDialogsHost.tsx"
   );
   const uploadModalPath = path.resolve(
     process.cwd(),
-    "src/components/projects/v2/files-tab/upload/FilesTabUploadModal.tsx"
+    "src/components/workspaces/v2/files-tab/upload/FilesTabUploadModal.tsx"
   );
   const taskUploadModalPath = path.resolve(
     process.cwd(),
-    "src/components/projects/v2/tasks/components/TaskFileUploadModal.tsx"
+    "src/components/workspaces/v2/tasks/components/TaskFileUploadModal.tsx"
   );
   const mutationsPath = path.resolve(
     process.cwd(),
-    "src/components/projects/v2/explorer/useExplorerMutations.ts"
+    "src/components/workspaces/v2/explorer/useExplorerMutations.ts"
   );
 
   it("dialog.tsx uses the design-system modal scrim without backdrop blur", () => {

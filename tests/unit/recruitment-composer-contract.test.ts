@@ -2,17 +2,17 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
-import { projectActionsSource } from "./_project-actions-source";
+import { projectActionsSource } from "./_workspace-actions-source";
 
 function source(relativePath: string) {
     return fs.readFileSync(path.join(process.cwd(), relativePath), "utf8");
 }
 
 test("all recruitment entry points use the Invite members surface", () => {
-    const composer = source("src/components/projects/dashboard/InviteCollaboratorModal.tsx");
-    const applicationEntry = source("src/components/projects/ApplyRoleModal.tsx");
+    const composer = source("src/components/workspaces/dashboard/InviteCollaboratorModal.tsx");
+    const applicationEntry = source("src/components/workspaces/ApplyRoleModal.tsx");
     const profileInviteEntry = source("src/components/profile/v2/ProfileInviteModal.tsx");
-    const guidance = source("src/app/actions/project/guidance.ts");
+    const guidance = source("src/app/actions/workspace/guidance.ts");
 
     assert.match(composer, /mode\?: "invite" \| "apply"/);
     assert.match(composer, /createProjectInvitationAction/);
@@ -46,7 +46,7 @@ test("all recruitment entry points use the Invite members surface", () => {
 test("application entry points exclude existing project members", () => {
     const profilePage = source("src/app/(site)/(main)/u/[username]/page.tsx");
     const projectAction = projectActionsSource();
-    const dashboard = source("src/components/projects/dashboard/ProjectDashboardClient.tsx");
+    const dashboard = source("src/components/workspaces/dashboard/WorkspaceDashboardClient.tsx");
 
     // The viewer to exclude comes from the session, never from the caller (COR-044).
     assert.match(profilePage, /getProfileProjectsWithOpenRolesAction\(data\.profile\.id\)/);
@@ -56,7 +56,7 @@ test("application entry points exclude existing project members", () => {
 });
 
 test("recruitment search preserves the rate limit for incomplete queries and filters members in SQL", () => {
-    const guidance = source("src/app/actions/project/guidance.ts");
+    const guidance = source("src/app/actions/workspace/guidance.ts");
     const search = guidance.slice(guidance.indexOf("export async function searchProjectInviteCandidatesAction"));
 
     assert.ok(search.indexOf('if (query && query.length < 2)') < search.indexOf('consumeRateLimit'));
@@ -65,8 +65,8 @@ test("recruitment search preserves the rate limit for incomplete queries and fil
 });
 
 test("invitation expiry uses the database clock in raw SQL", () => {
-    const guidance = source("src/app/actions/project/guidance.ts");
-    const invitations = source("src/lib/projects/project-invitations.ts");
+    const guidance = source("src/app/actions/workspace/guidance.ts");
+    const invitations = source("src/lib/workspaces/workspace-invitations.ts");
 
     assert.match(invitations, /expiresAt\} <= now\(\)/);
     assert.match(guidance, /expiresAt\} <= now\(\)/);
@@ -77,8 +77,8 @@ test("invitation expiry uses the database clock in raw SQL", () => {
 
 test("guidance invitations use the existing Open Roles invitation lifecycle", () => {
     const statusAction = source("src/app/actions/applications/internal.ts");
-    const dashboard = source("src/components/projects/dashboard/ProjectDashboardClient.tsx");
-    const openRoles = source("src/components/projects/dashboard/OpenRolesCard.tsx");
+    const dashboard = source("src/components/workspaces/dashboard/WorkspaceDashboardClient.tsx");
+    const openRoles = source("src/components/workspaces/dashboard/OpenRolesCard.tsx");
     const applicationCard = source("src/components/messages/cards/MessageCard.tsx");
 
     assert.match(statusAction, /db\.query\.projectInvitations\.findFirst/);

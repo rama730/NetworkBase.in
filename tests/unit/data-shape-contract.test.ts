@@ -65,7 +65,7 @@ describe("check-data-shape-contract script", () => {
 
   it("ignores Supabase Auth provider metadata keys", () => {
     const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "data-shape-auth-"));
-    write(path.join(tmp, "src/components/projects/Review.tsx"), `export const n = (u) => u.user_metadata?.full_name ?? u.user_metadata.avatar_url;`);
+    write(path.join(tmp, "src/components/workspaces/Review.tsx"), `export const n = (u) => u.user_metadata?.full_name ?? u.user_metadata.avatar_url;`);
     assert.deepEqual(validateDataShapeContract(tmp).errors, []);
   });
 });

@@ -62,7 +62,7 @@ import {
 import {
   buildProjectFileKey,
   parseProjectIdFromProjectFileKey,
-} from "@/lib/storage/project-file-key";
+} from "@/lib/storage/workspace-file-key";
 
 interface CachedBlobMeta {
   blobSha: string;

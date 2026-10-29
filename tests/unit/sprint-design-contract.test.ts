@@ -4,9 +4,9 @@ import fs from "node:fs";
 import path from "node:path";
 
 test("Sprints Tab Design Specification Conformance Contract (Sections 03, 04, 05, 10, 25)", async (t) => {
-  const tabsDir = path.join(process.cwd(), "src/components/projects/tabs");
-  const sprintDir = path.join(process.cwd(), "src/components/projects/tabs/sprint");
-  const modalsDir = path.join(process.cwd(), "src/components/projects/v2/sprints");
+  const tabsDir = path.join(process.cwd(), "src/components/workspaces/tabs");
+  const sprintDir = path.join(process.cwd(), "src/components/workspaces/tabs/sprint");
+  const modalsDir = path.join(process.cwd(), "src/components/workspaces/v2/sprints");
 
   const sprintPlanning = fs.readFileSync(path.join(tabsDir, "SprintPlanning.tsx"), "utf-8");
   const sprintHeader = fs.readFileSync(path.join(sprintDir, "SprintHeader.tsx"), "utf-8");
@@ -147,7 +147,7 @@ test("Sprints Tab Design Specification Conformance Contract (Sections 03, 04, 05
 
   await t.test("Sprint presentation uses semantic status tokens rather than raw color utilities", () => {
     const sprintPresentation = fs.readFileSync(
-      path.join(process.cwd(), "src/lib/projects/sprint-detail.ts"),
+      path.join(process.cwd(), "src/lib/workspaces/sprint-detail.ts"),
       "utf-8",
     );
 

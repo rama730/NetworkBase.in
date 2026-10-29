@@ -35,7 +35,7 @@ import type { ProjectNode } from "@/lib/db/schema";
 import {
   encodePath,
   splitEncoded,
-} from "@/components/projects/v2/files-tab/url";
+} from "@/components/workspaces/v2/files-tab/url";
 
 // ---------------------------------------------------------------------------
 // Generators (design.md § Property 3 / Inputs)

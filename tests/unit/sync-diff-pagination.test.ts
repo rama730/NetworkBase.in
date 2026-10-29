@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { test } from "node:test";
 
 // API-008: one bounded page per call, resumable from lastDeliveredSequence.
-const route = readFileSync("src/app/api/v1/projects/[id]/sync-diff/route.ts", "utf8");
+const route = readFileSync("src/app/api/v1/workspaces/[id]/sync-diff/route.ts", "utf8");
 
 test("sync-diff returns a bounded, resumable page", () => {
   assert.match(route, /limitSchema = z\.coerce\.number\(\)\.int\(\)\.min\(1\)\.max\(500\)/);

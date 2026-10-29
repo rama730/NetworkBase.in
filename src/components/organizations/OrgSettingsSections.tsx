@@ -11,7 +11,7 @@ import {
     updateMyOrgMembershipAction,
     updateOrgSettingsAction,
 } from '@/app/actions/organizations'
-import { SettingsCard } from '@/components/projects/settings/SettingsFormFields'
+import { SettingsCard } from '@/components/workspaces/settings/SettingsFormFields'
 import { SettingsSwitch } from '@/components/settings/ui/SettingsSwitch'
 import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'

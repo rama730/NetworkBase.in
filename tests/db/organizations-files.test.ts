@@ -224,7 +224,7 @@ test("§23 pass: a member's folder zip skips Admins-only folders and other peopl
   const o = await org();
   await sql`UPDATE project_nodes SET s3_key = 'legacy/' || id::text, size = 10 WHERE project_id = ${o.orgId} AND type = 'file'`;
   const exportLib = await loadAppModule(() => import("../../src/lib/files/folder-export"));
-  const accessLib = await loadAppModule(() => import("../../src/lib/data/project-access"));
+  const accessLib = await loadAppModule(() => import("../../src/lib/data/workspace-access"));
   const { sql: dsql } = await import("drizzle-orm");
   const plan = async (userId: string) => {
     const access = await accessLib.getProjectAccessById(o.orgId, userId);

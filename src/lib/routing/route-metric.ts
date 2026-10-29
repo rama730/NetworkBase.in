@@ -34,6 +34,7 @@ const SAFE_STATIC_SEGMENTS = new Set([
   "profile",
   "profiles",
   "projects",
+  "workspaces",
   "reset-password",
   "security",
   "session",

@@ -26,13 +26,13 @@ fi
 echo "Checking for risky console format-string patterns (template first arg + extra args)..."
 if rg -n 'console\.(log|info|warn|error|debug)\s*\(\s*`[^`]*\$\{[^`]+\}[^`]*`\s*,' \
   scripts/db/repair/backfill.ts \
-  scripts/check-project.ts \
+  scripts/check-workspace.ts \
   src/components/profile/edit/EditProfileTabs.tsx \
-  src/components/projects/TabErrorBoundary.tsx \
-  src/components/projects/v2/explorer/utils/download.worker.ts \
+  src/components/workspaces/TabErrorBoundary.tsx \
+  src/components/workspaces/v2/explorer/utils/download.worker.ts \
   src/inngest/functions/flush-views.ts \
   src/inngest/functions/git-sync.ts \
-  src/inngest/functions/project-import.ts \
+  src/inngest/functions/workspace-import.ts \
   src/lib/data/project.ts \
   src/lib/import/utils.ts \
   src/lib/logger.ts \

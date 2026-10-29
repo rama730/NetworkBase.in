@@ -1,4 +1,4 @@
-import type { ProjectUpdateView } from "@/app/actions/project/updates";
+import type { ProjectUpdateView } from "@/app/actions/workspace/updates";
 import type { DiscoverUpdateView } from "@/types/discover";
 
 /**

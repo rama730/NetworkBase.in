@@ -5,7 +5,7 @@ import { extensionRecoverySessions, } from "@/lib/db/schema";
 import { batchRenewFileLeases } from "@/lib/files/file-lock-service";
 import { validateCsrf } from "@/lib/security/csrf";
 import { and, eq, sql } from "drizzle-orm";
-import { canReadProjectTab, getProjectAccessByIds } from "@/lib/data/project-access";
+import { canReadProjectTab, getProjectAccessByIds } from "@/lib/data/workspace-access";
 import { consumeRateLimit } from "@/lib/security/rate-limit";
 
 const MAX_WATERMARK_PROJECTS = 50;

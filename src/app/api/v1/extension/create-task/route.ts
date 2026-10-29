@@ -6,7 +6,7 @@ import {
   getRequestId,
 } from "@/app/api/v1/_shared";
 import { routeErrorResponse } from "@/app/api/v1/_error";
-import { createTaskAction } from "@/app/actions/project";
+import { createTaskAction } from "@/app/actions/workspace";
 import { z } from "zod";
 export const runtime = "nodejs";
 const schema = z.object({

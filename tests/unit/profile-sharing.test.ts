@@ -12,10 +12,10 @@ test('share URLs resolve trusted routes only, with normalized usernames and no p
   assert.equal(profileSharePath(' Builder_One '), '/u/builder_one');
   for (const name of [null, 'x', 'bad-name', 'bad/name', 'x'.repeat(21), '11111111-1111-4111-8111-111111111111']) assert.equal(profileSharePath(name), null);
   assert.equal(parseShareResource('http://networkbase.in/u/BUILDER?auth=secret#portfolio', origin)?.url, origin+'/u/builder');
-  assert.equal(parseShareResource(origin+'/projects/project-one?tab=settings', origin)?.url, origin+'/projects/project-one');
+  assert.equal(parseShareResource(origin+'/workspaces/project-one?tab=settings', origin)?.url, origin+'/workspaces/project-one');
   assert.equal(parseShareResource(origin+'/org/acme-lab?tab=members', origin)?.url, origin+'/org/acme-lab');
   assert.equal(parseShareResource(origin+'/?workspace=secret', origin)?.url, origin+'/');
-  for (const url of ['https://networkbase.in.example.com/u/builder', 'https://person@networkbase.in/u/builder', origin+':8443/u/builder', origin+'/u/%ZZ', origin+'/u/bad%2Fname', origin+'/my-profile', origin+'/messages/secret', origin+'/projects/new/settings', 'javascript:alert(1)']) assert.equal(parseShareResource(url,origin),null,url);
+  for (const url of ['https://networkbase.in.example.com/u/builder', 'https://person@networkbase.in/u/builder', origin+':8443/u/builder', origin+'/u/%ZZ', origin+'/u/bad%2Fname', origin+'/my-profile', origin+'/messages/secret', origin+'/workspaces/new/settings', 'javascript:alert(1)']) assert.equal(parseShareResource(url,origin),null,url);
 });
 
 test('crawler optimization is explicit and never infers an actor or access level',()=>{
@@ -64,35 +64,35 @@ test('in-app preview normalization strips identity from restricted payloads and 
 });
 
 test('project accessible metadata uses full approved fields and generic alt for an unsupported image script',()=>{
-  const resource=parseShareResource(origin+'/projects/one')!;
+  const resource=parseShareResource(origin+'/workspaces/one')!;
   const preview={...genericSharePreview(resource,'ready'),title:'Project 一',description:'A useful public project',identity:{name:'Project 一',username:null,avatarUrl:null,headline:null}};
   const metadata=shareMetadata(preview);assert.equal((metadata.openGraph as any).images[0].alt,'NetworkBase workspace link');assert.equal(metadata.title,preview.title);
 });
 
 test('explicit project content destinations preserve only bounded known route state',async()=>{
   const {projectPreviewDestination}=await import('../../src/lib/sharing/presentation');
-  const root=origin+'/projects/renamed',incoming=origin+'/projects/old?tab=tasks&drawerType=task&drawerId=NB-123&utm_source=secret&auth=token#overview';
+  const root=origin+'/workspaces/renamed',incoming=origin+'/workspaces/old?tab=tasks&drawerType=task&drawerId=NB-123&utm_source=secret&auth=token#overview';
   const opened=projectPreviewDestination(incoming,root);assert.equal(opened,root+'?tab=tasks&drawerType=task&drawerId=NB-123#overview');
-  assert.equal(projectPreviewDestination(origin+'/projects/old?tab=files&path=../../secret&workspace=private',root),root+'?tab=files');
+  assert.equal(projectPreviewDestination(origin+'/workspaces/old?tab=files&path=../../secret&workspace=private',root),root+'?tab=files');
   const normalized=normalizeLinkPreview({url:incoming,firstParty:{...genericSharePreview(parseShareResource(root)!,'ready'),identity:{name:'Renamed',username:null,avatarUrl:null,headline:null}}},incoming)!;
   assert.equal(normalized.firstParty?.url,root);assert.equal(normalized.openUrl,opened);
 });
 
 test('project content file paths preserve Unicode names without accepting traversal',async()=>{
-  const {projectPreviewDestination}=await import('../../src/lib/sharing/presentation');const root=origin+'/projects/one';
+  const {projectPreviewDestination}=await import('../../src/lib/sharing/presentation');const root=origin+'/workspaces/one';
   const valid=projectPreviewDestination(root+'?tab=files&path='+encodeURIComponent('folder/设计 Notes.md'),root);assert.equal(new URL(valid).searchParams.get('path'),'folder/设计 Notes.md');
   for(const path of ['../secret','//elsewhere','%2e%2e/secret','C:\\secret'])assert.equal(new URL(projectPreviewDestination(root+'?tab=files&path='+encodeURIComponent(path),root)).searchParams.has('path'),false);
 });
 
 test('project payload normalization bounds people and roles and never turns unknown metrics into zero',()=>{
-  const resource=parseShareResource(origin+'/projects/one')!,profile={name:'Project',username:null,avatarUrl:null,headline:null};
+  const resource=parseShareResource(origin+'/workspaces/one')!,profile={name:'Project',username:null,avatarUrl:null,headline:null};
   const value={url:resource.url,firstParty:{...genericSharePreview(resource,'ready'),identity:profile,project:{team:[{id:'not-an-id',name:'Untrusted',email:'secret@example.com'}],teamOverflow:9,roles:[{id:'not-an-id',title:'Untrusted role'}],roleOverflow:9,views:-1,followers:0}}};
   const normalized=normalizeLinkPreview(value,resource.url)!;assert.equal(normalized.firstParty?.project?.team,null);assert.equal(normalized.firstParty?.project?.teamOverflow,null);assert.equal(normalized.firstParty?.project?.roles,null);assert.equal(normalized.firstParty?.project?.views,null);assert.equal(normalized.firstParty?.project?.followers,0);assert.equal(JSON.stringify(normalized).includes('secret@example.com'),false);
   const restricted=normalizeLinkPreview({...value,firstParty:{...value.firstParty,state:'restricted'}},resource.url)!;assert.equal(restricted.firstParty?.project,undefined);
 });
 
 test('optional team scripts do not suppress a renderable workspace image and drafts never promise public access',async()=>{
-  const {socialImageCanRender,projectRolesFitImage}=await import('../../src/lib/sharing/presentation');const resource=parseShareResource(origin+'/projects/one')!;
+  const {socialImageCanRender,projectRolesFitImage}=await import('../../src/lib/sharing/presentation');const resource=parseShareResource(origin+'/workspaces/one')!;
   const preview={...genericSharePreview(resource,'ready'),title:'Project',description:'A public project',visibility:'public' as const,identity:{name:'Project',username:null,avatarUrl:null,headline:null},draft:true,project:{team:[{id:'11111111-1111-4111-8111-111111111111',name:'李雷',username:null,avatarUrl:null,role:'Team member'}],teamOverflow:0,roles:[{id:'11111111-1111-4111-8111-111111111111',title:'设计师'}],roleOverflow:0,views:0,followers:0}};
   assert.equal(socialImageCanRender(preview),true);assert.equal(projectRolesFitImage(preview),false);assert.match(accessCopy(preview),/Draft.*unpublished/);assert.doesNotMatch(accessCopy({...preview,draft:false,state:'restricted'}),/Anyone/);
 });

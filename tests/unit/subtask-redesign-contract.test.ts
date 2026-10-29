@@ -3,14 +3,14 @@ import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
 
-import { upsertTaskSubtask } from "@/lib/projects/task-subtasks";
+import { upsertTaskSubtask } from "@/lib/workspaces/task-subtasks";
 
 function read(relativePath: string) {
   return fs.readFileSync(path.join(process.cwd(), relativePath), "utf8");
 }
 
 test("subtasks use an accessible grouped checklist with explicit creation and recovery", () => {
-  const tab = read("src/components/projects/v2/tasks/TaskDetailTabs/SubtasksTab.tsx");
+  const tab = read("src/components/workspaces/v2/tasks/TaskDetailTabs/SubtasksTab.tsx");
 
   assert.doesNotMatch(tab, /role="progressbar"/);
   assert.match(tab, /role="checkbox"/);
@@ -37,7 +37,7 @@ test("subtasks use an accessible grouped checklist with explicit creation and re
 test("subtask mutations reconcile by id and use deterministic, narrow reads", () => {
   const hook = read("src/hooks/useTaskPanelResource.ts");
   const actions = read("src/app/actions/subtask.ts");
-  const reducer = read("src/lib/projects/task-subtasks.ts");
+  const reducer = read("src/lib/workspaces/task-subtasks.ts");
 
   assert.match(hook, /upsertTaskSubtask/);
   assert.match(hook, /const replaceSubtasks/);
@@ -82,6 +82,6 @@ contractTest("subtask pages expose hasMore, keyset load-more and aggregate total
   assertStrict.match(hook, /loaded\.hasMore\s*\? \{ \.\.\.current, \.\.\.\(loaded\.totals \?\? \{\}\) \}/);
   assertStrict.match(hook, /if \(subtasksHasMoreRef\.current\) \{[^}]*refreshSubtaskTotals/s);
   assertStrict.match(hook, /position\.gt\.\$\{last\.position\},and\(position\.eq\.\$\{last\.position\},id\.gt\.\$\{last\.id\}\)/);
-  const tab = readSource("src/components/projects/v2/tasks/TaskDetailTabs/SubtasksTab.tsx", "utf8");
+  const tab = readSource("src/components/workspaces/v2/tasks/TaskDetailTabs/SubtasksTab.tsx", "utf8");
   assertStrict.match(tab, /Load more subtasks/);
 });

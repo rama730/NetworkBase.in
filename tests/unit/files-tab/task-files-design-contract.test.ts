@@ -6,7 +6,7 @@ import path from "node:path";
 test("Task Files Design Specification Conformance Contract", async (t) => {
   const filesTabDir = path.join(
     process.cwd(),
-    "src/components/projects/v2/files-tab",
+    "src/components/workspaces/v2/files-tab",
   );
   const taskFilesCollection = fs.readFileSync(
     path.join(filesTabDir, "TaskFilesCollection.tsx"),

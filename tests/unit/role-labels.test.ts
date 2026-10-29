@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { PROJECT_MEMBER_ROLE_LABELS } from '../../src/lib/projects/settings-policies';
+import { PROJECT_MEMBER_ROLE_LABELS } from '../../src/lib/workspaces/settings-policies';
 import { defaultOrgRoleNames, ORG_TYPES } from '../../src/lib/organizations/config';
 import { formatContributionPosition } from '../../src/lib/profile/contribution-position';
 

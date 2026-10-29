@@ -6,11 +6,11 @@ import path from "node:path";
 describe("Files Tab Drag & Drop Upload Integration", () => {
   const modalPath = path.resolve(
     process.cwd(),
-    "src/components/projects/v2/files-tab/upload/FilesTabUploadModal.tsx",
+    "src/components/workspaces/v2/files-tab/upload/FilesTabUploadModal.tsx",
   );
   const folderListViewPath = path.resolve(
     process.cwd(),
-    "src/components/projects/v2/files-tab/folder/FolderListView.tsx",
+    "src/components/workspaces/v2/files-tab/folder/FolderListView.tsx",
   );
 
   it("FilesTabUploadModal exports expected contract and intents", () => {
@@ -114,7 +114,7 @@ describe("Files Tab Drag & Drop Upload Integration", () => {
   it("FileView enforces single-file drop-zone teardown and window listeners", () => {
     const fileViewPath = path.resolve(
       process.cwd(),
-      "src/components/projects/v2/files-tab/file/FileView.tsx",
+      "src/components/workspaces/v2/files-tab/file/FileView.tsx",
     );
     const source = readFileSync(fileViewPath, "utf-8");
 
@@ -170,7 +170,7 @@ describe("Files Tab Drag & Drop Upload Integration", () => {
   it("10 Ponytail Enhancements: FolderPicker ancestral auto-expansion & useFilesStore parent resolution", () => {
     const dialogsHostPath = path.resolve(
       process.cwd(),
-      "src/components/projects/v2/explorer/ExplorerDialogsHost.tsx",
+      "src/components/workspaces/v2/explorer/ExplorerDialogsHost.tsx",
     );
     const source = readFileSync(dialogsHostPath, "utf-8");
 
@@ -219,7 +219,7 @@ describe("Files Tab Drag & Drop Upload Integration", () => {
   it("10 Ponytail Enhancements: Fast-MIME fallback resolution and typed return in useExplorerMutations", () => {
     const mutationsPath = path.resolve(
       process.cwd(),
-      "src/components/projects/v2/explorer/useExplorerMutations.ts",
+      "src/components/workspaces/v2/explorer/useExplorerMutations.ts",
     );
     const source = readFileSync(mutationsPath, "utf-8");
 

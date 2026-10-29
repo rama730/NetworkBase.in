@@ -6,7 +6,7 @@ import type { ProjectNode } from "@/lib/db/schema";
 import { eq, and, isNull, ilike, inArray, sql, asc, desc } from "drizzle-orm";
 import { createClient } from "@/lib/supabase/server";
 import { runInFlightDeduped } from "@/lib/utils/inflight-dedupe";
-import { canProjectMemberUploadFiles } from "@/lib/projects/settings-policies";
+import { canProjectMemberUploadFiles } from "@/lib/workspaces/settings-policies";
 import {
     assertProjectFileReadAccess,
     canReadProjectTaskFiles,

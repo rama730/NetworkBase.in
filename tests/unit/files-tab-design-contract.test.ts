@@ -4,7 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 test("Files Tab Design Specification Conformance Contract (Section 23 & Sections 03, 04, 05, 10)", async (t) => {
-  const filesTabDir = path.join(process.cwd(), "src/components/projects/v2/files-tab");
+  const filesTabDir = path.join(process.cwd(), "src/components/workspaces/v2/files-tab");
   const folderDir = path.join(filesTabDir, "folder");
   const quickOpenDir = path.join(filesTabDir, "quick-open");
   const uploadDir = path.join(filesTabDir, "upload");

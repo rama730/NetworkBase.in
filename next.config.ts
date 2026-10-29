@@ -15,6 +15,12 @@ const nextConfig: NextConfig = {
       { source: '/hub', destination: '/discover', permanent: true },
       // My work was called Workspace (report §5); the word now means a hosted workspace.
       { source: '/workspace', destination: '/my-work', permanent: true },
+      // Projects became workspaces (terminology report §6.1, §12.2): addresses already in emails, bookmarks and shared links.
+      { source: '/projects', destination: '/workspaces', permanent: true },
+      { source: '/projects/:path*', destination: '/workspaces/:path*', permanent: true },
+      { source: '/messages/p/:id', destination: '/messages/w/:id', permanent: true },
+      { source: '/messages/p/:id/:path*', destination: '/messages/w/:id/:path*', permanent: true },
+      { source: '/api/og/project/:path*', destination: '/api/og/workspace/:path*', permanent: true },
       { source: '/hub/:path*', destination: '/discover/:path*', permanent: true },
       { source: '/people', destination: '/network', permanent: true },
       { source: '/people/:path*', destination: '/network/:path*', permanent: true },
@@ -84,6 +90,10 @@ const nextConfig: NextConfig = {
     minimumCacheTTL: 2678400, // 31 days
     formats: ['image/avif', 'image/webp'],
     localPatterns: [
+      {
+        pathname: '/api/v1/workspaces/*/image',
+      },
+      // Saved cover URLs still use the old address, which the alias route keeps serving.
       {
         pathname: '/api/v1/projects/*/image',
       },

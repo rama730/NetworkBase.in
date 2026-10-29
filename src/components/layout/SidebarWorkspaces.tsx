@@ -13,7 +13,7 @@ import { cn } from "@/lib/utils";
 
 const MAX_ORGS = 8;
 const orgHref = (o: { slug: string | null; id: string }) => `/org/${encodeURIComponent(o.slug ?? o.id)}`;
-const projectHref = (p: { slug: string | null; id: string }) => `/projects/${encodeURIComponent(p.slug ?? p.id)}`;
+const projectHref = (p: { slug: string | null; id: string }) => `/workspaces/${encodeURIComponent(p.slug ?? p.id)}`;
 
 function readOpen(id: string) {
     try { return window.localStorage.getItem(`nb:sidebar-org:${id}`) !== "closed"; } catch { return true; }
@@ -51,7 +51,7 @@ function OrgRow({ org, active }: { org: SidebarOrg; active: (href: string) => bo
                     {org.needsYou > 0 ? <span className="nb-nav-count nb-sidebar-label" aria-hidden="true">{org.needsYou > 99 ? "99+" : org.needsYou}</span> : null}
                 </Link>
                 {org.canCreate ? (
-                    <Link href={`/projects/new?org=${encodeURIComponent(org.id)}`} className="nb-sidebar-label absolute right-1 hidden rounded p-0.5 text-muted-foreground hover:text-foreground group-hover:block group-focus-within:block" aria-label={`New workspace in ${org.title}`} title={`New workspace in ${org.title}`}>
+                    <Link href={`/workspaces/new?org=${encodeURIComponent(org.id)}`} className="nb-sidebar-label absolute right-1 hidden rounded p-0.5 text-muted-foreground hover:text-foreground group-hover:block group-focus-within:block" aria-label={`New workspace in ${org.title}`} title={`New workspace in ${org.title}`}>
                         <Plus className="size-3.5" />
                     </Link>
                 ) : null}

@@ -222,7 +222,7 @@ test("§20 pass: Max members holds for invites; bulk Remind; drawer activity; Ou
 
   await sql`UPDATE project_members SET show_on_profile = false WHERE project_id = ${o.orgId} AND user_id = ${o.b}`;
   await sql`UPDATE projects SET visibility = 'public', status = 'active' WHERE id = ${o.orgId}`;
-  const tasksServer = await loadAppModule(() => import("../../src/lib/projects/server/tasks"));
+  const tasksServer = await loadAppModule(() => import("../../src/lib/workspaces/server/tasks"));
   viewerId = outsider;
   const seen = await tasksServer.getProjectMembersAction(o.orgId, 50);
   const ids = (seen as { members?: Array<{ id: string }> }).members?.map((x) => x.id) ?? [];

@@ -79,6 +79,8 @@ export function validateApiEnvelopeContract(rootDir: string = process.cwd()): Va
       );
     }
 
+    // An old address that only re-exports a renamed route's handlers (terminology report decision 5) has no body to check.
+    if (/^export \{ [A-Z, ]+ \} from "@\/app\/api\/v1\/[^"]+\/route";$/m.test(source) && !/\bfunction\b|=>/.test(source)) continue;
     const usesHelpers = HELPER_CALL_RE.test(source);
     const delegated = usesHelpers
       ? { usesEnvelope: false, exposesPublicErrorDetail: false }

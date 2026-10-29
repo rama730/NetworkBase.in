@@ -15,7 +15,7 @@ import { revalidatePath } from 'next/cache';
 import { logger } from '@/lib/logger';
 import { consumeRateLimit } from '@/lib/security/rate-limit';
 import { resolveSecurityStepUp } from '@/lib/security/step-up';
-import { enqueueProjectNotificationEvent } from '@/lib/notifications/project-events';
+import { enqueueProjectNotificationEvent } from '@/lib/notifications/workspace-events';
 import { z } from 'zod';
 import { cancelAccountDeletionForUser } from '@/lib/account/deletion';
 import { syncProjectChat } from '@/lib/messaging/integrations';
@@ -326,7 +326,7 @@ export async function transferProjectOwnership(
                     includeActorRecipient: true,
                     title: "Workspace ownership transferred",
                     body: transferResult.projectTitle ?? "Workspace ownership changed",
-                    href: `/projects/${encodeURIComponent(transferResult.projectSlug || projectId)}?tab=settings`,
+                    href: `/workspaces/${encodeURIComponent(transferResult.projectSlug || projectId)}?tab=settings`,
                     entityRefs: {
                         projectId,
                         projectSlug: transferResult.projectSlug ?? null,
@@ -351,7 +351,7 @@ export async function transferProjectOwnership(
                     directRecipientIds: [newOwnerId],
                     title: "Workspace ownership transferred to you",
                     body: transferResult.projectTitle ?? "Workspace ownership changed",
-                    href: `/projects/${encodeURIComponent(transferResult.projectSlug || projectId)}?tab=settings`,
+                    href: `/workspaces/${encodeURIComponent(transferResult.projectSlug || projectId)}?tab=settings`,
                     entityRefs: {
                         projectId,
                         projectSlug: transferResult.projectSlug ?? null,

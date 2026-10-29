@@ -15,7 +15,7 @@ import { getTrustedHeadersIp } from '@/lib/security/request-ip';
 import { normalizeSearchQuery, tokenizeSearchQuery } from '@/lib/search/query';
 import { recordGlobalSearchMetric } from '@/lib/search/observability';
 import { createHash } from 'node:crypto';
-import { PROJECT_TYPE_OPTIONS } from '@/lib/projects/project-create-options';
+import { PROJECT_TYPE_OPTIONS } from '@/lib/workspaces/workspace-create-options';
 import { z } from 'zod';
 
 const hubSearchInputSchema = z.object({

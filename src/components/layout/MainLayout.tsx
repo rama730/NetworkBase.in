@@ -6,7 +6,7 @@ import { AppSidebar } from './AppSidebar'
 import TopNav from '@/components/layout/header/TopNav'
 import { PendingDeletionNotice } from './PendingDeletionNotice'
 import { MyWorkDrawerHost } from '@/components/my-work/MyWorkDrawerHost'
-import { CREATE_PROJECT_PATH, rememberCreateProjectReturnPath } from '@/components/projects/create-wizard/create-project-return'
+import { CREATE_PROJECT_PATH, rememberCreateProjectReturnPath } from '@/components/workspaces/create-wizard/create-workspace-return'
 import { noteNavigation } from '@/lib/navigation/in-app-history'
 
 interface MainLayoutProps {

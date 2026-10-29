@@ -26,7 +26,7 @@ test('rules', () => {
 });
 
 test('ratchet: counts may only go down, and new project paths fail', () => {
-  const baseline = { strings: { 'a.tsx': { project: 2 } }, paths: ['src/lib/projects/x.ts'] };
+  const baseline = { strings: { 'a.tsx': { project: 2 } }, paths: ['src/lib/workspaces/x.ts'] };
   assert.deepEqual(ratchet({ strings: { 'a.tsx': { project: 2 } }, paths: baseline.paths }, baseline), { failures: [], lowered: false });
   assert.equal(ratchet({ strings: { 'a.tsx': { project: 3 } }, paths: baseline.paths }, baseline).failures.length, 1);
   assert.equal(ratchet({ strings: { 'b.tsx': { ampersand: 1 } }, paths: baseline.paths }, baseline).failures.length, 1);

@@ -1,7 +1,7 @@
 import { requireAuthenticatedUser, jsonSuccess, jsonError } from "@/app/api/v1/_shared";
 import { db } from "@/lib/db";
 import { projectNodes, taskNodeLinks, tasks } from "@/lib/db/schema";
-import { canReadProjectTab, getProjectAccessById } from "@/lib/data/project-access";
+import { canReadProjectTab, getProjectAccessById } from "@/lib/data/workspace-access";
 import { orgFileAccessSql, projectContentNodeSql } from "@/lib/files/internal-helpers";
 import { eq, and, inArray, isNull, gt, or } from "drizzle-orm";
 import { logger } from "@/lib/logger";

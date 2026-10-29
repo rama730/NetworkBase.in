@@ -13,7 +13,7 @@ import { isLooseUuid } from '@/lib/validations/uuid';
 import { z } from 'zod';
 import { notFixtureAccountSql } from '@/lib/accounts/fixture-accounts';
 import { connectionSuggestionDismissals, connectionSuggestions, connections, profiles, projects, roleApplications } from '@/lib/db/schema';
-import { countPendingInvitationsForCandidate } from '@/lib/projects/project-invitations';
+import { countPendingInvitationsForCandidate } from '@/lib/workspaces/workspace-invitations';
 import { getAuthUser } from '@/lib/supabase/auth-user';
 import { IdempotencyConflictError, runIdempotent } from '@/lib/security/idempotency';
 import { eq, and, or, desc, asc, sql, inArray, isNull, type SQL } from 'drizzle-orm';

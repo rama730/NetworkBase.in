@@ -10,10 +10,10 @@ import {
   formatBytes,
   formatFileActor,
   formatFileTimestamp,
-} from "@/components/projects/v2/files-tab/folder/format";
-import { FileIcon } from "@/components/projects/v2/explorer/FileIcons";
-import { FileTypeChip, resolveFileTypeMark } from "@/components/projects/v2/files-tab/FileTypeChip";
-import { isTextLike } from "@/components/projects/v2/utils/fileKind";
+} from "@/components/workspaces/v2/files-tab/folder/format";
+import { FileIcon } from "@/components/workspaces/v2/explorer/FileIcons";
+import { FileTypeChip, resolveFileTypeMark } from "@/components/workspaces/v2/files-tab/FileTypeChip";
+import { isTextLike } from "@/components/workspaces/v2/utils/fileKind";
 
 test("task drawer returns to the same Files scope, query, file and inspector", () => {
   const origin = new URLSearchParams({
@@ -171,7 +171,7 @@ test("cancelled cross-tab navigation preserves the draft; discard targets only t
 
 test("editor snapshot and failed notes remain recoverable without closing the editor", () => {
   const text = readFileSync(
-    "src/components/projects/v2/files-tab/file/TextViewer.tsx",
+    "src/components/workspaces/v2/files-tab/file/TextViewer.tsx",
     "utf8",
   );
   assert.match(text, /const loadVersion = editSnapshot.current\?\.version/);
@@ -179,7 +179,7 @@ test("editor snapshot and failed notes remain recoverable without closing the ed
   assert.match(text, /Try editing again/);
   assert.doesNotMatch(text, /baseVersion: node.currentVersion/);
   const notes = readFileSync(
-    "src/components/projects/v2/files-tab/file/LinkedTasksPanel.tsx",
+    "src/components/workspaces/v2/files-tab/file/LinkedTasksPanel.tsx",
     "utf8",
   );
   assert.match(
@@ -190,7 +190,7 @@ test("editor snapshot and failed notes remain recoverable without closing the ed
 
 test("subsequent task file pages use the query cache, not disposable local state", () => {
   const text = readFileSync(
-    "src/components/projects/v2/files-tab/TaskFilesCollection.tsx",
+    "src/components/workspaces/v2/files-tab/TaskFilesCollection.tsx",
     "utf8",
   );
   assert.match(text, /fileCursor: taskId \? pageParam : undefined/);

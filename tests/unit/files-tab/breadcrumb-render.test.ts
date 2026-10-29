@@ -46,7 +46,7 @@ import type { ProjectNode } from "@/lib/db/schema";
 import {
   ancestorChain,
   type CurrentLocation,
-} from "@/components/projects/v2/files-tab/navigation";
+} from "@/components/workspaces/v2/files-tab/navigation";
 
 // Late-bound module exports; assigned in the `before` hook below.
 type BreadcrumbSegment =
@@ -78,7 +78,7 @@ before(async () => {
   process.env.SUPABASE_SERVICE_ROLE_KEY ??= "test-service-role";
 
   const mod = await import(
-    "@/components/projects/v2/files-tab/breadcrumb/BreadcrumbBar"
+    "@/components/workspaces/v2/files-tab/breadcrumb/BreadcrumbBar"
   );
   deriveBreadcrumbSegments = mod.deriveBreadcrumbSegments;
   layoutBreadcrumb = mod.layoutBreadcrumb;
@@ -390,7 +390,7 @@ describe("BreadcrumbBar — file leaf (Req 3.3)", () => {
 const BREADCRUMB_SOURCE = readFileSync(
   path.resolve(
     __dirname,
-    "../../../src/components/projects/v2/files-tab/breadcrumb/BreadcrumbBar.tsx",
+    "../../../src/components/workspaces/v2/files-tab/breadcrumb/BreadcrumbBar.tsx",
   ),
   "utf8",
 );

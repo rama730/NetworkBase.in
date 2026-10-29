@@ -9,8 +9,8 @@ import {
   projects, projectSprints, taskSubtasks, tasks,
 } from "@/lib/db/schema";
 import { syncProjectChat } from "@/lib/messaging/integrations";
-import { generateProjectKey } from "@/lib/project-key";
-import { countUnregisteredProjectStorage, scheduleProjectStorageDeletion } from "@/lib/projects/server/lifecycle";
+import { generateProjectKey } from "@/lib/workspace-key";
+import { countUnregisteredProjectStorage, scheduleProjectStorageDeletion } from "@/lib/workspaces/server/lifecycle";
 import type { AssignmentSettings } from "@/lib/organizations/assignment-rules";
 import { createMasterTask } from "@/lib/organizations/assignments";
 import { detachFromOrg } from "@/lib/organizations/children";
@@ -105,7 +105,7 @@ export async function scheduleOrgDeletion(orgId: string, actorId: string, childM
   await notifyOrg({
     orgId, eventKey: "org.lifecycle", actorId, to: recipients,
     title: `${org.title} was deleted`, body: `It will be removed for good in ${ORG_DELETION_GRACE_DAYS} days. Download your submissions from My work before then.`,
-    href: "/projects", sourceEventId: `deleted:${orgId}:${now.getTime()}`,
+    href: "/workspaces", sourceEventId: `deleted:${orgId}:${now.getTime()}`,
     email: { kind: "org_deleted", data: (userId) => ({ personalProjects: led.get(userId) ?? [] }) },
   });
   return { deleteAt: new Date(now.getTime() + ORG_DELETION_GRACE_DAYS * DAY_MS) };

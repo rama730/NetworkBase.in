@@ -16,7 +16,7 @@ import {
 import {
     replaceTaskFileRoleTag,
     type TaskFileRole,
-} from "@/lib/projects/task-file-intelligence";
+} from "@/lib/workspaces/task-file-intelligence";
 import { getFileAttributionByNodeId } from "@/lib/files/file-attribution";
 import { consumeRateLimit } from "@/lib/security/rate-limit";
 

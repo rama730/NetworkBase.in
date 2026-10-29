@@ -8,11 +8,11 @@ function getWorkerOnlyFunctions() {
   const { flushUpdateLikes } = loadModule("./functions/flush-likes");
   const { cleanupProjectUpdate } = loadModule("./functions/cleanup-update");
   const { gitPull, gitPush, gitSyncRecovery, lockCleanup, uploadIntentCleanup } = loadModule("./functions/git-sync");
-  const { finishPendingFileDeletions } = loadModule("./functions/project-files-permanent-delete");
-  const { reconcileProjectFiles } = loadModule("./functions/project-files-reconciliation");
-  const { projectImport } = loadModule("./functions/project-import");
-  const { projectImportHydrate } = loadModule("./functions/project-import-hydrate");
-  const { projectImportStaleReconcile } = loadModule("./functions/project-import-reconcile");
+  const { finishPendingFileDeletions } = loadModule("./functions/workspace-files-permanent-delete");
+  const { reconcileProjectFiles } = loadModule("./functions/workspace-files-reconciliation");
+  const { projectImport } = loadModule("./functions/workspace-import");
+  const { projectImportHydrate } = loadModule("./functions/workspace-import-hydrate");
+  const { projectImportStaleReconcile } = loadModule("./functions/workspace-import-reconcile");
   const { reconcileMyWorkProfileCounters } = loadModule("./functions/my-work-counter-reconcile");
   const { myWorkCountersRefresh } = loadModule("./functions/my-work-counter-refresh");
   const { accountCleanup } = loadModule("./functions/account-cleanup");

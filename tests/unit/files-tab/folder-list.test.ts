@@ -49,12 +49,12 @@ import {
   compareFolderListNodes,
   sortFolderListNodes,
   type FolderListSortableNode,
-} from "@/components/projects/v2/files-tab/folder/sort";
+} from "@/components/workspaces/v2/files-tab/folder/sort";
 import {
   deriveFolderContents,
   runFolderLoad,
   type LoadFolderContent,
-} from "@/components/projects/v2/files-tab/hooks/useFolderContents";
+} from "@/components/workspaces/v2/files-tab/hooks/useFolderContents";
 
 // ─── Fixtures ────────────────────────────────────────────────────────
 
@@ -260,7 +260,7 @@ describe("sortFolderListNodes — property suite (Req 4.2)", () => {
 const STATES_SOURCE = readFileSync(
   path.resolve(
     __dirname,
-    "../../../src/components/projects/v2/files-tab/folder/FolderListStates.tsx",
+    "../../../src/components/workspaces/v2/files-tab/folder/FolderListStates.tsx",
   ),
   "utf8",
 );
@@ -346,7 +346,7 @@ describe("FolderListStates — loading / empty / error (Req 4.9, Req 4.10)", () 
 const VIEW_SOURCE = readFileSync(
   path.resolve(
     __dirname,
-    "../../../src/components/projects/v2/files-tab/folder/FolderListView.tsx",
+    "../../../src/components/workspaces/v2/files-tab/folder/FolderListView.tsx",
   ),
   "utf8",
 );
@@ -445,7 +445,7 @@ describe("Files context menus — viewport-safe placement", () => {
     const sidebarSource = readFileSync(
       path.resolve(
         __dirname,
-        "../../../src/components/projects/v2/files-tab/FilesTabSidebar.tsx",
+        "../../../src/components/workspaces/v2/files-tab/FilesTabSidebar.tsx",
       ),
       "utf8",
     );
@@ -470,7 +470,7 @@ describe("Files context menus — viewport-safe placement", () => {
 const ROW_SOURCE = readFileSync(
   path.resolve(
     __dirname,
-    "../../../src/components/projects/v2/files-tab/folder/FolderListRow.tsx",
+    "../../../src/components/workspaces/v2/files-tab/folder/FolderListRow.tsx",
   ),
   "utf8",
 );
@@ -521,7 +521,7 @@ describe("FolderListRow — git change badges (Req 12.1, 12.2, 12.5, 12.6)", () 
 const PILL_SOURCE = readFileSync(
   path.resolve(
     __dirname,
-    "../../../src/components/projects/v2/files-tab/VersionPill.tsx",
+    "../../../src/components/workspaces/v2/files-tab/VersionPill.tsx",
   ),
   "utf8",
 );

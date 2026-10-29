@@ -11,7 +11,7 @@ import {
   tombstoneTaskDiscussionEntry,
   type TaskDiscussionBaseEntry,
   type TaskDiscussionThreadPage,
-} from "@/lib/projects/task-discussion";
+} from "@/lib/workspaces/task-discussion";
 
 function createEntry(overrides: Partial<TaskDiscussionBaseEntry> = {}): TaskDiscussionBaseEntry {
   return {

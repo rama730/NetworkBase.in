@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import { orgSettingsSectionIds } from "../../src/lib/organizations/settings";
-import { isProjectTabVisibleToViewer, resolveAllowedProjectTab } from "../../src/lib/projects/settings-policies";
+import { isProjectTabVisibleToViewer, resolveAllowedProjectTab } from "../../src/lib/workspaces/settings-policies";
 
 // Report §18.3 (org tab bar by person) and §21.4 (who sees which settings sections).
 const publicTabs = { dashboard: true, readme: true, updates: true, files: true, sprints: false, tasks: false };

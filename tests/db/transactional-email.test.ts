@@ -42,7 +42,7 @@ let outbox: typeof import("@/lib/email/outbox");
 let delivery: typeof import("@/lib/email/delivery");
 let onboarding: typeof import("@/app/actions/onboarding");
 let taskActions: typeof import("@/app/actions/task");
-let projectActions: typeof import("@/app/actions/project");
+let projectActions: typeof import("@/app/actions/workspace");
 let webhook: typeof import("@/app/api/v1/webhooks/resend/route");
 before(async () => {
   (process.env as Record<string, string>).NODE_ENV = "test";
@@ -54,7 +54,7 @@ before(async () => {
   delivery = await import("@/lib/email/delivery");
   onboarding = await import("@/app/actions/onboarding");
   taskActions = await import("@/app/actions/task");
-  projectActions = await import("@/app/actions/project");
+  projectActions = await import("@/app/actions/workspace");
   webhook = await import("@/app/api/v1/webhooks/resend/route");
   // drainEmailOutbox is the global worker (25 rows a run, oldest first). Other test files queue mail too
   // (.env.local enables sending), so start from an empty queue or their rows use up the budget.
@@ -275,7 +275,7 @@ test("bulk reassignment preserves self-assignment exclusion and email opt-out", 
 
 test("bulk reassignment rolls back assignment, activity, membership removal and queued mail together", async () => {
   const { owner, a, b, projectId, taskId } = await assignedTask();
-  const { removeProjectMemberInternal } = await import("@/lib/projects/collaborator-lifecycle");
+  const { removeProjectMemberInternal } = await import("@/lib/workspaces/collaborator-lifecycle");
   await assert.rejects(db.transaction(async (tx) => {
     await removeProjectMemberInternal(tx, { projectId, actorId: owner.id, targetUserId: a.id, mode: "reassign_active_tasks", reassignToUserId: b.id });
     throw new Error("forced rollback after removal");

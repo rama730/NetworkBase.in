@@ -13,10 +13,10 @@ describe("extension sidebar counter contract", () => {
       "src/app/api/v1/extension/workspace/route.ts",
     );
     const summaryRoute = readSource(
-      "src/app/api/v1/extension/project-summary/route.ts",
+      "src/app/api/v1/extension/workspace-summary/route.ts",
     );
     const tasksRoute = readSource(
-      "src/app/api/v1/extension/project-tasks/route.ts",
+      "src/app/api/v1/extension/workspace-tasks/route.ts",
     );
 
     assert.match(

@@ -6,7 +6,7 @@ import { z } from 'zod';
 
 import { db } from '@/lib/db';
 import { chatChannelMembers, chatChannels, projects } from '@/lib/db/schema';
-import { getProjectAccessById } from '@/lib/data/project-access';
+import { getProjectAccessById } from '@/lib/data/workspace-access';
 import { orgChatSettings } from '@/lib/organizations/chat-rules';
 import { getViewerAuthContext } from '@/lib/server/viewer-context';
 

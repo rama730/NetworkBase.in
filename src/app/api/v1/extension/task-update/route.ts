@@ -21,8 +21,8 @@ import {
   lockTaskForWrite,
   transitionTaskTx,
   afterTaskTransition,
-} from "@/lib/projects/task-transition-service";
-import { lockSubtaskWriteScope } from "@/lib/projects/subtask-write-scope";
+} from "@/lib/workspaces/task-transition-service";
+import { lockSubtaskWriteScope } from "@/lib/workspaces/subtask-write-scope";
 import { approveTaskReviewAction, requestTaskChangesAction, resubmitTaskReviewAction } from "@/app/actions/task";
 import {
   extensionReviewEvidenceSchema,

@@ -6,8 +6,8 @@ import { FilterPanel } from '@/components/ui/filter-panel';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { PROJECT_STATUS, PROJECT_TYPE, type ProjectStatus, type ProjectType } from '@/constants/discover';
 import { DISCOVER_STATUSES, type DiscoverQuery } from '@/lib/discover/query';
-import { PROJECT_TYPE_OPTIONS } from '@/lib/projects/project-create-options';
-import { projectStageLabel } from '@/lib/projects/status-presentation';
+import { PROJECT_TYPE_OPTIONS } from '@/lib/workspaces/workspace-create-options';
+import { projectStageLabel } from '@/lib/workspaces/status-presentation';
 
 const MAX_SKILLS = 8;
 

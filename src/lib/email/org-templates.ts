@@ -246,7 +246,7 @@ function partsFor(kind: OrgEmailKind, d: OrgEmailData, url: (path: string) => st
         identity: "org", label: "Organization", headline: `${org} was deleted`,
         paragraphs: ["Work you did in your own workspaces is still yours."],
         sections: d.personalProjects?.length ? [{ title: "Now your personal workspaces", rows: d.personalProjects }] : [],
-        primary: { label: "Open my workspaces", href: url("/projects") },
+        primary: { label: "Open my workspaces", href: url("/workspaces") },
         reason: `You’re receiving this because you were a member of ${org}.`,
       };
   }

@@ -10,7 +10,7 @@ import {
   normalizeTaskTitleDraft,
   replaceTaskFileRoleTag,
   resolveTaskFileIntent,
-} from "@/lib/projects/task-file-intelligence";
+} from "@/lib/workspaces/task-file-intelligence";
 
 test("approval metadata records exactly one version without losing role or custom labels", () => {
   const tags = markTaskFileVersionApproved(["deliverable", "client-review", "approved_version:2"], 3);

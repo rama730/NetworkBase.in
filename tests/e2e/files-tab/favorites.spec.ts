@@ -51,7 +51,7 @@ async function openFilesTab(
     projectSlug: string,
 ): Promise<{ ready: boolean; reason?: string }> {
     await login(page);
-    await page.goto(`/projects/${projectSlug}`, {
+    await page.goto(`/workspaces/${projectSlug}`, {
         waitUntil: "domcontentloaded",
     });
 
@@ -59,7 +59,7 @@ async function openFilesTab(
     if (await filesTab.count()) {
         await filesTab.click();
     } else {
-        await page.goto(`/projects/${projectSlug}?tab=files`, {
+        await page.goto(`/workspaces/${projectSlug}?tab=files`, {
             waitUntil: "domcontentloaded",
         });
     }

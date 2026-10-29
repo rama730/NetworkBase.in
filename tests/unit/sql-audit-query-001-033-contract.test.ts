@@ -14,7 +14,7 @@ test("QRY-001..006 hub pagination keeps filters, rejects cursors, and has no dea
   assert.match(hub, /throw new InvalidDiscoverCursorError\(\)/);
   assert.match(hub, /\.limit\(pageSize \+ 1\)/);
   assert.match(hub, /while \(pageRows\.length < pageSize/);
-  assert.equal(fs.existsSync(path.join(root, "src/lib/data/project.ts")), false);
+  assert.equal(fs.existsSync(path.join(root, "src/lib/data/workspace.ts")), false);
 });
 
 test("QRY-007..012 authorize before sensitive reads and keep file reads side-effect free", () => {
@@ -28,7 +28,7 @@ test("QRY-007..012 authorize before sensitive reads and keep file reads side-eff
 
 test("QRY-013..023 retire unsafe batch replacement and full-tree/task-slug scans", () => {
   const nodes = source("src/app/actions/files/nodes.ts");
-  const urlSync = source("src/components/projects/v2/files-tab/hooks/useFilesTabUrlSync.ts");
+  const urlSync = source("src/components/workspaces/v2/files-tab/hooks/useFilesTabUrlSync.ts");
 
   assert.doesNotMatch(nodes, /getProjectTreeFlat|TASK_WORKING_FILE_URL_PREFIX/);
   assert.match(nodes, /eq\(projectNodes\.path, `\/\$\{path\.join\("\/"\)\}`\)/);
@@ -40,8 +40,8 @@ test("QRY-013..023 retire unsafe batch replacement and full-tree/task-slug scans
 });
 
 test("QRY-024..030 maintenance workers are bounded, durable, and starvation-safe", () => {
-  const reconciliation = source("src/inngest/functions/project-files-reconciliation.ts");
-  const stale = source("src/inngest/functions/project-import-reconcile.ts");
+  const reconciliation = source("src/inngest/functions/workspace-files-reconciliation.ts");
+  const stale = source("src/inngest/functions/workspace-import-reconcile.ts");
   const cleanup = source("src/inngest/functions/account-cleanup.ts");
   const hardDelete = source("src/inngest/functions/account-hard-delete.ts");
   const hashes = source("scripts/db/repair/backfill-file-hashes.ts");

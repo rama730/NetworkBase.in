@@ -31,7 +31,7 @@ import {
   X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { ComposerReferenceOptions } from "@/components/projects/updates/ComposerReferenceOptions";
+import { ComposerReferenceOptions } from "@/components/workspaces/updates/ComposerReferenceOptions";
 import { referenceLinkBackspaceExtension } from "@/lib/editor/reference-link-backspace";
 import { isSafeHttpUrl } from "@/lib/security/urls";
 import {

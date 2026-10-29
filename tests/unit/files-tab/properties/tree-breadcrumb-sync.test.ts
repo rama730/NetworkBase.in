@@ -8,7 +8,7 @@
 //   ordered ids of `ancestorChain(nodesById, currentLocationId)`.
 //
 // Adaptation note: `deriveBreadcrumbSegments` (see
-// src/components/projects/v2/files-tab/breadcrumb/BreadcrumbBar.tsx) prepends
+// src/components/workspaces/v2/files-tab/breadcrumb/BreadcrumbBar.tsx) prepends
 // a synthetic `root` segment with `id: null`, so we compare
 // `segments.slice(1).map(s => s.id)` against
 // `ancestorChain(...).map(n => n.id)`.
@@ -42,7 +42,7 @@ import type { ProjectNode } from "@/lib/db/schema";
 import {
   ancestorChain,
   type CurrentLocation,
-} from "@/components/projects/v2/files-tab/navigation";
+} from "@/components/workspaces/v2/files-tab/navigation";
 
 // Late-bound module exports; assigned in the `before` hook below.
 type BreadcrumbSegment =
@@ -65,7 +65,7 @@ before(async () => {
   process.env.SUPABASE_SERVICE_ROLE_KEY ??= "test-service-role";
 
   const mod = await import(
-    "@/components/projects/v2/files-tab/breadcrumb/BreadcrumbBar"
+    "@/components/workspaces/v2/files-tab/breadcrumb/BreadcrumbBar"
   );
   deriveBreadcrumbSegments = mod.deriveBreadcrumbSegments;
 });

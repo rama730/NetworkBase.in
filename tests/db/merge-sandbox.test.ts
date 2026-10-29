@@ -6,10 +6,10 @@ import { closeAppDb, createProject, createUser, loadAppModule, sql, type Tx } fr
 
 // mergeSandboxTask runs its own transaction, so fixtures are committed and
 // removed by deleting the workspaces afterwards.
-let merge: typeof import("../../src/lib/projects/merge-sandbox").mergeSandboxTask;
+let merge: typeof import("../../src/lib/workspaces/merge-sandbox").mergeSandboxTask;
 const createdProjects: string[] = [];
 before(async () => {
-  ({ mergeSandboxTask: merge } = await loadAppModule(() => import("../../src/lib/projects/merge-sandbox")));
+  ({ mergeSandboxTask: merge } = await loadAppModule(() => import("../../src/lib/workspaces/merge-sandbox")));
 });
 after(async () => {
   if (createdProjects.length) await sql`DELETE FROM public.projects WHERE id IN ${sql(createdProjects)}`;
