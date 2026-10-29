@@ -61,30 +61,30 @@ export function buildOwnerProfileTitle(input: ProfileMetadataInput): string {
     const fullName = trimDisplayText(input.fullName);
     const username = trimDisplayText(input.username);
     if (fullName && username) {
-        return `${fullName} (@${username}) | NetworkBase`;
+        return `${fullName} (@${username}) · NetworkBase`;
     }
     if (fullName) {
-        return `${fullName} | NetworkBase`;
+        return `${fullName} · NetworkBase`;
     }
     if (username) {
-        return `@${username} | NetworkBase`;
+        return `@${username} · NetworkBase`;
     }
-    return "My profile | NetworkBase";
+    return "My profile · NetworkBase";
 }
 
 export function buildPublicProfileTitle(input: ProfileMetadataInput): string {
     const fullName = trimDisplayText(input.fullName);
     const username = trimDisplayText(input.username);
     if (fullName && username) {
-        return `${fullName} (@${username}) | NetworkBase`;
+        return `${fullName} (@${username}) · NetworkBase`;
     }
     if (fullName) {
-        return `${fullName} | NetworkBase`;
+        return `${fullName} · NetworkBase`;
     }
     if (username) {
-        return `@${username} | NetworkBase`;
+        return `@${username} · NetworkBase`;
     }
-    return "Profile | NetworkBase";
+    return "Profile · NetworkBase";
 }
 
 export function initialsForName(...values: Array<string | null | undefined>): string {

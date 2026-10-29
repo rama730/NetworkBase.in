@@ -14,7 +14,7 @@ import { buildRouteMetadata } from "@/lib/metadata/route-metadata";
 
 export function generateMetadata() {
     return buildRouteMetadata({
-        title: 'Discover | NetworkBase',
+        title: 'Discover · NetworkBase',
         description: 'Find workspaces and people to work with.',
         path: '/discover',
         image: '/og/hub-card.png',

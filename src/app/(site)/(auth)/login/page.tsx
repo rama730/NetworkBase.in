@@ -2,7 +2,7 @@ import { buildRouteMetadata } from '@/lib/metadata/route-metadata'
 import { LoginForm } from '@/components/auth/LoginForm'
 
 export const metadata = buildRouteMetadata({
-    title: 'Sign in | NetworkBase',
+    title: 'Sign in · NetworkBase',
     description: 'Sign in to NetworkBase to reach your workspaces, people and messages.',
     path: '/login',
 })

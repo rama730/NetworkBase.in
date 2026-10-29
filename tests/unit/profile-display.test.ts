@@ -41,8 +41,8 @@ describe("profile display helpers", () => {
   });
 
   it("normalizes profile titles", () => {
-    assert.equal(buildOwnerProfileTitle({ fullName: "Rama ", username: "rama" }), "Rama (@rama) | NetworkBase");
-    assert.equal(buildPublicProfileTitle({ username: "rama" }), "@rama | NetworkBase");
+    assert.equal(buildOwnerProfileTitle({ fullName: "Rama ", username: "rama" }), "Rama (@rama) · NetworkBase");
+    assert.equal(buildPublicProfileTitle({ username: "rama" }), "@rama · NetworkBase");
     assert.equal(normalizeWorkspaceTitle(" Network for builders "), "Network for builders");
   });
 });

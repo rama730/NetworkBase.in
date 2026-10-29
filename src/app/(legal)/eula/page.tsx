@@ -3,7 +3,7 @@ import { LegalDocumentPage, LegalList } from "@/components/legal/LegalDocumentPa
 import { getLegalIdentity } from "@/lib/legal/config";
 import { LEGAL_VERSIONS } from "@/lib/legal/versions";
 
-export const metadata: Metadata = { title: "EULA | NetworkBase", description: "The license for NetworkBase software and extensions." };
+export const metadata: Metadata = { title: "EULA · NetworkBase", description: "The license for NetworkBase software and extensions." };
 
 export default function EulaPage() {
   const i = getLegalIdentity();

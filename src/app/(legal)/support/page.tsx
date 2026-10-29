@@ -5,7 +5,7 @@ import { getLegalIdentity } from "@/lib/legal/config";
 import { LEGAL_VERSIONS } from "@/lib/legal/versions";
 
 export const metadata: Metadata = {
-  title: "Help and support | NetworkBase",
+  title: "Help and support · NetworkBase",
   description:
     "Official customer support, technical assistance, security reporting, and privacy channels for NetworkBase.",
 };

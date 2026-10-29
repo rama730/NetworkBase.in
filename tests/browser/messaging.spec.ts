@@ -38,7 +38,7 @@ test.beforeEach(async ({ page }) => {
   await page.route(`${origin}/**`, route => {
     const url = new URL(route.request().url());
     if (url.pathname.startsWith("/api/")) return route.fulfill({ status: 403, body: "Expired" });
-    return route.fulfill({ contentType: url.pathname === "/fixture.js" ? "application/javascript" : "text/html", body: url.pathname === "/fixture.js" ? script : '<html><head><title>Messages | NetworkBase</title></head><body><div id="root"></div><script src="/fixture.js"></script></body></html>' });
+    return route.fulfill({ contentType: url.pathname === "/fixture.js" ? "application/javascript" : "text/html", body: url.pathname === "/fixture.js" ? script : '<html><head><title>Messages · NetworkBase</title></head><body><div id="root"></div><script src="/fixture.js"></script></body></html>' });
   });
   await page.goto(`${origin}/messages/${id}?tab=canvas&foo=bar`);
   await expect(page.getByTestId("state")).toBeVisible();
@@ -97,11 +97,11 @@ test("authorized title prefixes rename, reset and preserve unread counts; window
   await expect(page).toHaveTitle(/Engineering.*Messages/);
   expect(await page.title()).not.toContain("Design");
   await page.evaluate(() => (window as any).messagingFixture.setPrefix(null));
-  await expect(page).toHaveTitle("(3) Messages | NetworkBase");
+  await expect(page).toHaveTitle("(3) Messages · NetworkBase");
   await page.evaluate(() => { (window as any).messagingFixture.setPrefix("Private"); (window as any).messagingFixture.setWindowOnly(true); });
-  await expect(page).toHaveTitle("(3) Messages | NetworkBase");
+  await expect(page).toHaveTitle("(3) Messages · NetworkBase");
   await page.evaluate(() => (window as any).messagingFixture.setBadge(null));
-  await expect(page).toHaveTitle("Messages | NetworkBase");
+  await expect(page).toHaveTitle("Messages · NetworkBase");
 });
 
 test("media errors reauthorize once and then show an unavailable state", async ({ page }) => {

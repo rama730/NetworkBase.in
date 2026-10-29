@@ -117,7 +117,7 @@ function ArchiveRow({ orgId, archived, preview }: { orgId: string; archived: boo
 
 const COPY_ITEMS = [
     { key: 'about', text: 'About, settings and role names' },
-    { key: 'docs', text: 'Docs' },
+    { key: 'docs', text: 'Documents' },
     { key: 'files', text: 'Folders and admin files (never submissions)' },
     { key: 'sprints', text: 'Sprint plan, with dates moved to the new term' },
     { key: 'assignments', text: 'Assignments as drafts, with dates moved' },

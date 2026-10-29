@@ -13,7 +13,7 @@ import { normalizeJoinCode } from '@/lib/organizations/join-rules'
 import { getViewerAuthContext } from '@/lib/server/viewer-context'
 
 export const metadata = buildRouteMetadata({
-    title: 'Join an organization | NetworkBase',
+    title: 'Join an organization · NetworkBase',
     description: 'You have been invited to join an organization on NetworkBase.',
     path: '/join',
 })

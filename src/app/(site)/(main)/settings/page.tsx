@@ -3,7 +3,7 @@ import { buildRouteMetadata } from "@/lib/metadata/route-metadata";
 
 export function generateMetadata() {
   return buildRouteMetadata({
-    title: "Settings | NetworkBase",
+    title: "Settings · NetworkBase",
     description: "Manage your account, security, privacy, notifications, appearance, integrations, and data on NetworkBase.",
     path: "/settings",
     // Personal and signed-in: never something to index.

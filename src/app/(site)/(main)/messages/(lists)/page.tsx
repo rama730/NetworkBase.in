@@ -6,7 +6,7 @@ import { conversationHref } from '@/lib/messaging/routes';
 
 export function generateMetadata() {
     return buildRouteMetadata({
-        title: 'Messages | NetworkBase',
+        title: 'Messages · NetworkBase',
         description: 'Channels and direct messages for your workspaces.',
         path: '/messages',
     });

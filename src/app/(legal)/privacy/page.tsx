@@ -4,7 +4,7 @@ import { getLegalIdentity } from "@/lib/legal/config";
 import { LEGAL_VERSIONS } from "@/lib/legal/versions";
 
 export const metadata: Metadata = {
-  title: "Privacy Policy | NetworkBase",
+  title: "Privacy Policy · NetworkBase",
   description: "How NetworkBase collects, uses, shares, retains, and protects personal data.",
 };
 

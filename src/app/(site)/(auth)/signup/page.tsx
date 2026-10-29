@@ -2,7 +2,7 @@ import { buildRouteMetadata } from '@/lib/metadata/route-metadata'
 import { SignupForm } from '@/components/auth/SignupForm'
 
 export const metadata = buildRouteMetadata({
-    title: 'Create your account | NetworkBase',
+    title: 'Create your account · NetworkBase',
     description: 'Create a NetworkBase account to find people and work together in workspaces.',
     path: '/signup',
 })

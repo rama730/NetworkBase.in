@@ -21,7 +21,7 @@ test("buildWorkspaceDetailMetadataInput trims project title and descriptions", (
       description: "Longer description",
     }),
     {
-      title: "Network for builders | NetworkBase",
+      title: "Network for builders · NetworkBase",
       description: "Learn and build together.",
       path: "/workspaces/network-for-builders",
       image: "/api/og/workspace/network-for-builders",
@@ -43,7 +43,7 @@ test("buildWorkspaceDetailMetadataInput uses large-card dimensions for uploaded 
       coverImageHeight: 500,
     }),
     {
-      title: "Network for builders | NetworkBase",
+      title: "Network for builders · NetworkBase",
       description: "Explore Network for builders on NetworkBase.",
       path: "/workspaces/network-for-builders",
       image: "https://cdn.example.test/workspace.png",

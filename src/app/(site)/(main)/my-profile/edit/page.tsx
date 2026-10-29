@@ -8,7 +8,7 @@ import { buildAuthPageHref } from '@/lib/auth/redirects';
 import { parseProfileEditSection, profileEditHref } from '@/lib/profile/edit-route';
 
 export const metadata = buildRouteMetadata({
-    title: 'Edit profile | NetworkBase',
+    title: 'Edit profile · NetworkBase',
     description: 'Manage your profile details, contributions, skills and role preferences.',
     path: '/my-profile/edit',
     robots: { index: false, follow: false, noarchive: true },

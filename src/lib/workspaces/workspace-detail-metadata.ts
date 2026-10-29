@@ -48,7 +48,7 @@ export function buildWorkspaceDetailMetadataInput(
   const imageHeight = projectImage ? normalizeImageDimension(project?.coverImageHeight, 630) : 630;
 
   return {
-    title: `${resolvedTitle} | NetworkBase`,
+    title: `${resolvedTitle} · NetworkBase`,
     description,
     path: `/workspaces/${encodeURIComponent(canonicalSlug)}`,
     image: projectImage || `/api/og/workspace/${encodeURIComponent(canonicalSlug)}`,

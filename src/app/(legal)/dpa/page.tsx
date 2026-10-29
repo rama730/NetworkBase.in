@@ -3,7 +3,7 @@ import { LegalDocumentPage, LegalList } from "@/components/legal/LegalDocumentPa
 import { getLegalIdentity } from "@/lib/legal/config";
 import { LEGAL_VERSIONS } from "@/lib/legal/versions";
 
-export const metadata: Metadata = { title: "Data Processing Addendum | NetworkBase", description: "NetworkBase data-processing terms for eligible organizational customers." };
+export const metadata: Metadata = { title: "Data Processing Addendum · NetworkBase", description: "NetworkBase data-processing terms for eligible organizational customers." };
 
 export default function DpaPage() {
   const i = getLegalIdentity();

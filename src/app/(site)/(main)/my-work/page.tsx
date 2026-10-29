@@ -4,7 +4,7 @@ import { buildRouteMetadata } from "@/lib/metadata/route-metadata";
 
 export function generateMetadata() {
     return buildRouteMetadata({
-        title: "My work | NetworkBase",
+        title: "My work · NetworkBase",
         description: "Your tasks, invitations and requests.",
         path: "/my-work",
     });
