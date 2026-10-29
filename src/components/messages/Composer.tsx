@@ -607,7 +607,7 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
     ? "Type a message to schedule it"
     : uploads.length ? "Scheduled messages can’t carry files yet"
     : isCommand(plain.trim()) ? "Commands can’t be scheduled"
-    : alsoToChannel ? "Untick \"Also send\" to schedule a reply"
+    : alsoToChannel ? "Clear \"Also send\" to schedule a reply"
     : null;
 
   /** Send later: the text only, queued for the chat-due job. */

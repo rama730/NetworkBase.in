@@ -72,7 +72,7 @@ export default function SecurityPage() {
                 ]}
             />
             <p className="nb-compact text-muted-foreground">
-                Don’t recognise something? <a href="#settings-security-sessions" className="font-medium text-foreground underline underline-offset-4">Sign out other devices</a>, then <a href="#settings-security-password" className="font-medium text-foreground underline underline-offset-4">change your password</a>.
+                Don’t recognize something? <a href="#settings-security-sessions" className="font-medium text-foreground underline underline-offset-4">Sign out other devices</a>, then <a href="#settings-security-password" className="font-medium text-foreground underline underline-offset-4">change your password</a>.
             </p>
             <SettingsSectionCard
                 title="Sign-in protection"

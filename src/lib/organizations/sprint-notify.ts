@@ -139,7 +139,7 @@ export function notifyChildSprintsUnlinked(orgId: string, orgSprintId: string, l
       SELECT p.kind, s.name FROM projects p JOIN project_sprints s ON s.id = ${orgSprintId} WHERE p.id = ${orgId}`);
     if (org?.kind !== "organization") return;
     for (const child of linked) {
-      await notifyOrg({ orgId, eventKey: "org_sprints.notice", actorId, to: [child.ownerId], title: `${org.name} was cancelled. ${child.sprintName} is no longer linked to it`,
+      await notifyOrg({ orgId, eventKey: "org_sprints.notice", actorId, to: [child.ownerId], title: `${org.name} was canceled. ${child.sprintName} is no longer linked to it`,
         href: `/projects/${encodeURIComponent(child.slug ?? child.projectId)}?tab=sprints`, sourceEventId: `sprint-unlinked:${orgSprintId}:${child.projectId}`, refs: { projectId: child.projectId } });
     }
   });

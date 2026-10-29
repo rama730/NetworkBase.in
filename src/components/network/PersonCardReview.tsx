@@ -43,7 +43,7 @@ export function PersonCardCancelMenu({ label, name, href, busy, onCancel }: {
     label: 'Requested' | 'Invited'; name: string; href: string; busy?: boolean; onCancel: () => Promise<unknown>;
 }) {
     return <DropdownMenu><DropdownMenuTrigger asChild>
-        <button className="nb-person-control" disabled={busy} aria-label={`${label}: options for ${name}`}>{busy ? 'Cancelling…' : label}<ChevronDown className="size-3" aria-hidden="true" /></button>
+        <button className="nb-person-control" disabled={busy} aria-label={`${label}: options for ${name}`}>{busy ? 'Canceling…' : label}<ChevronDown className="size-3" aria-hidden="true" /></button>
     </DropdownMenuTrigger><DropdownMenuContent align="end">
         <DropdownMenuItem asChild><Link href={href}>View profile</Link></DropdownMenuItem>
         <DropdownMenuItem disabled={busy} onSelect={() => { void onCancel(); }}>Cancel {label === 'Invited' ? 'invitation' : 'request'}</DropdownMenuItem>

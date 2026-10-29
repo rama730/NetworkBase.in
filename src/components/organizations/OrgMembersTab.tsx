@@ -120,7 +120,7 @@ export function OrgMembersTab({ orgId, roleNames }: { orgId: string; roleNames?:
                                 <span className="text-muted-foreground">{label(i.role)}{i.title ? ` · ${i.title}` : ''} · Invited · expires {new Date(i.expiresAt).toLocaleDateString()}</span>
                                 <span className="ml-auto flex gap-1.5">
                                     <Button type="button" size="sm" variant="outline" disabled={pending} onClick={() => run(() => resendOrgInviteAction(orgId, i.id), 'Invite extended')}>Resend</Button>
-                                    <Button type="button" size="sm" variant="ghost" disabled={pending} onClick={() => run(() => cancelOrgInviteAction(orgId, i.id), 'Invite cancelled')}>Cancel</Button>
+                                    <Button type="button" size="sm" variant="ghost" disabled={pending} onClick={() => run(() => cancelOrgInviteAction(orgId, i.id), 'Invite canceled')}>Cancel</Button>
                                 </span>
                             </li>
                         ))}

@@ -124,7 +124,7 @@ export async function executeHardDelete(
       return "db_deleted" as const;
     });
     if (phase !== "db_deleted") {
-      return { success: false, error: phase === "ineligible" ? "Deletion record not found, cancelled or not yet due" : `Deletion is in phase ${phase}; retry later` };
+      return { success: false, error: phase === "ineligible" ? "Deletion record not found, canceled or not yet due" : `Deletion is in phase ${phase}; retry later` };
     }
     await notifyLeadHandovers(userId);
 

@@ -121,7 +121,7 @@ export function FileTransfersProvider({
                       className="min-h-11 rounded border border-destructive/30 px-3 text-destructive hover:bg-destructive/10"
                       onClick={() => {
                         job.abort?.();
-                        update(job.id, { status: "error", error: "Transfer cancelled" });
+                        update(job.id, { status: "error", error: "Transfer canceled" });
                       }}
                     >
                       Cancel transfer

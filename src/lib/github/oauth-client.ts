@@ -175,7 +175,7 @@ export async function startGithubSyncAuthorization({
     await startGithubIdentityLink({
       nextPath,
       beforeRedirect: async () => {
-        if (!isCurrent()) throw new Error("Sign-in cancelled.");
+        if (!isCurrent()) throw new Error("Sign-in canceled.");
       },
     });
   }

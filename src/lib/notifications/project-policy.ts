@@ -458,8 +458,8 @@ export const PROJECT_NOTIFICATION_EVENT_REGISTRY = {
     "sprints.deleted": E({
         key: "sprints.deleted",
         group: "project_lifecycle",
-        label: "Sprint deleted or cancelled",
-        description: "Notify leaders when a sprint is deleted or cancelled.",
+        label: "Sprint deleted or canceled",
+        description: "Notify leaders when a sprint is deleted or canceled.",
         category: "projects",
         notificationKind: "project_sprint_activity",
         defaultEnabled: true,

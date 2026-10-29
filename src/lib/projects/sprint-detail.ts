@@ -161,7 +161,7 @@ export const SPRINT_STATUS_PRESENTATION: Record<
     dotClassName: "nb-sprint-dot-muted",
   },
   cancelled: {
-    label: "Cancelled",
+    label: "Canceled",
     dotClassName: "nb-sprint-dot-danger",
     toneClassName: "nb-sprint-tone-danger",
   },

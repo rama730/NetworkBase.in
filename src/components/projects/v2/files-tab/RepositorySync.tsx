@@ -2889,7 +2889,7 @@ export function RepositorySync({
                   authAttempt.current++;
                   setAuthWaiting(false);
                   setNotice(
-                    "Sign-in was cancelled on this page. Your setup is retained.",
+                    "Sign-in was canceled on this page. Your setup is retained.",
                   );
                 }}
               >
@@ -3078,7 +3078,7 @@ export function RepositorySync({
             <DialogTitle>Disconnect repository?</DialogTitle>
             <DialogDescription>
               Project files and the GitHub repository are kept. Unsubmitted
-              reviews will be cancelled; running operations must finish first.
+              reviews will be canceled; running operations must finish first.
             </DialogDescription>
             <div className={styles.dialogFooter}>
               <button

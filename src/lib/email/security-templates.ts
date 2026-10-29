@@ -100,9 +100,9 @@ function partsFor(kind: SecurityEmailKind, data: SecurityEmailData, url: (path: 
       };
     case "account_deletion_cancelled":
       return {
-        subject: "Your NetworkBase account was reactivated", preview: "Deletion was cancelled and your profile is visible again.", label: "ACCOUNT DELETION",
+        subject: "Your NetworkBase account was reactivated", preview: "Deletion was canceled and your profile is visible again.", label: "ACCOUNT DELETION",
         headline: "Your account was reactivated",
-        paragraphs: [`${when ? `On ${when}, deletion` : "Deletion"} was cancelled and your profile is visible again.`, "If you didn’t do this, change your password and review your sign-in activity."],
+        paragraphs: [`${when ? `On ${when}, deletion` : "Deletion"} was canceled and your profile is visible again.`, "If you didn’t do this, change your password and review your sign-in activity."],
         primary: review,
       };
     case "account_deletion_reminder": {

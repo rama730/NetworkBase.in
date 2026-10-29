@@ -907,7 +907,7 @@ export function useConnectionMutations() {
                 canConnect: true,
                 connectionId: undefined,
             });
-            toast.success(result.count && result.count > 0 ? `Cancelled ${result.count} sent request${result.count === 1 ? '' : 's'}` : 'No sent requests to cancel');
+            toast.success(result.count && result.count > 0 ? `Canceled ${result.count} sent request${result.count === 1 ? '' : 's'}` : 'No sent requests to cancel');
         },
         onError: (_err, _vars, context) => {
             if (context?.previousPending) {

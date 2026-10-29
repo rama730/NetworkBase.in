@@ -638,7 +638,7 @@ export async function readUploadOperationStatus(params: { intentId: string; user
         ? "verification_pending"
         : row.status === "pending"
           ? "transfer_pending"
-          : row.failureReason === "Upload cancelled by user"
+          : row.failureReason === "Upload canceled by user"
             ? "cancelled"
           : "failed",
   } as const;
@@ -659,7 +659,7 @@ export async function cancelUploadOperation(params: { intentId: string; userId: 
     if (intent.status === "finalized") {
       return { cancelled: false as const, reason: "already_finalized" as const };
     }
-    if (intent.status === "failed" && intent.failureReason === "Upload cancelled by user") {
+    if (intent.status === "failed" && intent.failureReason === "Upload canceled by user") {
       return { cancelled: true as const, reason: "already_cancelled" as const };
     }
     if (intent.status !== "pending") {
@@ -668,7 +668,7 @@ export async function cancelUploadOperation(params: { intentId: string; userId: 
 
     await tx.update(uploadIntents).set({
       status: "failed",
-      failureReason: "Upload cancelled by user",
+      failureReason: "Upload canceled by user",
       updatedAt: new Date(),
     }).where(and(
       eq(uploadIntents.id, intent.id),

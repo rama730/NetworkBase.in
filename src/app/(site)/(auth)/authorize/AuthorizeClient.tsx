@@ -207,7 +207,7 @@ function AuthorizePageInner({ viewerEmail }: { viewerEmail?: string | null }) {
         if (callbackUrl && isValid) {
             redirectToEditor({
                 error: 'cancelled',
-                message: 'User cancelled authorization',
+                message: 'User canceled authorization',
             })
         }
 

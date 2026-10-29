@@ -188,7 +188,7 @@ async function readWithIdleDeadline(
   reader: ReadableStreamDefaultReader<Uint8Array>,
   signal: AbortSignal,
 ) {
-  if (signal.aborted) throw signal.reason ?? new Error("Export cancelled");
+  if (signal.aborted) throw signal.reason ?? new Error("Export canceled");
   let timeout: ReturnType<typeof setTimeout> | undefined;
   try {
     return await Promise.race([
