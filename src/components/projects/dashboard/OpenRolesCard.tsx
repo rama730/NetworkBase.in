@@ -81,7 +81,7 @@ export const OpenRolesCard = memo(function OpenRolesCard({
         return (
             <RailSection title="Open roles" id="open-roles" className="scroll-mt-28" contentClassName="p-3">
                 <div className="space-y-3 py-1">
-                    <p className="text-xs text-muted-foreground">No open roles defined yet.</p>
+                    <p className="text-xs text-muted-foreground">No open roles yet.</p>
                     <button
                         type="button"
                         onClick={onManageRoles}

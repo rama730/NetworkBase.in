@@ -415,7 +415,7 @@ export default function Phase5Review({ goToPhase, onReady, projectImage = null }
                 <ReviewRow label="Documentation">
                     <p className="nb-compact text-foreground">
                         {docSkipped
-                            ? 'No doc yet.'
+                            ? 'No documents yet.'
                             : `Starter template, ${formData.readme?.publishOnCreate ? 'published when the workspace is created' : 'kept as a draft'}. ${formData.doc_edit_policy === 'members' ? 'Members can edit.' : 'The owner and admins edit.'}`}
                     </p>
                 </ReviewRow>

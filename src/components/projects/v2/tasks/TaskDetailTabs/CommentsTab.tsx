@@ -887,7 +887,7 @@ export default function CommentsTab({
           <div className="nb-empty-state-icon-box">
             <MessageSquare className="nb-empty-state-icon" />
           </div>
-          <h4 className="nb-empty-state-title">No discussion yet</h4>
+          <h4 className="nb-empty-state-title">No comments yet</h4>
           <p className="nb-empty-state-desc">
             {canEdit
               ? "Start the conversation for this task."
