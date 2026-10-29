@@ -30,6 +30,25 @@ function collectSqlFiles(dir: string, into: string[]) {
   }
 }
 
+// Terminology report §14.3: 0264 renamed projects to workspaces; later migrations may not bring the word back.
+const WORKSPACE_RENAME_PREFIX = 264;
+const NEW_NAME_PATTERNS = [
+  /\bCREATE\s+(?:OR\s+REPLACE\s+)?(?:UNIQUE\s+)?(?:TABLE|VIEW|MATERIALIZED\s+VIEW|FUNCTION|PROCEDURE|TRIGGER|TYPE|INDEX(?:\s+CONCURRENTLY)?|SEQUENCE|POLICY)\s+(?:IF\s+NOT\s+EXISTS\s+)?(?:"?\w+"?\.)?"?(\w+)/gi,
+  /\bADD\s+COLUMN\s+(?:IF\s+NOT\s+EXISTS\s+)?"?(\w+)/gi,
+  /\bRENAME\s+(?:(?:COLUMN|CONSTRAINT)\s+"?\w+"?\s+)?TO\s+"?(\w+)/gi,
+];
+
+/** Names a migration introduces (objects, renames, added or created columns) that contain "project". */
+function projectNamedObjects(source: string): string[] {
+  const code = source.replace(/--[^\n]*/g, "").replace(/'(?:[^']|'')*'/g, "''");
+  const names: string[] = [];
+  for (const pattern of NEW_NAME_PATTERNS) for (const match of code.matchAll(pattern)) names.push(match[1]!);
+  for (const [, body] of code.matchAll(/\bCREATE\s+TABLE[^(;]*\(([^;]*?)\n\s*\)/gi)) {
+    for (const [, column] of body!.matchAll(/^\s*"?(\w+)/gm)) names.push(column!);
+  }
+  return [...new Set(names.filter((name) => /project/i.test(name)))].sort();
+}
+
 export function validateSqlGovernance(rootDir: string = process.cwd()): ValidationResult {
   const manifestAbsolute = path.join(rootDir, MANIFEST_PATH);
   const manifest = parseSqlGovernanceManifest(JSON.parse(fs.readFileSync(manifestAbsolute, "utf8")));
@@ -134,6 +153,10 @@ export function validateSqlGovernance(rootDir: string = process.cwd()): Validati
     const migrationPath = path.join(rootDir, manifest.migrationDirectory, `${entry.tag}.sql`);
     if (fs.existsSync(migrationPath) && fs.statSync(migrationPath).size > 1024 * 1024) {
       errors.push(`${entry.tag}: new migration exceeds 1 MiB; emit a catalog delta instead of repeating full seed state.`);
+    }
+    if (prefix > WORKSPACE_RENAME_PREFIX && fs.existsSync(migrationPath)) {
+      const names = projectNamedObjects(fs.readFileSync(migrationPath, "utf8"));
+      if (names.length > 0) errors.push(`${entry.tag}: new SQL names must say workspace, not project: ${names.join(", ")}.`);
     }
     if (!Number.isInteger(prefix)) {
       errors.push(`${entry.tag}: new migration tag must begin with a four-digit prefix.`);
