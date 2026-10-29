@@ -132,7 +132,7 @@ export function FolderListError({
           className="h-4 w-4 text-amber-500"
           aria-hidden="true"
         />
-        <span>Couldn&apos;t load this folder.</span>
+        <span>Couldn’t load this folder.</span>
       </div>
       <Button
         type="button"

@@ -293,7 +293,7 @@ test.describe('Onboarding smoke', () => {
         try {
             await page.getByRole('button', { name: 'Finish setup' }).click()
             await expect(page.getByText(/already taken|unavailable/i)).toBeVisible({ timeout: 20000 })
-            await expect(page.getByRole('heading', { name: "Let's set up your profile" })).toBeVisible()
+            await expect(page.getByRole('heading', { name: "Let’s set up your profile" })).toBeVisible()
 
             const replacement = scopedName('late2').replace(/[^a-zA-Z0-9_]/g, '').slice(0, 20)
             await fillIdentity(page, 'Late Taken User', replacement)
@@ -327,7 +327,7 @@ test.describe('Onboarding smoke', () => {
         })
         await page.reload()
 
-        await expect(page.getByRole('heading', { name: "Let's set up your profile" })).toBeVisible()
+        await expect(page.getByRole('heading', { name: "Let’s set up your profile" })).toBeVisible()
         await expect(page.getByLabel(/Full name/)).not.toHaveValue('Legacy Draft User')
 
         await monitor.assertNoViolations()

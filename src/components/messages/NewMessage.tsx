@@ -138,7 +138,7 @@ export function NewMessage({ onOpen }: { onOpen?: (channelId: string) => void })
       setOpened({ key, channelId });
       if (to.length > 1 && groupName.trim()) {
         const renamed = await renameGroup({ channelId, title: groupName.trim().slice(0, 80) });
-        if (!renamed.success) toast.error("Group created; its name wasn't saved");
+        if (!renamed.success) toast.error("Group created; its name wasn’t saved");
       }
     }
     const sent = await sendMessage({ channelId, body, clientId: crypto.randomUUID() });
@@ -204,7 +204,7 @@ export function NewMessage({ onOpen }: { onOpen?: (channelId: string) => void })
                     <UserAvatar identity={person} size={26} />
                     <span className="min-w-0 flex-1 truncate">{personName(person)}</span>
                     {person.username ? <span className="nb-meta">@{person.username}</span> : null}
-                    {person.can_dm === false ? <span className="text-[13px] text-muted-foreground">Can&apos;t message</span> : null}
+                    {person.can_dm === false ? <span className="text-[13px] text-muted-foreground">Can’t message</span> : null}
                   </button>
                 </li>
               ))}
@@ -234,7 +234,7 @@ export function NewMessage({ onOpen }: { onOpen?: (channelId: string) => void })
           Its draft belongs to these recipients: Bob never gets the text you started for Alice. */}
       <Composer
         channelId={draftKeyFor(to)}
-        placeholder={to.length ? `Message ${to.map((p) => personName(p).split(" ")[0]).join(", ")}` : "Write a message, then add who it's for"}
+        placeholder={to.length ? `Message ${to.map((p) => personName(p).split(" ")[0]).join(", ")}` : "Write a message, then add who it’s for"}
         people={to}
         allowBroadcast={false}
         canCreateTask={false}

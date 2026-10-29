@@ -13,7 +13,7 @@ export default function AuthError({
     reset: () => void
 }) {
     return (
-        <AuthShell title="Something went wrong" description="We couldn't load this page. Try again, or go back to sign in." panel={null}>
+        <AuthShell title="Something went wrong" description="We couldn’t load this page. Try again, or go back to sign in." panel={null}>
             <div className="space-y-3">
                 <Button className="h-11 w-full font-medium" onClick={reset}>
                     <RefreshCw className="size-4" aria-hidden="true" />

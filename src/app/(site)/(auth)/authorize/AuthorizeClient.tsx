@@ -285,7 +285,7 @@ function AuthorizePageInner({ viewerEmail }: { viewerEmail?: string | null }) {
 
                 {status === 'success' ? (
                     <AuthAlert tone="success" title={`${editorName} connected`}>
-                        If {editorName} didn&apos;t open on its own, choose <strong>Open {editorName}</strong> below. You can close this tab once you&apos;re back in your editor.
+                        If {editorName} didn’t open on its own, choose <strong>Open {editorName}</strong> below. You can close this tab once you’re back in your editor.
                     </AuthAlert>
                 ) : null}
 

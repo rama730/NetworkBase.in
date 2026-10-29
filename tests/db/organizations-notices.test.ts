@@ -114,18 +114,18 @@ test("Needs you: late joiners outside a team, members outside projects, a blocke
   const labels = rows.map((r) => r.label);
   assert.ok(labels.includes("2 new members not in a team · Lab 2"), labels.join(" | "));
   assert.ok(labels.includes("1 member not in a project"), labels.join(" | "));
-  assert.ok(labels.includes("CO2 couldn't start: CO1 is still active"), labels.join(" | "));
+  assert.ok(labels.includes("CO2 couldn’t start: CO1 is still active"), labels.join(" | "));
 
   await digests.runOrgAdminDigest(now);
   const [mail] = await sql`SELECT data FROM email_outbox WHERE project_id = ${o.id} AND kind = 'org_digest' LIMIT 1`;
   const lines = (mail!.data as { digest: { needsYou: string[] } }).digest.needsYou;
   assert.ok(lines.includes("CO1 ends tomorrow"), lines.join(" | "));
-  assert.ok(lines.includes("CO2 couldn't start: CO1 is still active"));
+  assert.ok(lines.includes("CO2 couldn’t start: CO1 is still active"));
 
   // Auto-start finds CO2 blocked: admins hear once.
   await schedule.startDueSprints(now, 100, o.id);
   await schedule.startDueSprints(now, 100, o.id);
-  assert.equal((await titles(o.admin)).filter((t) => t === "CO2 couldn't start: CO1 is still active").length, 1);
+  assert.equal((await titles(o.admin)).filter((t) => t === "CO2 couldn’t start: CO1 is still active").length, 1);
 });
 
 test("org sprints: start tells members and leads without a linked sprint; close gives each person their count; new dates warn linked leads", async () => {
@@ -177,7 +177,7 @@ test("a new join code tells the other admins; a tightened cap tells the lead and
   await appDb.db.transaction((tx) => succession.handOverLedChildProjects(tx, o.a));
   await succession.notifyLeadHandovers(o.a);
   await succession.notifyLeadHandovers(o.a);
-  assert.equal((await titles(o.b)).filter((t) => t === "You're the lead of North region").length, 1);
+  assert.equal((await titles(o.b)).filter((t) => t === "You’re the lead of North region").length, 1);
 });
 
 test("a child project's own notification setting wins over the org's Off", async () => {

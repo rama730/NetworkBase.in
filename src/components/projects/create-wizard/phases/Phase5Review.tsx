@@ -121,8 +121,8 @@ export default function Phase5Review({ goToPhase, onReady, projectImage = null }
     const orgRoles = org ? org.role_names ?? orgTypeDefaults(org.org_type ?? 'other').roleNames : null;
     const orgInvites = org?.invite_emails ? parseInviteEmails(org.invite_emails).valid.length : 0;
     const orgChecks = org ? [
-        !org.co_admins?.length ? "You're the only admin. Add a co-admin in People?" : null,
-        !formData.problem_statement?.trim() ? "Visitors won't see who it's for (Who it's for is empty)." : null,
+        !org.co_admins?.length ? "You’re the only admin. Add a co-admin in People?" : null,
+        !formData.problem_statement?.trim() ? "Visitors won’t see who it’s for (Who it’s for is empty)." : null,
         formData.visibility === 'public' && !(formData.tags || []).length ? 'Public, but no topics: it will be hard to find.' : null,
     ].filter((c): c is string => Boolean(c)) : [];
     const projectTypeLabel = org ? formData.custom_project_type?.trim() || 'No subject added' : formData.project_type === 'other'
@@ -290,7 +290,7 @@ export default function Phase5Review({ goToPhase, onReady, projectImage = null }
                             </p>
                         </ReviewRow>
                         <ReviewRow label="People">
-                            <p className="nb-compact text-foreground">{orgRoles.owner} · {orgRoles.admin} · {orgRoles.member} · {orgRoles.viewer}{org.creator_title ? ` · you're ${org.creator_title}` : ''}</p>
+                            <p className="nb-compact text-foreground">{orgRoles.owner} · {orgRoles.admin} · {orgRoles.member} · {orgRoles.viewer}{org.creator_title ? ` · you’re ${org.creator_title}` : ''}</p>
                             <p className="nb-compact mt-1 text-muted-foreground">
                                 {[org.co_admins?.length ? `${org.co_admins.length} ${org.co_admins.length === 1 ? 'co-admin' : 'co-admins'} invited` : null,
                                     orgInvites ? `${orgInvites} member ${orgInvites === 1 ? 'invite' : 'invites'}` : null,
@@ -328,7 +328,7 @@ export default function Phase5Review({ goToPhase, onReady, projectImage = null }
                     <div className="grid border-b border-border md:grid-cols-2">
                         {formData.problem_statement ? (
                             <div className="border-b border-border px-0 py-3.5 md:border-b-0 md:border-r md:px-4 md:first:pl-0">
-                                <p className="nb-meta text-muted-foreground">{org ? "Who it's for" : 'Problem'}</p>
+                                <p className="nb-meta text-muted-foreground">{org ? "Who it’s for" : 'Problem'}</p>
                                 <p className="nb-compact mt-1 whitespace-pre-wrap text-foreground">{formData.problem_statement}</p>
                             </div>
                         ) : null}

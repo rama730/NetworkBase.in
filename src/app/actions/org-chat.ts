@@ -13,7 +13,7 @@ import { getViewerAuthContext } from '@/lib/server/viewer-context';
 // Org Messages (report §25): the org's chat settings and Browse projects for org admins.
 
 type Failure = { success: false; error: string };
-const DENIED: Failure = { success: false, error: "You don't have permission to do this." };
+const DENIED: Failure = { success: false, error: "You don’t have permission to do this." };
 
 async function orgAdmin(orgId: string, mode: 'read' | 'write' = 'write') {
     const { userId } = await getViewerAuthContext();

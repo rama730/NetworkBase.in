@@ -79,9 +79,9 @@ function VerifyEmailPageInner() {
                 window.location.reload()
                 return
             }
-            setError("Your email isn't verified yet. Open the link in the email, then try again.")
+            setError("Your email isn’t verified yet. Open the link in the email, then try again.")
         } catch {
-            setError("Couldn't check right now. Try again.")
+            setError("Couldn’t check right now. Try again.")
         }
         setIsChecking(false)
     }
@@ -109,7 +109,7 @@ function VerifyEmailPageInner() {
                 {message ? <AuthAlert tone="success">{message}</AuthAlert> : null}
                 {error ? <AuthAlert tone="error">{error}</AuthAlert> : null}
                 <Button className="h-11 w-full font-medium" onClick={() => void handleContinue()} disabled={busy}>
-                    {isChecking ? 'Checking…' : "I've verified, continue"}
+                    {isChecking ? 'Checking…' : "I’ve verified, continue"}
                 </Button>
                 <div className="flex items-center justify-between gap-3 text-sm">
                     <button type="button" className="min-h-11 text-muted-foreground hover:text-foreground disabled:opacity-60" disabled={busy} onClick={() => void handleSignOut()}>
@@ -125,7 +125,7 @@ function VerifyEmailPageInner() {
                     </button>
                 </div>
                 <p className="nb-auth-note text-muted-foreground">
-                    Emails come from <span className="font-mono text-foreground">welcome@networkbase.in</span>. Check spam if you can&apos;t find it.
+                    Emails come from <span className="font-mono text-foreground">welcome@networkbase.in</span>. Check spam if you can’t find it.
                 </p>
             </div>
         </AuthShell>

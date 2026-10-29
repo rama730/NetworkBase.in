@@ -31,7 +31,7 @@ export default async function JoinOrganizationPage({ params }: { params: Promise
     const result = code ? await getJoinPreviewAction(code) : null
     if (!result?.success) {
         return (
-            <AuthShell title={result?.error ?? "That code doesn't match an organization."} description="If your organization made a new code, ask for it." panel={JOIN_PANEL}>
+            <AuthShell title={result?.error ?? "That code doesn’t match an organization."} description="If your organization made a new code, ask for it." panel={JOIN_PANEL}>
                 <Button asChild variant="outline" className="h-11 w-full"><Link href="/join">Enter a code</Link></Button>
             </AuthShell>
         )
@@ -44,7 +44,7 @@ export default async function JoinOrganizationPage({ params }: { params: Promise
     const orgHref = `/projects/${preview.slug ?? ''}`
 
     return (
-        <AuthShell title={preview.title} description="You've been invited to join this organization." panel={JOIN_PANEL}>
+        <AuthShell title={preview.title} description="You’ve been invited to join this organization." panel={JOIN_PANEL}>
             <div className="space-y-6">
                 <div className="flex items-center gap-3 rounded-md border border-border bg-card p-3.5">
                     <ProjectAvatar project={{ title: preview.title, coverImage: preview.coverImage }} showPresence={false} />

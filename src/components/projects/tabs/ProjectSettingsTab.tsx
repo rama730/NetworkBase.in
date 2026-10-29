@@ -1647,7 +1647,7 @@ function ProjectSettingsContent({
                                 {collaboratorLoading || loadingMembers ? (
                                     <div className="flex items-center justify-center py-12 gap-2 text-sm text-muted-foreground">
                                         <Loader2 className="h-4 w-4 animate-spin" />
-                                        Loading members...
+                                        Loading members…
                                     </div>
                                 ) : (
                                     (() => {
@@ -2100,7 +2100,7 @@ function ProjectSettingsContent({
                                         {dangerPreflightLoading ? (
                                             <span className="inline-flex items-center gap-1.5">
                                                 <Loader2 className="size-3 animate-spin" />
-                                                Running preflight safety checks...
+                                                Running preflight safety checks…
                                             </span>
                                         ) : dangerPreflight ? (
                                             <span>Preflight verified · Status: {preflightPolicy.status.toUpperCase()} · {preflightPolicy.affectedAreas.join(" · ")}</span>
@@ -2189,7 +2189,7 @@ function ProjectSettingsContent({
                                                 className="nb-touch-target h-[34px] w-full rounded-[5px] border border-border bg-card px-3 text-[13px] text-foreground outline-none transition-colors focus:border-primary"
                                                 disabled={confirmLoading || !isProjectOwner || rolePolicy.transferCandidates.length === 0}
                                             >
-                                                <option value="">Choose an existing member...</option>
+                                                <option value="">Choose an existing member…</option>
                                                 {rolePolicy.transferCandidates.map((member) => (
                                                     <option key={member.id} value={member.id}>
                                                         {getProjectMemberDisplayName(member)} · {getProjectMemberRoleLabel(projectMemberRole(member, ownerId))}

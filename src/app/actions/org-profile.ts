@@ -13,7 +13,7 @@ import { namesOf, notifyOrg, orgLabel } from '@/lib/organizations/notify';
 // role and dates only, never the text) and may revoke with a reason. The member hears either (report §26.3 I).
 
 type Failure = { success: false; error: string };
-const DENIED: Failure = { success: false, error: "You don't have permission to do this." };
+const DENIED: Failure = { success: false, error: "You don’t have permission to do this." };
 
 async function orgAdmin(orgId: string) {
     const { userId } = await getViewerAuthContext();

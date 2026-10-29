@@ -52,7 +52,7 @@ export function ShortcutsDialog({ open, onOpenChange }: { open: boolean; onOpenC
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[85dvh] overflow-y-auto sm:max-w-[460px]">
         <DialogTitle>Keyboard shortcuts</DialogTitle>
-        <DialogDescription>Shortcuts don&apos;t fire while you&apos;re typing, except in the message box.</DialogDescription>
+        <DialogDescription>Shortcuts don’t fire while you’re typing, except in the message box.</DialogDescription>
         {groups().map((group) => (
           <section key={group.title} aria-label={group.title}>
             <h3 className="nb-micro mb-1.5">{group.title}</h3>

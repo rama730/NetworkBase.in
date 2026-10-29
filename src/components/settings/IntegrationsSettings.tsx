@@ -580,7 +580,7 @@ export default function IntegrationsSettings() {
                   </div>
                   <div className="flex items-start gap-2 rounded-md border border-border bg-background p-3 nb-compact text-muted-foreground">
                     <KeyRound className="mt-0.5 size-4 shrink-0" strokeWidth={1.75} />
-                    <span>Paste it into your editor&apos;s authentication prompt. It is shown only once and works for one year.</span>
+                    <span>Paste it into your editor’s authentication prompt. It is shown only once and works for one year.</span>
                   </div>
                 </div>
               )}
@@ -601,7 +601,7 @@ export default function IntegrationsSettings() {
         <div className="space-y-2 rounded-md border border-border bg-muted/50 p-4 nb-compact text-muted-foreground">
           <p>Project files, repository links, sync history, and past contributor credit stay unchanged.</p>
           <p>Repository access is reviewed per project after the new account is linked.</p>
-          <p>Only future commits switch to the new account&apos;s privacy-safe GitHub identity.</p>
+          <p>Only future commits switch to the new account’s privacy-safe GitHub identity.</p>
           <p className="font-medium text-foreground">GitHub stays disconnected until you finish choosing a new account. If you leave before that, come back here and connect again.</p>
         </div>
         <DialogFooter>

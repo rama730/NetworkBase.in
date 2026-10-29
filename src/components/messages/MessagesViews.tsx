@@ -241,7 +241,7 @@ export function ProjectLanding({ projectId }: { projectId: string }) {
   useEffect(() => {
     if (known) return void setProject(projectId);
     // Say why you landed on All instead of the link's project.
-    toast("You're no longer in that project");
+    toast("You’re no longer in that project");
     router.replace("/messages");
   }, [known, projectId, router, setProject]);
   return <ListOrHome />;
@@ -319,7 +319,7 @@ export function BrowseChannels({ projectId }: { projectId: string }) {
           </SelectContent>
         </Select>
       </div>
-      <p className="border-b border-border px-4 py-2 text-[13px] text-muted-foreground">Private channels aren&apos;t listed. Ask a member to add you.</p>
+      <p className="border-b border-border px-4 py-2 text-[13px] text-muted-foreground">Private channels aren’t listed. Ask a member to add you.</p>
       {channels.isLoading ? <ListSkeleton header={false} label="Loading channels" rows={4} /> : null}
       {channels.isError ? <ListError what="Channels" detail={chatErrorMessage(channels.error.message)} query={channels} /> : null}
       <ul aria-label="Channels">
@@ -367,7 +367,7 @@ const FILTERS: Array<{ id: InboxTab; label: string }> = [
 /** Each tab says what belongs there (#132). */
 const EMPTY_TEXT: Record<InboxFilter | "unread", { title: string; text: string }> = {
   all: { title: "Nothing in your Inbox yet", text: "Mentions, thread replies and reactions show up here." },
-  unread: { title: "You're all caught up", text: "New mentions and thread replies show up here." },
+  unread: { title: "You’re all caught up", text: "New mentions and thread replies show up here." },
   mentions: { title: "No mentions yet", text: "When someone @mentions you, it shows up here." },
   reactions: { title: "No reactions yet", text: "Reactions to your messages show up here." },
 };
@@ -764,7 +764,7 @@ export function SavedView() {
     <ViewScreen title="Saved">
       {savedPages.isLoading ? <ListSkeleton header={false} label="Loading saved messages" rows={4} /> : null}
       {savedPages.isError && !saved ? <ListError what="Saved messages" query={savedPages} /> : null}
-      {saved && !saved.length ? <Empty icon={Bookmark} title="Nothing saved yet">Save messages to come back to them: open a message&apos;s menu (long-press on a phone) and choose Save, or press S on a selected message.</Empty> : null}
+      {saved && !saved.length ? <Empty icon={Bookmark} title="Nothing saved yet">Save messages to come back to them: open a message’s menu (long-press on a phone) and choose Save, or press S on a selected message.</Empty> : null}
       <ul aria-label="Saved messages" onKeyDown={rowKeys}>
         {(saved ?? []).map((item, index) => {
           const due = item.remind_at && !item.reminded_at && Date.parse(item.remind_at) <= now + 60_000;
@@ -947,7 +947,7 @@ export function DraftsView() {
                   <p className="flex items-baseline gap-2 text-[13px]">
                     <span className="font-medium">To {item.channel_name ? `#${item.channel_name}` : titleOf(item.channel_id)}</span>
                     <span className={item.failed_reason ? "text-destructive" : "text-muted-foreground"}>
-                      {item.failed_reason ? `Couldn't send: ${chatErrorMessage(item.failed_reason)}` : formatChatTime(item.send_at, "at")}
+                      {item.failed_reason ? `Couldn’t send: ${chatErrorMessage(item.failed_reason)}` : formatChatTime(item.send_at, "at")}
                     </span>
                   </p>
                   <p className="mt-0.5 line-clamp-2 text-[15px]">{previewText(item.body)}</p>
@@ -1151,7 +1151,7 @@ export function SearchView() {
           ) : null}
         </div>
       </form>
-      {tooShort && !active ? <Empty icon={Search} title="Type at least 2 characters" /> : !active ? <Empty icon={Search} title="Search your messages">Words in every conversation you&apos;re in. Narrow it down with In, From, Has file and dates.</Empty> : null}
+      {tooShort && !active ? <Empty icon={Search} title="Type at least 2 characters" /> : !active ? <Empty icon={Search} title="Search your messages">Words in every conversation you’re in. Narrow it down with In, From, Has file and dates.</Empty> : null}
       {resultPages.isLoading ? <ListSkeleton header={false} label="Searching" rows={4} /> : null}
       {resultPages.isError && !results ? <ListError what="Search results" detail={chatErrorMessage(resultPages.error.message)} query={resultPages} /> : null}
       {results && !results.length ? <Empty icon={Search} title="No messages match">{filtered ? "Try fewer filters." : "Try other words."}</Empty> : null}

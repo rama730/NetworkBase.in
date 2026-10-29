@@ -15,7 +15,7 @@ import { getViewerAuthContext } from '@/lib/server/viewer-context';
 // renames units, changes seats, picks the unit lead ★ and moves people between units.
 
 type Failure = { success: false; error: string };
-const DENIED: Failure = { success: false, error: "You don't have permission to change this." };
+const DENIED: Failure = { success: false, error: "You don’t have permission to change this." };
 const UNIT_SEATS = 10;
 
 export type ChildUnit = { id: string; title: string; count: number; filled: number; leadUserId: string | null; members: Array<{ userId: string; name: string }> };
@@ -183,7 +183,7 @@ export async function createTeamTasksAction(projectId: string, input: {
     });
     for (const { id, team } of created) {
         await enqueueProjectNotificationEvent({ projectId, eventKey: 'tasks.assigned', actorUserId: m.userId, directRecipientIds: team.userIds,
-            title: `You're in ${team.name} for ${title}`, sourceEventId: `team-task:${id}`, entityRefs: { taskId: id } }).catch(() => undefined);
+            title: `You’re in ${team.name} for ${title}`, sourceEventId: `team-task:${id}`, entityRefs: { taskId: id } }).catch(() => undefined);
     }
     return { success: true, created: created.length };
 }

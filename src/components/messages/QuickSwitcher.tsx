@@ -176,7 +176,7 @@ export function QuickSwitcher({ onSelect }: { onSelect?: (channelId: string) => 
         {result.type === "channel" && result.project ? <span className="nb-tag max-w-[40%] flex-none truncate">{result.project}</span> : null}
         {result.type === "channel" && !result.joined ? <span className="nb-meta flex-none">Not joined</span> : null}
         {result.type === "channel" && result.count ? <span className="nb-chat-count">{result.count > 99 ? "99+" : result.count}<span className="sr-only"> unread</span></span> : result.type === "channel" && result.unread ? <span className="sr-only">, unread</span> : null}
-        {result.type === "person" && !result.canDm ? <span className="text-[13px] text-muted-foreground">Can&apos;t message</span> : null}
+        {result.type === "person" && !result.canDm ? <span className="text-[13px] text-muted-foreground">Can’t message</span> : null}
         {result.type === "person" && opening === result.id ? <span role="status" className="nb-meta">Opening…</span> : null}
         {result.type === "search" ? <kbd className="nb-meta flex-none">{keyLabel("mod+enter")}</kbd> : null}
       </li>

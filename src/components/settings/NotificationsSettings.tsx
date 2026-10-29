@@ -135,7 +135,7 @@ export default function NotificationsPage() {
   };
 
   const togglePush = async () => {
-    if (!preferences || !isWebPushSupported()) { toast.error("This browser doesn't support web push"); return; }
+    if (!preferences || !isWebPushSupported()) { toast.error("This browser doesn’t support web push"); return; }
     setPushBusy(true);
     try {
       const currentlyOn = preferences.delivery.push && pushStatus === "subscribed";
@@ -150,7 +150,7 @@ export default function NotificationsPage() {
       const result = await subscribeWebPush();
       if (!result.ok) {
         const messages: Record<string, string> = { permission_denied: "Push permission was denied in your browser.", missing_vapid_key: "Push is not configured yet. Contact support." };
-        toast.warning(messages[result.reason] || "Couldn't enable push notifications.");
+        toast.warning(messages[result.reason] || "Couldn’t enable push notifications.");
         setPushStatus(await getCurrentPushStatus());
         return;
       }
@@ -174,8 +174,8 @@ export default function NotificationsPage() {
   const enabledCategoryCount = NOTIFICATION_PREFERENCE_CATEGORIES.filter(({ key }) => preferences[key]).length;
   const allCategoriesEnabled = enabledCategoryCount === NOTIFICATION_PREFERENCE_CATEGORIES.length;
   const deliveryDescriptions = {
-    browser: permissionState === "unsupported" ? "This browser doesn't support notifications." : permissionState === "denied" ? "Blocked in browser settings." : "Show a system notification for tray updates while this tab is in the background. Chat messages use push notifications.",
-    push: pushStatus === "unsupported" ? "This browser doesn't support web push." : pushStatus === "denied" ? "Push permission is blocked in browser settings." : "Deliver important updates and chat messages even when this tab is closed.",
+    browser: permissionState === "unsupported" ? "This browser doesn’t support notifications." : permissionState === "denied" ? "Blocked in browser settings." : "Show a system notification for tray updates while this tab is in the background. Chat messages use push notifications.",
+    push: pushStatus === "unsupported" ? "This browser doesn’t support web push." : pushStatus === "denied" ? "Push permission is blocked in browser settings." : "Deliver important updates and chat messages even when this tab is closed.",
   };
 
   return <div className="space-y-8">
@@ -201,7 +201,7 @@ export default function NotificationsPage() {
             description={pauseActive && preferences.pausedUntil ? `Delivery resumes ${formatDateTime(preferences.pausedUntil)}.` : "Updates remain available in the tray while delivery is paused."}
             right={<div className="flex flex-wrap gap-2">{pauseActive ? <Button type="button" size="sm" className="pointer-coarse:h-11" onClick={() => void resume()} disabled={isSaving || resuming}>{resuming ? "Resuming…" : "Resume now"}</Button> : null}{([["1h", "1 hour"], ["8h", "8 hours"], ["tomorrow", "Until tomorrow 9 AM"]] as const).map(([choice, label]) => <Button key={choice} type="button" variant="outline" size="sm" className="pointer-coarse:h-11" onClick={() => pause(choice)} disabled={isSaving} aria-label={pauseActive ? `Pause for ${label} instead` : undefined}>{label}</Button>)}</div>}
           />
-          <SettingsRow title="Quiet hours" description={preferences.quietHours.enabled ? `From ${formatMinuteOfDay(preferences.quietHours.startMinute)} to ${formatMinuteOfDay(preferences.quietHours.endMinute)} each day, updates wait in the tray until it ends and chat messages don't push (they stay unread in Messages).` : "Set a recurring daily period without delivery interruptions."} right={<SettingsSwitch showLabel aria-label="Enable quiet hours" checked={preferences.quietHours.enabled} onCheckedChange={() => save({ ...preferences, quietHours: { ...preferences.quietHours, enabled: !preferences.quietHours.enabled } }, { quiet: true })} disabled={isSaving} />} />
+          <SettingsRow title="Quiet hours" description={preferences.quietHours.enabled ? `From ${formatMinuteOfDay(preferences.quietHours.startMinute)} to ${formatMinuteOfDay(preferences.quietHours.endMinute)} each day, updates wait in the tray until it ends and chat messages don’t push (they stay unread in Messages).` : "Set a recurring daily period without delivery interruptions."} right={<SettingsSwitch showLabel aria-label="Enable quiet hours" checked={preferences.quietHours.enabled} onCheckedChange={() => save({ ...preferences, quietHours: { ...preferences.quietHours, enabled: !preferences.quietHours.enabled } }, { quiet: true })} disabled={isSaving} />} />
           {preferences.quietHours.enabled ? <div className="space-y-2 py-4">
             <div className="grid gap-3 sm:grid-cols-2">
               <QuietTimeField label="From" minute={preferences.quietHours.startMinute} onCommit={(value) => setQuietTime("startMinute", value)} />

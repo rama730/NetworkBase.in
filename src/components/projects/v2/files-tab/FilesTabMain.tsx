@@ -152,7 +152,7 @@ export function FilesTabMain({
             role="status"
             aria-busy="true"
             aria-live="polite"
-            aria-label="Loading workspace..."
+            aria-label="Loading workspace…"
             data-testid="files-tab-main-loading"
             className="flex-1 space-y-2 p-4"
           >

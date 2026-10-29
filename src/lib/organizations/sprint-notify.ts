@@ -109,7 +109,7 @@ export function notifyOrgSprintBlocked(sprintId: string, projectId: string) {
     const admins = await db.execute<{ user_id: string }>(sql`
       SELECT owner_id AS user_id FROM projects WHERE id = ${org.id}
       UNION SELECT user_id FROM project_members WHERE project_id = ${org.id} AND role IN ('owner', 'admin')`);
-    await notifyOrg({ orgId: org.id, eventKey: "org_sprints.notice", to: admins.map((a) => a.user_id), title: `${row.name} couldn't start: ${row.active} is still active`,
+    await notifyOrg({ orgId: org.id, eventKey: "org_sprints.notice", to: admins.map((a) => a.user_id), title: `${row.name} couldn’t start: ${row.active} is still active`,
       href: orgHref(org, "?tab=sprints"), sourceEventId: `sprint-blocked:${sprintId}` });
   });
 }

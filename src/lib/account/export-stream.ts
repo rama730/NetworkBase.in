@@ -351,7 +351,7 @@ async function* streamAccountExport(input: {
     if (page.length < MESSAGE_PAGE_SIZE) break;
   }
   yield `],"count":${written},"exportedCount":${written},"truncated":false`;
-  yield `,"note":${json("Only messages you wrote are included; other people's messages are not exported.")}`;
+  yield `,"note":${json("Only messages you wrote are included; other people’s messages are not exported.")}`;
   yield "},\"legalAcceptances\":";
 
   yield "[";

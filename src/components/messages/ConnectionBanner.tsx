@@ -24,7 +24,7 @@ export function ConnectionBanner({ status: own }: { status?: BroadcastStatus }) 
   const status = own ?? shell.status;
   const online = useSyncExternalStore(subscribeOnline, () => navigator.onLine, () => true);
   const text = !online
-    ? "You're offline. New messages will show when you reconnect."
+    ? "You’re offline. New messages will show when you reconnect."
     : status === "disconnected" ? "Reconnecting… new messages may take a moment to appear." : null;
   if (!text) return null;
   return (

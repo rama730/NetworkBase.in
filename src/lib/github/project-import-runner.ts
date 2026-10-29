@@ -331,7 +331,7 @@ export async function runGithubProjectImport(input: {
             .where(eq(projects.id, projectId));
         };
 
-        await updateProgress(0, "reconciling", "Analyzing repository changes...");
+        await updateProgress(0, "reconciling", "Analyzing repository changes…");
 
         for (const remote of fileNodes) {
           const normalizedPath = `/${remote.path.replace(/^\//, "")}`;

@@ -27,7 +27,7 @@ export function uploadRefused(error: unknown) {
 
 /** What a tile says when a file didn't upload: the server's reason, or plain words, never "Failed to fetch". */
 export function uploadReason(error: unknown) {
-  if (typeof navigator !== "undefined" && !navigator.onLine) return "You're offline";
+  if (typeof navigator !== "undefined" && !navigator.onLine) return "You’re offline";
   if (error instanceof TypeError) return "Connection lost";
   const message = error instanceof Error ? error.message : "";
   return uploadRefused(error) && message && message.length < 80 && !/^Upload failed/.test(message) ? message : "Upload failed";
@@ -36,7 +36,7 @@ export function uploadReason(error: unknown) {
 /** Files the server never accepts: caught before uploading, with the reason. */
 export function fileProblem(file: File, maxBytes: number) {
   if (file.size === 0) return `${file.name} is empty.`;
-  if (file.type === "image/svg+xml" || /\.svg$/i.test(file.name)) return `${file.name}: SVG files can't be attached.`;
+  if (file.type === "image/svg+xml" || /\.svg$/i.test(file.name)) return `${file.name}: SVG files can’t be attached.`;
   if (file.size > maxBytes) return `${file.name} is too large (max ${Math.round(maxBytes / 1024 / 1024)} MB).`;
   return null;
 }

@@ -392,7 +392,7 @@ export function DataGridDriver({
             <Search className="absolute left-2.5 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
             <Input
               type="text"
-              placeholder="Search table..."
+              placeholder="Search table…"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="h-7 w-36 sm:w-48 pl-8 text-xs bg-muted/40 border-border"

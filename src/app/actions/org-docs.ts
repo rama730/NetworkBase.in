@@ -20,7 +20,7 @@ import { createFolder } from '@/app/actions/files/mutations';
 // Publish & notify, the From <org> section in child projects, and template copies.
 
 type Failure = { success: false; error: string };
-const DENIED: Failure = { success: false, error: "You don't have permission to do this." };
+const DENIED: Failure = { success: false, error: "You don’t have permission to do this." };
 
 export type OrgDocItem = OrgDocOptions & { id: string; slug: string; filename: string; label: 'new' | 'updated' | null; sprint: string | null; sprintId: string | null };
 export type OrgDocsData = {
@@ -258,6 +258,6 @@ export async function ensureDocsFolderAction(projectId: string): Promise<{ succe
         const folder = await createFolder(projectId, null, 'Docs');
         return { success: true, folderId: folder.id };
     } catch (error) {
-        return { success: false, error: error instanceof Error ? error.message : "Couldn't create the Docs folder." };
+        return { success: false, error: error instanceof Error ? error.message : "Couldn’t create the Docs folder." };
     }
 }

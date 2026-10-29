@@ -99,7 +99,7 @@ export function ProjectDocSmartBlock({
                     : block.kind === "sprints"
                         ? "Open sprint rhythm"
                         : block.kind === "projects"
-                        ? "Open the organization's projects"
+                        ? "Open the organization’s projects"
                         : "Editor attention needed";
 
     return (

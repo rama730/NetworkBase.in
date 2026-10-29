@@ -96,7 +96,7 @@ export async function applyFileRevision(
         if((metadata.nodeId||committed.nodeId)!==input.nodeId)throw new Error("The operation was already committed to a different or removed file. Do not recreate it.");
         if(metadata.hash!==input.contentHash) throw new Error("Operation ID was already used for different contents");
         const version=await tx.query.fileVersions.findFirst({where:and(eq(fileVersions.nodeId,input.nodeId),eq(fileVersions.version,Number(metadata.version)))});
-        if(!version) throw new Error("The committed operation's version is no longer available. Do not publish it again.");
+        if(!version) throw new Error("The committed operation’s version is no longer available. Do not publish it again.");
         return {node:{...current,size:Number(metadata.size),currentVersion:Number(metadata.version),updatedAt:committed.createdAt},version:{...version,contentHash:String(metadata.hash),size:Number(metadata.size)},mode:metadata.revisionMode as FileRevisionMode,versionIncremented:Boolean(metadata.versionIncremented),replacedStorageKey:null,sequenceNumber:committed.sequenceNumber};
       }
     }

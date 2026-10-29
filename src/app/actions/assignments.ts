@@ -19,7 +19,7 @@ import { notifyAssignmentDueChanged, notifyAssignmentPublished, notifyAssignment
 // Assignments (report §16, §16.11). Owners and admins create, review and manage; recipients submit.
 
 type Failure = { success: false; error: string };
-const DENIED: Failure = { success: false, error: "You don't have permission to do this." };
+const DENIED: Failure = { success: false, error: "You don’t have permission to do this." };
 
 async function viewerId() {
     const supabase = await createClient();
@@ -227,7 +227,7 @@ export async function submitAssignmentAction(copyId: string, input: z.input<type
     const { copy, master } = loaded;
     const [teammate] = await db.select({ userId: taskTeamMembers.userId }).from(taskTeamMembers).where(and(eq(taskTeamMembers.taskId, copyId), eq(taskTeamMembers.userId, userId))).limit(1);
     if (copy.assigneeId !== userId && !teammate) return DENIED;
-    if (copy.excusedAt) return { success: false, error: "You're excused from this one." };
+    if (copy.excusedAt) return { success: false, error: "You’re excused from this one." };
     const copyAccess = await getProjectAccessById(copy.projectId, userId);
     if (copyAccess.writeBlocked) return { success: false, error: writeBlockedMessage(copyAccess.writeBlocked) };
     if (!canStillSubmit(master.settings, copy.dueDate)) return { success: false, error: master.settings.closedAt ? 'This assignment is closed.' : 'Late submissions are not accepted.' };
@@ -333,7 +333,7 @@ export async function excuseCopyAction(copyId: string, reason: string | null): P
         : { excusedAt: new Date(), excusedReason: reason.trim().slice(0, 500) || 'Excused', updatedAt: new Date() },
     ).where(eq(tasks.id, copyId));
     touch(ctx.viewer.slug, ctx.master.projectId);
-    if (reason !== null) await notifyAssignmentDueChanged(copyId, ctx.viewer.userId, (title) => `You're excused from ${title}`, `${copyId}:excused:${Date.now()}`);
+    if (reason !== null) await notifyAssignmentDueChanged(copyId, ctx.viewer.userId, (title) => `You’re excused from ${title}`, `${copyId}:excused:${Date.now()}`);
     return { success: true };
 }
 
@@ -597,7 +597,7 @@ export async function excuseTeamMemberAction(copyId: string, userId: string, rea
     if (!ctx) return DENIED;
     if (!ctx.copy.teamName) return excuseCopyAction(copyId, reason);
     const [member] = await db.select({ userId: taskTeamMembers.userId }).from(taskTeamMembers).where(and(eq(taskTeamMembers.taskId, copyId), eq(taskTeamMembers.userId, userId))).limit(1);
-    if (!member) return { success: false, error: "They're not on this team." };
+    if (!member) return { success: false, error: "They’re not on this team." };
     const moved = await moveTeamMemberAction(ctx.master.id, userId, null);
     if (!moved.success) return moved;
     const [own] = await db.select({ id: tasks.id }).from(tasks).where(and(eq(tasks.assignmentId, ctx.master.id), eq(tasks.assigneeId, userId), isNull(tasks.teamName), isNull(tasks.deletedAt))).limit(1);

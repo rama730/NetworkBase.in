@@ -122,7 +122,7 @@ export function ArchiveViewerDriver({
             <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
             <Input
               type="text"
-              placeholder="Search archive files..."
+              placeholder="Search archive files…"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="h-7 pl-8 text-xs"
@@ -147,7 +147,7 @@ export function ArchiveViewerDriver({
         {loading ? (
           <div className="flex h-64 flex-col items-center justify-center gap-3">
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-            <p className="text-xs text-muted-foreground">Reading archive directory tree...</p>
+            <p className="text-xs text-muted-foreground">Reading archive directory tree…</p>
           </div>
         ) : error ? (
           <div className="flex h-full flex-col items-center justify-center gap-3 p-8 text-center">

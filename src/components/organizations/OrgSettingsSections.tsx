@@ -197,7 +197,7 @@ export function OrgProfileSection({ orgId, organization, role, handle }: Section
                     </fieldset>
                     <div>
                         <label htmlFor="org-tz" className={labelClass}>Time zone</label>
-                        <p className={helpClass}>Due dates and reminders use it, for example Asia/Kolkata. Empty uses each person&apos;s own.</p>
+                        <p className={helpClass}>Due dates and reminders use it, for example Asia/Kolkata. Empty uses each person’s own.</p>
                         <Input id="org-tz" value={timeZone} onChange={(e) => setTimeZone(e.target.value)} placeholder="Asia/Kolkata" maxLength={64} className="mt-2 max-w-sm" />
                     </div>
                     <div>
@@ -389,14 +389,14 @@ export function OrgProjectsSection({ orgId, organization }: SectionProps) {
                     <div className="flex items-start justify-between gap-4">
                         <div>
                             <p className={labelClass}>People outside the organization can be added to its projects</p>
-                            <p className={helpClass}>Off by default. They see only that project, never the organization&apos;s content.</p>
+                            <p className={helpClass}>Off by default. They see only that project, never the organization’s content.</p>
                         </div>
                         <SettingsSwitch checked={outside} onCheckedChange={setOutside} aria-label="People outside the organization can be added to its projects" />
                     </div>
                     <div className="flex items-start justify-between gap-4">
                         <div>
                             <p className={labelClass}>Projects can share updates to the organization</p>
-                            <p className={helpClass}>Shared posts show in the organization&apos;s Updates under From projects. Private projects never share.</p>
+                            <p className={helpClass}>Shared posts show in the organization’s Updates under From projects. Private projects never share.</p>
                         </div>
                         <SettingsSwitch checked={childShare} onCheckedChange={setChildShare} aria-label="Projects can share updates to the organization" />
                     </div>
@@ -408,7 +408,7 @@ export function OrgProjectsSection({ orgId, organization }: SectionProps) {
                     <div className="flex items-start justify-between gap-4">
                         <div>
                             <p className={labelClass}>New projects follow org sprints</p>
-                            <p className={helpClass}>On by default. A new project&apos;s sprints link to the organization&apos;s sprint holding their dates; the lead can turn it off.</p>
+                            <p className={helpClass}>On by default. A new project’s sprints link to the organization’s sprint holding their dates; the lead can turn it off.</p>
                         </div>
                         <SettingsSwitch checked={followSprints} onCheckedChange={setFollowSprints} aria-label="New projects follow org sprints" />
                     </div>
@@ -449,7 +449,7 @@ export function OrgWorkSection({ orgId, organization }: SectionProps) {
                     </div>
                     <div>
                         <label htmlFor="org-reminders" className={labelClass}>Reminders</label>
-                        <p className={helpClass}>Sent at 9:00 in each person&apos;s time zone to people who haven&apos;t handed in yet.</p>
+                        <p className={helpClass}>Sent at 9:00 in each person’s time zone to people who haven’t handed in yet.</p>
                         <select id="org-reminders" className={select} value={work.reminders} onChange={(e) => set('reminders', e.target.value as typeof work.reminders)}>
                             <option value="both">24 hours before and on the due day</option><option value="day_before">24 hours before</option><option value="due_day">On the due day</option><option value="off">Off</option>
                         </select>
@@ -487,7 +487,7 @@ export function OrgChatSection({ orgId, organization }: { orgId: string; organiz
     const [generalNotify, setGeneralNotify] = useState(defaults.generalNotify)
     const { pending, save, status } = useSave()
     return (
-        <SettingsCard title="Messages" headingLevel={2} description="How the organization's chat works for everyone in it.">
+        <SettingsCard title="Messages" headingLevel={2} description="How the organization’s chat works for everyone in it.">
             <div className="space-y-5">
                 <div className="flex items-start justify-between gap-4">
                     <div>
@@ -532,7 +532,7 @@ export function OrgNotificationsSection({ orgId, organization }: { orgId: string
                     <legend className="sr-only">Admin batching</legend>
                     <label className="flex items-start gap-2">
                         <input type="radio" name="org-admin-digest" checked={digest === 'daily'} onChange={() => setDigest('daily')} className="mt-1" />
-                        <span>Daily summary email<span className="block text-xs text-muted-foreground">At 8:00 in the organization&apos;s time zone. Skipped when there&apos;s nothing to report.</span></span>
+                        <span>Daily summary email<span className="block text-xs text-muted-foreground">At 8:00 in the organization’s time zone. Skipped when there’s nothing to report.</span></span>
                     </label>
                     <label className="flex items-start gap-2">
                         <input type="radio" name="org-admin-digest" checked={digest === 'instant'} onChange={() => setDigest('instant')} className="mt-1" />

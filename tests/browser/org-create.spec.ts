@@ -60,7 +60,7 @@ test('Start: nothing is picked, Other asks for its name, and the type sets defau
 test('Details: organization words, Part of and Where, no problem/solution or skills', async ({ page }) => {
     await open(page, 'step=details&type=education');
     await expect(page.getByRole('heading', { name: 'Organization details' })).toBeVisible();
-    for (const label of ['Subject', 'Name', 'Handle', 'Part of', 'Where', 'Time zone', 'About', "Who it's for", 'What members do here', 'Welcome note', 'Topics']) {
+    for (const label of ['Subject', 'Name', 'Handle', 'Part of', 'Where', 'Time zone', 'About', "Who it’s for", 'What members do here', 'Welcome note', 'Topics']) {
         await expect(page.getByLabel(label, { exact: false }).first()).toBeVisible();
     }
     await expect(page.getByText('Problem statement')).toHaveCount(0);

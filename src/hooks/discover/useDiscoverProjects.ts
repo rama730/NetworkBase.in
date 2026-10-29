@@ -14,10 +14,10 @@ export class DiscoverFeedError extends Error {
         super(code === 'RATE_LIMITED'
             ? 'Too many requests. Wait a moment, then try again.'
             : code === 'VALIDATION'
-                ? "That link's filters aren't valid. Clear filters to start over."
+                ? "That link’s filters aren’t valid. Clear filters to start over."
                 : code === 'STALE_FEED'
                     ? 'This list changed since you opened it.'
-                    : "Projects didn't load. Check your connection and try again.");
+                    : "Projects didn’t load. Check your connection and try again.");
         this.name = 'DiscoverFeedError';
     }
 }

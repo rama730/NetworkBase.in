@@ -15,7 +15,7 @@ import type { Project } from '@/types/discover'
 
 const MONTH = new Intl.DateTimeFormat('en', { month: 'short', year: 'numeric' })
 // The project columns, read as an organization's (report §34.11).
-const ORG_LABELS = { description: 'About', problem: "Who it's for", solution: 'What happens here' }
+const ORG_LABELS = { description: 'About', problem: "Who it’s for", solution: 'What happens here' }
 const month = (iso: string | null) => (iso ? MONTH.format(new Date(`${iso}T00:00:00`)) : null)
 
 /**
@@ -95,7 +95,7 @@ export function OrgAboutTab({ project, isCreator, onEdit, visitorActions }: { pr
                     ) : data.card.kind === 'member' || data.card.kind === 'guest' ? (
                         <RailSection title={project.title}>
                             <p className="text-sm text-muted-foreground">
-                                {data.card.kind === 'guest' ? 'Viewer · read only' : `You're a ${org?.roleNames?.member ?? 'Member'}`}
+                                {data.card.kind === 'guest' ? 'Viewer · read only' : `You’re a ${org?.roleNames?.member ?? 'Member'}`}
                                 {data.card.joinedAt ? ` · joined ${new Date(data.card.joinedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}` : ''}
                             </p>
                         </RailSection>

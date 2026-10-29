@@ -55,7 +55,7 @@ export function MemberNotificationSettingsEditor({
         return (
             <div className="flex items-center gap-2 rounded-lg border border-border bg-card p-4 text-sm text-muted-foreground">
                 <Loader2 className="size-4 animate-spin" />
-                Loading member notification preferences...
+                Loading member notification preferences…
             </div>
         );
     }
@@ -75,7 +75,7 @@ export function MemberNotificationSettingsEditor({
                 <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
                     {data.canEdit
                         ? "Member preferences can reduce optional project noise. Locked responsibility and security notifications stay enabled."
-                        : "Leaders can review this member's effective policy summary, but only the member can change personal notification overrides."}
+                        : "Leaders can review this member’s effective policy summary, but only the member can change personal notification overrides."}
                 </p>
                 <div className="mt-3 flex flex-wrap gap-2">
                     {([

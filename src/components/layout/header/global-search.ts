@@ -213,7 +213,7 @@ export function resolveGlobalSearchContext(pathname: string | null, searchParams
     if (isProjectDetailPath(pathname) && pathname?.startsWith("/org/")) {
         return {
             context: "project",
-            placeholder: "Search this organization...",
+            placeholder: "Search this organization…",
             title: "Search this organization",
             description: "Docs, assignments, projects, files you can open, sprints and tasks in this organization.",
         };
@@ -221,7 +221,7 @@ export function resolveGlobalSearchContext(pathname: string | null, searchParams
     if (isProjectDetailPath(pathname)) {
         return {
             context: "project",
-            placeholder: "Search this project's tasks...",
+            placeholder: "Search this project’s tasks…",
             title: "Search project tasks",
             description: "Search task keys, titles, and descriptions in this project.",
         };
@@ -230,7 +230,7 @@ export function resolveGlobalSearchContext(pathname: string | null, searchParams
         const scope = getNetworkSearchScope(searchParams);
         return {
             context: "network",
-            placeholder: scope === "network" ? "Search your network..." : "Find people…",
+            placeholder: scope === "network" ? "Search your network…" : "Find people…",
             title: scope === "network" ? "Search your network" : "Find builders",
             description: scope === "network"
                 ? "Search your accepted connections by name."
@@ -240,7 +240,7 @@ export function resolveGlobalSearchContext(pathname: string | null, searchParams
     if (pathname?.startsWith("/discover")) {
         return {
             context: "discover",
-            placeholder: "Search projects...",
+            placeholder: "Search projects…",
             title: "Search projects",
             description: "Search project names, descriptions, and technologies.",
         };
@@ -248,7 +248,7 @@ export function resolveGlobalSearchContext(pathname: string | null, searchParams
     if (pathname?.startsWith("/messages")) {
         return {
             context: "messages",
-            placeholder: "Find a conversation...",
+            placeholder: "Find a conversation…",
             title: "Find a conversation",
             description: "Jump to a channel, direct message, or person.",
         };
@@ -256,14 +256,14 @@ export function resolveGlobalSearchContext(pathname: string | null, searchParams
     if (pathname?.startsWith("/settings")) {
         return {
             context: "settings",
-            placeholder: "Search settings...",
+            placeholder: "Search settings…",
             title: "Search settings",
             description: "Find a setting and go directly to its section.",
         };
     }
     return {
         context: "default",
-        placeholder: "Search projects...",
+        placeholder: "Search projects…",
         title: "Search projects",
         description: "Search projects from anywhere in the app.",
     };

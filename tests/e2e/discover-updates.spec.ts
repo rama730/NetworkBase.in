@@ -38,7 +38,7 @@ test.describe('Discover update cards', () => {
     test('a link to an update that is not available says so and drops the parameter', async ({ page }) => {
         await login(page);
         await page.goto('/discover?updateId=00000000-0000-4000-8000-000000000000');
-        await expect(page.getByText("That update isn't available")).toBeVisible({ timeout: 15_000 });
+        await expect(page.getByText("That update isn’t available")).toBeVisible({ timeout: 15_000 });
         await expect(page).not.toHaveURL(/[?&]updateId=/);
     });
 });

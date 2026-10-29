@@ -359,7 +359,7 @@ export default function EditProjectModal({ project, isOpen, onClose, onSaved }: 
                                                         id="edit-project-tagline"
                                                         {...register("shortDescription")}
                                                         className="w-full px-4 py-3 rounded-lg border border-border bg-transparent outline-none transition-[color,background-color,border-color,box-shadow,opacity,transform] text-foreground"
-                                                        placeholder="A brief pitch for your project..."
+                                                        placeholder="A brief pitch for your project…"
                                                     />
                                                     {errors.shortDescription && <p className="text-red-500 text-sm mt-1">{errors.shortDescription.message}</p>}
                                                 </div>
@@ -377,12 +377,12 @@ export default function EditProjectModal({ project, isOpen, onClose, onSaved }: 
                                                     {...register("description")}
                                                     onInput={(e: any) => adjustHeight(e)}
                                                     className="w-full px-4 py-3 min-h-[150px] rounded-lg border border-border bg-transparent outline-none transition-[color,background-color,border-color,box-shadow,opacity,transform] resize-none text-foreground"
-                                                    placeholder="Tell the full story of your project..."
+                                                    placeholder="Tell the full story of your project…"
                                                 />
                                             </div>
                                             <div className="grid gap-6">
                                                 <div>
-                                                    <label htmlFor="edit-project-problem" className="block text-sm font-medium mb-2 text-foreground">{isOrg ? "Who it's for" : "Problem Statement"}</label>
+                                                    <label htmlFor="edit-project-problem" className="block text-sm font-medium mb-2 text-foreground">{isOrg ? "Who it’s for" : "Problem Statement"}</label>
                                                     <textarea
                                                         id="edit-project-problem"
                                                         {...register("problemStatement")}
@@ -451,7 +451,7 @@ export default function EditProjectModal({ project, isOpen, onClose, onSaved }: 
                                                         value={tagInput}
                                                         onChange={(e) => setTagInput(e.target.value)}
                                                         onKeyDown={(e) => handleKeyDown(e, tagInput, setTagInput, tags, "tags")}
-                                                        placeholder="Type tag (e.g. opensource) and press Enter..."
+                                                        placeholder="Type tag (e.g. opensource) and press Enter…"
                                                         className="w-full bg-transparent outline-none text-sm placeholder:text-zinc-400"
                                                     />
                                                 </div>
@@ -513,7 +513,7 @@ export default function EditProjectModal({ project, isOpen, onClose, onSaved }: 
                         <div className="p-4 border-t border-border bg-card backdrop-blur-none flex items-center gap-3 shrink-0 z-20">
                             <div className="mr-auto hidden sm:block">
                                 <p className="text-xs text-muted-foreground">
-                                    {isPending ? "Saving changes..." : "Unsaved changes will be lost if you cancel."}
+                                    {isPending ? "Saving changes…" : "Unsaved changes will be lost if you cancel."}
                                 </p>
                             </div>
                             <button

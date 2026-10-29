@@ -43,7 +43,7 @@ export default async function NewProjectPage({
     const requestedOrg = orgParam ? locations.find((location) => location.slug === orgParam) : undefined
     const initialOrgId = requestedOrg && !requestedOrg.block ? requestedOrg.id : null
     const locationNotice = orgParam && !initialOrgId
-        ? `${requestedOrg?.block ?? `You're not a member of ${orgParam}.`} This will be a personal project.`
+        ? `${requestedOrg?.block ?? `You’re not a member of ${orgParam}.`} This will be a personal project.`
         : null
 
     // A normal page in the app shell: fills the main content area; the wizard body is the only scroller.

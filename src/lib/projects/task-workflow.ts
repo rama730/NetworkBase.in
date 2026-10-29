@@ -27,7 +27,7 @@ export const TASK_STATUS_PRESENTATION: Record<TaskWorkflowStatus, TaskWorkflowSt
     label: "To Do",
     description: "Work that is ready to start.",
     columnTitle: "To Do",
-    emptyTitle: "Tasks will appear here...",
+    emptyTitle: "Tasks will appear here…",
     emptyDescription: "Tasks that are ready to start will appear here. Drag and drop your tasks here.",
     badgeClassName:
       "border border-border bg-muted/60 text-muted-foreground",
@@ -38,7 +38,7 @@ export const TASK_STATUS_PRESENTATION: Record<TaskWorkflowStatus, TaskWorkflowSt
     label: "In Progress",
     description: "Work that is actively moving.",
     columnTitle: "In Progress",
-    emptyTitle: "Tasks will appear here...",
+    emptyTitle: "Tasks will appear here…",
     emptyDescription: "Items will appear here as soon as they start. Drag and drop your tasks here.",
     badgeClassName:
       "border border-primary/20 bg-primary/10 text-primary",
@@ -49,7 +49,7 @@ export const TASK_STATUS_PRESENTATION: Record<TaskWorkflowStatus, TaskWorkflowSt
     label: "Issues",
     description: "Work waiting on an external dependency or decision.",
     columnTitle: "Issues",
-    emptyTitle: "Tasks will appear here...",
+    emptyTitle: "Tasks will appear here…",
     emptyDescription: "Tasks waiting on blockers will appear here. Drag and drop your tasks here.",
     badgeClassName:
       "border border-destructive/20 bg-destructive/10 text-destructive",
@@ -60,7 +60,7 @@ export const TASK_STATUS_PRESENTATION: Record<TaskWorkflowStatus, TaskWorkflowSt
     label: "Done",
     description: "Work that has been completed.",
     columnTitle: "Done",
-    emptyTitle: "Tasks will appear here...",
+    emptyTitle: "Tasks will appear here…",
     emptyDescription: "Finished work will appear here. Drag and drop your tasks here.",
     badgeClassName:
       "border border-emerald-500/20 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",

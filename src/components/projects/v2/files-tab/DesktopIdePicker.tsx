@@ -149,7 +149,7 @@ export function DesktopIdePicker({
       </label>
       {connectionsError && (
         <div className="mx-3 mb-2 text-xs text-muted-foreground" role="status">
-          Couldn&apos;t load editor connections.{" "}
+          Couldn’t load editor connections.{" "}
           <button
             type="button"
             className="text-primary underline underline-offset-2"

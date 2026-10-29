@@ -41,7 +41,7 @@ function toErrorMessage(authError: unknown): string {
         ? String((authError as { message?: unknown }).message || '')
         : String(authError || '')
     if (/already (been )?registered|already exists/i.test(raw)) return DUPLICATE_EMAIL_MESSAGE
-    return toFriendlyAuthError(raw, "We couldn't create your account. Try again.")
+    return toFriendlyAuthError(raw, "We couldn’t create your account. Try again.")
 }
 
 function isDuplicateObfuscatedResponse(payload: unknown): boolean {
@@ -181,9 +181,9 @@ export function SignupForm({ redirect, invite, referral, project }: { redirect: 
 
         const errors: Partial<Record<FieldKey, string>> = {
             fullName: fullName.trim() ? undefined : 'Enter your full name.',
-            email: !email.trim() ? 'Enter your email.' : isDisposable ? "Use a permanent email address. Temporary inboxes aren't allowed." : undefined,
+            email: !email.trim() ? 'Enter your email.' : isDisposable ? "Use a permanent email address. Temporary inboxes aren’t allowed." : undefined,
             password: passwordPolicy.ok ? undefined : passwordPolicy.error || 'Choose a stronger password.',
-            confirmPassword: password === confirmPassword ? undefined : "Passwords don't match.",
+            confirmPassword: password === confirmPassword ? undefined : "Passwords don’t match.",
             legal: legalAccepted ? undefined : 'Accept the terms to create your account.',
         }
         setFieldErrors(errors)
@@ -231,7 +231,7 @@ export function SignupForm({ redirect, invite, referral, project }: { redirect: 
                 setTimeout(() => otpInputRef.current?.focus(), 150)
                 return
             }
-            setFormError("We couldn't create your account. Try again.")
+            setFormError("We couldn’t create your account. Try again.")
         } catch (signupError) {
             setFormError(signupError instanceof Error && signupError.message === 'Request timeout'
                 ? 'Creating your account is taking too long. Check your connection and try again.'
@@ -260,7 +260,7 @@ export function SignupForm({ redirect, invite, referral, project }: { redirect: 
             clearDraft()
             router.push(redirectPath)
         } catch {
-            setOtpError("Couldn't check the code. Try again.")
+            setOtpError("Couldn’t check the code. Try again.")
         } finally {
             setIsOtpLoading(false)
         }
@@ -283,13 +283,13 @@ export function SignupForm({ redirect, invite, referral, project }: { redirect: 
             })
             setResendCaptchaToken(null)
             if (error) {
-                setOtpError(toFriendlyAuthError(error.message, "We couldn't send a new code. Try again in a minute."))
+                setOtpError(toFriendlyAuthError(error.message, "We couldn’t send a new code. Try again in a minute."))
                 return
             }
             setResendCooldown(RESEND_COOLDOWN_SECONDS)
             setResendMessage(`We sent a new code to ${email.trim()}.`)
         } catch {
-            setOtpError("We couldn't send a new code. Try again in a minute.")
+            setOtpError("We couldn’t send a new code. Try again in a minute.")
         }
     }
 
@@ -351,7 +351,7 @@ export function SignupForm({ redirect, invite, referral, project }: { redirect: 
     ) : null
 
     const emailNote = isDisposable ? (
-        <p className="nb-auth-note text-[var(--status-warning)]" role="status">Use a permanent email address. Temporary inboxes aren&apos;t allowed.</p>
+        <p className="nb-auth-note text-[var(--status-warning)]" role="status">Use a permanent email address. Temporary inboxes aren’t allowed.</p>
     ) : emailTypo.hasTypo && emailTypo.suggestedEmail ? (
         <p className="nb-auth-note flex items-center justify-between gap-2 text-[var(--status-warning)]" role="status">
             <span className="truncate">Did you mean <span className="font-medium">{emailTypo.suggestedEmail}</span>?</span>
@@ -373,7 +373,7 @@ export function SignupForm({ redirect, invite, referral, project }: { redirect: 
             footer={<>Already have an account? <Link href={loginHref} className={AUTH_LINK}>Sign in</Link></>}
         >
             <GoogleOneTap nextPath={oneTapNextPath} onError={setFormError} />
-            {inviteParam ? <AuthAlert tone="info" className="mb-5">You&apos;ve been invited. Create your account to accept.</AuthAlert> : null}
+            {inviteParam ? <AuthAlert tone="info" className="mb-5">You’ve been invited. Create your account to accept.</AuthAlert> : null}
             <OAuthButtons next={afterSignupPath} disabled={isLoading} onError={setFormError} />
             <AuthDivider />
             <form onSubmit={handleSubmit} className="space-y-4" noValidate>

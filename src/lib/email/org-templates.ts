@@ -106,7 +106,7 @@ function partsFor(kind: OrgEmailKind, d: OrgEmailData, url: (path: string) => st
   const open: Link = { label: `Open ${org} →`, href: url(orgPath) };
   const actor = d.actor?.name ?? "Someone";
   const when = (iso?: string | null) => formatEmailWhen(iso, d.timeZone, d.orgTimeZone);
-  const member = `You're receiving this because you're a member of ${org}.`;
+  const member = `You’re receiving this because you’re a member of ${org}.`;
   const a = d.assignment;
   const copyHref = url(a?.copyId ? `${orgPath}?tab=assignments&copy=${encodeURIComponent(a.copyId)}` : `${orgPath}?tab=assignments`);
   const orgLabel = `ORGANIZATION${d.org.type ? ` · ${d.org.type.toUpperCase()}` : ""}`;
@@ -118,9 +118,9 @@ function partsFor(kind: OrgEmailKind, d: OrgEmailData, url: (path: string) => st
         identity: "org", label: orgLabel, headline: `${org} is ready`,
         paragraphs: ["People join with this code, or with the invite link."],
         big: d.joinCode ?? null,
-        sections: [{ title: "What's next", rows: ["Share the code or the link", "Plan your sprints", "Add materials to Files"] }],
+        sections: [{ title: "What’s next", rows: ["Share the code or the link", "Plan your sprints", "Add materials to Files"] }],
         primary: open, secondary: d.joinCode ? { label: "Copy invite link", href: url(`/join/${encodeURIComponent(d.joinCode)}`) } : null,
-        reason: `You're receiving this because you created ${org} on NetworkBase.`,
+        reason: `You’re receiving this because you created ${org} on NetworkBase.`,
       };
     case "org_invite":
     case "org_invite_signup":
@@ -128,17 +128,17 @@ function partsFor(kind: OrgEmailKind, d: OrgEmailData, url: (path: string) => st
         subject: kind === "org_invite" ? `${actor} invited you to ${org}` : `${actor} invited you to ${org} on NetworkBase`,
         preview: `${actor} invited you to join ${org}${d.role ? ` as ${d.role}` : ""}.`,
         identity: "actor", label: "INVITED BY", headline: `Join ${org}`,
-        paragraphs: [d.org.tagline ?? "", kind === "org_invite_signup" ? "Create your account with this email address and you'll join automatically." : ""].filter(Boolean),
+        paragraphs: [d.org.tagline ?? "", kind === "org_invite_signup" ? "Create your account with this email address and you’ll join automatically." : ""].filter(Boolean),
         pills: [d.role ?? "", d.memberTitle ?? "", d.expiresAt ? `Expires ${when(d.expiresAt)}` : ""].filter(Boolean),
         quote: d.note ?? null,
         primary: kind === "org_invite" ? { label: "Accept invitation →", href: url("/network?tab=invitations") } : { label: "Create your account →", href: url("/signup") },
         secondary: kind === "org_invite" ? { label: "View organization", href: url(orgPath) } : { label: "What is NetworkBase", href: url("/") },
-        reason: `You're receiving this because ${actor} invited this address to ${org}.`,
+        reason: `You’re receiving this because ${actor} invited this address to ${org}.`,
       };
     case "org_welcome":
       return {
-        subject: `You're in ${org}`, preview: d.note ? oneLine(d.note) : `Welcome to ${org}.`,
-        identity: "org", label: "ORGANIZATION", headline: `You're in ${org}`,
+        subject: `You’re in ${org}`, preview: d.note ? oneLine(d.note) : `Welcome to ${org}.`,
+        identity: "org", label: "ORGANIZATION", headline: `You’re in ${org}`,
         quote: d.note ?? null,
         sections: d.pinnedDocs?.length ? [{ title: "Pinned docs", rows: d.pinnedDocs }] : [],
         primary: open, secondary: { label: "Add to your profile", href: url("/profile") }, reason: member,
@@ -219,26 +219,26 @@ function partsFor(kind: OrgEmailKind, d: OrgEmailData, url: (path: string) => st
           g.behind ? { title: "Behind", rows: [`${g.behind} ${g.behind === 1 ? "person has" : "people have"} missing work`] } : null,
         ].filter((s): s is { title: string; rows: string[] } => Boolean(s)),
         primary: { label: "Open review queue →", href: url(`${orgPath}?tab=assignments&view=review`) }, secondary: { label: "Open dashboard", href: url(orgPath) },
-        reason: `You're receiving this daily summary as an admin of ${org}.`,
+        reason: `You’re receiving this daily summary as an admin of ${org}.`,
       };
     }
     case "org_removed":
       return {
-        subject: `You were removed from ${org}`, preview: d.reason ? oneLine(d.reason) : `You're no longer a member of ${org}.`,
+        subject: `You were removed from ${org}`, preview: d.reason ? oneLine(d.reason) : `You’re no longer a member of ${org}.`,
         identity: "org", label: "ORGANIZATION", headline: `You were removed from ${org}`,
         quote: d.reason ?? null,
         paragraphs: ["Your profile entry stays. Your submissions remain with the organization."],
         primary: { label: "View your profile", href: url("/profile") }, secondary: { label: "Contact support", href: "mailto:support@networkbase.in" },
-        reason: `You're receiving this because you were a member of ${org}.`,
+        reason: `You’re receiving this because you were a member of ${org}.`,
       };
     case "org_ownership":
       return {
-        subject: d.previousOwner ? `You transferred ${org} to ${actor}` : `You're now the owner of ${org}`,
+        subject: d.previousOwner ? `You transferred ${org} to ${actor}` : `You’re now the owner of ${org}`,
         preview: d.previousOwner ? `${actor} owns ${org} now.` : `You own ${org} now.`,
-        identity: "org", label: "OWNERSHIP", headline: d.previousOwner ? `${actor} owns ${org} now` : `You're now the owner of ${org}`,
-        paragraphs: d.previousOwner ? ["You stay an admin unless the new owner changes that."] : ["Owners manage admins, the organization's name and picture, and can archive or delete it."],
+        identity: "org", label: "OWNERSHIP", headline: d.previousOwner ? `${actor} owns ${org} now` : `You’re now the owner of ${org}`,
+        paragraphs: d.previousOwner ? ["You stay an admin unless the new owner changes that."] : ["Owners manage admins, the organization’s name and picture, and can archive or delete it."],
         primary: { label: "Open settings →", href: url(`${orgPath}?tab=settings`) },
-        reason: `You're receiving this because ownership of ${org} changed.`,
+        reason: `You’re receiving this because ownership of ${org} changed.`,
       };
     case "org_deleted":
       return {
@@ -247,7 +247,7 @@ function partsFor(kind: OrgEmailKind, d: OrgEmailData, url: (path: string) => st
         paragraphs: ["Work you did in your own projects is still yours."],
         sections: d.personalProjects?.length ? [{ title: "Now your personal projects", rows: d.personalProjects }] : [],
         primary: { label: "Open my projects", href: url("/projects") },
-        reason: `You're receiving this because you were a member of ${org}.`,
+        reason: `You’re receiving this because you were a member of ${org}.`,
       };
   }
 }

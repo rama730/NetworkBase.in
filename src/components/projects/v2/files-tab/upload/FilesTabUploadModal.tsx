@@ -849,7 +849,7 @@ export function FilesTabUploadModal({
                       )}
                     </div>
                     <div className="text-xs text-muted-foreground mt-0.5">
-                      Add this upload to an existing file&apos;s version history.
+                      Add this upload to an existing file’s version history.
                     </div>
                   </div>
                 </div>

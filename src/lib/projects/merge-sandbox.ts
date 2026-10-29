@@ -48,7 +48,7 @@ export async function mergeSandboxTask(
         AND staged.canonical_node_id IS NOT NULL AND canonical.id IS NULL
     `);
     if ((binding?.invalid ?? 0) > 0) {
-      throw new Error("ERR_INVALID_CANONICAL: staged files reference nodes outside this project's main tree");
+      throw new Error("ERR_INVALID_CANONICAL: staged files reference nodes outside this project’s main tree");
     }
 
     // Step 1: Lock target canonical nodes, parent folders, and target paths on the main branch

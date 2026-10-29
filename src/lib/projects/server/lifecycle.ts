@@ -632,7 +632,7 @@ export async function createProjectAction(
       const open = org.status !== "archived" && !org.suspendedAt && !org.deletionScheduledAt;
       const block = childCreationBlock(role, rules.childCreation, open);
       // Report §14.6: the wizard keeps everything and offers "Create as a personal project".
-      if (block) return refuse(!role ? `You're no longer in ${org.title}.` : !open ? `${org.title} is archived.` : block, "ORG_BLOCKED");
+      if (block) return refuse(!role ? `You’re no longer in ${org.title}.` : !open ? `${org.title} is archived.` : block, "ORG_BLOCKED");
       const isOrgAdmin = role === "owner" || role === "admin";
       if (input.lead_user_id && input.lead_user_id !== user.id) {
         if (!isOrgAdmin) return refuse("Only admins pick someone else as lead.");
@@ -1127,7 +1127,7 @@ export async function createProjectAction(
             await db.transaction((tx) => createCopiesForNewChild(tx, parentOrgId, result.id, ownerId));
             await notifyNewCopies(parentOrgId, { projectId: result.id });
           } catch (error) {
-            notices.push(`The open project assignments from ${child.orgTitle} weren't copied here. Ask an admin to share them again.`);
+            notices.push(`The open project assignments from ${child.orgTitle} weren’t copied here. Ask an admin to share them again.`);
             logger.warn("org.child_group_copies_failed", { projectId: result.id, error: error instanceof Error ? error.message : String(error) });
           }
         }
@@ -1136,7 +1136,7 @@ export async function createProjectAction(
         if (organization?.plan_sprints) {
           const plan = organization.plan_sprints;
           const planned = await planSprintSeriesAction({ projectId: result.id, prefix: plan.prefix, count: plan.count, lengthDays: plan.length_days, startDate: plan.start_date });
-          if (!planned.success) notices.push(`The first sprints weren't planned: ${planned.error}`);
+          if (!planned.success) notices.push(`The first sprints weren’t planned: ${planned.error}`);
         }
 
         // Co-admins and the pasted roster (report §34.4, §34.10): invited after the org exists, so a failed
@@ -1153,9 +1153,9 @@ export async function createProjectAction(
             const members = valid.filter((e) => e !== self && !admins.includes(e));
             invites.skipped = invalid.length + Math.max(0, members.length - ORG_LIMITS.emailInvitesPerPaste);
             if (members.length) invites.members = (await createOrgEmailInvites(result.id, ownerId, { emails: members.slice(0, ORG_LIMITS.emailInvitesPerPaste), role: "member", title: null, childProjectId: null, unitId: null })).invited;
-            if (invites.skipped) notices.push(`${invites.skipped} ${invites.skipped === 1 ? "address wasn't" : "addresses weren't"} invited (not an email, or over ${ORG_LIMITS.emailInvitesPerPaste}). Invite them from Members.`);
+            if (invites.skipped) notices.push(`${invites.skipped} ${invites.skipped === 1 ? "address wasn’t" : "addresses weren’t"} invited (not an email, or over ${ORG_LIMITS.emailInvitesPerPaste}). Invite them from Members.`);
           } catch (error) {
-            notices.push("Some invites weren't sent. Send them again from Members.");
+            notices.push("Some invites weren’t sent. Send them again from Members.");
             logger.warn("org.create_invites_failed", { projectId: result.id, error: error instanceof Error ? error.message : String(error) });
           }
         }

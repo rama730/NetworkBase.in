@@ -88,7 +88,7 @@ export function OrgDashboard({ orgId, orgSlug }: { orgId: string; orgSlug: strin
             <aside aria-label="Organization details" className="min-w-0 space-y-6 lg:col-span-4">
                 <RailSection title="Projects" action={<Link href={`${base}?tab=projects`} className="text-[12px] underline underline-offset-4">See all →</Link>}>
                     {data.projects.length ? <ul>{data.projects.map((p) => <li key={p.id} className={row}><Link href={`/projects/${encodeURIComponent(p.slug ?? p.id)}`} className="truncate hover:underline">{p.title}</Link><span className="shrink-0 font-mono text-[11px] text-muted-foreground">{ago(p.lastActivityAt)}</span></li>)}</ul>
-                        : <p className="text-sm text-muted-foreground">{data.role === 'admin' ? 'No projects yet.' : "You're not in a project yet."}</p>}
+                        : <p className="text-sm text-muted-foreground">{data.role === 'admin' ? 'No projects yet.' : "You’re not in a project yet."}</p>}
                 </RailSection>
                 <RailSection title="People">
                     <p className="text-sm">{data.people.avatars.map((p) => p.name.split(' ')[0]).join(', ')}{data.people.total > data.people.avatars.length ? ` +${data.people.total - data.people.avatars.length}` : ''}</p>
@@ -261,7 +261,7 @@ export function ChildOrgLine({ projectId }: { projectId: string }) {
             </p>
             {/* What's happening = Needs you + This sprint (report §27.5); Activity stays in the rail. */}
             {line.needsYou.length || line.ownSprint ? (
-                <RailSection title="What's happening">
+                <RailSection title="What’s happening">
                     {line.ownSprint ? (
                         <p className={row} data-testid="child-this-sprint">
                             <span className="truncate">This sprint · {line.ownSprint.name}</span>

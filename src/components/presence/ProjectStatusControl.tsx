@@ -47,7 +47,7 @@ export function ProjectStatusControl({ projectId, canManage }: { projectId: stri
   const save = async () => {
     if (!emoji && !text.trim()) return void toast.error("Add an emoji or some text");
     const result = await setProjectStatus({ projectId, emoji, text: text.trim() || null, expiresAt: until ? new Date(until).toISOString() : null });
-    if (!result.success) return void toast.error(feedbackError(result.error === "forbidden" ? "Only owners and admins can set the workspace status" : "Couldn't set the project status. Check the end time.", "Couldn't set the project status. Check the end time."));
+    if (!result.success) return void toast.error(feedbackError(result.error === "forbidden" ? "Only owners and admins can set the workspace status" : "Couldn’t set the project status. Check the end time.", "Couldn’t set the project status. Check the end time."));
     await refresh();
     setOpen(false);
     toast.success("Workspace status updated");
@@ -92,7 +92,7 @@ export function ProjectStatusControl({ projectId, canManage }: { projectId: stri
                 value={text}
                 maxLength={STATUS_TEXT_MAX}
                 onChange={(event) => setText(event.target.value)}
-                placeholder="What's the team doing?"
+                placeholder="What’s the team doing?"
                 aria-label="Project status"
                 className="min-w-0 flex-1 bg-transparent text-[15px] outline-none"
               />

@@ -767,7 +767,7 @@ export default function TasksTab({
                 type="text"
                 value={searchInput}
                 onChange={(e) => handleSearchChange(e.target.value)}
-                placeholder="Filter tasks..."
+                placeholder="Filter tasks…"
                 className="nb-touch-target h-[34px] w-36 rounded-[5px] border border-border bg-card pl-8 pr-7 text-[13px] text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary sm:w-48 transition-all max-md:h-11 max-md:w-full"
               />
               {searchInput ? (

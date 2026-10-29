@@ -274,7 +274,7 @@ test('a step-up request keeps what was typed when the check is left', async ({ p
   const wizard = page.getByRole('dialog', { name: 'Delete account' });
   await wizard.getByLabel(/^Type/).fill('ada@example.com');
   await wizard.getByRole('button', { name: /^Delete/ }).last().click();
-  const verify = page.getByRole('dialog', { name: "Confirm it's you" });
+  const verify = page.getByRole('dialog', { name: "Confirm it’s you" });
   await expect(verify).toBeVisible();
   // Leaving the check puts the wizard back with the typed email still in it.
   await page.keyboard.press('Escape');

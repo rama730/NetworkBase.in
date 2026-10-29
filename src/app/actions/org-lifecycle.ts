@@ -68,7 +68,7 @@ export async function deleteOrgAction(orgId: string, input: z.input<typeof delet
     if (!parsed.success) return { success: false, error: 'Type the handle to confirm.' };
     if (owner.access.writeBlocked === 'deleting') return { success: false, error: 'This organization is already scheduled for deletion.' };
     if (owner.access.writeBlocked === 'suspended') return { success: false, error: writeBlockedMessage('suspended') };
-    if (parsed.data.confirmHandle.toLowerCase() !== (owner.slug ?? '').toLowerCase()) return { success: false, error: "That isn't this organization's handle." };
+    if (parsed.data.confirmHandle.toLowerCase() !== (owner.slug ?? '').toLowerCase()) return { success: false, error: "That isn’t this organization’s handle." };
     const { deleteAt } = await scheduleOrgDeletion(orgId, owner.userId, parsed.data.childMode);
     touch(owner.slug, orgId);
     revalidatePath('/projects');

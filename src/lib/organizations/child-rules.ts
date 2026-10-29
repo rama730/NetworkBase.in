@@ -8,7 +8,7 @@ const RANK: Record<ChildVisibility, number> = { private: 0, org: 1, public: 2 };
 
 /** Why this person can't create a project in the org, or null when they can. */
 export function childCreationBlock(role: OrgMemberRoleOrNone, childCreation: "members" | "admins", orgOpen: boolean): string | null {
-  if (!role) return "You're not a member of this organization.";
+  if (!role) return "You’re not a member of this organization.";
   if (!orgOpen) return "This organization is archived.";
   if (role === "viewer") return "Viewers can’t create workspaces.";
   if (role === "member" && childCreation === "admins") return "Only admins create projects here.";

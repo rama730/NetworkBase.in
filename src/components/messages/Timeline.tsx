@@ -69,7 +69,7 @@ function TimelineHeader({ context }: { context?: TimelineContext }) {
   if (context.olderError && !context.loadingOlder) {
     return (
       <div role="alert" className="bg-card py-3 text-center text-[12px] text-muted-foreground">
-        Earlier messages couldn&apos;t load. <Button type="button" variant="outline" size="sm" onClick={context.loadOlder} className="ml-2">Retry</Button>
+        Earlier messages couldn’t load. <Button type="button" variant="outline" size="sm" onClick={context.loadOlder} className="ml-2">Retry</Button>
       </div>
     );
   }

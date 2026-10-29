@@ -30,6 +30,6 @@ test("type defaults: open joining and public for communities and clubs, approval
 test("the starter doc uses the type's template and the org's words", () => {
   const doc = orgStarterDoc("education", { title: "CSE-3A", description: "Data structures.", audience: "3rd semester" });
   assert.match(doc, /^# CSE-3A: Syllabus/);
-  assert.match(doc, /\*\*Who it's for:\*\* 3rd semester/);
+  assert.match(doc, /\*\*Who it’s for:\*\* 3rd semester/);
   assert.match(doc, /## Late work/);
 });

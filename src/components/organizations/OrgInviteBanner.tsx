@@ -19,7 +19,7 @@ export function OrgInviteBanner({ orgId }: { orgId: string }) {
     const roleLabel = invite.role === 'viewer' ? 'a guest' : invite.role === 'admin' ? 'an admin' : 'a member'
     return (
         <span className="flex flex-wrap items-center gap-2 text-sm">
-            <span>You&apos;re invited as {roleLabel}{invite.title ? ` · ${invite.title}` : ''}</span>
+            <span>You’re invited as {roleLabel}{invite.title ? ` · ${invite.title}` : ''}</span>
             <Button type="button" size="sm" disabled={pending} onClick={() => startTransition(async () => {
                 const r = await acceptOrgInviteAction(invite.id)
                 if (!r.success) return void toast.error(r.error)

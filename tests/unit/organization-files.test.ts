@@ -17,7 +17,7 @@ test("the strictest folder mark wins; unmarked is Members", () => {
 test("access is only stricter going down", () => {
   assert.equal(folderAccessBlock(null, "public"), null, "top-level folders can be Public");
   assert.equal(folderAccessBlock("public", "admins"), null);
-  assert.match(folderAccessBlock("members", "public") ?? "", /can't be more open/);
+  assert.match(folderAccessBlock("members", "public") ?? "", /can’t be more open/);
   assert.match(folderAccessBlock("admins", "members") ?? "", /Admins only/);
   assert.equal(folderAccessBlock("admins", null), null, "clearing a mark keeps the parent's");
   assert.equal(readFolderAccess({ access: "admins" }), "admins");

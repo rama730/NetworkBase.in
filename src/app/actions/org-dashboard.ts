@@ -20,7 +20,7 @@ export type ActivityItem = { id: string; kind: ActivityKind; text: string; at: s
 // Org Dashboard (report §27), About (§22) and Projects (§28). Everything is derived; no new tables.
 
 type Failure = { success: false; error: string };
-const DENIED: Failure = { success: false, error: "You don't have permission to see this." };
+const DENIED: Failure = { success: false, error: "You don’t have permission to see this." };
 const DAY = 86_400_000;
 
 

@@ -21,7 +21,7 @@ const cases: Record<OrgEmailKind, { data: Partial<OrgEmailData>; subject: string
   org_ready: { data: { joinCode: "K7M2QX" }, subject: "CSE-3A 2026 is ready: invite your members" },
   org_invite: { data: { role: "Member", memberTitle: "TA" }, subject: "Ms. Rao invited you to CSE-3A 2026" },
   org_invite_signup: { data: { role: "Member" }, subject: "Ms. Rao invited you to CSE-3A 2026 on NetworkBase" },
-  org_welcome: { data: { note: "Welcome, everyone!" }, subject: "You're in CSE-3A 2026" },
+  org_welcome: { data: { note: "Welcome, everyone!" }, subject: "You’re in CSE-3A 2026" },
   org_assignment: { data: { assignment: { title: "Lab 2", dueAt: due, steps: ["Read notes"], materials: [{ name: "notes.pdf", size: 1_200_000 }], team: ["Ravi", "Asha"], teamName: "Team A", reviewRequired: true, submission: "file" } }, subject: "New assignment: Lab 2 · due Sat 31 Oct, 11:59 PM" },
   org_due_soon: { data: { items: [{ title: "Lab 2", dueAt: due, status: "Not started" }, { title: "Quiz 1", dueAt: due, status: "In progress" }] }, subject: "2 assignments due tomorrow in CSE-3A 2026" },
   org_overdue: { data: { assignment: { title: "Lab 2", dueAt: due, lateUntil: "2026-11-03T18:29:00.000Z" } }, subject: /^Lab 2 is overdue: late work accepted until / },
@@ -30,7 +30,7 @@ const cases: Record<OrgEmailKind, { data: Partial<OrgEmailData>; subject: string
   org_ended: { data: {}, subject: "CSE-3A 2026 has ended" },
   org_digest: { data: { digest: { toReview: [{ title: "Lab 1", count: 18 }], joinRequests: 2, needsYou: [], behind: 3 } }, subject: "CSE-3A 2026 today: 18 submissions, 2 join requests" },
   org_removed: { data: { reason: "Left the course" }, subject: "You were removed from CSE-3A 2026" },
-  org_ownership: { data: {}, subject: "You're now the owner of CSE-3A 2026" },
+  org_ownership: { data: {}, subject: "You’re now the owner of CSE-3A 2026" },
   org_deleted: { data: { personalProjects: ["Compiler Lab"] }, subject: "CSE-3A 2026 was deleted" },
 };
 

@@ -14,7 +14,7 @@ export type AuthPanelContent = { eyebrow: string; title: string; points?: readon
 /** Forgot and reset password share one panel. */
 export const RECOVERY_PANEL: AuthPanelContent = {
     eyebrow: 'Account recovery',
-    title: "We'll get you back in.",
+    title: "We’ll get you back in.",
     points: ['Reset links work once and expire', 'We never ask for your password by email', 'Only you choose the new password'],
 }
 
@@ -218,7 +218,7 @@ export function OAuthButtons({ next, disabled, onError }: { next: string; disabl
                 setLoading(null)
             }
         } catch {
-            onError(`Couldn't start ${provider === 'google' ? 'Google' : 'GitHub'} sign-in. Try again.`)
+            onError(`Couldn’t start ${provider === 'google' ? 'Google' : 'GitHub'} sign-in. Try again.`)
             setLoading(null)
         }
     }

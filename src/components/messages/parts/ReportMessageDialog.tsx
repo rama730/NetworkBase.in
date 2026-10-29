@@ -45,7 +45,7 @@ export function ReportMessageDialog({ isOpen, onClose, onSubmit }: ReportMessage
                 setError(chatErrorMessage(result.error));
                 return;
             }
-            toast.success('Report submitted', { description: 'We\'ll review it shortly.' });
+            toast.success('Report submitted', { description: 'We’ll review it shortly.' });
             onClose();
             setReason('');
             setDetails('');

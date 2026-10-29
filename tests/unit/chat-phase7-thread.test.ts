@@ -27,7 +27,7 @@ test("composer: /code opens an empty code block, Discard has Undo, Aa and / in t
   assert.doesNotMatch(composer.slice(composer.indexOf("function TypingIndicator"), composer.indexOf("function barButton")), /aria-live/);
   // Scheduling says why it's off (aria-disabled + reason, round 3 #210, #184, #185).
   assert.match(composer, /disabled=\{Boolean\(scheduleBlocked\) \|\| sending\}/);
-  assert.match(composer, /Commands can't be scheduled/);
+  assert.match(composer, /Commands can’t be scheduled/);
   assert.match(read("src/components/messages/Timeline.tsx"), /revealSeq/);
 });
 

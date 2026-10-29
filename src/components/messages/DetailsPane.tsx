@@ -278,7 +278,7 @@ function Members({ channel, meId, onAdd, onJoin, scrollParent }: { channel: Chan
         compact
         icon={Users}
         title={`${channel.member_count} members`}
-        description={`Join #${channel.name} to see who's here.`}
+        description={`Join #${channel.name} to see who’s here.`}
         action={channel.kind === "public" && !channel.channel_archived_at ? <Button type="button" size="sm" onClick={() => void onJoin()} className="pointer-coarse:h-11">Join channel</Button> : undefined}
         className="m-3"
       />
@@ -313,7 +313,7 @@ function Members({ channel, meId, onAdd, onJoin, scrollParent }: { channel: Chan
         open={removing !== null}
         onOpenChange={(open) => !open && setRemoving(null)}
         title={`Remove ${removing ? personName(removing) : ""}?`}
-        description={channel.kind === "public" ? "They can rejoin this public channel later." : "They'll need to be added again to come back."}
+        description={channel.kind === "public" ? "They can rejoin this public channel later." : "They’ll need to be added again to come back."}
         confirmLabel="Remove"
         variant="destructive"
         onConfirm={remove}
@@ -506,7 +506,7 @@ export function DetailsPane({ channelId, tab, onTab }: { channelId: string; tab:
               </div>
             ) : !channel.is_member && channel.kind === "public" ? (
               <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-muted px-4 py-3 text-[13px]">
-                <span className="flex-1">You&apos;re previewing <strong className="font-semibold">#{channel.name}</strong>.</span>
+                <span className="flex-1">You’re previewing <strong className="font-semibold">#{channel.name}</strong>.</span>
                 <Button type="button" size="sm" onClick={() => void join()} className="pointer-coarse:h-11">Join</Button>
               </div>
             ) : null}
@@ -584,7 +584,7 @@ export function DetailsPane({ channelId, tab, onTab }: { channelId: string; tab:
         open={confirm !== null}
         onOpenChange={(open) => !open && setConfirm(null)}
         title={confirm === "archive" ? `Archive #${channel.name}?` : `Leave ${isGroup ? "this conversation" : `#${channel.name}`}?`}
-        description={confirm === "archive" ? "Nobody can post in an archived channel. History stays readable, and admins can unarchive it." : channel.kind === "public" ? "You can rejoin a public channel at any time." : "You'll need to be added again to come back."}
+        description={confirm === "archive" ? "Nobody can post in an archived channel. History stays readable, and admins can unarchive it." : channel.kind === "public" ? "You can rejoin a public channel at any time." : "You’ll need to be added again to come back."}
         confirmLabel={confirm === "archive" ? "Archive" : "Leave"}
         variant="destructive"
         onConfirm={() => leaveOrArchive(confirm ?? "leave")}
@@ -595,7 +595,7 @@ export function DetailsPane({ channelId, tab, onTab }: { channelId: string; tab:
         title={channel.kind === "private" ? `Make #${channel.name} public?` : `Make #${channel.name} private?`}
         description={channel.kind === "private"
           ? "Everyone in the project will be able to find, preview and join it."
-          : "Current members stay. It's hidden from Browse, and new people need to be added."}
+          : "Current members stay. It’s hidden from Browse, and new people need to be added."}
         confirmLabel={channel.kind === "private" ? "Make public" : "Make private"}
         onConfirm={switchPrivacy}
       />

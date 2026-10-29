@@ -148,7 +148,7 @@ export function NotificationList(props: {
                 <EmptyState
                     icon={Bell}
                     title="No notifications"
-                    description={emptyState ?? "You're all caught up."}
+                    description={emptyState ?? "You’re all caught up."}
                     compact
                     className="rounded-xl"
                 />
@@ -246,7 +246,7 @@ export function NotificationList(props: {
                         disabled={isLoadingMore || !onLoadMore}
                         onClick={() => onLoadMore?.()}
                     >
-                        {isLoadingMore ? "Loading earlier..." : "Load earlier"}
+                        {isLoadingMore ? "Loading earlier…" : "Load earlier"}
                     </Button>
                 </div>
             ) : null}

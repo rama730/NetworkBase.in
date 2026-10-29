@@ -242,7 +242,7 @@ export function FileVersionHistoryDrawer({
             </div>
           ) : state.versions.length === 0 ? (
             <div className="p-4 text-sm text-muted-foreground">
-              No version history yet. The first upload seeded v1 but it hasn&apos;t been
+              No version history yet. The first upload seeded v1 but it hasn’t been
               replaced.
             </div>
           ) : (

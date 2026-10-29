@@ -18,12 +18,12 @@ const LOGIN_REQUEST_TIMEOUT_MS = 25_000
 const SIGN_IN_PANEL = {
     eyebrow: 'Welcome back',
     title: 'Pick up where you left off.',
-    points: ['Your projects and tasks', 'Conversations with your team', "People you've connected with"],
+    points: ['Your projects and tasks', 'Conversations with your team', "People you’ve connected with"],
 }
 const MFA_PANEL = { eyebrow: 'Two-step sign-in', title: 'Two-step sign-in keeps your account yours.' }
 
 function toSignInErrorMessage(message: string) {
-    if (/invalid login credentials/i.test(message)) return "That email and password don't match. Try again or reset your password."
+    if (/invalid login credentials/i.test(message)) return "That email and password don’t match. Try again or reset your password."
     if (/email not confirmed/i.test(message)) return 'Confirm your email first. Check your inbox for the link we sent.'
     return toFriendlyAuthError(message, 'Sign in failed. Try again.')
 }
@@ -145,7 +145,7 @@ export function LoginForm({ redirect, error, step: stepParam }: { redirect: stri
             // A full load so the server sees the upgraded session cookie.
             window.location.assign(redirectPath)
         } catch {
-            setCodeError("Couldn't check the code. Try again.")
+            setCodeError("Couldn’t check the code. Try again.")
         } finally {
             if (!leaving) setBusy(false)
         }
@@ -261,7 +261,7 @@ export function LoginForm({ redirect, error, step: stepParam }: { redirect: stri
                         onExpire={() => setCaptchaToken(null)}
                         onError={() => {
                             setCaptchaToken(null)
-                            setFormError("The security check didn't load. Refresh the page and try again.")
+                            setFormError("The security check didn’t load. Refresh the page and try again.")
                         }}
                     />
                 ) : null}

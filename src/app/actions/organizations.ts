@@ -142,7 +142,7 @@ async function orgViewer(orgId: string, mode: 'read' | 'write' = 'write'): Promi
     return { userId, role, slug: access.project.slug ?? null };
 }
 
-const DENIED: Failure = { success: false, error: "You don't have permission to change this." };
+const DENIED: Failure = { success: false, error: "You don’t have permission to change this." };
 
 function revalidateOrg(slug: string | null, orgId: string) {
     revalidatePath(`/org/${slug ?? orgId}`);
@@ -437,12 +437,12 @@ export async function moveProjectToOrgAction(projectId: string, orgId: string): 
     const viewer = await childViewer(projectId);
     if (!viewer || !viewer.isLead || viewer.project.parentId) return DENIED;
     const role = await readViewerOrgRole(orgId, viewer.userId);
-    if (!role || role === 'viewer') return { success: false, error: "You're not a member of that organization." };
+    if (!role || role === 'viewer') return { success: false, error: "You’re not a member of that organization." };
     const org = await readOrgCap(db, orgId);
     if (!org) return DENIED;
     if (!org.outsidePeople) {
         const outside = await countOutsidePeople(projectId, orgId);
-        if (outside > 0) return { success: false, error: `${outside} ${outside === 1 ? 'person isn\'t' : 'people aren\'t'} in that organization. Remove them first.` };
+        if (outside > 0) return { success: false, error: `${outside} ${outside === 1 ? 'person isn’t' : 'people aren’t'} in that organization. Remove them first.` };
     }
     if (isAdminRole(role)) {
         await moveIntoOrg(projectId, orgId, viewer.project.visibility);

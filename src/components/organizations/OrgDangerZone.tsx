@@ -152,7 +152,7 @@ function DuplicateRow({ orgId, handle, termStart }: { orgId: string; handle: str
                         ))}
                     </fieldset>
                     <div className="flex items-center gap-3">
-                        <Button disabled={pending || title.trim().length < 2} onClick={() => run(() => duplicateOrgAction(orgId, { title, handle: newHandle, termStart: start || null, copy }), "Duplicating in the background. You'll get a notification when it's ready.", () => setOpen(false))}>Duplicate</Button>
+                        <Button disabled={pending || title.trim().length < 2} onClick={() => run(() => duplicateOrgAction(orgId, { title, handle: newHandle, termStart: start || null, copy }), "Duplicating in the background. You’ll get a notification when it’s ready.", () => setOpen(false))}>Duplicate</Button>
                         <Button variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
                         {status}
                     </div>

@@ -58,7 +58,7 @@ export default function LegalAcceptancePage() {
   }
 
   const panel = isOAuthSignup
-    ? { eyebrow: "Almost there", title: "One agreement, then you're in." }
+    ? { eyebrow: "Almost there", title: "One agreement, then you’re in." }
     : { eyebrow: "Updated terms", title: "What you agree to, in plain view." };
 
   if (checking) {
@@ -74,8 +74,8 @@ export default function LegalAcceptancePage() {
     <AuthShell
       title="Before you continue"
       description={isOAuthSignup
-        ? "Your account is connected. Review and accept NetworkBase's current terms to finish creating it."
-        : "We've updated our terms. Review and accept the current versions to keep using NetworkBase."}
+        ? "Your account is connected. Review and accept NetworkBase’s current terms to finish creating it."
+        : "We’ve updated our terms. Review and accept the current versions to keep using NetworkBase."}
       panel={panel}
     >
       <div className="space-y-4">

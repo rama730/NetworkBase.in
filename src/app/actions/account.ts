@@ -372,7 +372,7 @@ export async function transferProjectOwnership(
                 const { notifyOrg, orgHref, orgLabel, queueOrgEmails } = await import('@/lib/organizations/notify');
                 const org = await orgLabel(projectId);
                 if (org) {
-                    await notifyOrg({ orgId: projectId, eventKey: 'org.lifecycle', actorId: user.id, to: [newOwnerId], title: `You're now the owner of ${org.title}`, href: orgHref(org, '?tab=settings'), sourceEventId: `owner:${sourceEventId}`, email: { kind: 'org_ownership' } });
+                    await notifyOrg({ orgId: projectId, eventKey: 'org.lifecycle', actorId: user.id, to: [newOwnerId], title: `You’re now the owner of ${org.title}`, href: orgHref(org, '?tab=settings'), sourceEventId: `owner:${sourceEventId}`, email: { kind: 'org_ownership' } });
                     await queueOrgEmails(projectId, newOwnerId, `owner-out:${sourceEventId}`, { kind: 'org_ownership', data: { previousOwner: true } }, [user.id]);
                 }
             }

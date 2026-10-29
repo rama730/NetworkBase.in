@@ -207,7 +207,7 @@ export default function NetworkClient({ initialUser }: NetworkClientProps) {
                             <header className="min-w-0">
                                 <h1 className="nb-page-title">Network</h1>
                                 <p className="nb-body mt-1 text-muted-foreground">
-                                    People you&apos;ve worked with, and people
+                                    People you’ve worked with, and people
                                     worth working with.
                                 </p>
                             </header>

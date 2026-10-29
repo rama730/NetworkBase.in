@@ -107,7 +107,7 @@ export function useDiscoverUpdateThread(params: {
     useEffect(() => {
         if (!missing) return;
         // A warning, not an error: error toasts only show allowlisted copy, and this isn't a failure.
-        toast.warning("That update isn't available");
+        toast.warning("That update isn’t available");
         reset();
     }, [missing, reset]);
 

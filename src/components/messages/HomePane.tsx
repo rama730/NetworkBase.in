@@ -96,7 +96,7 @@ export function HomePane() {
         <div className="grid min-h-full place-items-center p-6">
           <EmptyState
             icon={CheckCheck}
-            title="You're all caught up"
+            title="You’re all caught up"
             description="New messages, mentions and thread replies show up here."
             className="w-full max-w-md"
             action={

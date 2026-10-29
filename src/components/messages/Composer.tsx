@@ -503,7 +503,7 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
           if (controller.signal.aborted) return;
           const reason = uploadReason(error);
           setUploads((list) => list.map((u) => (u.id === id ? { ...u, error: true, reason, refused: uploadRefused(error) } : u)));
-          setUploadNews(`${file.name} didn't upload: ${reason}`);
+          setUploadNews(`${file.name} didn’t upload: ${reason}`);
         })
         .finally(() => transfers.current.delete(id));
   };
@@ -605,8 +605,8 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
   // Scheduling waits for text, takes no files or commands, and no channel copy of a thread reply.
   const scheduleBlocked = !plain.trim()
     ? "Type a message to schedule it"
-    : uploads.length ? "Scheduled messages can't carry files yet"
-    : isCommand(plain.trim()) ? "Commands can't be scheduled"
+    : uploads.length ? "Scheduled messages can’t carry files yet"
+    : isCommand(plain.trim()) ? "Commands can’t be scheduled"
     : alsoToChannel ? "Untick \"Also send\" to schedule a reply"
     : null;
 
@@ -631,7 +631,7 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
     let text = plain.trim() ? value.trim() : "";
     if (!plain.trim() && !uploads.some((u) => u.assetId || (!u.error && !u.assetId))) return;
     if (uploads.some((u) => u.error)) {
-      toast.error("A file didn't upload", { description: "Retry it or remove it, then send." });
+      toast.error("A file didn’t upload", { description: "Retry it or remove it, then send." });
       return;
     }
     if (uploads.some((u) => !u.assetId)) {
@@ -862,7 +862,7 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
       ) : null}
       {mentionedIds.length ? (
         <p role="status" className="mb-2 hidden flex-wrap items-center gap-1.5 rounded-md bg-[var(--status-warning-soft)] px-3 py-1.5 text-[13px] text-[var(--status-warning)] has-[[data-away]]:flex">
-          <span>Away (they&apos;ll see this when they&apos;re back):</span>
+          <span>Away (they’ll see this when they’re back):</span>
           {mentionedIds.map((id) => <AwayName key={id} userId={id} name={labelOf(`<@${id}>`).slice(1)} />)}
         </p>
       ) : null}

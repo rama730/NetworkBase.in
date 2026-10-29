@@ -273,7 +273,7 @@ export default function InvitationsClient({
     async function handleCancelConnection(id: string, name?: string) {
         await toast
             .promise(cancelRequest.mutateAsync(id), {
-                loading: "Cancelling connection request...",
+                loading: "Cancelling connection request…",
                 success: name
                     ? `Cancelled request to ${name}`
                     : "Request canceled",
@@ -291,7 +291,7 @@ export default function InvitationsClient({
         try {
             await toast
                 .promise(withdrawAllSent.mutateAsync(), {
-                    loading: "Cancelling all sent requests...",
+                    loading: "Cancelling all sent requests…",
                     success: "All sent requests cancelled",
                     error: (error) =>
                         error instanceof Error
@@ -325,7 +325,7 @@ export default function InvitationsClient({
                         return res;
                     }),
                     {
-                        loading: "Cancelling project invitation...",
+                        loading: "Cancelling project invitation…",
                         success: "Project invitation cancelled",
                         error: (error) =>
                             error instanceof Error
@@ -370,8 +370,8 @@ export default function InvitationsClient({
                 .promise(request, {
                     loading:
                         action === "accept"
-                            ? "Accepting project invitation..."
-                            : "Declining project invitation...",
+                            ? "Accepting project invitation…"
+                            : "Declining project invitation…",
                     success:
                         action === "accept"
                             ? "Project invitation accepted"
@@ -914,7 +914,7 @@ export default function InvitationsClient({
                                 className="text-xs text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
                             >
                                 {withdrawAllSent.isPending
-                                    ? "Cancelling all..."
+                                    ? "Cancelling all…"
                                     : "Cancel all"}
                             </button>
                         ) : null}

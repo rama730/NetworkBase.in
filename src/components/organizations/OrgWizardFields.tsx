@@ -152,7 +152,7 @@ export function OrgIdentityFields() {
                         aria-describedby="create-org-handle-help create-org-handle-status"
                     />
                 </div>
-                <p id="create-org-handle-help" className={helpClass}>Your organization&apos;s address. Letters, numbers and dashes.</p>
+                <p id="create-org-handle-help" className={helpClass}>Your organization’s address. Letters, numbers and dashes.</p>
                 <p id="create-org-handle-status" role="status" aria-live="polite" className={status && !status.available ? 'mt-1 text-[13px] text-destructive' : 'mt-1 text-[13px] text-muted-foreground'}>
                     {status?.message}
                 </p>
@@ -403,7 +403,7 @@ export function OrgSettingsFields() {
                 <input type="checkbox" {...register('organization.outside_people')} className="mt-1" />
                 <span>
                     <span className="block text-sm font-medium">People outside the organization can be added to its projects</span>
-                    <span className="block text-[13px] text-muted-foreground">Off by default. They see only that project, never the organization&apos;s content.</span>
+                    <span className="block text-[13px] text-muted-foreground">Off by default. They see only that project, never the organization’s content.</span>
                 </span>
             </label>
             <div>

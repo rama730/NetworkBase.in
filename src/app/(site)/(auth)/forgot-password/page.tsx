@@ -14,7 +14,7 @@ import { toFriendlyAuthError } from '@/lib/auth/error-messages'
 const RESEND_COOLDOWN_SECONDS = 60
 
 function toRecoveryErrorMessage(error: unknown) {
-    return toFriendlyAuthError(error instanceof Error ? error.message : '', "We couldn't send the reset email. Try again.")
+    return toFriendlyAuthError(error instanceof Error ? error.message : '', "We couldn’t send the reset email. Try again.")
 }
 
 export default function ForgotPasswordPage() {
@@ -122,7 +122,7 @@ export default function ForgotPasswordPage() {
     return (
         <AuthShell
             title="Reset your password"
-            description="Enter your account email and we'll send you a link to choose a new password."
+            description="Enter your account email and we’ll send you a link to choose a new password."
             panel={RECOVERY_PANEL}
             footer={<>Remembered it? <Link href="/login" className={AUTH_LINK}>Sign in</Link></>}
         >

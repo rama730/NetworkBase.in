@@ -708,7 +708,7 @@ export const MessageRow = memo(function MessageRow({ message, grouped, highlight
         open={confirmDelete}
         onOpenChange={setConfirmDelete}
         title={own ? "Delete your message?" : `Delete ${authorName}'s message?`}
-        description={own ? "Replies in its thread stay. You can undo for a few seconds." : message.reply_count ? "It's removed for everyone. Replies in its thread stay." : "It's removed for everyone. This can't be undone."}
+        description={own ? "Replies in its thread stay. You can undo for a few seconds." : message.reply_count ? "It’s removed for everyone. Replies in its thread stay." : "It’s removed for everyone. This can’t be undone."}
         confirmLabel="Delete"
         variant="destructive"
         onConfirm={async () => {

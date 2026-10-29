@@ -299,7 +299,7 @@ export function OpenInIdeButton({
               <strong className="font-medium text-foreground">
                 NetworkBase Workspace
               </strong>{" "}
-              in your editor&apos;s extensions.
+              in your editor’s extensions.
             </li>
             <li>Install the extension and sign in to NetworkBase.</li>
             <li>Open your project or task in your connected editor.</li>

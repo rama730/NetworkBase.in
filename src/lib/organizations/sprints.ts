@@ -36,7 +36,7 @@ export async function assertOrgSprintRules(executor: Executor, input: {
   const range = { startDate: input.startDate, endDate: input.endDate };
 
   if (project.kind === "organization") {
-    if (input.parentSprintId) throw new Error("An organization's sprints are not inside another sprint.");
+    if (input.parentSprintId) throw new Error("An organization’s sprints are not inside another sprint.");
     const others = await executor
       .select({ name: projectSprints.name, startDate: projectSprints.startDate, endDate: projectSprints.endDate })
       .from(projectSprints)
@@ -46,7 +46,7 @@ export async function assertOrgSprintRules(executor: Executor, input: {
         ...(input.excludeSprintId ? [ne(projectSprints.id, input.excludeSprintId)] : []),
       ));
     const clash = others.find((other) => overlaps(range, other));
-    if (clash) throw new Error(`Organization sprints can't overlap: this overlaps ${clash.name}.`);
+    if (clash) throw new Error(`Organization sprints can’t overlap: this overlaps ${clash.name}.`);
     return null;
   }
 
@@ -57,7 +57,7 @@ export async function assertOrgSprintRules(executor: Executor, input: {
       .from(projectSprints)
       .where(and(eq(projectSprints.projectId, project.parentId), inArray(projectSprints.status, ["planning", "active"])));
     const holder = live.find((sprint) => fitsInside(range, sprint));
-    if (!holder) throw new Error("This project follows its organization's sprints: pick dates inside one of them.");
+    if (!holder) throw new Error("This project follows its organization’s sprints: pick dates inside one of them.");
     return holder.id;
   }
   if (!project.parentId) throw new Error("Only projects inside an organization link to an org sprint.");
