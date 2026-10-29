@@ -16,6 +16,7 @@ import { resolveAuthBaseUrl } from "@/lib/auth/redirects";
 import { ALWAYS_SENT_EMAILS, buildOrgEmail, orgMuteToken, type OrgEmailData } from "./org-templates";
 import { orgChoiceFor } from "@/lib/notifications/preferences";
 import { buildSecurityEmail, isDeletionEmailKind, isSecurityEmailKind, type SecurityEmailData } from "./security-templates";
+import { buildTrustEmail, isTrustEmailKind, type TrustEmailData } from "./trust-templates";
 import {
   buildEmail, type OrgEmailKind, DELIVERY_RANK, emailEnabled, eventDeliveryState, recipientAllowed,
   MAX_ATTEMPTS, RETRY_WINDOW_MS, retryDecision, suppressionReason, type EmailPayload, type ResendEvent,
@@ -133,6 +134,11 @@ async function prepareEmail(row: OutboxRow): Promise<Prepared> {
   const blocked = await addressBlocked(email);
   if (blocked) return { drop: blocked };
   if (row.kind.startsWith("org_")) return prepareOrgEmail(row, userId, email, profile.notificationPreferences);
+  if (isTrustEmailKind(row.kind)) {
+    // Reports, decisions and appeals (docs/trust-and-safety-concept.md §9): always sent, like security emails.
+    if (!row.data) return { drop: "invalid_trust_email" };
+    return { payload: row.payload ?? buildTrustEmail(row.kind, row.data as TrustEmailData, { email, name: profile.fullName || "there", username: profile.username, avatarUrl: profile.avatarUrl, userId: profile.id }) };
+  }
   if (isSecurityEmailKind(row.kind)) {
     // About the account itself: no email switch, no mutes. Bounce blocking and the allowlist above still apply.
     return { payload: row.payload ?? buildSecurityEmail(row.kind, (row.data ?? {}) as SecurityEmailData, { email, name: profile.fullName || "there", username: profile.username, avatarUrl: profile.avatarUrl, userId: profile.id }) };

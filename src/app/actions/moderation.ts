@@ -7,8 +7,10 @@ import { logger } from '@/lib/logger';
 import { setUserBlocked } from '@/lib/privacy/blocks';
 import { consumeRateLimit } from '@/lib/security/rate-limit';
 import { getViewerAuthContext } from '@/lib/server/viewer-context';
+import { fileAppeal, withdrawAppeal } from '@/lib/trust/appeals';
 import { fileReport, listMyReports } from '@/lib/trust/cases';
-import { caseLabel, REPORT_REASONS, type ReportTargetKind } from '@/lib/trust/rules';
+import { caseLabel, parseCaseLabel, REPORT_REASONS, type ReportTargetKind } from '@/lib/trust/rules';
+import { readStanding } from '@/lib/trust/standing';
 import { resolveReportTarget } from '@/lib/trust/targets';
 
 // Reporting (docs/trust-and-safety-concept.md §5, C17): anyone signed in reports what they can see. Staff work in
@@ -64,4 +66,34 @@ export async function listMyReportsAction() {
     if (!userId) return { success: false as const, error: 'Sign in to see your reports.' };
     const rows = await listMyReports(userId);
     return { success: true as const, reports: rows.map((r) => ({ ...r, caseNumber: caseLabel(r.caseNumber) })) };
+}
+
+/** Settings → Account → Standing (C18). */
+export async function myStandingAction() {
+    const { userId } = await getViewerAuthContext();
+    if (!userId) return { success: false as const, error: 'Sign in to see your account standing.' };
+    return { success: true as const, ...(await readStanding(userId)) };
+}
+
+const appealSchema = z.object({ caseNumber: z.string().max(20), body: z.string().max(1000), fixed: z.boolean().optional() }).strict();
+
+/** One appeal per decision (§10.3). */
+export async function appealAction(input: z.input<typeof appealSchema>): Promise<{ success: true; decideBy: string } | Failure> {
+    const { userId } = await getViewerAuthContext();
+    if (!userId) return { success: false, error: 'Sign in to appeal.' };
+    const parsed = appealSchema.safeParse(input);
+    const number = parsed.success ? parseCaseLabel(parsed.data.caseNumber) : null;
+    if (!parsed.success || !number) return { success: false, error: 'Tell us why, in up to 1,000 characters.' };
+    const rate = await consumeRateLimit(`appeal:create:${userId}`, 10, 3600);
+    if (!rate.allowed) return { success: false, error: 'Too many attempts. Try again later.' };
+    const result = await fileAppeal(userId, number, parsed.data.body, Boolean(parsed.data.fixed));
+    return result.ok ? { success: true, decideBy: result.decideBy.toISOString() } : { success: false, error: result.error };
+}
+
+export async function withdrawAppealAction(caseNumber: string): Promise<{ success: true } | Failure> {
+    const { userId } = await getViewerAuthContext();
+    const number = parseCaseLabel(caseNumber);
+    if (!userId || !number) return { success: false, error: 'Appeal not found.' };
+    const result = await withdrawAppeal(userId, number);
+    return result.ok ? { success: true } : { success: false, error: result.error };
 }

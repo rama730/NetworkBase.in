@@ -1,6 +1,7 @@
 import { Suspense } from 'react';
 import type { User } from '@supabase/supabase-js';
 import { MainLayout } from '@/components/layout/MainLayout';
+import { StandingGate } from '@/components/trust/StandingGate';
 import { MainRuntimeProviders } from '@/components/providers/MainRuntimeProviders';
 import { AuthRouteProviders } from '@/components/providers/AuthRouteProviders';
 import { headers } from 'next/headers';
@@ -33,7 +34,8 @@ async function LegalAcceptanceGate({
     redirect(`/legal/accept?next=${encodeURIComponent(nextPath)}`);
   }
 
-  return children;
+  const path = normalizeAuthNextPath((await headers()).get('x-networkbase-request-target'));
+  return <StandingGate userId={user.id} email={user.email} path={path}>{children}</StandingGate>;
 }
 
 export default async function MainRouteLayout({

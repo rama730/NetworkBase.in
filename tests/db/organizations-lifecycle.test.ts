@@ -27,7 +27,8 @@ let access: typeof import("../../src/lib/data/workspace-access");
 let deletion: typeof import("../../src/lib/account/deletion");
 let hardDelete: typeof import("../../src/lib/account/hard-delete");
 let jobRequest: typeof import("../../src/lib/security/job-request");
-let trust: typeof import("../../src/app/actions/trust");
+let report: typeof import("../../src/app/actions/moderation");
+let staff: typeof import("../../src/app/actions/moderation-staff");
 let join: typeof import("../../src/lib/organizations/join");
 before(async () => {
   const viewerContext = await loadAppModule(() => import("../../src/lib/server/viewer-context"));
@@ -40,7 +41,8 @@ before(async () => {
   deletion = await loadAppModule(() => import("../../src/lib/account/deletion"));
   hardDelete = await loadAppModule(() => import("../../src/lib/account/hard-delete"));
   jobRequest = await loadAppModule(() => import("../../src/lib/security/job-request"));
-  trust = await loadAppModule(() => import("../../src/app/actions/trust"));
+  report = await loadAppModule(() => import("../../src/app/actions/moderation"));
+  staff = await loadAppModule(() => import("../../src/app/actions/moderation-staff"));
   join = await loadAppModule(() => import("../../src/lib/organizations/join"));
   adminId = await sql.begin((tx) => createUser(tx));
   process.env.ADMIN_USER_IDS = adminId;
@@ -157,29 +159,28 @@ test("account deletion: blocked while owning an org; led child projects pass on;
   assert.equal((await sql`SELECT 1 FROM workspaces WHERE id = ${o.child}`).length, 1, "the child project survived its lead's account");
 });
 
-test("reports and suspension: a report reaches the admin queue; suspend makes the org read-only, hidden and unjoinable; remove deletes a post", async () => {
+test("reports and suspension: reports open cases; staff suspend the org (read-only, hidden, unjoinable) and remove a post", async () => {
   const o = await org();
   viewerId = o.a;
-  assert.equal((await trust.reportContentAction({ kind: "project", targetId: o.id, reason: "impersonation" })).success, true);
+  assert.equal((await report.reportAction({ kind: "project", targetId: o.id, reason: "impersonation" })).success, true);
   const [u] = await sql`INSERT INTO workspace_updates (workspace_id, author_id, content, update_type, visibility) VALUES (${o.id}, ${o.admin}, 'Spam here', 'discussion', 'members') RETURNING id`;
-  assert.equal((await trust.reportContentAction({ kind: "update", targetId: u!.id, reason: "spam" })).success, true);
+  assert.equal((await report.reportAction({ kind: "update", targetId: u!.id, reason: "spam" })).success, true);
+  const [orgCase] = await sql`SELECT id FROM moderation_cases WHERE target_id = ${o.id} AND state = 'open'`;
+  const [postCase] = await sql`SELECT id FROM moderation_cases WHERE target_id = ${u!.id} AND state = 'open'`;
 
   viewerId = o.a;
-  assert.equal((await trust.suspendOrgAction({ orgId: o.id, reason: "Impersonation" })).success, false, "only platform admins");
+  assert.equal((await staff.decideCaseAction(orgCase!.id, { outcome: "actioned", content: "suspend_workspace", rule: 5 })).success, false, "only staff");
   viewerId = adminId;
-  const queue = await trust.readAdminReportsAction();
-  assert.ok(queue && queue.reports.some((r) => r.target_id === o.id) && queue.reports.some((r) => r.target_id === u!.id));
-  const updateReport = queue!.reports.find((r) => r.target_id === u!.id)!;
-  assert.equal((await trust.removeReportedContentAction(updateReport.id)).success, true);
+  assert.equal((await staff.decideCaseAction(postCase!.id, { outcome: "actioned", content: "remove", rule: 4 })).success, true);
   assert.ok((await sql`SELECT deleted_at FROM workspace_updates WHERE id = ${u!.id}`)[0]!.deleted_at);
 
-  const orgReport = queue!.reports.find((r) => r.target_id === o.id)!;
-  assert.equal((await trust.suspendOrgAction({ orgId: o.id, reason: "Impersonation", reportId: orgReport.id })).success, true);
+  const decided = await staff.decideCaseAction(orgCase!.id, { outcome: "actioned", content: "suspend_workspace", rule: 5, message: "Impersonation" });
+  assert.equal(decided.success, true, JSON.stringify(decided));
   assert.equal((await access.getWorkspaceAccessById(o.id, o.owner)).writeBlocked, "suspended");
   assert.equal((await access.getWorkspaceAccessById(o.child, o.lead)).writeBlocked, "suspended", "child projects too");
   await assert.rejects(post(o.child, o.lead), /project_read_only/);
   const [{ join_code: code }] = await sql`SELECT join_code FROM workspaces WHERE id = ${o.id}`;
   assert.equal((await join.findOrgByJoinCode(code))?.available ?? false, false, "join codes stop");
-  assert.equal((await sql`SELECT status, action FROM content_reports WHERE id = ${orgReport.id}`)[0]!.action, "suspended");
+  assert.equal((await sql`SELECT status FROM content_reports WHERE case_id = ${orgCase!.id}`)[0]!.status, "actioned");
   viewerId = "";
 });

@@ -3,7 +3,7 @@
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState, Suspense } from "react";
-import { LogOut, Menu, Plus, Scale, Search, Settings, Share2, Smile, UserRound } from "lucide-react";
+import { LogOut, Menu, Plus, Scale, Search, Settings, Share2, ShieldCheck, Smile, UserRound } from "lucide-react";
 import Logo from "./Logo";
 import {
     DropdownMenu,
@@ -69,6 +69,12 @@ export default function TopNav() {
     const [commandPaletteQuery, setCommandPaletteQuery] = useState("");
     const [commandPaletteContext, setCommandPaletteContext] = useState<GlobalSearchContext | undefined>();
     const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+    // Staff only (trust and safety C1): asked when the menu opens, so nobody else pays for the check.
+    const [staffBadge, setStaffBadge] = useState<{ count: number } | null>(null);
+    useEffect(() => {
+        if (!isProfileMenuOpen || !user) return;
+        void import("@/app/actions/moderation-staff").then(({ staffBadgeAction }) => staffBadgeAction()).then(setStaffBadge, () => setStaffBadge(null));
+    }, [isProfileMenuOpen, user]);
     const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
     const [shareApplication, setShareApplication] = useState(false);
     const [shareReturnFocus, setShareReturnFocus] = useState<HTMLElement | null>(null);
@@ -290,6 +296,18 @@ export default function TopNav() {
                                                 <span>My profile</span>
                                             </Link>
                                         </DropdownMenuItem>
+                                        {staffBadge ? (
+                                            <DropdownMenuItem asChild>
+                                                <Link
+                                                    href="/admin/trust"
+                                                    className="nb-touch-target flex h-[34px] w-full cursor-pointer items-center gap-2.5 rounded-[5px] px-2.5 text-xs font-medium text-foreground transition-colors hover:bg-muted focus:bg-muted focus:text-foreground"
+                                                >
+                                                    <ShieldCheck className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                                                    <span>Trust &amp; safety</span>
+                                                    {staffBadge.count > 0 ? <span className="nb-nav-count" aria-label={`${staffBadge.count} urgent or overdue`}>{staffBadge.count}</span> : null}
+                                                </Link>
+                                            </DropdownMenuItem>
+                                        ) : null}
                                         <DropdownMenuItem asChild>
                                             <Link
                                                 href={ROUTES.SETTINGS}

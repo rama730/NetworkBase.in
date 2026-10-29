@@ -280,7 +280,7 @@ export const PAGE_PERFORMANCE_CONTRACTS: Record<string, PagePerformanceContract>
     maxInitialPayloadKb: 240,
     allowForceDynamic: true,
   }),
-  // Platform admin review of reports, verification requests and suspended orgs (report §30.3).
+  // The old admin review page now redirects to the staff console.
   "/admin/reports": buildUserShellContract("/admin/reports", "src/app/(site)/admin/reports/page.tsx", {
     renderingMode: "dynamic",
     cacheStrategy: "none",
@@ -289,6 +289,58 @@ export const PAGE_PERFORMANCE_CONTRACTS: Record<string, PagePerformanceContract>
     hydrationBoundary: "minimal",
     bootstrapReadModel: "server_query",
     maxInitialPayloadKb: 240,
+    allowForceDynamic: true,
+  }),
+  // Trust and safety console (docs/trust-and-safety-concept.md §17): staff only.
+  "/admin/trust": buildUserShellContract("/admin/trust", "src/app/(site)/(main)/admin/trust/page.tsx", {
+    renderingMode: "dynamic",
+    cacheStrategy: "none",
+    cacheTtlSeconds: 0,
+    invalidationOwner: "none",
+    hydrationBoundary: "standard",
+    bootstrapReadModel: "server_query",
+    maxInitialPayloadKb: 320,
+    allowForceDynamic: true,
+  }),
+  "/admin/trust/cases/[number]": buildUserShellContract("/admin/trust/cases/[number]", "src/app/(site)/(main)/admin/trust/cases/[number]/page.tsx", {
+    renderingMode: "dynamic",
+    cacheStrategy: "none",
+    cacheTtlSeconds: 0,
+    invalidationOwner: "none",
+    hydrationBoundary: "standard",
+    bootstrapReadModel: "server_query",
+    maxInitialPayloadKb: 320,
+    allowForceDynamic: true,
+  }),
+  "/admin/trust/people/[handle]": buildUserShellContract("/admin/trust/people/[handle]", "src/app/(site)/(main)/admin/trust/people/[handle]/page.tsx", {
+    renderingMode: "dynamic",
+    cacheStrategy: "none",
+    cacheTtlSeconds: 0,
+    invalidationOwner: "none",
+    hydrationBoundary: "standard",
+    bootstrapReadModel: "server_query",
+    maxInitialPayloadKb: 320,
+    allowForceDynamic: true,
+  }),
+  "/admin/trust/appeals/[number]": buildUserShellContract("/admin/trust/appeals/[number]", "src/app/(site)/(main)/admin/trust/appeals/[number]/page.tsx", {
+    renderingMode: "dynamic",
+    cacheStrategy: "none",
+    cacheTtlSeconds: 0,
+    invalidationOwner: "none",
+    hydrationBoundary: "standard",
+    bootstrapReadModel: "server_query",
+    maxInitialPayloadKb: 320,
+    allowForceDynamic: true,
+  }),
+  // An appeal (§10.3): open even to suspended accounts.
+  "/appeal/[number]": buildUserShellContract("/appeal/[number]", "src/app/(site)/(main)/appeal/[number]/page.tsx", {
+    renderingMode: "dynamic",
+    cacheStrategy: "none",
+    cacheTtlSeconds: 0,
+    invalidationOwner: "none",
+    hydrationBoundary: "minimal",
+    bootstrapReadModel: "server_query",
+    maxInitialPayloadKb: 200,
     allowForceDynamic: true,
   }),
   "/my-profile": buildUserShellContract("/my-profile", "src/app/(site)/(main)/my-profile/page.tsx", {

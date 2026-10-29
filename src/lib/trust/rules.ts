@@ -75,6 +75,12 @@ export function actionsFor(kind: ReportTargetKind): ModerationActionKind[] {
   if (kind === "person") return ["reset_profile", "hold_handle"];
   return ["hide", "remove"];
 }
+/** Console words for each action (17.5, 17.7). */
+export const ACTION_LABEL: Record<ModerationActionKind, string> = {
+  hide: "Hide", remove: "Remove", reset_profile: "Reset profile", hold_handle: "Hold handle", remove_verified: "Remove Verified badge",
+  hide_discover: "Hide from Discover", restrict: "Restrict", suspend_workspace: "Suspend", remove_workspace: "Remove", warning: "Warning",
+  limit: "Limit", suspension: "Suspend account", ban: "Ban",
+};
 export const ACCOUNT_ACTIONS: ModerationActionKind[] = ["warning", "limit", "suspension", "ban"];
 export const ADMIN_ONLY_ACTIONS: ModerationActionKind[] = ["ban", "remove_workspace"];
 

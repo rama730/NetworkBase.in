@@ -6,6 +6,7 @@ import { LegalAndDataRightsSection } from "@/components/settings/LegalAndDataRig
 import NotificationsSettings from "@/components/settings/NotificationsSettings";
 import PrivacySettings from "@/components/settings/PrivacySettings";
 import SecuritySettings from "@/components/settings/SecuritySettings";
+import { StandingSettings, YourReportsSettings } from "@/components/settings/TrustSafetySettings";
 import { SettingsPageHeader } from "@/components/settings/ui/SettingsPageHeader";
 import { SETTINGS_SECTION_META } from "@/constants/settings";
 import { OpenSettingsSections } from "@/components/settings/ui/SettingsSectionLayout";
@@ -41,6 +42,7 @@ export default function SettingsDocument() {
         <div className="space-y-16">
           <DocumentSection id="settings-account" {...SETTINGS_SECTION_META.account}>
             <AccountSettings />
+            <StandingSettings />
           </DocumentSection>
 
           <DocumentSection id="settings-security" {...SETTINGS_SECTION_META.security}>
@@ -49,6 +51,7 @@ export default function SettingsDocument() {
 
           <DocumentSection id="settings-privacy" {...SETTINGS_SECTION_META.privacy}>
             <PrivacySettings />
+            <YourReportsSettings />
           </DocumentSection>
 
           <DocumentSection id="settings-notifications" {...SETTINGS_SECTION_META.notifications}>

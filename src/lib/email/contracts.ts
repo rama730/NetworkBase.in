@@ -11,7 +11,7 @@ export type OrgEmailKind =
 export type SecurityEmailKind =
   | "security_password_changed" | "security_mfa_changed" | "security_token_created" | "security_sessions_revoked" | "security_sign_in_method_changed"
   | "account_deletion_scheduled" | "account_deletion_cancelled" | "account_deletion_reminder" | "account_deletion_completed";
-export type EmailKind = "welcome" | "task_assignment" | OrgEmailKind | SecurityEmailKind;
+export type EmailKind = "welcome" | "task_assignment" | OrgEmailKind | SecurityEmailKind | import("./trust-templates").TrustEmailKind;
 export type EmailAttachment = {
   filename: string;
   path?: string;

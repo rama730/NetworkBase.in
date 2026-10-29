@@ -15,7 +15,7 @@ export async function notifySafety(input: { to: string | null | undefined; title
       importance: "important",
       title: input.title.slice(0, 240),
       body: input.body?.slice(0, 1000) ?? null,
-      href: input.href ?? "/settings#settings-account",
+      href: input.href ?? "/settings#settings-account-standing",
       dedupeKey: `trust:${input.dedupeKey}`,
     });
   } catch (error) {

@@ -1,5 +1,6 @@
 'use server'
 
+import { banIfBlockedIdentity } from '@/lib/trust/standing'
 import { acceptOrgEmailInvites, joinOrgByCode } from '@/lib/organizations/join'
 import { normalizeJoinCode, type OrgJoinOutcome } from '@/lib/organizations/join-rules'
 import { after } from 'next/server'
@@ -281,6 +282,9 @@ export async function completeOnboarding(
         })
 
         if (outcome.alreadyCompleted) return finish({ success: true as const }, { alreadyCompleted: true })
+
+        // Ban evasion (trust and safety F15): an identity we banned stays banned under a new account.
+        await banIfBlockedIdentity(user.id).catch((error) => console.error('Ban identity check failed:', error))
 
         // The next page load reads this claim, so it is written before the response. If it fails the
         // database still says completed and the gate heals the claim itself (lib/onboarding/completion.ts).
