@@ -37,7 +37,7 @@ const roleSchema = z.object({
 const projectSchema = z.object({
     status: z.enum(["draft", "active", "completed", "archived"]),
     title: z.string().min(1, "Title is required").max(100),
-    shortDescription: z.string().max(200, "Tagline must be less than 200 characters").optional(),
+    shortDescription: z.string().max(200, "Use 200 characters or fewer").optional(),
     description: z.string().optional(),
     problemStatement: z.string().optional(),
     solutionStatement: z.string().optional(),
@@ -354,7 +354,7 @@ export default function EditProjectModal({ project, isOpen, onClose, onSaved }: 
                                                     {errors.title && <p className="text-red-500 text-sm mt-1">{errors.title.message}</p>}
                                                 </div>
                                                 <div>
-                                                    <label htmlFor="edit-project-tagline" className="block text-sm font-medium mb-1.5 text-foreground">Tagline</label>
+                                                    <label htmlFor="edit-project-tagline" className="block text-sm font-medium mb-1.5 text-foreground">Summary</label>
                                                     <input
                                                         id="edit-project-tagline"
                                                         {...register("shortDescription")}
@@ -371,7 +371,7 @@ export default function EditProjectModal({ project, isOpen, onClose, onSaved }: 
                                     {activeTab === "details" && (
                                         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-[260ms]">
                                             <div>
-                                                <label htmlFor="edit-project-description" className="block text-sm font-medium mb-2 text-foreground">Full description</label>
+                                                <label htmlFor="edit-project-description" className="block text-sm font-medium mb-2 text-foreground">Description</label>
                                                 <textarea
                                                     id="edit-project-description"
                                                     {...register("description")}
@@ -382,7 +382,7 @@ export default function EditProjectModal({ project, isOpen, onClose, onSaved }: 
                                             </div>
                                             <div className="grid gap-6">
                                                 <div>
-                                                    <label htmlFor="edit-project-problem" className="block text-sm font-medium mb-2 text-foreground">{isOrg ? "Who it’s for" : "Problem statement"}</label>
+                                                    <label htmlFor="edit-project-problem" className="block text-sm font-medium mb-2 text-foreground">{isOrg ? "Who it’s for" : "Problem"}</label>
                                                     <textarea
                                                         id="edit-project-problem"
                                                         {...register("problemStatement")}
@@ -392,7 +392,7 @@ export default function EditProjectModal({ project, isOpen, onClose, onSaved }: 
                                                     />
                                                 </div>
                                                 <div>
-                                                    <label htmlFor="edit-project-solution" className="block text-sm font-medium mb-2 text-foreground">{isOrg ? "What members do here" : "Solution Overview"}</label>
+                                                    <label htmlFor="edit-project-solution" className="block text-sm font-medium mb-2 text-foreground">{isOrg ? "What members do here" : "Approach"}</label>
                                                     <textarea
                                                         id="edit-project-solution"
                                                         {...register("solutionStatement")}

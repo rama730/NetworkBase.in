@@ -68,7 +68,7 @@ test('step 4 shows the eight Workspace settings sections in order; picture and d
     assert.ok(positions.every((position) => position > 0), 'every section is rendered');
     assert.deepEqual([...positions].sort((a, b) => a - b), positions, 'sections render in Settings order');
     assert.match(phase, /<SettingsSwitch /);
-    assert.match(phase, /aria-label="Launch settings sections"/);
+    assert.match(phase, /aria-label="Starting settings sections"/);
     assert.match(phase, /aria-expanded=\{open\}/);
     assert.match(phase, /useWatch\(\{/);
 

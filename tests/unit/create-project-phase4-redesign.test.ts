@@ -15,7 +15,7 @@ test('Phase 4 uses the flat launch-settings hierarchy and removes creation-time 
     const wizard = source('src/components/projects/create-wizard/useCreateProjectWizard.ts');
 
     assert.match(phase, /Phase 4 · \{isOrganization \? 'setup' : 'settings'\}/);
-    assert.match(phase, /Set up how the workspace launches/);
+    assert.match(phase, /Choose how the workspace starts/);
     assert.match(phase, /Choose workspace visibility/);
     // Roles are reviewed in step 5; step 4 is launch settings only.
     assert.doesNotMatch(phase, /Confirm the initial availability|Edit roles|Ready to review:/);
@@ -25,7 +25,7 @@ test('Phase 4 uses the flat launch-settings hierarchy and removes creation-time 
     assert.match(phase, /type="radio"/);
     assert.match(phase, /rounded-\[3px\]/);
     assert.match(phase, /commitContext="project-create"/);
-    assert.match(phase, /Visible at launch:/);
+    assert.match(phase, /Visible when created:/);
     assert.doesNotMatch(phase, /Terms & IP/);
     assert.doesNotMatch(schema, /termsSchema/);
     assert.doesNotMatch(schema, /applicationSettingsSchema/);
@@ -52,7 +52,7 @@ test('Phase 4 blocks unfinished link work and carries launch settings into revie
     assert.match(wizard, /trigger\(\['visibility', 'external_links'\], \{ shouldFocus: true \}\)/);
     assert.match(modal, /showValidationSummary=\{phase4ValidationAttempted\}/);
     assert.match(modal, /projectImage=\{projectImage\} onProjectImageChange=\{setProjectImage\}/);
-    assert.match(review, /Launch settings/);
+    assert.match(review, /Starting settings/);
     assert.match(review, /goToPhase\(4\)/);
     assert.match(review, /projectLinks/);
 });

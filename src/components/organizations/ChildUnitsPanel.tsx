@@ -45,7 +45,7 @@ export function ChildUnitsPanel({ projectId }: { projectId: string }) {
                         <div className="flex flex-wrap items-center gap-2">
                             <Input defaultValue={unit.title} aria-label={`Name of ${unit.title}`} maxLength={100} className="h-8 w-56 text-sm"
                                 onBlur={(e) => { const title = e.target.value.trim(); if (title && title !== unit.title) run(() => updateUnitAction(projectId, unit.id, { title }), 'Team renamed') }} />
-                            <label className="flex items-center gap-1.5 text-xs text-muted-foreground">Seats
+                            <label className="flex items-center gap-1.5 text-xs text-muted-foreground">Number of people
                                 <Input type="number" min={Math.max(1, unit.filled)} max={10} defaultValue={unit.count} className="h-8 w-16 text-sm" aria-label={`Seats in ${unit.title}`}
                                     onBlur={(e) => { const count = Number(e.target.value); if (Number.isFinite(count) && count !== unit.count) run(() => updateUnitAction(projectId, unit.id, { count })) }} />
                             </label>

@@ -239,7 +239,7 @@ export default function Phase2Information({ showValidationSummary = false }: Pha
 
                     <div>
                         <div className="flex items-end justify-between gap-3">
-                            <FieldLabel htmlFor="create-project-tagline">Tagline</FieldLabel>
+                            <FieldLabel htmlFor="create-project-tagline">Summary</FieldLabel>
                             <TaglineCount />
                         </div>
                         <Input
@@ -288,7 +288,7 @@ export default function Phase2Information({ showValidationSummary = false }: Pha
 
                     <div className="grid grid-cols-1 gap-6 border-t border-border pt-5 md:grid-cols-2">
                         <div>
-                            <FieldLabel htmlFor="create-project-problem">{orgCopy ? "Who it’s for" : 'Problem statement'}</FieldLabel>
+                            <FieldLabel htmlFor="create-project-problem">{orgCopy ? "Who it’s for" : 'Problem'}</FieldLabel>
                             <textarea
                                 id="create-project-problem"
                                 {...register('problem_statement')}
@@ -298,7 +298,7 @@ export default function Phase2Information({ showValidationSummary = false }: Pha
                             />
                         </div>
                         <div>
-                            <FieldLabel htmlFor="create-project-solution">{orgCopy ? 'What members do here' : 'Solution overview'}</FieldLabel>
+                            <FieldLabel htmlFor="create-project-solution">{orgCopy ? 'What members do here' : 'Approach'}</FieldLabel>
                             <textarea
                                 id="create-project-solution"
                                 {...register('solution_statement')}

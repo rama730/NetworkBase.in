@@ -69,7 +69,7 @@ test("ProjectRolesEditor provides rich master-detail workspaces for Occupied and
   const editorSrc = source("src/components/projects/settings/ProjectRolesEditor.tsx");
 
   // Occupant profile inspection
-  assert.match(editorSrc, /Occupant profile/, "Occupant workspace must display Occupant profile header");
+  assert.match(editorSrc, /Filled by/, "Occupied role must show who fills it");
   assert.match(editorSrc, /<UserAvatar[\s\S]*?size=\{52\}[\s\S]*?roundedClassName="rounded-md"/, "Occupant profile must use 52px squared UserAvatar");
   assert.doesNotMatch(editorSrc, /View public profile/, "View public profile link must be removed from occupant profile");
   assert.doesNotMatch(editorSrc, /This occupant currently fills this role/, "Explanatory note box must be removed from occupant profile");
@@ -108,7 +108,7 @@ test("project roles editor displays explicit occupied vs. open seat breakdown fo
   assert.match(editorSrc, /activeRemainingOpenCount\s*=\s*Math\.max\(0,\s*activeTotalSeats\s*-\s*activeOccupiedCount\)/, "Must compute activeRemainingOpenCount from total minus occupied");
 
   // Occupant profile displays Seat allocation row
-  assert.match(editorSrc, /Seat allocation/, "Occupant profile must display a dedicated Seat allocation row");
+  assert.match(editorSrc, /Number of people/, "Occupied role must show the number of people");
   assert.match(editorSrc, /activeOccupiedCount.*?occupied.*?activeRemainingOpenCount.*?open/, "Seat allocation must show occupied and open counts");
 
   // Role specifications header & input show occupied vs. open seat breakdown

@@ -65,7 +65,7 @@ export async function updateUnitAction(projectId: string, unitId: string, patch:
     }
     if (patch.count !== undefined) {
         const count = Math.trunc(patch.count);
-        if (count < Math.max(1, unit.filled) || count > UNIT_SEATS) return { success: false, error: `Seats go from ${Math.max(1, unit.filled)} (the people in it) to ${UNIT_SEATS}.` };
+        if (count < Math.max(1, unit.filled) || count > UNIT_SEATS) return { success: false, error: `Number of people goes from ${Math.max(1, unit.filled)} (the people in it) to ${UNIT_SEATS}.` };
         set.count = count;
     }
     let newLead: string | null = null;

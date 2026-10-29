@@ -260,10 +260,10 @@ export default function Phase4Settings({ showValidationSummary = false, linkComp
             {/* Wide screens: the same section rail as Project settings (card, icon, label, description, active state). */}
             <aside className="sticky top-0 hidden self-start rounded-lg border border-border bg-card p-2 xl:block lg:block">
                 <div className="px-3 pb-3 pt-2">
-                    <p className="nb-micro">Launch settings</p>
+                    <p className="nb-micro">Starting settings</p>
                     <p className="nb-compact mt-1 text-muted-foreground">Jump to any section. All start at the Settings defaults.</p>
                 </div>
-                <nav aria-label="Launch settings sections" className="mt-1 space-y-1">
+                <nav aria-label="Starting settings sections" className="mt-1 space-y-1">
                     {sections.map((section) => {
                         const Icon = section.icon;
                         const active = activeSection === section.id;
@@ -292,7 +292,7 @@ export default function Phase4Settings({ showValidationSummary = false, linkComp
             <div className="min-w-0 w-full space-y-8 pb-6">
                 <div className="max-w-[65ch]">
                     <p className="nb-micro text-primary">Phase 4 · {isOrganization ? 'setup' : 'settings'}</p>
-                    <h2 className="nb-section-title mt-1 text-foreground">{isOrganization ? 'Setup' : 'Set up how the workspace launches'}</h2>
+                    <h2 className="nb-section-title mt-1 text-foreground">{isOrganization ? 'Setup' : 'Choose how the workspace starts'}</h2>
                     <p className="nb-compact mt-1.5 text-muted-foreground">{isOrganization ? 'Who can see it and how it runs. Everything here is in Settings later.' : 'Every choice has a sensible default and can be changed later in Workspace settings.'}</p>
                 </div>
                 {isOrganization ? (
@@ -405,7 +405,7 @@ export default function Phase4Settings({ showValidationSummary = false, linkComp
                         </div>
                     ) : null}
                     <p id="create-project-visibility-help" className="mt-3 max-w-[65ch] text-[13px] leading-[1.5] text-muted-foreground">
-                        <span className="font-medium text-foreground">Visible at launch: </span>
+                        <span className="font-medium text-foreground">Visible when created: </span>
                         {visibility === 'public' || visibility === 'org'
                             ? PUBLIC_TAB_ORDER.filter((tab) => publicTabs[tab]).map((tab) => PROJECT_PUBLIC_TAB_LABELS[tab]).join(' · ') || 'Workspace title and card only'
                             : 'Members only. Tab choices apply once you make the workspace public.'}
@@ -440,7 +440,7 @@ export default function Phase4Settings({ showValidationSummary = false, linkComp
                     ) : null}
                     {docMode === 'starter' ? (
                         <div className="mt-4 border-y border-border">
-                            <SwitchRow label="Publish the doc at launch" description="Off keeps it as a draft only leaders can see." checked={Boolean(readme?.publishOnCreate)} onCheckedChange={(checked) => set('readme', { ...readme, publishOnCreate: checked } as CreateProjectInput['readme'])} />
+                            <SwitchRow label="Publish the document when the workspace is created" description="Off: only the owner and admins can see it." checked={Boolean(readme?.publishOnCreate)} onCheckedChange={(checked) => set('readme', { ...readme, publishOnCreate: checked } as CreateProjectInput['readme'])} />
                             <SwitchRow label="Members can edit the doc" description="Off: only the owner and admins can edit." checked={docEditPolicy === 'members'} onCheckedChange={(checked) => set('doc_edit_policy', checked ? 'members' : 'leaders')} />
                         </div>
                     ) : null}

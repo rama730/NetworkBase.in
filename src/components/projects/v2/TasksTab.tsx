@@ -1022,7 +1022,7 @@ export default function TasksTab({
                     <option value="todo">To do</option>
                     <option value="in_progress">In progress</option>
                     <option value="blocked">Blocked</option>
-                    <option value="done">Done</option>
+                    <option value="done">Completed</option>
                   </select>
                   <p className="font-mono text-[11px] text-muted-foreground">
                     Tasks moved into this section inherit this state.
