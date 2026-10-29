@@ -325,7 +325,7 @@ export function TaskFilesCollection({ projectId }: { projectId: string }) {
           chunk.map(({ key, contentType, sizeBytes }) => ({ key, contentType, sizeBytes })),
         );
         if ("error" in batch) {
-          throw new Error(batch.error || "Failed to generate upload URLs");
+          throw new Error(batch.error || "Couldn’t generate upload URLs");
         }
 
         await Promise.all(
@@ -1034,7 +1034,7 @@ export function TaskFilesCollection({ projectId }: { projectId: string }) {
             toast.error(
               feedbackError(error instanceof Error
                 ? error.message
-                : "Could not remove this task link", "Could not remove this task link"),
+                : "Couldn’t remove this task link", "Couldn’t remove this task link"),
             );
           } finally {
             setUnlinking(false);

@@ -70,7 +70,7 @@ async function resolveEditableNode(projectId: string, path: string, userId: stri
   }
   const access = await getProjectAccessById(projectId, userId);
   if (!access.project) return { error: jsonError("Project not found", 404, "NOT_FOUND") };
-  if (!access.canWrite) return { error: jsonError("Forbidden", 403, "FORBIDDEN") };
+  if (!access.canWrite) return { error: jsonError("You don’t have access to this", 403, "FORBIDDEN") };
   const node = await db.query.projectNodes.findFirst({
     where: and(
       eq(projectNodes.projectId, projectId),
@@ -161,7 +161,7 @@ export async function POST(request: Request) {
     });
     return jsonSuccess({ released, nodeId: resolved.node!.id });
   } catch (error) {
-    return fileLeaseErrorResponse(error, "Failed to update file lease", {
+    return fileLeaseErrorResponse(error, "Couldn’t update file lease", {
       route: "[api/v1/extension/file-lock]",
     });
   }

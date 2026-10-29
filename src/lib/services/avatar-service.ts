@@ -46,7 +46,7 @@ export async function compressAvatar(file: File): Promise<Blob> {
 
         img.onerror = () => {
             URL.revokeObjectURL(objectUrl)
-            reject(new Error('Failed to load image'))
+            reject(new Error('Couldn’t load image'))
         }
         img.src = objectUrl
     })

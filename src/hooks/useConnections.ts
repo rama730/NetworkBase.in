@@ -195,7 +195,7 @@ export const CONNECTIONS_QUERY_KEYS = {
 
 function normalizeFeedResult<T>(result: FeedPage<T> | FeedErrorPage): FeedPage<T> {
     if (!result.success) {
-        throw new Error(result.error || 'Failed to load connections');
+        throw new Error(result.error || 'Couldn’t load connections');
     }
     return result;
 }
@@ -636,7 +636,7 @@ export function useConnectionMutations() {
     const cancelRequest = useMutation({
         mutationFn: async (id: string) => {
             const result = await cancelConnectionRequest(id);
-            if (!result.success) throw new Error(result.error || 'Failed to cancel request');
+            if (!result.success) throw new Error(result.error || 'Couldn’t cancel request');
             return { ...result, id };
         },
         onMutate: async (id) => {
@@ -683,7 +683,7 @@ export function useConnectionMutations() {
     const acceptRequest = useMutation({
         mutationFn: async (id: string) => {
             const result = await acceptConnectionRequest(id, { idempotencyKey: id });
-            if (!result.success) throw new Error(result.error || 'Failed to accept request');
+            if (!result.success) throw new Error(result.error || 'Couldn’t accept request');
             return { id };
         },
         onMutate: async (id) => {
@@ -757,7 +757,7 @@ export function useConnectionMutations() {
     const rejectRequest = useMutation({
         mutationFn: async ({ id, reason }: { id: string; reason?: string }) => {
             const result = await rejectConnectionRequest(id, reason);
-            if (!result.success) throw new Error(result.error || 'Failed to reject request');
+            if (!result.success) throw new Error(result.error || 'Couldn’t reject request');
             return { id, undoUntil: result.undoUntil, serverNow: result.serverNow };
         },
         onMutate: async ({ id }) => {
@@ -789,7 +789,7 @@ export function useConnectionMutations() {
     const dismissSuggestion = useMutation({
         mutationFn: async ({ profileId, feedbackReason }: { profileId: string; feedbackReason?: string }) => {
             const result = await dismissConnectionSuggestion(profileId, feedbackReason);
-            if (!result.success) throw new Error(result.error || 'Failed to dismiss suggestion');
+            if (!result.success) throw new Error(result.error || 'Couldn’t dismiss suggestion');
             return { profileId };
         },
         onMutate: async ({ profileId }) => {
@@ -806,7 +806,7 @@ export function useConnectionMutations() {
     const undoRejectRequest = useMutation({
         mutationFn: async (id: string) => {
             const result = await undoRejectConnectionRequest(id);
-            if (!result.success) throw new Error(result.error || 'Failed to undo reject');
+            if (!result.success) throw new Error(result.error || 'Couldn’t undo reject');
             return { id };
         },
         onSettled: (_data, _err, vars) => invalidateAll(connectionMutationTargetId(vars)),
@@ -815,7 +815,7 @@ export function useConnectionMutations() {
     const acceptAllIncoming = useMutation({
         mutationFn: async (limit: number | undefined) => {
             const result = await acceptAllIncomingConnectionRequests(limit);
-            if (!result.success) throw new Error(result.error || 'Failed to accept all requests');
+            if (!result.success) throw new Error(result.error || 'Couldn’t accept all requests');
             return result;
         },
         onMutate: async () => {
@@ -858,7 +858,7 @@ export function useConnectionMutations() {
     const withdrawAllSent = useMutation({
         mutationFn: async () => {
             const res = await withdrawAllSentConnectionRequests();
-            if (!res.success) throw new Error(res.error || 'Failed to cancel requests');
+            if (!res.success) throw new Error(res.error || 'Couldn’t cancel requests');
             return res;
         },
         onMutate: async () => {
@@ -924,7 +924,7 @@ export function useConnectionMutations() {
     const rejectAllIncoming = useMutation({
         mutationFn: async (limit: number | undefined) => {
             const result = await rejectAllIncomingConnectionRequests(limit);
-            if (!result.success) throw new Error(result.error || 'Failed to reject all requests');
+            if (!result.success) throw new Error(result.error || 'Couldn’t reject all requests');
             return result;
         },
         onMutate: async () => {
@@ -967,7 +967,7 @@ export function useConnectionMutations() {
     const disconnect = useMutation({
         mutationFn: async (id: string) => {
             const result = await removeConnection(id);
-            if (!result.success) throw new Error(result.error || 'Failed to remove connection');
+            if (!result.success) throw new Error(result.error || 'Couldn’t remove connection');
             return { id };
         },
         onMutate: async (id) => {
@@ -1005,7 +1005,7 @@ export function useConnectionMutations() {
             });
             const data = await res.json().catch(() => null);
             if (!res.ok) {
-                throw new Error(data?.error?.message || data?.message || 'Failed to block account');
+                throw new Error(data?.error?.message || data?.message || 'Couldn’t block account');
             }
             return { targetUserId };
         },

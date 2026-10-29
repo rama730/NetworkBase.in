@@ -98,7 +98,7 @@ export async function GET(request: Request) {
             status: 500,
             errorCode: "INTERNAL_ERROR",
         });
-        return jsonError("Failed to load appearance settings", 500, "INTERNAL_ERROR");
+        return jsonError("Couldn’t load appearance settings", 500, "INTERNAL_ERROR");
     }
 }
 
@@ -114,7 +114,7 @@ export async function PUT(request: Request) {
 
     const auth = await requireAuthenticatedUser();
     if (auth.response || !auth.user) {
-        return auth.response ?? jsonError("Not authenticated", 401, "UNAUTHORIZED");
+        return auth.response ?? jsonError("Sign in to continue", 401, "UNAUTHORIZED");
     }
 
     try {
@@ -191,6 +191,6 @@ export async function PUT(request: Request) {
             errorCode: "INTERNAL_ERROR",
         });
         // SEC-L6: do not leak raw exception messages to the client.
-        return jsonError("Failed to update appearance settings", 500, "INTERNAL_ERROR");
+        return jsonError("Couldn’t update appearance settings", 500, "INTERNAL_ERROR");
     }
 }

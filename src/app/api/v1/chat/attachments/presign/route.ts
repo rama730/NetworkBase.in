@@ -39,7 +39,7 @@ export async function POST(request: Request) {
   const limitResponse = await enforceRouteLimit(request, "api:v1:chat:attachments:presign", 120, 60);
   if (limitResponse) return limitResponse;
   const { user, response: authResponse } = await requireAuthenticatedUser();
-  if (!user) return authResponse ?? jsonError("Not authenticated", 401, "UNAUTHORIZED");
+  if (!user) return authResponse ?? jsonError("Sign in to continue", 401, "UNAUTHORIZED");
 
   try {
     const body = await request.json() as Record<string, unknown>;
@@ -71,7 +71,7 @@ export async function POST(request: Request) {
     });
     const admin = await createAdminClient();
     const { data, error } = await admin.storage.from(BUCKET).createSignedUploadUrl(storagePath, { upsert: true });
-    if (error || !data?.signedUrl) return jsonError("Failed to generate upload session", 503, "UNAVAILABLE");
+    if (error || !data?.signedUrl) return jsonError("Couldn’t generate upload session", 503, "UNAVAILABLE");
 
     logApiRoute(request, { requestId, action: "chat.attachments.presign", userId: user.id, startedAt, success: true, status: 200 });
     return jsonSuccess({
@@ -97,7 +97,7 @@ export async function PUT(request: Request) {
   const startedAt = Date.now();
   const requestId = getRequestId(request);
   const { user, response: authResponse } = await requireAuthenticatedUser();
-  if (!user) return authResponse ?? jsonError("Not authenticated", 401, "UNAUTHORIZED");
+  if (!user) return authResponse ?? jsonError("Sign in to continue", 401, "UNAUTHORIZED");
 
   try {
     const body = await request.json() as Record<string, unknown>;

@@ -174,7 +174,7 @@ export async function POST(request: Request) {
       errorCode: "INTERNAL_ERROR",
     });
     return NextResponse.json(
-      { error: "Failed to create test session" },
+      { error: "Couldn’t create test session" },
       { status: 500 },
     );
   }
@@ -240,7 +240,7 @@ export async function DELETE(request: Request) {
       errorCode: "INTERNAL_ERROR",
     });
     return NextResponse.json(
-      { error: "Failed to clear test session" },
+      { error: "Couldn’t clear test session" },
       { status: 500 },
     );
   }

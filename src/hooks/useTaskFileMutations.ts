@@ -89,7 +89,7 @@ export function useTaskFileMutations(params: {
       const contentType = file.type || "application/octet-stream";
 
       const uploadSession = await getUploadPresignedUrl(storagePath, contentType, file.size);
-      if ("error" in uploadSession) throw new Error(uploadSession.error || "Failed to prepare upload");
+      if ("error" in uploadSession) throw new Error(uploadSession.error || "Couldn’t prepare upload");
       storagePath = uploadSession.storageKey;
 
       const token = uploadSession.token || new URL(uploadSession.url).searchParams.get("token");
@@ -123,7 +123,7 @@ export function useTaskFileMutations(params: {
         }
       }
 
-      if (!createdNode) throw new Error("Failed to create attachment record");
+      if (!createdNode) throw new Error("Couldn’t create attachment record");
 
       return { success: true as const, node: createdNode };
     } catch (error) {
@@ -262,7 +262,7 @@ export function useTaskFileMutations(params: {
   }, [canEdit, onError, projectId, runAfterSuccess, taskId, uploadFile]);
 
   const saveAsNewVersion = useCallback(async (nodeId: string, file: File, options?: { comment?: string | null }) => {
-    if (!canEdit) return { success: false as const, error: "Forbidden" };
+    if (!canEdit) return { success: false as const, error: "You don’t have access to this" };
     onError?.(null);
     setIsUploading(true);
     try {
@@ -287,7 +287,7 @@ export function useTaskFileMutations(params: {
   }, [canEdit, onError, projectId, runAfterSuccess]);
 
   const unlinkAttachment = useCallback(async (nodeId: string) => {
-    if (!canEdit) return { success: false as const, error: "Forbidden" };
+    if (!canEdit) return { success: false as const, error: "You don’t have access to this" };
     onError?.(null);
     setAttachments((current) => current.filter((attachment) => attachment.id !== nodeId));
     try {
@@ -295,7 +295,7 @@ export function useTaskFileMutations(params: {
       await runAfterSuccess();
       return { success: true as const };
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Failed to unlink file";
+      const message = error instanceof Error ? error.message : "Couldn’t unlink file";
       onError?.(message);
       await refreshAttachments(); // Revert optimistic update
       return { success: false as const, error: message };

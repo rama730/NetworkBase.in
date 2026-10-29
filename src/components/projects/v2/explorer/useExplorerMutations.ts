@@ -127,7 +127,7 @@ export function useExplorerMutations({
     async (key: string, file: Blob, contentType: string, sizeBytes: number) => {
       const presigned = await getUploadPresignedUrl(key, contentType, sizeBytes);
       if ("error" in presigned) {
-        throw new Error(presigned.error || "Failed to prepare upload");
+        throw new Error(presigned.error || "Couldn’t prepare upload");
       }
       await uploadToSupabaseSignedUrl({
         bucket: "project-files",
@@ -338,7 +338,7 @@ function isNonRetryableUploadError(message?: string): boolean {
           }));
           const batch = await getBatchUploadUrls(plans.map(({ key, contentType, sizeBytes }) => ({ key, contentType, sizeBytes })));
           if ("error" in batch) {
-            const errorMsg = batch.error || "Failed to prepare upload URLs";
+            const errorMsg = batch.error || "Couldn’t prepare upload URLs";
             const isNonRetryable = isNonRetryableUploadError(errorMsg);
             if (isNonRetryable) {
               nonRetryableErrors.push(errorMsg);
@@ -866,7 +866,7 @@ function isNonRetryableUploadError(message?: string): boolean {
               name: string;
             } => item !== null);
 
-          if (uploadNodes.length === 0) throw new Error("Could not match the selected files to their upload destinations");
+          if (uploadNodes.length === 0) throw new Error("Couldn’t match the selected files to their upload destinations");
           if (transferId) transferRef.current?.update(transferId, { total: uploadNodes.length });
           const failed: File[] = [];
           let completed = 0;
@@ -880,7 +880,7 @@ function isNonRetryableUploadError(message?: string): boolean {
               contentType: resolveFileMimeType(entry.file),
               sizeBytes: entry.file.size,
             })));
-            if ("error" in batch) throw new Error(batch.error || "Failed to prepare upload URLs");
+            if ("error" in batch) throw new Error(batch.error || "Couldn’t prepare upload URLs");
 
             const chunkUploaded: Array<{
               file: File;

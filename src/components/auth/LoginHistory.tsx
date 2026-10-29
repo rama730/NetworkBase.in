@@ -41,12 +41,12 @@ export default function LoginHistory({ initialHistory = [], availableStepUpMetho
       });
       const data = await res.json().catch(() => null);
       if (!res.ok || data?.success === false) {
-        throw new Error(data?.message || "Failed to remove entry");
+        throw new Error(data?.message || "Couldn’t remove entry");
       }
       toast.success("Sign-in entry removed");
     } catch (error) {
       setHistory(previous);
-      toast.error(feedbackError(error instanceof Error ? error.message : "Failed to remove entry", "Failed to remove entry"));
+      toast.error(feedbackError(error instanceof Error ? error.message : "Couldn’t remove entry", "Couldn’t remove entry"));
     } finally {
       setBusy(false);
     }
@@ -66,12 +66,12 @@ export default function LoginHistory({ initialHistory = [], availableStepUpMetho
         return;
       }
       if (!res.ok || data?.success === false) {
-        throw new Error(data?.message || "Failed to clear history");
+        throw new Error(data?.message || "Couldn’t clear history");
       }
       setHistory([]);
       toast.success("Recent sign-in history cleared");
     } catch (error) {
-      toast.error(feedbackError(error instanceof Error ? error.message : "Failed to clear history", "Failed to clear history"));
+      toast.error(feedbackError(error instanceof Error ? error.message : "Couldn’t clear history", "Couldn’t clear history"));
     } finally {
       setBusy(false);
       setConfirmClearOpen(false);

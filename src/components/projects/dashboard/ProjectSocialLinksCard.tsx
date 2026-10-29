@@ -629,7 +629,7 @@ export function ProjectLinksManager({
             router.refresh();
             toast.success('Workspace links saved');
         } catch (error) {
-            setSaveError(error instanceof Error ? error.message : 'Unable to save project links. Your changes are retained.');
+            setSaveError(error instanceof Error ? error.message : 'Couldn’t save project links. Your changes are retained.');
         } finally {
             setSaving(false);
         }

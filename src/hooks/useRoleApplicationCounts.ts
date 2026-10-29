@@ -12,7 +12,7 @@ export function useRoleApplicationCounts(projectId: string, enabled = true) {
         staleTime: 60_000,
         queryFn: async () => {
             const result = await getRoleApplicationCountsAction(projectId);
-            if (!result.success) throw new Error("Could not read the applications");
+            if (!result.success) throw new Error("Couldn’t read the applications");
             return result.counts;
         },
     });

@@ -208,7 +208,7 @@ async function handleIntent(userId: string, body: z.infer<typeof intentSchema>) 
       projectId: body.projectId,
       nodeId: node.id,
     });
-    return jsonError("Failed to create upload URL", 500, "INTERNAL_ERROR");
+    return jsonError("Couldn’t create upload URL", 500, "INTERNAL_ERROR");
   }
 
   recordExtensionMetric("extension.file_upload.intent", {
@@ -370,7 +370,7 @@ async function handleFinalize(userId: string, body: z.infer<typeof finalizeSchem
   } catch (error) {
     await markIntentFailed(
       intent.id,
-      error instanceof Error ? error.message : "Failed to apply revision",
+      error instanceof Error ? error.message : "Couldn’t apply revision",
     );
     const conflictResponse = extensionRevisionConflictResponse(error);
     if (conflictResponse) return conflictResponse;
@@ -404,7 +404,7 @@ export async function POST(request: Request) {
     const authResult = await requireAuthenticatedUser();
     if (authResult.response) return authResult.response;
     const user = authResult.user;
-    if (!user) return jsonError("Not authenticated", 401, "UNAUTHORIZED");
+    if (!user) return jsonError("Sign in to continue", 401, "UNAUTHORIZED");
     if (!authResult.extensionSessionId) {
       return jsonError("An active extension device session is required", 401, "UNAUTHORIZED");
     }
@@ -424,7 +424,7 @@ export async function POST(request: Request) {
       error: error instanceof Error ? error.message : String(error),
     });
     return jsonError(
-      "Failed to save file revision. Refresh the file and try again.",
+      "Couldn’t save file revision. Refresh the file and try again.",
       500,
       "INTERNAL_ERROR",
     );

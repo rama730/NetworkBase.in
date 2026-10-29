@@ -57,7 +57,7 @@ describe("password auth helpers", () => {
     assert.deepEqual(result, {
       ok: false,
       reason: "verification_failed",
-      message: "Unable to verify password",
+      message: "Couldn’t verify password",
     });
   });
 

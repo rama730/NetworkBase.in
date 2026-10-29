@@ -49,7 +49,7 @@ export async function uploadProjectFile(projectId: string, folderId: string | nu
     const contentType = blob.type || 'application/octet-stream'
     const extension = filename.includes('.') ? filename.split('.').pop() : 'bin'
     const presigned = await getUploadPresignedUrl(buildProjectFileKey(projectId, `${crypto.randomUUID()}.${extension}`), contentType, blob.size)
-    if ('error' in presigned) throw new Error(presigned.error || 'Failed to prepare upload')
+    if ('error' in presigned) throw new Error(presigned.error || 'Couldn’t prepare upload')
     await uploadToSupabaseSignedUrl({
         bucket: 'project-files',
         storagePath: presigned.storageKey,

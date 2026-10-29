@@ -649,7 +649,7 @@ export function DocxViewerDriver({
         {error && (
           <div className="flex flex-col items-center justify-center gap-3 text-center max-w-md my-auto">
             <AlertTriangle className="h-8 w-8 text-amber-500" />
-            <p className="text-sm font-semibold">Unable to preview document</p>
+            <p className="text-sm font-semibold">Couldn’t preview document</p>
             <p className="text-xs text-muted-foreground">{error}</p>
             <Button asChild size="sm" className="mt-2">
               <a href={signedUrl} download={node.name}>

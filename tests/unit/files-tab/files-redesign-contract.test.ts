@@ -133,7 +133,7 @@ test("upload decisions, Undo and task search failures have explicit accessible o
     /node.deletedAt\?\.toISOString\(\) !== expectedDeletedAt/,
   );
   const picker = read("picker/TaskSearchPicker.tsx");
-  assert.match(picker, /Could not load tasks/);
+  assert.match(picker, /Couldn’t load tasks/);
   assert.match(picker, /type="radio" name="task-file-role"/);
   const revision = readFileSync(
     "src/components/ui/RevisionControlModal.tsx",

@@ -182,7 +182,7 @@ export default function SprintPlanning({
       } catch (error) {
         return {
           success: false as const,
-          error: error instanceof Error ? error.message : "Failed to create sprint",
+          error: error instanceof Error ? error.message : "Couldn’t create sprint",
         };
       }
     },
@@ -203,7 +203,7 @@ export default function SprintPlanning({
         });
 
         if (!result.success || !result.sprint) {
-          throw new Error(result.error ?? "Failed to update sprint");
+          throw new Error(result.error ?? "Couldn’t update sprint");
         }
 
         toast.success("Sprint updated");
@@ -219,7 +219,7 @@ export default function SprintPlanning({
       } catch (error) {
         return {
           success: false as const,
-          error: error instanceof Error ? error.message : "Failed to update sprint",
+          error: error instanceof Error ? error.message : "Couldn’t update sprint",
         };
       }
     },
@@ -242,7 +242,7 @@ export default function SprintPlanning({
       });
 
       if (!result.success) {
-        throw new Error(result.error ?? "Failed to delete sprint");
+        throw new Error(result.error ?? "Couldn’t delete sprint");
       }
 
       toast.success("Sprint deleted");
@@ -264,7 +264,7 @@ export default function SprintPlanning({
     } catch (error) {
       return {
         success: false as const,
-        error: error instanceof Error ? error.message : "Failed to delete sprint",
+        error: error instanceof Error ? error.message : "Couldn’t delete sprint",
       };
     }
   }, [detail?.sprints, editorState?.sprint, projectId, projectSlug, queryClient, router]);

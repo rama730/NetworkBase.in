@@ -28,7 +28,7 @@ export async function handlePrivacySettingPatch<T extends string>(request: Reque
   const limitResponse = await enforceRouteLimit(request, `api:v1:${action}`, 60, 60);
   if (limitResponse) return limitResponse;
   const auth = await requireAuthenticatedUser();
-  if (auth.response || !auth.user) return auth.response ?? jsonError("Not authenticated", 401, "UNAUTHORIZED");
+  if (auth.response || !auth.user) return auth.response ?? jsonError("Sign in to continue", 401, "UNAUTHORIZED");
 
   try {
     const body = await request.json().catch(() => null) as Record<string, unknown> | null;

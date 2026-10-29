@@ -50,8 +50,8 @@ test("an unknown kid refreshes the key set once, concurrent callers share the fe
     assert.ok(results.every((claims) => claims.sub === "u1"));
     assert.equal(fetches, 2, "one refresh for three concurrent callers");
 
-    await assert.rejects(snapshot.verifySupabaseAccessToken(forged), /Unable to find JWKS key/);
-    await assert.rejects(snapshot.verifySupabaseAccessToken(forged), /Unable to find JWKS key/);
+    await assert.rejects(snapshot.verifySupabaseAccessToken(forged), /Couldn’t find JWKS key/);
+    await assert.rejects(snapshot.verifySupabaseAccessToken(forged), /Couldn’t find JWKS key/);
     assert.equal(fetches, 2, "an unknown kid inside the cooldown does not fetch");
   } finally {
     Date.now = clock;

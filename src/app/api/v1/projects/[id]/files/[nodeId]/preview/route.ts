@@ -83,7 +83,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
       const isMedia = (verified.mimeType?.startsWith("video/") || verified.mimeType?.startsWith("audio/") || MEDIA_EXTS.has(fileExt)) && request.nextUrl.searchParams.get("download") !== "1";
       const admin = await createAdminClient();
       const directSignedUrl = await getOrGenerateSignedUrl(admin, "project-files", verified.storageKey, isMedia ? 7200 : 1800);
-      if (!directSignedUrl) return noStore("Failed to prepare file preview", 502);
+      if (!directSignedUrl) return noStore("Couldn’t prepare file preview", 502);
 
       const etag = `"${verified.nodeId}-v${verified.version}"`;
       // Direct S3 / CDN redirect when explicitly requested via ?redirect=1 or ?cdn=1.
@@ -116,10 +116,10 @@ export async function GET(request: NextRequest, context: RouteContext) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   const limited = await enforceRouteLimit(request, "files:preview", 600, 60, "default", user?.id);
-  if (limited) return noStore("Rate limit exceeded", 429);
+  if (limited) return noStore("Too many attempts. Try again in a minute.", 429);
   const access = await assertProjectFileReadAccess(projectId, user?.id ?? null).catch(() => null);
   if (!access) {
-    return noStore("Forbidden", 403);
+    return noStore("You don’t have access to this", 403);
   }
 
   const node = await db.query.projectNodes.findFirst({
@@ -147,7 +147,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
   try {
     await assertFileNodeVisible(access, node);
   } catch {
-    return noStore("Forbidden", 403);
+    return noStore("You don’t have access to this", 403);
   }
 
   const requestedRevision = request.nextUrl.searchParams.get("revision");
@@ -215,7 +215,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
   const admin = await createAdminClient();
   const directSignedUrl = await getOrGenerateSignedUrl(admin, "project-files", target.s3Key, isMediaStream ? 7200 : 1800);
   if (!directSignedUrl) {
-    return noStore("Failed to prepare file preview", 502);
+    return noStore("Couldn’t prepare file preview", 502);
   }
 
   // Strategy A (Direct-to-CDN Streaming for Video & Audio):

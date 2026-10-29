@@ -766,7 +766,7 @@ export async function updateProjectVisibilityAction(
     return {
       success: false,
       errorCode: "INTERNAL_ERROR",
-      message: "Failed to update project visibility.",
+      message: "Couldn’t update project visibility.",
     };
   }
 }
@@ -805,7 +805,7 @@ export async function getProjectAccessImpactAction(
     return {
       success: false,
       errorCode: "INTERNAL_ERROR",
-      message: "Failed to load access impact.",
+      message: "Couldn’t load access impact.",
     };
   }
 }
@@ -917,7 +917,7 @@ export async function updateProjectPublicTabVisibilityAction(
     return {
       success: false,
       errorCode: "INTERNAL_ERROR",
-      message: "Failed to update public tab visibility.",
+      message: "Couldn’t update public tab visibility.",
     };
   }
 }

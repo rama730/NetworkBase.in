@@ -111,7 +111,7 @@ export async function createAssignmentAction(input: z.input<typeof createSchema>
         if (data.publish) await notifyAssignmentPublished(result.masterId, viewer.userId);
         return { success: true, ...result };
     } catch (error) {
-        return { success: false, error: error instanceof Error ? error.message : 'Could not create the assignment.' };
+        return { success: false, error: error instanceof Error ? error.message : 'Couldn’t create the assignment.' };
     }
 }
 
@@ -143,7 +143,7 @@ export async function publishAssignmentAction(masterId: string): Promise<{ succe
         await notifyAssignmentPublished(masterId, ctx.viewer.userId);
         return { success: true, copies };
     } catch (error) {
-        return { success: false, error: error instanceof Error ? error.message : 'Could not publish.' };
+        return { success: false, error: error instanceof Error ? error.message : 'Couldn’t publish.' };
     }
 }
 
@@ -582,7 +582,7 @@ export async function moveTeamMemberAction(masterId: string, userId: string, toC
             return '';
         });
     } catch (error) {
-        return { success: false, error: error instanceof Error ? error.message : 'Could not move them.' };
+        return { success: false, error: error instanceof Error ? error.message : 'Couldn’t move them.' };
     }
     touch(ctx.viewer.slug, ctx.master.projectId);
     const [copy] = await db.select({ id: tasks.id }).from(tasks).where(and(eq(tasks.assignmentId, masterId), isNull(tasks.deletedAt),

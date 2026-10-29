@@ -148,7 +148,7 @@ export function TaskFilesExplorer({
         await updateTaskNodeLink(taskId, nodeId, { annotation: value });
       } catch (e: unknown) {
         const message =
-          e instanceof Error ? e.message : "Failed to save annotation";
+          e instanceof Error ? e.message : "Couldn’t save annotation";
         toast.error(feedbackError(message, "Action couldn’t finish"));
       }
     },
@@ -161,7 +161,7 @@ export function TaskFilesExplorer({
         await updateTaskNodeLink(taskId, nodeId, { tags: newTags });
         await onFilesChanged?.();
       } catch (e: unknown) {
-        const message = e instanceof Error ? e.message : "Failed to save tags";
+        const message = e instanceof Error ? e.message : "Couldn’t save tags";
         toast.error(feedbackError(message, "Action couldn’t finish"));
       }
     },

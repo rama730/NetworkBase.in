@@ -121,7 +121,7 @@ export function PresentationViewerDriver({
     async function loadPresentation() {
       try {
         const res = await fetch(signedUrl);
-        if (!res.ok) throw new Error("Failed to fetch presentation file");
+        if (!res.ok) throw new Error("Couldn’t fetch presentation file");
 
         const buffer = await res.arrayBuffer();
 
@@ -645,7 +645,7 @@ export function PresentationViewerDriver({
     return (
       <div className="flex h-full flex-col items-center justify-center gap-3 p-8 text-center">
         <AlertTriangle className="h-8 w-8 text-amber-500" />
-        <p className="text-sm font-semibold text-foreground">Unable to render presentation preview</p>
+        <p className="text-sm font-semibold text-foreground">Couldn’t render presentation preview</p>
         <p className="max-w-md text-xs text-muted-foreground">{error}</p>
         <Button asChild size="sm" variant="outline" className="mt-2">
           <a href={signedUrl} download={node.name}>

@@ -31,7 +31,7 @@ export async function GET(request: Request) {
 
   const token = getBearerToken(request);
   if (!token) {
-    return jsonError("Not authenticated", 401, "UNAUTHORIZED");
+    return jsonError("Sign in to continue", 401, "UNAUTHORIZED");
   }
 
   const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
@@ -58,7 +58,7 @@ export async function GET(request: Request) {
     },
   });
   if (!session) {
-    return jsonError("Not authenticated", 401, "UNAUTHORIZED");
+    return jsonError("Sign in to continue", 401, "UNAUTHORIZED");
   }
 
   const active = !session.revokedAt && session.expiresAt.getTime() > now;
@@ -88,7 +88,7 @@ export async function POST(request: Request) {
 
     const token = getBearerToken(request);
     if (!token) {
-      return jsonError("Not authenticated", 401, "UNAUTHORIZED");
+      return jsonError("Sign in to continue", 401, "UNAUTHORIZED");
     }
 
     const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
@@ -97,7 +97,7 @@ export async function POST(request: Request) {
     });
 
     if (!session) {
-      return jsonError("Not authenticated", 401, "UNAUTHORIZED");
+      return jsonError("Sign in to continue", 401, "UNAUTHORIZED");
     }
 
     if (session.revokedAt) {
@@ -139,6 +139,6 @@ export async function POST(request: Request) {
     logger.error("[api/v1/extension/session] Failed to revoke extension session", {
       error: error instanceof Error ? error.message : String(error),
     });
-    return jsonError("Failed to revoke extension session", 500, "INTERNAL_ERROR");
+    return jsonError("Couldn’t revoke extension session", 500, "INTERNAL_ERROR");
   }
 }

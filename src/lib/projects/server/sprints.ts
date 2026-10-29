@@ -62,7 +62,7 @@ async function assertProjectReadAccess(
 ) {
   const access = await getProjectAccessById(projectId, userId);
   if (!access.project) throw new Error("Project not found");
-  if (!access.canRead) throw new Error("Forbidden");
+  if (!access.canRead) throw new Error("You don’t have access to this");
   return access;
 }
 
@@ -138,7 +138,7 @@ export async function fetchProjectSprintsAction(
     );
   } catch (error) {
     console.error("Failed to fetch sprints:", error);
-    return { success: false as const, error: "Failed to fetch sprints" };
+    return { success: false as const, error: "Couldn’t fetch sprints" };
   }
 }
 
@@ -1156,7 +1156,7 @@ export async function fetchProjectSprintDetailAction(input: {
     return { success: true as const, data };
   } catch (error) {
     console.error("Failed to fetch sprint detail:", error);
-    return { success: false as const, error: "Failed to fetch sprint detail" };
+    return { success: false as const, error: "Couldn’t fetch sprint detail" };
   }
 }
 
@@ -1217,7 +1217,7 @@ export async function fetchProjectSprintTimelinePageAction(input: {
     console.error("Failed to fetch sprint timeline page:", error);
     return {
       success: false as const,
-      error: "Failed to fetch sprint timeline page",
+      error: "Couldn’t fetch sprint timeline page",
     };
   }
 }
@@ -1269,7 +1269,7 @@ async function readProjectSprintDetailForActor(input: ProjectSprintDetailInput &
       return {
         success: false as const,
         errorCode: "FORBIDDEN" as const,
-        message: "Forbidden",
+        message: "You don’t have access to this",
       };
     }
     if (
@@ -1317,7 +1317,7 @@ async function readProjectSprintDetailForActor(input: ProjectSprintDetailInput &
     return {
       success: false as const,
       errorCode: "INTERNAL_ERROR" as const,
-      message: "Failed to load sprint detail.",
+      message: "Couldn’t load sprint detail.",
     };
   }
 }
@@ -1330,7 +1330,7 @@ export async function createSprintAction(data: CreateSprintInput) {
     const {
       data: { user },
     } = await supabase.auth.getUser();
-    if (!user) throw new Error("Unauthorized");
+    if (!user) throw new Error("Sign in to continue");
     actorIdForMetric = user.id;
 
     const validated = createSprintSchema.parse(data);
@@ -1397,7 +1397,7 @@ export async function createSprintAction(data: CreateSprintInput) {
     });
 
     if (!newSprint) {
-      throw new Error("Failed to create sprint");
+      throw new Error("Couldn’t create sprint");
     }
 
     const sprintListItem = await readProjectSprintListItem(
@@ -1405,7 +1405,7 @@ export async function createSprintAction(data: CreateSprintInput) {
       newSprint.id,
     );
     if (!sprintListItem) {
-      throw new Error("Failed to load created sprint");
+      throw new Error("Couldn’t load created sprint");
     }
 
     await revalidateProjectPaths(validated.projectId);
@@ -1448,11 +1448,11 @@ export async function createSprintAction(data: CreateSprintInput) {
       actorId: actorIdForMetric ?? "unknown",
       success: false,
       message:
-        error instanceof Error ? error.message : "Failed to create sprint",
+        error instanceof Error ? error.message : "Couldn’t create sprint",
     });
     return {
       success: false,
-      error: error instanceof Error ? error.message : "Failed to create sprint",
+      error: error instanceof Error ? error.message : "Couldn’t create sprint",
     };
   }
 }
@@ -1466,7 +1466,7 @@ export async function updateSprintAction(data: UpdateSprintInput) {
     const {
       data: { user },
     } = await supabase.auth.getUser();
-    if (!user) throw new Error("Unauthorized");
+    if (!user) throw new Error("Sign in to continue");
     actorIdForMetric = user.id;
 
     const validated = updateSprintSchema.parse(data);
@@ -1553,7 +1553,7 @@ export async function updateSprintAction(data: UpdateSprintInput) {
       validated.projectId,
       updatedSprintId,
     );
-    if (!sprintListItem) throw new Error("Failed to reload updated sprint");
+    if (!sprintListItem) throw new Error("Couldn’t reload updated sprint");
 
     await revalidateProjectPaths(validated.projectId);
 
@@ -1603,12 +1603,12 @@ export async function updateSprintAction(data: UpdateSprintInput) {
       success: false,
       durationMs: Date.now() - startedAt,
       message:
-        error instanceof Error ? error.message : "Failed to update sprint",
+        error instanceof Error ? error.message : "Couldn’t update sprint",
     });
 
     return {
       success: false as const,
-      error: error instanceof Error ? error.message : "Failed to update sprint",
+      error: error instanceof Error ? error.message : "Couldn’t update sprint",
     };
   }
 }
@@ -1625,7 +1625,7 @@ export async function deleteSprintAction(data: {
     const {
       data: { user },
     } = await supabase.auth.getUser();
-    if (!user) throw new Error("Unauthorized");
+    if (!user) throw new Error("Sign in to continue");
     actorIdForMetric = user.id;
 
     const validated = deleteSprintSchema.parse(data);
@@ -1759,11 +1759,11 @@ export async function deleteSprintAction(data: {
       success: false,
       durationMs: Date.now() - startedAt,
       message:
-        error instanceof Error ? error.message : "Failed to delete sprint",
+        error instanceof Error ? error.message : "Couldn’t delete sprint",
     });
     return {
       success: false,
-      error: error instanceof Error ? error.message : "Failed to delete sprint",
+      error: error instanceof Error ? error.message : "Couldn’t delete sprint",
     };
   }
 }
@@ -1801,7 +1801,7 @@ export async function completeSprintAction(
     const {
       data: { user },
     } = await supabase.auth.getUser();
-    if (!user) throw new Error("Unauthorized");
+    if (!user) throw new Error("Sign in to continue");
     await requireSprintOwner(projectId, user.id);
     const unfinished = options.unfinished ?? "keep";
     const now = new Date();
@@ -1940,12 +1940,12 @@ export async function completeSprintAction(
       action: "complete",
       success: false,
       message:
-        error instanceof Error ? error.message : "Failed to complete sprint",
+        error instanceof Error ? error.message : "Couldn’t complete sprint",
     });
     return {
       success: false as const,
       error:
-        error instanceof Error ? error.message : "Failed to complete sprint",
+        error instanceof Error ? error.message : "Couldn’t complete sprint",
     };
   }
 }
@@ -1957,7 +1957,7 @@ export async function archiveSprintAction(sprintId: string, projectId: string) {
     const {
       data: { user },
     } = await supabase.auth.getUser();
-    if (!user) throw new Error("Unauthorized");
+    if (!user) throw new Error("Sign in to continue");
     await requireSprintOwner(projectId, user.id);
     const now = new Date();
     await db.transaction(async (tx) => {
@@ -2003,12 +2003,12 @@ export async function archiveSprintAction(sprintId: string, projectId: string) {
       action: "archive",
       success: false,
       message:
-        error instanceof Error ? error.message : "Failed to archive sprint",
+        error instanceof Error ? error.message : "Couldn’t archive sprint",
     });
     return {
       success: false as const,
       error:
-        error instanceof Error ? error.message : "Failed to archive sprint",
+        error instanceof Error ? error.message : "Couldn’t archive sprint",
     };
   }
 }
@@ -2020,7 +2020,7 @@ export async function cancelSprintAction(sprintId: string, projectId: string) {
     const {
       data: { user },
     } = await supabase.auth.getUser();
-    if (!user) throw new Error("Unauthorized");
+    if (!user) throw new Error("Sign in to continue");
     await requireSprintOwner(projectId, user.id);
     const now = new Date();
     let unlinked: LinkedChildSprint[] = [];
@@ -2096,11 +2096,11 @@ export async function cancelSprintAction(sprintId: string, projectId: string) {
       action: "cancel",
       success: false,
       message:
-        error instanceof Error ? error.message : "Failed to cancel sprint",
+        error instanceof Error ? error.message : "Couldn’t cancel sprint",
     });
     return {
       success: false as const,
-      error: error instanceof Error ? error.message : "Failed to cancel sprint",
+      error: error instanceof Error ? error.message : "Couldn’t cancel sprint",
     };
   }
 }
@@ -2150,7 +2150,7 @@ export async function planSprintSeriesAction(input: { projectId: string; prefix:
     await revalidateProjectPaths(input.projectId);
     return { success: true as const, created: series.length };
   } catch (error) {
-    return { success: false as const, error: error instanceof Error ? error.message : "Failed to plan the series" };
+    return { success: false as const, error: error instanceof Error ? error.message : "Couldn’t plan the series" };
   }
 }
 
@@ -2169,7 +2169,7 @@ export async function startSprintNowAction(sprintId: string, projectId: string, 
     await revalidateProjectPaths(projectId);
     return { success: true as const };
   } catch (error) {
-    return { success: false as const, error: error instanceof Error ? error.message : "Failed to start the sprint" };
+    return { success: false as const, error: error instanceof Error ? error.message : "Couldn’t start the sprint" };
   }
 }
 
@@ -2190,7 +2190,7 @@ export async function addSprintMaterialAction(input: { projectId: string; sprint
     await revalidateProjectPaths(input.projectId);
     return { success: true as const };
   } catch (error) {
-    return { success: false as const, error: error instanceof Error ? error.message : "Failed to add the material" };
+    return { success: false as const, error: error instanceof Error ? error.message : "Couldn’t add the material" };
   }
 }
 
@@ -2205,7 +2205,7 @@ export async function removeSprintMaterialAction(input: { projectId: string; mat
     await revalidateProjectPaths(input.projectId);
     return { success: true as const };
   } catch (error) {
-    return { success: false as const, error: error instanceof Error ? error.message : "Failed to remove the material" };
+    return { success: false as const, error: error instanceof Error ? error.message : "Couldn’t remove the material" };
   }
 }
 
@@ -2232,6 +2232,6 @@ export async function searchSprintMaterialCandidatesAction(input: { projectId: s
 async function getAuthUserOrThrow() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Unauthorized");
+  if (!user) throw new Error("Sign in to continue");
   return user;
 }

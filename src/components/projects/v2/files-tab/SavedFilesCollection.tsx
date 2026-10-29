@@ -49,7 +49,7 @@ export function SavedFilesCollection({ projectId }: { projectId: string }) {
     >
       {result.isError && (
         <p role="alert" className="p-3 text-sm">
-          Could not update this collection.{" "}
+          Couldn’t update this collection.{" "}
           <button className="underline" onClick={() => void result.refetch()}>
             Retry
           </button>

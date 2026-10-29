@@ -20,7 +20,7 @@ export async function POST(request: Request) {
   try {
     const auth = await requireAuthenticatedUser();
     if (auth.response) return auth.response;
-    if (!auth.user) return jsonError("Not authenticated", 401, "UNAUTHORIZED");
+    if (!auth.user) return jsonError("Sign in to continue", 401, "UNAUTHORIZED");
     const parsed = schema.safeParse(await request.json());
     if (!parsed.success) return jsonError("Invalid task", 400, "BAD_REQUEST");
     const result = await createTaskAction({
@@ -30,7 +30,7 @@ export async function POST(request: Request) {
     });
     return result.success
       ? jsonSuccess(result)
-      : jsonError(result.error || "Could not create task", 400, "BAD_REQUEST");
+      : jsonError(result.error || "Couldn’t create task", 400, "BAD_REQUEST");
   } catch (error) {
     return routeErrorResponse(error, {
       requestId: getRequestId(request),

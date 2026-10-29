@@ -78,14 +78,14 @@ export async function updateTaskFieldAction(
       error: authError,
     } = await supabase.auth.getUser();
     if (authError || !user) {
-      return { success: false, error: "Unauthorized" };
+      return { success: false, error: "Sign in to continue" };
     }
     const { allowed: taskRlOk } = await consumeRateLimit(
       `task:${user.id}`,
       60,
       60,
     );
-    if (!taskRlOk) return { success: false, error: "Rate limit exceeded" };
+    if (!taskRlOk) return { success: false, error: "Too many attempts. Try again in a minute." };
 
     const requestedSprintId =
       parsed.data.field === "sprintId" &&
@@ -317,7 +317,7 @@ export async function updateTaskFieldAction(
     return { success: true, updatedAt: result.updatedAt.toISOString() };
   } catch (error: any) {
     console.error("Unexpected error:", error);
-    return { success: false, error: error?.message || "Failed to update task" };
+    return { success: false, error: error?.message || "Couldn’t update task" };
   }
 }
 
@@ -325,7 +325,7 @@ async function requireTaskWriter() {
   const { user } = await requireAuthenticatedUser();
   if (!user) return null;
   const { allowed } = await consumeRateLimit(`task:${user.id}`, 60, 60);
-  if (!allowed) throw new Error("Rate limit exceeded");
+  if (!allowed) throw new Error("Too many attempts. Try again in a minute.");
   return user;
 }
 
@@ -351,7 +351,7 @@ export async function updateTaskStatusAction(
     }
     if (position !== undefined && !Number.isFinite(position)) return { success: false, error: "Invalid position" };
     const user = await requireTaskWriter();
-    if (!user) return { success: false, error: "Unauthorized" };
+    if (!user) return { success: false, error: "Sign in to continue" };
     const expectedVersion = parseExpectedVersion(expectedUpdatedAt);
 
     const { locked, result } = await db.transaction(async (tx) => {
@@ -378,7 +378,7 @@ export async function updateTaskStatusAction(
     console.error("Unexpected error:", error);
     return {
       success: false,
-      error: error?.message || "Failed to update task status",
+      error: error?.message || "Couldn’t update task status",
     };
   }
 }
@@ -400,7 +400,7 @@ export async function moveTaskToWorkflowColumnAction(
       return { success: false as const, error: "Invalid task move" };
     }
     const user = await requireTaskWriter();
-    if (!user) return { success: false as const, error: "Unauthorized" };
+    if (!user) return { success: false as const, error: "Sign in to continue" };
     const expectedVersion = parseExpectedVersion(expectedUpdatedAt);
 
     const { locked, result } = await db.transaction(async (tx) => {
@@ -468,14 +468,14 @@ export async function assignTaskAction(
       error: authError,
     } = await supabase.auth.getUser();
     if (authError || !user) {
-      return { success: false, error: "Unauthorized" };
+      return { success: false, error: "Sign in to continue" };
     }
     const { allowed: taskRlOk } = await consumeRateLimit(
       `task:${user.id}`,
       60,
       60,
     );
-    if (!taskRlOk) return { success: false, error: "Rate limit exceeded" };
+    if (!taskRlOk) return { success: false, error: "Too many attempts. Try again in a minute." };
     await requireProjectCapability(
       parsed.data.projectId,
       user.id,
@@ -597,7 +597,7 @@ export async function assignTaskAction(
     return { success: true, updatedAt: result.updatedAt.toISOString() };
   } catch (error: any) {
     console.error("Unexpected error:", error);
-    return { success: false, error: error?.message || "Failed to assign task" };
+    return { success: false, error: error?.message || "Couldn’t assign task" };
   }
 }
 
@@ -612,7 +612,7 @@ export async function approveTaskReviewAction(
   try {
     if (!z.string().uuid().safeParse(taskId).success || !z.string().uuid().safeParse(projectId).success || (expectedUpdatedAt && !z.string().datetime().safeParse(expectedUpdatedAt).success)) return { success: false, error: "Invalid task review request" };
     const user = await requireTaskWriter();
-    if (!user) return { success: false, error: "Unauthorized" };
+    if (!user) return { success: false, error: "Sign in to continue" };
 
     const result = await db.transaction(async (tx) => {
       const locked = await lockTaskForWrite(tx, taskId, user.id);
@@ -677,7 +677,7 @@ export async function approveTaskReviewAction(
     await afterTaskTransition(user, result.locked, taskId, { updatedAt: result.updatedAt, status: "done", reviewStatus: "none", activityEventId: result.activityEventId, outcome: "approved" });
     return { success: true, updatedAt: result.updatedAt.toISOString(), outcome: "approved" as const };
   } catch (error: any) {
-    return { success: false, error: error.message || "Failed to approve task" };
+    return { success: false, error: error.message || "Couldn’t approve task" };
   }
 }
 
@@ -695,7 +695,7 @@ async function performTaskReviewAction(taskId: string, projectId: string, expect
     if (!z.object({ taskId: z.string().uuid(), projectId: z.string().uuid(), expectedUpdatedAt: z.string().datetime() }).safeParse({ taskId, projectId, expectedUpdatedAt }).success) throw new Error("Invalid task review request");
     if (!action.resubmit) action.reviewReason = z.string().trim().min(1, "Explain the requested changes").max(2000).parse(action.reviewReason);
     const user = await requireTaskWriter();
-    if (!user) throw new Error("Unauthorized");
+    if (!user) throw new Error("Sign in to continue");
     const { locked, result } = await db.transaction(async (tx) => {
       const locked = await lockTaskForWrite(tx, taskId, user.id);
       if (locked.projectId !== projectId) throw new Error("Task mismatch");
@@ -715,11 +715,11 @@ export async function getTaskReviewStateAction(taskId: string, projectId: string
   try {
     const { user } = await requireAuthenticatedUser();
     const access = await getProjectAccessById(projectId, user?.id ?? null);
-    if (!canReadProjectTab(access, "tasks")) throw new Error("Forbidden");
+    if (!canReadProjectTab(access, "tasks")) throw new Error("You don’t have access to this");
     const task = await db.query.tasks.findFirst({ where: and(eq(tasks.id, taskId), eq(tasks.projectId, projectId), isNull(tasks.deletedAt)) });
     if (!task) throw new Error("Task not found");
     const changed = task.reviewStatus === "pending" && (!task.reviewContentHash || task.reviewContentHash !== await taskReviewSnapshot(db, taskId));
     const latest = task.reviewStatus === "rejected" ? await db.query.taskActivityEvents.findFirst({ where: and(eq(taskActivityEvents.taskId, taskId), eq(taskActivityEvents.eventType, "changes_requested")), orderBy: [desc(taskActivityEvents.createdAt)] }) : null;
     return { success: true as const, changed, submittedAt: task.reviewSubmittedAt?.toISOString() ?? null, completedAt: task.completedAt?.toISOString() ?? null, reason: typeof latest?.payload?.reason === "string" ? latest.payload.reason : null };
-  } catch (error) { return { success: false as const, error: error instanceof Error ? error.message : "Unable to load review" }; }
+  } catch (error) { return { success: false as const, error: error instanceof Error ? error.message : "Couldn’t load review" }; }
 }

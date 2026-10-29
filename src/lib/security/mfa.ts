@@ -47,7 +47,7 @@ export async function listSecurityMfaFactors(
 
   const result = await mfaApi.listFactors();
   if (result.error) {
-    throw result.error instanceof Error ? result.error : new Error("Failed to list MFA factors");
+    throw result.error instanceof Error ? result.error : new Error("Couldn’t list MFA factors");
   }
   const allFactors = Array.isArray(result?.data?.all) ? result.data.all : [];
 

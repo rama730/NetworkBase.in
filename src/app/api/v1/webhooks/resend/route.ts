@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
       chunks.push(value);
     }
   } catch {
-    return jsonError("Unable to read body", 400, "BAD_REQUEST");
+    return jsonError("Couldn’t read body", 400, "BAD_REQUEST");
   } finally { reader.releaseLock(); }
   let verified: unknown;
   try {
@@ -46,5 +46,5 @@ export async function POST(request: NextRequest) {
   try {
     await recordResendEvent(id, parsed.data);
     return jsonSuccess({ recorded: true });
-  } catch { return jsonError("Unable to record event; retry delivery", 503, "UNAVAILABLE"); }
+  } catch { return jsonError("Couldn’t record event; retry delivery", 503, "UNAVAILABLE"); }
 }

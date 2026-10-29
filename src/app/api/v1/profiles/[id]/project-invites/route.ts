@@ -33,7 +33,7 @@ export async function POST(
 
   const auth = await requireAuthenticatedUser();
   if (auth.response || !auth.user) {
-    return auth.response ?? jsonError("Not authenticated", 401, "UNAUTHORIZED");
+    return auth.response ?? jsonError("Sign in to continue", 401, "UNAUTHORIZED");
   }
   if (auth.user.id === id) {
     return jsonError("Choose someone else to invite", 400, "BAD_REQUEST");
@@ -88,7 +88,7 @@ export async function POST(
         status: 400,
         errorCode: "BAD_REQUEST",
       });
-      return jsonError(result.error || "Failed to send invite", 400, "BAD_REQUEST");
+      return jsonError(result.error || "Couldn’t send invite", 400, "BAD_REQUEST");
     }
 
     logApiRoute(request, {
@@ -120,6 +120,6 @@ export async function POST(
       status: 500,
       errorCode: "INTERNAL_ERROR",
     });
-    return jsonError("Failed to send project invite", 500, "INTERNAL_ERROR");
+    return jsonError("Couldn’t send project invite", 500, "INTERNAL_ERROR");
   }
 }

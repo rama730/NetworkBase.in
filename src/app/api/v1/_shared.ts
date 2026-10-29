@@ -69,7 +69,7 @@ export async function enforceRouteLimit(
   const identifier = identityKey || getRequestIp(request);
   const rl = await consumeRateLimitForRoute(route, `${key}:${identifier}`, limit, windowSeconds);
   if (!rl.allowed) {
-    return jsonError("Rate limit exceeded", 429, "RATE_LIMITED");
+    return jsonError("Too many attempts. Try again in a minute.", 429, "RATE_LIMITED");
   }
   return null;
 }
@@ -195,7 +195,7 @@ export async function requireAuthenticatedUser() {
       supabase,
       user: null as User | null,
       extensionSessionId: null as string | null,
-      response: jsonError("Not authenticated", 401, "UNAUTHORIZED"),
+      response: jsonError("Sign in to continue", 401, "UNAUTHORIZED"),
     };
   }
   return {

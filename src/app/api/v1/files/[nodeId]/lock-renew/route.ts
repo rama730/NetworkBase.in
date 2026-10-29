@@ -27,7 +27,7 @@ export async function POST(
       rateLimit: { key: `api:v1:files:lock-renew:${nodeId}`, limit: 180, windowSeconds: 60 },
     });
     if (auth.response) return auth.response;
-    const parsed = await parseFileLeaseBody(request, schema, "Invalid request body");
+    const parsed = await parseFileLeaseBody(request, schema, "This request isn’t valid");
     if (parsed.response) return parsed.response;
     await assertProjectWriteAccess(parsed.data.projectId, auth.user!.id);
     const lease = await renewFileLease({
@@ -39,6 +39,6 @@ export async function POST(
     });
     return jsonSuccess(lease);
   } catch (error) {
-    return fileLeaseErrorResponse(error, "Failed to renew file lease");
+    return fileLeaseErrorResponse(error, "Couldn’t renew file lease");
   }
 }

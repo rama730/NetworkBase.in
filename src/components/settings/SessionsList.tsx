@@ -66,13 +66,13 @@ export function SessionsList({
     try {
       const res = await fetch(`/api/v1/sessions?limit=12&offset=${nextOffset}`, { cache: "no-store" });
       const json = await res.json().catch(() => null);
-      if (!res.ok || json?.success === false) throw new Error(json?.message || "Failed to load more devices");
+      if (!res.ok || json?.success === false) throw new Error(json?.message || "Couldn’t load more devices");
       const page = json.data as { sessions: Session[]; pagination: { hasMore: boolean; nextOffset: number | null } };
       // A device signed in meanwhile can shift the pages: never show one twice.
       setSessions((prev) => [...prev, ...page.sessions.filter((next) => !prev.some((known) => known.id === next.id))]);
       setNextOffset(page.pagination.hasMore ? page.pagination.nextOffset : null);
     } catch (error) {
-      toast.error(feedbackError(error instanceof Error ? error.message : "Failed to load more devices", "Failed to load more devices"));
+      toast.error(feedbackError(error instanceof Error ? error.message : "Couldn’t load more devices", "Couldn’t load more devices"));
     } finally {
       setLoadingMore(false);
     }
@@ -81,10 +81,10 @@ export function SessionsList({
   const handleLogOutCurrent = async (id: string) => {
     setBusy(true);
     try {
-      await send(`/api/v1/sessions?id=${encodeURIComponent(id)}`, "Failed to sign out this device");
+      await send(`/api/v1/sessions?id=${encodeURIComponent(id)}`, "Couldn’t sign out this device");
       window.location.assign("/login");
     } catch (error) {
-      throw error instanceof Error ? error : new Error("Failed to sign out this device");
+      throw error instanceof Error ? error : new Error("Couldn’t sign out this device");
     } finally {
       setBusy(false);
     }
@@ -93,7 +93,7 @@ export function SessionsList({
   const handleLogOutRemote = async (id: string) => {
     setBusy(true);
     try {
-      await send(`/api/v1/sessions?id=${encodeURIComponent(id)}`, "Failed to sign out device");
+      await send(`/api/v1/sessions?id=${encodeURIComponent(id)}`, "Couldn’t sign out device");
       setSessions((prev) => prev.filter((session) => session.id !== id));
       toast.success("Device signed out");
       refreshSecurity();
@@ -103,7 +103,7 @@ export function SessionsList({
         setSessions((prev) => prev.filter((session) => session.id !== id));
         refreshSecurity();
       }
-      toast.error(feedbackError(error instanceof Error ? error.message : "Failed to sign out device", "Failed to sign out device"));
+      toast.error(feedbackError(error instanceof Error ? error.message : "Couldn’t sign out device", "Couldn’t sign out device"));
     } finally {
       setBusy(false);
       setPendingAction(null);

@@ -224,9 +224,9 @@ export async function createFolder(
 ) {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error("Unauthorized");
+    if (!user) throw new Error("Sign in to continue");
     const { allowed } = await consumeRateLimit(`files:${user.id}`, 60, 60);
-    if (!allowed) throw new Error("Rate limit exceeded");
+    if (!allowed) throw new Error("Too many attempts. Try again in a minute.");
     await assertProjectUploadAccess(projectId, user.id);
 
     const safeName = normalizeNodeName(name);
@@ -275,9 +275,9 @@ export async function createFileNode(projectId: string, parentId: string | null,
 }) {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error("Unauthorized");
+    if (!user) throw new Error("Sign in to continue");
     const { allowed } = await consumeRateLimit(`files:${user.id}`, 60, 60);
-    if (!allowed) throw new Error("Rate limit exceeded");
+    if (!allowed) throw new Error("Too many attempts. Try again in a minute.");
     await assertProjectUploadAccess(projectId, user.id, { taskId: file.taskId });
 
     const safeName = normalizeNodeName(file.name);
@@ -424,9 +424,9 @@ export async function finalizeBatchUpload(
 
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error("Unauthorized");
+    if (!user) throw new Error("Sign in to continue");
     const { allowed } = await consumeRateLimit(`files:${user.id}`, 60, 60);
-    if (!allowed) throw new Error("Rate limit exceeded");
+    if (!allowed) throw new Error("Too many attempts. Try again in a minute.");
     await assertProjectUploadAccess(projectId, user.id);
 
     const intentIds = files
@@ -674,7 +674,7 @@ export async function getUploadCollisionSummary(
 ): Promise<UploadCollisionSummary> {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error("Unauthorized");
+    if (!user) throw new Error("Sign in to continue");
     await assertProjectUploadAccess(projectId, user.id);
 
     if (paths.length > 5000) {
@@ -767,9 +767,9 @@ export async function getUploadCollisionSummary(
 
 export async function renameNode(nodeId: string, newName: string, projectId: string, expectedUpdatedAt?: string) {
     const { user } = await requireAuthenticatedUser();
-    if (!user) throw new Error("Unauthorized");
+    if (!user) throw new Error("Sign in to continue");
     const { allowed } = await consumeRateLimit(`files:${user.id}`, 60, 60);
-    if (!allowed) throw new Error("Rate limit exceeded");
+    if (!allowed) throw new Error("Too many attempts. Try again in a minute.");
     await assertProjectWriteAccess(projectId, user.id);
 
     const safeName = normalizeNodeName(newName);
@@ -836,9 +836,9 @@ export async function moveProjectNodes(
     },
 ): Promise<MoveProjectNodesResult> {
     const { user } = await requireAuthenticatedUser();
-    if (!user) throw new Error("Unauthorized");
+    if (!user) throw new Error("Sign in to continue");
     const { allowed } = await consumeRateLimit(`files:${user.id}`, 60, 60);
-    if (!allowed) throw new Error("Rate limit exceeded");
+    if (!allowed) throw new Error("Too many attempts. Try again in a minute.");
     await assertProjectManageFilesAccess(projectId, user.id);
 
     const uniqueIds = Array.from(new Set(nodeIds.filter(Boolean)));
@@ -1003,9 +1003,9 @@ export async function moveProjectNodes(
 export async function restoreNode(nodeId: string, projectId: string) {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error("Unauthorized");
+    if (!user) throw new Error("Sign in to continue");
     const { allowed } = await consumeRateLimit(`files:${user.id}`, 60, 60);
-    if (!allowed) throw new Error("Rate limit exceeded");
+    if (!allowed) throw new Error("Too many attempts. Try again in a minute.");
     await assertProjectWriteAccess(projectId, user.id);
 
     await db.transaction(async (tx) => {
@@ -1063,9 +1063,9 @@ export async function restoreNode(nodeId: string, projectId: string) {
 
 export async function bulkTrashNodes(nodeIds: string[], projectId: string, expectedVersions?: Record<string,string>) {
     const { user } = await requireAuthenticatedUser();
-    if (!user) throw new Error("Unauthorized");
+    if (!user) throw new Error("Sign in to continue");
     const { allowed } = await consumeRateLimit(`files:${user.id}`, 60, 60);
-    if (!allowed) throw new Error("Rate limit exceeded");
+    if (!allowed) throw new Error("Too many attempts. Try again in a minute.");
     await assertProjectWriteAccess(projectId, user.id);
 
     const uniqueIds = Array.from(new Set(nodeIds.filter(Boolean)));
@@ -1156,9 +1156,9 @@ export async function bulkTrashNodes(nodeIds: string[], projectId: string, expec
 export async function bulkRestoreNodes(nodeIds: string[], projectId: string, expectedDeletedAt?: string) {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error("Unauthorized");
+    if (!user) throw new Error("Sign in to continue");
     const { allowed } = await consumeRateLimit(`files:${user.id}`, 60, 60);
-    if (!allowed) throw new Error("Rate limit exceeded");
+    if (!allowed) throw new Error("Too many attempts. Try again in a minute.");
     await assertProjectWriteAccess(projectId, user.id);
 
     const uniqueIds = Array.from(new Set(nodeIds.filter(Boolean)));
@@ -1272,7 +1272,7 @@ export async function bulkRestoreNodes(nodeIds: string[], projectId: string, exp
 export async function getTrashPage(projectId: string, query = "", cursor?: string) {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error("Unauthorized");
+    if (!user) throw new Error("Sign in to continue");
     await assertProjectWriteAccess(projectId, user.id);
     // Newest deletion first; the cursor is "<deleted_at as database text>~<id>" (exact microseconds).
     const [cursorAt, cursorId] = cursor?.split("~") ?? [];
@@ -1320,9 +1320,9 @@ export async function bulkCreateFolderTree(
 ) {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error("Unauthorized");
+    if (!user) throw new Error("Sign in to continue");
     const { allowed } = await consumeRateLimit(`files:${user.id}`, 60, 60);
-    if (!allowed) throw new Error("Rate limit exceeded");
+    if (!allowed) throw new Error("Too many attempts. Try again in a minute.");
     await assertProjectUploadAccess(projectId, user.id);
 
     if (files.length === 0) return [];
@@ -1495,7 +1495,7 @@ export async function bulkCreateFolderTree(
 export async function getOrCreateTaskSystemFolderAction(projectId: string, taskId: string): Promise<string> {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error("Unauthorized");
+    if (!user) throw new Error("Sign in to continue");
     if (!UUID_RE.test(projectId) || !UUID_RE.test(taskId)) throw new Error("Task not found");
     await assertProjectUploadAccess(projectId, user.id, { taskId });
 

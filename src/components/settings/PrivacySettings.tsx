@@ -107,7 +107,7 @@ export default function PrivacySettings() {
   const activityMutation = useMutation({
     mutationFn: async (show: boolean) => {
       const result = await setShowActivity({ show });
-      if (!result.success) throw new Error("Failed to update activity visibility");
+      if (!result.success) throw new Error("Couldn’t update activity visibility");
     },
     onSuccess: async (_data, show) => { toast.success(show ? "Others can see when you’re active" : "Your activity is hidden"); await refreshPresence(); },
     onError: () => toast.error("Couldn’t update activity visibility"),

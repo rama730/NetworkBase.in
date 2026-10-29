@@ -135,7 +135,7 @@ export default function UpdatesTab({
         filter: orgFilter,
       });
       if (!result.success)
-        throw new Error(result.error || "Failed to load project updates");
+        throw new Error(result.error || "Couldn’t load project updates");
       return result.data as UpdatesPage;
     },
     getNextPageParam: (lastPage) => lastPage.nextCursor,

@@ -30,7 +30,7 @@ export async function POST(request: Request) {
   if (csrfError) return csrfError;
 
   const auth = await requireAuthenticatedUser();
-  if (auth.response || !auth.user) return auth.response ?? jsonError("Not authenticated", 401, "UNAUTHORIZED");
+  if (auth.response || !auth.user) return auth.response ?? jsonError("Sign in to continue", 401, "UNAUTHORIZED");
   if (auth.extensionSessionId) return jsonError("This needs a browser session", 403, "FORBIDDEN");
   const limited = await enforceRouteLimit(request, "api:v1:integrations:unlink", 10, 3600, "default", auth.user.id);
   if (limited) return limited;

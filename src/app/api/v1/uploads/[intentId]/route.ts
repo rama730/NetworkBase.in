@@ -21,7 +21,7 @@ async function authenticatedIntentId(
   if (limitResponse) return { response: limitResponse };
   const auth = await requireAuthenticatedUser();
   if (auth.response || !auth.user) {
-    return { response: auth.response ?? jsonError("Unauthorized", 401, "UNAUTHORIZED") };
+    return { response: auth.response ?? jsonError("Sign in to continue", 401, "UNAUTHORIZED") };
   }
   const { intentId } = await context.params;
   if (!isUuid(intentId)) return { response: jsonError("Upload operation not found", 404, "NOT_FOUND") };

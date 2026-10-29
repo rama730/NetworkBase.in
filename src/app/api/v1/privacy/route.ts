@@ -79,7 +79,7 @@ export async function GET(request: Request) {
 
   const auth = await requireAuthenticatedUser();
   if (auth.response || !auth.user) {
-    return auth.response ?? jsonError("Not authenticated", 401, "UNAUTHORIZED");
+    return auth.response ?? jsonError("Sign in to continue", 401, "UNAUTHORIZED");
   }
   const limitResponse = await enforceRouteLimit(request, "api:v1:privacy:get", 120, 60, "default", auth.user.id);
   if (limitResponse) return limitResponse;
@@ -121,7 +121,7 @@ export async function GET(request: Request) {
       status: 500,
       errorCode: "INTERNAL_ERROR",
     });
-    return jsonError("Failed to load privacy settings", 500, "INTERNAL_ERROR");
+    return jsonError("Couldn’t load privacy settings", 500, "INTERNAL_ERROR");
   }
 }
 
@@ -132,7 +132,7 @@ const PRIVACY_SETTINGS = [
     responseKey: "visibility",
     values: ["public", "connections", "private"] as const,
     invalidMessage: "Invalid profile visibility",
-    failureMessage: "Failed to update profile visibility",
+    failureMessage: "Couldn’t update profile visibility",
   },
   {
     kind: "connectionPrivacy",
@@ -140,7 +140,7 @@ const PRIVACY_SETTINGS = [
     responseKey: "connectionPrivacy",
     values: ["everyone", "mutuals_only", "nobody"] as const,
     invalidMessage: "Invalid connection request privacy",
-    failureMessage: "Failed to update connection request privacy",
+    failureMessage: "Couldn’t update connection request privacy",
   },
   {
     kind: "messagePrivacy",
@@ -148,7 +148,7 @@ const PRIVACY_SETTINGS = [
     responseKey: "messagePrivacy",
     values: ["everyone", "connections"] as const,
     invalidMessage: "Invalid messaging privacy",
-    failureMessage: "Failed to update messaging privacy",
+    failureMessage: "Couldn’t update messaging privacy",
   },
 ] as const;
 

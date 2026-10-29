@@ -48,14 +48,14 @@ function VerifyEmailPageInner() {
             const body = await response.json().catch(() => null) as { success?: boolean; message?: string } | null;
 
             if (!response.ok || body?.success === false) {
-                setError(body?.message || 'Unable to resend verification email.')
+                setError(body?.message || 'Couldn’t resend verification email.')
                 return
             }
 
             setCooldown(RESEND_COOLDOWN_SECONDS)
             setMessage(`We sent a new link to ${user.email}.`)
         } catch (resendError) {
-            setError(resendError instanceof Error ? resendError.message : 'Unable to resend verification email.')
+            setError(resendError instanceof Error ? resendError.message : 'Couldn’t resend verification email.')
         } finally {
             setIsSending(false)
         }
@@ -92,7 +92,7 @@ function VerifyEmailPageInner() {
         try {
             await signOut()
         } catch (signOutError) {
-            setError(signOutError instanceof Error ? signOutError.message : 'Failed to sign out. Try again.')
+            setError(signOutError instanceof Error ? signOutError.message : 'Couldn’t sign out. Try again.')
             setIsSigningOut(false)
         }
     }

@@ -277,7 +277,7 @@ export default function FilesTab({
           proceedWithExtracted(extracted);
         } catch (error) {
           toast.error(
-            feedbackError(error instanceof Error ? error.message : "Could not read the dropped files", "Could not read the dropped files"),
+            feedbackError(error instanceof Error ? error.message : "Couldn’t read the dropped files", "Couldn’t read the dropped files"),
           );
         } finally {
           setIsProcessingDrop(false);

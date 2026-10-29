@@ -94,13 +94,13 @@ export function LegalAndDataRightsSection() {
       });
       const payload = await response.json().catch(() => null);
       if (!response.ok || payload?.success === false) {
-        throw new Error(payload?.message || "Could not save acceptance");
+        throw new Error(payload?.message || "Couldn’t save acceptance");
       }
       // Said only once the new state is actually in hand: a failed re-read must not read as "pending" after success.
       toast.success("Your legal acceptance was recorded");
       loadStatus();
     } catch (error) {
-      toast.error(feedbackError(error instanceof Error ? error.message : "Could not save acceptance", "Could not save acceptance"));
+      toast.error(feedbackError(error instanceof Error ? error.message : "Couldn’t save acceptance", "Couldn’t save acceptance"));
     } finally {
       setAccepting(false);
     }
@@ -117,7 +117,7 @@ export function LegalAndDataRightsSection() {
           <h4 className="nb-ui-label text-foreground">Terms of Service and EULA</h4>
           <p className="nb-compact mt-0.5 text-muted-foreground">
             {fetchError
-              ? "Unable to verify current agreement status. Retry."
+              ? "Couldn’t verify current agreement status. Retry."
               : state?.current
                 ? `You accepted Terms of Service (${state.latest?.termsVersion ?? LEGAL_VERSIONS.terms}), the EULA (${state.latest?.eulaVersion ?? LEGAL_VERSIONS.eula}) and acknowledged the Privacy Policy (${state.latest?.privacyNoticeVersion ?? LEGAL_VERSIONS.privacy})${
                     state.latest?.acceptedAt ? ` on ${formatCalendarDate(state.latest.acceptedAt)}` : ""

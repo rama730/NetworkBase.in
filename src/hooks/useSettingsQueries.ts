@@ -130,7 +130,7 @@ async function fetchSecurityData(): Promise<SecurityData> {
   return (
     (await parseJsonResponse<SecurityData>(
       res,
-      "Failed to load security data",
+      "Couldn’t load security data",
     )) || DEFAULT_SECURITY_DATA
   );
 }
@@ -140,7 +140,7 @@ async function fetchIntegrationsData(): Promise<IntegrationsData> {
   return (
     (await parseJsonResponse<IntegrationsData>(
       res,
-      "Failed to load integrations data",
+      "Couldn’t load integrations data",
     )) || DEFAULT_INTEGRATIONS_DATA
   );
 }
@@ -151,7 +151,7 @@ async function fetchPrivacyData(): Promise<PrivacyData> {
   return (
     (await parseJsonResponse<PrivacyData>(
       res,
-      "Failed to load privacy settings",
+      "Couldn’t load privacy settings",
     )) || DEFAULT_PRIVACY_SETTINGS
   );
 }
@@ -228,7 +228,7 @@ export function useUpdateNotificationPreferences() {
       const result = await updateNotificationPreferencesAction(next, changedKeys);
       if (!result.success || !result.preferences) {
         throw new Error(
-          result.error || "Failed to update notification preferences",
+          result.error || "Couldn’t update notification preferences",
         );
       }
       return normalizeNotificationPreferences(result.preferences);
@@ -320,7 +320,7 @@ async function submitPasswordChangeRequest({
   } catch (error) {
     return {
       success: false as const,
-      message: error instanceof Error ? error.message : "Unable to change password. Try again.",
+      message: error instanceof Error ? error.message : "Couldn’t change password. Try again.",
       errorCode: error instanceof Error && "errorCode" in error ? String(error.errorCode) : undefined,
     };
   }

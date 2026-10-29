@@ -54,7 +54,7 @@ export async function DELETE(request: Request) {
             status: 401,
             errorCode: 'UNAUTHORIZED',
         });
-        return auth.response ?? jsonError('Not authenticated', 401, 'UNAUTHORIZED');
+        return auth.response ?? jsonError('Sign in to continue', 401, 'UNAUTHORIZED');
     }
     const user = auth.user;
 
@@ -78,7 +78,7 @@ export async function DELETE(request: Request) {
                     errorCode: 'BAD_REQUEST',
                 });
                 return jsonError(
-                    bodyParse.error.issues[0]?.message ?? 'Invalid request body',
+                    bodyParse.error.issues[0]?.message ?? 'This request isn’t valid',
                     400,
                     'BAD_REQUEST',
                 );
@@ -181,7 +181,7 @@ export async function DELETE(request: Request) {
             status: 500,
             errorCode: 'INTERNAL_ERROR',
         });
-        return jsonError('Failed to schedule account deletion', 500, 'INTERNAL_ERROR');
+        return jsonError('Couldn’t schedule account deletion', 500, 'INTERNAL_ERROR');
     }
     });
 }

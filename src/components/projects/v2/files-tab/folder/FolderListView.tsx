@@ -322,7 +322,7 @@ export function FolderListView({
       await loadFolderContent(folderId, "append");
     } catch (error) {
       toast.error(
-        feedbackError(error instanceof Error ? error.message : "Could not load more files", "Could not load more files"),
+        feedbackError(error instanceof Error ? error.message : "Couldn’t load more files", "Couldn’t load more files"),
       );
     } finally {
       setIsLoadingMore(false);
@@ -649,7 +649,7 @@ export function FolderListView({
         setTargetDropFolderId(folderId);
         setPendingUploadFiles(validation.files);
       }).catch((error) => {
-        toast.error(feedbackError(error instanceof Error ? error.message : "Could not read dropped folder", "Could not read dropped folder"));
+        toast.error(feedbackError(error instanceof Error ? error.message : "Couldn’t read dropped folder", "Couldn’t read dropped folder"));
       });
     };
 

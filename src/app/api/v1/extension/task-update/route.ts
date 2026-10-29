@@ -62,7 +62,7 @@ export async function PATCH(request: Request) {
     const auth = await requireAuthenticatedUser();
     if (auth.response) return auth.response;
     const user = auth.user;
-    if (!user) return jsonError("Not authenticated", 401, "UNAUTHORIZED");
+    if (!user) return jsonError("Sign in to continue", 401, "UNAUTHORIZED");
     const parsed = inputSchema.safeParse(await request.json());
     if (!parsed.success)
       return jsonError("Invalid task update", 400, "BAD_REQUEST");
@@ -85,7 +85,7 @@ export async function PATCH(request: Request) {
     }
     const limit = await consumeRateLimit(`task:${user.id}`, 60, 60);
     if (!limit.allowed)
-      return jsonError("Rate limit exceeded", 429, "RATE_LIMITED");
+      return jsonError("Too many attempts. Try again in a minute.", 429, "RATE_LIMITED");
     if (input.kind === "subtask") {
       const row = await db.transaction(async (tx) => {
         const taskId = await lockSubtaskWriteScope(

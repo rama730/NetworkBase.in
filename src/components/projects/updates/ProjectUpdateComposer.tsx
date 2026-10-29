@@ -270,7 +270,7 @@ export function ProjectUpdateComposer({
                 query: debouncedContextQuery,
                 limit: 8,
             });
-            if (!result.success) throw new Error(result.error || "Failed to load context");
+            if (!result.success) throw new Error(result.error || "Couldn’t load context");
             return result.data;
         },
         enabled: expanded && canCreate && Boolean(activeContextKind),
@@ -672,7 +672,7 @@ export function ProjectUpdateComposer({
             updatePendingUpload(id, {
                 phase: "preparing",
                 progress: 0,
-                error: error instanceof Error ? error.message : "Failed to upload image.",
+                error: error instanceof Error ? error.message : "Couldn’t upload image.",
             });
         }
     };
@@ -752,7 +752,7 @@ export function ProjectUpdateComposer({
                     placeholder={`Find ${activeContextKind}`}
                     options={activeContextOptions}
                     loading={contextOptionsQuery.isLoading}
-                    error={contextOptionsQuery.isError ? "Could not load project context." : null}
+                    error={contextOptionsQuery.isError ? "Couldn’t load project context." : null}
                     onRetry={() => { void contextOptionsQuery.refetch(); }}
                     onSelect={selectContext}
                     onClose={() => setActivePanel(null)}

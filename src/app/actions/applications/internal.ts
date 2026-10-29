@@ -1066,7 +1066,7 @@ export async function applyToRoleAction(
             }
             return toApplicationFailure(traceId, 'INVALID_STATE', 'Your application changed in another tab. Refresh and try again.');
         }
-        return toApplicationFailure(traceId, 'INTERNAL_ERROR', 'Failed to submit application');
+        return toApplicationFailure(traceId, 'INTERNAL_ERROR', 'Couldn’t submit application');
     }
 }
 
@@ -1084,7 +1084,7 @@ export async function acceptApplicationAction(
         const { data: { user } } = await supabase.auth.getUser();
 
         if (!user) {
-            return toApplicationFailure(traceId, 'UNAUTHORIZED', 'Unauthorized');
+            return toApplicationFailure(traceId, 'UNAUTHORIZED', 'Sign in to continue');
         }
         const dedupeKey = `applications:accept:${user.id}:${applicationId}:${options?.idempotencyKey?.trim() || 'default'}`;
         return await runInFlightDeduped(dedupeKey, async () => {
@@ -1267,7 +1267,7 @@ export async function acceptApplicationAction(
         if (error instanceof Error && (error.message === 'Role not found' || error.message.includes('Role not found'))) {
             return toApplicationFailure(traceId, 'ROLE_REMOVED', 'This role was removed. Decline this application instead.');
         }
-        return toApplicationFailure(traceId, 'INTERNAL_ERROR', 'Failed to accept application');
+        return toApplicationFailure(traceId, 'INTERNAL_ERROR', 'Couldn’t accept application');
     }
 }
 
@@ -1395,7 +1395,7 @@ export async function rejectApplicationAction(
         const { data: { user } } = await supabase.auth.getUser();
 
         if (!user) {
-            return toApplicationFailure(traceId, 'UNAUTHORIZED', 'Unauthorized');
+            return toApplicationFailure(traceId, 'UNAUTHORIZED', 'Sign in to continue');
         }
         const dedupeKey = `applications:reject:${user.id}:${applicationId}:${options?.idempotencyKey?.trim() || 'default'}`;
         return await runInFlightDeduped(dedupeKey, async () => {
@@ -1502,7 +1502,7 @@ export async function rejectApplicationAction(
         if (error instanceof Error && error.message === 'Application already processed') {
             return toApplicationFailure(traceId, 'ALREADY_PROCESSED', 'This application has already been processed');
         }
-        return toApplicationFailure(traceId, 'INTERNAL_ERROR', 'Failed to reject application');
+        return toApplicationFailure(traceId, 'INTERNAL_ERROR', 'Couldn’t reject application');
     }
 }
 
@@ -1520,7 +1520,7 @@ export async function editPendingApplicationAction(
         const supabase = await createClient();
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) {
-            return toApplicationFailure(traceId, 'UNAUTHORIZED', 'Unauthorized');
+            return toApplicationFailure(traceId, 'UNAUTHORIZED', 'Sign in to continue');
         }
 
         const parsed = editApplicationInputSchema.safeParse({ applicationId, message, roleId: roleId || undefined, details: options?.details ?? {} });
@@ -1614,7 +1614,7 @@ export async function editPendingApplicationAction(
         });
     } catch (error) {
         console.error('Failed to edit pending application:', error);
-        return toApplicationFailure(traceId, 'INTERNAL_ERROR', 'Failed to edit application');
+        return toApplicationFailure(traceId, 'INTERNAL_ERROR', 'Couldn’t edit application');
     }
 }
 
@@ -1631,7 +1631,7 @@ export async function withdrawApplicationAction(
         const supabase = await createClient();
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) {
-            return toApplicationFailure(traceId, 'UNAUTHORIZED', 'Unauthorized');
+            return toApplicationFailure(traceId, 'UNAUTHORIZED', 'Sign in to continue');
         }
 
         if (!isUuid(applicationId)) return toApplicationFailure(traceId, 'INVALID_INPUT', 'Invalid application');
@@ -1719,7 +1719,7 @@ export async function withdrawApplicationAction(
         if (error instanceof Error && error.message === 'Application already processed') {
             return toApplicationFailure(traceId, 'ALREADY_PROCESSED', 'This application has already been processed');
         }
-        return toApplicationFailure(traceId, 'INTERNAL_ERROR', 'Failed to withdraw application');
+        return toApplicationFailure(traceId, 'INTERNAL_ERROR', 'Couldn’t withdraw application');
     }
 }
 
@@ -1736,7 +1736,7 @@ export async function reopenApplicationAction(
         const supabase = await createClient();
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) {
-            return toApplicationFailure(traceId, 'UNAUTHORIZED', 'Unauthorized');
+            return toApplicationFailure(traceId, 'UNAUTHORIZED', 'Sign in to continue');
         }
 
         const reopenRate = await consumeRateLimit(`applications:reopen:${user.id}`, 20, 60);
@@ -1859,7 +1859,7 @@ export async function reopenApplicationAction(
         return toApplicationSuccess(traceId, { applicationId });
     } catch (error) {
         console.error('Failed to reopen application:', error);
-        return toApplicationFailure(traceId, 'INTERNAL_ERROR', 'Failed to reopen application');
+        return toApplicationFailure(traceId, 'INTERNAL_ERROR', 'Couldn’t reopen application');
     }
 }
 
@@ -1877,7 +1877,7 @@ export async function getIncomingApplicationsAction(
             return {
                 success: false,
                 errorCode: 'UNAUTHORIZED' as const,
-                error: 'Unauthorized',
+                error: 'Sign in to continue',
                 applications: [],
                 hasMore: false,
                 nextCursor: null,
@@ -2034,7 +2034,7 @@ export async function getIncomingApplicationsAction(
         return {
             success: false,
             errorCode: 'INTERNAL_ERROR' as const,
-            error: 'Failed to load incoming applications',
+            error: 'Couldn’t load incoming applications',
             applications: [],
             hasMore: false,
             nextCursor: null,
@@ -2070,7 +2070,7 @@ export async function getProjectInviteOptionsAction(projectId: string): Promise<
     try {
         const supabase = await createClient();
         const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return { success: false, error: 'Unauthorized', connections: [], openRoles: [] };
+        if (!user) return { success: false, error: 'Sign in to continue', connections: [], openRoles: [] };
 
         const [project] = await db
             .select({ ownerId: projects.ownerId })
@@ -2084,7 +2084,7 @@ export async function getProjectInviteOptionsAction(projectId: string): Promise<
                 .from(projectMembers)
                 .where(and(eq(projectMembers.projectId, projectId), eq(projectMembers.userId, user.id)))
                 .limit(1);
-            if (membership?.role !== 'admin') return { success: false, error: 'Forbidden', connections: [], openRoles: [] };
+            if (membership?.role !== 'admin') return { success: false, error: 'You don’t have access to this', connections: [], openRoles: [] };
         }
 
         // 1. Fetch project open roles that are not fully filled
@@ -2243,7 +2243,7 @@ export async function getSentProjectInvitationsAction(options?: { limit?: number
         if (!user) {
             return {
                 success: false as const,
-                error: 'Unauthorized',
+                error: 'Sign in to continue',
                 invitations: [] as SentProjectInvitationItem[],
             };
         }
@@ -2331,7 +2331,7 @@ export async function cancelSentProjectInvitationAction(input: {
 }) {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return { success: false as const, error: 'Unauthorized' };
+    if (!user) return { success: false as const, error: 'Sign in to continue' };
 
     const { allowed } = await consumeRateLimit(`project-invitation-cancel:${user.id}`, 60, 60);
     if (!allowed) return { success: false as const, error: 'Too many requests. Try again later.' };
@@ -2349,11 +2349,11 @@ export async function cancelSentProjectInvitationAction(input: {
         }
 
         if (!didCancel) {
-            return { success: false as const, error: cancelError || 'Failed to cancel project invitation' };
+            return { success: false as const, error: cancelError || 'Couldn’t cancel project invitation' };
         }
 
         return { success: true as const };
     } catch (error) {
-        return { success: false as const, error: error instanceof Error ? error.message : 'Failed to cancel project invitation' };
+        return { success: false as const, error: error instanceof Error ? error.message : 'Couldn’t cancel project invitation' };
     }
 }

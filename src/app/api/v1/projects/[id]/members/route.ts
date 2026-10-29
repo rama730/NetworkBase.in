@@ -73,7 +73,7 @@ export async function GET(
 
     const { user, response } = await requireAuthenticatedUser();
     if (response) return response;
-    if (!user) return jsonError("Not authenticated", 401, "UNAUTHORIZED");
+    if (!user) return jsonError("Sign in to continue", 401, "UNAUTHORIZED");
 
     const params = await context.params;
     const projectId = params.id;
@@ -86,7 +86,7 @@ export async function GET(
         return jsonError("Project not found", 404, "NOT_FOUND");
     }
     if (!access.isOwner && !access.isMember) {
-        return jsonError("Forbidden", 403, "FORBIDDEN");
+        return jsonError("You don’t have access to this", 403, "FORBIDDEN");
     }
 
     const rawQuery = request.nextUrl.searchParams.get("q");

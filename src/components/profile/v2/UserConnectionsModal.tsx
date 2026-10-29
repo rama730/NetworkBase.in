@@ -75,7 +75,7 @@ export function UserConnectionsModal({ isOpen, onClose, userId, userName }: User
 
             if (requestToken !== requestTokenRef.current) return;
 
-            if (!response.success) throw new Error(response.error || 'Could not load connections');
+            if (!response.success) throw new Error(response.error || 'Couldn’t load connections');
             setTotalConnections(response.totalConnections);
             const nextRows = (response.connections || []) as ConnectionRow[];
             setHasMore(Boolean(response.hasMore));
@@ -98,7 +98,7 @@ export function UserConnectionsModal({ isOpen, onClose, userId, userName }: User
             setConnections(nextRows);
         } catch (error) {
             if (requestToken !== requestTokenRef.current) return;
-            setLoadError(error instanceof Error ? error.message : 'Could not load connections');
+            setLoadError(error instanceof Error ? error.message : 'Couldn’t load connections');
             logger.error('[profile.connections-modal] failed to load connections', {
                 module: 'profile',
                 userId,

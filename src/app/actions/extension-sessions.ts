@@ -57,7 +57,7 @@ export async function getActiveExtensionSessions(
         const supabase = await createClient();
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) {
-            return { success: false as const, error: "Not authenticated" };
+            return { success: false as const, error: "Sign in to continue" };
         }
 
         const page = await listActiveExtensionSessionsForUser(user.id, options);
@@ -70,7 +70,7 @@ export async function getActiveExtensionSessions(
         };
     } catch (e) {
         console.error("Failed to fetch extension sessions:", e);
-        return { success: false as const, error: "Failed to fetch active extension sessions" };
+        return { success: false as const, error: "Couldn’t fetch active extension sessions" };
     }
 }
 
@@ -83,7 +83,7 @@ export async function revokeExtensionSession(sessionId: string) {
         const supabase = await createClient();
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) {
-            return { success: false as const, error: "Not authenticated" };
+            return { success: false as const, error: "Sign in to continue" };
         }
 
         const session = await db.query.extensionDeviceSessions.findFirst({
@@ -136,7 +136,7 @@ export async function revokeExtensionSession(sessionId: string) {
         };
     } catch (e) {
         console.error("Failed to revoke extension session:", e);
-        return { success: false as const, error: "Failed to revoke extension session" };
+        return { success: false as const, error: "Couldn’t revoke extension session" };
     }
 }
 
@@ -148,7 +148,7 @@ export async function generateExtensionToken(
         const supabase = await createClient();
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) {
-            return { success: false as const, error: "Not authenticated" };
+            return { success: false as const, error: "Sign in to continue" };
         }
 
         const rateLimitResult = await consumeRateLimit(`extension:token:${user.id}`, 10, 3600);
@@ -226,7 +226,7 @@ export async function generateExtensionToken(
                     .limit(1))[0];
 
                 if (!session) {
-                    throw new Error("Failed to insert extension session");
+                    throw new Error("Couldn’t insert extension session");
                 }
 
                 await tx.insert(extensionDeviceSessionEvents).values({
@@ -257,7 +257,7 @@ export async function generateExtensionToken(
         return { success: true as const, rawToken, session };
     } catch (e) {
         console.error("Failed to generate extension token:", e);
-        return { success: false as const, error: "Failed to generate extension token" };
+        return { success: false as const, error: "Couldn’t generate extension token" };
     }
 }
 
@@ -314,6 +314,6 @@ export async function generateExtensionAuthCode(
         };
     } catch (error) {
         console.error("Failed to generate extension auth code:", error);
-        return { success: false as const, error: "Failed to generate extension authorization code" };
+        return { success: false as const, error: "Couldn’t generate extension authorization code" };
     }
 }

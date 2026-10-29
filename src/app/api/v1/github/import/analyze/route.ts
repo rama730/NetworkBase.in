@@ -16,7 +16,7 @@ export async function GET(request: Request) {
   );
 
   if (!result.success) {
-    const message = result.error || "Failed to analyze repository.";
+    const message = result.error || "Couldn’t analyze repository.";
     return jsonError(
       message,
       /unauthorized/i.test(message) ? 401 : 400,

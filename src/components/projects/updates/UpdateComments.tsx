@@ -354,7 +354,7 @@ export function UpdateComments({
         pageParam,
       );
       if (!result.success)
-        throw new Error(result.error || "Failed to load comments");
+        throw new Error(result.error || "Couldn’t load comments");
       return result.data;
     },
     getNextPageParam: (lastPage) => lastPage.nextCursor,

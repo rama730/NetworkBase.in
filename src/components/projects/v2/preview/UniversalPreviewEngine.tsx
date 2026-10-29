@@ -145,7 +145,7 @@ export default function UniversalPreviewEngine({
     return (
       <div className="flex flex-1 flex-col items-center justify-center gap-3 p-8 text-center">
         <AlertTriangle className="h-8 w-8 text-amber-500" />
-        <p className="text-sm font-semibold text-foreground">Failed to prepare file preview</p>
+        <p className="text-sm font-semibold text-foreground">Couldn’t prepare file preview</p>
         <p className="max-w-md text-xs text-muted-foreground">{signedUrlError}</p>
         {onRetry && (
           <Button size="sm" variant="outline" onClick={onRetry} className="mt-2">

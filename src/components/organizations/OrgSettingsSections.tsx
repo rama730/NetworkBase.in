@@ -52,7 +52,7 @@ function useSave() {
     const save = (action: () => Promise<{ success: boolean; error?: string }>, done?: () => void) =>
         startTransition(async () => {
             const result = await action()
-            setMessage(result.success ? { kind: 'ok', text: 'Saved.' } : { kind: 'error', text: result.error ?? 'Could not save.' })
+            setMessage(result.success ? { kind: 'ok', text: 'Saved.' } : { kind: 'error', text: result.error ?? 'Couldn’t save.' })
             if (result.success) {
                 done?.()
                 router.refresh()

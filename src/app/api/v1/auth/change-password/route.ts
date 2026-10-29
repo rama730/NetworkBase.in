@@ -78,7 +78,7 @@ export async function POST(request: Request) {
       status: 401,
       errorCode: "UNAUTHORIZED",
     });
-    return jsonError("Not authenticated", 401, "UNAUTHORIZED");
+    return jsonError("Sign in to continue", 401, "UNAUTHORIZED");
   }
 
   const authUser = auth.user;
@@ -114,7 +114,7 @@ export async function POST(request: Request) {
       status: 400,
       errorCode: "BAD_REQUEST",
     });
-    return jsonError("Invalid request body", 400, "BAD_REQUEST");
+    return jsonError("This request isn’t valid", 400, "BAD_REQUEST");
   }
 
   const currentPassword = parsed.data.currentPassword || "";
@@ -260,7 +260,7 @@ export async function POST(request: Request) {
               ? "Current password is incorrect"
               : emailNotConfirmed
                 ? "Confirm your email address before changing your password"
-                : "Unable to verify password"
+                : "Couldn’t verify password"
           ),
           invalidCredentials ? 400 : emailNotConfirmed ? 403 : 500,
           invalidCredentials ? "CURRENT_PASSWORD_INVALID" : emailNotConfirmed ? "EMAIL_NOT_CONFIRMED" : "INTERNAL_ERROR",
@@ -339,7 +339,7 @@ export async function POST(request: Request) {
       status: 500,
       errorCode: "INTERNAL_ERROR",
     });
-    return jsonError("Failed to change password", 500, "INTERNAL_ERROR");
+    return jsonError("Couldn’t change password", 500, "INTERNAL_ERROR");
   }
   });
 }

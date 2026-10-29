@@ -76,7 +76,7 @@ export async function readNetworkInvitationsAction(
         };
     }
     const user = await getAuthUser();
-    if (!user) return { success: false as const, error: "Not authenticated" };
+    if (!user) return { success: false as const, error: "Sign in to continue" };
     const rate = await consumeRateLimit(
       `network-invitations:${user.id}`,
       100,
@@ -234,7 +234,7 @@ export async function readNetworkInvitationsAction(
     });
     return {
       success: false as const,
-      error: "Could not load invitations. Try again.",
+      error: "Couldn’t load invitations. Try again.",
     };
   }
 }

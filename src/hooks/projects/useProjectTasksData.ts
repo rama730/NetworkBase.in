@@ -111,7 +111,7 @@ export function useSprintDetail(
                     limit: pageSize,
                 });
             if (!result.success) {
-                throw new Error(result.error ?? 'Failed to fetch sprint detail');
+                throw new Error(result.error ?? 'Couldn’t fetch sprint detail');
             }
             return result.data;
         },

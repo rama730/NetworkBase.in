@@ -406,7 +406,7 @@ export function FileView({
             useFilesStore.getState().setNodes(projectId, [result.node]);
             toast.success("Active version updated");
           } else {
-            throw new Error(result.error || "Failed to update active revision");
+            throw new Error(result.error || "Couldn’t update active revision");
           }
         }
       } catch (err) {
@@ -517,7 +517,7 @@ export function FileView({
         window.open(url, "_blank", "noopener,noreferrer");
       } catch (err) {
         const message =
-          err instanceof Error ? err.message : "Could not prepare raw file";
+          err instanceof Error ? err.message : "Couldn’t prepare raw file";
         toast.error(feedbackError(message, "Action couldn’t finish"));
       }
     })();
@@ -532,7 +532,7 @@ export function FileView({
     void fileLease.acquire()
       .then(() => setMode("edit"))
       .catch((error) => {
-        const message = error instanceof Error ? error.message : "Could not start editing";
+        const message = error instanceof Error ? error.message : "Couldn’t start editing";
         toast.error(feedbackError(message, "Action couldn’t finish"));
       });
   }, [canEdit, textLike,fileLease]);
@@ -639,7 +639,7 @@ export function FileView({
             whole subtree (see module header). */}
         <div className="flex min-h-0 flex-1">
           <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-            <ComponentErrorBoundary fallbackMessage="Failed to load preview">
+            <ComponentErrorBoundary fallbackMessage="Couldn’t load preview">
               {compareTarget !== null ? (
                 <FileVersionCompareView
                   projectId={projectId}
@@ -919,7 +919,7 @@ function PreviewError({ message, onRetry }: PreviewErrorProps): React.JSX.Elemen
       <AlertTriangle className="h-6 w-6 text-amber-500" aria-hidden="true" />
       <button type="button" onClick={onRetry} className="min-h-11 rounded-[5px] border border-border px-4">Retry preview</button>
       <p className="font-medium text-foreground">
-        Failed to load preview
+        Couldn’t load preview
       </p>
       {message ? (
         <p className="max-w-md break-words text-muted-foreground">

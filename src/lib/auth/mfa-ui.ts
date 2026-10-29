@@ -60,5 +60,5 @@ export function getTotpVerificationErrorMessage(error: AuthLikeError | Error | n
         return "That code expired. Wait for the next 6-digit code in your authenticator app and try again.";
     }
 
-    return message || "Failed to verify authenticator app";
+    return message || "Couldn’t verify authenticator app";
 }

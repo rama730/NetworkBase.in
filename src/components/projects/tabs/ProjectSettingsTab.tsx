@@ -447,7 +447,7 @@ function ProjectSettingsContent({
             setDangerPreflight(result.data);
         } catch (error) {
             if (!mountedRef.current) return;
-            setLoadError("danger", "Unable to load these settings. Retry.");
+            setLoadError("danger", "Couldn’t load these settings. Retry.");
             console.error("Failed to load danger-zone preflight", error);
 
             toast.error("Couldn’t load danger-zone checks");
@@ -501,7 +501,7 @@ function ProjectSettingsContent({
             });
         } catch (error) {
             if (!mountedRef.current || seq !== collaboratorRequestSeqRef.current) return;
-            setLoadError("collaborators", "Unable to load these settings. Retry.");
+            setLoadError("collaborators", "Couldn’t load these settings. Retry.");
             console.error("Couldn’t load members", error);
 
             toast.error("Couldn’t load members");
@@ -532,7 +532,7 @@ function ProjectSettingsContent({
                 return more && current ? { ...result.data, members: [...current.members, ...result.data.members.filter((member) => !existing.has(member.id))] } : result.data;
             });
         } catch {
-            if (mountedRef.current && seq === fileAccessRequestRef.current) setLoadError("files", "Unable to load file permissions. Retry.");
+            if (mountedRef.current && seq === fileAccessRequestRef.current) setLoadError("files", "Couldn’t load file permissions. Retry.");
         } finally {
             if (mountedRef.current && seq === fileAccessRequestRef.current) { setFileAccessLoading(false); setFileAccessLoadingMore(false); }
         }
@@ -563,7 +563,7 @@ function ProjectSettingsContent({
             setProjectNotificationDraft((draft) => projectNotificationDataRef.current && JSON.stringify(draft) !== JSON.stringify(projectNotificationDataRef.current.policy) ? draft : result.data.policy);
         } catch (error) {
             if (!mountedRef.current) return;
-            setLoadError("notifications", "Unable to load these settings. Retry.");
+            setLoadError("notifications", "Couldn’t load these settings. Retry.");
             console.error("Failed to load project notification settings", error);
 
             toast.error("Couldn’t load workspace notification settings");
@@ -592,7 +592,7 @@ function ProjectSettingsContent({
             setReadmeSettingsDraft(normalized);
         } catch (error) {
             if (!mountedRef.current) return;
-            setLoadError("readme", "Unable to load these settings. Retry.");
+            setLoadError("readme", "Couldn’t load these settings. Retry.");
             console.error("Failed to load document settings", error);
             toast.error("Couldn’t load document settings");
         } finally {

@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
     try {
 
         const auth = await requireAuthenticatedUser();
-        if (auth.response || !auth.user) return auth.response ?? jsonError('Unauthorized', 401, 'UNAUTHORIZED');
+        if (auth.response || !auth.user) return auth.response ?? jsonError('Sign in to continue', 401, 'UNAUTHORIZED');
         const user = auth.user;
 
         const { searchParams } = new URL(request.url);

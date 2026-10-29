@@ -9,7 +9,7 @@ describe('auth session lookup error classification', () => {
     })
 
     it('classifies invalid token errors by status', () => {
-        const kind = classifyAuthLookupError({ status: 401, message: 'Unauthorized' })
+        const kind = classifyAuthLookupError({ status: 401, message: 'Sign in to continue' })
         assert.equal(kind, 'invalid_token')
     })
 

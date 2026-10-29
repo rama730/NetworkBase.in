@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
         if (limitResponse) return limitResponse;
 
         const auth = await requireAuthenticatedUser();
-        if (auth.response || !auth.user) return auth.response ?? jsonError('Unauthorized', 401, 'UNAUTHORIZED');
+        if (auth.response || !auth.user) return auth.response ?? jsonError('Sign in to continue', 401, 'UNAUTHORIZED');
         const user = auth.user;
 
         let body;
@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
 
         const parsed = abortSchema.safeParse(body);
         if (!parsed.success) {
-            return jsonError('Invalid request body', 400, 'BAD_REQUEST');
+            return jsonError('This request isn’t valid', 400, 'BAD_REQUEST');
         }
 
         const { jobId } = parsed.data;

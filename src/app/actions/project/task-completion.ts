@@ -22,7 +22,7 @@ export async function getTaskCompletionPolicyAction(projectId: string) {
       !access.isOwner &&
       access.member?.role !== "admin"
     )
-      throw new Error("Forbidden");
+      throw new Error("You don’t have access to this");
     const project = await db.query.projects.findFirst({
       where: eq(projects.id, projectId),
       columns: { taskReviewRequired: true, taskCompletionPolicyVersion: true },
@@ -40,7 +40,7 @@ export async function getTaskCompletionPolicyAction(projectId: string) {
       error:
         error instanceof Error
           ? error.message
-          : "Unable to load completion settings",
+          : "Couldn’t load completion settings",
     };
   }
 }
@@ -59,9 +59,9 @@ export async function updateTaskCompletionPolicyAction(input: {
       })
       .parse(input);
     const { user } = await requireAuthenticatedUser();
-    if (!user) throw new Error("Unauthorized");
+    if (!user) throw new Error("Sign in to continue");
     if (!(await consumeRateLimit(`task-policy:${user.id}`, 30, 60)).allowed)
-      throw new Error("Rate limit exceeded");
+      throw new Error("Too many attempts. Try again in a minute.");
     const version = await db.transaction(async (tx) => {
       const [row] = await tx.execute<{
         owner_id: string;
@@ -114,7 +114,7 @@ export async function updateTaskCompletionPolicyAction(input: {
       error:
         error instanceof Error
           ? error.message
-          : "Unable to save completion settings",
+          : "Couldn’t save completion settings",
     };
   }
 }

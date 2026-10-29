@@ -53,7 +53,7 @@ export async function POST(request: Request) {
     // 1. Verify project write access
     const access = await getProjectAccessById(projectId, user.id);
     if (!access.project) return jsonError("Project not found", 404, "NOT_FOUND");
-    if (!access.canWrite) return jsonError("Forbidden", 403, "FORBIDDEN");
+    if (!access.canWrite) return jsonError("You don’t have access to this", 403, "FORBIDDEN");
 
     const uploadSessionId = crypto.randomUUID();
     const adminClient = await createAdminClient();
@@ -67,7 +67,7 @@ export async function POST(request: Request) {
       resolvedFiles.push(...await Promise.all(files.slice(offset, offset + 8).map(async (file) => {
         const resolved = await resolveWritableExtensionFile(projectId, file.path, user.id);
         if (resolved.response || !resolved.node) {
-          throw new Error(`Failed to resolve file: ${file.path}`);
+          throw new Error(`Couldn’t resolve file: ${file.path}`);
         }
         const node = resolved.node;
         const operationIdentity = operationId ?? uploadSessionId;
@@ -114,7 +114,7 @@ export async function POST(request: Request) {
           .createSignedUploadUrl(storageKey, { upsert: false });
 
         if (signedError || !signed) {
-          throw new Error(`Failed to create signed URL for ${file.path}: ${signedError?.message}`);
+          throw new Error(`Couldn’t create signed URL for ${file.path}: ${signedError?.message}`);
         }
 
         return {
@@ -133,6 +133,6 @@ export async function POST(request: Request) {
       files: results,
     });
   } catch (error) {
-    return routeErrorResponse(error, { requestId: getRequestId(request), scope: "api/v1/extension/bulk-intent", fallback: "Failed to create bulk upload intents" });
+    return routeErrorResponse(error, { requestId: getRequestId(request), scope: "api/v1/extension/bulk-intent", fallback: "Couldn’t create bulk upload intents" });
   }
 }

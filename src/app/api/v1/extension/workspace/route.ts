@@ -30,7 +30,7 @@ export async function GET(request: Request) {
     }
     const user = authResult.user;
     if (!user) {
-      return jsonError("Not authenticated", 401, "UNAUTHORIZED");
+      return jsonError("Sign in to continue", 401, "UNAUTHORIZED");
     }
 
     const profile = await db.query.profiles.findFirst({ where: eq(profiles.id, user.id), columns: {fullName:true,username:true,avatarUrl:true} });
@@ -274,7 +274,7 @@ export async function GET(request: Request) {
       },
     );
     return jsonError(
-      "Failed to fetch workspace details",
+      "Couldn’t fetch workspace details",
       500,
       "INTERNAL_ERROR",
     );

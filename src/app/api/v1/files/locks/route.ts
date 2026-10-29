@@ -18,7 +18,7 @@ export async function GET(request: Request) {
       { headers: { "Cache-Control": "private, max-age=10, stale-while-revalidate=30" } },
     );
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to load file leases";
+    const message = error instanceof Error ? error.message : "Couldn’t load file leases";
     if (/unauthorized/i.test(message)) return jsonError(message, 401, "UNAUTHORIZED");
     if (/forbidden/i.test(message)) return jsonError(message, 403, "FORBIDDEN");
     return jsonError(message, 500, "INTERNAL_ERROR");

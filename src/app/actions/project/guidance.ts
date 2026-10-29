@@ -46,7 +46,7 @@ function parseReviewAt(value: string | null | undefined) {
 
 export async function createProjectInvitationAction(input: CreateInvitationActionInput) {
     const user = await getAuthUser();
-    if (!user) return { success: false as const, error: "Not authenticated" };
+    if (!user) return { success: false as const, error: "Sign in to continue" };
     const reviewAt = parseReviewAt(input.reviewAt);
     if (input.reviewAt?.trim() && !reviewAt) return { success: false as const, error: "Invalid review date" };
 
@@ -109,14 +109,14 @@ export async function createProjectInvitationAction(input: CreateInvitationActio
             capacityWarning: Boolean(created.capacityWarning),
         };
     } catch (error) {
-        return { success: false as const, error: error instanceof Error ? error.message : "Failed to create invitation" };
+        return { success: false as const, error: error instanceof Error ? error.message : "Couldn’t create invitation" };
     }
 }
 
 /** Small, Lead-only preview for the shared recruitment composer. Final checks stay in createProjectInvitation. */
 export async function getProjectGuidancePreflightAction(input: { projectId: string; candidateId: string }) {
     const user = await getAuthUser();
-    if (!user) return { success: false as const, error: "Not authenticated" };
+    if (!user) return { success: false as const, error: "Sign in to continue" };
     const [project] = await db
         .select({ ownerId: projects.ownerId })
         .from(projects)
@@ -159,7 +159,7 @@ export async function resolveProjectInvitationAction(input: {
     action: "accept" | "decline" | "cancel";
 }) {
     const user = await getAuthUser();
-    if (!user) return { success: false as const, error: "Not authenticated" };
+    if (!user) return { success: false as const, error: "Sign in to continue" };
     const { allowed } = await consumeRateLimit(`project-invitation-resolve:${user.id}`, 60, 60);
     if (!allowed) return { success: false as const, error: "Too many requests. Try again later." };
     try {
@@ -172,13 +172,13 @@ export async function resolveProjectInvitationAction(input: {
         if (project) revalidatePath(`/projects/${project.slug || project.id}`);
         return { success: true as const, projectId: result.invitation.projectId };
     } catch (error) {
-        return { success: false as const, error: error instanceof Error ? error.message : "Failed to resolve invitation" };
+        return { success: false as const, error: error instanceof Error ? error.message : "Couldn’t resolve invitation" };
     }
 }
 
 export async function getMyPendingProjectInvitationsAction() {
     const user = await getAuthUser();
-    if (!user) return { success: false as const, error: "Not authenticated", invitations: [] };
+    if (!user) return { success: false as const, error: "Sign in to continue", invitations: [] };
     const now = new Date();
     await db.update(projectInvitations)
         .set({ status: "expired", resolvedAt: now, updatedAt: now })
@@ -215,7 +215,7 @@ export async function getMyPendingProjectInvitationsAction() {
 
 export async function searchProjectInviteCandidatesAction(input: { projectId: string; query?: string | null }) {
     const user = await getAuthUser();
-    if (!user) return { success: false as const, error: "Not authenticated", items: [] };
+    if (!user) return { success: false as const, error: "Sign in to continue", items: [] };
     const query = input.query?.trim().replace(/^@/, "") ?? "";
     if (query && query.length < 2) return { success: true as const, items: [] };
     const rate = await consumeRateLimit(`project-invite-search:${user.id}`, 60, 60);
@@ -233,7 +233,7 @@ export async function searchProjectInviteCandidatesAction(input: { projectId: st
             .from(projectMembers)
             .where(and(eq(projectMembers.projectId, input.projectId), eq(projectMembers.userId, user.id)))
             .limit(1);
-        if (membership?.role !== "admin") return { success: false as const, error: "Forbidden", items: [] };
+        if (membership?.role !== "admin") return { success: false as const, error: "You don’t have access to this", items: [] };
     }
 
     const pattern = `%${query.replace(/[%_\\]/g, "\\$&")}%`;

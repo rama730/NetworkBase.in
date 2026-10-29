@@ -18,7 +18,7 @@ export async function GET(request: Request) {
     const authResult = await requireAuthenticatedUser();
     if (authResult.response) return authResult.response;
     const user = authResult.user;
-    if (!user) return jsonError("Not authenticated", 401, "UNAUTHORIZED");
+    if (!user) return jsonError("Sign in to continue", 401, "UNAUTHORIZED");
 
     const { searchParams } = new URL(request.url);
     const taskId = searchParams.get("taskId")?.trim();
@@ -41,8 +41,8 @@ export async function GET(request: Request) {
     // Canonical rule: drafts/private for owners+members only, task data needs
     // Tasks visibility, linked project files also need Files (AUTH-002).
     const access = await getProjectAccessById(row.projectId, user.id);
-    if (!canReadProjectTab(access, "tasks")) return jsonError("Forbidden", 403, "FORBIDDEN");
-    if (!(await canSeeOrgTask(access, user.id, taskId))) return jsonError("Forbidden", 403, "FORBIDDEN");
+    if (!canReadProjectTab(access, "tasks")) return jsonError("You don’t have access to this", 403, "FORBIDDEN");
+    if (!(await canSeeOrgTask(access, user.id, taskId))) return jsonError("You don’t have access to this", 403, "FORBIDDEN");
     const canReadFiles = canReadProjectTab(access, "files");
 
     const fullTask = await db.query.tasks.findFirst({where:eq(tasks.id,taskId)});
@@ -124,6 +124,6 @@ export async function GET(request: Request) {
       })),
     });
   } catch (error) {
-    return routeErrorResponse(error, { requestId: getRequestId(request), scope: "api/v1/extension/task-detail", fallback: "Failed to get task detail" });
+    return routeErrorResponse(error, { requestId: getRequestId(request), scope: "api/v1/extension/task-detail", fallback: "Couldn’t get task detail" });
   }
 }

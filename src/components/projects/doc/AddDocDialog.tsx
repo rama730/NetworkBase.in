@@ -68,7 +68,7 @@ export function AddDocDialog({
             setTitle("");
             onOpenChange(false);
         } catch (error) {
-            toast.error(feedbackError(error instanceof Error ? error.message : "Failed to create doc", "Failed to create doc"));
+            toast.error(feedbackError(error instanceof Error ? error.message : "Couldn’t create doc", "Couldn’t create doc"));
         } finally {
             setCreating(null);
         }
@@ -184,7 +184,7 @@ export function AddDocDialog({
                         </div>
                     ) : files.isError ? (
                         <p className="py-6 text-center text-[13px] text-muted-foreground">
-                            Could not load files.{" "}
+                            Couldn’t load files.{" "}
                             <button type="button" onClick={() => void files.refetch()} className="font-medium text-foreground underline underline-offset-4">
                                 Retry
                             </button>

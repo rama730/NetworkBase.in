@@ -134,7 +134,7 @@ export async function POST(request: Request) {
       status: 400,
       errorCode: "BAD_REQUEST",
     });
-    return jsonError("Unable to create account", 400, "BAD_REQUEST");
+    return jsonError("Couldn’t create account", 400, "BAD_REQUEST");
   }
 
   // Disposable email check: prevent throwaway bot domains from polluting the database.
@@ -260,7 +260,7 @@ export async function POST(request: Request) {
         status: 400,
         errorCode: "BAD_REQUEST",
       });
-      return jsonError("Unable to create account", 400, "BAD_REQUEST");
+      return jsonError("Couldn’t create account", 400, "BAD_REQUEST");
     }
 
     if (isDuplicateSignUpResponse(result.data.user)) {
@@ -322,7 +322,7 @@ export async function POST(request: Request) {
       status: 500,
       errorCode: "INTERNAL_ERROR",
     });
-    return jsonError("Unable to create account", 500, "INTERNAL_ERROR");
+    return jsonError("Couldn’t create account", 500, "INTERNAL_ERROR");
   }
   });
 }

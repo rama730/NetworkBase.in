@@ -18,7 +18,7 @@ export function AdminReportsClient({ data }: { data: Data }) {
     const [message, setMessage] = useState<string | null>(null)
     const run = (action: () => Promise<{ success: boolean; error?: string }>) => start(async () => {
         const result = await action()
-        setMessage(result.success ? 'Done.' : result.error ?? 'Could not finish that.')
+        setMessage(result.success ? 'Done.' : result.error ?? 'Couldn’t finish that.')
         if (result.success) router.refresh()
     })
     const suspend = (orgId: string, reportId?: string) => {

@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
         if (limitResponse) return limitResponse;
 
         const auth = await requireAuthenticatedUser();
-        if (auth.response || !auth.user) return auth.response ?? jsonError('Unauthorized', 401, 'UNAUTHORIZED');
+        if (auth.response || !auth.user) return auth.response ?? jsonError('Sign in to continue', 401, 'UNAUTHORIZED');
         const user = auth.user;
 
         let body;
@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
 
         const parsed = initSchema.safeParse(body);
         if (!parsed.success) {
-            return jsonError('Invalid request body', 400, 'BAD_REQUEST');
+            return jsonError('This request isn’t valid', 400, 'BAD_REQUEST');
         }
 
         const { projectId, manifestHash, manifestSize, totalFiles } = parsed.data;
@@ -65,7 +65,7 @@ export async function POST(request: NextRequest) {
             metadata: { jobId, totalFiles },
         });
         if (!intent.assetId) {
-            return jsonError('Failed to reserve manifest asset', 503, 'UNAVAILABLE');
+            return jsonError('Couldn’t reserve manifest asset', 503, 'UNAVAILABLE');
         }
 
         const adminClient = await createAdminClient();
@@ -75,7 +75,7 @@ export async function POST(request: NextRequest) {
 
         if (storageError || !uploadSession) {
             console.error('[github-import-init] Storage signed url error:', storageError);
-            return jsonError('Failed to generate signed manifest URL', 500, 'INTERNAL_ERROR');
+            return jsonError('Couldn’t generate signed manifest URL', 500, 'INTERNAL_ERROR');
         }
 
         // Insert pending import job
@@ -97,7 +97,7 @@ export async function POST(request: NextRequest) {
             .returning();
 
         if (!job) {
-            return jsonError('Failed to initialize import job', 500, 'INTERNAL_ERROR');
+            return jsonError('Couldn’t initialize import job', 500, 'INTERNAL_ERROR');
         }
 
         return jsonSuccess({

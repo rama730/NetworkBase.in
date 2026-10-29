@@ -393,7 +393,7 @@ export function ContributionEditor({
     channel.current = bc;
     bc.onmessage = () => {
       void refresh().catch(() =>
-        setError("Could not check for changes from another session."),
+        setError("Couldn’t check for changes from another session."),
       );
     };
     const focus = () => {
@@ -437,7 +437,7 @@ export function ContributionEditor({
           if (!cancelled) setOptions(result);
         })
         .catch(() => {
-          if (!cancelled) setError("Could not load references. Try again.");
+          if (!cancelled) setError("Couldn’t load references. Try again.");
         })
         .finally(() => {
           if (!cancelled) setOptionsLoading(false);
@@ -456,7 +456,7 @@ export function ContributionEditor({
         .then((options) => {
           if (!cancelled) setLinkOptions(options);
         })
-        .catch(() => setError("Could not load your projects. Try again."));
+        .catch(() => setError("Couldn’t load your projects. Try again."));
     }, 180);
     return () => {
       cancelled = true;
@@ -702,7 +702,7 @@ export function ContributionEditor({
     } catch {
       setPauseAutosave(true);
       setError(
-        "Could not save this contribution. Your draft is kept. Retry Save draft.",
+        "Couldn’t save this contribution. Your draft is kept. Retry Save draft.",
       );
       setStatus("Draft save failed");
     } finally {
@@ -776,7 +776,7 @@ export function ContributionEditor({
         nav(row.id);
       }
     } catch {
-      setError("Could not add an external project. Try again.");
+      setError("Couldn’t add an external project. Try again.");
     }
   }
   async function uploadFiles(
@@ -2362,7 +2362,7 @@ export function ContributionEditor({
                           );
                         } catch {
                           setError(
-                            "Could not add this project image. Try again.",
+                            "Couldn’t add this project image. Try again.",
                           );
                         }
                       } else {

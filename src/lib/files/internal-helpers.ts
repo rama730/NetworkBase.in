@@ -18,7 +18,7 @@ async function getProjectAccess(projectId: string, userId: string | null): Promi
 
 export async function assertProjectReadAccess(projectId: string, userId: string | null) {
     const access = await getProjectAccess(projectId, userId);
-    if (!access.canRead) throw new ForbiddenError("Forbidden");
+    if (!access.canRead) throw new ForbiddenError("You don’t have access to this");
     return access;
 }
 
@@ -123,7 +123,7 @@ async function assertOrgWrite(executor: Executor, projectId: string, userId: str
 
 export async function assertProjectWriteAccess(projectId: string, userId: string, target?: OwnCopyTarget) {
     const access = await getProjectAccess(projectId, userId);
-    if (!access.canWrite) throw new ForbiddenError("Forbidden");
+    if (!access.canWrite) throw new ForbiddenError("You don’t have access to this");
     if (access.project.kind === "organization") await assertOrgWrite(db, projectId, userId, access.isOwner || access.memberRole === "admin", target);
     await requireProjectCapability(projectId, userId, "upload_files");
     return { ...access, canWrite: true };
@@ -131,7 +131,7 @@ export async function assertProjectWriteAccess(projectId: string, userId: string
 
 export async function assertProjectManageFilesAccess(projectId: string, userId: string) {
     const access = await getProjectAccess(projectId, userId);
-    if (!access.canWrite) throw new ForbiddenError("Forbidden");
+    if (!access.canWrite) throw new ForbiddenError("You don’t have access to this");
     if (access.project.kind === "organization") await assertOrgWrite(db, projectId, userId, access.isOwner || access.memberRole === "admin");
     await requireProjectCapability(projectId, userId, "manage_files");
     return { ...access, canManageFiles: true };
@@ -141,7 +141,7 @@ export async function assertProjectUploadAccess(projectId: string, userId: strin
     const access = await getProjectAccess(projectId, userId);
     if (access.isOwner) return { ...access, canUpload: true };
     if (access.project.kind === "organization") {
-        if (!access.isMember) throw new ForbiddenError("Forbidden");
+        if (!access.isMember) throw new ForbiddenError("You don’t have access to this");
         await assertOrgWrite(db, projectId, userId, access.memberRole === "admin", target);
         return { ...access, canUpload: true };
     }
@@ -178,7 +178,7 @@ export async function assertProjectWriteAccessTx(
     `);
     const project = Array.from(projectResult)[0];
     if (!project || project.deleted_at) {
-        throw new ForbiddenError("Forbidden");
+        throw new ForbiddenError("You don’t have access to this");
     }
 
     const isOwner = project.owner_id === userId;
@@ -198,12 +198,12 @@ export async function assertProjectWriteAccessTx(
     `);
     const member = Array.from(memberResult)[0];
     if (!member) {
-        throw new ForbiddenError("Forbidden");
+        throw new ForbiddenError("You don’t have access to this");
     }
     if (project.kind === "organization") {
         await assertOrgWrite(tx, projectId, userId, member.role === "admin", target);
     } else if (!projectMemberCan(member.role, "upload_files")) {
-        throw new ForbiddenError("Forbidden");
+        throw new ForbiddenError("You don’t have access to this");
     }
 
     return {
@@ -230,7 +230,7 @@ export async function assertProjectManageFilesAccessTx(
         FOR UPDATE
     `);
     const project = Array.from(projectResult)[0];
-    if (!project || project.deleted_at) throw new ForbiddenError("Forbidden");
+    if (!project || project.deleted_at) throw new ForbiddenError("You don’t have access to this");
     if (project.owner_id === userId) {
         return {
             project: { id: project.id, ownerId: project.owner_id, visibility: project.visibility },
@@ -246,7 +246,7 @@ export async function assertProjectManageFilesAccessTx(
         FOR UPDATE
     `);
     const member = Array.from(memberResult)[0];
-    if (!member || !projectMemberCan(member.role, "manage_files")) throw new ForbiddenError("Forbidden");
+    if (!member || !projectMemberCan(member.role, "manage_files")) throw new ForbiddenError("You don’t have access to this");
     if (project.kind === "organization") await assertOrgWrite(tx, projectId, userId, member.role === "admin");
     return {
         project: { id: project.id, ownerId: project.owner_id, visibility: project.visibility },
@@ -274,7 +274,7 @@ export async function assertProjectUploadAccessTx(
     `);
     const project = Array.from(projectResult)[0];
     if (!project || project.deleted_at) {
-        throw new ForbiddenError("Forbidden");
+        throw new ForbiddenError("You don’t have access to this");
     }
 
     const isOwner = project.owner_id === userId;
@@ -294,7 +294,7 @@ export async function assertProjectUploadAccessTx(
     `);
     const member = Array.from(memberResult)[0];
     if (project.kind === "organization") {
-        if (!member) throw new ForbiddenError("Forbidden");
+        if (!member) throw new ForbiddenError("You don’t have access to this");
         await assertOrgWrite(tx, projectId, userId, member.role === "admin", target);
     } else if (!member || !canProjectMemberUploadFiles({ role: member.role, fileUploadEnabled: member.file_upload_enabled })) {
         throw new ForbiddenError("File uploads are disabled for this project member.");

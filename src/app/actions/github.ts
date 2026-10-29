@@ -261,7 +261,7 @@ export async function listGithubRepositories(input?: {
       if (!login) {
         return {
           success: false as const,
-          error: 'Could not determine GitHub username for search. Try again.',
+          error: 'Couldn’t determine GitHub username for search. Try again.',
         };
       }
 
@@ -675,7 +675,7 @@ export async function analyzeGithubRepoAction(
     } catch (e: any) {
       return {
         success: false as const,
-        error: typeof e?.message === 'string' ? e.message : 'Failed to analyze repository.',
+        error: typeof e?.message === 'string' ? e.message : 'Couldn’t analyze repository.',
         result: null,
       };
     }

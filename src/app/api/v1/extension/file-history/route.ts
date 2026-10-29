@@ -16,7 +16,7 @@ export async function GET(request: Request) {
   try {
     const auth = await requireAuthenticatedUser();
     if (auth.response) return auth.response;
-    if (!auth.user) return jsonError("Not authenticated", 401, "UNAUTHORIZED");
+    if (!auth.user) return jsonError("Sign in to continue", 401, "UNAUTHORIZED");
     const parsed = z
       .object({
         projectId: z.string().uuid(),
@@ -59,7 +59,7 @@ export async function GET(request: Request) {
     return routeErrorResponse(error, {
       requestId: getRequestId(request),
       scope: "api/v1/extension/file-history",
-      fallback: "Could not load file history",
+      fallback: "Couldn’t load file history",
     });
   }
 }

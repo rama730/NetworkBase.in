@@ -35,10 +35,10 @@ export async function POST(request: Request) {
 
   const auth = await requireAuthenticatedUser();
   if (auth.response) return auth.response;
-  if (!auth.user) return jsonError("Not authenticated", 401, "UNAUTHORIZED");
+  if (!auth.user) return jsonError("Sign in to continue", 401, "UNAUTHORIZED");
   // AUTH-007: the request user is a JWT snapshot with no identities; read the linked ones from Auth.
   const user = await loadGithubLinkedUser(auth.user).catch(() => null);
-  if (!user) return jsonError("Could not check your linked sign-in methods. Retry.", 503, "UNAVAILABLE");
+  if (!user) return jsonError("Couldn’t check your linked sign-in methods. Retry.", 503, "UNAVAILABLE");
   if (auth.extensionSessionId) {
     return jsonError(
       "Replace GitHub from a signed-in browser session",

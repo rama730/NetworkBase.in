@@ -317,7 +317,7 @@ export default function NetworkClient({ initialUser }: NetworkClientProps) {
                                         {activeTab === "suggested" ? (
                                             <ComponentErrorBoundary
                                                 onError={markInitialReady}
-                                                fallbackMessage="Failed to load suggested people."
+                                                fallbackMessage="Couldn’t load suggested people."
                                             >
                                                 <NetworkPeopleTab
                                                     initialUser={initialUser}
@@ -333,7 +333,7 @@ export default function NetworkClient({ initialUser }: NetworkClientProps) {
                                         {activeTab === "invitations" ? (
                                             <ComponentErrorBoundary
                                                 onError={markInitialReady}
-                                                fallbackMessage="Failed to load invitations."
+                                                fallbackMessage="Couldn’t load invitations."
                                             >
                                                 <InvitationsClient
                                                     initialUser={initialUser}
@@ -349,7 +349,7 @@ export default function NetworkClient({ initialUser }: NetworkClientProps) {
                                         {activeTab === "connections" ? (
                                             <ComponentErrorBoundary
                                                 onError={markInitialReady}
-                                                fallbackMessage="Failed to load connections."
+                                                fallbackMessage="Couldn’t load connections."
                                             >
                                                 <ConnectionsClient
                                                     searchQuery={routeQuery}

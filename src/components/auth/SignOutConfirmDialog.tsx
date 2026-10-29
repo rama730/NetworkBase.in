@@ -25,7 +25,7 @@ export function SignOutConfirmDialog({
       description="You’ll need to sign in again to use NetworkBase on this device. Any unsaved offline changes or drafts may be lost."
       confirmLabel="Sign out"
       pendingLabel="Signing out…"
-      errorMessage="Failed to sign out. Try again."
+      errorMessage="Couldn’t sign out. Try again."
       variant="destructive"
       returnFocusRef={returnFocusRef}
       onConfirm={onConfirm}

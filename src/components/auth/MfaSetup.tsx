@@ -237,7 +237,7 @@ export function MfaSetup({ initialFactors, recoveryCodes }: MfaSetupProps) {
         const contentType = res.headers.get("content-type") || "";
         const json = contentType.includes("application/json") ? await res.json() : null;
         if (!res.ok || json?.success === false) {
-          throw new Error(json?.message || `Failed to remove MFA factor (${res.status})`);
+          throw new Error(json?.message || `Couldn’t remove MFA factor (${res.status})`);
         }
 
         toast.success("Authenticator removed");

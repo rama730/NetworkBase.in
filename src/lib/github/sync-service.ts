@@ -176,7 +176,7 @@ export async function readStoredSyncContent(
   }
   const { data, error } = await storage.download(key);
   if (error || !data)
-    throw new Error("Unable to read file content. Retry.");
+    throw new Error("Couldn’t read file content. Retry.");
   if (data.size > SYNC_LIMITS.fileBytes)
     throw new Error("File exceeds the 10 MB sync limit");
   return Buffer.from(await data.arrayBuffer());
@@ -936,7 +936,7 @@ export async function createSyncReview(
               );
               if (!existingObject) {
                 throw new Error(
-                  `Unable to retain reviewed content for ${item.path}. Retry.`,
+                  `Couldn’t retain reviewed content for ${item.path}. Retry.`,
                 );
               }
             }
@@ -1015,7 +1015,7 @@ export async function createSyncReview(
       }
       return created;
     });
-    if (!run) throw new Error("Failed to persist sync review");
+    if (!run) throw new Error("Couldn’t persist sync review");
     return syncRunView(run);
   } catch (error) {
     if (snapshotRefs.length > 0) {

@@ -34,7 +34,7 @@ export function describeApplyCard(
         return {
             ...NOTHING,
             canRetry: true,
-            banner: { tone: "warning", text: "Could not check your application." },
+            banner: { tone: "warning", text: "Couldn’t check your application." },
             blockedReason: "Try again to see whether you can apply.",
             applyLabel: "Apply",
         };

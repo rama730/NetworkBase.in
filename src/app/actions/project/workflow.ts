@@ -59,9 +59,9 @@ type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 async function requireWorkflowUser() {
     const supabase = await createClient();
     const { data: { user }, error } = await supabase.auth.getUser();
-    if (error || !user) throw new Error("Unauthorized");
+    if (error || !user) throw new Error("Sign in to continue");
     const { allowed } = await consumeRateLimit(`project:${user.id}`, 60, 60);
-    if (!allowed) throw new Error("Rate limit exceeded");
+    if (!allowed) throw new Error("Too many attempts. Try again in a minute.");
     return user;
 }
 
@@ -98,7 +98,7 @@ export async function getProjectWorkflowColumnsAction(projectId: string) {
         if (!access.canRead) return { success: false as const, error: "Not found" };
         return { success: true as const, columns: await ensureWorkflowColumns(parsed.data) };
     } catch (error) {
-        return { success: false as const, error: error instanceof Error ? error.message : "Failed to load workflow" };
+        return { success: false as const, error: error instanceof Error ? error.message : "Couldn’t load workflow" };
     }
 }
 
@@ -154,7 +154,7 @@ export async function createProjectWorkflowColumnAction(input: unknown) {
         if (!column) return { success: false as const, error: "A task board supports up to six sections" };
         return { success: true as const, column };
     } catch (error) {
-        return { success: false as const, error: error instanceof Error ? error.message : "Failed to add section" };
+        return { success: false as const, error: error instanceof Error ? error.message : "Couldn’t add section" };
     }
 }
 

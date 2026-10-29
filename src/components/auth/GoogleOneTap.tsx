@@ -93,7 +93,7 @@ export function GoogleOneTap({
               .catch(() => {
                 if (cancelled) return;
                 handlingCredentialRef.current = false;
-                errorRef.current?.("Unable to complete Google sign-in. Try again.");
+                errorRef.current?.("Couldn’t complete Google sign-in. Try again.");
               });
           },
           nonce: hashed,

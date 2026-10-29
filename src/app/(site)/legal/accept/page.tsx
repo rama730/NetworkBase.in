@@ -48,11 +48,11 @@ export default function LegalAcceptancePage() {
         }),
       });
       const payload = await response.json().catch(() => null);
-      if (!response.ok || payload?.success === false) throw new Error(payload?.error || "Could not record acceptance");
+      if (!response.ok || payload?.success === false) throw new Error(payload?.error || "Couldn’t record acceptance");
       router.replace(normalizeAuthNextPath(searchParams.get("next")));
       router.refresh();
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Could not record acceptance");
+      setError(cause instanceof Error ? cause.message : "Couldn’t record acceptance");
       setSubmitting(false);
     }
   }

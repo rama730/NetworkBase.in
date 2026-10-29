@@ -12,9 +12,9 @@ import { lockSubtaskWriteScope } from "@/lib/projects/subtask-write-scope";
 async function requireSubtaskWriter() {
     const supabase = await createClient();
     const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) throw new Error("Unauthorized");
+    if (authError || !user) throw new Error("Sign in to continue");
     const { allowed } = await consumeRateLimit(`task:${user.id}`, 60, 60);
-    if (!allowed) throw new Error("Rate limit exceeded");
+    if (!allowed) throw new Error("Too many attempts. Try again in a minute.");
     return user;
 }
 
@@ -54,7 +54,7 @@ export async function createSubtaskAction(
         return { success: true, data: created };
     } catch (error: any) {
         console.error("Unexpected error:", error);
-        return { success: false, error: error?.message || "Failed to create subtask" };
+        return { success: false, error: error?.message || "Couldn’t create subtask" };
     }
 }
 
@@ -83,7 +83,7 @@ export async function toggleSubtaskAction(
         return { success: true, data: updated };
     } catch (error: any) {
         console.error("Unexpected error:", error);
-        return { success: false, error: error?.message || "Failed to toggle subtask" };
+        return { success: false, error: error?.message || "Couldn’t toggle subtask" };
     }
 }
 
@@ -112,7 +112,7 @@ export async function updateSubtaskAction(
         return { success: true, data: updated };
     } catch (error: any) {
         console.error("Unexpected error:", error);
-        return { success: false, error: error?.message || "Failed to update subtask" };
+        return { success: false, error: error?.message || "Couldn’t update subtask" };
     }
 }
 
@@ -133,6 +133,6 @@ export async function deleteSubtaskAction(
         return { success: true };
     } catch (error: any) {
         console.error("Unexpected error:", error);
-        return { success: false, error: error?.message || "Failed to delete subtask" };
+        return { success: false, error: error?.message || "Couldn’t delete subtask" };
     }
 }

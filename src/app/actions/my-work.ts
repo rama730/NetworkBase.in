@@ -38,7 +38,7 @@ export async function getMyWorkSummaryAction() {
     try {
         const supabase = await createClient();
         const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return { success: false as const, error: "Not authenticated" };
+        if (!user) return { success: false as const, error: "Sign in to continue" };
 
         const [taskResult, applicationResult, inviteResult] = await Promise.all([
             db.select({ value: count() }).from(tasks).where(and(
@@ -72,7 +72,7 @@ export async function getMyWorkSummaryAction() {
         };
     } catch (error) {
         console.error("Workspace summary fetch failed:", error);
-        return { success: false as const, error: "Failed to fetch workspace summary" };
+        return { success: false as const, error: "Couldn’t fetch workspace summary" };
     }
 }
 
@@ -91,7 +91,7 @@ export async function fetchMyWorkTasksAction(
         const supabase = await createClient();
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) {
-            return { success: false as const, error: "Not authenticated" };
+            return { success: false as const, error: "Sign in to continue" };
         }
 
         const safeLimit = normalizeMyWorkLimit(limit);
@@ -270,6 +270,6 @@ export async function fetchMyWorkTasksAction(
         return { success: true as const, tasks: normalized, hasMore };
     } catch (e) {
         console.error("Workspace tasks fetch failed:", e);
-        return { success: false as const, error: "Failed to fetch workspace tasks" };
+        return { success: false as const, error: "Couldn’t fetch workspace tasks" };
     }
 }

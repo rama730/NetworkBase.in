@@ -235,7 +235,7 @@ export async function regenerateJoinCodeAction(orgId: string): Promise<{ success
             // ponytail: a collision with another org's code just retries; 32^6 codes make five tries plenty.
         }
     }
-    return { success: false, error: 'Could not make a new code. Try again.' };
+    return { success: false, error: 'Couldn’t make a new code. Try again.' };
 }
 
 /** Owner only, at most once every 7 days; the old handle redirects and stays taken for 90 days (report §30.2). */

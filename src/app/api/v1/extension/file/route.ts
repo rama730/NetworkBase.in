@@ -49,7 +49,7 @@ export async function GET(request: Request) {
     }
     const user = authResult.user;
     if (!user) {
-      return jsonError("Not authenticated", 401, "UNAUTHORIZED");
+      return jsonError("Sign in to continue", 401, "UNAUTHORIZED");
     }
 
     const { searchParams } = new URL(request.url);
@@ -221,7 +221,7 @@ export async function GET(request: Request) {
     logger.error("[api/v1/extension/file] Failed to get file content", {
       error: error instanceof Error ? error.message : String(error)
     });
-    return jsonError("Failed to get file content", 500, "INTERNAL_ERROR");
+    return jsonError("Couldn’t get file content", 500, "INTERNAL_ERROR");
   }
 }
 
@@ -235,7 +235,7 @@ export async function PUT(request: Request) {
     }
     const user = authResult.user;
     if (!user) {
-      return jsonError("Not authenticated", 401, "UNAUTHORIZED");
+      return jsonError("Sign in to continue", 401, "UNAUTHORIZED");
     }
     if (!authResult.extensionSessionId) {
       return jsonError("An active extension device session is required", 401, "UNAUTHORIZED");
@@ -456,7 +456,7 @@ export async function PUT(request: Request) {
       error: error instanceof Error ? error.message : String(error)
     });
     return jsonError(
-      "Failed to save file revision. Refresh the file and try again.",
+      "Couldn’t save file revision. Refresh the file and try again.",
       500,
       "INTERNAL_ERROR"
     );

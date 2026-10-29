@@ -291,7 +291,7 @@ export async function getProjectNodes(
 export async function initializeProjectFilesRoot(projectId: string) {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error("Unauthorized");
+    if (!user) throw new Error("Sign in to continue");
 
     const access = await assertProjectFileReadAccess(projectId, user.id);
     const importType = access.project.importSource?.type;
@@ -393,7 +393,7 @@ export async function getNodeMetadataBatch(
         return {
             success: false,
             code: FILES_ERROR_CODES.UNKNOWN_ERROR,
-            message: error instanceof Error ? error.message : "Failed to load node metadata",
+            message: error instanceof Error ? error.message : "Couldn’t load node metadata",
         };
     }
 }
@@ -543,7 +543,7 @@ export async function getProjectNodesWithCounts(
         return {
             success: false,
             code: FILES_ERROR_CODES.UNKNOWN_ERROR,
-            message: error instanceof Error ? error.message : "Failed to load folder payload",
+            message: error instanceof Error ? error.message : "Couldn’t load folder payload",
         };
     }
 }

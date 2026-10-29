@@ -116,7 +116,7 @@ async function assertProjectOwnerForSettings(
     .limit(1);
 
   if (!project) throw new Error("Project not found");
-  if (project.ownerId !== userId) throw new Error("Unauthorized");
+  if (project.ownerId !== userId) throw new Error("Sign in to continue");
   return project;
 }
 
@@ -305,7 +305,7 @@ async function enqueueGithubImportOrRunInline(input: {
     const msg = sanitizeGitErrorMessage(
       queueError instanceof Error
         ? queueError.message
-        : "Failed to enqueue GitHub import",
+        : "Couldn’t enqueue GitHub import",
     );
     console.error("[Action] Failed to add GitHub import to queue", msg);
 
@@ -523,7 +523,7 @@ async function ensureGithubImportAccess(
     return {
       ok: false,
       error: sanitizeGitErrorMessage(
-        msg || "Unable to validate repository access",
+        msg || "Couldn’t validate repository access",
       ),
     };
   }
@@ -1214,7 +1214,7 @@ export async function createProjectAction(
     }
 
     throw new Error(
-      "Failed to generate a unique project ID. Try again.",
+      "Couldn’t generate a unique project ID. Try again.",
     );
   } catch (error) {
     console.error("Error creating project:", error);
@@ -1238,7 +1238,7 @@ export async function updateProject(projectId: string, input: UpdateProjectInput
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user) throw new Error("Unauthorized");
+  if (!user) throw new Error("Sign in to continue");
   const parsed = updateProjectSchema.safeParse(input);
   if (!parsed.success) throw new Error(parsed.error.issues[0]?.message ?? "Invalid project update");
   const data = parsed.data;
@@ -1262,7 +1262,7 @@ export async function updateProject(projectId: string, input: UpdateProjectInput
         .limit(1);
 
       if (!project) throw new Error("Project not found");
-      if (project.ownerId !== user.id) throw new Error("Unauthorized");
+      if (project.ownerId !== user.id) throw new Error("Sign in to continue");
       // Pending applications this update closes (the project stopped taking them, or a role went away); their applicants are told after commit.
       const closedApplications: Array<{ reason: ClosingReason; items: ClosedApplication[] }> = [];
 
@@ -1613,7 +1613,7 @@ export async function createProjectCoverImageUploadUrlAction(input: {
       data: { user },
     } = await supabase.auth.getUser();
     if (!user) {
-      return { success: false, error: "Unauthorized" };
+      return { success: false, error: "Sign in to continue" };
     }
 
     const { allowed } = await consumeRateLimit(
@@ -1672,7 +1672,7 @@ export async function createProjectCoverImageUploadUrlAction(input: {
       });
       return {
         success: false,
-        error: "Failed to prepare project image upload.",
+        error: "Couldn’t prepare project image upload.",
       };
     }
 
@@ -1692,7 +1692,7 @@ export async function createProjectCoverImageUploadUrlAction(input: {
       projectId: input.projectId,
       error: error instanceof Error ? error.message : String(error),
     });
-    return { success: false, error: "Failed to prepare project image upload." };
+    return { success: false, error: "Couldn’t prepare project image upload." };
   }
 }
 
@@ -1716,7 +1716,7 @@ export async function finalizeProjectCoverImageUploadAction(input: {
       data: { user },
     } = await supabase.auth.getUser();
     if (!user) {
-      return { success: false, error: "Unauthorized" };
+      return { success: false, error: "Sign in to continue" };
     }
 
     const project = await assertProjectOwnerForSettings(
@@ -1767,7 +1767,7 @@ export async function finalizeProjectCoverImageUploadAction(input: {
     });
 
     if (!updated) {
-      return { success: false, error: "Failed to publish project image." };
+      return { success: false, error: "Couldn’t publish project image." };
     }
 
     await revalidateProjectPaths(input.projectId);
@@ -1789,7 +1789,7 @@ export async function finalizeProjectCoverImageUploadAction(input: {
     });
     return {
       success: false,
-      error: "Failed to finalize project image upload.",
+      error: "Couldn’t finalize project image upload.",
     };
   }
 }
@@ -1807,7 +1807,7 @@ export async function clearProjectCoverImageAction(
       data: { user },
     } = await supabase.auth.getUser();
     if (!user) {
-      return { success: false, error: "Unauthorized" };
+      return { success: false, error: "Sign in to continue" };
     }
 
     const project = await assertProjectOwnerForSettings(projectId, user.id);
@@ -1834,7 +1834,7 @@ export async function clearProjectCoverImageAction(
     });
 
     if (!updated) {
-      return { success: false, error: "Failed to clear project image." };
+      return { success: false, error: "Couldn’t clear project image." };
     }
 
     await revalidateProjectPaths(projectId);
@@ -1847,7 +1847,7 @@ export async function clearProjectCoverImageAction(
       projectId,
       error: error instanceof Error ? error.message : String(error),
     });
-    return { success: false, error: "Failed to clear project image." };
+    return { success: false, error: "Couldn’t clear project image." };
   }
 }
 
@@ -1964,7 +1964,7 @@ export async function updateProjectExternalLinksAction(
     });
     return {
       success: false as const,
-      error: "Failed to update project links.",
+      error: "Couldn’t update project links.",
     };
   }
 }
@@ -2294,7 +2294,7 @@ export async function deleteProjectDraftAction(
     const {
       data: { user },
     } = await supabase.auth.getUser();
-    if (!user) throw new Error("Unauthorized");
+    if (!user) throw new Error("Sign in to continue");
 
     const [project] = await db
       .select({
@@ -2305,7 +2305,7 @@ export async function deleteProjectDraftAction(
       .limit(1);
 
     if (!project) return { success: true }; // Already gone
-    if (project.ownerId !== user.id) throw new Error("Unauthorized");
+    if (project.ownerId !== user.id) throw new Error("Sign in to continue");
 
     const unregisteredStorage = await countUnregisteredProjectStorage(projectId);
     if (unregisteredStorage > 0) {
@@ -2324,7 +2324,7 @@ export async function deleteProjectDraftAction(
         .where(eq(projects.id, projectId))
         .for("update");
       if (!locked) return null;
-      if (locked.ownerId !== user.id) return "Unauthorized";
+      if (locked.ownerId !== user.id) return "Sign in to continue";
       if (locked.status !== "draft") return "Only draft projects can be discarded. Use project deletion instead.";
       if (await countUnregisteredProjectStorage(projectId, tx) > 0) return "Draft deletion is waiting for storage references to be registered.";
       await scheduleProjectStorageDeletion(tx, projectId);
@@ -2347,7 +2347,7 @@ export async function deleteProjectDraftAction(
     return { success: true };
   } catch (error: any) {
     console.error("Failed to delete draft:", error);
-    return { success: false, error: error.message || "Failed to delete draft" };
+    return { success: false, error: error.message || "Couldn’t delete draft" };
   }
 }
 
@@ -2362,7 +2362,7 @@ export async function toggleProjectFollowAction(
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) return { success: false, error: "Not authenticated" };
+  if (!user) return { success: false, error: "Sign in to continue" };
   try {
     const followRate = await consumeRateLimit(
       `project-follow:${user.id}`,
@@ -2442,7 +2442,7 @@ export async function toggleProjectFollowAction(
     return { success: true, followersCount };
   } catch (error) {
     console.error("Error toggling follow:", error);
-    return { success: false, error: "Failed to update follow status" };
+    return { success: false, error: "Couldn’t update follow status" };
   }
 }
 
@@ -2500,7 +2500,7 @@ export async function incrementProjectViewAction(
       };
     }
     console.error("Failed to increment view", e);
-    return { success: false, error: "Failed to increment view" };
+    return { success: false, error: "Couldn’t increment view" };
   }
 }
 
@@ -2565,7 +2565,7 @@ export async function updateProjectStageAction(
     if (!user) {
       return {
         success: false,
-        error: "Unauthorized",
+        error: "Sign in to continue",
         errorCode: "UNAUTHORIZED",
       };
     }
@@ -2753,7 +2753,7 @@ export async function updateProjectLifecycleAction(
     const {
       data: { user },
     } = await supabase.auth.getUser();
-    if (!user) throw new Error("Unauthorized");
+    if (!user) throw new Error("Sign in to continue");
 
     // Validate and sanitize stages
     const sanitizedStages = validateAndSanitizeLifecycleStages(newStages);
@@ -2841,7 +2841,7 @@ export async function updateProjectLifecycleAction(
       error:
         error instanceof Error
           ? error.message
-          : "Failed to update project lifecycle",
+          : "Couldn’t update project lifecycle",
     };
   }
 }

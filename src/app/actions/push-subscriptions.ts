@@ -27,7 +27,7 @@ export async function savePushSubscriptionAction(input: SaveSubscriptionInput) {
     try {
         const supabase = await createClient();
         const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return { success: false as const, error: "Unauthorized" };
+        if (!user) return { success: false as const, error: "Sign in to continue" };
         if (!validateInput(input)) return { success: false as const, error: "Invalid subscription" };
 
         const userAgent = typeof input.userAgent === "string" ? input.userAgent.slice(0, 500) : null;
@@ -84,7 +84,7 @@ export async function savePushSubscriptionAction(input: SaveSubscriptionInput) {
             module: "notifications",
             error: error?.message || String(error),
         });
-        return { success: false as const, error: "Failed to save subscription" };
+        return { success: false as const, error: "Couldn’t save subscription" };
     }
 }
 
@@ -92,7 +92,7 @@ export async function deletePushSubscriptionAction(endpoint: string) {
     try {
         const supabase = await createClient();
         const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return { success: false as const, error: "Unauthorized" };
+        if (!user) return { success: false as const, error: "Sign in to continue" };
         if (typeof endpoint !== "string" || !endpoint) return { success: false as const, error: "Invalid endpoint" };
 
         await db
@@ -108,6 +108,6 @@ export async function deletePushSubscriptionAction(endpoint: string) {
             module: "notifications",
             error: error?.message || String(error),
         });
-        return { success: false as const, error: "Failed to remove subscription" };
+        return { success: false as const, error: "Couldn’t remove subscription" };
     }
 }

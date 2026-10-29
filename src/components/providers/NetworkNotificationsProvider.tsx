@@ -76,7 +76,7 @@ export function NetworkNotificationsProvider({ children, enabled = true }: { chi
     enabled: Boolean(enabled && user?.id),
     queryFn: async () => {
       const result = await readShellPart("networkPendingCounts");
-      if (!result.success) throw new Error(result.error || "Failed to load pending requests");
+      if (!result.success) throw new Error(result.error || "Couldn’t load pending requests");
       return result;
     },
     staleTime: 60_000,

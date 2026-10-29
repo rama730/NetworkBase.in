@@ -12,7 +12,7 @@ import { logger } from "@/lib/logger";
 export async function GET(request: Request) {
     const auth = await requireAuthenticatedUser();
     if (!auth.user || auth.response) {
-        return auth.response || new Response("Unauthorized", { status: 401 });
+        return auth.response || new Response("Sign in to continue", { status: 401 });
     }
 
     const { user } = auth;

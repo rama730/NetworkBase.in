@@ -63,7 +63,7 @@ export async function GET(request: Request) {
   }
 
   if (!auth.user) {
-    return jsonError("Not authenticated", 401, "UNAUTHORIZED");
+    return jsonError("Sign in to continue", 401, "UNAUTHORIZED");
   }
 
   try {
@@ -92,7 +92,7 @@ export async function GET(request: Request) {
       status: 500,
       errorCode: "INTERNAL_ERROR",
     });
-    return jsonError("Failed to load security verification options", 500, "INTERNAL_ERROR");
+    return jsonError("Couldn’t load security verification options", 500, "INTERNAL_ERROR");
   }
 }
 
@@ -139,7 +139,7 @@ export async function POST(request: Request) {
   }
   const user = auth.user;
   if (!user) {
-    return jsonError("Not authenticated", 401, "UNAUTHORIZED");
+    return jsonError("Sign in to continue", 401, "UNAUTHORIZED");
   }
   // The limit above is per network, which a shared address (or someone else on it) can use up for you: guessing
   // codes is also limited per person.
@@ -398,7 +398,7 @@ export async function POST(request: Request) {
               ? "Current password is incorrect"
               : emailNotConfirmed
                 ? "Confirm your email address before verifying your password"
-                : "Unable to verify password"
+                : "Couldn’t verify password"
           ),
           invalidCredentials ? 400 : emailNotConfirmed ? 403 : 500,
           invalidCredentials ? "STEP_UP_INVALID" : emailNotConfirmed ? "EMAIL_NOT_CONFIRMED" : "INTERNAL_ERROR",

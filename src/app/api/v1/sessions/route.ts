@@ -72,7 +72,7 @@ export async function GET(request: Request) {
       status: 401,
       errorCode: "UNAUTHORIZED",
     });
-    return jsonError("Not authenticated", 401, "UNAUTHORIZED");
+    return jsonError("Sign in to continue", 401, "UNAUTHORIZED");
   }
 
   try {
@@ -119,7 +119,7 @@ export async function GET(request: Request) {
       status: 500,
       errorCode: "INTERNAL_ERROR",
     });
-    return jsonError("Failed to load sessions", 500, "INTERNAL_ERROR");
+    return jsonError("Couldn’t load sessions", 500, "INTERNAL_ERROR");
   }
 }
 
@@ -181,7 +181,7 @@ async function deleteSession(request: Request, id: string) {
       status: 401,
       errorCode: "UNAUTHORIZED",
     });
-    return jsonError("Not authenticated", 401, "UNAUTHORIZED");
+    return jsonError("Sign in to continue", 401, "UNAUTHORIZED");
   }
   // Signing devices out is the person's own act, from a browser: an editor token cannot do it.
   if (auth.extensionSessionId) return jsonError("This needs a browser session", 403, "FORBIDDEN");
@@ -213,7 +213,7 @@ async function deleteSession(request: Request, id: string) {
           status: 400,
           errorCode: "SESSION_REVOKE_FAILED",
         });
-        return jsonError("Failed to revoke session", 400, "SESSION_REVOKE_FAILED");
+        return jsonError("Couldn’t revoke session", 400, "SESSION_REVOKE_FAILED");
       }
       logApiRoute(request, {
         requestId,
@@ -235,7 +235,7 @@ async function deleteSession(request: Request, id: string) {
         status: 500,
         errorCode: "INTERNAL_ERROR",
       });
-      return jsonError("Failed to revoke session", 500, "INTERNAL_ERROR");
+      return jsonError("Couldn’t revoke session", 500, "INTERNAL_ERROR");
     }
   }
 
@@ -274,7 +274,7 @@ async function deleteSession(request: Request, id: string) {
       status: 500,
       errorCode: "INTERNAL_ERROR",
     });
-    return jsonError("Failed to sign out remote device", 500, "INTERNAL_ERROR");
+    return jsonError("Couldn’t sign out remote device", 500, "INTERNAL_ERROR");
   }
 }
 
@@ -286,7 +286,7 @@ async function deleteLoginHistory(request: Request, target: "all" | string) {
 
   const auth = await requireAuthenticatedUser();
   if (auth.response) return auth.response;
-  if (!auth.user) return jsonError("Not authenticated", 401, "UNAUTHORIZED");
+  if (!auth.user) return jsonError("Sign in to continue", 401, "UNAUTHORIZED");
   // History is the evidence of a break-in: a stolen editor token must not be able to erase it.
   if (auth.extensionSessionId) return jsonError("This needs a browser session", 403, "FORBIDDEN");
   const historyLimit = await enforceRouteLimit(request, "api:v1:sessions:history-delete", 30, 60, "default", auth.user.id);
@@ -313,7 +313,7 @@ async function deleteLoginHistory(request: Request, target: "all" | string) {
     return jsonSuccess(undefined, target === "all" ? "Sign-in history cleared" : "Sign-in entry removed");
   } catch (error) {
     logger.error("[api/v1/sessions] delete history failed", { module: "api", error: error instanceof Error ? error.message : String(error) });
-    return jsonError("Failed to update sign-in history", 500, "INTERNAL_ERROR");
+    return jsonError("Couldn’t update sign-in history", 500, "INTERNAL_ERROR");
   }
 }
 
@@ -368,7 +368,7 @@ async function deleteOtherSessions(request: Request) {
       status: 401,
       errorCode: "UNAUTHORIZED",
     });
-    return jsonError("Not authenticated", 401, "UNAUTHORIZED");
+    return jsonError("Sign in to continue", 401, "UNAUTHORIZED");
   }
   if (auth.extensionSessionId) return jsonError("This needs a browser session", 403, "FORBIDDEN");
 
@@ -404,7 +404,7 @@ async function deleteOtherSessions(request: Request) {
         status: 400,
         errorCode: "SESSION_REVOKE_FAILED",
       });
-      return jsonError("Failed to revoke other sessions", 400, "SESSION_REVOKE_FAILED");
+      return jsonError("Couldn’t revoke other sessions", 400, "SESSION_REVOKE_FAILED");
     }
 
     await recordSecurityEvent({
@@ -440,7 +440,7 @@ async function deleteOtherSessions(request: Request) {
       status: 500,
       errorCode: "INTERNAL_ERROR",
     });
-    return jsonError("Failed to revoke other sessions", 500, "INTERNAL_ERROR");
+    return jsonError("Couldn’t revoke other sessions", 500, "INTERNAL_ERROR");
   }
 }
 

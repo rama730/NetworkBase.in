@@ -73,7 +73,7 @@ export async function POST(request: Request) {
 
     const access = await getProjectAccessById(projectId, user.id);
     if (!access.project) return jsonError("Project not found", 404, "NOT_FOUND");
-    if (!access.canWrite) return jsonError("Forbidden", 403, "FORBIDDEN");
+    if (!access.canWrite) return jsonError("You don’t have access to this", 403, "FORBIDDEN");
 
     const adminClient = await createAdminClient();
     const finalizedResults: Array<{
@@ -240,6 +240,6 @@ export async function POST(request: Request) {
       files: finalizedResults,
     });
   } catch (error) {
-    return routeErrorResponse(error, { requestId: getRequestId(request), scope: "api/v1/extension/bulk-finalize", fallback: "Failed to finalize bulk uploads" });
+    return routeErrorResponse(error, { requestId: getRequestId(request), scope: "api/v1/extension/bulk-finalize", fallback: "Couldn’t finalize bulk uploads" });
   }
 }

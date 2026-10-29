@@ -637,13 +637,13 @@ export default function CommentsTab({
         }
         void onSendTyping({ isTyping: false, parentCommentId: parentCommentId ?? null });
       } else {
-        setComposerError(result.error || "Could not post comment. Retry.");
+        setComposerError(result.error || "Couldn’t post comment. Retry.");
       }
     } catch (error) {
       setComposerError(
         error instanceof Error
           ? error.message
-          : "Could not post comment. Retry.",
+          : "Couldn’t post comment. Retry.",
       );
     } finally {
       if (parentCommentId) setSubmittingReplyParentId(null); else setSubmittingRoot(false);
@@ -991,7 +991,7 @@ export default function CommentsTab({
                           "delete",
                           entry.id,
                           () => onDeleteComment(entry.id),
-                          "Could not delete comment.",
+                          "Couldn’t delete comment.",
                         )
                       }
                       onToggleLike={() =>
@@ -999,7 +999,7 @@ export default function CommentsTab({
                           "like",
                           entry.id,
                           () => onToggleLike(entry.id),
-                          "Could not update the like.",
+                          "Couldn’t update the like.",
                         )
                       }
                       onReply={() =>

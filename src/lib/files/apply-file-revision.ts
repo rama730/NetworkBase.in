@@ -183,7 +183,7 @@ export async function applyFileRevision(
           uploadedAt: now,
         })
         .returning();
-      if (!inserted) throw new Error("Failed to create file revision");
+      if (!inserted) throw new Error("Couldn’t create file revision");
       version = inserted;
     } else if (currentVersion) {
       const [updated] = await tx
@@ -201,7 +201,7 @@ export async function applyFileRevision(
         })
         .where(eq(fileVersions.id, currentVersion.id))
         .returning();
-      if (!updated) throw new Error("Failed to update active revision");
+      if (!updated) throw new Error("Couldn’t update active revision");
       version = updated;
     } else {
       const [inserted] = await tx
@@ -220,7 +220,7 @@ export async function applyFileRevision(
           uploadedAt: now,
         })
         .returning();
-      if (!inserted) throw new Error("Failed to initialize active revision");
+      if (!inserted) throw new Error("Couldn’t initialize active revision");
       version = inserted;
     }
 
@@ -242,7 +242,7 @@ export async function applyFileRevision(
         ),
       )
       .returning();
-    if (!updatedNode) throw new Error("Failed to update file node");
+    if (!updatedNode) throw new Error("Couldn’t update file node");
 
     if (
       input.mode === "active_revision" &&

@@ -88,7 +88,7 @@ export function ConfirmDialog({
         errorMessage
           ?? (error instanceof Error && error.message.trim()
             ? error.message
-            : "Unable to complete this action. Try again."),
+            : "Couldn’t complete this action. Try again."),
       );
       onError?.(error);
     } finally {

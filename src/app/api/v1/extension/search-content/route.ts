@@ -26,7 +26,7 @@ export async function GET(request: Request) {
   try {
     const auth = await requireAuthenticatedUser();
     if (auth.response) return auth.response;
-    if (!auth.user) return jsonError("Not authenticated", 401, "UNAUTHORIZED");
+    if (!auth.user) return jsonError("Sign in to continue", 401, "UNAUTHORIZED");
     if (
       !(
         await consumeRateLimit(
@@ -36,7 +36,7 @@ export async function GET(request: Request) {
         )
       ).allowed
     )
-      return jsonError("Rate limit exceeded", 429, "RATE_LIMITED");
+      return jsonError("Too many attempts. Try again in a minute.", 429, "RATE_LIMITED");
     const parsed = z
       .object({
         projectId: z.string().uuid(),

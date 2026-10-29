@@ -92,7 +92,7 @@ export function FileVersionHistoryDrawer({
       setState({ kind: "loaded", versions: page.versions, nextCursor: page.nextCursor });
     } catch (error) {
       const message =
-        error instanceof Error ? error.message : "Failed to load versions";
+        error instanceof Error ? error.message : "Couldn’t load versions";
       setState({ kind: "error", message });
     }
   }, [node.id, projectId]);

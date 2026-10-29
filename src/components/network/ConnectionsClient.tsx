@@ -122,7 +122,7 @@ export default function ConnectionsClient({
                     error: (error) =>
                         error instanceof Error
                             ? error.message
-                            : "Failed to remove connection",
+                            : "Couldn’t remove connection",
                 })
                 .unwrap();
         } catch {

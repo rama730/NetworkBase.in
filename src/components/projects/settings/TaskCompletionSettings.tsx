@@ -38,7 +38,7 @@ export function TaskCompletionSettings({ projectId }: { projectId: string }) {
       toast.error(
         feedbackError(error instanceof Error
           ? error.message
-          : "Unable to save completion settings", "Unable to save completion settings"),
+          : "Couldn’t save completion settings", "Couldn’t save completion settings"),
       );
       void policy.refetch();
     } finally {
@@ -56,7 +56,7 @@ export function TaskCompletionSettings({ projectId }: { projectId: string }) {
         </p>
       ) : policy.isError ? (
         <p role="alert" className="nb-compact text-destructive">
-          Unable to load completion settings.{" "}
+          Couldn’t load completion settings.{" "}
           <button
             type="button"
             className="underline"

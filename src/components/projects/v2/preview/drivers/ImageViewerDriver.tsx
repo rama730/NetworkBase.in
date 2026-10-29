@@ -61,7 +61,7 @@ export function ImageViewerDriver({
     if (!isSvg || !signedUrl) return;
     let active = true;
     fetch(signedUrl)
-      .then((res) => (res.ok ? res.text() : Promise.reject(new Error("Failed to fetch SVG"))))
+      .then((res) => (res.ok ? res.text() : Promise.reject(new Error("Couldn’t fetch SVG"))))
       .then((text) => {
         if (active) setSvgSource(text);
       })
@@ -239,7 +239,7 @@ export function ImageViewerDriver({
     return (
       <div className="flex h-full flex-col items-center justify-center gap-3 p-8 text-center">
         <AlertTriangle className="h-8 w-8 text-amber-500" />
-        <p className="text-sm font-medium text-foreground">Failed to display image preview</p>
+        <p className="text-sm font-medium text-foreground">Couldn’t display image preview</p>
         <p className="max-w-md text-xs text-muted-foreground">
           The file may be corrupted or in an unsupported format.
         </p>

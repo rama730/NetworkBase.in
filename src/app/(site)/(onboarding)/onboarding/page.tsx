@@ -226,10 +226,10 @@ export default function OnboardingPage() {
             const compressed = await compressAvatarOffMainThread(file)
             if (compressed.size > AVATAR_MAX_UPLOAD_BYTES) throw new Error('Photo is still over 2 MB after compression')
             const session = await createProfileImageUploadUrlAction({ mimeType: 'image/jpeg', sizeBytes: compressed.size, kind: 'avatar' })
-            if (!session.success) throw new Error(session.error || 'Failed to prepare avatar upload')
+            if (!session.success) throw new Error(session.error || 'Couldn’t prepare avatar upload')
             await uploadToSupabaseSignedUrl(session, compressed, { cacheProfile: 'public' })
             const finalized = await finalizeProfileImageUploadAction({ uploadIntentId: session.uploadIntentId })
-            if (!finalized.success) throw new Error(finalized.error || 'Failed to finalize avatar upload')
+            if (!finalized.success) throw new Error(finalized.error || 'Couldn’t finalize avatar upload')
             update({ avatarUrl: finalized.publicUrl })
             setAvatarMessage({ kind: 'status', text: 'Photo uploaded. You can replace it before finishing.' })
         } catch (uploadError) {
@@ -331,7 +331,7 @@ export default function OnboardingPage() {
         } catch (commitError) {
             console.error('Unable to commit onboarding step:', commitError)
             setCommitFailed(true)
-            setError('Unable to save this step right now. Your entries are kept in this browser; try again.')
+            setError('Couldn’t save this step right now. Your entries are kept in this browser; try again.')
         } finally {
             setBusy(false)
         }

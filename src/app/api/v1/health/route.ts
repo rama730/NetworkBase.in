@@ -43,7 +43,7 @@ export async function GET(request: Request) {
             success: false,
             errorCode: 'RATE_LIMITED',
         })
-        return jsonError('Rate limit exceeded', 429, 'RATE_LIMITED')
+        return jsonError('Too many attempts. Try again in a minute.', 429, 'RATE_LIMITED')
     }
 
     const { searchParams } = new URL(request.url)

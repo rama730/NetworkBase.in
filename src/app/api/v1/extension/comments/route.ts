@@ -80,7 +80,7 @@ export async function GET(request: Request) {
   try {
     const auth = await requireAuthenticatedUser();
     if (auth.response) return auth.response;
-    if (!auth.user) return jsonError("Not authenticated", 401, "UNAUTHORIZED");
+    if (!auth.user) return jsonError("Sign in to continue", 401, "UNAUTHORIZED");
     const parsed = z
       .object({
         projectId: z.string().uuid(),
@@ -128,7 +128,7 @@ export async function GET(request: Request) {
     return routeErrorResponse(error, {
       requestId: getRequestId(request),
       scope: "api/v1/extension/comments",
-      fallback: "Could not load comments",
+      fallback: "Couldn’t load comments",
     });
   }
 }
@@ -138,7 +138,7 @@ export async function POST(request: Request) {
   try {
     const auth = await requireAuthenticatedUser();
     if (auth.response) return auth.response;
-    if (!auth.user) return jsonError("Not authenticated", 401, "UNAUTHORIZED");
+    if (!auth.user) return jsonError("Sign in to continue", 401, "UNAUTHORIZED");
     const userId = auth.user.id;
     const parsed = schema.safeParse(await request.json());
     if (!parsed.success)
@@ -147,7 +147,7 @@ export async function POST(request: Request) {
     if (
       !(await consumeRateLimit(`extension-comments:${userId}`, 30, 60)).allowed
     )
-      return jsonError("Rate limit exceeded", 429, "RATE_LIMITED");
+      return jsonError("Too many attempts. Try again in a minute.", 429, "RATE_LIMITED");
     await readable(input.projectId, input.nodeId, userId);
     const event = await db.transaction(async (tx) => {
       const authority = await assertProjectWriteAccessTx(

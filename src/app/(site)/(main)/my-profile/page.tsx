@@ -71,7 +71,7 @@ async function ResolvedProfile() {
     const fallbackContent = (
         <div className="flex h-full min-h-0 items-center justify-center p-6">
             <div className="max-w-md rounded-lg border border-border bg-card p-6 text-center shadow-none text-card-foreground">
-                <h1 className="nb-section-title text-foreground">Unable to load your profile</h1>
+                <h1 className="nb-section-title text-foreground">Couldn’t load your profile</h1>
                 <p className="nb-body mt-2 text-muted-foreground">
                     We couldn’t load your profile data. Refresh the page or try again later, and contact support if the problem persists.
                 </p>

@@ -314,7 +314,7 @@ export function FileActionsBar({
       anchor.rel = "noopener";
       anchor.click();
       if (local) setTimeout(() => URL.revokeObjectURL(url), 30_000);
-    } catch (error) { toast.error(feedbackError(error instanceof Error ? error.message : "Could not download file", "Could not download file")); }
+    } catch (error) { toast.error(feedbackError(error instanceof Error ? error.message : "Couldn’t download file", "Couldn’t download file")); }
     finally { setDownloading(false); }
   }
   async function copyLink() {

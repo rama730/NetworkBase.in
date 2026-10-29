@@ -125,14 +125,14 @@ export async function lockTaskForWrite(
     if (!exists) {
       throw new Error("Task not found");
     }
-    throw new Error("Forbidden");
+    throw new Error("You don’t have access to this");
   }
   // COR-026: a deleted task is read-only; only its explicit restore may touch it.
   if (row.task_deleted_at) {
     throw new Error("This task was deleted");
   }
   if (row.deleted_at) {
-    throw new Error("Forbidden");
+    throw new Error("You don’t have access to this");
   }
   const isOwner = row.owner_id === userId;
   // Assignment copies are reviewed by the assignment's org (report §16.4, §16.6): its admins act as leaders,
@@ -141,10 +141,10 @@ export async function lockTaskForWrite(
   const orgReviewer = isCopy && Boolean(row.master_org_admin);
   if (!isOwner && !orgReviewer) {
     if (!row.member_role) {
-      throw new Error("Forbidden");
+      throw new Error("You don’t have access to this");
     }
     if (!["admin", "member"].includes((row.member_role ?? "").toLowerCase())) {
-      throw new Error("Forbidden");
+      throw new Error("You don’t have access to this");
     }
   }
   return {

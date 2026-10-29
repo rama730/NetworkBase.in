@@ -136,7 +136,7 @@ async function assertTaskAccess(params: {
   const isOwner = row.ownerId === params.userId;
   if (!isOwner) {
     if (!row.role) {
-      throw new Error("Forbidden");
+      throw new Error("You don’t have access to this");
     }
     if (params.mode === "write" && row.role.toLowerCase() === "viewer") {
       throw new Error("You do not have permission to perform this project action");
@@ -199,7 +199,7 @@ async function assertCommentAccess(params: {
   const isOwner = row.ownerId === params.userId;
   if (!isOwner) {
     if (!row.role) {
-      throw new Error("Forbidden");
+      throw new Error("You don’t have access to this");
     }
     if (params.mode === "write" && row.role.toLowerCase() === "viewer") {
       throw new Error("You do not have permission to perform this project action");
@@ -466,7 +466,7 @@ export async function readTaskDiscussionAction(
   try {
     const viewer = await getViewerProfileContext();
     if (!viewer.userId) {
-      return { success: false as const, error: "Unauthorized", data: createEmptyTaskDiscussionPage() };
+      return { success: false as const, error: "Sign in to continue", data: createEmptyTaskDiscussionPage() };
     }
 
     const data = await readTaskDiscussionInternal({
@@ -481,7 +481,7 @@ export async function readTaskDiscussionAction(
     console.error("Failed to read task discussion:", error);
     return {
       success: false as const,
-      error: error?.message || "Failed to load discussion",
+      error: error?.message || "Couldn’t load discussion",
       data: createEmptyTaskDiscussionPage(),
     };
   }
@@ -495,7 +495,7 @@ export async function readTaskDiscussionCommentAction(
   try {
     const viewer = await getViewerProfileContext();
     if (!viewer.userId) {
-      return { success: false as const, error: "Unauthorized", data: null };
+      return { success: false as const, error: "Sign in to continue", data: null };
     }
 
     const data = await readTaskDiscussionCommentInternal({
@@ -510,7 +510,7 @@ export async function readTaskDiscussionCommentAction(
     console.error("Failed to read task discussion comment:", error);
     return {
       success: false as const,
-      error: error?.message || "Failed to load comment",
+      error: error?.message || "Couldn’t load comment",
       data: null,
     };
   }
@@ -525,13 +525,13 @@ export async function createTaskCommentAction(
   try {
     const viewer = await getViewerProfileContext();
     if (!viewer.userId) {
-      return { success: false as const, error: "Unauthorized" };
+      return { success: false as const, error: "Sign in to continue" };
     }
     const actorUserId = viewer.userId;
 
     const { allowed } = await consumeRateLimit(`task-comment:${viewer.userId}`, 60, 60);
     if (!allowed) {
-      return { success: false as const, error: "Rate limit exceeded" };
+      return { success: false as const, error: "Too many attempts. Try again in a minute." };
     }
 
     const parsedContent = taskCommentContentSchema.safeParse(content);
@@ -669,7 +669,7 @@ export async function createTaskCommentAction(
     });
 
     if (!inserted?.id) {
-      return { success: false as const, error: "Failed to create comment" };
+      return { success: false as const, error: "Couldn’t create comment" };
     }
 
     if (validatedMentionIds.length > 0) {
@@ -764,7 +764,7 @@ export async function createTaskCommentAction(
     };
   } catch (error: any) {
     console.error("Failed to create task discussion comment:", error);
-    return { success: false as const, error: error?.message || "Failed to create comment" };
+    return { success: false as const, error: error?.message || "Couldn’t create comment" };
   }
 }
 
@@ -775,13 +775,13 @@ export async function toggleTaskCommentLikeAction(
   try {
     const viewer = await getViewerProfileContext();
     if (!viewer.userId) {
-      return { success: false as const, error: "Unauthorized" };
+      return { success: false as const, error: "Sign in to continue" };
     }
     const viewerUserId = viewer.userId;
 
     const { allowed } = await consumeRateLimit(`task-comment:${viewerUserId}`, 60, 60);
     if (!allowed) {
-      return { success: false as const, error: "Rate limit exceeded" };
+      return { success: false as const, error: "Too many attempts. Try again in a minute." };
     }
 
     const comment = await assertCommentAccess({
@@ -816,7 +816,7 @@ export async function toggleTaskCommentLikeAction(
     return { success: true as const, liked };
   } catch (error: any) {
     console.error("Failed to toggle task discussion like:", error);
-    return { success: false as const, error: error?.message || "Failed to update like" };
+    return { success: false as const, error: error?.message || "Couldn’t update like" };
   }
 }
 
@@ -827,12 +827,12 @@ export async function deleteTaskCommentAction(
   try {
     const viewer = await getViewerProfileContext();
     if (!viewer.userId) {
-      return { success: false as const, error: "Unauthorized" };
+      return { success: false as const, error: "Sign in to continue" };
     }
 
     const { allowed } = await consumeRateLimit(`task-comment:${viewer.userId}`, 60, 60);
     if (!allowed) {
-      return { success: false as const, error: "Rate limit exceeded" };
+      return { success: false as const, error: "Too many attempts. Try again in a minute." };
     }
 
     const comment = await assertCommentAccess({

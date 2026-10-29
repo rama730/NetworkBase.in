@@ -36,7 +36,7 @@ export async function POST(request: Request) {
         status: 401,
         errorCode: "UNAUTHORIZED",
       });
-      return jsonError("Not authenticated", 401, "UNAUTHORIZED");
+      return jsonError("Sign in to continue", 401, "UNAUTHORIZED");
     }
 
     const ipAddress = getTrustedRequestIp(request) ?? "unknown";
@@ -73,7 +73,7 @@ export async function POST(request: Request) {
         status: 400,
         errorCode: "BAD_REQUEST",
       });
-      return jsonError("Unable to resend verification email.", 400, "BAD_REQUEST");
+      return jsonError("Couldn’t resend verification email.", 400, "BAD_REQUEST");
     }
 
     logApiRoute(request, {
@@ -94,6 +94,6 @@ export async function POST(request: Request) {
       status: 500,
       errorCode: "INTERNAL_ERROR",
     });
-    return jsonError("Unable to resend verification email.", 500, "INTERNAL_ERROR");
+    return jsonError("Couldn’t resend verification email.", 500, "INTERNAL_ERROR");
   }
 }

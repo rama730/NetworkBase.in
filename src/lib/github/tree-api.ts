@@ -81,7 +81,7 @@ export async function fetchGithubTree(
     const branchUrl = `https://api.github.com/repos/${ownerName}/${repoName}/branches/${branch}`;
     const branchRes = await fetch(branchUrl, { headers });
     if (!branchRes.ok) {
-        throw new Error(`Failed to fetch GitHub branch: ${branchRes.statusText}`);
+        throw new Error(`Couldn’t fetch GitHub branch: ${branchRes.statusText}`);
     }
     const branchData = await branchRes.json();
     const commitSha = branchData.commit.sha;
@@ -90,7 +90,7 @@ export async function fetchGithubTree(
     
     const res = await fetch(apiUrl, { headers });
     if (!res.ok) {
-        throw new Error(`Failed to fetch GitHub tree: ${res.statusText}`);
+        throw new Error(`Couldn’t fetch GitHub tree: ${res.statusText}`);
     }
 
     const data = (await res.json()) as GithubTreeResponse;

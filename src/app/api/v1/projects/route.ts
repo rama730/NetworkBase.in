@@ -206,7 +206,7 @@ export async function GET(request: Request) {
                 errorCode: rateLimit.degraded ? 'SERVICE_UNAVAILABLE' : 'RATE_LIMITED',
             })
             return jsonError(
-                rateLimit.degraded ? 'Feed temporarily unavailable' : 'Rate limit exceeded',
+                rateLimit.degraded ? 'Feed temporarily unavailable' : 'Too many attempts. Try again in a minute.',
                 status,
                 rateLimit.degraded ? 'INTERNAL_ERROR' : 'RATE_LIMITED',
             )

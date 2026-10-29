@@ -32,7 +32,7 @@ export async function uploadProjectImage(
         sizeBytes: preparedImage.blob.size,
     });
     if (!uploadSession.success) {
-        throw new Error(uploadSession.error || "Failed to prepare project avatar upload");
+        throw new Error(uploadSession.error || "Couldn’t prepare project avatar upload");
     }
 
     await uploadToSupabaseSignedUrl(uploadSession, preparedImage.blob, { cacheProfile: "immutable" });
@@ -42,7 +42,7 @@ export async function uploadProjectImage(
         uploadIntentId: uploadSession.uploadIntentId,
     });
     if (!finalized.success) {
-        throw new Error(finalized.error || "Failed to finalize project avatar upload");
+        throw new Error(finalized.error || "Couldn’t finalize project avatar upload");
     }
     return { publicUrl: finalized.publicUrl, optimized: preparedImage.optimized };
 }

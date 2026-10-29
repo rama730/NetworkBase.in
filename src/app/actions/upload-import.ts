@@ -217,7 +217,7 @@ export async function updateUploadSessionAction(
 ) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error('Unauthorized');
+  if (!user) throw new Error('Sign in to continue');
 
   const [project] = await db
     .select({ id: projects.id, ownerId: projects.ownerId, importSource: projects.importSource })
@@ -226,7 +226,7 @@ export async function updateUploadSessionAction(
     .limit(1);
 
   if (!project) throw new Error('Project not found');
-  if (project.ownerId !== user.id) throw new Error('Unauthorized');
+  if (project.ownerId !== user.id) throw new Error('Sign in to continue');
 
   const nowIso = new Date().toISOString();
   const sessionId = normalizeSessionId(input.sessionId);
@@ -325,7 +325,7 @@ export async function registerUploadedFolderAction(
   const startedAt = Date.now();
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error('Unauthorized');
+  if (!user) throw new Error('Sign in to continue');
 
 
   const [project] = await db
@@ -341,7 +341,7 @@ export async function registerUploadedFolderAction(
     .limit(1);
 
   if (!project) throw new Error('Project not found');
-  if (project.ownerId !== user.id) throw new Error('Unauthorized');
+  if (project.ownerId !== user.id) throw new Error('Sign in to continue');
 
   if (!Array.isArray(manifest) || manifest.length > 5_000) {
     throw new Error('Folder upload exceeds the 5,000 file limit');
@@ -1040,7 +1040,7 @@ export async function markProjectSyncFailedAction(
 ) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error('Unauthorized');
+  if (!user) throw new Error('Sign in to continue');
 
   const [project] = await db
     .select({ id: projects.id, ownerId: projects.ownerId, slug: projects.slug, importSource: projects.importSource })
@@ -1049,7 +1049,7 @@ export async function markProjectSyncFailedAction(
     .limit(1);
 
   if (!project) throw new Error('Project not found');
-  if (project.ownerId !== user.id) throw new Error('Unauthorized');
+  if (project.ownerId !== user.id) throw new Error('Sign in to continue');
 
   const currentImportSource = getProjectImportSource(project.importSource);
   const currentMetadata = getImportMetadata(currentImportSource);

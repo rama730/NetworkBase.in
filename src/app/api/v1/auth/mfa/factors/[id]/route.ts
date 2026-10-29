@@ -65,7 +65,7 @@ export async function DELETE(
   }
   const user = auth.user;
   if (!user) {
-    return jsonError("Not authenticated", 401, "UNAUTHORIZED");
+    return jsonError("Sign in to continue", 401, "UNAUTHORIZED");
   }
 
   const { id } = await context.params;
@@ -99,7 +99,7 @@ export async function DELETE(
 
     const result = await auth.supabase.auth.mfa.unenroll({ factorId: id });
     if (result.error) {
-      const mapped = mapAuthProviderError(result.error, "Failed to remove MFA factor");
+      const mapped = mapAuthProviderError(result.error, "Couldn’t remove MFA factor");
       logApiRoute(request, {
         requestId,
         action: "auth.mfaFactor.delete",
@@ -207,7 +207,7 @@ export async function DELETE(
       status: 500,
       errorCode: "INTERNAL_ERROR",
     });
-    return jsonError("Failed to remove MFA factor", 500, "INTERNAL_ERROR");
+    return jsonError("Couldn’t remove MFA factor", 500, "INTERNAL_ERROR");
   }
   });
 }

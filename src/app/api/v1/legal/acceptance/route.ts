@@ -11,14 +11,14 @@ const acceptanceSchema = z.object({
 
 export async function GET() {
   const auth = await requireAuthenticatedUser();
-  if (auth.response || !auth.user) return auth.response ?? jsonError("Not authenticated", 401, "UNAUTHORIZED");
+  if (auth.response || !auth.user) return auth.response ?? jsonError("Sign in to continue", 401, "UNAUTHORIZED");
   return jsonSuccess(await getLegalAcceptanceState(auth.user.id));
 }
 export async function POST(request: Request) {
   const csrf = validateCsrf(request);
   if (csrf) return csrf;
   const auth = await requireAuthenticatedUser();
-  if (auth.response || !auth.user) return auth.response ?? jsonError("Not authenticated", 401, "UNAUTHORIZED");
+  if (auth.response || !auth.user) return auth.response ?? jsonError("Sign in to continue", 401, "UNAUTHORIZED");
   // Accepting the terms is the person's own act: an editor token cannot do it for them.
   if (auth.extensionSessionId) return jsonError("Accepting the terms requires a browser session", 403, "FORBIDDEN");
   const limited = await enforceRouteLimit(request, "api:v1:legal:acceptance", 20, 3600, "default", auth.user.id);

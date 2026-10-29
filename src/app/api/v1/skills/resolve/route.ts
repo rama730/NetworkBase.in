@@ -12,7 +12,7 @@ export async function POST(request: Request) {
     if (limited) return limited
     const auth = await requireAuthenticatedUser()
     if (auth.response) return auth.response
-    if (!auth.user) return jsonError('Not authenticated', 401, 'UNAUTHORIZED')
+    if (!auth.user) return jsonError('Sign in to continue', 401, 'UNAUTHORIZED')
 
     let body: unknown
     try {

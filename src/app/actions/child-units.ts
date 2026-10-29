@@ -112,7 +112,7 @@ export async function moveMemberToUnitAction(projectId: string, userId: string, 
             await tx.update(projectMembers).set({ unitId }).where(and(eq(projectMembers.projectId, projectId), eq(projectMembers.userId, userId)));
         });
     } catch (error) {
-        return { success: false, error: error instanceof Error ? error.message : 'Could not move them.' };
+        return { success: false, error: error instanceof Error ? error.message : 'Couldn’t move them.' };
     }
     return { success: true };
 }

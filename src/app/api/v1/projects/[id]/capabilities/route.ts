@@ -22,7 +22,7 @@ export async function GET(
 
     const { user, response } = await requireAuthenticatedUser();
     if (response) return response;
-    if (!user) return jsonError("Not authenticated", 401, "UNAUTHORIZED");
+    if (!user) return jsonError("Sign in to continue", 401, "UNAUTHORIZED");
 
     const { id: projectId } = await context.params;
     if (!isLooseUuid(projectId)) {
@@ -35,7 +35,7 @@ export async function GET(
     }
 
     if (!access.canRead) {
-        return jsonError("Forbidden", 403, "FORBIDDEN");
+        return jsonError("You don’t have access to this", 403, "FORBIDDEN");
     }
 
     const capabilities = buildFileCapabilities(access);

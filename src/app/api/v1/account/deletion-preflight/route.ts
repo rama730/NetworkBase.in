@@ -11,7 +11,7 @@ import { logger } from '@/lib/logger';
  */
 export async function GET() {
     const auth = await requireAuthenticatedUser();
-    if (auth.response || !auth.user) return auth.response ?? jsonError('Not authenticated', 401, 'UNAUTHORIZED');
+    if (auth.response || !auth.user) return auth.response ?? jsonError('Sign in to continue', 401, 'UNAUTHORIZED');
     if (auth.extensionSessionId) return jsonError('This needs a browser session', 403, 'FORBIDDEN');
 
     try {
@@ -36,6 +36,6 @@ export async function GET() {
         );
     } catch (error) {
         logger.warn('account.deletion-preflight.failed', { module: 'account', error: error instanceof Error ? error.message : String(error) });
-        return jsonError('Could not load your projects', 503, 'INTERNAL_ERROR');
+        return jsonError('Couldn’t load your projects', 503, 'INTERNAL_ERROR');
     }
 }

@@ -298,7 +298,7 @@ export default function TasksTab({
     queryFn: async () => {
       const result = await getProjectWorkflowColumnsAction(projectId);
       if (!result.success || !result.columns) {
-        throw new Error(result.error || "Failed to load workflow");
+        throw new Error(result.error || "Couldn’t load workflow");
       }
       return result.columns as WorkflowColumn[];
     },
@@ -579,7 +579,7 @@ export default function TasksTab({
         accentClassName: sectionColor,
       });
       if (!result.success || !result.column) {
-        setAddSectionError(result.error || "Failed to add section");
+        setAddSectionError(result.error || "Couldn’t add section");
         return;
       }
       queryClient.setQueryData(workflowQueryKey, [
@@ -589,7 +589,7 @@ export default function TasksTab({
       setIsAddSectionOpen(false);
     } catch (error) {
       setAddSectionError(
-        error instanceof Error ? error.message : "Failed to add section",
+        error instanceof Error ? error.message : "Couldn’t add section",
       );
     } finally {
       setIsAddingSection(false);
@@ -652,7 +652,7 @@ export default function TasksTab({
         error: detail,
       });
       const message =
-        "Could not open the requested task. It may have been moved, deleted, or unavailable.";
+        "Couldn’t open the requested task. It may have been moved, deleted, or unavailable.";
       setInitialTaskLoadError(message);
       toast.error(feedbackError(message, "Action couldn’t finish"));
     };
@@ -706,7 +706,7 @@ export default function TasksTab({
         const result = await createTaskAction(data);
 
         if (!result.success || !result.task) {
-          const error = result.error || "Failed to create task";
+          const error = result.error || "Couldn’t create task";
           return { success: false, error };
         }
 
@@ -896,7 +896,7 @@ export default function TasksTab({
         <div className="rounded-[5px] border border-destructive/20 bg-destructive/10 px-3 py-2 font-mono text-xs text-destructive">
           {workflowQuery.error instanceof Error
             ? workflowQuery.error.message
-            : "Failed to load task workflow"}
+            : "Couldn’t load task workflow"}
         </div>
       ) : null}
 

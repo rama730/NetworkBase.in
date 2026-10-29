@@ -41,7 +41,7 @@ export async function resolveWritableExtensionFile(
     }),
   ]);
   if (!access.project) return { response: jsonError("Project not found", 404, "NOT_FOUND"), node: null };
-  if (!access.canWrite) return { response: jsonError("Forbidden", 403, "FORBIDDEN"), node: null };
+  if (!access.canWrite) return { response: jsonError("You don’t have access to this", 403, "FORBIDDEN"), node: null };
   try {
     await assertProjectUploadAccess(projectId, userId);
   } catch {
@@ -204,7 +204,7 @@ export function extensionRevisionData(result: ApplyFileRevisionResult, contentHa
 }
 
 export function extensionRevisionConflictResponse(error: unknown) {
-  const message = error instanceof Error ? error.message : "Failed to apply revision";
+  const message = error instanceof Error ? error.message : "Couldn’t apply revision";
   return /changed on the server|locked by|editing lease|lease expired|lease was replaced/i.test(message)
     ? jsonError(message, 409, "CONFLICT")
     : null;

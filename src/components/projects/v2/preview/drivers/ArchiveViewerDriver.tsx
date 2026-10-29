@@ -46,7 +46,7 @@ export function ArchiveViewerDriver({
     async function loadArchive() {
       try {
         const res = await fetch(signedUrl);
-        if (!res.ok) throw new Error("Failed to download archive");
+        if (!res.ok) throw new Error("Couldn’t download archive");
         const buffer = await res.arrayBuffer();
 
         const parsedEntries: ArchiveEntry[] = [];
@@ -84,7 +84,7 @@ export function ArchiveViewerDriver({
         }
       } catch (err: any) {
         if (active) {
-          setError(err?.message || "Unable to inspect archive contents");
+          setError(err?.message || "Couldn’t inspect archive contents");
           setLoading(false);
         }
       }

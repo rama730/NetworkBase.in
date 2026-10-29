@@ -399,7 +399,7 @@ describe("resolveDeepLinkFromSearch (Task 2.4 — Req 10.5, Req 20.4)", () => {
     const result = await resolveDeepLinkFromSearch("secret/file", {
       projectId,
       findNodeByPathAny: async () => {
-        throw new Error("Unauthorized");
+        throw new Error("Sign in to continue");
       },
     });
     assert.deepEqual(result, { kind: "not_found", segments: ["secret", "file"] });

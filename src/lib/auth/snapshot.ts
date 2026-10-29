@@ -252,7 +252,7 @@ async function loadSupabaseJwks(cacheKey: string): Promise<JwksResponse> {
             signal: controller.signal,
         })
         if (!response.ok) {
-            throw new JwksUnavailableError(`Unable to fetch Supabase JWKS (${response.status})`)
+            throw new JwksUnavailableError(`Couldn’t fetch Supabase JWKS (${response.status})`)
         }
         // One deadline covers the headers and the body; the body is size-bounded.
         value = JSON.parse(new TextDecoder().decode((await readBoundedBody(response, JWKS_MAX_BYTES)).bytes)) as JwksResponse
@@ -292,7 +292,7 @@ async function verifyAsymmetricJwt(token: DecodedJwt) {
         jwk = findKey(await fetchSupabaseJwks({ refresh: true }))
     }
     if (!jwk) {
-        throw new Error(`Unable to find JWKS key for kid ${kid}`)
+        throw new Error(`Couldn’t find JWKS key for kid ${kid}`)
     }
 
     const publicKey = await crypto.subtle.importKey(
@@ -498,7 +498,7 @@ export async function resolveAuthSnapshot(
             session: null,
             snapshot: null,
             user: null,
-            error: authError(error instanceof Error ? error.message : 'Unable to verify auth session', 401),
+            error: authError(error instanceof Error ? error.message : 'Couldn’t verify auth session', 401),
         }
     }
 }

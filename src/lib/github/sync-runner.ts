@@ -94,7 +94,7 @@ async function ensureIncomingParent(
           createdBy: actorId,
         })
         .returning({ id: projectNodes.id });
-      if (!created[0]) throw new Error("Unable to create folder");
+      if (!created[0]) throw new Error("Couldn’t create folder");
       parentId = created[0].id;
     }
   }
@@ -755,7 +755,7 @@ export async function runReviewedGitHubSync(
                 mimeType: file.mimeType,
               })
               .returning();
-            if (!node) throw new Error("Unable to create incoming file");
+            if (!node) throw new Error("Couldn’t create incoming file");
             await tx.insert(fileVersions).values({
               nodeId: node.id,
               version: 1,

@@ -226,12 +226,12 @@ export default function SprintEditorModal({
           ...(org?.kind === "child" ? { parentSprintId: orgFields.parentSprintId ?? null } : {}),
         });
         if (!result.success) {
-          setErrorMessage(result.error ?? "Failed to save sprint");
+          setErrorMessage(result.error ?? "Couldn’t save sprint");
           return;
         }
         onClose();
       } catch (error) {
-        setErrorMessage(error instanceof Error ? error.message : "Failed to save sprint");
+        setErrorMessage(error instanceof Error ? error.message : "Couldn’t save sprint");
       } finally {
         setPendingAction(null);
       }
@@ -246,12 +246,12 @@ export default function SprintEditorModal({
     try {
       const result = await onDelete();
       if (!result.success) {
-        setErrorMessage(result.error ?? "Failed to delete sprint");
+        setErrorMessage(result.error ?? "Couldn’t delete sprint");
         return;
       }
       onClose();
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : "Failed to delete sprint");
+      setErrorMessage(error instanceof Error ? error.message : "Couldn’t delete sprint");
     } finally {
       setPendingAction(null);
     }

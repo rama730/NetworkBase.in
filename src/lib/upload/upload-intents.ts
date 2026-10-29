@@ -217,7 +217,7 @@ async function verifyStoredObjectBytes(params: {
     }
     if (!response.ok) {
       throw new StorageVerificationError(
-        `Failed to verify uploaded object (${response.status})`,
+        `Couldn’t verify uploaded object (${response.status})`,
         response.status >= 500 || response.status === 429 ? "PROVIDER_UNAVAILABLE" : "CONTENT_MISMATCH",
         response.status,
       );
@@ -399,7 +399,7 @@ export async function createUploadIntent(rawParams: CreateUploadIntentParams) {
       ))
       .limit(1)
       .for("update");
-    if (!userQuota) throw new Error("Failed to lock user upload quota");
+    if (!userQuota) throw new Error("Couldn’t lock user upload quota");
 
     const [projectQuota] = projectId
       ? await tx
@@ -412,7 +412,7 @@ export async function createUploadIntent(rawParams: CreateUploadIntentParams) {
           .limit(1)
           .for("update")
       : [null];
-    if (projectId && !projectQuota) throw new Error("Failed to lock project upload quota");
+    if (projectId && !projectQuota) throw new Error("Couldn’t lock project upload quota");
 
     // A same-key request can finish while this transaction waits on the user
     // quota row. Re-read after locking so retries never reserve twice.
@@ -513,7 +513,7 @@ export async function createUploadIntent(rawParams: CreateUploadIntentParams) {
           ))
           .limit(1);
 
-    if (!asset) throw new Error("Failed to reserve upload asset");
+    if (!asset) throw new Error("Couldn’t reserve upload asset");
     if (
       asset.ownerUserId !== rawParams.userId
       || asset.projectId !== projectId
@@ -791,7 +791,7 @@ export async function finalizeUploadIntent(params: {
       const { data: signedData, error: signedError } = await bucket.createSignedUrl(intent.storageKey, 60);
       if (signedError || !signedData?.signedUrl) {
         throw new StorageVerificationError(
-          signedError?.message || "Failed to obtain verification read capability",
+          signedError?.message || "Couldn’t obtain verification read capability",
           "PROVIDER_UNAVAILABLE",
         );
       }
@@ -925,7 +925,7 @@ export async function finalizeUploadIntent(params: {
           sql`${uploadIntents.expiresAt} > now()`,
         ))
         .returning();
-      if (!finalizedIntent) throw new Error("Failed to finalize upload intent");
+      if (!finalizedIntent) throw new Error("Couldn’t finalize upload intent");
 
       if (intent.assetId) {
         await tx

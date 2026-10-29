@@ -101,7 +101,7 @@ test("compatibility and typing behavior have one exact owner", () => {
 
   // The follow catch returns the failure; the pre-counter fallback is gone (followers_count is NOT NULL in every migrated database).
   const catchStart = projects.indexOf('} catch (error) {', projects.indexOf("toggleProjectFollowAction"));
-  assert.ok(projects.indexOf('return { success: false, error: "Failed to update follow status" };', catchStart) > catchStart);
+  assert.ok(projects.indexOf('return { success: false, error: "Couldn’t update follow status" };', catchStart) > catchStart);
   assert.doesNotMatch(projects.slice(catchStart, catchStart + 400), /fallback/i);
   assert.doesNotMatch(avatars, /uploadAvatarWithPreview|fileToDataUrl|export async function uploadAvatar\(/);
 });
