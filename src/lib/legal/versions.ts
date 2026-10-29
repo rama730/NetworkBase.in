@@ -2,7 +2,7 @@ export const LEGAL_VERSIONS = {
   privacy: "2026-10-29",
   terms: "2026-10-29",
   eula: "2026-10-29",
-  acceptableUse: "2026-10-29",
+  acceptableUse: "2026-10-30",
   cookies: "2026-10-29",
   subprocessors: "2026-10-29",
   copyright: "2026-10-29",

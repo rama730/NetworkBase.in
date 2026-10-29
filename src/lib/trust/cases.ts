@@ -163,7 +163,7 @@ export async function fileReport(reporterId: string, input: { kind: ReportTarget
     await notifySafety({
       to: target.subjectId, title: "Someone who cares about you asked us to check in",
       body: "If you're going through something hard, you can talk to someone now: Tele-MANAS 14416 or KIRAN 1800-599-0019 (free, any time).",
-      href: "/legal/acceptable-use#rule-11", dedupeKey: `support:${result.caseId}`,
+      href: "/acceptable-use#rule-11", dedupeKey: `support:${result.caseId}`,
     });
   }
   if (result.urgent && result.caseId) {
