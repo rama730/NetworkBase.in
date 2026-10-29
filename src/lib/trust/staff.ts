@@ -21,6 +21,6 @@ export function staffRoleOf(user: AuthUser): StaffRole | null {
 export async function listStaff(): Promise<Array<{ id: string; role: StaffRole; email: string | null; name: string | null }>> {
   const rows = await db.execute<{ id: string; role: StaffRole; email: string | null; name: string | null }>(sql`
     SELECT s.id, s.role, p.email, coalesce(p.full_name, p.username) AS name
-    FROM app_private.moderation_staff() s LEFT JOIN profiles p ON p.id = s.id AND p.deleted_at IS NULL`);
+    FROM app_private.moderation_staff() s JOIN profiles p ON p.id = s.id AND p.deleted_at IS NULL`);
   return [...rows];
 }

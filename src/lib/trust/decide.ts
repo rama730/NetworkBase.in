@@ -137,13 +137,16 @@ async function applyAction(tx: Tx, c: CaseRow, action: ModerationActionKind, mes
   return { restore: {}, endsAt };
 }
 
+// The only table/column pairs applyAction clears, so a reversal never builds SQL from anything else.
+const TEXT_COLUMNS: Record<string, string> = { workspace_open_roles: "description", role_applications: "message", workspace_invitations: "note", connections: "message" };
+
 /** Reverses one action's effect (Undo, a Reversed appeal, or Lift). */
 async function revertAction(tx: Tx, a: { action: ModerationActionKind; target_kind: string; target_id: string | null; target_seq: number | null; subject_id: string | null; restore: Record<string, unknown> | null; id: string }) {
   const r = a.restore ?? {};
   if ((a.action === "hide" || a.action === "remove") && a.target_id) {
     if (r.content === "soft") await setContentHidden(a.target_kind as ReportTargetKind, a.target_id, a.target_seq, false, tx);
     if (r.content === "channel") await tx.execute(sql`UPDATE chat_channels SET archived_at = NULL WHERE id = ${a.target_id}`);
-    if (r.content === "text" && typeof r.table === "string" && typeof r.column === "string") {
+    if (r.content === "text" && typeof r.table === "string" && typeof r.column === "string" && TEXT_COLUMNS[r.table] === r.column) {
       await tx.execute(sql`UPDATE ${sql.raw(r.table)} SET ${sql.raw(r.column)} = ${(r.value as string | null) ?? null} WHERE id = ${a.target_id}`);
     }
     if (r.content === "doc" && r.row && typeof r.row === "object") {
@@ -268,7 +271,7 @@ export async function undoDecision(caseId: string, actorId: string): Promise<Res
     if (!c || c.state !== "decided") return { ok: false, error: "Nothing to undo." };
     const actions = await tx.execute<{ id: string; action: ModerationActionKind; target_kind: string; target_id: string | null; target_seq: number | null; subject_id: string | null; restore: Record<string, unknown> | null; notified_at: string | null }>(sql`
       SELECT id, action, target_kind, target_id, target_seq::int AS target_seq, subject_id, restore, notified_at::text FROM moderation_actions
-      WHERE case_id = ${caseId} AND undone_at IS NULL AND reversed_at IS NULL`);
+      WHERE case_id = ${caseId} AND undone_at IS NULL AND reversed_at IS NULL FOR UPDATE`);
     if ([...actions].some((a) => a.notified_at)) return { ok: false, error: "The notices already went out. Reverse it from the case instead." };
     const [decided] = await tx.execute<{ fresh: boolean }>(sql`SELECT decided_at > now() - make_interval(secs => ${UNDO_SECONDS + 5}) AS fresh FROM moderation_cases WHERE id = ${caseId}`);
     if (!decided?.fresh) return { ok: false, error: "Undo is only possible for 10 seconds." };
@@ -306,7 +309,7 @@ export async function deliverDecisionNotices(caseId?: string) {
     WHERE a.notified_at IS NULL AND a.undone_at IS NULL AND a.notify_after <= now() ${caseId ? sql`AND a.case_id = ${caseId}` : sql``}
     ORDER BY a.created_at LIMIT 200`);
   for (const a of pending) {
-    const claimed = await db.update(moderationActions).set({ notifiedAt: new Date() }).where(and(eq(moderationActions.id, a.id), isNull(moderationActions.notifiedAt))).returning({ id: moderationActions.id });
+    const claimed = await db.update(moderationActions).set({ notifiedAt: new Date() }).where(and(eq(moderationActions.id, a.id), isNull(moderationActions.notifiedAt), isNull(moderationActions.undoneAt))).returning({ id: moderationActions.id });
     if (!claimed.length) continue;
     const recipient = ["hide_discover", "restrict", "suspend_workspace", "remove_workspace", "remove_verified"].includes(a.action)
       ? (await db.execute<{ owner_id: string }>(sql`SELECT owner_id FROM workspaces WHERE id = (SELECT target_id FROM moderation_actions WHERE id = ${a.id})`))[0]?.owner_id ?? null
