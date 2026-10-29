@@ -110,8 +110,8 @@ Generated from `src/lib/copy/terms.ts` by `scripts/generate-glossary.ts`. The fu
 |---|---|
 | `\bco-?lead(?:er)?s?\b` | Admin |
 | `\bproject (?:lead\|leads\|leader\|leaders\|leadership\|owner)\b` | Owner (or "owner and admins") |
-| `^(?:Lead\|Leader\|Leaders\|Leadership)$` | Owner, Team lead or a role title |
-| `\bleaders?-only\b\|\bleadership\b` | owner and admins |
+| `^(?:Lead\|Leader\|Leaders)$` | Owner, Team lead or a role title |
+| `\bleaders?-only\b\|\b(?:project\|workspace) leadership\b\|\bleadership appointment\b\|^Leadership$` | owner and admins |
 | `\bcollaborators?\b` | Member (in a workspace) or Contributor (on a contribution) |
 | `\bdanger zone\b` | Workspace management |
 | `\bchild projects?\b` | Workspace in {organization} |
