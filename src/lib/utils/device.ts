@@ -17,7 +17,7 @@ export function cleanIpAddress(rawIp: string | null | undefined): string {
 }
 
 export function parseUserAgent(userAgent?: string | null): DeviceInfo {
-  let browser = "Unknown Browser";
+  let browser = "Unknown browser";
   let os = "Unknown OS";
   let icon: LucideIcon = Globe;
 

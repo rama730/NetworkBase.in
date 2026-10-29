@@ -232,7 +232,7 @@ test("live project positions replace legacy Lead duplicates in reads without ove
     positions: [position],
   };
   try {
-    await sql`UPDATE projects SET import_source=${sql.json({ type: "scratch", metadata: { leadFocus: "Product Designer" } })} WHERE id=${targetProject}`;
+    await sql`UPDATE projects SET import_source=${sql.json({ type: "scratch", metadata: { leadFocus: "Product designer" } })} WHERE id=${targetProject}`;
     await sql`INSERT INTO profile_project_contributions (id,profile_id,project_id,source,role_kind,role_title,visibility,presentation)
       VALUES (${contributionId},${owner},${targetProject},'owner','owner','Lead - Lead','public',${sql.json(document)})`;
     await sql`INSERT INTO profile_project_contribution_stages (id,contribution_id,profile_id,project_id,role_kind,role_title,started_at)
@@ -245,10 +245,10 @@ test("live project positions replace legacy Lead duplicates in reads without ove
       limit: 50,
     });
     const row = read.contributions.find((c) => c.id === contributionId)!;
-    assert.equal(row.title, "Product Designer · Lead");
+    assert.equal(row.title, "Product designer · Lead");
     assert.equal(
       row.roleStages!.find((s) => s.id === stageId)!.roleTitle,
-      "Product Designer · Lead",
+      "Product designer · Lead",
     );
     assert.equal(
       row.roleStages!.find((s) => s.id === oldStageId)!.roleTitle,
@@ -256,11 +256,11 @@ test("live project positions replace legacy Lead duplicates in reads without ove
     );
     assert.equal(
       row.presentation!.positions[0]!.title,
-      "Product Designer · Lead",
+      "Product designer · Lead",
     );
     assert.equal(
       row.draftStory!.positions[0]!.title,
-      "Product Designer · Lead",
+      "Product designer · Lead",
     );
     const custom = {
       ...document,
@@ -283,7 +283,7 @@ test("live project positions replace legacy Lead duplicates in reads without ove
     assert.equal(
       publicRead.contributions.find((c) => c.id === contributionId)!
         .presentation!.positions[0]!.title,
-      "Product Designer · Lead",
+      "Product designer · Lead",
     );
     const [recorded] =
       await sql`SELECT role_title FROM profile_project_contribution_stages WHERE id=${stageId}`;

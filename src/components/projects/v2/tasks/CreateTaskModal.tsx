@@ -328,7 +328,7 @@ export default function CreateTaskModal({
                 <SectionDivider title="Basics" />
 
                 <Field
-                  label="Task Title"
+                  label="Task title"
                   htmlFor="task-title"
                   required
                   error={fieldErrors.title}
@@ -365,7 +365,7 @@ export default function CreateTaskModal({
 
               {/* Section 2: Planning & Assignment */}
               <div className="space-y-3.5">
-                <SectionDivider title="Planning and Assignment" />
+                <SectionDivider title="Planning and assignment" />
 
                 <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
                   <Field
@@ -486,11 +486,11 @@ export default function CreateTaskModal({
 
               {/* Section 3: Schedule & Estimate */}
               <div className="space-y-3.5">
-                <SectionDivider title="Schedule and Estimate" />
+                <SectionDivider title="Schedule and estimate" />
 
                 <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
                   <Field
-                    label="Due Date"
+                    label="Due date"
                     htmlFor="task-due-date"
                     error={fieldErrors.dueDate}
                   >
@@ -546,7 +546,7 @@ export default function CreateTaskModal({
 
                   <div data-story-point>
                   <Field
-                    label="Story Points"
+                    label="Story points"
                     htmlFor="task-story-points"
                     error={fieldErrors.storyPoints}
                   >
@@ -600,7 +600,7 @@ export default function CreateTaskModal({
 
               {/* Section 4: Subtasks & References */}
               <div className="space-y-3.5">
-                <SectionDivider title="Subtasks and References">
+                <SectionDivider title="Subtasks and references">
                   <div className="flex items-center gap-2">
                     {subtasks.length > 0 && (
                       <span className="inline-flex h-4 min-w-4 items-center justify-center rounded-[3px] border border-border bg-muted/40 px-1 font-mono text-[10px] max-md:text-[11px] font-semibold text-muted-foreground">
@@ -679,7 +679,7 @@ export default function CreateTaskModal({
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <label className="block text-[13px] font-medium text-foreground">
-                      Task References
+                      Task references
                     </label>
                     <button
                       type="button"
@@ -743,7 +743,7 @@ export default function CreateTaskModal({
                 disabled={isSubmitting}
                 className="nb-touch-target h-[34px] rounded-[5px] bg-primary px-4 text-[13px] font-medium text-primary-foreground shadow-2xs transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {isSubmitting ? "Creating..." : "Create Task"}
+                {isSubmitting ? "Creating..." : "Create task"}
               </button>
             </div>
           </form>

@@ -110,9 +110,9 @@ test('connection skills include canonical icons and disclose the complete list w
     await expect(page.locator('.nb-person-skill-strip > .nb-person-skill .nb-person-skill-icon').first()).toHaveAttribute('style', /skill-icons/);
     await page.getByRole('button', {name:/Show \d+ more skills/}).click();
     const dialog = page.getByRole('dialog');
-    await expect(dialog.locator('.nb-person-skill-label')).toHaveText(['React','TypeScript','Figma','Next.js','Node.js','PostgreSQL','Accessibility','Design Systems']);
+    await expect(dialog.locator('.nb-person-skill-label')).toHaveText(['React','TypeScript','Figma','Next.js','Node.js','PostgreSQL','Accessibility','Design systems']);
     await expect(dialog.locator('.nb-person-skill-icon')).toHaveCount(6);
-    for (const name of ['Accessibility', 'Design Systems']) {
+    for (const name of ['Accessibility', 'Design systems']) {
         const skill = dialog.locator('.nb-person-skill').filter({hasText:name});
         await expect(skill).toHaveText(name);
         await expect(skill.locator('.nb-person-skill-icon')).toHaveCount(0);

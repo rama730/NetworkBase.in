@@ -90,7 +90,7 @@ class DriverErrorBoundary extends React.Component<DriverErrorBoundaryProps, Driv
       return (
         <div className="flex flex-1 flex-col items-center justify-center gap-3 p-8 text-center">
           <AlertTriangle className="h-8 w-8 text-amber-500" />
-          <p className="text-sm font-semibold text-foreground">Preview Encountered an Error</p>
+          <p className="text-sm font-semibold text-foreground">Preview encountered an error</p>
           <p className="max-w-md text-xs text-muted-foreground">{this.state.error?.message || "An unexpected error occurred while rendering the preview."}</p>
           <Button
             size="sm"
@@ -102,7 +102,7 @@ class DriverErrorBoundary extends React.Component<DriverErrorBoundaryProps, Driv
             className="mt-2"
           >
             <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
-            Reload Preview
+            Reload preview
           </Button>
         </div>
       );
@@ -150,7 +150,7 @@ export default function UniversalPreviewEngine({
         {onRetry && (
           <Button size="sm" variant="outline" onClick={onRetry} className="mt-2">
             <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
-            Retry Preview
+            Retry preview
           </Button>
         )}
       </div>

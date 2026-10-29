@@ -632,9 +632,9 @@ export function TaskFilesCollection({ projectId }: { projectId: string }) {
                   [
                     { id: "all", label: "All" },
                     { id: "todo", label: "Todo" },
-                    { id: "in_progress", label: "In Progress" },
+                    { id: "in_progress", label: "In progress" },
                     { id: "done", label: "Done" },
-                    { id: "review", label: "Needs Review" },
+                    { id: "review", label: "Needs review" },
                   ] as const
                 ).map((item) => (
                   <button
@@ -990,7 +990,7 @@ export function TaskFilesCollection({ projectId }: { projectId: string }) {
           isOpen={true}
           files={pendingUploadFiles}
           currentFolderId={null}
-          currentFolderName="Project Root"
+          currentFolderName="Project root"
           existingFiles={[]}
           activeTaskId={targetUploadTask.id}
           activeTaskTitle={targetUploadTask.title}

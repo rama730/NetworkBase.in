@@ -270,7 +270,7 @@ export function ProfileSearchResultCard({ result, onOpen, onConnect, isConnectin
                 {result.connectionStatus === "connected" ? (
                     <span className="rounded-[3px] border border-border bg-secondary/80 px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground">Connected</span>
                 ) : result.connectionStatus === "pending_sent" ? (
-                    <span className="rounded-[3px] border border-amber-500/20 bg-amber-500/10 px-1.5 py-0.5 font-mono text-[11px] text-amber-600 dark:text-amber-400">Request Sent</span>
+                    <span className="rounded-[3px] border border-amber-500/20 bg-amber-500/10 px-1.5 py-0.5 font-mono text-[11px] text-amber-600 dark:text-amber-400">Request sent</span>
                 ) : result.connectionStatus === "pending_received" ? (
                     <span className="rounded-[3px] border border-blue-500/20 bg-blue-500/10 px-1.5 py-0.5 font-mono text-[11px] text-blue-600 dark:text-blue-400">Received</span>
                 ) : null}

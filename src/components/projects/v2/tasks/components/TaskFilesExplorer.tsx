@@ -85,8 +85,8 @@ export function TaskFilesExplorer({
       if (result.nodes.length > 0) {
         toast.success(
           locationDialog.mode === "publish"
-            ? "Published to Workspace Files"
-            : "Moved in Workspace Files",
+            ? "Added to Files"
+            : "Moved in Files",
         );
         await onFilesChanged?.();
       }
@@ -329,7 +329,7 @@ export function TaskFilesExplorer({
       <div className="flex flex-col">
         <div className="mb-3 px-2">
           <h3 className="text-xs font-semibold uppercase tracking-[0.06em] text-foreground">
-            Task References
+            Task references
           </h3>
           <p className="mt-0.5 text-xs text-muted-foreground">
             Files supplied with the task brief or explicitly linked as context.
@@ -350,7 +350,7 @@ export function TaskFilesExplorer({
       <div className="flex flex-col">
         <div className="mb-3 px-2">
           <h3 className="text-xs font-semibold uppercase tracking-[0.06em] text-foreground">
-            Final Deliverables
+            Final deliverables
           </h3>
           <p className="mt-0.5 text-xs text-muted-foreground">
             The finished output resolving this task.

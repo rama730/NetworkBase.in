@@ -74,7 +74,7 @@ function CookieConsentSummary({
       <p id="cookie-consent-description" className="mt-3 text-sm leading-6 text-muted-foreground max-sm:mt-1.5 max-sm:text-[13px] max-sm:leading-5">
         We use essential cookies to secure your account and provide NetworkBase. With your permission, we also use analytics to understand and improve the service. Read our{" "}
         <a href="/cookies" className="font-medium text-foreground underline underline-offset-4">
-          Cookie and Storage Notice
+          Cookie Notice
         </a>
         .
       </p>

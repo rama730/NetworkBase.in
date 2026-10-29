@@ -288,11 +288,11 @@ test("project update author roles compose membership and current project positio
     });
     assert.deepEqual(resolveProjectUpdateAuthorRoleDisplay({
         snapshot,
-        projectRoleTitle: "Product Designer",
+        projectRoleTitle: "Product designer",
         membershipRoleLabel: "Member",
     }), {
-        roleLabel: "Lead Product Designer",
-        roleTitle: "Product Designer",
+        roleLabel: "Lead Product designer",
+        roleTitle: "Product designer",
         membershipRoleLabel: "Lead",
         roleSource: "project_role",
     });
@@ -327,17 +327,17 @@ test("project update author roles compose membership and current project positio
 test("project update author roles repair stale open-role snapshots with authoritative project roles", () => {
     assert.deepEqual(resolveProjectUpdateAuthorRoleDisplay({
         snapshot: normalizeProjectUpdateAuthorRoleSnapshot({
-            displayRoleLabel: "Lead Full Stack Developer",
-            roleTitle: "Full Stack Developer",
+            displayRoleLabel: "Lead Full stack developer",
+            roleTitle: "Full stack developer",
             membershipRoleLabel: "Lead",
             source: "project_role",
             capturedAt: "2026-06-06T00:00:00.000Z",
         }),
-        projectRoleTitle: "Frontend Product Designer",
+        projectRoleTitle: "Frontend Product designer",
         membershipRoleLabel: "Lead",
     }), {
-        roleLabel: "Lead Frontend Product Designer",
-        roleTitle: "Frontend Product Designer",
+        roleLabel: "Lead Frontend Product designer",
+        roleTitle: "Frontend Product designer",
         membershipRoleLabel: "Lead",
         roleSource: "project_role",
     });

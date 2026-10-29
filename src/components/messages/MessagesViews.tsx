@@ -1003,7 +1003,7 @@ function FromPicker({ value, label, meId, onPick }: { value: string; label: stri
       // A filter that's on: the selected-filter look (ink fill), like Has file and the Inbox tabs.
       <span className="inline-flex h-[var(--ui-control-height)] items-center gap-1 rounded-md bg-foreground pl-3 text-[13px] text-background pointer-coarse:h-11">
         From: {label ?? "someone"}
-        <button type="button" onClick={() => onPick(null)} className="grid size-7 place-items-center rounded-sm hover:bg-background/20 pointer-coarse:size-11" aria-label="Clear From"><X size={14} /></button>
+        <button type="button" onClick={() => onPick(null)} className="grid size-7 place-items-center rounded-sm hover:bg-background/20 pointer-coarse:size-11" aria-label="Clear from"><X size={14} /></button>
       </span>
     );
   }

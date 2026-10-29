@@ -236,7 +236,7 @@ export function calculateTaskTimeHealth(
       const days = Math.ceil((finishDate - referenceDate) / 86400000);
       return { state: "overdue", label: "Overdue", daysLate: days };
     }
-    return { state: "on-time", label: "On Time" };
+    return { state: "on-time", label: "On time" };
   }
 
   // If task is not done
@@ -253,7 +253,7 @@ export function calculateTaskTimeHealth(
 
   // If sprint is completed but task is not done (and not technically past due date)
   if (isSprintFinished) {
-    return { state: "unfinished", label: "Rolled Over" };
+    return { state: "unfinished", label: "Rolled over" };
   }
 
   return { state: "none", label: "" };

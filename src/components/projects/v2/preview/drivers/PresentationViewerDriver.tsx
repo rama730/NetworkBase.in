@@ -618,7 +618,7 @@ export function PresentationViewerDriver({
             <Button asChild size="sm" className="h-9 px-4 text-xs font-medium">
               <a href={signedUrl} download={node.name}>
                 <Download className="mr-1.5 h-3.5 w-3.5" />
-                Download Presentation
+                Download presentation
               </a>
             </Button>
 
@@ -650,7 +650,7 @@ export function PresentationViewerDriver({
         <Button asChild size="sm" variant="outline" className="mt-2">
           <a href={signedUrl} download={node.name}>
             <Download className="mr-1.5 h-4 w-4" />
-            Download Presentation
+            Download presentation
           </a>
         </Button>
       </div>
@@ -690,7 +690,7 @@ export function PresentationViewerDriver({
                 onClick={handleZoomOut}
                 disabled={zoom <= 50}
                 className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground"
-                title="Zoom Out"
+                title="Zoom out"
               >
                 <ZoomOut className="h-3.5 w-3.5" />
               </Button>
@@ -708,7 +708,7 @@ export function PresentationViewerDriver({
                 onClick={handleZoomIn}
                 disabled={zoom >= 200}
                 className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground"
-                title="Zoom In"
+                title="Zoom in"
               >
                 <ZoomIn className="h-3.5 w-3.5" />
               </Button>
@@ -741,7 +741,7 @@ export function PresentationViewerDriver({
               variant={showThumbnails ? "secondary" : "ghost"}
               onClick={() => setShowThumbnails((prev) => !prev)}
               className="h-7 px-2 text-xs"
-              title="Toggle Thumbnails"
+              title="Toggle thumbnails"
             >
               <Sliders className="mr-1 h-3.5 w-3.5" />
               <span className="hidden sm:inline">Thumbnails</span>
@@ -1042,7 +1042,7 @@ export function PresentationViewerDriver({
             <div className="flex items-center justify-between border-b border-border/60 pb-2">
               <span className="text-xs font-semibold text-foreground flex items-center gap-1.5">
                 <FileText className="h-3.5 w-3.5 text-primary" />
-                Slide {currentSlideIndex + 1} Notes and Transcript
+                Slide {currentSlideIndex + 1} Notes and transcript
               </span>
               <Button
                 size="sm"
@@ -1057,7 +1057,7 @@ export function PresentationViewerDriver({
             {currentSlide.notes && (
               <div className="space-y-1">
                 <span className="text-[11px] font-semibold text-primary uppercase tracking-wider">
-                  Speaker Notes
+                  Speaker notes
                 </span>
                 <p className="text-xs text-foreground/90 leading-relaxed whitespace-pre-wrap rounded-md bg-muted/30 p-2.5 border border-border/40">
                   {currentSlide.notes}
@@ -1067,7 +1067,7 @@ export function PresentationViewerDriver({
 
             <div className="space-y-1.5 flex-1">
               <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
-                Extracted Text
+                Extracted text
               </span>
               {currentSlide.texts.length > 0 ? (
                 <div className="space-y-2 text-xs text-muted-foreground leading-relaxed">
@@ -1136,7 +1136,7 @@ export function PresentationViewerDriver({
             disabled={currentSlideIndex === 0}
             onClick={() => setCurrentSlideIndex((prev) => Math.max(0, prev - 1))}
             className="h-8 w-8 p-0 text-white hover:bg-white/20 hover:text-white rounded-full"
-            title="Previous Slide"
+            title="Previous slide"
           >
             <ChevronLeft className="h-4 w-4" />
           </Button>
@@ -1151,7 +1151,7 @@ export function PresentationViewerDriver({
             disabled={currentSlideIndex === slides.length - 1}
             onClick={() => setCurrentSlideIndex((prev) => Math.min(slides.length - 1, prev + 1))}
             className="h-8 w-8 p-0 text-white hover:bg-white/20 hover:text-white rounded-full"
-            title="Next Slide"
+            title="Next slide"
           >
             <ChevronRight className="h-4 w-4" />
           </Button>

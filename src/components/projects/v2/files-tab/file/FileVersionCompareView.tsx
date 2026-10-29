@@ -227,7 +227,7 @@ export function FileVersionCompareView({
           onClick={onClose}
           className="mt-4 rounded-[5px] bg-muted px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted/80"
         >
-          Close Compare Mode
+          Close compare mode
         </button>
       </div>
     );
@@ -238,7 +238,7 @@ export function FileVersionCompareView({
       {/* Compare View Header */}
       <div className="flex items-center justify-between border-b border-border px-4 py-2.5 bg-[#F3F0EA] dark:bg-card shrink-0">
         <div className="flex items-center gap-2">
-          <span className="font-mono text-[11px] font-semibold text-[#4C5A61] dark:text-muted-foreground uppercase tracking-[0.09em]">Compare Mode</span>
+          <span className="font-mono text-[11px] font-semibold text-[#4C5A61] dark:text-muted-foreground uppercase tracking-[0.09em]">Compare mode</span>
           <span className="text-xs font-medium text-foreground font-mono bg-background border border-border px-1.5 py-0.5 rounded-[3px]">
             v{baseVersion}
           </span>
@@ -265,7 +265,7 @@ export function FileVersionCompareView({
                 )}
               >
                 <SlidersHorizontal className="h-3 w-3" />
-                <span>Split Slider</span>
+                <span>Split slider</span>
               </button>
               <button
                 type="button"
@@ -308,7 +308,7 @@ export function FileVersionCompareView({
           <button
             type="button"
             onClick={onClose}
-            aria-label="Close Comparison"
+            aria-label="Close comparison"
             className="rounded-[5px] p-1 text-[#4C5A61] hover:bg-[#DBD5C8]/40 hover:text-foreground dark:hover:bg-muted dark:hover:text-foreground transition-colors"
           >
             <X className="h-4 w-4" />

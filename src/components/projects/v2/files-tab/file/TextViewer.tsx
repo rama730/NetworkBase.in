@@ -508,7 +508,7 @@ export function TextViewer({
           nodeId: node.id,
           file,
           mode: choice.option === "commit" ? "new_revision" : "active_revision",
-          comment: choice.comment || (choice.option === "commit" ? "Updated via Editor" : null),
+          comment: choice.comment || (choice.option === "commit" ? "Updated via editor" : null),
           baseVersion,
           baseHash,
           lease,

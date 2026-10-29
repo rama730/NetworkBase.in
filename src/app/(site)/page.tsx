@@ -32,8 +32,8 @@ const steps = [
 // Example content only: labelled as such on the page, never presented as real people or counts.
 // Drawn with the Network page's person card classes (components/network/PersonCardContent.tsx).
 const exampleProfiles = [
-  { initials: "AK", name: "Aisha K.", headline: "Frontend developer", location: "Bengaluru", skills: ["React", "TypeScript", "Accessibility Testing"], shared: 3 },
-  { initials: "MR", name: "Marco R.", headline: "Product designer", location: "Lisbon", skills: ["Figma", "Design Systems", "UX Research"], shared: 5 },
+  { initials: "AK", name: "Aisha K.", headline: "Frontend developer", location: "Bengaluru", skills: ["React", "TypeScript", "Accessibility testing"], shared: 3 },
+  { initials: "MR", name: "Marco R.", headline: "Product designer", location: "Lisbon", skills: ["Figma", "Design systems", "UX Research"], shared: 5 },
   { initials: "JS", name: "Jun S.", headline: "Data engineer", location: "Singapore", skills: ["Python", "SQL", "Apache Airflow"], shared: 2 },
   { initials: "LT", name: "Lena T.", headline: "Mobile developer", location: "Berlin", skills: ["Flutter", "Firebase", "Swift"], shared: 4 },
 ].map((person) => ({

@@ -112,7 +112,7 @@ export function OpenToCollaborateBadge({
                     <div className="flex items-center justify-between gap-2 pb-2.5 border-b border-border/60">
                         <div className="flex items-center gap-1.5 min-w-0">
                             <span className="size-1.5 rounded-[1px] bg-[var(--status-success)] shrink-0" aria-hidden="true" />
-                            <span className="text-[13px] font-semibold text-foreground truncate">Collaboration Preferences</span>
+                            <span className="text-[13px] font-semibold text-foreground truncate">Collaboration preferences</span>
                         </div>
                         <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded-[3px] bg-[var(--status-success-soft)] text-[var(--status-success)] border border-[color-mix(in_srgb,var(--status-success)_25%,var(--border))] shrink-0">
                             Available

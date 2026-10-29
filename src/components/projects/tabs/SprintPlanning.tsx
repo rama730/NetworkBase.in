@@ -278,7 +278,7 @@ export default function SprintPlanning({
       try {
         const result = await action();
         if (!result.success || !result.sprint) {
-          throw new Error(result.error || "The Sprint could not be updated");
+          throw new Error(result.error || "The sprint could not be updated");
         }
 
         toast.success(successMessage);
@@ -293,7 +293,7 @@ export default function SprintPlanning({
         void queryClient.invalidateQueries({ queryKey: queryKeys.project.detail.tasksRoot(projectId) });
         return true;
       } catch (error) {
-        const message = error instanceof Error ? error.message : "The Sprint could not be updated";
+        const message = error instanceof Error ? error.message : "The sprint could not be updated";
         setLifecycleError(message);
         toast.error(feedbackError(message, "Action couldn’t finish"));
         return false;
@@ -403,7 +403,7 @@ export default function SprintPlanning({
   return (
     <>
       <div className="lg:hidden mb-4 flex items-center justify-between gap-3">
-        <label htmlFor="mobile-sprint-select" className="sr-only">Select Sprint</label>
+        <label htmlFor="mobile-sprint-select" className="sr-only">Select sprint</label>
         <select
           id="mobile-sprint-select"
           value={selectedSprint?.id ?? ""}

@@ -46,7 +46,7 @@ const BLOCK_COPY: Record<ProjectDocSmartBlock["kind"], { title: string; icon: ty
         description: "Projects inside this organization, live.",
     },
     unknown: {
-        title: "Unknown Doc block",
+        title: "Unknown doc block",
         icon: AlertCircle,
         tab: "readme",
         description: "This block is not recognized and is hidden from public readers.",

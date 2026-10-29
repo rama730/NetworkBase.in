@@ -18,9 +18,9 @@ const fieldClass = 'h-[var(--ui-control-height-lg)] bg-card text-[15px]';
 const textAreaClass = 'min-h-28 w-full resize-y rounded-md border border-input bg-card px-[var(--ui-control-px)] py-3 text-[15px] leading-[1.5] text-foreground outline-none transition-[border-color,box-shadow] placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30 aria-invalid:border-destructive aria-invalid:ring-2 aria-invalid:ring-destructive/20';
 
 const ROLE_OPTIONS = [
-    'Frontend Developer', 'Backend Developer', 'Full Stack Developer', 'UI/UX Designer',
-    'Product Manager', 'DevOps Engineer', 'Data Scientist', 'Mobile Developer',
-    'QA Engineer', 'Technical Writer', 'Marketing', 'Community Manager',
+    'Frontend developer', 'Backend developer', 'Full stack developer', 'UI/UX Designer',
+    'Product manager', 'DevOps Engineer', 'Data scientist', 'Mobile developer',
+    'QA Engineer', 'Technical writer', 'Marketing', 'Community manager',
 ];
 
 const EXPERIENCE_OPTIONS = [

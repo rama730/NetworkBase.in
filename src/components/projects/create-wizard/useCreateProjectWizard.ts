@@ -162,7 +162,7 @@ export function useCreateProjectWizard({ onClose, onSuccess, initialValues, init
         }
 
         // If stages equal the server generic default (legacy), consider it “un-edited” and upgrade to template once.
-        const legacyDefault = ["Concept", "Team Formation", "MVP", "Beta", "Launch"];
+        const legacyDefault = ["Concept", "Team formation", "MVP", "Beta", "Launch"];
         if (arraysEqual(watchedLifecycleStages, legacyDefault)) {
             const next = getLifecycleStagesForProjectType(type);
             setValue('lifecycle_stages', next, { shouldDirty: true });

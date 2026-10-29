@@ -215,7 +215,7 @@ export function ProjectRolesEditor({
                         className="nb-touch-target mt-4 h-[34px] gap-1.5 rounded-[5px] border-border px-3.5 text-[13px] font-medium leading-[1.2] text-foreground hover:bg-muted"
                     >
                         <Plus className="h-3.5 w-3.5" />
-                        Add Position
+                        Add position
                     </Button>
                 </div>
             </div>
@@ -242,7 +242,7 @@ export function ProjectRolesEditor({
             <div className="space-y-3.5">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-border">
                     <div className="space-y-0.5">
-                        <h3 className="nb-card-title text-base font-semibold text-foreground">Project Roles and Team Assignments</h3>
+                        <h3 className="nb-card-title text-base font-semibold text-foreground">Project roles and team assignments</h3>
                         <p className="nb-compact text-xs text-muted-foreground">
                             All roles in a single row · {occupiedEntries.length} occupied {occupiedEntries.length === 1 ? "seat" : "seats"} · {openEntries.length} open {openEntries.length === 1 ? "position" : "positions"}
                         </p>
@@ -255,7 +255,7 @@ export function ProjectRolesEditor({
                         className="nb-touch-target h-[34px] gap-1.5 rounded-[5px] border-border px-3.5 text-[13px] font-medium leading-[1.2] text-foreground hover:bg-muted shrink-0"
                     >
                         <Plus className="h-3.5 w-3.5" />
-                        Add Position
+                        Add position
                     </Button>
                 </div>
 
@@ -380,7 +380,7 @@ export function ProjectRolesEditor({
                                         </div>
                                         <div className="flex flex-col min-w-0 pr-1">
                                             <span className="font-semibold text-foreground text-xs leading-tight truncate max-w-[120px]">
-                                                {entry.field.role || "Untitled Role"}
+                                                {entry.field.role || "Untitled role"}
                                             </span>
                                             <span className="text-[10px] max-md:text-[11px] text-muted-foreground leading-tight">
                                                 {entry.openCount === 1 ? "1 open spot" : `${entry.openCount} open spots`}
@@ -406,7 +406,7 @@ export function ProjectRolesEditor({
                         {/* Occupant Profile Column */}
                         <div className="lg:col-span-4 space-y-4 border-b lg:border-b-0 lg:border-r border-border pb-5 lg:pb-0 lg:pr-5">
                             <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                                <span>Occupant Profile</span>
+                                <span>Occupant profile</span>
                             </div>
                             <div className="flex items-start gap-3.5">
                                 <UserAvatar
@@ -421,7 +421,7 @@ export function ProjectRolesEditor({
                                 />
                                 <div className="flex flex-col min-w-0">
                                     <h4 className="nb-card-title text-foreground break-words">
-                                        {selectedOccupant.fullName || selectedOccupant.username || "Team Member"}
+                                        {selectedOccupant.fullName || selectedOccupant.username || "Team member"}
                                     </h4>
                                     {selectedOccupant.username ? (
                                         <p className="nb-compact text-muted-foreground break-words">
@@ -464,13 +464,13 @@ export function ProjectRolesEditor({
                                     </div>
                                 ) : null}
                                 <div className="flex items-center justify-between text-muted-foreground">
-                                    <span className="nb-meta text-[11px]">Assigned Role</span>
+                                    <span className="nb-meta text-[11px]">Assigned role</span>
                                     <span className="nb-meta text-[11px] text-foreground font-medium truncate max-w-[160px]">
                                         {activeField.role || "Owner"}
                                     </span>
                                 </div>
                                 <div className="flex items-center justify-between text-muted-foreground">
-                                    <span className="nb-meta text-[11px]">Seat Allocation</span>
+                                    <span className="nb-meta text-[11px]">Seat allocation</span>
                                     <span className="nb-meta text-[11px] text-foreground font-medium">
                                         {isLeadRole
                                             ? "1 occupied (Fixed)"
@@ -484,7 +484,7 @@ export function ProjectRolesEditor({
                         <div className="lg:col-span-8 space-y-4">
                             <div className="flex items-center justify-between gap-3">
                                 <div className="space-y-0.5">
-                                    <h4 className="nb-card-title text-sm font-semibold text-foreground">Role Specifications</h4>
+                                    <h4 className="nb-card-title text-sm font-semibold text-foreground">Role specifications</h4>
                                     <p className="nb-compact text-xs text-muted-foreground">
                                         Configure title, responsibilities, and skill stack for this occupied role.
                                     </p>
@@ -513,7 +513,7 @@ export function ProjectRolesEditor({
                             <div className="grid gap-4 sm:grid-cols-12">
                                 <div className={cn(isLeadRole ? "sm:col-span-12" : "sm:col-span-9", "space-y-1.5")}>
                                     <label className="nb-ui-label text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                                        Role Title
+                                        Role title
                                     </label>
                                     <input
                                         {...register(`roles.${activeIndex}.role`)}
@@ -528,7 +528,7 @@ export function ProjectRolesEditor({
                                 {!isLeadRole ? (
                                     <div className="sm:col-span-3 space-y-1.5">
                                         <label className="nb-ui-label text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                                            Total Seats
+                                            Total seats
                                         </label>
                                         <input
                                             type="number"
@@ -549,7 +549,7 @@ export function ProjectRolesEditor({
 
                             <div className="space-y-1.5">
                                 <label className="nb-ui-label text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                                    Role Description and Responsibilities
+                                    Role description and responsibilities
                                 </label>
                                 <textarea
                                     {...register(`roles.${activeIndex}.description`)}
@@ -585,7 +585,7 @@ export function ProjectRolesEditor({
                             <div className="flex items-center justify-between gap-4">
                                 <div className="space-y-0.5">
                                     <div className="flex items-center gap-2">
-                                        <h4 className="nb-card-title text-sm font-semibold text-foreground">Open Role Configuration</h4>
+                                        <h4 className="nb-card-title text-sm font-semibold text-foreground">Open role configuration</h4>
                                         <span className="inline-flex items-center h-5 px-[7px] rounded-[3px] border border-dashed border-border bg-muted/20 text-muted-foreground font-mono text-[11px] font-medium uppercase tracking-[0.09em] leading-none">
                                             Vacancy
                                         </span>
@@ -620,7 +620,7 @@ export function ProjectRolesEditor({
                                         style={isLeadRole ? { opacity: 0.3, cursor: "not-allowed" } : undefined}
                                     >
                                         <Trash2 className="h-3.5 w-3.5" />
-                                        Delete Position
+                                        Delete position
                                     </Button>
                                 </div>
                             </div>
@@ -628,7 +628,7 @@ export function ProjectRolesEditor({
                             <div className="grid gap-4 sm:grid-cols-12">
                                 <div className="sm:col-span-9 space-y-1.5">
                                     <label className="nb-ui-label text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                                        Role Title
+                                        Role title
                                     </label>
                                     <input
                                         {...register(`roles.${activeIndex}.role`)}
@@ -642,7 +642,7 @@ export function ProjectRolesEditor({
                                 </div>
                                 <div className="sm:col-span-3 space-y-1.5">
                                     <label className="nb-ui-label text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                                        Total Seats
+                                        Total seats
                                     </label>
                                     <input
                                         type="number"
@@ -662,7 +662,7 @@ export function ProjectRolesEditor({
 
                             <div className="space-y-1.5">
                                 <label className="nb-ui-label text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                                    Role Description and Responsibilities
+                                    Role description and responsibilities
                                 </label>
                                 <textarea
                                     {...register(`roles.${activeIndex}.description`)}
@@ -694,7 +694,7 @@ export function ProjectRolesEditor({
                         <div className="lg:col-span-4 space-y-4 border-t lg:border-t-0 lg:border-l border-border pt-5 lg:pt-0 lg:pl-5">
                             <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                                 <Eye className="h-3.5 w-3.5 text-primary" />
-                                <span>Applicant View Preview</span>
+                                <span>Applicant view preview</span>
                             </div>
                             <p className="nb-compact text-xs text-muted-foreground">
                                 Preview how candidates see this vacancy on the public project page.
@@ -703,7 +703,7 @@ export function ProjectRolesEditor({
                                 <div className="flex items-start justify-between gap-2">
                                     <div>
                                         <h5 className="font-semibold text-sm text-foreground">
-                                            {activeField.role || "Untitled Position"}
+                                            {activeField.role || "Untitled position"}
                                         </h5>
                                         <span className="nb-meta text-[11px] text-muted-foreground">
                                             {activeOpenCount === 1 ? "1 spot available" : `${activeOpenCount} spots available`}

@@ -60,25 +60,25 @@ test("ProjectRolesEditor features a single-row layout with separate Occupied and
   assert.match(editorSrc, /role="tab"/, "Roles in single row must be accessible interactive tabs");
   assert.match(editorSrc, /aria-selected/, "Roles in single row must track aria-selected state");
 
-  // Divider between segments and Add Position CTA
+  // Divider between segments and Add position CTA
   assert.match(editorSrc, /h-7 w-px bg-border/, "Vertical divider separates occupied and open role segments");
-  assert.match(editorSrc, /Add Position/, "Single row contains Add Position CTA");
+  assert.match(editorSrc, /Add position/, "Single row contains Add position CTA");
 });
 
 test("ProjectRolesEditor provides rich master-detail workspaces for Occupied and Open roles", () => {
   const editorSrc = source("src/components/projects/settings/ProjectRolesEditor.tsx");
 
   // Occupant profile inspection
-  assert.match(editorSrc, /Occupant Profile/, "Occupant workspace must display Occupant Profile header");
+  assert.match(editorSrc, /Occupant profile/, "Occupant workspace must display Occupant profile header");
   assert.match(editorSrc, /<UserAvatar[\s\S]*?size=\{52\}[\s\S]*?roundedClassName="rounded-md"/, "Occupant profile must use 52px squared UserAvatar");
   assert.doesNotMatch(editorSrc, /View public profile/, "View public profile link must be removed from occupant profile");
   assert.doesNotMatch(editorSrc, /This occupant currently fills this role/, "Explanatory note box must be removed from occupant profile");
-  assert.match(editorSrc, /Role Specifications/, "Occupant workspace must provide editable role specifications");
+  assert.match(editorSrc, /Role specifications/, "Occupant workspace must provide editable role specifications");
 
   // Open position editing and live preview
-  assert.match(editorSrc, /Open Role Configuration/, "Open position workspace must display configuration header");
-  assert.match(editorSrc, /Delete Position/, "Open position workspace must offer deletion action");
-  assert.match(editorSrc, /Applicant View Preview/, "Open position workspace must render live applicant preview card");
+  assert.match(editorSrc, /Open role configuration/, "Open position workspace must display configuration header");
+  assert.match(editorSrc, /Delete position/, "Open position workspace must offer deletion action");
+  assert.match(editorSrc, /Applicant view preview/, "Open position workspace must render live applicant preview card");
 
   assert.match(editorSrc, /nb-empty-state[^"]*py-8 text-center/, "Empty state must use the shared empty-state typography without an enclosing card");
   assert.match(editorSrc, /No roles configured/, "Empty state must display clear copy");
@@ -96,7 +96,7 @@ test("project roles editor enforces 1 member = 1 seat invariant and unifies lead
   assert.match(editorSrc, /assignedMemberIds/, "Must track assignedMemberIds to guarantee each member appears at most once in occupied");
   assert.match(editorSrc, /if\s*\(assignedMemberIds\.has\(m\.id\)\)\s*return\s*false;?/, "Must skip members who are already assigned to an occupied seat");
 
-  // Applicant View Preview reflects actual remaining open seats
+  // Applicant view preview reflects actual remaining open seats
   assert.match(editorSrc, /activeOpenCount/, "Applicant preview must compute activeOpenCount from remaining capacity");
 });
 
@@ -107,16 +107,16 @@ test("project roles editor displays explicit occupied vs. open seat breakdown fo
   assert.match(editorSrc, /activeOccupiedCount\s*=\s*occupiedEntries\.filter/, "Must compute activeOccupiedCount for the selected role");
   assert.match(editorSrc, /activeRemainingOpenCount\s*=\s*Math\.max\(0,\s*activeTotalSeats\s*-\s*activeOccupiedCount\)/, "Must compute activeRemainingOpenCount from total minus occupied");
 
-  // Occupant Profile displays Seat Allocation row
-  assert.match(editorSrc, /Seat Allocation/, "Occupant profile must display a dedicated Seat Allocation row");
-  assert.match(editorSrc, /activeOccupiedCount.*?occupied.*?activeRemainingOpenCount.*?open/, "Seat Allocation must show occupied and open counts");
+  // Occupant profile displays Seat allocation row
+  assert.match(editorSrc, /Seat allocation/, "Occupant profile must display a dedicated Seat allocation row");
+  assert.match(editorSrc, /activeOccupiedCount.*?occupied.*?activeRemainingOpenCount.*?open/, "Seat allocation must show occupied and open counts");
 
-  // Role Specifications header & input show occupied vs. open seat breakdown
+  // Role specifications header & input show occupied vs. open seat breakdown
   assert.match(editorSrc, /\{activeOccupiedCount\}\s*occupied\s*\{activeOccupiedCount === 1 \? "seat" : "seats"\}/, "Must render occupied seat pill");
   assert.match(editorSrc, /\{activeRemainingOpenCount\}\s*open\s*\{activeRemainingOpenCount === 1 \? "seat" : "seats"\}/, "Must render open seat pill");
   assert.match(editorSrc, /min=\{Math\.max\(1,\s*activeOccupiedCount\)\}/, "Headcount input min value must guard against reducing seats below occupied count");
 
-  // Functional simulation of the user's Frontend Developer scenario and edge cases
+  // Functional simulation of the user's Frontend developer scenario and edge cases
   function computeSeatAllocation(totalSeats: number, assignedCount: number) {
     const total = Math.max(1, totalSeats);
     const occupied = assignedCount;
@@ -125,7 +125,7 @@ test("project roles editor displays explicit occupied vs. open seat breakdown fo
     return { total, occupied, open, statusText };
   }
 
-  // Scenario 1: User's Frontend Developer case (2 initial seats, 1 taken)
+  // Scenario 1: User's Frontend developer case (2 initial seats, 1 taken)
   const scenario1 = computeSeatAllocation(2, 1);
   assert.equal(scenario1.occupied, 1, "Scenario 1 must have 1 occupied seat");
   assert.equal(scenario1.open, 1, "Scenario 1 must have 1 open seat");

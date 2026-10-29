@@ -278,7 +278,7 @@ export function validateUploadSelection(
     ) {
       return {
         valid: false,
-        error: `Cannot upload user home directory (${detectedFolderName || "User Home"}). Please select a specific folder inside your project.`,
+        error: `Cannot upload user home directory (${detectedFolderName || "User home"}). Please select a specific folder inside your project.`,
         files: [],
       };
     }

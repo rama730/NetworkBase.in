@@ -120,7 +120,7 @@ async function enrichNodesWithLatestVersionAttribution(
                 ...(node.metadata ?? {}),
                 isSystem: true,
                 isTaskWorkingFilesCollection: true,
-                taskWorkingFilesDisplayName: "Working Files and Reference for this Task",
+                taskWorkingFilesDisplayName: "Working Files and reference for this task",
             }
             : node.type === "folder" && taskTitle
                 ? {

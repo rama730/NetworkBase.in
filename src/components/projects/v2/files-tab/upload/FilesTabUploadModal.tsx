@@ -109,7 +109,7 @@ export function FilesTabUploadModal({
   isOpen,
   files,
   currentFolderId,
-  currentFolderName = "Project Root",
+  currentFolderName = "Project root",
   existingFiles,
   activeTaskId = null,
   activeTaskTitle = null,
@@ -707,7 +707,7 @@ export function FilesTabUploadModal({
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between">
                     <div className="text-sm font-semibold text-foreground">
-                      Task Reference
+                      Task reference
                     </div>
                     {intent === "reference" && (
                       <span className="flex size-4 items-center justify-center rounded-[3px] bg-[#D14E24] text-white">
@@ -744,7 +744,7 @@ export function FilesTabUploadModal({
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between">
                     <div className="text-sm font-semibold text-foreground">
-                      Working File
+                      Working file
                     </div>
                     {intent === "working" && (
                       <span className="flex size-4 items-center justify-center rounded-[3px] bg-[#D14E24] text-white">
@@ -797,7 +797,7 @@ export function FilesTabUploadModal({
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between">
                     <div className="text-sm font-semibold text-foreground">
-                      Final Deliverable
+                      Final deliverable
                     </div>
                     {intent === "deliverable" && (
                       <span className="flex size-4 items-center justify-center rounded-[3px] bg-[#D14E24] text-white">
@@ -840,7 +840,7 @@ export function FilesTabUploadModal({
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between">
                       <div className="text-sm font-semibold text-foreground">
-                        New Version of Existing File
+                        New version of existing file
                       </div>
                       {intent === "version" && (
                         <span className="flex size-4 items-center justify-center rounded-[3px] bg-[#D14E24] text-white">
@@ -878,7 +878,7 @@ export function FilesTabUploadModal({
               <div className="mt-2 rounded-lg border border-border bg-muted/40 p-3 dark:border-border dark:bg-card/60 space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-semibold text-foreground">
-                    Associated Task
+                    Associated task
                   </span>
                   {activeTaskTitle && (
                     <span className="text-[11px] text-muted-foreground truncate max-w-[200px]">
@@ -987,7 +987,7 @@ export function FilesTabUploadModal({
                   <FolderUp className="size-5 text-[#D14E24] shrink-0" />
                   <div className="min-w-0">
                     <div className="text-sm font-semibold text-foreground">
-                      Final Deliverable
+                      Final deliverable
                     </div>
                     <div className="text-xs text-muted-foreground truncate">
                       Destination folder: <span className="font-medium text-[#D14E24]">{destinationFolderName}</span>

@@ -68,7 +68,7 @@ test('Phase 3 rejects duplicate role titles before the project can be created', 
         description: 'A clear project description that meets the minimum validation length.',
         project_type: 'web_app',
         roles: [
-            { role: 'Frontend Developer', count: 1 },
+            { role: 'Frontend developer', count: 1 },
             { role: ' frontend developer ', count: 2 },
         ],
     });

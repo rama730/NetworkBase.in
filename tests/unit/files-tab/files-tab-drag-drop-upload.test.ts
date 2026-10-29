@@ -30,10 +30,10 @@ describe("Files Tab Drag & Drop Upload Integration", () => {
 
     // Must provide categories
     assert.match(source, /Project Files/);
-    assert.match(source, /Task Reference/);
-    assert.match(source, /Working File/);
-    assert.match(source, /Final Deliverable/);
-    assert.match(source, /New Version of Existing File/);
+    assert.match(source, /Task reference/);
+    assert.match(source, /Working file/);
+    assert.match(source, /Final deliverable/);
+    assert.match(source, /New version of existing file/);
 
     // Must support smart collision detection
     assert.match(source, /matchingExistingFile/);
@@ -144,7 +144,7 @@ describe("Files Tab Drag & Drop Upload Integration", () => {
     // Must render isolated full-length Project Files tree view when expandedCard === "project"
     assert.match(source, /\{expandedCard === "project" && \(/);
 
-    // Must render isolated full-length Final Deliverable tree view when expandedCard === "deliverable"
+    // Must render isolated full-length Final deliverable tree view when expandedCard === "deliverable"
     assert.match(source, /\{expandedCard === "deliverable" && \(/);
 
     // Must render FolderPicker inside both expanded tree views
@@ -153,9 +153,9 @@ describe("Files Tab Drag & Drop Upload Integration", () => {
       source.indexOf('{expandedCard === "deliverable" && ('),
     );
     assert.match(projectSection, /<FolderPicker/);
-    assert.doesNotMatch(projectSection, /Task Reference/);
-    assert.doesNotMatch(projectSection, /Working File/);
-    assert.doesNotMatch(projectSection, /New Version of Existing File/);
+    assert.doesNotMatch(projectSection, /Task reference/);
+    assert.doesNotMatch(projectSection, /Working file/);
+    assert.doesNotMatch(projectSection, /New version of existing file/);
 
     const deliverableSection = source.slice(
       source.indexOf('{expandedCard === "deliverable" && ('),
@@ -163,8 +163,8 @@ describe("Files Tab Drag & Drop Upload Integration", () => {
     );
     assert.match(deliverableSection, /<FolderPicker/);
     assert.doesNotMatch(deliverableSection, /Project Files/);
-    assert.doesNotMatch(deliverableSection, /Task Reference/);
-    assert.doesNotMatch(deliverableSection, /Working File/);
+    assert.doesNotMatch(deliverableSection, /Task reference/);
+    assert.doesNotMatch(deliverableSection, /Working file/);
   });
 
   it("10 Ponytail Enhancements: FolderPicker ancestral auto-expansion & useFilesStore parent resolution", () => {

@@ -219,7 +219,7 @@ test("Task Files Design Specification Conformance Contract", async (t) => {
     );
     assert.match(
       taskFilesCollection,
-      /\{ id: "in_progress", label: "In Progress" \}/,
+      /\{ id: "in_progress", label: "In progress" \}/,
       "TaskFilesCollection must include 'in_progress' filter option",
     );
     assert.match(
@@ -229,7 +229,7 @@ test("Task Files Design Specification Conformance Contract", async (t) => {
     );
     assert.match(
       taskFilesCollection,
-      /\{ id: "review", label: "Needs Review" \}/,
+      /\{ id: "review", label: "Needs review" \}/,
       "TaskFilesCollection must include 'review' filter option",
     );
     assert.match(

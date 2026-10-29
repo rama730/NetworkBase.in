@@ -776,7 +776,7 @@ export function TrashFilesCollection({ projectId }: { projectId: string }) {
                   {/* Original location */}
                   <div className="rounded-[4px] border border-[#DBD5C8] bg-[#FAF8F5] p-3 dark:border-border dark:bg-card/50">
                     <p className="font-mono text-[11px] uppercase tracking-wider text-[#6B7880] dark:text-muted-foreground">
-                      Original Location
+                      Original location
                     </p>
                     <p className="mt-1 font-mono font-medium text-[#141A1E] dark:text-foreground break-all">
                       {originalLocation(inspectedNode.path)}
@@ -787,7 +787,7 @@ export function TrashFilesCollection({ projectId }: { projectId: string }) {
                   <div className="rounded-[4px] border border-[#DBD5C8] bg-[#FAF8F5] p-3 space-y-2.5 dark:border-border dark:bg-card/50">
                     <div>
                       <p className="font-mono text-[11px] uppercase tracking-wider text-[#6B7880] dark:text-muted-foreground">
-                        Deleted At
+                        Deleted at
                       </p>
                       <p className="mt-0.5 font-mono text-[#141A1E] dark:text-foreground">
                         {inspectedNode.deletedAt
@@ -803,7 +803,7 @@ export function TrashFilesCollection({ projectId }: { projectId: string }) {
 
                     <div>
                       <p className="font-mono text-[11px] uppercase tracking-wider text-[#6B7880] dark:text-muted-foreground">
-                        Deleted By
+                        Deleted by
                       </p>
                       <div className="mt-1 flex items-center gap-2">
                         {inspectedNode.deletedByName ? (

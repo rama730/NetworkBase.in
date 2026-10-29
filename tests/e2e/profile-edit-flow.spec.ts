@@ -68,7 +68,7 @@ test.describe("Profile edit flow", () => {
         await expect(editModal.getByText("Weekly capacity", { exact: true })).toBeVisible();
         await editModal.getByRole("tab", { name: "General Properties" }).click();
         const cancelType = await editModal.getByRole("button", { name: "Cancel" }).getAttribute("type");
-        const saveType = await editModal.getByRole("button", { name: "Save Changes" }).getAttribute("type");
+        const saveType = await editModal.getByRole("button", { name: "Save changes" }).getAttribute("type");
         expect(cancelType).toBe("button");
         expect(saveType).toBe("submit");
 
@@ -78,7 +78,7 @@ test.describe("Profile edit flow", () => {
         const originalHeadline = await headlineInput.inputValue();
         const updatedHeadline = scopedName("E2E-headline");
         await headlineInput.fill(updatedHeadline);
-        const saveButton = editModal.getByRole("button", { name: "Save Changes" });
+        const saveButton = editModal.getByRole("button", { name: "Save changes" });
         await expect(saveButton).toBeEnabled();
         const saveResponse = page.waitForResponse(
             (response) =>
@@ -103,7 +103,7 @@ test.describe("Profile edit flow", () => {
         await expect(verifyHeadlineInput).toHaveValue(updatedHeadline);
 
         await verifyHeadlineInput.fill(originalHeadline);
-        const restoreButton = verifyModal.getByRole("button", { name: "Save Changes" });
+        const restoreButton = verifyModal.getByRole("button", { name: "Save changes" });
         await expect(restoreButton).toBeEnabled();
         await restoreButton.click();
         await expect(verifyModal).toBeHidden({ timeout: 15000 });
@@ -160,7 +160,7 @@ test.describe("Profile edit flow", () => {
         await createDialog.getByLabel("Your role").fill("Contributor");
         const privateSwitch = createDialog.getByRole("switch", { name: new RegExp(contributionName) });
         await expect(privateSwitch).toHaveAttribute("aria-checked", "false");
-        await createDialog.getByRole("button", { name: "Save Changes" }).click();
+        await createDialog.getByRole("button", { name: "Save changes" }).click();
         await expect(createDialog).toBeHidden({ timeout: 15000 });
         await expect(ownerPage.getByText(contributionName, { exact: true })).toBeVisible();
 
@@ -175,7 +175,7 @@ test.describe("Profile edit flow", () => {
         const showSwitch = publicDialog.getByRole("switch", { name: new RegExp(contributionName) });
         await showSwitch.click();
         await expect(showSwitch).toHaveAttribute("aria-checked", "true");
-        await publicDialog.getByRole("button", { name: "Save Changes" }).click();
+        await publicDialog.getByRole("button", { name: "Save changes" }).click();
         await expect(publicDialog).toBeHidden({ timeout: 15000 });
 
         await publicPage.reload({ waitUntil: "domcontentloaded" });
@@ -187,7 +187,7 @@ test.describe("Profile edit flow", () => {
         const hideSwitch = hideDialog.getByRole("switch", { name: new RegExp(contributionName) });
         await hideSwitch.click();
         await expect(hideSwitch).toHaveAttribute("aria-checked", "false");
-        await hideDialog.getByRole("button", { name: "Save Changes" }).click();
+        await hideDialog.getByRole("button", { name: "Save changes" }).click();
         await expect(hideDialog).toBeHidden({ timeout: 15000 });
 
         await publicPage.reload({ waitUntil: "domcontentloaded" });
@@ -197,7 +197,7 @@ test.describe("Profile edit flow", () => {
         await cleanupDialog.getByRole("tab", { name: "Project Contributions" }).click();
         await cleanupDialog.getByRole("button", { name: new RegExp(contributionName) }).click();
         await cleanupDialog.getByRole("button", { name: "Remove" }).click();
-        await cleanupDialog.getByRole("button", { name: "Save Changes" }).click();
+        await cleanupDialog.getByRole("button", { name: "Save changes" }).click();
         await expect(cleanupDialog).toBeHidden({ timeout: 15000 });
         await expect(ownerPage.getByText(contributionName, { exact: true })).toHaveCount(0);
 

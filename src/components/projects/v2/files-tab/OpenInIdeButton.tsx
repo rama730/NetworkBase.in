@@ -323,7 +323,7 @@ export function OpenInIdeButton({
               className="gap-1.5 bg-primary text-xs text-primary-foreground transition-[background-color,color] duration-150 ease-in-out hover:bg-[var(--primary-hover)] active:bg-[var(--primary-active)]"
             >
               <ExternalLink className="size-3.5" />
-              Open Marketplace in {fallbackIde.name}
+              Open marketplace in {fallbackIde.name}
             </Button>
             <Button
               variant="outline"

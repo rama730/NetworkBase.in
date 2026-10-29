@@ -951,7 +951,7 @@ export function MediaViewerDriver({
         </div>
         <div className="space-y-1.5 max-w-md">
           <p className="text-base font-semibold text-foreground">
-            {isMovFile ? "QuickTime (.mov) Codec Not Supported in Browser" : "Unable to Play Media Stream"}
+            {isMovFile ? "QuickTime (.mov) Codec Not Supported in Browser" : "Unable to play media stream"}
           </p>
           <p className="text-xs text-muted-foreground leading-relaxed">
             {isMovFile
@@ -1197,7 +1197,7 @@ export function MediaViewerDriver({
                 variant="ghost"
                 onClick={cycleZoomMode}
                 className="h-7 px-2 text-xs text-white/80 hover:text-white hover:bg-white/10 rounded-[6px]"
-                title={`View Mode: ${zoomMode === "fit" ? "Fit (Aspect Ratio)" : zoomMode === "fill" ? "Fill Viewport" : "1:1 Native Resolution"} (Z)`}
+                title={`View Mode: ${zoomMode === "fit" ? "Fit (Aspect Ratio)" : zoomMode === "fill" ? "Fill viewport" : "1:1 Native Resolution"} (Z)`}
               >
                 <Scan className="h-3.5 w-3.5 mr-1" />
                 <span className="capitalize">{zoomMode === "native" ? "1:1" : zoomMode}</span>
@@ -1234,7 +1234,7 @@ export function MediaViewerDriver({
                 title={isCurrentTimeFlagged ? "Remove Flag at Current Time (C)" : "Drop Timestamp Flag (C)"}
               >
                 <Flag className={cn("h-3.5 w-3.5 mr-1", isCurrentTimeFlagged ? "text-amber-400 fill-amber-400" : "text-[#D14E24]")} />
-                {isCurrentTimeFlagged ? "Remove Flag" : "Flag"}
+                {isCurrentTimeFlagged ? "Remove flag" : "Flag"}
               </Button>
 
               {/* Share / Copy Menu */}
@@ -1244,7 +1244,7 @@ export function MediaViewerDriver({
                   variant="ghost"
                   onClick={() => setShowShareMenu((prev) => !prev)}
                   className="h-7 px-2 text-xs text-white/80 hover:text-white hover:bg-white/10 rounded-[6px]"
-                  title="Share Options"
+                  title="Share options"
                 >
                   <Copy className="h-3.5 w-3.5 mr-1" />
                   Share
@@ -1257,7 +1257,7 @@ export function MediaViewerDriver({
                       onClick={handleCopyLink}
                       className="w-full flex items-center justify-between rounded-[4px] px-2.5 py-1.5 text-left text-white/90 hover:bg-white/15"
                     >
-                      <span>Copy Direct Link</span>
+                      <span>Copy direct link</span>
                       {copiedLink ? <Check className="h-3 w-3 text-emerald-400" /> : null}
                     </button>
                     <button
@@ -1265,7 +1265,7 @@ export function MediaViewerDriver({
                       onClick={handleCopyTimestampLink}
                       className="w-full flex items-center justify-between rounded-[4px] px-2.5 py-1.5 text-left text-white/90 hover:bg-white/15"
                     >
-                      <span>Copy Link at {formatTime(currentTime)}</span>
+                      <span>Copy link at {formatTime(currentTime)}</span>
                       {copiedTimestampLink ? <Check className="h-3 w-3 text-emerald-400" /> : null}
                     </button>
                   </div>
@@ -1279,7 +1279,7 @@ export function MediaViewerDriver({
                 variant="ghost"
                 className="h-7 px-2 text-xs text-white/80 hover:text-white hover:bg-white/10 rounded-[6px]"
               >
-                <a href={signedUrl} download={node.name} title="Download Video">
+                <a href={signedUrl} download={node.name} title="Download video">
                   <Download className="h-3.5 w-3.5 mr-1" />
                   Download
                 </a>
@@ -1535,7 +1535,7 @@ export function MediaViewerDriver({
                       "h-8 w-8 p-0 text-white/80 hover:text-white hover:bg-white/15 rounded-[6px]",
                       isLooping && "text-[#D14E24] bg-white/10",
                     )}
-                    title="Toggle Loop"
+                    title="Toggle loop"
                   >
                     <Repeat className="h-3.5 w-3.5" />
                   </Button>
@@ -1589,7 +1589,7 @@ export function MediaViewerDriver({
                 <div className="flex items-center justify-between pb-3 border-b border-white/10">
                   <h4 className="text-sm font-semibold flex items-center gap-2">
                     <HelpCircle className="h-4 w-4 text-[#D14E24]" />
-                    Keyboard Shortcuts
+                    Keyboard shortcuts
                   </h4>
                   <Button
                     size="sm"
@@ -1646,7 +1646,7 @@ export function MediaViewerDriver({
                     <kbd className="rounded-[4px] bg-white/10 px-1.5 py-0.5 font-mono text-[11px] text-white">S</kbd>
                   </div>
                   <div className="flex items-center justify-between text-white/70">
-                    <span>Zoom Mode</span>
+                    <span>Zoom mode</span>
                     <kbd className="rounded-[4px] bg-white/10 px-1.5 py-0.5 font-mono text-[11px] text-white">Z</kbd>
                   </div>
                 </div>
@@ -1826,7 +1826,7 @@ export function MediaViewerDriver({
               </Button>
 
               <Button asChild size="sm" variant="ghost" className="h-8 w-8 p-0 rounded-[6px]">
-                <a href={signedUrl} download={node.name} title="Download Audio">
+                <a href={signedUrl} download={node.name} title="Download audio">
                   <Download className="h-4 w-4" />
                 </a>
               </Button>

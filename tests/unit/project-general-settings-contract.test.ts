@@ -56,7 +56,7 @@ test("project general settings renders 3 canonical cards and removes redundant o
   assert.match(content, /rounded-md/);
 });
 
-test("project general settings removes duplicate header card and renders card-level Save Changes and Cancel buttons", () => {
+test("project general settings removes duplicate header card and renders card-level Save changes and Cancel buttons", () => {
   const content = componentSource("src/components/projects/tabs/ProjectSettingsTab.tsx");
 
   // Duplicate header card removed from general tab

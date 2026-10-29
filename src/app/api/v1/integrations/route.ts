@@ -93,7 +93,7 @@ export async function GET(request: Request) {
         const githubProjects = githubProjectRows.map((row) => ({
             id: row.id,
             slug: row.slug || row.id,
-            title: row.title || "Untitled Project",
+            title: row.title || "Untitled project",
             importSource: (row.importSource as { type?: string; repoUrl?: string; branch?: string } | null) ?? null,
             githubRepoUrl: row.githubRepoUrl || null,
             syncRepository: row.syncRepository || null,

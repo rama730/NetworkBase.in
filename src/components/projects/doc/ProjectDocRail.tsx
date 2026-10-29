@@ -172,7 +172,7 @@ export function ProjectDocRail({
                                             type="button"
                                             onClick={() => rail.askRemove(doc)}
                                             aria-label={`Remove ${doc.filename} from Docs`}
-                                            title="Remove from Docs"
+                                            title="Remove from docs"
                                             className="absolute right-1.5 top-1/2 inline-flex size-6 -translate-y-1/2 items-center justify-center rounded-[4px] text-muted-foreground opacity-0 pointer-coarse:opacity-100 transition-opacity hover:bg-muted hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100"
                                         >
                                             <X className="size-3.5" />

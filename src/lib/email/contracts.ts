@@ -206,7 +206,7 @@ function formatPriority(priority?: string | null): { label: string; color: strin
   const p = priority.toLowerCase();
   switch (p) {
     case "urgent": return { label: "Urgent", color: "#DC2626", bg: "#FEE2E2" };
-    case "high": return { label: "High Priority", color: "#EA580C", bg: "#FFEDD5" };
+    case "high": return { label: "High priority", color: "#EA580C", bg: "#FFEDD5" };
     case "medium": return { label: "Medium", color: "#D97706", bg: "#FEF3C7" };
     case "low": return { label: "Low", color: "#6B7280", bg: "#F3F4F6" };
     default: return { label: priority, color: "#6B7280", bg: "#F3F4F6" };

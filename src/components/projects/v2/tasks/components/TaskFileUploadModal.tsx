@@ -101,7 +101,7 @@ export function TaskFileUploadModal({
               />
               <div className="flex-1">
                 <div className="text-[13px] font-medium text-foreground">
-                  Task Reference
+                  Task reference
                 </div>
                 <div className="text-xs text-muted-foreground">
                   A brief, specification, example, or source file supplied as task input.
@@ -147,7 +147,7 @@ export function TaskFileUploadModal({
               />
               <div className="flex-1">
                 <div className="text-[13px] font-medium text-foreground">
-                  Working File
+                  Working file
                 </div>
                 <div className="text-xs text-muted-foreground">
                   Active drafts and intermediate work produced while completing the task.
@@ -193,7 +193,7 @@ export function TaskFileUploadModal({
               />
               <div className="flex-1">
                 <div className="text-[13px] font-medium text-foreground">
-                  Final Deliverable
+                  Final deliverable
                 </div>
                 <div className="text-xs text-muted-foreground">
                   The completed output of this task. Optionally choose its
@@ -243,7 +243,7 @@ export function TaskFileUploadModal({
                 />
                 <div className="flex-1">
                   <div className="text-[13px] font-medium text-foreground">
-                    New Version of Existing File
+                    New version of existing file
                   </div>
                   <div className="text-xs text-muted-foreground">
                     Add this upload to an attached file’s version history.

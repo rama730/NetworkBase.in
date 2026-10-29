@@ -958,7 +958,7 @@ export default function TasksTab({
           <DialogContent className="sm:max-w-[425px]">
             <form onSubmit={submitNewColumn}>
               <DialogHeader>
-                <DialogTitle>Add Section</DialogTitle>
+                <DialogTitle>Add section</DialogTitle>
                 <DialogDescription>
                   Create a new column for your task workflow.
                 </DialogDescription>
@@ -1045,7 +1045,7 @@ export default function TasksTab({
                   disabled={isAddingSection}
                   className="nb-touch-target h-[34px] rounded-[5px] bg-primary px-3.5 font-mono text-xs font-medium uppercase tracking-[0.09em] text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
                 >
-                  {isAddingSection ? "Adding..." : "Add Section"}
+                  {isAddingSection ? "Adding..." : "Add section"}
                 </button>
               </DialogFooter>
             </form>

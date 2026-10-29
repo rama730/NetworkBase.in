@@ -27,7 +27,7 @@ test('profile header uses OpenToCollaborateBadge with brand square without dupli
     assert.match(css, /\.nb-person-collaboration\[data-variant="profile-header"\]::before[^{]*\{[^}]*width:\s*4\.5px;\s*height:\s*4\.5px;\s*border-radius:\s*1px;/);
 
     // Popover contains collaboration preferences structure for cards
-    assert.match(badge, /Collaboration Preferences/);
+    assert.match(badge, /Collaboration preferences/);
     assert.match(badge, /Popover\.Root/);
     assert.match(badge, /Popover\.Trigger/);
     assert.match(badge, /Popover\.Content/);

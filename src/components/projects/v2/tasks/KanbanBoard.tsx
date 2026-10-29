@@ -299,12 +299,12 @@ const KanbanColumn = React.memo(
                         }}
                       >
                         <Pencil className="size-3.5 mr-2" />
-                        Rename Section
+                        Rename section
                       </DropdownMenuItem>
                       <DropdownMenuSub>
                         <DropdownMenuSubTrigger className="cursor-pointer text-xs font-medium">
                           <Palette className="size-3.5 mr-2" />
-                          Change Color
+                          Change color
                         </DropdownMenuSubTrigger>
                         <DropdownMenuPortal>
                           <DropdownMenuSubContent className="w-40">
@@ -366,7 +366,7 @@ const KanbanColumn = React.memo(
                       onClick={() => onRemoveColumn(col.id)}
                     >
                       <Trash2 className="size-3.5 mr-2" />
-                      Remove Section
+                      Remove section
                     </DropdownMenuItem>
                   )}
                 </DropdownMenuContent>

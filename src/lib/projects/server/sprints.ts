@@ -1817,7 +1817,7 @@ export async function completeSprintAction(
         ),
         columns: { endDate: true },
       });
-      if (!activeSprint) throw new Error("Only an Active sprint can be completed");
+      if (!activeSprint) throw new Error("Only an active sprint can be completed");
       // The same inclusive end-of-day (UTC) rule the sprint page uses to offer close-out.
       if (!isSprintReadyToClose({ status: "active", endDate: activeSprint.endDate?.toISOString() ?? null }, now)) {
         throw new Error("This sprint can be closed after its scheduled end date");
@@ -1836,10 +1836,10 @@ export async function completeSprintAction(
           ),
         )
         .returning({ id: projectSprints.id });
-      if (!completed) throw new Error("Only an Active sprint can be completed");
+      if (!completed) throw new Error("Only an active sprint can be completed");
       if (unfinished === "next_sprint") {
         if (!options.nextSprintId || options.nextSprintId === sprintId)
-          throw new Error("Choose a different Planning sprint");
+          throw new Error("Choose a different planning sprint");
         const target = await tx.query.projectSprints.findFirst({
           where: and(
             eq(projectSprints.id, options.nextSprintId),
@@ -1849,7 +1849,7 @@ export async function completeSprintAction(
           columns: { id: true },
         });
         if (!target)
-          throw new Error("The destination must be a Planning sprint");
+          throw new Error("The destination must be a planning sprint");
       }
       if (unfinished !== "keep") {
         const unfinishedTasks = await tx.query.tasks.findMany({

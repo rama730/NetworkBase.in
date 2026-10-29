@@ -145,7 +145,7 @@ export function PasswordField({ className, onKeyDown, onKeyUp, onBlur, ...props 
                     {shown ? <EyeOff className="size-4" aria-hidden="true" /> : <Eye className="size-4" aria-hidden="true" />}
                 </button>
             </div>
-            {capsLock ? <p className="nb-auth-note text-[var(--status-warning)]" role="status">Caps Lock is on</p> : null}
+            {capsLock ? <p className="nb-auth-note text-[var(--status-warning)]" role="status">Caps lock is on</p> : null}
         </div>
     )
 }

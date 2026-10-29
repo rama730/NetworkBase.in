@@ -29,7 +29,7 @@ test("application sidebar supports a persisted accessible icon-only state", () =
   assert.ok(
     sidebar.indexOf("<MyWorkIndicator />") > sidebar.indexOf('aria-label="My profile"')
       && sidebar.indexOf("<MyWorkIndicator />") < sidebar.indexOf('className="nb-sidebar-workspace'),
-    "My Work should appear directly after My Profile and before the Workspaces project list",
+    "My Work should appear directly after My profile and before the Workspaces project list",
   );
   assert.match(sidebar, /data-layout=\{preferenceReady \? \(collapsed \? "stacked" : "inline"\) : undefined\}/);
   assert.ok(

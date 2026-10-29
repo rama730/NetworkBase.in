@@ -27,7 +27,7 @@ function contribution(
     id: CONTRIBUTION_ID,
     projectId: "423e4567-e89b-42d3-a456-426614174000",
     version: 3,
-    title: "Lead / Frontend Developer",
+    title: "Lead / Frontend developer",
     projectTitle: "Ponytail",
     projectHref: "/projects/ponytail",
     projectUrl: "https://example.test/projects/ponytail",
@@ -52,7 +52,7 @@ function editorEntry(overrides: Partial<ContributionEditorEntry> = {}): Contribu
     version: 3,
     projectId: "423e4567-e89b-42d3-a456-426614174000",
     projectTitle: "Ponytail",
-    roleTitle: "Lead / Frontend Developer",
+    roleTitle: "Lead / Frontend developer",
     startedAt: "2026-02",
     endedAt: "",
     projectUrl: "https://example.test/projects/ponytail",
@@ -278,7 +278,7 @@ test("parent visibility is the UI and read authority while owners retain a priva
 });
 
 test("profile contributions preserve recorded team terminology while stories use explicit current status", () => {
-  assert.equal(formatProjectTeamRole({ membershipRole: "owner", leadFocus: "Frontend Developer" }), "Owner / Frontend Developer");
+  assert.equal(formatProjectTeamRole({ membershipRole: "owner", leadFocus: "Frontend developer" }), "Owner / Frontend developer");
   assert.equal(formatProjectTeamRole({ membershipRole: "owner", projectRoleTitle: "Lead", leadFocus: "Tester" }), "Owner / Tester");
   assert.equal(formatProjectTeamRole({ membershipRole: "member", projectRoleTitle: "QA Engineer" }), "QA Engineer · Member");
 

@@ -135,7 +135,7 @@ function ProjectNotificationRuleRow({
         {entry.mandatory ? (
           <p className="nb-meta flex items-center gap-1.5 text-muted-foreground">
             <Lock className="size-3 shrink-0" aria-hidden="true" />
-            Mandatory event · Always enabled
+            Mandatory event · always enabled
           </p>
         ) : null}
       </div>

@@ -177,7 +177,7 @@ export function DocxViewerDriver({
     iframe.style.opacity = "0";
     iframe.style.pointerEvents = "none";
     iframe.setAttribute("aria-hidden", "true");
-    iframe.title = "Print Document Preview";
+    iframe.title = "Print document preview";
     document.body.appendChild(iframe);
 
     const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
@@ -413,7 +413,7 @@ export function DocxViewerDriver({
             <Button asChild size="sm" className="h-9 px-4 text-xs font-medium">
               <a href={signedUrl} download={node.name}>
                 <Download className="mr-1.5 h-3.5 w-3.5" />
-                Download Document
+                Download document
               </a>
             </Button>
 
@@ -495,7 +495,7 @@ export function DocxViewerDriver({
               variant={showOutline ? "secondary" : "ghost"}
               onClick={() => setShowOutline((v) => !v)}
               className="h-7 px-2 text-xs"
-              title="Toggle Table of Contents"
+              title="Toggle table of contents"
             >
               <ListTree className="mr-1 h-3.5 w-3.5" />
               <span className="hidden sm:inline">Outline</span>
@@ -549,7 +549,7 @@ export function DocxViewerDriver({
             variant="ghost"
             onClick={() => setZoom((z) => Math.max(50, z - 15))}
             className="h-7 w-7 p-0"
-            title="Zoom Out"
+            title="Zoom out"
           >
             <ZoomOut className="h-3.5 w-3.5" />
           </Button>
@@ -559,7 +559,7 @@ export function DocxViewerDriver({
             variant="ghost"
             onClick={() => setZoom((z) => Math.min(200, z + 15))}
             className="h-7 w-7 p-0"
-            title="Zoom In"
+            title="Zoom in"
           >
             <ZoomIn className="h-3.5 w-3.5" />
           </Button>
@@ -568,7 +568,7 @@ export function DocxViewerDriver({
             variant="ghost"
             onClick={() => setZoom(100)}
             className="h-7 w-7 p-0"
-            title="Reset Zoom"
+            title="Reset zoom"
           >
             <RotateCcw className="h-3.5 w-3.5" />
           </Button>
@@ -597,7 +597,7 @@ export function DocxViewerDriver({
             <div className="flex items-center justify-between pb-2 mb-1 border-b border-border/60">
               <span className="text-xs font-semibold text-foreground flex items-center gap-1.5">
                 <ListTree className="h-3.5 w-3.5 text-primary" />
-                Table of Contents
+                Table of contents
               </span>
               <button
                 type="button"
@@ -653,7 +653,7 @@ export function DocxViewerDriver({
             <p className="text-xs text-muted-foreground">{error}</p>
             <Button asChild size="sm" className="mt-2">
               <a href={signedUrl} download={node.name}>
-                <Download className="mr-1.5 h-3.5 w-3.5" /> Download File
+                <Download className="mr-1.5 h-3.5 w-3.5" /> Download file
               </a>
             </Button>
           </div>

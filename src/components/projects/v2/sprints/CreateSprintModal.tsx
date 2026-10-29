@@ -288,7 +288,7 @@ export default function SprintEditorModal({
         <div className="flex shrink-0 items-center justify-between border-b border-border px-6 py-4">
           <div className="space-y-0.5">
             <DialogTitle className="text-base font-semibold text-foreground">
-              {mode === "create" ? "Create Sprint" : "Edit Sprint"}
+              {mode === "create" ? "Create sprint" : "Edit sprint"}
             </DialogTitle>
             <DialogDescription className="text-xs text-muted-foreground">
               {mode === "create"
@@ -298,7 +298,7 @@ export default function SprintEditorModal({
           </div>
           <button
             type="button"
-            aria-label="Close Sprint editor"
+            aria-label="Close sprint editor"
             onClick={onClose}
             disabled={!!pendingAction}
             className="rounded-[5px] p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50"
@@ -328,7 +328,7 @@ export default function SprintEditorModal({
             <div className="space-y-3.5">
               <SectionDivider title="Basics" />
 
-              <Field label="Sprint Name" htmlFor="sprint-name" required error={fieldErrors.name}>
+              <Field label="Sprint name" htmlFor="sprint-name" required error={fieldErrors.name}>
                 <input
                   ref={firstFieldRef}
                   id="sprint-name"
@@ -340,7 +340,7 @@ export default function SprintEditorModal({
                 />
               </Field>
 
-              <Field label="Sprint Goal" htmlFor="sprint-goal" error={fieldErrors.goal}>
+              <Field label="Sprint goal" htmlFor="sprint-goal" error={fieldErrors.goal}>
                 <input
                   id="sprint-goal"
                   value={draft.goal}
@@ -394,7 +394,7 @@ export default function SprintEditorModal({
               </SectionDivider>
 
               <div className="grid grid-cols-2 gap-3">
-                <Field label="Start Date" htmlFor="sprint-start-date" required error={fieldErrors.startDate}>
+                <Field label="Start date" htmlFor="sprint-start-date" required error={fieldErrors.startDate}>
                   <input
                     id="sprint-start-date"
                     type="date"
@@ -405,7 +405,7 @@ export default function SprintEditorModal({
                   />
                 </Field>
 
-                <Field label="End Date" htmlFor="sprint-end-date" required error={fieldErrors.endDate}>
+                <Field label="End date" htmlFor="sprint-end-date" required error={fieldErrors.endDate}>
                   <input
                     id="sprint-end-date"
                     type="date"
@@ -572,7 +572,7 @@ export default function SprintEditorModal({
               disabled={!!pendingAction}
               className="nb-touch-target inline-flex h-[34px] items-center justify-center rounded-[5px] bg-primary px-4 font-mono text-xs font-medium uppercase tracking-[0.09em] text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
             >
-              {isSubmitting ? "Saving..." : mode === "create" ? "Create Sprint" : "Save changes"}
+              {isSubmitting ? "Saving..." : mode === "create" ? "Create sprint" : "Save changes"}
             </button>
           </div>
         </form>

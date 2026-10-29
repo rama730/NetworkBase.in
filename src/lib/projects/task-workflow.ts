@@ -24,9 +24,9 @@ export type TaskPriorityPresentation = {
 export const TASK_STATUS_PRESENTATION: Record<TaskWorkflowStatus, TaskWorkflowStatusPresentation> = {
   todo: {
     id: "todo",
-    label: "To Do",
+    label: "To do",
     description: "Work that is ready to start.",
-    columnTitle: "To Do",
+    columnTitle: "To do",
     emptyTitle: "Tasks will appear here…",
     emptyDescription: "Tasks that are ready to start will appear here. Drag and drop your tasks here.",
     badgeClassName:
@@ -35,9 +35,9 @@ export const TASK_STATUS_PRESENTATION: Record<TaskWorkflowStatus, TaskWorkflowSt
   },
   in_progress: {
     id: "in_progress",
-    label: "In Progress",
+    label: "In progress",
     description: "Work that is actively moving.",
-    columnTitle: "In Progress",
+    columnTitle: "In progress",
     emptyTitle: "Tasks will appear here…",
     emptyDescription: "Items will appear here as soon as they start. Drag and drop your tasks here.",
     badgeClassName:

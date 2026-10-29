@@ -17,7 +17,7 @@ test("personal settings render as one navigable scroll document", () => {
     assert.match(document, new RegExp(`id="settings-${section}"`), `${section} should have a stable scroll target`);
   }
 
-  assert.ok(document.indexOf('id="settings-privacy-policies"') > document.indexOf('id="settings-integrations"'), "Privacy and Policies should follow Integrations");
+  assert.ok(document.indexOf('id="settings-privacy-policies"') > document.indexOf('id="settings-integrations"'), "Privacy and policies should follow Integrations");
   assert.ok(document.indexOf('id="settings-delete-account"') > document.indexOf('id="settings-privacy-policies"'), "Delete account should be the final settings action");
 
   assert.match(layout, /root\.scrollTo\(\{ top, behavior: smooth && !reducedMotion\(\) \? "smooth" : "auto" \}\)/, "a jump scrolls the settings pane itself");
@@ -39,7 +39,7 @@ test("personal settings render as one navigable scroll document", () => {
   assert.match(layout, /event\.metaKey \|\| event\.ctrlKey/, "Native modified-link navigation should remain available");
   assert.match(layout, /isReducedMotionEnabled/, "the in-app Reduce motion setting also stops smooth scrolling");
   assert.doesNotMatch(layout, /space-y-6 pb-10/, "The settings document should not leave an artificial gap after its final section");
-  assert.match(layout, /SETTINGS_SECTION_META\["privacy-policies"\]/, "Privacy and Policies should be a first-class navigation item");
+  assert.match(layout, /SETTINGS_SECTION_META\["privacy-policies"\]/, "Privacy and policies should be a first-class navigation item");
 });
 
 test("settings primitives keep the application typography and spacing grammar", () => {

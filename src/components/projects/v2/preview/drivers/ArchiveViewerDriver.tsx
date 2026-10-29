@@ -157,7 +157,7 @@ export function ArchiveViewerDriver({
             <Button asChild size="sm" variant="default" className="mt-2">
               <a href={signedUrl} download={node.name}>
                 <Download className="mr-1.5 h-4 w-4" />
-                Download Archive
+                Download archive
               </a>
             </Button>
           </div>

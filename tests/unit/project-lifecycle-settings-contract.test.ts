@@ -27,7 +27,7 @@ test("project lifecycle tab eliminates duplicate header and redundant summary ca
     assert.doesNotMatch(
         workflowBlock,
         /<SummaryCard/,
-        "Redundant SummaryCard must be removed from Project Lifecycle tab",
+        "Redundant SummaryCard must be removed from Project lifecycle tab",
     );
 
     // 4. LifecycleSettingsEditor component definition inspection
