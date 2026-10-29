@@ -7,6 +7,7 @@ import { MobileProgressBar } from '@/components/onboarding/MobileProgressBar'
 import { StepHeader } from '@/components/onboarding/StepHeader'
 import { StepFooter } from '@/components/onboarding/StepFooter'
 import { FinishScreen } from '@/components/onboarding/FinishScreen'
+import { preloadWelcomeFlight, startWelcomeFlight } from '@/components/onboarding/WelcomeFlight'
 import { Step1Identity } from '@/components/onboarding/steps/Step1Identity'
 import Step2Details from '@/components/onboarding/steps/Step2Details'
 import Step3Skills from '@/components/onboarding/steps/Step3Skills'
@@ -144,6 +145,11 @@ export default function OnboardingPage() {
         const joinCode = normalizeJoinCode(resolveReturnPath().match(/^\/join\/([^/?#]+)/)?.[1] ?? '')
         if (joinCode) setData((current) => (current.pendingJoinCode ? current : { ...current, pendingJoinCode: joinCode }))
         setReady(true)
+    }, [])
+
+    // The welcome flight is needed only after the last step; loading it now means it is ready when the button is pressed.
+    useEffect(() => {
+        void preloadWelcomeFlight()
     }, [])
 
     useEffect(() => {
@@ -405,12 +411,26 @@ export default function OnboardingPage() {
                 <FinishScreen
                     fullName={data.fullName}
                     username={data.username}
+                    userId={bootstrap.userId}
                     headline={data.headline}
                     avatarUrl={data.avatarUrl}
                     skills={data.skills}
                     visibility={data.visibility}
                     continueLabel={joinOrgTitle ? `Continue to ${joinOrgTitle}` : continuePath === '/discover' ? 'Go to Discover' : 'Continue'}
-                    onContinue={() => window.location.assign(continuePath)}
+                    onContinue={(from) => {
+                        // The welcome flight starts the navigation itself, so the next page loads while it plays. If it cannot
+                        // start (still loading, or already running), go straight there as before.
+                        const started = startWelcomeFlight({
+                            fullName: data.fullName,
+                            username: data.username,
+                            userId: bootstrap.userId,
+                            avatarUrl: data.avatarUrl,
+                            visibility: data.visibility,
+                            continuePath,
+                            from,
+                        })
+                        if (!started) window.location.assign(continuePath)
+                    }}
                 />
             </OnboardingLayout>
         )

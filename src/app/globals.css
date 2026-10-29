@@ -1415,3 +1415,16 @@ textarea.nb-story-input { height:auto; min-height:96px; resize:vertical; line-he
 @container (max-width:620px) { .nb-story-position { grid-template-columns:minmax(0,1fr); gap:8px; } }
 @container (max-width:440px) { .nb-story-fields { grid-template-columns:minmax(0,1fr); } }
 @media (prefers-reduced-motion:reduce) { .nb-story-reveal.is-expanded { animation:none; } }
+
+/* Welcome flight (components/onboarding/WelcomeFlight*): while the photo travels to the top bar the app shell waits behind it, then fades in one region after another. The real avatar stays hidden until the photo has landed on it. */
+html[data-welcome-flight] [data-welcome-slot] { visibility:hidden; }
+html[data-welcome-flight="hold"] .nb-sidebar,
+html[data-welcome-flight="hold"] .nb-main-frame { opacity:0; }
+html[data-welcome-flight="reveal"] .nb-sidebar { animation:nb-welcome-in .5s cubic-bezier(.2,.8,.3,1) both; }
+html[data-welcome-flight="reveal"] .nb-main-frame > header { animation:nb-welcome-in .5s cubic-bezier(.2,.8,.3,1) .12s both; }
+html[data-welcome-flight="reveal"] .nb-main-frame > main { animation:nb-welcome-in .5s cubic-bezier(.2,.8,.3,1) .24s both; }
+@keyframes nb-welcome-in { from { opacity:0; } to { opacity:1; } }
+@media (prefers-reduced-motion:reduce) {
+  html[data-welcome-flight="reveal"] :is(.nb-sidebar, .nb-main-frame > header, .nb-main-frame > main) { animation:none; }
+}
+html[data-reduce-motion="true"][data-welcome-flight="reveal"] :is(.nb-sidebar, .nb-main-frame > header, .nb-main-frame > main) { animation:none; }
