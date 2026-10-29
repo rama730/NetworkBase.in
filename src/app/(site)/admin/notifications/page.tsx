@@ -274,7 +274,7 @@ export default async function AdminNotificationsPage() {
     }
 
     return (
-        <Suspense fallback={<div role="status" aria-live="polite" aria-label="Loading admin notifications" className="mx-auto max-w-5xl space-y-4 px-6 py-10"><span className="sr-only">Loading admin notifications…</span><div aria-hidden="true" className="nb-skeleton h-8 w-56 rounded" /><div aria-hidden="true" className="nb-skeleton h-64 rounded-lg border border-border" /></div>}>
+        <Suspense fallback={<div role="status" aria-live="polite" aria-label="Loading notifications ops" className="mx-auto max-w-5xl space-y-4 px-6 py-10"><span className="sr-only">Loading admin notifications…</span><div aria-hidden="true" className="nb-skeleton h-8 w-56 rounded" /><div aria-hidden="true" className="nb-skeleton h-64 rounded-lg border border-border" /></div>}>
             <ResolvedAdminNotifications />
         </Suspense>
     );

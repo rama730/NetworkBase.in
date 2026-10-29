@@ -582,7 +582,7 @@ export function TaskFilesCollection({ projectId }: { projectId: string }) {
               message={
                 search || role !== "all"
                   ? "No files match these filters. Clear the search or choose All files."
-                  : "This task has no accessible files in this collection. It may have been removed or its file roles changed."
+                  : "This task has no accessible files in this view. It may have been removed or its file roles changed."
               }
             />
           </div>
@@ -705,7 +705,7 @@ export function TaskFilesCollection({ projectId }: { projectId: string }) {
                       ? "No tasks or filenames match your search."
                       : statusFilter !== "all"
                         ? "No tasks match the selected status filter."
-                        : "No accessible files in this collection yet. Add or link files from a task’s Files panel."
+                        : "No files you can open in this view yet. Add or link files from a task’s Files panel."
                   }
                 />
               ) : (

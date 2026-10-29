@@ -401,7 +401,7 @@ export function RepositorySync({
     void load().catch((e) => {
       if (mounted.current)
         setError(
-          e instanceof Error ? e.message : "GitHub Sync could not load.",
+          e instanceof Error ? e.message : "Couldn’t load repository sync.",
         );
     });
     return () => {
@@ -523,7 +523,7 @@ export function RepositorySync({
         : latest && ["failed", "needs_review"].includes(latest.status)
           ? {
               status: "failed",
-              tooltip: latest.error || "GitHub Sync needs attention",
+              tooltip: latest.error || "Repository sync needs attention",
             }
           : state.connection?.incomingSha
             ? {
@@ -3299,7 +3299,7 @@ export function RepositorySync({
     content = (
       <>
         <SyncHeading
-          title="GitHub Sync"
+          title="Repository sync"
           description="Only the owner can set up or run a sync."
           headingRef={headingRef}
         />
@@ -3319,7 +3319,7 @@ export function RepositorySync({
     content = error ? (
       <>
         <SyncHeading
-          title="GitHub Sync could not load"
+          title="Couldn’t load repository sync"
           description="Your workspace files have not changed."
           headingRef={headingRef}
         />
@@ -3520,7 +3520,7 @@ export function RepositorySync({
             }}
           >
             <DialogHeader className="sr-only">
-              <span>GitHub Sync</span>
+              <span>Repository sync</span>
             </DialogHeader>
             {modalContent()}
           </DialogContent>

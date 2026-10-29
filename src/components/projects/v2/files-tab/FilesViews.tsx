@@ -40,7 +40,7 @@ export const fileCollectionViews = [
   { id: "project", label: "All files", Icon: Folder },
   { id: "tasks", label: "Task files", Icon: ListTodo },
   { id: "deliverables", label: "Final files", Icon: FileOutput },
-  { id: "github", label: "GitHub Sync", Icon: Github },
+  { id: "github", label: "Repository sync", Icon: Github },
   { id: "recent", label: "Recent", Icon: Clock3 },
   { id: "starred", label: "Starred", Icon: Star },
   { id: "trash", label: "Trash", Icon: Trash2 },
@@ -322,7 +322,7 @@ export function FilesViews({
           if (!open) setPendingChange(null);
         }}
         title="Discard unsaved changes?"
-        description="Your file edits have not been saved. Discard them and change collection?"
+        description="Your file edits have not been saved. Discard them and change view?"
         confirmLabel="Discard and continue"
         variant="destructive"
         onConfirm={() => {

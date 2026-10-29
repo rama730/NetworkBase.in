@@ -564,7 +564,7 @@ export function FilesViewsMenu({
                 ? workspace?.taskId
                   ? "Find filenames in this task. Your role filter is retained."
                   : "Find tasks by title or their attached filenames."
-                : "Find filenames in this collection."}
+                : "Find file names in this view."}
           </DialogDescription>
           {surface === "search" && (
             <form

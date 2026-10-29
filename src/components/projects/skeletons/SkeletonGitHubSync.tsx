@@ -5,11 +5,11 @@ export function SkeletonGitHubSync({ className }: { className?: string } = {}) {
   return (
     <div
       role="status"
-      aria-label="Loading GitHub Sync"
+      aria-label="Loading repository sync"
       aria-busy="true"
       className={cn("flex flex-1 flex-col overflow-y-auto p-6 bg-background", className)}
     >
-      <span className="sr-only">Loading GitHub Sync…</span>
+      <span className="sr-only">Loading repository sync…</span>
       <div className="flex flex-col gap-1.5 mb-6">
         <Skeleton className="h-7 w-48 rounded-[4px]" />
         <Skeleton className="h-4 w-80 max-w-full rounded-[3px]" />

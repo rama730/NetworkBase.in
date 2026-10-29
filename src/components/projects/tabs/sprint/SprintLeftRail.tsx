@@ -22,7 +22,7 @@ interface SprintLeftRailProps {
 }
 
 const SPRINT_GROUPS = [
-  { status: "active", label: "Current" },
+  { status: "active", label: "Active" },
   { status: "planning", label: "Upcoming" },
   { status: "completed", label: "Completed" },
   { status: "cancelled", label: "Canceled" },
