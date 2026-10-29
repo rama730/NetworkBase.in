@@ -1,7 +1,7 @@
 import DiscoverClient from "@/components/discover/DiscoverClient";
 import { getViewerAuthContext, toClientViewer } from "@/lib/server/viewer-context";
-import { getPublicProjectsFeedPage, forViewer } from "@/lib/workspaces/public-feed-service";
-import { mapPublicProjectToDiscoverProject } from "@/lib/workspaces/public-feed";
+import { getPublicWorkspacesFeedPage, forViewer } from "@/lib/workspaces/public-feed-service";
+import { mapPublicWorkspaceToDiscoverWorkspace } from "@/lib/workspaces/public-feed";
 import { getConnectionsFeed } from "@/app/actions/connections";
 import type { ConnectionFeedPage, DiscoverConnectionItem } from "@/hooks/useConnections";
 import { DISCOVER_RAIL_FILTERS, DISCOVER_RAIL_PEOPLE_LIMIT, isDefaultDiscoverQuery, parseDiscoverQuery } from "@/lib/discover/query";
@@ -61,12 +61,12 @@ export default async function DiscoverPage({ searchParams }: { searchParams?: Se
     if (isDefaultDiscoverQuery(query)) {
         try {
             const [initialFeedPage, updatesPage] = await Promise.all([
-                getPublicProjectsFeedPage(INITIAL_PAGE_SIZE, null),
+                getPublicWorkspacesFeedPage(INITIAL_PAGE_SIZE, null),
                 getDiscoverUpdatesPage({ limit: INITIAL_UPDATES_PAGE_SIZE, view: FILTER_VIEWS.ALL, viewerId }),
             ]);
             const visible = await forViewer(initialFeedPage.projects, viewerId);
             initialData = {
-                projects: visible.map(mapPublicProjectToDiscoverProject),
+                projects: visible.map(mapPublicWorkspaceToDiscoverWorkspace),
                 nextCursor: initialFeedPage.nextCursor || undefined,
                 hasMore: Boolean(initialFeedPage.nextCursor),
                 // When this page was read: a later visit can't treat it as fresh.

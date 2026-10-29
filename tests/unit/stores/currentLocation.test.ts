@@ -13,7 +13,7 @@ import { createNavigationSlice } from "../../../src/stores/files/navigationSlice
 import {
   defaultFilesState,
   type FilesStoreState,
-  type ProjectFilesState,
+  type WorkspaceFilesState,
 } from "../../../src/stores/files/types";
 
 // ─── Harness ─────────────────────────────────────────────────────────
@@ -45,10 +45,10 @@ function createHarness() {
   return {
     container,
     setCurrentLocation: slice.setCurrentLocation,
-    getWorkspace(projectId: string): ProjectFilesState {
+    getWorkspace(projectId: string): WorkspaceFilesState {
       return container.byProjectId[projectId]!;
     },
-    seed(projectId: string, ws: ProjectFilesState) {
+    seed(projectId: string, ws: WorkspaceFilesState) {
       container.byProjectId = { ...container.byProjectId, [projectId]: ws };
     },
   };

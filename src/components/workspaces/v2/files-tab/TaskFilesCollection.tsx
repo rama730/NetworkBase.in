@@ -307,13 +307,13 @@ export function TaskFilesCollection({ projectId }: { projectId: string }) {
 
     setIsProcessingUpload(true);
     try {
-      const { buildProjectFileKey } = await import("@/lib/storage/workspace-file-key");
+      const { buildWorkspaceFileKey } = await import("@/lib/storage/workspace-file-key");
       const { getBatchUploadUrls } = await import("@/app/actions/upload");
       const { finalizeBatchUpload } = await import("@/app/actions/files/mutations");
 
       const plans = filesToUpload.map((file) => ({
         file,
-        key: buildProjectFileKey(projectId, crypto.randomUUID()),
+        key: buildWorkspaceFileKey(projectId, crypto.randomUUID()),
         contentType: file.type || "application/octet-stream",
         sizeBytes: file.size,
       }));

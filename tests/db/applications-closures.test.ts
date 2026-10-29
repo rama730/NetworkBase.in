@@ -52,7 +52,7 @@ const notices = async (userId: string, applicationId: string) => (await sql`SELE
 test("archiving a project closes its pending applications and tells each applicant", async () => {
   await withTwoApplications(async ({ owner, one, two, projectId, a1, a2 }) => {
     viewerId = owner;
-    const result = await lifecycle.archiveProjectAction(projectId);
+    const result = await lifecycle.archiveWorkspaceAction(projectId);
     assert.equal(result.success, true, JSON.stringify(result));
     for (const id of [a1, a2]) {
       assert.deepEqual({ ...(await state(id)) }, { status: "rejected", decision_reason_code: "project_closed" });
@@ -66,7 +66,7 @@ test("archiving a project closes its pending applications and tells each applica
 test("removing a role closes only that role's applications; lowering a count to what is filled does too", async () => {
   await withTwoApplications(async ({ owner, one, two, projectId, roleA, roleB, a1, a2 }) => {
     viewerId = owner;
-    const removed = await lifecycle.updateProject(projectId, { roles: [{ id: roleB, role: "Engineer", count: 3 }], deletedRoleIds: [roleA] });
+    const removed = await lifecycle.updateWorkspace(projectId, { roles: [{ id: roleB, role: "Engineer", count: 3 }], deletedRoleIds: [roleA] });
     assert.equal(removed.success, true, JSON.stringify(removed));
     assert.deepEqual({ ...(await state(a1)) }, { status: "rejected", decision_reason_code: "role_removed" });
     assert.equal((await state(a2)).status, "pending", "the other role's applicant keeps waiting");
@@ -74,7 +74,7 @@ test("removing a role closes only that role's applications; lowering a count to 
 
     // The role fills (count lowered to what is filled): the remaining applicant is closed.
     await sql`UPDATE project_open_roles SET filled = 1 WHERE id = ${roleB}`;
-    const lowered = await lifecycle.updateProject(projectId, { roles: [{ id: roleB, role: "Engineer", count: 1 }] });
+    const lowered = await lifecycle.updateWorkspace(projectId, { roles: [{ id: roleB, role: "Engineer", count: 1 }] });
     assert.equal(lowered.success, true, JSON.stringify(lowered));
     assert.deepEqual({ ...(await state(a2)) }, { status: "rejected", decision_reason_code: "role_filled" });
     void two;
@@ -92,9 +92,9 @@ test("a pending invitation blocks applying; joining another way closes the pendi
     assert.match(blocked.error ?? "", /invitation/i);
 
     // The applicant joins through an invitation: their pending application is closed as accepted.
-    const { addProjectMemberInternal } = await loadAppModule(() => import("../../src/lib/workspaces/collaborator-lifecycle"));
+    const { addWorkspaceMemberInternal } = await loadAppModule(() => import("../../src/lib/workspaces/collaborator-lifecycle"));
     const { db } = await loadAppModule(() => import("../../src/lib/db"));
-    await db.transaction((tx: never) => addProjectMemberInternal(tx, { projectId, userId: one, actorId: owner, source: "project_invite" }));
+    await db.transaction((tx: never) => addWorkspaceMemberInternal(tx, { projectId, userId: one, actorId: owner, source: "project_invite" }));
     assert.equal((await state(a1)).status, "accepted");
     assert.ok((await lines(a1)).some((line) => /joined the workspace/.test(line)));
   });

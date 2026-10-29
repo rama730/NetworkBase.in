@@ -7,8 +7,8 @@ import { requireAuthenticatedUser } from "@/app/api/v1/_shared";
 import { db } from "@/lib/db";
 import { projects, projectTaskPolicyEvents } from "@/lib/db/schema";
 import {
-  canReadProjectTab,
-  getProjectAccessById,
+  canReadWorkspaceTab,
+  getWorkspaceAccessById,
 } from "@/lib/data/workspace-access";
 import { consumeRateLimit } from "@/lib/security/rate-limit";
 
@@ -16,9 +16,9 @@ export async function getTaskCompletionPolicyAction(projectId: string) {
   try {
     z.string().uuid().parse(projectId);
     const { user } = await requireAuthenticatedUser();
-    const access = await getProjectAccessById(projectId, user?.id ?? null);
+    const access = await getWorkspaceAccessById(projectId, user?.id ?? null);
     if (
-      !canReadProjectTab(access, "tasks") &&
+      !canReadWorkspaceTab(access, "tasks") &&
       !access.isOwner &&
       access.member?.role !== "admin"
     )

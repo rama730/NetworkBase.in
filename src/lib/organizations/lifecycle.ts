@@ -8,9 +8,9 @@ import {
   chatChannels, fileVersions, orgEmailInvites, profiles, projectDocs, projectDocVersions, projectMembers, projectNodes,
   projects, projectSprints, taskSubtasks, tasks,
 } from "@/lib/db/schema";
-import { syncProjectChat } from "@/lib/messaging/integrations";
-import { generateProjectKey } from "@/lib/workspace-key";
-import { countUnregisteredProjectStorage, scheduleProjectStorageDeletion } from "@/lib/workspaces/server/lifecycle";
+import { syncWorkspaceChat } from "@/lib/messaging/integrations";
+import { generateWorkspaceKey } from "@/lib/workspace-key";
+import { countUnregisteredWorkspaceStorage, scheduleWorkspaceStorageDeletion } from "@/lib/workspaces/server/lifecycle";
 import type { AssignmentSettings } from "@/lib/organizations/assignment-rules";
 import { createMasterTask } from "@/lib/organizations/assignments";
 import { detachFromOrg } from "@/lib/organizations/children";
@@ -133,7 +133,7 @@ export async function purgeDueOrgs(now = new Date(), limit = 20) {
     .orderBy(projects.deletionScheduledAt).limit(limit);
   let purged = 0;
   for (const project of due) {
-    if (await countUnregisteredProjectStorage(project.id) > 0) {
+    if (await countUnregisteredWorkspaceStorage(project.id) > 0) {
       logger.warn("org.purge.storage_pending", { module: "organizations", projectId: project.id });
       continue;
     }
@@ -142,7 +142,7 @@ export async function purgeDueOrgs(now = new Date(), limit = 20) {
         UPDATE profile_project_contributions SET project_id = NULL, external_key = 'deleted-project:' || ${project.id}::text,
           project_title = coalesce(nullif(btrim(project_title), ''), ${project.title}), updated_at = now()
         WHERE project_id = ${project.id}`);
-      await scheduleProjectStorageDeletion(tx, project.id);
+      await scheduleWorkspaceStorageDeletion(tx, project.id);
       const gone = await tx.delete(projects).where(eq(projects.id, project.id)).returning({ id: projects.id });
       if (gone.length) await tx.update(profiles).set({ projectsCount: sql`GREATEST(0, ${profiles.projectsCount} - 1)` }).where(eq(profiles.id, project.ownerId));
     });
@@ -176,7 +176,7 @@ export async function duplicateOrg(sourceId: string, actorId: string, options: D
 
   const newId = await db.transaction(async (tx) => {
     const [created] = await tx.insert(projects).values({
-      ownerId: actorId, title: options.title, slug: options.handle, key: `${generateProjectKey(options.title)}${randomUUID().slice(0, 3).toUpperCase()}`, currentTaskNumber: 0,
+      ownerId: actorId, title: options.title, slug: options.handle, key: `${generateWorkspaceKey(options.title)}${randomUUID().slice(0, 3).toUpperCase()}`, currentTaskNumber: 0,
       kind: "organization", orgType: source.orgType, visibility: source.visibility, status: "active",
       orgSettings: options.copy.about ? keepSettings : { version: 1, roleNames: (source.orgSettings as { roleNames?: unknown })?.roleNames },
       description: options.copy.about ? source.description : null, shortDescription: options.copy.about ? source.shortDescription : null,
@@ -185,7 +185,7 @@ export async function duplicateOrg(sourceId: string, actorId: string, options: D
       taskReviewRequired: source.taskReviewRequired, joinCode: generateJoinCode(), joinCodeEnabled: true,
     }).returning({ id: projects.id });
     await tx.insert(projectMembers).values({ projectId: created!.id, userId: actorId, role: "owner" });
-    await syncProjectChat(tx, created!.id, null, "ensure_default");
+    await syncWorkspaceChat(tx, created!.id, null, "ensure_default");
     return created!.id;
   });
 

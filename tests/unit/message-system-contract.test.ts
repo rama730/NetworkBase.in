@@ -49,33 +49,33 @@ test("Messages system adheres to design specification contracts", () => {
         "Active chat row must use neutral --sidebar-accent background matching design specs",
     );
 
-    // 3. ProjectBadge component: image support and single uppercase initial fallback
+    // 3. WorkspaceBadge component: image support and single uppercase initial fallback
     assert.match(
         projectBadgeSource,
         /title\.charAt\(0\)\.toUpperCase\(\)/,
-        "ProjectBadge must fall back to single uppercase letter initial",
+        "WorkspaceBadge must fall back to single uppercase letter initial",
     );
     assert.match(
         projectBadgeSource,
         /<Image\s+src=\{avatarUrl\}/,
-        "ProjectBadge must render cover image thumbnail when avatarUrl is present",
+        "WorkspaceBadge must render cover image thumbnail when avatarUrl is present",
     );
 
-    // 4. Workspaces in AppSidebar should not render profile pictures, while Messages switcher uses ProjectBadge
+    // 4. Workspaces in AppSidebar should not render profile pictures, while Messages switcher uses WorkspaceBadge
     assert.doesNotMatch(
         appSidebarSource,
-        /<ProjectBadge|<UserAvatar|<Image/,
+        /<WorkspaceBadge|<UserAvatar|<Image/,
         "AppSidebar Workspaces list must not render profile pictures",
     );
     assert.match(
         chatSectionsSource,
-        /<ProjectBadge project=\{open\} size="sm"/,
-        "ChatSections open project header must render ProjectBadge",
+        /<WorkspaceBadge project=\{open\} size="sm"/,
+        "ChatSections open project header must render WorkspaceBadge",
     );
     assert.match(
         chatSectionsSource,
-        /<ProjectBadge project=\{project\} size="sm"/,
-        "ChatSections switch project dropdown items must render ProjectBadge",
+        /<WorkspaceBadge project=\{project\} size="sm"/,
+        "ChatSections switch project dropdown items must render WorkspaceBadge",
     );
 
     // 5. Decoupled project settings from switcher
@@ -649,7 +649,7 @@ test("Section 6 (Slack-Parity Canvas Redesign) contracts", () => {
     );
     assert.match(
         existingModalSource,
-        /listProjectCanvases/,
+        /listWorkspaceCanvases/,
         "ExistingCanvasModal must list real canvases from the workspace",
     );
     assert.match(
@@ -885,16 +885,16 @@ test("Section 9 (Project Selection First & Professional Empty Placeholder) contr
         "MessagesIndex must not auto-open the last channel",
     );
 
-    // 9.2 ProjectLanding must not auto-redirect to default channel
+    // 9.2 WorkspaceLanding must not auto-redirect to default channel
     assert.doesNotMatch(
         messagesViewsSource,
         /target\s*=\s*inProject\.find/,
-        "ProjectLanding must not auto-redirect to default channel",
+        "WorkspaceLanding must not auto-redirect to default channel",
     );
     assert.doesNotMatch(
         messagesViewsSource,
         /router\.replace\(`\/messages\/\$\{target\.id\}`\)/,
-        "ProjectLanding must not auto-redirect to target channel",
+        "WorkspaceLanding must not auto-redirect to target channel",
     );
 
     // 9.3 HomePane professional empty state & project-aware placeholder
@@ -905,8 +905,8 @@ test("Section 9 (Project Selection First & Professional Empty Placeholder) contr
     );
     assert.match(
         homePaneSource,
-        /<ProjectBadge project=\{project\} size="sm"/,
-        "HomePane must render ProjectBadge when a workspace is chosen",
+        /<WorkspaceBadge project=\{project\} size="sm"/,
+        "HomePane must render WorkspaceBadge when a workspace is chosen",
     );
     assert.match(
         homePaneSource,

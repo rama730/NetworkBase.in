@@ -5,27 +5,27 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { queryKeys } from "@/lib/query-keys";
 import type {
-    ProjectDocReferenceKind,
-    ProjectDocSmartBlock,
-    ProjectDocSmartBlockPreview,
+    WorkspaceDocReferenceKind,
+    WorkspaceDocSmartBlock,
+    WorkspaceDocSmartBlockPreview,
 } from "@/lib/workspaces/doc-blocks";
-import { normalizeProjectDocSlug } from "@/lib/workspaces/doc";
+import { normalizeWorkspaceDocSlug } from "@/lib/workspaces/doc";
 
-export const PROJECT_DOCS_QUERY_KEY = (projectId: string) => queryKeys.project.detail.readme(projectId);
-export const PROJECT_DOC_QUERY_KEY = (projectId: string, docSlug: string | null) =>
-    [...PROJECT_DOCS_QUERY_KEY(projectId), docSlug ? normalizeProjectDocSlug(docSlug) : "default"] as const;
-export const PROJECT_DOC_SMART_BLOCK_PREVIEWS_QUERY_KEY = (projectId: string, blockSignature: string) =>
+export const WORKSPACE_DOCS_QUERY_KEY = (projectId: string) => queryKeys.project.detail.readme(projectId);
+export const WORKSPACE_DOC_QUERY_KEY = (projectId: string, docSlug: string | null) =>
+    [...WORKSPACE_DOCS_QUERY_KEY(projectId), docSlug ? normalizeWorkspaceDocSlug(docSlug) : "default"] as const;
+export const WORKSPACE_DOC_SMART_BLOCK_PREVIEWS_QUERY_KEY = (projectId: string, blockSignature: string) =>
     queryKeys.project.detail.readmeSmartBlockPreviews(projectId, blockSignature);
 
-export function useProjectDoc(projectId: string, docSlug: string | null) {
+export function useWorkspaceDoc(projectId: string, docSlug: string | null) {
     const queryClient = useQueryClient();
     return useQuery({
-        queryKey: PROJECT_DOC_QUERY_KEY(projectId, docSlug),
+        queryKey: WORKSPACE_DOC_QUERY_KEY(projectId, docSlug),
         queryFn: async () => {
-            const { readProjectDocAction } = await import("@/app/actions/workspace/doc");
-            const result = await readProjectDocAction(projectId, docSlug);
+            const { readWorkspaceDocAction } = await import("@/app/actions/workspace/doc");
+            const result = await readWorkspaceDocAction(projectId, docSlug);
             if (!result.success) throw Object.assign(new Error(result.error), { code: result.code ?? null });
-            queryClient.setQueryData(PROJECT_DOC_LIST_QUERY_KEY(projectId), result.data.docs);
+            queryClient.setQueryData(WORKSPACE_DOC_LIST_QUERY_KEY(projectId), result.data.docs);
             return result.data;
         },
         staleTime: 1000 * 60 * 5,
@@ -36,9 +36,9 @@ export function useProjectDoc(projectId: string, docSlug: string | null) {
 }
 
 const MAX_SMART_BLOCK_CACHE_SIZE = 150;
-const SMART_BLOCK_CACHE = new Map<string, ProjectDocSmartBlockPreview>();
+const SMART_BLOCK_CACHE = new Map<string, WorkspaceDocSmartBlockPreview>();
 
-function setCachedSmartBlock(key: string, preview: ProjectDocSmartBlockPreview) {
+function setCachedSmartBlock(key: string, preview: WorkspaceDocSmartBlockPreview) {
     if (SMART_BLOCK_CACHE.size >= MAX_SMART_BLOCK_CACHE_SIZE) {
         const firstKey = SMART_BLOCK_CACHE.keys().next().value;
         if (firstKey) SMART_BLOCK_CACHE.delete(firstKey);
@@ -47,7 +47,7 @@ function setCachedSmartBlock(key: string, preview: ProjectDocSmartBlockPreview) 
 }
 
 /** `docSlug` is the doc being read: previews follow that doc's visibility, not the README's. */
-export function useProjectDocSmartBlockPreviews(projectId: string, blocks: ProjectDocSmartBlock[], enabled = true, docSlug = "readme") {
+export function useWorkspaceDocSmartBlockPreviews(projectId: string, blocks: WorkspaceDocSmartBlock[], enabled = true, docSlug = "readme") {
     const blockSignature = useMemo(() => {
         const uniqueBlocks = new Map<string, { kind: string; ids: string[] }>();
         blocks.forEach((b) => {
@@ -63,10 +63,10 @@ export function useProjectDocSmartBlockPreviews(projectId: string, blocks: Proje
     }, [blocks]);
 
     return useQuery({
-        queryKey: PROJECT_DOC_SMART_BLOCK_PREVIEWS_QUERY_KEY(projectId, `${docSlug}|${blockSignature}`),
+        queryKey: WORKSPACE_DOC_SMART_BLOCK_PREVIEWS_QUERY_KEY(projectId, `${docSlug}|${blockSignature}`),
         queryFn: async () => {
             // Deduplicate blocks before querying to prevent redundant database resolutions
-            const uniqueMap = new Map<string, { kind: ProjectDocReferenceKind | "unknown"; ids: string[]; index: number }>();
+            const uniqueMap = new Map<string, { kind: WorkspaceDocReferenceKind | "unknown"; ids: string[]; index: number }>();
             blocks.forEach((b, idx) => {
                 const key = `${b.kind}:${[...(b.ids ?? [])].sort().join(",")}`;
                 if (!uniqueMap.has(key)) {
@@ -77,7 +77,7 @@ export function useProjectDocSmartBlockPreviews(projectId: string, blocks: Proje
             if (!uniqueBlocksList.length) return [];
 
             const missingBlocks: typeof uniqueBlocksList = [];
-            const previews: ProjectDocSmartBlockPreview[] = [];
+            const previews: WorkspaceDocSmartBlockPreview[] = [];
 
             for (const b of uniqueBlocksList) {
                 const cacheKey = `${projectId}:${b.kind}:${[...(b.ids ?? [])].sort().join(",")}`;
@@ -89,12 +89,12 @@ export function useProjectDocSmartBlockPreviews(projectId: string, blocks: Proje
             }
 
             if (missingBlocks.length > 0) {
-                const { readProjectDocSmartBlockPreviewsAction } = await import("@/app/actions/workspace/doc");
+                const { readWorkspaceDocSmartBlockPreviewsAction } = await import("@/app/actions/workspace/doc");
                 const chunks: any[][] = [];
                 for (let index = 0; index < missingBlocks.length; index += 20) {
                     chunks.push(missingBlocks.slice(index, index + 20));
                 }
-                const results = await Promise.all(chunks.map((chunk) => readProjectDocSmartBlockPreviewsAction(projectId, chunk, docSlug)));
+                const results = await Promise.all(chunks.map((chunk) => readWorkspaceDocSmartBlockPreviewsAction(projectId, chunk, docSlug)));
                 for (const result of results) {
                     if (!result.success) throw new Error(result.error);
                     for (const preview of result.previews) {
@@ -112,15 +112,15 @@ export function useProjectDocSmartBlockPreviews(projectId: string, blocks: Proje
     });
 }
 
-export const PROJECT_DOC_LIST_QUERY_KEY = (projectId: string) =>
+export const WORKSPACE_DOC_LIST_QUERY_KEY = (projectId: string) =>
     ["project", projectId, "detail", "markdowns_list"] as const;
 
-export function useProjectDocList(projectId: string, enabled = true) {
+export function useWorkspaceDocList(projectId: string, enabled = true) {
     return useQuery({
-        queryKey: PROJECT_DOC_LIST_QUERY_KEY(projectId),
+        queryKey: WORKSPACE_DOC_LIST_QUERY_KEY(projectId),
         queryFn: async () => {
-            const { listProjectDocsAction } = await import("@/app/actions/workspace/doc");
-            const result = await listProjectDocsAction(projectId);
+            const { listWorkspaceDocsAction } = await import("@/app/actions/workspace/doc");
+            const result = await listWorkspaceDocsAction(projectId);
             if (!result.success) throw new Error(result.error);
             return result.docs;
         },

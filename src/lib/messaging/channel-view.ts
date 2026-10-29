@@ -165,7 +165,7 @@ export function sidebarOrder(data: ChatBootstrap | undefined, projectId: string 
   const sections = sectionsFor(data, projectId);
   const projectRows = projectId
     ? sections.channels
-    : projectsByActivity(data).flatMap((project) => channelsByProject(data).get(project.id) ?? []);
+    : projectsByActivity(data).flatMap((project) => channelsByWorkspace(data).get(project.id) ?? []);
   const seen = new Set<string>();
   return [...sections.applications, ...sections.starred, ...projectRows, ...sections.dms].filter((channel) => !seen.has(channel.id) && Boolean(seen.add(channel.id)));
 }
@@ -176,7 +176,7 @@ export function needsAttention(channel: ChatChannelSummary) {
 }
 
 /** Every visible project channel grouped by project (the "All projects" sidebar). */
-export function channelsByProject(data: ChatBootstrap | undefined) {
+export function channelsByWorkspace(data: ChatBootstrap | undefined) {
   const groups = new Map<string, ChatChannelSummary[]>();
   if (!data) return groups;
   const memberOf = new Set((data.projects ?? []).map((project) => project.id));

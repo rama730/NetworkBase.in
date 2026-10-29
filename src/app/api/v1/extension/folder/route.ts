@@ -1,7 +1,7 @@
 import { requireAuthenticatedUser, jsonSuccess, jsonError } from "@/app/api/v1/_shared";
 import { db } from "@/lib/db";
 import { projectNodes, taskNodeLinks, tasks } from "@/lib/db/schema";
-import { canReadProjectTab, getProjectAccessById } from "@/lib/data/workspace-access";
+import { canReadWorkspaceTab, getWorkspaceAccessById } from "@/lib/data/workspace-access";
 import { orgFileAccessSql, projectContentNodeSql } from "@/lib/files/internal-helpers";
 import { eq, and, inArray, isNull, gt, or } from "drizzle-orm";
 import { logger } from "@/lib/logger";
@@ -61,17 +61,17 @@ export async function GET(request: Request) {
     const cursor = decodeFolderCursor(rawCursor);
     if (rawCursor && !cursor) return jsonError("Invalid folder cursor", 400, "BAD_REQUEST");
 
-    const access = await getProjectAccessById(projectId, user.id);
+    const access = await getWorkspaceAccessById(projectId, user.id);
     if (!access.project) {
       return jsonError("Workspace not found", 404, "NOT_FOUND");
     }
     // Files visibility for the listing; task-owned and /.system nodes also need Tasks (AUTH-002).
-    if (!canReadProjectTab(access, "files")) {
+    if (!canReadWorkspaceTab(access, "files")) {
       return jsonError("You don’t have access to this", 403, "FORBIDDEN");
     }
 
     if(parsedQuery.data.parentPath&&parsedQuery.data.parentPath!=="/"){
-      const folder=await db.query.projectNodes.findFirst({where:and(eq(projectNodes.projectId,projectId),eq(projectNodes.path,parsedQuery.data.parentPath),eq(projectNodes.type,"folder"),isNull(projectNodes.deletedAt),canReadProjectTab(access,"tasks")?undefined:projectContentNodeSql,orgFileAccessSql(access)),columns:{id:true}});
+      const folder=await db.query.projectNodes.findFirst({where:and(eq(projectNodes.projectId,projectId),eq(projectNodes.path,parsedQuery.data.parentPath),eq(projectNodes.type,"folder"),isNull(projectNodes.deletedAt),canReadWorkspaceTab(access,"tasks")?undefined:projectContentNodeSql,orgFileAccessSql(access)),columns:{id:true}});
       if(!folder)return jsonError("Folder not found",404,"NOT_FOUND");if(parentId&&parentId!==folder.id)return jsonError("Folder identity mismatch",400,"BAD_REQUEST");parentId=folder.id;
     }
     // Find the child nodes
@@ -80,7 +80,7 @@ export async function GET(request: Request) {
         eq(projectNodes.projectId, projectId),
         parentId ? eq(projectNodes.parentId, parentId) : isNull(projectNodes.parentId),
         isNull(projectNodes.deletedAt),
-        canReadProjectTab(access, "tasks") ? undefined : projectContentNodeSql,
+        canReadWorkspaceTab(access, "tasks") ? undefined : projectContentNodeSql,
         orgFileAccessSql(access),
         cursor
           ? or(

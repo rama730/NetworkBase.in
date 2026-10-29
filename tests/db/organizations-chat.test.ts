@@ -129,7 +129,7 @@ test("detach: the workspace's channels leave the org (default back to #general, 
 test("Also share in #general posts a live card; each viewer sees what they may, assignments their own status", async () => {
   const o = await org();
   viewerId = o.admin;
-  const posted = await updates.createProjectUpdateAction(o.orgId, { content: "Midterm moved to Nov 10", updateType: "announcement", visibility: "members", shareToGeneral: true } as never);
+  const posted = await updates.createWorkspaceUpdateAction(o.orgId, { content: "Midterm moved to Nov 10", updateType: "announcement", visibility: "members", shareToGeneral: true } as never);
   assert.equal(posted.success, true, JSON.stringify(posted));
   const updateId = posted.success ? posted.data!.id : "";
   const general = await defaultChannel(o.orgId);
@@ -138,7 +138,7 @@ test("Also share in #general posts a live card; each viewer sees what they may, 
   const memberView = (await cards.hydrateCards(o.a, [{ kind: "announcement", ref_id: updateId }]))[`announcement:${updateId}`]!;
   assert.equal("restricted" in memberView, false);
 
-  const limited = await updates.createProjectUpdateAction(o.orgId, { content: "Staff only", updateType: "announcement", visibility: "members", audience: { roles: ["admin"] } } as never);
+  const limited = await updates.createWorkspaceUpdateAction(o.orgId, { content: "Staff only", updateType: "announcement", visibility: "members", audience: { roles: ["admin"] } } as never);
   const limitedId = limited.success ? limited.data!.id : "";
   assert.ok("restricted" in (await cards.hydrateCards(o.a, [{ kind: "announcement", ref_id: limitedId }]))[`announcement:${limitedId}`]!, "outside the audience");
 

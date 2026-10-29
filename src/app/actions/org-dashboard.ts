@@ -4,13 +4,13 @@ import { and, asc, desc, eq, gt, gte, inArray, isNotNull, isNull, lt, ne, or, sq
 
 import { db } from '@/lib/db';
 import { profiles, projectMembers, projectNodeEvents, projectNodes, projectOpenRoles, projects, projectSprints, projectUpdates, roleApplications, taskActivityEvents, taskTeamMembers, tasks } from '@/lib/db/schema';
-import { getProjectAccessById, type ProjectAccess } from '@/lib/data/workspace-access';
+import { getWorkspaceAccessById, type WorkspaceAccess } from '@/lib/data/workspace-access';
 import { orgFileAccessSql } from '@/lib/files/internal-helpers';
 import { copyState, type CopyState } from '@/lib/organizations/assignment-rules';
 import { activityVisible, getStartedSteps, journeyFromSprints, needsAttention, type ActivityKind } from '@/lib/organizations/dashboard-rules';
 import { readViewerOrgRole } from '@/lib/organizations/detail';
 import { readOrgDocsAction } from '@/app/actions/org-docs';
-import { normalizeProjectPublicTabVisibility } from '@/lib/workspaces/settings-policies';
+import { normalizeWorkspacePublicTabVisibility } from '@/lib/workspaces/settings-policies';
 import { getViewerAuthContext } from '@/lib/server/viewer-context';
 import { copyColumns, leadSprintRows, ownCopies, plural, readNeedsYou, stateOf, type NeedsYouRow, type OrgViewer } from '@/lib/organizations/needs-you';
 
@@ -26,7 +26,7 @@ const DAY = 86_400_000;
 
 async function orgViewer(orgId: string): Promise<OrgViewer | null> {
     const { userId } = await getViewerAuthContext();
-    const access = await getProjectAccessById(orgId, userId);
+    const access = await getWorkspaceAccessById(orgId, userId);
     if (access.project?.kind !== 'organization' || !access.canRead) return null;
     const [org] = await db.select({ id: projects.id, title: projects.title, slug: projects.slug, status: projects.status }).from(projects).where(eq(projects.id, orgId)).limit(1);
     return org ? {
@@ -215,7 +215,7 @@ export type OrgAboutData = {
 export async function readOrgAboutAction(orgId: string): Promise<OrgAboutData | Failure> {
     const v = await orgViewer(orgId);
     if (!v) return DENIED;
-    const tabs = normalizeProjectPublicTabVisibility(v.access.project?.publicTabVisibility);
+    const tabs = normalizeWorkspacePublicTabVisibility(v.access.project?.publicTabVisibility);
     const [children, sprints, leaders, [org], [me]] = await Promise.all([
         db.select({ id: projects.id, title: projects.title, slug: projects.slug, visibility: projects.visibility }).from(projects).where(and(
             eq(projects.parentId, orgId), isNull(projects.deletedAt), ne(projects.status, 'archived'),
@@ -247,7 +247,7 @@ export async function readOrgAboutAction(orgId: string): Promise<OrgAboutData | 
     };
 }
 
-export type OrgProjectRow = {
+export type OrgWorkspaceRow = {
     id: string; title: string; slug: string | null; visibility: string | null; status: string | null;
     lead: { id: string; name: string } | null; members: number; units: number;
     open: number; overdue: number; inReview: number; groupCopy: { title: string; state: CopyState } | null;
@@ -257,7 +257,7 @@ export type OrgProjectRow = {
 };
 
 /** Projects tab (report §28): admins see every child project (Private too) with Needs attention; others what they may. */
-export async function readOrgProjectsAction(orgId: string): Promise<{ success: true; isAdmin: boolean; canCreate: boolean; rows: OrgProjectRow[]; summary: { total: number; attention: number; quiet: number; notInProject: number } } | Failure> {
+export async function readOrgWorkspacesAction(orgId: string): Promise<{ success: true; isAdmin: boolean; canCreate: boolean; rows: OrgWorkspaceRow[]; summary: { total: number; attention: number; quiet: number; notInProject: number } } | Failure> {
     const v = await orgViewer(orgId);
     if (!v || !v.isInside) return DENIED;
     const now = new Date();
@@ -282,7 +282,7 @@ export async function readOrgProjectsAction(orgId: string): Promise<{ success: t
         .orderBy(desc(projects.updatedAt)).limit(200);
     const visible = rows.filter((r) => v.isAdmin || r.mine || r.visibility !== 'private');
     const groupCopies = visible.length ? await db.select(copyColumns).from(tasks).where(and(inArray(tasks.projectId, visible.map((r) => r.id)), isNotNull(tasks.assignmentId), isNull(tasks.deletedAt))).orderBy(desc(tasks.dueDate)) : [];
-    const out: OrgProjectRow[] = visible.map((r) => {
+    const out: OrgWorkspaceRow[] = visible.map((r) => {
         const copy = groupCopies.find((c) => c.projectId === r.id);
         const state = copy ? stateOf(copy, now).state : null;
         const lastActivity = [r.updatedAt, r.lastTaskAt ? new Date(r.lastTaskAt) : null].filter((d): d is Date => Boolean(d)).sort((a, b) => b.getTime() - a.getTime())[0] ?? r.updatedAt;
@@ -322,7 +322,7 @@ export async function readChildOrgLineAction(childProjectId: string) {
     const [child] = await db.select({ parentId: projects.parentId, ownerId: projects.ownerId, slug: projects.slug }).from(projects).where(and(eq(projects.id, childProjectId), isNull(projects.deletedAt))).limit(1);
     if (!child?.parentId || !(await readViewerOrgRole(child.parentId, userId))) return null; // outside people don't get the org line
     // Org membership alone doesn't open a private child project: its sprint and group copies need read access.
-    if (!userId || !(await getProjectAccessById(childProjectId, userId)).canRead) return null;
+    if (!userId || !(await getWorkspaceAccessById(childProjectId, userId)).canRead) return null;
     const [[org], [sprint], due, [ownSprint]] = await Promise.all([
         db.select({ title: projects.title, slug: projects.slug }).from(projects).where(eq(projects.id, child.parentId)).limit(1),
         db.select({ name: projectSprints.name, endDate: projectSprints.endDate }).from(projectSprints).where(and(eq(projectSprints.projectId, child.parentId), eq(projectSprints.status, 'active'))).limit(1),
@@ -353,7 +353,7 @@ export async function readChildOrgLineAction(childProjectId: string) {
 export async function remindLeadsAction(orgId: string, projectIds: string[]): Promise<{ success: true; reminded: number } | Failure> {
     const v = await orgViewer(orgId);
     if (!v?.isAdmin || !v.userId) return DENIED;
-    const read = await readOrgProjectsAction(orgId);
+    const read = await readOrgWorkspacesAction(orgId);
     if (!read.success) return read;
     const { notifyOrg } = await import('@/lib/organizations/notify');
     const window = Math.floor(Date.now() / (12 * 3_600_000));

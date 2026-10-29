@@ -345,7 +345,7 @@ const CAP_OPTIONS = [
     { value: 'private', label: 'Private only', hint: 'Each workspace is seen by its team and admins only.' },
 ] as const
 
-export function OrgProjectsSection({ orgId, organization }: SectionProps) {
+export function OrgWorkspacesSection({ orgId, organization }: SectionProps) {
     const [childCreation, setChildCreation] = useState(organization.childCreation)
     const [outside, setOutside] = useState(organization.outsidePeople)
     const [childShare, setChildShare] = useState(organization.childShare)

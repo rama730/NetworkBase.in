@@ -8,10 +8,10 @@ import { SearchField } from '@/components/ui/SearchField';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { FILTER_VIEWS, PROJECT_STATUS, PROJECT_TYPE, SORT_OPTIONS, type FilterView, type SortOption } from '@/constants/discover';
+import { FILTER_VIEWS, WORKSPACE_STATUS, WORKSPACE_TYPE, SORT_OPTIONS, type FilterView, type SortOption } from '@/constants/discover';
 import { DISCOVER_SORTS, type DiscoverQuery } from '@/lib/discover/query';
 import { projectStageLabel } from '@/lib/workspaces/status-presentation';
-import { PROJECT_TYPE_OPTIONS } from '@/lib/workspaces/workspace-create-options';
+import { WORKSPACE_TYPE_OPTIONS } from '@/lib/workspaces/workspace-create-options';
 import { resolveClientSkill } from '@/lib/skills/client';
 
 const SCOPES: Array<{ id: FilterView; label: string; subtitle: string }> = [
@@ -23,7 +23,7 @@ const SCOPES: Array<{ id: FilterView; label: string; subtitle: string }> = [
 
 const SORT_LABELS: Record<string, string> = { newest: 'Newest', oldest: 'Oldest', most_viewed: 'Most viewed', most_followed: 'Most followed' };
 
-const typeLabel = (id: string) => PROJECT_TYPE_OPTIONS.find((type) => type.id === id)?.label ?? id;
+const typeLabel = (id: string) => WORKSPACE_TYPE_OPTIONS.find((type) => type.id === id)?.label ?? id;
 
 /** Discover's search box: the URL follows the text after a short pause; the text follows the URL (Back, global search). */
 function SearchBox({ value, loading = false, onSearch }: { value: string; loading?: boolean; onSearch: (q: string) => void }) {
@@ -171,13 +171,13 @@ export default function DiscoverHeader({ query, activeFilters, announcement, loa
 
             {activeFilters ? (
                 <div ref={tags} className="flex flex-wrap items-center gap-1.5" aria-label="Selected filters" role="group">
-                    {query.status !== PROJECT_STATUS.ALL ? (
-                        <FilterTag label={`stage ${projectStageLabel(query.status)}`} onRemove={() => remove({ status: PROJECT_STATUS.ALL })}>
+                    {query.status !== WORKSPACE_STATUS.ALL ? (
+                        <FilterTag label={`stage ${projectStageLabel(query.status)}`} onRemove={() => remove({ status: WORKSPACE_STATUS.ALL })}>
                             Stage: {projectStageLabel(query.status)}
                         </FilterTag>
                     ) : null}
-                    {query.type !== PROJECT_TYPE.ALL ? (
-                        <FilterTag label={`type ${typeLabel(query.type)}`} onRemove={() => remove({ type: PROJECT_TYPE.ALL })}>
+                    {query.type !== WORKSPACE_TYPE.ALL ? (
+                        <FilterTag label={`type ${typeLabel(query.type)}`} onRemove={() => remove({ type: WORKSPACE_TYPE.ALL })}>
                             Type: {typeLabel(query.type)}
                         </FilterTag>
                     ) : null}

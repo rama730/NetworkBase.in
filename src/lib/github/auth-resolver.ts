@@ -6,7 +6,7 @@ import { logger } from "@/lib/logger";
 import { parseGithubRepo } from "@/lib/github/repo-preview";
 import { openGithubImportToken } from "@/lib/github/repo-security";
 import { normalizeGithubRepoUrl } from "@/lib/github/repo-validation";
-import { buildProjectImportEventId } from "@/lib/import/idempotency";
+import { buildWorkspaceImportEventId } from "@/lib/import/idempotency";
 
 const GITHUB_API_BASE = "https://api.github.com";
 const REQUEST_TIMEOUT_MS = (() => {
@@ -360,7 +360,7 @@ export async function resolveGithubRepoAccess(input: ResolveGithubRepoAccessInpu
 export function buildGithubImportEventId(projectId: string, repoUrl: string, branch?: string | null) {
   const normalizedRepoUrl = normalizeGithubRepoUrl(repoUrl || "") || repoUrl || "unknown";
   const normalizedBranch = (branch || "default").trim() || "default";
-  return buildProjectImportEventId({
+  return buildWorkspaceImportEventId({
     projectId,
     source: "github",
     normalizedTarget: normalizedRepoUrl,

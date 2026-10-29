@@ -11,8 +11,8 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { ProjectUpdateContent } from "@/components/workspaces/updates/UpdateContent";
-import { ProjectUpdateMediaViewer } from "@/components/workspaces/updates/WorkspaceUpdateMediaFrame";
+import { WorkspaceUpdateContent } from "@/components/workspaces/updates/UpdateContent";
+import { WorkspaceUpdateMediaViewer } from "@/components/workspaces/updates/WorkspaceUpdateMediaFrame";
 import { UpdateTime, isUpdateCardControl } from "@/components/workspaces/updates/update-helpers";
 import { useToggleUpdateLike } from "@/hooks/useToggleUpdateLike";
 import { cn } from "@/lib/utils";
@@ -92,7 +92,7 @@ function UpdateMedia({ media, author }: { media: DiscoverUpdateMedia[]; author: 
             ))}
             {/* The viewer is a portal: its clicks must not reach anything behind it. */}
             <div onClick={(event) => event.stopPropagation()}>
-                <ProjectUpdateMediaViewer item={viewed} onOpenChange={(open) => { if (!open) setViewed(null); }} />
+                <WorkspaceUpdateMediaViewer item={viewed} onOpenChange={(open) => { if (!open) setViewed(null); }} />
             </div>
         </div>
     );
@@ -176,7 +176,7 @@ export default memo(function DiscoverUpdateCard({ update, viewerId, onOpen, onHi
 
             {update.content.trim() ? (
                 <div className="mt-1">
-                    <ProjectUpdateContent
+                    <WorkspaceUpdateContent
                         content={update.content}
                         projectId={update.projectId}
                         projectSlug={update.projectSlug}

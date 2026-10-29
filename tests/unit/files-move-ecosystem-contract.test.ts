@@ -22,7 +22,7 @@ const realtime = read("src/lib/realtime/workspace-files-channel.ts");
 const filesRoot = read("src/components/workspaces/v2/files-tab/FilesTabRoot.tsx");
 
 test("one move action owns single, bulk, publish, audit, and undo validation", () => {
-  assert.match(mutations, /export async function moveProjectNodes/);
+  assert.match(mutations, /export async function moveWorkspaceNodes/);
   assert.doesNotMatch(mutations, /export async function (?:moveNode|bulkMoveNodes)/);
   assert.match(mutations, /expectedParentByNode/);
   assert.match(mutations, /mode\?: "move" \| "publish"/);

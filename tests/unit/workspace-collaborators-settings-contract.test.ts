@@ -16,7 +16,7 @@ test("project collaborators tab eliminates duplicate headers and renders one uni
 
   // Extract collaborators section block
   const collaboratorsBlock = settingsTab.split('id="project-settings-collaborators"')[1]?.split('id="project-settings-roles-applications"')[0] ?? "";
-  assert.ok(collaboratorsBlock.length > 0, "Collaborators settings block must exist in ProjectSettingsTab");
+  assert.ok(collaboratorsBlock.length > 0, "Collaborators settings block must exist in WorkspaceSettingsTab");
 
   // Redundant SummaryCard, AdvancedDisclosure, and Role summary removed
   assert.doesNotMatch(collaboratorsBlock, /<SummaryCard/, "Redundant SummaryCard must be removed from Project Collaborators tab");

@@ -12,7 +12,7 @@ import {
 } from "@/lib/profile/contribution-editor";
 import { profileContributionBatchSchema } from "@/lib/profile/contribution-contract";
 import type { ProfileCollaborationContribution } from "@/lib/profile/collaboration";
-import { formatProjectTeamRole } from "@/lib/workspaces/settings-policies";
+import { formatWorkspaceTeamRole } from "@/lib/workspaces/settings-policies";
 import { profileUpdateSchema } from "@/lib/validations/profile";
 
 const read = (path: string) => readFileSync(path, "utf8");
@@ -278,9 +278,9 @@ test("parent visibility is the UI and read authority while owners retain a priva
 });
 
 test("profile contributions preserve recorded team terminology while stories use explicit current status", () => {
-  assert.equal(formatProjectTeamRole({ membershipRole: "owner", leadFocus: "Frontend developer" }), "Owner / Frontend developer");
-  assert.equal(formatProjectTeamRole({ membershipRole: "owner", projectRoleTitle: "Lead", leadFocus: "Tester" }), "Owner / Tester");
-  assert.equal(formatProjectTeamRole({ membershipRole: "member", projectRoleTitle: "QA Engineer" }), "QA Engineer · Member");
+  assert.equal(formatWorkspaceTeamRole({ membershipRole: "owner", leadFocus: "Frontend developer" }), "Owner / Frontend developer");
+  assert.equal(formatWorkspaceTeamRole({ membershipRole: "owner", projectRoleTitle: "Lead", leadFocus: "Tester" }), "Owner / Tester");
+  assert.equal(formatWorkspaceTeamRole({ membershipRole: "member", projectRoleTitle: "QA Engineer" }), "QA Engineer · Member");
 
   const card = read("src/components/profile/v2/sections/WorkspaceContributionsCard.tsx");
   assert.doesNotMatch(card, /statusLabel: contribution\.currentlyActive \? 'Current'/);

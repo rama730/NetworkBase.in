@@ -40,7 +40,7 @@ export const SprintPlanning = dynamic(
     { loading: () => <SkeletonSprints />, ssr: true }
 );
 
-export const ProjectSettingsTab = dynamic(
+export const WorkspaceSettingsTab = dynamic(
     () => import("@/components/workspaces/tabs/WorkspaceSettingsTab"),
     { loading: () => <SkeletonSettings />, ssr: false }
 );

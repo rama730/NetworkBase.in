@@ -5,7 +5,7 @@ import {
   buildOwnerProfileTitle,
   buildProfileMetadataDescription,
   buildPublicProfileTitle,
-  normalizeProjectTitle,
+  normalizeWorkspaceTitle,
 } from "../../src/lib/profile/display";
 
 describe("profile display helpers", () => {
@@ -43,6 +43,6 @@ describe("profile display helpers", () => {
   it("normalizes profile titles", () => {
     assert.equal(buildOwnerProfileTitle({ fullName: "Rama ", username: "rama" }), "Rama (@rama) | NetworkBase");
     assert.equal(buildPublicProfileTitle({ username: "rama" }), "@rama | NetworkBase");
-    assert.equal(normalizeProjectTitle(" Network for builders "), "Network for builders");
+    assert.equal(normalizeWorkspaceTitle(" Network for builders "), "Network for builders");
   });
 });

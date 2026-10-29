@@ -6,8 +6,8 @@ import { db } from "@/lib/db";
 import { scheduleAssetDeletionIfUnreferenced } from "@/lib/storage/asset-deletion";
 import { fileVersions, projectNodes, projectNodeEvents, storageAssets, type FileVersion } from "@/lib/db/schema";
 import {
-  assertProjectUploadAccessTx,
-  assertProjectWriteAccessTx,
+  assertWorkspaceUploadAccessTx,
+  assertWorkspaceWriteAccessTx,
   recordNodeEvent,
 } from "@/lib/files/internal-helpers";
 import { assertOwnedFileLease, type FileLeaseCredentials } from "@/lib/files/file-lock-service";
@@ -67,9 +67,9 @@ export async function applyFileRevision(
 ): Promise<ApplyFileRevisionResult> {
   const result = await db.transaction(async (tx) => {
     if (input.accessRequirement === "write") {
-      await assertProjectWriteAccessTx(tx, input.projectId, input.actorUserId, { nodeId: input.nodeId });
+      await assertWorkspaceWriteAccessTx(tx, input.projectId, input.actorUserId, { nodeId: input.nodeId });
     } else {
-      await assertProjectUploadAccessTx(tx, input.projectId, input.actorUserId, { nodeId: input.nodeId });
+      await assertWorkspaceUploadAccessTx(tx, input.projectId, input.actorUserId, { nodeId: input.nodeId });
     }
     await tx.execute(sql`
       SELECT id

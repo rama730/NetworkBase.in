@@ -37,7 +37,7 @@ describe("Files tab entry — post-rollout source contract", () => {
         assert.equal(
             existsSync(DELETED_ADAPTER_PATH),
             false,
-            "ProjectFilesWorkspace should stay deleted; ProjectTabsRegistry owns the entry",
+            "ProjectFilesWorkspace should stay deleted; WorkspaceTabsRegistry owns the entry",
         );
     });
 

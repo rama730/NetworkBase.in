@@ -7,7 +7,7 @@ import { orgHandleHolds, profiles, projectMembers, projects, roleApplications } 
 import { orgRoleNames, orgTypeLabel, type OrgType } from "@/lib/organizations/config";
 import { childCreationBlock, type VisibilityCap } from "@/lib/organizations/child-rules";
 import { readOrgRules, readOrgWork, type OrgWork } from "@/lib/organizations/settings";
-import { isProjectPubliclyReadableVisibility } from "@/lib/workspaces/workspace-visibility";
+import { isWorkspacePubliclyReadableVisibility } from "@/lib/workspaces/workspace-visibility";
 
 type OrgSettingsRecord = {
   joinMode?: string;
@@ -245,7 +245,7 @@ export async function readChildOrgLink(
       title: org.title,
       slug: org.slug,
       coverImage: org.coverImage,
-      isPublic: isProjectPubliclyReadableVisibility(org.visibility),
+      isPublic: isWorkspacePubliclyReadableVisibility(org.visibility),
       archived: org.status === "archived",
       viewerRole: viewer.parentOrgRole,
       viewerIsInheritedAdmin: inherited,
@@ -277,7 +277,7 @@ export async function listCreateLocations(userId: string) {
       slug: row.slug,
       block: childCreationBlock(role, rules.childCreation, row.status !== "archived" && !row.suspendedAt),
       visibilityCap: rules.visibilityCap,
-      orgPublic: isProjectPubliclyReadableVisibility(row.visibility),
+      orgPublic: isWorkspacePubliclyReadableVisibility(row.visibility),
       isAdmin: role === "owner" || role === "admin",
       orgType: row.orgType,
       category: row.category,

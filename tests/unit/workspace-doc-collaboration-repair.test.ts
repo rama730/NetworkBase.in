@@ -4,7 +4,7 @@ import path from "node:path";
 import test from "node:test";
 
 import {
-    normalizeProjectDocContent,
+    normalizeWorkspaceDocContent,
     resolveProjectDocCollaborationContent,
 } from "../../src/lib/workspaces/doc";
 
@@ -30,13 +30,13 @@ Original documentation and other non-code written content are licensed under CC 
 test("Doc normalization removes a repeated document start appended at the bottom", () => {
     const corruptedContent = `${longReadme}\n\n${longReadme.slice(0, 360)}`;
 
-    assert.equal(normalizeProjectDocContent(corruptedContent), longReadme.trimEnd());
+    assert.equal(normalizeWorkspaceDocContent(corruptedContent), longReadme.trimEnd());
 });
 
 test("Doc normalization keeps legitimate repeated headings", () => {
     const content = `${longReadme}\n## Antigravity Awesome Skills\n\nThis is a retrospective section, not a duplicated tail.\n`;
 
-    assert.equal(normalizeProjectDocContent(content), content);
+    assert.equal(normalizeWorkspaceDocContent(content), content);
 });
 
 test("Doc draft editor normalizes stale local recovery content", () => {
@@ -51,7 +51,7 @@ test("Doc draft editor normalizes stale local recovery content", () => {
 
     assert.match(
         draftHook,
-        /normalizeProjectDocContent/,
+        /normalizeWorkspaceDocContent/,
         "Doc draft hook should normalize initial and recovered local content before showing it in WRITE mode",
     );
     assert.match(

@@ -34,7 +34,7 @@ test("two concurrent acceptances cannot push a guide past the appointment limit"
     const [i1, i2] = [await invite(p1!, "pending"), await invite(p2!, "pending")];
 
     const accept = (invitationId: string) =>
-      appDb.transaction((tx) => invitations.resolveProjectInvitationInternal(tx as never, { invitationId, actorId: guide, action: "accept" }));
+      appDb.transaction((tx) => invitations.resolveWorkspaceInvitationInternal(tx as never, { invitationId, actorId: guide, action: "accept" }));
     const results = await Promise.allSettled([accept(i1), accept(i2)]);
 
     assert.equal(results.filter((r) => r.status === "fulfilled").length, 1, JSON.stringify(results.map((r) => (r.status === "rejected" ? String((r.reason?.cause?.message ?? r.reason?.message ?? r.reason)).slice(0, 300) : r.status))));

@@ -3,7 +3,7 @@ import { test } from "node:test";
 
 import type { OrgEmailKind } from "@/lib/email/contracts";
 import { ALWAYS_SENT_EMAILS, buildOrgEmail, formatEmailWhen, orgMuteToken, readOrgMuteToken, type OrgEmailData } from "@/lib/email/org-templates";
-import { getVisibleProjectNotificationEntries, groupProjectNotificationEntries } from "@/lib/notifications/workspace-policy";
+import { getVisibleWorkspaceNotificationEntries, groupWorkspaceNotificationEntries } from "@/lib/notifications/workspace-policy";
 import { DEFAULT_NOTIFICATION_PREFERENCES, normalizeNotificationPreferences, orgChoiceBlocks } from "@/lib/notifications/preferences";
 import { notificationMatchesMuteScope } from "@/lib/notifications/presentation";
 import { digestIsEmpty, localClock, nextDate } from "@/lib/organizations/notify-rules";
@@ -96,7 +96,7 @@ test("Settings › Organizations: Important only and Off filter the tray; child 
 });
 
 test("org event groups show for organizations only", () => {
-  const sections = (isOrg: boolean) => groupProjectNotificationEntries(getVisibleProjectNotificationEntries(isOrg));
+  const sections = (isOrg: boolean) => groupWorkspaceNotificationEntries(getVisibleWorkspaceNotificationEntries(isOrg));
   const orgGroups = (isOrg: boolean) => new Set(sections(isOrg).flatMap((s) => s.entries.map((e) => e.group)).filter((g) => g.startsWith("org_")));
   assert.equal(orgGroups(false).size, 0);
   assert.deepEqual([...orgGroups(true)].sort(), ["org_announcements", "org_assignments", "org_credit", "org_membership", "org_sprints"]);

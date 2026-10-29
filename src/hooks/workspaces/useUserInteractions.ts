@@ -10,7 +10,7 @@ const EMPTY = new Set<string>();
  * Which of the loaded projects you follow: one small query per feed page (at most a page of ids each).
  * A new page adds a query; the pages already shown keep their answer, so icons never flicker.
  */
-export function useUserFollowedProjects(
+export function useUserFollowedWorkspaces(
     userId: string | null | undefined,
     pages: readonly (readonly string[])[],
 ) {

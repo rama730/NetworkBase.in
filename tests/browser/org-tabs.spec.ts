@@ -29,7 +29,7 @@ test.beforeAll(async () => {
             export const listOutsidePeopleAction=async()=>[{userId:'x1',name:'Client Person',username:'client',avatarUrl:null,title:'Mentor',role:'outside',projectHint:null}];`,
         '@/app/actions/org-profile': `export const revokeOrgVerificationAction=${ok},verifyOrgContributionsAction=${ok};`,
         '@/app/actions/org-dashboard': `export const readChildOrgLineAction=async()=>null,readOrgDashboardAction=async()=>({success:false,error:'unused'});
-            export const readOrgProjectsAction=async()=>({success:true,isAdmin:true,summary:{total:3,attention:1,quiet:1,notInProject:2},rows:['Team Falcon — Distributed Systems Capstone','Team Osprey','Team Kestrel'].map((title,i)=>({
+            export const readOrgWorkspacesAction=async()=>({success:true,isAdmin:true,summary:{total:3,attention:1,quiet:1,notInProject:2},rows:['Team Falcon — Distributed Systems Capstone','Team Osprey','Team Kestrel'].map((title,i)=>({
             id:'c'+i,title,slug:'p'+i,visibility:['org','private','public'][i],status:'active',lead:{id:'l',name:'Alexandria Ramana Chandrasekhar'},members:6,units:2,open:4,overdue:i,inReview:1,
             groupCopy:i?null:{title:'Milestone 2 report',state:'submitted'},lastActivityAt:new Date(Date.now()-i*864e5).toISOString(),reasons:i===1?['2 overdue','quiet 7 days']:[],mine:i===0,
             stage:['Build','Idea','Build'][i],sprint:i===0?{name:'Parser week',inOrgSprint:true}:null,newInOrg:i===2}))});
@@ -42,19 +42,19 @@ test.beforeAll(async () => {
             export const recordOrgCopyAction=${ok},setFolderAccessAction=async()=>({success:true,preview:null}),setFolderTemplateAction=${ok};
             export const readOrgStorageAction=async()=>({usedBytes:4.3*1024**3,limitBytes:5*1024**3,warn:true}),readOrgSprintMaterialsAction=async()=>({success:true,groups:[]});
             export const readGroupDeliverablesAction=async()=>({success:true,rows:[{nodeId:'g1',name:'parser.zip',project:'Team Falcon',projectSlug:'falcon',projectId:'c1',assignment:'Milestone 2 report',review:'pending'}]});`,
-        '@/components/organizations/OrgDocParts': `export const uploadProjectFile=async()=>({id:'n'});`,
+        '@/components/organizations/OrgDocParts': `export const uploadWorkspaceFile=async()=>({id:'n'});`,
         '@/app/actions/child-units': `export const readChildUnitsAction=async()=>({success:true,units:[
             {id:'un1',title:'Frontend developers',count:4,filled:2,leadUserId:'u1',members:[{userId:'u1',name:'Ravi Kumar'},{userId:'u2',name:'Alexandria Ramana Chandrasekhar'}]},
             {id:'un2',title:'Developer testing unit',count:2,filled:2,leadUserId:null,members:[{userId:'u4',name:'Meena'},{userId:'u5',name:'John'}]}],unplaced:[{userId:'u6',name:'Kiran'}]});
-            export const updateUnitAction=${ok},moveMemberToUnitAction=${ok},readProjectUnitsAction=async()=>[];`,
+            export const updateUnitAction=${ok},moveMemberToUnitAction=${ok},readWorkspaceUnitsAction=async()=>[];`,
         '@/components/messages/message-user': `export const messageUserInWindow=()=>false;`,
         '@/app/actions/org-lifecycle': `export const restoreOrgAction=${ok};`,
         '@/hooks/useFileVersions': `export const saveFileRevision=async()=>({success:true});`,
         '@/components/reports/ReportDialog': `export const ReportDialog=()=>null;`,
-        '@/components/presence/WorkspaceStatusControl': `export const ProjectStatusControl=()=>null;`,
-        '@/components/workspaces/dashboard/WorkspaceSocialLinksCard': `export const ProjectLinkCluster=()=>null;`,
-        '@/app/actions/presence': `const none=async()=>({success:true,data:{}});export const getPresence=none,getMyPresenceSettings=none,setMyStatus=none,clearMyStatus=none,resumeNotifications=none,setStatusVisibility=none,setShowActivity=none,getProjectStatuses=none,setProjectStatus=none;`,
-        '@/app/actions/workspace/doc': `export const listProjectDocsAction=async()=>({success:true,docs:[]});`,
+        '@/components/presence/WorkspaceStatusControl': `export const WorkspaceStatusControl=()=>null;`,
+        '@/components/workspaces/dashboard/WorkspaceSocialLinksCard': `export const WorkspaceLinkCluster=()=>null;`,
+        '@/app/actions/presence': `const none=async()=>({success:true,data:{}});export const getPresence=none,getMyPresenceSettings=none,setMyStatus=none,clearMyStatus=none,resumeNotifications=none,setStatusVisibility=none,setShowActivity=none,getWorkspaceStatuses=none,setWorkspaceStatus=none;`,
+        '@/app/actions/workspace/doc': `export const listWorkspaceDocsAction=async()=>({success:true,docs:[]});`,
         '@/app/actions/assignments': `const counts={not_started:3,in_progress:2,submitted:4,returned:0,done:1,missing:2,excused:0,total:12};
             export const listAssignmentsAction=async()=>({success:true,isAdmin:true,timeZone:'Asia/Kolkata',rows:[
             {masterId:'a1',title:'Lab 3 — Consensus protocols and failure detectors',dueDate:new Date(Date.now()+864e5).toISOString(),status:'open',submissionType:'link',reviewRequired:true,teams:true,counts,mine:null},
@@ -62,7 +62,7 @@ test.beforeAll(async () => {
             export const readAssignmentComposerOptionsAction=async()=>({success:true,children:[],sprints:[],teamAssignments:[],defaults:{reviewRequired:true,lateRule:'until'}}),readAssignmentRosterAction=async()=>({success:true,counts,rows:[
               {copyId:'t1',label:'Team A',members:[],people:[{id:'u1',name:'Ravi Kumar',lead:true},{id:'u2',name:'Alexandria Ramana Chandrasekhar',lead:false}],submittedBy:null,state:'in_progress',late:false,projectId:'org',dueDate:null,submission:null,excusedReason:null},
               {copyId:'t2',label:'Priya (individual)',members:[],state:'missing',late:false,projectId:'org',dueDate:null,submission:null,excusedReason:null}]});
-            export const listProjectGroupCopiesAction=async()=>({success:true,rows:[]});
+            export const listWorkspaceGroupCopiesAction=async()=>({success:true,rows:[]});
             export const approveAllSubmittedAction=${ok},closeAssignmentAction=${ok},createAssignmentAction=${ok},deleteAssignmentAction=${ok},excuseCopyAction=${ok},extendCopyAction=${ok},publishAssignmentAction=${ok},reviewAssignmentCopyAction=${ok},submitAssignmentAction=${ok};
             export const addAssignmentStepAction=${ok},excuseTeamMemberAction=${ok},moveTeamMemberAction=${ok},remindCopiesAction=async()=>({success:true,reminded:3}),readAssignmentTeamsAction=async()=>({success:true,teams:[]});
             export const readReviewQueueAction=async()=>({success:true,rows:[{copyId:'c1',masterId:'a1',title:'Lab 3 — Consensus protocols',who:'Team A',submittedBy:'Asha Nair',submittedAt:new Date(Date.now()-7200000).toISOString(),late:true},{copyId:'c2',masterId:'a1',title:'Lab 3',who:'Priya',submittedBy:null,submittedAt:new Date().toISOString(),late:false}]});`,

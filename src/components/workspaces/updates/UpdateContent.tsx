@@ -3,13 +3,13 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast, feedbackError } from "@/lib/feedback";
-import { resolveProjectUpdateMentionTargetAction, type ProjectUpdateView } from "@/app/actions/workspace/updates";
+import { resolveWorkspaceUpdateMentionTargetAction, type WorkspaceUpdateView } from "@/app/actions/workspace/updates";
 import {
-    ProjectUpdateMediaFrame,
-    ProjectUpdateMediaViewer,
-    isProjectUpdateVideoMedia,
+    WorkspaceUpdateMediaFrame,
+    WorkspaceUpdateMediaViewer,
+    isWorkspaceUpdateVideoMedia,
 } from "@/components/workspaces/updates/WorkspaceUpdateMediaFrame";
-import { type ProjectUpdateMediaItem } from "@/lib/workspaces/updates";
+import { type WorkspaceUpdateMediaItem } from "@/lib/workspaces/updates";
 import { cn } from "@/lib/utils";
 import { splitMarkdownByInlineReferences } from "@/lib/workspaces/doc-blocks";
 import { isSafeHttpUrl } from "@/lib/security/urls";
@@ -57,7 +57,7 @@ function ReferenceLink({
     if (!isClickable || loading) return;
     setLoading(true);
     try {
-      const result = await resolveProjectUpdateMentionTargetAction(projectId, {
+      const result = await resolveWorkspaceUpdateMentionTargetAction(projectId, {
         kind: normalizedKind,
         id: reference.id,
       });
@@ -115,7 +115,7 @@ const REFERENCE_HREF = /^#nb-update-ref-(\d+)$/;
  * references still resolving through their access check. Raw HTML and images are dropped, and only safe web
  * links are clickable, the same rules as profile stories.
  */
-export function ProjectUpdateContent({
+export function WorkspaceUpdateContent({
   content,
   projectId,
   projectSlug,
@@ -181,10 +181,10 @@ export function UpdateContextAndMedia({
   update,
   compact = false,
 }: {
-  update: ProjectUpdateView;
+  update: WorkspaceUpdateView;
   compact?: boolean;
 }) {
-  const [viewerMedia, setViewerMedia] = useState<ProjectUpdateMediaItem | null>(null);
+  const [viewerMedia, setViewerMedia] = useState<WorkspaceUpdateMediaItem | null>(null);
   const mediaItems = update.media.filter((item) => item.url || item.label);
 
   if (mediaItems.length === 0) return null;
@@ -193,8 +193,8 @@ export function UpdateContextAndMedia({
     <div className={cn("mt-2 space-y-2", compact && "max-w-full")}>
 
       {mediaItems.map((item, index) =>
-        item.url && (item.type === "image" || isProjectUpdateVideoMedia(item)) ? (
-          <ProjectUpdateMediaFrame
+        item.url && (item.type === "image" || isWorkspaceUpdateVideoMedia(item)) ? (
+          <WorkspaceUpdateMediaFrame
             key={`${item.url}-${index}`}
             item={item}
             src={item.url}
@@ -215,7 +215,7 @@ export function UpdateContextAndMedia({
           </a>
         ),
       )}
-      <ProjectUpdateMediaViewer
+      <WorkspaceUpdateMediaViewer
         item={viewerMedia}
         onOpenChange={(open) => {
           if (!open) setViewerMedia(null);

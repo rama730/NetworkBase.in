@@ -4,19 +4,19 @@ import { useCreateLocation } from '@/components/organizations/CreateLocation';
 import { useEffect, useMemo, useState, type ComponentType, type ReactNode } from 'react';
 import { useFormContext, useWatch } from 'react-hook-form';
 import { Edit3, Folder, GitBranch, Globe, Lock } from 'lucide-react';
-import { CreateProjectInput } from '@/lib/validations/workspace';
+import { CreateWorkspaceInput } from '@/lib/validations/workspace';
 import { SkillList } from '@/components/skills/SkillList';
 import { Button } from '@/components/ui/button';
-import { PROJECT_TYPE_OPTIONS } from '@/lib/workspaces/workspace-create-options';
+import { WORKSPACE_TYPE_OPTIONS } from '@/lib/workspaces/workspace-create-options';
 import { resolveSocialPresence, socialLinkItemsFromStorage } from '@/lib/profile/normalization';
-import { CREATE_PROJECT_NOTIFICATION_ROWS } from '@/lib/notifications/workspace-policy';
-import { DEFAULT_PROJECT_PUBLIC_TAB_VISIBILITY, PROJECT_PUBLIC_TAB_LABELS, type ProjectPublicTabId } from '@/lib/workspaces/settings-policies';
+import { CREATE_WORKSPACE_NOTIFICATION_ROWS } from '@/lib/notifications/workspace-policy';
+import { DEFAULT_WORKSPACE_PUBLIC_TAB_VISIBILITY, WORKSPACE_PUBLIC_TAB_LABELS, type WorkspacePublicTabId } from '@/lib/workspaces/settings-policies';
 import ProjectCard from '@/components/workspaces/WorkspaceCard';
 import { orgTypeLabel } from '@/lib/organizations/config';
 import { ORG_CREATION_COPY, orgTypeDefaults } from '@/lib/organizations/creation';
 import { parseInviteEmails } from '@/lib/organizations/member-rules';
 import { useAuth } from '@/hooks/useAuth';
-import type { Project } from '@/types/discover';
+import type { Workspace } from '@/types/discover';
 
 interface Phase5ReviewProps {
     goToPhase: (phase: 1 | 2 | 3 | 4) => void;
@@ -25,7 +25,7 @@ interface Phase5ReviewProps {
     projectImage?: File | null;
 }
 
-const PUBLIC_TAB_ORDER: ProjectPublicTabId[] = ['dashboard', 'readme', 'updates', 'files', 'sprints', 'tasks'];
+const PUBLIC_TAB_ORDER: WorkspacePublicTabId[] = ['dashboard', 'readme', 'updates', 'files', 'sprints', 'tasks'];
 
 interface ReviewSectionProps {
     eyebrow: string;
@@ -97,8 +97,8 @@ const sourceCopy = {
 };
 
 export default function Phase5Review({ goToPhase, onReady, projectImage = null }: Phase5ReviewProps) {
-    const { control } = useFormContext<CreateProjectInput>();
-    const formData = useWatch({ control }) as CreateProjectInput;
+    const { control } = useFormContext<CreateWorkspaceInput>();
+    const formData = useWatch({ control }) as CreateWorkspaceInput;
     const childOrg = useCreateLocation().org;
     // The team line, report §14.3 Phase 5: "4 added · 3 invited · 1 open seat". People outside the org are always invited.
     const placed = [...(formData.roles ?? []).flatMap((role) => role.people ?? []), ...(formData.unassigned_people ?? [])] as Array<{ outside?: boolean }>;
@@ -115,7 +115,7 @@ export default function Phase5Review({ goToPhase, onReady, projectImage = null }
     const openRoles = (formData.roles || []).filter((role) => role.role.trim().length > 0);
     const openPositionCount = openRoles.reduce((total, role) => total + role.count, 0);
     const projectLinks = socialLinkItemsFromStorage(formData.external_links);
-    const projectType = PROJECT_TYPE_OPTIONS.find((type) => type.id === formData.project_type);
+    const projectType = WORKSPACE_TYPE_OPTIONS.find((type) => type.id === formData.project_type);
     // Organizations (report §34.7): their own words, the type's label and gentle checks that never block.
     const org = formData.organization;
     const orgRoles = org ? org.role_names ?? orgTypeDefaults(org.org_type ?? 'other').roleNames : null;
@@ -135,8 +135,8 @@ export default function Phase5Review({ goToPhase, onReady, projectImage = null }
     const uploadFileCount = Number(sourceMetadata.fileCount || 0);
     const lifecycleStages = formData.lifecycle_stages || [];
     const VisibilityIcon = formData.visibility === 'private' ? Lock : Globe;
-    const publicTabs = { ...DEFAULT_PROJECT_PUBLIC_TAB_VISIBILITY, ...(formData.public_tab_visibility || {}) };
-    const publicTabLabels = PUBLIC_TAB_ORDER.filter((tab) => publicTabs[tab]).map((tab) => PROJECT_PUBLIC_TAB_LABELS[tab]);
+    const publicTabs = { ...DEFAULT_WORKSPACE_PUBLIC_TAB_VISIBILITY, ...(formData.public_tab_visibility || {}) };
+    const publicTabLabels = PUBLIC_TAB_ORDER.filter((tab) => publicTabs[tab]).map((tab) => WORKSPACE_PUBLIC_TAB_LABELS[tab]);
     const docSkipped = formData.readme?.mode === 'skip';
     const notificationRows = { roles_applications: true, work: true, updates_docs: true, ...(formData.notification_rows || {}) };
     const memberUpdates = formData.member_updates_enabled !== false;
@@ -157,7 +157,7 @@ export default function Phase5Review({ goToPhase, onReady, projectImage = null }
         };
     }, [projectImage]);
 
-    const previewProject: Project = useMemo(() => {
+    const previewProject: Workspace = useMemo(() => {
         return {
             id: 'preview-project',
             key: 'PRV',
@@ -208,7 +208,7 @@ export default function Phase5Review({ goToPhase, onReady, projectImage = null }
             cardOrg: childOrg ? { id: childOrg.id, title: childOrg.title, slug: childOrg.slug } : undefined,
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
-        } as unknown as Project;
+        } as unknown as Workspace;
     }, [formData, previewCoverUrl, user, childOrg]);
 
     return (
@@ -439,7 +439,7 @@ export default function Phase5Review({ goToPhase, onReady, projectImage = null }
                 </ReviewRow>
                 <ReviewRow label="Notifications">
                     <p className="nb-compact text-foreground">
-                        {CREATE_PROJECT_NOTIFICATION_ROWS.map((row) => `${row.label}: ${notificationRows[row.id] ? 'on' : 'off'}`).join(' · ')}
+                        {CREATE_WORKSPACE_NOTIFICATION_ROWS.map((row) => `${row.label}: ${notificationRows[row.id] ? 'on' : 'off'}`).join(' · ')}
                     </p>
                     <p className="nb-compact mt-1 text-muted-foreground">Membership and security alerts always stay on.</p>
                 </ReviewRow>

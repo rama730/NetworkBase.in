@@ -18,35 +18,35 @@ import {
     projectInvitations,
 } from "@/lib/db/schema";
 import { closePendingApplications, resolveApplicationsOnJoin } from "@/lib/applications/closing";
-import { syncProjectChat } from "@/lib/messaging/integrations";
+import { syncWorkspaceChat } from "@/lib/messaging/integrations";
 import { recordTaskAssignment, taskAssignmentNotification } from "@/lib/workspaces/task-assignment";
-import type { EnqueueProjectNotificationEventInput } from "@/lib/notifications/workspace-events";
+import type { EnqueueWorkspaceNotificationEventInput } from "@/lib/notifications/workspace-events";
 import {
-    isEligibleProjectMember,
-    normalizeProjectMemberRole,
+    isEligibleWorkspaceMember,
+    normalizeWorkspaceMemberRole,
     projectMemberCan,
-    type ProjectMemberCapability,
-    type ProjectMemberEligibility,
-    type ProjectMemberRole,
+    type WorkspaceMemberCapability,
+    type WorkspaceMemberEligibility,
+    type WorkspaceMemberRole,
 } from "@/lib/workspaces/settings-policies";
 import {
-    endProfileProjectContributionMembership,
+    endProfileWorkspaceContributionMembership,
     markProfileCollaborationSummaryStale,
-    upsertProfileProjectContributionFromMembership,
+    upsertProfileWorkspaceContributionFromMembership,
 } from "@/lib/profile/collaboration";
-import { getProjectAccessById, type ProjectAccess } from "@/lib/data/workspace-access";
+import { getWorkspaceAccessById, type WorkspaceAccess } from "@/lib/data/workspace-access";
 
 type DbTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
-export type ProjectCollaboratorExecutor = typeof db | DbTransaction;
+export type WorkspaceCollaboratorExecutor = typeof db | DbTransaction;
 
-export type ProjectCollaboratorSnapshot = {
+export type WorkspaceCollaboratorSnapshot = {
     id: string;
     username: string | null;
     fullName: string | null;
     avatarUrl: string | null;
 };
 
-export type ProjectCollaboratorLifecycleResult = {
+export type WorkspaceCollaboratorLifecycleResult = {
     eventId: string | null;
     changed: boolean;
     project: {
@@ -55,20 +55,20 @@ export type ProjectCollaboratorLifecycleResult = {
         title: string | null;
         slug: string | null;
     };
-    target: ProjectCollaboratorSnapshot | null;
-    previousRole: ProjectMemberRole | null;
-    nextRole: ProjectMemberRole | null;
+    target: WorkspaceCollaboratorSnapshot | null;
+    previousRole: WorkspaceMemberRole | null;
+    nextRole: WorkspaceMemberRole | null;
     /** Pending applications closed because this member filled their role (the caller notifies them after commit). */
     closedApplications?: Array<{ id: string; applicantId: string; roleId: string }>;
     /** Candidates whose pending invitation expired because the role filled (the caller tells them after commit). */
     expiredInvitationCandidates?: string[];
 };
 
-function displayNameForSnapshot(snapshot: ProjectCollaboratorSnapshot | null) {
+function displayNameForSnapshot(snapshot: WorkspaceCollaboratorSnapshot | null) {
     return snapshot?.fullName || snapshot?.username || "Workspace member";
 }
 
-function roleRank(role: ProjectMemberRole | null) {
+function roleRank(role: WorkspaceMemberRole | null) {
     switch (role) {
         case "owner":
             return 4;
@@ -83,7 +83,7 @@ function roleRank(role: ProjectMemberRole | null) {
     }
 }
 
-async function readProjectForUpdate(executor: ProjectCollaboratorExecutor, projectId: string) {
+async function readProjectForUpdate(executor: WorkspaceCollaboratorExecutor, projectId: string) {
     const rows = await executor.execute<{
         id: string;
         owner_id: string;
@@ -109,7 +109,7 @@ async function readProjectForUpdate(executor: ProjectCollaboratorExecutor, proje
     };
 }
 
-async function readProfileSnapshot(executor: ProjectCollaboratorExecutor, userId: string): Promise<ProjectCollaboratorSnapshot | null> {
+async function readProfileSnapshot(executor: WorkspaceCollaboratorExecutor, userId: string): Promise<WorkspaceCollaboratorSnapshot | null> {
     const [profile] = await executor
         .select({
             id: profiles.id,
@@ -124,35 +124,35 @@ async function readProfileSnapshot(executor: ProjectCollaboratorExecutor, userId
 }
 
 async function readMembershipRole(
-    executor: ProjectCollaboratorExecutor,
+    executor: WorkspaceCollaboratorExecutor,
     projectId: string,
     userId: string,
     ownerId: string,
     lock = false,
 ) {
-    if (userId === ownerId) return "owner" as ProjectMemberRole;
+    if (userId === ownerId) return "owner" as WorkspaceMemberRole;
     if (lock) {
-        const rows = await executor.execute<{ role: ProjectMemberRole }>(sql`
+        const rows = await executor.execute<{ role: WorkspaceMemberRole }>(sql`
             SELECT role
             FROM ${projectMembers}
             WHERE project_id = ${projectId} AND user_id = ${userId}
             FOR UPDATE
         `);
         const row = Array.from(rows)[0];
-        return row ? normalizeProjectMemberRole(row.role) : null;
+        return row ? normalizeWorkspaceMemberRole(row.role) : null;
     }
     const [member] = await executor
         .select({ role: projectMembers.role })
         .from(projectMembers)
         .where(and(eq(projectMembers.projectId, projectId), eq(projectMembers.userId, userId)))
         .limit(1);
-    return member ? normalizeProjectMemberRole(member.role) : null;
+    return member ? normalizeWorkspaceMemberRole(member.role) : null;
 }
 
-export function canProjectRoleManageTarget(params: {
-    actorRole: ProjectMemberRole | null;
-    targetRole: ProjectMemberRole | null;
-    nextRole?: ProjectMemberRole | null;
+export function canWorkspaceRoleManageTarget(params: {
+    actorRole: WorkspaceMemberRole | null;
+    targetRole: WorkspaceMemberRole | null;
+    nextRole?: WorkspaceMemberRole | null;
 }) {
     const { actorRole, targetRole, nextRole = null } = params;
     if (!actorRole || !targetRole || targetRole === "owner") return false;
@@ -164,12 +164,12 @@ export function canProjectRoleManageTarget(params: {
     );
 }
 
-export function isProjectMemberEligibleFor(role: unknown, eligibility: ProjectMemberEligibility) {
-    return isEligibleProjectMember(role, eligibility);
+export function isWorkspaceMemberEligibleFor(role: unknown, eligibility: WorkspaceMemberEligibility) {
+    return isEligibleWorkspaceMember(role, eligibility);
 }
 
 /** The capability check on an access record that is already loaded, so one read can serve several checks. */
-export function capabilityFromAccess(access: ProjectAccess, capability: ProjectMemberCapability) {
+export function capabilityFromAccess(access: WorkspaceAccess, capability: WorkspaceMemberCapability) {
     if (!access.project) throw new NotFoundError("Workspace not found");
     const role = access.isOwner ? "owner" : access.memberRole;
     if (!role || !projectMemberCan(role, capability)) {
@@ -178,13 +178,13 @@ export function capabilityFromAccess(access: ProjectAccess, capability: ProjectM
     return { project: access.project, role };
 }
 
-export async function requireProjectCapability(
+export async function requireWorkspaceCapability(
     projectId: string,
     userId: string,
-    capability: ProjectMemberCapability,
-    executor: ProjectCollaboratorExecutor = db,
+    capability: WorkspaceMemberCapability,
+    executor: WorkspaceCollaboratorExecutor = db,
 ) {
-    if (executor === db) return capabilityFromAccess(await getProjectAccessById(projectId, userId), capability);
+    if (executor === db) return capabilityFromAccess(await getWorkspaceAccessById(projectId, userId), capability);
 
     const [project] = await executor
         .select({ id: projects.id, ownerId: projects.ownerId })
@@ -199,24 +199,24 @@ export async function requireProjectCapability(
     return { project, role };
 }
 
-export async function addProjectMemberInternal(
-    executor: ProjectCollaboratorExecutor,
+export async function addWorkspaceMemberInternal(
+    executor: WorkspaceCollaboratorExecutor,
     params: {
         projectId: string;
         userId: string;
-        role?: Exclude<ProjectMemberRole, "owner">;
+        role?: Exclude<WorkspaceMemberRole, "owner">;
         actorId: string;
         source: "application_accept" | "project_invite" | "manual" | "ownership_transfer" | "join_code" | "email_invite";
         applicationId?: string | null;
         roleId?: string | null;
         incrementRoleCapacity?: boolean;
     },
-): Promise<ProjectCollaboratorLifecycleResult> {
+): Promise<WorkspaceCollaboratorLifecycleResult> {
     const project = await readProjectForUpdate(executor, params.projectId);
     if (!project) throw new NotFoundError("Workspace not found");
     const target = await readProfileSnapshot(executor, params.userId);
     const previousRole = await readMembershipRole(executor, params.projectId, params.userId, project.ownerId, true);
-    const nextRole = params.userId === project.ownerId ? "owner" : normalizeProjectMemberRole(params.role ?? "member", "member");
+    const nextRole = params.userId === project.ownerId ? "owner" : normalizeWorkspaceMemberRole(params.role ?? "member", "member");
     let changed = false;
     let closedApplications: Array<{ id: string; applicantId: string; roleId: string }> = [];
     let expiredInvitationCandidates: string[] = [];
@@ -323,7 +323,7 @@ export async function addProjectMemberInternal(
     }
 
     // Project members join the project's #general (report 7.1).
-    await syncProjectChat(executor, params.projectId, params.userId, "add");
+    await syncWorkspaceChat(executor, params.projectId, params.userId, "add");
 
     // Joining another way (an invitation, being added) closes a pending application of the same person.
     if (!previousRole && params.source !== "application_accept") {
@@ -349,7 +349,7 @@ export async function addProjectMemberInternal(
     }).returning({ id: projectNodeEvents.id });
 
     if (changed) {
-        await upsertProfileProjectContributionFromMembership(executor, {
+        await upsertProfileWorkspaceContributionFromMembership(executor, {
             profileId: params.userId,
             projectId: params.projectId,
             verifiedBy: params.actorId,
@@ -370,20 +370,20 @@ export async function addProjectMemberInternal(
     return { eventId: event?.id ?? null, changed, project, target, previousRole, nextRole, closedApplications, expiredInvitationCandidates };
 }
 
-export async function changeProjectMemberRoleInternal(
-    executor: ProjectCollaboratorExecutor,
+export async function changeWorkspaceMemberRoleInternal(
+    executor: WorkspaceCollaboratorExecutor,
     params: {
         projectId: string;
         actorId: string;
         targetUserId: string;
-        nextRole: Exclude<ProjectMemberRole, "owner">;
+        nextRole: Exclude<WorkspaceMemberRole, "owner">;
     },
-): Promise<ProjectCollaboratorLifecycleResult> {
+): Promise<WorkspaceCollaboratorLifecycleResult> {
     const project = await readProjectForUpdate(executor, params.projectId);
     if (!project) throw new NotFoundError("Workspace not found");
     const actorRole = await readMembershipRole(executor, params.projectId, params.actorId, project.ownerId, true);
     const previousRole = await readMembershipRole(executor, params.projectId, params.targetUserId, project.ownerId, true);
-    if (!canProjectRoleManageTarget({ actorRole, targetRole: previousRole, nextRole: params.nextRole })) {
+    if (!canWorkspaceRoleManageTarget({ actorRole, targetRole: previousRole, nextRole: params.nextRole })) {
         throw new ForbiddenError("You can’t manage this member");
     }
     if (previousRole === params.nextRole) {
@@ -395,7 +395,7 @@ export async function changeProjectMemberRoleInternal(
         .update(projectMembers)
         .set({ role: params.nextRole })
         .where(and(eq(projectMembers.projectId, params.projectId), eq(projectMembers.userId, params.targetUserId)));
-    await syncProjectChat(executor, params.projectId, params.targetUserId, "role");
+    await syncWorkspaceChat(executor, params.projectId, params.targetUserId, "role");
     const [event] = await executor.insert(projectNodeEvents).values({
         projectId: params.projectId,
         actorId: params.actorId,
@@ -411,7 +411,7 @@ export async function changeProjectMemberRoleInternal(
         createdAt: new Date(),
     }).returning({ id: projectNodeEvents.id });
 
-    await upsertProfileProjectContributionFromMembership(executor, {
+    await upsertProfileWorkspaceContributionFromMembership(executor, {
         profileId: params.targetUserId,
         projectId: params.projectId,
         verifiedBy: params.actorId,
@@ -424,8 +424,8 @@ export async function changeProjectMemberRoleInternal(
     return { eventId: event?.id ?? null, changed: true, project, target, previousRole, nextRole: params.nextRole };
 }
 
-export async function readProjectMemberRemovalImpact(
-    executor: ProjectCollaboratorExecutor,
+export async function readWorkspaceMemberRemovalImpact(
+    executor: WorkspaceCollaboratorExecutor,
     projectId: string,
     memberUserId: string,
 ) {
@@ -508,12 +508,12 @@ export async function readProjectMemberRemovalImpact(
         fileReviews,
         acceptedApplications,
         projectGroupParticipant: participantRows.length > 0,
-        reassignmentCandidates: candidates.filter((candidate) => isEligibleProjectMember(candidate.role, "assign")),
+        reassignmentCandidates: candidates.filter((candidate) => isEligibleWorkspaceMember(candidate.role, "assign")),
     };
 }
 
 async function readProjectMemberRemovalImpactCounts(
-    executor: ProjectCollaboratorExecutor,
+    executor: WorkspaceCollaboratorExecutor,
     projectId: string,
     memberUserId: string,
 ) {
@@ -568,8 +568,8 @@ async function readProjectMemberRemovalImpactCounts(
     };
 }
 
-export async function removeProjectMemberInternal(
-    executor: ProjectCollaboratorExecutor,
+export async function removeWorkspaceMemberInternal(
+    executor: WorkspaceCollaboratorExecutor,
     params: {
         projectId: string;
         actorId: string;
@@ -579,19 +579,19 @@ export async function removeProjectMemberInternal(
         /** Leaving: the person removes themself. Only org leave uses it; the owner never leaves this way. */
         allowSelf?: boolean;
     },
-): Promise<ProjectCollaboratorLifecycleResult & { assignmentNotifications: EnqueueProjectNotificationEventInput[] }> {
+): Promise<WorkspaceCollaboratorLifecycleResult & { assignmentNotifications: EnqueueWorkspaceNotificationEventInput[] }> {
     const project = await readProjectForUpdate(executor, params.projectId);
     if (!project) throw new NotFoundError("Workspace not found");
     const actorRole = await readMembershipRole(executor, params.projectId, params.actorId, project.ownerId, true);
     const previousRole = await readMembershipRole(executor, params.projectId, params.targetUserId, project.ownerId, true);
     const isLeaving = params.allowSelf === true && params.actorId === params.targetUserId && previousRole !== null && previousRole !== "owner";
-    if (!isLeaving && !canProjectRoleManageTarget({ actorRole, targetRole: previousRole })) {
+    if (!isLeaving && !canWorkspaceRoleManageTarget({ actorRole, targetRole: previousRole })) {
         throw new ForbiddenError("You can’t remove this member");
     }
     const target = await readProfileSnapshot(executor, params.targetUserId);
-    const impact = await readProjectMemberRemovalImpact(executor, params.projectId, params.targetUserId);
+    const impact = await readWorkspaceMemberRemovalImpact(executor, params.projectId, params.targetUserId);
     const impactCounts = await readProjectMemberRemovalImpactCounts(executor, params.projectId, params.targetUserId);
-    const assignmentNotifications: EnqueueProjectNotificationEventInput[] = [];
+    const assignmentNotifications: EnqueueWorkspaceNotificationEventInput[] = [];
 
     if (params.mode === "unassign_active_tasks") {
         await executor
@@ -602,7 +602,7 @@ export async function removeProjectMemberInternal(
         const replacementId = params.reassignToUserId;
         if (!replacementId || replacementId === params.targetUserId) throw new Error("Choose a valid replacement assignee");
         const replacementRole = await readMembershipRole(executor, params.projectId, replacementId, project.ownerId, true);
-        if (!replacementRole || !isEligibleProjectMember(replacementRole, "assign")) {
+        if (!replacementRole || !isEligibleWorkspaceMember(replacementRole, "assign")) {
             throw new Error("Replacement assignee must be an assignable workspace member");
         }
         const actor = await readProfileSnapshot(executor, params.actorId);
@@ -630,7 +630,7 @@ export async function removeProjectMemberInternal(
         }
     }
 
-    await syncProjectChat(executor, params.projectId, params.targetUserId, "remove");
+    await syncWorkspaceChat(executor, params.projectId, params.targetUserId, "remove");
     await executor
         .delete(projectMembers)
         .where(and(eq(projectMembers.projectId, params.projectId), eq(projectMembers.userId, params.targetUserId)));
@@ -671,7 +671,7 @@ export async function removeProjectMemberInternal(
         createdAt: new Date(),
     }).returning({ id: projectNodeEvents.id });
 
-    await endProfileProjectContributionMembership(executor, {
+    await endProfileWorkspaceContributionMembership(executor, {
         profileId: params.targetUserId,
         projectId: params.projectId,
         verifiedBy: params.actorId,

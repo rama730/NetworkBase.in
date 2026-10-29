@@ -4,7 +4,7 @@ import { importJobs, importJobFiles, uploadIntents, projectNodes, fileVersions, 
 import { and, eq, isNull, sql } from 'drizzle-orm';
 import { jsonError, jsonSuccess } from '@/app/api/v1/_envelope';
 import { validateCsrf } from '@/lib/security/csrf';
-import { assertProjectWriteAccess, recordNodeEvent } from '@/lib/files/internal-helpers';
+import { assertWorkspaceWriteAccess, recordNodeEvent } from '@/lib/files/internal-helpers';
 import { enforceRouteLimit, requireAuthenticatedUser } from '@/app/api/v1/_shared';
 import { createDirectoryStructureFromPaths } from '@/lib/import/utils';
 import { z } from 'zod';
@@ -69,7 +69,7 @@ export async function POST(request: NextRequest) {
             return jsonError('Active import job not found', 404, 'NOT_FOUND');
         }
 
-        await assertProjectWriteAccess(job.projectId, user.id);
+        await assertWorkspaceWriteAccess(job.projectId, user.id);
 
         if (!intent) {
             return jsonError('Pending upload intent not found', 404, 'NOT_FOUND');

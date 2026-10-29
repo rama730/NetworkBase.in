@@ -29,7 +29,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { DesktopIdePicker } from "./DesktopIdePicker";
-import { IdeProjectPicker, type IdeProject } from "./IdeWorkspacePicker";
+import { IdeWorkspacePicker, type IdeWorkspace } from "./IdeWorkspacePicker";
 import type { CurrentLocation } from "./navigation";
 
 interface OpenInIdeButtonProps {
@@ -99,7 +99,7 @@ export function OpenInIdeButton({
   const executeDispatch = (
     ideId: SupportedIde,
     action: "workspace" | "marketplace",
-    project?: IdeProject,
+    project?: IdeWorkspace,
   ) => {
     setFallbackIde(SUPPORTED_IDES[ideId]);
     setPreferredIde(ideId);
@@ -256,7 +256,7 @@ export function OpenInIdeButton({
           </Dropdown.Content>
         </Dropdown.Portal>
       </Dropdown.Root>
-      <IdeProjectPicker
+      <IdeWorkspacePicker
         open={projectPickerIde !== null}
         onOpenChange={(open) => {
           if (!open) setProjectPickerIde(null);

@@ -144,7 +144,7 @@ test("sprint assignment rows: admin counts and the completed line, guest counts,
 test("Plan your first sprints in the org wizard creates the planned series", async () => {
   const owner = await sql.begin((tx) => createUser(tx));
   viewerId = owner;
-  const result = await lifecycle.createProjectAction({
+  const result = await lifecycle.createWorkspaceAction({
     title: `CSE-3A ${Math.random().toString(36).slice(2, 6)}`, description: "Software engineering, third year, section A.", project_type: "education",
     organization: { org_type: "education", handle: `cse-${Math.random().toString(36).slice(2, 8)}`, join_mode: "instant", child_creation: "members", outside_people: false,
       plan_sprints: { prefix: "CO", count: 3, length_days: 7, start_date: day(2) } },

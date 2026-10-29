@@ -17,9 +17,9 @@ import {
 } from "@/app/api/v1/_shared";
 import { routeErrorResponse } from "@/app/api/v1/_error";
 import {
-  assertProjectFileReadAccess,
+  assertWorkspaceFileReadAccess,
   assertFileNodeVisible,
-  assertProjectWriteAccessTx,
+  assertWorkspaceWriteAccessTx,
   recordNodeEvent,
 } from "@/lib/files/internal-helpers";
 import { consumeRateLimit } from "@/lib/security/rate-limit";
@@ -65,7 +65,7 @@ const schema = z.discriminatedUnion("kind", [
   }),
 ]);
 async function readable(projectId: string, nodeId: string, userId: string) {
-  const access = await assertProjectFileReadAccess(projectId, userId);
+  const access = await assertWorkspaceFileReadAccess(projectId, userId);
   const node = await db.query.projectNodes.findFirst({
     where: and(
       eq(projectNodes.id, nodeId),
@@ -150,7 +150,7 @@ export async function POST(request: Request) {
       return jsonError("Too many attempts. Try again in a minute.", 429, "RATE_LIMITED");
     await readable(input.projectId, input.nodeId, userId);
     const event = await db.transaction(async (tx) => {
-      const authority = await assertProjectWriteAccessTx(
+      const authority = await assertWorkspaceWriteAccessTx(
         tx,
         input.projectId,
         userId,

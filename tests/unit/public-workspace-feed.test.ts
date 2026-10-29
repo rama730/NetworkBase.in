@@ -2,21 +2,21 @@ import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 
 import {
-    buildPublicProjectsCacheKey,
-    decodePublicProjectsCursor,
-    encodePublicProjectsCursor,
+    buildPublicWorkspacesCacheKey,
+    decodePublicWorkspacesCursor,
+    encodePublicWorkspacesCursor,
 } from '../../src/lib/workspaces/public-feed'
 
 describe('public projects feed cursor helpers', () => {
     it('round-trips cursor values', () => {
-        const encoded = encodePublicProjectsCursor({
+        const encoded = encodePublicWorkspacesCursor({
             createdAt: '2026-03-12T10:00:00.000Z',
             id: '11111111-2222-4333-8444-555555555555',
         })
 
         assert.ok(encoded)
         assert.deepEqual(
-            decodePublicProjectsCursor(encoded),
+            decodePublicWorkspacesCursor(encoded),
             {
                 createdAt: '2026-03-12T10:00:00.000Z',
                 id: '11111111-2222-4333-8444-555555555555',
@@ -25,12 +25,12 @@ describe('public projects feed cursor helpers', () => {
     })
 
     it('rejects malformed cursors', () => {
-        assert.equal(decodePublicProjectsCursor('not-a-cursor'), null)
-        assert.equal(decodePublicProjectsCursor(null), null)
+        assert.equal(decodePublicWorkspacesCursor('not-a-cursor'), null)
+        assert.equal(decodePublicWorkspacesCursor(null), null)
         // Forged values never reach SQL or mint cache keys.
         const forged = (value: unknown) => Buffer.from(JSON.stringify(value)).toString('base64url')
-        assert.equal(decodePublicProjectsCursor(forged({ createdAt: 'x', id: '11111111-2222-4333-8444-555555555555' })), null)
-        assert.equal(decodePublicProjectsCursor(forged({ createdAt: '2026-03-12T10:00:00.000Z', id: 'project-123' })), null)
+        assert.equal(decodePublicWorkspacesCursor(forged({ createdAt: 'x', id: '11111111-2222-4333-8444-555555555555' })), null)
+        assert.equal(decodePublicWorkspacesCursor(forged({ createdAt: '2026-03-12T10:00:00.000Z', id: 'project-123' })), null)
     })
 
     it('creates stable cache keys for equivalent pages', () => {
@@ -40,11 +40,11 @@ describe('public projects feed cursor helpers', () => {
         }
 
         assert.equal(
-            buildPublicProjectsCacheKey(24, cursor),
+            buildPublicWorkspacesCacheKey(24, cursor),
             'projects:public:v5:limit:24:cursor:2026-03-12T10:00:00.000Z:11111111-2222-4333-8444-555555555555',
         )
         assert.equal(
-            buildPublicProjectsCacheKey(24, null),
+            buildPublicWorkspacesCacheKey(24, null),
             'projects:public:v5:limit:24:cursor:origin',
         )
     })

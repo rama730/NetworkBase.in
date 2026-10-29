@@ -8,13 +8,13 @@ import { readBoundedStorageBytes } from "@/lib/storage/bounded-object-read";
 import { db } from "@/lib/db";
 import { storageAssets, projectMembers, projectFollows, projectOpenRoles, roleApplications, tasks, profiles, projects, projectNodeEvents } from "@/lib/db/schema";
 import { and, eq, sql, isNull, desc } from "drizzle-orm";
-import { type ProjectVisibility, isProjectVisibility, normalizeProjectVisibility } from "@/lib/workspaces/workspace-visibility";
-import { buildProjectAccessTransitionPolicy, type ProjectPublicTabVisibility, normalizeProjectPublicTabVisibility } from "@/lib/workspaces/settings-policies";
-import { markProjectCollaboratorsSummaryStale } from "@/lib/profile/collaboration";
+import { type WorkspaceVisibility, isWorkspaceVisibility, normalizeWorkspaceVisibility } from "@/lib/workspaces/workspace-visibility";
+import { buildWorkspaceAccessTransitionPolicy, type WorkspacePublicTabVisibility, normalizeWorkspacePublicTabVisibility } from "@/lib/workspaces/settings-policies";
+import { markWorkspaceCollaboratorsSummaryStale } from "@/lib/profile/collaboration";
 import { scheduleAssetDeletionIfUnreferenced } from "@/lib/storage/asset-deletion";
-import { enqueueProjectNotificationEvent } from "@/lib/notifications/workspace-events";
-import { requireProjectCapability } from "@/lib/workspaces/collaborator-lifecycle";
-import { PROJECT_COVER_UPLOAD_BUCKET, buildProjectImageRoute, PROJECT_COVER_UPLOAD_MAX_FILE_BYTES, type ProjectSettingsErrorCode, loadOwnedProjectForSettings, type ProjectSettingsMutationResult, revalidateProjectPaths, invalidateProjectPublicCaches, actorNotificationSnapshot } from "./common";
+import { enqueueWorkspaceNotificationEvent } from "@/lib/notifications/workspace-events";
+import { requireWorkspaceCapability } from "@/lib/workspaces/collaborator-lifecycle";
+import { WORKSPACE_COVER_UPLOAD_BUCKET, buildWorkspaceImageRoute, WORKSPACE_COVER_UPLOAD_MAX_FILE_BYTES, type WorkspaceSettingsErrorCode, loadOwnedWorkspaceForSettings, type WorkspaceSettingsMutationResult, revalidateWorkspacePaths, invalidateWorkspacePublicCaches, actorNotificationSnapshot } from "./common";
 
 const LEGACY_PROJECT_COVER_UPLOAD_BUCKET = "avatars";
 
@@ -46,7 +46,7 @@ function projectCoverStorageKeyFromPublicUrl(
   value: string | null | undefined,
   userId: string,
   projectId: string,
-  bucket = PROJECT_COVER_UPLOAD_BUCKET,
+  bucket = WORKSPACE_COVER_UPLOAD_BUCKET,
 ) {
   if (!value) return null;
 
@@ -89,7 +89,7 @@ async function migrateLegacyProjectImageToManagedStorage(params: {
     return {
       bucket: params.coverImageBucket,
       key: params.coverImageKey,
-      url: buildProjectImageRoute(params.projectId, params.coverImageKey),
+      url: buildWorkspaceImageRoute(params.projectId, params.coverImageKey),
       migrated: false,
       assetId: params.coverImageAssetId ?? null,
     };
@@ -106,7 +106,7 @@ async function migrateLegacyProjectImageToManagedStorage(params: {
       params.coverImage,
       params.userId,
       params.projectId,
-      PROJECT_COVER_UPLOAD_BUCKET,
+      WORKSPACE_COVER_UPLOAD_BUCKET,
     );
   const legacyBucket = projectCoverStorageKeyFromPublicUrl(
     params.coverImage,
@@ -116,7 +116,7 @@ async function migrateLegacyProjectImageToManagedStorage(params: {
   )
     ? LEGACY_PROJECT_COVER_UPLOAD_BUCKET
     : legacyKey
-      ? PROJECT_COVER_UPLOAD_BUCKET
+      ? WORKSPACE_COVER_UPLOAD_BUCKET
       : null;
   if (!legacyKey || !legacyBucket) return null;
 
@@ -127,7 +127,7 @@ async function migrateLegacyProjectImageToManagedStorage(params: {
     .from(legacyBucket)
     .info(legacyKey);
   const legacySize = Number(legacyInfo?.size);
-  if (legacyInfoError || !legacyInfo || !Number.isFinite(legacySize) || legacySize <= 0 || legacySize > PROJECT_COVER_UPLOAD_MAX_FILE_BYTES) {
+  if (legacyInfoError || !legacyInfo || !Number.isFinite(legacySize) || legacySize <= 0 || legacySize > WORKSPACE_COVER_UPLOAD_MAX_FILE_BYTES) {
     logger.warn("project.cover_migration_invalid_source", {
       module: "projects",
       projectId: params.projectId,
@@ -142,7 +142,7 @@ async function migrateLegacyProjectImageToManagedStorage(params: {
     sourceBytes = Buffer.from(await readBoundedStorageBytes({
       bucket: legacyBucket,
       storageKey: legacyKey,
-      maxBytes: PROJECT_COVER_UPLOAD_MAX_FILE_BYTES,
+      maxBytes: WORKSPACE_COVER_UPLOAD_MAX_FILE_BYTES,
     }));
   } catch (error) {
     logger.warn("project.cover_migration_download_failed", {
@@ -196,14 +196,14 @@ async function migrateLegacyProjectImageToManagedStorage(params: {
   if (!legacyAsset) return null;
 
   const { error: uploadError } = await admin.storage
-    .from(PROJECT_COVER_UPLOAD_BUCKET)
+    .from(WORKSPACE_COVER_UPLOAD_BUCKET)
     .upload(nextKey, sourceBytes, {
       upsert: false,
       contentType: mimeType === "application/octet-stream" ? undefined : mimeType,
       cacheControl: "31536000",
     });
   if (uploadError) {
-    const { data: committedObject } = await admin.storage.from(PROJECT_COVER_UPLOAD_BUCKET).info(nextKey);
+    const { data: committedObject } = await admin.storage.from(WORKSPACE_COVER_UPLOAD_BUCKET).info(nextKey);
     if (!committedObject) {
       logger.warn("project.cover_migration_upload_failed", {
         module: "projects",
@@ -218,12 +218,12 @@ async function migrateLegacyProjectImageToManagedStorage(params: {
   let copiedBytes: Uint8Array;
   try {
     copiedBytes = await readBoundedStorageBytes({
-      bucket: PROJECT_COVER_UPLOAD_BUCKET,
+      bucket: WORKSPACE_COVER_UPLOAD_BUCKET,
       storageKey: nextKey,
-      maxBytes: PROJECT_COVER_UPLOAD_MAX_FILE_BYTES,
+      maxBytes: WORKSPACE_COVER_UPLOAD_MAX_FILE_BYTES,
     });
   } catch (error) {
-    await admin.storage.from(PROJECT_COVER_UPLOAD_BUCKET).remove([nextKey]);
+    await admin.storage.from(WORKSPACE_COVER_UPLOAD_BUCKET).remove([nextKey]);
     logger.warn("project.cover_migration_verification_failed", {
       module: "projects",
       projectId: params.projectId,
@@ -233,7 +233,7 @@ async function migrateLegacyProjectImageToManagedStorage(params: {
     return null;
   }
   if (copiedBytes.byteLength !== sourceBytes.byteLength) {
-    await admin.storage.from(PROJECT_COVER_UPLOAD_BUCKET).remove([nextKey]);
+    await admin.storage.from(WORKSPACE_COVER_UPLOAD_BUCKET).remove([nextKey]);
     logger.warn("project.cover_migration_verification_failed", {
       module: "projects",
       projectId: params.projectId,
@@ -246,7 +246,7 @@ async function migrateLegacyProjectImageToManagedStorage(params: {
     .update(copiedBytes)
     .digest("hex");
   if (copiedHash !== sourceHash) {
-    await admin.storage.from(PROJECT_COVER_UPLOAD_BUCKET).remove([nextKey]);
+    await admin.storage.from(WORKSPACE_COVER_UPLOAD_BUCKET).remove([nextKey]);
     logger.warn("project.cover_migration_verification_failed", {
       module: "projects",
       projectId: params.projectId,
@@ -258,7 +258,7 @@ async function migrateLegacyProjectImageToManagedStorage(params: {
   const [asset] = await db.insert(storageAssets).values({
     ownerUserId: params.userId,
     projectId: params.projectId,
-    bucket: PROJECT_COVER_UPLOAD_BUCKET,
+    bucket: WORKSPACE_COVER_UPLOAD_BUCKET,
     storageKey: nextKey,
     purpose: "project_cover:cover",
     state: "verified",
@@ -273,14 +273,14 @@ async function migrateLegacyProjectImageToManagedStorage(params: {
     backupState: "pending",
   }).returning({ id: storageAssets.id });
   if (!asset) {
-    await admin.storage.from(PROJECT_COVER_UPLOAD_BUCKET).remove([nextKey]);
+    await admin.storage.from(WORKSPACE_COVER_UPLOAD_BUCKET).remove([nextKey]);
     return null;
   }
 
   return {
-    bucket: PROJECT_COVER_UPLOAD_BUCKET,
+    bucket: WORKSPACE_COVER_UPLOAD_BUCKET,
     key: nextKey,
-    url: buildProjectImageRoute(params.projectId, nextKey),
+    url: buildWorkspaceImageRoute(params.projectId, nextKey),
     migrated: true,
     assetId: asset.id,
     previousBucket: legacyBucket,
@@ -292,8 +292,8 @@ async function migrateLegacyProjectImageToManagedStorage(params: {
 
 function buildAccessConfirmationToken(input: {
   projectId: string;
-  previousVisibility: ProjectVisibility;
-  nextVisibility: ProjectVisibility;
+  previousVisibility: WorkspaceVisibility;
+  nextVisibility: WorkspaceVisibility;
   membersCount: number;
   followersCount: number;
   openRolesCount: number;
@@ -330,17 +330,17 @@ type ProjectAccessImpactResult =
         activeTasksCount: number;
       };
     }
-  | { success: false; message: string; errorCode: ProjectSettingsErrorCode };
+  | { success: false; message: string; errorCode: WorkspaceSettingsErrorCode };
 
 
 type ProjectAccessTransitionPreflightResult =
   | {
       success: true;
       data: {
-        previousVisibility: ProjectVisibility;
-        nextVisibility: ProjectVisibility;
+        previousVisibility: WorkspaceVisibility;
+        nextVisibility: WorkspaceVisibility;
         confirmationToken: string;
-        policy: ReturnType<typeof buildProjectAccessTransitionPolicy>;
+        policy: ReturnType<typeof buildWorkspaceAccessTransitionPolicy>;
         counts: {
           membersCount: number;
           followersCount: number;
@@ -351,16 +351,16 @@ type ProjectAccessTransitionPreflightResult =
         previews: AccessTransitionPreview;
       };
     }
-  | { success: false; message: string; errorCode: ProjectSettingsErrorCode };
+  | { success: false; message: string; errorCode: WorkspaceSettingsErrorCode };
 
 
 type ProjectPublicTabVisibilityResult =
   | {
       success: true;
       message: string;
-      data: ProjectPublicTabVisibility;
+      data: WorkspacePublicTabVisibility;
     }
-  | { success: false; message: string; errorCode: ProjectSettingsErrorCode };
+  | { success: false; message: string; errorCode: WorkspaceSettingsErrorCode };
 
 
 async function readProjectAccessImpactCounts(projectId: string) {
@@ -477,13 +477,13 @@ async function readProjectAccessTransitionPreviews(
 
 function buildAccessPreflightPayload(params: {
   projectId: string;
-  previousVisibility: ProjectVisibility;
-  nextVisibility: ProjectVisibility;
+  previousVisibility: WorkspaceVisibility;
+  nextVisibility: WorkspaceVisibility;
   hasManagedProjectImage: boolean;
   counts: Awaited<ReturnType<typeof readProjectAccessImpactCounts>>;
   previews: AccessTransitionPreview;
 }) {
-  const policy = buildProjectAccessTransitionPolicy({
+  const policy = buildWorkspaceAccessTransitionPolicy({
     previousVisibility: params.previousVisibility,
     nextVisibility: params.nextVisibility,
     hasManagedProjectImage: params.hasManagedProjectImage,
@@ -508,9 +508,9 @@ function buildAccessPreflightPayload(params: {
 }
 
 
-export async function getProjectAccessTransitionPreflightAction(
+export async function getWorkspaceAccessTransitionPreflightAction(
   projectId: string,
-  nextVisibility: ProjectVisibility,
+  nextVisibility: WorkspaceVisibility,
 ): Promise<ProjectAccessTransitionPreflightResult> {
   try {
     const supabase = await createClient();
@@ -524,7 +524,7 @@ export async function getProjectAccessTransitionPreflightAction(
         message: "You must be signed in.",
       };
     }
-    if (!isProjectVisibility(nextVisibility)) {
+    if (!isWorkspaceVisibility(nextVisibility)) {
       return {
         success: false,
         errorCode: "INVALID_INPUT",
@@ -532,7 +532,7 @@ export async function getProjectAccessTransitionPreflightAction(
       };
     }
 
-    const owned = await loadOwnedProjectForSettings(projectId, user.id);
+    const owned = await loadOwnedWorkspaceForSettings(projectId, user.id);
     if (!owned.ok)
       return {
         success: false,
@@ -549,7 +549,7 @@ export async function getProjectAccessTransitionPreflightAction(
       success: true,
       data: buildAccessPreflightPayload({
         projectId,
-        previousVisibility: normalizeProjectVisibility(
+        previousVisibility: normalizeWorkspaceVisibility(
           owned.project.visibility,
         ),
         nextVisibility,
@@ -575,11 +575,11 @@ export async function getProjectAccessTransitionPreflightAction(
 }
 
 
-export async function updateProjectVisibilityAction(
+export async function updateWorkspaceVisibilityAction(
   projectId: string,
-  nextVisibility: ProjectVisibility,
+  nextVisibility: WorkspaceVisibility,
   confirmationToken: string,
-): Promise<ProjectSettingsMutationResult> {
+): Promise<WorkspaceSettingsMutationResult> {
   try {
     const supabase = await createClient();
     const {
@@ -592,7 +592,7 @@ export async function updateProjectVisibilityAction(
         message: "You must be signed in.",
       };
     }
-    if (!isProjectVisibility(nextVisibility)) {
+    if (!isWorkspaceVisibility(nextVisibility)) {
       return {
         success: false,
         errorCode: "INVALID_INPUT",
@@ -600,7 +600,7 @@ export async function updateProjectVisibilityAction(
       };
     }
 
-    const owned = await loadOwnedProjectForSettings(projectId, user.id);
+    const owned = await loadOwnedWorkspaceForSettings(projectId, user.id);
     if (!owned.ok)
       return {
         success: false,
@@ -618,7 +618,7 @@ export async function updateProjectVisibilityAction(
       };
     }
 
-    const previousVisibility = normalizeProjectVisibility(
+    const previousVisibility = normalizeWorkspaceVisibility(
       owned.project.visibility,
     );
     if (previousVisibility === nextVisibility) {
@@ -683,7 +683,7 @@ export async function updateProjectVisibilityAction(
           updatedAt: new Date(),
         })
         .where(and(eq(projects.id, projectId), eq(projects.ownerId, user.id)));
-      await markProjectCollaboratorsSummaryStale(projectId, tx);
+      await markWorkspaceCollaboratorsSummaryStale(projectId, tx);
 
       await tx.insert(projectNodeEvents).values({
         projectId,
@@ -720,11 +720,11 @@ export async function updateProjectVisibilityAction(
     // An org that goes private takes its public child projects to Org only (report §21.7).
     if (placement?.kind === "organization") await applyChildVisibilityCap(projectId);
 
-    await revalidateProjectPaths(projectId);
-    await invalidateProjectPublicCaches(projectId);
+    await revalidateWorkspacePaths(projectId);
+    await invalidateWorkspacePublicCaches(projectId);
 
     try {
-      await enqueueProjectNotificationEvent({
+      await enqueueWorkspaceNotificationEvent({
         projectId,
         actorUserId: user.id,
         ...actorNotificationSnapshot(user),
@@ -772,7 +772,7 @@ export async function updateProjectVisibilityAction(
 }
 
 
-export async function getProjectAccessImpactAction(
+export async function getWorkspaceAccessImpactAction(
   projectId: string,
 ): Promise<ProjectAccessImpactResult> {
   try {
@@ -788,7 +788,7 @@ export async function getProjectAccessImpactAction(
       };
     }
 
-    const owned = await loadOwnedProjectForSettings(projectId, user.id);
+    const owned = await loadOwnedWorkspaceForSettings(projectId, user.id);
     if (!owned.ok)
       return {
         success: false,
@@ -811,9 +811,9 @@ export async function getProjectAccessImpactAction(
 }
 
 
-export async function updateProjectPublicTabVisibilityAction(
+export async function updateWorkspacePublicTabVisibilityAction(
   projectId: string,
-  nextVisibility: ProjectPublicTabVisibility,
+  nextVisibility: WorkspacePublicTabVisibility,
 ): Promise<ProjectPublicTabVisibilityResult> {
   try {
     const supabase = await createClient();
@@ -828,18 +828,18 @@ export async function updateProjectPublicTabVisibilityAction(
       };
     }
 
-    const capability = await requireProjectCapability(
+    const capability = await requireWorkspaceCapability(
       projectId,
       user.id,
       "manage_public_tabs",
     );
-    const normalized = normalizeProjectPublicTabVisibility(nextVisibility);
+    const normalized = normalizeWorkspacePublicTabVisibility(nextVisibility);
     const [current] = await db
       .select({ publicTabVisibility: projects.publicTabVisibility })
       .from(projects)
       .where(eq(projects.id, projectId))
       .limit(1);
-    const previous = normalizeProjectPublicTabVisibility(
+    const previous = normalizeWorkspacePublicTabVisibility(
       current?.publicTabVisibility,
     );
 
@@ -863,11 +863,11 @@ export async function updateProjectPublicTabVisibilityAction(
       });
     });
 
-    await revalidateProjectPaths(projectId);
-    await invalidateProjectPublicCaches(projectId);
+    await revalidateWorkspacePaths(projectId);
+    await invalidateWorkspacePublicCaches(projectId);
 
     try {
-      await enqueueProjectNotificationEvent({
+      await enqueueWorkspaceNotificationEvent({
         projectId,
         actorUserId: user.id,
         ...actorNotificationSnapshot(user),

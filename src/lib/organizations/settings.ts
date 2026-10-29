@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import type { ProjectSettingsSectionId } from "@/lib/workspaces/settings-policies";
+import type { WorkspaceSettingsSectionId } from "@/lib/workspaces/settings-policies";
 import { ORG_LIMITS, ORG_TYPES } from "@/lib/organizations/config";
 import type { VisibilityCap } from "@/lib/organizations/child-rules";
 
@@ -20,7 +20,7 @@ export const ORG_SECTION_DEFS: Record<OrgSettingsSectionId, { label: string; des
 const YOU: OrgSettingsSectionId[] = ["you-membership", "you-leave"];
 // The project sections an org keeps, in report §21.2 order; open roles don't apply (people join with the code).
 // Same order as the Settings document renders them, so the rail and the page agree.
-const ORG_FOR_ADMINS: Array<OrgSettingsSectionId | ProjectSettingsSectionId> = [
+const ORG_FOR_ADMINS: Array<OrgSettingsSectionId | WorkspaceSettingsSectionId> = [
   "org-profile", "links", "access", "org-access", "org-people", "org-projects", "org-work", "collaborators",
   "readme", "updates", "tasks-workflow", "files-workspace", "notifications", "privacy-policies", "privacy-terms",
 ];
@@ -29,7 +29,7 @@ const ORG_FOR_ADMINS: Array<OrgSettingsSectionId | ProjectSettingsSectionId> = [
  * Settings sections by org role (report §21.4): everyone gets the You sections first; admins add the org
  * sections; the owner adds General (name, picture) and the danger zone.
  */
-export function orgSettingsSectionIds(role: OrgMemberRole): Array<OrgSettingsSectionId | ProjectSettingsSectionId> {
+export function orgSettingsSectionIds(role: OrgMemberRole): Array<OrgSettingsSectionId | WorkspaceSettingsSectionId> {
   if (role === "member" || role === "viewer") return YOU;
   if (role === "admin") return [...YOU, ...ORG_FOR_ADMINS];
   return [...YOU, "general", ...ORG_FOR_ADMINS, "danger"];

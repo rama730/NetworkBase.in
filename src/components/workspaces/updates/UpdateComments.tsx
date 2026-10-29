@@ -19,7 +19,7 @@ import {
 } from "lucide-react";
 import { ReportButton } from "@/components/reports/ReportDialog";
 import { toast, feedbackError } from "@/lib/feedback";
-import { createProjectUpdateCommentAction, deleteProjectUpdateCommentAction, readProjectUpdateCommentsAction, type ProjectUpdateCommentView, type ProjectUpdateView } from "@/app/actions/workspace/updates";
+import { createWorkspaceUpdateCommentAction, deleteWorkspaceUpdateCommentAction, readWorkspaceUpdateCommentsAction, type WorkspaceUpdateCommentView, type WorkspaceUpdateView } from "@/app/actions/workspace/updates";
 import { UserAvatar } from "@/components/ui/UserAvatar";
 import { ThreadAvatarRail, ThreadRailBridge } from "@/components/ui/ThreadRail";
 import { queryKeys } from "@/lib/query-keys";
@@ -37,8 +37,8 @@ function CommentRow({
   onDelete,
   onFocusComment,
 }: {
-  comment: ProjectUpdateCommentView;
-  allComments: ProjectUpdateCommentView[];
+  comment: WorkspaceUpdateCommentView;
+  allComments: WorkspaceUpdateCommentView[];
   highlightedCommentId?: string | null;
   currentUserId: string | null;
   currentUserName?: string | null;
@@ -326,7 +326,7 @@ export function UpdateComments({
   highlightedCommentId,
 }: {
   projectId: string;
-  update: ProjectUpdateView;
+  update: WorkspaceUpdateView;
   updatesQueryKey: readonly unknown[];
   currentUserId: string | null;
   currentUserName?: string | null;
@@ -348,7 +348,7 @@ export function UpdateComments({
     queryKey: commentsKey,
     initialPageParam: null as string | null,
     queryFn: async ({ pageParam }) => {
-      const result = await readProjectUpdateCommentsAction(
+      const result = await readWorkspaceUpdateCommentsAction(
         projectId,
         update.id,
         pageParam,
@@ -387,7 +387,7 @@ export function UpdateComments({
 
   const commentMutation = useMutation({
     mutationFn: async ({ content, parentId }: { content: string; parentId?: string | null }) => {
-      const result = await createProjectUpdateCommentAction(
+      const result = await createWorkspaceUpdateCommentAction(
         projectId,
         update.id,
         content,
@@ -402,7 +402,7 @@ export function UpdateComments({
       const previousComments =
         queryClient.getQueryData<
           InfiniteData<{
-            comments: ProjectUpdateCommentView[];
+            comments: WorkspaceUpdateCommentView[];
             nextCursor: string | null;
             hasMore: boolean;
           }>
@@ -421,7 +421,7 @@ export function UpdateComments({
         }
       }
 
-      const optimistic: ProjectUpdateCommentView = {
+      const optimistic: WorkspaceUpdateCommentView = {
         id: tempId,
         updateId: update.id,
         projectId,
@@ -454,7 +454,7 @@ export function UpdateComments({
         (
           existing:
             | InfiniteData<{
-                comments: ProjectUpdateCommentView[];
+                comments: WorkspaceUpdateCommentView[];
                 nextCursor: string | null;
                 hasMore: boolean;
               }>
@@ -505,7 +505,7 @@ export function UpdateComments({
         (
           existing:
             | InfiniteData<{
-                comments: ProjectUpdateCommentView[];
+                comments: WorkspaceUpdateCommentView[];
                 nextCursor: string | null;
                 hasMore: boolean;
               }>
@@ -528,7 +528,7 @@ export function UpdateComments({
 
   const deleteCommentMutation = useMutation({
     mutationFn: async (commentId: string) => {
-      const result = await deleteProjectUpdateCommentAction(
+      const result = await deleteWorkspaceUpdateCommentAction(
         projectId,
         commentId,
       );
@@ -542,7 +542,7 @@ export function UpdateComments({
         (
           existing:
             | InfiniteData<{
-                comments: ProjectUpdateCommentView[];
+                comments: WorkspaceUpdateCommentView[];
                 nextCursor: string | null;
                 hasMore: boolean;
               }>
@@ -596,7 +596,7 @@ export function UpdateComments({
 
   const ancestors = useMemo(() => {
     if (!focusedCommentId || !allComments.length) return [];
-    const list: ProjectUpdateCommentView[] = [];
+    const list: WorkspaceUpdateCommentView[] = [];
     let current = allComments.find((c) => c.id === focusedCommentId);
     while (current) {
       const pid = current.parentId;
@@ -621,7 +621,7 @@ export function UpdateComments({
     if (!focusedComment) return [];
 
     const items: {
-      comment: ProjectUpdateCommentView;
+      comment: WorkspaceUpdateCommentView;
       isFirst: boolean;
       isLast: boolean;
       replyingTo: string | null;
@@ -691,7 +691,7 @@ export function UpdateComments({
   const needsCollapse = ancestors.length > 2 && !showAllAncestors;
 
   const renderThreadComment = (
-    c: ProjectUpdateCommentView,
+    c: WorkspaceUpdateCommentView,
     isFirst: boolean,
     isLast: boolean,
     replyingTo: string | null,

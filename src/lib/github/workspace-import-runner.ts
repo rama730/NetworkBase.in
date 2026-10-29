@@ -23,14 +23,14 @@ import { logger } from "@/lib/logger";
 const IMPORT_LEASE_TTL_MS = 5 * 60_000;
 const RECONCILE_DELETE_BATCH_SIZE = 1000;
 
-export type GithubProjectImportSource = {
+export type GithubWorkspaceImportSource = {
   type: "github";
   repoUrl?: string | null;
   branch?: string | null;
   metadata?: Record<string, any> | null;
 };
 
-export type GithubProjectImportResult =
+export type GithubWorkspaceImportResult =
   | {
       success: true;
       fileCount: number;
@@ -41,7 +41,7 @@ export type GithubProjectImportResult =
       skipped: "project_in_progress" | "tenant_in_progress";
     };
 
-export function resolveGithubProjectImportQueueAgeMs(event: {
+export function resolveGithubWorkspaceImportQueueAgeMs(event: {
   ts?: string | number | null;
 }) {
   const raw = event.ts;
@@ -57,7 +57,7 @@ export function resolveGithubProjectImportQueueAgeMs(event: {
   return null;
 }
 
-export async function markGithubProjectImportFailed(input: {
+export async function markGithubWorkspaceImportFailed(input: {
   projectId: string;
   importEventId?: string | null;
   error: unknown;
@@ -103,14 +103,14 @@ export async function markGithubProjectImportFailed(input: {
     .where(eq(projects.id, projectId));
 }
 
-export async function runGithubProjectImport(input: {
+export async function runGithubWorkspaceImport(input: {
   projectId: string;
-  importSource: GithubProjectImportSource;
+  importSource: GithubWorkspaceImportSource;
   userId: string;
   importEventId?: string | null;
   queueAgeMs?: number | null;
   resolutions?: Record<string, "keep_local" | "overwrite_github"> | null;
-}): Promise<GithubProjectImportResult> {
+}): Promise<GithubWorkspaceImportResult> {
   const { projectId, importSource, userId, resolutions } = input;
   const importEventId = input.importEventId ?? null;
   const repoUrl = normalizeGithubRepoUrl(importSource.repoUrl || "");
@@ -501,7 +501,7 @@ export async function runGithubProjectImport(input: {
 
     return tenantLockedRun.value;
   } catch (error) {
-    await markGithubProjectImportFailed({ projectId, importEventId, error });
+    await markGithubWorkspaceImportFailed({ projectId, importEventId, error });
     throw error;
   }
 }

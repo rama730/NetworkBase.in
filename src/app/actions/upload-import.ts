@@ -5,15 +5,15 @@ import { fileVersions, projects, projectNodes, storageAssets } from '@/lib/db/sc
 import { and, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { createClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
-import { isCanonicalProjectFileKey, parseProjectFileKey } from '@/lib/storage/workspace-file-key';
+import { isCanonicalWorkspaceFileKey, parseWorkspaceFileKey } from '@/lib/storage/workspace-file-key';
 import { randomUUID } from 'crypto';
 import { logger } from '@/lib/logger';
-import { buildProjectImportEventId, buildUploadManifestHash } from '@/lib/import/idempotency';
+import { buildWorkspaceImportEventId, buildUploadManifestHash } from '@/lib/import/idempotency';
 import {
   normalizeAndValidateFileSize,
   normalizeAndValidateMimeType,
   normalizeAndValidateUploadRelativePath,
-  PROJECT_UPLOAD_MAX_FILE_BYTES,
+  WORKSPACE_UPLOAD_MAX_FILE_BYTES,
 } from '@/lib/upload/security';
 import { finalizeUploadIntent } from '@/lib/upload/upload-intents';
 
@@ -45,11 +45,11 @@ type UploadSessionState = {
 
 function normalizeManifestEntry(entry: UploadManifestEntry, projectId: string) {
   const relativePath = normalizeAndValidateUploadRelativePath(entry.relativePath);
-  const size = normalizeAndValidateFileSize(entry.size ?? 0, PROJECT_UPLOAD_MAX_FILE_BYTES);
+  const size = normalizeAndValidateFileSize(entry.size ?? 0, WORKSPACE_UPLOAD_MAX_FILE_BYTES);
   const mimeType = normalizeAndValidateMimeType(entry.mimeType ?? 'application/octet-stream');
   const storageKey = typeof entry.storageKey === 'string' ? entry.storageKey.trim() : '';
-  const parsedKey = parseProjectFileKey(storageKey);
-  if (!parsedKey || !isCanonicalProjectFileKey(storageKey) || parsedKey.projectId !== projectId) {
+  const parsedKey = parseWorkspaceFileKey(storageKey);
+  if (!parsedKey || !isCanonicalWorkspaceFileKey(storageKey) || parsedKey.projectId !== projectId) {
     throw new Error('Invalid folder upload storage key');
   }
   const uploadIntentId = typeof entry.uploadIntentId === 'string' ? entry.uploadIntentId.trim() : '';
@@ -236,7 +236,7 @@ export async function updateUploadSessionAction(
   const importEventId =
     (typeof input.importEventId === 'string' && input.importEventId.trim().length > 0)
       ? input.importEventId.trim()
-      : buildProjectImportEventId({
+      : buildWorkspaceImportEventId({
         projectId,
         source: 'upload',
         normalizedTarget: 'upload',
@@ -421,7 +421,7 @@ export async function registerUploadedFolderAction(
     options?.reconcilePolicy === 'additive'
       ? 'additive'
       : 'mirror';
-  const importEventId = buildProjectImportEventId({
+  const importEventId = buildWorkspaceImportEventId({
     projectId,
     source: 'upload',
     normalizedTarget: 'upload',
@@ -1030,7 +1030,7 @@ export async function registerUploadedFolderAction(
   }
 }
 
-export async function markProjectSyncFailedAction(
+export async function markWorkspaceSyncFailedAction(
   projectId: string,
   options?: {
     sessionId?: string | null;

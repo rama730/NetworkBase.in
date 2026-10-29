@@ -5,7 +5,7 @@ import { extensionRecoverySessions, } from "@/lib/db/schema";
 import { batchRenewFileLeases } from "@/lib/files/file-lock-service";
 import { validateCsrf } from "@/lib/security/csrf";
 import { and, eq, sql } from "drizzle-orm";
-import { canReadProjectTab, getProjectAccessByIds } from "@/lib/data/workspace-access";
+import { canReadWorkspaceTab, getWorkspaceAccessByIds } from "@/lib/data/workspace-access";
 import { consumeRateLimit } from "@/lib/security/rate-limit";
 
 const MAX_WATERMARK_PROJECTS = 50;
@@ -90,12 +90,12 @@ export async function POST(request: Request) {
       // Only projects whose Files the caller may read; others are dropped
       // silently so the response cannot reveal that a project exists (AUTH-004).
       // Task-owned/.system nodes count only for viewers who can read Tasks.
-      const access = await getProjectAccessByIds(Object.keys(parsed.data.projectWatermarks), user.id);
+      const access = await getWorkspaceAccessByIds(Object.keys(parsed.data.projectWatermarks), user.id);
       const allNodes: string[] = [];
       const contentNodes: string[] = [];
       for (const [projectId, projectAccess] of Object.entries(access)) {
-        if (!canReadProjectTab(projectAccess, "files")) continue;
-        (canReadProjectTab(projectAccess, "tasks") ? allNodes : contentNodes).push(projectId);
+        if (!canReadWorkspaceTab(projectAccess, "files")) continue;
+        (canReadWorkspaceTab(projectAccess, "tasks") ? allNodes : contentNodes).push(projectId);
       }
       const uuids = (ids: string[]) => sql.join(ids.map((id) => sql`${id}::uuid`), sql`, `);
       if (allNodes.length + contentNodes.length > 0) {

@@ -2,13 +2,13 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
 
-import { updateProjectSchema } from "@/lib/validations/workspace";
+import { updateWorkspaceSchema } from "@/lib/validations/workspace";
 import { projectActionsSource } from "./_workspace-actions-source";
 
-describe("updateProject input", () => {
+describe("updateWorkspace input", () => {
   it("accepts the modal and settings payloads", () => {
-    assert.equal(updateProjectSchema.safeParse({ title: "Atlas", tags: ["ai"], skills: ["Go"], status: "active" }).success, true);
-    assert.equal(updateProjectSchema.safeParse({ memberUpdatesEnabled: false }).success, true);
+    assert.equal(updateWorkspaceSchema.safeParse({ title: "Atlas", tags: ["ai"], skills: ["Go"], status: "active" }).success, true);
+    assert.equal(updateWorkspaceSchema.safeParse({ memberUpdatesEnabled: false }).success, true);
   });
 
   it("rejects archive, stage moves, unknown keys, oversized text and non-string tags", () => {
@@ -21,7 +21,7 @@ describe("updateProject input", () => {
       { tags: [42] },
       { tags: Array.from({ length: 21 }, (_, i) => `t${i}`) },
     ]) {
-      assert.equal(updateProjectSchema.safeParse(bad).success, false, JSON.stringify(bad).slice(0, 60));
+      assert.equal(updateWorkspaceSchema.safeParse(bad).success, false, JSON.stringify(bad).slice(0, 60));
     }
   });
 });

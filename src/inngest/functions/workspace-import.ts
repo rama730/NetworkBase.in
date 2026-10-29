@@ -1,7 +1,7 @@
 import { inngest } from "../client";
 import {
-  resolveGithubProjectImportQueueAgeMs,
-  runGithubProjectImport,
+  resolveGithubWorkspaceImportQueueAgeMs,
+  runGithubWorkspaceImport,
 } from "@/lib/github/workspace-import-runner";
 
 export const projectImport = inngest.createFunction(
@@ -11,12 +11,12 @@ export const projectImport = inngest.createFunction(
     const { projectId, importSource, userId, resolutions } = event.data as any;
 
     await step.run("clone-and-process", async () =>
-      runGithubProjectImport({
+      runGithubWorkspaceImport({
         projectId,
         importSource,
         userId,
         importEventId: event.id || null,
-        queueAgeMs: resolveGithubProjectImportQueueAgeMs(event),
+        queueAgeMs: resolveGithubWorkspaceImportQueueAgeMs(event),
         resolutions,
       }),
     );

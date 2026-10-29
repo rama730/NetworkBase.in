@@ -10,12 +10,12 @@ import { del, get, set } from "idb-keyval";
 import { toast } from "@/lib/feedback";
 import { Virtuoso } from "react-virtuoso";
 
-import { applyToRoleAction, editPendingApplicationAction, getProjectInviteOptionsAction } from "@/app/actions/applications";
+import { applyToRoleAction, editPendingApplicationAction, getWorkspaceInviteOptionsAction } from "@/app/actions/applications";
 import type { ApplicationActionErrorCode } from "@/app/actions/applications";
 import {
-    createProjectInvitationAction,
-    getProjectGuidancePreflightAction,
-    searchProjectInviteCandidatesAction,
+    createWorkspaceInvitationAction,
+    getWorkspaceGuidancePreflightAction,
+    searchWorkspaceInviteCandidatesAction,
 } from "@/app/actions/workspace/guidance";
 import { getProfileToRoleAlignmentAction, type AttributeAlignment } from "@/app/actions/matchmaking/resolver";
 import { UserAvatar } from "@/components/ui/UserAvatar";
@@ -36,7 +36,7 @@ export type ParticipationRole = {
     skills?: string[] | null;
 };
 
-export type ParticipationProject = {
+export type ParticipationWorkspace = {
     id: string;
     title: string;
     slug?: string | null;
@@ -61,7 +61,7 @@ type CachedOptions = { roles: ParticipationRole[]; people: Candidate[] };
 export type ApplySuccessHandler = (result?: { applicationId?: string; channelId?: string | null; roleId?: string }) => void;
 
 /** Who leads the project (its owner): shown to an applicant as the person they are writing to. */
-export type ProjectLead = { id: string; username?: string | null; fullName?: string | null; avatarUrl?: string | null };
+export type WorkspaceLead = { id: string; username?: string | null; fullName?: string | null; avatarUrl?: string | null };
 
 /** A pending application opened for editing. */
 export type EditableApplication = {
@@ -80,12 +80,12 @@ export interface InviteCollaboratorModalProps {
     /** Apply mode: a role turned out to be full or gone, so the page should re-read its roles. */
     onRolesStale?: () => void;
     /** Apply mode: the project's lead, so the applicant sees who they are writing to. */
-    lead?: ProjectLead;
+    lead?: WorkspaceLead;
     mode?: "invite" | "apply";
     projectId?: string;
     projectTitle?: string;
     roles?: ParticipationRole[];
-    projects?: ParticipationProject[];
+    projects?: ParticipationWorkspace[];
     preselectedRoleId?: string;
     candidate?: Candidate;
     canAppointGuidance?: boolean;
@@ -217,7 +217,7 @@ export default function InviteCollaboratorModal({
     const guidanceLabelRef = useRef<HTMLInputElement>(null);
     const applicationMessageRef = useRef<HTMLTextAreaElement>(null);
 
-    const projectOptions = useMemo<ParticipationProject[]>(() => {
+    const projectOptions = useMemo<ParticipationWorkspace[]>(() => {
         if (projectId && projectTitle) {
             return [{ id: projectId, title: projectTitle, role: canAppointGuidance ? "owner" : "admin", openRoles: roles }];
         }
@@ -317,7 +317,7 @@ export default function InviteCollaboratorModal({
         let cancelled = false;
         setLoadingOptions(true);
         const startedAt = performance.now();
-        void getProjectInviteOptionsAction(selectedProjectId).then((result) => {
+        void getWorkspaceInviteOptionsAction(selectedProjectId).then((result) => {
             if (cancelled) return;
             if (!result.success) {
                 logger.metric("recruitment.composer.options", { module: "recruitment-composer", projectId: selectedProjectId, kind: mode, outcome: "failure", durationMs: Math.round(performance.now() - startedAt) });
@@ -367,7 +367,7 @@ export default function InviteCollaboratorModal({
         const startedAt = performance.now();
         const timer = window.setTimeout(() => {
             setSearching(true);
-            void searchProjectInviteCandidatesAction({ projectId: selectedProjectId, query }).then((result) => {
+            void searchWorkspaceInviteCandidatesAction({ projectId: selectedProjectId, query }).then((result) => {
                 if (request !== searchSequence.current) return;
                 if (!result.success) {
                     logger.metric("recruitment.composer.search", { module: "recruitment-composer", projectId: selectedProjectId, queryLengthBucket: queryBucket(query), durationMs: Math.round(performance.now() - startedAt), outcome: "failure" });
@@ -477,7 +477,7 @@ export default function InviteCollaboratorModal({
         const startedAt = performance.now();
         let cancelled = false;
         setGuidanceLoading(true);
-        void getProjectGuidancePreflightAction({ projectId: selectedProject.id, candidateId: selectedCandidate.id }).then((result) => {
+        void getWorkspaceGuidancePreflightAction({ projectId: selectedProject.id, candidateId: selectedCandidate.id }).then((result) => {
             if (cancelled || request !== guidanceSequence.current) return;
             if (!result.success) {
                 logger.metric("recruitment.composer.guidance_preflight", { module: "recruitment-composer", projectId: selectedProject.id, outcome: "failure", durationMs: Math.round(performance.now() - startedAt) });
@@ -561,7 +561,7 @@ export default function InviteCollaboratorModal({
                 });
             } else {
                 const payload = `${selectedProject.id}:${selectedCandidate!.id}:${inviteKind}:${roleId}:${guidanceLabel.trim()}:${reviewAt}:${note.trim()}`;
-                const result = await createProjectInvitationAction({
+                const result = await createWorkspaceInvitationAction({
                     projectId: selectedProject.id,
                     candidateId: selectedCandidate!.id,
                     kind: inviteKind,

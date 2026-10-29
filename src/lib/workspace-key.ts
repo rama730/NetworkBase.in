@@ -1,4 +1,4 @@
-export function generateProjectKey(title: string): string {
+export function generateWorkspaceKey(title: string): string {
     // 1. Clean the title: remove special chars, extra spaces
     const clean = title.replace(/[^a-zA-Z0-9\s]/g, "").trim().toUpperCase();
 

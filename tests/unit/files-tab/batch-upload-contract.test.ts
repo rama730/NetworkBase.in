@@ -36,7 +36,7 @@ describe("2PC Batch Upload & Finalize Architecture Contract", () => {
     assert.match(source, /await tx\.insert\(fileVersions\)\.values/);
     assert.match(source, /eq\(storageAssets\.state, "verified"\)/);
 
-    // Must return the optimistic attribution shape matching getProjectNodes
+    // Must return the optimistic attribution shape matching getWorkspaceNodes
     assert.match(source, /updatedById:\s*user\.id/);
     assert.match(source, /updatedByName:\s*profile\?\.fullName/);
     assert.match(source, /updatedByUsername:\s*profile\?\.username/);

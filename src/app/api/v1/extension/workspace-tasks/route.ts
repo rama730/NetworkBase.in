@@ -6,11 +6,11 @@ import {
 import { jsonSuccessConditional } from "@/app/api/v1/_conditional";
 import { db } from "@/lib/db";
 import { tasks, profiles } from "@/lib/db/schema";
-import { canReadProjectTab, getProjectAccessById } from "@/lib/data/workspace-access";
+import { canReadWorkspaceTab, getWorkspaceAccessById } from "@/lib/data/workspace-access";
 import { and, desc, eq, isNull, lt, or, sql } from "drizzle-orm";
 import { logger } from "@/lib/logger";
 import { z } from "zod";
-import { getProjectTaskSummary, getTaskFileCountMap } from "@/app/api/v1/extension/_workspace-counts";
+import { getWorkspaceTaskSummary, getTaskFileCountMap } from "@/app/api/v1/extension/_workspace-counts";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -67,11 +67,11 @@ export async function GET(request: Request) {
     if (parsed.data.cursor && !cursor)
       return jsonError("Invalid task cursor", 400, "BAD_REQUEST");
     const { projectId, limit } = parsed.data;
-    const access = await getProjectAccessById(projectId, user.id);
+    const access = await getWorkspaceAccessById(projectId, user.id);
     if (!access.project)
       return jsonError("Workspace not found", 404, "NOT_FOUND");
     // Task data follows the project's Tasks visibility (AUTH-002).
-    if (!canReadProjectTab(access, "tasks")) return jsonError("You don’t have access to this", 403, "FORBIDDEN");
+    if (!canReadWorkspaceTab(access, "tasks")) return jsonError("You don’t have access to this", 403, "FORBIDDEN");
 
     const cursorDate = cursor ? new Date(cursor.updatedAt) : null;
     const [taskRows, summary] = await Promise.all([
@@ -110,7 +110,7 @@ export async function GET(request: Request) {
         )
         .orderBy(desc(tasks.updatedAt), desc(tasks.id))
         .limit(limit + 1),
-      getProjectTaskSummary(projectId),
+      getWorkspaceTaskSummary(projectId),
     ]);
 
     const hasMore = taskRows.length > limit;

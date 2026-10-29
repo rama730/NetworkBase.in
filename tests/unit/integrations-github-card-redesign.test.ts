@@ -4,7 +4,7 @@ import path from "node:path";
 import { describe, it } from "node:test";
 import type { User } from "@supabase/supabase-js";
 import { buildIntegrationsData } from "@/lib/settings/integrations";
-import type { GithubLinkedProject } from "@/types/settingsTypes";
+import type { GithubLinkedWorkspace } from "@/types/settingsTypes";
 
 function mockUser(overrides: Partial<User>): User {
   return {
@@ -22,7 +22,7 @@ function mockUser(overrides: Partial<User>): User {
 
 describe("GitHub Card Redesign & Integrations Settings Contract", () => {
   it("buildIntegrationsData includes linked/cloned github projects in githubService", () => {
-    const mockProjects: GithubLinkedProject[] = [
+    const mockProjects: GithubLinkedWorkspace[] = [
       {
         id: "proj-1",
         slug: "cloned-starter",

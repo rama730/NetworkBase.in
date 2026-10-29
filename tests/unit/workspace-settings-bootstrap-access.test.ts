@@ -13,7 +13,7 @@ const source = ts.createSourceFile(
 const bootstrap = source.statements.find(
   (node): node is ts.FunctionDeclaration =>
     ts.isFunctionDeclaration(node) &&
-    node.name?.text === "readProjectSettingsBootstrapAction",
+    node.name?.text === "readWorkspaceSettingsBootstrapAction",
 )!;
 
 function loadBootstrap(isOwner: boolean, signedIn = true) {
@@ -27,7 +27,7 @@ function loadBootstrap(isOwner: boolean, signedIn = true) {
   } = {};
   // Execute the production function with isolated authentication/read dependencies.
   const code = ts.transpileModule(
-    `${bootstrap.getText(source).replace(/^export\s+/, "")}\nexports.run = readProjectSettingsBootstrapAction;`,
+    `${bootstrap.getText(source).replace(/^export\s+/, "")}\nexports.run = readWorkspaceSettingsBootstrapAction;`,
     {
       compilerOptions: {
         module: ts.ModuleKind.CommonJS,
@@ -49,7 +49,7 @@ function loadBootstrap(isOwner: boolean, signedIn = true) {
     readCollaboratorSettings: read("collaborators"),
     readFileAccessSettings: read("files"),
     readNotificationSettings: read("notifications"),
-    readProjectDocSettingsAction: read("documentation"),
+    readWorkspaceDocSettingsAction: read("documentation"),
     readDangerZonePreflight: read("danger"),
   });
   return { run: exports.run!, calls };

@@ -1,7 +1,7 @@
 import { getRequestId, jsonError, jsonSuccess, logApiRoute } from "@/app/api/v1/_shared";
 import { createClient } from "@/lib/supabase/server";
 import { resolvePrivacyRelationship } from "@/lib/privacy/resolver";
-import { getProfilePortfolioProjects } from "@/lib/profile/collaboration";
+import { getProfilePortfolioWorkspaces } from "@/lib/profile/collaboration";
 import { logger } from "@/lib/logger";
 import { isUuid } from "@/lib/validations/uuid";
 import { z } from "zod";
@@ -48,7 +48,7 @@ export async function GET(
       return jsonError("Profile is not viewable", 403, "FORBIDDEN");
     }
 
-    const result = await getProfilePortfolioProjects(id, { includePrivate: viewerId === id, limit, offset });
+    const result = await getProfilePortfolioWorkspaces(id, { includePrivate: viewerId === id, limit, offset });
 
     logApiRoute(request, {
       requestId,

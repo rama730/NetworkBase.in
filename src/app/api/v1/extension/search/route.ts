@@ -6,7 +6,7 @@ import {
 } from "@/app/api/v1/_shared";
 import { routeErrorResponse } from "@/app/api/v1/_error";
 import {
-  assertProjectFileReadAccess,
+  assertWorkspaceFileReadAccess,
   visibleFileNodesSql,
 } from "@/lib/files/internal-helpers";
 import { db } from "@/lib/db";
@@ -30,7 +30,7 @@ export async function GET(request: Request) {
     if (!parsed.success)
       return jsonError("Invalid search query", 400, "BAD_REQUEST");
     const { projectId, q, after, kind } = parsed.data;
-    const access = await assertProjectFileReadAccess(projectId, auth.user.id);
+    const access = await assertWorkspaceFileReadAccess(projectId, auth.user.id);
     const pattern = "%" + q.replace(/[\\%_]/g, (c) => "\\" + c) + "%";
     const rows = await db
       .select({

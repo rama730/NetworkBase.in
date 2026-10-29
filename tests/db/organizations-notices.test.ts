@@ -174,7 +174,7 @@ test("a new join code tells the other admins; a tightened cap tells the lead and
   assert.ok((await titles(o.admin)).includes("North region is now Organization because CSE-3A changed its rules"));
 
   await sql`INSERT INTO project_members (project_id, user_id, role) VALUES (${lab}, ${o.b}, 'admin')`;
-  await appDb.db.transaction((tx) => succession.handOverLedChildProjects(tx, o.a));
+  await appDb.db.transaction((tx) => succession.handOverLedChildWorkspaces(tx, o.a));
   await succession.notifyLeadHandovers(o.a);
   await succession.notifyLeadHandovers(o.a);
   assert.equal((await titles(o.b)).filter((t) => t === "You’re the lead of North region").length, 1);
@@ -187,7 +187,7 @@ test("a child project's own notification setting wins over the org's Off", async
     (${lab}, ${o.a}, 'member', ${sql.json({ version: 1, mode: "custom", rules: {} })}), (${lab}, ${o.b}, 'member', ${sql.json({ version: 1, mode: "inherit", rules: {} })})`;
   const off = { organizations: { [o.id]: { level: "off", email: false, includeChildren: true } }, quietHours: { enabled: false, startMinute: 0, endMinute: 0, timeZone: "UTC" } };
   await sql`UPDATE profiles SET notification_preferences = ${sql.json(off)} WHERE id IN (${o.a}, ${o.b})`;
-  await events.enqueueProjectNotificationEvent({ projectId: lab, eventKey: "sprints.created", actorUserId: o.owner, title: "Sprint created: Lab 1", sourceEventId: `wins:${lab}` });
+  await events.enqueueWorkspaceNotificationEvent({ projectId: lab, eventKey: "sprints.created", actorUserId: o.owner, title: "Sprint created: Lab 1", sourceEventId: `wins:${lab}` });
   assert.ok((await titles(o.a)).includes("Sprint created: Lab 1"), "custom child setting wins");
   assert.ok(!(await titles(o.b)).includes("Sprint created: Lab 1"), "inheriting members follow the org's Off");
 });

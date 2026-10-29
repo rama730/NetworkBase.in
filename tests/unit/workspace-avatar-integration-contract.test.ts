@@ -2,33 +2,33 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { getProjectAvatarUrl } from "@/components/workspaces/WorkspaceAvatar";
+import { getWorkspaceAvatarUrl } from "@/components/workspaces/WorkspaceAvatar";
 import { componentSource } from "./_helpers/component-source";
 import { projectActionsSource } from "./_workspace-actions-source";
 
 const ROOT = process.cwd();
 
-test("getProjectAvatarUrl resolves across all valid cover image fields and trims whitespace", () => {
-    assert.equal(getProjectAvatarUrl({ coverImage: "https://example.com/logo.png" } as any), "https://example.com/logo.png");
-    assert.equal(getProjectAvatarUrl({ cover_image: "https://example.com/logo2.png" } as any), "https://example.com/logo2.png");
-    assert.equal(getProjectAvatarUrl({ coverImageUrl: "https://example.com/logo3.png" } as any), "https://example.com/logo3.png");
-    assert.equal(getProjectAvatarUrl({ coverImage: "  https://example.com/logo4.png  " } as any), "https://example.com/logo4.png");
-    assert.equal(getProjectAvatarUrl({ coverImage: "" } as any), null);
-    assert.equal(getProjectAvatarUrl({ coverImage: "   " } as any), null);
-    assert.equal(getProjectAvatarUrl({} as any), null);
-    assert.equal(getProjectAvatarUrl(null), null);
-    assert.equal(getProjectAvatarUrl(undefined), null);
+test("getWorkspaceAvatarUrl resolves across all valid cover image fields and trims whitespace", () => {
+    assert.equal(getWorkspaceAvatarUrl({ coverImage: "https://example.com/logo.png" } as any), "https://example.com/logo.png");
+    assert.equal(getWorkspaceAvatarUrl({ cover_image: "https://example.com/logo2.png" } as any), "https://example.com/logo2.png");
+    assert.equal(getWorkspaceAvatarUrl({ coverImageUrl: "https://example.com/logo3.png" } as any), "https://example.com/logo3.png");
+    assert.equal(getWorkspaceAvatarUrl({ coverImage: "  https://example.com/logo4.png  " } as any), "https://example.com/logo4.png");
+    assert.equal(getWorkspaceAvatarUrl({ coverImage: "" } as any), null);
+    assert.equal(getWorkspaceAvatarUrl({ coverImage: "   " } as any), null);
+    assert.equal(getWorkspaceAvatarUrl({} as any), null);
+    assert.equal(getWorkspaceAvatarUrl(null), null);
+    assert.equal(getWorkspaceAvatarUrl(undefined), null);
 });
 
-test("ProjectLayout conditionally renders ProjectAvatar scoped to two lines with zero-presence fallback and clean metadata row", () => {
+test("WorkspaceLayout conditionally renders WorkspaceAvatar scoped to two lines with zero-presence fallback and clean metadata row", () => {
     const layoutSource = readFileSync(resolve(ROOT, "src/components/workspaces/dashboard/WorkspaceLayout.tsx"), "utf-8");
 
-    assert.match(layoutSource, /import ProjectAvatar,\s*\{\s*getProjectAvatarUrl\s*\}\s*from\s*"@\/components\/workspaces\/WorkspaceAvatar"/);
-    assert.match(layoutSource, /getProjectAvatarUrl\(project\)\s*\?/);
-    assert.match(layoutSource, /<ProjectAvatar\s+project=\{project\}\s+size="detail"/);
+    assert.match(layoutSource, /import WorkspaceAvatar,\s*\{\s*getWorkspaceAvatarUrl\s*\}\s*from\s*"@\/components\/workspaces\/WorkspaceAvatar"/);
+    assert.match(layoutSource, /getWorkspaceAvatarUrl\(project\)\s*\?/);
+    assert.match(layoutSource, /<WorkspaceAvatar\s+project=\{project\}\s+size="detail"/);
 
     // Verify 2-line lockup: avatar is beside Title and Tagline only, with metadata below
-    assert.match(layoutSource, /<div className="flex (?:min-w-0 )?(?:items-start|items-center) gap-4 sm:gap-5[^"]*">\s*<ProjectAvatar[\s\S]*?nb-page-title/);
+    assert.match(layoutSource, /<div className="flex (?:min-w-0 )?(?:items-start|items-center) gap-4 sm:gap-5[^"]*">\s*<WorkspaceAvatar[\s\S]*?nb-page-title/);
     assert.match(layoutSource, /<\/div>\s*\{projectIdentityMetadata\}/);
 
     // Zero-presence fallback: when no avatar, renders flush without avatar container
@@ -38,26 +38,26 @@ test("ProjectLayout conditionally renders ProjectAvatar scoped to two lines with
     assert.doesNotMatch(layoutSource, /data-testid="project-presence-indicator"/);
 });
 
-test("ProjectCard conditionally renders ProjectAvatar with card-size lockup and zero-presence fallback", () => {
+test("ProjectCard conditionally renders WorkspaceAvatar with card-size lockup and zero-presence fallback", () => {
     const cardSource = readFileSync(resolve(ROOT, "src/components/workspaces/WorkspaceCard.tsx"), "utf-8");
 
-    assert.match(cardSource, /import ProjectAvatar,\s*\{\s*getProjectAvatarUrl\s*\}\s*from\s*"@\/components\/workspaces\/WorkspaceAvatar"/);
-    assert.match(cardSource, /const coverUrl = getProjectAvatarUrl\(project\);/);
-    assert.match(cardSource, /<ProjectAvatar\s+project=\{project\}\s+size="card"/);
+    assert.match(cardSource, /import WorkspaceAvatar,\s*\{\s*getWorkspaceAvatarUrl\s*\}\s*from\s*"@\/components\/workspaces\/WorkspaceAvatar"/);
+    assert.match(cardSource, /const coverUrl = getWorkspaceAvatarUrl\(project\);/);
+    assert.match(cardSource, /<WorkspaceAvatar\s+project=\{project\}\s+size="card"/);
 
     // Verify zero-presence fallback branch exists
     assert.match(cardSource, /:\s*\(\s*<>\s*<div className="flex flex-wrap items-start gap-2">\s*<h3 className="nb-project-card-title/);
 });
 
-test("ProjectAvatar enforces inset ring framing, 80px detail size, presence dot with offline last updated tooltip, and owner edit shortcut", () => {
+test("WorkspaceAvatar enforces inset ring framing, 80px detail size, presence dot with offline last updated tooltip, and owner edit shortcut", () => {
     const avatarSource = readFileSync(resolve(ROOT, "src/components/workspaces/WorkspaceAvatar.tsx"), "utf-8");
 
     assert.match(avatarSource, /ring-1 ring-inset ring-black\/5 dark:ring-white\/10/, "Must include inset ring framing");
     assert.match(avatarSource, /size-\[80px\] rounded-xl/, "Detail size must be 80px");
     assert.match(avatarSource, /size-11 rounded-md/, "Card size must be 44px");
-    assert.match(avatarSource, /ProjectPresenceDot/, "Must render project presence dot on the profile picture");
+    assert.match(avatarSource, /WorkspacePresenceDot/, "Must render project presence dot on the profile picture");
     assert.match(avatarSource, /(data-testid|testId)="project-avatar-presence-dot"/, "Must test for presence dot");
-    assert.match(avatarSource, /formatProjectOfflinePresenceLabel/, "Must format offline presence label with last updated and date");
+    assert.match(avatarSource, /formatWorkspaceOfflinePresenceLabel/, "Must format offline presence label with last updated and date");
     assert.match(avatarSource, /Last updated:/, "Offline label must include Last updated prefix");
     assert.match(avatarSource, /if \(!avatarUrl \|\| hasError\) \{\s*return null;\s*\}/, "Must return null when no avatar image");
     assert.match(avatarSource, /tab=settings#project-settings-general/, "Owner edit overlay must deep link to general settings");
@@ -82,13 +82,13 @@ test("Architectural enhancements: native single tooltip, default cursor, zero-pr
     // 3. Clean offline presence format: Last updated: [date]
     assert.match(avatarSource, /Last updated: \$\{formattedDate\}/);
 
-    // 4. Zero-presence owner add-avatar affordance in ProjectLayout
+    // 4. Zero-presence owner add-avatar affordance in WorkspaceLayout
     assert.match(layoutSource, /group\/add-avatar[\s\S]*?Add avatar/);
     assert.match(layoutSource, /tab=settings#project-settings-general/);
 
-    // 5. Cross-platform design consistency: Global Search project cards render ProjectAvatar with presence dot
-    assert.match(searchCardsSource, /import ProjectAvatar from "@\/components\/workspaces\/WorkspaceAvatar"/);
-    assert.match(searchCardsSource, /<ProjectAvatar[\s\S]*?project=\{\{[\s\S]*?coverImage: result\.coverImage[\s\S]*?size="card"/);
+    // 5. Cross-platform design consistency: Global Search project cards render WorkspaceAvatar with presence dot
+    assert.match(searchCardsSource, /import WorkspaceAvatar from "@\/components\/workspaces\/WorkspaceAvatar"/);
+    assert.match(searchCardsSource, /<WorkspaceAvatar[\s\S]*?project=\{\{[\s\S]*?coverImage: result\.coverImage[\s\S]*?size="card"/);
 });
 
 test("Presence dot enhancements: fine-grained recency, in-tab BroadcastChannel sync, locale-aware caching, and WCAG accessibility", () => {
@@ -97,7 +97,7 @@ test("Presence dot enhancements: fine-grained recency, in-tab BroadcastChannel s
     const presenceBadgeSource = readFileSync(resolve(ROOT, "src/components/presence/PresenceBadge.tsx"), "utf-8");
 
     // Idea 1: Fine-grained recency for active states
-    assert.match(avatarSource, /export function formatProjectActivePresenceLabel/);
+    assert.match(avatarSource, /export function formatWorkspaceActivePresenceLabel/);
     assert.match(avatarSource, /Active just now/);
     assert.match(avatarSource, /Active \$\{diffMinutes\}m ago/);
     assert.match(avatarSource, /Active \$\{diffHours\}h ago/);
@@ -123,13 +123,13 @@ test("Presence dot enhancements: fine-grained recency, in-tab BroadcastChannel s
 test("Projects without a profile picture render standalone presence dot beside the workspace title and keep Line 3 cleanly separated", () => {
     const layoutSource = readFileSync(resolve(ROOT, "src/components/workspaces/dashboard/WorkspaceLayout.tsx"), "utf-8");
 
-    assert.match(layoutSource, /const hasProjectAvatar = Boolean\(getProjectAvatarUrl\(project\)\);/);
+    assert.match(layoutSource, /const hasProjectAvatar = Boolean\(getWorkspaceAvatarUrl\(project\)\);/);
     // Presence dot is placed beside the workspace title
-    assert.match(layoutSource, /<h1 className="nb-page-title[^"]*">\s*\{project\?\.title\}\s*<\/h1>\s*<ProjectPresenceDot/);
+    assert.match(layoutSource, /<h1 className="nb-page-title[^"]*">\s*\{project\?\.title\}\s*<\/h1>\s*<WorkspacePresenceDot/);
     
     // Line 3 (projectIdentityMetadata) does NOT have a presence dot
     const metadataBlock = layoutSource.match(/const projectIdentityMetadata = \([\s\S]*?\n\s*\);/)?.[0] ?? "";
-    assert.doesNotMatch(metadataBlock, /<ProjectPresenceDot/);
+    assert.doesNotMatch(metadataBlock, /<WorkspacePresenceDot/);
     assert.match(metadataBlock, /<ProjectTeamAvatars/);
 });
 
@@ -144,14 +144,14 @@ test("Header architecture: Created by and Guided by are completely removed, team
     assert.doesNotMatch(layoutSource, /guidanceHref/);
 
     // 2. Verify divider line between team avatars and workspace links on Line 3
-    assert.match(layoutSource, /<ProjectTeamAvatars[\s\S]*?<div className="mx-(?:0\.5|1) h-4 w-px bg-border(?: shrink-0)?" aria-hidden="true" \/>[\s\S]*?<ProjectLinkCluster/);
+    assert.match(layoutSource, /<ProjectTeamAvatars[\s\S]*?<div className="mx-(?:0\.5|1) h-4 w-px bg-border(?: shrink-0)?" aria-hidden="true" \/>[\s\S]*?<WorkspaceLinkCluster/);
 
     // 3. Verify clean right actions column
     assert.match(layoutSource, /Right: Actions/);
     assert.match(layoutSource, /<div className="flex flex-wrap items-center justify-end gap-2 sm:pt-1[^"]*">/);
 });
 
-test("Discovery page ProjectCard and detail page ProjectStatsBar: last updated date removed from card, unified X-platform view icon (BarChart2)", () => {
+test("Discovery page ProjectCard and detail page WorkspaceStatsBar: last updated date removed from card, unified X-platform view icon (BarChart2)", () => {
     const cardSource = readFileSync(resolve(ROOT, "src/components/workspaces/WorkspaceCard.tsx"), "utf-8");
     const statsSource = readFileSync(resolve(ROOT, "src/components/workspaces/WorkspaceStatsBar.tsx"), "utf-8");
 
@@ -164,7 +164,7 @@ test("Discovery page ProjectCard and detail page ProjectStatsBar: last updated d
     assert.match(cardSource, /import\s*\{[^}]*BarChart2[^}]*\}\s*from\s*"lucide-react"/);
     assert.match(cardSource, /<BarChart2\s+size=\{14\}\s+aria-hidden="true"\s*\/>\s*\{typeof project\.viewCount === "number" \? project\.viewCount : "—"\}/);
 
-    // 3. ProjectStatsBar on detail page also uses BarChart2 (unified with card)
+    // 3. WorkspaceStatsBar on detail page also uses BarChart2 (unified with card)
     assert.match(statsSource, /import\s*\{[^}]*BarChart2[^}]*\}\s*from\s*"lucide-react"/);
     assert.match(statsSource, /<BarChart2\s+className=\{(?:iconClass|cn\(iconClass, "max-md:hidden"\))\}\s+aria-hidden="true"\s*\/>/);
 });
@@ -175,16 +175,16 @@ test("Animated GIF avatar architecture: bypass canvas rasterization, preserve fr
     const avatarSource = readFileSync(resolve(ROOT, "src/components/workspaces/WorkspaceAvatar.tsx"), "utf-8");
 
     // 1. image-prep-client must bypass 2D canvas for GIFs so animation frames are never flattened
-    assert.match(prepSource, /prepareProjectImageForUpload[\s\S]*?file\.type === "image\/gif"[\s\S]*?contentType:\s*"image\/gif"/);
+    assert.match(prepSource, /prepareWorkspaceImageForUpload[\s\S]*?file\.type === "image\/gif"[\s\S]*?contentType:\s*"image\/gif"/);
 
-    // 2. ProjectSettingsTab must preserve GIF type and avoid forcing outputType: "image/jpeg"
+    // 2. WorkspaceSettingsTab must preserve GIF type and avoid forcing outputType: "image/jpeg"
     // GIFs keep their frames: the shared upload helper (Settings and create step 4) skips JPEG output for them.
     const uploadHelperSource = readFileSync(resolve(ROOT, "src/lib/upload/workspace-image-upload-client.ts"), "utf-8");
     assert.match(uploadHelperSource, /const isGif = file\.type === "image\/gif"/);
     assert.match(uploadHelperSource, /outputType:\s*isGif \? undefined : "image\/jpeg"/);
-    assert.match(settingsSource, /await uploadProjectImage\(projectId, coverDraft\.file,/);
+    assert.match(settingsSource, /await uploadWorkspaceImage\(projectId, coverDraft\.file,/);
 
-    // 3. ProjectAvatar must use unoptimized so browser's native engine plays the animated GIF
+    // 3. WorkspaceAvatar must use unoptimized so browser's native engine plays the animated GIF
     assert.match(avatarSource, /<Image[\s\S]*?src=\{avatarUrl\}[\s\S]*?unoptimized/);
 });
 
@@ -195,7 +195,7 @@ test("GIF avatar optimizations: 2MB preflight guard, adaptive draft UI, revocabl
     const globalsCss = readFileSync(resolve(ROOT, "src/app/globals.css"), "utf-8");
 
     // 1. Instant 2MB preflight check on file selection before memory allocation
-    assert.match(settingsSource, /if\s*\(file\.size > PROJECT_IMAGE_UPLOAD_MAX_BYTES\)\s*\{\s*toast\.warning/);
+    assert.match(settingsSource, /if\s*\(file\.size > WORKSPACE_IMAGE_UPLOAD_MAX_BYTES\)\s*\{\s*toast\.warning/);
 
     // 2. Adaptive draft UI for GIFs (disables drag/zoom sliders, indicates 1:1 direct preservation)
     assert.match(settingsSource, /const isDraftGif = coverDraft\.file\.type === "image\/gif"/);
@@ -210,7 +210,7 @@ test("GIF avatar optimizations: 2MB preflight guard, adaptive draft UI, revocabl
     assert.match(globalsCss, /\.nb-project-card\s*\{[\s\S]*?content-visibility:\s*auto;[\s\S]*?contain-intrinsic-size:\s*auto 240px;/);
     assert.match(globalsCss, /@media\s*\(prefers-reduced-motion:\s*reduce\)\s*\{\s*\.nb-project-card/);
 
-    // 5. Async decoding & eager/lazy loading on ProjectAvatar
+    // 5. Async decoding & eager/lazy loading on WorkspaceAvatar
     assert.match(avatarSource, /decoding="async"/);
     assert.match(avatarSource, /loading=\{isDetail \? "eager" : "lazy"\}/);
 });
@@ -220,10 +220,10 @@ test("Workspace image fit architecture: enforces objectFit cover across detail p
     const settingsSource = componentSource("src/components/workspaces/tabs/WorkspaceSettingsTab.tsx");
     const globalsCss = readFileSync(resolve(ROOT, "src/app/globals.css"), "utf-8");
 
-    // 1. ProjectAvatar enforces inline objectFit cover with 100% fill
+    // 1. WorkspaceAvatar enforces inline objectFit cover with 100% fill
     assert.match(avatarSource, /style=\{\{\s*objectFit:\s*"cover"\s*\}\}/);
 
-    // 2. ProjectSettingsTab enforces objectFit cover in both published and draft GIF previews
+    // 2. WorkspaceSettingsTab enforces objectFit cover in both published and draft GIF previews
     assert.match(settingsSource, /style=\{\{\s*objectFit:\s*"cover"\s*\}\}/);
 
     // 3. globals.css enforces 100% cover with !important to prevent any gaps or pillarboxing
@@ -237,16 +237,16 @@ test("Discovery page avatar cache synchronization & multi-tab real-time updates 
     const hubClientSource = readFileSync(resolve(ROOT, "src/components/discover/DiscoverClient.tsx"), "utf-8");
 
     // 1. Server route revalidation includes /discover, /hub, and /my-profile
-    assert.match(projectActionsText, /const revalidateProjectPaths = async[\s\S]*?revalidatePath\("\/discover"\)/);
-    assert.match(projectActionsText, /export async function invalidateProjectPublicCaches[\s\S]*?revalidatePath\("\/discover"\)/);
+    assert.match(projectActionsText, /const revalidateWorkspacePaths = async[\s\S]*?revalidatePath\("\/discover"\)/);
+    assert.match(projectActionsText, /export async function invalidateWorkspacePublicCaches[\s\S]*?revalidatePath\("\/discover"\)/);
 
-    // 2. ProjectAvatar exports broadcastProjectUpdated for 0ms cross-window/tab sync
-    assert.match(avatarSource, /export function broadcastProjectUpdated\(projectId: string, update\?:/);
+    // 2. WorkspaceAvatar exports broadcastWorkspaceUpdated for 0ms cross-window/tab sync
+    assert.match(avatarSource, /export function broadcastWorkspaceUpdated\(projectId: string, update\?:/);
     assert.match(avatarSource, /new BroadcastChannel\("nb-project-updated-v1"\)/);
 
-    // 3. ProjectSettingsTab broadcasts and invalidates hub queries on avatar upload/clear
-    assert.match(settingsSource, /broadcastProjectUpdated\(projectId,\s*\{\s*coverImage:\s*finalized\.publicUrl\s*\}\)/);
-    assert.match(settingsSource, /broadcastProjectUpdated\(projectId,\s*\{\s*coverImage:\s*null\s*\}\)/);
+    // 3. WorkspaceSettingsTab broadcasts and invalidates hub queries on avatar upload/clear
+    assert.match(settingsSource, /broadcastWorkspaceUpdated\(projectId,\s*\{\s*coverImage:\s*finalized\.publicUrl\s*\}\)/);
+    assert.match(settingsSource, /broadcastWorkspaceUpdated\(projectId,\s*\{\s*coverImage:\s*null\s*\}\)/);
     assert.match(settingsSource, /queryClient\.invalidateQueries\(\{\s*queryKey:\s*queryKeys\.discover\.projectsSimpleRoot\(\)\s*\}\)/);
 
     // 4. DiscoverClient synchronizes initialProjectsPage and listens to nb-project-updated
@@ -273,7 +273,7 @@ test("Discovery feed smooth scrolling & Virtuoso stability contract", () => {
     assert.match(hubClientSource, /components=\{virtuosoComponents\}/);
     assert.match(hubClientSource, /itemContent=\{renderFeedItem\}/);
 
-    // 4. ProjectPresenceDot shares activity channel to avoid channel churn during fast scrolling
+    // 4. WorkspacePresenceDot shares activity channel to avoid channel churn during fast scrolling
     assert.match(avatarSource, /let sharedPresenceChannel: BroadcastChannel \| null = null;/);
 
     // 5. Scroll container and virtuoso scroller disable scroll anchoring to prevent upward scroll jitter

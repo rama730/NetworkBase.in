@@ -4,12 +4,12 @@ import { and, eq, isNull, sql } from "drizzle-orm";
 import { NextRequest } from "next/server";
 
 import { jsonError } from "@/app/api/v1/_shared";
-import { getProjectAccessById } from "@/lib/data/workspace-access";
+import { getWorkspaceAccessById } from "@/lib/data/workspace-access";
 import { db } from "@/lib/db";
 import { projectUpdateMediaAssets, projectUpdates, storageAssets } from "@/lib/db/schema";
 import { logger } from "@/lib/logger";
-import { isProjectTabVisibleToViewer } from "@/lib/workspaces/settings-policies";
-import { PROJECT_UPDATE_MEDIA_BUCKET, type ProjectUpdateMediaItem } from "@/lib/workspaces/updates";
+import { isWorkspaceTabVisibleToViewer } from "@/lib/workspaces/settings-policies";
+import { WORKSPACE_UPDATE_MEDIA_BUCKET, type WorkspaceUpdateMediaItem } from "@/lib/workspaces/updates";
 import { streamPrivateObject } from "@/lib/storage/private-object-response";
 import { createAdminClient, createClient } from "@/lib/supabase/server";
 import { isUuid } from "@/lib/validations/uuid";
@@ -29,11 +29,11 @@ async function handle(request: NextRequest, context: { params: Promise<{ id: str
 
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  const access = await getProjectAccessById(projectId, user?.id ?? null);
+  const access = await getWorkspaceAccessById(projectId, user?.id ?? null);
   if (!access.project || !access.canRead) return jsonError("Not found", 404, "NOT_FOUND");
 
   const isOwnerOrMember = access.isOwner || access.isMember;
-  if (!isProjectTabVisibleToViewer({
+  if (!isWorkspaceTabVisibleToViewer({
     tabId: "updates",
     isOwnerOrMember,
     canManageSettings: access.isOwner,
@@ -57,7 +57,7 @@ async function handle(request: NextRequest, context: { params: Promise<{ id: str
     .where(and(
       eq(projectUpdates.projectId, projectId),
       isNull(projectUpdates.deletedAt),
-      eq(storageAssets.bucket, PROJECT_UPDATE_MEDIA_BUCKET),
+      eq(storageAssets.bucket, WORKSPACE_UPDATE_MEDIA_BUCKET),
       eq(storageAssets.storageKey, storageKey),
       eq(storageAssets.state, "verified"),
     ))
@@ -76,7 +76,7 @@ async function handle(request: NextRequest, context: { params: Promise<{ id: str
         SELECT 1
         FROM jsonb_array_elements(${projectUpdates.media}) AS media_item
         WHERE media_item->>'storageKey' = ${storageKey}
-          AND media_item->>'bucket' = ${PROJECT_UPDATE_MEDIA_BUCKET}
+          AND media_item->>'bucket' = ${WORKSPACE_UPDATE_MEDIA_BUCKET}
       )`,
     ))
     .limit(1);
@@ -87,14 +87,14 @@ async function handle(request: NextRequest, context: { params: Promise<{ id: str
     return jsonError("Not found", 404, "NOT_FOUND");
   }
 
-  const media = (owningUpdate.media as ProjectUpdateMediaItem[]).find((item) => (
-    item.storageKey === storageKey && item.bucket === PROJECT_UPDATE_MEDIA_BUCKET
+  const media = (owningUpdate.media as WorkspaceUpdateMediaItem[]).find((item) => (
+    item.storageKey === storageKey && item.bucket === WORKSPACE_UPDATE_MEDIA_BUCKET
   ));
   if (!media) return jsonError("Not found", 404, "NOT_FOUND");
 
   const admin = await createAdminClient();
   const { data, error } = await admin.storage
-    .from(PROJECT_UPDATE_MEDIA_BUCKET)
+    .from(WORKSPACE_UPDATE_MEDIA_BUCKET)
     .createSignedUrl(storageKey, 60);
   if (error || !data?.signedUrl) {
     logger.warn("project_updates.media_route_presign_failed", {

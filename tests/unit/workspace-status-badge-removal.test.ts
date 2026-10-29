@@ -10,16 +10,16 @@ test("project detail header and discovery project cards omit the status/building
     const cardSource = readFileSync(resolve(ROOT, "src/components/workspaces/WorkspaceCard.tsx"), "utf-8");
     const skeletonSource = readFileSync(resolve(ROOT, "src/components/workspaces/WorkspaceCardSkeleton.tsx"), "utf-8");
 
-    // ProjectLayout title header
+    // WorkspaceLayout title header
     assert.doesNotMatch(
         layoutSource,
         /projectStageLabel/,
-        "ProjectLayout should not import or use projectStageLabel"
+        "WorkspaceLayout should not import or use projectStageLabel"
     );
     assert.doesNotMatch(
         layoutSource,
         /<h1[^>]*>[\s\S]*?<\/h1>\s*<span className="nb-status"/,
-        "ProjectLayout header must not render a status badge next to the title"
+        "WorkspaceLayout header must not render a status badge next to the title"
     );
 
     // ProjectCard header
@@ -38,6 +38,6 @@ test("project detail header and discovery project cards omit the status/building
     assert.doesNotMatch(
         skeletonSource,
         /h-5 w-16 rounded-sm bg-muted/,
-        "ProjectCardSkeleton should not render a status badge placeholder"
+        "WorkspaceCardSkeleton should not render a status badge placeholder"
     );
 });

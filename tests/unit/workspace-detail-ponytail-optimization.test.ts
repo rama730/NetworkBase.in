@@ -52,7 +52,7 @@ test("Domain B: fetchProjectTasksForActor skips 4-table count CTE when surface i
   assert.match(actionsContent, /const countRows = taskIds\.length === 0 \|\| surface === "preview"/);
 });
 
-test("Domain B: resolveProjectDetailTarget joins owner profile to eliminate shell waterfall", () => {
+test("Domain B: resolveWorkspaceDetailTarget joins owner profile to eliminate shell waterfall", () => {
   const actionsContent = projectActionsSource();
 
   assert.match(actionsContent, /alias\(profiles,\s*"project_detail_owner_profiles"\)/);
@@ -91,11 +91,11 @@ test("Domain D: DocTab loads the document and its list in one request", () => {
   );
 
   assert.match(docTabContent, /const paramDoc = searchParams\?\.get\("doc"\);/);
-  assert.doesNotMatch(docTabContent, /useProjectDocList/);
-  assert.match(docTabContent, /useProjectDoc\(projectId, paramDoc \? normalizeProjectDocSlug\(paramDoc\) : null\)/);
+  assert.doesNotMatch(docTabContent, /useWorkspaceDocList/);
+  assert.match(docTabContent, /useWorkspaceDoc\(projectId, paramDoc \? normalizeWorkspaceDocSlug\(paramDoc\) : null\)/);
 });
 
-test("Domain D: useProjectMembers configures gcTime for memory cleanup", () => {
+test("Domain D: useWorkspaceMembers configures gcTime for memory cleanup", () => {
   const hookContent = readFileSync(
     resolve(ROOT, "src/hooks/workspaces/useWorkspaceMembers.ts"),
     "utf-8"
@@ -104,7 +104,7 @@ test("Domain D: useProjectMembers configures gcTime for memory cleanup", () => {
   assert.match(hookContent, /gcTime: 1000 \* 60 \* 10/);
 });
 
-test("Domain E: ProjectLayout eliminates forced layout reflow from getBoundingClientRect", () => {
+test("Domain E: WorkspaceLayout eliminates forced layout reflow from getBoundingClientRect", () => {
   const layoutContent = readFileSync(
     resolve(ROOT, "src/components/workspaces/dashboard/WorkspaceLayout.tsx"),
     "utf-8"
@@ -125,7 +125,7 @@ test("Domain E: JourneyTimeline isolates card stacking context to prevent sticky
   assert.doesNotMatch(journeyContent, /className="[^"]*\bz-10\b[^"]*"[^>]*data-stage-index/);
 });
 
-test("Domain E: ProjectStatsBar renders both project metrics without legacy icon imports", () => {
+test("Domain E: WorkspaceStatsBar renders both project metrics without legacy icon imports", () => {
   const statsBarContent = readFileSync(
     resolve(ROOT, "src/components/workspaces/WorkspaceStatsBar.tsx"),
     "utf-8"

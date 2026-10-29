@@ -1,4 +1,4 @@
-// Unit tests for `subscribeProjectFilesChannel` — Task 1.4 of the
+// Unit tests for `subscribeWorkspaceFilesChannel` — Task 1.4 of the
 // task-files-version-control-v3 spec.
 //
 // Requirements exercised: Req 3.1, 3.3, 3.4, 3.5, 3.6
@@ -87,7 +87,7 @@ function computeBackoffDelay(attempts: number): number {
 
 // ─── Tests ───────────────────────────────────────────────────────────
 
-describe("subscribeProjectFilesChannel — exponential backoff (Req 3.6)", () => {
+describe("subscribeWorkspaceFilesChannel — exponential backoff (Req 3.6)", () => {
     it("first reconnect delay is 800ms", () => {
         assert.equal(computeBackoffDelay(0), 800);
     });
@@ -119,13 +119,13 @@ describe("subscribeProjectFilesChannel — exponential backoff (Req 3.6)", () =>
     });
 });
 
-describe("subscribeProjectFilesChannel — budget enforcement (Req 3.3)", () => {
+describe("subscribeWorkspaceFilesChannel — budget enforcement (Req 3.3)", () => {
     it("MAX_BACKGROUND_CHANNELS is 2", () => {
         assert.equal(MAX_BACKGROUND_CHANNELS, 2);
     });
 });
 
-describe("subscribeProjectFilesChannel — event dispatch mapping (Req 3.4, 3.5)", () => {
+describe("subscribeWorkspaceFilesChannel — event dispatch mapping (Req 3.4, 3.5)", () => {
     it("task_node_links INSERT event dispatches onTaskLinkChange with nodeId and type INSERT", () => {
         const events: Array<{ nodeId: string; type: string }> = [];
         const handler = (payload: { eventType?: string; new?: Record<string, unknown>; old?: Record<string, unknown> }) => {
@@ -229,8 +229,8 @@ describe("subscribeProjectFilesChannel — event dispatch mapping (Req 3.4, 3.5)
     });
 });
 
-describe("subscribeProjectFilesChannel — interface contract (Req 3.1)", () => {
-    it("ProjectFilesChannelOptions requires projectId, onTaskLinkChange, onFileVersionChange", () => {
+describe("subscribeWorkspaceFilesChannel — interface contract (Req 3.1)", () => {
+    it("WorkspaceFilesChannelOptions requires projectId, onTaskLinkChange, onFileVersionChange", () => {
         // Type-level validation — if this compiles, the interface is correct
         const options = {
             projectId: "proj-1",

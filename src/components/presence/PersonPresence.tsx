@@ -1,7 +1,7 @@
 "use client";
 
 import { PresenceBadge } from "@/components/presence/PresenceBadge";
-import { usePersonPresence, useProjectPresence } from "@/components/presence/usePresence";
+import { usePersonPresence, useWorkspacePresence } from "@/components/presence/usePresence";
 import { UserAvatar } from "@/components/ui/UserAvatar";
 import { cn } from "@/lib/utils";
 
@@ -72,7 +72,7 @@ export function PresenceAvatar({
 }
 
 /** A project's badge: its status glyph if set, else its activity. */
-export function ProjectPresenceBadge({
+export function WorkspacePresenceBadge({
   projectId,
   updatedAt,
   size = 14,
@@ -94,7 +94,7 @@ export function ProjectPresenceBadge({
   style?: React.CSSProperties;
 }) {
   // Without an id (slug-only links) the badge still shows activity from updatedAt.
-  const presence = useProjectPresence(projectId, updatedAt);
+  const presence = useWorkspacePresence(projectId, updatedAt);
   return (
     <PresenceBadge
       availability={presence.availability}

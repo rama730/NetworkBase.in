@@ -13,26 +13,26 @@ import {
     parseReadmeReferenceHref,
     readmeReferenceHref,
     replaceInlineReadmeReferencesWithMarkdown,
-    type ProjectDocReferenceKind,
-    type ProjectDocReferenceOption,
-    type ProjectDocSmartBlockPreview,
+    type WorkspaceDocReferenceKind,
+    type WorkspaceDocReferenceOption,
+    type WorkspaceDocSmartBlockPreview,
 } from "@/lib/workspaces/doc-blocks";
-import { buildProjectDocPlainText } from "@/lib/workspaces/doc-plain-text";
+import { buildWorkspaceDocPlainText } from "@/lib/workspaces/doc-plain-text";
 import { slugifyReadmeHeading } from "@/lib/workspaces/doc-headings";
 import {
     projectDocReferenceTargetId,
 } from "@/lib/workspaces/doc-navigation";
 import {
     projectDocEditorTargetId,
-    type ProjectDocEditorTargetKind,
+    type WorkspaceDocEditorTargetKind,
 } from "@/lib/workspaces/doc-editor-source-map";
-import { resolveProjectDocImage, type ProjectDocImageKind } from "@/lib/workspaces/doc-media";
-import { normalizeProjectDocSlug } from "@/lib/workspaces/doc";
-import { buildProjectDocViewModel, type ProjectDocViewModel } from "@/lib/workspaces/doc-view-model";
-import { ProjectDocCommandBlock } from "@/components/workspaces/doc/WorkspaceDocCommandBlock";
-import { ProjectDocSmartBlock } from "@/components/workspaces/doc/WorkspaceDocSmartBlock";
-import { useProjectDocSmartBlockPreviews } from "@/hooks/workspaces/useWorkspaceDocData";
-import type { Project } from "@/types/discover";
+import { resolveWorkspaceDocImage, type WorkspaceDocImageKind } from "@/lib/workspaces/doc-media";
+import { normalizeWorkspaceDocSlug } from "@/lib/workspaces/doc";
+import { buildWorkspaceDocViewModel, type WorkspaceDocViewModel } from "@/lib/workspaces/doc-view-model";
+import { WorkspaceDocCommandBlock } from "@/components/workspaces/doc/WorkspaceDocCommandBlock";
+import { WorkspaceDocSmartBlock } from "@/components/workspaces/doc/WorkspaceDocSmartBlock";
+import { useWorkspaceDocSmartBlockPreviews } from "@/hooks/workspaces/useWorkspaceDocData";
+import type { Workspace } from "@/types/discover";
 import { cn } from "@/lib/utils";
 
 const ReactMarkdown = dynamic(() => import("react-markdown"), { ssr: false });
@@ -140,7 +140,7 @@ const README_REHYPE_PLUGINS = [
     rehypeRaw,
     [rehypeSanitize, README_HTML_SANITIZE_SCHEMA],
 ] as const;
-const README_MEDIA_MAX_WIDTH_BY_KIND: Record<ProjectDocImageKind, number> = {
+const README_MEDIA_MAX_WIDTH_BY_KIND: Record<WorkspaceDocImageKind, number> = {
     badge: 180,
     icon: 48,
     logo: 220,
@@ -158,7 +158,7 @@ type MarkdownAstNode = {
 };
 
 function sourceTargetProps(
-    kind: ProjectDocEditorTargetKind,
+    kind: WorkspaceDocEditorTargetKind,
     node?: MarkdownAstNode,
 ) {
     const line = node?.position?.start?.line ?? null;
@@ -198,11 +198,11 @@ function ProjectDocInlineReferenceChip({
     project,
 }: {
     fallback: React.ReactNode;
-    option?: ProjectDocReferenceOption | null;
-    reference?: { kind: ProjectDocReferenceKind; id: string } | null;
+    option?: WorkspaceDocReferenceOption | null;
+    reference?: { kind: WorkspaceDocReferenceKind; id: string } | null;
     targetId?: string | null;
     onRequestTarget?: (targetId: string) => void;
-    project?: Project | null;
+    project?: Workspace | null;
 }) {
     const router = useRouter();
     const kind = option?.kind ?? reference?.kind ?? null;
@@ -322,7 +322,7 @@ function sanitizeMarkdownUrl(raw: string, allowRelative: boolean, isImage: boole
     }
 }
 
-function readmeMediaStyle(input: ReturnType<typeof resolveProjectDocImage>): CSSProperties {
+function readmeMediaStyle(input: ReturnType<typeof resolveWorkspaceDocImage>): CSSProperties {
     const maxWidth = README_MEDIA_MAX_WIDTH_BY_KIND[input.kind];
     const style: CSSProperties = {
         maxWidth: "100%",
@@ -344,7 +344,7 @@ function readmeMediaStyle(input: ReturnType<typeof resolveProjectDocImage>): CSS
     return style;
 }
 
-function readmeMediaClass(kind: ProjectDocImageKind) {
+function readmeMediaClass(kind: WorkspaceDocImageKind) {
     return cn(
         "outline-none",
         kind === "badge" && "mx-0.5 my-1 inline-block rounded-none border-0 align-middle shadow-none",
@@ -355,7 +355,7 @@ function readmeMediaClass(kind: ProjectDocImageKind) {
     );
 }
 
-function readmeHiddenMediaClass(kind: ProjectDocImageKind) {
+function readmeHiddenMediaClass(kind: WorkspaceDocImageKind) {
     return cn(
         "text-muted-foreground outline-none",
         (kind === "badge" || kind === "icon")
@@ -364,7 +364,7 @@ function readmeHiddenMediaClass(kind: ProjectDocImageKind) {
     );
 }
 
-function buildProjectDocSegmentRenderPlans(segments: ProjectDocViewModel["segments"]) {
+function buildProjectDocSegmentRenderPlans(segments: WorkspaceDocViewModel["segments"]) {
     let lineOffset = 0;
     let charOffset = 0;
     return segments.map((segment, index) => {
@@ -402,7 +402,7 @@ function buildProjectDocSegmentRenderPlans(segments: ProjectDocViewModel["segmen
     });
 }
 
-export const ProjectDocRenderer = React.memo(function ProjectDocRenderer({
+export const WorkspaceDocRenderer = React.memo(function WorkspaceDocRenderer({
     content,
     project,
     allowExternalImages = false,
@@ -420,7 +420,7 @@ export const ProjectDocRenderer = React.memo(function ProjectDocRenderer({
     renderedSlugs = [],
 }: {
     content: string;
-    project: Project;
+    project: Workspace;
     allowExternalImages?: boolean;
     allowSmartBlocks?: boolean;
     editorMode?: boolean;
@@ -430,22 +430,22 @@ export const ProjectDocRenderer = React.memo(function ProjectDocRenderer({
     onRequestTarget?: (targetId: string) => void;
     onAllowExternalImages?: () => void;
     previewsLoading?: boolean;
-    previewByKey?: Map<string, ProjectDocSmartBlockPreview>;
-    viewModel?: ProjectDocViewModel;
+    previewByKey?: Map<string, WorkspaceDocSmartBlockPreview>;
+    viewModel?: WorkspaceDocViewModel;
     docSlug?: string;
     renderedSlugs?: string[];
 }) {
     const searchParams = useSearchParams();
-    const normalizedDocSlug = normalizeProjectDocSlug(docSlug ?? searchParams?.get("doc") ?? "readme");
+    const normalizedDocSlug = normalizeWorkspaceDocSlug(docSlug ?? searchParams?.get("doc") ?? "readme");
     const isCircularDocReference = renderedSlugs.includes(normalizedDocSlug);
 
-    const readmeModel = useMemo(() => viewModel ?? buildProjectDocViewModel({ content }), [content, viewModel]);
+    const readmeModel = useMemo(() => viewModel ?? buildWorkspaceDocViewModel({ content }), [content, viewModel]);
     const segments = readmeModel.segments;
     const headingTargets = readmeModel.headings;
     const headingTargetQueues = useMemo(() => {
         const queues = new Map<string, string[]>();
         headingTargets.forEach((heading) => {
-            const key = buildProjectDocPlainText(heading.text, { maxLength: 120, stripCodeBlocks: false }) ?? heading.text;
+            const key = buildWorkspaceDocPlainText(heading.text, { maxLength: 120, stripCodeBlocks: false }) ?? heading.text;
             queues.set(key, [...(queues.get(key) ?? []), heading.id]);
         });
         return queues;
@@ -453,7 +453,7 @@ export const ProjectDocRenderer = React.memo(function ProjectDocRenderer({
     const inlineReferences = readmeModel.references;
     const blocks = isCircularDocReference ? [] : (allowSmartBlocks ? readmeModel.previewBlocks : readmeModel.referencePreviewBlocks);
     const commandTargetMaps = readmeModel.commandTargetMaps;
-    const previewsQuery = useProjectDocSmartBlockPreviews(project.id, blocks, !previewByKey && blocks.length > 0, normalizedDocSlug);
+    const previewsQuery = useWorkspaceDocSmartBlockPreviews(project.id, blocks, !previewByKey && blocks.length > 0, normalizedDocSlug);
     const fallbackPreviewByKey = useMemo(() => {
         const map = new Map<string, NonNullable<typeof previewsQuery.data>[number]>();
         for (const preview of previewsQuery.data ?? []) {
@@ -478,8 +478,8 @@ export const ProjectDocRenderer = React.memo(function ProjectDocRenderer({
     const inlineReferenceEntriesByHref = useMemo(() => {
         const map = new Map<string, Array<{
             targetId: string;
-            option?: ProjectDocReferenceOption | null;
-            reference: { kind: ProjectDocReferenceKind; id: string };
+            option?: WorkspaceDocReferenceOption | null;
+            reference: { kind: WorkspaceDocReferenceKind; id: string };
         }>>();
         inlineReferences.forEach((reference, index) => {
             const key = `${reference.kind}:${reference.id}:${index}`;
@@ -510,7 +510,7 @@ export const ProjectDocRenderer = React.memo(function ProjectDocRenderer({
         node: MarkdownAstNode | undefined,
         props: React.HTMLAttributes<HTMLHeadingElement> & { align?: string },
     ) => {
-        const headingText = buildProjectDocPlainText(textFromReactNode(children), { maxLength: 120, stripCodeBlocks: false }) ?? textFromReactNode(children);
+        const headingText = buildWorkspaceDocPlainText(textFromReactNode(children), { maxLength: 120, stripCodeBlocks: false }) ?? textFromReactNode(children);
         const occurrenceIndex = headingRenderCounts.get(headingText) ?? 0;
         headingRenderCounts.set(headingText, occurrenceIndex + 1);
         const targetId = id || headingTargetQueues.get(headingText)?.[occurrenceIndex] || slugifyReadmeHeading(headingText, fallbackHeadingIds);
@@ -677,7 +677,7 @@ export const ProjectDocRenderer = React.memo(function ProjectDocRenderer({
                     }))
                 : [];
             return (
-                <ProjectDocCommandBlock
+                <WorkspaceDocCommandBlock
                     id={commandId}
                     code={value}
                     language={match[1]}
@@ -688,7 +688,7 @@ export const ProjectDocRenderer = React.memo(function ProjectDocRenderer({
             );
         },
         img: ({ src, alt = "", title, width, height, node }: React.ImgHTMLAttributes<HTMLImageElement> & { node?: MarkdownAstNode }) => {
-            const image = resolveProjectDocImage({
+            const image = resolveWorkspaceDocImage({
                 src,
                 alt,
                 title,
@@ -825,7 +825,7 @@ export const ProjectDocRenderer = React.memo(function ProjectDocRenderer({
 
                         return allowSmartBlocks
                             ? (
-                                <ProjectDocSmartBlock
+                                <WorkspaceDocSmartBlock
                                     key={`block-${plan.index}`}
                                     block={plan.segment.block}
                                     project={project}

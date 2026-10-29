@@ -6,7 +6,7 @@ import {
   checksumSchema,
   resolveWritableExtensionFile,
 } from "@/app/api/v1/extension/_file-revision";
-import { getProjectAccessById } from "@/lib/data/workspace-access";
+import { getWorkspaceAccessById } from "@/lib/data/workspace-access";
 import { createAdminClient } from "@/lib/supabase/server";
 import { createUploadIntents } from "@/lib/upload/upload-intents";
 import { validateCsrf } from "@/lib/security/csrf";
@@ -51,7 +51,7 @@ export async function POST(request: Request) {
     const { projectId, files, clientSessionId, operationId } = parsed.data;
 
     // 1. Verify project write access
-    const access = await getProjectAccessById(projectId, user.id);
+    const access = await getWorkspaceAccessById(projectId, user.id);
     if (!access.project) return jsonError("Workspace not found", 404, "NOT_FOUND");
     if (!access.canWrite) return jsonError("You don’t have access to this", 403, "FORBIDDEN");
 

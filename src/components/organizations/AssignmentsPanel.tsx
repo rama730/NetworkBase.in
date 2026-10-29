@@ -13,7 +13,7 @@ import {
     excuseTeamMemberAction,
     extendCopyAction,
     listAssignmentsAction,
-    listProjectGroupCopiesAction,
+    listWorkspaceGroupCopiesAction,
     moveTeamMemberAction,
     publishAssignmentAction,
     readAssignmentComposerOptionsAction,
@@ -29,7 +29,7 @@ import {
     type RosterRow,
 } from '@/app/actions/assignments'
 import { listOrgRosterAction, type OrgRosterPerson } from '@/app/actions/organizations'
-import { listProjectDocsAction } from '@/app/actions/workspace/doc'
+import { listWorkspaceDocsAction } from '@/app/actions/workspace/doc'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
@@ -67,7 +67,7 @@ function SubmitDialog({ copyId, submissionType, title, open, onOpenChange, onDon
     const [projectDocs, setProjectDocs] = useState<Array<{ slug: string; filename: string }>>([])
     useEffect(() => {
         if (!docsProjectId || submissionType !== 'link') return
-        void listProjectDocsAction(docsProjectId).then((r) => setProjectDocs(r.success ? r.docs : []))
+        void listWorkspaceDocsAction(docsProjectId).then((r) => setProjectDocs(r.success ? r.docs : []))
     }, [docsProjectId, submissionType])
     const [text, setText] = useState('')
     const [error, setError] = useState<string | null>(null)
@@ -511,7 +511,7 @@ export function AssignmentsPanel({ orgId, onBoardChanged, startComposing = false
 export function GroupCopiesPanel({ projectId, onBoardChanged }: { projectId: string; onBoardChanged?: () => void }) {
     const [rows, setRows] = useState<GroupCopyRow[]>([])
     const [submitting, setSubmitting] = useState<GroupCopyRow | null>(null)
-    const load = useCallback(() => void listProjectGroupCopiesAction(projectId).then((r) => setRows(r.success ? r.rows : [])), [projectId])
+    const load = useCallback(() => void listWorkspaceGroupCopiesAction(projectId).then((r) => setRows(r.success ? r.rows : [])), [projectId])
     useEffect(() => { load() }, [load])
     if (rows.length === 0) return null
     return (

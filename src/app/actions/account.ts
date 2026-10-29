@@ -15,10 +15,10 @@ import { revalidatePath } from 'next/cache';
 import { logger } from '@/lib/logger';
 import { consumeRateLimit } from '@/lib/security/rate-limit';
 import { resolveSecurityStepUp } from '@/lib/security/step-up';
-import { enqueueProjectNotificationEvent } from '@/lib/notifications/workspace-events';
+import { enqueueWorkspaceNotificationEvent } from '@/lib/notifications/workspace-events';
 import { z } from 'zod';
 import { cancelAccountDeletionForUser } from '@/lib/account/deletion';
-import { syncProjectChat } from '@/lib/messaging/integrations';
+import { syncWorkspaceChat } from '@/lib/messaging/integrations';
 import { queueSecurityEmail } from '@/lib/email/security-queue';
 import { recordSecurityEventFromHeaders } from '@/lib/security/audit-from-headers';
 
@@ -87,7 +87,7 @@ const transferProjectOwnershipSchema = z.object({
     newOwnerId: z.string().uuid('newOwnerId must be a valid UUID'),
 });
 
-export async function transferProjectOwnership(
+export async function transferWorkspaceOwnership(
     projectId: string,
     newOwnerId: string,
 ): Promise<{ success: boolean; error?: string; errorCode?: 'UNAUTHORIZED' | 'STEP_UP_REQUIRED' | 'RATE_LIMITED' | 'VALIDATION_ERROR' | 'NOT_OWNER' | 'NOT_A_MEMBER' | 'PROJECT_NOT_FOUND' | 'INTERNAL_ERROR' }> {
@@ -215,8 +215,8 @@ export async function transferProjectOwnership(
                 );
 
             // Application threads follow the new reviewers (both are still reviewers, but their chat role changed).
-            await syncProjectChat(tx, projectId, newOwnerId, 'role');
-            await syncProjectChat(tx, projectId, user.id, 'role');
+            await syncWorkspaceChat(tx, projectId, newOwnerId, 'role');
+            await syncWorkspaceChat(tx, projectId, user.id, 'role');
 
             // SEC-C4: write an audit trail row for BOTH parties so either
             // user can see the transfer in their audit log. `user_id` here
@@ -315,7 +315,7 @@ export async function transferProjectOwnership(
 
         try {
             await Promise.all([
-                enqueueProjectNotificationEvent({
+                enqueueWorkspaceNotificationEvent({
                     projectId,
                     actorUserId: user.id,
                     actorName,
@@ -341,7 +341,7 @@ export async function transferProjectOwnership(
                     },
                     sourceEventId,
                 }),
-                enqueueProjectNotificationEvent({
+                enqueueWorkspaceNotificationEvent({
                     projectId,
                     actorUserId: user.id,
                     actorName,

@@ -1,7 +1,7 @@
 "use client";
 
-import InviteCollaboratorModal, { type ParticipationProject } from "@/components/workspaces/dashboard/InviteCollaboratorModal";
-import type { ProfileInviteProjectOption } from "@/lib/profile/collaboration";
+import InviteCollaboratorModal, { type ParticipationWorkspace } from "@/components/workspaces/dashboard/InviteCollaboratorModal";
+import type { ProfileInviteWorkspaceOption } from "@/lib/profile/collaboration";
 import { PlainContentHeadings } from "@/components/workspaces/PlainContentHeadings";
 
 interface ProfileInviteModalProps {
@@ -9,12 +9,12 @@ interface ProfileInviteModalProps {
     onClose: () => void;
     profileId: string;
     profileName: string;
-    projects: ProfileInviteProjectOption[];
+    projects: ProfileInviteWorkspaceOption[];
 }
 
 /** Profile entry point for the same Invite Collaborator module used on a Team card. */
 export default function ProfileInviteModal({ isOpen, onClose, profileId, profileName, projects }: ProfileInviteModalProps) {
-    const projectOptions: ParticipationProject[] = projects.map((project) => ({
+    const projectOptions: ParticipationWorkspace[] = projects.map((project) => ({
         id: project.id,
         title: project.title,
         slug: project.slug,

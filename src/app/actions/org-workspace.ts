@@ -4,7 +4,7 @@ import { and, desc, eq, isNull, sql } from 'drizzle-orm';
 
 import { db } from '@/lib/db';
 import { projectMembers, projects } from '@/lib/db/schema';
-import { getProjectAccessById } from '@/lib/data/workspace-access';
+import { getWorkspaceAccessById } from '@/lib/data/workspace-access';
 import { orgFileAccessSql } from '@/lib/files/internal-helpers';
 import { readNeedsYou, type OrgViewer } from '@/lib/organizations/needs-you';
 import { openInvitesFor } from '@/lib/organizations/members';
@@ -56,7 +56,7 @@ export async function readSidebarWorkspacesAction(): Promise<SidebarWorkspaces |
     const now = new Date();
     const orgs: SidebarOrg[] = [];
     for (const org of orgRows) {
-        const access = await getProjectAccessById(org.id, userId);
+        const access = await getWorkspaceAccessById(org.id, userId);
         const isAdmin = org.role === 'owner' || org.role === 'admin';
         const v: OrgViewer = { userId, access, isAdmin, isInside: true, isGuest: org.role === 'viewer', org: { id: org.id, title: org.title, slug: org.slug, status: org.status } };
         const [needs, [latest]] = await Promise.all([
@@ -178,7 +178,7 @@ export async function searchOrgPreviewsAction(query: string, orgIdentifier?: str
     if (orgIdentifier) {
         const [org] = await db.select({ id: projects.id, title: projects.title, slug: projects.slug, settings: projects.orgSettings }).from(projects)
             .where(and(sql`(${projects.slug} = ${orgIdentifier} OR ${projects.id}::text = ${orgIdentifier})`, eq(projects.kind, 'organization'), isNull(projects.deletedAt))).limit(1);
-        const access = org ? await getProjectAccessById(org.id, userId) : null;
+        const access = org ? await getWorkspaceAccessById(org.id, userId) : null;
         if (org && access && (access.isOwner || access.isMember)) {
             const isAdmin = access.isOwner || access.memberRole === 'admin';
             scope = { id: org.id, title: org.title, slug: org.slug, isAdmin, isGuest: access.memberRole === 'viewer', canCreate: !access.writeBlocked && access.memberRole !== 'viewer' && (isAdmin || readOrgRules(org.settings).childCreation === 'members') };
@@ -201,7 +201,7 @@ export async function searchOrgPreviewsAction(query: string, orgIdentifier?: str
             // Inside a child project: its org's docs and files, marked "From CSE-3A" — never for outside people.
             const [child] = await db.select({ parentId: projects.parentId }).from(projects)
                 .where(and(sql`(${projects.slug} = ${orgIdentifier} OR ${projects.id}::text = ${orgIdentifier})`, isNull(projects.deletedAt))).limit(1);
-            const orgAccess = child?.parentId ? await getProjectAccessById(child.parentId, userId) : null;
+            const orgAccess = child?.parentId ? await getWorkspaceAccessById(child.parentId, userId) : null;
             if (!child?.parentId || !orgAccess || !(orgAccess.isOwner || orgAccess.isMember)) return [];
             const [parent] = await db.select({ id: projects.id, title: projects.title, slug: projects.slug }).from(projects).where(eq(projects.id, child.parentId)).limit(1);
             const base = `/org/${encodeURIComponent(parent!.slug ?? parent!.id)}`;

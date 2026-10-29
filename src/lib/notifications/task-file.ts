@@ -3,14 +3,14 @@ import { and, eq, isNull, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { profiles, projectNodes, projects, tasks, taskNodeLinks } from "@/lib/db/schema";
 import {
-    enqueueProjectNotificationEvent,
-    enqueueProjectNotificationEvents,
+    enqueueWorkspaceNotificationEvent,
+    enqueueWorkspaceNotificationEvents,
 } from "@/lib/notifications/workspace-events";
-import type { EnqueueProjectNotificationEventInput } from "@/lib/notifications/workspace-events";
+import type { EnqueueWorkspaceNotificationEventInput } from "@/lib/notifications/workspace-events";
 import { logger } from "@/lib/logger";
-import type { ProjectNotificationEventKey } from "@/lib/notifications/workspace-policy";
+import type { WorkspaceNotificationEventKey } from "@/lib/notifications/workspace-policy";
 
-function taskFileEventKey(kind: "task_file_version" | "task_file_replaced" | "task_file_needs_review"): ProjectNotificationEventKey {
+function taskFileEventKey(kind: "task_file_version" | "task_file_replaced" | "task_file_needs_review"): WorkspaceNotificationEventKey {
     if (kind === "task_file_needs_review") return "files.review_requested";
     if (kind === "task_file_replaced") return "files.replaced";
     return "files.version_added";
@@ -64,7 +64,7 @@ export async function notifyTaskParticipantsForFileEvent(params: {
 
         const actorName = actor?.fullName || actor?.username || null;
         const actionLabel = taskFileActionLabel(params.kind);
-        const events: EnqueueProjectNotificationEventInput[] = linkedTasks.flatMap((task) => {
+        const events: EnqueueWorkspaceNotificationEventInput[] = linkedTasks.flatMap((task) => {
             const recipients = Array.from(new Set([task.assigneeId, task.creatorId].filter(Boolean) as string[]))
                 .filter((recipientUserId) => recipientUserId !== params.actorUserId);
             if (recipients.length === 0) return [];
@@ -95,7 +95,7 @@ export async function notifyTaskParticipantsForFileEvent(params: {
                 sourceEventId: `${task.taskId}:${params.kind}:${node.id}:${params.version ?? "latest"}`,
             }];
         });
-        await enqueueProjectNotificationEvents(events, {
+        await enqueueWorkspaceNotificationEvents(events, {
             actorName,
             actorAvatarUrl: actor?.avatarUrl ?? null,
         });
@@ -167,7 +167,7 @@ export async function notifyForFileVersionCreated(params: {
 
         if (linkedTasks.length > 0) {
             const actorName = actor?.fullName || actor?.username || null;
-            const events: EnqueueProjectNotificationEventInput[] = linkedTasks.flatMap((task) => {
+            const events: EnqueueWorkspaceNotificationEventInput[] = linkedTasks.flatMap((task) => {
                 const recipients = Array.from(
                     new Set([task.assigneeId, task.creatorId].filter(Boolean) as string[]),
                 ).filter((recipientUserId) => recipientUserId !== params.actorUserId);
@@ -198,7 +198,7 @@ export async function notifyForFileVersionCreated(params: {
                     sourceEventId: `${task.taskId}:file-replaced:${node.id}:${params.version}`,
                 }];
             });
-            await enqueueProjectNotificationEvents(events, {
+            await enqueueWorkspaceNotificationEvents(events, {
                 actorName,
                 actorAvatarUrl: actor?.avatarUrl ?? null,
             });
@@ -235,7 +235,7 @@ export async function notifyForFileVersionCreated(params: {
             });
 
             const actorName = actor?.fullName || actor?.username || null;
-            await enqueueProjectNotificationEvent({
+            await enqueueWorkspaceNotificationEvent({
                 projectId: params.projectId,
                 actorUserId: params.actorUserId,
                 actorName,

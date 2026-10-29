@@ -14,26 +14,26 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
-import type { Project } from "@/types/discover";
-import ProjectStatsBar from "@/components/workspaces/WorkspaceStatsBar";
-import ProjectAvatar, { getProjectAvatarUrl } from "@/components/workspaces/WorkspaceAvatar";
-import { ProjectPresenceDot } from "@/components/workspaces/WorkspaceAvatar";
-import { ProjectStatusControl } from "@/components/presence/WorkspaceStatusControl";
-import { ProjectLinkCluster } from "@/components/workspaces/dashboard/WorkspaceSocialLinksCard";
-import ProjectTeamAvatars, { type ProjectHeaderMember } from "@/components/workspaces/dashboard/WorkspaceTeamAvatars";
+import type { Workspace } from "@/types/discover";
+import WorkspaceStatsBar from "@/components/workspaces/WorkspaceStatsBar";
+import WorkspaceAvatar, { getWorkspaceAvatarUrl } from "@/components/workspaces/WorkspaceAvatar";
+import { WorkspacePresenceDot } from "@/components/workspaces/WorkspaceAvatar";
+import { WorkspaceStatusControl } from "@/components/presence/WorkspaceStatusControl";
+import { WorkspaceLinkCluster } from "@/components/workspaces/dashboard/WorkspaceSocialLinksCard";
+import ProjectTeamAvatars, { type WorkspaceHeaderMember } from "@/components/workspaces/dashboard/WorkspaceTeamAvatars";
 import {
-    isProjectTabVisibleToViewer,
-    normalizeProjectPublicTabVisibility,
-    type ProjectPublicTabVisibility,
+    isWorkspaceTabVisibleToViewer,
+    normalizeWorkspacePublicTabVisibility,
+    type WorkspacePublicTabVisibility,
 } from "@/lib/workspaces/settings-policies";
 
 interface ProjectLayoutProps {
     children: React.ReactNode;
-    project: Project;
+    project: Workspace;
     isOwner: boolean;
     isOwnerOrMember?: boolean;
     canManageSettings?: boolean;
-    publicTabVisibility?: ProjectPublicTabVisibility | null;
+    publicTabVisibility?: WorkspacePublicTabVisibility | null;
     activeTab: string;
     onTabChange: (tabId: string) => void;
     followersCount?: number;
@@ -51,7 +51,7 @@ interface ProjectLayoutProps {
     onInvite?: () => void;
     canInvite?: boolean;
     onTabHover?: (tabId: string) => void;
-    members?: ProjectHeaderMember[];
+    members?: WorkspaceHeaderMember[];
     loadingMembers?: boolean;
     /** Current lifecycle stage for the mobile header chip (spec §19: title and stage). */
     stageLabel?: string | null;
@@ -95,7 +95,7 @@ const TABS = [
 
 const RECENT_PROJECT_UPDATE_MS = 7 * 24 * 60 * 60 * 1000;
 
-export function formatProjectUpdatedLabel(value?: string | Date | null, now = new Date()) {
+export function formatWorkspaceUpdatedLabel(value?: string | Date | null, now = new Date()) {
     if (!value) return null;
     const updatedAt = value instanceof Date ? value : new Date(value);
     if (Number.isNaN(updatedAt.getTime())) return null;
@@ -109,7 +109,7 @@ export function formatProjectUpdatedLabel(value?: string | Date | null, now = ne
     }).format(updatedAt)}`;
 }
 
-export default function ProjectLayout({
+export default function WorkspaceLayout({
     children, project, isOwner, activeTab, onTabChange,
     isOwnerOrMember,
     canManageSettings,
@@ -206,7 +206,7 @@ export default function ProjectLayout({
     }, [activeTab]);
 
     const normalizedPublicTabs = useMemo(
-        () => normalizeProjectPublicTabVisibility(publicTabVisibility ?? project.publicTabVisibility),
+        () => normalizeWorkspacePublicTabVisibility(publicTabVisibility ?? project.publicTabVisibility),
         [project.publicTabVisibility, publicTabVisibility],
     );
     const canSeeMemberTabs = isOwnerOrMember ?? isOwner;
@@ -214,7 +214,7 @@ export default function ProjectLayout({
         () => TABS.filter((tab) => {
             const settingsAccess = (canManageSettings ?? isOwner) || canOpenSettings;
             if (tab.ownerOnly && !settingsAccess && !isOrganization) return false;
-            return isProjectTabVisibleToViewer({
+            return isWorkspaceTabVisibleToViewer({
                 tabId: tab.id,
                 isOwnerOrMember: canSeeMemberTabs,
                 canManageSettings: settingsAccess,
@@ -252,7 +252,7 @@ export default function ProjectLayout({
         if (!nextTab) return;
         tabsRef.current?.querySelector<HTMLButtonElement>(`[data-testid="project-tab-${nextTab.id}"]`)?.focus();
     };
-    const projectUpdatedLabel = formatProjectUpdatedLabel(project.updatedAt);
+    const projectUpdatedLabel = formatWorkspaceUpdatedLabel(project.updatedAt);
     const layoutStyle = useMemo(() => ({
         "--project-tabs-height": `${projectTabsHeight}px`,
     } as CSSProperties), [projectTabsHeight]);
@@ -272,7 +272,7 @@ export default function ProjectLayout({
                     <div ref={projectIdentityRef} className={cn("nb-project-identity flex flex-wrap items-start justify-between gap-4 px-4 pb-4 pt-5 sm:px-6 max-md:gap-3 max-md:pt-4", isToolTab && "max-md:hidden")}>
                         {/* Left: Project Identity */}
                         {(() => {
-                            const hasProjectAvatar = Boolean(getProjectAvatarUrl(project));
+                            const hasProjectAvatar = Boolean(getWorkspaceAvatarUrl(project));
                             const canManageProjectLinks = canManageSettings ?? isOwner;
                             const hasProjectLinks = Boolean(
                                 canManageProjectLinks ||
@@ -293,7 +293,7 @@ export default function ProjectLayout({
                                     {hasProjectLinks && (
                                         <>
                                             <div className="mx-0.5 h-4 w-px bg-border shrink-0" aria-hidden="true" />
-                                            <ProjectLinkCluster
+                                            <WorkspaceLinkCluster
                                                 projectId={project.id}
                                                 links={project.externalLinks ?? (project as any).external_links}
                                                 githubRepoUrl={project.githubRepoUrl ?? (project as any).github_repo_url}
@@ -320,10 +320,10 @@ export default function ProjectLayout({
                                 </button>
                             ) : null;
 
-                            return getProjectAvatarUrl(project) ? (
+                            return getWorkspaceAvatarUrl(project) ? (
                                 <div className="flex min-w-0 flex-1 flex-col items-start gap-2 max-md:basis-full">
                                     <div className="flex min-w-0 items-start gap-4 sm:gap-5 max-md:gap-3">
-                                        <ProjectAvatar
+                                        <WorkspaceAvatar
                                             project={project}
                                             size="detail"
                                             isOwner={isOwner}
@@ -336,7 +336,7 @@ export default function ProjectLayout({
                                                 {project?.title}
                                             </h1>
                                             {identityExtra}
-                                            {project?.id ? <ProjectStatusControl projectId={project.id} canManage={Boolean(canManageSettings ?? isOwner)} /> : null}
+                                            {project?.id ? <WorkspaceStatusControl projectId={project.id} canManage={Boolean(canManageSettings ?? isOwner)} /> : null}
                                             {project.shortDescription && (
                                                 <p className={cn("nb-body mt-1 max-w-[64ch] text-muted-foreground", !summaryExpanded && "max-md:line-clamp-3")}>
                                                     {project.shortDescription}
@@ -354,7 +354,7 @@ export default function ProjectLayout({
                                         <h1 className="nb-page-title min-w-0 break-words text-foreground">
                                             {project?.title}
                                         </h1>
-                                        <ProjectPresenceDot
+                                        <WorkspacePresenceDot
                                             lastActiveAt={project.updatedAt}
                                             standalone
                                             projectId={project.id || project.slug}
@@ -373,7 +373,7 @@ export default function ProjectLayout({
                                         )}
                                     </div>
                                     {identityExtra}
-                                    {project?.id ? <ProjectStatusControl projectId={project.id} canManage={Boolean(canManageSettings ?? isOwner)} /> : null}
+                                    {project?.id ? <WorkspaceStatusControl projectId={project.id} canManage={Boolean(canManageSettings ?? isOwner)} /> : null}
                                     {project.shortDescription && <p className={cn("nb-body max-w-[64ch] text-muted-foreground", !summaryExpanded && "max-md:line-clamp-3")}>{project.shortDescription}</p>}
                                     {summaryToggle}
                                     {projectIdentityMetadata}
@@ -383,7 +383,7 @@ export default function ProjectLayout({
 
                         {/* Right: Actions */}
                         <div className="flex flex-wrap items-center justify-end gap-2 sm:pt-1 max-md:basis-full max-md:justify-start">
-                            <ProjectStatsBar
+                            <WorkspaceStatsBar
                                 viewCount={viewCount ?? (project as any)?.viewCount ?? 0}
                                 followersCount={followersCount ?? (project as any)?.followersCount ?? 0}
                                 className="max-md:basis-full"
@@ -453,7 +453,7 @@ export default function ProjectLayout({
                     {isToolTab ? (
                         <div className="flex h-12 items-center gap-2 px-4 md:hidden">
                             {compactPrefix}
-                            <ProjectAvatar project={project} className="size-6 rounded-[5px]" />
+                            <WorkspaceAvatar project={project} className="size-6 rounded-[5px]" />
                             <h1 className="nb-ui-label min-w-0 flex-1 truncate text-[15px] font-semibold text-foreground" title={project?.title}>
                                 {project?.title}
                             </h1>

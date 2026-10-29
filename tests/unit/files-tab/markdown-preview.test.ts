@@ -21,26 +21,26 @@ describe("MarkdownPreview and Media Rendering Engine (Ponytail shrink: reuse)", 
   const previewSource = fs.readFileSync(previewFilePath, "utf8");
   const rendererSource = fs.readFileSync(rendererFilePath, "utf8");
 
-  it("re手を reuses ProjectDocRenderer directly from doc tab (Ponytail shrink: principle)", () => {
+  it("re手を reuses WorkspaceDocRenderer directly from doc tab (Ponytail shrink: principle)", () => {
     assert.match(
       previewSource,
       /import\("@\/components\/workspaces\/doc\/WorkspaceDocRenderer"\)/,
-      "MarkdownPreview must reuse ProjectDocRenderer as-is instead of maintaining a parallel engine"
+      "MarkdownPreview must reuse WorkspaceDocRenderer as-is instead of maintaining a parallel engine"
     );
     assert.match(
       previewSource,
-      /<ProjectDocRenderer/,
-      "MarkdownPreview renders ProjectDocRenderer component"
+      /<WorkspaceDocRenderer/,
+      "MarkdownPreview renders WorkspaceDocRenderer component"
     );
   });
 
-  it("ProjectDocRenderer imports rehype-raw, rehype-sanitize, and remark-gfm", () => {
+  it("WorkspaceDocRenderer imports rehype-raw, rehype-sanitize, and remark-gfm", () => {
     assert.match(rendererSource, /import\s+rehypeRaw\s+from\s+["']rehype-raw["']/);
     assert.match(rendererSource, /import\s+rehypeSanitize/);
     assert.match(rendererSource, /import\s+remarkGfm\s+from\s+["']remark-gfm["']/);
   });
 
-  it("ProjectDocRenderer enables skipHtml={false} and provides README_HTML_SANITIZE_SCHEMA", () => {
+  it("WorkspaceDocRenderer enables skipHtml={false} and provides README_HTML_SANITIZE_SCHEMA", () => {
     assert.match(rendererSource, /skipHtml=\{false\}/);
     assert.match(rendererSource, /README_HTML_SANITIZE_SCHEMA/);
     assert.match(rendererSource, /README_HTML_ALIGN_VALUES/);

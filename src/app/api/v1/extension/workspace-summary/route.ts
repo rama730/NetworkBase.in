@@ -5,11 +5,11 @@ import {
 import { jsonSuccessConditional } from "@/app/api/v1/_conditional";
 import { db } from "@/lib/db";
 import { tasks } from "@/lib/db/schema";
-import { canReadProjectTab, getProjectAccessById } from "@/lib/data/workspace-access";
+import { canReadWorkspaceTab, getWorkspaceAccessById } from "@/lib/data/workspace-access";
 import { and, eq, isNull } from "drizzle-orm";
 import { logger } from "@/lib/logger";
 import { z } from "zod";
-import { getProjectTaskSummary, getTaskFileCountMap } from "@/app/api/v1/extension/_workspace-counts";
+import { getWorkspaceTaskSummary, getTaskFileCountMap } from "@/app/api/v1/extension/_workspace-counts";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -32,13 +32,13 @@ export async function GET(request: Request) {
       return jsonError("Invalid workspace id", 400, "BAD_REQUEST");
 
     const { projectId } = parsed.data;
-    const access = await getProjectAccessById(projectId, user.id);
+    const access = await getWorkspaceAccessById(projectId, user.id);
     if (!access.project)
       return jsonError("Workspace not found", 404, "NOT_FOUND");
     // Task data follows the project's Tasks visibility (AUTH-002).
-    if (!canReadProjectTab(access, "tasks")) return jsonError("You don’t have access to this", 403, "FORBIDDEN");
+    if (!canReadWorkspaceTab(access, "tasks")) return jsonError("You don’t have access to this", 403, "FORBIDDEN");
 
-    const summary = await getProjectTaskSummary(projectId);
+    const summary = await getWorkspaceTaskSummary(projectId);
     const taskCount = summary.taskCount;
 
     let associatedTaskPreview: {

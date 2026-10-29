@@ -40,9 +40,9 @@ test("COR-045: detached assets are retired only through the live-reference guard
 test("COR-048: project, draft and sprint deletes recheck their preconditions under a row lock", () => {
   const source = projectActionsSource();
   const body = (name: string) => source.slice(source.indexOf(name), source.indexOf("\nexport ", source.indexOf(name) + name.length));
-  const project = body("export async function deleteProject(");
-  assert.match(project, /\.for\("update"\)[\s\S]*countUnregisteredProjectStorage\(projectId, tx\)[\s\S]*tx\s*\.delete\(projects\)/);
-  const draft = body("export async function deleteProjectDraftAction(");
+  const project = body("export async function deleteWorkspace(");
+  assert.match(project, /\.for\("update"\)[\s\S]*countUnregisteredWorkspaceStorage\(projectId, tx\)[\s\S]*tx\s*\.delete\(projects\)/);
+  const draft = body("export async function deleteWorkspaceDraftAction(");
   assert.match(draft, /locked\.status !== "draft"/);
   assert.match(draft, /eq\(projects\.status, "draft"\)/);
   const sprint = body("export async function deleteSprintAction(");

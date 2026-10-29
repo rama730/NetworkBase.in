@@ -3,15 +3,15 @@
 import { useEffect, useMemo, useState } from "react";
 import { Controller, type Control, type FieldErrors, type UseFormRegister } from "react-hook-form";
 import { Eye, Plus, Trash2, UserCog, UserPlus } from "lucide-react";
-import type { ProjectRoleFormValue } from "@/lib/workspaces/workspace-roles-form";
-import type { ProjectSettingsMember } from "@/lib/workspaces/settings-policies";
+import type { WorkspaceRoleFormValue } from "@/lib/workspaces/workspace-roles-form";
+import type { WorkspaceSettingsMember } from "@/lib/workspaces/settings-policies";
 import { SkillPicker } from "@/components/skills/SkillPicker";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { UserAvatar } from "@/components/ui/UserAvatar";
 import { cn } from "@/lib/utils";
 
-type ProjectRoleField = ProjectRoleFormValue & {
+type ProjectRoleField = WorkspaceRoleFormValue & {
     fieldKey?: string;
 };
 
@@ -24,7 +24,7 @@ type ProjectRolesEditorProps = {
     className?: string;
     onAddRole: () => void;
     onRemoveRole: (index: number, roleId?: string) => void;
-    members?: ProjectSettingsMember[];
+    members?: WorkspaceSettingsMember[];
     /** Pending and accepted applications per role id; a role with some asks before it is deleted. */
     applicationCounts?: Record<string, { pending: number; accepted: number }>;
 };
@@ -32,7 +32,7 @@ type ProjectRolesEditorProps = {
 type OccupiedEntry = {
     roleId: string;
     roleIndex: number;
-    member: ProjectSettingsMember;
+    member: WorkspaceSettingsMember;
     field: ProjectRoleField;
     isLead: boolean;
 };
@@ -49,7 +49,7 @@ type SelectedTarget =
     | { type: "occupied"; roleIndex: number; roleId: string; memberId: string }
     | { type: "open"; roleIndex: number; roleId: string };
 
-export function ProjectRolesEditor({
+export function WorkspaceRolesEditor({
     fields,
     register,
     control,

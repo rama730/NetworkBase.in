@@ -49,7 +49,7 @@ export const useChatUi = create<ChatUiState>()((set) => ({
 const PROJECT_KEY = "chat-project";
 
 /** The project picked earlier in this tab (null = All projects), or undefined if none. */
-export function restoredProject(): string | null | undefined {
+export function restoredWorkspace(): string | null | undefined {
   try {
     const stored = window.sessionStorage.getItem(PROJECT_KEY);
     return stored === null ? undefined : stored || null;

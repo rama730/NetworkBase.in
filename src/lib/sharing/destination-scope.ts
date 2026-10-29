@@ -1,15 +1,15 @@
-import type {ChatChannelSummary,ChatProjectSummary} from '@/lib/messaging/types';
+import type {ChatChannelSummary,ChatWorkspaceSummary} from '@/lib/messaging/types';
 
 /** Navigation belongs only to the sharing picker; it never updates Messages scope or routes. */
 export type ConversationScope =
   | {kind:'projects'|'dms'|'more'|'groups'|'applications'|'unavailable'}
   | {kind:'project'|'project-applications';projectId:string};
-export type ShareProject=ChatProjectSummary&{joined_channels:number;mention_count:number};
+export type ShareWorkspace=ChatWorkspaceSummary&{joined_channels:number;mention_count:number};
 export type ShareDestination=ChatChannelSummary&{
   can_send:boolean;send_disabled_reason:'blocked'|'archived'|null;
   project_title:string|null;project_slug:string|null;is_member?:boolean;
 };
-export const PROJECTS_SCOPE:ConversationScope={kind:'projects'};
+export const WORKSPACES_SCOPE:ConversationScope={kind:'projects'};
 export const scopeKey=(scope:ConversationScope)=>`${scope.kind}${'projectId' in scope?':'+scope.projectId:''}`;
 export function channelInScope(channel:ChatChannelSummary,scope:ConversationScope){
   switch(scope.kind){

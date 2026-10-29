@@ -3,13 +3,13 @@
 import React, { useMemo, useState, useCallback, Suspense } from "react";
 import dynamic from "next/dynamic";
 import { cn } from "@/lib/utils";
-import type { Project } from "@/types/discover";
+import type { Workspace } from "@/types/discover";
 import { isTrustedPublicReadmeImageHost } from "@/lib/workspaces/doc-media";
 import { useFilesStore } from "@/stores/files";
 import type { FilesStoreState } from "@/stores/files/types";
 
-const ProjectDocRenderer = dynamic(
-  () => import("@/components/workspaces/doc/WorkspaceDocRenderer").then((mod) => mod.ProjectDocRenderer),
+const WorkspaceDocRenderer = dynamic(
+  () => import("@/components/workspaces/doc/WorkspaceDocRenderer").then((mod) => mod.WorkspaceDocRenderer),
   { ssr: false }
 );
 
@@ -17,7 +17,7 @@ interface MarkdownPreviewProps {
   content: string;
   className?: string;
   projectId?: string;
-  project?: Project;
+  project?: Workspace;
   fidelity?: "app" | "github";
 }
 
@@ -27,7 +27,7 @@ const EMPTY_PREVIEW_MAP = new Map();
  * MarkdownPreview
  *
  * Ponytail Framework ("shrink:", "stdlib:", "native:"):
- * Reuses the canonical `ProjectDocRenderer` from the Docs tab directly as-is
+ * Reuses the canonical `WorkspaceDocRenderer` from the Docs tab directly as-is
  * rather than maintaining a separate parallel Markdown rendering engine.
  * Ensures 100% visual and behavioral parity between the Docs tab and Files tab
  * for READMEs and Markdown files with zero duplication and zero hydration errors.
@@ -49,7 +49,7 @@ export default function MarkdownPreview({
     (s: FilesStoreState) => (projectId ? s.byProjectId[projectId]?.git?.branch : null)
   );
 
-  const projectObject = useMemo<Project>(() => {
+  const projectObject = useMemo<Workspace>(() => {
     if (project) return project;
     return {
       id: projectId || "project",
@@ -58,7 +58,7 @@ export default function MarkdownPreview({
       slug: projectId,
       githubRepoUrl: gitRepoUrl ?? null,
       githubDefaultBranch: gitBranch ?? null,
-    } as Project;
+    } as Workspace;
   }, [project, projectId, gitRepoUrl, gitBranch]);
 
   const hasUntrustedRemoteImages = useMemo(() => {
@@ -89,7 +89,7 @@ export default function MarkdownPreview({
         </div>
       ) : null}
       <Suspense fallback={<div className="text-sm text-muted-foreground p-4">Loading preview…</div>}>
-        <ProjectDocRenderer
+        <WorkspaceDocRenderer
           content={content}
           project={projectObject}
           allowExternalImages={allowRemoteImages}

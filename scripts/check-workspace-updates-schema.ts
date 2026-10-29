@@ -3,7 +3,7 @@ import { fileURLToPath } from "node:url";
 import postgres from "postgres";
 import * as dotenv from "dotenv";
 
-import { PROJECT_UPDATE_SCHEMA_CONTRACT } from "../src/lib/workspaces/updates";
+import { WORKSPACE_UPDATE_SCHEMA_CONTRACT } from "../src/lib/workspaces/updates";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: join(__dirname, "..", ".env.local") });
@@ -30,10 +30,10 @@ async function main() {
     JOIN pg_namespace n ON n.oid = c.relnamespace
     WHERE n.nspname = 'public'
       AND c.relkind = 'r'
-      AND c.relname = ANY(${PROJECT_UPDATE_SCHEMA_CONTRACT.tables})
+      AND c.relname = ANY(${WORKSPACE_UPDATE_SCHEMA_CONTRACT.tables})
   `;
   const tables = new Map(tableRows.map((row) => [row.table_name, row]));
-  for (const table of PROJECT_UPDATE_SCHEMA_CONTRACT.tables) {
+  for (const table of WORKSPACE_UPDATE_SCHEMA_CONTRACT.tables) {
     const row = tables.get(table);
     if (!row) {
       errors.push(`missing table public.${table}`);
@@ -46,10 +46,10 @@ async function main() {
     SELECT indexname
     FROM pg_indexes
     WHERE schemaname = 'public'
-      AND indexname = ANY(${PROJECT_UPDATE_SCHEMA_CONTRACT.indexes})
+      AND indexname = ANY(${WORKSPACE_UPDATE_SCHEMA_CONTRACT.indexes})
   `;
   const indexes = new Set(indexRows.map((row) => row.indexname));
-  for (const index of PROJECT_UPDATE_SCHEMA_CONTRACT.indexes) {
+  for (const index of WORKSPACE_UPDATE_SCHEMA_CONTRACT.indexes) {
     if (!indexes.has(index)) errors.push(`missing index public.${index}`);
   }
 
@@ -57,11 +57,11 @@ async function main() {
     SELECT tablename, COUNT(*)::int AS count
     FROM pg_policies
     WHERE schemaname = 'public'
-      AND tablename = ANY(${PROJECT_UPDATE_SCHEMA_CONTRACT.tables})
+      AND tablename = ANY(${WORKSPACE_UPDATE_SCHEMA_CONTRACT.tables})
     GROUP BY tablename
   `;
   const policies = new Map(policyRows.map((row) => [row.tablename, row.count]));
-  for (const [table, minCount] of Object.entries(PROJECT_UPDATE_SCHEMA_CONTRACT.minPolicyCounts)) {
+  for (const [table, minCount] of Object.entries(WORKSPACE_UPDATE_SCHEMA_CONTRACT.minPolicyCounts)) {
     const count = policies.get(table) ?? 0;
     if (count < minCount) errors.push(`public.${table} has ${count} policy/policies, expected at least ${minCount}`);
   }

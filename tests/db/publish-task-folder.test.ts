@@ -35,7 +35,7 @@ test("publishing a task folder rewrites all descendant paths and releases their 
     const file = await node("file", "a.png", `${root}/report/charts/a.png`, sub);
     const top = await node("file", "summary.md", `${root}/report/summary.md`, folder);
 
-    const result = await mutations.moveProjectNodes([folder], null, projectId, { mode: "publish" });
+    const result = await mutations.moveWorkspaceNodes([folder], null, projectId, { mode: "publish" });
     assert.ok(result.nodes.length === 1, JSON.stringify(result));
 
     const rows = await sql`SELECT id, path, task_id FROM project_nodes WHERE project_id = ${projectId} ORDER BY path`;

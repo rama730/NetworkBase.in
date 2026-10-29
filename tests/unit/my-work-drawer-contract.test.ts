@@ -9,7 +9,7 @@ describe("My work drawer contracts", () => {
     const requests = read("src/components/my-work/MyWorkRequestsTab.tsx");
     const drawer = read("src/components/my-work/MyWorkDrawer.tsx");
 
-    assert.match(requests, /IncomingProjectApplicationRow/);
+    assert.match(requests, /IncomingWorkspaceApplicationRow/);
     assert.match(requests, /RequestProfileRow/);
     assert.match(requests, /usePendingRequests\(20, isMyWorkOpen && isActive, \{ includeSent: false \}\)/);
     assert.match(requests, /app\.isInvitation/);

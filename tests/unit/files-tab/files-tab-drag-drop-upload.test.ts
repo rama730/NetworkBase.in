@@ -41,7 +41,7 @@ describe("Files Tab Drag & Drop Upload Integration", () => {
 
     // Must support folder picker & task search
     assert.match(source, /FolderPicker/);
-    assert.match(source, /searchProjectTasks/);
+    assert.match(source, /searchWorkspaceTasks/);
 
     // Must support pre-upload file rename
     assert.match(source, /renameFileObject/);

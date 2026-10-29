@@ -3,7 +3,7 @@
 import { memo, useCallback, useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
 import { SkillList } from "@/components/skills/SkillList";
-import { PROJECT_TYPE_OPTIONS } from "@/lib/workspaces/workspace-create-options";
+import { WORKSPACE_TYPE_OPTIONS } from "@/lib/workspaces/workspace-create-options";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 interface ProjectOverviewCardProps {
@@ -69,7 +69,7 @@ const ProjectOverviewCard = memo(function ProjectOverviewCard({
 }: ProjectOverviewCardProps) {
     const [statement, setStatement] = useState<StatementSelection>(null);
     const [descriptionExpanded, setDescriptionExpanded] = useState(false);
-    const categoryLabel = PROJECT_TYPE_OPTIONS.find((type) => type.id === project?.category)?.label ?? project?.category ?? null;
+    const categoryLabel = WORKSPACE_TYPE_OPTIONS.find((type) => type.id === project?.category)?.label ?? project?.category ?? null;
     const openRoleTitles = (Array.isArray(project?.openRoles) ? project.openRoles : [])
         .filter((role: any) => (role?.count || 0) - (role?.filled || 0) > 0)
         .map((role: any) => role?.title || role?.role)

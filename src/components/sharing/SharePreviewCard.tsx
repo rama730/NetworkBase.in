@@ -1,14 +1,14 @@
 'use client';
 
 import Link from 'next/link';
-import { ProjectShareContents } from './WorkspaceShareContents';
+import { WorkspaceShareContents } from './WorkspaceShareContents';
 import { UserAvatar } from '@/components/ui/UserAvatar';
 import { BrandMark } from '@/components/brand/BrandMark';
 import type { SharePreview } from '@/lib/sharing/presentation';
 
 export function SharePreviewCard({ preview, linked = false, loading = false, trailingAction = false, destination }: { preview: SharePreview; linked?: boolean; loading?: boolean; trailingAction?: boolean; destination?: string }) {
   const identity = preview.state === 'ready' ? preview.identity : undefined;
-  const content = preview.kind === 'project' ? <ProjectShareContents preview={preview} loading={loading} trailingAction={trailingAction}/> : <>
+  const content = preview.kind === 'project' ? <WorkspaceShareContents preview={preview} loading={loading} trailingAction={trailingAction}/> : <>
     <div className="flex min-w-0 items-start gap-3">
       {identity ? <UserAvatar key={identity.avatarRevision} identity={{ fullName: identity.name === `@${identity.username}` ? null : identity.name, username: identity.username, avatarUrl: identity.avatarUrl }} size={54} unoptimized />
         : <div className="flex size-[54px] shrink-0 items-center justify-center rounded-[3px] border border-border bg-muted"><BrandMark variant="monogram" size={26} /></div>}

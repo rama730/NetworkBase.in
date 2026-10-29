@@ -6,7 +6,7 @@ import { z } from 'zod';
 
 import { db } from '@/lib/db';
 import { chatChannelMembers, chatChannels, projects } from '@/lib/db/schema';
-import { getProjectAccessById } from '@/lib/data/workspace-access';
+import { getWorkspaceAccessById } from '@/lib/data/workspace-access';
 import { orgChatSettings } from '@/lib/organizations/chat-rules';
 import { getViewerAuthContext } from '@/lib/server/viewer-context';
 
@@ -18,7 +18,7 @@ const DENIED: Failure = { success: false, error: "You don’t have permission to
 async function orgAdmin(orgId: string, mode: 'read' | 'write' = 'write') {
     const { userId } = await getViewerAuthContext();
     if (!userId) return null;
-    const access = await getProjectAccessById(orgId, userId);
+    const access = await getWorkspaceAccessById(orgId, userId);
     if (mode === 'write' && access.writeBlocked) return null;
     return access.project?.kind === 'organization' && (access.isOwner || access.memberRole === 'admin') ? { userId, slug: access.project.slug ?? null } : null;
 }
@@ -45,10 +45,10 @@ export async function readOrgChatSettingsAction(orgId: string) {
     return org ? orgChatSettings(org.settings, org.type) : null;
 }
 
-export type BrowseProjectRow = { projectId: string; title: string; channelId: string | null; channelName: string | null; joined: boolean };
+export type BrowseWorkspaceRow = { projectId: string; title: string; channelId: string | null; channelName: string | null; joined: boolean };
 
 /** Browse projects (report §25.1, §25.3): every child project's default channel, for org admins to open. */
-export async function browseOrgProjectChannelsAction(orgId: string): Promise<{ success: true; rows: BrowseProjectRow[] } | Failure> {
+export async function browseOrgWorkspaceChannelsAction(orgId: string): Promise<{ success: true; rows: BrowseWorkspaceRow[] } | Failure> {
     const admin = await orgAdmin(orgId, 'read');
     if (!admin) return DENIED;
     const rows = await db.select({

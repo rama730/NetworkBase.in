@@ -1,4 +1,4 @@
-import type { ProjectUpdateType } from "@/lib/workspaces/updates";
+import type { WorkspaceUpdateType } from "@/lib/workspaces/updates";
 // Hub Types - Adapted to work with existing Drizzle schema
 import type { SocialLinkStorage } from "@/lib/profile/normalization";
 
@@ -22,7 +22,7 @@ export interface OpenRole {
   skills?: string[] | null;
 }
 
-export interface ProjectProfile {
+export interface WorkspaceProfile {
   id: string;
   username: string | null;
   fullName: string | null;
@@ -33,23 +33,23 @@ export interface ProjectProfile {
   badgeText?: string | null;
 }
 
-export interface ProjectCollaborator {
+export interface WorkspaceCollaborator {
   userId: string;
   membershipRole: "owner" | "admin" | "member" | "viewer";
-  user: ProjectProfile | null;
+  user: WorkspaceProfile | null;
 }
 
-export interface ProjectFollower {
+export interface WorkspaceFollower {
   userId: string;
 }
 
-export interface ProjectConnectedFriend {
+export interface WorkspaceConnectedFriend {
   name: string;
   role: string;
 }
 
 // Main Project type - adapted to match schema + extended fields for UI
-export interface Project {
+export interface Workspace {
   id: string;
   key?: string | null;
   title: string;
@@ -98,19 +98,19 @@ export interface Project {
   followersCount?: number;
   savesCount?: number;
   rankingReasons?: string[];
-  connectedFriends?: ProjectConnectedFriend[];
+  connectedFriends?: WorkspaceConnectedFriend[];
   additionalConnectedFriendsCount?: number;
 
   // Relations
   ownerId?: string;
-  owner?: ProjectProfile | null;
-  collaborators?: ProjectCollaborator[];
+  owner?: WorkspaceProfile | null;
+  collaborators?: WorkspaceCollaborator[];
   openRoles?: OpenRole[];
   /** Open seats across the project's roles (feeds send this instead of the roles). */
   openRolesCount?: number;
   /** Team size, including members not shown to this viewer (feeds send at most a few members). */
   collaboratorsCount?: number;
-  followers?: ProjectFollower[];
+  followers?: WorkspaceFollower[];
 
   // Timestamps
   createdAt?: string;
@@ -180,7 +180,7 @@ export interface DiscoverUpdateView {
   projectCoverImage: string | null;
   author: DiscoverUpdateAuthor | null;
   content: string;
-  updateType: ProjectUpdateType | null;
+  updateType: WorkspaceUpdateType | null;
   media: DiscoverUpdateMedia[];
   isPinned: boolean;
   likeCount: number;
@@ -201,7 +201,7 @@ export interface DiscoverUpdatesPage {
 }
 
 export type DiscoverFeedItem =
-  | { kind: "project"; data: Project }
+  | { kind: "project"; data: Workspace }
   | { kind: "update"; data: DiscoverUpdateView };
 
-export type DiscoverProjectUpdate = DiscoverUpdateView;
+export type DiscoverWorkspaceUpdate = DiscoverUpdateView;

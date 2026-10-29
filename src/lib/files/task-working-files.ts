@@ -13,7 +13,7 @@ function normalizedPath(node: TaskWorkingFilesNodeLike) {
     : null;
 }
 
-export function isProjectSystemRoot(node: TaskWorkingFilesNodeLike) {
+export function isWorkspaceSystemRoot(node: TaskWorkingFilesNodeLike) {
   const path = normalizedPath(node);
   return (
     path === "/.system" || (node.parentId == null && node.name === ".system")

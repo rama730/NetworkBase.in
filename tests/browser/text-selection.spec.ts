@@ -27,7 +27,7 @@ test.beforeAll(async () => {
       )}; }`,
     "@/stores/filesStore": "const state = {upsertNodes() {}}; export const useFilesStore = selector => selector(state);",
     "@/hooks/useFileVersions": "export async function saveFileRevision() {throw new Error('Fixture cannot save');}",
-    "@/app/actions/files/content": `export async function getProjectFileContent() {return ${JSON.stringify(fileText)};}`,
+    "@/app/actions/files/content": `export async function getWorkspaceFileContent() {return ${JSON.stringify(fileText)};}`,
     "@/app/actions/files/versions": "export async function listFileVersions() {return [];}",
     "@/components/ui/RevisionControlModal": "export const RevisionControlModal = () => null;",
   };

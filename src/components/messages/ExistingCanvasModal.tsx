@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { FileText, Search, X } from "lucide-react";
 
-import { listProjectCanvases } from "@/app/actions/chat/canvas";
+import { listWorkspaceCanvases } from "@/app/actions/chat/canvas";
 import { CanvasPreview } from "@/components/messages/CanvasEditor";
 import { useChannelCanvas } from "@/components/messages/useConversation";
 import { ErrorNotice } from "@/components/ui/ErrorNotice";
@@ -31,7 +31,7 @@ export function ExistingCanvasModal({ open, onOpenChange, onSelectExisting, proj
     queryKey: queryKeys.chat.projectCanvases(projectId ?? "none"),
     enabled: open && Boolean(projectId),
     queryFn: async () => {
-      const result = await listProjectCanvases({ projectId: projectId!, exceptChannelId: currentChannelId });
+      const result = await listWorkspaceCanvases({ projectId: projectId!, exceptChannelId: currentChannelId });
       // A failure isn't "no canvases": it shows Retry.
       if (!result.success) throw new Error(result.error);
       return result.canvases;

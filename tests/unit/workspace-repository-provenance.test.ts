@@ -4,22 +4,22 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { projectActionsSource } from "./_workspace-actions-source";
 import {
-    resolveProjectSocialLinks,
-    type ProjectRepositoryContext,
+    resolveWorkspaceSocialLinks,
+    type WorkspaceRepositoryContext,
 } from "../../src/lib/workspaces/social-links";
 
 test("scratch project without GitHub renders no integration repositories", () => {
-    const context: ProjectRepositoryContext = {
+    const context: WorkspaceRepositoryContext = {
         importSource: { type: "scratch" },
         githubSyncConnection: null,
     };
-    const resolved = resolveProjectSocialLinks([], null, context);
+    const resolved = resolveWorkspaceSocialLinks([], null, context);
     assert.equal(resolved.length, 0);
 });
 
 test("cloned project without active Files tab sync resolves exclusively as a cloned repository", () => {
     // Corresponds to Image 1: DietrichGebert/ponytail
-    const context: ProjectRepositoryContext = {
+    const context: WorkspaceRepositoryContext = {
         importSource: {
             type: "github",
             repoUrl: "https://github.com/DietrichGebert/ponytail",
@@ -27,7 +27,7 @@ test("cloned project without active Files tab sync resolves exclusively as a clo
         },
         githubSyncConnection: null,
     };
-    const resolved = resolveProjectSocialLinks([], null, context);
+    const resolved = resolveWorkspaceSocialLinks([], null, context);
     assert.equal(resolved.length, 1);
     assert.equal(resolved[0].id, "github-cloned-repo");
     assert.equal(resolved[0].managed, "github-cloned-repo");
@@ -38,14 +38,14 @@ test("cloned project without active Files tab sync resolves exclusively as a clo
 
 test("project with active Files tab sync resolves as a connected repository", () => {
     // Corresponds to Image 2: rama730/deepscope-ai
-    const context: ProjectRepositoryContext = {
+    const context: WorkspaceRepositoryContext = {
         importSource: null,
         githubSyncConnection: {
             repository: "rama730/deepscope-ai",
             branch: "main",
         },
     };
-    const resolved = resolveProjectSocialLinks([], null, context);
+    const resolved = resolveWorkspaceSocialLinks([], null, context);
     assert.equal(resolved.length, 1);
     assert.equal(resolved[0].id, "github-sync-connection");
     assert.equal(resolved[0].managed, "github-sync-connection");
@@ -56,7 +56,7 @@ test("project with active Files tab sync resolves as a connected repository", ()
 
 test("hybrid edge case: cloned upstream + pushed to personal repo resolves both distinctly", () => {
     // User cloned DietrichGebert/ponytail, then connected and pushed rama730/ponytail in Files tab
-    const context: ProjectRepositoryContext = {
+    const context: WorkspaceRepositoryContext = {
         importSource: {
             type: "github",
             repoUrl: "https://github.com/DietrichGebert/ponytail",
@@ -67,7 +67,7 @@ test("hybrid edge case: cloned upstream + pushed to personal repo resolves both 
             branch: "main",
         },
     };
-    const resolved = resolveProjectSocialLinks([], null, context);
+    const resolved = resolveWorkspaceSocialLinks([], null, context);
     assert.equal(resolved.length, 2);
 
     // Primary: Connected sync target
@@ -82,7 +82,7 @@ test("hybrid edge case: cloned upstream + pushed to personal repo resolves both 
 });
 
 test("connected and cloned repositories deduplicate user-managed duplicate links", () => {
-    const context: ProjectRepositoryContext = {
+    const context: WorkspaceRepositoryContext = {
         importSource: {
             type: "github",
             repoUrl: "https://github.com/DietrichGebert/ponytail",
@@ -96,7 +96,7 @@ test("connected and cloned repositories deduplicate user-managed duplicate links
         { id: "manual-1", platform: "website", url: "https://github.com/rama730/ponytail" },
         { id: "manual-2", platform: "website", url: "https://behance.net/sample" },
     ];
-    const resolved = resolveProjectSocialLinks(userLinks, null, context);
+    const resolved = resolveWorkspaceSocialLinks(userLinks, null, context);
     assert.equal(resolved.length, 3);
     assert.equal(resolved[0].id, "github-sync-connection");
     assert.equal(resolved[1].id, "github-cloned-repo");
@@ -104,14 +104,14 @@ test("connected and cloned repositories deduplicate user-managed duplicate links
 });
 
 test("legacy fallback preserves backward compatibility when context is omitted", () => {
-    const resolved = resolveProjectSocialLinks([], "https://github.com/owner/legacy");
+    const resolved = resolveWorkspaceSocialLinks([], "https://github.com/owner/legacy");
     assert.equal(resolved.length, 1);
     assert.equal(resolved[0].id, "github-integration");
     assert.equal(resolved[0].managed, "github-integration");
     assert.equal(resolved[0].repositoryRole, "connected");
 });
 
-test("UI card contract: ProjectSocialLinksCard renders distinct badges and borders for cloned vs connected repositories", () => {
+test("UI card contract: WorkspaceSocialLinksCard renders distinct badges and borders for cloned vs connected repositories", () => {
     const cardContent = readFileSync(
         path.join(process.cwd(), "src/components/workspaces/dashboard/WorkspaceSocialLinksCard.tsx"),
         "utf8",
@@ -151,7 +151,7 @@ test("DTO contract: projectDetailProjectSchema includes githubSyncConnection to 
     );
 });
 
-test("UI header contract: ProjectLinkCluster shows 5 links by default on desktop and 3 on tablet", () => {
+test("UI header contract: WorkspaceLinkCluster shows 5 links by default on desktop and 3 on tablet", () => {
     const cardContent = readFileSync(
         path.join(process.cwd(), "src/components/workspaces/dashboard/WorkspaceSocialLinksCard.tsx"),
         "utf8",

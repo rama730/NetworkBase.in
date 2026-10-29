@@ -9,11 +9,11 @@ import { DISCOVER_RANKING_SCHEMA_VERSION, DISCOVER_RANKING_WEIGHTS } from '@/lib
 import { buildDiscoverSnapshotKey } from '@/lib/discover/snapshot-cache';
 import { logger } from '@/lib/logger';
 import { cacheData, getCachedData } from '@/lib/redis';
-import { buildProjectOwnerPresentation } from '@/lib/privacy/presentation';
+import { buildWorkspaceOwnerPresentation } from '@/lib/privacy/presentation';
 import { resolvePrivacyRelationships } from '@/lib/privacy/resolver';
-import { getProjectMemberRoleLabel } from '@/lib/workspaces/settings-policies';
-import { filterProjectLinksForAudience } from '@/lib/workspaces/social-links';
-import { DiscoverFilters, Project } from '@/types/discover';
+import { getWorkspaceMemberRoleLabel } from '@/lib/workspaces/settings-policies';
+import { filterWorkspaceLinksForAudience } from '@/lib/workspaces/social-links';
+import { DiscoverFilters, Workspace } from '@/types/discover';
 import { showKeeps } from '@/lib/organizations/profile-rules';
 import { orgTypeLabel } from '@/lib/organizations/config';
 import { countCanonicalSkillMatches } from '@/lib/skills/matching';
@@ -692,7 +692,7 @@ const hydrateProjects = async (
     rankingReasonMap?: Map<string, string[]>,
     viewerId: string | null = null,
     surface: 'full' | 'preview' = 'full',
-): Promise<Project[]> => {
+): Promise<Workspace[]> => {
     if (rawProjects.length === 0) return [];
 
     const projectIds = rawProjects.map((project) => project.id);
@@ -851,7 +851,7 @@ const hydrateProjects = async (
     connectedMembers.forEach((member) => {
         const name = member.fullName?.trim() || (member.username ? `@${member.username}` : '');
         if (!name) return;
-        const membershipRoleLabel = getProjectMemberRoleLabel(member.membershipRole);
+        const membershipRoleLabel = getWorkspaceMemberRoleLabel(member.membershipRole);
         const leadFocus = leadFocusByProject.get(member.projectId) || '';
         const role = member.isProjectOwner
             ? leadFocus ? `${membershipRoleLabel} / ${leadFocus}` : membershipRoleLabel
@@ -892,7 +892,7 @@ const hydrateProjects = async (
 
     return rawProjects.map((project) => {
         const owner = ownerMap.get(project.ownerId);
-        const ownerPresentation = buildProjectOwnerPresentation(
+        const ownerPresentation = buildWorkspaceOwnerPresentation(
             owner
                 ? {
                     id: owner.id,
@@ -932,7 +932,7 @@ const hydrateProjects = async (
         const followersCount = project.followersCount || 0;
 
 
-        const normalizedStatus: Project['status'] =
+        const normalizedStatus: Workspace['status'] =
             project.status === 'draft' ||
                 project.status === 'active' ||
                 project.status === 'completed' ||
@@ -952,7 +952,7 @@ const hydrateProjects = async (
             tags: project.tags || [],
             skills: project.skills || [],
             visibility: project.visibility || 'public',
-            externalLinks: filterProjectLinksForAudience(
+            externalLinks: filterWorkspaceLinksForAudience(
                 project.externalLinks,
                 project.ownerId === viewerId || viewerProjects.has(project.id),
             ),
@@ -975,7 +975,7 @@ const hydrateProjects = async (
                     fullName: member.user.fullName,
                     avatarUrl: member.user.avatarUrl,
                 },
-            })) as Project['collaborators'],
+            })) as Workspace['collaborators'],
             // Seats and team size as numbers: the card needs counts, not every role and member.
             openRoles: [],
             openRolesCount: openSeats.get(project.id) ?? 0,
@@ -993,7 +993,7 @@ const hydrateProjects = async (
     });
 };
 
-export const getDiscoverProjects = async (
+export const getDiscoverWorkspaces = async (
     filters: DiscoverFilters = DEFAULT_FILTERS,
     cursor?: string,
     pageSize: number = 24,

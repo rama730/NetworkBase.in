@@ -5,13 +5,13 @@ import { and, asc, eq, gte, isNotNull, isNull, lt, or, sql } from "drizzle-orm";
 import { readOrgDocsAction } from "@/app/actions/org-docs";
 import { db } from "@/lib/db";
 import { projectMembers, projects, projectSprints, roleApplications, taskTeamMembers, tasks } from "@/lib/db/schema";
-import type { ProjectAccess } from "@/lib/data/workspace-access";
+import type { WorkspaceAccess } from "@/lib/data/workspace-access";
 import { copyState } from "@/lib/organizations/assignment-rules";
 import { JOIN_SPIKE_PER_HOUR } from "@/lib/organizations/trust-rules";
 
 // Needs you (report §26.4) and the copy helpers the org dashboard shares. Not a server action: it trusts its viewer.
 
-export type OrgViewer = { userId: string | null; access: ProjectAccess; isAdmin: boolean; isInside: boolean; isGuest: boolean; org: { id: string; title: string; slug: string | null; status: string | null } };
+export type OrgViewer = { userId: string | null; access: WorkspaceAccess; isAdmin: boolean; isInside: boolean; isGuest: boolean; org: { id: string; title: string; slug: string | null; status: string | null } };
 const DAY = 86_400_000;
 
 export const stateOf = (c: { status: string; reviewStatus: string; dueDate: Date | null; reviewSubmittedAt: Date | null; completedAt: Date | null; excusedAt: Date | null }, now: Date) =>

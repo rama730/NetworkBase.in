@@ -125,6 +125,6 @@ test('normal and collaborator-removal assignments use the canonical activity and
     }
     assert.match(assignment, /eventKey: "tasks.assigned"/);
     assert.match(assignment, /sourceEventId: input\.eventId/);
-    assert.match(projectActions, /await enqueueProjectNotificationEvents\(txResult\.lifecycle\.assignmentNotifications\)/);
+    assert.match(projectActions, /await enqueueWorkspaceNotificationEvents\(txResult\.lifecycle\.assignmentNotifications\)/);
     assert.match(projectActions, /return \{ ok: true as const, lifecycle \};\s*\}\)\.catch\(/);
 });

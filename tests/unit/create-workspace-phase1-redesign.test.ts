@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { buildUploadManifest } from "../../src/components/workspaces/create-wizard/phase1/upload-manifest";
-import { PROJECT_UPLOAD_MAX_FILE_BYTES } from "../../src/lib/upload/security";
+import { WORKSPACE_UPLOAD_MAX_FILE_BYTES } from "../../src/lib/upload/security";
 
 function file(name: string, path: string, size: number, type = "text/plain"): File {
   return { name, webkitRelativePath: path, size, type } as File;
@@ -13,13 +13,13 @@ test("folder preflight reports files, bytes, warnings, duplicates, and oversized
     file("index.ts", "demo/src/index.ts", 128),
     file("empty.txt", "demo/empty.txt", 0),
     file("INDEX.ts", "demo/src/INDEX.ts", 64),
-    file("large.bin", "demo/large.bin", PROJECT_UPLOAD_MAX_FILE_BYTES + 1),
+    file("large.bin", "demo/large.bin", WORKSPACE_UPLOAD_MAX_FILE_BYTES + 1),
     file("unsafe.svg", "demo/unsafe.svg", 10, "image/svg+xml"),
   ]);
 
   assert.equal(manifest.folderName, "demo");
   assert.equal(manifest.totalFiles, 5);
-  assert.equal(manifest.totalBytes, PROJECT_UPLOAD_MAX_FILE_BYTES + 203);
+  assert.equal(manifest.totalBytes, WORKSPACE_UPLOAD_MAX_FILE_BYTES + 203);
   assert.equal(manifest.warningCount, 1);
   assert.equal(manifest.blockedCount, 3);
   assert.equal(manifest.isValid, false);
@@ -78,7 +78,7 @@ test("wizard shell is reactive, uses the workspace-setup exit dialog, and chunks
 
   // Reactive via a real subscription (useWatch); render-time watch() went stale after GitHub -> Scratch.
   assert.match(wizard, /useWatch\(\{[\s\S]*'import_source\.metadata'\]/);
-  assert.match(wizard, /<LeaveProjectSetupDialog/);
+  assert.match(wizard, /<LeaveWorkspaceSetupDialog/);
   assert.match(wizard, /app-scroll app-scroll-y app-scroll-gutter/);
   // A page in the app shell (spec §18): fills the main area, content in the shared 1000px column.
   assert.ok(wizard.includes("relative flex h-full min-h-0 w-full flex-col"));

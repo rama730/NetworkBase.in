@@ -3,27 +3,27 @@ import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
 import {
-    buildProjectDocExcerpt,
-    buildProjectDocPlainText,
-    buildProjectDocPublishMetadata,
-    extractProjectDocHeadings,
-    normalizeProjectDocContent,
-    normalizeProjectDocSettings,
-    resolveProjectDocPermission,
+    buildWorkspaceDocExcerpt,
+    buildWorkspaceDocPlainText,
+    buildWorkspaceDocPublishMetadata,
+    extractWorkspaceDocHeadings,
+    normalizeWorkspaceDocContent,
+    normalizeWorkspaceDocSettings,
+    resolveWorkspaceDocPermission,
 } from "../../src/lib/workspaces/doc";
-import { evaluateProjectDocQuality } from "../../src/lib/workspaces/doc-quality";
+import { evaluateWorkspaceDocQuality } from "../../src/lib/workspaces/doc-quality";
 import {
     buildInlineReadmeReference,
-    parseProjectDocInlineReferences,
-    parseProjectDocSmartBlocks,
+    parseWorkspaceDocInlineReferences,
+    parseWorkspaceDocSmartBlocks,
     replaceInlineReadmeReferencesWithMarkdown,
     splitMarkdownByInlineReferences,
     splitMarkdownBySmartBlocks,
 } from "../../src/lib/workspaces/doc-blocks";
 import {
-    buildProjectDocCommandTargetMaps,
-    buildProjectDocRailReport,
-    extractProjectDocCommandShortcuts,
+    buildWorkspaceDocCommandTargetMaps,
+    buildWorkspaceDocRailReport,
+    extractWorkspaceDocCommandShortcuts,
 } from "../../src/lib/workspaces/doc-quick-console";
 import {
     projectDocCommandBlockId,
@@ -36,21 +36,21 @@ import {
     getDocLineStartOffset,
 } from "../../src/lib/workspaces/doc-editor-source-map";
 import {
-    parseProjectDocGithubRepoUrl,
+    parseWorkspaceDocGithubRepoUrl,
     parseReadmeHtmlDimension,
     buildProjectDocImageMarkdown,
     PROJECT_DOC_IMAGE_INTENTS,
-    resolveProjectDocGithubSource,
-    resolveProjectDocImage,
+    resolveWorkspaceDocGithubSource,
+    resolveWorkspaceDocImage,
 } from "../../src/lib/workspaces/doc-media";
 import {
     buildProjectDocStylePresetMarkdown,
     PROJECT_DOC_STYLE_PRESETS,
 } from "../../src/lib/workspaces/doc-style";
-import { buildProjectDocViewModel } from "../../src/lib/workspaces/doc-view-model";
+import { buildWorkspaceDocViewModel } from "../../src/lib/workspaces/doc-view-model";
 
 test("Doc permissions keep public, private, and editor access separated", () => {
-    const publicPermission = resolveProjectDocPermission({
+    const publicPermission = resolveWorkspaceDocPermission({
         projectStatus: "active",
         actorUserId: null,
         projectVisibility: "public",
@@ -60,7 +60,7 @@ test("Doc permissions keep public, private, and editor access separated", () => 
     assert.equal(publicPermission.canReadPublished, true);
     assert.equal(publicPermission.canEdit, false);
 
-    const privateOutsider = resolveProjectDocPermission({
+    const privateOutsider = resolveWorkspaceDocPermission({
         actorUserId: "user-1",
         projectVisibility: "private",
         publicTabVisibility: { dashboard: true, readme: true, updates: true, files: true, sprints: false, tasks: false },
@@ -68,7 +68,7 @@ test("Doc permissions keep public, private, and editor access separated", () => 
     });
     assert.equal(privateOutsider.canReadPublished, false);
 
-    const coLeader = resolveProjectDocPermission({
+    const coLeader = resolveWorkspaceDocPermission({
         actorUserId: "admin-1",
         projectVisibility: "private",
         membershipRole: "admin",
@@ -78,7 +78,7 @@ test("Doc permissions keep public, private, and editor access separated", () => 
     assert.equal(coLeader.canEdit, true);
     assert.equal(coLeader.canPublish, true);
 
-    const memberWithPolicy = resolveProjectDocPermission({
+    const memberWithPolicy = resolveWorkspaceDocPermission({
         actorUserId: "member-1",
         membershipRole: "member",
         isActiveMember: true,
@@ -101,7 +101,7 @@ pnpm install
 
 {% project.roles %}
 `;
-    const metadata = buildProjectDocPublishMetadata(content);
+    const metadata = buildWorkspaceDocPublishMetadata(content);
     assert.equal(metadata.headings.length, 2);
     assert.equal(metadata.headings[0]!.id, "project-overview");
     assert.ok(metadata.excerpt?.includes("teams ship"));
@@ -116,16 +116,16 @@ Use this project with care.
 
 Collaborator Rama publish test content
 `;
-    assert.equal(normalizeProjectDocContent(content), "# Setup\n\nUse this project with care.");
+    assert.equal(normalizeWorkspaceDocContent(content), "# Setup\n\nUse this project with care.");
 });
 
 test("Doc content normalization keeps ordinary collaborator prose", () => {
     const content = "A collaborator can publish test content after review.";
-    assert.equal(normalizeProjectDocContent(content), content);
+    assert.equal(normalizeWorkspaceDocContent(content), content);
 });
 
 test("Doc quality flags missing guidance and unsafe URLs", () => {
-    const report = evaluateProjectDocQuality(`# Project
+    const report = evaluateWorkspaceDocQuality(`# Project
 
 [bad](javascript:alert(1))
 `);
@@ -134,7 +134,7 @@ test("Doc quality flags missing guidance and unsafe URLs", () => {
 });
 
 test("Doc quality flags visual media risks", () => {
-    const report = evaluateProjectDocQuality(`# Project
+    const report = evaluateWorkspaceDocQuality(`# Project
 
 ## Install
 
@@ -155,7 +155,7 @@ pnpm install
 });
 
 test("Doc smart block parser keeps malformed blocks safe", () => {
-    const blocks = parseProjectDocSmartBlocks(`Before
+    const blocks = parseWorkspaceDocSmartBlocks(`Before
 {% project.files ids="a,b" %}
 {% project.not_real %}
 After`);
@@ -169,7 +169,7 @@ After`);
 });
 
 test("Doc smart block parser supports visual reference picker output", () => {
-    const blocks = parseProjectDocSmartBlocks(`
+    const blocks = parseWorkspaceDocSmartBlocks(`
 {% project.tasks ids="task-1, task-2" %}
 {% project.contributors ids="member-1" %}
 {% project.roles %}
@@ -182,7 +182,7 @@ test("Doc smart block parser supports visual reference picker output", () => {
 
 test("Doc inline reference fallback never exposes raw ids as labels", () => {
     const token = `{% ref.tasks id="11111111-1111-4111-8111-111111111111" %}`;
-    const refs = parseProjectDocInlineReferences(token);
+    const refs = parseWorkspaceDocInlineReferences(token);
     assert.equal(refs[0]!.label, "task reference");
 
     const markdown = replaceInlineReadmeReferencesWithMarkdown(token);
@@ -191,7 +191,7 @@ test("Doc inline reference fallback never exposes raw ids as labels", () => {
 });
 
 test("Doc settings normalize safe defaults", () => {
-    const settings = normalizeProjectDocSettings({
+    const settings = normalizeWorkspaceDocSettings({
         editPolicy: "members",
         externalImages: true,
         projectBlocks: false,
@@ -201,13 +201,13 @@ test("Doc settings normalize safe defaults", () => {
 });
 
 test("Doc headings and excerpt are deterministic", () => {
-    const headings = extractProjectDocHeadings("# Intro\n## Intro\n### Usage");
+    const headings = extractWorkspaceDocHeadings("# Intro\n## Intro\n### Usage");
     assert.deepEqual(headings.map((heading) => heading.id), ["intro", "intro-2", "usage"]);
-    assert.equal(buildProjectDocExcerpt("```bash\npnpm dev\n```\n# Title\nUseful docs."), "Title Useful docs.");
+    assert.equal(buildWorkspaceDocExcerpt("```bash\npnpm dev\n```\n# Title\nUseful docs."), "Title Useful docs.");
 });
 
 test("Doc headings ignore fenced code and clean inline HTML", () => {
-    const headings = extractProjectDocHeadings(`# Before / After
+    const headings = extractWorkspaceDocHeadings(`# Before / After
 
 \`\`\`bash
 ### <img src="docs/assets/dancing-rock.svg" width="22" height="22" alt="rock"/> not a heading
@@ -230,13 +230,13 @@ test("Doc plain text strips decorative HTML before truncating", () => {
 npm install
 \`\`\`
 `;
-    assert.equal(buildProjectDocPlainText(htmlHeavy, { maxLength: 80 }), "caveman why use many token when few do trick");
-    assert.equal(buildProjectDocExcerpt(htmlHeavy), "caveman why use many token when few do trick");
-    assert.equal(buildProjectDocPlainText(`<p align="center"><img src="https://example.com/rock.png"`), null);
+    assert.equal(buildWorkspaceDocPlainText(htmlHeavy, { maxLength: 80 }), "caveman why use many token when few do trick");
+    assert.equal(buildWorkspaceDocExcerpt(htmlHeavy), "caveman why use many token when few do trick");
+    assert.equal(buildWorkspaceDocPlainText(`<p align="center"><img src="https://example.com/rock.png"`), null);
 });
 
 test("Doc quick console extracts labeled copy commands", () => {
-    const commands = extractProjectDocCommandShortcuts(`## Install
+    const commands = extractWorkspaceDocCommandShortcuts(`## Install
 
 \`\`\`bash
 pnpm install
@@ -255,7 +255,7 @@ vercel deploy
 });
 
 test("Doc quick console ignores decorative shell block lines", () => {
-    const commands = extractProjectDocCommandShortcuts(`## Like this trick? Now get whole agent — caveman-code
+    const commands = extractWorkspaceDocCommandShortcuts(`## Like this trick? Now get whole agent — caveman-code
 
 \`\`\`bash
 <img src="docs/assets/dancing-rock.svg" width="22" height="22" alt="rock"/> Like this trick? Now get whole agent — caveman-code
@@ -284,7 +284,7 @@ curl -fsSL \\
 });
 
 test("Doc command shortcuts share renderer command block ids", () => {
-    const commands = extractProjectDocCommandShortcuts(`## Notes
+    const commands = extractWorkspaceDocCommandShortcuts(`## Notes
 
 \`\`\`
 plain fenced content that the renderer leaves unpromoted
@@ -313,7 +313,7 @@ curl -fsSL \\
 pnpm dev
 \`\`\`
 `;
-    const commands = extractProjectDocCommandShortcuts(content);
+    const commands = extractWorkspaceDocCommandShortcuts(content);
     assert.equal(commands.length, 2);
     assert.equal(commands[0]!.targetId, projectDocCommandLineTargetId(0, 0));
     assert.equal(commands[0]!.codeLineStart, 0);
@@ -322,7 +322,7 @@ pnpm dev
     assert.equal(commands[1]!.codeLineStart, 3);
     assert.equal(commands[1]!.codeLineEnd, 3);
 
-    const model = buildProjectDocViewModel({ content });
+    const model = buildWorkspaceDocViewModel({ content });
     assert.ok(model.targetRegistry.has(projectDocCommandLineTargetId(0, 0)));
     assert.ok(model.targetRegistry.has(projectDocCommandLineTargetId(0, 1)));
     assert.equal(model.recommendedAction?.targetId, projectDocCommandLineTargetId(0, 0));
@@ -330,7 +330,7 @@ pnpm dev
 
 test("Doc command target maps preserve same-line inline command order", () => {
     const content = "Run `pnpm dev` and then `pnpm test`.";
-    const maps = buildProjectDocCommandTargetMaps(content);
+    const maps = buildWorkspaceDocCommandTargetMaps(content);
     assert.deepEqual(maps.inlineByLineQueue.get(1), [
         projectDocCommandBlockId(0),
         projectDocCommandBlockId(1),
@@ -345,12 +345,12 @@ curl -fsSL https://example.com/install.sh | bash
 curl -fsSL https://example.com/other.sh | bash
 \`\`\`
 `;
-    const commands = extractProjectDocCommandShortcuts(content);
-    const report = buildProjectDocRailReport({
+    const commands = extractWorkspaceDocCommandShortcuts(content);
+    const report = buildWorkspaceDocRailReport({
         content,
         commands,
         references: [],
-        headings: extractProjectDocHeadings(content),
+        headings: extractWorkspaceDocHeadings(content),
     });
     assert.deepEqual(report.warnings, ["Remote install script"]);
 });
@@ -366,7 +366,7 @@ plain fenced \`npm run nope\` content that should not become a command
 
 \`npm install -g @juliusbrussee/caveman-code\`
 `;
-    const commands = extractProjectDocCommandShortcuts(content);
+    const commands = extractWorkspaceDocCommandShortcuts(content);
     assert.equal(commands.length, 1);
     assert.equal(commands[0]!.group, "recommended");
     assert.equal(commands[0]!.label, "Start here");
@@ -409,7 +409,7 @@ Flag | What
 
 Average token savings: 65%.
 `;
-    const commands = extractProjectDocCommandShortcuts(content);
+    const commands = extractWorkspaceDocCommandShortcuts(content);
     assert.ok(commands.some((command) => command.command.includes("claude plugin marketplace add") && command.group === "claude"));
     assert.ok(commands.some((command) => command.command.includes("gemini extensions install") && command.group === "agents"));
     assert.ok(commands.some((command) => command.command === "--minimal" && command.group === "options"));
@@ -419,11 +419,11 @@ Average token savings: 65%.
     assert.ok(commands.some((command) => command.ecosystemTags.includes("Codex")));
     assert.ok(commands.every((command) => command.confidenceLabel));
 
-    const report = buildProjectDocRailReport({
+    const report = buildWorkspaceDocRailReport({
         content,
         commands,
         references: [],
-        headings: extractProjectDocHeadings(content),
+        headings: extractWorkspaceDocHeadings(content),
     });
     assert.ok(report.signals.includes("Claude install"));
     assert.ok(report.signals.includes("Config"));
@@ -450,7 +450,7 @@ curl -fsSL https://raw.githubusercontent.com/JuliusBrussee/caveman/main/install.
 
 {% ref.files id="11111111-1111-4111-8111-111111111111" label="README.md" %}
 `;
-    const model = buildProjectDocViewModel({ content, excerpt: "Use fewer tokens." });
+    const model = buildWorkspaceDocViewModel({ content, excerpt: "Use fewer tokens." });
 
     assert.deepEqual(model.railTabs, ["commands", "brief", "outline", "options", "links"]);
     assert.equal(model.headings[0]!.id, "caveman");
@@ -475,15 +475,15 @@ curl -fsSL https://raw.githubusercontent.com/JuliusBrussee/caveman/main/install.
 });
 
 test("Doc view model cache keys prefer the persisted content hash", () => {
-    const first = buildProjectDocViewModel({
+    const first = buildWorkspaceDocViewModel({
         content: "# Same\n\n```bash\npnpm install\n```",
         contentHash: "hash-a",
     });
-    const second = buildProjectDocViewModel({
+    const second = buildWorkspaceDocViewModel({
         content: "# Same\n\n```bash\npnpm install\n```",
         contentHash: "hash-a",
     });
-    const third = buildProjectDocViewModel({
+    const third = buildWorkspaceDocViewModel({
         content: "# Same\n\n```bash\npnpm install\n```",
         contentHash: "hash-b",
     });
@@ -493,12 +493,12 @@ test("Doc view model cache keys prefer the persisted content hash", () => {
 });
 
 test("Doc view model reports weak and empty Doc states", () => {
-    const weak = buildProjectDocViewModel({ content: "This workspace is described but has no setup path." });
+    const weak = buildWorkspaceDocViewModel({ content: "This workspace is described but has no setup path." });
     assert.equal(weak.report.readiness, "weak");
     assert.ok(weak.report.limitations.includes("No copyable setup commands detected"));
     assert.equal(weak.railTabs.includes("brief"), true);
 
-    const empty = buildProjectDocViewModel({ content: "   " });
+    const empty = buildWorkspaceDocViewModel({ content: "   " });
     assert.equal(empty.report.readiness, "empty");
     assert.ok(empty.report.limitations.includes("Doc is empty"));
     assert.deepEqual(empty.railTabs, []);
@@ -522,14 +522,14 @@ test("Doc media resolver preserves GitHub-style image sizing and safety", () => 
         },
     };
 
-    assert.deepEqual(parseProjectDocGithubRepoUrl("git@github.com:JuliusBrussee/caveman.git"), {
+    assert.deepEqual(parseWorkspaceDocGithubRepoUrl("git@github.com:JuliusBrussee/caveman.git"), {
         owner: "JuliusBrussee",
         repo: "caveman",
     });
-    assert.equal(resolveProjectDocGithubSource(publicGithubProject)?.branch, "main");
+    assert.equal(resolveWorkspaceDocGithubSource(publicGithubProject)?.branch, "main");
     assert.equal(parseReadmeHtmlDimension("120px"), 120);
 
-    const logo = resolveProjectDocImage({
+    const logo = resolveWorkspaceDocImage({
         src: "https://em-content.zobj.net/source/apple/391/rock_1faa8.png",
         width: "120",
         allowExternalImages: false,
@@ -540,7 +540,7 @@ test("Doc media resolver preserves GitHub-style image sizing and safety", () => 
     assert.equal(logo.width, 120);
     assert.equal(logo.trustedExternal, true);
 
-    const badge = resolveProjectDocImage({
+    const badge = resolveWorkspaceDocImage({
         src: "https://img.shields.io/github/stars/JuliusBrussee/caveman?style=flat&color=yellow",
         alt: "Stars",
         allowExternalImages: false,
@@ -549,7 +549,7 @@ test("Doc media resolver preserves GitHub-style image sizing and safety", () => 
     assert.equal(badge.kind, "badge");
     assert.equal(badge.blockedReason, null);
 
-    const relativeIcon = resolveProjectDocImage({
+    const relativeIcon = resolveWorkspaceDocImage({
         src: "docs/assets/dancing-rock.svg",
         width: "20",
         height: "20",
@@ -560,7 +560,7 @@ test("Doc media resolver preserves GitHub-style image sizing and safety", () => 
     assert.equal(relativeIcon.kind, "icon");
     assert.equal(relativeIcon.src, "https://raw.githubusercontent.com/JuliusBrussee/caveman/main/docs/assets/dancing-rock.svg");
 
-    const protocolRelativeBadge = resolveProjectDocImage({
+    const protocolRelativeBadge = resolveWorkspaceDocImage({
         src: "//img.shields.io/github/license/JuliusBrussee/caveman",
         alt: "License",
         allowExternalImages: false,
@@ -569,7 +569,7 @@ test("Doc media resolver preserves GitHub-style image sizing and safety", () => 
     assert.equal(protocolRelativeBadge.kind, "badge");
     assert.equal(protocolRelativeBadge.src, "https://img.shields.io/github/license/JuliusBrussee/caveman");
 
-    const githubBlobImage = resolveProjectDocImage({
+    const githubBlobImage = resolveWorkspaceDocImage({
         src: "https://github.com/JuliusBrussee/caveman/blob/main/docs/preview.png?raw=true",
         alt: "Preview",
         allowExternalImages: false,
@@ -578,7 +578,7 @@ test("Doc media resolver preserves GitHub-style image sizing and safety", () => 
     assert.equal(githubBlobImage.src, "https://raw.githubusercontent.com/JuliusBrussee/caveman/main/docs/preview.png?raw=true");
     assert.equal(githubBlobImage.trustedExternal, true);
 
-    const metadataOnlyGithubSource = resolveProjectDocGithubSource({
+    const metadataOnlyGithubSource = resolveWorkspaceDocGithubSource({
         id: "project-2",
         visibility: "public",
         importSource: {
@@ -596,7 +596,7 @@ test("Doc media resolver preserves GitHub-style image sizing and safety", () => 
         branch: "main",
     });
 
-    const privateExternal = resolveProjectDocImage({
+    const privateExternal = resolveWorkspaceDocImage({
         src: "https://example.com/private.png",
         allowExternalImages: false,
         project: { id: "private", visibility: "private" },
@@ -619,15 +619,15 @@ test("Files tab Linked Doc Ecosystem synchronization", () => {
     const readmeAction = fs.readFileSync(path.join(repoRoot, "src/app/actions/workspace/doc.ts"), "utf8");
     const docTab = fs.readFileSync(path.join(repoRoot, "src/components/workspaces/tabs/DocTab.tsx"), "utf8");
 
-    assert.match(readmeAction, /linkProjectDocAction/, "readme actions should define linkProjectDocAction");
-    assert.match(readmeAction, /unlinkProjectDocAction/, "readme actions should define unlinkProjectDocAction");
+    assert.match(readmeAction, /linkWorkspaceDocAction/, "readme actions should define linkWorkspaceDocAction");
+    assert.match(readmeAction, /unlinkWorkspaceDocAction/, "readme actions should define unlinkWorkspaceDocAction");
     assert.match(readmeAction, /linkedNodeId:\s*nodeId/, "link action should set linkedNodeId in the database");
 
-    assert.doesNotMatch(fileActions, /\blinkProjectDocAction\(/, "docs are added only from the Docs tab");
-    assert.match(fileActions, /unlinkProjectDocAction\(/, "Files tab can remove a linked doc");
+    assert.doesNotMatch(fileActions, /\blinkWorkspaceDocAction\(/, "docs are added only from the Docs tab");
+    assert.match(fileActions, /unlinkWorkspaceDocAction\(/, "Files tab can remove a linked doc");
     assert.match(fileActions, /Remove from docs/, "Files tab labels the remove action");
 
-    assert.match(docTab, /ProjectDocViewer/, "linked documents should resolve through the canonical published Doc viewer");
+    assert.match(docTab, /WorkspaceDocViewer/, "linked documents should resolve through the canonical published Doc viewer");
 });
 
 test("Doc editor exit discard confirmation logic is present", () => {

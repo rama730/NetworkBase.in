@@ -20,7 +20,7 @@ import { alias } from 'drizzle-orm/pg-core';
 import { createClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
 import { after } from 'next/server';
-import { resolveProjectInvitationAction } from '@/app/actions/workspace/guidance';
+import { resolveWorkspaceInvitationAction } from '@/app/actions/workspace/guidance';
 import { consumeRateLimit } from '@/lib/security/rate-limit';
 import { runInFlightDeduped } from '@/lib/utils/inflight-dedupe';
 import {
@@ -36,9 +36,9 @@ import {
     resolveLifecycleStatus,
 } from '@/lib/applications/utils';
 import type { ApplicationCoreStatus } from '@/lib/applications/status';
-import { canReviewProjectSql } from '@/lib/applications/reviewers';
+import { canReviewWorkspaceSql } from '@/lib/applications/reviewers';
 import { isApplicationReviewerRole } from '@/lib/applications/authorization';
-import { enqueueProjectNotificationEvent } from '@/lib/notifications/workspace-events';
+import { enqueueWorkspaceNotificationEvent } from '@/lib/notifications/workspace-events';
 import {
     applicationActorSnapshot,
     enqueueApplicationDecisionBestEffort,
@@ -56,8 +56,8 @@ import type {
     ApplicationCardChip,
 } from './types';
 import { refreshMyWorkCountersForUsers } from '@/lib/my-work/profile-counters';
-import { addProjectMemberInternal } from '@/lib/workspaces/collaborator-lifecycle';
-import { computeProjectReadAccess } from '@/lib/data/workspace-access';
+import { addWorkspaceMemberInternal } from '@/lib/workspaces/collaborator-lifecycle';
+import { computeWorkspaceReadAccess } from '@/lib/data/workspace-access';
 import { readViewerOrgRole } from '@/lib/organizations/detail';
 import { isUuid } from '@/lib/validations/uuid';
 import { resolvePrivacyRelationship } from '@/lib/privacy/resolver';
@@ -218,7 +218,7 @@ async function enqueueMemberJoinedBestEffort(params: {
     traceId: string;
 }) {
     try {
-        await enqueueProjectNotificationEvent({
+        await enqueueWorkspaceNotificationEvent({
             projectId: params.projectId,
             actorUserId: params.actorUserId,
             actorName: params.actorName,
@@ -912,7 +912,7 @@ export async function applyToRoleAction(
                 return toApplicationFailure(traceId, 'ROLE_FULL', 'This role has no available spots');
             }
             // Org members apply for open seats in Org only child projects (report §29.4).
-            const canReadProject = computeProjectReadAccess(
+            const canReadProject = computeWorkspaceReadAccess(
                 project.visibility,
                 project.status,
                 false,
@@ -1152,7 +1152,7 @@ export async function acceptApplicationAction(
                     application.role?.title || application.role?.role || 'Team member';
 
                 // 1. Lock project and role rows first, adding the member and adjusting capacity atomically
-                const lifecycle = await addProjectMemberInternal(tx, {
+                const lifecycle = await addWorkspaceMemberInternal(tx, {
                     projectId: application.projectId,
                     userId: application.applicantId,
                     role: 'member',
@@ -1348,7 +1348,7 @@ export async function getRoleApplicationCountsAction(projectId: string): Promise
             SELECT a.role_id, count(*) FILTER (WHERE a.status = 'pending')::int AS pending, count(*) FILTER (WHERE a.status = 'accepted')::int AS accepted
             FROM role_applications a
             WHERE a.project_id = ${projectId}::uuid AND a.role_id IS NOT NULL AND a.status IN ('pending', 'accepted')
-              AND ${canReviewProjectSql(user.id, sql`a.project_id`)}
+              AND ${canReviewWorkspaceSql(user.id, sql`a.project_id`)}
             GROUP BY a.role_id
         `));
         return { success: true, counts: Object.fromEntries(rows.map((row) => [row.role_id, { pending: row.pending, accepted: row.accepted }])) };
@@ -1903,7 +1903,7 @@ export async function getIncomingApplicationsAction(
 
         const appWhere = cursorDate && cursorId
             ? and(
-                canReviewProjectSql(user.id, sql`${roleApplications.projectId}`),
+                canReviewWorkspaceSql(user.id, sql`${roleApplications.projectId}`),
                 eq(roleApplications.status, 'pending'),
                 or(
                     lt(roleApplications.createdAt, cursorDate),
@@ -1911,7 +1911,7 @@ export async function getIncomingApplicationsAction(
                 )
             )
             : and(
-                canReviewProjectSql(user.id, sql`${roleApplications.projectId}`),
+                canReviewWorkspaceSql(user.id, sql`${roleApplications.projectId}`),
                 eq(roleApplications.status, 'pending')
             );
 
@@ -2045,7 +2045,7 @@ export async function getIncomingApplicationsAction(
 // ============================================================================
 // GET PROJECT INVITE OPTIONS (For Lead Invite Modal)
 // ============================================================================
-export async function getProjectInviteOptionsAction(projectId: string): Promise<{
+export async function getWorkspaceInviteOptionsAction(projectId: string): Promise<{
     success: boolean;
     error?: string;
     connections: {
@@ -2215,7 +2215,7 @@ export async function getProjectInviteOptionsAction(projectId: string): Promise<
     }
 }
 
-export interface SentProjectInvitationItem {
+export interface SentWorkspaceInvitationItem {
     id: string;
     invitationId?: string | null;
     projectId: string;
@@ -2235,7 +2235,7 @@ export interface SentProjectInvitationItem {
     expiresAt?: Date | null;
 }
 
-export async function getSentProjectInvitationsAction(options?: { limit?: number }) {
+export async function getSentWorkspaceInvitationsAction(options?: { limit?: number }) {
     try {
         const supabase = await createClient();
         const { data: { user } } = await supabase.auth.getUser();
@@ -2244,7 +2244,7 @@ export async function getSentProjectInvitationsAction(options?: { limit?: number
             return {
                 success: false as const,
                 error: 'Sign in to continue',
-                invitations: [] as SentProjectInvitationItem[],
+                invitations: [] as SentWorkspaceInvitationItem[],
             };
         }
 
@@ -2283,7 +2283,7 @@ export async function getSentProjectInvitationsAction(options?: { limit?: number
             .orderBy(desc(projectInvitations.createdAt))
             .limit(limit);
 
-        const items: SentProjectInvitationItem[] = [];
+        const items: SentWorkspaceInvitationItem[] = [];
         for (const direct of directItems) {
             items.push({
                 id: direct.id,
@@ -2321,12 +2321,12 @@ export async function getSentProjectInvitationsAction(options?: { limit?: number
         return {
             success: false as const,
             error: error instanceof Error ? error.message : 'Internal server error',
-            invitations: [] as SentProjectInvitationItem[],
+            invitations: [] as SentWorkspaceInvitationItem[],
         };
     }
 }
 
-export async function cancelSentProjectInvitationAction(input: {
+export async function cancelSentWorkspaceInvitationAction(input: {
     invitationId?: string | null;
 }) {
     const supabase = await createClient();
@@ -2340,7 +2340,7 @@ export async function cancelSentProjectInvitationAction(input: {
         let didCancel = false;
         let cancelError: string | undefined;
         if (input.invitationId) {
-            const res = await resolveProjectInvitationAction({
+            const res = await resolveWorkspaceInvitationAction({
                 invitationId: input.invitationId,
                 action: 'cancel',
             });

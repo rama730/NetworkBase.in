@@ -14,7 +14,7 @@ import {
   roleApplications,
 } from "@/lib/db/schema";
 import { decideOrgJoin, orgMemberCap, type OrgJoinMode, type OrgJoinOutcome } from "@/lib/organizations/join-rules";
-import { addProjectMemberInternal } from "@/lib/workspaces/collaborator-lifecycle";
+import { addWorkspaceMemberInternal } from "@/lib/workspaces/collaborator-lifecycle";
 import { createCopiesForNewMember } from "@/lib/organizations/assignments";
 import { notifyNewCopies } from "@/lib/organizations/assignment-notify";
 import { acceptOrgInvite } from "@/lib/organizations/members";
@@ -128,7 +128,7 @@ async function joinOrg(
 
     if (outcome === "joined") {
       // Joining by code is always Member (decision 58); a pending request is closed by the join.
-      await addProjectMemberInternal(tx, { projectId: org.id, userId, role: "member", actorId: userId, source: "join_code" });
+      await addWorkspaceMemberInternal(tx, { projectId: org.id, userId, role: "member", actorId: userId, source: "join_code" });
       // Late joiners get copies of open assignments (report §16.9).
       await createCopiesForNewMember(tx, org.id, userId);
     } else if (outcome === "requested") {

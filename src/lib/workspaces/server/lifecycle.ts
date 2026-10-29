@@ -1,15 +1,15 @@
 import "server-only";
 
-import { type ProjectVisibility, isProjectVisibility } from "@/lib/workspaces/workspace-visibility";
+import { type WorkspaceVisibility, isWorkspaceVisibility } from "@/lib/workspaces/workspace-visibility";
 import { db } from "@/lib/db";
 import { projects, projectMembers, profiles, projectOpenRoles, tags, projectTags, storageAssets, projectNodeEvents, projectGuidanceAppointments, projectFollows, roleApplications } from "@/lib/db/schema";
 import { eq, sql, inArray, and, desc, isNull, gt, ilike } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { clearSealedGithubTokenFromImportSource, sanitizeGitErrorMessage, sealGithubImportToken } from "@/lib/github/repo-security";
-import { runGithubProjectImport } from "@/lib/github/workspace-import-runner";
+import { runGithubWorkspaceImport } from "@/lib/github/workspace-import-runner";
 import { logger } from "@/lib/logger";
 import { inngest } from "@/inngest/client";
-import { CreateProjectInput, createProjectSchema, validateAndSanitizeLifecycleStages, type UpdateProjectInput, updateProjectSchema } from "@/lib/validations/workspace";
+import { CreateWorkspaceInput, createWorkspaceSchema, validateAndSanitizeLifecycleStages, type UpdateWorkspaceInput, updateWorkspaceSchema } from "@/lib/validations/workspace";
 import { normalizeGithubRepoUrl, normalizeGithubBranch } from "@/lib/github/repo-validation";
 import { parseGithubRepo, fetchRepoMeta } from "@/lib/github/repo-preview";
 import { resolveGithubRepoAccess, buildGithubImportEventId } from "@/lib/github/auth-resolver";
@@ -18,21 +18,21 @@ import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { consumeRateLimit } from "@/lib/security/rate-limit";
 import { redis } from "@/lib/redis";
 import { z } from "zod";
-import { buildProjectImportEventId } from "@/lib/import/idempotency";
-import { splitProjectSocialLinks, validateProjectSocialLinks, normalizeProjectSocialLinks, areProjectSocialLinksEqual } from "@/lib/workspaces/social-links";
-import { isReservedProjectSlug, generateSlug, generateSlugBase } from "@/lib/utils/slug";
-import { generateProjectKey } from "@/lib/workspace-key";
-import { getLifecycleStagesForProjectType } from "@/lib/workspaces/lifecycle-templates";
-import { normalizeProjectPublicTabVisibility } from "@/lib/workspaces/settings-policies";
-import { buildCreateProjectNotificationPolicy } from "@/lib/notifications/workspace-policy";
-import { syncProjectChat } from "@/lib/messaging/integrations";
-import { upsertProfileProjectContributionFromMembership, markProjectCollaboratorsSummaryStale, markProfileCollaborationSummaryStale } from "@/lib/profile/collaboration";
-import { syncRoleSkillsBatch, syncProjectSkills, syncRoleSkills } from "@/lib/skills/service";
+import { buildWorkspaceImportEventId } from "@/lib/import/idempotency";
+import { splitWorkspaceSocialLinks, validateWorkspaceSocialLinks, normalizeWorkspaceSocialLinks, areWorkspaceSocialLinksEqual } from "@/lib/workspaces/social-links";
+import { isReservedWorkspaceSlug, generateSlug, generateSlugBase } from "@/lib/utils/slug";
+import { generateWorkspaceKey } from "@/lib/workspace-key";
+import { getLifecycleStagesForWorkspaceType } from "@/lib/workspaces/lifecycle-templates";
+import { normalizeWorkspacePublicTabVisibility } from "@/lib/workspaces/settings-policies";
+import { buildCreateWorkspaceNotificationPolicy } from "@/lib/notifications/workspace-policy";
+import { syncWorkspaceChat } from "@/lib/messaging/integrations";
+import { upsertProfileWorkspaceContributionFromMembership, markWorkspaceCollaboratorsSummaryStale, markProfileCollaborationSummaryStale } from "@/lib/profile/collaboration";
+import { syncRoleSkillsBatch, syncWorkspaceSkills, syncRoleSkills } from "@/lib/skills/service";
 import { normalizeAndValidateMimeType, normalizeAndValidateFileSize } from "@/lib/upload/security";
 import { randomUUID } from "crypto";
 import { createUploadIntent, finalizeUploadIntent } from "@/lib/upload/upload-intents";
 import { scheduleAssetDeletionIfUnreferenced } from "@/lib/storage/asset-deletion";
-import { getProjectAccessById } from "@/lib/data/workspace-access";
+import { getWorkspaceAccessById } from "@/lib/data/workspace-access";
 import { resolvePrivacyRelationship } from "@/lib/privacy/resolver";
 import { getTrustedHeadersIp } from "@/lib/security/request-ip";
 import { headers } from "next/headers";
@@ -52,15 +52,15 @@ import { namesOf, notifyOrg } from "@/lib/organizations/notify";
 import { createCopiesForNewChild } from "@/lib/organizations/assignments";
 import { planSprintSeriesAction } from "@/lib/workspaces/server/sprints";
 import { notifyNewCopies } from "@/lib/organizations/assignment-notify";
-import { isProjectPubliclyReadableVisibility } from "@/lib/workspaces/workspace-visibility";
-import { addProjectMemberInternal } from "@/lib/workspaces/collaborator-lifecycle";
-import { createProjectInvitationAction } from "@/app/actions/workspace/guidance";
+import { isWorkspacePubliclyReadableVisibility } from "@/lib/workspaces/workspace-visibility";
+import { addWorkspaceMemberInternal } from "@/lib/workspaces/collaborator-lifecycle";
+import { createWorkspaceInvitationAction } from "@/app/actions/workspace/guidance";
 import { createNotification } from "@/lib/notifications/service";
 import { getViewerAuthContext } from "@/lib/server/viewer-context";
 import { closePendingApplications, type ClosedApplication, type ClosingReason } from "@/lib/applications/closing";
 import { notifyClosedApplications } from "@/lib/applications/notifications";
 import { normalizeSearchQuery, containsLikePattern } from "@/lib/search/query";
-import { isMissingColumn, invalidateProjectPublicCaches, enqueueProjectNotificationBestEffort, actorNotificationSnapshot, PROJECT_COVER_UPLOAD_MAX_FILE_BYTES, PROJECT_COVER_UPLOAD_BUCKET, buildProjectImageRoute, revalidateProjectPaths, type ProjectSettingsMutationResult, loadOwnedProjectForSettings, type ProjectSettingsErrorCode } from "./common";
+import { isMissingColumn, invalidateWorkspacePublicCaches, enqueueWorkspaceNotificationBestEffort, actorNotificationSnapshot, WORKSPACE_COVER_UPLOAD_MAX_FILE_BYTES, WORKSPACE_COVER_UPLOAD_BUCKET, buildWorkspaceImageRoute, revalidateWorkspacePaths, type WorkspaceSettingsMutationResult, loadOwnedWorkspaceForSettings, type WorkspaceSettingsErrorCode } from "./common";
 
 
 const isMissingCounterColumn = (error: unknown, column: string) =>
@@ -74,9 +74,9 @@ const ALLOWED_PROJECT_COVER_MIME_TYPES = new Set([
 ]);
 
 
-function resolveProjectVisibilityForCreate(value: unknown): ProjectVisibility {
+function resolveProjectVisibilityForCreate(value: unknown): WorkspaceVisibility {
   if (value === undefined || value === null || value === "") return "public";
-  if (isProjectVisibility(value)) return value;
+  if (isWorkspaceVisibility(value)) return value;
   throw new Error("Invalid workspace visibility.");
 }
 
@@ -249,7 +249,7 @@ async function enqueueGithubImportOrRunInline(input: {
     process.env.GITHUB_IMPORT_INLINE_FALLBACK?.trim().toLowerCase() === "always"
   ) {
     try {
-      await runGithubProjectImport({
+      await runGithubWorkspaceImport({
         projectId: input.projectId,
         importSource: githubImportSource,
         userId: input.userId,
@@ -319,7 +319,7 @@ async function enqueueGithubImportOrRunInline(input: {
       });
 
       try {
-        await runGithubProjectImport({
+        await runGithubWorkspaceImport({
           projectId: input.projectId,
           importSource: githubImportSource,
           userId: input.userId,
@@ -364,7 +364,7 @@ async function enqueueGithubImportOrRunInline(input: {
 
 
 function normalizeImportSourceForPersist(
-  importSource: CreateProjectInput["import_source"] | undefined,
+  importSource: CreateWorkspaceInput["import_source"] | undefined,
   gitHubToken?: string | null,
 ):
   | { ok: true; value: ImportSourcePayload | null }
@@ -409,7 +409,7 @@ function normalizeImportSourceForPersist(
 
 function withLeadFocusMetadata(
   importSource: ImportSourcePayload | null,
-  creatorRole: CreateProjectInput["creator_role"],
+  creatorRole: CreateWorkspaceInput["creator_role"],
 ): ImportSourcePayload | null {
   const leadFocus = (creatorRole?.title || "").trim();
   const timeCommitment = typeof creatorRole?.time_commitment === "number" ? creatorRole.time_commitment : null;
@@ -531,8 +531,8 @@ async function ensureGithubImportAccess(
 
 
 // --- Create Action ---
-export async function createProjectAction(
-  rawInput: CreateProjectInput & { slug?: string; project_id?: string },
+export async function createWorkspaceAction(
+  rawInput: CreateWorkspaceInput & { slug?: string; project_id?: string },
 ): Promise<CreateProjectResult> {
   let acquiredLock = false;
   let lockKey = "";
@@ -581,7 +581,7 @@ export async function createProjectAction(
 
     // Runtime input validation via Zod schema
     // slug and project_id are already in the schema; zod 4 refuses .extend() over keys of a refined schema.
-    const parseResult = createProjectSchema.safeParse(rawInput);
+    const parseResult = createWorkspaceSchema.safeParse(rawInput);
 
     if (!parseResult.success) {
       if (acquiredLock && redis) await redis.del(lockKey).catch(() => undefined);
@@ -665,7 +665,7 @@ export async function createProjectAction(
       child = {
         orgTitle: org.title,
         directAdd: isOrgAdmin,
-        visibility: capChildVisibility(asked, rules.visibilityCap, isProjectPubliclyReadableVisibility(org.visibility)),
+        visibility: capChildVisibility(asked, rules.visibilityCap, isWorkspacePubliclyReadableVisibility(org.visibility)),
       };
       if (child.visibility !== asked) childNotices.push(`Visibility changed by ${org.title} rules: ${child.visibility === "private" ? "Private" : "Organization"}.`);
     }
@@ -722,7 +722,7 @@ export async function createProjectAction(
           null,
         githubRepoPrivate: accessCheck.isPrivate,
         syncPhase: "pending",
-        importEventId: buildProjectImportEventId({
+        importEventId: buildWorkspaceImportEventId({
           projectId: input.project_id || input.slug || input.title || "pending",
           source: "github",
           normalizedTarget: normalizedImportSource.repoUrl,
@@ -754,7 +754,7 @@ export async function createProjectAction(
         metadata: {
           ...currentMetadata,
           syncPhase: "pending",
-          importEventId: buildProjectImportEventId({
+          importEventId: buildWorkspaceImportEventId({
             projectId:
               input.project_id || input.slug || input.title || "pending",
             source: "upload",
@@ -776,22 +776,22 @@ export async function createProjectAction(
       input.creator_role,
     );
     const visibility = child ? child.visibility : resolveProjectVisibilityForCreate(input.visibility);
-    const externalLinksSplit = splitProjectSocialLinks(input.external_links);
+    const externalLinksSplit = splitWorkspaceSocialLinks(input.external_links);
     if ("error" in externalLinksSplit)
       return { success: false, error: externalLinksSplit.error };
     const openRoles = (input.roles || []).filter((role) => role.role.trim().length > 0);
     const lookingForCollaborators = openRoles.length > 0;
 
     let requestedSlug = orgHandle ?? (input.slug || "").trim().toLowerCase();
-    if (requestedSlug && (isReservedProjectSlug(requestedSlug) || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(requestedSlug))) {
+    if (requestedSlug && (isReservedWorkspaceSlug(requestedSlug) || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(requestedSlug))) {
       requestedSlug = "";
     }
     let finalSlug = requestedSlug || generateSlug(input.title);
-    if (isReservedProjectSlug(finalSlug)) {
+    if (isReservedWorkspaceSlug(finalSlug)) {
       finalSlug = `${generateSlugBase(input.title) || "project"}-${Math.random().toString(36).substring(2, 7)}`;
     }
     // Initial Key Generation
-    let finalKey = generateProjectKey(input.title);
+    let finalKey = generateWorkspaceKey(input.title);
 
     let attempts = 0;
     const maxAttempts = 5;
@@ -801,7 +801,7 @@ export async function createProjectAction(
         const lifecycleStages = validateAndSanitizeLifecycleStages(
           input.lifecycle_stages && input.lifecycle_stages.length > 0
             ? input.lifecycle_stages
-            : getLifecycleStagesForProjectType(input.project_type),
+            : getLifecycleStagesForWorkspaceType(input.project_type),
         );
         const requestedInitialStageIndex = Number(input.current_stage_index ?? 0);
         const completedInitialStageCount = Number.isInteger(requestedInitialStageIndex)
@@ -836,10 +836,10 @@ export async function createProjectAction(
           externalLinkMetadata: externalLinksSplit.metadata,
           visibility,
           // Create step 4 launch settings (all editable later in Project settings).
-          publicTabVisibility: normalizeProjectPublicTabVisibility(input.public_tab_visibility),
+          publicTabVisibility: normalizeWorkspacePublicTabVisibility(input.public_tab_visibility),
           memberUpdatesEnabled: input.member_updates_enabled !== false,
           memberFileUploadDefault: input.member_file_upload_default !== false,
-          notificationPreferences: buildCreateProjectNotificationPolicy(input.notification_rows),
+          notificationPreferences: buildCreateWorkspaceNotificationPolicy(input.notification_rows),
           status: mapStatus(input.status),
           lookingForCollaborators,
           openRolesCount: openRoles.length,
@@ -920,10 +920,10 @@ export async function createProjectAction(
             role: "owner",
             title: organization?.creator_title || null,
           });
-          await syncProjectChat(tx, newProject.id, null, "ensure_default");
+          await syncWorkspaceChat(tx, newProject.id, null, "ensure_default");
           // Org Files starter folders by type (report §23.3).
           if (organization) await createStarterFolders(tx, newProject.id, ownerId, organization.org_type);
-          await upsertProfileProjectContributionFromMembership(tx, {
+          await upsertProfileWorkspaceContributionFromMembership(tx, {
             profileId: ownerId,
             projectId: newProject.id,
             verifiedBy: user.id,
@@ -974,7 +974,7 @@ export async function createProjectAction(
             ];
             for (const placement of placements) {
               if (placement.userId === ownerId || outsiders.has(placement.userId)) continue;
-              await addProjectMemberInternal(tx, { projectId: newProject.id, userId: placement.userId, role: "member", actorId: user.id, source: "manual", roleId: placement.roleId });
+              await addWorkspaceMemberInternal(tx, { projectId: newProject.id, userId: placement.userId, role: "member", actorId: user.id, source: "manual", roleId: placement.roleId });
             }
           }
 
@@ -1016,7 +1016,7 @@ export async function createProjectAction(
           }
 
           const skillsArray = input.technologies_used || [];
-          const resolvedProjectSkills = await syncProjectSkills(
+          const resolvedProjectSkills = await syncWorkspaceSkills(
             tx,
             newProject.id,
             skillsArray,
@@ -1032,7 +1032,7 @@ export async function createProjectAction(
           return newProject;
         });
 
-        await invalidateProjectPublicCaches(result.id);
+        await invalidateWorkspacePublicCaches(result.id);
         await markProfileCollaborationSummaryStale(user.id);
         revalidatePath("/workspaces");
         revalidatePath("/my-profile");
@@ -1080,7 +1080,7 @@ export async function createProjectAction(
             const unitId = units.find((unit) => unit.role === role.role)?.id;
             for (const person of role.people ?? []) {
               if (!unitId || person.user_id === ownerId || (child.directAdd && !outsiders.has(person.user_id))) continue;
-              const invited = await createProjectInvitationAction({ projectId: result.id, candidateId: person.user_id, kind: "ordinary_role", roleId: unitId });
+              const invited = await createWorkspaceInvitationAction({ projectId: result.id, candidateId: person.user_id, kind: "ordinary_role", roleId: unitId });
               if (!invited.success) notices.push(`${person.label ?? "Someone"} was not invited: ${invited.error}`);
             }
           }
@@ -1205,7 +1205,7 @@ export async function createProjectAction(
           if (errorMsg.includes("key")) {
             attempts++;
             const suffix = Math.random().toString(36).substring(2, 5).toUpperCase();
-            finalKey = `${generateProjectKey(input.title)}${suffix}`;
+            finalKey = `${generateWorkspaceKey(input.title)}${suffix}`;
             continue;
           }
         }
@@ -1232,14 +1232,14 @@ export async function createProjectAction(
 
 
 // --- Update Action ---
-export async function updateProject(projectId: string, input: UpdateProjectInput) {
+export async function updateWorkspace(projectId: string, input: UpdateWorkspaceInput) {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
   if (!user) throw new Error("Sign in to continue");
-  const parsed = updateProjectSchema.safeParse(input);
+  const parsed = updateWorkspaceSchema.safeParse(input);
   if (!parsed.success) throw new Error(parsed.error.issues[0]?.message ?? "Invalid workspace update");
   const data = parsed.data;
 
@@ -1282,7 +1282,7 @@ export async function updateProject(projectId: string, input: UpdateProjectInput
       const tagsArray = raw.tags ?? [];
       if (raw.tags !== undefined) updateValues.tags = tagsArray; // Keep JSONB arrays in sync for backward compat
       if (raw.externalLinks !== undefined) {
-        const externalLinksSplit = splitProjectSocialLinks(
+        const externalLinksSplit = splitWorkspaceSocialLinks(
           raw.externalLinks,
           project.externalLinkMetadata ?? {},
         );
@@ -1296,7 +1296,7 @@ export async function updateProject(projectId: string, input: UpdateProjectInput
 
       // COR-014: resolve skills once, then write the canonical names to the scalar and the junctions together.
       if (raw.skills !== undefined) {
-        const resolvedProjectSkills = await syncProjectSkills(tx, projectId, raw.skills, user.id);
+        const resolvedProjectSkills = await syncWorkspaceSkills(tx, projectId, raw.skills, user.id);
         updateValues.skills = resolvedProjectSkills.map((skill) => skill.name);
       }
 
@@ -1304,7 +1304,7 @@ export async function updateProject(projectId: string, input: UpdateProjectInput
         .update(projects)
         .set(updateValues)
         .where(eq(projects.id, projectId));
-      await markProjectCollaboratorsSummaryStale(projectId, tx);
+      await markWorkspaceCollaboratorsSummaryStale(projectId, tx);
       const stopsTakingApplications = (status: string | null | undefined) => status === "archived" || status === "completed";
       if (raw.status !== undefined && stopsTakingApplications(raw.status) && !stopsTakingApplications(project.status)) {
         closedApplications.push({
@@ -1539,7 +1539,7 @@ export async function updateProject(projectId: string, input: UpdateProjectInput
       }) => {
         revalidatePath(`/workspaces/${slug}`);
         revalidatePath(`/workspaces/${id}`);
-        await invalidateProjectPublicCaches(id);
+        await invalidateWorkspacePublicCaches(id);
         for (const closed of closedApplications) {
           await notifyClosedApplications(closed.items, { reason: closed.reason, projectId: id, projectSlug: slug, projectTitle: title, actorUserId: user.id, traceId: `project_update_${id.slice(0, 8)}` });
         }
@@ -1553,7 +1553,7 @@ export async function updateProject(projectId: string, input: UpdateProjectInput
               : deletedCount > 0
                 ? "roles.closed"
                 : "roles.updated";
-          await enqueueProjectNotificationBestEffort(
+          await enqueueWorkspaceNotificationBestEffort(
             {
               projectId: id,
               actorUserId: user.id,
@@ -1590,7 +1590,7 @@ export async function updateProject(projectId: string, input: UpdateProjectInput
 }
 
 
-export async function createProjectCoverImageUploadUrlAction(input: {
+export async function createWorkspaceCoverImageUploadUrlAction(input: {
   projectId: string;
   mimeType: string;
   sizeBytes: number;
@@ -1639,7 +1639,7 @@ export async function createProjectCoverImageUploadUrlAction(input: {
     }
     const expectedSize = normalizeAndValidateFileSize(
       input.sizeBytes,
-      PROJECT_COVER_UPLOAD_MAX_FILE_BYTES,
+      WORKSPACE_COVER_UPLOAD_MAX_FILE_BYTES,
       "Workspace image",
     );
     const extension = projectCoverExtensionFromMimeType(normalizedMimeType);
@@ -1647,7 +1647,7 @@ export async function createProjectCoverImageUploadUrlAction(input: {
     const intent = await createUploadIntent({
       userId: user.id,
       projectId: input.projectId,
-      bucket: PROJECT_COVER_UPLOAD_BUCKET,
+      bucket: WORKSPACE_COVER_UPLOAD_BUCKET,
       storageKey: storagePath,
       scope: "project_cover",
       kind: "cover",
@@ -1661,7 +1661,7 @@ export async function createProjectCoverImageUploadUrlAction(input: {
 
     const admin = await createAdminClient();
     const { data, error } = await admin.storage
-      .from(PROJECT_COVER_UPLOAD_BUCKET)
+      .from(WORKSPACE_COVER_UPLOAD_BUCKET)
       .createSignedUploadUrl(storagePath, { upsert: false });
     if (error || !data?.signedUrl || !data?.token) {
       logger.error("project.cover_upload_url_failed", {
@@ -1683,7 +1683,7 @@ export async function createProjectCoverImageUploadUrlAction(input: {
       operationId: intent.id,
       storagePath,
       contentType: normalizedMimeType,
-      bucket: PROJECT_COVER_UPLOAD_BUCKET,
+      bucket: WORKSPACE_COVER_UPLOAD_BUCKET,
       uploadToken: data.token,
     };
   } catch (error) {
@@ -1697,7 +1697,7 @@ export async function createProjectCoverImageUploadUrlAction(input: {
 }
 
 
-export async function finalizeProjectCoverImageUploadAction(input: {
+export async function finalizeWorkspaceCoverImageUploadAction(input: {
   projectId: string;
   uploadIntentId: string;
 }): Promise<
@@ -1725,7 +1725,7 @@ export async function finalizeProjectCoverImageUploadAction(input: {
     );
     const intent = await finalizeUploadIntent({
       intentId: input.uploadIntentId,
-      bucket: PROJECT_COVER_UPLOAD_BUCKET,
+      bucket: WORKSPACE_COVER_UPLOAD_BUCKET,
       userId: user.id,
       projectId: input.projectId,
       expectedScope: "project_cover",
@@ -1733,7 +1733,7 @@ export async function finalizeProjectCoverImageUploadAction(input: {
     });
     if (!intent.assetId) throw new Error("Verified workspace image is missing lifecycle identity");
     const assetId = intent.assetId;
-    const imageUrl = buildProjectImageRoute(input.projectId, intent.storageKey);
+    const imageUrl = buildWorkspaceImageRoute(input.projectId, intent.storageKey);
 
     const updated = await db.transaction(async (tx) => {
       const [publishableAsset] = await tx.update(storageAssets)
@@ -1749,7 +1749,7 @@ export async function finalizeProjectCoverImageUploadAction(input: {
         .update(projects)
         .set({
           coverImage: imageUrl,
-          coverImageBucket: PROJECT_COVER_UPLOAD_BUCKET,
+          coverImageBucket: WORKSPACE_COVER_UPLOAD_BUCKET,
           coverImageKey: intent.storageKey,
           coverImageAssetId: assetId,
           updatedAt: new Date(),
@@ -1770,8 +1770,8 @@ export async function finalizeProjectCoverImageUploadAction(input: {
       return { success: false, error: "Couldn’t publish workspace image." };
     }
 
-    await revalidateProjectPaths(input.projectId);
-    await invalidateProjectPublicCaches(input.projectId);
+    await revalidateWorkspacePaths(input.projectId);
+    await invalidateWorkspacePublicCaches(input.projectId);
 
     return {
       success: true,
@@ -1795,7 +1795,7 @@ export async function finalizeProjectCoverImageUploadAction(input: {
 }
 
 
-export async function clearProjectCoverImageAction(
+export async function clearWorkspaceCoverImageAction(
   projectId: string,
 ): Promise<
   | { success: true; removedPreviousImages: number }
@@ -1837,8 +1837,8 @@ export async function clearProjectCoverImageAction(
       return { success: false, error: "Couldn’t clear workspace image." };
     }
 
-    await revalidateProjectPaths(projectId);
-    await invalidateProjectPublicCaches(projectId);
+    await revalidateWorkspacePaths(projectId);
+    await invalidateWorkspacePublicCaches(projectId);
 
     return { success: true, removedPreviousImages: 0 };
   } catch (error) {
@@ -1853,7 +1853,7 @@ export async function clearProjectCoverImageAction(
 
 
 /** Lead and Co-leaders manage project-owned accounts; personal profile links are never inherited. */
-export async function updateProjectExternalLinksAction(
+export async function updateWorkspaceExternalLinksAction(
   projectId: string,
   input: unknown,
   expectedLinks?: unknown,
@@ -1866,7 +1866,7 @@ export async function updateProjectExternalLinksAction(
     if (!user)
       return { success: false as const, error: "You must be signed in." };
 
-    const initialSplit = splitProjectSocialLinks(input);
+    const initialSplit = splitWorkspaceSocialLinks(input);
     if ("error" in initialSplit)
       return { success: false as const, error: initialSplit.error };
     const [project] = await db
@@ -1897,17 +1897,17 @@ export async function updateProjectExternalLinksAction(
       };
     }
 
-    const savedSplit = splitProjectSocialLinks(input, project.externalLinkMetadata ?? {});
+    const savedSplit = splitWorkspaceSocialLinks(input, project.externalLinkMetadata ?? {});
     if ("error" in savedSplit)
       return { success: false as const, error: savedSplit.error };
     const links = savedSplit.links;
 
     if (expectedLinks !== undefined) {
-      const expected = validateProjectSocialLinks(expectedLinks);
+      const expected = validateWorkspaceSocialLinks(expectedLinks);
       if (!expected.success)
         return { success: false as const, error: expected.error };
-      const current = normalizeProjectSocialLinks(project.externalLinks);
-      if (!areProjectSocialLinksEqual(current, expected.links)) {
+      const current = normalizeWorkspaceSocialLinks(project.externalLinks);
+      if (!areWorkspaceSocialLinksEqual(current, expected.links)) {
         return {
           success: false as const,
           conflict: true as const,
@@ -1918,7 +1918,7 @@ export async function updateProjectExternalLinksAction(
     }
 
     await db.transaction(async (tx) => {
-      const currentLinks = normalizeProjectSocialLinks(project.externalLinks);
+      const currentLinks = normalizeWorkspaceSocialLinks(project.externalLinks);
       const currentIds = new Set(currentLinks.map((link) => link.id));
       const nextIds = new Set(links.map((link) => link.id));
       const added = links.filter((link) => !currentIds.has(link.id));
@@ -1949,7 +1949,7 @@ export async function updateProjectExternalLinksAction(
         },
       });
     });
-    await revalidateProjectPaths(projectId);
+    await revalidateWorkspacePaths(projectId);
     logger.metric("project.social_links.update", {
       projectId,
       userId: user.id,
@@ -1970,9 +1970,9 @@ export async function updateProjectExternalLinksAction(
 }
 
 
-export async function archiveProjectAction(
+export async function archiveWorkspaceAction(
   projectId: string,
-): Promise<ProjectSettingsMutationResult> {
+): Promise<WorkspaceSettingsMutationResult> {
   try {
     const supabase = await createClient();
     const {
@@ -1986,7 +1986,7 @@ export async function archiveProjectAction(
       };
     }
 
-    const owned = await loadOwnedProjectForSettings(projectId, user.id);
+    const owned = await loadOwnedWorkspaceForSettings(projectId, user.id);
     if (!owned.ok)
       return {
         success: false,
@@ -2035,10 +2035,10 @@ export async function archiveProjectAction(
         });
       }
     });
-    await revalidateProjectPaths(projectId);
+    await revalidateWorkspacePaths(projectId);
     await notifyClosedApplications(closedByArchive, { reason: "project_closed", projectId, projectSlug: owned.project.slug, projectTitle: owned.project.title, actorUserId: user.id, traceId: `project_archive_${projectId.slice(0, 8)}` });
     const actor = actorNotificationSnapshot(user);
-    await enqueueProjectNotificationBestEffort(
+    await enqueueWorkspaceNotificationBestEffort(
       {
         projectId,
         actorUserId: user.id,
@@ -2078,7 +2078,7 @@ export async function archiveProjectAction(
 }
 
 
-export async function countUnregisteredProjectStorage(projectId: string, executor: Pick<typeof db, "execute"> = db) {
+export async function countUnregisteredWorkspaceStorage(projectId: string, executor: Pick<typeof db, "execute"> = db) {
   const rows = await executor.execute<{ legacy_count: number }>(sql`
     SELECT (
       (SELECT count(*) FROM public.projects project
@@ -2129,7 +2129,7 @@ export async function countUnregisteredProjectStorage(projectId: string, executo
 }
 
 
-export async function scheduleProjectStorageDeletion(
+export async function scheduleWorkspaceStorageDeletion(
   tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
   projectId: string,
 ) {
@@ -2151,11 +2151,11 @@ export async function scheduleProjectStorageDeletion(
 
 
 // --- Delete Action ---
-export async function deleteProject(
+export async function deleteWorkspace(
   projectId: string,
 ): Promise<
   | { success: true; message: string; data: { redirectTo: string } }
-  | { success: false; message: string; errorCode: ProjectSettingsErrorCode }
+  | { success: false; message: string; errorCode: WorkspaceSettingsErrorCode }
 > {
   try {
     const supabase = await createClient();
@@ -2196,7 +2196,7 @@ export async function deleteProject(
       };
     }
 
-    const unregisteredStorage = await countUnregisteredProjectStorage(projectId);
+    const unregisteredStorage = await countUnregisteredWorkspaceStorage(projectId);
     if (unregisteredStorage > 0) {
       return {
         success: false,
@@ -2216,13 +2216,13 @@ export async function deleteProject(
         .where(eq(projects.id, projectId))
         .for("update");
       if (!locked || locked.ownerId !== user.id) return "FORBIDDEN" as const;
-      if (await countUnregisteredProjectStorage(projectId, tx) > 0) return "STORAGE_MIGRATION_PENDING" as const;
+      if (await countUnregisteredWorkspaceStorage(projectId, tx) > 0) return "STORAGE_MIGRATION_PENDING" as const;
       // The applications go with the project: their applicants are told once the delete has committed.
       waitingApplicants = await tx
         .select({ id: roleApplications.id, applicantId: roleApplications.applicantId, roleId: roleApplications.roleId })
         .from(roleApplications)
         .where(and(eq(roleApplications.projectId, projectId), eq(roleApplications.status, "pending")));
-      await scheduleProjectStorageDeletion(tx, projectId);
+      await scheduleWorkspaceStorageDeletion(tx, projectId);
       // Hard-delete the project (cascades to nodes, tasks, sprints, members,
       // and its chat channels; cards elsewhere then show a restricted placeholder).
       const deletedProjects = await tx
@@ -2286,7 +2286,7 @@ export async function deleteProject(
  * Deep deletion of a project draft.
  * Wipes DB records and S3 assets completely.
  */
-export async function deleteProjectDraftAction(
+export async function deleteWorkspaceDraftAction(
   projectId: string,
 ): Promise<{ success: boolean; error?: string }> {
   try {
@@ -2307,7 +2307,7 @@ export async function deleteProjectDraftAction(
     if (!project) return { success: true }; // Already gone
     if (project.ownerId !== user.id) throw new Error("Sign in to continue");
 
-    const unregisteredStorage = await countUnregisteredProjectStorage(projectId);
+    const unregisteredStorage = await countUnregisteredWorkspaceStorage(projectId);
     if (unregisteredStorage > 0) {
       return {
         success: false,
@@ -2326,8 +2326,8 @@ export async function deleteProjectDraftAction(
       if (!locked) return null;
       if (locked.ownerId !== user.id) return "Sign in to continue";
       if (locked.status !== "draft") return "Only draft workspaces can be discarded. Use workspace deletion instead.";
-      if (await countUnregisteredProjectStorage(projectId, tx) > 0) return "Draft deletion is waiting for storage references to be registered.";
-      await scheduleProjectStorageDeletion(tx, projectId);
+      if (await countUnregisteredWorkspaceStorage(projectId, tx) > 0) return "Draft deletion is waiting for storage references to be registered.";
+      await scheduleWorkspaceStorageDeletion(tx, projectId);
       // Delete project (cascades to members, roles, etc.)
       const deleted = await tx
         .delete(projects)
@@ -2354,7 +2354,7 @@ export async function deleteProjectDraftAction(
 
 // --- Interaction Actions ---
 
-export async function toggleProjectFollowAction(
+export async function toggleWorkspaceFollowAction(
   projectId: string,
   shouldFollow: boolean,
 ) {
@@ -2375,7 +2375,7 @@ export async function toggleProjectFollowAction(
         error: "Too many follow actions. Wait and try again.",
       };
     }
-    const access = await getProjectAccessById(projectId, user.id);
+    const access = await getWorkspaceAccessById(projectId, user.id);
     if (!access.project || !access.canRead) {
       return { success: false, error: "Workspace not found or private." };
     }
@@ -2447,7 +2447,7 @@ export async function toggleProjectFollowAction(
 }
 
 
-export async function incrementProjectViewAction(
+export async function incrementWorkspaceViewAction(
   projectId: string,
 ): Promise<{ success: boolean; viewCount?: number; error?: string }> {
   try {
@@ -2455,7 +2455,7 @@ export async function incrementProjectViewAction(
     const {
       data: { user },
     } = await supabase.auth.getUser();
-    const access = await getProjectAccessById(projectId, user?.id ?? null);
+    const access = await getWorkspaceAccessById(projectId, user?.id ?? null);
     if (!access.project || !access.canRead) {
       return { success: false, error: "Workspace not found" };
     }
@@ -2552,7 +2552,7 @@ type UpdateProjectStageResult =
     };
 
 
-export async function updateProjectStageAction(
+export async function updateWorkspaceStageAction(
   projectId: string,
   currentStageIndex: number,
   options?: UpdateProjectStageOptions,
@@ -2725,7 +2725,7 @@ export async function updateProjectStageAction(
         | undefined,
     };
   } catch (error) {
-    console.error("[updateProjectStageAction] Failed:", error);
+    console.error("[updateWorkspaceStageAction] Failed:", error);
     return {
       success: false,
       error:
@@ -2743,7 +2743,7 @@ export async function updateProjectStageAction(
  * Handles stage renames, reorders, additions, and deletions.
  * Uses "Smart Rebalance" logic to keep currentStageIndex pointing at the correct stage.
  */
-export async function updateProjectLifecycleAction(
+export async function updateWorkspaceLifecycleAction(
   projectId: string,
   newStages: string[],
   currentActiveStageName: string,
@@ -2853,7 +2853,7 @@ export async function updateProjectLifecycleAction(
  * readable non-draft projects, and never projects the viewer already belongs
  * to (COR-044).
  */
-export async function getProfileProjectsWithOpenRolesAction(
+export async function getProfileWorkspacesWithOpenRolesAction(
   targetProfileId: string,
   input: { search?: string; cursor?: string; limit?: number } = {},
 ) {
@@ -2877,7 +2877,7 @@ export async function getProfileProjectsWithOpenRolesAction(
     const selectionFilters = [
       gt(projects.openRolesCount, 0),
       isNull(projects.deletedAt),
-      // Same rule as computeProjectReadAccess for a non-member viewer.
+      // Same rule as computeWorkspaceReadAccess for a non-member viewer.
       inArray(projects.visibility, ["public", "unlisted"]),
       sql`${projects.status} IS NOT NULL AND ${projects.status} <> 'draft'`,
       // A closed project takes no applications.

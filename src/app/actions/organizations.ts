@@ -14,18 +14,18 @@ import { and, eq, isNull, sql } from 'drizzle-orm';
 
 import { db } from '@/lib/db';
 import { orgHandleHolds, profiles, projectMembers, projects, roleApplications, applicationEvents } from '@/lib/db/schema';
-import { getProjectAccessById } from '@/lib/data/workspace-access';
-import { removeProjectMemberInternal } from '@/lib/workspaces/collaborator-lifecycle';
+import { getWorkspaceAccessById } from '@/lib/data/workspace-access';
+import { removeWorkspaceMemberInternal } from '@/lib/workspaces/collaborator-lifecycle';
 import { orgGrant, type OrgRole } from '@/lib/organizations/permissions';
 import { ORG_SECTION_OWNER_ONLY, ORG_SETTINGS_PATCH, type OrgSettingsSection } from '@/lib/organizations/settings';
 import { generateJoinCode } from '@/lib/organizations/join-rules';
 import { allowedChildVisibilities, type ChildVisibility } from '@/lib/organizations/child-rules';
 import { applyChildVisibilityCap, countChildrenAboveCap, countOutsidePeople, detachFromOrg, moveIntoOrg, readOrgCap } from '@/lib/organizations/children';
 import { listCreateLocations, readViewerOrgRole } from '@/lib/organizations/detail';
-import { acceptOrgInvite, ledChildProjects, notifySeatsReopened, openInvitesFor, removeFromOrg } from '@/lib/organizations/members';
+import { acceptOrgInvite, ledChildWorkspaces, notifySeatsReopened, openInvitesFor, removeFromOrg } from '@/lib/organizations/members';
 import { countOrgMembers, findOrgByJoinCode, isOrgHandleAvailable, joinOrgByCode, joinPublicOrg, viewerOrgStatus } from '@/lib/organizations/join';
 import { normalizeJoinCode, ORG_JOIN_MESSAGES, type OrgJoinMode, type OrgJoinOutcome } from '@/lib/organizations/join-rules';
-import { isProjectPubliclyReadableVisibility } from '@/lib/workspaces/workspace-visibility';
+import { isWorkspacePubliclyReadableVisibility } from '@/lib/workspaces/workspace-visibility';
 import { namesOf, notifyJoined, notifyOrg, orgHref, orgLabel } from '@/lib/organizations/notify';
 
 type Failure = { success: false; error: string };
@@ -68,7 +68,7 @@ export async function getJoinPreviewAction(rawCode: string): Promise<{ success: 
     if (!(await allowLookup(userId))) return TOO_MANY;
     const org = code ? await findOrgByJoinCode(code) : null;
     if (!org) return NO_MATCH;
-    const isPublic = isProjectPubliclyReadableVisibility(org.visibility);
+    const isPublic = isWorkspacePubliclyReadableVisibility(org.visibility);
     return {
         success: true,
         preview: {
@@ -135,7 +135,7 @@ type OrgViewer = { userId: string; role: OrgRole; slug: string | null };
 async function orgViewer(orgId: string, mode: 'read' | 'write' = 'write'): Promise<OrgViewer | null> {
     const userId = await viewerId();
     if (!userId) return null;
-    const access = await getProjectAccessById(orgId, userId);
+    const access = await getWorkspaceAccessById(orgId, userId);
     if (mode === 'write' && access.writeBlocked) return null;
     if (access.project?.kind !== 'organization') return null;
     const role: OrgRole = access.isOwner ? 'owner' : access.memberRole === 'admin' ? 'admin' : access.memberRole === 'member' ? 'member' : access.memberRole === 'viewer' ? 'guest' : 'visitor';
@@ -342,7 +342,7 @@ export async function leaveOrgAction(orgId: string): Promise<{ success: true } |
     const viewer = await orgViewer(orgId, 'read');
     if (!viewer || viewer.role === 'visitor') return DENIED;
     if (orgGrant(viewer.role, 'leave') !== 'yes') return { success: false, error: 'Transfer ownership before you leave.' };
-    const led = await ledChildProjects(db, orgId, viewer.userId);
+    const led = await ledChildWorkspaces(db, orgId, viewer.userId);
     if (led.length > 0) return { success: false, error: `You lead ${led.length} ${led.length === 1 ? 'project' : 'projects'} here. Transfer or detach ${led.length === 1 ? 'it' : 'them'} first.` };
     // Leaving the org removes you from its projects too (report §14.4, §20.7).
     const seats = await db.transaction((tx) => removeFromOrg(tx, orgId, viewer.userId, viewer.userId));
@@ -433,7 +433,7 @@ export async function setChildVisibilityAction(projectId: string, next: ChildVis
  * Moves the lead's personal project into an org they belong to. Org owners and admins move it at once;
  * members send a request an admin approves. Outside people block the move while the org keeps them out.
  */
-export async function moveProjectToOrgAction(projectId: string, orgId: string): Promise<{ success: true; outcome: 'moved' | 'requested' } | Failure> {
+export async function moveWorkspaceToOrgAction(projectId: string, orgId: string): Promise<{ success: true; outcome: 'moved' | 'requested' } | Failure> {
     const viewer = await childViewer(projectId);
     if (!viewer || !viewer.isLead || viewer.project.parentId) return DENIED;
     const role = await readViewerOrgRole(orgId, viewer.userId);

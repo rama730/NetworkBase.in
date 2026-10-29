@@ -312,7 +312,7 @@ export function buildSprintHealthSummary(input: {
   };
 }
 
-export function buildProjectSprintDetailHref(projectSlug: string, sprintId: string, input?: {
+export function buildWorkspaceSprintDetailHref(projectSlug: string, sprintId: string, input?: {
   sprintCode?: string;
 }) {
   const encodedSlug = encodeURIComponent(projectSlug);

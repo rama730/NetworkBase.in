@@ -3,7 +3,7 @@ import { db } from '@/lib/db';
 import { importJobs, importJobFiles } from '@/lib/db/schema';
 import { and, eq, ne, gt, or, asc } from 'drizzle-orm';
 import { jsonError, jsonSuccess } from '@/app/api/v1/_envelope';
-import { assertProjectReadAccess } from '@/lib/files/internal-helpers';
+import { assertWorkspaceReadAccess } from '@/lib/files/internal-helpers';
 import { requireAuthenticatedUser } from '@/app/api/v1/_shared';
 import { z } from 'zod';
 import { logger } from '@/lib/logger';
@@ -69,7 +69,7 @@ export async function GET(request: NextRequest) {
             return jsonError('Import job not found', 404, 'NOT_FOUND');
         }
 
-        await assertProjectReadAccess(job.projectId, user.id);
+        await assertWorkspaceReadAccess(job.projectId, user.id);
 
         const etag = !cursor
             ? `W/"${job.id}-${job.status}-${job.processedFiles}-${job.totalFiles}-${job.updatedAt ? new Date(job.updatedAt).getTime() : 0}"`

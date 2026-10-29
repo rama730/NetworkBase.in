@@ -26,7 +26,7 @@ interface ProjectContributionsCardProps {
   projects?: Array<{ id?: string; title?: string; url?: string }>;
   onProjectIntent?: (href: string) => void;
 }
-export function ProjectContributionsCard({
+export function WorkspaceContributionsCard({
   contributions,
   isOwner,
   profileId,

@@ -5,7 +5,7 @@ import { normalizeSafeExternalUrl } from '@/lib/messaging/safe-links';
 export type ShareKind = 'profile' | 'project' | 'application';
 export type ShareResource = { kind: ShareKind; identifier: string; url: string };
 export type ShareTeamPerson = { id: string; name: string; username: string | null; avatarUrl: string | null; avatarRevision?: string; role: string };
-export type ProjectShareDetails = {
+export type WorkspaceShareDetails = {
   team: ShareTeamPerson[] | null; teamOverflow: number | null;
   roles: { id: string; title: string }[] | null; roleOverflow: number | null;
   views: number | null; followers: number | null;
@@ -29,7 +29,7 @@ export type SharePreview = {
   entityKey?: string;
   visibility?: 'public' | 'connections' | 'private' | 'unlisted';
   byline?: string | null;
-  project?: ProjectShareDetails;
+  project?: WorkspaceShareDetails;
   draft?: boolean;
   identity?: { name: string; username: string | null; avatarUrl: string | null; avatarRevision?: string; headline: string | null };
   portfolio: string | null;

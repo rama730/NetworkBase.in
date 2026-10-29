@@ -135,8 +135,8 @@ test("creating an organization keeps the exact handle, makes a join code and app
     description: "Compiler design class for the 2026 autumn term.",
     project_type: "education",
     organization: { org_type: "education" as const, handle: handle.toUpperCase(), term_start: "2026-08-01", term_end: "2026-12-15", creator_title: "Teacher", join_mode: "approval" as const },
-  } as unknown as Parameters<typeof lifecycle.createProjectAction>[0];
-  const result = await lifecycle.createProjectAction(input);
+  } as unknown as Parameters<typeof lifecycle.createWorkspaceAction>[0];
+  const result = await lifecycle.createWorkspaceAction(input);
   assert.equal(result.success, true, JSON.stringify(result));
   created.push(result.project!.id);
   assert.equal(result.project!.slug, handle);
@@ -147,18 +147,18 @@ test("creating an organization keeps the exact handle, makes a join code and app
   const [owner] = await sql`SELECT role, title FROM project_members WHERE project_id = ${result.project!.id} AND user_id = ${viewerId}`;
   assert.deepEqual({ ...owner }, { role: "owner", title: "Teacher" });
 
-  const taken = await lifecycle.createProjectAction(input);
+  const taken = await lifecycle.createWorkspaceAction(input);
   assert.equal(taken.success, false);
   assert.equal(taken.error, `@${handle} is taken.`);
 });
 
 test("plain project creation parses its input (zod 4 refused the old .extend over a refined schema)", async () => {
   viewerId = await sql.begin((tx) => createUser(tx));
-  const result = await lifecycle.createProjectAction({
+  const result = await lifecycle.createWorkspaceAction({
     title: "Parser playground",
     description: "A small project to check that creation parses its input.",
     project_type: "web",
-  } as unknown as Parameters<typeof lifecycle.createProjectAction>[0]);
+  } as unknown as Parameters<typeof lifecycle.createWorkspaceAction>[0]);
   assert.equal(result.success, true, JSON.stringify(result));
   created.push(result.project!.id);
   assert.equal(result.project!.joinCode, null);

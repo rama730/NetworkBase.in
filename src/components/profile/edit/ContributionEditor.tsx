@@ -72,8 +72,8 @@ import {
   searchContributionReferencesAction,
   createContributionImageUploadAction,
   finalizeContributionImageAction,
-  importContributionProjectImageAction,
-  listContributionLinkProjectsAction,
+  importContributionWorkspaceImageAction,
+  listContributionLinkWorkspacesAction,
   type StoryCommand,
 } from "@/app/actions/contribution-stories";
 import { loadProfileContributionWindow } from "@/lib/profile/browser-profile";
@@ -452,7 +452,7 @@ export function ContributionEditor({
     if (!linkOpen) return;
     let cancelled = false;
     const timer = setTimeout(() => {
-      void listContributionLinkProjectsAction(linkQuery)
+      void listContributionLinkWorkspacesAction(linkQuery)
         .then((options) => {
           if (!cancelled) setLinkOptions(options);
         })
@@ -2337,7 +2337,7 @@ export function ContributionEditor({
                       if (picker?.images && active) {
                         try {
                           const result =
-                            await importContributionProjectImageAction(
+                            await importContributionWorkspaceImageAction(
                               active.id,
                               option.id,
                             );

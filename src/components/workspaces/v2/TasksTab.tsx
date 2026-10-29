@@ -4,7 +4,7 @@ import { toast, feedbackError } from "@/lib/feedback";
 import { filesReturnQuery } from "@/lib/files/task-navigation";
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { readProjectUnitsAction } from "@/app/actions/child-units";
+import { readWorkspaceUnitsAction } from "@/app/actions/child-units";
 import { TeamTaskDialog } from "@/components/organizations/TeamTaskDialog";
 import { Plus, Check, Search, X, MoreHorizontal, Laptop } from "lucide-react";
 import {
@@ -20,9 +20,9 @@ import { useTaskCompletionPolicy } from "@/hooks/useTaskCompletionPolicy";
 import { useRealtimeTasks } from "@/hooks/useRealtimeTasks";
 import {
   createTaskAction,
-  getProjectTaskDetailAction,
+  getWorkspaceTaskDetailAction,
 } from "@/app/actions/workspace";
-import { createProjectWorkflowColumnAction, deleteProjectWorkflowColumnAction, getProjectWorkflowColumnsAction, updateProjectWorkflowColumnsAction } from "@/app/actions/workspace/workflow";
+import { createWorkspaceWorkflowColumnAction, deleteWorkspaceWorkflowColumnAction, getWorkspaceWorkflowColumnsAction, updateWorkspaceWorkflowColumnsAction } from "@/app/actions/workspace/workflow";
 import { createClient } from "@/lib/supabase/client";
 import { subscribeActiveResource } from "@/lib/realtime/subscriptions";
 import {
@@ -38,9 +38,9 @@ import type { ProjectWorkflowColumn as WorkflowColumn } from "@/lib/db/schema";
 import KanbanBoard from "@/components/workspaces/v2/tasks/KanbanBoard";
 import TaskFilters from "@/components/workspaces/v2/tasks/TaskFilters";
 import {
-  useProjectInfiniteTasks,
-  useProjectSprints,
-  type ProjectTaskScope,
+  useWorkspaceInfiniteTasks,
+  useWorkspaceSprints,
+  type WorkspaceTaskScope,
 } from "@/hooks/workspaces/useWorkspaceTasksData";
 import {
   normalizeAssignableMembers,
@@ -49,7 +49,7 @@ import {
   type TaskSurfaceRecord,
 } from "@/lib/workspaces/task-presentation";
 import { buildTaskSubmitPayload } from "@/lib/workspaces/task-draft";
-import { patchProjectTaskCaches } from "@/lib/workspaces/task-cache";
+import { patchWorkspaceTaskCaches } from "@/lib/workspaces/task-cache";
 import {
   getColumnColors,
   WORKFLOW_COLORS,
@@ -241,7 +241,7 @@ export default function TasksTab({
       }
     }
   }, [initialOpenTaskId]);
-  const queryScope: ProjectTaskScope = scope;
+  const queryScope: WorkspaceTaskScope = scope;
 
   // Hook Integration: Smart Fetching (Infinite Loading)
   const {
@@ -253,7 +253,7 @@ export default function TasksTab({
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
-  } = useProjectInfiniteTasks(
+  } = useWorkspaceInfiniteTasks(
     projectId,
     initialTasks,
     queryScope,
@@ -274,7 +274,7 @@ export default function TasksTab({
       Boolean(editingTask) ||
       (scope !== "backlog" && hasSprintReferences && sprints.length === 0);
   const { data: projectSprintsData, isFetched: hasFetchedProjectSprints } =
-    useProjectSprints(projectId, sprints, shouldFetchProjectSprints);
+    useWorkspaceSprints(projectId, sprints, shouldFetchProjectSprints);
   const sprintOptions = useMemo(() => {
     const sprintSource = hasFetchedProjectSprints
       ? (projectSprintsData ?? [])
@@ -296,7 +296,7 @@ export default function TasksTab({
   const workflowQuery = useQuery({
     queryKey: workflowQueryKey,
     queryFn: async () => {
-      const result = await getProjectWorkflowColumnsAction(projectId);
+      const result = await getWorkspaceWorkflowColumnsAction(projectId);
       if (!result.success || !result.columns) {
         throw new Error(result.error || "Couldn’t load workflow");
       }
@@ -313,7 +313,7 @@ export default function TasksTab({
         ...column,
         position,
       }));
-      const result = await updateProjectWorkflowColumnsAction(
+      const result = await updateWorkspaceWorkflowColumnsAction(
         projectId,
         positioned,
       );
@@ -524,7 +524,7 @@ export default function TasksTab({
     if (!columnPendingDeletion || isDeletingColumn) return;
     setIsDeletingColumn(true);
     try {
-      const result = await deleteProjectWorkflowColumnAction(
+      const result = await deleteWorkspaceWorkflowColumnAction(
         projectId,
         columnPendingDeletion.id,
       );
@@ -572,7 +572,7 @@ export default function TasksTab({
     setIsAddingSection(true);
     setAddSectionError(null);
     try {
-      const result = await createProjectWorkflowColumnAction({
+      const result = await createWorkspaceWorkflowColumnAction({
         projectId,
         title,
         status: sectionStatus,
@@ -600,7 +600,7 @@ export default function TasksTab({
   // would drop a "KEY-12" match whose title does not contain the text. The Unit filter (child
   // projects, report §14.4) narrows to work assigned to a unit's people.
   // ponytail: filters the loaded pages only, like the count beside the title; a server filter if units grow large.
-  const { data: units = [] } = useQuery({ queryKey: ["project-units", projectId], queryFn: () => readProjectUnitsAction(projectId), staleTime: 60_000 });
+  const { data: units = [] } = useQuery({ queryKey: ["project-units", projectId], queryFn: () => readWorkspaceUnitsAction(projectId), staleTime: 60_000 });
   const [unitFilter, setUnitFilter] = useState("");
   const [teamTaskOpen, setTeamTaskOpen] = useState(false);
   const unitMembers = units.find((unit) => unit.id === unitFilter)?.memberIds;
@@ -657,7 +657,7 @@ export default function TasksTab({
       toast.error(feedbackError(message, "Action couldn’t finish"));
     };
 
-    void getProjectTaskDetailAction(projectId, initialOpenTaskId)
+    void getWorkspaceTaskDetailAction(projectId, initialOpenTaskId)
       .then((result) => {
         if (cancelled || isTaskPanelClosingRef.current) return;
         if (!result.success || !result.task) {
@@ -667,7 +667,7 @@ export default function TasksTab({
         const normalizedTask = withSprintContext(
           normalizeTaskSurfaceRecord(result.task),
         );
-        patchProjectTaskCaches(queryClient, projectId, normalizedTask, {
+        patchWorkspaceTaskCaches(queryClient, projectId, normalizedTask, {
           reconcile: false,
         });
         setInitialTaskLoadError(null);
@@ -713,7 +713,7 @@ export default function TasksTab({
         const normalizedCreatedTask = withSprintContext(
           normalizeTaskSurfaceRecord(result.task),
         );
-        patchProjectTaskCaches(queryClient, projectId, normalizedCreatedTask);
+        patchWorkspaceTaskCaches(queryClient, projectId, normalizedCreatedTask);
         if (normalizedCreatedTask.sprintId) {
           void queryClient.invalidateQueries({
             queryKey: queryKeys.project.detail.sprintDetailRoot(projectId),
@@ -1061,7 +1061,7 @@ export default function TasksTab({
               normalizeTaskSurfaceRecord(nextTask),
             );
             setEditingTask(sprintAwareTask);
-            patchProjectTaskCaches(queryClient, projectId, sprintAwareTask, {
+            patchWorkspaceTaskCaches(queryClient, projectId, sprintAwareTask, {
               reconcile: false,
             });
           }}

@@ -19,7 +19,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import type { DocGroup } from '@/lib/organizations/doc-rules'
-import { buildProjectFileKey } from '@/lib/storage/workspace-file-key'
+import { buildWorkspaceFileKey } from '@/lib/storage/workspace-file-key'
 import { uploadToSupabaseSignedUrl } from '@/lib/upload/supabase-signed-upload-client'
 import { cn } from '@/lib/utils'
 
@@ -41,14 +41,14 @@ export function useOrgDocs(projectId: string, enabled = true) {
 }
 
 /** Uploads bytes as a new file in a project folder (the Files upload path: presign, upload, node). */
-export async function uploadProjectFile(projectId: string, folderId: string | null, filename: string, blob: Blob) {
+export async function uploadWorkspaceFile(projectId: string, folderId: string | null, filename: string, blob: Blob) {
     const [{ getUploadPresignedUrl }, { createFileNode }] = await Promise.all([
         import('@/app/actions/upload'),
         import('@/app/actions/files/mutations'),
     ])
     const contentType = blob.type || 'application/octet-stream'
     const extension = filename.includes('.') ? filename.split('.').pop() : 'bin'
-    const presigned = await getUploadPresignedUrl(buildProjectFileKey(projectId, `${crypto.randomUUID()}.${extension}`), contentType, blob.size)
+    const presigned = await getUploadPresignedUrl(buildWorkspaceFileKey(projectId, `${crypto.randomUUID()}.${extension}`), contentType, blob.size)
     if ('error' in presigned) throw new Error(presigned.error || 'Couldn’t prepare upload')
     await uploadToSupabaseSignedUrl({
         bucket: 'project-files',
@@ -71,9 +71,9 @@ export async function uploadProjectFile(projectId: string, folderId: string | nu
 export async function createDocFile(projectId: string, filename: string, content: string) {
     const folder = await ensureDocsFolderAction(projectId)
     if (!folder.success) throw new Error(folder.error)
-    const node = await uploadProjectFile(projectId, folder.folderId, filename, new Blob([content], { type: 'text/plain' }))
-    const { linkProjectDocAction } = await import('@/app/actions/workspace/doc')
-    const linked = await linkProjectDocAction(projectId, node.id)
+    const node = await uploadWorkspaceFile(projectId, folder.folderId, filename, new Blob([content], { type: 'text/plain' }))
+    const { linkWorkspaceDocAction } = await import('@/app/actions/workspace/doc')
+    const linked = await linkWorkspaceDocAction(projectId, node.id)
     if (!linked.success) throw new Error(linked.error)
     return { node, slug: linked.slug, id: linked.id }
 }

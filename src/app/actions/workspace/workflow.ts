@@ -7,7 +7,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { projectWorkflowColumns, tasks } from "@/lib/db/schema";
-import { getProjectAccessById } from "@/lib/data/workspace-access";
+import { getWorkspaceAccessById } from "@/lib/data/workspace-access";
 import { consumeRateLimit } from "@/lib/security/rate-limit";
 import { TASK_STATUS_PRESENTATION, TASK_WORKFLOW_STATUSES } from "@/lib/workspaces/task-workflow";
 
@@ -88,13 +88,13 @@ async function ensureWorkflowColumns(projectId: string, tx: Tx | typeof db = db)
     });
 }
 
-export async function getProjectWorkflowColumnsAction(projectId: string) {
+export async function getWorkspaceWorkflowColumnsAction(projectId: string) {
     try {
         const parsed = z.string().uuid().safeParse(projectId);
         if (!parsed.success) return { success: false as const, error: "Invalid workspace" };
         const supabase = await createClient();
         const { data: { user } } = await supabase.auth.getUser();
-        const access = await getProjectAccessById(parsed.data, user?.id ?? null);
+        const access = await getWorkspaceAccessById(parsed.data, user?.id ?? null);
         if (!access.canRead) return { success: false as const, error: "Not found" };
         return { success: true as const, columns: await ensureWorkflowColumns(parsed.data) };
     } catch (error) {
@@ -102,7 +102,7 @@ export async function getProjectWorkflowColumnsAction(projectId: string) {
     }
 }
 
-export async function updateProjectWorkflowColumnsAction(projectId: string, workflow: unknown) {
+export async function updateWorkspaceWorkflowColumnsAction(projectId: string, workflow: unknown) {
     try {
         const parsedProjectId = z.string().uuid().safeParse(projectId);
         const parsedWorkflow = workflowSchema.safeParse(workflow);
@@ -128,7 +128,7 @@ export async function updateProjectWorkflowColumnsAction(projectId: string, work
     }
 }
 
-export async function createProjectWorkflowColumnAction(input: unknown) {
+export async function createWorkspaceWorkflowColumnAction(input: unknown) {
     try {
         const parsed = createColumnSchema.safeParse(input);
         if (!parsed.success) return { success: false as const, error: "Invalid workflow column" };
@@ -158,7 +158,7 @@ export async function createProjectWorkflowColumnAction(input: unknown) {
     }
 }
 
-export async function deleteProjectWorkflowColumnAction(projectId: string, columnId: string) {
+export async function deleteWorkspaceWorkflowColumnAction(projectId: string, columnId: string) {
     try {
         if (!z.string().uuid().safeParse(projectId).success || !z.string().uuid().safeParse(columnId).success) return { success: false as const, error: "Invalid workflow column" };
         const user = await requireWorkflowUser();

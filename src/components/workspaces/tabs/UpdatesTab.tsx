@@ -14,13 +14,13 @@ import {
     MessageCircle,
 } from "lucide-react";
 import { toast, feedbackError } from "@/lib/feedback";
-import { createProjectUpdateAction, readProjectUpdateAction, readProjectUpdatesAction, type ProjectUpdateView } from "@/app/actions/workspace/updates";
+import { createWorkspaceUpdateAction, readWorkspaceUpdateAction, readWorkspaceUpdatesAction, type WorkspaceUpdateView } from "@/app/actions/workspace/updates";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { createClient } from "@/lib/supabase/client";
 import { subscribeActiveResource } from "@/lib/realtime/subscriptions";
 import { queryKeys } from "@/lib/query-keys";
-import { PROJECT_UPDATE_VIRTUALIZE_THRESHOLD } from "@/lib/workspaces/updates";
+import { WORKSPACE_UPDATE_VIRTUALIZE_THRESHOLD } from "@/lib/workspaces/updates";
 import { cn } from "@/lib/utils";
 import { prependUpdate, realtimeStringField, removeUpdate, replaceUpdate, updatePages, type UpdatesPage } from '@/components/workspaces/updates/update-helpers';
 import { MemoizedUpdateCard } from '@/components/workspaces/updates/UpdateCard';
@@ -47,10 +47,10 @@ type UpdatesTabProps = {
 
 const UpdateDetailPanel = dynamic(() => import('@/components/workspaces/updates/UpdateDetailPanel').then((mod) => mod.UpdateDetailPanel));
 
-const ProjectUpdateComposer = dynamic(
+const WorkspaceUpdateComposer = dynamic(
   () =>
     import("../updates/WorkspaceUpdateComposer").then(
-      (mod) => mod.ProjectUpdateComposer,
+      (mod) => mod.WorkspaceUpdateComposer,
     ),
   {
     ssr: false,
@@ -130,7 +130,7 @@ export default function UpdatesTab({
     queryKey: updatesQueryKey,
     initialPageParam: null as string | null,
     queryFn: async ({ pageParam }) => {
-      const result = await readProjectUpdatesAction(projectId, {
+      const result = await readWorkspaceUpdatesAction(projectId, {
         cursor: pageParam,
         filter: orgFilter,
       });
@@ -152,7 +152,7 @@ export default function UpdatesTab({
     [hiddenUpdateIds, updates],
   );
   const shouldVirtualizeFeed =
-    visibleUpdates.length > PROJECT_UPDATE_VIRTUALIZE_THRESHOLD;
+    visibleUpdates.length > WORKSPACE_UPDATE_VIRTUALIZE_THRESHOLD;
   const detailUpdate = useMemo(
     () =>
       detailUpdateId
@@ -183,9 +183,9 @@ export default function UpdatesTab({
     setSeenBefore(firstPage.lastSeenAt ?? null);
     void markOrgUpdatesSeenAction(projectId);
   }, [currentUserId, firstPage, projectId, seenBefore]);
-  const isNewUpdate = (update: ProjectUpdateView) =>
+  const isNewUpdate = (update: WorkspaceUpdateView) =>
     seenBefore !== undefined && update.authorId !== currentUserId && (seenBefore === null || update.createdAt > seenBefore);
-  const postWithOrgOptions = (input: Parameters<typeof createProjectUpdateAction>[1]) => {
+  const postWithOrgOptions = (input: Parameters<typeof createWorkspaceUpdateAction>[1]) => {
     const orgInput = org?.kind === "org"
       ? { ...orgOptions, updateType: org.isAdmin ? orgOptions.updateType ?? "announcement" : "discussion" }
       : orgOptions;
@@ -256,7 +256,7 @@ export default function UpdatesTab({
           return;
         }
 
-        const result = await readProjectUpdateAction(projectId, newId);
+        const result = await readWorkspaceUpdateAction(projectId, newId);
         if (result.success && result.data) {
           queryClient.setQueryData(
             updatesQueryKey,
@@ -344,7 +344,7 @@ export default function UpdatesTab({
       return;
     }
     let cancelled = false;
-    readProjectUpdateAction(projectId, initialUpdateId).then((result) => {
+    readWorkspaceUpdateAction(projectId, initialUpdateId).then((result) => {
       if (cancelled || !result.success || !result.data) return;
       queryClient.setQueryData(
         updatesQueryKey,
@@ -371,9 +371,9 @@ export default function UpdatesTab({
 
   const createMutation = useMutation({
     mutationFn: async (
-      input: Parameters<typeof createProjectUpdateAction>[1],
+      input: Parameters<typeof createWorkspaceUpdateAction>[1],
     ) => {
-      const result = await createProjectUpdateAction(projectId, input);
+      const result = await createWorkspaceUpdateAction(projectId, input);
       if (!result.success || !result.data)
         throw new Error(result.error || "Couldn’t post update");
       return result.data;
@@ -383,7 +383,7 @@ export default function UpdatesTab({
       const previous =
         queryClient.getQueryData<InfiniteData<UpdatesPage>>(updatesQueryKey);
       const tempId = `temp-update-${Date.now()}`;
-      const optimistic: ProjectUpdateView = {
+      const optimistic: WorkspaceUpdateView = {
         id: tempId,
         projectId,
         authorId: currentUserId,
@@ -550,7 +550,7 @@ export default function UpdatesTab({
 
         {isDesktopUpdatesRail === false && canCreate && org ? <OrgUpdateOptions org={org} orgId={projectId} value={orgOptions} onChange={setOrgOptions} /> : null}
         {isDesktopUpdatesRail === false ? (
-          <ProjectUpdateComposer
+          <WorkspaceUpdateComposer
             projectId={projectId}
             projectName={projectName}
             currentUserId={currentUserId}
@@ -662,7 +662,7 @@ export default function UpdatesTab({
             <div className="space-y-6">
               {isDesktopUpdatesRail === true && canCreate && org ? <OrgUpdateOptions org={org} orgId={projectId} value={orgOptions} onChange={setOrgOptions} /> : null}
               {isDesktopUpdatesRail === true ? (
-                <ProjectUpdateComposer
+                <WorkspaceUpdateComposer
                   projectId={projectId}
                   projectName={projectName}
                   currentUserId={currentUserId}

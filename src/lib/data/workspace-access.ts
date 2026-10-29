@@ -3,22 +3,22 @@ import { ForbiddenError } from "@/lib/errors/domain";
 import { db } from "@/lib/db";
 import { projects, projectMembers } from "@/lib/db/schema";
 import {
-    isProjectPubliclyReadableVisibility,
-    type ProjectVisibilityInput,
+    isWorkspacePubliclyReadableVisibility,
+    type WorkspaceVisibilityInput,
 } from "@/lib/workspaces/workspace-visibility";
-import { isProjectTabVisibleToViewer, type ProjectPublicTabId } from "@/lib/workspaces/settings-policies";
+import { isWorkspaceTabVisibleToViewer, type WorkspacePublicTabId } from "@/lib/workspaces/settings-policies";
 import { and, eq, isNull, inArray, or, sql, type SQL } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 
 // `projects.visibility` has a database default but is not declared NOT NULL,
 // so DB-selected values must remain nullable-safe and fail closed downstream.
-type Visibility = ProjectVisibilityInput | null | undefined;
+type Visibility = WorkspaceVisibilityInput | null | undefined;
 type Status = "draft" | "active" | "completed" | "archived" | string | null | undefined;
 type MemberRole = "owner" | "admin" | "member" | "viewer" | null;
 /** The viewer's role in a child project's parent org: the org owner is "owner", a guest is "viewer". */
 type ParentOrgRole = MemberRole;
 
-export type ProjectAccess = {
+export type WorkspaceAccess = {
     project: {
         id: string;
         ownerId: string;
@@ -51,7 +51,7 @@ export type ProjectAccess = {
 };
 
 /** The plain sentence for a blocked write. */
-export function writeBlockedMessage(reason: ProjectAccess["writeBlocked"]) {
+export function writeBlockedMessage(reason: WorkspaceAccess["writeBlocked"]) {
     if (reason === "suspended") return "This organization is suspended. Everything is read-only.";
     if (reason === "archived") return "This organization has ended. Everything is read-only.";
     if (reason === "deleting") return "This organization is scheduled for deletion.";
@@ -62,7 +62,7 @@ export function writeBlockedMessage(reason: ProjectAccess["writeBlocked"]) {
  * Mirrors app_private.nb_project_can_read (0241). `parentOrgRole` is the viewer's role in the parent org;
  * callers that don't load it fail closed for Org only projects and inherited admins.
  */
-export function computeProjectReadAccess(
+export function computeWorkspaceReadAccess(
     visibility: Visibility,
     status: Status,
     isOwner: boolean,
@@ -76,7 +76,7 @@ export function computeProjectReadAccess(
 
     if (isDraft) return false;
     if (visibility === "org") return parentOrgRole !== null;
-    return isProjectPubliclyReadableVisibility(visibility);
+    return isWorkspacePubliclyReadableVisibility(visibility);
 }
 
 function isInheritedAdminRole(parentOrgRole: ParentOrgRole) {
@@ -89,30 +89,30 @@ function isInheritedAdminRole(parentOrgRole: ParentOrgRole) {
  * public or the viewer is an owner/member. Every loader of tab-scoped data
  * (tasks, sprints, files, readme/docs, updates, dashboard) gates on this.
  */
-export function canReadProjectTab(access: ProjectAccess, tab: ProjectPublicTabId): boolean {
+export function canReadWorkspaceTab(access: WorkspaceAccess, tab: WorkspacePublicTabId): boolean {
     if (!access.project || !access.canRead) return false;
-    return isProjectTabVisibleToViewer({
+    return isWorkspaceTabVisibleToViewer({
         tabId: tab,
         isOwnerOrMember: access.isOwner || access.isMember || access.isInheritedAdmin,
         publicTabVisibility: access.project.publicTabVisibility,
     });
 }
 
-export class ProjectTabForbiddenError extends ForbiddenError {
-    constructor(readonly tab: ProjectPublicTabId) {
+export class WorkspaceTabForbiddenError extends ForbiddenError {
+    constructor(readonly tab: WorkspacePublicTabId) {
         super(`This workspace’s ${tab} are not available to this viewer.`);
-        this.name = "ProjectTabForbiddenError";
+        this.name = "WorkspaceTabForbiddenError";
     }
 }
 
-/** Loads access and throws unless the viewer may read `tab` (see canReadProjectTab). */
-export async function assertProjectTabReadAccess(projectId: string, userId: string | null, tab: ProjectPublicTabId) {
-    const access = await getProjectAccessById(projectId, userId);
-    if (!canReadProjectTab(access, tab)) throw new ProjectTabForbiddenError(tab);
-    return access as ProjectAccess & { project: NonNullable<ProjectAccess["project"]> };
+/** Loads access and throws unless the viewer may read `tab` (see canReadWorkspaceTab). */
+export async function assertWorkspaceTabReadAccess(projectId: string, userId: string | null, tab: WorkspacePublicTabId) {
+    const access = await getWorkspaceAccessById(projectId, userId);
+    if (!canReadWorkspaceTab(access, tab)) throw new WorkspaceTabForbiddenError(tab);
+    return access as WorkspaceAccess & { project: NonNullable<WorkspaceAccess["project"]> };
 }
 
-export function computeProjectWriteAccess(isOwner: boolean, memberRole: MemberRole) {
+export function computeWorkspaceWriteAccess(isOwner: boolean, memberRole: MemberRole) {
     if (isOwner) return true;
     if (!memberRole) return false;
     return memberRole !== "viewer";
@@ -160,7 +160,7 @@ function selectAccessRows(where: SQL<unknown>, userId: string | null) {
         .where(and(where, isNull(projects.deletedAt)));
 }
 
-function toProjectAccess(row: Awaited<ReturnType<typeof selectAccessRows>>[number], userId: string | null): ProjectAccess {
+function toProjectAccess(row: Awaited<ReturnType<typeof selectAccessRows>>[number], userId: string | null): WorkspaceAccess {
     const isOwner = Boolean(userId && row.ownerId === userId);
     const isMember = Boolean(userId && !isOwner && row.memberRole);
     const memberRole: MemberRole = isMember ? ((row.memberRole as MemberRole) || "member") : null;
@@ -173,7 +173,7 @@ function toProjectAccess(row: Awaited<ReturnType<typeof selectAccessRows>>[numbe
         : (row.kind === "organization" && row.status === "archived") || (row.parentOrgStatus === "archived" && row.status === "archived") ? "archived" as const
         : null;
     // During the 30-day grace only the owner can open the org (to restore it), report §30.5.
-    const canRead = row.deletionScheduledAt ? isOwner : computeProjectReadAccess(row.visibility, row.status, isOwner, isMember, parentOrgRole);
+    const canRead = row.deletionScheduledAt ? isOwner : computeWorkspaceReadAccess(row.visibility, row.status, isOwner, isMember, parentOrgRole);
 
     return {
         project: {
@@ -196,13 +196,13 @@ function toProjectAccess(row: Awaited<ReturnType<typeof selectAccessRows>>[numbe
         parentOrgRole,
         isInheritedAdmin,
         canRead,
-        canWrite: !writeBlocked && (computeProjectWriteAccess(isOwner, memberRole) || isInheritedAdmin),
+        canWrite: !writeBlocked && (computeWorkspaceWriteAccess(isOwner, memberRole) || isInheritedAdmin),
         viewerId: userId,
         writeBlocked,
     };
 }
 
-async function getProjectAccess(where: SQL<unknown>, userId: string | null): Promise<ProjectAccess> {
+async function getProjectAccess(where: SQL<unknown>, userId: string | null): Promise<WorkspaceAccess> {
     const [row] = await selectAccessRows(where, userId).limit(1);
     if (!row) {
         return {
@@ -220,21 +220,21 @@ async function getProjectAccess(where: SQL<unknown>, userId: string | null): Pro
     return toProjectAccess(row, userId);
 }
 
-export const getProjectAccessById = cache(
-    async (projectId: string, userId: string | null): Promise<ProjectAccess> => {
+export const getWorkspaceAccessById = cache(
+    async (projectId: string, userId: string | null): Promise<WorkspaceAccess> => {
         return getProjectAccess(eq(projects.id, projectId), userId);
     }
 );
 
-export const getProjectAccessByIdentifier = cache(
-    (identifier: string, userId: string | null): Promise<ProjectAccess> => {
+export const getWorkspaceAccessByIdentifier = cache(
+    (identifier: string, userId: string | null): Promise<WorkspaceAccess> => {
         const value = identifier.trim();
         const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
         return getProjectAccess(isUuid ? or(eq(projects.slug, value), eq(projects.id, value))! : eq(projects.slug, value), userId);
     }
 );
 
-export async function getProjectAccessByIds(projectIds: string[], userId: string | null): Promise<Record<string, ProjectAccess>> {
+export async function getWorkspaceAccessByIds(projectIds: string[], userId: string | null): Promise<Record<string, WorkspaceAccess>> {
     if (projectIds.length === 0) return {};
     const rows = await selectAccessRows(inArray(projects.id, projectIds), userId);
     return Object.fromEntries(rows.map((row) => [row.id, toProjectAccess(row, userId)]));

@@ -6,7 +6,7 @@ import { ArrowLeft, Search, X } from "lucide-react";
 import { toast } from "@/lib/feedback";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import {
-  getProjectNodes,
+  getWorkspaceNodes,
   getNodeMetadataBatch,
 } from "@/app/actions/files/nodes";
 import type { ProjectNode } from "@/lib/db/schema";
@@ -86,7 +86,7 @@ export function V3AttachmentPicker({
     enabled: isOpen && (!recent || !!query),
     initialPageParam: undefined as string | undefined,
     queryFn: ({ pageParam }) =>
-      getProjectNodes(projectId, folder?.id ?? null, query, 100, pageParam),
+      getWorkspaceNodes(projectId, folder?.id ?? null, query, 100, pageParam),
     getNextPageParam: (page) => page.nextCursor ?? undefined,
     staleTime: 30_000,
   });

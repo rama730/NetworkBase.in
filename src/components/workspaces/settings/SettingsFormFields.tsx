@@ -12,8 +12,8 @@ import { SettingsPageHeader } from "@/components/settings/ui/SettingsPageHeader"
 import { SettingsLoadState, type SettingsLoadStatus } from "./SettingsLoadState";
 import { useOpenSettingsSections } from "@/components/settings/ui/SettingsSectionLayout";
 import {
-    OTHER_PROJECT_TYPE_ID,
-    PROJECT_TYPE_OPTIONS,
+    OTHER_WORKSPACE_TYPE_ID,
+    WORKSPACE_TYPE_OPTIONS,
 } from "@/lib/workspaces/workspace-create-options";
 
 export function SettingsCard({
@@ -191,15 +191,15 @@ export function CategorySelector({
                     className="nb-touch-target h-[34px] w-full rounded-[5px] border border-border bg-card px-3 text-[13px] leading-[1.5] text-foreground transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 >
                     <option value="">Choose a category</option>
-                    {PROJECT_TYPE_OPTIONS.map((type) => (
+                    {WORKSPACE_TYPE_OPTIONS.map((type) => (
                         <option key={type.id} value={type.id}>
                             {type.label}
                         </option>
                     ))}
-                    <option value={OTHER_PROJECT_TYPE_ID}>Others</option>
+                    <option value={OTHER_WORKSPACE_TYPE_ID}>Others</option>
                 </select>
             </label>
-            {choice === OTHER_PROJECT_TYPE_ID ? (
+            {choice === OTHER_WORKSPACE_TYPE_ID ? (
                 <TextField
                     label="Custom category"
                     value={customValue}

@@ -2,13 +2,13 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
 
-import { allocateProjectObjectKey } from "@/lib/upload/workspace-upload-allocation";
+import { allocateWorkspaceObjectKey } from "@/lib/upload/workspace-upload-allocation";
 
 const PROJECT_ID = "11111111-1111-4111-8111-111111111111";
 
 describe("project upload publication", () => {
   it("allocates an immutable server object key without retaining the logical path", () => {
-    const allocated = allocateProjectObjectKey(
+    const allocated = allocateWorkspaceObjectKey(
       PROJECT_ID,
       `${PROJECT_ID}/private/customer/report.pdf`,
       "application/pdf",
@@ -24,7 +24,7 @@ describe("project upload publication", () => {
 
   it("rejects allocation across project scopes", () => {
     assert.throws(
-      () => allocateProjectObjectKey(
+      () => allocateWorkspaceObjectKey(
         PROJECT_ID,
         "33333333-3333-4333-8333-333333333333/file.txt",
         "text/plain",
@@ -48,7 +48,7 @@ describe("project upload publication", () => {
     assert.match(folderRegistration, /uploadIntentId: string/);
     assert.match(folderRegistration, /storageKey: string/);
     assert.match(folderRegistration, /tx\.insert\(fileVersions\)/);
-    assert.doesNotMatch(folderRegistration, /buildProjectFileKey\(projectId, entry\.relativePath\)/);
+    assert.doesNotMatch(folderRegistration, /buildWorkspaceFileKey\(projectId, entry\.relativePath\)/);
   });
 
   it("does not create visible file placeholders before folder bytes are verified", () => {

@@ -16,7 +16,7 @@ import {
   projectNodes,
   storageAssets,
 } from "@/lib/db/schema";
-import { getProjectAccessById, getProjectAccessByIds } from "@/lib/data/workspace-access";
+import { getWorkspaceAccessById, getWorkspaceAccessByIds } from "@/lib/data/workspace-access";
 import {
   deleteExtensionRecoveryDraftRows,
   EXTENSION_RECOVERY_BUCKET,
@@ -29,7 +29,7 @@ import { recoveryIncidentReason } from "@/lib/extension/recovery-session-state";
 import { resolveRecoverySessionsWithoutDrafts } from "@/lib/extension/recovery-sessions";
 import { logger } from "@/lib/logger";
 import { streamPrivateObject } from "@/lib/storage/private-object-response";
-import { buildProjectFileKey, normalizeProjectFileRelativePath } from "@/lib/storage/workspace-file-key";
+import { buildWorkspaceFileKey, normalizeWorkspaceFileRelativePath } from "@/lib/storage/workspace-file-key";
 import { createAdminClient } from "@/lib/supabase/server";
 import { validateCsrf } from "@/lib/security/csrf";
 import { createUploadIntent, finalizeUploadIntent } from "@/lib/upload/upload-intents";
@@ -81,13 +81,13 @@ function storageKeyForDraft(userId: string, deviceId: string, draftId: string) {
 }
 
 function normalizeRecoveryPath(projectId: string, path: string) {
-  const relative = normalizeProjectFileRelativePath(path);
-  buildProjectFileKey(projectId, relative);
+  const relative = normalizeWorkspaceFileRelativePath(path);
+  buildWorkspaceFileKey(projectId, relative);
   return `/${relative}`;
 }
 
 async function requireProjectAccess(projectId: string, userId: string, write: boolean) {
-  const access = await getProjectAccessById(projectId, userId);
+  const access = await getWorkspaceAccessById(projectId, userId);
   if (!access.project) return jsonError("Workspace not found", 404, "NOT_FOUND");
   if (write ? !access.canWrite : !access.canRead) {
     return jsonError("You don’t have access to this", 403, "FORBIDDEN");
@@ -470,7 +470,7 @@ export async function GET(request: Request) {
   })).filter((row) => view === "all" || Boolean(row.incidentReason));
 
   const projectIds = Array.from(new Set(eligible.map((row) => row.draft.projectId)));
-  const accessByProject = await getProjectAccessByIds(projectIds, auth.user.id);
+  const accessByProject = await getWorkspaceAccessByIds(projectIds, auth.user.id);
   const visible = eligible.filter((row) => accessByProject[row.draft.projectId]?.canRead);
   
   const drafts = visible.map((row) => {

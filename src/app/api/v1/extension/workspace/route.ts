@@ -17,8 +17,8 @@ import {
 import { eq, and, inArray, isNull, isNotNull, or, gt, asc, sql } from "drizzle-orm";
 import { logger } from "@/lib/logger";
 import {
-  getProjectTaskCountMap,
-  getProjectTaskFileCountMap,
+  getWorkspaceTaskCountMap,
+  getWorkspaceTaskFileCountMap,
   taskFileCountKey,
 } from "@/app/api/v1/extension/_workspace-counts";
 
@@ -91,7 +91,7 @@ export async function GET(request: Request) {
 
     // ponytail: summary mode skips per-project task and file queries. ceiling: counts only until the IDE asks for full mode. upgrade: none; full mode already serves details.
     if (isSummaryMode) {
-      const projectTaskCountMap = await getProjectTaskCountMap(projectIds);
+      const projectTaskCountMap = await getWorkspaceTaskCountMap(projectIds);
       const summaryProjects = filteredProjects.map((project) => ({
         ...project,
         syncSequence: project.currentSequenceNumber,
@@ -149,8 +149,8 @@ export async function GET(request: Request) {
             LIMIT 100
           ) n
         `),
-        getProjectTaskFileCountMap(projectIds),
-        getProjectTaskCountMap(projectIds),
+        getWorkspaceTaskFileCountMap(projectIds),
+        getWorkspaceTaskCountMap(projectIds),
       ]);
 
     const rootNodeIds = (rootNodeIdRowsResult as unknown as Array<{ id: string }>).map((row) => row.id);

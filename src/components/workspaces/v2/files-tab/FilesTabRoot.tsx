@@ -16,7 +16,7 @@ import React, {
 
 import { useFilesStore } from "@/stores/filesStore";
 import { createClient } from "@/lib/supabase/client";
-import { subscribeProjectFilesChannel } from "@/lib/realtime/workspace-files-channel";
+import { subscribeWorkspaceFilesChannel } from "@/lib/realtime/workspace-files-channel";
 import { getNodeMetadataBatch } from "@/app/actions/files/nodes";
 
 import { useExplorerBoot } from "../explorer/useExplorerBoot";
@@ -31,7 +31,7 @@ import { useFilesTabStartupStage } from "./hooks/useFilesTabStartupStage";
 import { useDeepLinkResolver } from "./hooks/useDeepLinkResolver";
 import { useFilesTabUrlSync } from "./hooks/useFilesTabUrlSync";
 import { useNavigateTo } from "./hooks/useNavigateTo";
-import { fetchProjectFileLeases } from "@/lib/files/file-lease-client";
+import { fetchWorkspaceFileLeases } from "@/lib/files/file-lease-client";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { FilesViews } from "./FilesViews";
 import { FileTransfersProvider } from "./FileTransfers";
@@ -513,7 +513,7 @@ export function FilesTabRoot(props: FilesTabRootProps): React.JSX.Element {
       if (disposed) return;
       if (reconcileTimer) window.clearTimeout(reconcileTimer);
       reconcileTimer = window.setTimeout(() => {
-        void fetchProjectFileLeases(projectId)
+        void fetchWorkspaceFileLeases(projectId)
           .then((locks) => setLocks(projectId, locks))
           .catch((error) =>
             console.warn("[files-tab] failed to reconcile file leases", error),
@@ -528,7 +528,7 @@ export function FilesTabRoot(props: FilesTabRootProps): React.JSX.Element {
       });
     };
 
-    const channel = subscribeProjectFilesChannel(supabase, {
+    const channel = subscribeWorkspaceFilesChannel(supabase, {
       projectId,
       scope: "files-root",
       onFileLeaseChange: reconcileLocks,

@@ -9,8 +9,8 @@ const PDC = "src/components/workspaces/dashboard/WorkspaceDashboardClient.tsx";
 test("the viewer's role comes from the server capabilities, not the first members page", () => {
   assert.match(read(PAGE), /memberRole=\{capabilities\.memberRole\}/);
   const client = read(PDC);
-  assert.match(client, /normalizeProjectMemberRole\(memberRole, 'member'\)/);
-  assert.doesNotMatch(client, /allMembers\.find\([^)]*\)\s*;\s*return member \? normalizeProjectMemberRole/);
+  assert.match(client, /normalizeWorkspaceMemberRole\(memberRole, 'member'\)/);
+  assert.doesNotMatch(client, /allMembers\.find\([^)]*\)\s*;\s*return member \? normalizeWorkspaceMemberRole/);
 });
 
 test("the canonical slug redirect keeps repeated params repeated", () => {

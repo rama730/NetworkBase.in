@@ -3,13 +3,13 @@ import { db } from "@/lib/db";
 import { profiles, projectMembers, projectUpdateLikes, projectUpdates, projects } from "@/lib/db/schema";
 import { buildBaseConditions, buildSearchConditions, DEFAULT_FILTERS } from "@/lib/data/discover";
 import { readableProfileIdentitySql } from "@/lib/privacy/resolver";
-import { getProjectMemberRoleLabel, normalizeProjectMemberRole } from "@/lib/workspaces/settings-policies";
-import { readProjectRoleTitles, roleTitleKey } from "@/lib/workspaces/update-roles";
+import { getWorkspaceMemberRoleLabel, normalizeWorkspaceMemberRole } from "@/lib/workspaces/settings-policies";
+import { readWorkspaceRoleTitles, roleTitleKey } from "@/lib/workspaces/update-roles";
 import {
-    normalizeProjectUpdateAuthorRoleSnapshot,
-    normalizeProjectUpdateMediaItems,
-    normalizeProjectUpdateType,
-    resolveProjectUpdateAuthorRoleDisplay,
+    normalizeWorkspaceUpdateAuthorRoleSnapshot,
+    normalizeWorkspaceUpdateMediaItems,
+    normalizeWorkspaceUpdateType,
+    resolveWorkspaceUpdateAuthorRoleDisplay,
 } from "@/lib/workspaces/updates";
 import { containsLikePattern } from "@/lib/search/query";
 import { FILTER_VIEWS, type FilterView } from "@/constants/discover";
@@ -146,18 +146,18 @@ async function hydrate(rows: Row[], viewerId: string | null): Promise<DiscoverUp
                 .where(and(eq(projectUpdateLikes.userId, viewerId), inArray(projectUpdateLikes.updateId, rows.map((row) => row.id))))
             : Promise.resolve([] as Array<{ updateId: string }>),
         // A masked author's role is not looked up at all.
-        readProjectRoleTitles(rows.filter((row) => row.authorReadable).map((row) => ({ projectId: row.projectId, userId: row.authorId }))),
+        readWorkspaceRoleTitles(rows.filter((row) => row.authorReadable).map((row) => ({ projectId: row.projectId, userId: row.authorId }))),
     ]);
     const liked = new Set(likedRows.map((row) => row.updateId));
 
     return rows.map((row) => {
         const isAuthor = Boolean(viewerId && row.authorId === viewerId);
-        const memberRole = row.authorId === row.projectOwnerId ? "owner" : normalizeProjectMemberRole(row.authorMembershipRole, "member");
+        const memberRole = row.authorId === row.projectOwnerId ? "owner" : normalizeWorkspaceMemberRole(row.authorMembershipRole, "member");
         const display = row.authorReadable && row.authorId
-            ? resolveProjectUpdateAuthorRoleDisplay({
-                snapshot: normalizeProjectUpdateAuthorRoleSnapshot((row.metadata as { authorRoleSnapshot?: unknown } | null)?.authorRoleSnapshot),
+            ? resolveWorkspaceUpdateAuthorRoleDisplay({
+                snapshot: normalizeWorkspaceUpdateAuthorRoleSnapshot((row.metadata as { authorRoleSnapshot?: unknown } | null)?.authorRoleSnapshot),
                 projectRoleTitle: roleTitles.get(roleTitleKey(row.projectId, row.authorId)),
-                membershipRoleLabel: getProjectMemberRoleLabel(memberRole),
+                membershipRoleLabel: getWorkspaceMemberRoleLabel(memberRole),
             })
             : null;
         // A card says what someone does, so a bare "Member" or "Viewer" says nothing and is left out.
@@ -180,9 +180,9 @@ async function hydrate(rows: Row[], viewerId: string | null): Promise<DiscoverUp
                 }
                 : null,
             content: row.content,
-            updateType: normalizeProjectUpdateType(row.updateType),
+            updateType: normalizeWorkspaceUpdateType(row.updateType),
             // Only what the card draws. The bucket, storage key and asset id never leave the server.
-            media: normalizeProjectUpdateMediaItems(row.media).map((item) => ({
+            media: normalizeWorkspaceUpdateMediaItems(row.media).map((item) => ({
                 type: item.type,
                 url: item.url ?? null,
                 label: item.label ?? null,

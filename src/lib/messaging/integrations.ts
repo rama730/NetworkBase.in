@@ -13,7 +13,7 @@ async function value<T>(executor: Executor, query: SQL): Promise<T> {
 }
 
 /** Keep chat membership in step with project membership (report 7.1, 7.9). */
-export async function syncProjectChat(
+export async function syncWorkspaceChat(
   executor: Executor,
   projectId: string,
   userId: string | null,

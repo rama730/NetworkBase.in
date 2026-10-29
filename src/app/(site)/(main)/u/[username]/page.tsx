@@ -9,7 +9,7 @@ import { shareMetadata } from '@/lib/sharing/metadata';
 import { readSharePreview } from '@/lib/sharing/read';
 import { genericSharePreview, isShareCrawler, shareOrigin } from '@/lib/sharing/presentation';
 import { getViewerAuthContext } from '@/lib/server/viewer-context';
-import { getProfileProjectsWithOpenRolesAction } from '@/app/actions/workspace';
+import { getProfileWorkspacesWithOpenRolesAction } from '@/app/actions/workspace';
 import { ProfileRouteSkeleton } from '@/components/profile/v2/ProfileRouteSkeleton';
 
 export const dynamicParams = true; // Allow new profiles to be generated on demand
@@ -73,7 +73,7 @@ async function ResolvedPublicProfile({
         notFound();
     }
 
-    const openRolesProjects = await getProfileProjectsWithOpenRolesAction(data.profile.id);
+    const openRolesProjects = await getProfileWorkspacesWithOpenRolesAction(data.profile.id);
 
     return (
         <ProfileV2Client

@@ -17,12 +17,12 @@ export function trimOptionalDisplayText(value: unknown): string | null {
     return trimmed.length > 0 ? trimmed : null;
 }
 
-export function normalizeProjectTitle(value: unknown): string {
+export function normalizeWorkspaceTitle(value: unknown): string {
     const trimmed = trimDisplayText(value);
     return trimmed.length > 0 ? trimmed : "Untitled workspace";
 }
 
-export function normalizeProjectDescription(...values: unknown[]): string {
+export function normalizeWorkspaceDescription(...values: unknown[]): string {
     for (const value of values) {
         const trimmed = trimDisplayText(value);
         if (trimmed.length > 0) return trimmed;

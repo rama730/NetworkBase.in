@@ -8,7 +8,7 @@ import { UserAvatar } from "@/components/ui/UserAvatar";
 import { conversationHref } from "@/lib/messaging/routes";
 import { profileHref } from "@/lib/routing/identifiers";
 
-export type IncomingProjectApplication = {
+export type IncomingWorkspaceApplication = {
   id: string;
   isInvitation?: boolean;
   projectId: string | null;
@@ -33,7 +33,7 @@ export type IncomingProjectApplication = {
 };
 
 type IncomingProjectApplicationRowProps = {
-  app: IncomingProjectApplication;
+  app: IncomingWorkspaceApplication;
   busy?: boolean;
   isAccepting?: boolean;
   isRejecting?: boolean;
@@ -41,7 +41,7 @@ type IncomingProjectApplicationRowProps = {
   onReject: () => void;
 };
 
-export function IncomingProjectApplicationRow({
+export function IncomingWorkspaceApplicationRow({
   app,
   busy = false,
   isAccepting = false,

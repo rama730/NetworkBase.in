@@ -5,8 +5,8 @@ import { UUID_RE } from "@/app/actions/files/_constants";
 import { jsonError } from "@/app/api/v1/_envelope";
 import { enforceRouteLimit } from "@/app/api/v1/_shared";
 import {
-  assertProjectFileReadAccess,
-  canReadProjectTaskFiles,
+  assertWorkspaceFileReadAccess,
+  canReadWorkspaceTaskFiles,
   orgFileAccessSql,
 } from "@/lib/files/internal-helpers";
 import { prepareFolderExport, streamFolderExport } from "@/lib/files/folder-export";
@@ -34,7 +34,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
   // Exports lock and pin every asset in the tree; signed-out viewers share an IP bucket.
   const limited = await enforceRouteLimit(request, "files:export", 10, 600, "default", user?.id);
   if (limited) return limited;
-  const access = await assertProjectFileReadAccess(projectId, user?.id ?? null).catch(() => null);
+  const access = await assertWorkspaceFileReadAccess(projectId, user?.id ?? null).catch(() => null);
   if (!access) return jsonError("You don’t have access to this", 403, "FORBIDDEN");
   // In an organization the zip holds only what this viewer may open: no Admins-only folders or other people's copies.
   const nodeFilter = orgFileAccessSql(access)
@@ -46,7 +46,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
     prepared = await prepareFolderExport({
       projectId,
       folderId,
-      canReadTaskFiles: canReadProjectTaskFiles(access),
+      canReadTaskFiles: canReadWorkspaceTaskFiles(access),
       nodeFilter,
     });
   } catch (error) {
@@ -60,8 +60,8 @@ export async function GET(request: NextRequest, context: RouteContext) {
     const currentClient = await createClient();
     const { data: { user: currentUser } } = await currentClient.auth.getUser();
     if (currentUser?.id !== user?.id) throw new Error("Export session expired");
-    const currentAccess = await assertProjectFileReadAccess(projectId, currentUser?.id ?? null);
-    if (prepared.requiresTaskAccess && !canReadProjectTaskFiles(currentAccess)) {
+    const currentAccess = await assertWorkspaceFileReadAccess(projectId, currentUser?.id ?? null);
+    if (prepared.requiresTaskAccess && !canReadWorkspaceTaskFiles(currentAccess)) {
       throw new Error("Task-file access was revoked");
     }
   };

@@ -10,7 +10,7 @@
  * 5. Excessive payload sizes exceeding client safety ceilings (e.g. >5,000 files)
  */
 
-export const DEFAULT_PROJECT_UPLOAD_MAX_FILE_BYTES = 10 * 1024 * 1024; // 10 MiB
+export const DEFAULT_WORKSPACE_UPLOAD_MAX_FILE_BYTES = 10 * 1024 * 1024; // 10 MiB
 
 export interface UploadValidationOptions {
   isFolder?: boolean;
@@ -316,7 +316,7 @@ export function validateUploadSelection(
   }
 
   // Check for maximum individual file size limit (10MB default)
-  const maxFileBytes = options.maxFileBytes ?? DEFAULT_PROJECT_UPLOAD_MAX_FILE_BYTES;
+  const maxFileBytes = options.maxFileBytes ?? DEFAULT_WORKSPACE_UPLOAD_MAX_FILE_BYTES;
   for (const file of cleanFiles) {
     if (typeof file.size === "number" && file.size > maxFileBytes) {
       const mb = Math.floor(maxFileBytes / (1024 * 1024));

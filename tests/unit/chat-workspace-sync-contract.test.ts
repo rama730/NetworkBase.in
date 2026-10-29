@@ -9,8 +9,8 @@ test("a full role expires pending project_invitations for it (not only the old m
 });
 
 test("project membership changes always sync chat membership", () => {
-  assert.match(lifecycle, /syncProjectChat\(executor, params\.projectId, params\.userId, "add"\)/);
-  assert.match(lifecycle, /syncProjectChat\(executor, params\.projectId, params\.targetUserId, "remove"\)/);
-  assert.match(lifecycle, /syncProjectChat\(executor, params\.projectId, params\.targetUserId, "role"\)/);
+  assert.match(lifecycle, /syncWorkspaceChat\(executor, params\.projectId, params\.userId, "add"\)/);
+  assert.match(lifecycle, /syncWorkspaceChat\(executor, params\.projectId, params\.targetUserId, "remove"\)/);
+  assert.match(lifecycle, /syncWorkspaceChat\(executor, params\.projectId, params\.targetUserId, "role"\)/);
   assert.doesNotMatch(lifecycle, /isChatV3Enabled|conversationParticipants|messageWorkflowItems/);
 });

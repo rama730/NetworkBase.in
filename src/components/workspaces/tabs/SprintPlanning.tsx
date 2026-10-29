@@ -22,7 +22,7 @@ import {
 } from "@/hooks/workspaces/useWorkspaceTasksData";
 import { queryKeys } from "@/lib/query-keys";
 import {
-  buildProjectSprintDetailHref,
+  buildWorkspaceSprintDetailHref,
   type SprintDetailPayload,
   type SprintListItem,
 } from "@/lib/workspaces/sprint-detail";
@@ -35,7 +35,7 @@ import {
 } from "@/lib/workspaces/sprints";
 
 import CreateSprintModal from "@/components/workspaces/v2/sprints/CreateSprintModal";
-import { ChildSprintLine, LinkedProjectsBlock, PlanSeriesButton, RunningOrgSprintPrompt, SprintMaterials, StartNowButton, SprintAssignmentRows } from "@/components/organizations/OrgSprintParts";
+import { ChildSprintLine, LinkedWorkspacesBlock, PlanSeriesButton, RunningOrgSprintPrompt, SprintMaterials, StartNowButton, SprintAssignmentRows } from "@/components/organizations/OrgSprintParts";
 import { SprintLifecycleModals } from "@/components/workspaces/tabs/sprint/SprintLifecycleModals";
 import { SkeletonSprints } from "@/components/workspaces/skeletons/SkeletonSprints";
 
@@ -177,7 +177,7 @@ export default function SprintPlanning({
         });
         // Task cards carry sprint chips: refresh them too.
         void queryClient.invalidateQueries({ queryKey: queryKeys.project.detail.tasksRoot(projectId) });
-        router.push(buildProjectSprintDetailHref(projectSlug, result.sprint.id, { sprintCode: result.sprint.code }), { scroll: false });
+        router.push(buildWorkspaceSprintDetailHref(projectSlug, result.sprint.id, { sprintCode: result.sprint.code }), { scroll: false });
         return { success: true as const };
       } catch (error) {
         return {
@@ -256,7 +256,7 @@ export default function SprintPlanning({
       void queryClient.invalidateQueries({ queryKey: queryKeys.project.detail.tasksRoot(projectId) });
       router.replace(
         nextSelectedSprint
-          ? buildProjectSprintDetailHref(projectSlug, nextSelectedSprint.id, { sprintCode: nextSelectedSprint.code })
+          ? buildWorkspaceSprintDetailHref(projectSlug, nextSelectedSprint.id, { sprintCode: nextSelectedSprint.code })
           : `/workspaces/${encodeURIComponent(projectSlug)}?tab=sprints`,
         { scroll: false },
       );
@@ -409,7 +409,7 @@ export default function SprintPlanning({
           value={selectedSprint?.id ?? ""}
           onChange={(e) => {
             if (e.target.value) {
-              router.push(buildProjectSprintDetailHref(projectSlug, e.target.value), { scroll: false });
+              router.push(buildWorkspaceSprintDetailHref(projectSlug, e.target.value), { scroll: false });
             }
           }}
           className="nb-touch-target h-9 flex-1 rounded-[5px] border border-border bg-card px-3 text-xs font-medium text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary"
@@ -471,7 +471,7 @@ export default function SprintPlanning({
             {selectedSprint ? (
               <SprintMaterials projectId={projectId} sprintId={selectedSprint.id} projectSlug={projectSlug} materials={detail.materials ?? []} canManage={canManageSprints} onChanged={refreshSprints} />
             ) : null}
-            {selectedSprint && orgContext?.kind === "org" ? <LinkedProjectsBlock org={orgContext} /> : null}
+            {selectedSprint && orgContext?.kind === "org" ? <LinkedWorkspacesBlock org={orgContext} /> : null}
             {selectedSprint && orgContext ? <SprintAssignmentRows projectId={projectId} sprintId={selectedSprint.id} /> : null}
             <SprintTimelineContent
               projectSlug={projectSlug}

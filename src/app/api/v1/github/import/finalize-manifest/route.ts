@@ -4,7 +4,7 @@ import { importJobs, storageAssets } from '@/lib/db/schema';
 import { eq, and, sql } from 'drizzle-orm';
 import { jsonError, jsonSuccess } from '@/app/api/v1/_envelope';
 import { validateCsrf } from '@/lib/security/csrf';
-import { assertProjectWriteAccess } from '@/lib/files/internal-helpers';
+import { assertWorkspaceWriteAccess } from '@/lib/files/internal-helpers';
 import { enforceRouteLimit, requireAuthenticatedUser } from '@/app/api/v1/_shared';
 import { z } from 'zod';
 import { finalizeUploadIntent } from '@/lib/upload/upload-intents';
@@ -12,7 +12,7 @@ import { readBoundedStorageText } from '@/lib/storage/bounded-object-read';
 import {
     normalizeAndValidateFileSize,
     normalizeAndValidateUploadRelativePath,
-    PROJECT_UPLOAD_MAX_FILE_BYTES,
+    WORKSPACE_UPLOAD_MAX_FILE_BYTES,
 } from '@/lib/upload/security';
 
 const finalizeSchema = z.object({
@@ -22,7 +22,7 @@ const finalizeSchema = z.object({
 
 const manifestFileSchema = z.object({
     path: z.string().min(1).max(1024),
-    size: z.number().int().nonnegative().max(PROJECT_UPLOAD_MAX_FILE_BYTES),
+    size: z.number().int().nonnegative().max(WORKSPACE_UPLOAD_MAX_FILE_BYTES),
     checksum: z.string().regex(/^[a-f0-9]{64}$/i),
 }).strict();
 const manifestSchema = z.object({
@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
             return jsonError('Import job not found', 404, 'NOT_FOUND');
         }
 
-        await assertProjectWriteAccess(job.projectId, user.id);
+        await assertWorkspaceWriteAccess(job.projectId, user.id);
 
         if (job.status === 'importing' || job.status === 'completed') {
             return jsonSuccess({
@@ -146,7 +146,7 @@ export async function POST(request: NextRequest) {
         }
         const manifestFiles = validatedManifest.data.files.map((file) => ({
             path: normalizeAndValidateUploadRelativePath(file.path),
-            size: normalizeAndValidateFileSize(file.size, PROJECT_UPLOAD_MAX_FILE_BYTES),
+            size: normalizeAndValidateFileSize(file.size, WORKSPACE_UPLOAD_MAX_FILE_BYTES),
             checksum: file.checksum.toLowerCase(),
         }));
         if (manifestFiles.length !== job.totalFiles) {

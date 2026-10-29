@@ -39,7 +39,7 @@ async function withProject(fn: (ids: { owner: string; projectId: string }) => Pr
 test("concurrent section adds never exceed six sections", async () => {
   await withProject(async ({ projectId }) => {
     const results = await Promise.all(
-      Array.from({ length: 5 }, (_, i) => workflow.createProjectWorkflowColumnAction({ projectId, title: `Extra ${i}` })),
+      Array.from({ length: 5 }, (_, i) => workflow.createWorkspaceWorkflowColumnAction({ projectId, title: `Extra ${i}` })),
     );
     const [{ count }] = await sql`SELECT count(*)::int AS count FROM project_workflow_columns WHERE project_id = ${projectId}`;
     assert.equal(count, 6);
@@ -57,7 +57,7 @@ test("removed members cannot write subtasks or sections", async () => {
     assert.equal((await subtasks.createSubtaskAction(task!.id, "one", projectId)).success, true);
     await sql`DELETE FROM project_members WHERE project_id = ${projectId} AND user_id = ${member}`;
     assert.equal((await subtasks.createSubtaskAction(task!.id, "two", projectId)).success, false);
-    assert.equal((await workflow.createProjectWorkflowColumnAction({ projectId, title: "Nope" })).success, false);
+    assert.equal((await workflow.createWorkspaceWorkflowColumnAction({ projectId, title: "Nope" })).success, false);
   });
 });
 
@@ -66,7 +66,7 @@ test("task position backfill keeps the board order and leaves no ties", async ()
   const { readFileSync } = await import("node:fs");
   const migration = readFileSync("drizzle/0216_task_position_backfill.sql", "utf8");
   await withProject(async ({ projectId }) => {
-    await workflow.getProjectWorkflowColumnsAction(projectId);
+    await workflow.getWorkspaceWorkflowColumnsAction(projectId);
     const [column] = await sql`SELECT id FROM project_workflow_columns WHERE project_id = ${projectId} AND status = 'todo' AND is_default`;
     const insert = (title: string, position: number | null, at: string) =>
       sql`INSERT INTO tasks (project_id, title, workflow_column_id, position, created_at) VALUES (${projectId}, ${title}, ${column!.id}, ${position}, ${at}) RETURNING id`;
@@ -86,7 +86,7 @@ test("task position backfill keeps the board order and leaves no ties", async ()
 
 test("story points save, deleted tasks refuse edits, and a drag to Done is the same transition as the status control", async () => {
   await withProject(async ({ projectId }) => {
-    await workflow.getProjectWorkflowColumnsAction(projectId);
+    await workflow.getWorkspaceWorkflowColumnsAction(projectId);
     const columns = await sql`SELECT id, status FROM project_workflow_columns WHERE project_id = ${projectId} AND is_default`;
     const col = (status: string) => columns.find((c) => c.status === status)!.id as string;
     const [task] = await sql`INSERT INTO tasks (project_id, title, workflow_column_id, status) VALUES (${projectId}, 'a', ${col("todo")}, 'todo') RETURNING id`;

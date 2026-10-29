@@ -19,9 +19,9 @@ import {
     Loader2,
 } from "lucide-react";
 import {
-    type ProjectSettingsMember,
-    getProjectMemberDisplayName,
-    getProjectMemberRoleLabel,
+    type WorkspaceSettingsMember,
+    getWorkspaceMemberDisplayName,
+    getWorkspaceMemberRoleLabel,
 } from "@/lib/workspaces/settings-policies";
 
 // ============================================================================
@@ -38,7 +38,7 @@ interface ProjectArchiveModalProps {
     onConfirmArchive: () => Promise<void>;
 }
 
-export function ProjectArchiveModal({
+export function WorkspaceArchiveModal({
     open,
     onOpenChange,
     isArchived,
@@ -156,14 +156,14 @@ export function ProjectArchiveModal({
 interface ProjectTransferOwnershipModalProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
-    candidate: ProjectSettingsMember | null;
+    candidate: WorkspaceSettingsMember | null;
     projectSlug: string;
     projectTitle: string;
     loading: boolean;
-    onConfirmTransfer: (candidate: ProjectSettingsMember) => Promise<void>;
+    onConfirmTransfer: (candidate: WorkspaceSettingsMember) => Promise<void>;
 }
 
-export function ProjectTransferOwnershipModal({
+export function WorkspaceTransferOwnershipModal({
     open,
     onOpenChange,
     candidate,
@@ -183,7 +183,7 @@ export function ProjectTransferOwnershipModal({
 
     if (!candidate) return null;
 
-    const candidateDisplayName = getProjectMemberDisplayName(candidate);
+    const candidateDisplayName = getWorkspaceMemberDisplayName(candidate);
     const candidateUsername = candidate.username?.trim() || "";
     const verificationTarget = candidateUsername || candidateDisplayName;
     const isConfirmed = confirmInput.trim().toLowerCase() === verificationTarget.toLowerCase();
@@ -244,7 +244,7 @@ export function ProjectTransferOwnershipModal({
                             </div>
                         </div>
                         <span className="inline-flex h-5 shrink-0 items-center rounded-[3px] border border-border bg-muted/60 px-[7px] font-mono text-[11px] font-medium uppercase tracking-[0.09em] leading-none text-muted-foreground">
-                            Now: {getProjectMemberRoleLabel(candidate.membershipRole)}
+                            Now: {getWorkspaceMemberRoleLabel(candidate.membershipRole)}
                         </span>
                     </div>
 
@@ -336,7 +336,7 @@ interface ProjectDeleteModalProps {
     onConfirmDelete: () => Promise<void>;
 }
 
-export function ProjectDeleteModal({
+export function WorkspaceDeleteModal({
     open,
     onOpenChange,
     projectSlug,

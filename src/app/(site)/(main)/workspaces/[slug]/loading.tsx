@@ -1,6 +1,6 @@
 import { Skeleton } from "@/components/ui/skeleton";
 
-export default function ProjectDetailLoading() {
+export default function WorkspaceDetailLoading() {
     return (
         <div
             role="status"
@@ -10,7 +10,7 @@ export default function ProjectDetailLoading() {
         >
             <span className="sr-only">Loading workspace…</span>
 
-            {/* Top full-bleed header matching ProjectLayout */}
+            {/* Top full-bleed header matching WorkspaceLayout */}
             <div aria-hidden="true" className="w-full shrink-0 border-b border-border bg-card">
                 <div className="mx-auto max-w-[1240px] px-4 py-4 sm:px-6">
                     <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
@@ -37,7 +37,7 @@ export default function ProjectDetailLoading() {
                 </div>
             </div>
 
-            {/* Sticky Tab Bar matching ProjectLayout tabs */}
+            {/* Sticky Tab Bar matching WorkspaceLayout tabs */}
             <div aria-hidden="true" className="w-full shrink-0 border-b border-border bg-card">
                 <div className="mx-auto flex max-w-[1240px] items-stretch gap-2 overflow-x-auto px-4 sm:px-6">
                     {["Dashboard", "Docs", "Updates", "Sprints", "Tasks", "Files", "Settings"].map((tab) => (

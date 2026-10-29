@@ -36,8 +36,8 @@ test("People lazily loads inactive tabs and has a route-level loading shell", ()
   assert.match(invitations, /useInfiniteQuery\(/);
   assert.match(invitations, /readNetworkInvitationsAction\(/);
   assert.match(invitations, /getNextPageParam/);
-  assert.doesNotMatch(invitations, /getIncomingApplicationsAction|getSentProjectInvitationsAction/);
-  assert.match(invitations, /resolveProjectInvitationAction/);
+  assert.doesNotMatch(invitations, /getIncomingApplicationsAction|getSentWorkspaceInvitationsAction/);
+  assert.match(invitations, /resolveWorkspaceInvitationAction/);
   assert.match(loading, /aria-label="Loading network"/);
 });
 

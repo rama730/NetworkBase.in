@@ -1,4 +1,4 @@
-import { enqueueProjectNotificationEvent } from "@/lib/notifications/workspace-events";
+import { enqueueWorkspaceNotificationEvent } from "@/lib/notifications/workspace-events";
 import { logger } from "@/lib/logger";
 
 export interface EnqueueTaskCommentMentionParams {
@@ -41,7 +41,7 @@ export async function enqueueTaskCommentMentionNotifications(
     const recipientUserIds = Array.from(recipients);
 
     try {
-        const result = await enqueueProjectNotificationEvent({
+        const result = await enqueueWorkspaceNotificationEvent({
             projectId: params.projectId,
             actorUserId: params.authorUserId,
             actorName: params.authorDisplayName,

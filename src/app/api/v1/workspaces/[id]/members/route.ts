@@ -28,8 +28,8 @@ import {
 } from "@/app/api/v1/_shared";
 import { db } from "@/lib/db";
 import { profiles, projectMembers, projects } from "@/lib/db/schema";
-import { getProjectAccessById } from "@/lib/data/workspace-access";
-import { isProjectMemberEligibleFor } from "@/lib/workspaces/collaborator-lifecycle";
+import { getWorkspaceAccessById } from "@/lib/data/workspace-access";
+import { isWorkspaceMemberEligibleFor } from "@/lib/workspaces/collaborator-lifecycle";
 import { isLooseUuid } from "@/lib/validations/uuid";
 
 export const runtime = "nodejs";
@@ -38,7 +38,7 @@ export const dynamic = "force-dynamic";
 const MAX_RESULTS = 10;
 const MAX_QUERY_LENGTH = 64;
 
-export interface ProjectMemberSearchResult {
+export interface WorkspaceMemberSearchResult {
     id: string;
     username: string | null;
     fullName: string | null;
@@ -81,7 +81,7 @@ export async function GET(
         return jsonError("Invalid workspace id", 400, "BAD_REQUEST");
     }
 
-    const access = await getProjectAccessById(projectId, user.id);
+    const access = await getWorkspaceAccessById(projectId, user.id);
     if (!access.project) {
         return jsonError("Workspace not found", 404, "NOT_FOUND");
     }
@@ -147,11 +147,11 @@ export async function GET(
     const [ownerRows, memberRows] = await Promise.all([ownerPromise, memberPromise]);
 
     const seen = new Set<string>();
-    const results: ProjectMemberSearchResult[] = [];
+    const results: WorkspaceMemberSearchResult[] = [];
 
     for (const row of ownerRows) {
         if (!row?.id || seen.has(row.id)) continue;
-        if (!isProjectMemberEligibleFor("owner", eligibility)) continue;
+        if (!isWorkspaceMemberEligibleFor("owner", eligibility)) continue;
         seen.add(row.id);
         results.push({
             id: row.id,
@@ -165,8 +165,8 @@ export async function GET(
 
     for (const row of memberRows) {
         if (!row?.id || seen.has(row.id)) continue;
-        const role = (row.role ?? "member") as ProjectMemberSearchResult["role"];
-        if (!isProjectMemberEligibleFor(role, eligibility)) continue;
+        const role = (row.role ?? "member") as WorkspaceMemberSearchResult["role"];
+        if (!isWorkspaceMemberEligibleFor(role, eligibility)) continue;
         seen.add(row.id);
         results.push({
             id: row.id,

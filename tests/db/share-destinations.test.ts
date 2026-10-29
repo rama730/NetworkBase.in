@@ -6,7 +6,7 @@ let actor:string|null=null;
 moduleStubs.set('@/lib/supabase/auth-user',{getAuthUser:async()=>actor?{id:actor}:null});
 let list:typeof import('../../src/app/actions/sharing-destinations')['listShareDestinations'];
 let get:typeof import('../../src/app/actions/sharing-destinations')['getShareDestination'];
-let projects:typeof import('../../src/app/actions/sharing-destinations')['listShareProjects'];
+let projects:typeof import('../../src/app/actions/sharing-destinations')['listShareWorkspaces'];
 let owner='',outsider='',peer='',p1='',p2='';const users:string[]=[],channels:string[]=[];
 async function channel(kind:string,projectId:string|null,name:string|null,other?:string,applicationId?:string){
   const id=randomUUID();channels.push(id);
@@ -18,7 +18,7 @@ async function channel(kind:string,projectId:string|null,name:string|null,other?
 before(async()=>{
   ({listShareDestinations:list}=await loadAppModule(()=>import('../../src/app/actions/sharing-destinations')));
   ({getShareDestination:get}=await loadAppModule(()=>import('../../src/app/actions/sharing-destinations')));
-  ({listShareProjects:projects}=await loadAppModule(()=>import('../../src/app/actions/sharing-destinations')));
+  ({listShareWorkspaces:projects}=await loadAppModule(()=>import('../../src/app/actions/sharing-destinations')));
   for(let i=0;i<109;i++)users.push(await sql.begin(tx=>createUser(tx)));
   [owner,outsider,peer]=users as [string,string,string];actor=owner;
   p1=await sql.begin(tx=>createProject(tx,owner));p2=await sql.begin(tx=>createProject(tx,owner));

@@ -12,7 +12,7 @@ import {
   statusLabel,
   type Availability,
   type PersonPresence,
-  type ProjectStatus,
+  type WorkspaceStatus,
 } from "@/lib/presence/model";
 import { useLiveOnline } from "@/components/presence/live-online";
 import { queryKeys } from "@/lib/query-keys";
@@ -61,9 +61,9 @@ const loadPerson = createBatcher<PersonPresence>(async (ids) => {
   return new Map(result.presence.map((entry) => [entry.userId, entry]));
 });
 
-type ProjectPresenceEntry = { projectId: string; updatedAt: string | null; status: ProjectStatus | null };
+type ProjectPresenceEntry = { projectId: string; updatedAt: string | null; status: WorkspaceStatus | null };
 const loadProject = createBatcher<ProjectPresenceEntry>(async (ids) => {
-  const result = await (await actions()).getProjectStatuses({ projectIds: ids });
+  const result = await (await actions()).getWorkspaceStatuses({ projectIds: ids });
   if (!result.success) throw new Error("unavailable");
   return new Map(result.projects.map((entry) => [entry.projectId, entry]));
 });
@@ -151,7 +151,7 @@ export function usePersonPresence(userId: string | null | undefined, options: { 
   }, [options.fallbackLastActiveAt, options.live, realtime, query.data, query.dataUpdatedAt, query.isError]);
 }
 
-export function useProjectPresence(projectId: string | null | undefined, fallbackUpdatedAt?: string | Date | null) {
+export function useWorkspacePresence(projectId: string | null | undefined, fallbackUpdatedAt?: string | Date | null) {
   const query = useQuery({
     queryKey: queryKeys.presence.project(projectId ?? "none"),
     enabled: Boolean(projectId),

@@ -127,7 +127,7 @@ describe("V3AttachmentPicker — right pane content (Req 6.2)", () => {
   it("uses authoritative server search", () => {
     assert.match(
       SRC,
-      /getProjectNodes\(projectId, folder\?\.id \?\? null, query, 100, pageParam\)/,
+      /getWorkspaceNodes\(projectId, folder\?\.id \?\? null, query, 100, pageParam\)/,
       "Search must query the server and include its cursor",
     );
   });

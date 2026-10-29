@@ -1,4 +1,4 @@
-export type ProjectDocEditorTargetKind =
+export type WorkspaceDocEditorTargetKind =
     | "blockquote"
     | "code"
     | "command"
@@ -11,9 +11,9 @@ export type ProjectDocEditorTargetKind =
     | "smart-block"
     | "table";
 
-export type ProjectDocEditorSourcePosition = {
+export type WorkspaceDocEditorSourcePosition = {
     targetId: string;
-    kind?: ProjectDocEditorTargetKind | string | null;
+    kind?: WorkspaceDocEditorTargetKind | string | null;
     line?: number | null;
     offset?: number | null;
 };
@@ -23,7 +23,7 @@ function sanitizeTargetKind(kind: string) {
 }
 
 export function projectDocEditorTargetId(
-    kind: ProjectDocEditorTargetKind | string,
+    kind: WorkspaceDocEditorTargetKind | string,
     line: number | null | undefined,
     offset: number | null | undefined,
 ) {

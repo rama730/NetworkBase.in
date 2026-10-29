@@ -7,11 +7,11 @@ import {
     MessageCircle,
     X,
 } from "lucide-react";
-import { type ProjectUpdateView } from "@/app/actions/workspace/updates";
+import { type WorkspaceUpdateView } from "@/app/actions/workspace/updates";
 import { UserAvatar } from "@/components/ui/UserAvatar";
 import { cn } from "@/lib/utils";
 import { UpdateTime, updateAuthorName } from '@/components/workspaces/updates/update-helpers';
-import { ProjectUpdateContent, UpdateContextAndMedia } from '@/components/workspaces/updates/UpdateContent';
+import { WorkspaceUpdateContent, UpdateContextAndMedia } from '@/components/workspaces/updates/UpdateContent';
 import { UpdateComments } from '@/components/workspaces/updates/UpdateComments';
 import { useToggleUpdateLike } from '@/hooks/useToggleUpdateLike';
 
@@ -30,7 +30,7 @@ export function UpdateDetailPanel({
 }: {
   projectId: string;
   projectSlug?: string | null;
-  update: ProjectUpdateView | null;
+  update: WorkspaceUpdateView | null;
   updatesQueryKey: readonly unknown[];
   onClose: () => void;
   currentUserId: string | null;
@@ -127,7 +127,7 @@ export function UpdateDetailPanel({
               </div>
 
               {update.content.trim() ? (
-                <ProjectUpdateContent
+                <WorkspaceUpdateContent
                   content={update.content}
                   projectId={projectId}
                   projectSlug={projectSlug}

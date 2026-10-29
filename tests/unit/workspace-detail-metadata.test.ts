@@ -2,19 +2,19 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
-  buildProjectDetailMetadataInput,
-  getProjectTitleFromSlug,
+  buildWorkspaceDetailMetadataInput,
+  getWorkspaceTitleFromSlug,
 } from "@/lib/workspaces/workspace-detail-metadata";
 
-test("getProjectTitleFromSlug normalizes slugs and hides UUIDs", () => {
-  assert.equal(getProjectTitleFromSlug("network-for-builders"), "network for builders");
-  assert.equal(getProjectTitleFromSlug("550e8400-e29b-41d4-a716-446655440000"), "Workspace");
-  assert.equal(getProjectTitleFromSlug("%E0%A4%A"), "%E0%A4%A");
+test("getWorkspaceTitleFromSlug normalizes slugs and hides UUIDs", () => {
+  assert.equal(getWorkspaceTitleFromSlug("network-for-builders"), "network for builders");
+  assert.equal(getWorkspaceTitleFromSlug("550e8400-e29b-41d4-a716-446655440000"), "Workspace");
+  assert.equal(getWorkspaceTitleFromSlug("%E0%A4%A"), "%E0%A4%A");
 });
 
-test("buildProjectDetailMetadataInput trims project title and descriptions", () => {
+test("buildWorkspaceDetailMetadataInput trims project title and descriptions", () => {
   assert.deepEqual(
-    buildProjectDetailMetadataInput("network-for-builders", {
+    buildWorkspaceDetailMetadataInput("network-for-builders", {
       slug: "network-for-builders ",
       title: "Network for builders ",
       shortDescription: "  Learn and build together.  ",
@@ -33,9 +33,9 @@ test("buildProjectDetailMetadataInput trims project title and descriptions", () 
   );
 });
 
-test("buildProjectDetailMetadataInput uses large-card dimensions for uploaded workspace images", () => {
+test("buildWorkspaceDetailMetadataInput uses large-card dimensions for uploaded workspace images", () => {
   assert.deepEqual(
-    buildProjectDetailMetadataInput("network-for-builders", {
+    buildWorkspaceDetailMetadataInput("network-for-builders", {
       slug: "network-for-builders",
       title: "Network for builders",
       coverImage: "https://cdn.example.test/workspace.png",

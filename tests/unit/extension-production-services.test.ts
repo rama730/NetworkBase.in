@@ -199,7 +199,7 @@ test("durable file operation replay returns the original committed receipt witho
   const service = load("src/lib/files/apply-file-revision.ts", {
     "@/lib/db": { db: { transaction: (fn: any) => fn(tx) } },
     "@/lib/files/internal-helpers": {
-      assertProjectUploadAccessTx: async () => {},
+      assertWorkspaceUploadAccessTx: async () => {},
     },
     "@/lib/files/file-lock-service": {
       assertOwnedFileLease: async () => {

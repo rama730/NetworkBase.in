@@ -3,7 +3,7 @@ import {
     jsonError,
     requireAuthenticatedUser,
 } from "@/app/api/v1/_shared";
-import { getProjectAccessById } from "@/lib/data/workspace-access";
+import { getWorkspaceAccessById } from "@/lib/data/workspace-access";
 import { jsonSuccessConditional } from "@/app/api/v1/_conditional";
 import { buildFileCapabilities } from "@/lib/workspaces/file-capabilities";
 import { isLooseUuid } from "@/lib/validations/uuid";
@@ -29,7 +29,7 @@ export async function GET(
         return jsonError("Invalid workspace id", 400, "BAD_REQUEST");
     }
 
-    const access = await getProjectAccessById(projectId, user.id);
+    const access = await getWorkspaceAccessById(projectId, user.id);
     if (!access.project) {
         return jsonError("Workspace not found", 404, "NOT_FOUND");
     }

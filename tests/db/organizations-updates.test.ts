@@ -49,11 +49,11 @@ async function orgWithChild(memberUpdates = false) {
 
 async function post(projectId: string, as: string, extra: Record<string, unknown> = {}) {
   viewerId = as;
-  return updates.createProjectUpdateAction(projectId, { content: `Post ${Math.random().toString(36).slice(2, 7)}`, visibility: "members", ...extra } as Parameters<typeof updates.createProjectUpdateAction>[1]);
+  return updates.createWorkspaceUpdateAction(projectId, { content: `Post ${Math.random().toString(36).slice(2, 7)}`, visibility: "members", ...extra } as Parameters<typeof updates.createWorkspaceUpdateAction>[1]);
 }
 async function feed(projectId: string, as: string, filter = "all") {
   viewerId = as;
-  const result = await updates.readProjectUpdatesAction(projectId, { filter });
+  const result = await updates.readWorkspaceUpdatesAction(projectId, { filter });
   assert.equal(result.success, true, JSON.stringify(result));
   return result.success ? result.data : null;
 }
@@ -88,18 +88,18 @@ test("up to 3 pins in an org; an unpin date ends a pin; a normal project still s
     ids.push(r.success ? r.data!.id : "");
   }
   viewerId = o.admin;
-  for (const id of ids.slice(0, 3)) assert.equal((await updates.toggleProjectUpdatePinAction(o.org, id, true)).success, true);
-  assert.equal((await updates.toggleProjectUpdatePinAction(o.org, ids[3]!, true)).success, false, "a fourth pin is refused");
+  for (const id of ids.slice(0, 3)) assert.equal((await updates.toggleWorkspaceUpdatePinAction(o.org, id, true)).success, true);
+  assert.equal((await updates.toggleWorkspaceUpdatePinAction(o.org, ids[3]!, true)).success, false, "a fourth pin is refused");
   await sql`UPDATE project_updates SET pinned_until = now() - interval '1 minute' WHERE id = ${ids[0]!}`;
-  assert.equal((await updates.toggleProjectUpdatePinAction(o.org, ids[3]!, true)).success, true, "an expired pin no longer counts");
+  assert.equal((await updates.toggleWorkspaceUpdatePinAction(o.org, ids[3]!, true)).success, true, "an expired pin no longer counts");
   const top = await feed(o.org, o.member);
   assert.equal(top!.updates.find((u) => u.id === ids[0])!.isPinned, false, "quietly unpinned");
 
   const a = await post(o.child, o.member);
   const b = await post(o.child, o.member);
   viewerId = o.member;
-  await updates.toggleProjectUpdatePinAction(o.child, a.success ? a.data!.id : "", true);
-  assert.equal((await updates.toggleProjectUpdatePinAction(o.child, b.success ? b.data!.id : "", true)).success, true);
+  await updates.toggleWorkspaceUpdatePinAction(o.child, a.success ? a.data!.id : "", true);
+  assert.equal((await updates.toggleWorkspaceUpdatePinAction(o.child, b.success ? b.data!.id : "", true)).success, true);
   assert.equal((await sql`SELECT count(*)::int AS n FROM project_updates WHERE project_id = ${o.child} AND is_pinned`)[0]!.n, 1);
 });
 
@@ -107,7 +107,7 @@ test("comments off refuses replies", async () => {
   const o = await orgWithChild();
   const r = await post(o.org, o.admin, { updateType: "announcement", commentsOff: true });
   viewerId = o.member;
-  const reply = await updates.createProjectUpdateCommentAction(o.org, r.success ? r.data!.id : "", "Question?");
+  const reply = await updates.createWorkspaceUpdateCommentAction(o.org, r.success ? r.data!.id : "", "Question?");
   assert.equal(reply.success, false);
 });
 
@@ -129,7 +129,7 @@ test("the pinned org line in a child project, and New markers", async () => {
   const o = await orgWithChild();
   const pinned = await post(o.org, o.admin, { updateType: "announcement", content: "Midterm moved to Nov 10" });
   viewerId = o.admin;
-  await updates.toggleProjectUpdatePinAction(o.org, pinned.success ? pinned.data!.id : "", true);
+  await updates.toggleWorkspaceUpdatePinAction(o.org, pinned.success ? pinned.data!.id : "", true);
   viewerId = o.member;
   const line = await orgUpdates.readOrgPinnedLineAction(o.child);
   assert.equal(line?.content, "Midterm moved to Nov 10");
@@ -143,5 +143,5 @@ test("inherited org admins moderate child workspace updates", async () => {
   const o = await orgWithChild();
   const r = await post(o.child, o.member);
   viewerId = o.admin;
-  assert.equal((await updates.deleteProjectUpdateAction(o.child, r.success ? r.data!.id : "", "Off topic")).success, true);
+  assert.equal((await updates.deleteWorkspaceUpdateAction(o.child, r.success ? r.data!.id : "", "Off topic")).success, true);
 });

@@ -50,7 +50,7 @@ import {
   getTaskStatusPresentation,
 } from "@/lib/workspaces/task-workflow";
 import type { TaskPanelTab } from "@/hooks/useTaskPanelResource";
-import { buildProjectPersonReference } from "@/lib/workspaces/settings-policies";
+import { buildWorkspacePersonReference } from "@/lib/workspaces/settings-policies";
 import { messageHref } from "@/lib/messaging/routes";
 import { useTaskCompletionPolicy } from "@/hooks/useTaskCompletionPolicy";
 import { completionActionLabel } from "@/lib/workspaces/task-completion-policy";
@@ -170,7 +170,7 @@ export default function DetailsTab({
     task.assigneeId && !availableMemberIds.has(task.assigneeId),
   );
   const currentAssigneeReference = task.assignee
-    ? buildProjectPersonReference({
+    ? buildWorkspacePersonReference({
         person: task.assignee,
         isActiveMember: !currentAssigneeUnavailable,
       })

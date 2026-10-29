@@ -12,8 +12,8 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { useChatShell } from "@/components/messages/ChatShellProvider";
 import { ListScreen } from "@/components/messages/ListScreen";
 import { ListSkeleton } from "@/components/messages/ListSkeleton";
-import { useSelectedProject } from "@/components/messages/useSelectedWorkspace";
-import { ProjectBadge } from "@/components/workspaces/WorkspaceBadge";
+import { useSelectedWorkspace } from "@/components/messages/useSelectedWorkspace";
+import { WorkspaceBadge } from "@/components/workspaces/WorkspaceBadge";
 import { UserAvatar } from "@/components/ui/UserAvatar";
 import { useAuth } from "@/hooks/useAuth";
 import { channelTitle, formatChatTime, fullTime, isDirectLike, isVisible, needsAttention, projectsByActivity, rowCount } from "@/lib/messaging/channel-view";
@@ -59,7 +59,7 @@ const UNREAD_SHOWN = 8;
  * Recent conversations live in the sidebar; a first-time user gets the two ways to start instead.
  */
 export function HomePane() {
-  const projectId = useSelectedProject();
+  const projectId = useSelectedWorkspace();
   const { data, loadError, refresh } = useChatShell();
   const markAllRead = useMarkAllRead();
   const { user } = useAuth();
@@ -84,7 +84,7 @@ export function HomePane() {
   return (
     <section className="flex h-full min-h-0 flex-col bg-card" aria-label={project ? project.title : "Home"}>
       <header className="flex h-14 flex-none items-center gap-2 border-b border-border px-4">
-        {project ? <ProjectBadge project={project} size="sm" /> : null}
+        {project ? <WorkspaceBadge project={project} size="sm" /> : null}
         <h1 className="nb-card-title min-w-0 flex-1 truncate">{project ? project.title : "Home"}</h1>
         {project ? (
           <Button asChild variant="outline" size="sm"><Link href={`/messages/w/${project.id}/browse`}><Compass size={16} aria-hidden="true" /> Browse channels</Link></Button>

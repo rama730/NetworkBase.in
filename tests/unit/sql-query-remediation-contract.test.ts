@@ -102,8 +102,8 @@ describe("SQL audit query remediations", () => {
     const updates = read("src/app/actions/workspace/updates.ts");
     assert.match(projects, /eq\(projects\.updatedAt, project\.updatedAt\)/);
     assert.match(projects, /Stages changed\. Refresh and retry\./);
-    assert.match(updates, /computeProjectReadAccess\(project\.visibility, project\.status, isOwner, isMember, parentOrgRole\)/);
-    assert.doesNotMatch(updates, /getProjectAccessById/);
+    assert.match(updates, /computeWorkspaceReadAccess\(project\.visibility, project\.status, isOwner, isMember, parentOrgRole\)/);
+    assert.doesNotMatch(updates, /getWorkspaceAccessById/);
   });
 
   it("retries transient push delivery and only closes terminal attempts", () => {

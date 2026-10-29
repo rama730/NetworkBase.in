@@ -1,11 +1,11 @@
-import type { ProjectDocHeading } from "@/lib/workspaces/doc";
-import { buildProjectDocPlainText } from "@/lib/workspaces/doc-plain-text";
+import type { WorkspaceDocHeading } from "@/lib/workspaces/doc";
+import { buildWorkspaceDocPlainText } from "@/lib/workspaces/doc-plain-text";
 import { projectDocCommandBlockId, projectDocCommandLineTargetId } from "@/lib/workspaces/doc-navigation";
 
-export type ProjectDocCommandTargetKind = "block" | "inline";
-export type ProjectDocCommandRiskLevel = "none" | "caution" | "danger";
-export type ProjectDocCommandConfidence = "high" | "medium" | "low";
-export type ProjectDocCommandGroup =
+export type WorkspaceDocCommandTargetKind = "block" | "inline";
+export type WorkspaceDocCommandRiskLevel = "none" | "caution" | "danger";
+export type WorkspaceDocCommandConfidence = "high" | "medium" | "low";
+export type WorkspaceDocCommandGroup =
     | "recommended"
     | "install"
     | "claude"
@@ -19,31 +19,31 @@ export type ProjectDocCommandGroup =
     | "database"
     | "other";
 
-export type ProjectDocQuickCommand = {
+export type WorkspaceDocQuickCommand = {
     id: string;
     blockId: string;
     targetId: string;
-    targetKind: ProjectDocCommandTargetKind;
+    targetKind: WorkspaceDocCommandTargetKind;
     blockIndex: number;
     commandIndex: number;
     codeLineStart: number | null;
     codeLineEnd: number | null;
     command: string;
     label: string;
-    group: ProjectDocCommandGroup;
+    group: WorkspaceDocCommandGroup;
     groupLabel: string;
     detail: string | null;
     language: string | null;
     heading: string | null;
     platforms: string[];
     ecosystemTags: string[];
-    confidence: ProjectDocCommandConfidence;
+    confidence: WorkspaceDocCommandConfidence;
     confidenceLabel: string;
-    riskLevel: ProjectDocCommandRiskLevel;
+    riskLevel: WorkspaceDocCommandRiskLevel;
     riskLabel: string | null;
 };
 
-export type ProjectDocRailReport = {
+export type WorkspaceDocRailReport = {
     summary: string | null;
     briefItems: Array<{ label: string; value: string }>;
     summaryItems: Array<{ label: string; value: string }>;
@@ -74,7 +74,7 @@ const COMMAND_LANGUAGES = new Set([
 const CONFIG_LANGUAGES = new Set(["json", "jsonc", "toml", "yaml", "yml"]);
 const COMMAND_START_REGEX = /^(?:sudo|npm|pnpm|yarn|bun|npx|node|git|gh|vercel|docker|docker-compose|curl|wget|brew|pip|pipx|python|uv|tsx|ts-node|make|cargo|go|psql|redis-cli|supabase|drizzle-kit|claude|gemini|code|cursor|windsurf|cline|copilot|tessl|cd|cp|mv|mkdir|rm|chmod|chown|export|source|eval|echo|cat|sed|awk|ssh|scp|rsync|tar|unzip|bash|sh|zsh|irm|powershell)\b/i;
 
-export const PROJECT_DOC_PRIMARY_COMMAND_GROUPS = new Set<ProjectDocCommandGroup>([
+export const WORKSPACE_DOC_PRIMARY_COMMAND_GROUPS = new Set<WorkspaceDocCommandGroup>([
     "recommended",
     "install",
     "claude",
@@ -89,7 +89,7 @@ export const PROJECT_DOC_PRIMARY_COMMAND_GROUPS = new Set<ProjectDocCommandGroup
 
 type ProjectDocCommandTarget = {
     id: string;
-    kind: ProjectDocCommandTargetKind;
+    kind: WorkspaceDocCommandTargetKind;
     offset: number;
     line: number;
     blockIndex: number;
@@ -104,7 +104,7 @@ type ProjectDocExtractedCommand = {
 };
 
 function cleanHeadingText(value: string) {
-    const text = buildProjectDocPlainText(value, { maxLength: 96, stripCodeBlocks: false });
+    const text = buildWorkspaceDocPlainText(value, { maxLength: 96, stripCodeBlocks: false });
     if (!text) return null;
     if (/^(?:align|src|width|height|alt)\b/i.test(text)) return null;
     return text;
@@ -263,7 +263,7 @@ function lineForOffset(content: string, offset: number) {
     return content.slice(0, offset).split("\n").length;
 }
 
-export function collectProjectDocCommandTargets(content: string): ProjectDocCommandTarget[] {
+export function collectWorkspaceDocCommandTargets(content: string): ProjectDocCommandTarget[] {
     const candidates: Array<Omit<ProjectDocCommandTarget, "id" | "blockIndex">> = [];
     const fencedRanges: Array<{ start: number; end: number }> = [];
 
@@ -304,7 +304,7 @@ export function collectProjectDocCommandTargets(content: string): ProjectDocComm
         }));
 }
 
-export function buildProjectDocCommandTargetMaps(content: string) {
+export function buildWorkspaceDocCommandTargetMaps(content: string) {
     const byOffset = new Map<number, string>();
     const byLine = new Map<number, string>();
     const inlineByOffset = new Map<number, string>();
@@ -318,7 +318,7 @@ export function buildProjectDocCommandTargetMaps(content: string) {
         map.set(line, list);
     };
 
-    for (const target of collectProjectDocCommandTargets(content)) {
+    for (const target of collectWorkspaceDocCommandTargets(content)) {
         const targetOffsetMap = target.kind === "inline" ? inlineByOffset : byOffset;
         const targetLineMap = target.kind === "inline" ? inlineByLine : byLine;
         const targetQueueMap = target.kind === "inline" ? inlineByLineQueue : byLineQueue;
@@ -330,7 +330,7 @@ export function buildProjectDocCommandTargetMaps(content: string) {
     return { byOffset, byLine, inlineByOffset, inlineByLine, byLineQueue, inlineByLineQueue };
 }
 
-function inferCommandGroup(command: string, heading: string | null, language: string | null): ProjectDocCommandGroup {
+function inferCommandGroup(command: string, heading: string | null, language: string | null): WorkspaceDocCommandGroup {
     const value = `${heading ?? ""} ${language ?? ""} ${command}`.toLowerCase();
     if (/^--[a-z0-9-]+/.test(command.trim())) return "options";
     if (/\b(start here|quick start|get started|getting started|recommended|one command)\b/.test(value)) return "recommended";
@@ -346,7 +346,7 @@ function inferCommandGroup(command: string, heading: string | null, language: st
     return "other";
 }
 
-export function projectDocCommandGroupLabel(group: ProjectDocCommandGroup) {
+export function projectDocCommandGroupLabel(group: WorkspaceDocCommandGroup) {
     switch (group) {
         case "recommended": return "Recommended";
         case "install": return "Install";
@@ -363,7 +363,7 @@ export function projectDocCommandGroupLabel(group: ProjectDocCommandGroup) {
     }
 }
 
-function inferCommandLabel(command: string, heading: string | null, index: number, group: ProjectDocCommandGroup) {
+function inferCommandLabel(command: string, heading: string | null, index: number, group: WorkspaceDocCommandGroup) {
     const value = command.toLowerCase();
     if (group === "recommended") return "Start here";
     if (group === "claude") return "Claude plugin";
@@ -389,7 +389,7 @@ function inferCommandLabel(command: string, heading: string | null, index: numbe
     return index === 0 ? "Command" : `Command ${index + 1}`;
 }
 
-function inferCommandDetail(command: string, heading: string | null, group: ProjectDocCommandGroup) {
+function inferCommandDetail(command: string, heading: string | null, group: WorkspaceDocCommandGroup) {
     const value = command.toLowerCase();
     const headingDetail = usefulHeadingDetail(heading);
     if (group === "options") return headingDetail ? `Option from ${headingDetail}` : "Installer flag";
@@ -439,9 +439,9 @@ function inferCommandConfidence(
     command: string,
     heading: string | null,
     language: string | null,
-    group: ProjectDocCommandGroup,
-    targetKind: ProjectDocCommandTargetKind,
-): ProjectDocCommandConfidence {
+    group: WorkspaceDocCommandGroup,
+    targetKind: WorkspaceDocCommandTargetKind,
+): WorkspaceDocCommandConfidence {
     const normalizedLanguage = language?.toLowerCase() ?? "";
     const hasUsefulContext = Boolean(usefulHeadingDetail(heading));
     if (CONFIG_LANGUAGES.has(normalizedLanguage) && group === "config") return "high";
@@ -453,7 +453,7 @@ function inferCommandConfidence(
     return group === "other" ? "medium" : "high";
 }
 
-function commandConfidenceLabel(confidence: ProjectDocCommandConfidence) {
+function commandConfidenceLabel(confidence: WorkspaceDocCommandConfidence) {
     switch (confidence) {
         case "high": return "Direct match";
         case "medium": return "Review match";
@@ -462,7 +462,7 @@ function commandConfidenceLabel(confidence: ProjectDocCommandConfidence) {
     }
 }
 
-function inferCommandRisk(command: string): { riskLevel: ProjectDocCommandRiskLevel; riskLabel: string | null } {
+function inferCommandRisk(command: string): { riskLevel: WorkspaceDocCommandRiskLevel; riskLabel: string | null } {
     const value = command.toLowerCase();
     if (/\brm\s+-[rf]*r[rf]*\b/.test(value) || /\bdd\s+if=/.test(value) || /\bmkfs\b/.test(value) || /\bdrop\s+database\b/.test(value)) {
         return { riskLevel: "danger", riskLabel: "Destructive command" };
@@ -491,9 +491,9 @@ function inferCommandRisk(command: string): { riskLevel: ProjectDocCommandRiskLe
     return { riskLevel: "none", riskLabel: null };
 }
 
-export function extractProjectDocCommandShortcuts(content: string): ProjectDocQuickCommand[] {
-    const commands: ProjectDocQuickCommand[] = [];
-    for (const target of collectProjectDocCommandTargets(content)) {
+export function extractWorkspaceDocCommandShortcuts(content: string): WorkspaceDocQuickCommand[] {
+    const commands: WorkspaceDocQuickCommand[] = [];
+    for (const target of collectWorkspaceDocCommandTargets(content)) {
         const heading = findNearestHeading(content, target.offset);
         const copyableCommands = target.kind === "inline"
             ? [{ command: target.code.trim(), startLine: null, endLine: null }].filter((entry) => Boolean(entry.command))
@@ -535,11 +535,11 @@ export function extractProjectDocCommandShortcuts(content: string): ProjectDocQu
 }
 
 function summarizeReadmeContent(content: string, excerpt?: string | null) {
-    return buildProjectDocPlainText(excerpt, { maxLength: 150 })
-        ?? buildProjectDocPlainText(content, { maxLength: 150 });
+    return buildWorkspaceDocPlainText(excerpt, { maxLength: 150 })
+        ?? buildWorkspaceDocPlainText(content, { maxLength: 150 });
 }
 
-function inferReadmeNextAction(commands: ProjectDocQuickCommand[]) {
+function inferReadmeNextAction(commands: WorkspaceDocQuickCommand[]) {
     const preferred = commands.find((command) => command.group === "recommended")
         ?? commands.find((command) => command.group === "install" || command.group === "claude" || command.group === "agents")
         ?? commands.find((command) => command.group === "develop")
@@ -548,7 +548,7 @@ function inferReadmeNextAction(commands: ProjectDocQuickCommand[]) {
     return `${preferred.label}: ${preferred.command.split("\n")[0]?.trim() ?? preferred.command}`;
 }
 
-function buildUniqueRiskWarnings(commands: ProjectDocQuickCommand[]) {
+function buildUniqueRiskWarnings(commands: WorkspaceDocQuickCommand[]) {
     const warnings = new Set<string>();
     commands.forEach((command) => {
         if (command.riskLevel === "none") return;
@@ -557,7 +557,7 @@ function buildUniqueRiskWarnings(commands: ProjectDocQuickCommand[]) {
     return Array.from(warnings).slice(0, 3);
 }
 
-function buildUniquePlatforms(commands: ProjectDocQuickCommand[]) {
+function buildUniquePlatforms(commands: WorkspaceDocQuickCommand[]) {
     const platforms = new Set<string>();
     commands.forEach((command) => {
         command.platforms.forEach((platform) => platforms.add(platform));
@@ -567,12 +567,12 @@ function buildUniquePlatforms(commands: ProjectDocQuickCommand[]) {
 
 function buildReadmeLimitations(input: {
     content: string;
-    commands: ProjectDocQuickCommand[];
+    commands: WorkspaceDocQuickCommand[];
     references: unknown[];
-    headings: ProjectDocHeading[];
+    headings: WorkspaceDocHeading[];
 }) {
     const limitations: string[] = [];
-    const hasReadableContent = Boolean(buildProjectDocPlainText(input.content, { maxLength: 32 }));
+    const hasReadableContent = Boolean(buildWorkspaceDocPlainText(input.content, { maxLength: 32 }));
     if (!hasReadableContent) {
         limitations.push("Doc is empty");
         return limitations;
@@ -585,9 +585,9 @@ function buildReadmeLimitations(input: {
 
 function buildReadmeSummaryItems(input: {
     content: string;
-    commands: ProjectDocQuickCommand[];
+    commands: WorkspaceDocQuickCommand[];
     references: unknown[];
-    headings: ProjectDocHeading[];
+    headings: WorkspaceDocHeading[];
 }) {
     const items: Array<{ label: string; value: string }> = [];
     if (input.commands.length) {
@@ -610,9 +610,9 @@ function buildReadmeSummaryItems(input: {
 function buildReadmeBriefItems(input: {
     content: string;
     excerpt?: string | null;
-    commands: ProjectDocQuickCommand[];
+    commands: WorkspaceDocQuickCommand[];
     references: unknown[];
-    headings: ProjectDocHeading[];
+    headings: WorkspaceDocHeading[];
 }) {
     const items: Array<{ label: string; value: string }> = [];
     const purpose = summarizeReadmeContent(input.content, input.excerpt);
@@ -641,18 +641,18 @@ function buildReadmeBriefItems(input: {
     return items.slice(0, 7);
 }
 
-export function buildProjectDocRailReport(input: {
+export function buildWorkspaceDocRailReport(input: {
     content: string;
     excerpt?: string | null;
-    commands: ProjectDocQuickCommand[];
+    commands: WorkspaceDocQuickCommand[];
     references: unknown[];
-    headings: ProjectDocHeading[];
-}): ProjectDocRailReport {
+    headings: WorkspaceDocHeading[];
+}): WorkspaceDocRailReport {
     const lower = input.content.toLowerCase();
     const optionCount = input.commands.filter((command) => command.group === "options").length;
     const riskyCommands = input.commands.filter((command) => command.riskLevel !== "none");
     const limitations = buildReadmeLimitations(input);
-    const hasReadableContent = Boolean(buildProjectDocPlainText(input.content, { maxLength: 32 }));
+    const hasReadableContent = Boolean(buildWorkspaceDocPlainText(input.content, { maxLength: 32 }));
     const readiness = !hasReadableContent
         ? "empty"
         : input.commands.length || input.references.length || input.headings.length

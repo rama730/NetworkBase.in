@@ -8,13 +8,13 @@ import { acceptApplicationAction, acceptApplicationsAction, getIncomingApplicati
 import { DecisionDialog, type DecisionInput } from "@/components/applications/DecisionDialog";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { personCardName } from "@/lib/network/person-card";
-import { resolveProjectInvitationAction } from "@/app/actions/workspace/guidance";
+import { resolveWorkspaceInvitationAction } from "@/app/actions/workspace/guidance";
 import { queryKeys } from "@/lib/query-keys";
 import { useUIStore } from "@/stores/ui-store";
 import { Inbox } from "lucide-react";
 import {
-    IncomingProjectApplicationRow,
-    type IncomingProjectApplication,
+    IncomingWorkspaceApplicationRow,
+    type IncomingWorkspaceApplication,
 } from "@/components/network/IncomingWorkspaceApplicationRow";
 import { toast, feedbackError } from "@/lib/feedback";
 import { Button } from "@/components/ui/button";
@@ -25,7 +25,7 @@ interface MyWorkRequestsTabProps {
     isActive?: boolean;
 }
 
-type MyWorkRequest = IncomingProjectApplication & { status: string };
+type MyWorkRequest = IncomingWorkspaceApplication & { status: string };
 
 function errorMessage(error: unknown) {
     return error instanceof Error ? error.message : "Failed";
@@ -165,14 +165,14 @@ export default function MyWorkRequestsTab({ isActive = true }: MyWorkRequestsTab
     };
 
     const acceptInvite = useMutation({
-        mutationFn: async (id: string) => unwrap(await resolveProjectInvitationAction({ invitationId: id, action: "accept" })),
+        mutationFn: async (id: string) => unwrap(await resolveWorkspaceInvitationAction({ invitationId: id, action: "accept" })),
         onMutate: removeOptimistically,
         onSuccess: () => { toast.success("Invite accepted"); invalidate(); },
         onError: (error: unknown) => { invalidate(); toast.error(feedbackError(errorMessage(error), "Action couldn’t finish")); },
     });
 
     const rejectInvite = useMutation({
-        mutationFn: async (id: string) => unwrap(await resolveProjectInvitationAction({ invitationId: id, action: "decline" })),
+        mutationFn: async (id: string) => unwrap(await resolveWorkspaceInvitationAction({ invitationId: id, action: "decline" })),
         onMutate: removeOptimistically,
         onSuccess: () => { toast.success("Decline"); invalidate(); },
         onError: (error: unknown) => { invalidate(); toast.error(feedbackError(errorMessage(error), "Action couldn’t finish")); },
@@ -349,7 +349,7 @@ export default function MyWorkRequestsTab({ isActive = true }: MyWorkRequestsTab
                             const isRejecting = rejectInvite.isPending && rejectInvite.variables === invite.id;
                             const isProcessing = isAccepting || isRejecting || isBatchBusy;
                             
-                            return <IncomingProjectApplicationRow key={invite.id} app={invite} busy={isProcessing} onAccept={() => acceptInvite.mutate(invite.id)} onReject={() => rejectInvite.mutate(invite.id)} />;
+                            return <IncomingWorkspaceApplicationRow key={invite.id} app={invite} busy={isProcessing} onAccept={() => acceptInvite.mutate(invite.id)} onReject={() => rejectInvite.mutate(invite.id)} />;
                         })}
                     </div>
                 </div>
@@ -372,7 +372,7 @@ export default function MyWorkRequestsTab({ isActive = true }: MyWorkRequestsTab
                     </div>
                     <div className="space-y-2">
                         {pendingIncoming.map((app) => {
-                            return <IncomingProjectApplicationRow key={app.id} app={app} busy={isBatchBusy} onAccept={() => setAccepting(app)} onReject={() => setDeclining(app)} />;
+                            return <IncomingWorkspaceApplicationRow key={app.id} app={app} busy={isBatchBusy} onAccept={() => setAccepting(app)} onReject={() => setDeclining(app)} />;
                         })}
                     </div>
                 </div>

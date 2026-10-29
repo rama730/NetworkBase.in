@@ -1,8 +1,8 @@
 import { isUuid } from "@/lib/validations/uuid";
 
-export const LEGACY_PROJECT_FILES_PREFIX = "projects";
+export const LEGACY_WORKSPACE_FILES_PREFIX = "projects";
 
-export type ParsedProjectFileKey = {
+export type ParsedWorkspaceFileKey = {
   projectId: string;
   relativePath: string;
   format: "canonical" | "legacy";
@@ -22,20 +22,20 @@ function hasUnsafePathSegment(relativePath: string): boolean {
   });
 }
 
-export function normalizeProjectFileRelativePath(relativePath: string): string {
+export function normalizeWorkspaceFileRelativePath(relativePath: string): string {
   return normalizePathPart(relativePath).replace(/^\.\//, "");
 }
 
-export function buildProjectFileKey(projectId: string, relativePath: string): string {
+export function buildWorkspaceFileKey(projectId: string, relativePath: string): string {
   const pid = (projectId || "").trim();
-  const rel = normalizeProjectFileRelativePath(relativePath);
+  const rel = normalizeWorkspaceFileRelativePath(relativePath);
   if (!pid) throw new Error("projectId is required");
   if (!rel) throw new Error("relativePath is required");
   if (hasUnsafePathSegment(rel)) throw new Error("relativePath contains unsafe segments");
   return `${pid}/${rel}`;
 }
 
-export function parseProjectFileKey(key: string): ParsedProjectFileKey | null {
+export function parseWorkspaceFileKey(key: string): ParsedWorkspaceFileKey | null {
   const clean = normalizePathPart((key || "").trim());
   if (!clean) return null;
 
@@ -58,7 +58,7 @@ export function parseProjectFileKey(key: string): ParsedProjectFileKey | null {
 
   // Legacy: projects/<projectId>/<path...>
   const secondPart = parts[1];
-  if (firstPart === LEGACY_PROJECT_FILES_PREFIX && parts.length >= 3 && secondPart && isUuid(secondPart)) {
+  if (firstPart === LEGACY_WORKSPACE_FILES_PREFIX && parts.length >= 3 && secondPart && isUuid(secondPart)) {
     const relativePath = parts.slice(2).join("/");
     if (hasUnsafePathSegment(relativePath)) return null;
     return {
@@ -71,12 +71,12 @@ export function parseProjectFileKey(key: string): ParsedProjectFileKey | null {
   return null;
 }
 
-export function parseProjectIdFromProjectFileKey(key: string): string | null {
-  return parseProjectFileKey(key)?.projectId ?? null;
+export function parseWorkspaceIdFromWorkspaceFileKey(key: string): string | null {
+  return parseWorkspaceFileKey(key)?.projectId ?? null;
 }
 
-export function isCanonicalProjectFileKey(key: string): boolean {
-  const parsed = parseProjectFileKey(key);
+export function isCanonicalWorkspaceFileKey(key: string): boolean {
+  const parsed = parseWorkspaceFileKey(key);
   return parsed?.format === "canonical";
 }
 

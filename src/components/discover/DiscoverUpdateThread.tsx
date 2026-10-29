@@ -4,7 +4,7 @@ import { useEffect, useMemo } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { UpdateDetailPanel } from '@/components/workspaces/updates/UpdateDetailPanel';
 import { updatePages } from '@/components/workspaces/updates/update-helpers';
-import { toProjectUpdateView } from '@/lib/discover/update-view';
+import { toWorkspaceUpdateView } from '@/lib/discover/update-view';
 import { createClient } from '@/lib/supabase/client';
 import { queryKeys } from '@/lib/query-keys';
 import { subscribeActiveResource } from '@/lib/realtime/subscriptions';
@@ -37,7 +37,7 @@ export function DiscoverUpdateThread({
     onClose: () => void;
 }) {
     const queryClient = useQueryClient();
-    const view = useMemo(() => toProjectUpdateView(update), [update]);
+    const view = useMemo(() => toWorkspaceUpdateView(update), [update]);
     const { id: updateId, projectId } = update;
 
     useEffect(() => {

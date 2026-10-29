@@ -7,17 +7,17 @@ import { Bell, Compass, Plus, Search, Sparkles } from 'lucide-react';
 import { Virtuoso, type Components } from 'react-virtuoso';
 import { useQueryClient, type InfiniteData } from '@tanstack/react-query';
 
-import { DiscoverFeedError, useDiscoverProjects } from '@/hooks/discover/useDiscoverWorkspaces';
+import { DiscoverFeedError, useDiscoverWorkspaces } from '@/hooks/discover/useDiscoverWorkspaces';
 import { useAuth } from '@/hooks/useAuth';
 import { useDiscoverSessionSeen } from '@/hooks/discover/useDiscoverSessionSeen';
-import { useUserFollowedProjects } from '@/hooks/workspaces/useUserInteractions';
+import { useUserFollowedWorkspaces } from '@/hooks/workspaces/useUserInteractions';
 import { useMyApplicationStates } from '@/hooks/workspaces/useMyApplicationStates';
 import { useDiscoverUrlFilters } from '@/hooks/discover/useDiscoverUrlFilters';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { useSuggestedPeople } from '@/hooks/useConnections';
 
 import ProjectCard from '@/components/workspaces/WorkspaceCard';
-import ProjectCardSkeleton from '@/components/workspaces/WorkspaceCardSkeleton';
+import WorkspaceCardSkeleton from '@/components/workspaces/WorkspaceCardSkeleton';
 import DiscoverUpdateCard from '@/components/discover/DiscoverUpdateCard';
 import DiscoverUpdateCardSkeleton from '@/components/discover/DiscoverUpdateCardSkeleton';
 import DiscoverHeader from '@/components/discover/DiscoverHeader';
@@ -34,11 +34,11 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/compone
 import { FILTER_VIEWS, SORT_OPTIONS } from '@/constants/discover';
 import { ROUTES } from '@/constants/routes';
 import { DISCOVER_RAIL_FILTERS, DISCOVER_RAIL_PEOPLE_LIMIT, type DiscoverQuery } from '@/lib/discover/query';
-import type { User, Project, DiscoverFeedItem, DiscoverUpdatesPage, DiscoverUpdateView } from '@/types/discover';
+import type { User, Workspace, DiscoverFeedItem, DiscoverUpdatesPage, DiscoverUpdateView } from '@/types/discover';
 import { queryKeys } from '@/lib/query-keys';
 import type { ConnectionFeedPage, DiscoverConnectionItem } from '@/hooks/useConnections';
 import { toDiscoverUser } from '@/lib/view-models/discover-user';
-import { feedItemKey, interleaveProjectsAndUpdates } from '@/lib/discover/feed-interleaving';
+import { feedItemKey, interleaveWorkspacesAndUpdates } from '@/lib/discover/feed-interleaving';
 import { showKeeps } from '@/lib/organizations/profile-rules';
 import { useDiscoverUpdates } from '@/hooks/discover/useDiscoverUpdates';
 import { useDiscoverUpdateThread } from '@/hooks/discover/useDiscoverUpdateThread';
@@ -53,7 +53,7 @@ const DiscoverUpdateThread = dynamic(
 interface DiscoverClientProps {
     returnUserData: User | null;
     initialProjectsPage?: {
-        projects?: Project[];
+        projects?: Workspace[];
         nextCursor?: string;
         hasMore?: boolean;
         renderedAt?: number;
@@ -65,7 +65,7 @@ interface DiscoverClientProps {
     initialPeopleSuggestions?: ConnectionFeedPage<DiscoverConnectionItem>;
 }
 
-type FeedPage = { projects: Project[]; nextCursor?: string; hasMore: boolean };
+type FeedPage = { projects: Workspace[]; nextCursor?: string; hasMore: boolean };
 type FeedContext = {
     loadingMore: boolean;
     hasMore: boolean;
@@ -125,9 +125,9 @@ function FeedSkeleton() {
     return (
         <div role="status" className="flex flex-col gap-4">
             <span className="sr-only">Loading the feed…</span>
-            {[1, 2, 3].map((item) => <ProjectCardSkeleton key={item} />)}
+            {[1, 2, 3].map((item) => <WorkspaceCardSkeleton key={item} />)}
             <DiscoverUpdateCardSkeleton />
-            <ProjectCardSkeleton />
+            <WorkspaceCardSkeleton />
         </div>
     );
 }
@@ -181,7 +181,7 @@ export default function DiscoverClient({
         isLoading,
         isPlaceholderData,
         refetch,
-    } = useDiscoverProjects(viewerId, filters, view, isDefault, initialProjectsPage);
+    } = useDiscoverWorkspaces(viewerId, filters, view, isDefault, initialProjectsPage);
 
     // Option C (Smart Perceptual Threshold): 0-150ms keeps cards at 100% brightness; >150ms renders skeleton
     const isQueryTransition = (isFetching || isPlaceholderData) && !isFetchingNextPage;
@@ -224,7 +224,7 @@ export default function DiscoverClient({
         () => (keeps.updates ? updates : []).filter((update) => !hiddenUpdates.has(update.id) && !(hideOpened && hiddenIds.has(update.projectId))),
         [hiddenIds, hiddenUpdates, hideOpened, keeps.updates, updates],
     );
-    const feedItems = useMemo<DiscoverFeedItem[]>(() => interleaveProjectsAndUpdates(visibleProjects, shownUpdates), [visibleProjects, shownUpdates]);
+    const feedItems = useMemo<DiscoverFeedItem[]>(() => interleaveWorkspacesAndUpdates(visibleProjects, shownUpdates), [visibleProjects, shownUpdates]);
 
     const updatesQueryKey = queryKeys.discover.pulse(viewerId, view, filters);
     const thread = useDiscoverUpdateThread({ viewerId, loaded: updates, initialUpdateId, initialUpdate });
@@ -233,7 +233,7 @@ export default function DiscoverClient({
     const showRail = wide !== false && (hasPeople || Boolean(thread.selectedId) || shownUpdates.length > 0);
 
     const pageIds = useMemo(() => (data?.pages ?? []).map((page) => page.projects.map((project) => project.id)), [data]);
-    const followed = useUserFollowedProjects(viewerId, pageIds);
+    const followed = useUserFollowedWorkspaces(viewerId, pageIds);
     const myApplications = useMyApplicationStates(viewerId, pageIds);
 
     // Everything loaded is already opened: keep loading until there's something to show (never on a failing page).

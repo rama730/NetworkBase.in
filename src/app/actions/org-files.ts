@@ -5,7 +5,7 @@ import { and, asc, desc, eq, isNull, sql } from 'drizzle-orm';
 
 import { db } from '@/lib/db';
 import { projectNodes, projects, projectSprints, sprintMaterials } from '@/lib/db/schema';
-import { getProjectAccessById } from '@/lib/data/workspace-access';
+import { getWorkspaceAccessById } from '@/lib/data/workspace-access';
 import { assertFileNodeVisible, orgFileAccessSql, projectContentNodeSql } from '@/lib/files/internal-helpers';
 import { readViewerOrgRole } from '@/lib/organizations/detail';
 import { effectiveAccess, folderAccessBlock, readFolderAccess, type FolderAccess } from '@/lib/organizations/file-rules';
@@ -18,13 +18,13 @@ import { UUID_RE } from '@/lib/validations/uuid';
 
 type Failure = { success: false; error: string };
 const DENIED: Failure = { success: false, error: "You don’t have permission to do this." };
-type ReadableAccess = Awaited<ReturnType<typeof getProjectAccessById>> & { project: NonNullable<Awaited<ReturnType<typeof getProjectAccessById>>['project']> };
+type ReadableAccess = Awaited<ReturnType<typeof getWorkspaceAccessById>> & { project: NonNullable<Awaited<ReturnType<typeof getWorkspaceAccessById>>['project']> };
 
 /** The viewer when they own or admin the org; writes refuse a suspended or archived org. */
 async function orgAdmin(orgId: string, mode: 'read' | 'write' = 'write') {
     const { userId } = await getViewerAuthContext();
     if (!userId) return null;
-    const access = await getProjectAccessById(orgId, userId);
+    const access = await getWorkspaceAccessById(orgId, userId);
     if (mode === 'write' && access.writeBlocked) return null;
     return access.project?.kind === 'organization' && (access.isOwner || access.memberRole === 'admin') ? { userId, slug: access.project.slug ?? null } : null;
 }
@@ -106,7 +106,7 @@ async function childOrgAccess(childProjectId: string): Promise<{ userId: string;
     if (!userId) return null;
     const [child] = await db.select({ parentId: projects.parentId }).from(projects).where(and(eq(projects.id, childProjectId), isNull(projects.deletedAt))).limit(1);
     if (!child?.parentId || !(await readViewerOrgRole(child.parentId, userId))) return null; // outside people get no From org view
-    const orgAccess = await getProjectAccessById(child.parentId, userId);
+    const orgAccess = await getWorkspaceAccessById(child.parentId, userId);
     if (!orgAccess.project || !orgAccess.canRead) return null;
     const [org] = await db.select({ id: projects.id, title: projects.title, slug: projects.slug }).from(projects).where(eq(projects.id, child.parentId)).limit(1);
     return org ? { userId, orgAccess: orgAccess as ReadableAccess, org } : null;
@@ -144,7 +144,7 @@ export async function browseOrgFilesAction(childProjectId: string, folderId: str
 export async function recordOrgCopyAction(childProjectId: string, nodeId: string, orgNodeId: string): Promise<{ success: true } | Failure> {
     const ctx = await childOrgAccess(childProjectId);
     if (!ctx) return DENIED;
-    const childAccess = await getProjectAccessById(childProjectId, ctx.userId);
+    const childAccess = await getWorkspaceAccessById(childProjectId, ctx.userId);
     if (!childAccess.canWrite) return DENIED;
     const [source] = await db.select({ id: projectNodes.id, path: projectNodes.path, taskId: projectNodes.taskId, deletedAt: projectNodes.deletedAt, currentVersion: projectNodes.currentVersion, type: projectNodes.type })
         .from(projectNodes).where(and(eq(projectNodes.id, orgNodeId), eq(projectNodes.projectId, ctx.org.id))).limit(1);
@@ -218,7 +218,7 @@ export type SprintMaterialsGroup = { sprintId: string; sprint: string; status: s
 export async function readOrgSprintMaterialsAction(orgId: string): Promise<{ success: true; groups: SprintMaterialsGroup[] } | Failure> {
     const { userId } = await getViewerAuthContext();
     if (!userId) return DENIED;
-    const access = await getProjectAccessById(orgId, userId);
+    const access = await getWorkspaceAccessById(orgId, userId);
     if (access.project?.kind !== 'organization' || !(access.isOwner || access.isMember)) return DENIED;
     const rows = await db.select({ sprintId: projectSprints.id, sprint: projectSprints.name, status: projectSprints.status, nodeId: projectNodes.id, name: projectNodes.name })
         .from(sprintMaterials)
@@ -255,7 +255,7 @@ export async function readGroupDeliverablesAction(orgId: string): Promise<{ succ
 export async function listOrgTemplateFoldersAction(orgId: string): Promise<Array<{ id: string; name: string }>> {
     const { userId } = await getViewerAuthContext();
     if (!userId) return [];
-    const access = await getProjectAccessById(orgId, userId);
+    const access = await getWorkspaceAccessById(orgId, userId);
     if (access.project?.kind !== 'organization' || !(access.isOwner || access.isMember)) return [];
     return db.select({ id: projectNodes.id, name: projectNodes.name }).from(projectNodes)
         .where(and(eq(projectNodes.projectId, orgId), eq(projectNodes.type, 'folder'), isNull(projectNodes.deletedAt),

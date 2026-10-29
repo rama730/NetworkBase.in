@@ -1,83 +1,83 @@
 import {
     inlineReferencesToSmartBlocks,
     normalizeReadmeReferenceLabel,
-    parseProjectDocInlineReferences,
+    parseWorkspaceDocInlineReferences,
     splitMarkdownBySmartBlocks,
-    type ProjectDocInlineReference,
-    type ProjectDocReferenceOption,
-    type ProjectDocSmartBlock,
+    type WorkspaceDocInlineReference,
+    type WorkspaceDocReferenceOption,
+    type WorkspaceDocSmartBlock,
 } from "@/lib/workspaces/doc-blocks";
-import { extractProjectDocHeadings, type ProjectDocHeading } from "@/lib/workspaces/doc-headings";
+import { extractWorkspaceDocHeadings, type WorkspaceDocHeading } from "@/lib/workspaces/doc-headings";
 import {
-    buildProjectDocCommandTargetMaps,
-    buildProjectDocRailReport,
-    extractProjectDocCommandShortcuts,
-    PROJECT_DOC_PRIMARY_COMMAND_GROUPS,
-    type ProjectDocCommandGroup,
-    type ProjectDocQuickCommand,
-    type ProjectDocRailReport,
+    buildWorkspaceDocCommandTargetMaps,
+    buildWorkspaceDocRailReport,
+    extractWorkspaceDocCommandShortcuts,
+    WORKSPACE_DOC_PRIMARY_COMMAND_GROUPS,
+    type WorkspaceDocCommandGroup,
+    type WorkspaceDocQuickCommand,
+    type WorkspaceDocRailReport,
 } from "@/lib/workspaces/doc-quick-console";
 import { projectDocReferenceTargetId } from "@/lib/workspaces/doc-navigation";
 
-export type ProjectDocRailTabId = "brief" | "commands" | "links" | "outline" | "config" | "options" | "search";
-export type ProjectDocRailActionKind = "command" | "heading" | "reference";
+export type WorkspaceDocRailTabId = "brief" | "commands" | "links" | "outline" | "config" | "options" | "search";
+export type WorkspaceDocRailActionKind = "command" | "heading" | "reference";
 
-export type ProjectDocRailAction = {
+export type WorkspaceDocRailAction = {
     id: string;
-    kind: ProjectDocRailActionKind;
-    railTab: ProjectDocRailTabId;
+    kind: WorkspaceDocRailActionKind;
+    railTab: WorkspaceDocRailTabId;
     label: string;
     description: string | null;
     targetId: string;
     copyText: string | null;
     openHref: string | null;
     sourceIndex: number;
-    command?: ProjectDocQuickCommand;
-    commandGroup?: ProjectDocCommandGroup;
+    command?: WorkspaceDocQuickCommand;
+    commandGroup?: WorkspaceDocCommandGroup;
     groupLabel?: string;
     platforms: string[];
-    riskLevel?: ProjectDocQuickCommand["riskLevel"];
+    riskLevel?: WorkspaceDocQuickCommand["riskLevel"];
     riskLabel?: string | null;
-    reference?: ProjectDocInlineReference;
+    reference?: WorkspaceDocInlineReference;
     referencePreviewKey?: string;
-    previewOption?: ProjectDocReferenceOption | null;
+    previewOption?: WorkspaceDocReferenceOption | null;
     previewLoading?: boolean;
     previewError?: boolean;
-    heading?: ProjectDocHeading;
+    heading?: WorkspaceDocHeading;
 };
 
-export type ProjectDocTargetRegistryEntry = {
+export type WorkspaceDocTargetRegistryEntry = {
     id: string;
     kind: "heading" | "command" | "reference";
     label: string;
-    railTab: ProjectDocRailTabId;
+    railTab: WorkspaceDocRailTabId;
     level?: number;
     sourceIndex: number;
 };
 
-export type ProjectDocViewModel = {
+export type WorkspaceDocViewModel = {
     content: string;
     excerpt: string | null;
-    headings: ProjectDocHeading[];
-    commands: ProjectDocQuickCommand[];
-    references: ProjectDocInlineReference[];
+    headings: WorkspaceDocHeading[];
+    commands: WorkspaceDocQuickCommand[];
+    references: WorkspaceDocInlineReference[];
     segments: ReturnType<typeof splitMarkdownBySmartBlocks>;
-    smartBlocks: ProjectDocSmartBlock[];
-    referencePreviewBlocks: ProjectDocSmartBlock[];
-    previewBlocks: ProjectDocSmartBlock[];
-    commandTargetMaps: ReturnType<typeof buildProjectDocCommandTargetMaps>;
-    report: ProjectDocRailReport;
-    railTabs: ProjectDocRailTabId[];
-    railActions: ProjectDocRailAction[];
-    recommendedAction: ProjectDocRailAction | null;
-    targetRegistry: Map<string, ProjectDocTargetRegistryEntry>;
+    smartBlocks: WorkspaceDocSmartBlock[];
+    referencePreviewBlocks: WorkspaceDocSmartBlock[];
+    previewBlocks: WorkspaceDocSmartBlock[];
+    commandTargetMaps: ReturnType<typeof buildWorkspaceDocCommandTargetMaps>;
+    report: WorkspaceDocRailReport;
+    railTabs: WorkspaceDocRailTabId[];
+    railActions: WorkspaceDocRailAction[];
+    recommendedAction: WorkspaceDocRailAction | null;
+    targetRegistry: Map<string, WorkspaceDocTargetRegistryEntry>;
     targetIds: string[];
     targetSignature: string;
 };
 
 const VIEW_MODEL_CACHE_LIMIT = 12;
 // ponytail: per-process LRU Maps (12 here, qualityCache 24, DOC_METADATA_CACHE 200). ceiling: each replica warms its own copy. upgrade: shared cache only if doc renders show up in p95.
-const viewModelCache = new Map<string, ProjectDocViewModel>();
+const viewModelCache = new Map<string, WorkspaceDocViewModel>();
 
 function stableReadmeHash(value: string) {
     let hash = 5381;
@@ -91,7 +91,7 @@ function readmeViewModelCacheKey(input: {
     content: string;
     contentHash?: string | null;
     excerpt?: string | null;
-    storedHeadings?: ProjectDocHeading[];
+    storedHeadings?: WorkspaceDocHeading[];
 }) {
     if (input.contentHash) return `content-hash:${input.contentHash}`;
     const headingSignature = input.storedHeadings?.map((heading) => `${heading.id}:${heading.text}:${heading.level}`).join("|") ?? "";
@@ -103,7 +103,7 @@ function readmeViewModelCacheKey(input: {
     ].join(":");
 }
 
-function rememberViewModel(key: string, model: ProjectDocViewModel) {
+function rememberViewModel(key: string, model: WorkspaceDocViewModel) {
     if (viewModelCache.has(key)) viewModelCache.delete(key);
     viewModelCache.set(key, model);
     while (viewModelCache.size > VIEW_MODEL_CACHE_LIMIT) {
@@ -114,9 +114,9 @@ function rememberViewModel(key: string, model: ProjectDocViewModel) {
     return model;
 }
 
-function uniquePreviewBlocks(blocks: ProjectDocSmartBlock[]) {
+function uniquePreviewBlocks(blocks: WorkspaceDocSmartBlock[]) {
     const seen = new Set<string>();
-    const unique: ProjectDocSmartBlock[] = [];
+    const unique: WorkspaceDocSmartBlock[] = [];
     for (const block of blocks) {
         const key = `${block.kind}:${block.ids.join(",")}:${block.index}`;
         if (seen.has(key)) continue;
@@ -127,13 +127,13 @@ function uniquePreviewBlocks(blocks: ProjectDocSmartBlock[]) {
 }
 
 function buildRailTabs(input: {
-    report: ProjectDocRailReport;
-    commands: ProjectDocQuickCommand[];
-    references: ProjectDocInlineReference[];
-    headings: ProjectDocHeading[];
+    report: WorkspaceDocRailReport;
+    commands: WorkspaceDocQuickCommand[];
+    references: WorkspaceDocInlineReference[];
+    headings: WorkspaceDocHeading[];
 }) {
-    const tabs: Array<{ id: ProjectDocRailTabId; score: number; order: number }> = [];
-    const primaryCommands = input.commands.filter((command) => PROJECT_DOC_PRIMARY_COMMAND_GROUPS.has(command.group));
+    const tabs: Array<{ id: WorkspaceDocRailTabId; score: number; order: number }> = [];
+    const primaryCommands = input.commands.filter((command) => WORKSPACE_DOC_PRIMARY_COMMAND_GROUPS.has(command.group));
     const configCommands = input.commands.filter((command) => command.group === "config");
     const optionCommands = input.commands.filter((command) => command.group === "options");
     const setupCommands = primaryCommands.filter((command) => (
@@ -143,7 +143,7 @@ function buildRailTabs(input: {
         || command.group === "agents"
     ));
     const hasBrief = Boolean(input.report.summary || input.report.summaryItems.length || input.report.signals.length || input.report.nextAction);
-    const add = (id: ProjectDocRailTabId, score: number) => {
+    const add = (id: WorkspaceDocRailTabId, score: number) => {
         tabs.push({ id, score, order: tabs.length });
     };
 
@@ -171,18 +171,18 @@ function buildRailTabs(input: {
         .map((tab) => tab.id);
 }
 
-function commandRailTab(command: ProjectDocQuickCommand): ProjectDocRailTabId {
+function commandRailTab(command: WorkspaceDocQuickCommand): WorkspaceDocRailTabId {
     if (command.group === "config") return "config";
     if (command.group === "options") return "options";
     return "commands";
 }
 
 function buildRailActions(input: {
-    headings: ProjectDocHeading[];
-    commands: ProjectDocQuickCommand[];
-    references: ProjectDocInlineReference[];
+    headings: WorkspaceDocHeading[];
+    commands: WorkspaceDocQuickCommand[];
+    references: WorkspaceDocInlineReference[];
 }) {
-    const commandActions: ProjectDocRailAction[] = input.commands.map((command, index) => ({
+    const commandActions: WorkspaceDocRailAction[] = input.commands.map((command, index) => ({
         id: `command:${command.id}`,
         kind: "command",
         railTab: commandRailTab(command),
@@ -200,7 +200,7 @@ function buildRailActions(input: {
         riskLabel: command.riskLabel,
     }));
 
-    const referenceActions: ProjectDocRailAction[] = input.references.map((reference, index) => ({
+    const referenceActions: WorkspaceDocRailAction[] = input.references.map((reference, index) => ({
         id: `reference:${reference.kind}:${reference.id}:${index}`,
         kind: "reference",
         railTab: "links",
@@ -215,7 +215,7 @@ function buildRailActions(input: {
         platforms: [],
     }));
 
-    const headingActions: ProjectDocRailAction[] = input.headings.map((heading, index) => ({
+    const headingActions: WorkspaceDocRailAction[] = input.headings.map((heading, index) => ({
         id: `heading:${heading.id}:${index}`,
         kind: "heading",
         railTab: "outline",
@@ -232,7 +232,7 @@ function buildRailActions(input: {
     return [...commandActions, ...referenceActions, ...headingActions];
 }
 
-function pickRecommendedAction(actions: ProjectDocRailAction[]) {
+function pickRecommendedAction(actions: WorkspaceDocRailAction[]) {
     const commandActions = actions.filter((action) => action.kind === "command");
     return commandActions.find((action) => action.commandGroup === "recommended")
         ?? commandActions.find((action) => action.commandGroup === "install" || action.commandGroup === "claude" || action.commandGroup === "agents")
@@ -244,11 +244,11 @@ function pickRecommendedAction(actions: ProjectDocRailAction[]) {
 }
 
 function buildTargetRegistry(input: {
-    headings: ProjectDocHeading[];
-    commands: ProjectDocQuickCommand[];
-    references: ProjectDocInlineReference[];
+    headings: WorkspaceDocHeading[];
+    commands: WorkspaceDocQuickCommand[];
+    references: WorkspaceDocInlineReference[];
 }) {
-    const registry = new Map<string, ProjectDocTargetRegistryEntry>();
+    const registry = new Map<string, WorkspaceDocTargetRegistryEntry>();
     input.headings.forEach((heading, index) => {
         registry.set(heading.id, {
             id: heading.id,
@@ -303,21 +303,21 @@ function stripFrontmatter(markdown: string): string {
     return markdown;
 }
 
-export function buildProjectDocViewModel(input: {
+export function buildWorkspaceDocViewModel(input: {
     content: string;
     contentHash?: string | null;
     excerpt?: string | null;
-    storedHeadings?: ProjectDocHeading[];
-    }): ProjectDocViewModel {
+    storedHeadings?: WorkspaceDocHeading[];
+    }): WorkspaceDocViewModel {
     const cacheKey = readmeViewModelCacheKey(input);
     const cached = viewModelCache.get(cacheKey);
     if (cached) return cached;
 
     const content = stripFrontmatter(input.content);
-    const headingsFromContent = extractProjectDocHeadings(content);
+    const headingsFromContent = extractWorkspaceDocHeadings(content);
     const headings = headingsFromContent.length ? headingsFromContent : input.storedHeadings ?? [];
-    const commands = extractProjectDocCommandShortcuts(content);
-    const references = parseProjectDocInlineReferences(content);
+    const commands = extractWorkspaceDocCommandShortcuts(content);
+    const references = parseWorkspaceDocInlineReferences(content);
     const segments = splitMarkdownBySmartBlocks(content);
     const smartBlocks = segments.flatMap((segment) => segment.kind === "block" ? [segment.block] : []);
     const referencePreviewBlocks = inlineReferencesToSmartBlocks(references);
@@ -325,7 +325,7 @@ export function buildProjectDocViewModel(input: {
         ...smartBlocks,
         ...referencePreviewBlocks,
     ]);
-    const report = buildProjectDocRailReport({
+    const report = buildWorkspaceDocRailReport({
         content,
         excerpt: input.excerpt,
         commands,
@@ -348,7 +348,7 @@ export function buildProjectDocViewModel(input: {
         smartBlocks,
         referencePreviewBlocks,
         previewBlocks,
-        commandTargetMaps: buildProjectDocCommandTargetMaps(content),
+        commandTargetMaps: buildWorkspaceDocCommandTargetMaps(content),
         report,
         railTabs,
         railActions,

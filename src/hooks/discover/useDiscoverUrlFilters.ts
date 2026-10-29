@@ -3,7 +3,7 @@
 import { usePathname, useSearchParams } from 'next/navigation';
 import { useCallback, useMemo } from 'react';
 
-import { PROJECT_STATUS, PROJECT_TYPE } from '@/constants/discover';
+import { WORKSPACE_STATUS, WORKSPACE_TYPE } from '@/constants/discover';
 import { activeFilterCount, isDefaultDiscoverQuery, parseDiscoverQuery, type DiscoverQuery } from '@/lib/discover/query';
 
 // What an empty URL means: a value equal to it is left out of the URL.
@@ -44,8 +44,8 @@ export function useDiscoverUrlFilters() {
     const clearFilters = useCallback((options: { keepSearch?: boolean } = {}) => {
         updateUrlFilters({
             ...(options.keepSearch ? {} : { q: '' }),
-            status: PROJECT_STATUS.ALL,
-            type: PROJECT_TYPE.ALL,
+            status: WORKSPACE_STATUS.ALL,
+            type: WORKSPACE_TYPE.ALL,
             tech: [],
             hideOpened: false,
             org: '',

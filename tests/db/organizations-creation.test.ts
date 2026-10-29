@@ -29,7 +29,7 @@ after(async () => {
   await closeAppDb();
 });
 
-type Input = Parameters<typeof import("../../src/lib/workspaces/server/lifecycle").createProjectAction>[0];
+type Input = Parameters<typeof import("../../src/lib/workspaces/server/lifecycle").createWorkspaceAction>[0];
 const base = (handle: string, organization: Record<string, unknown>) => ({
   title: "Civic Hackers Bengaluru",
   description: "A volunteer group building small tools for the city.",
@@ -42,7 +42,7 @@ test("an Other org saves its label, identity, roles, Work defaults and sends the
   const coAdmin = await sql.begin((tx) => createUser(tx));
   const [{ email: coAdminEmail }] = (await sql`SELECT email FROM profiles WHERE id = ${coAdmin}`) as unknown as [{ email: string }];
   const handle = `civic-${viewerId.slice(0, 6)}`;
-  const result = await lifecycle.createProjectAction({
+  const result = await lifecycle.createWorkspaceAction({
     ...base(handle, {
       org_type: "other", type_label: "Nonprofit", part_of: "Bengaluru Civic Trust", location: "Bengaluru", time_zone: "Asia/Kolkata",
       welcome_note: "Say hi in #general.", role_names: { owner: "Lead", admin: "Organizer", member: "Volunteer", viewer: "Guest" },
@@ -74,17 +74,17 @@ test("an Other org saves its label, identity, roles, Work defaults and sends the
 
 test("creation refuses an org without a type, and Other without its label", async () => {
   viewerId = await sql.begin((tx) => createUser(tx));
-  const noType = await lifecycle.createProjectAction(base(`no-type-${viewerId.slice(0, 6)}`, {}));
+  const noType = await lifecycle.createWorkspaceAction(base(`no-type-${viewerId.slice(0, 6)}`, {}));
   assert.equal(noType.success, false);
   assert.match(noType.error ?? "", /what kind of organization/);
-  const noLabel = await lifecycle.createProjectAction(base(`no-label-${viewerId.slice(0, 6)}`, { org_type: "other" }));
+  const noLabel = await lifecycle.createWorkspaceAction(base(`no-label-${viewerId.slice(0, 6)}`, { org_type: "other" }));
   assert.equal(noLabel.success, false);
   assert.match(noLabel.error ?? "", /what you call it/);
 });
 
 test("Research gets PI and Researcher, and an empty subject leaves the category blank", async () => {
   viewerId = await sql.begin((tx) => createUser(tx));
-  const result = await lifecycle.createProjectAction(base(`lab-${viewerId.slice(0, 6)}`, { org_type: "research" }));
+  const result = await lifecycle.createWorkspaceAction(base(`lab-${viewerId.slice(0, 6)}`, { org_type: "research" }));
   assert.equal(result.success, true, JSON.stringify(result));
   created.push(result.project!.id);
   const [row] = await sql`SELECT category, org_settings->'roleNames' AS roles FROM projects WHERE id = ${result.project!.id}`;

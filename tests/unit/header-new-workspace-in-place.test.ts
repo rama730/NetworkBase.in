@@ -14,7 +14,7 @@ test('every New workspace entry opens the full-page create route instead of a mo
 
     for (const entry of [header, mobileMenu, discover]) {
         assert.match(entry, /<Link\s+href="\/workspaces\/new"/);
-        assert.doesNotMatch(entry, /CreateProjectWizard|showCreateProject|showCreateModal|onNewProject/);
+        assert.doesNotMatch(entry, /CreateWorkspaceWizard|showCreateProject|showCreateModal|onNewProject/);
     }
     assert.doesNotMatch(discover, /discover:create-project-modal-state/);
 });

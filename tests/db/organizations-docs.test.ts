@@ -143,7 +143,7 @@ test("the Projects smart block lists the org's child projects, never Private one
   await sql`UPDATE projects SET parent_id = ${o.org}, title = 'Secret Lab' WHERE id = ${hidden}`;
   created.push(hidden);
   viewerId = o.member;
-  const result = await projectDoc.readProjectDocSmartBlockPreviewsAction(o.org, [{ kind: "projects", ids: [], index: 0 }]);
+  const result = await projectDoc.readWorkspaceDocSmartBlockPreviewsAction(o.org, [{ kind: "projects", ids: [], index: 0 }]);
   assert.equal(result.success, true, JSON.stringify(result));
   if (result.success) assert.deepEqual(result.previews[0]!.items.map((i) => i.title), ["Compiler Lab"]);
 
@@ -151,7 +151,7 @@ test("the Projects smart block lists the org's child projects, never Private one
   await sql`UPDATE projects SET visibility = 'public', status = 'active' WHERE id = ${o.org}`;
   await sql`UPDATE project_docs SET settings = settings || '{"visibilityOverride": "public"}'::jsonb WHERE project_id = ${o.org}`;
   viewerId = "";
-  const visitor = await projectDoc.readProjectDocSmartBlockPreviewsAction(o.org, [{ kind: "projects", ids: [], index: 0 }], "course-welcome");
+  const visitor = await projectDoc.readWorkspaceDocSmartBlockPreviewsAction(o.org, [{ kind: "projects", ids: [], index: 0 }], "course-welcome");
   assert.equal(visitor.success, true, JSON.stringify(visitor));
   if (visitor.success) assert.deepEqual(visitor.previews[0]!.items, [], "Organization projects stay hidden from visitors");
 });
@@ -160,10 +160,10 @@ test("§19 pass: inherited org admins edit child docs; Linked sprint gives the s
   const o = await orgWithChild();
   await addDoc(o.child, "readme", "# Compiler Lab");
   viewerId = o.admin;
-  const asAdmin = await projectDoc.readProjectDocAction(o.child, "readme");
+  const asAdmin = await projectDoc.readWorkspaceDocAction(o.child, "readme");
   assert.ok(asAdmin.success && asAdmin.data.canEdit, "inherited admin can edit");
   viewerId = o.outsider;
-  const asOutsider = await projectDoc.readProjectDocAction(o.child, "readme");
+  const asOutsider = await projectDoc.readWorkspaceDocAction(o.child, "readme");
   assert.ok(asOutsider.success && !asOutsider.data.canEdit, "a plain member stays read-only");
 
   const id = await addDoc(o.org, "co1-notes", "# CO1 notes");

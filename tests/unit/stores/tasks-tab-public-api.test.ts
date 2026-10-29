@@ -125,7 +125,7 @@ console.warn = (...args: unknown[]) => {
 import {
   useFilesStore,
   useFilesActions,
-  useFilesProjectSlice,
+  useFilesWorkspaceSlice,
   filesParentKey,
   FILES_ROOT_KEY,
   ROOT_KEY,
@@ -259,12 +259,12 @@ describe("filesWorkspaceStore — Tasks tab public API lock (Task 8.4)", () => {
       assert.equal(typeof useFilesActions, "function");
     });
 
-    it("exports the per-project slice hook `useFilesProjectSlice`", () => {
-      assert.equal(typeof useFilesProjectSlice, "function");
+    it("exports the per-project slice hook `useFilesWorkspaceSlice`", () => {
+      assert.equal(typeof useFilesWorkspaceSlice, "function");
       assert.equal(
-        useFilesProjectSlice.length,
+        useFilesWorkspaceSlice.length,
         1,
-        "useFilesProjectSlice must accept a single projectId argument",
+        "useFilesWorkspaceSlice must accept a single projectId argument",
       );
     });
 

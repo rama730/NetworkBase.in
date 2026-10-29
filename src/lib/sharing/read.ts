@@ -6,11 +6,11 @@ import { db } from '@/lib/db';
 import { profiles, profileSkills, skills, projects, projectSkills, projectOpenRoles, storageAssets } from '@/lib/db/schema';
 import { resolvePublicUsernameRoute } from '@/lib/usernames/service';
 import { resolvePrivacyRelationship, readableProfileIdentitySql } from '@/lib/privacy/resolver';
-import { getProjectAccessByIdentifier, getProjectAccessByIds, canReadProjectTab } from '@/lib/data/workspace-access';
+import { getWorkspaceAccessByIdentifier, getWorkspaceAccessByIds, canReadWorkspaceTab } from '@/lib/data/workspace-access';
 import { normalizeSafeExternalUrl } from '@/lib/messaging/safe-links';
 import { logger } from '@/lib/logger';
-import { formatProjectTeamRole } from '@/lib/workspaces/settings-policies';
-import { genericSharePreview, parseShareResource, portfolioSummary, previewAlt, shareImageUrl, shareSkillSummary, shareText, shareMetric, type ProjectShareDetails, type SharePreview, type ShareResource } from './presentation';
+import { formatWorkspaceTeamRole } from '@/lib/workspaces/settings-policies';
+import { genericSharePreview, parseShareResource, portfolioSummary, previewAlt, shareImageUrl, shareSkillSummary, shareText, shareMetric, type WorkspaceShareDetails, type SharePreview, type ShareResource } from './presentation';
 
 /** A public contribution is the publication authority; memberships/follows are not publication. */
 async function readPublicPortfolio(profileId: string) {
@@ -105,7 +105,7 @@ async function readProjectTeam(projectId: string, ownerId: string, viewerId: str
     ORDER BY roster.priority, (guidance.id IS NOT NULL) DESC, roster.joined ASC NULLS FIRST, profiles.id LIMIT 5
   `);
   return { team: Array.from(rows, row => ({ id: row.id, name: shareText(row.name).slice(0,160) || (row.username ? '@'+row.username : 'Member'),
-    username: row.username, avatarUrl: normalizeSafeExternalUrl(row.avatar ?? ''), avatarRevision:createHash('sha256').update(JSON.stringify([row.asset,row.avatarHash,row.avatarKey,row.avatar])).digest('hex').slice(0,16), role: row.guidanceLabel !== null ? `${shareText(row.guidanceLabel) || 'Mentor'} · Admin` : formatProjectTeamRole({membershipRole:row.role, projectRoleTitle:shareText(row.roleTitle), leadFocus:row.id === ownerId ? shareText(row.leadFocus) : null}) })),
+    username: row.username, avatarUrl: normalizeSafeExternalUrl(row.avatar ?? ''), avatarRevision:createHash('sha256').update(JSON.stringify([row.asset,row.avatarHash,row.avatarKey,row.avatar])).digest('hex').slice(0,16), role: row.guidanceLabel !== null ? `${shareText(row.guidanceLabel) || 'Mentor'} · Admin` : formatWorkspaceTeamRole({membershipRole:row.role, projectRoleTitle:shareText(row.roleTitle), leadFocus:row.id === ownerId ? shareText(row.leadFocus) : null}) })),
     teamOverflow: Math.max(0, Number(rows[0]?.total ?? 0) - rows.length) };
 }
 
@@ -129,13 +129,13 @@ async function readProjectRoles(projectId: string) {
 }
 
 async function readProject(resource: ShareResource, viewerId: string | null): Promise<SharePreview> {
-  const access = await getProjectAccessByIdentifier(resource.identifier, viewerId);
+  const access = await getWorkspaceAccessByIdentifier(resource.identifier, viewerId);
   if (!access.project) return genericSharePreview(resource, 'unavailable');
   const visibility = access.project.visibility === 'public' ? 'public' : access.project.visibility === 'unlisted' ? 'unlisted' : 'private';
   if (!access.canRead) return { ...genericSharePreview(resource, 'restricted'), visibility };
   // An organization's canonical address is /org/<handle> (report §24).
   const resolved = { ...resource, url: new URL(`/${access.project.kind === 'organization' ? 'org' : 'workspaces'}/${access.project.slug || access.project.id}`, resource.url).href };
-  const dashboard = canReadProjectTab(access, 'dashboard');
+  const dashboard = canReadWorkspaceTab(access, 'dashboard');
   const [project] = await db.select({ title: projects.title, description: projects.description, shortDescription: projects.shortDescription,
     coverImage: projects.coverImage, coverAsset: projects.coverImageAssetId, coverHash: storageAssets.contentHash, coverKey: storageAssets.storageKey, views: projects.viewCount, followers: projects.followersCount, discoverHiddenAt: projects.discoverHiddenAt })
     .from(projects).leftJoin(storageAssets,and(eq(storageAssets.id,projects.coverImageAssetId),eq(storageAssets.projectId,projects.id),eq(storageAssets.state,'verified'))).where(and(eq(projects.id, access.project.id), isNull(projects.deletedAt))).limit(1);
@@ -147,12 +147,12 @@ async function readProject(resource: ShareResource, viewerId: string | null): Pr
   ]);
   // Last identity read uses live profile visibility/block/connection rules, then project access is rechecked.
   const teamSummary = dashboard ? await readProjectTeam(access.project.id, access.project.ownerId, viewerId, access.isOwner || access.isMember, visibility === 'public').catch(error=>unknown('team',error)) : null;
-  const latest = (await getProjectAccessByIds([access.project.id], viewerId))[access.project.id];
+  const latest = (await getWorkspaceAccessByIds([access.project.id], viewerId))[access.project.id];
   if (!latest?.project) return genericSharePreview(resource, 'unavailable');
   if (!latest.canRead) return { ...genericSharePreview(resource, 'restricted'), visibility };
   if (latest.project.slug !== access.project.slug || latest.project.visibility !== access.project.visibility || latest.project.status !== access.project.status
     || latest.project.ownerId !== access.project.ownerId || latest.isMember !== access.isMember || JSON.stringify(latest.project.publicTabVisibility) !== JSON.stringify(access.project.publicTabVisibility)) return genericSharePreview(resource, 'unknown');
-  const details: ProjectShareDetails = { team: teamSummary?.team ?? null, teamOverflow: teamSummary?.teamOverflow ?? null,
+  const details: WorkspaceShareDetails = { team: teamSummary?.team ?? null, teamOverflow: teamSummary?.teamOverflow ?? null,
     roles: roleSummary?.roles ?? null, roleOverflow: roleSummary?.roleOverflow ?? null,
     views: shareMetric(project.views), followers: shareMetric(project.followers) };
   const result: SharePreview = { ...genericSharePreview(resolved, 'ready'), visibility, indexable: visibility === 'public' && ['active','completed','archived'].includes(access.project.status ?? '')

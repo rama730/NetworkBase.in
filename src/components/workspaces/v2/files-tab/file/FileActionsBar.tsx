@@ -33,8 +33,8 @@ import { cn } from "@/lib/utils";
 import { logger } from "@/lib/logger";
 import { useQueryClient } from "@tanstack/react-query";
 import {
-  PROJECT_DOCS_QUERY_KEY,
-  PROJECT_DOC_LIST_QUERY_KEY,
+  WORKSPACE_DOCS_QUERY_KEY,
+  WORKSPACE_DOC_LIST_QUERY_KEY,
 } from "@/hooks/workspaces/useWorkspaceDocData";
 
 import { FilesTabRoleContext } from "../FilesTabRoleContext";
@@ -195,16 +195,16 @@ export function FileActionsBar({
     if (!projectId || !linkedDoc || isImportingReadme) return;
     setIsImportingReadme(true);
     try {
-      const { unlinkProjectDocAction } = await import("@/app/actions/workspace/doc");
-      const result = await unlinkProjectDocAction(projectId, linkedDoc.slug);
+      const { unlinkWorkspaceDocAction } = await import("@/app/actions/workspace/doc");
+      const result = await unlinkWorkspaceDocAction(projectId, linkedDoc.slug);
       if (!result.success) {
         toast.error(feedbackError(result.error || "Couldn’t remove from Documents", "Couldn’t remove from Documents"));
         return;
       }
       toast.success("Removed from Documents");
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: PROJECT_DOC_LIST_QUERY_KEY(projectId) }),
-        queryClient.invalidateQueries({ queryKey: PROJECT_DOCS_QUERY_KEY(projectId) })
+        queryClient.invalidateQueries({ queryKey: WORKSPACE_DOC_LIST_QUERY_KEY(projectId) }),
+        queryClient.invalidateQueries({ queryKey: WORKSPACE_DOCS_QUERY_KEY(projectId) })
       ]);
     } catch (err) {
       toast.error(feedbackError(err instanceof Error ? err.message : "Couldn’t remove from Documents", "Couldn’t remove from Documents"));
@@ -298,13 +298,13 @@ export function FileActionsBar({
     if (!projectId || !nodeId || downloading) return;
     setDownloading(true);
     try {
-      const { getFilePreviewUrl, getProjectFileContent } = await import("@/app/actions/files/content");
+      const { getFilePreviewUrl, getWorkspaceFileContent } = await import("@/app/actions/files/content");
       const node = useFilesStore.getState().byProjectId[projectId]?.nodesById[nodeId];
       let url: string;
       let local = false;
       if (node?.s3Key) url = (await getFilePreviewUrl(projectId, nodeId, true)).url;
       else {
-        const content = await getProjectFileContent(projectId, nodeId);
+        const content = await getWorkspaceFileContent(projectId, nodeId);
         url = URL.createObjectURL(new Blob([content], { type: mimeType || "text/plain" }));
         local = true;
       }

@@ -7,29 +7,29 @@ import { useRouter } from 'next/navigation'
 import { useQueryClient } from '@tanstack/react-query'
 import { toast } from '@/lib/feedback'
 import { queryKeys } from '@/lib/query-keys'
-import CreateProjectWizard from './CreateWorkspaceWizard'
-import { CreateProjectShellSkeleton } from './CreateWorkspaceShellSkeleton'
-import { clearCreateProjectReturnPath, readCreateProjectReturnPath } from './create-workspace-return'
+import CreateWorkspaceWizard from './CreateWorkspaceWizard'
+import { CreateWorkspaceShellSkeleton } from './CreateWorkspaceShellSkeleton'
+import { clearCreateWorkspaceReturnPath, readCreateWorkspaceReturnPath } from './create-workspace-return'
 import {
     clearGithubOAuthResume,
-    getCreateProjectReturnPath,
-    parseCreateProjectSource,
+    getCreateWorkspaceReturnPath,
+    parseCreateWorkspaceSource,
     readGithubOAuthResume,
-    type CreateProjectGithubOAuthResume,
-    type CreateProjectSource,
+    type CreateWorkspaceGithubOAuthResume,
+    type CreateWorkspaceSource,
 } from './github-oauth-resume'
 
 interface CreateProjectRouteClientProps {
-    initialSource?: CreateProjectSource | null
+    initialSource?: CreateWorkspaceSource | null
     createLocations?: CreateLocation[]
     initialOrgId?: string | null
     locationNotice?: string | null
 }
 
-type Handoff = { source: CreateProjectSource | null; resume: CreateProjectGithubOAuthResume | null }
+type Handoff = { source: CreateWorkspaceSource | null; resume: CreateWorkspaceGithubOAuthResume | null }
 
 /** The only home of the create-project wizard: the /workspaces/new page (spec §18). */
-export function CreateProjectRouteClient({
+export function CreateWorkspaceRouteClient({
     initialSource = null,
     createLocations = [],
     initialOrgId = null,
@@ -44,7 +44,7 @@ export function CreateProjectRouteClient({
 
     useEffect(() => {
         const params = new URLSearchParams(window.location.search)
-        const returnPath = getCreateProjectReturnPath(window.location)
+        const returnPath = getCreateWorkspaceReturnPath(window.location)
         const resume = readGithubOAuthResume(returnPath)
 
         if (params.get('githubIdentity') === 'error' || params.has('error')) {
@@ -53,7 +53,7 @@ export function CreateProjectRouteClient({
 
         const rawParamSource = params.get('source') ?? params.get('createProjectSource')
         setHandoff({
-            source: parseCreateProjectSource(rawParamSource)
+            source: parseCreateWorkspaceSource(rawParamSource)
                 ?? resume?.values.import_source?.type
                 ?? initialSource,
             resume,
@@ -71,14 +71,14 @@ export function CreateProjectRouteClient({
 
     // Replace, not back: after a GitHub sign-in the previous history entry is github.com.
     const handleClose = useCallback(() => {
-        router.replace(readCreateProjectReturnPath() ?? '/discover')
+        router.replace(readCreateWorkspaceReturnPath() ?? '/discover')
     }, [router])
 
     const handleSuccess = useCallback((projectId: string, organization?: CreatedOrganization) => {
         void queryClient.invalidateQueries({ queryKey: queryKeys.discover.projectsSimpleRoot() })
         void queryClient.invalidateQueries({ queryKey: queryKeys.globalSearch.discoverRoot() })
         void queryClient.invalidateQueries({ queryKey: queryKeys.profile.root() })
-        clearCreateProjectReturnPath()
+        clearCreateWorkspaceReturnPath()
         if (organization) return setCreatedOrg({ projectId, ...organization })
         // Replace so Back from the new project does not reopen the wizard.
         router.replace(`/workspaces/${projectId}`)
@@ -88,7 +88,7 @@ export function CreateProjectRouteClient({
         clearGithubOAuthResume(resumeId)
     }, [])
 
-    const handleSourceChange = useCallback((source: CreateProjectSource | null) => {
+    const handleSourceChange = useCallback((source: CreateWorkspaceSource | null) => {
         const url = new URL(window.location.href)
         if (source) {
             url.searchParams.set('source', source)
@@ -101,10 +101,10 @@ export function CreateProjectRouteClient({
     if (createdOrg) {
         return <OrganizationCreatedScreen {...createdOrg} onContinue={() => router.replace(`/workspaces/${createdOrg.projectId}`)} />
     }
-    if (!handoff) return <CreateProjectShellSkeleton />
+    if (!handoff) return <CreateWorkspaceShellSkeleton />
 
     return (
-        <CreateProjectWizard
+        <CreateWorkspaceWizard
             onClose={handleClose}
             onSuccess={handleSuccess}
             initialSource={handoff.source}

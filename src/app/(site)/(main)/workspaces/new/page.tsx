@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation'
 import type { Metadata } from 'next'
-import { CreateProjectRouteClient } from '@/components/workspaces/create-wizard/CreateWorkspaceRouteClient'
+import { CreateWorkspaceRouteClient } from '@/components/workspaces/create-wizard/CreateWorkspaceRouteClient'
 import { buildRouteMetadata } from '@/lib/metadata/route-metadata'
 import { getViewerAuthContext } from '@/lib/server/viewer-context'
 import { buildAuthPageHref } from '@/lib/auth/redirects'
@@ -14,7 +14,7 @@ export const metadata: Metadata = buildRouteMetadata({
     path: '/workspaces/new',
 })
 
-export default async function NewProjectPage({
+export default async function NewWorkspacePage({
     searchParams,
 }: {
     searchParams?: Promise<Record<string, string | string[] | undefined>>
@@ -49,7 +49,7 @@ export default async function NewProjectPage({
     // A normal page in the app shell: fills the main content area; the wizard body is the only scroller.
     return (
         <div data-scroll-root="route" className="h-full min-h-0">
-            <CreateProjectRouteClient initialSource={initialSource} createLocations={locations} initialOrgId={initialOrgId} locationNotice={locationNotice} />
+            <CreateWorkspaceRouteClient initialSource={initialSource} createLocations={locations} initialOrgId={initialOrgId} locationNotice={locationNotice} />
         </div>
     )
 }

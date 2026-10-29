@@ -4,16 +4,16 @@ import { useMemo } from "react";
 import { FolderKanban } from "lucide-react";
 import { EmptyState } from "@/components/ui/EmptyState";
 import ProjectCard from "@/components/workspaces/WorkspaceCard";
-import ProjectCardSkeleton from "@/components/workspaces/WorkspaceCardSkeleton";
-import { toProjectCardViewModel } from "@/lib/view-models/workspace-card";
-import { useUserFollowedProjects } from "@/hooks/workspaces/useUserInteractions";
+import WorkspaceCardSkeleton from "@/components/workspaces/WorkspaceCardSkeleton";
+import { toWorkspaceCardViewModel } from "@/lib/view-models/workspace-card";
+import { useUserFollowedWorkspaces } from "@/hooks/workspaces/useUserInteractions";
 import { useMyApplicationStates } from "@/hooks/workspaces/useMyApplicationStates";
 import { useAuth } from "@/hooks/useAuth";
-import type { ProfileCollaborationProject } from "@/lib/profile/collaboration";
-import type { Project } from "@/types/discover";
+import type { ProfileCollaborationWorkspace } from "@/lib/profile/collaboration";
+import type { Workspace } from "@/types/discover";
 
 interface ProjectsGridCardProps {
-    projects: ProfileCollaborationProject[];
+    projects: ProfileCollaborationWorkspace[];
     title?: string;
     description?: string;
     isOwner?: boolean;
@@ -21,8 +21,8 @@ interface ProjectsGridCardProps {
     onProjectIntent?: (href: string) => void;
 }
 
-function toDiscoveryProject(project: ProfileCollaborationProject): Project {
-    const status: Project["status"] = project.status === "draft"
+function toDiscoveryProject(project: ProfileCollaborationWorkspace): Workspace {
+    const status: Workspace["status"] = project.status === "draft"
         || project.status === "completed"
         || project.status === "archived"
         ? project.status
@@ -64,11 +64,11 @@ function toDiscoveryProject(project: ProfileCollaborationProject): Project {
     } as any;
 }
 
-export function ProjectsGridCard({ projects, title = "Workspaces", description, isOwner = false, isLoading = false, onProjectIntent }: ProjectsGridCardProps) {
+export function WorkspacesGridCard({ projects, title = "Workspaces", description, isOwner = false, isLoading = false, onProjectIntent }: ProjectsGridCardProps) {
     const { user } = useAuth();
     // The bell shows whether you follow each project (one lookup for the whole grid).
     const pageIds = useMemo(() => [projects.map((project) => project.id)], [projects]);
-    const followed = useUserFollowedProjects(user?.id, pageIds);
+    const followed = useUserFollowedWorkspaces(user?.id, pageIds);
     const myApplications = useMyApplicationStates(user?.id, pageIds);
     return <section className="space-y-4">
         <div><h2 className="nb-section-title">{title}</h2>{description && <p className="nb-compact text-muted-foreground">{description}</p>}</div>
@@ -79,7 +79,7 @@ export function ProjectsGridCard({ projects, title = "Workspaces", description, 
                 role="status"
             >
                 <span className="sr-only">Loading workspaces…</span>
-                {[1,2,3,4].map(key => <ProjectCardSkeleton key={key} />)}
+                {[1,2,3,4].map(key => <WorkspaceCardSkeleton key={key} />)}
             </div>
         ) : projects.length ? (
             // Organizations first, then projects (report §24.4).
@@ -99,7 +99,7 @@ export function ProjectsGridCard({ projects, title = "Workspaces", description, 
                         >
                             <ProjectCard
                                 project={cardProject}
-                                viewModel={toProjectCardViewModel(cardProject)}
+                                viewModel={toWorkspaceCardViewModel(cardProject)}
                                 isFollowing={followed.has(cardProject.id)}
                                 followersCount={cardProject.followersCount ?? 0}
                                 applicationChip={myApplications.get(cardProject.id)}

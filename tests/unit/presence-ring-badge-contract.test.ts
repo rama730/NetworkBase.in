@@ -154,7 +154,7 @@ test("while presence data loads: a gray placeholder, then gray arcs that spin, t
 
 test("only people badges load: projects already know their activity", () => {
   assert.match(person, /animate=\{presence\.settled\}/);
-  const projectBadge = person.slice(person.indexOf("export function ProjectPresenceBadge"));
+  const projectBadge = person.slice(person.indexOf("export function WorkspacePresenceBadge"));
   assert.doesNotMatch(projectBadge, /animate=/);
 });
 

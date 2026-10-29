@@ -1,7 +1,7 @@
 import "server-only";
 
 import { createHash } from "crypto";
-import { invalidatePublicProjectsFeedCache } from "@/lib/workspaces/public-feed-service";
+import { invalidatePublicWorkspacesFeedCache } from "@/lib/workspaces/public-feed-service";
 import { revalidatePath, revalidateTag } from "next/cache";
 import { DISCOVER_ANON_CACHE_TAG } from "@/constants/discover";
 import { db } from "@/lib/db";
@@ -12,8 +12,8 @@ import { markProfileCollaborationSummaryStale } from "@/lib/profile/collaboratio
 import { logger } from "@/lib/logger";
 import { isLooseUuid } from "@/lib/validations/uuid";
 import { alias } from "drizzle-orm/pg-core";
-import { computeProjectReadAccess, computeProjectWriteAccess } from "@/lib/data/workspace-access";
-import { enqueueProjectNotificationEvent } from "@/lib/notifications/workspace-events";
+import { computeWorkspaceReadAccess, computeWorkspaceWriteAccess } from "@/lib/data/workspace-access";
+import { enqueueWorkspaceNotificationEvent } from "@/lib/notifications/workspace-events";
 
 
 
@@ -31,27 +31,27 @@ export const isMissingColumn = (error: unknown, column: string) => {
 };
 
 
-export const PROJECT_COVER_UPLOAD_BUCKET = "project-files";
+export const WORKSPACE_COVER_UPLOAD_BUCKET = "project-files";
 
-export const PROJECT_COVER_UPLOAD_MAX_FILE_BYTES = 2 * 1024 * 1024;
+export const WORKSPACE_COVER_UPLOAD_MAX_FILE_BYTES = 2 * 1024 * 1024;
 
-export const PROJECT_IMAGE_PROXY_ROUTE_PREFIX = "/api/v1/workspaces";
+export const WORKSPACE_IMAGE_PROXY_ROUTE_PREFIX = "/api/v1/workspaces";
 
-export const PUBLIC_PROJECT_DETAIL_SHELL_CACHE_TAG = "public-project-detail-shell";
+export const PUBLIC_WORKSPACE_DETAIL_SHELL_CACHE_TAG = "public-project-detail-shell";
 
-export const PUBLIC_PROJECT_DETAIL_METADATA_CACHE_TAG =
+export const PUBLIC_WORKSPACE_DETAIL_METADATA_CACHE_TAG =
   "public-project-detail-metadata";
 
 
-export function buildProjectImageRoute(projectId: string, storageKey: string) {
+export function buildWorkspaceImageRoute(projectId: string, storageKey: string) {
   const version = createHash("sha256").update(storageKey).digest("base64url").slice(0, 16);
-  return `${PROJECT_IMAGE_PROXY_ROUTE_PREFIX}/${projectId}/image?v=${version}`;
+  return `${WORKSPACE_IMAGE_PROXY_ROUTE_PREFIX}/${projectId}/image?v=${version}`;
 }
 
 
-export const revalidateProjectPaths = async (projectId: string) => {
+export const revalidateWorkspacePaths = async (projectId: string) => {
   try {
-    await invalidatePublicProjectsFeedCache(projectId);
+    await invalidatePublicWorkspacesFeedCache(projectId);
   } catch (err) {
     console.error("Failed to invalidate public feed cache:", err);
   }
@@ -62,8 +62,8 @@ export const revalidateProjectPaths = async (projectId: string) => {
   revalidateTag(DISCOVER_ANON_CACHE_TAG, { expire: 0 });
   revalidatePath(`/workspaces/${projectId}`);
   // Expire now, as above: a project gone private must not keep its public shell or preview metadata.
-  revalidateTag(PUBLIC_PROJECT_DETAIL_SHELL_CACHE_TAG, { expire: 0 });
-  revalidateTag(PUBLIC_PROJECT_DETAIL_METADATA_CACHE_TAG, { expire: 0 });
+  revalidateTag(PUBLIC_WORKSPACE_DETAIL_SHELL_CACHE_TAG, { expire: 0 });
+  revalidateTag(PUBLIC_WORKSPACE_DETAIL_METADATA_CACHE_TAG, { expire: 0 });
   try {
     const [project] = await db
       .select({ slug: projects.slug })
@@ -79,14 +79,14 @@ export const revalidateProjectPaths = async (projectId: string) => {
 };
 
 
-export async function invalidateProjectPublicCaches(projectId: string) {
-  const feed = await invalidatePublicProjectsFeedCache(projectId);
+export async function invalidateWorkspacePublicCaches(projectId: string) {
+  const feed = await invalidatePublicWorkspacesFeedCache(projectId);
   revalidatePath("/discover");
   revalidatePath("/my-profile");
   // Expire now: "max" would keep serving the stale page (with a project gone private) while it refreshes.
   revalidateTag(DISCOVER_ANON_CACHE_TAG, { expire: 0 });
-  revalidateTag(PUBLIC_PROJECT_DETAIL_SHELL_CACHE_TAG, { expire: 0 });
-  revalidateTag(PUBLIC_PROJECT_DETAIL_METADATA_CACHE_TAG, { expire: 0 });
+  revalidateTag(PUBLIC_WORKSPACE_DETAIL_SHELL_CACHE_TAG, { expire: 0 });
+  revalidateTag(PUBLIC_WORKSPACE_DETAIL_METADATA_CACHE_TAG, { expire: 0 });
 
   try {
     const [members, project] = await Promise.all([
@@ -109,7 +109,7 @@ export async function invalidateProjectPublicCaches(projectId: string) {
 }
 
 
-export function isProjectDetailMemberRole(
+export function isWorkspaceDetailMemberRole(
   value: unknown,
 ): value is "owner" | "admin" | "member" | "viewer" {
   return (
@@ -121,7 +121,7 @@ export function isProjectDetailMemberRole(
 }
 
 
-export const PROJECT_DETAIL_TRANSIENT_DB_ERROR_CODES = new Set([
+export const WORKSPACE_DETAIL_TRANSIENT_DB_ERROR_CODES = new Set([
   "EAI_AGAIN",
   "ECONNRESET",
   "ECONNREFUSED",
@@ -130,7 +130,7 @@ export const PROJECT_DETAIL_TRANSIENT_DB_ERROR_CODES = new Set([
   "ETIMEDOUT",
 ]);
 
-export const PROJECT_DETAIL_READ_RETRY_DELAYS_MS = [150, 450] as const;
+export const WORKSPACE_DETAIL_READ_RETRY_DELAYS_MS = [150, 450] as const;
 
 
 export function readErrorCode(error: unknown): string | null {
@@ -142,11 +142,11 @@ export function readErrorCode(error: unknown): string | null {
 }
 
 
-export function isTransientProjectDetailReadError(error: unknown, depth = 0): boolean {
+export function isTransientWorkspaceDetailReadError(error: unknown, depth = 0): boolean {
   if (!error || depth > 4) return false;
 
   const code = readErrorCode(error);
-  if (code && PROJECT_DETAIL_TRANSIENT_DB_ERROR_CODES.has(code)) return true;
+  if (code && WORKSPACE_DETAIL_TRANSIENT_DB_ERROR_CODES.has(code)) return true;
 
   const message = error instanceof Error ? error.message : String(error);
   const normalizedMessage = message.toLowerCase();
@@ -160,7 +160,7 @@ export function isTransientProjectDetailReadError(error: unknown, depth = 0): bo
   }
 
   if (error && typeof error === "object" && "cause" in error) {
-    return isTransientProjectDetailReadError(
+    return isTransientWorkspaceDetailReadError(
       (error as { cause?: unknown }).cause,
       depth + 1,
     );
@@ -170,24 +170,24 @@ export function isTransientProjectDetailReadError(error: unknown, depth = 0): bo
 }
 
 
-export async function retryProjectDetailRead<T>(
+export async function retryWorkspaceDetailRead<T>(
   operation: string,
   read: () => Promise<T>,
 ): Promise<T> {
   let lastError: unknown;
   for (
     let attempt = 0;
-    attempt <= PROJECT_DETAIL_READ_RETRY_DELAYS_MS.length;
+    attempt <= WORKSPACE_DETAIL_READ_RETRY_DELAYS_MS.length;
     attempt += 1
   ) {
     try {
       return await read();
     } catch (error) {
       lastError = error;
-      const retryDelayMs = PROJECT_DETAIL_READ_RETRY_DELAYS_MS[attempt];
+      const retryDelayMs = WORKSPACE_DETAIL_READ_RETRY_DELAYS_MS[attempt];
       if (
         retryDelayMs === undefined ||
-        !isTransientProjectDetailReadError(error)
+        !isTransientWorkspaceDetailReadError(error)
       ) {
         throw error;
       }
@@ -210,7 +210,7 @@ export async function retryProjectDetailRead<T>(
 }
 
 
-export async function resolveProjectDetailTarget(
+export async function resolveWorkspaceDetailTarget(
   slugOrId: string,
   actorUserId: string | null = null,
 ) {
@@ -223,7 +223,7 @@ export async function resolveProjectDetailTarget(
       )
     : and(isNull(projects.deletedAt), eq(projects.slug, trimmed));
 
-  const project = await retryProjectDetailRead(
+  const project = await retryWorkspaceDetailRead(
     "resolve_project_detail_target",
     async () => {
       const ownerProfiles = alias(profiles, "project_detail_owner_profiles");
@@ -319,9 +319,9 @@ export async function resolveProjectDetailTarget(
 }
 
 
-// resolveProjectDetailMetadataTarget was deleted in favor of resolveProjectDetailTarget to eliminate code duplication under Ponytail standards.
+// resolveProjectDetailMetadataTarget was deleted in favor of resolveWorkspaceDetailTarget to eliminate code duplication under Ponytail standards.
 
-export function resolveProjectDetailViewerState(input: {
+export function resolveWorkspaceDetailViewerState(input: {
   projectId: string;
   ownerId: string;
   visibility: string | null;
@@ -341,18 +341,18 @@ export function resolveProjectDetailViewerState(input: {
     isFollowed,
   } = input;
   const isOwner = !!actorUserId && actorUserId === ownerId;
-  const memberRole = isProjectDetailMemberRole(memberRoleRaw)
+  const memberRole = isWorkspaceDetailMemberRole(memberRoleRaw)
     ? memberRoleRaw
     : null;
   const isMember = !isOwner && !!memberRole;
-  const canRead = computeProjectReadAccess(
+  const canRead = computeWorkspaceReadAccess(
     visibility,
     status,
     isOwner,
     isMember,
     input.parentOrgRole ?? null,
   );
-  const canWrite = computeProjectWriteAccess(isOwner, memberRole);
+  const canWrite = computeWorkspaceWriteAccess(isOwner, memberRole);
 
   return {
     canRead,
@@ -365,7 +365,7 @@ export function resolveProjectDetailViewerState(input: {
 }
 
 
-export type ProjectSettingsErrorCode =
+export type WorkspaceSettingsErrorCode =
   | "UNAUTHORIZED"
   | "FORBIDDEN"
   | "NOT_FOUND"
@@ -374,12 +374,12 @@ export type ProjectSettingsErrorCode =
   | "INTERNAL_ERROR";
 
 
-export type ProjectSettingsMutationResult =
+export type WorkspaceSettingsMutationResult =
   | { success: true; message: string }
-  | { success: false; message: string; errorCode: ProjectSettingsErrorCode };
+  | { success: false; message: string; errorCode: WorkspaceSettingsErrorCode };
 
 
-export type ProjectSettingsAuditResult =
+export type WorkspaceSettingsAuditResult =
   | {
       success: true;
       data: Array<{
@@ -390,7 +390,7 @@ export type ProjectSettingsAuditResult =
         metadata: Record<string, unknown>;
       }>;
     }
-  | { success: false; message: string; errorCode: ProjectSettingsErrorCode };
+  | { success: false; message: string; errorCode: WorkspaceSettingsErrorCode };
 
 
 
@@ -408,12 +408,12 @@ export function actorNotificationSnapshot(user: {
 }
 
 
-export async function enqueueProjectNotificationBestEffort(
-  input: Parameters<typeof enqueueProjectNotificationEvent>[0],
+export async function enqueueWorkspaceNotificationBestEffort(
+  input: Parameters<typeof enqueueWorkspaceNotificationEvent>[0],
   logContext: Record<string, unknown>,
 ) {
   try {
-    await enqueueProjectNotificationEvent(input);
+    await enqueueWorkspaceNotificationEvent(input);
   } catch (notificationError) {
     logger.warn("project.notification_policy_enqueue_failed", {
       module: "projects",
@@ -429,7 +429,7 @@ export async function enqueueProjectNotificationBestEffort(
 }
 
 
-export async function loadOwnedProjectForSettings(projectId: string, userId: string) {
+export async function loadOwnedWorkspaceForSettings(projectId: string, userId: string) {
   const [project] = await db
     .select({
       id: projects.id,

@@ -4,10 +4,10 @@ import dynamic from "next/dynamic";
 import React, { useCallback, useMemo, useState } from "react";
 import { Loader2 } from "lucide-react";
 import type { ProjectNode } from "@/lib/db/schema";
-import { getProjectNodes } from "@/app/actions/files/nodes";
+import { getWorkspaceNodes } from "@/app/actions/files/nodes";
 import { updateTaskNodeLink } from "@/app/actions/files/links";
 import {
-  moveProjectNodes,
+  moveWorkspaceNodes,
 } from "@/app/actions/files/mutations";
 import { TaskFileRow } from "@/components/workspaces/v2/tasks/components/TaskFileRow";
 import { toast, feedbackError } from "@/lib/feedback";
@@ -80,8 +80,8 @@ export function TaskFilesExplorer({
     const ids = locationDialog.nodes.map((node) => node.id);
     try {
       const result = locationDialog.mode === "publish"
-        ? await moveProjectNodes(ids, locationDialog.targetFolderId, projectId, { mode: "publish" })
-        : await moveProjectNodes(ids, locationDialog.targetFolderId, projectId);
+        ? await moveWorkspaceNodes(ids, locationDialog.targetFolderId, projectId, { mode: "publish" })
+        : await moveWorkspaceNodes(ids, locationDialog.targetFolderId, projectId);
       if (result.nodes.length > 0) {
         toast.success(
           locationDialog.mode === "publish"
@@ -109,7 +109,7 @@ export function TaskFilesExplorer({
       if (nextExpanded && !loadedChildren[node.id]) {
         setLoadingFolders((prev) => ({ ...prev, [node.id]: true }));
         try {
-          const res = await getProjectNodes(projectId, node.id, undefined, 100, undefined, { taskId });
+          const res = await getWorkspaceNodes(projectId, node.id, undefined, 100, undefined, { taskId });
           const nodes = res.nodes;
           setLoadedChildren((prev) => ({ ...prev, [node.id]: nodes }));
           setChildCursors((prev) => ({ ...prev, [node.id]: res.nextCursor }));
@@ -128,7 +128,7 @@ export function TaskFilesExplorer({
     if (!cursor || loadingFolders[folderId]) return;
     setLoadingFolders((prev) => ({ ...prev, [folderId]: true }));
     try {
-      const res = await getProjectNodes(projectId, folderId, undefined, 100, cursor, { taskId });
+      const res = await getWorkspaceNodes(projectId, folderId, undefined, 100, cursor, { taskId });
       setLoadedChildren((prev) => ({
         ...prev,
         [folderId]: [...(prev[folderId] ?? []), ...res.nodes],

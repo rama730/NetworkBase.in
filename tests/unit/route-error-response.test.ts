@@ -23,7 +23,7 @@ test("domain errors keep their status and safe message", async () => {
 });
 
 test("tab and file access failures are typed domain errors", () => {
-  assert.match(readFileSync("src/lib/data/workspace-access.ts", "utf8"), /class ProjectTabForbiddenError extends ForbiddenError/);
+  assert.match(readFileSync("src/lib/data/workspace-access.ts", "utf8"), /class WorkspaceTabForbiddenError extends ForbiddenError/);
   const helpers = readFileSync("src/lib/files/internal-helpers.ts", "utf8");
   assert.doesNotMatch(helpers, /new Error\("(Forbidden|Workspace not found|File not found|Task not found)"\)/);
 });

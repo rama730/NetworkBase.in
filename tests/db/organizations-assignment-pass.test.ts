@@ -145,7 +145,7 @@ test("child team tasks by unit; any teammate ticks a step and it records who; co
     ${sql.json({ version: 1, submissionType: "none", reviewRequired: false, lateRule: "none", target: { mode: "each_child" }, publishedAt: new Date().toISOString(), closedAt: null })}) RETURNING id`;
   await sql`INSERT INTO tasks (project_id, title, kind, assignment_id, assignee_id, creator_id) VALUES (${lab}, 'Proposal', 'task', ${g!.id}, ${o.a}, ${o.owner})`;
   viewerId = o.a;
-  const board = await tasksServer.fetchProjectTasksAction(lab, 50);
+  const board = await tasksServer.fetchWorkspaceTasksAction(lab, 50);
   viewerId = "";
   assert.ok(board.success);
   const copy = board.success ? board.tasks.find((t) => t.title === "Proposal") : undefined;

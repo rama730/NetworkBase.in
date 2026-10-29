@@ -5,10 +5,10 @@ import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
 import { Pin } from 'lucide-react'
 
-import { readChildOrgLineAction, readOrgDashboardAction, readOrgProjectsAction, remindLeadsAction, type OrgProjectRow } from '@/app/actions/org-dashboard'
+import { readChildOrgLineAction, readOrgDashboardAction, readOrgWorkspacesAction, remindLeadsAction, type OrgWorkspaceRow } from '@/app/actions/org-dashboard'
 import { messageUserInWindow } from '@/components/messages/message-user'
 import { archiveChildAction } from '@/app/actions/organizations'
-import { readProjectUnitsAction } from '@/app/actions/child-units'
+import { readWorkspaceUnitsAction } from '@/app/actions/child-units'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { RailSection } from '@/components/ui/rail-section'
@@ -107,8 +107,8 @@ function ownLine(items: Array<{ own?: { state: string } | null }>) {
 }
 
 /** Projects tab (report §28): a list with filters for everyone in the org; Needs attention and bulk Archive for admins. */
-export function OrgProjectsTab({ orgId, orgSlug }: { orgId: string; orgSlug?: string | null }) {
-    const [data, setData] = useState<{ isAdmin: boolean; canCreate?: boolean; rows: OrgProjectRow[]; summary: { total: number; attention: number; quiet: number; notInProject: number } } | null>(null)
+export function OrgWorkspacesTab({ orgId, orgSlug }: { orgId: string; orgSlug?: string | null }) {
+    const [data, setData] = useState<{ isAdmin: boolean; canCreate?: boolean; rows: OrgWorkspaceRow[]; summary: { total: number; attention: number; quiet: number; notInProject: number } } | null>(null)
     const [q, setQ] = useState('')
     const [status, setStatus] = useState<'all' | 'attention' | 'quiet' | 'archived'>('all')
     const [visibility, setVisibility] = useState('all')
@@ -122,7 +122,7 @@ export function OrgProjectsTab({ orgId, orgSlug }: { orgId: string; orgSlug?: st
     const [shown, setShown] = useState(50)
     const [selected, setSelected] = useState<Set<string>>(new Set())
     const [pending, startTransition] = useTransition()
-    const load = useCallback(() => void readOrgProjectsAction(orgId).then((r) => setData(r.success ? r : null)), [orgId])
+    const load = useCallback(() => void readOrgWorkspacesAction(orgId).then((r) => setData(r.success ? r : null)), [orgId])
     useEffect(() => { load() }, [load])
     const rows = useMemo(() => {
         const needle = q.trim().toLowerCase()
@@ -147,8 +147,8 @@ export function OrgProjectsTab({ orgId, orgSlug }: { orgId: string; orgSlug?: st
         toast.success(r.reminded ? `Reminded ${r.reminded} ${r.reminded === 1 ? 'lead' : 'leads'}` : 'Nothing overdue or missing in those workspaces')
         setSelected(new Set())
     })
-    const projectHref = (r: OrgProjectRow) => `/workspaces/${encodeURIComponent(r.slug ?? r.id)}`
-    const messageLead = (r: OrgProjectRow) => r.lead && !r.mine ? <Link href={`/messages?userId=${r.lead.id}`} onClick={(e) => messageUserInWindow(r.lead!.id, e)} className="text-[12px] underline underline-offset-4">Message lead</Link> : null
+    const projectHref = (r: OrgWorkspaceRow) => `/workspaces/${encodeURIComponent(r.slug ?? r.id)}`
+    const messageLead = (r: OrgWorkspaceRow) => r.lead && !r.mine ? <Link href={`/messages?userId=${r.lead.id}`} onClick={(e) => messageUserInWindow(r.lead!.id, e)} className="text-[12px] underline underline-offset-4">Message lead</Link> : null
     const sel = 'h-9 rounded-md border border-border bg-background px-2 text-sm'
     const archive = () => startTransition(async () => {
         for (const id of selected) {
@@ -280,7 +280,7 @@ export function ChildOrgLine({ projectId }: { projectId: string }) {
  * unit lists the names with its lead ★. Names come from the dashboard's own (privacy-filtered) member list.
  */
 export function ChildUnitsLine({ projectId, members }: { projectId: string; members: Array<{ id: string; fullName?: string | null; username?: string | null }> }) {
-    const { data: units } = useQuery({ queryKey: ['child-units', projectId], queryFn: () => readProjectUnitsAction(projectId), staleTime: 60_000 })
+    const { data: units } = useQuery({ queryKey: ['child-units', projectId], queryFn: () => readWorkspaceUnitsAction(projectId), staleTime: 60_000 })
     if (!units?.length) return null
     const nameOf = (id: string) => { const m = members.find((x) => x.id === id); return m ? m.fullName || m.username || 'Member' : null }
     return (

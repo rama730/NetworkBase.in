@@ -11,14 +11,14 @@ import { TOTAL_PHASES, WIZARD_PHASES } from '@/constants/workspace-wizard';
 import { toast } from '@/lib/feedback';
 
 // Hook
-import { useCreateProjectWizard } from './useCreateWorkspaceWizard';
+import { useCreateWorkspaceWizard } from './useCreateWorkspaceWizard';
 
 // Shared Components
 import WizardHeader from './WizardHeader';
 import WizardFooter, { WIZARD_COLUMN } from './WizardFooter';
 import { Button } from '@/components/ui/button';
-import LeaveProjectSetupDialog from './LeaveWorkspaceSetupDialog';
-import { getCreateProjectReturnPath, readGithubOAuthResume, type CreateProjectGithubOAuthResume } from './github-oauth-resume';
+import LeaveWorkspaceSetupDialog from './LeaveWorkspaceSetupDialog';
+import { getCreateWorkspaceReturnPath, readGithubOAuthResume, type CreateWorkspaceGithubOAuthResume } from './github-oauth-resume';
 
 // Dynamic Phase Imports with Consistent Loading States
 const PhaseLoadingPlaceholder = () => (
@@ -42,14 +42,14 @@ interface Props {
     onSuccess?: (projectId: string, organization?: import('@/components/organizations/OrganizationCreatedScreen').CreatedOrganization) => void;
     initialSource?: 'scratch' | 'github' | 'upload' | null;
     onSourceChange?: (source: 'scratch' | 'github' | 'upload' | null) => void;
-    githubOAuthResume?: CreateProjectGithubOAuthResume | null;
+    githubOAuthResume?: CreateWorkspaceGithubOAuthResume | null;
     onGithubOAuthResumeRestored?: (resumeId: string) => void;
     createLocations?: CreateLocation[];
     initialOrgId?: string | null;
     locationNotice?: string | null;
 }
 
-export default function CreateProjectWizard({ onClose, onSuccess, initialSource = null, onSourceChange, githubOAuthResume = null, onGithubOAuthResumeRestored, createLocations = [], initialOrgId = null, locationNotice = null }: Props) {
+export default function CreateWorkspaceWizard({ onClose, onSuccess, initialSource = null, onSourceChange, githubOAuthResume = null, onGithubOAuthResumeRestored, createLocations = [], initialOrgId = null, locationNotice = null }: Props) {
     const {
         phase, methods, wizardContext, isSubmitting, isSavingDraft, phase2ValidationAttempted, phase3ValidationAttempted, phase4ValidationAttempted,
         phase4LinkComposerPending, setPhase4LinkComposerPending, isPhaseTransitioning, isReviewReady, setIsReviewReady,
@@ -58,7 +58,7 @@ export default function CreateProjectWizard({ onClose, onSuccess, initialSource 
         saveStatus, lastSaved, showExitConfirm, setShowExitConfirm,
         handleNext, handleBack, goToPhase, saveDraft, handleCloseAttempt, markLeaving, hasUnsavedWizardChanges,
         onSubmit, draftInfo, restoreDraft, deleteDraft
-    } = useCreateProjectWizard({
+    } = useCreateWorkspaceWizard({
         onClose,
         onSuccess,
         initialValues: githubOAuthResume?.values,
@@ -194,7 +194,7 @@ export default function CreateProjectWizard({ onClose, onSuccess, initialSource 
     useEffect(() => {
         if (!hasUnsavedWizardChanges) return;
         const onBeforeUnload = (event: BeforeUnloadEvent) => {
-            if (readGithubOAuthResume(getCreateProjectReturnPath(window.location))) return;
+            if (readGithubOAuthResume(getCreateWorkspaceReturnPath(window.location))) return;
             event.preventDefault();
             event.returnValue = '';
         };
@@ -360,7 +360,7 @@ export default function CreateProjectWizard({ onClose, onSuccess, initialSource 
     return (
         <>
             {content}
-            <LeaveProjectSetupDialog
+            <LeaveWorkspaceSetupDialog
                 open={showExitConfirm}
                 onOpenChange={setShowExitConfirm}
                 onLeave={leaveSetup}

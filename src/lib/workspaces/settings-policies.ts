@@ -1,13 +1,13 @@
 import { ACCESS_LEVEL_LABELS } from "@/lib/copy/terms";
 import {
-  formatProjectVisibility,
-  normalizeProjectVisibility as normalizeCanonicalProjectVisibility,
-  type ProjectVisibility,
+  formatWorkspaceVisibility,
+  normalizeWorkspaceVisibility as normalizeCanonicalProjectVisibility,
+  type WorkspaceVisibility,
 } from "@/lib/workspaces/workspace-visibility";
 
-export type ProjectSettingsVisibility = ProjectVisibility;
+export type WorkspaceSettingsVisibility = WorkspaceVisibility;
 
-export type ProjectSettingsSectionId =
+export type WorkspaceSettingsSectionId =
   | "general"
   | "links"
   | "access"
@@ -32,12 +32,12 @@ export type ProjectSettingsSectionId =
   | "child-org";
 
 type ProjectSettingsSectionDefinition = {
-  id: ProjectSettingsSectionId;
+  id: WorkspaceSettingsSectionId;
   label: string;
   description: string;
 };
 
-export type ProjectSettingsMember = {
+export type WorkspaceSettingsMember = {
   id: string;
   fullName?: string | null;
   username?: string | null;
@@ -46,15 +46,15 @@ export type ProjectSettingsMember = {
   projectRoleTitle?: string | null;
   joinedAt?: string | null;
   fileUploadEnabled?: boolean | null;
-  responsibilityCounts?: ProjectMemberResponsibilityCounts | null;
+  responsibilityCounts?: WorkspaceMemberResponsibilityCounts | null;
   /** Child projects of an org (report §21.6 #5): the person's unit, and the org's name when they're not in it. */
   unitTitle?: string | null;
   outsideOf?: string | null;
 };
 
-export type ProjectMemberRole = "owner" | "admin" | "member" | "viewer";
+export type WorkspaceMemberRole = "owner" | "admin" | "member" | "viewer";
 
-export type ProjectPublicTabId =
+export type WorkspacePublicTabId =
   | "dashboard"
   | "readme"
   | "updates"
@@ -62,9 +62,9 @@ export type ProjectPublicTabId =
   | "tasks"
   | "files";
 
-export type ProjectPublicTabVisibility = Record<ProjectPublicTabId, boolean>;
+export type WorkspacePublicTabVisibility = Record<WorkspacePublicTabId, boolean>;
 
-export type ProjectMemberCapability =
+export type WorkspaceMemberCapability =
   | "transfer_ownership"
   | "archive_project"
   | "delete_project"
@@ -82,9 +82,9 @@ export type ProjectMemberCapability =
   | "comment"
   | "merge_task";
 
-export type ProjectMemberEligibility = "mention" | "assign" | "review";
+export type WorkspaceMemberEligibility = "mention" | "assign" | "review";
 
-export type ProjectMemberResponsibilityCounts = {
+export type WorkspaceMemberResponsibilityCounts = {
   activeAssignedTasks: number;
   activeCreatedTasks: number;
   fileReviews: number;
@@ -92,7 +92,7 @@ export type ProjectMemberResponsibilityCounts = {
   projectGroupParticipant: boolean;
 };
 
-export type ProjectPersonReferenceState =
+export type WorkspacePersonReferenceState =
   | "active_member"
   | "owner"
   | "co_leader"
@@ -104,13 +104,13 @@ export type ProjectPersonReferenceState =
   | "unknown_user"
   | "external_user";
 
-export type ProjectPersonReference = {
+export type WorkspacePersonReference = {
   id: string | null;
   displayName: string;
   avatarUrl: string | null;
   roleLabel: string;
   subtext: string | null;
-  state: ProjectPersonReferenceState;
+  state: WorkspacePersonReferenceState;
   isAssignable: boolean;
   isMentionable: boolean;
   canOpenProfile: boolean;
@@ -141,7 +141,7 @@ type ProjectAccessTransitionInput = ProjectAccessImpactInput & {
 };
 
 type ProjectMemberRemovalPreflightInput = {
-  member?: ProjectSettingsMember | null;
+  member?: WorkspaceSettingsMember | null;
   visibility?: unknown;
   activeAssignedTasks?: number | null;
   activeCreatedTasks?: number | null;
@@ -151,11 +151,11 @@ type ProjectMemberRemovalPreflightInput = {
 };
 
 /** Decision 1: one ladder, the stored words (src/lib/copy/terms.ts). */
-export const PROJECT_MEMBER_ROLE_LABELS: Record<ProjectMemberRole, string> = ACCESS_LEVEL_LABELS;
+export const WORKSPACE_MEMBER_ROLE_LABELS: Record<WorkspaceMemberRole, string> = ACCESS_LEVEL_LABELS;
 
-export const PROJECT_MEMBER_ROLE_CAPABILITIES: Record<
-  ProjectMemberRole,
-  ProjectMemberCapability[]
+export const WORKSPACE_MEMBER_ROLE_CAPABILITIES: Record<
+  WorkspaceMemberRole,
+  WorkspaceMemberCapability[]
 > = {
   owner: [
     "transfer_ownership",
@@ -193,7 +193,7 @@ export const PROJECT_MEMBER_ROLE_CAPABILITIES: Record<
   viewer: ["comment"],
 };
 
-export const DEFAULT_PROJECT_PUBLIC_TAB_VISIBILITY: ProjectPublicTabVisibility =
+export const DEFAULT_WORKSPACE_PUBLIC_TAB_VISIBILITY: WorkspacePublicTabVisibility =
   {
     dashboard: true,
     readme: true,
@@ -203,7 +203,7 @@ export const DEFAULT_PROJECT_PUBLIC_TAB_VISIBILITY: ProjectPublicTabVisibility =
     tasks: false,
   };
 
-export const PROJECT_PUBLIC_TAB_LABELS: Record<ProjectPublicTabId, string> = {
+export const WORKSPACE_PUBLIC_TAB_LABELS: Record<WorkspacePublicTabId, string> = {
   dashboard: "Dashboard",
   readme: "Docs",
   updates: "Updates",
@@ -212,8 +212,8 @@ export const PROJECT_PUBLIC_TAB_LABELS: Record<ProjectPublicTabId, string> = {
   tasks: "Tasks",
 };
 
-export const PROJECT_PUBLIC_TAB_DESCRIPTIONS: Record<
-  ProjectPublicTabId,
+export const WORKSPACE_PUBLIC_TAB_DESCRIPTIONS: Record<
+  WorkspacePublicTabId,
   string
 > = {
   dashboard:
@@ -230,10 +230,10 @@ export const PROJECT_PUBLIC_TAB_DESCRIPTIONS: Record<
     "Task board and work execution details, usually best kept member-only.",
 };
 
-export function normalizeProjectMemberRole(
+export function normalizeWorkspaceMemberRole(
   value: unknown,
-  fallback: ProjectMemberRole = "member",
-): ProjectMemberRole {
+  fallback: WorkspaceMemberRole = "member",
+): WorkspaceMemberRole {
   return value === "owner" ||
     value === "admin" ||
     value === "member" ||
@@ -242,22 +242,22 @@ export function normalizeProjectMemberRole(
     : fallback;
 }
 
-export function getProjectMemberRoleLabel(role: unknown) {
+export function getWorkspaceMemberRoleLabel(role: unknown) {
   return (
-    PROJECT_MEMBER_ROLE_LABELS[normalizeProjectMemberRole(role)] ?? "Member"
+    WORKSPACE_MEMBER_ROLE_LABELS[normalizeWorkspaceMemberRole(role)] ?? "Member"
   );
 }
 
-export function formatProjectTeamRole(input: {
+export function formatWorkspaceTeamRole(input: {
   membershipRole: unknown;
   projectRoleTitle?: string | null;
   leadFocus?: string | null;
 }) {
-  const membershipRole = normalizeProjectMemberRole(input.membershipRole);
-  const membershipLabel = PROJECT_MEMBER_ROLE_LABELS[membershipRole];
+  const membershipRole = normalizeWorkspaceMemberRole(input.membershipRole);
+  const membershipLabel = WORKSPACE_MEMBER_ROLE_LABELS[membershipRole];
   const projectRoleTitle = input.projectRoleTitle?.trim() || "";
   const leadFocus = input.leadFocus?.trim() || "";
-  const genericTitles: Record<ProjectMemberRole, string[]> = {
+  const genericTitles: Record<WorkspaceMemberRole, string[]> = {
     owner: ["owner", "lead", "leader"],
     admin: ["admin", "co-lead", "co-leader"],
     member: ["member"],
@@ -281,14 +281,14 @@ export function formatProjectTeamRole(input: {
 
 export function projectMemberCan(
   role: unknown,
-  capability: ProjectMemberCapability,
+  capability: WorkspaceMemberCapability,
 ) {
-  return PROJECT_MEMBER_ROLE_CAPABILITIES[
-    normalizeProjectMemberRole(role)
+  return WORKSPACE_MEMBER_ROLE_CAPABILITIES[
+    normalizeWorkspaceMemberRole(role)
   ].includes(capability);
 }
 
-export function canProjectMemberUploadFiles(input: {
+export function canWorkspaceMemberUploadFiles(input: {
   role?: unknown;
   fileUploadEnabled?: boolean | null;
 }) {
@@ -299,49 +299,49 @@ export function canProjectMemberUploadFiles(input: {
   return input.fileUploadEnabled !== false;
 }
 
-export function normalizeProjectPublicTabVisibility(
+export function normalizeWorkspacePublicTabVisibility(
   value: unknown,
-): ProjectPublicTabVisibility {
+): WorkspacePublicTabVisibility {
   const source =
     value && typeof value === "object"
-      ? (value as Partial<Record<ProjectPublicTabId, unknown>>)
+      ? (value as Partial<Record<WorkspacePublicTabId, unknown>>)
       : {};
   return {
     dashboard:
       typeof source.dashboard === "boolean"
         ? source.dashboard
-        : DEFAULT_PROJECT_PUBLIC_TAB_VISIBILITY.dashboard,
+        : DEFAULT_WORKSPACE_PUBLIC_TAB_VISIBILITY.dashboard,
     readme:
       typeof source.readme === "boolean"
         ? source.readme
-        : DEFAULT_PROJECT_PUBLIC_TAB_VISIBILITY.readme,
+        : DEFAULT_WORKSPACE_PUBLIC_TAB_VISIBILITY.readme,
     updates:
       typeof source.updates === "boolean"
         ? source.updates
-        : DEFAULT_PROJECT_PUBLIC_TAB_VISIBILITY.updates,
+        : DEFAULT_WORKSPACE_PUBLIC_TAB_VISIBILITY.updates,
     files:
       typeof source.files === "boolean"
         ? source.files
-        : DEFAULT_PROJECT_PUBLIC_TAB_VISIBILITY.files,
+        : DEFAULT_WORKSPACE_PUBLIC_TAB_VISIBILITY.files,
     sprints:
       typeof source.sprints === "boolean"
         ? source.sprints
-        : DEFAULT_PROJECT_PUBLIC_TAB_VISIBILITY.sprints,
+        : DEFAULT_WORKSPACE_PUBLIC_TAB_VISIBILITY.sprints,
     tasks:
       typeof source.tasks === "boolean"
         ? source.tasks
-        : DEFAULT_PROJECT_PUBLIC_TAB_VISIBILITY.tasks,
+        : DEFAULT_WORKSPACE_PUBLIC_TAB_VISIBILITY.tasks,
   };
 }
 
-export function areProjectPublicTabVisibilitiesEqual(
+export function areWorkspacePublicTabVisibilitiesEqual(
   left: unknown,
   right: unknown,
 ) {
-  const normalizedLeft = normalizeProjectPublicTabVisibility(left);
-  const normalizedRight = normalizeProjectPublicTabVisibility(right);
+  const normalizedLeft = normalizeWorkspacePublicTabVisibility(left);
+  const normalizedRight = normalizeWorkspacePublicTabVisibility(right);
   return (
-    Object.keys(DEFAULT_PROJECT_PUBLIC_TAB_VISIBILITY) as ProjectPublicTabId[]
+    Object.keys(DEFAULT_WORKSPACE_PUBLIC_TAB_VISIBILITY) as WorkspacePublicTabId[]
   ).every((tabId) => normalizedLeft[tabId] === normalizedRight[tabId]);
 }
 
@@ -350,7 +350,7 @@ export function areProjectPublicTabVisibilitiesEqual(
  * Tasks and Settings ("You" sections for members and guests) are for people in the org; visitors get the
  * public tabs.
  */
-export function isProjectTabVisibleToViewer(input: {
+export function isWorkspaceTabVisibleToViewer(input: {
   tabId: string;
   isOwnerOrMember: boolean;
   canManageSettings?: boolean;
@@ -366,14 +366,14 @@ export function isProjectTabVisibleToViewer(input: {
     if (input.tabId === "dashboard" || input.tabId === "tasks" || input.tabId === "settings") return input.isOwnerOrMember;
   }
   if (input.tabId === "settings") return Boolean(input.canManageSettings);
-  if (!(input.tabId in DEFAULT_PROJECT_PUBLIC_TAB_VISIBILITY)) return false;
+  if (!(input.tabId in DEFAULT_WORKSPACE_PUBLIC_TAB_VISIBILITY)) return false;
   if (input.isOwnerOrMember) return true;
-  return normalizeProjectPublicTabVisibility(input.publicTabVisibility)[
-    input.tabId as ProjectPublicTabId
+  return normalizeWorkspacePublicTabVisibility(input.publicTabVisibility)[
+    input.tabId as WorkspacePublicTabId
   ];
 }
 
-export function resolveAllowedProjectTab(input: {
+export function resolveAllowedWorkspaceTab(input: {
   requestedTab?: string | null;
   isOwnerOrMember: boolean;
   canManageSettings?: boolean;
@@ -384,32 +384,32 @@ export function resolveAllowedProjectTab(input: {
   const landingTab = input.isOrganization && !input.isOwnerOrMember ? "about" : "dashboard";
   const requestedTab = input.requestedTab?.trim() || landingTab;
   if (requestedTab === "privacy") {
-    const canOpenSettings = isProjectTabVisibleToViewer({ ...input, tabId: "settings" });
-    return canOpenSettings ? "settings" : (isProjectTabVisibleToViewer({ ...input, tabId: landingTab }) ? landingTab : null);
+    const canOpenSettings = isWorkspaceTabVisibleToViewer({ ...input, tabId: "settings" });
+    return canOpenSettings ? "settings" : (isWorkspaceTabVisibleToViewer({ ...input, tabId: landingTab }) ? landingTab : null);
   }
-  const isKnownTab = requestedTab === "settings" || requestedTab in DEFAULT_PROJECT_PUBLIC_TAB_VISIBILITY || (input.isOrganization && (requestedTab === "about" || requestedTab === "members" || requestedTab === "projects"));
-  if (isKnownTab && isProjectTabVisibleToViewer({ ...input, tabId: requestedTab })) return requestedTab;
+  const isKnownTab = requestedTab === "settings" || requestedTab in DEFAULT_WORKSPACE_PUBLIC_TAB_VISIBILITY || (input.isOrganization && (requestedTab === "about" || requestedTab === "members" || requestedTab === "projects"));
+  if (isKnownTab && isWorkspaceTabVisibleToViewer({ ...input, tabId: requestedTab })) return requestedTab;
   if (isKnownTab && !input.isOrganization) return null;
-  return isProjectTabVisibleToViewer({ ...input, tabId: landingTab }) ? landingTab : null;
+  return isWorkspaceTabVisibleToViewer({ ...input, tabId: landingTab }) ? landingTab : null;
 }
 
-export function isAssignableProjectMember(role: unknown) {
-  const normalized = normalizeProjectMemberRole(role);
+export function isAssignableWorkspaceMember(role: unknown) {
+  const normalized = normalizeWorkspaceMemberRole(role);
   return normalized !== "viewer";
 }
 
-export function isEligibleProjectMember(
+export function isEligibleWorkspaceMember(
   role: unknown,
-  eligibility: ProjectMemberEligibility,
+  eligibility: WorkspaceMemberEligibility,
 ) {
-  const normalized = normalizeProjectMemberRole(role);
+  const normalized = normalizeWorkspaceMemberRole(role);
   if (eligibility === "mention") return true;
   if (eligibility === "assign" || eligibility === "review")
     return normalized !== "viewer";
   return false;
 }
 
-export function buildProjectPersonReference(input: {
+export function buildWorkspacePersonReference(input: {
   person?: {
     id?: string | null;
     fullName?: string | null;
@@ -422,7 +422,7 @@ export function buildProjectPersonReference(input: {
   hasLostAccess?: boolean;
   isDeactivated?: boolean;
   isExternal?: boolean;
-}): ProjectPersonReference {
+}): WorkspacePersonReference {
   const person = input.person ?? null;
   const id = person?.id?.trim() || null;
   const displayName =
@@ -430,7 +430,7 @@ export function buildProjectPersonReference(input: {
     person?.username?.trim() ||
     (id ? "Workspace member" : "User unavailable");
   const avatarUrl = person?.avatarUrl?.trim() || null;
-  const role = normalizeProjectMemberRole(input.membershipRole, "member");
+  const role = normalizeWorkspaceMemberRole(input.membershipRole, "member");
   const isActiveMember = Boolean(input.isActiveMember);
 
   if (input.isDeactivated) {
@@ -499,7 +499,7 @@ export function buildProjectPersonReference(input: {
     };
   }
 
-  const state: ProjectPersonReferenceState =
+  const state: WorkspacePersonReferenceState =
     role === "owner"
       ? "owner"
       : role === "admin"
@@ -511,11 +511,11 @@ export function buildProjectPersonReference(input: {
     id,
     displayName,
     avatarUrl,
-    roleLabel: PROJECT_MEMBER_ROLE_LABELS[role],
+    roleLabel: WORKSPACE_MEMBER_ROLE_LABELS[role],
     subtext:
       role === "admin" ? "Admin" : role === "viewer" ? "Viewer" : null,
     state,
-    isAssignable: isAssignableProjectMember(role),
+    isAssignable: isAssignableWorkspaceMember(role),
     isMentionable: true,
     canOpenProfile: true,
   };
@@ -530,7 +530,7 @@ function formatCount(
   return `${value} ${value === 1 ? singular : plural}`;
 }
 
-export const PROJECT_SETTINGS_SECTIONS: ProjectSettingsSectionDefinition[] = [
+export const WORKSPACE_SETTINGS_SECTIONS: ProjectSettingsSectionDefinition[] = [
   // Group 1: Project Profile
   {
     id: "general",
@@ -605,17 +605,17 @@ export const PROJECT_SETTINGS_SECTIONS: ProjectSettingsSectionDefinition[] = [
   },
 ];
 
-export function getVisibleProjectSettingsSections() {
-  return PROJECT_SETTINGS_SECTIONS;
+export function getVisibleWorkspaceSettingsSections() {
+  return WORKSPACE_SETTINGS_SECTIONS;
 }
 
-export const normalizeProjectVisibility = normalizeCanonicalProjectVisibility;
+export const normalizeWorkspaceVisibility = normalizeCanonicalProjectVisibility;
 
-export function buildProjectAccessPolicy(
+export function buildWorkspaceAccessPolicy(
   project: { visibility?: unknown } | null | undefined,
 ) {
-  const visibility = normalizeProjectVisibility(project?.visibility);
-  const affectedAreasByVisibility: Record<ProjectSettingsVisibility, string[]> =
+  const visibility = normalizeWorkspaceVisibility(project?.visibility);
+  const affectedAreasByVisibility: Record<WorkspaceSettingsVisibility, string[]> =
     {
       public: [
         "Workspace cards, Discover, search, and public profile references can show the workspace",
@@ -633,7 +633,7 @@ export function buildProjectAccessPolicy(
 
   return {
     visibility,
-    label: formatProjectVisibility(visibility),
+    label: formatWorkspaceVisibility(visibility),
     affectedAreas: affectedAreasByVisibility[visibility],
     viewerRows: [
       {
@@ -669,10 +669,10 @@ export function buildProjectAccessPolicy(
   };
 }
 
-export function buildProjectAccessImpact(
+export function buildWorkspaceAccessImpact(
   input: ProjectAccessImpactInput | null | undefined,
 ) {
-  const visibility = normalizeProjectVisibility(input?.visibility);
+  const visibility = normalizeWorkspaceVisibility(input?.visibility);
   const membersCount = Math.max(
     0,
     Math.trunc(Number(input?.membersCount ?? 0)),
@@ -769,16 +769,16 @@ export function buildProjectAccessImpact(
   };
 }
 
-export function buildProjectAccessTransitionPolicy(
+export function buildWorkspaceAccessTransitionPolicy(
   input: ProjectAccessTransitionInput | null | undefined,
 ) {
-  const previousVisibility = normalizeProjectVisibility(
+  const previousVisibility = normalizeWorkspaceVisibility(
     input?.previousVisibility,
   );
-  const nextVisibility = normalizeProjectVisibility(
+  const nextVisibility = normalizeWorkspaceVisibility(
     input?.nextVisibility ?? input?.visibility,
   );
-  const impact = buildProjectAccessImpact({
+  const impact = buildWorkspaceAccessImpact({
     ...input,
     visibility: nextVisibility,
   });
@@ -821,11 +821,11 @@ export function buildProjectAccessTransitionPolicy(
   };
 }
 
-export function buildProjectRolePolicy(input: {
+export function buildWorkspaceRolePolicy(input: {
   isOwner: boolean;
-  actorRole?: ProjectMemberRole | null;
+  actorRole?: WorkspaceMemberRole | null;
   ownerId?: string | null;
-  members?: ProjectSettingsMember[];
+  members?: WorkspaceSettingsMember[];
 }) {
   const members = input.members ?? [];
   const normalizedMembers = members.map((member) => ({
@@ -833,7 +833,7 @@ export function buildProjectRolePolicy(input: {
     membershipRole:
       member.id === input.ownerId
         ? "owner"
-        : normalizeProjectMemberRole(member.membershipRole, "member"),
+        : normalizeWorkspaceMemberRole(member.membershipRole, "member"),
   }));
   const transferCandidates = normalizedMembers.filter((member) => {
     if (!member?.id) return false;
@@ -842,10 +842,10 @@ export function buildProjectRolePolicy(input: {
   });
 
   const roleCounts = normalizedMembers.reduce<
-    Record<ProjectMemberRole, number>
+    Record<WorkspaceMemberRole, number>
   >(
     (acc, member) => {
-      const role = normalizeProjectMemberRole(
+      const role = normalizeWorkspaceMemberRole(
         member.membershipRole,
         member.id === input.ownerId ? "owner" : "member",
       );
@@ -872,7 +872,7 @@ export function buildProjectRolePolicy(input: {
 
   const actorRole = input.isOwner
     ? "owner"
-    : normalizeProjectMemberRole(input.actorRole, "member");
+    : normalizeWorkspaceMemberRole(input.actorRole, "member");
 
   return {
     canManage: input.isOwner || actorRole === "admin",
@@ -884,8 +884,8 @@ export function buildProjectRolePolicy(input: {
     viewers,
     transferCandidates,
     roleCounts,
-    roleLabels: PROJECT_MEMBER_ROLE_LABELS,
-    capabilityMatrix: PROJECT_MEMBER_ROLE_CAPABILITIES,
+    roleLabels: WORKSPACE_MEMBER_ROLE_LABELS,
+    capabilityMatrix: WORKSPACE_MEMBER_ROLE_CAPABILITIES,
     affectedAreas: [
       "Task assignment and ownership routing",
       "Workspace Files and task Files permissions",
@@ -895,9 +895,9 @@ export function buildProjectRolePolicy(input: {
   };
 }
 
-export function buildProjectMemberMutationPolicy(input: {
+export function buildWorkspaceMemberMutationPolicy(input: {
   actorIsOwner: boolean;
-  actorRole?: ProjectMemberRole | null;
+  actorRole?: WorkspaceMemberRole | null;
   ownerId?: string | null;
   targetUserId?: string | null;
   targetRole?: unknown;
@@ -905,15 +905,15 @@ export function buildProjectMemberMutationPolicy(input: {
 }) {
   const actorRole = input.actorIsOwner
     ? "owner"
-    : normalizeProjectMemberRole(input.actorRole, "member");
-  const targetRole = normalizeProjectMemberRole(
+    : normalizeWorkspaceMemberRole(input.actorRole, "member");
+  const targetRole = normalizeWorkspaceMemberRole(
     input.targetRole,
     input.targetUserId === input.ownerId ? "owner" : "member",
   );
   const nextRole =
     input.nextRole === undefined
       ? null
-      : normalizeProjectMemberRole(input.nextRole, "member");
+      : normalizeWorkspaceMemberRole(input.nextRole, "member");
   const isSelfOwnerTarget = Boolean(
     input.ownerId && input.targetUserId && input.ownerId === input.targetUserId,
   );
@@ -953,7 +953,7 @@ export function buildProjectMemberMutationPolicy(input: {
   };
 }
 
-export function buildProjectMemberRemovalPreflight(
+export function buildWorkspaceMemberRemovalPreflight(
   input: ProjectMemberRemovalPreflightInput | null | undefined,
 ) {
   const member = input?.member ?? null;
@@ -971,9 +971,9 @@ export function buildProjectMemberRemovalPreflight(
     Math.trunc(Number(input?.acceptedApplications ?? 0)),
   );
   const projectGroupParticipant = Boolean(input?.projectGroupParticipant);
-  const visibility = normalizeProjectVisibility(input?.visibility);
+  const visibility = normalizeWorkspaceVisibility(input?.visibility);
   const displayName = member
-    ? getProjectMemberDisplayName(member)
+    ? getWorkspaceMemberDisplayName(member)
     : "This member";
   const affectedAreas = [
     activeAssignedTasks > 0
@@ -1015,7 +1015,7 @@ export function buildProjectMemberRemovalPreflight(
   };
 }
 
-export function buildProjectFilePolicy() {
+export function buildWorkspaceFilePolicy() {
   return {
     enforcedRules: [
       "The owner and admins can always upload, replace, organize and review files.",
@@ -1038,7 +1038,7 @@ export function buildProjectFilePolicy() {
   };
 }
 
-export function buildProjectSettingsPreflight(
+export function buildWorkspaceSettingsPreflight(
   input: ProjectSettingsPreflightInput | null | undefined,
 ) {
   const status =
@@ -1072,6 +1072,6 @@ export function buildProjectSettingsPreflight(
   };
 }
 
-export function getProjectMemberDisplayName(member: ProjectSettingsMember) {
+export function getWorkspaceMemberDisplayName(member: WorkspaceSettingsMember) {
   return member.fullName || member.username || "Workspace member";
 }

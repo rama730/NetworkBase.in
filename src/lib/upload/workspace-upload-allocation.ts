@@ -1,13 +1,13 @@
 import { randomUUID } from "node:crypto";
-import { buildProjectFileKey, parseProjectFileKey } from "@/lib/storage/workspace-file-key";
+import { buildWorkspaceFileKey, parseWorkspaceFileKey } from "@/lib/storage/workspace-file-key";
 
-export function allocateProjectObjectKey(
+export function allocateWorkspaceObjectKey(
   projectId: string,
   requestedKey: string,
   contentType: string,
   createId: () => string = randomUUID,
 ): string {
-  const parsed = parseProjectFileKey(requestedKey);
+  const parsed = parseWorkspaceFileKey(requestedKey);
   if (!parsed || parsed.projectId !== projectId) {
     throw new Error("Upload request workspace does not match the allocation scope");
   }
@@ -18,5 +18,5 @@ export function allocateProjectObjectKey(
     : /^[a-z0-9]{1,16}$/.test(mimeExtension)
       ? mimeExtension
       : "";
-  return buildProjectFileKey(projectId, `uploads/${createId()}${extension ? `.${extension}` : ""}`);
+  return buildWorkspaceFileKey(projectId, `uploads/${createId()}${extension ? `.${extension}` : ""}`);
 }

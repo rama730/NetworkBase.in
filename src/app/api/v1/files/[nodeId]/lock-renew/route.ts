@@ -9,7 +9,7 @@ import {
   requireFileLeaseUser,
 } from "@/app/api/v1/_file-lease-route";
 import { renewFileLease } from "@/lib/files/file-lock-service";
-import { assertProjectWriteAccess } from "@/lib/files/internal-helpers";
+import { assertWorkspaceWriteAccess } from "@/lib/files/internal-helpers";
 
 const schema = z.object({
   projectId: z.string().uuid(),
@@ -29,7 +29,7 @@ export async function POST(
     if (auth.response) return auth.response;
     const parsed = await parseFileLeaseBody(request, schema, "This request isn’t valid");
     if (parsed.response) return parsed.response;
-    await assertProjectWriteAccess(parsed.data.projectId, auth.user!.id);
+    await assertWorkspaceWriteAccess(parsed.data.projectId, auth.user!.id);
     const lease = await renewFileLease({
       projectId: parsed.data.projectId,
       nodeId,

@@ -10,8 +10,8 @@ import {
   buildGlobalSearchHref,
   getGlobalSearchQuery,
   getGlobalSearchRecentScope,
-  getProjectIdentifierFromPathname,
-  isProjectDetailPath,
+  getWorkspaceIdentifierFromPathname,
+  isWorkspaceDetailPath,
   mergeRecentGlobalSearches,
   readRecentGlobalSearches,
   removeRecentGlobalSearch,
@@ -28,10 +28,10 @@ function source(relativePath: string) {
 
 test("top-nav routes use tabbed settings and correctly classify project detail routes", () => {
   assert.equal(settingsTabHref("notifications"), "/settings?tab=notifications");
-  assert.equal(isProjectDetailPath("/workspaces/new"), false);
-  assert.equal(isProjectDetailPath("/workspaces/deepscope-ai"), true);
-  assert.equal(getProjectIdentifierFromPathname("/workspaces/deepscope-ai"), "deepscope-ai");
-  assert.equal(getProjectIdentifierFromPathname("/workspaces/new"), null);
+  assert.equal(isWorkspaceDetailPath("/workspaces/new"), false);
+  assert.equal(isWorkspaceDetailPath("/workspaces/deepscope-ai"), true);
+  assert.equal(getWorkspaceIdentifierFromPathname("/workspaces/deepscope-ai"), "deepscope-ai");
+  assert.equal(getWorkspaceIdentifierFromPathname("/workspaces/new"), null);
   assert.equal(resolveGlobalSearchContext("/workspaces/new").context, "default");
   assert.equal(resolveGlobalSearchContext("/workspaces/deepscope-ai").context, "project");
   assert.equal(resolveGlobalSearchContext("/settings").context, "settings");
@@ -274,7 +274,7 @@ test("top-nav keeps one accessible, route-aligned implementation", () => {
   assert.match(globalSearchContract, /params\.delete\("tech"\)/);
   assert.match(globalSearchContract, /MAX_RECENT_GLOBAL_SEARCHES = 5/);
   assert.match(globalSearchContract, /nb:global-search:recent:v1/);
-  assert.match(resultCards, /ProjectSearchResultCard/);
+  assert.match(resultCards, /WorkspaceSearchResultCard/);
   assert.match(resultCards, /ProfileSearchResultCard/);
   assert.match(resultCards, /Connect with \$\{result\.title\}/);
   assert.match(resultCards, /result\.connectionStatus === "none" && result\.canConnect/);
@@ -304,9 +304,9 @@ test("top-nav keeps one accessible, route-aligned implementation", () => {
   assert.match(hubData, /acceptedRoleTitle/);
   assert.match(hubData, /Owner \/ /);
   assert.match(hubData, /connectionRank/);
-  assert.match(searchPreviews, /fetchDiscoverProjectsAction/);
+  assert.match(searchPreviews, /fetchDiscoverWorkspacesAction/);
   assert.match(searchPreviews, /getConnectionsFeed/);
-  assert.match(searchPreviews, /fetchProjectTaskPreviewsAction/);
+  assert.match(searchPreviews, /fetchWorkspaceTaskPreviewsAction/);
   assert.match(connectionsAction, /accepted_connection\.status = 'accepted'/);
   assert.match(connectionsAction, /blocked_connection\.status = 'blocked'/);
   assert.match(connectionsAction, /applySuggestedProfilePrivacy\(user\.id, items\)/);

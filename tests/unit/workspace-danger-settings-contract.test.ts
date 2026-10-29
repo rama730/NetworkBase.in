@@ -13,38 +13,38 @@ test("project settings eliminates Security & Data tab completely and standardize
     const policies = source("src/lib/workspaces/settings-policies.ts");
     const settingsTab = componentSource("src/components/workspaces/tabs/WorkspaceSettingsTab.tsx");
 
-    // 1. Security & Data completely removed from PROJECT_SETTINGS_SECTIONS and ProjectSettingsTab
+    // 1. Security & Data completely removed from WORKSPACE_SETTINGS_SECTIONS and WorkspaceSettingsTab
     assert.doesNotMatch(
         policies,
         /id:\s*"security-audit"/,
-        "security-audit must be removed from PROJECT_SETTINGS_SECTIONS",
+        "security-audit must be removed from WORKSPACE_SETTINGS_SECTIONS",
     );
     assert.doesNotMatch(
         policies,
         /Security & Data/,
-        "Security & Data label must be removed from PROJECT_SETTINGS_SECTIONS",
+        "Security & Data label must be removed from WORKSPACE_SETTINGS_SECTIONS",
     );
     assert.doesNotMatch(
         settingsTab,
         /id="project-settings-security-audit"/,
-        "security-audit section render block must be removed from ProjectSettingsTab",
+        "security-audit section render block must be removed from WorkspaceSettingsTab",
     );
     assert.doesNotMatch(
         settingsTab,
         /SettingsAuditTimeline/,
-        "SettingsAuditTimeline must be removed from ProjectSettingsTab",
+        "SettingsAuditTimeline must be removed from WorkspaceSettingsTab",
     );
 
     // 2. Privacy & Policies standardized to match main settings
     assert.match(
         policies,
         /id:\s*"privacy-policies"/,
-        "privacy-policies must be defined in PROJECT_SETTINGS_SECTIONS",
+        "privacy-policies must be defined in WORKSPACE_SETTINGS_SECTIONS",
     );
     assert.match(
         policies,
         /label:\s*"Privacy"/,
-        "Privacy must be the label in PROJECT_SETTINGS_SECTIONS",
+        "Privacy must be the label in WORKSPACE_SETTINGS_SECTIONS",
     );
     assert.match(
         settingsTab,
@@ -64,7 +64,7 @@ test("project danger zone tab is redesigned into 1 canonical SettingsCard with l
     // 1. Redundant SummaryCard, standalone Preflight card, and DangerAction wrappers removed
     const dangerBlock =
         settingsTab.split('id="project-settings-danger"')[1]?.split('</SettingsCard>')[0] ?? "";
-    assert.ok(dangerBlock.length > 0, "Organization management settings block must exist in ProjectSettingsTab");
+    assert.ok(dangerBlock.length > 0, "Organization management settings block must exist in WorkspaceSettingsTab");
 
     assert.doesNotMatch(
         dangerBlock,
@@ -109,21 +109,21 @@ test("project danger zone enforces high-stakes verification barriers for ownersh
     const modalsSource = source("src/components/workspaces/settings/WorkspaceDangerModals.tsx");
     const settingsTab = componentSource("src/components/workspaces/tabs/WorkspaceSettingsTab.tsx");
 
-    // 1. Modals mounted in ProjectSettingsTab
-    assert.match(settingsTab, /<ProjectArchiveModal/, "Must mount ProjectArchiveModal in ProjectSettingsTab");
-    assert.match(settingsTab, /<ProjectTransferOwnershipModal/, "Must mount ProjectTransferOwnershipModal in ProjectSettingsTab");
-    assert.match(settingsTab, /<ProjectDeleteModal/, "Must mount ProjectDeleteModal in ProjectSettingsTab");
+    // 1. Modals mounted in WorkspaceSettingsTab
+    assert.match(settingsTab, /<WorkspaceArchiveModal/, "Must mount WorkspaceArchiveModal in WorkspaceSettingsTab");
+    assert.match(settingsTab, /<WorkspaceTransferOwnershipModal/, "Must mount WorkspaceTransferOwnershipModal in WorkspaceSettingsTab");
+    assert.match(settingsTab, /<WorkspaceDeleteModal/, "Must mount WorkspaceDeleteModal in WorkspaceSettingsTab");
 
     // 2. Transfer Ownership Modal verification barrier
-    assert.match(modalsSource, /ProjectTransferOwnershipModal/, "Must export ProjectTransferOwnershipModal");
+    assert.match(modalsSource, /WorkspaceTransferOwnershipModal/, "Must export WorkspaceTransferOwnershipModal");
     assert.match(modalsSource, /Owner only/, "Must display the owner-only badge");
     assert.match(modalsSource, /Two-step verification/, "Must display the two-step verification badge");
-    assert.match(modalsSource, /getProjectMemberRoleLabel/, "Must review recipient role");
+    assert.match(modalsSource, /getWorkspaceMemberRoleLabel/, "Must review recipient role");
     assert.match(modalsSource, /become an <strong>admin<\/strong>/, "Must state clear demotion consequence");
     assert.match(modalsSource, /confirmInput\.trim\(\)\.toLowerCase\(\)\s*===\s*verificationTarget\.toLowerCase\(\)/, "Must enforce type-to-confirm barrier for transfer");
 
     // 3. Delete Project Modal verification barrier
-    assert.match(modalsSource, /ProjectDeleteModal/, "Must export ProjectDeleteModal");
+    assert.match(modalsSource, /WorkspaceDeleteModal/, "Must export WorkspaceDeleteModal");
     assert.match(modalsSource, /Permanent/, "Must display the permanent badge");
     assert.match(modalsSource, /Can’t be undone/, "Must say it can’t be undone");
     assert.match(modalsSource, /Active tasks/, "Must show active tasks impact");

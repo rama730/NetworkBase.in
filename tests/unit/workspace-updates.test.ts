@@ -4,49 +4,49 @@ import path from "node:path";
 import test from "node:test";
 
 import {
-    PROJECT_UPDATE_ALLOWED_IMAGE_MIME_TYPES,
-    PROJECT_UPDATE_MAX_MEDIA_ITEMS,
-    PROJECT_UPDATE_MAX_REFERENCES,
-    PROJECT_UPDATE_MEDIA_BUCKET,
-    PROJECT_UPDATE_MEDIA_MAX_BYTES,
-    PROJECT_UPDATE_SCHEMA_CONTRACT,
-    composeProjectUpdateRoleLabel,
-    isProjectUpdateType,
-    isSafeProjectUpdateUrl,
-    normalizeProjectUpdateAuthorRoleSnapshot,
-    normalizeProjectUpdateMediaItems,
-    normalizeProjectUpdateFilter,
-    normalizeProjectUpdateReferences,
-    normalizeProjectUpdateType,
+    WORKSPACE_UPDATE_ALLOWED_IMAGE_MIME_TYPES,
+    WORKSPACE_UPDATE_MAX_MEDIA_ITEMS,
+    WORKSPACE_UPDATE_MAX_REFERENCES,
+    WORKSPACE_UPDATE_MEDIA_BUCKET,
+    WORKSPACE_UPDATE_MEDIA_MAX_BYTES,
+    WORKSPACE_UPDATE_SCHEMA_CONTRACT,
+    composeWorkspaceUpdateRoleLabel,
+    isWorkspaceUpdateType,
+    isSafeWorkspaceUpdateUrl,
+    normalizeWorkspaceUpdateAuthorRoleSnapshot,
+    normalizeWorkspaceUpdateMediaItems,
+    normalizeWorkspaceUpdateFilter,
+    normalizeWorkspaceUpdateReferences,
+    normalizeWorkspaceUpdateType,
     projectUpdateDisplayText,
     projectUpdateImageExtensionFromMimeType,
     projectUpdateMediaApplicationUrl,
     projectUpdateDraftStorageKey,
     projectUpdateExcerpt,
-    resolveProjectUpdateAuthorRoleDisplay,
-    sanitizeProjectUpdateContent,
-    sanitizeProjectUpdateRoleTitle,
-    shouldNotifyProjectUpdateFollowers,
+    resolveWorkspaceUpdateAuthorRoleDisplay,
+    sanitizeWorkspaceUpdateContent,
+    sanitizeWorkspaceUpdateRoleTitle,
+    shouldNotifyWorkspaceUpdateFollowers,
 } from "../../src/lib/workspaces/updates";
 import { componentSource } from "./_helpers/component-source";
 
 test("workspace update normalization fails closed for unknown types and filters", () => {
-    assert.equal(isProjectUpdateType("progress"), true);
-    assert.equal(isProjectUpdateType("on_track"), false);
-    assert.equal(isProjectUpdateType("at_risk"), false);
-    assert.equal(isProjectUpdateType("status"), false);
-    assert.equal(normalizeProjectUpdateType("release"), "release");
-    assert.equal(normalizeProjectUpdateType("unknown"), null);
-    assert.equal(normalizeProjectUpdateFilter("blocker"), "blocker");
-    assert.equal(normalizeProjectUpdateFilter("behind_the_scenes"), "behind_the_scenes");
-    assert.equal(normalizeProjectUpdateFilter("unknown"), "all");
-    assert.equal(normalizeProjectUpdateFilter(null), "all");
+    assert.equal(isWorkspaceUpdateType("progress"), true);
+    assert.equal(isWorkspaceUpdateType("on_track"), false);
+    assert.equal(isWorkspaceUpdateType("at_risk"), false);
+    assert.equal(isWorkspaceUpdateType("status"), false);
+    assert.equal(normalizeWorkspaceUpdateType("release"), "release");
+    assert.equal(normalizeWorkspaceUpdateType("unknown"), null);
+    assert.equal(normalizeWorkspaceUpdateFilter("blocker"), "blocker");
+    assert.equal(normalizeWorkspaceUpdateFilter("behind_the_scenes"), "behind_the_scenes");
+    assert.equal(normalizeWorkspaceUpdateFilter("unknown"), "all");
+    assert.equal(normalizeWorkspaceUpdateFilter(null), "all");
 });
 
 test("workspace update content and excerpts are bounded for feed and notification surfaces", () => {
-    assert.equal(sanitizeProjectUpdateContent("  shipped beta  "), "shipped beta");
-    assert.equal(sanitizeProjectUpdateContent(42), "");
-    assert.equal(sanitizeProjectUpdateContent("abcdef", 4), "abcd");
+    assert.equal(sanitizeWorkspaceUpdateContent("  shipped beta  "), "shipped beta");
+    assert.equal(sanitizeWorkspaceUpdateContent(42), "");
+    assert.equal(sanitizeWorkspaceUpdateContent("abcdef", 4), "abcd");
     assert.equal(projectUpdateExcerpt("Alpha\n\nBeta   Gamma", 40), "Alpha Beta Gamma");
     assert.equal(projectUpdateExcerpt("A long update body", 8), "A long…");
 });
@@ -69,19 +69,19 @@ test("workspace update display text converts legacy reference tokens into readab
 });
 
 test("workspace update notification signal avoids noisy follower fanout", () => {
-    assert.equal(shouldNotifyProjectUpdateFollowers({ content: "tiny" }), false);
-    assert.equal(shouldNotifyProjectUpdateFollowers({ content: "We finished the first integration pass and merged the end-to-end update flow." }), true);
-    assert.equal(shouldNotifyProjectUpdateFollowers({ content: "Linked task", entityRefs: { taskId: "task-1" } }), true);
-    assert.equal(shouldNotifyProjectUpdateFollowers({ content: "Linked sprint", entityRefs: { references: [{ kind: "sprint", id: "sprint-1" }] } }), true);
-    assert.equal(shouldNotifyProjectUpdateFollowers({ content: "Link", media: [{ type: "link", url: "https://example.com" }] }), true);
+    assert.equal(shouldNotifyWorkspaceUpdateFollowers({ content: "tiny" }), false);
+    assert.equal(shouldNotifyWorkspaceUpdateFollowers({ content: "We finished the first integration pass and merged the end-to-end update flow." }), true);
+    assert.equal(shouldNotifyWorkspaceUpdateFollowers({ content: "Linked task", entityRefs: { taskId: "task-1" } }), true);
+    assert.equal(shouldNotifyWorkspaceUpdateFollowers({ content: "Linked sprint", entityRefs: { references: [{ kind: "sprint", id: "sprint-1" }] } }), true);
+    assert.equal(shouldNotifyWorkspaceUpdateFollowers({ content: "Link", media: [{ type: "link", url: "https://example.com" }] }), true);
 });
 
 test("workspace update media normalization keeps only safe public links", () => {
-    assert.equal(isSafeProjectUpdateUrl("https://example.com/demo"), true);
-    assert.equal(isSafeProjectUpdateUrl("/api/v1/workspaces/project-1/update-media?key=abc"), true);
-    assert.equal(isSafeProjectUpdateUrl("blob:https://example.com/demo"), false);
-    assert.equal(isSafeProjectUpdateUrl("javascript:alert(1)"), false);
-    assert.deepEqual(normalizeProjectUpdateMediaItems([
+    assert.equal(isSafeWorkspaceUpdateUrl("https://example.com/demo"), true);
+    assert.equal(isSafeWorkspaceUpdateUrl("/api/v1/workspaces/project-1/update-media?key=abc"), true);
+    assert.equal(isSafeWorkspaceUpdateUrl("blob:https://example.com/demo"), false);
+    assert.equal(isSafeWorkspaceUpdateUrl("javascript:alert(1)"), false);
+    assert.deepEqual(normalizeWorkspaceUpdateMediaItems([
         { type: "link", url: "https://example.com/demo", label: "Demo" },
         {
             type: "image",
@@ -92,7 +92,7 @@ test("workspace update media normalization keeps only safe public links", () => 
             size: 2048,
             width: 1200,
             height: 800,
-            bucket: PROJECT_UPDATE_MEDIA_BUCKET,
+            bucket: WORKSPACE_UPDATE_MEDIA_BUCKET,
             storageKey: "projects/project-1/update-media/user-1/demo.png",
         },
         { type: "link", url: "javascript:alert(1)", label: "Unsafe" },
@@ -121,7 +121,7 @@ test("workspace update media normalization keeps only safe public links", () => 
             size: 2048,
             width: 1200,
             height: 800,
-            bucket: PROJECT_UPDATE_MEDIA_BUCKET,
+            bucket: WORKSPACE_UPDATE_MEDIA_BUCKET,
             storageKey: "projects/project-1/update-media/user-1/demo.png",
         },
     ]);
@@ -131,13 +131,13 @@ test("stored update media always uses the authorized application route", () => {
     const projectId = "9a0966ed-c08c-4b52-98a1-3453fad1e26d";
     const storageKey = `projects/${projectId}/update-media/user/demo.png`;
     const expected = `/api/v1/workspaces/${projectId}/update-media?key=${encodeURIComponent(storageKey)}`;
-    assert.equal(projectUpdateMediaApplicationUrl(PROJECT_UPDATE_MEDIA_BUCKET, storageKey), expected);
+    assert.equal(projectUpdateMediaApplicationUrl(WORKSPACE_UPDATE_MEDIA_BUCKET, storageKey), expected);
     assert.equal(projectUpdateMediaApplicationUrl("other", storageKey), null);
-    assert.equal(projectUpdateMediaApplicationUrl(PROJECT_UPDATE_MEDIA_BUCKET, `projects/${projectId}/update-media/../secret`), null);
-    assert.equal(normalizeProjectUpdateMediaItems([{
+    assert.equal(projectUpdateMediaApplicationUrl(WORKSPACE_UPDATE_MEDIA_BUCKET, `projects/${projectId}/update-media/../secret`), null);
+    assert.equal(normalizeWorkspaceUpdateMediaItems([{
         type: "image",
         url: "https://example.supabase.co/storage/v1/object/public/project-updates-media/legacy.png",
-        bucket: PROJECT_UPDATE_MEDIA_BUCKET,
+        bucket: WORKSPACE_UPDATE_MEDIA_BUCKET,
         storageKey,
     }])[0]?.url, expected);
 });
@@ -160,7 +160,7 @@ test("workspace update media route authorizes normalized assets and streams byte
 });
 
 test("workspace update references and image upload contracts stay bounded", () => {
-    assert.deepEqual(normalizeProjectUpdateReferences([
+    assert.deepEqual(normalizeWorkspaceUpdateReferences([
         { kind: "task", id: " task-1 " },
         { kind: "task", id: "task-1" },
         { kind: "sprint", id: "sprint-1" },
@@ -172,13 +172,13 @@ test("workspace update references and image upload contracts stay bounded", () =
         { kind: "sprint", id: "sprint-1" },
         { kind: "file", id: "file-1" },
     ]);
-    assert.equal(normalizeProjectUpdateReferences(
-        Array.from({ length: PROJECT_UPDATE_MAX_REFERENCES + 2 }, (_, index) => ({ kind: "task", id: `task-${index}` })),
-    ).length, PROJECT_UPDATE_MAX_REFERENCES);
-    assert.equal(PROJECT_UPDATE_MAX_MEDIA_ITEMS, 4);
-    assert.equal(PROJECT_UPDATE_MEDIA_MAX_BYTES, 8 * 1024 * 1024);
-    assert.equal(PROJECT_UPDATE_ALLOWED_IMAGE_MIME_TYPES.has("image/png"), true);
-    assert.equal(PROJECT_UPDATE_ALLOWED_IMAGE_MIME_TYPES.has("image/svg+xml"), false);
+    assert.equal(normalizeWorkspaceUpdateReferences(
+        Array.from({ length: WORKSPACE_UPDATE_MAX_REFERENCES + 2 }, (_, index) => ({ kind: "task", id: `task-${index}` })),
+    ).length, WORKSPACE_UPDATE_MAX_REFERENCES);
+    assert.equal(WORKSPACE_UPDATE_MAX_MEDIA_ITEMS, 4);
+    assert.equal(WORKSPACE_UPDATE_MEDIA_MAX_BYTES, 8 * 1024 * 1024);
+    assert.equal(WORKSPACE_UPDATE_ALLOWED_IMAGE_MIME_TYPES.has("image/png"), true);
+    assert.equal(WORKSPACE_UPDATE_ALLOWED_IMAGE_MIME_TYPES.has("image/svg+xml"), false);
     assert.equal(projectUpdateImageExtensionFromMimeType("image/png"), "png");
     assert.equal(projectUpdateImageExtensionFromMimeType("image/webp"), "webp");
     assert.equal(projectUpdateImageExtensionFromMimeType("image/gif"), "gif");
@@ -187,13 +187,13 @@ test("workspace update references and image upload contracts stay bounded", () =
 
 test("workspace update draft and schema contracts are stable", () => {
     assert.equal(projectUpdateDraftStorageKey("project-1", "user-1"), "nb.project-updates.draft.project-1.user-1");
-    assert.equal(PROJECT_UPDATE_SCHEMA_CONTRACT.tables.includes("project_updates"), true);
-    assert.equal(PROJECT_UPDATE_SCHEMA_CONTRACT.tables.includes("project_update_drafts"), true);
-    assert.equal(PROJECT_UPDATE_SCHEMA_CONTRACT.indexes.includes("project_updates_project_pinned_created_idx"), true);
-    assert.equal(PROJECT_UPDATE_SCHEMA_CONTRACT.indexes.includes("project_update_comments_parent_idx"), true);
-    assert.equal(PROJECT_UPDATE_SCHEMA_CONTRACT.indexes.includes("project_update_drafts_updated_at_idx"), true);
-    assert.equal(PROJECT_UPDATE_SCHEMA_CONTRACT.minPolicyCounts.project_updates, 3);
-    assert.equal(PROJECT_UPDATE_SCHEMA_CONTRACT.minPolicyCounts.project_update_drafts, 1);
+    assert.equal(WORKSPACE_UPDATE_SCHEMA_CONTRACT.tables.includes("project_updates"), true);
+    assert.equal(WORKSPACE_UPDATE_SCHEMA_CONTRACT.tables.includes("project_update_drafts"), true);
+    assert.equal(WORKSPACE_UPDATE_SCHEMA_CONTRACT.indexes.includes("project_updates_project_pinned_created_idx"), true);
+    assert.equal(WORKSPACE_UPDATE_SCHEMA_CONTRACT.indexes.includes("project_update_comments_parent_idx"), true);
+    assert.equal(WORKSPACE_UPDATE_SCHEMA_CONTRACT.indexes.includes("project_update_drafts_updated_at_idx"), true);
+    assert.equal(WORKSPACE_UPDATE_SCHEMA_CONTRACT.minPolicyCounts.project_updates, 3);
+    assert.equal(WORKSPACE_UPDATE_SCHEMA_CONTRACT.minPolicyCounts.project_update_drafts, 1);
 });
 
 test("workspace update comment threading schema is present in baseline and repair migrations", () => {
@@ -234,7 +234,7 @@ test("updates tab loads feed data once from the client-owned query path", () => 
     const pageSource = readFileSync(path.join(process.cwd(), "src/app/(site)/(main)/workspaces/[slug]/workspace-route.tsx"), "utf8");
     const actionSource = readFileSync(path.join(process.cwd(), "src/app/actions/workspace/updates.ts"), "utf8");
 
-    assert.equal(pageSource.includes("readProjectUpdatesAction"), false);
+    assert.equal(pageSource.includes("readWorkspaceUpdatesAction"), false);
     assert.equal(pageSource.includes("initialUpdatesPage="), false);
     assert.equal(actionSource.includes("function readProjectUpdateMovementSummary"), false);
     assert.match(actionSource, /movementSummary:\s*null/);
@@ -244,7 +244,7 @@ test("workspace update draft hydration does not immediately autosave an unchange
     const composerSource = readFileSync(path.join(process.cwd(), "src/components/workspaces/updates/WorkspaceUpdateComposer.tsx"), "utf8");
 
     assert.match(composerSource, /let initialContent = ""/);
-    assert.match(composerSource, /let initialVisibility: ProjectUpdateVisibility = "public"/);
+    assert.match(composerSource, /let initialVisibility: WorkspaceUpdateVisibility = "public"/);
     assert.match(composerSource, /lastSavedDraftRef\.current = JSON\.stringify\(\{/);
     assert.match(composerSource, /content: initialContent/);
     assert.match(composerSource, /visibility: initialVisibility/);
@@ -268,7 +268,7 @@ test("workspace update comments share one project-scoped wildcard postgres bindi
 test("workspace update likes persist counters synchronously", () => {
     const actionSource = readFileSync(path.join(process.cwd(), "src/app/actions/workspace/updates.ts"), "utf8");
 
-    assert.match(actionSource, /export async function toggleProjectUpdateLikeAction/);
+    assert.match(actionSource, /export async function toggleWorkspaceUpdateLikeAction/);
     assert.match(actionSource, /\.update\(projectUpdates\)/);
     assert.match(actionSource, /returning\(\{ likeCount: projectUpdates\.likeCount \}\)/);
     assert.equal(actionSource.includes("project:updates:likes"), false);
@@ -276,17 +276,17 @@ test("workspace update likes persist counters synchronously", () => {
 });
 
 test("workspace update author roles compose membership and current project position", () => {
-    assert.equal(sanitizeProjectUpdateRoleTitle("  Lead   Front-end Developer  "), "Lead Front-end Developer");
-    assert.equal(composeProjectUpdateRoleLabel({ roleTitle: "Front-end Developer", membershipRoleLabel: "Lead" }), "Lead Front-end Developer");
-    assert.equal(composeProjectUpdateRoleLabel({ roleTitle: "UX Designer", membershipRoleLabel: "Co-lead" }), "Co-lead UX Designer");
-    assert.equal(composeProjectUpdateRoleLabel({ roleTitle: "Lead Designer", membershipRoleLabel: "Lead" }), "Lead Designer");
-    const snapshot = normalizeProjectUpdateAuthorRoleSnapshot({
+    assert.equal(sanitizeWorkspaceUpdateRoleTitle("  Lead   Front-end Developer  "), "Lead Front-end Developer");
+    assert.equal(composeWorkspaceUpdateRoleLabel({ roleTitle: "Front-end Developer", membershipRoleLabel: "Lead" }), "Lead Front-end Developer");
+    assert.equal(composeWorkspaceUpdateRoleLabel({ roleTitle: "UX Designer", membershipRoleLabel: "Co-lead" }), "Co-lead UX Designer");
+    assert.equal(composeWorkspaceUpdateRoleLabel({ roleTitle: "Lead Designer", membershipRoleLabel: "Lead" }), "Lead Designer");
+    const snapshot = normalizeWorkspaceUpdateAuthorRoleSnapshot({
         roleTitle: "Front-end Developer",
         membershipRoleLabel: "Lead",
         source: "project_role",
         capturedAt: "2026-06-06T00:00:00.000Z",
     });
-    assert.deepEqual(resolveProjectUpdateAuthorRoleDisplay({
+    assert.deepEqual(resolveWorkspaceUpdateAuthorRoleDisplay({
         snapshot,
         projectRoleTitle: "Product designer",
         membershipRoleLabel: "Member",
@@ -296,7 +296,7 @@ test("workspace update author roles compose membership and current project posit
         membershipRoleLabel: "Lead",
         roleSource: "project_role",
     });
-    assert.deepEqual(resolveProjectUpdateAuthorRoleDisplay({
+    assert.deepEqual(resolveWorkspaceUpdateAuthorRoleDisplay({
         snapshot: null,
         projectRoleTitle: "UX Designer",
         membershipRoleLabel: "Member",
@@ -306,8 +306,8 @@ test("workspace update author roles compose membership and current project posit
         membershipRoleLabel: "Member",
         roleSource: "project_role",
     });
-    assert.deepEqual(resolveProjectUpdateAuthorRoleDisplay({
-        snapshot: normalizeProjectUpdateAuthorRoleSnapshot({
+    assert.deepEqual(resolveWorkspaceUpdateAuthorRoleDisplay({
+        snapshot: normalizeWorkspaceUpdateAuthorRoleSnapshot({
             displayRoleLabel: "Lead",
             roleTitle: "Lead",
             membershipRoleLabel: "Lead",
@@ -325,8 +325,8 @@ test("workspace update author roles compose membership and current project posit
 });
 
 test("workspace update author roles repair stale open-role snapshots with authoritative project roles", () => {
-    assert.deepEqual(resolveProjectUpdateAuthorRoleDisplay({
-        snapshot: normalizeProjectUpdateAuthorRoleSnapshot({
+    assert.deepEqual(resolveWorkspaceUpdateAuthorRoleDisplay({
+        snapshot: normalizeWorkspaceUpdateAuthorRoleSnapshot({
             displayRoleLabel: "Lead Full stack developer",
             roleTitle: "Full stack developer",
             membershipRoleLabel: "Lead",
@@ -402,17 +402,17 @@ test("workspace update composer renders structured context and image media befor
     const composerSource = readFileSync(path.join(process.cwd(), "src/components/workspaces/updates/WorkspaceUpdateComposer.tsx"), "utf8");
 
     assert.match(composerSource, /ImagePlus/);
-    assert.match(composerSource, /createProjectUpdateMediaUploadUrlAction/);
-    assert.match(composerSource, /finalizeProjectUpdateMediaUploadAction/);
+    assert.match(composerSource, /createWorkspaceUpdateMediaUploadUrlAction/);
+    assert.match(composerSource, /finalizeWorkspaceUpdateMediaUploadAction/);
     assert.match(composerSource, /uploadToSupabaseSignedUrl/);
-    assert.match(composerSource, /PROJECT_UPDATE_ALLOWED_IMAGE_MIME_TYPES/);
-    assert.match(composerSource, /PROJECT_UPDATE_MEDIA_MAX_BYTES/);
+    assert.match(composerSource, /WORKSPACE_UPDATE_ALLOWED_IMAGE_MIME_TYPES/);
+    assert.match(composerSource, /WORKSPACE_UPDATE_MEDIA_MAX_BYTES/);
     assert.match(composerSource, /pendingMediaUploads/);
     assert.equal(composerSource.includes("selectedReferences"), false);
-    assert.match(composerSource, /normalizeProjectUpdateReferences\(entityRefs\.references\)/);
-    assert.match(composerSource, /references: normalizeProjectUpdateReferences\(entityRefs\.references\)/);
-    assert.match(composerSource, /ProjectUpdateMediaFrame/);
-    assert.match(composerSource, /isProjectUpdateVideoMedia\(item\)/);
+    assert.match(composerSource, /normalizeWorkspaceUpdateReferences\(entityRefs\.references\)/);
+    assert.match(composerSource, /references: normalizeWorkspaceUpdateReferences\(entityRefs\.references\)/);
+    assert.match(composerSource, /WorkspaceUpdateMediaFrame/);
+    assert.match(composerSource, /isWorkspaceUpdateVideoMedia\(item\)/);
     assert.match(composerSource, /src=\{item\.previewUrl\}/);
     assert.match(composerSource, /src=\{item\.url\}/);
     assert.match(composerSource, /handleImageFiles\(event\.dataTransfer\.files\)/);
@@ -447,7 +447,7 @@ test("updates feed and detail render context references and actual images", () =
     assert.match(tabSource, /if \(kind === "file"\) return `\/workspaces\/\$\{slug\}\?tab=files&fileId=\$\{id\}`/);
     assert.match(tabSource, /update\.context\.references/);
     assert.match(tabSource, /update\.context\.task/);
-    assert.match(referenceLinkSource, /resolveProjectUpdateMentionTargetAction/);
+    assert.match(referenceLinkSource, /resolveWorkspaceUpdateMentionTargetAction/);
     assert.match(referenceLinkSource, /referenceFallbackHref/);
     assert.match(referenceLinkSource, /const normalizedKind = normalizeUpdateReferenceLinkKind\(reference\.kind\)/);
     assert.match(referenceLinkSource, /kind: normalizedKind/);
@@ -458,11 +458,11 @@ test("updates feed and detail render context references and actual images", () =
     assert.equal(clickableReferenceSource.includes("border"), false);
     assert.equal(tabSource.includes("getBreadcrumbs("), false);
     assert.match(rendererSource, /item\.type === "image"/);
-    assert.match(rendererSource, /ProjectUpdateMediaFrame/);
-    assert.match(rendererSource, /ProjectUpdateMediaViewer/);
+    assert.match(rendererSource, /WorkspaceUpdateMediaFrame/);
+    assert.match(rendererSource, /WorkspaceUpdateMediaViewer/);
     assert.match(rendererSource, /setViewerMedia\(item\)/);
     assert.equal(rendererSource.includes("href={item.url}"), false);
-    assert.match(rendererSource, /isProjectUpdateVideoMedia\(item\)/);
+    assert.match(rendererSource, /isWorkspaceUpdateVideoMedia\(item\)/);
     assert.match(rendererSource, /inline-flex min-w-0 items-center font-mono text-xs text-foreground/);
     assert.equal(rendererSource.includes("rounded-xl border border-zinc-200 px-3 py-2"), false);
     assert.match(rendererSource, /mt-2 space-y-2/);
@@ -486,8 +486,8 @@ test("updates feed and detail render context references and actual images", () =
     assert.equal(mediaFrameSource.includes("mx-auto"), false);
     assert.equal(mediaFrameSource.includes("w-fit"), false);
     assert.equal(rendererSource.includes("UpdateContextIcon"), false);
-    assert.match(cardSource, /<ProjectUpdateContent/);
-    assert.match(detailSource, /<ProjectUpdateContent/);
+    assert.match(cardSource, /<WorkspaceUpdateContent/);
+    assert.match(detailSource, /<WorkspaceUpdateContent/);
     assert.match(cardSource, /<UpdateContextAndMedia update=\{update\} \/>/);
     assert.match(cardSource, /border-b border-border\/80 px-1 py-3/);
     assert.match(tabSource, /const UPDATE_CARD_CONTROL_SELECTOR/);
@@ -565,10 +565,10 @@ test("workspace update backend treats references as first-class linked work", ()
     assert.match(actionsSource, /const refs = normalizeEntityRefs\(row\.entityRefs\)/);
     assert.match(actionsSource, /for \(const reference of refs\.references \?\? \[\]\)/);
     assert.match(actionsSource, /if \(reference\.kind === "task"\) taskIds\.add\(reference\.id\)/);
-    assert.match(actionsSource, /shouldNotifyProjectUpdateFollowers\(\{ content, entityRefs, media \}\)/);
-    assert.match(actionsSource, /const hasReferences = normalizeProjectUpdateReferences\(entityRefs\.references\)\.length > 0/);
+    assert.match(actionsSource, /shouldNotifyWorkspaceUpdateFollowers\(\{ content, entityRefs, media \}\)/);
+    assert.match(actionsSource, /const hasReferences = normalizeWorkspaceUpdateReferences\(entityRefs\.references\)\.length > 0/);
     assert.match(actionsSource, /!content\.trim\(\) && !hasReferences && media\.length === 0/);
-    assert.match(actionsSource, /export async function resolveProjectUpdateMentionTargetAction/);
+    assert.match(actionsSource, /export async function resolveWorkspaceUpdateMentionTargetAction/);
     assert.match(actionsSource, /function projectSprintHref/);
     assert.match(actionsSource, /function encodeProjectNodePath/);
     assert.match(actionsSource, /function projectFileHref\(project: \{ id: string; slug: string \| null \}, row: \{ id: string; path: string \| null; name: string \}\)/);

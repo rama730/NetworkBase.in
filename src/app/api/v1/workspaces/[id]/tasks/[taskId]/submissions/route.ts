@@ -6,7 +6,7 @@ import { jsonError } from "@/app/api/v1/_envelope";
 import { enforceRouteLimit } from "@/app/api/v1/_shared";
 import { db } from "@/lib/db";
 import { tasks } from "@/lib/db/schema";
-import { getProjectAccessById } from "@/lib/data/workspace-access";
+import { getWorkspaceAccessById } from "@/lib/data/workspace-access";
 import { prepareSubmissionsExport, streamFolderExport } from "@/lib/files/folder-export";
 import { safeContentDisposition } from "@/lib/storage/private-object-response";
 import { createClient } from "@/lib/supabase/server";
@@ -20,7 +20,7 @@ async function orgAdminOf(orgId: string) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return null;
-  const access = await getProjectAccessById(orgId, user.id);
+  const access = await getWorkspaceAccessById(orgId, user.id);
   return access.project?.kind === "organization" && (access.isOwner || access.memberRole === "admin") ? user.id : null;
 }
 

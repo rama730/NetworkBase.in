@@ -7,7 +7,7 @@ import { projectNodes } from "@/lib/db/schema";
 import { createClient } from "@/lib/supabase/server";
 import { consumeRateLimit } from "@/lib/security/rate-limit";
 import {
-  assertProjectManageFilesAccessTx,
+  assertWorkspaceManageFilesAccessTx,
   recordNodeEvent,
 } from "@/lib/files/internal-helpers";
 import {
@@ -51,7 +51,7 @@ export async function getPermanentDeleteImpact(
 ) {
   const user = await actor(projectId, nodeId);
   return db.transaction(async (tx) => {
-    await assertProjectManageFilesAccessTx(tx, projectId, user.id);
+    await assertWorkspaceManageFilesAccessTx(tx, projectId, user.id);
     const plan = await inspectPermanentDelete(tx, projectId, nodeId);
     if (!plan) throw new Error("This item has already been deleted.");
     return {
@@ -82,7 +82,7 @@ async function purgeTrashedRoot(
 ) {
   const user = { id: userId };
   await db.transaction(async (tx) => {
-    await assertProjectManageFilesAccessTx(tx, projectId, user.id);
+    await assertWorkspaceManageFilesAccessTx(tx, projectId, user.id);
     const root = await tx.query.projectNodes.findFirst({
       where: and(
         eq(projectNodes.projectId, projectId),
@@ -166,7 +166,7 @@ export async function getBulkPermanentDeleteImpact(projectId: string, nodeIds: s
     throw new Error(`Select up to ${BULK_PURGE_ROOT_LIMIT} items.`);
   const roots = nodeIds === "all" ? await trashedRootIds(projectId) : Array.from(new Set(nodeIds));
   return db.transaction(async (tx) => {
-    await assertProjectManageFilesAccessTx(tx, projectId, user.id);
+    await assertWorkspaceManageFilesAccessTx(tx, projectId, user.id);
     const total = { roots: 0, items: 0, versions: 0, taskLinks: 0, documentLinks: 0 };
     const fingerprints: Record<string, string> = {};
     for (const id of roots) {

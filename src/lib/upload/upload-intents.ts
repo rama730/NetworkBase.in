@@ -25,7 +25,7 @@ import {
 } from "@/lib/upload/security";
 import {
   assertStorageQuotaAdmission,
-  PROJECT_STORAGE_LIMIT_BYTES,
+  WORKSPACE_STORAGE_LIMIT_BYTES,
   USER_STORAGE_LIMIT_BYTES,
 } from "@/lib/storage/storage-quota";
 import { ORG_LIMITS } from "@/lib/organizations/config";
@@ -385,7 +385,7 @@ export async function createUploadIntent(rawParams: CreateUploadIntentParams) {
       quotaRows.push({
         scopeType: "project" as const,
         scopeId: projectId,
-        limitBytes: PROJECT_STORAGE_LIMIT_BYTES,
+        limitBytes: WORKSPACE_STORAGE_LIMIT_BYTES,
       });
     }
     await tx.insert(storageQuotaScopes).values(quotaRows).onConflictDoNothing();
@@ -825,7 +825,7 @@ export async function finalizeUploadIntent(params: {
         quotaRows.push({
           scopeType: "project",
           scopeId: intent.projectId,
-          limitBytes: PROJECT_STORAGE_LIMIT_BYTES,
+          limitBytes: WORKSPACE_STORAGE_LIMIT_BYTES,
         });
       }
       await tx.insert(storageQuotaScopes).values(quotaRows).onConflictDoNothing();

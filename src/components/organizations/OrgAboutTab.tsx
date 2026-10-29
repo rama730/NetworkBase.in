@@ -11,7 +11,7 @@ import { RailSection } from '@/components/ui/rail-section'
 import { messageUserInWindow } from '@/components/messages/message-user'
 import { toast } from '@/lib/feedback'
 import { formatDistanceToNow } from '@/lib/utils/date'
-import type { Project } from '@/types/discover'
+import type { Workspace } from '@/types/discover'
 
 const MONTH = new Intl.DateTimeFormat('en', { month: 'short', year: 'numeric' })
 // The project columns, read as an organization's (report §34.11).
@@ -23,7 +23,7 @@ const month = (iso: string | null) => (iso ? MONTH.format(new Date(`${iso}T00:00
  * the overview card and up to 3 projects. Rail: the Journey built from sprints, public-safe activity, the
  * per-person card (Invite / You're a member / Join) and Leaders.
  */
-export function OrgAboutTab({ project, isCreator, onEdit, visitorActions }: { project: Project; isCreator: boolean; onEdit: () => void; visitorActions?: ReactNode }) {
+export function OrgAboutTab({ project, isCreator, onEdit, visitorActions }: { project: Workspace; isCreator: boolean; onEdit: () => void; visitorActions?: ReactNode }) {
     const org = project.organization
     const about = useQuery({ queryKey: ['org-about', project.id], queryFn: () => readOrgAboutAction(project.id), staleTime: 30_000 })
     const data = about.data?.success ? about.data : null
@@ -40,7 +40,7 @@ export function OrgAboutTab({ project, isCreator, onEdit, visitorActions }: { pr
         org?.timeZone ?? null,
     ].filter(Boolean)
     // The overview card reads these off the full project payload; the shared Project type doesn't list them.
-    const statements = project as Project & { problemStatement?: string | null; solutionStatement?: string | null }
+    const statements = project as Workspace & { problemStatement?: string | null; solutionStatement?: string | null }
     const roleName = (role: 'owner' | 'admin') => org?.roleNames?.[role] ?? (role === 'owner' ? 'Owner' : 'Admin')
     return (
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">

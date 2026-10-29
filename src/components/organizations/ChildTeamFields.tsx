@@ -9,7 +9,7 @@ import { useCreateLocation } from '@/components/organizations/CreateLocation'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
-import type { CreateProjectInput } from '@/lib/validations/workspace'
+import type { CreateWorkspaceInput } from '@/lib/validations/workspace'
 
 // The child project team in the create wizard (report §14.4): units are the role boxes, filled with people
 // from the org roster. Admins add people directly; members invite them. People outside the org are always invited.
@@ -20,9 +20,9 @@ const UNASSIGNED = 'unassigned'
 
 /** Everyone already placed (any unit, not in a unit, or the lead), so a person sits in one place at a time. */
 function usePlaced() {
-    const roles = useWatch<CreateProjectInput, 'roles'>({ name: 'roles' }) ?? []
-    const unassigned = useWatch<CreateProjectInput, 'unassigned_people'>({ name: 'unassigned_people' }) ?? []
-    const lead = useWatch<CreateProjectInput, 'lead_user_id'>({ name: 'lead_user_id' })
+    const roles = useWatch<CreateWorkspaceInput, 'roles'>({ name: 'roles' }) ?? []
+    const unassigned = useWatch<CreateWorkspaceInput, 'unassigned_people'>({ name: 'unassigned_people' }) ?? []
+    const lead = useWatch<CreateWorkspaceInput, 'lead_user_id'>({ name: 'lead_user_id' })
     return useMemo(() => new Set([...roles.flatMap((role) => (role.people ?? []).map((p) => p.user_id)), ...unassigned.map((p) => p.user_id), ...(lead ? [lead] : [])]), [roles, unassigned, lead])
 }
 
@@ -40,7 +40,7 @@ function useRoster(orgId: string | undefined, query: string, source: 'org' | 'ou
 
 /** Moving a person between units, or out of every unit (admins only); a moved unit lead stops being lead. */
 function useMovePerson() {
-    const { getValues, setValue } = useFormContext<CreateProjectInput>()
+    const { getValues, setValue } = useFormContext<CreateWorkspaceInput>()
     return (person: Person, from: number | typeof UNASSIGNED, to: number | typeof UNASSIGNED) => {
         if (from === to) return
         const roles = getValues('roles') ?? []
@@ -135,7 +135,7 @@ function OrgPeoplePicker({ open, onOpenChange, target, limit, onAdd }: { open: b
 function PeopleChips({ people, from, leadId, onLead, onRemove, isAdmin }: {
     people: Person[]; from: number | typeof UNASSIGNED; leadId?: string; onLead?: (userId: string | undefined) => void; onRemove: (userId: string) => void; isAdmin: boolean
 }) {
-    const roles = useWatch<CreateProjectInput, 'roles'>({ name: 'roles' }) ?? []
+    const roles = useWatch<CreateWorkspaceInput, 'roles'>({ name: 'roles' }) ?? []
     const move = useMovePerson()
     if (people.length === 0) return null
     return (
@@ -171,10 +171,10 @@ function PeopleChips({ people, from, leadId, onLead, onRemove, isAdmin }: {
 
 /** Inside a role box: the people in this unit, its lead ★, "+ Add people", and seats that grow to fit them. */
 export function UnitPeople({ index, unitName }: { index: number; unitName: string }) {
-    const { setValue, getValues } = useFormContext<CreateProjectInput>()
+    const { setValue, getValues } = useFormContext<CreateWorkspaceInput>()
     const { org } = useCreateLocation()
-    const people = useWatch<CreateProjectInput, `roles.${number}.people`>({ name: `roles.${index}.people` }) ?? []
-    const leadId = useWatch<CreateProjectInput, `roles.${number}.lead_user_id`>({ name: `roles.${index}.lead_user_id` })
+    const people = useWatch<CreateWorkspaceInput, `roles.${number}.people`>({ name: `roles.${index}.people` }) ?? []
+    const leadId = useWatch<CreateWorkspaceInput, `roles.${number}.lead_user_id`>({ name: `roles.${index}.lead_user_id` })
     const [open, setOpen] = useState(false)
     if (!org) return null
     const save = (next: Person[]) => {
@@ -202,10 +202,10 @@ export function UnitPeople({ index, unitName }: { index: number; unitName: strin
 
 /** Admins: who leads the project (becomes its owner, decision 11), and people outside any unit. */
 export function ChildLeadAndUnassigned() {
-    const { setValue } = useFormContext<CreateProjectInput>()
+    const { setValue } = useFormContext<CreateWorkspaceInput>()
     const { org } = useCreateLocation()
-    const lead = useWatch<CreateProjectInput, 'lead_user_id'>({ name: 'lead_user_id' })
-    const unassigned = useWatch<CreateProjectInput, 'unassigned_people'>({ name: 'unassigned_people' }) ?? []
+    const lead = useWatch<CreateWorkspaceInput, 'lead_user_id'>({ name: 'lead_user_id' })
+    const unassigned = useWatch<CreateWorkspaceInput, 'unassigned_people'>({ name: 'unassigned_people' }) ?? []
     const roster = useRoster(org?.isAdmin ? org.id : undefined, '')
     const [open, setOpen] = useState(false)
     if (!org?.isAdmin) return null

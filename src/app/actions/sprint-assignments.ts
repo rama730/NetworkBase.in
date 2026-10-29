@@ -5,7 +5,7 @@ import { and, eq, inArray, isNotNull, isNull, or, sql } from 'drizzle-orm';
 import type { AssignmentRow } from '@/app/actions/assignments';
 import { db } from '@/lib/db';
 import { profiles, projectSprintEvents, projects, taskTeamMembers, tasks } from '@/lib/db/schema';
-import { getProjectAccessById } from '@/lib/data/workspace-access';
+import { getWorkspaceAccessById } from '@/lib/data/workspace-access';
 import type { AssignmentSettings, CopyState } from '@/lib/organizations/assignment-rules';
 import { stateOf } from '@/lib/organizations/needs-you';
 import { getViewerAuthContext } from '@/lib/server/viewer-context';
@@ -23,7 +23,7 @@ const emptyCounts = (): AssignmentRow['counts'] => ({ not_started: 0, in_progres
 
 export async function readSprintAssignmentsAction(projectId: string, sprintId: string): Promise<SprintAssignmentRows> {
     const { userId } = await getViewerAuthContext();
-    const access = await getProjectAccessById(projectId, userId);
+    const access = await getWorkspaceAccessById(projectId, userId);
     if (!access.canRead || !access.project) return null;
     const now = new Date();
     const copyColumns = { id: tasks.id, assignmentId: tasks.assignmentId, assigneeId: tasks.assigneeId, status: tasks.status, reviewStatus: tasks.reviewStatus, dueDate: tasks.dueDate, reviewSubmittedAt: tasks.reviewSubmittedAt, completedAt: tasks.completedAt, excusedAt: tasks.excusedAt };

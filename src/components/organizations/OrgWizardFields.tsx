@@ -15,7 +15,7 @@ import { parseInviteEmails } from '@/lib/organizations/member-rules'
 import { readOrgWork } from '@/lib/organizations/settings'
 import { cn } from '@/lib/utils'
 import { generateSlugBase } from '@/lib/utils/slug'
-import type { CreateProjectInput } from '@/lib/validations/workspace'
+import type { CreateWorkspaceInput } from '@/lib/validations/workspace'
 
 // The organization-only fields of the create wizard (report §34). Each group drops into its phase when the
 // starting point is Organization; projects keep the wizard as it is.
@@ -24,13 +24,13 @@ const labelClass = 'text-sm font-medium text-foreground'
 const helpClass = 'mt-1.5 text-[13px] leading-[1.5] text-muted-foreground'
 const textAreaClass = 'w-full resize-y rounded-md border border-input bg-card px-3 py-2 text-[15px] leading-[1.5] text-foreground outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30'
 
-const useOrgCopy = () => ORG_CREATION_COPY[useWatch<CreateProjectInput, 'organization.org_type'>({ name: 'organization.org_type' }) ?? 'other']
+const useOrgCopy = () => ORG_CREATION_COPY[useWatch<CreateWorkspaceInput, 'organization.org_type'>({ name: 'organization.org_type' }) ?? 'other']
 
 /**
  * The type's defaults for everything the person hasn't touched (report §34.2, decision 185). Defaults are set
  * without marking fields dirty, so a later type change can still replace them; edited fields stay as typed.
  */
-export function applyOrgTypeDefaults(type: OrgType, form: Pick<UseFormReturn<CreateProjectInput>, 'setValue' | 'getFieldState'>) {
+export function applyOrgTypeDefaults(type: OrgType, form: Pick<UseFormReturn<CreateWorkspaceInput>, 'setValue' | 'getFieldState'>) {
     const d = orgTypeDefaults(type)
     const untouched = (name: Parameters<typeof form.getFieldState>[0]) => !form.getFieldState(name).isDirty
     if (untouched('organization.role_names')) form.setValue('organization.role_names', d.roleNames)
@@ -42,8 +42,8 @@ export function applyOrgTypeDefaults(type: OrgType, form: Pick<UseFormReturn<Cre
 
 /** Phase 1: what kind of organization (report §34.2). Nothing is picked for you; Other names itself. */
 export function OrgTypePicker() {
-    const { register, setValue, getFieldState } = useFormContext<CreateProjectInput>()
-    const organization = useWatch<CreateProjectInput, 'organization'>({ name: 'organization' })
+    const { register, setValue, getFieldState } = useFormContext<CreateWorkspaceInput>()
+    const organization = useWatch<CreateWorkspaceInput, 'organization'>({ name: 'organization' })
     return (
         <section className="border-t border-border pt-6" data-testid="create-project-source-view-organization" aria-labelledby="org-type-heading">
             <fieldset>
@@ -93,7 +93,7 @@ export function OrgTypePicker() {
 
 /** Phase 2 Identity: Subject / Department / Area by type, stored as the category (decision 180). */
 export function OrgSubjectField() {
-    const { register } = useFormContext<CreateProjectInput>()
+    const { register } = useFormContext<CreateWorkspaceInput>()
     const copy = useOrgCopy()
     return (
         <div>
@@ -107,9 +107,9 @@ export function OrgSubjectField() {
 
 /** Phase 2 Identity: @handle with a live check, Part of, and Where with the time zone (report §34.3). */
 export function OrgIdentityFields() {
-    const { register, setValue, getValues } = useFormContext<CreateProjectInput>()
-    const title = useWatch<CreateProjectInput, 'title'>({ name: 'title' }) || ''
-    const handle = useWatch<CreateProjectInput, 'organization.handle'>({ name: 'organization.handle' }) || ''
+    const { register, setValue, getValues } = useFormContext<CreateWorkspaceInput>()
+    const title = useWatch<CreateWorkspaceInput, 'title'>({ name: 'title' }) || ''
+    const handle = useWatch<CreateWorkspaceInput, 'organization.handle'>({ name: 'organization.handle' }) || ''
     const [status, setStatus] = useState<{ available: boolean; message: string } | null>(null)
     const edited = useRef(Boolean(getValues('organization.handle')))
     const zones = useMemo(() => (typeof Intl.supportedValuesOf === 'function' ? Intl.supportedValuesOf('timeZone') : []), [])
@@ -181,7 +181,7 @@ export function OrgIdentityFields() {
 
 /** Phase 2 About: shown to people right after they join, and in the welcome email (decision 181). */
 export function OrgWelcomeField() {
-    const { register } = useFormContext<CreateProjectInput>()
+    const { register } = useFormContext<CreateWorkspaceInput>()
     const copy = useOrgCopy()
     return (
         <div className="border-t border-border pt-5">
@@ -194,7 +194,7 @@ export function OrgWelcomeField() {
 
 /** Phase 4 Calendar: term dates and "Plan your first sprints" together (decision 183). */
 export function OrgCalendarFields() {
-    const { register } = useFormContext<CreateProjectInput>()
+    const { register } = useFormContext<CreateWorkspaceInput>()
     const copy = useOrgCopy()
     return (
         <div className="space-y-5">
@@ -218,10 +218,10 @@ export function OrgCalendarFields() {
 
 /** "Plan your first sprints" (report §15.2): optional; CO1–CO5 weekly from the term start, as planned sprints. */
 function PlanFirstSprints() {
-    const { setValue } = useFormContext<CreateProjectInput>()
-    const type = useWatch<CreateProjectInput, 'organization.org_type'>({ name: 'organization.org_type' })
-    const termStart = useWatch<CreateProjectInput, 'organization.term_start'>({ name: 'organization.term_start' })
-    const plan = useWatch<CreateProjectInput, 'organization.plan_sprints'>({ name: 'organization.plan_sprints' })
+    const { setValue } = useFormContext<CreateWorkspaceInput>()
+    const type = useWatch<CreateWorkspaceInput, 'organization.org_type'>({ name: 'organization.org_type' })
+    const termStart = useWatch<CreateWorkspaceInput, 'organization.term_start'>({ name: 'organization.term_start' })
+    const plan = useWatch<CreateWorkspaceInput, 'organization.plan_sprints'>({ name: 'organization.plan_sprints' })
     const today = new Date().toISOString().slice(0, 10)
     const set = (next: NonNullable<typeof plan> | undefined) => setValue('organization.plan_sprints', next, { shouldDirty: true })
     return (
@@ -253,11 +253,11 @@ const ROLE_MEANING = {
 
 /** Phase 3 People (report §34.4): you, role names, co-admins, how people join and who to invite now. */
 export function OrgPeopleFields() {
-    const { register, control, setValue } = useFormContext<CreateProjectInput>()
-    const orgType = useWatch<CreateProjectInput, 'organization.org_type'>({ name: 'organization.org_type' }) ?? 'other'
+    const { register, control, setValue } = useFormContext<CreateWorkspaceInput>()
+    const orgType = useWatch<CreateWorkspaceInput, 'organization.org_type'>({ name: 'organization.org_type' }) ?? 'other'
     const defaults = orgTypeDefaults(orgType)
-    const roleNames = useWatch<CreateProjectInput, 'organization.role_names'>({ name: 'organization.role_names' }) ?? defaults.roleNames
-    const pasted = useWatch<CreateProjectInput, 'organization.invite_emails'>({ name: 'organization.invite_emails' }) ?? ''
+    const roleNames = useWatch<CreateWorkspaceInput, 'organization.role_names'>({ name: 'organization.role_names' }) ?? defaults.roleNames
+    const pasted = useWatch<CreateWorkspaceInput, 'organization.invite_emails'>({ name: 'organization.invite_emails' }) ?? ''
     const parsed = useMemo(() => parseInviteEmails(pasted), [pasted])
     const coAdmins = useFieldArray({ control, name: 'organization.co_admins' })
     const [query, setQuery] = useState('')
@@ -373,9 +373,9 @@ const REMINDERS = { both: '24 hours before and on the due day', day_before: '24 
 
 /** Phase 4 Setup for orgs: projects inside, and the Work defaults as one line (report §34.5). */
 export function OrgSettingsFields() {
-    const { register, setValue } = useFormContext<CreateProjectInput>()
-    const orgType = useWatch<CreateProjectInput, 'organization.org_type'>({ name: 'organization.org_type' })
-    const chosen = useWatch<CreateProjectInput, 'organization.work'>({ name: 'organization.work' })
+    const { register, setValue } = useFormContext<CreateWorkspaceInput>()
+    const orgType = useWatch<CreateWorkspaceInput, 'organization.org_type'>({ name: 'organization.org_type' })
+    const chosen = useWatch<CreateWorkspaceInput, 'organization.work'>({ name: 'organization.work' })
     const typeWork = readOrgWork({}, orgType)
     const work = {
         reviewRequired: chosen?.review_required ?? typeWork.reviewRequired,

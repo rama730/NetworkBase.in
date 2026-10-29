@@ -29,15 +29,15 @@ test('Project Links has one canonical settings surface and participates in proje
     const settings = componentSource("src/components/workspaces/tabs/WorkspaceSettingsTab.tsx");
     const search = source('src/hooks/useGlobalSearchPreviews.ts');
     assert.doesNotMatch(settings, /isProjectOwner\) return visible\.filter\(\(section\) => section\.id !== "links"/);
-    assert.equal((settings.match(/<ProjectLinksManager/g) ?? []).length, 1);
-    assert.match(search, /fetchProjectLinkPreviewsAction/);
+    assert.equal((settings.match(/<WorkspaceLinksManager/g) ?? []).length, 1);
+    assert.match(search, /fetchWorkspaceLinkPreviewsAction/);
     assert.match(search, /kind: "link" as const/);
 });
 
 test('hub workspace cards expose a privacy-filtered primary destination action', () => {
     const hubData = source('src/lib/data/discover.ts');
     const card = source('src/components/workspaces/WorkspaceCard.tsx');
-    assert.match(hubData, /filterProjectLinksForAudience/);
+    assert.match(hubData, /filterWorkspaceLinksForAudience/);
     assert.match(card, /primaryProjectLink/);
     assert.match(card, /\/go\/project\/\$\{encodeURIComponent\(project\.id\)\}/);
 });
@@ -51,7 +51,7 @@ test('the responsive project header exposes a labeled mobile links menu', () => 
 test('project-link saves use semantic concurrency checks and a viewport-contained editor', () => {
     const action = projectActionsSource();
     const surface = source('src/components/workspaces/dashboard/WorkspaceSocialLinksCard.tsx');
-    assert.match(action, /areProjectSocialLinksEqual\(current, expected\.links\)/);
+    assert.match(action, /areWorkspaceSocialLinksEqual\(current, expected\.links\)/);
     assert.doesNotMatch(action, /JSON\.stringify\(current\)\s*!==\s*JSON\.stringify\(expected\.links\)/);
     assert.match(surface, /w-\[calc\(100vw-1rem\)\]/);
     assert.match(surface, /overflow-x-hidden overflow-y-auto/);
@@ -63,7 +63,7 @@ test('the workspace-link editor stages paste and drop, flushes on save, and expo
     const edit = source('src/components/workspaces/EditWorkspaceModal.tsx');
     assert.match(surface, /onPaste=/);
     assert.match(surface, /onDrop=/);
-    assert.match(surface, /extractProjectLinkUrls/);
+    assert.match(surface, /extractWorkspaceLinkUrls/);
     assert.match(surface, /prepareForSave/);
     assert.match(surface, /event\.metaKey \|\| event\.ctrlKey/);
     assert.match(surface, /Discard your unsaved workspace link changes/);

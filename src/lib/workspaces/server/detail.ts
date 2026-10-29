@@ -6,21 +6,21 @@ import { db } from "@/lib/db";
 import { profiles, projectFollows, projectMembers, projectOpenRoles, projectDocs, projectDocVersions, projectGuidanceAppointments, roleApplications } from "@/lib/db/schema";
 import { eq, sql, desc, and, inArray } from "drizzle-orm";
 import { resolvePrivacyRelationship } from "@/lib/privacy/resolver";
-import { buildProjectOwnerPresentation } from "@/lib/privacy/presentation";
+import { buildWorkspaceOwnerPresentation } from "@/lib/privacy/presentation";
 import { logger } from "@/lib/logger";
 import { unstable_cache } from "next/cache";
-import { computeProjectReadAccess, getProjectAccessById } from "@/lib/data/workspace-access";
-import { resolveProjectDocPermission } from "@/lib/workspaces/doc";
+import { computeWorkspaceReadAccess, getWorkspaceAccessById } from "@/lib/data/workspace-access";
+import { resolveWorkspaceDocPermission } from "@/lib/workspaces/doc";
 import { getViewerAuthContext } from "@/lib/server/viewer-context";
 import { runInFlightDeduped } from "@/lib/utils/inflight-dedupe";
-import type { Project } from "@/types/discover";
+import type { Workspace } from "@/types/discover";
 import { clearSealedGithubTokenFromImportSource } from "@/lib/github/repo-security";
-import { filterProjectLinksForAudience, normalizeProjectSocialLinks } from "@/lib/workspaces/social-links";
-import { normalizeProjectPublicTabVisibility } from "@/lib/workspaces/settings-policies";
+import { filterWorkspaceLinksForAudience, normalizeWorkspaceSocialLinks } from "@/lib/workspaces/social-links";
+import { normalizeWorkspacePublicTabVisibility } from "@/lib/workspaces/settings-policies";
 import { normalizeJourneyCompletionDates } from "@/lib/workspaces/journey-completion";
 import { isLooseUuid } from "@/lib/validations/uuid";
 import { createClient } from "@/lib/supabase/server";
-import { isProjectDetailMemberRole, retryProjectDetailRead, PUBLIC_PROJECT_DETAIL_SHELL_CACHE_TAG, resolveProjectDetailTarget, PUBLIC_PROJECT_DETAIL_METADATA_CACHE_TAG, resolveProjectDetailViewerState } from "./common";
+import { isWorkspaceDetailMemberRole, retryWorkspaceDetailRead, PUBLIC_WORKSPACE_DETAIL_SHELL_CACHE_TAG, resolveWorkspaceDetailTarget, PUBLIC_WORKSPACE_DETAIL_METADATA_CACHE_TAG, resolveWorkspaceDetailViewerState } from "./common";
 
 
 const PROJECT_DETAIL_MEMBER_PAGE_SIZE = 20;
@@ -205,7 +205,7 @@ const projectDetailReadDataSchema = z.object({
 type ProjectDetailReadData = z.infer<typeof projectDetailReadDataSchema>;
 
 
-export type ProjectDetailShellResult =
+export type WorkspaceDetailShellResult =
   | {
       success: true;
       data: ProjectDetailReadData;
@@ -217,7 +217,7 @@ export type ProjectDetailShellResult =
     };
 
 
-export type ProjectDetailMetadataRead = {
+export type WorkspaceDetailMetadataRead = {
   projectId: string;
   ownerId: string;
   slug: string | null;
@@ -381,7 +381,7 @@ async function fetchProjectDetailShellData(
   const collaborators = limitedMembers
     .map((m) => ({
       userId: m.userId,
-      membershipRole: isProjectDetailMemberRole(m.membershipRole)
+      membershipRole: isWorkspaceDetailMemberRole(m.membershipRole)
         ? m.membershipRole
         : "member",
       joinedAt: m.joinedAt?.toISOString?.() ?? null,
@@ -436,7 +436,7 @@ async function fetchProjectDetailShellData(
     projectRoleTitle: acceptedRoleByUser.get(c.userId) || null,
   }));
 
-  const owner = buildProjectOwnerPresentation(
+  const owner = buildWorkspaceOwnerPresentation(
     ownerRow
       ? {
           id: ownerRow.id,
@@ -491,7 +491,7 @@ async function fetchProjectDetailShellData(
 
 const getPublicProjectDetailShellData = unstable_cache(
   async (projectId: string, ownerId: string, includeFollowersCount: boolean) =>
-    retryProjectDetailRead("public_project_detail_shell_data", () =>
+    retryWorkspaceDetailRead("public_project_detail_shell_data", () =>
       fetchProjectDetailShellData(
         projectId,
         ownerId,
@@ -501,24 +501,24 @@ const getPublicProjectDetailShellData = unstable_cache(
         false,
       ),
     ),
-  [PUBLIC_PROJECT_DETAIL_SHELL_CACHE_TAG],
-  { revalidate: 60, tags: [PUBLIC_PROJECT_DETAIL_SHELL_CACHE_TAG] },
+  [PUBLIC_WORKSPACE_DETAIL_SHELL_CACHE_TAG],
+  { revalidate: 60, tags: [PUBLIC_WORKSPACE_DETAIL_SHELL_CACHE_TAG] },
 );
 
 
 const getPublicProjectDetailMetadata = unstable_cache(
-  async (slugOrId: string): Promise<ProjectDetailMetadataRead | null> => {
-    const project = await resolveProjectDetailTarget(slugOrId);
+  async (slugOrId: string): Promise<WorkspaceDetailMetadataRead | null> => {
+    const project = await resolveWorkspaceDetailTarget(slugOrId);
     if (!project) return null;
 
-    const canRead = computeProjectReadAccess(
+    const canRead = computeWorkspaceReadAccess(
       project.visibility,
       project.status,
       false,
       false,
     );
     if (!canRead) return null;
-    const readme = await retryProjectDetailRead(
+    const readme = await retryWorkspaceDetailRead(
           "public_project_detail_metadata_readme",
           () =>
             db
@@ -548,7 +548,7 @@ const getPublicProjectDetailMetadata = unstable_cache(
       shortDescription: project.shortDescription || null,
       description: project.description || null,
       // Same doc permission an anonymous visitor gets: draft, Readme tab, override (COR-043).
-      readmeExcerpt: readme[0] && resolveProjectDocPermission({
+      readmeExcerpt: readme[0] && resolveWorkspaceDocPermission({
         actorUserId: null,
         projectVisibility: project.visibility,
         projectStatus: project.status,
@@ -561,16 +561,16 @@ const getPublicProjectDetailMetadata = unstable_cache(
       coverImage: project.coverImage || null,
     };
   },
-  [PUBLIC_PROJECT_DETAIL_METADATA_CACHE_TAG],
-  { revalidate: 60, tags: [PUBLIC_PROJECT_DETAIL_METADATA_CACHE_TAG] },
+  [PUBLIC_WORKSPACE_DETAIL_METADATA_CACHE_TAG],
+  { revalidate: 60, tags: [PUBLIC_WORKSPACE_DETAIL_METADATA_CACHE_TAG] },
 );
 
 
 /** Public (anonymous) metadata for OG images and link previews; never viewer-specific (COR-042). */
-export async function readProjectDetailMetadata(input: {
+export async function readWorkspaceDetailMetadata(input: {
   slugOrId: string;
 }): Promise<
-  | { success: true; data: ProjectDetailMetadataRead }
+  | { success: true; data: WorkspaceDetailMetadataRead }
   | {
       success: false;
       errorCode: "INVALID_INPUT" | "NOT_FOUND" | "FORBIDDEN" | "INTERNAL_ERROR";
@@ -594,7 +594,7 @@ export async function readProjectDetailMetadata(input: {
 
 
 /** Session-scoped project shell. The caller's identity always comes from the session (COR-042). */
-export async function readProjectDetailShell(input: { slugOrId: string }): Promise<ProjectDetailShellResult> {
+export async function readWorkspaceDetailShell(input: { slugOrId: string }): Promise<WorkspaceDetailShellResult> {
   const { userId } = await getViewerAuthContext();
   return readProjectDetailShellForActor({ slugOrId: input.slugOrId, actorUserId: userId });
 }
@@ -603,7 +603,7 @@ export async function readProjectDetailShell(input: { slugOrId: string }): Promi
 async function readProjectDetailShellForActor(input: {
   slugOrId: string;
   actorUserId: string | null;
-}): Promise<ProjectDetailShellResult> {
+}): Promise<WorkspaceDetailShellResult> {
   const slugOrId = input.slugOrId?.trim();
   if (!slugOrId || slugOrId.length > 200) {
     return {
@@ -619,7 +619,7 @@ async function readProjectDetailShellForActor(input: {
   try {
     const actorUserId = requestedActorUserId ?? null;
 
-    const project = await resolveProjectDetailTarget(slugOrId, actorUserId);
+    const project = await resolveWorkspaceDetailTarget(slugOrId, actorUserId);
     if (!project) {
       return {
         success: false,
@@ -632,7 +632,7 @@ async function readProjectDetailShellForActor(input: {
       `project:detail-shell:${project.id}:${actorUserId ?? "anon"}`,
       async () => {
         const parentOrgRole = project.parentId ? await readViewerOrgRole(project.parentId, actorUserId) : null;
-        const viewerState = resolveProjectDetailViewerState({
+        const viewerState = resolveWorkspaceDetailViewerState({
           projectId: project.id,
           ownerId: project.ownerId,
           visibility: project.visibility,
@@ -655,7 +655,7 @@ async function readProjectDetailShellForActor(input: {
 
         const shouldUseCachedShell =
           !actorUserId &&
-          computeProjectReadAccess(
+          computeWorkspaceReadAccess(
             project.visibility,
             project.status,
             false,
@@ -668,7 +668,7 @@ async function readProjectDetailShellForActor(input: {
               project.ownerId,
               includeFollowersCount,
             )
-          : await retryProjectDetailRead("project_detail_shell_data", () =>
+          : await retryWorkspaceDetailRead("project_detail_shell_data", () =>
               fetchProjectDetailShellData(
                 project.id,
                 project.ownerId,
@@ -680,7 +680,7 @@ async function readProjectDetailShellForActor(input: {
               ),
             );
 
-        const normalizedStatus: Project["status"] =
+        const normalizedStatus: Workspace["status"] =
           project.status === "draft" ||
           project.status === "active" ||
           project.status === "completed" ||
@@ -688,7 +688,7 @@ async function readProjectDetailShellForActor(input: {
             ? project.status
             : "draft";
 
-        const normalizedSyncStatus: NonNullable<Project["syncStatus"]> =
+        const normalizedSyncStatus: NonNullable<Workspace["syncStatus"]> =
           project.syncStatus === "pending" ||
           project.syncStatus === "cloning" ||
           project.syncStatus === "indexing" ||
@@ -713,8 +713,8 @@ async function readProjectDetailShellForActor(input: {
           updatedAt: role.updatedAt?.toISOString?.() ?? null,
         }));
 
-        const visibleExternalLinks = filterProjectLinksForAudience(
-          normalizeProjectSocialLinks(project.externalLinks),
+        const visibleExternalLinks = filterWorkspaceLinksForAudience(
+          normalizeWorkspaceSocialLinks(project.externalLinks),
           isOwner || isMember,
         );
         const visibleExternalLinkIds = new Set(visibleExternalLinks.map((link) => link.id));
@@ -731,7 +731,7 @@ async function readProjectDetailShellForActor(input: {
         // An org's overview is its About tab, which every reader sees.
         const hidesDashboard =
           !isOrganization && !isOwner && !isMember &&
-          !normalizeProjectPublicTabVisibility(project.publicTabVisibility).dashboard;
+          !normalizeWorkspacePublicTabVisibility(project.publicTabVisibility).dashboard;
         const readModel = {
           id: project.id,
           ownerId: project.ownerId,
@@ -748,7 +748,7 @@ async function readProjectDetailShellForActor(input: {
           externalLinks: visibleExternalLinks,
           externalLinkMetadata: visibleExternalLinkMetadata,
           visibility: project.visibility || "private",
-          publicTabVisibility: normalizeProjectPublicTabVisibility(
+          publicTabVisibility: normalizeWorkspacePublicTabVisibility(
             project.publicTabVisibility,
           ),
           lookingForCollaborators: !!project.lookingForCollaborators,
@@ -790,7 +790,7 @@ async function readProjectDetailShellForActor(input: {
           membersNextCursor: shell.membersNextCursor || null,
           // README data follows the doc's own permission: draft projects, the
           // Readme tab and the doc visibility override all apply (COR-043).
-          ...(resolveProjectDocPermission({
+          ...(resolveWorkspaceDocPermission({
             actorUserId,
             projectVisibility: project.visibility,
             projectStatus: project.status,
@@ -858,7 +858,7 @@ async function readProjectDetailShellForActor(input: {
       },
     );
   } catch (error) {
-    console.error("[readProjectDetailShell] failed", error);
+    console.error("[readWorkspaceDetailShell] failed", error);
     return {
       success: false,
       errorCode: "INTERNAL_ERROR",
@@ -869,13 +869,13 @@ async function readProjectDetailShellForActor(input: {
 
 
 /** Import hydration progress only: the browser never reads `projects.import_source` itself. */
-export async function getProjectHydrationProgressAction(
+export async function getWorkspaceHydrationProgressAction(
   projectId: string,
 ): Promise<{ status: string; completed: number; total: number } | null> {
   if (!isLooseUuid(projectId)) return null;
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  const access = await getProjectAccessById(projectId, user?.id ?? null);
+  const access = await getWorkspaceAccessById(projectId, user?.id ?? null);
   if (!access.project || !access.canRead) return null;
   const hydration = access.project.importSource?.metadata?.hydration;
   if (!hydration || typeof hydration.status !== "string") return null;

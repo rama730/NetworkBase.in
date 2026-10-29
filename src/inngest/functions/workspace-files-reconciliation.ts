@@ -3,7 +3,7 @@ import { inngest } from "../client";
 import { db } from "@/lib/db";
 import { jobHeartbeats, projectNodeEvents, projectNodes } from "@/lib/db/schema";
 import { logger } from "@/lib/logger";
-import { buildProjectFileKey } from "@/lib/storage/workspace-file-key";
+import { buildWorkspaceFileKey } from "@/lib/storage/workspace-file-key";
 
 const MAX_KEYS_PER_PROJECT = 200;
 const MAX_EVENTS_PER_RUN = 200;
@@ -44,7 +44,7 @@ function readCursor(payload: unknown): ReconciliationCursor | null {
         : null;
 }
 
-export const reconcileProjectFiles = inngest.createFunction(
+export const reconcileWorkspaceFiles = inngest.createFunction(
     { id: RECONCILIATION_JOB_ID, retries: 1, concurrency: 1 },
     { cron: "0 * * * *" },
     async () => {
@@ -133,7 +133,7 @@ export const reconcileProjectFiles = inngest.createFunction(
             const linkedFiles = files.filter((file): file is ActiveFileRow & { s3Key: string } => Boolean(file.s3Key));
             const unlinkedCandidates = files
                 .filter((file) => !file.s3Key)
-                .map((file) => ({ file, key: buildProjectFileKey(projectId, file.path) }));
+                .map((file) => ({ file, key: buildWorkspaceFileKey(projectId, file.path) }));
 
             let existingStorageRows: StorageObjectRow[] = [];
             let orphanStorageRows: StorageObjectRow[] = [];

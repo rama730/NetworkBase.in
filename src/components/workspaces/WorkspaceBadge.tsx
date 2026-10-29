@@ -2,10 +2,10 @@
 
 import Image from "next/image";
 import { useState } from "react";
-import { getProjectAvatarUrl } from "@/components/workspaces/WorkspaceAvatar";
+import { getWorkspaceAvatarUrl } from "@/components/workspaces/WorkspaceAvatar";
 import { cn } from "@/lib/utils";
 
-export interface ProjectBadgeProps {
+export interface WorkspaceBadgeProps {
   project?: {
     title?: string | null;
     coverImage?: string | null;
@@ -24,15 +24,15 @@ export interface ProjectBadgeProps {
  * - If a project image/avatar exists: render the image thumbnail.
  * - If absent: render the single uppercase initial (e.g. "C" for Caveman).
  */
-export function ProjectBadge({
+export function WorkspaceBadge({
   project,
   title: explicitTitle,
   coverImage: explicitCoverImage,
   size = "sm",
   className,
-}: ProjectBadgeProps) {
+}: WorkspaceBadgeProps) {
   const title = (explicitTitle || project?.title || "").trim();
-  const avatarUrl = explicitCoverImage ?? (project ? getProjectAvatarUrl(project as any) : null);
+  const avatarUrl = explicitCoverImage ?? (project ? getWorkspaceAvatarUrl(project as any) : null);
   const [hasError, setHasError] = useState(false);
 
   // Single uppercase letter fallback

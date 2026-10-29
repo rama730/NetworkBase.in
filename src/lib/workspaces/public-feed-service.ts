@@ -4,19 +4,19 @@ import { db } from '@/lib/db'
 import { isMissingRelationError } from '@/lib/db/errors'
 import { connections, profiles, projectOpenRoles, projects, projectMembers } from '@/lib/db/schema'
 import { logger } from '@/lib/logger'
-import { filterProjectLinksForAudience } from '@/lib/workspaces/social-links'
+import { filterWorkspaceLinksForAudience } from '@/lib/workspaces/social-links'
 import { getCacheEnvelope, cacheStaleableData, isCacheStale, redis } from '@/lib/redis'
 import {
-    buildPublicProjectsCacheKey,
-    encodePublicProjectsCursor,
-    type PublicProjectsCursor,
-    type PublicProjectsFeedItem,
+    buildPublicWorkspacesCacheKey,
+    encodePublicWorkspacesCursor,
+    type PublicWorkspacesCursor,
+    type PublicWorkspacesFeedItem,
 } from '@/lib/workspaces/public-feed'
 
-export const PUBLIC_PROJECTS_FEED_DEFAULT_LIMIT = 24
-export const PUBLIC_PROJECTS_FEED_MAX_LIMIT = 100
-export const PUBLIC_PROJECTS_FEED_FRESH_TTL_SECONDS = 60
-export const PUBLIC_PROJECTS_FEED_STALE_TTL_SECONDS = 300
+export const PUBLIC_WORKSPACES_FEED_DEFAULT_LIMIT = 24
+export const PUBLIC_WORKSPACES_FEED_MAX_LIMIT = 100
+export const PUBLIC_WORKSPACES_FEED_FRESH_TTL_SECONDS = 60
+export const PUBLIC_WORKSPACES_FEED_STALE_TTL_SECONDS = 300
 
 type PublicProjectRow = {
     id: string
@@ -50,8 +50,8 @@ type PublicProjectRow = {
 }
 
 
-export type PublicProjectsFeedPage = {
-    projects: PublicProjectsFeedItem[]
+export type PublicWorkspacesFeedPage = {
+    projects: PublicWorkspacesFeedItem[]
     nextCursor: string | null
     source: 'redis' | 'redis-stale' | 'database'
     cacheState: 'fresh' | 'stale' | 'miss'
@@ -62,7 +62,7 @@ export type PublicProjectsFeedPage = {
  * The shared feed is one cached payload for every viewer, so it is shaped for the most restricted one
  * (signed out): a non-public owner is masked here, on the server, and members-only links never leave it.
  */
-function mapProjectRow(row: PublicProjectRow, counts: { openSeats: number; teamSize: number }, members: any[]): PublicProjectsFeedItem {
+function mapProjectRow(row: PublicProjectRow, counts: { openSeats: number; teamSize: number }, members: any[]): PublicWorkspacesFeedItem {
     const ownerIsPublic = (row.profiles.visibility || 'public') === 'public'
     return {
         id: row.id,
@@ -80,7 +80,7 @@ function mapProjectRow(row: PublicProjectRow, counts: { openSeats: number; teamS
         followers_count: row.followersCount ?? 0,
         saves_count: row.savesCount ?? 0,
         cover_image: row.coverImage,
-        external_links: filterProjectLinksForAudience(row.externalLinks, false),
+        external_links: filterWorkspaceLinksForAudience(row.externalLinks, false),
         github_repo_url: row.githubRepoUrl,
         created_at: row.createdAt.toISOString(),
         updated_at: row.updatedAt.toISOString(),
@@ -99,10 +99,10 @@ function mapProjectRow(row: PublicProjectRow, counts: { openSeats: number; teamS
     }
 }
 
-export async function readPublicProjectsFeedCache(limit: number, cursor: PublicProjectsCursor | null) {
-    const cacheKey = buildPublicProjectsCacheKey(limit, cursor)
+export async function readPublicWorkspacesFeedCache(limit: number, cursor: PublicWorkspacesCursor | null) {
+    const cacheKey = buildPublicWorkspacesCacheKey(limit, cursor)
     const cached = await getCacheEnvelope<{
-        projects: PublicProjectsFeedItem[]
+        projects: PublicWorkspacesFeedItem[]
         nextCursor: string | null
     }>(cacheKey)
 
@@ -113,7 +113,7 @@ export async function readPublicProjectsFeedCache(limit: number, cursor: PublicP
     }
 }
 
-export async function queryAndCachePublicProjectsFeed(limit: number, cursor: PublicProjectsCursor | null) {
+export async function queryAndCachePublicWorkspacesFeed(limit: number, cursor: PublicWorkspacesCursor | null) {
     const rows = await db
         .select({
             id: projects.id,
@@ -224,7 +224,7 @@ export async function queryAndCachePublicProjectsFeed(limit: number, cursor: Pub
 
     const lastRow = pageRows.at(-1) ?? null
     const nextCursor = hasMore && lastRow
-        ? encodePublicProjectsCursor({
+        ? encodePublicWorkspacesCursor({
             createdAt: lastRow.cursorAt,
             id: lastRow.id,
         })
@@ -237,13 +237,13 @@ export async function queryAndCachePublicProjectsFeed(limit: number, cursor: Pub
         nextCursor,
     }
 
-    const cacheKey = buildPublicProjectsCacheKey(limit, cursor)
+    const cacheKey = buildPublicWorkspacesCacheKey(limit, cursor)
     await cacheStaleableData(
         cacheKey,
         payload,
         {
-            freshTtlSeconds: PUBLIC_PROJECTS_FEED_FRESH_TTL_SECONDS,
-            staleTtlSeconds: PUBLIC_PROJECTS_FEED_STALE_TTL_SECONDS,
+            freshTtlSeconds: PUBLIC_WORKSPACES_FEED_FRESH_TTL_SECONDS,
+            staleTtlSeconds: PUBLIC_WORKSPACES_FEED_STALE_TTL_SECONDS,
         },
     )
 
@@ -264,7 +264,7 @@ export async function queryAndCachePublicProjectsFeed(limit: number, cursor: Pub
     return payload
 }
 
-export async function invalidatePublicProjectsFeedCache(projectId?: string | null) {
+export async function invalidatePublicWorkspacesFeedCache(projectId?: string | null) {
     let redisDeleted = 0
 
     if (redis) {
@@ -297,7 +297,7 @@ export async function invalidatePublicProjectsFeedCache(projectId?: string | nul
  * the last step before anything leaves the server: drop projects and collaborators across a block (either
  * direction), then blank a masked creator's id so their "Private creator" projects can't be linked.
  */
-export async function forViewer(feed: PublicProjectsFeedItem[], viewerId: string | null): Promise<PublicProjectsFeedItem[]> {
+export async function forViewer(feed: PublicWorkspacesFeedItem[], viewerId: string | null): Promise<PublicWorkspacesFeedItem[]> {
     let visible = feed
     if (viewerId && feed.length > 0) {
         const rows = await db
@@ -316,12 +316,12 @@ export async function forViewer(feed: PublicProjectsFeedItem[], viewerId: string
         : { ...project, owner_id: '', profiles: { ...project.profiles, id: '' } })
 }
 
-export async function getPublicProjectsFeedPage(limit: number, cursor: PublicProjectsCursor | null): Promise<PublicProjectsFeedPage> {
+export async function getPublicWorkspacesFeedPage(limit: number, cursor: PublicWorkspacesCursor | null): Promise<PublicWorkspacesFeedPage> {
     const normalizedLimit = Math.min(
-        Math.max(1, Math.trunc(limit || PUBLIC_PROJECTS_FEED_DEFAULT_LIMIT)),
-        PUBLIC_PROJECTS_FEED_MAX_LIMIT,
+        Math.max(1, Math.trunc(limit || PUBLIC_WORKSPACES_FEED_DEFAULT_LIMIT)),
+        PUBLIC_WORKSPACES_FEED_MAX_LIMIT,
     )
-    const cached = await readPublicProjectsFeedCache(normalizedLimit, cursor)
+    const cached = await readPublicWorkspacesFeedCache(normalizedLimit, cursor)
 
     const readTimestamp = Date.now()
     if (cached.fresh) {
@@ -335,7 +335,7 @@ export async function getPublicProjectsFeedPage(limit: number, cursor: PublicPro
     }
 
     try {
-        const payload = await queryAndCachePublicProjectsFeed(normalizedLimit, cursor)
+        const payload = await queryAndCachePublicWorkspacesFeed(normalizedLimit, cursor)
         return {
             ...payload,
             source: 'database',

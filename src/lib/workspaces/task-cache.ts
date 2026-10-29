@@ -161,7 +161,7 @@ function reconcileProjectTasks(queryClient: QueryClient, projectId: string) {
   });
 }
 
-export function patchProjectTaskCaches(
+export function patchWorkspaceTaskCaches(
   queryClient: QueryClient,
   projectId: string,
   incoming: TaskSurfaceRecord,
@@ -184,7 +184,7 @@ function containsTask(existing: unknown, taskId: string) {
   return false;
 }
 
-export function removeTaskFromProjectTaskCaches(
+export function removeTaskFromWorkspaceTaskCaches(
   queryClient: QueryClient,
   projectId: string,
   taskId: string,

@@ -83,7 +83,7 @@ async function org() {
 
 async function search(projectId: string, as: string, query: string) {
   viewerId = as;
-  return (await nodes.getProjectNodes(projectId, null, query)).nodes.map((n) => n.name).sort();
+  return (await nodes.getWorkspaceNodes(projectId, null, query)).nodes.map((n) => n.name).sort();
 }
 async function byIds(projectId: string, as: string, ids: string[]) {
   viewerId = as;
@@ -99,8 +99,8 @@ test("folder access: members never see Admins only; visitors only Public; listin
   assert.deepEqual(await byIds(o.orgId, o.owner, [o.key]), [o.key]);
   viewerId = o.a;
   const staff = await sql`SELECT id FROM project_nodes WHERE project_id = ${o.orgId} AND path = '/Staff'`;
-  assert.deepEqual((await nodes.getProjectNodes(o.orgId, staff[0]!.id)).nodes, [], "opening the folder by id lists nothing");
-  await assert.rejects(helpers.assertFileNodeVisible(await helpers.assertProjectFileReadAccess(o.orgId, o.a), { path: "/Staff/answer-key.pdf", taskId: null, deletedAt: null }));
+  assert.deepEqual((await nodes.getWorkspaceNodes(o.orgId, staff[0]!.id)).nodes, [], "opening the folder by id lists nothing");
+  await assert.rejects(helpers.assertFileNodeVisible(await helpers.assertWorkspaceFileReadAccess(o.orgId, o.a), { path: "/Staff/answer-key.pdf", taskId: null, deletedAt: null }));
 });
 
 test("assignment copy files are private to the copy and the admins, in the app and in the database rule", async () => {
@@ -124,14 +124,14 @@ test("assignment copy files are private to the copy and the admins, in the app a
 test("members can't write the org tree but can always add files to their own copy", async () => {
   const o = await org();
   await sql`UPDATE project_members SET file_upload_enabled = true WHERE project_id = ${o.orgId} AND user_id = ${o.a}`;
-  await assert.rejects(helpers.assertProjectUploadAccess(o.orgId, o.a), /organization/i);
-  await helpers.assertProjectUploadAccess(o.orgId, o.a, { taskId: o.copyA });
-  await assert.rejects(helpers.assertProjectUploadAccess(o.orgId, o.a, { taskId: o.copyB }));
-  await helpers.assertProjectUploadAccess(o.orgId, o.admin);
+  await assert.rejects(helpers.assertWorkspaceUploadAccess(o.orgId, o.a), /organization/i);
+  await helpers.assertWorkspaceUploadAccess(o.orgId, o.a, { taskId: o.copyA });
+  await assert.rejects(helpers.assertWorkspaceUploadAccess(o.orgId, o.a, { taskId: o.copyB }));
+  await helpers.assertWorkspaceUploadAccess(o.orgId, o.admin);
   viewerId = o.a;
   await assert.rejects(mutations.createFolder(o.orgId, null, "Mine"));
-  await assert.rejects(db.transaction((tx) => helpers.assertProjectUploadAccessTx(tx, o.orgId, o.a)));
-  await db.transaction((tx) => helpers.assertProjectUploadAccessTx(tx, o.orgId, o.a, { nodeId: o.fileA }));
+  await assert.rejects(db.transaction((tx) => helpers.assertWorkspaceUploadAccessTx(tx, o.orgId, o.a)));
+  await db.transaction((tx) => helpers.assertWorkspaceUploadAccessTx(tx, o.orgId, o.a, { nodeId: o.fileA }));
 });
 
 test("admins set folder access with a preview; a folder can't be more open than its parent", async () => {
@@ -227,7 +227,7 @@ test("§23 pass: a member's folder zip skips Admins-only folders and other peopl
   const accessLib = await loadAppModule(() => import("../../src/lib/data/workspace-access"));
   const { sql: dsql } = await import("drizzle-orm");
   const plan = async (userId: string) => {
-    const access = await accessLib.getProjectAccessById(o.orgId, userId);
+    const access = await accessLib.getWorkspaceAccessById(o.orgId, userId);
     const nodeFilter = helpers.orgFileAccessSql(access)
       ? (alias: "n" | "child") => helpers.orgFileAccessSql(access, { projectId: dsql.raw(`${alias}.project_id`), path: dsql.raw(`${alias}.path`), taskId: dsql.raw(`${alias}.task_id`) })
       : undefined;

@@ -16,7 +16,7 @@ test("project access tab renders one open access section with immediate toggle c
 
   // Access section block extraction
   const accessBlock = settingsTab.split('id="project-settings-access"')[1]?.split('id="project-settings-collaborators"')[0] ?? "";
-  assert.ok(accessBlock.length > 0, "Access settings block must exist in ProjectSettingsTab");
+  assert.ok(accessBlock.length > 0, "Access settings block must exist in WorkspaceSettingsTab");
 
   // Redundant SummaryCard, AdvancedDisclosure, and unnecessary cards removed
   assert.doesNotMatch(accessBlock, /<SummaryCard/, "Redundant SummaryCard must be removed from Project Access tab");

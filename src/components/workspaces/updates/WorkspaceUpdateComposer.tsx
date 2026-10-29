@@ -21,42 +21,42 @@ import { toast } from "@/lib/feedback";
 import { useLinkPreview } from "@/hooks/useLinkPreview";
 import { MultiAttachmentPicker } from "@/components/workspaces/v2/files-tab/picker/MultiAttachmentPicker";
 
-import { createProjectUpdateMediaUploadUrlAction, finalizeProjectUpdateMediaUploadAction, readProjectUpdateContextOptionsAction, readProjectUpdateDraftAction, saveProjectUpdateDraftAction } from "@/app/actions/workspace/updates";
+import { createWorkspaceUpdateMediaUploadUrlAction, finalizeWorkspaceUpdateMediaUploadAction, readWorkspaceUpdateContextOptionsAction, readWorkspaceUpdateDraftAction, saveWorkspaceUpdateDraftAction } from "@/app/actions/workspace/updates";
 import { Button } from "@/components/ui/button";
 import { UserAvatar } from "@/components/ui/UserAvatar";
 import { queryKeys } from "@/lib/query-keys";
 import {
-    PROJECT_UPDATE_MAX_MEDIA_ITEMS,
-    PROJECT_UPDATE_ALLOWED_IMAGE_MIME_TYPES,
-    PROJECT_UPDATE_MEDIA_MAX_BYTES,
-    isSafeProjectUpdateUrl,
-    normalizeProjectUpdateMediaItems,
-    normalizeProjectUpdateReferences,
+    WORKSPACE_UPDATE_MAX_MEDIA_ITEMS,
+    WORKSPACE_UPDATE_ALLOWED_IMAGE_MIME_TYPES,
+    WORKSPACE_UPDATE_MEDIA_MAX_BYTES,
+    isSafeWorkspaceUpdateUrl,
+    normalizeWorkspaceUpdateMediaItems,
+    normalizeWorkspaceUpdateReferences,
     projectUpdateDraftStorageKey,
     projectUpdateExcerpt,
-    type ProjectUpdateContextKind,
-    type ProjectUpdateContextOption,
-    type ProjectUpdateEntityRefs,
-    type ProjectUpdateMediaItem,
-    type ProjectUpdateReference,
-    type ProjectUpdateVisibility,
+    type WorkspaceUpdateContextKind,
+    type WorkspaceUpdateContextOption,
+    type WorkspaceUpdateEntityRefs,
+    type WorkspaceUpdateMediaItem,
+    type WorkspaceUpdateReference,
+    type WorkspaceUpdateVisibility,
 } from "@/lib/workspaces/updates";
 import { uploadToSupabaseSignedUrl } from "@/lib/upload/supabase-signed-upload-client";
 import { cn } from "@/lib/utils";
 import { normalizeReadmeReferenceLabel } from "@/lib/workspaces/doc-blocks";
 import { get as idbGet, set as idbSet, del as idbDel } from "idb-keyval";
 
-import { ProjectUpdateMediaFrame, isProjectUpdateVideoMedia } from "./WorkspaceUpdateMediaFrame";
-import { ProjectUpdateRichTextEditor } from "./WorkspaceUpdateRichTextEditor";
+import { WorkspaceUpdateMediaFrame, isWorkspaceUpdateVideoMedia } from "./WorkspaceUpdateMediaFrame";
+import { WorkspaceUpdateRichTextEditor } from "./WorkspaceUpdateRichTextEditor";
 import { ComposerReferenceOptions } from "./ComposerReferenceOptions";
 
-const EMPTY_REFS: ProjectUpdateEntityRefs = {};
-const EMPTY_CONTEXT_OPTIONS: Record<ProjectUpdateContextKind, ProjectUpdateContextOption[]> = {
+const EMPTY_REFS: WorkspaceUpdateEntityRefs = {};
+const EMPTY_CONTEXT_OPTIONS: Record<WorkspaceUpdateContextKind, WorkspaceUpdateContextOption[]> = {
     task: [],
     sprint: [],
     file: [],
 };
-type ComposerPanel = ProjectUpdateContextKind | "link" | null;
+type ComposerPanel = WorkspaceUpdateContextKind | "link" | null;
 type PendingMediaUpload = {
     id: string;
     fileName: string;
@@ -71,19 +71,19 @@ type PendingMediaUpload = {
     error: string | null;
 };
 
-function isProjectContextPanel(panel: ComposerPanel): panel is ProjectUpdateContextKind {
+function isProjectContextPanel(panel: ComposerPanel): panel is WorkspaceUpdateContextKind {
     return panel === "task" || panel === "sprint" || panel === "file";
 }
 
-function refKeyForContextKind(kind: ProjectUpdateContextKind): "taskId" | "sprintId" | "fileId" {
+function refKeyForContextKind(kind: WorkspaceUpdateContextKind): "taskId" | "sprintId" | "fileId" {
     if (kind === "task") return "taskId";
     if (kind === "sprint") return "sprintId";
     return "fileId";
 }
 
 function assignLegacyContextRef(
-    refs: ProjectUpdateEntityRefs,
-    kind: ProjectUpdateContextKind,
+    refs: WorkspaceUpdateEntityRefs,
+    kind: WorkspaceUpdateContextKind,
     id: string | null,
 ) {
     if (kind === "task") refs.taskId = id;
@@ -91,9 +91,9 @@ function assignLegacyContextRef(
     else refs.fileId = id;
 }
 
-function hasEntityReferences(refs: ProjectUpdateEntityRefs) {
+function hasEntityReferences(refs: WorkspaceUpdateEntityRefs) {
     return Boolean(
-        normalizeProjectUpdateReferences(refs.references).length > 0 ||
+        normalizeWorkspaceUpdateReferences(refs.references).length > 0 ||
             refs.taskId ||
             refs.sprintId ||
             refs.fileId ||
@@ -188,7 +188,7 @@ function compressImage(file: File): Promise<File> {
     });
 }
 
-export function ProjectUpdateComposer({
+export function WorkspaceUpdateComposer({
     projectId,
     projectName,
     currentUserId,
@@ -210,9 +210,9 @@ export function ProjectUpdateComposer({
     onPost: (input: {
         content: string;
         updateType: null;
-        visibility: ProjectUpdateVisibility;
-        entityRefs: ProjectUpdateEntityRefs;
-    media: ProjectUpdateMediaItem[];
+        visibility: WorkspaceUpdateVisibility;
+        entityRefs: WorkspaceUpdateEntityRefs;
+    media: WorkspaceUpdateMediaItem[];
     }) => void;
 }) {
     const containerRef = useRef<HTMLDivElement | null>(null);
@@ -220,9 +220,9 @@ export function ProjectUpdateComposer({
     const pendingMediaUploadsRef = useRef<PendingMediaUpload[]>([]);
     const [content, setContent] = useState("");
     const [expanded, setExpanded] = useState(false);
-    const [visibility, setVisibility] = useState<ProjectUpdateVisibility>("public");
-    const [entityRefs, setEntityRefs] = useState<ProjectUpdateEntityRefs>(EMPTY_REFS);
-    const [media, setMedia] = useState<ProjectUpdateMediaItem[]>([]);
+    const [visibility, setVisibility] = useState<WorkspaceUpdateVisibility>("public");
+    const [entityRefs, setEntityRefs] = useState<WorkspaceUpdateEntityRefs>(EMPTY_REFS);
+    const [media, setMedia] = useState<WorkspaceUpdateMediaItem[]>([]);
     const [pendingMediaUploads, setPendingMediaUploads] = useState<PendingMediaUpload[]>([]);
     const [activePanel, setActivePanel] = useState<ComposerPanel>(null);
     const [filePickerOpen, setFilePickerOpen] = useState(false);
@@ -258,14 +258,14 @@ export function ProjectUpdateComposer({
     const hasPendingUploads = pendingMediaUploads.some((item) => !item.error);
     const draftPreview = projectUpdateExcerpt(content, 240);
     const normalizedReferences = useMemo(
-        () => normalizeProjectUpdateReferences(entityRefs.references),
+        () => normalizeWorkspaceUpdateReferences(entityRefs.references),
         [entityRefs.references],
     );
 
     const contextOptionsQuery = useQuery({
         queryKey: queryKeys.project.detail.updateContextOptions(projectId, activeContextKind ?? "task", debouncedContextQuery),
         queryFn: async () => {
-            const result = await readProjectUpdateContextOptionsAction(projectId, {
+            const result = await readWorkspaceUpdateContextOptionsAction(projectId, {
                 kind: activeContextKind ?? "task",
                 query: debouncedContextQuery,
                 limit: 8,
@@ -285,7 +285,7 @@ export function ProjectUpdateComposer({
         queryKey: queryKeys.project.detail.updateDraft(projectId, currentUserId ?? ""),
         queryFn: async () => {
             if (!currentUserId) return null;
-            const result = await readProjectUpdateDraftAction(projectId);
+            const result = await readWorkspaceUpdateDraftAction(projectId);
             if (!result.success) return null;
             return result.data;
         },
@@ -293,8 +293,8 @@ export function ProjectUpdateComposer({
     });
 
     const saveDraftMutation = useMutation({
-        mutationFn: async (input: Parameters<typeof saveProjectUpdateDraftAction>[1]) => {
-            const result = await saveProjectUpdateDraftAction(projectId, input);
+        mutationFn: async (input: Parameters<typeof saveWorkspaceUpdateDraftAction>[1]) => {
+            const result = await saveWorkspaceUpdateDraftAction(projectId, input);
             if (!result.success) throw new Error(result.error);
             return result.data;
         },
@@ -321,24 +321,24 @@ export function ProjectUpdateComposer({
             if (cancelled) return;
 
             let initialContent = "";
-            let initialVisibility: ProjectUpdateVisibility = "public";
-            let initialEntityRefs: ProjectUpdateEntityRefs = {};
-            let initialMedia: ProjectUpdateMediaItem[] = [];
+            let initialVisibility: WorkspaceUpdateVisibility = "public";
+            let initialEntityRefs: WorkspaceUpdateEntityRefs = {};
+            let initialMedia: WorkspaceUpdateMediaItem[] = [];
             if (parsed && typeof parsed.content === "string") {
                 const draftText = parsed.content.slice(0, 2_200);
                 initialContent = draftText;
                 setContent(draftText);
             }
             if (parsed && (parsed.visibility === "members" || parsed.visibility === "public")) {
-                initialVisibility = parsed.visibility as ProjectUpdateVisibility;
+                initialVisibility = parsed.visibility as WorkspaceUpdateVisibility;
                 setVisibility(initialVisibility);
             }
             if (parsed?.entityRefs && typeof parsed.entityRefs === "object") {
-                initialEntityRefs = parsed.entityRefs as ProjectUpdateEntityRefs;
+                initialEntityRefs = parsed.entityRefs as WorkspaceUpdateEntityRefs;
                 setEntityRefs(initialEntityRefs);
             }
             if (Array.isArray(parsed?.media)) {
-                initialMedia = normalizeProjectUpdateMediaItems(parsed.media);
+                initialMedia = normalizeWorkspaceUpdateMediaItems(parsed.media);
                 setMedia(initialMedia);
             }
             lastSavedDraftRef.current = JSON.stringify({
@@ -467,11 +467,11 @@ export function ProjectUpdateComposer({
     // Parse references from content dynamically to keep entityRefs in sync
     useEffect(() => {
         const parseContent = () => {
-            const parsedRefs: ProjectUpdateReference[] = Array.from(content.matchAll(/\{%\s*ref\.([a-z_]+)\s+id="([^"]+)"(?:\s+label="([^"]*)")?\s*%\}/gi)).flatMap((match) => {
+            const parsedRefs: WorkspaceUpdateReference[] = Array.from(content.matchAll(/\{%\s*ref\.([a-z_]+)\s+id="([^"]+)"(?:\s+label="([^"]*)")?\s*%\}/gi)).flatMap((match) => {
                 const pluralKind = match[1]?.toLowerCase();
                 const id = match[2];
                 if (!id) return [];
-                const kind: ProjectUpdateContextKind = pluralKind === "tasks" ? "task" : pluralKind === "sprints" ? "sprint" : "file";
+                const kind: WorkspaceUpdateContextKind = pluralKind === "tasks" ? "task" : pluralKind === "sprints" ? "sprint" : "file";
                 return [{ kind, id }];
             });
 
@@ -486,7 +486,7 @@ export function ProjectUpdateComposer({
 
             if (!isSame) {
                 setEntityRefs((current) => {
-                    const next: ProjectUpdateEntityRefs = {
+                    const next: WorkspaceUpdateEntityRefs = {
                         ...current,
                         references: uniqueRefs,
                     };
@@ -531,19 +531,19 @@ export function ProjectUpdateComposer({
         setActivePanel((current) => current === panel ? null : panel as ComposerPanel);
     };
 
-    const addContextReference = (kind: ProjectUpdateContextKind, id: string) => {
+    const addContextReference = (kind: WorkspaceUpdateContextKind, id: string) => {
         setEntityRefs((current) => {
-            const references = normalizeProjectUpdateReferences([
+            const references = normalizeWorkspaceUpdateReferences([
                 ...(current.references ?? []),
                 { kind, id },
             ]);
-            const next: ProjectUpdateEntityRefs = { ...current, references };
+            const next: WorkspaceUpdateEntityRefs = { ...current, references };
             assignLegacyContextRef(next, kind, id);
             return next;
         });
     };
 
-    const selectContext = (option: ProjectUpdateContextOption) => {
+    const selectContext = (option: WorkspaceUpdateContextOption) => {
         const pluralKind = option.kind === "task" ? "tasks" : option.kind === "sprint" ? "sprints" : "files";
         const normalizedLabel = normalizeReadmeReferenceLabel(pluralKind, option.label);
         const escapedLabel = normalizedLabel.replace(/\\/g, "\\\\").replace(/"/g, "&quot;").replace(/\s+/g, " ").trim();
@@ -559,18 +559,18 @@ export function ProjectUpdateComposer({
         setMedia((current) => current.filter((_, itemIndex) => itemIndex !== index));
     };
 
-    const addMediaFromPanel = (type: ProjectUpdateMediaItem["type"]) => {
+    const addMediaFromPanel = (type: WorkspaceUpdateMediaItem["type"]) => {
         let url = mediaUrl.trim();
         if (!url) return;
         if (!/^https?:\/\//i.test(url)) {
             url = `https://${url}`;
         }
-        if (!isSafeProjectUpdateUrl(url)) {
+        if (!isSafeWorkspaceUpdateUrl(url)) {
             toast.error("Use a valid http or https link");
             return;
         }
-        if (media.length >= PROJECT_UPDATE_MAX_MEDIA_ITEMS) {
-            toast.warning(`You can attach up to ${PROJECT_UPDATE_MAX_MEDIA_ITEMS} items`);
+        if (media.length >= WORKSPACE_UPDATE_MAX_MEDIA_ITEMS) {
+            toast.warning(`You can attach up to ${WORKSPACE_UPDATE_MAX_MEDIA_ITEMS} items`);
             return;
         }
         const effectiveLabel = mediaLabel.trim() || linkPreview?.title || linkPreview?.domain || url;
@@ -593,16 +593,16 @@ export function ProjectUpdateComposer({
     };
 
     const uploadImageFile = async (originalFile: File) => {
-        if (!PROJECT_UPDATE_ALLOWED_IMAGE_MIME_TYPES.has(originalFile.type)) {
+        if (!WORKSPACE_UPDATE_ALLOWED_IMAGE_MIME_TYPES.has(originalFile.type)) {
             toast.error("Use JPG, PNG, WebP, or GIF images");
             return;
         }
-        if (originalFile.size > PROJECT_UPDATE_MEDIA_MAX_BYTES) {
-            toast.warning(`Update images must be ${formatFileSize(PROJECT_UPDATE_MEDIA_MAX_BYTES)} or smaller`);
+        if (originalFile.size > WORKSPACE_UPDATE_MEDIA_MAX_BYTES) {
+            toast.warning(`Update images must be ${formatFileSize(WORKSPACE_UPDATE_MEDIA_MAX_BYTES)} or smaller`);
             return;
         }
-        if (media.length + pendingMediaUploads.length >= PROJECT_UPDATE_MAX_MEDIA_ITEMS) {
-            toast.warning(`You can attach up to ${PROJECT_UPDATE_MAX_MEDIA_ITEMS} items`);
+        if (media.length + pendingMediaUploads.length >= WORKSPACE_UPDATE_MAX_MEDIA_ITEMS) {
+            toast.warning(`You can attach up to ${WORKSPACE_UPDATE_MAX_MEDIA_ITEMS} items`);
             return;
         }
         setExpanded(true);
@@ -638,11 +638,11 @@ export function ProjectUpdateComposer({
                 progress: 30,
             });
 
-            if (file.size > PROJECT_UPDATE_MEDIA_MAX_BYTES) {
+            if (file.size > WORKSPACE_UPDATE_MEDIA_MAX_BYTES) {
                 throw new Error(`Compressed image exceeds max size.`);
             }
 
-            const prepared = await createProjectUpdateMediaUploadUrlAction(projectId, {
+            const prepared = await createWorkspaceUpdateMediaUploadUrlAction(projectId, {
                 mimeType: file.type,
                 sizeBytes: file.size,
                 altText,
@@ -658,7 +658,7 @@ export function ProjectUpdateComposer({
                 operationId: prepared.uploadIntentId,
             }, file, { cacheProfile: "immutable" });
             updatePendingUpload(id, { phase: "finalizing", progress: 88 });
-            const finalized = await finalizeProjectUpdateMediaUploadAction(projectId, {
+            const finalized = await finalizeWorkspaceUpdateMediaUploadAction(projectId, {
                 uploadIntentId: prepared.uploadIntentId,
                 altText,
                 label: file.name,
@@ -680,9 +680,9 @@ export function ProjectUpdateComposer({
     const handleImageFiles = (files: FileList | File[] | null | undefined) => {
         const selectedFiles = Array.from(files ?? []);
         if (selectedFiles.length === 0) return;
-        const remainingSlots = PROJECT_UPDATE_MAX_MEDIA_ITEMS - media.length - pendingMediaUploads.length;
+        const remainingSlots = WORKSPACE_UPDATE_MAX_MEDIA_ITEMS - media.length - pendingMediaUploads.length;
         if (remainingSlots <= 0) {
-            toast.warning(`You can attach up to ${PROJECT_UPDATE_MAX_MEDIA_ITEMS} items`);
+            toast.warning(`You can attach up to ${WORKSPACE_UPDATE_MAX_MEDIA_ITEMS} items`);
             return;
         }
         selectedFiles.slice(0, remainingSlots).forEach((file) => {
@@ -931,7 +931,7 @@ export function ProjectUpdateComposer({
                             </button>
                         </div>
                         <div className="rounded-[8px] border border-border bg-card p-3 transition focus-within:border-foreground/30">
-                            <ProjectUpdateRichTextEditor
+                            <WorkspaceUpdateRichTextEditor
                                 content={content}
                                 placeholder={`Share a workspace update for ${projectName}…`}
                                 onChange={setContent}
@@ -946,7 +946,7 @@ export function ProjectUpdateComposer({
                 {expanded && (media.length > 0 || pendingMediaUploads.length > 0) ? (
                     <div className="mt-3 space-y-2">
                         {pendingMediaUploads.map((item) => (
-                            <ProjectUpdateMediaFrame
+                            <WorkspaceUpdateMediaFrame
                                 key={item.id}
                                 item={{
                                     type: "image",
@@ -973,8 +973,8 @@ export function ProjectUpdateComposer({
                                 )}
                             />
                         ))}
-                        {media.map((item, index) => item.url && (item.type === "image" || isProjectUpdateVideoMedia(item)) ? (
-                            <ProjectUpdateMediaFrame
+                        {media.map((item, index) => item.url && (item.type === "image" || isWorkspaceUpdateVideoMedia(item)) ? (
+                            <WorkspaceUpdateMediaFrame
                                 key={`${item.url}-${index}`}
                                 item={item}
                                 src={item.url}
@@ -1046,7 +1046,7 @@ export function ProjectUpdateComposer({
                                             visibility: canManage ? visibility : "public",
                                             entityRefs: {
                                                 ...entityRefs,
-                                                references: normalizeProjectUpdateReferences(entityRefs.references),
+                                                references: normalizeWorkspaceUpdateReferences(entityRefs.references),
                                             },
                                             media,
                                         });

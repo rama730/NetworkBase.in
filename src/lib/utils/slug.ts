@@ -1,4 +1,4 @@
-export const RESERVED_PROJECT_SLUGS = new Set([
+export const RESERVED_WORKSPACE_SLUGS = new Set([
     'new',
     'admin',
     'settings',
@@ -18,9 +18,9 @@ export const RESERVED_PROJECT_SLUGS = new Set([
     'help',
 ]);
 
-export function isReservedProjectSlug(slug: string): boolean {
+export function isReservedWorkspaceSlug(slug: string): boolean {
     if (!slug || typeof slug !== 'string') return true;
-    return RESERVED_PROJECT_SLUGS.has(slug.toLowerCase().trim());
+    return RESERVED_WORKSPACE_SLUGS.has(slug.toLowerCase().trim());
 }
 
 export function generateSlugBase(title: string): string {

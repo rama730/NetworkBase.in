@@ -15,38 +15,38 @@ describe("sprint member access contract", () => {
   it("resolves server-rendered sprint detail with the current actor", () => {
     assert.match(
       projectActionsText,
-      /resolveProjectDetailTarget\(\s*input\.slugOrId,\s*input\.actorUserId\s*\?\?\s*null,?\s*\)/,
-      "readProjectSprintDetail must pass actorUserId so project membership is included in the workspace lookup",
+      /resolveWorkspaceDetailTarget\(\s*input\.slugOrId,\s*input\.actorUserId\s*\?\?\s*null,?\s*\)/,
+      "readWorkspaceSprintDetail must pass actorUserId so project membership is included in the workspace lookup",
     );
   });
 
   it("exports the authenticated sprint detail action for client refetches", () => {
     assert.match(
       projectActionsText,
-      /export async function fetchProjectSprintDetailAction\(input:\s*\{\s*projectId:\s*string;/s,
+      /export async function fetchWorkspaceSprintDetailAction\(input:\s*\{\s*projectId:\s*string;/s,
       "the authenticated project-id action should exist for client sprint detail queries",
     );
     assert.match(
       projectActionsBarrelSource,
-      /\bfetchProjectSprintDetailAction\b/,
-      "the workspace action barrel must expose fetchProjectSprintDetailAction directly",
+      /\bfetchWorkspaceSprintDetailAction\b/,
+      "the workspace action barrel must expose fetchWorkspaceSprintDetailAction directly",
     );
     assert.doesNotMatch(
       projectActionsBarrelSource,
-      /readProjectSprintDetail\s+as\s+fetchProjectSprintDetailAction/,
-      "the client fetch alias must not point at the actorless readProjectSprintDetail path",
+      /readWorkspaceSprintDetail\s+as\s+fetchWorkspaceSprintDetailAction/,
+      "the client fetch alias must not point at the actorless readWorkspaceSprintDetail path",
     );
   });
 
   it("requests sprint detail through projectId instead of the slug-based reader", () => {
     assert.match(
       sprintDataHookSource,
-      /fetchProjectSprintDetailAction\(\{\s*projectId:\s*normalizedProjectId,/s,
+      /fetchWorkspaceSprintDetailAction\(\{\s*projectId:\s*normalizedProjectId,/s,
       "client first-page sprint queries should call the authenticated action with projectId",
     );
     assert.doesNotMatch(
       sprintDataHookSource,
-      /fetchProjectSprintDetailAction\(\{\s*slugOrId:/s,
+      /fetchWorkspaceSprintDetailAction\(\{\s*slugOrId:/s,
       "client sprint detail queries should not use the slug reader through the action barrel",
     );
   });

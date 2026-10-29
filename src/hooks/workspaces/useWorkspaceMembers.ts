@@ -2,13 +2,13 @@
 
 import { useInfiniteQuery } from "@tanstack/react-query";
 
-import { getProjectMembersAction } from "@/app/actions/workspace";
+import { getWorkspaceMembersAction } from "@/app/actions/workspace";
 import { queryKeys } from "@/lib/query-keys";
 
-export const PROJECT_MEMBERS_QUERY_KEY = (projectId: string) =>
+export const WORKSPACE_MEMBERS_QUERY_KEY = (projectId: string) =>
     queryKeys.project.detail.members(projectId);
 
-export function useProjectMembers(
+export function useWorkspaceMembers(
     projectId: string,
     initialMembers: any[] = [],
     options?: {
@@ -39,9 +39,9 @@ export function useProjectMembers(
         : undefined;
 
     return useInfiniteQuery({
-        queryKey: PROJECT_MEMBERS_QUERY_KEY(projectId),
+        queryKey: WORKSPACE_MEMBERS_QUERY_KEY(projectId),
         queryFn: async ({ pageParam }) => {
-            const result = await getProjectMembersAction(projectId, pageSize, pageParam as string | undefined);
+            const result = await getWorkspaceMembersAction(projectId, pageSize, pageParam as string | undefined);
             if (!result.success) throw new Error(result.error);
             return {
                 success: true as const,

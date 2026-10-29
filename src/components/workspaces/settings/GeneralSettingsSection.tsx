@@ -7,7 +7,7 @@ import dynamic from "next/dynamic";
 import Image from "next/image";
 import { useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/query-keys";
-import { broadcastProjectUpdated } from "@/components/workspaces/WorkspaceAvatar";
+import { broadcastWorkspaceUpdated } from "@/components/workspaces/WorkspaceAvatar";
 import {
     Camera,
     ChevronDown,
@@ -24,22 +24,22 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { toast, feedbackError } from "@/lib/feedback";
 import { Button } from "@/components/ui/button";
-import { clearProjectCoverImageAction, updateProject } from "@/app/actions/workspace";
+import { clearWorkspaceCoverImageAction, updateWorkspace } from "@/app/actions/workspace";
 import {
-    ALLOWED_PROJECT_IMAGE_MIME_TYPES,
-    PROJECT_IMAGE_OUTPUT_SIZE,
-    PROJECT_IMAGE_PREVIEW_SIZE,
-    PROJECT_IMAGE_UPLOAD_MAX_BYTES,
-    uploadProjectImage,
+    ALLOWED_WORKSPACE_IMAGE_MIME_TYPES,
+    WORKSPACE_IMAGE_OUTPUT_SIZE,
+    WORKSPACE_IMAGE_PREVIEW_SIZE,
+    WORKSPACE_IMAGE_UPLOAD_MAX_BYTES,
+    uploadWorkspaceImage,
 } from "@/lib/upload/workspace-image-upload-client";
 import {
-    isKnownProjectType,
-    OTHER_PROJECT_TYPE_ID,
-    POPULAR_PROJECT_TAGS,
+    isKnownWorkspaceType,
+    OTHER_WORKSPACE_TYPE_ID,
+    POPULAR_WORKSPACE_TAGS,
 } from "@/lib/workspaces/workspace-create-options";
 import {
-    type ProjectMemberRole,
-    type ProjectSettingsMember,
+    type WorkspaceMemberRole,
+    type WorkspaceSettingsMember,
 } from "@/lib/workspaces/settings-policies";
 import { CategorySelector, ChipEditor, ReadOnlySlugField, SettingsCard, TextAreaField, TextField } from '@/components/workspaces/settings/SettingsFormFields';
 
@@ -94,8 +94,8 @@ function readImageDimensions(src: string): Promise<{ width: number; height: numb
     return new Promise((resolve, reject) => {
         const image = new globalThis.Image();
         image.onload = () => resolve({
-            width: image.naturalWidth || PROJECT_IMAGE_OUTPUT_SIZE,
-            height: image.naturalHeight || PROJECT_IMAGE_OUTPUT_SIZE,
+            width: image.naturalWidth || WORKSPACE_IMAGE_OUTPUT_SIZE,
+            height: image.naturalHeight || WORKSPACE_IMAGE_OUTPUT_SIZE,
         });
         image.onerror = () => reject(new Error("Couldn’t read selected image"));
         image.src = src;
@@ -104,16 +104,16 @@ function readImageDimensions(src: string): Promise<{ width: number; height: numb
 
 function projectImagePreviewMetrics(draft: CoverDraft) {
     const baseScale = Math.max(
-        PROJECT_IMAGE_PREVIEW_SIZE / Math.max(1, draft.naturalWidth),
-        PROJECT_IMAGE_PREVIEW_SIZE / Math.max(1, draft.naturalHeight),
+        WORKSPACE_IMAGE_PREVIEW_SIZE / Math.max(1, draft.naturalWidth),
+        WORKSPACE_IMAGE_PREVIEW_SIZE / Math.max(1, draft.naturalHeight),
     );
     const width = draft.naturalWidth * baseScale * draft.zoom;
     const height = draft.naturalHeight * baseScale * draft.zoom;
     return {
         width,
         height,
-        maxOffsetX: Math.max(0, (width - PROJECT_IMAGE_PREVIEW_SIZE) / 2),
-        maxOffsetY: Math.max(0, (height - PROJECT_IMAGE_PREVIEW_SIZE) / 2),
+        maxOffsetX: Math.max(0, (width - WORKSPACE_IMAGE_PREVIEW_SIZE) / 2),
+        maxOffsetY: Math.max(0, (height - WORKSPACE_IMAGE_PREVIEW_SIZE) / 2),
     };
 }
 
@@ -130,12 +130,12 @@ function normalizeProjectImageDraft(draft: CoverDraft, updates: Partial<Pick<Cov
 
 function fitProjectImageDraft(draft: CoverDraft) {
     const coverScale = Math.max(
-        PROJECT_IMAGE_PREVIEW_SIZE / Math.max(1, draft.naturalWidth),
-        PROJECT_IMAGE_PREVIEW_SIZE / Math.max(1, draft.naturalHeight),
+        WORKSPACE_IMAGE_PREVIEW_SIZE / Math.max(1, draft.naturalWidth),
+        WORKSPACE_IMAGE_PREVIEW_SIZE / Math.max(1, draft.naturalHeight),
     );
     const containScale = Math.min(
-        PROJECT_IMAGE_PREVIEW_SIZE / Math.max(1, draft.naturalWidth),
-        PROJECT_IMAGE_PREVIEW_SIZE / Math.max(1, draft.naturalHeight),
+        WORKSPACE_IMAGE_PREVIEW_SIZE / Math.max(1, draft.naturalWidth),
+        WORKSPACE_IMAGE_PREVIEW_SIZE / Math.max(1, draft.naturalHeight),
     );
     const zoom = clamp(containScale / coverScale, PROJECT_IMAGE_MIN_ZOOM, PROJECT_IMAGE_MAX_ZOOM);
     return normalizeProjectImageDraft(draft, { zoom, offsetX: 0, offsetY: 0 });
@@ -191,15 +191,15 @@ function areStringArraysEqual(left: string[], right: string[]) {
 function splitProjectCategory(value: string) {
     const trimmed = value.trim();
     if (!trimmed) return { choice: "", custom: "" };
-    if (isKnownProjectType(trimmed)) return { choice: trimmed, custom: "" };
-    return { choice: OTHER_PROJECT_TYPE_ID, custom: trimmed };
+    if (isKnownWorkspaceType(trimmed)) return { choice: trimmed, custom: "" };
+    return { choice: OTHER_WORKSPACE_TYPE_ID, custom: trimmed };
 }
 
 function resolveProjectCategory(choice: string, custom: string) {
-    return choice === OTHER_PROJECT_TYPE_ID ? custom.trim() : choice.trim();
+    return choice === OTHER_WORKSPACE_TYPE_ID ? custom.trim() : choice.trim();
 }
 
-export function resetIdentityFromProject(project: any) {
+export function resetIdentityFromWorkspace(project: any) {
     const category = typeof project?.category === "string" ? project.category : "";
     const categoryState = splitProjectCategory(category);
     return {
@@ -236,7 +236,7 @@ export function GeneralSettingsSection({
     projectId: string;
     project: any;
     onProjectUpdated: (updates?: { coverImage?: string | null }) => void;
-    initialIdentity: ReturnType<typeof resetIdentityFromProject>;
+    initialIdentity: ReturnType<typeof resetIdentityFromWorkspace>;
     projectTitle: string;
     onProjectTitleChange: (title: string) => void;
 }) {
@@ -313,13 +313,13 @@ export function GeneralSettingsSection({
             return;
         }
         const nextCategory = resolveProjectCategory(categoryChoice, customCategory);
-        if (categoryChoice === OTHER_PROJECT_TYPE_ID && !nextCategory) {
+        if (categoryChoice === OTHER_WORKSPACE_TYPE_ID && !nextCategory) {
             toast.error("Add a custom category or choose one from the dropdown");
             return;
         }
         setSavingSettings(true);
         try {
-            const identityResult = await updateProject(projectId, {
+            const identityResult = await updateWorkspace(projectId, {
                 title: trimmedTitle,
                 shortDescription: shortDescription.trim() || null,
                 description: description.trim() || null,
@@ -332,13 +332,13 @@ export function GeneralSettingsSection({
                 return;
             }
 
-            setSavedIdentity(resetIdentityFromProject({ title: trimmedTitle, shortDescription: shortDescription.trim(), description: description.trim(), category: nextCategory, tags: [...tags], skills: [...skills], coverImage }));
+            setSavedIdentity(resetIdentityFromWorkspace({ title: trimmedTitle, shortDescription: shortDescription.trim(), description: description.trim(), category: nextCategory, tags: [...tags], skills: [...skills], coverImage }));
             onProjectTitleChange(trimmedTitle);
             setShortDescription(shortDescription.trim());
             setDescription(description.trim());
             toast.success("General settings updated");
             onProjectUpdated();
-            broadcastProjectUpdated(projectId);
+            broadcastWorkspaceUpdated(projectId);
             void queryClient.invalidateQueries({ queryKey: queryKeys.discover.projectsSimpleRoot() });
             void queryClient.invalidateQueries({ queryKey: queryKeys.globalSearch.discoverRoot() });
             router.refresh();
@@ -368,12 +368,12 @@ export function GeneralSettingsSection({
 
         const isGif = file.type === "image/gif" || file.name.toLowerCase().endsWith(".gif");
         const fileType = file.type || (isGif ? "image/gif" : "");
-        if (!ALLOWED_PROJECT_IMAGE_MIME_TYPES.has(fileType)) {
+        if (!ALLOWED_WORKSPACE_IMAGE_MIME_TYPES.has(fileType)) {
             toast.error("Unsupported image type", { description: "Use JPG, PNG, WebP, or GIF." });
             return;
         }
 
-        if (file.size > PROJECT_IMAGE_UPLOAD_MAX_BYTES) {
+        if (file.size > WORKSPACE_IMAGE_UPLOAD_MAX_BYTES) {
             toast.warning(`Image must be under 2 MB. Selected file is ${(file.size / (1024 * 1024)).toFixed(1)} MB.`);
             return;
         }
@@ -469,7 +469,7 @@ export function GeneralSettingsSection({
         if (!coverDraft) return;
         setUploadingCoverImage(true);
         try {
-            const finalized = await uploadProjectImage(projectId, coverDraft.file, {
+            const finalized = await uploadWorkspaceImage(projectId, coverDraft.file, {
                 zoom: coverDraft.zoom,
                 offsetX: coverDraft.offsetX,
                 offsetY: coverDraft.offsetY,
@@ -479,7 +479,7 @@ export function GeneralSettingsSection({
             setCoverDraft(null);
             toast.success(finalized.optimized ? "Workspace avatar optimized and updated" : "Workspace avatar updated");
             onProjectUpdated({ coverImage: finalized.publicUrl });
-            broadcastProjectUpdated(projectId, { coverImage: finalized.publicUrl });
+            broadcastWorkspaceUpdated(projectId, { coverImage: finalized.publicUrl });
             void queryClient.invalidateQueries({ queryKey: queryKeys.discover.projectsSimpleRoot() });
             void queryClient.invalidateQueries({ queryKey: queryKeys.globalSearch.discoverRoot() });
             router.refresh();
@@ -505,14 +505,14 @@ export function GeneralSettingsSection({
         }
         setUploadingCoverImage(true);
         try {
-            const result = await clearProjectCoverImageAction(projectId);
+            const result = await clearWorkspaceCoverImageAction(projectId);
             if (!result?.success) {
                 throw new Error(result.error || "Couldn’t remove workspace avatar");
             }
             setCoverImage("");
             toast.success("Workspace avatar removed");
             onProjectUpdated({ coverImage: null });
-            broadcastProjectUpdated(projectId, { coverImage: null });
+            broadcastWorkspaceUpdated(projectId, { coverImage: null });
             void queryClient.invalidateQueries({ queryKey: queryKeys.discover.projectsSimpleRoot() });
             void queryClient.invalidateQueries({ queryKey: queryKeys.globalSearch.discoverRoot() });
             router.refresh();
@@ -652,8 +652,8 @@ export function GeneralSettingsSection({
                                         alt=""
                                         draggable={false}
                                         className="absolute left-1/2 top-1/2 max-w-none select-none"
-                                        width={projectImagePreviewMetricsValue?.width ?? PROJECT_IMAGE_PREVIEW_SIZE}
-                                        height={projectImagePreviewMetricsValue?.height ?? PROJECT_IMAGE_PREVIEW_SIZE}
+                                        width={projectImagePreviewMetricsValue?.width ?? WORKSPACE_IMAGE_PREVIEW_SIZE}
+                                        height={projectImagePreviewMetricsValue?.height ?? WORKSPACE_IMAGE_PREVIEW_SIZE}
                                         style={{
                                             transform: `translate(calc(-50% + ${coverDraft.offsetX}px), calc(-50% + ${coverDraft.offsetY}px))`,
                                         }}
@@ -847,7 +847,7 @@ export function GeneralSettingsSection({
                         description="Keyword tags used for search indexing and discovery filters (up to 8 tags)."
                         values={tags}
                         onChange={setTags}
-                        suggestions={POPULAR_PROJECT_TAGS}
+                        suggestions={POPULAR_WORKSPACE_TAGS}
                         placeholder="Add a tag"
                         limit={PROJECT_TAG_LIMIT}
                     />

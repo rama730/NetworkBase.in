@@ -1,5 +1,5 @@
 import { normalizeSafeExternalUrl } from "@/lib/messaging/safe-links";
-import { genericSharePreview, parseShareResource, shareImageUrl, shareText, shareMetric, projectPreviewDestination, type ProjectShareDetails, type SharePreview } from '@/lib/sharing/presentation';
+import { genericSharePreview, parseShareResource, shareImageUrl, shareText, shareMetric, projectPreviewDestination, type WorkspaceShareDetails, type SharePreview } from '@/lib/sharing/presentation';
 
 
 import { normalizeDisplayAuthorization, type PreviewDisplayAuthorization } from './display-authorization';
@@ -13,9 +13,9 @@ export type LinkPreviewData = {
   displayAuthorization?: PreviewDisplayAuthorization | null;
 };
 
-function normalizeProjectDetails(value: unknown): ProjectShareDetails | undefined {
+function normalizeProjectDetails(value: unknown): WorkspaceShareDetails | undefined {
   if (!value || typeof value !== 'object') return undefined;
-  const data = value as ProjectShareDetails;
+  const data = value as WorkspaceShareDetails;
   const validId = (id: unknown): id is string => typeof id === 'string' && /^[a-f\d]{8}-[a-f\d]{4}-[a-f\d]{4}-[a-f\d]{4}-[a-f\d]{12}$/i.test(id);
   const team = Array.isArray(data.team) && data.team.length <= 5 && data.team.every(p=>p && validId(p.id) && shareText(p.name))
     && new Set(data.team.map(p=>p.id)).size === data.team.length ? data.team.map(p=>({id:p.id,name:shareText(p.name).slice(0,160),

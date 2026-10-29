@@ -13,17 +13,17 @@ import { cn } from '@/lib/utils';
 import { toast } from '@/lib/feedback';
 import { Button } from '@/components/ui/button';
 import { LifecycleEditor } from '@/components/workspaces/LifecycleEditor';
-import { ProjectLinkEditorFields } from '@/components/workspaces/dashboard/WorkspaceSocialLinksCard';
+import { WorkspaceLinkEditorFields } from '@/components/workspaces/dashboard/WorkspaceSocialLinksCard';
 import { SettingsSwitch } from '@/components/settings/ui/SettingsSwitch';
-import { CREATE_PROJECT_NOTIFICATION_ROWS } from '@/lib/notifications/workspace-policy';
+import { CREATE_WORKSPACE_NOTIFICATION_ROWS } from '@/lib/notifications/workspace-policy';
 import { socialLinkItemsFromStorage } from '@/lib/profile/normalization';
 import {
-    DEFAULT_PROJECT_PUBLIC_TAB_VISIBILITY,
-    PROJECT_PUBLIC_TAB_LABELS,
-    type ProjectPublicTabId,
+    DEFAULT_WORKSPACE_PUBLIC_TAB_VISIBILITY,
+    WORKSPACE_PUBLIC_TAB_LABELS,
+    type WorkspacePublicTabId,
 } from '@/lib/workspaces/settings-policies';
-import { ALLOWED_PROJECT_IMAGE_MIME_TYPES, PROJECT_IMAGE_UPLOAD_MAX_BYTES } from '@/lib/upload/workspace-image-upload-client';
-import { CreateProjectInput } from '@/lib/validations/workspace';
+import { ALLOWED_WORKSPACE_IMAGE_MIME_TYPES, WORKSPACE_IMAGE_UPLOAD_MAX_BYTES } from '@/lib/upload/workspace-image-upload-client';
+import { CreateWorkspaceInput } from '@/lib/validations/workspace';
 
 type Phase4SettingsProps = {
     showValidationSummary?: boolean;
@@ -47,7 +47,7 @@ const SECTIONS: ReadonlyArray<{ id: string; eyebrow: string; label: string; desc
 ] as const;
 type SectionId = 'picture' | 'access' | 'links' | 'documentation' | 'lifecycle' | 'permissions' | 'files' | 'notifications';
 
-const PUBLIC_TAB_ORDER: ProjectPublicTabId[] = ['dashboard', 'readme', 'updates', 'files', 'sprints', 'tasks'];
+const PUBLIC_TAB_ORDER: WorkspacePublicTabId[] = ['dashboard', 'readme', 'updates', 'files', 'sprints', 'tasks'];
 const sectionAnchor = (id: SectionId) => `create-project-launch-${id}`;
 
 function LaunchSection({ id, title, description, summary, collapsible, open, onToggle, children }: {
@@ -111,7 +111,7 @@ function ChoiceChip({ selected, onClick, children }: { selected: boolean; onClic
 }
 
 export default function Phase4Settings({ showValidationSummary = false, linkComposerPending = false, onLinkComposerPending, projectImage, onProjectImageChange }: Phase4SettingsProps) {
-    const { control, setValue, getFieldState, formState: { errors } } = useFormContext<CreateProjectInput>();
+    const { control, setValue, getFieldState, formState: { errors } } = useFormContext<CreateWorkspaceInput>();
     const isOrganization = Boolean(useWatch({ control, name: 'organization' }));
     const childOrg = useCreateLocation().org;
     // Report §19.7 and §23.6: the starter doc lists the org's templates first; files can start from a Template folder.
@@ -156,7 +156,7 @@ export default function Phase4Settings({ showValidationSummary = false, linkComp
         ],
     });
     const visibility = visibilityValue || 'public';
-    const publicTabs = { ...DEFAULT_PROJECT_PUBLIC_TAB_VISIBILITY, ...(publicTabsValue || {}) };
+    const publicTabs = { ...DEFAULT_WORKSPACE_PUBLIC_TAB_VISIBILITY, ...(publicTabsValue || {}) };
     const externalLinks = socialLinkItemsFromStorage(externalLinksValue);
     const docMode = readme?.mode === 'skip' ? 'skip' : 'starter';
     const lifecycleStages = lifecycleStagesValue || [];
@@ -232,11 +232,11 @@ export default function Phase4Settings({ showValidationSummary = false, linkComp
     useEffect(() => () => { if (imagePreviewUrl) URL.revokeObjectURL(imagePreviewUrl); }, [imagePreviewUrl]);
     const chooseImage = (file: File | undefined) => {
         if (!file) return;
-        if (!ALLOWED_PROJECT_IMAGE_MIME_TYPES.has(file.type)) {
+        if (!ALLOWED_WORKSPACE_IMAGE_MIME_TYPES.has(file.type)) {
             toast.error('Choose a PNG, JPG, WebP, or GIF image');
             return;
         }
-        if (file.size > PROJECT_IMAGE_UPLOAD_MAX_BYTES) {
+        if (file.size > WORKSPACE_IMAGE_UPLOAD_MAX_BYTES) {
             toast.error('Choose an image under 2 MB');
             return;
         }
@@ -247,7 +247,7 @@ export default function Phase4Settings({ showValidationSummary = false, linkComp
         setValue(name, value, { shouldDirty: true, shouldValidate: true });
 
     const publicTabCount = PUBLIC_TAB_ORDER.filter((tab) => publicTabs[tab]).length;
-    const notificationsOn = CREATE_PROJECT_NOTIFICATION_ROWS.filter((row) => notificationRows[row.id]).length;
+    const notificationsOn = CREATE_WORKSPACE_NOTIFICATION_ROWS.filter((row) => notificationRows[row.id]).length;
     const sourceSummary = sourceType === 'github'
         ? `Imported from ${importSource?.repoUrl?.replace('https://github.com/', '') || 'GitHub'} after creation`
         : sourceType === 'upload'
@@ -398,7 +398,7 @@ export default function Phase4Settings({ showValidationSummary = false, linkComp
                             <div className="mt-2 flex flex-wrap gap-2" role="group" aria-label="Public tabs">
                                 {PUBLIC_TAB_ORDER.map((tab) => (
                                     <ChoiceChip key={tab} selected={publicTabs[tab]} onClick={() => set('public_tab_visibility', { ...publicTabs, [tab]: !publicTabs[tab] })}>
-                                        {PROJECT_PUBLIC_TAB_LABELS[tab]}
+                                        {WORKSPACE_PUBLIC_TAB_LABELS[tab]}
                                     </ChoiceChip>
                                 ))}
                             </div>
@@ -407,13 +407,13 @@ export default function Phase4Settings({ showValidationSummary = false, linkComp
                     <p id="create-project-visibility-help" className="mt-3 max-w-[65ch] text-[13px] leading-[1.5] text-muted-foreground">
                         <span className="font-medium text-foreground">Visible when created: </span>
                         {visibility === 'public' || visibility === 'org'
-                            ? PUBLIC_TAB_ORDER.filter((tab) => publicTabs[tab]).map((tab) => PROJECT_PUBLIC_TAB_LABELS[tab]).join(' · ') || 'Workspace title and card only'
+                            ? PUBLIC_TAB_ORDER.filter((tab) => publicTabs[tab]).map((tab) => WORKSPACE_PUBLIC_TAB_LABELS[tab]).join(' · ') || 'Workspace title and card only'
                             : 'Members only. Tab choices apply once you make the workspace public.'}
                     </p>
                 </LaunchSection>
 
                 <LaunchSection {...sectionProps('links')} title="Workspace links" description="Website, repository, demo, or community. Shown beside the workspace title and across public surfaces." summary={externalLinks.length === 0 ? 'No links yet' : `${externalLinks.length} ${externalLinks.length === 1 ? 'link' : 'links'}`}>
-                    <ProjectLinkEditorFields
+                    <WorkspaceLinkEditorFields
                         links={externalLinks}
                         savedLinks={[]}
                         onChange={(links) => set('external_links', links)}
@@ -428,19 +428,19 @@ export default function Phase4Settings({ showValidationSummary = false, linkComp
                 <LaunchSection {...sectionProps('documentation')} title="Starter doc" description="The workspace Doc tab: setup notes, guidance, and how to contribute." summary={docMode === 'skip' ? 'No documents yet' : `${orgTemplates.find((t) => t.id === readme?.orgTemplateDocId)?.filename.replace(/\.md$/i, '') ?? (orgStarterDoc ? `${orgStarterDoc} template` : 'Starter template')} · ${readme?.publishOnCreate ? 'published' : 'draft'}`}>
                     <div className="flex flex-wrap gap-2" role="group" aria-label="Starter doc">
                         {orgTemplates.map((t) => (
-                            <ChoiceChip key={t.id} selected={docMode === 'starter' && readme?.orgTemplateDocId === t.id} onClick={() => set('readme', { ...readme, mode: 'starter', orgTemplateDocId: t.id } as CreateProjectInput['readme'])}>
+                            <ChoiceChip key={t.id} selected={docMode === 'starter' && readme?.orgTemplateDocId === t.id} onClick={() => set('readme', { ...readme, mode: 'starter', orgTemplateDocId: t.id } as CreateWorkspaceInput['readme'])}>
                                 {childOrg?.title}: {t.filename.replace(/\.md$/i, '')}
                             </ChoiceChip>
                         ))}
-                        <ChoiceChip selected={docMode === 'starter' && !readme?.orgTemplateDocId} onClick={() => set('readme', { ...readme, mode: 'starter', orgTemplateDocId: null } as CreateProjectInput['readme'])}>{orgStarterDoc ? `${orgStarterDoc} template` : 'Starter template'}</ChoiceChip>
-                        <ChoiceChip selected={docMode === 'skip'} onClick={() => set('readme', { ...readme, mode: 'skip', publishOnCreate: false } as CreateProjectInput['readme'])}>No documents yet</ChoiceChip>
+                        <ChoiceChip selected={docMode === 'starter' && !readme?.orgTemplateDocId} onClick={() => set('readme', { ...readme, mode: 'starter', orgTemplateDocId: null } as CreateWorkspaceInput['readme'])}>{orgStarterDoc ? `${orgStarterDoc} template` : 'Starter template'}</ChoiceChip>
+                        <ChoiceChip selected={docMode === 'skip'} onClick={() => set('readme', { ...readme, mode: 'skip', publishOnCreate: false } as CreateWorkspaceInput['readme'])}>No documents yet</ChoiceChip>
                     </div>
                     {sourceType !== 'scratch' ? (
                         <p className="nb-compact mt-3 flex items-start gap-2 text-muted-foreground"><Info className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />Your repository README can be linked from the Doc tab once the import finishes.</p>
                     ) : null}
                     {docMode === 'starter' ? (
                         <div className="mt-4 border-y border-border">
-                            <SwitchRow label="Publish the document when the workspace is created" description="Off: only the owner and admins can see it." checked={Boolean(readme?.publishOnCreate)} onCheckedChange={(checked) => set('readme', { ...readme, publishOnCreate: checked } as CreateProjectInput['readme'])} />
+                            <SwitchRow label="Publish the document when the workspace is created" description="Off: only the owner and admins can see it." checked={Boolean(readme?.publishOnCreate)} onCheckedChange={(checked) => set('readme', { ...readme, publishOnCreate: checked } as CreateWorkspaceInput['readme'])} />
                             <SwitchRow label="Members can edit the doc" description="Off: only the owner and admins can edit." checked={docEditPolicy === 'members'} onCheckedChange={(checked) => set('doc_edit_policy', checked ? 'members' : 'leaders')} />
                         </div>
                     ) : null}
@@ -492,9 +492,9 @@ export default function Phase4Settings({ showValidationSummary = false, linkComp
                     </div>
                 </LaunchSection>
 
-                <LaunchSection {...sectionProps('notifications')} title="What the team is told about" description="Workspace-wide notification rules. Each member can still tune their own." summary={`${notificationsOn} of ${CREATE_PROJECT_NOTIFICATION_ROWS.length} on`}>
+                <LaunchSection {...sectionProps('notifications')} title="What the team is told about" description="Workspace-wide notification rules. Each member can still tune their own." summary={`${notificationsOn} of ${CREATE_WORKSPACE_NOTIFICATION_ROWS.length} on`}>
                     <div className="border-y border-border">
-                        {CREATE_PROJECT_NOTIFICATION_ROWS.map((row) => (
+                        {CREATE_WORKSPACE_NOTIFICATION_ROWS.map((row) => (
                             <SwitchRow key={row.id} label={row.label} description={row.description} checked={notificationRows[row.id]} onCheckedChange={(checked) => set('notification_rows', { ...notificationRows, [row.id]: checked })} />
                         ))}
                     </div>

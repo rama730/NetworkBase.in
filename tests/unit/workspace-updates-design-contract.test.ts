@@ -40,23 +40,23 @@ test("Project Updates Tab Design Specification Conformance Contract (Section 25 
 
     await t.test("Strict zero rounded-full controls across all updates components", () => {
         assert.doesNotMatch(updatesTab, /rounded-full/, "UpdatesTab must not have rounded-full controls");
-        assert.doesNotMatch(composer, /rounded-full/, "ProjectUpdateComposer must not have rounded-full controls");
-        assert.doesNotMatch(mediaFrame, /rounded-full/, "ProjectUpdateMediaFrame must not have rounded-full controls");
-        assert.doesNotMatch(editor, /rounded-full/, "ProjectUpdateRichTextEditor must not have rounded-full controls");
+        assert.doesNotMatch(composer, /rounded-full/, "WorkspaceUpdateComposer must not have rounded-full controls");
+        assert.doesNotMatch(mediaFrame, /rounded-full/, "WorkspaceUpdateMediaFrame must not have rounded-full controls");
+        assert.doesNotMatch(editor, /rounded-full/, "WorkspaceUpdateRichTextEditor must not have rounded-full controls");
     });
 
     await t.test("Strict zero zinc-* and zero blue-* color token leaks across all updates components", () => {
         assert.doesNotMatch(updatesTab, /text-zinc-|bg-zinc-|border-zinc-|divide-zinc-/, "UpdatesTab must have zero zinc leaks");
         assert.doesNotMatch(updatesTab, /text-blue-|bg-blue-|border-blue-/, "UpdatesTab must have zero blue leaks");
 
-        assert.doesNotMatch(composer, /text-zinc-|bg-zinc-|border-zinc-|divide-zinc-/, "ProjectUpdateComposer must have zero zinc leaks");
-        assert.doesNotMatch(composer, /text-blue-|bg-blue-|border-blue-/, "ProjectUpdateComposer must have zero blue leaks");
+        assert.doesNotMatch(composer, /text-zinc-|bg-zinc-|border-zinc-|divide-zinc-/, "WorkspaceUpdateComposer must have zero zinc leaks");
+        assert.doesNotMatch(composer, /text-blue-|bg-blue-|border-blue-/, "WorkspaceUpdateComposer must have zero blue leaks");
 
-        assert.doesNotMatch(mediaFrame, /text-zinc-|bg-zinc-|border-zinc-|divide-zinc-/, "ProjectUpdateMediaFrame must have zero zinc leaks");
-        assert.doesNotMatch(mediaFrame, /text-blue-|bg-blue-|border-blue-/, "ProjectUpdateMediaFrame must have zero blue leaks");
+        assert.doesNotMatch(mediaFrame, /text-zinc-|bg-zinc-|border-zinc-|divide-zinc-/, "WorkspaceUpdateMediaFrame must have zero zinc leaks");
+        assert.doesNotMatch(mediaFrame, /text-blue-|bg-blue-|border-blue-/, "WorkspaceUpdateMediaFrame must have zero blue leaks");
 
-        assert.doesNotMatch(editor, /text-zinc-|bg-zinc-|border-zinc-|divide-zinc-/, "ProjectUpdateRichTextEditor must have zero zinc leaks");
-        assert.doesNotMatch(editor, /text-blue-|bg-blue-|border-blue-/, "ProjectUpdateRichTextEditor must have zero blue leaks");
+        assert.doesNotMatch(editor, /text-zinc-|bg-zinc-|border-zinc-|divide-zinc-/, "WorkspaceUpdateRichTextEditor must have zero zinc leaks");
+        assert.doesNotMatch(editor, /text-blue-|bg-blue-|border-blue-/, "WorkspaceUpdateRichTextEditor must have zero blue leaks");
     });
 
     await t.test("UpdatesTab empty states adhere to NetworkBase standard .nb-empty-state tokens", () => {
@@ -66,7 +66,7 @@ test("Project Updates Tab Design Specification Conformance Contract (Section 25 
         assert.match(updatesTab, /nb-empty-state-desc/, "Empty state description must use .nb-empty-state-desc");
     });
 
-    await t.test("ProjectUpdateComposer adheres to audience label and toolbar design contracts", () => {
+    await t.test("WorkspaceUpdateComposer adheres to audience label and toolbar design contracts", () => {
         // Audience chip must show "Public" and never "Public followers"
         assert.match(composer, /visibility === "public" \? "Public" : "Workspace members"/, "Audience chip must display 'Public' instead of 'Public followers'");
         assert.doesNotMatch(composer, /Public followers/, "Composer must not contain 'Public followers'");

@@ -21,7 +21,7 @@ test("project notifications tab eliminates duplicate header and redundant cards,
     // 2. Extract notifications section block
     const notifBlock =
         settingsTab.split('id="project-settings-notifications"')[1]?.split('id="project-settings-privacy-policies"')[0] ?? "";
-    assert.ok(notifBlock.length > 0, "notifications settings block must exist in ProjectSettingsTab");
+    assert.ok(notifBlock.length > 0, "notifications settings block must exist in WorkspaceSettingsTab");
 
     // 3. Redundant SummaryCard, fragmented split cards, and outer AdvancedDisclosure removed
     assert.doesNotMatch(
@@ -93,8 +93,8 @@ test("project notifications tab eliminates duplicate header and redundant cards,
     );
     assert.match(
         notifBlock,
-        /<ProjectNotificationCategoryCard/,
-        "Must render ProjectNotificationCategoryCard for each workflow category",
+        /<WorkspaceNotificationCategoryCard/,
+        "Must render WorkspaceNotificationCategoryCard for each workflow category",
     );
     assert.match(
         settingsTab,

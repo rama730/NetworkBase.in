@@ -1,16 +1,16 @@
 'use server';
 
 import { createAdminClient, createClient } from '@/lib/supabase/server';
-import { assertProjectUploadAccess } from '@/lib/files/internal-helpers';
-import { isCanonicalProjectFileKey, parseProjectFileKey } from '@/lib/storage/workspace-file-key';
+import { assertWorkspaceUploadAccess } from '@/lib/files/internal-helpers';
+import { isCanonicalWorkspaceFileKey, parseWorkspaceFileKey } from '@/lib/storage/workspace-file-key';
 import { logger } from '@/lib/logger';
 import {
     normalizeAndValidateFileSize,
     normalizeAndValidateMimeType,
-    PROJECT_UPLOAD_MAX_FILE_BYTES,
+    WORKSPACE_UPLOAD_MAX_FILE_BYTES,
 } from '@/lib/upload/security';
 import { createUploadIntent, createUploadIntents } from '@/lib/upload/upload-intents';
-import { allocateProjectObjectKey } from '@/lib/upload/workspace-upload-allocation';
+import { allocateWorkspaceObjectKey } from '@/lib/upload/workspace-upload-allocation';
 
 const MAX_BATCH_UPLOAD_KEYS = 50;
 
@@ -29,16 +29,16 @@ function isUploadValidationError(message: string): boolean {
 }
 
 async function assertUploadAccessForKey(key: string, userId: string) {
-    const parsed = parseProjectFileKey(key);
+    const parsed = parseWorkspaceFileKey(key);
     if (!parsed) {
         throw new Error(UPLOAD_ERROR_CODES.KEY_FORMAT_INVALID);
     }
-    if (!isCanonicalProjectFileKey(key)) {
+    if (!isCanonicalWorkspaceFileKey(key)) {
         throw new Error(UPLOAD_ERROR_CODES.KEY_FORMAT_INVALID);
     }
     const projectId = parsed.projectId;
     // Org members upload only to their own copies; createFileNode checks the exact copy (report §23.5).
-    await assertProjectUploadAccess(projectId, userId, { anyOwnCopy: true });
+    await assertWorkspaceUploadAccess(projectId, userId, { anyOwnCopy: true });
     return projectId;
 }
 
@@ -66,8 +66,8 @@ export async function getUploadPresignedUrl(
 
         const projectId = await assertUploadAccessForKey(key, user.id);
         const normalizedMimeType = normalizeAndValidateMimeType(contentType);
-        const normalizedSize = normalizeAndValidateFileSize(sizeBytes, PROJECT_UPLOAD_MAX_FILE_BYTES);
-        const storageKey = allocateProjectObjectKey(projectId, key, normalizedMimeType);
+        const normalizedSize = normalizeAndValidateFileSize(sizeBytes, WORKSPACE_UPLOAD_MAX_FILE_BYTES);
+        const storageKey = allocateWorkspaceObjectKey(projectId, key, normalizedMimeType);
 
         const supabase = await createAdminClient();
 
@@ -151,27 +151,27 @@ export async function getBatchUploadUrls(
         const normalizedItems = keys.map((item) => ({
             key: item.key,
             contentType: normalizeAndValidateMimeType(item.contentType),
-            sizeBytes: normalizeAndValidateFileSize(item.sizeBytes, PROJECT_UPLOAD_MAX_FILE_BYTES),
+            sizeBytes: normalizeAndValidateFileSize(item.sizeBytes, WORKSPACE_UPLOAD_MAX_FILE_BYTES),
         }));
         if (new Set(normalizedItems.map((item) => item.key)).size !== normalizedItems.length) {
             return { error: 'Duplicate upload request identities are not allowed' };
         }
 
-        const firstParsed = parseProjectFileKey(normalizedItems[0]?.key || '');
-        if (!firstParsed || !isCanonicalProjectFileKey(normalizedItems[0]?.key || '')) {
+        const firstParsed = parseWorkspaceFileKey(normalizedItems[0]?.key || '');
+        if (!firstParsed || !isCanonicalWorkspaceFileKey(normalizedItems[0]?.key || '')) {
             return { error: 'Invalid upload key format', code: UPLOAD_ERROR_CODES.KEY_FORMAT_INVALID };
         }
         const firstProjectId = firstParsed.projectId;
 
         // Ensure all keys belong to the same project
         for (const item of normalizedItems) {
-            const parsed = parseProjectFileKey(item.key);
-            if (!parsed || !isCanonicalProjectFileKey(item.key) || parsed.projectId !== firstProjectId) {
+            const parsed = parseWorkspaceFileKey(item.key);
+            if (!parsed || !isCanonicalWorkspaceFileKey(item.key) || parsed.projectId !== firstProjectId) {
                 return { error: 'Invalid upload key format', code: UPLOAD_ERROR_CODES.KEY_FORMAT_INVALID };
             }
         }
 
-        await assertProjectUploadAccess(firstProjectId, user.id, { anyOwnCopy: true });
+        await assertWorkspaceUploadAccess(firstProjectId, user.id, { anyOwnCopy: true });
 
         const supabase = await createAdminClient();
         const urls: Record<string, string> = {};
@@ -180,7 +180,7 @@ export async function getBatchUploadUrls(
         const storageKeys: Record<string, string> = {};
         const allocatedItems = normalizedItems.map((item) => ({
             ...item,
-            storageKey: allocateProjectObjectKey(firstProjectId, item.key, item.contentType),
+            storageKey: allocateWorkspaceObjectKey(firstProjectId, item.key, item.contentType),
         }));
 
         const intents = await createUploadIntents(allocatedItems.map(({ key, storageKey, contentType, sizeBytes }) => ({

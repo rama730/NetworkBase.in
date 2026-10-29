@@ -1,5 +1,5 @@
 import { useCallback } from "react";
-import { moveProjectNodes } from "@/app/actions/files/mutations";
+import { moveWorkspaceNodes } from "@/app/actions/files/mutations";
 import type { ProjectNode } from "@/lib/db/schema";
 import { getErrorMessage, type ExplorerOperation } from "./explorerTypes";
 
@@ -57,7 +57,7 @@ export function useExplorerDragDrop(options: {
             if (oldParentId !== folderId) staleParents.add(oldParentId);
           }
 
-          const updatedNodes = (await moveProjectNodes(
+          const updatedNodes = (await moveWorkspaceNodes(
             sortedIds,
             folderId,
             projectId,
@@ -90,7 +90,7 @@ export function useExplorerDragDrop(options: {
               for (const [parentKey, ids] of Object.entries(groupedByParent)) {
                 const pId = parentKey === "__root__" ? null : parentKey;
                 if (ids.length > 0) {
-                  const restored = (await moveProjectNodes(ids, pId, projectId)).nodes;
+                  const restored = (await moveWorkspaceNodes(ids, pId, projectId)).nodes;
                   if (restored.length > 0) upsertNodes(projectId, restored);
                   await loadFolderContent(pId, "refresh");
                 }

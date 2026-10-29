@@ -1,6 +1,6 @@
 'use client';
 
-import { buildProjectFileKey } from '@/lib/storage/workspace-file-key';
+import { buildWorkspaceFileKey } from '@/lib/storage/workspace-file-key';
 import { uploadToSupabaseSignedUrl } from '@/lib/upload/supabase-signed-upload-client';
 
 export interface UploadProgress {
@@ -75,7 +75,7 @@ function createTasks(files: FileList, projectId: string): UploadTask[] {
         tasks.push({
             file,
             relativePath,
-            s3Key: buildProjectFileKey(projectId, relativePath),
+            s3Key: buildWorkspaceFileKey(projectId, relativePath),
         });
     }
     // Upload larger files first so tail latency is lower and retries are front-loaded.

@@ -1,6 +1,6 @@
-import { buildProjectDocPlainText } from "@/lib/workspaces/doc-plain-text";
+import { buildWorkspaceDocPlainText } from "@/lib/workspaces/doc-plain-text";
 
-export type ProjectDocHeading = {
+export type WorkspaceDocHeading = {
     id: string;
     level: number;
     text: string;
@@ -22,7 +22,7 @@ export function slugifyReadmeHeading(value: string, existing = new Set<string>()
     return candidate;
 }
 
-export function extractProjectDocHeadings(content: string): ProjectDocHeading[] {
+export function extractWorkspaceDocHeadings(content: string): WorkspaceDocHeading[] {
     const ids = new Set<string>();
     let inFence = false;
     return content
@@ -36,13 +36,13 @@ export function extractProjectDocHeadings(content: string): ProjectDocHeading[] 
 
             const match = /^(#{1,4})\s+(.+?)\s*#*\s*$/.exec(line.trim());
             if (!match) return null;
-            const text = buildProjectDocPlainText(match[2], { maxLength: 120, stripCodeBlocks: false });
+            const text = buildWorkspaceDocPlainText(match[2], { maxLength: 120, stripCodeBlocks: false });
             if (!text) return null;
             return {
                 id: slugifyReadmeHeading(text, ids),
                 level: match[1]?.length ?? 1,
                 text,
-            } satisfies ProjectDocHeading;
+            } satisfies WorkspaceDocHeading;
         })
-        .filter((heading): heading is ProjectDocHeading => Boolean(heading));
+        .filter((heading): heading is WorkspaceDocHeading => Boolean(heading));
 }

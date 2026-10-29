@@ -21,7 +21,7 @@ test("project lifecycle tab eliminates duplicate header and redundant summary ca
     // 2. Extract tasks-workflow section block
     const workflowBlock =
         settingsTab.split('id="project-settings-tasks-workflow"')[1]?.split('id="project-settings-files-workspace"')[0] ?? "";
-    assert.ok(workflowBlock.length > 0, "tasks-workflow settings block must exist in ProjectSettingsTab");
+    assert.ok(workflowBlock.length > 0, "tasks-workflow settings block must exist in WorkspaceSettingsTab");
 
     // 3. Redundant SummaryCard must be removed
     assert.doesNotMatch(

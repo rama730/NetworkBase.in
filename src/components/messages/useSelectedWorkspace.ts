@@ -12,7 +12,7 @@ const ROUTE_ID = /^\/messages\/(p\/)?([0-9a-f-]{36})/i;
  * channel's project (opening another project's channel from ⌘K, the Inbox or Search shows that
  * project), else the user's pick. A project you're not in shows All.
  */
-export function useSelectedProject(): string | null {
+export function useSelectedWorkspace(): string | null {
   const chosen = useChatUi((state) => state.projectId);
   const { data } = useChatShell();
   const pathname = usePathname() ?? "";

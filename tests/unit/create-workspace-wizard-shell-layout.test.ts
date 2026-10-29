@@ -41,7 +41,7 @@ test("create-workspace is a normal page inside the app shell: no modal, one 1000
   // Sidebar and top bar stay, exactly like every other page.
   assert.doesNotMatch(layout, /if \(focus\)/);
   assert.match(layout, /<AppSidebar \/>[\s\S]*<TopNav \/>[\s\S]*\{children\}/);
-  assert.match(loading, /<CreateProjectShellSkeleton \/>/);
+  assert.match(loading, /<CreateWorkspaceShellSkeleton \/>/);
   assert.match(chat, /NO_WINDOW_PREFIXES = \["\/messages", "\/workspaces\/new", "\/my-profile\/edit"\]/);
   // Browser Back keeps work: unsaved changes are saved as a draft on unmount unless the user chose to leave.
   assert.match(hook, /if \(hasUnsavedRef\.current && !skipDraftOnUnmountRef\.current\) void saveDraftRef\.current\(true\)/);

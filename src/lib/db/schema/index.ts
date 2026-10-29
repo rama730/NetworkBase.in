@@ -30,7 +30,7 @@ const tsvector = customType<{ data: string }>({
 type ProfileExperienceEntry = Record<string, unknown>;
 type ProfileEducationEntry = Record<string, unknown>;
 type ImportSourceMetadata = Record<string, unknown>;
-type ProjectPublicTabVisibility = {
+type WorkspacePublicTabVisibility = {
   dashboard: boolean;
   readme: boolean;
   updates: boolean;
@@ -38,7 +38,7 @@ type ProjectPublicTabVisibility = {
   sprints: boolean;
   tasks: boolean;
 };
-type ProjectUpdateEntityRefs = {
+type WorkspaceUpdateEntityRefs = {
   taskId?: string | null;
   sprintId?: string | null;
   fileId?: string | null;
@@ -46,7 +46,7 @@ type ProjectUpdateEntityRefs = {
   roleId?: string | null;
   milestoneId?: string | null;
 };
-type ProjectUpdateMediaItem = {
+type WorkspaceUpdateMediaItem = {
   type: "image" | "file" | "link";
   url?: string | null;
   label?: string | null;
@@ -754,7 +754,7 @@ export const projects = pgTable(
       .default({})
       .notNull(),
     externalLinkMetadata: jsonb("external_link_metadata")
-      .$type<import("@/lib/profile/normalization").ProjectLinkMetadataRecord>()
+      .$type<import("@/lib/profile/normalization").WorkspaceLinkMetadataRecord>()
       .default({})
       .notNull(),
     // "org" = Org only: readable by people in the parent org (0241).
@@ -788,7 +788,7 @@ export const projects = pgTable(
     statusSetBy: uuid("status_set_by"),
     statusSetAt: timestamp("status_set_at", { withTimezone: true }),
     publicTabVisibility: jsonb("public_tab_visibility")
-      .$type<ProjectPublicTabVisibility>()
+      .$type<WorkspacePublicTabVisibility>()
       .default({
         dashboard: true,
         readme: true,
@@ -1800,11 +1800,11 @@ export const projectUpdates = pgTable(
     pinnedUntil: timestamp("pinned_until", { withTimezone: true }),
     sharedToOrgAt: timestamp("shared_to_org_at", { withTimezone: true }),
     entityRefs: jsonb("entity_refs")
-      .$type<ProjectUpdateEntityRefs>()
+      .$type<WorkspaceUpdateEntityRefs>()
       .default({})
       .notNull(),
     media: jsonb("media")
-      .$type<ProjectUpdateMediaItem[]>()
+      .$type<WorkspaceUpdateMediaItem[]>()
       .default([])
       .notNull(),
     metadata: jsonb("metadata")
@@ -1914,11 +1914,11 @@ export const projectUpdateDrafts = pgTable(
       ],
     }),
     entityRefs: jsonb("entity_refs")
-      .$type<ProjectUpdateEntityRefs>()
+      .$type<WorkspaceUpdateEntityRefs>()
       .default({})
       .notNull(),
     media: jsonb("media")
-      .$type<ProjectUpdateMediaItem[]>()
+      .$type<WorkspaceUpdateMediaItem[]>()
       .default([])
       .notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true })
@@ -2922,7 +2922,7 @@ export const projectNodes = pgTable(
       t.path,
     ),
     // Optimization: Covered Index for listing (Listing Optimization)
-    // Allows "Index Only Scan" for getProjectNodes which filters by (projectId, parentId) and sorts by (type, name)
+    // Allows "Index Only Scan" for getWorkspaceNodes which filters by (projectId, parentId) and sorts by (type, name)
     listingIdx: index("project_nodes_listing_idx").on(
       t.projectId,
       t.parentId,
@@ -4354,7 +4354,7 @@ export type ConnectionSuggestionDismissal =
   typeof connectionSuggestionDismissals.$inferSelect;
 export type NewConnectionSuggestionDismissal =
   typeof connectionSuggestionDismissals.$inferInsert;
-export type Project = typeof projects.$inferSelect;
+export type Workspace = typeof projects.$inferSelect;
 export type NewProject = typeof projects.$inferInsert;
 export type ProjectMember = typeof projectMembers.$inferSelect;
 export type NewProjectMember = typeof projectMembers.$inferInsert;

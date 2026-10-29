@@ -42,7 +42,7 @@ export type PersonPresence = {
   realtime: boolean;
 };
 
-export type ProjectStatus = {
+export type WorkspaceStatus = {
   emoji: string | null;
   text: string | null;
   expiresAt: string | null;
@@ -61,7 +61,7 @@ export const STATUS_SUGGESTIONS: StatusSuggestion[] = [
   { emoji: "🏡", text: "Working remotely", clearAfter: "today", pauses: false },
 ];
 
-export const PROJECT_STATUS_SUGGESTIONS: StatusSuggestion[] = [
+export const WORKSPACE_STATUS_SUGGESTIONS: StatusSuggestion[] = [
   { emoji: "🏃", text: "Sprinting", clearAfter: "week", pauses: false },
   { emoji: "🚀", text: "Launching", clearAfter: "custom", pauses: false },
   { emoji: "🙋", text: "Hiring", clearAfter: "never", pauses: false },

@@ -5,16 +5,16 @@ import { importJobs, importJobFiles } from '@/lib/db/schema';
 import { eq, and, inArray } from 'drizzle-orm';
 import { jsonError, jsonSuccess } from '@/app/api/v1/_envelope';
 import { validateCsrf } from '@/lib/security/csrf';
-import { assertProjectWriteAccess } from '@/lib/files/internal-helpers';
+import { assertWorkspaceWriteAccess } from '@/lib/files/internal-helpers';
 import { enforceRouteLimit, requireAuthenticatedUser } from '@/app/api/v1/_shared';
 import { z } from 'zod';
-import { buildProjectFileKey } from '@/lib/storage/workspace-file-key';
+import { buildWorkspaceFileKey } from '@/lib/storage/workspace-file-key';
 import { createUploadIntents } from '@/lib/upload/upload-intents';
 import {
   normalizeAndValidateFileSize,
   normalizeAndValidateMimeType,
   normalizeAndValidateUploadRelativePath,
-  PROJECT_UPLOAD_MAX_FILE_BYTES,
+  WORKSPACE_UPLOAD_MAX_FILE_BYTES,
 } from '@/lib/upload/security';
 
 export const runtime = 'nodejs';
@@ -73,7 +73,7 @@ export async function POST(request: NextRequest) {
     const { jobId } = parsed.data;
     const files = parsed.data.files.map((file) => ({
       path: normalizeAndValidateUploadRelativePath(file.path),
-      size: normalizeAndValidateFileSize(file.size, PROJECT_UPLOAD_MAX_FILE_BYTES),
+      size: normalizeAndValidateFileSize(file.size, WORKSPACE_UPLOAD_MAX_FILE_BYTES),
       mimeType: normalizeAndValidateMimeType(file.mimeType),
       checksum: file.checksum.toLowerCase(),
     }));
@@ -90,7 +90,7 @@ export async function POST(request: NextRequest) {
       return jsonError('Import job not active or not found', 404, 'NOT_FOUND');
     }
 
-    await assertProjectWriteAccess(job.projectId, user.id);
+    await assertWorkspaceWriteAccess(job.projectId, user.id);
 
     // 2. Fetch all registered job files in a single query
     const paths = files.map((f) => f.path);
@@ -129,7 +129,7 @@ export async function POST(request: NextRequest) {
       return {
         file,
         jobFileId: jobFile.id,
-        storageKey: buildProjectFileKey(job.projectId, `imports/${jobId}/${jobFile.id}-${file.checksum}`),
+        storageKey: buildWorkspaceFileKey(job.projectId, `imports/${jobId}/${jobFile.id}-${file.checksum}`),
       };
     });
     const intents = await createUploadIntents(allocations.map((item) => ({

@@ -87,7 +87,7 @@ export function orgFeedWhere(ctx: OrgUpdateContext, viewerId: string | null, fil
 }
 
 /** Titles for the "From <project>" chip on shared posts. */
-export async function readProjectTitles(ids: string[]) {
+export async function readWorkspaceTitles(ids: string[]) {
   if (ids.length === 0) return new Map<string, { title: string; slug: string | null }>();
   const rows = await db.select({ id: projects.id, title: projects.title, slug: projects.slug }).from(projects).where(inArray(projects.id, ids));
   return new Map(rows.map((r) => [r.id, { title: r.title, slug: r.slug }]));

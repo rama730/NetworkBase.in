@@ -9,7 +9,7 @@ import {
   storageAssets,
   taskNodeLinks,
 } from "@/lib/db/schema";
-import { parseProjectFileKey } from "@/lib/storage/workspace-file-key";
+import { parseWorkspaceFileKey } from "@/lib/storage/workspace-file-key";
 import { recordNodeEvent } from "./internal-helpers";
 
 type Transaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
@@ -90,7 +90,7 @@ export async function inspectPermanentDelete(
   ];
   if (keys.length > MAX_PURGE_KEYS)
     throw new Error("Too many stored objects to delete in one operation.");
-  if (keys.some((key) => parseProjectFileKey(key)?.projectId !== projectId))
+  if (keys.some((key) => parseWorkspaceFileKey(key)?.projectId !== projectId))
     throw new Error(
       "A storage key could not be safely verified. No files were deleted.",
     );

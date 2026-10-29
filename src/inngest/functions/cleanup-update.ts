@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 import { projectUpdateComments } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 
-export const cleanupProjectUpdate = inngest.createFunction(
+export const cleanupWorkspaceUpdate = inngest.createFunction(
     { id: "project-update-cleanup", name: "Cleanup Pinned Media and Comments for Deleted Updates" },
     { event: "project/updates.cleanup" },
     async ({ event, step }) => {

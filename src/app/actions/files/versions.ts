@@ -19,27 +19,27 @@ import { after } from "next/server";
 import { consumeRateLimit } from "@/lib/security/rate-limit";
 import { logger } from "@/lib/logger";
 import {
-  buildProjectFileKey,
-  isCanonicalProjectFileKey,
-  parseProjectFileKey,
+  buildWorkspaceFileKey,
+  isCanonicalWorkspaceFileKey,
+  parseWorkspaceFileKey,
 } from "@/lib/storage/workspace-file-key";
 import {
   normalizeAndValidateFileSize,
   normalizeAndValidateMimeType,
   normalizeAndValidateUploadRelativePath,
-  PROJECT_UPLOAD_MAX_FILE_BYTES,
+  WORKSPACE_UPLOAD_MAX_FILE_BYTES,
 } from "@/lib/upload/security";
 import { finalizeUploadIntent } from "@/lib/upload/upload-intents";
 import { notifyForFileVersionCreated } from "@/lib/notifications/task-file";
-import { enqueueProjectNotificationEvent } from "@/lib/notifications/workspace-events";
+import { enqueueWorkspaceNotificationEvent } from "@/lib/notifications/workspace-events";
 import {
-  assertProjectFileReadAccess,
+  assertWorkspaceFileReadAccess,
   assertFileNodeVisible,
-  assertProjectManageFilesAccess,
-  assertProjectManageFilesAccessTx,
-  assertProjectUploadAccess,
-  assertProjectWriteAccess,
-  assertProjectWriteAccessTx,
+  assertWorkspaceManageFilesAccess,
+  assertWorkspaceManageFilesAccessTx,
+  assertWorkspaceUploadAccess,
+  assertWorkspaceWriteAccess,
+  assertWorkspaceWriteAccessTx,
   recordNodeEvent,
 } from "@/lib/files/internal-helpers";
 import { applyFileRevision } from "@/lib/files/apply-file-revision";
@@ -59,14 +59,14 @@ import {
  * number. Both paths update the node and sidecar row in one transaction.
  *
  * Upload-like actions re-verify upload access inside the transaction
- * (`assertProjectUploadAccessTx`) so per-member file-intake toggles cannot be
+ * (`assertWorkspaceUploadAccessTx`) so per-member file-intake toggles cannot be
  * bypassed between signed upload creation and version replacement.
  */
 
 const LIST_VERSIONS_MAX = 200;
 
 async function assertVersionNodeReadable(projectId: string, nodeId: string, actorId: string | null) {
-  const access = await assertProjectFileReadAccess(projectId, actorId);
+  const access = await assertWorkspaceFileReadAccess(projectId, actorId);
   const node = await db.query.projectNodes.findFirst({
     where: and(eq(projectNodes.id, nodeId), eq(projectNodes.projectId, projectId)),
     columns: { id: true, path: true, taskId: true, deletedAt: true },
@@ -82,9 +82,9 @@ function actorNotificationSnapshot(user: { user_metadata?: Record<string, unknow
   };
 }
 
-async function enqueueProjectFileVersionNotification(input: Parameters<typeof enqueueProjectNotificationEvent>[0]) {
+async function enqueueProjectFileVersionNotification(input: Parameters<typeof enqueueWorkspaceNotificationEvent>[0]) {
   try {
-    await enqueueProjectNotificationEvent(input);
+    await enqueueWorkspaceNotificationEvent(input);
   } catch (error) {
     logger.warn("files.project_policy_notification_failed", {
       module: "files",
@@ -109,7 +109,7 @@ export async function listFileVersionsPage(
     : Math.max(1, Math.trunc(options.beforeVersion));
   const { user } = await requireAuthenticatedUser();
   const actorId = user?.id ?? null;
-  const access = await assertProjectFileReadAccess(projectId, actorId);
+  const access = await assertWorkspaceFileReadAccess(projectId, actorId);
 
   // Confirm the node belongs to the project (defense-in-depth on top of RLS).
   const node = await db.query.projectNodes.findFirst({
@@ -183,7 +183,7 @@ export async function getVersionPreviewUrl(
   if (!version_row?.s3Key) throw new Error("Version not found");
 
   // Sanity: the key must belong to this project.
-  const parsed = parseProjectFileKey(version_row.s3Key);
+  const parsed = parseWorkspaceFileKey(version_row.s3Key);
   if (!parsed || parsed.projectId !== projectId) {
     throw new Error("Version key does not belong to this workspace");
   }
@@ -242,7 +242,7 @@ export async function applyUploadedFileRevision(input: {
   if (!user) throw new Error("Sign in to continue");
   const { allowed } = await consumeRateLimit(`files-versions:${user.id}`, 30, 60);
   if (!allowed) throw new Error("Too many attempts. Try again in a minute.");
-  await assertProjectUploadAccess(input.projectId, user.id);
+  await assertWorkspaceUploadAccess(input.projectId, user.id);
 
   const finalizedIntent = await finalizeUploadIntent({
     intentId: input.uploadIntentId,
@@ -254,21 +254,21 @@ export async function applyUploadedFileRevision(input: {
     expectedKind: "file",
   });
 
-  const parsedKey = parseProjectFileKey(finalizedIntent.storageKey);
+  const parsedKey = parseWorkspaceFileKey(finalizedIntent.storageKey);
   if (
     !parsedKey ||
-    !isCanonicalProjectFileKey(finalizedIntent.storageKey) ||
+    !isCanonicalWorkspaceFileKey(finalizedIntent.storageKey) ||
     parsedKey.projectId !== input.projectId
   ) {
     throw new Error("Invalid file storage key");
   }
   const normalizedRelativePath = normalizeAndValidateUploadRelativePath(parsedKey.relativePath);
-  const canonicalS3Key = buildProjectFileKey(input.projectId, normalizedRelativePath);
+  const canonicalS3Key = buildWorkspaceFileKey(input.projectId, normalizedRelativePath);
   // The node must point at the object that was actually uploaded and verified.
   if (canonicalS3Key !== finalizedIntent.storageKey) throw new Error("Invalid file storage key");
   const normalizedSize = normalizeAndValidateFileSize(
     finalizedIntent.finalizedSize ?? input.size,
-    PROJECT_UPLOAD_MAX_FILE_BYTES,
+    WORKSPACE_UPLOAD_MAX_FILE_BYTES,
   );
   const normalizedMimeType = normalizeAndValidateMimeType(
     finalizedIntent.finalizedMimeType ?? input.mimeType,
@@ -380,7 +380,7 @@ export async function restoreFileVersion(
   if (!user) throw new Error("Sign in to continue");
   const { allowed } = await consumeRateLimit(`files-versions:${user.id}`, 30, 60);
   if (!allowed) throw new Error("Too many attempts. Try again in a minute.");
-  await assertProjectWriteAccess(projectId, user.id);
+  await assertWorkspaceWriteAccess(projectId, user.id);
 
   const result = await withTransientFileLease(
     { projectId, nodeId, userId: user.id },
@@ -482,12 +482,12 @@ export async function deleteFileVersionAction(
   if (!allowed) throw new Error("Too many attempts. Try again in a minute.");
 
   // Deleting a version destroys history: the same capability as permanent delete.
-  await assertProjectManageFilesAccess(projectId, user.id);
+  await assertWorkspaceManageFilesAccess(projectId, user.id);
 
   const mutation = await withTransientFileLease(
     { projectId, nodeId, userId: user.id },
     (lease) => db.transaction(async (tx) => {
-      await assertProjectManageFilesAccessTx(tx, projectId, user.id);
+      await assertWorkspaceManageFilesAccessTx(tx, projectId, user.id);
       await tx.execute(sql`SELECT id FROM project_nodes WHERE id = ${nodeId} FOR UPDATE`);
       await assertOwnedFileLease(tx, { projectId, nodeId, userId: user.id, credentials: lease });
       const node = await tx.query.projectNodes.findFirst({

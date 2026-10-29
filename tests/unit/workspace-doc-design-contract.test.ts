@@ -24,7 +24,7 @@ test("Docs Tab Design Specification Conformance Contract (Section 22 & Sections 
         assert.match(skeletonDoc, /rounded-\[5px\]/, "SkeletonDoc interactive elements should use 5px corners");
     });
 
-    await t.test("ProjectDocRenderer conforms to Section 04 Typography and drafting tokens", () => {
+    await t.test("WorkspaceDocRenderer conforms to Section 04 Typography and drafting tokens", () => {
         assert.match(renderer, /text-\[\d+px\] sm:text-\[30px\]/, "H1 must conform to 30px scale");
         assert.match(renderer, /text-\[\d+px\] sm:text-\[24px\]/, "H2 must conform to 24px scale");
         assert.match(renderer, /text-\[\d+px\] sm:text-\[20px\]/, "H3 must conform to 20px scale");
@@ -37,31 +37,31 @@ test("Docs Tab Design Specification Conformance Contract (Section 22 & Sections 
         assert.doesNotMatch(renderer, /text-blue-|bg-blue-|border-blue-/, "Renderer must have zero blue leaks");
     });
 
-    await t.test("ProjectDocCommandBlock adheres to Section 04/22 code block specification", () => {
+    await t.test("WorkspaceDocCommandBlock adheres to Section 04/22 code block specification", () => {
         assert.match(commandBlock, /font-mono text-\[13px\] leading-\[1\.6\]/, "Code blocks must use 13px mono at 1.6 leading");
         assert.match(commandBlock, /tracking-\[0\.09em\]/, "Language header must use 0.09em tracking");
         assert.match(commandBlock, /size-7.*rounded-\[5px\]/, "Copy button must be 28px square with 5px radius");
     });
 
-    await t.test("ProjectDocSmartBlock & ProjectDocReferencePreview conform to Card and Option geometry", () => {
+    await t.test("WorkspaceDocSmartBlock & WorkspaceDocReferencePreview conform to Card and Option geometry", () => {
         assert.doesNotMatch(smartBlock, /zinc-/, "SmartBlock skeleton must not use raw zinc tokens");
         assert.match(smartBlock, /rounded-\[8px\]/, "SmartBlock container must use 8px card radius");
         assert.match(referencePreview, /rounded-\[5px\].*border.*bg-card/, "ReferenceOptionCard must use 5px corners");
-        assert.match(referencePreview, /ProjectDocSmartBlockPreviewCard[\s\S]*rounded-\[8px\]/, "SmartBlockPreviewCard must use 8px container radius");
+        assert.match(referencePreview, /WorkspaceDocSmartBlockPreviewCard[\s\S]*rounded-\[8px\]/, "SmartBlockPreviewCard must use 8px container radius");
     });
 
     const rail = fs.readFileSync(path.join(docDir, "WorkspaceDocRail.tsx"), "utf-8");
 
-    await t.test("ProjectDocRail conforms to sticky positioning without gaps and uninterrupted hairline divider", () => {
+    await t.test("WorkspaceDocRail conforms to sticky positioning without gaps and uninterrupted hairline divider", () => {
         assert.match(rail, /border-l border-border pl-6/, "Rail must place continuous left border on the outer aside");
         assert.match(rail, /top-\[calc\(var\(--project-tabs-height,42px\)\+1rem\)\]/, "Rail sticky container must dock directly below sticky tabs using dynamic variable");
         assert.doesNotMatch(rail, /sticky top-24/, "Rail must not use hardcoded top-24 causing floating gap");
     });
 
-    await t.test("ProjectDocViewer and DocTab maintain layout and dedicated right documents rail", () => {
+    await t.test("WorkspaceDocViewer and DocTab maintain layout and dedicated right documents rail", () => {
         assert.match(viewer, /max-w-\[1240px\]/, "Viewer must use 1240px drafting boundary");
         assert.match(viewer, /xl:grid-cols-\[minmax\(0,1fr\)_260px\]/, "Viewer must allocate 260px to right documents rail");
-        assert.match(viewer, /ProjectDocRail/, "Viewer must render the dedicated right documents rail");
+        assert.match(viewer, /WorkspaceDocRail/, "Viewer must render the dedicated right documents rail");
         assert.doesNotMatch(viewer, /ProjectDocQuickConsole/, "Viewer must not render the quick console context rail");
         assert.match(docTab, /nb-empty-state nb-grid-ground py-12/, "DocTab empty state must have generous vertical rhythm");
         assert.match(docTab, /nb-empty-state-icon/, "DocTab empty state must style icon consistently");

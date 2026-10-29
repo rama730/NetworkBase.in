@@ -1,50 +1,50 @@
 import { createHash, } from "crypto";
-import { normalizeProjectPublicTabVisibility, normalizeProjectMemberRole, } from "@/lib/workspaces/settings-policies";
-import { normalizeProjectVisibility } from "@/lib/workspaces/workspace-visibility";
-import { evaluateProjectDocQuality } from "@/lib/workspaces/doc-quality";
-import { parseProjectDocSmartBlocks, type ProjectDocSmartBlock } from "@/lib/workspaces/doc-blocks";
-import { buildProjectDocPlainText } from "@/lib/workspaces/doc-plain-text";
-import { extractProjectDocHeadings, type ProjectDocHeading } from "@/lib/workspaces/doc-headings";
+import { normalizeWorkspacePublicTabVisibility, normalizeWorkspaceMemberRole, } from "@/lib/workspaces/settings-policies";
+import { normalizeWorkspaceVisibility } from "@/lib/workspaces/workspace-visibility";
+import { evaluateWorkspaceDocQuality } from "@/lib/workspaces/doc-quality";
+import { parseWorkspaceDocSmartBlocks, type WorkspaceDocSmartBlock } from "@/lib/workspaces/doc-blocks";
+import { buildWorkspaceDocPlainText } from "@/lib/workspaces/doc-plain-text";
+import { extractWorkspaceDocHeadings, type WorkspaceDocHeading } from "@/lib/workspaces/doc-headings";
 
-export { buildProjectDocPlainText, decodeProjectDocHtmlEntities } from "@/lib/workspaces/doc-plain-text";
-export { extractProjectDocHeadings, slugifyReadmeHeading, type ProjectDocHeading } from "@/lib/workspaces/doc-headings";
+export { buildWorkspaceDocPlainText, decodeWorkspaceDocHtmlEntities } from "@/lib/workspaces/doc-plain-text";
+export { extractWorkspaceDocHeadings, slugifyReadmeHeading, type WorkspaceDocHeading } from "@/lib/workspaces/doc-headings";
 export {
-    isProjectDocSlugCanonical,
-    normalizeProjectDocSlug,
-    PROJECT_DOC_DEFAULT_SLUG,
-    PROJECT_DOC_SLUG_MAX_LENGTH,
+    isWorkspaceDocSlugCanonical,
+    normalizeWorkspaceDocSlug,
+    WORKSPACE_DOC_DEFAULT_SLUG,
+    WORKSPACE_DOC_SLUG_MAX_LENGTH,
 } from "@/lib/workspaces/doc-slug";
 
-export type ProjectDocEditPolicy = "leaders" | "members";
-export type ProjectDocPublicVisibility = "inherit_project";
-export type ProjectDocVisibilityOverride = "inherit_project" | "public" | "members_only" | "leaders_only";
+export type WorkspaceDocEditPolicy = "leaders" | "members";
+export type WorkspaceDocPublicVisibility = "inherit_project";
+export type WorkspaceDocVisibilityOverride = "inherit_project" | "public" | "members_only" | "leaders_only";
 
-export type ProjectDocSettings = {
+export type WorkspaceDocSettings = {
     version: 1;
-    editPolicy: ProjectDocEditPolicy;
-    publicVisibility?: ProjectDocPublicVisibility;
-    visibilityOverride: ProjectDocVisibilityOverride;
+    editPolicy: WorkspaceDocEditPolicy;
+    publicVisibility?: WorkspaceDocPublicVisibility;
+    visibilityOverride: WorkspaceDocVisibilityOverride;
     externalImages: boolean;
     projectBlocks: boolean;
     /** Org docs only (report §19): group, Required, Template, Show in child projects, re-read version. */
     org?: Record<string, unknown>;
 };
 
-export type ProjectDocQualityIssue = {
+export type WorkspaceDocQualityIssue = {
     id: string;
     severity: "info" | "warning" | "error";
     label: string;
     description: string;
 };
 
-export type ProjectDocQualityReport = {
+export type WorkspaceDocQualityReport = {
     score: number;
-    issues: ProjectDocQualityIssue[];
+    issues: WorkspaceDocQualityIssue[];
     sectionPresence: Record<string, boolean>;
     contentBytes: number;
 };
 
-export type ProjectDocPermission = {
+export type WorkspaceDocPermission = {
     canReadPublished: boolean;
     canReadDraft: boolean;
     canEdit: boolean;
@@ -54,15 +54,15 @@ export type ProjectDocPermission = {
     reason?: string | null;
 };
 
-export type ProjectDocVersion = {
+export type WorkspaceDocVersion = {
     id: string;
     projectId: string;
     versionNumber: number;
     displayVersionNumber: number;
     content: string;
     excerpt: string | null;
-    headings: ProjectDocHeading[];
-    qualityReport: ProjectDocQualityReport;
+    headings: WorkspaceDocHeading[];
+    qualityReport: WorkspaceDocQualityReport;
     contentHash: string;
     changeSummary: string | null;
     coAuthors: { id: string; name: string; avatarUrl: string | null }[];
@@ -72,25 +72,25 @@ export type ProjectDocVersion = {
     deletedAt: string | null;
 };
 
-export type ProjectDocListItem = { id: string; slug: string; filename: string; linkedNodeId: string | null };
+export type WorkspaceDocListItem = { id: string; slug: string; filename: string; linkedNodeId: string | null };
 
-export type ProjectDocPublishedPayload = {
+export type WorkspaceDocPublishedPayload = {
     projectId: string;
     docSlug: string;
-    docs: ProjectDocListItem[];
+    docs: WorkspaceDocListItem[];
     canEdit: boolean;
-    permission: ProjectDocPermission;
-    settings: ProjectDocSettings;
-    version: ProjectDocVersion | null;
-    smartBlocks: ProjectDocSmartBlock[];
+    permission: WorkspaceDocPermission;
+    settings: WorkspaceDocSettings;
+    version: WorkspaceDocVersion | null;
+    smartBlocks: WorkspaceDocSmartBlock[];
     linkedNodeId?: string | null;
     linkedNode?: { id: string; name: string; path: string } | null;
 };
 
-export const PROJECT_DOC_MAX_CONTENT_BYTES = 500 * 1024;
+export const WORKSPACE_DOC_MAX_CONTENT_BYTES = 500 * 1024;
 const GENERATED_COLLABORATION_FOOTER_RE = /(?:\n{1,3}|^)\s{0,3}#{0,6}\s*Collaborator\s+[^\n]{1,120}?\s+publish(?:ed|es)?\b[^\n]*(?:\n\s*)?$/i;
 
-export const DEFAULT_PROJECT_DOC_SETTINGS: ProjectDocSettings = {
+export const DEFAULT_WORKSPACE_DOC_SETTINGS: WorkspaceDocSettings = {
     version: 1,
     editPolicy: "leaders",
     publicVisibility: "inherit_project",
@@ -99,8 +99,8 @@ export const DEFAULT_PROJECT_DOC_SETTINGS: ProjectDocSettings = {
     projectBlocks: true,
 };
 
-export function normalizeProjectDocSettings(value: unknown): ProjectDocSettings {
-    const source = value && typeof value === "object" ? value as Partial<ProjectDocSettings> : {};
+export function normalizeWorkspaceDocSettings(value: unknown): WorkspaceDocSettings {
+    const source = value && typeof value === "object" ? value as Partial<WorkspaceDocSettings> : {};
     const visibilityOverride = source.visibilityOverride === "public" || source.visibilityOverride === "members_only" || source.visibilityOverride === "leaders_only" || source.visibilityOverride === "inherit_project"
         ? source.visibilityOverride
         : "inherit_project";
@@ -109,8 +109,8 @@ export function normalizeProjectDocSettings(value: unknown): ProjectDocSettings 
         editPolicy: source.editPolicy === "members" ? "members" : "leaders",
         publicVisibility: "inherit_project",
         visibilityOverride,
-        externalImages: typeof source.externalImages === "boolean" ? source.externalImages : DEFAULT_PROJECT_DOC_SETTINGS.externalImages,
-        projectBlocks: typeof source.projectBlocks === "boolean" ? source.projectBlocks : DEFAULT_PROJECT_DOC_SETTINGS.projectBlocks,
+        externalImages: typeof source.externalImages === "boolean" ? source.externalImages : DEFAULT_WORKSPACE_DOC_SETTINGS.externalImages,
+        projectBlocks: typeof source.projectBlocks === "boolean" ? source.projectBlocks : DEFAULT_WORKSPACE_DOC_SETTINGS.projectBlocks,
         ...(source.org && typeof source.org === "object" ? { org: source.org } : {}),
     };
 }
@@ -156,72 +156,72 @@ function stripRepeatedReadmeTail(value: string) {
     return value;
 }
 
-export function normalizeProjectDocContent(content: unknown) {
+export function normalizeWorkspaceDocContent(content: unknown) {
     const value = typeof content === "string"
         ? stripRepeatedReadmeTail(content.replace(/\r\n?/g, "\n").replace(GENERATED_COLLABORATION_FOOTER_RE, ""))
         : "";
-    return value.length > PROJECT_DOC_MAX_CONTENT_BYTES ? value.slice(0, PROJECT_DOC_MAX_CONTENT_BYTES) : value;
+    return value.length > WORKSPACE_DOC_MAX_CONTENT_BYTES ? value.slice(0, WORKSPACE_DOC_MAX_CONTENT_BYTES) : value;
 }
 
-export function assertProjectDocContentSize(content: string) {
+export function assertWorkspaceDocContentSize(content: string) {
     const bytes = Buffer.byteLength(content, "utf8");
-    if (bytes > PROJECT_DOC_MAX_CONTENT_BYTES) {
+    if (bytes > WORKSPACE_DOC_MAX_CONTENT_BYTES) {
         throw new Error("Doc content is too large. Keep it under 500 KiB.");
     }
 }
 
-export function hashProjectDocContent(content: string) {
+export function hashWorkspaceDocContent(content: string) {
     return createHash("sha256").update(content, "utf8").digest("hex");
 }
 
-export function buildProjectDocExcerpt(content: string, maxLength = 220) {
-    return buildProjectDocPlainText(content, { maxLength });
+export function buildWorkspaceDocExcerpt(content: string, maxLength = 220) {
+    return buildWorkspaceDocPlainText(content, { maxLength });
 }
 
-export function normalizeProjectDocHeadings(value: unknown): ProjectDocHeading[] {
+export function normalizeWorkspaceDocHeadings(value: unknown): WorkspaceDocHeading[] {
     if (!Array.isArray(value)) return [];
     return value
         .map((item) => {
             if (!item || typeof item !== "object") return null;
-            const source = item as Partial<ProjectDocHeading>;
+            const source = item as Partial<WorkspaceDocHeading>;
             const id = typeof source.id === "string" ? source.id : "";
             const text = typeof source.text === "string" ? source.text : "";
             const level = Number(source.level);
             if (!id || !text || !Number.isFinite(level)) return null;
             return { id, text, level: Math.min(4, Math.max(1, Math.trunc(level))) };
         })
-        .filter((item): item is ProjectDocHeading => Boolean(item));
+        .filter((item): item is WorkspaceDocHeading => Boolean(item));
 }
 
-export function buildProjectDocQualityReport(content: string): ProjectDocQualityReport {
-    return evaluateProjectDocQuality(content);
+export function buildWorkspaceDocQualityReport(content: string): WorkspaceDocQualityReport {
+    return evaluateWorkspaceDocQuality(content);
 }
 
-export function buildProjectDocPublishMetadata(content: string) {
-    const normalized = normalizeProjectDocContent(content);
-    assertProjectDocContentSize(normalized);
+export function buildWorkspaceDocPublishMetadata(content: string) {
+    const normalized = normalizeWorkspaceDocContent(content);
+    assertWorkspaceDocContentSize(normalized);
     return {
         content: normalized,
-        headings: extractProjectDocHeadings(normalized),
-        excerpt: buildProjectDocExcerpt(normalized),
-        qualityReport: buildProjectDocQualityReport(normalized),
-        contentHash: hashProjectDocContent(normalized),
-        smartBlocks: parseProjectDocSmartBlocks(normalized),
+        headings: extractWorkspaceDocHeadings(normalized),
+        excerpt: buildWorkspaceDocExcerpt(normalized),
+        qualityReport: buildWorkspaceDocQualityReport(normalized),
+        contentHash: hashWorkspaceDocContent(normalized),
+        smartBlocks: parseWorkspaceDocSmartBlocks(normalized),
     };
 }
 
-const DOC_METADATA_CACHE = new Map<string, ReturnType<typeof buildProjectDocPublishMetadata>>();
+const DOC_METADATA_CACHE = new Map<string, ReturnType<typeof buildWorkspaceDocPublishMetadata>>();
 const MAX_DOC_METADATA_CACHE_ENTRIES = 200;
 
-export function getOrBuildProjectDocPublishMetadata(content: string) {
-    const hash = hashProjectDocContent(content);
+export function getOrBuildWorkspaceDocPublishMetadata(content: string) {
+    const hash = hashWorkspaceDocContent(content);
     const cached = DOC_METADATA_CACHE.get(hash);
     if (cached) {
         DOC_METADATA_CACHE.delete(hash);
         DOC_METADATA_CACHE.set(hash, cached);
         return cached;
     }
-    const metadata = buildProjectDocPublishMetadata(content);
+    const metadata = buildWorkspaceDocPublishMetadata(content);
     if (DOC_METADATA_CACHE.size >= MAX_DOC_METADATA_CACHE_ENTRIES) {
         const oldest = DOC_METADATA_CACHE.keys().next().value;
         if (oldest) DOC_METADATA_CACHE.delete(oldest);
@@ -230,7 +230,7 @@ export function getOrBuildProjectDocPublishMetadata(content: string) {
     return metadata;
 }
 
-export function resolveProjectDocPermission(input: {
+export function resolveWorkspaceDocPermission(input: {
     actorUserId?: string | null;
     projectVisibility?: unknown;
     /** Project status; blank counts as draft. Draft projects publish nothing to outsiders. */
@@ -241,13 +241,13 @@ export function resolveProjectDocPermission(input: {
     isOwner?: boolean;
     isActiveMember?: boolean;
     hasPublishedReadme?: boolean;
-}) : ProjectDocPermission {
-    const settings = normalizeProjectDocSettings(input.settings);
-    const visibility = normalizeProjectVisibility(input.projectVisibility);
-    const publicTabs = normalizeProjectPublicTabVisibility(input.publicTabVisibility);
+}) : WorkspaceDocPermission {
+    const settings = normalizeWorkspaceDocSettings(input.settings);
+    const visibility = normalizeWorkspaceVisibility(input.projectVisibility);
+    const publicTabs = normalizeWorkspacePublicTabVisibility(input.publicTabVisibility);
     const isActiveMember = Boolean(input.isActiveMember || input.isOwner);
     const role = isActiveMember
-        ? normalizeProjectMemberRole(input.membershipRole, input.isOwner ? "owner" : "member")
+        ? normalizeWorkspaceMemberRole(input.membershipRole, input.isOwner ? "owner" : "member")
         : null;
     const isOwner = Boolean(input.isOwner) || role === "owner";
     const isCoLeader = role === "admin";
@@ -284,7 +284,7 @@ export function resolveProjectDocPermission(input: {
     const canEdit = canReadDraft;
     const canPublish = canEdit;
     const canManageSettings = isLeader;
-    const accessLevel: ProjectDocPermission["accessLevel"] = isOwner
+    const accessLevel: WorkspaceDocPermission["accessLevel"] = isOwner
         ? "owner"
         : isCoLeader
             ? "co_leader"

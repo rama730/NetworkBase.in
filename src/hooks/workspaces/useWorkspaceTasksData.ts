@@ -2,17 +2,17 @@
 
 import { useQuery, useInfiniteQuery } from '@tanstack/react-query';
 
-import { fetchProjectSprintDetailAction, fetchProjectSprintTimelinePageAction, fetchProjectSprintsAction, fetchProjectTasksAction } from '@/app/actions/workspace';
+import { fetchWorkspaceSprintDetailAction, fetchWorkspaceSprintTimelinePageAction, fetchWorkspaceSprintsAction, fetchWorkspaceTasksAction } from '@/app/actions/workspace';
 import { queryKeys } from '@/lib/query-keys';
 import type { SprintDetailPayload } from '@/lib/workspaces/sprint-detail';
 import { mergeSprintTimelineRows } from '@/lib/workspaces/sprint-timeline';
 import { normalizeTaskSurfaceRecord } from '@/lib/workspaces/task-presentation';
 
-export type ProjectTaskScope = 'all' | 'backlog' | 'sprint' | 'review';
+export type WorkspaceTaskScope = 'all' | 'backlog' | 'sprint' | 'review';
 
-const normalizeScope = (scope: ProjectTaskScope): ProjectTaskScope => (scope === 'backlog' || scope === 'sprint' || scope === 'review' ? scope : 'all');
+const normalizeScope = (scope: WorkspaceTaskScope): WorkspaceTaskScope => (scope === 'backlog' || scope === 'sprint' || scope === 'review' ? scope : 'all');
 
-const filterTasksByScope = (tasks: any[], scope: ProjectTaskScope) => {
+const filterTasksByScope = (tasks: any[], scope: WorkspaceTaskScope) => {
     if (!Array.isArray(tasks) || tasks.length === 0) return [];
     const normalized = tasks.map(normalizeTaskSurfaceRecord);
     if (scope === 'backlog') return normalized.filter((task) => !task.sprintId);
@@ -21,7 +21,7 @@ const filterTasksByScope = (tasks: any[], scope: ProjectTaskScope) => {
     return normalized;
 };
 
-export const PROJECT_TASKS_QUERY_KEY = (projectId: string, scope: ProjectTaskScope = 'all', search = '') => queryKeys.project.detail.tasks(projectId, normalizeScope(scope), search.trim().slice(0, 100));
+export const WORKSPACE_TASKS_QUERY_KEY = (projectId: string, scope: WorkspaceTaskScope = 'all', search = '') => queryKeys.project.detail.tasks(projectId, normalizeScope(scope), search.trim().slice(0, 100));
 export const SPRINT_DETAIL_QUERY_KEY = (projectId: string, sprintId: string, taskReference?: string | null) => [
     ...queryKeys.project.detail.sprintDetail(projectId, sprintId),
     taskReference?.trim() || '__timeline__',
@@ -40,7 +40,7 @@ function mergeSprintDetailPages(pages: SprintDetailPayload[]): SprintDetailPaylo
     };
 }
 
-export function useProjectInfiniteTasks(projectId: string, initialData?: any, scope: ProjectTaskScope = 'all', search = '') {
+export function useWorkspaceInfiniteTasks(projectId: string, initialData?: any, scope: WorkspaceTaskScope = 'all', search = '') {
     const normalizedScope = normalizeScope(scope);
     const normalizedSearch = search.trim().slice(0, 100);
     const initialTasksRaw = Array.isArray(initialData) ? initialData : [];
@@ -67,9 +67,9 @@ export function useProjectInfiniteTasks(projectId: string, initialData?: any, sc
         : undefined;
 
     return useInfiniteQuery({
-        queryKey: PROJECT_TASKS_QUERY_KEY(projectId, normalizedScope, normalizedSearch),
+        queryKey: WORKSPACE_TASKS_QUERY_KEY(projectId, normalizedScope, normalizedSearch),
         queryFn: async ({ pageParam }: { pageParam: string | undefined }) => {
-            const result = await fetchProjectTasksAction(projectId, 50, pageParam, normalizedScope, normalizedSearch);
+            const result = await fetchWorkspaceTasksAction(projectId, 50, pageParam, normalizedScope, normalizedSearch);
             if (!result.success) throw new Error(result.error);
             return result;
         },
@@ -98,13 +98,13 @@ export function useSprintDetail(
         queryKey: SPRINT_DETAIL_QUERY_KEY(normalizedProjectId || '__project__', normalizedSprintId, taskReference),
         queryFn: async ({ pageParam }: { pageParam: string | undefined }) => {
             const result = pageParam
-                ? await fetchProjectSprintTimelinePageAction({
+                ? await fetchWorkspaceSprintTimelinePageAction({
                     projectId: normalizedProjectId,
                     sprintId: requestSprintId,
                     cursor: pageParam,
                     limit: pageSize,
                 })
-                : await fetchProjectSprintDetailAction({
+                : await fetchWorkspaceSprintDetailAction({
                     projectId: normalizedProjectId,
                     sprintId: requestSprintId,
                     taskReference: taskReference ?? null,
@@ -130,11 +130,11 @@ export function useSprintDetail(
     };
 }
 
-export function useProjectSprints(projectId: string, initialData?: any[], enabled = true) {
+export function useWorkspaceSprints(projectId: string, initialData?: any[], enabled = true) {
     return useQuery({
         queryKey: queryKeys.project.detail.sprints(projectId),
         queryFn: async () => {
-            const result = await fetchProjectSprintsAction(projectId);
+            const result = await fetchWorkspaceSprintsAction(projectId);
             if (!result.success) throw new Error(result.error);
             return result.sprints;
         },

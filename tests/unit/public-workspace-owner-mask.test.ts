@@ -1,10 +1,10 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { mapPublicProjectToDiscoverProject } from "@/lib/workspaces/public-feed";
+import { mapPublicWorkspaceToDiscoverWorkspace } from "@/lib/workspaces/public-feed";
 
 describe("public project owner masking", () => {
     it("masks non-public owners in cached public feed items", () => {
-        const project = mapPublicProjectToDiscoverProject({
+        const project = mapPublicWorkspaceToDiscoverWorkspace({
             id: "project-1",
             slug: "project-1",
             title: "Project",

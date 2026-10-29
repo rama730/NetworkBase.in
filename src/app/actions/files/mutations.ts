@@ -13,26 +13,26 @@ import { createClient } from "@/lib/supabase/server";
 import { after } from "next/server";
 import { consumeRateLimit } from "@/lib/security/rate-limit";
 import { logger } from "@/lib/logger";
-import { enqueueProjectNotificationEvent } from "@/lib/notifications/workspace-events";
-import { buildProjectFileKey, isCanonicalProjectFileKey, parseProjectFileKey } from "@/lib/storage/workspace-file-key";
+import { enqueueWorkspaceNotificationEvent } from "@/lib/notifications/workspace-events";
+import { buildWorkspaceFileKey, isCanonicalWorkspaceFileKey, parseWorkspaceFileKey } from "@/lib/storage/workspace-file-key";
 import {
     normalizeAndValidateFileSize,
     normalizeAndValidateMimeType,
     normalizeAndValidateUploadRelativePath,
-    PROJECT_UPLOAD_MAX_FILE_BYTES,
+    WORKSPACE_UPLOAD_MAX_FILE_BYTES,
 } from "@/lib/upload/security";
 import { finalizeUploadIntent } from "@/lib/upload/upload-intents";
 import { replaceTaskFileRoleTag, type TaskFileRole } from "@/lib/workspaces/task-file-intelligence";
 import {
-    assertProjectWriteAccess,
-    assertProjectWriteAccessTx,
+    assertWorkspaceWriteAccess,
+    assertWorkspaceWriteAccessTx,
     assertNodesNotLockedByAnotherUser,
     assertNotMovingAnyIntoDescendant,
     assertUniqueSiblingNames,
-    assertProjectManageFilesAccess,
-    assertProjectManageFilesAccessTx,
-    assertProjectUploadAccess,
-    assertProjectUploadAccessTx,
+    assertWorkspaceManageFilesAccess,
+    assertWorkspaceManageFilesAccessTx,
+    assertWorkspaceUploadAccess,
+    assertWorkspaceUploadAccessTx,
     assertValidParentFolder,
     assertValidMoveDestination,
     assertUniqueSiblingName,
@@ -55,10 +55,10 @@ function actorNotificationSnapshot(user: { user_metadata?: Record<string, unknow
     };
 }
 
-async function enqueueFileNotificationBestEffort(input: Parameters<typeof enqueueProjectNotificationEvent>[0]) {
+async function enqueueFileNotificationBestEffort(input: Parameters<typeof enqueueWorkspaceNotificationEvent>[0]) {
     const run = async () => {
         try {
-            await enqueueProjectNotificationEvent(input);
+            await enqueueWorkspaceNotificationEvent(input);
         } catch (error) {
             logger.warn("project_files.notification_enqueue_failed", {
                 module: "files",
@@ -227,13 +227,13 @@ export async function createFolder(
     if (!user) throw new Error("Sign in to continue");
     const { allowed } = await consumeRateLimit(`files:${user.id}`, 60, 60);
     if (!allowed) throw new Error("Too many attempts. Try again in a minute.");
-    await assertProjectUploadAccess(projectId, user.id);
+    await assertWorkspaceUploadAccess(projectId, user.id);
 
     const safeName = normalizeNodeName(name);
     assertValidNodeName(safeName);
 
     const node = await db.transaction(async (tx) => {
-        await assertProjectUploadAccessTx(tx, projectId, user.id);
+        await assertWorkspaceUploadAccessTx(tx, projectId, user.id);
         const parentPath = await resolveParentAndCheckSibling(tx, projectId, parentId, safeName);
         const nodePath = `${parentPath}/${safeName}`;
 
@@ -278,7 +278,7 @@ export async function createFileNode(projectId: string, parentId: string | null,
     if (!user) throw new Error("Sign in to continue");
     const { allowed } = await consumeRateLimit(`files:${user.id}`, 60, 60);
     if (!allowed) throw new Error("Too many attempts. Try again in a minute.");
-    await assertProjectUploadAccess(projectId, user.id, { taskId: file.taskId });
+    await assertWorkspaceUploadAccess(projectId, user.id, { taskId: file.taskId });
 
     const safeName = normalizeNodeName(file.name);
     assertValidNodeName(safeName);
@@ -295,21 +295,21 @@ export async function createFileNode(projectId: string, parentId: string | null,
         expectedKind: 'file',
     });
 
-    const parsedKey = parseProjectFileKey(finalizedIntent.storageKey);
-    if (!parsedKey || !isCanonicalProjectFileKey(finalizedIntent.storageKey) || parsedKey.projectId !== projectId) {
+    const parsedKey = parseWorkspaceFileKey(finalizedIntent.storageKey);
+    if (!parsedKey || !isCanonicalWorkspaceFileKey(finalizedIntent.storageKey) || parsedKey.projectId !== projectId) {
         throw new Error("Invalid file storage key");
     }
     const normalizedRelativePath = normalizeAndValidateUploadRelativePath(parsedKey.relativePath);
-    const canonicalS3Key = buildProjectFileKey(projectId, normalizedRelativePath);
+    const canonicalS3Key = buildWorkspaceFileKey(projectId, normalizedRelativePath);
     // The node must point at the object that was actually uploaded and verified.
     if (canonicalS3Key !== finalizedIntent.storageKey) throw new Error("Invalid file storage key");
-    const normalizedSize = normalizeAndValidateFileSize(finalizedIntent.finalizedSize ?? file.size, PROJECT_UPLOAD_MAX_FILE_BYTES);
+    const normalizedSize = normalizeAndValidateFileSize(finalizedIntent.finalizedSize ?? file.size, WORKSPACE_UPLOAD_MAX_FILE_BYTES);
     const normalizedMimeType = normalizeAndValidateMimeType(finalizedIntent.finalizedMimeType ?? file.mimeType);
     if (!finalizedIntent.assetId) throw new Error("Verified file asset is unavailable");
     const assetId = finalizedIntent.assetId;
 
     const node = await db.transaction(async (tx) => {
-        await assertProjectUploadAccessTx(tx, projectId, user.id, { taskId: file.taskId });
+        await assertWorkspaceUploadAccessTx(tx, projectId, user.id, { taskId: file.taskId });
         const [publishableAsset] = await tx.update(storageAssets)
             .set({
                 backupState: sql`CASE WHEN ${storageAssets.backupState} = 'verified' THEN 'verified' ELSE 'pending' END`,
@@ -341,7 +341,7 @@ export async function createFileNode(projectId: string, parentId: string | null,
             )).limit(1).for("update");
             if (!canonical) throw new Error("Canonical file not found in this workspace");
         }
-        if (file.taskLink) await assertProjectWriteAccessTx(tx, projectId, user.id, { taskId: file.taskId });
+        if (file.taskLink) await assertWorkspaceWriteAccessTx(tx, projectId, user.id, { taskId: file.taskId });
         const parentPath = await resolveParentAndCheckSibling(tx, projectId, parentId, safeName);
         const nodePath = `${parentPath}/${safeName}`;
 
@@ -396,7 +396,7 @@ export async function createFileNode(projectId: string, parentId: string | null,
 
     // The explorer optimistically upserts this result before its background
     // listing refresh finishes. Include the same attribution shape returned by
-    // getProjectNodes so the "By" column never briefly renders as "—".
+    // getWorkspaceNodes so the "By" column never briefly renders as "—".
     return {
         ...node,
         updatedById: user.id,
@@ -427,7 +427,7 @@ export async function finalizeBatchUpload(
     if (!user) throw new Error("Sign in to continue");
     const { allowed } = await consumeRateLimit(`files:${user.id}`, 60, 60);
     if (!allowed) throw new Error("Too many attempts. Try again in a minute.");
-    await assertProjectUploadAccess(projectId, user.id);
+    await assertWorkspaceUploadAccess(projectId, user.id);
 
     const intentIds = files
         .map((f) => f.uploadIntentId)
@@ -479,13 +479,13 @@ export async function finalizeBatchUpload(
                 expectedKind: 'file',
             }, preloaded);
 
-            const parsedKey = parseProjectFileKey(finalizedIntent.storageKey);
-            if (!parsedKey || !isCanonicalProjectFileKey(finalizedIntent.storageKey) || parsedKey.projectId !== projectId) {
+            const parsedKey = parseWorkspaceFileKey(finalizedIntent.storageKey);
+            if (!parsedKey || !isCanonicalWorkspaceFileKey(finalizedIntent.storageKey) || parsedKey.projectId !== projectId) {
                 throw new Error("Invalid file storage key");
             }
             const normalizedRelativePath = normalizeAndValidateUploadRelativePath(parsedKey.relativePath);
-            const canonicalS3Key = buildProjectFileKey(projectId, normalizedRelativePath);
-            const normalizedSize = normalizeAndValidateFileSize(finalizedIntent.finalizedSize ?? file.size, PROJECT_UPLOAD_MAX_FILE_BYTES);
+            const canonicalS3Key = buildWorkspaceFileKey(projectId, normalizedRelativePath);
+            const normalizedSize = normalizeAndValidateFileSize(finalizedIntent.finalizedSize ?? file.size, WORKSPACE_UPLOAD_MAX_FILE_BYTES);
             const normalizedMimeType = normalizeAndValidateMimeType(finalizedIntent.finalizedMimeType ?? file.mimeType);
 
             return {
@@ -517,7 +517,7 @@ export async function finalizeBatchUpload(
     }
 
     const createdNodes = await db.transaction(async (tx) => {
-        await assertProjectUploadAccessTx(tx, projectId, user.id);
+        await assertWorkspaceUploadAccessTx(tx, projectId, user.id);
         let parentPath = "";
         if (parentId) {
             const [parent] = await tx
@@ -675,7 +675,7 @@ export async function getUploadCollisionSummary(
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error("Sign in to continue");
-    await assertProjectUploadAccess(projectId, user.id);
+    await assertWorkspaceUploadAccess(projectId, user.id);
 
     if (paths.length > 5000) {
         throw new Error("Maximum 5000 paths allowed per collision check");
@@ -770,13 +770,13 @@ export async function renameNode(nodeId: string, newName: string, projectId: str
     if (!user) throw new Error("Sign in to continue");
     const { allowed } = await consumeRateLimit(`files:${user.id}`, 60, 60);
     if (!allowed) throw new Error("Too many attempts. Try again in a minute.");
-    await assertProjectWriteAccess(projectId, user.id);
+    await assertWorkspaceWriteAccess(projectId, user.id);
 
     const safeName = normalizeNodeName(newName);
     assertValidNodeName(safeName);
 
     const node = await db.transaction(async (tx) => {
-        await assertProjectWriteAccessTx(tx, projectId, user.id);
+        await assertWorkspaceWriteAccessTx(tx, projectId, user.id);
         await assertNodeNotLockedByAnotherUser(projectId, nodeId, user.id, tx);
         const current = await tx.query.projectNodes.findFirst({
             where: and(eq(projectNodes.id, nodeId), eq(projectNodes.projectId, projectId)),
@@ -819,13 +819,13 @@ export async function renameNode(nodeId: string, newName: string, projectId: str
     return node;
 }
 
-export type MoveProjectNodesResult = {
+export type MoveWorkspaceNodesResult = {
     nodes: ProjectNode[];
     operationId: string | null;
     affectedParentIds: Array<string | null>;
 };
 
-export async function moveProjectNodes(
+export async function moveWorkspaceNodes(
     nodeIds: string[],
     newParentId: string | null,
     projectId: string,
@@ -834,19 +834,19 @@ export async function moveProjectNodes(
         expectedUpdatedAtByNode?: Record<string,string>;
         mode?: "move" | "publish";
     },
-): Promise<MoveProjectNodesResult> {
+): Promise<MoveWorkspaceNodesResult> {
     const { user } = await requireAuthenticatedUser();
     if (!user) throw new Error("Sign in to continue");
     const { allowed } = await consumeRateLimit(`files:${user.id}`, 60, 60);
     if (!allowed) throw new Error("Too many attempts. Try again in a minute.");
-    await assertProjectManageFilesAccess(projectId, user.id);
+    await assertWorkspaceManageFilesAccess(projectId, user.id);
 
     const uniqueIds = Array.from(new Set(nodeIds.filter(Boolean)));
     assertBulkLimit(uniqueIds);
     const operationId = randomUUID();
 
     const result = await db.transaction(async (tx) => {
-        await assertProjectManageFilesAccessTx(tx, projectId, user.id);
+        await assertWorkspaceManageFilesAccessTx(tx, projectId, user.id);
         const nodes = await tx.query.projectNodes.findMany({
             where: and(
                 eq(projectNodes.projectId, projectId),
@@ -1006,10 +1006,10 @@ export async function restoreNode(nodeId: string, projectId: string) {
     if (!user) throw new Error("Sign in to continue");
     const { allowed } = await consumeRateLimit(`files:${user.id}`, 60, 60);
     if (!allowed) throw new Error("Too many attempts. Try again in a minute.");
-    await assertProjectWriteAccess(projectId, user.id);
+    await assertWorkspaceWriteAccess(projectId, user.id);
 
     await db.transaction(async (tx) => {
-        await assertProjectWriteAccessTx(tx, projectId, user.id);
+        await assertWorkspaceWriteAccessTx(tx, projectId, user.id);
         const node = await tx.query.projectNodes.findFirst({
             where: and(eq(projectNodes.id, nodeId), eq(projectNodes.projectId, projectId)),
             columns: { id: true, parentId: true, name: true, deletedAt: true, metadata: true },
@@ -1066,14 +1066,14 @@ export async function bulkTrashNodes(nodeIds: string[], projectId: string, expec
     if (!user) throw new Error("Sign in to continue");
     const { allowed } = await consumeRateLimit(`files:${user.id}`, 60, 60);
     if (!allowed) throw new Error("Too many attempts. Try again in a minute.");
-    await assertProjectWriteAccess(projectId, user.id);
+    await assertWorkspaceWriteAccess(projectId, user.id);
 
     const uniqueIds = Array.from(new Set(nodeIds.filter(Boolean)));
     assertBulkLimit(uniqueIds);
 
     const now = new Date();
     const result = await db.transaction(async (tx) => {
-        await assertProjectWriteAccessTx(tx, projectId, user.id);
+        await assertWorkspaceWriteAccessTx(tx, projectId, user.id);
         const nodes = await tx.query.projectNodes.findMany({
             where: and(eq(projectNodes.projectId, projectId), inArray(projectNodes.id, uniqueIds)),
             columns: { id: true, name: true, path: true, type: true, taskId: true, metadata: true, deletedAt: true, updatedAt:true },
@@ -1159,14 +1159,14 @@ export async function bulkRestoreNodes(nodeIds: string[], projectId: string, exp
     if (!user) throw new Error("Sign in to continue");
     const { allowed } = await consumeRateLimit(`files:${user.id}`, 60, 60);
     if (!allowed) throw new Error("Too many attempts. Try again in a minute.");
-    await assertProjectWriteAccess(projectId, user.id);
+    await assertWorkspaceWriteAccess(projectId, user.id);
 
     const uniqueIds = Array.from(new Set(nodeIds.filter(Boolean)));
     assertBulkLimit(uniqueIds);
 
     const now = new Date();
     const result = await db.transaction(async (tx) => {
-        await assertProjectWriteAccessTx(tx, projectId, user.id);
+        await assertWorkspaceWriteAccessTx(tx, projectId, user.id);
         const selectedNodes = await tx.query.projectNodes.findMany({
             where: and(eq(projectNodes.projectId, projectId), inArray(projectNodes.id, uniqueIds)),
             columns: { id: true, parentId: true, name: true, deletedAt: true, metadata: true },
@@ -1273,7 +1273,7 @@ export async function getTrashPage(projectId: string, query = "", cursor?: strin
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error("Sign in to continue");
-    await assertProjectWriteAccess(projectId, user.id);
+    await assertWorkspaceWriteAccess(projectId, user.id);
     // Newest deletion first; the cursor is "<deleted_at as database text>~<id>" (exact microseconds).
     const [cursorAt, cursorId] = cursor?.split("~") ?? [];
     if (cursor && (!cursorId || !UUID_RE.test(cursorId) || !/^[0-9][0-9:. +\-]{9,39}$/.test(cursorAt ?? ""))) throw new Error("Invalid cursor");
@@ -1323,13 +1323,13 @@ export async function bulkCreateFolderTree(
     if (!user) throw new Error("Sign in to continue");
     const { allowed } = await consumeRateLimit(`files:${user.id}`, 60, 60);
     if (!allowed) throw new Error("Too many attempts. Try again in a minute.");
-    await assertProjectUploadAccess(projectId, user.id);
+    await assertWorkspaceUploadAccess(projectId, user.id);
 
     if (files.length === 0) return [];
     if (files.length > 5000) throw new Error("Maximum 5000 files allowed per bulk upload block.");
     const normalizedFiles = files.map((file) => {
         const normalizedPath = normalizeAndValidateUploadRelativePath(file.path);
-        const normalizedSize = normalizeAndValidateFileSize(file.size, PROJECT_UPLOAD_MAX_FILE_BYTES);
+        const normalizedSize = normalizeAndValidateFileSize(file.size, WORKSPACE_UPLOAD_MAX_FILE_BYTES);
         const normalizedMimeType = normalizeAndValidateMimeType(file.mimeType);
         return {
             path: normalizedPath,
@@ -1355,7 +1355,7 @@ export async function bulkCreateFolderTree(
     const sortedFolders = Array.from(folderPaths).sort((a, b) => a.split('/').length - b.split('/').length);
 
     const result = await db.transaction(async (tx) => {
-        await assertProjectUploadAccessTx(tx, projectId, user.id);
+        await assertWorkspaceUploadAccessTx(tx, projectId, user.id);
         await assertValidParentFolder(projectId, targetParentId, tx);
 
         // Map: virtual path -> physical node ID
@@ -1482,7 +1482,7 @@ export async function bulkCreateFolderTree(
             resultMappings.push({
                 path: f.path,
                 parentId: parentId || null,
-                requestKey: buildProjectFileKey(projectId, f.path),
+                requestKey: buildWorkspaceFileKey(projectId, f.path),
                 name: safeName,
             });
         }
@@ -1497,7 +1497,7 @@ export async function getOrCreateTaskSystemFolderAction(projectId: string, taskI
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error("Sign in to continue");
     if (!UUID_RE.test(projectId) || !UUID_RE.test(taskId)) throw new Error("Task not found");
-    await assertProjectUploadAccess(projectId, user.id, { taskId });
+    await assertWorkspaceUploadAccess(projectId, user.id, { taskId });
 
     return await db.transaction(async (tx) => {
         const [task] = await tx.select({ id: tasks.id }).from(tasks)

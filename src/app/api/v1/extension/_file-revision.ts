@@ -7,10 +7,10 @@ import { jsonError } from "@/app/api/v1/_shared";
 import { leaseCredentialsSchema } from "@/app/api/v1/_file-lease-route";
 import { db } from "@/lib/db";
 import { fileVersions, projectNodes } from "@/lib/db/schema";
-import { getProjectAccessById } from "@/lib/data/workspace-access";
+import { getWorkspaceAccessById } from "@/lib/data/workspace-access";
 import type { ApplyFileRevisionResult } from "@/lib/files/apply-file-revision";
-import { buildProjectFileKey } from "@/lib/storage/workspace-file-key";
-import { assertProjectUploadAccess,assertProjectUploadAccessTx } from "@/lib/files/internal-helpers";
+import { buildWorkspaceFileKey } from "@/lib/storage/workspace-file-key";
+import { assertWorkspaceUploadAccess,assertWorkspaceUploadAccessTx } from "@/lib/files/internal-helpers";
 
 export const checksumSchema = z.string().regex(/^[a-f0-9]{64}$/i);
 
@@ -30,7 +30,7 @@ export async function resolveWritableExtensionFile(
   }
 
   const [access, existingNode] = await Promise.all([
-    getProjectAccessById(projectId, userId),
+    getWorkspaceAccessById(projectId, userId),
     db.query.projectNodes.findFirst({
       where: and(
         eq(projectNodes.projectId, projectId),
@@ -43,7 +43,7 @@ export async function resolveWritableExtensionFile(
   if (!access.project) return { response: jsonError("Workspace not found", 404, "NOT_FOUND"), node: null };
   if (!access.canWrite) return { response: jsonError("You don’t have access to this", 403, "FORBIDDEN"), node: null };
   try {
-    await assertProjectUploadAccess(projectId, userId);
+    await assertWorkspaceUploadAccess(projectId, userId);
   } catch {
     return { response: jsonError("File uploads are disabled for this member", 403, "FORBIDDEN"), node: null };
   }
@@ -60,7 +60,7 @@ export async function resolveWritableExtensionFile(
   }
 
   const createdNode = await db.transaction(async (tx) => {
-    await assertProjectUploadAccessTx(tx,projectId,userId);
+    await assertWorkspaceUploadAccessTx(tx,projectId,userId);
     await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`ext-create-node:${projectId}`}))`);
 
     const recheck = await tx.query.projectNodes.findFirst({
@@ -182,7 +182,7 @@ export function buildExtensionRevisionStorageKey(
   const immutableIdentity = operationId
     ? crypto.createHash("sha256").update(operationId).digest("hex").slice(0, 32)
     : crypto.randomUUID();
-  return buildProjectFileKey(
+  return buildWorkspaceFileKey(
     projectId,
     `nodes/${nodeId}/versions/${contentHash}-${immutableIdentity}${suffix}`,
   );

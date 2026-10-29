@@ -4,7 +4,7 @@ import { and, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { projectNodes, fileVersions, storageAssets } from "@/lib/db/schema";
 import {
-  assertProjectFileReadAccess,
+  assertWorkspaceFileReadAccess,
   assertFileNodeVisible,
 } from "@/lib/files/internal-helpers";
 import { readBoundedStorageBytes } from "@/lib/storage/bounded-object-read";
@@ -15,7 +15,7 @@ export async function readVersionBytes(input: {
   userId: string;
   maxBytes: number;
 }) {
-  const access = await assertProjectFileReadAccess(
+  const access = await assertWorkspaceFileReadAccess(
     input.projectId,
     input.userId,
   );

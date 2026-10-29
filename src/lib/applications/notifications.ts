@@ -4,7 +4,7 @@ import { db } from '@/lib/db';
 import { applicationEvents } from '@/lib/db/schema';
 import { announceApplicationChange } from '@/lib/messaging/integrations';
 import { conversationHref } from '@/lib/messaging/routes';
-import { enqueueProjectNotificationEvent } from '@/lib/notifications/workspace-events';
+import { enqueueWorkspaceNotificationEvent } from '@/lib/notifications/workspace-events';
 import { createNotification } from '@/lib/notifications/service';
 
 // The notifications an application sends (to its reviewers, its applicant, and back). They are best effort:
@@ -49,7 +49,7 @@ export async function enqueueApplicationReceivedBestEffort(params: {
     traceId: string;
 }) {
     try {
-        await enqueueProjectNotificationEvent({
+        await enqueueWorkspaceNotificationEvent({
             projectId: params.projectId,
             actorUserId: params.actorUserId,
             actorName: params.actorName,
@@ -123,7 +123,7 @@ export async function enqueueApplicationDecisionBestEffort(params: {
     const actorAvatarUrl = fromProject ? null : params.actorAvatarUrl ?? null;
     const projectTitle = params.projectTitle || "The workspace";
     try {
-        await enqueueProjectNotificationEvent({
+        await enqueueWorkspaceNotificationEvent({
             projectId: params.projectId,
             actorUserId: params.actorUserId,
             actorName,
@@ -181,7 +181,7 @@ export async function enqueueApplicationWithdrawnBestEffort(params: {
     traceId: string;
 }) {
     try {
-        await enqueueProjectNotificationEvent({
+        await enqueueWorkspaceNotificationEvent({
             projectId: params.projectId,
             actorUserId: params.actorUserId,
             actorName: params.actorName,

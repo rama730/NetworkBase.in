@@ -167,7 +167,7 @@ export function subscribeUserNotifications(params: {
     })
 }
 
-export function subscribeProjectStage(params: {
+export function subscribeWorkspaceStage(params: {
     supabase: SupabaseClient
     projectId: string
     onUpdate: (payload: DbRealtimePayload) => void

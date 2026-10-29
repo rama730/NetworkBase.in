@@ -1,9 +1,9 @@
 import { z } from "zod";
 
-import { createProjectInvitationAction } from "@/app/actions/workspace/guidance";
+import { createWorkspaceInvitationAction } from "@/app/actions/workspace/guidance";
 import { enforceRouteLimit, getRequestId, jsonError, jsonSuccess, logApiRoute, requireAuthenticatedUser } from "@/app/api/v1/_shared";
 import { validateCsrf } from "@/lib/security/csrf";
-import { getProfileInviteProjectOptions } from "@/lib/profile/collaboration";
+import { getProfileInviteWorkspaceOptions } from "@/lib/profile/collaboration";
 import { logger } from "@/lib/logger";
 import { isUuid } from "@/lib/validations/uuid";
 
@@ -49,7 +49,7 @@ export async function POST(
   }
 
   try {
-    const options = await getProfileInviteProjectOptions(auth.user.id, id, {
+    const options = await getProfileInviteWorkspaceOptions(auth.user.id, id, {
       projectId: parsed.data.projectId,
       limit: 1,
     });
@@ -67,7 +67,7 @@ export async function POST(
       return jsonError("You can only invite this profile to workspaces you manage", 403, "FORBIDDEN");
     }
 
-    const result = await createProjectInvitationAction({
+    const result = await createWorkspaceInvitationAction({
       projectId: selected.id,
       candidateId: id,
       kind: parsed.data.kind,

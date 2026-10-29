@@ -48,7 +48,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { moveTaskToWorkflowColumnAction } from "@/app/actions/task";
 import { toast, feedbackError } from "@/lib/feedback";
-import { patchProjectTaskCaches } from "@/lib/workspaces/task-cache";
+import { patchWorkspaceTaskCaches } from "@/lib/workspaces/task-cache";
 import { taskSurfaceVersionMs } from "@/lib/workspaces/task-presentation";
 import {
   buildTaskPreviewColumns,
@@ -748,7 +748,7 @@ export default function KanbanBoard({
     setTasks((current) =>
       current.map((task) => (task.id === updatedTask.id ? updatedTask : task)),
     );
-    patchProjectTaskCaches(queryClient, projectId, updatedTask, {
+    patchWorkspaceTaskCaches(queryClient, projectId, updatedTask, {
       reconcile: false,
     });
 
@@ -768,7 +768,7 @@ export default function KanbanBoard({
             task.id === draggedTask.id ? draggedTask : task,
           ),
         );
-        patchProjectTaskCaches(queryClient, projectId, draggedTask, {
+        patchWorkspaceTaskCaches(queryClient, projectId, draggedTask, {
           reconcile: false,
         });
         void queryClient.invalidateQueries({
@@ -793,7 +793,7 @@ export default function KanbanBoard({
           task.id === persistedTask.id ? persistedTask : task,
         ),
       );
-      patchProjectTaskCaches(queryClient, projectId, persistedTask, {
+      patchWorkspaceTaskCaches(queryClient, projectId, persistedTask, {
         reconcile: false,
       });
     } catch (error) {
@@ -802,7 +802,7 @@ export default function KanbanBoard({
           task.id === draggedTask.id ? draggedTask : task,
         ),
       );
-      patchProjectTaskCaches(queryClient, projectId, draggedTask, {
+      patchWorkspaceTaskCaches(queryClient, projectId, draggedTask, {
         reconcile: false,
       });
       void queryClient.invalidateQueries({

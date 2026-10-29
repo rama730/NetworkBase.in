@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation'
 import { useEffect, useState, useTransition } from 'react'
 
-import { transferProjectOwnership } from '@/app/actions/account'
+import { transferWorkspaceOwnership } from '@/app/actions/account'
 import { archiveOrgAction, deleteOrgAction, duplicateOrgAction, readOrgLifecyclePreviewAction, restoreOrgAction, unarchiveOrgAction } from '@/app/actions/org-lifecycle'
 import { readOrgMembersAction } from '@/app/actions/org-members'
 import { SettingsCard } from '@/components/workspaces/settings/SettingsFormFields'
@@ -83,7 +83,7 @@ function TransferRow({ orgId, admins }: { orgId: string; admins: Array<{ userId:
                     </select>
                     {!confirming
                         ? <Button variant="outline" disabled={!target} onClick={() => setConfirming(true)}>Transfer…</Button>
-                        : <Button variant="destructive" disabled={pending} onClick={() => run(() => transferProjectOwnership(orgId, target), `${name} owns the organization now.`)}>Yes, make {name} the owner</Button>}
+                        : <Button variant="destructive" disabled={pending} onClick={() => run(() => transferWorkspaceOwnership(orgId, target), `${name} owns the organization now.`)}>Yes, make {name} the owner</Button>}
                     {status}
                 </div>
             )}

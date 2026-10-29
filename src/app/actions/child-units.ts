@@ -4,10 +4,10 @@ import { and, asc, eq, isNull, ne, sql } from 'drizzle-orm';
 
 import { db } from '@/lib/db';
 import { profiles, projectMembers, projectOpenRoles, projects } from '@/lib/db/schema';
-import { getProjectAccessById } from '@/lib/data/workspace-access';
+import { getWorkspaceAccessById } from '@/lib/data/workspace-access';
 import { notifyOrg } from '@/lib/organizations/notify';
 import { insertTask } from '@/lib/organizations/assignments';
-import { enqueueProjectNotificationEvent } from '@/lib/notifications/workspace-events';
+import { enqueueWorkspaceNotificationEvent } from '@/lib/notifications/workspace-events';
 import { taskTeamMembers } from '@/lib/db/schema';
 import { getViewerAuthContext } from '@/lib/server/viewer-context';
 
@@ -24,7 +24,7 @@ export type ChildUnits = { success: true; units: ChildUnit[]; unplaced: Array<{ 
 async function manager(projectId: string) {
     const { userId } = await getViewerAuthContext();
     if (!userId) return null;
-    const access = await getProjectAccessById(projectId, userId);
+    const access = await getWorkspaceAccessById(projectId, userId);
     if (!access.project?.parentId || access.writeBlocked) return null;
     const can = access.isOwner || access.memberRole === 'admin' || access.isInheritedAdmin;
     return can ? { userId, project: access.project } : null;
@@ -118,9 +118,9 @@ export async function moveMemberToUnitAction(projectId: string, userId: string, 
 }
 
 /** Unit names for the Tasks board's Unit filter and @unit mentions (report §14.4): anyone who can read the project. */
-export async function readProjectUnitsAction(projectId: string): Promise<Array<{ id: string; title: string; memberIds: string[]; leadUserId: string | null; count: number; filled: number }>> {
+export async function readWorkspaceUnitsAction(projectId: string): Promise<Array<{ id: string; title: string; memberIds: string[]; leadUserId: string | null; count: number; filled: number }>> {
     const { userId } = await getViewerAuthContext();
-    const access = await getProjectAccessById(projectId, userId);
+    const access = await getWorkspaceAccessById(projectId, userId);
     if (!access.canRead || !access.project?.parentId) return [];
     const [units, members] = await Promise.all([
         db.select({ id: projectOpenRoles.id, role: projectOpenRoles.role, title: projectOpenRoles.title, leadUserId: projectOpenRoles.leadUserId, count: projectOpenRoles.count, filled: projectOpenRoles.filled }).from(projectOpenRoles)
@@ -182,7 +182,7 @@ export async function createTeamTasksAction(projectId: string, input: {
         return ids;
     });
     for (const { id, team } of created) {
-        await enqueueProjectNotificationEvent({ projectId, eventKey: 'tasks.assigned', actorUserId: m.userId, directRecipientIds: team.userIds,
+        await enqueueWorkspaceNotificationEvent({ projectId, eventKey: 'tasks.assigned', actorUserId: m.userId, directRecipientIds: team.userIds,
             title: `You’re in ${team.name} for ${title}`, sourceEventId: `team-task:${id}`, entityRefs: { taskId: id } }).catch(() => undefined);
     }
     return { success: true, created: created.length };

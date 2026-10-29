@@ -60,12 +60,12 @@ function childInput(o: Org, extra: Record<string, unknown> = {}) {
     project_type: "education",
     parent_org_id: o.id,
     ...extra,
-  } as unknown as Parameters<typeof lifecycle.createProjectAction>[0];
+  } as unknown as Parameters<typeof lifecycle.createWorkspaceAction>[0];
 }
 
 async function create(o: Org, as: string, extra: Record<string, unknown> = {}) {
   viewerId = as;
-  const result = await lifecycle.createProjectAction(childInput(o, extra));
+  const result = await lifecycle.createWorkspaceAction(childInput(o, extra));
   if (result.success) created.push(result.project!.id);
   return result;
 }
@@ -116,18 +116,18 @@ test("Organization children open for org people and inherited admins, not outsid
   const result = await create(o, o.member);
   const slug = result.project!.slug!;
   viewerId = o.member2;
-  const memberView = await detail.readProjectDetailShell({ slugOrId: slug });
+  const memberView = await detail.readWorkspaceDetailShell({ slugOrId: slug });
   assert.equal(memberView.success, true, `org member not in the workspace: ${JSON.stringify(memberView).slice(0, 300)}`);
   const outsider = await sql.begin((tx) => createUser(tx));
   viewerId = outsider;
-  assert.equal((await detail.readProjectDetailShell({ slugOrId: slug })).success, false);
+  assert.equal((await detail.readWorkspaceDetailShell({ slugOrId: slug })).success, false);
   await sql`UPDATE projects SET visibility = 'private', status = 'draft' WHERE id = ${result.project!.id}`;
   viewerId = o.admin;
-  const shell = await detail.readProjectDetailShell({ slugOrId: slug });
+  const shell = await detail.readWorkspaceDetailShell({ slugOrId: slug });
   assert.equal(shell.success, true, `inherited admins read private drafts: ${JSON.stringify(shell)}`);
   assert.equal(shell.success && shell.data.project.parentOrg?.viewerIsInheritedAdmin, true);
   viewerId = o.member2;
-  assert.equal((await detail.readProjectDetailShell({ slugOrId: slug })).success, false);
+  assert.equal((await detail.readWorkspaceDetailShell({ slugOrId: slug })).success, false);
 });
 
 test("detach: the lead asks, an inherited admin approves; the workspace becomes Private and personal", async () => {
@@ -153,7 +153,7 @@ test("moving a project in: admins move directly, members ask and an admin approv
   created.push(own);
   await sql`INSERT INTO project_members (project_id, user_id, role) VALUES (${own}, ${o.admin}, 'owner')`;
   viewerId = o.admin;
-  const moved = await orgs.moveProjectToOrgAction(own, o.id);
+  const moved = await orgs.moveWorkspaceToOrgAction(own, o.id);
   assert.equal(moved.success && moved.outcome, "moved", JSON.stringify(moved));
   assert.equal((await row(own)).parent_id, o.id);
   assert.equal((await row(own)).visibility, "public", "public stays public under a public cap");
@@ -164,10 +164,10 @@ test("moving a project in: admins move directly, members ask and an admin approv
   const stranger = await sql.begin((tx) => createUser(tx));
   await sql`INSERT INTO project_members (project_id, user_id, role) VALUES (${theirs}, ${stranger}, 'member')`;
   viewerId = o.member;
-  const blocked = await orgs.moveProjectToOrgAction(theirs, o.id);
+  const blocked = await orgs.moveWorkspaceToOrgAction(theirs, o.id);
   assert.equal(blocked.success, false, "outside people are not allowed in this org");
   await sql`DELETE FROM project_members WHERE project_id = ${theirs} AND user_id = ${stranger}`;
-  const asked = await orgs.moveProjectToOrgAction(theirs, o.id);
+  const asked = await orgs.moveWorkspaceToOrgAction(theirs, o.id);
   assert.equal(asked.success && asked.outcome, "requested");
   assert.equal((await row(theirs)).parent_id, null);
   viewerId = o.admin;

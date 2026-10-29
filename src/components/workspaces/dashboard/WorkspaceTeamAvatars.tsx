@@ -6,9 +6,9 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { profileHref } from "@/lib/routing/identifiers";
-import { buildProjectPersonReference, formatProjectTeamRole } from "@/lib/workspaces/settings-policies";
+import { buildWorkspacePersonReference, formatWorkspaceTeamRole } from "@/lib/workspaces/settings-policies";
 
-export interface ProjectHeaderMember {
+export interface WorkspaceHeaderMember {
     id: string;
     fullName?: string | null;
     username?: string | null;
@@ -20,7 +20,7 @@ export interface ProjectHeaderMember {
 
 interface ProjectTeamAvatarsProps {
     project: any;
-    members?: ProjectHeaderMember[];
+    members?: WorkspaceHeaderMember[];
     loading?: boolean;
 }
 
@@ -72,14 +72,14 @@ const ProjectTeamAvatars = memo(function ProjectTeamAvatars({
             .filter((member, index, list) => member?.id && list.findIndex((candidate) => candidate?.id === member.id) === index)
             .map((member) => {
                 const isOwner = member.id === owner?.id;
-                const reference = buildProjectPersonReference({
+                const reference = buildWorkspacePersonReference({
                     person: member,
                     membershipRole: isOwner ? "owner" : member.membershipRole,
                     isActiveMember: true,
                 });
                 const role = member.id === guidance?.guideUserId
                     ? `${guidance.label || "Mentor"} · Admin`
-                    : formatProjectTeamRole({
+                    : formatWorkspaceTeamRole({
                         membershipRole: isOwner ? "owner" : member.membershipRole,
                         projectRoleTitle: member.projectRoleTitle,
                         leadFocus: isOwner ? leadFocus : undefined,

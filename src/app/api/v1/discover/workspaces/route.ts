@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 import { jsonError, jsonSuccess } from "@/app/api/v1/_envelope";
-import { fetchDiscoverProjectsAction } from "@/app/actions/discover";
+import { fetchDiscoverWorkspacesAction } from "@/app/actions/discover";
 import { SORT_OPTIONS } from "@/constants/discover";
 import { parseDiscoverQuery } from "@/lib/discover/query";
 
@@ -34,7 +34,7 @@ export async function GET(request: Request) {
     ...(query.org ? { org: query.org } : {}),
   };
 
-  const result = await fetchDiscoverProjectsAction(filters, params.data.cursor, params.data.limit, query.view, "full");
+  const result = await fetchDiscoverWorkspacesAction(filters, params.data.cursor, params.data.limit, query.view, "full");
   if (!result.success) {
     const status = result.code === "RATE_LIMITED" ? 429 : result.code === "VALIDATION" || result.code === "STALE_FEED" ? 400 : 503;
     const errorCode = result.code === "RATE_LIMITED" ? "RATE_LIMITED" : result.code === "VALIDATION" || result.code === "STALE_FEED" ? "BAD_REQUEST" : "INTERNAL_ERROR";

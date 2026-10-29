@@ -52,7 +52,7 @@ async function main() {
   const postgres = (await import("postgres")).default;
   const sql = postgres(disposableUrl!, { max: 4, prepare: false, onnotice: () => undefined });
   const feed = await import("@/lib/workspaces/public-feed-service");
-  const { decodePublicProjectsCursor } = await import("@/lib/workspaces/public-feed");
+  const { decodePublicWorkspacesCursor } = await import("@/lib/workspaces/public-feed");
   const data = await import("@/lib/data/discover");
   const connectionsActions = await import("@/app/actions/connections");
   const { DISCOVER_RAIL_FILTERS } = await import("@/lib/discover/query");
@@ -127,7 +127,7 @@ async function main() {
     await sql`INSERT INTO project_open_roles (project_id, role, count, filled) VALUES (${ids.open}, 'Designer', 4, 1), (${ids.open}, 'Writer', 2, 2)`;
 
     // ---- Shared (public) feed: one payload for everyone, shaped for a signed-out viewer.
-    const fullPublic = await feed.queryAndCachePublicProjectsFeed(100, null);
+    const fullPublic = await feed.queryAndCachePublicWorkspacesFeed(100, null);
     const mine = (items: Array<{ id: string }>) => items.filter((item) => seeded.has(item.id));
     const byId = new Map(fullPublic.projects.map((item) => [item.id, item]));
 
@@ -152,31 +152,31 @@ async function main() {
 
     await check("public feed pages: no repeats, no gaps inside one millisecond", async () => {
       const seen: string[] = [];
-      let cursor = null as ReturnType<typeof decodePublicProjectsCursor>;
+      let cursor = null as ReturnType<typeof decodePublicWorkspacesCursor>;
       for (let page = 0; page < 200; page += 1) {
-        const result = await feed.queryAndCachePublicProjectsFeed(3, cursor);
+        const result = await feed.queryAndCachePublicWorkspacesFeed(3, cursor);
         seen.push(...result.projects.map((item) => item.id));
         if (!result.nextCursor) break;
-        cursor = decodePublicProjectsCursor(result.nextCursor);
+        cursor = decodePublicWorkspacesCursor(result.nextCursor);
       }
       const expected = mine(fullPublic.projects).map((item) => item.id);
       const got = seen.filter((id) => seeded.has(id));
       return new Set(seen).size === seen.length && JSON.stringify(got) === JSON.stringify(expected);
     });
     await check("a forged public cursor is refused", async () =>
-      decodePublicProjectsCursor(Buffer.from(JSON.stringify({ createdAt: "x", id: "1" })).toString("base64url")) === null);
+      decodePublicWorkspacesCursor(Buffer.from(JSON.stringify({ createdAt: "x", id: "1" })).toString("base64url")) === null);
 
     // ---- Filtered and ranked feeds (server action path).
     const base = { status: "all", type: "all", tech: [] as string[], sort: "newest", search: undefined as string | undefined };
     const everything = async (filters: typeof base, view: "all" | "trending" | "recommendations", viewerId: string | null) => {
-      const result = await data.getDiscoverProjects(filters, undefined, 60, { view, viewerId });
+      const result = await data.getDiscoverWorkspaces(filters, undefined, 60, { view, viewerId });
       return result.projects;
     };
     const paged = async (filters: typeof base, view: "all" | "trending" | "recommendations", viewerId: string | null) => {
       const seen: string[] = [];
       let cursor: string | undefined;
       for (let page = 0; page < 200; page += 1) {
-        const result = await data.getDiscoverProjects(filters, cursor, 4, { view, viewerId });
+        const result = await data.getDiscoverWorkspaces(filters, cursor, 4, { view, viewerId });
         seen.push(...result.projects.map((item) => item.id));
         if (!result.nextCursor) break;
         cursor = result.nextCursor;
@@ -263,29 +263,29 @@ async function main() {
     await check("a private project is in neither feed", async () =>
       !byId.has(ids.privateProject) && !(await everything(base, "all", viewer)).some((project) => project.id === ids.privateProject));
     await check("the search preview keeps a project's stage and cover", async () => {
-      const result = await data.getDiscoverProjects({ ...base, search: `${run} Open` }, undefined, 8, { view: "all", viewerId: viewer, surface: "preview" });
+      const result = await data.getDiscoverWorkspaces({ ...base, search: `${run} Open` }, undefined, 8, { view: "all", viewerId: viewer, surface: "preview" });
       const item = result.projects.find((project) => project.id === ids.open);
       return item?.status === "active" && item.coverImage === "https://cdn.example.test/open.png";
     });
     await check("a ranked cursor from the far future is a cursor error", async () => {
-      const first = await data.getDiscoverProjects(base, undefined, 4, { view: "trending", viewerId: viewer });
+      const first = await data.getDiscoverWorkspaces(base, undefined, 4, { view: "trending", viewerId: viewer });
       const parts = (first.nextCursor ?? "").split("|");
       if (parts.length < 3) return false;
       parts[1] = "1e20";
       try {
-        await data.getDiscoverProjects(base, parts.join("|"), 4, { view: "trending", viewerId: viewer });
+        await data.getDiscoverWorkspaces(base, parts.join("|"), 4, { view: "trending", viewerId: viewer });
         return false;
       } catch (error) {
         return error instanceof data.InvalidDiscoverCursorError;
       }
     });
     await check("a ranked list keeps going when the project at its cursor left the feed", async () => {
-      const first = await data.getDiscoverProjects(base, undefined, 4, { view: "trending", viewerId: viewer });
+      const first = await data.getDiscoverWorkspaces(base, undefined, 4, { view: "trending", viewerId: viewer });
       const lastId = first.projects.at(-1)?.id;
       if (!first.nextCursor || !lastId || !seeded.has(lastId)) return false;
       await sql`UPDATE projects SET visibility = 'private' WHERE id = ${lastId}`;
       try {
-        const next = await data.getDiscoverProjects(base, first.nextCursor, 4, { view: "trending", viewerId: viewer });
+        const next = await data.getDiscoverWorkspaces(base, first.nextCursor, 4, { view: "trending", viewerId: viewer });
         return next.projects.length > 0 && !next.projects.some((project) => first.projects.some((seen) => seen.id === project.id));
       } finally {
         await sql`UPDATE projects SET visibility = 'public' WHERE id = ${lastId}`;
@@ -312,7 +312,7 @@ async function main() {
 
     await check("a garbage cursor is a cursor error, not page 1", async () => {
       try {
-        await data.getDiscoverProjects(base, "t:abc|not-a-date|1", 4, { view: "all", viewerId: viewer });
+        await data.getDiscoverWorkspaces(base, "t:abc|not-a-date|1", 4, { view: "all", viewerId: viewer });
         return false;
       } catch (error) {
         return error instanceof data.InvalidDiscoverCursorError;

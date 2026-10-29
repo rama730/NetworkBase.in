@@ -19,7 +19,7 @@ import { resolveClientSkill, useSkillCatalog } from "@/lib/skills/client";
 import { SearchPreviewError } from "@/lib/search/contracts";
 import {
     ProfileSearchResultCard,
-    ProjectSearchResultCard,
+    WorkspaceSearchResultCard,
     LinkSearchResultCard,
     SettingsSearchResultCard,
     TaskSearchResultCard,
@@ -28,7 +28,7 @@ import {
 import {
     buildGlobalSearchHref,
     getNetworkSearchScope,
-    getProjectIdentifierFromPathname,
+    getWorkspaceIdentifierFromPathname,
     getGlobalSearchRecentScope,
     readRecentGlobalSearches,
     removeRecentGlobalSearch,
@@ -103,7 +103,7 @@ function RecentSearchList({
                 {items.map((recent) => {
                     if (recent.kind === "preview" && isGlobalSearchPreview(recent.preview)) {
                         const interaction = { index: 0, activeIndex: -1, onActivate: () => undefined, onOpen: onOpenPreview, onRemove: () => onRemove(recent.key) };
-                        if (recent.preview.kind === "project") return <ProjectSearchResultCard key={recent.key} result={recent.preview} {...interaction} />;
+                        if (recent.preview.kind === "project") return <WorkspaceSearchResultCard key={recent.key} result={recent.preview} {...interaction} />;
                         if (recent.preview.kind === "profile") return <ProfileSearchResultCard key={recent.key} result={recent.preview} {...interaction} onConnect={onConnect} isConnecting={connectingUserId === recent.preview.userId} />;
                         if (recent.preview.kind === "task") return <TaskSearchResultCard key={recent.key} result={recent.preview} {...interaction} />;
                         if (recent.preview.kind === "link") return <LinkSearchResultCard key={recent.key} result={recent.preview} {...interaction} />;
@@ -152,7 +152,7 @@ export default function CommandPalette({ isOpen, onClose, initialQuery = "", con
     const routeContext = resolveGlobalSearchContext(pathname, currentParams);
     const searchContext = context ?? routeContext.context;
     const peopleScope = getNetworkSearchScope(currentParams);
-    const projectIdentifier = getProjectIdentifierFromPathname(pathname);
+    const projectIdentifier = getWorkspaceIdentifierFromPathname(pathname);
     const recentSearchScope = getGlobalSearchRecentScope(searchContext, peopleScope, projectIdentifier);
     const presentation = searchContext === "network" && peopleScope === "network"
         ? { label: "Connections / Network", hints: ["Connection name", "Username"] }
@@ -466,7 +466,7 @@ export default function CommandPalette({ isOpen, onClose, initialQuery = "", con
                                         {previews.isFetching ? <span className="nb-meta text-[11px] text-muted-foreground/70">Refreshing…</span> : null}
                                     </div>
                                     {orgResults.map(({ result, index }) => <OrgSearchResultCard key={result.id} result={result} index={index} activeIndex={activeIndex} onActivate={setActiveIndex} onOpen={openPreviewResult} />)}
-                                    {projectResults.map(({ result, index }) => <ProjectSearchResultCard key={result.id} result={result} index={index} activeIndex={activeIndex} onActivate={setActiveIndex} onOpen={openPreviewResult} />)}
+                                    {projectResults.map(({ result, index }) => <WorkspaceSearchResultCard key={result.id} result={result} index={index} activeIndex={activeIndex} onActivate={setActiveIndex} onOpen={openPreviewResult} />)}
                                     {profileResults.map(({ result, index }) => <ProfileSearchResultCard key={result.id} result={result} index={index} activeIndex={activeIndex} onActivate={setActiveIndex} onOpen={openPreviewResult} onConnect={connectProfile} isConnecting={sendRequest.isPending && sendRequest.variables?.userId === result.userId} />)}
                                     {taskResults.map(({ result, index }) => <TaskSearchResultCard key={result.id} result={result} index={index} activeIndex={activeIndex} onActivate={setActiveIndex} onOpen={openPreviewResult} />)}
                                     {linkResults.map(({ result, index }) => <LinkSearchResultCard key={result.id} result={result} index={index} activeIndex={activeIndex} onActivate={setActiveIndex} onOpen={openPreviewResult} />)}

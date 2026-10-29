@@ -6,14 +6,14 @@ import { useForm, useFieldArray, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { LifecycleEditor } from "@/components/workspaces/LifecycleEditor";
-import { ProjectRolesEditor } from "@/components/workspaces/settings/WorkspaceRolesEditor";
-import { normalizeProjectRoleFormValues } from "@/lib/workspaces/workspace-roles-form";
+import { WorkspaceRolesEditor } from "@/components/workspaces/settings/WorkspaceRolesEditor";
+import { normalizeWorkspaceRoleFormValues } from "@/lib/workspaces/workspace-roles-form";
 import { Layout, FileText, Layers, Users, X, Check, Info, CheckCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "@/lib/feedback";
-import { updateProject, updateProjectLifecycleAction } from "@/app/actions/workspace";
+import { updateWorkspace, updateWorkspaceLifecycleAction } from "@/app/actions/workspace";
 import { SkillPicker } from "@/components/skills/SkillPicker";
-import { ProjectLinkEditorFields, type ProjectLinkEditorHandle } from "@/components/workspaces/dashboard/WorkspaceSocialLinksCard";
+import { WorkspaceLinkEditorFields, type WorkspaceLinkEditorHandle } from "@/components/workspaces/dashboard/WorkspaceSocialLinksCard";
 import { socialLinkItemsFromStorage } from "@/lib/profile/normalization";
 import { externalLinksSchema } from "@/lib/validations/workspace";
 import {
@@ -114,13 +114,13 @@ function StatusSelector({ value, onChange }: { value: string; onChange: (val: st
 
 // --- Main Component ---
 
-export default function EditProjectModal({ project, isOpen, onClose, onSaved }: EditProjectModalProps) {
+export default function EditWorkspaceModal({ project, isOpen, onClose, onSaved }: EditProjectModalProps) {
     // Organizations keep the same columns under their own words (report §34.11).
     const isOrg = (project as { kind?: string }).kind === "organization";
     const [activeTab, setActiveTab] = useState("essentials");
     const [isPending, startTransition] = useTransition();
     const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
-    const projectLinksRef = useRef<ProjectLinkEditorHandle>(null);
+    const projectLinksRef = useRef<WorkspaceLinkEditorHandle>(null);
 
     const initialStages: string[] = project.lifecycleStages ?? ["Concept", "Team formation", "MVP", "Beta", "Launch"];
     const currentStageIndex: number = project.currentStageIndex ?? 0;
@@ -141,7 +141,7 @@ export default function EditProjectModal({ project, isOpen, onClose, onSaved }: 
             // Check camelCase (Drizzle default) then snake_case (Raw/Legacy)
             // Use defaults ONLY if both are null/undefined, effectively initializing new/legacy projects
             lifecycleStages: initialStages,
-            roles: normalizeProjectRoleFormValues(project.openRoles),
+            roles: normalizeWorkspaceRoleFormValues(project.openRoles),
             externalLinks: socialLinkItemsFromStorage(project.externalLinks ?? project.external_links),
         }
     });
@@ -192,14 +192,14 @@ export default function EditProjectModal({ project, isOpen, onClose, onSaved }: 
                 if (preparedLinks && !preparedLinks.success) return;
                 const { lifecycleStages, status, ...rest } = data;
                 // Archive has its own guarded flow; the stage lives in the lifecycle action, which re-maps it by name.
-                await updateProject(project.id, {
+                await updateWorkspace(project.id, {
                     ...rest,
                     ...(status === "archived" ? {} : { status }),
                     externalLinks: preparedLinks?.links ?? data.externalLinks,
                     deletedRoleIds,
                 });
                 if (lifecycleStages.join("\n") !== initialStages.join("\n")) {
-                    const lifecycle = await updateProjectLifecycleAction(project.id, lifecycleStages, currentStageName ?? "");
+                    const lifecycle = await updateWorkspaceLifecycleAction(project.id, lifecycleStages, currentStageName ?? "");
                     if (!lifecycle.success) throw new Error(lifecycle.error);
                 }
                 toast.success("Workspace updated");
@@ -416,7 +416,7 @@ export default function EditProjectModal({ project, isOpen, onClose, onSaved }: 
                                             <div>
                                                 <h3 className="mb-2 text-lg font-semibold text-zinc-900 dark:text-zinc-100">Workspace links</h3>
                                                 <p className="mb-4 text-sm text-zinc-500">Links appear next to the workspace name.</p>
-                                                <ProjectLinkEditorFields
+                                                <WorkspaceLinkEditorFields
                                                     ref={projectLinksRef}
                                                     links={watch("externalLinks")}
                                                     savedLinks={project.externalLinks ?? project.external_links}
@@ -493,7 +493,7 @@ export default function EditProjectModal({ project, isOpen, onClose, onSaved }: 
 
                                     {/* ROLES */}
                                     {activeTab === "roles" && (
-                                        <ProjectRolesEditor
+                                        <WorkspaceRolesEditor
                                             fields={roleFields}
                                             register={register}
                                             control={control}

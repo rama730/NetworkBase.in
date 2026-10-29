@@ -273,7 +273,7 @@ describe("QuickOpen — 50-result cap (Req 9.3, source-level)", () => {
   });
 
   it("pages authoritative search in batches of 50 instead of silently truncating", () => {
-    assert.match(DIALOG_SOURCE, /getProjectNodes\(projectId, null, rawQuery, MAX_RESULTS, pageParam,\s*\{/);
+    assert.match(DIALOG_SOURCE, /getWorkspaceNodes\(projectId, null, rawQuery, MAX_RESULTS, pageParam,\s*\{/);
     assert.match(DIALOG_SOURCE, /getNextPageParam: page => page.nextCursor/);
     assert.match(DIALOG_SOURCE, /search.fetchNextPage\(\)/);
   });

@@ -74,6 +74,6 @@ assert.match(hubData, /acceptedRoleTitle/);
 assert.match(hubData, /roleApplications/);
 assert.match(hubData, /connectionRank/);
 assert.match(hubData, /connectedCount/);
-assert.match(hubData, /getProjectMemberRoleLabel/);
+assert.match(hubData, /getWorkspaceMemberRoleLabel/);
 
 console.log(`Global-search contract passed (${requiredIndexes.length} required indexes, bounded previews, strict inputs, redacted metrics).`);

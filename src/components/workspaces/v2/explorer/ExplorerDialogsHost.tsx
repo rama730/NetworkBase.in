@@ -24,7 +24,7 @@ import {
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import type { ProjectNode } from "@/lib/db/schema";
-import { getProjectNodes } from "@/app/actions/files/nodes";
+import { getWorkspaceNodes } from "@/app/actions/files/nodes";
 import { createFolder } from "@/app/actions/files/mutations";
 import { readOrgFileUsageAction } from "@/app/actions/org-files";
 import { isInternalTaskWorkingFilesNode } from "@/lib/files/task-working-files";
@@ -89,7 +89,7 @@ export function FolderPicker({
       },
     }));
     try {
-      const result = await getProjectNodes(
+      const result = await getWorkspaceNodes(
         projectId,
         parentId,
         undefined,
@@ -160,7 +160,7 @@ export function FolderPicker({
     const timer = window.setTimeout(() => {
       setSearching(true);
       setSearchError(null);
-      void getProjectNodes(projectId, null, normalized, 100, undefined, { itemType: "folder" })
+      void getWorkspaceNodes(projectId, null, normalized, 100, undefined, { itemType: "folder" })
         .then((result) => {
           if (!cancelled) {
             setSearchResults(eligibleFolders(result.nodes));
@@ -209,7 +209,7 @@ export function FolderPicker({
     if (!searchNextCursor || searching) return;
     setSearching(true);
     try {
-      const result = await getProjectNodes(
+      const result = await getWorkspaceNodes(
         projectId,
         null,
         query.trim(),

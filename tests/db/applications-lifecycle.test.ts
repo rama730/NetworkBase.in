@@ -226,7 +226,7 @@ test("a profile's apply picker leaves out projects the viewer cannot apply to ri
   const lifecycle = await loadAppModule(() => import("../../src/lib/workspaces/server/lifecycle"));
   await withProject(async ({ owner, projectId, roleId }) => {
     await sql`UPDATE projects SET open_roles_count = 1 WHERE id = ${projectId}`;
-    const offered = async () => (await lifecycle.getProfileProjectsWithOpenRolesAction(owner)).items.some((item: { id: string }) => item.id === projectId);
+    const offered = async () => (await lifecycle.getProfileWorkspacesWithOpenRolesAction(owner)).items.some((item: { id: string }) => item.id === projectId);
     assert.equal(await offered(), true, "offered before applying");
     const first = await apps.applyToRoleAction(projectId, roleId, "hello");
     assert.equal(await offered(), false, "not offered while pending");
@@ -243,7 +243,7 @@ test("a profile's apply picker leaves out projects the viewer cannot apply to ri
     await sql`INSERT INTO project_invitations (project_id, inviter_id, candidate_id, kind, role_id, role_title, project_title, status, expires_at)
       VALUES (${projectId}, ${owner}, ${viewerId}, 'ordinary_role', ${roleId}, 'Designer', 'P', 'pending', now() + interval '1 day')`;
     assert.equal(await offered(), false, "not offered while an invitation to it is pending");
-    assert.equal((await lifecycle.getProfileProjectsWithOpenRolesAction(owner)).capReached, false);
+    assert.equal((await lifecycle.getProfileWorkspacesWithOpenRolesAction(owner)).capReached, false);
   });
 });
 

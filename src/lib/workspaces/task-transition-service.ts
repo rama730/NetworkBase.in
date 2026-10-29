@@ -10,7 +10,7 @@ import {
   taskNodeLinks,
   tasks,
 } from "@/lib/db/schema";
-import { enqueueProjectNotificationEvent } from "@/lib/notifications/workspace-events";
+import { enqueueWorkspaceNotificationEvent } from "@/lib/notifications/workspace-events";
 import { queueCounterRefreshBestEffort } from "@/lib/my-work/counter-buffer";
 import { getTaskFileWarnings } from "@/lib/workspaces/task-file-intelligence";
 import { logger } from "@/lib/logger";
@@ -446,7 +446,7 @@ export async function afterTaskTransition(
                 ? "completed a task"
                 : `moved a task to ${result.status.replaceAll("_", " ")}`;
       const actor = taskActorSnapshot(user);
-      await enqueueProjectNotificationEvent({
+      await enqueueWorkspaceNotificationEvent({
         projectId: locked.projectId,
         actorUserId: user.id,
         ...actor,

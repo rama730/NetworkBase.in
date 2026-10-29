@@ -5,11 +5,11 @@ import Link from "next/link";
 import { formatDistanceToNow } from "@/lib/utils/date";
 import { CheckCircle2, FilePlus2, GitBranch, UserRoundPlus } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-import { readProjectRecentActivityAction } from "@/app/actions/workspace/recent-activity";
+import { readWorkspaceRecentActivityAction } from "@/app/actions/workspace/recent-activity";
 import { queryKeys } from "@/lib/query-keys";
-import type { ProjectRecentActivityType } from "@/lib/workspaces/recent-activity";
+import type { WorkspaceRecentActivityType } from "@/lib/workspaces/recent-activity";
 
-const icons: Record<ProjectRecentActivityType, typeof GitBranch> = {
+const icons: Record<WorkspaceRecentActivityType, typeof GitBranch> = {
   member: UserRoundPlus,
   task: CheckCircle2,
   file: FilePlus2,
@@ -19,7 +19,7 @@ const icons: Record<ProjectRecentActivityType, typeof GitBranch> = {
 export function RecentActivityCard({ projectId }: { projectId: string }) {
   const activity = useQuery({
     queryKey: queryKeys.project.detail.recentActivity(projectId),
-    queryFn: () => readProjectRecentActivityAction(projectId),
+    queryFn: () => readWorkspaceRecentActivityAction(projectId),
     staleTime: 30_000,
   });
 

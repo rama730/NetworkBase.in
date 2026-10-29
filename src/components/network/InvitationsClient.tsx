@@ -8,18 +8,18 @@ import { keepPreviousData, useInfiniteQuery, useQueryClient } from "@tanstack/re
 import { toast, feedbackError } from "@/lib/feedback";
 
 import {
-    cancelSentProjectInvitationAction,
+    cancelSentWorkspaceInvitationAction,
     acceptApplicationAction,
     rejectApplicationAction,
     reopenApplicationAction,
     withdrawApplicationAction,
-    type SentProjectInvitationItem,
+    type SentWorkspaceInvitationItem,
 } from "@/app/actions/applications";
 import WithdrawApplicationDialog from "@/components/workspaces/dashboard/WithdrawApplicationDialog";
 import { SentApplicationMenu } from "./SentApplicationMenu";
 import { ApplicationReview, DecidedApplicationMenu } from "./ApplicationReview";
 import type { DecisionInput } from "@/components/applications/DecisionDialog";
-import { resolveProjectInvitationAction } from "@/app/actions/workspace/guidance";
+import { resolveWorkspaceInvitationAction } from "@/app/actions/workspace/guidance";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { PersonCardContent } from "./PersonCardContent";
@@ -180,7 +180,7 @@ export default function InvitationsClient({
     const sentApplications = entries.filter(
         (item) => item.source === "application" && item.direction === "sent" && item.applicationStatus,
     );
-    const sentProjectInvitations: SentProjectInvitationItem[] = entries
+    const sentProjectInvitations: SentWorkspaceInvitationItem[] = entries
         .filter(
             (item) => item.source === "invitation" && item.direction === "sent",
         )
@@ -191,7 +191,7 @@ export default function InvitationsClient({
             projectTitle: item.projectTitle!,
             projectSlug: item.projectSlug,
             roleTitle: item.roleTitle!,
-            candidate: item.person as SentProjectInvitationItem["candidate"],
+            candidate: item.person as SentWorkspaceInvitationItem["candidate"],
             createdAt: new Date(item.createdAt),
             status: "pending",
             note: item.note,
@@ -308,13 +308,13 @@ export default function InvitationsClient({
     }
 
     async function handleCancelSentProjectInvitation(
-        item: SentProjectInvitationItem,
+        item: SentWorkspaceInvitationItem,
     ) {
         setCancellingProjectId(item.id);
         try {
             await toast
                 .promise(
-                    cancelSentProjectInvitationAction({
+                    cancelSentWorkspaceInvitationAction({
                         invitationId: item.invitationId,
                     }).then((res) => {
                         if (!res.success)
@@ -336,7 +336,7 @@ export default function InvitationsClient({
                 .unwrap();
 
             // Only after it really cancelled: a failure keeps the row (the toast says why).
-            queryClient.setQueryData<SentProjectInvitationItem[]>(
+            queryClient.setQueryData<SentWorkspaceInvitationItem[]>(
                 queryKeys.myWork.sentProjectInvitations(50),
                 (prev) => (prev ? prev.filter((p) => p.id !== item.id) : []),
             );
@@ -356,7 +356,7 @@ export default function InvitationsClient({
     ) {
         setProcessingProject({ id, action });
         try {
-            const request = resolveProjectInvitationAction({
+            const request = resolveWorkspaceInvitationAction({
                 invitationId: id,
                 action,
             }).then((result) => {

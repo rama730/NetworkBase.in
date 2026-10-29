@@ -8,7 +8,7 @@ import { takeSendToken } from '@/lib/messaging/send-bucket';
 import { readSharePreview } from '@/lib/sharing/read';
 import { parseShareResource, shareOrigin } from '@/lib/sharing/presentation';
 import { headers } from 'next/headers';
-import { getProjectAccessByIdentifier } from '@/lib/data/workspace-access';
+import { getWorkspaceAccessByIdentifier } from '@/lib/data/workspace-access';
 import { getShareDestination } from '@/app/actions/sharing-destinations';
 
 /** URL and note only. Never persists the sender's private preview snapshot. */
@@ -37,7 +37,7 @@ export async function sendSharedLink(input: { url: string; channelId: string; no
     let link = preview.url;
     const resource = parseShareResource(preview.url,origin);
     if (resource?.kind === 'project') {
-      const access = await getProjectAccessByIdentifier(resource.identifier, user.id);
+      const access = await getWorkspaceAccessByIdentifier(resource.identifier, user.id);
       if (!access.canRead || !access.project) return { success: false as const, error: 'share_unavailable' };
       // The readable label stays canonical; the stable project id survives a later slug change.
       link = `[${preview.url}](${new URL(`/workspaces/${access.project.id}`,preview.url).href})`;

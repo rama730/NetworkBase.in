@@ -9,9 +9,9 @@ import { eq, and, isNull, sql } from "drizzle-orm";
 import { fetchAndParseTarball } from "@/lib/github/tarball-stream";
 import { resolveGithubRepoAccess } from "@/lib/github/auth-resolver";
 import { createAdminClient } from "@/lib/supabase/server";
-import { buildProjectFileKey } from "@/lib/storage/workspace-file-key";
+import { buildWorkspaceFileKey } from "@/lib/storage/workspace-file-key";
 import { createUploadIntent, finalizeUploadIntent } from "@/lib/upload/upload-intents";
-import { PROJECT_UPLOAD_MAX_FILE_BYTES } from "@/lib/upload/security";
+import { WORKSPACE_UPLOAD_MAX_FILE_BYTES } from "@/lib/upload/security";
 
 const UPLOAD_CONCURRENCY = 5;
 
@@ -116,8 +116,8 @@ export const projectImportHydrate = inngest.createFunction(
                         if (node.gitHash && gitBlobSha(file.content) !== node.gitHash) {
                             throw new Error(`Content for ${file.path} does not match the imported Git blob`);
                         }
-                        if (size > PROJECT_UPLOAD_MAX_FILE_BYTES) {
-                            throw new Error(`File exceeds ${PROJECT_UPLOAD_MAX_FILE_BYTES} byte import limit`);
+                        if (size > WORKSPACE_UPLOAD_MAX_FILE_BYTES) {
+                            throw new Error(`File exceeds ${WORKSPACE_UPLOAD_MAX_FILE_BYTES} byte import limit`);
                         }
                         const mimeType = node.mimeType || 'application/octet-stream';
                         const contentHash = createHash("sha256").update(file.content).digest("hex");
@@ -129,7 +129,7 @@ export const projectImportHydrate = inngest.createFunction(
                         const suffix = extension && /^[a-z0-9]{1,16}$/.test(extension)
                             ? `.${extension}`
                             : "";
-                        const s3Key = buildProjectFileKey(
+                        const s3Key = buildWorkspaceFileKey(
                             projectId,
                             `nodes/${node.id}/imports/${contentHash}-${operationIdentity}${suffix}`,
                         );

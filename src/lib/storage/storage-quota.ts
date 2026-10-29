@@ -1,6 +1,6 @@
 export const MAX_OUTSTANDING_UPLOADS_PER_USER = 64;
 export const USER_STORAGE_LIMIT_BYTES = 1024 * 1024 * 1024;
-export const PROJECT_STORAGE_LIMIT_BYTES = 10 * 1024 * 1024 * 1024;
+export const WORKSPACE_STORAGE_LIMIT_BYTES = 10 * 1024 * 1024 * 1024;
 
 export class StorageQuotaError extends Error {
   readonly code: "OUTSTANDING_UPLOAD_LIMIT" | "STORAGE_QUOTA_EXCEEDED";

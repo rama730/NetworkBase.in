@@ -1,9 +1,9 @@
-import type { ProjectSettingsSectionId } from "./settings-policies";
+import type { WorkspaceSettingsSectionId } from "./settings-policies";
 
-export function resolveProjectSettingsSection(
+export function resolveWorkspaceSettingsSection(
   requested: string | null | undefined,
-  available: readonly { id: ProjectSettingsSectionId }[],
-): ProjectSettingsSectionId {
+  available: readonly { id: WorkspaceSettingsSectionId }[],
+): WorkspaceSettingsSectionId {
   const raw = requested?.replace(/^#?project-settings-/, "");
   const normalized =
     raw === "privacy" || raw === "privacy-terms"
@@ -20,13 +20,13 @@ export function resolveProjectSettingsSection(
 
 export function selectVisibleSettingsSection(
   sections: readonly {
-    id: ProjectSettingsSectionId;
+    id: WorkspaceSettingsSectionId;
     top: number;
     bottom: number;
   }[],
   contentTop: number,
   atEnd = false,
-): ProjectSettingsSectionId | undefined {
+): WorkspaceSettingsSectionId | undefined {
   if (atEnd) return sections.at(-1)?.id;
   // The heading closest to the sticky tab edge represents the section in view.
   return sections

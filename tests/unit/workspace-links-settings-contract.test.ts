@@ -16,24 +16,24 @@ test("workspace links tab eliminates duplicate headers, summary cards, and leave
 
   // Links section block extraction
   const linksBlock = settingsTab.split('id="project-settings-links"')[1]?.split('id="project-settings-collaborators"')[0] ?? "";
-  assert.ok(linksBlock.length > 0, "Links settings block must exist in ProjectSettingsTab");
+  assert.ok(linksBlock.length > 0, "Links settings block must exist in WorkspaceSettingsTab");
 
   // Redundant SummaryCard removed
   assert.doesNotMatch(linksBlock, /<SummaryCard/, "Redundant SummaryCard must be removed from Project Links tab");
 
-  // Single canonical SettingsCard hosting ProjectLinksManager
+  // Single canonical SettingsCard hosting WorkspaceLinksManager
   assert.match(linksBlock, /<SettingsCard[\s\S]*?title="Workspace links"/, "Canonical SettingsCard must be used");
-  assert.match(linksBlock, /<ProjectLinksManager[\s\S]*?mode="inline"/, "ProjectLinksManager must be rendered in inline mode");
-  assert.equal((linksBlock.match(/<ProjectLinksManager/g) ?? []).length, 1, "Exactly one ProjectLinksManager in links tab");
+  assert.match(linksBlock, /<WorkspaceLinksManager[\s\S]*?mode="inline"/, "WorkspaceLinksManager must be rendered in inline mode");
+  assert.equal((linksBlock.match(/<WorkspaceLinksManager/g) ?? []).length, 1, "Exactly one WorkspaceLinksManager in links tab");
 });
 
 test("workspace links components adhere to NetworkBase drafting-table design tokens and typography", () => {
   const cardSource = source("src/components/workspaces/dashboard/WorkspaceSocialLinksCard.tsx");
 
   // Zero legacy zinc, emerald, or blue classes
-  assert.doesNotMatch(cardSource, /zinc-/, "ProjectSocialLinksCard must not contain raw zinc utility classes");
-  assert.doesNotMatch(cardSource, /emerald-/, "ProjectSocialLinksCard must not contain raw emerald utility classes");
-  assert.doesNotMatch(cardSource, /blue-/, "ProjectSocialLinksCard must not contain raw blue utility classes");
+  assert.doesNotMatch(cardSource, /zinc-/, "WorkspaceSocialLinksCard must not contain raw zinc utility classes");
+  assert.doesNotMatch(cardSource, /emerald-/, "WorkspaceSocialLinksCard must not contain raw emerald utility classes");
+  assert.doesNotMatch(cardSource, /blue-/, "WorkspaceSocialLinksCard must not contain raw blue utility classes");
 
   // Managed repository cards use semantic border and card background
   assert.match(cardSource, /border border-border bg-card px-3\.5 py-3/, "Managed repos use border-border bg-card");
@@ -46,8 +46,8 @@ test("workspace links components adhere to NetworkBase drafting-table design tok
   assert.match(cardSource, /nb-icon-button inline-flex (?:h-\[28px\] w-\[28px\]|h-8 w-8) items-center justify-center rounded-(?:\[5px\]|md) border border-border\/70/, "Actions use standardized compact icon buttons");
 
   // Zero rounded-full badges, adheres to Section 10 badge contract
-  assert.doesNotMatch(cardSource, /rounded-full/, "ProjectSocialLinksCard must not use circular rounded-full badges");
-  assert.match(cardSource, /h-5 px-\[7px\] rounded-\[3px\] font-mono text-\[11px\]/, "ProjectSocialLinksCard uses Section 10 badge contract");
+  assert.doesNotMatch(cardSource, /rounded-full/, "WorkspaceSocialLinksCard must not use circular rounded-full badges");
+  assert.match(cardSource, /h-5 px-\[7px\] rounded-\[3px\] font-mono text-\[11px\]/, "WorkspaceSocialLinksCard uses Section 10 badge contract");
 
   // Composer well styling
   assert.match(cardSource, /rounded-lg border border-border bg-muted\/20 p-4 sm:p-5/, "Composer well uses border-border and bg-muted/20");

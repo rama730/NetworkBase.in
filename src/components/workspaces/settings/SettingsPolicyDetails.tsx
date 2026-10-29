@@ -2,9 +2,9 @@
 
 import React from "react";
 import {
-    buildProjectAccessTransitionPolicy,
-    type ProjectSettingsMember,
-    type ProjectSettingsVisibility,
+    buildWorkspaceAccessTransitionPolicy,
+    type WorkspaceSettingsMember,
+    type WorkspaceSettingsVisibility,
 } from "@/lib/workspaces/settings-policies";
 
 export type AccessImpact = {
@@ -16,10 +16,10 @@ export type AccessImpact = {
 };
 
 export type AccessTransitionPreflightData = {
-    previousVisibility: ProjectSettingsVisibility;
-    nextVisibility: ProjectSettingsVisibility;
+    previousVisibility: WorkspaceSettingsVisibility;
+    nextVisibility: WorkspaceSettingsVisibility;
     confirmationToken: string;
-    policy: ReturnType<typeof buildProjectAccessTransitionPolicy>;
+    policy: ReturnType<typeof buildWorkspaceAccessTransitionPolicy>;
     counts: AccessImpact;
     previews: {
         followers: Array<{ id: string; username: string | null; fullName: string | null; avatarUrl: string | null }>;
@@ -30,18 +30,18 @@ export type AccessTransitionPreflightData = {
 
 
 export type RemovalPreflightData = {
-    member: ProjectSettingsMember;
+    member: WorkspaceSettingsMember;
     activeAssignedTasks: number;
     activeCreatedTasks: number;
     fileReviews: number;
     acceptedApplications: number;
     projectGroupParticipant: boolean;
-    visibility: ProjectSettingsVisibility;
+    visibility: WorkspaceSettingsVisibility;
     activeAssignedTaskItems?: Array<{ id: string; title: string; taskNumber: number | null; status: string | null }>;
     activeCreatedTaskItems?: Array<{ id: string; title: string; taskNumber: number | null; status: string | null }>;
     fileReviewItems?: Array<{ id: string; taskId: string; taskTitle: string | null; nodeName: string | null; annotation: string | null }>;
     acceptedApplicationItems?: Array<{ id: string; roleId: string; roleTitle: string | null; roleName: string | null }>;
-    reassignmentCandidates?: ProjectSettingsMember[];
+    reassignmentCandidates?: WorkspaceSettingsMember[];
 };
 type RemovalTaskPreview = { id: string; title: string; taskNumber: number | null; status: string | null };
 

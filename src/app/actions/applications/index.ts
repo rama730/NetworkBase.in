@@ -7,21 +7,21 @@ export type {
     ApplicationStatusResult,
 } from './types';
 
-export type { AcceptApplicationsResult, RoleApplicationCounts, SentProjectInvitationItem } from './internal';
+export type { AcceptApplicationsResult, RoleApplicationCounts, SentWorkspaceInvitationItem } from './internal';
 
 export {
     acceptApplicationAction,
     acceptApplicationsAction,
     applyToRoleAction,
-    cancelSentProjectInvitationAction,
+    cancelSentWorkspaceInvitationAction,
     editPendingApplicationAction,
     getApplicationAlignmentAction,
     getApplicationStatusAction,
     getMyApplicationStatesAction,
     getIncomingApplicationsAction,
-    getProjectInviteOptionsAction,
+    getWorkspaceInviteOptionsAction,
     getRoleApplicationCountsAction,
-    getSentProjectInvitationsAction,
+    getSentWorkspaceInvitationsAction,
     rejectApplicationAction,
     reopenApplicationAction,
     withdrawApplicationAction,

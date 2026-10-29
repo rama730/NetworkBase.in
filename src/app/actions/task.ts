@@ -20,7 +20,7 @@ import {
   tasks,
 } from "@/lib/db/schema";
 import { createClient } from "@/lib/supabase/server";
-import { enqueueProjectNotificationEvent } from "@/lib/notifications/workspace-events";
+import { enqueueWorkspaceNotificationEvent } from "@/lib/notifications/workspace-events";
 import { consumeRateLimit } from "@/lib/security/rate-limit";
 import { queueCounterRefreshBestEffort } from "@/lib/my-work/counter-buffer";
 import {
@@ -31,8 +31,8 @@ import {
 import { logger } from "@/lib/logger";
 import { projectTaskHref } from "@/lib/workspaces/task-presentation";
 import {
-  isProjectMemberEligibleFor,
-  requireProjectCapability,
+  isWorkspaceMemberEligibleFor,
+  requireWorkspaceCapability,
 } from "@/lib/workspaces/collaborator-lifecycle";
 import {
   taskDescriptionSchema,
@@ -40,7 +40,7 @@ import {
   updateTaskFieldSchema,
 } from "@/lib/validations/task";
 
-import { canReadProjectTab, getProjectAccessById } from "@/lib/data/workspace-access";
+import { canReadWorkspaceTab, getWorkspaceAccessById } from "@/lib/data/workspace-access";
 import { taskReviewSnapshot } from "@/lib/workspaces/task-review-snapshot";
 import { taskActorSnapshot, taskContextLabel, lockTaskForWrite, transitionTaskTx, afterTaskTransition } from "@/lib/workspaces/task-transition-service";
 
@@ -269,7 +269,7 @@ export async function updateTaskFieldAction(
       if (recipients.length > 0) {
         try {
           const actor = taskActorSnapshot(user);
-          await enqueueProjectNotificationEvent({
+          await enqueueWorkspaceNotificationEvent({
             projectId: result.projectId,
             actorUserId: user.id,
             ...actor,
@@ -476,7 +476,7 @@ export async function assignTaskAction(
       60,
     );
     if (!taskRlOk) return { success: false, error: "Too many attempts. Try again in a minute." };
-    await requireProjectCapability(
+    await requireWorkspaceCapability(
       parsed.data.projectId,
       user.id,
       "assign_tasks",
@@ -520,7 +520,7 @@ export async function assignTaskAction(
         if (!assigneeRow || !assigneeRow.memberRole) {
           throw new Error("Assignee must be a workspace member");
         }
-        if (!isProjectMemberEligibleFor(assigneeRow.memberRole, "assign")) {
+        if (!isWorkspaceMemberEligibleFor(assigneeRow.memberRole, "assign")) {
           throw new Error("Assignee must be an assignable workspace member");
         }
       }
@@ -573,7 +573,7 @@ export async function assignTaskAction(
     ) {
       try {
         const actor = taskActorSnapshot(user);
-        await enqueueProjectNotificationEvent(taskAssignmentNotification({
+        await enqueueWorkspaceNotificationEvent(taskAssignmentNotification({
           taskId, projectId: result.projectId, projectSlug: result.projectSlug ?? null,
           projectKey: result.projectKey ?? null, taskNumber: result.taskNumber,
           title: result.title, actorId: user.id, ...actor,
@@ -714,8 +714,8 @@ async function performTaskReviewAction(taskId: string, projectId: string, expect
 export async function getTaskReviewStateAction(taskId: string, projectId: string) {
   try {
     const { user } = await requireAuthenticatedUser();
-    const access = await getProjectAccessById(projectId, user?.id ?? null);
-    if (!canReadProjectTab(access, "tasks")) throw new Error("You don’t have access to this");
+    const access = await getWorkspaceAccessById(projectId, user?.id ?? null);
+    if (!canReadWorkspaceTab(access, "tasks")) throw new Error("You don’t have access to this");
     const task = await db.query.tasks.findFirst({ where: and(eq(tasks.id, taskId), eq(tasks.projectId, projectId), isNull(tasks.deletedAt)) });
     if (!task) throw new Error("Task not found");
     const changed = task.reviewStatus === "pending" && (!task.reviewContentHash || task.reviewContentHash !== await taskReviewSnapshot(db, taskId));

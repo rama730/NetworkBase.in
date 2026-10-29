@@ -7,7 +7,7 @@ import { UserAvatar } from '@/components/ui/UserAvatar';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import type { SharePreview } from '@/lib/sharing/presentation';
 
-export function ProjectShareContents({preview,loading,trailingAction}:{preview:SharePreview;loading:boolean;trailingAction:boolean}) {
+export function WorkspaceShareContents({preview,loading,trailingAction}:{preview:SharePreview;loading:boolean;trailingAction:boolean}) {
   const [failedImage,setFailedImage]=useState<string|null>(null);
   const identity=preview.state==='ready'?preview.identity:undefined,project=preview.state==='ready'?preview.project:undefined;
   const imageKey=JSON.stringify([identity?.avatarUrl,identity?.avatarRevision]);

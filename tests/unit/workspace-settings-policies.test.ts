@@ -1,44 +1,44 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
-    buildProjectAccessImpact,
-    buildProjectAccessPolicy,
-    buildProjectMemberMutationPolicy,
-    buildProjectMemberRemovalPreflight,
-    buildProjectPersonReference,
-    buildProjectRolePolicy,
-    buildProjectSettingsPreflight,
-    canProjectMemberUploadFiles,
-    getProjectMemberRoleLabel,
-    isEligibleProjectMember,
-    isAssignableProjectMember,
-    getVisibleProjectSettingsSections,
-    isProjectTabVisibleToViewer,
-    normalizeProjectVisibility,
-    resolveAllowedProjectTab,
+    buildWorkspaceAccessImpact,
+    buildWorkspaceAccessPolicy,
+    buildWorkspaceMemberMutationPolicy,
+    buildWorkspaceMemberRemovalPreflight,
+    buildWorkspacePersonReference,
+    buildWorkspaceRolePolicy,
+    buildWorkspaceSettingsPreflight,
+    canWorkspaceMemberUploadFiles,
+    getWorkspaceMemberRoleLabel,
+    isEligibleWorkspaceMember,
+    isAssignableWorkspaceMember,
+    getVisibleWorkspaceSettingsSections,
+    isWorkspaceTabVisibleToViewer,
+    normalizeWorkspaceVisibility,
+    resolveAllowedWorkspaceTab,
 } from "../../src/lib/workspaces/settings-policies";
 import {
-    OTHER_PROJECT_TYPE_ID,
-    POPULAR_PROJECT_TAGS,
-    PROJECT_TYPE_OPTIONS,
-    isKnownProjectType,
+    OTHER_WORKSPACE_TYPE_ID,
+    POPULAR_WORKSPACE_TAGS,
+    WORKSPACE_TYPE_OPTIONS,
+    isKnownWorkspaceType,
 } from "../../src/lib/workspaces/workspace-create-options";
-import { buildProjectDetailMetadataInput } from "../../src/lib/workspaces/workspace-detail-metadata";
+import { buildWorkspaceDetailMetadataInput } from "../../src/lib/workspaces/workspace-detail-metadata";
 import {
-    isProjectPubliclyReadableVisibility,
-    isProjectVisibility,
+    isWorkspacePubliclyReadableVisibility,
+    isWorkspaceVisibility,
 } from "../../src/lib/workspaces/workspace-visibility";
 import {
-    PROJECT_NOTIFICATION_EVENT_REGISTRY,
-    buildDefaultProjectNotificationPolicy,
-    normalizeProjectMemberNotificationOverrides,
-    normalizeProjectNotificationPolicy,
-    resolveProjectNotificationDecision,
-    summarizeProjectNotificationPolicy,
+    WORKSPACE_NOTIFICATION_EVENT_REGISTRY,
+    buildDefaultWorkspaceNotificationPolicy,
+    normalizeWorkspaceMemberNotificationOverrides,
+    normalizeWorkspaceNotificationPolicy,
+    resolveWorkspaceNotificationDecision,
+    summarizeWorkspaceNotificationPolicy,
 } from "../../src/lib/notifications/workspace-policy";
 
 test("project settings exposes enforceable Updates and hides future-only sections", () => {
-    const ids = getVisibleProjectSettingsSections().map((section) => section.id as string);
+    const ids = getVisibleWorkspaceSettingsSections().map((section) => section.id as string);
     assert.ok(ids.includes("general"));
     assert.ok(ids.includes("danger"));
     assert.ok(ids.includes("readme"));
@@ -48,108 +48,108 @@ test("project settings exposes enforceable Updates and hides future-only section
 });
 
 test("project access policy normalizes unknown visibility fail-closed", () => {
-    assert.equal(normalizeProjectVisibility("private"), "private");
-    assert.equal(normalizeProjectVisibility("public"), "public");
-    assert.equal(normalizeProjectVisibility("unlisted"), "public");
-    assert.equal(normalizeProjectVisibility("team-only"), "private");
-    assert.equal(normalizeProjectVisibility(null), "private");
-    assert.equal(normalizeProjectVisibility(undefined), "private");
+    assert.equal(normalizeWorkspaceVisibility("private"), "private");
+    assert.equal(normalizeWorkspaceVisibility("public"), "public");
+    assert.equal(normalizeWorkspaceVisibility("unlisted"), "public");
+    assert.equal(normalizeWorkspaceVisibility("team-only"), "private");
+    assert.equal(normalizeWorkspaceVisibility(null), "private");
+    assert.equal(normalizeWorkspaceVisibility(undefined), "private");
 
-    const policy = buildProjectAccessPolicy({ visibility: "private" });
+    const policy = buildWorkspaceAccessPolicy({ visibility: "private" });
     assert.equal(policy.visibility, "private");
     assert.ok(policy.affectedAreas.some((area) => area.includes("Only the owner and approved workspace members")));
     assert.ok(policy.viewerRows.some((row) => row.viewer === "Anyone with the link"));
 });
 
 test("project visibility helper keeps private closed and treats legacy unlisted as public", () => {
-    assert.equal(isProjectPubliclyReadableVisibility("public"), true);
-    assert.equal(isProjectPubliclyReadableVisibility("private"), false);
-    assert.equal(isProjectPubliclyReadableVisibility("unlisted"), true);
-    assert.equal(isProjectPubliclyReadableVisibility("team-only"), false);
-    assert.equal(isProjectPubliclyReadableVisibility(null), false);
-    assert.equal(isProjectVisibility("public"), true);
-    assert.equal(isProjectVisibility("private"), true);
-    assert.equal(isProjectVisibility("unlisted"), false);
+    assert.equal(isWorkspacePubliclyReadableVisibility("public"), true);
+    assert.equal(isWorkspacePubliclyReadableVisibility("private"), false);
+    assert.equal(isWorkspacePubliclyReadableVisibility("unlisted"), true);
+    assert.equal(isWorkspacePubliclyReadableVisibility("team-only"), false);
+    assert.equal(isWorkspacePubliclyReadableVisibility(null), false);
+    assert.equal(isWorkspaceVisibility("public"), true);
+    assert.equal(isWorkspaceVisibility("private"), true);
+    assert.equal(isWorkspaceVisibility("unlisted"), false);
 });
 
 test("project public tab visibility defaults keep public workspace low-noise", () => {
-    assert.equal(isProjectTabVisibleToViewer({
+    assert.equal(isWorkspaceTabVisibleToViewer({
         tabId: "dashboard",
         isOwnerOrMember: false,
         publicTabVisibility: undefined,
     }), true);
-    assert.equal(isProjectTabVisibleToViewer({
+    assert.equal(isWorkspaceTabVisibleToViewer({
         tabId: "readme",
         isOwnerOrMember: false,
         publicTabVisibility: undefined,
     }), true);
-    assert.equal(isProjectTabVisibleToViewer({
+    assert.equal(isWorkspaceTabVisibleToViewer({
         tabId: "files",
         isOwnerOrMember: false,
         publicTabVisibility: undefined,
     }), true);
-    assert.equal(isProjectTabVisibleToViewer({
+    assert.equal(isWorkspaceTabVisibleToViewer({
         tabId: "updates",
         isOwnerOrMember: false,
         publicTabVisibility: undefined,
     }), true);
-    assert.equal(isProjectTabVisibleToViewer({
+    assert.equal(isWorkspaceTabVisibleToViewer({
         tabId: "updates",
         isOwnerOrMember: false,
         publicTabVisibility: { dashboard: true, readme: true, updates: false, files: true, sprints: false, tasks: false },
     }), false);
-    assert.equal(isProjectTabVisibleToViewer({
+    assert.equal(isWorkspaceTabVisibleToViewer({
         tabId: "tasks",
         isOwnerOrMember: false,
         publicTabVisibility: undefined,
     }), false);
-    assert.equal(isProjectTabVisibleToViewer({
+    assert.equal(isWorkspaceTabVisibleToViewer({
         tabId: "tasks",
         isOwnerOrMember: true,
         publicTabVisibility: undefined,
     }), true);
-    assert.equal(isProjectTabVisibleToViewer({
+    assert.equal(isWorkspaceTabVisibleToViewer({
         tabId: "privacy",
         isOwnerOrMember: false,
         publicTabVisibility: {},
     }), false);
-    assert.equal(resolveAllowedProjectTab({
+    assert.equal(resolveAllowedWorkspaceTab({
         requestedTab: "privacy",
         isOwnerOrMember: false,
         canManageSettings: false,
         publicTabVisibility: {},
     }), "dashboard");
-    assert.equal(resolveAllowedProjectTab({
+    assert.equal(resolveAllowedWorkspaceTab({
         requestedTab: "privacy",
         isOwnerOrMember: true,
         canManageSettings: true,
         publicTabVisibility: {},
     }), "settings");
-    assert.equal(resolveAllowedProjectTab({
+    assert.equal(resolveAllowedWorkspaceTab({
         requestedTab: "analytics",
         isOwnerOrMember: false,
         canManageSettings: false,
         publicTabVisibility: { dashboard: true, readme: true, updates: true, files: true, sprints: false, tasks: false },
     }), "dashboard");
-    assert.equal(resolveAllowedProjectTab({ requestedTab: "analytics", isOwnerOrMember: true, canManageSettings: true }), "dashboard");
+    assert.equal(resolveAllowedWorkspaceTab({ requestedTab: "analytics", isOwnerOrMember: true, canManageSettings: true }), "dashboard");
 });
 
 test("project file upload policy keeps leaders on and respects member toggles", () => {
-    assert.equal(canProjectMemberUploadFiles({ role: "owner", fileUploadEnabled: false }), true);
-    assert.equal(canProjectMemberUploadFiles({ role: "admin", fileUploadEnabled: false }), true);
-    assert.equal(canProjectMemberUploadFiles({ role: "member", fileUploadEnabled: true }), true);
-    assert.equal(canProjectMemberUploadFiles({ role: "member", fileUploadEnabled: false }), false);
-    assert.equal(canProjectMemberUploadFiles({ role: "viewer", fileUploadEnabled: true }), false);
-    assert.equal(canProjectMemberUploadFiles({ role: "unknown", fileUploadEnabled: true }), false);
+    assert.equal(canWorkspaceMemberUploadFiles({ role: "owner", fileUploadEnabled: false }), true);
+    assert.equal(canWorkspaceMemberUploadFiles({ role: "admin", fileUploadEnabled: false }), true);
+    assert.equal(canWorkspaceMemberUploadFiles({ role: "member", fileUploadEnabled: true }), true);
+    assert.equal(canWorkspaceMemberUploadFiles({ role: "member", fileUploadEnabled: false }), false);
+    assert.equal(canWorkspaceMemberUploadFiles({ role: "viewer", fileUploadEnabled: true }), false);
+    assert.equal(canWorkspaceMemberUploadFiles({ role: "unknown", fileUploadEnabled: true }), false);
 });
 
 test("project notification policy normalizes defaults and locks mandatory events", () => {
-    const quiet = buildDefaultProjectNotificationPolicy("quiet");
+    const quiet = buildDefaultWorkspaceNotificationPolicy("quiet");
     assert.equal(quiet.preset, "quiet");
     assert.equal(quiet.rules["members.removed"].enabled, true);
     assert.equal(quiet.rules["files.uploaded"].enabled, false);
 
-    const normalized = normalizeProjectNotificationPolicy({
+    const normalized = normalizeWorkspaceNotificationPolicy({
         preset: "active",
         rules: {
             "members.removed": { enabled: false },
@@ -160,7 +160,7 @@ test("project notification policy normalizes defaults and locks mandatory events
     assert.equal(normalized.rules["members.removed"].enabled, true);
     assert.equal(normalized.rules["files.uploaded"].enabled, false);
 
-    const overrides = normalizeProjectMemberNotificationOverrides({
+    const overrides = normalizeWorkspaceMemberNotificationOverrides({
         mode: "custom",
         rules: {
             "files.uploaded": false,
@@ -171,33 +171,33 @@ test("project notification policy normalizes defaults and locks mandatory events
     assert.equal(overrides.mode, "custom");
     assert.deepEqual(overrides.rules, { "files.uploaded": false });
 
-    assert.equal(resolveProjectNotificationDecision({
+    assert.equal(resolveWorkspaceNotificationDecision({
         eventKey: "files.uploaded",
         projectPolicy: normalized,
         memberOverrides: overrides,
     }).enabled, false);
-    assert.equal(resolveProjectNotificationDecision({
+    assert.equal(resolveWorkspaceNotificationDecision({
         eventKey: "members.removed",
         projectPolicy: normalized,
         memberOverrides: overrides,
     }).enabled, true);
 
-    const summary = summarizeProjectNotificationPolicy(normalized);
+    const summary = summarizeWorkspaceNotificationPolicy(normalized);
     assert.ok(summary.visibleCount > 20);
     assert.ok(summary.mandatoryCount > 0);
-    assert.equal(PROJECT_NOTIFICATION_EVENT_REGISTRY["applications.review_needed"].visible, false);
-    assert.equal(PROJECT_NOTIFICATION_EVENT_REGISTRY["files.git_sync_status"].visible, false);
-    assert.equal(PROJECT_NOTIFICATION_EVENT_REGISTRY["security.protected_action"].visible, false);
-    assert.equal(PROJECT_NOTIFICATION_EVENT_REGISTRY["security.data_export_ready"].visible, false);
-    assert.equal(PROJECT_NOTIFICATION_EVENT_REGISTRY["security.delete_scheduled"].visible, false);
-    assert.equal(PROJECT_NOTIFICATION_EVENT_REGISTRY["updates.published"].visible, true);
-    assert.equal(PROJECT_NOTIFICATION_EVENT_REGISTRY["updates.comment"].visible, true);
-    assert.equal(PROJECT_NOTIFICATION_EVENT_REGISTRY["readme.published"].visible, true);
-    assert.equal(PROJECT_NOTIFICATION_EVENT_REGISTRY["updates.follower_digest"].visible, false);
+    assert.equal(WORKSPACE_NOTIFICATION_EVENT_REGISTRY["applications.review_needed"].visible, false);
+    assert.equal(WORKSPACE_NOTIFICATION_EVENT_REGISTRY["files.git_sync_status"].visible, false);
+    assert.equal(WORKSPACE_NOTIFICATION_EVENT_REGISTRY["security.protected_action"].visible, false);
+    assert.equal(WORKSPACE_NOTIFICATION_EVENT_REGISTRY["security.data_export_ready"].visible, false);
+    assert.equal(WORKSPACE_NOTIFICATION_EVENT_REGISTRY["security.delete_scheduled"].visible, false);
+    assert.equal(WORKSPACE_NOTIFICATION_EVENT_REGISTRY["updates.published"].visible, true);
+    assert.equal(WORKSPACE_NOTIFICATION_EVENT_REGISTRY["updates.comment"].visible, true);
+    assert.equal(WORKSPACE_NOTIFICATION_EVENT_REGISTRY["readme.published"].visible, true);
+    assert.equal(WORKSPACE_NOTIFICATION_EVENT_REGISTRY["updates.follower_digest"].visible, false);
 });
 
 test("project access impact explains counts and transition checklist", () => {
-    const privateImpact = buildProjectAccessImpact({
+    const privateImpact = buildWorkspaceAccessImpact({
         visibility: "private",
         membersCount: 2,
         followersCount: 3,
@@ -211,12 +211,12 @@ test("project access impact explains counts and transition checklist", () => {
     assert.ok(privateImpact.metrics.some((metric) => metric.label === "Pending applications" && metric.value === 4));
     assert.ok(privateImpact.transitionChecklist.some((item) => item.includes("safe unavailable metadata")));
 
-    const publicImpact = buildProjectAccessImpact({ visibility: "public", openRolesCount: 2 });
+    const publicImpact = buildWorkspaceAccessImpact({ visibility: "public", openRolesCount: 2 });
     assert.ok(publicImpact.transitionChecklist.some((item) => item.includes("Restore Discover")));
 });
 
 test("project role policy excludes the current owner from transfer candidates", () => {
-    const policy = buildProjectRolePolicy({
+    const policy = buildWorkspaceRolePolicy({
         isOwner: true,
         ownerId: "owner-1",
         members: [
@@ -235,7 +235,7 @@ test("project role policy excludes the current owner from transfer candidates", 
 });
 
 test("project member mutation policy protects the true owner and permits lower-role changes", () => {
-    const ownerTarget = buildProjectMemberMutationPolicy({
+    const ownerTarget = buildWorkspaceMemberMutationPolicy({
         actorIsOwner: true,
         ownerId: "owner-1",
         targetUserId: "owner-1",
@@ -245,7 +245,7 @@ test("project member mutation policy protects the true owner and permits lower-r
     assert.equal(ownerTarget.canChangeRole, false);
     assert.match(ownerTarget.blockedReason ?? "", /transfer ownership/i);
 
-    const memberTarget = buildProjectMemberMutationPolicy({
+    const memberTarget = buildWorkspaceMemberMutationPolicy({
         actorIsOwner: true,
         ownerId: "owner-1",
         targetUserId: "member-1",
@@ -255,7 +255,7 @@ test("project member mutation policy protects the true owner and permits lower-r
     assert.equal(memberTarget.canRemove, true);
     assert.equal(memberTarget.canTransferOwnership, true);
 
-    const nonOwnerActor = buildProjectMemberMutationPolicy({
+    const nonOwnerActor = buildWorkspaceMemberMutationPolicy({
         actorIsOwner: false,
         ownerId: "owner-1",
         targetUserId: "member-1",
@@ -264,7 +264,7 @@ test("project member mutation policy protects the true owner and permits lower-r
     assert.equal(nonOwnerActor.canRemove, false);
     assert.match(nonOwnerActor.blockedReason ?? "", /only the owner and admins/i);
 
-    const coLeaderCanManageMember = buildProjectMemberMutationPolicy({
+    const coLeaderCanManageMember = buildWorkspaceMemberMutationPolicy({
         actorIsOwner: false,
         actorRole: "admin",
         ownerId: "owner-1",
@@ -275,7 +275,7 @@ test("project member mutation policy protects the true owner and permits lower-r
     assert.equal(coLeaderCanManageMember.canChangeRole, true);
     assert.equal(coLeaderCanManageMember.canRemove, true);
 
-    const coLeaderCannotPromoteAdmin = buildProjectMemberMutationPolicy({
+    const coLeaderCannotPromoteAdmin = buildWorkspaceMemberMutationPolicy({
         actorIsOwner: false,
         actorRole: "admin",
         ownerId: "owner-1",
@@ -288,13 +288,13 @@ test("project member mutation policy protects the true owner and permits lower-r
 });
 
 test("project person resolver and removal preflight preserve former-member semantics", () => {
-    assert.equal(getProjectMemberRoleLabel("admin"), "Admin");
-    assert.equal(isAssignableProjectMember("viewer"), false);
-    assert.equal(isEligibleProjectMember("viewer", "mention"), true);
-    assert.equal(isEligibleProjectMember("viewer", "assign"), false);
-    assert.equal(isEligibleProjectMember("admin", "review"), true);
+    assert.equal(getWorkspaceMemberRoleLabel("admin"), "Admin");
+    assert.equal(isAssignableWorkspaceMember("viewer"), false);
+    assert.equal(isEligibleWorkspaceMember("viewer", "mention"), true);
+    assert.equal(isEligibleWorkspaceMember("viewer", "assign"), false);
+    assert.equal(isEligibleWorkspaceMember("admin", "review"), true);
 
-    const former = buildProjectPersonReference({
+    const former = buildWorkspacePersonReference({
         person: { id: "member-1", fullName: "Removed Person" },
         membershipRole: "member",
         isActiveMember: false,
@@ -303,7 +303,7 @@ test("project person resolver and removal preflight preserve former-member seman
     assert.equal(former.subtext, "Removed from workspace");
     assert.equal(former.isAssignable, false);
 
-    const preflight = buildProjectMemberRemovalPreflight({
+    const preflight = buildWorkspaceMemberRemovalPreflight({
         member: { id: "member-1", fullName: "Removed Person", membershipRole: "member" },
         visibility: "private",
         activeAssignedTasks: 2,
@@ -318,7 +318,7 @@ test("project person resolver and removal preflight preserve former-member seman
 });
 
 test("project danger preflight removes finalize and keeps archive/delete policy", () => {
-    const policy = buildProjectSettingsPreflight({
+    const policy = buildWorkspaceSettingsPreflight({
         status: "active",
         openRolesCount: 2,
         pendingApplicationsCount: 1,
@@ -335,19 +335,19 @@ test("project danger preflight removes finalize and keeps archive/delete policy"
     assert.ok(policy.affectedAreas.includes("4 active tasks"));
     assert.ok(!("canFinalize" in policy));
 
-    const missingServerPreflight = buildProjectSettingsPreflight(null);
+    const missingServerPreflight = buildWorkspaceSettingsPreflight(null);
     assert.equal(missingServerPreflight.canDelete, false);
 });
 
 test("project metadata uses uploaded cover image for share previews", () => {
-    const withCover = buildProjectDetailMetadataInput("network-for-builders", {
+    const withCover = buildWorkspaceDetailMetadataInput("network-for-builders", {
         slug: "network-for-builders",
         title: "Network for builders",
         coverImage: "https://cdn.example.test/network-cover.png",
     });
     assert.equal(withCover.image, "https://cdn.example.test/network-cover.png");
 
-    const withoutCover = buildProjectDetailMetadataInput("network-for-builders", {
+    const withoutCover = buildWorkspaceDetailMetadataInput("network-for-builders", {
         slug: "network-for-builders",
         title: "Network for builders",
         coverImage: null,

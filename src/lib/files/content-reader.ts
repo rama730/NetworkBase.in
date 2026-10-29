@@ -4,12 +4,12 @@ import { and, eq } from "drizzle-orm";
 
 import { db } from "@/lib/db";
 import { githubSyncConnections, projectNodes, projects, storageAssets } from "@/lib/db/schema";
-import type { ProjectAccess } from "@/lib/data/workspace-access";
+import type { WorkspaceAccess } from "@/lib/data/workspace-access";
 import { assertFileNodeVisible } from "@/lib/files/internal-helpers";
 import { resolveGithubRepoAccess } from "@/lib/github/auth-resolver";
 import { logger } from "@/lib/logger";
 import { readBoundedStorageText } from "@/lib/storage/bounded-object-read";
-import { parseProjectFileKey } from "@/lib/storage/workspace-file-key";
+import { parseWorkspaceFileKey } from "@/lib/storage/workspace-file-key";
 
 const MAX_INLINE_BYTES = 2 * 1024 * 1024;
 const MAX_GITHUB_BLOB_RESPONSE_BYTES = 3 * 1024 * 1024;
@@ -28,8 +28,8 @@ export class FileContentUnavailableError extends Error {
  * already resolved. Not a server action: only checked facades call it (COR-002).
  * Task-owned and /.system files still require Tasks visibility.
  */
-export async function readProjectFileText(
-    access: ProjectAccess & { project: NonNullable<ProjectAccess["project"]> },
+export async function readWorkspaceFileText(
+    access: WorkspaceAccess & { project: NonNullable<WorkspaceAccess["project"]> },
     projectId: string,
     nodeId: string,
 ): Promise<string> {
@@ -79,7 +79,7 @@ export async function readProjectFileText(
         if (recoveredText !== null) return recoveredText;
         throw new FileContentUnavailableError();
     }
-    const parsedKey = parseProjectFileKey(node.s3Key);
+    const parsedKey = parseWorkspaceFileKey(node.s3Key);
     if (!parsedKey || parsedKey.projectId !== projectId) {
         throw new Error("File key does not belong to this workspace");
     }

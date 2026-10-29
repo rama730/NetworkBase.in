@@ -7,10 +7,10 @@ import { SkillPicker } from '@/components/skills/SkillPicker';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { POPULAR_PROJECT_TAGS, PROJECT_TYPE_OPTIONS } from '@/lib/workspaces/workspace-create-options';
+import { POPULAR_WORKSPACE_TAGS, WORKSPACE_TYPE_OPTIONS } from '@/lib/workspaces/workspace-create-options';
 import { childTitleTakenAction } from '@/app/actions/organizations';
 import { useCreateLocation } from '@/components/organizations/CreateLocation';
-import { CreateProjectInput } from '@/lib/validations/workspace';
+import { CreateWorkspaceInput } from '@/lib/validations/workspace';
 
 type Phase2InformationProps = {
     showValidationSummary?: boolean;
@@ -28,17 +28,17 @@ function FieldError({ id, message }: { id: string; message?: string }) {
 }
 
 function TitleCount() {
-    const title = useWatch<CreateProjectInput>({ name: 'title' }) || '';
+    const title = useWatch<CreateWorkspaceInput>({ name: 'title' }) || '';
     return <span className="nb-meta mb-2 shrink-0 text-muted-foreground">{title.length}/100</span>;
 }
 
 function TaglineCount() {
-    const tagline = useWatch<CreateProjectInput>({ name: 'short_description' }) || '';
+    const tagline = useWatch<CreateWorkspaceInput>({ name: 'short_description' }) || '';
     return <span className="nb-meta mb-2 shrink-0 text-muted-foreground">{tagline.length}/200</span>;
 }
 
 function DescriptionCount() {
-    const description = useWatch<CreateProjectInput>({ name: 'description' }) || '';
+    const description = useWatch<CreateWorkspaceInput>({ name: 'description' }) || '';
     return <span className="nb-meta mb-2 shrink-0 text-muted-foreground">{description.length}/5000</span>;
 }
 
@@ -62,7 +62,7 @@ function SectionHeading({ eyebrow, title, description, id }: { eyebrow: string; 
 }
 
 export default function Phase2Information({ showValidationSummary = false }: Phase2InformationProps) {
-    const { register, setValue, watch, control, formState: { errors } } = useFormContext<CreateProjectInput>();
+    const { register, setValue, watch, control, formState: { errors } } = useFormContext<CreateWorkspaceInput>();
     const isOrganization = Boolean(watch('organization'));
     // Report §34.3: an organization's words and examples follow its type.
     const orgCopy = isOrganization ? ORG_CREATION_COPY[watch('organization.org_type') ?? 'other'] : null;
@@ -72,8 +72,8 @@ export default function Phase2Information({ showValidationSummary = false }: Pha
     const childTitle = watch('title') || '';
     const [titleTaken, setTitleTaken] = useState(false);
     useEffect(() => {
-        if (org?.category && !watch('project_type') && PROJECT_TYPE_OPTIONS.some((type) => type.id === org.category)) {
-            setValue('project_type', org.category as CreateProjectInput['project_type'], { shouldDirty: true });
+        if (org?.category && !watch('project_type') && WORKSPACE_TYPE_OPTIONS.some((type) => type.id === org.category)) {
+            setValue('project_type', org.category as CreateWorkspaceInput['project_type'], { shouldDirty: true });
         }
     }, [org?.category, setValue, watch]);
     useEffect(() => {
@@ -82,14 +82,14 @@ export default function Phase2Information({ showValidationSummary = false }: Pha
         const timer = setTimeout(() => void childTitleTakenAction(org.id, childTitle).then((taken) => { if (!cancelled) setTitleTaken(taken); }), 400);
         return () => { cancelled = true; clearTimeout(timer); };
     }, [org, childTitle]);
-    const suggestedTags = [...new Set([...(orgCopy?.topics ?? []), ...(org?.tags ?? []), ...POPULAR_PROJECT_TAGS])];
+    const suggestedTags = [...new Set([...(orgCopy?.topics ?? []), ...(org?.tags ?? []), ...POPULAR_WORKSPACE_TAGS])];
     const [tagInput, setTagInput] = useState('');
     const [tagError, setTagError] = useState('');
 
     const tags = watch('tags') || [];
     const technologies = watch('technologies_used') || [];
     const projectType = watch('project_type');
-    const selectedProjectType = PROJECT_TYPE_OPTIONS.find((type) => type.id === projectType);
+    const selectedProjectType = WORKSPACE_TYPE_OPTIONS.find((type) => type.id === projectType);
 
     const validationErrors = [
         errors.project_type?.message ? { id: 'create-project-category', message: errors.project_type.message } : null,
@@ -182,7 +182,7 @@ export default function Phase2Information({ showValidationSummary = false }: Pha
                                         <SelectValue placeholder="Select a category" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        {PROJECT_TYPE_OPTIONS.map((type) => (
+                                        {WORKSPACE_TYPE_OPTIONS.map((type) => (
                                             <SelectItem key={type.id} value={type.id}>{type.label}</SelectItem>
                                         ))}
                                         <SelectItem value="other">Other</SelectItem>

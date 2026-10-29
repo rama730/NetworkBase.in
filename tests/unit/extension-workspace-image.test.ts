@@ -53,7 +53,7 @@ function route({ validBearer = true, publicProject = false } = {}) {
       },
     },
     "@/lib/data/workspace-access": {
-      getProjectAccessById: async (_id: string, userId: string | null) => {
+      getWorkspaceAccessById: async (_id: string, userId: string | null) => {
         viewers.push(userId);
         return {
           project: { id: projectId },

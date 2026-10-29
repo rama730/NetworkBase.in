@@ -93,7 +93,7 @@ function getCoverDrawState(image: HTMLImageElement, size: number, previewSize: n
     };
 }
 
-export async function prepareProjectImageForUpload(
+export async function prepareWorkspaceImageForUpload(
     file: File,
     options: PrepareProjectImageOptions,
 ): Promise<PreparedImageUpload> {
