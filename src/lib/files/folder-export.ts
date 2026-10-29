@@ -75,7 +75,7 @@ export async function prepareSubmissionsExport(input: { masterId: string }): Pro
       WHERE c.assignment_id = ${input.masterId} AND c.deleted_at IS NULL AND c.excused_at IS NULL
         AND (c.submission IS NOT NULL OR c.review_status IN ('pending', 'approved') OR c.status = 'done')
       ORDER BY 2, n.name
-      LIMIT ${FOLDER_EXPORT_MAX_ENTRIES}`));
+      LIMIT ${FOLDER_EXPORT_MAX_ENTRIES + 1}`));
     const clean = (value: string) => value.replace(/[\/\\:*?"<>|\u0000-\u001f]+/g, " ").trim().slice(0, 120) || "Untitled";
     const folders = new Map<string, string>();
     const used = new Set<string>();
@@ -94,6 +94,8 @@ export async function prepareSubmissionsExport(input: { masterId: string }): Pro
       });
     }
     if (!list.some((entry) => entry.type === "file")) throw new Error("No handed-in files to download yet");
+    // Never a partial zip: the person folders count toward the entry cap too.
+    if (list.length > FOLDER_EXPORT_MAX_ENTRIES) throw new Error(`Submissions are limited to ${FOLDER_EXPORT_MAX_ENTRIES.toLocaleString("en")} files per download`);
     await pinExportAssets(tx, list, operationId, expiresAt);
     return list;
   });

@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { and, asc, eq, gt, inArray, isNotNull, isNull, or, sql } from 'drizzle-orm';
 import { z } from 'zod';
+import { UUID_RE } from '@/lib/validations/uuid';
 
 import { db } from '@/lib/db';
 import { applicationEvents, orgEmailInvites, orgJoinBlocks, profiles, projectMembers, projectOpenRoles, projects, roleApplications, taskTeamMembers, tasks } from '@/lib/db/schema';
@@ -433,6 +434,7 @@ export async function remindMembersAction(orgId: string, userIds: string[]): Pro
     const viewer = await orgManager(orgId);
     if (!viewer) return DENIED;
     const [org] = await db.select({ id: projects.id, title: projects.title, slug: projects.slug }).from(projects).where(eq(projects.id, orgId)).limit(1);
+    userIds = userIds.filter((id) => UUID_RE.test(id));
     if (!org || userIds.length === 0) return { success: true, reminded: 0 };
     const open = await db.execute<{ user_id: string; n: number }>(sql`
         SELECT u.user_id, count(DISTINCT c.id)::int AS n
@@ -457,7 +459,7 @@ export async function remindMembersAction(orgId: string, userIds: string[]): Pro
 /** The drawer's Recent activity (report §20.3): their last 10 task events across the org and its child projects. */
 export async function readMemberActivityAction(orgId: string, userId: string): Promise<{ success: true; activity: MemberActivityRow[] } | Failure> {
     const viewer = await orgManager(orgId, 'read');
-    if (!viewer) return DENIED;
+    if (!viewer || !UUID_RE.test(userId)) return DENIED;
     const rows = await db.execute<{ at: string; event_type: string; task: string; project: string }>(sql`
         SELECT e.created_at::text AS at, e.event_type, t.title AS task, p.title AS project
         FROM task_activity_events e JOIN tasks t ON t.id = e.task_id JOIN projects p ON p.id = e.project_id

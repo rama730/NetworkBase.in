@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
 
-import { addMember, closeAppDb, createProject, createUser, loadAppModule, moduleStubs, sql } from "./_helpers";
+import { addMember, closeAppDb, createProject, createUser, loadAppModule, moduleStubs, sql, stubNextAfter } from "./_helpers";
 
 let viewerId = "";
 moduleStubs.set("@/lib/supabase/server", {
@@ -9,11 +9,7 @@ moduleStubs.set("@/lib/supabase/server", {
   createAdminClient: async () => { throw new Error("not used"); },
 });
 moduleStubs.set("next/cache", { revalidatePath: () => undefined, revalidateTag: () => undefined, unstable_cache: (fn: unknown) => fn, updateTag: () => undefined });
-// Post-response work (next/server after) runs inline here; the action returns before it settles, as in a request.
-moduleStubs.set("next/server", {
-  after: (task: unknown) => { void Promise.resolve(typeof task === "function" ? (task as () => unknown)() : task).catch(() => undefined); },
-  NextResponse: class {}, NextRequest: class {},
-});
+stubNextAfter();
 
 let apps: typeof import("../../src/app/actions/applications");
 let invitations: typeof import("../../src/app/actions/network-invitations");
