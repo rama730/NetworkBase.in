@@ -456,6 +456,7 @@ async function main() {
     FROM pg_policies
     WHERE schemaname = 'public'
       AND tablename = ANY(${MESSAGING_AUTHORITY_TABLES})
+      AND policyname <> 'nb_app_all' -- the server runtime role's policy (0268), not a browser one
   `;
   for (const tableName of MESSAGING_AUTHORITY_TABLES) {
     const tablePolicies = messagingPolicyRows.filter((row) => row.tablename === tableName);
@@ -505,7 +506,7 @@ async function main() {
 
   const chatPolicyRows = await sql<{ tablename: string; cmd: string; roles: string[] }[]>`
     SELECT tablename, cmd, roles FROM pg_policies
-    WHERE schemaname = 'public' AND tablename = ANY(${CHAT_TABLES})
+    WHERE schemaname = 'public' AND tablename = ANY(${CHAT_TABLES}) AND policyname <> 'nb_app_all'
   `;
   const chatRlsRows = await sql<{ relname: string; relrowsecurity: boolean }[]>`
     SELECT c.relname, c.relrowsecurity FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace

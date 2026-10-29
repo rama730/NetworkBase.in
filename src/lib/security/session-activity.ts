@@ -63,9 +63,8 @@ export async function listActiveSessionsPage(
         updated_at,
         refreshed_at,
         aal::text AS aal
-      FROM auth.sessions
-      WHERE user_id = ${userId}::uuid
-        AND (not_after IS NULL OR not_after > now())
+      FROM app_private.nb_user_sessions(${userId}::uuid)
+      WHERE (not_after IS NULL OR not_after > now())
       ORDER BY COALESCE(updated_at, created_at) DESC
       LIMIT ${limit + 1}
       OFFSET ${offset}
@@ -112,16 +111,14 @@ export async function countOtherActiveSessions(
     const rows = currentSessionId
         ? await db.execute<{ count: number | string }>(sql`
           SELECT COUNT(*)::int AS count
-          FROM auth.sessions
-          WHERE user_id = ${userId}::uuid
-            AND (not_after IS NULL OR not_after > now())
+          FROM app_private.nb_user_sessions(${userId}::uuid)
+          WHERE (not_after IS NULL OR not_after > now())
             AND id <> ${currentSessionId}::uuid
         `)
         : await db.execute<{ count: number | string }>(sql`
           SELECT COUNT(*)::int AS count
-          FROM auth.sessions
-          WHERE user_id = ${userId}::uuid
-            AND (not_after IS NULL OR not_after > now())
+          FROM app_private.nb_user_sessions(${userId}::uuid)
+          WHERE (not_after IS NULL OR not_after > now())
         `);
 
     const value = Array.from(rows)[0]?.count;
@@ -137,25 +134,10 @@ export async function enrichSessionDeviceInfo(
     try {
         const cleanUa = userAgent?.trim();
         const cleanIp = cleanIpAddress(ip);
-        if (cleanUa && cleanIp && cleanIp !== "IP unavailable") {
-            await db.execute(sql`
-                UPDATE auth.sessions
-                SET user_agent = CASE
-                      WHEN user_agent IS NULL OR user_agent = '' OR user_agent = 'Unknown device' THEN ${cleanUa}
-                      ELSE user_agent
-                    END,
-                    ip = COALESCE(ip, ${cleanIp}::inet)
-                WHERE id = ${sessionId}::uuid
-            `);
-        } else if (cleanUa) {
-            await db.execute(sql`
-                UPDATE auth.sessions
-                SET user_agent = CASE
-                      WHEN user_agent IS NULL OR user_agent = '' OR user_agent = 'Unknown device' THEN ${cleanUa}
-                      ELSE user_agent
-                    END
-                WHERE id = ${sessionId}::uuid
-            `);
+        if (cleanUa) {
+            const knownIp = cleanIp && cleanIp !== "IP unavailable" ? cleanIp : null;
+            // auth.sessions is reachable only through app_private (0268): fills a missing device name and address.
+            await db.execute(sql`SELECT app_private.nb_session_set_device(${sessionId}::uuid, ${cleanUa}, ${knownIp}::inet)`);
         }
     } catch {
         // Best-effort enrichment; never fail auth execution
@@ -169,7 +151,7 @@ export async function revokeActiveSession(
     if (!sessionId || !isLooseUuid(sessionId)) return false;
     // Ownership first: the admin call below deletes by id alone, so a session that is not this person's must not reach it.
     const owned = await db.execute<{ id: string }>(sql`
-        SELECT id FROM auth.sessions WHERE id = ${sessionId}::uuid AND user_id = ${userId}::uuid LIMIT 1
+        SELECT id FROM app_private.nb_user_sessions(${userId}::uuid) WHERE id = ${sessionId}::uuid LIMIT 1
     `);
     if (owned.length === 0) return false;
     try {
@@ -181,10 +163,7 @@ export async function revokeActiveSession(
         // Fall back to direct SQL deletion
     }
 
-    await db.execute(sql`
-        DELETE FROM auth.sessions
-        WHERE id = ${sessionId}::uuid AND user_id = ${userId}::uuid
-    `);
+    await db.execute(sql`SELECT app_private.nb_session_delete(${sessionId}::uuid, ${userId}::uuid)`);
     return true;
 }
 
@@ -229,9 +208,8 @@ export async function listLoginHistory(
               user_agent,
               created_at,
               aal::text AS aal
-            FROM auth.sessions
-            WHERE user_id = ${userId}::uuid
-              AND created_at > ${clearedAt}::timestamptz
+            FROM app_private.nb_user_sessions(${userId}::uuid)
+            WHERE created_at > ${clearedAt}::timestamptz
             ORDER BY created_at DESC
             LIMIT ${limit + dismissedIds.size}
           `)
@@ -248,8 +226,7 @@ export async function listLoginHistory(
               user_agent,
               created_at,
               aal::text AS aal
-            FROM auth.sessions
-            WHERE user_id = ${userId}::uuid
+            FROM app_private.nb_user_sessions(${userId}::uuid)
             ORDER BY created_at DESC
             LIMIT ${limit + dismissedIds.size}
           `);

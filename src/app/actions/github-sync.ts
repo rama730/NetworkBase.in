@@ -865,7 +865,7 @@ export async function getCurrentGitHubCommitIdentity() {
         provider: string;
         identity_data: Record<string, unknown> | null;
       }>(
-        sql`SELECT id, provider, identity_data FROM auth.identities WHERE user_id = ${user.id}::uuid AND provider = 'github' ORDER BY last_sign_in_at DESC NULLS LAST, created_at DESC`,
+        sql`SELECT id, provider, identity_data FROM app_private.nb_user_identities(${user.id}::uuid) WHERE provider = 'github' ORDER BY last_sign_in_at DESC NULLS LAST, created_at DESC`,
       )
       .catch(() => null);
 
@@ -948,7 +948,7 @@ export async function getGitHubCommitIdentityOptions() {
           provider: string;
           identity_data: Record<string, unknown> | null;
         }>(
-          sql`SELECT id, provider, identity_data FROM auth.identities WHERE user_id = ${user.id}::uuid AND provider = 'github' ORDER BY last_sign_in_at DESC NULLS LAST, created_at DESC`,
+          sql`SELECT id, provider, identity_data FROM app_private.nb_user_identities(${user.id}::uuid) WHERE provider = 'github' ORDER BY last_sign_in_at DESC NULLS LAST, created_at DESC`,
         )
         .catch(() => null),
       db.query.githubContributorIdentities

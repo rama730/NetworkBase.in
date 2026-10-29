@@ -15,7 +15,7 @@ async function readIdentities(userId: string): Promise<IdentityRow[]> {
   ]);
   return Array.from(await db.execute<IdentityRow>(sql`
     SELECT id, provider, provider_id, identity_data
-    FROM auth.identities WHERE user_id = ${userId}::uuid
+    FROM app_private.nb_user_identities(${userId}::uuid)
     ORDER BY created_at
   `));
 }

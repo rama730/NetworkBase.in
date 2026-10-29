@@ -22,7 +22,7 @@ export async function hasVerifiedMfaFactor(userId: string): Promise<boolean> {
   if (cached && Date.now() - cached.at < (cached.has ? HAS_FACTOR_TTL_MS : NO_FACTOR_TTL_MS)) return cached.has;
   try {
     const rows = await db.execute<{ found: number }>(sql`
-      SELECT 1 AS found FROM auth.mfa_factors WHERE user_id = ${userId}::uuid AND status = 'verified' LIMIT 1
+      SELECT 1 AS found WHERE app_private.nb_user_has_verified_mfa(${userId}::uuid)
     `);
     const has = rows.length > 0;
     if (factorCache.size >= FACTOR_CACHE_MAX_USERS) factorCache.clear();

@@ -113,12 +113,25 @@ export async function projectWithPeople(tx: Tx, options: Parameters<typeof creat
   return { owner, member, outsider, projectId };
 }
 
+// NB_TEST_APP_ROLE=nb_app runs app code as the production runtime role (0268); fixtures stay on postgres.
+const APP_ROLE = process.env.NB_TEST_APP_ROLE?.trim();
+let appRoleReady: Promise<unknown> | undefined;
+async function appDatabaseUrl() {
+  if (!APP_ROLE) return DISPOSABLE_URL;
+  if (!/^[a-z_][a-z0-9_]*$/.test(APP_ROLE)) throw new Error("NB_TEST_APP_ROLE must be a plain role name");
+  await (appRoleReady ??= sql.unsafe(`ALTER ROLE ${APP_ROLE} LOGIN`));
+  const url = new URL(DISPOSABLE_URL);
+  url.username = APP_ROLE;
+  url.password = "";
+  return url.toString();
+}
+
 /**
  * Loads app modules (which import "@/lib/db") bound to the disposable
  * database. Call inside a test or hook; returns the dynamic import.
  */
 export async function loadAppModule<T>(load: () => Promise<T>): Promise<T> {
-  process.env.DATABASE_URL = DISPOSABLE_URL;
+  process.env.DATABASE_URL = await appDatabaseUrl();
   process.env.NEXT_PUBLIC_SUPABASE_URL ??= "https://test.supabase.co";
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ??= "test-anon";
   process.env.SUPABASE_SERVICE_ROLE_KEY ??= "test-service-role";

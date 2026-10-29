@@ -23,7 +23,8 @@ test('one gate covers every server read, and pages lead to the code step', () =>
     assert.match(middleware, /codeStepUrl\.searchParams\.set\('step', 'mfa'\)/)
     assert.match(proxy, /"\/legal\/accept"\]\)/)
     // The factor list comes from the database, never the unsigned cookie copy of the user.
-    assert.match(gate, /FROM auth\.mfa_factors WHERE user_id = \$\{userId\}::uuid AND status = 'verified'/)
+    // auth.mfa_factors is read through app_private (0268); the function checks status = 'verified'.
+    assert.match(gate, /app_private\.nb_user_has_verified_mfa\(\$\{userId\}::uuid\)/)
     assert.match(gate, /return cached\?\.has \?\? false/)
     // A cached "no factor" must expire within seconds, or a fresh enrolment leaves a password-only window.
     assert.match(gate, /const NO_FACTOR_TTL_MS = 5_000;/)

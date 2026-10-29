@@ -32,6 +32,31 @@ CREATE TABLE IF NOT EXISTS auth.mfa_factors (
   user_id uuid,
   status text
 );
+-- The columns the app_private auth functions (0268) read, with Supabase's types.
+ALTER TABLE auth.users ADD COLUMN IF NOT EXISTS encrypted_password varchar(255);
+DO $aal$ BEGIN
+  IF to_regtype('auth.aal_level') IS NULL THEN CREATE TYPE auth.aal_level AS ENUM ('aal1', 'aal2', 'aal3'); END IF;
+END $aal$;
+CREATE TABLE IF NOT EXISTS auth.sessions (
+  id uuid PRIMARY KEY,
+  user_id uuid NOT NULL,
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now(),
+  aal auth.aal_level,
+  not_after timestamptz,
+  refreshed_at timestamp,
+  user_agent text,
+  ip inet
+);
+CREATE TABLE IF NOT EXISTS auth.identities (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  provider_id text NOT NULL,
+  user_id uuid NOT NULL,
+  identity_data jsonb NOT NULL,
+  provider text NOT NULL,
+  last_sign_in_at timestamptz,
+  created_at timestamptz DEFAULT now()
+);
 CREATE OR REPLACE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql STABLE AS $$
   SELECT coalesce(
     nullif(current_setting('request.jwt.claim.sub', true), ''),

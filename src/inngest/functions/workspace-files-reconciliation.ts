@@ -142,32 +142,26 @@ export const reconcileWorkspaceFiles = inngest.createFunction(
                 const existingPromise = linkedFiles.length > 0
                     ? db.execute<StorageObjectRow>(sql`
                         SELECT name
-                        FROM storage.objects
-                        WHERE bucket_id = 'project-files'
-                          AND name IN (${sql.join(linkedFiles.map((file) => sql`${file.s3Key}`), sql`, `)})
+                        FROM app_private.nb_storage_objects('project-files', ARRAY[${sql.join(linkedFiles.map((file) => sql`${file.s3Key}`), sql`, `)}]::text[], NULL)
                     `)
                     : Promise.resolve([] as StorageObjectRow[]);
                 const candidatePromise = unlinkedCandidates.length > 0
                     ? db.execute<StorageObjectRow>(sql`
                         SELECT name, metadata
-                        FROM storage.objects
-                        WHERE bucket_id = 'project-files'
-                          AND name IN (${sql.join(unlinkedCandidates.map((candidate) => sql`${candidate.key}`), sql`, `)})
+                        FROM app_private.nb_storage_objects('project-files', ARRAY[${sql.join(unlinkedCandidates.map((candidate) => sql`${candidate.key}`), sql`, `)}]::text[], NULL)
                     `)
                     : Promise.resolve([] as StorageObjectRow[]);
                 const [existingResult, orphanResult, candidateResult] = await Promise.all([
                     existingPromise,
                     db.execute<StorageObjectRow>(sql`
                         SELECT objects.name, objects.metadata
-                        FROM storage.objects AS objects
+                        FROM app_private.nb_storage_objects('project-files', NULL, ARRAY[${canonicalPrefix}, ${legacyPrefix}]::text[]) AS objects
                         LEFT JOIN workspace_nodes AS nodes
                           ON nodes.workspace_id = ${projectId}::uuid
                          AND nodes.s3_key = objects.name
                          AND nodes.type = 'file'
                          AND nodes.deleted_at IS NULL
-                        WHERE objects.bucket_id = 'project-files'
-                          AND (objects.name LIKE ${canonicalPrefix} OR objects.name LIKE ${legacyPrefix})
-                          AND nodes.id IS NULL
+                        WHERE nodes.id IS NULL
                           -- Retained revisions and registered assets still own their objects even when no
                           -- current node points at them (COR-020): only an object nothing references is an orphan.
                           AND NOT EXISTS (SELECT 1 FROM file_versions fv WHERE fv.s3_key = objects.name)

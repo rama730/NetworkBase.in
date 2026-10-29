@@ -4,8 +4,10 @@ import postgres from "postgres";
 config({ path: ".env.local" });
 
 async function main() {
-  const databaseUrl = process.env.DATABASE_URL;
-  if (!databaseUrl) throw new Error("DATABASE_URL is required");
+  // The runtime connection (Railway's DATABASE_URL, nb_app since 0268). .env.local's DATABASE_URL stays the
+  // postgres operator connection that migrations use, so this check reads RUNTIME_DATABASE_URL when set.
+  const databaseUrl = process.env.RUNTIME_DATABASE_URL || process.env.DATABASE_URL;
+  if (!databaseUrl) throw new Error("RUNTIME_DATABASE_URL or DATABASE_URL is required");
 
   const hostname = new URL(databaseUrl).hostname;
   const sql = postgres(databaseUrl, {
