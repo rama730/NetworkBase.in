@@ -82,7 +82,7 @@ export function personRequestDate(value?: string | Date | null, nowMs = Date.now
     const date = value ? new Date(value) : null;
     if (!date || !Number.isFinite(date.getTime()) || !Number.isFinite(nowMs)) return null;
     const elapsed = nowMs - date.getTime();
-    const absolute = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' }).format(date);
+    const absolute = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' }).format(date);
     const unit = requestAgeUnits.find(([, duration]) => elapsed >= duration);
     // Show a real future date rather than a negative or invented waiting duration.
     const text = elapsed < -60_000 ? absolute : unit

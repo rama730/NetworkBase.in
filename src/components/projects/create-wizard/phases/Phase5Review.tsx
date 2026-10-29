@@ -353,7 +353,7 @@ export default function Phase5Review({ goToPhase, onReady, projectImage = null }
             <ReviewSection eyebrow="Phase 3 · team" title="Team and roles" onEdit={() => goToPhase(3)}>
                 <ReviewRow label="Owner">
                     <p className="nb-ui-label text-foreground">You{formData.creator_role?.title ? ` · ${formData.creator_role.title}` : ''}</p>
-                    {formData.creator_role?.time_commitment ? <p className="nb-compact mt-1 text-muted-foreground">{formData.creator_role.time_commitment} hours per week</p> : null}
+                    {formData.creator_role?.time_commitment ? <p className="nb-compact mt-1 text-muted-foreground">{formData.creator_role.time_commitment} hours a week</p> : null}
                 </ReviewRow>
                 <ReviewRow label="Open roles">
                     {openRoles.length ? (

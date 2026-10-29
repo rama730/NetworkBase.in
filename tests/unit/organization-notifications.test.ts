@@ -15,14 +15,14 @@ const base: OrgEmailData = {
   actor: { id: "a", name: "Ms. Rao", username: "mrao", headline: "Teacher" },
   timeZone: "Asia/Kolkata", orgTimeZone: "Asia/Kolkata",
 };
-const due = "2026-10-31T18:29:00.000Z"; // Sat 31 Oct, 11:59 PM in Kolkata
+const due = "2026-10-31T18:29:00.000Z"; // Sat, Oct 31, 11:59 PM in Kolkata
 
 const cases: Record<OrgEmailKind, { data: Partial<OrgEmailData>; subject: string | RegExp }> = {
   org_ready: { data: { joinCode: "K7M2QX" }, subject: "CSE-3A 2026 is ready: invite your members" },
   org_invite: { data: { role: "Member", memberTitle: "TA" }, subject: "Ms. Rao invited you to CSE-3A 2026" },
   org_invite_signup: { data: { role: "Member" }, subject: "Ms. Rao invited you to CSE-3A 2026 on NetworkBase" },
   org_welcome: { data: { note: "Welcome, everyone!" }, subject: "You’re in CSE-3A 2026" },
-  org_assignment: { data: { assignment: { title: "Lab 2", dueAt: due, steps: ["Read notes"], materials: [{ name: "notes.pdf", size: 1_200_000 }], team: ["Ravi", "Asha"], teamName: "Team A", reviewRequired: true, submission: "file" } }, subject: "New assignment: Lab 2 · due Sat 31 Oct, 11:59 PM" },
+  org_assignment: { data: { assignment: { title: "Lab 2", dueAt: due, steps: ["Read notes"], materials: [{ name: "notes.pdf", size: 1_200_000 }], team: ["Ravi", "Asha"], teamName: "Team A", reviewRequired: true, submission: "file" } }, subject: "New assignment: Lab 2 · due Sat, Oct 31, 11:59 PM" },
   org_due_soon: { data: { items: [{ title: "Lab 2", dueAt: due, status: "Not started" }, { title: "Quiz 1", dueAt: due, status: "In progress" }] }, subject: "2 assignments due tomorrow in CSE-3A 2026" },
   org_overdue: { data: { assignment: { title: "Lab 2", dueAt: due, lateUntil: "2026-11-03T18:29:00.000Z" } }, subject: /^Lab 2 is overdue: late work accepted until / },
   org_returned: { data: { reason: "add the test cases", assignment: { title: "Lab 2", version: 2 } }, subject: "Lab 2 was returned: add the test cases" },
@@ -59,8 +59,8 @@ test("privacy: emails show only what the data carries, escaped; due times are th
   const email = buildOrgEmail("org_assignment", { ...base, assignment: { title: "<b>Lab</b>", dueAt: due, team: ["Ravi"], materials: [{ name: "notes.pdf" }] } }, { email: "a@example.com" });
   assert.ok(!email.html.includes("<b>Lab</b>") && email.html.includes("&lt;b&gt;Lab&lt;/b&gt;"));
   assert.ok(email.text.includes("YOUR TEAM") && email.text.includes("Ravi") && !email.text.includes("Asha"));
-  assert.equal(formatEmailWhen(due, "Asia/Kolkata", "Asia/Kolkata"), "Sat 31 Oct, 11:59 PM");
-  assert.equal(formatEmailWhen(due, "Europe/London", "Asia/Kolkata"), "Sat 31 Oct, 6:29 PM (Sat 31 Oct, 11:59 PM org time)");
+  assert.equal(formatEmailWhen(due, "Asia/Kolkata", "Asia/Kolkata"), "Sat, Oct 31, 11:59 PM");
+  assert.equal(formatEmailWhen(due, "Europe/London", "Asia/Kolkata"), "Sat, Oct 31, 6:29 PM (Sat, Oct 31, 11:59 PM org time)");
 });
 
 test("the mute token is signed: it round-trips, a tampered or unsigned one is refused", () => {

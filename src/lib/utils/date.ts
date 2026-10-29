@@ -24,6 +24,18 @@ const monthDay = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeri
 const monthDayYear = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" });
 const shortTime = new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit" });
 
+// ponytail: one fixed locale (en-US) so server and browser render the same text. Decision 31 asks for the
+// viewer's locale; that needs dates rendered only in the browser (hydration), so it waits for that change.
+/** Decision 31: the short date ("Oct 29"), in a time zone when one is known. */
+export function formatShortDate(value: DateInput, timeZone?: string): string {
+  return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", timeZone }).format(toDate(value));
+}
+
+/** Decision 31: the long date ("Oct 29, 2026, 3:40 PM"). */
+export function formatLongDate(value: DateInput, timeZone?: string): string {
+  return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit", timeZone }).format(toDate(value));
+}
+
 function toDate(value: DateInput): Date {
   return value instanceof Date ? value : new Date(value);
 }
