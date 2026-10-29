@@ -1,5 +1,6 @@
 import { notFound, redirect } from 'next/navigation';
 import { headers } from 'next/headers';
+import { WORKSPACE_TAB_LABELS } from '@/lib/copy/terms';
 import type { Metadata } from 'next';
 import { cache, Suspense } from 'react';
 import WorkspaceDashboardClient from '@/components/workspaces/dashboard/WorkspaceDashboardClient';
@@ -57,22 +58,9 @@ export async function generateWorkspaceRouteMetadata({
     const preview = await readSharePreview(url);
     const metadata = shareMetadata(preview ?? genericSharePreview({ kind: 'project', identifier: slug, url }, 'unavailable'));
 
-    const tab = firstParam(_searchParams?.tab);
+    const tab = firstParam(_searchParams?.tab) ?? 'dashboard';
     if (tab && preview?.state === 'ready' && !isShareCrawler((await headers()).get('user-agent'))) {
-        const tabTitleMap: Record<string, string> = {
-            updates: "Updates",
-            sprints: "Sprints",
-            settings: "Settings",
-            privacy: "Settings",
-            about: "About",
-            readme: "Docs",
-            docs: "Docs",
-            files: "Files",
-            tasks: "Tasks",
-            members: "Members",
-            projects: "Workspaces",
-        };
-        const tabTitle = tabTitleMap[tab];
+        const tabTitle = (WORKSPACE_TAB_LABELS as Record<string, string>)[tab];
         if (tabTitle) {
             const { result } = await readProjectRouteShell(slug);
             if (result.success) {
@@ -87,7 +75,7 @@ export async function generateWorkspaceRouteMetadata({
                     isOrganization: Boolean(project.organization),
                 });
                 if (isVisible) {
-                    metadata.title = `${tabTitle} | ${project.title} | NetworkBase`;
+                    metadata.title = `${tabTitle} · ${project.title} · NetworkBase`;
                 }
             }
         }

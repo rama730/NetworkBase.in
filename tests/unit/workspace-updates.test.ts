@@ -555,7 +555,7 @@ test("workspace update comments and replies use the compact feed conversation la
 test("workspace updates use the feed icon in project navigation", () => {
     const layoutSource = readFileSync(path.join(process.cwd(), "src/components/workspaces/dashboard/WorkspaceLayout.tsx"), "utf8");
 
-    assert.match(layoutSource, /\{ id: "updates", label: "Updates", icon: Newspaper \}/);
+    assert.match(layoutSource, /\{ id: "updates", label: WORKSPACE_TAB_LABELS.updates, icon: Newspaper \}/);
     assert.equal(layoutSource.includes('icon: Megaphone'), false);
 });
 

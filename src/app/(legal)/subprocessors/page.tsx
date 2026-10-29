@@ -3,7 +3,7 @@ import { LegalDocumentPage } from "@/components/legal/LegalDocumentPage";
 import { getLegalIdentity } from "@/lib/legal/config";
 import { LEGAL_VERSIONS } from "@/lib/legal/versions";
 
-export const metadata: Metadata = { title: "Subprocessors | NetworkBase", description: "Service providers that support NetworkBase." };
+export const metadata: Metadata = { title: "Subprocessors · NetworkBase", description: "Service providers that support NetworkBase." };
 
 const providers = [
   ["Cloudflare", "DNS, content delivery, network security", "Connection and request data"],

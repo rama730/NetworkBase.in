@@ -3,7 +3,7 @@ import { LegalDocumentPage, LegalList } from "@/components/legal/LegalDocumentPa
 import { getLegalIdentity } from "@/lib/legal/config";
 import { LEGAL_VERSIONS } from "@/lib/legal/versions";
 
-export const metadata: Metadata = { title: "Security reporting | NetworkBase", description: "How to report a security vulnerability responsibly." };
+export const metadata: Metadata = { title: "Security reporting · NetworkBase", description: "How to report a security vulnerability responsibly." };
 
 export default function SecurityReportingPage() {
   const i = getLegalIdentity();

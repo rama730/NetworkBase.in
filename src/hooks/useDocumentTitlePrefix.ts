@@ -12,7 +12,7 @@ function normalizeTitle(value: string) {
  * Prefix the tab title ("(3) Messages"). Kept on through navigations (Next rewrites <title>),
  * and several prefixes stack without fighting: each only re-adds its own mark when it's missing.
  */
-export function useDocumentTitlePrefix(prefix: string | null | undefined, separator = ' | ') {
+export function useDocumentTitlePrefix(prefix: string | null | undefined, separator = ' · ') {
     useEffect(() => {
         const text = normalizeTitle(prefix ?? '');
         if (!text) return;

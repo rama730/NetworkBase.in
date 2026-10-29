@@ -1168,7 +1168,7 @@ export default function WorkspaceDashboardClient({ project, currentUserId, viewe
 
             {activeTab === 'dashboard' && (
                 <div className="w-full h-full min-h-0">
-                    <TabErrorBoundary tabName="Dashboard">
+                    <TabErrorBoundary tabName="Overview">
                         {/* Orgs get their own Dashboard (report §27); child projects add the org line (§27.5). */}
                         {isOrganization ? <OrgDashboard orgId={project.id} orgSlug={project.slug ?? null} /> : <>
                         {parentOrg ? <ChildOrgLine projectId={project.id} /> : null}
@@ -1205,7 +1205,7 @@ export default function WorkspaceDashboardClient({ project, currentUserId, viewe
 
             {activeTab === 'readme' && (
                 <div className="w-full h-full min-h-0">
-                    <TabErrorBoundary tabName="Docs" fillContainer>
+                    <TabErrorBoundary tabName="Documents" fillContainer>
                         <DocTab projectId={project.id} project={projectWithLiveStats} />
                     </TabErrorBoundary>
                 </div>

@@ -14,7 +14,7 @@ const hookCode = ts.transpileModule(readFileSync('src/hooks/useDocumentTitlePref
 /** Execute the production effect with document.title's HTML whitespace semantics.
  * Observer deliveries are bounded so the original freeze fails without hanging the test process.
  */
-function titleHarness(initialTitle = 'Messages | NetworkBase') {
+function titleHarness(initialTitle = 'Messages · NetworkBase') {
     const observers = new Set<HeadObserver>();
     const pending = new Set<HeadObserver>();
     let rawTitle = initialTitle;
@@ -75,7 +75,7 @@ test('the applicant title with the reported trailing project space settles after
     harness.mount('UI/UX Designer · Network for builders ');
     harness.mutateHead();
     harness.flush();
-    assert.equal(harness.document.title, 'UI/UX Designer · Network for builders | (1) Messages | NetworkBase');
+    assert.equal(harness.document.title, 'UI/UX Designer · Network for builders · (1) Messages · NetworkBase');
     assert.equal(harness.writes, 2);
     // Repeated route/head activity must not append the title again.
     for (let i = 0; i < 100; i += 1) {
@@ -90,10 +90,10 @@ test('leading spaces, repeated spaces, tabs and line breaks normalize for compar
     const cleanup = harness.mount(' \tUI/UX\nDesigner · Network  for\r\nbuilders\f ', ' \t|\n ');
     harness.mutateHead();
     harness.flush();
-    assert.equal(harness.document.title, 'UI/UX Designer · Network for builders | Messages | NetworkBase');
+    assert.equal(harness.document.title, 'UI/UX Designer · Network for builders | Messages · NetworkBase');
     cleanup();
     harness.flush();
-    assert.equal(harness.document.title, 'Messages | NetworkBase');
+    assert.equal(harness.document.title, 'Messages · NetworkBase');
     assert.equal(harness.observers, 0);
 });
 
@@ -130,15 +130,15 @@ test('unread-count changes and conversation navigation preserve the other active
     unread();
     unread = harness.mount('(2)', ' ');
     harness.flush();
-    assert.equal(harness.document.title, '(2) UI/UX Designer · Network for builders | Messages | NetworkBase');
+    assert.equal(harness.document.title, '(2) UI/UX Designer · Network for builders · Messages · NetworkBase');
     conversation();
     conversation = harness.mount('Rama · UI/UX Designer');
     harness.flush();
-    assert.equal(harness.document.title, 'Rama · UI/UX Designer | (2) Messages | NetworkBase');
+    assert.equal(harness.document.title, 'Rama · UI/UX Designer · (2) Messages · NetworkBase');
     unread(); harness.flush();
-    assert.equal(harness.document.title, 'Rama · UI/UX Designer | Messages | NetworkBase');
+    assert.equal(harness.document.title, 'Rama · UI/UX Designer · Messages · NetworkBase');
     conversation(); harness.flush();
-    assert.equal(harness.document.title, 'Messages | NetworkBase');
+    assert.equal(harness.document.title, 'Messages · NetworkBase');
     assert.equal(harness.observers, 0);
 });
 
@@ -146,34 +146,34 @@ test('route metadata replacement restores each active prefix once and cleanup le
     const harness = titleHarness();
     const unread = harness.mount('(3)', ' ');
     const conversation = harness.mount('Application \t chat ');
-    harness.document.title = 'New page | NetworkBase';
+    harness.document.title = 'New page · NetworkBase';
     harness.flush();
-    assert.equal(harness.document.title, 'Application chat | (3) New page | NetworkBase');
+    assert.equal(harness.document.title, 'Application chat · (3) New page · NetworkBase');
     const writes = harness.writes;
     harness.mutateHead(); harness.flush();
     assert.equal(harness.writes, writes);
     conversation(); unread(); harness.flush();
-    assert.equal(harness.document.title, 'New page | NetworkBase');
+    assert.equal(harness.document.title, 'New page · NetworkBase');
 });
 
 test('Strict Mode setup/cleanup and an already-present prefix remain stable', () => {
-    const harness = titleHarness('Application | Messages | NetworkBase');
+    const harness = titleHarness('Application · Messages · NetworkBase');
     const first = harness.mount('Application ');
     harness.mutateHead(); harness.flush();
     assert.equal(harness.writes, 0);
     first();
     const second = harness.mount('Application ');
     harness.mutateHead(); harness.flush();
-    assert.equal(harness.document.title, 'Application | Messages | NetworkBase');
+    assert.equal(harness.document.title, 'Application · Messages · NetworkBase');
     second(); harness.flush();
-    assert.equal(harness.document.title, 'Messages | NetworkBase');
+    assert.equal(harness.document.title, 'Messages · NetworkBase');
 });
 
 test('non-ASCII whitespace and Unicode names remain intact', () => {
     const harness = titleHarness();
     const cleanup = harness.mount('Équipe\u00a0—\u00a0研究');
     harness.mutateHead(); harness.flush();
-    assert.equal(harness.document.title, 'Équipe\u00a0—\u00a0研究 | Messages | NetworkBase');
+    assert.equal(harness.document.title, 'Équipe\u00a0—\u00a0研究 · Messages · NetworkBase');
     cleanup();
-    assert.equal(harness.document.title, 'Messages | NetworkBase');
+    assert.equal(harness.document.title, 'Messages · NetworkBase');
 });

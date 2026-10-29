@@ -1,4 +1,4 @@
-import { ACCESS_LEVEL_LABELS } from "@/lib/copy/terms";
+import { ACCESS_LEVEL_LABELS, WORKSPACE_TAB_LABELS } from "@/lib/copy/terms";
 import {
   formatWorkspaceVisibility,
   normalizeWorkspaceVisibility as normalizeCanonicalProjectVisibility,
@@ -204,8 +204,8 @@ export const DEFAULT_WORKSPACE_PUBLIC_TAB_VISIBILITY: WorkspacePublicTabVisibili
   };
 
 export const WORKSPACE_PUBLIC_TAB_LABELS: Record<WorkspacePublicTabId, string> = {
-  dashboard: "Dashboard",
-  readme: "Docs",
+  dashboard: WORKSPACE_TAB_LABELS.dashboard,
+  readme: WORKSPACE_TAB_LABELS.readme,
   updates: "Updates",
   files: "Files",
   sprints: "Sprints",

@@ -4,7 +4,7 @@ import Logo from "@/components/layout/header/Logo";
 import { Button } from "@/components/ui/button";
 import { RootDocument, rootMetadata, rootViewport } from "./root-document";
 
-export const metadata = { ...rootMetadata, title: "Page not found | NetworkBase" };
+export const metadata = { ...rootMetadata, title: "Page not found · NetworkBase" };
 export const viewport = rootViewport;
 
 export default async function GlobalNotFound() {

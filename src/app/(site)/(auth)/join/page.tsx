@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 
 export const metadata = buildRouteMetadata({
-    title: 'Join an organization | NetworkBase',
+    title: 'Join an organization · NetworkBase',
     description: 'Enter the code your organization gave you.',
     path: '/join',
 })

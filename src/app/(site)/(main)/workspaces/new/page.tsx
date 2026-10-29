@@ -9,7 +9,7 @@ import { listCreateLocations } from '@/lib/organizations/detail'
 const VALID_CREATE_PROJECT_SOURCES = new Set(['scratch', 'github', 'upload'] as const)
 
 export const metadata: Metadata = buildRouteMetadata({
-    title: 'Create workspace | NetworkBase',
+    title: 'Create workspace · NetworkBase',
     description: 'Start a new workspace on NetworkBase.',
     path: '/workspaces/new',
 })

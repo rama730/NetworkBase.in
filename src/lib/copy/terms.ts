@@ -39,6 +39,12 @@ export const NOTIFICATION_CATEGORIES = [
 ] as const;
 export type NotificationCategory = (typeof NOTIFICATION_CATEGORIES)[number]['id'];
 
+/** §6.2: one list for workspace tab labels and browser titles. Tab ids are unchanged. */
+export const WORKSPACE_TAB_LABELS = {
+  dashboard: 'Overview', about: 'About', readme: 'Documents', docs: 'Documents', updates: 'Updates', sprints: 'Sprints',
+  tasks: 'Tasks', files: 'Files', projects: 'Workspaces', members: 'Members', settings: 'Settings', privacy: 'Settings',
+} as const;
+
 /** Decision 22: workspace notification delivery. */
 export const DELIVERY_LEVEL_LABELS = { mandatory: 'Required', important: 'Important', standard: 'Normal', digest: 'Summary', realtime: 'Instant' } as const;
 

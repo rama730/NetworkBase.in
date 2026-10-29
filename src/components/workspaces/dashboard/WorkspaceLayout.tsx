@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo, useRef, type CSSProperties, type KeyboardEvent } from "react";
 import Link from "next/link";
+import { WORKSPACE_TAB_LABELS } from "@/lib/copy/terms";
 import { formatDistanceToNow } from "@/lib/utils/date";
 import {
     LayoutDashboard, ListTodo, FolderOpen, BookOpenText,
@@ -81,16 +82,16 @@ interface ProjectLayoutProps {
 }
 
 const TABS = [
-    { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
-    { id: "about", label: "About", icon: Info },
-    { id: "readme", label: "Docs", icon: BookOpenText },
-    { id: "updates", label: "Updates", icon: Newspaper },
-    { id: "sprints", label: "Sprints", icon: IterationCcw },
-    { id: "tasks", label: "Tasks", icon: ListTodo },
-    { id: "files", label: "Files", icon: FolderOpen },
-    { id: "projects", label: "Workspaces", icon: FolderKanban },
-    { id: "members", label: "Members", icon: Users },
-    { id: "settings", label: "Settings", icon: Settings, ownerOnly: true },
+    { id: "dashboard", label: WORKSPACE_TAB_LABELS.dashboard, icon: LayoutDashboard },
+    { id: "about", label: WORKSPACE_TAB_LABELS.about, icon: Info },
+    { id: "readme", label: WORKSPACE_TAB_LABELS.readme, icon: BookOpenText },
+    { id: "updates", label: WORKSPACE_TAB_LABELS.updates, icon: Newspaper },
+    { id: "sprints", label: WORKSPACE_TAB_LABELS.sprints, icon: IterationCcw },
+    { id: "tasks", label: WORKSPACE_TAB_LABELS.tasks, icon: ListTodo },
+    { id: "files", label: WORKSPACE_TAB_LABELS.files, icon: FolderOpen },
+    { id: "projects", label: WORKSPACE_TAB_LABELS.projects, icon: FolderKanban },
+    { id: "members", label: WORKSPACE_TAB_LABELS.members, icon: Users },
+    { id: "settings", label: WORKSPACE_TAB_LABELS.settings, icon: Settings, ownerOnly: true },
 ];
 
 const RECENT_PROJECT_UPDATE_MS = 7 * 24 * 60 * 60 * 1000;

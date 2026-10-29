@@ -82,7 +82,7 @@ test("attachment recovery is restricted to the stable endpoint and one automatic
 });
 
 test("route metadata uses a consistent canonical/social URL and explicit privacy policy", () => {
-  const metadata = buildRouteMetadata({ title: "Messages | NetworkBase", description: "Private messaging", path: "/messages", robots: { index: false, follow: false } });
+  const metadata = buildRouteMetadata({ title: "Messages · NetworkBase", description: "Private messaging", path: "/messages", robots: { index: false, follow: false } });
   assert.deepEqual(metadata.robots, { index: false, follow: false });
   assert.equal(metadata.alternates?.canonical, "/messages");
   assert.equal((metadata.openGraph as { url: string }).url, "/messages");

@@ -3,7 +3,7 @@ import { LegalDocumentPage, LegalList } from "@/components/legal/LegalDocumentPa
 import { getLegalIdentity } from "@/lib/legal/config";
 import { LEGAL_VERSIONS } from "@/lib/legal/versions";
 
-export const metadata: Metadata = { title: "Cookie Notice | NetworkBase", description: "How NetworkBase uses cookies and device storage." };
+export const metadata: Metadata = { title: "Cookie Notice · NetworkBase", description: "How NetworkBase uses cookies and device storage." };
 
 export default function CookiesPage() {
   const i = getLegalIdentity();

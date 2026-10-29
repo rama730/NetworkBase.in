@@ -7,7 +7,7 @@ import { isUuid } from "@/lib/validations/uuid";
 export async function generateMetadata({ params }: { params: Promise<{ workspaceId: string }> }) {
   const { workspaceId: projectId } = await params;
   return buildRouteMetadata({
-    title: "Workspace messages | NetworkBase", description: "Conversations for your workspace.",
+    title: "Workspace messages · NetworkBase", description: "Conversations for your workspace.",
     path: isUuid(projectId) ? `/messages/w/${projectId}` : "/messages",
   });
 }

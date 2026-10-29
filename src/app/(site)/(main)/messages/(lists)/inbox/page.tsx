@@ -5,7 +5,7 @@ import { InboxView } from "@/components/messages/MessagesViews";
 import { buildRouteMetadata } from "@/lib/metadata/route-metadata";
 
 export function generateMetadata() {
-  return buildRouteMetadata({ title: "Inbox | NetworkBase", description: "Mentions, thread replies and reactions.", path: "/messages/inbox" });
+  return buildRouteMetadata({ title: "Inbox · NetworkBase", description: "Mentions, thread replies and reactions.", path: "/messages/inbox" });
 }
 
 export default function MessagesInboxPage() {

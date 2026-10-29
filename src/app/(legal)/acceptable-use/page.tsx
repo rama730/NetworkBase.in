@@ -3,7 +3,7 @@ import { LegalDocumentPage, LegalList } from "@/components/legal/LegalDocumentPa
 import { getLegalIdentity } from "@/lib/legal/config";
 import { LEGAL_VERSIONS } from "@/lib/legal/versions";
 
-export const metadata: Metadata = { title: "Acceptable Use Policy | NetworkBase", description: "Safety and content rules for NetworkBase." };
+export const metadata: Metadata = { title: "Acceptable Use Policy · NetworkBase", description: "Safety and content rules for NetworkBase." };
 
 export default function AcceptableUsePage() {
   const i = getLegalIdentity();
