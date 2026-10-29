@@ -11,7 +11,7 @@ import { BANNED_TERMS } from "../src/lib/copy/terms";
  * Also fails any new file path containing "project" (§14.3).
  */
 
-export type Rule = "banned" | "project" | "ampersand" | "ellipsis" | "apostrophe" | "exclamation" | "successfully" | "please" | "log-in" | "british" | "title-case";
+export type Rule = "banned" | "project" | "ampersand" | "ellipsis" | "apostrophe" | "exclamation" | "successfully" | "please" | "log-in" | "british" | "title-case" | "annotation";
 type Counts = Record<string, Partial<Record<Rule, number>>>;
 export type Baseline = { strings: Counts; paths: string[] };
 
@@ -30,6 +30,8 @@ const RULES: Array<[Rule, (text: string) => boolean]> = [
   ["log-in", (t) => /\blog ?in\b|\blog ?out\b/i.test(t)],
   ["british", (t) => /\b(?:licence|organis(?:e|ed|es|ing|ation|ations|ational)|recognis\w*|colour\w*|cancell(?:ed|ing)|behaviour|favour\w*)\b/i.test(t)],
   ["title-case", (t) => /^(?:[A-Z][a-z]+ ){1,5}[A-Z][a-z]+$/.test(t) && !PROPER_NAMES.test(t)],
+  // A note from the report ("Connection request *(keep)*") that was applied as if it were wording.
+  ["annotation", (t) => /\*?\(keep\)\*?/i.test(t)],
 ];
 
 const SKIP_ATTRIBUTES = /^(className|id|href|key|data-|htmlFor|name|type|role|aria-controls|aria-labelledby|aria-describedby|src|rel|target|method|action|variant|size|as|accept|autoComplete|inputMode|pattern|form|value|defaultValue|lang|dir|style)/;

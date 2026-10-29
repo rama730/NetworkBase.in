@@ -25,6 +25,15 @@ test('rules', () => {
   assert.deepEqual(ruleHits('Visual Studio Code'), []);
 });
 
+test('a note from the report is never copy: "(keep)" is caught as it was shown to people', () => {
+  // The report marks rows that stay as they are with "*(keep)*"; once it was applied as wording and shipped in a toast.
+  assert.deepEqual(ruleHits('connection request *(keep)*'), ['annotation']);
+  assert.deepEqual(ruleHits('enforces mutual-only connection request (keep) rules'), ['annotation']);
+  assert.deepEqual(copyStrings('toast.success(`Accepted ${n} connection request *(keep)*s`)', 'f.tsx').flatMap(ruleHits), ['annotation']);
+  assert.deepEqual(ruleHits('Connection request'), []);
+  assert.deepEqual(ruleHits('Keep this open'), []);
+});
+
 test('ratchet: counts may only go down, and new project paths fail', () => {
   const baseline = { strings: { 'a.tsx': { project: 2 } }, paths: ['src/lib/workspaces/x.ts'] };
   assert.deepEqual(ratchet({ strings: { 'a.tsx': { project: 2 } }, paths: baseline.paths }, baseline), { failures: [], lowered: false });

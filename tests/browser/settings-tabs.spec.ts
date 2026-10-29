@@ -134,13 +134,13 @@ test('making the profile private asks first, and only a confirmed choice is sent
   await expect.poll(() => calls.filter((call) => call.method === 'PATCH').map((call) => call.body)).toEqual([{ visibility: 'private' }]);
 });
 
-test('turning off connection request *(keep)*s asks first; a refused change leaves the choice where it was', async ({ page }) => {
+test('muting connection requests asks first; a refused change leaves the choice where it was', async ({ page }) => {
   const { calls } = await openRealSettings(page, { respond: (method) => (method === 'PATCH' ? { success: false, error: 'Too many changes' } : undefined) });
   await ready(page);
   const requests = page.locator('#settings-privacy-requests');
   await expect(requests.getByRole('radio', { name: /Everyone/ })).toHaveAttribute('aria-checked', 'true');
   await requests.getByRole('radio', { name: /Nobody/ }).click();
-  await page.getByRole('alertdialog', { name: 'Turn off new connection request *(keep)*s?' }).getByRole('button', { name: 'Turn off' }).click();
+  await page.getByRole('alertdialog', { name: 'Mute new connection requests?' }).getByRole('button', { name: 'Turn off' }).click();
   await expect.poll(() => calls.filter((call) => call.method === 'PATCH').length).toBe(1);
   await expect(requests.getByRole('radio', { name: /Everyone/ })).toHaveAttribute('aria-checked', 'true');
   await expect(requests.getByRole('radio', { name: /Nobody/ })).toHaveAttribute('aria-checked', 'false');
