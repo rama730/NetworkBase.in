@@ -155,6 +155,7 @@ export function removeRecentGlobalSearch(ownerId: string, scope: string, key: st
 
 const SETTINGS_SEARCH_ITEMS: readonly SettingsSearchItem[] = [
     { id: "account", title: "Account", section: "Account", description: "Your account details and data on this device.", href: settingsTabHref("account"), keywords: "profile account status manage", featured: true },
+    { id: "account-standing", title: "Account standing", section: "Account", description: "Decisions about your account, strikes and appeals.", href: "/settings#settings-account-standing", keywords: "standing strike appeal limit suspended warning moderation" },
     { id: "delete-account", title: "Delete account", section: "Legal and data", description: "Review the permanent account deletion controls.", href: "/settings#settings-delete-account", keywords: "remove erase close danger irreversible" },
     { id: "security", title: "Security", section: "Security", description: "Protect your account and review sign-in activity.", href: settingsTabHref("security"), keywords: "protect login sign in", featured: true },
     { id: "authenticator", title: "Authenticator app", section: "Security", description: "Configure an authenticator app and 6-digit verification codes.", href: "/settings#settings-security-authenticator", keywords: "mfa 2fa two factor otp verification code" },
@@ -165,6 +166,7 @@ const SETTINGS_SEARCH_ITEMS: readonly SettingsSearchItem[] = [
     { id: "profile-visibility", title: "Profile visibility", section: "Privacy", description: "Choose who can open your full profile.", href: "/settings#settings-privacy-visibility", keywords: "public private connections only hide profile" },
     { id: "messaging-privacy", title: "Messaging privacy", section: "Privacy", description: "Choose who can start direct messages with you.", href: "/settings#settings-privacy-messages", keywords: "message dm everyone connections permission" },
     { id: "request-privacy", title: "Connection request privacy", section: "Privacy", description: "Choose who can send connection requests.", href: "/settings#settings-privacy-requests", keywords: "mutuals nobody everyone people network" },
+    { id: "your-reports", title: "Your reports", section: "Privacy", description: "See what you reported and what happened.", href: "/settings#settings-privacy-reports", keywords: "report reported case review safety" },
     { id: "blocked-accounts", title: "Blocked accounts", section: "Privacy", description: "Review and unblock accounts you have blocked.", href: "/settings#settings-privacy-blocked", keywords: "block unblock users people" },
     { id: "notifications", title: "Notifications", section: "Notifications", description: "Control notification categories and delivery.", href: settingsTabHref("notifications"), keywords: "alerts bell updates", featured: true },
     { id: "notification-categories", title: "In-app notification categories", section: "Notifications", description: "Choose which updates appear in the bell tray.", href: settingsTabHref("notifications"), keywords: "categories workspace connection message application" },

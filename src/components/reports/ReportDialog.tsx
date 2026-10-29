@@ -71,7 +71,7 @@ export function ReportDialog({ kind, targetId, seq, noun, personName, open, onOp
                             </DialogDescription>
                         </DialogHeader>
                         <p className="nb-compact text-foreground">Case <span className="font-mono">{sent.caseNumber}</span>{sent.blocked && personName ? ` · You've also blocked ${personName}.` : ''}</p>
-                        <p className="nb-compact text-muted-foreground">You can follow it in <Link href="/settings#settings-privacy" className="underline underline-offset-4">Settings → Privacy → Your reports</Link>.</p>
+                        <p className="nb-compact text-muted-foreground">You can follow it in <Link href="/settings#settings-privacy-reports" className="underline underline-offset-4">Settings → Privacy → Your reports</Link>.</p>
                         <DialogFooter><Button onClick={() => close(false)}>Done</Button></DialogFooter>
                     </>
                 ) : (

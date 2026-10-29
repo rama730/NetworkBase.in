@@ -311,3 +311,11 @@ FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION app_private.moderation_restriction(uuid), app_private.moderation_staff(),
   app_private.moderation_set_staff_role(uuid, text), app_private.moderation_sign_out_everywhere(uuid)
 TO nb_app;
+--> statement-breakpoint
+-- Trust and safety emails (§9): to the person a decision is about, and staff alerts.
+ALTER TABLE public.email_outbox DROP CONSTRAINT email_outbox_kind_check,
+  ADD CONSTRAINT email_outbox_kind_check CHECK (kind IN ('welcome', 'task_assignment', 'org_ready', 'org_invite', 'org_invite_signup', 'org_welcome',
+    'org_assignment', 'org_due_soon', 'org_overdue', 'org_returned', 'org_announcement', 'org_ended', 'org_digest', 'org_removed', 'org_ownership',
+    'org_deleted', 'security_password_changed', 'security_mfa_changed', 'security_token_created', 'security_sessions_revoked',
+    'security_sign_in_method_changed', 'account_deletion_scheduled', 'account_deletion_cancelled', 'account_deletion_reminder',
+    'account_deletion_completed', 'trust_person', 'trust_staff'));
