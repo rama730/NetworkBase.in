@@ -127,7 +127,7 @@ function partsFor(kind: OrgEmailKind, d: OrgEmailData, url: (path: string) => st
       return {
         subject: kind === "org_invite" ? `${actor} invited you to ${org}` : `${actor} invited you to ${org} on NetworkBase`,
         preview: `${actor} invited you to join ${org}${d.role ? ` as ${d.role}` : ""}.`,
-        identity: "actor", label: "INVITED BY", headline: `Join ${org}`,
+        identity: "actor", label: "Invited by", headline: `Join ${org}`,
         paragraphs: [d.org.tagline ?? "", kind === "org_invite_signup" ? "Create your account with this email address and you’ll join automatically." : ""].filter(Boolean),
         pills: [d.role ?? "", d.memberTitle ?? "", d.expiresAt ? `Expires ${when(d.expiresAt)}` : ""].filter(Boolean),
         quote: d.note ?? null,
@@ -138,7 +138,7 @@ function partsFor(kind: OrgEmailKind, d: OrgEmailData, url: (path: string) => st
     case "org_welcome":
       return {
         subject: `You’re in ${org}`, preview: d.note ? oneLine(d.note) : `Welcome to ${org}.`,
-        identity: "org", label: "ORGANIZATION", headline: `You’re in ${org}`,
+        identity: "org", label: "Organization", headline: `You’re in ${org}`,
         quote: d.note ?? null,
         sections: d.pinnedDocs?.length ? [{ title: "Pinned docs", rows: d.pinnedDocs }] : [],
         primary: open, secondary: { label: "Add to your profile", href: url("/profile") }, reason: member,
@@ -166,7 +166,7 @@ function partsFor(kind: OrgEmailKind, d: OrgEmailData, url: (path: string) => st
       return {
         subject: items.length === 1 ? `Due tomorrow: ${items[0]!.title}` : `${items.length} assignments due tomorrow in ${org}`,
         preview: items.map((i) => i.title).join(", "),
-        identity: "org", label: "DUE SOON", headline: items.length === 1 ? `${items[0]!.title} is due tomorrow` : `${items.length} assignments are due tomorrow`,
+        identity: "org", label: "Due soon", headline: items.length === 1 ? `${items[0]!.title} is due tomorrow` : `${items.length} assignments are due tomorrow`,
         sections: [{ title: "Due soon", rows: items.map((i) => `${i.title}${i.dueAt ? ` · due ${when(i.dueAt)}` : ""} · ${i.status}`) }],
         primary: { label: "Open my work →", href: url(`${orgPath}?tab=assignments`) }, reason: member,
       };
@@ -175,7 +175,7 @@ function partsFor(kind: OrgEmailKind, d: OrgEmailData, url: (path: string) => st
       return {
         subject: `${a?.title ?? "Assignment"} is overdue${a?.lateUntil ? `: late work accepted until ${when(a.lateUntil)}` : ""}`,
         preview: `${a?.title ?? "Assignment"} was due ${when(a?.dueAt) ?? "earlier"}.`,
-        identity: "org", label: "OVERDUE", headline: `${a?.title ?? "Assignment"} is overdue`,
+        identity: "org", label: "Overdue", headline: `${a?.title ?? "Assignment"} is overdue`,
         pills: [a?.dueAt ? `Was due ${when(a.dueAt)}` : ""].filter(Boolean),
         paragraphs: [a?.lateUntil ? `Late work is accepted until ${when(a.lateUntil)}. Submit what you have.` : "Submit what you have."],
         primary: { label: "Submit now →", href: copyHref }, reason: member,
@@ -184,7 +184,7 @@ function partsFor(kind: OrgEmailKind, d: OrgEmailData, url: (path: string) => st
       return {
         subject: `${a?.title ?? "Your work"} was returned${d.reason ? `: ${oneLine(d.reason, 80)}` : ""}`,
         preview: d.reason ? oneLine(d.reason) : `${actor} returned ${a?.title ?? "your work"}.`,
-        identity: "actor", label: "RETURNED BY", headline: `${a?.title ?? "Your work"} was returned`,
+        identity: "actor", label: "Returned by", headline: `${a?.title ?? "Your work"} was returned`,
         quote: d.reason ?? null, pills: a?.version ? [`v${a.version}`] : [],
         primary: { label: "Open assignment →", href: copyHref }, reason: member,
       };
@@ -201,7 +201,7 @@ function partsFor(kind: OrgEmailKind, d: OrgEmailData, url: (path: string) => st
     case "org_ended":
       return {
         subject: `${org} has ended`, preview: `${org} is read-only now. Your submissions stay available.`,
-        identity: "org", label: "ORGANIZATION", headline: `${org} has ended`,
+        identity: "org", label: "Organization", headline: `${org} has ended`,
         paragraphs: ["Everything is read-only now, and your submissions stay available.", "Add this to your contributions."],
         primary: { label: "Update your contribution →", href: url("/profile") }, secondary: open, reason: member,
       };
@@ -211,7 +211,7 @@ function partsFor(kind: OrgEmailKind, d: OrgEmailData, url: (path: string) => st
       const summary = [submissions ? `${submissions} submission${submissions === 1 ? "" : "s"}` : "", g.joinRequests ? `${g.joinRequests} join request${g.joinRequests === 1 ? "" : "s"}` : ""].filter(Boolean).join(", ");
       return {
         subject: `${org} today: ${summary || "things need you"}`, preview: summary || g.needsYou.join(", "),
-        identity: "org", label: "DAILY SUMMARY", headline: `${org} today`,
+        identity: "org", label: "Daily summary", headline: `${org} today`,
         sections: [
           g.toReview.length ? { title: "To review", rows: g.toReview.map((r) => `${r.title}: ${r.count}`) } : null,
           g.joinRequests ? { title: "Join requests", rows: [`${g.joinRequests} waiting`] } : null,
@@ -225,7 +225,7 @@ function partsFor(kind: OrgEmailKind, d: OrgEmailData, url: (path: string) => st
     case "org_removed":
       return {
         subject: `You were removed from ${org}`, preview: d.reason ? oneLine(d.reason) : `You’re no longer a member of ${org}.`,
-        identity: "org", label: "ORGANIZATION", headline: `You were removed from ${org}`,
+        identity: "org", label: "Organization", headline: `You were removed from ${org}`,
         quote: d.reason ?? null,
         paragraphs: ["Your profile entry stays. Your submissions remain with the organization."],
         primary: { label: "View your profile", href: url("/profile") }, secondary: { label: "Contact support", href: "mailto:support@networkbase.in" },
@@ -235,7 +235,7 @@ function partsFor(kind: OrgEmailKind, d: OrgEmailData, url: (path: string) => st
       return {
         subject: d.previousOwner ? `You transferred ${org} to ${actor}` : `You’re now the owner of ${org}`,
         preview: d.previousOwner ? `${actor} owns ${org} now.` : `You own ${org} now.`,
-        identity: "org", label: "OWNERSHIP", headline: d.previousOwner ? `${actor} owns ${org} now` : `You’re now the owner of ${org}`,
+        identity: "org", label: "Ownership", headline: d.previousOwner ? `${actor} owns ${org} now` : `You’re now the owner of ${org}`,
         paragraphs: d.previousOwner ? ["You stay an admin unless the new owner changes that."] : ["Owners manage admins, the organization’s name and picture, and can archive or delete it."],
         primary: { label: "Open settings →", href: url(`${orgPath}?tab=settings`) },
         reason: `You’re receiving this because ownership of ${org} changed.`,
@@ -243,7 +243,7 @@ function partsFor(kind: OrgEmailKind, d: OrgEmailData, url: (path: string) => st
     case "org_deleted":
       return {
         subject: `${org} was deleted`, preview: `${org} was deleted.`,
-        identity: "org", label: "ORGANIZATION", headline: `${org} was deleted`,
+        identity: "org", label: "Organization", headline: `${org} was deleted`,
         paragraphs: ["Work you did in your own workspaces is still yours."],
         sections: d.personalProjects?.length ? [{ title: "Now your personal workspaces", rows: d.personalProjects }] : [],
         primary: { label: "Open my workspaces", href: url("/projects") },

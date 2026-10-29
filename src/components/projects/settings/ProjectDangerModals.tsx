@@ -63,59 +63,59 @@ export function ProjectArchiveModal({
                             </DialogTitle>
                             <div className="flex items-center gap-2 mt-1">
                                 <span className="inline-flex h-5 items-center rounded-[3px] border border-border bg-muted/60 px-[7px] font-mono text-[11px] font-medium uppercase tracking-[0.09em] leading-none text-muted-foreground">
-                                    {isArchived ? "STATUS: ARCHIVED" : "STATUS: ACTIVE"}
+                                    {isArchived ? "Archived" : "Active"}
                                 </span>
                                 <span className="inline-flex h-5 items-center rounded-[3px] border border-border bg-muted/40 px-[7px] font-mono text-[11px] font-medium uppercase tracking-[0.09em] leading-none text-muted-foreground">
-                                    REVERSIBLE
+                                    Can be undone
                                 </span>
                             </div>
                         </div>
                     </div>
                     <DialogDescription className="nb-compact mt-2 text-xs text-muted-foreground">
                         {isArchived
-                            ? "Restore active collaboration, intake, notifications, and publishing in this workspace."
-                            : "Archive marks this workspace as read-only. Existing members keep safe access for historical context."}
+                            ? "Members can work, apply, post and get notifications again."
+                            : "Members can still read everything. Tasks, applications and posting pause. You can unarchive any time."}
                     </DialogDescription>
                 </DialogHeader>
 
                 <div className="px-6 py-4 space-y-3">
                     <div className="rounded-[6px] border border-border bg-muted/30 p-3.5 text-xs space-y-2">
                         <p className="nb-ui-label text-foreground font-semibold">
-                            {isArchived ? "Unarchiving effects:" : "Archiving effects:"}
+                            What happens
                         </p>
                         <ul className="space-y-1.5 nb-compact text-muted-foreground">
                             {isArchived ? (
                                 <>
                                     <li className="flex items-start gap-2">
                                         <span className="text-foreground mt-0.5">•</span>
-                                        <span>Restores normal task updates, sprints, and documentation editing.</span>
+                                        <span>Tasks, sprints and documents can be edited again.</span>
                                     </li>
                                     <li className="flex items-start gap-2">
                                         <span className="text-foreground mt-0.5">•</span>
-                                        <span>Re-enables application intake and open role matching.</span>
+                                        <span>People can apply for open roles again.</span>
                                     </li>
                                     <li className="flex items-start gap-2">
                                         <span className="text-foreground mt-0.5">•</span>
-                                        <span>Restores discovery visibility in hub and portfolio feeds.</span>
+                                        <span>It shows in Discover and on profiles again.</span>
                                     </li>
                                 </>
                             ) : (
                                 <>
                                     <li className="flex items-start gap-2">
                                         <span className="text-foreground mt-0.5">•</span>
-                                        <span>Marks all task boards, documents, and workspace views as read-only.</span>
+                                        <span>Tasks, documents and every tab become read-only.</span>
                                     </li>
                                     <li className="flex items-start gap-2">
                                         <span className="text-foreground mt-0.5">•</span>
-                                        <span>Pauses active task assignments ({activeTasksCount} active) and open role intake ({openRolesCount} open).</span>
+                                        <span>Active tasks ({activeTasksCount}) and open roles ({openRolesCount}) pause.</span>
                                     </li>
                                     <li className="flex items-start gap-2">
                                         <span className="text-foreground mt-0.5">•</span>
-                                        <span>All historical records, file attachments, and discussion logs are permanently preserved.</span>
+                                        <span>Everything is kept: history, files and comments.</span>
                                     </li>
                                     <li className="flex items-start gap-2">
                                         <span className="text-foreground mt-0.5">•</span>
-                                        <span>This operation is fully reversible and can be unarchived at any time.</span>
+                                        <span>You can unarchive any time.</span>
                                     </li>
                                 </>
                             )}
@@ -207,16 +207,16 @@ export function ProjectTransferOwnershipModal({
                             </DialogTitle>
                             <div className="flex items-center gap-2 mt-1">
                                 <span className="inline-flex h-5 items-center rounded-[3px] border border-amber-500/20 bg-amber-500/10 px-[7px] font-mono text-[11px] font-medium uppercase tracking-[0.09em] leading-none text-amber-700 dark:text-amber-400">
-                                    OWNER ONLY
+                                    Owner only
                                 </span>
                                 <span className="inline-flex h-5 items-center rounded-[3px] border border-border bg-muted/40 px-[7px] font-mono text-[11px] font-medium uppercase tracking-[0.09em] leading-none text-muted-foreground">
-                                    STEP-UP PROTECTED
+                                    Two-step verification
                                 </span>
                             </div>
                         </div>
                     </div>
                     <DialogDescription className="nb-compact mt-2 text-xs text-muted-foreground">
-                        You are about to transfer primary administrative ownership of &ldquo;{projectTitle}&rdquo;. This action permanently changes workspace control.
+                        You’re about to make someone else the owner of &ldquo;{projectTitle}&rdquo;. You’ll confirm with two-step verification.
                     </DialogDescription>
                 </DialogHeader>
 
@@ -244,7 +244,7 @@ export function ProjectTransferOwnershipModal({
                             </div>
                         </div>
                         <span className="inline-flex h-5 shrink-0 items-center rounded-[3px] border border-border bg-muted/60 px-[7px] font-mono text-[11px] font-medium uppercase tracking-[0.09em] leading-none text-muted-foreground">
-                            CURRENT: {getProjectMemberRoleLabel(candidate.membershipRole)}
+                            Now: {getProjectMemberRoleLabel(candidate.membershipRole)}
                         </span>
                     </div>
 
@@ -252,7 +252,7 @@ export function ProjectTransferOwnershipModal({
                     <div className="rounded-[6px] border border-amber-500/30 bg-amber-500/10 p-3.5 text-xs text-amber-900 dark:text-amber-200 space-y-2">
                         <p className="nb-ui-label font-semibold flex items-center gap-1.5">
                             <AlertTriangle className="size-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
-                            Ownership consequence review
+                            What changes
                         </p>
                         <ul className="space-y-1 nb-compact text-xs leading-5">
                             <li className="flex items-start gap-1.5">
@@ -377,10 +377,10 @@ export function ProjectDeleteModal({
                             </DialogTitle>
                             <div className="flex items-center gap-2 mt-1">
                                 <span className="inline-flex h-5 items-center rounded-[3px] border border-destructive/20 bg-destructive/10 px-[7px] font-mono text-[11px] font-medium uppercase tracking-[0.09em] leading-none text-destructive">
-                                    PERMANENT
+                                    Permanent
                                 </span>
                                 <span className="inline-flex h-5 items-center rounded-[3px] border border-border bg-muted/40 px-[7px] font-mono text-[11px] font-medium uppercase tracking-[0.09em] leading-none text-muted-foreground">
-                                    IRREVERSIBLE
+                                    Can’t be undone
                                 </span>
                             </div>
                         </div>
@@ -395,25 +395,25 @@ export function ProjectDeleteModal({
                     <div className="rounded-[6px] border border-destructive/30 bg-destructive/10 p-3.5 text-xs text-destructive space-y-1.5">
                         <p className="nb-ui-label font-semibold flex items-center gap-1.5">
                             <AlertTriangle className="size-3.5 shrink-0" />
-                            Warning: Irreversible destruction
+                            This can’t be undone
                         </p>
                         <p className="nb-compact text-xs leading-5 text-destructive/90">
-                            Once confirmed, this workspace is purged immediately. Cloud S3 files, task records, sprint data, and member permissions cannot be recovered or restored.
+                            The workspace is deleted right away, with its files and all their versions, tasks, sprints, documents, updates, comments and the general channel.
                         </p>
                     </div>
 
                     {/* Preflight Impact Checklist */}
                     <div className="rounded-[6px] border border-border bg-muted/20 p-3.5 space-y-2">
-                        <p className="nb-micro text-muted-foreground">Data to be destroyed:</p>
+                        <p className="nb-micro text-muted-foreground">These will be deleted:</p>
                         <div className="grid grid-cols-2 gap-2 text-xs">
                             <div className="rounded-[4px] border border-border bg-card p-2">
-                                <span className="nb-meta block text-muted-foreground text-[11px]">ACTIVE TASKS</span>
+                                <span className="nb-meta block text-muted-foreground text-[11px]">Active tasks</span>
                                 <span className="nb-ui-label text-sm font-semibold text-foreground">
                                     {preflight?.activeTasksCount ?? 0}
                                 </span>
                             </div>
                             <div className="rounded-[4px] border border-border bg-card p-2">
-                                <span className="nb-meta block text-muted-foreground text-[11px]">OPEN ROLES</span>
+                                <span className="nb-meta block text-muted-foreground text-[11px]">Open roles</span>
                                 <span className="nb-ui-label text-sm font-semibold text-foreground">
                                     {preflight?.openRolesCount ?? 0}
                                 </span>

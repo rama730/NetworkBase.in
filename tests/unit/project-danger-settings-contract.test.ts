@@ -116,18 +116,18 @@ test("project danger zone enforces high-stakes verification barriers for ownersh
 
     // 2. Transfer Ownership Modal verification barrier
     assert.match(modalsSource, /ProjectTransferOwnershipModal/, "Must export ProjectTransferOwnershipModal");
-    assert.match(modalsSource, /OWNER ONLY/, "Must display OWNER ONLY authority badge");
-    assert.match(modalsSource, /STEP-UP PROTECTED/, "Must display STEP-UP PROTECTED badge");
+    assert.match(modalsSource, /Owner only/, "Must display the owner-only badge");
+    assert.match(modalsSource, /Two-step verification/, "Must display the two-step verification badge");
     assert.match(modalsSource, /getProjectMemberRoleLabel/, "Must review recipient role");
     assert.match(modalsSource, /become an <strong>admin<\/strong>/, "Must state clear demotion consequence");
     assert.match(modalsSource, /confirmInput\.trim\(\)\.toLowerCase\(\)\s*===\s*verificationTarget\.toLowerCase\(\)/, "Must enforce type-to-confirm barrier for transfer");
 
     // 3. Delete Project Modal verification barrier
     assert.match(modalsSource, /ProjectDeleteModal/, "Must export ProjectDeleteModal");
-    assert.match(modalsSource, /PERMANENT/, "Must display PERMANENT badge");
-    assert.match(modalsSource, /IRREVERSIBLE/, "Must display IRREVERSIBLE badge");
-    assert.match(modalsSource, /ACTIVE TASKS/, "Must show active tasks impact");
-    assert.match(modalsSource, /OPEN ROLES/, "Must show open roles impact");
+    assert.match(modalsSource, /Permanent/, "Must display the permanent badge");
+    assert.match(modalsSource, /Can’t be undone/, "Must say it can’t be undone");
+    assert.match(modalsSource, /Active tasks/, "Must show active tasks impact");
+    assert.match(modalsSource, /Open roles/, "Must show open roles impact");
     assert.match(modalsSource, /confirmInput\.trim\(\)\s*===\s*requiredSlug/, "Must enforce strict slug type-to-confirm barrier for delete");
 
     // 4. Geometry and typography standards

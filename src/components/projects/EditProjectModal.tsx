@@ -60,20 +60,20 @@ interface EditProjectModalProps {
 // --- Icons & Config ---
 
 const TABS = [
-    { id: "essentials", label: "Essentials", icon: Layout },
-    { id: "details", label: "Details", icon: FileText },
-    { id: "stack", label: "Stack and links", icon: Layers },
-    { id: "journey", label: "Journey", icon: CheckCircle },
-    { id: "roles", label: "Team and roles", icon: Users },
+    { id: "essentials", label: "Workspace details", icon: Layout },
+    { id: "details", label: "Description", icon: FileText },
+    { id: "stack", label: "Links", icon: Layers },
+    { id: "journey", label: "Stages", icon: CheckCircle },
+    { id: "roles", label: "Roles and applications", icon: Users },
 ] as const;
 
 // --- Components ---
 
 function StatusSelector({ value, onChange }: { value: string; onChange: (val: string) => void }) {
     const options = [
-        { id: "draft", label: "Forming", desc: "Just getting started", color: "bg-blue-50 border-blue-200 text-blue-700" },
-        { id: "active", label: "Building", desc: "Actively building", color: "bg-emerald-50 border-emerald-200 text-emerald-700" },
-        { id: "completed", label: "Shipped", desc: "Completed", color: "bg-purple-50 border-purple-200 text-purple-700" },
+        { id: "draft", label: "Draft", desc: "Only members can see it", color: "bg-blue-50 border-blue-200 text-blue-700" },
+        { id: "active", label: "Active", desc: "People are working on it", color: "bg-emerald-50 border-emerald-200 text-emerald-700" },
+        { id: "completed", label: "Completed", desc: "The work is done", color: "bg-purple-50 border-purple-200 text-purple-700" },
     ];
 
     return (
@@ -463,7 +463,7 @@ export default function EditProjectModal({ project, isOpen, onClose, onSaved }: 
                                     {activeTab === "journey" && (
                                         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-[260ms]">
                                             <div>
-                                                <h3 className="nb-card-title text-foreground mb-1">Journey</h3>
+                                                <h3 className="nb-card-title text-foreground mb-1">Stages</h3>
                                                 <p className="nb-compact text-muted-foreground mb-4">Customize the stages your workspace will progress through.</p>
                                                 
                                                 <div className="bg-card p-6 rounded-lg border border-border">
