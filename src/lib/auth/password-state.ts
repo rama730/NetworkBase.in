@@ -16,8 +16,7 @@ import type { User } from "@supabase/supabase-js";
 export async function accountHasPassword(user: User): Promise<boolean> {
   try {
     const rows = await db.execute<{ has_password: boolean }>(sql`
-      SELECT (encrypted_password IS NOT NULL AND encrypted_password <> '') AS has_password
-      FROM auth.users WHERE id = ${user.id}::uuid LIMIT 1
+      SELECT app_private.nb_user_has_password(${user.id}::uuid) AS has_password
     `);
     const stored = rows[0]?.has_password;
     if (typeof stored === "boolean") return stored;

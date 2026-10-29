@@ -25,7 +25,7 @@ export async function GET(request: Request) {
             provider: string;
             identity_data: Record<string, unknown> | null;
         }>(
-            sql`SELECT id, provider, identity_data FROM auth.identities WHERE user_id = ${user.id}::uuid ORDER BY last_sign_in_at DESC NULLS LAST, created_at DESC`,
+            sql`SELECT id, provider, identity_data FROM app_private.nb_user_identities(${user.id}::uuid) ORDER BY last_sign_in_at DESC NULLS LAST, created_at DESC`,
         ).catch(() => null);
 
         const liveIdentities = identitiesResult && Array.isArray(identitiesResult)
