@@ -78,7 +78,7 @@ export async function generateProjectRouteMetadata({
             if (result.success) {
                 const { project, capabilities } = result.data;
                 const isOwnerOrMember = capabilities.isOwner || capabilities.isMember;
-                const canManageSettings = capabilities.isOwner;
+                const canManageSettings = capabilities.isOwner || capabilities.memberRole === 'admin';
                 const isVisible = isProjectTabVisibleToViewer({
                     tabId: tab === 'privacy' ? 'settings' : tab,
                     isOwnerOrMember,
