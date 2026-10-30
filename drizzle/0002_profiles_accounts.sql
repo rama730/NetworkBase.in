@@ -525,9 +525,31 @@ GRANT ALL ON TABLE public.profile_security_states TO service_role;
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.profile_security_states TO nb_app;
 --> statement-breakpoint
 GRANT ALL ON TABLE public.profiles TO service_role;
-GRANT SELECT ON TABLE public.profiles TO anon;
-GRANT SELECT ON TABLE public.profiles TO authenticated;
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.profiles TO nb_app;
+--> statement-breakpoint
+GRANT SELECT(id) ON TABLE public.profiles TO anon;
+GRANT SELECT(id) ON TABLE public.profiles TO authenticated;
+--> statement-breakpoint
+GRANT SELECT(username) ON TABLE public.profiles TO anon;
+GRANT SELECT(username) ON TABLE public.profiles TO authenticated;
+--> statement-breakpoint
+GRANT SELECT(full_name) ON TABLE public.profiles TO anon;
+GRANT SELECT(full_name) ON TABLE public.profiles TO authenticated;
+--> statement-breakpoint
+GRANT SELECT(avatar_url) ON TABLE public.profiles TO anon;
+GRANT SELECT(avatar_url) ON TABLE public.profiles TO authenticated;
+--> statement-breakpoint
+GRANT SELECT(visibility) ON TABLE public.profiles TO anon;
+GRANT SELECT(visibility) ON TABLE public.profiles TO authenticated;
+--> statement-breakpoint
+GRANT SELECT(created_at) ON TABLE public.profiles TO anon;
+GRANT SELECT(created_at) ON TABLE public.profiles TO authenticated;
+--> statement-breakpoint
+GRANT SELECT(updated_at) ON TABLE public.profiles TO anon;
+GRANT SELECT(updated_at) ON TABLE public.profiles TO authenticated;
+--> statement-breakpoint
+GRANT SELECT(deleted_at) ON TABLE public.profiles TO anon;
+GRANT SELECT(deleted_at) ON TABLE public.profiles TO authenticated;
 --> statement-breakpoint
 GRANT MAINTAIN ON TABLE public.recovery_code_redemptions TO anon;
 GRANT MAINTAIN ON TABLE public.recovery_code_redemptions TO authenticated;

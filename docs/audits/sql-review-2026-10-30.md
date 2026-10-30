@@ -6,7 +6,7 @@
 
 > **Update, 2026-10-30, after the cleanup was built:** the files are in the repo as 22 (the old-name views stay for now in `0022_project_compat_views`). Built from empty, they match live through 0276 with 0 real differences. Two changes from the plan below: the catalog file is a copy of live's rows, because the generator's full output differs from live, and `scripts/data/skill-catalog-released-lines.txt` keeps future catalog releases identical. Live's migration list has not been switched yet.
 >
-> **New security finding, S2 (High):** `anon` and `authenticated` can read every column of `public.profiles`, including `email` and `notification_preferences`, for all public profiles. `0199_browser_roles_read_only` (2026-10-07) restored a table-wide grant that `0079`/`0080` had removed. Fix: one migration granting only the display columns, plus a rule in `scripts/check-rls-contract.ts`.
+> **New security finding, S2 (High):** `anon` and `authenticated` can read every column of `public.profiles`, including `email` and `notification_preferences`, for all public profiles. `0199_browser_roles_read_only` (2026-10-07) restored a table-wide grant that `0079`/`0080` had removed. **Fixed on live 2026-10-30:** browsers now read only `id, username, full_name, avatar_url, visibility, created_at, updated_at, deleted_at`. Recorded in `0002_profiles_accounts`, guarded by `scripts/check-rls-contract.ts` and `tests/db/profile-browser-columns.test.ts`. Still open: `notification_preferences` on `workspaces` and `workspace_members` is browser-readable.
 
 ## 1. Summary
 
