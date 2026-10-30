@@ -79,7 +79,9 @@ export async function readOrgMembersAction(orgId: string): Promise<OrgMembersDat
             .innerJoin(tasks, eq(tasks.id, taskTeamMembers.taskId)).where(and(eq(tasks.projectId, orgId), isNull(tasks.deletedAt))),
         db.select({ id: roleApplications.id, userId: roleApplications.applicantId, note: roleApplications.message, createdAt: roleApplications.createdAt, name: profiles.fullName, username: profiles.username })
             .from(roleApplications).innerJoin(profiles, eq(profiles.id, roleApplications.applicantId))
-            .where(and(eq(roleApplications.projectId, orgId), isNull(roleApplications.roleId), eq(roleApplications.status, 'pending'))).orderBy(asc(roleApplications.createdAt)),
+            .where(and(eq(roleApplications.projectId, orgId), isNull(roleApplications.roleId), eq(roleApplications.status, 'pending'),
+                // A join request goes to an admin who isn't in a block with the person, when there is one (Blocking B37, D4).
+                sql`NOT app_private.review_hidden_by_block(${viewer.userId}::uuid, ${roleApplications.applicantId}, ${orgId}::uuid)`)).orderBy(asc(roleApplications.createdAt)),
         db.select({ id: orgEmailInvites.id, email: orgEmailInvites.email, role: orgEmailInvites.role, title: orgEmailInvites.title, expiresAt: orgEmailInvites.expiresAt })
             .from(orgEmailInvites).where(and(eq(orgEmailInvites.orgId, orgId), isNull(orgEmailInvites.acceptedAt), gt(orgEmailInvites.expiresAt, sql`now()`))).orderBy(asc(orgEmailInvites.email)),
         db.select({ joinCode: workspaces.joinCode, joinCodeEnabled: workspaces.joinCodeEnabled }).from(workspaces).where(eq(workspaces.id, orgId)).limit(1),
@@ -428,9 +430,18 @@ export async function remindMembersAction(orgId: string, userIds: string[]): Pro
 }
 
 /** The drawer's Recent activity (report §20.3): their last 10 task events across the org and its child projects. */
+/** An admin reading the activity or work of someone they're in a block with: a duty, so allowed, and recorded for trust & safety only (Blocking B45, rule 7). */
+async function recordViewAcrossBlock(orgId: string, viewerId: string, userId: string, what: string) {
+    await db.execute(sql`
+        INSERT INTO moderation_events (actor_id, kind, data)
+        SELECT ${viewerId}::uuid, 'admin_view_across_block', jsonb_build_object('subjectId', ${userId}::uuid, 'workspaceId', ${orgId}::uuid, 'view', ${what}::text)
+        WHERE app_private.blocked_between(${viewerId}::uuid, ${userId}::uuid)`);
+}
+
 export async function readMemberActivityAction(orgId: string, userId: string): Promise<{ success: true; activity: MemberActivityRow[] } | Failure> {
     const viewer = await orgManager(orgId, 'read');
     if (!viewer || !UUID_RE.test(userId)) return DENIED;
+    await recordViewAcrossBlock(orgId, viewer.userId, userId, 'activity');
     const rows = await db.execute<{ at: string; event_type: string; task: string; project: string }>(sql`
         SELECT e.created_at::text AS at, e.event_type, t.title AS task, p.title AS project
         FROM task_activity_events e JOIN tasks t ON t.id = e.task_id JOIN workspaces p ON p.id = e.workspace_id
@@ -441,7 +452,8 @@ export async function readMemberActivityAction(orgId: string, userId: string): P
 
 export async function readMemberWorkAction(orgId: string, userId: string): Promise<{ success: true; work: MemberWorkRow[] } | Failure> {
     const viewer = await orgManager(orgId, 'read');
-    if (!viewer) return DENIED;
+    if (!viewer || !UUID_RE.test(userId)) return DENIED;
+    await recordViewAcrossBlock(orgId, viewer.userId, userId, 'work');
     const rows = await db.select({ id: tasks.id, title: tasks.title, status: tasks.status, reviewStatus: tasks.reviewStatus, dueDate: tasks.dueDate, reviewSubmittedAt: tasks.reviewSubmittedAt, completedAt: tasks.completedAt, excusedAt: tasks.excusedAt })
         .from(tasks).where(and(eq(tasks.projectId, orgId), isNotNull(tasks.assignmentId), isNull(tasks.deletedAt), or(
             eq(tasks.assigneeId, userId),

@@ -80,6 +80,8 @@ export type ChatBootstrap = {
   projects: ChatWorkspaceSummary[] | null;
   /** People the viewer blocked: their messages fold away in shared channels, search and Saved (B23, B34). */
   blocked_ids?: string[];
+  /** People the viewer muted (B26): folded the same way, nothing else changes. */
+  muted_ids?: string[];
 };
 
 export type ChatAttachmentView = {

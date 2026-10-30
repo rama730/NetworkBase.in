@@ -26,8 +26,11 @@ export async function requireChatUser() {
  * 42501/22023 with a `chat_*` message; anything else is logged and hidden.
  */
 /** No error code that leaves the server says "blocked" (B31). */
-export function neutralChatCode(code: string) {
-  return code === "chat_blocked" ? "chat_cannot_reply" : code;
+export function neutralChatCode(code: string, action = "unknown") {
+  if (code !== "chat_blocked") return code;
+  // Counts for us, never names (Blocking B30): which surface refused something across a block.
+  logger.info("blocking.refused", { module: "blocking", surface: "chat", action });
+  return "chat_cannot_reply";
 }
 
 export function chatFailure(error: unknown, action: string): ChatFailure {
@@ -36,7 +39,7 @@ export function chatFailure(error: unknown, action: string): ChatFailure {
   const code = (source as { code?: string } | null)?.code;
   const message = source instanceof Error ? source.message : String(source);
   // The database's block refusal leaves the server under a neutral code (B31, K28).
-  if ((code === "42501" || code === "22023") && KNOWN_ERROR.test(message)) return { success: false, error: neutralChatCode(message) };
+  if ((code === "42501" || code === "22023") && KNOWN_ERROR.test(message)) return { success: false, error: neutralChatCode(message, action) };
   if (code === "23505") return { success: false, error: "chat_duplicate" };
   logger.error("chat.action_failed", { module: "chat", action, error: message });
   return { success: false, error: "chat_unavailable" };

@@ -13,6 +13,7 @@ import { CHAT_POLL_BASE_MS, CHAT_POLL_JITTER_MS, userTopic } from "@/lib/messagi
 import { applyHint, applyInboxCounts, applyMentionCount, applyReadMoved, chatBadge, mergeDelta, type ChatHint, type InboxCounts } from "@/lib/messaging/shell-state";
 import type { ChatBootstrap } from "@/lib/messaging/types";
 import { invalidateLinkPreviewAccess } from "@/lib/links/client-preview-cache";
+import { writeDraft } from "@/components/messages/chat-ui-store";
 import { queryKeys } from "@/lib/query-keys";
 import { subscribeBroadcast, type BroadcastStatus } from "@/lib/realtime/private-broadcast";
 import { invalidatePrivacyDependents } from "@/lib/privacy/client-invalidation";
@@ -197,6 +198,9 @@ export function ChatShellProvider({ children }: { children: React.ReactNode }) {
           if (other) {
             window.dispatchEvent(new CustomEvent("nb:relationship-changed", { detail: { userId: other } }));
             void forgetOnDevice(other);
+            // An unsent draft in the DM with them goes too (B35).
+            const dm = queryClient.getQueryData<Snapshot>(key)?.data.channels.find((c) => c.kind === "dm" && c.dm_user?.id === other);
+            if (dm) writeDraft(dm.id, "");
           }
           // Every chat query: the list, the open conversation's header and composer, member tags, folded messages.
           return void queryClient.invalidateQueries({ queryKey: queryKeys.chat.root() });
@@ -282,5 +286,11 @@ export function useChatShell() {
 /** People the viewer blocked (Blocking B23, B34): one stable set, new only when the list itself changes. */
 export function useBlockedIds(): ReadonlySet<string> {
   const key = useChatShell().data?.blocked_ids?.join(",") ?? "";
+  return useMemo(() => new Set(key ? key.split(",") : []), [key]);
+}
+
+/** People the viewer muted (B26), the same way. */
+export function useMutedIds(): ReadonlySet<string> {
+  const key = useChatShell().data?.muted_ids?.join(",") ?? "";
   return useMemo(() => new Set(key ? key.split(",") : []), [key]);
 }

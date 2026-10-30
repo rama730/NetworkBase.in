@@ -15,8 +15,9 @@ import { listPins, pinMessage } from "@/app/actions/chat/messages";
 import { markRead } from "@/app/actions/chat/read";
 import { readChatUi, useChatUi, writeChatUi } from "@/components/messages/chat-ui-store";
 import { useBack } from "@/components/messages/useBack";
-import { useBlockFlow } from "@/components/privacy/BlockDialog";
-import { useBlockedIds, useChatShell } from "@/components/messages/ChatShellProvider";
+import { useBlockFlow, useMuteToggle } from "@/components/privacy/BlockDialog";
+import { useReportDialog } from "@/components/reports/ReportDialog";
+import { useBlockedIds, useChatShell, useMutedIds } from "@/components/messages/ChatShellProvider";
 import type { CanvasSeed } from "@/components/messages/ChannelCanvas";
 import { ChannelTabBar } from "@/components/messages/ChannelTabBar";
 import { ConversationContext, useConversationContext, type ConversationContextValue } from "@/components/messages/conversation-context";
@@ -233,7 +234,13 @@ export function ConversationView({ channelId, around = null, surface = "page", o
   const archived = Boolean(channel?.channel_archived_at);
   // Block from the DM itself (Blocking B5, B44): the blocker sees their own block; the other person only "can't reply".
   const blockFlow = useBlockFlow("message");
+  const toggleMute = useMuteToggle();
+  const dmOther = channel?.kind === "dm" ? channel.dm_user : null;
+  const reportDm = useReportDialog({ kind: "person", targetId: dmOther?.id ?? "", noun: "person", personName: dmOther ? personName(dmOther) : null });
   const blockedIds = useBlockedIds();
+  const mutedIds = useMutedIds();
+  // Folding is for shared spaces, group chats included; a 1:1 DM across a block stays readable as it was (B10, B44).
+  const oneToOne = channel?.kind === "dm";
   // Project members read a public channel before joining it (Slack preview).
   const canPreview = !isMember && channel?.kind === "public" && !archived;
   const isChannel = Boolean(channel && channel.kind !== "dm" && channel.name !== null);
@@ -463,8 +470,8 @@ export function ConversationView({ channelId, around = null, surface = "page", o
     people, nameOf, channelNameOf, editingSeq, setEditingSeq, openThread, inThread: false,
     openPinsTab, isMember, projectId: isApplication ? null : channel?.project_id ?? null,
     savedSeqs: saved.seqs, setSaved: (seq, on, remindAt) => void saved.setSaved(seq, on, remindAt), share: isApplication ? undefined : setShareSeq,
-    blockedIds, openBlock: blockFlow.openBlock,
-  }), [blockFlow.openBlock, blockedIds, channel?.can_admin, channel?.project_id, channelId, channelNameOf, editingSeq, isApplication, isDirect, isMember, meId, nameOf, openPinsTab, openThread, people, saved]);
+    blockedIds: oneToOne ? undefined : blockedIds, mutedIds: oneToOne ? undefined : mutedIds, openBlock: blockFlow.openBlock, toggleMute,
+  }), [blockFlow.openBlock, toggleMute, blockedIds, mutedIds, oneToOne, channel?.can_admin, channel?.project_id, channelId, channelNameOf, editingSeq, isApplication, isDirect, isMember, meId, nameOf, openPinsTab, openThread, people, saved]);
 
   const editLast = useCallback(() => {
     for (let i = conversation.messages.length - 1; i >= 0; i -= 1) {
@@ -859,8 +866,9 @@ export function ConversationView({ channelId, around = null, surface = "page", o
               <div className="flex flex-wrap items-center justify-center gap-3 border-t border-border px-4 py-3 text-[13px] text-muted-foreground">
                 {channel.blocked_by_me && dmPerson ? (
                   <>
-                    <span>You blocked {dmPerson.name}. You can read this conversation, but neither of you can send messages.</span>
+                    <span>You blocked {dmPerson.name}. They can’t message you. You can still read this conversation.</span>
                     <Button type="button" variant="outline" size="sm" onClick={() => blockFlow.openUnblock(dmPerson)} className="pointer-coarse:h-11">Unblock</Button>
+                    <Button type="button" variant="ghost" size="sm" onClick={reportDm.open} className="pointer-coarse:h-11">Report</Button>
                   </>
                 ) : <span>You can’t reply to this conversation.</span>}
               </div>
@@ -892,6 +900,7 @@ export function ConversationView({ channelId, around = null, surface = "page", o
         </div>
       </section>
       {blockFlow.dialog}
+      {reportDm.dialog}
       {dialog === "bookmark" ? <AddTabLinkDialog open onOpenChange={(open) => !open && setDialog(null)} onAddTab={(name, url) => void addTab("link", name, url)} /> : null}
       {dialog === "tabs" ? <EditTabsDialog open onOpenChange={(open) => !open && setDialog(null)} tabs={tabs.filter((t) => t.shared)} onSaveTabs={(next) => void saveTabs(next)} /> : null}
       {dialog === "template" ? (

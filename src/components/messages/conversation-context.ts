@@ -31,8 +31,12 @@ export type ConversationContextValue = {
   share?: (seq: number) => void;
   /** People the viewer blocked: their messages fold away outside DMs (Blocking B34). */
   blockedIds?: ReadonlySet<string>;
+  /** People the viewer muted: folded like blocked people, nothing else changes (B26). */
+  mutedIds?: ReadonlySet<string>;
   /** Block a message's author from its ⋯ menu (Blocking B5). */
   openBlock?: (person: { id: string; name: string }) => void;
+  /** Mute or unmute a message's author (B26). */
+  toggleMute?: (person: { id: string; name: string }, mute: boolean) => void;
 };
 
 export const ConversationContext = createContext<ConversationContextValue | null>(null);

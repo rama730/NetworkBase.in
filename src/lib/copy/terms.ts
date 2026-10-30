@@ -62,6 +62,7 @@ export const REPORT_REASONS = [
   { id: 'harassment', label: 'Harassment or bullying' },
   { id: 'hate_speech', label: 'Hate speech' },
   { id: 'impersonation', label: 'Impersonation' },
+  { id: 'evading_block', label: 'Getting around a block' },
   { id: 'scam', label: 'Scam or fraud' },
   { id: 'inappropriate', label: 'Inappropriate content' },
   { id: 'spam', label: 'Spam' },

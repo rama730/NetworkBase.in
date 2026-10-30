@@ -43,6 +43,7 @@ import { OrgMembersTab } from '@/components/organizations/OrgMembersTab';
 import { ChildOrgLine, ChildUnitsLine, OrgDashboard, OrgWorkspacesTab } from '@/components/organizations/OrgOverviewParts';
 import { OrgInviteBanner } from '@/components/organizations/OrgInviteBanner';
 import { HeaderReportMenu } from '@/components/reports/ItemMenu';
+import { DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { ChildOrgChips, OrgBreadcrumb, OrgCompactMark, OrgIdentityLine, OrgInviteDialog, OrgNewItems, OrgNewMenu, OrgStatusBanner, OrgVisitorActions, type OrgNewKind } from '@/components/organizations/OrgHeaderParts';
 import { readOrgTabBadgesAction, type OrgTabBadges } from '@/app/actions/assignments';
 import { isWorkspacePubliclyReadableVisibility } from '@/lib/workspaces/workspace-visibility';
@@ -161,6 +162,12 @@ interface ProjectDashboardClientProps {
 }
 
 const ResourceShareDialog = dynamic(() => import('@/components/sharing/ShareDialog').then(mod => mod.ShareDialog), { ssr: false });
+async function askToChangeTeam(workspaceId: string) {
+    const { askToChangeTeamAction } = await import('@/app/actions/blocking');
+    const result = await askToChangeTeamAction(workspaceId);
+    toast(result.success ? 'Your request went to the organization’s admins. Nobody else is told.' : result.error);
+}
+
 export default function WorkspaceDashboardClient({ project, currentUserId, viewerDisplayName = null, viewerAvatarUrl = null, isOwner, isMember, memberRole = null, initialSprintData = null }: ProjectDashboardClientProps) {
     const router = useRouter();
     const pathname = usePathname();
@@ -1154,7 +1161,12 @@ export default function WorkspaceDashboardClient({ project, currentUserId, viewe
             compactPrefix={parentOrg ? <OrgCompactMark parentOrg={parentOrg} /> : null}
             compactMenuItems={canStartNew ? <OrgNewItems onNew={startNew} prefix="New " /> : null}
             actionsStart={organization ? <>{canStartNew ? <OrgNewMenu onNew={startNew} /> : null}{!isOwnerOrMember && currentUserId ? <OrgInviteBanner orgId={project.id} /> : null}{!isOwnerOrMember && isWorkspacePubliclyReadableVisibility(project.visibility) && project.status !== 'archived' && !organization.suspended ? <OrgVisitorActions orgId={project.id} href={canonicalProjectHref} joinMode={organization.joinMode} requestPending={organization.viewerRequestPending} loggedIn={Boolean(currentUserId)} /> : null}</> : null}
-            actionsEnd={currentUserId && !isOwner ? <HeaderReportMenu targetId={project.id} noun={organization ? 'organization' : 'workspace'} /> : null}
+            actionsEnd={currentUserId && !isOwner ? (
+                <HeaderReportMenu targetId={project.id} noun={organization ? 'organization' : 'workspace'}>
+                    {/* A member of a team inside an organization can ask to move, privately (Blocking B48). */}
+                    {parentOrg && isMember ? <DropdownMenuItem onSelect={() => void askToChangeTeam(project.id)}>Ask to change team</DropdownMenuItem> : null}
+                </HeaderReportMenu>
+            ) : null}
             showFollow={!organization || (!isOwnerOrMember && isWorkspacePubliclyReadableVisibility(project.visibility))} onTabHover={handleTabHover} members={allMembers} loadingMembers={loadingMembers} stageLabel={lifecycleStageNames[optimisticStageIndex] ?? null} stageIndex={optimisticStageIndex} stageCount={lifecycleStageNames.length} applicationLabel={applicationHeaderLabel} openRolesCount={rolesWithFilled.filter((role: any) => (role?.count || 0) - (role?.filled || 0) > 0).length}>
             {!activeTab && (
                 <div className="w-full h-full min-h-[40vh] flex items-center justify-center p-8">

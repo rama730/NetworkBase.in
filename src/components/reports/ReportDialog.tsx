@@ -82,6 +82,8 @@ export function ReportDialog({ kind, targetId, seq, noun, personName, joinCode, 
                         <div className="space-y-2 px-6 pb-5">
                             <p className="nb-compact text-foreground">Case <span className="font-mono">{sent.caseNumber}</span>{sent.blocked && personName ? ` · You've also blocked ${personName}.` : ''}</p>
                             <p className="nb-compact text-muted-foreground">You can follow it in <Link href="/settings#settings-privacy-reports" className="underline underline-offset-4">Settings → Privacy → Your reports</Link>.</p>
+                            {/* A safety check after blocking for harassment, threats or private information (Blocking B30). */}
+                            {sent.blocked && reason && BLOCK_BY_DEFAULT.includes(reason) ? <SafetyCheck /> : null}
                         </div>
                         <DialogFooter className="border-t border-border bg-muted px-6 py-4"><Button onClick={() => close(false)}>Done</Button></DialogFooter>
                     </>
@@ -182,6 +184,24 @@ export function ReportMenuItem({ isOwn, onReport, noun, target, first = false }:
 }
 
 /** A standalone "⋯"-less trigger for places that already own a menu button (the menu item opens this). */
+function SafetyCheck() {
+    const [limited, setLimited] = useState(false)
+    const limit = async () => {
+        const res = await fetch('/api/v1/privacy', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ messagePrivacy: 'connections' }) })
+        setLimited(res.ok)
+    }
+    return (
+        <div className="mt-3 space-y-2 rounded-[5px] border border-border p-3">
+            <p className="nb-ui-label text-foreground">A quick safety check</p>
+            <p className="nb-compact text-muted-foreground">You can limit who can message you, and check who can see your profile.</p>
+            <div className="flex flex-wrap gap-2">
+                <Button type="button" size="sm" variant="outline" disabled={limited} onClick={() => void limit()} className="pointer-coarse:h-11">{limited ? 'Only connections can message you' : 'Only connections can message me'}</Button>
+                <Button type="button" size="sm" variant="ghost" asChild className="pointer-coarse:h-11"><Link href="/settings#settings-privacy-reach">Review profile visibility</Link></Button>
+            </div>
+        </div>
+    )
+}
+
 export function useReportDialog(target: ReportTarget) {
     const [open, setOpen] = useState(false)
     return {

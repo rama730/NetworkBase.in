@@ -24,7 +24,7 @@ import { MessageHistory } from "@/components/messages/MessageHistory";
 import { LastItemTracker } from "@/components/messages/Timeline";
 import { DropOverlay, draftKeyOf, dropFilesTo, useFileDrop } from "@/components/messages/useFileDrop";
 import { seedCards, useChannelDetails, useChannelMembers, useSavedSeqs, useTyping } from "@/components/messages/useConversation";
-import { useBlockedIds, useChatShell } from "@/components/messages/ChatShellProvider";
+import { useBlockedIds, useChatShell, useMutedIds } from "@/components/messages/ChatShellProvider";
 import { useChatUi } from "@/components/messages/chat-ui-store";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { UserAvatar } from "@/components/ui/UserAvatar";
@@ -277,14 +277,16 @@ export function ThreadPane({ channelId, rootSeq, headerSlot = null, focusSeq = n
   const nameMap = useMemo(() => new Map(people.map((p) => [p.id, personName(p)])), [people]);
   const channelNames = useMemo(() => new Map((shell.data?.channels ?? []).filter((c) => c.name).map((c) => [c.id, c.name!])), [shell.data?.channels]);
   const blockedIds = useBlockedIds();
+  const mutedIds = useMutedIds();
+  const oneToOne = details.data?.kind === "dm";
   const ctx = useMemo<ConversationContextValue>(() => ({
     channelId, meId, canAdmin: Boolean(details.data?.can_admin), isDm: details.data?.kind === "dm",
     people, nameOf: (id) => nameMap.get(id), channelNameOf: (id) => channelNames.get(id),
     editingSeq, setEditingSeq, openThread: () => undefined, inThread: true,
     isMember, projectId: details.data?.project_id ?? null,
     savedSeqs: saved.seqs, setSaved: (seq, on, remindAt) => void saved.setSaved(seq, on, remindAt), share: setShareSeq,
-    blockedIds,
-  }), [blockedIds, channelId, channelNames, details.data?.can_admin, details.data?.kind, details.data?.project_id, editingSeq, isMember, meId, nameMap, people, saved]);
+    blockedIds: oneToOne ? undefined : blockedIds, mutedIds: oneToOne ? undefined : mutedIds,
+  }), [blockedIds, mutedIds, oneToOne, channelId, channelNames, details.data?.can_admin, details.data?.kind, details.data?.project_id, editingSeq, isMember, meId, nameMap, people, saved]);
 
   const editLast = useCallback(() => {
     const replies = thread.data?.replies ?? [];

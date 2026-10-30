@@ -54,6 +54,13 @@ export async function recordResendEvent(id: string, event: ResendEvent) {
 
 type Prepared = { drop: string } | { delay: Date } | { payload: EmailPayload };
 
+async function actsForWorkspace(projectId: string, userId: string) {
+  const [row] = await db.execute<{ ok: boolean }>(sql`
+    SELECT EXISTS (SELECT 1 FROM workspaces w WHERE w.id = ${projectId}::uuid AND w.owner_id = ${userId}::uuid)
+        OR EXISTS (SELECT 1 FROM workspace_members m WHERE m.workspace_id = ${projectId}::uuid AND m.user_id = ${userId}::uuid AND m.role IN ('owner', 'admin')) AS ok`);
+  return Boolean(row?.ok);
+}
+
 async function addressBlocked(email: string) {
   if (!recipientAllowed(email)) return "nonproduction_recipient_not_allowlisted";
   if (await db.query.emailSuppressions.findFirst({ where: eq(emailSuppressions.email, email), columns: { email: true } })) return "suppressed";
@@ -225,8 +232,9 @@ async function prepareEmail(row: OutboxRow): Promise<Prepared> {
   });
   if (!check.allowed) return { drop: check.reason };
   if (check.delayUntil) return { delay: check.delayUntil };
-  // A block made after this was queued still stops the email; the workspace's own notice still reaches them (B17, B47).
-  if (row.actorId && await isBlockedBetween(row.actorId, row.userId)) return { drop: "blocked" };
+  // A block made after this was queued still stops a peer's email (B17). Work from an owner or admin still arrives,
+  // as the workspace's own notice (B46, rule 2).
+  if (row.actorId && await isBlockedBetween(row.actorId, row.userId) && !(await actsForWorkspace(row.projectId, row.actorId))) return { drop: "blocked" };
 
   const [subtasksRows, fileRows] = await Promise.all([
     db.select({

@@ -164,6 +164,7 @@ function Row({ item: i, selected, checked, anyChecked, highlight, now, reviewer,
                     {i.severity === 'urgent' ? <span className="size-2 shrink-0 rounded-full bg-[var(--status-danger)]" aria-label="Urgent" /> : i.severity === 'high' ? <span className="size-2 shrink-0 rounded-full bg-[var(--status-warning)]" aria-label="High" /> : null}
                     <span className="truncate font-medium">{name}</span>
                     {i.pile_on ? <Users className="size-3.5 shrink-0 text-[var(--status-warning)]" aria-label="Possible pile-on" /> : null}
+                    {i.blocked_rise ? <span className="shrink-0 text-[11px] text-[var(--status-warning)]" title="Blocked by many people recently">Blocked by many recently</span> : null}
                     {i.legal_hold ? <Lock className="size-3.5 shrink-0 text-muted-foreground" aria-label="Legal hold" /> : null}
                     {i.type === 'appeal' ? <Scale className="size-3.5 shrink-0 text-muted-foreground" aria-hidden="true" /> : null}
                 </p>

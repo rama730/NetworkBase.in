@@ -185,7 +185,7 @@ export default function NotificationsPage() {
     {/* Always in the layout, so saving never moves what is below it. */}
     <p role="status" className="flex h-5 items-center gap-2 nb-compact text-muted-foreground">{isSaving ? <><Loader2 className="size-4 animate-spin" aria-hidden="true" />Saving changes…</> : null}</p>
 
-    <SettingsSectionCard title="Notification preferences" description="Choose what you’re notified about and when.">
+    <SettingsSectionCard title="Notification preferences" description="Choose what you’re notified about and when. People you block can’t reach you here.">
       <div className="flex flex-col gap-3 border-b border-border pb-4 sm:flex-row sm:items-center sm:justify-between">
         <p className="nb-compact text-muted-foreground"><span className="font-medium text-foreground">{enabledCategoryCount} of {NOTIFICATION_PREFERENCE_CATEGORIES.length}</span> notification types are on.</p>
         <Button type="button" variant="outline" size="sm" onClick={() => setAllCategories(!allCategoriesEnabled)} disabled={isSaving}>{allCategoriesEnabled ? "Turn all off" : "Turn all on"}</Button>

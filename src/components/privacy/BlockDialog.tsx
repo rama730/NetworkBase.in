@@ -1,7 +1,9 @@
 'use client'
 
 import { useCallback, useEffect, useState, useTransition } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { toast } from '@/lib/feedback'
+import { invalidatePrivacyDependents } from '@/lib/privacy/client-invalidation'
 
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -110,6 +112,25 @@ export function useBlockFlow(source: BlockSource = 'profile') {
         </>
     )
     return { openBlock, openUnblock, dialog }
+}
+
+/**
+ * Mute or unmute (B26): no confirmation, because nothing is removed and nobody is told; Undo for 10 seconds. Stable,
+ * so a list can hand it to every row.
+ */
+export function useMuteToggle() {
+    const queryClient = useQueryClient()
+    return useCallback(function toggle(person: BlockPerson, mute: boolean) {
+        void import('@/app/actions/blocking').then(async ({ setMutedAction }) => {
+            const result = await setMutedAction(person.id, mute)
+            if (!result.success) return void toast(result.error)
+            await invalidatePrivacyDependents(queryClient)
+            toast(mute ? `${person.name} muted. Their posts and messages fold for you.` : `${person.name} unmuted`, {
+                duration: 10_000,
+                action: { label: 'Undo', onClick: () => toggle(person, !mute) },
+            })
+        })
+    }, [queryClient])
 }
 
 /** The Block confirmation for a place that shows many people (a person card): mounted only once asked, opens at once. */

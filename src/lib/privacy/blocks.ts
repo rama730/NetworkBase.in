@@ -1,6 +1,7 @@
 import { and, eq, or, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { profiles, userBlocks } from "@/lib/db/schema";
+import { logger } from "@/lib/logger";
 import { recordPrivacyEvent } from "@/lib/privacy/audit";
 import { getRedisClient } from "@/lib/redis";
 import { invalidateDiscoverCacheForUsers } from "@/lib/connections/internal-helpers";
@@ -79,6 +80,8 @@ export async function setUserBlocked(input: {
     });
   });
   await afterChange(input.blockerId, input.targetUserId);
+  // Counts for us, never names (B30): blocks and unblocks by where they started.
+  logger.info(input.blocked ? "blocking.block" : "blocking.unblock", { module: "blocking", source: input.source ?? "profile" });
   return target;
 }
 
@@ -87,6 +90,7 @@ export async function undoUserBlock(blockerId: string, targetUserId: string) {
   const [row] = await db.execute<{ ok: boolean }>(sql`SELECT app_private.undo_block(${blockerId}::uuid, ${targetUserId}::uuid, ${BLOCK_UNDO_SECONDS + 5}) AS ok`);
   if (!row?.ok) return false;
   await afterChange(blockerId, targetUserId);
+  logger.info("blocking.undo", { module: "blocking" });
   return true;
 }
 
