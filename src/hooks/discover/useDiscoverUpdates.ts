@@ -94,7 +94,8 @@ export function useDiscoverUpdates(params: {
     // Newest first only: a ranked list has no "new" to wait behind a button.
     const watchNew = postsOnly && view !== FILTER_VIEWS.TRENDING && Boolean(viewerId);
     const latest = useQuery({
-        queryKey: [...queryKeys.discover.pulse(viewerId, view, filters), 'latest'],
+        // Its own root: the live hooks patch everything under the feed's key, and this is one page, not pages.
+        queryKey: ['discover', 'latest-posts', viewerId, view, filters],
         queryFn: ({ signal }) => fetchUpdatesPage(filters, view, undefined, signal),
         enabled: watchNew,
         refetchInterval: NEW_POSTS_POLL_MS,

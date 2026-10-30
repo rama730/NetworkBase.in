@@ -261,7 +261,7 @@ export default memo(function DiscoverUpdateCard({ update, viewerId, onOpen, onHi
                         <MessageCircle className="h-3.5 w-3.5" aria-hidden="true" />
                         <span className="tabular-nums" aria-hidden="true">{update.commentCount}</span>
                     </button>
-                    <ShareUpdateButton path={`/discover?updateId=${update.id}`} />
+                    <ShareUpdateButton path={directHref} />
                     {/* The count is announced when it changes, without moving focus. */}
                     <span className="sr-only" role="status" aria-live="polite">{update.likedByViewer ? "Liked" : ""}</span>
                 </div>
