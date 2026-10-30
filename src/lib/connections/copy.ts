@@ -9,8 +9,5 @@ export const CONNECTION_COPY = {
     sending: "Sending request…",
     sendFailed: "Request wasn’t sent",
     nameFallback: "Member",
-    blocking: "Blocking…",
-    blockFailed: "Person wasn’t blocked",
-    blocked_toast: (name: string) => `Blocked ${name}`,
     shared: (count: number) => `${count} mutual ${count === 1 ? "connection" : "connections"}`,
 } as const;

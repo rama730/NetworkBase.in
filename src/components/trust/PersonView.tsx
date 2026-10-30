@@ -35,6 +35,11 @@ export function PersonView({ p }: { p: Person }) {
                 <span className="text-[13px] text-muted-foreground">{p.restriction ? `${p.restriction}${p.until ? ` until ${istDate(p.until)}` : ''}` : 'good standing'}</span>
                 <NewCaseDialog what={handle.startsWith('@') ? handle : ''} trigger={<Button variant="outline">Act on account</Button>} />
             </header>
+            <p className="border-b border-border py-3 text-[13px] text-muted-foreground">
+                Blocked by {p.blocks.total} {p.blocks.total === 1 ? 'person' : 'people'} · {p.blocks.week} this week
+                {p.blocks.rising ? <span className="ml-1.5 font-semibold text-destructive">Sharp rise</span> : null}
+                {p.blocks.acrossBlock ? ` · ${p.blocks.acrossBlock} admin ${p.blocks.acrossBlock === 1 ? 'action' : 'actions'} taken across a block` : ''}
+            </p>
             <Section title="Active restrictions" empty={!active.length}>
                 {active.map((a) => <li key={a.id}>{ACTION_LABEL[a.action as ModerationActionKind]} · until {a.ends_at ? istDate(a.ends_at) : 'permanent'}{a.case_number ? <> · <Link className="underline underline-offset-4" href={caseHref(a.case_number)}>{caseLabel(a.case_number)}</Link></> : null}</li>)}
             </Section>

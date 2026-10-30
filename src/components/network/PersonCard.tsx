@@ -18,6 +18,7 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { BlockPersonDialog } from "@/components/privacy/BlockDialog";
 import { ReportMenuItem, useReportDialog } from "@/components/reports/ReportDialog";
 import { messageUserInWindow } from "@/components/messages/message-user";
 import { CONNECTION_COPY } from "@/lib/connections/copy";
@@ -97,12 +98,13 @@ function PersonCard({
     className,
     variant,
 }: PersonCardProps) {
-    const { cancelRequest, blockProfile } = useConnectionMutations();
+    const { cancelRequest } = useConnectionMutations();
     const [localStatus, setLocalStatus] = useState<SuggestedProfile['connectionStatus'] | null>(null);
     const [connecting, setConnecting] = useState(false);
     const actionSlot = useRef<HTMLDivElement>(null);
     const [cancelling, setCancelling] = useState(false);
-    const [blocking, setBlocking] = useState(false);
+    // Block from the card (Blocking B5): the shared confirmation, mounted only once asked.
+    const [blockAsk, setBlockAsk] = useState(0);
     const status = localStatus ?? profile.connectionStatus;
     const displayName = personCardName(profile);
     // Report a person from their card (C15): the last item of the card's menu.
@@ -148,22 +150,6 @@ function PersonCard({
             setLocalStatus("pending_sent");
         } finally {
             setCancelling(false);
-        }
-    }
-
-    async function handleBlock() {
-        if (blocking) return;
-        setBlocking(true);
-        try {
-            await toast.promise(blockProfile.mutateAsync(profile.id), {
-                loading: CONNECTION_COPY.blocking,
-                success: CONNECTION_COPY.blocked_toast(displayName),
-                error: (err) => err instanceof Error ? err.message : CONNECTION_COPY.blockFailed,
-            }).unwrap();
-        } catch {
-            // The toast already says what went wrong.
-        } finally {
-            setBlocking(false);
         }
     }
 
@@ -223,8 +209,7 @@ function PersonCard({
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
-                    onClick={() => void handleBlock()}
-                    disabled={blocking}
+                    onClick={() => setBlockAsk((n) => n + 1)}
                     variant="destructive"
                     className="flex items-center gap-2 cursor-pointer text-destructive focus:text-destructive"
                 >
@@ -276,7 +261,7 @@ function PersonCard({
         <span className="nb-meta">{CONNECTION_COPY.blocked}</span>
     ) : null;
 
-    return <>{reporting.dialog}<PersonCardContent person={profile} variant={variant} action={<div ref={actionSlot} className="contents">{action}</div>} viewerSkills={viewerSkills} priority={priority} className={className} connected={status === "connected"} /></>;
+    return <>{reporting.dialog}{blockAsk ? <BlockPersonDialog key={blockAsk} person={{ id: profile.id, name: displayName }} source="person_card" /> : null}<PersonCardContent person={profile} variant={variant} action={<div ref={actionSlot} className="contents">{action}</div>} viewerSkills={viewerSkills} priority={priority} className={className} connected={status === "connected"} /></>;
 }
 
 export default memo(PersonCard);

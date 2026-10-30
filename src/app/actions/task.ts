@@ -6,7 +6,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { wakeEmailWorker } from "@/lib/email/outbox";
-import { recordTaskAssignment, taskAssignmentNotification } from "@/lib/workspaces/task-assignment";
+import { recordTaskAssignment, refusePeerAssignmentAcrossBlock, taskAssignmentNotification } from "@/lib/workspaces/task-assignment";
 import {
   fileVersions,
   profiles,
@@ -481,6 +481,7 @@ export async function assignTaskAction(
       user.id,
       "assign_tasks",
     );
+    await refusePeerAssignmentAcrossBlock(db, parsed.data.projectId, user.id, parsed.data.assigneeId);
 
     const result = await db.transaction(async (tx) => {
       const locked = await lockTaskForWrite(tx, taskId, user.id);

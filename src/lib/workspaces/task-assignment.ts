@@ -14,6 +14,17 @@ type Assignment = {
   assigneeId: string | null; assignee: Snapshot | null;
 };
 
+/** Peer-to-peer assignment across a block is refused; owners and admins still assign, delivered from the place (Blocking B46, D7). */
+export async function refusePeerAssignmentAcrossBlock(executor: Executor, projectId: string, actorId: string, assigneeId: string | null) {
+  if (!assigneeId || assigneeId === actorId) return;
+  const [row] = await executor.execute(sql`
+    SELECT app_private.blocked_between(${actorId}::uuid, ${assigneeId}::uuid)
+       AND NOT EXISTS (SELECT 1 FROM workspaces w WHERE w.id = ${projectId}::uuid AND w.owner_id = ${actorId}::uuid)
+       AND NOT EXISTS (SELECT 1 FROM workspace_members m WHERE m.workspace_id = ${projectId}::uuid AND m.user_id = ${actorId}::uuid AND m.role IN ('owner', 'admin')) AS refused
+  `) as unknown as Array<{ refused: boolean }>;
+  if (row?.refused) throw new Error("You can’t assign this task to them.");
+}
+
 /** Call after the assignment write, inside its transaction, for a changed assignee. */
 export async function recordTaskAssignment(tx: Executor, input: Assignment) {
   const [event] = await tx.insert(taskActivityEvents).values({

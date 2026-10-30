@@ -1,5 +1,6 @@
 'use server';
 
+import { blockVersion } from '@/lib/privacy/blocks';
 import { DISCOVER_ANON_CACHE_TAG, FILTER_VIEWS, WORKSPACE_STATUS, WORKSPACE_TYPE, SORT_OPTIONS, type FilterView } from '@/constants/discover';
 import { consumeRateLimit, consumeRateLimitForRoute } from '@/lib/security/rate-limit';
 import { getDiscoverWorkspaces, InvalidDiscoverCursorError, StaleDiscoverFeedError } from '@/lib/data/discover';
@@ -142,8 +143,9 @@ export async function fetchDiscoverWorkspacesAction(
             };
         }
 
+        // The viewer's block version is part of the key: a block never waits out a cached answer (Blocking B18).
         const cacheKey = surface === 'preview' && normalizedSearch && !normalizedCursor
-            ? `search:preview:hub:${viewerKey}:${buildDiscoverSnapshotKey({ normalizedFilters, normalizedView, normalizedLimit })}`
+            ? `search:preview:hub:${viewerKey}:b${user?.id ? await blockVersion(user.id) : 0}:${buildDiscoverSnapshotKey({ normalizedFilters, normalizedView, normalizedLimit })}`
             : null;
 
         if (cacheKey) {

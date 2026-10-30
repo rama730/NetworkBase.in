@@ -255,6 +255,8 @@ export async function searchWorkspaceInviteCandidatesAction(input: { projectId: 
                 eq(profiles.onboardingStatus, "completed"),
                 eq(profiles.visibility, "public"),
                 isNotProjectMember,
+                // Neither side of a block is offered as someone to invite (Blocking B51, K41).
+                sql`NOT app_private.blocked_between(${user.id}::uuid, ${profiles.id})`,
                 or(ilike(profiles.username, pattern), ilike(profiles.fullName, pattern)),
             ))
             .orderBy(
@@ -281,6 +283,7 @@ export async function searchWorkspaceInviteCandidatesAction(input: { projectId: 
                 ne(profiles.id, project.ownerId),
                 eq(profiles.onboardingStatus, "completed"),
                 isNotProjectMember,
+                sql`NOT app_private.blocked_between(${user.id}::uuid, ${profiles.id})`,
             ))
             .orderBy(asc(profiles.fullName), asc(profiles.id))
             .limit(20);

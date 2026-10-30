@@ -58,7 +58,14 @@ async function applyBlockRule(tx: NotificationWriteExecutor, input: CreateNotifi
     if (!input.actorUserId || input.actorUserId === input.recipientUserId) return input;
     const [row] = await tx.execute(sql`SELECT app_private.blocked_between(${input.actorUserId}::uuid, ${input.recipientUserId}::uuid) AS blocked`) as unknown as Array<{ blocked: boolean }>;
     if (!row?.blocked) return input;
-    return input.placeNotice ? { ...input, actorUserId: null, preview: input.preview ? { ...input.preview, actorName: null, actorAvatarUrl: null } : input.preview } : null;
+    // Acting on someone you're in a block with is recorded for trust & safety only, never for the place (B49, rule 7).
+    if (input.placeNotice && input.placeAction) {
+        await tx.execute(sql`
+            INSERT INTO moderation_events (actor_id, kind, data)
+            VALUES (${input.actorUserId}::uuid, 'admin_action_across_block', ${JSON.stringify({ subjectId: input.recipientUserId, action: input.placeAction, workspaceId: input.entityRefs?.projectId ?? null })}::jsonb)
+        `);
+    }
+    return input.placeNotice ? { ...input, title: input.placeTitle || input.title, actorUserId: null, preview: input.preview ? { ...input.preview, actorName: null, actorAvatarUrl: null } : input.preview } : null;
 }
 
 function toDate(value: Date | string | null | undefined): Date | null {

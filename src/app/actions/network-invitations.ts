@@ -167,7 +167,10 @@ export async function readNetworkInvitationsAction(
                 SELECT entries.*,profiles.username,profiles.full_name,profiles.avatar_url,profiles.headline,profiles.location
                 FROM entries JOIN profiles ON profiles.id=entries.actor_id
                 WHERE profiles.deleted_at IS NULL AND profiles.id<>${user.id}::uuid
-                    AND NOT app_private.blocked_between(${user.id}::uuid, profiles.id)
+                    -- An application to review stays a duty across a block when nobody else can decide it (B37).
+                    AND CASE WHEN entries.source = 'application' AND entries.direction = 'received'
+                        THEN NOT app_private.review_hidden_by_block(${user.id}::uuid, profiles.id, entries.project_id)
+                        ELSE NOT app_private.blocked_between(${user.id}::uuid, profiles.id) END
                     ${query.direction === "all" ? sql`` : sql`AND entries.direction=${query.direction}`}
                     ${query.kind === "all" || query.kind === "decided" ? sql`` : query.kind === "connections" ? sql`AND entries.source='connection'` : sql`AND entries.source IN ('invitation','application')`}
                     ${search.length ? sql`AND ${sql.join(search, sql` AND `)}` : sql``}

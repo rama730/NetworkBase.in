@@ -6,7 +6,7 @@ import { z } from 'zod';
 import { UUID_RE } from '@/lib/validations/uuid';
 
 import { db } from '@/lib/db';
-import { applicationEvents, orgEmailInvites, orgJoinBlocks, profiles, workspaceMembers, workspaceOpenRoles, workspaces, roleApplications, taskTeamMembers, tasks } from '@/lib/db/schema';
+import { applicationEvents, orgEmailInvites, orgJoinBlocks, profiles, workspaceMembers, workspaceOpenRoles, workspaces, roleApplications, taskTeamMembers, tasks, userBlocks } from '@/lib/db/schema';
 import { getWorkspaceAccessById } from '@/lib/data/workspace-access';
 import { notifyNewCopies } from '@/lib/organizations/assignment-notify';
 import { copyState } from '@/lib/organizations/assignment-rules';
@@ -48,7 +48,8 @@ export type OrgMembersData = {
     success: true;
     viewerRole: 'owner' | 'admin';
     joinCode: string | null;
-    rows: Array<RosterRow & { avatarUrl: string | null; username: string | null }>;
+    /** blockedByMe: the viewer's own personal block, shown only to them (Blocking B51). */
+    rows: Array<RosterRow & { avatarUrl: string | null; username: string | null; blockedByMe: boolean }>;
     requests: Array<{ id: string; userId: string; name: string; note: string | null; createdAt: string }>;
     invites: Array<{ id: string; email: string; role: string; title: string | null; expiresAt: string }>;
     children: Array<{ id: string; title: string; units: Array<{ id: string; title: string }> }>;
@@ -62,7 +63,7 @@ export async function readOrgMembersAction(orgId: string): Promise<OrgMembersDat
     const viewer = await orgManager(orgId, 'read');
     if (!viewer) return DENIED;
     // ponytail: one roster read per open, sized for ORG_LIMITS.membersPerOrg (2,000). Upgrade: server paging.
-    const [people, childRows, units, copies, teamCopies, requests, invites, [org]] = await Promise.all([
+    const [people, childRows, units, copies, teamCopies, requests, invites, [org], myBlocks] = await Promise.all([
         db.select({ userId: workspaceMembers.userId, role: workspaceMembers.role, title: workspaceMembers.title, joinedAt: workspaceMembers.joinedAt, name: profiles.fullName, username: profiles.username, avatarUrl: profiles.avatarUrl, lastActiveAt: profiles.lastActiveAt })
             .from(workspaceMembers).innerJoin(profiles, eq(profiles.id, workspaceMembers.userId))
                 // Memberships are hidden while an account deletion is pending (report §30.7); back on cancel.
@@ -82,7 +83,9 @@ export async function readOrgMembersAction(orgId: string): Promise<OrgMembersDat
         db.select({ id: orgEmailInvites.id, email: orgEmailInvites.email, role: orgEmailInvites.role, title: orgEmailInvites.title, expiresAt: orgEmailInvites.expiresAt })
             .from(orgEmailInvites).where(and(eq(orgEmailInvites.orgId, orgId), isNull(orgEmailInvites.acceptedAt), gt(orgEmailInvites.expiresAt, sql`now()`))).orderBy(asc(orgEmailInvites.email)),
         db.select({ joinCode: workspaces.joinCode, joinCodeEnabled: workspaces.joinCodeEnabled }).from(workspaces).where(eq(workspaces.id, orgId)).limit(1),
+        db.select({ id: userBlocks.blockedId }).from(userBlocks).where(eq(userBlocks.blockerId, viewer.userId)),
     ]);
+    const blockedByMe = new Set(myBlocks.map((b) => b.id));
 
     const now = new Date();
     const stateByCopy = new Map(copies.map((c) => [c.id, copyState({ status: c.status, reviewStatus: c.reviewStatus, dueDate: c.dueDate, submittedAt: c.reviewSubmittedAt, completedAt: c.completedAt, excusedAt: c.excusedAt }, now).state]));
@@ -103,6 +106,7 @@ export async function readOrgMembersAction(orgId: string): Promise<OrgMembersDat
             name: p.name || p.username || 'Member',
             username: p.username,
             avatarUrl: p.avatarUrl,
+            blockedByMe: blockedByMe.has(p.userId),
             role,
             title: p.title,
             projects: childRows.filter((c) => c.userId === p.userId).map((c) => ({ id: c.projectId, title: c.title, unit: c.unit })),

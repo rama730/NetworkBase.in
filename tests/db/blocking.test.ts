@@ -120,3 +120,61 @@ test("notifications from a blocked person are dropped; the place's own notice st
   assert.equal(place.notification?.actorUserId ?? null, null);
   await sql`DELETE FROM user_notifications WHERE user_id = ${a}`;
 });
+
+test("work across a block: peers can't assign it, admins can (B46, D7)", async () => {
+  const { a, b } = await pair();
+  const [owner] = await sql.begin(async (tx) => [await createUser(tx)]);
+  people.push(owner!);
+  const ws = await sql.begin((tx) => createProject(tx, owner!));
+  made.push(ws);
+  await sql`INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (${ws}, ${a}, 'member'), (${ws}, ${b}, 'member')`;
+  await block(b, a);
+  const { refusePeerAssignmentAcrossBlock } = await loadAppModule(() => import("../../src/lib/workspaces/task-assignment"));
+  const { db } = await loadAppModule(() => import("../../src/lib/db"));
+  await assert.rejects(refusePeerAssignmentAcrossBlock(db, ws, a, b), /can’t assign/);
+  await sql`UPDATE workspace_members SET role = 'admin' WHERE workspace_id = ${ws} AND user_id = ${a}`;
+  await refusePeerAssignmentAcrossBlock(db, ws, a, b);
+});
+
+test("review goes to another admin first, and stays a duty when nobody else can decide (B37)", async () => {
+  const { a, b } = await pair();
+  const [admin] = await sql.begin(async (tx) => [await createUser(tx)]);
+  people.push(admin!);
+  const ws = await sql.begin((tx) => createProject(tx, a));
+  made.push(ws);
+  await block(a, b);
+  const hidden = async () => (await sql`SELECT app_private.review_hidden_by_block(${a}::uuid, ${b}::uuid, ${ws}::uuid) AS v`)[0]!.v;
+  assert.equal(await hidden(), false, "the owner is the only reviewer");
+  await sql`INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (${ws}, ${admin}, 'admin')`;
+  assert.equal(await hidden(), true, "another admin can decide it");
+});
+
+test("grouped with someone you blocked: only the blocker gets a private heads-up (B48)", async () => {
+  const { a, b } = await pair();
+  const [owner] = await sql.begin(async (tx) => [await createUser(tx)]);
+  people.push(owner!);
+  const ws = await sql.begin((tx) => createProject(tx, owner!));
+  made.push(ws);
+  await block(a, b);
+  await sql`INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (${ws}, ${a}, 'member')`;
+  await sql`INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (${ws}, ${b}, 'member')`;
+  const notes = await sql`SELECT user_id FROM user_notifications WHERE dedupe_key LIKE ${`block-heads-up:${ws}:%`}`;
+  assert.deepEqual(notes.map((n) => n.user_id), [a]);
+  await sql`DELETE FROM user_notifications WHERE user_id IN (${a}, ${b})`;
+});
+
+test("an admin's action across a block arrives from the place and is recorded for trust & safety only (B47, B49, B13)", async () => {
+  const { a, b } = await pair();
+  await block(b, a);
+  const result = await notifications.createNotification({
+    recipientUserId: b, actorUserId: a, kind: "trust_safety", category: "projects", importance: "important",
+    title: "Ana removed you", dedupeKey: `t:${b}:remove`, placeNotice: true, placeTitle: "Team: Member removed", placeAction: "members.removed",
+  });
+  assert.equal(result.notification?.title, "Team: Member removed");
+  assert.equal(result.notification?.actorUserId ?? null, null);
+  assert.equal((await sql`SELECT count(*)::int AS n FROM moderation_events WHERE actor_id = ${a} AND kind = 'admin_action_across_block'`)[0]!.n, 1);
+  const console = await loadAppModule(() => import("../../src/lib/trust/console"));
+  const person = await console.readPerson(a);
+  assert.deepEqual([person?.blocks.total, person?.blocks.acrossBlock], [1, 1]);
+  await sql`DELETE FROM user_notifications WHERE user_id = ${b}`;
+});

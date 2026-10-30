@@ -20,6 +20,7 @@ import {
   workspaces,
   skills,
   tasks,
+  userBlocks,
 } from "@/lib/db/schema";
 
 const EXPORT_PAGE_SIZE = 250;
@@ -304,7 +305,16 @@ async function* streamAccountExport(input: {
     connectionCursor = page.at(-1)!.id;
     if (page.length < EXPORT_PAGE_SIZE) break;
   }
-  yield "],\"messages\":{\"items\":";
+  // The people you blocked, with where and your private note (Blocking B30). Never who blocked you (B31).
+  yield "],\"blocks\":";
+  assertActive(signal);
+  yield json(await db
+    .select({ username: profiles.username, name: profiles.fullName, source: userBlocks.source, note: userBlocks.note, createdAt: userBlocks.createdAt })
+    .from(userBlocks)
+    .innerJoin(profiles, eq(profiles.id, userBlocks.blockedId))
+    .where(and(eq(userBlocks.blockerId, userId), lte(userBlocks.createdAt, exportedAt)))
+    .orderBy(asc(userBlocks.createdAt)));
+  yield ",\"messages\":{\"items\":";
 
   yield "[";
   written = 0;

@@ -36,6 +36,7 @@ import {
 import { profileHref } from "@/lib/routing/identifiers";
 
 import { messageUserInWindow } from "@/components/messages/message-user";
+import { useBlockFlow } from "@/components/privacy/BlockDialog";
 import {
     activeNetworkFilters,
     networkPersonFilters,
@@ -76,7 +77,7 @@ export default function ConnectionsClient({
         query.sort === "name" ? "name" : "recent",
         networkPersonFilters(query),
     );
-    const { disconnect, blockProfile } = useConnectionMutations();
+    const { disconnect } = useConnectionMutations();
 
     // Option C (Smart Perceptual Threshold): 0-150ms keeps cards at 100% brightness; >150ms renders skeleton
     const isQueryTransition = (isFetching || isPlaceholderData) && !isFetchingNextPage;
@@ -100,10 +101,8 @@ export default function ConnectionsClient({
         id: string;
         name: string;
     } | null>(null);
-    const [pendingBlock, setPendingBlock] = useState<{
-        userId: string;
-        name: string;
-    } | null>(null);
+    // One Block confirmation for the list, with its consequences and Undo (Blocking B5).
+    const blockFlow = useBlockFlow("person_card");
     const connections = useMemo(
         () =>
             (data?.pages.flatMap((page) => page.items) ?? []).filter((item) =>
@@ -131,26 +130,6 @@ export default function ConnectionsClient({
             setPendingDisconnect(null);
         }
     }, [disconnect, pendingDisconnect]);
-
-    const handleBlock = useCallback(async () => {
-        if (!pendingBlock) return;
-        try {
-            await toast
-                .promise(blockProfile.mutateAsync(pendingBlock.userId), {
-                    loading: CONNECTION_COPY.blocking,
-                    success: `Blocked ${pendingBlock.name}`,
-                    error: (error) =>
-                        error instanceof Error
-                            ? error.message
-                            : CONNECTION_COPY.blockFailed,
-                })
-                .unwrap();
-        } catch {
-            // Handled
-        } finally {
-            setPendingBlock(null);
-        }
-    }, [blockProfile, pendingBlock]);
 
     const isInitialLoading = isLoading && !data;
     useEffect(() => {
@@ -242,7 +221,7 @@ export default function ConnectionsClient({
                             setPendingDisconnect({ id, name })
                         }
                         onBlock={(userId, name) =>
-                            setPendingBlock({ userId, name })
+                            blockFlow.openBlock({ id: userId, name })
                         }
                     />
                 )}
@@ -263,20 +242,7 @@ export default function ConnectionsClient({
                 onConfirm={() => void handleDisconnect()}
             />
 
-            <ConfirmDialog
-                open={Boolean(pendingBlock)}
-                onOpenChange={(open) => !open && setPendingBlock(null)}
-                title={
-                    pendingBlock
-                        ? `Block ${pendingBlock.name}?`
-                        : "Block this person?"
-                }
-                description="They will not be able to view your profile, send you messages, or invite you to workspaces."
-                confirmLabel="Block"
-                variant="destructive"
-                loading={blockProfile.isPending}
-                onConfirm={() => void handleBlock()}
-            />
+            {blockFlow.dialog}
         </>
     );
 }
