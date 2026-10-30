@@ -6,7 +6,7 @@ import { actAs, actAsOwner, createUser, inRollback, sql } from "./_helpers";
 after(() => sql.end());
 
 // workspaces is column-granted (every column but import_source), so it is not a table-level grant.
-const BROWSER_READABLE = [ "workspace_members", "workspace_follows", "connections", "tasks", "task_subtasks",
+const BROWSER_READABLE = [ "workspace_follows", "connections", "tasks", "task_subtasks",
   "task_comments", "task_comment_likes", "task_node_links", "workspace_workflow_columns", "workspace_updates",
   "workspace_update_comments", "workspace_node_locks", "user_notifications",
 ].sort();
@@ -20,7 +20,7 @@ test("anon and authenticated have no write privilege anywhere in public", async 
   assert.deepEqual(rows.map((r) => r.grant), []);
 });
 
-// profiles is absent: browsers get named columns only (tests/db/profile-browser-columns.test.ts).
+// profiles and workspace_members are absent: browsers get named columns only.
 test("browser SELECT is limited to the tables the UI and policies read", async () => {
   for (const role of ["anon", "authenticated"]) {
     const expected = BROWSER_READABLE.filter((table) => role === "authenticated" || table !== "user_notifications");
@@ -74,5 +74,19 @@ test("anon reads public profiles but neither notifications nor connection rows",
     await actAs(tx, a);
     assert.equal((await tx`SELECT id FROM public.user_notifications WHERE dedupe_key = 'grant-test'`).length, 1, "the owner still reads it");
     await actAsOwner(tx);
+  });
+});
+
+test("notification preferences stay with the server", async () => {
+  await inRollback(async (tx) => {
+    for (const viewer of [null, await createUser(tx)]) {
+      await actAs(tx, viewer);
+      await assert.rejects(tx.savepoint((sp) => sp`SELECT notification_preferences FROM public.workspaces`), /permission denied/);
+      await assert.rejects(tx.savepoint((sp) => sp`SELECT notification_preferences FROM public.workspace_members`), /permission denied/);
+      await tx`SELECT id, workspace_id, user_id, role FROM public.workspace_members LIMIT 1`;
+      await actAsOwner(tx);
+    }
+    const views = await tx`SELECT viewname FROM pg_views WHERE schemaname = 'public' AND viewname <> 'onboarding_slo_daily'`;
+    assert.deepEqual([...views], [], "the old project-name views are gone");
   });
 });

@@ -197,6 +197,13 @@
       "when": 1793371154113,
       "tag": "0028_revoke_anon_notifications",
       "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1793372335893,
+      "tag": "0029_drop_old_views_private_preferences",
+      "breakpoints": true
     }
   ]
 }
