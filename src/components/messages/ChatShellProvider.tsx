@@ -15,6 +15,8 @@ import type { ChatBootstrap } from "@/lib/messaging/types";
 import { invalidateLinkPreviewAccess } from "@/lib/links/client-preview-cache";
 import { queryKeys } from "@/lib/query-keys";
 import { subscribeBroadcast, type BroadcastStatus } from "@/lib/realtime/private-broadcast";
+import { invalidatePrivacyDependents } from "@/lib/privacy/client-invalidation";
+import { forgetOnDevice } from "@/lib/privacy/device-forget";
 import { readShellPart } from "@/lib/shell-batch";
 import { useDocumentTitlePrefix } from "@/hooks/useDocumentTitlePrefix";
 import { clearFailedSends, retryAllFailed } from "@/components/messages/failed-sends";
@@ -185,6 +187,17 @@ export function ChatShellProvider({ children }: { children: React.ReactNode }) {
         }
         if (event === "membership.changed") {
           void invalidateLinkPreviewAccess(queryClient);
+          return refresh();
+        }
+        // A block or unblock involving this person (Blocking B11, B35): every screen refetches, and what this device
+        // kept about the other person goes. The event never says who blocked whom.
+        if (event === "relationship") {
+          const other = typeof payload.userId === "string" ? payload.userId : null;
+          void invalidatePrivacyDependents(queryClient);
+          if (other) {
+            window.dispatchEvent(new CustomEvent("nb:relationship-changed", { detail: { userId: other } }));
+            void forgetOnDevice(other);
+          }
           return refresh();
         }
         const current = queryClient.getQueryData<Snapshot>(key);

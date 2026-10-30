@@ -62,6 +62,8 @@ export function ReportDialog({ kind, targetId, seq, noun, personName, joinCode, 
         const result = await reportAction({ kind, targetId, seq: seq ?? null, reason, details: details.trim() || undefined, alsoBlock: canBlock && alsoBlock, joinCode: joinCode ?? undefined })
         if (!result.success) return setError(result.error)
         setSent({ caseNumber: result.caseNumber, deadlineHours: result.deadlineHours, blocked: result.blocked })
+        // Report-and-block is the same block as everywhere else: the profile and every open screen update now (B7).
+        if (result.blocked && kind === 'person') window.dispatchEvent(new CustomEvent('nb:relationship-changed', { detail: { userId: targetId } }))
         queryClient.setQueryData<Record<string, string>>(MY_OPEN_REPORTS, (keys) => ({ ...keys, [reportKey({ kind, targetId, seq })]: result.caseNumber }))
     })
 

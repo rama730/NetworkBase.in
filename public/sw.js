@@ -48,7 +48,7 @@ self.addEventListener("push", (event) => {
         // Chat pushes share a per-conversation tag (one notification per conversation): a new message alerts again.
         renotify: tag.startsWith("chat:"),
         badge: "/icon-paper-64.png",
-        data: { href, id: payload.id || null },
+        data: { href, id: payload.id || null, actorUserId: payload.actorUserId || null },
         requireInteraction: false,
       });
     })(),

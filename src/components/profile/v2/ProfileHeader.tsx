@@ -180,7 +180,7 @@ export function ProfileHeader({
         latestConnectionId: null,
     })
     const lockLabel = privacyPresentation.relationshipBadgeText
-    const canManageBlock = Boolean(isAuthenticated && onToggleBlock && !privacyRelationship.blockedByTarget)
+    const canManageBlock = Boolean(isAuthenticated && onToggleBlock)
     const {
         hasConnectionMenuAction,
         isInteractionBlocked,
@@ -387,13 +387,6 @@ export function ProfileHeader({
                                                 {secondaryConnectLabel}
                                             </DropdownMenuItem>
                                         ) : null}
-                                        {(showMessageAction || isPrimaryConnectionAction || secondaryConnectLabel) && canManageBlock ? <DropdownMenuSeparator /> : null}
-                                        {canManageBlock ? (
-                                            <DropdownMenuItem onClick={onToggleBlock} disabled={isBlocking} variant="destructive">
-                                                <Ban className="size-4" />
-                                                {blockActionLabel}
-                                            </DropdownMenuItem>
-                                        ) : null}
                                     </DropdownMenuContent>
                                 </DropdownMenu>
                             ) : isInteractionBlocked ? (
@@ -402,10 +395,17 @@ export function ProfileHeader({
                                     {privacyPresentation.blockedBannerText || 'You cannot interact with this account'}
                                 </span>
                             ) : null}
-                            {/* Report a person (C15): its own "⋯", also while blocked, never on your own profile. */}
+                            {/* One "⋯" for a person (Blocking B6): Block or Unblock, then Report, also while blocked, never on your own profile. */}
                             {profile?.id && isAuthenticated ? (
                                 <ItemMenu label={`More actions for ${name}`} className="size-[var(--ui-control-height)] rounded-[5px] border border-border"
-                                    report={{ kind: 'person', targetId: profile.id, noun: 'person', personName: name }} />
+                                    report={{ kind: 'person', targetId: profile.id, noun: 'person', personName: name }}>
+                                    {canManageBlock ? (
+                                        <DropdownMenuItem onSelect={onToggleBlock} disabled={isBlocking} variant={privacyRelationship.blockedByViewer ? undefined : 'destructive'}>
+                                            <Ban className="size-4" />
+                                            {blockActionLabel} {privacyRelationship.blockedByViewer ? '' : name}
+                                        </DropdownMenuItem>
+                                    ) : null}
+                                </ItemMenu>
                             ) : null}
                         </div>
                         </>

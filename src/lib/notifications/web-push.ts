@@ -59,6 +59,8 @@ export type WebPushPayload = {
     href: string | null;
     icon: string | null;
     tag: string;
+    /** Lets the device close this notice if the two later block each other (Blocking B35). */
+    actorUserId?: string | null;
 };
 
 function buildPayload(item: NotificationItem): WebPushPayload {
@@ -69,6 +71,7 @@ function buildPayload(item: NotificationItem): WebPushPayload {
         href: item.href,
         icon: item.preview?.actorAvatarUrl ?? null,
         tag: item.dedupeKey,
+        actorUserId: item.actorUserId ?? null,
     };
 }
 

@@ -30,6 +30,7 @@ import { buildAuthPageHref } from '@/lib/auth/redirects'
 const ResourceShareDialog = dynamic(() => import('@/components/sharing/ShareDialog').then(mod => mod.ShareDialog), { ssr: false })
 
 import { ProfileHeader } from './ProfileHeader'
+import { RELATIONSHIP_EVENT, useBlockFlow } from '@/components/privacy/BlockDialog'
 import { ProfileRightRail } from './ProfileRightRail'
 import { OpenToRolesCard } from './sections/OpenToRolesCard'
 import { WorkspaceContributionsCard } from './sections/WorkspaceContributionsCard'
@@ -156,7 +157,6 @@ export function ProfileV2Client({
     const [status, setStatus] = useState<ConnectionState>(connectionStatus)
     const [privacyRelationship, setPrivacyRelationship] = useState(initialPrivacyRelationship)
     const [lockedShell, setLockedShell] = useState(initialLockedShell)
-    const [isBlocking, setIsBlocking] = useState(false)
     const [viewerMutualCount, setViewerMutualCount] = useState(initialStats?.mutualCount ?? 0)
     const [collaborationSummary, setCollaborationSummary] = useState<ProfileCollaborationSummary>(
         initialCollaborationSummary || EMPTY_COLLABORATION_SUMMARY,
@@ -532,74 +532,23 @@ export function ProfileV2Client({
         )
     }
 
-    const handleToggleBlock = async () => {
-        if (!viewerUser || !profile?.id || privacyRelationship.blockedByTarget) return
-        setIsBlocking(true)
-        try {
-            const isBlocked = privacyRelationship.blockedByViewer
-            const res = await fetch(isBlocked ? `/api/v1/privacy/blocks/${profile.id}` : '/api/v1/privacy/blocks', {
-                method: isBlocked ? 'DELETE' : 'POST',
-                headers: isBlocked ? undefined : { 'Content-Type': 'application/json' },
-                body: isBlocked ? undefined : JSON.stringify({ userId: profile.id }),
-            })
-            const json = await res.json().catch(() => null)
-            if (!res.ok || json?.success === false) {
-                throw new Error((typeof json?.error === 'string' && json.error) || 'Couldn’t update block state')
-            }
-
-            if (isBlocked) {
-                const nextConnectionState = 'none'
-                const nextVisibilityReason = profile.visibility === 'connections'
-                    ? 'connections_only'
-                    : profile.visibility === 'private'
-                        ? 'private'
-                        : 'public'
-                const nextCanViewProfile = profile.visibility === 'public'
-                const nextCanSendMessage = profile.messagePrivacy === 'everyone'
-
-                setPrivacyRelationship((current) => ({
-                    ...current,
-                    blockedByViewer: false,
-                    blockedByTarget: false,
-                    connectionState: nextConnectionState,
-                    canSendConnectionRequest: true,
-                    canSendMessage: nextCanSendMessage,
-                    canViewProfile: nextCanViewProfile,
-                    visibilityReason: nextVisibilityReason,
-                }))
-                setStatus('none')
-                toast.success('Account unblocked')
-            } else {
-                setPrivacyRelationship((current) => ({
-                    ...current,
-                    blockedByViewer: true,
-                    blockedByTarget: false,
-                    connectionState: 'blocked_by_viewer',
-                    canSendConnectionRequest: false,
-                    canSendMessage: false,
-                    canViewProfile: false,
-                    visibilityReason: 'blocked',
-                }))
-                setLockedShell(true)
-                setStatus('blocked')
-                toast.success('Account blocked')
-            }
-            await invalidatePrivacyDependents(queryClient, profile?.username || profile?.id || null)
-            await refreshViewerOverlay()
-            router.refresh()
-        } catch (error) {
-            logger.error('[ProfileV2Client] block toggle failed', {
-                module: 'profile',
-                profileId: profile.id,
-                viewerUserId: viewerUser?.id ?? null,
-                error: error instanceof Error ? error.message : String(error),
-                stack: error instanceof Error ? error.stack : undefined,
-            })
-            toast.error(feedbackError(error instanceof Error ? error.message : 'Couldn’t update block state', "Couldn’t update block state"))
-        } finally {
-            setIsBlocking(false)
-        }
+    // Block and Unblock confirm first and offer Undo (Blocking B5, B12); every open screen hears about it (B11).
+    const blockFlow = useBlockFlow('profile')
+    const handleToggleBlock = () => {
+        if (!viewerUser || !profile?.id) return
+        const person = { id: profile.id, name: profile.fullName || (profile.username ? `@${profile.username}` : 'this person') }
+        if (privacyRelationship.blockedByViewer) blockFlow.openUnblock(person)
+        else blockFlow.openBlock(person)
     }
+    useEffect(() => {
+        if (!profile?.id) return
+        const onChange = (event: Event) => {
+            if ((event as CustomEvent<{ userId?: string }>).detail?.userId !== profile.id) return
+            void invalidatePrivacyDependents(queryClient, profile.username || profile.id).then(() => refreshViewerOverlay())
+        }
+        window.addEventListener(RELATIONSHIP_EVENT, onChange)
+        return () => window.removeEventListener(RELATIONSHIP_EVENT, onChange)
+    }, [profile?.id, profile?.username, queryClient, refreshViewerOverlay])
 
     const inviteOptions = inviteOptionsQuery.data?.projects ?? []
     const handleOpenInvite = useCallback(() => {
@@ -635,6 +584,7 @@ export function ProfileV2Client({
         <>
             {shareOpen ? <ResourceShareDialog kind="profile" path={profileSharePath(safeProfile.username)} returnFocusElement={shareTrigger.current} onClose={() => setShareOpen(false)}
                 ownerUsernameSetup={isOwner ? { profileId: safeProfile.id, updatedAt: safeProfile.updatedAt, onSaved: username => { applyOptimisticProfileUpdate({ username }); router.refresh(); } } : undefined} /> : null}
+            {blockFlow.dialog}
             <ProfileShell
                 header={
                     <ProfileHeader
@@ -646,7 +596,7 @@ export function ProfileV2Client({
                         privacyRelationship={privacyRelationship}
                         lockedShell={lockedShell}
                         isLoadingConnection={isLoading}
-                        isBlocking={isBlocking}
+                        isBlocking={false}
                         onEdit={() => openEditPage('general')}
                         onShare={handleShareProfile}
                         onAvailabilityToggle={(checked) => startTransition(() => { void toggleAvailability(checked) })}
