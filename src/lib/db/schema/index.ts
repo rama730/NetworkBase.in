@@ -1850,6 +1850,7 @@ export const workspaceUpdates = pgTable(
       .default({})
       .notNull(),
     isPinned: boolean("is_pinned").default(false).notNull(),
+    activitySeq: bigint("activity_seq", { mode: "number" }).default(0).notNull(),
     likeCount: integer("like_count").default(0).notNull(),
     commentCount: integer("comment_count").default(0).notNull(),
     deletedBy: uuid("deleted_by").references(() => profiles.id, {

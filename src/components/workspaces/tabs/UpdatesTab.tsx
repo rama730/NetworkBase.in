@@ -17,12 +17,11 @@ import { toast, feedbackError } from "@/lib/feedback";
 import { createWorkspaceUpdateAction, readWorkspaceUpdateAction, readWorkspaceUpdatesAction, type WorkspaceUpdateView } from "@/app/actions/workspace/updates";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
-import { createClient } from "@/lib/supabase/client";
-import { subscribeActiveResource } from "@/lib/realtime/subscriptions";
+import { useWorkspaceUpdatesLive } from "@/hooks/useUpdateLive";
 import { queryKeys } from "@/lib/query-keys";
 import { WORKSPACE_UPDATE_VIRTUALIZE_THRESHOLD } from "@/lib/workspaces/updates";
 import { cn } from "@/lib/utils";
-import { prependUpdate, realtimeStringField, removeUpdate, replaceUpdate, updatePages, type UpdatesPage } from '@/components/workspaces/updates/update-helpers';
+import { prependUpdate, replaceUpdate, type UpdatesPage } from '@/components/workspaces/updates/update-helpers';
 import { MemoizedUpdateCard } from '@/components/workspaces/updates/UpdateCard';
 import { ModeratedPlaceholder, useModeratedItems, withPlaceholders } from '@/components/reports/ModeratedPlaceholder';
 import { UpdatesRightRail } from '@/components/workspaces/updates/UpdatesRightRail';
@@ -207,127 +206,23 @@ export default function UpdatesTab({
     setFeedScrollParent(routeScrollRoot ?? null);
   }, []);
 
-  useEffect(() => {
-    const supabase = createClient();
-    const handleProjectUpdateChange = async (payload: any) => {
-      // A soft-deleted comment is invisible to other viewers' Realtime (0200),
-      // but its parent's comment_count change still arrives: refresh the thread.
-      const changedId = realtimeStringField(payload.new, "id");
-      if (payload.eventType === "UPDATE" && changedId) {
-        void queryClient.invalidateQueries({
-          queryKey: queryKeys.project.detail.updateComments(projectId, changedId),
-        });
-      }
-      const authorId =
-        realtimeStringField(payload.new, "author_id") ??
-        realtimeStringField(payload.old, "author_id");
-      if (authorId && authorId === currentUserId) return;
-
-      const newId = realtimeStringField(payload.new, "id");
-      const oldId = realtimeStringField(payload.old, "id") ?? realtimeStringField(payload.new, "id");
-
-      if (payload.eventType === "DELETE" && oldId) {
-        queryClient.setQueryData(
-          updatesQueryKey,
-          (existing: InfiniteData<UpdatesPage> | undefined) =>
-            removeUpdate(existing, oldId)
-        );
-        return;
-      }
-
-      if (newId) {
-        if (payload.eventType === "UPDATE" && payload.new) {
-          const newRow = payload.new;
-          queryClient.setQueryData(
-            updatesQueryKey,
-            (existing: InfiniteData<UpdatesPage> | undefined) => {
-              if (!existing) return existing;
-              return {
-                ...existing,
-                pages: existing.pages.map((page) => ({
-                  ...page,
-                  updates: page.updates.map((u) => {
-                    if (u.id !== newId) return u;
-                    return {
-                      ...u,
-                      commentCount: typeof newRow.comment_count === "number" ? newRow.comment_count : u.commentCount,
-                      likeCount: typeof newRow.like_count === "number" ? newRow.like_count : u.likeCount,
-                      content: typeof newRow.content === "string" ? newRow.content : u.content,
-                      isPinned: typeof newRow.is_pinned === "boolean" ? newRow.is_pinned : u.isPinned,
-                    };
-                  }),
-                })),
-              };
-            }
-          );
-          return;
-        }
-
-        const result = await readWorkspaceUpdateAction(projectId, newId);
-        if (result.success && result.data) {
-          queryClient.setQueryData(
-            updatesQueryKey,
-            (existing: InfiniteData<UpdatesPage> | undefined) => {
-              if (payload.eventType === "INSERT") {
-                const hasIt = existing?.pages.some((page) => page.updates.some((u) => u.id === newId));
-                if (hasIt) return existing!;
-                return prependUpdate(existing, result.data!);
-              } else {
-                return replaceUpdate(existing, newId, result.data!);
-              }
-            }
-          );
-        }
-      }
-    };
-    const handleProjectCommentChange = (payload: any) => {
-      const authorId =
-        realtimeStringField(payload.new, "user_id") ??
-        realtimeStringField(payload.old, "user_id");
-      if (authorId && authorId === currentUserId) return;
-      const updateId =
-        realtimeStringField(payload.new, "update_id") ??
-        realtimeStringField(payload.old, "update_id");
-      if (!updateId) return;
-
-      void queryClient.invalidateQueries({
-        queryKey: queryKeys.project.detail.updateComments(projectId, updateId),
-      });
-      if (payload.eventType !== "INSERT" && payload.eventType !== "DELETE") return;
-      const delta = payload.eventType === "INSERT" ? 1 : -1;
-      queryClient.setQueryData(
-        updatesQueryKey,
-        (existing: InfiniteData<UpdatesPage> | undefined) =>
-          updatePages(existing, (item) =>
-            item.id === updateId
-              ? { ...item, commentCount: Math.max(0, item.commentCount + delta) }
-              : item,
-          ),
-      );
-    };
-    const channel = subscribeActiveResource({
-      supabase,
-      resourceType: "project_hydration",
-      resourceId: `updates:${projectId}`,
-      bindings: [
-        {
-          event: "*",
-          table: "workspace_updates",
-          filter: `workspace_id=eq.${projectId}`,
-          handler: handleProjectUpdateChange,
-        },
-        {
-          event: "*",
-          table: "workspace_update_comments",
-          filter: `workspace_id=eq.${projectId}`,
-          handler: handleProjectCommentChange,
-        },
-      ],
+  // New posts wait behind a pill so nothing moves under the reader (RT5). Everything else on the tab is kept current
+  // by the live layer: counts, edits, deletions and open threads, on your own posts too.
+  const [incoming, setIncoming] = useState<WorkspaceUpdateView[]>([]);
+  const handleCreated = useCallback((updateId: string) => {
+    void readWorkspaceUpdateAction(projectId, updateId).then((result) => {
+      if (!result.success || !result.data || result.data.authorId === currentUserId) return;
+      const update = result.data;
+      setIncoming((list) => (list.some((item) => item.id === update.id) ? list : [update, ...list]));
     });
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [currentUserId, projectId, queryClient, updatesQueryKey]);
+  }, [currentUserId, projectId]);
+  useWorkspaceUpdatesLive(projectId, Boolean(currentUserId), handleCreated);
+  const showIncoming = () => {
+    queryClient.setQueryData(updatesQueryKey, (existing: InfiniteData<UpdatesPage> | undefined) =>
+      [...incoming].reverse().reduce((pages, update) =>
+        (pages?.pages.some((page) => page.updates.some((u) => u.id === update.id)) ? pages : prependUpdate(pages, update)), existing));
+    setIncoming([]);
+  };
 
   // A deep-linked update opens once per link. Depending on the live feed would reopen it (and
   // scroll the page) on every like, comment or realtime refetch.
@@ -572,6 +467,14 @@ export default function UpdatesTab({
             isPosting={createMutation.isPending}
             onPost={postWithOrgOptions}
           />
+        ) : null}
+
+        {incoming.length ? (
+          <div className="flex justify-center py-2">
+            <Button type="button" size="sm" variant="outline" onClick={showIncoming} className="pointer-coarse:h-11">
+              Show {incoming.length} new {incoming.length === 1 ? "update" : "updates"}
+            </Button>
+          </div>
         ) : null}
 
         {detailUpdate && isPhone === false ? (

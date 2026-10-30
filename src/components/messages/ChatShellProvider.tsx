@@ -14,6 +14,7 @@ import { applyHint, applyInboxCounts, applyMentionCount, applyReadMoved, chatBad
 import type { ChatBootstrap } from "@/lib/messaging/types";
 import { invalidateLinkPreviewAccess } from "@/lib/links/client-preview-cache";
 import { writeDraft } from "@/components/messages/chat-ui-store";
+import { patchUpdateEverywhere } from "@/hooks/useUpdateLive";
 import { queryKeys } from "@/lib/query-keys";
 import { subscribeBroadcast, type BroadcastStatus } from "@/lib/realtime/private-broadcast";
 import { invalidatePrivacyDependents } from "@/lib/privacy/client-invalidation";
@@ -189,6 +190,15 @@ export function ChatShellProvider({ children }: { children: React.ReactNode }) {
         if (event === "membership.changed") {
           void invalidateLinkPreviewAccess(queryClient);
           return refresh();
+        }
+        // A like from another of my tabs: the heart and the number follow.
+        if (event === "update.liked") {
+          if (typeof payload.projectId === "string" && typeof payload.id === "string") {
+            patchUpdateEverywhere<{ id: string; likedByViewer: boolean; likeCount: number }>(queryClient, payload.projectId, payload.id, (item) => ({
+              ...item, likedByViewer: payload.liked === true, likeCount: typeof payload.likeCount === "number" ? payload.likeCount : item.likeCount,
+            }));
+          }
+          return;
         }
         // A block or unblock involving this person (Blocking B11, B35): every screen refetches, and what this device
         // kept about the other person goes. The event never says who blocked whom.

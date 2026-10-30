@@ -252,17 +252,14 @@ test("workspace update draft hydration does not immediately autosave an unchange
     assert.match(composerSource, /media: initialMedia/);
 });
 
-test("workspace update comments share one project-scoped wildcard postgres binding", () => {
+test("the Updates tab listens on one workspace topic, not to database rows", () => {
     const tabSource = componentSource("src/components/workspaces/tabs/UpdatesTab.tsx");
-    const subscriptionsSource = readFileSync(path.join(process.cwd(), "src/lib/realtime/subscriptions.ts"), "utf8");
+    const liveSource = readFileSync(path.join(process.cwd(), "src/hooks/useUpdateLive.ts"), "utf8");
 
-    assert.equal(tabSource.includes('(["INSERT", "UPDATE", "DELETE"] as const).map'), false);
-    assert.match(tabSource, /event: "\*"/);
-    assert.match(tabSource, /table: "workspace_update_comments"/);
-    assert.match(tabSource, /filter: `workspace_id=eq\.\$\{projectId\}`/);
-    assert.match(tabSource, /resourceId: `updates:\$\{projectId\}`/);
-    assert.match(subscriptionsSource, /const groupedBindings = new Map<string, ActiveResourceBinding\[\]>\(\)/);
-    assert.match(subscriptionsSource, /const event = grouped\.length === 1 \? firstBinding\.event : "\*"/);
+    assert.equal(tabSource.includes("subscribeActiveResource"), false);
+    assert.match(tabSource, /useWorkspaceUpdatesLive\(projectId, Boolean\(currentUserId\), handleCreated\)/);
+    assert.match(liveSource, /`updates:workspace:\$\{projectId\}`/);
+    assert.match(liveSource, /subscribeBroadcast\(topic/);
 });
 
 test("workspace update likes persist counters synchronously", () => {

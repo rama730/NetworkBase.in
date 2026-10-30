@@ -49,7 +49,8 @@ import {
     tasks,
 } from "@/lib/db/schema";
 import { computeWorkspaceReadAccess } from "@/lib/data/workspace-access";
-import { enqueueWorkspaceNotificationEvent } from "@/lib/notifications/workspace-events";
+import { enqueueWorkspaceNotificationEvent, readWorkspaceNotificationActorSnapshot } from "@/lib/notifications/workspace-events";
+import { publishUser } from "@/lib/messaging/publish";
 import { notifyAnnouncement, notifyOrg } from "@/lib/organizations/notify";
 import { consumeRateLimit } from "@/lib/security/rate-limit";
 import { getViewerAuthContext, getViewerProfileContext } from "@/lib/server/viewer-context";
@@ -814,7 +815,7 @@ async function resolveProjectUpdateAccess(projectId: string, viewerId: string | 
     return effectiveAccess;
 }
 
-type UpdateRow = typeof workspaceUpdates.$inferSelect & {
+type UpdateRow = Omit<typeof workspaceUpdates.$inferSelect, "activitySeq"> & {
     authorFullName: string | null;
     authorUsername: string | null;
     authorAvatarUrl: string | null;
@@ -1927,6 +1928,53 @@ export async function toggleWorkspaceUpdatePinAction(projectId: string, updateId
     }
 }
 
+/**
+ * A like tells the author, in the tray only, and the tray groups them per update ("Ana, Ben and 2 others"). One row per
+ * person: an unlike takes theirs out, and liking again doesn't bring it back, so a like loop never nags (RT6).
+ */
+// ponytail: one row per like, so the unread badge counts likes one by one. Upgrade: count bundles if busy posts feel noisy.
+async function notifyUpdateLike(input: {
+    projectId: string; project: { slug: string | null; id: string }; updateId: string;
+    authorId: string; actorId: string; liked: boolean; content: string;
+}) {
+    try {
+        const sourceEventId = `like:${input.updateId}:${input.actorId}`;
+        if (!input.liked) {
+            await db.execute(sql`
+                UPDATE user_notifications SET dismissed_at = now(), updated_at = now()
+                WHERE user_id = ${input.authorId}::uuid AND kind = 'project_update_like' AND read_at IS NULL AND dismissed_at IS NULL
+                  AND dedupe_key = ${`project:${input.projectId}:updates.liked:${sourceEventId}:${input.authorId}`}`);
+            return;
+        }
+        const actor = await readWorkspaceNotificationActorSnapshot(input.actorId);
+        await enqueueWorkspaceNotificationEvent({
+            projectId: input.projectId,
+            actorUserId: input.actorId,
+            actorName: actor?.actorName ?? null,
+            actorAvatarUrl: actor?.actorAvatarUrl ?? null,
+            eventKey: "updates.liked",
+            affectedMemberId: input.authorId,
+            title: `${actor?.actorName || "Someone"} liked your update`,
+            body: projectUpdateExcerpt(input.content, 160),
+            href: projectHref(input.project, input.updateId),
+            entityRefs: { projectId: input.projectId, projectSlug: input.project.slug ?? null, updateId: input.updateId },
+            sourceEventId,
+        });
+    } catch (error) {
+        logger.warn("workspace_updates.like_notify_failed", { module: "workspace-updates", error: error instanceof Error ? error.message : String(error) });
+    }
+}
+
+/** An open thread reads its notifications: you're already looking at it, so nothing should nag (RT8). */
+export async function markUpdateNotificationsReadAction(updateId: string) {
+    const viewer = await getViewerAuthContext();
+    if (!viewer.userId || !isLooseUuid(updateId)) return;
+    await db.execute(sql`
+        UPDATE user_notifications SET read_at = now(), seen_at = coalesce(seen_at, now()), updated_at = now()
+        WHERE user_id = ${viewer.userId}::uuid AND read_at IS NULL AND entity_refs->>'updateId' = ${updateId}
+          AND kind IN ('project_update_activity', 'project_update_like')`);
+}
+
 export async function toggleWorkspaceUpdateLikeAction(projectId: string, updateId: string) {
     try {
         const viewer = await getViewerAuthContext();
@@ -1937,7 +1985,7 @@ export async function toggleWorkspaceUpdateLikeAction(projectId: string, updateI
         const access = await resolveProjectUpdateAccess(projectId, viewer.userId);
         if (!access.canRead || !access.project) return { success: false as const, error: "This update isn’t available." };
         const [update] = await db
-            .select({ id: workspaceUpdates.id, visibility: workspaceUpdates.visibility })
+            .select({ id: workspaceUpdates.id, visibility: workspaceUpdates.visibility, authorId: workspaceUpdates.authorId, content: workspaceUpdates.content })
             .from(workspaceUpdates)
             .where(and(
                 eq(workspaceUpdates.id, updateId),
@@ -1956,7 +2004,7 @@ export async function toggleWorkspaceUpdateLikeAction(projectId: string, updateI
             if (deletedRows.length > 0) {
                 const [countRow] = await tx
                     .update(workspaceUpdates)
-                    .set({ likeCount: sql`GREATEST(${workspaceUpdates.likeCount} - 1, 0)`, updatedAt: new Date() })
+                    .set({ likeCount: sql`GREATEST(${workspaceUpdates.likeCount} - 1, 0)` })
                     .where(eq(workspaceUpdates.id, updateId))
                     .returning({ likeCount: workspaceUpdates.likeCount });
                 return { liked: false, likeCount: Math.max(0, countRow?.likeCount ?? 0) };
@@ -1971,7 +2019,7 @@ export async function toggleWorkspaceUpdateLikeAction(projectId: string, updateI
             if (insertedRows.length > 0) {
                 const [countRow] = await tx
                     .update(workspaceUpdates)
-                    .set({ likeCount: sql`${workspaceUpdates.likeCount} + 1`, updatedAt: new Date() })
+                    .set({ likeCount: sql`${workspaceUpdates.likeCount} + 1` })
                     .where(eq(workspaceUpdates.id, updateId))
                     .returning({ likeCount: workspaceUpdates.likeCount });
                 return { liked: true, likeCount: Math.max(0, countRow?.likeCount ?? 0) };
@@ -1984,6 +2032,11 @@ export async function toggleWorkspaceUpdateLikeAction(projectId: string, updateI
                 .limit(1);
             return { liked: true, likeCount: Math.max(0, countRow?.likeCount ?? 0) };
         });
+        // Your other tabs fill or empty the heart too.
+        publishUser(viewer.userId, "update.liked", { projectId, id: updateId, liked: result.liked, likeCount: result.likeCount });
+        if (update.authorId && update.authorId !== viewer.userId) {
+            after(() => notifyUpdateLike({ projectId, project: access.project!, updateId, authorId: update.authorId!, actorId: viewer.userId!, liked: result.liked, content: update.content }));
+        }
         return { success: true as const, liked: result.liked, likeCount: result.likeCount };
     } catch (error) {
         console.error("Failed to toggle project update like:", error);

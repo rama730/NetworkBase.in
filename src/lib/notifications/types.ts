@@ -27,6 +27,7 @@ export type NotificationKind =
     | "project_file_activity"
     | "project_security_alert"
     | "project_update_activity"
+    | "project_update_like"
     | "org_membership"
     | "org_assignment"
     | "org_announcement"

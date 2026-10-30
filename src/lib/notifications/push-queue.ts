@@ -20,6 +20,8 @@ export async function selectDueWebPushNotifications(limit: number) {
     .where(and(
       eq(userNotifications.importance, "important"),
       isNull(userNotifications.dismissedAt),
+      // Read while it waited (the post was open): nothing left to push (RT8).
+      isNull(userNotifications.readAt),
       // A block made after the notice was written still stops the push (Blocking B17).
       sql`NOT app_private.blocked_between(${userNotifications.userId}, ${userNotifications.actorUserId})`,
       or(

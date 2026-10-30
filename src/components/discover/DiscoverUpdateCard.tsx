@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useState } from "react";
+import { memo, useRef, useState } from "react";
 import Link from "next/link";
 import { ImageOff, MoreHorizontal, Heart, MessageCircle, Pin } from "lucide-react";
 import { toast } from "@/lib/feedback";
@@ -16,6 +16,7 @@ import { WorkspaceUpdateMediaViewer } from "@/components/workspaces/updates/Work
 import { UpdateTime, isUpdateCardControl } from "@/components/workspaces/updates/update-helpers";
 import { ReportMenuItem, useReportDialog } from "@/components/reports/ReportDialog";
 import { useToggleUpdateLike } from "@/hooks/useToggleUpdateLike";
+import { useUpdateCardLive } from "@/hooks/useUpdateLive";
 import { WorkspaceUpdateLikersModal } from "@/components/workspaces/updates/WorkspaceUpdateLikersModal";
 import { cn } from "@/lib/utils";
 import type { DiscoverUpdateMedia, DiscoverUpdateView } from "@/types/discover";
@@ -124,6 +125,9 @@ export default memo(function DiscoverUpdateCard({ update, viewerId, onOpen, onHi
     const reporting = useReportDialog({ kind: "update", targetId: update.id, noun: update.updateType === "announcement" ? "announcement" : "post" });
     const [expanded, setExpanded] = useState(false);
     const [isLikersOpen, setIsLikersOpen] = useState(false);
+    // Live while on screen, for people signed in (the "Update card real-time" report).
+    const cardRef = useRef<HTMLElement>(null);
+    useUpdateCardLive(cardRef, update.projectId, update.id, Boolean(viewerId));
     const author = update.author;
     const masked = !author || author.masked;
     const authorName = masked ? "Private member" : author.fullName || author.username || "Member";
@@ -144,6 +148,7 @@ export default memo(function DiscoverUpdateCard({ update, viewerId, onOpen, onHi
 
     return (
         <article
+            ref={cardRef}
             aria-labelledby={titleId}
             data-testid={`discover-update-${update.id}`}
             className="nb-project-card group relative cursor-pointer border-l-2 border-l-primary"

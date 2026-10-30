@@ -2,7 +2,8 @@
 
 import { useMutation, useQueryClient, type QueryKey } from '@tanstack/react-query';
 import { toggleWorkspaceUpdateLikeAction } from '@/app/actions/workspace/updates';
-import { updatePages } from '@/components/workspaces/updates/update-helpers';
+import { patchUpdateEverywhere } from '@/hooks/useUpdateLive';
+import { likesInFlight } from '@/lib/realtime/update-live-state';
 import { feedbackError, toast } from '@/lib/feedback';
 import { queryKeys } from '@/lib/query-keys';
 
@@ -21,13 +22,7 @@ export function useToggleUpdateLike(projectId: string, updateId: string) {
     const roots: QueryKey[] = [queryKeys.discover.pulseRoot(), queryKeys.project.detail.updates(projectId)];
     const singleRoot: QueryKey = ['discover', 'update'];
 
-    const patch = (change: (item: LikeFields) => LikeFields) => {
-        for (const root of roots) {
-            queryClient.setQueriesData<never>({ queryKey: root }, ((old: never) =>
-                updatePages(old, (item) => (item.id === updateId ? (change(item) as typeof item) : item))) as never);
-        }
-        queryClient.setQueriesData<LikeFields>({ queryKey: singleRoot }, (old) => (old && old.id === updateId ? change(old) : old));
-    };
+    const patch = (change: (item: LikeFields) => LikeFields) => patchUpdateEverywhere<LikeFields>(queryClient, projectId, updateId, change);
 
     const mutation = useMutation({
         mutationFn: async () => {
@@ -36,6 +31,7 @@ export function useToggleUpdateLike(projectId: string, updateId: string) {
             return result;
         },
         onMutate: async () => {
+            likesInFlight.add(updateId);
             await Promise.all([...roots, singleRoot].map((queryKey) => queryClient.cancelQueries({ queryKey })));
             const snapshots = [...roots, singleRoot].flatMap((queryKey) => queryClient.getQueriesData({ queryKey }));
             patch((item) => ({
@@ -49,6 +45,9 @@ export function useToggleUpdateLike(projectId: string, updateId: string) {
             // Back to exactly what was there before the tap, not to what the page first loaded with.
             for (const [key, data] of context?.snapshots ?? []) queryClient.setQueryData(key, data);
             toast.error(feedbackError(error instanceof Error ? error.message : 'Failed to update like', 'Failed to update like'));
+        },
+        onSettled: () => {
+            likesInFlight.delete(updateId);
         },
         onSuccess: (result) => {
             patch((item) => ({ ...item, likedByViewer: result.liked, likeCount: result.likeCount }));

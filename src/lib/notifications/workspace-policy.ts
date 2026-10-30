@@ -79,6 +79,7 @@ export type WorkspaceNotificationEventKey =
     | "readme.major_edited"
     | "updates.published"
     | "updates.comment"
+    | "updates.liked"
     | "updates.follower_digest"
     | OrgNotificationEventKey;
 
@@ -825,6 +826,21 @@ export const WORKSPACE_NOTIFICATION_EVENT_REGISTRY = {
         description: "Notify an update author when someone comments on their workspace update.",
         category: "mentions",
         notificationKind: "project_update_activity",
+        defaultEnabled: true,
+        defaultImportance: "more",
+        defaultRecipients: ["affected_member"],
+        allowMemberOverride: true,
+        mandatory: false,
+        aggregate: "none",
+        visible: true,
+    }),
+    "updates.liked": E({
+        key: "updates.liked",
+        group: "updates",
+        label: "Update liked",
+        description: "Notify an update author when someone likes their workspace update. Tray only.",
+        category: "projects",
+        notificationKind: "project_update_like",
         defaultEnabled: true,
         defaultImportance: "more",
         defaultRecipients: ["affected_member"],
