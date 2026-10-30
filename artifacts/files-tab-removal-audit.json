@@ -1,18 +1,18 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-10-24T21:37:49.884Z",
+  "generatedAt": "2026-10-30T12:38:30.673Z",
   "searchTool": "git-grep",
   "repoRoot": "/Users/chrama/Downloads/nb-s3",
   "notes": "Best-effort audit: `unexpected` counts are logged for Task 13 review but do NOT fail the build while `filesTabV3Enabled` is ramping. Task 13.4 / 13.5 must re-run this audit and confirm zero `unexpected` references before any deletion lands.",
   "summary": {
     "searchTool": "git-grep",
     "totalTargets": 40,
-    "totalReferences": 257,
+    "totalReferences": 254,
     "counts": {
       "allowed-self": 0,
       "allowed-legacy": 0,
       "allowed-spec": 227,
-      "likely-collision": 26,
+      "likely-collision": 23,
       "unexpected": 4
     }
   },
@@ -360,13 +360,13 @@
             },
             {
               "file": "src/components/messages/ConversationView.tsx",
-              "line": 386,
+              "line": 397,
               "text": "  const closeTab = async (item: ChannelTabItem) => {",
               "classification": "likely-collision"
             },
             {
               "file": "src/components/messages/ConversationView.tsx",
-              "line": 756,
+              "line": 784,
               "text": "            onCloseTab={(item) => void closeTab(item)}",
               "classification": "likely-collision"
             },
@@ -416,171 +416,153 @@
               "classification": "allowed-spec"
             },
             {
-              "file": "src/components/profile/v2/ProfileV2Client.tsx",
-              "line": 144,
-              "text": "    const [activeTab, setActiveTab] = useState<ProfileTabKey>(urlTab)",
-              "classification": "likely-collision"
-            },
-            {
-              "file": "src/components/profile/v2/ProfileV2Client.tsx",
-              "line": 176,
-              "text": "        setActiveTab(urlTab)",
-              "classification": "likely-collision"
-            },
-            {
-              "file": "src/components/profile/v2/ProfileV2Client.tsx",
-              "line": 284,
-              "text": "            setActiveTab(next)",
-              "classification": "likely-collision"
-            },
-            {
-              "file": "src/components/projects/EditProjectModal.tsx",
-              "line": 118,
-              "text": "    const [activeTab, setActiveTab] = useState(\"essentials\");",
-              "classification": "likely-collision"
-            },
-            {
-              "file": "src/components/projects/EditProjectModal.tsx",
-              "line": 232,
-              "text": "            setActiveTab(\"roles\");",
-              "classification": "likely-collision"
-            },
-            {
-              "file": "src/components/projects/EditProjectModal.tsx",
-              "line": 234,
-              "text": "            setActiveTab(\"stack\");",
-              "classification": "likely-collision"
-            },
-            {
-              "file": "src/components/projects/EditProjectModal.tsx",
-              "line": 236,
-              "text": "            setActiveTab(\"journey\");",
-              "classification": "likely-collision"
-            },
-            {
-              "file": "src/components/projects/EditProjectModal.tsx",
-              "line": 238,
-              "text": "            setActiveTab(\"details\");",
-              "classification": "likely-collision"
-            },
-            {
-              "file": "src/components/projects/EditProjectModal.tsx",
-              "line": 240,
-              "text": "            setActiveTab(\"essentials\");",
-              "classification": "likely-collision"
-            },
-            {
-              "file": "src/components/projects/EditProjectModal.tsx",
-              "line": 280,
-              "text": "                                    onClick={() => setActiveTab(tab.id)}",
-              "classification": "likely-collision"
-            },
-            {
-              "file": "src/components/projects/EditProjectModal.tsx",
-              "line": 305,
-              "text": "                                    onClick={() => setActiveTab(tab.id)}",
-              "classification": "likely-collision"
-            },
-            {
-              "file": "src/components/projects/dashboard/ProjectDashboardClient.tsx",
-              "line": 266,
-              "text": "    const [activeTab, setActiveTab] = useState(() => resolvedActiveTab);",
-              "classification": "unexpected"
-            },
-            {
-              "file": "src/components/projects/dashboard/ProjectDashboardClient.tsx",
-              "line": 610,
-              "text": "            setActiveTab(tabId);",
-              "classification": "unexpected"
-            },
-            {
-              "file": "src/components/projects/dashboard/ProjectDashboardClient.tsx",
-              "line": 701,
-              "text": "        setActiveTab((prev) => (prev === nextTab ? prev : nextTab));",
-              "classification": "unexpected"
-            },
-            {
-              "file": "src/components/projects/dashboard/ProjectDashboardClient.tsx",
-              "line": 949,
-              "text": "        setActiveTab('dashboard');",
-              "classification": "unexpected"
-            },
-            {
-              "file": "src/components/projects/v2/tasks/TaskDetailPanel.tsx",
-              "line": 122,
-              "text": "  const [activeTab, setActiveTab] = useState<TaskPanelTab>(",
-              "classification": "likely-collision"
-            },
-            {
-              "file": "src/components/projects/v2/tasks/TaskDetailPanel.tsx",
-              "line": 191,
-              "text": "    setActiveTab(initialTab ?? \"details\");",
-              "classification": "likely-collision"
-            },
-            {
-              "file": "src/components/projects/v2/tasks/TaskDetailPanel.tsx",
-              "line": 473,
-              "text": "                  onClick={() => setActiveTab(tab.id)}",
-              "classification": "likely-collision"
-            },
-            {
-              "file": "src/components/projects/v2/tasks/TaskDetailPanel.tsx",
-              "line": 479,
-              "text": "                        setActiveTab(first.id);",
-              "classification": "likely-collision"
-            },
-            {
-              "file": "src/components/projects/v2/tasks/TaskDetailPanel.tsx",
-              "line": 490,
-              "text": "                        setActiveTab(last.id);",
-              "classification": "likely-collision"
-            },
-            {
-              "file": "src/components/projects/v2/tasks/TaskDetailPanel.tsx",
-              "line": 511,
-              "text": "                    setActiveTab(next.id);",
-              "classification": "likely-collision"
-            },
-            {
-              "file": "src/components/projects/v2/tasks/TaskDetailPanel.tsx",
-              "line": 582,
-              "text": "                  onOpenTab={setActiveTab}",
-              "classification": "likely-collision"
-            },
-            {
-              "file": "src/components/settings/SettingsLayout.tsx",
-              "line": 42,
-              "text": "  const [activeTab, setActiveTab] = useState(requestedTab);",
-              "classification": "likely-collision"
-            },
-            {
-              "file": "src/components/settings/SettingsLayout.tsx",
-              "line": 79,
-              "text": "    if (isInitialMount) setActiveTab(requestedTab);",
-              "classification": "likely-collision"
-            },
-            {
-              "file": "src/components/settings/SettingsLayout.tsx",
-              "line": 102,
-              "text": "      if (closest) setActiveTab(closest);",
-              "classification": "likely-collision"
-            },
-            {
-              "file": "src/components/workspace/WorkspaceDrawer.tsx",
+              "file": "src/components/my-work/MyWorkDrawer.tsx",
               "line": 21,
-              "text": "  const setActiveTab = useUIStore((s) => s.setWorkspaceTab);",
+              "text": "  const setActiveTab = useUIStore((s) => s.setMyWorkTab);",
               "classification": "likely-collision"
             },
             {
-              "file": "src/components/workspace/WorkspaceDrawer.tsx",
+              "file": "src/components/my-work/MyWorkDrawer.tsx",
               "line": 44,
               "text": "    setActiveTab(next.id);",
               "classification": "likely-collision"
             },
             {
-              "file": "src/components/workspace/WorkspaceDrawer.tsx",
+              "file": "src/components/my-work/MyWorkDrawer.tsx",
               "line": 100,
               "text": "                onClick={() => setActiveTab(tab.id)}",
+              "classification": "likely-collision"
+            },
+            {
+              "file": "src/components/profile/v2/ProfileV2Client.tsx",
+              "line": 146,
+              "text": "    const [activeTab, setActiveTab] = useState<ProfileTabKey>(urlTab)",
+              "classification": "likely-collision"
+            },
+            {
+              "file": "src/components/profile/v2/ProfileV2Client.tsx",
+              "line": 177,
+              "text": "        setActiveTab(urlTab)",
+              "classification": "likely-collision"
+            },
+            {
+              "file": "src/components/profile/v2/ProfileV2Client.tsx",
+              "line": 285,
+              "text": "            setActiveTab(next)",
+              "classification": "likely-collision"
+            },
+            {
+              "file": "src/components/workspaces/EditWorkspaceModal.tsx",
+              "line": 120,
+              "text": "    const [activeTab, setActiveTab] = useState(\"essentials\");",
+              "classification": "likely-collision"
+            },
+            {
+              "file": "src/components/workspaces/EditWorkspaceModal.tsx",
+              "line": 234,
+              "text": "            setActiveTab(\"roles\");",
+              "classification": "likely-collision"
+            },
+            {
+              "file": "src/components/workspaces/EditWorkspaceModal.tsx",
+              "line": 236,
+              "text": "            setActiveTab(\"stack\");",
+              "classification": "likely-collision"
+            },
+            {
+              "file": "src/components/workspaces/EditWorkspaceModal.tsx",
+              "line": 238,
+              "text": "            setActiveTab(\"journey\");",
+              "classification": "likely-collision"
+            },
+            {
+              "file": "src/components/workspaces/EditWorkspaceModal.tsx",
+              "line": 240,
+              "text": "            setActiveTab(\"details\");",
+              "classification": "likely-collision"
+            },
+            {
+              "file": "src/components/workspaces/EditWorkspaceModal.tsx",
+              "line": 242,
+              "text": "            setActiveTab(\"essentials\");",
+              "classification": "likely-collision"
+            },
+            {
+              "file": "src/components/workspaces/EditWorkspaceModal.tsx",
+              "line": 282,
+              "text": "                                    onClick={() => setActiveTab(tab.id)}",
+              "classification": "likely-collision"
+            },
+            {
+              "file": "src/components/workspaces/EditWorkspaceModal.tsx",
+              "line": 307,
+              "text": "                                    onClick={() => setActiveTab(tab.id)}",
+              "classification": "likely-collision"
+            },
+            {
+              "file": "src/components/workspaces/dashboard/WorkspaceDashboardClient.tsx",
+              "line": 292,
+              "text": "    const [activeTab, setActiveTab] = useState(() => resolvedActiveTab);",
+              "classification": "unexpected"
+            },
+            {
+              "file": "src/components/workspaces/dashboard/WorkspaceDashboardClient.tsx",
+              "line": 642,
+              "text": "            setActiveTab(tabId);",
+              "classification": "unexpected"
+            },
+            {
+              "file": "src/components/workspaces/dashboard/WorkspaceDashboardClient.tsx",
+              "line": 736,
+              "text": "        setActiveTab((prev) => (prev === nextTab ? prev : nextTab));",
+              "classification": "unexpected"
+            },
+            {
+              "file": "src/components/workspaces/dashboard/WorkspaceDashboardClient.tsx",
+              "line": 984,
+              "text": "        setActiveTab('dashboard');",
+              "classification": "unexpected"
+            },
+            {
+              "file": "src/components/workspaces/v2/tasks/TaskDetailPanel.tsx",
+              "line": 123,
+              "text": "  const [activeTab, setActiveTab] = useState<TaskPanelTab>(",
+              "classification": "likely-collision"
+            },
+            {
+              "file": "src/components/workspaces/v2/tasks/TaskDetailPanel.tsx",
+              "line": 194,
+              "text": "    setActiveTab(initialTab ?? \"details\");",
+              "classification": "likely-collision"
+            },
+            {
+              "file": "src/components/workspaces/v2/tasks/TaskDetailPanel.tsx",
+              "line": 478,
+              "text": "                  onClick={() => setActiveTab(tab.id)}",
+              "classification": "likely-collision"
+            },
+            {
+              "file": "src/components/workspaces/v2/tasks/TaskDetailPanel.tsx",
+              "line": 484,
+              "text": "                        setActiveTab(first.id);",
+              "classification": "likely-collision"
+            },
+            {
+              "file": "src/components/workspaces/v2/tasks/TaskDetailPanel.tsx",
+              "line": 495,
+              "text": "                        setActiveTab(last.id);",
+              "classification": "likely-collision"
+            },
+            {
+              "file": "src/components/workspaces/v2/tasks/TaskDetailPanel.tsx",
+              "line": 516,
+              "text": "                    setActiveTab(next.id);",
+              "classification": "likely-collision"
+            },
+            {
+              "file": "src/components/workspaces/v2/tasks/TaskDetailPanel.tsx",
+              "line": 587,
+              "text": "                  onOpenTab={setActiveTab}",
               "classification": "likely-collision"
             },
             {
@@ -630,7 +612,7 @@
             "allowed-self": 0,
             "allowed-legacy": 0,
             "allowed-spec": 11,
-            "likely-collision": 24,
+            "likely-collision": 21,
             "unexpected": 4
           }
         },

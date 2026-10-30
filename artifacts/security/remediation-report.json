@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-11T23:52:51.664Z",
+  "generatedAt": "2026-10-28T15:52:22.518Z",
   "summaryDocument": "docs/security/remediation-evidence.md",
   "checks": {
     "hasCsrfEvidence": true,
