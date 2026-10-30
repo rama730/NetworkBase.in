@@ -6,8 +6,7 @@ import { sql } from "./_helpers";
 after(() => sql.end());
 
 // workspaces is column-granted (every column but import_source), so it is not a table-level grant.
-const BROWSER_READABLE = [
-  "profiles", "workspace_members", "workspace_follows", "connections", "tasks", "task_subtasks",
+const BROWSER_READABLE = [ "workspace_members", "workspace_follows", "connections", "tasks", "task_subtasks",
   "task_comments", "task_comment_likes", "task_node_links", "workspace_workflow_columns", "workspace_updates",
   "workspace_update_comments", "workspace_node_locks", "user_notifications",
 ].sort();
@@ -21,6 +20,7 @@ test("anon and authenticated have no write privilege anywhere in public", async 
   assert.deepEqual(rows.map((r) => r.grant), []);
 });
 
+// profiles is absent: browsers get named columns only (tests/db/profile-browser-columns.test.ts).
 test("browser SELECT is limited to the tables the UI and policies read", async () => {
   for (const role of ["anon", "authenticated"]) {
     const rows = await sql`

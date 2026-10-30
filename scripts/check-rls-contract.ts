@@ -13,6 +13,8 @@ async function main() {
     const allSql = (await Promise.all(migrationNames.map((name) => readFile(path.join(root, 'drizzle', name), 'utf8')))).join('\n')
     const profilesTable = accounts.slice(accounts.indexOf('CREATE TABLE public.profiles ('), accounts.indexOf(');', accounts.indexOf('CREATE TABLE public.profiles (')))
     const tables = [...allSql.matchAll(/^CREATE TABLE public\.(\w+) \(/gm)].map((match) => match[1]!)
+    const profileBrowserColumns = new Set(['id', 'username', 'full_name', 'avatar_url', 'visibility', 'created_at', 'updated_at', 'deleted_at'])
+    const profileGrants = [...accounts.matchAll(/GRANT SELECT\((\w+)\) ON TABLE public\.profiles TO (?:anon|authenticated);/g)].map((match) => match[1]!)
     const browserWrites = /GRANT [^;\n]*\b(INSERT|UPDATE|DELETE|TRUNCATE|ALL)\b[^;\n]* ON TABLE public\.\w+ TO (anon|authenticated);/
     const setupSource = await readFile(path.join(root, 'scripts/setup-database.ts'), 'utf8')
 
@@ -34,6 +36,8 @@ async function main() {
         ['no stale view-all profile policy', !allSql.includes('Users can view all profiles')],
         ['every table enables RLS', tables.length > 100 && tables.every((table) => allSql.includes(`ALTER TABLE public.${table} ENABLE ROW LEVEL SECURITY`) || table === 'app_migration_journal')],
         ['account deletions are own-row only', accounts.includes('CREATE POLICY account_deletions_select_own ON public.account_deletions FOR SELECT USING ((user_id = ( SELECT auth.uid() AS uid)))')],
+        ['browser roles cannot read all of profiles', !/GRANT (SELECT(?!\()|ALL)[^;\n]* ON TABLE public\.profiles TO (anon|authenticated);/.test(accounts)],
+        ['browser roles read only approved profile columns', profileGrants.length > 0 && profileGrants.every((column) => profileBrowserColumns.has(column))],
         ['browser roles have no write grant on any table', !browserWrites.test(allSql)],
         ['no cross-workspace policy tautologies', !/m\.(project|workspace)_id = m\.(project|workspace)_id/.test(allSql)],
         ['no arbitrary auth-user deletion RPC', !allSql.includes('FUNCTION public.delete_auth_user')],
