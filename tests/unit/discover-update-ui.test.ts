@@ -39,6 +39,8 @@ const update = (patch: Partial<DiscoverUpdateView> = {}): DiscoverUpdateView => 
     likeCount: 3,
     commentCount: 2,
     likedByViewer: false,
+    viewerFollowsProject: false,
+    viewerIsTeam: false,
     replyPolicy: "logged_in",
     canComment: true,
     canEdit: false,

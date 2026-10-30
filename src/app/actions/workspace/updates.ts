@@ -53,6 +53,7 @@ import { enqueueWorkspaceNotificationEvent, readWorkspaceNotificationActorSnapsh
 import { publishUser } from "@/lib/messaging/publish";
 import { notifyAnnouncement, notifyOrg } from "@/lib/organizations/notify";
 import { syncUpdateActivityNotifications } from "@/lib/notifications/update-activity";
+import { readUpdatePreviews, type UpdatePreview } from "@/lib/workspaces/update-previews";
 import { consumeRateLimit } from "@/lib/security/rate-limit";
 import { getViewerAuthContext, getViewerProfileContext } from "@/lib/server/viewer-context";
 import { createAdminClient } from "@/lib/supabase/server";
@@ -293,6 +294,7 @@ export type WorkspaceUpdateAuthorView = {
 };
 
 export type WorkspaceUpdateView = {
+    preview?: UpdatePreview;
     id: string;
     projectId: string;
     authorId: string | null;
@@ -1188,7 +1190,8 @@ export async function readWorkspaceUpdatesAction(projectId: string, params?: {
             readWorkspaceTitles([...new Set(pageRows.filter((row) => row.projectId !== projectId).map((row) => row.projectId))]),
             orgFeed ? readLastSeenUpdates(orgFeed.orgId, viewer.userId) : null,
         ]);
-        const updates = pageRows.map((row) => normalizeUpdate(row, { access, likedIds, contextByUpdateId, fromProjects }));
+        const previews = await readUpdatePreviews(pageRows.map((row) => row.id), viewer.userId ?? null);
+        const updates = pageRows.map((row) => ({ ...normalizeUpdate(row, { access, likedIds, contextByUpdateId, fromProjects }), preview: previews.get(row.id) }));
         const last = updates[updates.length - 1] ?? null;
         const durationMs = Math.round(performance.now() - startedAt);
         logger.metric("project_updates.read", {
@@ -1247,7 +1250,8 @@ export async function readWorkspaceUpdateAction(projectId: string, updateId: str
             likedUpdateIds(rows.map((row) => row.id), viewer.userId),
             contextSummariesForRows(rows, access),
         ]);
-        const update = rows[0] ? normalizeUpdate(rows[0], { access, likedIds, contextByUpdateId }) : null;
+        const previews = await readUpdatePreviews(rows[0] ? [rows[0].id] : [], viewer.userId ?? null);
+        const update = rows[0] ? { ...normalizeUpdate(rows[0], { access, likedIds, contextByUpdateId }), preview: previews.get(rows[0].id) } : null;
         return update
             ? { success: true as const, data: update }
             : { success: false as const, error: "Update not found.", data: null };
@@ -1927,6 +1931,15 @@ export async function toggleWorkspaceUpdatePinAction(projectId: string, updateId
         console.error("Failed to pin project update:", error);
         return { success: false as const, error: "Failed to update pinned state." };
     }
+}
+
+/** A card's "Liked by" line and comment preview, after a live event. */
+export async function readUpdatePreviewAction(projectId: string, updateId: string) {
+    if (!isLooseUuid(projectId) || !isLooseUuid(updateId)) return null;
+    const viewer = await getViewerAuthContext();
+    const access = await resolveProjectUpdateAccess(projectId, viewer.userId ?? null);
+    if (!await assertReadableUpdate(projectId, updateId, access)) return null;
+    return (await readUpdatePreviews([updateId], viewer.userId ?? null)).get(updateId) ?? null;
 }
 
 /** An open thread reads its notifications: you're already looking at it, so nothing should nag (RT8). */

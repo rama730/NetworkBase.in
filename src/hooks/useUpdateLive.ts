@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, type RefObject } from 'react';
 import { useQueryClient, type QueryClient, type QueryKey } from '@tanstack/react-query';
-import { readWorkspaceUpdateAction } from '@/app/actions/workspace/updates';
+import { readUpdatePreviewAction, readWorkspaceUpdateAction } from '@/app/actions/workspace/updates';
 import { removeUpdate, replaceUpdate, updatePages, type UpdatesPage } from '@/components/workspaces/updates/update-helpers';
 import { fetchDiscoverUpdate } from '@/hooks/discover/useDiscoverUpdates';
 import { queryKeys } from '@/lib/query-keys';
@@ -71,6 +71,15 @@ async function refreshPost(queryClient: QueryClient, projectId: string, updateId
     queryClient.setQueriesData<{ id: string } | null>({ queryKey: ['discover', 'update'] }, (old) => (old && old.id === updateId ? fresh : old));
 }
 
+/** The "Liked by" line and comment preview follow the counts, a little behind them. Only cards on the page ask. */
+async function refreshPreview(queryClient: QueryClient, projectId: string, updateId: string) {
+    const onPage = [...queryClient.getQueriesData({ queryKey: queryKeys.discover.pulseRoot() }), ...queryClient.getQueriesData({ queryKey: queryKeys.project.detail.updates(projectId) })]
+        .some(([, data]) => holds(data, updateId));
+    if (!onPage) return;
+    const preview = await readUpdatePreviewAction(projectId, updateId).catch(() => null);
+    if (preview) patchUpdateEverywhere<{ id: string; preview?: unknown }>(queryClient, projectId, updateId, (item) => ({ ...item, preview }));
+}
+
 const lastReconcile = new Map<string, number>();
 function reconcilePost(queryClient: QueryClient, projectId: string, updateId: string) {
     const now = Date.now();
@@ -98,6 +107,7 @@ function flushCounts(queryClient: QueryClient) {
             likerTimers.set(updateId, setTimeout(() => {
                 likerTimers.delete(updateId);
                 void queryClient.invalidateQueries({ queryKey: queryKeys.project.detail.updateLikes(projectId, updateId) });
+                void refreshPreview(queryClient, projectId, updateId);
             }, LIKERS_EVERY_MS));
         }
     }
@@ -110,6 +120,7 @@ function reloadThreadSoon(queryClient: QueryClient, projectId: string, updateId:
     commentTimers.set(updateId, setTimeout(() => {
         commentTimers.delete(updateId);
         void queryClient.invalidateQueries({ queryKey: queryKeys.project.detail.updateComments(projectId, updateId) });
+        void refreshPreview(queryClient, projectId, updateId);
     }, COMMENTS_SETTLE_MS + Math.random() * COMMENTS_JITTER_MS));
 }
 

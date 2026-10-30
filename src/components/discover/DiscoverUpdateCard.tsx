@@ -3,7 +3,6 @@
 import { memo, useRef, useState } from "react";
 import Link from "next/link";
 import { ImageOff, MoreHorizontal, Heart, MessageCircle, Pin } from "lucide-react";
-import { toast } from "@/lib/feedback";
 import { UserAvatar } from "@/components/ui/UserAvatar";
 import {
     DropdownMenu,
@@ -18,6 +17,7 @@ import { ReportMenuItem, useReportDialog } from "@/components/reports/ReportDial
 import { useToggleUpdateLike } from "@/hooks/useToggleUpdateLike";
 import { useUpdateCardLive } from "@/hooks/useUpdateLive";
 import { WorkspaceUpdateLikersModal } from "@/components/workspaces/updates/WorkspaceUpdateLikersModal";
+import { CommentPreview, FollowWorkspaceButton, LikedByLine, ShareUpdateButton } from "@/components/workspaces/updates/UpdatePostParts";
 import { cn } from "@/lib/utils";
 import type { DiscoverUpdateMedia, DiscoverUpdateView } from "@/types/discover";
 
@@ -137,15 +137,6 @@ export default memo(function DiscoverUpdateCard({ update, viewerId, onOpen, onHi
     const titleId = `discover-update-${update.id}-title`;
     const signInHref = `/login?redirect=${encodeURIComponent(`/discover?updateId=${update.id}`)}`;
 
-    const copyLink = async () => {
-        try {
-            await navigator.clipboard.writeText(new URL(`/discover?updateId=${update.id}`, window.location.origin).href);
-            toast.success("Link copied");
-        } catch {
-            toast.error("Couldn’t copy the link");
-        }
-    };
-
     return (
         <article
             ref={cardRef}
@@ -207,6 +198,9 @@ export default memo(function DiscoverUpdateCard({ update, viewerId, onOpen, onHi
 
             <UpdateMedia media={update.media} author={authorName} />
 
+            <LikedByLine likeCount={update.likeCount} likedByViewer={update.likedByViewer} likedByName={update.preview?.likedByName} onOpen={() => setIsLikersOpen(true)} />
+            <CommentPreview preview={update.preview} commentCount={update.commentCount} onOpen={() => onOpen(update.id, cardRef.current!)} />
+
             <div className="nb-project-card-footer">
                 <div className="flex items-center gap-1 font-mono text-xs text-muted-foreground">
                     <div className={cn(
@@ -267,12 +261,14 @@ export default memo(function DiscoverUpdateCard({ update, viewerId, onOpen, onHi
                         <MessageCircle className="h-3.5 w-3.5" aria-hidden="true" />
                         <span className="tabular-nums" aria-hidden="true">{update.commentCount}</span>
                     </button>
+                    <ShareUpdateButton path={`/discover?updateId=${update.id}`} />
                     {/* The count is announced when it changes, without moving focus. */}
                     <span className="sr-only" role="status" aria-live="polite">{update.likedByViewer ? "Liked" : ""}</span>
                 </div>
 
                 <div className="flex min-w-0 items-center gap-1">
                     <ProjectLink update={update} onVisit={() => onVisitProject(update.projectId)} />
+                    {viewerId && !update.viewerIsTeam ? <FollowWorkspaceButton projectId={update.projectId} userId={viewerId} following={update.viewerFollowsProject} /> : null}
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                             <button
@@ -284,7 +280,6 @@ export default memo(function DiscoverUpdateCard({ update, viewerId, onOpen, onHi
                             </button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                            <DropdownMenuItem onSelect={() => void copyLink()}>Copy link</DropdownMenuItem>
                             <DropdownMenuItem asChild>
                                 <Link href={directHref} onClick={() => onVisitProject(update.projectId)}>View in workspace</Link>
                             </DropdownMenuItem>
