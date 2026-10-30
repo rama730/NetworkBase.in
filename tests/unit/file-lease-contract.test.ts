@@ -13,7 +13,6 @@ test("file lease migration adds session identity, fencing, realtime, and RLS har
   assert.match(migration, /lease_id uuid DEFAULT gen_random_uuid\(\) NOT NULL/);
   assert.match(migration, /fencing_token bigint DEFAULT nextval\('public\.workspace_node_lock_fencing_seq'::regclass\) NOT NULL/);
   assert.match(migration, /ALTER TABLE ONLY public\.workspace_node_locks REPLICA IDENTITY FULL/);
-  assert.match(migration, /ALTER PUBLICATION supabase_realtime ADD TABLE public\.workspace_node_locks/);
   assert.doesNotMatch(migration, /CREATE POLICY workspace_node_locks_write/);
   assert.doesNotMatch(migration, /GRANT [^;]*\b(INSERT|UPDATE|DELETE|ALL)\b[^;]* ON TABLE public\.workspace_node_locks TO (anon|authenticated)/);
 });

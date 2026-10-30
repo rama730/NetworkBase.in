@@ -14,15 +14,6 @@ dotenv.config({ path: join(__dirname, "..", ".env.local") });
 
 const DATABASE_URL = process.env.DATABASE_URL;
 
-const REQUIRED_REALTIME_PUBLICATION_TABLES = [
-  "profiles",
-  "workspaces",
-  "tasks",
-  "task_comments",
-  "task_subtasks",
-  "task_node_links",
-] as const;
-
 const REQUIRED_TASK_COLUMNS = [
   "timeline_origin_sprint_id",
   "timeline_origin_at",
@@ -246,18 +237,12 @@ async function main() {
     }
   }
 
+  // Live screens use private broadcasts (0034); a published table would be unused load.
   const realtimeRows = await sql<{ tablename: string }[]>`
-    SELECT tablename
-    FROM pg_publication_tables
-    WHERE pubname = 'supabase_realtime'
-      AND schemaname = 'public'
-      AND tablename = ANY(${REQUIRED_REALTIME_PUBLICATION_TABLES})
+    SELECT tablename FROM pg_publication_tables WHERE pubname = 'supabase_realtime'
   `;
-  const realtimeTables = new Set(realtimeRows.map((row) => row.tablename));
-  for (const table of REQUIRED_REALTIME_PUBLICATION_TABLES) {
-    if (!realtimeTables.has(table)) {
-      errors.push(`public.${table} is not in supabase_realtime publication`);
-    }
+  for (const { tablename } of realtimeRows) {
+    errors.push(`${tablename} is in the supabase_realtime publication; nothing listens to it`);
   }
 
   const [bucketRow] = await sql<{

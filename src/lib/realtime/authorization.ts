@@ -8,8 +8,8 @@ export function isEnabledFlag(value: string | undefined) {
 /**
  * Private Broadcast/Presence must not start until the matching
  * `realtime.messages` policies have been applied and verified in Supabase.
- * The default is deliberately fail-closed: ordinary database Realtime keeps
- * working, while optional presence/typing/stats channels remain unavailable.
+ * The default is deliberately fail-closed: every live channel stays off and
+ * screens show data as of their last read.
  */
 let warnedOff = false;
 
