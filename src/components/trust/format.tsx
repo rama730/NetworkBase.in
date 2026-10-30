@@ -19,12 +19,12 @@ const span = (ms: number) => {
 }
 
 /** "due in 42m", amber below a quarter of the time left, red "overdue 3h" (17.3). */
-export function Deadline({ at, openedAt, done }: { at: string | null; openedAt: string; done?: boolean }) {
+export function Deadline({ at, openedAt, done, now = Date.now() }: { at: string | null; openedAt: string; done?: boolean; now?: number }) {
     if (!at || done) return null
-    const left = new Date(at).getTime() - Date.now()
+    const left = new Date(at).getTime() - now
     const total = new Date(at).getTime() - new Date(openedAt).getTime()
     const tone = left < 0 ? 'text-[var(--status-danger)]' : left < total / 4 ? 'text-[var(--status-warning)]' : 'text-muted-foreground'
-    return <span className={`nb-meta ${tone}`} title={istDateTime(at)}>{left < 0 ? `overdue ${span(left)}` : `due in ${span(left)}`}</span>
+    return <span className={`font-mono text-[12px] tabular-nums ${tone}`} title={istDateTime(at)}>{left < 0 ? `overdue ${span(left)}` : `due in ${span(left)}`}</span>
 }
 
 export const istDateTime = (value: string | Date | null | undefined) => value
@@ -41,4 +41,4 @@ export function ago(value: string | null | undefined) {
     return ms < 60_000 ? 'just now' : ms < 7 * 86_400_000 ? `${span(ms)} ago` : istDate(value)
 }
 
-export const caseHref = (number: number) => `/admin/trust/cases/${caseLabel(number)}`
+export const caseHref = (number: number) => `/admin/trust?case=${caseLabel(number)}`

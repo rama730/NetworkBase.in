@@ -57,7 +57,7 @@ test("no rule broken brings back what was hidden on the first report", async () 
 
 test("remove plus a limit: one strike, the limit blocks writes elsewhere, Undo puts everything back", async () => {
   const t = await reportedPost();
-  const result = await decide.decideCase(t.caseId, staffActor(t.mod), { outcome: "actioned", content: "remove", account: { action: "limit", days: 7 }, rule: 4, message: "No ads." });
+  const result = await decide.decideCase(t.caseId, staffActor(t.mod), { outcome: "actioned", content: "remove", account: { action: "limit", days: 7 }, rule: 4, note: "Past the suggested step on purpose", message: "No ads." });
   assert.equal(result.ok, true, JSON.stringify(result));
   const actions = await sql`SELECT action, strike, ends_at IS NOT NULL AS ends, appeal_until IS NOT NULL AS appeal FROM moderation_actions WHERE case_id = ${t.caseId} ORDER BY action`;
   assert.deepEqual(actions.map((a) => ({ ...a })), [
@@ -94,7 +94,7 @@ test("notices wait for the Undo window, then the person and the reporter hear on
 
 test("lifting a limit ends it at once", async () => {
   const t = await reportedPost();
-  await decide.decideCase(t.caseId, staffActor(t.mod), { outcome: "actioned", account: { action: "limit", days: 7 }, rule: 4 });
+  await decide.decideCase(t.caseId, staffActor(t.mod), { outcome: "actioned", account: { action: "limit", days: 7 }, rule: 4, note: "Past the suggested step on purpose" });
   const [limit] = await sql`SELECT id FROM moderation_actions WHERE case_id = ${t.caseId} AND action = 'limit'`;
   assert.equal((await decide.reverseAction(limit!.id, t.mod, "lifted", "Mistake")).ok, true);
   assert.equal((await sql`SELECT app_private.moderation_restriction(${t.author}::uuid) AS r`)[0]!.r, null);
@@ -114,7 +114,7 @@ test("moderators can't ban; org moderators can only hide, remove or warn", async
 
 async function decided() {
   const t = await reportedPost();
-  await decide.decideCase(t.caseId, staffActor(t.mod), { outcome: "actioned", content: "remove", account: { action: "limit", days: 30 }, rule: 4, message: "No ads." });
+  await decide.decideCase(t.caseId, staffActor(t.mod), { outcome: "actioned", content: "remove", account: { action: "limit", days: 30 }, rule: 4, note: "Past the suggested step on purpose", message: "No ads." });
   const [c] = await sql`SELECT number::int AS number FROM moderation_cases WHERE id = ${t.caseId}`;
   return { ...t, number: c!.number as number };
 }
@@ -153,7 +153,7 @@ test("a ban signs out everywhere, blocks the email, and a new account with it is
   const admin = await sql.begin((tx) => createUser(tx));
   await sql`INSERT INTO auth.sessions (id, user_id) VALUES (gen_random_uuid(), ${t.author})`;
   await sql`INSERT INTO auth.identities (user_id, provider, provider_id, identity_data) VALUES (${t.author}, 'github', ${`gh-${t.author}`}, '{}')`;
-  const result = await decide.decideCase(t.caseId, staffActor(admin, "admin"), { outcome: "actioned", content: "remove", account: { action: "ban" }, rule: 4 });
+  const result = await decide.decideCase(t.caseId, staffActor(admin, "admin"), { outcome: "actioned", content: "remove", account: { action: "ban" }, rule: 4, note: "Past the suggested step on purpose" });
   assert.equal(result.ok, true, JSON.stringify(result));
   assert.equal((await sql`SELECT count(*)::int AS n FROM auth.sessions WHERE user_id = ${t.author}`)[0]!.n, 0);
   assert.equal((await sql`SELECT app_private.moderation_restriction(${t.author}::uuid) AS r`)[0]!.r, "ban");

@@ -14,7 +14,7 @@ import { decisionNotice, endedNotice, reporterOutcomeNotice, shortDate } from "@
 import { notifySafety } from "@/lib/trust/notify";
 import {
   actionsFor, ADMIN_ONLY_ACTIONS, addsStrike, appealUntil as appealWindow, caseLabel, KIND_NOUN, PENDING_INVESTIGATION_DAYS,
-  STRIKE_DAYS, type ModerationActionKind, type ReportReason, type ReportTargetKind,
+  STRIKE_DAYS, suggestedStep, type ModerationActionKind, type ReportReason, type ReportTargetKind,
 } from "@/lib/trust/rules";
 import type { StaffRole } from "@/lib/trust/staff";
 import { setContentHidden } from "@/lib/trust/targets";
@@ -35,22 +35,37 @@ export type Decision = {
   rule?: number | null;
   message?: string | null;
   note?: string | null;
+  /** The case version the reviewer saw (S2); a newer one refuses the decision. */
+  expectedVersion?: number | null;
 };
+/** Decide together (S12): secondary cases send no notice of their own, so the person hears once. */
+export type DecideOptions = { quiet?: boolean };
 export type Actor = { id: string; scope: "staff"; role: StaffRole } | { id: string; scope: "org"; orgId: string };
-type Result = { ok: true } | { ok: false; error: string };
+type Result = { ok: true } | { ok: false; error: string; code?: "stale" };
 
 type CaseRow = {
   id: string; number: number; target_kind: ReportTargetKind; target_id: string; target_seq: number | null; subject_id: string | null;
   workspace_id: string | null; org_id: string | null; reason: ReportReason; state: string; routed_to: "org" | "staff"; assignee_id: string | null;
-  auto_hidden_at: string | null; snapshot: Record<string, unknown> | null;
+  auto_hidden_at: string | null; snapshot: Record<string, unknown> | null; version: number; leased: boolean;
 };
 
 async function lockCase(tx: Executor, caseId: string) {
   const [row] = await tx.execute<CaseRow>(sql`
     SELECT id, number::int AS number, target_kind, target_id, target_seq::int AS target_seq, subject_id, workspace_id, org_id, reason, state, routed_to,
-           assignee_id, auto_hidden_at::text, snapshot
+           assignee_id, auto_hidden_at::text, snapshot, version,
+           (assignee_id IS NOT NULL AND claimed_until > now() AND claim_seen_at > now() - interval '2 minutes') AS leased
     FROM moderation_cases WHERE id = ${caseId} FOR UPDATE`);
   return row ?? null;
+}
+
+// Deciding ends the claim, the assignment and any hand-up to an admin (S11).
+const CLEARED = { claimedUntil: null, claimSeenAt: null, escalatedAt: null };
+
+/** warning < limit 7 < limit 30 < suspension < ban: the ladder's order, for the step-skip check (S10). */
+function stepRank(step: { action: string; days?: number | null }) {
+  if (step.action === "warning") return 0;
+  if (step.action === "limit") return (step.days ?? 7) > 7 ? 2 : 1;
+  return step.action === "suspension" ? 3 : 4;
 }
 
 const sha = (value: string) => createHash("sha256").update(value).digest("hex");
@@ -203,18 +218,23 @@ async function revertAction(tx: Tx, a: { action: ModerationActionKind; target_ki
 }
 
 /** Decide a case (C7). Staff can do everything their role allows; org moderators only content and warnings in their org. */
-export async function decideCase(caseId: string, actor: Actor, decision: Decision): Promise<Result> {
+export async function decideCase(caseId: string, actor: Actor, decision: Decision, options: DecideOptions = {}): Promise<Result> {
   const outcome = await db.transaction(async (tx): Promise<Result & { number?: number; repeatCheck?: { orgId: string; subjectId: string } }> => {
     const c = await lockCase(tx, caseId);
     if (!c) return { ok: false, error: "Case not found." };
     if (c.state !== "open" && c.state !== "in_review") return { ok: false, error: `${caseLabel(c.number)} was already decided.` };
-    if (c.assignee_id && c.assignee_id !== actor.id) return { ok: false, error: "Someone else is reviewing this case. Take it over first." };
+    // A claim only blocks while it's live (S3): an abandoned tab frees the case within 2 minutes.
+    if (c.leased && c.assignee_id !== actor.id) return { ok: false, error: "Someone else is reviewing this case. Take it over first." };
+    if (decision.expectedVersion != null && decision.expectedVersion !== c.version) {
+      await logModerationEvent(tx, { caseId: c.id, actorId: actor.id, kind: "stale_refused", data: { version: c.version } });
+      return { ok: false, code: "stale", error: "This case changed while you were reviewing it. Review the latest, then try again." };
+    }
     if (actor.scope === "org" && (c.routed_to !== "org" || c.org_id !== actor.orgId)) return { ok: false, error: "This case is with NetworkBase now." };
     const now = new Date();
 
     if (decision.outcome === "no_violation") {
       if (c.auto_hidden_at) await setContentHidden(c.target_kind, c.target_id, c.target_seq, false, tx);
-      await tx.update(moderationCases).set({ state: "decided", outcome: "no_violation", decidedBy: actor.id, decidedAt: now, updatedAt: now }).where(eq(moderationCases.id, c.id));
+      await tx.update(moderationCases).set({ state: "decided", outcome: "no_violation", decidedBy: actor.id, decidedAt: now, updatedAt: now, ...CLEARED }).where(eq(moderationCases.id, c.id));
       await tx.update(contentReports).set({ status: "dismissed", resolvedBy: actor.id, resolvedAt: now }).where(and(eq(contentReports.caseId, c.id), eq(contentReports.status, "open")));
       await logModerationEvent(tx, { caseId: c.id, actorId: actor.id, kind: "decided", data: { outcome: "no_violation", scope: actor.scope } });
       if (decision.note?.trim()) await logModerationEvent(tx, { caseId: c.id, actorId: actor.id, kind: "note", data: { body: decision.note.trim().slice(0, 4000) } });
@@ -235,13 +255,18 @@ export async function decideCase(caseId: string, actor: Actor, decision: Decisio
     }
 
     const strikesBefore = c.subject_id ? await activeStrikes(tx, c.subject_id) : 0;
+    // Going past the suggested step needs a reason on the record (S10).
+    if (actor.scope === "staff" && account && stepRank(account) > stepRank(suggestedStep(strikesBefore)) && !decision.note?.trim()) {
+      return { ok: false, error: "This skips the suggested step. Add a note saying why." };
+    }
     const notifyAfter = new Date(now.getTime() + UNDO_SECONDS * 1000);
     const strikeExpires = new Date(now.getTime() + STRIKE_DAYS * 86_400_000);
     const primary = account?.action ?? content!;
     const appealUntil = appealWindow(primary, c.reason, now);
     // One strike per decision (F2, F4): on the account step, else on the content action when it counts.
     const strikeOnAccount = actor.scope === "staff" && Boolean(account);
-    const strikeOnContent = actor.scope === "staff" && !account && Boolean(content && addsStrike(content));
+    // Decide together: the primary case carries the strike; the quiet ones add none (S12).
+    const strikeOnContent = actor.scope === "staff" && !account && !options.quiet && Boolean(content && addsStrike(content));
     const message = decision.message?.trim() || null;
 
     for (const [kind, isAccount] of [[content, false], [account?.action ?? null, true]] as const) {
@@ -251,11 +276,11 @@ export async function decideCase(caseId: string, actor: Actor, decision: Decisio
       await tx.insert(moderationActions).values({
         caseId: c.id, actorId: actor.id, actorScope: actor.scope, orgId: actor.scope === "org" ? actor.orgId : null, subjectId: c.subject_id,
         targetKind: isAccount ? "account" : c.target_kind, targetId: isAccount ? c.subject_id : c.target_id, targetSeq: isAccount ? null : c.target_seq,
-        action: kind, rule: decision.rule, message, restore: effect.restore, strike, strikeExpiresAt: strike ? strikeExpires : null,
+        action: kind, rule: decision.rule, message, restore: options.quiet ? { ...(effect.restore ?? {}), quiet: true } : effect.restore, strike, strikeExpiresAt: strike ? strikeExpires : null,
         endsAt: effect.endsAt, appealUntil, notifyAfter,
       });
     }
-    await tx.update(moderationCases).set({ state: "decided", outcome: "actioned", decidedBy: actor.id, decidedAt: now, updatedAt: now }).where(eq(moderationCases.id, c.id));
+    await tx.update(moderationCases).set({ state: "decided", outcome: "actioned", decidedBy: actor.id, decidedAt: now, updatedAt: now, ...CLEARED }).where(eq(moderationCases.id, c.id));
     await tx.update(contentReports).set({ status: "actioned", resolvedBy: actor.id, resolvedAt: now }).where(and(eq(contentReports.caseId, c.id), eq(contentReports.status, "open")));
     await logModerationEvent(tx, { caseId: c.id, actorId: actor.id, kind: "decided", data: { outcome: "actioned", content, account, rule: decision.rule, scope: actor.scope, strikesBefore } });
     if (decision.note?.trim()) await logModerationEvent(tx, { caseId: c.id, actorId: actor.id, kind: "note", data: { body: decision.note.trim().slice(0, 4000) } });
@@ -268,6 +293,25 @@ export async function decideCase(caseId: string, actor: Actor, decision: Decisio
   });
   if (outcome.repeatCheck) await openRepeatRemovalCase(outcome.repeatCheck.orgId, outcome.repeatCheck.subjectId);
   return { ok: true };
+}
+
+/**
+ * Decide together (S12): the primary case carries the whole decision, including the account step; each other case
+ * gets the same content action without a notice of its own, so the person hears once. One failed case doesn't stop the rest.
+ */
+export async function decideTogether(primaryId: string, otherIds: string[], actor: Actor & { scope: "staff" }, decision: Decision) {
+  const first = await decideCase(primaryId, actor, decision);
+  if (!first.ok) return { ...first, done: 0, failed: otherIds.length };
+  let done = 1;
+  let failed = 0;
+  for (const id of otherIds.filter((x) => x !== primaryId)) {
+    const content = decision.outcome === "actioned" ? decision.content ?? null : null;
+    const r = await decideCase(id, actor, decision.outcome === "no_violation" || !content
+      ? { outcome: "no_violation", note: decision.note }
+      : { outcome: "actioned", content, rule: decision.rule, message: decision.message, note: decision.note }, { quiet: true });
+    if (r.ok) done += 1; else failed += 1;
+  }
+  return { ok: true as const, done, failed };
 }
 
 /** 3 org removals for one person within 30 days open a staff case (T19). */
@@ -298,7 +342,7 @@ export async function undoDecision(caseId: string, actorId: string): Promise<Res
     if (!decided?.fresh) return { ok: false, error: "Undo is only possible for 10 seconds." };
     for (const a of actions) await revertAction(tx, a);
     if (actions.length) await tx.update(moderationActions).set({ undoneAt: new Date() }).where(inArray(moderationActions.id, [...actions].map((a) => a.id)));
-    await tx.update(moderationCases).set({ state: "in_review", outcome: null, decidedBy: null, decidedAt: null, assigneeId: actorId, updatedAt: new Date() }).where(eq(moderationCases.id, caseId));
+    await tx.update(moderationCases).set({ state: "in_review", outcome: null, decidedBy: null, decidedAt: null, assigneeId: actorId, claimedUntil: sql`now() + interval '10 minutes'`, claimSeenAt: new Date(), updatedAt: new Date() }).where(eq(moderationCases.id, caseId));
     await tx.update(contentReports).set({ status: "open", resolvedBy: null, resolvedAt: null }).where(eq(contentReports.caseId, caseId));
     await logModerationEvent(tx, { caseId, actorId, kind: "undone" });
     return { ok: true };
@@ -322,16 +366,16 @@ export async function reverseAction(actionId: string, actorId: string, kind: "li
 /** Sends the notices and emails whose Undo window has passed, plus each reporter's outcome. Safe to run twice. */
 export async function deliverDecisionNotices(caseId?: string) {
   const pending = await db.execute<{ id: string; case_id: string | null; number: number | null; actor_scope: "staff" | "org"; subject_id: string | null; target_kind: ReportTargetKind;
-    action: ModerationActionKind; rule: number | null; message: string | null; ends_at: string | null; appeal_until: string | null; label: string | null; created_at: string; workspace_title: string | null; tz: string | null }>(sql`
+    action: ModerationActionKind; rule: number | null; message: string | null; ends_at: string | null; appeal_until: string | null; label: string | null; created_at: string; workspace_title: string | null; tz: string | null; quiet: boolean }>(sql`
     SELECT a.id, a.case_id, c.number::int AS number, a.actor_scope, a.subject_id, coalesce(c.target_kind, a.target_kind) AS target_kind, a.action, a.rule, a.message,
-           a.ends_at::text, a.appeal_until::text, c.snapshot->>'label' AS label, a.created_at::text, w.title AS workspace_title,
+           a.ends_at::text, a.appeal_until::text, c.snapshot->>'label' AS label, a.created_at::text, w.title AS workspace_title, coalesce((a.restore->>'quiet')::boolean, false) AS quiet,
            (SELECT p.notification_preferences->'quietHours'->>'timeZone' FROM profiles p WHERE p.id = a.subject_id) AS tz
     FROM moderation_actions a LEFT JOIN moderation_cases c ON c.id = a.case_id LEFT JOIN workspaces w ON w.id = c.workspace_id
     WHERE a.notified_at IS NULL AND a.undone_at IS NULL AND a.notify_after <= now() ${caseId ? sql`AND a.case_id = ${caseId}` : sql``}
     ORDER BY a.created_at LIMIT 200`);
   for (const a of pending) {
     const claimed = await db.update(moderationActions).set({ notifiedAt: new Date() }).where(and(eq(moderationActions.id, a.id), isNull(moderationActions.notifiedAt), isNull(moderationActions.undoneAt))).returning({ id: moderationActions.id });
-    if (!claimed.length) continue;
+    if (!claimed.length || a.quiet) continue;
     const recipient = ["hide_discover", "restrict", "suspend_workspace", "remove_workspace", "remove_verified"].includes(a.action)
       ? (await db.execute<{ owner_id: string }>(sql`SELECT owner_id FROM workspaces WHERE id = (SELECT target_id FROM moderation_actions WHERE id = ${a.id})`))[0]?.owner_id ?? null
       : a.subject_id;

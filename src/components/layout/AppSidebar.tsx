@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { PanelLeftClose, PanelLeftOpen, UserRound } from "lucide-react";
+import { PanelLeftClose, PanelLeftOpen, ShieldCheck, UserRound } from "lucide-react";
 import { BrandMark } from "@/components/brand/BrandMark";
 import { Skeleton } from "@/components/ui/skeleton";
 import { MAIN_NAV_ITEMS, SETTINGS_NAV_ITEM, isMainNavRouteActive } from "./header/nav-items";
@@ -17,6 +17,7 @@ import MyWorkIndicator from "./header/MyWorkIndicator";
 import { queryKeys } from "@/lib/query-keys";
 import { useUIStore } from "@/stores/ui-store";
 import { readSidebarWorkspacesAction } from "@/app/actions/org-workspace";
+import { staffBadgeAction } from "@/app/actions/moderation-staff";
 import { SidebarWorkspaces } from "./SidebarWorkspaces";
 
 type SidebarProject = {
@@ -67,8 +68,12 @@ async function fetchSidebarProjects(profileId: string): Promise<SidebarProject[]
 // ponytail: the drawer mounts this only while open, so its ids duplicate the (display:none) aside's only on mobile; use per-instance ids if that ever matters.
 export function SidebarNav() {
     const pathname = usePathname();
-    const { profile, isAuthenticated } = useAuth();
+    const { profile, isAuthenticated, user } = useAuth();
     const { badge: chatBadge } = useChatShell();
+    // Staff only (trust and safety R11): the role is in the session, so nobody else asks the server.
+    const isStaff = ["admin", "moderator"].includes(String(user?.app_metadata?.role ?? ""));
+    const staffBadge = useQuery({ queryKey: ["trust", "sidebar-badge"], queryFn: () => staffBadgeAction(), enabled: isStaff, staleTime: 60_000, refetchInterval: 60_000 });
+    const staffCount = staffBadge.data?.count ?? 0;
     const { connectionHealth } = useRealtime();
     const people = useNetworkNotifications();
     const profileId = profile?.id ?? null;
@@ -106,6 +111,12 @@ export function SidebarNav() {
                 })}
                 <Link href={ROUTES.MY_PROFILE} className="nb-nav-link" aria-label="My profile" title="My profile" aria-current={isMainNavRouteActive(pathname, ROUTES.MY_PROFILE) ? "page" : undefined}><UserRound size={16} aria-hidden="true" /><span className="nb-sidebar-label">My profile</span></Link>
                 {isAuthenticated && <MyWorkIndicator />}
+                {isStaff && staffBadge.data ? (
+                    <Link href="/admin/trust" className="nb-nav-link" aria-label={`Trust & safety${staffCount ? `, ${staffCount} urgent or overdue` : ""}`} title="Trust & safety" aria-current={pathname.startsWith("/admin/trust") ? "page" : undefined}>
+                        <ShieldCheck size={16} aria-hidden="true" /><span className="nb-sidebar-label">Trust &amp; safety</span>
+                        {staffCount > 0 && <span className="nb-nav-count" aria-hidden="true">{staffCount > 99 ? "99+" : staffCount}</span>}
+                    </Link>
+                ) : null}
             </nav>
             {isAuthenticated && <section className="nb-sidebar-workspace space-y-3" aria-labelledby="sidebar-workspace-heading">
                 <div className="flex items-center gap-3 px-2">

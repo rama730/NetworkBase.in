@@ -11,18 +11,22 @@ import { notifyOrg, orgHref, orgLabel } from '@/lib/organizations/notify';
 import { stepUpState } from '@/lib/security/fresh-verification';
 import type { SecurityStepUpMethod } from '@/lib/security/step-up-methods';
 import { getViewerAuthContext } from '@/lib/server/viewer-context';
-import { claimAppeal, decideAppeal } from '@/lib/trust/appeals';
+import { claimAppeal, decideAppeal, readAppeal } from '@/lib/trust/appeals';
 import { logModerationEvent } from '@/lib/trust/cases';
-import { addNote, caseIdByNumber, changeSeverity, consoleCounts, mergeCase, openManualCase, readCase, setClaim, setLegalHold } from '@/lib/trust/console';
-import { decideCase, noticeRestrictionEnded, reverseAction, undoDecision, type Decision } from '@/lib/trust/decide';
+import { addNote, caseIdByNumber, changeSeverity, mergeCase, openManualCase, readCase, readPerson, readVerification, setLegalHold } from '@/lib/trust/console';
+import { decideCase, decideTogether, noticeRestrictionEnded, reverseAction, undoDecision, type Decision } from '@/lib/trust/decide';
+import {
+    assignCase, checkVersion, claimLease, escalateCase, eventsSince, filePreviewUrl, inboxCounts, inboxOrgs, latestSeq, logCaseView, messageContext, readInbox, releaseLease,
+    renewLease, ruleTemplates, saveRuleTemplate, type InboxFilters,
+} from '@/lib/trust/inbox';
 import { decisionNotice } from '@/lib/trust/messages';
 import { notifySafety } from '@/lib/trust/notify';
 import { caseLabel, parseCaseLabel, REPORT_REASONS, type ModerationActionKind, type ReportReason, type ReportTargetKind } from '@/lib/trust/rules';
-import { staffRoleOf, type StaffRole } from '@/lib/trust/staff';
+import { listStaff, staffRoleOf, type StaffRole } from '@/lib/trust/staff';
 
 // The staff console's writes (docs/trust-and-safety-concept.md §17). Every action checks the staff role again.
 
-type Result<T = object> = ({ success: true } & T) | { success: false; error: string };
+type Result<T = object> = ({ success: true } & T) | { success: false; error: string; code?: 'stale' };
 const DENIED = { success: false as const, error: 'You don’t have permission to do this.' };
 const uuid = z.string().uuid();
 
@@ -40,7 +44,7 @@ export async function staffBadgeAction(): Promise<{ count: number } | null> {
     if (!staffRoleOf(user)) return null;
     // Without the authenticator the entry still shows (it leads to the setup screen), with no counts.
     if (!(await staff())) return { count: 0 };
-    const c = await consoleCounts();
+    const c = await inboxCounts();
     return { count: c.urgent + c.overdue };
 }
 
@@ -59,6 +63,7 @@ const decisionSchema = z.object({
     rule: z.number().int().min(1).max(15).nullable().optional(),
     message: z.string().trim().max(2000).nullable().optional(),
     note: z.string().trim().max(4000).nullable().optional(),
+    expectedVersion: z.number().int().min(1).nullable().optional(),
 }).strict();
 
 export type StepUpRequired = { success: false; error: string; stepUp: { methods: SecurityStepUpMethod[]; factorId?: string } };
@@ -75,9 +80,8 @@ export async function decideCaseAction(caseId: string, input: Decision): Promise
         if (!state.fresh) return { success: false, error: 'Verify it’s you to send this decision.', stepUp: { methods: state.methods, factorId: state.factorId } };
     }
     const result = await decideCase(caseId, { id: me.id, scope: 'staff', role: me.role }, parsed.data as Decision);
-    if (!result.ok) return { success: false, error: result.error };
-    const c = await readCase(caseId);
-    refresh();
+    if (!result.ok) return { success: false, error: result.error, code: result.code };
+    const [c] = await db.execute<{ number: number }>(sql`SELECT number::int AS number FROM moderation_cases WHERE id = ${caseId}`);
     return { success: true, label: c ? caseLabel(c.number) : '' };
 }
 
@@ -85,7 +89,6 @@ export async function undoDecisionAction(caseId: string): Promise<Result> {
     const me = await staff();
     if (!me || !uuid.safeParse(caseId).success) return DENIED;
     const result = await undoDecision(caseId, me.id);
-    refresh();
     return result.ok ? { success: true } : { success: false, error: result.error };
 }
 
@@ -109,12 +112,20 @@ export async function previewDecisionEmailAction(caseId: string, input: Decision
     return { success: true, subject: email.subject, html: email.html };
 }
 
-export async function claimCaseAction(caseId: string, mode: 'claim' | 'release' | 'take_over'): Promise<Result> {
+/** Claims are leases (S3): touching the decision form claims; leaving lets it go. */
+export async function claimCaseAction(caseId: string, mode: 'claim' | 'release' | 'take_over', expectedVersion?: number | null): Promise<Result<{ version?: number }>> {
+    const me = await staff();
+    if (!me || !uuid.safeParse(caseId).success || !['claim', 'release', 'take_over'].includes(mode)) return DENIED;
+    if (mode === 'release') return (await releaseLease(caseId, me.id)) ? { success: true } : { success: false, error: 'You weren’t reviewing this case.' };
+    const r = await claimLease(caseId, me.id, mode, expectedVersion);
+    return r.ok ? { success: true, version: r.version } : { success: false, error: r.error, code: 'code' in r ? r.code : undefined };
+}
+
+/** The 45-second heartbeat while a claimed case is open; `active` when they touched the form since the last one. */
+export async function caseHeartbeatAction(caseId: string, active: boolean): Promise<Result<{ held: boolean }>> {
     const me = await staff();
     if (!me || !uuid.safeParse(caseId).success) return DENIED;
-    const ok = await setClaim(caseId, me.id, mode);
-    refresh();
-    return ok ? { success: true } : { success: false, error: mode === 'claim' ? 'Someone else claimed it first.' : 'The case changed. Refresh and try again.' };
+    return { success: true, held: await renewLease(caseId, me.id, active === true) };
 }
 
 export async function addNoteAction(caseId: string, body: string): Promise<Result> {
@@ -123,7 +134,6 @@ export async function addNoteAction(caseId: string, body: string): Promise<Resul
     if (!me || !uuid.safeParse(caseId).success) return DENIED;
     if (!text) return { success: false, error: 'Write the note first.' };
     await addNote(caseId, me.id, text);
-    refresh();
     return { success: true };
 }
 
@@ -133,16 +143,16 @@ export async function legalHoldAction(caseId: string, hold: boolean): Promise<Re
     // Releasing a hold lets retention delete the evidence: it needs a fresh check (F16).
     if (!hold) { const stepUp = await needsStepUp('Verify it’s you to release the legal hold.'); if (stepUp) return stepUp; }
     await setLegalHold(caseId, me.id, hold);
-    refresh();
     return { success: true };
 }
 
-export async function changeSeverityAction(caseId: string, severity: 'urgent' | 'high' | 'normal', reason: string): Promise<Result> {
+export async function changeSeverityAction(caseId: string, severity: 'urgent' | 'high' | 'normal', reason: string, expectedVersion?: number | null): Promise<Result> {
     const me = await staff();
     if (!me || !uuid.safeParse(caseId).success || !['urgent', 'high', 'normal'].includes(severity)) return DENIED;
     if (reason.trim().length < 3) return { success: false, error: 'Say why the severity changed.' };
+    const stale = await checkVersion(caseId, expectedVersion, me.id);
+    if (stale) return { success: false, error: stale.error, code: 'stale' };
     const ok = await changeSeverity(caseId, me.id, severity, reason.trim());
-    refresh();
     return ok ? { success: true } : { success: false, error: 'Case not found.' };
 }
 
@@ -154,7 +164,6 @@ export async function mergeCaseAction(caseId: string, into: string): Promise<Res
     const intoId = number ? await caseIdByNumber(number) : null;
     if (!intoId) return { success: false, error: 'Enter an open case number, like NB-1001.' };
     const ok = await mergeCase(caseId, intoId, me.id);
-    refresh();
     return ok ? { success: true } : { success: false, error: 'Only open cases can be merged.' };
 }
 
@@ -166,8 +175,7 @@ export async function bulkDecideAction(caseIds: string[], input: Decision): Prom
     // Bulk is for dismissing or hiding/removing content; account and workspace steps are decided one case at a time.
     if (parsed.data.account || (parsed.data.content && !['hide', 'remove'].includes(parsed.data.content))) return { success: false, error: 'Decide account and workspace actions one case at a time.' };
     let done = 0;
-    for (const id of caseIds) if ((await decideCase(id, { id: me.id, scope: 'staff', role: me.role }, parsed.data as Decision)).ok) done += 1;
-    refresh();
+    for (const id of caseIds) if ((await decideCase(id, { id: me.id, scope: 'staff', role: me.role }, { ...parsed.data, expectedVersion: null } as Decision)).ok) done += 1;
     return { success: true, done, failed: caseIds.length - done };
 }
 
@@ -319,4 +327,136 @@ export async function setStaffRoleAction(who: string, role: 'admin' | 'moderator
     await logModerationEvent(db, { caseId: null, actorId: me.id, kind: 'staff_role_changed', data: { userId: p.id, role } });
     refresh();
     return { success: true };
+}
+
+// The Inbox and the live layer (Trust & Safety Console Redesign R2, S1–S13).
+
+const VIEWS = ['needs_me', 'unclaimed', 'urgent', 'appeals', 'org', 'escalated', 'mine', 'done'] as const;
+const inboxSchema = z.object({
+    view: z.enum(VIEWS).optional(),
+    q: z.string().trim().max(100).optional(),
+    severity: z.enum(['urgent', 'high', 'normal']).optional(),
+    kind: z.string().max(40).regex(/^[a-z_]+$/).optional(),
+    source: z.enum(['report', 'email', 'staff', 'legal']).optional(),
+    sort: z.enum(['due', 'newest', 'reports']).optional(),
+    due: z.enum(['overdue', 'hour']).optional(),
+    org: z.string().uuid().optional(),
+}).strict();
+const cursorSchema = z.object({ at: z.string().max(80), id: z.string().max(80) }).nullable();
+
+export async function inboxPageAction(filters: InboxFilters, cursor: { at: string; id: string } | null) {
+    const me = await staff();
+    const f = inboxSchema.safeParse(filters);
+    const c = cursorSchema.safeParse(cursor);
+    if (!me || !f.success || !c.success) return null;
+    return readInbox(me.id, f.data as InboxFilters, c.data);
+}
+
+export async function inboxOrgsAction() {
+    return (await staff()) ? inboxOrgs() : null;
+}
+
+export async function inboxCountsAction() {
+    return (await staff()) ? inboxCounts() : null;
+}
+
+/** One case for the middle and right panes; opening it is logged once per 10 minutes (S13). */
+export async function caseDetailAction(caseId: string) {
+    const me = await staff();
+    if (!me || !uuid.safeParse(caseId).success) return null;
+    const [c, templates, appeal] = await Promise.all([readCase(caseId), ruleTemplates(), readAppeal(caseId)]);
+    if (!c) return null;
+    await logCaseView(caseId, me.id);
+    return { ...c, appeal, templates, me: me.id, role: me.role };
+}
+
+export async function caseIdByLabelAction(label: string) {
+    const number = parseCaseLabel(label);
+    return (await staff()) && number ? caseIdByNumber(number) : null;
+}
+
+/** The live cursor (S1): what a screen missed, plus the server clock for countdowns (S4). */
+export async function eventsSinceAction(seq: number | null) {
+    if (!(await staff())) return null;
+    const now = Date.now();
+    if (seq == null || !Number.isFinite(seq) || seq < 0) return { events: [], more: false, seq: await latestSeq(), now };
+    const r = await eventsSince(Math.floor(seq));
+    return { ...r, seq: r.events.at(-1)?.seq ?? Math.floor(seq), now };
+}
+
+export async function assignCaseAction(caseId: string, to: string | null, reason: string, expectedVersion?: number | null): Promise<Result> {
+    const me = await staff();
+    if (!me || !uuid.safeParse(caseId).success || (to !== null && !uuid.safeParse(to).success)) return DENIED;
+    if (to && !(await listStaff()).some((s) => s.id === to)) return { success: false, error: 'Pick someone on the trust & safety team.' };
+    const r = await assignCase(caseId, me.id, to, String(reason ?? '').trim(), expectedVersion);
+    return r.ok ? { success: true } : { success: false, error: r.error, code: 'code' in r ? r.code : undefined };
+}
+
+export async function escalateCaseAction(caseId: string, note: string, on: boolean, expectedVersion?: number | null): Promise<Result> {
+    const me = await staff();
+    if (!me || !uuid.safeParse(caseId).success) return DENIED;
+    if (on && String(note ?? '').trim().length < 3) return { success: false, error: 'Say what an admin needs to decide.' };
+    const r = await escalateCase(caseId, me.id, String(note ?? '').trim(), on === true, expectedVersion);
+    return r.ok ? { success: true } : { success: false, error: r.error, code: 'code' in r ? r.code : undefined };
+}
+
+/** Decide together (S12): one decision across the person's selected open cases, one notice. */
+export async function decideTogetherAction(primaryId: string, otherIds: string[], input: Decision): Promise<Result<{ done: number; failed: number }> | StepUpRequired> {
+    const me = await staff();
+    const parsed = decisionSchema.safeParse(input);
+    const ids = [primaryId, ...(Array.isArray(otherIds) ? otherIds : [])];
+    if (!me || !parsed.success || ids.length > 20 || ids.some((id) => !uuid.safeParse(id).success)) return DENIED;
+    if (parsed.data.account?.action === 'ban' || parsed.data.content === 'remove_workspace') {
+        const stepUp = await needsStepUp('Verify it’s you to send this decision.');
+        if (stepUp) return stepUp;
+    }
+    const r = await decideTogether(primaryId, otherIds, { id: me.id, scope: 'staff', role: me.role }, parsed.data as Decision);
+    return r.ok ? { success: true, done: r.done, failed: r.failed } : { success: false, error: r.error, code: r.code };
+}
+
+/** "Show 10 more" above a reported message (S9). */
+export async function messageContextAction(caseId: string, beforeSeq: number) {
+    const me = await staff();
+    if (!me || !uuid.safeParse(caseId).success || !Number.isInteger(beforeSeq)) return null;
+    const rows = await messageContext(caseId, beforeSeq);
+    if (rows) await logModerationEvent(db, { caseId, actorId: me.id, kind: 'context_shown', data: { beforeSeq } });
+    return rows;
+}
+
+/** A reported file, opened on purpose and logged (S9). */
+export async function filePreviewAction(caseId: string): Promise<Result<{ url: string; mime: string | null; name: string }>> {
+    const me = await staff();
+    if (!me || !uuid.safeParse(caseId).success) return DENIED;
+    const file = await filePreviewUrl(caseId);
+    if (!file) return { success: false, error: 'The file is no longer available.' };
+    await logModerationEvent(db, { caseId, actorId: me.id, kind: 'file_previewed' });
+    return { success: true, ...file };
+}
+
+export async function staffListAction() {
+    return (await staff()) ? (await listStaff()).map((s) => ({ id: s.id, name: s.name ?? s.email ?? 'Staff', role: s.role })) : null;
+}
+
+export async function ruleTemplatesAction() {
+    return (await staff()) ? ruleTemplates() : null;
+}
+
+/** Admins edit the opening message for each rule (S13); an empty one goes back to the built-in sentence. */
+export async function saveRuleTemplateAction(rule: number, message: string): Promise<Result> {
+    const me = await staff();
+    if (!me || me.role !== 'admin' || !Number.isInteger(rule) || rule < 1 || rule > 15 || typeof message !== 'string' || message.length > 2000) return DENIED;
+    await saveRuleTemplate(rule, message, me.id);
+    return { success: true };
+}
+
+/** A person's full history for the drawer (R1, R10), without leaving the case. */
+export async function personDetailAction(handleOrId: string) {
+    if (!(await staff()) || typeof handleOrId !== 'string' || handleOrId.length > 80) return null;
+    return readPerson(handleOrId);
+}
+
+/** One verification request, shown in the Inbox as its own type (R2). */
+export async function verificationDetailAction(orgId: string) {
+    if (!(await staff()) || !uuid.safeParse(orgId).success) return null;
+    return (await readVerification(orgId))[0] ?? null;
 }

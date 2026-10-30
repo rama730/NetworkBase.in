@@ -10,61 +10,13 @@ import { deadlinesFor, REASON_RULES, suggestedStep, type ReportReason, type Repo
 import { resolveReportTarget } from "@/lib/trust/targets";
 
 // The staff console's reads and small writes (docs/trust-and-safety-concept.md §17, C1–C14). Decisions live in
-// decide.ts; this file is everything around them: the queue, one case, claims, notes, Active, People, the log.
+// decide.ts and the Inbox, leases and live cursor in inbox.ts; this file is one case, notes, Active, People, the log.
 
-export type QueueView = "needs_action" | "mine" | "org" | "decided";
-export type QueueFilters = {
-  view?: QueueView; q?: string; severity?: Severity; kind?: ReportTargetKind; source?: string;
-  overdue?: boolean; pileOn?: boolean; unclaimed?: boolean; sort?: "deadline" | "newest" | "reports";
-};
-export type QueueRow = {
+type CaseRow = {
   id: string; number: number; severity: Severity; state: string; outcome: string | null; reason: ReportReason; target_kind: ReportTargetKind;
   label: string | null; reports: number; deadline_at: string | null; created_at: string; routed_to: "org" | "staff"; pile_on: boolean;
   assignee_id: string | null; assignee_name: string | null; source: string;
 };
-
-export async function readQueue(staffId: string, f: QueueFilters = {}): Promise<QueueRow[]> {
-  const view = f.view ?? "needs_action";
-  const q = f.q?.trim().replace(/^@/, "") ?? "";
-  const number = Number(q.replace(/^nb-/i, ""));
-  const where = [
-    view === "decided" ? sql`c.state IN ('decided', 'closed')` : sql`c.state IN ('open', 'in_review')`,
-    view === "mine" ? sql`c.assignee_id = ${staffId}` : sql`true`,
-    view === "org" ? sql`c.routed_to = 'org'` : sql`true`,
-    f.severity ? sql`c.severity = ${f.severity}` : sql`true`,
-    f.kind ? sql`c.target_kind = ${f.kind}` : sql`true`,
-    f.source ? sql`c.source = ${f.source}` : sql`true`,
-    f.overdue ? sql`c.deadline_at < now()` : sql`true`,
-    f.pileOn ? sql`c.pile_on` : sql`true`,
-    f.unclaimed ? sql`c.assignee_id IS NULL` : sql`true`,
-    q ? (Number.isInteger(number) && number > 0
-      ? sql`c.number = ${number}`
-      : sql`(c.snapshot->>'label' ILIKE ${`%${q}%`} OR EXISTS (SELECT 1 FROM profiles s WHERE s.id = c.subject_id AND (s.username ILIKE ${`${q}%`} OR s.full_name ILIKE ${`%${q}%`})))`) : sql`true`,
-  ];
-  const order = f.sort === "newest" ? sql`c.created_at DESC` : f.sort === "reports" ? sql`reports DESC, c.created_at DESC`
-    : view === "decided" ? sql`c.decided_at DESC NULLS LAST` : sql`c.deadline_at ASC NULLS LAST, c.created_at`;
-  const rows = await db.execute<QueueRow>(sql`
-    SELECT c.id, c.number::int AS number, c.severity, c.state, c.outcome, c.reason, c.target_kind, c.snapshot->>'label' AS label,
-           (SELECT count(*)::int FROM content_reports r WHERE r.case_id = c.id) AS reports, c.deadline_at::text, c.created_at::text,
-           c.routed_to, c.pile_on, c.assignee_id, coalesce(a.full_name, a.username) AS assignee_name, c.source
-    FROM moderation_cases c LEFT JOIN profiles a ON a.id = c.assignee_id
-    WHERE ${sql.join(where, sql` AND `)} AND c.merged_into IS NULL
-    ORDER BY ${order} LIMIT 200`);
-  return [...rows];
-}
-
-export async function consoleCounts() {
-  const [row] = await db.execute<{ open: number; urgent: number; overdue: number; appeals: number; active: number; verification: number }>(sql`
-    SELECT (SELECT count(*)::int FROM moderation_cases WHERE state IN ('open', 'in_review') AND merged_into IS NULL) AS open,
-           (SELECT count(*)::int FROM moderation_cases WHERE state IN ('open', 'in_review') AND severity = 'urgent' AND merged_into IS NULL) AS urgent,
-           (SELECT count(*)::int FROM moderation_cases WHERE state IN ('open', 'in_review') AND deadline_at < now() AND merged_into IS NULL) AS overdue,
-           (SELECT count(*)::int FROM moderation_appeals WHERE state IN ('pending', 'in_review')) AS appeals,
-           (SELECT count(*)::int FROM moderation_actions WHERE undone_at IS NULL AND reversed_at IS NULL AND lifted_at IS NULL
-              AND action IN ('limit', 'suspension', 'ban', 'restrict', 'suspend_workspace', 'remove_workspace', 'hide_discover')
-              AND (ends_at IS NULL OR ends_at > now())) AS active,
-           (SELECT count(*)::int FROM workspaces WHERE kind = 'organization' AND verification_requested_at IS NOT NULL AND verified_at IS NULL AND deleted_at IS NULL) AS verification`);
-  return row ?? { open: 0, urgent: 0, overdue: 0, appeals: 0, active: 0, verification: 0 };
-}
 
 export async function caseIdByNumber(number: number) {
   const [row] = await db.select({ id: moderationCases.id }).from(moderationCases).where(eq(moderationCases.number, number)).limit(1);
@@ -73,17 +25,21 @@ export async function caseIdByNumber(number: number) {
 
 /** Everything the case view shows (17.4). */
 export async function readCase(caseId: string) {
-  const [c] = await db.execute<QueueRow & {
+  const [c] = await db.execute<CaseRow & {
     target_id: string; target_seq: number | null; subject_id: string | null; workspace_id: string | null; org_id: string | null; snapshot: Record<string, unknown> | null;
     details: string | null; claimed_at: string | null; legal_hold: boolean; decided_at: string | null; decided_by: string | null; decided_by_name: string | null; merged_into: string | null; auto_hidden_at: string | null;
     workspace_title: string | null; workspace_slug: string | null; workspace_kind: string | null;
+    version: number; leased: boolean; assigned_to: string | null; assigned_name: string | null; escalated_at: string | null;
   }>(sql`
     SELECT c.id, c.number::int AS number, c.severity, c.state, c.outcome, c.reason, c.target_kind, c.target_id, c.target_seq::int AS target_seq, c.subject_id,
            c.workspace_id, c.org_id, c.snapshot, c.details, c.snapshot->>'label' AS label, c.deadline_at::text, c.created_at::text, c.routed_to, c.pile_on,
            c.assignee_id, coalesce(a.full_name, a.username) AS assignee_name, c.claimed_at::text, c.legal_hold, c.source, c.decided_at::text, c.decided_by,
            coalesce(d.full_name, d.username) AS decided_by_name, c.merged_into, c.auto_hidden_at::text,
-           (SELECT count(*)::int FROM content_reports r WHERE r.case_id = c.id) AS reports, w.title AS workspace_title, w.slug AS workspace_slug, w.kind AS workspace_kind
+           (SELECT count(*)::int FROM content_reports r WHERE r.case_id = c.id) AS reports, w.title AS workspace_title, w.slug AS workspace_slug, w.kind AS workspace_kind,
+           c.version, (c.assignee_id IS NOT NULL AND c.claimed_until > now() AND c.claim_seen_at > now() - interval '2 minutes') AS leased,
+           c.assigned_to, coalesce(g.full_name, g.username) AS assigned_name, c.escalated_at::text
     FROM moderation_cases c LEFT JOIN profiles a ON a.id = c.assignee_id LEFT JOIN profiles d ON d.id = c.decided_by LEFT JOIN workspaces w ON w.id = c.workspace_id
+      LEFT JOIN profiles g ON g.id = c.assigned_to
     WHERE c.id = ${caseId}`);
   if (!c) return null;
 
@@ -94,7 +50,7 @@ export async function readCase(caseId: string) {
     FROM content_reports r LEFT JOIN profiles p ON p.id = r.reporter_id WHERE r.case_id = ${caseId} ORDER BY r.created_at`);
   const events = await db.execute<{ kind: string; created_at: string; actor_name: string | null; data: Record<string, unknown> }>(sql`
     SELECT e.kind, e.created_at::text, coalesce(p.full_name, p.username) AS actor_name, e.data
-    FROM moderation_events e LEFT JOIN profiles p ON p.id = e.actor_id WHERE e.case_id = ${caseId} ORDER BY e.created_at`);
+    FROM moderation_events e LEFT JOIN profiles p ON p.id = e.actor_id WHERE e.case_id = ${caseId} ORDER BY e.seq`);
   const actions = await db.execute<{ id: string; action: string; rule: number | null; message: string | null; ends_at: string | null; appeal_until: string | null; strike: boolean; notified_at: string | null; undone_at: string | null; reversed_at: string | null; lifted_at: string | null; created_at: string }>(sql`
     SELECT id, action, rule, message, ends_at::text, appeal_until::text, strike, notified_at::text, undone_at::text, reversed_at::text, lifted_at::text, created_at::text
     FROM moderation_actions WHERE case_id = ${caseId} ORDER BY created_at`);
@@ -102,14 +58,28 @@ export async function readCase(caseId: string) {
   const otherCases = c.subject_id ? await db.execute<{ id: string; number: number; reason: ReportReason; target_kind: ReportTargetKind; deadline_at: string | null }>(sql`
     SELECT id, number::int AS number, reason, target_kind, deadline_at::text FROM moderation_cases
     WHERE subject_id = ${c.subject_id} AND id <> ${caseId} AND state IN ('open', 'in_review') AND merged_into IS NULL ORDER BY deadline_at LIMIT 10`) : [];
+  // Reported before (S9): earlier decided cases on the same thing or the same person.
+  const priorCases = await db.execute<{ id: string; number: number; reason: ReportReason; outcome: string | null; decided_at: string | null; same_target: boolean }>(sql`
+    SELECT id, number::int AS number, reason, outcome, decided_at::text, (target_kind = ${c.target_kind} AND target_id = ${c.target_id}) AS same_target
+    FROM moderation_cases WHERE id <> ${caseId} AND state IN ('decided', 'closed')
+      AND ((target_kind = ${c.target_kind} AND target_id = ${c.target_id}) ${c.subject_id ? sql`OR subject_id = ${c.subject_id}` : sql``})
+    ORDER BY decided_at DESC NULLS LAST LIMIT 8`);
+  // Merge hints (R10): other open cases about the very same thing.
+  const duplicates = await db.execute<{ id: string; number: number; reports: number }>(sql`
+    SELECT id, number::int AS number, (SELECT count(*)::int FROM content_reports r WHERE r.case_id = m.id) AS reports FROM moderation_cases m
+    WHERE id <> ${caseId} AND target_kind = ${c.target_kind} AND target_id = ${c.target_id} AND state IN ('open', 'in_review') AND merged_into IS NULL LIMIT 5`);
   const live = await resolveReportTarget(c.target_kind, c.target_id, c.target_seq, null).catch(() => null);
-  const liveState = !live ? "deleted" : JSON.stringify(stripMeta(live.snapshot)) === JSON.stringify(stripMeta(c.snapshot ?? {})) ? "unchanged" : "edited";
+  const liveState = !live ? "deleted" : stable(stripMeta(live.snapshot)) === stable(stripMeta(c.snapshot ?? {})) ? "unchanged" : "edited";
   const strikes = c.subject_id ? await activeStrikes(db, c.subject_id) : 0;
   return {
     ...c, reports: [...reports], events: [...events], actions: [...actions], person, otherCases: [...otherCases],
-    live: live ? live.snapshot : null, liveState: liveState as "deleted" | "unchanged" | "edited", strikes, suggested: suggestedStep(strikes),
+    priorCases: [...priorCases], duplicates: [...duplicates], live: live ? live.snapshot : null, liveState: liveState as "deleted" | "unchanged" | "edited", strikes, suggested: suggestedStep(strikes),
   };
 }
+/** jsonb stores keys in its own order, so compare with sorted keys. */
+const stable = (value: unknown): string => Array.isArray(value) ? `[${value.map(stable).join(",")}]`
+  : value && typeof value === "object" ? `{${Object.keys(value).sort().map((k) => `${JSON.stringify(k)}:${stable((value as Record<string, unknown>)[k])}`).join(",")}}`
+  : JSON.stringify(value ?? null);
 const stripMeta = (snapshot: Record<string, unknown>) => {
   const { label: _label, href: _href, privateConversation: _private, ...rest } = snapshot;
   return rest;
@@ -123,20 +93,6 @@ export async function readPersonSummary(userId: string) {
               AND a.undone_at IS NULL AND a.reversed_at IS NULL AND a.lifted_at IS NULL) AS until
     FROM profiles p WHERE p.id = ${userId}`);
   return p ? { ...p, strikes: await activeStrikes(db, userId) } : null;
-}
-
-/** Claim, release or take over (17.4). A claim older than 2 hours without activity is released by the deadlines job. */
-export async function setClaim(caseId: string, staffId: string, mode: "claim" | "release" | "take_over") {
-  const now = new Date();
-  const updated = await db.update(moderationCases).set(mode === "release"
-    ? { assigneeId: null, claimedAt: null, state: "open", updatedAt: now }
-    : { assigneeId: staffId, claimedAt: now, state: "in_review", updatedAt: now })
-    .where(and(eq(moderationCases.id, caseId), sql`${moderationCases.state} IN ('open', 'in_review')`,
-      mode === "claim" ? sql`${moderationCases.assigneeId} IS NULL` : mode === "release" ? eq(moderationCases.assigneeId, staffId) : sql`true`))
-    .returning({ id: moderationCases.id });
-  if (!updated.length) return false;
-  await logModerationEvent(db, { caseId, actorId: staffId, kind: mode === "claim" ? "claimed" : mode === "release" ? "released" : "taken_over" });
-  return true;
 }
 
 export async function addNote(caseId: string, staffId: string, body: string) {
@@ -193,8 +149,8 @@ export async function openManualCase(staffId: string, input: { kind: ReportTarge
 /** Active tab (17.7): everything in force now. */
 export async function readActive() {
   const rows = await db.execute<{ id: string; action: string; target_kind: string; target_id: string | null; subject_id: string | null; created_at: string; ends_at: string | null;
-    case_number: number | null; what: string | null; appeal_state: string | null }>(sql`
-    SELECT a.id, a.action, a.target_kind, a.target_id, a.subject_id, a.created_at::text, a.ends_at::text, c.number::int AS case_number,
+    case_number: number | null; what: string | null; appeal_state: string | null; workspace_kind: string | null }>(sql`
+    SELECT a.id, a.action, a.target_kind, a.target_id, a.subject_id, a.created_at::text, a.ends_at::text, c.number::int AS case_number, w.kind AS workspace_kind,
            CASE WHEN a.target_kind = 'account' THEN coalesce(p.full_name, '@' || p.username) ELSE w.title END AS what, ap.state AS appeal_state
     FROM moderation_actions a LEFT JOIN moderation_cases c ON c.id = a.case_id LEFT JOIN profiles p ON p.id = a.subject_id
       LEFT JOIN workspaces w ON w.id = a.target_id AND a.target_kind = 'project' LEFT JOIN moderation_appeals ap ON ap.case_id = a.case_id
@@ -243,23 +199,27 @@ export async function readPerson(handleOrId: string) {
 }
 
 /** Audit log tab (17.11). */
-export async function readAudit(f: { kind?: string; from?: string; to?: string } = {}) {
-  const rows = await db.execute<{ id: string; created_at: string; staff: string | null; kind: string; case_number: number | null; data: Record<string, unknown> }>(sql`
-    SELECT e.id, e.created_at::text, coalesce(p.full_name, p.username) AS staff, e.kind, c.number::int AS case_number, e.data
+/** The Audit log (17.11), 50 entries a page, newest first; `before` is the last seq shown (S7, G15). */
+export async function readAudit(f: { kind?: string; from?: string; to?: string; staff?: string; before?: number } = {}) {
+  const rows = await db.execute<{ id: string; seq: number; created_at: string; staff: string | null; kind: string; case_number: number | null; data: Record<string, unknown> }>(sql`
+    SELECT e.id, e.seq::float8 AS seq, e.created_at::text, coalesce(p.full_name, p.username) AS staff, e.kind, c.number::int AS case_number, e.data
     FROM moderation_events e LEFT JOIN profiles p ON p.id = e.actor_id LEFT JOIN moderation_cases c ON c.id = e.case_id
     WHERE e.actor_id IS NOT NULL
       ${f.kind ? sql`AND e.kind = ${f.kind}` : sql``}
       ${f.from ? sql`AND e.created_at >= ${f.from}::date` : sql``} ${f.to ? sql`AND e.created_at < ${f.to}::date + 1` : sql``}
-    ORDER BY e.created_at DESC LIMIT 300`);
-  return [...rows];
+      ${f.staff ? sql`AND e.actor_id = ${f.staff}` : sql``} ${f.before ? sql`AND e.seq < ${f.before}` : sql``}
+    ORDER BY e.seq DESC LIMIT 51`);
+  const list = [...rows].map((r) => ({ ...r, seq: Number(r.seq) }));
+  return { rows: list.slice(0, 50), before: list.length > 50 ? list[49]!.seq : null };
 }
 
 /** Verification tab (17.9). */
-export async function readVerification() {
+export async function readVerification(orgId?: string) {
   const rows = await db.execute<{ id: string; title: string; slug: string | null; links: unknown; requested_at: string; owner_email: string | null }>(sql`
     SELECT w.id, w.title, w.slug, w.external_links AS links, w.verification_requested_at::text AS requested_at, p.email AS owner_email
     FROM workspaces w LEFT JOIN profiles p ON p.id = w.owner_id
     WHERE w.kind = 'organization' AND w.verification_requested_at IS NOT NULL AND w.verified_at IS NULL AND w.deleted_at IS NULL
+      ${orgId ? sql`AND w.id = ${orgId}` : sql``}
     ORDER BY w.verification_requested_at`);
   return [...rows];
 }
@@ -285,7 +245,7 @@ export async function readOrgCases(orgId: string, viewerId: string) {
 export async function readHealth(days: number) {
   const since = sql`now() - make_interval(days => ${days})`;
   const [m] = await db.execute<{ new_cases: number; decided: number; urgent_h: number | null; high_h: number | null; normal_h: number | null; actioned: number; appealed: number;
-    appeals_decided: number; reversed: number; pile_ons: number; repeat_offenders: number }>(sql`
+    appeals_decided: number; reversed: number; pile_ons: number; repeat_offenders: number; stale_refused: number }>(sql`
     SELECT (SELECT count(*)::int FROM moderation_cases WHERE created_at > ${since}) AS new_cases,
            (SELECT count(*)::int FROM moderation_cases WHERE decided_at > ${since}) AS decided,
            ${median("urgent", since)} AS urgent_h, ${median("high", since)} AS high_h, ${median("normal", since)} AS normal_h,
@@ -294,6 +254,7 @@ export async function readHealth(days: number) {
            (SELECT count(*)::int FROM moderation_appeals WHERE decided_at > ${since} AND state IN ('upheld', 'reduced', 'reversed')) AS appeals_decided,
            (SELECT count(*)::int FROM moderation_appeals WHERE decided_at > ${since} AND state = 'reversed') AS reversed,
            (SELECT count(*)::int FROM moderation_cases WHERE created_at > ${since} AND pile_on) AS pile_ons,
+           (SELECT count(*)::int FROM moderation_events WHERE kind = 'stale_refused' AND created_at > ${since}) AS stale_refused,
            (SELECT count(*)::int FROM (SELECT subject_id FROM moderation_actions WHERE strike AND strike_expires_at > now() AND undone_at IS NULL AND reversed_at IS NULL
               GROUP BY subject_id HAVING count(DISTINCT case_id) >= 3) s) AS repeat_offenders`);
   const perDay = await db.execute<{ day: string; urgent: number; high: number; normal: number }>(sql`
@@ -313,7 +274,7 @@ export async function readHealth(days: number) {
     GROUP BY p.id HAVING count(*) >= 5 AND count(*) FILTER (WHERE r.status = 'actioned') * 10 < count(*) * 3 ORDER BY decided DESC LIMIT 10`);
   const pct = (a: number, b: number) => (b ? Math.round((a / b) * 100) : null);
   return {
-    newCases: m?.new_cases ?? 0, decided: m?.decided ?? 0, pileOns: m?.pile_ons ?? 0, repeatOffenders: m?.repeat_offenders ?? 0,
+    newCases: m?.new_cases ?? 0, decided: m?.decided ?? 0, pileOns: m?.pile_ons ?? 0, repeatOffenders: m?.repeat_offenders ?? 0, staleRefused: m?.stale_refused ?? 0,
     medianHours: { urgent: m?.urgent_h ?? null, high: m?.high_h ?? null, normal: m?.normal_h ?? null },
     appealRate: pct(m?.appealed ?? 0, m?.actioned ?? 0), reversalRate: pct(m?.reversed ?? 0, m?.appeals_decided ?? 0),
     perDay: [...perDay], actions: [...actions], reasons: [...reasons], places: [...places], reporters: [...reporters],

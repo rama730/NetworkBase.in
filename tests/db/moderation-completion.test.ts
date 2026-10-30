@@ -86,7 +86,7 @@ test("a suspension takes the profile out of search and gives it back when it end
   const [c] = await sql`SELECT id FROM moderation_cases WHERE target_id = ${t.postId}`;
   await sql`UPDATE moderation_cases SET state = 'open', outcome = NULL WHERE id = ${c!.id}`;
   const mod = await sql.begin((tx) => createUser(tx));
-  assert.equal((await decide.decideCase(c!.id, staff(mod), { outcome: "actioned", account: { action: "suspension", days: 14 }, rule: 4 })).ok, true);
+  assert.equal((await decide.decideCase(c!.id, staff(mod), { outcome: "actioned", account: { action: "suspension", days: 14 }, rule: 4, note: "Past the suggested step on purpose" })).ok, true);
   assert.equal((await sql`SELECT visibility FROM profiles WHERE id = ${t.author}`)[0]!.visibility, "private");
   await sql`UPDATE moderation_actions SET ends_at = now() - interval '1 minute' WHERE case_id = ${c!.id} AND action = 'suspension'`;
   await jobs.runTrustRestrictions();

@@ -1,9 +1,8 @@
 import Link from 'next/link'
 
-import { StaffList } from '@/components/trust/StaffList'
+import { LiveHealth } from '@/components/trust/LiveHealth'
 import type { readHealth } from '@/lib/trust/console'
 import { ACTION_LABEL, REPORT_REASON_LABEL, type ModerationActionKind } from '@/lib/trust/rules'
-import type { StaffRole } from '@/lib/trust/staff'
 
 type Health = Awaited<ReturnType<typeof readHealth>>
 const dash = (value: number | null | undefined, suffix = '') => (value === null || value === undefined ? '—' : `${value}${suffix}`)
@@ -25,14 +24,14 @@ function Panel({ title, children }: { title: string; children: React.ReactNode }
 const TH = 'nb-micro py-1.5 text-left font-medium'
 const TD = 'py-1.5 text-[13px]'
 
-/** Health tab (17.10): quiet numbers, "—" when there's no data, every chart with its table. */
-export function HealthTab({ h, days, counts, staff, role }: { h: Health; days: number; counts: { open: number; urgent: number; overdue: number; appeals: number }; staff: Array<{ id: string; role: StaffRole; name: string | null; email: string | null }>; role: StaffRole }) {
+/** Insights → Health (17.10, S14): quiet numbers, "—" when there's no data, every chart with its table, and live health. */
+export function HealthTab({ h, days, counts }: { h: Health; days: number; counts: { open: number; urgent: number; overdue: number; appeals: number } }) {
     const max = Math.max(1, ...h.perDay.map((d) => d.urgent + d.high + d.normal))
     return (
         <div className="mt-4 space-y-4">
             <div role="radiogroup" aria-label="Range" className="flex gap-1">
                 {[7, 30, 90].map((d) => (
-                    <Link key={d} role="radio" aria-checked={d === days} href={`/admin/trust?tab=health&days=${d}`}
+                    <Link key={d} role="radio" aria-checked={d === days} href={`/admin/trust?tab=insights&days=${d}`}
                         className={`rounded-[4px] border px-2 py-0.5 text-[12px] font-medium ${d === days ? 'border-foreground bg-foreground text-background' : 'border-border text-muted-foreground'}`}>{d} days</Link>
                 ))}
             </div>
@@ -48,7 +47,7 @@ export function HealthTab({ h, days, counts, staff, role }: { h: Health; days: n
                 <Panel title="New cases per day">
                     {h.perDay.length ? (
                         <>
-                            <div aria-hidden="true" className="flex h-28 items-end gap-1">
+                            <div aria-hidden="true" className="flex h-28 gap-1">
                                 {h.perDay.map((d) => (
                                     <div key={d.day} className="flex flex-1 flex-col justify-end" title={`${d.day}: ${d.urgent} urgent, ${d.high} high, ${d.normal} normal`}>
                                         <div style={{ height: `${(d.normal / max) * 100}%` }} className="bg-muted-foreground/40" />
@@ -76,8 +75,8 @@ export function HealthTab({ h, days, counts, staff, role }: { h: Health; days: n
                 <Panel title="Reporters with low accuracy (90 days)">
                     {h.reporters.length ? <table className="w-full"><tbody>{h.reporters.map((r) => <tr key={r.id}><td className={TD}><Link className="underline underline-offset-4" href={`/admin/trust/people/${r.username ? `@${r.username}` : r.id}`}>{r.name ?? `@${r.username}`}</Link></td><td className={`${TD} text-right font-mono`}>{r.actioned} of {r.decided}</td></tr>)}</tbody></table> : <p className="text-[13px] text-muted-foreground">—</p>}
                 </Panel>
-                <Panel title={`Staff (${staff.length})`}>
-                    <StaffList staff={staff} canEdit={role === 'admin'} />
+                <Panel title="Live health">
+                    <LiveHealth staleRefused={h.staleRefused} days={days} />
                 </Panel>
             </div>
             <p className="nb-meta">
