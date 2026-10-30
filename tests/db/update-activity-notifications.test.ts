@@ -154,3 +154,22 @@ test("a post with a narrow audience tells admins only; your own like tells nobod
   await like(p.fan, p.ws, p.id);
   assert.equal((await tray(p.mate)).length, 0);
 });
+
+test("a card's preview: who liked it and the two newest comments, leaving out private and muted people", async () => {
+  const p = await post();
+  const { readUpdatePreviews } = await loadAppModule(() => import("../../src/lib/workspaces/update-previews"));
+  await sql`UPDATE profiles SET full_name = 'Fan One', visibility = 'public' WHERE id = ${p.fan}`;
+  await sql`UPDATE profiles SET full_name = 'Fan Two', visibility = 'private' WHERE id = ${p.fan2}`;
+  await like(p.fan, p.ws, p.id);
+  await like(p.fan2, p.ws, p.id);
+  await comment(p.fan, p.ws, p.id);
+  await comment(p.fan2, p.ws, p.id);
+  await comment(p.mate, p.ws, p.id);
+  await sql`INSERT INTO user_mutes (muter_id, muted_id) VALUES (${p.owner}, ${p.mate})`;
+  const [seen] = [(await readUpdatePreviews([p.id], p.owner)).get(p.id)!];
+  assert.equal(seen.likedByName, "Fan One", "the newest liker they may see, not the private one");
+  assert.deepEqual(seen.comments.map((c: { authorName: string }) => c.authorName), ["Private member", "Fan One"]);
+  assert.equal(seen.comments[0]!.authorUsername, null);
+  const signedOut = (await readUpdatePreviews([p.id], null)).get(p.id)!;
+  assert.equal(signedOut.comments.length, 2);
+});

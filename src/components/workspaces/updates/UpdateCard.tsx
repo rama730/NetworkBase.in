@@ -21,6 +21,7 @@ import {
     Trash2,
 } from "lucide-react";
 import { toast, feedbackError } from "@/lib/feedback";
+import { CommentPreview, LikedByLine, ShareUpdateButton } from "@/components/workspaces/updates/UpdatePostParts";
 import { useToggleUpdateLike } from "@/hooks/useToggleUpdateLike";
 import { deleteWorkspaceUpdateAction, editWorkspaceUpdateAction, toggleWorkspaceUpdatePinAction, type WorkspaceUpdateView } from "@/app/actions/workspace/updates";
 import { Button } from "@/components/ui/button";
@@ -264,7 +265,7 @@ function UpdateCard({
                 {update.sharedToOrgTitle ? (
                   <span className="rounded-[3px] border border-border px-1 text-[11px] text-muted-foreground">Shared to {update.sharedToOrgTitle}</span>
                 ) : null}
-                {(update.audience.roles?.length || update.audience.projectIds?.length) ? (
+                {update.visibility === "members" || update.audience.roles?.length || update.audience.projectIds?.length ? (
                   <span className="text-[11px] text-muted-foreground">· Members only</span>
                 ) : null}
                 {isNew ? (
@@ -391,6 +392,13 @@ function UpdateCard({
           ) : null}
 
           {!isDeleted && !isPending ? (
+            <>
+              <LikedByLine likeCount={update.likeCount} likedByViewer={update.likedByViewer} likedByName={update.preview?.likedByName} onOpen={() => setIsLikersOpen(true)} />
+              <CommentPreview preview={update.preview} commentCount={update.commentCount} onOpen={() => onOpenDetail(update.id)} />
+            </>
+          ) : null}
+
+          {!isDeleted && !isPending ? (
             <div className="mt-2.5 flex items-center gap-2 font-mono text-xs text-muted-foreground">
               <div className={cn(
                 "nb-touch-target inline-flex items-center gap-1.5 rounded-[5px] px-2 py-1 text-xs transition-colors hover:bg-muted hover:text-foreground",
@@ -453,6 +461,7 @@ function UpdateCard({
                 <MessageCircle className="h-3.5 w-3.5" />
                 <span className="tabular-nums">{update.commentCount}</span>
               </button>
+              <ShareUpdateButton path={update.visibility === "public" ? `/discover?updateId=${update.id}` : href} />
             </div>
           ) : null}
         </div>

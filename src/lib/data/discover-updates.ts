@@ -12,6 +12,7 @@ import {
     resolveWorkspaceUpdateAuthorRoleDisplay,
 } from "@/lib/workspaces/updates";
 import { containsLikePattern } from "@/lib/search/query";
+import { readUpdatePreviews } from "@/lib/workspaces/update-previews";
 import { FILTER_VIEWS, type FilterView } from "@/constants/discover";
 import type { DiscoverFilters, DiscoverUpdateView, DiscoverUpdatesPage } from "@/types/discover";
 
@@ -116,6 +117,9 @@ function selectUpdateRows(viewerId: string | null) {
             authorAvatarUrl: profiles.avatarUrl,
             authorMembershipRole: workspaceMembers.role,
             authorReadable: sql<boolean>`coalesce(${readableProfileIdentitySql(viewerId)}, false)`,
+            viewerFollows: viewerId
+                ? sql<boolean>`EXISTS (SELECT 1 FROM workspace_follows viewer_follow WHERE viewer_follow.workspace_id = ${workspaces.id} AND viewer_follow.user_id = ${viewerId})`
+                : sql<boolean>`false`,
             viewerIsTeam: viewerId
                 ? sql<boolean>`(${workspaces.ownerId} = ${viewerId} OR EXISTS (SELECT 1 FROM workspace_members viewer_member WHERE viewer_member.workspace_id = ${workspaces.id} AND viewer_member.user_id = ${viewerId}))`
                 : sql<boolean>`false`,
@@ -133,7 +137,7 @@ type Row = Awaited<ReturnType<typeof selectUpdateRows>>[number];
 
 async function hydrate(rows: Row[], viewerId: string | null): Promise<DiscoverUpdateView[]> {
     if (rows.length === 0) return [];
-    const [likedRows, roleTitles] = await Promise.all([
+    const [likedRows, roleTitles, previews] = await Promise.all([
         viewerId
             ? db
                 .select({ updateId: workspaceUpdateLikes.updateId })
@@ -142,6 +146,7 @@ async function hydrate(rows: Row[], viewerId: string | null): Promise<DiscoverUp
             : Promise.resolve([] as Array<{ updateId: string }>),
         // A masked author's role is not looked up at all.
         readWorkspaceRoleTitles(rows.filter((row) => row.authorReadable).map((row) => ({ projectId: row.projectId, userId: row.authorId }))),
+        readUpdatePreviews(rows.map((row) => row.id), viewerId),
     ]);
     const liked = new Set(likedRows.map((row) => row.updateId));
 
@@ -191,6 +196,9 @@ async function hydrate(rows: Row[], viewerId: string | null): Promise<DiscoverUp
             likeCount: Math.max(0, row.likeCount ?? 0),
             commentCount: Math.max(0, row.commentCount ?? 0),
             likedByViewer: liked.has(row.id),
+            preview: previews.get(row.id),
+            viewerFollowsProject: Boolean(row.viewerFollows),
+            viewerIsTeam: Boolean(row.viewerIsTeam),
             replyPolicy: row.replyPolicy === "members" ? "members" : "logged_in",
             // The server re-checks every write; this only decides what the panel offers.
             canComment: Boolean(viewerId) && (row.replyPolicy !== "members" || row.viewerIsTeam),

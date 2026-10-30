@@ -929,6 +929,9 @@ export function WorkspaceUpdateComposer({
                                 {visibility === "public" ? <Globe2 className="h-3.5 w-3.5 text-muted-foreground" /> : <Users className="h-3.5 w-3.5 text-muted-foreground" />}
                                 {visibility === "public" ? "Public" : "Workspace members"}
                             </button>
+                            <span className="text-xs text-muted-foreground">
+                                {visibility === "public" ? "Everyone on NetworkBase can see this, including on Discover." : "Only this workspace’s members can see this."}
+                            </span>
                         </div>
                         <div className="rounded-[8px] border border-border bg-card p-3 transition focus-within:border-foreground/30">
                             <WorkspaceUpdateRichTextEditor

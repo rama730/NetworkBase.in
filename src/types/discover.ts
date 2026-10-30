@@ -1,3 +1,4 @@
+import type { UpdatePreview } from "@/lib/workspaces/update-previews";
 import type { WorkspaceUpdateType } from "@/lib/workspaces/updates";
 // Hub Types - Adapted to work with existing Drizzle schema
 import type { SocialLinkStorage } from "@/lib/profile/normalization";
@@ -186,6 +187,9 @@ export interface DiscoverUpdateView {
   likeCount: number;
   commentCount: number;
   likedByViewer: boolean;
+  preview?: UpdatePreview;
+  viewerFollowsProject: boolean;
+  viewerIsTeam: boolean;
   replyPolicy: "logged_in" | "members";
   canComment: boolean;
   canEdit: boolean;

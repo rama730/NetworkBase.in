@@ -38,6 +38,7 @@ export function toWorkspaceUpdateView(update: DiscoverUpdateView): WorkspaceUpda
         likeCount: update.likeCount,
         commentCount: update.commentCount,
         likedByViewer: update.likedByViewer,
+        preview: update.preview,
         canEdit: update.canEdit,
         canDelete: update.canDelete,
         canPin: false,
