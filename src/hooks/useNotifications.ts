@@ -53,59 +53,9 @@ const DEFAULT_LIMIT = 20;
 // optimistically while only its first 50 rows are persisted.
 const QUALIFIED_VIEW_BATCH_SIZE = 50;
 const TOAST_BATCH_MS = 1_200;
+const NOTIFICATION_RESYNC_MS = 300;
 const IDLE_THRESHOLD_MS = 5 * 60 * 1000;
 const IDLE_FLUSH_DEBOUNCE_MS = 400;
-
-function normalizeRealtimeNotificationRow(value: unknown): NotificationItem | null {
-    if (!value || typeof value !== "object") return null;
-    const row = value as Record<string, unknown>;
-    const id = typeof row.id === "string" ? row.id : null;
-    const userId = typeof row.user_id === "string" ? row.user_id : null;
-    const kind = typeof row.kind === "string" ? row.kind : null;
-    const importance = typeof row.importance === "string" ? row.importance : "more";
-    const title = typeof row.title === "string" ? row.title : null;
-    const dedupeKey = typeof row.dedupe_key === "string" ? row.dedupe_key : null;
-    const createdAt = typeof row.created_at === "string" ? row.created_at : null;
-    const updatedAt = typeof row.updated_at === "string" ? row.updated_at : createdAt;
-    const activityAt = typeof row.activity_at === "string" ? row.activity_at : updatedAt;
-    if (!id || !userId || !kind || !title || !dedupeKey || !createdAt || !updatedAt || !activityAt) {
-        return null;
-    }
-    const entityRefs = row.entity_refs && typeof row.entity_refs === "object" ? row.entity_refs as NotificationItem["entityRefs"] : null;
-
-    return {
-        id,
-        userId,
-        actorUserId: typeof row.actor_user_id === "string" ? row.actor_user_id : null,
-        kind: kind as NotificationItem["kind"],
-        importance: importance as NotificationItem["importance"],
-        title,
-        body: typeof row.body === "string" ? row.body : null,
-        href: typeof row.href === "string" ? row.href : null,
-        entityRefs,
-        preview: row.preview && typeof row.preview === "object" ? row.preview as NotificationItem["preview"] : null,
-        reason: getNotificationReason(kind as NotificationItem["kind"], entityRefs),
-        dedupeKey,
-        aggregateCount: typeof row.aggregate_count === "number" ? row.aggregate_count : 1,
-        readAt: typeof row.read_at === "string" ? row.read_at : null,
-        seenAt: typeof row.seen_at === "string" ? row.seen_at : null,
-        dismissedAt: typeof row.dismissed_at === "string" ? row.dismissed_at : null,
-        createdAt,
-        activityAt,
-        updatedAt,
-        snoozedUntil: typeof row.snoozed_until === "string" ? row.snoozed_until : null,
-    };
-}
-
-function isActivelySnoozed(item: NotificationItem | null): boolean {
-    if (!item?.snoozedUntil) return false;
-    const until = new Date(item.snoozedUntil);
-    return !Number.isNaN(until.getTime()) && until.getTime() > Date.now();
-}
-
-function isUnreadVisible(item: NotificationItem | null) {
-    return Boolean(item && !item.seenAt && !item.dismissedAt);
-}
 
 type UnreadCounts = { total: number; important: number };
 
@@ -370,73 +320,68 @@ export function useNotifications(limit: number = DEFAULT_LIMIT) {
     // states. Only a terminal channel status should be presented as a failure.
     const isRealtimeHealthy = notificationStatus !== 'disconnected';
 
+    // Events say only that a row changed. Re-read the feed once per burst: it applies the snooze and
+    // block rules, and its first page brings the new items and the exact unread counts together.
     useEffect(() => {
         if (!user?.id || !isAuthenticated) return;
-        return subscribeUserNotifications((event) => {
-                if (event.kind !== "notification") return;
-                const newItem = normalizeRealtimeNotificationRow(event.payload.eventType === "DELETE" ? null : event.payload.new);
-                const oldItem = normalizeRealtimeNotificationRow(event.payload.old);
-                if (event.payload.eventType === "DELETE") {
-                    if (oldItem) {
-                        patchNotificationCache((existing) => removeNotificationFromInfiniteData(existing, oldItem.id));
-                        if (isUnreadVisible(oldItem)) {
-                            adjustUnreadCounts({
-                                total: -1,
-                                important: oldItem.importance === "important" ? -1 : 0,
+        const freshIds = new Set<string>();
+        let timer: ReturnType<typeof setTimeout> | null = null;
+        const resync = async () => {
+            timer = null;
+            const fresh = new Set(freshIds);
+            freshIds.clear();
+            if (fresh.size === 0) {
+                void queryClient.invalidateQueries({ queryKey: unreadCountQueryKey });
+                void queryClient.invalidateQueries({ queryKey: notificationsQueryKey });
+                return;
+            }
+            const result = await readNotificationsAction(20);
+            if (!result.success || !result.page) return;
+            const { items, unreadCount, unreadImportantCount } = result.page;
+            queryClient.setQueryData<UnreadCounts>(unreadCountQueryKey, { total: unreadCount, important: unreadImportantCount });
+            for (const item of items) {
+                if (!fresh.has(item.id)) continue;
+                patchNotificationCache((existing) => upsertNotificationInInfiniteData(existing, item));
+                if (item.seenAt) continue;
+                queueImportantToastRef.current(item);
+                if (browserDeliveryEnabledRef.current) {
+                    showBrowserNotification({
+                        item,
+                        enabled: true,
+                        tabVisible: typeof document === "undefined" ? true : document.visibilityState === "visible",
+                        onClickHref: (href) => {
+                            void markNotificationReadAction(item.id).finally(() => {
+                                try {
+                                    router.push(href);
+                                } catch {
+                                    // router not ready — skip
+                                }
                             });
-                        }
-                    }
-                    return;
+                        },
+                    });
                 }
-                if (!newItem) return;
-
-                if (isActivelySnoozed(newItem)) {
-                    patchNotificationCache((existing) => removeNotificationFromInfiniteData(existing, newItem.id));
-                    if (isUnreadVisible(oldItem) && !isActivelySnoozed(oldItem)) {
-                        adjustUnreadCounts({
-                            total: -1,
-                            important: oldItem?.importance === "important" ? -1 : 0,
-                        });
-                    }
-                    return;
-                }
-
-                patchNotificationCache((existing) => upsertNotificationInInfiniteData(existing, newItem));
-                const newVisible = isUnreadVisible(newItem);
-                const oldVisible = isUnreadVisible(oldItem) && !isActivelySnoozed(oldItem);
-                const delta = Number(newVisible) - Number(oldVisible);
-                if (delta !== 0) {
-                    const newImportant = newVisible && newItem.importance === "important" ? 1 : 0;
-                    const oldImportant = oldVisible && oldItem?.importance === "important" ? 1 : 0;
-                    adjustUnreadCounts({ total: delta, important: newImportant - oldImportant });
-                }
-                const isFreshInsert = event.payload.eventType === "INSERT" || (event.payload.eventType === "UPDATE" && !oldItem?.activityAt);
-                const isNewActivity = event.payload.eventType === "UPDATE" && oldItem?.activityAt !== newItem.activityAt && !newItem.seenAt;
-                if (isFreshInsert || isNewActivity) {
-                    queueImportantToastRef.current(newItem);
-                    if (browserDeliveryEnabledRef.current) {
-                        showBrowserNotification({
-                            item: newItem,
-                            enabled: true,
-                            tabVisible: typeof document === "undefined" ? true : document.visibilityState === "visible",
-                            onClickHref: (href) => {
-                                void markNotificationReadAction(newItem.id).finally(() => {
-                                    try {
-                                        router.push(href);
-                                    } catch {
-                                        // router not ready — skip
-                                    }
-                                });
-                            },
-                        });
-                    }
-                }
-                if (isTrayOpenRef.current) {
-                    // Re-fetch once so the feed can resolve the actor profile rather
-                    // than relying on an incomplete realtime preview snapshot.
-                    void queryClient.invalidateQueries({ queryKey: notificationsQueryKey });
-                }
-            });
+            }
+            if (isTrayOpenRef.current) {
+                // Re-fetch once so the feed can resolve the actor profile rather
+                // than relying on an incomplete realtime preview snapshot.
+                void queryClient.invalidateQueries({ queryKey: notificationsQueryKey });
+            }
+        };
+        const unsubscribe = subscribeUserNotifications((event) => {
+            if (event.kind !== "notification") return;
+            const { eventType, new: next, old: previous } = event.payload;
+            if (eventType === "DELETE" && typeof previous?.id === "string") {
+                const removedId = previous.id;
+                patchNotificationCache((existing) => removeNotificationFromInfiniteData(existing, removedId));
+            }
+            const hasNewActivity = eventType === "INSERT" || (eventType === "UPDATE" && next?.activity_at !== previous?.activity_at);
+            if (hasNewActivity && typeof next?.id === "string") freshIds.add(next.id);
+            timer ??= setTimeout(() => void resync(), NOTIFICATION_RESYNC_MS);
+        });
+        return () => {
+            unsubscribe();
+            if (timer) clearTimeout(timer);
+        };
     }, [
         isAuthenticated,
         adjustUnreadCounts,

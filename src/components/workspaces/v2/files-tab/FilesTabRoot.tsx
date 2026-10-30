@@ -15,8 +15,8 @@ import React, {
 } from "react";
 
 import { useFilesStore } from "@/stores/filesStore";
-import { createClient } from "@/lib/supabase/client";
-import { subscribeWorkspaceFilesChannel } from "@/lib/realtime/workspace-files-channel";
+import { subscribeBroadcast } from "@/lib/realtime/private-broadcast";
+import { liveTopics } from "@/lib/realtime/subscriptions";
 import { getNodeMetadataBatch } from "@/app/actions/files/nodes";
 
 import { useExplorerBoot } from "../explorer/useExplorerBoot";
@@ -505,7 +505,6 @@ export function FilesTabRoot(props: FilesTabRootProps): React.JSX.Element {
 
   useEffect(() => {
     if (!isActive) return;
-    const supabase = createClient();
     let reconcileTimer: number | null = null;
     let disposed = false;
 
@@ -528,13 +527,10 @@ export function FilesTabRoot(props: FilesTabRootProps): React.JSX.Element {
       });
     };
 
-    const channel = subscribeWorkspaceFilesChannel(supabase, {
-      projectId,
-      scope: "files-root",
-      onFileLeaseChange: reconcileLocks,
-      onStatus: (status) => {
-        if (status === "SUBSCRIBED") reconcileLocks();
-      },
+    const live = subscribeBroadcast(liveTopics.files(projectId), (event) => {
+      if (event === "lock.changed") reconcileLocks();
+    }, (status) => {
+      if (status === "connected") reconcileLocks();
     });
     const onVisibilityChange = () => {
       if (document.visibilityState === "visible") reconcileVisibleFolder();
@@ -588,7 +584,7 @@ export function FilesTabRoot(props: FilesTabRootProps): React.JSX.Element {
       window.removeEventListener("project:task-files-changed", onFilesChanged);
       window.removeEventListener("online", reconcileVisibleFolder);
       document.removeEventListener("visibilitychange", onVisibilityChange);
-      void supabase.removeChannel(channel);
+      live.unsubscribe();
     };
   }, [
     projectId,

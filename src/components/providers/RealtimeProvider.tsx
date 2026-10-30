@@ -1,12 +1,9 @@
 'use client';
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { REALTIME_SUBSCRIBE_STATES } from '@supabase/supabase-js';
-import { createClient } from '@/lib/supabase/client';
 import { useAuthContext } from '@/components/providers/AuthProvider';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import {
-    isRealtimeTerminalStatus,
     subscribeUserNotifications,
     type UserNotificationEvent,
 } from '@/lib/realtime/subscriptions';
@@ -30,20 +27,8 @@ const RealtimeContext = createContext<RealtimeContextType>({
     subscribeUserNotifications: () => () => { },
 });
 
-import { normalizeProfileRecord } from '@/lib/profile/browser-profile';
-
-function hasProfileDetailsChanged(next: Record<string, unknown>, currentProfile: any | null) {
-    if (!currentProfile) return true;
-    const normalized = normalizeProfileRecord(next);
-    if (!normalized) return false;
-    if (normalized.username !== undefined && normalized.username !== currentProfile.username) return true;
-    if (normalized.fullName !== undefined && normalized.fullName !== currentProfile.fullName) return true;
-    if (normalized.avatarUrl !== undefined && normalized.avatarUrl !== currentProfile.avatarUrl) return true;
-    return false;
-}
-
 export function RealtimeProvider({ children }: { children: React.ReactNode }) {
-    const { user, session, isLoading, refreshProfile, profile } = useAuthContext();
+    const { user, session, isLoading, refreshProfile } = useAuthContext();
     const isOnline = useOnlineStatus();
     const [notificationStatus, setNotificationStatus] = useState<RealtimeConnectionStatus>('idle');
     const [reconnectNonce, setReconnectNonce] = useState(0);
@@ -53,21 +38,15 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
     const healthTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const wasOnlineRef = useRef(isOnline);
 
-    const profileRef = useRef(profile);
     const refreshProfileRef = useRef(refreshProfile);
 
     useEffect(() => {
-        profileRef.current = profile;
         refreshProfileRef.current = refreshProfile;
-    }, [profile, refreshProfile]);
+    }, [refreshProfile]);
 
     const handleUserNotification = useCallback((event: UserNotificationEvent) => {
-        if (event.kind === 'profile') {
-            const next = (event.payload.new ?? {}) as Record<string, unknown>;
-            if (hasProfileDetailsChanged(next, profileRef.current)) {
-                void refreshProfileRef.current();
-            }
-        }
+        // The database only announces a change to the name, handle or picture.
+        if (event.kind === 'profile') void refreshProfileRef.current();
 
         for (const listener of listenersRef.current) {
             try {
@@ -156,54 +135,22 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
             return;
         }
 
-        const supabase = createClient();
-        const userId = user.id;
         const connectionToken = connectionTokenRef.current + 1;
         connectionTokenRef.current = connectionToken;
         setNotificationStatus('connecting');
-        let cancelled = false;
-        let channel: ReturnType<typeof subscribeUserNotifications> | null = null;
-
-        const connect = async () => {
-            if (cancelled || connectionTokenRef.current !== connectionToken) return;
-
-            await supabase.realtime.setAuth(session.access_token);
-            if (cancelled || connectionTokenRef.current !== connectionToken) {
-                return;
-            }
-
-            channel = subscribeUserNotifications({
-                supabase,
-                userId,
-                onEvent: handleUserNotification,
-                onStatus: (status: REALTIME_SUBSCRIBE_STATES) => {
-                    if (connectionTokenRef.current !== connectionToken) return;
-
-                    if (status === REALTIME_SUBSCRIBE_STATES.SUBSCRIBED) {
-                        setNotificationStatus('connected');
-                        return;
-                    }
-
-                    if (isRealtimeTerminalStatus(status)) {
-                        setNotificationStatus('disconnected');
-                    }
-                },
-            });
-        };
-
-        void connect().catch((error) => {
-            console.error('[realtime] failed to initialize authenticated notifications', error);
-            if (connectionTokenRef.current === connectionToken) {
-                setNotificationStatus('disconnected');
-            }
+        const subscription = subscribeUserNotifications({
+            userId: user.id,
+            onEvent: handleUserNotification,
+            onStatus: (status) => {
+                if (connectionTokenRef.current !== connectionToken) return;
+                if (status === 'connected') setNotificationStatus('connected');
+                else if (status !== 'connecting') setNotificationStatus('disconnected');
+            },
         });
 
         return () => {
-            cancelled = true;
             connectionTokenRef.current += 1;
-            if (channel) {
-                void supabase.removeChannel(channel);
-            }
+            subscription.unsubscribe();
         };
     }, [handleUserNotification, isLoading, reconnectNonce, session?.access_token, user?.id]);
 

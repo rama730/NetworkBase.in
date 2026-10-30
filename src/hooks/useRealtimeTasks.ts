@@ -1,14 +1,16 @@
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 
-import { subscribeActiveResource } from "@/lib/realtime/subscriptions";
-import { createClient } from "@/lib/supabase/client";
+import { useAuth } from "@/hooks/use-auth";
+import { subscribeBroadcast } from "@/lib/realtime/private-broadcast";
+import { liveTopics } from "@/lib/realtime/subscriptions";
 import { queryKeys } from "@/lib/query-keys";
 
 export function useRealtimeTasks(projectId: string, deferredTaskId: string | null = null) {
-  const supabase = useMemo(() => createClient(), []);
+  const { user } = useAuth();
+  const userId = user?.id;
   const queryClient = useQueryClient();
   const reconcileTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const deferredTaskRef = useRef<string | null>(deferredTaskId);
@@ -27,7 +29,7 @@ export function useRealtimeTasks(projectId: string, deferredTaskId: string | nul
   }, [deferredTaskId, projectId, queryClient]);
 
   useEffect(() => {
-    if (!projectId) return;
+    if (!projectId || !userId) return;
 
     const scheduleReconcile = () => {
       if (reconcileTimerRef.current) return;
@@ -40,81 +42,40 @@ export function useRealtimeTasks(projectId: string, deferredTaskId: string | nul
       }, 250);
     };
 
-    const channel = subscribeActiveResource({
-      supabase,
-      resourceType: "workspace",
-      resourceId: `project-tasks:${projectId}`,
-      bindings: [
-        {
-          event: "*",
-          table: "tasks",
-          filter: `workspace_id=eq.${projectId}`,
-          handler: (payload) => {
-            // While a drag or its move is in flight, any refetch would replace the board under the
-            // pointer with pre-move data; hold every reconcile until the move settles.
-            if (deferredTaskRef.current) {
-              deferredTaskChangedRef.current = true;
-              return;
-            }
+    const live = subscribeBroadcast(liveTopics.tasks(projectId), (event, payload) => {
+      if (event !== "task.changed") return;
+      // While a drag or its move is in flight, any refetch would replace the board under the
+      // pointer with pre-move data; hold every reconcile until the move settles.
+      if (deferredTaskRef.current) {
+        deferredTaskChangedRef.current = true;
+        return;
+      }
 
-            if (payload.eventType === "UPDATE" && payload.new) {
-              const updated = payload.new as any;
-              queryClient.setQueriesData(
-                { queryKey: queryKeys.project.detail.tasksRoot(projectId) },
-                (oldData: any) => {
-                  if (!oldData || !oldData.pages) return oldData;
-                  return {
-                    ...oldData,
-                    pages: oldData.pages.map((page: any) => ({
-                      ...page,
-                      tasks: page.tasks?.map((t: any) =>
-                        t.id === updated.id
-                          ? {
-                              ...t,
-                              ...updated,
-                              taskNumber: typeof updated.task_number === "number" ? updated.task_number : t.taskNumber,
-                              columnId: updated.column_id ?? t.columnId,
-                              assigneeId: updated.assignee_id ?? t.assigneeId,
-                              dueDate: updated.due_date ?? t.dueDate,
-                              storyPoints: updated.story_points ?? t.storyPoints,
-                            }
-                          : t
-                      ),
-                    })),
-                  };
-                }
-              );
-              return;
-            }
+      if (payload.op === "DELETE") {
+        queryClient.setQueriesData(
+          { queryKey: queryKeys.project.detail.tasksRoot(projectId) },
+          (oldData: any) => {
+            if (!oldData || !oldData.pages) return oldData;
+            return {
+              ...oldData,
+              pages: oldData.pages.map((page: any) => ({
+                ...page,
+                tasks: page.tasks?.filter((t: any) => t.id !== payload.id),
+              })),
+            };
+          }
+        );
+        return;
+      }
 
-            if (payload.eventType === "DELETE" && payload.old) {
-              const deletedId = (payload.old as any).id;
-              queryClient.setQueriesData(
-                { queryKey: queryKeys.project.detail.tasksRoot(projectId) },
-                (oldData: any) => {
-                  if (!oldData || !oldData.pages) return oldData;
-                  return {
-                    ...oldData,
-                    pages: oldData.pages.map((page: any) => ({
-                      ...page,
-                      tasks: page.tasks?.filter((t: any) => t.id !== deletedId),
-                    })),
-                  };
-                }
-              );
-              return;
-            }
-
-            scheduleReconcile();
-          },
-        },
-      ],
+      // Events carry ids only: the board re-reads what this viewer may see.
+      scheduleReconcile();
     });
 
     return () => {
       if (reconcileTimerRef.current) clearTimeout(reconcileTimerRef.current);
       reconcileTimerRef.current = null;
-      supabase.removeChannel(channel);
+      live.unsubscribe();
     };
-  }, [projectId, queryClient, supabase]);
+  }, [projectId, queryClient, userId]);
 }

@@ -22,7 +22,7 @@ import { resolveWorkspaceInvitationAction } from '@/app/actions/workspace/guidan
 import { useWorkspaceMembers } from '@/hooks/workspaces/useWorkspaceMembers';
 import { queryKeys } from '@/lib/query-keys';
 import { logger } from '@/lib/logger';
-import { subscribeWorkspaceStage } from '@/lib/realtime/subscriptions';
+import { liveTopics } from '@/lib/realtime/subscriptions';
 import type { SprintDetailPayload } from '@/lib/workspaces/sprint-detail';
 import type { TaskPanelTab } from '@/hooks/useTaskPanelResource';
 import { normalizeWorkspaceDocSlug } from '@/lib/workspaces/doc-slug';
@@ -437,43 +437,35 @@ export default function WorkspaceDashboardClient({ project, currentUserId, viewe
 
     // Realtime subscription for project stage changes
     useEffect(() => {
-        if (!project?.id) return;
-        const supabase = createClient();
-        const channel = subscribeWorkspaceStage({
-            supabase,
-            projectId: project.id,
-            subscriberId: 'dashboard',
-            onUpdate: (payload: any) => {
-                if (isStageUpdatingRef.current) return;
+        if (!project?.id || !currentUserId) return;
+        const live = subscribeBroadcast(liveTopics.workspace(project.id), (event, payload: any) => {
+                if (event !== 'workspace.changed' || isStageUpdatingRef.current) return;
 
-                const nextIndex = payload.new?.current_stage_index;
+                const nextIndex = payload.current_stage_index;
                 if (nextIndex !== undefined && nextIndex !== null) {
                     setOptimisticStageIndex(Number(nextIndex));
                 }
-                const nextDates = payload.new?.stage_completion_dates;
+                const nextDates = payload.stage_completion_dates;
                 if (nextDates !== undefined && nextDates !== null) {
                     setStageCompletionDates(nextDates as Record<string, string>);
                 }
-                const nextVersion = payload.new?.updated_at;
+                const nextVersion = payload.updated_at;
                 if (typeof nextVersion === 'string') {
                     setStageVersionSafe(nextVersion);
                 }
                 // Sync stats on the same unified channel without separate broadcast channel
-                const nextViews = payload.new?.view_count;
+                const nextViews = payload.view_count;
                 if (typeof nextViews === 'number') {
                     setViewCount((current: number) => Math.max(current, nextViews));
                 }
-                const nextFollowers = payload.new?.followers_count;
+                const nextFollowers = payload.followers_count;
                 if (typeof nextFollowers === 'number') {
                     setFollowersCount(nextFollowers);
                 }
-            },
         });
 
-        return () => {
-            void supabase.removeChannel(channel);
-        };
-    }, [project?.id, setStageVersionSafe]);
+        return () => live.unsubscribe();
+    }, [currentUserId, project?.id, setStageVersionSafe]);
 
     // Extended project data (may come from joined queries, cast to any for flexibility)
     const projectWithLiveStats = useMemo(

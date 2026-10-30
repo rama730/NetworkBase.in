@@ -72,6 +72,20 @@ export async function realtimeUserToken(): Promise<string | null> {
   return token;
 }
 
+function join(topic: string, entry: Entry) {
+  const supabase = createClient();
+  void (async () => {
+    const token = await realtimeUserToken();
+    if (entries.get(topic) !== entry) return;
+    if (!token) return setStatus(entry, "disconnected");
+    await supabase.realtime.setAuth(token);
+    entry.channel.subscribe((status: `${REALTIME_SUBSCRIBE_STATES}`) => {
+      if (status === REALTIME_SUBSCRIBE_STATES.SUBSCRIBED) setStatus(entry, "connected");
+      else setStatus(entry, "disconnected");
+    });
+  })().catch(() => setStatus(entry, "disconnected"));
+}
+
 function open(topic: string): Entry {
   const supabase = createClient();
   const channel = supabase.channel(topic, { config: { private: true, broadcast: { self: false } } });
@@ -79,16 +93,7 @@ function open(topic: string): Entry {
   channel.on("broadcast", { event: "*" }, (message: { event: string; payload?: Record<string, unknown> }) => {
     entry.handlers.forEach((handler) => handler(message.event, message.payload ?? {}));
   });
-  void (async () => {
-    const token = await realtimeUserToken();
-    if (entries.get(topic) !== entry) return;
-    if (!token) return setStatus(entry, "disconnected");
-    await supabase.realtime.setAuth(token);
-    channel.subscribe((status: `${REALTIME_SUBSCRIBE_STATES}`) => {
-      if (status === REALTIME_SUBSCRIBE_STATES.SUBSCRIBED) setStatus(entry, "connected");
-      else setStatus(entry, "disconnected");
-    });
-  })().catch(() => setStatus(entry, "disconnected"));
+  join(topic, entry);
   return entry;
 }
 
@@ -105,8 +110,14 @@ export function subscribeBroadcast(topic: string, onEvent: EventHandler, onStatu
     onStatus?.("disabled");
     return { send: () => false, unsubscribe: () => undefined };
   }
-  const entry = entries.get(topic) ?? open(topic);
+  const existing = entries.get(topic);
+  const entry = existing ?? open(topic);
   entries.set(topic, entry);
+  // A join that never got a session has nothing to retry it; a new subscriber (or "Retry") does.
+  if (existing?.status === "disconnected" && existing.channel.state === "closed") {
+    setStatus(existing, "connecting");
+    join(topic, existing);
+  }
   if (entry.releaseTimer) {
     clearTimeout(entry.releaseTimer);
     entry.releaseTimer = null;

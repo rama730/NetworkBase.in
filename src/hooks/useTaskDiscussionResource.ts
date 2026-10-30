@@ -182,7 +182,7 @@ export function useTaskDiscussionResource(params: {
   }, [enabled, loadDiscussion]);
 
   useEffect(() => {
-    if (!enabled || !taskId) {
+    if (!enabled || !taskId || !currentUserId) {
       resourceConnectedRef.current = false;
       return;
     }

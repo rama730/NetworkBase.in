@@ -75,14 +75,12 @@ describe("Files tab revision experience", () => {
   it("reconciles version metadata through bounded authoritative reads", () => {
     const nodes = source("src/app/actions/files/nodes.ts");
     const attribution = source("src/lib/files/file-attribution.ts");
-    const channel = source("src/lib/realtime/workspace-files-channel.ts");
     const root = source("src/components/workspaces/v2/files-tab/FilesTabRoot.tsx");
 
     assert.match(nodes, /getFileAttributionByNodeId/);
     assert.match(attribution, /pn\.current_version = fv\.version/);
-    assert.doesNotMatch(channel, /table: 'file_versions'/);
     assert.match(root, /loadFolderContent\(visibleFolderId, "refresh"\)/);
     assert.match(root, /document\.visibilityState !== "visible"/);
-    assert.match(root, /void supabase\.removeChannel\(channel\)/);
+    assert.match(root, /live\.unsubscribe\(\)/);
   });
 });
