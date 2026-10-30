@@ -2817,6 +2817,7 @@ export const contentReports = pgTable("content_reports", {
   projectIdx: index("content_reports_workspace_idx").on(t.projectId).where(sql`${t.projectId} IS NOT NULL`),
   resolvedByIdx: index("content_reports_resolved_by_idx").on(t.resolvedBy).where(sql`${t.resolvedBy} IS NOT NULL`),
   caseIdx: index("content_reports_case_idx").on(t.caseId).where(sql`${t.caseId} IS NOT NULL`),
+  reporterStatusIdx: index("content_reports_reporter_status_idx").on(t.reporterId, t.status),
   kindCheck: check("content_reports_kind_check", sql`${t.targetKind} IN ('project', 'person', 'update', 'update_comment', 'doc', 'task', 'task_comment', 'file', 'chat_message', 'chat_channel', 'role', 'application', 'invitation', 'connection_request', 'contribution')`),
   reasonCheck: check("content_reports_reason_check", sql`${t.reason} IN ('threat', 'self_harm', 'child_safety', 'intimate_images', 'private_info', 'harassment', 'hate_speech', 'impersonation', 'scam', 'inappropriate', 'spam', 'other')`),
   statusCheck: check("content_reports_status_check", sql`${t.status} IN ('open', 'dismissed', 'actioned')`),
@@ -2854,6 +2855,12 @@ export const moderationCases = pgTable("moderation_cases", {
   decidedAt: timestamp("decided_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  /** Rises with every change to the case itself (0272); claims and leases never do. */
+  version: integer("version").default(1).notNull(),
+  claimedUntil: timestamp("claimed_until", { withTimezone: true }),
+  claimSeenAt: timestamp("claim_seen_at", { withTimezone: true }),
+  assignedTo: uuid("assigned_to").references(() => profiles.id, { onDelete: "set null" }),
+  escalatedAt: timestamp("escalated_at", { withTimezone: true }),
 }, (t) => ({
   oneOpenIdx: uniqueIndex("moderation_cases_one_open_idx").on(t.targetKind, t.targetId, sql`(COALESCE(${t.targetSeq}, 0))`).where(sql`${t.state} IN ('open', 'in_review')`),
   queueIdx: index("moderation_cases_queue_idx").on(t.deadlineAt).where(sql`${t.state} IN ('open', 'in_review')`),
@@ -2863,6 +2870,9 @@ export const moderationCases = pgTable("moderation_cases", {
   assigneeIdx: index("moderation_cases_assignee_idx").on(t.assigneeId).where(sql`${t.assigneeId} IS NOT NULL`),
   decidedByIdx: index("moderation_cases_decided_by_idx").on(t.decidedBy).where(sql`${t.decidedBy} IS NOT NULL`),
   mergedIdx: index("moderation_cases_merged_idx").on(t.mergedInto).where(sql`${t.mergedInto} IS NOT NULL`),
+  assignedIdx: index("moderation_cases_assigned_idx").on(t.assignedTo).where(sql`${t.assignedTo} IS NOT NULL`),
+  openSeverityIdx: index("moderation_cases_open_severity_idx").on(t.severity).where(sql`${t.state} IN ('open', 'in_review')`),
+  targetHistoryIdx: index("moderation_cases_target_history_idx").on(t.targetKind, t.targetId, t.createdAt.desc()),
   severityCheck: check("moderation_cases_severity_check", sql`${t.severity} IN ('urgent', 'high', 'normal')`),
   sourceCheck: check("moderation_cases_source_check", sql`${t.source} IN ('report', 'email', 'staff', 'legal')`),
   stateCheck: check("moderation_cases_state_check", sql`${t.state} IN ('open', 'in_review', 'decided', 'closed')`),
@@ -2943,10 +2953,26 @@ export const moderationEvents = pgTable("moderation_events", {
   kind: text("kind").notNull(),
   data: jsonb("data").$type<Record<string, unknown>>().default({}).notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  /** The live cursor (0272): screens catch up with everything after the last seq they saw. */
+  seq: bigint("seq", { mode: "number" }).generatedAlwaysAsIdentity(),
 }, (t) => ({
+  seqIdx: uniqueIndex("moderation_events_seq_idx").on(t.seq),
+  kindTimeIdx: index("moderation_events_kind_time_idx").on(t.kind, t.createdAt.desc()),
   caseIdx: index("moderation_events_case_idx").on(t.caseId, t.createdAt).where(sql`${t.caseId} IS NOT NULL`),
   actorIdx: index("moderation_events_actor_idx").on(t.actorId, t.createdAt.desc()).where(sql`${t.actorId} IS NOT NULL`),
   timeIdx: index("moderation_events_time_idx").on(t.createdAt.desc()),
+}));
+
+/** The message staff start from for each rule (0272), editable by admins. */
+export const moderationRuleTemplates = pgTable("moderation_rule_templates", {
+  rule: smallint("rule").primaryKey(),
+  message: text("message").notNull(),
+  updatedBy: uuid("updated_by").references(() => profiles.id, { onDelete: "set null" }),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  updatedByIdx: index("moderation_rule_templates_updated_by_idx").on(t.updatedBy).where(sql`${t.updatedBy} IS NOT NULL`),
+  ruleCheck: check("moderation_rule_templates_rule_check", sql`${t.rule} BETWEEN 1 AND 15`),
+  messageCheck: check("moderation_rule_templates_message_check", sql`char_length(${t.message}) BETWEEN 1 AND 2000`),
 }));
 
 export const moderationBlockedIdentities = pgTable("moderation_blocked_identities", {

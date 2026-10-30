@@ -1884,6 +1884,13 @@
       "when": 1793145630000,
       "tag": "0271_moderation_events_account_deletion",
       "breakpoints": true
+    },
+    {
+      "idx": 269,
+      "version": "7",
+      "when": 1793145631000,
+      "tag": "0272_trust_console_live",
+      "breakpoints": true
     }
   ]
 }

@@ -272,7 +272,8 @@
     "drizzle/0268_app_runtime_role.sql",
     "drizzle/0269_moderation_cases_appeals.sql",
     "drizzle/0270_session_device_from_browser.sql",
-    "drizzle/0271_moderation_events_account_deletion.sql"
+    "drizzle/0271_moderation_events_account_deletion.sql",
+    "drizzle/0272_trust_console_live.sql"
   ],
   "legacyDatabaseTags": [
     "0073_notification_snooze",
