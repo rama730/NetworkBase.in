@@ -1,0 +1,156 @@
+import assert from "node:assert/strict";
+import { after, before, test } from "node:test";
+
+import { closeAppDb, createProject, createUser, loadAppModule, moduleStubs, sql, stubNextAfter } from "./_helpers";
+
+// Updates as posts (Part 2): who is told what about likes, comments and replies on a post.
+stubNextAfter();
+moduleStubs.set("@/lib/realtime/server-broadcast", { broadcast: async () => true });
+delete process.env.UPSTASH_REDIS_REST_URL;
+delete process.env.UPSTASH_REDIS_REST_TOKEN;
+
+let viewerId = "";
+let updates: typeof import("../../src/app/actions/workspace/updates");
+before(async () => {
+  const viewerContext = await loadAppModule(() => import("../../src/lib/server/viewer-context"));
+  const viewer = () => ({ supabase: null, snapshot: null, user: viewerId ? { id: viewerId } : null, userId: viewerId || null, emailVerified: true, profile: { fullName: viewerId.slice(0, 6), username: null, avatarUrl: null } });
+  moduleStubs.set("@/lib/server/viewer-context", { ...viewerContext, getViewerAuthContext: async () => viewer(), getViewerProfileContext: async () => viewer() });
+  updates = await loadAppModule(() => import("../../src/app/actions/workspace/updates"));
+});
+const made: string[] = [];
+const people: string[] = [];
+after(async () => {
+  if (made.length) await sql`DELETE FROM workspaces WHERE id IN ${sql(made)}`;
+  if (people.length) await sql`DELETE FROM profiles WHERE id IN ${sql(people)}`;
+  await sql.end();
+  await closeAppDb();
+});
+
+const settle = () => new Promise((resolve) => setTimeout(resolve, 250));
+async function post() {
+  const [owner, author, mate, viewerRole, fan, fan2] = await sql.begin(async (tx) => [await createUser(tx), await createUser(tx), await createUser(tx), await createUser(tx), await createUser(tx), await createUser(tx)]);
+  people.push(owner!, author!, mate!, viewerRole!, fan!, fan2!);
+  const ws = await sql.begin((tx) => createProject(tx, owner!, { visibility: "public", publicTabVisibility: { updates: true } }));
+  made.push(ws);
+  await sql`INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (${ws}, ${author!}, 'member'), (${ws}, ${mate!}, 'member'), (${ws}, ${viewerRole!}, 'viewer') ON CONFLICT DO NOTHING`;
+  const [row] = await sql`INSERT INTO workspace_updates (workspace_id, author_id, content) VALUES (${ws}, ${author!}, 'our work') RETURNING id`;
+  return { owner: owner!, author: author!, mate: mate!, viewerRole: viewerRole!, fan: fan!, fan2: fan2!, ws, id: row!.id as string };
+}
+const tray = (user: string) => sql`SELECT kind, importance, title, aggregate_count, read_at, dismissed_at, actor_user_id FROM user_notifications WHERE user_id = ${user} AND kind IN ('project_update_like', 'project_update_team', 'project_update_comment') ORDER BY created_at`;
+async function like(user: string, ws: string, id: string) {
+  viewerId = user;
+  await updates.toggleWorkspaceUpdateLikeAction(ws, id);
+  await settle();
+}
+async function comment(user: string, ws: string, id: string, parent?: string) {
+  viewerId = user;
+  const res = await updates.createWorkspaceUpdateCommentAction(ws, id, "nice one", parent);
+  assert.ok(res.success, JSON.stringify(res));
+  await settle();
+  return (res.data as { id: string }).id;
+}
+
+test("a like: the author by name and grouped, owner and team by count, viewers and the liker never (UP2, UP3, UP5)", async () => {
+  const p = await post();
+  await like(p.fan, p.ws, p.id);
+  await like(p.fan2, p.ws, p.id);
+  const [authorRow] = await tray(p.author);
+  assert.equal((await tray(p.author)).length, 1, "one row for the post");
+  assert.equal(authorRow!.kind, "project_update_like");
+  assert.match(authorRow!.title, / and 1 other liked your update$/);
+  assert.equal(authorRow!.aggregate_count, 2);
+  assert.equal(authorRow!.importance, "more");
+  for (const member of [p.owner, p.mate]) {
+    const rows = await tray(member);
+    assert.equal(rows.length, 1);
+    assert.equal(rows[0]!.kind, "project_update_team");
+    assert.match(rows[0]!.title, /got 2 likes$/);
+    assert.equal(rows[0]!.actor_user_id, null);
+    assert.equal(rows[0]!.importance, "more");
+  }
+  assert.equal((await tray(p.viewerRole)).length, 0);
+  assert.equal((await tray(p.fan)).length, 0);
+});
+
+test("the count starts again after reading, an unlike comes out, and a like loop never nags (UP5)", async () => {
+  const p = await post();
+  await like(p.fan, p.ws, p.id);
+  await like(p.fan2, p.ws, p.id);
+  await like(p.fan2, p.ws, p.id);
+  assert.equal((await tray(p.author))[0]!.aggregate_count, 1, "unlike comes out");
+  await like(p.fan, p.ws, p.id);
+  const [emptied] = await tray(p.author);
+  assert.notEqual(emptied!.dismissed_at, null, "nothing left, the row goes");
+  await like(p.fan, p.ws, p.id);
+  assert.notEqual((await tray(p.author))[0]!.dismissed_at, null, "liking again doesn't bring it back");
+
+  await sql`UPDATE user_notifications SET read_at = now(), dismissed_at = NULL WHERE user_id = ${p.owner}`;
+  await settle();
+  await like(p.viewerRole, p.ws, p.id);
+  const ownerRows = await tray(p.owner);
+  assert.equal(ownerRows.length, 1);
+  assert.equal(ownerRows[0]!.read_at, null, "back to unread");
+  assert.match(ownerRows[0]!.title, /got 1 like$/, "only what's new since it was read");
+});
+
+test("a comment: the author gets it with push, the team a grouped count; a delete takes it out (UP3, UP6)", async () => {
+  const p = await post();
+  const commentId = await comment(p.fan, p.ws, p.id);
+  const [authorRow] = await tray(p.author);
+  assert.equal(authorRow!.kind, "project_update_comment");
+  assert.equal(authorRow!.importance, "important", "push and toast");
+  assert.match(authorRow!.title, /commented on your update$/);
+  assert.match((await tray(p.owner))[0]!.title, /got 1 comment$/);
+  await like(p.fan2, p.ws, p.id);
+  assert.match((await tray(p.mate))[0]!.title, /got 1 like and 1 comment$/);
+  viewerId = p.fan;
+  await updates.deleteWorkspaceUpdateCommentAction(p.ws, commentId);
+  await settle();
+  assert.notEqual((await tray(p.author)).find((r) => r.kind === "project_update_comment")!.dismissed_at, null);
+  assert.match((await tray(p.mate))[0]!.title, /got 1 like$/);
+});
+
+test("one person, one notification: a reply is personal for whoever it answers, team activity for the author (UP4)", async () => {
+  const p = await post();
+  const parent = await comment(p.mate, p.ws, p.id);
+  await sql`DELETE FROM user_notifications WHERE user_id IN (${p.owner}, ${p.author}, ${p.mate})`;
+  await comment(p.fan, p.ws, p.id, parent);
+  const mateRows = await tray(p.mate);
+  assert.equal(mateRows.length, 1, "one row for the person answered");
+  assert.equal(mateRows[0]!.kind, "project_update_comment");
+  assert.match(mateRows[0]!.title, /replied to your comment$/);
+  const authorRows = await tray(p.author);
+  assert.equal(authorRows.length, 1);
+  assert.equal(authorRows[0]!.kind, "project_update_team");
+  assert.match(authorRows[0]!.title, /got 1 comment$/);
+  assert.equal((await tray(p.owner))[0]!.kind, "project_update_team");
+});
+
+test("a reply to the author's own comment is just a reply", async () => {
+  const p = await post();
+  const parent = await comment(p.author, p.ws, p.id);
+  await sql`DELETE FROM user_notifications WHERE user_id = ${p.author}`;
+  await comment(p.fan, p.ws, p.id, parent);
+  const rows = await tray(p.author);
+  assert.equal(rows.length, 1);
+  assert.match(rows[0]!.title, /replied to your comment$/);
+});
+
+test("blocks and mutes win, and a member's own switch is honoured (UP8)", async () => {
+  const p = await post();
+  await sql`INSERT INTO user_mutes (muter_id, muted_id) VALUES (${p.mate}, ${p.fan})`;
+  await sql`UPDATE workspace_members SET role = 'member', notification_preferences = ${sql.json({ version: 1, mode: "custom", rules: { "updates.team_activity": false } })} WHERE workspace_id = ${p.ws} AND user_id = ${p.viewerRole}`;
+  await like(p.fan, p.ws, p.id);
+  assert.equal((await tray(p.mate)).length, 0, "muted");
+  assert.equal((await tray(p.viewerRole)).length, 0, "switched off");
+  assert.equal((await tray(p.author)).length, 1);
+});
+
+test("a post with a narrow audience tells admins only; your own like tells nobody", async () => {
+  const p = await post();
+  await like(p.author, p.ws, p.id);
+  assert.equal((await tray(p.owner)).length, 0, "own like");
+  await sql`UPDATE workspace_updates SET audience = ${sql.json({ roles: ["admin"] })} WHERE id = ${p.id}`;
+  await like(p.fan, p.ws, p.id);
+  assert.equal((await tray(p.mate)).length, 0);
+});

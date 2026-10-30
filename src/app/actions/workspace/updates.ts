@@ -52,6 +52,7 @@ import { computeWorkspaceReadAccess } from "@/lib/data/workspace-access";
 import { enqueueWorkspaceNotificationEvent, readWorkspaceNotificationActorSnapshot } from "@/lib/notifications/workspace-events";
 import { publishUser } from "@/lib/messaging/publish";
 import { notifyAnnouncement, notifyOrg } from "@/lib/organizations/notify";
+import { syncUpdateActivityNotifications } from "@/lib/notifications/update-activity";
 import { consumeRateLimit } from "@/lib/security/rate-limit";
 import { getViewerAuthContext, getViewerProfileContext } from "@/lib/server/viewer-context";
 import { createAdminClient } from "@/lib/supabase/server";
@@ -1928,43 +1929,6 @@ export async function toggleWorkspaceUpdatePinAction(projectId: string, updateId
     }
 }
 
-/**
- * A like tells the author, in the tray only, and the tray groups them per update ("Ana, Ben and 2 others"). One row per
- * person: an unlike takes theirs out, and liking again doesn't bring it back, so a like loop never nags (RT6).
- */
-// ponytail: one row per like, so the unread badge counts likes one by one. Upgrade: count bundles if busy posts feel noisy.
-async function notifyUpdateLike(input: {
-    projectId: string; project: { slug: string | null; id: string }; updateId: string;
-    authorId: string; actorId: string; liked: boolean; content: string;
-}) {
-    try {
-        const sourceEventId = `like:${input.updateId}:${input.actorId}`;
-        if (!input.liked) {
-            await db.execute(sql`
-                UPDATE user_notifications SET dismissed_at = now(), updated_at = now()
-                WHERE user_id = ${input.authorId}::uuid AND kind = 'project_update_like' AND read_at IS NULL AND dismissed_at IS NULL
-                  AND dedupe_key = ${`project:${input.projectId}:updates.liked:${sourceEventId}:${input.authorId}`}`);
-            return;
-        }
-        const actor = await readWorkspaceNotificationActorSnapshot(input.actorId);
-        await enqueueWorkspaceNotificationEvent({
-            projectId: input.projectId,
-            actorUserId: input.actorId,
-            actorName: actor?.actorName ?? null,
-            actorAvatarUrl: actor?.actorAvatarUrl ?? null,
-            eventKey: "updates.liked",
-            affectedMemberId: input.authorId,
-            title: `${actor?.actorName || "Someone"} liked your update`,
-            body: projectUpdateExcerpt(input.content, 160),
-            href: projectHref(input.project, input.updateId),
-            entityRefs: { projectId: input.projectId, projectSlug: input.project.slug ?? null, updateId: input.updateId },
-            sourceEventId,
-        });
-    } catch (error) {
-        logger.warn("workspace_updates.like_notify_failed", { module: "workspace-updates", error: error instanceof Error ? error.message : String(error) });
-    }
-}
-
 /** An open thread reads its notifications: you're already looking at it, so nothing should nag (RT8). */
 export async function markUpdateNotificationsReadAction(updateId: string) {
     const viewer = await getViewerAuthContext();
@@ -1972,7 +1936,7 @@ export async function markUpdateNotificationsReadAction(updateId: string) {
     await db.execute(sql`
         UPDATE user_notifications SET read_at = now(), seen_at = coalesce(seen_at, now()), updated_at = now()
         WHERE user_id = ${viewer.userId}::uuid AND read_at IS NULL AND entity_refs->>'updateId' = ${updateId}
-          AND kind IN ('project_update_activity', 'project_update_like')`);
+          AND kind IN ('project_update_activity', 'project_update_comment', 'project_update_like', 'project_update_team')`);
 }
 
 export async function toggleWorkspaceUpdateLikeAction(projectId: string, updateId: string) {
@@ -2034,9 +1998,7 @@ export async function toggleWorkspaceUpdateLikeAction(projectId: string, updateI
         });
         // Your other tabs fill or empty the heart too.
         publishUser(viewer.userId, "update.liked", { projectId, id: updateId, liked: result.liked, likeCount: result.likeCount });
-        if (update.authorId && update.authorId !== viewer.userId) {
-            after(() => notifyUpdateLike({ projectId, project: access.project!, updateId, authorId: update.authorId!, actorId: viewer.userId!, liked: result.liked, content: update.content }));
-        }
+        after(() => syncUpdateActivityNotifications({ projectId, updateId, actorId: viewer.userId!, activity: "like", change: result.liked ? "added" : "removed", href: projectHref(access.project!, updateId) }));
         return { success: true as const, liked: result.liked, likeCount: result.likeCount };
     } catch (error) {
         console.error("Failed to toggle project update like:", error);
@@ -2368,8 +2330,10 @@ export async function createWorkspaceUpdateCommentAction(projectId: string, upda
         const actorAvatarUrl = viewer.profile?.avatarUrl ?? null;
 
         after(async () => {
-            // 1. Notify target comment author if it's a reply
-            if (targetUserId && targetUserId !== viewer.userId) {
+            const href = `${projectHref(project, updateId)}&commentId=${encodeURIComponent(inserted.id)}`;
+            // The most personal notice only (UP4): a reply is for whoever it answers, a comment for the post's author.
+            const personalId = parentId ? targetUserId : update.authorId;
+            if (personalId && personalId !== viewer.userId) {
                 try {
                     await enqueueWorkspaceNotificationEvent({
                         projectId,
@@ -2377,50 +2341,10 @@ export async function createWorkspaceUpdateCommentAction(projectId: string, upda
                         actorName,
                         actorAvatarUrl,
                         eventKey: "updates.comment",
-                        affectedMemberId: targetUserId,
-                        title: `${actorName || "Someone"} replied to your comment`,
+                        affectedMemberId: personalId,
+                        title: `${actorName || "Someone"} ${parentId ? "replied to your comment" : "commented on your update"}`,
                         body: projectUpdateExcerpt(content, 160),
-                        href: `${projectHref(project, updateId)}&commentId=${encodeURIComponent(inserted.id)}`,
-                        entityRefs: {
-                            projectId,
-                            projectSlug: project.slug ?? null,
-                            updateId,
-                            commentId: inserted.id,
-                            createdAt: createdAt.toISOString(),
-                        },
-                        preview: {
-                            actorName,
-                            actorAvatarUrl,
-                            contextLabel: project.title ?? "Workspace update",
-                            contextKind: "project",
-                            secondaryText: null,
-                        },
-                        sourceEventId: inserted.id,
-                    });
-                } catch (notifyError) {
-                    logger.warn("project_updates.comment_reply_notification_failed", {
-                        module: "notifications",
-                        projectId,
-                        updateId,
-                        commentId: inserted.id,
-                        error: notifyError instanceof Error ? notifyError.message : String(notifyError),
-                    });
-                }
-            }
-
-            // 2. Notify original update author
-            if (update.authorId && update.authorId !== viewer.userId && update.authorId !== targetUserId) {
-                try {
-                    await enqueueWorkspaceNotificationEvent({
-                        projectId,
-                        actorUserId: viewer.userId,
-                        actorName,
-                        actorAvatarUrl,
-                        eventKey: "updates.comment",
-                        affectedMemberId: update.authorId,
-                        title: `${actorName || "Someone"} commented on your update`,
-                        body: projectUpdateExcerpt(content, 160),
-                        href: `${projectHref(project, updateId)}&commentId=${encodeURIComponent(inserted.id)}`,
+                        href,
                         entityRefs: {
                             projectId,
                             projectSlug: project.slug ?? null,
@@ -2447,6 +2371,7 @@ export async function createWorkspaceUpdateCommentAction(projectId: string, upda
                     });
                 }
             }
+            await syncUpdateActivityNotifications({ projectId, updateId, actorId: viewer.userId!, activity: parentId ? "reply" : "comment", change: "added", href, exclude: [personalId] });
         });
 
         const targetProfiles = alias(profiles, "target_profiles");
@@ -2515,6 +2440,8 @@ export async function deleteWorkspaceUpdateCommentAction(projectId: string, comm
                 id: workspaceUpdateComments.id,
                 updateId: workspaceUpdateComments.updateId,
                 userId: workspaceUpdateComments.userId,
+                parentId: workspaceUpdateComments.parentId,
+                targetUserId: workspaceUpdateComments.targetUserId,
                 deletedAt: workspaceUpdateComments.deletedAt,
             })
             .from(workspaceUpdateComments)
@@ -2537,6 +2464,14 @@ export async function deleteWorkspaceUpdateCommentAction(projectId: string, comm
                 .update(workspaceUpdates)
                 .set({ commentCount: sql`GREATEST(${workspaceUpdates.commentCount} - 1, 0)`, updatedAt: now })
                 .where(eq(workspaceUpdates.id, comment.updateId));
+        });
+        after(async () => {
+            // Gone from the post, so gone from the trays: the personal notice, and its place in the grouped counts.
+            await db.execute(sql`
+                UPDATE user_notifications SET dismissed_at = now(), updated_at = now()
+                WHERE kind = 'project_update_comment' AND read_at IS NULL AND dismissed_at IS NULL AND entity_refs->>'commentId' = ${commentId}
+                  AND user_id IN (SELECT u.author_id FROM workspace_updates u WHERE u.id = ${comment.updateId}::uuid UNION ALL SELECT ${comment.targetUserId}::uuid)`).catch(() => undefined);
+            await syncUpdateActivityNotifications({ projectId, updateId: comment.updateId, actorId: comment.userId ?? viewer.userId!, activity: comment.parentId ? "reply" : "comment", change: "removed", href: projectHref(access.project!, comment.updateId) });
         });
         return { success: true as const, updateId: comment.updateId };
     } catch (error) {

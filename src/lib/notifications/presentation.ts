@@ -7,6 +7,7 @@ import type {
     NotificationTimeGroup,
     NotificationTrayFilter,
 } from "@/lib/notifications/types";
+import { openUpdateThreads } from "@/lib/realtime/update-live-state";
 
 const KIND_REASON: Record<NotificationKind, NotificationReason> = {
     chat_invite: "workflow",
@@ -38,6 +39,8 @@ const KIND_REASON: Record<NotificationKind, NotificationReason> = {
     project_security_alert: "update",
     project_update_activity: "update",
     project_update_like: "update",
+    project_update_team: "update",
+    project_update_comment: "mention",
     org_membership: "update",
     org_assignment: "assigned",
     org_announcement: "update",
@@ -103,6 +106,8 @@ const AGGREGATE_NOUNS: Record<NotificationKind, { singular: string; plural: stri
     project_security_alert: { singular: "security update", plural: "security updates" },
     project_update_activity: { singular: "workspace update", plural: "workspace updates" },
     project_update_like: { singular: "like", plural: "likes" },
+    project_update_team: { singular: "update", plural: "updates" },
+    project_update_comment: { singular: "comment", plural: "comments" },
     org_membership: { singular: "membership update", plural: "membership updates" },
     org_assignment: { singular: "assignment update", plural: "assignment updates" },
     org_announcement: { singular: "announcement", plural: "announcements" },
@@ -112,6 +117,8 @@ const AGGREGATE_NOUNS: Record<NotificationKind, { singular: string; plural: stri
 
 export function getAggregateLabel(kind: NotificationKind, count: number): string | null {
     if (count <= 1) return null;
+    // Their titles already carry the count: "Ravi and 4 others liked your update".
+    if (kind === "project_update_like" || kind === "project_update_team") return null;
     const nouns = AGGREGATE_NOUNS[kind];
     const noun = nouns?.plural ?? "updates";
     return `${count} new ${noun}`;
@@ -329,6 +336,7 @@ export function shouldSuppressNotificationToast(params: {
     if (trayOpen || documentVisible === false) return true;
     if (item.importance !== "important") return true;
     if (item.readAt || item.seenAt) return true;
+    if (item.entityRefs?.updateId && openUpdateThreads.has(item.entityRefs.updateId)) return true;
 
     const normalizedSearch = search ? (search.startsWith("?") ? search : `?${search}`) : "";
     const activePath = `${pathname ?? ""}${normalizedSearch}`;

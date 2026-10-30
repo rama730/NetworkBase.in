@@ -13,6 +13,17 @@ export function acceptSeq(updateId: string, seq: unknown) {
 /** Likes this tab is waiting on: incoming counts leave the like number alone until the answer arrives, so it never jumps back. */
 export const likesInFlight = new Set<string>();
 
+/** Threads open in this tab: nothing about them needs a toast, you can see it (UP7). */
+export const openUpdateThreads = new Map<string, number>();
+export function holdUpdateThread(updateId: string) {
+  openUpdateThreads.set(updateId, (openUpdateThreads.get(updateId) ?? 0) + 1);
+  return () => {
+    const left = (openUpdateThreads.get(updateId) ?? 1) - 1;
+    if (left > 0) openUpdateThreads.set(updateId, left);
+    else openUpdateThreads.delete(updateId);
+  };
+}
+
 const MAX_CARD_JOINS = 20;
 let cardJoins = 0;
 /** Discover joins only cards on screen, up to a limit (RT4). */
@@ -28,5 +39,6 @@ export function releaseCardJoin() {
 export function resetUpdateLiveState() {
   lastSeq.clear();
   likesInFlight.clear();
+  openUpdateThreads.clear();
   cardJoins = 0;
 }

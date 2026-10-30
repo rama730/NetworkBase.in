@@ -24,6 +24,7 @@ import { createWorkspaceUpdateCommentAction, deleteWorkspaceUpdateCommentAction,
 import { UserAvatar } from "@/components/ui/UserAvatar";
 import { ThreadAvatarRail, ThreadRailBridge } from "@/components/ui/ThreadRail";
 import { queryKeys } from "@/lib/query-keys";
+import { holdUpdateThread } from "@/lib/realtime/update-live-state";
 import { cn } from "@/lib/utils";
 import { getDescendants, renderCommentContent, updatePages, updateRelativeTime, type UpdatesPage } from '@/components/workspaces/updates/update-helpers';
 import { ModeratedPlaceholder, useModeratedItems, withPlaceholders } from '@/components/reports/ModeratedPlaceholder';
@@ -350,6 +351,7 @@ export function UpdateComments({
   const [focusedReplyDraft, setFocusedReplyDraft] = useState("");
   const sectionRef = useRef<HTMLDivElement | null>(null);
   const [isNearViewport, setIsNearViewport] = useState(Boolean(highlightedCommentId));
+  useEffect(() => holdUpdateThread(update.id), [update.id]);
   const commentsKey = useMemo(
     () => queryKeys.project.detail.updateComments(projectId, update.id),
     [projectId, update.id],
