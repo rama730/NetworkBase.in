@@ -82,6 +82,8 @@ export type WorkspaceNotificationEventKey =
     | "updates.liked"
     | "updates.team_activity"
     | "updates.comment_liked"
+    | "updates.reply"
+    | "updates.mention"
     | "updates.follower_digest"
     | OrgNotificationEventKey;
 
@@ -825,7 +827,7 @@ export const WORKSPACE_NOTIFICATION_EVENT_REGISTRY = {
         key: "updates.comment",
         group: "updates",
         label: "Update comment",
-        description: "Tell an update's author about comments, and a commenter about replies. Tray and push.",
+        description: "Tell an update's author about comments on it. Tray and push.",
         category: "mentions",
         notificationKind: "project_update_comment",
         defaultEnabled: true,
@@ -845,6 +847,36 @@ export const WORKSPACE_NOTIFICATION_EVENT_REGISTRY = {
         notificationKind: "project_update_like",
         defaultEnabled: true,
         defaultImportance: "more",
+        defaultRecipients: ["affected_member"],
+        allowMemberOverride: true,
+        mandatory: false,
+        aggregate: "none",
+        visible: true,
+    }),
+    "updates.reply": E({
+        key: "updates.reply",
+        group: "updates",
+        label: "Reply to your comment",
+        description: "Tell a commenter when someone replies to them. Tray and push.",
+        category: "mentions",
+        notificationKind: "project_update_reply",
+        defaultEnabled: true,
+        defaultImportance: "important",
+        defaultRecipients: ["affected_member"],
+        allowMemberOverride: true,
+        mandatory: false,
+        aggregate: "none",
+        visible: true,
+    }),
+    "updates.mention": E({
+        key: "updates.mention",
+        group: "updates",
+        label: "Mentioned in a comment",
+        description: "Tell someone when a comment on an update mentions them. Tray and push.",
+        category: "mentions",
+        notificationKind: "project_update_mention",
+        defaultEnabled: true,
+        defaultImportance: "important",
         defaultRecipients: ["affected_member"],
         allowMemberOverride: true,
         mandatory: false,
@@ -1024,6 +1056,22 @@ export function resolveWorkspaceNotificationDecision(params: {
         return { enabled: false, mandatory: false, rule: projectRule, reason: "member_disabled" as const };
     }
     return { enabled: true, mandatory: false, rule: projectRule };
+}
+
+/** What one person hears about updates in one workspace (UP8). */
+export type UpdateActivityLevel = "all" | "about_me" | "nothing";
+const UPDATE_PERSONAL_EVENTS = ["updates.comment", "updates.reply", "updates.mention", "updates.liked", "updates.comment_liked"] as const;
+
+export function updateActivityLevel(overrides: WorkspaceMemberNotificationOverrides): UpdateActivityLevel {
+    if (overrides.mode !== "custom") return "all";
+    if (UPDATE_PERSONAL_EVENTS.every((key) => overrides.rules[key] === false)) return "nothing";
+    return overrides.rules["updates.team_activity"] === false ? "about_me" : "all";
+}
+
+export function withUpdateActivityLevel(overrides: WorkspaceMemberNotificationOverrides, level: UpdateActivityLevel): WorkspaceMemberNotificationOverrides {
+    const rules = { ...overrides.rules, "updates.team_activity": level === "all" };
+    for (const key of UPDATE_PERSONAL_EVENTS) rules[key] = level !== "nothing";
+    return { ...overrides, mode: "custom", rules };
 }
 
 /** Org event groups show only for organizations; everything else is unchanged for projects. */

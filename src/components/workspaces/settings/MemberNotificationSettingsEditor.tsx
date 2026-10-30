@@ -13,6 +13,9 @@ import {
     type WorkspaceMemberNotificationOverrides,
     type WorkspaceNotificationPolicy,
     type WorkspaceNotificationRegistryEntry,
+    type UpdateActivityLevel,
+    updateActivityLevel,
+    withUpdateActivityLevel,
 } from "@/lib/notifications/workspace-policy";
 import { type WorkspaceMemberRole } from "@/lib/workspaces/settings-policies";
 import { SettingsSwitch } from "@/components/settings/ui/SettingsSwitch";
@@ -28,6 +31,12 @@ export type MemberNotificationSettingsData = {
     canEdit: boolean;
     overrides: WorkspaceMemberNotificationOverrides;
 };
+
+const UPDATE_ACTIVITY_CHOICES: Array<{ id: UpdateActivityLevel; label: string; description: string }> = [
+    { id: "all", label: "All activity", description: "What’s about you, plus one grouped row per post for the team’s updates." },
+    { id: "about_me", label: "Only what’s about me", description: "Comments and likes on your updates, replies to you and mentions." },
+    { id: "nothing", label: "Nothing", description: "No notifications about updates in this workspace." },
+];
 
 export function MemberNotificationSettingsEditor({
     data,
@@ -99,6 +108,33 @@ export function MemberNotificationSettingsEditor({
                         </button>
                     ))}
                 </div>
+            </div>
+
+            <div role="group" aria-label="Activity on updates" className="rounded-lg border border-border bg-card p-4">
+                <p className="font-semibold text-foreground">Activity on updates</p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                    {UPDATE_ACTIVITY_CHOICES.map((choice) => {
+                        const selected = updateActivityLevel(draft) === choice.id;
+                        return (
+                            <button
+                                key={choice.id}
+                                type="button"
+                                aria-pressed={selected}
+                                disabled={!data.canEdit}
+                                onClick={() => onDraftChange((current) => withUpdateActivityLevel(current, choice.id))}
+                                className={cn(
+                                    "nb-touch-target h-[28px] inline-flex items-center shrink-0 whitespace-nowrap rounded-[5px] px-3 text-xs font-medium transition-colors",
+                                    selected ? "bg-foreground text-background shadow-xs" : "bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground",
+                                )}
+                            >
+                                {choice.label}
+                            </button>
+                        );
+                    })}
+                </div>
+                <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+                    {UPDATE_ACTIVITY_CHOICES.find((choice) => choice.id === updateActivityLevel(draft))?.description}
+                </p>
             </div>
 
             {draft.mode === "custom" ? (

@@ -30,6 +30,8 @@ export type NotificationKind =
     | "project_update_like"
     | "project_update_team"
     | "project_update_comment"
+    | "project_update_reply"
+    | "project_update_mention"
     | "org_membership"
     | "org_assignment"
     | "org_announcement"
