@@ -52,6 +52,7 @@ export function useToggleUpdateLike(projectId: string, updateId: string) {
         },
         onSuccess: (result) => {
             patch((item) => ({ ...item, likedByViewer: result.liked, likeCount: result.likeCount }));
+            void queryClient.invalidateQueries({ queryKey: queryKeys.project.detail.updateLikes(projectId, updateId) });
         },
     });
 

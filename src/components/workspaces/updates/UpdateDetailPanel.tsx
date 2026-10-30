@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import {
     Heart,
@@ -14,6 +14,8 @@ import { UpdateTime, updateAuthorName } from '@/components/workspaces/updates/up
 import { WorkspaceUpdateContent, UpdateContextAndMedia } from '@/components/workspaces/updates/UpdateContent';
 import { UpdateComments } from '@/components/workspaces/updates/UpdateComments';
 import { useToggleUpdateLike } from '@/hooks/useToggleUpdateLike';
+import { WorkspaceUpdateLikersModal } from '@/components/workspaces/updates/WorkspaceUpdateLikersModal';
+import { toast } from '@/lib/feedback';
 
 export function UpdateDetailPanel({
   projectId,
@@ -43,6 +45,7 @@ export function UpdateDetailPanel({
 }) {
   const sectionRef = useRef<HTMLElement>(null);
   const headingRef = useRef<HTMLParagraphElement>(null);
+  const [isLikersOpen, setIsLikersOpen] = useState(false);
   const like = useToggleUpdateLike(projectId, update?.id ?? "");
   const hasUpdate = Boolean(update);
 
@@ -141,30 +144,51 @@ export function UpdateDetailPanel({
 
               {!isDeleted ? (
                 <div className="mt-2.5 flex items-center gap-2 font-mono text-xs text-muted-foreground">
-                  {currentUserId ? (
+                  <div className={cn(
+                    "inline-flex min-h-11 items-center gap-1.5 rounded-[5px] px-2.5 text-xs transition-colors hover:bg-muted hover:text-foreground",
+                    update.likedByViewer && "text-[var(--status-danger)]",
+                  )}>
                     <button
                       type="button"
-                      onClick={like.toggle}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (!currentUserId) {
+                          toast.error("Sign in to like updates");
+                          return;
+                        }
+                        like.toggle();
+                      }}
                       aria-pressed={update.likedByViewer}
-                      aria-label={`${update.likedByViewer ? "Unlike" : "Like"} this update, ${update.likeCount} ${update.likeCount === 1 ? "like" : "likes"}`}
+                      aria-label="Like update"
                       className={cn(
-                        "inline-flex min-h-11 items-center gap-1.5 rounded-[5px] px-2.5 transition-colors hover:bg-muted",
-                        update.likedByViewer && "font-medium text-[var(--status-danger)]",
+                        "inline-flex items-center justify-center transition-transform active:scale-90 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring rounded-sm",
+                        update.likedByViewer && "text-[var(--status-danger)]",
                       )}
                     >
-                      <Heart className={cn("h-3.5 w-3.5", update.likedByViewer && "fill-current")} aria-hidden="true" />
+                      <Heart className={cn("h-3.5 w-3.5", update.likedByViewer && "fill-current text-[var(--status-danger)]")} aria-hidden="true" />
+                    </button>
+                    <button
+                      type="button"
+                      // The count opens "Liked by"; at 0 there's no one to show, and liking stays on the heart.
+                      disabled={update.likeCount === 0}
+                      onClick={(e) => {
+                          e.stopPropagation();
+                          setIsLikersOpen(true);
+                      }}
+                      aria-label={`View ${update.likeCount} ${update.likeCount === 1 ? "like" : "likes"}`}
+                      className={cn(
+                        "inline-flex items-center tabular-nums transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring rounded-sm",
+                        update.likeCount > 0 ? "cursor-pointer hover:underline" : "cursor-default disabled:opacity-100",
+                        update.likedByViewer && "text-[var(--status-danger)] font-medium",
+                      )}
+                    >
                       <span aria-hidden="true">{update.likeCount}</span>
                     </button>
-                  ) : (
-                    <span className="inline-flex items-center gap-1.5 px-2.5">
-                      <Heart className="h-3.5 w-3.5" aria-hidden="true" />
-                      {update.likeCount}
-                      <span className="sr-only">likes</span>
-                    </span>
-                  )}
-                  <span className="inline-flex items-center gap-1.5 px-2.5">
+                  </div>
+
+                  <span className="inline-flex min-h-11 items-center gap-1.5 px-2.5">
                     <MessageCircle className="h-3.5 w-3.5" aria-hidden="true" />
-                    {update.commentCount}
+                    <span className="tabular-nums">{update.commentCount}</span>
                     <span className="sr-only">comments</span>
                   </span>
                 </div>
@@ -185,6 +209,14 @@ export function UpdateDetailPanel({
           />
         ) : null}
       </div>
+
+      <WorkspaceUpdateLikersModal
+        open={isLikersOpen}
+        onOpenChange={setIsLikersOpen}
+        projectId={projectId}
+        updateId={update.id}
+        likeCount={update.likeCount}
+      />
     </section>
   );
 }

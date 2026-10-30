@@ -33,6 +33,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { UserAvatar } from "@/components/ui/UserAvatar";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { WorkspaceUpdateLikersModal } from "@/components/workspaces/updates/WorkspaceUpdateLikersModal";
+import { useBlockedIds, useMutedIds } from "@/components/messages/ChatShellProvider";
 import { cn } from "@/lib/utils";
 import { isUpdateCardControl, removeUpdate, updateAuthorName, updateContextItems, updatePages, updateRelativeTime, type UpdatesPage } from '@/components/workspaces/updates/update-helpers';
 import { WorkspaceUpdateContent, UpdateContextAndMedia } from '@/components/workspaces/updates/UpdateContent';
@@ -68,6 +70,11 @@ function UpdateCard({
   const [draft, setDraft] = useState(update.content);
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [isReporting, setIsReporting] = useState(false);
+  const [isLikersOpen, setIsLikersOpen] = useState(false);
+  // A post from someone you blocked or muted folds until you ask (Blocking B26, B40); nothing is removed.
+  const blockedIds = useBlockedIds();
+  const mutedIds = useMutedIds();
+  const [unfolded, setUnfolded] = useState(false);
   const href = `/workspaces/${encodeURIComponent(projectSlug || projectId)}?tab=updates&updateId=${encodeURIComponent(update.id)}`;
   const isDeleted = Boolean(update.deletedAt);
   // An optimistic post the server has not confirmed yet: it reads as pending and cannot be acted on.
@@ -158,6 +165,17 @@ function UpdateCard({
         feedbackError(error instanceof Error ? error.message : "Failed to update pin", "Failed to update pin"),
       ),
   });
+
+  const foldedAs = !update.authorId || update.authorId === currentUserId || unfolded ? null
+    : blockedIds.has(update.authorId) ? "blocked" : mutedIds.has(update.authorId) ? "muted" : null;
+  if (foldedAs) {
+    return (
+      <article id={`project-update-${update.id}`} className="border-b border-border px-4 py-3 text-[13px] text-muted-foreground">
+        Post from someone you {foldedAs}<span className="sr-only">, hidden</span>.{" "}
+        <button type="button" className="font-medium text-foreground underline underline-offset-2 hover:text-primary pointer-coarse:min-h-11" onClick={() => setUnfolded(true)}>Show</button>
+      </article>
+    );
+  }
 
   return (
     <article
@@ -371,26 +389,53 @@ function UpdateCard({
 
           {!isDeleted && !isPending ? (
             <div className="mt-2.5 flex items-center gap-2 font-mono text-xs text-muted-foreground">
-              <button
-                type="button"
-                onClick={() =>
-                  currentUserId
-                    ? like.toggle()
-                    : toast.error("Sign in to like updates")
-                }
-                className={cn(
-                  "nb-touch-target inline-flex items-center gap-1.5 rounded-[5px] px-2 py-1 text-xs transition-colors hover:bg-muted hover:text-rose-500",
-                  update.likedByViewer && "text-rose-500 font-medium",
-                )}
-              >
-                <Heart
+              <div className={cn(
+                "nb-touch-target inline-flex items-center gap-1.5 rounded-[5px] px-2 py-1 text-xs transition-colors hover:bg-muted hover:text-foreground",
+                update.likedByViewer && "text-[var(--status-danger)]",
+              )}>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (!currentUserId) {
+                      toast.error("Sign in to like updates");
+                      return;
+                    }
+                    like.toggle();
+                  }}
+                  aria-pressed={update.likedByViewer}
+                  aria-label="Like update"
                   className={cn(
-                    "h-3.5 w-3.5",
-                    update.likedByViewer && "fill-current",
+                    "inline-flex items-center justify-center transition-transform active:scale-90 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring rounded-sm",
+                    update.likedByViewer && "text-[var(--status-danger)]",
                   )}
-                />
-                <span>{update.likeCount}</span>
-              </button>
+                >
+                  <Heart
+                    className={cn(
+                      "h-3.5 w-3.5",
+                      update.likedByViewer && "fill-current text-[var(--status-danger)]",
+                    )}
+                  />
+                </button>
+                <button
+                  type="button"
+                  // The count opens "Liked by"; at 0 there's no one to show, and liking stays on the heart.
+                  disabled={update.likeCount === 0}
+                  onClick={(e) => {
+                      e.stopPropagation();
+                      setIsLikersOpen(true);
+                  }}
+                  aria-label={`View ${update.likeCount} ${update.likeCount === 1 ? "like" : "likes"}`}
+                  className={cn(
+                    "inline-flex items-center tabular-nums transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring rounded-sm",
+                    update.likeCount > 0 ? "cursor-pointer hover:underline" : "cursor-default disabled:opacity-100",
+                    update.likedByViewer && "text-[var(--status-danger)] font-medium",
+                  )}
+                >
+                  <span aria-hidden="true">{update.likeCount}</span>
+                </button>
+              </div>
+
               <button
                 type="button"
                 onClick={() => {
@@ -403,7 +448,7 @@ function UpdateCard({
                 className="nb-touch-target inline-flex items-center gap-1.5 rounded-[5px] px-2 py-1 text-xs transition-colors hover:bg-muted hover:text-foreground"
               >
                 <MessageCircle className="h-3.5 w-3.5" />
-                <span>{update.commentCount}</span>
+                <span className="tabular-nums">{update.commentCount}</span>
               </button>
             </div>
           ) : null}
@@ -420,6 +465,13 @@ function UpdateCard({
         onConfirm={async () => {
           await deleteMutation.mutateAsync();
         }}
+      />
+      <WorkspaceUpdateLikersModal
+        open={isLikersOpen}
+        onOpenChange={setIsLikersOpen}
+        projectId={projectId}
+        updateId={update.id}
+        likeCount={update.likeCount}
       />
     </article>
   );

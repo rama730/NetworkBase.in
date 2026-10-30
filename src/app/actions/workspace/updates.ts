@@ -95,6 +95,7 @@ import {
     type WorkspaceUpdateVisibility,
 } from "@/lib/workspaces/updates";
 import { logger } from "@/lib/logger";
+import { readableProfileIdentitySql } from "@/lib/privacy/resolver";
 
 const UPDATES_PAGE_SIZE = WORKSPACE_UPDATE_PAGE_SIZE;
 const COMMENTS_PAGE_SIZE = WORKSPACE_UPDATE_COMMENT_PAGE_SIZE;
@@ -1987,6 +1988,116 @@ export async function toggleWorkspaceUpdateLikeAction(projectId: string, updateI
     } catch (error) {
         console.error("Failed to toggle project update like:", error);
         return { success: false as const, error: "Failed to update like." };
+    }
+}
+
+export interface ProjectUpdateLikerView {
+    /** The like's own id: a private liker's account id never leaves the server. */
+    key: string;
+    /** Null for someone whose profile the viewer can't see: they read as "Private member", with no link. */
+    userId: string | null;
+    username: string | null;
+    fullName: string | null;
+    avatarUrl: string | null;
+    headline: string | null;
+    likedAt: string;
+    isViewer: boolean;
+}
+
+/** Keyset cursor over (liked at, like id), newest first. */
+type ProjectUpdateLikerCursor = { createdAt: string; likeId: string };
+
+function encodeLikerCursor(row: { likedAt: Date; likeId: string }): string {
+    return Buffer.from(JSON.stringify({ createdAt: row.likedAt.toISOString(), likeId: row.likeId })).toString("base64url");
+}
+
+function decodeLikerCursor(value: string | null | undefined): ProjectUpdateLikerCursor | null {
+    if (!value) return null;
+    try {
+        const parsed = JSON.parse(Buffer.from(value, "base64url").toString("utf8")) as Partial<ProjectUpdateLikerCursor>;
+        if (typeof parsed.createdAt === "string" && !Number.isNaN(Date.parse(parsed.createdAt)) && typeof parsed.likeId === "string" && isLooseUuid(parsed.likeId)) {
+            return { createdAt: parsed.createdAt, likeId: parsed.likeId };
+        }
+    } catch {
+        // A cursor that isn't ours reads as the first page.
+    }
+    return null;
+}
+
+/**
+ * Who liked an update, for anyone who can read it. The count on the card stays honest; the list leaves out deleted
+ * accounts and anyone in a block with the viewer (Blocking B20), and shows people whose profile the viewer can't see
+ * as "Private member", the same as the card does for authors.
+ */
+export async function readProjectUpdateLikersAction(
+    projectId: string,
+    updateId: string,
+    params?: { cursor?: string | null; limit?: number }
+) {
+    try {
+        if (!isLooseUuid(projectId) || !isLooseUuid(updateId)) return { success: false as const, error: "This update isn’t available." };
+        const viewer = await getViewerAuthContext();
+        const viewerId = viewer.userId ?? null;
+        const access = await resolveProjectUpdateAccess(projectId, viewerId);
+        const update = await assertReadableUpdate(projectId, updateId, access);
+        if (!update) {
+            return { success: false as const, error: "This update isn’t available." };
+        }
+
+        const limit = Math.min(Math.max(params?.limit ?? 20, 1), 50);
+        const cursor = decodeLikerCursor(params?.cursor);
+        const cursorDate = cursor ? new Date(cursor.createdAt) : null;
+
+        const rows = await db
+            .select({
+                likeId: workspaceUpdateLikes.id,
+                userId: workspaceUpdateLikes.userId,
+                likedAt: workspaceUpdateLikes.createdAt,
+                username: profiles.username,
+                fullName: profiles.fullName,
+                avatarUrl: profiles.avatarUrl,
+                headline: profiles.headline,
+                readable: sql<boolean>`(${readableProfileIdentitySql(viewerId)})`,
+            })
+            .from(workspaceUpdateLikes)
+            .innerJoin(profiles, eq(workspaceUpdateLikes.userId, profiles.id))
+            .where(and(
+                eq(workspaceUpdateLikes.updateId, updateId),
+                isNull(profiles.deletedAt),
+                viewerId ? sql`NOT app_private.blocked_between(${viewerId}::uuid, ${profiles.id})` : undefined,
+                cursor && cursorDate ? or(
+                    lt(workspaceUpdateLikes.createdAt, cursorDate),
+                    and(eq(workspaceUpdateLikes.createdAt, cursorDate), lt(workspaceUpdateLikes.id, cursor.likeId)),
+                ) : undefined,
+            ))
+            .orderBy(desc(workspaceUpdateLikes.createdAt), desc(workspaceUpdateLikes.id))
+            .limit(limit + 1);
+
+        const items = rows.slice(0, limit);
+        const last = items.at(-1);
+        const likers: ProjectUpdateLikerView[] = items.map((row) => {
+            const isViewer = Boolean(viewerId && row.userId === viewerId);
+            const visible = isViewer || row.readable;
+            return {
+                key: row.likeId,
+                userId: visible ? row.userId : null,
+                username: visible ? row.username : null,
+                fullName: visible ? row.fullName : "Private member",
+                avatarUrl: visible ? row.avatarUrl : null,
+                headline: visible ? row.headline : null,
+                likedAt: row.likedAt.toISOString(),
+                isViewer,
+            };
+        });
+
+        return {
+            success: true as const,
+            likers,
+            nextCursor: rows.length > limit && last ? encodeLikerCursor(last) : null,
+        };
+    } catch (error) {
+        logger.error("workspace_updates.likers.read_failed", { module: "workspace-updates", error: error instanceof Error ? error.message : String(error) });
+        return { success: false as const, error: "Couldn’t load who liked this." };
     }
 }
 

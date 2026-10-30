@@ -233,6 +233,18 @@ export const queryKeys = {
           asNullable(updateId),
           "comments",
         ] as const,
+      updateLikes: (
+        projectId: string,
+        updateId: string | null | undefined,
+      ) =>
+        [
+          "project",
+          projectId,
+          "detail",
+          "updates",
+          asNullable(updateId),
+          "likes",
+        ] as const,
       members: (projectId: string) =>
         ["project", projectId, "detail", "members"] as const,
       filesNodes: (projectId: string, parentId?: string | null) =>

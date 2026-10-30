@@ -16,6 +16,7 @@ import { WorkspaceUpdateMediaViewer } from "@/components/workspaces/updates/Work
 import { UpdateTime, isUpdateCardControl } from "@/components/workspaces/updates/update-helpers";
 import { ReportMenuItem, useReportDialog } from "@/components/reports/ReportDialog";
 import { useToggleUpdateLike } from "@/hooks/useToggleUpdateLike";
+import { WorkspaceUpdateLikersModal } from "@/components/workspaces/updates/WorkspaceUpdateLikersModal";
 import { cn } from "@/lib/utils";
 import type { DiscoverUpdateMedia, DiscoverUpdateView } from "@/types/discover";
 
@@ -122,6 +123,7 @@ export default memo(function DiscoverUpdateCard({ update, viewerId, onOpen, onHi
     // Report, last in the menu (trust and safety C15); not on your own update, not signed out.
     const reporting = useReportDialog({ kind: "update", targetId: update.id, noun: update.updateType === "announcement" ? "announcement" : "post" });
     const [expanded, setExpanded] = useState(false);
+    const [isLikersOpen, setIsLikersOpen] = useState(false);
     const author = update.author;
     const masked = !author || author.masked;
     const authorName = masked ? "Private member" : author.fullName || author.username || "Member";
@@ -202,30 +204,54 @@ export default memo(function DiscoverUpdateCard({ update, viewerId, onOpen, onHi
 
             <div className="nb-project-card-footer">
                 <div className="flex items-center gap-1 font-mono text-xs text-muted-foreground">
-                    {viewerId ? (
+                    <div className={cn(
+                        "inline-flex min-h-11 items-center gap-1.5 rounded-[5px] px-2.5 text-xs transition-colors hover:bg-muted hover:text-foreground",
+                        update.likedByViewer && "text-[var(--status-danger)]",
+                    )}>
+                        {viewerId ? (
+                            <button
+                                type="button"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    like.toggle();
+                                }}
+                                aria-pressed={update.likedByViewer}
+                                aria-label="Like this update"
+                                className={cn(
+                                    "inline-flex items-center justify-center transition-transform active:scale-90 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring rounded-sm",
+                                    update.likedByViewer && "text-[var(--status-danger)]",
+                                )}
+                            >
+                                <Heart className={cn("h-3.5 w-3.5", update.likedByViewer && "fill-current text-[var(--status-danger)]")} aria-hidden="true" />
+                            </button>
+                        ) : (
+                            <Link
+                                href={signInHref}
+                                onClick={(e) => e.stopPropagation()}
+                                className="inline-flex items-center justify-center hover:text-foreground focus-visible:underline"
+                                aria-label="Sign in to like this update"
+                            >
+                                <Heart className="h-3.5 w-3.5" aria-hidden="true" />
+                            </Link>
+                        )}
                         <button
                             type="button"
-                            onClick={like.toggle}
-                            aria-pressed={update.likedByViewer}
-                            aria-label={`${update.likedByViewer ? "Unlike" : "Like"} this update, ${update.likeCount} ${update.likeCount === 1 ? "like" : "likes"}`}
+                            // The count opens "Liked by"; at 0 there's no one to show, and liking stays on the heart.
+                            disabled={update.likeCount === 0}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                setIsLikersOpen(true);
+                            }}
+                            aria-label={`View ${update.likeCount} ${update.likeCount === 1 ? "like" : "likes"}`}
                             className={cn(
-                                "inline-flex min-h-11 items-center gap-1.5 rounded-[5px] px-2.5 text-xs transition-colors hover:bg-muted focus-visible:bg-muted",
-                                update.likedByViewer ? "font-medium text-[var(--status-danger)]" : "hover:text-foreground",
+                                "inline-flex items-center tabular-nums transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring rounded-sm",
+                                update.likeCount > 0 ? "cursor-pointer hover:underline" : "cursor-default disabled:opacity-100",
+                                update.likedByViewer && "text-[var(--status-danger)] font-medium",
                             )}
                         >
-                            <Heart className={cn("h-3.5 w-3.5", update.likedByViewer && "fill-current")} aria-hidden="true" />
                             <span aria-hidden="true">{update.likeCount}</span>
                         </button>
-                    ) : (
-                        <Link
-                            href={signInHref}
-                            className="inline-flex min-h-11 items-center gap-1.5 rounded-[5px] px-2.5 text-xs hover:bg-muted hover:text-foreground focus-visible:underline"
-                            aria-label={`Sign in to like this update, ${update.likeCount} ${update.likeCount === 1 ? "like" : "likes"}`}
-                        >
-                            <Heart className="h-3.5 w-3.5" aria-hidden="true" />
-                            <span aria-hidden="true">{update.likeCount}</span>
-                        </Link>
-                    )}
+                    </div>
 
                     <button
                         type="button"
@@ -234,7 +260,7 @@ export default memo(function DiscoverUpdateCard({ update, viewerId, onOpen, onHi
                         className="inline-flex min-h-11 items-center gap-1.5 rounded-[5px] px-2.5 text-xs transition-colors hover:bg-muted hover:text-foreground focus-visible:bg-muted"
                     >
                         <MessageCircle className="h-3.5 w-3.5" aria-hidden="true" />
-                        <span aria-hidden="true">{update.commentCount}</span>
+                        <span className="tabular-nums" aria-hidden="true">{update.commentCount}</span>
                     </button>
                     {/* The count is announced when it changes, without moving focus. */}
                     <span className="sr-only" role="status" aria-live="polite">{update.likedByViewer ? "Liked" : ""}</span>
@@ -264,6 +290,14 @@ export default memo(function DiscoverUpdateCard({ update, viewerId, onOpen, onHi
                     {reporting.dialog}
                 </div>
             </div>
+
+            <WorkspaceUpdateLikersModal
+                open={isLikersOpen}
+                onOpenChange={setIsLikersOpen}
+                projectId={update.projectId}
+                updateId={update.id}
+                likeCount={update.likeCount}
+            />
         </article>
     );
 });
