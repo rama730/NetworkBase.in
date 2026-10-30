@@ -631,8 +631,6 @@ export const connections = pgTable(
   },
   (t) => ({
     // Optimize fetching connections for a user
-    requesterIdx: index("connections_requester_idx").on(t.requesterId),
-    addresseeIdx: index("connections_addressee_idx").on(t.addresseeId),
     // Composite index for common "my accepted connections" query
     statusRequesterIdx: index("connections_status_requester_idx").on(
       t.status,
@@ -899,7 +897,6 @@ export const workspaces = pgTable(
     deletedAt: timestamp("deleted_at", { withTimezone: true }),
   },
   (t) => ({
-    ownerIdx: index("workspaces_owner_idx").on(t.ownerId),
     statusSetByIdx: index("workspaces_status_set_by_idx").on(t.statusSetBy),
     coverImageAssetIdx: index("workspaces_cover_image_asset_idx").on(
       t.coverImageAssetId,
@@ -1024,7 +1021,6 @@ export const workspaceMembers = pgTable(
       t.projectId,
       t.userId,
     ),
-    userIdx: index("workspace_members_user_idx").on(t.userId),
     userRoleIdx: index("workspace_members_user_role_idx").on(t.userId, t.role),
     projectJoinedAtIdx: index("project_members_project_joined_at_idx").on(
       t.projectId,
@@ -2012,7 +2008,6 @@ export const workspaceUpdateLikes = pgTable(
       .notNull(),
   },
   (t) => ({
-    updateIdx: index("workspace_update_likes_update_idx").on(t.updateId),
     userIdx: index("workspace_update_likes_user_idx").on(t.userId),
     uniqueLike: uniqueIndex("workspace_update_likes_unique").on(
       t.updateId,
@@ -2341,7 +2336,6 @@ export const tasks = pgTable(
       t.timelineOriginAt,
       t.id,
     ),
-    assigneeIdx: index("tasks_assignee_idx").on(t.assigneeId),
     statusIdx: index("tasks_status_idx").on(t.status),
     assigneeStatusDueIdx: index("tasks_assignee_status_due_idx").on(
       t.assigneeId,
@@ -2548,7 +2542,6 @@ export const taskComments = pgTable(
     taskCreatedActiveIdx: index("task_comments_task_created_active_idx")
       .on(t.taskId, t.createdAt.desc())
       .where(sql`${t.deletedAt} IS NULL`),
-    parentIdx: index("task_comments_parent_id_idx").on(t.parentCommentId),
     deletedByIdx: index("task_comments_deleted_by_idx").on(t.deletedBy),
     userIdx: index("task_comments_user_id_idx").on(t.userId),
   }),
@@ -2572,7 +2565,6 @@ export const taskCommentLikes = pgTable(
       .notNull(),
   },
   (t) => ({
-    commentIdx: index("task_comment_likes_comment_id_idx").on(t.commentId),
     userIdx: index("task_comment_likes_user_id_idx").on(t.userId),
     uniqueLike: uniqueIndex("task_comment_likes_unique").on(
       t.commentId,
@@ -2610,7 +2602,6 @@ export const commentMentions = pgTable(
       t.mentionedUserId,
       t.createdAt,
     ),
-    commentIdx: index("comment_mentions_comment_idx").on(t.commentId),
   }),
 );
 
@@ -3184,9 +3175,6 @@ export const workspaceNodes = pgTable(
     ),
     createdByIdx: index("workspace_nodes_created_by_idx").on(t.createdBy),
     deletedByIdx: index("workspace_nodes_deleted_by_idx").on(t.deletedBy),
-    deletedAtPartialIdx: index("workspace_nodes_deleted_at_partial_idx")
-      .on(t.deletedAt)
-      .where(sql`${t.deletedAt} IS NULL`),
     projectTrashedIdx: index("project_nodes_trashed_idx")
       .on(t.projectId, t.deletedAt.desc())
       .where(sql`${t.deletedAt} IS NOT NULL`),
@@ -3623,7 +3611,6 @@ export const taskNodeLinks = pgTable(
     }),
   },
   (t) => ({
-    taskIdx: index("task_node_links_task_id_idx").on(t.taskId),
     taskLinkedAtIdx: index("task_node_links_task_linked_at_idx").on(
       t.taskId,
       t.linkedAt.desc(),
@@ -3698,7 +3685,6 @@ export const workspaceNodeLocks = pgTable(
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
   },
   (t) => ({
-    projectIdx: index("workspace_node_locks_workspace_id_idx").on(t.projectId),
     expiresIdx: index("workspace_node_locks_expires_idx").on(t.expiresAt),
     projectExpiresIdx: index("workspace_node_locks_workspace_expires_idx").on(
       t.projectId,
@@ -5542,7 +5528,6 @@ export const taskPushes = pgTable(
     filesJson: jsonb("files_json").default("[]").notNull(),
   },
   (t) => ({
-    taskIdx: index("task_pushes_task_idx").on(t.taskId),
     taskPushedAtIdx: index("task_pushes_task_pushed_at_idx").on(
       t.taskId,
       t.pushedAt.desc(),

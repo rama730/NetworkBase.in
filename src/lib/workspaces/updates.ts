@@ -142,7 +142,6 @@ export const WORKSPACE_UPDATE_SCHEMA_CONTRACT = {
         "workspace_updates_public_feed_idx",
         "workspace_updates_author_created_idx",
         "workspace_updates_deleted_at_idx",
-        "workspace_update_likes_update_idx",
         "workspace_update_likes_user_idx",
         "workspace_update_likes_unique",
         "workspace_update_comments_update_created_idx",
