@@ -44,7 +44,7 @@ export function ItemMenu({ label, report, isOwn, children, className, align = 'e
  * The page header's "⋯" for a workspace or organization you don't own (C15): the last header action, drawn like
  * Share beside it, with Report as its item.
  */
-export function HeaderReportMenu({ targetId, noun }: { targetId: string; noun: 'workspace' | 'organization' }) {
+export function HeaderReportMenu({ targetId, noun, children }: { targetId: string; noun: 'workspace' | 'organization'; children?: React.ReactNode }) {
     const reporting = useReportDialog({ kind: 'project', targetId, noun })
     return (
         <>
@@ -56,7 +56,8 @@ export function HeaderReportMenu({ targetId, noun }: { targetId: string; noun: '
                     </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-48">
-                    <ReportMenuItem first noun={noun} target={reporting.target} onReport={reporting.open} />
+                    {children}
+                    <ReportMenuItem first={!children} noun={noun} target={reporting.target} onReport={reporting.open} />
                 </DropdownMenuContent>
             </DropdownMenu>
             {reporting.dialog}

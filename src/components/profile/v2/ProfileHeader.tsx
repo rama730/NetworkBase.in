@@ -7,7 +7,9 @@ import { Button } from '@/components/ui/button'
 import { UserAvatar } from '@/components/ui/UserAvatar'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { ItemMenu } from '@/components/reports/ItemMenu'
-import { Ban, ChevronDown, Lock, MapPin, Link2, Pencil, MessageSquare, Share2, Smile, UserPlus, UserCheck, UserMinus, Clock, Users, Loader2 } from 'lucide-react'
+import { useMuteToggle } from '@/components/privacy/BlockDialog'
+import { useMutedIds } from '@/components/messages/ChatShellProvider'
+import { Ban, BellOff, ChevronDown, Lock, MapPin, Link2, Pencil, MessageSquare, Share2, Smile, UserPlus, UserCheck, UserMinus, Clock, Users, Loader2 } from 'lucide-react'
 import { buildPrivacyPresentation } from '@/lib/privacy/presentation'
 import type { ConnectionState, ProfilePrivacyRelationship, ProfileStats } from './types'
 import { normalizeProfile } from '@/lib/utils/normalize-profile'
@@ -103,6 +105,9 @@ export function ProfileHeader({
     lockedShell?: boolean
 }) {
     useSkillCatalog();
+    // Mute (Blocking B26), beside Block in the same menu.
+    const toggleMute = useMuteToggle()
+    const mutedIds = useMutedIds()
     const vm = normalizeProfile(profile)
     if (!vm) return null
     const name = vm.fullName || vm.username || 'User'
@@ -403,6 +408,12 @@ export function ProfileHeader({
                                         <DropdownMenuItem onSelect={onToggleBlock} disabled={isBlocking} variant={privacyRelationship.blockedByViewer ? undefined : 'destructive'}>
                                             <Ban className="size-4" />
                                             {blockActionLabel} {privacyRelationship.blockedByViewer ? '' : name}
+                                        </DropdownMenuItem>
+                                    ) : null}
+                                    {canManageBlock && !privacyRelationship.blockedByViewer ? (
+                                        <DropdownMenuItem onSelect={() => toggleMute({ id: profile.id, name }, !mutedIds.has(profile.id))}>
+                                            <BellOff className="size-4" />
+                                            {mutedIds.has(profile.id) ? `Unmute ${name}` : `Mute ${name}`}
                                         </DropdownMenuItem>
                                     ) : null}
                                 </ItemMenu>

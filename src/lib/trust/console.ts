@@ -8,6 +8,7 @@ import { logModerationEvent } from "@/lib/trust/cases";
 import { activeStrikes } from "@/lib/trust/decide";
 import { deadlinesFor, REASON_RULES, suggestedStep, type ReportReason, type ReportTargetKind, type Severity } from "@/lib/trust/rules";
 import { resolveReportTarget } from "@/lib/trust/targets";
+import { BLOCK_RISE } from "@/lib/trust/inbox";
 
 // The staff console's reads and small writes (docs/trust-and-safety-concept.md §17, C1–C14). Decisions live in
 // decide.ts and the Inbox, leases and live cursor in inbox.ts; this file is one case, notes, Active, People, the log.
@@ -209,15 +210,14 @@ export async function readPerson(handleOrId: string) {
     SELECT count(*)::int AS total, count(*) FILTER (WHERE status = 'actioned')::int AS actioned FROM content_reports WHERE reporter_id = ${p.id}`);
   const owned = await db.execute<{ id: string; title: string; slug: string | null; kind: string }>(sql`
     SELECT id, title, slug, kind FROM workspaces WHERE owner_id = ${p.id} AND deleted_at IS NULL ORDER BY created_at DESC LIMIT 20`);
-  // Blocks by count only, never who (Blocking B13); a sharp rise is 5+ this week and triple the weekly rate before it.
+  // Blocks by count only, never who (Blocking B13): the last 30 days, and a sharp rise is 5 or more in 24 hours.
   // Admin actions taken across a block are the private record of B49.
-  const [signals] = await db.execute<{ blocked_by: number; week: number; before: number; across: number }>(sql`
-    SELECT count(*)::int AS blocked_by,
-           count(*) FILTER (WHERE created_at > now() - interval '7 days')::int AS week,
-           count(*) FILTER (WHERE created_at <= now() - interval '7 days' AND created_at > now() - interval '35 days')::int AS before,
+  const [signals] = await db.execute<{ month: number; day: number; across: number }>(sql`
+    SELECT count(*) FILTER (WHERE created_at > now() - interval '30 days')::int AS month,
+           count(*) FILTER (WHERE created_at > now() - make_interval(hours => ${BLOCK_RISE.hours}))::int AS day,
            (SELECT count(*)::int FROM moderation_events e WHERE e.actor_id = ${p.id} AND e.kind = 'admin_action_across_block') AS across
     FROM user_blocks WHERE blocked_id = ${p.id}`);
-  const blocks = { total: signals?.blocked_by ?? 0, week: signals?.week ?? 0, rising: (signals?.week ?? 0) >= 5 && (signals?.week ?? 0) >= 3 * Math.max(1, (signals?.before ?? 0) / 4), acrossBlock: signals?.across ?? 0 };
+  const blocks = { month: signals?.month ?? 0, rising: (signals?.day ?? 0) >= BLOCK_RISE.count, acrossBlock: signals?.across ?? 0 };
   return { ...summary!, actions: [...actions], cases: [...cases], appeals: [...appeals], reported: [...reported], accuracy: accuracy ?? { total: 0, actioned: 0 }, owned: [...owned], blocks };
 }
 
@@ -260,6 +260,9 @@ export async function readOrgCases(orgId: string, viewerId: string) {
     FROM moderation_cases c
     WHERE c.org_id = ${orgId} AND c.routed_to = 'org' AND c.state IN ('open', 'in_review') AND c.severity <> 'urgent'
       AND coalesce((c.snapshot->>'privateConversation')::boolean, false) = false AND c.subject_id IS DISTINCT FROM ${viewerId} AND c.merged_into IS NULL
+      -- A report involving someone this moderator is in a block with goes to another moderator first (Blocking B37, D4).
+      AND NOT app_private.review_hidden_by_block(${viewerId}::uuid, c.subject_id, ${orgId}::uuid)
+      AND NOT EXISTS (SELECT 1 FROM content_reports r WHERE r.case_id = c.id AND app_private.review_hidden_by_block(${viewerId}::uuid, r.reporter_id, ${orgId}::uuid))
     ORDER BY c.org_deadline_at NULLS LAST LIMIT 100`);
   return [...rows];
 }

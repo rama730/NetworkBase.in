@@ -5,7 +5,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  AlarmClock, Archive, Ban, Bookmark, BookmarkCheck, CheckCircle2, Copy, Flag, Forward, Hash, Link2, Lock, LogIn, LogOut, MailOpen, MessageSquareText, Eye, EyeOff,
+  AlarmClock, Archive, Ban, BellOff, Bookmark, BookmarkCheck, CheckCircle2, Copy, Flag, Forward, Hash, Link2, Lock, LogIn, LogOut, MailOpen, MessageSquareText, Eye, EyeOff,
   MoreHorizontal, Pencil, Pin, RotateCcw, Send, SmilePlus, SquareCheck, Trash2, Undo2, UserMinus, XCircle, type LucideIcon,
 } from "lucide-react";
 import { toast, feedbackError, deferredFeedback } from "@/lib/feedback";
@@ -406,6 +406,10 @@ export const MessageRow = memo(function MessageRow({ message, grouped, highlight
     if (!own && !message.card && author && ctx.openBlock && !ctx.blockedIds?.has(author.id)) {
       list.push({ id: "block", label: `Block ${authorName}`, icon: Ban, run: () => ctx.openBlock?.({ id: author.id, name: authorName }), destructive: true, group: 3 });
     }
+    if (!own && !message.card && author && ctx.toggleMute && ctx.mutedIds) {
+      const muted = ctx.mutedIds.has(author.id);
+      list.push({ id: "mute", label: muted ? `Unmute ${authorName}` : `Mute ${authorName}`, icon: BellOff, run: () => ctx.toggleMute?.({ id: author.id, name: authorName }, !muted), group: 3 });
+    }
   }
   useEffect(() => () => {
     if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
@@ -454,11 +458,14 @@ export const MessageRow = memo(function MessageRow({ message, grouped, highlight
     return <SystemRow message={message} others={others} onToggleReaction={toggleReaction} />;
   }
 
-  // Someone you blocked, in a channel you share: folded until you ask (Blocking B34). DMs stay readable as they were.
-  if (!own && !ctx.isDm && !unfolded && message.author_id && ctx.blockedIds?.has(message.author_id)) {
+  // Someone you blocked or muted, in a channel or group you share: folded until you ask (Blocking B10, B26, B40, B42).
+  const foldedAs = own || unfolded || !message.author_id ? null
+    : ctx.blockedIds?.has(message.author_id) ? "blocked" : ctx.mutedIds?.has(message.author_id) ? "muted" : null;
+  if (foldedAs) {
     return (
       <div className="px-4 py-1 text-[13px] text-muted-foreground" data-seq={message.seq}>
-        Message from someone you blocked. <button type="button" className="font-medium text-foreground underline underline-offset-2 hover:text-primary pointer-coarse:min-h-11" onClick={() => setUnfolded(true)}>Show</button>
+        Message from someone you {foldedAs}<span className="sr-only">, hidden</span>.{" "}
+        <button type="button" className="font-medium text-foreground underline underline-offset-2 hover:text-primary pointer-coarse:min-h-11" onClick={() => setUnfolded(true)}>Show</button>
       </div>
     );
   }

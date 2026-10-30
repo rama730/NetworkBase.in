@@ -274,7 +274,8 @@
     "drizzle/0270_session_device_from_browser.sql",
     "drizzle/0271_moderation_events_account_deletion.sql",
     "drizzle/0272_trust_console_live.sql",
-    "drizzle/0273_user_blocks.sql"
+    "drizzle/0273_user_blocks.sql",
+    "drizzle/0274_blocking_second_pass.sql"
   ],
   "legacyDatabaseTags": [
     "0073_notification_snooze",

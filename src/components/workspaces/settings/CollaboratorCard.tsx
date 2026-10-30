@@ -1,7 +1,10 @@
 'use client';
 
+import { useState } from "react";
 import {
+    Ban,
     Bell,
+    BellOff,
     ChevronDown,
     Crown,
     Eye,
@@ -17,6 +20,9 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { UserAvatar } from "@/components/ui/UserAvatar";
+import { useBlockedIds, useMutedIds } from "@/components/messages/ChatShellProvider";
+import { BlockPersonDialog, useMuteToggle } from "@/components/privacy/BlockDialog";
+import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import {
@@ -54,6 +60,7 @@ export function CollaboratorCard({
     disabled = false,
     onRoleChange,
     onRemove,
+    onRemoveAndBlock,
     onTransfer,
     onNotificationSettings,
 }: {
@@ -64,6 +71,7 @@ export function CollaboratorCard({
     disabled?: boolean;
     onRoleChange: (member: WorkspaceSettingsMember, role: Exclude<WorkspaceMemberRole, "owner">) => void;
     onRemove: (member: WorkspaceSettingsMember) => void | Promise<void>;
+    onRemoveAndBlock?: (member: WorkspaceSettingsMember) => void | Promise<void>;
     onTransfer: (member: WorkspaceSettingsMember) => void;
     onNotificationSettings: (member: WorkspaceSettingsMember) => void | Promise<void>;
 }) {
@@ -86,6 +94,14 @@ export function CollaboratorCard({
         targetRole: role,
     });
     const hints = responsibilityHints(member);
+    const { user } = useAuth();
+    const isSelf = user?.id === member.id;
+    const displayName = getWorkspaceMemberDisplayName(member);
+    const blockedByMe = useBlockedIds().has(member.id);
+    const mutedIds = useMutedIds();
+    const toggleMute = useMuteToggle();
+    // Each ask mounts a fresh confirmation; nothing is in the tree until then.
+    const [blockAsk, setBlockAsk] = useState(0);
     const roleOptions: Array<Exclude<WorkspaceMemberRole, "owner">> = ["admin", "member", "viewer"];
 
     return (
@@ -125,6 +141,9 @@ export function CollaboratorCard({
                                     <span className="h-5 px-[7px] rounded-[3px] text-[11px] leading-none shrink-0 inline-flex items-center border border-border bg-muted/60 text-muted-foreground">
                                         Outside {member.outsideOf}
                                     </span>
+                                ) : null}
+                                {blockedByMe ? (
+                                    <span className="nb-tag shrink-0 text-[11px]">Blocked</span>
                                 ) : null}
                                 {!reference.isAssignable ? (
                                     <span className="h-5 px-[7px] rounded-[3px] font-mono text-[11px] font-medium uppercase tracking-[0.09em] leading-none shrink-0 inline-flex items-center border border-amber-500/20 bg-amber-500/10 text-amber-700 dark:text-amber-400">
@@ -224,6 +243,26 @@ export function CollaboratorCard({
                                         <UserMinus className="h-3.5 w-3.5" />
                                         <span>Remove member</span>
                                     </DropdownMenuItem>
+                                    {isProjectOwner && onRemoveAndBlock ? (
+                                        <DropdownMenuItem disabled={disabled} onClick={() => void onRemoveAndBlock(member)} className="gap-2 text-xs text-destructive focus:bg-destructive/10 focus:text-destructive">
+                                            <UserMinus className="h-3.5 w-3.5" />
+                                            <span>Remove and block from this workspace</span>
+                                        </DropdownMenuItem>
+                                    ) : null}
+                                </>
+                            ) : null}
+                            {/* A personal block and mute, yours alone: nothing changes about their place here (Blocking B51, B26). */}
+                            {!isSelf ? (
+                                <>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem onClick={() => setBlockAsk((n) => n + 1)} className="gap-2 text-xs text-foreground">
+                                        <Ban className="h-3.5 w-3.5 text-muted-foreground" />
+                                        <span>{blockedByMe ? `Unblock ${displayName}` : `Block ${displayName}`}</span>
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => toggleMute({ id: member.id, name: displayName }, !mutedIds.has(member.id))} className="gap-2 text-xs text-foreground">
+                                        <BellOff className="h-3.5 w-3.5 text-muted-foreground" />
+                                        <span>{mutedIds.has(member.id) ? `Unmute ${displayName}` : `Mute ${displayName}`}</span>
+                                    </DropdownMenuItem>
                                 </>
                             ) : null}
                         </DropdownMenuContent>
@@ -243,6 +282,7 @@ export function CollaboratorCard({
                     </div>
                 ) : null}
             </div>
+            {blockAsk ? <BlockPersonDialog key={blockAsk} person={{ id: member.id, name: displayName }} source="member_list" unblock={blockedByMe} /> : null}
         </article>
     );
 }

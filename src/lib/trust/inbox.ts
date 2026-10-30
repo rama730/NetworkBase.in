@@ -29,7 +29,11 @@ export type InboxItem = {
   routed_to: string | null; pile_on: boolean; legal_hold: boolean; escalated: boolean; source: string | null; version: number;
   subject_id: string | null; subject_name: string | null; subject_username: string | null; subject_avatar: string | null;
   claimer_id: string | null; claimer_name: string | null; assigned_id: string | null; assigned_name: string | null; outcome: string | null; decided_at: string | null;
+  /** The person this is about was blocked by 5 or more people in the last 24 hours: a quiet flag, never a case (Blocking B13). */
+  blocked_rise?: boolean;
 };
+
+export const BLOCK_RISE = { count: 5, hours: 24 } as const;
 
 /** One page of the Inbox, ordered by what's due first; the cursor is the last row's sort key and id. */
 export async function readInbox(staffId: string, f: InboxFilters, cursor: { at: string; id: string } | null) {
@@ -114,6 +118,14 @@ export async function readInbox(staffId: string, f: InboxFilters, cursor: { at: 
   });
   const more = list.length > PAGE;
   const items = list.slice(0, PAGE);
+  const subjects = [...new Set(items.map((i) => i.subject_id).filter((id): id is string => Boolean(id)))];
+  if (subjects.length) {
+    const rising = new Set([...await db.execute<{ id: string }>(sql`
+      SELECT blocked_id AS id FROM user_blocks
+      WHERE blocked_id IN (${sql.join(subjects.map((id) => sql`${id}::uuid`), sql`, `)}) AND created_at > now() - make_interval(hours => ${BLOCK_RISE.hours})
+      GROUP BY blocked_id HAVING count(*) >= ${BLOCK_RISE.count}`)].map((r) => r.id));
+    for (const item of items) item.blocked_rise = Boolean(item.subject_id && rising.has(item.subject_id));
+  }
   const last = items.at(-1);
   return { items, next: more && last ? { at: last.sort_at, id: last.id } : null };
 }

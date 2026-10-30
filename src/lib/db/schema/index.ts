@@ -586,6 +586,17 @@ export const userBlocks = pgTable(
   }),
 );
 
+/** Mute (Blocking B26): their posts, comments and messages fold for the muter; nothing is removed, nobody is told. */
+export const userMutes = pgTable(
+  "user_mutes",
+  {
+    muterId: uuid("muter_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+    mutedId: uuid("muted_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({ pk: primaryKey({ columns: [t.muterId, t.mutedId] }) }),
+);
+
 // ============================================================================
 // CONNECTIONS TABLE
 // ============================================================================

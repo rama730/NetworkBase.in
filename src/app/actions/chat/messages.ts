@@ -262,7 +262,10 @@ export async function listReactors(input: { channelId: string; seq: number }) {
   if (!isUuid(input?.channelId) || !isMessageSeq(input.seq)) return invalidInput;
   try {
     const rows = await chatRows<{ emoji: string; names: string[] }>(sql`
-      SELECT r.emoji, jsonb_agg(CASE WHEN r.user_id = ${user.id}::uuid THEN 'You' ELSE coalesce(pr.full_name, pr.username, 'Someone') END ORDER BY r.created_at) AS names
+      -- Across a block the name is left out, never the reaction: the count stays honest (Blocking B20, B44).
+      SELECT r.emoji, jsonb_agg(CASE WHEN r.user_id = ${user.id}::uuid THEN 'You'
+               WHEN app_private.blocked_between(${user.id}::uuid, r.user_id) THEN 'Someone'
+               ELSE coalesce(pr.full_name, pr.username, 'Someone') END ORDER BY r.created_at) AS names
       FROM chat_reactions r
       LEFT JOIN profiles pr ON pr.id = r.user_id
       WHERE r.channel_id = ${input.channelId}::uuid AND r.message_seq = ${input.seq}

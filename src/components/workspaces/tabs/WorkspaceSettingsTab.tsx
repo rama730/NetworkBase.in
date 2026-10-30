@@ -1202,7 +1202,8 @@ function ProjectSettingsContent({
         });
     }, [actorProjectRole, isProjectOwner, ownerId, projectId]);
 
-    const prepareRemoveMember = useCallback(async (member: WorkspaceSettingsMember) => {
+    // `block`: the owner's "Remove and block from this workspace" (Blocking B27), the same removal plus a join block.
+    const prepareRemoveMember = useCallback(async (member: WorkspaceSettingsMember, options: { block?: boolean } = {}) => {
         const currentRole = projectMemberRole(member, ownerId);
         const policy = buildWorkspaceMemberMutationPolicy({
             actorIsOwner: isProjectOwner,
@@ -1228,9 +1229,11 @@ function ProjectSettingsContent({
             setRemovalReassignToUserId(preflight.reassignmentCandidates?.[0]?.id ?? "");
             setRemovalPreflightDialog(preflight);
             setConfirmAction({
-                title: `Remove ${policyPreview.displayName}`,
-                description: `${policyPreview.summary} Choose how active task assignments should be handled before removing access.`,
-                confirmLabel: "Remove member",
+                title: options.block ? `Remove and block ${policyPreview.displayName} from this workspace` : `Remove ${policyPreview.displayName}`,
+                description: options.block
+                    ? `${policyPreview.summary} They won’t be able to rejoin by code, link, application or invitation. This is the workspace’s block, not a personal one. Choose how active task assignments should be handled first.`
+                    : `${policyPreview.summary} Choose how active task assignments should be handled before removing access.`,
+                confirmLabel: options.block ? "Remove and block" : "Remove member",
                 variant: "destructive",
                 action: async () => {
                     const nextMode = removalModeRef.current;
@@ -1245,7 +1248,12 @@ function ProjectSettingsContent({
                     if (!removeResult.success) {
                         return { success: false, message: removeResult.message };
                     }
-                    return { success: true, message: removeResult.message, refresh: true };
+                    if (options.block) {
+                        const { blockFromWorkspaceAction } = await import("@/app/actions/blocking");
+                        const blocked = await blockFromWorkspaceAction(projectId, member.id);
+                        if (!blocked.success) return { success: true, message: `Removed. ${blocked.error}`, refresh: true };
+                    }
+                    return { success: true, message: options.block ? "Removed and blocked from this workspace" : removeResult.message, refresh: true };
                 },
             });
         } catch (error) {
@@ -1588,6 +1596,7 @@ function ProjectSettingsContent({
                                                 actorRole={actorProjectRole}
                                                 onRoleChange={prepareRoleChange}
                                                 onRemove={prepareRemoveMember}
+                                                onRemoveAndBlock={(member) => prepareRemoveMember(member, { block: true })}
                                                 onTransfer={prepareTransferToMember}
                                                 onNotificationSettings={openMemberNotificationSettings}
                                             />
@@ -1607,6 +1616,7 @@ function ProjectSettingsContent({
                                                     actorRole={actorProjectRole}
                                                     onRoleChange={prepareRoleChange}
                                                     onRemove={prepareRemoveMember}
+                                                    onRemoveAndBlock={(member) => prepareRemoveMember(member, { block: true })}
                                                     onTransfer={prepareTransferToMember}
                                                     onNotificationSettings={openMemberNotificationSettings}
                                                 />
@@ -1679,6 +1689,7 @@ function ProjectSettingsContent({
                                                 actorRole={actorProjectRole}
                                                 onRoleChange={prepareRoleChange}
                                                 onRemove={prepareRemoveMember}
+                                                onRemoveAndBlock={(member) => prepareRemoveMember(member, { block: true })}
                                                 onTransfer={prepareTransferToMember}
                                                 onNotificationSettings={openMemberNotificationSettings}
                                             />

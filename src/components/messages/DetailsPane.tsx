@@ -5,12 +5,12 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { forwardRef, useEffect, useMemo, useRef, useState } from "react";
 import { Virtuoso } from "react-virtuoso";
-import { Ban, Bell, Flag, Link2, Lock, MessageSquare, MoreHorizontal, Search, ShieldCheck, ShieldOff, Star, User, UserMinus, UserPlus, Users, X } from "lucide-react";
+import { Ban, Bell, BellOff, Flag, Link2, Lock, MessageSquare, MoreHorizontal, Search, ShieldCheck, ShieldOff, Star, User, UserMinus, UserPlus, Users, X } from "lucide-react";
 import { toast } from "@/lib/feedback";
 
 import { joinChannel, renameGroup, setChannelPrivacy, updateChannel, type ChannelDetails } from "@/app/actions/chat/channels";
 import { addMembers, getOrCreateDm, removeMember, setMemberRole, setMemberState } from "@/app/actions/chat/members";
-import { useChatShell } from "@/components/messages/ChatShellProvider";
+import { useChatShell, useMutedIds } from "@/components/messages/ChatShellProvider";
 import { AddPeopleDialog } from "@/components/messages/parts/AddPeople";
 import { useChannelDetails, useChannelMembers, usePersonContext } from "@/components/messages/useConversation";
 import { PresenceAvatar } from "@/components/presence/PersonPresence";
@@ -27,7 +27,7 @@ import { SettingsSwitch } from "@/components/settings/ui/SettingsSwitch";
 import { ErrorNotice } from "@/components/ui/ErrorNotice";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { ReportMenuItem, useReportDialog } from "@/components/reports/ReportDialog";
-import { useBlockFlow } from "@/components/privacy/BlockDialog";
+import { useBlockFlow, useMuteToggle } from "@/components/privacy/BlockDialog";
 import { useAuth } from "@/hooks/useAuth";
 import type { ChannelMember } from "@/app/actions/chat/channels";
 import { canAddPeople, notifyChoice, notifyChoices, notifyHelp, personName } from "@/lib/messaging/channel-view";
@@ -158,6 +158,8 @@ type BlockFlow = ReturnType<typeof useBlockFlow>;
 function MemberRow({ member, channel, meId, onRemove, blocking }: { member: ChannelMember; channel: ChannelDetails; meId: string | null; onRemove: (member: ChannelMember) => void; blocking: BlockFlow }) {
   // Report a person from a channel or DM (C15): the last item of their "⋯".
   const reporting = useReportDialog({ kind: "person", targetId: member.id, noun: "person", personName: personName(member) });
+  const toggleMute = useMuteToggle();
+  const mutedIds = useMutedIds();
   const router = useRouter();
   const queryClient = useQueryClient();
   const presence = usePersonPresence(member.id);
@@ -209,7 +211,8 @@ function MemberRow({ member, channel, meId, onRemove, blocking }: { member: Chan
             <MoreHorizontal size={16} />
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-48">
-            <DropdownMenuItem disabled={opening} onSelect={() => void message()}><MessageSquare /> Message</DropdownMenuItem>
+            {/* No Message for someone you blocked (B44). */}
+            {member.blocked_by_me ? null : <DropdownMenuItem disabled={opening} onSelect={() => void message()}><MessageSquare /> Message</DropdownMenuItem>}
             {member.username ? <DropdownMenuItem asChild><Link href={profileHref({ id: member.id, username: member.username })}><User /> View profile</Link></DropdownMenuItem> : null}
             {canManage ? (
               <>
@@ -225,6 +228,7 @@ function MemberRow({ member, channel, meId, onRemove, blocking }: { member: Chan
             {member.blocked_by_me
               ? <DropdownMenuItem onSelect={() => blocking.openUnblock({ id: member.id, name: personName(member) })}><Ban /> Unblock</DropdownMenuItem>
               : <DropdownMenuItem variant="destructive" onSelect={() => blocking.openBlock({ id: member.id, name: personName(member) })}><Ban /> Block {personName(member)}</DropdownMenuItem>}
+            <DropdownMenuItem onSelect={() => toggleMute({ id: member.id, name: personName(member) }, !mutedIds.has(member.id))}><BellOff /> {mutedIds.has(member.id) ? "Unmute" : "Mute"} {personName(member)}</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       ) : null}

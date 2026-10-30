@@ -21,7 +21,7 @@ export async function bootstrap(input: { since?: string | null } = {}) {
   if (!user) return unauthorized;
   const since = typeof input.since === "string" && !Number.isNaN(Date.parse(input.since)) ? input.since : null;
   try {
-    const [data, savedDue, inbox, blocks] = await Promise.all([
+    const [data, savedDue, inbox, blocks, mutes] = await Promise.all([
       chatValue<ChatBootstrap>(sql`SELECT app_private.chat_bootstrap(${user.id}::uuid, ${since}::timestamptz) AS value`),
       // The Saved row's badge: reminders whose time has come (cleared or Done removes them).
       chatValue<number>(sql`
@@ -31,10 +31,11 @@ export async function bootstrap(input: { since?: string | null } = {}) {
       chatRows<{ blocker_id: string; blocked_id: string }>(sql`
         SELECT blocker_id, blocked_id FROM user_blocks WHERE blocker_id = ${user.id}::uuid OR blocked_id = ${user.id}::uuid
       `),
+      chatRows<{ muted_id: string }>(sql`SELECT muted_id FROM user_mutes WHERE muter_id = ${user.id}::uuid`),
     ]);
     const channels = withBlockState(await withApplicationMeta(data.channels, user.id), user.id, blocks);
     const blockedIds = blocks.filter((b) => b.blocker_id === user.id).map((b) => b.blocked_id);
-    return { success: true as const, data: { ...data, channels, ...inbox, saved_due: savedDue, blocked_ids: blockedIds } };
+    return { success: true as const, data: { ...data, channels, ...inbox, saved_due: savedDue, blocked_ids: blockedIds, muted_ids: mutes.map((m) => m.muted_id) } };
   } catch (error) {
     return chatFailure(error, "bootstrap");
   }

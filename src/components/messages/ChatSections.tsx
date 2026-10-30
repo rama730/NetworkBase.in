@@ -54,6 +54,8 @@ type Props = {
 
 function ChannelIcon({ channel }: { channel: ChatChannelSummary }) {
   if (channel.kind === "dm") {
+    // Across a block, no presence dot on either side (B44): presence isn't shared, so a dot would only mislead.
+    if (channel.reply_closed) return <UserAvatar identity={channel.dm_user} size={20} />;
     return <PresenceAvatar identity={channel.dm_user} userId={channel.dm_user?.id} size={20} title="" />;
   }
   // An application thread shows the person on the other side, like a DM: the applicant to reviewers, the lead to the applicant.
@@ -83,13 +85,14 @@ function Row({ channel, meId, variant, onSelect, draft }: { channel: ChatChannel
   const pathname = usePathname();
   const href = conversationHref(channel.id);
   const current = pathname === href || pathname?.startsWith(`${href}/`);
-  const count = rowCount(channel);
+  // A DM you blocked shows no unread count (B44).
+  const count = channel.blocked_by_me ? 0 : rowCount(channel);
   const title = channelTitle(channel, meId);
   const preview = variant === "list" && (isDirectLike(channel) || isApplicationThread(channel));
   // No aria-label: the row reads as what it shows (name, preview, time, count), plus these sr-only notes.
   const draftMark = draft && !current ? <Pencil size={14} aria-hidden="true" className="flex-none text-muted-foreground" /> : null;
   // Bold alone isn't heard: unread rows say so (a count says it already).
-  const unread = isUnread(channel) && channel.notify !== "mute" && !count;
+  const unread = isUnread(channel) && channel.notify !== "mute" && !count && !channel.blocked_by_me;
   // Your own block, seen only by you (Blocking B44).
   const blockedTag = channel.blocked_by_me ? <span className="nb-meta flex-none font-normal text-muted-foreground">Blocked</span> : null;
   const srNotes = <>{unread ? <span className="sr-only">, unread</span> : null}{draft && !preview ? <span className="sr-only">, draft</span> : null}{channel.notify === "mute" ? <span className="sr-only">, muted</span> : null}</>;
@@ -118,7 +121,7 @@ function Row({ channel, meId, variant, onSelect, draft }: { channel: ChatChannel
       <span className="flex min-w-0 flex-1 items-baseline gap-1.5">
         <span className="min-w-0 truncate">{title}</span>
         {blockedTag}
-        {channel.kind === "dm" && channel.dm_user && !channel.blocked_by_me ? <DmStatus userId={channel.dm_user.id} /> : null}
+        {channel.kind === "dm" && channel.dm_user && !channel.reply_closed ? <DmStatus userId={channel.dm_user.id} /> : null}
         {/* Applications span projects, so a reviewer's row says which one. */}
         {channel.application && !channel.application.is_applicant ? <span className="nb-meta min-w-0 shrink-[999] truncate font-normal text-muted-foreground">{channel.application.project_title}</span> : null}
       </span>
@@ -132,7 +135,7 @@ function Row({ channel, meId, variant, onSelect, draft }: { channel: ChatChannel
   );
   const shared = {
     className: `nb-chat-row${preview ? " nb-chat-row-preview" : ""}`,
-    "data-unread": isUnread(channel) && channel.notify !== "mute" ? "true" : undefined,
+    "data-unread": isUnread(channel) && channel.notify !== "mute" && !channel.blocked_by_me ? "true" : undefined,
     "data-muted": channel.notify === "mute" ? "true" : undefined,
     "data-testid": `chat-row-${channel.id}`,
   } as const;

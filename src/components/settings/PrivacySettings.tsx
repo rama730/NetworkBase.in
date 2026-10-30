@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Globe, Lock, ShieldBan, Users } from "lucide-react";
 import { toast, feedbackError } from "@/lib/feedback";
 import { Button } from "@/components/ui/button";
@@ -26,7 +26,8 @@ import { profileHref } from "@/lib/routing/identifiers";
 import type { PrivacyBlockedAccount } from "@/types/settingsTypes";
 import { formatCalendarDate, formatDateTime } from "@/lib/ui/date-formatting";
 import { MESSAGE_PRIVACY_CHOICES, VISIBILITY_CHOICES } from "@/lib/onboarding/contracts";
-import { announceRelationshipChange } from "@/components/privacy/BlockDialog";
+import { announceRelationshipChange, useMuteToggle } from "@/components/privacy/BlockDialog";
+import { queryKeys } from "@/lib/query-keys";
 
 // One wording for these choices, shared with onboarding.
 const VISIBILITY_COPY = Object.fromEntries(VISIBILITY_CHOICES.map((choice) => [choice.value, choice])) as Record<(typeof VISIBILITY_CHOICES)[number]["value"], (typeof VISIBILITY_CHOICES)[number]>;
@@ -126,6 +127,31 @@ function BlockByHandle({ onBlocked }: { onBlocked: () => Promise<void> }) {
     </div>
     {error ? <p role="alert" className="mt-1.5 nb-meta text-destructive">{error}</p> : null}
   </form>;
+}
+
+function MutedPeople() {
+  const toggleMute = useMuteToggle();
+  const muted = useQuery({
+    queryKey: [...queryKeys.settings.privacy(), "muted"],
+    queryFn: async () => {
+      const { listMutedAction } = await import("@/app/actions/blocking");
+      const result = await listMutedAction();
+      if (!result.success) throw new Error(result.error);
+      return result.people;
+    },
+  });
+  // Mute (Blocking B26): lighter than a block. Their posts, comments and messages fold for you; they aren't told.
+  return <SettingsSectionCard id="settings-privacy-muted" title="Muted people" description="Their posts, comments and messages in spaces you share fold for you. Nothing else changes, and they aren’t told.">
+    {muted.isError ? <ErrorNotice what="Muted people" onRetry={() => void muted.refetch()} /> : null}
+    {muted.data && muted.data.length === 0 ? <p className="nb-compact text-muted-foreground">You haven’t muted anyone. Mute someone from a message’s or member’s “⋯”.</p> : null}
+    {muted.data?.map((person) => <div key={person.id} className="flex min-h-14 items-center justify-between gap-4 border-b border-border py-2 last:border-b-0">
+      <div className="flex min-w-0 items-center gap-3">
+        <UserAvatar identity={person} size={32} fallbackDisplayName={person.name} />
+        <div className="min-w-0"><p className="truncate nb-ui-label text-foreground">{person.name}</p>{person.username ? <p className="truncate nb-meta text-muted-foreground">@{person.username}</p> : null}</div>
+      </div>
+      <Button type="button" variant="outline" size="sm" className="pointer-coarse:h-11" onClick={() => toggleMute({ id: person.id, name: person.name }, false)}>Unmute</Button>
+    </div>)}
+  </SettingsSectionCard>;
 }
 
 type Confirmation = { title: string; description: string; confirmLabel: string; run: () => void };
@@ -229,7 +255,7 @@ export default function PrivacySettings() {
       ]}
     />
 
-    <SettingsSectionCard title="Who can see and reach you" description="Choose who can view your profile and contact you.">
+    <SettingsSectionCard id="settings-privacy-reach" title="Who can see and reach you" description="Choose who can view your profile and contact you.">
       <SettingsRadioGroup id="settings-privacy-visibility" label="Profile visibility" description="Choose who can open your full profile." value={settings?.profileVisibility} onValueChange={handleProfileVisibilityChange} options={VISIBILITY_OPTIONS} busy={busy} />
 
       <div className="my-6 border-t border-border" />
@@ -256,7 +282,7 @@ export default function PrivacySettings() {
       />
     </SettingsSectionCard>
 
-    <SettingsSectionCard id="settings-privacy-blocked" title="Blocked people" description="People you block can’t find you, message you, mention you or see your posts, and you won’t see theirs. They aren’t told.">
+    <SettingsSectionCard id="settings-privacy-blocked" title="Blocked people" description="People you block can’t reach you here: they can’t find you, message you, mention you or see your posts, and you won’t see theirs. They aren’t told.">
       <BlockByHandle onBlocked={async () => { setMore(null); await refreshPrivacy(); }} />
       {data.blockedAccounts.length > 0 ? <SearchField label="Search blocked accounts" value={blockedSearch} onChange={setBlockedSearch} className="mb-3" /> : null}
       {data.blockedAccounts.length === 0 ? <div className="flex min-h-24 items-center gap-3 rounded-md border border-dashed border-border bg-card px-4"><ShieldBan className="size-5 text-muted-foreground" strokeWidth={1.75} aria-hidden="true" /><div><p className="nb-ui-label text-foreground">No blocked accounts</p><p className="nb-compact mt-1 text-muted-foreground">Blocked people will appear here.</p></div></div> : filteredBlockedAccounts.length === 0 ? <p className="py-6 text-center nb-compact text-muted-foreground">No blocked accounts match your search.</p> : <div>{filteredBlockedAccounts.map((account) => <BlockedAccountRow key={account.id} account={account} isPending={unblockMutation.isPending && unblockMutation.variables === account.id} onUnblock={handleUnblock} />)}</div>}
@@ -270,6 +296,8 @@ export default function PrivacySettings() {
       {allPrivacyActivity.length > 4 ? <Button type="button" variant="outline" size="sm" className="mt-3 pointer-coarse:h-11" onClick={() => setShowAllActivity((value) => !value)}>{showAllActivity ? "Show fewer" : `View all ${allPrivacyActivity.length}`}</Button> : null}
       <p className="nb-meta mt-4 text-muted-foreground">Activity records use pseudonymous network and device fingerprints and are removed when the account is deleted.</p>
     </SettingsSectionCard>
+
+    <MutedPeople />
 
     <ConfirmDialog
       open={confirmation !== null}

@@ -36,8 +36,8 @@ export function PersonView({ p }: { p: Person }) {
                 <NewCaseDialog what={handle.startsWith('@') ? handle : ''} trigger={<Button variant="outline">Act on account</Button>} />
             </header>
             <p className="border-b border-border py-3 text-[13px] text-muted-foreground">
-                Blocked by {p.blocks.total} {p.blocks.total === 1 ? 'person' : 'people'} · {p.blocks.week} this week
-                {p.blocks.rising ? <span className="ml-1.5 font-semibold text-destructive">Sharp rise</span> : null}
+                Blocked by {p.blocks.month} {p.blocks.month === 1 ? 'person' : 'people'} in the last 30 days
+                {p.blocks.rising ? <span className="ml-1.5 font-semibold text-[var(--status-warning)]">Blocked by many people recently</span> : null}
                 {p.blocks.acrossBlock ? ` · ${p.blocks.acrossBlock} admin ${p.blocks.acrossBlock === 1 ? 'action' : 'actions'} taken across a block` : ''}
             </p>
             <Section title="Active restrictions" empty={!active.length}>
