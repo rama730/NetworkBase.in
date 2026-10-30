@@ -67,3 +67,21 @@ describe('env validation schema', () => {
         assert.equal(result.success, true)
     })
 })
+
+// The real check, with what the worker's Docker build passes: every build ARG the service doesn't define arrives as
+// "" (2026-10-30: the worker has no Google client ID, and an empty one failed its build).
+describe('validateEnv (the real one)', () => {
+    const base = { NODE_ENV: 'test', DATABASE_URL: 'postgres://build:build@127.0.0.1:5432/build', SUPABASE_SERVICE_ROLE_KEY: 'build-only', NEXT_PUBLIC_SUPABASE_URL: 'https://example.supabase.co', NEXT_PUBLIC_SUPABASE_ANON_KEY: 'anon' }
+
+    it('treats a blank optional value as unset', async () => {
+        const { validateEnv } = await import('../../src/lib/env')
+        const env = validateEnv({ ...base, NEXT_PUBLIC_GOOGLE_CLIENT_ID: '', NEXT_PUBLIC_APP_URL: '  ', UPSTASH_REDIS_REST_URL: '' } as unknown as NodeJS.ProcessEnv)
+        assert.equal(env.NEXT_PUBLIC_GOOGLE_CLIENT_ID, undefined)
+        assert.equal(env.NEXT_PUBLIC_APP_URL, undefined)
+    })
+
+    it('still fails a blank required value', async () => {
+        const { validateEnv } = await import('../../src/lib/env')
+        assert.throws(() => validateEnv({ ...base, NEXT_PUBLIC_SUPABASE_ANON_KEY: '' } as unknown as NodeJS.ProcessEnv), /NEXT_PUBLIC_SUPABASE_ANON_KEY/)
+    })
+})

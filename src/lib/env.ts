@@ -75,7 +75,10 @@ function assertProductionSecurityEnv(env: Env) {
 }
 
 export function validateEnv(rawEnv: NodeJS.ProcessEnv): Env {
-    const result = envSchema.safeParse(rawEnv)
+    // A blank value means "not set": Docker turns a build ARG the service doesn't define into "", and an optional
+    // value must not fail the build for that (the worker has no Google client ID). Required values still fail.
+    const present = Object.fromEntries(Object.entries(rawEnv).filter(([, value]) => value !== undefined && value.trim() !== ''))
+    const result = envSchema.safeParse(present)
     if (!result.success) {
         const missing = result.error.issues
             .map((i) => `  ${i.path.join('.')}: ${i.message}`)
