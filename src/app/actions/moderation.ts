@@ -56,7 +56,7 @@ export async function reportAction(input: z.input<typeof reportSchema>): Promise
         if (target?.subjectId && target.subjectId !== userId) {
             try {
                 const h = await headers();
-                await setUserBlocked({ blockerId: userId, targetUserId: target.subjectId, blocked: true, request: new Request('https://networkbase.in/report', { headers: new Headers(h) }) });
+                await setUserBlocked({ blockerId: userId, targetUserId: target.subjectId, blocked: true, request: new Request('https://networkbase.in/report', { headers: new Headers(h) }), source: 'report' });
                 blocked = true;
             } catch (error) {
                 logger.warn('trust.report.block_failed', { module: 'trust', error: error instanceof Error ? error.message : String(error) });

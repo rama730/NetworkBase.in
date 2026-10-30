@@ -26,6 +26,7 @@ import { profileHref } from "@/lib/routing/identifiers";
 import type { PrivacyBlockedAccount } from "@/types/settingsTypes";
 import { formatCalendarDate, formatDateTime } from "@/lib/ui/date-formatting";
 import { MESSAGE_PRIVACY_CHOICES, VISIBILITY_CHOICES } from "@/lib/onboarding/contracts";
+import { announceRelationshipChange } from "@/components/privacy/BlockDialog";
 
 // One wording for these choices, shared with onboarding.
 const VISIBILITY_COPY = Object.fromEntries(VISIBILITY_CHOICES.map((choice) => [choice.value, choice])) as Record<(typeof VISIBILITY_CHOICES)[number]["value"], (typeof VISIBILITY_CHOICES)[number]>;
@@ -67,22 +68,64 @@ async function unblockAccount(userId: string) {
   return json?.data;
 }
 
+const BLOCK_SOURCE_LABEL: Record<string, string> = { profile: "from their profile", message: "from Messages", comment: "from a comment", person_card: "from a person card", member_list: "from a member list", report: "with a report", settings: "from Settings" };
+
 function BlockedAccountRow({ account, onUnblock, isPending }: { account: PrivacyBlockedAccount; onUnblock: (account: PrivacyBlockedAccount) => void; isPending: boolean }) {
   const displayName = account.fullName || account.username || "Unknown user";
-  return <div className="flex min-h-16 items-center justify-between gap-4 border-b border-border py-3 last:border-b-0">
-    <div className="flex min-w-0 items-center gap-3">
-      <UserAvatar identity={account} size={40} fallbackDisplayName={displayName} fallbackClassName="text-sm font-semibold text-primary-foreground" />
-      <div className="min-w-0">
-        <Link href={profileHref(account)} className="block truncate nb-ui-label text-foreground hover:text-primary pointer-coarse:-my-3 pointer-coarse:min-h-11 pointer-coarse:py-3.5">{displayName}</Link>
-        <p className="truncate nb-meta text-muted-foreground">{account.username ? `@${account.username}` : account.headline || "NetworkBase member"}</p>
-        {account.username && account.headline ? <p className="truncate nb-meta text-muted-foreground">{account.headline}</p> : null}
+  const [note, setNote] = useState(account.note ?? "");
+  // Your private note on the block, seen only by you (B30). Saved when you leave the field.
+  const saveNote = async () => {
+    if (note.trim() === (account.note ?? "")) return;
+    const { setBlockNoteAction } = await import("@/app/actions/blocking");
+    const result = await setBlockNoteAction(account.id, note);
+    if (!result.success) toast.error(result.error);
+  };
+  const source = account.source ? BLOCK_SOURCE_LABEL[account.source] : null;
+  return <div className="border-b border-border py-3 last:border-b-0">
+    <div className="flex min-h-10 items-center justify-between gap-4">
+      <div className="flex min-w-0 items-center gap-3">
+        <UserAvatar identity={account} size={40} fallbackDisplayName={displayName} fallbackClassName="text-sm font-semibold text-primary-foreground" />
+        <div className="min-w-0">
+          <Link href={profileHref(account)} className="block truncate nb-ui-label text-foreground hover:text-primary pointer-coarse:-my-3 pointer-coarse:min-h-11 pointer-coarse:py-3.5">{displayName}</Link>
+          <p className="truncate nb-meta text-muted-foreground">{account.username ? `@${account.username}` : account.headline || "NetworkBase member"}</p>
+          <p className="truncate nb-meta text-muted-foreground">{account.blockedAt ? <>Blocked <time dateTime={account.blockedAt}>{formatCalendarDate(account.blockedAt)}</time></> : "Blocked"}{source ? ` ${source}` : ""}</p>
+        </div>
       </div>
+      <Button type="button" variant="outline" size="sm" aria-label={`Unblock ${displayName}`} onClick={() => onUnblock(account)} disabled={isPending} className="shrink-0 pointer-coarse:h-11">{isPending ? "Unblocking…" : "Unblock"}</Button>
     </div>
-    <div className="flex shrink-0 items-center gap-3">
-      <span className="hidden nb-meta text-muted-foreground sm:inline">{account.blockedAt ? <>Blocked <time dateTime={account.blockedAt}>{formatCalendarDate(account.blockedAt)}</time></> : "Blocked"}</span>
-      <Button type="button" variant="outline" size="sm" aria-label={`Unblock ${displayName}`} onClick={() => onUnblock(account)} disabled={isPending} className="pointer-coarse:h-11">{isPending ? "Unblocking…" : "Unblock"}</Button>
-    </div>
+    <input value={note} maxLength={500} onChange={(event) => setNote(event.target.value)} onBlur={() => void saveNote()} placeholder="Private note (only you see this)" aria-label={`Private note about ${displayName}`} className="mt-2 h-8 w-full rounded-md border border-border bg-background px-2.5 nb-compact text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring pointer-coarse:h-11 sm:ml-[52px] sm:w-[calc(100%-52px)]" />
   </div>;
+}
+
+function BlockByHandle({ onBlocked }: { onBlocked: () => Promise<void> }) {
+  const [handle, setHandle] = useState("");
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  // Block someone without opening their profile (B25), with the same Undo as everywhere else (B12).
+  const submit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!handle.trim() || pending) return;
+    setPending(true); setError(null);
+    const { blockByHandleAction, undoBlockAction } = await import("@/app/actions/blocking");
+    const result = await blockByHandleAction(handle);
+    setPending(false);
+    if (!result.success) return setError(result.error);
+    setHandle("");
+    announceRelationshipChange(result.id);
+    await onBlocked();
+    toast(`${result.name} blocked`, { duration: result.undoSeconds * 1000, action: { label: "Undo", onClick: async () => {
+      const undo = await undoBlockAction(result.id);
+      toast(undo.success ? `${result.name} unblocked` : undo.error);
+      if (undo.success) { announceRelationshipChange(result.id); await onBlocked(); }
+    } } });
+  };
+  return <form onSubmit={submit} className="mb-4">
+    <div className="flex gap-2">
+      <input value={handle} onChange={(event) => setHandle(event.target.value)} placeholder="@handle" aria-label="Block someone by @handle" autoComplete="off" className="h-9 min-w-0 flex-1 rounded-md border border-border bg-background px-3 nb-compact text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring pointer-coarse:h-11" />
+      <Button type="submit" variant="outline" size="sm" disabled={pending || !handle.trim()} className="h-9 pointer-coarse:h-11">{pending ? "Blocking…" : "Block"}</Button>
+    </div>
+    {error ? <p role="alert" className="mt-1.5 nb-meta text-destructive">{error}</p> : null}
+  </form>;
 }
 
 type Confirmation = { title: string; description: string; confirmLabel: string; run: () => void };
@@ -114,7 +157,17 @@ export default function PrivacySettings() {
   });
   const unblockMutation = useMutation({
     mutationFn: unblockAccount,
-    onSuccess: async () => { toast.success("Account unblocked"); setMore(null); await refreshPrivacy(); },
+    onSuccess: async (_data, userId) => {
+      setMore(null);
+      announceRelationshipChange(userId);
+      await refreshPrivacy();
+      toast("Account unblocked", { duration: 10_000, action: { label: "Undo", onClick: async () => {
+        const { blockPersonAction } = await import("@/app/actions/blocking");
+        const again = await blockPersonAction(userId, "settings");
+        toast(again.success ? "Blocked again" : again.error);
+        if (again.success) { announceRelationshipChange(userId); await refreshPrivacy(); }
+      } } });
+    },
     onError: (error) => toast.error(feedbackError(error instanceof Error ? error.message : "Couldn’t unblock account", "Couldn’t unblock account")),
   });
 
@@ -157,7 +210,7 @@ export default function PrivacySettings() {
   const handleMessagePrivacyChange = (messagePrivacy: MessagePrivacySetting) => change("/api/v1/privacy", { messagePrivacy }, "Messaging privacy updated");
   const handleUnblock = (account: PrivacyBlockedAccount) => {
     const name = account.fullName || account.username || "this account";
-    setConfirmation({ title: `Unblock ${name}?`, description: "Future requests and messages from them will follow your privacy settings again.", confirmLabel: "Unblock", run: () => unblockMutation.mutate(account.id) });
+    setConfirmation({ title: `Unblock ${name}?`, description: "They’ll be able to find you, message you if your settings allow, and see your public posts again. They won’t be told. Your connection won’t come back; either of you can send a new request.", confirmLabel: "Unblock", run: () => unblockMutation.mutate(account.id) });
   };
 
   if (isLoading) return <SettingsSectionsSkeleton />;
@@ -203,7 +256,8 @@ export default function PrivacySettings() {
       />
     </SettingsSectionCard>
 
-    <SettingsSectionCard id="settings-privacy-blocked" title="Blocked people" description="Manage blocked people and review recent privacy changes.">
+    <SettingsSectionCard id="settings-privacy-blocked" title="Blocked people" description="People you block can’t find you, message you, mention you or see your posts, and you won’t see theirs. They aren’t told.">
+      <BlockByHandle onBlocked={async () => { setMore(null); await refreshPrivacy(); }} />
       {data.blockedAccounts.length > 0 ? <SearchField label="Search blocked accounts" value={blockedSearch} onChange={setBlockedSearch} className="mb-3" /> : null}
       {data.blockedAccounts.length === 0 ? <div className="flex min-h-24 items-center gap-3 rounded-md border border-dashed border-border bg-card px-4"><ShieldBan className="size-5 text-muted-foreground" strokeWidth={1.75} aria-hidden="true" /><div><p className="nb-ui-label text-foreground">No blocked accounts</p><p className="nb-compact mt-1 text-muted-foreground">Blocked people will appear here.</p></div></div> : filteredBlockedAccounts.length === 0 ? <p className="py-6 text-center nb-compact text-muted-foreground">No blocked accounts match your search.</p> : <div>{filteredBlockedAccounts.map((account) => <BlockedAccountRow key={account.id} account={account} isPending={unblockMutation.isPending && unblockMutation.variables === account.id} onUnblock={handleUnblock} />)}</div>}
       {blockedQuery && nextBlockedCursor ? <p className="mt-2 nb-meta text-muted-foreground">Search covers the accounts loaded so far.</p> : null}
