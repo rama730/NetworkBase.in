@@ -1228,7 +1228,7 @@ export default function WorkspaceDashboardClient({ project, currentUserId, viewe
             {activeTab === 'updates' && (
                 <div className="w-full h-full min-h-0">
                     <TabErrorBoundary tabName="Updates">
-                        <UpdatesTab projectId={project.id} projectSlug={project.slug || project.id} projectName={project.title} currentUserId={currentUserId} currentUserName={currentUserName} currentUserAvatarUrl={currentUserAvatarUrl} canCreateUpdates={canCreateUpdates} canManageUpdates={canManageUpdates} focusComposer={newIntent === 'announcement'} onComposerFocused={() => setNewIntent(null)} initialUpdateId={searchParams?.get('updateId') || null} initialCommentId={searchParams?.get('commentId') || null} />
+                        <UpdatesTab projectId={project.id} projectSlug={project.slug || project.id} projectName={project.title} currentUserId={currentUserId} currentUserName={currentUserName} currentUserAvatarUrl={currentUserAvatarUrl} canCreateUpdates={canCreateUpdates} isMember={isOwnerOrMember} canManageUpdates={canManageUpdates} focusComposer={newIntent === 'announcement'} onComposerFocused={() => setNewIntent(null)} initialUpdateId={searchParams?.get('updateId') || null} initialCommentId={searchParams?.get('commentId') || null} />
                     </TabErrorBoundary>
                 </div>
             )}

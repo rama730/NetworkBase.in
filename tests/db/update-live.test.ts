@@ -57,6 +57,33 @@ test("each change announces itself on both topics, with ids and counts only (RT2
   assert.deepEqual(seqs, [...seqs].sort((a, b) => a - b));
 });
 
+test("the open workspace topic only carries posts everyone there can read", async () => {
+  const { owner, fan, ws, id } = await post();
+  const on = async (topic: string) => (await sql`SELECT count(*)::int AS n FROM realtime.messages WHERE topic = ${topic}`)[0]!.n as number;
+  const open = `updates:workspace:${ws}`;
+  const members = `updates:members:${ws}`;
+  const before = await on(open);
+  const [hidden] = await sql`INSERT INTO workspace_updates (workspace_id, author_id, content, visibility) VALUES (${ws}, ${owner}, 'x', 'members') RETURNING id`;
+  await sql`UPDATE workspace_updates SET like_count = 1 WHERE id = ${hidden!.id}`;
+  assert.equal(await on(open), before, "members-only post: nothing on the open topic");
+  assert.equal(await on(members), 2, "members hear it");
+  const [narrow] = await sql`INSERT INTO workspace_updates (workspace_id, author_id, content, visibility, audience) VALUES (${ws}, ${owner}, 'x', 'members', ${sql.json({ roles: ["admin"] })}) RETURNING id`;
+  await sql`UPDATE workspace_updates SET like_count = 1 WHERE id = ${narrow!.id}`;
+  assert.equal(await on(open), before);
+  assert.equal(await on(members), 2, "a narrower audience stays on its own topic");
+  assert.equal((await events(narrow!.id as string)).length, 2);
+  // Narrowing a public post tells those who had it to re-read, and nothing more.
+  await sql`UPDATE workspace_updates SET visibility = 'members' WHERE id = ${id}`;
+  const told = await sql`SELECT event FROM realtime.messages WHERE topic = ${open} ORDER BY inserted_at DESC, id DESC LIMIT 1`;
+  assert.equal(told[0]!.event, "update.changed");
+  const readable = async (user: string, topic: string) => sql.begin(async (tx) => {
+    await tx`SELECT set_config('request.jwt.claims', ${JSON.stringify({ sub: user, role: "authenticated" })}, true)`;
+    return (await tx`SELECT app_private.nb_update_topic_readable(${topic}) AS ok`)[0]!.ok as boolean;
+  });
+  assert.equal(await readable(fan, members), false, "a stranger can't join the members' topic");
+  assert.equal(await readable(owner, members), true);
+});
+
 test("a rolled-back change announces nothing; an unrelated edit doesn't either (design principle 3)", async () => {
   const { id } = await post();
   const before = (await events(id)).length;

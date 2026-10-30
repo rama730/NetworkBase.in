@@ -37,6 +37,8 @@ type UpdatesTabProps = {
   currentUserName?: string | null;
   currentUserAvatarUrl?: string | null;
   canCreateUpdates: boolean;
+  /** Owners and members also listen on the members' topic. */
+  isMember?: boolean;
   canManageUpdates: boolean;
   initialUpdateId?: string | null;
   initialCommentId?: string | null;
@@ -84,6 +86,7 @@ export default function UpdatesTab({
   currentUserName,
   currentUserAvatarUrl,
   canCreateUpdates,
+  isMember = false,
   canManageUpdates,
   initialUpdateId,
   initialCommentId,
@@ -216,7 +219,7 @@ export default function UpdatesTab({
       setIncoming((list) => (list.some((item) => item.id === update.id) ? list : [update, ...list]));
     });
   }, [currentUserId, projectId]);
-  useWorkspaceUpdatesLive(projectId, Boolean(currentUserId), handleCreated);
+  useWorkspaceUpdatesLive(projectId, Boolean(currentUserId), isMember, handleCreated);
   const showIncoming = () => {
     queryClient.setQueryData(updatesQueryKey, (existing: InfiniteData<UpdatesPage> | undefined) =>
       [...incoming].reverse().reduce((pages, update) =>

@@ -276,7 +276,8 @@
     "drizzle/0272_trust_console_live.sql",
     "drizzle/0273_user_blocks.sql",
     "drizzle/0274_blocking_second_pass.sql",
-    "drizzle/0275_update_live_events.sql"
+    "drizzle/0275_update_live_events.sql",
+    "drizzle/0276_update_topics_by_audience.sql"
   ],
   "legacyDatabaseTags": [
     "0073_notification_snooze",

@@ -180,14 +180,20 @@ function useTopic(topic: string | null, projectId: string, catchUp: () => void, 
     }, [projectId, queryClient, topic]);
 }
 
-/** A workspace's Updates tab: everything in that workspace. New posts go through `onCreated`, not onto the page (RT5). */
-export function useWorkspaceUpdatesLive(projectId: string, enabled: boolean, onCreated: (updateId: string) => void) {
+/**
+ * A workspace's Updates tab. New posts go through `onCreated`, not onto the page (RT5). The workspace topic carries only
+ * posts everyone there can read; members also join the members' topic. A post with a narrower audience stays on its own
+ * topic, which its card joins (`useUpdatePostLive`).
+ */
+// ponytail: a new post with a narrower audience shows no pill; it appears on the next load. Upgrade: a topic per audience.
+export function useWorkspaceUpdatesLive(projectId: string, enabled: boolean, isMember: boolean, onCreated: (updateId: string) => void) {
     const queryClient = useQueryClient();
-    useTopic(enabled ? `updates:workspace:${projectId}` : null, projectId,
-        () => void queryClient.invalidateQueries({ queryKey: queryKeys.project.detail.updates(projectId) }),
-        (event, payload) => {
-            if (event === 'update.created' && typeof payload.id === 'string') onCreated(payload.id);
-        });
+    const catchUp = () => void queryClient.invalidateQueries({ queryKey: queryKeys.project.detail.updates(projectId) });
+    const onEvent = (event: string, payload: Record<string, unknown>) => {
+        if (event === 'update.created' && typeof payload.id === 'string') onCreated(payload.id);
+    };
+    useTopic(enabled ? `updates:workspace:${projectId}` : null, projectId, catchUp, onEvent);
+    useTopic(enabled && isMember ? `updates:members:${projectId}` : null, projectId, catchUp, onEvent);
 }
 
 /** One post: an opened thread, or a card on screen. */

@@ -257,7 +257,7 @@ test("the Updates tab listens on one workspace topic, not to database rows", () 
     const liveSource = readFileSync(path.join(process.cwd(), "src/hooks/useUpdateLive.ts"), "utf8");
 
     assert.equal(tabSource.includes("subscribeActiveResource"), false);
-    assert.match(tabSource, /useWorkspaceUpdatesLive\(projectId, Boolean\(currentUserId\), handleCreated\)/);
+    assert.match(tabSource, /useWorkspaceUpdatesLive\(projectId, Boolean\(currentUserId\), isMember, handleCreated\)/);
     assert.match(liveSource, /`updates:workspace:\$\{projectId\}`/);
     assert.match(liveSource, /subscribeBroadcast\(topic/);
 });
