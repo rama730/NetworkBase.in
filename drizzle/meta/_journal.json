@@ -239,6 +239,13 @@
       "when": 1793380381300,
       "tag": "0034_live_row_events",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1793380382300,
+      "tag": "0035_browser_column_trims",
+      "breakpoints": true
     }
   ]
 }
