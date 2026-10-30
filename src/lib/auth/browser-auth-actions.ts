@@ -97,6 +97,21 @@ export async function bootstrapBrowserSessionFromServer() {
     };
 }
 
+/**
+ * The code step after Google or GitHub, a refreshed code page, or a new tab: the session (still waiting for its second
+ * factor) lives only in the server's cookies, and the server reports no user until the code is in, so nothing else
+ * copies it here. Adopt it, or the code can't be checked at all.
+ */
+export async function adoptServerSessionIfMissing() {
+    const supabase = await loadBrowserSupabase();
+    const { data } = await supabase.auth.getSession();
+    if (data.session) return true;
+    const serverSession = await bootstrapBrowserSessionFromServer().catch(() => null);
+    if (!serverSession) return false;
+    const { error } = await supabase.auth.setSession(serverSession);
+    return !error;
+}
+
 export function forgetSyncedBrowserSession() {
     lastSyncedSessionToken = null;
 }
