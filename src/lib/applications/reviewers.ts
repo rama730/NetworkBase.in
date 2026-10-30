@@ -28,11 +28,7 @@ export async function countReviewableApplications(userId: string): Promise<numbe
     JOIN profiles ap ON ap.id = a.applicant_id AND ap.deleted_at IS NULL
     WHERE a.status = 'pending' AND a.applicant_id <> ${userId}::uuid
       AND ${canReviewWorkspaceSql(userId, sql`a.workspace_id`)}
-      AND NOT EXISTS (
-        SELECT 1 FROM connections b
-        WHERE b.status = 'blocked'
-          AND ((b.requester_id = ${userId}::uuid AND b.addressee_id = a.applicant_id) OR (b.addressee_id = ${userId}::uuid AND b.requester_id = a.applicant_id))
-      )
+      AND NOT app_private.blocked_between(${userId}::uuid, a.applicant_id)
   `);
   return Array.from(rows)[0]?.n ?? 0;
 }

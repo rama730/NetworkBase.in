@@ -81,8 +81,8 @@ test("a block hides the other person's updates, whichever way it points", async 
   await post(await project(owner), owner, "from owner");
   await post(await project(blockedByViewer), blockedByViewer, "from someone I blocked");
   await post(await project(blocksViewer), blocksViewer, "from someone who blocked me");
-  await sql`INSERT INTO public.connections (requester_id, addressee_id, status, blocked_by, blocked_at) VALUES (${viewer}, ${blockedByViewer}, 'blocked', ${viewer}, now())`;
-  await sql`INSERT INTO public.connections (requester_id, addressee_id, status, blocked_by, blocked_at) VALUES (${blocksViewer}, ${viewer}, 'blocked', ${blocksViewer}, now())`;
+  await sql`INSERT INTO user_blocks (blocker_id, blocked_id) VALUES (${viewer}, ${blockedByViewer})`;
+  await sql`INSERT INTO user_blocks (blocker_id, blocked_id) VALUES (${blocksViewer}, ${viewer})`;
 
   assert.deepEqual(await texts(viewer), ["from owner"]);
   assert.deepEqual(await texts(null), ["from owner", "from someone I blocked", "from someone who blocked me"]);

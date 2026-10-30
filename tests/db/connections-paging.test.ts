@@ -77,8 +77,8 @@ test("Discover shared summary deduplicates live accepted peers and excludes hidd
     }
     for (let i = 0; i < peers.length; i++) {
       const peer = peers[i]!;
-      const status = i === 9 ? 'pending' : i === 10 ? 'blocked' : 'accepted';
-      await sql`INSERT INTO connections(requester_id,addressee_id,status,blocked_by,blocked_at) VALUES(${i % 2 ? peer : viewer},${i % 2 ? viewer : peer},${status},${i === 10 ? viewer : null},${i === 10 ? new Date() : null})`;
+      if (i === 10) await sql`INSERT INTO user_blocks (blocker_id, blocked_id) VALUES (${viewer}, ${peer})`;
+      else await sql`INSERT INTO connections(requester_id,addressee_id,status) VALUES(${i % 2 ? peer : viewer},${i % 2 ? viewer : peer},${i === 9 ? 'pending' : 'accepted'})`;
       await sql`INSERT INTO connections(requester_id,addressee_id,status) VALUES(${peer},${i === 11 ? targets[2]! : targets[0]!},'accepted')`;
     }
     await sql`INSERT INTO connections(requester_id,addressee_id,status) VALUES(${targets[1]!},${peers[0]!},'accepted')`;
@@ -102,7 +102,7 @@ test("Discover shared summary deduplicates live accepted peers and excludes hidd
 
     assert.deepEqual(result.sharedConnections?.people.map(person => person.id), peers.slice(0, 4));
     assert.equal(result.sharedConnections?.people.length, 4);
-    await sql`UPDATE connections SET status='blocked',blocked_by=${viewer},blocked_at=now() WHERE requester_id=${viewer} AND addressee_id=${peers[0]!}`;
+    await sql`SELECT app_private.block_user(${viewer}::uuid, ${peers[0]!}::uuid, 'profile', NULL)`;
     await sql`UPDATE profiles SET deleted_at=now() WHERE id=${peers[1]!}`;
     const updated = await connections.getConnectionsFeed({ ...input, includeSharedConnections: true });
     assert.equal(updated.sharedConnections?.total, 4);

@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { and, asc, desc, eq, gt, isNull, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { db } from "@/lib/db";
+import { isBlockedBetween } from "@/lib/privacy/blocks";
 import { getInngestExecutionRole } from "@/inngest/registry";
 import { emailOutbox, emailSuppressions, emailWebhookEvents, extensionDeviceSessions, profiles, workspaceMembers, workspaces, tasks, taskSubtasks, workspaceNodes, taskNodeLinks } from "@/lib/db/schema";
 import { createAdminClient } from "@/lib/supabase/server";
@@ -224,6 +225,8 @@ async function prepareEmail(row: OutboxRow): Promise<Prepared> {
   });
   if (!check.allowed) return { drop: check.reason };
   if (check.delayUntil) return { delay: check.delayUntil };
+  // A block made after this was queued still stops the email; the workspace's own notice still reaches them (B17, B47).
+  if (row.actorId && await isBlockedBetween(row.actorId, row.userId)) return { drop: "blocked" };
 
   const [subtasksRows, fileRows] = await Promise.all([
     db.select({

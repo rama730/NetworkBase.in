@@ -54,8 +54,8 @@ test('all DMs, including beyond bootstrap 100, remain reachable without duplicat
   assert.equal(ids.size,Number((await sql`SELECT count(*)::int AS n FROM chat_channel_members m JOIN chat_channels c ON c.id=m.channel_id WHERE m.user_id=${owner} AND c.kind='dm' AND m.archived_at IS NULL`)[0]!.n));assert.ok(ids.size>=107);assert.equal(pages,3);
 });
 test('live capability distinguishes readable blocked DMs, and archived channels cannot be selected',async()=>{
-  await sql`INSERT INTO connections(requester_id,addressee_id,status,blocked_by,blocked_at) VALUES (${owner},${peer},'blocked',${owner},now())`;
-  const dm=await list(input({kind:'dms'},{query:peer.slice(0,8)}));assert.ok(dm.success);assert.equal(dm.channels.length,1);assert.equal(dm.channels[0]!.can_send,false);assert.equal(dm.channels[0]!.send_disabled_reason,'blocked');
+  await sql`INSERT INTO user_blocks (blocker_id, blocked_id) VALUES (${owner}, ${peer})`;
+  const dm=await list(input({kind:'dms'},{query:peer.slice(0,8)}));assert.ok(dm.success);assert.equal(dm.channels.length,1);assert.equal(dm.channels[0]!.can_send,false);assert.equal(dm.channels[0]!.send_disabled_reason,'unavailable');
   const details=await get({channelId:dm.channels[0]!.id,expectedActorId:owner});assert.ok(details.success);assert.equal(details.channel.can_send,false);
   await sql`UPDATE chat_channels SET archived_at=now() WHERE id=${channels[0]!}`;
   const projects=await list(input({kind:'project',projectId:p1}));assert.ok(projects.success);assert.equal(projects.channels.length,1);

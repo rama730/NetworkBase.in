@@ -4,6 +4,7 @@ import { db } from '@/lib/db'
 import { isMissingRelationError } from '@/lib/db/errors'
 import { connections, profiles, workspaceOpenRoles, workspaces, workspaceMembers } from '@/lib/db/schema'
 import { logger } from '@/lib/logger'
+import { blockedIdsFor } from '@/lib/privacy/blocks'
 import { filterWorkspaceLinksForAudience } from '@/lib/workspaces/social-links'
 import { getCacheEnvelope, cacheStaleableData, isCacheStale, redis } from '@/lib/redis'
 import {
@@ -300,12 +301,8 @@ export async function invalidatePublicWorkspacesFeedCache(projectId?: string | n
 export async function forViewer(feed: PublicWorkspacesFeedItem[], viewerId: string | null): Promise<PublicWorkspacesFeedItem[]> {
     let visible = feed
     if (viewerId && feed.length > 0) {
-        const rows = await db
-            .select({ requesterId: connections.requesterId, addresseeId: connections.addresseeId })
-            .from(connections)
-            .where(and(eq(connections.status, 'blocked'), or(eq(connections.requesterId, viewerId), eq(connections.addresseeId, viewerId))))
-        if (rows.length > 0) {
-            const blocked = new Set(rows.map((row) => (row.requesterId === viewerId ? row.addresseeId : row.requesterId)))
+        const blocked = await blockedIdsFor(viewerId)
+        if (blocked.size > 0) {
             visible = feed
                 .filter((project) => !blocked.has(project.owner_id))
                 .map((project) => ({ ...project, collaborators: project.collaborators.filter((member) => !blocked.has(member.user_id)) }))

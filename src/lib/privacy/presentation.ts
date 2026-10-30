@@ -54,16 +54,17 @@ export function buildPrivacyPresentation(
     };
   }
 
+  // Someone who was blocked sees an unavailable account, never the word "blocked" (B4, B31).
   if (relationship.blockedByTarget) {
     return {
-      relationshipBadgeText: "Blocked",
-      relationshipExplanation: "You can no longer interact with this account.",
-      blockedBannerText: "You can no longer message this account",
+      relationshipBadgeText: "Unavailable",
+      relationshipExplanation: "This account isn't available.",
+      blockedBannerText: null,
       canOpenProfile: false,
       canSendMessage: false,
       canSendConnectionRequest: false,
       ownerDisplayMode: "masked",
-      ownerBadgeText: "Blocked",
+      ownerBadgeText: "Unavailable",
     };
   }
 

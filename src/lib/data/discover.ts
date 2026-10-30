@@ -351,12 +351,7 @@ export const buildBaseConditions = (
 
     // Neither side of a block sees the other's projects.
     if (viewerId) {
-        conditions.push(sql<boolean>`NOT EXISTS (
-            SELECT 1 FROM ${connections} blocked
-            WHERE blocked.status = 'blocked'
-              AND ((blocked.requester_id = ${viewerId} AND blocked.addressee_id = ${workspaces.ownerId})
-                OR (blocked.requester_id = ${workspaces.ownerId} AND blocked.addressee_id = ${viewerId}))
-        )`);
+        conditions.push(sql<boolean>`NOT app_private.blocked_between(${viewerId}, ${workspaces.ownerId})`);
     }
 
     if (view === FILTER_VIEWS.FOLLOWING && viewerId) {

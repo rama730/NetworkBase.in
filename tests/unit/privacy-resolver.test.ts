@@ -26,13 +26,7 @@ describe("privacy resolver", () => {
             profileVisibility: "public",
             messagePrivacy: "everyone",
             connectionPrivacy: "everyone",
-            latestConnection: {
-                id: "conn-1",
-                requesterId: "viewer",
-                addresseeId: "target",
-                status: "blocked",
-                blockedBy: "viewer",
-            },
+            blocks: { byViewer: true, byTarget: false },
         });
 
         assert.equal(state.blockedByViewer, true);

@@ -50,7 +50,7 @@ export function ShareDestinationBrowser({scope,onScopeChange,onSelect,selectedId
   useEffect(()=>{if(failure==='chat_unauthorized')onAuthRequired?.(true);},[failure,onAuthRequired]);
   const placeholder=scope.kind==='projects'?'Search workspaces':scope.kind==='project'?'Search channels in this workspace':scope.kind==='dms'?'Search direct messages':`Search ${title.toLowerCase()}`;
   const retry=()=>{if(scope.kind==='projects')void rootList.refetch();else void list.refetch();};
-  const rowDetail=(channel:ShareDestination)=>channel.can_send===false ? channel.send_disabled_reason==='blocked'?'Read-only · messaging unavailable':'Read-only conversation'
+  const rowDetail=(channel:ShareDestination)=>channel.can_send===false ? channel.send_disabled_reason==='unavailable'?'Read-only · messaging unavailable':'Read-only conversation'
     : channel.kind==='dm' ? (channel.dm_user?.username?`@${channel.dm_user.username}`:'Direct message')
     : channel.application_id ? `${channel.project_title??'Workspace'} · application conversation`
     : channel.project_id ? (channel.kind==='private'?'Private · joined channel':'Joined channel') : 'Group message';

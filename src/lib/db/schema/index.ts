@@ -562,6 +562,31 @@ export const onboardingSubmissions = pgTable(
 );
 
 // ============================================================================
+// USER BLOCKS (0273): one row per direction, so each person's block is their own. Read the rule through
+// app_private.blocked_between, never this table directly in feature code.
+// ============================================================================
+export const userBlocks = pgTable(
+  "user_blocks",
+  {
+    blockerId: uuid("blocker_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+    blockedId: uuid("blocked_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+    source: text("source", { enum: ["profile", "message", "comment", "person_card", "member_list", "report", "settings", "legacy"] }).default("profile").notNull(),
+    caseId: uuid("case_id").references(() => moderationCases.id, { onDelete: "set null" }),
+    note: text("note"),
+    restore: jsonb("restore"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    pk: primaryKey({ columns: [t.blockerId, t.blockedId] }),
+    blockedIdx: index("user_blocks_blocked_idx").on(t.blockedId, t.blockerId),
+    caseIdx: index("user_blocks_case_idx").on(t.caseId).where(sql`${t.caseId} IS NOT NULL`),
+    notSelf: check("user_blocks_not_self", sql`${t.blockerId} <> ${t.blockedId}`),
+    sourceCheck: check("user_blocks_source_check", sql`${t.source} IN ('profile', 'message', 'comment', 'person_card', 'member_list', 'report', 'settings', 'legacy')`),
+    noteCheck: check("user_blocks_note_check", sql`${t.note} IS NULL OR char_length(${t.note}) <= 500`),
+  }),
+);
+
+// ============================================================================
 // CONNECTIONS TABLE
 // ============================================================================
 export const connections = pgTable(

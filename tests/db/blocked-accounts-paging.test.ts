@@ -22,13 +22,12 @@ test("blocked accounts page without gaps or repeats, including tied block times"
       targets.push(target);
       // Four share one timestamp, three are distinct.
       const blockedAt = i < 4 ? "2026-01-01T00:00:00Z" : `2026-02-0${i}T00:00:00Z`;
-      await sql`INSERT INTO connections (requester_id, addressee_id, status, blocked_by, blocked_at)
-                VALUES (${blocker}, ${target}, 'blocked', ${blocker}, ${blockedAt})`;
+      await sql`INSERT INTO user_blocks (blocker_id, blocked_id, created_at) VALUES (${blocker}, ${target}, ${blockedAt})`;
     }
     // A block the other person placed on the blocker is not the blocker's to list.
     const other = await sql.begin((tx) => createUser(tx));
     created.push(other);
-    await sql`INSERT INTO connections (requester_id, addressee_id, status, blocked_by, blocked_at) VALUES (${other}, ${blocker}, 'blocked', ${other}, now())`;
+    await sql`INSERT INTO user_blocks (blocker_id, blocked_id) VALUES (${other}, ${blocker})`;
 
     const seen: string[] = [];
     let cursor: string | null = null;

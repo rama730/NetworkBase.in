@@ -103,11 +103,7 @@ export async function getPresence(input: { userIds: string[] }) {
                SELECT 1 FROM workspace_members mine JOIN workspace_members theirs ON theirs.workspace_id = mine.workspace_id
                WHERE mine.user_id = ${user.id}::uuid AND theirs.user_id = p.id
              ) AS teammate,
-             EXISTS (
-               SELECT 1 FROM connections c
-               WHERE c.status = 'blocked'
-                 AND ((c.requester_id = ${user.id}::uuid AND c.addressee_id = p.id) OR (c.addressee_id = ${user.id}::uuid AND c.requester_id = p.id))
-             ) AS blocked
+             app_private.blocked_between(${user.id}::uuid, p.id) AS blocked
       FROM profiles p
       WHERE p.id = ANY(${uuidArray(ids)})
     `);

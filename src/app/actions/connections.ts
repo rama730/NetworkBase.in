@@ -1165,14 +1165,7 @@ async function getConnectionsFeedImpl(
             isNull(profiles.deletedAt),
         ];
         if (searchPattern) {
-            fallbackConditions.push(sql`NOT EXISTS (
-                SELECT 1 FROM ${connections} blocked_connection
-                WHERE blocked_connection.status = 'blocked'
-                  AND (
-                    (blocked_connection.requester_id = ${user.id} AND blocked_connection.addressee_id = ${profiles.id})
-                    OR (blocked_connection.requester_id = ${profiles.id} AND blocked_connection.addressee_id = ${user.id})
-                  )
-            )`);
+            fallbackConditions.push(sql`NOT app_private.blocked_between(${user.id}, ${profiles.id})`);
             fallbackConditions.push(sql`(
                 ${profiles.visibility} = 'public'
                 OR EXISTS (
@@ -1626,7 +1619,6 @@ async function sendConnectionRequestNow(
 
                     return { connectionId: conn.id, status: 'connected' as const, autoAccepted: true };
                 }
-                if (conn.status === 'blocked') return { error: 'Cannot send request' };
                 if (conn.status === 'rejected' || conn.status === 'cancelled' || conn.status === 'disconnected') {
                     if (conn.status === 'rejected') {
                         const isSameDirection = conn.requesterId === user.id && conn.addresseeId === addresseeId;

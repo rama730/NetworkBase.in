@@ -5,7 +5,9 @@ const MESSAGES: Record<string, string> = {
   chat_invalid_input: "That didn’t look right. Check it and try again.",
   chat_rate_limited: "You’re going a bit fast. Try again in a moment.",
   chat_duplicate: "A channel with that name already exists.",
-  chat_blocked: "You can’t message this person.",
+  // A block never shows as one (B31): the same words as any conversation you can't reply to.
+  chat_cannot_reply: "You can’t reply to this conversation.",
+  chat_blocked: "You can’t reply to this conversation.",
   chat_dm_not_allowed: "This person only accepts messages from their connections.",
   chat_channel_archived: "This channel is archived.",
   chat_channel_member_limit: "This channel is full (500 members).",

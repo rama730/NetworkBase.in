@@ -18,7 +18,7 @@ test('connection totals follow live accepted records in either direction, not st
     assert.equal((await readStats(owner)).totalConnections, 2)
     await sql`UPDATE connections SET status='accepted' WHERE requester_id=${peers[2]!} AND addressee_id=${owner}`
     assert.equal((await readStats(owner)).totalConnections, 3)
-    await sql`UPDATE connections SET status='blocked', blocked_by=${owner}, blocked_at=now() WHERE requester_id=${owner} AND addressee_id=${peers[0]!}`
+    await sql`SELECT app_private.block_user(${owner}::uuid, ${peers[0]!}::uuid, 'profile', NULL)`;
     assert.equal((await readStats(owner)).totalConnections, 2)
     await sql`UPDATE profiles SET deleted_at=now() WHERE id=${peers[1]!}`
     assert.equal((await readStats(owner)).totalConnections, 1)

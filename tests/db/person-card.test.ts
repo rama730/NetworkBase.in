@@ -52,7 +52,7 @@ test('person-card metadata batches actual visible mutuals, canonical public skil
     assert.equal(result[person]?.portfolio, undefined);
     assert.equal(result[person]?.mutualConnections, undefined);
     await sql`UPDATE profiles SET visibility='public' WHERE id=${person}`;
-    await sql`INSERT INTO connections(requester_id,addressee_id,status,blocked_by,blocked_at) VALUES(${viewer},${person},'blocked',${viewer},now())`;
+    await sql`INSERT INTO user_blocks (blocker_id, blocked_id) VALUES (${viewer}, ${person})`;
     result = await read(viewer, [person]);
     assert.equal(result[person]?.isUnavailable, true);
     assert.equal(result[person]?.portfolio, undefined);

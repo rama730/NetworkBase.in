@@ -6,7 +6,7 @@ export type ConversationScope =
   | {kind:'project'|'project-applications';projectId:string};
 export type ShareWorkspace=ChatWorkspaceSummary&{joined_channels:number;mention_count:number};
 export type ShareDestination=ChatChannelSummary&{
-  can_send:boolean;send_disabled_reason:'blocked'|'archived'|null;
+  can_send:boolean;send_disabled_reason:'unavailable'|'archived'|null;
   project_title:string|null;project_slug:string|null;is_member?:boolean;
 };
 export const WORKSPACES_SCOPE:ConversationScope={kind:'projects'};

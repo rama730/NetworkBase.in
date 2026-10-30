@@ -28,7 +28,7 @@ export async function sendSharedLink(input: { url: string; channelId: string; no
     const destination=await getShareDestination({channelId:input.channelId,expectedActorId:user.id});
     if(!destination.success)return destination;
     if(input.checkOnly)return destination.channel.is_member ? {success:true as const,receipt:'missing' as const} : {success:false as const,error:'chat_not_member'};
-    if(!destination.channel.is_member||destination.channel.can_send!==true)return {success:false as const,error:destination.channel.send_disabled_reason==='blocked'?'chat_blocked':destination.channel.send_disabled_reason==='archived'?'chat_channel_archived':'chat_not_member'};
+    if(!destination.channel.is_member||destination.channel.can_send!==true)return {success:false as const,error:destination.channel.send_disabled_reason==='unavailable'?'chat_cannot_reply':destination.channel.send_disabled_reason==='archived'?'chat_channel_archived':'chat_not_member'};
     // Next validates server-action Origin against Host. Production still uses the configured base.
     const origin = shareOrigin((await headers()).get('origin') ?? undefined);
     const preview = await readSharePreview(input.url, user.id,origin);
