@@ -37,6 +37,11 @@ const TIMESTAMP = /^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}(\.\d{1,6})?(Z|[+-]\d{
 
 type Cursor = { at: string; id: string };
 
+/** Trending posts: the last few days' activity, comments counting most, and each person once (UP12). */
+const TRENDING_WINDOW = sql.raw(`interval '7 days'`);
+const TRENDING_COMMENT_WEIGHT = 3;
+const TRENDING_MAX_OFFSET = 240;
+
 function encodeCursor(cursor: Cursor) {
     return Buffer.from(JSON.stringify(cursor)).toString("base64url");
 }
@@ -226,6 +231,24 @@ export async function getDiscoverUpdatesPage(options: DiscoverUpdatesQueryOption
     const conditions = visibilityConditions(filters, view, viewerId);
     const search = searchCondition(filters.search);
     if (search) conditions.push(search);
+    // ponytail: scores every recent public post per request; fine at this size. Upgrade: a stored score refreshed by a job.
+    if (view === FILTER_VIEWS.TRENDING) {
+        const offset = cursor ? Number.parseInt(cursor, 10) : 0;
+        if (!Number.isInteger(offset) || offset < 0 || offset > TRENDING_MAX_OFFSET) throw new InvalidDiscoverUpdatesCursorError();
+        const rows = await selectUpdateRows(viewerId)
+            .where(and(...conditions, sql`${workspaceUpdates.createdAt} > now() - interval '30 days'`))
+            .orderBy(sql`(
+                (SELECT count(DISTINCT l.user_id) FROM workspace_update_likes l WHERE l.update_id = ${workspaceUpdates.id} AND l.created_at > now() - ${TRENDING_WINDOW})
+                + ${TRENDING_COMMENT_WEIGHT} * (SELECT count(DISTINCT c.user_id) FROM workspace_update_comments c WHERE c.update_id = ${workspaceUpdates.id} AND c.deleted_at IS NULL AND c.created_at > now() - ${TRENDING_WINDOW})
+            ) DESC`, desc(workspaceUpdates.createdAt), desc(workspaceUpdates.id))
+            .limit(limit + 1)
+            .offset(offset);
+        return {
+            updates: await hydrate(rows.slice(0, limit), viewerId),
+            nextCursor: rows.length > limit && offset + limit <= TRENDING_MAX_OFFSET ? String(offset + limit) : null,
+        };
+    }
+
     if (cursor) {
         const after = decodeCursor(cursor);
         conditions.push(sql<boolean>`(${workspaceUpdates.createdAt}, ${workspaceUpdates.id}) < (${after.at}::timestamptz, ${after.id}::uuid)`);

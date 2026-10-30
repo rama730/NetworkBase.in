@@ -173,3 +173,19 @@ test("a card's preview: who liked it and the two newest comments, leaving out pr
   const signedOut = (await readUpdatePreviews([p.id], null)).get(p.id)!;
   assert.equal(signedOut.comments.length, 2);
 });
+
+test("Trending posts rank by recent activity from different people, comments counting most (UP12)", async () => {
+  const quiet = await post();
+  const liked = await post();
+  const talked = await post();
+  await like(quiet.fan, quiet.ws, quiet.id);
+  await like(liked.fan, liked.ws, liked.id);
+  await like(liked.fan2, liked.ws, liked.id);
+  await comment(talked.fan, talked.ws, talked.id);
+  // Talk from one person counts once.
+  await comment(talked.fan, talked.ws, talked.id);
+  const { getDiscoverUpdatesPage } = await loadAppModule(() => import("../../src/lib/data/discover-updates"));
+  const page = await getDiscoverUpdatesPage({ view: "trending", viewerId: quiet.fan2, limit: 12 });
+  const order = page.updates.map((u: { id: string }) => u.id).filter((id: string) => [quiet.id, liked.id, talked.id].includes(id));
+  assert.deepEqual(order, [talked.id, liked.id, quiet.id]);
+});
