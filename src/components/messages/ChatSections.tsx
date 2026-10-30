@@ -90,6 +90,8 @@ function Row({ channel, meId, variant, onSelect, draft }: { channel: ChatChannel
   const draftMark = draft && !current ? <Pencil size={14} aria-hidden="true" className="flex-none text-muted-foreground" /> : null;
   // Bold alone isn't heard: unread rows say so (a count says it already).
   const unread = isUnread(channel) && channel.notify !== "mute" && !count;
+  // Your own block, seen only by you (Blocking B44).
+  const blockedTag = channel.blocked_by_me ? <span className="nb-meta flex-none font-normal text-muted-foreground">Blocked</span> : null;
   const srNotes = <>{unread ? <span className="sr-only">, unread</span> : null}{draft && !preview ? <span className="sr-only">, draft</span> : null}{channel.notify === "mute" ? <span className="sr-only">, muted</span> : null}</>;
   const body: ReactNode = preview ? (
     <>
@@ -97,6 +99,7 @@ function Row({ channel, meId, variant, onSelect, draft }: { channel: ChatChannel
       <span className="min-w-0 flex-1">
         <span className="flex items-baseline gap-2">
           <span className="truncate">{title}</span>
+          {blockedTag}
           {channel.last_message_at ? (
             <span className="nb-meta ml-auto flex-none" title={fullTime(channel.last_message_at)}>{formatChatTime(channel.last_message_at)}</span>
           ) : null}
@@ -114,7 +117,8 @@ function Row({ channel, meId, variant, onSelect, draft }: { channel: ChatChannel
       <ChannelIcon channel={channel} />
       <span className="flex min-w-0 flex-1 items-baseline gap-1.5">
         <span className="min-w-0 truncate">{title}</span>
-        {channel.kind === "dm" && channel.dm_user ? <DmStatus userId={channel.dm_user.id} /> : null}
+        {blockedTag}
+        {channel.kind === "dm" && channel.dm_user && !channel.blocked_by_me ? <DmStatus userId={channel.dm_user.id} /> : null}
         {/* Applications span projects, so a reviewer's row says which one. */}
         {channel.application && !channel.application.is_applicant ? <span className="nb-meta min-w-0 shrink-[999] truncate font-normal text-muted-foreground">{channel.application.project_title}</span> : null}
       </span>

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { forwardRef, useEffect, useMemo, useRef, useState } from "react";
 import { Virtuoso } from "react-virtuoso";
-import { Bell, Flag, Link2, Lock, MessageSquare, MoreHorizontal, Search, ShieldCheck, ShieldOff, Star, User, UserMinus, UserPlus, Users, X } from "lucide-react";
+import { Ban, Bell, Flag, Link2, Lock, MessageSquare, MoreHorizontal, Search, ShieldCheck, ShieldOff, Star, User, UserMinus, UserPlus, Users, X } from "lucide-react";
 import { toast } from "@/lib/feedback";
 
 import { joinChannel, renameGroup, setChannelPrivacy, updateChannel, type ChannelDetails } from "@/app/actions/chat/channels";
@@ -27,6 +27,7 @@ import { SettingsSwitch } from "@/components/settings/ui/SettingsSwitch";
 import { ErrorNotice } from "@/components/ui/ErrorNotice";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { ReportMenuItem, useReportDialog } from "@/components/reports/ReportDialog";
+import { useBlockFlow } from "@/components/privacy/BlockDialog";
 import { useAuth } from "@/hooks/useAuth";
 import type { ChannelMember } from "@/app/actions/chat/channels";
 import { canAddPeople, notifyChoice, notifyChoices, notifyHelp, personName } from "@/lib/messaging/channel-view";
@@ -152,7 +153,9 @@ function NotifyRow({ channel, onChange }: { channel: ChannelDetails; onChange: (
   );
 }
 
-function MemberRow({ member, channel, meId, onRemove }: { member: ChannelMember; channel: ChannelDetails; meId: string | null; onRemove: (member: ChannelMember) => void }) {
+type BlockFlow = ReturnType<typeof useBlockFlow>;
+
+function MemberRow({ member, channel, meId, onRemove, blocking }: { member: ChannelMember; channel: ChannelDetails; meId: string | null; onRemove: (member: ChannelMember) => void; blocking: BlockFlow }) {
   // Report a person from a channel or DM (C15): the last item of their "⋯".
   const reporting = useReportDialog({ kind: "person", targetId: member.id, noun: "person", personName: personName(member) });
   const router = useRouter();
@@ -197,6 +200,8 @@ function MemberRow({ member, channel, meId, onRemove }: { member: ChannelMember;
         {/* No "Offline" guess before presence has loaded. */}
         <span className="block truncate text-[12px] text-muted-foreground">{presence.statusText || (presence.loaded ? presence.availabilityText : " ")}</span>
       </span>
+      {/* Your own block, seen only by you (Blocking B45). */}
+      {member.blocked_by_me ? <span className="nb-tag flex-none">Blocked</span> : null}
       {ROLE_LABEL[member.role] ? <span className="nb-tag flex-none">{ROLE_LABEL[member.role]}</span> : null}
       {!self ? (
         <DropdownMenu>
@@ -217,6 +222,9 @@ function MemberRow({ member, channel, meId, onRemove }: { member: ChannelMember;
               </>
             ) : null}
             <ReportMenuItem noun="person" target={reporting.target} onReport={reporting.open} />
+            {member.blocked_by_me
+              ? <DropdownMenuItem onSelect={() => blocking.openUnblock({ id: member.id, name: personName(member) })}><Ban /> Unblock</DropdownMenuItem>
+              : <DropdownMenuItem variant="destructive" onSelect={() => blocking.openBlock({ id: member.id, name: personName(member) })}><Ban /> Block {personName(member)}</DropdownMenuItem>}
           </DropdownMenuContent>
         </DropdownMenu>
       ) : null}
@@ -249,6 +257,7 @@ const MEMBER_LIST = {
 
 function Members({ channel, meId, onAdd, onJoin, scrollParent }: { channel: ChannelDetails; meId: string | null; onAdd: () => void; onJoin: () => Promise<void>; scrollParent: HTMLElement | null }) {
   const queryClient = useQueryClient();
+  const blocking = useBlockFlow("member_list");
   const members = useChannelMembers(channel.id, channel.is_member);
   const [filter, setFilter] = useState("");
   const [removing, setRemoving] = useState<ChannelMember | null>(null);
@@ -310,7 +319,7 @@ function Members({ channel, meId, onAdd, onJoin, scrollParent }: { channel: Chan
           data={list}
           computeItemKey={(_index, member) => member.id}
           components={MEMBER_LIST}
-          itemContent={(_index, member) => <MemberRow member={member} channel={channel} meId={meId} onRemove={setRemoving} />}
+          itemContent={(_index, member) => <MemberRow member={member} channel={channel} meId={meId} onRemove={setRemoving} blocking={blocking} />}
         />
       ) : null}
       {members.data && !list.length ? <EmptyState compact icon={Search} title="No members match" description={`Nobody here matches "${filter}".`} /> : null}
@@ -323,6 +332,7 @@ function Members({ channel, meId, onAdd, onJoin, scrollParent }: { channel: Chan
         variant="destructive"
         onConfirm={remove}
       />
+      {blocking.dialog}
     </div>
   );
 }
@@ -335,6 +345,7 @@ function PersonDetails({ channel, meId, setState, onClose }: { channel: ChannelD
   const context = usePersonContext(person?.id, !self);
   // Report the person from the DM's details (trust and safety §5.1); messages are reported from their own "⋯".
   const reporting = useReportDialog({ kind: "person", targetId: person?.id ?? "", noun: "person", personName: person ? personName(person) : null });
+  const blocking = useBlockFlow("message");
   const [now, setNow] = useState(() => new Date());
   useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 60_000);
@@ -386,7 +397,13 @@ function PersonDetails({ channel, meId, setState, onClose }: { channel: ChannelD
         <div className="flex flex-wrap items-center gap-2 p-4">
           <Button type="button" variant="outline" onClick={onClose} className="pointer-coarse:h-11"><X size={16} /> Close conversation</Button>
           {person ? <Button type="button" variant="ghost" onClick={reporting.open} className="text-muted-foreground pointer-coarse:h-11"><Flag size={16} /> Report {personName(person)}</Button> : null}
+          {person ? (
+            <Button type="button" variant="ghost" onClick={() => (channel.blocked_by_me ? blocking.openUnblock : blocking.openBlock)({ id: person.id, name: personName(person) })} className="text-muted-foreground pointer-coarse:h-11">
+              <Ban size={16} /> {channel.blocked_by_me ? "Unblock" : "Block"} {personName(person)}
+            </Button>
+          ) : null}
           {reporting.dialog}
+          {blocking.dialog}
         </div>
       )}
     </div>

@@ -17,7 +17,7 @@ import { browseChannels, joinChannel } from "@/app/actions/chat/channels";
 import { cancelScheduled, listSaved, listScheduled, rescheduleScheduled, saveMessage, sendScheduledNow, type SavedItem } from "@/app/actions/chat/later";
 import { searchMessages, type SearchHit } from "@/app/actions/chat/search";
 import { useChatUi, useDrafts, writeDraft, readDraft } from "@/components/messages/chat-ui-store";
-import { useChatShell } from "@/components/messages/ChatShellProvider";
+import { useBlockedIds, useChatShell } from "@/components/messages/ChatShellProvider";
 import { ListOrHome } from "@/components/messages/HomePane";
 import { ListSkeleton } from "@/components/messages/ListSkeleton";
 import { usePeopleSearch } from "@/components/messages/usePeopleSearch";
@@ -124,6 +124,9 @@ function SnippetRow({ href, target, onOpen, author, head, time, timeLabel, body,
   tabStop?: boolean; onFocusRow?: () => void;
 }) {
   const win = useWindowNav();
+  // Search and Saved fold what someone you blocked wrote (Blocking B34); opening it shows it, folded, in place.
+  const blockedIds = useBlockedIds();
+  const folded = Boolean(author && blockedIds.has(author.id));
   return (
     // Unread rows get the same faint tint as unread notifications.
     <div
@@ -153,7 +156,7 @@ function SnippetRow({ href, target, onOpen, author, head, time, timeLabel, body,
             {head}
             <span className="nb-meta ml-auto flex-none" title={time ? fullTime(time) : undefined}>{timeLabel ? `${timeLabel} ` : ""}{when(time)}</span>
           </span>
-          <span className={`mt-0.5 line-clamp-2 block text-[15px] ${dim ? "text-muted-foreground" : ""}`}>{body}</span>
+          <span className={`mt-0.5 line-clamp-2 block text-[15px] ${dim || folded ? "text-muted-foreground" : ""}`}>{folded ? "Message from someone you blocked" : body}</span>
           {unread ? <span className="sr-only">, unread</span> : null}
           {extra}
         </span>

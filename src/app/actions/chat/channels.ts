@@ -219,6 +219,10 @@ export async function getChannel(input: { channelId: string }) {
              coalesce(m.role, 'member') AS role,
              m.user_id IS NOT NULL AS is_member,
              app_private.chat_is_channel_admin(c.id, ${user.id}::uuid) AS can_admin,
+             app_private.chat_contact_cut(c.id, ${user.id}::uuid) AS reply_closed,
+             (app_private.chat_contact_cut(c.id, ${user.id}::uuid) AND EXISTS (
+               SELECT 1 FROM chat_channel_members o JOIN user_blocks b ON b.blocker_id = ${user.id}::uuid AND b.blocked_id = o.user_id
+               WHERE o.channel_id = c.id)) AS blocked_by_me,
              CASE WHEN c.application_id IS NULL THEN NULL ELSE ${applicationMetaSql(sql`c.application_id`, user.id)} END AS application,
              CASE WHEN c.kind = 'dm' THEN (
                SELECT jsonb_build_object('id', pr.id, 'username', pr.username, 'full_name', pr.full_name, 'avatar_url', pr.avatar_url)
@@ -266,7 +270,8 @@ export async function listMembers(input: { channelId: string }) {
                LIMIT 1
              ) AS project_role_title,
              (c.workspace_id IS NOT NULL AND p.owner_id = pr.id) AS is_project_owner,
-             p.import_source->'metadata'->>'leadFocus' AS lead_focus
+             p.import_source->'metadata'->>'leadFocus' AS lead_focus,
+             EXISTS (SELECT 1 FROM user_blocks b WHERE b.blocker_id = ${user.id}::uuid AND b.blocked_id = pr.id) AS blocked_by_me
       FROM chat_channel_members m
       JOIN profiles pr ON pr.id = m.user_id
       JOIN chat_channels c ON c.id = m.channel_id

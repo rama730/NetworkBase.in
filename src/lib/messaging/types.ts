@@ -12,6 +12,8 @@ export type ChatPerson = {
   avatar_url: string | null;
   role?: string;
   can_dm?: boolean;
+  /** Member lists: the viewer blocked this person (shown only to the viewer). */
+  blocked_by_me?: boolean;
   project_membership_role?: string | null;
   project_role_title?: string | null;
   is_project_owner?: boolean | null;
@@ -45,6 +47,10 @@ export type ChatChannelSummary = {
   role: ChatRole;
   dm_user: ChatPerson | null;
   members_preview: ChatPerson[] | null;
+  /** A DM (or a group down to two) across a block in either direction: no replies (Blocking B44). Never says which way. */
+  reply_closed?: boolean;
+  /** The viewer's own block on the other person, which only the viewer ever sees. */
+  blocked_by_me?: boolean;
 };
 
 export type ChatWorkspaceSummary = {
@@ -72,6 +78,8 @@ export type ChatBootstrap = {
   saved_due?: number;
   channels: ChatChannelSummary[];
   projects: ChatWorkspaceSummary[] | null;
+  /** People the viewer blocked: their messages fold away in shared channels, search and Saved (B23, B34). */
+  blocked_ids?: string[];
 };
 
 export type ChatAttachmentView = {

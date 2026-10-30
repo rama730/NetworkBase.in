@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useCallback, useEffect, useState, useTransition } from 'react'
 import { toast } from '@/lib/feedback'
 
 import { Button } from '@/components/ui/button'
@@ -30,11 +30,12 @@ export function useBlockFlow(source: BlockSource = 'profile') {
     const reporting = useReportDialog({ kind: 'person', targetId: person?.id ?? '', noun: 'person', personName: person?.name })
 
     const close = () => { setMode(null); setImpact(null); setAlsoReport(false); setError(null) }
-    const openBlock = (next: BlockPerson) => {
+    // Stable, so a list can hand them to every row without re-rendering it.
+    const openBlock = useCallback((next: BlockPerson) => {
         setPerson(next); setMode('block'); setImpact(null); setError(null)
         void import('@/app/actions/blocking').then(({ readBlockImpactAction }) => readBlockImpactAction(next.id)).then((r) => r.success && setImpact(r), () => undefined)
-    }
-    const openUnblock = (next: BlockPerson) => { setPerson(next); setMode('unblock'); setError(null) }
+    }, [])
+    const openUnblock = useCallback((next: BlockPerson) => { setPerson(next); setMode('unblock'); setError(null) }, [])
 
     const block = (target: BlockPerson, report: boolean) => start(async () => {
         const { blockPersonAction, undoBlockAction } = await import('@/app/actions/blocking')
@@ -109,4 +110,14 @@ export function useBlockFlow(source: BlockSource = 'profile') {
         </>
     )
     return { openBlock, openUnblock, dialog }
+}
+
+/** The Block confirmation for a place that shows many people (a person card): mounted only once asked, opens at once. */
+export function BlockPersonDialog({ person, source, unblock = false }: { person: BlockPerson; source: BlockSource; unblock?: boolean }) {
+    const flow = useBlockFlow(source)
+    const { openBlock, openUnblock } = flow
+    // Opens once, as asked: the block itself changing `unblock` must not open the opposite dialog.
+    const [ask] = useState(() => ({ ...person, unblock }))
+    useEffect(() => { (ask.unblock ? openUnblock : openBlock)({ id: ask.id, name: ask.name }) }, [ask, openBlock, openUnblock])
+    return flow.dialog
 }
