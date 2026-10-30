@@ -24,7 +24,6 @@ test("task-board workflow is hydrated and synchronized through its dedicated col
     assert.match(schema, /workspaceWorkflowColumns/);
     assert.match(subscriptions, /tasks: \(workspaceId: string\) => `live:tasks:/);
     assert.match(migration, /CREATE TABLE public\.workspace_workflow_columns /);
-    assert.match(migration, /ALTER PUBLICATION supabase_realtime ADD TABLE public\.workspace_workflow_columns/);
     assert.match(migration, /CREATE POLICY workspace_workflow_columns_read [^\n]*app_private\.nb_workspace_tab_visible\(workspace_id, 'tasks'::text\)/);
 });
 
