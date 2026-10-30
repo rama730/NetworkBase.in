@@ -68,13 +68,24 @@ export async function readCase(caseId: string) {
   const duplicates = await db.execute<{ id: string; number: number; reports: number }>(sql`
     SELECT id, number::int AS number, (SELECT count(*)::int FROM content_reports r WHERE r.case_id = m.id) AS reports FROM moderation_cases m
     WHERE id <> ${caseId} AND target_kind = ${c.target_kind} AND target_id = ${c.target_id} AND state IN ('open', 'in_review') AND merged_into IS NULL LIMIT 5`);
-  const live = await resolveReportTarget(c.target_kind, c.target_id, c.target_seq, null).catch(() => null);
-  const liveState = !live ? "deleted" : stable(stripMeta(live.snapshot)) === stable(stripMeta(c.snapshot ?? {})) ? "unchanged" : "edited";
   const strikes = c.subject_id ? await activeStrikes(db, c.subject_id) : 0;
   return {
     ...c, reports: [...reports], events: [...events], actions: [...actions], person, otherCases: [...otherCases],
-    priorCases: [...priorCases], duplicates: [...duplicates], live: live ? live.snapshot : null, liveState: liveState as "deleted" | "unchanged" | "edited", strikes, suggested: suggestedStep(strikes),
+    priorCases: [...priorCases], duplicates: [...duplicates], strikes, suggested: suggestedStep(strikes),
   };
+}
+
+/**
+ * The thing as it is now, compared with what was reported (R4). Loaded after the case, so the snapshot shows first
+ * (evidence in stages), and re-checked while the case is open so Edited / Deleted stays current.
+ */
+export async function readCaseLive(caseId: string) {
+  const [c] = await db.execute<{ target_kind: ReportTargetKind; target_id: string; target_seq: number | null; snapshot: Record<string, unknown> | null }>(sql`
+    SELECT target_kind, target_id, target_seq::int AS target_seq, snapshot FROM moderation_cases WHERE id = ${caseId}`);
+  if (!c) return null;
+  const live = await resolveReportTarget(c.target_kind, c.target_id, c.target_seq, null).catch(() => null);
+  const state: "deleted" | "unchanged" | "edited" = !live ? "deleted" : stable(stripMeta(live.snapshot)) === stable(stripMeta(c.snapshot ?? {})) ? "unchanged" : "edited";
+  return { live: live ? live.snapshot : null, state };
 }
 /** jsonb stores keys in its own order, so compare with sorted keys. */
 const stable = (value: unknown): string => Array.isArray(value) ? `[${value.map(stable).join(",")}]`
@@ -184,8 +195,11 @@ export async function readPerson(handleOrId: string) {
   const actions = await db.execute<{ id: string; action: string; rule: number | null; created_at: string; ends_at: string | null; strike: boolean; strike_expires_at: string | null; lifted_at: string | null; reversed_at: string | null; undone_at: string | null; case_number: number | null }>(sql`
     SELECT a.id, a.action, a.rule, a.created_at::text, a.ends_at::text, a.strike, a.strike_expires_at::text, a.lifted_at::text, a.reversed_at::text, a.undone_at::text, c.number::int AS case_number
     FROM moderation_actions a LEFT JOIN moderation_cases c ON c.id = a.case_id WHERE a.subject_id = ${p.id} ORDER BY a.created_at DESC LIMIT 100`);
-  const cases = await db.execute<{ id: string; number: number; reason: ReportReason; state: string; outcome: string | null; label: string | null; created_at: string }>(sql`
-    SELECT id, number::int AS number, reason, state, outcome, snapshot->>'label' AS label, created_at::text FROM moderation_cases WHERE subject_id = ${p.id} ORDER BY created_at DESC LIMIT 50`);
+  const cases = await db.execute<{ id: string; number: number; reason: ReportReason; state: string; outcome: string | null; label: string | null; created_at: string; decided_at: string | null; appeal_state: string | null; leased: boolean }>(sql`
+    SELECT c.id, c.number::int AS number, c.reason, c.state, c.outcome, c.snapshot->>'label' AS label, c.created_at::text, c.decided_at::text,
+           (SELECT ap.state FROM moderation_appeals ap WHERE ap.case_id = c.id) AS appeal_state,
+           (c.assignee_id IS NOT NULL AND c.claimed_until > now() AND c.claim_seen_at > now() - interval '2 minutes') AS leased
+    FROM moderation_cases c WHERE c.subject_id = ${p.id} ORDER BY c.created_at DESC LIMIT 50`);
   const appeals = await db.execute<{ number: number; state: string; created_at: string }>(sql`
     SELECT c.number::int AS number, a.state, a.created_at::text FROM moderation_appeals a JOIN moderation_cases c ON c.id = a.case_id WHERE a.subject_id = ${p.id} ORDER BY a.created_at DESC LIMIT 20`);
   const reported = await db.execute<{ reason: ReportReason; status: string; created_at: string; number: number | null }>(sql`

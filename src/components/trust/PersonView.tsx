@@ -2,7 +2,7 @@ import Link from 'next/link'
 
 import { NewCaseDialog } from '@/components/trust/NewCaseDialog'
 import { CopyText } from '@/components/trust/CopyText'
-import { caseHref, istDate } from '@/components/trust/format'
+import { caseHref, caseState, istDate } from '@/components/trust/format'
 import { Button } from '@/components/ui/button'
 import { UserAvatar } from '@/components/ui/UserAvatar'
 import type { readPerson } from '@/lib/trust/console'
@@ -13,7 +13,7 @@ export type Person = NonNullable<Awaited<ReturnType<typeof readPerson>>>
 function Section({ title, empty, children }: { title: string; empty: boolean; children: React.ReactNode }) {
     return (
         <section className="border-b border-border py-4">
-            <h2 className="nb-micro mb-2">{title}</h2>
+            <h2 className="mb-2 text-[15px] font-semibold">{title}</h2>
             {empty ? <p className="text-[13px] text-muted-foreground">None.</p> : <ul className="space-y-1.5 text-[13px]">{children}</ul>}
         </section>
     )
@@ -30,9 +30,9 @@ export function PersonView({ p }: { p: Person }) {
                 <UserAvatar identity={{ id: p.id, fullName: p.name, username: p.username, avatarUrl: p.avatar }} size={48} roundedClassName="rounded-[6px]" />
                 <div className="min-w-0 flex-1">
                     <h1 className="text-[20px] font-semibold">{p.name ?? 'No name'} {p.username ? <span className="text-muted-foreground">@{p.username}</span> : null}</h1>
-                    <p className="nb-meta">Joined {istDate(p.created_at)} · {p.email ? <CopyText text={p.email} /> : 'no email'}</p>
+                    <p className="text-[12px] text-muted-foreground">Joined {istDate(p.created_at)} · {p.email ? <CopyText text={p.email} /> : 'no email'}</p>
                 </div>
-                <span className="nb-status" data-status={p.restriction ? 'blocked' : 'completed'}>{p.restriction ? `${p.restriction}${p.until ? ` until ${istDate(p.until)}` : ''}` : 'good standing'}</span>
+                <span className="text-[13px] text-muted-foreground">{p.restriction ? `${p.restriction}${p.until ? ` until ${istDate(p.until)}` : ''}` : 'good standing'}</span>
                 <NewCaseDialog what={handle.startsWith('@') ? handle : ''} trigger={<Button variant="outline">Act on account</Button>} />
             </header>
             <Section title="Active restrictions" empty={!active.length}>
@@ -42,7 +42,7 @@ export function PersonView({ p }: { p: Person }) {
                 {strikes.map((a) => <li key={a.id}>{ACTION_LABEL[a.action as ModerationActionKind]}{a.rule ? ` · ${ruleLabel(a.rule)}` : ''} · expires {istDate(a.strike_expires_at)}</li>)}
             </Section>
             <Section title="Cases about them" empty={!p.cases.length}>
-                {p.cases.map((c) => <li key={c.id}><Link className="underline underline-offset-4" href={caseHref(c.number)}>{caseLabel(c.number)}</Link> · {REPORT_REASON_LABEL[c.reason]} · {c.label} · {c.outcome ?? c.state}</li>)}
+                {p.cases.map((c) => <li key={c.id}><Link className="underline underline-offset-4" href={caseHref(c.number)}>{caseLabel(c.number)}</Link> · {REPORT_REASON_LABEL[c.reason]} · {c.label} · {caseState(c)}</li>)}
             </Section>
             <Section title="Appeals" empty={!p.appeals.length}>
                 {p.appeals.map((a) => <li key={a.number}><Link className="underline underline-offset-4" href={`/admin/trust?case=${caseLabel(a.number)}&type=appeal`}>{caseLabel(a.number)}</Link> · {a.state} · {istDate(a.created_at)}</li>)}

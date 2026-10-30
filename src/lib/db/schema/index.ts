@@ -2963,16 +2963,16 @@ export const moderationEvents = pgTable("moderation_events", {
   timeIdx: index("moderation_events_time_idx").on(t.createdAt.desc()),
 }));
 
-/** The message staff start from for each rule (0272), editable by admins. */
-export const moderationRuleTemplates = pgTable("moderation_rule_templates", {
-  rule: smallint("rule").primaryKey(),
+/** The message staff start from for each rule and appeal outcome (0272): keys rule:1–rule:15, appeal:upheld|reduced|reversed. */
+export const moderationMessageTemplates = pgTable("moderation_message_templates", {
+  key: text("key").primaryKey(),
   message: text("message").notNull(),
   updatedBy: uuid("updated_by").references(() => profiles.id, { onDelete: "set null" }),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 }, (t) => ({
-  updatedByIdx: index("moderation_rule_templates_updated_by_idx").on(t.updatedBy).where(sql`${t.updatedBy} IS NOT NULL`),
-  ruleCheck: check("moderation_rule_templates_rule_check", sql`${t.rule} BETWEEN 1 AND 15`),
-  messageCheck: check("moderation_rule_templates_message_check", sql`char_length(${t.message}) BETWEEN 1 AND 2000`),
+  updatedByIdx: index("moderation_message_templates_updated_by_idx").on(t.updatedBy).where(sql`${t.updatedBy} IS NOT NULL`),
+  keyCheck: check("moderation_message_templates_key_check", sql`${t.key} ~ '^(rule:([1-9]|1[0-5])|appeal:(upheld|reduced|reversed))$'`),
+  messageCheck: check("moderation_message_templates_message_check", sql`char_length(${t.message}) BETWEEN 1 AND 4000`),
 }));
 
 export const moderationBlockedIdentities = pgTable("moderation_blocked_identities", {

@@ -33,6 +33,7 @@ const LiveContext = createContext<Live | null>(null)
 
 const FLUSH_MS = 500
 const FALLBACK_MS = 30_000
+const HIDDEN_QUIET_MS = 120_000
 // ponytail: concurrent commits can land out of seq order; catching up from 20 entries back with a seen-set
 // covers that. A wider window if staff ever see a missed row.
 const OVERLAP = 20
@@ -95,14 +96,18 @@ export function TrustLiveProvider({ staffId, name, children }: { staffId: string
         const fallback = window.setInterval(() => {
             if (statusRef.current !== 'live' && document.visibilityState === 'visible') void catchUp()
         }, FALLBACK_MS)
+        // Presence goes quiet 2 minutes after the tab is hidden, not at once, so a quick tab switch doesn't flicker (2.4).
+        let quiet: number | null = null
+        let silent = false
         const onVisible = () => {
-            if (document.visibilityState === 'visible') { void catchUp(); track() }
-            else if (channel.current) void channel.current.untrack()
+            if (quiet) { window.clearTimeout(quiet); quiet = null }
+            if (document.visibilityState === 'visible') { silent = false; void catchUp(); track() }
+            else quiet = window.setTimeout(() => { silent = true; if (channel.current) void channel.current.untrack() }, HIDDEN_QUIET_MS)
         }
         document.addEventListener('visibilitychange', onVisible)
 
         const track = () => {
-            if (statusRef.current !== 'live' || !channel.current || document.visibilityState !== 'visible') return
+            if (statusRef.current !== 'live' || !channel.current || silent) return
             void channel.current.track({ staffId, name, caseId: mine.current.caseId, mode: mine.current.mode })
         }
         trackRef.current = track
@@ -150,6 +155,7 @@ export function TrustLiveProvider({ staffId, name, children }: { staffId: string
             stopped = true
             window.clearInterval(flush)
             window.clearInterval(fallback)
+            if (quiet) window.clearTimeout(quiet)
             document.removeEventListener('visibilitychange', onVisible)
             if (channel.current) void createClient().removeChannel(channel.current)
             channel.current = null

@@ -7,11 +7,11 @@ import { Gavel, MoreHorizontal, Scale, ShieldAlert, Users } from 'lucide-react'
 import { toast } from '@/lib/feedback'
 
 import {
-    addNoteAction, assignCaseAction, changeSeverityAction, claimCaseAction, escalateCaseAction, legalHoldAction, mergeCaseAction, personDetailAction, staffListAction,
+    addNoteAction, assignCaseAction, caseLiveAction, changeSeverityAction, claimCaseAction, escalateCaseAction, legalHoldAction, mergeCaseAction, personDetailAction, staffListAction,
 } from '@/app/actions/moderation-staff'
 import type { CaseDetail } from '@/components/trust/DecisionPanel'
 import { Evidence } from '@/components/trust/Evidence'
-import { Deadline, istDate, istDateTime } from '@/components/trust/format'
+import { caseState, Deadline, istDate, istDateTime } from '@/components/trust/format'
 import { useLive, useServerNow } from '@/components/trust/live'
 import { FIELD } from '@/components/trust/NewCaseDialog'
 import { PersonView } from '@/components/trust/PersonView'
@@ -47,6 +47,12 @@ export function CasePane({ c, onMerged }: { c: CaseDetail; onMerged: () => void 
     const lastAt = c.reports.at(-1)?.created_at
     const reasons = [...new Set(c.reports.map((r) => REPORT_REASON_LABEL[r.reason]))]
     const decidedBefore = c.priorCases
+    // Evidence in stages: the snapshot shows at once, the comparison right after; re-checked every 30 s while open
+    // (ponytail: content edits don't write to the moderation log, so polling the one open case is the cheap way).
+    const live = useQuery({ queryKey: ['trust', 'case-live', c.id], queryFn: () => caseLiveAction(c.id), refetchInterval: 30_000, staleTime: 10_000 })
+    // Reporter accuracy across everyone who reported this, each person once (R3 "what was reported" line).
+    const reporters = [...new Map(c.reports.map((r) => [r.reporter_id, r])).values()]
+    const accuracy = { actioned: reporters.reduce((n, r) => n + r.actioned, 0), decided: reporters.reduce((n, r) => n + r.decided, 0) }
 
     return (
         <article aria-labelledby="case-title" className="min-w-0">
@@ -55,7 +61,8 @@ export function CasePane({ c, onMerged }: { c: CaseDetail; onMerged: () => void 
                     <span className="font-mono tabular-nums text-muted-foreground">{label}</span>
                     <span className={`font-medium capitalize ${SEVERITY_TONE[c.severity]}`}>{c.severity}</span>
                     <span>{REPORT_REASON_LABEL[c.reason]}</span>
-                    {open ? <Deadline at={c.deadline_at} openedAt={c.created_at} now={now} /> : <span className="text-muted-foreground">Decided</span>}
+                    <span className="text-muted-foreground">{caseState({ ...c, appeal_state: c.appeal?.state }, now)}{c.leased && c.assignee_name && open ? ` by ${c.assignee_id === c.me ? 'you' : c.assignee_name}` : ''}</span>
+                    {open ? <Deadline at={c.deadline_at} openedAt={c.created_at} now={now} /> : null}
                     {c.escalated_at ? <span className="text-[var(--status-warning)]">Needs an admin</span> : null}
                     {c.assigned_name ? <span className="text-muted-foreground">Assigned to {c.assigned_name}</span> : null}
                     {c.legal_hold ? <span className="text-muted-foreground">Legal hold</span> : null}
@@ -81,6 +88,14 @@ export function CasePane({ c, onMerged }: { c: CaseDetail; onMerged: () => void 
 
             <div className="space-y-6 pt-4">
                 {c.person ? <PersonStrip c={c} /> : null}
+                {!c.duplicates.length && c.otherCases.length && open ? (
+                    <p role="note" className="flex flex-wrap items-center gap-2 rounded-[5px] bg-secondary px-3 py-2 text-[13px]">
+                        <Users className="size-4" aria-hidden="true" />
+                        {c.otherCases.length + 1} open cases about this person
+                        {/* Different content can't be merged: the closed case's content would never be acted on. Decide together acts on each. */}
+                        <span className="ml-auto text-muted-foreground">Decide together from the decision panel</span>
+                    </p>
+                ) : null}
                 {c.duplicates.length && open ? (
                     <p role="note" className="flex flex-wrap items-center gap-2 rounded-[5px] bg-secondary px-3 py-2 text-[13px]">
                         <Users className="size-4" aria-hidden="true" />
@@ -100,7 +115,7 @@ export function CasePane({ c, onMerged }: { c: CaseDetail; onMerged: () => void 
                 ) : null}
 
                 <p className="text-[13px]">
-                    {c.reports.length ? <>{reasons.join(', ')} · {c.reports.length} {c.reports.length === 1 ? 'report' : 'reports'} · first {istDateTime(firstAt)}{lastAt !== firstAt ? `, last ${istDateTime(lastAt)}` : ''}</> : 'Opened by staff, no user reports'}
+                    {c.reports.length ? <>{reasons.join(', ')} · {c.reports.length} {c.reports.length === 1 ? 'report' : 'reports'} · first {istDateTime(firstAt)}{lastAt !== firstAt ? `, last ${istDateTime(lastAt)}` : ''} · <span className={trustTone(accuracy.actioned, accuracy.decided)}>{reporters.length === 1 ? 'reporter' : 'reporters'} {accuracy.actioned} of {accuracy.decided} actioned</span></> : 'Opened by staff, no user reports'}
                     {c.routed_to === 'org' ? ' · With the org’s moderators' : ''}
                 </p>
                 {c.pile_on ? (
@@ -109,9 +124,9 @@ export function CasePane({ c, onMerged }: { c: CaseDetail; onMerged: () => void 
                     </p>
                 ) : null}
 
-                <Evidence key={c.id} caseId={c.id} kind={c.target_kind} reason={c.reason} snapshot={c.snapshot ?? {}} live={c.live} liveState={c.liveState} targetSeq={c.target_seq} />
+                <Evidence key={c.id} caseId={c.id} kind={c.target_kind} reason={c.reason} snapshot={c.snapshot ?? {}} live={live.data?.live ?? null} liveState={live.data?.state ?? null} targetSeq={c.target_seq} />
                 {c.details ? <p className="whitespace-pre-wrap text-[13px] text-muted-foreground">{c.details}</p> : null}
-                {typeof c.snapshot?.href === 'string' && c.liveState !== 'deleted' ? <Link href={c.snapshot.href} className="inline-block text-[13px] underline underline-offset-4">Open in app</Link> : null}
+                {typeof c.snapshot?.href === 'string' && live.data?.state !== 'deleted' ? <Link href={c.snapshot.href} className="inline-block text-[13px] underline underline-offset-4">Open in app</Link> : null}
 
                 {c.reports.length ? (
                     <section aria-labelledby="reports-title">
@@ -160,7 +175,7 @@ function PersonStrip({ c }: { c: CaseDetail }) {
                 <div role="tooltip" className="absolute left-0 top-full z-20 mt-1 w-[320px] rounded-[8px] border border-border bg-popover p-3 text-[13px] shadow-md">
                     <p className="font-medium">History</p>
                     <ul className="mt-1 space-y-0.5">
-                        {person.data.cases.slice(0, 5).map((x) => <li key={x.id}><span className="font-mono tabular-nums">{caseLabel(x.number)}</span> · {REPORT_REASON_LABEL[x.reason]} · {x.outcome?.replace('_', ' ') ?? x.state}</li>)}
+                        {person.data.cases.slice(0, 5).map((x) => <li key={x.id}><span className="font-mono tabular-nums">{caseLabel(x.number)}</span> · {REPORT_REASON_LABEL[x.reason]} · {caseState(x)}</li>)}
                         {!person.data.cases.length ? <li className="text-muted-foreground">No earlier cases.</li> : null}
                     </ul>
                     <p className="mt-2 font-medium">Strikes</p>

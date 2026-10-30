@@ -13,7 +13,7 @@ import { TrustInbox } from '@/components/trust/TrustInbox'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { getViewerAuthContext } from '@/lib/server/viewer-context'
 import { readActive, readAudit, readHealth, searchPeople } from '@/lib/trust/console'
-import { inboxCounts, ruleTemplates } from '@/lib/trust/inbox'
+import { inboxCounts, messageTemplates } from '@/lib/trust/inbox'
 import { listStaff, staffRoleOf } from '@/lib/trust/staff'
 
 type Search = Record<string, string | string[] | undefined>
@@ -93,12 +93,12 @@ export default async function TrustConsolePage({ searchParams }: { searchParams:
         )
     }
     if (tab === 'staff' && role === 'admin') {
-        const [staff, templates] = await Promise.all([listStaff(), ruleTemplates()])
+        const [staff, templates] = await Promise.all([listStaff(), messageTemplates()])
         return (
             <ConsoleScroll>
                 <div className="mt-4 grid max-w-[1100px] gap-8 xl:grid-cols-2">
                     <section><h2 className="mb-2 text-[15px] font-semibold">Staff ({staff.length})</h2><StaffList staff={staff} canEdit /></section>
-                    <section><h2 className="text-[15px] font-semibold">Message templates</h2><p className="mb-2 text-[13px] text-muted-foreground">The opening message for each rule. Leave one empty to use the built-in sentence.</p><RuleTemplates templates={templates} /></section>
+                    <section><h2 className="text-[15px] font-semibold">Saved messages</h2><p className="mb-2 text-[13px] text-muted-foreground">The opening message for each rule and the reply for each appeal outcome. Leave one empty to use the built-in text.</p><RuleTemplates templates={templates} /></section>
                 </div>
             </ConsoleScroll>
         )

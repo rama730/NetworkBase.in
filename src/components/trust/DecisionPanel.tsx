@@ -60,7 +60,7 @@ export function DecisionPanel({ c, onSent }: { c: CaseDetail; onSent: (sent: { c
             <section aria-labelledby="decide-title" className="space-y-3">
                 <h2 id="decide-title" className="text-[15px] font-semibold">Appeal outcome</h2>
                 <AppealOutcomeForm caseId={c.id} label={label} personName={personName} selfReview={c.decided_by === c.me} claimed={c.appeal.assignee_id === c.me}
-                    actions={actions} onDone={() => onSent({ caseId: c.id, label })} />
+                    actions={actions} saved={c.templates} onDone={() => onSent({ caseId: c.id, label })} />
             </section>
         )
     }
@@ -90,7 +90,7 @@ function DecisionForm({ c, label, onSent }: { c: CaseDetail; label: string; onSe
     const heldByOther = c.leased && c.assignee_id !== c.me
     const personName = c.person?.name ?? (c.person?.username ? `@${c.person.username}` : 'them')
     const firstRule = REASON_RULES[c.reason].rule
-    const messageFor = (rule: number) => c.templates[rule] ?? builtIn(rule)
+    const messageFor = (rule: number) => c.templates[`rule:${rule}`] ?? builtIn(rule)
 
     const [outcome, setOutcome] = useState<'no_violation' | 'actioned' | null>(null)
     const [content, setContent] = useState<ModerationActionKind | null>(null)

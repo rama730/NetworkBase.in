@@ -5,7 +5,7 @@ import { useEffect, useRef, useState, type MouseEvent } from 'react'
 import { BadgeCheck, Inbox, Lock, Scale, SlidersHorizontal, Users } from 'lucide-react'
 
 import { inboxOrgsAction } from '@/app/actions/moderation-staff'
-import { Deadline } from '@/components/trust/format'
+import { caseState, Deadline } from '@/components/trust/format'
 import { useLive } from '@/components/trust/live'
 import { Button } from '@/components/ui/button'
 import {
@@ -175,7 +175,10 @@ function Row({ item: i, selected, checked, anyChecked, highlight, now, reviewer,
                 </div>
             </div>
             <div className="pointer-events-none flex shrink-0 flex-col items-end gap-1">
-                {open ? <Deadline at={i.due_at} openedAt={i.created_at} now={now} /> : <span className="text-[12px] text-muted-foreground">{i.outcome?.replace('_', ' ') ?? i.state}</span>}
+                {open ? <Deadline at={i.due_at} openedAt={i.created_at} now={now} /> : null}
+                <span className="text-[11px] text-muted-foreground">{i.type === 'verification' ? 'Waiting' : i.type === 'appeal'
+                    ? (open ? (i.claimer_id ? 'In review' : 'Appealed') : caseState({ state: 'decided', appeal_state: i.state, decided_at: i.decided_at }, now))
+                    : caseState({ state: i.state, outcome: i.outcome, decided_at: i.decided_at, leased: Boolean(i.claimer_id) }, now)}</span>
                 {quick ? (
                     <button type="button" onClick={(e) => { e.stopPropagation(); onDismiss() }}
                         className="pointer-events-auto relative z-[1] hidden rounded-[4px] border border-border bg-card px-1.5 py-0.5 text-[11px] font-medium group-hover:block group-focus-within:block">

@@ -13,11 +13,11 @@ import type { SecurityStepUpMethod } from '@/lib/security/step-up-methods';
 import { getViewerAuthContext } from '@/lib/server/viewer-context';
 import { claimAppeal, decideAppeal, readAppeal } from '@/lib/trust/appeals';
 import { logModerationEvent } from '@/lib/trust/cases';
-import { addNote, caseIdByNumber, changeSeverity, mergeCase, openManualCase, readCase, readPerson, readVerification, setLegalHold } from '@/lib/trust/console';
+import { addNote, caseIdByNumber, changeSeverity, mergeCase, openManualCase, readCase, readCaseLive, readPerson, readVerification, setLegalHold } from '@/lib/trust/console';
 import { decideCase, decideTogether, noticeRestrictionEnded, reverseAction, undoDecision, type Decision } from '@/lib/trust/decide';
 import {
     assignCase, checkVersion, claimLease, escalateCase, eventsSince, filePreviewUrl, inboxCounts, inboxOrgs, latestSeq, logCaseView, messageContext, readInbox, releaseLease,
-    renewLease, ruleTemplates, saveRuleTemplate, type InboxFilters,
+    messageTemplates, renewLease, saveMessageTemplate, TEMPLATE_KEY, type InboxFilters, type TemplateKey,
 } from '@/lib/trust/inbox';
 import { decisionNotice } from '@/lib/trust/messages';
 import { notifySafety } from '@/lib/trust/notify';
@@ -364,10 +364,16 @@ export async function inboxCountsAction() {
 export async function caseDetailAction(caseId: string) {
     const me = await staff();
     if (!me || !uuid.safeParse(caseId).success) return null;
-    const [c, templates, appeal] = await Promise.all([readCase(caseId), ruleTemplates(), readAppeal(caseId)]);
+    const [c, templates, appeal] = await Promise.all([readCase(caseId), messageTemplates(), readAppeal(caseId)]);
     if (!c) return null;
     await logCaseView(caseId, me.id);
     return { ...c, appeal, templates, me: me.id, role: me.role };
+}
+
+/** The live comparison, fetched after the case (evidence in stages) and re-checked while it's open. */
+export async function caseLiveAction(caseId: string) {
+    if (!(await staff()) || !uuid.safeParse(caseId).success) return null;
+    return readCaseLive(caseId);
 }
 
 export async function caseIdByLabelAction(label: string) {
@@ -437,15 +443,11 @@ export async function staffListAction() {
     return (await staff()) ? (await listStaff()).map((s) => ({ id: s.id, name: s.name ?? s.email ?? 'Staff', role: s.role })) : null;
 }
 
-export async function ruleTemplatesAction() {
-    return (await staff()) ? ruleTemplates() : null;
-}
-
-/** Admins edit the opening message for each rule (S13); an empty one goes back to the built-in sentence. */
-export async function saveRuleTemplateAction(rule: number, message: string): Promise<Result> {
+/** Admins edit the saved messages (S13): per rule and per appeal outcome; an empty one goes back to the built-in text. */
+export async function saveTemplateAction(key: string, message: string): Promise<Result> {
     const me = await staff();
-    if (!me || me.role !== 'admin' || !Number.isInteger(rule) || rule < 1 || rule > 15 || typeof message !== 'string' || message.length > 2000) return DENIED;
-    await saveRuleTemplate(rule, message, me.id);
+    if (!me || me.role !== 'admin' || typeof key !== 'string' || !TEMPLATE_KEY.test(key) || typeof message !== 'string' || message.length > 4000) return DENIED;
+    await saveMessageTemplate(key as TemplateKey, message, me.id);
     return { success: true };
 }
 

@@ -135,3 +135,16 @@ test("the inbox pages by cursor with no repeats; counts come from one query", as
     assert.ok(second.items.every((i) => !ids.has(i.id)));
   }
 });
+
+test("saved messages: per rule and per appeal outcome; empty goes back to the built-in text; other keys are refused", async () => {
+  const [admin] = await sql.begin(async (tx) => [await createUser(tx)]);
+  await inbox.saveMessageTemplate("rule:4", "No ads in project spaces.", admin!);
+  await inbox.saveMessageTemplate("appeal:upheld", "We looked again; the decision stays.", admin!);
+  const saved = await inbox.messageTemplates();
+  assert.equal(saved["rule:4"], "No ads in project spaces.");
+  assert.equal(saved["appeal:upheld"], "We looked again; the decision stays.");
+  await inbox.saveMessageTemplate("rule:4", "  ", admin!);
+  assert.equal((await inbox.messageTemplates())["rule:4"], undefined);
+  await assert.rejects(sql`INSERT INTO moderation_message_templates (key, message) VALUES ('rule:16', 'x')`);
+  await sql`DELETE FROM moderation_message_templates`;
+});

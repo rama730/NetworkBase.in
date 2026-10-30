@@ -1,7 +1,7 @@
 -- The trust and safety console, live and conflict-safe (Trust & Safety Console Redesign, R6 and S1–S14).
 -- Cases get a version that rises with every real change (S2), claims become short leases (S3), staff can assign
 -- and escalate (S11), the moderation log becomes the live cursor (S1) and announces each entry on a staff-only
--- channel the moment it commits, and per-rule message templates replace the generic text (S13).
+-- channel the moment it commits, and message templates per rule and per appeal outcome replace the generic text (S13).
 
 ALTER TABLE public.moderation_cases
   ADD COLUMN version integer NOT NULL DEFAULT 1,
@@ -44,18 +44,19 @@ CREATE INDEX moderation_events_kind_time_idx ON public.moderation_events (kind, 
 --> statement-breakpoint
 CREATE INDEX content_reports_reporter_status_idx ON public.content_reports (reporter_id, status);
 --> statement-breakpoint
-CREATE TABLE public.moderation_rule_templates (
-  rule smallint PRIMARY KEY CONSTRAINT moderation_rule_templates_rule_check CHECK (rule BETWEEN 1 AND 15),
-  message text NOT NULL CONSTRAINT moderation_rule_templates_message_check CHECK (char_length(message) BETWEEN 1 AND 2000),
+-- The opening message for each rule and the reply for each appeal outcome (S13, R10), editable by admins.
+CREATE TABLE public.moderation_message_templates (
+  key text PRIMARY KEY CONSTRAINT moderation_message_templates_key_check CHECK (key ~ '^(rule:([1-9]|1[0-5])|appeal:(upheld|reduced|reversed))$'),
+  message text NOT NULL CONSTRAINT moderation_message_templates_message_check CHECK (char_length(message) BETWEEN 1 AND 4000),
   updated_by uuid REFERENCES public.profiles(id) ON DELETE SET NULL,
   updated_at timestamptz NOT NULL DEFAULT now()
 );
 --> statement-breakpoint
-CREATE INDEX moderation_rule_templates_updated_by_idx ON public.moderation_rule_templates (updated_by) WHERE updated_by IS NOT NULL;
+CREATE INDEX moderation_message_templates_updated_by_idx ON public.moderation_message_templates (updated_by) WHERE updated_by IS NOT NULL;
 --> statement-breakpoint
-REVOKE ALL ON public.moderation_rule_templates FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON public.moderation_message_templates FROM PUBLIC, anon, authenticated;
 --> statement-breakpoint
-ALTER TABLE public.moderation_rule_templates ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.moderation_message_templates ENABLE ROW LEVEL SECURITY;
 --> statement-breakpoint
 -- Staff on the live channel: the admin or moderator role, signed in with their authenticator (F16).
 CREATE FUNCTION app_private.nb_is_trust_staff() RETURNS boolean

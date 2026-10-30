@@ -18,10 +18,10 @@ function Metric({ label, value, context }: { label: string; value: string; conte
 }
 
 function Panel({ title, children }: { title: string; children: React.ReactNode }) {
-    return <section className="rounded-[8px] border border-border bg-card p-4"><h2 className="nb-micro mb-3">{title}</h2>{children}</section>
+    return <section className="rounded-[8px] border border-border bg-card p-4"><h2 className="mb-3 text-[15px] font-semibold">{title}</h2>{children}</section>
 }
 
-const TH = 'nb-micro py-1.5 text-left font-medium'
+const TH = 'py-1.5 text-left text-[12px] font-medium text-muted-foreground'
 const TD = 'py-1.5 text-[13px]'
 
 /** Insights → Health (17.10, S14): quiet numbers, "—" when there's no data, every chart with its table, and live health. */
@@ -58,7 +58,7 @@ export function HealthTab({ h, days, counts }: { h: Health; days: number; counts
                             </div>
                             <details className="mt-2"><summary className="cursor-pointer text-[13px]">Data table</summary>
                                 <table className="mt-2 w-full"><thead><tr><th className={TH}>Day</th><th className={TH}>Urgent</th><th className={TH}>High</th><th className={TH}>Normal</th></tr></thead>
-                                    <tbody>{h.perDay.map((d) => <tr key={d.day}><td className={`${TD} nb-meta`}>{d.day}</td><td className={TD}>{d.urgent}</td><td className={TD}>{d.high}</td><td className={TD}>{d.normal}</td></tr>)}</tbody></table>
+                                    <tbody>{h.perDay.map((d) => <tr key={d.day}><td className={`${TD} font-mono tabular-nums`}>{d.day}</td><td className={TD}>{d.urgent}</td><td className={TD}>{d.high}</td><td className={TD}>{d.normal}</td></tr>)}</tbody></table>
                             </details>
                         </>
                     ) : <p className="text-[13px] text-muted-foreground">—</p>}
@@ -79,7 +79,7 @@ export function HealthTab({ h, days, counts }: { h: Health; days: number; counts
                     <LiveHealth staleRefused={h.staleRefused} days={days} />
                 </Panel>
             </div>
-            <p className="nb-meta">
+            <p className="text-[12px] text-muted-foreground">
                 {h.newCases} new cases and {h.decided} decided in {days} days · {h.pileOns} pile-on flags ·{' '}
                 <Link href="/admin/notifications" className="underline underline-offset-4">Notification delivery</Link>
             </p>
