@@ -23,6 +23,8 @@ export interface WorkspaceUpdateLikersModalProps {
     projectId: string;
     updateId: string;
     likeCount?: number;
+    /** A comment's likes rather than the post's. */
+    commentId?: string | null;
 }
 
 export function WorkspaceUpdateLikersModal({
@@ -31,9 +33,12 @@ export function WorkspaceUpdateLikersModal({
     projectId,
     updateId,
     likeCount,
+    commentId = null,
 }: WorkspaceUpdateLikersModalProps) {
     // Stable across redraws, so the live-update channel below isn't torn down and rejoined each time.
-    const queryKey = useMemo(() => queryKeys.project.detail.updateLikes(projectId, updateId), [projectId, updateId]);
+    const queryKey = useMemo(() => commentId
+        ? [...queryKeys.project.detail.updateLikes(projectId, updateId), commentId]
+        : queryKeys.project.detail.updateLikes(projectId, updateId), [commentId, projectId, updateId]);
 
     const {
         data,
@@ -49,6 +54,7 @@ export function WorkspaceUpdateLikersModal({
             const res = await readProjectUpdateLikersAction(projectId, updateId, {
                 cursor: pageParam,
                 limit: 20,
+                commentId,
             });
             if (!res.success) throw new Error(res.error || 'Failed to load likers');
             return res;
@@ -87,7 +93,7 @@ export function WorkspaceUpdateLikersModal({
                         ) : null}
                     </DialogTitle>
                     <DialogDescription className="sr-only">
-                        List of members who liked this update
+                        People who liked this
                     </DialogDescription>
                 </DialogHeader>
 

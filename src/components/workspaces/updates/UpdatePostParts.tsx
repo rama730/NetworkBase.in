@@ -1,11 +1,14 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Share2 } from 'lucide-react';
+import { Heart, Share2 } from 'lucide-react';
 import { useToggleWorkspaceFollow } from '@/hooks/mutations/useWorkspaceMutations';
 import { renderCommentContent } from '@/components/workspaces/updates/update-helpers';
 import { toast } from '@/lib/feedback';
+import { toggleWorkspaceUpdateCommentLikeAction, type WorkspaceUpdateCommentView } from '@/app/actions/workspace/updates';
+import { WorkspaceUpdateLikersModal } from '@/components/workspaces/updates/WorkspaceUpdateLikersModal';
+import { cn } from '@/lib/utils';
 import type { UpdatePreview } from '@/lib/workspaces/update-previews';
 
 // The parts every post card shares, on Discover and on the Updates tab (UP9).
@@ -93,5 +96,40 @@ export function FollowWorkspaceButton({ projectId, userId, following: initial }:
     >
       {following ? 'Following' : 'Follow'}
     </button>
+  );
+}
+
+/** A heart on a comment or reply: live like the post's, and its count opens "Liked by" (UP10). */
+export function CommentLikeButton({ comment, projectId, signedIn }: { comment: WorkspaceUpdateCommentView; projectId: string; signedIn: boolean }) {
+  const [state, setState] = useState({ liked: comment.likedByViewer, count: comment.likeCount });
+  const [busy, setBusy] = useState(false);
+  const [open, setOpen] = useState(false);
+  // Live counts arrive through a reload of the thread; your own tap isn't undone by one on its way.
+  useEffect(() => { if (!busy) setState({ liked: comment.likedByViewer, count: comment.likeCount }); }, [busy, comment.likeCount, comment.likedByViewer]);
+  const toggle = async () => {
+    if (busy) return;
+    const previous = state;
+    setBusy(true);
+    setState({ liked: !previous.liked, count: Math.max(0, previous.count + (previous.liked ? -1 : 1)) });
+    const result = await toggleWorkspaceUpdateCommentLikeAction(projectId, comment.id).catch(() => null);
+    if (result?.success) setState({ liked: result.liked, count: result.likeCount });
+    else {
+      setState(previous);
+      toast.error(result?.error ?? 'Couldn’t update the like');
+    }
+    setBusy(false);
+  };
+  return (
+    <span className={cn('inline-flex items-center gap-1 font-mono text-[11px] text-muted-foreground', state.liked && 'text-[var(--status-danger)]')}>
+      {signedIn ? (
+        <button type="button" onClick={() => void toggle()} aria-pressed={state.liked} aria-label="Like this comment" className="nb-touch-target inline-flex items-center justify-center rounded-sm transition-transform active:scale-90 motion-reduce:transition-none motion-reduce:active:scale-100">
+          <Heart className={cn('h-3.5 w-3.5', state.liked && 'fill-current')} aria-hidden="true" />
+        </button>
+      ) : <Heart className="h-3.5 w-3.5" aria-hidden="true" />}
+      {state.count > 0 ? (
+        <button type="button" onClick={() => setOpen(true)} aria-label={`View ${state.count} ${state.count === 1 ? 'like' : 'likes'}`} className="tabular-nums hover:underline">{state.count}</button>
+      ) : null}
+      {open ? <WorkspaceUpdateLikersModal open onOpenChange={setOpen} projectId={projectId} updateId={comment.updateId} commentId={comment.id} likeCount={state.count} /> : null}
+    </span>
   );
 }

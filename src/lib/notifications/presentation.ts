@@ -146,7 +146,9 @@ const BUNDLE_WINDOW_MS = 60 * 60 * 1000;
 function bundleKeyFor(item: NotificationItem): string {
     const refs = item.entityRefs ?? {};
     const entity =
-        (typeof refs.updateId === "string" && refs.updateId)
+        // A like on a comment is its own row, not one more like on the post.
+        (item.kind === "project_update_like" && typeof refs.commentId === "string" && refs.commentId)
+        || (typeof refs.updateId === "string" && refs.updateId)
         || (typeof refs.taskId === "string" && refs.taskId)
         || (typeof refs.channelId === "string" && refs.channelId)
         || (typeof refs.projectId === "string" && refs.projectId)

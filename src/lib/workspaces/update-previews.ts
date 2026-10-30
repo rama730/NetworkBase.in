@@ -22,12 +22,12 @@ export async function readUpdatePreviews(updateIds: string[], viewerId: string |
                 WHERE l.update_id = u.id AND l.user_id IS DISTINCT FROM ${viewerId}::uuid AND ${readable}
                 ORDER BY l.created_at DESC, l.id DESC LIMIT 1) AS liked_by_name,
             (SELECT coalesce(jsonb_agg(x), '[]'::jsonb) FROM (
-                SELECT c.id, c.content, 0 AS "likeCount",
+                SELECT c.id, c.content, c.like_count AS "likeCount",
                     CASE WHEN ${readable} THEN coalesce(profiles.full_name, profiles.username, 'Member') ELSE 'Private member' END AS "authorName",
                     CASE WHEN ${readable} THEN profiles.username END AS "authorUsername"
                 FROM workspace_update_comments c JOIN profiles ON profiles.id = c.user_id
                 WHERE c.update_id = u.id AND c.deleted_at IS NULL AND c.parent_id IS NULL AND ${notHidden}
-                ORDER BY c.created_at DESC, c.id DESC LIMIT 2
+                ORDER BY c.like_count DESC, c.created_at DESC, c.id DESC LIMIT 2
             ) x) AS comments
         FROM workspace_updates u
         WHERE u.id IN (SELECT value::uuid FROM jsonb_array_elements_text(${JSON.stringify(updateIds)}::jsonb))`) as unknown as Array<{ id: string; liked_by_name: string | null; comments: UpdateCommentPreview[] }>;

@@ -2034,6 +2034,7 @@ export const workspaceUpdateComments = pgTable(
       onDelete: "set null",
     }),
     content: text("content").notNull(),
+    likeCount: integer("like_count").default(0).notNull(),
     deletedBy: uuid("deleted_by").references(() => profiles.id, {
       onDelete: "set null",
     }),
@@ -2073,6 +2074,29 @@ export const workspaceUpdateComments = pgTable(
     ),
     targetUserIdx: index("workspace_update_comments_target_user_idx").on(
       t.targetUserId,
+    ),
+  }),
+);
+
+export const workspaceUpdateCommentLikes = pgTable(
+  "workspace_update_comment_likes",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    commentId: uuid("comment_id")
+      .notNull()
+      .references(() => workspaceUpdateComments.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => profiles.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (t) => ({
+    userIdx: index("workspace_update_comment_likes_user_idx").on(t.userId),
+    uniqueLike: uniqueIndex("workspace_update_comment_likes_unique").on(
+      t.commentId,
+      t.userId,
     ),
   }),
 );

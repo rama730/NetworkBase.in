@@ -189,3 +189,50 @@ test("Trending posts rank by recent activity from different people, comments cou
   const order = page.updates.map((u: { id: string }) => u.id).filter((id: string) => [quiet.id, liked.id, talked.id].includes(id));
   assert.deepEqual(order, [talked.id, liked.id, quiet.id]);
 });
+
+test("likes on a comment: a live count, one grouped row for the commenter, no browser access, none across a block (UP10)", async () => {
+  const p = await post();
+  const parent = await comment(p.mate, p.ws, p.id);
+  await sql`DELETE FROM user_notifications WHERE user_id = ${p.mate}`;
+  viewerId = p.fan;
+  const first = await updates.toggleWorkspaceUpdateCommentLikeAction(p.ws, parent);
+  assert.ok(first.success && first.liked && first.likeCount === 1, JSON.stringify(first));
+  await settle();
+  viewerId = p.fan2;
+  await updates.toggleWorkspaceUpdateCommentLikeAction(p.ws, parent);
+  await settle();
+  const rows = await tray(p.mate);
+  assert.equal(rows.length, 1);
+  assert.match(rows[0]!.title, / and 1 other liked your comment$/);
+  assert.equal(rows[0]!.importance, "more");
+  const live = await sql`SELECT payload FROM realtime.messages WHERE topic = ${`updates:post:${p.id}`} AND event = 'comment.likes' ORDER BY inserted_at DESC LIMIT 1`;
+  assert.equal((live[0]!.payload as { likes: number }).likes, 2);
+
+  viewerId = p.owner;
+  const seen = await updates.readWorkspaceUpdateCommentsAction(p.ws, p.id);
+  assert.equal(seen.data!.comments[0]!.likeCount, 2);
+  assert.equal(seen.data!.comments[0]!.likedByViewer, false);
+  const likers = await updates.readProjectUpdateLikersAction(p.ws, p.id, { commentId: parent });
+  assert.ok(likers.success && likers.likers.length === 2);
+
+  // Own like: no notification.
+  viewerId = p.mate;
+  await updates.toggleWorkspaceUpdateCommentLikeAction(p.ws, parent);
+  await settle();
+  assert.equal((await tray(p.mate)).length, 1);
+  assert.match((await tray(p.mate))[0]!.title, / and 1 other liked your comment$/);
+
+  // Unlike comes out; a like loop never nags.
+  viewerId = p.fan;
+  await updates.toggleWorkspaceUpdateCommentLikeAction(p.ws, parent);
+  await settle();
+  assert.match((await tray(p.mate))[0]!.title, /[^r] liked your comment$/);
+
+  await sql`INSERT INTO user_blocks (blocker_id, blocked_id) VALUES (${p.mate}, ${p.viewerRole})`.catch(() => undefined);
+  viewerId = p.viewerRole;
+  const blocked = await updates.toggleWorkspaceUpdateCommentLikeAction(p.ws, parent);
+  assert.equal(blocked.success, false, "refused across a block");
+
+  const [grant] = await sql`SELECT has_table_privilege('authenticated', 'workspace_update_comment_likes', 'SELECT') AS can`;
+  assert.equal(grant!.can, false);
+});
