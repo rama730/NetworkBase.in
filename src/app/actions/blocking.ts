@@ -6,6 +6,7 @@ import { z } from 'zod'
 
 import { db } from '@/lib/db'
 import { profiles, userBlocks, userMutes } from '@/lib/db/schema'
+import { notifyOrg, orgHref } from '@/lib/organizations/notify'
 import { BLOCK_UNDO_SECONDS, setUserBlocked, undoUserBlock, type BlockSource } from '@/lib/privacy/blocks'
 import { consumeRateLimit } from '@/lib/security/rate-limit'
 import { getViewerAuthContext } from '@/lib/server/viewer-context'
@@ -122,14 +123,14 @@ export async function askToChangeTeamAction(workspaceId: string): Promise<Result
     if (await limited(userId)) return { success: false, error: 'You’re going a bit fast. Try again in a moment.' }
     const [team] = await db.execute(sql`
         SELECT t.title, o.id AS org_id, o.slug AS org_slug, coalesce(p.full_name, p.username, 'A member') AS name,
-               array(SELECT o.owner_id UNION SELECT m.user_id FROM workspace_members m WHERE m.workspace_id = o.id AND m.role IN ('owner', 'admin')) AS admins
+               -- As JSON: the driver returns a uuid[] as the text "{...}", not an array.
+               to_jsonb(array(SELECT o.owner_id UNION SELECT m.user_id FROM workspace_members m WHERE m.workspace_id = o.id AND m.role IN ('owner', 'admin'))) AS admins
         FROM workspaces t
         JOIN workspaces o ON o.id = t.parent_id AND o.kind = 'organization' AND o.deleted_at IS NULL
         JOIN workspace_members me ON me.workspace_id = t.id AND me.user_id = ${userId}::uuid
         JOIN profiles p ON p.id = ${userId}::uuid
         WHERE t.id = ${workspaceId}::uuid AND t.deleted_at IS NULL`) as unknown as Array<{ title: string; org_id: string; org_slug: string | null; name: string; admins: string[] }>
     if (!team) return { success: false, error: 'Only members of a team in an organization can ask this.' }
-    const { notifyOrg, orgHref } = await import('@/lib/organizations/notify')
     await notifyOrg({
         orgId: team.org_id, eventKey: 'org.child_notice', actorId: userId, to: team.admins.filter((id) => id !== userId),
         title: `${team.name} asked to change team`, body: `They’re in ${team.title} and would like to be moved. No reason is given; please don’t ask for one.`,
