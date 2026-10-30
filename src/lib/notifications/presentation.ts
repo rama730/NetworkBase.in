@@ -281,13 +281,14 @@ export function buildNotificationMuteScopes(item: NotificationItem): Notificatio
     if (refs.orgId) scopes.push({ kind: "organization", value: refs.orgId, label: "This organization", mutedAt: null });
     if (refs.projectId && refs.projectId !== refs.orgId) scopes.push({ kind: "project", value: refs.projectId, label: item.preview?.contextLabel ?? "This workspace", mutedAt: null });
     if (refs.taskId) scopes.push({ kind: "task", value: refs.taskId, label: item.body ?? item.title, mutedAt: null });
+    if (refs.updateId) scopes.push({ kind: "update", value: refs.updateId, label: "This post", mutedAt: null });
     if (item.actorUserId) scopes.push({ kind: "person", value: item.actorUserId, label: item.preview?.actorName ?? "This person", mutedAt: null });
     return scopes;
 }
 
 export function getNarrowestNotificationMuteScope(item: NotificationItem): NotificationMuteScope {
     const scopes = buildNotificationMuteScopes(item);
-    const specificityOrder: NotificationMuteScope["kind"][] = ["task", "project", "organization", "person", "notification_type"];
+    const specificityOrder: NotificationMuteScope["kind"][] = ["task", "update", "project", "organization", "person", "notification_type"];
     for (const kind of specificityOrder) {
         const scope = scopes.find((candidate) => candidate.kind === kind);
         if (scope) return scope;
@@ -315,6 +316,7 @@ export function notificationMatchesMuteScope(
     if (scope.kind === "notification_type") return params.kind === scope.value;
     if (scope.kind === "project") return refs.projectId === scope.value || refs.projectSlug === scope.value;
     if (scope.kind === "task") return refs.taskId === scope.value;
+    if (scope.kind === "update") return refs.updateId === scope.value;
     if (scope.kind === "person") return params.actorUserId === scope.value;
     // Muting an org covers its child projects too: their events carry the parent's orgId.
     if (scope.kind === "organization") return refs.orgId === scope.value;

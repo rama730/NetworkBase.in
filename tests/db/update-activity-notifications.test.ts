@@ -44,7 +44,7 @@ async function like(user: string, ws: string, id: string) {
 }
 async function comment(user: string, ws: string, id: string, parent?: string) {
   viewerId = user;
-  const res = await updates.createWorkspaceUpdateCommentAction(ws, id, "nice one", parent);
+  const res = await updates.createWorkspaceUpdateCommentAction(ws, id, `nice one ${Math.random()}`, parent);
   assert.ok(res.success, JSON.stringify(res));
   await settle();
   return (res.data as { id: string }).id;
@@ -235,4 +235,44 @@ test("likes on a comment: a live count, one grouped row for the commenter, no br
 
   const [grant] = await sql`SELECT has_table_privilege('authenticated', 'workspace_update_comment_likes', 'SELECT') AS can`;
   assert.equal(grant!.can, false);
+});
+
+test("a post can be muted, and its author or an admin can close replies; strangers can't (UP8, UP13)", async () => {
+  const p = await post();
+  await sql`UPDATE profiles SET notification_preferences = ${sql.json({ mutedScopes: [{ kind: "update", value: p.id, label: "muted", mutedAt: null }] })} WHERE id = ${p.author}`;
+  await like(p.fan, p.ws, p.id);
+  assert.equal((await tray(p.author)).length, 0, "muted post");
+  assert.equal((await tray(p.owner)).length, 1, "only for the person who muted it");
+
+  viewerId = p.fan;
+  assert.equal((await updates.setWorkspaceUpdateReplyPolicyAction(p.ws, p.id, "closed")).success, false);
+  viewerId = p.author;
+  assert.equal((await updates.setWorkspaceUpdateReplyPolicyAction(p.ws, p.id, "closed")).success, true);
+  viewerId = p.fan;
+  const refused = await updates.createWorkspaceUpdateCommentAction(p.ws, p.id, "still here?");
+  assert.equal(refused.success, false);
+});
+
+test("comment limits: verified email, repeats, links, new-account rate, and restricted accounts (UP13)", async () => {
+  const p = await post();
+  const say = async (user: string, text: string) => { viewerId = user; return updates.createWorkspaceUpdateCommentAction(p.ws, p.id, text); };
+  assert.ok((await say(p.fan, "first")).success);
+  const repeat = await say(p.fan, "first");
+  assert.ok(!repeat.success && /already posted/.test(repeat.error));
+  const links = await say(p.fan, "see https://a.example and https://b.example");
+  assert.ok(!links.success && /links/.test(links.error), "a new account gets one link");
+
+  assert.ok((await say(p.fan, "second")).success);
+  assert.ok((await say(p.fan, "third")).success);
+  const fast = await say(p.fan, "fourth");
+  assert.ok(!fast.success && /Too many/.test(fast.error), "three a minute for a new account");
+
+  await sql`UPDATE profiles SET created_at = now() - interval '30 days' WHERE id = ${p.fan2}`;
+  assert.ok((await say(p.fan2, "one https://a.example https://b.example")).success, "older accounts get more room");
+
+  await sql`INSERT INTO moderation_actions (subject_id, target_kind, target_id, action, rule, message, notified_at) VALUES (${p.mate}, 'account', ${p.mate}, 'suspension', 1, 'test', now())`;
+  const suspended = await say(p.mate, "hello");
+  assert.ok(!suspended.success && /can’t comment/.test(suspended.error));
+  viewerId = p.mate;
+  assert.equal((await updates.toggleWorkspaceUpdateLikeAction(p.ws, p.id)).success, false, "a suspended account's like doesn't count");
 });

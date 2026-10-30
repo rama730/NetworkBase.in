@@ -190,7 +190,7 @@ export interface DiscoverUpdateView {
   preview?: UpdatePreview;
   viewerFollowsProject: boolean;
   viewerIsTeam: boolean;
-  replyPolicy: "logged_in" | "members";
+  replyPolicy: "logged_in" | "members" | "closed";
   canComment: boolean;
   canEdit: boolean;
   canDelete: boolean;

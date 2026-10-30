@@ -204,9 +204,9 @@ async function hydrate(rows: Row[], viewerId: string | null): Promise<DiscoverUp
             preview: previews.get(row.id),
             viewerFollowsProject: Boolean(row.viewerFollows),
             viewerIsTeam: Boolean(row.viewerIsTeam),
-            replyPolicy: row.replyPolicy === "members" ? "members" : "logged_in",
+            replyPolicy: row.replyPolicy === "members" || row.replyPolicy === "closed" ? row.replyPolicy : "logged_in",
             // The server re-checks every write; this only decides what the panel offers.
-            canComment: Boolean(viewerId) && (row.replyPolicy !== "members" || row.viewerIsTeam),
+            canComment: Boolean(viewerId) && row.replyPolicy !== "closed" && (row.replyPolicy !== "members" || row.viewerIsTeam),
             canEdit: isAuthor,
             canDelete: isAuthor || Boolean(viewerId && viewerId === row.projectOwnerId),
             editedAt: row.editedAt ? row.editedAt.toISOString() : null,

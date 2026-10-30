@@ -44,6 +44,7 @@ const MUTE_KIND_LABELS: Record<string, string> = {
   notification_type: "Notification type",
   project: "Workspace",
   task: "Task",
+  update: "Post",
   person: "Person",
   organization: "Organization",
 };

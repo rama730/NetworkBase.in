@@ -85,6 +85,7 @@ const NOTIFICATION_MUTE_SCOPE_KINDS = [
     "notification_type",
     "project",
     "task",
+    "update",
     "person",
     "organization",
 ] as const satisfies readonly NotificationMuteScopeKind[];
