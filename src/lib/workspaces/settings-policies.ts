@@ -271,7 +271,7 @@ export function formatWorkspaceTeamRole(input: {
 
   if (membershipRole === "owner") {
     const role = leadFocus || specificRole;
-    return role ? `${membershipLabel} / ${role}` : membershipLabel;
+    return role ? `${role} · ${membershipLabel}` : membershipLabel;
   }
 
   return specificRole

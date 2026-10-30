@@ -144,11 +144,11 @@ export function OrgWorkspacesTab({ orgId, orgSlug }: { orgId: string; orgSlug?: 
     const remind = () => startTransition(async () => {
         const r = await remindLeadsAction(orgId, [...selected])
         if (!r.success) return void toast.error(r.error)
-        toast.success(r.reminded ? `Reminded ${r.reminded} ${r.reminded === 1 ? 'lead' : 'leads'}` : 'Nothing overdue or missing in those workspaces')
+        toast.success(r.reminded ? `Reminded ${r.reminded} ${r.reminded === 1 ? 'owner' : 'owners'}` : 'Nothing overdue or missing in those workspaces')
         setSelected(new Set())
     })
     const projectHref = (r: OrgWorkspaceRow) => `/workspaces/${encodeURIComponent(r.slug ?? r.id)}`
-    const messageLead = (r: OrgWorkspaceRow) => r.lead && !r.mine ? <Link href={`/messages?userId=${r.lead.id}`} onClick={(e) => messageUserInWindow(r.lead!.id, e)} className="text-[12px] underline underline-offset-4">Message lead</Link> : null
+    const messageLead = (r: OrgWorkspaceRow) => r.lead && !r.mine ? <Link href={`/messages?userId=${r.lead.id}`} onClick={(e) => messageUserInWindow(r.lead!.id, e)} className="text-[12px] underline underline-offset-4">Message owner</Link> : null
     const sel = 'h-9 rounded-md border border-border bg-background px-2 text-sm'
     const archive = () => startTransition(async () => {
         for (const id of selected) {
@@ -193,7 +193,7 @@ export function OrgWorkspacesTab({ orgId, orgSlug }: { orgId: string; orgSlug?: 
                     <option value="active">Recently active</option><option value="name">Name</option><option value="overdue">Most overdue</option>
                 </select>
                 {data.canCreate ? <Button asChild size="sm" className="ml-auto"><Link href={`/workspaces/new?org=${encodeURIComponent(orgSlug ?? orgId)}`}>+ New workspace</Link></Button> : null}
-                {data.isAdmin && selected.size ? <Button type="button" size="sm" variant="outline" disabled={pending} onClick={remind}>Remind leads</Button> : null}
+                {data.isAdmin && selected.size ? <Button type="button" size="sm" variant="outline" disabled={pending} onClick={remind}>Remind owners</Button> : null}
                 {data.isAdmin && selected.size ? <Button type="button" size="sm" variant="outline" disabled={pending} onClick={() => { if (window.confirm(`Archive ${selected.size} ${selected.size === 1 ? 'project' : 'projects'}?`)) archive() }}>Archive {selected.size}</Button> : null}
                 <span className="flex rounded-md border border-border text-[12px]" role="group" aria-label="View">
                     {(['list', 'cards'] as const).map((v) => <button key={v} type="button" aria-pressed={layout === v} onClick={() => setView(v)} className={cn('px-2 py-1 capitalize', layout === v ? 'bg-muted font-medium' : 'text-muted-foreground')}>{v}</button>)}

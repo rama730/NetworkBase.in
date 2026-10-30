@@ -432,7 +432,7 @@ export default function Phase5Review({ goToPhase, onReady, projectImage = null }
                     ) : <p className="nb-compact text-muted-foreground">No journey stages added.</p>}
                 </ReviewRow>
                 <ReviewRow label="Team permissions">
-                    <p className="nb-compact text-foreground">Updates: {memberUpdates ? 'members can post' : 'leaders only'} · New-member uploads: {memberUploads ? 'on' : 'off'}</p>
+                    <p className="nb-compact text-foreground">Updates: {memberUpdates ? 'members can post' : 'owner and admins only'} · New-member uploads: {memberUploads ? 'on' : 'off'}</p>
                 </ReviewRow>
                 <ReviewRow label="Files and storage">
                     <p className="nb-compact text-foreground">{source.detail}</p>

@@ -346,7 +346,7 @@ export async function removeMembersAction(orgId: string, userIds: string[], opti
         if (id === viewer.userId) return { success: false, error: 'Use Leave organization to remove yourself.' };
         const block = roles.has(id) ? memberChangeBlock(viewer.role, roles.get(id)!, null) : 'That person is no longer a member.';
         if (block) return { success: false, error: block };
-        if ((await ledChildWorkspaces(db, orgId, id)).length > 0) return { success: false, error: 'This person leads a workspace here. Transfer or detach it first.' };
+        if ((await ledChildWorkspaces(db, orgId, id)).length > 0) return { success: false, error: 'This person owns a workspace here. Transfer or detach it first.' };
     }
     const seats = await db.transaction(async (tx) => {
         const opened = [];

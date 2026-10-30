@@ -1,3 +1,4 @@
+import { contributionPositionName } from "@/lib/profile/contribution-position";
 import {
     splitMarkdownByInlineReferences,
 } from "@/lib/workspaces/doc-blocks";
@@ -215,6 +216,7 @@ export function sanitizeWorkspaceUpdateRoleTitle(value: unknown, maxLength = 80)
     return normalized.length > 0 ? normalized : null;
 }
 
+/** Job title · access level, the format of accessLevelLabel (report §4.3). Member and Viewer add nothing beside a title. */
 export function composeWorkspaceUpdateRoleLabel(input: {
     roleTitle?: string | null;
     membershipRoleLabel?: string | null;
@@ -222,14 +224,9 @@ export function composeWorkspaceUpdateRoleLabel(input: {
     const roleTitle = sanitizeWorkspaceUpdateRoleTitle(input.roleTitle);
     const membershipRoleLabel = sanitizeWorkspaceUpdateRoleTitle(input.membershipRoleLabel);
     if (!roleTitle) return membershipRoleLabel;
-    if (!membershipRoleLabel) return roleTitle;
-    const normalizedMembership = membershipRoleLabel.toLowerCase();
-    const normalizedTitle = roleTitle.toLowerCase();
-    if (normalizedTitle.includes(normalizedMembership)) return roleTitle;
-    if (normalizedMembership === "lead" || normalizedMembership === "co-lead" || normalizedMembership === "co-leader") {
-        return `${membershipRoleLabel} ${roleTitle}`;
-    }
-    return roleTitle;
+    if (!membershipRoleLabel || membershipRoleLabel === "Member" || membershipRoleLabel === "Viewer") return roleTitle;
+    if (roleTitle.toLowerCase().includes(membershipRoleLabel.toLowerCase())) return roleTitle;
+    return `${roleTitle} · ${membershipRoleLabel}`;
 }
 
 export function isGenericWorkspaceUpdateRoleTitle(value: unknown, membershipRoleLabel?: string | null) {
@@ -264,44 +261,25 @@ export function normalizeWorkspaceUpdateAuthorRoleSnapshot(value: unknown): Work
     };
 }
 
+/** A snapshot keeps the job title from when the update was posted; its stored access level ("Lead") is never shown. */
 export function resolveWorkspaceUpdateAuthorRoleDisplay(input: {
     snapshot?: WorkspaceUpdateAuthorRoleSnapshot | null;
     projectRoleTitle?: string | null;
     membershipRoleLabel?: string | null;
 }) {
-    const snapshot = input.snapshot ?? null;
-    if (snapshot?.displayRoleLabel) {
-        const projectRoleTitle = sanitizeWorkspaceUpdateRoleTitle(input.projectRoleTitle);
-        const effectiveMembershipRoleLabel = snapshot.membershipRoleLabel ?? input.membershipRoleLabel;
-        const snapshotRoleTitle = isGenericWorkspaceUpdateRoleTitle(snapshot.roleTitle, effectiveMembershipRoleLabel)
-            ? null
-            : sanitizeWorkspaceUpdateRoleTitle(snapshot.roleTitle);
-        const effectiveRoleTitle = projectRoleTitle ?? snapshotRoleTitle;
-        return {
-            roleLabel: composeWorkspaceUpdateRoleLabel({
-                roleTitle: effectiveRoleTitle,
-                membershipRoleLabel: effectiveMembershipRoleLabel,
-            }) ?? snapshot.displayRoleLabel,
-            roleTitle: effectiveRoleTitle ?? snapshot.displayRoleLabel,
-            membershipRoleLabel: effectiveMembershipRoleLabel ?? null,
-            roleSource: projectRoleTitle ? "project_role" as const : "snapshot" as const,
-        };
-    }
-    const projectRoleTitle = sanitizeWorkspaceUpdateRoleTitle(input.projectRoleTitle);
-    if (projectRoleTitle) {
-        return {
-            roleLabel: composeWorkspaceUpdateRoleLabel({ roleTitle: projectRoleTitle, membershipRoleLabel: input.membershipRoleLabel }),
-            roleTitle: projectRoleTitle,
-            membershipRoleLabel: input.membershipRoleLabel ?? null,
-            roleSource: "project_role" as const,
-        };
-    }
     const membershipRoleLabel = sanitizeWorkspaceUpdateRoleTitle(input.membershipRoleLabel);
+    const currentTitle = sanitizeWorkspaceUpdateRoleTitle(contributionPositionName(input.projectRoleTitle));
+    const snapshotTitle = sanitizeWorkspaceUpdateRoleTitle(contributionPositionName(input.snapshot?.roleTitle));
+    const roleTitle = currentTitle ?? snapshotTitle;
     return {
-        roleLabel: membershipRoleLabel,
-        roleTitle: null,
+        roleLabel: composeWorkspaceUpdateRoleLabel({ roleTitle, membershipRoleLabel }),
+        roleTitle,
         membershipRoleLabel,
-        roleSource: membershipRoleLabel ? "membership" as const : null,
+        roleSource: currentTitle
+            ? "project_role" as const
+            : snapshotTitle
+                ? "snapshot" as const
+                : membershipRoleLabel ? "membership" as const : null,
     };
 }
 

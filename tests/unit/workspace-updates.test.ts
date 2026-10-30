@@ -272,72 +272,51 @@ test("workspace update likes persist counters synchronously", () => {
     assert.equal(actionSource.includes("redis.hincrby"), false);
 });
 
-test("workspace update author roles compose membership and current project position", () => {
+test("an update's author reads as job title · access level, and only Owner and Admin are worth naming", () => {
     assert.equal(sanitizeWorkspaceUpdateRoleTitle("  Lead   Front-end Developer  "), "Lead Front-end Developer");
-    assert.equal(composeWorkspaceUpdateRoleLabel({ roleTitle: "Front-end Developer", membershipRoleLabel: "Lead" }), "Lead Front-end Developer");
-    assert.equal(composeWorkspaceUpdateRoleLabel({ roleTitle: "UX Designer", membershipRoleLabel: "Co-lead" }), "Co-lead UX Designer");
-    assert.equal(composeWorkspaceUpdateRoleLabel({ roleTitle: "Lead Designer", membershipRoleLabel: "Lead" }), "Lead Designer");
-    const snapshot = normalizeWorkspaceUpdateAuthorRoleSnapshot({
-        roleTitle: "Front-end Developer",
+    assert.equal(composeWorkspaceUpdateRoleLabel({ roleTitle: "Frontend Developer", membershipRoleLabel: "Owner" }), "Frontend Developer · Owner");
+    assert.equal(composeWorkspaceUpdateRoleLabel({ roleTitle: "UX Designer", membershipRoleLabel: "Admin" }), "UX Designer · Admin");
+    assert.equal(composeWorkspaceUpdateRoleLabel({ roleTitle: "UX Designer", membershipRoleLabel: "Member" }), "UX Designer");
+    assert.equal(composeWorkspaceUpdateRoleLabel({ roleTitle: "UX Designer", membershipRoleLabel: "Viewer" }), "UX Designer");
+    assert.equal(composeWorkspaceUpdateRoleLabel({ roleTitle: null, membershipRoleLabel: "Owner" }), "Owner");
+    assert.equal(composeWorkspaceUpdateRoleLabel({ roleTitle: "Product Owner", membershipRoleLabel: "Owner" }), "Product Owner");
+});
+
+test("a frozen 'Lead' on an old update never shows: the author's current access level wins", () => {
+    const frozen = normalizeWorkspaceUpdateAuthorRoleSnapshot({
+        displayRoleLabel: "Lead Full stack developer",
+        roleTitle: "Full stack developer",
         membershipRoleLabel: "Lead",
         source: "project_role",
         capturedAt: "2026-06-06T00:00:00.000Z",
     });
-    assert.deepEqual(resolveWorkspaceUpdateAuthorRoleDisplay({
-        snapshot,
-        projectRoleTitle: "Product designer",
-        membershipRoleLabel: "Member",
-    }), {
-        roleLabel: "Lead Product designer",
-        roleTitle: "Product designer",
-        membershipRoleLabel: "Lead",
+    assert.deepEqual(resolveWorkspaceUpdateAuthorRoleDisplay({ snapshot: frozen, projectRoleTitle: "Frontend Developer", membershipRoleLabel: "Owner" }), {
+        roleLabel: "Frontend Developer · Owner",
+        roleTitle: "Frontend Developer",
+        membershipRoleLabel: "Owner",
         roleSource: "project_role",
     });
-    assert.deepEqual(resolveWorkspaceUpdateAuthorRoleDisplay({
-        snapshot: null,
-        projectRoleTitle: "UX Designer",
-        membershipRoleLabel: "Member",
-    }), {
-        roleLabel: "UX Designer",
-        roleTitle: "UX Designer",
-        membershipRoleLabel: "Member",
-        roleSource: "project_role",
+    // No current title: the job title frozen with the update still says what they did, with today's level.
+    assert.deepEqual(resolveWorkspaceUpdateAuthorRoleDisplay({ snapshot: frozen, projectRoleTitle: null, membershipRoleLabel: "Admin" }), {
+        roleLabel: "Full stack developer · Admin",
+        roleTitle: "Full stack developer",
+        membershipRoleLabel: "Admin",
+        roleSource: "snapshot",
     });
-    assert.deepEqual(resolveWorkspaceUpdateAuthorRoleDisplay({
-        snapshot: normalizeWorkspaceUpdateAuthorRoleSnapshot({
-            displayRoleLabel: "Lead",
-            roleTitle: "Lead",
-            membershipRoleLabel: "Lead",
-            source: "membership",
-            capturedAt: "2026-06-06T00:00:00.000Z",
-        }),
-        projectRoleTitle: "Front-end Developer",
-        membershipRoleLabel: "Lead",
-    }), {
-        roleLabel: "Lead Front-end Developer",
-        roleTitle: "Front-end Developer",
-        membershipRoleLabel: "Lead",
-        roleSource: "project_role",
+    const bare = normalizeWorkspaceUpdateAuthorRoleSnapshot({ displayRoleLabel: "Lead", roleTitle: "Lead", membershipRoleLabel: "Lead", source: "membership", capturedAt: "2026-06-06T00:00:00.000Z" });
+    assert.deepEqual(resolveWorkspaceUpdateAuthorRoleDisplay({ snapshot: bare, projectRoleTitle: null, membershipRoleLabel: "Owner" }), {
+        roleLabel: "Owner",
+        roleTitle: null,
+        membershipRoleLabel: "Owner",
+        roleSource: "membership",
     });
-});
-
-test("workspace update author roles repair stale open-role snapshots with authoritative project roles", () => {
-    assert.deepEqual(resolveWorkspaceUpdateAuthorRoleDisplay({
-        snapshot: normalizeWorkspaceUpdateAuthorRoleSnapshot({
-            displayRoleLabel: "Lead Full stack developer",
-            roleTitle: "Full stack developer",
-            membershipRoleLabel: "Lead",
-            source: "project_role",
-            capturedAt: "2026-06-06T00:00:00.000Z",
-        }),
-        projectRoleTitle: "Frontend Product designer",
-        membershipRoleLabel: "Lead",
-    }), {
-        roleLabel: "Lead Frontend Product designer",
-        roleTitle: "Frontend Product designer",
-        membershipRoleLabel: "Lead",
-        roleSource: "project_role",
-    });
+    // Titles saved with the old role word attached lose it.
+    for (const roleTitle of ["Lead / Tester", "Tester - Lead", "Co-lead · Tester"]) {
+        assert.equal(resolveWorkspaceUpdateAuthorRoleDisplay({ snapshot: null, projectRoleTitle: roleTitle, membershipRoleLabel: "Member" }).roleLabel, "Tester", roleTitle);
+    }
+    assert.equal(resolveWorkspaceUpdateAuthorRoleDisplay({ snapshot: null, projectRoleTitle: "Lead - Lead", membershipRoleLabel: "Owner" }).roleLabel, "Owner");
+    // "Lead Designer" is someone's real job title, not an access level.
+    assert.equal(resolveWorkspaceUpdateAuthorRoleDisplay({ snapshot: null, projectRoleTitle: "Lead Designer", membershipRoleLabel: "Member" }).roleLabel, "Lead Designer");
 });
 
 test("updates tab right rail stays a shortcut index instead of a duplicate feed", () => {

@@ -66,7 +66,7 @@ export async function notifyLeadHandovers(fromUserId: string) {
   const handed = await db.select({ id: workspaces.id, title: workspaces.title, slug: workspaces.slug, parentId: workspaces.parentId, ownerId: workspaces.ownerId, at: sql<string | null>`${workspaces.orgSettings}->'leadHandover'->>'at'` })
     .from(workspaces).where(and(isNotNull(workspaces.parentId), isNull(workspaces.deletedAt), sql`${workspaces.orgSettings}->'leadHandover'->>'from' = ${fromUserId}`));
   for (const child of handed) {
-    await notifyOrg({ orgId: child.parentId!, eventKey: "org.role_changed", to: [child.ownerId], title: `You’re the lead of ${child.title}`,
+    await notifyOrg({ orgId: child.parentId!, eventKey: "org.role_changed", to: [child.ownerId], title: `You’re the owner of ${child.title}`,
       href: `/workspaces/${encodeURIComponent(child.slug ?? child.id)}`, sourceEventId: `lead:${child.id}:${child.at ?? ""}`, refs: { projectId: child.id } });
   }
 }

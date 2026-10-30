@@ -177,7 +177,7 @@ test("a new join code tells the other admins; a tightened cap tells the lead and
   await appDb.db.transaction((tx) => succession.handOverLedChildWorkspaces(tx, o.a));
   await succession.notifyLeadHandovers(o.a);
   await succession.notifyLeadHandovers(o.a);
-  assert.equal((await titles(o.b)).filter((t) => t === "You’re the lead of North region").length, 1);
+  assert.equal((await titles(o.b)).filter((t) => t === "You’re the owner of North region").length, 1);
 });
 
 test("a child project's own notification setting wins over the org's Off", async () => {

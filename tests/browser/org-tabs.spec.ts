@@ -245,10 +245,10 @@ test('Projects (§28): Stage, Lead and Sprint filters, Remind leads, Cards view 
     await expect(page.getByRole('link', { name: 'Team Osprey' })).toBeVisible();
     await page.getByLabel('Stage').selectOption('all');
     await page.getByLabel('Select Team Osprey').check();
-    await page.getByRole('button', { name: 'Remind leads' }).click();
-    await expect(page.getByRole('button', { name: 'Remind leads' })).toHaveCount(0);
+    await page.getByRole('button', { name: 'Remind owners' }).click();
+    await expect(page.getByRole('button', { name: 'Remind owners' })).toHaveCount(0);
     await page.getByRole('button', { name: 'cards' }).click();
     await expect(page.getByRole('list', { name: 'Projects' })).toContainText('New');
-    await expect(page.getByRole('link', { name: 'Message lead' }).first()).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Message owner' }).first()).toBeVisible();
     await noSideScroll(page);
 });

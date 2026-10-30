@@ -31,7 +31,7 @@ const update = (patch: Partial<DiscoverUpdateView> = {}): DiscoverUpdateView => 
     projectName: "DeepScope AI",
     projectSlug: "deepscope-ai",
     projectCoverImage: null,
-    author: { id: "33333333-3333-4333-8333-333333333333", fullName: "Asha Rao", username: "asha", avatarUrl: null, roleLabel: "Lead Frontend developer", masked: false },
+    author: { id: "33333333-3333-4333-8333-333333333333", fullName: "Asha Rao", username: "asha", avatarUrl: null, roleLabel: "Frontend developer · Owner", masked: false },
     content: "Shipped the **new** importer.",
     updateType: "progress",
     media: [],
@@ -59,7 +59,7 @@ test("an update card leads with its author and names its project in the footer",
     assert.ok(html.indexOf("Asha Rao") < html.indexOf("DeepScope AI"), "author comes before the workspace name");
     assert.match(html, /href="\/workspaces\/deepscope-ai"/);
     assert.doesNotMatch(html, /<img/, "a project without a cover shows no placeholder picture");
-    assert.match(html, /Lead Frontend developer/);
+    assert.match(html, /Frontend developer · Owner/);
     assert.match(html, /<time[^>]*dateTime="2026-10-01T10:00:00.000Z"/);
 });
 

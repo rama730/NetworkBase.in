@@ -637,7 +637,7 @@ export async function createWorkspaceAction(
       if (input.lead_user_id && input.lead_user_id !== user.id) {
         if (!isOrgAdmin) return refuse("Only admins pick someone else as lead.");
         const leadRole = await readViewerOrgRole(parentOrgId, input.lead_user_id);
-        if (!leadRole || leadRole === "viewer") return refuse(`The lead must be a member of ${org.title}.`);
+        if (!leadRole || leadRole === "viewer") return refuse(`The owner must be a member of ${org.title}.`);
         ownerId = input.lead_user_id;
       }
       // Outside people while the org keeps them out are left out with a reason, not a failed create (report §14.6).

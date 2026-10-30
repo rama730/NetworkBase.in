@@ -97,5 +97,7 @@ export const BANNED_TERMS: ReadonlyArray<{ pattern: RegExp; use: string }> = [
   { pattern: /\bdanger zone\b/i, use: 'Workspace management' },
   { pattern: /\bchild projects?\b/i, use: 'Workspace in {organization}' },
   { pattern: /\bunit lead\b/i, use: 'Team lead' },
+  // Lowercase in a sentence, so the exact-word rule above misses it. "Team lead" and "Lead designer" never match.
+  { pattern: /\b(?:a|an|the|new|its|their|message|remind)\s+leads?\b(?!\s+generation)|^Lead:|\bleaders? (?:can|only)\b|\b(?:person|you|they) leads?\b/i, use: 'Owner, or owner and admins' },
   { pattern: /\bproject feed\b/i, use: 'Updates' },
 ];

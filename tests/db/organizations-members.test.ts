@@ -172,7 +172,7 @@ test("remove: out of the org and its projects; Block from rejoining stops the co
   assert.equal(again.success, false);
   assert.equal((await members.removeMembersAction(o.orgId, [o.a], { block: false })).success, false, "members can't remove");
   viewerId = o.admin;
-  assert.match(JSON.stringify(await members.removeMembersAction(o.orgId, [o.a], { block: false })), /lead/i, "project leads transfer first");
+  assert.match(JSON.stringify(await members.removeMembersAction(o.orgId, [o.a], { block: false })), /owns a workspace/, "workspace owners transfer first");
 });
 
 test("add to a child project: admins add people straight into a unit", async () => {

@@ -77,7 +77,7 @@ async function lockWorkflowForLeader(tx: Tx, projectId: string, userId: string) 
     `);
     const row = Array.from(rows)[0];
     if (!row) throw new Error("Not found");
-    if (row.owner_id !== userId && row.role !== "admin") throw new Error("Only leaders can modify workflow");
+    if (row.owner_id !== userId && row.role !== "admin") throw new Error("Only owners and admins can change the workflow");
 }
 
 async function ensureWorkflowColumns(projectId: string, tx: Tx | typeof db = db) {

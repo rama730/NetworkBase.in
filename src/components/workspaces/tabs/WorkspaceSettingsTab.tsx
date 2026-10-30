@@ -1936,7 +1936,7 @@ function ProjectSettingsContent({
                             title="Files"
                                 headingLevel={2}
                                 loadState={{ allowInteractionWhileLoading: true, loading: fileAccessLoading, hasData: Boolean(fileAccessData), error: settingsErrors.files ?? null, retry: () => void loadFileAccessSettings() }}
-                            description="Control file intake clearly: leaders can always upload, members can be toggled on or off, and viewers stay read-focused."
+                            description="Control file intake clearly: the owner and admins can always upload, members can be toggled on or off, and viewers stay read-focused."
                             footer={
                                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 w-full">
                                     <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
