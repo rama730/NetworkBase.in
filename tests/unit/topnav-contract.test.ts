@@ -233,7 +233,7 @@ test("top-nav keeps one accessible, route-aligned implementation", () => {
   assert.doesNotMatch(notifications, /Mark all read/);
   assert.match(runtime, /<NetworkNotificationsProvider>/);
   assert.doesNotMatch(runtime, /PresencePublisher|startPresenceHeartbeat/);
-  assert.match(realtime, /resourceType: 'profile'/);
+  assert.match(realtime, /event === 'profile\.changed'/);
   assert.doesNotMatch(realtime, /table: 'tasks'/);
   assert.match(chat, /usePublishOnlinePresence\(\)/);
   assert.match(layout, /MyWorkDrawerHost/);

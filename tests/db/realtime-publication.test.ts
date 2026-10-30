@@ -6,10 +6,18 @@ import { sql } from "./_helpers";
 
 after(() => sql.end());
 
-// Every published table has a listener and every listener has a published table: a mismatch is silent in the app.
-test("the realtime publication matches the tables the code listens to", async () => {
+// ponytail: screens moved to 0034's broadcasts; these stay published so open old tabs and a redeploy of the
+// previous build keep working. upgrade: empty this list and the publication once the signed-in check passes.
+test("the realtime publication keeps the old tables during the move", async () => {
   const rows = await sql`SELECT tablename FROM pg_publication_tables WHERE pubname = 'supabase_realtime' ORDER BY 1`;
-  const listeners = ["src/lib/realtime/subscriptions.ts", "src/lib/realtime/task-resource.ts", "src/lib/realtime/workspace-files-channel.ts", "src/hooks/useRealtimeTasks.ts", "src/components/workspaces/v2/TasksTab.tsx", "src/components/workspaces/HydrationProgressBanner.tsx"]
-    .flatMap((file) => [...readFileSync(file, "utf8").matchAll(/table: ['"]([a-z_]+)['"]/g)].map((m) => m[1]!));
-  assert.deepEqual(rows.map((r) => r.tablename), [...new Set(listeners)].sort());
+  assert.deepEqual(rows.map((r) => r.tablename), [
+    "profiles", "task_comments", "task_node_links", "task_subtasks", "tasks",
+    "user_notifications", "workspace_node_locks", "workspace_workflow_columns", "workspaces",
+  ]);
+});
+
+test("no screen listens to postgres_changes any more", () => {
+  for (const file of ["src/lib/realtime/subscriptions.ts", "src/lib/realtime/task-resource.ts", "src/hooks/useRealtimeTasks.ts"]) {
+    assert.doesNotMatch(readFileSync(file, "utf8"), /postgres_changes/, file);
+  }
 });

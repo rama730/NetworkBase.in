@@ -23,8 +23,8 @@ import {
   getWorkspaceTaskDetailAction,
 } from "@/app/actions/workspace";
 import { createWorkspaceWorkflowColumnAction, deleteWorkspaceWorkflowColumnAction, getWorkspaceWorkflowColumnsAction, updateWorkspaceWorkflowColumnsAction } from "@/app/actions/workspace/workflow";
-import { createClient } from "@/lib/supabase/client";
-import { subscribeActiveResource } from "@/lib/realtime/subscriptions";
+import { subscribeBroadcast } from "@/lib/realtime/private-broadcast";
+import { liveTopics } from "@/lib/realtime/subscriptions";
 import {
   Dialog,
   DialogContent,
@@ -347,7 +347,7 @@ export default function TasksTab({
   isWorkflowPendingRef.current = workflowMutation.isPending;
 
   useEffect(() => {
-    const supabase = createClient();
+    if (!currentUserId) return;
     let refreshTimer: ReturnType<typeof setTimeout> | null = null;
     const scheduleWorkflowRefresh = () => {
       if (isWorkflowPendingRef.current) {
@@ -360,25 +360,15 @@ export default function TasksTab({
         void queryClient.invalidateQueries({ queryKey: workflowQueryKey });
       }, 50);
     };
-    const channel = subscribeActiveResource({
-      supabase,
-      resourceType: "project_workflow",
-      resourceId: projectId,
-      bindings: [
-        {
-          event: "*",
-          table: "workspace_workflow_columns",
-          filter: `workspace_id=eq.${projectId}`,
-          handler: scheduleWorkflowRefresh,
-        },
-      ],
+    const live = subscribeBroadcast(liveTopics.tasks(projectId), (event) => {
+      if (event === "workflow.changed") scheduleWorkflowRefresh();
     });
 
     return () => {
       if (refreshTimer) clearTimeout(refreshTimer);
-      void supabase.removeChannel(channel);
+      live.unsubscribe();
     };
-  }, [projectId, queryClient, workflowQueryKey]);
+  }, [currentUserId, projectId, queryClient, workflowQueryKey]);
 
   useEffect(() => {
     if (workflowMutation.isPending || !workflowRefreshQueuedRef.current) return;

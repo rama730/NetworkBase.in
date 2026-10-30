@@ -11,13 +11,11 @@ function read(relativePath: string) {
 test("task panel listens to its task row and exposes connection state", () => {
   const resource = read("src/lib/realtime/task-resource.ts");
   const hook = read("src/hooks/useTaskPanelResource.ts");
-  assert.match(resource, /kind: "task"/);
-  assert.match(resource, /table: "tasks"/);
+  assert.match(resource, /"task\.changed": "task"/);
+  assert.match(resource, /liveTopics\.task\(params\.taskId\)/);
   assert.match(hook, /setIsResourceConnected\(true\)/);
   assert.match(hook, /if \(event\.kind === "task"\)/);
   assert.match(hook, /void loadTask\(\)/);
-  assert.match(resource, /generation/);
-  assert.match(resource, /entry\.generation !== generation/);
 });
 
 test("an open task panel is a working link: its drawer params are in the URL", () => {

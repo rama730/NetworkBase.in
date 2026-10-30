@@ -18,14 +18,14 @@ test("Supabase Auth and database clients keep one native owner", () => {
 test("application wrappers do not compete with native Realtime reconnect", () => {
   const provider = source("src/components/providers/RealtimeProvider.tsx");
   const taskResource = source("src/lib/realtime/task-resource.ts");
-  const projectFiles = source("src/lib/realtime/workspace-files-channel.ts");
+  const broadcast = source("src/lib/realtime/private-broadcast.ts");
 
-  for (const implementation of [provider, taskResource, projectFiles]) {
+  for (const implementation of [provider, taskResource, broadcast]) {
     assert.doesNotMatch(implementation, /scheduleReconnect|reconnectTimer|reconnectAttempt|MAX_BACKOFF_MS|BACKOFF_START_MS/);
   }
-  assert.match(provider, /void supabase\.removeChannel\(channel\)/);
-  assert.match(taskResource, /native Realtime owns reconnects/);
-  assert.match(projectFiles, /Supabase Realtime owns socket reconnect and channel rejoin/);
+  assert.match(provider, /subscription\.unsubscribe\(\)/);
+  assert.match(taskResource, /subscribeBroadcast/);
+  assert.match(broadcast, /supabase-js rejoins after drops/);
 });
 
 test("Realtime health distinguishes authentication startup from terminal channel failure", () => {
@@ -49,7 +49,7 @@ test("hydration is Realtime-first with a bounded fallback", () => {
 
   assert.match(hydration, /REALTIME_MISSED_PROGRESS_MS = 30_000/);
   assert.match(hydration, /FALLBACK_POLL_MS = 15_000/);
-  assert.match(hydration, /status === "CHANNEL_ERROR" \|\| status === "TIMED_OUT" \|\| status === "CLOSED"/);
+  assert.match(hydration, /status === "disconnected" \|\| status === "disabled"\) fallbackPolling = true/);
   assert.doesNotMatch(hydration, /setTimeout\(fetchProgress, 5000\)/);
   assert.match(hydration, /if \(meta === undefined\) \{[\s\S]*queuePoll\(FALLBACK_POLL_MS\)/);
 });

@@ -15,14 +15,14 @@ test("task-board workflow is hydrated and synchronized through its dedicated col
     const migration = readProjectFile("drizzle/0008_tasks_sprints.sql");
 
     assert.match(taskTab, /getWorkspaceWorkflowColumnsAction/);
-    assert.match(taskTab, /subscribeActiveResource/);
-    assert.match(taskTab, /table: "workspace_workflow_columns"/);
+    assert.match(taskTab, /subscribeBroadcast\(liveTopics\.tasks\(projectId\)/);
+    assert.match(taskTab, /event === "workflow\.changed"/);
     assert.match(taskTab, /scheduleWorkflowRefresh/);
     assert.match(taskTab, /if \(!result\.success \|\| !result\.columns\)/);
     assert.match(taskTab, /normalizeAssignableMembers\(members\)/);
     assert.match(action, /updateWorkspaceWorkflowColumnsAction/);
     assert.match(schema, /workspaceWorkflowColumns/);
-    assert.match(subscriptions, /'project_workflow'/);
+    assert.match(subscriptions, /tasks: \(workspaceId: string\) => `live:tasks:/);
     assert.match(migration, /CREATE TABLE public\.workspace_workflow_columns /);
     assert.match(migration, /ALTER PUBLICATION supabase_realtime ADD TABLE public\.workspace_workflow_columns/);
     assert.match(migration, /CREATE POLICY workspace_workflow_columns_read [^\n]*app_private\.nb_workspace_tab_visible\(workspace_id, 'tasks'::text\)/);

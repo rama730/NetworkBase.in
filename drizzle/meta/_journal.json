@@ -232,6 +232,13 @@
       "when": 1793380380300,
       "tag": "0033_deletion_grace_read_rules",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1793380381300,
+      "tag": "0034_live_row_events",
+      "breakpoints": true
     }
   ]
 }

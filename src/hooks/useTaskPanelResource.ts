@@ -102,6 +102,8 @@ function mergeFileWarnings(...warningSets: TaskFileReadinessWarning[][]) {
 
 const SUBTASK_PAGE_SIZE = 200;
 
+const SUBTASK_COLUMNS = "id, task_id, title, completed, completed_by, position, created_at, updated_at";
+
 function toPanelSubtask(value: Record<string, unknown> | null): TaskPanelSubtask | null {
   if (!value) return null;
   const toIsoDate = (raw: unknown) => {
@@ -378,7 +380,7 @@ export function useTaskPanelResource(params: {
           // One extra row tells whether another page exists.
           const { data, error } = await supabase
             .from("task_subtasks")
-            .select("id, task_id, title, completed, completed_by, position, created_at, updated_at")
+            .select(SUBTASK_COLUMNS)
             .eq("task_id", task.id)
             .order("position", { ascending: true })
             .order("id", { ascending: true })
@@ -615,6 +617,7 @@ export function useTaskPanelResource(params: {
   );
 
   useEffect(() => {
+    if (!currentUserId) return;
     const unsubscribe = subscribeTaskResource({
       taskId: task.id,
       onEvent: (event) => {
@@ -634,26 +637,30 @@ export function useTaskPanelResource(params: {
           );
 
           if (loadedTabsRef.current.subtasks) {
-            replaceSubtasks((current) => {
-              let next = current;
+            const applyRow = (row: TaskPanelSubtask) => replaceSubtasks((current) => {
               // With more pages unloaded, a row sorting after the loaded window belongs to a later page.
               const last = current.at(-1);
               const beyondWindow = Boolean(
-                nextPayload && subtasksHasMoreRef.current && last &&
-                  !current.some((subtask) => subtask.id === nextPayload.id) &&
-                  nextPayload.position >= last.position,
+                subtasksHasMoreRef.current && last &&
+                  !current.some((subtask) => subtask.id === row.id) &&
+                  row.position >= last.position,
               );
-              if (eventType === "INSERT" && nextPayload) {
-                next = beyondWindow ? current : upsertTaskSubtask(current, nextPayload);
-              } else if (eventType === "UPDATE" && nextPayload) {
-                next = beyondWindow ? current : upsertTaskSubtask(current, nextPayload);
-              } else if (eventType === "DELETE" && previousPayload?.id) {
-                next = current.filter(
-                  (subtask) => subtask.id !== previousPayload.id,
-                );
-              }
-              return next;
+              return beyondWindow ? current : upsertTaskSubtask(current, row);
             });
+            if (eventType === "DELETE" && previousPayload?.id) {
+              replaceSubtasks((current) => current.filter((subtask) => subtask.id !== previousPayload.id));
+            } else if (nextPayload?.id) {
+              // The event carries no title: read the one row, under this viewer's own rules.
+              void supabase
+                .from("task_subtasks")
+                .select(SUBTASK_COLUMNS)
+                .eq("id", nextPayload.id)
+                .maybeSingle()
+                .then(({ data }: { data: unknown }) => {
+                  const row = toPanelSubtask(data as Record<string, unknown> | null);
+                  if (row) applyRow(row);
+                });
+            }
             void queryClient.invalidateQueries({
               queryKey: queryKeys.project.detail.taskPanel(
                 projectId,
@@ -713,28 +720,11 @@ export function useTaskPanelResource(params: {
         }
 
         if (event.kind === "attachment_link") {
-          const nextPayload = event.payload.new as Record<
-            string,
-            unknown
-          > | null;
-          const previousPayload = event.payload.old as Record<
-            string,
-            unknown
-          > | null;
-          const nextTaskId =
-            typeof nextPayload?.task_id === "string"
-              ? nextPayload.task_id
-              : null;
-          const previousTaskId =
-            typeof previousPayload?.task_id === "string"
-              ? previousPayload.task_id
-              : null;
-
           if (loadedTabsRef.current.files) {
             scheduleRefresh("attachments");
-          } else if (eventType === "INSERT" && nextTaskId === task.id) {
+          } else if (eventType === "INSERT") {
             setCounts((current) => ({ ...current, files: current.files + 1 }));
-          } else if (eventType === "DELETE" && previousTaskId === task.id) {
+          } else if (eventType === "DELETE") {
             setCounts((current) => ({
               ...current,
               files: Math.max(0, current.files - 1),

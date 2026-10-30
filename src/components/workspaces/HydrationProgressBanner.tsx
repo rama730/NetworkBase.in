@@ -2,8 +2,9 @@
 
 import { cn } from "@/lib/utils";
 import { useEffect, useState } from "react";
-import { createClient } from "@/lib/supabase/client";
-import { subscribeActiveResource } from "@/lib/realtime/subscriptions";
+import { subscribeBroadcast } from "@/lib/realtime/private-broadcast";
+import { liveTopics } from "@/lib/realtime/subscriptions";
+import { useAuth } from "@/hooks/use-auth";
 import { getWorkspaceHydrationProgressAction } from "@/app/actions/workspace";
 
 export interface HydrationProgressBannerProps {
@@ -16,12 +17,13 @@ const FALLBACK_POLL_MS = 15_000;
 
 export function HydrationProgressBanner({ projectId }: HydrationProgressBannerProps) {
   const [hydration, setHydration] = useState<HydrationProgress | null>(null);
+  const { user } = useAuth();
+  const userId = user?.id;
 
   useEffect(() => {
     let active = true;
     let timeout: ReturnType<typeof setTimeout> | null = null;
     let fallbackPolling = false;
-    const supabase = createClient();
 
     const clearPoll = () => {
       if (timeout) clearTimeout(timeout);
@@ -51,36 +53,24 @@ export function HydrationProgressBanner({ projectId }: HydrationProgressBannerPr
 
     void fetchProgress();
 
-    const channel = subscribeActiveResource({
-      supabase,
-      resourceType: "project_hydration",
-      resourceId: projectId,
-      subscriberId: "hydration-banner",
-      bindings: [
-        {
-          event: "UPDATE",
-          table: "workspaces",
-          filter: `id=eq.${projectId}`,
-          // The row event carries no import_source (column revoked); it only signals a re-read.
-          handler: () => {
-            fallbackPolling = false;
-            void fetchProgress();
-          },
-        },
-      ],
-      onStatus: (status) => {
-        if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
-          fallbackPolling = true;
-        }
-      },
-    });
+    // Signed-out visitors have no private topic; the poll above covers a running import.
+    const live = userId
+      ? subscribeBroadcast(liveTopics.workspace(projectId), (event) => {
+          if (event !== "workspace.changed") return;
+          fallbackPolling = false;
+          void fetchProgress();
+        }, (status) => {
+          if (status === "disconnected" || status === "disabled") fallbackPolling = true;
+        })
+      : null;
+    if (!live) fallbackPolling = true;
 
     return () => {
       active = false;
-      void supabase.removeChannel(channel);
+      live?.unsubscribe();
       clearPoll();
     };
-  }, [projectId]);
+  }, [projectId, userId]);
 
   if (!hydration || hydration.status !== "in_progress") {
     return null;

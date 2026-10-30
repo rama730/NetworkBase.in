@@ -36,7 +36,8 @@
     "drizzle/0030_realtime_drop_unused_tables.sql",
     "drizzle/0031_members_follows_own_rows.sql",
     "drizzle/0032_revoke_unused_helpers_task_files_rules.sql",
-    "drizzle/0033_deletion_grace_read_rules.sql"
+    "drizzle/0033_deletion_grace_read_rules.sql",
+    "drizzle/0034_live_row_events.sql"
   ],
   "legacyDatabaseTags": [],
   "allowedUtilitySqlFiles": [

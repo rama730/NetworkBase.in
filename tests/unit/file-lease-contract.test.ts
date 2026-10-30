@@ -41,13 +41,13 @@ test("browser edit mode waits for a lease and preserves a dirty buffer after lea
 });
 
 test("project realtime subscription reconciles canonical lease snapshots", () => {
-  const channel = read("src/lib/realtime/workspace-files-channel.ts");
+  const sql = read("drizzle/0034_live_row_events.sql");
   const rootView = read("src/components/workspaces/v2/files-tab/FilesTabRoot.tsx");
   const store = read("src/stores/files/editorSlice.ts");
-  assert.match(channel, /table: 'workspace_node_locks'/);
-  assert.match(channel, /filter: `workspace_id=eq\.\$\{projectId\}`/);
+  assert.match(sql, /'live:files:' \|\| v_workspace::text, 'lock\.changed'/);
+  assert.match(sql, /live_file_lock_event AFTER INSERT OR UPDATE OR DELETE ON public\.workspace_node_locks/);
   assert.match(rootView, /fetchWorkspaceFileLeases/);
-  assert.match(rootView, /onFileLeaseChange: reconcileLocks/);
+  assert.match(rootView, /event === "lock\.changed"\) reconcileLocks\(\)/);
   assert.match(store, /const nextLocks: Record<string, SoftLock> = \{\}/);
 });
 
