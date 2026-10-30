@@ -9,7 +9,7 @@ import { FIELD } from '@/components/trust/NewCaseDialog'
 import { Button } from '@/components/ui/button'
 import { RULE_MEANINGS, RULES, ruleLabel } from '@/lib/trust/rules'
 
-const builtIn = (rule: number) => `Please read ${ruleLabel(rule)} in our community rules. Repeated breaks lead to limits on your account.`
+const builtIn = (rule: number) => `Read ${ruleLabel(rule)} in our community rules. Repeated breaks lead to limits on your account.`
 const ITEMS: Array<{ key: string; title: string; hint: string; placeholder: string }> = [
     ...Object.keys(RULES).map(Number).map((rule) => ({ key: `rule:${rule}`, title: ruleLabel(rule), hint: RULE_MEANINGS[rule] ?? '', placeholder: builtIn(rule) })),
     ...(['upheld', 'reduced', 'reversed'] as const).map((o) => ({ key: `appeal:${o}`, title: `Appeal ${o}`, hint: 'The reply the person gets with this outcome.', placeholder: APPEAL_REPLIES[o] })),

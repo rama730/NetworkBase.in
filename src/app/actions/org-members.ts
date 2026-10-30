@@ -430,7 +430,7 @@ export async function remindMembersAction(orgId: string, userIds: string[]): Pro
 }
 
 /** The drawer's Recent activity (report §20.3): their last 10 task events across the org and its child projects. */
-/** An admin reading the activity or work of someone they're in a block with: a duty, so allowed, and recorded for trust & safety only (Blocking B45, rule 7). */
+/** An admin reading the activity or work of someone they're in a block with: a duty, so allowed, and recorded for trust and safety only (Blocking B45, rule 7). */
 async function recordViewAcrossBlock(orgId: string, viewerId: string, userId: string, what: string) {
     await db.execute(sql`
         INSERT INTO moderation_events (actor_id, kind, data)

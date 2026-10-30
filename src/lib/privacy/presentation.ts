@@ -58,7 +58,7 @@ export function buildPrivacyPresentation(
   if (relationship.blockedByTarget) {
     return {
       relationshipBadgeText: "Unavailable",
-      relationshipExplanation: "This account isn't available.",
+      relationshipExplanation: "This account isn’t available.",
       blockedBannerText: null,
       canOpenProfile: false,
       canSendMessage: false,

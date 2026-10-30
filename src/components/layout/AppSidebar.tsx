@@ -112,7 +112,7 @@ export function SidebarNav() {
                 <Link href={ROUTES.MY_PROFILE} className="nb-nav-link" aria-label="My profile" title="My profile" aria-current={isMainNavRouteActive(pathname, ROUTES.MY_PROFILE) ? "page" : undefined}><UserRound size={16} aria-hidden="true" /><span className="nb-sidebar-label">My profile</span></Link>
                 {isAuthenticated && <MyWorkIndicator />}
                 {isStaff && staffBadge.data ? (
-                    <Link href="/admin/trust" className="nb-nav-link" aria-label={`Trust & safety${staffCount ? `, ${staffCount} urgent or overdue` : ""}`} title="Trust & safety" aria-current={pathname.startsWith("/admin/trust") ? "page" : undefined}>
+                    <Link href="/admin/trust" className="nb-nav-link" aria-label={`Trust and safety${staffCount ? `, ${staffCount} urgent or overdue` : ""}`} title="Trust and safety" aria-current={pathname.startsWith("/admin/trust") ? "page" : undefined}>
                         <ShieldCheck size={16} aria-hidden="true" /><span className="nb-sidebar-label">Trust &amp; safety</span>
                         {staffCount > 0 && <span className="nb-nav-count" aria-hidden="true">{staffCount > 99 ? "99+" : staffCount}</span>}
                     </Link>

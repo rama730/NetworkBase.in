@@ -26,12 +26,12 @@ type DecisionInput = {
 
 const appealLinks = (caseNumber: number, appealUntil: Date | null | undefined, tz?: string | null) => appealUntil
   ? { primary: { label: "Appeal this decision", href: `/appeal/${caseLabel(caseNumber)}` }, note: `You can appeal until ${shortDate(appealUntil, tz)}.` }
-  : { primary: null, note: "This decision can't be appealed." };
+  : { primary: null, note: "This decision can’t be appealed." };
 
 const LIMIT_BULLETS = [
-  "You can't message people you aren't connected to",
-  "You can't post or comment outside your own workspaces",
-  "You can't invite people, apply to roles, send connection requests or create workspaces",
+  "You can’t message people you aren’t connected to",
+  "You can’t post or comment outside your own workspaces",
+  "You can’t invite people, apply to roles, send connection requests or create workspaces",
   "You can still use your workspaces, finish your work and talk to your connections",
 ];
 
@@ -102,7 +102,7 @@ export function decisionNotice(input: DecisionInput, email = true): PersonNotice
       title = `${what} ${state} · ${rule} · ${label}`;
       data = { ...base, subject: `${what} ${state} [${label}]`, preview: `It broke ${rule}.`, headline: `${what} ${state}`,
         paragraphs: [`We reviewed a report about ${what} and found it broke our rules, ${rule}.`, input.message,
-          ...(input.action === "remove_workspace" ? ["It won't be deleted while an appeal is open."] : [])],
+          ...(input.action === "remove_workspace" ? ["It won’t be deleted while an appeal is open."] : [])],
         primary: appeal.primary, note: appeal.note };
     }
   }
@@ -127,8 +127,8 @@ export function endedNotice(): PersonNotice {
 /** M9: appeal received. */
 export function appealReceivedNotice(caseNumber: number, decideBy: Date, tz?: string | null): PersonNotice {
   const label = caseLabel(caseNumber);
-  return { title: `We got your appeal · ${label}`, body: `We'll decide by ${shortDate(decideBy, tz)}.`,
-    email: { subject: `We got your appeal [${label}]`, preview: `We'll decide by ${shortDate(decideBy, tz)}.`, label: "Appeal", headline: "We got your appeal",
+  return { title: `We got your appeal · ${label}`, body: `We’ll decide by ${shortDate(decideBy, tz)}.`,
+    email: { subject: `We got your appeal [${label}]`, preview: `We’ll decide by ${shortDate(decideBy, tz)}.`, label: "Appeal", headline: "We got your appeal",
       paragraphs: [`Someone on our team will look again at ${label} and decide by ${shortDate(decideBy, tz)}.`, "Your restriction stays in place while we review."],
       secondary: { label: "See your account standing", href: "/settings#settings-account-standing" } } };
 }
@@ -144,7 +144,7 @@ export function appealDecidedNotice(caseNumber: number, outcome: "upheld" | "red
   const headline = outcome === "reversed" ? "We reversed the decision" : "We reduced the decision";
   return { title: `Good news about your appeal · ${label}`, body: reply,
     email: { subject: `Good news about your appeal [${label}]`, preview: headline + ".", label: "Appeal", headline,
-      paragraphs: [reply, ...(outcome === "reversed" ? ["The strike is removed and everything is back as it was. We're sorry for the trouble."] : [])],
+      paragraphs: [reply, ...(outcome === "reversed" ? ["The strike is removed and everything is back as it was. We’re sorry for the trouble."] : [])],
       secondary: { label: "See your account standing", href: "/settings#settings-account-standing" } } };
 }
 
@@ -153,7 +153,7 @@ export function reporterOutcomeNotice(caseNumber: number, actioned: boolean, lab
   const about = label ? ` about ${label.charAt(0).toLowerCase()}${label.slice(1)}` : "";
   return actioned
     ? { title: `We reviewed your report${about} and took action`, body: `${caseLabel(caseNumber)}. Thanks for helping keep NetworkBase safe.` }
-    : { title: `We reviewed your report${about} and didn't find a rule break`, body: `${caseLabel(caseNumber)}. You can block them or mute the conversation.` };
+    : { title: `We reviewed your report${about} and didn’t find a rule break`, body: `${caseLabel(caseNumber)}. You can block them or mute the conversation.` };
 }
 
 /** Staff alerts (T15, T24). */
@@ -161,16 +161,16 @@ export function urgentStaffEmail(caseNumber: number, reasonLabel: string, kindNo
   const label = caseLabel(caseNumber);
   return {
     subject: reminder ? `Still unclaimed: urgent ${label}` : `Urgent report: ${reasonLabel} · ${kindNoun} · ${label}`,
-    preview: reminder ? "Nobody has started reviewing it after 30 minutes." : "Decide within 1 hour.", label: "Trust & safety",
+    preview: reminder ? "Nobody has started reviewing it after 30 minutes." : "Decide within 1 hour.", label: "Trust and safety",
     headline: reminder ? `${label} is still unclaimed` : `Urgent: ${reasonLabel}`,
-    paragraphs: [reminder ? "Nobody has clicked I'm reviewing for 30 minutes." : `A ${kindNoun} was reported for ${reasonLabel.toLowerCase()}. The deadline is 1 hour.`],
+    paragraphs: [reminder ? "Nobody has clicked I’m reviewing for 30 minutes." : `A ${kindNoun} was reported for ${reasonLabel.toLowerCase()}. The deadline is 1 hour.`],
     primary: { label: "Review now", href: `/admin/trust?case=${label}` },
   };
 }
 
 export function dailySummaryEmail(rows: { label: string; detail: string }[], counts: { open: number; urgent: number; overdue: number; appeals: number; jobsOk: boolean; failedJobs: string[] }): TrustEmailData {
   return {
-    subject: `Trust & safety: ${counts.open} open, ${counts.overdue} overdue, ${counts.appeals} appeals`, preview: "Your morning summary.", label: "Trust & safety",
+    subject: `Trust and safety: ${counts.open} open, ${counts.overdue} overdue, ${counts.appeals} appeals`, preview: "Your morning summary.", label: "Trust and safety",
     headline: "Morning summary",
     paragraphs: [`${counts.open} open cases (${counts.urgent} urgent), ${counts.overdue} overdue, ${counts.appeals} appeals waiting.`,
       counts.jobsOk ? "Background checks: all ran." : `Background checks need attention: ${counts.failedJobs.join("; ")}.`],
@@ -180,7 +180,7 @@ export function dailySummaryEmail(rows: { label: string; detail: string }[], cou
 }
 
 export function weeklyHealthEmail(lines: string[]): TrustEmailData {
-  return { subject: "Trust & safety: weekly health", preview: "How the last 7 days went.", label: "Trust & safety", headline: "Weekly health",
-    paragraphs: ["The last 7 days."], bullets: lines, primary: { label: "Open Health", href: "/admin/trust?tab=insights" } };
+  return { subject: "Trust and safety: weekly health", preview: "How the last 7 days went.", label: "Trust and safety", headline: "Weekly health",
+    paragraphs: ["The last 7 days."], bullets: lines, primary: { label: "Open health", href: "/admin/trust?tab=insights" } };
 }
 

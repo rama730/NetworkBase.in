@@ -11,7 +11,7 @@ import { inboxCounts } from '@/lib/trust/inbox'
 import { listStaff, staffRoleOf } from '@/lib/trust/staff'
 
 export function generateMetadata() {
-    return buildRouteMetadata({ title: 'Trust & safety · NetworkBase', description: 'Reports, cases, appeals and actions.', path: '/admin/trust', robots: { index: false, follow: false } })
+    return buildRouteMetadata({ title: 'Trust and safety · NetworkBase', description: 'Reports, cases, appeals and actions.', path: '/admin/trust', robots: { index: false, follow: false } })
 }
 
 /** The staff console (docs/trust-and-safety-concept.md §17): inside the app shell; anyone but staff gets a 404 (C1). */
@@ -28,8 +28,8 @@ export default async function TrustConsoleLayout({ children }: { children: React
                     <p className="nb-empty-state-title mt-4">{hasAuthenticator ? 'Verify with your authenticator' : 'Set up an authenticator'}</p>
                     <p className="nb-empty-state-desc">
                         {hasAuthenticator
-                            ? 'Trust & safety opens after you sign in with your authenticator code. Sign out and sign in again.'
-                            : 'Trust & safety needs an authenticator app on staff accounts. Add one, then sign in again.'}
+                            ? 'Trust and safety opens after you sign in with your authenticator code. Sign out and sign in again.'
+                            : 'Trust and safety needs an authenticator app on staff accounts. Add one, then sign in again.'}
                     </p>
                     <Button asChild variant="outline" className="mt-4"><a href="/settings#settings-security">Open Settings → Security</a></Button>
                 </div>

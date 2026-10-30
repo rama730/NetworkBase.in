@@ -400,7 +400,7 @@ export const MessageRow = memo(function MessageRow({ message, grouped, highlight
     if (canDelete) list.push({ id: "delete", label: "Delete message", icon: Trash2, run: () => (own && !message.reply_count ? removeWithUndo() : setConfirmDelete(true)), shortcut: keyLabel("backspace"), destructive: true, group: 3 });
     // Task, application and invite cards are the app's own messages: nothing to report.
     if (!own && !message.card) list.push(reportedCase
-      ? { id: "report", label: `Reported · in review · ${reportedCase}`, icon: Flag, run: () => toast(`You've already reported this. Case ${reportedCase} is in review.`), group: 3 }
+      ? { id: "report", label: `Reported · in review · ${reportedCase}`, icon: Flag, run: () => toast(`You’ve already reported this. Case ${reportedCase} is in review.`), group: 3 }
       : { id: "report", label: "Report message", icon: Flag, run: () => setReportOpen(true), group: 3 });
     const author = message.author;
     if (!own && !message.card && author && ctx.openBlock && !ctx.blockedIds?.has(author.id)) {

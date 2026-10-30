@@ -62,10 +62,10 @@ async function main() {
 
   requireContract("dedicated command validates strict batch", command.includes("profileContributionBatchSchema.safeParse"));
   requireContract("dedicated command is transactional", command.includes("db.transaction"));
-  requireContract("dedicated command checks expected versions", command.includes("profileProjectContributions.version, mutation.expectedVersion"));
+  requireContract("dedicated command checks expected versions", command.includes("profileContributions.version, mutation.expectedVersion"));
   requireContract("dedicated command audits idempotency", command.includes("profile_audit_events_contribution_batch_key_unique") || command.includes("profile_contribution_batch_saved"));
   requireContract("general profile command cannot write contribution JSON", !/patch\.experience\b/.test(generalProfileCommand));
-  requireContract("account export uses normalized contributions", !accountCommand.includes("experience: profiles.experience") && accountCommand.includes('"projectContributions":') && accountCommand.includes("from(profileProjectContributions)"));
+  requireContract("account export uses normalized contributions", !accountCommand.includes("experience: profiles.experience") && accountCommand.includes('"projectContributions":') && accountCommand.includes("from(profileContributions)"));
   requireContract("profile detail query does not load retired contribution JSON", !/PROFILE_DETAIL_COLUMNS[\s\S]*?experience:\s*true/.test(profileData));
   requireContract("browser hydration does not depend on retired contribution JSON", !browserProfile.includes("profile.experience ?? profile.experience_data"));
   requireContract("legacy JSON synchronizer is removed", !readModel.includes("syncProfileProjectContributionOverrides"));
@@ -76,7 +76,7 @@ async function main() {
   requireContract("read model has no legacy skill fallback", !readModel.includes("legacy_skills"));
   requireContract("portfolio read uses relational contribution skills", !readModel.includes("pc.skills AS contribution_skills"));
   requireContract("stage presentation has no second visibility authority", !readModel.includes("stage.visibility"));
-  requireContract("project update role reads use parent visibility", !projectUpdates.includes('eq(profileProjectContributionStages.visibility, "public")') && projectUpdates.includes('eq(profileProjectContributions.visibility, "public")'));
+  requireContract("project update role reads use parent visibility", !projectUpdates.includes('eq(profileContributionStages.visibility, "public")') && projectUpdates.includes('eq(profileContributions.visibility, "public")'));
   requireContract("role history is bounded", readModel.includes("LIMIT ${stageLimit}"));
   requireContract("summary cache version is current", readModel.includes("const SUMMARY_VERSION = 8"));
   requireContract("read requests are deduplicated", readModel.includes("runInFlightDeduped"));
@@ -106,7 +106,7 @@ async function main() {
   requireContract("repair runbook documents observability", runbook.includes("Observability and alerts"));
 
   requireContract("private drafts are separate from published presentation", schema.includes("profile_contribution_drafts") && storyCommand.includes("profileContributionDrafts") && storyCommand.includes("publishing"));
-  requireContract("story command checks ownership and optimistic version", storyCommand.includes("profileProjectContributions.profileId") && storyCommand.includes("input.expectedVersion"));
+  requireContract("story command checks ownership and optimistic version", storyCommand.includes("profileContributions.profileId") && storyCommand.includes("input.expectedVersion"));
   requireContract("stories use a single compact reveal", storyView.includes("Read contribution") && storyView.includes("nb-story-reveal"));
   requireContract("activity stays inside the story", !card.includes("Contributed to") && storyView.includes("ContributionMarkdown"));
   console.log("[profile-contribution-contract] ok");

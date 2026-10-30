@@ -22,7 +22,7 @@ export const REASON_RULES: Record<ReportReason, ReasonRule> = {
   threat: { severity: "urgent", rule: 1, hint: "Someone is threatening violence" },
   self_harm: { severity: "urgent", rule: 11, hint: "Someone may hurt themselves" },
   child_safety: { severity: "urgent", rule: 10, hint: "Removed at once and kept for the authorities" },
-  intimate_images: { severity: "urgent", rule: 8, hint: "Private sexual images shared without the person's consent" },
+  intimate_images: { severity: "urgent", rule: 8, hint: "Private sexual images shared without the person’s consent" },
   private_info: { severity: "urgent", rule: 7, hint: "Phone numbers, addresses, ID documents, private photos" },
   harassment: { severity: "high", rule: 2, hint: "Targeting, insulting or bullying a person" },
   hate_speech: { severity: "high", rule: 3, hint: "Attacks on people for who they are" },
@@ -32,7 +32,7 @@ export const REASON_RULES: Record<ReportReason, ReasonRule> = {
   scam: { severity: "high", rule: 6, hint: "Fake jobs, payment requests, phishing links", only: ["person", "chat_message", "role", "project", "invitation", "connection_request"] },
   inappropriate: { severity: "normal", rule: 9, hint: "Sexual, violent or graphic content" },
   spam: { severity: "normal", rule: 4, hint: "Ads, repeated posts, mass messages" },
-  other: { severity: "normal", rule: 15, hint: "Tell us what's wrong in the details" },
+  other: { severity: "normal", rule: 15, hint: "Tell us what’s wrong in the details" },
 };
 
 /** The reasons offered for one kind of thing, most serious first. */
@@ -74,9 +74,9 @@ export const RULE_MEANINGS: Record<number, string> = {
   1: "Threatening or encouraging violence against anyone.", 2: "Targeting a person with abuse, insults or unwanted contact.",
   3: "Attacking people for who they are: caste, religion, race, gender, disability and the like.", 4: "Bulk, repetitive or misleading posts and fake engagement.",
   5: "Pretending to be another person or organization.", 6: "Tricking people out of money, data or access.",
-  7: "Sharing someone's private details without consent.", 8: "Sharing or threatening to share intimate images without consent.",
-  9: "Sexual or graphic material in places it isn't allowed.", 10: "Anything that sexualizes or endangers a child.",
-  11: "Encouraging or showing self-harm; reach out with support first.", 12: "Using someone else's work without the right to.",
+  7: "Sharing someone’s private details without consent.", 8: "Sharing or threatening to share intimate images without consent.",
+  9: "Sexual or graphic material in places it isn’t allowed.", 10: "Anything that sexualizes or endangers a child.",
+  11: "Encouraging or showing self-harm; reach out with support first.", 12: "Using someone else’s work without the right to.",
   13: "Bad-faith reports or appeals meant to harass or overload.", 14: "Scraping, automation or load beyond fair use.",
   15: "Getting around a decision, such as a new account after a ban.",
 };

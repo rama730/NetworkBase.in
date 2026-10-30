@@ -133,7 +133,7 @@ export async function askToChangeTeamAction(workspaceId: string): Promise<Result
     if (!team) return { success: false, error: 'Only members of a team in an organization can ask this.' }
     await notifyOrg({
         orgId: team.org_id, eventKey: 'org.child_notice', actorId: userId, to: team.admins.filter((id) => id !== userId),
-        title: `${team.name} asked to change team`, body: `They’re in ${team.title} and would like to be moved. No reason is given; please don’t ask for one.`,
+        title: `${team.name} asked to change team`, body: `They’re in ${team.title} and would like to be moved. No reason is given, so don’t ask for one.`,
         href: orgHref({ id: team.org_id, slug: team.org_slug }, '?tab=members'), sourceEventId: `team-change:${workspaceId}:${userId}:${new Date().toISOString().slice(0, 10)}`,
         refs: { projectId: workspaceId },
     })

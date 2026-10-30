@@ -28,9 +28,9 @@ async function emailStaff(eventId: string, data: TrustEmailData, push = false) {
 /** A trust job ran out of retries (F24): staff hear at once, by email and push. */
 export async function alertJobFailure(job: string, message: string) {
   return emailStaff(`job-failed:${job}:${new Date().toISOString().slice(0, 13)}`, {
-    subject: `Background job failed: ${job}`, preview: "Reports may not move until it's fixed.", label: "Trust & safety", headline: `${job} failed`,
+    subject: `Background job failed: ${job}`, preview: "Reports may not move until it’s fixed.", label: "Trust and safety", headline: `${job} failed`,
     paragraphs: [`It stopped after its retries. The last error was: ${message.slice(0, 300)}`, "Check the job in the Inngest dashboard, then the Health tab."],
-    primary: { label: "Open Health", href: "/admin/trust?tab=insights" },
+    primary: { label: "Open health", href: "/admin/trust?tab=insights" },
   }, true);
 }
 
@@ -102,7 +102,7 @@ async function jobHealth() {
            EXISTS (SELECT 1 FROM moderation_events WHERE kind = 'job_heartbeat' AND created_at > now() - interval '1 hour') AS beat
     FROM email_outbox`);
   const failedJobs = [
-    ...(row?.beat ? [] : ["trust-deadlines hasn't run in the last hour"]),
+    ...(row?.beat ? [] : ["trust-deadlines hasn’t run in the last hour"]),
     ...(row?.failed ? [`${row.failed} emails failed`] : []), ...(row?.stuck ? [`${row.stuck} emails waiting over an hour`] : []),
   ];
   return { jobsOk: failedJobs.length === 0, failedJobs };

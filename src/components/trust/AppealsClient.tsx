@@ -39,7 +39,7 @@ export function AppealOutcomeForm({ caseId, label, personName, selfReview, claim
     const pick = (next: Outcome) => { setOutcome(next); if (!reply || Object.values(replies).includes(reply)) setReply(replies[next]) }
     return (
         <div className="max-w-[64ch] space-y-3">
-            {!isMine ? <Button size="sm" variant="outline" disabled={pending} onClick={() => start(async () => { const r = await claimAppealAction(caseId); toast(r.success ? `You're reviewing the appeal on ${label}` : r.error); if (r.success) setIsMine(true) })}>I&apos;m reviewing</Button> : null}
+            {!isMine ? <Button size="sm" variant="outline" disabled={pending} onClick={() => start(async () => { const r = await claimAppealAction(caseId); toast(r.success ? `You’re reviewing the appeal on ${label}` : r.error); if (r.success) setIsMine(true) })}>I&apos;m reviewing</Button> : null}
             {selfReview ? (
                 <p role="note" className="rounded-[5px] border border-[var(--status-warning)]/30 bg-[var(--status-warning-soft)] px-3 py-2 text-[13px]">You made this decision. Add a note explaining the second look.</p>
             ) : null}

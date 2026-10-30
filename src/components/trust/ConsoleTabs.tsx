@@ -94,7 +94,7 @@ export function ActiveTable({ data }: { data: Awaited<ReturnType<typeof readActi
                         <DialogTitle>Lift {lifting?.action.toLowerCase()} for {lifting?.what}</DialogTitle>
                         <DialogDescription>It ends now and they get a notice. The reason stays in the audit log.</DialogDescription>
                     </DialogHeader>
-                    <textarea rows={3} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Why it's lifted" aria-label="Reason" className={`${FIELD} py-2`} />
+                    <textarea rows={3} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Why it’s lifted" aria-label="Reason" className={`${FIELD} py-2`} />
                     <DialogFooter>
                         <Button variant="ghost" onClick={() => setLifting(null)}>Cancel</Button>
                         <Button disabled={pending || reason.trim().length < 3} onClick={() => lifting && run(() => liftActionAction(lifting.id, reason), `${lifting.action} lifted for ${lifting.what}`, () => { setLifting(null); setReason('') })}>Lift {lifting?.action.toLowerCase()}</Button>

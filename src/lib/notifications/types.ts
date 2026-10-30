@@ -196,7 +196,7 @@ export type NotificationFanoutInput = {
     placeNotice?: boolean;
     /** The place notice's own title, used instead of one that names the person who acted. */
     placeTitle?: string | null;
-    /** An admin action against the recipient (removal, a role change, returned work): across a block it's recorded for trust & safety only (B49). */
+    /** An admin action against the recipient (removal, a role change, returned work): across a block it's recorded for trust and safety only (B49). */
     placeAction?: string | null;
 };
 

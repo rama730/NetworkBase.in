@@ -30,7 +30,7 @@ export async function StandingGate({ userId, email, path, children }: { userId: 
     let banner: React.ReactNode = null
     if (restriction?.action === 'limit') {
         banner = <StandingBanner caseLabel={caseText} appealSent={appealSent} canAppeal={canAppeal}
-            text={`Your account is limited until ${shortDate(restriction.endsAt)}: you can't message people you aren't connected to or post outside your workspaces.`} />
+            text={`Your account is limited until ${shortDate(restriction.endsAt)}: you can’t message people you aren’t connected to or post outside your workspaces.`} />
     } else {
         const [owned] = await ownedWorkspaceActions(userId)
         if (owned) {
