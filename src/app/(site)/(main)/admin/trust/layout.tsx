@@ -6,8 +6,9 @@ import { Button } from '@/components/ui/button'
 import { buildRouteMetadata } from '@/lib/metadata/route-metadata'
 import { getVerifiedTotpFactors, listSecurityMfaFactors } from '@/lib/security/mfa'
 import { getViewerAuthContext } from '@/lib/server/viewer-context'
-import { consoleCounts } from '@/lib/trust/console'
-import { staffRoleOf } from '@/lib/trust/staff'
+import { TrustLiveProvider } from '@/components/trust/live'
+import { inboxCounts } from '@/lib/trust/inbox'
+import { listStaff, staffRoleOf } from '@/lib/trust/staff'
 
 export function generateMetadata() {
     return buildRouteMetadata({ title: 'Trust & safety · NetworkBase', description: 'Reports, cases, appeals and actions.', path: '/admin/trust', robots: { index: false, follow: false } })
@@ -35,13 +36,17 @@ export default async function TrustConsoleLayout({ children }: { children: React
             </div>
         )
     }
-    const counts = await consoleCounts()
+    const [counts, staff] = await Promise.all([inboxCounts(), listStaff()])
+    const me = staff.find((s) => s.id === user!.id)
+    // The Inbox's panes scroll on their own (R3); the other tabs wrap themselves in ConsoleScroll.
     return (
-        <div data-scroll-root="route" className="h-full min-h-0 app-scroll app-scroll-y app-scroll-gutter bg-background">
-            <div className="mx-auto w-full max-w-[1600px] px-4 pb-16 pt-6 md:px-8">
-                <ConsoleHeader counts={counts} />
-                {children}
+        <TrustLiveProvider staffId={user!.id} name={me?.name ?? me?.email ?? 'Staff'}>
+            <div className="flex h-full min-h-0 flex-col bg-background">
+                <div className="shrink-0 px-4 pt-4 md:px-6">
+                    <ConsoleHeader counts={counts} isAdmin={staffRoleOf(user) === 'admin'} />
+                </div>
+                <div className="min-h-0 flex-1">{children}</div>
             </div>
-        </div>
+        </TrustLiveProvider>
     )
 }

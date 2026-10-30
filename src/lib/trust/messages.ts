@@ -164,7 +164,7 @@ export function urgentStaffEmail(caseNumber: number, reasonLabel: string, kindNo
     preview: reminder ? "Nobody has started reviewing it after 30 minutes." : "Decide within 1 hour.", label: "Trust & safety",
     headline: reminder ? `${label} is still unclaimed` : `Urgent: ${reasonLabel}`,
     paragraphs: [reminder ? "Nobody has clicked I'm reviewing for 30 minutes." : `A ${kindNoun} was reported for ${reasonLabel.toLowerCase()}. The deadline is 1 hour.`],
-    primary: { label: "Review now", href: `/admin/trust/cases/${label}` },
+    primary: { label: "Review now", href: `/admin/trust?case=${label}` },
   };
 }
 
@@ -175,12 +175,12 @@ export function dailySummaryEmail(rows: { label: string; detail: string }[], cou
     paragraphs: [`${counts.open} open cases (${counts.urgent} urgent), ${counts.overdue} overdue, ${counts.appeals} appeals waiting.`,
       counts.jobsOk ? "Background checks: all ran." : `Background checks need attention: ${counts.failedJobs.join("; ")}.`],
     bullets: rows.map((r) => `${r.label}: ${r.detail}`),
-    primary: { label: "Open the queue", href: "/admin/trust" },
+    primary: { label: "Open the inbox", href: "/admin/trust" },
   };
 }
 
 export function weeklyHealthEmail(lines: string[]): TrustEmailData {
   return { subject: "Trust & safety: weekly health", preview: "How the last 7 days went.", label: "Trust & safety", headline: "Weekly health",
-    paragraphs: ["The last 7 days."], bullets: lines, primary: { label: "Open Health", href: "/admin/trust?tab=health" } };
+    paragraphs: ["The last 7 days."], bullets: lines, primary: { label: "Open Health", href: "/admin/trust?tab=insights" } };
 }
 

@@ -5,7 +5,8 @@ import { sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { queueEmails, wakeEmailWorker } from "@/lib/email/outbox";
 import { logModerationEvent } from "@/lib/trust/cases";
-import { consoleCounts, readHealth } from "@/lib/trust/console";
+import { readHealth } from "@/lib/trust/console";
+import { inboxCounts } from "@/lib/trust/inbox";
 import { deliverDecisionNotices, noticeRestrictionEnded } from "@/lib/trust/decide";
 import { dailySummaryEmail, endsTomorrowNotice, urgentStaffEmail, weeklyHealthEmail } from "@/lib/trust/messages";
 import { notifySafety } from "@/lib/trust/notify";
@@ -29,21 +30,22 @@ export async function alertJobFailure(job: string, message: string) {
   return emailStaff(`job-failed:${job}:${new Date().toISOString().slice(0, 13)}`, {
     subject: `Background job failed: ${job}`, preview: "Reports may not move until it's fixed.", label: "Trust & safety", headline: `${job} failed`,
     paragraphs: [`It stopped after its retries. The last error was: ${message.slice(0, 300)}`, "Check the job in the Inngest dashboard, then the Health tab."],
-    primary: { label: "Open Health", href: "/admin/trust?tab=health" },
+    primary: { label: "Open Health", href: "/admin/trust?tab=insights" },
   }, true);
 }
 
 /** trust-urgent-alert: the first email, or the 30-minute reminder while nobody has claimed it. */
 export async function alertUrgentCase(caseId: string, reminder: boolean) {
   const [c] = await db.execute<{ number: number; reason: ReportReason; target_kind: ReportTargetKind; claimed: boolean; open: boolean }>(sql`
-    SELECT number::int AS number, reason, target_kind, assignee_id IS NOT NULL AS claimed, state IN ('open', 'in_review') AS open FROM moderation_cases WHERE id = ${caseId}`);
+    SELECT number::int AS number, reason, target_kind,
+           (assignee_id IS NOT NULL AND claimed_until > now() AND claim_seen_at > now() - interval '2 minutes') AS claimed, state IN ('open', 'in_review') AS open FROM moderation_cases WHERE id = ${caseId}`);
   if (!c || !c.open || (reminder && c.claimed)) return 0;
   return emailStaff(`urgent:${caseId}:${reminder ? "reminder" : "first"}`, urgentStaffEmail(c.number, REPORT_REASON_LABEL[c.reason], KIND_NOUN[c.target_kind], reminder), true);
 }
 
 /**
- * trust-deadlines (every 15 minutes): late notices, org hand-off at the org deadline, claim release after 2 hours
- * (15 minutes for urgent, F20), and restrictions paused while their appeal is 7 days overdue (11.3).
+ * trust-deadlines (every 15 minutes): late notices, org hand-off at the org deadline, expired claim leases (S3: no
+ * interaction for 10 minutes or no open tab for 2), and restrictions paused while their appeal is 7 days overdue (11.3).
  */
 export async function runTrustDeadlines() {
   await deliverDecisionNotices();
@@ -52,8 +54,8 @@ export async function runTrustDeadlines() {
     WHERE routed_to = 'org' AND state IN ('open', 'in_review') AND org_deadline_at < now() RETURNING id`);
   for (const c of handed) await logModerationEvent(db, { caseId: c.id, actorId: null, kind: "handed_to_staff" });
   const released = await db.execute<{ id: string }>(sql`
-    UPDATE moderation_cases SET assignee_id = NULL, claimed_at = NULL, state = 'open', updated_at = now()
-    WHERE state = 'in_review' AND claimed_at < now() - CASE WHEN severity = 'urgent' THEN interval '15 minutes' ELSE interval '2 hours' END RETURNING id`);
+    UPDATE moderation_cases SET assignee_id = NULL, claimed_at = NULL, claimed_until = NULL, claim_seen_at = NULL, state = 'open', updated_at = now()
+    WHERE state = 'in_review' AND (claimed_until IS NULL OR claimed_until < now() OR claim_seen_at < now() - interval '2 minutes') RETURNING id`);
   for (const c of released) await logModerationEvent(db, { caseId: c.id, actorId: null, kind: "claim_released" });
   const paused = await db.execute<{ case_id: string }>(sql`
     UPDATE moderation_actions a SET paused_at = now() FROM moderation_appeals ap
@@ -109,17 +111,31 @@ async function jobHealth() {
 const istHour = (now: Date) => Number(new Intl.DateTimeFormat("en-IN", { hour: "numeric", hourCycle: "h23", timeZone: "Asia/Kolkata" }).format(now));
 const istDay = (now: Date) => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata" }).format(now);
 
-/** trust-daily-summary (hourly; sends at 8 am IST, skipped when there's nothing to say). */
+/**
+ * trust-daily-summary (hourly; sends at 8 am IST, skipped when there's nothing to say). Each staff member's copy
+ * leads with their own claimed and assigned cases due today (S13).
+ */
 export async function runTrustDailySummary(now = new Date()) {
   if (istHour(now) !== 8) return 0;
-  const counts = await consoleCounts();
+  const counts = await inboxCounts(true);
   const health = await jobHealth();
   if (!counts.open && !counts.appeals && health.jobsOk) return 0;
   const overdue = await db.execute<{ number: number; reason: ReportReason; label: string | null }>(sql`
     SELECT number::int AS number, reason, snapshot->>'label' AS label FROM moderation_cases
     WHERE state IN ('open', 'in_review') AND deadline_at < now() AND merged_into IS NULL ORDER BY deadline_at LIMIT 10`);
   const rows = [...overdue].map((c) => ({ label: `${caseLabel(c.number)} overdue`, detail: `${REPORT_REASON_LABEL[c.reason]}${c.label ? ` · ${c.label}` : ""}` }));
-  return emailStaff(`daily:${istDay(now)}`, dailySummaryEmail(rows, { ...counts, ...health }));
+  const mine = await db.execute<{ staff: string; number: number; reason: ReportReason; label: string | null }>(sql`
+    SELECT coalesce(assigned_to, assignee_id) AS staff, number::int AS number, reason, snapshot->>'label' AS label FROM moderation_cases
+    WHERE state IN ('open', 'in_review') AND merged_into IS NULL AND coalesce(assigned_to, assignee_id) IS NOT NULL AND deadline_at < now() + interval '1 day'
+    ORDER BY deadline_at`);
+  const staff = await listStaff();
+  const eventId = `daily:${istDay(now)}`;
+  await queueEmails(db, staff.map((s) => {
+    const own = [...mine].filter((c) => c.staff === s.id).map((c) => ({ label: `${caseLabel(c.number)} yours, due today`, detail: `${REPORT_REASON_LABEL[c.reason]}${c.label ? ` · ${c.label}` : ""}` }));
+    return { kind: "trust_staff" as const, eventId, userId: s.id, data: dailySummaryEmail([...own, ...rows], { ...counts, ...health }) as unknown as Record<string, unknown> };
+  }));
+  await wakeEmailWorker();
+  return staff.length;
 }
 
 /** trust-weekly-health (Mondays 8 am IST). */

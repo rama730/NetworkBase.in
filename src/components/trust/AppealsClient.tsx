@@ -21,8 +21,9 @@ const REDUCTIONS = [
 ]
 
 /** The appeal outcome form (17.6). Reduced shows only lighter steps; the reply is required. */
-export function AppealOutcomeForm({ caseId, label, personName, selfReview, claimed, actions }: { caseId: string; label: string; personName: string; selfReview: boolean; claimed: boolean; actions: string[] }) {
+export function AppealOutcomeForm({ caseId, label, personName, selfReview, claimed, actions, onDone }: { caseId: string; label: string; personName: string; selfReview: boolean; claimed: boolean; actions: string[]; onDone?: () => void }) {
     const router = useRouter()
+    const [isMine, setIsMine] = useState(claimed)
     const [outcome, setOutcome] = useState<Outcome | null>(null)
     const [reduce, setReduce] = useState<string | null>(null)
     const [reply, setReply] = useState('')
@@ -36,7 +37,7 @@ export function AppealOutcomeForm({ caseId, label, personName, selfReview, claim
     const pick = (next: Outcome) => { setOutcome(next); if (!reply || Object.values(REPLIES).includes(reply)) setReply(REPLIES[next]) }
     return (
         <div className="max-w-[64ch] space-y-3">
-            {!claimed ? <Button size="sm" variant="outline" disabled={pending} onClick={() => start(async () => { const r = await claimAppealAction(caseId); toast(r.success ? `You're reviewing the appeal on ${label}` : r.error); router.refresh() })}>I&apos;m reviewing</Button> : null}
+            {!isMine ? <Button size="sm" variant="outline" disabled={pending} onClick={() => start(async () => { const r = await claimAppealAction(caseId); toast(r.success ? `You're reviewing the appeal on ${label}` : r.error); if (r.success) setIsMine(true) })}>I&apos;m reviewing</Button> : null}
             {selfReview ? (
                 <p role="note" className="rounded-[5px] border border-[var(--status-warning)]/30 bg-[var(--status-warning-soft)] px-3 py-2 text-[13px]">You made this decision. Add a note explaining the second look.</p>
             ) : null}
@@ -70,7 +71,7 @@ export function AppealOutcomeForm({ caseId, label, personName, selfReview, claim
                     const result = await decideAppealAction(caseId, { outcome: outcome!, reply, note, reduceTo: REDUCTIONS.find((r) => r.id === reduce)?.value ?? null })
                     if (!result.success) return setError(result.error)
                     toast(`Outcome sent · ${label}`)
-                    router.push('/admin/trust?tab=appeals')
+                    if (onDone) onDone(); else router.push('/admin/trust?view=appeals')
                 })}>{pending ? 'Sending…' : 'Send outcome'}</Button>
             </div>
         </div>

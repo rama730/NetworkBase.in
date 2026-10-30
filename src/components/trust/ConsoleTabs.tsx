@@ -16,54 +16,78 @@ import { EmptyState } from '@/components/ui/EmptyState'
 import type { readActive, readAudit, readVerification } from '@/lib/trust/console'
 import { ACTION_LABEL, caseLabel, ruleLabel, type ModerationActionKind } from '@/lib/trust/rules'
 
-const ACTIVE_BADGE: Record<string, string> = { limit: 'limited', suspension: 'suspended', ban: 'banned', restrict: 'restricted', hide_discover: 'hidden', suspend_workspace: 'suspended', remove_workspace: 'removal' }
 const TH = 'nb-micro px-2 py-2 text-left font-medium'
 const TD = 'px-2 py-2.5 align-top text-[13px]'
 
-function useRun() {
+/** `onDone` in place of a page refresh where the data lives in the client (the Inbox, S6). */
+function useRun(onDone?: () => void) {
     const router = useRouter()
     const [pending, start] = useTransition()
     const run = (action: () => Promise<{ success: boolean; error?: string }>, done: string, after?: () => void) => start(async () => {
         const result = await action()
         toast(result.success ? done : result.error ?? 'Couldn’t do that. Check your connection and try again.')
-        if (result.success) { after?.(); router.refresh() }
+        if (result.success) { after?.(); if (onDone) onDone(); else router.refresh() }
     })
     return { pending, run }
 }
 
-/** Active tab (17.7): everything in force, with Lift. */
+/** What's left of a restriction, as a bar (R1 Enforcement). */
+function Remaining({ from, to }: { from: string; to: string | null }) {
+    if (!to) return <span className="text-[12px] text-muted-foreground">No end date</span>
+    const total = new Date(to).getTime() - new Date(from).getTime()
+    const left = Math.max(0, new Date(to).getTime() - Date.now())
+    const days = Math.ceil(left / 86_400_000)
+    return (
+        <span className="flex items-center gap-2">
+            <span className="h-1.5 w-20 overflow-hidden rounded-full bg-secondary" aria-hidden="true"><span suppressHydrationWarning className="block h-full bg-[var(--status-warning)]" style={{ width: `${total > 0 ? Math.round((left / total) * 100) : 0}%` }} /></span>
+            <span suppressHydrationWarning className="font-mono text-[12px] tabular-nums text-muted-foreground">{days}d left</span>
+        </span>
+    )
+}
+
+/** Enforcement (R1, 17.7): everything in force, grouped by Accounts / Workspaces / Organizations, with Lift. */
 export function ActiveTable({ data }: { data: Awaited<ReturnType<typeof readActive>> }) {
     const { pending, run } = useRun()
     const [lifting, setLifting] = useState<{ id: string; what: string; action: string } | null>(null)
     const [reason, setReason] = useState('')
     if (!data.rows.length && !data.legacy.length) return <EmptyState icon={ShieldCheck} className="mt-6" title="Nothing is in force" description="Limits, suspensions, bans and workspace actions show here while they last." />
+    const groups = [
+        { title: 'Accounts', rows: data.rows.filter((r) => r.target_kind === 'account') },
+        { title: 'Workspaces', rows: data.rows.filter((r) => r.target_kind !== 'account' && r.workspace_kind !== 'organization') },
+        { title: 'Organizations', rows: data.rows.filter((r) => r.target_kind !== 'account' && r.workspace_kind === 'organization') },
+    ]
     return (
-        <div className="mt-4 overflow-x-auto">
-            <table className="w-full border-collapse">
-                <thead className="border-b border-border"><tr><th className={TH}>What</th><th className={TH}>Action</th><th className={TH}>Since → until</th><th className={TH}>Case</th><th className={TH}>Appeal</th><th className={TH}><span className="sr-only">Lift</span></th></tr></thead>
-                <tbody className="divide-y divide-border">
-                    {data.rows.map((r) => (
-                        <tr key={r.id}>
-                            <td className={TD}>{r.target_kind === 'account' ? 'Account' : 'Workspace'} · {r.what ?? '—'}</td>
-                            <td className={TD}><span className="nb-status" data-status="blocked">{r.action === 'remove_workspace' && r.ends_at ? `removal ${istDate(r.ends_at)}` : ACTIVE_BADGE[r.action] ?? r.action}</span></td>
-                            <td className={`${TD} nb-meta`}>{istDate(r.created_at)} → {r.ends_at ? istDate(r.ends_at) : r.action === 'ban' ? 'Permanent' : 'Until lifted'}</td>
-                            <td className={TD}>{r.case_number ? <Link href={caseHref(r.case_number)} className="nb-meta text-foreground underline underline-offset-4">{caseLabel(r.case_number)}</Link> : '—'}</td>
-                            <td className={TD}>{r.appeal_state ?? '—'}</td>
-                            <td className={`${TD} text-right`}><Button size="sm" variant="outline" onClick={() => setLifting({ id: r.id, what: r.what ?? 'this', action: ACTION_LABEL[r.action as ModerationActionKind] ?? r.action })}>Lift</Button></td>
-                        </tr>
-                    ))}
-                    {data.legacy.map((l) => (
-                        <tr key={l.id}>
-                            <td className={TD}>Organization · {l.title}</td>
-                            <td className={TD}><span className="nb-status" data-status="blocked">suspended</span></td>
-                            <td className={`${TD} nb-meta`}>{istDate(l.at)} → Until lifted</td>
-                            <td className={TD}>Before cases · {l.reason}</td>
-                            <td className={TD}>—</td>
-                            <td className={`${TD} text-right`}><Button size="sm" variant="outline" disabled={pending} onClick={() => run(() => unsuspendOrgAction(l.id), `Suspension lifted for ${l.title}`)}>Lift</Button></td>
-                        </tr>
-                    ))}
-                </tbody>
-            </table>
+        <div className="mt-4 space-y-6 overflow-x-auto">
+            {groups.map((g) => (g.rows.length || (g.title === 'Organizations' && data.legacy.length)) ? (
+                <section key={g.title}>
+                    <h2 className="mb-1 text-[15px] font-semibold">{g.title}</h2>
+                    <table className="w-full border-collapse">
+                        <thead className="border-b border-border"><tr><th className={TH}>Who</th><th className={TH}>Action</th><th className={TH}>Time left</th><th className={TH}>Case</th><th className={TH}>Appeal</th><th className={TH}><span className="sr-only">Lift</span></th></tr></thead>
+                        <tbody className="divide-y divide-border">
+                            {g.rows.map((r) => (
+                                <tr key={r.id}>
+                                    <td className={TD}>{r.what ?? '—'}</td>
+                                    <td className={TD}>{r.action === 'remove_workspace' && r.ends_at ? `Removal on ${istDate(r.ends_at)}` : ACTION_LABEL[r.action as ModerationActionKind] ?? r.action}</td>
+                                    <td className={TD}>{r.action === 'ban' ? <span className="text-[12px] text-muted-foreground">Permanent</span> : <Remaining from={r.created_at} to={r.ends_at} />}</td>
+                                    <td className={TD}>{r.case_number ? <Link href={caseHref(r.case_number)} className="font-mono text-[12px] tabular-nums underline underline-offset-4">{caseLabel(r.case_number)}</Link> : '—'}</td>
+                                    <td className={TD}>{r.appeal_state?.replace('_', ' ') ?? '—'}</td>
+                                    <td className={`${TD} text-right`}><Button size="sm" variant="outline" onClick={() => setLifting({ id: r.id, what: r.what ?? 'this', action: ACTION_LABEL[r.action as ModerationActionKind] ?? r.action })}>Lift</Button></td>
+                                </tr>
+                            ))}
+                            {g.title === 'Organizations' ? data.legacy.map((l) => (
+                                <tr key={l.id}>
+                                    <td className={TD}>{l.title}</td>
+                                    <td className={TD}>Suspended</td>
+                                    <td className={TD}><span className="text-[12px] text-muted-foreground">Until lifted · since {istDate(l.at)}</span></td>
+                                    <td className={TD}>Before cases · {l.reason}</td>
+                                    <td className={TD}>—</td>
+                                    <td className={`${TD} text-right`}><Button size="sm" variant="outline" disabled={pending} onClick={() => run(() => unsuspendOrgAction(l.id), `Suspension lifted for ${l.title}`)}>Lift</Button></td>
+                                </tr>
+                            )) : null}
+                        </tbody>
+                    </table>
+                </section>
+            ) : null)}
             <Dialog open={Boolean(lifting)} onOpenChange={(next) => { if (!next) { setLifting(null); setReason('') } }}>
                 <DialogContent className="max-w-[420px]">
                     <DialogHeader>
@@ -87,8 +111,8 @@ const linkUrls = (links: unknown): string[] => Array.isArray(links)
 const host = (url: string) => { try { return new URL(url).hostname.replace(/^www\./, '') } catch { return url } }
 
 /** Verification tab (17.9). */
-export function VerificationList({ rows }: { rows: Awaited<ReturnType<typeof readVerification>> }) {
-    const { pending, run } = useRun()
+export function VerificationList({ rows, onDone }: { rows: Awaited<ReturnType<typeof readVerification>>; onDone?: () => void }) {
+    const { pending, run } = useRun(onDone)
     const [declining, setDeclining] = useState<{ id: string; title: string } | null>(null)
     const [note, setNote] = useState('')
     if (!rows.length) return <EmptyState icon={BadgeCheck} className="mt-6" title="No verification requests" />
@@ -126,8 +150,11 @@ export function VerificationList({ rows }: { rows: Awaited<ReturnType<typeof rea
 
 const csvCell = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`
 
-/** Audit log tab (17.11): append-only; Export CSV downloads what's shown. */
-export function AuditTable({ rows }: { rows: Awaited<ReturnType<typeof readAudit>> }) {
+type AuditFilters = { action?: string; from?: string; to?: string; staff?: string }
+
+/** Audit log (17.11, S7): append-only, filtered by staff, action and dates, 50 a page; Export CSV downloads what's shown. */
+export function AuditTable({ data, staff, filters }: { data: Awaited<ReturnType<typeof readAudit>>; staff: Array<{ id: string; name: string | null }>; filters: AuditFilters }) {
+    const rows = data.rows
     const stepUp = useStepUp('Exporting the audit log needs one more check.')
     // The export is logged and needs a fresh check (F16); the file is built only once the server agrees.
     const exportCsv = async () => {
@@ -140,10 +167,24 @@ export function AuditTable({ rows }: { rows: Awaited<ReturnType<typeof readAudit
         a.click()
         URL.revokeObjectURL(url)
     }
-    if (!rows.length) return <EmptyState icon={ScrollText} className="mt-6" title="Nothing logged yet" description="Every staff action lands here." />
+    const older = new URLSearchParams({ tab: 'insights', section: 'audit', ...Object.fromEntries(Object.entries(filters).filter(([, v]) => v)) as Record<string, string>, ...(data.before ? { before: String(data.before) } : {}) })
+    const filterForm = (
+        <form action="/admin/trust" className="flex flex-wrap items-end gap-2 text-[13px]">
+            <input type="hidden" name="tab" value="insights" /><input type="hidden" name="section" value="audit" />
+            <label className="grid gap-1">Staff
+                <select name="staff" defaultValue={filters.staff ?? ''} className={`${FIELD} mt-0 h-8 w-44`}><option value="">Anyone</option>{staff.map((s) => <option key={s.id} value={s.id}>{s.name ?? 'Staff'}</option>)}</select>
+            </label>
+            <label className="grid gap-1">Action<input name="action" defaultValue={filters.action ?? ''} placeholder="decided, viewed…" className={`${FIELD} mt-0 h-8 w-40`} /></label>
+            <label className="grid gap-1">From<input type="date" name="from" defaultValue={filters.from ?? ''} className={`${FIELD} mt-0 h-8`} /></label>
+            <label className="grid gap-1">To<input type="date" name="to" defaultValue={filters.to ?? ''} className={`${FIELD} mt-0 h-8`} /></label>
+            <Button type="submit" size="sm" variant="outline">Apply</Button>
+            <Button size="sm" variant="outline" type="button" className="ml-auto" onClick={() => void exportCsv()} disabled={!rows.length}>Export CSV</Button>
+        </form>
+    )
+    if (!rows.length) return <div className="mt-4 space-y-4">{filterForm}<EmptyState icon={ScrollText} title="Nothing logged here" description="Every staff action lands in the log." /></div>
     return (
         <div className="mt-4 overflow-x-auto">
-            <div className="mb-2 flex justify-end"><Button size="sm" variant="outline" onClick={() => void exportCsv()}>Export CSV</Button></div>
+            <div className="mb-3">{filterForm}</div>
             {stepUp.dialog}
             <table className="w-full border-collapse">
                 <thead className="border-b border-border"><tr><th className={TH}>Time</th><th className={TH}>Staff</th><th className={TH}>Action</th><th className={TH}>Case</th><th className={TH}>Rule</th><th className={TH}>Note</th></tr></thead>
@@ -160,6 +201,7 @@ export function AuditTable({ rows }: { rows: Awaited<ReturnType<typeof readAudit
                     ))}
                 </tbody>
             </table>
+            {data.before ? <Link href={`/admin/trust?${older}`} className="mt-3 inline-block text-[13px] underline underline-offset-4">Older entries</Link> : null}
         </div>
     )
 }

@@ -25,7 +25,7 @@ export function NewCaseDialog({ trigger, what = '' }: { trigger: ReactNode; what
         })
         if (!result.success) return setError(result.error)
         setOpen(false)
-        router.push(`/admin/trust/cases/${result.label}`)
+        router.push(`/admin/trust?case=${result.label}`)
     })
     return (
         <Dialog open={open} onOpenChange={(next) => { setOpen(next); setError(null) }}>

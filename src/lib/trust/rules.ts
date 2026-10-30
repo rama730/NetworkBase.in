@@ -67,6 +67,17 @@ export const RULES: Record<number, string> = {
   10: "Child safety", 11: "Self-harm", 12: "Intellectual property", 13: "Misusing reports and appeals",
   14: "Systems, automation and fair use", 15: "Reports and enforcement",
 };
+/** One line under each rule in the decision panel (S10), so a reviewer picks the right one at a glance. */
+export const RULE_MEANINGS: Record<number, string> = {
+  1: "Threatening or encouraging violence against anyone.", 2: "Targeting a person with abuse, insults or unwanted contact.",
+  3: "Attacking people for who they are: caste, religion, race, gender, disability and the like.", 4: "Bulk, repetitive or misleading posts and fake engagement.",
+  5: "Pretending to be another person or organization.", 6: "Tricking people out of money, data or access.",
+  7: "Sharing someone's private details without consent.", 8: "Sharing or threatening to share intimate images without consent.",
+  9: "Sexual or graphic material in places it isn't allowed.", 10: "Anything that sexualizes or endangers a child.",
+  11: "Encouraging or showing self-harm; reach out with support first.", 12: "Using someone else's work without the right to.",
+  13: "Bad-faith reports or appeals meant to harass or overload.", 14: "Scraping, automation or load beyond fair use.",
+  15: "Getting around a decision, such as a new account after a ban.",
+};
 export const ruleLabel = (rule: number) => `§${rule} ${RULES[rule] ?? "Community rules"}`;
 
 /** What a decision can do to each kind of thing (C7: only the actions that fit). */
