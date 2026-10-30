@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { after, test } from "node:test";
 
-import { sql } from "./_helpers";
+import { actAs, actAsOwner, createUser, inRollback, sql } from "./_helpers";
 
 after(() => sql.end());
 
@@ -23,11 +23,12 @@ test("anon and authenticated have no write privilege anywhere in public", async 
 // profiles is absent: browsers get named columns only (tests/db/profile-browser-columns.test.ts).
 test("browser SELECT is limited to the tables the UI and policies read", async () => {
   for (const role of ["anon", "authenticated"]) {
+    const expected = BROWSER_READABLE.filter((table) => role === "authenticated" || table !== "user_notifications");
     const rows = await sql`
       SELECT g.table_name FROM information_schema.role_table_grants g
       JOIN pg_class c ON c.relname = g.table_name AND c.relnamespace = 'public'::regnamespace AND c.relkind IN ('r', 'p')
       WHERE g.table_schema = 'public' AND g.grantee = ${role} AND g.privilege_type = 'SELECT' ORDER BY 1`;
-    assert.deepEqual(rows.map((r) => r.table_name), BROWSER_READABLE, role);
+    assert.deepEqual(rows.map((r) => r.table_name), expected, role);
   }
 });
 
@@ -56,4 +57,22 @@ test("browser roles read workspaces but never workspaces.import_source", async (
       has_column_privilege(${role}, 'public.workspaces', 'import_source', 'SELECT') AS import_source_read`;
     assert.deepEqual({ ...row }, { id_read: true, visibility_read: true, import_source_read: false }, role);
   }
+});
+
+// profiles_select_visible reads connections as the caller, so anon must keep SELECT there even though it sees no rows.
+test("anon reads public profiles but neither notifications nor connection rows", async () => {
+  await inRollback(async (tx) => {
+    const a = await createUser(tx);
+    const b = await createUser(tx);
+    await tx`INSERT INTO public.connections (requester_id, addressee_id, status) VALUES (${a}, ${b}, 'accepted')`;
+    await tx`INSERT INTO public.user_notifications (user_id, kind, title, dedupe_key) VALUES (${a}, 'task_assigned', 'x', 'grant-test')`;
+    await actAs(tx, null);
+    assert.equal((await tx`SELECT id FROM public.profiles WHERE id = ${a}`).length, 1);
+    assert.equal((await tx`SELECT id FROM public.connections`).length, 0);
+    await assert.rejects(tx.savepoint((sp) => sp`SELECT id FROM public.user_notifications`), /permission denied/);
+    await actAsOwner(tx);
+    await actAs(tx, a);
+    assert.equal((await tx`SELECT id FROM public.user_notifications WHERE dedupe_key = 'grant-test'`).length, 1, "the owner still reads it");
+    await actAsOwner(tx);
+  });
 });
