@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { loadBrowserSupabase, signInWithPassword as signIn, syncBrowserSessionToServer } from '@/lib/auth/browser-auth-actions'
+import { adoptServerSessionIfMissing, loadBrowserSupabase, signInWithPassword as signIn, syncBrowserSessionToServer } from '@/lib/auth/browser-auth-actions'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import TurnstileWidget, { hasTurnstileSiteKey } from '@/components/auth/TurnstileWidget'
@@ -121,6 +121,7 @@ export function LoginForm({ redirect, error, step: stepParam }: { redirect: stri
         let leaving = false
         try {
             const supabase = await loadBrowserSupabase()
+            await adoptServerSessionIfMissing()
             const { data: factors, error: listError } = await supabase.auth.mfa.listFactors()
             if (listError) {
                 setStep('password')

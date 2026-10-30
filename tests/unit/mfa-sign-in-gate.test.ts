@@ -39,3 +39,17 @@ test('provider errors people can act on read as plain copy', async () => {
     assert.equal(toFriendlyAuthError('Invalid login credentials', 'x'), 'Invalid login credentials')
     assert.equal(toFriendlyAuthError('', 'fallback'), 'fallback')
 })
+
+test('the code step adopts the server session first, so Google, GitHub, a refresh or a new tab can finish it', () => {
+    const login = readFileSync('src/components/auth/LoginForm.tsx', 'utf8')
+    const actions = readFileSync('src/lib/auth/browser-auth-actions.ts', 'utf8')
+    // After an OAuth sign-in the session is only in the server's cookies, and the server reports no user until the
+    // code is in, so AuthProvider never copies it to the browser. Without this the code is never checked.
+    const verify = login.slice(login.indexOf('const verifyCode'), login.indexOf('const switchAccount'))
+    assert.ok(verify.indexOf('adoptServerSessionIfMissing()') > -1, 'verifyCode adopts the server session')
+    assert.ok(verify.indexOf('adoptServerSessionIfMissing()') < verify.indexOf('mfa.listFactors()'), 'before listing factors')
+    assert.match(actions, /if \(data\.session\) return true;\n\s+const serverSession = await bootstrapBrowserSessionFromServer\(\)/)
+    // The bootstrap reads the raw session, not the gated user, so it still works while the code is due.
+    const bridge = readFileSync('src/app/api/v1/auth/session/route.ts', 'utf8')
+    assert.match(bridge, /if \(mode === "bootstrap"\) \{\n\s+const \{ data, error \} = await supabase\.auth\.getSession\(\);/)
+})
