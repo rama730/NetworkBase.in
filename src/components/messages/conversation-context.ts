@@ -29,6 +29,10 @@ export type ConversationContextValue = {
   setSaved?: (seq: number, on: boolean, remindAt?: string | null) => void;
   /** Open the Share dialog for a message. */
   share?: (seq: number) => void;
+  /** People the viewer blocked: their messages fold away outside DMs (Blocking B34). */
+  blockedIds?: ReadonlySet<string>;
+  /** Block a message's author from its ⋯ menu (Blocking B5). */
+  openBlock?: (person: { id: string; name: string }) => void;
 };
 
 export const ConversationContext = createContext<ConversationContextValue | null>(null);

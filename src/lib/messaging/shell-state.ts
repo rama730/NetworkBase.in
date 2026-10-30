@@ -88,3 +88,20 @@ export function applyReadMoved(data: ChatBootstrap, channelId: string, seq: numb
     seq > channel.last_read_seq ? { ...channel, last_read_seq: seq, mention_count: 0 } : null,
   ) ?? data;
 }
+
+/**
+ * A DM, or a group down to two outside any project, across a block in either direction takes no replies (Blocking
+ * B44, the same rule as app_private.chat_contact_cut). Only the viewer's own block is named; the other way reads as
+ * "can't reply".
+ */
+export function withBlockState(channels: ChatChannelSummary[], userId: string, blocks: { blocker_id: string; blocked_id: string }[]) {
+  if (!blocks.length) return channels;
+  const mine = new Set(blocks.filter((b) => b.blocker_id === userId).map((b) => b.blocked_id));
+  const either = new Set(blocks.map((b) => (b.blocker_id === userId ? b.blocked_id : b.blocker_id)));
+  return channels.map((channel) => {
+    const pairGroup = channel.kind === "private" && !channel.project_id && !channel.application_id && channel.member_count === 2;
+    const other = channel.kind === "dm" ? channel.dm_user?.id : pairGroup ? channel.members_preview?.[0]?.id : undefined;
+    if (!other || !either.has(other)) return channel;
+    return { ...channel, reply_closed: true, blocked_by_me: mine.has(other) };
+  });
+}

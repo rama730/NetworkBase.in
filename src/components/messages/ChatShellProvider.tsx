@@ -198,7 +198,8 @@ export function ChatShellProvider({ children }: { children: React.ReactNode }) {
             window.dispatchEvent(new CustomEvent("nb:relationship-changed", { detail: { userId: other } }));
             void forgetOnDevice(other);
           }
-          return refresh();
+          // Every chat query: the list, the open conversation's header and composer, member tags, folded messages.
+          return void queryClient.invalidateQueries({ queryKey: queryKeys.chat.root() });
         }
         const current = queryClient.getQueryData<Snapshot>(key);
         if (!current) return;
@@ -276,4 +277,10 @@ export function ChatShellProvider({ children }: { children: React.ReactNode }) {
 
 export function useChatShell() {
   return useContext(ChatShellContext);
+}
+
+/** People the viewer blocked (Blocking B23, B34): one stable set, new only when the list itself changes. */
+export function useBlockedIds(): ReadonlySet<string> {
+  const key = useChatShell().data?.blocked_ids?.join(",") ?? "";
+  return useMemo(() => new Set(key ? key.split(",") : []), [key]);
 }

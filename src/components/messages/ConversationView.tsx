@@ -5,7 +5,7 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Archive, ArchiveRestore, ArrowLeft, Bell, BellDot, BellOff, Bookmark, CheckCheck, ExternalLink, FileText, Hash, Link2, Lock, LogOut, MoreHorizontal, PanelRight, Pencil, Pin, Search, Star, UserPlus, Users, X } from "lucide-react";
+import { Archive, ArchiveRestore, ArrowLeft, Ban, Bell, BellDot, BellOff, Bookmark, CheckCheck, ExternalLink, FileText, Hash, Link2, Lock, LogOut, MoreHorizontal, PanelRight, Pencil, Pin, Search, Star, UserPlus, Users, X } from "lucide-react";
 import { toast } from "@/lib/feedback";
 
 import { deleteCanvas } from "@/app/actions/chat/canvas";
@@ -15,7 +15,8 @@ import { listPins, pinMessage } from "@/app/actions/chat/messages";
 import { markRead } from "@/app/actions/chat/read";
 import { readChatUi, useChatUi, writeChatUi } from "@/components/messages/chat-ui-store";
 import { useBack } from "@/components/messages/useBack";
-import { useChatShell } from "@/components/messages/ChatShellProvider";
+import { useBlockFlow } from "@/components/privacy/BlockDialog";
+import { useBlockedIds, useChatShell } from "@/components/messages/ChatShellProvider";
 import type { CanvasSeed } from "@/components/messages/ChannelCanvas";
 import { ChannelTabBar } from "@/components/messages/ChannelTabBar";
 import { ConversationContext, useConversationContext, type ConversationContextValue } from "@/components/messages/conversation-context";
@@ -230,6 +231,9 @@ export function ConversationView({ channelId, around = null, surface = "page", o
   const channel = details.data ?? null;
   const isMember = Boolean(channel?.is_member);
   const archived = Boolean(channel?.channel_archived_at);
+  // Block from the DM itself (Blocking B5, B44): the blocker sees their own block; the other person only "can't reply".
+  const blockFlow = useBlockFlow("message");
+  const blockedIds = useBlockedIds();
   // Project members read a public channel before joining it (Slack preview).
   const canPreview = !isMember && channel?.kind === "public" && !archived;
   const isChannel = Boolean(channel && channel.kind !== "dm" && channel.name !== null);
@@ -459,7 +463,8 @@ export function ConversationView({ channelId, around = null, surface = "page", o
     people, nameOf, channelNameOf, editingSeq, setEditingSeq, openThread, inThread: false,
     openPinsTab, isMember, projectId: isApplication ? null : channel?.project_id ?? null,
     savedSeqs: saved.seqs, setSaved: (seq, on, remindAt) => void saved.setSaved(seq, on, remindAt), share: isApplication ? undefined : setShareSeq,
-  }), [channel?.can_admin, channel?.project_id, channelId, channelNameOf, editingSeq, isApplication, isDirect, isMember, meId, nameOf, openPinsTab, openThread, people, saved]);
+    blockedIds, openBlock: blockFlow.openBlock,
+  }), [blockFlow.openBlock, blockedIds, channel?.can_admin, channel?.project_id, channelId, channelNameOf, editingSeq, isApplication, isDirect, isMember, meId, nameOf, openPinsTab, openThread, people, saved]);
 
   const editLast = useCallback(() => {
     for (let i = conversation.messages.length - 1; i >= 0; i -= 1) {
@@ -561,6 +566,10 @@ export function ConversationView({ channelId, around = null, surface = "page", o
     : channel.application_id ? (channel.application?.is_applicant ? "Message the reviewers" : `Message ${channel.application ? personName(channel.application.applicant).split(" ")[0] : "the applicant"}`)
       : isDirect ? `Message ${title}` : `Message #${title}`;
   const displayName = isChannel ? `#${title}` : title;
+  const dmPerson = channel.kind === "dm" && channel.dm_user && !self ? { id: channel.dm_user.id, name: personName(channel.dm_user) } : null;
+  const blockItem = dmPerson ? (channel.blocked_by_me
+    ? <DropdownMenuItem onSelect={() => blockFlow.openUnblock(dmPerson)}><Ban /> Unblock {dmPerson.name}</DropdownMenuItem>
+    : <DropdownMenuItem variant="destructive" onSelect={() => blockFlow.openBlock(dmPerson)}><Ban /> Block {dmPerson.name}</DropdownMenuItem>) : null;
   const notify = notifyChoice(channel, (channel.notify ?? "all") as ChatNotify);
   // Bell = the default; a dot = DMs set to mentions only; crossed out = muted.
   const NotifyIcon = notify === "mute" ? BellOff : notify === "mentions" && notifiesEveryMessage(channel) ? BellDot : Bell;
@@ -645,6 +654,7 @@ export function ConversationView({ channelId, around = null, surface = "page", o
                       ) : !channel.is_default && !channel.application_id ? (
                         <DropdownMenuItem variant="destructive" onSelect={() => setConfirm("leave")}><LogOut /> Leave {isChannel ? "channel" : "conversation"}</DropdownMenuItem>
                       ) : null}
+                      {blockItem}
                     </>
                   ) : null}
                   <DropdownMenuItem onSelect={() => { useChatWindow.getState().close(); router.push(conversationHref(channelId, { m: around })); }}>
@@ -739,6 +749,7 @@ export function ConversationView({ channelId, around = null, surface = "page", o
                     ) : !channel.is_default && !channel.application_id && !archived ? (
                       <DropdownMenuItem variant="destructive" onSelect={() => setConfirm("leave")}><LogOut /> Leave {isChannel ? "channel" : "conversation"}</DropdownMenuItem>
                     ) : null}
+                    {isMember ? blockItem : null}
                     {isMember && channel.can_admin && isChannel && !channel.is_default ? (
                       archived ? (
                         <DropdownMenuItem onSelect={unarchive}><ArchiveRestore /> Unarchive channel</DropdownMenuItem>
@@ -806,7 +817,7 @@ export function ConversationView({ channelId, around = null, surface = "page", o
             />
           </div>
         ) : (
-          <div className="relative flex min-h-0 flex-1 flex-col" {...(isMember && !archived ? drop.handlers : {})}>
+          <div className="relative flex min-h-0 flex-1 flex-col" {...(isMember && !archived && !channel.reply_closed ? drop.handlers : {})}>
             <DropOverlay show={drop.dragging} />
             <ConnectionBanner status={conversation.status} />
             {conversation.query.isLoading && !conversation.messages.length ? <TimelineSkeleton /> : (
@@ -844,6 +855,15 @@ export function ConversationView({ channelId, around = null, surface = "page", o
                 <span className="text-muted-foreground">You’re previewing <strong className="font-semibold text-foreground">{displayName}</strong>. Join to post.</span>
                 <Button type="button" size="sm" onClick={() => void join()} className="pointer-coarse:h-11">Join channel</Button>
               </div>
+            ) : channel.reply_closed ? (
+              <div className="flex flex-wrap items-center justify-center gap-3 border-t border-border px-4 py-3 text-[13px] text-muted-foreground">
+                {channel.blocked_by_me && dmPerson ? (
+                  <>
+                    <span>You blocked {dmPerson.name}. You can read this conversation, but neither of you can send messages.</span>
+                    <Button type="button" variant="outline" size="sm" onClick={() => blockFlow.openUnblock(dmPerson)} className="pointer-coarse:h-11">Unblock</Button>
+                  </>
+                ) : <span>You can’t reply to this conversation.</span>}
+              </div>
             ) : archived ? (
               <div className="flex flex-wrap items-center justify-center gap-3 border-t border-border px-4 py-3 text-[13px] text-muted-foreground">
                 <span>This channel is archived. You can read it, but not post.</span>
@@ -871,6 +891,7 @@ export function ConversationView({ channelId, around = null, surface = "page", o
         )}
         </div>
       </section>
+      {blockFlow.dialog}
       {dialog === "bookmark" ? <AddTabLinkDialog open onOpenChange={(open) => !open && setDialog(null)} onAddTab={(name, url) => void addTab("link", name, url)} /> : null}
       {dialog === "tabs" ? <EditTabsDialog open onOpenChange={(open) => !open && setDialog(null)} tabs={tabs.filter((t) => t.shared)} onSaveTabs={(next) => void saveTabs(next)} /> : null}
       {dialog === "template" ? (

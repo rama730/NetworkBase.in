@@ -5,7 +5,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  AlarmClock, Archive, Bookmark, BookmarkCheck, CheckCircle2, Copy, Flag, Forward, Hash, Link2, Lock, LogIn, LogOut, MailOpen, MessageSquareText, Eye, EyeOff,
+  AlarmClock, Archive, Ban, Bookmark, BookmarkCheck, CheckCircle2, Copy, Flag, Forward, Hash, Link2, Lock, LogIn, LogOut, MailOpen, MessageSquareText, Eye, EyeOff,
   MoreHorizontal, Pencil, Pin, RotateCcw, Send, SmilePlus, SquareCheck, Trash2, Undo2, UserMinus, XCircle, type LucideIcon,
 } from "lucide-react";
 import { toast, feedbackError, deferredFeedback } from "@/lib/feedback";
@@ -230,6 +230,7 @@ export const MessageRow = memo(function MessageRow({ message, grouped, highlight
   const previewMutationRef = useRef(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
+  const [unfolded, setUnfolded] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
   // Keeps the toolbar shown through the menu's exit animation, so the menu
   // never animates out from (0,0) after its anchor disappears.
@@ -401,6 +402,10 @@ export const MessageRow = memo(function MessageRow({ message, grouped, highlight
     if (!own && !message.card) list.push(reportedCase
       ? { id: "report", label: `Reported · in review · ${reportedCase}`, icon: Flag, run: () => toast(`You've already reported this. Case ${reportedCase} is in review.`), group: 3 }
       : { id: "report", label: "Report message", icon: Flag, run: () => setReportOpen(true), group: 3 });
+    const author = message.author;
+    if (!own && !message.card && author && ctx.openBlock && !ctx.blockedIds?.has(author.id)) {
+      list.push({ id: "block", label: `Block ${authorName}`, icon: Ban, run: () => ctx.openBlock?.({ id: author.id, name: authorName }), destructive: true, group: 3 });
+    }
   }
   useEffect(() => () => {
     if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
@@ -447,6 +452,15 @@ export const MessageRow = memo(function MessageRow({ message, grouped, highlight
       );
     }
     return <SystemRow message={message} others={others} onToggleReaction={toggleReaction} />;
+  }
+
+  // Someone you blocked, in a channel you share: folded until you ask (Blocking B34). DMs stay readable as they were.
+  if (!own && !ctx.isDm && !unfolded && message.author_id && ctx.blockedIds?.has(message.author_id)) {
+    return (
+      <div className="px-4 py-1 text-[13px] text-muted-foreground" data-seq={message.seq}>
+        Message from someone you blocked. <button type="button" className="font-medium text-foreground underline underline-offset-2 hover:text-primary pointer-coarse:min-h-11" onClick={() => setUnfolded(true)}>Show</button>
+      </div>
+    );
   }
 
   const isToolbarOpen = moreOpen || closing || Boolean(pickerAnchor);

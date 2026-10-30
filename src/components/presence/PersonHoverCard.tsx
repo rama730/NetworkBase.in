@@ -3,9 +3,11 @@
 import * as Popover from "@radix-ui/react-popover";
 import Link from "next/link";
 import { useRef, useState } from "react";
-import { Flag } from "lucide-react";
+import { Ban, Flag } from "lucide-react";
 
+import { useBlockedIds } from "@/components/messages/ChatShellProvider";
 import { messageUserInWindow } from "@/components/messages/message-user";
+import { BlockPersonDialog } from "@/components/privacy/BlockDialog";
 import { usePersonContext } from "@/components/messages/useConversation";
 import { PresenceAvatar } from "@/components/presence/PersonPresence";
 import { PresenceBadge } from "@/components/presence/PresenceBadge";
@@ -24,7 +26,7 @@ type Person = { id: string; username: string | null; full_name: string | null; a
  * (location, else headline, else @username), then status, presence and their local time, and two
  * compact actions. A plain card: no inner wells.
  */
-function CardBody({ person, onReport }: { person: Person; onReport: () => void }) {
+function CardBody({ person, onReport, onBlock, blocked }: { person: Person; onReport: () => void; onBlock: () => void; blocked: boolean }) {
   const { user } = useAuth();
   const presence = usePersonPresence(person.id);
   const context = usePersonContext(person.id);
@@ -73,6 +75,11 @@ function CardBody({ person, onReport }: { person: Person; onReport: () => void }
             <Flag className="size-4" aria-hidden="true" />
           </Button>
         ) : null}
+        {user && user.id !== person.id ? (
+          <Button type="button" variant="ghost" size="icon-sm" onClick={onBlock} aria-label={`${blocked ? "Unblock" : "Block"} ${name}`} title={blocked ? "Unblock" : "Block"} className="shrink-0 text-muted-foreground pointer-coarse:size-11">
+            <Ban className="size-4" aria-hidden="true" />
+          </Button>
+        ) : null}
       </div>
     </div>
   );
@@ -88,6 +95,9 @@ export function PersonHoverCard({ person, children, label, className, focusable 
   const [open, setOpen] = useState(false);
   // The dialog lives beside the card, not in it, so closing the card doesn't close the report.
   const [reporting, setReporting] = useState(false);
+  // Block from the card (Blocking B5): each ask mounts a fresh confirmation; it stays out of the tree until then.
+  const [blockAsk, setBlockAsk] = useState(0);
+  const blockedIds = useBlockedIds();
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   if (!person) return <>{children}</>;
   const schedule = (next: boolean, delay: number) => {
@@ -117,10 +127,11 @@ export function PersonHoverCard({ person, children, label, className, focusable 
           onPointerLeave={() => schedule(false, 200)}
           className="z-50 rounded-lg border border-border bg-popover text-popover-foreground shadow-md outline-none"
         >
-          <CardBody person={person} onReport={() => { setOpen(false); setReporting(true); }} />
+          <CardBody person={person} blocked={blockedIds.has(person.id)} onReport={() => { setOpen(false); setReporting(true); }} onBlock={() => { setOpen(false); setBlockAsk((n) => n + 1); }} />
         </Popover.Content>
       </Popover.Portal>
     </Popover.Root>
+    {blockAsk ? <BlockPersonDialog key={blockAsk} person={{ id: person.id, name: person.full_name || person.username || "this person" }} source="person_card" unblock={blockedIds.has(person.id)} /> : null}
     {reporting ? <ReportDialog kind="person" targetId={person.id} noun="person" personName={person.full_name || person.username} open onOpenChange={setReporting} /> : null}
     </>
   );
