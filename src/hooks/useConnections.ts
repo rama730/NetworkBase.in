@@ -996,39 +996,6 @@ export function useConnectionMutations() {
         onSettled: (_data, _err, vars) => invalidateAll(connectionMutationTargetId(vars)),
     });
 
-    const blockProfile = useMutation({
-        mutationFn: async (targetUserId: string) => {
-            const res = await fetch('/api/v1/privacy/blocks', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ userId: targetUserId }),
-            });
-            const data = await res.json().catch(() => null);
-            if (!res.ok) {
-                throw new Error(data?.error?.message || data?.message || 'Couldn’t block account');
-            }
-            return { targetUserId };
-        },
-        onMutate: async (targetUserId) => {
-            await cancelConnectionsScoped(queryClient);
-            updatePendingRequestQueries(queryClient, (prev) => ({
-                ...prev,
-                incoming: prev.incoming.filter((item) => item.requesterId !== targetUserId),
-                sent: prev.sent.filter((item) => item.addresseeId !== targetUserId),
-            }));
-            updateFeedQueries<DiscoverConnectionItem>(queryClient, ['connections', 'feed', 'discover'], (page) => ({
-                ...page,
-                items: page.items.filter((item) => item.id !== targetUserId),
-            }));
-            updateFeedQueries<NetworkConnectionItem>(queryClient, ['connections', 'feed', 'network'], (page) => ({
-                ...page,
-                items: page.items.filter((item) => item.otherUser?.id !== targetUserId),
-            }));
-        },
-        onError: (_err, vars) => invalidateAll(connectionMutationTargetId(vars)),
-        onSettled: (_data, _err, vars) => invalidateAll(connectionMutationTargetId(vars)),
-    });
-
     const result = useMemo(() => ({
         sendRequest,
         cancelRequest,
@@ -1040,7 +1007,6 @@ export function useConnectionMutations() {
         acceptAllIncoming,
         rejectAllIncoming,
         disconnect,
-        blockProfile,
     }), [
         sendRequest,
         cancelRequest,
@@ -1052,7 +1018,6 @@ export function useConnectionMutations() {
         acceptAllIncoming,
         rejectAllIncoming,
         disconnect,
-        blockProfile,
     ]);
 
     return result;

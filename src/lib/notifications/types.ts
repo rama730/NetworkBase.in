@@ -193,6 +193,10 @@ export type NotificationFanoutInput = {
      * who blocked the person who acted, but from the place, without their name (Blocking B43 rule 2, B47).
      */
     placeNotice?: boolean;
+    /** The place notice's own title, used instead of one that names the person who acted. */
+    placeTitle?: string | null;
+    /** An admin action against the recipient (removal, a role change, returned work): across a block it's recorded for trust & safety only (B49). */
+    placeAction?: string | null;
 };
 
 export type NotificationFanoutWrite = {

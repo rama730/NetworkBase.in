@@ -19,7 +19,8 @@ export function canReviewWorkspaceSql(userId: string, projectId: SQL): SQL {
 
 /**
  * How many pending applications `userId` can review: the number the Network badge, the Workspace drawer and the list agree on.
- * People who can't appear in the list (deleted accounts, either side blocked) are left out here too, so a badge never exceeds its list.
+ * People who can't appear in the list (deleted accounts; across a block, while another owner or admin can review: B37) are
+ * left out here too, so a badge never exceeds its list.
  */
 export async function countReviewableApplications(userId: string): Promise<number> {
   const rows = await db.execute<{ n: number }>(sql`
@@ -28,7 +29,7 @@ export async function countReviewableApplications(userId: string): Promise<numbe
     JOIN profiles ap ON ap.id = a.applicant_id AND ap.deleted_at IS NULL
     WHERE a.status = 'pending' AND a.applicant_id <> ${userId}::uuid
       AND ${canReviewWorkspaceSql(userId, sql`a.workspace_id`)}
-      AND NOT app_private.blocked_between(${userId}::uuid, a.applicant_id)
+      AND NOT app_private.review_hidden_by_block(${userId}::uuid, a.applicant_id, a.workspace_id)
   `);
   return Array.from(rows)[0]?.n ?? 0;
 }

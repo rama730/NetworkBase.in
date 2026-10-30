@@ -68,6 +68,18 @@ type MemberRow = {
     notificationPreferences: unknown;
 };
 
+// What owners and admins do to someone as the place's duty (a role, a removal, a decision, a reminder): across a block
+// it still arrives, from the place and without their name (Blocking B46, B47). Assigned work counts only from an admin.
+const PLACE_EVENTS = new Set<string>([
+    "members.removed", "members.role_changed", "members.ownership_transferred", "access.file_upload_permission_changed",
+    "applications.decision", "assignments.published", "assignments.reviewed", "assignments.due_changed", "assignments.due_soon",
+    "announcements.posted", "org.role_changed", "org.lifecycle", "org.child_added", "org.child_notice", "org_sprints.notice",
+    "security.project_archived", "security.delete_scheduled",
+]);
+const ASSIGN_EVENTS = new Set<string>(["tasks.assigned", "tasks.created_assigned"]);
+// The ones that act against someone: across a block, trust & safety gets a private record (B49).
+const ADVERSE_EVENTS = new Set<string>(["members.removed", "members.role_changed", "access.file_upload_permission_changed", "applications.decision", "assignments.reviewed"]);
+
 function displayProjectTitle(project: ProjectRow) {
     return project.title || "Workspace";
 }
@@ -328,6 +340,9 @@ function buildProjectNotificationWrites(params: {
         overridesByUser.set(member.userId, normalizeWorkspaceMemberNotificationOverrides(member.notificationPreferences));
     });
 
+    const actorIsAdmin = Boolean(actorId) && (project.ownerId === actorId || members.some((m) => m.userId === actorId && (m.role === "owner" || m.role === "admin")));
+    const placeNotice = PLACE_EVENTS.has(input.eventKey) || (ASSIGN_EVENTS.has(input.eventKey) && actorIsAdmin);
+    const placeTitle = placeNotice ? `${displayProjectTitle(project)}: ${entry.label}` : null;
     const writes: NotificationFanoutWrite[] = [];
     // Ownership transfer is the one project event where the actor is also an
     // affected recipient: the previous owner needs the durable audit notice.
@@ -366,6 +381,9 @@ function buildProjectNotificationWrites(params: {
                 dedupeKey: dedupeKeyFor(input, recipientUserId),
                 aggregateCount: input.aggregateCount ?? 1,
                 sourceEventId: input.sourceEventId ?? null,
+                placeNotice,
+                placeTitle,
+                placeAction: placeNotice && ADVERSE_EVENTS.has(input.eventKey) ? input.eventKey : null,
             },
         });
     }

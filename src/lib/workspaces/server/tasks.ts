@@ -25,6 +25,7 @@ import { replaceTaskFileRoleTag } from "@/lib/workspaces/task-file-intelligence"
 import { queueCounterRefreshBestEffort } from "@/lib/my-work/counter-buffer";
 import { revalidatePath } from "next/cache";
 import { actorNotificationSnapshot, enqueueWorkspaceNotificationBestEffort } from "./common";
+import { refusePeerAssignmentAcrossBlock } from "@/lib/workspaces/task-assignment";
 
 
 type TaskPaginationCursor = {
@@ -957,6 +958,7 @@ export async function createTaskAction(data: z.infer<typeof createTaskSchema>) {
       if (!isWorkspaceMemberEligibleFor(assigneeMember.role, "assign")) {
         throw new Error("Assignee must be an assignable workspace member");
       }
+      await refusePeerAssignmentAcrossBlock(db, validated.projectId, user.id, validated.assigneeId);
     }
 
     const createdTask = await db.transaction(async (tx) => {

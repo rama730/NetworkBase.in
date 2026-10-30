@@ -1,5 +1,6 @@
 "use server";
 
+import { blockVersion } from '@/lib/privacy/blocks';
 import { openInvitesFor } from '@/lib/organizations/members';
 import { personFilterSql } from '@/lib/network/person-filter-sql';
 import type { NetworkPersonFilters } from '@/lib/network/browse-query';
@@ -1374,8 +1375,9 @@ export async function getConnectionsFeed(input: ConnectionsFeedInput) {
     const previewRevision = !includeMeta && safeSearch && !input.cursor
         ? await redis?.get<number>('search:preview:people:revision').catch(() => 0) ?? 0
         : 0;
+    // A block or unblock by or of this viewer moves their block version, so no cached answer outlives it (Blocking B18).
     const cacheKey = !includeMeta && safeSearch && !input.cursor
-        ? `search:preview:people:v4:${previewRevision}:${user.id}:${requestShape}`
+        ? `search:preview:people:v4:${previewRevision}:${user.id}:b${await blockVersion(user.id)}:${requestShape}`
         : null;
 
     if (cacheKey) {

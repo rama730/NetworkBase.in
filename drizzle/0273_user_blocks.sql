@@ -350,3 +350,49 @@ REVOKE ALL ON FUNCTION app_private.block_user(uuid, uuid, text, uuid), app_priva
 --> statement-breakpoint
 GRANT EXECUTE ON FUNCTION app_private.blocked_between(uuid, uuid), app_private.chat_contact_cut(uuid, uuid), app_private.block_user(uuid, uuid, text, uuid),
   app_private.undo_block(uuid, uuid, integer) TO nb_app;
+--> statement-breakpoint
+-- Review duty goes to another owner or admin first (B37, K36): a reviewer in a block with the applicant doesn't see
+-- the application while someone else can decide it, and does when they're the only one left.
+CREATE FUNCTION app_private.review_hidden_by_block(p_reviewer uuid, p_applicant uuid, p_workspace uuid) RETURNS boolean
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = '' AS $$
+  SELECT app_private.blocked_between(p_reviewer, p_applicant) AND EXISTS (
+    SELECT 1 FROM (
+      SELECT w.owner_id AS id FROM public.workspaces w WHERE w.id = p_workspace
+      UNION SELECT m.user_id FROM public.workspace_members m WHERE m.workspace_id = p_workspace AND m.role IN ('owner', 'admin')
+    ) other
+    WHERE other.id NOT IN (p_reviewer, p_applicant) AND NOT app_private.blocked_between(other.id, p_applicant)
+  )
+$$;
+--> statement-breakpoint
+REVOKE ALL ON FUNCTION app_private.review_hidden_by_block(uuid, uuid, uuid) FROM PUBLIC, anon, authenticated;
+--> statement-breakpoint
+GRANT EXECUTE ON FUNCTION app_private.review_hidden_by_block(uuid, uuid, uuid) TO nb_app;
+--> statement-breakpoint
+-- Grouped with someone you blocked (B48, K40): when either of you lands in a team or project the other is in, the
+-- person who blocked gets a private heads-up. Nobody else learns anything; organizations themselves don't count.
+CREATE FUNCTION app_private.block_heads_up() RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
+DECLARE
+  v_title text;
+BEGIN
+  SELECT w.title INTO v_title FROM public.workspaces w WHERE w.id = NEW.workspace_id AND w.kind <> 'organization' AND w.deleted_at IS NULL;
+  IF v_title IS NULL THEN RETURN NEW; END IF;
+  INSERT INTO public.user_notifications (user_id, kind, importance, title, body, href, entity_refs, dedupe_key)
+  SELECT b.blocker_id, 'org_membership', 'important',
+         'Someone you blocked is also in ' || v_title,
+         'Only you can see this. If you’d rather be in a different team or group, ask an admin.',
+         '/workspaces/' || NEW.workspace_id::text,
+         jsonb_build_object('projectId', NEW.workspace_id),
+         'block-heads-up:' || NEW.workspace_id::text || ':' || b.blocked_id::text
+  FROM public.workspace_members m
+  JOIN public.user_blocks b ON (b.blocker_id = m.user_id AND b.blocked_id = NEW.user_id) OR (b.blocker_id = NEW.user_id AND b.blocked_id = m.user_id)
+  WHERE m.workspace_id = NEW.workspace_id AND m.user_id <> NEW.user_id
+  ON CONFLICT (user_id, dedupe_key) DO NOTHING;
+  RETURN NEW;
+END
+$$;
+--> statement-breakpoint
+REVOKE ALL ON FUNCTION app_private.block_heads_up() FROM PUBLIC, anon, authenticated;
+--> statement-breakpoint
+CREATE TRIGGER workspace_members_block_heads_up AFTER INSERT ON public.workspace_members
+  FOR EACH ROW EXECUTE FUNCTION app_private.block_heads_up();

@@ -69,7 +69,7 @@ test("round 2: Connect sends once per click and a failure puts the row back at o
   assert.match(action, /IdempotencyConflictError\) return \{ success: false/);
   assert.doesNotMatch(action, /Idempotency lock hit/);
   // People search preview: full key, validated first, first page only (COR-031); metadata only on discover (PERF-008).
-  assert.match(action, /search:preview:people:v4:\$\{previewRevision\}:\$\{user\.id\}:\$\{requestShape\}/);
+  assert.match(action, /search:preview:people:v4:\$\{previewRevision\}:\$\{user\.id\}:b\$\{await blockVersion\(user\.id\)\}:\$\{requestShape\}/);
   assert.match(action, /const metadataPromise = tab !== 'discover' \? null/);
 });
 

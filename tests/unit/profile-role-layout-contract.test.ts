@@ -92,7 +92,8 @@ test('public profile actions use the design-system hierarchy and hide unavailabl
   assert.doesNotMatch(header, /Ellipsis|IconButton/)
   assert.match(header, /variant=\{relationshipControlVariant\}/)
   assert.match(header, /<DropdownMenuItem onClick=\{onMessage\}/)
-  assert.match(header, /\{\(showMessageAction \|\| isPrimaryConnectionAction \|\| secondaryConnectLabel\) && canManageBlock \? <DropdownMenuSeparator \/> : null\}/)
+  // Block lives in the person's one ⋯ menu beside Report (Blocking B6), not in the Connect menu.
+  assert.match(header, /<ItemMenu label=\{`More actions for \$\{name\}`\}[\s\S]*?\{canManageBlock \? \(/)
   assert.match(header, /\) : isInteractionBlocked \? \(/)
   assert.doesNotMatch(rail, /title="Shortcuts"/)
   assert.match(client, /canMessage=\{Boolean\(/)

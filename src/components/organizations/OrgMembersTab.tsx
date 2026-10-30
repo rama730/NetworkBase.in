@@ -33,6 +33,8 @@ import { formatDistanceToNow } from '@/lib/utils/date'
 import { cn } from '@/lib/utils'
 import { messageUserInWindow } from '@/components/messages/message-user'
 import { OrgReportsSection } from '@/components/organizations/OrgReportsSection'
+import { RELATIONSHIP_EVENT, useBlockFlow } from '@/components/privacy/BlockDialog'
+import { Ban } from 'lucide-react'
 
 // Members tab (report §20): roster with filters and bulk actions, Requests / Invite / summary rail, member drawer.
 
@@ -57,6 +59,11 @@ export function OrgMembersTab({ orgId, roleNames }: { orgId: string; roleNames?:
         if (r.success) { setData(r); setError(null) } else setError(r.error)
     }), [orgId])
     useEffect(() => { load() }, [load])
+    // A block or unblock anywhere refreshes the private "Blocked" tags.
+    useEffect(() => {
+        window.addEventListener(RELATIONSHIP_EVENT, load)
+        return () => window.removeEventListener(RELATIONSHIP_EVENT, load)
+    }, [load])
     const rows = useMemo(() => (data ? (filterRoster(data.rows, filter) as Row[]) : []), [data, filter])
 
     const run = (work: () => Promise<{ success: boolean; error?: string }>, done: string) => startTransition(async () => {
@@ -141,6 +148,8 @@ export function OrgMembersTab({ orgId, roleNames }: { orgId: string; roleNames?:
                                     <span className="flex flex-wrap items-center gap-x-1.5">
                                         <span className="font-medium">{r.name}</span>
                                         <span className="rounded-[3px] border border-border px-1 text-[11px] text-muted-foreground">{label(r.role)}</span>
+                                        {/* Your personal block, seen only by you (Blocking B51). */}
+                                        {r.blockedByMe ? <span className="rounded-[3px] border border-border px-1 text-[11px] text-muted-foreground">Blocked</span> : null}
                                         {r.title ? <span className="text-muted-foreground">· {r.title}</span> : null}
                                     </span>
                                     <span className="mt-0.5 block truncate text-[12px] text-muted-foreground">
@@ -184,7 +193,6 @@ type Run = (work: () => Promise<{ success: boolean; error?: string }>, done: str
 function BulkBar({ orgId, data, label, ids, pending, run, onClear }: { orgId: string; data: OrgMembersData; label: (role: string) => string; ids: string[]; pending: boolean; run: Run; onClear: () => void }) {
     const [childId, setChildId] = useState('')
     const [unitId, setUnitId] = useState('')
-    const [block, setBlock] = useState(false)
     const units = data.children.find((c) => c.id === childId)?.units ?? []
     return (
         <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-muted/30 p-2 text-sm" role="group" aria-label="Bulk actions">
@@ -213,10 +221,13 @@ function BulkBar({ orgId, data, label, ids, pending, run, onClear }: { orgId: st
             ) : null}
             {/* End-of-term verification (report §20.6, §24.5): role and dates, never the story text. */}
             <Button type="button" size="sm" variant="outline" disabled={pending} onClick={() => run(() => verifyOrgContributionsAction(orgId, ids), 'Contributions verified')}>Verify contributions</Button>
-            <label className="ml-auto flex items-center gap-1.5 text-[12px]"><input type="checkbox" checked={block} onChange={(e) => setBlock(e.target.checked)} /> Block from rejoining</label>
-            <Button type="button" size="sm" variant="destructive" disabled={pending} onClick={() => {
-                if (window.confirm(`Remove ${ids.length} ${ids.length === 1 ? 'person' : 'people'}? They leave every workspace here; submitted work stays.`)) run(() => removeMembersAction(orgId, ids, { block }), 'Removed')
+            {/* Two named actions, each with its own confirmation (Blocking B50): removal, and the organization's own block. */}
+            <Button type="button" size="sm" variant="destructive" className="ml-auto" disabled={pending} onClick={() => {
+                if (window.confirm(`Remove ${ids.length} ${ids.length === 1 ? 'person' : 'people'}? They leave every workspace here; submitted work stays. They can ask to join again.`)) run(() => removeMembersAction(orgId, ids, { block: false }), 'Removed')
             }}>Remove</Button>
+            <Button type="button" size="sm" variant="destructive" disabled={pending} onClick={() => {
+                if (window.confirm(`Remove and block ${ids.length} ${ids.length === 1 ? 'person' : 'people'} from this organization? They leave every workspace here and can’t join again until an admin lifts it. This is the organization’s block, not a personal one.`)) run(() => removeMembersAction(orgId, ids, { block: true }), 'Removed and blocked from the organization')
+            }}>Remove and block from organization</Button>
             <Button type="button" size="sm" variant="ghost" onClick={onClear}>Clear</Button>
         </div>
     )
@@ -305,6 +316,7 @@ function MemberDrawer({ orgId, row, data, label, pending, run }: { orgId: string
     const [work, setWork] = useState<MemberWorkRow[] | null>(null)
     const [activity, setActivity] = useState<MemberActivityRow[] | null>(null)
     const [title, setTitle] = useState(row.title ?? '')
+    const blocking = useBlockFlow('member_list')
     useEffect(() => {
         void readMemberWorkAction(orgId, row.userId).then((r) => setWork(r.success ? r.work : []))
         void readMemberActivityAction(orgId, row.userId).then((r) => setActivity(r.success ? r.activity : []))
@@ -374,10 +386,18 @@ function MemberDrawer({ orgId, row, data, label, pending, run }: { orgId: string
                             {data.viewerRole === 'owner' ? <option value="admin">{label('admin')}</option> : null}
                         </select>
                         <Button type="button" size="sm" variant="destructive" disabled={pending} onClick={() => {
-                            if (window.confirm(`Remove ${row.name}? They leave every workspace here; submitted work stays.`)) run(() => removeMembersAction(orgId, [row.userId], { block: false }), 'Removed')
+                            if (window.confirm(`Remove ${row.name}? They leave every workspace here; submitted work stays. They can ask to join again.`)) run(() => removeMembersAction(orgId, [row.userId], { block: false }), 'Removed')
                         }}>Remove</Button>
+                        <Button type="button" size="sm" variant="destructive" disabled={pending} onClick={() => {
+                            if (window.confirm(`Remove and block ${row.name} from this organization? They leave every workspace here and can’t join again until an admin lifts it. This is the organization’s block, not a personal one.`)) run(() => removeMembersAction(orgId, [row.userId], { block: true }), 'Removed and blocked from the organization')
+                        }}>Remove and block from organization</Button>
                     </div>
                 ) : null}
+                {/* A personal block is yours alone: it changes nothing about their place here (Blocking B45, B50). */}
+                <Button type="button" size="sm" variant="ghost" className="text-muted-foreground" onClick={() => (row.blockedByMe ? blocking.openUnblock : blocking.openBlock)({ id: row.userId, name: row.name })}>
+                    <Ban className="size-4" aria-hidden="true" /> {row.blockedByMe ? `Unblock ${row.name}` : `Block ${row.name}`}
+                </Button>
+                {blocking.dialog}
             </section>
         </div>
     )
