@@ -148,3 +148,10 @@ test("saved messages: per rule and per appeal outcome; empty goes back to the bu
   await assert.rejects(sql`INSERT INTO moderation_message_templates (key, message) VALUES ('rule:16', 'x')`);
   await sql`DELETE FROM moderation_message_templates`;
 });
+
+test("every quick view runs, including Appeals, where appeals come first in the query", async () => {
+  for (const view of ["needs_me", "unclaimed", "urgent", "appeals", "org", "escalated", "mine", "done"] as const) {
+    const page = await inbox.readInbox(crypto.randomUUID(), { view }, null);
+    assert.ok(Array.isArray(page.items), view);
+  }
+});

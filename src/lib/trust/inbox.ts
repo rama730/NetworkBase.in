@@ -72,19 +72,25 @@ export async function readInbox(staffId: string, f: InboxFilters, cursor: { at: 
       FROM moderation_cases c LEFT JOIN profiles s ON s.id = c.subject_id LEFT JOIN profiles a ON a.id = c.assignee_id LEFT JOIN profiles g ON g.id = c.assigned_to
       WHERE ${sql.join(caseWhere, sql` AND `)}` : null,
     withAppeals ? sql`
-      SELECT 'appeal', c.id, c.number::int, c.severity, ap.state, c.reason, c.target_kind, c.snapshot->>'label', 0, ap.deadline_at, ap.created_at,
-             ${done ? sql`coalesce(ap.decided_at, ap.created_at)` : sql`ap.deadline_at`},
-             'staff', false, c.legal_hold, false, 'appeal', c.version, ap.state,
-             ap.subject_id, s.full_name, s.username, s.avatar_url,
-             CASE WHEN ap.state = 'in_review' THEN ap.assignee_id END, CASE WHEN ap.state = 'in_review' THEN coalesce(a.full_name, a.username) END, NULL::uuid, NULL, ap.decided_at::text
+      SELECT 'appeal' AS type, c.id, c.number::int AS number, c.severity, ap.state, c.reason, c.target_kind AS kind, c.snapshot->>'label' AS label, 0 AS reports,
+             ap.deadline_at AS due_at, ap.created_at,
+             ${done ? sql`coalesce(ap.decided_at, ap.created_at)` : sql`ap.deadline_at`} AS due_key,
+             'staff' AS routed_to, false AS pile_on, c.legal_hold, false AS escalated, 'appeal' AS source, c.version, ap.state AS outcome,
+             ap.subject_id, s.full_name AS subject_name, s.username AS subject_username, s.avatar_url AS subject_avatar,
+             CASE WHEN ap.state = 'in_review' THEN ap.assignee_id END AS claimer_id,
+             CASE WHEN ap.state = 'in_review' THEN coalesce(a.full_name, a.username) END AS claimer_name,
+             NULL::uuid AS assigned_id, NULL::text AS assigned_name, ap.decided_at::text AS decided_at
       FROM moderation_appeals ap JOIN moderation_cases c ON c.id = ap.case_id LEFT JOIN profiles s ON s.id = ap.subject_id LEFT JOIN profiles a ON a.id = ap.assignee_id
       WHERE ${done ? sql`ap.state NOT IN ('pending', 'in_review')` : sql`ap.state IN ('pending', 'in_review')`}
         AND ${view === "mine" ? sql`ap.assignee_id = ${staffId}` : view === "needs_me" ? sql`(ap.assignee_id IS NULL OR ap.assignee_id = ${staffId})` : sql`true`}
         AND ${q ? (byNumber ? sql`c.number = ${number}` : nameMatch("s")) : sql`true`}` : null,
     withVerification ? sql`
-      SELECT 'verification', w.id, NULL::int, NULL, 'open', NULL, 'project', w.title, 0, w.verification_requested_at + interval '3 days', w.verification_requested_at,
-             w.verification_requested_at + interval '3 days', NULL, false, false, false, 'verification', 1, NULL,
-             w.owner_id, o.full_name, o.username, o.avatar_url, NULL::uuid, NULL, NULL::uuid, NULL, NULL::text
+      SELECT 'verification' AS type, w.id, NULL::int AS number, NULL::text AS severity, 'open' AS state, NULL::text AS reason, 'project' AS kind, w.title AS label,
+             0 AS reports, w.verification_requested_at + interval '3 days' AS due_at, w.verification_requested_at AS created_at,
+             w.verification_requested_at + interval '3 days' AS due_key, NULL::text AS routed_to, false AS pile_on, false AS legal_hold, false AS escalated,
+             'verification' AS source, 1 AS version, NULL::text AS outcome,
+             w.owner_id AS subject_id, o.full_name AS subject_name, o.username AS subject_username, o.avatar_url AS subject_avatar,
+             NULL::uuid AS claimer_id, NULL::text AS claimer_name, NULL::uuid AS assigned_id, NULL::text AS assigned_name, NULL::text AS decided_at
       FROM workspaces w LEFT JOIN profiles o ON o.id = w.owner_id
       WHERE w.kind = 'organization' AND w.verification_requested_at IS NOT NULL AND w.verified_at IS NULL AND w.deleted_at IS NULL
         AND ${q ? sql`w.title ILIKE ${`%${q}%`}` : sql`true`}` : null,
