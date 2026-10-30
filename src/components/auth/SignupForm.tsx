@@ -7,7 +7,7 @@ import { ArrowLeft, Check, Loader2 } from 'lucide-react'
 import type { AuthChangeEvent, Session } from '@supabase/supabase-js'
 import { loadBrowserSupabase, signUpWithPassword as signUp, verifyEmailOtp as verifyOtp } from '@/lib/auth/browser-auth-actions'
 import { Input } from '@/components/ui/input'
-import TurnstileWidget, { hasTurnstileSiteKey } from '@/components/auth/TurnstileWidget'
+import TurnstileWidget, { hasTurnstileSiteKey, SECURITY_CHECK_PROMPT } from '@/components/auth/TurnstileWidget'
 import { GoogleOneTap } from '@/components/auth/GoogleOneTap'
 import { AUTH_INPUT, AUTH_LINK, AuthAlert, AuthDivider, AuthField, AuthShell, CodeInput, OAuthButtons, PasswordField, SubmitButton, fieldError } from '@/components/auth/AuthShell'
 import { PasswordStrengthMeter } from '@/components/settings/PasswordStrengthMeter'
@@ -193,7 +193,7 @@ export function SignupForm({ redirect, invite, referral, project }: { redirect: 
             return
         }
         if (!captchaToken) {
-            setFormError('Complete the security check above the button.')
+            setFormError(SECURITY_CHECK_PROMPT)
             return
         }
 
@@ -457,7 +457,7 @@ export function SignupForm({ redirect, invite, referral, project }: { redirect: 
                     <TurnstileWidget
                         key={captchaKey}
                         action="signup"
-                        onVerify={(token) => { setCaptchaToken(token); setFormError(null) }}
+                        onVerify={(token) => { setCaptchaToken(token); setFormError((current) => current === SECURITY_CHECK_PROMPT ? null : current) }}
                         onExpire={() => setCaptchaToken(null)}
                     />
                 ) : (

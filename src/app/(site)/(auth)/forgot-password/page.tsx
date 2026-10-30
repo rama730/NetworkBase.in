@@ -5,7 +5,7 @@ import type { FormEvent } from 'react'
 import { useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import TurnstileWidget, { hasTurnstileSiteKey } from '@/components/auth/TurnstileWidget'
+import TurnstileWidget, { hasTurnstileSiteKey, SECURITY_CHECK_PROMPT } from '@/components/auth/TurnstileWidget'
 import { AUTH_EMAIL_HANDOFF_KEY, AUTH_INPUT, AUTH_LINK, RECOVERY_PANEL, AuthAlert, AuthField, AuthShell, SubmitButton, fieldError } from '@/components/auth/AuthShell'
 import { buildOAuthRedirectTo, resolveAuthBaseUrl } from '@/lib/auth/redirects'
 import { loadBrowserSupabase } from '@/lib/auth/browser-auth-actions'
@@ -54,7 +54,7 @@ export default function ForgotPasswordPage() {
             return
         }
         if (requiresCaptcha && !captchaToken) {
-            setError('Complete the security check below.')
+            setError(SECURITY_CHECK_PROMPT)
             return
         }
 
@@ -85,7 +85,7 @@ export default function ForgotPasswordPage() {
         <TurnstileWidget
             key={captchaKey}
             action="forgot-password"
-            onVerify={(token) => { setCaptchaToken(token); setError(null) }}
+            onVerify={(token) => { setCaptchaToken(token); setError((current) => current === SECURITY_CHECK_PROMPT ? null : current) }}
             onExpire={() => setCaptchaToken(null)}
         />
     ) : null
