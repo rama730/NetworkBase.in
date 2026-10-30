@@ -3318,7 +3318,7 @@ export const storageAssets = pgTable(
       .on(t.verificationLeaseExpiresAt, t.updatedAt, t.id)
       .where(sql`${t.state} = 'pending' AND (${t.verificationLeaseToken} IS NOT NULL OR ${t.lastErrorCode} IS NOT NULL)`),
     backupDueIdx: index("storage_assets_backup_due_idx")
-      .on(t.verifiedAt, t.id)
+      .on(sql`(${t.lastErrorCode} IS NOT NULL)`, t.updatedAt, t.id)
       .where(sql`${t.backupState} = 'pending' AND ${t.state} IN ('verified', 'delete_pending')`),
     deletionDueIdx: index("storage_assets_deletion_due_idx")
       .on(t.deleteAfter, t.id)

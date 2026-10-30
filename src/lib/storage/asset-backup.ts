@@ -20,6 +20,19 @@ const BACKUP_DEADLINE_MS = 30 * 60 * 1000;
 const BACKUP_RETRY_AFTER = "1 hour";
 
 export async function backupPendingStorageAssets() {
+  // Backups are optional until STORAGE_BACKUP_AWS_* is set (see env.ts); assets wait as "pending" and the table is not read.
+  const config = getS3BackupConfig();
+  if (!config) {
+    const result = { attempted: 0, verified: 0, failed: 0 };
+    logger.metric("storage.asset_backup.batch", {
+      module: "storage",
+      action: "backup",
+      outcome: "configuration_missing",
+      ...result,
+    });
+    return result;
+  }
+
   const assets = await db
     .select({
       id: storageAssets.id,
@@ -53,19 +66,6 @@ export async function backupPendingStorageAssets() {
     return result;
   }
 
-  const config = getS3BackupConfig();
-  if (!config) {
-    // Backups are optional until STORAGE_BACKUP_AWS_* is set (see env.ts); assets wait as "pending".
-    const result = { attempted: 0, verified: 0, failed: 0 };
-    logger.metric("storage.asset_backup.batch", {
-      module: "storage",
-      action: "backup",
-      outcome: "configuration_missing",
-      pending: assets.length,
-      ...result,
-    });
-    return result;
-  }
   const admin = await createAdminClient();
   let verified = 0;
   let failed = 0;

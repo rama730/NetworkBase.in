@@ -27,7 +27,8 @@
     "drizzle/0021_new_table_rule.sql",
     "drizzle/0022_project_compat_views.sql",
     "drizzle/0023_user_mutes_muted_index.sql",
-    "drizzle/0024_connections_policy_cleanup.sql"
+    "drizzle/0024_connections_policy_cleanup.sql",
+    "drizzle/0025_storage_backup_due_index.sql"
   ],
   "legacyDatabaseTags": [],
   "allowedUtilitySqlFiles": [
