@@ -9,7 +9,8 @@ import { FIELD } from '@/components/trust/NewCaseDialog'
 import { Button } from '@/components/ui/button'
 
 type Outcome = 'upheld' | 'reduced' | 'reversed'
-const REPLIES: Record<Outcome, string> = {
+/** The built-in replies; admins can save their own on the Staff tab (R10). */
+export const APPEAL_REPLIES: Record<Outcome, string> = {
     upheld: 'We looked again and the decision stays. It broke our rules as described.',
     reduced: 'We looked again and made the decision lighter.',
     reversed: 'We looked again and got this wrong. We’ve reversed the decision.',
@@ -21,7 +22,8 @@ const REDUCTIONS = [
 ]
 
 /** The appeal outcome form (17.6). Reduced shows only lighter steps; the reply is required. */
-export function AppealOutcomeForm({ caseId, label, personName, selfReview, claimed, actions, onDone }: { caseId: string; label: string; personName: string; selfReview: boolean; claimed: boolean; actions: string[]; onDone?: () => void }) {
+export function AppealOutcomeForm({ caseId, label, personName, selfReview, claimed, actions, onDone, saved = {} }: { caseId: string; label: string; personName: string; selfReview: boolean; claimed: boolean; actions: string[]; onDone?: () => void; saved?: Partial<Record<`appeal:${Outcome}`, string>> }) {
+    const replies: Record<Outcome, string> = { upheld: saved['appeal:upheld'] ?? APPEAL_REPLIES.upheld, reduced: saved['appeal:reduced'] ?? APPEAL_REPLIES.reduced, reversed: saved['appeal:reversed'] ?? APPEAL_REPLIES.reversed }
     const router = useRouter()
     const [isMine, setIsMine] = useState(claimed)
     const [outcome, setOutcome] = useState<Outcome | null>(null)
@@ -34,7 +36,7 @@ export function AppealOutcomeForm({ caseId, label, personName, selfReview, claim
     const consequences = outcome === 'upheld' ? `${personName} gets M10: the decision stays. No second appeal.`
         : outcome === 'reduced' ? `${personName} gets M11 with the lighter step. The strike stays.`
         : outcome === 'reversed' ? `${personName} gets M11: everything is undone and the strike is removed.` : 'Pick an outcome.'
-    const pick = (next: Outcome) => { setOutcome(next); if (!reply || Object.values(REPLIES).includes(reply)) setReply(REPLIES[next]) }
+    const pick = (next: Outcome) => { setOutcome(next); if (!reply || Object.values(replies).includes(reply)) setReply(replies[next]) }
     return (
         <div className="max-w-[64ch] space-y-3">
             {!isMine ? <Button size="sm" variant="outline" disabled={pending} onClick={() => start(async () => { const r = await claimAppealAction(caseId); toast(r.success ? `You're reviewing the appeal on ${label}` : r.error); if (r.success) setIsMine(true) })}>I&apos;m reviewing</Button> : null}

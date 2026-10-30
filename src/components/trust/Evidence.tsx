@@ -102,7 +102,7 @@ function Drawn({ kind, s, compare }: { kind: ReportTargetKind; s: Snap; compare?
         const author = text(s.author) || 'Someone'
         return (
             <div className="rounded-[8px] border border-border bg-card p-4">
-                <p className="text-[13px]"><span className="font-semibold">{author}</span>{s.createdAt ? <span className="nb-meta"> · {istDateTime(text(s.createdAt))}</span> : null}</p>
+                <p className="text-[13px]"><span className="font-semibold">{author}</span>{s.createdAt ? <span className="text-[12px] text-muted-foreground"> · {istDateTime(text(s.createdAt))}</span> : null}</p>
                 {s.task ? <p className="text-[12px] text-muted-foreground">On {text(s.task)}</p> : null}
                 <p className="mt-2 whitespace-pre-wrap break-words text-[14px]">{text(s.content)}</p>
             </div>
@@ -141,7 +141,7 @@ function Thread({ caseId, s, targetSeq }: { caseId: string; s: Snap; targetSeq: 
     }
     const line = (m: Msg, key: string, marked = false) => (
         <li key={key} className={`px-3 py-2 ${marked ? 'border-l-2 border-primary bg-[var(--status-warning-soft)]' : ''}`}>
-            <p className="text-[13px]"><span className="font-semibold">{m.author ?? 'Someone'}</span>{m.at ? <span className="nb-meta"> · {istDateTime(m.at)}</span> : null}{marked ? <span className="nb-meta"> · reported</span> : null}</p>
+            <p className="text-[13px]"><span className="font-semibold">{m.author ?? 'Someone'}</span>{m.at ? <span className="text-[12px] text-muted-foreground"> · {istDateTime(m.at)}</span> : null}{marked ? <span className="text-[12px] text-muted-foreground"> · reported</span> : null}</p>
             <p className="whitespace-pre-wrap break-words text-[14px]">{m.deleted ? <span className="text-muted-foreground">Deleted</span> : m.body}</p>
         </li>
     )
@@ -184,7 +184,7 @@ function FilePreview({ caseId, s }: { caseId: string; s: Snap }) {
 }
 
 export function Evidence({ caseId, kind, reason, snapshot, live, liveState, targetSeq }: {
-    caseId: string; kind: ReportTargetKind; reason: ReportReason; snapshot: Snap; live: Snap | null; liveState: 'deleted' | 'unchanged' | 'edited'; targetSeq: number | null
+    caseId: string; kind: ReportTargetKind; reason: ReportReason; snapshot: Snap; live: Snap | null; liveState: 'deleted' | 'unchanged' | 'edited' | null; targetSeq: number | null
 }) {
     const [view, setView] = useState<'reported' | 'now' | 'changes'>('reported')
     const edited = liveState === 'edited' && live
@@ -197,7 +197,7 @@ export function Evidence({ caseId, kind, reason, snapshot, live, liveState, targ
         <section aria-labelledby="evidence-title">
             <div className="mb-2 flex flex-wrap items-center gap-2">
                 <h2 id="evidence-title" className="text-[15px] font-semibold">What was reported</h2>
-                <span className="text-[12px] text-muted-foreground">{liveState === 'deleted' ? 'Deleted since' : liveState === 'edited' ? 'Edited since' : 'Unchanged'}</span>
+                <span className="text-[12px] text-muted-foreground">{liveState === null ? 'Checking for changes…' : liveState === 'deleted' ? 'Deleted since' : liveState === 'edited' ? 'Edited since' : 'Unchanged'}</span>
                 {edited ? (
                     <div role="tablist" aria-label="Version" className="ml-auto flex gap-1">
                         {(['reported', 'now', 'changes'] as const).map((v) => (

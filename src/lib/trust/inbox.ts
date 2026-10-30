@@ -3,7 +3,7 @@ import "server-only";
 import { and, eq, sql } from "drizzle-orm";
 
 import { db } from "@/lib/db";
-import { moderationCases, moderationRuleTemplates } from "@/lib/db/schema";
+import { moderationCases, moderationMessageTemplates } from "@/lib/db/schema";
 import { createAdminClient } from "@/lib/supabase/server";
 import { logModerationEvent } from "@/lib/trust/cases";
 import { notifySafety } from "@/lib/trust/notify";
@@ -28,7 +28,7 @@ export type InboxItem = {
   label: string | null; reports: number; due_at: string | null; created_at: string; sort_at: string;
   routed_to: string | null; pile_on: boolean; legal_hold: boolean; escalated: boolean; source: string | null; version: number;
   subject_id: string | null; subject_name: string | null; subject_username: string | null; subject_avatar: string | null;
-  claimer_id: string | null; claimer_name: string | null; assigned_id: string | null; assigned_name: string | null; outcome: string | null;
+  claimer_id: string | null; claimer_name: string | null; assigned_id: string | null; assigned_name: string | null; outcome: string | null; decided_at: string | null;
 };
 
 /** One page of the Inbox, ordered by what's due first; the cursor is the last row's sort key and id. */
@@ -68,7 +68,7 @@ export async function readInbox(staffId: string, f: InboxFilters, cursor: { at: 
              c.routed_to, c.pile_on, c.legal_hold, c.escalated_at IS NOT NULL AS escalated, c.source, c.version, c.outcome,
              c.subject_id, s.full_name AS subject_name, s.username AS subject_username, s.avatar_url AS subject_avatar,
              CASE WHEN ${LIVE_LEASE} THEN c.assignee_id END AS claimer_id, CASE WHEN ${LIVE_LEASE} THEN coalesce(a.full_name, a.username) END AS claimer_name,
-             c.assigned_to AS assigned_id, coalesce(g.full_name, g.username) AS assigned_name
+             c.assigned_to AS assigned_id, coalesce(g.full_name, g.username) AS assigned_name, c.decided_at::text AS decided_at
       FROM moderation_cases c LEFT JOIN profiles s ON s.id = c.subject_id LEFT JOIN profiles a ON a.id = c.assignee_id LEFT JOIN profiles g ON g.id = c.assigned_to
       WHERE ${sql.join(caseWhere, sql` AND `)}` : null,
     withAppeals ? sql`
@@ -76,7 +76,7 @@ export async function readInbox(staffId: string, f: InboxFilters, cursor: { at: 
              ${done ? sql`coalesce(ap.decided_at, ap.created_at)` : sql`ap.deadline_at`},
              'staff', false, c.legal_hold, false, 'appeal', c.version, ap.state,
              ap.subject_id, s.full_name, s.username, s.avatar_url,
-             CASE WHEN ap.state = 'in_review' THEN ap.assignee_id END, CASE WHEN ap.state = 'in_review' THEN coalesce(a.full_name, a.username) END, NULL::uuid, NULL
+             CASE WHEN ap.state = 'in_review' THEN ap.assignee_id END, CASE WHEN ap.state = 'in_review' THEN coalesce(a.full_name, a.username) END, NULL::uuid, NULL, ap.decided_at::text
       FROM moderation_appeals ap JOIN moderation_cases c ON c.id = ap.case_id LEFT JOIN profiles s ON s.id = ap.subject_id LEFT JOIN profiles a ON a.id = ap.assignee_id
       WHERE ${done ? sql`ap.state NOT IN ('pending', 'in_review')` : sql`ap.state IN ('pending', 'in_review')`}
         AND ${view === "mine" ? sql`ap.assignee_id = ${staffId}` : view === "needs_me" ? sql`(ap.assignee_id IS NULL OR ap.assignee_id = ${staffId})` : sql`true`}
@@ -84,7 +84,7 @@ export async function readInbox(staffId: string, f: InboxFilters, cursor: { at: 
     withVerification ? sql`
       SELECT 'verification', w.id, NULL::int, NULL, 'open', NULL, 'project', w.title, 0, w.verification_requested_at + interval '3 days', w.verification_requested_at,
              w.verification_requested_at + interval '3 days', NULL, false, false, false, 'verification', 1, NULL,
-             w.owner_id, o.full_name, o.username, o.avatar_url, NULL::uuid, NULL, NULL::uuid, NULL
+             w.owner_id, o.full_name, o.username, o.avatar_url, NULL::uuid, NULL, NULL::uuid, NULL, NULL::text
       FROM workspaces w LEFT JOIN profiles o ON o.id = w.owner_id
       WHERE w.kind = 'organization' AND w.verification_requested_at IS NOT NULL AND w.verified_at IS NULL AND w.deleted_at IS NULL
         AND ${q ? sql`w.title ILIKE ${`%${q}%`}` : sql`true`}` : null,
@@ -283,19 +283,22 @@ export async function filePreviewUrl(caseId: string) {
   return error || !data?.signedUrl ? null : { url: data.signedUrl, mime: f.mime, name: f.name };
 }
 
-/** Message templates per rule (S13); a rule without one starts from the built-in sentence. */
-export async function ruleTemplates() {
-  const rows = await db.select({ rule: moderationRuleTemplates.rule, message: moderationRuleTemplates.message }).from(moderationRuleTemplates);
-  return Object.fromEntries(rows.map((r) => [r.rule, r.message])) as Record<number, string>;
+export type TemplateKey = `rule:${number}` | `appeal:${"upheld" | "reduced" | "reversed"}`;
+export const TEMPLATE_KEY = /^(rule:([1-9]|1[0-5])|appeal:(upheld|reduced|reversed))$/;
+
+/** Saved messages (S13, R10): per rule and per appeal outcome; a missing one starts from the built-in sentence. */
+export async function messageTemplates() {
+  const rows = await db.select({ key: moderationMessageTemplates.key, message: moderationMessageTemplates.message }).from(moderationMessageTemplates);
+  return Object.fromEntries(rows.map((r) => [r.key, r.message])) as Partial<Record<TemplateKey, string>>;
 }
 
-export async function saveRuleTemplate(rule: number, message: string, staffId: string) {
-  const text = message.trim();
+export async function saveMessageTemplate(key: TemplateKey, message: string, staffId: string) {
+  const text = message.trim().slice(0, 4000);
   if (!text) {
-    await db.delete(moderationRuleTemplates).where(eq(moderationRuleTemplates.rule, rule));
+    await db.delete(moderationMessageTemplates).where(eq(moderationMessageTemplates.key, key));
   } else {
-    await db.insert(moderationRuleTemplates).values({ rule, message: text.slice(0, 2000), updatedBy: staffId })
-      .onConflictDoUpdate({ target: moderationRuleTemplates.rule, set: { message: text.slice(0, 2000), updatedBy: staffId, updatedAt: new Date() } });
+    await db.insert(moderationMessageTemplates).values({ key, message: text, updatedBy: staffId })
+      .onConflictDoUpdate({ target: moderationMessageTemplates.key, set: { message: text, updatedBy: staffId, updatedAt: new Date() } });
   }
-  await logModerationEvent(db, { caseId: null, actorId: staffId, kind: "template_saved", data: { rule, label: ruleLabel(rule) } });
+  await logModerationEvent(db, { caseId: null, actorId: staffId, kind: "template_saved", data: { key, label: key.startsWith("rule:") ? ruleLabel(Number(key.slice(5))) : key } });
 }

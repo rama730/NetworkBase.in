@@ -16,7 +16,7 @@ import { EmptyState } from '@/components/ui/EmptyState'
 import type { readActive, readAudit, readVerification } from '@/lib/trust/console'
 import { ACTION_LABEL, caseLabel, ruleLabel, type ModerationActionKind } from '@/lib/trust/rules'
 
-const TH = 'nb-micro px-2 py-2 text-left font-medium'
+const TH = 'px-2 py-2 text-left text-[12px] font-medium text-muted-foreground'
 const TD = 'px-2 py-2.5 align-top text-[13px]'
 
 /** `onDone` in place of a page refresh where the data lives in the client (the Inbox, S6). */
@@ -127,7 +127,7 @@ export function VerificationList({ rows, onDone }: { rows: Awaited<ReturnType<ty
                         <div className="min-w-0 flex-1 text-[13px]">
                             <Link href={`/org/${encodeURIComponent(r.slug ?? r.id)}`} className="font-medium underline underline-offset-4">{r.title}</Link>
                             <p className="text-muted-foreground">{sites.length ? sites.map(host).join(' · ') : 'No website'}</p>
-                            <p className="nb-meta">Owner domain {domain ?? '—'} · <span className={match ? 'text-[var(--status-success)]' : 'text-[var(--status-warning)]'}>{match ? 'Match' : 'No match'}</span> · requested {istDate(r.requested_at)}</p>
+                            <p className="text-[12px] text-muted-foreground">Owner domain {domain ?? '—'} · <span className={match ? 'text-[var(--status-success)]' : 'text-[var(--status-warning)]'}>{match ? 'Match' : 'No match'}</span> · requested {istDate(r.requested_at)}</p>
                         </div>
                         <Button size="sm" disabled={pending} onClick={() => run(() => decideVerificationAction(r.id, true), 'Organization verified')}>Verify organization</Button>
                         <Button size="sm" variant="outline" disabled={pending} onClick={() => setDeclining({ id: r.id, title: r.title })}>Decline</Button>
@@ -191,10 +191,10 @@ export function AuditTable({ data, staff, filters }: { data: Awaited<ReturnType<
                 <tbody className="divide-y divide-border">
                     {rows.map((r) => (
                         <tr key={r.id}>
-                            <td className={`${TD} nb-meta whitespace-nowrap`}>{istDateTime(r.created_at)}</td>
+                            <td className={`${TD} whitespace-nowrap font-mono text-[12px] tabular-nums text-muted-foreground`}>{istDateTime(r.created_at)}</td>
                             <td className={TD}>{r.staff ?? '—'}</td>
                             <td className={TD}>{r.kind.replace(/_/g, ' ')}</td>
-                            <td className={TD}>{r.case_number ? <Link href={caseHref(r.case_number)} className="nb-meta text-foreground underline underline-offset-4">{caseLabel(r.case_number)}</Link> : '—'}</td>
+                            <td className={TD}>{r.case_number ? <Link href={caseHref(r.case_number)} className="font-mono text-[12px] tabular-nums underline underline-offset-4">{caseLabel(r.case_number)}</Link> : '—'}</td>
                             <td className={TD}>{typeof r.data.rule === 'number' ? ruleLabel(r.data.rule) : '—'}</td>
                             <td className={`${TD} max-w-[40ch]`}><span className="line-clamp-2" title={String(r.data.body ?? r.data.note ?? r.data.reason ?? '')}>{String(r.data.body ?? r.data.note ?? r.data.reason ?? '')}</span></td>
                         </tr>

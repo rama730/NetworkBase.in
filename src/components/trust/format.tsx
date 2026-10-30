@@ -1,16 +1,20 @@
-import { caseLabel, type Severity } from '@/lib/trust/rules'
+import { caseLabel } from '@/lib/trust/rules'
 
-// Console formatting (17.3, 17.14): severity badges on the shared status chip, deadlines in words, dates in IST.
+// Console formatting (17.3, 17.14): case states, deadlines in words, dates in IST.
 
-const SEVERITY_STATUS: Record<Severity, string> = { urgent: 'blocked', high: 'draft', normal: 'archived' }
+const OUTCOME: Record<string, string> = { no_violation: 'No rule broken', actioned: 'Action taken', duplicate: 'Duplicate', upheld: 'Appeal upheld', reduced: 'Appeal reduced', reversed: 'Appeal reversed', withdrawn: 'Appeal withdrawn' }
+const UNDO_MS = 10_000
 
-export function SeverityBadge({ severity }: { severity: Severity }) {
-    return <span className="nb-status" data-status={SEVERITY_STATUS[severity]}>{severity}</span>
-}
-
-export function StateBadge({ state, outcome }: { state: string; outcome?: string | null }) {
-    const text = state === 'in_review' ? 'In review' : state === 'decided' ? (outcome === 'no_violation' ? 'No violation' : 'Actioned') : state === 'closed' ? (outcome ?? 'Closed') : 'Open'
-    return <span className="nb-status" data-status={state === 'decided' || state === 'closed' ? 'completed' : 'active'}>{text.replace('_', ' ')}</span>
+/**
+ * One set of states everywhere (redesign, core workflow): Open → In review (leased) → Decided (Undo 10 s) → Final →
+ * Appealed → Final. Plain text, never a coloured box (R7).
+ */
+export function caseState(c: { state: string; outcome?: string | null; decided_at?: string | null; leased?: boolean; appeal_state?: string | null }, now = Date.now()) {
+    if (c.state === 'open' || c.state === 'in_review') return c.leased ? 'In review' : 'Open'
+    if (c.appeal_state === 'pending' || c.appeal_state === 'in_review') return 'Appealed'
+    const outcome = OUTCOME[c.appeal_state && c.appeal_state !== 'withdrawn' ? c.appeal_state : c.outcome ?? ''] ?? null
+    const fresh = c.decided_at && now - new Date(c.decided_at).getTime() < UNDO_MS
+    return `${fresh ? 'Decided · Undo 10 s' : 'Final'}${outcome ? ` · ${outcome}` : ''}`
 }
 
 const span = (ms: number) => {

@@ -29,7 +29,7 @@ export function StaffList({ staff, canEdit }: { staff: Array<{ id: string; role:
                 {staff.map((s) => (
                     <li key={s.id} className="flex items-center gap-2 py-1.5 text-[13px]">
                         <span className="min-w-0 flex-1 truncate">{s.name ?? s.email ?? s.id}</span>
-                        <span className="nb-meta">{s.role}</span>
+                        <span className="text-[12px] text-muted-foreground">{s.role}</span>
                         {canEdit ? <Button size="sm" variant="ghost" disabled={pending} onClick={() => run(s.id, null, `${s.name ?? 'Staff member'} removed from staff`)}>Remove</Button> : null}
                     </li>
                 ))}
@@ -43,7 +43,7 @@ export function StaffList({ staff, canEdit }: { staff: Array<{ id: string; role:
                     <Button type="submit" variant="outline" disabled={pending || !who.trim()}>Add to staff</Button>
                 </form>
             ) : <p className="text-[13px] text-muted-foreground">Only admins change staff.</p>}
-            <p className="nb-meta">Changes apply when the person next signs in. Staff need an authenticator.</p>
+            <p className="text-[12px] text-muted-foreground">Changes apply when the person next signs in. Staff need an authenticator.</p>
             {stepUp.dialog}
         </div>
     )
