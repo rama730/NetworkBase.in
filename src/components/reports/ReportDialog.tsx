@@ -80,7 +80,7 @@ export function ReportDialog({ kind, targetId, seq, noun, personName, joinCode, 
                             </DialogDescription>
                         </DialogHeader>
                         <div className="space-y-2 px-6 pb-5">
-                            <p className="nb-compact text-foreground">Case <span className="font-mono">{sent.caseNumber}</span>{sent.blocked && personName ? ` · You've also blocked ${personName}.` : ''}</p>
+                            <p className="nb-compact text-foreground">Case <span className="font-mono">{sent.caseNumber}</span>{sent.blocked && personName ? ` · You’ve also blocked ${personName}.` : ''}</p>
                             <p className="nb-compact text-muted-foreground">You can follow it in <Link href="/settings#settings-privacy-reports" className="underline underline-offset-4">Settings → Privacy → Your reports</Link>.</p>
                             {/* A safety check after blocking for harassment, threats or private information (Blocking B30). */}
                             {sent.blocked && reason && BLOCK_BY_DEFAULT.includes(reason) ? <SafetyCheck /> : null}

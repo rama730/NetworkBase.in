@@ -38,7 +38,7 @@ async function staff(): Promise<{ id: string; role: StaffRole } | null> {
 }
 const refresh = () => revalidatePath('/admin/trust', 'layout');
 
-/** The avatar menu's "Trust & safety" entry: null for everyone but staff (C1). */
+/** The avatar menu's "Trust and safety" entry: null for everyone but staff (C1). */
 export async function staffBadgeAction(): Promise<{ count: number } | null> {
     const { user } = await getViewerAuthContext();
     if (!staffRoleOf(user)) return null;
@@ -393,7 +393,7 @@ export async function eventsSinceAction(seq: number | null) {
 export async function assignCaseAction(caseId: string, to: string | null, reason: string, expectedVersion?: number | null): Promise<Result> {
     const me = await staff();
     if (!me || !uuid.safeParse(caseId).success || (to !== null && !uuid.safeParse(to).success)) return DENIED;
-    if (to && !(await listStaff()).some((s) => s.id === to)) return { success: false, error: 'Pick someone on the trust & safety team.' };
+    if (to && !(await listStaff()).some((s) => s.id === to)) return { success: false, error: 'Pick someone on the trust and safety team.' };
     const r = await assignCase(caseId, me.id, to, String(reason ?? '').trim(), expectedVersion);
     return r.ok ? { success: true } : { success: false, error: r.error, code: 'code' in r ? r.code : undefined };
 }

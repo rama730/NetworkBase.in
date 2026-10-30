@@ -41,9 +41,9 @@ export async function appealContext(userId: string, number: number) {
 
 export async function fileAppeal(userId: string, number: number, body: string, fixed: boolean): Promise<Result<{ decideBy: Date }>> {
   const ctx = await appealContext(userId, number);
-  if (!ctx) return { ok: false, error: "There's no decision to appeal." };
+  if (!ctx) return { ok: false, error: "There’s no decision to appeal." };
   if (ctx.status === "sent") return { ok: false, error: `You already appealed ${caseLabel(number)}.` };
-  if (ctx.status === "not_appealable") return { ok: false, error: "This decision can't be appealed." };
+  if (ctx.status === "not_appealable") return { ok: false, error: "This decision can’t be appealed." };
   if (ctx.status === "closed") return { ok: false, error: "The appeal window has closed. Questions? Email support@networkbase.in." };
   const text = body.trim();
   if (!text || text.length > 1000) return { ok: false, error: "Tell us why, in up to 1,000 characters." };
@@ -112,7 +112,7 @@ export async function decideAppeal(caseId: string, staffId: string, outcome: "up
   } else if (outcome === "reduced") {
     if (!reduceTo) return { ok: false, error: "Pick the lighter step." };
     const target = reduceTo.action === "hide" ? actions.find((a) => a.action === "remove") : actions.find((a) => ["ban", "suspension", "limit"].includes(a.action));
-    if (!target) return { ok: false, error: "There's nothing to reduce to that." };
+    if (!target) return { ok: false, error: "There’s nothing to reduce to that." };
     // A suspension reduced to a limit puts the profile back in search.
     if (target.action === "suspension") {
       await db.execute(sql`UPDATE profiles SET visibility = coalesce(${target.restore?.visibility ?? null}, visibility) WHERE id = ${row.subject_id}

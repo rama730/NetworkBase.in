@@ -245,10 +245,10 @@ export async function decideCase(caseId: string, actor: Actor, decision: Decisio
     const account = decision.account ?? null;
     if (!content && !account) return { ok: false, error: "Pick at least one action." };
     if (!decision.rule) return { ok: false, error: "Pick the rule that was broken." };
-    if (content && !actionsFor(c.target_kind).includes(content)) return { ok: false, error: "That action doesn't fit this kind of thing." };
-    if (account && !c.subject_id) return { ok: false, error: "There's no account to act on." };
+    if (content && !actionsFor(c.target_kind).includes(content)) return { ok: false, error: "That action doesn’t fit this kind of thing." };
+    if (account && !c.subject_id) return { ok: false, error: "There’s no account to act on." };
     if (actor.scope === "org") {
-      if (account && account.action !== "warning") return { ok: false, error: "Organizations can warn, hide or remove; account limits are NetworkBase's." };
+      if (account && account.action !== "warning") return { ok: false, error: "Organizations can warn, hide or remove; account limits are NetworkBase’s." };
       if (content && content !== "hide" && content !== "remove") return { ok: false, error: "Organizations can only hide or remove content." };
     } else if ((content && ADMIN_ONLY_ACTIONS.includes(content)) || (account && ADMIN_ONLY_ACTIONS.includes(account.action))) {
       if (actor.role !== "admin") return { ok: false, error: "Only admins can ban or remove a workspace." };

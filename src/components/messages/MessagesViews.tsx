@@ -951,7 +951,7 @@ export function DraftsView() {
                     <span className="font-medium">To {item.channel_name ? `#${item.channel_name}` : titleOf(item.channel_id)}</span>
                     <span className={item.failed_reason ? "text-destructive" : "text-muted-foreground"}>
                       {/* Yours to someone you blocked were cancelled by the block (Blocking B16); only you ever see this. */}
-                      {item.failed_reason === "cancelled_by_block" ? `Cancelled because you blocked ${titleOf(item.channel_id)}`
+                      {item.failed_reason === "cancelled_by_block" ? `Canceled because you blocked ${titleOf(item.channel_id)}`
                         : item.failed_reason ? `Couldn’t send: ${chatErrorMessage(item.failed_reason)}` : formatChatTime(item.send_at, "at")}
                     </span>
                   </p>

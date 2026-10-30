@@ -126,8 +126,7 @@ async function main() {
       INSERT INTO connections (requester_id, addressee_id, status) VALUES (${owner}, ${member}, 'accepted');
     `;
     await sql`
-      INSERT INTO connections (requester_id, addressee_id, status, blocked_by, blocked_at)
-      VALUES (${blocked}, ${owner}, 'blocked', ${blocked}, now())
+      INSERT INTO user_blocks (blocker_id, blocked_id) VALUES (${blocked}, ${owner})
     `;
     await sql`INSERT INTO workspaces (id, owner_id, title) VALUES (${projectId}, ${owner}, 'Chat test'), (${otherProject}, ${stranger}, 'Other')`;
     await sql`
@@ -267,7 +266,7 @@ async function main() {
     });
     await check("blocked user cannot send into an existing DM", async () => {
       const [{ id }] = await sql`SELECT app_private.chat_get_or_create_dm(${owner}::uuid, ${admin}::uuid, 'invite') AS id`;
-      await sql`INSERT INTO connections (requester_id, addressee_id, status, blocked_by, blocked_at) VALUES (${admin}, ${owner}, 'blocked', ${admin}, now())`;
+      await sql`INSERT INTO user_blocks (blocker_id, blocked_id) VALUES (${admin}, ${owner})`;
       return denied(() => send(id, owner, "still there?"));
     });
     await check("archived channel refuses sends", async () => {
@@ -370,7 +369,7 @@ async function main() {
       const [{ group }] = await sql`SELECT app_private.chat_create_group(${owner}::uuid, ${[member, open]}::uuid[]) AS group`;
       const [row] = await sql`SELECT kind, name, workspace_id AS workspace_id, member_count FROM chat_channels WHERE id = ${group}`;
       const refused = await denied(() => sql`SELECT app_private.chat_create_group(${owner}::uuid, ${[blocked]}::uuid[])`);
-      return row.kind === "private" && row.name === null && row.project_id === null && row.member_count === 3 && refused;
+      return row.kind === "private" && row.name === null && row.workspace_id === null && row.member_count === 3 && refused;
     });
 
     // --- applications and cards

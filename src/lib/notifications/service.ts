@@ -63,7 +63,7 @@ async function applyBlockRule(tx: NotificationWriteExecutor, input: CreateNotifi
     }
     const [row] = await tx.execute(sql`SELECT app_private.blocked_between(${input.actorUserId}::uuid, ${input.recipientUserId}::uuid) AS blocked`) as unknown as Array<{ blocked: boolean }>;
     if (!row?.blocked) return input;
-    // Acting on someone you're in a block with is recorded for trust & safety only, never for the place (B49, rule 7).
+    // Acting on someone you're in a block with is recorded for trust and safety only, never for the place (B49, rule 7).
     if (input.placeNotice && input.placeAction) {
         await tx.execute(sql`
             INSERT INTO moderation_events (actor_id, kind, data)

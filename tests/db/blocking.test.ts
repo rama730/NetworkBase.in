@@ -163,7 +163,7 @@ test("grouped with someone you blocked: only the blocker gets a private heads-up
   await sql`DELETE FROM user_notifications WHERE user_id IN (${a}, ${b})`;
 });
 
-test("an admin's action across a block arrives from the place and is recorded for trust & safety only (B47, B49, B13)", async () => {
+test("an admin's action across a block arrives from the place and is recorded for trust and safety only (B47, B49, B13)", async () => {
   const { a, b } = await pair();
   await block(b, a);
   const result = await notifications.createNotification({

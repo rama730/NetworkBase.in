@@ -169,7 +169,7 @@ export default function CommandPalette({ isOpen, onClose, initialQuery = "", con
         const q = query.trim();
         const caseNumber = q.match(/^nb-?(\d{1,9})$/i)?.[1];
         if (caseNumber) return { label: `Open case NB-${caseNumber}`, href: `/admin/trust?case=NB-${caseNumber}` };
-        return q.length >= 2 && /^(t(r(u(st?)?)?)?|safety|report|reports|moderation|case|cases)/i.test(q) ? { label: "Open Trust & safety", href: "/admin/trust" } : null;
+        return q.length >= 2 && /^(t(r(u(st?)?)?)?|safety|report|reports|moderation|case|cases)/i.test(q) ? { label: "Open Trust and safety", href: "/admin/trust" } : null;
     }, [isStaff, query]);
     const normalizedQuery = query.trim();
     const settingsResults = useMemo(

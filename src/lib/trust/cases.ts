@@ -81,7 +81,7 @@ export async function fileReport(reporterId: string, input: { kind: ReportTarget
     SELECT EXISTS (SELECT 1 FROM workspaces WHERE id = ${input.targetId} AND join_code = ${input.joinCode} AND join_code_enabled AND deleted_at IS NULL) AS ok`) : [];
   const target = await resolveReportTarget(input.kind, input.targetId, input.seq ?? null, viaCode?.ok ? null : reporterId);
   if (!target) return { ok: false, error: "That is no longer available." };
-  if (target.subjectId === reporterId) return { ok: false, error: "You can't report your own " + KIND_NOUN[input.kind] + ". You can edit or delete it." };
+  if (target.subjectId === reporterId) return { ok: false, error: "You can’t report your own " + KIND_NOUN[input.kind] + ". You can edit or delete it." };
 
   const rule = REASON_RULES[input.reason];
   const seqKey = target.seq ?? 0;
@@ -93,7 +93,7 @@ export async function fileReport(reporterId: string, input: { kind: ReportTarget
       SELECT c.number::int AS number FROM content_reports r JOIN moderation_cases c ON c.id = r.case_id
       WHERE r.reporter_id = ${reporterId} AND r.target_kind = ${input.kind} AND r.target_id = ${input.targetId}
         AND coalesce(r.target_seq, 0) = ${seqKey} AND r.status = 'open'`);
-    if (mine) return { ok: false, error: `You've already reported this. Case ${caseLabel(mine.number)} is in review.`, caseNumber: mine.number };
+    if (mine) return { ok: false, error: `You’ve already reported this. Case ${caseLabel(mine.number)} is in review.`, caseNumber: mine.number };
     // Reported again after "No rule broken": only with something new to say (§19.5).
     const [reviewed] = await tx.execute<{ number: number }>(sql`
       SELECT c.number::int AS number FROM content_reports r JOIN moderation_cases c ON c.id = r.case_id
@@ -166,13 +166,13 @@ export async function fileReport(reporterId: string, input: { kind: ReportTarget
   if (!result.ok) return result;
   const noun = KIND_NOUN[input.kind];
   if (result.hide && target.subjectId) {
-    await notifySafety({ to: target.subjectId, title: `Your ${noun} is hidden while we review it`, body: `We'll decide within 1 hour. ${caseLabel(result.caseNumber)}.`, dedupeKey: `hidden:${result.caseId}` });
+    await notifySafety({ to: target.subjectId, title: `Your ${noun} is hidden while we review it`, body: `We’ll decide within 1 hour. ${caseLabel(result.caseNumber)}.`, dedupeKey: `hidden:${result.caseId}` });
   }
   // Self-harm is support first (F9): a gentle notice at once, no penalty.
   if (result.selfHarmFirst && target.subjectId) {
     await notifySafety({
       to: target.subjectId, title: "Someone who cares about you asked us to check in",
-      body: "If you're going through something hard, you can talk to someone now: Tele-MANAS 14416 or KIRAN 1800-599-0019 (free, any time).",
+      body: "If you’re going through something hard, you can talk to someone now: Tele-MANAS 14416 or KIRAN 1800-599-0019 (free, any time).",
       href: "/acceptable-use#rule-11", dedupeKey: `support:${result.caseId}`,
     });
   }

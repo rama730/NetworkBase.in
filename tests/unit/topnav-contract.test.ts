@@ -302,7 +302,7 @@ test("top-nav keeps one accessible, route-aligned implementation", () => {
   assert.match(hubData, /eq\(connections\.status, 'accepted'\)/);
   assert.match(hubData, /connectedFriend/);
   assert.match(hubData, /acceptedRoleTitle/);
-  assert.match(hubData, /Owner \/ /);
+  assert.match(hubData, / · Owner/);
   assert.match(hubData, /connectionRank/);
   assert.match(searchPreviews, /fetchDiscoverWorkspacesAction/);
   assert.match(searchPreviews, /getConnectionsFeed/);

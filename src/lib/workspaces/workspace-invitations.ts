@@ -123,7 +123,7 @@ export async function createWorkspaceInvitation(input: CreateWorkspaceInvitation
         if (!project || project.status === "archived") throw new Error("Workspace is unavailable");
         // Restricted by NetworkBase (trust and safety §7.2): private only, no new invites.
         const [restricted] = await tx.select({ at: workspaces.restrictedAt }).from(workspaces).where(eq(workspaces.id, input.projectId)).limit(1);
-        if (restricted?.at) throw new Error("This workspace is restricted for now, so it can't invite anyone");
+        if (restricted?.at) throw new Error("This workspace is restricted for now, so it can’t invite anyone");
 
         await tx.update(workspaceInvitations)
             .set({ status: "expired", resolvedAt: now, updatedAt: now })

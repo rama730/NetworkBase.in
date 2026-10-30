@@ -77,7 +77,7 @@ const PLACE_EVENTS = new Set<string>([
     "security.project_archived", "security.delete_scheduled",
 ]);
 const ASSIGN_EVENTS = new Set<string>(["tasks.assigned", "tasks.created_assigned"]);
-// The ones that act against someone: across a block, trust & safety gets a private record (B49).
+// The ones that act against someone: across a block, trust and safety gets a private record (B49).
 const ADVERSE_EVENTS = new Set<string>(["members.removed", "members.role_changed", "access.file_upload_permission_changed", "applications.decision", "assignments.reviewed"]);
 
 function displayProjectTitle(project: ProjectRow) {

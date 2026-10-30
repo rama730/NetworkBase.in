@@ -30,7 +30,7 @@ const ACCOUNT_OPTIONS: Array<{ id: string; label: string; value: Account | null;
 ]
 const accountId = (a: { action: ModerationActionKind; days?: number }) => (a.action === 'warning' ? 'warning' : `${a.action}${a.days ?? ''}`)
 const dateIn = (days: number) => new Intl.DateTimeFormat('en-IN', { day: 'numeric', month: 'short', timeZone: 'Asia/Kolkata' }).format(new Date(Date.now() + days * 86_400_000))
-const builtIn = (rule: number) => `Please read ${ruleLabel(rule)} in our community rules. Repeated breaks lead to limits on your account.`
+const builtIn = (rule: number) => `Read ${ruleLabel(rule)} in our community rules. Repeated breaks lead to limits on your account.`
 const HEARTBEAT_MS = 45_000
 export const isTyping = (target: EventTarget | null) => target instanceof HTMLElement && (target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName))
 
