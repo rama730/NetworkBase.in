@@ -10,6 +10,8 @@
 
 > **Update, end of day 2026-10-30:** 0023–0028 are live. 0029 (drop the 29 old-name views, browser access to notification preferences) and the search index reindex are ready and tested, waiting on production permission. `check:chat:db`, `check:profile-contributions`, `check:terminology` and the top-nav test all pass now. Realtime load (P3) and the connection listeners (B1) stay as they are, on purpose.
 
+> **Update 2, end of day 2026-10-30:** independent reviews ran on the changes. Ready and tested locally, waiting for production approval: `0030` (drop 3 unused tables from the realtime publication), `0031` (browsers read only their own member and follow rows), `0032` (revoke 9 unused helper functions, drop the `task-files` rules), `0033` (deletion grace in read rules). Realtime polling is 44.4 hours over 287 days, about 0.6% of one core, so a move to broadcasts waits for real load. Index removal showed no measurable write gain on `workspace_nodes`.
+
 ## 1. Summary
 
 | | Today | After the cleanup | After the fixes |

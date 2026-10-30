@@ -9,11 +9,11 @@ This runbook defines the production contract for the profile contribution ecosys
 | Platform project identity, title, slug, and URL | `projects` | No | Read through the project relation; do not copy mutable project identity into profile JSON. |
 | Platform membership lifecycle and membership role | project owner/member/application lifecycle | No | Membership upsert/end commands create and close the normalized contribution and role history. |
 | Platform display role | shared `formatProjectTeamRole` policy | No | Uses the same `Lead / focus` and member-role terminology as the project team card. |
-| Contribution summary, skills, repository, start/end display months | `profile_project_contributions` | Yes | Changed only through the typed contribution batch command. |
-| Public/private visibility | `profile_project_contributions.visibility` | Yes | One parent switch. Stage visibility is only a compatibility mirror. |
-| External project identity and presentation | `profile_project_contributions` with `project_id IS NULL` and stable `external_key` | Yes | External contributions may be created, edited, and deleted by the profile owner. |
+| Contribution summary, skills, repository, start/end display months | `profile_contributions` | Yes | Changed only through the typed contribution batch command. |
+| Public/private visibility | `profile_contributions.visibility` | Yes | One parent switch. Stage visibility is only a compatibility mirror. |
+| External project identity and presentation | `profile_contributions` with `workspace_id IS NULL` and stable `external_key` | Yes | External contributions may be created, edited, and deleted by the profile owner. |
 | Canonical skills | `profile_contribution_skills` joined to `skills` | Yes | The JSON label array is a compatibility projection, not the read authority. |
-| Recorded role history | `profile_project_contribution_stages` | No | Bounded history created by membership/application lifecycle events. Personal presentation positions live in the story snapshot and cannot change these rows. |
+| Recorded role history | `profile_contribution_stages` | No | Bounded history created by membership/application lifecycle events. Personal presentation positions live in the story snapshot and cannot change these rows. |
 | Mutation history and retry identity | `profile_audit_events` | No | One unique audit row per user and idempotency key. |
 
 ## Forty-two-point closure map
@@ -23,7 +23,7 @@ This runbook defines the production contract for the profile contribution ecosys
 | 1 | Normalized tables are authoritative | Contribution, stage, skill-assignment, and audit tables own runtime state; profile JSON is compatibility-only. |
 | 2 | Explicit field ownership | The field ownership matrix above separates lifecycle, identity, presentation, visibility, and history. |
 | 3 | Typed discriminated model | Strict `platform`, `external`, and `external-delete` command variants reject unknown fields. |
-| 4 | Normalize external contributions | External rows use `project_id IS NULL`, a stable external key, title, URLs, and optimistic version. |
+| 4 | Normalize external contributions | External rows use `workspace_id IS NULL`, a stable external key, title, URLs, and optimistic version. |
 | 5 | One visibility authority | Only the parent contribution controls presentation; stage visibility is a compatibility mirror. |
 | 6 | One active-date rule | Month inputs normalize to UTC boundaries and closing lifecycle events supply the end date. |
 | 7 | Defined missing-entry semantics | Omitting a platform contribution is unchanged, while external deletion requires an explicit command. |
@@ -65,7 +65,7 @@ This runbook defines the production contract for the profile contribution ecosys
 
 ## Invariants
 
-1. Every active contribution is exactly one of: a platform row with `project_id`, or an external row with `external_key` and `project_title`.
+1. Every active contribution is exactly one of: a platform row with `workspace_id`, or an external row with `external_key` and `project_title`.
 2. A profile can have one active platform row per project and one active external row per external key.
 3. `version` is positive and every edit/delete compares the caller's expected version.
 4. Platform identity, lifecycle, and role cannot be changed by the profile editor.
@@ -90,35 +90,35 @@ Use these checks before attempting repair:
 
 ```sql
 -- Invalid authority shape (expected: zero rows)
-SELECT id, profile_id, project_id, external_key, project_title
-FROM profile_project_contributions
+SELECT id, profile_id, workspace_id, external_key, project_title
+FROM profile_contributions
 WHERE deleted_at IS NULL
   AND NOT (
-    (project_id IS NOT NULL AND external_key IS NULL)
-    OR (project_id IS NULL AND external_key IS NOT NULL AND NULLIF(BTRIM(project_title), '') IS NOT NULL)
+    (workspace_id IS NOT NULL AND external_key IS NULL)
+    OR (workspace_id IS NULL AND external_key IS NOT NULL AND NULLIF(BTRIM(project_title), '') IS NOT NULL)
   );
 
 -- Duplicate active identities (expected: zero rows)
-SELECT profile_id, project_id, count(*)
-FROM profile_project_contributions
-WHERE deleted_at IS NULL AND project_id IS NOT NULL
-GROUP BY profile_id, project_id HAVING count(*) > 1;
+SELECT profile_id, workspace_id, count(*)
+FROM profile_contributions
+WHERE deleted_at IS NULL AND workspace_id IS NOT NULL
+GROUP BY profile_id, workspace_id HAVING count(*) > 1;
 
 SELECT profile_id, external_key, count(*)
-FROM profile_project_contributions
-WHERE deleted_at IS NULL AND project_id IS NULL
+FROM profile_contributions
+WHERE deleted_at IS NULL AND workspace_id IS NULL
 GROUP BY profile_id, external_key HAVING count(*) > 1;
 
 -- Stage visibility drift (expected: zero rows)
 SELECT stage.id, stage.contribution_id
-FROM profile_project_contribution_stages stage
-JOIN profile_project_contributions contribution ON contribution.id = stage.contribution_id
+FROM profile_contribution_stages stage
+JOIN profile_contributions contribution ON contribution.id = stage.contribution_id
 WHERE stage.deleted_at IS NULL
   AND stage.visibility IS DISTINCT FROM contribution.visibility;
 
 -- Skill compatibility labels that have no relational assignment
 SELECT contribution.id, contribution.skills
-FROM profile_project_contributions contribution
+FROM profile_contributions contribution
 WHERE contribution.deleted_at IS NULL
   AND jsonb_array_length(COALESCE(contribution.skills, '[]'::jsonb)) > 0
   AND NOT EXISTS (
@@ -168,7 +168,7 @@ Alert when any of the following occurs:
 
 ## Contribution story extension — 23 October 2026
 
-See [the implementation and feature-closure map](../design/project-contribution-stories.md). Migration `0237_profile_contribution_stories.sql` must precede the new application code. `profile_contribution_drafts` holds private owner documents, `profile_project_contributions.presentation` holds the last published document, and `profile_contribution_media_assets` retains their image assets. Membership, project identity and actual stage history keep their original authority.
+See [the implementation and feature-closure map](../design/project-contribution-stories.md). Migration `0237_profile_contribution_stories.sql` must precede the new application code. `profile_contribution_drafts` holds private owner documents, `profile_contributions.presentation` holds the last published document, and `profile_contribution_media_assets` retains their image assets. Membership, project identity and actual stage history keep their original authority.
 
 The story command is authenticated, strictly validated, owner-scoped, transactional, version checked, rate limited and audited. Draft saves never publish. Hide takes effect on the parent immediately; public/unlisted project and profile restrictions still apply at read time. A duplicate external project merge changes only the target private draft and can be undone atomically while its version is unchanged. Repeated request identities do not replay a completed operation.
 

@@ -41,7 +41,7 @@ export function ConsoleHeader({ counts: initial, isAdmin }: { counts: InboxCount
     return (
         <header>
             <div className="flex flex-wrap items-center gap-3">
-                <h1 className="text-[24px] font-semibold leading-tight text-foreground">Trust &amp; safety</h1>
+                <h1 className="text-[24px] font-semibold leading-tight text-foreground">Trust and safety</h1>
                 <LiveLine />
                 <div className="ml-auto"><NewCaseDialog trigger={<Button variant="outline" size="sm">New case</Button>} /></div>
             </div>

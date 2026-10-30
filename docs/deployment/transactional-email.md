@@ -104,7 +104,7 @@ replace Google Workspace's inbound MX records or authentication-email SMTP.
 
 Take the normal database backup/snapshot and inspect the migration journal first.
 Use the existing migration procedure to apply
-`drizzle/0205_transactional_email_outbox.sql` after all preceding migrations:
+`drizzle/0016_notifications_email.sql` as part of `npm run db:setup`:
 
 ```sh
 npm run check:db:migration-journal

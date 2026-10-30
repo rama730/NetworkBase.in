@@ -205,7 +205,6 @@ test("workspace update comment threading schema is present in the migrations", (
     assert.match(migration, /parent_id uuid,/);
     assert.match(migration, /FOREIGN KEY \(update_id, parent_id\) REFERENCES public\.workspace_update_comments\(update_id, id\)/);
     assert.match(migration, /workspace_update_comments_parent_idx/);
-    assert.match(migration, /ALTER PUBLICATION supabase_realtime ADD TABLE public\.workspace_update_comments/);
 });
 
 test("workspace update composer stores selected project records as structured refs", () => {

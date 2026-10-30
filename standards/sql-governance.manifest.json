@@ -32,7 +32,11 @@
     "drizzle/0026_status_role_checks.sql",
     "drizzle/0027_drop_redundant_indexes.sql",
     "drizzle/0028_revoke_anon_notifications.sql",
-    "drizzle/0029_drop_old_views_private_preferences.sql"
+    "drizzle/0029_drop_old_views_private_preferences.sql",
+    "drizzle/0030_realtime_drop_unused_tables.sql",
+    "drizzle/0031_members_follows_own_rows.sql",
+    "drizzle/0032_revoke_unused_helpers_task_files_rules.sql",
+    "drizzle/0033_deletion_grace_read_rules.sql"
   ],
   "legacyDatabaseTags": [],
   "allowedUtilitySqlFiles": [

@@ -12,10 +12,11 @@ async function main() {
     const migrationNames = (await readdir(path.join(root, 'drizzle'))).filter((name) => name.endsWith('.sql')).sort()
     const allSql = (await Promise.all(migrationNames.map((name) => readFile(path.join(root, 'drizzle', name), 'utf8')))).join('\n')
     const profilesTable = accounts.slice(accounts.indexOf('CREATE TABLE public.profiles ('), accounts.indexOf(');', accounts.indexOf('CREATE TABLE public.profiles (')))
-    const tables = [...allSql.matchAll(/^CREATE TABLE public\.(\w+) \(/gm)].map((match) => match[1]!)
+    const tables = [...allSql.matchAll(/^CREATE TABLE (?:IF NOT EXISTS )?public\.(\w+) \(/gm)].map((match) => match[1]!)
     const profileBrowserColumns = new Set(['id', 'username', 'full_name', 'avatar_url', 'visibility', 'created_at', 'updated_at', 'deleted_at'])
-    const profileGrants = [...accounts.matchAll(/GRANT SELECT\((\w+)\) ON TABLE public\.profiles TO (?:anon|authenticated);/g)].map((match) => match[1]!)
-    const browserWrites = /GRANT [^;\n]*\b(INSERT|UPDATE|DELETE|TRUNCATE|ALL)\b[^;\n]* ON TABLE public\.\w+ TO (anon|authenticated);/
+    const browserRoles = '(?:[\\w, ]*\\b(?:anon|authenticated|PUBLIC)\\b[\\w, ]*)'
+    const profileGrants = [...allSql.matchAll(new RegExp(`GRANT SELECT\\s*\\(([\\w,\\s]+)\\) ON (?:TABLE )?public\\.profiles TO ${browserRoles};`, 'g'))].flatMap((match) => match[1]!.split(',').map((column) => column.trim()))
+    const browserWrites = new RegExp(`GRANT [^;]*\\b(?:INSERT|UPDATE|DELETE|TRUNCATE|ALL)\\b[^;]* ON (?:TABLE |ALL TABLES IN SCHEMA )?public(?:\\.\\w+)?(?:, public\\.\\w+)* TO ${browserRoles};`)
     const setupSource = await readFile(path.join(root, 'scripts/setup-database.ts'), 'utf8')
 
     const checks: Array<[string, boolean]> = [
@@ -36,16 +37,17 @@ async function main() {
         ['no stale view-all profile policy', !allSql.includes('Users can view all profiles')],
         ['every table enables RLS', tables.length > 100 && tables.every((table) => allSql.includes(`ALTER TABLE public.${table} ENABLE ROW LEVEL SECURITY`) || table === 'app_migration_journal')],
         ['account deletions are own-row only', accounts.includes('CREATE POLICY account_deletions_select_own ON public.account_deletions FOR SELECT USING ((user_id = ( SELECT auth.uid() AS uid)))')],
-        ['browser roles cannot read all of profiles', !/GRANT (SELECT(?!\()|ALL)[^;\n]* ON TABLE public\.profiles TO (anon|authenticated);/.test(accounts)],
+        ['browser roles cannot read all of profiles', !new RegExp(`GRANT (?:SELECT(?!\\s*\\()|ALL)[^;]* ON (?:TABLE )?public\\.profiles TO ${browserRoles};`).test(allSql)],
         ['browser roles read only approved profile columns', profileGrants.length > 0 && profileGrants.every((column) => profileBrowserColumns.has(column))],
         ['browser roles have no write grant on any table', !browserWrites.test(allSql)],
         ['no cross-workspace policy tautologies', !/m\.(project|workspace)_id = m\.(project|workspace)_id/.test(allSql)],
         ['no arbitrary auth-user deletion RPC', !allSql.includes('FUNCTION public.delete_auth_user')],
         ['no broad chat attachment read policy', !allSql.includes('Users can view chat attachments')],
-        ['authorization helpers live outside public', !/CREATE FUNCTION public\.nb_/.test(allSql)],
+        ['authorization helpers live outside public', !/CREATE (?:OR REPLACE )?FUNCTION public\.nb_/.test(allSql)],
         ['public contribution reads depend on visibility', contributions.includes("CREATE POLICY profile_contributions_read_authorized ON public.profile_contributions FOR SELECT USING (((profile_id = ( SELECT auth.uid() AS uid)) OR ((visibility = 'public'::text)")],
-        ['contribution stage reads derive from the parent', contributions.includes('CREATE POLICY profile_contribution_stages_read_authorized')],
-        ['contribution skill reads derive from the parent', contributions.includes('CREATE POLICY profile_contribution_skills_select_visible')],
+        ['contribution stage reads derive from the parent', /CREATE POLICY profile_contribution_stages_read_authorized[\s\S]*?contribution\.visibility = 'public'::text/.test(contributions)],
+        ['contribution skill reads derive from the parent', /CREATE POLICY profile_contribution_skills_select_visible[\s\S]*?contribution\.visibility = 'public'::text/.test(contributions)],
+        ['contributions hide private and draft workspaces', /CREATE POLICY profile_contributions_read_authorized[\s\S]*?'draft'/.test(contributions)],
         ['database setup replays migration journal instead of authoring policies directly', setupSource.includes('Starting database setup via Drizzle migrations')],
         ['database setup no longer creates policies directly', !setupSource.includes('CREATE POLICY')],
     ]

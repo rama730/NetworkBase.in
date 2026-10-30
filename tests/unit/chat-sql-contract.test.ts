@@ -23,9 +23,9 @@ test("no chat function is granted to anon or PUBLIC", () => {
   assert.match(sqlText, /GRANT ALL ON FUNCTION app_private\.chat_send_message\([^)]*\) TO service_role;/);
   assert.doesNotMatch(sqlText, /GRANT [^;]*ON FUNCTION app_private\.chat_send_message\([^)]*\) TO authenticated/);
   const authenticatedGrants = [...sqlText.matchAll(/GRANT ALL ON FUNCTION (app_private\.\w+)\([^)]*\) TO authenticated/g)].map((m) => m[1]);
-  for (const name of ["app_private.chat_is_member", "app_private.chat_is_workspace_member"]) {
-    assert.ok(authenticatedGrants.includes(name), `${name} backs the read policies`);
-  }
+  const revoked = readFileSync("drizzle/0032_revoke_unused_helpers_task_files_rules.sql", "utf8");
+  const stillGranted = authenticatedGrants.filter((name) => !revoked.includes(`${name}(`));
+  assert.deepEqual(stillGranted.sort(), ["app_private.chat_can_signal", "app_private.chat_is_member", "app_private.chat_is_workspace_member"], "only what read rules call");
 });
 
 test("browser roles never write chat tables; no write policies exist", () => {

@@ -301,7 +301,7 @@ export default function TopNav() {
                                                     className="nb-touch-target flex h-[34px] w-full cursor-pointer items-center gap-2.5 rounded-[5px] px-2.5 text-xs font-medium text-foreground transition-colors hover:bg-muted focus:bg-muted focus:text-foreground"
                                                 >
                                                     <ShieldCheck className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-                                                    <span>Trust &amp; safety</span>
+                                                    <span>Trust and safety</span>
                                                     {staffBadge.count > 0 ? <span className="nb-nav-count" aria-label={`${staffBadge.count} urgent or overdue`}>{staffBadge.count}</span> : null}
                                                 </Link>
                                             </DropdownMenuItem>
