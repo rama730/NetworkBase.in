@@ -155,6 +155,13 @@
       "when": 1793367126321,
       "tag": "0022_project_compat_views",
       "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1793369198047,
+      "tag": "0023_user_mutes_muted_index",
+      "breakpoints": true
     }
   ]
 }
