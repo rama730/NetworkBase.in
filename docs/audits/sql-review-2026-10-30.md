@@ -8,6 +8,8 @@
 >
 > **New security finding, S2 (High):** `anon` and `authenticated` can read every column of `public.profiles`, including `email` and `notification_preferences`, for all public profiles. `0199_browser_roles_read_only` (2026-10-07) restored a table-wide grant that `0079`/`0080` had removed. **Fixed on live 2026-10-30:** browsers now read only `id, username, full_name, avatar_url, visibility, created_at, updated_at, deleted_at`. Recorded in `0002_profiles_accounts`, guarded by `scripts/check-rls-contract.ts` and `tests/db/profile-browser-columns.test.ts`. Still open: `notification_preferences` on `workspaces` and `workspace_members` is browser-readable.
 
+> **Update, end of day 2026-10-30:** 0023–0028 are live. 0029 (drop the 29 old-name views, browser access to notification preferences) and the search index reindex are ready and tested, waiting on production permission. `check:chat:db`, `check:profile-contributions`, `check:terminology` and the top-nav test all pass now. Realtime load (P3) and the connection listeners (B1) stay as they are, on purpose.
+
 ## 1. Summary
 
 | | Today | After the cleanup | After the fixes |

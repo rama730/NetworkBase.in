@@ -26,8 +26,6 @@ const SQL_OWNED_RELATIONS = new Set([
   "chat_saved",
   "chat_scheduled_messages",
   "onboarding_slo_daily",
-  // Old project names kept as views from the workspace rename; dropping them later leaves these entries inert.
-  ...[...readFileSync("drizzle/0022_project_compat_views.sql", "utf8").matchAll(/CREATE VIEW public\.(\w+) WITH \(security_invoker/g)].map((m) => m[1]!),
 ]);
 
 const primaryUrl = process.env.DATABASE_URL;

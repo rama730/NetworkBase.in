@@ -62,16 +62,7 @@ test("no function body still names a renamed table, column or function", async (
   assert.deepEqual(stale, []);
 });
 
-test("each old table name is a security_invoker view with the old column names", async () => {
-  const views = await sql<{ relname: string; reloptions: string[] | null }[]>`
-    SELECT relname, reloptions FROM pg_class WHERE relnamespace = 'public'::regnamespace AND relkind = 'v' AND relname = ANY(${Object.keys(OLD_TABLES)})`;
-  assert.equal(views.length, Object.keys(OLD_TABLES).length);
-  for (const v of views) assert.ok(v.reloptions?.includes("security_invoker=true"), `${v.relname} security_invoker`);
-  const [col] = await sql`SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'project_members' AND column_name = 'project_id'`;
-  assert.ok(col, "project_members view keeps project_id");
-});
-
-test("a non-member sees no private workspace through the old projects view", async () => {
+test("a non-member sees no private workspace", async () => {
   await inRollback(async (tx) => {
     const owner = await createUser(tx);
     const outsider = await createUser(tx);
@@ -79,12 +70,11 @@ test("a non-member sees no private workspace through the old projects view", asy
     await tx`INSERT INTO public.workspaces (id, owner_id, title, slug, visibility, status)
              VALUES (${id}, ${owner}, 'Private', ${`w-${id}`}, 'private', 'active')`;
     await tx`INSERT INTO public.workspace_members (workspace_id, user_id, role) VALUES (${id}, ${owner}, 'owner')`;
-    await grantBrowserRead(tx, ["projects", "workspaces"]);
+    await grantBrowserRead(tx, ["workspaces"]);
     await actAs(tx, outsider);
-    assert.equal((await tx`SELECT id FROM public.projects WHERE id = ${id}`).length, 0, "outsider through the view");
     assert.equal((await tx`SELECT id FROM public.workspaces WHERE id = ${id}`).length, 0, "outsider through the table");
     await actAs(tx, owner);
-    assert.equal((await tx`SELECT id FROM public.projects WHERE id = ${id}`).length, 1, "owner through the view");
+    assert.equal((await tx`SELECT id FROM public.workspaces WHERE id = ${id}`).length, 1, "owner through the table");
     await actAsOwner(tx);
   });
 });

@@ -31,7 +31,8 @@
     "drizzle/0025_storage_backup_due_index.sql",
     "drizzle/0026_status_role_checks.sql",
     "drizzle/0027_drop_redundant_indexes.sql",
-    "drizzle/0028_revoke_anon_notifications.sql"
+    "drizzle/0028_revoke_anon_notifications.sql",
+    "drizzle/0029_drop_old_views_private_preferences.sql"
   ],
   "legacyDatabaseTags": [],
   "allowedUtilitySqlFiles": [
