@@ -10,6 +10,7 @@ import { toast } from '@/lib/feedback';
 import { setWorkspaceUpdateReplyPolicyAction, toggleWorkspaceUpdateCommentLikeAction, type WorkspaceUpdateCommentView } from '@/app/actions/workspace/updates';
 import { muteNotificationScopeAction } from '@/app/actions/notifications';
 import { DropdownMenuItem, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
+import type { BlockPerson } from '@/components/privacy/BlockDialog';
 import { patchUpdateEverywhere } from '@/hooks/useUpdateLive';
 import { WorkspaceUpdateLikersModal } from '@/components/workspaces/updates/WorkspaceUpdateLikersModal';
 import { cn } from '@/lib/utils';
@@ -175,4 +176,9 @@ export function MutePostMenuItem({ updateId }: { updateId: string }) {
       Mute this post
     </DropdownMenuItem>
   );
+}
+
+/** "Block Ravi" in a post's or comment's "⋯". The caller holds the confirmation, because the menu closes when this is chosen. */
+export function BlockPostAuthorItem({ person, onBlock }: { person: BlockPerson; onBlock: (person: BlockPerson) => void }) {
+  return <DropdownMenuItem variant="destructive" onSelect={() => onBlock(person)}>Block {person.name}</DropdownMenuItem>;
 }

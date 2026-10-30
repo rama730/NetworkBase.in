@@ -28,7 +28,9 @@ import { getCurrentPushStatus, isWebPushSupported, subscribeWebPush, unsubscribe
 /** Per type (UP8): each is a type-wide mute, the same one a notification's own "⋯" sets. */
 const UPDATE_ACTIVITY_TYPES = [
   { kind: "project_update_like", title: "Likes on your updates and comments", description: "One grouped row per post, in your tray." },
-  { kind: "project_update_comment", title: "Comments and replies", description: "Comments on your updates and replies to your comments. In your tray and as a push." },
+  { kind: "project_update_comment", title: "Comments on your updates", description: "In your tray and as a push." },
+  { kind: "project_update_reply", title: "Replies to your comments", description: "In your tray and as a push." },
+  { kind: "project_update_mention", title: "Mentions in comments", description: "When a comment on an update mentions you. In your tray and as a push." },
   { kind: "project_update_team", title: "Activity on your team’s updates", description: "One quiet row per post, with counts of likes and comments." },
 ] as const;
 

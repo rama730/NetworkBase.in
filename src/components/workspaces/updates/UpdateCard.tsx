@@ -21,7 +21,8 @@ import {
     Trash2,
 } from "lucide-react";
 import { toast, feedbackError } from "@/lib/feedback";
-import { CommentPreview, LikedByLine, MutePostMenuItem, ReplyPolicyMenuItems, ShareUpdateButton } from "@/components/workspaces/updates/UpdatePostParts";
+import { BlockPersonDialog, type BlockPerson } from "@/components/privacy/BlockDialog";
+import { BlockPostAuthorItem, CommentPreview, LikedByLine, MutePostMenuItem, ReplyPolicyMenuItems, ShareUpdateButton } from "@/components/workspaces/updates/UpdatePostParts";
 import { useToggleUpdateLike } from "@/hooks/useToggleUpdateLike";
 import { deleteWorkspaceUpdateAction, editWorkspaceUpdateAction, toggleWorkspaceUpdatePinAction, type WorkspaceUpdateView } from "@/app/actions/workspace/updates";
 import { Button } from "@/components/ui/button";
@@ -85,6 +86,7 @@ function UpdateCard({
     draft.trim() || updateContextItems(update).length > 0 || update.media.length > 0,
   );
 
+  const [blockAsk, setBlockAsk] = useState<(BlockPerson & { at: number }) | null>(null);
   const like = useToggleUpdateLike(projectId, update.id);
   // A post with a narrower audience isn't on the workspace's topics: its card listens on its own.
   useUpdatePostLive(projectId, update.id, Boolean(currentUserId) && Object.keys(update.audience ?? {}).length > 0);
@@ -314,6 +316,9 @@ function UpdateCard({
                     Edit update
                   </DropdownMenuItem>
                 ) : null}
+                {!isDeleted && currentUserId && update.authorId && update.author?.username && update.authorId !== currentUserId ? (
+                  <BlockPostAuthorItem person={{ id: update.authorId, name: updateAuthorName(update) }} onBlock={(person) => setBlockAsk({ ...person, at: Date.now() })} />
+                ) : null}
                 {/* Report a post or announcement (report §30.3); authors and managers act on their own posts. */}
                 {!update.canEdit && !update.canDelete && !isDeleted ? (
                   <DropdownMenuItem onClick={() => setIsReporting(true)}>
@@ -468,6 +473,7 @@ function UpdateCard({
           ) : null}
         </div>
       </div>
+      {blockAsk ? <BlockPersonDialog key={blockAsk.at} person={blockAsk} source="comment" /> : null}
       <ConfirmDialog
         open={isDeleteConfirmOpen}
         onOpenChange={setIsDeleteConfirmOpen}

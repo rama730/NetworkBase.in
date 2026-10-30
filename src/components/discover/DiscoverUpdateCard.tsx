@@ -17,7 +17,8 @@ import { ReportMenuItem, useReportDialog } from "@/components/reports/ReportDial
 import { useToggleUpdateLike } from "@/hooks/useToggleUpdateLike";
 import { useUpdateCardLive } from "@/hooks/useUpdateLive";
 import { WorkspaceUpdateLikersModal } from "@/components/workspaces/updates/WorkspaceUpdateLikersModal";
-import { CommentPreview, FollowWorkspaceButton, LikedByLine, MutePostMenuItem, ReplyPolicyMenuItems, ShareUpdateButton } from "@/components/workspaces/updates/UpdatePostParts";
+import { BlockPersonDialog, type BlockPerson } from "@/components/privacy/BlockDialog";
+import { BlockPostAuthorItem, CommentPreview, FollowWorkspaceButton, LikedByLine, MutePostMenuItem, ReplyPolicyMenuItems, ShareUpdateButton } from "@/components/workspaces/updates/UpdatePostParts";
 import { cn } from "@/lib/utils";
 import type { DiscoverUpdateMedia, DiscoverUpdateView } from "@/types/discover";
 
@@ -125,6 +126,7 @@ export default memo(function DiscoverUpdateCard({ update, viewerId, onOpen, onHi
     const reporting = useReportDialog({ kind: "update", targetId: update.id, noun: update.updateType === "announcement" ? "announcement" : "post" });
     const [expanded, setExpanded] = useState(false);
     const [isLikersOpen, setIsLikersOpen] = useState(false);
+    const [blockAsk, setBlockAsk] = useState<(BlockPerson & { at: number }) | null>(null);
     // Live while on screen, for people signed in (the "Update card real-time" report).
     const cardRef = useRef<HTMLElement>(null);
     useUpdateCardLive(cardRef, update.projectId, update.id, Boolean(viewerId));
@@ -286,10 +288,12 @@ export default memo(function DiscoverUpdateCard({ update, viewerId, onOpen, onHi
                             <DropdownMenuItem onSelect={() => onHide(update.id)}>Hide update</DropdownMenuItem>
                             {viewerId ? <MutePostMenuItem updateId={update.id} /> : null}
                             {update.canEdit || update.canDelete ? <ReplyPolicyMenuItems projectId={update.projectId} updateId={update.id} current={update.replyPolicy} /> : null}
+                            {viewerId && author && !masked && author.id !== viewerId ? <BlockPostAuthorItem person={{ id: author.id, name: authorName }} onBlock={(person) => setBlockAsk({ ...person, at: Date.now() })} /> : null}
                             {viewerId ? <ReportMenuItem isOwn={viewerId === update.author?.id} noun={reporting.target.noun} target={reporting.target} onReport={reporting.open} /> : null}
                         </DropdownMenuContent>
                     </DropdownMenu>
                     {reporting.dialog}
+                    {blockAsk ? <BlockPersonDialog key={blockAsk.at} person={blockAsk} source="comment" /> : null}
                 </div>
             </div>
 

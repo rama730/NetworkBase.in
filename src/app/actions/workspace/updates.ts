@@ -56,6 +56,7 @@ import { notifyAnnouncement, notifyOrg } from "@/lib/organizations/notify";
 import { syncCommentLikeNotification, syncUpdateActivityNotifications } from "@/lib/notifications/update-activity";
 import { readUpdatePreviews, type UpdatePreview } from "@/lib/workspaces/update-previews";
 import { refuseComment } from "@/lib/workspaces/update-comment-guard";
+import { parseMentionUsernames, resolveMentionedIds, searchMentionablePeople } from "@/lib/workspaces/update-mentions";
 import { accountRestriction } from "@/lib/trust/standing";
 import { consumeRateLimit } from "@/lib/security/rate-limit";
 import { getViewerAuthContext, getViewerProfileContext } from "@/lib/server/viewer-context";
@@ -1954,7 +1955,7 @@ export async function markUpdateNotificationsReadAction(updateId: string) {
     await db.execute(sql`
         UPDATE user_notifications SET read_at = now(), seen_at = coalesce(seen_at, now()), updated_at = now()
         WHERE user_id = ${viewer.userId}::uuid AND read_at IS NULL AND entity_refs->>'updateId' = ${updateId}
-          AND kind IN ('project_update_activity', 'project_update_comment', 'project_update_like', 'project_update_team')`);
+          AND kind IN ('project_update_activity', 'project_update_comment', 'project_update_reply', 'project_update_mention', 'project_update_like', 'project_update_team')`);
 }
 
 export async function toggleWorkspaceUpdateLikeAction(projectId: string, updateId: string) {
@@ -2364,18 +2365,16 @@ export async function createWorkspaceUpdateCommentAction(projectId: string, upda
 
         after(async () => {
             const href = `${projectHref(project, updateId)}&commentId=${encodeURIComponent(inserted.id)}`;
-            // The most personal notice only (UP4): a reply is for whoever it answers, a comment for the post's author.
-            const personalId = parentId ? targetUserId : update.authorId;
-            if (personalId && personalId !== viewer.userId) {
+            const notify = async (eventKey: "updates.comment" | "updates.reply" | "updates.mention", personId: string, title: string) => {
                 try {
                     await enqueueWorkspaceNotificationEvent({
                         projectId,
                         actorUserId: viewer.userId,
                         actorName,
                         actorAvatarUrl,
-                        eventKey: "updates.comment",
-                        affectedMemberId: personalId,
-                        title: `${actorName || "Someone"} ${parentId ? "replied to your comment" : "commented on your update"}`,
+                        eventKey,
+                        affectedMemberId: personId,
+                        title: `${actorName || "Someone"} ${title}`,
                         body: projectUpdateExcerpt(content, 160),
                         href,
                         entityRefs: {
@@ -2403,8 +2402,15 @@ export async function createWorkspaceUpdateCommentAction(projectId: string, upda
                         error: notifyError instanceof Error ? notifyError.message : String(notifyError),
                     });
                 }
-            }
-            await syncUpdateActivityNotifications({ projectId, updateId, actorId: viewer.userId!, activity: parentId ? "reply" : "comment", change: "added", href, exclude: [personalId] });
+            };
+            // The most personal notice only (UP4): a reply is for whoever it answers, then whoever is mentioned, then the post's author.
+            const repliedTo = parentId && targetUserId !== viewer.userId ? targetUserId : null;
+            const mentioned = (await resolveMentionedIds(updateId, viewer.userId!, content).catch(() => [])).filter((id) => id !== repliedTo);
+            const authorTold = !parentId && update.authorId && update.authorId !== viewer.userId && !mentioned.includes(update.authorId) ? update.authorId : null;
+            if (repliedTo) await notify("updates.reply", repliedTo, "replied to your comment");
+            for (const id of mentioned) await notify("updates.mention", id, "mentioned you in a comment");
+            if (authorTold) await notify("updates.comment", authorTold, "commented on your update");
+            await syncUpdateActivityNotifications({ projectId, updateId, actorId: viewer.userId!, activity: parentId ? "reply" : "comment", change: "added", href, exclude: [repliedTo, authorTold, ...mentioned] });
         });
 
         const targetProfiles = alias(profiles, "target_profiles");
@@ -2481,6 +2487,17 @@ export async function setWorkspaceUpdateReplyPolicyAction(projectId: string, upd
     }
 }
 
+/** Suggestions after "@" in a comment box. Who appears is decided in update-mentions.ts. */
+export async function searchUpdateMentionsAction(projectId: string, updateId: string, query: string) {
+    const viewer = await getViewerAuthContext();
+    if (!viewer.userId || !isLooseUuid(updateId) || !query.trim()) return [];
+    const rate = await consumeRateLimit(`project-update:mention-search:${viewer.userId}`, 60, 60);
+    if (!rate.allowed) return [];
+    const access = await resolveProjectUpdateAccess(projectId, viewer.userId);
+    if (!await assertReadableUpdate(projectId, updateId, access)) return [];
+    return [...await searchMentionablePeople(updateId, viewer.userId, query.trim().slice(0, 30))];
+}
+
 export async function toggleWorkspaceUpdateCommentLikeAction(projectId: string, commentId: string) {
     try {
         const viewer = await getViewerAuthContext();
@@ -2533,6 +2550,7 @@ export async function deleteWorkspaceUpdateCommentAction(projectId: string, comm
                 userId: workspaceUpdateComments.userId,
                 parentId: workspaceUpdateComments.parentId,
                 targetUserId: workspaceUpdateComments.targetUserId,
+                content: workspaceUpdateComments.content,
                 deletedAt: workspaceUpdateComments.deletedAt,
             })
             .from(workspaceUpdateComments)
@@ -2560,8 +2578,9 @@ export async function deleteWorkspaceUpdateCommentAction(projectId: string, comm
             // Gone from the post, so gone from the trays: the personal notice, and its place in the grouped counts.
             await db.execute(sql`
                 UPDATE user_notifications SET dismissed_at = now(), updated_at = now()
-                WHERE kind IN ('project_update_comment', 'project_update_like') AND read_at IS NULL AND dismissed_at IS NULL AND entity_refs->>'commentId' = ${commentId}
-                  AND user_id IN (SELECT u.author_id FROM workspace_updates u WHERE u.id = ${comment.updateId}::uuid UNION ALL SELECT ${comment.targetUserId}::uuid UNION ALL SELECT ${comment.userId}::uuid)`).catch(() => undefined);
+                WHERE kind IN ('project_update_comment', 'project_update_reply', 'project_update_mention', 'project_update_like') AND read_at IS NULL AND dismissed_at IS NULL AND entity_refs->>'commentId' = ${commentId}
+                  AND user_id IN (SELECT u.author_id FROM workspace_updates u WHERE u.id = ${comment.updateId}::uuid UNION ALL SELECT ${comment.targetUserId}::uuid UNION ALL SELECT ${comment.userId}::uuid
+                    UNION ALL SELECT p.id FROM profiles p WHERE lower(p.username) IN (SELECT value FROM jsonb_array_elements_text(${JSON.stringify(parseMentionUsernames(comment.content))}::jsonb)))`).catch(() => undefined);
             await syncUpdateActivityNotifications({ projectId, updateId: comment.updateId, actorId: comment.userId ?? viewer.userId!, activity: comment.parentId ? "reply" : "comment", change: "removed", href: projectHref(access.project!, comment.updateId) });
         });
         return { success: true as const, updateId: comment.updateId };

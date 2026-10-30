@@ -25,7 +25,9 @@ import { UserAvatar } from "@/components/ui/UserAvatar";
 import { ThreadAvatarRail, ThreadRailBridge } from "@/components/ui/ThreadRail";
 import { queryKeys } from "@/lib/query-keys";
 import { holdUpdateThread } from "@/lib/realtime/update-live-state";
-import { CommentLikeButton } from "@/components/workspaces/updates/UpdatePostParts";
+import { BlockPostAuthorItem, CommentLikeButton } from "@/components/workspaces/updates/UpdatePostParts";
+import { MentionCommentInput } from "@/components/workspaces/updates/MentionCommentInput";
+import { BlockPersonDialog, type BlockPerson } from "@/components/privacy/BlockDialog";
 import { cn } from "@/lib/utils";
 import { getDescendants, renderCommentContent, updatePages, updateRelativeTime, type UpdatesPage } from '@/components/workspaces/updates/update-helpers';
 import { ModeratedPlaceholder, useModeratedItems, withPlaceholders } from '@/components/reports/ModeratedPlaceholder';
@@ -59,6 +61,8 @@ function CommentRow({
   const blockedIds = useBlockedIds();
   const mutedIds = useMutedIds();
   const [unfolded, setUnfolded] = useState<ReadonlySet<string>>(() => new Set());
+  // The menu closes as Block opens, so the confirmation lives out here, once for the whole thread.
+  const [blockAsk, setBlockAsk] = useState<(BlockPerson & { at: number }) | null>(null);
 
   const descendants = useMemo(
     () => getDescendants(comment.id, allComments),
@@ -110,6 +114,7 @@ function CommentRow({
 
   return (
     <div className="flex flex-col">
+      {blockAsk ? <BlockPersonDialog key={blockAsk.at} person={blockAsk} source="comment" /> : null}
       {allRowItems.map((item, idx) => {
         if (item.isSpacer) {
           return (
@@ -236,6 +241,7 @@ function CommentRow({
                       {/* One "⋯" menu per comment (C15): Delete for its author or the workspace's leaders, Report for everyone else. */}
                       <ItemMenu label="Comment actions" className="ml-2" isOwn={c.userId === currentUserId}
                         report={{ kind: "update_comment", targetId: c.id, noun: "comment" }}>
+                        {c.userId && c.author?.username && c.userId !== currentUserId && currentUserId ? <BlockPostAuthorItem person={{ id: c.userId, name: c.author.fullName || c.author.username }} onBlock={(person) => setBlockAsk({ ...person, at: Date.now() })} /> : null}
                         {c.canDelete ? <DropdownMenuItem variant="destructive" onSelect={() => onDelete(c.id)}><Trash2 className="size-4" aria-hidden="true" />Delete comment</DropdownMenuItem> : null}
                       </ItemMenu>
                     </div>
@@ -296,10 +302,12 @@ function CommentRow({
                       size={24}
                       className="shrink-0 rounded-[4px]"
                     />
-                    <input
+                    <MentionCommentInput
                       autoFocus
+                      projectId={c.projectId}
+                      updateId={c.updateId}
                       value={replyDraft}
-                      onChange={(e) => setReplyDraft(e.target.value.slice(0, 1000))}
+                      onValueChange={setReplyDraft}
                       placeholder={`Write a reply…`}
                       className="nb-touch-target h-7 min-w-0 flex-1 bg-transparent text-[13px] outline-none placeholder:text-muted-foreground text-foreground"
                       onKeyDown={(e) => {
@@ -927,10 +935,12 @@ export function UpdateComments({
                         className="mt-0.5 shrink-0 rounded-[5px]"
                       />
                       <div className="flex min-w-0 flex-1 items-center gap-2 rounded-[5px] border border-border bg-card px-2.5 py-0.5 shadow-2xs">
-                        <input
+                        <MentionCommentInput
                           autoFocus
+                          projectId={projectId}
+                          updateId={update.id}
                           value={focusedReplyDraft}
-                          onChange={(e) => setFocusedReplyDraft(e.target.value.slice(0, 1000))}
+                          onValueChange={setFocusedReplyDraft}
                           placeholder={`Reply to ${
                             c.author?.fullName || c.author?.username || "comment"
                           }…`}
@@ -979,9 +989,11 @@ export function UpdateComments({
                 className="mt-0.5 shrink-0 rounded-[5px]"
               />
               <div className="flex min-w-0 flex-1 items-center gap-2 rounded-[5px] border border-border bg-card px-2.5 shadow-2xs">
-                <input
+                <MentionCommentInput
+                  projectId={projectId}
+                  updateId={update.id}
                   value={draft}
-                  onChange={(event) => setDraft(event.target.value.slice(0, 1_000))}
+                  onValueChange={setDraft}
                   placeholder="Write a comment…"
                   className="nb-touch-target h-8 min-w-0 flex-1 bg-transparent text-xs outline-none placeholder:text-muted-foreground"
                   onKeyDown={(e) => {

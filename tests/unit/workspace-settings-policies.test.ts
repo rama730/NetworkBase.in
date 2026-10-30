@@ -35,6 +35,8 @@ import {
     normalizeWorkspaceNotificationPolicy,
     resolveWorkspaceNotificationDecision,
     summarizeWorkspaceNotificationPolicy,
+    updateActivityLevel,
+    withUpdateActivityLevel,
 } from "../../src/lib/notifications/workspace-policy";
 
 test("project settings exposes enforceable Updates and hides future-only sections", () => {
@@ -353,4 +355,18 @@ test("project metadata uses uploaded cover image for share previews", () => {
         coverImage: null,
     });
     assert.equal(withoutCover.image, "/api/og/workspace/network-for-builders");
+});
+
+test("the per-workspace update setting maps to rules, and reads back", () => {
+    const base = { version: 1 as const, mode: "inherit" as const, rules: {} };
+    assert.equal(updateActivityLevel(base), "all");
+    for (const level of ["all", "about_me", "nothing"] as const) {
+        const next = withUpdateActivityLevel(base, level);
+        assert.equal(next.mode, "custom");
+        assert.equal(updateActivityLevel(next), level);
+    }
+    const aboutMe = withUpdateActivityLevel(base, "about_me");
+    assert.equal(aboutMe.rules["updates.team_activity"], false);
+    assert.equal(aboutMe.rules["updates.mention"], true);
+    assert.equal(withUpdateActivityLevel(base, "nothing").rules["updates.reply"], false);
 });

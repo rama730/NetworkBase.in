@@ -57,7 +57,7 @@ const notFromBlocked = sql`NOT app_private.blocked_between(${userNotifications.u
 async function applyBlockRule(tx: NotificationWriteExecutor, input: CreateNotificationInput): Promise<CreateNotificationInput | null> {
     if (!input.actorUserId || input.actorUserId === input.recipientUserId) return input;
     // Someone you muted: their likes and comments on your updates don't reach you (Blocking B26).
-    if (input.kind === "project_update_like" || input.kind === "project_update_comment" || input.kind === "project_update_activity") {
+    if (input.kind === "project_update_like" || input.kind === "project_update_comment" || input.kind === "project_update_reply" || input.kind === "project_update_mention" || input.kind === "project_update_activity") {
         const [muted] = await tx.execute(sql`SELECT EXISTS (SELECT 1 FROM user_mutes WHERE muter_id = ${input.recipientUserId}::uuid AND muted_id = ${input.actorUserId}::uuid) AS muted`) as unknown as Array<{ muted: boolean }>;
         if (muted?.muted) return null;
     }

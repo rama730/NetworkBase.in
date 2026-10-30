@@ -36,7 +36,7 @@ async function post() {
   const [row] = await sql`INSERT INTO workspace_updates (workspace_id, author_id, content) VALUES (${ws}, ${author!}, 'our work') RETURNING id`;
   return { owner: owner!, author: author!, mate: mate!, viewerRole: viewerRole!, fan: fan!, fan2: fan2!, ws, id: row!.id as string };
 }
-const tray = (user: string) => sql`SELECT kind, importance, title, aggregate_count, read_at, dismissed_at, actor_user_id FROM user_notifications WHERE user_id = ${user} AND kind IN ('project_update_like', 'project_update_team', 'project_update_comment') ORDER BY created_at`;
+const tray = (user: string) => sql`SELECT kind, importance, title, aggregate_count, read_at, dismissed_at, actor_user_id FROM user_notifications WHERE user_id = ${user} AND kind IN ('project_update_like', 'project_update_team', 'project_update_comment', 'project_update_reply', 'project_update_mention') ORDER BY created_at`;
 async function like(user: string, ws: string, id: string) {
   viewerId = user;
   await updates.toggleWorkspaceUpdateLikeAction(ws, id);
@@ -117,7 +117,7 @@ test("one person, one notification: a reply is personal for whoever it answers, 
   await comment(p.fan, p.ws, p.id, parent);
   const mateRows = await tray(p.mate);
   assert.equal(mateRows.length, 1, "one row for the person answered");
-  assert.equal(mateRows[0]!.kind, "project_update_comment");
+  assert.equal(mateRows[0]!.kind, "project_update_reply");
   assert.match(mateRows[0]!.title, /replied to your comment$/);
   const authorRows = await tray(p.author);
   assert.equal(authorRows.length, 1);
@@ -275,4 +275,52 @@ test("comment limits: verified email, repeats, links, new-account rate, and rest
   assert.ok(!suspended.success && /can’t comment/.test(suspended.error));
   viewerId = p.mate;
   assert.equal((await updates.toggleWorkspaceUpdateLikeAction(p.ws, p.id)).success, false, "a suspended account's like doesn't count");
+});
+
+test("a mention tells the person with push, once, and a stranger can't ping someone unconnected (UP4, UP6)", async () => {
+  const p = await post();
+  const handle = async (id: string) => (await sql`SELECT username FROM profiles WHERE id = ${id}`)[0]!.username as string;
+  const [mate, author, stranger] = [await handle(p.mate), await handle(p.author), await handle(p.fan2)];
+  viewerId = p.fan;
+  const res = await updates.createWorkspaceUpdateCommentAction(p.ws, p.id, `hey @${mate} and @${author}, also @${stranger} and mail me@${mate}`);
+  assert.ok(res.success);
+  await settle();
+  const mateRows = await tray(p.mate);
+  assert.equal(mateRows.length, 1, "personal, so no team row for this event");
+  assert.equal(mateRows[0]!.kind, "project_update_mention");
+  assert.equal(mateRows[0]!.importance, "important");
+  assert.match(mateRows[0]!.title, /mentioned you in a comment$/);
+  const authorRows = await tray(p.author);
+  assert.equal(authorRows.length, 1, "mentioned rather than told about a comment");
+  assert.equal(authorRows[0]!.kind, "project_update_mention");
+  assert.equal((await tray(p.fan2)).length, 0, "not on the team, not in the thread, not connected");
+  assert.equal((await tray(p.owner))[0]!.kind, "project_update_team");
+
+  // Once they've joined the thread they can be mentioned.
+  await comment(p.fan2, p.ws, p.id);
+  viewerId = p.fan;
+  assert.ok((await updates.createWorkspaceUpdateCommentAction(p.ws, p.id, `over to you @${stranger}`)).success);
+  await settle();
+  assert.equal((await tray(p.fan2)).filter((r) => r.kind === "project_update_mention").length, 1);
+
+  // Suggestions follow the same rule.
+  const found = await updates.searchUpdateMentionsAction(p.ws, p.id, mate.slice(0, 5));
+  assert.deepEqual(found.map((person) => person.id), [p.mate]);
+
+  // A deleted comment takes its mention back.
+  viewerId = p.fan;
+  await updates.deleteWorkspaceUpdateCommentAction(p.ws, (res.data as { id: string }).id);
+  await settle();
+  assert.notEqual((await tray(p.mate))[0]!.dismissed_at, null);
+});
+
+test("a members-only post can only mention people who can open it", async () => {
+  const p = await post();
+  await sql`UPDATE workspace_updates SET visibility = 'members' WHERE id = ${p.id}`;
+  await sql`INSERT INTO connections (requester_id, addressee_id, status) VALUES (${p.mate}, ${p.fan}, 'accepted')`;
+  const fanName = (await sql`SELECT username FROM profiles WHERE id = ${p.fan}`)[0]!.username as string;
+  viewerId = p.mate;
+  assert.ok((await updates.createWorkspaceUpdateCommentAction(p.ws, p.id, `@${fanName} look`)).success);
+  await settle();
+  assert.equal((await tray(p.fan)).length, 0, "connected, but outside the team");
 });
