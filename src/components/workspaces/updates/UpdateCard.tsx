@@ -35,6 +35,7 @@ import { UserAvatar } from "@/components/ui/UserAvatar";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { WorkspaceUpdateLikersModal } from "@/components/workspaces/updates/WorkspaceUpdateLikersModal";
 import { useBlockedIds, useMutedIds } from "@/components/messages/ChatShellProvider";
+import { useUpdatePostLive } from "@/hooks/useUpdateLive";
 import { cn } from "@/lib/utils";
 import { isUpdateCardControl, removeUpdate, updateAuthorName, updateContextItems, updatePages, updateRelativeTime, type UpdatesPage } from '@/components/workspaces/updates/update-helpers';
 import { WorkspaceUpdateContent, UpdateContextAndMedia } from '@/components/workspaces/updates/UpdateContent';
@@ -84,6 +85,8 @@ function UpdateCard({
   );
 
   const like = useToggleUpdateLike(projectId, update.id);
+  // A post with a narrower audience isn't on the workspace's topics: its card listens on its own.
+  useUpdatePostLive(projectId, update.id, Boolean(currentUserId) && Object.keys(update.audience ?? {}).length > 0);
   // "Edited" with Notify again (report §17.4): off unless ticked.
   const [notifyAgain, setNotifyAgain] = useState(false);
 
