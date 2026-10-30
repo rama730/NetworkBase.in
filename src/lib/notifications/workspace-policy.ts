@@ -81,6 +81,7 @@ export type WorkspaceNotificationEventKey =
     | "updates.comment"
     | "updates.liked"
     | "updates.team_activity"
+    | "updates.comment_liked"
     | "updates.follower_digest"
     | OrgNotificationEventKey;
 
@@ -840,6 +841,21 @@ export const WORKSPACE_NOTIFICATION_EVENT_REGISTRY = {
         group: "updates",
         label: "Update liked",
         description: "Tell an update's author when people like it, as one grouped row. Tray only.",
+        category: "projects",
+        notificationKind: "project_update_like",
+        defaultEnabled: true,
+        defaultImportance: "more",
+        defaultRecipients: ["affected_member"],
+        allowMemberOverride: true,
+        mandatory: false,
+        aggregate: "none",
+        visible: true,
+    }),
+    "updates.comment_liked": E({
+        key: "updates.comment_liked",
+        group: "updates",
+        label: "Comment liked",
+        description: "Tell a commenter when people like their comment or reply, as one grouped row. Tray only.",
         category: "projects",
         notificationKind: "project_update_like",
         defaultEnabled: true,

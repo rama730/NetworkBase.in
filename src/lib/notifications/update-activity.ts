@@ -1,7 +1,7 @@
 import { and, eq, inArray, sql } from "drizzle-orm";
 
 import { db } from "@/lib/db";
-import { userNotifications, workspaceUpdates } from "@/lib/db/schema";
+import { userNotifications, workspaceUpdateComments, workspaceUpdates } from "@/lib/db/schema";
 import { logger } from "@/lib/logger";
 import { emitNotificationWrites } from "@/lib/notifications/fanout";
 import type { NotificationEntityRefs } from "@/lib/notifications/types";
@@ -21,9 +21,26 @@ export function likeRowTitle(name: string | null, likes: number) {
     return `${name || "Someone"}${others > 0 ? ` and ${plural(others, "other")}` : ""} liked your update`;
 }
 
+export function commentLikeRowTitle(name: string | null, likes: number) {
+    return likeRowTitle(name, likes).replace(/your update$/, "your comment");
+}
+
 export function teamRowTitle(workspaceTitle: string | null, likes: number, comments: number) {
     const parts = [likes > 0 ? plural(likes, "like") : null, comments > 0 ? plural(comments, "comment") : null].filter(Boolean);
     return `Your update in ${workspaceTitle || "your workspace"} got ${parts.join(" and ")}`;
+}
+
+/** A count that changed without news: an open row shows the new number, or goes if nothing is left. No bump, no push. */
+async function quietlyUpdateRow(id: string, refs: ActivityRefs, open: boolean, title: string, total: number, actorId: string | null) {
+    await db.execute(sql`
+        UPDATE user_notifications SET
+            entity_refs = ${JSON.stringify(refs)}::jsonb,
+            title = CASE WHEN ${open && total > 0} THEN ${title} ELSE title END,
+            aggregate_count = CASE WHEN ${open && total > 0} THEN ${Math.max(total, 1)}::int ELSE aggregate_count END,
+            actor_user_id = CASE WHEN ${open && total > 0 && actorId !== null} THEN ${actorId}::uuid ELSE actor_user_id END,
+            dismissed_at = CASE WHEN ${open && total === 0} THEN now() ELSE dismissed_at END,
+            updated_at = now()
+        WHERE id = ${id}::uuid`);
 }
 
 /**
@@ -122,15 +139,7 @@ export async function syncUpdateActivityNotifications(input: {
             const quiet = change === "removed" || (activity === "like" && unlikedBefore.includes(actorId));
             if (quiet) {
                 if (!row) continue;
-                await db.execute(sql`
-                    UPDATE user_notifications SET
-                        entity_refs = ${JSON.stringify(nextRefs)}::jsonb,
-                        title = CASE WHEN ${open && total > 0} THEN ${title} ELSE title END,
-                        aggregate_count = CASE WHEN ${open && total > 0} THEN ${Math.max(total, 1)}::int ELSE aggregate_count END,
-                        actor_user_id = CASE WHEN ${open && total > 0 && liked} THEN ${counts.liker_id}::uuid ELSE actor_user_id END,
-                        dismissed_at = CASE WHEN ${open && total === 0} THEN now() ELSE dismissed_at END,
-                        updated_at = now()
-                    WHERE id = ${row.id}::uuid`);
+                await quietlyUpdateRow(row.id, nextRefs, open, title, total, liked ? counts.liker_id : null);
                 continue;
             }
             if (counts.actor_hidden || total === 0) continue;
@@ -152,5 +161,59 @@ export async function syncUpdateActivityNotifications(input: {
         if (writes.length > 0) await emitNotificationWrites(writes);
     } catch (error) {
         logger.warn("workspace_updates.activity_notify_failed", { module: "workspace-updates", error: error instanceof Error ? error.message : String(error) });
+    }
+}
+
+/** "Ravi and 2 others liked your comment": one row per comment, same rules as likes on a post (UP10). */
+export async function syncCommentLikeNotification(input: { projectId: string; updateId: string; commentId: string; actorId: string; change: "added" | "removed"; href: string }) {
+    try {
+        const { projectId, updateId, commentId, actorId, change } = input;
+        const [comment] = await db.select({ userId: workspaceUpdateComments.userId, content: workspaceUpdateComments.content }).from(workspaceUpdateComments).where(eq(workspaceUpdateComments.id, commentId)).limit(1);
+        const authorId = comment?.userId;
+        if (!authorId || authorId === actorId) return;
+        const { project, members } = await resolveWorkspaceNotificationRecipients({ projectId, eventKey: "updates.comment_liked" });
+        if (!project) return;
+        const dedupeKey = `project:${projectId}:updates.comment_liked:comment:${commentId}:${authorId}`;
+        const [row] = await db
+            .select({ id: userNotifications.id, readAt: userNotifications.readAt, dismissedAt: userNotifications.dismissedAt, entityRefs: userNotifications.entityRefs })
+            .from(userNotifications)
+            .where(and(eq(userNotifications.userId, authorId), eq(userNotifications.dedupeKey, dedupeKey)));
+        const refs = (row?.entityRefs ?? {}) as ActivityRefs;
+        const closed = [row?.readAt, row?.dismissedAt].filter(Boolean).map((at) => new Date(at!).getTime());
+        const since = closed.length ? new Date(Math.max(...closed)) : refs.countSince ? new Date(refs.countSince) : new Date(Date.now() - FIRST_ROW_LOOKBACK_MS);
+        const [counts] = await db.execute(sql`
+            SELECT count(*)::int AS likes, (array_agg(l.user_id ORDER BY l.created_at DESC))[1] AS liker_id,
+                (array_agg(coalesce(p.full_name, p.username) ORDER BY l.created_at DESC))[1] AS liker_name,
+                bool_or(l.user_id = ${actorId}::uuid) AS actor_counted
+            FROM workspace_update_comment_likes l JOIN profiles p ON p.id = l.user_id
+            WHERE l.comment_id = ${commentId}::uuid AND l.created_at > ${since.toISOString()}::timestamptz
+              AND l.user_id <> ${authorId}::uuid
+              AND NOT app_private.blocked_between(${authorId}::uuid, l.user_id)
+              AND NOT EXISTS (SELECT 1 FROM user_mutes m WHERE m.muter_id = ${authorId}::uuid AND m.muted_id = l.user_id)`) as unknown as Array<{ likes: number; liker_id: string | null; liker_name: string | null; actor_counted: boolean | null }>;
+        const likes = counts?.likes ?? 0;
+        const title = commentLikeRowTitle(counts?.liker_name ?? null, likes);
+        const unlikedBefore = refs.unliked ?? [];
+        const nextRefs: ActivityRefs = {
+            ...refs, updateId, commentId, countSince: since.toISOString(),
+            unliked: change === "removed" ? [actorId, ...unlikedBefore.filter((id) => id !== actorId)].slice(0, UNLIKED_MEMORY) : unlikedBefore,
+        };
+        if (change === "removed" || unlikedBefore.includes(actorId)) {
+            if (row) await quietlyUpdateRow(row.id, nextRefs, Boolean(!row.readAt && !row.dismissedAt), title, likes, counts?.liker_id ?? null);
+            return;
+        }
+        if (!counts?.actor_counted) return;
+        await emitNotificationWrites(buildProjectNotificationWrites({
+            project, members, followerIds: [],
+            input: {
+                projectId, eventKey: "updates.comment_liked", affectedMemberId: authorId,
+                actorUserId: counts.liker_id, actorName: counts.liker_name, title,
+                body: projectUpdateExcerpt(comment.content, 160), href: input.href, entityRefs: nextRefs,
+                preview: { actorName: counts.liker_name, contextLabel: project.title ?? "Workspace update", contextKind: "project", secondaryText: null },
+                groupKey: `comment:${commentId}`,
+                aggregateCount: likes,
+            },
+        }));
+    } catch (error) {
+        logger.warn("workspace_updates.comment_like_notify_failed", { module: "workspace-updates", error: error instanceof Error ? error.message : String(error) });
     }
 }

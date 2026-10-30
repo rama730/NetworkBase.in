@@ -25,6 +25,7 @@ import { UserAvatar } from "@/components/ui/UserAvatar";
 import { ThreadAvatarRail, ThreadRailBridge } from "@/components/ui/ThreadRail";
 import { queryKeys } from "@/lib/query-keys";
 import { holdUpdateThread } from "@/lib/realtime/update-live-state";
+import { CommentLikeButton } from "@/components/workspaces/updates/UpdatePostParts";
 import { cn } from "@/lib/utils";
 import { getDescendants, renderCommentContent, updatePages, updateRelativeTime, type UpdatesPage } from '@/components/workspaces/updates/update-helpers';
 import { ModeratedPlaceholder, useModeratedItems, withPlaceholders } from '@/components/reports/ModeratedPlaceholder';
@@ -246,8 +247,10 @@ function CommentRow({
               </div>
 
               {/* Reply Trigger Button */}
-              {!c.deletedAt && currentUserId && (
+              {!c.deletedAt && (
                 <div className="mt-2 flex items-center gap-2 pt-0.5">
+                  <CommentLikeButton comment={c} projectId={c.projectId} signedIn={Boolean(currentUserId)} />
+                  {currentUserId ? (
                   <button
                     type="button"
                     onClick={() => {
@@ -263,6 +266,7 @@ function CommentRow({
                     <CornerDownRight className="h-3 w-3" />
                     <span>Reply</span>
                   </button>
+                  ) : null}
                 </div>
               )}
 
@@ -434,6 +438,8 @@ export function UpdateComments({
       }
 
       const optimistic: WorkspaceUpdateCommentView = {
+        likeCount: 0,
+        likedByViewer: false,
         id: tempId,
         updateId: update.id,
         projectId,

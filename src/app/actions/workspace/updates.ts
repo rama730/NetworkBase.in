@@ -41,6 +41,7 @@ import {
     workspaceUpdateComments,
     workspaceUpdateDraftMediaAssets,
     workspaceUpdateDrafts,
+    workspaceUpdateCommentLikes,
     workspaceUpdateLikes,
     workspaceUpdateMediaAssets,
     workspaceUpdates,
@@ -52,7 +53,7 @@ import { computeWorkspaceReadAccess } from "@/lib/data/workspace-access";
 import { enqueueWorkspaceNotificationEvent, readWorkspaceNotificationActorSnapshot } from "@/lib/notifications/workspace-events";
 import { publishUser } from "@/lib/messaging/publish";
 import { notifyAnnouncement, notifyOrg } from "@/lib/organizations/notify";
-import { syncUpdateActivityNotifications } from "@/lib/notifications/update-activity";
+import { syncCommentLikeNotification, syncUpdateActivityNotifications } from "@/lib/notifications/update-activity";
 import { readUpdatePreviews, type UpdatePreview } from "@/lib/workspaces/update-previews";
 import { consumeRateLimit } from "@/lib/security/rate-limit";
 import { getViewerAuthContext, getViewerProfileContext } from "@/lib/server/viewer-context";
@@ -328,6 +329,8 @@ export type WorkspaceUpdateView = {
 };
 
 export type WorkspaceUpdateCommentView = {
+    likeCount: number;
+    likedByViewer: boolean;
     id: string;
     updateId: string;
     projectId: string;
@@ -2060,7 +2063,7 @@ function decodeLikerCursor(value: string | null | undefined): ProjectUpdateLiker
 export async function readProjectUpdateLikersAction(
     projectId: string,
     updateId: string,
-    params?: { cursor?: string | null; limit?: number }
+    params?: { cursor?: string | null; limit?: number; commentId?: string | null }
 ) {
     try {
         if (!isLooseUuid(projectId) || !isLooseUuid(updateId)) return { success: false as const, error: "This update isn’t available." };
@@ -2076,29 +2079,35 @@ export async function readProjectUpdateLikersAction(
         const cursor = decodeLikerCursor(params?.cursor);
         const cursorDate = cursor ? new Date(cursor.createdAt) : null;
 
+        // A comment's likes read the same way as a post's, through their own table.
+        const commentId = params?.commentId ?? null;
+        if (commentId && !isLooseUuid(commentId)) return { success: false as const, error: "This update isn’t available." };
+        const likes = (commentId ? workspaceUpdateCommentLikes : workspaceUpdateLikes) as typeof workspaceUpdateLikes;
         const rows = await db
             .select({
-                likeId: workspaceUpdateLikes.id,
-                userId: workspaceUpdateLikes.userId,
-                likedAt: workspaceUpdateLikes.createdAt,
+                likeId: likes.id,
+                userId: likes.userId,
+                likedAt: likes.createdAt,
                 username: profiles.username,
                 fullName: profiles.fullName,
                 avatarUrl: profiles.avatarUrl,
                 headline: profiles.headline,
                 readable: sql<boolean>`(${readableProfileIdentitySql(viewerId)})`,
             })
-            .from(workspaceUpdateLikes)
-            .innerJoin(profiles, eq(workspaceUpdateLikes.userId, profiles.id))
+            .from(likes)
+            .innerJoin(profiles, eq(likes.userId, profiles.id))
             .where(and(
-                eq(workspaceUpdateLikes.updateId, updateId),
+                commentId
+                    ? and(eq(workspaceUpdateCommentLikes.commentId, commentId), sql`EXISTS (SELECT 1 FROM workspace_update_comments c WHERE c.id = ${commentId}::uuid AND c.update_id = ${updateId}::uuid)`)
+                    : eq(workspaceUpdateLikes.updateId, updateId),
                 isNull(profiles.deletedAt),
                 viewerId ? sql`NOT app_private.blocked_between(${viewerId}::uuid, ${profiles.id})` : undefined,
                 cursor && cursorDate ? or(
-                    lt(workspaceUpdateLikes.createdAt, cursorDate),
-                    and(eq(workspaceUpdateLikes.createdAt, cursorDate), lt(workspaceUpdateLikes.id, cursor.likeId)),
+                    lt(likes.createdAt, cursorDate),
+                    and(eq(likes.createdAt, cursorDate), lt(likes.id, cursor.likeId)),
                 ) : undefined,
             ))
-            .orderBy(desc(workspaceUpdateLikes.createdAt), desc(workspaceUpdateLikes.id))
+            .orderBy(desc(likes.createdAt), desc(likes.id))
             .limit(limit + 1);
 
         const items = rows.slice(0, limit);
@@ -2138,11 +2147,13 @@ type CommentRow = typeof workspaceUpdateComments.$inferSelect & {
     targetUsername: string | null;
 };
 
-function normalizeComment(row: CommentRow, access: ProjectUpdateAccess): WorkspaceUpdateCommentView {
+function normalizeComment(row: CommentRow, access: ProjectUpdateAccess, likedIds?: Set<string>): WorkspaceUpdateCommentView {
     const canModerate = access.canManage;
     const isAuthor = Boolean(access.viewerId && row.userId === access.viewerId);
     const deleted = Boolean(row.deletedAt);
     return {
+        likeCount: Math.max(0, row.likeCount ?? 0),
+        likedByViewer: likedIds?.has(row.id) ?? false,
         id: row.id,
         updateId: row.updateId,
         projectId: row.projectId,
@@ -2217,6 +2228,7 @@ export async function readWorkspaceUpdateCommentsAction(projectId: string, updat
                 userId: workspaceUpdateComments.userId,
                 targetUserId: workspaceUpdateComments.targetUserId,
                 content: workspaceUpdateComments.content,
+                likeCount: workspaceUpdateComments.likeCount,
                 deletedBy: workspaceUpdateComments.deletedBy,
                 deletedAt: workspaceUpdateComments.deletedAt,
                 createdAt: workspaceUpdateComments.createdAt,
@@ -2244,6 +2256,10 @@ export async function readWorkspaceUpdateCommentsAction(projectId: string, updat
         const rows = await hydrateCommentRowsWithRoleTitles(projectId, rawRows);
         const pageRows = rows.slice(0, COMMENTS_PAGE_SIZE);
         const last = pageRows[pageRows.length - 1] ?? null;
+        const likedCommentIds = new Set(viewer.userId && pageRows.length
+            ? (await db.select({ id: workspaceUpdateCommentLikes.commentId }).from(workspaceUpdateCommentLikes)
+                .where(and(eq(workspaceUpdateCommentLikes.userId, viewer.userId), inArray(workspaceUpdateCommentLikes.commentId, pageRows.map((row) => row.id))))).map((row) => row.id)
+            : []);
         const durationMs = Math.round(performance.now() - startedAt);
         logger.metric("project_updates.comments.read", {
             module: "projects",
@@ -2267,7 +2283,7 @@ export async function readWorkspaceUpdateCommentsAction(projectId: string, updat
         return {
             success: true as const,
             data: {
-                comments: pageRows.map((row) => normalizeComment(row, access)),
+                comments: pageRows.map((row) => normalizeComment(row, access, likedCommentIds)),
                 nextCursor: rows.length > COMMENTS_PAGE_SIZE && last ? encodeCommentCursor(last) : null,
                 hasMore: rows.length > COMMENTS_PAGE_SIZE,
             },
@@ -2397,6 +2413,7 @@ export async function createWorkspaceUpdateCommentAction(projectId: string, upda
                 userId: workspaceUpdateComments.userId,
                 targetUserId: workspaceUpdateComments.targetUserId,
                 content: workspaceUpdateComments.content,
+                likeCount: workspaceUpdateComments.likeCount,
                 deletedBy: workspaceUpdateComments.deletedBy,
                 deletedAt: workspaceUpdateComments.deletedAt,
                 createdAt: workspaceUpdateComments.createdAt,
@@ -2442,6 +2459,44 @@ export async function createWorkspaceUpdateCommentAction(projectId: string, upda
     }
 }
 
+export async function toggleWorkspaceUpdateCommentLikeAction(projectId: string, commentId: string) {
+    try {
+        const viewer = await getViewerAuthContext();
+        if (!viewer.userId) return { success: false as const, error: "Sign in to like comments." };
+        if (!isLooseUuid(commentId)) return { success: false as const, error: "Comment not found." };
+        const rate = await consumeRateLimit(`project-update:like:${viewer.userId}`, 120, 60);
+        if (!rate.allowed) return { success: false as const, error: "Too many likes. Try again in a minute." };
+        const access = await resolveProjectUpdateAccess(projectId, viewer.userId);
+        const [comment] = await db
+            .select({ updateId: workspaceUpdateComments.updateId })
+            .from(workspaceUpdateComments)
+            .where(and(eq(workspaceUpdateComments.id, commentId), eq(workspaceUpdateComments.projectId, projectId), isNull(workspaceUpdateComments.deletedAt)))
+            .limit(1);
+        if (!comment || !access.project || !await assertReadableUpdate(projectId, comment.updateId, access)) return { success: false as const, error: "Comment not found." };
+
+        const result = await db.transaction(async (tx) => {
+            const removed = await tx.delete(workspaceUpdateCommentLikes)
+                .where(and(eq(workspaceUpdateCommentLikes.commentId, commentId), eq(workspaceUpdateCommentLikes.userId, viewer.userId!)))
+                .returning({ id: workspaceUpdateCommentLikes.id });
+            const added = removed.length ? [] : await tx.insert(workspaceUpdateCommentLikes)
+                .values({ commentId, userId: viewer.userId! })
+                .onConflictDoNothing()
+                .returning({ id: workspaceUpdateCommentLikes.id });
+            const delta = added.length - removed.length;
+            const [row] = await tx.update(workspaceUpdateComments)
+                .set({ likeCount: sql`GREATEST(${workspaceUpdateComments.likeCount} + ${delta}, 0)` })
+                .where(eq(workspaceUpdateComments.id, commentId))
+                .returning({ likeCount: workspaceUpdateComments.likeCount });
+            return { liked: removed.length === 0, likeCount: row?.likeCount ?? 0 };
+        });
+        after(() => syncCommentLikeNotification({ projectId, updateId: comment.updateId, commentId, actorId: viewer.userId!, change: result.liked ? "added" : "removed", href: `${projectHref(access.project!, comment.updateId)}&commentId=${encodeURIComponent(commentId)}` }));
+        return { success: true as const, ...result };
+    } catch (error) {
+        logger.warn("workspace_updates.comment_like_failed", { module: "workspace-updates", error: error instanceof Error ? error.message : String(error) });
+        return { success: false as const, error: "Failed to update like." };
+    }
+}
+
 export async function deleteWorkspaceUpdateCommentAction(projectId: string, commentId: string) {
     try {
         const viewer = await getViewerAuthContext();
@@ -2482,8 +2537,8 @@ export async function deleteWorkspaceUpdateCommentAction(projectId: string, comm
             // Gone from the post, so gone from the trays: the personal notice, and its place in the grouped counts.
             await db.execute(sql`
                 UPDATE user_notifications SET dismissed_at = now(), updated_at = now()
-                WHERE kind = 'project_update_comment' AND read_at IS NULL AND dismissed_at IS NULL AND entity_refs->>'commentId' = ${commentId}
-                  AND user_id IN (SELECT u.author_id FROM workspace_updates u WHERE u.id = ${comment.updateId}::uuid UNION ALL SELECT ${comment.targetUserId}::uuid)`).catch(() => undefined);
+                WHERE kind IN ('project_update_comment', 'project_update_like') AND read_at IS NULL AND dismissed_at IS NULL AND entity_refs->>'commentId' = ${commentId}
+                  AND user_id IN (SELECT u.author_id FROM workspace_updates u WHERE u.id = ${comment.updateId}::uuid UNION ALL SELECT ${comment.targetUserId}::uuid UNION ALL SELECT ${comment.userId}::uuid)`).catch(() => undefined);
             await syncUpdateActivityNotifications({ projectId, updateId: comment.updateId, actorId: comment.userId ?? viewer.userId!, activity: comment.parentId ? "reply" : "comment", change: "removed", href: projectHref(access.project!, comment.updateId) });
         });
         return { success: true as const, updateId: comment.updateId };

@@ -39,7 +39,8 @@
     "drizzle/0033_deletion_grace_read_rules.sql",
     "drizzle/0034_live_row_events.sql",
     "drizzle/0035_browser_column_trims.sql",
-    "drizzle/0036_realtime_publication_empty.sql"
+    "drizzle/0036_realtime_publication_empty.sql",
+    "drizzle/0037_update_comment_likes.sql"
   ],
   "legacyDatabaseTags": [],
   "allowedUtilitySqlFiles": [
