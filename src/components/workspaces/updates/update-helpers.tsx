@@ -176,12 +176,12 @@ export function removeUpdate(
   existing: InfiniteData<UpdatesPage> | undefined,
   updateId: string,
 ): InfiniteData<UpdatesPage> {
-  if (!existing) return existing!;
+  if (!existing || !Array.isArray(existing.pages)) return existing!;
   return {
     ...existing,
     pages: existing.pages.map((page) => ({
       ...page,
-      updates: page.updates.filter((u) => u.id !== updateId),
+      updates: Array.isArray(page?.updates) ? page.updates.filter((u) => u.id !== updateId) : [],
     })),
   };
 }
@@ -190,12 +190,22 @@ export function updatePages(
   existing: InfiniteData<UpdatesPage> | undefined,
   transform: (item: WorkspaceUpdateView) => WorkspaceUpdateView,
 ): InfiniteData<UpdatesPage> {
-  if (!existing) return existing!;
-  return {
-    ...existing,
-    // Other caches share the key prefix (comment pages, context options): only pages of updates are patched.
-    pages: existing.pages.map((page) => (Array.isArray(page.updates) ? { ...page, updates: page.updates.map(transform) } : page)),
-  };
+  if (!existing || !Array.isArray(existing.pages)) return existing!;
+  let changed = false;
+  const newPages = existing.pages.map((page) => {
+    if (!Array.isArray(page?.updates)) return page;
+    let pageChanged = false;
+    const newUpdates = page.updates.map((u) => {
+      const next = transform(u);
+      if (next !== u) {
+        pageChanged = true;
+        changed = true;
+      }
+      return next;
+    });
+    return pageChanged ? { ...page, updates: newUpdates } : page;
+  });
+  return changed ? { ...existing, pages: newPages } : existing;
 }
 
 

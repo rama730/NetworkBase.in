@@ -54,13 +54,25 @@ export function DiscoverUpdateThread({
                     // A comment this person just wrote is already on screen.
                     const author = stringField(payload.new, 'user_id') ?? stringField(payload.old, 'user_id');
                     if (author && author === viewerId) return;
+                    // The count comes from the update row below: the server bumps it with each comment, so it's exact.
                     void queryClient.invalidateQueries({ queryKey: queryKeys.project.detail.updateComments(projectId, updateId) });
-                    if (payload.eventType !== 'INSERT' && payload.eventType !== 'DELETE') return;
-                    const delta = payload.eventType === 'INSERT' ? 1 : -1;
-                    const bump = <T extends { id: string; commentCount: number }>(item: T) =>
-                        item.id === updateId ? { ...item, commentCount: Math.max(0, item.commentCount + delta) } : item;
-                    queryClient.setQueriesData<never>({ queryKey: queryKeys.discover.pulseRoot() }, ((old: never) => updatePages(old, bump)) as never);
-                    queryClient.setQueriesData<DiscoverUpdateView>({ queryKey: ['discover', 'update'] }, (old) => (old ? bump(old) : old));
+                },
+            }, {
+                event: 'UPDATE',
+                table: 'workspace_updates',
+                filter: `id=eq.${updateId}`,
+                handler: (payload: { new?: unknown }) => {
+                    const newRow = payload.new as Record<string, unknown> | undefined;
+                    if (!newRow) return;
+                    const bumpCounts = <T extends { id: string; commentCount: number; likeCount: number }>(item: T) =>
+                        item.id === updateId ? {
+                            ...item,
+                            commentCount: typeof newRow.comment_count === 'number' ? newRow.comment_count : item.commentCount,
+                            likeCount: typeof newRow.like_count === 'number' ? newRow.like_count : item.likeCount,
+                        } : item;
+                    queryClient.setQueriesData<never>({ queryKey: queryKeys.discover.pulseRoot() }, ((old: never) => updatePages(old, bumpCounts)) as never);
+                    queryClient.setQueriesData<DiscoverUpdateView>({ queryKey: ['discover', 'update'] }, (old) => (old ? bumpCounts(old) : old));
+                    void queryClient.invalidateQueries({ queryKey: queryKeys.project.detail.updateLikes(projectId, updateId) });
                 },
             }],
         });

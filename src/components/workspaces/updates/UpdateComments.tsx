@@ -27,6 +27,7 @@ import { queryKeys } from "@/lib/query-keys";
 import { cn } from "@/lib/utils";
 import { getDescendants, renderCommentContent, updatePages, updateRelativeTime, type UpdatesPage } from '@/components/workspaces/updates/update-helpers';
 import { ModeratedPlaceholder, useModeratedItems, withPlaceholders } from '@/components/reports/ModeratedPlaceholder';
+import { useBlockedIds, useMutedIds } from '@/components/messages/ChatShellProvider';
 
 function CommentRow({
   comment,
@@ -52,6 +53,10 @@ function CommentRow({
   const [replyingToId, setReplyingToId] = useState<string | null>(null);
   const [replyDraft, setReplyDraft] = useState("");
   const [showAllReplies, setShowAllReplies] = useState(false);
+  // Comments from someone you blocked or muted fold until you ask (Blocking B26, B40); nothing is removed.
+  const blockedIds = useBlockedIds();
+  const mutedIds = useMutedIds();
+  const [unfolded, setUnfolded] = useState<ReadonlySet<string>>(() => new Set());
 
   const descendants = useMemo(
     () => getDescendants(comment.id, allComments),
@@ -122,6 +127,16 @@ function CommentRow({
         }
 
         const c = item.comment;
+        const foldedAs = !c.userId || c.userId === currentUserId || unfolded.has(c.id) ? null
+          : blockedIds.has(c.userId) ? "blocked" : mutedIds.has(c.userId) ? "muted" : null;
+        if (foldedAs) {
+          return (
+            <div key={c.id} id={`project-update-comment-${c.id}`} className="px-1 py-1.5 text-[13px] text-muted-foreground">
+              Comment from someone you {foldedAs}<span className="sr-only">, hidden</span>.{" "}
+              <button type="button" className="font-medium text-foreground underline underline-offset-2 hover:text-primary pointer-coarse:min-h-11" onClick={() => setUnfolded((prev) => new Set(prev).add(c.id))}>Show</button>
+            </div>
+          );
+        }
         const replyingTo = item.replyingTo;
         const isFirst = idx === 0;
         const isLast = idx === allRowItems.length - 1;
