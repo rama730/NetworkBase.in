@@ -109,9 +109,7 @@ test("retention jobs expire legal evidence and anonymize deletion records", () =
   const retention = read("src/inngest/functions/data-lifecycle-retention.ts");
   assert.match(retention, /expired_legal_acceptances/);
   assert.match(retention, /anonymized_account_deletion_records/);
-  const migration = read("drizzle/0162_legal_acceptances.sql");
-  assert.match(migration, /legal_retention_until/);
-  assert.match(migration, /150 days/);
+  assert.match(read("drizzle/0002_profiles_accounts.sql"), /legal_retention_until timestamp with time zone NOT NULL/);
 });
 
 test("legal evidence uses keyed pseudonymous hashes rather than raw network metadata", () => {
@@ -122,13 +120,4 @@ test("legal evidence uses keyed pseudonymous hashes rather than raw network meta
   assert.doesNotMatch(acceptance, /networkbase-development-legal-evidence/);
   assert.doesNotMatch(acceptance, /ipAddress:/);
   assert.doesNotMatch(acceptance, /userAgent:/);
-});
-
-test("legal database deployment is scoped to migration 0162", () => {
-  const deployment = read("scripts/deploy-legal-acceptance.mjs");
-  assert.match(deployment, /const tag = "0162_legal_acceptances"/);
-  assert.match(deployment, /VERIFIED_ROLLBACK/);
-  assert.match(deployment, /relrowsecurity/);
-  assert.match(deployment, /historical migration entries were not changed/);
-  assert.doesNotMatch(deployment, /setup-database/);
 });

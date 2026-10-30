@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Builds a disposable local Postgres 17 with the production schema: Supabase
-# shim -> schema baseline -> journal adoption -> every newer migration.
+# shim -> every migration, from empty.
 # Free, no Supabase branch. Prints the URL to export as DATABASE_URL_FRESH.
 #   scripts/db/disposable-db.sh [data-dir]
 #   DATABASE_URL_FRESH=$(scripts/db/disposable-db.sh) npm run test:db
@@ -25,7 +25,5 @@ fi
 
 "$BIN/psql" -h localhost -p "$PORT" -U postgres -qc "DROP DATABASE IF EXISTS ${DB} WITH (FORCE)" -c "CREATE DATABASE ${DB}"
 "$BIN/psql" "$URL" -v ON_ERROR_STOP=1 -q -f "$ROOT/scripts/db/supabase-shim.sql" >/dev/null
-"$BIN/psql" "$URL" -v ON_ERROR_STOP=1 -q -f "$ROOT/scripts/db/baseline/schema.sql" >/dev/null
-(cd "$ROOT" && npx tsx scripts/db/adopt-baseline.ts "$URL" >&2)
 (cd "$ROOT" && DATABASE_URL="$URL" npx tsx scripts/setup-database.ts >&2)
 echo "$URL"

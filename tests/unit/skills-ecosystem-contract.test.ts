@@ -10,18 +10,17 @@ function source(relativePath: string) {
 
 describe('skills ecosystem contract', () => {
     it('keeps catalog schema, RLS, current seed data, and compatibility joins together', () => {
-        const schema = source('drizzle/0103_market_skill_catalog.sql')
-        const seed = source('drizzle/0117_market_skill_catalog_1_3_6.sql')
+        const schema = ['0005_skills', '0006_workspaces_members', '0013_contributions'].map((file) => source(`drizzle/${file}.sql`)).join('\n')
+        const seed = source('drizzle/0020_skill_catalog_1_3_7.sql')
 
         for (const table of [
             'skill_categories', 'skill_aliases', 'skill_icon_assets',
             'skill_proposals', 'role_skills', 'profile_contribution_skills',
-        ]) assert.match(schema, new RegExp(`CREATE TABLE IF NOT EXISTS "${table}"`))
-        assert.match(schema, /Role skills are publicly readable/)
-        assert.match(schema, /Visible contribution skills are readable/)
-        assert.match(source('drizzle/0106_role_skill_visibility_hardening.sql'), /Visible role skills are readable/)
-        assert.match(seed, /Catalog release 1\.3\.6/)
-        assert.match(seed, /simple-icons','devicon','skill-icons','logos','developer-icons','lucide','custom/)
+        ]) assert.match(schema, new RegExp(`CREATE TABLE public\\.${table} `))
+        assert.match(schema, /CREATE POLICY role_skills_select_visible/)
+        assert.match(schema, /CREATE POLICY profile_contribution_skills_select_visible/)
+        assert.match(seed, /"catalog_version": "1\.3\.7"/)
+        assert.match(schema, /skills_icon_source_check[^\n]*'simple-icons'::text, 'devicon'::text, 'skill-icons'::text, 'logos'::text, 'developer-icons'::text, 'lucide'::text, 'custom'::text/)
         const generator = source('scripts/generate-skill-catalog.ts')
         assert.equal(generator.includes(`skill_${'catalog'}_releases`), false)
         assert.equal(generator.includes(`skill_${'relationships'}`), false)
@@ -29,9 +28,8 @@ describe('skills ecosystem contract', () => {
         assert.doesNotMatch(generator, /SKILL_CATALOG_MIGRATION_TAG|seedMigrationPath/)
         assert.match(generator, /if \(files\.some\(\(file\) => file\.endsWith\(`\$\{suffix\}\.sql`\)\)\) return null/)
         assert.match(generator, /manifest\.existingMigrationFiles\.push/)
-        assert.match(source('drizzle/0209_skill_catalog_1_3_7.sql'), /Catalog release 1\.3\.7/)
-        assert.match(source('drizzle/0109_skill_catalog_fk_indexes.sql'), /skills_replacement_skill_id_idx/)
-        assert.match(source('drizzle/0109_skill_catalog_fk_indexes.sql'), /profile_contribution_skills_verified_by_idx/)
+        assert.match(schema, /skills_replacement_skill_id_idx/)
+        assert.match(schema, /profile_contribution_skills_verified_by_idx/)
     })
 
     it('tracks every supplied icon repository and blocks unlicensed artwork', () => {

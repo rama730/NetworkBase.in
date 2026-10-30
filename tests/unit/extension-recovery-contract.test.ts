@@ -10,7 +10,7 @@ function source(relativePath: string) {
 describe("extension crash recovery contract", () => {
   it("persists private, expiring, owner-scoped cloud drafts", () => {
     const schema = source("src/lib/db/schema/index.ts");
-    const migration = source("drizzle/0100_extension_recovery_drafts.sql");
+    const migration = source("drizzle/0017_browser_extension.sql");
     const route = source("src/app/api/v1/extension/recovery-drafts/route.ts");
 
     assert.match(schema, /extensionRecoveryDrafts/);
@@ -18,10 +18,9 @@ describe("extension crash recovery contract", () => {
     assert.match(schema, /baseHash/);
     assert.match(schema, /taskContext/);
     assert.match(schema, /expiresAt/);
-    assert.match(migration, /extension-recovery-drafts/);
-    assert.match(migration, /VALUES \('extension-recovery-drafts', 'extension-recovery-drafts', false/);
-    assert.match(migration, /ENABLE ROW LEVEL SECURITY/);
-    assert.match(migration, /auth\.uid\(\) = user_id/);
+    assert.match(source("drizzle/0003_storage.sql"), /VALUES \('extension-recovery-drafts', 'extension-recovery-drafts', 'f'/);
+    assert.match(migration, /ALTER TABLE public\.extension_recovery_drafts ENABLE ROW LEVEL SECURITY/);
+    assert.match(migration, /CREATE POLICY extension_recovery_drafts_select_own ON public\.extension_recovery_drafts FOR SELECT TO authenticated USING \(\(\( SELECT auth\.uid\(\) AS uid\) = user_id\)\)/);
     assert.match(route, /requireAuthenticatedUser/);
     assert.match(route, /getWorkspaceAccessById/);
     assert.match(route, /createSignedUploadUrl/);
@@ -68,7 +67,7 @@ describe("extension crash recovery contract", () => {
 
   it("separates silent active snapshots from interrupted-session incidents", () => {
     const schema = source("src/lib/db/schema/index.ts");
-    const migration = source("drizzle/0102_extension_recovery_sessions.sql");
+    const migration = source("drizzle/0017_browser_extension.sql");
     const sessionRoute = source("src/app/api/v1/extension/recovery-sessions/route.ts");
     const draftRoute = source("src/app/api/v1/extension/recovery-drafts/route.ts");
 

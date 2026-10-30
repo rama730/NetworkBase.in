@@ -6,15 +6,15 @@ const read = (path: string) => readFileSync(new URL(`../../${path}`, import.meta
 
 describe("project contribution sequencing", () => {
   it("allocates event order on the dedicated counter row", () => {
-    const migration = read("drizzle/0178_storage_asset_lifecycle.sql");
-    assert.match(migration, /CREATE TABLE IF NOT EXISTS public\.project_event_counters/);
-    assert.match(migration, /public\.project_event_counters\.next_sequence \+ 1/);
+    assert.match(read("drizzle/0006_workspaces_members.sql"), /CREATE TABLE public\.workspace_event_counters /);
+    assert.match(read("drizzle/0009_files.sql"), /public\.workspace_event_counters\.next_sequence \+ 1/);
+    const migration = read("drizzle/0013_contributions.sql");
     assert.match(migration, /VALUES \(project_uuid,NEW\.node_id,NEW\.uploaded_by,'file_content_contributed',0,/);
 
     const contributionFunction = migration.slice(
-      migration.indexOf("CREATE OR REPLACE FUNCTION public.record_file_content_contribution"),
+      migration.indexOf("CREATE FUNCTION public.record_file_content_contribution"),
     );
-    assert.doesNotMatch(contributionFunction, /UPDATE public\.projects SET current_sequence_number/);
+    assert.doesNotMatch(contributionFunction, /UPDATE public\.workspaces SET current_sequence_number/);
   });
 
   it("allocates one sequence range for a batch", () => {

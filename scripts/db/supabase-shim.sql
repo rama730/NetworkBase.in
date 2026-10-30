@@ -1,5 +1,5 @@
 -- Minimal stand-ins for the Supabase-managed schemas (auth, storage, realtime,
--- extensions, roles) so scripts/db/baseline/schema.sql and newer migrations load
+-- extensions, roles) so the migrations load
 -- on a plain local Postgres 17 (scripts/db/disposable-db.sh).
 -- ponytail: covers only what the app schema references. ceiling: no real JWT
 -- signing, no Realtime server, no Storage API. upgrade: Supabase CLI local stack

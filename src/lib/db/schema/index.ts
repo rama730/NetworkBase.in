@@ -5560,7 +5560,7 @@ export type NewWorkspaceWorkflowColumn =
 
 // ============================================================================
 // CHAT (Slack-style rebuild). Tables, partitions, constraints, indexes, RLS and
-// functions are owned by drizzle/0180_chat_rebuild_additive.sql.
+// functions are owned by drizzle/0014_messaging.sql.
 // ponytail: plain pgTable typings for queries only (L-20). ceiling:
 // drizzle-kit cannot express PARTITION BY HASH, so never generate migrations
 // from these definitions. upgrade: drop this note when drizzle supports

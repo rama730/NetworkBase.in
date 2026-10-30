@@ -20,7 +20,7 @@ for (const [name, column, value] of [
   ["wrong journal index", "journal_index", -1],
 ] as const) {
   test(`setup refuses a ${name} and leaves it as found`, async () => {
-    const [row] = await sql`SELECT tag, checksum, journal_index FROM public.app_migration_journal WHERE tag = '0100_skills_catalog_foundation' OR journal_index = 100 LIMIT 1`;
+    const [row] = await sql`SELECT tag, checksum, journal_index FROM public.app_migration_journal WHERE tag = '0005_skills' OR journal_index = 100 LIMIT 1`;
     assert.ok(row, "fixture journal row");
     try {
       await sql`UPDATE public.app_migration_journal SET ${sql({ [column]: value })} WHERE tag = ${row.tag}`;

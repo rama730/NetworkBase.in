@@ -12,8 +12,7 @@ test("task-board workflow is hydrated and synchronized through its dedicated col
     const action = readProjectFile("src/app/actions/workspace/workflow.ts");
     const subscriptions = readProjectFile("src/lib/realtime/subscriptions.ts");
     const schema = readProjectFile("src/lib/db/schema/index.ts");
-    const migration = readProjectFile("drizzle/0139_project_workflow_columns.sql");
-    const realtimeMigration = readProjectFile("drizzle/0142_project_workflow_columns_realtime.sql");
+    const migration = readProjectFile("drizzle/0008_tasks_sprints.sql");
 
     assert.match(taskTab, /getWorkspaceWorkflowColumnsAction/);
     assert.match(taskTab, /subscribeActiveResource/);
@@ -24,9 +23,9 @@ test("task-board workflow is hydrated and synchronized through its dedicated col
     assert.match(action, /updateWorkspaceWorkflowColumnsAction/);
     assert.match(schema, /workspaceWorkflowColumns/);
     assert.match(subscriptions, /'project_workflow'/);
-    assert.match(migration, /project_workflow_columns/);
-    assert.match(realtimeMigration, /ALTER PUBLICATION supabase_realtime ADD TABLE public\.project_workflow_columns/);
-    assert.match(realtimeMigration, /app_private\.nb_project_can_read\(project_id\)/);
+    assert.match(migration, /CREATE TABLE public\.workspace_workflow_columns /);
+    assert.match(migration, /ALTER PUBLICATION supabase_realtime ADD TABLE public\.workspace_workflow_columns/);
+    assert.match(migration, /CREATE POLICY workspace_workflow_columns_read [^\n]*app_private\.nb_workspace_tab_visible\(workspace_id, 'tasks'::text\)/);
 });
 
 test("workflow columns keep four default categories while allowing two project-specific sections", () => {
@@ -35,8 +34,7 @@ test("workflow columns keep four default categories while allowing two project-s
     const board = readProjectFile("src/components/workspaces/v2/tasks/KanbanBoard.tsx");
     const realtime = readProjectFile("src/hooks/useRealtimeTasks.ts");
     const schema = readProjectFile("src/lib/db/schema/index.ts");
-    const migration = readProjectFile("drizzle/0139_project_workflow_columns.sql");
-    const legacyBackfill = readProjectFile("drizzle/0141_project_workflow_legacy_presentation_backfill.sql");
+    const migration = readProjectFile("drizzle/0008_tasks_sprints.sql");
 
     assert.match(action, /\.min\(4\)\.max\(6\)/);
     assert.match(action, /createWorkspaceWorkflowColumnAction/);
@@ -66,8 +64,6 @@ test("workflow columns keep four default categories while allowing two project-s
     assert.match(realtime, /deferredTaskId/);
     assert.match(schema, /workspaceWorkflowColumns/);
     assert.match(schema, /workflowColumnId/);
-    assert.match(migration, /project_workflow_columns/);
+    assert.match(migration, /CREATE TABLE public\.workspace_workflow_columns /);
     assert.match(migration, /workflow_column_id/);
-    assert.match(legacyBackfill, /custom_workflow/);
-    assert.match(legacyBackfill, /project_workflow_columns/);
 });

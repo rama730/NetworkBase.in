@@ -33,13 +33,13 @@ test('profile layout keeps roles in the responsive rail without duplicate skills
 test('current availability is absent from live product contracts and schema', () => {
   const schema = read('src/lib/db/schema/index.ts')
   const onboarding = read('src/components/onboarding/steps/Step2Details.tsx')
-  const migration = read('drizzle/0118_remove_profile_availability_status.sql')
+  const migration = read('drizzle/0002_profiles_accounts.sql')
 
   assert.doesNotMatch(schema, /availabilityStatus/)
   assert.doesNotMatch(onboarding, /Current availability|Availability Status/)
   assert.match(onboarding, /Weekly availability/)
   assert.match(onboarding, /Open to roles/)
-  assert.match(migration, /DROP COLUMN IF EXISTS "availability_status"/)
+  assert.doesNotMatch(migration, /availability_status/)
 })
 
 test('profile summary follows the supplied NetworkBase card and tab pattern', () => {

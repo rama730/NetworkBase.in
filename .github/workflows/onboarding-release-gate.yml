@@ -62,8 +62,8 @@ jobs:
           npm run check:rls-contract
           npm run check:authz-contract
 
-      # Throwaway Postgres 17 (production's major) built from the schema
-      # baseline plus every newer migration: same script as local runs.
+      # Throwaway Postgres 17 (production's major) built from every migration:
+      # same script as local runs.
       - name: Disposable database
         run: |
           set -o pipefail

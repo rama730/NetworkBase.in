@@ -32,7 +32,7 @@ const REQUIRED_TASK_COLUMNS = [
 ] as const;
 
 const MIME_RESTRICTED_BUCKETS = ["project-files", "task-files"] as const;
-// Mirrors 0236_storage_media_contracts (media, audio and archives added); a later bucket change updates both.
+// Mirrors the project-files bucket in drizzle/0003_storage.sql; a later bucket change updates both.
 const PROJECT_FILE_ALLOWED_MIME_TYPES = [
   "text/plain",
   "text/markdown",
@@ -98,7 +98,7 @@ const REQUIRED_LIFECYCLE_INDEXES = [
   "extension_device_session_events_retention_idx",
 ] as const;
 
-// Chat rebuild (0180). Partitions of the hash-partitioned tables keep RLS on
+// Chat (0014_messaging). Partitions of the hash-partitioned tables keep RLS on
 // with no policy so they can only be read through their parent.
 const CHAT_TABLES = [
   "chat_channels",
@@ -515,7 +515,7 @@ async function main() {
   for (const tableName of CHAT_TABLES) {
     const rls = chatRlsRows.find((row) => row.relname === tableName);
     if (!rls) {
-      errors.push(`public.${tableName} is missing (0180_chat_rebuild_additive)`);
+      errors.push(`public.${tableName} is missing (0014_messaging)`);
       continue;
     }
     if (!rls.relrowsecurity) errors.push(`public.${tableName} must have RLS enabled`);
@@ -542,7 +542,7 @@ async function main() {
     JOIN pg_namespace n ON n.oid = p.pronamespace
     WHERE n.nspname = 'app_private' AND p.proname LIKE 'chat\\_%'
   `;
-  if (chatFunctionRows.length === 0) errors.push("app_private chat functions are missing (0180_chat_rebuild_additive)");
+  if (chatFunctionRows.length === 0) errors.push("app_private chat functions are missing (0014_messaging)");
   for (const fn of chatFunctionRows) {
     if (!fn.prosecdef || !(fn.config ?? []).some((entry) => entry === 'search_path=""' || entry === "search_path=")) {
       errors.push(`app_private.${fn.proname} must be SECURITY DEFINER with search_path = ''`);

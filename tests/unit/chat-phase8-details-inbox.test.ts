@@ -53,7 +53,6 @@ test("Details: star + copy link, archived and preview banners, privacy switch, v
   assert.match(pane, /setChannelPrivacy\(\{ channelId, private: channel\?\.kind !== "private" \}\)/);
   assert.match(pane, /customScrollParent=\{scrollParent\}/);
   assert.match(pane, /pointer-fine:group-focus-within\/member:opacity-100/);
-  const sql = read("drizzle/0191_chat_channel_privacy.sql");
+  const sql = read("drizzle/0014_messaging.sql");
   assert.match(sql, /v_channel\.is_default/);
-  assert.match(read("drizzle/meta/_journal.json"), /"tag": "0191_chat_channel_privacy"/);
 });

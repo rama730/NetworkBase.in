@@ -125,14 +125,10 @@ test("round 2: cards get counts, not every role or member; filtered reads go thr
   assert.match(hook, /queryFn: async \(\{ pageParam = undefined as string \| undefined, signal \}\)/);
 });
 
-test("round 2: following clears only its own project page, and the index migration fails loudly on an invalid index", () => {
+test("round 2: following clears only its own project page", () => {
   const project = projectActionsSource();
   const follow = project.slice(project.indexOf("const revalidateProjectFollowers"), project.indexOf("const revalidateWorkspacePaths"));
   assert.doesNotMatch(follow, /PUBLIC_WORKSPACE_DETAIL_SHELL_CACHE_TAG/);
-  const migration = read("drizzle/0211_discover_index_hygiene.sql");
-  assert.match(migration, /RAISE EXCEPTION 'A projects_discover_\* index is invalid/);
-  assert.match(migration, /DROP INDEX CONCURRENTLY IF EXISTS public\.projects_feed_newest_idx;/);
-  assert.match(read("scripts/setup-database.ts"), /"0211_discover_index_hygiene"/);
 });
 
 test("discover card hydration reads a bounded team preview and summed open seats (PERF-012)", () => {

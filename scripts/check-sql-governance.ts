@@ -30,8 +30,7 @@ function collectSqlFiles(dir: string, into: string[]) {
   }
 }
 
-// Terminology report §14.3: 0264 renamed projects to workspaces; later migrations may not bring the word back.
-const WORKSPACE_RENAME_PREFIX = 264;
+// Terminology report §14.3: projects became workspaces; new migrations may not bring the word back.
 const NEW_NAME_PATTERNS = [
   /\bCREATE\s+(?:OR\s+REPLACE\s+)?(?:UNIQUE\s+)?(?:TABLE|VIEW|MATERIALIZED\s+VIEW|FUNCTION|PROCEDURE|TRIGGER|TYPE|INDEX(?:\s+CONCURRENTLY)?|SEQUENCE|POLICY)\s+(?:IF\s+NOT\s+EXISTS\s+)?(?:"?\w+"?\.)?"?(\w+)/gi,
   /\bADD\s+COLUMN\s+(?:IF\s+NOT\s+EXISTS\s+)?"?(\w+)/gi,
@@ -154,7 +153,7 @@ export function validateSqlGovernance(rootDir: string = process.cwd()): Validati
     if (fs.existsSync(migrationPath) && fs.statSync(migrationPath).size > 1024 * 1024) {
       errors.push(`${entry.tag}: new migration exceeds 1 MiB; emit a catalog delta instead of repeating full seed state.`);
     }
-    if (prefix > WORKSPACE_RENAME_PREFIX && fs.existsSync(migrationPath)) {
+    if (fs.existsSync(migrationPath)) {
       const names = projectNamedObjects(fs.readFileSync(migrationPath, "utf8"));
       if (names.length > 0) errors.push(`${entry.tag}: new SQL names must say workspace, not project: ${names.join(", ")}.`);
     }

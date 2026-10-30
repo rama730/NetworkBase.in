@@ -35,8 +35,8 @@ test("Removing a doc deletes the row for every slug", () => {
     assert.match(link, /nextFreeDocSlug\(/);
     const migrations = fs.readdirSync(path.join(root, "drizzle")).filter((f) => f.endsWith(".sql"));
     assert.ok(
-        migrations.some((f) => /DROP TRIGGER IF EXISTS project_docs_prevent_delete/.test(read(`drizzle/${f}`))),
-        "a migration drops the readme delete guard",
+        !migrations.some((f) => /_prevent_delete/.test(read(`drizzle/${f}`))),
+        "no readme delete guard exists",
     );
 });
 

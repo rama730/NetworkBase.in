@@ -8,23 +8,21 @@ import { projectActionsSource } from "./_workspace-actions-source";
 const read = (path: string) => readFileSync(new URL(`../../${path}`, import.meta.url), "utf8");
 
 test("Storage and private Realtime share the application key/topic contracts", () => {
-  const migration = read("drizzle/0157_storage_realtime_contract_alignment.sql");
-  assert.match(migration, /file_size_limit = 8388608/);
-  assert.match(migration, /ELSE split_part\(objects\.name, '\/', 1\)/);
-  assert.match(migration, /CREATE POLICY application_topic_read ON realtime\.messages/);
-  assert.match(migration, /CREATE POLICY application_topic_send ON realtime\.messages/);
-  assert.match(migration, /app_private\.nb_can_observe_user_presence/);
-  assert.match(migration, /app_private\.nb_project_can_read/);
-  // Since the chat cutover, presence follows shared DMs and group chats.
-  const cutover = read("drizzle/0181_chat_rebuild_cutover.sql");
-  assert.match(cutover, /nb_can_observe_user_presence[\s\S]*chat_channel_members viewer/);
-  assert.doesNotMatch(cutover, /presence:conversation/);
+  assert.match(read("drizzle/0003_storage.sql"), /VALUES \('project-updates-media', 'project-updates-media', 'f', 8388608/);
+  const messaging = read("drizzle/0014_messaging.sql");
+  assert.match(messaging, /CREATE POLICY application_topic_read ON realtime\.messages/);
+  assert.match(messaging, /CREATE POLICY application_topic_send ON realtime\.messages/);
+  assert.match(messaging, /app_private\.nb_can_observe_user_presence/);
+  assert.match(messaging, /app_private\.nb_workspace_can_read/);
+  assert.doesNotMatch(messaging, /presence:conversation/);
+  // Presence follows shared DMs and group chats.
+  assert.match(read("drizzle/0001_foundation.sql"), /nb_can_observe_user_presence[\s\S]*chat_channel_members viewer/);
 });
 
 test("private Realtime is fail-closed until database authorization is promoted", () => {
   const authorization = read("src/lib/realtime/authorization.ts");
   const presence = read("src/lib/realtime/presence-client.ts");
-  const activation = read("drizzle/0160_realtime_authorization_activation.sql");
+  const activation = read("drizzle/0014_messaging.sql");
   const exampleEnv = read(".env.local.example");
 
   assert.match(authorization, /NEXT_PUBLIC_REALTIME_AUTHORIZATION_ENABLED/);
@@ -32,8 +30,8 @@ test("private Realtime is fail-closed until database authorization is promoted",
   assert.match(presence, /await supabase\.realtime\.setAuth\(accessToken\)/);
   assert.doesNotMatch(read("src/lib/realtime/subscriptions.ts"), /private:\s*true/);
   assert.match(activation, /CREATE POLICY application_topic_read ON realtime\.messages/);
-  assert.match(activation, /realtime\.messages\.extension IN \('presence', 'broadcast'\)/);
-  assert.match(activation, /realtime\.messages\.extension = 'broadcast'/);
+  assert.match(activation, /extension = ANY \(ARRAY\['presence'::text, 'broadcast'::text\]\)/);
+  assert.match(activation, /extension = 'broadcast'::text/);
   assert.doesNotMatch(presence, /ensureGlobalAuthListener|onAuthStateChange|connectEntry started/);
   assert.match(exampleEnv, /NEXT_PUBLIC_REALTIME_AUTHORIZATION_ENABLED=0/);
 });
@@ -60,16 +58,16 @@ test("private Realtime rollout parser enables only explicit true values", () => 
 
 test("resource retention is bounded and observable", () => {
   const retention = read("src/inngest/functions/data-lifecycle-retention.ts");
-  const retentionIndexes = read("drizzle/0158_lifecycle_retention_indexes.sql");
+  const retentionIndexes = ["0002_profiles_accounts", "0004_onboarding", "0017_browser_extension"].map((file) => read(`drizzle/${file}.sql`)).join("\n");
   const registry = read("src/inngest/registry.ts");
 
   assert.match(retention, /profileReadAuditDays: 30/);
   assert.match(retention, /profileActivityAuditDays: 365/);
   assert.match(retention, /FOR UPDATE SKIP LOCKED/g);
   assert.match(retention, /batchSize: 500/);
-  assert.match(retentionIndexes, /profile_audit_events \(created_at, id\)/);
-  assert.match(retentionIndexes, /onboarding_events \(created_at, id\)/);
-  assert.match(retentionIndexes, /extension_device_session_events \(created_at, id\)/);
+  assert.match(retentionIndexes, /ON public\.profile_audit_events USING btree \(created_at, id\)/);
+  assert.match(retentionIndexes, /ON public\.onboarding_events USING btree \(created_at, id\)/);
+  assert.match(retentionIndexes, /ON public\.extension_device_session_events USING btree \(created_at, id\)/);
   assert.match(registry, /dataLifecycleRetention/);
 });
 

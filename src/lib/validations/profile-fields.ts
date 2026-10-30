@@ -1,6 +1,6 @@
 /**
  * One set of text limits for the profile fields that onboarding and profile edit both write.
- * They match the profiles_onboarding_shape_check DB limits (drizzle/0035), so the form, the
+ * They match the profiles_onboarding_shape_check DB limits (drizzle/0002_profiles_accounts.sql), so the form, the
  * server action and the database can never disagree.
  */
 export const PROFILE_FIELD_LIMITS = {

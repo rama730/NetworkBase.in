@@ -1,5 +1,7 @@
 # SQL review — every migration file, every table, and the cleanup plan
 
+> **Replaced by [sql-review-2026-10-30.md](sql-review-2026-10-30.md).** This file is out of date.
+
 2026-10-29. Read-only review: nothing in the repo or on live was changed. Everything below was checked against live today, after 0257–0263 were applied.
 
 **Contents:** 1 Summary · 2 Current status · 3 Problems found on live · 4 What's checked and clean · 5 Approaches considered · 6 The new files · 7 Every table · 8 How to do it · 9 Risks · Appendix A: all 261 files.
