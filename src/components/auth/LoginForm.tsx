@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import { adoptServerSessionIfMissing, loadBrowserSupabase, signInWithPassword as signIn, syncBrowserSessionToServer } from '@/lib/auth/browser-auth-actions'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import TurnstileWidget, { hasTurnstileSiteKey } from '@/components/auth/TurnstileWidget'
+import TurnstileWidget, { hasTurnstileSiteKey, SECURITY_CHECK_PROMPT } from '@/components/auth/TurnstileWidget'
 import { GoogleOneTap } from '@/components/auth/GoogleOneTap'
 import { AUTH_EMAIL_HANDOFF_KEY, AUTH_INPUT, AUTH_LINK, AuthAlert, AuthDivider, AuthField, AuthShell, CodeInput, OAuthButtons, PasswordField, SubmitButton, fieldError } from '@/components/auth/AuthShell'
 import { buildAuthPageHref, resolveAuthRedirectPath } from '@/lib/auth/redirects'
@@ -76,7 +76,7 @@ export function LoginForm({ redirect, error, step: stepParam }: { redirect: stri
             return
         }
         if (requiresCaptcha && !captchaToken) {
-            setFormError('Complete the security check below.')
+            setFormError(SECURITY_CHECK_PROMPT)
             return
         }
 
@@ -258,12 +258,8 @@ export function LoginForm({ redirect, error, step: stepParam }: { redirect: stri
                     <TurnstileWidget
                         key={captchaKey}
                         action="login"
-                        onVerify={(token) => { setCaptchaToken(token); clearFormError() }}
+                        onVerify={(token) => { setCaptchaToken(token); setFormError((current) => current === SECURITY_CHECK_PROMPT ? null : current) }}
                         onExpire={() => setCaptchaToken(null)}
-                        onError={() => {
-                            setCaptchaToken(null)
-                            setFormError("The security check didn’t load. Refresh the page and try again.")
-                        }}
                     />
                 ) : null}
                 <SubmitButton busy={busy} busyLabel="Signing in…">Sign in</SubmitButton>
