@@ -93,6 +93,7 @@ test('every user-visible project notification preference has a concrete source t
         'src/lib/applications/notifications.ts',
         'src/lib/notifications/task-file.ts',
         'src/lib/notifications/task-comment-mention.ts',
+        'src/lib/notifications/update-activity.ts',
         'src/lib/workspaces/task-assignment.ts',
         'src/lib/workspaces/task-transition-service.ts',
     ].map(readProjectFile).join('\n');

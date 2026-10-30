@@ -25,6 +25,13 @@ import { formatMinuteOfDay, isNotificationPauseActive, NOTIFICATION_PREFERENCE_C
 import { getBrowserNotificationSupport, requestBrowserNotificationPermission, type BrowserNotificationPermissionState } from "@/lib/notifications/browser-push";
 import { getCurrentPushStatus, isWebPushSupported, subscribeWebPush, unsubscribeWebPush, type WebPushClientStatus } from "@/lib/notifications/web-push-client";
 
+/** Per type (UP8): each is a type-wide mute, the same one a notification's own "⋯" sets. */
+const UPDATE_ACTIVITY_TYPES = [
+  { kind: "project_update_like", title: "Likes on your updates and comments", description: "One grouped row per post, in your tray." },
+  { kind: "project_update_comment", title: "Comments and replies", description: "Comments on your updates and replies to your comments. In your tray and as a push." },
+  { kind: "project_update_team", title: "Activity on your team’s updates", description: "One quiet row per post, with counts of likes and comments." },
+] as const;
+
 function NotificationsSkeleton() {
   return <SettingsSectionsSkeleton count={3} />;
 }
@@ -235,6 +242,15 @@ export default function NotificationsPage() {
         <PreferenceSwitch id="delivery-push" title="Push notifications" description={deliveryDescriptions.push} checked={preferences.delivery.push && pushStatus === "subscribed"} disabled={isSaving || pushBusy || pushStatus === "unsupported" || pushStatus === "denied"} onToggle={() => void togglePush()} />
       </div>
       <p className="mt-3 nb-meta text-muted-foreground">Emails about the security of your account (a changed password, a new editor token, an authenticator change, account deletion) are always sent. They can’t be turned off here.</p>
+    </SettingsSectionCard>
+
+    <SettingsSectionCard title="Update activity" description="What you hear when people react to updates. To quieten one workspace, use “⋯” on any of its notifications.">
+      <div className="divide-y divide-border">
+        {UPDATE_ACTIVITY_TYPES.map((type) => {
+          const scope = preferences.mutedScopes.find((item) => item.kind === "notification_type" && item.value === type.kind);
+          return <PreferenceSwitch key={type.kind} id={type.kind} title={type.title} description={type.description} checked={!scope} disabled={isSaving} onToggle={() => save({ ...preferences, mutedScopes: scope ? preferences.mutedScopes.filter((item) => item !== scope) : [{ kind: "notification_type", value: type.kind, label: type.title, mutedAt: new Date().toISOString() }, ...preferences.mutedScopes] })} />;
+        })}
+      </div>
     </SettingsSectionCard>
 
     <SettingsSectionCard title="Messages" description="How messages reach you as push notifications.">

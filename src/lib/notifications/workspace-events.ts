@@ -46,6 +46,8 @@ export type EnqueueWorkspaceNotificationEventInput = ProjectNotificationRecipien
     entityRefs?: NotificationEntityRefs | null;
     preview?: NotificationPreview | null;
     sourceEventId?: string | null;
+    /** One row per recipient for this key, holding a whole count that the caller recomputes. */
+    groupKey?: string | null;
     aggregateCount?: number;
     includeActorRecipient?: boolean;
     maxRecipients?: number | null;
@@ -247,9 +249,9 @@ function bucketForAggregate(eventKey: WorkspaceNotificationEventKey, now = new D
 
 function dedupeKeyFor(input: EnqueueWorkspaceNotificationEventInput, recipientUserId: string) {
     const bucket = bucketForAggregate(input.eventKey);
-    const source = bucket
+    const source = input.groupKey ?? (bucket
         ? `burst:${bucket}`
-        : input.sourceEventId ?? input.entityRefs?.fileId ?? input.entityRefs?.taskId ?? input.entityRefs?.applicationId ?? input.entityRefs?.invitationId ?? "latest";
+        : input.sourceEventId ?? input.entityRefs?.fileId ?? input.entityRefs?.taskId ?? input.entityRefs?.applicationId ?? input.entityRefs?.invitationId ?? "latest");
     return `project:${input.projectId}:${input.eventKey}:${source}:${recipientUserId}`;
 }
 
@@ -302,7 +304,7 @@ export async function resolveWorkspaceNotificationRecipients(params: {
     return { project, members, recipientIds: Array.from(ids) };
 }
 
-function buildProjectNotificationWrites(params: {
+export function buildProjectNotificationWrites(params: {
     input: EnqueueWorkspaceNotificationEventInput;
     project: ProjectRow;
     members: MemberRow[];
@@ -358,7 +360,7 @@ function buildProjectNotificationWrites(params: {
         });
         if (!decision.enabled) continue;
         writes.push({
-            operation: entry.aggregate === "burst_10m" ? "aggregate" : "create",
+            operation: input.groupKey || entry.aggregate === "burst_10m" ? "aggregate" : "create",
             input: {
                 recipientUserId,
                 actorUserId: actorId,
@@ -380,6 +382,7 @@ function buildProjectNotificationWrites(params: {
                 preview: previewFor(input, project),
                 dedupeKey: dedupeKeyFor(input, recipientUserId),
                 aggregateCount: input.aggregateCount ?? 1,
+                exactCount: Boolean(input.groupKey),
                 sourceEventId: input.sourceEventId ?? null,
                 placeNotice,
                 placeTitle,

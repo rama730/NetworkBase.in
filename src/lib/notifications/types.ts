@@ -28,6 +28,8 @@ export type NotificationKind =
     | "project_security_alert"
     | "project_update_activity"
     | "project_update_like"
+    | "project_update_team"
+    | "project_update_comment"
     | "org_membership"
     | "org_assignment"
     | "org_announcement"
@@ -127,6 +129,9 @@ export type NotificationEntityRefs = {
     status?: string | null;
     reviewStatus?: string | null;
     createdAt?: string | null;
+    /** Grouped post rows: counting starts here, and these people already liked and unliked. */
+    countSince?: string | null;
+    unliked?: string[] | null;
 };
 
 export type NotificationPreview = {
@@ -187,6 +192,8 @@ export type NotificationFanoutInput = {
     preview?: NotificationPreview | null;
     dedupeKey: string;
     aggregateCount?: number;
+    /** aggregateCount is the whole count, recomputed by the caller, rather than a number to add. */
+    exactCount?: boolean;
     /** Identity of the source event; an aggregate counts each (dedupeKey, sourceEventId) once, however often it is replayed (COR-016). */
     sourceEventId?: string | null;
     /**

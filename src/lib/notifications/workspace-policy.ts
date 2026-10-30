@@ -80,6 +80,7 @@ export type WorkspaceNotificationEventKey =
     | "updates.published"
     | "updates.comment"
     | "updates.liked"
+    | "updates.team_activity"
     | "updates.follower_digest"
     | OrgNotificationEventKey;
 
@@ -823,11 +824,11 @@ export const WORKSPACE_NOTIFICATION_EVENT_REGISTRY = {
         key: "updates.comment",
         group: "updates",
         label: "Update comment",
-        description: "Notify an update author when someone comments on their workspace update.",
+        description: "Tell an update's author about comments, and a commenter about replies. Tray and push.",
         category: "mentions",
-        notificationKind: "project_update_activity",
+        notificationKind: "project_update_comment",
         defaultEnabled: true,
-        defaultImportance: "more",
+        defaultImportance: "important",
         defaultRecipients: ["affected_member"],
         allowMemberOverride: true,
         mandatory: false,
@@ -838,9 +839,24 @@ export const WORKSPACE_NOTIFICATION_EVENT_REGISTRY = {
         key: "updates.liked",
         group: "updates",
         label: "Update liked",
-        description: "Notify an update author when someone likes their workspace update. Tray only.",
+        description: "Tell an update's author when people like it, as one grouped row. Tray only.",
         category: "projects",
         notificationKind: "project_update_like",
+        defaultEnabled: true,
+        defaultImportance: "more",
+        defaultRecipients: ["affected_member"],
+        allowMemberOverride: true,
+        mandatory: false,
+        aggregate: "none",
+        visible: true,
+    }),
+    "updates.team_activity": E({
+        key: "updates.team_activity",
+        group: "updates",
+        label: "Activity on the team's updates",
+        description: "Tell the owner and team about likes, comments and replies, as one grouped row per post. Tray only.",
+        category: "projects",
+        notificationKind: "project_update_team",
         defaultEnabled: true,
         defaultImportance: "more",
         defaultRecipients: ["affected_member"],
@@ -924,10 +940,6 @@ function normalizePreset(value: unknown): WorkspaceNotificationPreset {
     return value === "quiet" || value === "active" || value === "balanced" ? value : "balanced";
 }
 
-function normalizeImportance(value: unknown, fallback: NotificationImportance): NotificationImportance {
-    return value === "important" || value === "more" ? value : fallback;
-}
-
 function normalizeAggregate(value: unknown, fallback: WorkspaceNotificationAggregatePolicy): WorkspaceNotificationAggregatePolicy {
     return value === "none" || value === "burst_10m" || value === "digest_only" ? value : fallback;
 }
@@ -947,7 +959,8 @@ export function normalizeWorkspaceNotificationPolicy(value: unknown): WorkspaceN
         const rawRule = raw as Partial<Record<keyof WorkspaceNotificationRule, unknown>>;
         base.rules[key] = {
             enabled: entry.mandatory ? true : typeof rawRule.enabled === "boolean" ? rawRule.enabled : base.rules[key].enabled,
-            importance: normalizeImportance(rawRule.importance, base.rules[key].importance),
+            // Nobody can edit importance, so a stored copy is only an old default.
+            importance: base.rules[key].importance,
             aggregate: normalizeAggregate(rawRule.aggregate, base.rules[key].aggregate ?? entry.aggregate),
         };
     }
