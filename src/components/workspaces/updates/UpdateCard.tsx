@@ -463,7 +463,7 @@ function UpdateCard({
                 <MessageCircle className="h-3.5 w-3.5" />
                 <span className="tabular-nums">{update.commentCount}</span>
               </button>
-              <ShareUpdateButton path={update.visibility === "public" ? `/discover?updateId=${update.id}` : href} />
+              <ShareUpdateButton path={href} />
             </div>
           ) : null}
         </div>
