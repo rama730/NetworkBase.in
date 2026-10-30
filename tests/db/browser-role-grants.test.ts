@@ -6,9 +6,9 @@ import { actAs, actAsOwner, createUser, inRollback, sql } from "./_helpers";
 after(() => sql.end());
 
 // workspaces is column-granted (every column but import_source), so it is not a table-level grant.
-const BROWSER_READABLE = [ "workspace_follows", "connections", "tasks", "task_subtasks",
+const BROWSER_READABLE = [ "workspace_follows", "tasks", "task_subtasks",
   "task_comments", "task_comment_likes", "task_node_links", "workspace_workflow_columns", "workspace_updates",
-  "workspace_update_comments", "workspace_node_locks", "user_notifications",
+  "workspace_update_comments", "user_notifications",
 ].sort();
 
 // RLS-009: the server writes; browser roles read only what the UI reads.
@@ -20,7 +20,7 @@ test("anon and authenticated have no write privilege anywhere in public", async 
   assert.deepEqual(rows.map((r) => r.grant), []);
 });
 
-// profiles and workspace_members are absent: browsers get named columns only.
+// connections, profiles, workspace_members and workspace_node_locks are absent: browsers get named columns only.
 test("browser SELECT is limited to the tables the UI and policies read", async () => {
   for (const role of ["anon", "authenticated"]) {
     const expected = BROWSER_READABLE.filter((table) => role === "authenticated" || table !== "user_notifications");
@@ -77,6 +77,37 @@ test("anon reads public profiles but neither notifications nor connection rows",
   });
 });
 
+test("a connections-only profile still opens for a connection, and only for them", async () => {
+  await inRollback(async (tx) => {
+    const owner = await createUser(tx, { visibility: "connections" });
+    const [friend, stranger] = [await createUser(tx), await createUser(tx)];
+    await tx`INSERT INTO public.connections (requester_id, addressee_id, status, rejection_reason) VALUES (${owner}, ${friend}, 'accepted', 'kept private')`;
+    await actAs(tx, friend);
+    assert.equal((await tx`SELECT id FROM public.profiles WHERE id = ${owner}`).length, 1);
+    assert.equal((await tx`SELECT status FROM public.connections`).length, 1, "their own connection still reads");
+    await assert.rejects(tx.savepoint((sp) => sp`SELECT rejection_reason FROM public.connections`), /permission denied/);
+    await actAsOwner(tx);
+    await actAs(tx, stranger);
+    assert.equal((await tx`SELECT id FROM public.profiles WHERE id = ${owner}`).length, 0);
+    await actAsOwner(tx);
+  });
+});
+
+test("a lock's holder and expiry stay readable, its tokens do not", async () => {
+  await inRollback(async (tx) => {
+    const owner = await createUser(tx);
+    const [ws] = await tx`INSERT INTO public.workspaces (owner_id, title, slug, visibility, status) VALUES (${owner}, 'Locks', ${`locks-${owner.slice(0, 8)}`}, 'public', 'active') RETURNING id`;
+    const [node] = await tx`INSERT INTO public.workspace_nodes (workspace_id, type, name) VALUES (${ws!.id}, 'file', 'a') RETURNING id`;
+    await tx`INSERT INTO public.workspace_node_locks (node_id, workspace_id, locked_by, expires_at, session_id) VALUES (${node!.id}, ${ws!.id}, ${owner}, now() + interval '5 minutes', gen_random_uuid())`;
+    await actAs(tx, owner);
+    assert.equal((await tx`SELECT locked_by, expires_at FROM public.workspace_node_locks`).length, 1);
+    for (const column of ["session_id", "lease_id", "fencing_token", "device_session_id"]) {
+      await assert.rejects(tx.savepoint((sp) => sp.unsafe(`SELECT ${column} FROM public.workspace_node_locks`)), /permission denied/, column);
+    }
+    await actAsOwner(tx);
+  });
+});
+
 test("notification preferences stay with the server", async () => {
   await inRollback(async (tx) => {
     for (const viewer of [null, await createUser(tx)]) {
@@ -93,6 +124,9 @@ test("notification preferences stay with the server", async () => {
 
 // Exact columns, so a new grant on a private column fails here rather than in production.
 const COLUMN_ALLOWLIST: Record<string, string[]> = {
+  // profiles_select_visible reads these as the caller; nothing else in the browser reads connections.
+  connections: ["addressee_id", "id", "requester_id", "status"],
+  workspace_node_locks: ["acquired_at", "client_kind", "expires_at", "locked_by", "node_id", "workspace_id"],
   profiles: ["avatar_url", "created_at", "deleted_at", "full_name", "id", "updated_at", "username", "visibility"],
   workspace_members: ["id", "role", "user_id", "workspace_id"],
 };
@@ -111,7 +145,10 @@ for (const [table, columns] of Object.entries(COLUMN_ALLOWLIST)) {
 
 test("no private workspace column is browser-readable", async () => {
   for (const role of ["anon", "authenticated"]) {
-    for (const column of ["notification_preferences", "join_code", "org_settings", "import_source", "suspend_reason"]) {
+    for (const column of [
+      "notification_preferences", "join_code", "org_settings", "import_source", "suspend_reason",
+      "sync_status", "github_last_commit_sha", "cover_image_key", "current_sequence_number", "status_set_by",
+    ]) {
       const [row] = await sql`SELECT has_column_privilege(${role}, 'public.workspaces', ${column}, 'SELECT') AS can`;
       assert.equal(row!.can, false, `${role} ${column}`);
     }
