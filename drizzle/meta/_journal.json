@@ -176,6 +176,13 @@
       "when": 1793369804969,
       "tag": "0025_storage_backup_due_index",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1793370188436,
+      "tag": "0026_status_role_checks",
+      "breakpoints": true
     }
   ]
 }
