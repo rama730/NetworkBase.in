@@ -16,7 +16,7 @@ test("anon and authenticated have no write privilege anywhere in public", async 
   const rows = await sql`
     SELECT DISTINCT grantee || ':' || table_name || ':' || privilege_type AS grant
     FROM information_schema.role_table_grants
-    WHERE table_schema = 'public' AND grantee IN ('anon', 'authenticated') AND privilege_type <> 'SELECT'`;
+    WHERE table_schema = 'public' AND grantee IN ('anon', 'authenticated', 'PUBLIC') AND privilege_type NOT IN ('SELECT', 'MAINTAIN')`;
   assert.deepEqual(rows.map((r) => r.grant), []);
 });
 
@@ -88,5 +88,71 @@ test("notification preferences stay with the server", async () => {
     }
     const views = await tx`SELECT viewname FROM pg_views WHERE schemaname = 'public' AND viewname <> 'onboarding_slo_daily'`;
     assert.deepEqual([...views], [], "the old project-name views are gone");
+  });
+});
+
+// Exact columns, so a new grant on a private column fails here rather than in production.
+const COLUMN_ALLOWLIST: Record<string, string[]> = {
+  profiles: ["avatar_url", "created_at", "deleted_at", "full_name", "id", "updated_at", "username", "visibility"],
+  workspace_members: ["id", "role", "user_id", "workspace_id"],
+};
+
+for (const [table, columns] of Object.entries(COLUMN_ALLOWLIST)) {
+  test(`browsers read only the approved ${table} columns`, async () => {
+    for (const role of ["anon", "authenticated"]) {
+      const rows = await sql`
+        SELECT a.attname FROM pg_attribute a
+        WHERE a.attrelid = ${`public.${table}`}::regclass AND a.attnum > 0 AND NOT a.attisdropped
+          AND has_column_privilege(${role}, a.attrelid, a.attnum, 'SELECT') ORDER BY 1`;
+      assert.deepEqual(rows.map((r) => r.attname), columns, role);
+    }
+  });
+}
+
+test("no private workspace column is browser-readable", async () => {
+  for (const role of ["anon", "authenticated"]) {
+    for (const column of ["notification_preferences", "join_code", "org_settings", "import_source", "suspend_reason"]) {
+      const [row] = await sql`SELECT has_column_privilege(${role}, 'public.workspaces', ${column}, 'SELECT') AS can`;
+      assert.equal(row!.can, false, `${role} ${column}`);
+    }
+  }
+});
+
+test("every public table has row level security on", async () => {
+  const rows = await sql`SELECT relname FROM pg_class WHERE relnamespace = 'public'::regnamespace AND relkind IN ('r', 'p') AND NOT relrowsecurity`;
+  assert.deepEqual(rows.map((r) => r.relname), []);
+});
+
+test("browsers see their own membership and follows, never anyone else's", async () => {
+  await inRollback(async (tx) => {
+    const [owner, other] = [await createUser(tx), await createUser(tx)];
+    const [ws] = await tx`INSERT INTO public.workspaces (owner_id, title, slug, visibility, status) VALUES (${owner}, 'Open', ${`open-${owner.slice(0, 8)}`}, 'public', 'active') RETURNING id`;
+    await tx`INSERT INTO public.workspace_members (workspace_id, user_id, role) VALUES (${ws!.id}, ${other}, 'member') ON CONFLICT DO NOTHING`;
+    await tx`INSERT INTO public.workspace_follows (workspace_id, user_id) VALUES (${ws!.id}, ${other})`;
+    for (const [viewer, expected] of [[null, 0], [owner, 0], [other, 1]] as const) {
+      await actAs(tx, viewer);
+      assert.equal((await tx`SELECT id FROM public.workspace_members WHERE workspace_id = ${ws!.id} AND user_id = ${other}`).length, expected);
+      assert.equal((await tx`SELECT user_id FROM public.workspace_follows WHERE workspace_id = ${ws!.id}`).length, expected);
+      await actAsOwner(tx);
+    }
+  });
+});
+
+test("during the deletion grace only the owner can read a workspace", async () => {
+  await inRollback(async (tx) => {
+    const [owner, member] = [await createUser(tx), await createUser(tx)];
+    const [ws] = await tx`INSERT INTO public.workspaces (owner_id, title, slug, visibility, status) VALUES (${owner}, 'Going', ${`going-${owner.slice(0, 8)}`}, 'public', 'active') RETURNING id`;
+    await tx`INSERT INTO public.workspace_members (workspace_id, user_id, role) VALUES (${ws!.id}, ${member}, 'member') ON CONFLICT DO NOTHING`;
+    const reads = async (viewer: string | null) => {
+      await actAs(tx, viewer);
+      const [row] = await tx`SELECT app_private.nb_workspace_can_read(${ws!.id}) AS can`;
+      await actAsOwner(tx);
+      return row!.can;
+    };
+    assert.equal(await reads(null), true);
+    await tx`UPDATE public.workspaces SET deletion_scheduled_at = now() + interval '30 days' WHERE id = ${ws!.id}`;
+    assert.equal(await reads(null), false, "the public");
+    assert.equal(await reads(member), false, "a member");
+    assert.equal(await reads(owner), true, "the owner");
   });
 });

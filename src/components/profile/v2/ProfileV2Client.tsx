@@ -355,14 +355,7 @@ export function ProfileV2Client({
     useEffect(() => {
         if (!viewerUser?.id || isOwner || !profile?.id) return;
         const unsubscribe = subscribeUserNotifications((event) => {
-            if (event.kind === 'connection') {
-                const payload = (event.payload?.new ?? event.payload?.old) as Record<string, unknown> | undefined;
-                const reqId = payload?.requester_id;
-                const addrId = payload?.addressee_id;
-                if (reqId === profile.id || addrId === profile.id) {
-                    void refreshViewerOverlay();
-                }
-            } else if (event.kind === 'notification') {
+            if (event.kind === 'notification') {
                 const payload = (event.payload?.new ?? event.payload?.old) as Record<string, unknown> | undefined;
                 const kind = typeof payload?.kind === 'string' ? payload.kind : '';
                 if (kind.startsWith('connection_')) {

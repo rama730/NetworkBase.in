@@ -38,7 +38,6 @@ function myWorkInvalidationDomains(kind: string): MyWorkInvalidationDomain[] {
 }
 
 function myWorkNotificationKind(event: UserNotificationEvent) {
-  if (event.kind === "connection") return "connection_request_change";
   if (event.kind !== "notification") return null;
   const payload = (event.payload.new ?? event.payload.old) as Record<string, unknown> | undefined;
   const kind = typeof payload?.kind === "string" ? payload.kind : null;

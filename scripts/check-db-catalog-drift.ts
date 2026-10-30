@@ -20,10 +20,7 @@ const REQUIRED_REALTIME_PUBLICATION_TABLES = [
   "tasks",
   "task_comments",
   "task_subtasks",
-  "task_comment_likes",
   "task_node_links",
-  "workspace_updates",
-  "workspace_update_comments",
 ] as const;
 
 const REQUIRED_TASK_COLUMNS = [

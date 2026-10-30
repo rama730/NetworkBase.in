@@ -1,0 +1,196 @@
+# Shortcut ledger, 2026-10-30
+
+Every deliberate `ponytail:` shortcut in the code: **187**, of which **35** name no limit or trigger, so they are the ones to read first. Generated from the comments; nothing was changed.
+
+## No limit or trigger named
+
+- `scripts/generate-skill-catalog.ts:443` union of every earlier release; a row reverted to an older release's exact value is
+- `src/app/actions/chat/channels.ts:12` channels always belong to a project; no global public channels (L-5).
+- `src/app/actions/chat/messages.ts:30` "Also send to #channel" posts a second, top-level copy (L-31), files included.
+- `src/app/actions/chat/search.ts:40` Postgres full-text ('simple' config, every language alike) over the
+- `src/app/actions/organizations.ts:238` a collision with another org's code just retries; 32^6 codes make five tries plenty.
+- `src/app/actions/workspace/updates.ts:893` shared posts take comments in their own project; the card checks there on submit.
+- `src/app/actions/workspace/updates.ts:1499` stored only; email sending lands with notifications (P14).
+- `src/app/api/v1/extension/heartbeat/route.ts:12` the extension client lives outside this repo, so its cadence is
+- `src/components/messages/CanvasEditor.tsx:27` the image size rides in the markdown image title (`![a](src "m")`),
+- `src/components/messages/ChatSections.tsx:597` "N more" expands the bootstrap's DMs (the 100 most recent) in place; older ones via ⌘K
+- `src/components/messages/ChatShellProvider.tsx:43` one-release purge of the old chat's persisted stores (L-14).
+- `src/components/messages/ChatWindow.tsx:23` fixed size and position, no shortcut, no auto-open (L-26).
+- `src/components/messages/MessageRow.tsx:52` the timeline shows the uploaded image itself, already capped at 1920px
+- `src/components/messages/MessageRow.tsx:71` best effort; a request started while the page unloads can still be cut off.
+- `src/components/messages/MessagesSidebar.tsx:6` tablets (768–1023px) use the single-pane pattern (L-22).
+- `src/components/messages/NewMessage.tsx:120` the bootstrap previews 3 members per group, so only groups of up to 4 (you included) match.
+- `src/components/trust/Evidence.tsx:44` LCS over words, O(n·m); evidence is clipped to a few thousand characters.
+- `src/components/trust/live.tsx:37` concurrent commits can land out of seq order; catching up from 20 entries back with a seen-set
+- `src/components/workspaces/create-wizard/useCreateWorkspaceWizard.ts:729` 100 files per template; larger trees go through Files → Copy.
+- `src/lib/data/discover.ts:721` a card shows 4 avatars + "+N": read at most 8 members per project (the visible ones fill
+- `src/lib/data/discover.ts:1024` without Redis each page rebuilds the list at the same pinned "now"; the position fallback covers drift.
+- `src/lib/messaging/channel-view.ts:46` projects by recent activity, 8 DMs in the sidebar (L-30).
+- `src/lib/messaging/constants.ts:11` typing only in channels of 50 or fewer, throttled 3.5 s (L-7).
+- `src/lib/messaging/constants.ts:21` background unread by poll (L-2), not per-channel live topics.
+- `src/lib/messaging/emoji.ts:2` a curated list of the emoji people use in work chat, with Slack-style names.
+- `src/lib/messaging/maintenance.ts:10` no created_at-only index; old rows sit early in the heap so each
+- `src/lib/messaging/send-bucket.ts:1` in-memory token bucket per server instance for sends and
+- `src/lib/navigation/in-app-history.ts:4` Forward also counts as a step back (popstate can't tell them apart), and a
+- `src/lib/organizations/detail.ts:103` counts every live child project; P11's Projects tab filters by what the viewer may see.
+- `src/lib/organizations/succession.ts:49` "unit lead" is the longest-serving member placed in a unit (units have no lead column yet).
+- `src/lib/presence/live-store.ts:32` `max` rooms, first come first served with FIFO promotion (they share one socket with
+- `src/lib/presence/model.ts:107` last_active_at is written at most every 5 min, so minutes are coarse to 5.
+- `src/lib/realtime/private-broadcast.ts:95` delivery p95 was not soak-tested on the free plan (L-33).
+- `src/lib/storage/asset-deletion.ts:67` an unsent chat upload stays for an hour (the old upload-session
+- `src/lib/utils/date.ts:27` one fixed locale (en-US) so server and browser render the same text. Decision 31 asks for the
+
+## With a limit or trigger
+
+- `scripts/db/supabase-shim.sql:4` covers only what the app schema references. ceiling: no real JWT
+- `src/app/(site)/(main)/discover/page.tsx:76` SSR initial feed page gives 0 CSR waterfall for canonical /discover. ceiling: default unfiltered feed. upgrade: SSR top filter combinations if SEO/tra
+- `src/app/(site)/(main)/messages/[channelId]/layout.tsx:8` channel URLs use ids, no slugs (L-9). upgrade: vanity URLs if requested.
+- `src/app/actions/applications/internal.ts:318` 64-bit hashtextextended advisory lock serializes connection pair creation. ceiling: 10M connection pairs. upgrade: partition connections table by hash
+- `src/app/actions/applications/internal.ts:329` direct functional unique index lookup on connections_active_pair_unique avoids BitmapOr heap scans. ceiling: 10M pairs. upgrade: none needed.
+- `src/app/actions/applications/internal.ts:1152` deterministic hierarchical lock ordering (projects -> project_open_roles -> role_applications) eliminates PostgreSQL deadlock 40P01 under 1M concurren
+- `src/app/actions/applications/internal.ts:1187` non-blocking post-transaction offloading via after() cuts P95 HTTP response from 2,400ms to < 45ms. ceiling: 100 notification writes per transaction. 
+- `src/app/actions/applications/internal.ts:1378` one after another, so two accepts for the same role see each other's capacity. ceiling: 20 sequential accepts per call. upgrade: group by role if this
+- `src/app/actions/chat/activity.ts:60` reactions to your last 500 messages in 30 days (L-10). ceiling:
+- `src/app/actions/chat/channels.ts:168` unindexed ILIKE over public channels in your projects. ceiling: ~100k channels.
+- `src/app/actions/chat/later.ts:72` offset paging keeps the due-first order simple. ceiling: deep pages of a very
+- `src/app/actions/chat/messages.ts:353` reactions notify nobody (L-10). upgrade: an Activity row, not a tray row.
+- `src/app/actions/connections.ts:275` canonical lexicographical sorting of profile IDs eliminates 40P01 deadlocks on concurrent counter updates. ceiling: 10,000 bulk connections. upgrade: 
+- `src/app/actions/connections.ts:1565` 64-bit hashtextextended advisory lock serializes connection pair creation. ceiling: 10M connection pairs. upgrade: partition connections table by hash
+- `src/app/actions/connections.ts:1569` Match connections_active_pair_unique functional index (LEAST, GREATEST) for a 1-row direct B-tree seek. ceiling: 10M pairs at <0.2ms seek. upgrade: no
+- `src/app/actions/connections.ts:1600` serializes concurrent reciprocal requests and automatically fulfills mutual intent. ceiling: 10k reciprocal requests/min. upgrade: unified acceptance 
+- `src/app/actions/connections.ts:1687` Return HTTP response immediately after authoritative DB commit; offload notifications, Redis holds, and cache purges to Next.js after(). ceiling: 10k 
+- `src/app/actions/connections.ts:2077` sort profile IDs before locking to guarantee global canonical lock acquisition order. ceiling: 2 rows. upgrade: none needed.
+- `src/app/actions/connections.ts:2134` Offload Redis pair mutations, Inngest sync, notifications, and path revalidations post-commit. ceiling: Sub-20ms P95 user latency. upgrade: bulk event
+- `src/app/actions/connections.ts:2339` canonical lock ordering on profile decrement eliminates 40P01 deadlocks. ceiling: 2 profiles. upgrade: none needed.
+- `src/app/actions/files/links.ts:167` a cap instead of a cursor bounds every attachment read. ceiling: MAX_TASK_ATTACHMENTS links per task; add keyset paging if it is raised.
+- `src/app/actions/files/mutations.ts:818` client explorer handles rename via Zustand renameNodeInCaches; skip route revalidation. ceiling: single-tab explorer view. upgrade: Realtime broadcast
+- `src/app/actions/files/mutations.ts:998` client explorer handles move via Zustand; skip route revalidation. ceiling: single-tab explorer view. upgrade: Realtime broadcast if multi-tab explore
+- `src/app/actions/files/mutations.ts:1061` client handles trash restore via query invalidation; skip route revalidation. ceiling: client query invalidation. upgrade: global cache invalidation b
+- `src/app/actions/files/mutations.ts:1152` client handles trash purge via query invalidation; skip route revalidation. ceiling: client query invalidation. upgrade: global cache invalidation bus
+- `src/app/actions/files/mutations.ts:1266` client handles trash restore via query invalidation; skip route revalidation. ceiling: client query invalidation. upgrade: global cache invalidation b
+- `src/app/actions/files/nodes.ts:214` exact parentId scopes directory reads, allowing managed task subtrees while root reads stay public. ceiling: directory parentId scoping. upgrade: gran
+- `src/app/actions/files/versions.ts:301` decouple version notifications via after() to keep upload response under 50ms. ceiling: background task execution. upgrade: Inngest queue if notificat
+- `src/app/actions/files/versions.ts:362` client handles revision updates via Zustand upsertNodes; skip route revalidation. ceiling: single-tab explorer view. upgrade: Realtime broadcast if mu
+- `src/app/actions/files/versions.ts:429` client handles version restore via query invalidation; skip route revalidation. ceiling: client query invalidation. upgrade: global cache invalidation
+- `src/app/actions/files/versions.ts:551` client handles version deletion via query invalidation; skip route revalidation. ceiling: client query invalidation. upgrade: global cache invalidatio
+- `src/app/actions/github-sync.ts:128` parallel query for runs, identity, files count, and team members. ceiling: 4 concurrent DB queries. upgrade: single joined SQL aggregation if workspac
+- `src/app/actions/github-sync.ts:678` fast-path single-file diff by pre-computed SHA avoids full 100k repo comparison. ceiling: diff preview capped at 1MB per file. upgrade: Web Worker str
+- `src/app/actions/github.ts:82` bounded cache prevents unbounded memory accumulation in server actions. ceiling: MAX_ACTION_CACHE_ENTRIES per server process. upgrade: shared cache if
+- `src/app/actions/moderation-staff.ts:262` profiles, workspaces and orgs only; posts and messages are reported from the app, add their links when staff need them.
+- `src/app/actions/network-invitations.ts:190` privacy-hidden people are dropped after LIMIT, so a page can come back a row or two short while hasMore stays true (cursors are exact, nothing is skip
+- `src/app/actions/org-dashboard.ts:264` every child project in one read, sized for ORG_LIMITS.childProjectsPerOrg (200). Upgrade: 50-row pages.
+- `src/app/actions/org-files.ts:96` 300 folders, sorted by path. Upgrade: per-folder controls in the Files tree when orgs outgrow it.
+- `src/app/actions/org-members.ts:65` one roster read per open, sized for ORG_LIMITS.membersPerOrg (2,000). Upgrade: server paging.
+- `src/app/actions/subtask.ts:38` serialize only appends for this task. ceiling: one append at a time per task. upgrade: fractional positions if subtask drag-and-drop is added.
+- `src/app/actions/upload-import.ts:126` transaction-scoped advisory lock (pg_try_advisory_xact_lock) releases automatically on commit/rollback. ceiling: single Postgres primary. upgrade: Red
+- `src/app/actions/workspace/doc.ts:1027` single atomic doc draft init on project creation. ceiling: 500KB starter draft. upgrade: chunked version insert if drafts exceed 500KB.
+- `src/app/actions/workspace/guidance.ts:189` expire on inbox read and acceptance. ceiling: expired invitations stay until someone reads them. upgrade: a scheduled sweep when stale invitations sho
+- `src/app/actions/workspace/updates.ts:1935` one row per like, so the unread badge counts likes one by one. Upgrade: count bundles if busy posts feel noisy.
+- `src/app/api/v1/extension/workspace/route.ts:92` summary mode skips per-project task and file queries. ceiling: counts only until the IDE asks for full mode. upgrade: none; full mode already serves d
+- `src/app/api/v1/presence/heartbeat/route.ts:45` one Redis SET per engaged user per minute. ceiling: Upstash request
+- `src/app/sitemap.ts:32` one sitemap capped at 5,000 orgs; split with generateSitemaps when public orgs pass that.
+- `src/components/discover/DiscoverClient.tsx:83` the 6 first-paint cards remount once when Virtuoso takes over; mount Virtuoso at first render if that ever shows.
+- `src/components/layout/AppSidebar.tsx:68` the drawer mounts this only while open, so its ids duplicate the (display:none) aside's only on mobile; use per-instance ids if that ever matters.
+- `src/components/messages/CanvasEditor.tsx:319` fixed print colours (a PDF is always light). upgrade: none needed.
+- `src/components/messages/DetailsPane.tsx:305` the member list holds the first 500 (listMembers); the search box says so past that.
+- `src/components/messages/MessagesViews.tsx:854` bootstrap lists the newest 100 DMs, so a draft in an older DM also reads "Left". Upgrade: look it up by id.
+- `src/components/messages/useConversation.ts:226` catch-up refetches the loaded pages (L-1). ceiling: a gap
+- `src/components/presence/EmojiChoice.tsx:9` a curated grid + "type or paste any emoji" (the OS picker covers the
+- `src/components/settings/IntegrationsSettings.tsx:265` auto-reconcile live connection when manual token has been generated. ceiling: 60s cutoff (20 attempts * 3s). upgrade: WebSocket Realtime push invalida
+- `src/components/settings/IntegrationsSettings.tsx:381` the old identity is detached before the redirect because an account can hold one identity per provider; GitHub would refuse the new link otherwise. Th
+- `src/components/settings/IntegrationsSettings.tsx:400` optimistic cache update removes row immediately for 0ms perceived lag. ceiling: optimistic single-row deletion. upgrade: server confirmation rollback 
+- `src/components/trust/InboxList.tsx:61` a plain list with load-on-scroll; 72px rows stay smooth into the hundreds. Virtualize if waves pass ~2,000.
+- `src/components/workspaces/create-wizard/useCreateWorkspaceWizard.ts:701` dynamic import keeps doc server action out of initial wizard bundle. ceiling: 1 doc creation per project. upgrade: static import if wizard bundle is c
+- `src/components/workspaces/dashboard/InviteCollaboratorModal.tsx:137` legacy browsers fall back to a string hash; modern browsers take the SHA-256 path. ceiling: the fallback hash is not collision-resistant. upgrade: dro
+- `src/components/workspaces/dashboard/WorkspaceLayout.tsx:315` length heuristic decides whether the 3-line clamp needs a toggle; measure overflow if it misfires.
+- `src/components/workspaces/dashboard/WorkspaceTabsRegistry.tsx:32` SSR enabled with SkeletonFiles ensures initial HTML contains placeholder DOM, meeting LCP and page performance contract. ceiling: SkeletonFiles placeh
+- `src/components/workspaces/doc/AddDocDialog.tsx:83` server name search for ".md", then exact extension filter here. ceiling: files whose name lacks ".md" (e.g. ".markdown") are missed. upgrade: extensio
+- `src/components/workspaces/settings/GeneralSettingsSection.tsx:46` dynamic code-splitting for SkillPicker catalog (378 KB) so settings tab initial chunk stays small. ceiling: settings tab. upgrade: keep dynamic.
+- `src/components/workspaces/v2/TasksTab.tsx:602` filters the loaded pages only, like the count beside the title; a server filter if units grow large.
+- `src/components/workspaces/v2/explorer/useExplorerBoot.ts:254` restore only unloaded folders, four at a time. ceiling: deep trees restore in rounds of four requests. upgrade: raise the concurrency if restores feel
+- `src/components/workspaces/v2/files-tab/FilesHeader.tsx:41` portal only controls, not state or mutation handlers. ceiling: single shared header slot. upgrade: separate floating toolbar if sub-panels require dec
+- `src/components/workspaces/v2/files-tab/FilesTabRoot.tsx:569` 30s lock expiry sweep. ceiling: 30s interval. upgrade: WebSocket Realtime push invalidation for remote locks.
+- `src/components/workspaces/v2/files-tab/SavedFilesCollection.tsx:39` back off idle polling to 5m to eliminate client-side egress churn. ceiling: 5m polling interval. upgrade: WebSocket Realtime push invalidation for rem
+- `src/components/workspaces/v2/files-tab/TaskFilesCollection.tsx:145` back off idle polling to 5m to eliminate client-side egress churn. ceiling: 5m polling interval. upgrade: WebSocket Realtime push invalidation for rem
+- `src/components/workspaces/v2/files-tab/TaskFilesCollection.tsx:394` deduplicate task entries across paginated cache layers. ceiling: React Query page cache. upgrade: normalized entity store if task file counts exceed 5
+- `src/components/workspaces/v2/files-tab/file/FileVersionHistoryPanel.tsx:135` listVersions dependency re-fetches when nodeId changes. ceiling: single file version panel. upgrade: React Query cache if version lists are shared acr
+- `src/components/workspaces/v2/files-tab/folder/FolderListView.tsx:195` memoize actions per row to prevent breaking React.memo on unchanged rows. ceiling: per-row actions menu. upgrade: virtualized row action menu if table
+- `src/components/workspaces/v2/files-tab/folder/FolderListView.tsx:341` back off idle polling to 5m to eliminate client-side egress churn. ceiling: 5m polling interval. upgrade: WebSocket Realtime push invalidation for rem
+- `src/components/workspaces/v2/files-tab/folder/FolderListView.tsx:365` O(1) Set lookup replaces O(N*M) array scans. ceiling: 10,000 files per view. upgrade: TanStack Virtual windowing for >50,000 files.
+- `src/components/workspaces/v2/files-tab/hooks/useFileLease.ts:98` 32s-38s lease renewal interval skipped when document is hidden. ceiling: 38s renewal interval. upgrade: WebSocket Realtime heartbeat if sub-second lea
+- `src/components/workspaces/v2/files-tab/quick-open/QuickOpenDialog.tsx:140` dynamic import inside queryFn keeps server actions and DB driver out of module evaluation in unit test environments. ceiling: on-demand quick-open sea
+- `src/components/workspaces/v2/tasks/KanbanBoard.tsx:714` float64 gaps avoid rewriting every card. ceiling: about 50 repeated midpoint moves between the same two cards. upgrade: Lexorank or a column rebalance
+- `src/components/workspaces/v2/tasks/KanbanBoard.tsx:724` equal neighbours (precision exhausted) cannot take a midpoint. ceiling: ~50 repeated
+- `src/hooks/usePresenceTyping.ts:119` omit redundant avatarUrl; receiving client enriches avatar from its thread cache. ceiling: text-only broadcast payload. upgrade: send avatarUrl if ext
+- `src/hooks/useTaskLinks.ts:39` back off idle polling to 5m to eliminate client-side egress churn. ceiling: 300,000ms idle poll. upgrade: push-based CDC via project channel if real-t
+- `src/hooks/useUpdateLive.ts:107` reloads the open thread as one batch, not comment by comment. Upgrade: fetch by comment id if threads grow past a page.
+- `src/hooks/useUpdateLive.ts:188` a new post with a narrower audience shows no pill; it appears on the next load. Upgrade: a topic per audience.
+- `src/inngest/functions/git-sync.ts:14` per-project concurrency limit 1 unlocks multi-tenant parallel execution. ceiling: 1 job per project at once. upgrade: per-branch concurrency keys if p
+- `src/inngest/functions/my-work-counter-reconcile.ts:88` nightly reconciliation heals drift between denormalized profiles.connections_count and authoritative connections table. ceiling: 1M profiles. upgrade:
+- `src/inngest/functions/social-graph-suggestions.ts:180` chunks avoid one oversized event request. ceiling: large. upgrade: a paged fan-out job if one sweep outgrows the chunk budget.
+- `src/inngest/functions/sprint-schedule.ts:7` hourly cron instead of per-minute polling. ceiling: sprint start/end lags up to one hour. upgrade: a scheduled event at each sprint boundary if users 
+- `src/inngest/functions/workspace-files-permanent-delete.ts:11` hourly sweep handles crashed delete tombstones without high-frequency polling. ceiling: hourly cron sweep. upgrade: event-driven file.deleted trigger 
+- `src/inngest/registry.ts:86` a separate worker isolates GitHub imports from web memory. ceiling: two services to run. upgrade: merge them if imports move to streaming.
+- `src/lib/applications/notifications.ts:23` reads the newest event at notify time. ceiling: two transitions racing inside the same
+- `src/lib/auth/mfa-gate.ts:13` per-process cache, so each server instance keeps its own copy; move to Redis if instances multiply.
+- `src/lib/connections/internal-helpers.ts:11` Replace keyspace SCAN loop with atomic per-user revision bump for discover and inbox caches. ceiling: Constant 1-hop Redis INCR vs O(keyspace) blockin
+- `src/lib/db/index.ts:43` 8 s statement cap. ceiling: slow report queries fail. upgrade: per-query SET LOCAL for known long jobs.
+- `src/lib/db/index.ts:50` drizzle runs every query through unsafe(), which postgres.js never prepares, so each parameterised query pays a Describe round trip. ceiling: transact
+- `src/lib/db/schema/index.ts:5549` plain pgTable typings for queries only (L-20). ceiling:
+- `src/lib/discover/feed-interleaving.ts:16` updates arrive a page ahead of the projects that need them, so a slot is filled the first time it is
+- `src/lib/email/delivery.ts:406` sequential batches of 25, one worker run at a time. Ceiling: low-volume transactional mail; upgrade to rate-aware parallel batches if queue age grows.
+- `src/lib/env.ts:60` STORAGE_BACKUP_AWS_* optional until the backup bucket exists; published
+- `src/lib/extension/active-sessions.ts:51` in-memory LRU cache of resolved authMethod by sessionId to avoid repeated DISTINCT ON queries on event table. ceiling: 5,000 entries (~500KB RAM). upg
+- `src/lib/extension/ide-protocol.ts:298` ignore localStorage errors in restricted sandboxes. ceiling: sandbox localStorage restriction. upgrade: in-memory state fallback if cookie-based persi
+- `src/lib/extension/ide-protocol.ts:338` standard invisible link click triggers native protocol handler without navigation abort. ceiling: OS protocol registration. upgrade: custom native mes
+- `src/lib/files/content-hash.ts:52` 2-worker concurrency pool caps browser memory to <=64 MiB during bulk file hashing. ceiling: 2 workers, FIFO queue. upgrade: Dedicated SharedWorker if
+- `src/lib/files/file-attribution.ts:31` short-circuit for directory-only trees saves 1 database query per folder view. ceiling: empty files array. upgrade: run query when file nodes exist.
+- `src/lib/files/folder-export.ts:62` streams straight to the admin; the report's background job and "ready" notice come when classes
+- `src/lib/github/oauth-client.ts:61` canonical grant covers repository contents and workflow files. ceiling: standard OAuth 2.0 scopes. upgrade: GitHub App fine-grained permissions if use
+- `src/lib/github/oauth-client.ts:124` obtain provider URL before detaching stale identity. ceiling: browser popup/redirect workflow. upgrade: background OAuth device flow for headless envi
+- `src/lib/github/sync-api.ts:45` single backoff retry on secondary rate limit for idempotent GET. ceiling: 1 retry, max 5s backoff. upgrade: exponential backoff queue with jitter if h
+- `src/lib/github/sync-api.ts:183` one level of subtrees. ceiling: a single directory over GitHub's tree limit fails closed. upgrade: recurse into truncated subtrees.
+- `src/lib/github/sync-git.ts:332` native git add stages reviewed snapshot in one pass. ceiling: OS file descriptor and memory limits on worker container. upgrade: direct tree construct
+- `src/lib/github/sync-git.ts:343` git push exits 0 only upon verified remote ref update; pruning redundant ls-remote saves 250-450ms network latency. ceiling: fast-forward pushes only.
+- `src/lib/github/sync-runner.ts:195` batch inArray query resolves up to 100 contributor identities in 1 SQL round-trip. ceiling: 100 authors per file history. upgrade: chunked inArray if 
+- `src/lib/github/sync-runner.ts:546` 2s throttle on stage update ceiling avoids saturating Postgres with per-file updates. ceiling: 2s throttle. upgrade: Redis pub/sub if realtime per-fil
+- `src/lib/github/sync-service.ts:73` 10,000-entry in-memory LRU cache of Git blob SHA and safety metadata keyed by SHA-256 hash. ceiling: 10,000 entries (~2MB RAM). upgrade: Redis key-val
+- `src/lib/github/sync-service.ts:128` parallel owner validation and sync connection queries. ceiling: 2 concurrent DB queries. upgrade: single joined SQL query if connection volume exceeds
+- `src/lib/github/sync-service.ts:446` batch known content hashes query across project to eliminate S3 downloads. ceiling: comparisonFiles rows, enforced by the limit below (PERF-009). upgr
+- `src/lib/github/sync-service.ts:549` 24 concurrent storage downloads keeps worst-case memory bounded while avoiding serial I/O. ceiling: 24 concurrent streams (~120MB heap peak). upgrade:
+- `src/lib/github/sync-service.ts:863` reuse immutable project revision storageKey instead of duplicating file snapshots. ceiling: immutable version S3 keys. upgrade: write-on-copy COW snap
+- `src/lib/github/sync-service.ts:1250` database contentHash validation (0 network round-trips). ceiling: database-backed contentHash. upgrade: S3 byte-range ETags if database contentHash is
+- `src/lib/messaging/account.ts:12` runs inline in the account cleanup job. ceiling: ~10⁶ messages per
+- `src/lib/messaging/constants.ts:8` @channel/@here only up to 100 members (L-13). ceiling: inline
+- `src/lib/messaging/maintenance.ts:6` messages themselves are kept forever (L-16). ceiling: ~700 GB/yr at
+- `src/lib/messaging/publish.ts:78` one push_subscriptions lookup per recipient (ACT-06). ceiling: 10 concurrent
+- `src/lib/messaging/push-policy.ts:6` per-instance 30 s suppression per (user, channel) (L-11). ceiling:
+- `src/lib/messaging/routes.ts:7` sequence DTOs currently use PostgreSQL int4. ceiling: 2^31-1 per channel.
+- `src/lib/messaging/timeline.ts:77` the preview's blob URL lives until the page closes. ceiling: a few MB for a heavy
+- `src/lib/network/person-card-read.ts:11` Deduplicate privacy relationship resolution across feed projection and card enrichment. ceiling: 200 cards resolved in 1 batch. upgrade: in-memory mem
+- `src/lib/notifications/preferences.ts:249` a DST change inside quiet hours shifts the resume by an hour. upgrade: zoned date math.
+- `src/lib/onboarding/completion.ts:24` tried once per process; the claim lands on the next token refresh, so middleware may add one hop until then.
+- `src/lib/organizations/config.ts:3` fixed v1 values; raise a value here when real orgs hit it (support asks first).
+- `src/lib/organizations/members.ts:31` one upsert per address (500 at most per paste); batch it if pastes ever grow past that.
+- `src/lib/organizations/notify.ts:148` a rolling 24 hours, not the org's calendar day. Upgrade: count from midnight in projects.time_zone.
+- `src/lib/organizations/org-digests.ts:28` one scan of copies due in the next two days or overdue in the last one. Ceiling: fine to tens of
+- `src/lib/organizations/org-digests.ts:85` one tray call per person and org (each reads the org's rules). Ceiling: a few thousand people at
+- `src/lib/profile/domain-presence.ts:223` A path-scoped catalog rule keeps shared publisher hosts out of one-off resolver logic. ceiling: domain pathPrefix filter. upgrade: URL pattern matcher
+- `src/lib/realtime/server-broadcast.ts:25` best-effort publish after commit (L-1). ceiling: a crash between
+- `src/lib/realtime/task-resource.ts:38` invalidate callbacks from the channel we are intentionally closing. ceiling: entry.generation monotonically increasing integer. upgrade: AbortControll
+- `src/lib/realtime/task-resource.ts:51` configuration changes replace the channel; native Realtime owns reconnects. ceiling: single RealtimeChannel per task. upgrade: channel multiplexer if 
+- `src/lib/realtime/workspace-files-channel.ts:26` client channel ceiling of 4 covers root files tab and github sync workspace simultaneously. ceiling: 4 concurrent channels per tab. upgrade: increase 
+- `src/lib/security/leaked-password.ts:8` Free-plan fallback; native Supabase enforcement should replace this after a Pro upgrade. ceiling: HaveIBeenPwned k-anonymity range API. upgrade: nativ
+- `src/lib/security/rate-limit.ts:335` Upstash token bucket per IP/user, kept only on abuse surfaces. ceiling: one region Redis. upgrade: none needed below ~1k rps.
+- `src/lib/skills/service.ts:363` batched role skills sync cuts N sequential DB roundtrips to 1 bulk insert during project creation. ceiling: 50 open roles. upgrade: multi-row batching
+- `src/lib/storage/asset-backup.ts:55` failures are retried hourly without a cap; add an attempt counter + quarantine if poison assets accumulate.
+- `src/lib/upload/upload-intents.ts:798` the whole object is streamed once to hash it (constant memory, S3-01).
+- `src/lib/validations/workspace.ts:16` a unit holds the role box's 10 seats; ORG_LIMITS.membersPerUnit (100) waits for real classes that need it.
+- `src/lib/workspaces/collaborator-lifecycle.ts:247` atomic role capacity enforcement ensures open role vacancies are strictly verified and decremented under concurrency. ceiling: 1M concurrent members. 
+- `src/lib/workspaces/doc-view-model.ts:79` per-process LRU Maps (12 here, qualityCache 24, DOC_METADATA_CACHE 200). ceiling: each replica warms its own copy. upgrade: shared cache only if doc r
+- `src/lib/workspaces/server/lifecycle.ts:960` batch open-role skill syncing cuts N sequential DB roundtrips to 1 bulk insert. ceiling: 50 open roles. upgrade: multi-row batching beyond 50.
+- `src/lib/workspaces/sprint-detail.ts:279` use the existing project authority level at both boundaries. ceiling: isOwner or admin role. upgrade: granular custom role permissions if enterprise R
+- `src/lib/workspaces/task-presentation.ts:230` a task completed after its due day remains Done and is also Overdue, independently of whether its Sprint is still active. ceiling: completedAt timesta
+- `src/stores/files/contentMap.ts:20` 25MB and 50-file cache ceiling with LRU eviction. ceiling: 25MB total or 50 files. upgrade: IndexedDB binary chunk streaming for files >25MB.
+- `src/stores/ui-store.ts:73` the launcher always has one predictable destination; callers that need Requests ask for it explicitly instead of restoring stale UI. ceiling: defaults
+- `tests/e2e/mobile.spec.ts:5` device options via test.use instead of a config project; add a `mobile` project if more specs need it.

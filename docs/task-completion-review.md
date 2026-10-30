@@ -39,7 +39,7 @@ Legacy dates are left unknown; legacy pending work must be resubmitted before ap
 
 ## Delivery
 
-Apply `drizzle/0233_task_completion_policy.sql` through the normal migration runner before
+The policy lives in `drizzle/0008_tasks_sprints.sql`; apply it through the normal migration runner before
 running the updated app. The migration is append-only and preserves existing review outcomes.
 Migration 0233 was applied to the live database on 2026-10-20 after explicit authorization.
 The deployment preserved existing project/task data and left review off for all 15 existing projects.
