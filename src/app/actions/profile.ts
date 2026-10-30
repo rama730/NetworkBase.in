@@ -25,6 +25,7 @@ import { getProfileMutualCount } from '@/lib/data/profile'
 import { positiveIntegerOr } from '@/lib/utils/number'
 import { normalizeAndValidateFileSize, normalizeAndValidateMimeType } from '@/lib/upload/security'
 import { createUploadIntent, finalizeUploadIntent } from '@/lib/upload/upload-intents'
+import { forClient } from '@/lib/privacy/client-relationship';
 import { resolvePrivacyRelationship } from '@/lib/privacy/resolver'
 import { logger } from '@/lib/logger'
 import { claimPrimaryAlias, getUsernameAvailability, mapUsernamePersistenceError } from '@/lib/usernames/service'
@@ -818,10 +819,11 @@ export async function getProfileViewerOverlayAction(profileId: string) {
             return { success: false as const, error: 'Sign in to continue' };
         }
 
-        const privacyRelationship = await resolvePrivacyRelationship(user.id, profileId);
-        if (!privacyRelationship) {
+        const resolved = await resolvePrivacyRelationship(user.id, profileId);
+        if (!resolved) {
             return { success: false as const, error: 'Profile not found' };
         }
+        const privacyRelationship = forClient(resolved);
 
         return {
             success: true as const,

@@ -167,7 +167,7 @@ export async function readNetworkInvitationsAction(
                 SELECT entries.*,profiles.username,profiles.full_name,profiles.avatar_url,profiles.headline,profiles.location
                 FROM entries JOIN profiles ON profiles.id=entries.actor_id
                 WHERE profiles.deleted_at IS NULL AND profiles.id<>${user.id}::uuid
-                    AND NOT EXISTS(SELECT 1 FROM connections b WHERE b.status='blocked' AND ((b.requester_id=${user.id}::uuid AND b.addressee_id=profiles.id) OR (b.addressee_id=${user.id}::uuid AND b.requester_id=profiles.id)))
+                    AND NOT app_private.blocked_between(${user.id}::uuid, profiles.id)
                     ${query.direction === "all" ? sql`` : sql`AND entries.direction=${query.direction}`}
                     ${query.kind === "all" || query.kind === "decided" ? sql`` : query.kind === "connections" ? sql`AND entries.source='connection'` : sql`AND entries.source IN ('invitation','application')`}
                     ${search.length ? sql`AND ${sql.join(search, sql` AND `)}` : sql``}

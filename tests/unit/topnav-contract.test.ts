@@ -308,7 +308,7 @@ test("top-nav keeps one accessible, route-aligned implementation", () => {
   assert.match(searchPreviews, /getConnectionsFeed/);
   assert.match(searchPreviews, /fetchWorkspaceTaskPreviewsAction/);
   assert.match(connectionsAction, /accepted_connection\.status = 'accepted'/);
-  assert.match(connectionsAction, /blocked_connection\.status = 'blocked'/);
+  assert.match(connectionsAction, /app_private\.blocked_between\(/);
   assert.match(connectionsAction, /applySuggestedProfilePrivacy\(user\.id, items\)/);
   assert.doesNotMatch(personCard, /onDismiss/);
   // Shared wording (lib/connections/copy): "1 shared connection", "3 mutual connections".

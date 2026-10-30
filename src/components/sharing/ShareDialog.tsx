@@ -136,7 +136,7 @@ export function ShareDialog({ kind, path, onClose, ownerUsernameSetup, returnFoc
       if(!alive.current||currentUser.current!==account)return;
       if(!result.success){
         if(result.error==='chat_unauthorized')setNeedsAuth(true);
-        if(['chat_not_member','chat_channel_not_found','chat_channel_archived','chat_blocked'].includes(result.error)){setTarget('');}
+        if(['chat_not_member','chat_channel_not_found','chat_channel_archived','chat_cannot_reply'].includes(result.error)){setTarget('');}
         setMessage(result.error==='share_link_changed'?'The link changed. Review the refreshed preview before retrying.':result.error==='share_unavailable'?'This link is no longer available to share. Your note is kept.':chatErrorMessage(result.error));
         void previewQuery.refetch();void targetQuery.refetch();shell.refresh();return;
       }

@@ -127,7 +127,7 @@ test("reopen refuses a closed role; a second reviewer is told who already decide
     // An admin cannot accept someone who blocked the workspace's lead.
     await sql`UPDATE workspace_open_roles SET filled = 0 WHERE id = ${roleA}`;
     await sql`UPDATE role_applications SET status = 'pending', decision_at = NULL, decision_by = NULL, decision_reason_code = NULL, decision_reason_text = NULL WHERE id = ${a1}`;
-    await sql`INSERT INTO connections (requester_id, addressee_id, status, blocked_by, blocked_at) VALUES (${one}, ${owner}, 'blocked', ${one}, now())`;
+    await sql`INSERT INTO user_blocks (blocker_id, blocked_id) VALUES (${one}, ${owner})`;
     viewerId = admin;
     const accepted = await apps.acceptApplicationAction(a1);
     assert.equal(accepted.success, false, JSON.stringify(accepted));

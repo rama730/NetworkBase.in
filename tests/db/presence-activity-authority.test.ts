@@ -20,7 +20,8 @@ test("activity visibility in SQL equals the server projection for every combinat
       await tx`UPDATE profiles SET show_activity = ${viewerShows} WHERE id = ${a}`;
       await tx`UPDATE profiles SET show_activity = ${targetShows} WHERE id = ${b}`;
       await tx`DELETE FROM connections WHERE requester_id = ANY(${[a, b]}::uuid[])`;
-      if (blocked) await tx`INSERT INTO connections (requester_id, addressee_id, status, blocked_by, blocked_at) VALUES (${b}, ${a}, 'blocked', ${b}, now())`;
+      await tx`DELETE FROM user_blocks WHERE blocker_id = ANY(${[a, b]}::uuid[])`;
+      if (blocked) await tx`INSERT INTO user_blocks (blocker_id, blocked_id) VALUES (${b}, ${a})`;
       const expected = presencePrivacy({ self: false, blocked, viewerShowsActivity: viewerShows, targetShowsActivity: targetShows, connected: false, teammate: false, visibility: "everyone" }).activity;
       assert.equal(await visible(tx, a, b), expected, JSON.stringify({ viewerShows, targetShows, blocked }));
     }
@@ -51,7 +52,7 @@ test("Realtime observation needs a relationship and the shared rule", async () =
     assert.equal(await observe(b, a), false, "a person who hides theirs sees nobody's");
     assert.equal(await observe(b, b), true, "but their own");
     await tx`UPDATE profiles SET show_activity = true WHERE id = ${b}`;
-    await tx`INSERT INTO connections (requester_id, addressee_id, status, blocked_by, blocked_at) VALUES (${a}, ${b}, 'blocked', ${a}, now())`;
+    await tx`INSERT INTO user_blocks (blocker_id, blocked_id) VALUES (${a}, ${b})`;
     assert.equal(await observe(a, b), false, "blocked");
     assert.equal(await observe(b, a), false, "blocked the other way");
   });
@@ -102,7 +103,7 @@ test("list reads mask last-active through the same rule", async () => {
     await sql`UPDATE profiles SET show_activity = false WHERE id = ${b}`;
     assert.equal(await read(), null, "hidden by the target");
     await sql`UPDATE profiles SET show_activity = true WHERE id = ${b}`;
-    await sql`INSERT INTO connections (requester_id, addressee_id, status, blocked_by, blocked_at) VALUES (${b}, ${a}, 'blocked', ${b}, now())`;
+    await sql`INSERT INTO user_blocks (blocker_id, blocked_id) VALUES (${b}, ${a})`;
     assert.equal(await read(), null, "blocked");
   } finally {
     await sql`DELETE FROM connections WHERE requester_id = ANY(${[a, b]}::uuid[])`;

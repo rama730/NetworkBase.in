@@ -21,7 +21,7 @@ export function shareDestinationProjection(viewerId: string) {
     CASE WHEN c.archived_at IS NOT NULL OR m.archived_at IS NOT NULL THEN 'archived' WHEN c.kind = 'dm' AND EXISTS (
       SELECT 1 FROM chat_channel_members other WHERE other.channel_id = c.id AND other.user_id <> ${viewerId}::uuid
         AND app_private.chat_is_blocked(${viewerId}::uuid, other.user_id)
-    ) THEN 'blocked' ELSE NULL END AS send_disabled_reason,
+    ) THEN 'unavailable' ELSE NULL END AS send_disabled_reason,
     CASE WHEN c.kind = 'dm' THEN (
       SELECT jsonb_build_object('id', pr.id, 'username', pr.username, 'full_name', pr.full_name, 'avatar_url', pr.avatar_url)
       FROM chat_channel_members other JOIN profiles pr ON pr.id = other.user_id

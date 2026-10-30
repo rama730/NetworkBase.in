@@ -20,8 +20,7 @@ export function visibleMutualCountSql(viewerId: string) {
         WHERE mine.status='accepted' AND (mine.requester_id=${viewerId}::uuid OR mine.addressee_id=${viewerId}::uuid)
         AND peer.id<>profiles.id AND peer.deleted_at IS NULL AND peer.onboarding_status='completed'
         AND coalesce(peer.visibility,'public') IN ('public','connections')
-        AND NOT EXISTS (SELECT 1 FROM connections blocked WHERE blocked.status='blocked'
-            AND ((blocked.requester_id=${viewerId}::uuid AND blocked.addressee_id=peer.id) OR (blocked.addressee_id=${viewerId}::uuid AND blocked.requester_id=peer.id)))
+        AND NOT app_private.blocked_between(${viewerId}::uuid, peer.id)
         AND EXISTS (SELECT 1 FROM connections theirs WHERE theirs.status='accepted'
             AND ((theirs.requester_id=profiles.id AND theirs.addressee_id=peer.id) OR (theirs.addressee_id=profiles.id AND theirs.requester_id=peer.id))))`;
 }

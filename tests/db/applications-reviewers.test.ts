@@ -257,10 +257,10 @@ test("every badge agrees with its list: deleted and blocked applicants are in ne
     const row = incoming.success ? incoming.applications.find((item: { id: string }) => item.id === applicationId) : undefined;
     assert.equal((row as { channelId?: string } | undefined)?.channelId, channelId, "the row can open its thread");
 
-    await sql`INSERT INTO connections (requester_id, addressee_id, status, blocked_by, blocked_at) VALUES (${owner}, ${applicant}, 'blocked', ${owner}, now())`;
+    await sql`INSERT INTO user_blocks (blocker_id, blocked_id) VALUES (${owner}, ${applicant})`;
     assert.equal(await countReviewableApplications(owner), 0, "a blocked applicant is not counted");
     assert.equal(await queue(owner), 0, "nor listed");
-    await sql`DELETE FROM connections WHERE requester_id = ${owner} AND addressee_id = ${applicant}`;
+    await sql`DELETE FROM user_blocks WHERE blocker_id = ${owner} AND blocked_id = ${applicant}`;
     await sql`UPDATE profiles SET deleted_at = now() WHERE id = ${applicant}`;
     assert.equal(await countReviewableApplications(owner), 0, "a deleted account is not counted");
     await sql`UPDATE profiles SET deleted_at = NULL WHERE id = ${applicant}`;

@@ -25,12 +25,18 @@ export async function requireChatUser() {
  * Map a database error to a stable code. The chat SQL functions raise
  * 42501/22023 with a `chat_*` message; anything else is logged and hidden.
  */
+/** No error code that leaves the server says "blocked" (B31). */
+export function neutralChatCode(code: string) {
+  return code === "chat_blocked" ? "chat_cannot_reply" : code;
+}
+
 export function chatFailure(error: unknown, action: string): ChatFailure {
   // Drizzle wraps driver errors; the Postgres code and message live on `cause`.
   const source = (error as { cause?: unknown } | null)?.cause ?? error;
   const code = (source as { code?: string } | null)?.code;
   const message = source instanceof Error ? source.message : String(source);
-  if ((code === "42501" || code === "22023") && KNOWN_ERROR.test(message)) return { success: false, error: message };
+  // The database's block refusal leaves the server under a neutral code (B31, K28).
+  if ((code === "42501" || code === "22023") && KNOWN_ERROR.test(message)) return { success: false, error: neutralChatCode(message) };
   if (code === "23505") return { success: false, error: "chat_duplicate" };
   logger.error("chat.action_failed", { module: "chat", action, error: message });
   return { success: false, error: "chat_unavailable" };

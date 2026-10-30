@@ -41,7 +41,7 @@ test("findDm is read-only; getOrCreateDm is the only creator", async () => {
     assert.equal(JSON.stringify(await state()), snapshot, "a lookup leaves membership state untouched");
 
     // Blocked pairs find nothing.
-    await sql`INSERT INTO connections (requester_id, addressee_id, status, blocked_by, blocked_at) VALUES (${b}, ${a}, 'blocked', ${b}, now())`;
+    await sql`INSERT INTO user_blocks (blocker_id, blocked_id) VALUES (${b}, ${a})`;
     const blocked = await members.findDm({ userId: b });
     assert.equal(blocked.success && blocked.channelId, null);
   } finally {

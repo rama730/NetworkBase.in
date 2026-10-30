@@ -46,6 +46,7 @@ export type PrivacyConnectionRow = {
   blockedBy: string | null;
 };
 
+const isSelfPair = (a: string, b: string) => a === b;
 const DEFAULT_VISIBILITY: ProfileVisibilitySetting = "public";
 const DEFAULT_MESSAGE_PRIVACY: MessagePrivacySetting = "connections";
 const DEFAULT_CONNECTION_PRIVACY: ConnectionPrivacySetting = "everyone";
@@ -57,6 +58,8 @@ export function derivePrivacyRelationshipState(input: {
   messagePrivacy?: MessagePrivacySetting | null;
   connectionPrivacy?: ConnectionPrivacySetting | null;
   latestConnection?: PrivacyConnectionRow | null;
+  /** Blocks from user_blocks, one per direction (0273); the connection row no longer carries them. */
+  blocks?: { byViewer: boolean; byTarget: boolean } | null;
   mutualAcceptedCount?: number;
 }): PrivacyRelationshipState {
   const viewerId = input.viewerId ?? null;
@@ -65,14 +68,8 @@ export function derivePrivacyRelationshipState(input: {
   const messagePrivacy = input.messagePrivacy ?? DEFAULT_MESSAGE_PRIVACY;
   const connectionPrivacy = input.connectionPrivacy ?? DEFAULT_CONNECTION_PRIVACY;
   const latestConnection = input.latestConnection ?? null;
-  const blockedByViewer =
-    !!viewerId &&
-    latestConnection?.status === "blocked" &&
-    latestConnection.blockedBy === viewerId;
-  const blockedByTarget =
-    !!viewerId &&
-    latestConnection?.status === "blocked" &&
-    latestConnection.blockedBy === input.targetUserId;
+  const blockedByViewer = !!viewerId && !isSelfPair(viewerId, input.targetUserId) && Boolean(input.blocks?.byViewer);
+  const blockedByTarget = !!viewerId && !isSelfPair(viewerId, input.targetUserId) && Boolean(input.blocks?.byTarget);
   const isConnected = latestConnection?.status === "accepted";
   const hasPendingOutgoingRequest =
     !!viewerId &&

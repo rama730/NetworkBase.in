@@ -1,6 +1,6 @@
 import { cache } from "react";
 import { db } from "@/lib/db";
-import { connections, profiles } from "@/lib/db/schema";
+import { connections, profiles, userBlocks } from "@/lib/db/schema";
 import { and, desc, eq, inArray, isNull, or, sql } from "drizzle-orm";
 import { logger } from "@/lib/logger";
 import {
@@ -79,6 +79,7 @@ export async function resolvePrivacyRelationship(
   if (!targetProfile) return null;
 
   let latestConnection: ConnectionRow | null = null;
+  let blocks: { byViewer: boolean; byTarget: boolean } | null = null;
   const usedFastPath = false;
 
   if (viewerId && viewerId !== targetUserId) {
@@ -108,6 +109,11 @@ export async function resolvePrivacyRelationship(
       ],
     });
     latestConnection = dbConnection ?? null;
+    const blockRows = await db.select({ blockerId: userBlocks.blockerId }).from(userBlocks).where(or(
+      and(eq(userBlocks.blockerId, viewerId), eq(userBlocks.blockedId, targetUserId)),
+      and(eq(userBlocks.blockerId, targetUserId), eq(userBlocks.blockedId, viewerId)),
+    ));
+    blocks = { byViewer: blockRows.some((r) => r.blockerId === viewerId), byTarget: blockRows.some((r) => r.blockerId === targetUserId) };
   }
 
   const needsMutualResolution =
@@ -127,6 +133,7 @@ export async function resolvePrivacyRelationship(
     messagePrivacy: targetProfile.messagePrivacy ?? DEFAULT_MESSAGE_PRIVACY,
     connectionPrivacy: targetProfile.connectionPrivacy ?? DEFAULT_CONNECTION_PRIVACY,
     latestConnection,
+    blocks,
     mutualAcceptedCount,
   });
   logger.metric("privacy.relationship.resolve", {
@@ -188,6 +195,20 @@ export async function resolvePrivacyRelationships(
         )
     : [];
 
+  const blockRows = viewerId
+    ? await db.select({ blockerId: userBlocks.blockerId, blockedId: userBlocks.blockedId }).from(userBlocks).where(or(
+        and(eq(userBlocks.blockerId, viewerId), inArray(userBlocks.blockedId, uniqueTargetIds)),
+        and(eq(userBlocks.blockedId, viewerId), inArray(userBlocks.blockerId, uniqueTargetIds)),
+      ))
+    : [];
+  const blocksByTarget = new Map<string, { byViewer: boolean; byTarget: boolean }>();
+  for (const row of blockRows) {
+    const other = row.blockerId === viewerId ? row.blockedId : row.blockerId;
+    const entry = blocksByTarget.get(other) ?? { byViewer: false, byTarget: false };
+    if (row.blockerId === viewerId) entry.byViewer = true; else entry.byTarget = true;
+    blocksByTarget.set(other, entry);
+  }
+
   const latestConnectionByTarget = new Map<string, ConnectionRow>();
   for (const row of latestConnections) {
     const otherUserId = row.requesterId === viewerId ? row.addresseeId : row.requesterId;
@@ -231,6 +252,7 @@ export async function resolvePrivacyRelationships(
         messagePrivacy: profile.messagePrivacy ?? DEFAULT_MESSAGE_PRIVACY,
         connectionPrivacy: profile.connectionPrivacy ?? DEFAULT_CONNECTION_PRIVACY,
         latestConnection,
+        blocks: blocksByTarget.get(targetUserId) ?? null,
         mutualAcceptedCount,
       }),
     );
@@ -253,7 +275,7 @@ export function readableProfileIdentitySql(viewerId: string | null) {
   const pair = sql`((c.requester_id = ${viewerId}::uuid AND c.addressee_id = ${profiles.id})
     OR (c.addressee_id = ${viewerId}::uuid AND c.requester_id = ${profiles.id}))`;
   return and(isNull(profiles.deletedAt),
-    sql`NOT EXISTS (SELECT 1 FROM connections c WHERE ${pair} AND c.status = 'blocked')`,
+    sql`NOT app_private.blocked_between(${viewerId}::uuid, ${profiles.id})`,
     or(eq(profiles.id, viewerId), eq(profiles.visibility, 'public'),
       sql`EXISTS (SELECT 1 FROM connections c WHERE ${pair} AND c.status = 'accepted')`))!;
 }

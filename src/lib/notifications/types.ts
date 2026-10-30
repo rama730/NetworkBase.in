@@ -188,6 +188,11 @@ export type NotificationFanoutInput = {
     aggregateCount?: number;
     /** Identity of the source event; an aggregate counts each (dedupeKey, sourceEventId) once, however often it is replayed (COR-016). */
     sourceEventId?: string | null;
+    /**
+     * An organization's or workspace's own notice (a role change, a reminder, assigned work): it still reaches someone
+     * who blocked the person who acted, but from the place, without their name (Blocking B43 rule 2, B47).
+     */
+    placeNotice?: boolean;
 };
 
 export type NotificationFanoutWrite = {

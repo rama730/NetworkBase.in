@@ -62,7 +62,7 @@ test("a decision line is unread news with a preview, not silent", async () => {
 
 test("a block between two people in the thread stops posting for both", async () => {
   await withThread(async ({ owner, admin, applicant, channelId }) => {
-    await sql`INSERT INTO connections (requester_id, addressee_id, status, blocked_by, blocked_at) VALUES (${applicant}, ${admin}, 'blocked', ${applicant}, now())`;
+    await sql`INSERT INTO user_blocks (blocker_id, blocked_id) VALUES (${applicant}, ${admin})`;
     try {
       await assert.rejects(send(channelId, applicant, "hello?"), /chat_blocked/);
       await assert.rejects(send(channelId, admin, "hello"), /chat_blocked/);

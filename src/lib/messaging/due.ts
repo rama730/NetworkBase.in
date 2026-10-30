@@ -5,7 +5,7 @@ import { sql } from "drizzle-orm";
 import { logger } from "@/lib/logger";
 import { createNotification } from "@/lib/notifications/service";
 import { sendAs } from "@/lib/messaging/send";
-import { chatFailure, chatRows } from "@/lib/messaging/server";
+import { chatFailure, chatRows, neutralChatCode } from "@/lib/messaging/server";
 import { previewText } from "@/lib/messaging/tokens";
 import { messageHref } from "@/lib/messaging/routes";
 
@@ -41,7 +41,7 @@ export async function sendDueScheduledMessages(limit = 200) {
       await chatRows(sql`UPDATE chat_scheduled_messages SET sent_at = now(), claim_expires_at = NULL WHERE id = ${row.id}::uuid`);
       sent += 1;
     } catch (error) {
-      const reason = error instanceof Error && /^chat_[a-z_]+$/.test(error.message) ? error.message : chatFailure(error, "scheduled_send").error;
+      const reason = error instanceof Error && /^chat_[a-z_]+$/.test(error.message) ? neutralChatCode(error.message) : chatFailure(error, "scheduled_send").error;
       await chatRows(sql`UPDATE chat_scheduled_messages SET failed_reason = ${reason}, claim_expires_at = NULL WHERE id = ${row.id}::uuid`);
     }
   }

@@ -1,6 +1,6 @@
 import { and, count, desc, eq, lt, or } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { connections, profiles } from "@/lib/db/schema";
+import { profiles, userBlocks } from "@/lib/db/schema";
 import { recordPrivacyEvent } from "@/lib/privacy/audit";
 import type {
   ConnectionPrivacySetting,
@@ -99,17 +99,8 @@ export async function getPrivacySettingsPayload(userId: string): Promise<Privacy
 
   const [blockedAggregate] = await db
     .select({ count: count() })
-    .from(connections)
-    .where(
-      and(
-        eq(connections.status, "blocked"),
-        eq(connections.blockedBy, userId),
-        or(
-          eq(connections.requesterId, userId),
-          eq(connections.addresseeId, userId),
-        ),
-      ),
-    );
+    .from(userBlocks)
+    .where(eq(userBlocks.blockerId, userId));
 
   return {
     profileVisibility: (profile?.visibility ?? "public") as ProfileVisibilitySetting,
@@ -138,56 +129,38 @@ function decodeBlockedCursor(cursor: string | null | undefined): { sortAt: Date;
   }
 }
 
-/** One keyset page, newest block first, ordered by (blocked_at, edge id); blocked rows always carry blocked_at. */
+/** One keyset page, newest block first, ordered by (created_at, blocked id). Only blocks you made (B1). */
 export async function listBlockedAccounts(
   userId: string,
   options: { limit?: number; cursor?: string | null } = {},
 ): Promise<BlockedAccountsPage> {
   const limit = Math.min(Math.max(options.limit ?? BLOCKED_ACCOUNTS_PAGE_SIZE, 1), 100);
   const cursor = decodeBlockedCursor(options.cursor);
-  const sortAt = connections.blockedAt;
+  const sortAt = userBlocks.createdAt;
   const rows = await db
     .select({
-      edgeId: connections.id,
-      sortAt: connections.blockedAt,
+      edgeId: userBlocks.blockedId,
+      sortAt: userBlocks.createdAt,
       id: profiles.id,
       username: profiles.username,
       fullName: profiles.fullName,
       avatarUrl: profiles.avatarUrl,
       headline: profiles.headline,
-      blockedAt: connections.blockedAt,
+      blockedAt: userBlocks.createdAt,
+      source: userBlocks.source,
+      note: userBlocks.note,
     })
-    .from(connections)
-    .innerJoin(
-      profiles,
-      or(
-        and(
-          eq(connections.requesterId, userId),
-          eq(profiles.id, connections.addresseeId),
-        ),
-        and(
-          eq(connections.addresseeId, userId),
-          eq(profiles.id, connections.requesterId),
-        ),
-      ),
-    )
+    .from(userBlocks)
+    .innerJoin(profiles, eq(profiles.id, userBlocks.blockedId))
     .where(
       and(
-        eq(connections.status, "blocked"),
-        eq(connections.blockedBy, userId),
-        or(
-          eq(connections.requesterId, userId),
-          eq(connections.addresseeId, userId),
-        ),
+        eq(userBlocks.blockerId, userId),
         cursor
-          ? or(
-              lt(sortAt, cursor.sortAt),
-              and(eq(sortAt, cursor.sortAt), lt(connections.id, cursor.edgeId)),
-            )
+          ? or(lt(sortAt, cursor.sortAt), and(eq(sortAt, cursor.sortAt), lt(userBlocks.blockedId, cursor.edgeId)))
           : undefined,
       ),
     )
-    .orderBy(desc(sortAt), desc(connections.id))
+    .orderBy(desc(sortAt), desc(userBlocks.blockedId))
     .limit(limit + 1);
 
   const page = rows.slice(0, limit);
@@ -200,6 +173,8 @@ export async function listBlockedAccounts(
       avatarUrl: row.avatarUrl,
       headline: row.headline,
       blockedAt: row.blockedAt ? row.blockedAt.toISOString() : null,
+      source: row.source,
+      note: row.note,
     })),
     nextCursor: rows.length > limit && last?.sortAt ? encodeBlockedCursor(last.sortAt, last.edgeId) : null,
   };

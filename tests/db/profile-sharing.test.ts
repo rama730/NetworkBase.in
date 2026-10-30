@@ -80,8 +80,10 @@ test('public metadata is independent of owner access, and recipient permission i
   await sql`UPDATE connections SET status='disconnected' WHERE requester_id=${owner} AND addressee_id=${peer}`;
   assert.equal((await read(url(),peer))?.state,'restricted');
   await sql`UPDATE profiles SET visibility='public' WHERE id=${owner}`;
-  await sql`UPDATE connections SET status='blocked',blocked_by=${peer},blocked_at=now() WHERE requester_id=${owner} AND addressee_id=${peer}`;
+  await sql`SELECT app_private.block_user(${peer}::uuid, ${owner}::uuid, 'profile', NULL)`;
   assert.equal((await read(url()))?.state,'ready');assert.equal((await read(url(),peer))?.identity,undefined);
+  // Later tests add the peer to the owner's own workspace, which a block now refuses (B36).
+  await sql`DELETE FROM user_blocks WHERE blocker_id=${peer}`;
 });
 
 test('historical username resolves to current canonical URL and deleted profiles reveal no identity',async()=>{
@@ -242,7 +244,7 @@ test('workspace team visibility respects connections and blocks; public image ne
     assert.equal((await read(path,peer))?.project?.team?.some(p=>p.id===peer),true);
     await sql`INSERT INTO connections(requester_id,addressee_id,status) VALUES (${stranger},${peer},'accepted') ON CONFLICT DO NOTHING`;
     assert.equal((await read(path,stranger))?.project?.team?.some(p=>p.id===peer),true);
-    await sql`UPDATE connections SET status='blocked',blocked_by=${peer},blocked_at=now() WHERE (requester_id=${stranger} AND addressee_id=${peer}) OR (requester_id=${peer} AND addressee_id=${stranger})`;
+    await sql`SELECT app_private.block_user(${peer}::uuid, ${stranger}::uuid, 'profile', NULL)`;
     assert.equal((await read(path,stranger))?.project?.team?.some(p=>p.id===peer),false);
     await sql`INSERT INTO storage_assets(id,owner_user_id,bucket,storage_key,purpose,state,declared_mime_type,declared_size,verified_mime_type,verified_size,verified_at,expires_at)
       VALUES (${asset},${owner},'avatars',${owner+'/'+asset+'/team.png'},'profile_image:avatar','verified','image/png',64,'image/png',64,now(),now()+interval '1 hour')`;

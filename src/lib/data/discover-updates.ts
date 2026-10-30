@@ -76,12 +76,7 @@ function visibilityConditions(filters: DiscoverFilters, view: FilterView, viewer
     ];
     if (viewerId) {
         // Neither side of a block sees the other's posts.
-        conditions.push(sql<boolean>`NOT EXISTS (
-            SELECT 1 FROM connections blocked_author
-            WHERE blocked_author.status = 'blocked'
-              AND ((blocked_author.requester_id = ${viewerId} AND blocked_author.addressee_id = ${workspaceUpdates.authorId})
-                OR (blocked_author.requester_id = ${workspaceUpdates.authorId} AND blocked_author.addressee_id = ${viewerId}))
-        )`);
+        conditions.push(sql<boolean>`NOT app_private.blocked_between(${viewerId}, ${workspaceUpdates.authorId})`);
     }
     return conditions;
 }

@@ -92,7 +92,7 @@ test("people in the same org may DM; guests and blocks follow the usual rules", 
   assert.equal(await canDm(o.a, o.b), true);
   assert.equal(await canDm(o.a, o.guest), false, "guests follow their privacy setting");
   assert.equal(await canDm(o.a, o.outsider), false, "outside people aren’t in the org");
-  await sql`INSERT INTO connections (requester_id, addressee_id, status, blocked_by, blocked_at) VALUES (${o.b}, ${o.a}, 'blocked', ${o.b}, now())`;
+  await sql`INSERT INTO user_blocks (blocker_id, blocked_id) VALUES (${o.b}, ${o.a})`;
   assert.equal(await canDm(o.a, o.b), false, "blocks win");
 });
 

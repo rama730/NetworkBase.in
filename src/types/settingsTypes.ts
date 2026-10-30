@@ -93,6 +93,9 @@ export interface PrivacyBlockedAccount {
   avatarUrl: string | null;
   headline: string | null;
   blockedAt: string | null;
+  /** Where the block was made and the blocker's private note (B30), shown only to them. */
+  source?: string | null;
+  note?: string | null;
 }
 
 export interface PrivacySettingsState {

@@ -47,6 +47,20 @@ function getExecutor(executor?: NotificationWriteExecutor): NotificationWriteExe
     return executor ?? db;
 }
 
+/**
+ * Nothing a blocked person does reaches the other (Blocking B8): their notices are dropped. An organization's or
+ * workspace's own notice still arrives, without the actor (B47).
+ */
+/** Notifications already in the tray from someone in a block with you stay hidden (B8). */
+const notFromBlocked = sql`NOT app_private.blocked_between(${userNotifications.userId}, ${userNotifications.actorUserId})`;
+
+async function applyBlockRule(tx: NotificationWriteExecutor, input: CreateNotificationInput): Promise<CreateNotificationInput | null> {
+    if (!input.actorUserId || input.actorUserId === input.recipientUserId) return input;
+    const [row] = await tx.execute(sql`SELECT app_private.blocked_between(${input.actorUserId}::uuid, ${input.recipientUserId}::uuid) AS blocked`) as unknown as Array<{ blocked: boolean }>;
+    if (!row?.blocked) return input;
+    return input.placeNotice ? { ...input, actorUserId: null, preview: input.preview ? { ...input.preview, actorName: null, actorAvatarUrl: null } : input.preview } : null;
+}
+
 function toDate(value: Date | string | null | undefined): Date | null {
     if (!value) return null;
     const next = value instanceof Date ? value : new Date(value);
@@ -123,7 +137,7 @@ export async function getNotificationPreferencesMap(
     return map;
 }
 
-type NotificationSkipReason = "actor_self" | "category_off" | "muted_scope" | "org_off";
+type NotificationSkipReason = "actor_self" | "category_off" | "muted_scope" | "org_off" | "blocked";
 type NotificationDelayReason = "paused" | "quiet_hours";
 
 export function resolveNotificationDeliveryPolicy(params: {
@@ -222,6 +236,12 @@ export async function createNotification(
         });
         return { notification: null, skipped: true as const };
     }
+    const allowed = await applyBlockRule(tx, input);
+    if (!allowed) {
+        logEmission({ kind: input.kind, category: input.category, importance, path: "create", outcome: "skipped", skipped_reason: "blocked", has_actor: hasActor, duration_ms: Date.now() - start });
+        return { notification: null, skipped: true as const };
+    }
+    input = allowed;
 
     const now = new Date();
     const inserted = await tx
@@ -331,6 +351,12 @@ export async function upsertAggregatedNotification(
         });
         return { notification: null, skipped: true as const };
     }
+    const allowed = await applyBlockRule(tx, input);
+    if (!allowed) {
+        logEmission({ kind: input.kind, category: input.category, importance, path: "aggregate", outcome: "skipped", skipped_reason: "blocked", has_actor: hasActor, duration_ms: Date.now() - start });
+        return { notification: null, skipped: true as const };
+    }
+    input = allowed;
 
     const now = new Date();
     const aggregateDelta = Math.max(1, input.aggregateCount ?? 1);
@@ -507,6 +533,7 @@ export async function countUnreadNotifications(
             isNull(userNotifications.seenAt),
             isNull(userNotifications.dismissedAt),
             or(isNull(userNotifications.snoozedUntil), lte(userNotifications.snoozedUntil, now)),
+            notFromBlocked,
         ));
     return {
         total: row?.total ?? 0,
@@ -646,6 +673,7 @@ export async function readNotificationsPage(
                 eq(userNotifications.userId, userId),
                 isNull(userNotifications.dismissedAt),
                 or(isNull(userNotifications.snoozedUntil), lte(userNotifications.snoozedUntil, now)),
+                notFromBlocked,
                 parsedCursor && cursorDate
                     ? or(
                         lt(userNotifications.activityAt, cursorDate),

@@ -25,11 +25,7 @@ export async function readSharedConnections(viewerId: string, targetIds: string[
         JOIN viewer_peers vp ON vp.id = p.id
         WHERE p.id <> ${viewerId}::uuid AND p.deleted_at IS NULL AND p.onboarding_status = 'completed'
           AND coalesce(p.visibility, 'public') IN ('public', 'connections')
-          AND NOT EXISTS (
-              SELECT 1 FROM connections blocked WHERE blocked.status = 'blocked'
-              AND ((blocked.requester_id = ${viewerId}::uuid AND blocked.addressee_id = p.id)
-                OR (blocked.addressee_id = ${viewerId}::uuid AND blocked.requester_id = p.id))
-          )
+          AND NOT app_private.blocked_between(${viewerId}::uuid, p.id)
           AND EXISTS (
               SELECT 1 FROM targets t JOIN connections c ON c.status = 'accepted'
                 AND ((c.requester_id = t.id AND c.addressee_id = p.id)

@@ -227,7 +227,7 @@ test("Invitation browse searches beyond fifty rows, pages all sources in both di
     if (!received.success) throw new Error(received.error);
     assert.equal(received.total, 1);
     assert.equal(received.items[0]?.note, "Application note");
-    await sql`UPDATE connections SET status='blocked',blocked_by=${viewer},blocked_at=now() WHERE id=${connectionIds[0]!}`;
+    await sql`SELECT app_private.block_user(${viewer}::uuid, CASE WHEN requester_id = ${viewer} THEN addressee_id ELSE requester_id END, 'profile', NULL) FROM connections WHERE id = ${connectionIds[0]!}`;
     await sql`UPDATE profiles SET deleted_at=now() WHERE id=${ids[2]!}`;
     const changed = await invitations.readNetworkInvitationsAction({
       limit: 60,
@@ -249,7 +249,7 @@ test("Invitation browse searches beyond fifty rows, pages all sources in both di
         assert.equal(item.person.openToCollaborate,undefined);
       }
     }
-    await sql`INSERT INTO connections(requester_id,addressee_id,status,blocked_by,blocked_at) VALUES(${viewer},${actor},'blocked',${viewer},now())`;
+    await sql`INSERT INTO user_blocks (blocker_id, blocked_id) VALUES (${viewer}, ${actor})`;
     const blocked = await invitations.readNetworkInvitationsAction({kind:'projects'});
     assert.equal(blocked.success,true);
     if(blocked.success)assert.equal(blocked.items.length,0);

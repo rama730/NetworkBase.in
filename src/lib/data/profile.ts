@@ -4,6 +4,7 @@ import { eq, or, and, isNull } from 'drizzle-orm'
 import { cache } from 'react'
 import type { User } from '@supabase/supabase-js'
 import type { ConnectionState, ProfileViewerUser } from '@/components/profile/v2/types'
+import { forClient } from '@/lib/privacy/client-relationship'
 import { recordPrivacyReadEvent } from '@/lib/privacy/audit'
 import { buildViewerScopedProfileView } from '@/lib/privacy/profile-views'
 import type { Profile } from '@/lib/db/schema'
@@ -366,14 +367,16 @@ export async function getProfileDetails(username?: string, options: ProfileDetai
         ])
         : [EMPTY_COLLABORATION_SUMMARY, 0, { totalConnections: 0 }];
 
+    // What the browser may know (B31): someone who was blocked sees a private account, never a block.
+    const clientRelationship = forClient(privacyRelationship)
     const connectionStatus: ConnectionState =
-        privacyRelationship.connectionState === 'connected'
+        clientRelationship.connectionState === 'connected'
             ? 'accepted'
-            : privacyRelationship.connectionState === 'pending_incoming'
+            : clientRelationship.connectionState === 'pending_incoming'
                 ? 'pending_incoming'
-                : privacyRelationship.connectionState === 'pending_outgoing'
+                : clientRelationship.connectionState === 'pending_outgoing'
                     ? 'pending_outgoing'
-                    : privacyRelationship.connectionState === 'blocked_by_viewer' || privacyRelationship.connectionState === 'blocked_by_target'
+                    : clientRelationship.connectionState === 'blocked_by_viewer'
                         ? 'blocked'
                         : 'none';
 
@@ -404,7 +407,7 @@ export async function getProfileDetails(username?: string, options: ProfileDetai
 
     return {
         privacyStatus: lockedShell ? 'private' : 'public',
-        visibilityReason: privacyRelationship.visibilityReason,
+        visibilityReason: clientRelationship.visibilityReason,
         profile: visibleProfile,
         collaborationSummary: canViewProfile ? collaborationSummary : EMPTY_COLLABORATION_SUMMARY,
         stats: {
@@ -415,13 +418,13 @@ export async function getProfileDetails(username?: string, options: ProfileDetai
         },
         connectionStatus,
         privacyRelationship: {
-            canViewProfile: privacyRelationship.canViewProfile,
-            canSendMessage: privacyRelationship.canSendMessage,
-            canSendConnectionRequest: privacyRelationship.canSendConnectionRequest,
-            blockedByViewer: privacyRelationship.blockedByViewer,
-            blockedByTarget: privacyRelationship.blockedByTarget,
-            visibilityReason: privacyRelationship.visibilityReason,
-            connectionState: privacyRelationship.connectionState,
+            canViewProfile: clientRelationship.canViewProfile,
+            canSendMessage: clientRelationship.canSendMessage,
+            canSendConnectionRequest: clientRelationship.canSendConnectionRequest,
+            blockedByViewer: clientRelationship.blockedByViewer,
+            blockedByTarget: clientRelationship.blockedByTarget,
+            visibilityReason: clientRelationship.visibilityReason,
+            connectionState: clientRelationship.connectionState,
         },
         lockedShell,
         isOwner: !!isOwner,

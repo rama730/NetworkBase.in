@@ -322,6 +322,10 @@ async function ensureAcceptedConnectionInternal(tx: any, userA: string, userB: s
         )
     `);
 
+    // Across a block the acceptance still stands; only the automatic connection is skipped (B3).
+    const [blocked] = await tx.execute(sql`SELECT app_private.blocked_between(${low}::uuid, ${high}::uuid) AS value`) as unknown as Array<{ value: boolean }>;
+    if (blocked?.value) return;
+
     // ponytail: direct functional unique index lookup on connections_active_pair_unique avoids BitmapOr heap scans. ceiling: 10M pairs. upgrade: none needed.
     const existing = await tx
         .select({
@@ -342,7 +346,6 @@ async function ensureAcceptedConnectionInternal(tx: any, userA: string, userB: s
     if (existing.length > 0) {
         const row = existing[0];
         if (row.status === 'accepted') return;
-        if (row.status === 'blocked') return;
 
         await tx
             .update(connections)
