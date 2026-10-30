@@ -21,7 +21,7 @@ import {
     Trash2,
 } from "lucide-react";
 import { toast, feedbackError } from "@/lib/feedback";
-import { CommentPreview, LikedByLine, ShareUpdateButton } from "@/components/workspaces/updates/UpdatePostParts";
+import { CommentPreview, LikedByLine, MutePostMenuItem, ReplyPolicyMenuItems, ShareUpdateButton } from "@/components/workspaces/updates/UpdatePostParts";
 import { useToggleUpdateLike } from "@/hooks/useToggleUpdateLike";
 import { deleteWorkspaceUpdateAction, editWorkspaceUpdateAction, toggleWorkspaceUpdatePinAction, type WorkspaceUpdateView } from "@/app/actions/workspace/updates";
 import { Button } from "@/components/ui/button";
@@ -300,6 +300,8 @@ function UpdateCard({
                     Hide update
                   </DropdownMenuItem>
                 ) : null}
+                {!isDeleted && currentUserId ? <MutePostMenuItem updateId={update.id} /> : null}
+                {!isDeleted && (update.canEdit || update.canDelete) ? <ReplyPolicyMenuItems projectId={projectId} updateId={update.id} current={update.replyPolicy} /> : null}
                 {update.canPin ? (
                   <DropdownMenuItem onClick={() => pinMutation.mutate()}>
                     <Pin className="h-4 w-4" />

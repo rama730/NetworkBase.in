@@ -17,7 +17,7 @@ import { ReportMenuItem, useReportDialog } from "@/components/reports/ReportDial
 import { useToggleUpdateLike } from "@/hooks/useToggleUpdateLike";
 import { useUpdateCardLive } from "@/hooks/useUpdateLive";
 import { WorkspaceUpdateLikersModal } from "@/components/workspaces/updates/WorkspaceUpdateLikersModal";
-import { CommentPreview, FollowWorkspaceButton, LikedByLine, ShareUpdateButton } from "@/components/workspaces/updates/UpdatePostParts";
+import { CommentPreview, FollowWorkspaceButton, LikedByLine, MutePostMenuItem, ReplyPolicyMenuItems, ShareUpdateButton } from "@/components/workspaces/updates/UpdatePostParts";
 import { cn } from "@/lib/utils";
 import type { DiscoverUpdateMedia, DiscoverUpdateView } from "@/types/discover";
 
@@ -284,6 +284,8 @@ export default memo(function DiscoverUpdateCard({ update, viewerId, onOpen, onHi
                                 <Link href={directHref} onClick={() => onVisitProject(update.projectId)}>View in workspace</Link>
                             </DropdownMenuItem>
                             <DropdownMenuItem onSelect={() => onHide(update.id)}>Hide update</DropdownMenuItem>
+                            {viewerId ? <MutePostMenuItem updateId={update.id} /> : null}
+                            {update.canEdit || update.canDelete ? <ReplyPolicyMenuItems projectId={update.projectId} updateId={update.id} current={update.replyPolicy} /> : null}
                             {viewerId ? <ReportMenuItem isOwn={viewerId === update.author?.id} noun={reporting.target.noun} target={reporting.target} onReport={reporting.open} /> : null}
                         </DropdownMenuContent>
                     </DropdownMenu>

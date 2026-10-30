@@ -72,7 +72,7 @@ type NotificationPreferencesRecord = {
   connections: boolean;
   pausedUntil?: string | null;
   mutedScopes?: Array<{
-    kind: "notification_type" | "project" | "task" | "person" | "organization";
+    kind: "notification_type" | "project" | "task" | "update" | "person" | "organization";
     value: string;
     label?: string | null;
     mutedAt?: string | null;

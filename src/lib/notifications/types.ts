@@ -60,7 +60,7 @@ export type NotificationPreferenceCategory =
     | "applications"
     | "connections";
 
-export type NotificationMuteScopeKind = "notification_type" | "project" | "task" | "person" | "organization";
+export type NotificationMuteScopeKind = "notification_type" | "project" | "task" | "update" | "person" | "organization";
 
 export type NotificationMuteScope = {
     kind: NotificationMuteScopeKind;

@@ -9,7 +9,7 @@ moduleStubs.set("@/lib/supabase/server", {
   createAdminClient: async () => { throw new Error("not used"); },
 });
 moduleStubs.set("@/lib/server/viewer-context", {
-  getViewerProfileContext: async () => ({ userId: viewerId, profile: { fullName: "Tester", username: "tester", avatarUrl: null } }),
+  getViewerProfileContext: async () => ({ emailVerified: true, userId: viewerId, profile: { fullName: "Tester", username: "tester", avatarUrl: null } }),
   getViewerAuthContext: async () => ({ userId: viewerId }),
   getViewerIdentityContext: async () => ({ userId: viewerId }),
 });

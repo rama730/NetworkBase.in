@@ -1,12 +1,16 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
 import { Heart, Share2 } from 'lucide-react';
 import { useToggleWorkspaceFollow } from '@/hooks/mutations/useWorkspaceMutations';
 import { renderCommentContent } from '@/components/workspaces/updates/update-helpers';
 import { toast } from '@/lib/feedback';
-import { toggleWorkspaceUpdateCommentLikeAction, type WorkspaceUpdateCommentView } from '@/app/actions/workspace/updates';
+import { setWorkspaceUpdateReplyPolicyAction, toggleWorkspaceUpdateCommentLikeAction, type WorkspaceUpdateCommentView } from '@/app/actions/workspace/updates';
+import { muteNotificationScopeAction } from '@/app/actions/notifications';
+import { DropdownMenuItem, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
+import { patchUpdateEverywhere } from '@/hooks/useUpdateLive';
 import { WorkspaceUpdateLikersModal } from '@/components/workspaces/updates/WorkspaceUpdateLikersModal';
 import { cn } from '@/lib/utils';
 import type { UpdatePreview } from '@/lib/workspaces/update-previews';
@@ -131,5 +135,44 @@ export function CommentLikeButton({ comment, projectId, signedIn }: { comment: W
       ) : null}
       {open ? <WorkspaceUpdateLikersModal open onOpenChange={setOpen} projectId={projectId} updateId={comment.updateId} commentId={comment.id} likeCount={state.count} /> : null}
     </span>
+  );
+}
+
+const REPLY_CHOICES = [
+  { id: 'logged_in', label: 'Anyone signed in can reply' },
+  { id: 'members', label: 'Only members can reply' },
+  { id: 'closed', label: 'Turn off replies' },
+] as const;
+
+/** For the author and admins, in the post's "⋯": the quick way out of a thread that's going badly (UP13). */
+export function ReplyPolicyMenuItems({ projectId, updateId, current }: { projectId: string; updateId: string; current: string }) {
+  const queryClient = useQueryClient();
+  const choose = async (replyPolicy: (typeof REPLY_CHOICES)[number]['id']) => {
+    const result = await setWorkspaceUpdateReplyPolicyAction(projectId, updateId, replyPolicy).catch(() => null);
+    if (!result?.success) return void toast.error(result?.error ?? 'Couldn’t change who can reply');
+    patchUpdateEverywhere<{ id: string; replyPolicy: string; canComment: boolean }>(queryClient, projectId, updateId, (item) => ({ ...item, replyPolicy, canComment: replyPolicy !== 'closed' && item.canComment }));
+    toast.success(replyPolicy === 'closed' ? 'Replies are off' : 'Reply setting changed');
+  };
+  return (
+    <>
+      <DropdownMenuSeparator />
+      {REPLY_CHOICES.filter((choice) => choice.id !== current).map((choice) => (
+        <DropdownMenuItem key={choice.id} onSelect={() => void choose(choice.id)}>{choice.label}</DropdownMenuItem>
+      ))}
+      <DropdownMenuSeparator />
+    </>
+  );
+}
+
+/** "Mute this post" for one that gets busy. Settings → Notifications lists it, and unmutes it. */
+export function MutePostMenuItem({ updateId }: { updateId: string }) {
+  return (
+    <DropdownMenuItem onSelect={() => {
+      void muteNotificationScopeAction({ kind: 'update', value: updateId, label: 'A post you muted', mutedAt: null })
+        .then(() => toast.success('Post muted. Unmute it in Settings → Notifications.'))
+        .catch(() => toast.error('Couldn’t mute this post'));
+    }}>
+      Mute this post
+    </DropdownMenuItem>
   );
 }

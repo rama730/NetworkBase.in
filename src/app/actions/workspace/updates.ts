@@ -55,6 +55,8 @@ import { publishUser } from "@/lib/messaging/publish";
 import { notifyAnnouncement, notifyOrg } from "@/lib/organizations/notify";
 import { syncCommentLikeNotification, syncUpdateActivityNotifications } from "@/lib/notifications/update-activity";
 import { readUpdatePreviews, type UpdatePreview } from "@/lib/workspaces/update-previews";
+import { refuseComment } from "@/lib/workspaces/update-comment-guard";
+import { accountRestriction } from "@/lib/trust/standing";
 import { consumeRateLimit } from "@/lib/security/rate-limit";
 import { getViewerAuthContext, getViewerProfileContext } from "@/lib/server/viewer-context";
 import { createAdminClient } from "@/lib/supabase/server";
@@ -1962,6 +1964,8 @@ export async function toggleWorkspaceUpdateLikeAction(projectId: string, updateI
         // Each toggle is several statements; a tap loop shouldn't be able to hammer them.
         const rate = await consumeRateLimit(`project-update:like:${viewer.userId}`, 120, 60);
         if (!rate.allowed) return { success: false as const, error: "Too many likes. Try again in a minute." };
+        // Likes from a suspended account don't count (UP13).
+        if (await accountRestriction(viewer.userId)) return { success: false as const, error: "Your account can’t like right now." };
         const access = await resolveProjectUpdateAccess(projectId, viewer.userId);
         if (!access.canRead || !access.project) return { success: false as const, error: "This update isn’t available." };
         const [update] = await db
@@ -2299,8 +2303,6 @@ export async function createWorkspaceUpdateCommentAction(projectId: string, upda
     try {
         const viewer = await getViewerProfileContext();
         if (!viewer.userId) return { success: false as const, error: "Sign in to comment." };
-        const rate = await consumeRateLimit(`project-update:comment:${viewer.userId}`, 60, 60);
-        if (!rate.allowed) return { success: false as const, error: "Too many comments. Try again in a minute." };
         const access = await resolveProjectUpdateAccess(projectId, viewer.userId);
         const update = await assertReadableUpdate(projectId, updateId, access);
         if (!update || !access.project) return { success: false as const, error: "This update isn’t available." };
@@ -2311,6 +2313,8 @@ export async function createWorkspaceUpdateCommentAction(projectId: string, upda
         }
         const content = sanitizeWorkspaceUpdateContent(contentInput, 1_000);
         if (!content) return { success: false as const, error: "Comment cannot be empty." };
+        const refused = await refuseComment({ userId: viewer.userId, emailVerified: viewer.emailVerified, content });
+        if (refused) return { success: false as const, error: refused };
         const createdAt = new Date();
 
         if (parentId && !isLooseUuid(parentId)) return { success: false as const, error: "Reply target unavailable." };
@@ -2459,6 +2463,24 @@ export async function createWorkspaceUpdateCommentAction(projectId: string, upda
     }
 }
 
+/** Who can reply, changed from the post itself: for a post that's being brigaded, or a thread that has run its course. */
+export async function setWorkspaceUpdateReplyPolicyAction(projectId: string, updateId: string, replyPolicy: WorkspaceUpdateReplyPolicy) {
+    try {
+        const viewer = await getViewerAuthContext();
+        if (!viewer.userId) return { success: false as const, error: "Sign in first." };
+        if (!isLooseUuid(updateId) || !["logged_in", "members", "closed"].includes(replyPolicy)) return { success: false as const, error: "Update not found." };
+        const access = await resolveProjectUpdateAccess(projectId, viewer.userId);
+        const update = await assertReadableUpdate(projectId, updateId, access);
+        if (!update) return { success: false as const, error: "Update not found." };
+        if (update.authorId !== viewer.userId && !access.canManage) return { success: false as const, error: "Only the author and the workspace’s admins can change this." };
+        await db.update(workspaceUpdates).set({ replyPolicy }).where(eq(workspaceUpdates.id, updateId));
+        return { success: true as const };
+    } catch (error) {
+        logger.warn("workspace_updates.reply_policy_failed", { module: "workspace-updates", error: error instanceof Error ? error.message : String(error) });
+        return { success: false as const, error: "Couldn’t change who can reply." };
+    }
+}
+
 export async function toggleWorkspaceUpdateCommentLikeAction(projectId: string, commentId: string) {
     try {
         const viewer = await getViewerAuthContext();
@@ -2466,6 +2488,7 @@ export async function toggleWorkspaceUpdateCommentLikeAction(projectId: string, 
         if (!isLooseUuid(commentId)) return { success: false as const, error: "Comment not found." };
         const rate = await consumeRateLimit(`project-update:like:${viewer.userId}`, 120, 60);
         if (!rate.allowed) return { success: false as const, error: "Too many likes. Try again in a minute." };
+        if (await accountRestriction(viewer.userId)) return { success: false as const, error: "Your account can’t like right now." };
         const access = await resolveProjectUpdateAccess(projectId, viewer.userId);
         const [comment] = await db
             .select({ updateId: workspaceUpdateComments.updateId })
