@@ -14,6 +14,7 @@ import { UpdateTime, updateAuthorName } from '@/components/workspaces/updates/up
 import { WorkspaceUpdateContent, UpdateContextAndMedia } from '@/components/workspaces/updates/UpdateContent';
 import { UpdateComments } from '@/components/workspaces/updates/UpdateComments';
 import { useToggleUpdateLike } from '@/hooks/useToggleUpdateLike';
+import { markUpdateNotificationsReadAction } from '@/app/actions/workspace/updates';
 import { WorkspaceUpdateLikersModal } from '@/components/workspaces/updates/WorkspaceUpdateLikersModal';
 import { toast } from '@/lib/feedback';
 
@@ -48,6 +49,15 @@ export function UpdateDetailPanel({
   const [isLikersOpen, setIsLikersOpen] = useState(false);
   const like = useToggleUpdateLike(projectId, update?.id ?? "");
   const hasUpdate = Boolean(update);
+  // You're looking at this post: its notifications are read, now and as they arrive (RT8).
+  const openUpdateId = update?.id ?? null;
+  const likeCount = update?.likeCount;
+  const commentCount = update?.commentCount;
+  useEffect(() => {
+    if (!openUpdateId || !currentUserId) return;
+    const timer = setTimeout(() => void markUpdateNotificationsReadAction(openUpdateId).catch(() => undefined), 1_000);
+    return () => clearTimeout(timer);
+  }, [commentCount, currentUserId, likeCount, openUpdateId]);
 
   useEffect(() => {
     if (autoFocus && hasUpdate) headingRef.current?.focus({ preventScroll: true });

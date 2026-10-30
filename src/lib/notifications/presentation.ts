@@ -37,6 +37,7 @@ const KIND_REASON: Record<NotificationKind, NotificationReason> = {
     project_file_activity: "file",
     project_security_alert: "update",
     project_update_activity: "update",
+    project_update_like: "update",
     org_membership: "update",
     org_assignment: "assigned",
     org_announcement: "update",
@@ -101,6 +102,7 @@ const AGGREGATE_NOUNS: Record<NotificationKind, { singular: string; plural: stri
     project_file_activity: { singular: "file update", plural: "file updates" },
     project_security_alert: { singular: "security update", plural: "security updates" },
     project_update_activity: { singular: "workspace update", plural: "workspace updates" },
+    project_update_like: { singular: "like", plural: "likes" },
     org_membership: { singular: "membership update", plural: "membership updates" },
     org_assignment: { singular: "assignment update", plural: "assignment updates" },
     org_announcement: { singular: "announcement", plural: "announcements" },
@@ -137,7 +139,8 @@ const BUNDLE_WINDOW_MS = 60 * 60 * 1000;
 function bundleKeyFor(item: NotificationItem): string {
     const refs = item.entityRefs ?? {};
     const entity =
-        (typeof refs.taskId === "string" && refs.taskId)
+        (typeof refs.updateId === "string" && refs.updateId)
+        || (typeof refs.taskId === "string" && refs.taskId)
         || (typeof refs.channelId === "string" && refs.channelId)
         || (typeof refs.projectId === "string" && refs.projectId)
         || item.actorUserId

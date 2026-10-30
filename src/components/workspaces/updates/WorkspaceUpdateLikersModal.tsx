@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useMemo } from 'react';
+import { useMemo } from 'react';
 import Link from 'next/link';
-import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery } from '@tanstack/react-query';
 import { Heart, Loader2 } from 'lucide-react';
 import {
     Dialog,
@@ -15,8 +15,6 @@ import { UserAvatar } from '@/components/ui/UserAvatar';
 import { Button } from '@/components/ui/button';
 import { queryKeys } from '@/lib/query-keys';
 import { readProjectUpdateLikersAction, type ProjectUpdateLikerView } from '@/app/actions/workspace/updates';
-import { createClient } from '@/lib/supabase/client';
-import { subscribeActiveResource } from '@/lib/realtime/subscriptions';
 import { cn } from '@/lib/utils';
 
 export interface WorkspaceUpdateLikersModalProps {
@@ -34,7 +32,6 @@ export function WorkspaceUpdateLikersModal({
     updateId,
     likeCount,
 }: WorkspaceUpdateLikersModalProps) {
-    const queryClient = useQueryClient();
     // Stable across redraws, so the live-update channel below isn't torn down and rejoined each time.
     const queryKey = useMemo(() => queryKeys.project.detail.updateLikes(projectId, updateId), [projectId, updateId]);
 
@@ -61,32 +58,6 @@ export function WorkspaceUpdateLikersModal({
         enabled: open && Boolean(updateId && projectId),
         staleTime: 30_000,
     });
-
-    // Real-time listener: while the modal is open, listen for changes on this update
-    useEffect(() => {
-        if (!open || !updateId) return;
-
-        const supabase = createClient();
-        const channel = subscribeActiveResource({
-            supabase,
-            resourceType: 'project_hydration',
-            resourceId: `likers:${updateId}`,
-            bindings: [
-                {
-                    event: 'UPDATE',
-                    table: 'workspace_updates',
-                    filter: `id=eq.${updateId}`,
-                    handler: () => {
-                        void queryClient.invalidateQueries({ queryKey });
-                    },
-                },
-            ],
-        });
-
-        return () => {
-            void supabase.removeChannel(channel);
-        };
-    }, [open, queryClient, queryKey, updateId]);
 
     const likers: ProjectUpdateLikerView[] = useMemo(() => {
         const seen = new Set<string>();

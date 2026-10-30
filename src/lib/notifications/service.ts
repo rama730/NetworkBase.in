@@ -56,6 +56,11 @@ const notFromBlocked = sql`NOT app_private.blocked_between(${userNotifications.u
 
 async function applyBlockRule(tx: NotificationWriteExecutor, input: CreateNotificationInput): Promise<CreateNotificationInput | null> {
     if (!input.actorUserId || input.actorUserId === input.recipientUserId) return input;
+    // Someone you muted: their likes and comments on your updates don't reach you (Blocking B26).
+    if (input.kind === "project_update_like" || input.kind === "project_update_activity") {
+        const [muted] = await tx.execute(sql`SELECT EXISTS (SELECT 1 FROM user_mutes WHERE muter_id = ${input.recipientUserId}::uuid AND muted_id = ${input.actorUserId}::uuid) AS muted`) as unknown as Array<{ muted: boolean }>;
+        if (muted?.muted) return null;
+    }
     const [row] = await tx.execute(sql`SELECT app_private.blocked_between(${input.actorUserId}::uuid, ${input.recipientUserId}::uuid) AS blocked`) as unknown as Array<{ blocked: boolean }>;
     if (!row?.blocked) return input;
     // Acting on someone you're in a block with is recorded for trust & safety only, never for the place (B49, rule 7).
