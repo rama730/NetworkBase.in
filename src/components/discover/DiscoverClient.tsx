@@ -38,7 +38,7 @@ import type { User, Workspace, DiscoverFeedItem, DiscoverUpdatesPage, DiscoverUp
 import { queryKeys } from '@/lib/query-keys';
 import type { ConnectionFeedPage, DiscoverConnectionItem } from '@/hooks/useConnections';
 import { toDiscoverUser } from '@/lib/view-models/discover-user';
-import { feedItemKey, interleaveWorkspacesAndUpdates } from '@/lib/discover/feed-interleaving';
+import { feedItemKey, interleaveWorkspacesAndUpdates, limitPostRuns } from '@/lib/discover/feed-interleaving';
 import { showKeeps } from '@/lib/organizations/profile-rules';
 import { useDiscoverUpdates } from '@/hooks/discover/useDiscoverUpdates';
 import { useDiscoverUpdateThread } from '@/hooks/discover/useDiscoverUpdateThread';
@@ -210,21 +210,29 @@ export default function DiscoverClient({
     );
 
     // Update cards: paged next to the projects, kept a little ahead of how far they have loaded.
-    const { updates } = useDiscoverUpdates({
+    const postsOnly = show === 'updates';
+    const postFeed = useDiscoverUpdates({
         viewerId,
         filters,
         view,
         isDefault,
         loadedProjects: allProjects.length,
         initialPage: initialUpdates,
+        postsOnly,
     });
+    const { updates } = postFeed;
     const { hidden: hiddenUpdates, hide: hideUpdate } = useHiddenUpdates();
     // "Hide opened" hides an update along with the project it belongs to.
     const shownUpdates = useMemo(
         () => (keeps.updates ? updates : []).filter((update) => !hiddenUpdates.has(update.id) && !(hideOpened && hiddenIds.has(update.projectId))),
         [hiddenIds, hiddenUpdates, hideOpened, keeps.updates, updates],
     );
-    const feedItems = useMemo<DiscoverFeedItem[]>(() => interleaveWorkspacesAndUpdates(visibleProjects, shownUpdates), [visibleProjects, shownUpdates]);
+    const feedItems = useMemo<DiscoverFeedItem[]>(
+        () => postsOnly
+            ? limitPostRuns(shownUpdates, !postFeed.hasMore).map((data) => ({ kind: 'update' as const, data }))
+            : interleaveWorkspacesAndUpdates(visibleProjects, shownUpdates),
+        [postFeed.hasMore, postsOnly, visibleProjects, shownUpdates],
+    );
 
     const updatesQueryKey = queryKeys.discover.pulse(viewerId, view, filters);
     const thread = useDiscoverUpdateThread({ viewerId, loaded: updates, initialUpdateId, initialUpdate });
@@ -334,9 +342,14 @@ export default function DiscoverClient({
         resetThread();
     }, [feedKey, resetThread]);
 
+    const { hasMore: postsHaveMore, isFetchingMore: postsFetching, fetchMoreFailed: postsFailed, fetchMore: fetchMorePosts } = postFeed;
     const handleEndReached = useCallback(() => {
+        if (postsOnly) {
+            if (postsHaveMore && !postsFetching && !postsFailed) void fetchMorePosts();
+            return;
+        }
         if (hasNextPage && !isFetchingNextPage && !isFetchNextPageError) void fetchNextPage();
-    }, [hasNextPage, isFetchingNextPage, isFetchNextPageError, fetchNextPage]);
+    }, [fetchMorePosts, hasNextPage, isFetchingNextPage, isFetchNextPageError, fetchNextPage, postsFailed, postsFetching, postsHaveMore, postsOnly]);
 
     // A ranked list that moved on (its snapshot expired): start it again rather than retry the same page.
     const staleFeed = isFetchNextPageError && error instanceof DiscoverFeedError && error.code === 'STALE_FEED';
@@ -346,15 +359,15 @@ export default function DiscoverClient({
     }, [filters, queryClient, scrollContainer, view, viewerId]);
 
     const feedContext = useMemo<FeedContext>(() => ({
-        loadingMore: isFetchingNextPage,
-        hasMore: Boolean(hasNextPage),
-        failed: isFetchNextPageError,
-        stale: staleFeed,
+        loadingMore: postsOnly ? postsFetching : isFetchingNextPage,
+        hasMore: postsOnly ? postsHaveMore : Boolean(hasNextPage),
+        failed: postsOnly ? postsFailed : isFetchNextPageError,
+        stale: !postsOnly && staleFeed,
         ranked: view === FILTER_VIEWS.TRENDING || view === FILTER_VIEWS.RECOMMENDATIONS,
-        retry: () => void fetchNextPage(),
+        retry: () => void (postsOnly ? fetchMorePosts() : fetchNextPage()),
         restart: restartFeed,
         count: feedItems.length,
-    }), [fetchNextPage, hasNextPage, isFetchNextPageError, isFetchingNextPage, restartFeed, staleFeed, view, feedItems.length]);
+    }), [fetchMorePosts, fetchNextPage, hasNextPage, isFetchNextPageError, isFetchingNextPage, postsFailed, postsFetching, postsHaveMore, postsOnly, restartFeed, staleFeed, view, feedItems.length]);
 
     const following = view === FILTER_VIEWS.FOLLOWING;
 
@@ -412,6 +425,9 @@ export default function DiscoverClient({
         if (q || activeFilters) {
             return <EmptyState icon={Search} title="Nothing matches" description="Try other words or fewer filters." action={<Button type="button" variant="outline" onClick={clearAll}>{q ? 'Clear search and filters' : 'Clear filters'}</Button>} />;
         }
+        if (postsOnly) {
+            return <EmptyState icon={Compass} title={view === FILTER_VIEWS.FOLLOWING ? 'No posts from workspaces you follow yet' : view === FILTER_VIEWS.TRENDING ? 'Nothing is trending yet' : 'No posts yet'} description="When a workspace posts an update for everyone, it shows up here." action={<Button type="button" variant="outline" onClick={() => { updateUrlFilters({ show: 'all', view: FILTER_VIEWS.ALL }); focusFeed(); }}>Browse workspaces</Button>} />;
+        }
         if (view === FILTER_VIEWS.FOLLOWING) {
             return <EmptyState icon={Bell} title="Workspaces you follow show up here" description="Follow a workspace to get its updates in this view." action={<Button type="button" variant="outline" onClick={() => { updateUrlFilters({ view: FILTER_VIEWS.ALL }); focusFeed(); }}>Browse all workspaces</Button>} />;
         }
@@ -421,8 +437,8 @@ export default function DiscoverClient({
         return <EmptyState icon={Compass} title={isDefault ? 'No workspaces yet' : 'No workspaces here yet'} description="Start one and invite people to build it with you." action={<Button asChild><Link href="/workspaces/new"><Plus className="size-4" aria-hidden="true" /> New workspace</Link></Button>} />;
     })();
 
-    const firstPageError = error && visibleProjects.length === 0;
-    const showSkeleton = (isLoading && !data) || showThresholdSkeleton || (visibleProjects.length === 0 && isQueryTransition);
+    const firstPageError = error && visibleProjects.length === 0 && !postsOnly;
+    const showSkeleton = (isLoading && !data) || showThresholdSkeleton || (visibleProjects.length === 0 && isQueryTransition && !postsOnly) || (postsOnly && postFeed.isLoading);
 
     const feed = showSkeleton ? (
         <FeedSkeleton />
@@ -440,6 +456,13 @@ export default function DiscoverClient({
         emptyState
     ) : (
         <div aria-busy={isQueryTransition || undefined}>
+            {postsOnly && postFeed.newCount > 0 ? (
+                <div className="flex justify-center pb-3">
+                    <Button type="button" size="sm" variant="outline" onClick={postFeed.showNew} className="pointer-coarse:h-11">
+                        Show {postFeed.newCount} new {postFeed.newCount === 1 ? 'post' : 'posts'}
+                    </Button>
+                </div>
+            ) : null}
             {scrollContainer ? (
                 <Virtuoso
                     customScrollParent={scrollContainer}

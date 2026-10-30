@@ -1,16 +1,17 @@
 'use client';
 
 import { useEffect, useMemo } from 'react';
-import { keepPreviousData, useInfiniteQuery } from '@tanstack/react-query';
-import { SORT_OPTIONS, type FilterView } from '@/constants/discover';
+import { keepPreviousData, useInfiniteQuery, useQuery } from '@tanstack/react-query';
+import { FILTER_VIEWS, SORT_OPTIONS, type FilterView } from '@/constants/discover';
+import { FEED_GROUP } from '@/lib/discover/feed-interleaving';
 import { queryKeys } from '@/lib/query-keys';
 import type { DiscoverFilters, DiscoverUpdatesPage, DiscoverUpdateView } from '@/types/discover';
 
-/** Four updates for a page of 24 projects (one slot per three). */
+/** Enough for most of a page of 24 projects (one slot per two), topped up by LEAD. */
 const PAGE_SIZE = 8;
 /** Updates are kept this many ahead of the cards that need them, so a slot is never built before its update arrives. */
 const LEAD = 4;
-const GROUP = 3;
+const NEW_POSTS_POLL_MS = 60_000;
 
 async function fetchUpdatesPage(filters: DiscoverFilters, view: FilterView, cursor: string | undefined, signal: AbortSignal | undefined): Promise<DiscoverUpdatesPage> {
     const params = new URLSearchParams({
@@ -61,9 +62,11 @@ export function useDiscoverUpdates(params: {
     isDefault: boolean;
     /** Project cards loaded so far: sets how many updates are needed. */
     loadedProjects: number;
+    /** Posts alone: they page by themselves (`fetchMore`), and new ones are counted, not dropped in (RT5). */
+    postsOnly?: boolean;
     initialPage?: DiscoverUpdatesPage | null;
 }) {
-    const { viewerId, filters, view, isDefault, loadedProjects, initialPage } = params;
+    const { viewerId, filters, view, isDefault, loadedProjects, initialPage, postsOnly = false } = params;
     const query = useInfiniteQuery({
         queryKey: queryKeys.discover.pulse(viewerId, view, filters),
         queryFn: ({ pageParam, signal }) => fetchUpdatesPage(filters, view, pageParam, signal),
@@ -83,10 +86,34 @@ export function useDiscoverUpdates(params: {
     }, [query.data]);
 
     const { hasNextPage, isFetchingNextPage, isError, fetchNextPage } = query;
-    const needed = Math.floor(loadedProjects / GROUP) + LEAD;
+    const needed = postsOnly ? 0 : Math.floor(loadedProjects / FEED_GROUP) + LEAD;
     useEffect(() => {
         if (hasNextPage && !isFetchingNextPage && !isError && updates.length < needed) void fetchNextPage();
     }, [hasNextPage, isFetchingNextPage, isError, updates.length, needed, fetchNextPage]);
 
-    return { updates, isError: query.isError, isLoading: query.isLoading };
+    // Newest first only: a ranked list has no "new" to wait behind a button.
+    const watchNew = postsOnly && view !== FILTER_VIEWS.TRENDING && Boolean(viewerId);
+    const latest = useQuery({
+        queryKey: [...queryKeys.discover.pulse(viewerId, view, filters), 'latest'],
+        queryFn: ({ signal }) => fetchUpdatesPage(filters, view, undefined, signal),
+        enabled: watchNew,
+        refetchInterval: NEW_POSTS_POLL_MS,
+        refetchIntervalInBackground: false,
+        staleTime: NEW_POSTS_POLL_MS,
+    });
+    const newest = updates[0]?.createdAt ?? '';
+    const known = useMemo(() => new Set(updates.map((update) => update.id)), [updates]);
+    const newCount = watchNew ? (latest.data?.updates ?? []).filter((update) => update.createdAt > newest && !known.has(update.id)).length : 0;
+
+    return {
+        updates,
+        isError: query.isError,
+        isLoading: query.isLoading,
+        hasMore: Boolean(hasNextPage),
+        isFetchingMore: isFetchingNextPage,
+        fetchMoreFailed: query.isFetchNextPageError,
+        fetchMore: fetchNextPage,
+        newCount,
+        showNew: () => void query.refetch(),
+    };
 }
