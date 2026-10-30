@@ -61,29 +61,6 @@ test("removed members cannot write subtasks or sections", async () => {
   });
 });
 
-// 0216: legacy NULL positions become distinct, in exactly the board's display order.
-test("task position backfill keeps the board order and leaves no ties", async () => {
-  const { readFileSync } = await import("node:fs");
-  const migration = readFileSync("drizzle/0216_task_position_backfill.sql", "utf8");
-  await withProject(async ({ projectId }) => {
-    await workflow.getWorkspaceWorkflowColumnsAction(projectId);
-    const [column] = await sql`SELECT id FROM workspace_workflow_columns WHERE workspace_id = ${projectId} AND status = 'todo' AND is_default`;
-    const insert = (title: string, position: number | null, at: string) =>
-      sql`INSERT INTO tasks (workspace_id, title, workflow_column_id, position, created_at) VALUES (${projectId}, ${title}, ${column!.id}, ${position}, ${at}) RETURNING id`;
-    await insert("old-a", null, "2026-01-01");
-    await insert("old-b", null, "2026-01-02");
-    await insert("dragged", 5000, "2026-01-03");
-    await insert("tie", 5000, "2026-01-04");
-    const order = async () => (await sql`SELECT title, position FROM tasks WHERE workspace_id = ${projectId}
-      ORDER BY COALESCE(position, 0) DESC, created_at DESC, id DESC`).map((r) => r.title);
-    const before = await order();
-    await sql.unsafe(migration);
-    assert.deepEqual(await order(), before);
-    const [{ distinct, total }] = await sql`SELECT count(DISTINCT position)::int AS distinct, count(*)::int AS total FROM tasks WHERE workspace_id = ${projectId}`;
-    assert.equal(distinct, total);
-  });
-});
-
 test("story points save, deleted tasks refuse edits, and a drag to Done is the same transition as the status control", async () => {
   await withProject(async ({ projectId }) => {
     await workflow.getWorkspaceWorkflowColumnsAction(projectId);

@@ -448,7 +448,10 @@ async function releaseCatalogMigration(sql: string[]): Promise<string | null> {
         const previousVersion = previous.match(/^-- Catalog release (\S+);/m)?.[1]
         for (const line of previous.split('\n')) released.add(masked(line, previousVersion))
     }
-    const delta = sql.filter((line) => line.startsWith('--') || (line !== '' && !released.has(masked(line, SKILL_CATALOG_VERSION))))
+    // Releases through 1.3.7 live on as rows in the base catalog migration, so only their statements' hashes remain.
+    const releasedHashes = new Set((await readFile(path.join(root, 'scripts', 'data', 'skill-catalog-released-lines.txt'), 'utf8')).split('\n'))
+    const wasReleased = (line: string) => released.has(line) || releasedHashes.has(createHash('sha256').update(line).digest('hex').slice(0, 16))
+    const delta = sql.filter((line) => line.startsWith('--') || (line !== '' && !wasReleased(masked(line, SKILL_CATALOG_VERSION))))
     if (delta.every((line) => line.startsWith('--'))) return null
 
     const tag = `${String(Math.max(...files.map((file) => Number(file.slice(0, 4)))) + 1).padStart(4, '0')}${suffix}`

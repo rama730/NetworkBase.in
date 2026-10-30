@@ -1,5 +1,4 @@
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
 import { after, before, test } from 'node:test'
 import { closeAppDb, createUser, inRollback, loadAppModule, sql } from './_helpers'
 
@@ -28,30 +27,4 @@ test('connection totals follow live accepted records in either direction, not st
     await sql`DELETE FROM connections WHERE requester_id=${owner} OR addressee_id=${owner}`
     await sql`DELETE FROM auth.users WHERE id=ANY(${[owner,...peers]}::uuid[])`
   }
-})
-
-test('migration preserves legacy display, repairs counters, and never re-enables an explicit pause', async () => {
-  await inRollback(async tx => {
-    await tx`ALTER TABLE profiles DROP COLUMN open_to_collaborate`
-    const legacy = await createUser(tx)
-    const capacity = await createUser(tx)
-    const empty = await createUser(tx)
-    await tx`UPDATE profiles SET open_to='["Contract roles"]'::jsonb WHERE id=${legacy}`
-    await tx`UPDATE profiles SET hours_per_week='h_10_20' WHERE id=${capacity}`
-    await tx`INSERT INTO connections (requester_id, addressee_id, status) VALUES (${legacy}, ${empty}, 'accepted')`
-    const migration = readFileSync('drizzle/0218_profile_collaboration_availability.sql', 'utf8')
-    await tx.unsafe(migration)
-    const rows = await tx`SELECT id,open_to_collaborate,connections_count FROM profiles WHERE id IN (${legacy},${capacity},${empty})`
-    assert.equal(rows.find(r=>r.id===legacy)?.open_to_collaborate, true)
-    assert.equal(rows.find(r=>r.id===capacity)?.open_to_collaborate, true)
-    assert.equal(rows.find(r=>r.id===empty)?.open_to_collaborate, false)
-    assert.equal(rows.find(r=>r.id===legacy)?.connections_count, 1)
-    await tx`UPDATE profiles SET open_to_collaborate=false WHERE id=${legacy}`
-    await tx.unsafe(migration)
-    const [paused] = await tx`SELECT open_to_collaborate FROM profiles WHERE id=${legacy}`
-    assert.equal(paused?.open_to_collaborate, false)
-    const newcomer = await createUser(tx)
-    const [fresh] = await tx`SELECT open_to_collaborate FROM profiles WHERE id=${newcomer}`
-    assert.equal(fresh?.open_to_collaborate, false)
-  })
 })

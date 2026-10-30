@@ -36,17 +36,7 @@ const DATABASE_URL = process.env.DATABASE_URL;
 const DRY_RUN = process.argv.includes("--dry-run") || process.env.MIGRATION_DRY_RUN === "1";
 const JOURNAL_TABLE = "app_migration_journal";
 const MIGRATION_LOCK_KEY = "nb-s3:migration-setup";
-const NON_TRANSACTIONAL_MIGRATIONS = new Set([
-  "0006_messages_performance_indexes",
-  "0039_files_workspace_scale_indexes",
-  "0087_non_transactional_indexes",
-  "0092_project_updates_performance_indexes",
-  "0099_schema_lineage_and_fk_indexes",
-  "0195_discover_feed_indexes",
-  "0211_discover_index_hygiene",
-  "0217_project_update_single_pin",
-  "0242_discover_updates_feed_index",
-]);
+const NON_TRANSACTIONAL_MIGRATIONS = new Set<string>([]);
 
 if (!DATABASE_URL && !DRY_RUN) {
   console.error("❌ DATABASE_URL not found in .env.local");
@@ -85,12 +75,12 @@ async function ensureJournalTable() {
       tag text PRIMARY KEY,
       applied_at timestamptz NOT NULL DEFAULT now(),
       checksum text,
-      journal_index integer,
       status text NOT NULL DEFAULT 'completed'
         CONSTRAINT app_migration_journal_status_check CHECK (status IN ('applying', 'completed', 'failed')),
       started_at timestamptz,
       completed_at timestamptz,
-      error_message text
+      error_message text,
+      journal_index integer
     );
     CREATE UNIQUE INDEX IF NOT EXISTS app_migration_journal_index_unique
       ON public.${JOURNAL_TABLE} (journal_index)
@@ -237,7 +227,7 @@ async function applyMigration(entry: JournalEntry) {
 /**
  * Applied rows must match the journal exactly. A missing or different checksum
  * or index is reported, never rewritten: lineage repair is a separate, reviewed
- * operation (scripts/db/adopt-baseline.ts for fresh databases), not routine setup.
+ * operation, not routine setup.
  */
 async function verifyAppliedLineage(entries: JournalEntry[], appliedMigrations: Map<string, AppliedMigration>) {
   const problems: string[] = [];
@@ -271,7 +261,7 @@ async function setupDatabase() {
     if (appliedMigrations.size === 0 && await databaseHasExistingApplicationSchema()) {
       throw new Error(
         "Database contains application tables without migration lineage. Routine setup never infers it; " +
-        "adopt a database built from the schema baseline with scripts/db/adopt-baseline.ts.",
+        "build from an empty database, or record the lineage by hand after review.",
       );
     }
     await verifyAppliedLineage(journal.entries, appliedMigrations);

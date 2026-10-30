@@ -6,23 +6,20 @@ import test from "node:test";
 const source = (relativePath: string) =>
   fs.readFileSync(path.join(process.cwd(), relativePath), "utf8");
 
-test("forward migrations own missing task lineage and native hardening", () => {
-  const lineage = source("drizzle/0153_task_server_table_lineage.sql");
-  const hardening = source("drizzle/0154_native_database_security_hardening.sql");
+test("migrations own the task tables and the native hardening", () => {
+  const tasks = source("drizzle/0008_tasks_sprints.sql");
+  const accounts = source("drizzle/0002_profiles_accounts.sql");
 
-  assert.match(lineage, /CREATE TABLE IF NOT EXISTS public\.task_pushes/);
-  assert.match(lineage, /CREATE TABLE IF NOT EXISTS public\.task_read_receipts/);
-  for (const column of ["added_by", "project_id", "removed_by"]) {
-    assert.match(lineage, new RegExp(`sprint_task_memberships \\(${column}\\)`));
+  assert.match(tasks, /CREATE TABLE public\.task_pushes /);
+  assert.match(tasks, /CREATE TABLE public\.task_read_receipts /);
+  for (const column of ["added_by", "workspace_id", "removed_by"]) {
+    assert.match(tasks, new RegExp(`ON public\\.sprint_task_memberships USING btree \\(${column}\\)`));
   }
-  assert.match(hardening, /profiles_id_auth_users_fk/);
-  assert.match(hardening, /FOREIGN KEY \(id\) REFERENCES auth\.users\(id\).*NOT VALID/);
-  assert.match(hardening, /DROP INDEX IF EXISTS public\.dm_pairs_user_low_user_high_key/);
-  assert.match(hardening, /SET search_path = ''/);
-  assert.match(hardening, /member\.role <> 'viewer'/);
+  assert.match(accounts, /profiles_id_auth_users_fk FOREIGN KEY \(id\) REFERENCES auth\.users\(id\).*NOT VALID/);
+  assert.match(source("drizzle/0006_workspaces_members.sql"), /member\.role <> 'viewer'/);
 });
 
-test("migration lineage is exact and the duplicate backfill is quarantined", () => {
+test("migration lineage is exact and nothing is quarantined", () => {
   const journal = JSON.parse(source("drizzle/meta/_journal.json")) as {
     entries: Array<{ idx: number; tag: string }>;
   };
@@ -31,18 +28,9 @@ test("migration lineage is exact and the duplicate backfill is quarantined", () 
     existingMigrationFiles: string[];
     breakGlassExceptions: Array<{ path: string }>;
   };
-  const tags = new Set(journal.entries.map((entry) => entry.tag));
-
-  for (const tag of [
-    "0153_task_server_table_lineage",
-    "0154_native_database_security_hardening",
-    "0155_account_deletion_privacy",
-    "0156_profile_counter_authority",
-  ]) {
-    assert.ok(tags.has(tag));
-    assert.ok(manifest.existingMigrationFiles.includes(`drizzle/${tag}.sql`));
-  }
-  assert.equal(manifest.strictLineageFromIndex, 152);
+  assert.deepEqual(manifest.existingMigrationFiles, journal.entries.map((entry) => `drizzle/${entry.tag}.sql`));
+  assert.ok(manifest.strictLineageFromIndex > 0 && manifest.strictLineageFromIndex <= journal.entries.length);
+  assert.equal(journal.entries[0]?.tag, "0001_foundation");
   assert.deepEqual(manifest.breakGlassExceptions, []);
 });
 
@@ -62,10 +50,10 @@ test("hard-delete retries Auth finalization and retention anonymizes the kept id
 
 test("project node events are one plain table", () => {
   const registry = source("src/inngest/registry.ts");
-  const migration = source("drizzle/0173_node_events_single_table.sql");
+  const migration = source("drizzle/0009_files.sql");
 
   assert.equal(fs.existsSync(path.join(process.cwd(), "src/inngest/functions/database-partition-maintenance.ts")), false);
   assert.doesNotMatch(registry, /databasePartitionMaintenance/);
-  assert.match(migration, /DROP FUNCTION IF EXISTS public\.create_future_partitions\(\)/);
-  assert.doesNotMatch(migration, /PARTITION BY/);
+  assert.match(migration, /CREATE TABLE public\.workspace_node_events /);
+  assert.doesNotMatch(migration, /create_future_partitions|PARTITION BY/);
 });

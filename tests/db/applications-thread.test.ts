@@ -141,15 +141,6 @@ test("the cover letter follows the application, the card message and member role
     await sql`SELECT app_private.chat_post_system(${channelId}::uuid, ${owner}::uuid, 'declined this application')`;
     const [channel] = await sql`SELECT last_preview FROM chat_channels WHERE id = ${channelId}`;
     assert.match(String(channel!.last_preview), /^\S+ declined this application$/, "the preview says who");
-
-    // Legacy rows: the portfolio and availability lines inside the message move into details.
-    const migration = (await import("node:fs")).readFileSync("drizzle/0232_application_thread_guards.sql", "utf8");
-    const statement = migration.split("--> statement-breakpoint").find((part) => part.includes("UPDATE public.role_applications a"))!;
-    await sql`UPDATE role_applications SET message = ${"I build things.\n\nPortfolio / GitHub: https://github.com/me\n\nAvailability: 10 hrs/week"}, details = '{}'::jsonb WHERE id = ${applicationId}`;
-    await sql.unsafe(statement.replace(/^[\s\S]*?(UPDATE public\.role_applications a)/, "$1"));
-    const [row] = await sql`SELECT message, details FROM role_applications WHERE id = ${applicationId}`;
-    assert.equal(row!.message, "I build things.");
-    assert.deepEqual(row!.details, { portfolioUrl: "https://github.com/me", availability: "10 hrs/week" });
     void projectId; void roleId;
   });
 });

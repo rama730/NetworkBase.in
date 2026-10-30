@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { existsSync, readFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 import {
@@ -52,8 +52,7 @@ test('create saves every step 4 setting; new members inherit the upload default'
     assert.match(lifecycle, /SELECT id, owner_id, title, slug, member_file_upload_default/);
     assert.match(lifecycle, /fileUploadEnabled: project\.memberFileUploadDefault/);
 
-    assert.ok(existsSync('drizzle/0177_projects_member_file_upload_default.sql'));
-    assert.match(read('drizzle/0177_projects_member_file_upload_default.sql'), /ADD COLUMN IF NOT EXISTS member_file_upload_default boolean DEFAULT true NOT NULL/);
+    assert.match(read('drizzle/0006_workspaces_members.sql'), /member_file_upload_default boolean DEFAULT true NOT NULL/);
     assert.match(read('src/lib/db/schema/index.ts'), /memberFileUploadDefault: boolean\("member_file_upload_default"\)/);
 
     const settings = read('src/components/workspaces/tabs/WorkspaceSettingsTab.tsx');

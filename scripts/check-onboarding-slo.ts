@@ -26,7 +26,7 @@ async function main() {
         if (!relationCheck[0]?.rel) {
             console.error(
                 'Onboarding SLO view "public.onboarding_slo_daily" is missing. ' +
-                'Apply the latest migrations (including drizzle/0035_onboarding_submission_integrity.sql) ' +
+                'Apply the latest migrations (including drizzle/0004_onboarding.sql) ' +
                 'or run the setup SQL before running this check.'
             )
             process.exit(1)

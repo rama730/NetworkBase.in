@@ -1,59 +1,47 @@
-import { readFile } from 'node:fs/promises'
+import { readdir, readFile } from 'node:fs/promises'
 import path from 'node:path'
 
 async function main() {
     const root = process.cwd()
     const schemaSource = await readFile(path.join(root, 'src/lib/db/schema/index.ts'), 'utf8')
-    const migrationSource = await readFile(path.join(root, 'drizzle/0061_profile_security_state_privacy_rls.sql'), 'utf8')
-    const uploadMigrationSource = await readFile(path.join(root, 'drizzle/0062_upload_intents_and_recovery_redemptions.sql'), 'utf8')
-    const authorityBackfillSource = await readFile(path.join(root, 'drizzle/0063_database_setup_authority_backfill.sql'), 'utf8')
-    const publicRlsHardeningSource = await readFile(path.join(root, 'drizzle/0078_public_rls_security_hardening.sql'), 'utf8')
-    const profilePrivilegeHardeningSource = await readFile(path.join(root, 'drizzle/0079_profile_column_privilege_hardening.sql'), 'utf8')
-    const profileWriteHardeningSource = await readFile(path.join(root, 'drizzle/0080_profile_write_privilege_hardening.sql'), 'utf8')
-    const ponytailHardeningSource = await readFile(path.join(root, 'drizzle/0122_ponytail_database_hardening.sql'), 'utf8')
-    const contributionAuthoritySource = await readFile(path.join(root, 'drizzle/0127_profile_contribution_authority.sql'), 'utf8')
+    const sql = async (file: string) => readFile(path.join(root, 'drizzle', `${file}.sql`), 'utf8')
+    const accounts = await sql('0002_profiles_accounts')
+    const files = await sql('0009_files')
+    const contributions = await sql('0013_contributions')
+    const messaging = await sql('0014_messaging')
+    const migrationNames = (await readdir(path.join(root, 'drizzle'))).filter((name) => name.endsWith('.sql')).sort()
+    const allSql = (await Promise.all(migrationNames.map((name) => readFile(path.join(root, 'drizzle', name), 'utf8')))).join('\n')
+    const profilesTable = accounts.slice(accounts.indexOf('CREATE TABLE public.profiles ('), accounts.indexOf(');', accounts.indexOf('CREATE TABLE public.profiles (')))
+    const tables = [...allSql.matchAll(/^CREATE TABLE public\.(\w+) \(/gm)].map((match) => match[1]!)
+    const browserWrites = /GRANT [^;\n]*\b(INSERT|UPDATE|DELETE|TRUNCATE|ALL)\b[^;\n]* ON TABLE public\.\w+ TO (anon|authenticated);/
     const setupSource = await readFile(path.join(root, 'scripts/setup-database.ts'), 'utf8')
-    const chatSource = await readFile(path.join(root, 'drizzle/0180_chat_rebuild_additive.sql'), 'utf8')
-    const chatCutoverSource = await readFile(path.join(root, 'drizzle/0181_chat_rebuild_cutover.sql'), 'utf8')
 
     const checks: Array<[string, boolean]> = [
-        ['chat tables are member-scoped (SELECT-only RLS via chat_is_member)', chatSource.includes('app_private.chat_is_member(channel_id, (SELECT auth.uid()))')],
-        ['chat cutover drops the old conversation tables', chatCutoverSource.includes('DROP TABLE IF EXISTS') && chatCutoverSource.includes('public.messages,')],
+        ['chat tables are member-scoped (SELECT-only RLS via chat_is_member)', messaging.includes('app_private.chat_is_member(channel_id, ( SELECT auth.uid() AS uid))')],
+        ['the old conversation tables are gone', !/CREATE TABLE public\.(messages|conversations|conversation_participants) /.test(allSql)],
         [
             'schema defines private profile security table',
             /export const profileSecurityStates\s*=\s*pgTable\(\s*["']profile_security_states["']/.test(schemaSource),
         ],
-        ['migration creates profile security table', migrationSource.includes('CREATE TABLE IF NOT EXISTS "profile_security_states"')],
-        ['migration drops legacy profile recovery-code columns', migrationSource.includes('ALTER TABLE "profiles" DROP COLUMN IF EXISTS "security_recovery_codes"')],
-        ['migration creates upload intents table', uploadMigrationSource.includes('CREATE TABLE IF NOT EXISTS "upload_intents"')],
-        ['migration creates recovery code redemptions table', uploadMigrationSource.includes('CREATE TABLE IF NOT EXISTS "recovery_code_redemptions"')],
-        ['migration defines private profile security policies', migrationSource.includes('CREATE POLICY "Users can view own profile security state"')],
-        ['migration enforces privacy-aware profile reads', migrationSource.includes('CREATE POLICY "Profiles are viewable by allowed users"')],
-        ['migration enforces upload intent self policies', uploadMigrationSource.includes('CREATE POLICY "Users can view own upload intents"')],
-        ['migration enforces recovery-code redemption uniqueness', uploadMigrationSource.includes('recovery_code_redemptions_user_code_uidx')],
-        ['authority backfill migration codifies project storage policies', authorityBackfillSource.includes('CREATE POLICY project_files_write')],
-        ['authority backfill migration codifies connection policies', authorityBackfillSource.includes('CREATE POLICY "Users can view own connections"')],
-        ['public RLS hardening migration removes stale view-all profile policy', publicRlsHardeningSource.includes('DROP POLICY IF EXISTS "Users can view all profiles"')],
-        ['public RLS hardening migration enables partition RLS dynamically', publicRlsHardeningSource.includes("project_run_logs\\_%")],
-        ['public RLS hardening migration protects account deletions', publicRlsHardeningSource.includes('CREATE POLICY "Users can view own account deletions"')],
-        ['profile column hardening revokes public profile select', profilePrivilegeHardeningSource.includes('REVOKE SELECT ON TABLE public.profiles FROM PUBLIC')],
-        ['profile column hardening revokes broad profile API select', profilePrivilegeHardeningSource.includes('REVOKE SELECT ON TABLE public.profiles FROM anon, authenticated')],
-        ['profile column hardening grants explicit public display columns', profilePrivilegeHardeningSource.includes('GRANT SELECT (') && profilePrivilegeHardeningSource.includes('full_name') && profilePrivilegeHardeningSource.includes('last_active_at')],
-        ['profile column hardening does not grant profile email', !profilePrivilegeHardeningSource.includes('\n  email')],
-        ['profile column hardening does not grant notification preferences', !profilePrivilegeHardeningSource.includes('notification_preferences')],
-        ['profile write hardening revokes direct profile API writes', profileWriteHardeningSource.includes('REVOKE ALL PRIVILEGES ON TABLE public.profiles FROM PUBLIC, anon, authenticated')],
-        ['profile write hardening restores explicit display-only reads', profileWriteHardeningSource.includes('GRANT SELECT (') && profileWriteHardeningSource.includes('username') && profileWriteHardeningSource.includes('last_active_at')],
-        ['profile write hardening does not grant profile email', !profileWriteHardeningSource.includes('\n  email')],
-        ['profile write hardening does not grant notification preferences', !profileWriteHardeningSource.includes('notification_preferences')],
-        ['ponytail hardening removes cross-project policy tautologies', !ponytailHardeningSource.includes('m.project_id = m.project_id')],
-        ['ponytail hardening removes arbitrary auth-user deletion RPC', ponytailHardeningSource.includes('DROP FUNCTION IF EXISTS public.delete_auth_user(uuid)')],
-        ['ponytail hardening removes broad chat attachment reads', ponytailHardeningSource.includes('DROP POLICY IF EXISTS "Users can view chat attachments"')],
-        ['ponytail hardening moves authorization helpers out of public', ponytailHardeningSource.includes('SET SCHEMA app_private')],
-        ['ponytail hardening fixes current markdown helper relations', ponytailHardeningSource.includes('public.project_markdown_versions') && ponytailHardeningSource.includes('public.project_markdowns') && ponytailHardeningSource.includes('public.project_markdown_assets')],
-        ['contribution authority scopes public parent reads', contributionAuthoritySource.includes('CREATE POLICY "Public profile contributions are viewable"') && contributionAuthoritySource.includes('"visibility" = \'public\'')],
-        ['contribution authority derives stage reads from public parent', contributionAuthoritySource.includes('CREATE POLICY "Public profile contribution stages are viewable"') && contributionAuthoritySource.includes("contribution.visibility = 'public'")],
-        ['contribution authority lets owners read their skill assignments through the hardened helper', contributionAuthoritySource.includes('CREATE POLICY "Visible contribution skills are readable"') && contributionAuthoritySource.includes('contribution.profile_id = app_private.get_auth_uid()') && !contributionAuthoritySource.includes('contribution.profile_id = public.get_auth_uid()')],
-        ['contribution authority blocks hidden and draft project exposure', contributionAuthoritySource.includes("project.visibility IN ('public', 'unlisted')") && contributionAuthoritySource.includes("project.status <> 'draft'")],
+        ['migrations create the profile security table', accounts.includes('CREATE TABLE public.profile_security_states (')],
+        ['recovery codes are not on profiles', !profilesTable.includes('security_recovery_codes')],
+        ['migrations create upload intents', files.includes('CREATE TABLE public.upload_intents (')],
+        ['migrations create recovery code redemptions', accounts.includes('CREATE TABLE public.recovery_code_redemptions (')],
+        ['profile security state is own-row only', accounts.includes('CREATE POLICY profile_security_states_select_own ON public.profile_security_states FOR SELECT USING ((( SELECT auth.uid() AS uid) = user_id))')],
+        ['profile reads are privacy-aware', allSql.includes('CREATE POLICY profiles_select_visible ON public.profiles FOR SELECT USING (((deleted_at IS NULL) AND ((( SELECT auth.uid() AS uid) = id) OR (visibility =')],
+        ['upload intents are own-row only', files.includes('CREATE POLICY upload_intents_select_own ON public.upload_intents FOR SELECT USING ((( SELECT auth.uid() AS uid) = user_id))')],
+        ['recovery-code redemption is unique', accounts.includes('CREATE UNIQUE INDEX recovery_code_redemptions_user_code_unique')],
+        ['no stale view-all profile policy', !allSql.includes('Users can view all profiles')],
+        ['every table enables RLS', tables.length > 100 && tables.every((table) => allSql.includes(`ALTER TABLE public.${table} ENABLE ROW LEVEL SECURITY`) || table === 'app_migration_journal')],
+        ['account deletions are own-row only', accounts.includes('CREATE POLICY account_deletions_select_own ON public.account_deletions FOR SELECT USING ((user_id = ( SELECT auth.uid() AS uid)))')],
+        ['browser roles have no write grant on any table', !browserWrites.test(allSql)],
+        ['no cross-workspace policy tautologies', !/m\.(project|workspace)_id = m\.(project|workspace)_id/.test(allSql)],
+        ['no arbitrary auth-user deletion RPC', !allSql.includes('FUNCTION public.delete_auth_user')],
+        ['no broad chat attachment read policy', !allSql.includes('Users can view chat attachments')],
+        ['authorization helpers live outside public', !/CREATE FUNCTION public\.nb_/.test(allSql)],
+        ['public contribution reads depend on visibility', contributions.includes("CREATE POLICY profile_contributions_read_authorized ON public.profile_contributions FOR SELECT USING (((profile_id = ( SELECT auth.uid() AS uid)) OR ((visibility = 'public'::text)")],
+        ['contribution stage reads derive from the parent', contributions.includes('CREATE POLICY profile_contribution_stages_read_authorized')],
+        ['contribution skill reads derive from the parent', contributions.includes('CREATE POLICY profile_contribution_skills_select_visible')],
         ['database setup replays migration journal instead of authoring policies directly', setupSource.includes('Starting database setup via Drizzle migrations')],
         ['database setup no longer creates policies directly', !setupSource.includes('CREATE POLICY')],
     ]

@@ -65,12 +65,12 @@ test("completed direct pushes and pull requests have distinct copy and private n
 test("old Analytics links, visibility defaults, and migration point to the seven-tab dashboard", () => {
   const client = readFileSync(`${root}/src/components/workspaces/dashboard/WorkspaceDashboardClient.tsx`, "utf8");
   const layout = readFileSync(`${root}/src/components/workspaces/dashboard/WorkspaceLayout.tsx`, "utf8");
-  const migration = readFileSync(`${root}/drizzle/0166_project_recent_activity.sql`, "utf8");
+  const migration = readFileSync(`${root}/drizzle/0006_workspaces_members.sql`, "utf8");
   const action = readFileSync(`${root}/src/app/actions/workspace/recent-activity.ts`, "utf8");
   assert.match(client, /tab === 'analytics'\) return 'dashboard'/);
   assert.doesNotMatch(layout, /id: "analytics"/);
-  assert.match(migration, /public_tab_visibility - 'analytics'/);
-  assert.match(migration, /SET DEFAULT/);
+  assert.match(migration, /public_tab_visibility jsonb DEFAULT '\{[^']*"dashboard": true\}'/);
+  assert.doesNotMatch(migration, /public_tab_visibility jsonb DEFAULT '\{[^']*analytics/);
   assert.match(action, /isNull\(tasks\.deletedAt\)/);
   assert.match(action, /isNull\(workspaceNodes\.deletedAt\)/);
   assert.match(action, /eq\(member\.visibility, "public"\)/);

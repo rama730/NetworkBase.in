@@ -1,4 +1,4 @@
-// Mirrors of the limits enforced in drizzle/0180_chat_rebuild_additive.sql.
+// Mirrors of the limits enforced in drizzle/0014_messaging.sql.
 // The database is authoritative; these exist for client-side validation and copy.
 export const CHAT_MAX_BODY = 4000;
 export const CHAT_MAX_ATTACHMENTS = 10;

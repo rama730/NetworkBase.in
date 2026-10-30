@@ -11,7 +11,7 @@ function write(filePath: string, content: string) {
   fs.writeFileSync(filePath, content, "utf8");
 }
 
-function writeManifest(rootDir: string, existingMigrationFiles: string[], allowedUtilitySqlFiles: string[] = []) {
+function writeManifest(rootDir: string, existingMigrationFiles: string[], allowedUtilitySqlFiles: string[] = [], strictLineageFromIndex = 0) {
   write(
     path.join(rootDir, "drizzle/meta/_journal.json"),
     JSON.stringify({
@@ -31,7 +31,7 @@ function writeManifest(rootDir: string, existingMigrationFiles: string[], allowe
         policyVersion: 1,
         defaultChangeKind: "append_only",
         migrationDirectory: "drizzle",
-        strictLineageFromIndex: 0,
+        strictLineageFromIndex,
         existingMigrationFiles,
         allowedUtilitySqlFiles,
         breakGlassExceptions: [],
@@ -63,10 +63,10 @@ describe("check-sql-governance script", () => {
     assert.ok(result.errors.length > 0, "Expected violations but none were reported");
     assert.ok(result.errors.some((line) => line.includes("unapproved migration file")));
   });
-  // Terminology report §14.3: after 0264 renamed projects to workspaces, no migration may name a new object "project".
-  it("rejects new project-named objects in migrations after the workspace rename", () => {
+  // Terminology report §14.3: projects became workspaces, so no new migration may name an object "project".
+  it("rejects project-named objects in new migrations but not in the base files", () => {
     const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "sql-governance-names-"));
-    const files = ["drizzle/0264_workspace_rename.sql", "drizzle/0265_safe_change.sql", "drizzle/0268_bad_names.sql"];
+    const files = ["drizzle/0022_project_compat_views.sql", "drizzle/0023_safe_change.sql", "drizzle/0024_bad_names.sql"];
     write(path.join(tmp, files[0]!), "CREATE VIEW public.project_members WITH (security_invoker = true) AS SELECT 1;");
     write(path.join(tmp, files[1]!), [
       "-- CREATE TABLE project_notes would be wrong",
@@ -81,12 +81,12 @@ describe("check-sql-governance script", () => {
       "ALTER TABLE public.tasks ADD COLUMN IF NOT EXISTS project_id uuid;",
       "ALTER TABLE public.tasks RENAME COLUMN workspace_id TO legacy_project_id;",
     ].join("\n"));
-    writeManifest(tmp, files);
+    writeManifest(tmp, files, [], 1);
 
     const result = validateSqlGovernance(tmp);
     const naming = result.errors.filter((line) => line.includes("project"));
     assert.deepEqual(naming, [
-      "0268_bad_names: new SQL names must say workspace, not project: legacy_project_id, nb_project_can_view, project_id, project_notes, project_notes_idx, project_ref.",
+      "0024_bad_names: new SQL names must say workspace, not project: legacy_project_id, nb_project_can_view, project_id, project_notes, project_notes_idx, project_ref.",
     ]);
   });
 });

@@ -11,13 +11,13 @@ function source(relativePath: string) {
 const schema = source("src/lib/db/schema/index.ts");
 const projectActions = projectActionsSource();
 const taskActions = source("src/app/actions/task.ts");
-const migration = source("drizzle/0149_sprint_lifecycle_memberships.sql");
+const migration = source("drizzle/0008_tasks_sprints.sql");
 
 describe("sprint lifecycle and history integrity contract", () => {
   it("persists stable Sprint numbers and enforces one Active Sprint per project", () => {
     assert.match(schema, /sprintNumber: integer\("sprint_number"\)\.notNull\(\)/);
     assert.match(schema, /workspace_sprints_one_active_idx/);
-    assert.match(migration, /WHERE "status" = 'active'/);
+    assert.match(migration, /workspace_sprints_one_active_idx[^\n]*WHERE \(status = 'active'/);
   });
 
   it("uses durable memberships instead of mutable task placement for Sprint history", () => {
@@ -26,7 +26,7 @@ describe("sprint lifecycle and history integrity contract", () => {
     assert.match(projectActions, /FROM \$\{sprintTaskMemberships\}/);
     assert.match(projectActions, /membershipState: row\.membership_removed_at \? "historical" : "committed"/);
     assert.match(taskActions, /tx\.insert\(sprintTaskMemberships\)/);
-    assert.match(migration, /CREATE TABLE IF NOT EXISTS "sprint_task_memberships"/);
+    assert.match(migration, /CREATE TABLE public\.sprint_task_memberships /);
   });
 
   it("blocks destructive history deletion and records lifecycle events transactionally", () => {

@@ -291,15 +291,13 @@ test("profile contributions preserve recorded team terminology while stories use
   assert.match(story, /if \(!value.current && !value.end\) return storyMonth\(value.start\)/);
 });
 
-test("migration enforces normalized authority, parent-derived RLS, relational skills, and idempotency", () => {
-  const migration = read("drizzle/0127_profile_contribution_authority.sql");
-  assert.match(migration, /profile_project_contributions_authority_shape_check/);
-  assert.match(migration, /profile_project_contributions_profile_external_active_unique/);
-  assert.match(migration, /profile_project_contributions_version_check/);
-  assert.match(migration, /INSERT INTO "profile_contribution_skills"/);
-  assert.match(migration, /contribution\.visibility = 'public'/);
-  assert.match(migration, /profile_audit_events_contribution_batch_key_unique/);
-  assert.match(migration, /row_number\(\) OVER/);
-  assert.match(migration, /app_private\.get_auth_uid\(\)/);
-  assert.doesNotMatch(migration, /public\.get_auth_uid\(\)/);
+test("the schema enforces normalized authority, parent-derived RLS, relational skills, and idempotency", () => {
+  const migration = read("drizzle/0013_contributions.sql");
+  assert.match(migration, /profile_contributions_authority_shape_check/);
+  assert.match(migration, /profile_contributions_profile_external_active_unique/);
+  assert.match(migration, /profile_contributions_version_check/);
+  assert.match(migration, /CREATE TABLE public\.profile_contribution_skills/);
+  assert.match(migration, /contribution\.visibility = 'public'::text/);
+  assert.match(read("drizzle/0002_profiles_accounts.sql"), /profile_audit_events_contribution_batch_key_unique/);
+  assert.doesNotMatch(migration, /get_auth_uid\(\)/);
 });

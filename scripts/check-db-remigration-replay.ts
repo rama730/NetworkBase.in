@@ -1,6 +1,5 @@
 /**
- * Replay gate (MIG-001, MIG-002). History cannot replay from 0000, so the
- * fresh database starts from scripts/db/baseline/schema.sql:
+ * Replay gate (MIG-001, MIG-002). Builds from an empty database:
  *   export DATABASE_URL_FRESH=$(npm run -s db:disposable)
  * 1. Setup applies the journal to the fresh database.
  * 2. Ownership: every public relation is declared in the ORM schema or is
@@ -27,8 +26,8 @@ const SQL_OWNED_RELATIONS = new Set([
   "chat_saved",
   "chat_scheduled_messages",
   "onboarding_slo_daily",
-  // Old project names kept as views for one release by 0264; dropping them later leaves these entries inert.
-  ...[...readFileSync("drizzle/0264_workspace_rename.sql", "utf8").matchAll(/CREATE VIEW public\.(\w+) WITH \(security_invoker/g)].map((m) => m[1]!),
+  // Old project names kept as views from the workspace rename; dropping them later leaves these entries inert.
+  ...[...readFileSync("drizzle/0022_project_compat_views.sql", "utf8").matchAll(/CREATE VIEW public\.(\w+) WITH \(security_invoker/g)].map((m) => m[1]!),
 ]);
 
 const primaryUrl = process.env.DATABASE_URL;

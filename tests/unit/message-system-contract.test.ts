@@ -1037,7 +1037,7 @@ test("Section 12 (Messages reorganization, 96-item plan) contracts", () => {
     const thread = read("src/components/messages/ThreadPane.tsx");
     const timeline = read("src/components/messages/Timeline.tsx");
     const switcher = read("src/components/messages/QuickSwitcher.tsx");
-    const migration = read("drizzle/0187_chat_reorganize.sql");
+    const migration = read("drizzle/0014_messaging.sql");
 
     // A. Inbox replaces Activity + Threads; Saved and Drafts sit beside it.
     assert.match(sections, /href="\/messages\/inbox"[\s\S]*href="\/messages\/saved"[\s\S]*href="\/messages\/drafts"/, "Sidebar top group: Inbox, Saved, Drafts");

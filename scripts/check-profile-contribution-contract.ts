@@ -28,10 +28,9 @@ async function main() {
     projectUpdates,
     databaseCheck,
     runbook,
-    nativeAuthMigration,
   ] = await Promise.all([
     source("src/lib/db/schema/index.ts"),
-    source("drizzle/0127_profile_contribution_authority.sql"),
+    source("drizzle/0013_contributions.sql"),
     source("src/app/actions/profile-contributions.ts"),
     source("src/app/actions/profile.ts"),
     source("src/lib/account/export-stream.ts"),
@@ -46,7 +45,6 @@ async function main() {
     source("src/lib/workspaces/update-roles.ts"),
     source("scripts/check-profile-contribution-database.ts"),
     source("docs/runbooks/profile-contributions.md"),
-    source("drizzle/0208_native_auth_uid.sql"),
   ]);
 
   const workspace = await source("src/components/profile/edit/ContributionEditor.tsx");
@@ -58,10 +56,9 @@ async function main() {
     /version:\s*integer\(["']version["']\)\.default\(1\)\.notNull\(\)/.test(schema),
   );
   requireContract("external identity is unique", schema.includes("profile_contributions_profile_external_active_unique"));
-  requireContract("migration relationally backfills skills", migration.includes('INSERT INTO "profile_contribution_skills"'));
-  requireContract("migration repairs duplicated idempotency history", migration.includes("row_number() OVER"));
-  requireContract("migration scopes public reads to parent visibility", migration.includes("contribution.visibility = 'public'"));
-  requireContract("contribution policies resolve the caller with native auth.uid()", nativeAuthMigration.includes("contribution.profile_id = (SELECT auth.uid())") && nativeAuthMigration.includes("DROP FUNCTION IF EXISTS app_private.get_auth_uid()"));
+  requireContract("skills are stored relationally", migration.includes("CREATE TABLE public.profile_contribution_skills"));
+  requireContract("migration scopes public reads to parent visibility", migration.includes("contribution.visibility = 'public'::text"));
+  requireContract("contribution policies resolve the caller with native auth.uid()", migration.includes("contribution.profile_id = ( SELECT auth.uid() AS uid)") && !migration.includes("get_auth_uid()"));
 
   requireContract("dedicated command validates strict batch", command.includes("profileContributionBatchSchema.safeParse"));
   requireContract("dedicated command is transactional", command.includes("db.transaction"));

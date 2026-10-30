@@ -19,8 +19,7 @@ describe("extension runtime contract", () => {
     const callbackSource = readSource("src/lib/extension/session-callback.ts");
     const settingsQuerySource = readSource("src/hooks/useSettingsQueries.ts");
     const eventSource = readSource("src/lib/extension/session-events.ts");
-    const baselineMigration = readSource("drizzle/0086_virtual_workspace_fields.sql");
-    const repairMigration = readSource("drizzle/0091_extension_auth_code_events.sql");
+    const migration = readSource("drizzle/0017_browser_extension.sql");
 
     assert.match(authorizePage, /generateExtensionAuthCode/, "authorize page should issue an auth code");
     assert.match(authorizePage, /redirectToEditor\(\{ code: res\.code \}\)/, "authorize page should redirect with code, not raw token");
@@ -49,11 +48,8 @@ describe("extension runtime contract", () => {
     assert.match(sessionRouteSource, /revoked tokens may read only their own liveness/i, "status checks must not restore revoked bearer access");
     assert.match(settingsQuerySource, /refetchOnWindowFocus: true/, "the active Integrations tab must reconcile IDE-side logout on focus");
     assert.doesNotMatch(settingsQuerySource, /refetchInterval:\s*EXTENSION_SESSION_POLL_MS/, "idle settings must not poll every three seconds");
-    assert.match(baselineMigration, /auth_code_issued/, "fresh databases should allow auth-code issuance events");
-    assert.match(baselineMigration, /auth_code_consumed/, "fresh databases should allow auth-code consumption events");
-    assert.match(repairMigration, /DROP CONSTRAINT IF EXISTS extension_device_session_events_event_type_check/, "existing databases should replace the stale event type check");
-    assert.match(repairMigration, /auth_code_issued/, "repair migration should allow auth-code issuance events");
-    assert.match(repairMigration, /auth_code_consumed/, "repair migration should allow auth-code consumption events");
+    assert.match(migration, /auth_code_issued/, "the database should allow auth-code issuance events");
+    assert.match(migration, /auth_code_consumed/, "the database should allow auth-code consumption events");
   });
 
   it("keeps extension large-file transfer off the normal request body path", () => {

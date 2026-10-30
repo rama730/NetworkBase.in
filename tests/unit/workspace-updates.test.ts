@@ -196,19 +196,16 @@ test("workspace update draft and schema contracts are stable", () => {
     assert.equal(WORKSPACE_UPDATE_SCHEMA_CONTRACT.minPolicyCounts.workspace_update_drafts, 1);
 });
 
-test("workspace update comment threading schema is present in baseline and repair migrations", () => {
+test("workspace update comment threading schema is present in the migrations", () => {
     const schemaSource = readFileSync(path.join(process.cwd(), "src/lib/db/schema/index.ts"), "utf8");
-    const baselineMigration = readFileSync(path.join(process.cwd(), "drizzle/0063_database_setup_authority_backfill.sql"), "utf8");
-    const repairMigration = readFileSync(path.join(process.cwd(), "drizzle/0090_project_update_comment_threads.sql"), "utf8");
-    const journal = readFileSync(path.join(process.cwd(), "drizzle/meta/_journal.json"), "utf8");
+    const migration = readFileSync(path.join(process.cwd(), "drizzle/0012_workspace_updates.sql"), "utf8");
 
     assert.match(schemaSource, /parentId:\s*uuid\(["']parent_id["']\)/);
     assert.match(schemaSource, /workspace_update_comments_parent_idx/);
-    assert.match(baselineMigration, /"parent_id"\s+uuid\s+REFERENCES\s+"project_update_comments"\("id"\)\s+ON DELETE set null/i);
-    assert.match(baselineMigration, /project_update_comments_parent_idx/);
-    assert.match(repairMigration, /ADD COLUMN IF NOT EXISTS "parent_id" uuid/);
-    assert.match(repairMigration, /ALTER PUBLICATION supabase_realtime ADD TABLE "project_update_comments"/);
-    assert.match(journal, /0090_project_update_comment_threads/);
+    assert.match(migration, /parent_id uuid,/);
+    assert.match(migration, /FOREIGN KEY \(update_id, parent_id\) REFERENCES public\.workspace_update_comments\(update_id, id\)/);
+    assert.match(migration, /workspace_update_comments_parent_idx/);
+    assert.match(migration, /ALTER PUBLICATION supabase_realtime ADD TABLE public\.workspace_update_comments/);
 });
 
 test("workspace update composer stores selected project records as structured refs", () => {

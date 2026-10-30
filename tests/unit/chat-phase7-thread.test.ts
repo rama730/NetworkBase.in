@@ -56,8 +56,7 @@ test("thread: newest replies first with Load earlier, true count, Following togg
   assert.match(read("src/app/actions/chat/messages.ts"), /sql`m\.channel_seq DESC`, limit \+ 1/);
 });
 
-test("0190 de-duplicates the thread follows upsert and is registered", () => {
-  const sql = read("drizzle/0190_chat_thread_self_reply.sql");
+test("the thread follows upsert is de-duplicated", () => {
+  const sql = read("drizzle/0014_messaging.sql");
   assert.match(sql, /FROM \(SELECT DISTINCT u FROM unnest\(ARRAY\[p_author_id, v_root\.author_id\]\) AS u\) AS d/);
-  assert.match(read("drizzle/meta/_journal.json"), /"tag": "0190_chat_thread_self_reply"/);
 });

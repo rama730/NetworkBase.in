@@ -41,23 +41,15 @@ test('notification ordering is based on source activity and actor previews are c
     const schema = readProjectFile('src/lib/db/schema/index.ts');
     const service = readProjectFile('src/lib/notifications/service.ts');
     const fanout = readProjectFile('src/lib/notifications/fanout.ts');
-    const migration = readProjectFile('drizzle/0128_notification_activity_state_contract.sql');
+    const migration = readProjectFile('drizzle/0016_notifications_email.sql');
 
     assert.match(schema, /activityAt:\s*timestamp\(["']activity_at["']/);
     assert.match(service, /orderBy\(desc\(userNotifications\.activityAt\), desc\(userNotifications\.id\)\)/);
     assert.match(service, /activityAt: now/);
-    assert.match(migration, /ADD COLUMN IF NOT EXISTS "activity_at"/);
+    assert.match(migration, /activity_at timestamp with time zone DEFAULT now\(\) NOT NULL/);
     assert.match(fanout, /async function hydrateActorPreviews/);
     assert.match(fanout, /inArray\(profiles\.id, actorIds\)/);
     assert.match(fanout, /writes = await hydrateActorPreviews/);
-});
-
-test('message notification previews are redacted from existing rows', () => {
-    const migration = readProjectFile('drizzle/0132_message_notification_preview_redaction.sql');
-
-    assert.match(migration, /UPDATE public\.user_notifications/);
-    assert.match(migration, /SET body = NULL/);
-    assert.match(migration, /WHERE kind = 'message_burst' AND body IS NOT NULL/);
 });
 
 test('all source notification writes persist inline and only use the worker to retry failed writes', () => {
