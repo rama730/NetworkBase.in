@@ -1,6 +1,7 @@
 import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { profileContributionStages, profileContributions, profiles, workspaces } from "@/lib/db/schema";
+import { contributionPositionName } from "@/lib/profile/contribution-position";
 import { isGenericWorkspaceUpdateRoleTitle, sanitizeWorkspaceUpdateRoleTitle } from "@/lib/workspaces/updates";
 
 export type RoleTitleTarget = { projectId: string; userId: string | null | undefined };
@@ -9,7 +10,8 @@ export type RoleTitleTarget = { projectId: string; userId: string | null | undef
 export const roleTitleKey = (projectId: string, userId: string) => `${projectId}:${userId}`;
 
 function specificTitle(value: unknown) {
-    const title = sanitizeWorkspaceUpdateRoleTitle(value);
+    // Older titles carry the access level too ("Lead / Tester"), and "Lead - Lead" must fall through to the next source.
+    const title = sanitizeWorkspaceUpdateRoleTitle(contributionPositionName(typeof value === "string" ? value : null));
     return title && !isGenericWorkspaceUpdateRoleTitle(title) ? title : null;
 }
 

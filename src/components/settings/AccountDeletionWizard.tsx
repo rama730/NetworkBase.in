@@ -105,7 +105,7 @@ export default function AccountDeletionWizard({ onClose, onDeleted }: Props) {
         />;
     }
 
-    // Report §30.7: orgs block deletion; child projects you lead pass to a new lead instead of going.
+    // Report §30.7: orgs block deletion; child projects you lead pass to a new owner instead of going.
     const ownedOrgs = (owned ?? []).filter((project) => project.kind === "organization");
     const handedOver = (owned ?? []).filter((project) => project.handover);
     const sharedProjects = (owned ?? []).filter((project) => project.otherMembers > 0 && project.kind !== "organization" && !project.handover);
@@ -143,7 +143,7 @@ export default function AccountDeletionWizard({ onClose, onDeleted }: Props) {
                         <p className="text-muted-foreground">You don’t own any workspaces.</p>
                     )}
                     {handedOver.length > 0 ? (
-                        <p>{handedOver.map((project) => project.title).join(", ")} {handedOver.length === 1 ? "passes" : "pass"} to a new lead in {handedOver.length === 1 ? "its" : "their"} organization, so {handedOver.length === 1 ? "it isn’t" : "they aren’t"} deleted.</p>
+                        <p>{handedOver.map((project) => project.title).join(", ")} {handedOver.length === 1 ? "passes" : "pass"} to a new owner in {handedOver.length === 1 ? "its" : "their"} organization, so {handedOver.length === 1 ? "it isn’t" : "they aren’t"} deleted.</p>
                     ) : null}
                 </div>
 

@@ -177,7 +177,7 @@ function DeleteRow({ orgId, handle, preview }: { orgId: string; handle: string |
                     {preview && preview.children > 0 ? (
                         <fieldset className="space-y-1.5 text-sm">
                             <legend className={label}>Workspaces in this organization</legend>
-                            <label className="flex items-center gap-2"><input type="radio" name="org-delete-children" checked={childMode === 'detach'} onChange={() => setChildMode('detach')} /> Give them to their leads as personal workspaces (now)</label>
+                            <label className="flex items-center gap-2"><input type="radio" name="org-delete-children" checked={childMode === 'detach'} onChange={() => setChildMode('detach')} /> Give them to their owners as personal workspaces (now)</label>
                             <label className="flex items-center gap-2"><input type="radio" name="org-delete-children" checked={childMode === 'delete'} onChange={() => setChildMode('delete')} /> Delete them with the organization (same 30 days)</label>
                         </fieldset>
                     ) : null}

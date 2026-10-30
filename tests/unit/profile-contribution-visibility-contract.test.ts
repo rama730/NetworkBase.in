@@ -278,8 +278,8 @@ test("parent visibility is the UI and read authority while owners retain a priva
 });
 
 test("profile contributions preserve recorded team terminology while stories use explicit current status", () => {
-  assert.equal(formatWorkspaceTeamRole({ membershipRole: "owner", leadFocus: "Frontend developer" }), "Owner / Frontend developer");
-  assert.equal(formatWorkspaceTeamRole({ membershipRole: "owner", projectRoleTitle: "Lead", leadFocus: "Tester" }), "Owner / Tester");
+  assert.equal(formatWorkspaceTeamRole({ membershipRole: "owner", leadFocus: "Frontend developer" }), "Frontend developer · Owner");
+  assert.equal(formatWorkspaceTeamRole({ membershipRole: "owner", projectRoleTitle: "Lead", leadFocus: "Tester" }), "Tester · Owner");
   assert.equal(formatWorkspaceTeamRole({ membershipRole: "member", projectRoleTitle: "QA Engineer" }), "QA Engineer · Member");
 
   const card = read("src/components/profile/v2/sections/WorkspaceContributionsCard.tsx");

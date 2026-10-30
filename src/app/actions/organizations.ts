@@ -346,7 +346,7 @@ export async function leaveOrgAction(orgId: string): Promise<{ success: true } |
     if (!viewer || viewer.role === 'visitor') return DENIED;
     if (orgGrant(viewer.role, 'leave') !== 'yes') return { success: false, error: 'Transfer ownership before you leave.' };
     const led = await ledChildWorkspaces(db, orgId, viewer.userId);
-    if (led.length > 0) return { success: false, error: `You lead ${led.length} ${led.length === 1 ? 'project' : 'projects'} here. Transfer or detach ${led.length === 1 ? 'it' : 'them'} first.` };
+    if (led.length > 0) return { success: false, error: `You own ${led.length} ${led.length === 1 ? 'workspace' : 'workspaces'} here. Transfer or detach ${led.length === 1 ? 'it' : 'them'} first.` };
     // Leaving the org removes you from its projects too (report §14.4, §20.7).
     const seats = await db.transaction((tx) => removeFromOrg(tx, orgId, viewer.userId, viewer.userId));
     await notifySeatsReopened(orgId, seats);

@@ -454,7 +454,7 @@ export default function Phase4Settings({ showValidationSummary = false, linkComp
                     />
                 </LaunchSection>}
 
-                <LaunchSection {...sectionProps('permissions')} title="What members can do" description="Leaders can always do both. These apply to members who join later." summary={`Updates: ${memberUpdatesEnabled !== false ? 'members' : 'leaders only'} · Uploads: ${memberFileUploadDefault !== false ? 'members' : 'leaders only'}`}>
+                <LaunchSection {...sectionProps('permissions')} title="What members can do" description="The owner and admins can always do both. These apply to members who join later." summary={`Updates: ${memberUpdatesEnabled !== false ? 'members' : 'owner and admins only'} · Uploads: ${memberFileUploadDefault !== false ? 'members' : 'owner and admins only'}`}>
                     <div className="border-y border-border">
                         <SwitchRow label="Members can post updates" description="Progress posts on the Updates tab." checked={memberUpdatesEnabled !== false} onCheckedChange={(checked) => set('member_updates_enabled', checked)} />
                         <SwitchRow label="New members can upload files" description="The starting upload permission for each member; adjustable per member later." checked={memberFileUploadDefault !== false} onCheckedChange={(checked) => set('member_file_upload_default', checked)} />
@@ -486,7 +486,7 @@ export default function Phase4Settings({ showValidationSummary = false, linkComp
                             <Info className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
                             <div className="min-w-0">
                                 <p className="nb-ui-label text-foreground">Uploads</p>
-                                <p className="nb-compact mt-1 text-muted-foreground">Leaders can always upload. New members {memberFileUploadDefault !== false ? 'can upload' : 'can’t upload'}, set under Team permissions.</p>
+                                <p className="nb-compact mt-1 text-muted-foreground">The owner and admins can always upload. New members {memberFileUploadDefault !== false ? 'can upload' : 'can’t upload'}, set under Team permissions.</p>
                             </div>
                         </div>
                     </div>

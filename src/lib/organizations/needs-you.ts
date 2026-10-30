@@ -59,7 +59,7 @@ export async function readNeedsYou(v: OrgViewer, now: Date): Promise<NeedsYouRow
         ]);
         if (spike && spike.n >= JOIN_SPIKE_PER_HOUR) rows.push({ kind: 'join_spike', label: `Unusual joins with code ${spike.code ?? ''} · Regenerate?`, href: `${base}?tab=settings&settings=org-access` });
         if (state?.status === 'archived') rows.push({ kind: 'verify', label: "Verify members' contributions", href: `${base}?tab=members` });
-        for (const c of leaderless) rows.push({ kind: 'lead', label: `${c.title} needs a new lead`, href: `${base}?tab=projects` });
+        for (const c of leaderless) rows.push({ kind: 'lead', label: `${c.title} needs a new owner`, href: `${base}?tab=projects` });
         rows.push(...await adminStateRows(v.org.id, base, now));
         return rows;
     }

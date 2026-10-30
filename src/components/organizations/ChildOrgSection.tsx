@@ -151,7 +151,7 @@ export function ChildOrgSection({ project, isLead, canManage }: { project: Works
                 open={confirm !== null}
                 onOpenChange={(open) => { if (!open) setConfirm(null) }}
                 title={confirm === 'archive' ? 'Archive this workspace?' : `Remove from ${parentOrg.title}?`}
-                description={confirm === 'archive' ? 'Everything becomes read-only. The owner can unarchive it.' : 'It becomes a Private personal workspace of its lead.'}
+                description={confirm === 'archive' ? 'Everything becomes read-only. The owner can unarchive it.' : 'It becomes a Private personal workspace of its owner.'}
                 confirmLabel={confirm === 'archive' ? 'Archive' : 'Remove from organization'}
                 variant="destructive"
                 onConfirm={() => run(() => (confirm === 'archive' ? archiveChildAction(projectId) : detachChildAction(projectId)), confirm === 'archive' ? 'Archived.' : 'Detached.')}

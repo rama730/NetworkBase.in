@@ -23,6 +23,13 @@ test('rules', () => {
   assert.deepEqual(ruleHits('Please log in to like'), ['please', 'log-in']);
   assert.deepEqual(ruleHits('Invitation cancelled'), ['british']);
   assert.deepEqual(ruleHits('Visual Studio Code'), []);
+  // "Lead" as an access level hides in sentences; job titles and team leads stay.
+  for (const text of ['Message lead', 'Remind leads', 'needs a new lead', 'You’re the lead of it', 'to their leads', 'Lead: Asha', 'Leaders can always do both', 'This person leads a workspace']) {
+    assert.deepEqual(ruleHits(text), ['banned'], text);
+  }
+  for (const text of ['Team lead', 'Make team lead', 'Lead designer', 'Repeated breaks lead to limits', 'lead generation']) {
+    assert.deepEqual(ruleHits(text), [], text);
+  }
 });
 
 test('a note from the report is never copy: "(keep)" is caught as it was shown to people', () => {
