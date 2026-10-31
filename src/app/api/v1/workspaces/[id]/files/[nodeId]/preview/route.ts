@@ -8,6 +8,7 @@ import { assertWorkspaceFileReadAccess, assertFileNodeVisible } from "@/lib/file
 import { parseWorkspaceFileKey } from "@/lib/storage/workspace-file-key";
 import { createAdminClient, createClient } from "@/lib/supabase/server";
 import { streamPrivateObject } from "@/lib/storage/private-object-response";
+import { signedDownloadRedirect, versionedFilename } from "@/lib/storage/download-link";
 import { UUID_RE } from "@/app/actions/files/_constants";
 import { enforceRouteLimit } from "@/app/api/v1/_shared";
 
@@ -146,6 +147,14 @@ export async function GET(request: NextRequest, context: RouteContext) {
     return noStore("File content is unavailable", 404);
   }
 
+  const isDownload = request.nextUrl.searchParams.get("download") === "1";
+  if (isDownload) {
+    if (request.method === "HEAD") return new Response(null, { status: 200, headers: { "Cache-Control": "private, no-store" } });
+    const filename = historical && revisionNumber !== node.currentVersion ? versionedFilename(node.name, revisionNumber!) : node.name;
+    const saved = await signedDownloadRedirect(await createAdminClient(), { bucket: "project-files", storageKey: target.s3Key, filename });
+    return saved ?? noStore("Couldn’t prepare the download", 502);
+  }
+
   const revisionIdentity = createHash("sha256")
     .update(`${revisionNumber ?? node.currentVersion}:${target.s3Key}:${asset.contentHash ?? ""}`)
     .digest("base64url")
@@ -198,7 +207,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
     totalSize: asset.size,
     mimeType: asset.mimeType,
     filename: node.name,
-    disposition: request.nextUrl.searchParams.get("download") === "1" ? "attachment" : "inline",
+    disposition: "inline",
     etag,
     cacheControl: "private, max-age=3600, stale-while-revalidate=86400",
   });
