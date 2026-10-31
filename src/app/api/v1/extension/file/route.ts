@@ -77,6 +77,7 @@ export async function GET(request: Request) {
         path: true,
         type: true,taskId:true,deletedAt:true,
         s3Key: true,
+        assetId: true,
         size: true,
         mimeType: true,
         currentVersion: true,
@@ -88,6 +89,22 @@ export async function GET(request: Request) {
       return jsonError("File not found", 404, "NOT_FOUND");
     }
     await assertFileNodeVisible(access, node);
+
+    // Bytes are served only for an asset that passed verification, with its verified size and type.
+    const [verifiedAsset] = node.s3Key && node.assetId
+      ? await db.select({ size: storageAssets.verifiedSize, mimeType: storageAssets.verifiedMimeType })
+        .from(storageAssets)
+        .where(and(
+          eq(storageAssets.id, node.assetId),
+          eq(storageAssets.bucket, "project-files"),
+          eq(storageAssets.storageKey, node.s3Key),
+          eq(storageAssets.state, "verified"),
+        ))
+        .limit(1)
+      : [];
+    if (transfer !== "metadata" && node.s3Key && !verifiedAsset) {
+      return jsonError("File content unavailable", 404, "NOT_FOUND");
+    }
 
     const [version] = await Promise.all([
       db.query.fileVersions.findFirst({
@@ -106,7 +123,7 @@ export async function GET(request: Request) {
     if (transfer === "inline" && (node.size ?? 0) > EXTENSION_INLINE_DOWNLOAD_MAX_BYTES) {
       return jsonError("Extension inline responses are limited to 512 KiB", 400, "NOT_SUPPORTED");
     }
-    if (transfer === "raw" && node.s3Key) {
+    if (transfer === "raw" && node.s3Key && verifiedAsset) {
       const parsedKey = parseWorkspaceFileKey(node.s3Key);
       if (!parsedKey || parsedKey.projectId !== projectId) {
         return jsonError("File key does not belong to this workspace", 409, "CONFLICT");
@@ -118,8 +135,8 @@ export async function GET(request: Request) {
       return streamPrivateObject({
         request,
         signedUrl: data.signedUrl,
-        totalSize: node.size ?? null,
-        mimeType: node.mimeType,
+        totalSize: verifiedAsset.size,
+        mimeType: verifiedAsset.mimeType,
         filename: node.name,
         disposition: "attachment",
         etag,

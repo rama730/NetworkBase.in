@@ -10,7 +10,6 @@ import { createAdminClient, createClient } from "@/lib/supabase/server";
 import { streamPrivateObject } from "@/lib/storage/private-object-response";
 import { UUID_RE } from "@/app/actions/files/_constants";
 import { enforceRouteLimit } from "@/app/api/v1/_shared";
-import { verifyPreviewHmacToken } from "@/lib/files/preview-token";
 
 export const dynamic = "force-dynamic";
 
@@ -72,47 +71,6 @@ export async function GET(request: NextRequest, context: RouteContext) {
     return noStore("Not found", 404);
   }
 
-  // Fast Path: Check for stateless HMAC preview authorization token.
-  // When valid, bypasses all database lookups, PgBouncer pooling, and user auth checks,
-  // issuing direct CDN redirects in <2ms at 1,000,000 user concurrent scale.
-  const tokenParam = request.nextUrl.searchParams.get("token");
-  if (tokenParam) {
-    const verified = verifyPreviewHmacToken(tokenParam);
-    if (verified && verified.projectId === projectId && verified.nodeId === nodeId) {
-      const fileExt = (verified.filename.split(".").pop() || "").toLowerCase();
-      const isMedia = (verified.mimeType?.startsWith("video/") || verified.mimeType?.startsWith("audio/") || MEDIA_EXTS.has(fileExt)) && request.nextUrl.searchParams.get("download") !== "1";
-      const admin = await createAdminClient();
-      const directSignedUrl = await getOrGenerateSignedUrl(admin, "project-files", verified.storageKey, isMedia ? 7200 : 1800);
-      if (!directSignedUrl) return noStore("Couldn’t prepare file preview", 502);
-
-      const etag = `"${verified.nodeId}-v${verified.version}"`;
-      // Direct S3 / CDN redirect when explicitly requested via ?redirect=1 or ?cdn=1.
-      // Standard preview playback streams directly via streamPrivateObject (HTTP 206 Partial Content)
-      // preventing 302 cross-origin redirect CORS barriers and terminal redirect logs.
-      if (isMedia && (request.nextUrl.searchParams.get("redirect") === "1" || request.nextUrl.searchParams.get("cdn") === "1")) {
-        return new Response(null, {
-          status: 302,
-          headers: {
-            Location: directSignedUrl,
-            "Cache-Control": "private, max-age=3600, stale-while-revalidate=86400",
-            ETag: etag,
-            "Access-Control-Allow-Origin": "*",
-          },
-        });
-      }
-      return streamPrivateObject({
-        request,
-        signedUrl: directSignedUrl,
-        totalSize: verified.size,
-        mimeType: verified.mimeType,
-        filename: verified.filename,
-        disposition: request.nextUrl.searchParams.get("download") === "1" ? "attachment" : "inline",
-        etag,
-        cacheControl: "private, max-age=3600, stale-while-revalidate=86400",
-      });
-    }
-  }
-
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   const limited = await enforceRouteLimit(request, "files:preview", 600, 60, "default", user?.id);
@@ -164,7 +122,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
         ),
         columns: { s3Key: true, assetId: true, size: true, mimeType: true, contentHash: true },
       });
-  const target = historical ?? node;
+  const target = revisionNumber == null ? node : (historical ?? (revisionNumber === node.currentVersion ? node : null));
   if (!target?.s3Key || !target.assetId || parseWorkspaceFileKey(target.s3Key)?.projectId !== projectId) {
     return noStore("File content is unavailable", 404);
   }

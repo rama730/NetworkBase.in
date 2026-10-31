@@ -449,10 +449,18 @@ export async function getFileVersionContentAction(
 
   const versionRow = await db.query.fileVersions.findFirst({
     where: and(eq(fileVersions.nodeId, nodeId), eq(fileVersions.version, versionNumber)),
-    columns: { s3Key: true, size: true }
+    columns: { s3Key: true, size: true, assetId: true }
   });
 
-  if (!versionRow) {
+  if (!versionRow?.assetId) {
+    throw new Error("Version not found");
+  }
+  const [verified] = await db.select({ id: storageAssets.id }).from(storageAssets).where(and(
+    eq(storageAssets.id, versionRow.assetId),
+    eq(storageAssets.storageKey, versionRow.s3Key),
+    eq(storageAssets.state, "verified"),
+  )).limit(1);
+  if (!verified) {
     throw new Error("Version not found");
   }
 

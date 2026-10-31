@@ -57,8 +57,12 @@ export function parseSingleByteRange(value: string | null, totalSize: number): B
 }
 
 export function safeContentDisposition(filename: string, disposition: "inline" | "attachment") {
-  const cleaned = filename.trim().replace(/[\"\r\n]/g, "_").slice(0, 255) || "download";
-  return `${disposition}; filename="${cleaned}"; filename*=UTF-8''${encodeURIComponent(cleaned)}`;
+  // Array.from cuts by whole character, and the u-flag class catches any lone surrogate: both would make encoding throw.
+  const cleaned = Array.from(filename.replace(/[\u0000-\u001f\u007f"\\]/g, "_").replace(/[\uD800-\uDFFF]/gu, "_").trim()).slice(0, 255).join("") || "download";
+  // Header values must be Latin-1, or `new Headers` throws. Browsers use filename* for the real name.
+  const fallback = cleaned.replace(/[^\x20-\x7e]/g, "_");
+  const encoded = encodeURIComponent(cleaned).replace(/['()*]/g, (char) => `%${char.charCodeAt(0).toString(16).toUpperCase()}`);
+  return `${disposition}; filename="${fallback}"; filename*=UTF-8''${encoded}`;
 }
 
 // Only types a browser renders without running script may be served inline from the app origin.

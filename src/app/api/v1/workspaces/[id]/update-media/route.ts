@@ -62,27 +62,7 @@ async function handle(request: NextRequest, context: { params: Promise<{ id: str
       eq(storageAssets.state, "verified"),
     ))
     .limit(1);
-  const [legacyOwner] = normalizedOwner ? [] : await db
-    .select({
-      id: workspaceUpdates.id,
-      visibility: workspaceUpdates.visibility,
-      media: workspaceUpdates.media,
-    })
-    .from(workspaceUpdates)
-    .where(and(
-      eq(workspaceUpdates.projectId, projectId),
-      isNull(workspaceUpdates.deletedAt),
-      sql`EXISTS (
-        SELECT 1
-        FROM jsonb_array_elements(${workspaceUpdates.media}) AS media_item
-        WHERE media_item->>'storageKey' = ${storageKey}
-          AND media_item->>'bucket' = ${WORKSPACE_UPDATE_MEDIA_BUCKET}
-      )`,
-    ))
-    .limit(1);
-  const owningUpdate = normalizedOwner ?? (legacyOwner
-    ? { ...legacyOwner, assetId: null, size: null, mimeType: null }
-    : null);
+  const owningUpdate = normalizedOwner;
   if (!owningUpdate || (owningUpdate.visibility === "members" && !isOwnerOrMember)) {
     return jsonError("Not found", 404, "NOT_FOUND");
   }
@@ -107,15 +87,15 @@ async function handle(request: NextRequest, context: { params: Promise<{ id: str
   }
 
   const identity = createHash("sha256")
-    .update(`${owningUpdate.id}:${owningUpdate.assetId ?? storageKey}`)
+    .update(`${owningUpdate.id}:${owningUpdate.assetId}`)
     .digest("base64url")
     .slice(0, 20);
   const isPublic = owningUpdate.visibility === "public" && !isOwnerOrMember;
   return streamPrivateObject({
     request,
     signedUrl: data.signedUrl,
-    totalSize: owningUpdate.size ?? (typeof media.size === "number" ? media.size : null),
-    mimeType: owningUpdate.mimeType ?? media.mimeType,
+    totalSize: owningUpdate.size,
+    mimeType: owningUpdate.mimeType,
     filename: media.label || storageKey.split("/").pop() || "update-image",
     disposition: "inline",
     etag: `"update-media-${identity}"`,
