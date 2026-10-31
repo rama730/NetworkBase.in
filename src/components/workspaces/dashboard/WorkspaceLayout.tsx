@@ -390,6 +390,7 @@ export default function WorkspaceLayout({
                             <WorkspaceStatsBar
                                 viewCount={viewCount ?? (project as any)?.viewCount ?? 0}
                                 followersCount={followersCount ?? (project as any)?.followersCount ?? 0}
+                                isTeam={isOwnerOrMember}
                                 className="max-md:basis-full"
                             />
 

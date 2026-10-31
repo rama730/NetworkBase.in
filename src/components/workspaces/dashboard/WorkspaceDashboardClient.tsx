@@ -11,7 +11,8 @@ import WorkspaceLayout from '@/components/workspaces/dashboard/WorkspaceLayout';
 import { PlainContentHeadings } from '@/components/workspaces/PlainContentHeadings';
 import { TabErrorBoundary } from '@/components/workspaces/TabErrorBoundary';
 import type { Workspace } from '@/types/discover';
-import { toggleWorkspaceFollowAction, updateWorkspaceStageAction, incrementWorkspaceViewAction } from '@/app/actions/workspace';
+import { toggleWorkspaceFollowAction, updateWorkspaceStageAction } from '@/app/actions/workspace';
+import { fetchWorkspaceCounts, followWorkspaceTopic, patchDiscoverCounts, useWorkspaceViewBeacon } from '@/hooks/useWorkspaceLiveCounts';
 import { ROUTES } from '@/constants/routes';
 import { getApplicationStatusAction, withdrawApplicationAction, type ApplicationStatusResult } from '@/app/actions/applications';
 import type { ApplicationStatusLoad } from '@/lib/applications/card-state';
@@ -435,11 +436,19 @@ export default function WorkspaceDashboardClient({ project, currentUserId, viewe
         setStageCompletionDates(project.stageCompletionDates || {});
     }, [serverStageIndex, project.stageCompletionDates]);
 
-    // Realtime subscription for project stage changes
+    // Realtime subscription for stage changes and the header's counts
     useEffect(() => {
         if (!project?.id || !currentUserId) return;
-        const live = subscribeBroadcast(liveTopics.workspace(project.id), (event, payload: any) => {
-                if (event !== 'workspace.changed' || isStageUpdatingRef.current) return;
+        const applyCounts = (views: unknown, followers: unknown) => {
+            if (typeof views === 'number') setViewCount((current: number) => Math.max(current, views));
+            if (typeof followers === 'number') setFollowersCount(followers);
+        };
+        const workspaceId = project.id;
+        return followWorkspaceTopic(workspaceId, (event, payload: any) => {
+                if (event !== 'workspace.changed') return;
+                // A stage change in flight holds back only the stage fields, never the counts.
+                applyCounts(payload.view_count, payload.followers_count);
+                if (isStageUpdatingRef.current) return;
 
                 const nextIndex = payload.current_stage_index;
                 if (nextIndex !== undefined && nextIndex !== null) {
@@ -453,19 +462,13 @@ export default function WorkspaceDashboardClient({ project, currentUserId, viewe
                 if (typeof nextVersion === 'string') {
                     setStageVersionSafe(nextVersion);
                 }
-                // Sync stats on the same unified channel without separate broadcast channel
-                const nextViews = payload.view_count;
-                if (typeof nextViews === 'number') {
-                    setViewCount((current: number) => Math.max(current, nextViews));
-                }
-                const nextFollowers = payload.followers_count;
-                if (typeof nextFollowers === 'number') {
-                    setFollowersCount(nextFollowers);
-                }
-        });
-
-        return () => live.unsubscribe();
+        }, () => void fetchWorkspaceCounts(workspaceId).then((counts) => applyCounts(counts?.viewCount, counts?.followersCount)));
     }, [currentUserId, project?.id, setStageVersionSafe]);
+
+    // What this page knows reaches the cached Discover cards, so card and header agree.
+    useEffect(() => {
+        if (project?.id) patchDiscoverCounts(queryClient, project.id, { viewCount, followersCount });
+    }, [followersCount, project?.id, queryClient, viewCount]);
 
     // Extended project data (may come from joined queries, cast to any for flexibility)
     const projectWithLiveStats = useMemo(
@@ -840,61 +843,7 @@ export default function WorkspaceDashboardClient({ project, currentUserId, viewe
         }
     }, [currentUserId, followLoading, followersCount, isFollowing, project.id]);
 
-    useEffect(() => {
-        if (!project?.id) return;
-        let cancelled = false;
-        const sessionKey = `project:view:${project.id}`;
-        try {
-            if (window.sessionStorage.getItem(sessionKey)) return;
-        } catch {
-            // Storage can be unavailable in privacy-restricted browser modes.
-        }
-
-        const incrementView = () => {
-            if (cancelled || document.visibilityState !== 'visible') return;
-            incrementWorkspaceViewAction(project.id).then((result) => {
-                if (cancelled) return;
-                if (!isMountedRef.current) return;
-                const nextViewCount = result.viewCount;
-                if (result.success) {
-                    try {
-                        window.sessionStorage.setItem(sessionKey, '1');
-                    } catch {
-                        // Counting remains best-effort when storage is unavailable.
-                    }
-                }
-                if (result.success && typeof nextViewCount === 'number') {
-                    setViewCount((current: number) => Math.max(current, nextViewCount));
-
-                    logger.metric('project.detail.view.increment', {
-                        projectId: project.id,
-                        success: true,
-                        viewCount: nextViewCount,
-                    });
-                } else {
-                    logger.metric('project.detail.view.increment', {
-                        projectId: project.id,
-                        success: false,
-                        message: result.error || 'increment failed',
-                    });
-                }
-            });
-        };
-        let idleId: number | null = null;
-        let timeoutId: number | null = null;
-        if (typeof window.requestIdleCallback === 'function') {
-            idleId = window.requestIdleCallback(incrementView, { timeout: 10_000 });
-        } else {
-            timeoutId = window.setTimeout(incrementView, 5_000);
-        }
-        return () => {
-            cancelled = true;
-            if (idleId !== null && typeof window.cancelIdleCallback === 'function') {
-                window.cancelIdleCallback(idleId);
-            }
-            if (timeoutId !== null) window.clearTimeout(timeoutId);
-        };
-    }, [project?.id]);
+    useWorkspaceViewBeacon(project?.id, canSeeAllTabs);
 
     // The visitor's own application, on the mobile header link (where "N open roles" is otherwise).
     const applicationHeaderLabel = applicationStatus.status === 'pending' ? 'Application pending'

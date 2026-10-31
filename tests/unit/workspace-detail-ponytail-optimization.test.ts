@@ -69,8 +69,7 @@ test("Domain C: Eliminates stats_invalidate broadcast storm loop", () => {
   assert.doesNotMatch(clientContent, /statsChannelRef/);
   assert.doesNotMatch(clientContent, /subscribeProjectStats/);
 
-  assert.match(clientContent, /const nextViews = payload\.view_count;/);
-  assert.match(clientContent, /const nextFollowers = payload\.followers_count;/);
+  assert.match(clientContent, /applyCounts\(payload\.view_count, payload\.followers_count\)/);
 });
 
 test("Domain D: Scopes refreshProjectData invalidation to active tabs", () => {

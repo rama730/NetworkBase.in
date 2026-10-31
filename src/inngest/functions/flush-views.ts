@@ -4,6 +4,8 @@ import { inngest } from "../client";
 import { redis } from "@/lib/redis";
 import { flushRedisCounterHash, type FlushRedis } from "@/lib/counters/redis-flush";
 
+// Retired: nothing adds to project:views any more. Keep it for the first deploy of direct writes so views still in
+// Redis reach the column, then delete this file and its registry line and re-sync the worker.
 export const flushWorkspaceViews = inngest.createFunction(
     { id: "flush-project-views", name: "Flush Workspace Views from Redis" },
     { cron: "*/15 * * * *" },

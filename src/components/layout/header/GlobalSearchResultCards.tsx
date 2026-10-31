@@ -1,6 +1,7 @@
 "use client";
 
 import { SharedOrgChip } from "@/components/organizations/SharedOrgChip";
+import { formatCount } from "@/lib/format-count";
 import { format, formatDistanceToNow } from "@/lib/utils/date";
 import {
     ArrowRight,
@@ -206,10 +207,12 @@ export function WorkspaceSearchResultCard({ result, onOpen, onRemove, ...interac
                     </span>
                 ) : null}
 
-                <span className="nb-meta inline-flex items-center gap-1">
-                    <Eye className="size-3 text-muted-foreground/70" aria-hidden />
-                    {result.viewCount.toLocaleString()} {result.viewCount === 1 ? "view" : "views"}
-                </span>
+                {result.viewCount > 0 ? (
+                    <span className="nb-meta inline-flex items-center gap-1">
+                        <Eye className="size-3 text-muted-foreground/70" aria-hidden />
+                        {formatCount(result.viewCount)} {result.viewCount === 1 ? "view" : "views"}
+                    </span>
+                ) : null}
 
                 {result.openRolesCount > 0 ? (
                     <span className="font-mono text-[11px] font-medium text-primary">

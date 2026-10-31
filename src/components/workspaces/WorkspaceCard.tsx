@@ -18,6 +18,8 @@ import { SocialPresenceIcon } from "@/components/profile/SocialPresenceIcon";
 import { resolveWorkspaceSocialLinks } from "@/lib/workspaces/social-links";
 import WorkspaceAvatar, { getWorkspaceAvatarUrl } from "@/components/workspaces/WorkspaceAvatar";
 import { ReportDialog, ReportMenuItem } from "@/components/reports/ReportDialog";
+import { useWorkspaceCardLive } from "@/hooks/useWorkspaceLiveCounts";
+import { formatCount, viewCountDisplay } from "@/lib/format-count";
 
 const MAX_PROJECT_CARD_SKILL_ICONS = 6;
 const APPLICATION_CHIP_LABEL = { applied: "Applied", declined: "Declined", invited: "Invited" } as const;
@@ -32,9 +34,11 @@ interface ProjectCardProps {
     /** The viewer's own application or invitation on this project (read per viewer, since the feed is public and cached). */
     applicationChip?: ApplicationCardChip;
     onOpenProject?: (projectId: string) => void;
+    /** Keep the counts live while on screen. Only where they read from the Discover cache. */
+    live?: boolean;
 }
 
-export default memo(function ProjectCard({ project, viewModel, isFollowing = false, followersCount: initialFollowers, applicationChip, onOpenProject }: ProjectCardProps) {
+export default memo(function ProjectCard({ project, viewModel, isFollowing = false, followersCount: initialFollowers, applicationChip, onOpenProject, live = false }: ProjectCardProps) {
     useSkillCatalog();
     const { user } = useAuth();
     const [reporting, setReporting] = useState(false);
@@ -45,6 +49,8 @@ export default memo(function ProjectCard({ project, viewModel, isFollowing = fal
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState<"signed-out" | "failed" | null>(null);
     const followLock = useRef(false);
+    const cardRef = useRef<HTMLElement>(null);
+    useWorkspaceCardLive(cardRef, project.id, live && Boolean(user));
     useEffect(() => { setFollowing(isFollowing); }, [isFollowing]);
     useEffect(() => { setFollowers(initialFollowers); }, [initialFollowers]);
     const { techStack, collaborators, totalOpenRoles, teamSize } = useMemo(() => viewModel ?? toWorkspaceCardViewModel(project), [viewModel, project]);
@@ -95,8 +101,9 @@ export default memo(function ProjectCard({ project, viewModel, isFollowing = fal
     }
 
     const coverUrl = getWorkspaceAvatarUrl(project);
+    const views = viewCountDisplay(project.viewCount, user?.id === project.ownerId);
 
-    return <article className="nb-project-card group h-full" data-project-id={project.id} data-testid={`project-card-${project.id}`} data-kind={project.kind ?? "project"}>
+    return <article ref={cardRef} className="nb-project-card group h-full" data-project-id={project.id} data-testid={`project-card-${project.id}`} data-kind={project.kind ?? "project"}>
         {orgLine}
         {coverUrl ? (
             <div className="flex items-center gap-3">
@@ -169,10 +176,10 @@ export default memo(function ProjectCard({ project, viewModel, isFollowing = fal
                         </DropdownMenuContent>
                     </DropdownMenu>
                 ) : null}
-                <span className="nb-meta flex items-center gap-1 px-1" title="Views" data-testid={`project-card-views-${project.id}`}><BarChart2 size={14} aria-hidden="true" />{typeof project.viewCount === "number" ? project.viewCount : "—"}<span className="sr-only"> views</span></span>
+                {views.visible ? <span className="nb-meta flex items-center gap-1 px-1" title={views.exact} aria-label={views.exact} data-testid={`project-card-views-${project.id}`}><BarChart2 size={14} aria-hidden="true" /><span key={views.text} className="motion-safe:animate-in motion-safe:fade-in motion-safe:duration-200">{views.text}</span></span> : null}
                 {/* A project follow is a bell (its updates), not a person icon; pressed reads in clay, not only by icon. */}
                 <button type="button" aria-disabled={busy || undefined} aria-busy={busy} aria-pressed={following} aria-label={`Follow ${project.title}, ${followers ?? "unknown"} ${followers === 1 ? "follower" : "followers"}`} title={following ? "Following" : "Follow"} className="nb-icon-button gap-1 px-1.5 font-mono text-xs" onClick={toggleFollow} data-testid={`project-card-follow-${project.id}`}>
-                    {following ? <BellRing size={16} aria-hidden="true" /> : <Bell size={16} aria-hidden="true" />}{followers ?? "—"}
+                    {following ? <BellRing size={16} aria-hidden="true" /> : <Bell size={16} aria-hidden="true" />}{followers === undefined ? "—" : formatCount(followers)}
                 </button>
                 {/* Report (report §30.3): signed-in people other than the owner. */}
                 {user && user.id !== project.ownerId ? (
