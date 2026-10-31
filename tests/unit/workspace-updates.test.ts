@@ -594,3 +594,21 @@ test("updates tab balances the feed with a bounded responsive supporting rail", 
     assert.equal(tabSource.includes("_300px"), false);
     assert.match(layoutSource, /isUpdatesTab\s*\n\s*\? "w-full p-4 sm:py-5 sm:pl-5 sm:pr-6"/);
 });
+
+test("clicks from a dialog or menu opened by a card never open the post behind it", async () => {
+    const { isUpdateCardControl } = await import("../../src/components/workspaces/updates/update-helpers");
+    const original = (globalThis as { Element?: unknown }).Element;
+    class FakeElement {
+        constructor(private matches: boolean) {}
+        closest() { return this.matches ? this : null; }
+    }
+    (globalThis as { Element?: unknown }).Element = FakeElement;
+    try {
+        const inside = new FakeElement(false);
+        const card = { contains: (node: unknown) => node === inside } as unknown as HTMLElement;
+        assert.equal(isUpdateCardControl(inside as unknown as EventTarget, card), false, "plain text on the card opens it");
+        assert.equal(isUpdateCardControl(new FakeElement(false) as unknown as EventTarget, card), true, "dialog text doesn't");
+    } finally {
+        (globalThis as { Element?: unknown }).Element = original;
+    }
+});

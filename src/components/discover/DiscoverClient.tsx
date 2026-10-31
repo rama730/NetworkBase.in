@@ -351,6 +351,13 @@ export default function DiscoverClient({
         if (hasNextPage && !isFetchingNextPage && !isFetchNextPageError) void fetchNextPage();
     }, [fetchMorePosts, hasNextPage, isFetchingNextPage, isFetchNextPageError, fetchNextPage, postsFailed, postsFetching, postsHaveMore, postsOnly]);
 
+    // Posts waiting behind the two-in-a-row rule need a post from elsewhere, and the list may not have grown enough to
+    // reach its end again, so keep reading until they're placed or the feed runs out.
+    // ponytail: reads ahead through a long run from one workspace. Upgrade: a per-workspace cap in the query.
+    useEffect(() => {
+        if (postsOnly && feedItems.length < shownUpdates.length && postsHaveMore && !postsFetching && !postsFailed) void fetchMorePosts();
+    }, [feedItems.length, fetchMorePosts, postsFailed, postsFetching, postsHaveMore, postsOnly, shownUpdates.length]);
+
     // A ranked list that moved on (its snapshot expired): start it again rather than retry the same page.
     const staleFeed = isFetchNextPageError && error instanceof DiscoverFeedError && error.code === 'STALE_FEED';
     const restartFeed = useCallback(() => {
@@ -416,7 +423,9 @@ export default function DiscoverClient({
     const settled = !isFetching && !isPlaceholderData && !error;
     const plus = hasNextPage ? '+' : '';
     const announcement = settled && (!isDefault || hideOpened)
-        ? feedItems.length
+        ? postsOnly
+            ? feedItems.length ? `${feedItems.length}${postFeed.hasMore ? '+' : ''} ${feedItems.length === 1 && !postFeed.hasMore ? 'post' : 'posts'}` : 'No posts match'
+        : feedItems.length
             ? `${visibleProjects.length}${plus} ${visibleProjects.length === 1 && !hasNextPage ? 'project' : 'projects'}${shownUpdates.length ? ` and ${shownUpdates.length}${plus} ${shownUpdates.length === 1 && !hasNextPage ? 'update' : 'updates'}` : ''}`
             : 'No workspaces match'
         : '';

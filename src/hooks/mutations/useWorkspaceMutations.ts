@@ -4,6 +4,7 @@ import { useMutation, useQueryClient, type InfiniteData } from '@tanstack/react-
 import type { Workspace } from '@/types/discover';
 import { toggleWorkspaceFollowAction } from '@/app/actions/workspace';
 import { queryKeys } from '@/lib/query-keys';
+import { updatePages } from '@/components/workspaces/updates/update-helpers';
 
 interface ToggleFollowParams {
     projectId: string;
@@ -31,6 +32,10 @@ export function useToggleWorkspaceFollow() {
                 else next.add(projectId);
                 return next;
             });
+            // Post cards for this workspace say Follow or Following too.
+            queryClient.setQueriesData<never>({ queryKey: queryKeys.discover.pulseRoot() }, ((old: never) => updatePages(old, (item) => (
+                item.projectId === projectId ? { ...item, viewerFollowsProject: !currentStatus } as typeof item : item
+            ))) as never);
             if (typeof result.followersCount === 'number') {
                 const followersCount = result.followersCount;
                 queryClient.setQueriesData<InfiniteData<{ projects: Workspace[] }>>({ queryKey: queryKeys.discover.projectsSimpleRoot() }, (old) => old && ({

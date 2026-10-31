@@ -466,6 +466,19 @@ export async function upsertAggregatedNotification(
     return { notification: row ?? null, skipped: false as const };
 }
 
+/** Every kind of notification about a post, or about the comments on it. */
+export const isUpdateNotification = sql`kind IN ('project_update_activity', 'project_update_comment', 'project_update_reply', 'project_update_mention', 'project_update_like', 'project_update_team')`;
+
+/**
+ * A post or comment that's gone takes its notifications with it, text included, wherever they were delivered.
+ * ponytail: scans by kind, since the refs have no index. It runs only on a delete or a moderation hide. Upgrade: an expression index.
+ */
+export async function dismissUpdateNotifications(ref: "updateId" | "commentId", id: string, executor?: NotificationWriteExecutor) {
+    await getExecutor(executor).execute(sql`
+        UPDATE user_notifications SET dismissed_at = now(), updated_at = now()
+        WHERE ${isUpdateNotification} AND dismissed_at IS NULL AND entity_refs->>${ref} = ${id}`);
+}
+
 export async function markNotificationRead(
     userId: string,
     notificationId: string,

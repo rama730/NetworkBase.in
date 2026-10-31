@@ -260,6 +260,13 @@
       "when": 1793380384300,
       "tag": "0037_update_comment_likes",
       "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1793380385300,
+      "tag": "0038_update_reply_policy_live",
+      "breakpoints": true
     }
   ]
 }

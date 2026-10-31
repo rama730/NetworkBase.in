@@ -40,7 +40,8 @@
     "drizzle/0034_live_row_events.sql",
     "drizzle/0035_browser_column_trims.sql",
     "drizzle/0036_realtime_publication_empty.sql",
-    "drizzle/0037_update_comment_likes.sql"
+    "drizzle/0037_update_comment_likes.sql",
+    "drizzle/0038_update_reply_policy_live.sql"
   ],
   "legacyDatabaseTags": [],
   "allowedUtilitySqlFiles": [
