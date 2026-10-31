@@ -1,3 +1,5 @@
+import type { AuthMFAListFactorsResponse, UserResponse } from "@supabase/supabase-js";
+
 type AuthMfaFactor = {
   id?: string | number | null;
   factor_type: string;
@@ -13,6 +15,29 @@ export type SecurityMfaFactor = {
   created_at?: string;
   status: "verified" | "unverified";
 };
+
+/**
+ * supabase-js reads factors off `getUser`, but our server client answers `getUser` from the token, which carries
+ * none, so every account looked like it had no authenticator. This asks the Auth server instead. A failed read
+ * stays an error: treating it as "none" would drop the authenticator check from every protected action.
+ */
+export function factorListFromAuthServer(getUser: () => Promise<UserResponse>) {
+  return async (): Promise<AuthMFAListFactorsResponse> => {
+    const { data, error } = await getUser();
+    if (error) return { data: null, error };
+    const all = data.user?.factors ?? [];
+    const verified = all.filter((factor) => factor.status === "verified");
+    return {
+      data: {
+        all,
+        totp: verified.filter((factor) => factor.factor_type === "totp"),
+        phone: verified.filter((factor) => factor.factor_type === "phone"),
+        webauthn: verified.filter((factor) => factor.factor_type === "webauthn"),
+      } as NonNullable<AuthMFAListFactorsResponse["data"]>,
+      error: null,
+    };
+  };
+}
 
 function requireSecurityMfaFactorId(factor: AuthMfaFactor) {
   const normalizedId = typeof factor.id === "string"

@@ -2,6 +2,7 @@ import { createServerClient } from '@supabase/ssr'
 import { cookies, headers } from 'next/headers'
 import { resolveAuthSnapshot, type AuthSnapshotResolution } from '@/lib/auth/snapshot'
 import { logger } from '@/lib/logger'
+import { factorListFromAuthServer } from '@/lib/security/mfa'
 import { toPrivacySafeRouteMetric } from '@/lib/routing/route-metric'
 import { classifyRoute } from '@/lib/routing/route-class'
 import { authBoundedFetch, resolveSupabasePublicEnv, resolveSupabaseServiceEnv } from '@/lib/supabase/env'
@@ -135,7 +136,11 @@ export async function createClient() {
             error: resolution.error,
         }
     }
+    const realGetUser = client.auth.getUser.bind(client.auth)
     ;(client.auth as { getUser: typeof wrappedGetUser }).getUser = wrappedGetUser
+    client.auth.mfa.listFactors = factorListFromAuthServer(() => (
+        hasAnyAuthCookie(cookieStore) ? realGetUser() : wrappedGetUser() as ReturnType<typeof realGetUser>
+    ))
     ;(client as AuthSnapshotAwareClient).__resolveAuthSnapshot = resolveClientAuthSnapshot
 
     return client

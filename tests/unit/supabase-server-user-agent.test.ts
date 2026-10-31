@@ -13,7 +13,8 @@ async function serverClientOptions(userAgent: string | null) {
   }).outputText;
   let options: { global?: { headers?: Record<string, string> } } = {};
   const mocks: Record<string, unknown> = {
-    "@supabase/ssr": { createServerClient: (_url: string, _key: string, opts: typeof options) => { options = opts; return { auth: {} }; } },
+    "@supabase/ssr": { createServerClient: (_url: string, _key: string, opts: typeof options) => { options = opts; return { auth: { getUser: async () => ({}), mfa: {} } }; } },
+    "@/lib/security/mfa": { factorListFromAuthServer: () => async () => ({}) },
     "next/headers": {
       cookies: async () => ({ getAll: () => [] }),
       headers: async () => ({ get: (key: string) => (key === "user-agent" ? userAgent : null) }),
