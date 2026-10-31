@@ -12,7 +12,6 @@ export function isStaleActionResponse(response: Response) {
 export function showStaleActionNotice() {
   toast.warning("NetworkBase was updated. Reload to continue.", {
     id: NOTICE_ID,
-    duration: 0,
     action: { label: "Reload", onClick: () => window.location.reload() },
   });
 }
