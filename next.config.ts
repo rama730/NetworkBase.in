@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 import path from "path";
 import nextBundleAnalyzer from "@next/bundle-analyzer";
+import { withSentryConfig } from "@sentry/nextjs/config";
 
 const withBundleAnalyzer = nextBundleAnalyzer({
   enabled: process.env.ANALYZE === "true",
@@ -180,4 +181,26 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default withBundleAnalyzer(nextConfig);
+export default withSentryConfig(withBundleAnalyzer(nextConfig), {
+  org: "networkbase",
+  project: "javascript-nextjs",
+  authToken: process.env.SENTRY_AUTH_TOKEN,
+  release: { name: process.env.RAILWAY_GIT_COMMIT_SHA },
+  silent: true,
+  widenClientFileUpload: true,
+  // Source maps need twice the heap and four times as long to build, and are only useful when they can be uploaded.
+  sourcemaps: { disable: !process.env.SENTRY_AUTH_TOKEN },
+  // We report errors, not traces: no per-route wrapping (onRequestError covers server errors) and no tracing code in the browser.
+  webpack: {
+    autoInstrumentServerFunctions: false,
+    autoInstrumentMiddleware: false,
+    autoInstrumentAppDirectory: false,
+    treeshake: {
+      removeDebugLogging: true,
+      removeTracing: true,
+      excludeReplayIframe: true,
+      excludeReplayShadowDOM: true,
+      excludeReplayCompressionWorker: true,
+    },
+  },
+});
