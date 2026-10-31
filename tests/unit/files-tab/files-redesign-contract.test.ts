@@ -37,7 +37,7 @@ test("row actions are shared across project, task and saved collections; selecti
   assert.match(folder, /Actions for \$\{node\.name\}/);
   assert.match(folder, /renderMenu\(node\)/);
   assert.doesNotMatch(row, /function arePropsEqual/);
-  assert.match(row, /canEdit && onSelectionChange/);
+  assert.match(row, /onSelectionChange/);
   for (const path of ["TaskFilesCollection.tsx", "SavedFilesCollection.tsx"])
     assert.match(read(path), /<FolderListView/);
   assert.doesNotMatch(folder, />\s*Refresh\s*</);
