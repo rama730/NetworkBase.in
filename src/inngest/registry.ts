@@ -4,7 +4,6 @@ export type InngestExecutionRole = "web" | "worker";
 
 function getWorkerOnlyFunctions() {
   const loadModule = createRequire(import.meta.url);
-  const { flushWorkspaceViews } = loadModule("./functions/flush-views");
   const { flushUpdateLikes } = loadModule("./functions/flush-likes");
   const { cleanupWorkspaceUpdate } = loadModule("./functions/cleanup-update");
   const { gitPull, gitPush, gitSyncRecovery, lockCleanup, uploadIntentCleanup } = loadModule("./functions/git-sync");
@@ -43,7 +42,6 @@ function getWorkerOnlyFunctions() {
     gitSyncRecovery,
     lockCleanup,
     uploadIntentCleanup,
-    flushWorkspaceViews,
     flushUpdateLikes,
     cleanupWorkspaceUpdate,
     reconcileWorkspaceFiles,
