@@ -269,7 +269,7 @@ export default function CreateWorkspaceWizard({ onClose, onSuccess, initialSourc
 
 
                         {/* Content */}
-                        <div ref={scrollBodyRef} data-wizard-scroll className="app-scroll app-scroll-y app-scroll-gutter min-h-0 flex-1 scroll-pb-32 overflow-y-auto overscroll-contain">
+                        <div ref={scrollBodyRef} data-wizard-scroll className="relative app-scroll app-scroll-y app-scroll-gutter min-h-0 flex-1 scroll-pb-32 overflow-y-auto overscroll-contain">
                         <div className={`${WIZARD_COLUMN} px-4 pb-6 pt-5 md:px-6 md:py-8`}>
                             {uploadProgress?.isUploading && (
                                 <div className="mb-4 rounded-lg border border-border bg-secondary/45 p-4" role="status" aria-live="polite">
