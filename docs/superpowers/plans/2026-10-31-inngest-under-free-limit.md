@@ -24,7 +24,7 @@
 
 | Job | Now | New | Each | Per day |
 |---|---|---|---|---|
-| `chat-due` | every minute | `15 * * * *` + wake | 4 | 96 |
+| `chat-due` | every minute | `15 * * * *` + wake | 5 | 120 |
 | `storage-asset-backup` | every minute | `25 * * * *`, batch 100 → 500 | 2 | 48 |
 | `storage-asset-deletion` | every 5 min | `0 */2 * * *`, batch 100 → 500 | 6 | 72 |
 | `notification-push-delivery` | every 5 min | `30 * * * *` + wake | 3 | 72 |
@@ -32,13 +32,13 @@
 | `lock-cleanup` | every 5 min | `50 * * * *` | 1 | 24 |
 | `trust-deadlines` | every 15 min | `*/30 * * * *` | 2 | 96 |
 | `upload-intent-cleanup` | every 15 min | `55 * * * *` | 2 | 48 |
-| `flush-project-likes` | every 15 min | `*/30 * * * *` | 2 | 96 |
+| `flush-project-likes` (does nothing: nothing writes its data) | every 15 min | `*/30 * * * *` | 2 | 96 |
 | `chat-integrity-audit` | hourly | `40 4 * * *` | 3 | 3 |
 | `trust-daily-summary` | hourly | `35 2 * * *` (08:05 IST; its 8 am IST check still passes) | 3 | 3 |
 | `project-files-permanent-delete` | hourly | `0 */6 * * *` | 3 | 12 |
 | `workspace-files-reconciliation`, `sprint-schedule`, `git-sync-recovery`, `project-import-stale-reconcile`, `trust-restrictions`, `org-due-soon`, `org-admin-digest` | hourly | unchanged | 1–2 | 264 |
 | Daily jobs and the 6-hourly watchdog | unchanged | unchanged | | about 44 |
-| **Total** | **about 12,000** | | | **about 1,020** |
+| **Total** | **about 12,000** | | | **about 1,050** |
 
 A run that fills its batch (email, chat, push) asks for the next run straight away, so slower timers never mean less work done.
 
@@ -54,7 +54,6 @@ Must stay hourly: `workspace-files-reconciliation` (its one-week full-pass promi
 | Important push notifications | up to 5 min | about 1–2 min; up to an hour at worst if a wake is lost, or after quiet hours or a snooze ends |
 | First attempt of an email | immediately | unchanged |
 | Retry of a failed email | up to 5 min | up to 30 min |
-| Like counts after a reload | up to 15 min behind | up to 30 min behind |
 | Trust deadline notices | up to 15 min | up to 30 min |
 | File and asset cleanup, integrity audit | minutes to an hour | up to 2 hours, 6 hours, and daily |
 

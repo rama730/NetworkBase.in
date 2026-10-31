@@ -3,7 +3,7 @@ import { describe, it } from "node:test";
 
 import { Inngest } from "inngest";
 
-import { wakeAt, wakeChatDueIfSoon, wakePushIfNeeded } from "../../src/inngest/wake";
+import { wakeAt, wakeChatDueIfSoon, wakeEvent, wakePushIfNeeded } from "../../src/inngest/wake";
 
 type Sent = { name: string; data: unknown; id: string; ts: number };
 
@@ -42,6 +42,13 @@ describe("wakeAt", () => {
     const { sent, client } = recorder();
     await wakeAt("chat/due.wake", new Date("2026-11-01T10:15:00.000Z"), client);
     assert.equal(sent[0].ts, Date.parse("2026-11-01T10:15:05.000Z"));
+  });
+
+  it("sends exactly the event the sweep's step sends, so the two share an id", async () => {
+    const { sent, client } = recorder();
+    const at = new Date("2026-11-01T10:15:20.000Z");
+    await wakeAt("chat/due.wake", at, client);
+    assert.deepEqual(sent[0], wakeEvent("chat/due.wake", at));
   });
 
   it("never throws when Inngest fails", async () => {

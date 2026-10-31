@@ -5,7 +5,7 @@ import { DUE_MESSAGE_LIMIT, DUE_REMINDER_LIMIT, dueTimesWithinNextHour, fireDueR
 import { auditChatIntegrity, purgeOldChatMentions } from "@/lib/messaging/maintenance";
 
 import { inngest } from "../client";
-import { wakeAt } from "../wake";
+import { wakeEvent } from "../wake";
 
 export const CHAT_MENTIONS_RETENTION_JOB_ID = "chat-mentions-retention";
 export const CHAT_INTEGRITY_AUDIT_JOB_ID = "chat-integrity-audit";
@@ -56,16 +56,16 @@ export const chatIntegrityAudit = inngest.createFunction(
 export const chatDue = inngest.createFunction(
   { id: CHAT_DUE_JOB_ID, retries: 1, concurrency: { limit: 1 } },
   [{ event: "chat/due.wake" }, { cron: "15 * * * *" }],
-  async ({ step }) => {
+  async ({ event, step }) => {
     const scheduled = await step.run("send-scheduled", () => sendDueScheduledMessages());
     const reminders = await step.run("fire-reminders", () => fireDueReminders());
     // More was due than one run takes: the rest goes now rather than at the next hourly run.
     if (scheduled.due >= DUE_MESSAGE_LIMIT || reminders.reminders >= DUE_REMINDER_LIMIT) await step.sendEvent("drain-more", { name: "chat/due.wake", data: {} });
-    await step.run("arm-next-hour", async () => {
-      const times = await dueTimesWithinNextHour();
-      await Promise.all(times.map((at) => wakeAt("chat/due.wake", at)));
-      return { armed: times.length };
-    });
+    // Only the hourly run arms: this is the on-time guarantee for anything scheduled far ahead, so it uses Inngest's own retries.
+    if (event.name !== "chat/due.wake") {
+      const times = await step.run("due-times", () => dueTimesWithinNextHour());
+      if (times.length) await step.sendEvent("arm-next-hour", times.map((at) => wakeEvent("chat/due.wake", new Date(at))));
+    }
     if (scheduled.due || reminders.reminders) logger.info("chat.due.completed", { module: "chat", count: scheduled.sent + reminders.reminders });
     return { ...scheduled, ...reminders };
   },
