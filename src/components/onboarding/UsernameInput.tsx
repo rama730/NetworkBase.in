@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils'
 import { sanitizeUsernameInput } from '@/lib/validations/username'
 import { useUsernameAvailability } from '@/hooks/useUsernameAvailability'
 import type { UsernameCheck } from '@/lib/onboarding/block-reason'
+import { choiceChipClass } from '@/components/onboarding/ChipSelector'
 
 interface UsernameInputProps {
     value: string
@@ -105,7 +106,7 @@ export default function UsernameInput({ value, onChange, onCheck, suggestFor, se
                                 key={suggestion}
                                 type="button"
                                 onClick={() => onChange(suggestion)}
-                                className="onb-focusable min-h-11 rounded-full border border-border bg-card px-3 py-1.5 text-[13px] text-foreground transition-colors hover:border-foreground/40 hover:bg-muted"
+                                className={choiceChipClass(false)}
                             >
                                 @{suggestion}
                             </button>

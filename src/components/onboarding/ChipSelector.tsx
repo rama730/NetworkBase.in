@@ -20,6 +20,17 @@ interface ChipSelectorProps {
   showCount?: boolean
 }
 
+/** One choice chip, for buttons and labels alike: compact, squared like the controls beside it, 44px on touch screens. */
+export function choiceChipClass(selected: boolean) {
+  return cn(
+    'onb-focusable nb-ui-label nb-touch-target inline-flex min-h-[26px] select-none items-center rounded-[3px] border px-2.5 py-1',
+    'transition-[background-color,border-color,color] duration-[130ms] ease-in-out',
+    selected
+      ? 'border-foreground bg-foreground text-background'
+      : 'border-border bg-card text-foreground hover:border-foreground/40 hover:bg-muted',
+  )
+}
+
 export default function ChipSelector({ options, selected, onToggle, labelledBy, maxVisible = 12, showCount = true }: ChipSelectorProps) {
   const [expanded, setExpanded] = useState(false)
 
@@ -29,7 +40,7 @@ export default function ChipSelector({ options, selected, onToggle, labelledBy, 
 
   return (
     <div className="flex flex-col gap-2">
-      <div role="group" aria-labelledby={labelledBy} className="flex flex-wrap gap-2">
+      <div role="group" aria-labelledby={labelledBy} className="flex flex-wrap gap-1.5">
         {visibleOptions.map((option) => {
           const isSelected = selected.has(option.value)
           return (
@@ -38,13 +49,7 @@ export default function ChipSelector({ options, selected, onToggle, labelledBy, 
               type="button"
               aria-pressed={isSelected}
               onClick={() => onToggle(option.value)}
-              className={cn(
-                'onb-focusable inline-flex min-h-11 select-none items-center rounded-full border px-4 py-2 text-[13px] font-medium leading-none',
-                'transition-[background-color,border-color,color] duration-[130ms] ease-in-out',
-                isSelected
-                  ? 'border-foreground bg-foreground text-background'
-                  : 'border-border bg-card text-foreground hover:border-foreground/40 hover:bg-muted',
-              )}
+              className={choiceChipClass(isSelected)}
             >
               {isSelected ? <Check className="mr-1.5 h-3 w-3 shrink-0" strokeWidth={2.5} aria-hidden="true" /> : null}
               {option.label}
