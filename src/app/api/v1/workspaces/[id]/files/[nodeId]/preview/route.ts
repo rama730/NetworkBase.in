@@ -8,7 +8,8 @@ import { assertWorkspaceFileReadAccess, assertFileNodeVisible } from "@/lib/file
 import { parseWorkspaceFileKey } from "@/lib/storage/workspace-file-key";
 import { createAdminClient, createClient } from "@/lib/supabase/server";
 import { streamPrivateObject } from "@/lib/storage/private-object-response";
-import { signedDownloadRedirect, versionedFilename } from "@/lib/storage/download-link";
+import { signedDownloadRedirect } from "@/lib/storage/download-link";
+import { versionedFilename } from "@/lib/files/versioned-filename";
 import { UUID_RE } from "@/app/actions/files/_constants";
 import { enforceRouteLimit } from "@/app/api/v1/_shared";
 
