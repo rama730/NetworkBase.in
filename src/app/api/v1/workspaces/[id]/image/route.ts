@@ -8,7 +8,7 @@ import { getWorkspaceAccessById } from "@/lib/data/workspace-access";
 import { createAdminClient, createClient } from "@/lib/supabase/server";
 import { logger } from "@/lib/logger";
 import { streamPrivateObject } from "@/lib/storage/private-object-response";
-import { jsonError, requireAuthenticatedUser } from "@/app/api/v1/_shared";
+import { enforceFileReadLimit, jsonError, requireAuthenticatedUser } from "@/app/api/v1/_shared";
 import { isLooseUuid } from "@/lib/validations/uuid";
 
 export const runtime = "nodejs";
@@ -38,6 +38,8 @@ export async function GET(
         const supabase = await createClient();
         user = (await supabase.auth.getUser()).data.user;
     }
+    const limited = await enforceFileReadLimit(request, "files:public-read", 300, 60, user?.id);
+    if (limited) return limited;
     // Access check and cover lookup don't depend on each other.
     const [access, [project]] = await Promise.all([
         getWorkspaceAccessById(projectId, user?.id ?? null),

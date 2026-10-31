@@ -1,4 +1,4 @@
-import { jsonError } from "@/app/api/v1/_shared";
+import { enforceFileReadLimit, jsonError } from "@/app/api/v1/_shared";
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { storageAssets } from "@/lib/db/schema";
@@ -21,6 +21,8 @@ export async function GET(
     const {
       data: { user },
     } = await client.auth.getUser();
+    const limited = await enforceFileReadLimit(request, "files:public-read", 300, 60, user?.id);
+    if (limited) return limited;
     const [asset] = await db
       .select()
       .from(storageAssets)
