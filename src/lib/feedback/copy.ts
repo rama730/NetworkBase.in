@@ -345,6 +345,7 @@ export const FEEDBACK_COPY: Record<string, { title: string; description?: string
   "This file is no longer available": { "title": "This file is no longer available" },
   "There’s nothing to download here": { "title": "There’s nothing to download here" },
   "This download is too large": { "title": "This download is too large", "description": "Choose fewer files." },
+  "Try again in {minutes} minutes": { "title": "Try again in {minutes} minutes" },
   "Too many downloads": { "title": "Too many downloads", "description": "Wait a minute, then try again." },
   "You don’t have access to this": { "title": "You don’t have access to this" },
   "Couldn’t move task: ": { "title": "Couldn’t move task: " },

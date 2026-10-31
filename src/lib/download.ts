@@ -11,6 +11,12 @@ export function downloadFailureMessage(status: number) {
     return 'Download failed';
 }
 
+/** Only a wait long enough to be worth saying: short ones read better as "wait a minute". */
+export function retryMessage(headers: Headers) {
+    const seconds = Number(headers.get('retry-after'));
+    return seconds > 120 ? `Try again in ${Math.ceil(seconds / 60)} minutes` : null;
+}
+
 function clickLink(href: string, filename?: string) {
     const link = document.createElement('a');
     link.href = href;
@@ -60,8 +66,11 @@ export async function downloadFile(url: string, options: { filename?: string } =
     if (checking.has(target)) return false;
     checking.add(target);
     let status: number;
+    let retry: string | null = null;
     try {
-        status = (await fetch(target, { method: 'HEAD', cache: 'no-store', credentials: 'same-origin' })).status;
+        const response = await fetch(target, { method: 'HEAD', cache: 'no-store', credentials: 'same-origin' });
+        status = response.status;
+        retry = retryMessage(response.headers);
     } catch {
         toast.error('Download failed');
         return false;
@@ -69,7 +78,7 @@ export async function downloadFile(url: string, options: { filename?: string } =
         checking.delete(target);
     }
     if (status < 200 || status >= 300) {
-        toast.error(downloadFailureMessage(status));
+        toast.error((status === 429 && retry) || downloadFailureMessage(status));
         return false;
     }
     clickLink(target, options.filename);
@@ -81,4 +90,15 @@ export function saveBlob(blob: Blob, filename: string) {
     const url = URL.createObjectURL(blob);
     clickLink(url, filename);
     setTimeout(() => URL.revokeObjectURL(url), 30_000);
+}
+
+/** One CSV cell. A leading = + - @ would run as a formula in a spreadsheet, so it is kept as text. */
+export function csvCell(value: unknown) {
+    const text = String(value ?? '');
+    return `"${(/^[=+\-@\t\r]/.test(text) ? `'${text}` : text).replace(/"/g, '""')}"`;
+}
+
+/** The byte order mark tells Excel the file is UTF-8, so names and notes in any language read correctly. */
+export function toCsvBlob(rows: unknown[][]) {
+    return new Blob(['\uFEFF', rows.map((row) => row.map(csvCell).join(',')).join('\n')], { type: 'text/csv;charset=utf-8' });
 }

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { afterEach, beforeEach, test } from "node:test";
 
-import { downloadFailureMessage, downloadFile, saveBlob } from "../../src/lib/download";
+import { csvCell, downloadFailureMessage, downloadFile, retryMessage, saveBlob, toCsvBlob } from "../../src/lib/download";
 import { FEEDBACK_COPY } from "../../src/lib/feedback/copy";
 
 type Link = { href: string; download: string; clicked: boolean; style: Record<string, string>; click(): void; remove(): void };
@@ -13,7 +13,7 @@ const stubFetch = (result: number | Error) => {
   globalThis.fetch = (async (url: string, init?: RequestInit) => {
     calls.push([url, init]);
     if (result instanceof Error) throw result;
-    return { status: result };
+    return { status: result, headers: new Headers() };
   }) as typeof fetch;
   return calls;
 };
@@ -102,4 +102,26 @@ test("a saved blob keeps its URL long enough for slower browsers", () => {
   assert.equal(links[0]!.clicked, true);
   assert.equal(delay, 30_000);
   assert.deepEqual(urls, { created: 1, revoked: 1 });
+});
+
+test("a spreadsheet can't run a cell as a formula, and Excel reads the encoding", () => {
+  assert.equal(csvCell("=HYPERLINK(1)"), `"'=HYPERLINK(1)"`);
+  for (const lead of ["+", "-", "@", "\t", "\r"]) assert.equal(csvCell(`${lead}x`), `"'${lead}x"`);
+  assert.equal(csvCell('say "hi"'), `"say ""hi"""`);
+  assert.equal(csvCell(null), `""`);
+  assert.equal(csvCell("plain"), `"plain"`);
+  const blob = toCsvBlob([["a", "b"], ["1", "=2"]]);
+  assert.equal(blob.type, "text/csv;charset=utf-8");
+  assert.equal(blob.size, "﻿".length * 3 + `"a","b"\n"1","'=2"`.length);
+});
+
+test("a long wait says when to try again", async () => {
+  const realFetch2 = globalThis.fetch;
+  globalThis.fetch = (async () => ({ status: 429, headers: new Headers({ "retry-after": "1800" }) })) as unknown as typeof fetch;
+  assert.equal(await downloadFile("/api/v1/account/export"), false);
+  globalThis.fetch = realFetch2;
+  assert.equal(retryMessage(new Headers({ "retry-after": "1800" })), "Try again in 30 minutes");
+  assert.equal(retryMessage(new Headers({ "retry-after": "60" })), null);
+  assert.equal(retryMessage(new Headers()), null);
+  assert.ok(FEEDBACK_COPY["Try again in {minutes} minutes"]);
 });

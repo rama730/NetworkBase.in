@@ -566,7 +566,7 @@ test("Section 6 (Slack-Parity Canvas Redesign) contracts", () => {
     );
     assert.match(
         canvasSource,
-        /Download as PDF[\s\S]*|Copy as Markdown/,
+        /Print or save as PDF[\s\S]*|Copy as Markdown/,
         "Canvas menu must export (PDF and Markdown)",
     );
     assert.match(

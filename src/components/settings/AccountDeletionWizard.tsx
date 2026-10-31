@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/hooks/useAuth";
 import SecurityStepUpDialog from "@/components/settings/SecurityStepUpDialog";
+import { DownloadLink } from "@/components/ui/download-link";
 import {
     Dialog,
     DialogContent,
@@ -157,7 +158,7 @@ export default function AccountDeletionWizard({ onClose, onDeleted }: Props) {
                 ) : null}
 
                 <Button variant="outline" asChild>
-                    <a href="/api/v1/account/export" download><Download className="h-4 w-4" aria-hidden="true" />Export your data</a>
+                    <DownloadLink href="/api/v1/account/export"><Download className="h-4 w-4" aria-hidden="true" />Export your data</DownloadLink>
                 </Button>
 
                 <div className="space-y-1.5">

@@ -226,7 +226,7 @@ export function ChannelCanvas({ channel, channelId, seed, onDelete }: Props) {
               <DropdownMenuItem onSelect={() => setTemplatesOpen(true)}><Sparkles /> Templates…</DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onSelect={copyMarkdown}><Copy /> Copy as Markdown</DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => editor && printCanvas(titleRef.current.trim(), editor.getHTML())}><FileDown /> Download as PDF</DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => editor && printCanvas(titleRef.current.trim(), editor.getHTML())}><FileDown /> Print or save as PDF</DropdownMenuItem>
               <DropdownMenuSeparator />
               {/* Clearing wipes it for everyone: it reads as destructive, but isn't Delete. */}
               <DropdownMenuItem variant="destructive" onSelect={() => setPendingReplace({ kind: "clear" })}><Eraser /> Clear note</DropdownMenuItem>
