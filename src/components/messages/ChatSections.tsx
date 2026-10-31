@@ -20,7 +20,7 @@ import { WorkspaceBadge } from "@/components/workspaces/WorkspaceBadge";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { PresenceAvatar, WorkspacePresenceBadge } from "@/components/presence/PersonPresence";
+import { PresenceAvatar } from "@/components/presence/PersonPresence";
 import { usePersonPresence } from "@/components/presence/usePresence";
 import { UserAvatar } from "@/components/ui/UserAvatar";
 import { useAuth } from "@/hooks/useAuth";
@@ -447,7 +447,7 @@ function ProjectSwitcher({ inPage, unreadsOnly, onToggleUnreads }: { inPage: boo
       <DropdownMenu>
         <DropdownMenuTrigger className="nb-chat-row min-w-0 flex-1 font-semibold text-foreground" aria-label={`${open ? open.title : "All workspaces"}, switch workspace${otherUnread ? ", unread in other workspaces" : ""}`} data-testid="chat-project-switcher">
           {open ? (
-            <span className="relative inline-flex flex-none"><WorkspaceBadge project={open} size="sm" /><WorkspacePresenceBadge projectId={open.id} size={10} className="absolute" style={{ right: -3, bottom: -3 }} /></span>
+            <WorkspaceBadge project={open} size="sm" />
           ) : (
             <LayoutGrid size={16} aria-hidden="true" />
           )}
@@ -464,7 +464,7 @@ function ProjectSwitcher({ inPage, unreadsOnly, onToggleUnreads }: { inPage: boo
             </DropdownMenuRadioItem>
             {projects.map((project) => (
               <DropdownMenuRadioItem key={project.id} value={project.id} data-testid={`chat-project-${project.id}`}>
-                <span className="relative inline-flex flex-none"><WorkspaceBadge project={project} size="sm" /><WorkspacePresenceBadge projectId={project.id} size={10} className="absolute" style={{ right: -3, bottom: -3 }} /></span>
+                <WorkspaceBadge project={project} size="sm" />
                 <span className="min-w-0 flex-1 truncate">{project.guestOf ? `${project.guestOf} · Viewer` : project.title}</span>
                 <Count value={badges.get(project.id) ?? 0} noun="mentions" />
               </DropdownMenuRadioItem>

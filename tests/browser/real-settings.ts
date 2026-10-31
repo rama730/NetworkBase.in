@@ -91,7 +91,6 @@ export async function openRealSettings(page: Page, api: Api = {}) {
     getAccountDeletionStatus: () => ({ pending: false }),
     getMyPresenceSettings: () => ({ success: true, settings: { status: null, showActivity: true, statusVisibility: 'connections' } }),
     getPresence: () => ({ success: true, presence: [] }),
-    getWorkspaceStatuses: () => ({ success: true, projects: [] }),
     updateNotificationPreferencesAction: (next: unknown) => ({ success: true, preferences: next }),
     readActiveExtensionSessions: () => ({ success: true, sessions: [], hasMore: false, nextCursor: null }),
     getActiveExtensionSessions: () => ({ success: true, sessions: [], hasMore: false, nextCursor: null }),

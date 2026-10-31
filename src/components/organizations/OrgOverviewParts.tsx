@@ -12,6 +12,7 @@ import { readWorkspaceUnitsAction } from '@/app/actions/child-units'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { RailSection } from '@/components/ui/rail-section'
+import { WorkspaceLastUpdate } from '@/components/workspaces/WorkspaceLastUpdate'
 import { toast } from '@/lib/feedback'
 import { formatDistanceToNow } from '@/lib/utils/date'
 import { cn } from '@/lib/utils'
@@ -87,7 +88,7 @@ export function OrgDashboard({ orgId, orgSlug }: { orgId: string; orgSlug: strin
             </div>
             <aside aria-label="Organization details" className="min-w-0 space-y-6 lg:col-span-4">
                 <RailSection title="Workspaces" action={<Link href={`${base}?tab=projects`} className="text-[12px] underline underline-offset-4">See all</Link>}>
-                    {data.projects.length ? <ul>{data.projects.map((p) => <li key={p.id} className={row}><Link href={`/workspaces/${encodeURIComponent(p.slug ?? p.id)}`} className="truncate hover:underline">{p.title}</Link><span className="shrink-0 font-mono text-[11px] text-muted-foreground">{ago(p.lastActivityAt)}</span></li>)}</ul>
+                    {data.projects.length ? <ul>{data.projects.map((p) => <li key={p.id} className={row}><Link href={`/workspaces/${encodeURIComponent(p.slug ?? p.id)}`} className="truncate hover:underline">{p.title}</Link><WorkspaceLastUpdate projectId={p.id} timeOnly className="shrink-0 font-mono text-[11px] text-muted-foreground" /></li>)}</ul>
                         : <p className="text-sm text-muted-foreground">{data.role === 'admin' ? 'No workspaces yet.' : "You’re not in a workspace yet."}</p>}
                 </RailSection>
                 <RailSection title="People">
@@ -235,11 +236,11 @@ export function OrgWorkspacesTab({ orgId, orgSlug }: { orgId: string; orgSlug?: 
                             <p className="mt-0.5 text-[12px] text-muted-foreground">
                                 {r.open} open · {r.overdue} overdue · {r.inReview} in review
                                 {r.groupCopy ? ` · ${r.groupCopy.title}: ${STATE[r.groupCopy.state] ?? r.groupCopy.state}` : ''}
-                                <span className="sm:hidden"> · active {ago(r.lastActivityAt)}</span>
+                                <WorkspaceLastUpdate projectId={r.id} className="block sm:hidden" />
                             </p>
                             {r.reasons.length ? <p className="mt-0.5 text-[12px] text-destructive">⚠ Needs attention: {r.reasons.join(' · ')}</p> : null}
                         </div>
-                        <span className="hidden shrink-0 font-mono text-[11px] text-muted-foreground sm:inline">active {ago(r.lastActivityAt)}</span>
+                        <WorkspaceLastUpdate projectId={r.id} className="hidden max-w-48 shrink-0 truncate font-mono text-[11px] text-muted-foreground sm:inline" />
                     </li>
                 ))}
             </ul> : null}

@@ -55,10 +55,7 @@ test("WorkspaceAvatar enforces inset ring framing, 80px detail size, presence do
     assert.match(avatarSource, /ring-1 ring-inset ring-black\/5 dark:ring-white\/10/, "Must include inset ring framing");
     assert.match(avatarSource, /size-\[80px\] rounded-xl/, "Detail size must be 80px");
     assert.match(avatarSource, /size-11 rounded-md/, "Card size must be 44px");
-    assert.match(avatarSource, /WorkspacePresenceDot/, "Must render project presence dot on the profile picture");
-    assert.match(avatarSource, /(data-testid|testId)="project-avatar-presence-dot"/, "Must test for presence dot");
-    assert.match(avatarSource, /formatWorkspaceOfflinePresenceLabel/, "Must format offline presence label with last updated and date");
-    assert.match(avatarSource, /Last updated:/, "Offline label must include Last updated prefix");
+    assert.doesNotMatch(avatarSource, /[Pp]resence/, "A workspace has no presence");
     assert.match(avatarSource, /if \(!avatarUrl \|\| hasError\) \{\s*return null;\s*\}/, "Must return null when no avatar image");
     assert.match(avatarSource, /tab=settings#project-settings-general/, "Owner edit overlay must deep link to general settings");
 });
@@ -68,19 +65,12 @@ test("Architectural enhancements: native single tooltip, default cursor, zero-pr
     const layoutSource = readFileSync(resolve(ROOT, "src/components/workspaces/dashboard/WorkspaceLayout.tsx"), "utf-8");
     const searchCardsSource = readFileSync(resolve(ROOT, "src/components/layout/header/GlobalSearchResultCards.tsx"), "utf-8");
 
-    // 1. Performance / 1M scale: Module-level cached Intl formatter & O(1) state resolver
-    assert.match(avatarSource, /const projectDateFormatter = new Intl\.DateTimeFormat/);
-
     // 2. Native single tooltip on dot (no duplicate floating tooltip at top, no question mark cursor)
     assert.doesNotMatch(avatarSource, /TooltipProvider/);
     assert.doesNotMatch(avatarSource, /TooltipContent/);
     assert.doesNotMatch(avatarSource, /cursor-help/);
-    assert.match(avatarSource, /activityLabel=\{activityLabel\}/);
     assert.match(readFileSync(resolve(process.cwd(), "src/components/presence/PresenceBadge.tsx"), "utf8"), /title=\{label\}/);
     assert.match(readFileSync(resolve(process.cwd(), "src/components/presence/PresenceBadge.tsx"), "utf8"), /aria-label=\{label\}/);
-
-    // 3. Clean offline presence format: Last updated: [date]
-    assert.match(avatarSource, /Last updated: \$\{formattedDate\}/);
 
     // 4. Zero-presence owner add-avatar affordance in WorkspaceLayout
     assert.match(layoutSource, /group\/add-avatar[\s\S]*?Add image/);
@@ -91,45 +81,15 @@ test("Architectural enhancements: native single tooltip, default cursor, zero-pr
     assert.match(searchCardsSource, /<WorkspaceAvatar[\s\S]*?project=\{\{[\s\S]*?coverImage: result\.coverImage[\s\S]*?size="card"/);
 });
 
-test("Presence dot enhancements: fine-grained recency, in-tab BroadcastChannel sync, locale-aware caching, and WCAG accessibility", () => {
-    const avatarSource = readFileSync(resolve(ROOT, "src/components/workspaces/WorkspaceAvatar.tsx"), "utf-8");
-    const globalStyles = readFileSync(resolve(ROOT, "src/app/globals.css"), "utf-8");
-    const presenceBadgeSource = readFileSync(resolve(ROOT, "src/components/presence/PresenceBadge.tsx"), "utf-8");
-
-    // Idea 1: Fine-grained recency for active states
-    assert.match(avatarSource, /export function formatWorkspaceActivePresenceLabel/);
-    assert.match(avatarSource, /Active just now/);
-    assert.match(avatarSource, /Active \$\{diffMinutes\}m ago/);
-    assert.match(avatarSource, /Active \$\{diffHours\}h ago/);
-    assert.match(avatarSource, /nb-project-activity-v1/);
-    assert.match(avatarSource, /window\.addEventListener\("nb-project-activity"/);
-
-    // Idea 3: Locale-aware global formatting
-    assert.match(avatarSource, /dateFormatterCache = new Map<string, Intl\.DateTimeFormat>\(\)/);
-    assert.match(avatarSource, /getCachedDateFormatter/);
-    assert.match(avatarSource, /navigator\.language/);
-
-    // Idea 4: Color-vision accessibility (WCAG 2.2 Compliant)
-    assert.match(presenceBadgeSource, /role=\{label \? "img" : undefined\}/);
-    // The ring badge separates from any photo with a 2 px cut-out in the surface color.
-    assert.match(globalStyles, /\.nb-presence-badge \{[^}]*box-shadow:0 0 0 2px var\(--presence-cut\)/);
-    // One hue per state; offline is the grey one.
-    assert.match(globalStyles, /\.nb-presence\[data-availability="offline"\] \{ --presence-arc:var\(--presence-off\); \}/);
-    assert.match(globalStyles, /\.nb-presence\[data-availability="today"\] \{ --presence-arc:var\(--presence-today\); \}/);
-    assert.match(presenceBadgeSource, /data-availability=\{availability\}/);
-    assert.match(presenceBadgeSource, /className="nb-presence-badge"/);
-});
-
-test("Projects without a profile picture render standalone presence dot beside the workspace title and keep Line 3 cleanly separated", () => {
+test("Projects without a profile picture show the update line and keep Line 3 cleanly separated", () => {
     const layoutSource = readFileSync(resolve(ROOT, "src/components/workspaces/dashboard/WorkspaceLayout.tsx"), "utf-8");
 
     assert.match(layoutSource, /const hasProjectAvatar = Boolean\(getWorkspaceAvatarUrl\(project\)\);/);
-    // Presence dot is placed beside the workspace title
-    assert.match(layoutSource, /<h1 className="nb-page-title[^"]*">\s*\{project\?\.title\}\s*<\/h1>\s*<WorkspacePresenceDot/);
-    
-    // Line 3 (projectIdentityMetadata) does NOT have a presence dot
+    // The title stands alone; who last updated it reads below, in both header layouts.
+    assert.doesNotMatch(layoutSource, /[Pp]resenceDot|WorkspaceStatusControl/);
+    assert.equal(layoutSource.match(/<WorkspaceLastUpdate projectId=\{project\.id\}/g)?.length, 2);
+
     const metadataBlock = layoutSource.match(/const projectIdentityMetadata = \([\s\S]*?\n\s*\);/)?.[0] ?? "";
-    assert.doesNotMatch(metadataBlock, /<WorkspacePresenceDot/);
     assert.match(metadataBlock, /<ProjectTeamAvatars/);
 });
 
@@ -272,9 +232,6 @@ test("Discovery feed smooth scrolling & Virtuoso stability contract", () => {
     assert.match(hubClientSource, /const computeFeedItemKey = \(_: number, item: DiscoverFeedItem\) => feedItemKey\(item\);/);
     assert.match(hubClientSource, /components=\{virtuosoComponents\}/);
     assert.match(hubClientSource, /itemContent=\{renderFeedItem\}/);
-
-    // 4. WorkspacePresenceDot shares activity channel to avoid channel churn during fast scrolling
-    assert.match(avatarSource, /let sharedPresenceChannel: BroadcastChannel \| null = null;/);
 
     // 5. Scroll container and virtuoso scroller disable scroll anchoring to prevent upward scroll jitter
     assert.match(globalsCss, /\[data-testid="discover-feed-scroll"\][\s\S]*?overflow-anchor:\s*none;/);

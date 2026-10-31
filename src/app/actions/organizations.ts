@@ -210,6 +210,7 @@ export async function updateOrgSettingsAction(orgId: string, section: OrgSetting
             orgSettings: sql`${workspaces.orgSettings} || ${JSON.stringify({ ...settingsPatch, changes: undefined })}::jsonb
                 || jsonb_build_object('changes', coalesce(${workspaces.orgSettings}->'changes', '{}'::jsonb) || ${JSON.stringify(settingsPatch.changes)}::jsonb)`,
             updatedAt: new Date(),
+            ...(section === 'profile' ? { lastUpdateAt: new Date(), lastUpdateBy: viewer.userId } : {}),
         }).where(and(eq(workspaces.id, orgId), isNull(workspaces.deletedAt)));
     } catch {
         return { success: false, error: 'Check the term dates: the term must end after it starts.' };

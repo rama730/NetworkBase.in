@@ -18,8 +18,7 @@ import { cn } from "@/lib/utils";
 import type { Workspace } from "@/types/discover";
 import WorkspaceStatsBar from "@/components/workspaces/WorkspaceStatsBar";
 import WorkspaceAvatar, { getWorkspaceAvatarUrl } from "@/components/workspaces/WorkspaceAvatar";
-import { WorkspacePresenceDot } from "@/components/workspaces/WorkspaceAvatar";
-import { WorkspaceStatusControl } from "@/components/presence/WorkspaceStatusControl";
+import { WorkspaceLastUpdate } from "@/components/workspaces/WorkspaceLastUpdate";
 import { WorkspaceLinkCluster } from "@/components/workspaces/dashboard/WorkspaceSocialLinksCard";
 import ProjectTeamAvatars, { type WorkspaceHeaderMember } from "@/components/workspaces/dashboard/WorkspaceTeamAvatars";
 import {
@@ -340,7 +339,7 @@ export default function WorkspaceLayout({
                                                 {project?.title}
                                             </h1>
                                             {identityExtra}
-                                            {project?.id ? <WorkspaceStatusControl projectId={project.id} canManage={Boolean(canManageSettings ?? isOwner)} /> : null}
+                                            <WorkspaceLastUpdate projectId={project.id} className="block text-[13px] text-muted-foreground" />
                                             {project.shortDescription && (
                                                 <p className={cn("nb-body mt-1 max-w-[64ch] text-muted-foreground", !summaryExpanded && "max-md:line-clamp-3")}>
                                                     {project.shortDescription}
@@ -358,11 +357,6 @@ export default function WorkspaceLayout({
                                         <h1 className="nb-page-title min-w-0 break-words text-foreground">
                                             {project?.title}
                                         </h1>
-                                        <WorkspacePresenceDot
-                                            lastActiveAt={project.updatedAt}
-                                            standalone
-                                            projectId={project.id || project.slug}
-                                        />
                                         {/* General (images) is owner-only; admins would land on a section they cannot open. */}
                                         {isOwner && (project?.slug || project?.id) && (
                                             <Link
@@ -377,7 +371,7 @@ export default function WorkspaceLayout({
                                         )}
                                     </div>
                                     {identityExtra}
-                                    {project?.id ? <WorkspaceStatusControl projectId={project.id} canManage={Boolean(canManageSettings ?? isOwner)} /> : null}
+                                    <WorkspaceLastUpdate projectId={project.id} className="block text-[13px] text-muted-foreground" />
                                     {project.shortDescription && <p className={cn("nb-body max-w-[64ch] text-muted-foreground", !summaryExpanded && "max-md:line-clamp-3")}>{project.shortDescription}</p>}
                                     {summaryToggle}
                                     {projectIdentityMetadata}

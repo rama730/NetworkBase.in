@@ -817,6 +817,9 @@ export const workspaces = pgTable(
     /** Restricted by NetworkBase (0269): private only, no new invites or public posts. */
     restrictedAt: timestamp("restricted_at", { withTimezone: true }),
     verificationRequestedAt: timestamp("verification_requested_at", { withTimezone: true }),
+    // Last real work (0041): triggers and detail edits stamp these; see src/lib/workspaces/last-update.ts.
+    lastUpdateAt: timestamp("last_update_at", { withTimezone: true }).defaultNow().notNull(),
+    lastUpdateBy: uuid("last_update_by").references((): AnyPgColumn => profiles.id, { onDelete: "set null" }),
     // Project status (0184), set by owners and admins.
     statusEmoji: text("status_emoji"),
     statusText: text("status_text"),

@@ -119,10 +119,6 @@ test("badge sizes per place follow the approved table", () => {
   assert.match(read("src/components/network/PersonPresenceDot.tsx"), /size=\{compact \? 16 : 20\} statusSize=\{20\}/);
   assert.match(read("src/components/layout/header/TopNav.tsx"), /<PersonPresenceBadge userId=\{user\?\.id\} live size=\{16\} statusSize=\{20\}/);
   assert.match(read("src/components/profile/v2/ProfileHeader.tsx"), /live=\{isOwner \|\| undefined\} size=\{30\}/);
-  const project = read("src/components/workspaces/WorkspaceAvatar.tsx");
-  assert.match(project, /standalone \? 14 : compact \? 18 : 30/);
-  assert.match(project, /Math\.round\(size \* 0\.2\)/);
-  assert.match(project, /statusSize=\{standalone \? undefined : 20\}/);
 });
 
 test("while presence data loads: a gray placeholder, then gray arcs that spin, then a settle into the real state", () => {
@@ -150,12 +146,6 @@ test("while presence data loads: a gray placeholder, then gray arcs that spin, t
   assert.match(css, /@keyframes nb-presence-load-spin/);
   assert.match(css, /@keyframes nb-presence-settle/);
   assert.match(css, /@media \(prefers-reduced-motion:reduce\) \{[^@]*\.nb-presence-spin[^@]*animation:none !important/);
-});
-
-test("only people badges load: projects already know their activity", () => {
-  assert.match(person, /animate=\{presence\.settled\}/);
-  const projectBadge = person.slice(person.indexOf("export function WorkspacePresenceBadge"));
-  assert.doesNotMatch(projectBadge, /animate=/);
 });
 
 test("a failed or refused presence request ends the loading state instead of leaving the loader up", () => {

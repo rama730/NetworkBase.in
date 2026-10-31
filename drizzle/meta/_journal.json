@@ -281,6 +281,13 @@
       "when": 1793380446300,
       "tag": "0040_workspace_view_daily",
       "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1793466846300,
+      "tag": "0041_workspace_last_update",
+      "breakpoints": true
     }
   ]
 }

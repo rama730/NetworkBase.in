@@ -1,7 +1,7 @@
 "use client";
 
 import { PresenceBadge } from "@/components/presence/PresenceBadge";
-import { usePersonPresence, useWorkspacePresence } from "@/components/presence/usePresence";
+import { usePersonPresence } from "@/components/presence/usePresence";
 import { UserAvatar } from "@/components/ui/UserAvatar";
 import { cn } from "@/lib/utils";
 
@@ -68,43 +68,5 @@ export function PresenceAvatar({
       <UserAvatar size={size} {...avatar} />
       <PersonPresenceBadge userId={userId} lastActiveAt={lastActiveAt} live={live} size={badge} statusSize={size >= 32 ? 20 : undefined} className="absolute" style={{ right: -3, bottom: -3 }} />
     </span>
-  );
-}
-
-/** A project's badge: its status glyph if set, else its activity. */
-export function WorkspacePresenceBadge({
-  projectId,
-  updatedAt,
-  size = 14,
-  statusSize,
-  className,
-  style,
-  testId,
-  activityLabel,
-}: {
-  testId?: string;
-  /** Finer project wording ("Active 5m ago", "Last updated: …") to use instead of the generic one. */
-  activityLabel?: string;
-  projectId: string | null | undefined;
-  updatedAt?: string | Date | null;
-  size?: number;
-  /** The size the badge grows to when the project has a status emoji. */
-  statusSize?: number;
-  className?: string;
-  style?: React.CSSProperties;
-}) {
-  // Without an id (slug-only links) the badge still shows activity from updatedAt.
-  const presence = useWorkspacePresence(projectId, updatedAt);
-  return (
-    <PresenceBadge
-      availability={presence.availability}
-      size={size}
-      label={activityLabel ? (presence.statusLine ? `${presence.statusLine} · ${activityLabel}` : activityLabel) : presence.label}
-      className={className}
-      style={style}
-      testId={testId}
-      statusEmoji={presence.status?.emoji}
-      statusSize={statusSize}
-    />
   );
 }

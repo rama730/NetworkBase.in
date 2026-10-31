@@ -103,7 +103,7 @@ export type OrgDashboardData = {
     thisSprint: { sprint: { id: string; name: string; endDate: string } | null; next: { name: string; startDate: string } | null; items: SprintItem[] };
     comingUp: Array<{ date: string; label: string }>;
     activity: ActivityItem[];
-    projects: Array<{ id: string; title: string; slug: string | null; lastActivityAt: string }>;
+    projects: Array<{ id: string; title: string; slug: string | null }>;
     people: { avatars: Array<{ id: string; name: string; avatarUrl: string | null }>; total: number; joinedThisWeek: number; requests: number };
     getStarted: string[];
     /** Archived orgs (report §27.4): "CSE-3A ended Dec 2026 · 5 sprints · 40 assignments · 64 members". */
@@ -190,7 +190,7 @@ export async function readOrgDashboardAction(orgId: string, activityFilter = 'al
         },
         comingUp: comingUp.slice(0, 12),
         activity,
-        projects: projectRows.map((p) => ({ id: p.id, title: p.title, slug: p.slug, lastActivityAt: p.updatedAt.toISOString() })),
+        projects: projectRows.map((p) => ({ id: p.id, title: p.title, slug: p.slug })),
         people: {
             avatars: people.filter((p) => p.show).slice(0, 8).map((p) => ({ id: p.id, name: p.name || p.username || 'Member', avatarUrl: p.avatarUrl })),
             total: people.length,

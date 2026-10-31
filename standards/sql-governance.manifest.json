@@ -43,7 +43,8 @@
     "drizzle/0037_update_comment_likes.sql",
     "drizzle/0038_update_reply_policy_live.sql",
     "drizzle/0039_file_download_history.sql",
-    "drizzle/0040_workspace_view_daily.sql"
+    "drizzle/0040_workspace_view_daily.sql",
+    "drizzle/0041_workspace_last_update.sql"
   ],
   "legacyDatabaseTags": [],
   "allowedUtilitySqlFiles": [

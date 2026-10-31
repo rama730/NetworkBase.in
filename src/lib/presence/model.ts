@@ -1,8 +1,7 @@
 /**
  * Presence rules, shared by server and client. Two layers:
  * availability (automatic, from activity: the Node badge's four states) and
- * status (any emoji + text, set by a person or a project's owners, Slack
- * style). Pure functions only, so they are unit-tested directly.
+ * status (any emoji + text, set by a person, Slack style). Pure functions only, so they are unit-tested directly.
  */
 
 export const STATUS_VISIBILITIES = ["everyone", "network", "team"] as const;
@@ -40,12 +39,6 @@ export type PersonPresence = {
    * socket answers joins in order, so refused rooms stall the viewer's own presence and chat joins.
    */
   realtime: boolean;
-};
-
-export type WorkspaceStatus = {
-  emoji: string | null;
-  text: string | null;
-  expiresAt: string | null;
 };
 
 export type ClearAfter = "never" | "30m" | "1h" | "4h" | "today" | "week" | "custom";
@@ -278,15 +271,6 @@ export function statusLabel(status: { text: string | null; expiresAt: string | n
 /** Someone who paused notifications won't answer soon: mentions show a heads-up. */
 export function isAway(status: PersonStatus | null) {
   return Boolean(status?.pausesNotifications);
-}
-
-/** Project activity: the same four steps, from the project's last change. */
-export function projectAvailabilityOf(updatedAt: string | Date | null, now: Date = new Date()): Availability {
-  if (!updatedAt) return "offline";
-  const time = new Date(updatedAt).getTime();
-  if (Number.isNaN(time)) return "offline";
-  if (now.getTime() - time < NOW_FALLBACK_MS) return "now";
-  return availabilityOf({ live: false, lastActiveAt: updatedAt }, now);
 }
 
 export type PresencePrivacyInput = {

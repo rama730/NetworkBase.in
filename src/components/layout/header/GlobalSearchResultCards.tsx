@@ -165,7 +165,6 @@ export function WorkspaceSearchResultCard({ result, onOpen, onRemove, ...interac
             }}
             size="card"
             className="size-10 rounded-[6px]"
-            showPresence
         />
     ) : undefined;
 
