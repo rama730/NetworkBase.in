@@ -9,6 +9,7 @@ import {
   jsonSuccess,
   logApiRoute,
 } from "@/app/api/v1/_shared";
+import { logger } from "@/lib/logger";
 import { enrichSessionDeviceInfo } from "@/lib/security/session-activity";
 import { createClient } from "@/lib/supabase/server";
 import { clearGithubImportAccessCookie } from "@/lib/github/import-access-cookie";
@@ -94,6 +95,7 @@ export async function POST(request: Request) {
     if (mode === "bootstrap") {
       const { data, error } = await supabase.auth.getSession();
       if (error) {
+        logger.error("auth.session.bootstrap.failed", { requestId, error });
         logApiRoute(request, {
           requestId,
           action: "auth.session.bootstrap",
@@ -182,6 +184,7 @@ export async function POST(request: Request) {
     });
     return jsonSuccess({ session: shapeSessionPayload(data.session) });
   } catch (error) {
+    logger.error("auth.session.failed", { requestId, mode, error });
     logApiRoute(request, {
       requestId,
       action: mode === "bootstrap" ? "auth.session.bootstrap" : "auth.session.sync",

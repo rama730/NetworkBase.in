@@ -3,6 +3,7 @@ import { consumeRateLimit } from "@/lib/security/rate-limit";
 import { validateCsrf } from "@/lib/security/csrf";
 import { getTrustedRequestIp } from "@/lib/security/request-ip";
 import { getRequestId, jsonError, jsonSuccess, logApiRoute } from "@/app/api/v1/_shared";
+import { logger } from "@/lib/logger";
 
 export async function POST(request: Request) {
   const startedAt = Date.now();
@@ -86,6 +87,7 @@ export async function POST(request: Request) {
     });
     return jsonSuccess(undefined, "Verification email sent.");
   } catch (error) {
+    logger.error("auth.verify_email.failed", { requestId, error });
     logApiRoute(request, {
       requestId,
       action: "auth.verifyEmail.post",

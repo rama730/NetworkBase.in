@@ -314,6 +314,7 @@ export async function POST(request: Request) {
 
     return jsonSuccess(responseData);
   } catch (error) {
+    logger.error("auth.signup.failed", { requestId, error });
     logApiRoute(request, {
       requestId,
       action: "auth.signup.post",

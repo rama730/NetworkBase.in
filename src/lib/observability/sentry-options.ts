@@ -1,4 +1,4 @@
-import type { Event } from "@sentry/nextjs";
+import type { ErrorEvent, Event, EventHint } from "@sentry/nextjs";
 
 import { scrubMessage } from "@/lib/logger";
 
@@ -38,6 +38,13 @@ export function scrubEvent<T extends Event>(event: T): T {
   return event;
 }
 
+// logger.error reports directly, so its console line must not arrive a second time through the console integration.
+function beforeSend(event: ErrorEvent, _hint: EventHint) {
+  const consoleArguments = event.extra?.arguments;
+  if (Array.isArray(consoleArguments) && consoleArguments[0] === "[logger]") return null;
+  return scrubEvent(event);
+}
+
 // Read directly: NEXT_PUBLIC_ values are inlined by name into the browser bundle.
 function sentryDsn() {
   return process.env.NEXT_PUBLIC_SENTRY_DSN?.trim() || undefined;
@@ -53,6 +60,6 @@ export function baseSentryOptions() {
     enabled: isSentryEnabled(),
     environment: process.env.NEXT_PUBLIC_SENTRY_ENVIRONMENT?.trim() || "production",
     sendDefaultPii: false,
-    beforeSend: scrubEvent,
+    beforeSend,
   };
 }
