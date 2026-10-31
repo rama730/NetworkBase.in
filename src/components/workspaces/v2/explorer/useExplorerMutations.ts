@@ -26,6 +26,7 @@ import { validateUploadSelection } from "@/lib/files/upload-validator";
 import { useUploadCollisionDecision } from "./useUploadCollisionDecision";
 import { useFileTransfers } from "../files-tab/FileTransfers";
 import { uploadToSupabaseSignedUrl } from "@/lib/upload/supabase-signed-upload-client";
+import { downloadFile, workspaceExportUrl } from "@/lib/download";
 
 interface UseExplorerMutationsOptions {
   projectId: string;
@@ -765,17 +766,9 @@ function isNonRetryableUploadError(message?: string): boolean {
   const handleDownloadFolder = useCallback(
     async (folderId: string | null) => {
       const folderName = folderId ? nodesById[folderId]?.name : "All files";
-      const params = new URLSearchParams({ name: folderName || "All files" });
-      if (folderId) params.set("folderId", folderId);
-      const anchor = document.createElement("a");
-      anchor.href = `/api/v1/workspaces/${projectId}/files/export?${params.toString()}`;
-      anchor.rel = "noopener";
-      document.body.appendChild(anchor);
-      anchor.click();
-      anchor.remove();
-      showToast("Preparing folder download…", "success");
+      await downloadFile(workspaceExportUrl(projectId, folderName || "All files", folderId ? { folderId } : null));
     },
-    [nodesById, projectId, showToast]
+    [nodesById, projectId]
   );
 
   // Direct file upload (for desktop drag-and-drop — no picker dialog)

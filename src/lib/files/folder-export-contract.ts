@@ -42,6 +42,33 @@ function assertSafeSegment(value: string) {
   return value;
 }
 
+/** Two different files can't share a path in a zip: the later one becomes `name (2).pdf`. */
+export function uniqueExportName(used: Set<string>, name: string) {
+  const dot = name.lastIndexOf(".");
+  const [stem, extension] = dot > 0 ? [name.slice(0, dot), name.slice(dot)] : [name, ""];
+  let candidate = name;
+  for (let copy = 2; used.has(candidate.toLowerCase()); copy += 1) candidate = `${stem} (${copy})${extension}`;
+  used.add(candidate.toLowerCase());
+  return candidate;
+}
+
+/**
+ * Chosen items sit at the top of the zip, their folders' contents under them. An item inside a chosen folder stays
+ * in that folder rather than appearing twice.
+ */
+export function buildSelectionExportEntries(rows: FolderExportRow[]) {
+  const byId = new Map(rows.map((row) => [row.id, row]));
+  const used = new Set<string>();
+  const topNames = new Map<string, string>();
+  for (const row of byId.values()) {
+    if (!row.parent_id || !byId.has(row.parent_id)) topNames.set(row.id, uniqueExportName(used, assertSafeSegment(row.name)));
+  }
+  return buildFolderExportEntries(
+    [...byId.values()].map((row) => (topNames.has(row.id) ? { ...row, parent_id: null, name: topNames.get(row.id)! } : row)),
+    null,
+  );
+}
+
 export function buildFolderExportEntries(rows: FolderExportRow[], selectedFolderId: string | null) {
   const byId = new Map(rows.map((row) => [row.id, row]));
   const selected = selectedFolderId ? byId.get(selectedFolderId) : null;

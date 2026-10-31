@@ -8,6 +8,8 @@ import { db } from "@/lib/db";
 import { storageAssetPins, storageAssets } from "@/lib/db/schema";
 import {
   buildFolderExportEntries,
+  buildSelectionExportEntries,
+  uniqueExportName,
   FOLDER_EXPORT_MAX_BYTES,
   FOLDER_EXPORT_MAX_ENTRIES,
   type FolderExportEntry,
@@ -58,7 +60,7 @@ async function pinExportAssets(tx: Tx, entries: FolderExportEntry[], operationId
  * Download all (report §23.5): one folder per person or team with the files on their handed-in copy of one
  * assignment; excused copies are skipped. Copies in child projects (group copies) are named by project.
  */
-export async function prepareSubmissionsExport(input: { masterId: string }): Promise<PreparedFolderExport> {
+export async function prepareSubmissionsExport(input: { masterId: string; dryRun?: boolean }): Promise<PreparedFolderExport> {
   // ponytail: streams straight to the admin; the report's background job and "ready" notice come when classes
   // outgrow the 1 GB / 20,000-entry export ceiling.
   const operationId = randomUUID();
@@ -80,6 +82,7 @@ export async function prepareSubmissionsExport(input: { masterId: string }): Pro
     const folders = new Map<string, string>();
     const used = new Set<string>();
     const list: FolderExportEntry[] = [];
+    const usedInFolder = new Map<string, Set<string>>();
     for (const row of rows) {
       if (!folders.has(row.copy_id)) {
         let name = clean(row.who);
@@ -88,25 +91,32 @@ export async function prepareSubmissionsExport(input: { masterId: string }): Pro
         folders.set(row.copy_id, name);
         list.push({ id: row.copy_id, path: name, type: "folder", bucket: null, storageKey: null, assetId: null, size: 0 });
       }
+      const usedNames = usedInFolder.get(row.copy_id) ?? new Set<string>();
+      usedInFolder.set(row.copy_id, usedNames);
       list.push({
-        id: row.id, path: `${folders.get(row.copy_id)}/${clean(row.name)}`, type: "file",
+        id: row.id, path: `${folders.get(row.copy_id)}/${uniqueExportName(usedNames, clean(row.name))}`, type: "file",
         bucket: row.bucket ?? "project-files", storageKey: row.storage_key ?? row.s3_key, assetId: row.asset_id, size: Number(row.verified_size ?? row.size ?? 0),
       });
     }
     if (!list.some((entry) => entry.type === "file")) throw new Error("No submitted files to download yet");
     // Never a partial zip: the person folders count toward the entry cap too.
     if (list.length > FOLDER_EXPORT_MAX_ENTRIES) throw new Error(`Submissions are limited to ${FOLDER_EXPORT_MAX_ENTRIES.toLocaleString("en")} files per download`);
-    await pinExportAssets(tx, list, operationId, expiresAt);
+    // Checked before pinning, or a refused download would hold its files until the pins expire.
+    if (list.reduce((sum, entry) => sum + entry.size, 0) > FOLDER_EXPORT_MAX_BYTES) throw new Error("Submissions are limited to 1 GB per download");
+    if (!input.dryRun) await pinExportAssets(tx, list, operationId, expiresAt);
     return list;
   });
   const totalBytes = entries.reduce((sum, entry) => sum + entry.size, 0);
-  if (totalBytes > FOLDER_EXPORT_MAX_BYTES) throw new Error("Submissions are limited to 1 GB per download");
   return { operationId, entries, totalBytes, requiresTaskAccess: true };
 }
 
 export async function prepareFolderExport(input: {
   projectId: string;
   folderId: string | null;
+  /** Chosen items instead of a folder: files or folders, with folder contents included. */
+  nodeIds?: string[];
+  /** Answers whether this export would work, for the check before a download. Pins nothing. */
+  dryRun?: boolean;
   canReadTaskFiles: boolean;
   /** Org folder access per row alias (report §23.4): members' zips skip Admins-only folders and others' copies. */
   nodeFilter?: (alias: "n" | "child") => SQL | undefined;
@@ -114,9 +124,11 @@ export async function prepareFolderExport(input: {
   const operationId = randomUUID();
   const expiresAt = new Date(Date.now() + FOLDER_EXPORT_PIN_MS);
   const exportResult = await db.transaction(async (tx) => {
-    const anchor = input.folderId
-      ? sql`n.id = ${input.folderId} AND n.type = 'folder'`
-      : sql`n.parent_id IS NULL`;
+    const anchor = input.nodeIds
+      ? sql`n.id IN (${sql.join(input.nodeIds.map((id) => sql`${id}::uuid`), sql`, `)})`
+      : input.folderId
+        ? sql`n.id = ${input.folderId} AND n.type = 'folder'`
+        : sql`n.parent_id IS NULL`;
     const taskVisibility = input.canReadTaskFiles
       ? sql`true`
       : sql`n.task_id IS NULL AND n.path NOT LIKE '/.system%'`;
@@ -163,12 +175,12 @@ export async function prepareFolderExport(input: {
       throw new Error("The export folder tree is too deeply nested");
     }
 
-    const { entries, totalBytes } = buildFolderExportEntries(found, input.folderId);
+    const { entries, totalBytes } = input.nodeIds ? buildSelectionExportEntries(found) : buildFolderExportEntries(found, input.folderId);
     if (entries.length === 0 || !entries.some((entry) => entry.type === "file")) {
       throw new Error("No files found to download");
     }
 
-    await pinExportAssets(tx, entries, operationId, expiresAt);
+    if (!input.dryRun) await pinExportAssets(tx, entries, operationId, expiresAt);
     return { rows: found, entries, totalBytes };
   });
 
@@ -178,6 +190,18 @@ export async function prepareFolderExport(input: {
     totalBytes: exportResult.totalBytes,
     requiresTaskAccess: exportResult.rows.some((row) => !!row.task_id || row.path.startsWith("/.system")),
   };
+}
+
+/** Whether every file in a running export still passes the viewer's org folder rules. */
+export async function exportEntriesStillVisible(entries: FolderExportEntry[], nodeFilter: (alias: "n" | "child") => SQL | undefined) {
+  const ids = entries.filter((entry) => entry.type === "file").map((entry) => entry.id);
+  if (ids.length === 0) return true;
+  const rows = await db.execute<{ visible: number | string }>(sql`
+    SELECT count(*) AS visible FROM public.workspace_nodes n
+    WHERE n.id IN (${sql.join(ids.map((id) => sql`${id}::uuid`), sql`, `)})
+      AND n.deleted_at IS NULL
+      AND ${nodeFilter("n") ?? sql`true`}`);
+  return Number(Array.from(rows)[0]?.visible ?? 0) === ids.length;
 }
 
 export async function releaseFolderExport(operationId: string) {
@@ -208,10 +232,6 @@ export function streamFolderExport(input: {
   reauthorize: () => Promise<void>;
 }) {
   const abortController = new AbortController();
-  const overallTimeout = setTimeout(
-    () => abortController.abort(new Error("Folder export exceeded 30 minutes")),
-    FOLDER_EXPORT_MAX_MS,
-  );
   input.requestSignal.addEventListener(
     "abort",
     () => abortController.abort(input.requestSignal.reason),
@@ -220,6 +240,12 @@ export function streamFolderExport(input: {
   if (input.requestSignal.aborted) abortController.abort(input.requestSignal.reason);
   const output = new TransformStream<Uint8Array, Uint8Array>();
   const writer = output.writable.getWriter();
+  // A client that stops reading parks the loop on a write, where the abort signal can't reach it: aborting the writer does.
+  const overallTimeout = setTimeout(() => {
+    const reason = new Error("Folder export exceeded 30 minutes");
+    abortController.abort(reason);
+    void writer.abort(reason).catch(() => undefined);
+  }, FOLDER_EXPORT_MAX_MS);
   let writes = Promise.resolve();
   let terminalError: Error | null = null;
   const zip = new Zip((error, chunk, final) => {

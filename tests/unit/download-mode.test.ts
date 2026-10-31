@@ -71,7 +71,6 @@ test("no control saves a file except through the shared helper", () => {
     "src/components/settings/LegalAndDataRightsSection.tsx",
     "src/components/settings/AccountDeletionWizard.tsx",
     "src/components/trust/StandingNotices.tsx",
-    "src/components/organizations/AssignmentsPanel.tsx",
   ]);
   const offenders = [...componentFiles("src/components"), ...componentFiles("src/app"), ...componentFiles("src/hooks")]
     .filter((file) => !allowed.has(file))

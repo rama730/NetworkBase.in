@@ -9,7 +9,7 @@ import {
   canReadWorkspaceTaskFiles,
   orgFileAccessSql,
 } from "@/lib/files/internal-helpers";
-import { prepareFolderExport, streamFolderExport } from "@/lib/files/folder-export";
+import { prepareFolderExport, streamFolderExport, exportEntriesStillVisible } from "@/lib/files/folder-export";
 import { safeContentDisposition } from "@/lib/storage/private-object-response";
 import { createClient } from "@/lib/supabase/server";
 
@@ -17,22 +17,37 @@ export const dynamic = "force-dynamic";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
+const MAX_SELECTED_ITEMS = 100;
+
 function exportFilename(value: string | null) {
   const safe = value?.trim().replace(/[\\/\0]/g, "_").slice(0, 180) || "All files";
-  return `${safe}_Export.zip`;
+  return `${safe}.zip`;
 }
 
-export async function GET(request: NextRequest, context: RouteContext) {
+async function handle(request: NextRequest, context: RouteContext) {
   const { id: projectId } = await context.params;
+  const isCheck = request.method === "HEAD";
   const folderId = request.nextUrl.searchParams.get("folderId");
-  if (!UUID_RE.test(projectId) || (folderId !== null && !UUID_RE.test(folderId))) {
+  const idsParam = request.nextUrl.searchParams.get("ids");
+  const nodeIds = idsParam === null ? undefined : [...new Set(idsParam.split(","))];
+  if (
+    !UUID_RE.test(projectId)
+    || (folderId !== null && !UUID_RE.test(folderId))
+    || (nodeIds && (nodeIds.length === 0 || !nodeIds.every((id) => UUID_RE.test(id))))
+  ) {
     return jsonError("Not found", 404, "NOT_FOUND");
+  }
+  if (nodeIds && nodeIds.length > MAX_SELECTED_ITEMS) {
+    return jsonError(`Downloads are limited to ${MAX_SELECTED_ITEMS} selected items`, 413, "BAD_REQUEST");
   }
 
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   // Exports lock and pin every asset in the tree; signed-out viewers share an IP bucket.
-  const limited = await enforceRouteLimit(request, "files:export", 10, 600, "default", user?.id);
+  // The check before a download reads the tree but pins nothing, so it has its own, larger budget.
+  const limited = isCheck
+    ? await enforceRouteLimit(request, "files:export-check", 60, 600, "default", user?.id)
+    : await enforceRouteLimit(request, "files:export", 10, 600, "default", user?.id);
   if (limited) return limited;
   const access = await assertWorkspaceFileReadAccess(projectId, user?.id ?? null).catch(() => null);
   if (!access) return jsonError("You don’t have access to this", 403, "FORBIDDEN");
@@ -46,15 +61,19 @@ export async function GET(request: NextRequest, context: RouteContext) {
     prepared = await prepareFolderExport({
       projectId,
       folderId,
+      nodeIds,
+      dryRun: isCheck,
       canReadTaskFiles: canReadWorkspaceTaskFiles(access),
       nodeFilter,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Couldn’t prepare folder export";
-    const status = message.includes("limited") ? 413 : message.includes("not found") ? 404 : 409;
+    const status = message.includes("limited") ? 413 : message.includes("not found") ? 404 : message.startsWith("No files") ? 422 : 409;
     const errorCode = status === 404 ? "NOT_FOUND" : status === 409 ? "CONFLICT" : "BAD_REQUEST";
     return jsonError(message, status, errorCode);
   }
+
+  if (isCheck) return new Response(null, { status: 200, headers: { "Cache-Control": "private, no-store" } });
 
   const reauthorize = async () => {
     const currentClient = await createClient();
@@ -63,6 +82,10 @@ export async function GET(request: NextRequest, context: RouteContext) {
     const currentAccess = await assertWorkspaceFileReadAccess(projectId, currentUser?.id ?? null);
     if (prepared.requiresTaskAccess && !canReadWorkspaceTaskFiles(currentAccess)) {
       throw new Error("Task-file access was revoked");
+    }
+    // Org folder rules can change mid-download: stop rather than keep sending what this person may no longer open.
+    if (nodeFilter && !(await exportEntriesStillVisible(prepared.entries, nodeFilter))) {
+      throw new Error("Folder access changed");
     }
   };
   const filename = exportFilename(request.nextUrl.searchParams.get("name"));
@@ -75,4 +98,12 @@ export async function GET(request: NextRequest, context: RouteContext) {
       Vary: "Cookie, Authorization",
     },
   });
+}
+
+export async function GET(request: NextRequest, context: RouteContext) {
+  return handle(request, context);
+}
+
+export async function HEAD(request: NextRequest, context: RouteContext) {
+  return handle(request, context);
 }
