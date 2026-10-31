@@ -83,6 +83,7 @@ import { WorkspaceNotificationCategoryCard } from '@/components/workspaces/setti
 import { CollaboratorSearchField } from '@/components/workspaces/settings/CollaboratorSearchField';
 import type { MemberNotificationSettingsData } from '@/components/workspaces/settings/MemberNotificationSettingsEditor';
 import { FileAccessMembers, type FileAccessSettingsData } from '@/components/workspaces/settings/FileAccessMembers';
+import { DownloadHistory } from '@/components/workspaces/settings/DownloadHistory';
 import { CollaboratorCard, projectMemberRole } from '@/components/workspaces/settings/CollaboratorCard';
 import { LifecycleSettingsEditor } from '@/components/workspaces/settings/LifecycleSettingsEditor';
 import { PublicTabVisibilityEditor } from '@/components/workspaces/settings/PublicTabVisibilityEditor';
@@ -1995,6 +1996,7 @@ function ProjectSettingsContent({
                                 onBulkToggle={handleBulkFileUploadPermission}
                                 filePolicy={FILE_POLICY}
                             />
+                            <DownloadHistory projectId={projectId} />
                         </SettingsCard>
                     </section>
                 )}

@@ -12,6 +12,7 @@ import {
 import { prepareFolderExport, streamFolderExport, exportEntriesStillVisible } from "@/lib/files/folder-export";
 import { safeContentDisposition } from "@/lib/storage/private-object-response";
 import { createClient } from "@/lib/supabase/server";
+import { recordDownload } from "@/lib/files/download-history";
 
 export const dynamic = "force-dynamic";
 
@@ -89,6 +90,14 @@ async function handle(request: NextRequest, context: RouteContext) {
     }
   };
   const filename = exportFilename(request.nextUrl.searchParams.get("name"));
+  recordDownload({
+    workspaceId: projectId,
+    nodeId: folderId,
+    actorId: user?.id ?? null,
+    fileName: filename,
+    kind: nodeIds ? "selection_zip" : "folder_zip",
+    fileCount: prepared.entries.filter((entry) => entry.type === "file").length,
+  });
   return new Response(streamFolderExport({ prepared, requestSignal: request.signal, reauthorize }), {
     headers: {
       "Cache-Control": "private, no-store",

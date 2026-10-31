@@ -1,4 +1,5 @@
 import { createRequire } from "node:module";
+import { downloadHistoryRetention } from "./functions/download-history-retention";
 
 export type InngestExecutionRole = "web" | "worker";
 
@@ -46,6 +47,7 @@ function getWorkerOnlyFunctions() {
     cleanupWorkspaceUpdate,
     reconcileWorkspaceFiles,
     finishPendingFileDeletions,
+    downloadHistoryRetention,
     projectImportStaleReconcile,
     reconcileMyWorkProfileCounters,
     myWorkCountersRefresh,

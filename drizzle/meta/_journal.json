@@ -267,6 +267,13 @@
       "when": 1793380385300,
       "tag": "0038_update_reply_policy_live",
       "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1793380386300,
+      "tag": "0039_file_download_history",
+      "breakpoints": true
     }
   ]
 }

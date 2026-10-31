@@ -10,6 +10,7 @@ import { getWorkspaceAccessById } from "@/lib/data/workspace-access";
 import { prepareSubmissionsExport, streamFolderExport } from "@/lib/files/folder-export";
 import { safeContentDisposition } from "@/lib/storage/private-object-response";
 import { createClient } from "@/lib/supabase/server";
+import { recordDownload } from "@/lib/files/download-history";
 
 export const dynamic = "force-dynamic";
 
@@ -52,6 +53,13 @@ async function handle(request: NextRequest, context: RouteContext) {
     if ((await orgAdminOf(orgId)) !== userId) throw new Error("Export session expired");
   };
   const filename = `${master.title.replace(/[\\/\0]/g, "_").slice(0, 160)} submissions.zip`;
+  recordDownload({
+    workspaceId: orgId,
+    actorId: userId,
+    fileName: filename,
+    kind: "submissions_zip",
+    fileCount: prepared.entries.filter((entry) => entry.type === "file").length,
+  });
   return new Response(streamFolderExport({ prepared, requestSignal: request.signal, reauthorize }), {
     headers: {
       "Cache-Control": "private, no-store",
