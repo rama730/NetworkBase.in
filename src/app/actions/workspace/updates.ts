@@ -53,10 +53,11 @@ import { computeWorkspaceReadAccess } from "@/lib/data/workspace-access";
 import { enqueueWorkspaceNotificationEvent, readWorkspaceNotificationActorSnapshot } from "@/lib/notifications/workspace-events";
 import { publishUser } from "@/lib/messaging/publish";
 import { notifyAnnouncement, notifyOrg } from "@/lib/organizations/notify";
+import { dismissUpdateNotifications, isUpdateNotification } from "@/lib/notifications/service";
 import { syncCommentLikeNotification, syncUpdateActivityNotifications } from "@/lib/notifications/update-activity";
 import { readUpdatePreviews, type UpdatePreview } from "@/lib/workspaces/update-previews";
 import { refuseComment } from "@/lib/workspaces/update-comment-guard";
-import { parseMentionUsernames, resolveMentionedIds, searchMentionablePeople } from "@/lib/workspaces/update-mentions";
+import { resolveMentionedIds, searchMentionablePeople } from "@/lib/workspaces/update-mentions";
 import { accountRestriction } from "@/lib/trust/standing";
 import { consumeRateLimit } from "@/lib/security/rate-limit";
 import { getViewerAuthContext, getViewerProfileContext } from "@/lib/server/viewer-context";
@@ -1849,6 +1850,7 @@ export async function deleteWorkspaceUpdateAction(projectId: string, updateId: s
             contextSummariesForRows(rows, access),
         ]);
         revalidatePath(projectBaseHref(access.project));
+        await dismissUpdateNotifications("updateId", updateId).catch(() => undefined);
         if (removedAuthorId && access.org) {
             await notifyOrg({ orgId: access.org.orgId, eventKey: "org.lifecycle", actorId: viewer.userId, to: [removedAuthorId], title: `Your post was removed: ${reason!.trim().slice(0, 300)}`,
                 href: `${projectBaseHref(access.project)}?tab=updates`, sourceEventId: `post-removed:${updateId}` });
@@ -1955,7 +1957,7 @@ export async function markUpdateNotificationsReadAction(updateId: string) {
     await db.execute(sql`
         UPDATE user_notifications SET read_at = now(), seen_at = coalesce(seen_at, now()), updated_at = now()
         WHERE user_id = ${viewer.userId}::uuid AND read_at IS NULL AND entity_refs->>'updateId' = ${updateId}
-          AND kind IN ('project_update_activity', 'project_update_comment', 'project_update_reply', 'project_update_mention', 'project_update_like', 'project_update_team')`);
+          AND ${isUpdateNotification}`);
 }
 
 export async function toggleWorkspaceUpdateLikeAction(projectId: string, updateId: string) {
@@ -2314,7 +2316,7 @@ export async function createWorkspaceUpdateCommentAction(projectId: string, upda
         }
         const content = sanitizeWorkspaceUpdateContent(contentInput, 1_000);
         if (!content) return { success: false as const, error: "Comment cannot be empty." };
-        const refused = await refuseComment({ userId: viewer.userId, emailVerified: viewer.emailVerified, content });
+        const refused = await refuseComment({ userId: viewer.userId, updateId, emailVerified: viewer.emailVerified, content });
         if (refused) return { success: false as const, error: refused };
         const createdAt = new Date();
 
@@ -2550,7 +2552,6 @@ export async function deleteWorkspaceUpdateCommentAction(projectId: string, comm
                 userId: workspaceUpdateComments.userId,
                 parentId: workspaceUpdateComments.parentId,
                 targetUserId: workspaceUpdateComments.targetUserId,
-                content: workspaceUpdateComments.content,
                 deletedAt: workspaceUpdateComments.deletedAt,
             })
             .from(workspaceUpdateComments)
@@ -2575,12 +2576,8 @@ export async function deleteWorkspaceUpdateCommentAction(projectId: string, comm
                 .where(eq(workspaceUpdates.id, comment.updateId));
         });
         after(async () => {
-            // Gone from the post, so gone from the trays: the personal notice, and its place in the grouped counts.
-            await db.execute(sql`
-                UPDATE user_notifications SET dismissed_at = now(), updated_at = now()
-                WHERE kind IN ('project_update_comment', 'project_update_reply', 'project_update_mention', 'project_update_like') AND read_at IS NULL AND dismissed_at IS NULL AND entity_refs->>'commentId' = ${commentId}
-                  AND user_id IN (SELECT u.author_id FROM workspace_updates u WHERE u.id = ${comment.updateId}::uuid UNION ALL SELECT ${comment.targetUserId}::uuid UNION ALL SELECT ${comment.userId}::uuid
-                    UNION ALL SELECT p.id FROM profiles p WHERE lower(p.username) IN (SELECT value FROM jsonb_array_elements_text(${JSON.stringify(parseMentionUsernames(comment.content))}::jsonb)))`).catch(() => undefined);
+            // Gone from the post, so gone from the trays: the personal notices, and its place in the grouped counts.
+            await dismissUpdateNotifications("commentId", commentId).catch(() => undefined);
             await syncUpdateActivityNotifications({ projectId, updateId: comment.updateId, actorId: comment.userId ?? viewer.userId!, activity: comment.parentId ? "reply" : "comment", change: "removed", href: projectHref(access.project!, comment.updateId) });
         });
         return { success: true as const, updateId: comment.updateId };

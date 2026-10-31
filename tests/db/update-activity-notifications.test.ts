@@ -6,6 +6,7 @@ import { closeAppDb, createProject, createUser, loadAppModule, moduleStubs, sql,
 // Updates as posts (Part 2): who is told what about likes, comments and replies on a post.
 stubNextAfter();
 moduleStubs.set("@/lib/realtime/server-broadcast", { broadcast: async () => true });
+moduleStubs.set("next/cache", { revalidatePath: () => undefined, revalidateTag: () => undefined, unstable_cache: (fn: unknown) => fn, updateTag: () => undefined });
 delete process.env.UPSTASH_REDIS_REST_URL;
 delete process.env.UPSTASH_REDIS_REST_TOKEN;
 
@@ -323,4 +324,78 @@ test("a members-only post can only mention people who can open it", async () => 
   assert.ok((await updates.createWorkspaceUpdateCommentAction(p.ws, p.id, `@${fanName} look`)).success);
   await settle();
   assert.equal((await tray(p.fan)).length, 0, "connected, but outside the team");
+});
+
+test("a private liker is never named: not by the row, not through its actor, and the count still holds", async () => {
+  const p = await post();
+  await sql`UPDATE profiles SET full_name = 'Secret Person', visibility = 'private' WHERE id = ${p.fan}`;
+  await like(p.fan, p.ws, p.id);
+  let [row] = await tray(p.author);
+  assert.equal(row!.title, "Someone liked your update");
+  assert.equal(row!.actor_user_id, null);
+  await sql`UPDATE profiles SET full_name = 'Open Person', visibility = 'public' WHERE id = ${p.fan2}`;
+  await like(p.fan2, p.ws, p.id);
+  [row] = await tray(p.author);
+  assert.equal(row!.title, "Open Person and 1 other liked your update");
+  // Connected people may see each other, so here the name is fine.
+  await sql`INSERT INTO connections (requester_id, addressee_id, status) VALUES (${p.owner}, ${p.fan}, 'accepted')`;
+  const parent = await comment(p.owner, p.ws, p.id);
+  viewerId = p.fan;
+  await updates.toggleWorkspaceUpdateCommentLikeAction(p.ws, parent);
+  await settle();
+  assert.equal((await tray(p.owner)).find((r) => /your comment$/.test(r.title))!.title, "Secret Person liked your comment");
+  const mateComment = await comment(p.mate, p.ws, p.id);
+  viewerId = p.fan;
+  await updates.toggleWorkspaceUpdateCommentLikeAction(p.ws, mateComment);
+  await settle();
+  assert.equal((await tray(p.mate)).find((r) => /your comment$/.test(r.title))!.title, "Someone liked your comment");
+});
+
+test("the author's team row counts replies only; their likes row already covers likes", async () => {
+  const p = await post();
+  await like(p.fan, p.ws, p.id);
+  const parent = await comment(p.mate, p.ws, p.id);
+  await comment(p.fan2, p.ws, p.id, parent);
+  assert.match((await tray(p.author)).find((r) => r.kind === "project_update_team")!.title, /got 1 comment$/);
+  assert.match((await tray(p.owner)).find((r) => r.kind === "project_update_team")!.title, /got 1 like and 2 comments$/);
+});
+
+test("the same words: fine on another post, not twice on one, not across many", async () => {
+  const [a, b, c, d] = [await post(), await post(), await post(), await post()];
+  await sql`UPDATE profiles SET created_at = now() - interval '30 days' WHERE id = ${a.fan}`;
+  viewerId = a.fan;
+  const say = (p: typeof a) => updates.createWorkspaceUpdateCommentAction(p.ws, p.id, "Nice work!");
+  assert.ok((await say(a)).success);
+  const again = await say(a);
+  assert.ok(!again.success && /already posted/.test(again.error));
+  assert.ok((await say(b)).success, "another post");
+  assert.ok((await say(c)).success, "a third");
+  const flood = await say(d);
+  assert.ok(!flood.success && /several updates/.test(flood.error));
+});
+
+test("a deleted or hidden post or comment takes its notifications with it", async () => {
+  const p = await post();
+  await like(p.fan, p.ws, p.id);
+  viewerId = p.author;
+  const removed = await updates.deleteWorkspaceUpdateAction(p.ws, p.id);
+  assert.ok(removed.success, JSON.stringify(removed));
+  await settle();
+  assert.notEqual((await tray(p.owner))[0]!.dismissed_at, null);
+  assert.notEqual((await tray(p.author))[0]!.dismissed_at, null);
+
+  const q = await post();
+  const hiddenComment = await comment(q.fan, q.ws, q.id);
+  const { setContentHidden } = await loadAppModule(() => import("../../src/lib/trust/targets"));
+  await setContentHidden("update_comment", hiddenComment, null, true);
+  assert.notEqual((await tray(q.author))[0]!.dismissed_at, null, "its text no longer sits in the tray");
+});
+
+test("changing who can reply is announced, with ids only", async () => {
+  const p = await post();
+  viewerId = p.author;
+  assert.ok((await updates.setWorkspaceUpdateReplyPolicyAction(p.ws, p.id, "closed")).success);
+  const rows = await sql`SELECT payload FROM realtime.messages WHERE topic = ${`updates:post:${p.id}`} AND event = 'update.changed'`;
+  assert.equal(rows.length, 1);
+  assert.deepEqual(Object.keys(rows[0]!.payload as object).sort(), ["id", "seq"]);
 });

@@ -30,14 +30,23 @@ export function teamRowTitle(workspaceTitle: string | null, likes: number, comme
     return `Your update in ${workspaceTitle || "your workspace"} got ${parts.join(" and ")}`;
 }
 
+/**
+ * Whether a notification may name this person to its recipient: the same rule as "Liked by", where anyone else reads as
+ * "Private member". Row titles are built from this, so a private person is simply one of the others.
+ */
+const nameableTo = (recipient: ReturnType<typeof sql>, person: ReturnType<typeof sql>) => sql`(p.visibility = 'public' OR EXISTS (
+    SELECT 1 FROM connections conn WHERE conn.status = 'accepted'
+      AND ((conn.requester_id = ${recipient} AND conn.addressee_id = ${person}) OR (conn.addressee_id = ${recipient} AND conn.requester_id = ${person}))))`;
+
 /** A count that changed without news: an open row shows the new number, or goes if nothing is left. No bump, no push. */
-async function quietlyUpdateRow(id: string, refs: ActivityRefs, open: boolean, title: string, total: number, actorId: string | null) {
+async function quietlyUpdateRow(id: string, refs: ActivityRefs, open: boolean, title: string, total: number, actorId: string | null, actorName: string | null) {
     await db.execute(sql`
         UPDATE user_notifications SET
             entity_refs = ${JSON.stringify(refs)}::jsonb,
             title = CASE WHEN ${open && total > 0} THEN ${title} ELSE title END,
             aggregate_count = CASE WHEN ${open && total > 0} THEN ${Math.max(total, 1)}::int ELSE aggregate_count END,
-            actor_user_id = CASE WHEN ${open && total > 0 && actorId !== null} THEN ${actorId}::uuid ELSE actor_user_id END,
+            actor_user_id = CASE WHEN ${open && total > 0} THEN ${actorId}::uuid ELSE actor_user_id END,
+            preview = CASE WHEN ${open && total > 0} THEN jsonb_set(coalesce(preview, '{}'::jsonb), '{actorName}', to_jsonb(${actorName}::text)) ELSE preview END,
             dismissed_at = CASE WHEN ${open && total === 0} THEN now() ELSE dismissed_at END,
             updated_at = now()
         WHERE id = ${id}::uuid`);
@@ -117,6 +126,7 @@ export async function syncUpdateActivityNotifications(input: {
             LEFT JOIN LATERAL (
                 SELECT l.user_id, coalesce(p.full_name, p.username) AS name FROM workspace_update_likes l JOIN profiles p ON p.id = l.user_id
                 WHERE l.update_id = ${updateId}::uuid AND l.created_at > r.since AND l.user_id <> r.user_id AND ${visible(sql`l.user_id`)}
+                  AND ${nameableTo(sql`r.user_id`, sql`l.user_id`)}
                 ORDER BY l.created_at DESC LIMIT 1
             ) liker ON true`) as unknown as Array<{ user_id: string; likes: number; comments: number; liker_id: string | null; liker_name: string | null; actor_hidden: boolean }>;
         const countsFor = new Map(counted.map((row) => [row.user_id, row]));
@@ -127,8 +137,10 @@ export async function syncUpdateActivityNotifications(input: {
             const counts = countsFor.get(userId);
             if (!counts) continue;
             const liked = eventKey === "updates.liked";
-            const total = liked ? counts.likes : counts.likes + counts.comments;
-            const title = liked ? likeRowTitle(counts.liker_name, counts.likes) : teamRowTitle(project.title, counts.likes, counts.comments);
+            // The author's likes have their own row, so their team row only counts replies.
+            const teamLikes = userId === authorId ? 0 : counts.likes;
+            const total = liked ? counts.likes : teamLikes + counts.comments;
+            const title = liked ? likeRowTitle(counts.liker_name, counts.likes) : teamRowTitle(project.title, teamLikes, counts.comments);
             const unlikedBefore = refs.unliked ?? [];
             const removedLike = change === "removed" && activity === "like";
             const nextRefs: ActivityRefs = {
@@ -139,7 +151,7 @@ export async function syncUpdateActivityNotifications(input: {
             const quiet = change === "removed" || (activity === "like" && unlikedBefore.includes(actorId));
             if (quiet) {
                 if (!row) continue;
-                await quietlyUpdateRow(row.id, nextRefs, open, title, total, liked ? counts.liker_id : null);
+                await quietlyUpdateRow(row.id, nextRefs, open, title, total, liked ? counts.liker_id : null, liked ? counts.liker_name : null);
                 continue;
             }
             if (counts.actor_hidden || total === 0) continue;
@@ -182,8 +194,9 @@ export async function syncCommentLikeNotification(input: { projectId: string; up
         const closed = [row?.readAt, row?.dismissedAt].filter(Boolean).map((at) => new Date(at!).getTime());
         const since = closed.length ? new Date(Math.max(...closed)) : refs.countSince ? new Date(refs.countSince) : new Date(Date.now() - FIRST_ROW_LOOKBACK_MS);
         const [counts] = await db.execute(sql`
-            SELECT count(*)::int AS likes, (array_agg(l.user_id ORDER BY l.created_at DESC))[1] AS liker_id,
-                (array_agg(coalesce(p.full_name, p.username) ORDER BY l.created_at DESC))[1] AS liker_name,
+            SELECT count(*)::int AS likes,
+                (array_agg(l.user_id ORDER BY l.created_at DESC) FILTER (WHERE ${nameableTo(sql`${authorId}::uuid`, sql`l.user_id`)}))[1] AS liker_id,
+                (array_agg(coalesce(p.full_name, p.username) ORDER BY l.created_at DESC) FILTER (WHERE ${nameableTo(sql`${authorId}::uuid`, sql`l.user_id`)}))[1] AS liker_name,
                 bool_or(l.user_id = ${actorId}::uuid) AS actor_counted
             FROM workspace_update_comment_likes l JOIN profiles p ON p.id = l.user_id
             WHERE l.comment_id = ${commentId}::uuid AND l.created_at > ${since.toISOString()}::timestamptz
@@ -198,7 +211,7 @@ export async function syncCommentLikeNotification(input: { projectId: string; up
             unliked: change === "removed" ? [actorId, ...unlikedBefore.filter((id) => id !== actorId)].slice(0, UNLIKED_MEMORY) : unlikedBefore,
         };
         if (change === "removed" || unlikedBefore.includes(actorId)) {
-            if (row) await quietlyUpdateRow(row.id, nextRefs, Boolean(!row.readAt && !row.dismissedAt), title, likes, counts?.liker_id ?? null);
+            if (row) await quietlyUpdateRow(row.id, nextRefs, Boolean(!row.readAt && !row.dismissedAt), title, likes, counts?.liker_id ?? null, counts?.liker_name ?? null);
             return;
         }
         if (!counts?.actor_counted) return;

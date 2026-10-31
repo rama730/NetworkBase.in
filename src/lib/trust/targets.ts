@@ -4,6 +4,7 @@ import { sql } from "drizzle-orm";
 
 import { db } from "@/lib/db";
 import { getWorkspaceAccessById } from "@/lib/data/workspace-access";
+import { dismissUpdateNotifications } from "@/lib/notifications/service";
 import type { ReportTargetKind } from "@/lib/trust/rules";
 
 // What a report points at (docs/trust-and-safety-concept.md §5.1, F11): whether the reporter can see it, whose it is,
@@ -219,5 +220,8 @@ export async function setContentHidden(kind: ReportTargetKind, id: string, seq: 
   await executor.execute(hidden
     ? sql`UPDATE ${table} SET deleted_at = coalesce(deleted_at, now()) WHERE ${where}`
     : sql`UPDATE ${table} SET deleted_at = NULL WHERE ${where}`);
+  // Notifications about it quote its text, so they go too. Restoring the content doesn't bring them back.
+  if (hidden && kind === "update") await dismissUpdateNotifications("updateId", id, executor);
+  if (hidden && kind === "update_comment") await dismissUpdateNotifications("commentId", id, executor);
   return true;
 }

@@ -82,6 +82,7 @@ export function ShareUpdateButton({ path }: { path: string }) {
 export function FollowWorkspaceButton({ projectId, userId, following: initial }: { projectId: string; userId: string; following: boolean }) {
   const { mutateAsync, isPending } = useToggleWorkspaceFollow();
   const [following, setFollowing] = useState(initial);
+  useEffect(() => setFollowing(initial), [initial]);
   return (
     <button
       type="button"
@@ -151,7 +152,7 @@ export function ReplyPolicyMenuItems({ projectId, updateId, current }: { project
   const choose = async (replyPolicy: (typeof REPLY_CHOICES)[number]['id']) => {
     const result = await setWorkspaceUpdateReplyPolicyAction(projectId, updateId, replyPolicy).catch(() => null);
     if (!result?.success) return void toast.error(result?.error ?? 'Couldn’t change who can reply');
-    patchUpdateEverywhere<{ id: string; replyPolicy: string; canComment: boolean }>(queryClient, projectId, updateId, (item) => ({ ...item, replyPolicy, canComment: replyPolicy !== 'closed' && item.canComment }));
+    patchUpdateEverywhere<{ id: string; replyPolicy: string; canComment: boolean }>(queryClient, projectId, updateId, (item) => ({ ...item, replyPolicy, canComment: replyPolicy !== 'closed' }));
     toast.success(replyPolicy === 'closed' ? 'Replies are off' : 'Reply setting changed');
   };
   return (
@@ -170,7 +171,10 @@ export function MutePostMenuItem({ updateId }: { updateId: string }) {
   return (
     <DropdownMenuItem onSelect={() => {
       void muteNotificationScopeAction({ kind: 'update', value: updateId, label: 'A post you muted', mutedAt: null })
-        .then(() => toast.success('Post muted. Unmute it in Settings → Notifications.'))
+        .then((result) => {
+          if (result.success) toast.success('Post muted. Unmute it in Settings → Notifications.');
+          else toast.error('Couldn’t mute this post');
+        })
         .catch(() => toast.error('Couldn’t mute this post'));
     }}>
       Mute this post

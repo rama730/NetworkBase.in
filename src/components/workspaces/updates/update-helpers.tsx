@@ -124,6 +124,8 @@ const UPDATE_CARD_CONTROL_SELECTOR = [
 
 export function isUpdateCardControl(target: EventTarget | null, card: HTMLElement) {
   if (!(target instanceof Element)) return false;
+  // A dialog or menu opened from the card sits outside it on the page, but React still sends its clicks here.
+  if (!card.contains(target)) return true;
   const control = target.closest(UPDATE_CARD_CONTROL_SELECTOR);
   return Boolean(control && control !== card);
 }
