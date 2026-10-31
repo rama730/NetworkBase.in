@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { RefreshCw } from 'lucide-react'
 import { AuthShell } from '@/components/auth/AuthShell'
 import { Button } from '@/components/ui/button'
+import { useReportBoundaryError } from '@/lib/observability/use-report-boundary-error'
 
 export default function AuthError({
     error,
@@ -12,6 +13,8 @@ export default function AuthError({
     error: Error & { digest?: string }
     reset: () => void
 }) {
+    useReportBoundaryError(error)
+
     return (
         <AuthShell title="Something went wrong" description="We couldn’t load this page. Try again, or go back to sign in." panel={null}>
             <div className="space-y-3">

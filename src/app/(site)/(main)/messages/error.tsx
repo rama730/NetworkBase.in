@@ -4,9 +4,12 @@ import Link from "next/link";
 import { RefreshCw } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { useReportBoundaryError } from "@/lib/observability/use-report-boundary-error";
 
 /** A Messages screen failed: the error replaces only the content pane, so the chat sidebar stays usable. */
 export default function MessagesError({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
+  useReportBoundaryError(error);
+
   return (
     <div role="alert" className="grid h-full place-items-center bg-card p-6 text-center">
       <div className="max-w-sm space-y-2">
