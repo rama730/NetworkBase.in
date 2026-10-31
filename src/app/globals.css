@@ -822,7 +822,9 @@ html[data-reduce-motion="true"] .nb-skeleton {
 .nb-sidebar[data-collapsed="true"] .nb-sidebar-body { padding:12px 6px; }
 .nb-sidebar[data-collapsed="true"] .nb-sidebar-scroll { padding-right:0; }
 .nb-sidebar[data-collapsed="true"] .nb-nav-link { position:relative; justify-content:center; min-height:44px; padding:10px; }
-.nb-sidebar[data-collapsed="true"] .nb-nav-count { position:absolute; right:0; top:0; margin-left:0; font-size:11px; }
+.nb-sidebar[data-collapsed="true"] .nb-nav-count, .nb-sidebar[data-collapsed="true"] .nb-nav-dot { position:absolute; right:0; top:0; margin-left:0; font-size:11px; }
+.nb-sidebar[data-collapsed="true"] [data-org-row] .nb-nav-count { right:4px; top:2px; }
+.nb-sidebar[data-collapsed="true"] [data-org-row] .nb-nav-dot { right:12px; top:9px; }
 .nb-sidebar[data-collapsed="true"] .nb-sidebar-workspace { display:none; }
 /* Keep the keyboard skip link out of view-transition snapshots until it is
    intentionally reached with the keyboard. Transform-based hiding can be
@@ -1138,7 +1140,9 @@ svg.lucide { stroke-width:1.75; }
   .nb-sidebar:not([data-collapsed]) .nb-sidebar-body { padding:12px 6px; }
   .nb-sidebar:not([data-collapsed]) .nb-sidebar-scroll { padding-right:0; }
   .nb-sidebar:not([data-collapsed]) .nb-nav-link { position:relative; justify-content:center; min-height:44px; padding:10px; }
-  .nb-sidebar:not([data-collapsed]) .nb-nav-count { position:absolute; right:0; top:0; margin-left:0; font-size:11px; }
+  .nb-sidebar:not([data-collapsed]) .nb-nav-count, .nb-sidebar:not([data-collapsed]) .nb-nav-dot { position:absolute; right:0; top:0; margin-left:0; font-size:11px; }
+  .nb-sidebar:not([data-collapsed]) [data-org-row] .nb-nav-count { right:4px; top:2px; }
+  .nb-sidebar:not([data-collapsed]) [data-org-row] .nb-nav-dot { right:12px; top:9px; }
   .nb-sidebar:not([data-collapsed]) .nb-sidebar-workspace { display:none; }
   .nb-sidebar:not([data-collapsed]) .nb-sidebar-footer { flex-direction:column; align-items:stretch; justify-content:flex-end; gap:4px; }
   .nb-sidebar:not([data-collapsed]) .nb-sidebar-footer > .nb-nav-link { width:100%; min-width:0; min-height:44px; flex:none; padding:10px; }

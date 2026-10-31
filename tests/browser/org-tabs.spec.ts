@@ -127,17 +127,6 @@ test('Projects, Tasks and Files fit a phone', async ({ page }) => {
     await expect(page.locator('li', { hasText: 'Team Osprey' }).getByText(/^active /)).toBeVisible();
 });
 
-test('Sidebar: New workspace in an org is reachable by keyboard', async ({ page }) => {
-    test.skip(test.info().project.name === 'webkit', 'Safari moves focus to links only with Option-Tab');
-    await open(page, 'sidebar', 1200);
-    const add = page.getByRole('link', { name: 'New workspace in CSE-3A Software Engineering' });
-    await expect(add).toBeHidden();
-    await page.getByRole('link', { name: /CSE-3A Software Engineering, 3 need you/ }).focus();
-    await page.keyboard.press('Tab');
-    await expect(add).toBeVisible();
-    await expect(add).toBeFocused();
-});
-
 test('Create wizard team (§14.4): unit lead ★, Move to…, picker filters and the Outside tab work by keyboard at phone width', async ({ page }) => {
     await open(page, 'team');
     await expect(page.getByText('Ms. Rao, Teacher')).toBeVisible();

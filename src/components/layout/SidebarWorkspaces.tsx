@@ -23,11 +23,10 @@ function writeOpen(id: string, open: boolean) {
 }
 
 /** Logo or initials: what stays visible when the sidebar is collapsed. */
-function Mark({ title, logo, dot }: { title: string; logo?: string | null; dot?: boolean }) {
+function Mark({ title, logo }: { title: string; logo?: string | null }) {
     return (
-        <span className="relative inline-flex size-5 shrink-0 items-center justify-center overflow-hidden rounded-[4px] bg-muted text-[10px] font-semibold text-muted-foreground" aria-hidden="true">
+        <span className="inline-flex size-5 shrink-0 items-center justify-center overflow-hidden rounded-[4px] bg-muted text-[10px] font-semibold text-muted-foreground" aria-hidden="true">
             {logo ? <img src={logo} alt="" className="size-5 object-cover" /> : title.slice(0, 2).toUpperCase()}
-            {dot ? <span className="absolute -right-0.5 -top-0.5 size-2 rounded-full bg-primary ring-2 ring-background" /> : null}
         </span>
     );
 }
@@ -37,27 +36,31 @@ function OrgRow({ org, active }: { org: SidebarOrg; active: (href: string) => bo
     useEffect(() => setOpen(readOpen(org.id)), [org.id]);
     const toggle = () => { setOpen(!open); writeOpen(org.id, !open); };
     const href = orgHref(org);
+    const current = active(href) ? "page" : undefined;
     return (
         <div>
-            <div className="group relative flex items-center">
-                <button type="button" onClick={toggle} className="nb-sidebar-label shrink-0 rounded p-0.5 text-muted-foreground hover:text-foreground" aria-label={`${open ? "Collapse" : "Expand"} ${org.title}`} aria-expanded={open}>
-                    {open ? <ChevronDown className="size-3.5" /> : <ChevronRight className="size-3.5" />}
-                </button>
-                <Link href={href} className="nb-nav-link min-w-0 flex-1" title={org.title} aria-current={active(href) ? "page" : undefined}
+            {/* The row is the highlight; the name's link stretches across it, and the plus and drop-down sit above that link. */}
+            <div className="nb-nav-link relative" style={{ gap: 0 }} aria-current={current} data-org-row>
+                <Link href={href} className="flex min-w-0 flex-1 items-center justify-center gap-2 after:absolute after:inset-0 after:rounded-[5px]" title={org.title} aria-current={current}
                     aria-label={`${org.title}${org.needsYou ? `, ${org.needsYou} need you` : ""}${org.unseenAnnouncement ? ", new announcement" : ""}`}>
-                    <Mark title={org.title} logo={org.logo} dot={org.unseenAnnouncement || org.needsYou > 0} />
-                    <span className="nb-sidebar-label truncate">{org.title}</span>
-                    {org.unseenAnnouncement ? <span className="nb-sidebar-label size-1.5 shrink-0 rounded-full bg-primary" aria-hidden="true" /> : null}
-                    {org.needsYou > 0 ? <span className="nb-nav-count nb-sidebar-label" aria-hidden="true">{org.needsYou > 99 ? "99+" : org.needsYou}</span> : null}
+                    <Mark title={org.title} logo={org.logo} />
+                    <span className="nb-sidebar-label min-w-0 flex-1 truncate pr-2">{org.title}</span>
                 </Link>
-                {org.canCreate ? (
-                    <Link href={`/workspaces/new?org=${encodeURIComponent(org.id)}`} className="nb-sidebar-label absolute right-1 hidden rounded p-0.5 text-muted-foreground hover:text-foreground group-hover:block group-focus-within:block" aria-label={`New workspace in ${org.title}`} title={`New workspace in ${org.title}`}>
-                        <Plus className="size-3.5" />
-                    </Link>
-                ) : null}
+                <div className="flex shrink-0 items-center gap-1">
+                    {org.canCreate ? (
+                        <Link href={`/workspaces/new?org=${encodeURIComponent(org.id)}`} className="nb-sidebar-label relative z-10 rounded p-0.5 text-muted-foreground hover:text-foreground" aria-label={`New workspace in ${org.title}`} title={`New workspace in ${org.title}`}>
+                            <Plus className="size-3.5" />
+                        </Link>
+                    ) : null}
+                    {org.needsYou > 0 ? <span className="nb-nav-count pointer-events-none" aria-hidden="true">{org.needsYou > 99 ? "99+" : org.needsYou}</span>
+                        : org.unseenAnnouncement ? <span className="nb-nav-dot pointer-events-none size-1.5 rounded-full bg-primary" aria-hidden="true" /> : null}
+                    <button type="button" onClick={toggle} className="nb-sidebar-label relative z-10 rounded p-0.5 text-muted-foreground hover:text-foreground" aria-label={`${open ? "Collapse" : "Expand"} ${org.title}`} aria-expanded={open}>
+                        {open ? <ChevronDown className="size-3.5" /> : <ChevronRight className="size-3.5" />}
+                    </button>
+                </div>
             </div>
             {open && (org.children.length > 0 || org.isAdmin) ? (
-                <div className="nb-sidebar-label ml-6 space-y-0.5">
+                <div className="nb-sidebar-label ml-7 space-y-0.5">
                     {org.children.map((child) => (
                         <Link key={child.id} href={projectHref(child)} className="nb-nav-link py-1 text-[13px]" title={child.title} aria-current={active(projectHref(child)) ? "page" : undefined}>
                             <span className="truncate">{child.title}</span>
