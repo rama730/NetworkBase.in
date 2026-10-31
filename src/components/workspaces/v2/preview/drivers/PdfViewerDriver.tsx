@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { WorkspaceNode } from "@/lib/db/schema";
 import { cn } from "@/lib/utils";
+import { DownloadLink } from "@/components/ui/download-link";
 
 /**
  * PDF.js, loaded on first use. The legacy build keeps older Safari working; the worker is bundled and served from
@@ -41,13 +42,13 @@ interface PdfBookmark {
 
 interface PdfViewerDriverProps {
   node: WorkspaceNode;
-  signedUrl: string | null;
+  fileUrl: string | null;
   projectId: string;
 }
 
 export function PdfViewerDriver({
   node,
-  signedUrl,
+  fileUrl,
   projectId,
 }: PdfViewerDriverProps): React.JSX.Element {
   const [viewMode, setViewMode] = React.useState<"native" | "canvas">("canvas");
@@ -77,9 +78,6 @@ export function PdfViewerDriver({
     return `/api/v1/workspaces/${pId}/files/${nId}/preview?v=${ver}`;
   }, [node.projectId, projectId, node.id, node.currentVersion]);
 
-  const downloadUrl = React.useMemo(() => {
-    return `${previewUrl}&download=1`;
-  }, [previewUrl]);
 
   const handleRetry = React.useCallback(() => {
     setIsRetrying(true);
@@ -108,13 +106,13 @@ export function PdfViewerDriver({
         const getDocument = pdfjs.getDocument;
 
         // HTTP 206 partial range streaming (sub-200ms page 1 render on 100MB+ files)
-        const streamTargetUrl = signedUrl || previewUrl;
+        const streamTargetUrl = fileUrl || previewUrl;
         const loadingTask = getDocument({
           url: streamTargetUrl,
           rangeChunkSize: 65536,
           disableAutoFetch: false,
           disableStream: false,
-          withCredentials: !signedUrl,
+          withCredentials: !fileUrl,
         });
 
         const doc = await loadingTask.promise;
@@ -445,14 +443,14 @@ export function PdfViewerDriver({
         </Button>
 
         <Button asChild size="sm" variant="ghost" className="h-7 px-2 text-xs">
-          <a href={downloadUrl} download={node.name} title="Download PDF">
+          <DownloadLink href={previewUrl} filename={node.name} title="Download PDF">
             <Download className="mr-1 h-3.5 w-3.5" />
             Download
-          </a>
+          </DownloadLink>
         </Button>
 
         <Button asChild size="sm" variant="outline" className="h-7 px-2 text-xs">
-          <a href={signedUrl || previewUrl} target="_blank" rel="noreferrer" title="Open full PDF viewer">
+          <a href={fileUrl || previewUrl} target="_blank" rel="noreferrer" title="Open full PDF viewer">
             <ExternalLink className="mr-1 h-3.5 w-3.5" />
             Open in tab
           </a>
@@ -512,16 +510,16 @@ export function PdfViewerDriver({
                 </p>
                 <div className="flex items-center gap-2 pt-2">
                   <Button asChild size="sm" variant="default">
-                    <a href={signedUrl || previewUrl} target="_blank" rel="noreferrer">
+                    <a href={fileUrl || previewUrl} target="_blank" rel="noreferrer">
                       <ExternalLink className="mr-1.5 h-4 w-4" />
                       Open in new tab
                     </a>
                   </Button>
                   <Button asChild size="sm" variant="outline">
-                    <a href={downloadUrl} download={node.name}>
+                    <DownloadLink href={previewUrl} filename={node.name}>
                       <Download className="mr-1.5 h-4 w-4" />
                       Download
-                    </a>
+                    </DownloadLink>
                   </Button>
                 </div>
               </div>
@@ -595,16 +593,16 @@ export function PdfViewerDriver({
                 Try canvas viewer
               </Button>
               <Button asChild size="sm" variant="outline">
-                <a href={signedUrl || previewUrl} target="_blank" rel="noreferrer">
+                <a href={fileUrl || previewUrl} target="_blank" rel="noreferrer">
                   <ExternalLink className="mr-1.5 h-4 w-4" />
                   Open in new tab
                 </a>
               </Button>
               <Button asChild size="sm" variant="ghost">
-                <a href={downloadUrl} download={node.name}>
+                <DownloadLink href={previewUrl} filename={node.name}>
                   <Download className="mr-1.5 h-4 w-4" />
                   Download
-                </a>
+                </DownloadLink>
               </Button>
             </div>
           </div>

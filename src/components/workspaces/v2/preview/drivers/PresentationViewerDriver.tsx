@@ -10,7 +10,6 @@ import {
   FileText,
   Download,
   AlertTriangle,
-  ExternalLink,
   Presentation,
   Sliders,
   ZoomIn,
@@ -24,10 +23,11 @@ import type { WorkspaceNode } from "@/lib/db/schema";
 import { cn } from "@/lib/utils";
 import { formatBytes } from "../../files-tab/folder/format";
 import { extOf } from "../../utils/fileKind";
+import { DownloadLink } from "@/components/ui/download-link";
 
 interface PresentationViewerDriverProps {
   node: WorkspaceNode;
-  signedUrl: string;
+  fileUrl: string;
 }
 
 interface SlideBox {
@@ -81,7 +81,7 @@ function parseXfrm(container: Element, slideWidthEmu: number, slideHeightEmu: nu
 
 export function PresentationViewerDriver({
   node,
-  signedUrl,
+  fileUrl,
 }: PresentationViewerDriverProps): React.JSX.Element {
   const containerRef = React.useRef<HTMLDivElement>(null);
   const [loading, setLoading] = React.useState(true);
@@ -120,7 +120,7 @@ export function PresentationViewerDriver({
 
     async function loadPresentation() {
       try {
-        const res = await fetch(signedUrl);
+        const res = await fetch(fileUrl);
         if (!res.ok) throw new Error("Couldn’t fetch presentation file");
 
         const buffer = await res.arrayBuffer();
@@ -474,7 +474,7 @@ export function PresentationViewerDriver({
       }
       blobUrlsRef.current.clear();
     };
-  }, [signedUrl]);
+  }, [fileUrl]);
 
 
 
@@ -593,8 +593,6 @@ export function PresentationViewerDriver({
 
   // Legacy .ppt binary card
   if (isLegacy) {
-    const officeViewerUrl = `https://view.officeapps.live.com/op/view.aspx?src=${encodeURIComponent(signedUrl)}`;
-    const googleViewerUrl = `https://docs.google.com/gview?url=${encodeURIComponent(signedUrl)}&embedded=true`;
 
     return (
       <div className="flex h-full w-full items-center justify-center bg-muted/10 p-6">
@@ -616,25 +614,13 @@ export function PresentationViewerDriver({
 
           <div className="mt-6 flex flex-wrap items-center justify-center gap-2.5">
             <Button asChild size="sm" className="h-9 px-4 text-xs font-medium">
-              <a href={signedUrl} download={node.name}>
+              <DownloadLink href={fileUrl} filename={node.name}>
                 <Download className="mr-1.5 h-3.5 w-3.5" />
                 Download presentation
-              </a>
+              </DownloadLink>
             </Button>
 
-            <Button asChild variant="outline" size="sm" className="h-9 px-3 text-xs">
-              <a href={officeViewerUrl} target="_blank" rel="noopener noreferrer">
-                <ExternalLink className="mr-1.5 h-3.5 w-3.5" />
-                PowerPoint Online
-              </a>
-            </Button>
 
-            <Button asChild variant="outline" size="sm" className="h-9 px-3 text-xs">
-              <a href={googleViewerUrl} target="_blank" rel="noopener noreferrer">
-                <ExternalLink className="mr-1.5 h-3.5 w-3.5" />
-                Google Slides
-              </a>
-            </Button>
           </div>
         </div>
       </div>
@@ -648,10 +634,10 @@ export function PresentationViewerDriver({
         <p className="text-sm font-semibold text-foreground">Couldn’t render presentation preview</p>
         <p className="max-w-md text-xs text-muted-foreground">{error}</p>
         <Button asChild size="sm" variant="outline" className="mt-2">
-          <a href={signedUrl} download={node.name}>
+          <DownloadLink href={fileUrl} filename={node.name}>
             <Download className="mr-1.5 h-4 w-4" />
             Download presentation
-          </a>
+          </DownloadLink>
         </Button>
       </div>
     );
@@ -770,10 +756,10 @@ export function PresentationViewerDriver({
             </Button>
 
             <Button asChild size="sm" variant="outline" className="h-7 px-2.5 text-xs">
-              <a href={signedUrl} download={node.name}>
+              <DownloadLink href={fileUrl} filename={node.name}>
                 <Download className="mr-1 h-3.5 w-3.5" />
                 <span className="hidden sm:inline">Download</span>
-              </a>
+              </DownloadLink>
             </Button>
           </div>
         </div>

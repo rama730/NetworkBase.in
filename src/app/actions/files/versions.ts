@@ -162,38 +162,6 @@ export async function listFileVersions(
 }
 
 /**
- * The preview route URL for one historical version of a file. It is an ordinary authorized endpoint
- * (access is checked when it is requested, not when this URL is built), so it carries no expiry.
- * Used by the version-history drawer's "Download" button.
- */
-export async function getVersionPreviewUrl(
-  projectId: string,
-  nodeId: string,
-  version: number,
-  download: boolean = false,
-): Promise<{ url: string }> {
-  const { user } = await requireAuthenticatedUser();
-  const actorId = user?.id ?? null;
-  await assertVersionNodeReadable(projectId, nodeId, actorId);
-
-  const version_row = await db.query.fileVersions.findFirst({
-    where: and(eq(fileVersions.nodeId, nodeId), eq(fileVersions.version, version)),
-    columns: { s3Key: true },
-  });
-  if (!version_row?.s3Key) throw new Error("Version not found");
-
-  // Sanity: the key must belong to this project.
-  const parsed = parseWorkspaceFileKey(version_row.s3Key);
-  if (!parsed || parsed.projectId !== projectId) {
-    throw new Error("Version key does not belong to this workspace");
-  }
-
-  const params = new URLSearchParams({ revision: String(version) });
-  if (download) params.set("download", "1");
-  return { url: `/api/v1/workspaces/${projectId}/files/${nodeId}/preview?${params.toString()}` };
-}
-
-/**
  * Structured error returned when a lock conflict prevents a version write.
  */
 export interface LockConflictError {

@@ -17,6 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/lib/feedback";
 import { cn } from "@/lib/utils";
+import { DownloadLink } from "@/components/ui/download-link";
 
 export interface SheetData {
   name: string;
@@ -27,7 +28,7 @@ export interface SheetData {
 interface DataGridDriverProps {
   fileName: string;
   sheets: SheetData[];
-  signedUrl?: string;
+  fileUrl?: string;
 }
 
 const TableComponent = React.forwardRef<HTMLTableElement, React.ComponentPropsWithoutRef<"table">>(
@@ -59,7 +60,7 @@ TableRowComponent.displayName = "TableRowComponent";
 export function DataGridDriver({
   fileName,
   sheets,
-  signedUrl,
+  fileUrl,
 }: DataGridDriverProps): React.JSX.Element {
   const [activeSheetIndex, setActiveSheetIndex] = React.useState(0);
   const [searchQuery, setSearchQuery] = React.useState("");
@@ -419,12 +420,12 @@ export function DataGridDriver({
             <span className="hidden sm:inline">Copy TSV</span>
           </Button>
 
-          {signedUrl && (
+          {fileUrl && (
             <Button asChild size="sm" variant="outline" className="h-7 px-2.5 text-xs">
-              <a href={signedUrl} download={fileName} title="Download file">
+              <DownloadLink href={fileUrl} filename={fileName} title="Download file">
                 <Download className="mr-1 h-3.5 w-3.5" />
                 <span className="hidden sm:inline">Download</span>
-              </a>
+              </DownloadLink>
             </Button>
           )}
         </div>

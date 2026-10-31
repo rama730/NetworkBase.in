@@ -11,6 +11,8 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { formatChatTime, formatFileSize, fullTime } from "@/lib/messaging/channel-view";
 import { messageHref } from "@/lib/messaging/routes";
 import { queryKeys } from "@/lib/query-keys";
+import { Download } from "lucide-react";
+import { DownloadLink } from "@/components/ui/download-link";
 
 /** Every file shared in the conversation, newest first, each linking to its message. */
 export function FilesView({ channelId }: { channelId: string }) {
@@ -43,6 +45,7 @@ export function FilesView({ channelId }: { channelId: string }) {
               <a href={`/api/v1/chat/attachments/${file.asset_id}`} target="_blank" rel="noopener noreferrer" className="block truncate text-[13px] font-medium hover:underline">{file.name || "File"}</a>
               <span className="nb-meta block truncate" title={fullTime(file.created_at)}>{formatFileSize(file.size)} · {file.author ?? "Someone"} · {formatChatTime(file.created_at)}</span>
             </span>
+            <DownloadLink href={`/api/v1/chat/attachments/${file.asset_id}`} filename={file.name} aria-label={`Download ${file.name}`} title="Download" className="nb-icon-button size-8 flex-none pointer-coarse:size-11"><Download size={15} aria-hidden="true" /></DownloadLink>
             <Link href={messageHref(channelId, file.seq, file.thread_root_seq)} className="flex-none text-[13px] font-medium text-primary hover:underline pointer-coarse:inline-flex pointer-coarse:min-h-11 pointer-coarse:items-center">View message</Link>
           </li>
         );

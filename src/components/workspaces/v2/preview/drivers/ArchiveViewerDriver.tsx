@@ -15,6 +15,7 @@ import { Input } from "@/components/ui/input";
 import type { WorkspaceNode } from "@/lib/db/schema";
 import { formatBytes } from "../../files-tab/folder/format";
 import * as fflate from "fflate";
+import { DownloadLink } from "@/components/ui/download-link";
 
 interface ArchiveEntry {
   path: string;
@@ -26,12 +27,12 @@ interface ArchiveEntry {
 
 interface ArchiveViewerDriverProps {
   node: WorkspaceNode;
-  signedUrl: string;
+  fileUrl: string;
 }
 
 export function ArchiveViewerDriver({
   node,
-  signedUrl,
+  fileUrl,
 }: ArchiveViewerDriverProps): React.JSX.Element {
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
@@ -45,7 +46,7 @@ export function ArchiveViewerDriver({
 
     async function loadArchive() {
       try {
-        const res = await fetch(signedUrl);
+        const res = await fetch(fileUrl);
         if (!res.ok) throw new Error("Couldn’t download archive");
         const buffer = await res.arrayBuffer();
 
@@ -95,7 +96,7 @@ export function ArchiveViewerDriver({
     return () => {
       active = false;
     };
-  }, [signedUrl]);
+  }, [fileUrl]);
 
   const filteredEntries = React.useMemo(() => {
     if (!searchQuery.trim()) return entries;
@@ -135,10 +136,10 @@ export function ArchiveViewerDriver({
         </div>
 
         <Button asChild size="sm" variant="outline" className="h-7 px-2 text-xs">
-          <a href={signedUrl} download={node.name}>
+          <DownloadLink href={fileUrl} filename={node.name}>
             <Download className="mr-1 h-3.5 w-3.5" />
             Download ZIP
-          </a>
+          </DownloadLink>
         </Button>
       </div>
 
@@ -155,10 +156,10 @@ export function ArchiveViewerDriver({
             <p className="text-sm font-semibold">Archive preview unavailable</p>
             <p className="text-xs text-muted-foreground">{error}</p>
             <Button asChild size="sm" variant="default" className="mt-2">
-              <a href={signedUrl} download={node.name}>
+              <DownloadLink href={fileUrl} filename={node.name}>
                 <Download className="mr-1.5 h-4 w-4" />
                 Download archive
-              </a>
+              </DownloadLink>
             </Button>
           </div>
         ) : filteredEntries.length === 0 ? (

@@ -47,7 +47,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import { getWorkspaceNodes } from "@/app/actions/files/nodes";
-import { getFilePreviewUrl } from "@/app/actions/files/content";
 import { useFilesViews } from "../FilesViews";
 import { FilesViewsMenu, FilesHeaderSlot } from "../FilesHeader";
 import type { TaskFileRole } from "@/lib/workspaces/task-file-intelligence";
@@ -85,6 +84,7 @@ import {
 } from "../upload/FilesTabUploadModal";
 import { validateUploadSelection } from "@/lib/files/upload-validator";
 import { extractFoldersFromDataTransfer } from "@/lib/files/folder-drop";
+import { downloadWorkspaceNode } from "../file/downloadWorkspaceNode";
 
 const FilesTabUploadModal = dynamic(() => import("../upload/FilesTabUploadModal").then((mod) => mod.FilesTabUploadModal), { ssr: false });
 const TaskSearchPicker = dynamic(() => import("../picker/TaskSearchPicker").then((mod) => mod.TaskSearchPicker), { ssr: false });
@@ -825,8 +825,7 @@ export function FolderListView({
 
 
   const downloadNode = React.useCallback(async (node: FolderListRowNode) => {
-    try { const result = await getFilePreviewUrl(projectId, node.id, true); const anchor = document.createElement("a"); anchor.href = result.url; anchor.download = node.name; anchor.rel = "noopener noreferrer"; anchor.click(); }
-    catch (error) { toast.error(feedbackError(error instanceof Error ? error.message : "Download failed", "Download failed")); }
+    await downloadWorkspaceNode(projectId, node.id, node.name);
   }, [projectId]);
 
   const copyLink = React.useCallback(async (node: FolderListRowNode) => {

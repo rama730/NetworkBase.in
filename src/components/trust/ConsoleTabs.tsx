@@ -15,6 +15,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { EmptyState } from '@/components/ui/EmptyState'
 import type { readActive, readAudit, readVerification } from '@/lib/trust/console'
 import { ACTION_LABEL, caseLabel, ruleLabel, type ModerationActionKind } from '@/lib/trust/rules'
+import { saveBlob } from '@/lib/download'
 
 const TH = 'px-2 py-2 text-left text-[12px] font-medium text-muted-foreground'
 const TD = 'px-2 py-2.5 align-top text-[13px]'
@@ -162,10 +163,7 @@ export function AuditTable({ data, staff, filters }: { data: Awaited<ReturnType<
         if (stepUp.needs(result, () => void exportCsv())) return
         if (!result.success) return void toast(result.error)
         const lines = [['time', 'staff', 'action', 'case', 'rule', 'note'], ...rows.map((r) => [r.created_at, r.staff, r.kind, r.case_number ? caseLabel(r.case_number) : '', r.data.rule ?? '', r.data.body ?? r.data.note ?? r.data.reason ?? ''])]
-        const url = URL.createObjectURL(new Blob([lines.map((l) => l.map(csvCell).join(',')).join('\n')], { type: 'text/csv' }))
-        const a = Object.assign(document.createElement('a'), { href: url, download: `trust-audit-${new Date().toISOString().slice(0, 10)}.csv` })
-        a.click()
-        URL.revokeObjectURL(url)
+        saveBlob(new Blob([lines.map((l) => l.map(csvCell).join(',')).join('\n')], { type: 'text/csv' }), `trust-audit-${new Date().toISOString().slice(0, 10)}.csv`)
     }
     const older = new URLSearchParams({ tab: 'insights', section: 'audit', ...Object.fromEntries(Object.entries(filters).filter(([, v]) => v)) as Record<string, string>, ...(data.before ? { before: String(data.before) } : {}) })
     const filterForm = (

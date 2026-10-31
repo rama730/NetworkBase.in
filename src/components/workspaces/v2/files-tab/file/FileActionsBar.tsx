@@ -43,6 +43,7 @@ import { useFilesViews } from "../FilesViews";
 import { useFilesStore } from "@/stores/filesStore";
 import { Star, FolderInput, Trash2 } from "lucide-react";
 import { isInternalTaskWorkingFilesNode } from "@/lib/files/task-working-files";
+import { downloadWorkspaceNode } from "./downloadWorkspaceNode";
 
 const TaskSearchPicker = dynamic(() => import("../picker/TaskSearchPicker").then((mod) => mod.TaskSearchPicker), { ssr: false });
 const RevisionControlModal = dynamic(() => import("@/components/ui/RevisionControlModal").then((mod) => mod.RevisionControlModal), { ssr: false });
@@ -301,23 +302,8 @@ export function FileActionsBar({
     if (!projectId || !nodeId || downloading) return;
     setDownloading(true);
     try {
-      const { getFilePreviewUrl, getWorkspaceFileContent } = await import("@/app/actions/files/content");
-      const node = useFilesStore.getState().byProjectId[projectId]?.nodesById[nodeId];
-      let url: string;
-      let local = false;
-      if (node?.s3Key) url = (await getFilePreviewUrl(projectId, nodeId, true)).url;
-      else {
-        const content = await getWorkspaceFileContent(projectId, nodeId);
-        url = URL.createObjectURL(new Blob([content], { type: mimeType || "text/plain" }));
-        local = true;
-      }
-      const anchor = document.createElement("a");
-      anchor.href = url;
-      anchor.download = fileName || "download";
-      anchor.rel = "noopener";
-      anchor.click();
-      if (local) setTimeout(() => URL.revokeObjectURL(url), 30_000);
-    } catch (error) { toast.error(feedbackError(error instanceof Error ? error.message : "Couldn’t download file", "Couldn’t download file")); }
+      await downloadWorkspaceNode(projectId, nodeId, fileName);
+    }
     finally { setDownloading(false); }
   }
   async function copyLink() {

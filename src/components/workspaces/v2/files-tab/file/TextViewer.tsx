@@ -56,6 +56,7 @@ import { getWorkspaceFileContent } from "@/app/actions/files/content";
 import { listFileVersions } from "@/app/actions/files/versions";
 import type { BrowserFileLease, FileLeaseView } from "@/lib/files/file-lease-client";
 import type { FileLeaseStatus } from "../hooks/useFileLease";
+import { saveBlob } from "@/lib/download";
 
 const RevisionControlModal = dynamic(() => import("@/components/ui/RevisionControlModal").then((mod) => mod.RevisionControlModal), { ssr: false });
 
@@ -699,12 +700,7 @@ export function TextViewer({
       {saveError && <div role="alert" className="border-b border-red-200 p-3 text-xs text-red-700 dark:border-red-900 dark:text-red-300">
         <p>{saveError} Your draft is still here.</p>
         <Button variant="outline" size="sm" className="mt-2" onClick={() => {
-          const url = URL.createObjectURL(new Blob([content], { type: node.mimeType || "text/plain" }));
-          const link = document.createElement("a");
-          link.href = url;
-          link.download = node.name;
-          link.click();
-          window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+          saveBlob(new Blob([content], { type: node.mimeType || "text/plain" }), node.name);
         }}>Download draft</Button>
       </div>}
       {leaseStatus === "lost" || leaseStatus === "conflict" ? (

@@ -16,6 +16,7 @@ import {
 } from '@/lib/messaging/media-metadata';
 import { attachmentRetryUrl } from '@/lib/messaging/attachment-ttl';
 import { cn } from '@/lib/utils';
+import { DownloadLink } from '@/components/ui/download-link';
 import dynamic from 'next/dynamic';
 import type { MediaItem } from '@/components/ui/media-viewer';
 import { formatFileSize } from '@/lib/messaging/channel-view';
@@ -378,15 +379,15 @@ function FileAttachmentCardV2({
         </>
     );
     const download = (
-        <a
+        <DownloadLink
             href={attachment.url}
-            download={attachment.filename}
+            filename={attachment.filename}
             className="nb-icon-button size-9 shrink-0 pointer-coarse:size-11"
             aria-label={`Download ${attachment.filename}`}
             title="Download"
         >
             <Download className="h-4 w-4" />
-        </a>
+        </DownloadLink>
     );
 
     if (onPreview) {
@@ -424,15 +425,13 @@ export function PdfViewerV2({ attachment }: { attachment: { localUrl?: string; u
             <div className="flex h-full flex-col items-center justify-center p-4 text-center text-foreground">
                 <File className="mb-2 h-12 w-12 text-muted-foreground" />
                 <p className="mb-4 text-sm font-medium text-muted-foreground">Security restrictions prevent inline viewing.</p>
-                <a
+                <DownloadLink
                     href={attachment.url || attachment.localUrl || '#'}
-                    download={attachment.filename}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                    filename={attachment.filename}
                     className="inline-flex h-[var(--ui-control-height)] items-center rounded-md bg-primary px-4 text-[13px] font-medium text-primary-foreground transition-colors hover:bg-[var(--primary-hover)]"
                 >
                     Download PDF
-                </a>
+                </DownloadLink>
             </div>
         );
     }

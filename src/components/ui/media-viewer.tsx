@@ -6,6 +6,7 @@ import { Download, VolumeX, Volume2, X, ChevronLeft, ChevronRight, Image as Imag
 import ResolvedVideoPlayer from '@/components/messages/parts/resolved-video-player';
 import { PdfViewerV2 } from '@/components/messages/parts/message-attachments'; 
 import { cn } from '@/lib/utils';
+import { DownloadLink } from '@/components/ui/download-link';
 
 export interface MediaItem {
     id: string;
@@ -208,14 +209,14 @@ export function MediaViewerModal({
                         ) : null}
                     </div>
                     <div className="flex items-center gap-2">
-                        <a
+                        <DownloadLink
                             href={currentAttachment.url}
-                            download={currentAttachment.filename}
+                            filename={currentAttachment.filename}
                             className="rounded-full bg-white/10 p-2 transition-colors hover:bg-white/20"
                             aria-label="Download media"
                         >
                             <Download className="h-5 w-5" />
-                        </a>
+                        </DownloadLink>
                         {currentAttachment.type === 'image' ? (
                             <div className="flex items-center gap-1 rounded-full bg-white/10 px-2 py-1">
                                 <button

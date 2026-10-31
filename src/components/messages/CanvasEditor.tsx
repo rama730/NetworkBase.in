@@ -21,6 +21,7 @@ import {
 import { normalizeSafeExternalUrl, sameOriginPath } from "@/lib/messaging/safe-links";
 import { canvasAssetId, canvasAssetUrl } from "@/lib/messaging/canvas-store";
 import { copyWithToast } from "@/lib/clipboard";
+import { DownloadLink } from "@/components/ui/download-link";
 
 type ImageSize = "s" | "m" | "full";
 
@@ -276,7 +277,7 @@ export function CanvasBody({ editor, channelId }: { editor: Editor | null; chann
                   ))}
                   <DropdownMenuItem onSelect={() => window.open(String(node.attrs.src), "_blank", "noopener")}><ExternalLink /> Open original</DropdownMenuItem>
                   <DropdownMenuItem asChild>
-                    <a href={String(node.attrs.src)} download={String(node.attrs.alt ?? "image")}><Download /> Download</a>
+                    <DownloadLink href={String(node.attrs.src)} filename={String(node.attrs.alt || "image")}><Download /> Download</DownloadLink>
                   </DropdownMenuItem>
                 </>
               ) : (

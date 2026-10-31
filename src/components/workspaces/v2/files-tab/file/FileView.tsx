@@ -450,8 +450,8 @@ export function FileView({
     return `/api/v1/workspaces/${encodeURIComponent(projectId)}/files/${encodeURIComponent(node.id)}/preview?v=${encodeURIComponent(String(node.currentVersion))}`;
   }, [projectId, node.id, node.s3Key, node.currentVersion]);
 
-  const signedUrl = deterministicPreviewUrl;
-  const signedUrlError = null;
+  const fileUrl = deterministicPreviewUrl;
+  const fileUrlError = null;
 
   // ── Markdown content fetch ──────────────────────────────────────────
   // Only needed for the rendered view (`mode === "view"` + markdown
@@ -501,11 +501,11 @@ export function FileView({
       leaveEditMode("raw");
       return;
     }
-    // Non-text/markdown: "Raw" opens the signed URL in a new tab, matching
+    // Non-text/markdown: "Raw" opens the file in a new tab, matching
     // GitHub's behaviour. Mint a fresh URL if we don't have one cached.
     (async () => {
       try {
-        let url = signedUrl;
+        let url = fileUrl;
         if (!url) {
           const res = await getFilePreviewUrl(projectId, node.id);
           url = res?.url ?? null;
@@ -521,7 +521,7 @@ export function FileView({
         toast.error(feedbackError(message, "Action couldn’t finish"));
       }
     })();
-  }, [textLike, signedUrl, projectId, node.id, mode, editorDirty, leaveEditMode]);
+  }, [textLike, fileUrl, projectId, node.id, mode, editorDirty, leaveEditMode]);
 
   const onEdit = React.useCallback(() => {
     if (!canEdit) return;
@@ -658,8 +658,8 @@ export function FileView({
                   textLike,
                   canEdit: canEdit && !restoringActive,
                   mode,
-                  signedUrl,
-                  signedUrlError,
+                  fileUrl,
+                  fileUrlError,
                   mdContent,
                   mdError,
                   onRetry: () => { setPreviewAttempt(value => value + 1); },
@@ -758,8 +758,8 @@ interface PreviewRegionProps {
   textLike: boolean;
   canEdit: boolean;
   mode: FileViewMode;
-  signedUrl: string | null;
-  signedUrlError: string | null;
+  fileUrl: string | null;
+  fileUrlError: string | null;
   mdContent: string | null;
   mdError: string | null;
   onRetry: () => void;
@@ -831,10 +831,10 @@ function renderPreviewRegion(p: PreviewRegionProps): React.JSX.Element {
   // Text default view: `TextViewer` in view mode (read-only with line numbers).
   if (p.kind === "text") {
     const ext = extOf(p.node.name);
-    if ((ext === "csv" || ext === "tsv") && p.signedUrl && p.mode === "view") {
+    if ((ext === "csv" || ext === "tsv") && p.fileUrl && p.mode === "view") {
       return (
         <div className="flex-1 min-h-0">
-          <UniversalPreviewEngine node={p.node} signedUrl={p.signedUrl} projectId={p.projectId} />
+          <UniversalPreviewEngine node={p.node} fileUrl={p.fileUrl} projectId={p.projectId} />
         </div>
       );
     }
@@ -855,27 +855,27 @@ function renderPreviewRegion(p: PreviewRegionProps): React.JSX.Element {
   if (p.kind === "pdf") {
     return (
       <div className="flex-1 min-h-0">
-        <AssetPreview node={p.node} signedUrl={null} projectId={p.projectId} />
+        <AssetPreview node={p.node} fileUrl={null} projectId={p.projectId} />
       </div>
     );
   }
 
   if (isAssetKind(p.kind)) {
-    if (p.signedUrlError) {
-      return <PreviewError message={p.signedUrlError} onRetry={p.onRetry} />;
+    if (p.fileUrlError) {
+      return <PreviewError message={p.fileUrlError} onRetry={p.onRetry} />;
     }
-    if (!p.signedUrl) {
+    if (!p.fileUrl) {
       return <PreviewLoading />;
     }
     return (
       <div className="flex-1 min-h-0">
-        <AssetPreview node={p.node} signedUrl={p.signedUrl} projectId={p.projectId} />
+        <AssetPreview node={p.node} fileUrl={p.fileUrl} projectId={p.projectId} />
       </div>
     );
   }
 
   // Everything else is an unpreviewable binary.
-  return <BinaryFallback node={p.node} signedUrl={p.signedUrl} />;
+  return <BinaryFallback node={p.node} fileUrl={p.fileUrl} />;
 }
 
 // ---------------------------------------------------------------------------
@@ -969,7 +969,7 @@ function EmptyMediaPlaceholder({
 
 interface BinaryFallbackProps {
   node: WorkspaceNode;
-  signedUrl: string | null;
+  fileUrl: string | null;
 }
 
 /**
@@ -984,12 +984,12 @@ interface BinaryFallbackProps {
  */
 function BinaryFallback({
   node,
-  signedUrl,
+  fileUrl,
 }: BinaryFallbackProps): React.JSX.Element {
-  if (signedUrl) {
+  if (fileUrl) {
     return (
       <div data-testid="files-tab-file-view-binary-fallback" className="flex flex-1 flex-col h-full w-full">
-        <UniversalPreviewEngine node={node} signedUrl={signedUrl} projectId={node.projectId || ""} />
+        <UniversalPreviewEngine node={node} fileUrl={fileUrl} projectId={node.projectId || ""} />
       </div>
     );
   }
@@ -1006,9 +1006,9 @@ function BinaryFallback({
         This file type doesn’t have an inline preview. Open it in a new
         tab to view.
       </div>
-      {signedUrl ? (
+      {fileUrl ? (
         <Button asChild size="sm" variant="outline">
-          <a href={signedUrl} target="_blank" rel="noopener noreferrer">
+          <a href={fileUrl} target="_blank" rel="noopener noreferrer">
             Open in new tab
           </a>
         </Button>

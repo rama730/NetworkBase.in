@@ -31,6 +31,7 @@ import { queryKeys } from "@/lib/query-keys";
 import type { MfaFactor, SecurityData } from "@/types/settingsTypes";
 import SecurityStepUpDialog from "@/components/settings/SecurityStepUpDialog";
 import { formatCalendarDate, formatDateTime } from "@/lib/ui/date-formatting";
+import { saveBlob } from "@/lib/download";
 
 interface MfaSetupProps {
   initialFactors?: MfaFactor[];
@@ -282,14 +283,7 @@ export function MfaSetup({ initialFactors, recoveryCodes }: MfaSetupProps) {
   const handleDownloadRecoveryCodes = () => {
     if (!revealedRecoveryCodes) return;
     const blob = new Blob([formatRecoveryCodesForExport(revealedRecoveryCodes.codes)], { type: "text/plain;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = "networkbase-recovery-codes.txt";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+    saveBlob(blob, "networkbase-recovery-codes.txt");
   };
 
   return (

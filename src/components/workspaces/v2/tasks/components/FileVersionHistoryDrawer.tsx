@@ -34,11 +34,12 @@ import {
 import { cn } from "@/lib/utils";
 import type { FileVersion, WorkspaceNode } from "@/lib/db/schema";
 import {
-  getVersionPreviewUrl,
   listFileVersionsPage,
   restoreFileVersion,
 } from "@/app/actions/files/versions";
 import { formatBytes } from "@/components/workspaces/v2/files-tab/folder/format";
+import { downloadFile, workspaceFileUrl } from "@/lib/download";
+import { versionedFilename } from "@/lib/files/versioned-filename";
 
 function formatDate(date: Date | string | null | undefined): string {
   if (!date) return "—";
@@ -138,22 +139,7 @@ export function FileVersionHistoryDrawer({
       const actionKey = `dl:${version.id}`;
       setPendingAction(actionKey);
       try {
-        const { url } = await getVersionPreviewUrl(
-          projectId,
-          node.id,
-          version.version,
-        );
-        const anchor = document.createElement("a");
-        anchor.href = url;
-        anchor.rel = "noopener noreferrer";
-        anchor.download = `${node.name}.v${version.version}`;
-        document.body.appendChild(anchor);
-        anchor.click();
-        anchor.remove();
-      } catch (error) {
-        const message =
-          error instanceof Error ? error.message : "Download failed";
-        toast.error(feedbackError(message, "Action couldn’t finish"));
+        await downloadFile(workspaceFileUrl(projectId, node.id, version.version), { filename: versionedFilename(node.name, version.version) });
       } finally {
         setPendingAction(null);
       }

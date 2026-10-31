@@ -12,7 +12,6 @@ import {
   FileText,
   AlertTriangle,
   RefreshCw,
-  ExternalLink,
   ListTree,
   BookOpen,
 } from "lucide-react";
@@ -23,15 +22,16 @@ import type { WorkspaceNode } from "@/lib/db/schema";
 import { cn } from "@/lib/utils";
 import { formatBytes } from "../../files-tab/folder/format";
 import { extOf } from "../../utils/fileKind";
+import { DownloadLink } from "@/components/ui/download-link";
 
 interface DocxViewerDriverProps {
   node: WorkspaceNode;
-  signedUrl: string;
+  fileUrl: string;
 }
 
 export function DocxViewerDriver({
   node,
-  signedUrl,
+  fileUrl,
 }: DocxViewerDriverProps): React.JSX.Element {
   const containerRef = React.useRef<HTMLDivElement>(null);
   const bufferCacheRef = React.useRef<{ url: string; buffer: ArrayBuffer } | null>(null);
@@ -71,7 +71,7 @@ export function DocxViewerDriver({
 
     try {
       let buffer: ArrayBuffer;
-      if (bufferCacheRef.current && bufferCacheRef.current.url === signedUrl) {
+      if (bufferCacheRef.current && bufferCacheRef.current.url === fileUrl) {
         buffer = bufferCacheRef.current.buffer;
       } else {
         if (abortControllerRef.current) {
@@ -80,7 +80,7 @@ export function DocxViewerDriver({
         const controller = new AbortController();
         abortControllerRef.current = controller;
 
-        const res = await fetch(signedUrl, { signal: controller.signal });
+        const res = await fetch(fileUrl, { signal: controller.signal });
         if (!res.ok) throw new Error(`HTTP ${res.status}: Failed to download document`);
 
         buffer = await res.arrayBuffer();
@@ -90,7 +90,7 @@ export function DocxViewerDriver({
           throw new Error("File exceeds client-side preview safety limit (60 MB). Download to view.");
         }
 
-        bufferCacheRef.current = { url: signedUrl, buffer };
+        bufferCacheRef.current = { url: fileUrl, buffer };
       }
 
       await docx.renderAsync(buffer, containerRef.current, undefined, {
@@ -151,7 +151,7 @@ export function DocxViewerDriver({
       setError(msg);
       setLoading(false);
     }
-  }, [isLegacy, signedUrl, viewMode]);
+  }, [isLegacy, fileUrl, viewMode]);
 
   React.useEffect(() => {
     renderDocx();
@@ -388,8 +388,6 @@ export function DocxViewerDriver({
   // Legacy Document View (.doc, .rtf, .odt)
   if (isLegacy) {
     const formatName = ext === "doc" ? "Word 97-2003 Document (.doc)" : ext === "rtf" ? "Rich Text Document (.rtf)" : "OpenDocument Text (.odt)";
-    const officeViewerUrl = `https://view.officeapps.live.com/op/view.aspx?src=${encodeURIComponent(signedUrl)}`;
-    const googleViewerUrl = `https://docs.google.com/gview?url=${encodeURIComponent(signedUrl)}&embedded=true`;
 
     return (
       <div className="flex h-full w-full items-center justify-center bg-muted/10 p-6">
@@ -411,27 +409,13 @@ export function DocxViewerDriver({
 
           <div className="mt-6 flex flex-wrap items-center justify-center gap-2.5">
             <Button asChild size="sm" className="h-9 px-4 text-xs font-medium">
-              <a href={signedUrl} download={node.name}>
+              <DownloadLink href={fileUrl} filename={node.name}>
                 <Download className="mr-1.5 h-3.5 w-3.5" />
                 Download document
-              </a>
+              </DownloadLink>
             </Button>
 
-            {ext === "doc" && (
-              <Button asChild variant="outline" size="sm" className="h-9 px-3 text-xs">
-                <a href={officeViewerUrl} target="_blank" rel="noopener noreferrer">
-                  <ExternalLink className="mr-1.5 h-3.5 w-3.5" />
-                  Office Online
-                </a>
-              </Button>
-            )}
 
-            <Button asChild variant="outline" size="sm" className="h-9 px-3 text-xs">
-              <a href={googleViewerUrl} target="_blank" rel="noopener noreferrer">
-                <ExternalLink className="mr-1.5 h-3.5 w-3.5" />
-                Google Docs
-              </a>
-            </Button>
           </div>
         </div>
       </div>
@@ -581,10 +565,10 @@ export function DocxViewerDriver({
           </Button>
 
           <Button asChild size="sm" variant="outline" className="h-7 px-2 text-xs">
-            <a href={signedUrl} download={node.name}>
+            <DownloadLink href={fileUrl} filename={node.name}>
               <Download className="mr-1 h-3.5 w-3.5" />
               Download
-            </a>
+            </DownloadLink>
           </Button>
         </div>
       </div>
@@ -652,9 +636,9 @@ export function DocxViewerDriver({
             <p className="text-sm font-semibold">Couldn’t preview document</p>
             <p className="text-xs text-muted-foreground">{error}</p>
             <Button asChild size="sm" className="mt-2">
-              <a href={signedUrl} download={node.name}>
+              <DownloadLink href={fileUrl} filename={node.name}>
                 <Download className="mr-1.5 h-3.5 w-3.5" /> Download file
-              </a>
+              </DownloadLink>
             </Button>
           </div>
         )}

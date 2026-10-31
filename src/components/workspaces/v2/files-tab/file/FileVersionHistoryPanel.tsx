@@ -33,37 +33,19 @@ import {
 import { cn } from "@/lib/utils";
 import { logger } from "@/lib/logger";
 import { useFileVersions } from "@/hooks/useFileVersions";
-import { getVersionPreviewUrl } from "@/app/actions/files/versions";
 import { useFilesStore } from "@/stores/filesStore";
 import type { FileVersion } from "@/lib/db/schema";
 import { VersionPill } from "../VersionPill";
 import { FileInspectorPanelHeader } from "./FileInspectorPanelHeader";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { formatBytes, formatFileActor } from "../folder/format";
+import { downloadFile, workspaceFileUrl } from "@/lib/download";
+import { versionedFilename } from "@/lib/files/versioned-filename";
 
 type FileVersionWithUploader = FileVersion & {
   uploadedByName?: string | null;
   uploadedByUsername?: string | null;
 };
-
-// In-memory cache for presigned download URLs with 4-minute TTL
-const signedUrlCache = new Map<string, { url: string; expiresAt: number }>();
-
-async function getCachedVersionSignedUrl(
-  projectId: string,
-  nodeId: string,
-  version: number,
-): Promise<string> {
-  const cacheKey = `${projectId}:${nodeId}:${version}`;
-  const cached = signedUrlCache.get(cacheKey);
-  const now = Date.now();
-  if (cached && cached.expiresAt > now) {
-    return cached.url;
-  }
-  const { url } = await getVersionPreviewUrl(projectId, nodeId, version);
-  signedUrlCache.set(cacheKey, { url, expiresAt: now + 240_000 });
-  return url;
-}
 
 /** Formats timestamp to date and year only (e.g. "22 Jun 2026"), omitting time. */
 function formatFileVersionDate(value: Date | string | null | undefined): string {
@@ -198,23 +180,7 @@ export function FileVersionHistoryPanel({
       const actionKey = `dl:${version.id}`;
       setPendingAction(actionKey);
       try {
-        const url = await getCachedVersionSignedUrl(
-          projectId,
-          nodeId,
-          version.version,
-        );
-        const anchor = document.createElement("a");
-        anchor.href = url;
-        anchor.rel = "noopener noreferrer";
-        anchor.download = `${nodeName}.v${version.version}`;
-        document.body.appendChild(anchor);
-        anchor.click();
-        anchor.remove();
-      } catch (err) {
-        signedUrlCache.delete(`${projectId}:${nodeId}:${version.version}`);
-        const message =
-          err instanceof Error ? err.message : "Download failed";
-        toast.error(feedbackError(message, "Action couldn’t finish"));
+        await downloadFile(workspaceFileUrl(projectId, nodeId, version.version), { filename: versionedFilename(nodeName, version.version) });
       } finally {
         setPendingAction(null);
       }
