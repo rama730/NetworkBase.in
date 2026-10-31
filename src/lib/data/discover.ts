@@ -1,3 +1,4 @@
+import { discoverListedSql } from '@/lib/discover/listed-sql';
 import { and, asc, desc, eq, ilike, inArray, isNull, lte, ne, or, sql, type SQL } from 'drizzle-orm';
 import { canonicalSkillKey } from '@/lib/skills/matching';
 import { normalizeSkillLookup } from '@/lib/skills/normalization';
@@ -334,12 +335,7 @@ export const buildBaseConditions = (
             ${workspaces.createdAt} <= now() - interval '7 days'
             AND (SELECT count(*) FROM workspace_members m WHERE m.workspace_id = ${workspaces.id}) >= 3
         ))`,
-        // Report §30.3, §30.5: hidden by a platform admin, suspended or deleting projects and orgs (and the child
-        // projects of a suspended or deleting org) leave Discover and search; an archived org leaves the feed.
-        sql<boolean>`${workspaces.discoverHiddenAt} IS NULL AND ${workspaces.suspendedAt} IS NULL AND ${workspaces.deletionScheduledAt} IS NULL
-            AND NOT (${workspaces.kind} = 'organization' AND ${workspaces.status} = 'archived')
-            AND (${workspaces.parentId} IS NULL OR NOT EXISTS (SELECT 1 FROM workspaces o WHERE o.id = ${workspaces.parentId}
-                AND (o.suspended_at IS NOT NULL OR o.deletion_scheduled_at IS NOT NULL)))`,
+        discoverListedSql(),
     ];
     const show = showKeeps(filters.show ?? 'all');
     if (show.projectKind) conditions.push(eq(workspaces.kind, show.projectKind as 'workspace' | 'organization'));

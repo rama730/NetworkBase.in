@@ -1,6 +1,7 @@
 import { and, desc, eq, inArray, isNull, lte, ne, or, sql } from 'drizzle-orm'
 
 import { db } from '@/lib/db'
+import { discoverListedSql } from '@/lib/discover/listed-sql'
 import { isMissingRelationError } from '@/lib/db/errors'
 import { connections, profiles, workspaceOpenRoles, workspaces, workspaceMembers } from '@/lib/db/schema'
 import { logger } from '@/lib/logger'
@@ -152,6 +153,7 @@ export async function queryAndCachePublicWorkspacesFeed(limit: number, cursor: P
             and(
                 // Literal values, written exactly like the 0195 partial index's predicate, so the planner uses it.
                 sql<boolean>`${workspaces.deletedAt} IS NULL AND ${workspaces.visibility} IN ('public', 'unlisted') AND ${workspaces.status} <> 'draft'`,
+                discoverListedSql(),
                 // A deleted account's projects leave the feed with it.
                 isNull(profiles.deletedAt),
                 // Microsecond-exact: a millisecond cursor would skip rows created in the same millisecond.
