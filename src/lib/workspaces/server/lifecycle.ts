@@ -2447,15 +2447,6 @@ export async function toggleWorkspaceFollowAction(
 }
 
 
-// Retired: views go through POST /api/v1/workspaces/[id]/view. Kept for one release so tabs open across the deploy
-// don't throw; delete with its wrapper in actions/workspace/index.ts.
-export async function incrementWorkspaceViewAction(
-  _projectId: string,
-): Promise<{ success: boolean; viewCount?: number; error?: string }> {
-  return { success: true };
-}
-
-
 // Helper: Map wizard status to database status
 function mapStatus(
   status?: string,
