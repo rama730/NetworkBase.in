@@ -27,6 +27,33 @@ describe("private object response", () => {
     assert.doesNotMatch(value, /[\r\n]/);
   });
 
+  // A raw non-Latin-1 name makes `new Headers` throw, which turned the whole response into a 500.
+  it("builds a valid header for any filename", () => {
+    const names = ["日本語.pdf", "it’s.pdf", "a—b.pdf", "résumé.pdf", "📄 notes.txt", "\ud83d.txt", "x".repeat(300) + "📄", "back\\slash\t.txt", "   "];
+    for (const name of names) {
+      const value = safeContentDisposition(name, "attachment");
+      assert.doesNotThrow(() => new Headers({ "Content-Disposition": value }), name);
+      assert.match(value, /^attachment; filename="[\x20-\x7e]*"; filename\*=UTF-8''[A-Za-z0-9%!#$&+\-.^_`|~]+$/, name);
+    }
+    assert.match(safeContentDisposition("日本語.pdf", "attachment"), /filename\*=UTF-8''%E6%97%A5%E6%9C%AC%E8%AA%9E\.pdf$/);
+    assert.match(safeContentDisposition("it's (1).pdf", "inline"), /filename\*=UTF-8''it%27s%20%281%29\.pdf$/);
+    assert.match(safeContentDisposition("   ", "attachment"), /filename="download"/);
+  });
+
+  it("serves a non-English filename instead of failing", async () => {
+    const res = await streamPrivateObject({
+      request: new Request("https://app.test/f", { method: "HEAD" }),
+      signedUrl: "https://storage.test/f",
+      totalSize: 3,
+      mimeType: "application/pdf",
+      filename: "日本語 it’s.pdf",
+      disposition: "attachment",
+      etag: '"x"',
+    });
+    assert.equal(res.status, 200);
+    assert.match(res.headers.get("content-disposition")!, /^attachment; filename="___ it_s\.pdf";/);
+  });
+
   it("streams exactly the authorized number of bytes", async () => {
     const body = new ReadableStream<Uint8Array>({
       start(controller) {

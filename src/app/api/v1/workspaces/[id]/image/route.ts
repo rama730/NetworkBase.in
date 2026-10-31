@@ -86,6 +86,8 @@ export async function GET(
             .limit(1),
     ]);
 
+    // A cover whose bytes never passed verification is not served, even as a download.
+    if (!asset) return jsonError("Not found", 404, "NOT_FOUND");
     if (signError || !signedData?.signedUrl) {
         logger.warn("project.image_route_presign_failed", {
             module: "projects",
@@ -97,17 +99,11 @@ export async function GET(
         return jsonError("Not found", 404, "NOT_FOUND");
     }
 
-    let totalSize = asset?.size ?? null;
-    if (totalSize === null) {
-        const { data: info } = await admin.storage.from(project.bucket).info(project.key);
-        totalSize = typeof info?.size === "number" ? info.size : null;
-    }
-
     return streamPrivateObject({
         request,
         signedUrl: signedData.signedUrl,
-        totalSize,
-        mimeType: asset?.mimeType || "application/octet-stream",
+        totalSize: asset.size,
+        mimeType: asset.mimeType,
         filename: project.key.split("/").pop() || "project-cover",
         disposition: "inline",
         etag,

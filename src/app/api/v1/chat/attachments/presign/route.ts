@@ -70,7 +70,7 @@ export async function POST(request: Request) {
       metadata: { channelId, clientUploadId, filename, original_filename: originalFilename, width: dimensions?.width ?? null, height: dimensions?.height ?? null },
     });
     const admin = await createAdminClient();
-    const { data, error } = await admin.storage.from(BUCKET).createSignedUploadUrl(storagePath, { upsert: true });
+    const { data, error } = await admin.storage.from(BUCKET).createSignedUploadUrl(storagePath, { upsert: false });
     if (error || !data?.signedUrl) return jsonError("Couldn’t generate upload session", 503, "UNAVAILABLE");
 
     logApiRoute(request, { requestId, action: "chat.attachments.presign", userId: user.id, startedAt, success: true, status: 200 });
