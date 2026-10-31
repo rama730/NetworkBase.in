@@ -73,6 +73,13 @@ test("a file not served by this app is saved directly", async () => {
   assert.equal(links[0]!.href, "https://other.test/f.png");
 });
 
+test("a local preview of a file still uploading saves as it is", async () => {
+  const calls = stubFetch(200);
+  assert.equal(await downloadFile("blob:https://app.test/abc", { filename: "f.pdf" }), true);
+  assert.equal(calls.length, 0);
+  assert.equal(links[0]!.href, "blob:https://app.test/abc");
+});
+
 test("each failure says what happened, in reviewed copy", () => {
   for (const status of [401, 403, 404, 410, 413, 429, 500]) {
     const message = downloadFailureMessage(status);
