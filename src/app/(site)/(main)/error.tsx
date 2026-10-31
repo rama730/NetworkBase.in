@@ -2,6 +2,8 @@
 
 import { AlertTriangle, RefreshCw } from 'lucide-react'
 
+import { useReportBoundaryError } from '@/lib/observability/use-report-boundary-error'
+
 export default function MainError({
     error,
     reset,
@@ -9,6 +11,8 @@ export default function MainError({
     error: Error & { digest?: string }
     reset: () => void
 }) {
+    useReportBoundaryError(error)
+
     return (
         <div className="min-h-[400px] flex items-center justify-center">
             <div className="text-center p-8 max-w-md">

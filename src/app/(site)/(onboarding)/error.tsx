@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react'
 import { Button } from '@/components/ui/button'
+import { useReportBoundaryError } from '@/lib/observability/use-report-boundary-error'
 
 export default function OnboardingError({
     error,
@@ -10,6 +11,8 @@ export default function OnboardingError({
     error: Error & { digest?: string }
     reset: () => void
 }) {
+    useReportBoundaryError(error)
+
     useEffect(() => {
         console.error('Onboarding error:', error)
     }, [error])
