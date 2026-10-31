@@ -13,6 +13,11 @@ test("an error without a digest happened in the browser and is reported", () => 
   assert.equal(shouldReportBoundaryError({}), true);
 });
 
+test("a thrown non-Error value is reported, not a crash inside the error screen", () => {
+  assert.equal(shouldReportBoundaryError(null), true);
+  assert.equal(shouldReportBoundaryError(undefined), true);
+});
+
 test("every error screen reports what it catches", () => {
   const screens = execSync("find src/app -name 'error.tsx' -o -name 'global-error.tsx'", { encoding: "utf8" })
     .split("\n")

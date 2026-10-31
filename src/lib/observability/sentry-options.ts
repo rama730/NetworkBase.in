@@ -24,7 +24,9 @@ export function scrubEvent<T extends Event>(event: T): T {
     if (event.request.url) event.request.url = withoutQuery(event.request.url);
     delete event.request.query_string;
     delete event.request.cookies;
-    delete event.request.headers;
+    // The User-Agent is the only way Sentry can tell which browser and system an error happened on.
+    const userAgent = event.request.headers?.["User-Agent"];
+    event.request.headers = userAgent ? { "User-Agent": userAgent } : undefined;
     delete event.request.data;
     delete event.request.env;
   }
@@ -47,7 +49,7 @@ export function scrubEvent<T extends Event>(event: T): T {
 const DATA_COLLECTION = {
   userInfo: false,
   cookies: false,
-  httpHeaders: false,
+  httpHeaders: { allow: ["User-Agent"] },
   httpBodies: [],
   urlQueryParams: false,
   graphQL: { document: false, variables: false },

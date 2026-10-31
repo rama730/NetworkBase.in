@@ -65,6 +65,14 @@ describe("scrubEvent", () => {
     assert.ok(text.includes("files"));
   });
 
+  it("keeps the browser's User-Agent, so a report can say which browser failed", () => {
+    const event = scrubEvent({
+      type: undefined,
+      request: { headers: { "User-Agent": "Safari/17", Referer: "https://networkbase.in/a?code=secret" } },
+    });
+    assert.deepEqual(event.request?.headers, { "User-Agent": "Safari/17" });
+  });
+
   it("removes query strings from breadcrumb URLs", () => {
     const text = scrubbed({
       type: undefined,
@@ -117,7 +125,7 @@ describe("baseSentryOptions", () => {
     assert.deepEqual(baseSentryOptions().dataCollection, {
       userInfo: false,
       cookies: false,
-      httpHeaders: false,
+      httpHeaders: { allow: ["User-Agent"] },
       httpBodies: [],
       urlQueryParams: false,
       graphQL: { document: false, variables: false },
