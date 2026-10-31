@@ -7,6 +7,12 @@ import { isStaleActionResponse, showStaleActionNotice, withStaleActionNotice } f
 
 const respond = (headers: Record<string, string> = {}) => new Response(null, { headers });
 
+// Without it, each build's own id already makes a stale tab reload on navigation, and ordinary links stay fast.
+// With it, a test build reloaded on every link click, so it needs a real browser test before it comes back.
+it("does not set deploymentId", () => {
+  assert.doesNotMatch(readFileSync("next.config.ts", "utf8"), /deploymentId/);
+});
+
 describe("isStaleActionResponse", () => {
   it("recognises the header Next.js sets when an action isn't on the server", () => {
     assert.equal(isStaleActionResponse(respond({ "x-nextjs-action-not-found": "1" })), true);
