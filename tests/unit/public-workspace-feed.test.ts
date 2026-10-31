@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 import { describe, it } from 'node:test'
 
 import {
@@ -47,5 +48,18 @@ describe('public projects feed cursor helpers', () => {
             buildPublicWorkspacesCacheKey(24, null),
             'projects:public:v5:limit:24:cursor:origin',
         )
+    })
+})
+
+describe('what leaves Discover', () => {
+    const source = (path: string) => readFileSync(path, 'utf8')
+
+    it('hides the same workspaces from the default feed and the filtered feed', () => {
+        // A workspace hidden, suspended or being deleted by moderation must not stay on the default Discover page.
+        for (const file of ['src/lib/workspaces/public-feed-service.ts', 'src/lib/data/discover.ts']) {
+            assert.match(source(file), /discoverListedSql\(\)/, file)
+        }
+        const rule = source('src/lib/discover/listed-sql.ts')
+        for (const column of ['discoverHiddenAt', 'suspendedAt', 'deletionScheduledAt']) assert.match(rule, new RegExp(column))
     })
 })
