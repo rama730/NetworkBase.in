@@ -407,6 +407,7 @@ export default function DiscoverClient({
                     followersCount={project.followersCount}
                     applicationChip={myApplications.get(project.id)}
                     onOpenProject={markSeen}
+                    live
                 />
             </div>
         );

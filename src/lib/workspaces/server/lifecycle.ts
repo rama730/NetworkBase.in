@@ -2447,61 +2447,12 @@ export async function toggleWorkspaceFollowAction(
 }
 
 
+// Retired: views go through POST /api/v1/workspaces/[id]/view. Kept for one release so tabs open across the deploy
+// don't throw; delete with its wrapper in actions/workspace/index.ts.
 export async function incrementWorkspaceViewAction(
-  projectId: string,
+  _projectId: string,
 ): Promise<{ success: boolean; viewCount?: number; error?: string }> {
-  try {
-    const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    const access = await getWorkspaceAccessById(projectId, user?.id ?? null);
-    if (!access.project || !access.canRead) {
-      return { success: false, error: "Workspace not found" };
-    }
-    // The team's own visits are not audience views.
-    if (access.isOwner || access.isMember) return { success: true };
-    // One counted view per viewer (or IP) per project per 30 minutes, enforced here, not by the client.
-    const viewerKey = user?.id ?? `ip:${getTrustedHeadersIp(await headers()) ?? "unknown"}`;
-    const viewWindow = await consumeRateLimit(`project-view:${projectId}:${viewerKey}`, 1, 30 * 60);
-    if (!viewWindow.allowed) return { success: true };
-
-    if (!redis) {
-      const [updated] = await db
-        .update(workspaces)
-        .set({ viewCount: sql`${workspaces.viewCount} + 1` })
-        .where(eq(workspaces.id, projectId))
-        .returning({ viewCount: workspaces.viewCount });
-
-      return { success: true, viewCount: Number(updated?.viewCount ?? 1) };
-    } else {
-      const bufferedVal = await redis.hincrby("project:views", projectId, 1);
-      const cacheKey = `project:views:base:${projectId}`;
-      let dbVal: number;
-      const cached = await redis.get(cacheKey);
-      if (cached !== null) {
-        dbVal = parseInt(cached as string, 10) || 0;
-      } else {
-        const [dbRow] = await db
-          .select({ viewCount: workspaces.viewCount })
-          .from(workspaces)
-          .where(eq(workspaces.id, projectId))
-          .limit(1);
-        dbVal = dbRow?.viewCount ?? 0;
-        await redis.set(cacheKey, dbVal, { ex: 60 });
-      }
-      return { success: true, viewCount: dbVal + bufferedVal };
-    }
-  } catch (e) {
-    if (isMissingCounterColumn(e, "view_count")) {
-      return {
-        success: false,
-        error: "Workspace views are unavailable until migrations are applied",
-      };
-    }
-    console.error("Failed to increment view", e);
-    return { success: false, error: "Couldn’t increment view" };
-  }
+  return { success: true };
 }
 
 

@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { BarChart2, UsersRound } from 'lucide-react';
 import { UserAvatar } from '@/components/ui/UserAvatar';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { formatCount } from '@/lib/format-count';
 import type { SharePreview } from '@/lib/sharing/presentation';
 
 export function WorkspaceShareContents({preview,loading,trailingAction}:{preview:SharePreview;loading:boolean;trailingAction:boolean}) {
@@ -12,7 +13,6 @@ export function WorkspaceShareContents({preview,loading,trailingAction}:{preview
   const identity=preview.state==='ready'?preview.identity:undefined,project=preview.state==='ready'?preview.project:undefined;
   const imageKey=JSON.stringify([identity?.avatarUrl,identity?.avatarRevision]);
   const image=identity?.avatarUrl && failedImage!==imageKey ? identity.avatarUrl : null;
-  const compact=(count:number)=>new Intl.NumberFormat('en-US',{notation:count>=10_000?'compact':'standard',maximumFractionDigits:1}).format(count);
   return <>
     <div className="flex min-w-0 items-start gap-3">
       {image?<Image key={identity?.avatarRevision ?? image} unoptimized src={image} alt="" width={54} height={54} onError={()=>setFailedImage(imageKey)} className="size-[54px] shrink-0 rounded-[3px] object-cover"/>:null}
@@ -26,7 +26,7 @@ export function WorkspaceShareContents({preview,loading,trailingAction}:{preview
         {project.teamOverflow? <Tooltip><TooltipTrigger asChild><span tabIndex={0} role="img" aria-label={`${project.teamOverflow} more permitted team members`} className="relative z-10 grid size-8 place-items-center rounded-[5px] border-2 border-card bg-muted text-[10px] outline-offset-2 focus-visible:outline-2 focus-visible:outline-primary">+{project.teamOverflow}</span></TooltipTrigger><TooltipContent>Open the workspace to view the team.</TooltipContent></Tooltip>:null}
       </div></TooltipProvider>:null}
       {project.views!==null||project.followers!==null?<div className="flex flex-wrap gap-3 font-mono text-xs text-muted-foreground" aria-label="Workspace statistics">
-        {([['views',project.views,BarChart2],['followers',project.followers,UsersRound]] as const).map(([label,count,Icon])=><span key={label} className="inline-flex items-center gap-1" title={count===null?`${label} unavailable`:`${count.toLocaleString('en-US')} ${label}`} aria-label={count===null?`${label} unavailable`:`${count.toLocaleString('en-US')} ${label}`}><Icon size={14} aria-hidden/>{count===null?'—':compact(count)} <span>{count===1?label.slice(0,-1):label}</span></span>)}
+        {([['views',project.views,BarChart2],['followers',project.followers,UsersRound]] as const).filter(([label,count])=>label!=='views'||count!==0).map(([label,count,Icon])=><span key={label} className="inline-flex items-center gap-1" title={count===null?`${label} unavailable`:`${count.toLocaleString('en-US')} ${label}`} aria-label={count===null?`${label} unavailable`:`${count.toLocaleString('en-US')} ${label}`}><Icon size={14} aria-hidden/>{count===null?'—':formatCount(count)} <span>{count===1?label.slice(0,-1):label}</span></span>)}
       </div>:null}
     </div>:null}
     {identity&&preview.skills.length?<div className="mt-3 flex flex-wrap gap-1.5" aria-label="Workspace skills">{preview.skills.map(skill=><span key={skill} dir="auto" className="nb-tag rounded-[3px] max-w-full [overflow-wrap:anywhere]">{skill}</span>)}{preview.skillOverflow?<span className="nb-tag rounded-[3px]" aria-label={`${preview.skillOverflow} more skills`}>+{preview.skillOverflow}</span>:null}</div>:null}

@@ -162,7 +162,7 @@ test("Discovery page ProjectCard and detail page WorkspaceStatsBar: last updated
 
     // 2. ProjectCardss icon uses BarChart2 (X-platform analytics bars)
     assert.match(cardSource, /import\s*\{[^}]*BarChart2[^}]*\}\s*from\s*"lucide-react"/);
-    assert.match(cardSource, /<BarChart2\s+size=\{14\}\s+aria-hidden="true"\s*\/>\s*\{typeof project\.viewCount === "number" \? project\.viewCount : "—"\}/);
+    assert.match(cardSource, /<BarChart2\s+size=\{14\}\s+aria-hidden="true"\s*\/>.*\{views\.text\}/);
 
     // 3. WorkspaceStatsBar on detail page also uses BarChart2 (unified with card)
     assert.match(statsSource, /import\s*\{[^}]*BarChart2[^}]*\}\s*from\s*"lucide-react"/);

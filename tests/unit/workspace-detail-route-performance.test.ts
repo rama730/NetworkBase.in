@@ -32,8 +32,11 @@ test("project detail defers and deduplicates optional work", () => {
   assert.match(dashboard, /const guidance = \(project as \{ guidance\?: unknown \}\)\.guidance \?\? null/);
   assert.match(actions, /const \[ownerRows, followersResult, membersResult, rolesResult, readmeRows, guidanceRows\] =/);
   assert.match(actions, /guidance: shell\.guidance \?\? null/);
-  assert.match(dashboard, /sessionStorage\.getItem\(sessionKey\)/);
-  assert.match(dashboard, /requestIdleCallback\(incrementView, \{ timeout: 10_000 \}\)/);
+  // Counting a view waits for 3 visible seconds and is sent once per browser session.
+  const liveCounts = source("src/hooks/useWorkspaceLiveCounts.ts");
+  assert.match(dashboard, /useWorkspaceViewBeacon\(project\?\.id, canSeeAllTabs\)/);
+  assert.match(liveCounts, /sessionStorage\.getItem\(sessionKey\)/);
+  assert.match(liveCounts, /startVisibleDwell\(VIEW_DWELL_MS/);
 });
 
 test("project shell overlaps independent enrichment reads and records its latency", () => {

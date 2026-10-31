@@ -294,7 +294,7 @@ test("top-nav keeps one accessible, route-aligned implementation", () => {
   assert.doesNotMatch(resultCards, /h-7 w-7 items-center justify-center rounded-md border/);
   assert.doesNotMatch(resultCards, /rounded-md bg-zinc-100 px-1 text-\[10px\].*\+\{hidden\}/);
   assert.match(resultCards, /followersCount\.toLocaleString\(\).*following/);
-  assert.match(resultCards, /viewCount\.toLocaleString\(\)/);
+  assert.match(resultCards, /formatCount\(result\.viewCount\)/);
   assert.match(resultCards, /connectedFriends\.map/);
   assert.match(resultCards, /more connection/);
   assert.match(hubData, /row_number\(\) over/);

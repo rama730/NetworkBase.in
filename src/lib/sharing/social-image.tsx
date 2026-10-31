@@ -13,6 +13,7 @@ import { readBoundedStorageBytes } from '@/lib/storage/bounded-object-read';
 import { initialsForName } from '@/lib/profile/display';
 import { genericSharePreview, parseShareResource, shareText, projectRolesFitImage, projectImageSkillsFit, socialImageCanRender, type SharePreview } from './presentation';
 import { readSharePreview } from './read';
+import { formatCount } from '@/lib/format-count';
 import { logger } from '@/lib/logger';
 
 // Static instances of the app's existing licensed variable fonts; read once, without remote font requests.
@@ -53,7 +54,6 @@ function ProjectSocialImage({preview,avatar,teamAvatars}:{preview:SharePreview;a
   const ready=preview.state==='ready',project=ready?preview.project:undefined;
   const name=ready?preview.identity?.name??preview.title:preview.title;
   const mark=(name:string,username:string|null)=>{const value=initialsForName(name,username);return /^[\u0020-\u024f]{1,3}$/.test(value)?value:'?';};
-  const compact=(n:number)=>new Intl.NumberFormat('en-US',{notation:n>=10_000?'compact':'standard',maximumFractionDigits:1}).format(n);
   const chip={display:'flex',fontSize:18,border:'1px solid #DDD6CB',borderRadius:4,padding:'4px 8px',color:'#637078',background:'white',maxWidth:500} as const;
   return <div style={{display:'flex',flexDirection:'column',width:'100%',height:'100%',padding:'44px 60px',justifyContent:'space-between',background:'#FAF8F4',color:'#192125',fontFamily:'Instrument Sans'}}>
     <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}><div style={{display:'flex',alignItems:'center',gap:7,fontSize:32,fontWeight:600}}><div style={{width:13,height:13,borderRadius:3,background:'#C74620'}}/>NetworkBase</div><div style={{fontSize:16,color:'#C74620',letterSpacing:2}}>WORKSPACE</div></div>
@@ -64,7 +64,7 @@ function ProjectSocialImage({preview,avatar,teamAvatars}:{preview:SharePreview;a
       </div>
       {project?<div style={{display:'flex',alignItems:'center',gap:28,flexWrap:'wrap'}}>
         {project.team?.length?<div style={{display:'flex',alignItems:'center'}}>{project.team.map((person,i)=><div key={person.id} style={{display:'flex',width:40,height:40,borderRadius:5,overflow:'hidden',border:'3px solid #FAF8F4',marginLeft:i?-7:0,background:'#EFE1D8',color:'#8B573E',alignItems:'center',justifyContent:'center',fontSize:14}}>{teamAvatars[person.id]?<img src={teamAvatars[person.id]} alt="" width={40} height={40}/>:mark(person.name,person.username)}</div>)}{project.teamOverflow?<div style={{display:'flex',width:40,height:40,borderRadius:5,border:'3px solid #FAF8F4',marginLeft:-7,background:'#EFEAE2',alignItems:'center',justifyContent:'center',fontSize:13,color:'#637078'}}>{'+'+project.teamOverflow}</div>:null}</div>:null}
-        {project.views!==null||project.followers!==null?<div style={{display:'flex',alignItems:'center',gap:20,fontSize:18,color:'#637078'}}>{([['views',project.views,BarChart2],['followers',project.followers,UsersRound]] as const).map(([label,count,Icon])=><div key={label} style={{display:'flex',alignItems:'center',gap:6}}><Icon width={20} height={20} color="#637078" strokeWidth={1.75}/>{(count===null?'—':compact(count))+' '+(count===1?label.slice(0,-1):label)}</div>)}</div>:null}
+        {project.views!==null||project.followers!==null?<div style={{display:'flex',alignItems:'center',gap:20,fontSize:18,color:'#637078'}}>{([['views',project.views,BarChart2],['followers',project.followers,UsersRound]] as const).filter(([label,count])=>label!=='views'||count!==0).map(([label,count,Icon])=><div key={label} style={{display:'flex',alignItems:'center',gap:6}}><Icon width={20} height={20} color="#637078" strokeWidth={1.75}/>{(count===null?'—':formatCount(count))+' '+(count===1?label.slice(0,-1):label)}</div>)}</div>:null}
       </div>:null}
       {ready&&preview.skills.length&&projectImageSkillsFit(preview)?<div style={{display:'flex',flexWrap:'wrap',gap:8}}>{preview.skills.map(skill=><div key={skill} style={{...chip,fontSize:skill.length>40?14:18}}>{skill.length>70?skill.slice(0,67)+'…':skill}</div>)}{preview.skillOverflow?<div style={chip}>{'+'+preview.skillOverflow}</div>:null}</div>:null}
       {project?.roles?.length&&projectRolesFitImage(preview)?<div style={{display:'flex',flexDirection:'column',gap:6}}><div style={{fontSize:16,color:'#637078'}}>Open roles</div><div style={{display:'flex',flexWrap:'wrap',gap:8}}>{project.roles.slice(0,-1).map(role=><div key={role.id} style={chip}>{role.title}</div>)}<div style={{display:'flex',gap:8}}><div style={chip}>{project.roles.at(-1)!.title}</div>{project.roleOverflow?<div style={chip}>{'+'+project.roleOverflow}</div>:null}</div></div></div>:null}

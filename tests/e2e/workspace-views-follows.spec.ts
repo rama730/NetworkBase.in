@@ -36,9 +36,9 @@ test.describe("Project views and followers flow", () => {
 
         const projectLink = firstCard.locator("a[href^='/workspaces/']").first();
         await projectLink.click();
-        await page.waitForURL(/\/projects\//);
+        await page.waitForURL(/\/workspaces\//);
 
-        const detailFollowers = page.locator("[data-testid='project-followers-count'] span");
+        const detailFollowers = page.locator("[data-testid='project-follower-count'] span");
         const detailViewCount = page.locator("[data-testid='project-view-count'] span");
         await expect(detailFollowers).toBeVisible();
         await expect(detailViewCount).toBeVisible();
@@ -46,25 +46,17 @@ test.describe("Project views and followers flow", () => {
         const detailFollowersValue = parseCount(await detailFollowers.textContent());
         expect(Math.abs(detailFollowersValue - hubFollowersAfter)).toBeLessThanOrEqual(1);
 
+        // One anonymous visitor counts once after 3 visible seconds. Headless browsers are filtered as bots, so this
+        // run presents a browser identity of its own (fresh each run, as a visitor counts once a day).
         const viewCountBefore = parseCount(await detailViewCount.textContent());
-        const newTab = await context.newPage();
-        await newTab.goto(page.url());
-        await expect(newTab.locator("[data-testid='project-view-count'] span")).toBeVisible();
-        const viewCountSameSession = parseCount(
-            await newTab.locator("[data-testid='project-view-count'] span").textContent()
-        );
-        expect(viewCountSameSession).toBeGreaterThanOrEqual(viewCountBefore);
-
-        const newContext = await browser.newContext();
-        const freshPage = await newContext.newPage();
-        const freshMonitor = attachPageMonitoring(freshPage);
-        await login(freshPage);
-        await freshPage.goto(page.url());
-        await expect(freshPage.locator("[data-testid='project-view-count'] span")).toBeVisible();
-        const viewCountFresh = parseCount(
-            await freshPage.locator("[data-testid='project-view-count'] span").textContent()
-        );
-        expect(viewCountFresh).toBeGreaterThanOrEqual(viewCountBefore + 1);
+        const visitor = await browser.newContext({ userAgent: `Mozilla/5.0 Chrome/130.0 Safari/537.36 e2e/${Date.now()}` });
+        const visitorPage = await visitor.newPage();
+        const visitorMonitor = attachPageMonitoring(visitorPage);
+        const counted = visitorPage.waitForResponse((response) => /\/api\/v1\/workspaces\/[^/]+\/view$/.test(response.url()) && response.request().method() === "POST");
+        await visitorPage.goto(page.url());
+        expect((await counted).status()).toBe(204);
+        await page.reload();
+        await expect.poll(async () => parseCount(await detailViewCount.textContent())).toBeGreaterThanOrEqual(viewCountBefore + 1);
 
         const detailFollowToggle = page.locator("[data-testid='project-follow-toggle']");
         const detailFollowersBeforeToggle = parseCount(await detailFollowers.textContent());
@@ -82,9 +74,9 @@ test.describe("Project views and followers flow", () => {
 
         await monitor.assertNoViolations();
         monitor.detach();
-        await freshMonitor.assertNoViolations();
-        freshMonitor.detach();
+        await visitorMonitor.assertNoViolations();
+        visitorMonitor.detach();
         await context.close();
-        await newContext.close();
+        await visitor.close();
     });
 });
