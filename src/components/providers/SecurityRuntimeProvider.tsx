@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useEffect, useMemo } from "react";
 
+import { withStaleActionNotice } from "@/lib/deployment/stale-action";
 import { createCsrfFetch } from "@/lib/security/csrf-client";
 
 const SecurityRuntimeContext = createContext<{ nonce: string | null }>({ nonce: null });
@@ -39,7 +40,7 @@ export function SecurityRuntimeProvider({
     }
     const originalFetch = target[FETCH_PATCH_SYMBOL]!;
 
-    window.fetch = createCsrfFetch(originalFetch, (input) => isSameOriginRequest(input));
+    window.fetch = createCsrfFetch(withStaleActionNotice(originalFetch), (input) => isSameOriginRequest(input));
 
     return () => {
       window.fetch = originalFetch;
