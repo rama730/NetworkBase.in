@@ -155,13 +155,13 @@ export const gitSyncRecovery = inngest.createFunction(
 );
 export const uploadIntentCleanup = inngest.createFunction(
   { id: "upload-intent-cleanup", concurrency: 1 },
-  { cron: "*/15 * * * *" },
+  { cron: "55 * * * *" },
   async ({ step }) =>
     step.run("cleanup-expired-intents", cleanupExpiredUploadIntents),
 );
 export const lockCleanup = inngest.createFunction(
   { id: "lock-cleanup" },
-  { cron: "*/5 * * * *" },
+  { cron: "50 * * * *" },
   async () => {
     let deleted = 0;
     for (let batch = 0; batch < 10; batch++) {

@@ -44,7 +44,7 @@ export async function alertUrgentCase(caseId: string, reminder: boolean) {
 }
 
 /**
- * trust-deadlines (every 15 minutes): late notices, org hand-off at the org deadline, expired claim leases (S3: no
+ * trust-deadlines (every 30 minutes): late notices, org hand-off at the org deadline, expired claim leases (S3: no
  * interaction for 10 minutes or no open tab for 2), and restrictions paused while their appeal is 7 days overdue (11.3).
  */
 export async function runTrustDeadlines() {
@@ -112,7 +112,7 @@ const istHour = (now: Date) => Number(new Intl.DateTimeFormat("en-IN", { hour: "
 const istDay = (now: Date) => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata" }).format(now);
 
 /**
- * trust-daily-summary (hourly; sends at 8 am IST, skipped when there's nothing to say). Each staff member's copy
+ * trust-daily-summary (daily; sends at 8 am IST, skipped when there's nothing to say). Each staff member's copy
  * leads with their own claimed and assigned cases due today (S13).
  */
 export async function runTrustDailySummary(now = new Date()) {
