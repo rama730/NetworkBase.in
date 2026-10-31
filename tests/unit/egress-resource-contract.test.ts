@@ -61,9 +61,9 @@ test("chat attachments use canonical direct uploads and short-lived member-check
   assert.match(presign, /createUploadIntent/);
   assert.match(presign, /finalizeUploadIntent/);
   assert.match(route, /app_private\.chat_is_member/);
-  // Short-lived: 5 minutes, or 2 hours for audio/video so seeking keeps working (S3-06).
+  // Short-lived: 5 minutes, or 30 for audio/video so seeking keeps working (S3-06).
   assert.match(route, /const seconds = signedUrlSeconds\(row\.mime\)[\s\S]*createSignedUrl\(storageKey, seconds\)/);
-  assert.match(read("src/lib/messaging/attachment-ttl.ts"), /SIGNED_URL_SECONDS = 300[\s\S]*MEDIA_SIGNED_URL_SECONDS = 2 \* 60 \* 60[\s\S]*\^\(video\|audio\)/);
+  assert.match(read("src/lib/messaging/attachment-ttl.ts"), /SIGNED_URL_SECONDS = 300[\s\S]*MEDIA_SIGNED_URL_SECONDS = 30 \* 60[\s\S]*\^\(video\|audio\)/);
 });
 
 test("missing message media exposes a terminal unavailable state", () => {

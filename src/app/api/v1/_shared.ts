@@ -63,7 +63,7 @@ export async function enforceRouteLimit(
   key: string,
   limit: number,
   windowSeconds: number,
-  route: "default" | "publicRead" | "health" = "default",
+  route: "default" | "publicRead" | "health" | "signedInRead" = "default",
   identityKey?: string,
 ) {
   const identifier = identityKey || getRequestIp(request);
@@ -72,6 +72,17 @@ export async function enforceRouteLimit(
     return jsonError("Too many attempts. Try again in a minute.", 429, "RATE_LIMITED");
   }
   return null;
+}
+
+/** A limiter outage shouldn't stop signed-in people reading files they may open. Signed-out reads stay blocked. */
+export function enforceFileReadLimit(request: Request, key: string, limit: number, windowSeconds: number, userId?: string | null) {
+  return enforceRouteLimit(request, key, limit, windowSeconds, userId ? "signedInRead" : "default", userId ?? undefined);
+}
+
+/** One budget for saving files anywhere in the app. The app checks before it saves, so the check runs out first. */
+export function enforceDownloadLimit(request: Request, userId?: string | null) {
+  const head = request.method === "HEAD";
+  return enforceFileReadLimit(request, head ? "files:download-check" : "files:download", head ? 60 : 120, 60, userId);
 }
 
 import { headers } from "next/headers";

@@ -1,6 +1,6 @@
 import { sql } from "drizzle-orm";
 
-import { getRequestId, jsonError, logApiRoute, requireAuthenticatedUser } from "@/app/api/v1/_shared";
+import { enforceDownloadLimit, enforceFileReadLimit, getRequestId, jsonError, logApiRoute, requireAuthenticatedUser } from "@/app/api/v1/_shared";
 import { db } from "@/lib/db";
 import { createAdminClient } from "@/lib/supabase/server";
 import { SIGNED_URL_SECONDS, signedUrlSeconds } from "@/lib/messaging/attachment-ttl";
@@ -22,6 +22,11 @@ export async function GET(request: Request, context: { params: Promise<{ assetId
   if (!user) return authResponse ?? jsonError("Sign in to continue", 401, "UNAUTHORIZED");
   const { assetId } = await context.params;
   if (!isUuid(assetId)) return jsonError("Attachment not found", 404, "NOT_FOUND");
+  const isDownload = new URL(request.url).searchParams.get("download") === "1";
+  const limited = isDownload
+    ? await enforceDownloadLimit(request, user.id)
+    : await enforceFileReadLimit(request, "chat:attachments", 300, 60, user.id);
+  if (limited) return limited;
 
   const rows = await db.execute(sql`
     SELECT a.storage_key, coalesce(a.verified_mime_type, a.declared_mime_type) AS mime,
@@ -47,7 +52,7 @@ export async function GET(request: Request, context: { params: Promise<{ assetId
   const seconds = signedUrlSeconds(row.mime);
 
   const admin = await createAdminClient();
-  if (new URL(request.url).searchParams.get("download") === "1") {
+  if (isDownload) {
     const saved = await signedDownloadRedirect(admin, { bucket: BUCKET, storageKey, filename: row.name || "attachment" });
     if (!saved) return jsonError("Attachment unavailable", 503, "UNAVAILABLE");
     logApiRoute(request, { requestId, action: "chat.attachments.download", userId: user.id, startedAt, success: true, status: 302 });

@@ -23,12 +23,13 @@ test("ITEM-03: eviction removes every cached timeline, not every other one", () 
   assert.equal(storage.getItem("other"), "keep");
 });
 
-test("S3-06: video and audio links outlive playback; everything else stays short", () => {
+test("S3-06: video and audio links last through seeking; everything else stays short", () => {
   assert.equal(signedUrlSeconds("video/mp4"), MEDIA_SIGNED_URL_SECONDS);
   assert.equal(signedUrlSeconds("audio/mpeg"), MEDIA_SIGNED_URL_SECONDS);
   assert.equal(signedUrlSeconds("image/png"), SIGNED_URL_SECONDS);
   assert.equal(signedUrlSeconds(null), SIGNED_URL_SECONDS);
-  assert.ok(MEDIA_SIGNED_URL_SECONDS >= 2 * 60 * 60);
+  // A player that outlasts the link reauthorizes through attachmentRetryUrl.
+  assert.equal(MEDIA_SIGNED_URL_SECONDS, 30 * 60);
 });
 
 test("S3-04: signed resumable uploads go to the /sign endpoint", async () => {

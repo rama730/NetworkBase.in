@@ -1,7 +1,7 @@
 import crypto from "crypto";
 import mime from "mime-types";
 
-import { requireAuthenticatedUser, jsonSuccess, jsonError } from "@/app/api/v1/_shared";
+import { enforceFileReadLimit, requireAuthenticatedUser, jsonSuccess, jsonError } from "@/app/api/v1/_shared";
 import { db } from "@/lib/db";
 import { workspaceNodes, fileVersions, storageAssets } from "@/lib/db/schema";
 import { eq, and, isNull } from "drizzle-orm";
@@ -51,6 +51,9 @@ export async function GET(request: Request) {
     if (!user) {
       return jsonError("Sign in to continue", 401, "UNAUTHORIZED");
     }
+
+    const limited = await enforceFileReadLimit(request, "extension:file", 300, 60, user.id);
+    if (limited) return limited;
 
     const { searchParams } = new URL(request.url);
     const projectId = searchParams.get("projectId")?.trim();

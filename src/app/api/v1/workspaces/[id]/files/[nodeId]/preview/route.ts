@@ -11,7 +11,7 @@ import { streamPrivateObject } from "@/lib/storage/private-object-response";
 import { signedDownloadRedirect } from "@/lib/storage/download-link";
 import { versionedFilename } from "@/lib/files/versioned-filename";
 import { UUID_RE } from "@/app/actions/files/_constants";
-import { enforceRouteLimit } from "@/app/api/v1/_shared";
+import { enforceDownloadLimit, enforceFileReadLimit } from "@/app/api/v1/_shared";
 
 export const dynamic = "force-dynamic";
 
@@ -75,7 +75,10 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  const limited = await enforceRouteLimit(request, "files:preview", 600, 60, "default", user?.id);
+  const isDownload = request.nextUrl.searchParams.get("download") === "1";
+  const limited = isDownload
+    ? await enforceDownloadLimit(request, user?.id)
+    : await enforceFileReadLimit(request, "files:preview", 600, 60, user?.id);
   if (limited) return noStore("Too many attempts. Try again in a minute.", 429);
   const access = await assertWorkspaceFileReadAccess(projectId, user?.id ?? null).catch(() => null);
   if (!access) {
@@ -148,7 +151,6 @@ export async function GET(request: NextRequest, context: RouteContext) {
     return noStore("File content is unavailable", 404);
   }
 
-  const isDownload = request.nextUrl.searchParams.get("download") === "1";
   if (isDownload) {
     if (request.method === "HEAD") return new Response(null, { status: 200, headers: { "Cache-Control": "private, no-store" } });
     const filename = historical && revisionNumber !== node.currentVersion ? versionedFilename(node.name, revisionNumber!) : node.name;
@@ -186,22 +188,6 @@ export async function GET(request: NextRequest, context: RouteContext) {
     return noStore("Couldn’t prepare file preview", 502);
   }
 
-  // Strategy A (Direct-to-CDN Streaming for Video & Audio):
-  // Direct S3 / CDN 302 redirect is available via ?redirect=1 or ?cdn=1 for explicit CDN offload.
-  // By default, media streams directly through streamPrivateObject (HTTP 206 Partial Content / 200 OK)
-  // preventing 302 cross-origin redirect CORS barriers and terminal 302 logs while keeping streaming fast.
-  if (isMediaStream && (request.nextUrl.searchParams.get("redirect") === "1" || request.nextUrl.searchParams.get("cdn") === "1")) {
-    return new Response(null, {
-      status: 302,
-      headers: {
-        Location: directSignedUrl,
-        "Cache-Control": "private, max-age=3600, stale-while-revalidate=86400",
-        ETag: etag,
-        "Access-Control-Allow-Origin": "*",
-      },
-    });
-  }
-
   return streamPrivateObject({
     request,
     signedUrl: directSignedUrl,
@@ -210,7 +196,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
     filename: node.name,
     disposition: "inline",
     etag,
-    cacheControl: "private, max-age=3600, stale-while-revalidate=86400",
+    cacheControl: "private, no-cache",
   });
 }
 

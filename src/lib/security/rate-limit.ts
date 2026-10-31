@@ -116,6 +116,7 @@ export const RATE_LIMIT_ROUTE_POLICIES: Record<string, RouteRateLimitPolicy> = {
     default: {},
     health: { failMode: 'allow' },
     publicRead: { failMode: 'stale_or_shed' },
+    signedInRead: { failMode: 'allow' },
 }
 
 // SEC-H4 / SEC-L3: per-scope fail-mode registry. Without this, Redis outages

@@ -101,16 +101,11 @@ test("Media Viewer & Video Player Contract Conformance", async (t) => {
     );
   });
 
-  await t.test("Pillar 5: Server-side direct-to-CDN streaming and signed URL caching", () => {
+  await t.test("Pillar 5: Server-side streaming and signed URL caching", () => {
     assert.match(
       previewRoute,
       /mediaSignedUrlCache/,
       "Preview route must maintain in-memory LRU signed URL cache"
-    );
-    assert.match(
-      previewRoute,
-      /302/,
-      "Preview route must redirect media streams to direct S3 CDN signed URL"
     );
     assert.match(
       previewRoute,

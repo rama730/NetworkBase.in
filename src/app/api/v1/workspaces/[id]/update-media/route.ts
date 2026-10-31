@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 import { and, eq, isNull, sql } from "drizzle-orm";
 import { NextRequest } from "next/server";
 
-import { jsonError } from "@/app/api/v1/_shared";
+import { enforceFileReadLimit, jsonError } from "@/app/api/v1/_shared";
 import { getWorkspaceAccessById } from "@/lib/data/workspace-access";
 import { db } from "@/lib/db";
 import { workspaceUpdateMediaAssets, workspaceUpdates, storageAssets } from "@/lib/db/schema";
@@ -29,6 +29,8 @@ async function handle(request: NextRequest, context: { params: Promise<{ id: str
 
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
+  const limited = await enforceFileReadLimit(request, "files:public-read", 300, 60, user?.id);
+  if (limited) return limited;
   const access = await getWorkspaceAccessById(projectId, user?.id ?? null);
   if (!access.project || !access.canRead) return jsonError("Not found", 404, "NOT_FOUND");
 

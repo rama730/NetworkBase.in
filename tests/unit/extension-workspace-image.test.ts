@@ -91,6 +91,7 @@ function route({ validBearer = true, publicProject = false } = {}) {
         }),
     },
     "@/app/api/v1/_shared": {
+      enforceFileReadLimit: async () => null,
       jsonError: (message: string, status: number) =>
         Response.json({ message }, { status }),
       requireAuthenticatedUser: async () =>
