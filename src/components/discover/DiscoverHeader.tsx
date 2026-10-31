@@ -130,14 +130,6 @@ export default function DiscoverHeader({ query, activeFilters, announcement, loa
                 <p aria-live="polite" className="sr-only">{announcement}</p>
             </div>
 
-            <div role="group" aria-label="Show" className="flex flex-wrap items-center gap-1">
-                {SHOW_OPTIONS.map((option) => (
-                    <Button key={option.id} type="button" size="sm" variant={query.show === option.id ? 'secondary' : 'ghost'} aria-pressed={query.show === option.id} onClick={() => onChange({ show: option.id })} className="pointer-coarse:h-11">
-                        {option.label}
-                    </Button>
-                ))}
-            </div>
-
             <div className="flex min-w-0 flex-wrap items-center gap-2">
                 <Select value={query.view} onValueChange={(value) => onChange({ view: value as FilterView })}>
                     <SelectTrigger aria-label="View" className="w-auto min-w-[136px] bg-card pointer-coarse:h-11">
@@ -145,6 +137,14 @@ export default function DiscoverHeader({ query, activeFilters, announcement, loa
                     </SelectTrigger>
                     <SelectContent>
                         {SCOPES.map((item) => <SelectItem key={item.id} value={item.id}>{item.label}</SelectItem>)}
+                    </SelectContent>
+                </Select>
+                <Select value={query.show} onValueChange={(value) => onChange({ show: value as DiscoverQuery['show'] })}>
+                    <SelectTrigger aria-label="Show" className="w-auto min-w-[128px] bg-card pointer-coarse:h-11">
+                        <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                        {SHOW_OPTIONS.map((option) => <SelectItem key={option.id} value={option.id}>{option.label}</SelectItem>)}
                     </SelectContent>
                 </Select>
                 <SearchBox value={query.q} loading={loading} onSearch={(q) => onChange({ q }, { replace: Boolean(query.q) })} />
