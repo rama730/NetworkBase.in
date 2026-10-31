@@ -13,12 +13,12 @@ function recorder() {
 const MINUTE = 60_000;
 
 describe("wakeAt", () => {
-  it("starts the job at the next whole minute", async () => {
+  it("starts the job just after the next whole minute", async () => {
     const { sent, client } = recorder();
     await wakeAt("chat/due.wake", new Date("2026-11-01T10:15:20.000Z"), client);
     assert.equal(sent.length, 1);
     assert.equal(sent[0].name, "chat/due.wake");
-    assert.equal(sent[0].ts, Date.parse("2026-11-01T10:16:00.000Z"));
+    assert.equal(sent[0].ts, Date.parse("2026-11-01T10:16:05.000Z"));
   });
 
   it("gives every wake in one minute the same id, so a burst starts one run", async () => {
@@ -36,10 +36,10 @@ describe("wakeAt", () => {
     assert.equal(new Set(sent.map((event) => event.id)).size, 3);
   });
 
-  it("leaves a time already on the minute where it is", async () => {
+  it("runs a time on the minute just after it, so a clock difference cannot run it too early", async () => {
     const { sent, client } = recorder();
     await wakeAt("chat/due.wake", new Date("2026-11-01T10:15:00.000Z"), client);
-    assert.equal(sent[0].ts, Date.parse("2026-11-01T10:15:00.000Z"));
+    assert.equal(sent[0].ts, Date.parse("2026-11-01T10:15:05.000Z"));
   });
 
   it("never throws when Inngest fails", async () => {

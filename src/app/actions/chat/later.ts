@@ -1,5 +1,6 @@
 "use server";
 
+import { wakeChatDueIfSoon } from "@/inngest/wake";
 import { isMessageSeq } from "@/lib/messaging/routes";
 
 import { sql } from "drizzle-orm";
@@ -45,6 +46,7 @@ export async function saveMessage(input: { channelId: string; seq: number; on: b
       RETURNING 1 AS ok
     `);
     if (!saved.length) return { success: false as const, error: "chat_message_not_found" };
+    if (remindAt) await wakeChatDueIfSoon(new Date(remindAt));
     return { success: true as const };
   } catch (error) {
     return chatFailure(error, "save");
@@ -119,7 +121,7 @@ export async function listSavedSeqs(input: { channelId: string }) {
   }
 }
 
-/** Queue a message to send later (sent by the chat-due job, within a minute of send_at). */
+/** Queue a message to send later (sent by the chat-due job when send_at comes). */
 export async function scheduleMessage(input: { channelId: string; body: string; sendAt: string; threadRootSeq?: number | null }) {
   const user = await requireChatUser();
   if (!user) return unauthorized;
@@ -136,6 +138,7 @@ export async function scheduleMessage(input: { channelId: string; body: string; 
       RETURNING id
     `);
     if (!row) return { success: false as const, error: "chat_not_member" };
+    await wakeChatDueIfSoon(new Date(sendAt));
     return { success: true as const, id: row.id, sendAt };
   } catch (error) {
     return chatFailure(error, "schedule");
@@ -222,6 +225,7 @@ export async function rescheduleScheduled(input: { id: string; sendAt: string })
       RETURNING id
     `);
     if (!rows.length) return { success: false as const, error: "chat_message_not_found" };
+    await wakeChatDueIfSoon(new Date(sendAt));
     return { success: true as const, sendAt };
   } catch (error) {
     return chatFailure(error, "reschedule");
