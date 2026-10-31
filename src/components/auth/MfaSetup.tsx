@@ -301,7 +301,9 @@ export function MfaSetup({ initialFactors, recoveryCodes }: MfaSetupProps) {
           </div>
         )}
         <p className="nb-compact text-muted-foreground">
-          Add a 6-digit code from an authenticator app for extra protection.
+          {hasVerifiedFactor
+            ? "Sign-in asks for a code from your authenticator app."
+            : "Add a 6-digit code from an authenticator app for extra protection."}
         </p>
       </div>
 

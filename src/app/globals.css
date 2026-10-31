@@ -806,8 +806,8 @@ html[data-reduce-motion="true"] .nb-skeleton {
 .nb-sidebar-body { display:flex; flex:1; min-height:0; flex-direction:column; gap:20px; padding:16px 12px; }
 .nb-nav-link { display:flex; align-items:center; gap:8px; min-height:var(--ui-nav-item-height); padding:6px 10px; border-radius:5px; color:var(--muted-foreground); font-size:13px; font-weight:500; transition:background-color 130ms,color 130ms; }
 .nb-nav-link:hover { background:var(--muted); color:var(--foreground); }
-.nb-nav-link[aria-current="page"] { background:var(--sidebar-accent); color:var(--foreground); }
-.nb-nav-link[aria-current="page"] > svg { color:var(--primary); }
+.nb-nav-link[aria-current="location"], .nb-nav-link[aria-current="page"] { background:var(--sidebar-accent); color:var(--foreground); }
+.nb-nav-link[aria-current="location"] > svg, .nb-nav-link[aria-current="page"] > svg { color:var(--primary); }
 /* Counts: components layer, so utilities can adjust them. */
 @layer components {
   .nb-nav-count, .nb-chat-count { margin-left:auto; padding:1px 5px; background:var(--secondary); border-radius:3px; font:11px var(--font-jetbrains-mono),monospace; font-variant-numeric:tabular-nums; }
