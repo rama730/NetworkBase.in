@@ -60,11 +60,15 @@ const DATA_COLLECTION = {
   stackFrameVariables: false,
 };
 
+const UNSIGNED_INNGEST_REQUEST = "No x-inngest-signature provided";
+
 // logger.error reports directly, so its console line must not arrive a second time through the console integration.
 function beforeSend(event: ErrorEvent, _hint: EventHint) {
   if (event.logger === "console") {
     const consoleArguments = event.extra?.arguments;
     if (Array.isArray(consoleArguments) && consoleArguments[0] === "[logger]") return null;
+    // Anyone can hit the public jobs address without signing; a wrong signing key reports differently and stays.
+    if (event.exception?.values?.some((exception) => exception.value === UNSIGNED_INNGEST_REQUEST)) return null;
     // A logged line has no Error of its own: Sentry would title and group it by a minified function in its console wrapper.
     if (event.message) {
       event.fingerprint = ["console", scrubMessage(event.message)];

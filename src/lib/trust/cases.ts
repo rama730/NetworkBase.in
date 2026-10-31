@@ -178,7 +178,7 @@ export async function fileReport(reporterId: string, input: { kind: ReportTarget
   }
   if (result.urgent && result.caseId) {
     await inngest.send({ name: "trust/urgent.reported", data: { caseId: result.caseId } }).catch((error) => {
-      logger.warn("trust.urgent_alert_send_failed", { module: "trust", error: error instanceof Error ? error.message : String(error) });
+      logger.error("trust.urgent_alert_send_failed", { module: "trust", error: error instanceof Error ? error.message : String(error) });
     });
   }
   return { ok: true, caseNumber: result.caseNumber, severity: result.severity, deadlineHours: result.deadlineHours };
