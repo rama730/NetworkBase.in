@@ -37,7 +37,7 @@ function clickLink(href: string, filename?: string) {
 }
 
 /** The same URL asking for an attachment. Anything not served by this app (a local preview) is left alone. */
-export function downloadUrl(url: string) {
+function downloadUrl(url: string) {
     const parsed = new URL(url, window.location.origin);
     // A blob: URL reports this page's origin, but it's a file in memory, not a route.
     if (parsed.origin !== window.location.origin || parsed.protocol === 'blob:') return null;
