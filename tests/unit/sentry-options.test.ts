@@ -218,6 +218,22 @@ describe("baseSentryOptions", () => {
     assert.ok(event);
   });
 
+  it("drops a tab left open across a deploy, which is expected and nobody can act on", () => {
+    const event = baseSentryOptions().beforeSend(
+      { type: undefined, exception: { values: [{ type: "UnrecognizedActionError", value: 'Server Action "4a" was not found on the server.' }] } },
+      {},
+    );
+    assert.equal(event, null);
+  });
+
+  it("keeps other errors that mention actions", () => {
+    const event = baseSentryOptions().beforeSend(
+      { type: undefined, exception: { values: [{ type: "TypeError", value: "Server Action failed" }] } },
+      {},
+    );
+    assert.ok(event);
+  });
+
   it("reports as production unless the environment is overridden", () => {
     delete process.env.NEXT_PUBLIC_SENTRY_ENVIRONMENT;
     assert.equal(baseSentryOptions().environment, "production");

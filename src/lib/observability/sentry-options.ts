@@ -64,6 +64,8 @@ const UNSIGNED_INNGEST_REQUEST = "No x-inngest-signature provided";
 
 // logger.error reports directly, so its console line must not arrive a second time through the console integration.
 function beforeSend(event: ErrorEvent, _hint: EventHint) {
+  // ponytail: a tab left open across a deploy, expected on every deploy (see lib/deployment/stale-action). Ceiling: a deploy that breaks every action won't alert from here. Upgrade: count these as a metric.
+  if (event.exception?.values?.some((exception) => exception.type === "UnrecognizedActionError")) return null;
   if (event.logger === "console") {
     const consoleArguments = event.extra?.arguments;
     if (Array.isArray(consoleArguments) && consoleArguments[0] === "[logger]") return null;
