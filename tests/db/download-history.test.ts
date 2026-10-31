@@ -35,11 +35,16 @@ test("history is newest first, pages without repeats, filters, and shows no one'
   assert.equal(first.rows.length, 50);
   assert.equal(first.rows[0]!.fileName, "public.pdf");
   assert.equal(first.rows[0]!.actorName, null);
+  assert.ok(first.rows[0]!.createdAt instanceof Date && !Number.isNaN(first.rows[0]!.createdAt.getTime()), "a real date for the page");
   assert.ok(first.nextCursor);
   const second = await history.readDownloadHistory({ workspaceId: projectId, cursor: first.nextCursor });
   assert.equal(second.rows.length, 7);
   assert.equal(second.nextCursor, null);
   assert.equal(new Set([...first.rows, ...second.rows].map((row) => row.id)).size, 57);
+
+  const people = await history.readDownloadHistoryPeople(projectId);
+  assert.deepEqual(people.map((person) => person.id).sort(), [owner, other].sort(), "everyone in the history, not just the loaded rows");
+  assert.ok(people.every((person) => person.name));
 
   const byPerson = await history.readDownloadHistory({ workspaceId: projectId, actorId: other });
   assert.deepEqual(byPerson.rows.map((row) => row.fileName), ["100%_done.zip"]);

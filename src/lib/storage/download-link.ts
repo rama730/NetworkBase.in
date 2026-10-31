@@ -11,12 +11,11 @@ export async function signedDownloadRedirect(
   admin: Awaited<ReturnType<typeof createAdminClient>>,
   input: { bucket: string; storageKey: string; filename: string },
 ) {
-  const { data, error } = await admin.storage
-    .from(input.bucket)
-    .createSignedUrl(input.storageKey, DOWNLOAD_LINK_SECONDS, { download: input.filename });
+  const { data, error } = await admin.storage.from(input.bucket).createSignedUrl(input.storageKey, DOWNLOAD_LINK_SECONDS);
   if (error || !data?.signedUrl) return null;
+  // Not the library's `download` option: it adds the name unencoded, so `R&D #1.pdf` would save as `R`.
   return new Response(null, {
     status: 302,
-    headers: { Location: data.signedUrl, "Cache-Control": "private, no-store" },
+    headers: { Location: `${data.signedUrl}&download=${encodeURIComponent(input.filename)}`, "Cache-Control": "private, no-store" },
   });
 }

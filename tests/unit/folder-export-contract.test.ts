@@ -123,7 +123,7 @@ test("names that differ only by case can't overwrite each other when unzipped", 
 
 test("the zip routes can be checked without pinning, and a stalled client can't outlive the deadline", () => {
   const stream = readFileSync("src/lib/files/folder-export.ts", "utf8");
-  assert.match(stream, /void writer\.abort\(reason\)/);
+  assert.match(stream, /outputController\.error\(reason\)/);
   assert.equal((stream.match(/if \(!input\.dryRun\) await pinExportAssets/g) ?? []).length, 2);
   assert.ok(stream.indexOf("Submissions are limited to 1 GB") < stream.indexOf("if (!input.dryRun) await pinExportAssets(tx, list"), "size is checked before pinning");
   for (const route of ["src/app/api/v1/workspaces/[id]/files/export/route.ts", "src/app/api/v1/workspaces/[id]/tasks/[taskId]/submissions/route.ts"]) {
@@ -136,4 +136,20 @@ test("the zip routes can be checked without pinning, and a stalled client can't 
   assert.doesNotMatch(submissions, /"files:export"/);
   const exportRoute = readFileSync("src/app/api/v1/workspaces/[id]/files/export/route.ts", "utf8");
   assert.match(exportRoute, /exportEntriesStillVisible/);
+});
+
+test("a file with no stored copy is left out of a zip and counted, not fatal", () => {
+  const { entries, skippedFiles } = buildFolderExportEntries([
+    row({ id: "kept", name: "kept.txt", type: "file" }),
+    row({ id: "linked", name: "linked.md", type: "file", s3_key: null }),
+    row({ id: "bin", name: "logo.png", type: "file", s3_key: null }),
+  ], null);
+  assert.deepEqual(entries.map((entry) => entry.path), ["kept.txt"]);
+  assert.equal(skippedFiles, 2);
+});
+
+test("a teammate deleting a file doesn't stop a zip already holding it", () => {
+  const stream = readFileSync("src/lib/files/folder-export.ts", "utf8");
+  const check = stream.slice(stream.indexOf("export async function exportEntriesStillVisible"), stream.indexOf("export async function releaseFolderExport"));
+  assert.doesNotMatch(check, /deleted_at/);
 });

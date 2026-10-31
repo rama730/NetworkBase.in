@@ -54,8 +54,9 @@ export async function readDownloadHistory(input: {
       fileName: workspaceDownloadEvents.fileName,
       kind: workspaceDownloadEvents.kind,
       fileCount: workspaceDownloadEvents.fileCount,
-      // Text at full precision: a JS Date would cut microseconds and repeat or skip rows at a page boundary.
-      createdAt: sql<string>`${workspaceDownloadEvents.createdAt}::text`,
+      createdAt: workspaceDownloadEvents.createdAt,
+      // The page cursor keeps full precision: a JS Date would cut microseconds and repeat or skip rows at a boundary.
+      cursorAt: sql<string>`${workspaceDownloadEvents.createdAt}::text`,
       actorId: workspaceDownloadEvents.actorId,
       actorName: sql<string | null>`coalesce(${profiles.fullName}, ${profiles.username})`,
     })
@@ -78,8 +79,19 @@ export async function readDownloadHistory(input: {
   const last = page.at(-1);
   return {
     rows: page,
-    nextCursor: rows.length > PAGE_SIZE && last ? { createdAt: last.createdAt, id: last.id } : null,
+    nextCursor: rows.length > PAGE_SIZE && last ? { createdAt: last.cursorAt, id: last.id } : null,
   };
+}
+
+/** Everyone with a row in this workspace's history, for the person filter. */
+export async function readDownloadHistoryPeople(workspaceId: string) {
+  const rows = await db.execute<{ id: string; name: string | null }>(sql`
+    SELECT p.id, coalesce(p.full_name, p.username) AS name
+    FROM public.profiles p
+    WHERE EXISTS (SELECT 1 FROM public.workspace_download_events e WHERE e.workspace_id = ${workspaceId} AND e.actor_id = p.id)
+    ORDER BY 2
+    LIMIT 200`);
+  return Array.from(rows);
 }
 
 export async function deleteExpiredDownloadEvents() {

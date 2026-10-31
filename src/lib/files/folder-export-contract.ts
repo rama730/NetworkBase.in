@@ -69,6 +69,7 @@ export function buildSelectionExportEntries(rows: FolderExportRow[]) {
   );
 }
 
+/** A file with no stored copy (linked from a GitHub import) can't go in a zip: it is left out and counted. */
 export function buildFolderExportEntries(rows: FolderExportRow[], selectedFolderId: string | null) {
   const byId = new Map(rows.map((row) => [row.id, row]));
   const selected = selectedFolderId ? byId.get(selectedFolderId) : null;
@@ -78,6 +79,7 @@ export function buildFolderExportEntries(rows: FolderExportRow[], selectedFolder
 
   const entries: FolderExportEntry[] = [];
   let totalBytes = 0;
+  let skippedFiles = 0;
   for (const row of rows) {
     if (row.id === selectedFolderId) continue;
     const segments: string[] = [assertSafeSegment(row.name)];
@@ -104,7 +106,8 @@ export function buildFolderExportEntries(rows: FolderExportRow[], selectedFolder
         throw new Error(`File ${row.name} is not available for export`);
       }
       if (!(row.asset_storage_key || row.s3_key)) {
-        throw new Error(`File ${row.name} has no stored content`);
+        skippedFiles += 1;
+        continue;
       }
       totalBytes += size;
       if (totalBytes > FOLDER_EXPORT_MAX_BYTES) {
@@ -122,5 +125,5 @@ export function buildFolderExportEntries(rows: FolderExportRow[], selectedFolder
       size,
     });
   }
-  return { entries, totalBytes };
+  return { entries, totalBytes, skippedFiles };
 }

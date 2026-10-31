@@ -15,16 +15,28 @@ test("a download redirect is a one-minute attachment link that is never cached",
       from: (bucket: string) => ({
         createSignedUrl: async (key: string, seconds: number, options: unknown) => {
           calls.push([bucket, key, seconds, options]);
-          return { data: { signedUrl: "https://storage.test/signed" }, error: null };
+          return { data: { signedUrl: "https://storage.test/signed?token=t" }, error: null };
         },
       }),
     },
   };
   const res = await signedDownloadRedirect(admin as never, { bucket: "b", storageKey: "k", filename: "日本語.pdf" });
   assert.equal(res!.status, 302);
-  assert.equal(res!.headers.get("location"), "https://storage.test/signed");
+  assert.equal(new URL(res!.headers.get("location")!).searchParams.get("download"), "日本語.pdf");
   assert.equal(res!.headers.get("cache-control"), "private, no-store");
-  assert.deepEqual(calls, [["b", "k", 60, { download: "日本語.pdf" }]]);
+  assert.deepEqual(calls, [["b", "k", 60, undefined]]);
+});
+
+// The storage library would put the name into the link unencoded: `R&D #1.pdf` saved as `R`.
+test("any filename survives the trip through the link", async () => {
+  const admin = { storage: { from: () => ({ createSignedUrl: async () => ({ data: { signedUrl: "https://storage.test/o?token=t" }, error: null }) }) } };
+  for (const filename of ["R&D #1 100%+ a.pdf", "a?b=c.pdf", "日本語 it’s.pdf", 'quo"te.pdf', "tuples#x--y.csv"]) {
+    const res = await signedDownloadRedirect(admin as never, { bucket: "b", storageKey: "k", filename });
+    const link = new URL(res!.headers.get("location")!);
+    assert.equal(link.searchParams.get("download"), filename);
+    assert.equal(link.searchParams.get("token"), "t");
+    assert.equal(link.hash, "");
+  }
 });
 
 test("a failed signing returns nothing, so the route can answer with an error", async () => {
@@ -47,8 +59,6 @@ test("chat and workspace files have a real download mode and a cheap status chec
   const preview = read("src/app/api/v1/workspaces/[id]/files/[nodeId]/preview/route.ts");
   assert.match(preview, /signedDownloadRedirect/);
   assert.match(preview, /versionedFilename\(node\.name, revisionNumber!\)/);
-  const media = read("src/app/api/v1/workspaces/[id]/update-media/route.ts");
-  assert.match(media, /searchParams\.get\("download"\) === "1" \? "attachment" : "inline"/);
 });
 
 // fetch() must read same-origin bytes; download mode redirects to storage on another origin.
@@ -106,3 +116,8 @@ test("anyone who can see a folder can pick files to download, and only editors c
   assert.doesNotMatch(list, /canEditCurrentFolder && <><DropdownMenuSeparator \/><DropdownMenuItem onSelect=\{\(\) => \{ setSelectionMode\(true\)/);
 });
 
+
+test("a linked binary file is refused rather than saved corrupted", () => {
+  const source = read("src/components/workspaces/v2/files-tab/file/downloadWorkspaceNode.ts");
+  assert.ok(source.indexOf('fileKind(node) !== "text"') < source.indexOf("getWorkspaceFileContent"), "checked before reading as text");
+});

@@ -99,7 +99,7 @@ async function handle(request: NextRequest, context: { params: Promise<{ id: str
     totalSize: owningUpdate.size,
     mimeType: owningUpdate.mimeType,
     filename: media.label || storageKey.split("/").pop() || "update-image",
-    disposition: request.nextUrl.searchParams.get("download") === "1" ? "attachment" : "inline",
+    disposition: "inline",
     etag: `"update-media-${identity}"`,
     cacheControl: isPublic
       ? "public, max-age=300, s-maxage=300, must-revalidate"

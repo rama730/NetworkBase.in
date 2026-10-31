@@ -22,7 +22,7 @@ const admin = {
     from: (bucket: string) => ({
       createSignedUrl: async (key: string, seconds: number, options?: unknown) => {
         signed.push({ bucket, key, seconds, options });
-        return { data: { signedUrl: `https://storage.test/${key}?signed=1` }, error: null };
+        return { data: { signedUrl: `https://storage.test/${key}?token=t` }, error: null };
       },
     }),
   },
@@ -83,6 +83,7 @@ async function seedFile(name: string, options: { visibility?: string; state?: st
 }
 const previewContext = (file: { projectId: string; nodeId: string }) => ({ params: Promise.resolve({ id: file.projectId, nodeId: file.nodeId }) });
 const previewUrl = (file: { projectId: string; nodeId: string }, query = "") => `/api/v1/workspaces/${file.projectId}/files/${file.nodeId}/preview${query}`;
+const savedAs = (res: Response) => new URL(res.headers.get("location")!).searchParams.get("download");
 const historyRows = (projectId: string) => sql`SELECT kind, file_name, actor_id, file_count FROM public.workspace_download_events WHERE workspace_id = ${projectId} ORDER BY created_at`;
 const settle = () => new Promise((resolve) => setTimeout(resolve, 100));
 
@@ -93,7 +94,8 @@ test("downloading a file with a non-English name saves it under that name, and i
   assert.equal(res.status, 302);
   assert.match(res.headers.get("location")!, /^https:\/\/storage\.test\//);
   assert.equal(res.headers.get("cache-control"), "private, no-store");
-  assert.deepEqual(signed[0], { bucket: "project-files", key: file.key, seconds: 60, options: { download: "日本語 it’s.pdf" } });
+  assert.equal(savedAs(res), "日本語 it’s.pdf");
+  assert.deepEqual(signed[0], { bucket: "project-files", key: file.key, seconds: 60, options: undefined });
   await settle();
   const rows = await historyRows(file.projectId);
   assert.equal(rows.length, 1);
@@ -119,12 +121,12 @@ test("an old version saves as report.v1.pdf; a version that doesn't exist is 404
   viewer = file.owner;
   const old = await preview.GET(request(previewUrl(file, "?revision=1&download=1")), previewContext(file));
   assert.equal(old.status, 302);
-  assert.deepEqual(signed[0]!.options, { download: "report.v1.pdf" });
+  assert.equal(savedAs(old), "report.v1.pdf");
   await settle();
   assert.equal((await historyRows(file.projectId))[0]!.kind, "version");
   const current = await preview.GET(request(previewUrl(file, "?revision=2&download=1")), previewContext(file));
   assert.equal(current.status, 302);
-  assert.deepEqual(signed[1]!.options, { download: "report.pdf" });
+  assert.equal(savedAs(current), "report.pdf");
   const missing = await preview.GET(request(previewUrl(file, "?revision=99&download=1")), previewContext(file));
   assert.equal(missing.status, 404);
 });
@@ -177,12 +179,12 @@ test("a message attachment saves under its real name; only channel members can h
   assert.equal(signed.length, 0, "the check signs nothing");
   const saved = await chat.GET(request(`${url}?download=1`) as unknown as Request, context());
   assert.equal(saved.status, 302);
-  assert.deepEqual(signed[0]!.options, { download: "請求書.pdf" });
+  assert.equal(savedAs(saved), "請求書.pdf");
   assert.equal(signed[0]!.seconds, 60);
   assert.equal(saved.headers.get("cache-control"), "private, no-store");
   const view = await chat.GET(request(url) as unknown as Request, context());
   assert.equal(view.status, 302);
-  assert.equal(signed[1]!.options, undefined, "viewing doesn't force a save");
+  assert.equal(savedAs(view), null, "viewing doesn't force a save");
 
   viewer = seeded.stranger;
   assert.equal((await chat.HEAD(request(`${url}?download=1`, "HEAD") as unknown as Request, context())).status, 404);
@@ -216,4 +218,42 @@ test("a member of a private workspace can download; removing them stops it", asy
   assert.equal((await preview.HEAD(request(previewUrl(file, "?download=1"), "HEAD"), previewContext(file))).status, 200);
   await sql`DELETE FROM public.workspace_members WHERE workspace_id = ${file.projectId} AND user_id = ${file.outsider}`;
   assert.equal((await preview.HEAD(request(previewUrl(file, "?download=1"), "HEAD"), previewContext(file))).status, 403);
+});
+
+test("a file with & and # in its name saves whole", async () => {
+  const file = await seedFile("R&D #1 100%+ a.pdf");
+  viewer = file.owner;
+  const res = await preview.GET(request(previewUrl(file, "?download=1")), previewContext(file));
+  assert.equal(savedAs(res), "R&D #1 100%+ a.pdf");
+});
+
+test("a channel-note image with no attachment name keeps its file type", async () => {
+  const seeded = await sql.begin(async (tx) => {
+    const uploader = await createUser(tx);
+    users.push(uploader);
+    const [asset] = await tx`
+      INSERT INTO public.storage_assets (owner_user_id, bucket, storage_key, purpose, state, declared_mime_type, declared_size, verified_mime_type, verified_size, verified_at, content_hash, expires_at)
+      VALUES (${uploader}, 'chat-attachments', ${`${randomUUID()}/${uploader}/${randomUUID()}.png`}, 'chat_attachment', 'verified', 'image/png', 3, 'image/png', 3, now(), 'hash', now() + interval '1 day')
+      RETURNING id`;
+    return { uploader, assetId: asset!.id as string };
+  });
+  viewer = seeded.uploader;
+  const res = await chat.GET(request(`/api/v1/chat/attachments/${seeded.assetId}?download=1`) as unknown as Request, { params: Promise.resolve({ assetId: seeded.assetId }) });
+  assert.equal(savedAs(res), "attachment.png");
+});
+
+test("a zip leaves out files with no stored copy and says how many; a folder of only those has nothing to download", async () => {
+  const file = await seedFile("stored.pdf");
+  viewer = file.owner;
+  await sql`INSERT INTO public.workspace_nodes (workspace_id, type, name, path, size) VALUES (${file.projectId}, 'file', 'linked.md', ${`/${randomUUID()}`}, 5)`;
+  const context = () => ({ params: Promise.resolve({ id: file.projectId }) });
+  const base = `/api/v1/workspaces/${file.projectId}/files/export`;
+  const check = await exportRoute.HEAD(request(`${base}?name=All`, "HEAD"), context());
+  assert.equal(check.status, 200);
+  assert.equal(check.headers.get("x-download-skipped"), "1");
+  const stored = await exportRoute.HEAD(request(`${base}?ids=${file.nodeId}`, "HEAD"), context());
+  assert.equal(stored.headers.get("x-download-skipped"), null, "nothing was left out");
+
+  const [linked] = await sql`SELECT id FROM public.workspace_nodes WHERE workspace_id = ${file.projectId} AND name = 'linked.md'`;
+  assert.equal((await exportRoute.HEAD(request(`${base}?ids=${linked!.id}`, "HEAD"), context())).status, 422);
 });

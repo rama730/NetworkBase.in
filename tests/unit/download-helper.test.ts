@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { afterEach, beforeEach, test } from "node:test";
 
-import { csvCell, downloadFailureMessage, downloadFile, retryMessage, saveBlob, toCsvBlob } from "../../src/lib/download";
+import { csvCell, downloadFailureMessage, downloadFile, retryMessage, saveBlob, skippedMessage, toCsvBlob } from "../../src/lib/download";
 import { FEEDBACK_COPY } from "../../src/lib/feedback/copy";
 
 type Link = { href: string; download: string; clicked: boolean; style: Record<string, string>; click(): void; remove(): void };
@@ -80,13 +80,22 @@ test("a local preview of a file still uploading saves as it is", async () => {
   assert.equal(links[0]!.href, "blob:https://app.test/abc");
 });
 
+test("a zip that leaves files out says how many, in reviewed copy", () => {
+  assert.equal(skippedMessage(new Headers({ "x-download-skipped": "1" })), "One file wasn’t included");
+  assert.equal(skippedMessage(new Headers({ "x-download-skipped": "3" })), "3 files weren’t included");
+  assert.equal(skippedMessage(new Headers()), null);
+  assert.ok(FEEDBACK_COPY["One file wasn’t included"]);
+  assert.ok(FEEDBACK_COPY["{count} files weren’t included"]);
+});
+
 test("each failure says what happened, in reviewed copy", () => {
-  for (const status of [401, 403, 404, 410, 413, 429, 500]) {
+  for (const status of [401, 403, 404, 409, 410, 413, 422, 429, 500]) {
     const message = downloadFailureMessage(status);
     assert.ok(FEEDBACK_COPY[message], message);
   }
   assert.equal(downloadFailureMessage(429), "Too many downloads");
   assert.equal(downloadFailureMessage(403), "You don’t have access to this");
+  assert.notEqual(downloadFailureMessage(409), "Download failed", "a changed file isn't a connection problem");
 });
 
 test("a saved blob keeps its URL long enough for slower browsers", () => {

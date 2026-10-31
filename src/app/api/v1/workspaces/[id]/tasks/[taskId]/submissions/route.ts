@@ -47,7 +47,12 @@ async function handle(request: NextRequest, context: RouteContext) {
     const status = message.includes("limited") ? 413 : message.startsWith("No submitted") ? 422 : 409;
     return jsonError(message, status, status === 409 ? "CONFLICT" : "BAD_REQUEST");
   }
-  if (isCheck) return new Response(null, { status: 200, headers: { "Cache-Control": "private, no-store" } });
+  if (isCheck) {
+    return new Response(null, {
+      status: 200,
+      headers: { "Cache-Control": "private, no-store", ...(prepared.skippedFiles > 0 ? { "X-Download-Skipped": String(prepared.skippedFiles) } : {}) },
+    });
+  }
 
   const reauthorize = async () => {
     if ((await orgAdminOf(orgId)) !== userId) throw new Error("Export session expired");

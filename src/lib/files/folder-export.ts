@@ -29,6 +29,8 @@ export type PreparedFolderExport = {
   entries: FolderExportEntry[];
   totalBytes: number;
   requiresTaskAccess: boolean;
+  /** Files with no stored copy, left out of the zip. */
+  skippedFiles: number;
 };
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
@@ -65,6 +67,7 @@ export async function prepareSubmissionsExport(input: { masterId: string; dryRun
   // outgrow the 1 GB / 20,000-entry export ceiling.
   const operationId = randomUUID();
   const expiresAt = new Date(Date.now() + FOLDER_EXPORT_PIN_MS);
+  let skippedFiles = 0;
   const entries = await db.transaction(async (tx) => {
     const rows = Array.from(await tx.execute<{ copy_id: string; who: string; id: string; name: string; asset_id: string | null; s3_key: string | null; size: number | null; bucket: string | null; storage_key: string | null; verified_size: number | null }>(sql`
       SELECT c.id AS copy_id,
@@ -84,6 +87,10 @@ export async function prepareSubmissionsExport(input: { masterId: string; dryRun
     const list: FolderExportEntry[] = [];
     const usedInFolder = new Map<string, Set<string>>();
     for (const row of rows) {
+      if (!(row.storage_key ?? row.s3_key)) {
+        skippedFiles += 1;
+        continue;
+      }
       if (!folders.has(row.copy_id)) {
         let name = clean(row.who);
         for (let i = 2; used.has(name); i++) name = `${clean(row.who)} (${i})`;
@@ -107,7 +114,7 @@ export async function prepareSubmissionsExport(input: { masterId: string; dryRun
     return list;
   });
   const totalBytes = entries.reduce((sum, entry) => sum + entry.size, 0);
-  return { operationId, entries, totalBytes, requiresTaskAccess: true };
+  return { operationId, entries, totalBytes, requiresTaskAccess: true, skippedFiles };
 }
 
 export async function prepareFolderExport(input: {
@@ -175,19 +182,20 @@ export async function prepareFolderExport(input: {
       throw new Error("The export folder tree is too deeply nested");
     }
 
-    const { entries, totalBytes } = input.nodeIds ? buildSelectionExportEntries(found) : buildFolderExportEntries(found, input.folderId);
+    const { entries, totalBytes, skippedFiles } = input.nodeIds ? buildSelectionExportEntries(found) : buildFolderExportEntries(found, input.folderId);
     if (entries.length === 0 || !entries.some((entry) => entry.type === "file")) {
       throw new Error("No files found to download");
     }
 
     if (!input.dryRun) await pinExportAssets(tx, entries, operationId, expiresAt);
-    return { rows: found, entries, totalBytes };
+    return { rows: found, entries, totalBytes, skippedFiles };
   });
 
   return {
     operationId,
     entries: exportResult.entries,
     totalBytes: exportResult.totalBytes,
+    skippedFiles: exportResult.skippedFiles,
     requiresTaskAccess: exportResult.rows.some((row) => !!row.task_id || row.path.startsWith("/.system")),
   };
 }
@@ -199,7 +207,6 @@ export async function exportEntriesStillVisible(entries: FolderExportEntry[], no
   const rows = await db.execute<{ visible: number | string }>(sql`
     SELECT count(*) AS visible FROM public.workspace_nodes n
     WHERE n.id IN (${sql.join(ids.map((id) => sql`${id}::uuid`), sql`, `)})
-      AND n.deleted_at IS NULL
       AND ${nodeFilter("n") ?? sql`true`}`);
   return Number(Array.from(rows)[0]?.visible ?? 0) === ids.length;
 }
@@ -238,13 +245,15 @@ export function streamFolderExport(input: {
     { once: true },
   );
   if (input.requestSignal.aborted) abortController.abort(input.requestSignal.reason);
-  const output = new TransformStream<Uint8Array, Uint8Array>();
+  let outputController!: TransformStreamDefaultController<Uint8Array>;
+  const output = new TransformStream<Uint8Array, Uint8Array>({ start: (controller) => { outputController = controller; } });
   const writer = output.writable.getWriter();
-  // A client that stops reading parks the loop on a write, where the abort signal can't reach it: aborting the writer does.
+  // A client that stops reading parks the loop on a write. Neither the abort signal nor writer.abort() can reach it,
+  // because abort waits for that write to finish; erroring the stream itself does release it.
   const overallTimeout = setTimeout(() => {
     const reason = new Error("Folder export exceeded 30 minutes");
     abortController.abort(reason);
-    void writer.abort(reason).catch(() => undefined);
+    outputController.error(reason);
   }, FOLDER_EXPORT_MAX_MS);
   let writes = Promise.resolve();
   let terminalError: Error | null = null;
