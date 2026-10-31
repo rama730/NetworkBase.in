@@ -74,7 +74,12 @@ async function handle(request: NextRequest, context: RouteContext) {
     return jsonError(message, status, errorCode);
   }
 
-  if (isCheck) return new Response(null, { status: 200, headers: { "Cache-Control": "private, no-store" } });
+  if (isCheck) {
+    return new Response(null, {
+      status: 200,
+      headers: { "Cache-Control": "private, no-store", ...(prepared.skippedFiles > 0 ? { "X-Download-Skipped": String(prepared.skippedFiles) } : {}) },
+    });
+  }
 
   const reauthorize = async () => {
     const currentClient = await createClient();

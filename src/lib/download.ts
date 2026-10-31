@@ -5,6 +5,7 @@ export function downloadFailureMessage(status: number) {
     if (status === 401) return 'Sign in to download';
     if (status === 403) return 'You don’t have access to this';
     if (status === 404 || status === 410) return 'This file is no longer available';
+    if (status === 409) return 'This download couldn’t be prepared';
     if (status === 413) return 'This download is too large';
     if (status === 422) return 'There’s nothing to download here';
     if (status === 429) return 'Too many downloads';
@@ -15,6 +16,13 @@ export function downloadFailureMessage(status: number) {
 export function retryMessage(headers: Headers) {
     const seconds = Number(headers.get('retry-after'));
     return seconds > 120 ? `Try again in ${Math.ceil(seconds / 60)} minutes` : null;
+}
+
+/** A zip that had to leave files out says so, or people would assume they got everything. */
+export function skippedMessage(headers: Headers) {
+    const count = Number(headers.get('x-download-skipped'));
+    if (!count) return null;
+    return count === 1 ? 'One file wasn’t included' : `${count} files weren’t included`;
 }
 
 function clickLink(href: string, filename?: string) {
@@ -68,10 +76,12 @@ export async function downloadFile(url: string, options: { filename?: string } =
     checking.add(target);
     let status: number;
     let retry: string | null = null;
+    let skipped: string | null = null;
     try {
         const response = await fetch(target, { method: 'HEAD', cache: 'no-store', credentials: 'same-origin' });
         status = response.status;
         retry = retryMessage(response.headers);
+        skipped = skippedMessage(response.headers);
     } catch {
         toast.error('Download failed');
         return false;
@@ -83,6 +93,7 @@ export async function downloadFile(url: string, options: { filename?: string } =
         return false;
     }
     clickLink(target, options.filename);
+    if (skipped) toast.warning(skipped);
     return true;
 }
 

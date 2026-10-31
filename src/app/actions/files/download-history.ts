@@ -2,7 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { getWorkspaceAccessById } from "@/lib/data/workspace-access";
-import { readDownloadHistory } from "@/lib/files/download-history";
+import { readDownloadHistory, readDownloadHistoryPeople } from "@/lib/files/download-history";
 import { isUuid } from "@/lib/validations/uuid";
 
 /** Owners and admins only: the same people who can open this workspace's settings. */
@@ -28,5 +28,7 @@ export async function readDownloadHistoryAction(input: {
     actorId: input.personId,
     cursor: input.cursor,
   });
-  return { success: true as const, ...page };
+  // The filter's list only needs loading once, with the first page.
+  const people = input.cursor ? null : await readDownloadHistoryPeople(input.projectId);
+  return { success: true as const, ...page, people };
 }

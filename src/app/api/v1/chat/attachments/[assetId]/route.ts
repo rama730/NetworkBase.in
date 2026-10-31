@@ -53,7 +53,7 @@ export async function GET(request: Request, context: { params: Promise<{ assetId
 
   const admin = await createAdminClient();
   if (isDownload) {
-    const saved = await signedDownloadRedirect(admin, { bucket: BUCKET, storageKey, filename: row.name || "attachment" });
+    const saved = await signedDownloadRedirect(admin, { bucket: BUCKET, storageKey, filename: row.name || `attachment${storageKey.match(/\.[a-z0-9]{1,8}$/i)?.[0] ?? ""}` });
     if (!saved) return jsonError("Attachment unavailable", 503, "UNAVAILABLE");
     logApiRoute(request, { requestId, action: "chat.attachments.download", userId: user.id, startedAt, success: true, status: 302 });
     return saved;
