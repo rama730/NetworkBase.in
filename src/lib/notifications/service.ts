@@ -1,4 +1,5 @@
 import { and, desc, eq, inArray, isNull, lt, lte, or, sql } from "drizzle-orm";
+import { wakePushIfNeeded } from "@/inngest/wake";
 import { db } from "@/lib/db";
 import { profiles, userNotifications } from "@/lib/db/schema";
 import { logger } from "@/lib/logger";
@@ -295,6 +296,8 @@ export async function createNotification(
             aggregate_count: inserted[0].aggregateCount ?? 1,
             delayed_reason: check.delayReason ?? undefined,
         });
+        // Not awaited: this can run inside the caller's transaction, and a wake can never fail.
+        void wakePushIfNeeded({ importance, delayUntil: check.delayUntil });
         return { notification: inserted[0]!, skipped: false as const };
     }
 
@@ -463,6 +466,8 @@ export async function upsertAggregatedNotification(
         aggregate_count: row?.aggregateCount ?? aggregateDelta,
         delayed_reason: check.delayReason ?? undefined,
     });
+    // Not awaited: this can run inside the caller's transaction, and a wake can never fail.
+    if (row) void wakePushIfNeeded({ importance, delayUntil: check.delayUntil });
     return { notification: row ?? null, skipped: false as const };
 }
 
