@@ -134,10 +134,6 @@ export async function toggleWorkspaceFollowAction(...args: Parameters<typeof lif
   return lifecycleImpl.toggleWorkspaceFollowAction(...args);
 }
 
-export async function incrementWorkspaceViewAction(...args: Parameters<typeof lifecycleImpl.incrementWorkspaceViewAction>): ReturnType<typeof lifecycleImpl.incrementWorkspaceViewAction> {
-  return lifecycleImpl.incrementWorkspaceViewAction(...args);
-}
-
 export async function getWorkspaceHydrationProgressAction(...args: Parameters<typeof detailImpl.getWorkspaceHydrationProgressAction>): ReturnType<typeof detailImpl.getWorkspaceHydrationProgressAction> {
   return detailImpl.getWorkspaceHydrationProgressAction(...args);
 }
