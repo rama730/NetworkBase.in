@@ -46,7 +46,7 @@ function readCursor(payload: unknown): ReconciliationCursor | null {
 
 export const reconcileWorkspaceFiles = inngest.createFunction(
     { id: RECONCILIATION_JOB_ID, retries: 1, concurrency: 1 },
-    { cron: "0 */6 * * *" },
+    { cron: "0 * * * *" },
     async () => {
         const [checkpoint] = await db
             .select({ payload: jobHeartbeats.lastPayload })

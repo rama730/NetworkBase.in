@@ -11,6 +11,9 @@ import { messageHref } from "@/lib/messaging/routes";
 
 type DueMessage = { id: string; channel_id: string; user_id: string; body: string; thread_root_seq: number | null };
 
+export const DUE_MESSAGE_LIMIT = 200;
+export const DUE_REMINDER_LIMIT = 500;
+
 // A claim is a lease, not a completion marker: an item counts as done only once
 // delivered, and a crashed worker's claim simply expires (COR-010).
 const CLAIM_LEASE = sql`interval '5 minutes'`;
@@ -22,7 +25,7 @@ const CLAIM_LEASE = sql`interval '5 minutes'`;
  * same client id, which the message table dedupes. A send that fails (left the
  * channel, archived) keeps its row with the reason, for the sender.
  */
-export async function sendDueScheduledMessages(limit = 200) {
+export async function sendDueScheduledMessages(limit = DUE_MESSAGE_LIMIT) {
   const due = await chatRows<DueMessage>(sql`
     UPDATE chat_scheduled_messages s SET claim_expires_at = now() + ${CLAIM_LEASE}
     WHERE s.id IN (
@@ -78,7 +81,7 @@ export async function dueTimesWithinNextHour(limit = 200) {
 }
 
 /** Fire "Remind me about this" as a notification linking back to the message. */
-export async function fireDueReminders(limit = 500) {
+export async function fireDueReminders(limit = DUE_REMINDER_LIMIT) {
   const due = await chatRows<DueReminder>(sql`
     UPDATE chat_saved s SET reminder_claim_expires_at = now() + ${CLAIM_LEASE}
     FROM chat_messages m, chat_channels c
