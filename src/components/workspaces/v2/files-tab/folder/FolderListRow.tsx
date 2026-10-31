@@ -372,7 +372,7 @@ export const FolderListRow = React.memo(function FolderListRow({
         data-column="name"
         className="flex min-w-0 items-center gap-2.5"
       >
-        {canEdit && onSelectionChange && (
+        {onSelectionChange && (
           <label
             className="flex size-7 shrink-0 cursor-pointer items-center justify-center"
             onClick={(event) => event.stopPropagation()}

@@ -98,3 +98,11 @@ test("print frames stay until the dialog closes, and the account export check us
   assert.doesNotMatch(head, /consumeRateLimit|createAccountExportStream/);
   assert.match(head, /"?Retry-After"?|'Retry-After'/);
 });
+
+test("anyone who can see a folder can pick files to download, and only editors can delete them", () => {
+  const list = read("src/components/workspaces/v2/files-tab/folder/FolderListView.tsx");
+  assert.doesNotMatch(read("src/components/workspaces/v2/files-tab/folder/FolderListRow.tsx"), /canEdit && onSelectionChange/);
+  assert.match(list, /canEditCurrentFolder && <DropdownMenuItem disabled=\{!selectedItems\.length\} variant="destructive"/);
+  assert.doesNotMatch(list, /canEditCurrentFolder && <><DropdownMenuSeparator \/><DropdownMenuItem onSelect=\{\(\) => \{ setSelectionMode\(true\)/);
+});
+
