@@ -189,7 +189,7 @@ export default withSentryConfig(withBundleAnalyzer(nextConfig), {
   silent: true,
   widenClientFileUpload: true,
   // Source maps need twice the heap and four times as long to build, and are only useful when they can be uploaded.
-  sourcemaps: { disable: !process.env.SENTRY_AUTH_TOKEN },
+  sourcemaps: { disable: !process.env.SENTRY_AUTH_TOKEN, deleteSourcemapsAfterUpload: true },
   // We report errors, not traces: no per-route wrapping (onRequestError covers server errors) and no tracing code in the browser.
   webpack: {
     autoInstrumentServerFunctions: false,
