@@ -8,8 +8,8 @@ import { inngest } from "../client";
 // Durable tombstones also cover a process crash before any event is dispatched.
 export const finishPendingFileDeletions = inngest.createFunction(
   { id: "project-files-permanent-delete", retries: 2, concurrency: 1 },
-  // ponytail: hourly sweep handles crashed delete tombstones without high-frequency polling. ceiling: hourly cron sweep. upgrade: event-driven file.deleted trigger if instant tombstone recovery required.
-  { cron: "0 * * * *" },
+  // ponytail: 6-hourly sweep handles crashed delete tombstones without high-frequency polling. ceiling: 6-hourly cron sweep. upgrade: event-driven file.deleted trigger if instant tombstone recovery required.
+  { cron: "0 */6 * * *" },
   async ({ step }) => {
     const pending = await step.run("read-pending-deletions", () =>
       db

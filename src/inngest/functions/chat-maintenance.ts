@@ -37,10 +37,10 @@ export const chatMentionsRetention = inngest.createFunction(
   },
 );
 
-/** Hourly sample of channel counters; problems are logged for follow-up, never auto-fixed. */
+/** Daily sample of channel counters; problems are logged for follow-up, never auto-fixed. */
 export const chatIntegrityAudit = inngest.createFunction(
   { id: CHAT_INTEGRITY_AUDIT_JOB_ID, retries: 1 },
-  { cron: "40 * * * *" },
+  { cron: "40 4 * * *" },
   async ({ step }) => {
     const problems = await step.run("audit", () => auditChatIntegrity(200));
     if (problems.length) logger.error("chat.integrity.audit.problems", { module: "chat", count: problems.length, errors: problems.slice(0, 20) });

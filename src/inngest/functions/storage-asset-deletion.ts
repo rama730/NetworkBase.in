@@ -10,7 +10,7 @@ import { emitStorageQueueMetrics } from "@/lib/storage/observability";
 
 export const storageAssetDeletion = inngest.createFunction(
   { id: "storage-asset-deletion", concurrency: 1 },
-  { cron: "*/5 * * * *" },
+  { cron: "0 */2 * * *" },
   async ({ step }) => {
     const scheduled = await step.run("schedule-abandoned-assets", scheduleAbandonedStorageAssets);
     const pins = await step.run("cleanup-expired-storage-pins", cleanupExpiredStorageAssetPins);

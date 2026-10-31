@@ -13,7 +13,8 @@ import {
   verifyS3Backup,
 } from "@/lib/storage/s3-backup-client";
 
-const BACKUP_BATCH_SIZE = 100;
+// Runs hourly, so one run has to carry what used to be spread across 60.
+const BACKUP_BATCH_SIZE = 500;
 const BACKUP_CONCURRENCY = 8;
 const BACKUP_DEADLINE_MS = 30 * 60 * 1000;
 // A failed asset waits this long before it is selected again, so permanent failures cannot fill the page.

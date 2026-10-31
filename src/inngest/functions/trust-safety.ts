@@ -29,7 +29,7 @@ export const trustDecisionNotices = inngest.createFunction(
 
 export const trustDeadlines = inngest.createFunction(
   { id: "trust-deadlines", onFailure: failed("trust-deadlines"), retries: 1, concurrency: { limit: 1 } },
-  { cron: "*/15 * * * *" },
+  { cron: "*/30 * * * *" },
   ({ step }) => step.run("trust-deadlines", () => runTrustDeadlines()),
 );
 
@@ -39,10 +39,10 @@ export const trustRestrictions = inngest.createFunction(
   ({ step }) => step.run("trust-restrictions", () => runTrustRestrictions()),
 );
 
-/** Hourly; each acts only at 8 am IST (the weekly one on Mondays). */
+/** 08:05 IST; each still checks for 8 am IST (the weekly one for Mondays). */
 export const trustDailySummary = inngest.createFunction(
   { id: "trust-daily-summary", onFailure: failed("trust-daily-summary"), retries: 1, concurrency: { limit: 1 } },
-  { cron: "35 * * * *" },
+  { cron: "35 2 * * *" },
   async ({ step }) => {
     await step.run("daily", () => runTrustDailySummary());
     await step.run("weekly", () => runTrustWeeklyHealth());

@@ -6,7 +6,7 @@ import { flushRedisCounterHash, type FlushRedis } from "@/lib/counters/redis-flu
 
 export const flushUpdateLikes = inngest.createFunction(
     { id: "flush-project-likes", name: "Flush Workspace Update Likes from Redis" },
-    { cron: "*/15 * * * *" },
+    { cron: "*/30 * * * *" },
     async ({ step }) => {
         if (!redis) return { skipped: true, reason: "No Redis configured" };
 
