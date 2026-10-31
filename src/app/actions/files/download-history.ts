@@ -9,10 +9,10 @@ import { isUuid } from "@/lib/validations/uuid";
 export async function readDownloadHistoryAction(input: {
   projectId: string;
   search?: string;
-  actorId?: string;
+  personId?: string;
   cursor?: { createdAt: string; id: string } | null;
 }) {
-  if (!isUuid(input.projectId) || (input.actorId && !isUuid(input.actorId))) {
+  if (!isUuid(input.projectId) || (input.personId && !isUuid(input.personId))) {
     return { success: false as const, error: "Couldn’t load download history" };
   }
   const supabase = await createClient();
@@ -25,7 +25,7 @@ export async function readDownloadHistoryAction(input: {
   const page = await readDownloadHistory({
     workspaceId: input.projectId,
     search: input.search?.slice(0, 200),
-    actorId: input.actorId,
+    actorId: input.personId,
     cursor: input.cursor,
   });
   return { success: true as const, ...page };

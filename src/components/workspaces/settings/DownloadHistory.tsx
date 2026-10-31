@@ -33,7 +33,7 @@ export function DownloadHistory({ projectId }: { projectId: string }) {
   const load = useCallback(async (from: Cursor) => {
     setLoading(true);
     setError(null);
-    const result = await readDownloadHistoryAction({ projectId, search: appliedSearch, actorId: actorId || undefined, cursor: from })
+    const result = await readDownloadHistoryAction({ projectId, search: appliedSearch, personId: actorId || undefined, cursor: from })
       .catch(() => ({ success: false as const, error: "Couldn’t load download history" }));
     setLoading(false);
     if (!result.success) return setError(result.error);

@@ -1,5 +1,4 @@
 import { createRequire } from "node:module";
-import { downloadHistoryRetention } from "./functions/download-history-retention";
 
 export type InngestExecutionRole = "web" | "worker";
 
@@ -9,6 +8,7 @@ function getWorkerOnlyFunctions() {
   const { cleanupWorkspaceUpdate } = loadModule("./functions/cleanup-update");
   const { gitPull, gitPush, gitSyncRecovery, lockCleanup, uploadIntentCleanup } = loadModule("./functions/git-sync");
   const { finishPendingFileDeletions } = loadModule("./functions/workspace-files-permanent-delete");
+  const { downloadHistoryRetention } = loadModule("./functions/download-history-retention");
   const { reconcileWorkspaceFiles } = loadModule("./functions/workspace-files-reconciliation");
   const { projectImport } = loadModule("./functions/workspace-import");
   const { projectImportHydrate } = loadModule("./functions/workspace-import-hydrate");
