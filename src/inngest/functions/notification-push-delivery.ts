@@ -40,7 +40,9 @@ export const notificationPushDelivery = inngest.createFunction(
     retries: 2,
     concurrency: { limit: 1 },
   },
-  { cron: "*/5 * * * *" },
+  // Woken when an important notification is created. The hourly run catches a lost wake, retries, and anything held
+  // by quiet hours or a snooze, which goes out up to an hour after its delay ends.
+  [{ event: "notification/push.wake" }, { cron: "30 * * * *" }],
   async ({ step }) => {
     const result = await step.run("deliver-due-web-push", async () => {
       const rows = await selectDueWebPushNotifications(DELIVERY_BATCH_SIZE);
