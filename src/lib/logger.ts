@@ -1,3 +1,4 @@
+import { captureException, captureMessage } from '@sentry/nextjs'
 
 type LogLevel = 'debug' | 'info' | 'warn' | 'error'
 
@@ -46,6 +47,22 @@ function shouldSample(level: LogLevel, message: string, context?: LogContext): b
     return Math.random() < sampleRate
 }
 
+// Most server errors are caught and logged rather than thrown, so this is where Sentry hears about them.
+// A monitoring failure must never break the request that was logging.
+function reportToSentry(message: string, safeContext: Record<string, unknown>, error: unknown) {
+    try {
+        const scope = {
+            extra: safeContext,
+            fingerprint: ['logger', scrubMessage(message)],
+            ...(typeof safeContext.userId === 'string' ? { user: { id: safeContext.userId } } : {}),
+        }
+        if (error instanceof Error) captureException(error, scope)
+        else captureMessage(message, { ...scope, level: 'error' })
+    } catch {
+        // The console line above still records the error.
+    }
+}
+
 function emit(level: LogLevel, message: string, context?: LogContext) {
     if (!shouldLog(level)) return
     if (!shouldSample(level, message, context)) return
@@ -57,6 +74,7 @@ function emit(level: LogLevel, message: string, context?: LogContext) {
     switch (level) {
         case 'error':
             console.error("[logger]", entry)
+            reportToSentry(message, safeContext, context?.error)
             break
         case 'warn':
             console.warn("[logger]", entry)

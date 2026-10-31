@@ -98,6 +98,14 @@ describe("baseSentryOptions", () => {
     assert.equal(options.sendDefaultPii, false);
   });
 
+  it("drops the logger's own console line, which logger.error already reported", () => {
+    const { beforeSend } = baseSentryOptions();
+    const hint = {};
+    assert.equal(beforeSend({ type: undefined, extra: { arguments: ["[logger]", {}] } }, hint), null);
+    assert.ok(beforeSend({ type: undefined, extra: { arguments: ["[files] failed"] } }, hint));
+    assert.ok(beforeSend({ type: undefined }, hint));
+  });
+
   it("reports as production unless the environment is overridden", () => {
     delete process.env.NEXT_PUBLIC_SENTRY_ENVIRONMENT;
     assert.equal(baseSentryOptions().environment, "production");
