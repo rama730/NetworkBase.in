@@ -77,3 +77,10 @@ test('removed creation-time terms are safely omitted from parsed project input',
 
     assert.equal('terms' in result, false);
 });
+
+test('hidden radios stay inside the wizard scroller, so picking one cannot scroll the whole wizard away', () => {
+    const wizard = source('src/components/workspaces/create-wizard/CreateWorkspaceWizard.tsx');
+    const scroller = wizard.match(/data-wizard-scroll className="([^"]*)"/)?.[1] ?? '';
+    // Without `relative`, sr-only inputs position against the overflow-hidden wizard root; focusing one scrolls that root.
+    assert.match(scroller, /(^|\s)relative(\s|$)/);
+});
