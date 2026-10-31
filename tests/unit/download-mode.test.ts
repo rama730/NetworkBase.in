@@ -77,3 +77,17 @@ test("no control saves a file except through the shared helper", () => {
     .filter((file) => /\bdownload=\{|<a[^>]*\sdownload[\s>]|\.download\s*=|download: `/.test(read(file)));
   assert.deepEqual(offenders, []);
 });
+
+test("downloads are recorded after the response; checks and views are not", () => {
+  const preview = read("src/app/api/v1/workspaces/[id]/files/[nodeId]/preview/route.ts");
+  assert.ok(preview.indexOf('request.method === "HEAD"') < preview.indexOf("recordDownload("));
+  assert.equal((preview.match(/recordDownload\(/g) ?? []).length, 1);
+  assert.ok(preview.indexOf("recordDownload(") < preview.indexOf("const revisionIdentity"), "only the download branch records");
+  for (const file of ["src/app/api/v1/workspaces/[id]/files/export/route.ts", "src/app/api/v1/workspaces/[id]/tasks/[taskId]/submissions/route.ts"]) {
+    const source = read(file);
+    assert.ok(source.indexOf("if (isCheck) return") < source.indexOf("recordDownload("), file);
+  }
+  assert.match(read("src/lib/files/download-history.ts"), /after\(\(\) => insertDownloadEvent/);
+  assert.doesNotMatch(read("src/app/api/v1/chat/attachments/[assetId]/route.ts"), /recordDownload/);
+  assert.match(read("src/inngest/registry.ts"), /downloadHistoryRetention/);
+});

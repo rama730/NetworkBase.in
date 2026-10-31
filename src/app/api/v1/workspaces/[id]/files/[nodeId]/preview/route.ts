@@ -10,6 +10,7 @@ import { createAdminClient, createClient } from "@/lib/supabase/server";
 import { streamPrivateObject } from "@/lib/storage/private-object-response";
 import { signedDownloadRedirect } from "@/lib/storage/download-link";
 import { versionedFilename } from "@/lib/files/versioned-filename";
+import { recordDownload } from "@/lib/files/download-history";
 import { UUID_RE } from "@/app/actions/files/_constants";
 import { enforceDownloadLimit, enforceFileReadLimit } from "@/app/api/v1/_shared";
 
@@ -155,7 +156,9 @@ export async function GET(request: NextRequest, context: RouteContext) {
     if (request.method === "HEAD") return new Response(null, { status: 200, headers: { "Cache-Control": "private, no-store" } });
     const filename = historical && revisionNumber !== node.currentVersion ? versionedFilename(node.name, revisionNumber!) : node.name;
     const saved = await signedDownloadRedirect(await createAdminClient(), { bucket: "project-files", storageKey: target.s3Key, filename });
-    return saved ?? noStore("Couldn’t prepare the download", 502);
+    if (!saved) return noStore("Couldn’t prepare the download", 502);
+    recordDownload({ workspaceId: projectId, nodeId, actorId: user?.id ?? null, fileName: filename, kind: historical && revisionNumber !== node.currentVersion ? "version" : "file" });
+    return saved;
   }
 
   const revisionIdentity = createHash("sha256")

@@ -2078,6 +2078,24 @@ export const workspaceUpdateComments = pgTable(
   }),
 );
 
+export const workspaceDownloadEvents = pgTable(
+  "workspace_download_events",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    nodeId: uuid("node_id").references(() => workspaceNodes.id, { onDelete: "set null" }),
+    actorId: uuid("actor_id").references(() => profiles.id, { onDelete: "set null" }),
+    fileName: text("file_name").notNull(),
+    kind: text("kind").notNull(),
+    fileCount: integer("file_count").default(1).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+);
+
 export const workspaceUpdateCommentLikes = pgTable(
   "workspace_update_comment_likes",
   {

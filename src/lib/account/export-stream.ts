@@ -2,6 +2,7 @@ import "server-only";
 
 import { exportOrganizationData } from "@/lib/account/export-organizations";
 import { exportTrustData } from "@/lib/trust/standing";
+import { exportDownloadHistory } from "@/lib/files/download-history";
 import { and, asc, eq, gt, inArray, isNull, lte, or, sql } from "drizzle-orm";
 
 import { db } from "@/lib/db";
@@ -399,6 +400,8 @@ async function* streamAccountExport(input: {
   }
   assertActive(signal);
   yield `],"organizations":${json(await exportOrganizationData(userId))}`;
+  assertActive(signal);
+  yield `,"fileDownloads":${json(await exportDownloadHistory(userId))}`;
   assertActive(signal);
   yield `,"trustAndSafety":${json(await exportTrustData(userId))}}`;
 }
