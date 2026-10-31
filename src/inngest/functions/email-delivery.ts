@@ -1,5 +1,5 @@
 import { inngest } from "@/inngest/client";
-import { drainEmailOutbox } from "@/lib/email/delivery";
+import { drainEmailOutbox, EMAIL_DRAIN_BATCH } from "@/lib/email/delivery";
 import { db } from "@/lib/db";
 import { jobHeartbeats } from "@/lib/db/schema";
 
@@ -13,6 +13,8 @@ export const emailDelivery = inngest.createFunction(
       await db.insert(jobHeartbeats).values({ jobId: "email-outbox-delivery", lastSuccessAt: now, lastPayload: result })
         .onConflictDoUpdate({ target: jobHeartbeats.jobId, set: { lastSuccessAt: now, lastPayload: result, updatedAt: now } });
     });
+    // A burst larger than one batch keeps going now rather than waiting for the next timer.
+    if (result.processed >= EMAIL_DRAIN_BATCH) await step.sendEvent("drain-more", { name: "email/outbox.wake", data: {} });
     return result;
   },
 );

@@ -6,7 +6,7 @@ import { closeAppDb, createUser, loadAppModule, moduleStubs, sql } from "./_help
 let viewerId = "";
 const woken: Date[] = [];
 moduleStubs.set("@/lib/supabase/auth-user", { getAuthUser: async () => ({ id: viewerId }) });
-moduleStubs.set("@/lib/messaging/publish", { publishUser: () => undefined, publishUsers: () => undefined, publishChannel: () => undefined });
+moduleStubs.set("@/lib/messaging/publish", { publishUser: () => undefined, publishUsers: () => undefined, publishChannel: () => undefined, publishSentMessage: () => undefined });
 moduleStubs.set("@/inngest/wake", { wakeChatDueIfSoon: async (at: Date) => { woken.push(at); }, wakeAt: async () => undefined });
 
 let due: typeof import("../../src/lib/messaging/due");
@@ -97,4 +97,35 @@ test("saving a message wakes the job only when it sets a reminder", async () => 
   const remindAt = fromNow(10).toISOString();
   await later.saveMessage({ channelId, seq, on: true, remindAt });
   assert.deepEqual(woken.map((at) => at.getTime()), [Date.parse(remindAt)]);
+});
+
+async function bodiesSent(channelId: string) {
+  const rows = await sql`SELECT body FROM chat_messages WHERE channel_id = ${channelId} AND body LIKE 'later%' ORDER BY body`;
+  return rows.map((row) => row.body as string);
+}
+
+test("a wake sends what is due, once, however many wakes fire", async () => {
+  const { a, channelId } = await conversation();
+  await sql`INSERT INTO chat_scheduled_messages (channel_id, user_id, body, send_at) VALUES (${channelId}, ${a}, 'later due', ${fromNow(-1)})`;
+  await due.sendDueScheduledMessages();
+  await due.sendDueScheduledMessages();
+  assert.deepEqual(await bodiesSent(channelId), ["later due"]);
+});
+
+test("a wake that fires after a message moved later sends nothing until the new time", async () => {
+  const { a, channelId } = await conversation();
+  const [row] = await sql`INSERT INTO chat_scheduled_messages (channel_id, user_id, body, send_at) VALUES (${channelId}, ${a}, 'later moved', ${fromNow(30)}) RETURNING id`;
+  await due.sendDueScheduledMessages();
+  assert.deepEqual(await bodiesSent(channelId), []);
+  await sql`UPDATE chat_scheduled_messages SET send_at = ${fromNow(-1)} WHERE id = ${row!.id}`;
+  await due.sendDueScheduledMessages();
+  assert.deepEqual(await bodiesSent(channelId), ["later moved"]);
+});
+
+test("a wake that fires after a message was cancelled sends nothing", async () => {
+  const { a, channelId } = await conversation();
+  const [row] = await sql`INSERT INTO chat_scheduled_messages (channel_id, user_id, body, send_at) VALUES (${channelId}, ${a}, 'later cancelled', ${fromNow(-1)}) RETURNING id`;
+  await sql`DELETE FROM chat_scheduled_messages WHERE id = ${row!.id}`;
+  await due.sendDueScheduledMessages();
+  assert.deepEqual(await bodiesSent(channelId), []);
 });

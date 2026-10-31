@@ -24,7 +24,8 @@ import {
 } from "@/lib/db/schema";
 import { createAdminClient } from "@/lib/supabase/server";
 
-const DELETE_BATCH_SIZE = 100;
+// Runs every 2 hours, so one run has to carry what used to be spread across 24.
+const DELETE_BATCH_SIZE = 500;
 const DELETE_LEASE_MS = 5 * 60 * 1000;
 
 export function hasNoLiveReference() {

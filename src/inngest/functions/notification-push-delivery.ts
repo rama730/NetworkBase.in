@@ -128,6 +128,9 @@ export const notificationPushDelivery = inngest.createFunction(
         });
     });
 
+    // More was due than one run takes: the rest goes now rather than at the next hourly run. Only if this run moved
+    // something, so rows that stay due can't loop.
+    if (result.scanned >= DELIVERY_BATCH_SIZE && result.delivered + result.dropped > 0) await step.sendEvent("drain-more", { name: "notification/push.wake", data: {} });
     return result;
   },
 );

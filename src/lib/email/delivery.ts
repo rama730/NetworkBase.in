@@ -397,6 +397,8 @@ export async function sendResendEmail(payload: EmailPayload, idempotencyKey: str
   }
 }
 
+export const EMAIL_DRAIN_BATCH = 25;
+
 export async function drainEmailOutbox() {
   if (!emailEnabled()) return { processed: 0 };
   if (getInngestExecutionRole() !== "worker") throw new Error("Email delivery must run on the worker");
@@ -404,7 +406,7 @@ export async function drainEmailOutbox() {
   if (!key) throw new Error("RESEND_API_KEY is required when email delivery is enabled");
   let processed = 0;
   // ponytail: sequential batches of 25, one worker run at a time. Ceiling: low-volume transactional mail; upgrade to rate-aware parallel batches if queue age grows.
-  while (processed < 25 && emailEnabled()) {
+  while (processed < EMAIL_DRAIN_BATCH && emailEnabled()) {
     const leaseId = randomUUID();
     const claimed = await db.execute<{ id: string }>(sql`
       UPDATE public.email_outbox SET status = 'processing', lease_id = ${leaseId}::uuid,

@@ -1,7 +1,7 @@
 import { db } from "@/lib/db";
 import { jobHeartbeats } from "@/lib/db/schema";
 import { logger } from "@/lib/logger";
-import { dueTimesWithinNextHour, fireDueReminders, sendDueScheduledMessages } from "@/lib/messaging/due";
+import { DUE_MESSAGE_LIMIT, DUE_REMINDER_LIMIT, dueTimesWithinNextHour, fireDueReminders, sendDueScheduledMessages } from "@/lib/messaging/due";
 import { auditChatIntegrity, purgeOldChatMentions } from "@/lib/messaging/maintenance";
 
 import { inngest } from "../client";
@@ -59,6 +59,8 @@ export const chatDue = inngest.createFunction(
   async ({ step }) => {
     const scheduled = await step.run("send-scheduled", () => sendDueScheduledMessages());
     const reminders = await step.run("fire-reminders", () => fireDueReminders());
+    // More was due than one run takes: the rest goes now rather than at the next hourly run.
+    if (scheduled.due >= DUE_MESSAGE_LIMIT || reminders.reminders >= DUE_REMINDER_LIMIT) await step.sendEvent("drain-more", { name: "chat/due.wake", data: {} });
     await step.run("arm-next-hour", async () => {
       const times = await dueTimesWithinNextHour();
       await Promise.all(times.map((at) => wakeAt("chat/due.wake", at)));

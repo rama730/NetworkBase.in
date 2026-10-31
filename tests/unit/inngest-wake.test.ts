@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
+import { Inngest } from "inngest";
+
 import { wakeAt, wakeChatDueIfSoon, wakePushIfNeeded } from "../../src/inngest/wake";
 
 type Sent = { name: string; data: unknown; id: string; ts: number };
@@ -52,6 +54,27 @@ describe("wakeAt", () => {
     const started = Date.now();
     await wakeAt("chat/due.wake", new Date(), client);
     assert.ok(Date.now() - started < 1_500);
+  });
+});
+
+describe("wakeAt through Inngest's real client", () => {
+  it("sends the start time and the id in the event", async () => {
+    const bodies: unknown[] = [];
+    const client = new Inngest({
+      id: "wake-test",
+      eventKey: "test-key",
+      baseUrl: "https://inngest.invalid",
+      isDev: false,
+      fetch: (async (_url: unknown, init: { body: string }) => {
+        bodies.push(JSON.parse(init.body));
+        return new Response(JSON.stringify({ ids: ["1"], status: 200 }), { status: 200, headers: { "content-type": "application/json" } });
+      }) as unknown as typeof fetch,
+    });
+    await wakeAt("chat/due.wake", new Date("2026-11-01T10:15:20.000Z"), client as never);
+    const [event] = (bodies[0] as Array<{ name: string; id: string; ts: number }>);
+    assert.equal(event!.name, "chat/due.wake");
+    assert.equal(event!.ts, Date.parse("2026-11-01T10:16:05.000Z"));
+    assert.equal(event!.id, `chat/due.wake:${Date.parse("2026-11-01T10:16:00.000Z")}`);
   });
 });
 
