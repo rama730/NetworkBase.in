@@ -31,7 +31,7 @@ import { Input } from "@/components/ui/input";
 import { SettingsSwitch } from "@/components/settings/ui/SettingsSwitch";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import ChipSelector from "@/components/onboarding/ChipSelector";
+import ChipSelector, { choiceChipClass } from "@/components/onboarding/ChipSelector";
 import { GenderChoice } from "@/components/profile/GenderChoice";
 import { INTEREST_OPTIONS } from "@/lib/profile/interests";
 import type { OnboardingGenderIdentity } from "@/lib/onboarding/contracts";
@@ -819,7 +819,7 @@ function RolePreferencesEditor({ profile, onChange }: { profile: any; onChange: 
                             }}
                             className="flex-1"
                         />
-                        <Button type="button" onClick={handleAddCustomCategory}>Add category</Button>
+                        <Button type="button" variant="outline" onClick={handleAddCustomCategory}>Add category</Button>
                     </div>
                     {customCategories.length > 0 && (
                         <div className="flex flex-wrap gap-2 pt-2" aria-label="Custom categories">
@@ -867,7 +867,7 @@ function RolePreferencesEditor({ profile, onChange }: { profile: any; onChange: 
                         }}
                         className="flex-1"
                     />
-                    <Button type="button" onClick={() => handleAddCustomRole()}>Add role</Button>
+                    <Button type="button" variant="outline" onClick={() => handleAddCustomRole()}>Add role</Button>
                 </div>
                 {availableRoleSuggestions.length > 0 && (
                     <div className="flex flex-wrap items-center gap-1.5 pt-1">
@@ -877,7 +877,7 @@ function RolePreferencesEditor({ profile, onChange }: { profile: any; onChange: 
                                 key={suggestion}
                                 type="button"
                                 onClick={() => handleAddCustomRole(suggestion)}
-                                className="nb-micro rounded border border-dashed border-border bg-card/60 px-2 py-0.5 text-muted-foreground transition-colors hover:border-foreground/40 hover:bg-muted hover:text-foreground"
+                                className={choiceChipClass(false)}
                             >
                                 + {suggestion}
                             </button>

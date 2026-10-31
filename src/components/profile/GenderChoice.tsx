@@ -2,6 +2,7 @@
 
 import { cn } from '@/lib/utils'
 import { GENDER_LABELS, ONBOARDING_GENDER_VALUES, type OnboardingGenderIdentity } from '@/lib/onboarding/contracts'
+import { choiceChipClass } from '@/components/onboarding/ChipSelector'
 
 interface GenderChoiceProps {
   value: OnboardingGenderIdentity | ''
@@ -21,11 +22,8 @@ export function GenderChoice({ value, onChange, name = 'genderIdentity' }: Gende
           <label
             key={option}
             className={cn(
-              'inline-flex min-h-11 cursor-pointer select-none items-center rounded-full border px-4 text-[13px] font-medium leading-none transition-colors',
-              'has-[:focus-visible]:underline has-[:focus-visible]:decoration-2 has-[:focus-visible]:underline-offset-4',
-              value === option
-                ? 'border-foreground bg-foreground text-background'
-                : 'border-border bg-card text-foreground hover:border-foreground/40 hover:bg-muted',
+              choiceChipClass(value === option),
+              'cursor-pointer has-[:focus-visible]:underline has-[:focus-visible]:decoration-2 has-[:focus-visible]:underline-offset-4',
             )}
           >
             <input
