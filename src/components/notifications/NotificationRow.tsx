@@ -19,7 +19,7 @@ import {
 } from "@/lib/notifications/presentation";
 import type { NotificationItem, NotificationMuteScope } from "@/lib/notifications/types";
 import { projectUpdateDisplayText } from "@/lib/workspaces/updates";
-import { UserAvatar } from "@/components/ui/UserAvatar";
+import { NotificationAvatar } from "@/components/notifications/NotificationAvatar";
 import { cn } from "@/lib/utils";
 
 const QUALIFIED_VIEW_MS = 750;
@@ -58,7 +58,6 @@ export function NotificationRow(props: {
     const viewTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const focusTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const preview = item.preview;
-    const actorName = preview?.actorName ?? "Notification";
     const relativeTime = formatRelativeTimestamp(item.activityAt) ?? "Just now";
     const absoluteTime = formatAbsoluteTimestamp(item.activityAt);
     const aggregateLabel = getAggregateLabel(item.kind, item.aggregateCount);
@@ -151,12 +150,7 @@ export function NotificationRow(props: {
                 className="flex min-w-0 flex-1 items-start gap-3 rounded-sm text-left outline-none active:translate-y-px"
             >
                 <div className="relative mt-0.5 shrink-0">
-                    <UserAvatar
-                        identity={{ id: item.actorUserId, fullName: actorName, avatarUrl: preview?.actorAvatarUrl }}
-                        size={compact ? 26 : 34}
-                        className="border border-border/80"
-                        fallbackClassName="nb-ui-label"
-                    />
+                    <NotificationAvatar actorUserId={item.actorUserId} actorName={preview?.actorName} avatarUrl={preview?.actorAvatarUrl} size={compact ? 26 : 34} />
                     {isNew ? (
                         <span
                             aria-label={isImportant ? "Needs attention" : "Unread"}
