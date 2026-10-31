@@ -10,6 +10,8 @@ type WakeClient = {
 
 const MINUTE_MS = 60_000;
 const WAKE_TIMEOUT_MS = 1_000;
+// Inngest's clock may run ahead of the database's; waking early would find nothing and leave the item for the sweep.
+const CLOCK_MARGIN_MS = 5_000;
 // Five minutes past the hourly sweep's own hour, so nothing due can fall between two sweeps.
 const CHAT_WAKE_HORIZON_MS = 65 * MINUTE_MS;
 
@@ -19,11 +21,11 @@ const CHAT_WAKE_HORIZON_MS = 65 * MINUTE_MS;
  * Everything due in one minute shares an event id, which Inngest dedupes, so a burst starts one run.
  */
 export async function wakeAt(name: WakeEvent, at: Date, client: WakeClient = inngest as unknown as WakeClient) {
-  const ts = Math.ceil(at.getTime() / MINUTE_MS) * MINUTE_MS;
+  const minute = Math.ceil(at.getTime() / MINUTE_MS) * MINUTE_MS;
   let timer: ReturnType<typeof setTimeout> | undefined;
   try {
     await Promise.race([
-      client.send({ name, data: {}, id: `${name}:${ts}`, ts }),
+      client.send({ name, data: {}, id: `${name}:${minute}`, ts: minute + CLOCK_MARGIN_MS }),
       new Promise<never>((_, reject) => {
         timer = setTimeout(() => reject(new Error("wake_timeout")), WAKE_TIMEOUT_MS);
       }),

@@ -59,6 +59,24 @@ export function reminderPlace(row: Pick<DueReminder, "channel_name" | "channel_t
   return row.channel_title || row.partner || null;
 }
 
+/**
+ * What falls due before the next hourly sweep, as whole minutes: the sweep starts a run for each, because Inngest
+ * limits how far ahead an event can start and a message may be scheduled months out.
+ */
+export async function dueTimesWithinNextHour(limit = 200) {
+  const rows = await chatRows<{ at: string }>(sql`
+    SELECT DISTINCT to_timestamp(ceil(extract(epoch FROM due.at) / 60) * 60) AS at FROM (
+      SELECT send_at AS at FROM chat_scheduled_messages
+      WHERE sent_at IS NULL AND failed_reason IS NULL AND send_at > now() AND send_at <= now() + interval '65 minutes'
+      UNION ALL
+      SELECT remind_at FROM chat_saved
+      WHERE reminded_at IS NULL AND remind_at > now() AND remind_at <= now() + interval '65 minutes'
+    ) due
+    ORDER BY at LIMIT ${limit}
+  `);
+  return rows.map((row) => new Date(row.at));
+}
+
 /** Fire "Remind me about this" as a notification linking back to the message. */
 export async function fireDueReminders(limit = 500) {
   const due = await chatRows<DueReminder>(sql`
