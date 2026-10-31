@@ -12,7 +12,7 @@ const DIR = "src/inngest/functions";
 
 function schedules() {
   return readdirSync(DIR).filter((file) => file.endsWith(".ts")).flatMap((file) =>
-    [...readFileSync(`${DIR}/${file}`, "utf8").matchAll(/cron: "([^"]+)"/g)].map((match) => ({ file, cron: match[1]! })),
+    [...readFileSync(`${DIR}/${file}`, "utf8").matchAll(/cron: ["']([^"']+)["']/g)].map((match) => ({ file, cron: match[1]! })),
   );
 }
 
@@ -36,8 +36,16 @@ test("the parser counts schedules correctly", () => {
   assert.equal(runsPerDay("35 2 * * *"), 1);
 });
 
-test("finds the scheduled jobs", () => {
+test("finds the scheduled jobs, whichever quotes they use", () => {
   assert.ok(schedules().length >= 25);
+  assert.ok(schedules().some(({ file }) => file === "my-work-counter-reconcile.ts"));
+});
+
+test("the hourly sweep arms the next hour through Inngest's own retries, and only on the sweep", () => {
+  const source = readFileSync(`${DIR}/chat-maintenance.ts`, "utf8");
+  assert.match(source, /step\.sendEvent\("arm-next-hour"/);
+  assert.doesNotMatch(source, /wakeAt\(/);
+  assert.match(source, /event\.name !== "chat\/due\.wake"/);
 });
 
 test("no scheduled job runs more often than every 30 minutes", () => {

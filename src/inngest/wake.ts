@@ -15,17 +15,21 @@ const CLOCK_MARGIN_MS = 5_000;
 // Five minutes past the hourly sweep's own hour, so nothing due can fall between two sweeps.
 const CHAT_WAKE_HORIZON_MS = 65 * MINUTE_MS;
 
+/** Everything due in one minute shares an event id, which Inngest dedupes, so a burst starts one run. */
+export function wakeEvent<Name extends WakeEvent>(name: Name, at: Date) {
+  const minute = Math.ceil(at.getTime() / MINUTE_MS) * MINUTE_MS;
+  return { name, data: {} as Record<string, never>, id: `${name}:${minute}`, ts: minute + CLOCK_MARGIN_MS };
+}
+
 /**
  * Start a job at a time instead of polling for it. A wake is only a hint: the work is already saved, so a failed or
  * slow wake is logged and the job's hourly sweep picks it up. It can never fail or hold up the caller.
- * Everything due in one minute shares an event id, which Inngest dedupes, so a burst starts one run.
  */
 export async function wakeAt(name: WakeEvent, at: Date, client: WakeClient = inngest as unknown as WakeClient) {
-  const minute = Math.ceil(at.getTime() / MINUTE_MS) * MINUTE_MS;
   let timer: ReturnType<typeof setTimeout> | undefined;
   try {
     await Promise.race([
-      client.send({ name, data: {}, id: `${name}:${minute}`, ts: minute + CLOCK_MARGIN_MS }),
+      client.send(wakeEvent(name, at)),
       new Promise<never>((_, reject) => {
         timer = setTimeout(() => reject(new Error("wake_timeout")), WAKE_TIMEOUT_MS);
       }),
