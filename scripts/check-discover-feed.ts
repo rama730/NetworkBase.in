@@ -75,7 +75,7 @@ async function main() {
   const ids = {
     open: randomUUID(), privateOwned: randomUUID(), deletedOwned: randomUUID(), blockedOwned: randomUUID(),
     draft: randomUUID(), cLang: randomUUID(), javascript: randomUUID(),
-    blockerOwned: randomUUID(), privateProject: randomUUID(), unlistedProject: randomUUID(),
+    blockerOwned: randomUUID(), privateProject: randomUUID(), unlistedProject: randomUUID(), hiddenProject: randomUUID(), suspendedProject: randomUUID(),
   };
   // Twelve projects inside one millisecond: a millisecond cursor would skip or repeat some of them.
   const sameMillisecond = Array.from({ length: 12 }, () => randomUUID());
@@ -89,8 +89,7 @@ async function main() {
         VALUES (${id}, ${`${id}@example.test`}, ${`u${id.replace(/-/g, "").slice(0, 12)}`}, ${name}, ${visibility}, 'completed')`;
     }
     await sql`UPDATE profiles SET deleted_at = now() WHERE id = ${deletedOwner}`;
-    await sql`INSERT INTO connections (requester_id, addressee_id, status, blocked_by, blocked_at) VALUES (${viewer}, ${blockedOwner}, 'blocked', ${viewer}, now())`;
-    await sql`INSERT INTO connections (requester_id, addressee_id, status, blocked_by, blocked_at) VALUES (${blocker}, ${viewer}, 'blocked', ${blocker}, now())`;
+    await sql`INSERT INTO user_blocks (blocker_id, blocked_id) VALUES (${viewer}, ${blockedOwner}), (${blocker}, ${viewer})`;
 
     const links = JSON.stringify([
       { id: "pub", platform: "website", url: "https://public.example.test", audience: "public" },
@@ -111,6 +110,11 @@ async function main() {
     await project(ids.privateProject, owner, "Private project", { views: 60, visibility: "private" });
     // Legacy "unlisted" rows are publicly readable (workspace-visibility.ts), so Discover lists them like public ones.
     await project(ids.unlistedProject, owner, "Unlisted project", { views: 3, visibility: "unlisted" });
+    // Moderation: both stay public and readable, and neither may be listed.
+    await project(ids.hiddenProject, owner, "Hidden by moderation", { views: 70 });
+    await project(ids.suspendedProject, owner, "Suspended", { views: 80 });
+    await sql`UPDATE workspaces SET discover_hidden_at = now() WHERE id = ${ids.hiddenProject}`;
+    await sql`UPDATE workspaces SET suspended_at = now() WHERE id = ${ids.suspendedProject}`;
     await sql`UPDATE workspaces SET cover_image = 'https://cdn.example.test/open.png' WHERE id = ${ids.open}`;
     for (const [index, id] of sameMillisecond.entries()) {
       // .123000 to .123011: one millisecond, twelve microseconds. Equal view counts tie the score sorts too.
@@ -249,6 +253,11 @@ async function main() {
       return !shared.some((project) => project.id === ids.blockerOwned) && !filtered.includes(ids.blockerOwned)
         && fullPublic.projects.some((project) => project.id === ids.blockerOwned);
     });
+    await check("moderation takes a workspace out of both feeds", async () => {
+      const filtered = (await everything(base, "all", viewer)).map((project) => project.id);
+      return !byId.has(ids.hiddenProject) && !byId.has(ids.suspendedProject)
+        && !filtered.includes(ids.hiddenProject) && !filtered.includes(ids.suspendedProject);
+    });
     await check("an unlisted project is readable, so both feeds list it like a public one", async () => {
       const shared = byId.has(ids.unlistedProject);
       const filtered = (await everything(base, "all", viewer)).some((project) => project.id === ids.unlistedProject);
@@ -324,7 +333,7 @@ async function main() {
     await sql`DELETE FROM workspace_open_roles WHERE workspace_id IN ${sql([...seeded])}`;
     await sql`DELETE FROM workspace_members WHERE workspace_id IN ${sql([...seeded])}`;
     await sql`DELETE FROM workspaces WHERE id IN ${sql([...seeded])}`;
-    await sql`DELETE FROM connections WHERE requester_id IN ${sql([viewer, blocker])}`;
+    await sql`DELETE FROM user_blocks WHERE blocker_id IN ${sql([viewer, blocker])}`;
     await sql`DELETE FROM profiles WHERE id IN ${sql(profileRows.map(([id]) => id))}`;
     await sql.end();
   }
