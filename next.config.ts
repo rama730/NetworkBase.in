@@ -10,6 +10,8 @@ const nextConfig: NextConfig = {
   // Keep verification builds isolated from an actively running local dev server.
   distDir: process.env.NEXT_DIST_DIR || ".next",
   output: "standalone",
+  // Tells a tab left open across a deploy that it is stale, so its next navigation is a full reload.
+  deploymentId: process.env.RAILWAY_GIT_COMMIT_SHA || undefined,
   // Native HTTP 308 redirects preserve query params and offload route migration to edge.
   async redirects() {
     return [
