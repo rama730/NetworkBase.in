@@ -6,6 +6,7 @@ export function downloadFailureMessage(status: number) {
     if (status === 403) return 'You don’t have access to this';
     if (status === 404 || status === 410) return 'This file is no longer available';
     if (status === 413) return 'This download is too large';
+    if (status === 422) return 'There’s nothing to download here';
     if (status === 429) return 'Too many downloads';
     return 'Download failed';
 }
@@ -33,6 +34,14 @@ export function downloadUrl(url: string) {
 export function workspaceFileUrl(projectId: string, nodeId: string, revision?: number) {
     const base = `/api/v1/workspaces/${encodeURIComponent(projectId)}/files/${encodeURIComponent(nodeId)}/preview`;
     return revision == null ? base : `${base}?revision=${revision}`;
+}
+
+/** A zip of a whole workspace, one folder, or chosen items. */
+export function workspaceExportUrl(projectId: string, name: string, selection: { folderId: string } | { ids: string[] } | null = null) {
+    const params = new URLSearchParams({ name });
+    if (selection && 'folderId' in selection) params.set('folderId', selection.folderId);
+    if (selection && 'ids' in selection) params.set('ids', selection.ids.join(','));
+    return `/api/v1/workspaces/${encodeURIComponent(projectId)}/files/export?${params.toString()}`;
 }
 
 // A second click while the first is still being checked is the same download.

@@ -35,6 +35,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Input } from '@/components/ui/input'
 import { formatDistanceToNow } from '@/lib/utils/date'
 import { splitIntoTeams, type AssignmentTarget, type CopyState } from '@/lib/organizations/assignment-rules'
+import { DownloadLink } from '@/components/ui/download-link'
 
 // Assignments in the org Tasks tab (report §16.2–16.5, §16.11) and group copies in a child project (§16.6).
 // The Kanban board below stays as it is: members' own copies appear there through the read rule.
@@ -363,7 +364,7 @@ export function RosterDialog({ row, orgId, open, onOpenChange, onChanged }: { ro
                     <Button type="button" size="sm" variant="outline" disabled={pending} onClick={() => run(async () => { const r = await remindCopiesAction(row.masterId); return r.success ? { success: true } : r })}>Remind everyone not done</Button>
                     {/* Brief and shared Q&A live on the master task (report §16.4 Conversation, §16.5 Brief / Discussion). */}
                     {/* Download all (report §23.5): one folder per person or team, latest handed-in files. */}
-                    {orgId && row.submissionType === 'file' && row.counts.submitted + row.counts.done > 0 ? <Button asChild size="sm" variant="outline"><a href={`/api/v1/workspaces/${orgId}/tasks/${row.masterId}/submissions`} download>Download all</a></Button> : null}
+                    {orgId && row.submissionType === 'file' && row.counts.submitted + row.counts.done > 0 ? <Button asChild size="sm" variant="outline"><DownloadLink href={`/api/v1/workspaces/${orgId}/tasks/${row.masterId}/submissions`}>Download all</DownloadLink></Button> : null}
                     <a href={`?tab=tasks&drawerType=task&drawerId=${row.masterId}`} className="self-center text-sm text-primary underline-offset-4 hover:underline">Brief and Q&amp;A</a>
                 </div>
                 <form className="flex gap-2" onSubmit={(e) => { e.preventDefault(); const input = e.currentTarget.elements.namedItem('step') as HTMLInputElement; const value = input.value.trim(); if (value) run(async () => { const r = await addAssignmentStepAction(row.masterId, value); if (r.success) input.value = ''; return r }) }}>

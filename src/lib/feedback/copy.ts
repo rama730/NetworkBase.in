@@ -343,6 +343,7 @@ export const FEEDBACK_COPY: Record<string, { title: string; description?: string
   "Download failed": { "title": "Download failed", "description": "Check your connection and try again." },
   "Sign in to download": { "title": "Sign in to download" },
   "This file is no longer available": { "title": "This file is no longer available" },
+  "There’s nothing to download here": { "title": "There’s nothing to download here" },
   "This download is too large": { "title": "This download is too large", "description": "Choose fewer files." },
   "Too many downloads": { "title": "Too many downloads", "description": "Wait a minute, then try again." },
   "You don’t have access to this": { "title": "You don’t have access to this" },

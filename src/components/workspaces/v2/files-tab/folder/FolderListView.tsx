@@ -85,6 +85,7 @@ import {
 import { validateUploadSelection } from "@/lib/files/upload-validator";
 import { extractFoldersFromDataTransfer } from "@/lib/files/folder-drop";
 import { downloadWorkspaceNode } from "../file/downloadWorkspaceNode";
+import { downloadFile, workspaceExportUrl } from "@/lib/download";
 
 const FilesTabUploadModal = dynamic(() => import("../upload/FilesTabUploadModal").then((mod) => mod.FilesTabUploadModal), { ssr: false });
 const TaskSearchPicker = dynamic(() => import("../picker/TaskSearchPicker").then((mod) => mod.TaskSearchPicker), { ssr: false });
@@ -919,6 +920,12 @@ export function FolderListView({
                   </DropdownMenuItem>
                 </>
               )}
+              {menuNode.type === "folder" && !isInternalTaskWorkingFilesNode(menuNode) && (
+                <DropdownMenuItem onSelect={() => void downloadFile(workspaceExportUrl(projectId, menuNode!.name, { folderId: menuNode!.id }))}>
+                  <Download className="mr-2 size-4" />
+                  Download as zip
+                </DropdownMenuItem>
+              )}
               {canEdit && !isInternalTaskWorkingFilesNode(menuNode) && menuNode.type === "folder" && (
                 <>
                   <DropdownMenuItem
@@ -1067,7 +1074,8 @@ export function FolderListView({
         {selectionMode ? <>
           <DropdownMenuItem onSelect={() => setSelectedNodeIds(projectId, sortedChildren.filter(node => !isInternalTaskWorkingFilesNode(node)).slice(0, 200).map(node => node.id))}>Select loaded items (up to 200)</DropdownMenuItem>
           {canManageFiles && <DropdownMenuItem disabled={!selectedItems.length} onSelect={() => openMove(selectedItems)}><FolderInput className="size-4" />Move…</DropdownMenuItem>}
-          <DropdownMenuItem disabled={!selectedItems.length} variant="destructive" onSelect={() => openDelete(selectedItems)}><Trash2 className="size-4" />Move to trash…</DropdownMenuItem>
+          <DropdownMenuItem disabled={!selectedItems.length || selectedItems.length > 100} onSelect={() => void downloadFile(workspaceExportUrl(projectId, "Selected files", { ids: selectedItems.map(node => node.id) }))}><Download className="size-4" />{selectedItems.length > 100 ? "Download (up to 100)" : "Download as zip"}</DropdownMenuItem>
+          {canEditCurrentFolder && <DropdownMenuItem disabled={!selectedItems.length} variant="destructive" onSelect={() => openDelete(selectedItems)}><Trash2 className="size-4" />Move to trash…</DropdownMenuItem>}
         </> : <>
           {!collection && <DropdownMenuSub>
             <DropdownMenuSubTrigger><ArrowDownWideNarrow className="size-4" />Sort</DropdownMenuSubTrigger>
@@ -1085,7 +1093,7 @@ export function FolderListView({
             <DropdownMenuItem onSelect={() => openCreateInFolder(folderId, "file")}><FilePlus2 className="size-4" />New file…</DropdownMenuItem>
             <DropdownMenuItem onSelect={() => openCreateInFolder(folderId, "folder")}><FolderPlus className="size-4" />New folder…</DropdownMenuItem>
           </>}
-          {canEditCurrentFolder && <><DropdownMenuSeparator /><DropdownMenuItem onSelect={() => { setSelectionMode(true); setSelectedNodeIds(projectId, []); }}>Select items</DropdownMenuItem></>}
+          <DropdownMenuSeparator /><DropdownMenuItem onSelect={() => { setSelectionMode(true); setSelectedNodeIds(projectId, []); }}>Select items</DropdownMenuItem>
         </>}
       </FilesViewsMenu>
       {selectionMode && <FilesHeaderSlot slot="status"><span role="status">{selectedItems.length} selected</span><button type="button" className="min-h-10 rounded px-2 hover:bg-muted" onClick={() => { setSelectionMode(false); setSelectedNodeIds(projectId, []); }}>Done</button></FilesHeaderSlot>}

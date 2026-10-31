@@ -24,11 +24,14 @@ async function orgAdminOf(orgId: string) {
   return access.project?.kind === "organization" && (access.isOwner || access.memberRole === "admin") ? user.id : null;
 }
 
-export async function GET(request: NextRequest, context: RouteContext) {
+async function handle(request: NextRequest, context: RouteContext) {
+  const isCheck = request.method === "HEAD";
   const { id: orgId, taskId } = await context.params;
   if (!UUID_RE.test(orgId) || !UUID_RE.test(taskId)) return jsonError("Not found", 404, "NOT_FOUND");
   const userId = await orgAdminOf(orgId);
-  const limited = await enforceRouteLimit(request, "files:export", 10, 600, "default", userId ?? undefined);
+  const limited = isCheck
+    ? await enforceRouteLimit(request, "files:submissions-check", 60, 600, "default", userId ?? undefined)
+    : await enforceRouteLimit(request, "files:submissions", 10, 600, "default", userId ?? undefined);
   if (limited) return limited;
   if (!userId) return jsonError("You don’t have access to this", 403, "FORBIDDEN");
   const [master] = await db.select({ title: tasks.title }).from(tasks)
@@ -37,10 +40,14 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
   let prepared;
   try {
-    prepared = await prepareSubmissionsExport({ masterId: taskId });
+    prepared = await prepareSubmissionsExport({ masterId: taskId, dryRun: isCheck });
   } catch (error) {
-    return jsonError(error instanceof Error ? error.message : "Couldn’t prepare the download", 409, "CONFLICT");
+    const message = error instanceof Error ? error.message : "Couldn’t prepare the download";
+    const status = message.includes("limited") ? 413 : message.startsWith("No submitted") ? 422 : 409;
+    return jsonError(message, status, status === 409 ? "CONFLICT" : "BAD_REQUEST");
   }
+  if (isCheck) return new Response(null, { status: 200, headers: { "Cache-Control": "private, no-store" } });
+
   const reauthorize = async () => {
     if ((await orgAdminOf(orgId)) !== userId) throw new Error("Export session expired");
   };
@@ -54,4 +61,12 @@ export async function GET(request: NextRequest, context: RouteContext) {
       Vary: "Cookie, Authorization",
     },
   });
+}
+
+export async function GET(request: NextRequest, context: RouteContext) {
+  return handle(request, context);
+}
+
+export async function HEAD(request: NextRequest, context: RouteContext) {
+  return handle(request, context);
 }

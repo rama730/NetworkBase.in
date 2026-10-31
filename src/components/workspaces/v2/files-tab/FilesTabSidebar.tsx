@@ -13,7 +13,7 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { ArrowLeft, PanelLeftClose } from "lucide-react";
+import { ArrowLeft, Download, PanelLeftClose } from "lucide-react";
 
 const EMPTY_FOLDER_SIZES: Record<string, number> = {};
 import {
@@ -723,6 +723,16 @@ export function FilesTabSidebar({
                     </>
                   )}
                 </DropdownMenuItem>
+                {contextMenuState.node.type === "folder" && (
+                  <DropdownMenuItem
+                    onClick={() => {
+                      if (contextMenuState.node) void handleDownloadFolder(contextMenuState.node.id);
+                    }}
+                  >
+                    <Download className="w-4 h-4 mr-2" />
+                    Download as zip
+                  </DropdownMenuItem>
+                )}
                 {contextMenuState.node.type === "file" && (
                   <>
                     <DropdownMenuItem
