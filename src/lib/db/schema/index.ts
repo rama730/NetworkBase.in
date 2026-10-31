@@ -3383,6 +3383,21 @@ export const workLeases = pgTable("work_leases", {
 });
 
 /** Redis counter batches already applied to PostgreSQL; the batch id makes a replayed flush a no-op. Server-only. */
+/** Views per workspace per UTC day. Totals only, never who viewed. */
+export const workspaceViewDaily = pgTable(
+  "workspace_view_daily",
+  {
+    workspaceId: uuid("workspace_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+    day: date("day").notNull(),
+    signedInViews: integer("signed_in_views").default(0).notNull(),
+    anonymousViews: integer("anonymous_views").default(0).notNull(),
+  },
+  (t) => ({
+    pk: primaryKey({ name: "workspace_view_daily_pkey", columns: [t.workspaceId, t.day] }),
+    countsCheck: check("workspace_view_daily_counts_check", sql`${t.signedInViews} >= 0 AND ${t.anonymousViews} >= 0`),
+  }),
+);
+
 export const counterFlushBatches = pgTable("counter_flush_batches", {
   batchId: text("batch_id").primaryKey(),
   kind: text("kind").notNull(),
