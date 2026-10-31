@@ -1,0 +1,57 @@
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { test } from "node:test";
+
+import { signedDownloadRedirect, versionedFilename } from "../../src/lib/storage/download-link";
+
+const read = (path: string) => readFileSync(path, "utf8");
+
+test("a download redirect is a one-minute attachment link that is never cached", async () => {
+  const calls: unknown[][] = [];
+  const admin = {
+    storage: {
+      from: (bucket: string) => ({
+        createSignedUrl: async (key: string, seconds: number, options: unknown) => {
+          calls.push([bucket, key, seconds, options]);
+          return { data: { signedUrl: "https://storage.test/signed" }, error: null };
+        },
+      }),
+    },
+  };
+  const res = await signedDownloadRedirect(admin as never, { bucket: "b", storageKey: "k", filename: "日本語.pdf" });
+  assert.equal(res!.status, 302);
+  assert.equal(res!.headers.get("location"), "https://storage.test/signed");
+  assert.equal(res!.headers.get("cache-control"), "private, no-store");
+  assert.deepEqual(calls, [["b", "k", 60, { download: "日本語.pdf" }]]);
+});
+
+test("a failed signing returns nothing, so the route can answer with an error", async () => {
+  const admin = { storage: { from: () => ({ createSignedUrl: async () => ({ data: null, error: new Error("x") }) }) } };
+  assert.equal(await signedDownloadRedirect(admin as never, { bucket: "b", storageKey: "k", filename: "a" }), null);
+});
+
+test("an old version keeps its extension, so it still opens normally", () => {
+  assert.equal(versionedFilename("report.pdf", 3), "report.v3.pdf");
+  assert.equal(versionedFilename("archive.tar.gz", 2), "archive.tar.v2.gz");
+  assert.equal(versionedFilename("README", 4), "README.v4");
+  assert.equal(versionedFilename(".env", 4), ".env.v4");
+});
+
+test("chat and workspace files have a real download mode and a cheap status check", () => {
+  const chat = read("src/app/api/v1/chat/attachments/[assetId]/route.ts");
+  assert.match(chat, /searchParams\.get\("download"\) === "1"/);
+  assert.match(chat, /signedDownloadRedirect/);
+  assert.match(chat, /export async function HEAD/);
+  const preview = read("src/app/api/v1/workspaces/[id]/files/[nodeId]/preview/route.ts");
+  assert.match(preview, /signedDownloadRedirect/);
+  assert.match(preview, /versionedFilename\(node\.name, revisionNumber!\)/);
+  const media = read("src/app/api/v1/workspaces/[id]/update-media/route.ts");
+  assert.match(media, /searchParams\.get\("download"\) === "1" \? "attachment" : "inline"/);
+});
+
+// fetch() must read same-origin bytes; download mode redirects to storage on another origin.
+test("code that reads a file's bytes never asks for download mode", () => {
+  for (const file of ["src/components/organizations/OrgFilesPanel.tsx", "src/components/workspaces/create-wizard/useCreateWorkspaceWizard.ts"]) {
+    assert.doesNotMatch(read(file), /fetch\([^)]*download=1/, file);
+  }
+});

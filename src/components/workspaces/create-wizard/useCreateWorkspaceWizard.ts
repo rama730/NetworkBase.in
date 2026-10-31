@@ -731,7 +731,7 @@ export function useCreateWorkspaceWizard({ onClose, onSuccess, initialValues, in
                         if (depth < 5) await walk(node.id, (await createFolder(projectId, targetId, node.name)).id, depth + 1);
                         continue;
                     }
-                    const response = await fetch(`/api/v1/workspaces/${listed.org.id}/files/${node.id}/preview?download=1`);
+                    const response = await fetch(`/api/v1/workspaces/${listed.org.id}/files/${node.id}/preview`);
                     if (!response.ok) continue;
                     const created = await uploadWorkspaceFile(projectId, targetId, node.name, await response.blob());
                     await recordOrgCopyAction(projectId, created.id, node.id);

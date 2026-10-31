@@ -121,7 +121,7 @@ function FromOrgFiles({ projectId, canCopy }: { projectId: string; canCopy: bool
     const updateCopy = async (c: OrgCopyRow) => {
         setCopying(c.nodeId)
         try {
-            const response = await fetch(`/api/v1/workspaces/${data.org.id}/files/${c.sourceNodeId}/preview?download=1`)
+            const response = await fetch(`/api/v1/workspaces/${data.org.id}/files/${c.sourceNodeId}/preview`)
             if (!response.ok) throw new Error('Couldn’t read the file')
             const blob = await response.blob()
             const { saveFileRevision } = await import('@/hooks/useFileVersions')
@@ -142,7 +142,7 @@ function FromOrgFiles({ projectId, canCopy }: { projectId: string; canCopy: bool
     const copy = async (file: OrgBrowseNode) => {
         setCopying(file.id)
         try {
-            const response = await fetch(`/api/v1/workspaces/${data.org.id}/files/${file.id}/preview?download=1`)
+            const response = await fetch(`/api/v1/workspaces/${data.org.id}/files/${file.id}/preview`)
             if (!response.ok) throw new Error('Couldn’t read the file')
             const created = await uploadWorkspaceFile(projectId, null, file.name, await response.blob())
             const recorded = await recordOrgCopyAction(projectId, created.id, file.id)
