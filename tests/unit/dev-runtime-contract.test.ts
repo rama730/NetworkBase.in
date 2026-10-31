@@ -46,5 +46,7 @@ test("startup runtime avoids redundant remote work", () => {
   assert.match(appearanceRoute, /readAppearanceSnapshotFromMetadata\(auth\.user\)/);
   assert.match(chatProvider, /INITIAL_HEARTBEAT_COOLDOWN_MS/);
   assert.match(chatProvider, /heartbeat\(true\)/);
-  assert.equal(fs.existsSync(path.join(process.cwd(), "src/instrumentation.ts")), false);
+  // Startup instrumentation exists only for error monitoring: anything else here would add remote work to every boot.
+  const instrumentationImports = [...read("src/instrumentation.ts").matchAll(/from "([^"]+)"|import\("([^"]+)"\)/g)].map((match) => match[1] ?? match[2]);
+  assert.deepEqual(instrumentationImports, ["@sentry/nextjs", "@/lib/observability/sentry-options"]);
 });
