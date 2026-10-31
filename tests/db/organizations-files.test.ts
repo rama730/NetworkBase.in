@@ -222,7 +222,14 @@ test("§23 pass: Sprint materials by access, trash-in-use warnings, storage line
 
 test("§23 pass: a member's folder zip skips Admins-only folders and other people's copies", async () => {
   const o = await org();
-  await sql`UPDATE workspace_nodes SET s3_key = 'legacy/' || id::text, size = 10 WHERE workspace_id = ${o.orgId} AND type = 'file'`;
+  // A zip only carries files with a verified stored copy.
+  await sql`UPDATE workspace_nodes SET s3_key = workspace_id::text || '/files/' || id::text, size = 10 WHERE workspace_id = ${o.orgId} AND type = 'file'`;
+  await sql`WITH made AS (
+      INSERT INTO storage_assets (workspace_id, bucket, storage_key, purpose, state, declared_mime_type, declared_size, verified_mime_type, verified_size, verified_at, content_hash, expires_at)
+      SELECT workspace_id, 'project-files', s3_key, 'workspace_file', 'verified', 'application/pdf', 10, 'application/pdf', 10, now(), 'hash', now() + interval '1 day'
+      FROM workspace_nodes WHERE workspace_id = ${o.orgId} AND type = 'file'
+      RETURNING id, storage_key)
+    UPDATE workspace_nodes n SET asset_id = made.id FROM made WHERE n.s3_key = made.storage_key`;
   const exportLib = await loadAppModule(() => import("../../src/lib/files/folder-export"));
   const accessLib = await loadAppModule(() => import("../../src/lib/data/workspace-access"));
   const { sql: dsql } = await import("drizzle-orm");
