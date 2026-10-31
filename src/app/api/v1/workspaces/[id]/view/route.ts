@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { eq, sql, and, isNull } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 
 import { enforceRouteLimit, getRequestIp, jsonError, jsonSuccess } from '@/app/api/v1/_shared';
 import { getWorkspaceAccessById } from '@/lib/data/workspace-access';
@@ -12,6 +12,7 @@ import { DEV_CSRF_SECRET_FALLBACK } from '@/lib/security/csrf-constants';
 import { consumeRateLimit } from '@/lib/security/rate-limit';
 import { getViewerAuthContext } from '@/lib/server/viewer-context';
 import { staffRoleOf } from '@/lib/trust/staff';
+import { writeWorkspaceView } from '@/lib/workspaces/server/view-write';
 import { recordWorkspaceView } from '@/lib/workspaces/view-record';
 
 export const runtime = 'nodejs';
@@ -23,16 +24,6 @@ const IP_LIMIT_PER_HOUR = 120;
 const SPIKE_PER_HOUR = 500;
 
 const NO_CONTENT = () => new Response(null, { status: 204, headers: { 'Cache-Control': 'private, no-store' } });
-
-// One workspace, one counted view: the existing trigger announces the new number to its readers.
-// ponytail: a direct write per counted view. Ceiling: roughly tens per second on one workspace. Upgrade: buffer it through lib/counters/redis-flush.
-async function incrementViewCount(workspaceId: string) {
-    const rows = await db.update(workspaces)
-        .set({ viewCount: sql`${workspaces.viewCount} + 1` })
-        .where(and(eq(workspaces.id, workspaceId), isNull(workspaces.deletedAt)))
-        .returning({ id: workspaces.id });
-    return rows.length > 0;
-}
 
 /** Same answer for every outcome, so nobody can use this to learn whether a private workspace exists. */
 export async function POST(request: NextRequest, context: { params: Promise<{ id: string }> }) {
@@ -59,7 +50,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
             return (await redis.set(key, '1', { nx: true, ex: VIEW_WINDOW_SECONDS })) !== null;
         },
         releaseSlot: async (key) => { await getRedisClient()?.del(key); },
-        increment: incrementViewCount,
+        increment: writeWorkspaceView,
     });
 
     logger.metric('workspace.view', { module: 'workspaces', outcome, sampleRate: outcome === 'write_failed' || outcome === 'unavailable' ? 1 : 0.1 });

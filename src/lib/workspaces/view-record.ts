@@ -13,7 +13,7 @@ export type WorkspaceViewDeps = {
   claimSlot: (key: string) => Promise<boolean>;
   releaseSlot: (key: string) => Promise<void>;
   /** False when the workspace is gone. */
-  increment: (workspaceId: string) => Promise<boolean>;
+  increment: (workspaceId: string, signedIn: boolean) => Promise<boolean>;
 };
 
 const NON_BROWSER = /(?<!cu)bot[/;)\s-]|crawler|spider|headless|lighthouse|pagespeed|gtmetrix|puppeteer|playwright|phantomjs|curl\/|wget\/|python-|axios\/|node-fetch|go-http-client|okhttp|java\//i;
@@ -51,7 +51,7 @@ export async function recordWorkspaceView(input: { workspaceId: string; ip: stri
     const key = viewerSlotKey(workspaceId, viewer?.id ?? null, ip, userAgent, deps.secret);
     if (!(await deps.claimSlot(key))) return "repeat";
     slot = key;
-    if (await deps.increment(workspaceId)) return "counted";
+    if (await deps.increment(workspaceId, Boolean(viewer))) return "counted";
   } catch {
     if (!slot) return "unavailable";
     await deps.releaseSlot(slot).catch(() => undefined);

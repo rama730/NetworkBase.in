@@ -274,6 +274,13 @@
       "when": 1793380386300,
       "tag": "0039_file_download_history",
       "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1793380446300,
+      "tag": "0040_workspace_view_daily",
+      "breakpoints": true
     }
   ]
 }

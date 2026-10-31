@@ -42,7 +42,8 @@
     "drizzle/0036_realtime_publication_empty.sql",
     "drizzle/0037_update_comment_likes.sql",
     "drizzle/0038_update_reply_policy_live.sql",
-    "drizzle/0039_file_download_history.sql"
+    "drizzle/0039_file_download_history.sql",
+    "drizzle/0040_workspace_view_daily.sql"
   ],
   "legacyDatabaseTags": [],
   "allowedUtilitySqlFiles": [

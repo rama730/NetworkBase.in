@@ -75,6 +75,17 @@ describe("who counts", () => {
   });
 });
 
+describe("who the daily totals credit", () => {
+  it("tells the write whether the viewer was signed in", async () => {
+    const seen: boolean[] = [];
+    const signedIn = world({ increment: async (_id, isSignedIn) => { seen.push(isSignedIn); return true; } });
+    await visit(signedIn.deps);
+    const anonymous = world({ resolveViewer: async () => null, increment: async (_id, isSignedIn) => { seen.push(isSignedIn); return true; } });
+    await visit(anonymous.deps);
+    assert.deepEqual(seen, [true, false]);
+  });
+});
+
 describe("failures", () => {
   it("frees the slot when the write fails, so a retry can count", async () => {
     let healthy = false;
