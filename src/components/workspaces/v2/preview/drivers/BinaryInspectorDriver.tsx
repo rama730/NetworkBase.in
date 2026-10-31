@@ -14,23 +14,24 @@ import { Button } from "@/components/ui/button";
 import type { WorkspaceNode } from "@/lib/db/schema";
 import { formatBytes } from "../../files-tab/folder/format";
 import { toast } from "@/lib/feedback";
+import { DownloadLink } from "@/components/ui/download-link";
 
 interface BinaryInspectorDriverProps {
   node: WorkspaceNode;
-  signedUrl: string | null;
+  fileUrl: string | null;
 }
 
 export function BinaryInspectorDriver({
   node,
-  signedUrl,
+  fileUrl,
 }: BinaryInspectorDriverProps): React.JSX.Element {
   const [hexDump, setHexDump] = React.useState<string | null>(null);
   const [loading, setLoading] = React.useState(false);
   const [copied, setCopied] = React.useState(false);
 
   React.useEffect(() => {
-    if (!signedUrl) return;
-    const targetUrl = signedUrl;
+    if (!fileUrl) return;
+    const targetUrl = fileUrl;
     let active = true;
     setLoading(true);
 
@@ -78,7 +79,7 @@ export function BinaryInspectorDriver({
     return () => {
       active = false;
     };
-  }, [signedUrl]);
+  }, [fileUrl]);
 
   const copyHex = React.useCallback(async () => {
     if (!hexDump) return;
@@ -121,12 +122,12 @@ export function BinaryInspectorDriver({
             </Button>
           )}
 
-          {signedUrl && (
+          {fileUrl && (
             <Button asChild size="sm" variant="outline" className="h-7 px-2 text-xs">
-              <a href={signedUrl} download={node.name}>
+              <DownloadLink href={fileUrl} filename={node.name}>
                 <Download className="mr-1 h-3.5 w-3.5" />
                 Download
-              </a>
+              </DownloadLink>
             </Button>
           )}
         </div>
@@ -150,12 +151,12 @@ export function BinaryInspectorDriver({
             <p className="max-w-md text-xs text-muted-foreground">
               This binary file cannot be rendered inline. You can download it or open it in an external application.
             </p>
-            {signedUrl && (
+            {fileUrl && (
               <Button asChild size="sm" variant="default" className="mt-2">
-                <a href={signedUrl} download={node.name}>
+                <DownloadLink href={fileUrl} filename={node.name}>
                   <Download className="mr-1.5 h-4 w-4" />
                   Download file
-                </a>
+                </DownloadLink>
               </Button>
             )}
           </div>

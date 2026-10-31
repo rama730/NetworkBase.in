@@ -51,8 +51,8 @@ const BinaryInspectorDriver = dynamic(
 
 interface UniversalPreviewEngineProps {
   node: WorkspaceNode;
-  signedUrl: string | null;
-  signedUrlError?: string | null;
+  fileUrl: string | null;
+  fileUrlError?: string | null;
   projectId: string;
   onRetry?: () => void;
 }
@@ -113,8 +113,8 @@ class DriverErrorBoundary extends React.Component<DriverErrorBoundaryProps, Driv
 
 export default function UniversalPreviewEngine({
   node,
-  signedUrl,
-  signedUrlError,
+  fileUrl,
+  fileUrlError,
   projectId,
   onRetry,
 }: UniversalPreviewEngineProps): React.JSX.Element {
@@ -132,21 +132,21 @@ export default function UniversalPreviewEngine({
   }, [previewType, node.id, projectId]);
 
   React.useEffect(() => {
-    if (signedUrlError) {
+    if (fileUrlError) {
       logger.error("Preview signed URL failed to resolve", {
         nodeId: node.id,
         projectId,
-        error: signedUrlError,
+        error: fileUrlError,
       });
     }
-  }, [signedUrlError, node.id, projectId]);
+  }, [fileUrlError, node.id, projectId]);
 
-  if (signedUrlError) {
+  if (fileUrlError) {
     return (
       <div className="flex flex-1 flex-col items-center justify-center gap-3 p-8 text-center">
         <AlertTriangle className="h-8 w-8 text-amber-500" />
         <p className="text-sm font-semibold text-foreground">Couldn’t prepare file preview</p>
-        <p className="max-w-md text-xs text-muted-foreground">{signedUrlError}</p>
+        <p className="max-w-md text-xs text-muted-foreground">{fileUrlError}</p>
         {onRetry && (
           <Button size="sm" variant="outline" onClick={onRetry} className="mt-2">
             <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
@@ -157,48 +157,48 @@ export default function UniversalPreviewEngine({
     );
   }
 
-  // If PDF, we can render via server preview route when projectId is present or when signedUrl resolves
+  // If PDF, we can render via server preview route when projectId is present or when fileUrl resolves
   if (previewType === "pdf") {
     return (
       <DriverErrorBoundary fileName={node.name} onRetry={onRetry}>
-        <PdfViewerDriver node={node} signedUrl={signedUrl} projectId={projectId} />
+        <PdfViewerDriver node={node} fileUrl={fileUrl} projectId={projectId} />
       </DriverErrorBoundary>
     );
   }
 
-  if (!signedUrl) {
+  if (!fileUrl) {
     return <PreviewSkeleton />;
   }
 
   const renderDriverContent = () => {
     switch (previewType) {
       case "image":
-        return <ImageViewerDriver node={node} signedUrl={signedUrl} />;
+        return <ImageViewerDriver node={node} fileUrl={fileUrl} />;
 
       case "video":
-        return <MediaViewerDriver node={node} signedUrl={signedUrl} type="video" />;
+        return <MediaViewerDriver node={node} fileUrl={fileUrl} type="video" />;
 
       case "audio":
-        return <MediaViewerDriver node={node} signedUrl={signedUrl} type="audio" />;
+        return <MediaViewerDriver node={node} fileUrl={fileUrl} type="audio" />;
 
       case "docx":
       case "doc_legacy":
       case "rtf":
       case "odt":
-        return <DocxViewerDriver node={node} signedUrl={signedUrl} />;
+        return <DocxViewerDriver node={node} fileUrl={fileUrl} />;
 
       case "sheet":
-        return <SheetViewerDriver node={node} signedUrl={signedUrl} />;
+        return <SheetViewerDriver node={node} fileUrl={fileUrl} />;
 
       case "presentation":
-        return <PresentationViewerDriver node={node} signedUrl={signedUrl} />;
+        return <PresentationViewerDriver node={node} fileUrl={fileUrl} />;
 
       case "archive":
-        return <ArchiveViewerDriver node={node} signedUrl={signedUrl} />;
+        return <ArchiveViewerDriver node={node} fileUrl={fileUrl} />;
 
       case "binary":
       default:
-        return <BinaryInspectorDriver node={node} signedUrl={signedUrl} />;
+        return <BinaryInspectorDriver node={node} fileUrl={fileUrl} />;
     }
   };
 

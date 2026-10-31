@@ -6,11 +6,11 @@ import UniversalPreviewEngine from "./UniversalPreviewEngine";
 
 export default function AssetPreview({
   node,
-  signedUrl,
+  fileUrl,
   projectId = "",
 }: {
   node: WorkspaceNode;
-  signedUrl: string | null;
+  fileUrl: string | null;
   projectId?: string;
 }): React.JSX.Element {
   const previewUrl = `/api/v1/workspaces/${encodeURIComponent(node.projectId || projectId || "")}/files/${encodeURIComponent(node.id)}/preview?v=${encodeURIComponent(String(node.currentVersion))}`;
@@ -27,7 +27,7 @@ export default function AssetPreview({
   return (
     <UniversalPreviewEngine
       node={node}
-      signedUrl={signedUrl}
+      fileUrl={fileUrl}
       projectId={projectId}
     />
   );

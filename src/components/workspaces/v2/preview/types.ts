@@ -3,7 +3,7 @@ import type { UniversalPreviewType } from "../utils/fileKind";
 
 export interface PreviewDriverProps<T = Record<string, unknown>> {
   node: WorkspaceNode;
-  signedUrl: string | null;
+  fileUrl: string | null;
   projectId?: string;
   onRetry?: () => void;
   onError?: (error: Error) => void;

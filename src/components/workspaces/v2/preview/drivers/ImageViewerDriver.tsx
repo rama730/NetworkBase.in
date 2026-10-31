@@ -6,6 +6,7 @@ import {
   ZoomOut,
   RotateCcw,
   RotateCw,
+  Download,
   ExternalLink,
   Code2,
   Image as ImageIcon,
@@ -19,15 +20,16 @@ import { cn } from "@/lib/utils";
 import type { WorkspaceNode } from "@/lib/db/schema";
 import { extOf } from "../../utils/fileKind";
 import { toast } from "@/lib/feedback";
+import { DownloadLink } from "@/components/ui/download-link";
 
 interface ImageViewerDriverProps {
   node: WorkspaceNode;
-  signedUrl: string;
+  fileUrl: string;
 }
 
 export function ImageViewerDriver({
   node,
-  signedUrl,
+  fileUrl,
 }: ImageViewerDriverProps): React.JSX.Element {
   const ext = React.useMemo(() => extOf(node.name), [node.name]);
   const isSvg = ext === "svg" || (node.mimeType || "").includes("svg");
@@ -58,9 +60,9 @@ export function ImageViewerDriver({
 
   // Fetch SVG text if it is an SVG file to support viewing source
   React.useEffect(() => {
-    if (!isSvg || !signedUrl) return;
+    if (!isSvg || !fileUrl) return;
     let active = true;
-    fetch(signedUrl)
+    fetch(fileUrl)
       .then((res) => (res.ok ? res.text() : Promise.reject(new Error("Couldn’t fetch SVG"))))
       .then((text) => {
         if (active) setSvgSource(text);
@@ -71,7 +73,7 @@ export function ImageViewerDriver({
     return () => {
       active = false;
     };
-  }, [isSvg, signedUrl]);
+  }, [isSvg, fileUrl]);
 
   const handleZoomIn = React.useCallback(() => {
     setScale((s) => Math.min(Number((s + 0.25).toFixed(2)), 8));
@@ -113,7 +115,7 @@ export function ImageViewerDriver({
 
   const handleCopyImage = React.useCallback(async () => {
     try {
-      const res = await fetch(signedUrl);
+      const res = await fetch(fileUrl);
       const blob = await res.blob();
       if (typeof ClipboardItem !== "undefined" && navigator.clipboard?.write) {
         await navigator.clipboard.write([new ClipboardItem({ [blob.type || "image/png"]: blob })]);
@@ -124,7 +126,7 @@ export function ImageViewerDriver({
     } catch {
       toast.error("Couldn’t copy the image");
     }
-  }, [signedUrl]);
+  }, [fileUrl]);
 
   // Trackpad pinch-to-zoom & wheel zoom with focal cursor anchor
   React.useEffect(() => {
@@ -244,7 +246,7 @@ export function ImageViewerDriver({
           The file may be corrupted or in an unsupported format.
         </p>
         <Button asChild size="sm" variant="outline">
-          <a href={signedUrl} target="_blank" rel="noreferrer">
+          <a href={fileUrl} target="_blank" rel="noreferrer">
             <ExternalLink className="mr-2 h-4 w-4" />
             Open directly
           </a>
@@ -405,9 +407,14 @@ export function ImageViewerDriver({
 
         <div className="mx-1 h-4 w-px bg-border" />
         <Button asChild size="sm" variant="ghost" className="h-7 px-2 text-xs">
-          <a href={signedUrl} target="_blank" rel="noreferrer" title="Open in new window">
+          <a href={fileUrl} target="_blank" rel="noreferrer" title="Open in new window">
             <ExternalLink className="h-3.5 w-3.5" />
           </a>
+        </Button>
+        <Button asChild size="sm" variant="ghost" className="h-7 px-2 text-xs">
+          <DownloadLink href={fileUrl} filename={node.name} title="Download image" aria-label="Download image">
+            <Download className="h-3.5 w-3.5" />
+          </DownloadLink>
         </Button>
       </div>
 
@@ -441,7 +448,7 @@ export function ImageViewerDriver({
             {/* Native img tag with cross-browser GPU acceleration */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src={signedUrl}
+              src={fileUrl}
               alt={node.name}
               draggable={false}
               onError={() => setImageError(true)}

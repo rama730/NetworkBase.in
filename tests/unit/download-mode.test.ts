@@ -1,8 +1,10 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 import { test } from "node:test";
 
-import { signedDownloadRedirect, versionedFilename } from "../../src/lib/storage/download-link";
+import { signedDownloadRedirect } from "../../src/lib/storage/download-link";
+import { versionedFilename } from "../../src/lib/files/versioned-filename";
 
 const read = (path: string) => readFileSync(path, "utf8");
 
@@ -54,4 +56,25 @@ test("code that reads a file's bytes never asks for download mode", () => {
   for (const file of ["src/components/organizations/OrgFilesPanel.tsx", "src/components/workspaces/create-wizard/useCreateWorkspaceWizard.ts"]) {
     assert.doesNotMatch(read(file), /fetch\([^)]*download=1/, file);
   }
+});
+
+const componentFiles = (dir: string): string[] => readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+  const path = join(dir, entry.name);
+  return entry.isDirectory() ? componentFiles(path) : /\.tsx?$/.test(entry.name) ? [path] : [];
+});
+
+// A raw link can't see a refused download: the browser saves the error as the file, or leaves the page.
+test("no control saves a file except through the shared helper", () => {
+  const allowed = new Set([
+    "src/lib/download.ts",
+    // These wait for phases that make their routes safe to check.
+    "src/components/settings/LegalAndDataRightsSection.tsx",
+    "src/components/settings/AccountDeletionWizard.tsx",
+    "src/components/trust/StandingNotices.tsx",
+    "src/components/organizations/AssignmentsPanel.tsx",
+  ]);
+  const offenders = [...componentFiles("src/components"), ...componentFiles("src/app"), ...componentFiles("src/hooks")]
+    .filter((file) => !allowed.has(file))
+    .filter((file) => /\bdownload=\{|<a[^>]*\sdownload[\s>]|\.download\s*=|download: `/.test(read(file)));
+  assert.deepEqual(offenders, []);
 });

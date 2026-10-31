@@ -79,6 +79,7 @@ import {
 import { loadProfileContributionWindow } from "@/lib/profile/browser-profile";
 import type { ProfileCollaborationContribution } from "@/lib/profile/collaboration";
 import type { ContributionEditorEntry } from "@/lib/profile/contribution-editor";
+import { saveBlob } from "@/lib/download";
 import {
   storyFromContribution,
   mergeContributionStory,
@@ -2225,12 +2226,7 @@ export function ContributionEditor({
                   ],
                   { type: "application/json" },
                 );
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement("a");
-                a.href = url;
-                a.download = "project-contribution.json";
-                a.click();
-                URL.revokeObjectURL(url);
+                saveBlob(blob, "project-contribution.json");
               }}
             >
               <Download className="size-3.5" />

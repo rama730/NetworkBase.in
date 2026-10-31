@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { AlertTriangle, Download, ExternalLink, FileSpreadsheet } from "lucide-react";
+import { AlertTriangle, Download, FileSpreadsheet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { WorkspaceNode } from "@/lib/db/schema";
@@ -9,10 +9,11 @@ import { extOf } from "../../utils/fileKind";
 import { formatBytes } from "../../files-tab/folder/format";
 import { DataGridDriver, type SheetData } from "./DataGridDriver";
 import * as fflate from "fflate";
+import { DownloadLink } from "@/components/ui/download-link";
 
 interface SheetViewerDriverProps {
   node: WorkspaceNode;
-  signedUrl: string;
+  fileUrl: string;
 }
 
 /** Converts an Excel column reference (e.g. 'A', 'D', 'AA') to 0-based index */
@@ -78,7 +79,7 @@ async function parseWithWorker(
 
 export function SheetViewerDriver({
   node,
-  signedUrl,
+  fileUrl,
 }: SheetViewerDriverProps): React.JSX.Element {
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
@@ -95,7 +96,7 @@ export function SheetViewerDriver({
 
     async function loadSpreadsheet() {
       try {
-        const res = await fetch(signedUrl);
+        const res = await fetch(fileUrl);
         if (!res.ok) throw new Error("Couldn’t fetch spreadsheet file");
 
         // CSV / TSV text parsing
@@ -353,7 +354,7 @@ export function SheetViewerDriver({
     return () => {
       active = false;
     };
-  }, [ext, signedUrl]);
+  }, [ext, fileUrl]);
 
   if (loading) {
     return <SheetSkeleton />;
@@ -361,8 +362,6 @@ export function SheetViewerDriver({
 
   // Graceful card for legacy .xls binary format
   if (isLegacy) {
-    const officeViewerUrl = `https://view.officeapps.live.com/op/view.aspx?src=${encodeURIComponent(signedUrl)}`;
-    const googleViewerUrl = `https://docs.google.com/gview?url=${encodeURIComponent(signedUrl)}&embedded=true`;
 
     return (
       <div className="flex h-full w-full items-center justify-center bg-muted/10 p-6">
@@ -384,25 +383,13 @@ export function SheetViewerDriver({
 
           <div className="mt-6 flex flex-wrap items-center justify-center gap-2.5">
             <Button asChild size="sm" className="h-9 px-4 text-xs font-medium">
-              <a href={signedUrl} download={node.name}>
+              <DownloadLink href={fileUrl} filename={node.name}>
                 <Download className="mr-1.5 h-3.5 w-3.5" />
                 Download spreadsheet
-              </a>
+              </DownloadLink>
             </Button>
 
-            <Button asChild variant="outline" size="sm" className="h-9 px-3 text-xs">
-              <a href={officeViewerUrl} target="_blank" rel="noopener noreferrer">
-                <ExternalLink className="mr-1.5 h-3.5 w-3.5" />
-                Excel Online
-              </a>
-            </Button>
 
-            <Button asChild variant="outline" size="sm" className="h-9 px-3 text-xs">
-              <a href={googleViewerUrl} target="_blank" rel="noopener noreferrer">
-                <ExternalLink className="mr-1.5 h-3.5 w-3.5" />
-                Google Sheets
-              </a>
-            </Button>
           </div>
         </div>
       </div>
@@ -416,16 +403,16 @@ export function SheetViewerDriver({
         <p className="text-sm font-semibold text-foreground">Couldn’t render spreadsheet preview</p>
         <p className="max-w-md text-xs text-muted-foreground">{error}</p>
         <Button asChild size="sm" variant="outline" className="mt-2">
-          <a href={signedUrl} download={node.name}>
+          <DownloadLink href={fileUrl} filename={node.name}>
             <Download className="mr-1.5 h-4 w-4" />
             Download spreadsheet
-          </a>
+          </DownloadLink>
         </Button>
       </div>
     );
   }
 
-  return <DataGridDriver fileName={node.name} sheets={sheets} signedUrl={signedUrl} />;
+  return <DataGridDriver fileName={node.name} sheets={sheets} fileUrl={fileUrl} />;
 }
 
 /** Robust CSV / TSV text parsing with quotation handling */

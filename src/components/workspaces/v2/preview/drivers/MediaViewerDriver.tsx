@@ -33,10 +33,12 @@ import { Button } from "@/components/ui/button";
 import type { WorkspaceNode } from "@/lib/db/schema";
 import { formatBytes } from "../../files-tab/folder/format";
 import { cn } from "@/lib/utils";
+import { DownloadLink } from "@/components/ui/download-link";
+import { saveBlob } from "@/lib/download";
 
 interface MediaViewerDriverProps {
   node: WorkspaceNode;
-  signedUrl: string;
+  fileUrl: string;
   type: "video" | "audio";
 }
 
@@ -63,7 +65,7 @@ interface AbLoopState {
 
 export function MediaViewerDriver({
   node,
-  signedUrl,
+  fileUrl,
   type,
 }: MediaViewerDriverProps): React.JSX.Element {
   const mediaRef = React.useRef<HTMLVideoElement | HTMLAudioElement | null>(null);
@@ -124,19 +126,19 @@ export function MediaViewerDriver({
   const [showShareMenu, setShowShareMenu] = React.useState(false);
   const [copiedLink, setCopiedLink] = React.useState(false);
   const [copiedTimestampLink, setCopiedTimestampLink] = React.useState(false);
-  const [snapshotStatus, setSnapshotStatus] = React.useState<"idle" | "capturing" | "copied">("idle");
+  const [snapshotStatus, setSnapshotStatus] = React.useState<"idle" | "capturing" | "copied" | "saved">("idle");
   const [resolution, setResolution] = React.useState<{ width: number; height: number } | null>(null);
   const [realWaveform, setRealWaveform] = React.useState<number[] | null>(null);
 
   // Extract true RMS audio waveform envelope from media audio track
   React.useEffect(() => {
-    if (typeof window === "undefined" || !signedUrl) return;
+    if (typeof window === "undefined" || !fileUrl) return;
     let active = true;
 
     async function extractRmsWaveform() {
       let audioCtx: AudioContext | null = null;
       try {
-        const res = await fetch(signedUrl, { headers: { Range: "bytes=0-1048576" } });
+        const res = await fetch(fileUrl, { headers: { Range: "bytes=0-1048576" } });
         if (!res.ok && res.status !== 206) return;
         const arrayBuffer = await res.arrayBuffer();
         if (!active) return;
@@ -182,7 +184,7 @@ export function MediaViewerDriver({
     return () => {
       active = false;
     };
-  }, [signedUrl]);
+  }, [fileUrl]);
 
   // On-screen feedback for gestures and adjustments
   const [activeGestureToast, setActiveGestureToast] = React.useState<{
@@ -245,8 +247,8 @@ export function MediaViewerDriver({
     const el = mediaRef.current;
     if (el) {
       // Guard against React StrictMode DOM node mutation: ensure src is attached and loaded
-      if (signedUrl && (!el.getAttribute("src") || el.getAttribute("src") !== signedUrl)) {
-        el.setAttribute("src", signedUrl);
+      if (fileUrl && (!el.getAttribute("src") || el.getAttribute("src") !== fileUrl)) {
+        el.setAttribute("src", fileUrl);
         el.load();
       }
       syncDuration(el);
@@ -260,7 +262,7 @@ export function MediaViewerDriver({
       if (rippleTimer.current) clearTimeout(rippleTimer.current);
       if (clickTimeoutRef.current) clearTimeout(clickTimeoutRef.current);
     };
-  }, [signedUrl, syncDuration]);
+  }, [fileUrl, syncDuration]);
 
   // Hardware Video Decoder Cleanup Destructor: flush GPU VRAM and release hardware decode contexts on true unmount
   React.useEffect(() => {
@@ -449,14 +451,9 @@ export function MediaViewerDriver({
       }
 
       const blob = await blobPromise;
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
       const timeTag = formatTime(video.currentTime).replace(":", "-");
-      a.download = `${node.name.replace(/\.[^/.]+$/, "")}-frame-${timeTag}.png`;
-      a.click();
-      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
-      setSnapshotStatus("copied");
+      saveBlob(blob, `${node.name.replace(/\.[^/.]+$/, "")}-frame-${timeTag}.png`);
+      setSnapshotStatus("saved");
       setTimeout(() => setSnapshotStatus("idle"), 2200);
     } catch (err) {
       console.warn("Failed to capture snapshot:", err);
@@ -611,11 +608,11 @@ export function MediaViewerDriver({
   }, []);
 
   const handleCopyLink = React.useCallback(() => {
-    navigator.clipboard.writeText(signedUrl).then(() => {
+    navigator.clipboard.writeText(fileUrl).then(() => {
       setCopiedLink(true);
       setTimeout(() => setCopiedLink(false), 2000);
     }).catch(() => {});
-  }, [signedUrl]);
+  }, [fileUrl]);
 
   const handleCopyTimestampLink = React.useCallback(() => {
     if (typeof window === "undefined") return;
@@ -962,10 +959,10 @@ export function MediaViewerDriver({
 
         <div className="flex flex-wrap items-center justify-center gap-2.5 pt-2">
           <Button asChild size="sm" className="h-9 px-4 rounded-[6px] bg-[#D14E24] hover:bg-[#B23F1C] text-white">
-            <a href={signedUrl} download={node.name}>
+            <DownloadLink href={fileUrl} filename={node.name}>
               <Download className="mr-1.5 h-4 w-4" />
               Download {node.name}
-            </a>
+            </DownloadLink>
           </Button>
           <Button
             size="sm"
@@ -984,7 +981,7 @@ export function MediaViewerDriver({
             Retry playback
           </Button>
           <Button asChild size="sm" variant="outline" className="h-9 px-4 rounded-[6px]">
-            <a href={signedUrl} target="_blank" rel="noreferrer">
+            <a href={fileUrl} target="_blank" rel="noreferrer">
               <ExternalLink className="mr-1.5 h-4 w-4" />
               Open in new tab
             </a>
@@ -1025,7 +1022,7 @@ export function MediaViewerDriver({
           >
             <video
               ref={mediaRef as React.RefObject<HTMLVideoElement>}
-              src={signedUrl}
+              src={fileUrl}
               loop={isLooping && !abLoop.active}
               preload="auto"
               playsInline
@@ -1212,12 +1209,12 @@ export function MediaViewerDriver({
                 className="h-7 px-2 text-xs text-white/80 hover:text-white hover:bg-white/10 rounded-[6px]"
                 title="Capture Frame to Clipboard / File (S)"
               >
-                {snapshotStatus === "copied" ? (
+                {snapshotStatus === "copied" || snapshotStatus === "saved" ? (
                   <Check className="h-3.5 w-3.5 text-emerald-400 mr-1" />
                 ) : (
                   <Camera className="h-3.5 w-3.5 mr-1" />
                 )}
-                {snapshotStatus === "copied" ? "Copied" : "Snapshot"}
+                {snapshotStatus === "copied" ? "Copied" : snapshotStatus === "saved" ? "Saved" : "Snapshot"}
               </Button>
 
               {/* Timestamp Flag / Marker Drop & Remove Toggle */}
@@ -1279,10 +1276,10 @@ export function MediaViewerDriver({
                 variant="ghost"
                 className="h-7 px-2 text-xs text-white/80 hover:text-white hover:bg-white/10 rounded-[6px]"
               >
-                <a href={signedUrl} download={node.name} title="Download video">
+                <DownloadLink href={fileUrl} filename={node.name} title="Download video">
                   <Download className="h-3.5 w-3.5 mr-1" />
                   Download
-                </a>
+                </DownloadLink>
               </Button>
 
               {/* Help */}
@@ -1662,7 +1659,7 @@ export function MediaViewerDriver({
         <div className="flex w-full max-w-lg flex-col items-center rounded-[12px] border border-border bg-card p-8 shadow-lg">
           <audio
             ref={mediaRef as React.RefObject<HTMLAudioElement>}
-            src={signedUrl}
+            src={fileUrl}
             loop={isLooping}
             preload="auto"
             onPlay={() => setIsPlaying(true)}
@@ -1826,9 +1823,9 @@ export function MediaViewerDriver({
               </Button>
 
               <Button asChild size="sm" variant="ghost" className="h-8 w-8 p-0 rounded-[6px]">
-                <a href={signedUrl} download={node.name} title="Download audio">
+                <DownloadLink href={fileUrl} filename={node.name} title="Download audio">
                   <Download className="h-4 w-4" />
-                </a>
+                </DownloadLink>
               </Button>
             </div>
           </div>

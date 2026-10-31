@@ -58,8 +58,3 @@ export async function getFilePreviewUrl(projectId: string, nodeId: string, downl
         return { url: `/api/v1/workspaces/${projectId}/files/${nodeId}/preview${query}` };
     });
 }
-
-/** @deprecated Use getFilePreviewUrl; kept only until FileView migrates. The expiry argument is ignored. */
-export async function getWorkspaceFileSignedUrl(projectId: string, nodeId: string, _ttlSeconds: number = 300, download: boolean = false) {
-    return getFilePreviewUrl(projectId, nodeId, download);
-}
