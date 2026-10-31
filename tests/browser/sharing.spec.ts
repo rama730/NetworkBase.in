@@ -17,7 +17,7 @@ test.beforeAll(async()=>{
     '@/components/presence/PersonHoverCard':`export const PersonHoverCard=({children})=>children;`,
     '@/app/actions/chat/messages':`export const hideLinkPreview=input=>window.sharingFixture.hidePreview(input);export const listReactors=async()=>({success:true,reactors:{}});export const react=async()=>({success:true});export const createTaskFromMessage=async()=>({success:false});export const deleteMessage=async()=>({success:false});export const editMessage=async()=>({success:false});export const markUnread=async()=>({success:false});export const pinMessage=async()=>({success:false});`,
     '@/components/presence/usePresence':`export const usePersonPresence=()=>({availability:'offline',label:'Offline',status:null});export const useWorkspacePresence=()=>({availability:'offline',label:'Offline'});`,
-    '@/components/presence/PersonPresence':`export const WorkspacePresenceBadge=()=>null;export const PersonPresenceBadge=()=>null;export const PresenceAvatar=()=>null;`,
+    '@/components/presence/PersonPresence':`export const PersonPresenceBadge=()=>null;export const PresenceAvatar=()=>null;`,
     'next/link':`import React from 'react';export default ({children,href,prefetch,...props})=>React.createElement('a',{href,...props},children);`,
     'next/image':`import React from 'react';export default ({fill,priority,unoptimized,...props})=>React.createElement('img',props);`,
     '@/hooks/use-auth':`export const useAuth=()=>({user:window.sharingFixture.user,session:window.sharingFixture.session,refreshProfile:async()=>{}});`,

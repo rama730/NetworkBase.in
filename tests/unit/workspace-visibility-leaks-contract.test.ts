@@ -44,11 +44,10 @@ test("COR-003: Files task search returns nothing without Tasks visibility", () =
   assert.ok(guard > 0 && guard < search.indexOf("db\n") + 1e9 && guard < search.indexOf(".from(tasks)"), "guard before any task query");
 });
 
-test("COR-022: project statuses use the canonical readability rule (drafts hidden)", () => {
-  const statuses = fnBody(read("src/app/actions/presence.ts"), "export async function getWorkspaceStatuses(");
+test("COR-022: last updates use the canonical readability rule (drafts hidden)", () => {
+  const statuses = fnBody(read("src/app/actions/workspace/last-update.ts"), "export async function getWorkspaceLastUpdates(");
   assert.match(statuses, /getWorkspaceAccessByIds\(ids, user\?\.id \?\? null\)/);
   assert.match(statuses, /access\[id\]\?\.canRead/);
-  assert.doesNotMatch(statuses, /coalesce\(p\.visibility, 'public'\) <> 'private'/);
 });
 
 test("COR-043: task, sprint and member loaders gate on their tab, sprint task rows on Tasks", () => {

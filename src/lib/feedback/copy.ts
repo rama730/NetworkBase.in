@@ -274,7 +274,6 @@ export const FEEDBACK_COPY: Record<string, { title: string; description?: string
   "chat_dm_not_allowed": { "title": "chat_dm_not_allowed" },
   "Couldn’t reopen the application": { "title": "Couldn’t reopen the application" },
   "forbidden": { "title": "forbidden" },
-  "Only owners and admins can set the workspace status": { "title": "Only owners and admins can set the workspace status" },
   "Couldn’t update availability": { "title": "Couldn’t update availability" },
   "Couldn’t update block state": { "title": "Couldn’t update block state" },
   "Unknown error": { "title": "Unknown error" },

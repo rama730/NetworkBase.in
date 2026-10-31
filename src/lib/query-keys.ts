@@ -38,7 +38,6 @@ export const queryKeys = {
   presence: {
     root: () => ["presence"] as const,
     person: (userId: string) => ["presence", "person", userId] as const,
-    project: (projectId: string) => ["presence", "project", projectId] as const,
     mine: () => ["presence", "mine"] as const,
   },
   connections: {
@@ -178,6 +177,8 @@ export const queryKeys = {
         ["project", projectId, "detail", "sprints"] as const,
       workflow: (projectId: string) =>
         ["project", projectId, "detail", "workflow"] as const,
+      lastUpdate: (projectId: string) =>
+        ["project", projectId, "detail", "last-update"] as const,
       recentActivity: (projectId: string) =>
         ["project", projectId, "detail", "recent-activity"] as const,
       readme: (projectId: string) =>

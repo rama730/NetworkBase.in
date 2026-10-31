@@ -48,7 +48,7 @@ export default async function JoinOrganizationPage({ params }: { params: Promise
         <AuthShell title={preview.title} description="You’ve been invited to join this organization." panel={JOIN_PANEL}>
             <div className="space-y-6">
                 <div className="flex items-center gap-3 rounded-md border border-border bg-card p-3.5">
-                    <WorkspaceAvatar project={{ title: preview.title, coverImage: preview.coverImage }} showPresence={false} />
+                    <WorkspaceAvatar project={{ title: preview.title, coverImage: preview.coverImage }} />
                     <p className="min-w-0 truncate text-sm text-muted-foreground">{facts || 'Organization'}</p>
                 </div>
 

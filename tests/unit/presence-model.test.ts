@@ -14,7 +14,6 @@ import {
   LOADING_MIN_MS,
   LOADING_SHOW_AFTER_MS,
   loadingSettlePlan,
-  projectAvailabilityOf,
   resolveLive,
   retryPresence,
   ringOrder,
@@ -97,12 +96,6 @@ test("away = notifications paused", () => {
   assert.equal(isAway({ emoji: "🌴", text: "Vacationing", expiresAt: null, setAt: null, pausesNotifications: true }), true);
   assert.equal(isAway({ emoji: "📅", text: "In a meeting", expiresAt: null, setAt: null, pausesNotifications: false }), false);
   assert.equal(isAway(null), false);
-});
-
-test("project activity uses the same steps from the last change", () => {
-  assert.equal(projectAvailabilityOf(new Date(now.getTime() - 60_000), now), "now");
-  assert.equal(projectAvailabilityOf(new Date(2026, 9, 3, 9), now), "today");
-  assert.equal(projectAvailabilityOf(null, now), "offline");
 });
 
 test("privacy: blocked sees nothing, hiding is mutual, status follows its audience", async () => {

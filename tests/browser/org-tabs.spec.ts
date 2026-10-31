@@ -51,9 +51,8 @@ test.beforeAll(async () => {
         '@/app/actions/org-lifecycle': `export const restoreOrgAction=${ok};`,
         '@/hooks/useFileVersions': `export const saveFileRevision=async()=>({success:true});`,
         '@/components/reports/ReportDialog': `export const ReportDialog=()=>null;`,
-        '@/components/presence/WorkspaceStatusControl': `export const WorkspaceStatusControl=()=>null;`,
         '@/components/workspaces/dashboard/WorkspaceSocialLinksCard': `export const WorkspaceLinkCluster=()=>null;`,
-        '@/app/actions/presence': `const none=async()=>({success:true,data:{}});export const getPresence=none,getMyPresenceSettings=none,setMyStatus=none,clearMyStatus=none,resumeNotifications=none,setStatusVisibility=none,setShowActivity=none,getWorkspaceStatuses=none,setWorkspaceStatus=none;`,
+        '@/app/actions/presence': `const none=async()=>({success:true,data:{}});export const getPresence=none,getMyPresenceSettings=none,setMyStatus=none,clearMyStatus=none,resumeNotifications=none,setStatusVisibility=none,setShowActivity=none;`,
         '@/app/actions/workspace/doc': `export const listWorkspaceDocsAction=async()=>({success:true,docs:[]});`,
         '@/app/actions/assignments': `const counts={not_started:3,in_progress:2,submitted:4,returned:0,done:1,missing:2,excused:0,total:12};
             export const listAssignmentsAction=async()=>({success:true,isAdmin:true,timeZone:'Asia/Kolkata',rows:[

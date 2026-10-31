@@ -1271,6 +1271,11 @@ export async function updateWorkspace(projectId: string, input: UpdateWorkspaceI
       const updateValues: Partial<typeof workspaces.$inferInsert> = {
         updatedAt: new Date(),
       };
+      // Member permission toggles are settings, not an update to the workspace.
+      if ([raw.title, raw.description, raw.status, raw.shortDescription, raw.problemStatement, raw.solutionStatement, raw.category, raw.tags, raw.externalLinks, raw.skills].some((value) => value !== undefined)) {
+        updateValues.lastUpdateAt = new Date();
+        updateValues.lastUpdateBy = user.id;
+      }
       if (raw.title !== undefined) updateValues.title = raw.title;
       if (raw.description !== undefined) updateValues.description = raw.description;
       if (raw.status !== undefined) updateValues.status = raw.status;
@@ -1753,6 +1758,8 @@ export async function finalizeWorkspaceCoverImageUploadAction(input: {
           coverImageKey: intent.storageKey,
           coverImageAssetId: assetId,
           updatedAt: new Date(),
+          lastUpdateAt: new Date(),
+          lastUpdateBy: user.id,
         })
         .where(
           and(eq(workspaces.id, input.projectId), eq(workspaces.ownerId, user.id)),
@@ -1824,6 +1831,8 @@ export async function clearWorkspaceCoverImageAction(
           coverImageKey: null,
           coverImageAssetId: null,
           updatedAt: new Date(),
+          lastUpdateAt: new Date(),
+          lastUpdateBy: user.id,
         })
         .where(and(eq(workspaces.id, projectId), eq(workspaces.ownerId, user.id)))
         .returning({ id: workspaces.id });
@@ -2599,6 +2608,8 @@ export async function updateWorkspaceStageAction(
         currentStageIndex: normalizedIndex,
         stageCompletionDates: updatedDates,
         updatedAt: new Date(),
+        lastUpdateAt: new Date(),
+        lastUpdateBy: user.id,
       })
       .where(whereClause)
       .returning({
@@ -2759,6 +2770,8 @@ export async function updateWorkspaceLifecycleAction(
         currentStageIndex: newIndex,
         stageCompletionDates: remappedCompletionDates,
         updatedAt: new Date(),
+        lastUpdateAt: new Date(),
+        lastUpdateBy: user.id,
       })
       .where(and(
         eq(workspaces.id, projectId),

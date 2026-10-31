@@ -17,6 +17,7 @@ import { resolveClientSkill, useSkillCatalog } from "@/lib/skills/client";
 import { SocialPresenceIcon } from "@/components/profile/SocialPresenceIcon";
 import { resolveWorkspaceSocialLinks } from "@/lib/workspaces/social-links";
 import WorkspaceAvatar, { getWorkspaceAvatarUrl } from "@/components/workspaces/WorkspaceAvatar";
+import { WorkspaceLastUpdate } from "@/components/workspaces/WorkspaceLastUpdate";
 import { ReportDialog, ReportMenuItem } from "@/components/reports/ReportDialog";
 import { useWorkspaceCardLive } from "@/hooks/useWorkspaceLiveCounts";
 import { formatCount, viewCountDisplay } from "@/lib/format-count";
@@ -144,6 +145,7 @@ export default memo(function ProjectCard({ project, viewModel, isFollowing = fal
             {/* Above the card's stretched link, so its tooltip shows; the names are read out too. */}
             {hiddenTechStackCount > 0 && <span className="nb-tag relative z-10" title={techStack.slice(MAX_PROJECT_CARD_SKILL_ICONS).join(", ")}>+{hiddenTechStackCount}<span className="sr-only">: {techStack.slice(MAX_PROJECT_CARD_SKILL_ICONS).join(", ")}</span></span>}
         </div>}
+        <WorkspaceLastUpdate projectId={project.id} className="nb-meta block truncate" />
         <div className="nb-project-card-footer">
             <div className="flex min-w-0 items-center gap-3">
                 <div className="flex -space-x-1.5" role="group" aria-label={`${teamSize} ${teamSize === 1 ? "member" : "members"}`}>
