@@ -105,6 +105,8 @@ export const schemas = new EventSchemas().fromRecord<{
     "workspace/connections.refresh_suggestions_for_candidate": ConnectionsRefreshSuggestionCandidateEvent;
     "notification/fanout": NotificationFanoutInngestEvent;
     "email/outbox.wake": { data: Record<string, never> };
+    "chat/due.wake": { data: Record<string, never> };
+    "notification/push.wake": { data: Record<string, never> };
     /** Organizations P15: Duplicate runs in the background (report §30.5). */
     /** Reporting (docs/trust-and-safety-concept.md §11): an Urgent case alerts staff at once. */
     "trust/urgent.reported": { data: { caseId: string } };
