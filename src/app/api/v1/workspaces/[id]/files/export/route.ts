@@ -12,7 +12,7 @@ import {
 import { prepareFolderExport, streamFolderExport, exportEntriesStillVisible } from "@/lib/files/folder-export";
 import { safeContentDisposition } from "@/lib/storage/private-object-response";
 import { createClient } from "@/lib/supabase/server";
-import { recordDownload } from "@/lib/files/download-history";
+import { recordDownloadNow } from "@/lib/files/download-history";
 
 export const dynamic = "force-dynamic";
 
@@ -45,9 +45,9 @@ async function handle(request: NextRequest, context: RouteContext) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   // Exports lock and pin every asset in the tree; signed-out viewers share an IP bucket.
-  // The check before a download reads the tree but pins nothing, so it has its own, larger budget.
+  // The check runs out before the zip does, so the app can say so instead of the browser saving an error.
   const limited = isCheck
-    ? await enforceRouteLimit(request, "files:export-check", 60, 600, "default", user?.id)
+    ? await enforceRouteLimit(request, "files:export-check", 8, 600, "default", user?.id)
     : await enforceRouteLimit(request, "files:export", 10, 600, "default", user?.id);
   if (limited) return limited;
   const access = await assertWorkspaceFileReadAccess(projectId, user?.id ?? null).catch(() => null);
@@ -95,11 +95,11 @@ async function handle(request: NextRequest, context: RouteContext) {
     }
   };
   const filename = exportFilename(request.nextUrl.searchParams.get("name"));
-  recordDownload({
+  recordDownloadNow({
     workspaceId: projectId,
-    nodeId: folderId,
+    nodeId: prepared.historyNodeId,
     actorId: user?.id ?? null,
-    fileName: filename,
+    fileName: prepared.historyName,
     kind: nodeIds ? "selection_zip" : "folder_zip",
     fileCount: prepared.entries.filter((entry) => entry.type === "file").length,
   });

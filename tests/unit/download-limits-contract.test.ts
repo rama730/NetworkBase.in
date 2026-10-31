@@ -16,7 +16,7 @@ test("every route that serves file bytes has a rate limit", () => {
     ["src/app/api/v1/workspaces/[id]/image/route.ts", /enforceFileReadLimit\(request, "files:public-read", 300, 60, user\?\.id\)/],
     ["src/app/api/v1/workspaces/[id]/update-media/route.ts", /enforceFileReadLimit\(request, "files:public-read", 300, 60, user\?\.id\)/],
     ["src/app/api/v1/contribution-images/[id]/route.ts", /enforceFileReadLimit\(request, "files:public-read", 300, 60, user\?\.id\)/],
-    ["src/app/api/v1/extension/file/route.ts", /enforceFileReadLimit\(request, "extension:file", 300, 60, user\.id\)/],
+    ["src/app/api/v1/extension/file/route.ts", /enforceFileReadLimit\(request, "extension:file", 1200, 60, user\.id\)/],
   ] as const) {
     assert.match(read(file), limit, file);
   }

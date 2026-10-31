@@ -40,6 +40,19 @@ export function recordDownload(input: Parameters<typeof insertDownloadEvent>[0])
   }));
 }
 
+/**
+ * For a zip: the response stays open until the download ends, so waiting for it would lose the record if the server
+ * restarted mid-stream, and would stamp the end time instead of the start.
+ */
+export function recordDownloadNow(input: Parameters<typeof insertDownloadEvent>[0]) {
+  void insertDownloadEvent(input).catch((error) => {
+    logger.warn("files.download_history_write_failed", {
+      module: "files",
+      error: error instanceof Error ? error.message : "unknown",
+    });
+  });
+}
+
 /** Newest first. Rows whose person deleted their account, and signed-out downloads, have no name. */
 export async function readDownloadHistory(input: {
   workspaceId: string;

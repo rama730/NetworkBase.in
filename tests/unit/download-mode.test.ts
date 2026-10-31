@@ -91,7 +91,7 @@ test("downloads are recorded after the response; checks and views are not", () =
   assert.ok(preview.indexOf("recordDownload(") < preview.indexOf("const revisionIdentity"), "only the download branch records");
   for (const file of ["src/app/api/v1/workspaces/[id]/files/export/route.ts", "src/app/api/v1/workspaces/[id]/tasks/[taskId]/submissions/route.ts"]) {
     const source = read(file);
-    assert.ok(source.indexOf("if (isCheck) return") < source.indexOf("recordDownload("), file);
+    assert.ok(source.indexOf("if (isCheck) {") >= 0 && source.indexOf("if (isCheck) {") < source.indexOf("recordDownloadNow("), file);
   }
   assert.match(read("src/lib/files/download-history.ts"), /after\(\(\) => insertDownloadEvent/);
   assert.doesNotMatch(read("src/app/api/v1/chat/attachments/[assetId]/route.ts"), /recordDownload/);

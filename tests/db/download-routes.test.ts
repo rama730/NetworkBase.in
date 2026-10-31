@@ -11,6 +11,7 @@ const signed: Array<{ bucket: string; key: string; seconds: number; options: unk
 let preview: typeof import("../../src/app/api/v1/workspaces/[id]/files/[nodeId]/preview/route");
 let chat: typeof import("../../src/app/api/v1/chat/attachments/[assetId]/route");
 let exportRoute: typeof import("../../src/app/api/v1/workspaces/[id]/files/export/route");
+let extensionFile: typeof import("../../src/app/api/v1/extension/file/route");
 const users: string[] = [];
 
 // The real next/server, except that work after the response runs straight away.
@@ -44,10 +45,12 @@ before(async () => {
       ? { user: { id: viewer }, response: null }
       : { user: null, response: new Response(null, { status: 401 }) }),
     jsonError: (message: string, status: number) => new Response(JSON.stringify({ message }), { status }),
+    jsonSuccess: (data: unknown) => new Response(JSON.stringify({ data }), { status: 200 }),
   });
   preview = await loadAppModule(() => import("../../src/app/api/v1/workspaces/[id]/files/[nodeId]/preview/route"));
   chat = await loadAppModule(() => import("../../src/app/api/v1/chat/attachments/[assetId]/route"));
   exportRoute = await loadAppModule(() => import("../../src/app/api/v1/workspaces/[id]/files/export/route"));
+  extensionFile = await loadAppModule(() => import("../../src/app/api/v1/extension/file/route"));
 });
 afterEach(async () => {
   signed.length = 0;
@@ -225,6 +228,41 @@ test("a file with & and # in its name saves whole", async () => {
   viewer = file.owner;
   const res = await preview.GET(request(previewUrl(file, "?download=1")), previewContext(file));
   assert.equal(savedAs(res), "R&D #1 100%+ a.pdf");
+  await settle();
+});
+
+test("a caller's chosen zip name can't falsify download history", async () => {
+  const file = await seedFile("salaries.pdf");
+  viewer = file.owner;
+  const context = () => ({ params: Promise.resolve({ id: file.projectId }) });
+  const base = `/api/v1/workspaces/${file.projectId}/files/export`;
+  const res = await exportRoute.GET(request(`${base}?name=holiday-photos&ids=${file.nodeId}`), context());
+  assert.equal(res.status, 200);
+  assert.match(res.headers.get("content-disposition")!, /holiday-photos\.zip/, "the saved zip can have any name");
+  await res.body!.cancel();
+  await settle();
+  const rows = await sql`SELECT file_name, node_id, kind FROM public.workspace_download_events WHERE workspace_id = ${file.projectId}`;
+  assert.deepEqual({ ...rows[0] }, { file_name: "salaries.pdf", node_id: file.nodeId, kind: "selection_zip" });
+});
+
+test("a file whose bytes aren't verified is refused on every path, or left out of a zip", async () => {
+  const file = await seedFile("unverified.pdf");
+  await sql`UPDATE public.storage_assets SET state = 'pending', verified_at = NULL, verified_size = NULL, verified_mime_type = NULL WHERE storage_key = ${file.key}`;
+  viewer = file.owner;
+  assert.equal((await preview.HEAD(request(previewUrl(file, "?download=1"), "HEAD"), previewContext(file))).status, 404);
+  assert.equal((await preview.HEAD(request(previewUrl(file, "?v=2"), "HEAD"), previewContext(file))).status, 404);
+  const [node] = await sql`SELECT path FROM public.workspace_nodes WHERE id = ${file.nodeId}`;
+  const url = `https://app.test/api/v1/extension/file?projectId=${file.projectId}&path=${encodeURIComponent(node!.path as string)}`;
+  for (const transfer of ["raw", "inline", "signed"]) {
+    const res = await extensionFile.GET(new Request(`${url}&transfer=${transfer}`));
+    assert.equal(res.status, 404, transfer);
+  }
+  assert.equal((await extensionFile.GET(new Request(`${url}&transfer=metadata`))).status, 200, "its details stay readable");
+
+  // The same row without an asset link: a zip must not fall back to the raw key.
+  await sql`UPDATE public.workspace_nodes SET asset_id = NULL WHERE id = ${file.nodeId}`;
+  const zip = await exportRoute.HEAD(request(`/api/v1/workspaces/${file.projectId}/files/export?ids=${file.nodeId}`, "HEAD"), { params: Promise.resolve({ id: file.projectId }) });
+  assert.equal(zip.status, 422);
 });
 
 test("a channel-note image with no attachment name keeps its file type", async () => {

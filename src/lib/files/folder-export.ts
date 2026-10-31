@@ -22,6 +22,7 @@ const FOLDER_EXPORT_MAX_DEPTH = 128;
 const FOLDER_EXPORT_SIGNING_WINDOW = 16;
 const FOLDER_EXPORT_PIN_MS = 35 * 60 * 1000;
 const FOLDER_EXPORT_MAX_MS = 30 * 60 * 1000;
+const FOLDER_EXPORT_RESIGN_MS = 5 * 60 * 1000;
 const FOLDER_EXPORT_IDLE_MS = 30 * 1000;
 
 export type PreparedFolderExport = {
@@ -31,6 +32,9 @@ export type PreparedFolderExport = {
   requiresTaskAccess: boolean;
   /** Files with no stored copy, left out of the zip. */
   skippedFiles: number;
+  /** What download history records: taken from the rows, never from the caller's chosen zip name. */
+  historyName: string;
+  historyNodeId: string | null;
 };
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
@@ -69,11 +73,11 @@ export async function prepareSubmissionsExport(input: { masterId: string; dryRun
   const expiresAt = new Date(Date.now() + FOLDER_EXPORT_PIN_MS);
   let skippedFiles = 0;
   const entries = await db.transaction(async (tx) => {
-    const rows = Array.from(await tx.execute<{ copy_id: string; who: string; id: string; name: string; asset_id: string | null; s3_key: string | null; size: number | null; bucket: string | null; storage_key: string | null; verified_size: number | null }>(sql`
+    const rows = Array.from(await tx.execute<{ copy_id: string; who: string; id: string; name: string; asset_id: string | null; s3_key: string | null; size: number | null; bucket: string | null; storage_key: string | null; verified_size: number | null; asset_state: string | null }>(sql`
       SELECT c.id AS copy_id,
              coalesce(c.team_name, (SELECT p.title FROM workspaces p WHERE p.id = c.workspace_id AND p.id <> m.workspace_id),
                       (SELECT coalesce(pr.full_name, pr.username) FROM profiles pr WHERE pr.id = c.assignee_id), 'Member') AS who,
-             n.id, n.name, n.asset_id, n.s3_key, n.size, a.bucket, a.storage_key, a.verified_size
+             n.id, n.name, n.asset_id, n.s3_key, n.size, a.bucket, a.storage_key, a.verified_size, a.state AS asset_state
       FROM tasks c JOIN tasks m ON m.id = c.assignment_id
       JOIN workspace_nodes n ON n.task_id = c.id AND n.type = 'file' AND n.deleted_at IS NULL
       LEFT JOIN storage_assets a ON a.id = n.asset_id
@@ -81,20 +85,29 @@ export async function prepareSubmissionsExport(input: { masterId: string; dryRun
         AND (c.submission IS NOT NULL OR c.review_status IN ('pending', 'approved') OR c.status = 'done')
       ORDER BY 2, n.name
       LIMIT ${FOLDER_EXPORT_MAX_ENTRIES + 1}`));
-    const clean = (value: string) => value.replace(/[\/\\:*?"<>|\u0000-\u001f]+/g, " ").trim().slice(0, 120) || "Untitled";
+    // Never a partial zip, even when skipped rows would bring the list back under the cap.
+    if (rows.length > FOLDER_EXPORT_MAX_ENTRIES) throw new Error(`Submissions are limited to ${FOLDER_EXPORT_MAX_ENTRIES.toLocaleString("en-US")} entries`);
+    // A name of only dots would climb out of the folder the zip is unpacked into.
+    const clean = (value: string) => {
+      const cleaned = value.replace(/[\/\\:*?"<>|\u0000-\u001f]+/g, " ").trim().slice(0, 120);
+      return !cleaned || /^\.+$/.test(cleaned) ? "Untitled" : cleaned;
+    };
     const folders = new Map<string, string>();
     const used = new Set<string>();
     const list: FolderExportEntry[] = [];
     const usedInFolder = new Map<string, Set<string>>();
     for (const row of rows) {
-      if (!(row.storage_key ?? row.s3_key)) {
+      if (!row.asset_id || !(row.storage_key ?? row.s3_key)) {
         skippedFiles += 1;
         continue;
       }
+      // Checked here, not only when pinning, so the check before a download gives the same answer as the download.
+      if (row.asset_state !== "verified") throw new Error(`${row.name} isn’t ready to download yet`);
       if (!folders.has(row.copy_id)) {
         let name = clean(row.who);
-        for (let i = 2; used.has(name); i++) name = `${clean(row.who)} (${i})`;
-        used.add(name);
+        // Case-blind: "Priya S" and "priya s" would merge into one folder on Windows and macOS.
+        for (let i = 2; used.has(name.toLowerCase()); i++) name = `${clean(row.who)} (${i})`;
+        used.add(name.toLowerCase());
         folders.set(row.copy_id, name);
         list.push({ id: row.copy_id, path: name, type: "folder", bucket: null, storageKey: null, assetId: null, size: 0 });
       }
@@ -114,7 +127,19 @@ export async function prepareSubmissionsExport(input: { masterId: string; dryRun
     return list;
   });
   const totalBytes = entries.reduce((sum, entry) => sum + entry.size, 0);
-  return { operationId, entries, totalBytes, requiresTaskAccess: true, skippedFiles };
+  return { operationId, entries, totalBytes, requiresTaskAccess: true, skippedFiles, historyName: "", historyNodeId: null };
+}
+
+function exportHistoryLabel(rows: FolderExportRow[], input: { folderId: string | null; nodeIds?: string[] }) {
+  if (input.folderId) return { historyName: rows.find((row) => row.id === input.folderId)?.name ?? "Folder", historyNodeId: input.folderId };
+  if (!input.nodeIds) return { historyName: "All files", historyNodeId: null };
+  const chosen = new Set(input.nodeIds);
+  const names = [...new Map(rows.filter((row) => chosen.has(row.id)).map((row) => [row.id, row.name])).values()];
+  const shown = names.slice(0, 5).join(", ");
+  return {
+    historyName: names.length > 5 ? `${shown} and ${names.length - 5} more` : shown,
+    historyNodeId: input.nodeIds.length === 1 ? input.nodeIds[0]! : null,
+  };
 }
 
 export async function prepareFolderExport(input: {
@@ -188,7 +213,7 @@ export async function prepareFolderExport(input: {
     }
 
     if (!input.dryRun) await pinExportAssets(tx, entries, operationId, expiresAt);
-    return { rows: found, entries, totalBytes, skippedFiles };
+    return { rows: found, entries, totalBytes, skippedFiles, history: exportHistoryLabel(found, input) };
   });
 
   return {
@@ -196,6 +221,7 @@ export async function prepareFolderExport(input: {
     entries: exportResult.entries,
     totalBytes: exportResult.totalBytes,
     skippedFiles: exportResult.skippedFiles,
+    ...exportResult.history,
     requiresTaskAccess: exportResult.rows.some((row) => !!row.task_id || row.path.startsWith("/.system")),
   };
 }
@@ -237,6 +263,8 @@ export function streamFolderExport(input: {
   prepared: PreparedFolderExport;
   requestSignal: AbortSignal;
   reauthorize: () => Promise<void>;
+  /** Test seam: a deadline a test can wait for. */
+  maxMs?: number;
 }) {
   const abortController = new AbortController();
   input.requestSignal.addEventListener(
@@ -254,7 +282,7 @@ export function streamFolderExport(input: {
     const reason = new Error("Folder export exceeded 30 minutes");
     abortController.abort(reason);
     outputController.error(reason);
-  }, FOLDER_EXPORT_MAX_MS);
+  }, input.maxMs ?? FOLDER_EXPORT_MAX_MS);
   let writes = Promise.resolve();
   let terminalError: Error | null = null;
   const zip = new Zip((error, chunk, final) => {
@@ -272,6 +300,7 @@ export function streamFolderExport(input: {
     let lastAuthorizationAt = 0;
     let signingWindow: FolderExportEntry[] = [];
     let signedUrls = new Map<string, string>();
+    let signedAt = 0;
     let processedBytes = 0;
     try {
       for (let index = 0; index < input.prepared.entries.length; index += 1) {
@@ -289,7 +318,9 @@ export function streamFolderExport(input: {
           continue;
         }
 
-        if (!signedUrls.has(entry.id)) {
+        // A slow client can take longer than a link lasts to reach the later files in a batch.
+        if (!signedUrls.has(entry.id) || Date.now() - signedAt > FOLDER_EXPORT_RESIGN_MS) {
+          signedAt = Date.now();
           signingWindow = input.prepared.entries
             .slice(index)
             .filter((candidate) => candidate.type === "file" && candidate.bucket === entry.bucket)
@@ -364,7 +395,8 @@ export function streamFolderExport(input: {
       });
     } catch (error) {
       zip.terminate();
-      await writer.abort(error).catch(() => undefined);
+      // Not writer.abort(): with nobody reading it would wait forever, and the files would stay pinned.
+      outputController.error(error);
       logger.error("storage.folder_export.failed", {
         module: "storage",
         error: error instanceof Error ? error.message : "unknown",

@@ -69,7 +69,7 @@ export function buildSelectionExportEntries(rows: FolderExportRow[]) {
   );
 }
 
-/** A file with no stored copy (linked from a GitHub import) can't go in a zip: it is left out and counted. */
+/** A file with no verified stored copy (often linked from a GitHub import) can't go in a zip: it is left out and counted. */
 export function buildFolderExportEntries(rows: FolderExportRow[], selectedFolderId: string | null) {
   const byId = new Map(rows.map((row) => [row.id, row]));
   const selected = selectedFolderId ? byId.get(selectedFolderId) : null;
@@ -102,12 +102,13 @@ export function buildFolderExportEntries(rows: FolderExportRow[], selectedFolder
     const size = row.type === "file" ? Number(sizeValue ?? 0) : 0;
     if (!Number.isSafeInteger(size) || size < 0) throw new Error("The export contains an invalid file size");
     if (row.type === "file") {
-      if (row.asset_id && row.asset_state !== "verified") {
-        throw new Error(`File ${row.name} is not available for export`);
-      }
-      if (!(row.asset_storage_key || row.s3_key)) {
+      // No asset means the bytes were never verified, or there are none: every other download path refuses those too.
+      if (!row.asset_id || !(row.asset_storage_key || row.s3_key)) {
         skippedFiles += 1;
         continue;
+      }
+      if (row.asset_state !== "verified") {
+        throw new Error(`File ${row.name} is not available for export`);
       }
       totalBytes += size;
       if (totalBytes > FOLDER_EXPORT_MAX_BYTES) {

@@ -52,9 +52,10 @@ export async function GET(request: Request) {
             );
         }
 
-        const stream = await createAccountExportStream(user.id, request.signal);
-        // Recorded once the file is on its way, so the settings page can say when it was last made.
+        // Written as soon as the hourly slot is used, because the check before saving reads this. Otherwise a failed
+        // attempt would pass the check while every retry was refused.
         await recordSecurityEvent({ userId: user.id, eventType: 'account_data_exported', request }).catch(() => undefined);
+        const stream = await createAccountExportStream(user.id, request.signal);
 
         logApiRoute(request, {
             requestId,
