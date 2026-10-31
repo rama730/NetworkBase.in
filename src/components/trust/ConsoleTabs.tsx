@@ -15,7 +15,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { EmptyState } from '@/components/ui/EmptyState'
 import type { readActive, readAudit, readVerification } from '@/lib/trust/console'
 import { ACTION_LABEL, caseLabel, ruleLabel, type ModerationActionKind } from '@/lib/trust/rules'
-import { saveBlob } from '@/lib/download'
+import { saveBlob, toCsvBlob } from '@/lib/download'
 
 const TH = 'px-2 py-2 text-left text-[12px] font-medium text-muted-foreground'
 const TD = 'px-2 py-2.5 align-top text-[13px]'
@@ -149,8 +149,6 @@ export function VerificationList({ rows, onDone }: { rows: Awaited<ReturnType<ty
     )
 }
 
-const csvCell = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`
-
 type AuditFilters = { action?: string; from?: string; to?: string; staff?: string }
 
 /** Audit log (17.11, S7): append-only, filtered by staff, action and dates, 50 a page; Export CSV downloads what's shown. */
@@ -158,12 +156,22 @@ export function AuditTable({ data, staff, filters }: { data: Awaited<ReturnType<
     const rows = data.rows
     const stepUp = useStepUp('Exporting the audit log needs one more check.')
     // The export is logged and needs a fresh check (F16); the file is built only once the server agrees.
+    const [exporting, setExporting] = useState(false)
     const exportCsv = async () => {
+        if (exporting) return
+        setExporting(true)
+        try {
+            await runExport()
+        } finally {
+            setExporting(false)
+        }
+    }
+    const runExport = async () => {
         const result = await auditExportedAction(rows.length)
         if (stepUp.needs(result, () => void exportCsv())) return
         if (!result.success) return void toast(result.error)
         const lines = [['time', 'staff', 'action', 'case', 'rule', 'note'], ...rows.map((r) => [r.created_at, r.staff, r.kind, r.case_number ? caseLabel(r.case_number) : '', r.data.rule ?? '', r.data.body ?? r.data.note ?? r.data.reason ?? ''])]
-        saveBlob(new Blob([lines.map((l) => l.map(csvCell).join(',')).join('\n')], { type: 'text/csv' }), `trust-audit-${new Date().toISOString().slice(0, 10)}.csv`)
+        saveBlob(toCsvBlob(lines), `trust-audit-${new Date().toISOString().slice(0, 10)}.csv`)
     }
     const older = new URLSearchParams({ tab: 'insights', section: 'audit', ...Object.fromEntries(Object.entries(filters).filter(([, v]) => v)) as Record<string, string>, ...(data.before ? { before: String(data.before) } : {}) })
     const filterForm = (
@@ -176,7 +184,7 @@ export function AuditTable({ data, staff, filters }: { data: Awaited<ReturnType<
             <label className="grid gap-1">From<input type="date" name="from" defaultValue={filters.from ?? ''} className={`${FIELD} mt-0 h-8`} /></label>
             <label className="grid gap-1">To<input type="date" name="to" defaultValue={filters.to ?? ''} className={`${FIELD} mt-0 h-8`} /></label>
             <Button type="submit" size="sm" variant="outline">Apply</Button>
-            <Button size="sm" variant="outline" type="button" className="ml-auto" onClick={() => void exportCsv()} disabled={!rows.length}>Export CSV</Button>
+            <Button size="sm" variant="outline" type="button" className="ml-auto" onClick={() => void exportCsv()} disabled={!rows.length || exporting}>Export CSV</Button>
         </form>
     )
     if (!rows.length) return <div className="mt-4 space-y-4">{filterForm}<EmptyState icon={ScrollText} title="Nothing logged here" description="Every staff action lands in the log." /></div>

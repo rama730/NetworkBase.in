@@ -5,6 +5,7 @@ import { AlertTriangle, X } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/hooks/use-auth'
+import { DownloadLink } from "@/components/ui/download-link";
 
 // What a restricted person sees (docs/trust-and-safety-concept.md §8.4, §8.6). Links are plain anchors: the app
 // shell gate runs on a full load, so the appeal page opens even while everything else is closed.
@@ -46,7 +47,7 @@ export function RestrictedScreen({ title, reason, email, caseLabel, appealSent, 
             {appealSent ? <p className="nb-compact mt-3 text-foreground">Appeal sent · decision by {appealSent}</p> : null}
             <div className="mt-6 flex flex-wrap gap-2">
                 {canAppeal && caseLabel && !appealSent ? <Button asChild><a href={`/appeal/${caseLabel}`}>Appeal</a></Button> : null}
-                <Button asChild variant="outline"><a href="/api/v1/account/export" download>Download your data</a></Button>
+                <Button asChild variant="outline"><DownloadLink href="/api/v1/account/export">Download your data</DownloadLink></Button>
                 <Button variant="ghost" onClick={() => void signOut()}>Sign out</Button>
             </div>
             <p className="nb-meta mt-8">Questions? Email support@networkbase.in{caseLabel ? ` and mention ${caseLabel}` : ''}.</p>

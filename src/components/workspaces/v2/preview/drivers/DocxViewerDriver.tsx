@@ -209,7 +209,7 @@ export function DocxViewerDriver({
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>${node.name}</title>
+  <title>${node.name.replace(/[&<>"]/g, (char) => `&#${char.charCodeAt(0)};`)}</title>
   ${styleTags}
   <style>
     @page {
@@ -269,11 +269,12 @@ export function DocxViewerDriver({
       } catch {
         // Ignore print cancellation
       } finally {
-        setTimeout(() => {
-          if (document.body.contains(iframe)) {
-            document.body.removeChild(iframe);
-          }
-        }, 1500);
+        // Some browsers return from print() while the dialog is open: removing the frame then would cancel it.
+        const removeFrame = () => {
+          if (document.body.contains(iframe)) document.body.removeChild(iframe);
+        };
+        iframeWin.addEventListener("afterprint", removeFrame, { once: true });
+        setTimeout(removeFrame, 5 * 60_000);
       }
     };
 

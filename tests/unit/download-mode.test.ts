@@ -67,10 +67,6 @@ const componentFiles = (dir: string): string[] => readdirSync(dir, { withFileTyp
 test("no control saves a file except through the shared helper", () => {
   const allowed = new Set([
     "src/lib/download.ts",
-    // These wait for phases that make their routes safe to check.
-    "src/components/settings/LegalAndDataRightsSection.tsx",
-    "src/components/settings/AccountDeletionWizard.tsx",
-    "src/components/trust/StandingNotices.tsx",
   ]);
   const offenders = [...componentFiles("src/components"), ...componentFiles("src/app"), ...componentFiles("src/hooks")]
     .filter((file) => !allowed.has(file))
@@ -90,4 +86,15 @@ test("downloads are recorded after the response; checks and views are not", () =
   assert.match(read("src/lib/files/download-history.ts"), /after\(\(\) => insertDownloadEvent/);
   assert.doesNotMatch(read("src/app/api/v1/chat/attachments/[assetId]/route.ts"), /recordDownload/);
   assert.match(read("src/inngest/registry.ts"), /downloadHistoryRetention/);
+});
+
+test("print frames stay until the dialog closes, and the account export check uses nothing up", () => {
+  for (const file of ["src/components/messages/CanvasEditor.tsx", "src/components/workspaces/v2/preview/drivers/DocxViewerDriver.tsx"]) {
+    assert.match(read(file), /addEventListener\("afterprint"/, file);
+  }
+  assert.doesNotMatch(read("src/components/workspaces/v2/preview/drivers/DocxViewerDriver.tsx"), /<title>\$\{node\.name\}<\/title>/);
+  const route = read("src/app/api/v1/account/export/route.ts");
+  const head = route.slice(route.indexOf("export async function HEAD"));
+  assert.doesNotMatch(head, /consumeRateLimit|createAccountExportStream/);
+  assert.match(head, /"?Retry-After"?|'Retry-After'/);
 });

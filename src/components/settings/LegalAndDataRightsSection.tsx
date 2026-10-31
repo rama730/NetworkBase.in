@@ -11,6 +11,7 @@ import { SettingsSectionCard } from "@/components/settings/ui/SettingsSectionCar
 import { LEGAL_EFFECTIVE_DATE, LEGAL_VERSIONS } from "@/lib/legal/versions";
 import { openCookieSettings } from "@/lib/privacy/cookie-consent";
 import { formatCalendarDate } from "@/lib/ui/date-formatting";
+import { DownloadLink } from "@/components/ui/download-link";
 
 type AcceptanceHistoryEntry = { acceptedAt: string; termsVersion: string; eulaVersion: string; privacyNoticeVersion: string; context: string };
 type AcceptanceState = {
@@ -248,10 +249,10 @@ export function LegalAndDataRightsSection() {
         </div>
         <div className="shrink-0">
           <Button variant="outline" size="sm" asChild>
-            <a href="/api/v1/account/export" download>
+            <DownloadLink href="/api/v1/account/export">
               <Download className="mr-1.5 size-3.5" aria-hidden="true" />
               Export your data
-            </a>
+            </DownloadLink>
           </Button>
         </div>
       </div>

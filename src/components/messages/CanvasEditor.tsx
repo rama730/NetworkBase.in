@@ -335,8 +335,8 @@ const PRINT_CSS = `
 `;
 
 /**
- * Download as PDF: the canvas alone in a hidden frame, then the browser's
- * print dialog ("Save as PDF"). Images are same-origin, so they print.
+ * Print or save as PDF: the canvas alone in a hidden frame, then the browser's
+ * print dialog. Images are same-origin, so they print; one that hangs can't stop it.
  */
 export function printCanvas(title: string, html: string) {
   const frame = document.createElement("iframe");
@@ -360,9 +360,12 @@ export function printCanvas(title: string, html: string) {
   content.innerHTML = html; // editor.getHTML(): schema-serialized, no scripts or handlers
   doc.body.appendChild(content);
   const images = Array.from(doc.images).map((image) => (image.complete ? Promise.resolve() : new Promise((done) => { image.onload = image.onerror = done; })));
-  void Promise.all(images).then(() => {
+  const timedOut = new Promise((done) => setTimeout(done, 10_000));
+  void Promise.race([Promise.all(images), timedOut]).then(() => {
+    // Some browsers return from print() while the dialog is open: removing the frame then would cancel it.
+    win.addEventListener("afterprint", () => frame.remove(), { once: true });
+    setTimeout(() => frame.remove(), 5 * 60_000);
     win.focus();
     win.print();
-    setTimeout(() => frame.remove(), 1_000);
   });
 }

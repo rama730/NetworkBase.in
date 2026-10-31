@@ -1,8 +1,14 @@
+import { and, desc, eq } from 'drizzle-orm';
+
 import { getRequestId, jsonError, logApiRoute, requireAuthenticatedUser } from '@/app/api/v1/_shared';
+import { db } from '@/lib/db';
+import { profileAuditEvents } from '@/lib/db/schema';
 import { createAccountExportStream } from '@/lib/account/export-stream';
 import { logger } from '@/lib/logger';
 import { consumeRateLimit } from '@/lib/security/rate-limit';
 import { recordSecurityEvent } from '@/lib/security/audit';
+
+const EXPORT_WINDOW_SECONDS = 3600;
 
 export async function GET(request: Request) {
     const startedAt = Date.now();
@@ -28,7 +34,7 @@ export async function GET(request: Request) {
         const rateLimitResult = await consumeRateLimit(
             `account-export:${user.id}`,
             1,
-            3600,
+            EXPORT_WINDOW_SECONDS,
         );
         if (!rateLimitResult.allowed) {
             logApiRoute(request, {
@@ -78,4 +84,23 @@ export async function GET(request: Request) {
         });
         return jsonError('Couldn’t export account data', 500, 'INTERNAL_ERROR');
     }
+}
+
+/**
+ * The check before saving. It must not use up the hourly export, so it reads when the last one was made, and says
+ * how long is left. The limit on GET stays the real rule.
+ */
+export async function HEAD() {
+    const auth = await requireAuthenticatedUser();
+    if (auth.response || !auth.user) return new Response(null, { status: 401, headers: { 'Cache-Control': 'no-store' } });
+    const [last] = await db
+        .select({ createdAt: profileAuditEvents.createdAt })
+        .from(profileAuditEvents)
+        .where(and(eq(profileAuditEvents.userId, auth.user.id), eq(profileAuditEvents.eventType, 'account_data_exported')))
+        .orderBy(desc(profileAuditEvents.createdAt))
+        .limit(1);
+    const waitSeconds = last ? Math.ceil(EXPORT_WINDOW_SECONDS - (Date.now() - last.createdAt.getTime()) / 1000) : 0;
+    return waitSeconds > 0
+        ? new Response(null, { status: 429, headers: { 'Cache-Control': 'no-store', 'Retry-After': String(waitSeconds) } })
+        : new Response(null, { status: 200, headers: { 'Cache-Control': 'no-store' } });
 }
