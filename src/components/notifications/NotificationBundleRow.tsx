@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { BellOff, ChevronDown, ChevronRight, ExternalLink, MoreVertical } from "lucide-react";
 
 import { NotificationRow } from "@/components/notifications/NotificationRow";
-import { UserAvatar } from "@/components/ui/UserAvatar";
+import { NotificationAvatar } from "@/components/notifications/NotificationAvatar";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -48,7 +48,6 @@ export function NotificationBundleRow(props: { bundle: NotificationBundle } & Ha
     const relative = formatRelativeTimestamp(lead.activityAt) ?? "Just now";
     const absolute = formatAbsoluteTimestamp(lead.activityAt);
     const muteScopes = useMemo(() => buildNotificationMuteScopes(lead), [lead]);
-    const actorName = lead.preview?.actorName ?? summary ?? "Notification";
     const markBundleViewed = () => {
         viewTimerRef.current = null;
         if (!lead.seenAt) onViewed([lead.id]);
@@ -108,12 +107,7 @@ export function NotificationBundleRow(props: { bundle: NotificationBundle } & Ha
                     aria-label={`${newCount > 0 ? `${newCount} new` : "Read"} grouped ${reasonLabel}: ${lead.title}`}
                 >
                     <div className="relative mt-0.5 shrink-0">
-                        <UserAvatar
-                            identity={{ id: lead.actorUserId, fullName: actorName, avatarUrl: lead.preview?.actorAvatarUrl }}
-                            size={34}
-                            className="border border-border/80"
-                            fallbackClassName="nb-ui-label"
-                        />
+                        <NotificationAvatar actorUserId={lead.actorUserId} actorName={lead.preview?.actorName} fallbackName={summary} avatarUrl={lead.preview?.actorAvatarUrl} size={34} />
                         <span className="absolute -bottom-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-[3px] bg-foreground px-1 font-mono text-[10px] font-semibold leading-none text-background ring-2 ring-card shadow-2xs">
                             {count}
                         </span>

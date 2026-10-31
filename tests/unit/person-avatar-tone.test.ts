@@ -60,8 +60,7 @@ test("all person avatars use identity tones without replacing uploaded photos", 
     "src/components/messages/cards/MessageCard.tsx",
     "src/components/messages/parts/MentionDropdown.tsx",
     "src/components/workspaces/dashboard/InviteCollaboratorModal.tsx",
-    "src/components/notifications/NotificationRow.tsx",
-    "src/components/notifications/NotificationBundleRow.tsx",
+    "src/components/notifications/NotificationAvatar.tsx",
   ]) {
     const source = readFileSync(path.join(root, component), "utf8");
     if (/import \{ PersonCardContent \} from "\.\/PersonCardContent"/.test(source)) {
