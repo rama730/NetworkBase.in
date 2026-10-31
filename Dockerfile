@@ -20,6 +20,11 @@ ARG NEXT_PUBLIC_VAPID_PUBLIC_KEY
 ARG NEXT_PUBLIC_GOOGLE_CLIENT_ID
 ARG NEXT_PUBLIC_TRUSTED_OAUTH_REDIRECT_ORIGINS
 ARG NEXT_PUBLIC_VERBOSE_APP_LOGS
+ARG NEXT_PUBLIC_SENTRY_DSN
+ARG NEXT_PUBLIC_SENTRY_ENVIRONMENT
+# Passed only to the build step below: the token uploads source maps and must not reach ENV or the runner image.
+ARG SENTRY_AUTH_TOKEN
+ARG RAILWAY_GIT_COMMIT_SHA
 
 # NEXT_PUBLIC_* values are written into the browser bundle at build time: one missing here is empty in production
 # whatever Railway holds (Google One Tap was). tests/unit/dockerfile-build-env-contract.test.ts keeps the list whole.
@@ -32,7 +37,9 @@ ENV APP_URL=$APP_URL \
     NEXT_PUBLIC_VAPID_PUBLIC_KEY=$NEXT_PUBLIC_VAPID_PUBLIC_KEY \
     NEXT_PUBLIC_GOOGLE_CLIENT_ID=$NEXT_PUBLIC_GOOGLE_CLIENT_ID \
     NEXT_PUBLIC_TRUSTED_OAUTH_REDIRECT_ORIGINS=$NEXT_PUBLIC_TRUSTED_OAUTH_REDIRECT_ORIGINS \
-    NEXT_PUBLIC_VERBOSE_APP_LOGS=$NEXT_PUBLIC_VERBOSE_APP_LOGS
+    NEXT_PUBLIC_VERBOSE_APP_LOGS=$NEXT_PUBLIC_VERBOSE_APP_LOGS \
+    NEXT_PUBLIC_SENTRY_DSN=$NEXT_PUBLIC_SENTRY_DSN \
+    NEXT_PUBLIC_SENTRY_ENVIRONMENT=$NEXT_PUBLIC_SENTRY_ENVIRONMENT
 
 COPY --from=dependencies /app/node_modules ./node_modules
 COPY . .
@@ -48,6 +55,9 @@ RUN DATABASE_URL=postgresql://build:build@127.0.0.1:5432/build \
     INNGEST_EVENT_KEY=build-only \
     INNGEST_SIGNING_KEY=build-only \
     INNGEST_EXECUTION_ROLE=web \
+    SENTRY_AUTH_TOKEN=$SENTRY_AUTH_TOKEN \
+    RAILWAY_GIT_COMMIT_SHA=$RAILWAY_GIT_COMMIT_SHA \
+    NODE_OPTIONS=--max-old-space-size=4096 \
     npm run build
 
 FROM base AS runner
