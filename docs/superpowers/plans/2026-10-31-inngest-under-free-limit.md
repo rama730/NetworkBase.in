@@ -32,13 +32,13 @@
 | `lock-cleanup` | every 5 min | `50 * * * *` | 1 | 24 |
 | `trust-deadlines` | every 15 min | `*/30 * * * *` | 2 | 96 |
 | `upload-intent-cleanup` | every 15 min | `55 * * * *` | 2 | 48 |
-| `flush-project-likes` (does nothing: nothing writes its data) | every 15 min | `*/30 * * * *` | 2 | 96 |
+| `flush-project-likes` (did nothing: nothing wrote its data) | every 15 min | removed | | 0 |
 | `chat-integrity-audit` | hourly | `40 4 * * *` | 3 | 3 |
 | `trust-daily-summary` | hourly | `35 2 * * *` (08:05 IST; its 8 am IST check still passes) | 3 | 3 |
 | `project-files-permanent-delete` | hourly | `0 */6 * * *` | 3 | 12 |
 | `workspace-files-reconciliation`, `sprint-schedule`, `git-sync-recovery`, `project-import-stale-reconcile`, `trust-restrictions`, `org-due-soon`, `org-admin-digest` | hourly | unchanged | 1–2 | 264 |
 | Daily jobs and the 6-hourly watchdog | unchanged | unchanged | | about 44 |
-| **Total** | **about 12,000** | | | **about 1,050** |
+| **Total** | **about 12,000** | | | **about 950** |
 
 A run that fills its batch (email, chat, push) asks for the next run straight away, so slower timers never mean less work done.
 
