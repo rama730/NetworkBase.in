@@ -10,7 +10,7 @@ import { getWorkspaceAccessById } from "@/lib/data/workspace-access";
 import { prepareSubmissionsExport, streamFolderExport } from "@/lib/files/folder-export";
 import { safeContentDisposition } from "@/lib/storage/private-object-response";
 import { createClient } from "@/lib/supabase/server";
-import { recordDownload } from "@/lib/files/download-history";
+import { recordDownloadNow } from "@/lib/files/download-history";
 
 export const dynamic = "force-dynamic";
 
@@ -31,7 +31,7 @@ async function handle(request: NextRequest, context: RouteContext) {
   if (!UUID_RE.test(orgId) || !UUID_RE.test(taskId)) return jsonError("Not found", 404, "NOT_FOUND");
   const userId = await orgAdminOf(orgId);
   const limited = isCheck
-    ? await enforceRouteLimit(request, "files:submissions-check", 60, 600, "default", userId ?? undefined)
+    ? await enforceRouteLimit(request, "files:submissions-check", 8, 600, "default", userId ?? undefined)
     : await enforceRouteLimit(request, "files:submissions", 10, 600, "default", userId ?? undefined);
   if (limited) return limited;
   if (!userId) return jsonError("You don’t have access to this", 403, "FORBIDDEN");
@@ -58,7 +58,7 @@ async function handle(request: NextRequest, context: RouteContext) {
     if ((await orgAdminOf(orgId)) !== userId) throw new Error("Export session expired");
   };
   const filename = `${master.title.replace(/[\\/\0]/g, "_").slice(0, 160)} submissions.zip`;
-  recordDownload({
+  recordDownloadNow({
     workspaceId: orgId,
     actorId: userId,
     fileName: filename,

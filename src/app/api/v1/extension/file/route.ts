@@ -52,7 +52,7 @@ export async function GET(request: Request) {
       return jsonError("Sign in to continue", 401, "UNAUTHORIZED");
     }
 
-    const limited = await enforceFileReadLimit(request, "extension:file", 300, 60, user.id);
+    const limited = await enforceFileReadLimit(request, "extension:file", 1200, 60, user.id);
     if (limited) return limited;
 
     const { searchParams } = new URL(request.url);

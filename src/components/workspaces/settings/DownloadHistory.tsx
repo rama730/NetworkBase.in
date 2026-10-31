@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Loader2 } from "lucide-react";
 
 import { readDownloadHistoryAction } from "@/app/actions/files/download-history";
@@ -44,11 +44,15 @@ export function DownloadHistory({ projectId }: { projectId: string }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const latestRequest = useRef(0);
   const load = useCallback(async (from: Cursor) => {
+    const request = ++latestRequest.current;
     setLoading(true);
     setError(null);
     const result = await readDownloadHistoryAction({ projectId, search: appliedSearch, personId: actorId || undefined, cursor: from })
       .catch(() => ({ success: false as const, error: "Couldn’t load download history" }));
+    // A slower, older answer (the filter changed meanwhile) must not land in the current list.
+    if (request !== latestRequest.current) return;
     setLoading(false);
     if (!result.success) return setError(result.error);
     setRows((current) => (from ? [...current, ...result.rows] : result.rows));
@@ -64,7 +68,7 @@ export function DownloadHistory({ projectId }: { projectId: string }) {
     <div className="space-y-3">
       <div>
         <h3 className="text-sm font-medium text-foreground">Download history</h3>
-        <p className="text-xs text-muted-foreground">Who downloaded files from this workspace in the last 90 days.</p>
+        <p className="text-xs text-muted-foreground">Downloads from this workspace in the last 90 days. Opening a file in the browser or syncing it to the VS Code extension isn’t listed.</p>
       </div>
       <form
         className="flex flex-wrap gap-2"

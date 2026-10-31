@@ -17,15 +17,15 @@ function row(overrides: Partial<FolderExportRow> & Pick<FolderExportRow, "id" | 
     type: overrides.type,
     name: overrides.name,
     s3_key: overrides.type === "file" ? `legacy/${overrides.id}` : null,
-    asset_id: null,
+    asset_id: overrides.type === "file" ? `asset-${overrides.id}` : null,
     size: overrides.type === "file" ? 1 : 0,
     depth: 0,
     task_id: null,
     path: `/${overrides.name}`,
-    asset_state: null,
-    asset_bucket: null,
-    asset_storage_key: null,
-    asset_size: null,
+    asset_state: overrides.type === "file" ? "verified" : null,
+    asset_bucket: overrides.type === "file" ? "project-files" : null,
+    asset_storage_key: overrides.type === "file" ? `immutable/${overrides.id}` : null,
+    asset_size: overrides.type === "file" ? 1 : null,
     ...overrides,
   };
 }
@@ -87,7 +87,7 @@ test("folder export applies the aggregate byte cap before streaming", () => {
       id: "huge",
       name: "huge.bin",
       type: "file",
-      size: FOLDER_EXPORT_MAX_BYTES + 1,
+      asset_size: FOLDER_EXPORT_MAX_BYTES + 1,
     })], null),
     /limited to 1 GiB/,
   );
@@ -138,11 +138,11 @@ test("the zip routes can be checked without pinning, and a stalled client can't 
   assert.match(exportRoute, /exportEntriesStillVisible/);
 });
 
-test("a file with no stored copy is left out of a zip and counted, not fatal", () => {
+test("a file with no stored copy, or no verified one, is left out of a zip and counted", () => {
   const { entries, skippedFiles } = buildFolderExportEntries([
     row({ id: "kept", name: "kept.txt", type: "file" }),
-    row({ id: "linked", name: "linked.md", type: "file", s3_key: null }),
-    row({ id: "bin", name: "logo.png", type: "file", s3_key: null }),
+    row({ id: "linked", name: "linked.md", type: "file", s3_key: null, asset_id: null, asset_storage_key: null }),
+    row({ id: "bin", name: "logo.png", type: "file", s3_key: "x/never-verified", asset_id: null, asset_storage_key: null }),
   ], null);
   assert.deepEqual(entries.map((entry) => entry.path), ["kept.txt"]);
   assert.equal(skippedFiles, 2);
@@ -152,4 +152,21 @@ test("a teammate deleting a file doesn't stop a zip already holding it", () => {
   const stream = readFileSync("src/lib/files/folder-export.ts", "utf8");
   const check = stream.slice(stream.indexOf("export async function exportEntriesStillVisible"), stream.indexOf("export async function releaseFolderExport"));
   assert.doesNotMatch(check, /deleted_at/);
+});
+
+test("a zip re-signs links a slow client would otherwise outlive", () => {
+  const stream = readFileSync("src/lib/files/folder-export.ts", "utf8");
+  assert.match(stream, /Date\.now\(\) - signedAt > FOLDER_EXPORT_RESIGN_MS/);
+  assert.match(stream, /FOLDER_EXPORT_RESIGN_MS = 5 \* 60 \* 1000/);
+});
+
+test("each zip's check runs out before the zip does", () => {
+  for (const [route, check, save] of [
+    ["src/app/api/v1/workspaces/[id]/files/export/route.ts", "files:export-check", "files:export"],
+    ["src/app/api/v1/workspaces/[id]/tasks/[taskId]/submissions/route.ts", "files:submissions-check", "files:submissions"],
+  ] as const) {
+    const source = readFileSync(route, "utf8");
+    const budget = (key: string) => Number(source.match(new RegExp(`"${key}", (\\d+), 600`))![1]);
+    assert.ok(budget(check) < budget(save), route);
+  }
 });
