@@ -40,7 +40,6 @@ import { FileInspectorPanelHeader } from "./FileInspectorPanelHeader";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { formatBytes, formatFileActor } from "../folder/format";
 import { downloadFile, workspaceFileUrl } from "@/lib/download";
-import { versionedFilename } from "@/lib/files/versioned-filename";
 
 type FileVersionWithUploader = FileVersion & {
   uploadedByName?: string | null;
@@ -180,7 +179,7 @@ export function FileVersionHistoryPanel({
       const actionKey = `dl:${version.id}`;
       setPendingAction(actionKey);
       try {
-        await downloadFile(workspaceFileUrl(projectId, nodeId, version.version), { filename: versionedFilename(nodeName, version.version) });
+        await downloadFile(workspaceFileUrl(projectId, nodeId, version.version));
       } finally {
         setPendingAction(null);
       }

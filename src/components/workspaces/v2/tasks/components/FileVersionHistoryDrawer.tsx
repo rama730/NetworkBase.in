@@ -39,7 +39,6 @@ import {
 } from "@/app/actions/files/versions";
 import { formatBytes } from "@/components/workspaces/v2/files-tab/folder/format";
 import { downloadFile, workspaceFileUrl } from "@/lib/download";
-import { versionedFilename } from "@/lib/files/versioned-filename";
 
 function formatDate(date: Date | string | null | undefined): string {
   if (!date) return "—";
@@ -139,7 +138,7 @@ export function FileVersionHistoryDrawer({
       const actionKey = `dl:${version.id}`;
       setPendingAction(actionKey);
       try {
-        await downloadFile(workspaceFileUrl(projectId, node.id, version.version), { filename: versionedFilename(node.name, version.version) });
+        await downloadFile(workspaceFileUrl(projectId, node.id, version.version));
       } finally {
         setPendingAction(null);
       }
