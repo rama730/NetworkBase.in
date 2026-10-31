@@ -34,6 +34,7 @@ function getWorkerOnlyFunctions() {
   const { storageAssetDeletion } = loadModule("./functions/storage-asset-deletion");
   const { storageAssetBackup } = loadModule("./functions/storage-asset-backup");
   const { trustUrgentAlert, trustDecisionNotices, trustDeadlines, trustRestrictions, trustDailySummary, trustRetention } = loadModule("./functions/trust-safety");
+  const { reportFailureToSentry } = loadModule("./functions/report-failure-to-sentry");
 
   return [
     projectImport,
@@ -80,6 +81,7 @@ function getWorkerOnlyFunctions() {
     trustRestrictions,
     trustDailySummary,
     trustRetention,
+    reportFailureToSentry,
   ] as const;
 }
 
