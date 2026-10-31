@@ -1,11 +1,13 @@
 import { logger } from "@/lib/logger";
 
-import { inngest } from "./client";
+import { inngest } from "@/inngest/client";
 
 export type WakeEvent = "chat/due.wake" | "notification/push.wake";
 
+type HintEvent = { name: WakeEvent | "email/outbox.wake"; data: Record<string, never>; id?: string; ts?: number };
+
 type WakeClient = {
-  send(event: { name: WakeEvent; data: Record<string, never>; id: string; ts: number }): Promise<unknown>;
+  send(event: HintEvent): Promise<unknown>;
 };
 
 const MINUTE_MS = 60_000;
@@ -22,23 +24,22 @@ export function wakeEvent<Name extends WakeEvent>(name: Name, at: Date) {
 }
 
 /**
- * Start a job at a time instead of polling for it. A wake is only a hint: the work is already saved, so a failed or
- * slow wake is logged and the job's hourly sweep picks it up. It can never fail or hold up the caller.
+ * A hint to a job that its work is ready: the work is already saved and the job's timer picks it up anyway, so this can
+ * never fail or hold up the caller. A slow answer is not a failure, because the send carries on after we stop waiting.
+ * A refusal is, and it reports the reason: a rejected event key once went unnoticed for days behind a quiet warning.
  */
-export async function wakeAt(name: WakeEvent, at: Date, client: WakeClient = inngest as unknown as WakeClient) {
+export async function sendHint(event: HintEvent, client: WakeClient = inngest as unknown as WakeClient) {
+  const sending = client.send(event).catch((error: unknown) => {
+    logger.error("inngest.wake_failed", { module: "inngest", event: event.name, error });
+  });
   let timer: ReturnType<typeof setTimeout> | undefined;
-  try {
-    await Promise.race([
-      client.send(wakeEvent(name, at)),
-      new Promise<never>((_, reject) => {
-        timer = setTimeout(() => reject(new Error("wake_timeout")), WAKE_TIMEOUT_MS);
-      }),
-    ]);
-  } catch {
-    logger.warn("inngest.wake_failed", { module: "inngest", event: name, reason: "hourly_sweep_will_retry" });
-  } finally {
-    clearTimeout(timer);
-  }
+  await Promise.race([sending, new Promise((resolve) => { timer = setTimeout(resolve, WAKE_TIMEOUT_MS); })]);
+  clearTimeout(timer);
+}
+
+/** Start a job at a time instead of polling for it. */
+export async function wakeAt(name: WakeEvent, at: Date, client?: WakeClient) {
+  await sendHint(wakeEvent(name, at), client);
 }
 
 /** Inngest limits how far ahead an event can start on the free plan, so only the near future gets one. */

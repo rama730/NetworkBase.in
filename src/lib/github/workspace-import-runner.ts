@@ -427,7 +427,7 @@ export async function runGithubWorkspaceImport(input: {
             // Events never carry credentials; the worker resolves access itself (COR-006).
             data: { projectId, userId, commitSha: latestSha, importSource: clearSealedGithubTokenFromImportSource(project.importSource) as any }
         }).catch(err => {
-            if (err?.message?.includes('401') || err?.message?.includes('Event key not found')) {
+            if (process.env.NODE_ENV !== "production" && (err?.message?.includes('401') || err?.message?.includes('Event key not found'))) {
                 // Ignore in development if Inngest is not configured
                 console.warn("[Hydration] Skipped Inngest hydration: Inngest event key not configured. Virtual FS is ready.");
             } else {

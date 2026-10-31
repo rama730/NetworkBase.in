@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { afterEach, beforeEach, describe, it } from "node:test";
 
 import { Inngest } from "inngest";
 
@@ -49,6 +49,41 @@ describe("wakeAt", () => {
     const at = new Date("2026-11-01T10:15:20.000Z");
     await wakeAt("chat/due.wake", at, client);
     assert.deepEqual(sent[0], wakeEvent("chat/due.wake", at));
+  });
+
+  describe("reporting", () => {
+    const originalError = console.error;
+    let lines: Array<{ msg: string; level: string; error?: { message?: string }; event?: string }> = [];
+    beforeEach(() => {
+      lines = [];
+      console.error = (_label: unknown, entry: (typeof lines)[number]) => { lines.push(entry); };
+    });
+    afterEach(() => { console.error = originalError; });
+
+    it("reports a refused event as an error, with Inngest's reason", async () => {
+      const client = { send: async () => { throw new Error("Inngest API Error: 401 Event key not found"); } };
+      await wakeAt("chat/due.wake", new Date(), client);
+      assert.equal(lines.length, 1);
+      assert.equal(lines[0]!.msg, "inngest.wake_failed");
+      assert.equal(lines[0]!.level, "error");
+      assert.equal(lines[0]!.event, "chat/due.wake");
+      assert.match(lines[0]!.error!.message!, /401 Event key not found/);
+    });
+
+    it("does not report a slow answer, which still arrives", async () => {
+      const client = { send: () => new Promise<never>(() => {}) };
+      await wakeAt("chat/due.wake", new Date(), client);
+      assert.equal(lines.length, 0);
+    });
+
+    it("reports a refusal that comes after the caller stopped waiting", async () => {
+      let refuse: (error: Error) => void = () => {};
+      const client = { send: () => new Promise<never>((_, reject) => { refuse = reject; }) };
+      await wakeAt("chat/due.wake", new Date(), client);
+      refuse(new Error("Inngest API Error: 401 Event key not found"));
+      await new Promise((resolve) => setImmediate(resolve));
+      assert.equal(lines.length, 1);
+    });
   });
 
   it("never throws when Inngest fails", async () => {

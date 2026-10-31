@@ -202,6 +202,22 @@ describe("baseSentryOptions", () => {
     assert.equal(event?.exception?.values?.[0]?.type, "Error");
   });
 
+  it("drops an unsigned request to the jobs address, which is a stranger's probe", () => {
+    const event = baseSentryOptions().beforeSend(
+      { type: undefined, logger: "console", extra: { arguments: [] }, exception: { values: [{ type: "Error", value: "No x-inngest-signature provided" }] } },
+      {},
+    );
+    assert.equal(event, null);
+  });
+
+  it("keeps a signature that was sent but failed, which means a wrong signing key", () => {
+    const event = baseSentryOptions().beforeSend(
+      { type: undefined, logger: "console", exception: { values: [{ type: "Error", value: "Signature validation failed" }] } },
+      {},
+    );
+    assert.ok(event);
+  });
+
   it("reports as production unless the environment is overridden", () => {
     delete process.env.NEXT_PUBLIC_SENTRY_ENVIRONMENT;
     assert.equal(baseSentryOptions().environment, "production");
