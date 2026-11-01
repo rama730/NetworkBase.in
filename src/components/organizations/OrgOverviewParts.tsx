@@ -256,7 +256,7 @@ export function ChildOrgHeaderDetails({ projectId }: { projectId: string }) {
     const { data: line } = useChildOrgLine(projectId)
     if (!line) return null
     return (
-        <p className="max-w-[280px] text-right text-[13px] leading-5 text-muted-foreground max-md:max-w-none max-md:text-left" data-testid="child-org-header-details">
+        <p className="max-w-[280px] text-right text-[13px] leading-5 text-muted-foreground xl:max-w-[420px] max-md:max-w-none max-md:text-left" data-testid="child-org-header-details">
             Part of <Link href={`/org/${encodeURIComponent(line.orgSlug ?? '')}`} className="font-medium text-foreground hover:underline">{line.orgTitle}</Link>
             {line.sprint ? ` · ${line.sprint.name} ends ${day(line.sprint.endDate)}` : ''}
             {line.dueCount ? ` · ${line.dueCount} ${line.dueCount === 1 ? 'assignment' : 'assignments'} due` : ''}

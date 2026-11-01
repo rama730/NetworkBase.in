@@ -26,8 +26,8 @@ test("WorkspaceLayout conditionally renders WorkspaceAvatar scoped to two lines 
     assert.match(layoutSource, /import WorkspaceAvatar from "@\/components\/workspaces\/WorkspaceAvatar"/);
     assert.match(layoutSource, /<WorkspaceAvatar\s+project=\{project\}\s+size="detail"[\s\S]*?placeholder/);
 
-    // One layout: the slot, then a text column holding the title, tagline and people.
-    assert.match(layoutSource, /<div className="min-w-0 flex-1">[\s\S]*?nb-page-title[\s\S]*?shortDescription[\s\S]*?\{projectIdentityMetadata\}/);
+    // One layout: the slot beside the title and tagline, then the people row under them.
+    assert.match(layoutSource, /<WorkspaceAvatar[\s\S]*?nb-page-title[\s\S]*?shortDescription[\s\S]*?\{projectIdentityMetadata\}/);
 
     // Line 3: update date removed completely
     assert.doesNotMatch(layoutSource, /data-testid="project-presence-indicator"/);

@@ -23,7 +23,7 @@ export function OrgHeaderDetails({ organization }: { organization: OrgDetail }) 
     const term = organization.termStart || organization.termEnd ? `Term ${month(organization.termStart) ?? '…'} – ${month(organization.termEnd) ?? '…'}` : null
     const parts = [organization.partOf ? `Part of ${organization.partOf}` : null, organization.location, organization.typeLabel, term].filter(Boolean)
     if (parts.length === 0) return null
-    return <p className="max-w-[280px] text-right text-[13px] leading-5 text-muted-foreground max-md:max-w-none max-md:text-left" data-testid="org-header-details">{parts.join(' · ')}</p>
+    return <p className="max-w-[280px] text-right text-[13px] leading-5 text-muted-foreground xl:max-w-[420px] max-md:max-w-none max-md:text-left" data-testid="org-header-details">{parts.join(' · ')}</p>
 }
 
 /** The archived line (report §18.6). */
