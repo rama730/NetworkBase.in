@@ -23,16 +23,11 @@ test("getWorkspaceAvatarUrl resolves across all valid cover image fields and tri
 test("WorkspaceLayout conditionally renders WorkspaceAvatar scoped to two lines with zero-presence fallback and clean metadata row", () => {
     const layoutSource = readFileSync(resolve(ROOT, "src/components/workspaces/dashboard/WorkspaceLayout.tsx"), "utf-8");
 
-    assert.match(layoutSource, /import WorkspaceAvatar,\s*\{\s*getWorkspaceAvatarUrl\s*\}\s*from\s*"@\/components\/workspaces\/WorkspaceAvatar"/);
-    assert.match(layoutSource, /getWorkspaceAvatarUrl\(project\)\s*\?/);
-    assert.match(layoutSource, /<WorkspaceAvatar\s+project=\{project\}\s+size="detail"/);
+    assert.match(layoutSource, /import WorkspaceAvatar from "@\/components\/workspaces\/WorkspaceAvatar"/);
+    assert.match(layoutSource, /<WorkspaceAvatar\s+project=\{project\}\s+size="detail"[\s\S]*?placeholder/);
 
-    // Verify 2-line lockup: avatar is beside Title and Tagline only, with metadata below
-    assert.match(layoutSource, /<div className="flex (?:min-w-0 )?(?:items-start|items-center) gap-4 sm:gap-5[^"]*">\s*<WorkspaceAvatar[\s\S]*?nb-page-title/);
-    assert.match(layoutSource, /<\/div>\s*\{projectIdentityMetadata\}/);
-
-    // Zero-presence fallback: when no avatar, renders flush without avatar container
-    assert.match(layoutSource, /:\s*\(\s*<div className="flex min-w-0 flex-1 flex-col items-start gap-3[^"]*">\s*(?:\{breadcrumb\}\s*)?<div className="flex min-w-0 flex-wrap items-center gap-3">\s*<h1 className="nb-page-title/);
+    // One layout: the slot, then a text column holding the title, tagline and people.
+    assert.match(layoutSource, /<div className="min-w-0 flex-1">[\s\S]*?nb-page-title[\s\S]*?shortDescription[\s\S]*?\{projectIdentityMetadata\}/);
 
     // Line 3: update date removed completely
     assert.doesNotMatch(layoutSource, /data-testid="project-presence-indicator"/);
@@ -56,7 +51,7 @@ test("WorkspaceAvatar enforces inset ring framing, 80px detail size, presence do
     assert.match(avatarSource, /size-\[80px\] rounded-xl/, "Detail size must be 80px");
     assert.match(avatarSource, /size-11 rounded-md/, "Card size must be 44px");
     assert.doesNotMatch(avatarSource, /[Pp]resence/, "A workspace has no presence");
-    assert.match(avatarSource, /if \(!avatarUrl \|\| hasError\) \{\s*return null;\s*\}/, "Must return null when no avatar image");
+    assert.match(avatarSource, /if \(!hasImage && !placeholder\) \{\s*return null;\s*\}/, "Must return null with no image unless the slot is kept");
     assert.match(avatarSource, /tab=settings#project-settings-general/, "Owner edit overlay must deep link to general settings");
 });
 
@@ -72,22 +67,21 @@ test("Architectural enhancements: native single tooltip, default cursor, zero-pr
     assert.match(readFileSync(resolve(process.cwd(), "src/components/presence/PresenceBadge.tsx"), "utf8"), /title=\{label\}/);
     assert.match(readFileSync(resolve(process.cwd(), "src/components/presence/PresenceBadge.tsx"), "utf8"), /aria-label=\{label\}/);
 
-    // 4. Zero-presence owner add-avatar affordance in WorkspaceLayout
-    assert.match(layoutSource, /group\/add-avatar[\s\S]*?Add image/);
-    assert.match(layoutSource, /tab=settings#project-settings-general/);
+    // 4. With no image the owner adds one from the slot itself
+    assert.doesNotMatch(layoutSource, /Add image/);
+    assert.match(avatarSource, /aria-label="Add workspace avatar"/);
 
     // 5. Cross-platform design consistency: Global Search project cards render WorkspaceAvatar with presence dot
     assert.match(searchCardsSource, /import WorkspaceAvatar from "@\/components\/workspaces\/WorkspaceAvatar"/);
     assert.match(searchCardsSource, /<WorkspaceAvatar[\s\S]*?project=\{\{[\s\S]*?coverImage: result\.coverImage[\s\S]*?size="card"/);
 });
 
-test("Projects without a profile picture show the update line and keep Line 3 cleanly separated", () => {
+test("The update line sits with the actions and the people stay in the identity column", () => {
     const layoutSource = readFileSync(resolve(ROOT, "src/components/workspaces/dashboard/WorkspaceLayout.tsx"), "utf-8");
 
-    assert.match(layoutSource, /const hasProjectAvatar = Boolean\(getWorkspaceAvatarUrl\(project\)\);/);
-    // The title stands alone; who last updated it reads below, in both header layouts.
+    // The title stands alone; who last updated it reads under the buttons.
     assert.doesNotMatch(layoutSource, /[Pp]resenceDot|WorkspaceStatusControl/);
-    assert.equal(layoutSource.match(/<WorkspaceLastUpdate projectId=\{project\.id\}/g)?.length, 2);
+    assert.equal(layoutSource.match(/<WorkspaceLastUpdate projectId=\{project\.id\}/g)?.length, 1);
 
     const metadataBlock = layoutSource.match(/const projectIdentityMetadata = \([\s\S]*?\n\s*\);/)?.[0] ?? "";
     assert.match(metadataBlock, /<ProjectTeamAvatars/);
@@ -104,11 +98,11 @@ test("Header architecture: Created by and Guided by are completely removed, team
     assert.doesNotMatch(layoutSource, /guidanceHref/);
 
     // 2. Verify divider line between team avatars and workspace links on Line 3
-    assert.match(layoutSource, /<ProjectTeamAvatars[\s\S]*?<div className="mx-(?:0\.5|1) h-4 w-px bg-border(?: shrink-0)?" aria-hidden="true" \/>[\s\S]*?<WorkspaceLinkCluster/);
+    assert.match(layoutSource, /<ProjectTeamAvatars[\s\S]*?<div className="mx-0\.5 h-4 w-px shrink-0 bg-border last:hidden" aria-hidden="true" \/>[\s\S]*?<WorkspaceLinkCluster/);
 
     // 3. Verify clean right actions column
-    assert.match(layoutSource, /Right: Actions/);
-    assert.match(layoutSource, /<div className="flex flex-wrap items-center justify-end gap-2 sm:pt-1[^"]*">/);
+    assert.match(layoutSource, /Right: actions/);
+    assert.match(layoutSource, /<div className="flex flex-wrap items-center justify-end gap-2[^"]*">/);
 });
 
 test("Discovery page ProjectCard and detail page WorkspaceStatsBar: last updated date removed from card, unified X-platform view icon (BarChart2)", () => {
@@ -145,7 +139,7 @@ test("Animated GIF avatar architecture: bypass canvas rasterization, preserve fr
     assert.match(settingsSource, /await uploadWorkspaceImage\(projectId, coverDraft\.file,/);
 
     // 3. WorkspaceAvatar must use unoptimized so browser's native engine plays the animated GIF
-    assert.match(avatarSource, /<Image[\s\S]*?src=\{avatarUrl\}[\s\S]*?unoptimized/);
+    assert.match(avatarSource, /<Image[\s\S]*?src=\{avatarUrl!\}[\s\S]*?unoptimized/);
 });
 
 test("GIF avatar optimizations: 2MB preflight guard, adaptive draft UI, revocable caching, compositor throttling, and async decoding", () => {

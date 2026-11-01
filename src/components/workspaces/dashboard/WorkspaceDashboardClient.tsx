@@ -41,11 +41,11 @@ import { OrgAboutTab } from '@/components/organizations/OrgAboutTab';
 import { AssignmentsPanel, GroupCopiesPanel } from '@/components/organizations/AssignmentsPanel';
 import { OrgFilesPanel, OrgSprintMaterials } from '@/components/organizations/OrgFilesPanel';
 import { OrgMembersTab } from '@/components/organizations/OrgMembersTab';
-import { ChildOrgLine, ChildUnitsLine, OrgDashboard, OrgWorkspacesTab } from '@/components/organizations/OrgOverviewParts';
+import { ChildOrgHeaderDetails, ChildOrgLine, ChildUnitsLine, OrgDashboard, OrgWorkspacesTab } from '@/components/organizations/OrgOverviewParts';
 import { OrgInviteBanner } from '@/components/organizations/OrgInviteBanner';
 import { HeaderReportMenu } from '@/components/reports/ItemMenu';
 import { DropdownMenuItem } from '@/components/ui/dropdown-menu';
-import { ChildOrgChips, OrgBreadcrumb, OrgCompactMark, OrgIdentityLine, OrgInviteDialog, OrgNewItems, OrgNewMenu, OrgStatusBanner, OrgVisitorActions, type OrgNewKind } from '@/components/organizations/OrgHeaderParts';
+import { ChildOrgChips, OrgArchivedNotice, OrgBreadcrumb, OrgCompactMark, OrgHeaderDetails, OrgInviteDialog, OrgNewItems, OrgNewMenu, OrgStatusBanner, OrgVisitorActions, type OrgNewKind } from '@/components/organizations/OrgHeaderParts';
 import { readOrgTabBadgesAction, type OrgTabBadges } from '@/app/actions/assignments';
 import { isWorkspacePubliclyReadableVisibility } from '@/lib/workspaces/workspace-visibility';
 import { confirmFileNavigation } from '@/lib/files/unsaved-navigation';
@@ -1095,8 +1095,9 @@ export default function WorkspaceDashboardClient({ project, currentUserId, viewe
             isOrganization={isOrganization}
             canOpenSettings={isInheritedAdmin}
             breadcrumb={parentOrg ? <OrgBreadcrumb parentOrg={parentOrg} /> : null}
-            identityExtra={parentOrg ? <ChildOrgChips parentOrg={parentOrg} visibility={project.visibility} archived={project.status === 'archived'} /> : organization ? <><OrgIdentityLine handle={project.slug ?? null} organization={organization} memberRole={isOwner ? 'owner' : (currentProjectRole as 'admin' | 'member' | 'viewer' | null) ?? null} archived={project.status === 'archived'} /><OrgStatusBanner orgId={project.id} organization={organization} isOwner={isOwner} /></> : null}
-            metadataExtra={organization?.childProjectCount ? <span className="nb-compact text-muted-foreground">· {organization.childProjectCount} {organization.childProjectCount === 1 ? 'project' : 'projects'}</span> : null}
+            identityExtra={parentOrg ? <ChildOrgChips parentOrg={parentOrg} visibility={project.visibility} archived={project.status === 'archived'} /> : organization ? <>{project.status === 'archived' ? <OrgArchivedNotice /> : null}<OrgStatusBanner orgId={project.id} organization={organization} isOwner={isOwner} /></> : null}
+            headerDetails={parentOrg ? <ChildOrgHeaderDetails projectId={project.id} /> : organization ? <OrgHeaderDetails organization={organization} /> : null}
+            metadataExtra={organization?.childProjectCount ? <span className="nb-compact text-muted-foreground">· {organization.childProjectCount} {organization.childProjectCount === 1 ? 'workspace' : 'workspaces'}</span> : null}
             tabBadges={tabBadges}
             compactChip={organization ? (activeSprintName ? <span className="nb-status shrink-0" data-status="active">{activeSprintName}</span> : null) : undefined}
             compactPrefix={parentOrg ? <OrgCompactMark parentOrg={parentOrg} /> : null}
@@ -1137,7 +1138,7 @@ export default function WorkspaceDashboardClient({ project, currentUserId, viewe
             {isOrganization && activeTab === 'about' && (
                 <div className="w-full h-full min-h-0">
                     <TabErrorBoundary tabName="About">
-                        <OrgAboutTab project={projectWithLiveStats} isCreator={isOwner} onEdit={handleEdit} visitorActions={organization && !isOwnerOrMember && isWorkspacePubliclyReadableVisibility(project.visibility) ? <OrgVisitorActions orgId={project.id} href={canonicalProjectHref} joinMode={organization.joinMode} requestPending={organization.viewerRequestPending} loggedIn={Boolean(currentUserId)} /> : undefined} />
+                        <OrgAboutTab project={projectWithLiveStats} isCreator={isOwner} onEdit={handleEdit} memberRole={isOwner ? 'owner' : (currentProjectRole as 'admin' | 'member' | 'viewer' | null) ?? null} visitorActions={organization && !isOwnerOrMember && isWorkspacePubliclyReadableVisibility(project.visibility) ? <OrgVisitorActions orgId={project.id} href={canonicalProjectHref} joinMode={organization.joinMode} requestPending={organization.viewerRequestPending} loggedIn={Boolean(currentUserId)} /> : undefined} />
                     </TabErrorBoundary>
                 </div>
             )}

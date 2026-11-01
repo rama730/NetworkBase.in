@@ -13,26 +13,26 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import type { OrgDetail, ParentOrgLink } from '@/lib/organizations/detail'
 
 // The organization parts of the project header (report §18.1–18.2, §18.6). WorkspaceLayout keeps its layout;
-// these fill the identity line, the facts and the visitor's actions.
+// these fill the details, the archived line and the visitor's actions.
 
-/** `@handle · Education · Teacher`, plus the archived line (report §18.1, §18.6). */
-export function OrgIdentityLine({ handle, organization, memberRole, archived }: {
-    handle: string | null
-    organization: OrgDetail
-    memberRole: 'owner' | 'admin' | 'member' | 'viewer' | null
-    archived: boolean
-}) {
-    const parts = [handle ? `@${handle}` : null, organization.typeLabel, memberRole ? organization.roleNames[memberRole] : null].filter(Boolean)
+const MONTH = new Intl.DateTimeFormat('en', { month: 'short', year: 'numeric' })
+const month = (iso: string | null) => (iso ? MONTH.format(new Date(`${iso}T00:00:00`)) : null)
+
+/** Under the header's buttons: `Part of Northgate · Bengaluru · Education · Term Aug 2026 – Dec 2026`. Nothing to say, no line. */
+export function OrgHeaderDetails({ organization }: { organization: OrgDetail }) {
+    const term = organization.termStart || organization.termEnd ? `Term ${month(organization.termStart) ?? '…'} – ${month(organization.termEnd) ?? '…'}` : null
+    const parts = [organization.partOf ? `Part of ${organization.partOf}` : null, organization.location, organization.typeLabel, term].filter(Boolean)
+    if (parts.length === 0) return null
+    return <p className="max-w-[280px] text-right text-[13px] leading-5 text-muted-foreground max-md:max-w-none max-md:text-left" data-testid="org-header-details">{parts.join(' · ')}</p>
+}
+
+/** The archived line (report §18.6). */
+export function OrgArchivedNotice() {
     return (
-        <div className="space-y-1">
-            <p className="nb-compact text-muted-foreground" data-testid="org-identity-line">{parts.join(' · ')}</p>
-            {archived ? (
-                <p className="nb-compact flex items-center gap-1.5 text-muted-foreground">
-                    <span className="nb-status inline-flex items-center gap-1" data-status="archived"><Archive className="size-3" aria-hidden="true" />Archived</span>
-                    This organization is archived. Everything is read-only.
-                </p>
-            ) : null}
-        </div>
+        <p className="nb-compact flex items-center gap-1.5 text-muted-foreground">
+            <span className="nb-status inline-flex items-center gap-1" data-status="archived"><Archive className="size-3" aria-hidden="true" />Archived</span>
+            This organization is archived. Everything is read-only.
+        </p>
     )
 }
 

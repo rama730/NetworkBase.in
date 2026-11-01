@@ -249,17 +249,27 @@ export function OrgWorkspacesTab({ orgId, orgSlug }: { orgId: string; orgSlug?: 
     )
 }
 
-/** `Part of CSE-3A · CO2 ends Fri · 1 assignment due` at the top of a child project's Dashboard. */
+const useChildOrgLine = (projectId: string) => useQuery({ queryKey: ['child-org-line', projectId], queryFn: () => readChildOrgLineAction(projectId), staleTime: 60_000 })
+
+/** `Part of CSE-3A · CO2 ends Fri · 1 assignment due`, under a child workspace's header buttons. */
+export function ChildOrgHeaderDetails({ projectId }: { projectId: string }) {
+    const { data: line } = useChildOrgLine(projectId)
+    if (!line) return null
+    return (
+        <p className="max-w-[280px] text-right text-[13px] leading-5 text-muted-foreground max-md:max-w-none max-md:text-left" data-testid="child-org-header-details">
+            Part of <Link href={`/org/${encodeURIComponent(line.orgSlug ?? '')}`} className="font-medium text-foreground hover:underline">{line.orgTitle}</Link>
+            {line.sprint ? ` · ${line.sprint.name} ends ${day(line.sprint.endDate)}` : ''}
+            {line.dueCount ? ` · ${line.dueCount} ${line.dueCount === 1 ? 'assignment' : 'assignments'} due` : ''}
+        </p>
+    )
+}
+
+/** What's happening at the top of a child workspace's Overview. */
 export function ChildOrgLine({ projectId }: { projectId: string }) {
-    const { data: line } = useQuery({ queryKey: ['child-org-line', projectId], queryFn: () => readChildOrgLineAction(projectId), staleTime: 60_000 })
+    const { data: line } = useChildOrgLine(projectId)
     if (!line) return null
     return (
         <div className="mb-4 space-y-4">
-            <p className="text-sm text-muted-foreground">
-                Part of <Link href={`/org/${encodeURIComponent(line.orgSlug ?? '')}`} className="font-medium text-foreground hover:underline">{line.orgTitle}</Link>
-                {line.sprint ? ` · ${line.sprint.name} ends ${day(line.sprint.endDate)}` : ''}
-                {line.dueCount ? ` · ${line.dueCount} ${line.dueCount === 1 ? 'assignment' : 'assignments'} due` : ''}
-            </p>
             {/* What's happening = Needs you + This sprint (report §27.5); Activity stays in the rail. */}
             {line.needsYou.length || line.ownSprint ? (
                 <RailSection title="What’s happening">

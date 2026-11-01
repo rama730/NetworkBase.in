@@ -110,6 +110,8 @@ const ProjectTeamAvatars = memo(function ProjectTeamAvatars({
 
     const visibleAvatars = avatars.slice(0, 5);
     const remaining = avatars.length - visibleAvatars.length;
+    // An organization's list can be a first page; its own count is the total.
+    const total = project?.organization?.memberCount ?? avatars.length;
 
     return (
         <TooltipProvider delayDuration={130}>
@@ -167,9 +169,9 @@ const ProjectTeamAvatars = memo(function ProjectTeamAvatars({
             <button
                 type="button"
                 onClick={() => setRosterOpen(true)}
-                className="nb-touch-target nb-ui-label inline-flex items-center rounded-[5px] px-1 text-muted-foreground hover:text-foreground cursor-pointer md:hidden"
+                className="nb-touch-target nb-compact inline-flex items-center rounded-[5px] px-1 text-muted-foreground hover:text-foreground cursor-pointer"
             >
-                {avatars.length} {avatars.length === 1 ? "member" : "members"}
+                {total} {total === 1 ? "member" : "members"}
             </button>
             <Dialog open={rosterOpen} onOpenChange={setRosterOpen}>
                 <DialogContent presentation="right-drawer" className="gap-0 p-0 sm:max-w-[360px]">
