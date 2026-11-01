@@ -308,29 +308,33 @@ export default function WorkspaceLayout({
                             ) : null;
 
                             return (
-                                <div className="flex min-w-0 flex-1 items-start gap-4 sm:gap-5 md:min-w-[320px] max-md:basis-full max-md:gap-3">
-                                    <WorkspaceAvatar
-                                        project={project}
-                                        size="detail"
-                                        isOwner={isOwner}
-                                        slugOrId={project.slug || project.id}
-                                        placeholder
-                                        className="max-md:size-12 max-md:rounded-[8px]"
-                                    />
-                                    <div className="min-w-0 flex-1">
-                                        {breadcrumb}
+                                <div className="min-w-0 flex-1 md:min-w-[320px] max-md:basis-full">
+                                    {breadcrumb}
+                                    {/* The image matches the name and tagline, and the people row starts under it, so no space is left below the image.
+                                        On a phone the tagline wraps, so it runs full width under the image and name. */}
+                                    <div className="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-x-3 max-md:items-center">
+                                        <div className="flex md:row-span-3">
+                                            <WorkspaceAvatar
+                                                project={project}
+                                                size="detail"
+                                                isOwner={isOwner}
+                                                slugOrId={project.slug || project.id}
+                                                placeholder
+                                                className="size-16 rounded-[10px] max-md:size-12 max-md:rounded-[8px]"
+                                            />
+                                        </div>
                                         <h1 className="nb-page-title min-w-0 break-words text-foreground">
                                             {project?.title}
                                         </h1>
                                         {project.shortDescription && (
-                                            <p className={cn("nb-body mt-1 max-w-[64ch] text-muted-foreground", !summaryExpanded && "max-md:line-clamp-3")}>
+                                            <p className={cn("nb-body mt-1 max-w-[64ch] text-muted-foreground max-md:col-span-2 max-md:mt-2", !summaryExpanded && "max-md:line-clamp-3")}>
                                                 {project.shortDescription}
                                             </p>
                                         )}
-                                        {summaryToggle}
-                                        {identityExtra ? <div className="mt-2">{identityExtra}</div> : null}
-                                        {projectIdentityMetadata}
+                                        {summaryToggle ? <div className="max-md:col-span-2 md:hidden">{summaryToggle}</div> : null}
                                     </div>
+                                    {identityExtra ? <div className="mt-2">{identityExtra}</div> : null}
+                                    {projectIdentityMetadata}
                                 </div>
                             );
                         })()}

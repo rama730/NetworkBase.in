@@ -106,11 +106,38 @@ test('The icon slot holds its place: image, add for the owner, initials for a vi
     expect((await box(page, page.locator('h1'))).x).toBe(name.x);
 });
 
-test('The people row lines up with the name', async ({ page }) => {
+test('The people row starts under the image, with no space left below the image', async ({ page }) => {
     await open(page, 'image');
-    const name = await box(page, page.locator('h1'));
+    const image = await box(page, page.getByTestId('project-avatar'));
     const team = await box(page, page.getByLabel(/workspace team/));
-    expect(Math.abs(team.x - name.x)).toBeLessThanOrEqual(2);
+    const tagline = await box(page, page.getByText('See Beyond the Surface'));
+    expect(image.height).toBe(64);
+    expect(Math.abs(team.x - image.x)).toBeLessThanOrEqual(2);
+    expect(team.y).toBeGreaterThanOrEqual(image.y + image.height);
+    expect(team.y - (image.y + image.height)).toBeLessThanOrEqual(14);
+    // The image and the name with tagline read as one block.
+    expect(Math.abs(tagline.y + tagline.height - (image.y + image.height))).toBeLessThanOrEqual(4);
+});
+
+test('On a phone the tagline runs full width under the image, so a wrapped tagline leaves no space beside it', async ({ page }) => {
+    await open(page, 'org', 375);
+    const image = await box(page, page.getByTestId('project-avatar'));
+    const name = await box(page, page.locator('h1'));
+    const tagline = await box(page, page.getByText('Data Structures for 3rd-semester'));
+    const people = await box(page, page.getByRole('button', { name: '40 members' }));
+    expect(image.height).toBe(48);
+    expect(name.x).toBeGreaterThan(image.x + image.width);
+    expect(Math.abs(tagline.x - image.x)).toBeLessThanOrEqual(1);
+    expect(tagline.y).toBeGreaterThanOrEqual(Math.max(image.y + image.height, name.y + name.height));
+    expect(people.y).toBeGreaterThan(tagline.y);
+});
+
+test('Details take one line on a wide screen and wrap at 280px below that', async ({ page }) => {
+    await open(page, 'org', 1440);
+    const wide = await box(page, page.getByTestId('org-header-details'));
+    expect(wide.width).toBeGreaterThan(280);
+    expect(wide.width).toBeLessThanOrEqual(420);
+    await page.screenshot({ path: test.info().outputPath('wide.png'), clip: { x: 0, y: 0, width: 1440, height: 240 } });
 });
 
 test('The name and the buttons share the top line', async ({ page }) => {
