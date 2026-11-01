@@ -3,10 +3,9 @@
 import { useState, useEffect, useMemo, useRef, type CSSProperties, type KeyboardEvent } from "react";
 import Link from "next/link";
 import { WORKSPACE_TAB_LABELS } from "@/lib/copy/terms";
-import { formatDistanceToNow } from "@/lib/utils/date";
 import {
     LayoutDashboard, ListTodo, FolderOpen, BookOpenText,
-    Settings, Share2, UserPlus, UserCheck, IterationCcw, Loader2, Newspaper, Camera, MoreHorizontal, Info, Users, FolderKanban
+    Settings, Share2, UserPlus, UserCheck, IterationCcw, Loader2, Newspaper, MoreHorizontal, Info, Users, FolderKanban
 } from "lucide-react";
 import {
     DropdownMenu,
@@ -17,7 +16,7 @@ import {
 import { cn } from "@/lib/utils";
 import type { Workspace } from "@/types/discover";
 import WorkspaceStatsBar from "@/components/workspaces/WorkspaceStatsBar";
-import WorkspaceAvatar, { getWorkspaceAvatarUrl } from "@/components/workspaces/WorkspaceAvatar";
+import WorkspaceAvatar from "@/components/workspaces/WorkspaceAvatar";
 import { WorkspaceLastUpdate } from "@/components/workspaces/WorkspaceLastUpdate";
 import { WorkspaceLinkCluster } from "@/components/workspaces/dashboard/WorkspaceSocialLinksCard";
 import ProjectTeamAvatars, { type WorkspaceHeaderMember } from "@/components/workspaces/dashboard/WorkspaceTeamAvatars";
@@ -64,6 +63,8 @@ interface ProjectLayoutProps {
     /** Organizations (report §18): About tab, Settings for everyone in the org, and the org header parts. */
     isOrganization?: boolean;
     identityExtra?: React.ReactNode;
+    /** Under the buttons, below who last updated it: where this sits and what it is. */
+    headerDetails?: React.ReactNode;
     /** Above the title: a child project's org (report §18.4). */
     breadcrumb?: React.ReactNode;
     /** Opens Settings for people who don't manage the project, such as inherited org admins. */
@@ -95,22 +96,6 @@ const TABS = [
     { id: "settings", label: WORKSPACE_TAB_LABELS.settings, icon: Settings, ownerOnly: true },
 ];
 
-const RECENT_PROJECT_UPDATE_MS = 7 * 24 * 60 * 60 * 1000;
-
-export function formatWorkspaceUpdatedLabel(value?: string | Date | null, now = new Date()) {
-    if (!value) return null;
-    const updatedAt = value instanceof Date ? value : new Date(value);
-    if (Number.isNaN(updatedAt.getTime())) return null;
-    if (Math.abs(now.getTime() - updatedAt.getTime()) < RECENT_PROJECT_UPDATE_MS) {
-        return `Updated ${formatDistanceToNow(updatedAt, { addSuffix: true })}`;
-    }
-    return `Updated ${new Intl.DateTimeFormat("en-US", {
-        month: "short",
-        day: "numeric",
-        year: "numeric",
-    }).format(updatedAt)}`;
-}
-
 export default function WorkspaceLayout({
     children, project, isOwner, activeTab, onTabChange,
     isOwnerOrMember,
@@ -131,6 +116,7 @@ export default function WorkspaceLayout({
     applicationLabel = null,
     isOrganization = false,
     identityExtra = null,
+    headerDetails = null,
     breadcrumb = null,
     canOpenSettings = false,
     metadataExtra = null,
@@ -255,7 +241,6 @@ export default function WorkspaceLayout({
         if (!nextTab) return;
         tabsRef.current?.querySelector<HTMLButtonElement>(`[data-testid="project-tab-${nextTab.id}"]`)?.focus();
     };
-    const projectUpdatedLabel = formatWorkspaceUpdatedLabel(project.updatedAt);
     const layoutStyle = useMemo(() => ({
         "--workspace-tabs-height": `${projectTabsHeight}px`,
     } as CSSProperties), [projectTabsHeight]);
@@ -275,7 +260,6 @@ export default function WorkspaceLayout({
                     <div ref={projectIdentityRef} className={cn("nb-workspace-identity flex flex-wrap items-start justify-between gap-4 px-4 pb-4 pt-5 sm:px-6 max-md:gap-3 max-md:pt-4", isToolTab && "max-md:hidden")}>
                         {/* Left: Project Identity */}
                         {(() => {
-                            const hasProjectAvatar = Boolean(getWorkspaceAvatarUrl(project));
                             const canManageProjectLinks = canManageSettings ?? isOwner;
                             const hasProjectLinks = Boolean(
                                 canManageProjectLinks ||
@@ -290,12 +274,12 @@ export default function WorkspaceLayout({
                             );
 
                             const projectIdentityMetadata = (
-                                <div className="flex min-h-[34px] flex-wrap items-center gap-x-2 gap-y-1.5">
+                                <div className="mt-2 flex min-h-[34px] flex-wrap items-center gap-x-2 gap-y-1.5">
                                     <ProjectTeamAvatars project={project} members={members} loading={loadingMembers} />
                                     {metadataExtra}
                                     {hasProjectLinks && (
                                         <>
-                                            <div className="mx-0.5 h-4 w-px bg-border shrink-0" aria-hidden="true" />
+                                            <div className="mx-0.5 h-4 w-px shrink-0 bg-border last:hidden" aria-hidden="true" />
                                             <WorkspaceLinkCluster
                                                 projectId={project.id}
                                                 links={project.externalLinks ?? (project as any).external_links}
@@ -323,64 +307,37 @@ export default function WorkspaceLayout({
                                 </button>
                             ) : null;
 
-                            return getWorkspaceAvatarUrl(project) ? (
-                                <div className="flex min-w-0 flex-1 flex-col items-start gap-2 max-md:basis-full">
-                                    <div className="flex min-w-0 items-start gap-4 sm:gap-5 max-md:gap-3">
-                                        <WorkspaceAvatar
-                                            project={project}
-                                            size="detail"
-                                            isOwner={isOwner}
-                                            slugOrId={project.slug || project.id}
-                                            className="max-md:size-12 max-md:rounded-[8px]"
-                                        />
-                                        <div className="min-w-0 pt-0.5 sm:pt-1 max-md:space-y-1.5">
-                                            {breadcrumb}
-                                            <h1 className="nb-page-title min-w-0 break-words text-foreground">
-                                                {project?.title}
-                                            </h1>
-                                            {identityExtra}
-                                            <WorkspaceLastUpdate projectId={project.id} className="block text-[13px] text-muted-foreground" />
-                                            {project.shortDescription && (
-                                                <p className={cn("nb-body mt-1 max-w-[64ch] text-muted-foreground", !summaryExpanded && "max-md:line-clamp-3")}>
-                                                    {project.shortDescription}
-                                                </p>
-                                            )}
-                                            {summaryToggle}
-                                        </div>
-                                    </div>
-                                    {projectIdentityMetadata}
-                                </div>
-                            ) : (
-                                <div className="flex min-w-0 flex-1 flex-col items-start gap-3 max-md:basis-full">
-                                    {breadcrumb}
-                                    <div className="flex min-w-0 flex-wrap items-center gap-3">
+                            return (
+                                <div className="flex min-w-0 flex-1 items-start gap-4 sm:gap-5 md:min-w-[320px] max-md:basis-full max-md:gap-3">
+                                    <WorkspaceAvatar
+                                        project={project}
+                                        size="detail"
+                                        isOwner={isOwner}
+                                        slugOrId={project.slug || project.id}
+                                        placeholder
+                                        className="max-md:size-12 max-md:rounded-[8px]"
+                                    />
+                                    <div className="min-w-0 flex-1">
+                                        {breadcrumb}
                                         <h1 className="nb-page-title min-w-0 break-words text-foreground">
                                             {project?.title}
                                         </h1>
-                                        {/* General (images) is owner-only; admins would land on a section they cannot open. */}
-                                        {isOwner && (project?.slug || project?.id) && (
-                                            <Link
-                                                href={`/workspaces/${project.slug || project.id}?tab=settings#project-settings-general`}
-                                                className="nb-touch-target group/add-avatar inline-flex items-center justify-center gap-1.5 rounded-full border border-dashed border-border/80 px-2.5 py-0.5 text-xs text-muted-foreground transition-[color,border-color,background-color] duration-150 hover:border-foreground/40 hover:bg-muted/40 hover:text-foreground"
-                                                title="Add workspace avatar"
-                                                aria-label="Add workspace avatar"
-                                            >
-                                                <Camera className="size-3 text-muted-foreground group-hover/add-avatar:text-foreground" aria-hidden="true" />
-                                                <span className="hidden sm:inline">Add image</span>
-                                            </Link>
+                                        {project.shortDescription && (
+                                            <p className={cn("nb-body mt-1 max-w-[64ch] text-muted-foreground", !summaryExpanded && "max-md:line-clamp-3")}>
+                                                {project.shortDescription}
+                                            </p>
                                         )}
+                                        {summaryToggle}
+                                        {identityExtra ? <div className="mt-2">{identityExtra}</div> : null}
+                                        {projectIdentityMetadata}
                                     </div>
-                                    {identityExtra}
-                                    <WorkspaceLastUpdate projectId={project.id} className="block text-[13px] text-muted-foreground" />
-                                    {project.shortDescription && <p className={cn("nb-body max-w-[64ch] text-muted-foreground", !summaryExpanded && "max-md:line-clamp-3")}>{project.shortDescription}</p>}
-                                    {summaryToggle}
-                                    {projectIdentityMetadata}
                                 </div>
                             );
                         })()}
 
-                        {/* Right: Actions */}
-                        <div className="flex flex-wrap items-center justify-end gap-2 sm:pt-1 max-md:basis-full max-md:justify-start">
+                        {/* Right: actions, then who last updated it, then where it sits. */}
+                        <div className="flex min-w-0 flex-col items-end gap-2 max-md:basis-full max-md:items-start" data-testid="workspace-header-side">
+                        <div className="flex flex-wrap items-center justify-end gap-2 max-md:justify-start">
                             <WorkspaceStatsBar
                                 viewCount={viewCount ?? (project as any)?.viewCount ?? 0}
                                 followersCount={followersCount ?? (project as any)?.followersCount ?? 0}
@@ -447,6 +404,12 @@ export default function WorkspaceLayout({
                                     {applicationLabel ?? `${openRolesCount} open ${openRolesCount === 1 ? "role" : "roles"}`} ›
                                 </a>
                             ) : null}
+                        </div>
+                        {/* The height is held so the buttons don't move when the line arrives. */}
+                        <div className="min-h-5 w-full max-w-[280px] text-right text-[13px] leading-5 text-muted-foreground max-md:text-left">
+                            <WorkspaceLastUpdate projectId={project.id} className="block truncate" />
+                        </div>
+                        {headerDetails}
                         </div>
                     </div>
 

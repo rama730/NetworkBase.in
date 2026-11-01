@@ -265,6 +265,7 @@ export async function resolveWorkspaceDetailTarget(
           githubSyncRepository: githubSyncConnections.repository,
           githubSyncBranch: githubSyncConnections.branch,
           syncStatus: workspaces.syncStatus,
+          createdAt: workspaces.createdAt,
           updatedAt: workspaces.updatedAt,
           viewCount: workspaces.viewCount,
           followersCount: workspaces.followersCount,

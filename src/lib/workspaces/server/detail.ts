@@ -154,6 +154,7 @@ const projectDetailProjectSchema = z.object({
     .nullable()
     .optional(),
   syncStatus: z.enum(["pending", "cloning", "indexing", "ready", "failed"]),
+  createdAt: z.string().optional(),
   updatedAt: z.string().nullable(),
   viewCount: z.number().int().nonnegative(),
   followersCount: z.number().int().nonnegative(),
@@ -773,6 +774,7 @@ async function readProjectDetailShellForActor(input: {
               }
             : null,
           syncStatus: normalizedSyncStatus,
+          createdAt: project.createdAt?.toISOString?.(),
           updatedAt: project.updatedAt?.toISOString?.() ?? null,
           viewCount: Math.max(0, project.viewCount ?? 0),
           followersCount: Math.max(

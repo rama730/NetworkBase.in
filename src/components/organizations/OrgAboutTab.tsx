@@ -16,36 +16,31 @@ import type { Workspace } from '@/types/discover'
 const MONTH = new Intl.DateTimeFormat('en', { month: 'short', year: 'numeric' })
 // The project columns, read as an organization's (report §34.11).
 const ORG_LABELS = { description: 'About', problem: "Who it’s for", solution: 'What happens here' }
-const month = (iso: string | null) => (iso ? MONTH.format(new Date(`${iso}T00:00:00`)) : null)
 
 /**
- * The org's About tab (report §22): the project Dashboard layout for an organization. Main: facts, welcome note,
+ * The org's About tab (report §22): the project Dashboard layout for an organization. Main: welcome note,
  * the overview card and up to 3 projects. Rail: the Journey built from sprints, public-safe activity, the
- * per-person card (Invite / You're a member / Join) and Leaders.
+ * per-person card (Invite / You're a member / Join), Leaders and Details.
  */
-export function OrgAboutTab({ project, isCreator, onEdit, visitorActions }: { project: Workspace; isCreator: boolean; onEdit: () => void; visitorActions?: ReactNode }) {
+export function OrgAboutTab({ project, isCreator, onEdit, memberRole = null, visitorActions }: { project: Workspace; isCreator: boolean; onEdit: () => void; memberRole?: 'owner' | 'admin' | 'member' | 'viewer' | null; visitorActions?: ReactNode }) {
     const org = project.organization
     const about = useQuery({ queryKey: ['org-about', project.id], queryFn: () => readOrgAboutAction(project.id), staleTime: 30_000 })
     const data = about.data?.success ? about.data : null
     const base = `/org/${encodeURIComponent(project.slug || project.id)}`
-    const memberCount = org?.memberCount ?? 0
-    const term = org && (org.termStart || org.termEnd) ? `Term ${month(org.termStart) ?? '…'} – ${month(org.termEnd) ?? '…'}` : null
-    const facts = [
-        org?.partOf ? `Part of ${org.partOf}` : null,
-        org?.location ?? null,
-        `${memberCount} ${memberCount === 1 ? 'member' : 'members'}`,
-        org?.childProjectCount ? `${org.childProjectCount} ${org.childProjectCount === 1 ? 'project' : 'projects'}` : null,
-        project.createdAt ? `since ${MONTH.format(new Date(project.createdAt))}` : null,
-        term,
-        org?.timeZone ?? null,
-    ].filter(Boolean)
+    // A member's card already says their role; owners and admins see theirs here.
+    const yourRole = data?.card.kind === 'invite' && memberRole ? org?.roleNames?.[memberRole] ?? null : null
+    const details = [
+        project.slug ? ['Handle', `@${project.slug}`] : null,
+        yourRole ? ['Your role', yourRole] : null,
+        org?.timeZone ? ['Time zone', org.timeZone] : null,
+        project.createdAt ? ['Since', MONTH.format(new Date(project.createdAt))] : null,
+    ].filter((row): row is string[] => row !== null)
     // The overview card reads these off the full project payload; the shared Project type doesn't list them.
     const statements = project as Workspace & { problemStatement?: string | null; solutionStatement?: string | null }
     const roleName = (role: 'owner' | 'admin') => org?.roleNames?.[role] ?? (role === 'owner' ? 'Owner' : 'Admin')
     return (
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
             <div className="min-w-0 space-y-4 lg:col-span-8">
-                <p className="nb-compact text-muted-foreground" data-testid="org-about-facts">{facts.join(' · ')}</p>
                 {org?.welcomeNote ? (
                     <section aria-label="Welcome note" className="rounded-lg border border-border bg-card p-4">
                         <p className="nb-body whitespace-pre-line text-foreground">{org.welcomeNote}</p>
@@ -114,6 +109,18 @@ export function OrgAboutTab({ project, isCreator, onEdit, visitorActions }: { pr
                                 </li>
                             ))}
                         </ul>
+                    </RailSection>
+                ) : null}
+                {details.length ? (
+                    <RailSection title="Details">
+                        <dl className="space-y-1 text-sm" data-testid="org-about-details">
+                            {details.map(([term, value]) => (
+                                <div key={term} className="flex justify-between gap-3">
+                                    <dt className="shrink-0 text-muted-foreground">{term}</dt>
+                                    <dd className="min-w-0 break-words text-right">{value}</dd>
+                                </div>
+                            ))}
+                        </dl>
                     </RailSection>
                 ) : null}
             </aside>

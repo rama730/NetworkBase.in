@@ -39,6 +39,8 @@ interface ProjectAvatarProps {
     isOwner?: boolean;
     slugOrId?: string;
     priority?: boolean;
+    /** Keep the slot without an image: initials, or for the owner a way to add one. */
+    placeholder?: boolean;
 }
 
 export function WorkspaceAvatar({
@@ -48,6 +50,7 @@ export function WorkspaceAvatar({
     isOwner = false,
     slugOrId,
     priority,
+    placeholder = false,
 }: ProjectAvatarProps) {
     const avatarUrl = getWorkspaceAvatarUrl(project);
     const [hasError, setHasError] = useState(false);
@@ -56,7 +59,8 @@ export function WorkspaceAvatar({
         setHasError(false);
     }, [avatarUrl]);
 
-    if (!avatarUrl || hasError) {
+    const hasImage = Boolean(avatarUrl) && !hasError;
+    if (!hasImage && !placeholder) {
         return null;
     }
 
@@ -73,11 +77,25 @@ export function WorkspaceAvatar({
                     "group/avatar relative shrink-0 overflow-hidden border border-border/80 bg-muted/40 ring-1 ring-inset ring-black/5 dark:ring-white/10 transition-all duration-[180ms] ease-[cubic-bezier(.2,.8,.3,1)]",
                     dimensionClasses,
                     !isDetail && "group-hover:border-foreground/25 group-hover:shadow-xs",
+                    !hasImage && "flex items-center justify-center",
+                    !hasImage && isOwner && slugOrId && "border-dashed",
                     className
                 )}
             >
+                {!hasImage ? (isOwner && slugOrId ? (
+                    <Link
+                        href={`/workspaces/${slugOrId}?tab=settings#project-settings-general`}
+                        aria-label="Add workspace avatar"
+                        title="Add workspace avatar"
+                        className="flex size-full items-center justify-center text-muted-foreground transition-colors duration-[180ms] hover:bg-muted hover:text-foreground"
+                    >
+                        <Camera className="size-5" aria-hidden="true" />
+                    </Link>
+                ) : (
+                    <span className="text-lg font-semibold text-muted-foreground max-md:text-sm" aria-hidden="true">{(project.title || "").slice(0, 2).toUpperCase()}</span>
+                )) : <>
                 <Image
-                    src={avatarUrl}
+                    src={avatarUrl!}
                     // On a card the title sits right beside it: a decorative image, not a second title.
                     alt={size === "card" ? "" : `${project.title || "Workspace"} avatar`}
                     fill
@@ -100,6 +118,7 @@ export function WorkspaceAvatar({
                         <Camera className="size-4 text-white drop-shadow-xs" aria-hidden="true" />
                     </Link>
                 )}
+                </>}
             </div>
         </div>
     );

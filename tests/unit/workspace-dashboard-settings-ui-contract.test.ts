@@ -52,7 +52,7 @@ test("project detail keeps identity and team in the header while the dashboard s
   assert.doesNotMatch(layout, /ChevronLeft/);
   assert.doesNotMatch(layout, />\s*Discover\s*</);
   assert.match(layout, /<ProjectTeamAvatars/);
-  assert.match(layout, /projectUpdatedLabel/);
+  assert.match(layout, /<WorkspaceLastUpdate projectId=\{project\.id\}/);
   assert.match(layout, /onInvite/);
   assert.doesNotMatch(layout, /activeTabButton\?\.scrollIntoView/, "Project tab selection must not move the route vertically");
   assert.match(layout, /tabList\.scrollTo\(\{ left: Math\.max\(0, centeredLeft\), behavior: "smooth" \}\)/);
