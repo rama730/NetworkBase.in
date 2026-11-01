@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-10-30T12:38:35.441Z",
+  "generatedAt": "2026-11-01T15:22:22.689Z",
   "task": "11.1",
   "description": "Import-graph audit confirming zero external callers for V2 explorer modules scheduled for deletion",
   "requirements": [
@@ -8,7 +8,7 @@
     "20.2",
     "20.3"
   ],
-  "scannedFiles": 1407,
+  "scannedFiles": 1434,
   "totalExternalCallers": 0,
   "modules": [
     {
