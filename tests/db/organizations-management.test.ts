@@ -132,3 +132,23 @@ test("45.2, decision 170: an admin asks to take over after 30 days away; the own
   const roles = await sql`SELECT user_id, role FROM workspace_members WHERE workspace_id = ${o.id} AND user_id IN (${o.owner}, ${o.admin})`;
   assert.deepEqual(Object.fromEntries(roles.map((r) => [r.user_id, r.role])), { [o.owner]: "admin", [o.admin]: "owner" });
 });
+
+test("45.2 (security review): take-over refuses a suspended organization or a demoted asker, and a new owner ends the request", async () => {
+  const o = await org();
+  await sql`UPDATE workspace_members SET last_active_here_at = now() - interval '40 days' WHERE workspace_id = ${o.id} AND user_id = ${o.owner}`;
+  viewerId = o.admin;
+  assert.equal((await lifecycle.askToTakeOverAction(o.id)).success, true);
+  await sql`UPDATE workspaces SET takeover_requested_at = now() - interval '8 days', suspended_at = now() WHERE id = ${o.id}`;
+  assert.equal((await lifecycle.takeOverNowAction(o.id)).success, false, "suspended");
+  await sql`UPDATE workspaces SET suspended_at = NULL WHERE id = ${o.id}`;
+  await sql`UPDATE workspace_members SET role = 'member' WHERE workspace_id = ${o.id} AND user_id = ${o.admin}`;
+  assert.equal((await lifecycleLib.takeOverOrg(o.id, o.admin, null) as { ok?: boolean }).ok, undefined, "no longer an admin");
+  const [still] = await sql`SELECT owner_id FROM workspaces WHERE id = ${o.id}`;
+  assert.equal(still!.owner_id, o.owner);
+  await sql`UPDATE workspace_members SET role = 'admin' WHERE workspace_id = ${o.id} AND user_id = ${o.admin}`;
+  const account = await loadAppModule(() => import("../../src/app/actions/account"));
+  viewerId = o.owner;
+  assert.equal((await account.transferWorkspaceOwnership(o.id, o.admin2)).success, true);
+  const [after] = await sql`SELECT takeover_requested_by FROM workspaces WHERE id = ${o.id}`;
+  assert.equal(after!.takeover_requested_by, null, "the request was about the old owner");
+});

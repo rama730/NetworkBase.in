@@ -14,6 +14,7 @@ import { countUnregisteredWorkspaceStorage, scheduleWorkspaceStorageDeletion } f
 import { resetDuplicatedTarget, type AssignmentSettings } from "@/lib/organizations/assignment-rules";
 import { createMasterTask, moveGroupWorkToLead } from "@/lib/organizations/assignments";
 import { detachFromOrg } from "@/lib/organizations/children";
+import { accountOrgLimit } from "@/lib/organizations/members";
 import { generateJoinCode } from "@/lib/organizations/join-rules";
 import { notifyOrg, orgHref, orgLabel, queueOrgEmails } from "@/lib/organizations/notify";
 import { createAdminClient } from "@/lib/supabase/server";
@@ -119,7 +120,7 @@ export async function scheduleOrgDeletion(orgId: string, actorId: string, choice
   for (const child of kept) await detachFromOrg(child.id);
   if (deleting.length) await db.update(workspaces).set({ deletionScheduledAt: now, updatedAt: now }).where(inArray(workspaces.id, deleting.map((c) => c.id)));
   await db.update(workspaces).set({
-    deletionScheduledAt: now, joinCodeEnabled: false, updatedAt: now,
+    deletionScheduledAt: now, joinCodeEnabled: false, updatedAt: now, takeoverRequestedBy: null, takeoverRequestedAt: null,
     orgSettings: sql`coalesce(${workspaces.orgSettings}, '{}'::jsonb) || jsonb_build_object('detachedOnDelete', ${JSON.stringify(kept.map((c) => c.id))}::jsonb)`,
   }).where(eq(workspaces.id, orgId));
   const org = await orgLabel(orgId);
@@ -385,9 +386,16 @@ async function copyNodes(nodes: Array<typeof workspaceNodes.$inferSelect>, sourc
  */
 export async function takeOverOrg(orgId: string, adminId: string, stepUpMethod: string | null) {
   const now = new Date();
-  const previousOwner = await db.transaction(async (tx) => {
-    const [org] = await tx.select({ ownerId: workspaces.ownerId, by: workspaces.takeoverRequestedBy }).from(workspaces).where(eq(workspaces.id, orgId)).limit(1).for("update");
-    if (!org || org.by !== adminId) return null;
+  const outcome = await db.transaction(async (tx) => {
+    const [org] = await tx.select({ ownerId: workspaces.ownerId, by: workspaces.takeoverRequestedBy, suspendedAt: workspaces.suspendedAt, deletionScheduledAt: workspaces.deletionScheduledAt })
+      .from(workspaces).where(eq(workspaces.id, orgId)).limit(1).for("update");
+    if (!org || org.by !== adminId || org.suspendedAt || org.deletionScheduledAt) return { error: "denied" as const };
+    // Still an admin here, under the request's lock (a demotion or removal since asking ends it).
+    const [asker] = await tx.select({ role: workspaceMembers.role }).from(workspaceMembers).where(and(eq(workspaceMembers.projectId, orgId), eq(workspaceMembers.userId, adminId))).limit(1).for("update");
+    if (asker?.role !== "admin") return { error: "denied" as const };
+    // The same owner limit as Transfer (report §27.1 #4).
+    const limit = await accountOrgLimit(tx, adminId, "own");
+    if (limit) return { error: limit };
     await tx.update(workspaces).set({ ownerId: adminId, takeoverRequestedBy: null, takeoverRequestedAt: null, updatedAt: now }).where(eq(workspaces.id, orgId));
     await tx.update(workspaceMembers).set({ role: "admin" }).where(and(eq(workspaceMembers.projectId, orgId), eq(workspaceMembers.userId, org.ownerId)));
     await tx.update(workspaceMembers).set({ role: "owner" }).where(and(eq(workspaceMembers.projectId, orgId), eq(workspaceMembers.userId, adminId)));
@@ -401,9 +409,10 @@ export async function takeOverOrg(orgId: string, adminId: string, stepUpMethod: 
     // Last changed records it (report §45.2).
     const [actor] = await tx.select({ name: profiles.fullName }).from(profiles).where(eq(profiles.id, adminId)).limit(1);
     await tx.update(workspaces).set({ orgSettings: sql`jsonb_set(coalesce(${workspaces.orgSettings}, '{}'::jsonb), '{changes,ownership}', ${JSON.stringify({ by: adminId, byName: actor?.name ?? null, at: now.toISOString() })}::jsonb, true)` }).where(eq(workspaces.id, orgId));
-    return org.ownerId;
+    return { previousOwner: org.ownerId };
   });
-  if (!previousOwner) return false;
+  if ("error" in outcome) return outcome;
+  const previousOwner = outcome.previousOwner;
   const org = await orgLabel(orgId);
   const name = (await db.select({ name: profiles.fullName }).from(profiles).where(eq(profiles.id, adminId)).limit(1))[0]?.name ?? "An admin";
   if (org) {
@@ -412,5 +421,5 @@ export async function takeOverOrg(orgId: string, adminId: string, stepUpMethod: 
       href: orgHref(org), sourceEventId: `takeover:${orgId}:${now.getTime()}`, email: { kind: "org_ownership" },
     });
   }
-  return true;
+  return { ok: true as const };
 }

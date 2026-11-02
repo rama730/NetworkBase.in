@@ -193,6 +193,9 @@ export async function transferWorkspaceOwnership(
                     ownerId: newOwnerId,
                     // A child project handed over at account deletion has its new lead now (report §30.7).
                     orgSettings: sql`${workspaces.orgSettings} - 'leadHandover'`,
+                    // A take-over request was about the old owner (report §45.2); a new owner ends it.
+                    takeoverRequestedBy: null,
+                    takeoverRequestedAt: null,
                     updatedAt: new Date(),
                 })
                 .where(eq(workspaces.id, projectId));

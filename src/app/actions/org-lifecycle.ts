@@ -190,11 +190,13 @@ export async function refuseTakeoverAction(orgId: string): Promise<{ success: tr
 export async function takeOverNowAction(orgId: string): Promise<{ success: true; errorCode?: undefined } | (Failure & { errorCode?: 'STEP_UP_REQUIRED' })> {
     const viewer = await ownershipViewer(orgId);
     if (!viewer || viewer.role !== 'admin') return DENIED;
+    if (viewer.access.writeBlocked) return { success: false, error: writeBlockedMessage(viewer.access.writeBlocked) };
     if (viewer.state.state === 'waiting') return { success: false, error: 'The owner has 7 days to refuse.' };
     if (viewer.state.state !== 'ready') return DENIED;
     const stepUp = await resolveSecurityStepUp(viewer.userId);
     if (!stepUp.ok) return { success: false, error: 'Confirm it’s you first.', errorCode: 'STEP_UP_REQUIRED' };
-    if (!(await takeOverOrg(orgId, viewer.userId, stepUp.payload?.method ?? null))) return DENIED;
+    const done = await takeOverOrg(orgId, viewer.userId, stepUp.payload?.method ?? null);
+    if (!('ok' in done)) return done.error === 'denied' ? DENIED : { success: false, error: done.error ?? 'Couldn’t take over.' };
     touch(viewer.access.project?.slug ?? null, orgId);
     return { success: true };
 }
