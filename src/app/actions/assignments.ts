@@ -1,7 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { and, asc, eq, inArray, isNull, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { z } from 'zod';
 
 import { db } from '@/lib/db';
@@ -15,6 +15,7 @@ import { postOrgAnnouncement } from '@/lib/organizations/org-updates';
 import { ORG_LIMITS } from '@/lib/organizations/config';
 import { readOrgWork } from '@/lib/organizations/settings';
 import { notifyAssignmentDueChanged, notifyAssignmentPublished, notifyAssignmentReviewed, notifyAssignmentSubmitted } from '@/lib/organizations/assignment-notify';
+import { taskReviewSnapshot } from '@/lib/workspaces/task-review-snapshot';
 
 // Assignments (report §16, §16.11). Owners and admins create, review and manage; recipients submit.
 
@@ -244,10 +245,13 @@ export async function submitAssignmentAction(copyId: string, input: z.input<type
     const now = new Date();
     const review = master.settings.reviewRequired;
     await db.transaction(async (tx) => {
+        // What was handed in, so the panel and Approve can tell whether it changed since (problems 21, 29).
+        const reviewContentHash = review ? await taskReviewSnapshot(tx, copyId, true) : null;
         await tx.update(tasks).set({
             status: 'done',
             workflowColumnId: await columnFor(copy.projectId, 'done'),
             reviewStatus: review ? 'pending' : 'none',
+            reviewContentHash,
             reviewSubmittedAt: now,
             completedAt: review ? null : now,
             completedBy: review ? null : userId,
@@ -269,22 +273,35 @@ export async function submitAssignmentAction(copyId: string, input: z.input<type
 /** Decision 95: the copy's own person, or anyone on its team, never reviews it. */
 const ownWork = (copyId: string, userId: string) => sql`(${tasks.assigneeId} = ${userId} OR EXISTS (SELECT 1 FROM task_team_members tm WHERE tm.task_id = ${copyId}::uuid AND tm.user_id = ${userId}))`;
 
-async function reviewOne(copyId: string, reviewerId: string, decision: 'approve' | 'return', reason?: string) {
+/** Reviews one waiting copy; false when someone else got there first (report §42.12 smaller bug 15). */
+async function reviewOne(copyId: string, reviewerId: string, decision: 'approve' | 'return', reason?: string): Promise<boolean> {
     const now = new Date();
     const [copy] = await db.select({ projectId: tasks.projectId, sprintId: tasks.sprintId, title: tasks.title }).from(tasks).where(eq(tasks.id, copyId)).limit(1);
-    if (!copy) return;
-    await db.transaction(async (tx) => {
-        await tx.update(tasks).set(decision === 'approve'
+    if (!copy) return false;
+    const reviewed = await db.transaction(async (tx) => {
+        const updated = await tx.update(tasks).set(decision === 'approve'
             ? { reviewStatus: 'none', status: 'done', completedAt: now, completedBy: reviewerId, completionSource: 'review', updatedAt: now }
             : { reviewStatus: 'rejected', status: 'in_progress', workflowColumnId: await columnFor(copy.projectId, 'in_progress'), completedAt: null, completedBy: null, completionSource: null, updatedAt: now },
-        ).where(and(eq(tasks.id, copyId), eq(tasks.reviewStatus, 'pending')));
+        ).where(and(eq(tasks.id, copyId), eq(tasks.reviewStatus, 'pending'))).returning({ id: tasks.id });
+        if (updated.length === 0) return false;
         await tx.insert(taskActivityEvents).values({
             taskId: copyId, projectId: copy.projectId, sprintId: copy.sprintId, actorId: reviewerId,
             eventType: decision === 'approve' ? 'review_approved' : 'changes_requested',
             payload: { version: 1, source: 'assignment_review', taskTitle: copy.title, reason: reason ?? null },
         });
+        return true;
     });
-    await notifyAssignmentReviewed(copyId, reviewerId, decision, reason ?? null);
+    if (reviewed) await notifyAssignmentReviewed(copyId, reviewerId, decision, reason ?? null);
+    return reviewed;
+}
+
+/** "Already reviewed by Priya": who made the last review decision on a copy. */
+async function lastReviewer(copyId: string) {
+    const [row] = await db.select({ name: sql<string | null>`coalesce(${profiles.fullName}, ${profiles.username})` }).from(taskActivityEvents)
+        .leftJoin(profiles, eq(profiles.id, taskActivityEvents.actorId))
+        .where(and(eq(taskActivityEvents.taskId, copyId), inArray(taskActivityEvents.eventType, ['review_approved', 'changes_requested'])))
+        .orderBy(desc(taskActivityEvents.createdAt)).limit(1);
+    return row?.name ?? 'another admin';
 }
 
 /** Approve, or Return with a reason, one submitted copy (org admins; report §16.4). */
@@ -293,11 +310,13 @@ export async function reviewAssignmentCopyAction(copyId: string, decision: 'appr
     if (!loaded) return DENIED;
     const viewer = await orgRole(loaded.master.projectId);
     if (!viewer?.isAdmin) return DENIED;
-    if (loaded.copy.reviewStatus !== 'pending') return { success: false, error: 'Nothing is waiting for review.' };
+    if (loaded.copy.reviewStatus !== 'pending') return { success: false, error: `Already reviewed by ${await lastReviewer(copyId)}.` };
     if (decision === 'return' && !reason?.trim()) return { success: false, error: 'Say what to change.' };
     const [own] = await db.select({ id: tasks.id }).from(tasks).where(and(eq(tasks.id, copyId), ownWork(copyId, viewer.userId))).limit(1);
     if (own) return { success: false, error: "You can’t review your own work. Ask another admin." };
-    await reviewOne(copyId, viewer.userId, decision, reason?.trim().slice(0, 1000));
+    if (!await reviewOne(copyId, viewer.userId, decision, reason?.trim().slice(0, 1000))) {
+        return { success: false, error: `Already reviewed by ${await lastReviewer(copyId)}.` };
+    }
     touch(viewer.slug, loaded.master.projectId);
     return { success: true };
 }
@@ -307,9 +326,10 @@ export async function approveAllSubmittedAction(masterId: string): Promise<{ suc
     if (!ctx) return DENIED;
     const pending = await db.select({ id: tasks.id }).from(tasks).where(and(eq(tasks.assignmentId, masterId), eq(tasks.reviewStatus, 'pending'), isNull(tasks.deletedAt), isNull(tasks.excusedAt),
         sql`NOT (${tasks.assigneeId} IS NOT DISTINCT FROM ${ctx.viewer.userId}::uuid OR EXISTS (SELECT 1 FROM task_team_members tm WHERE tm.task_id = ${tasks.id} AND tm.user_id = ${ctx.viewer.userId}::uuid))`));
-    for (const { id } of pending) await reviewOne(id, ctx.viewer.userId, 'approve');
+    let approved = 0;
+    for (const { id } of pending) if (await reviewOne(id, ctx.viewer.userId, 'approve')) approved += 1;
     touch(ctx.viewer.slug, ctx.master.projectId);
-    return { success: true, approved: pending.length };
+    return { success: true, approved };
 }
 
 async function adminOfCopy(copyId: string) {

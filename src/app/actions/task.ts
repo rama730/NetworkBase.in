@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { reassignBlock, type AssignmentWrite } from "@/lib/organizations/assignment-rules";
 import { assertAssignmentWrite } from "@/lib/organizations/assignments";
+import { reviewAssignmentCopyAction } from "@/app/actions/assignments";
 import { db } from "@/lib/db";
 import { wakeEmailWorker } from "@/lib/email/outbox";
 import { recordTaskAssignment, refusePeerAssignmentAcrossBlock, taskAssignmentNotification } from "@/lib/workspaces/task-assignment";
@@ -637,6 +638,19 @@ export async function assignTaskAction(
 /**
  * Approve task review
  */
+/**
+ * Decision 141: Approve and Return on an assignment copy are the review queue's action, with its checks and
+ * notices, from the task panel too. Null for ordinary tasks, which keep their own review.
+ */
+async function reviewCopyFromPanel(taskId: string, decision: "approve" | "return", reason?: string) {
+  const [task] = await db.select({ assignmentId: tasks.assignmentId }).from(tasks).where(eq(tasks.id, taskId)).limit(1);
+  if (!task?.assignmentId) return null;
+  const result = await reviewAssignmentCopyAction(taskId, decision, reason);
+  if (!result.success) return { success: false as const, error: result.error };
+  const [after] = await db.select({ updatedAt: tasks.updatedAt, status: tasks.status, reviewStatus: tasks.reviewStatus }).from(tasks).where(eq(tasks.id, taskId)).limit(1);
+  return { success: true as const, updatedAt: after!.updatedAt.toISOString(), status: after!.status, reviewStatus: after!.reviewStatus, outcome: decision === "approve" ? "approved" as const : "changes_requested" as const };
+}
+
 export async function approveTaskReviewAction(
   taskId: string,
   projectId: string,
@@ -644,6 +658,8 @@ export async function approveTaskReviewAction(
 ) {
   try {
     if (!z.string().uuid().safeParse(taskId).success || !z.string().uuid().safeParse(projectId).success || (expectedUpdatedAt && !z.string().datetime().safeParse(expectedUpdatedAt).success)) return { success: false, error: "Invalid task review request" };
+    const copyReview = await reviewCopyFromPanel(taskId, "approve");
+    if (copyReview) return copyReview;
     const user = await requireTaskWriter();
     if (!user) return { success: false, error: "Sign in to continue" };
 
@@ -718,6 +734,9 @@ export async function approveTaskReviewAction(
 
 /** Explicit review actions cannot be bypassed with a generic status move. */
 export async function requestTaskChangesAction(taskId: string, projectId: string, reason: string, expectedUpdatedAt: string) {
+  if (!z.string().uuid().safeParse(taskId).success) return { success: false as const, error: "Invalid task review request" };
+  const copyReview = await reviewCopyFromPanel(taskId, "return", reason);
+  if (copyReview) return copyReview;
   return performTaskReviewAction(taskId, projectId, expectedUpdatedAt, { reviewReason: reason });
 }
 

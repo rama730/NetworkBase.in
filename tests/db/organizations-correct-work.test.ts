@@ -310,3 +310,44 @@ test("decision 146 guard (41.6): in a normal workspace an admin adds a task to a
   assert.equal((await tasks.createTaskAction({ projectId: project, title: "Mine", status: "todo", priority: "medium", sprintId: sprint!.id })).success, false);
   assert.equal((await tasks.createTaskAction({ projectId: project, title: "Mine", status: "todo", priority: "medium" })).success, true, "members still add tasks to a normal board");
 });
+
+test("problems 21 and 29: right after Submit, the panel shows nothing changed and Approve there works", async () => {
+  const o = await org();
+  const { copyOf } = await published(o, "Lab 14");
+  viewerId = o.a;
+  assert.equal((await assignments.submitAssignmentAction(copyOf(o.a), {})).success, true);
+  viewerId = o.owner;
+  const state = await taskActions.getTaskReviewStateAction(copyOf(o.a), o.org);
+  assert.equal(state.success && state.changed, false, "Submit saved what was handed in (problem 29)");
+  const [row] = await sql`SELECT updated_at FROM tasks WHERE id = ${copyOf(o.a)}`;
+  const approved = await taskActions.approveTaskReviewAction(copyOf(o.a), o.org, new Date(row!.updated_at).toISOString());
+  assert.equal(approved.success, true, JSON.stringify(approved));
+});
+
+test("smaller bug 15: when two admins review at once, the second is told and nothing is written twice", async () => {
+  const o = await org();
+  const { copyOf } = await published(o, "Lab 15");
+  viewerId = o.a;
+  assert.equal((await assignments.submitAssignmentAction(copyOf(o.a), {})).success, true);
+  viewerId = o.owner;
+  assert.equal((await assignments.reviewAssignmentCopyAction(copyOf(o.a), "approve")).success, true);
+  viewerId = o.admin;
+  const second = await assignments.reviewAssignmentCopyAction(copyOf(o.a), "return", "Redo it");
+  assert.equal(second.success, false);
+  assert.match((second as { error: string }).error, /^Already reviewed/);
+  const [events] = await sql`SELECT count(*)::int AS n FROM task_activity_events WHERE task_id = ${copyOf(o.a)} AND event_type IN ('review_approved', 'changes_requested')`;
+  assert.equal(events!.n, 1);
+});
+
+test("decision 141: the task panel's Approve and Return on a copy are the queue's review, with its notices", async () => {
+  const o = await org();
+  const { copyOf } = await published(o, "Lab 16");
+  viewerId = o.a;
+  assert.equal((await assignments.submitAssignmentAction(copyOf(o.a), {})).success, true);
+  viewerId = o.owner;
+  const [row] = await sql`SELECT updated_at FROM tasks WHERE id = ${copyOf(o.a)}`;
+  const returned = await taskActions.requestTaskChangesAction(copyOf(o.a), o.org, "Add a test", new Date(row!.updated_at).toISOString());
+  assert.equal(returned.success, true, JSON.stringify(returned));
+  const [event] = await sql`SELECT payload->>'source' AS source FROM task_activity_events WHERE task_id = ${copyOf(o.a)} AND event_type = 'changes_requested'`;
+  assert.equal(event!.source, "assignment_review", "the same path as the review queue");
+});
