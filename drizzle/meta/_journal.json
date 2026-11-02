@@ -337,6 +337,13 @@
       "when": 1793481426300,
       "tag": "0048_org_saved_type_settings",
       "breakpoints": true
+    },
+    {
+      "idx": 48,
+      "version": "7",
+      "when": 1793481486300,
+      "tag": "0049_membership_endings",
+      "breakpoints": true
     }
   ]
 }

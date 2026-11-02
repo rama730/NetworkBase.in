@@ -30,7 +30,7 @@ import {
     type WorkspaceMemberRole,
 } from "@/lib/workspaces/settings-policies";
 import {
-    endProfileWorkspaceContributionMembership,
+    endProfileWorkspaceContributionMembership, type MembershipEnding,
     markProfileCollaborationSummaryStale,
     upsertProfileWorkspaceContributionFromMembership,
 } from "@/lib/profile/collaboration";
@@ -578,6 +578,8 @@ export async function removeWorkspaceMemberInternal(
         reassignToUserId?: string | null;
         /** Leaving: the person removes themself. Only org leave uses it; the owner never leaves this way. */
         allowSelf?: boolean;
+        /** How it ended, recorded on their profile entry (report §10.1). */
+        ending?: MembershipEnding;
     },
 ): Promise<WorkspaceCollaboratorLifecycleResult & { assignmentNotifications: EnqueueWorkspaceNotificationEventInput[] }> {
     const project = await readProjectForUpdate(executor, params.projectId);
@@ -676,6 +678,7 @@ export async function removeWorkspaceMemberInternal(
         projectId: params.projectId,
         verifiedBy: params.actorId,
         eventId: event?.id ?? null,
+        ending: params.ending,
     });
     await markProfileCollaborationSummaryStale(project.ownerId, executor);
 

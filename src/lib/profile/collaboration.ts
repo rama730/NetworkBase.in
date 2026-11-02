@@ -1,5 +1,6 @@
 import { and, eq, isNull, lt, sql } from "drizzle-orm";
 
+import { orgRoleNames } from "@/lib/organizations/config";
 import { db } from "@/lib/db";
 import {
   profileCollaborationSummaries,
@@ -125,6 +126,8 @@ export type ProfileCollaborationContribution = {
   orgVerified?: boolean;
   orgOnly?: boolean;
   verificationRevokedReason?: string | null;
+  /** How the membership ended (report §10.1); null on an ended entry reads as "left". */
+  endReason?: "left" | "removed" | "term_ended" | "org_deleted" | null;
   /** History labels (report §24.5): a detached child "with CSE-3A (until Nov 2026)"; a deleted org's kept name. */
   formerOrg?: { title: string; until: string } | null;
   goneOrgTitle?: string | null;
@@ -194,6 +197,10 @@ type ProfileProjectRow = {
 };
 
 type ProfileContributionRow = {
+  end_reason?: string | null;
+  org_type?: string | null;
+  org_role_names?: unknown;
+  member_title?: string | null;
   show_work_record?: boolean | null;
   work_record?: { done?: number; total?: number; sprints?: number } | null;
   former_org?: { title?: string; until?: string } | null;
@@ -431,6 +438,13 @@ function projectFromRow(row: ProfileProjectRow): ProfileCollaborationWorkspace {
 
 function contributionRoleLabel(row: ProfileContributionRow) {
   if (!row.project_id) return trimDisplayText(row.role_title) || "Contributor";
+  // Report §4.4: an organization entry reads "Teacher · Course Instructor", in the organization's own role names.
+  if (row.project_kind === "organization") {
+    const role = (trimDisplayText(row.membership_role) || trimDisplayText(row.role_kind)) as "owner" | "admin" | "member" | "viewer" | "";
+    const name = role && role in { owner: 1, admin: 1, member: 1, viewer: 1 } ? orgRoleNames(row.org_type, { roleNames: row.org_role_names })[role] : null;
+    const label = [name, trimDisplayText(row.member_title)].filter(Boolean).join(" · ");
+    if (label) return label;
+  }
   const membershipRole = trimDisplayText(row.membership_role) || trimDisplayText(row.role_kind) || "member";
   return formatContributionPosition({
     title: row.role_title,
@@ -521,6 +535,7 @@ function contributionFromRow(row: ProfileContributionRow): ProfileCollaborationC
     roleStages: normalizedStages,
     visibility,
     projectKind: row.project_kind ?? null,
+    endReason: (row.end_reason as ProfileCollaborationContribution["endReason"]) ?? null,
     parentOrg: row.parent_org_id ? { id: row.parent_org_id, title: row.parent_org_title ?? "Organization", slug: row.parent_org_slug ?? null } : null,
     orgVerified: Boolean(row.org_verified),
     orgOnly: row.project_visibility === "org",
@@ -687,8 +702,21 @@ async function queryProfileContributionRows(profileId: string, options: {
   limit?: number;
   offset?: number;
   stageLimit?: number;
+  /** Decision 105: only the published entries in private organizations this viewer also belongs to. */
+  sharedWith?: string;
 }) {
   const includePrivate = Boolean(options.includePrivate);
+  const sharedWith = includePrivate ? null : options.sharedWith ?? null;
+  // The organization an entry belongs to: itself, or the organization a workspace sits in.
+  const entryOrg = sql`COALESCE(CASE WHEN project.kind = 'organization' THEN project.id END, parent_org.id)`;
+  const projectRule = sharedWith
+    ? sql`project.status <> 'draft' AND (CASE WHEN project.kind = 'organization' THEN project.visibility ELSE parent_org.visibility END) = 'private'
+        AND EXISTS (SELECT 1 FROM workspaces shared_org WHERE shared_org.id = ${entryOrg} AND (shared_org.owner_id = ${sharedWith}::uuid
+          OR EXISTS (SELECT 1 FROM workspace_members shared_member WHERE shared_member.workspace_id = shared_org.id AND shared_member.user_id = ${sharedWith}::uuid)))
+        AND (project.kind = 'organization' OR project.visibility <> 'private' OR EXISTS (SELECT 1 FROM workspace_members team WHERE team.workspace_id = project.id AND team.user_id = ${sharedWith}::uuid))`
+    : sql`project.status <> 'draft' AND (project.visibility IN ('public', 'unlisted')
+            -- Org only child workspaces: the member's own story, no link, when the org is public (report §24.6).
+            OR (project.visibility = 'org' AND parent_org.visibility IN ('public', 'unlisted')))`;
   const limit = Math.min(Math.max(options.limit ?? 24, 1), 50);
   const offset = Math.max(options.offset ?? 0, 0);
   const stageLimit = Math.min(Math.max(options.stageLimit ?? 8, 1), 20);
@@ -753,6 +781,10 @@ async function queryProfileContributionRows(profileId: string, options: {
           AND (c.assignee_id = contribution.profile_id OR EXISTS (SELECT 1 FROM task_team_members tm WHERE tm.task_id = c.id AND tm.user_id = contribution.profile_id)))
       END AS work_record,
       contribution.verification_revoked_reason,
+      contribution.end_reason,
+      CASE WHEN project.kind = 'organization' THEN project.org_type END AS org_type,
+      CASE WHEN project.kind = 'organization' THEN project.org_settings->'roleNames' END AS org_role_names,
+      member.title AS member_title,
       -- "Verified by <org>": an org owner or admin verified someone else's org entry (report §24.5).
       (project.kind = 'organization' AND contribution.verified_at IS NOT NULL AND contribution.verified_by IS NOT NULL
         AND contribution.verified_by <> contribution.profile_id
@@ -821,14 +853,14 @@ async function queryProfileContributionRows(profileId: string, options: {
     ) stages ON true
     WHERE contribution.profile_id = ${profileId}
       AND contribution.deleted_at IS NULL
+      -- Report §4.3: a removal from an organization (or a workspace in one) hides the entry from everyone else.
+      AND (${includePrivate ? sql`TRUE` : sql`NOT (contribution.end_reason IS NOT DISTINCT FROM 'removed' AND (project.kind = 'organization' OR parent_org.id IS NOT NULL))`})
       AND (${includePrivate ? sql`TRUE` : sql`contribution.visibility = 'public' AND (contribution.presentation IS NULL OR (contribution.presentation->>'visible'='true' AND (project.visibility IS DISTINCT FROM 'unlisted' OR contribution.presentation->>'allowUnlisted'='true')))`})
       AND (
-        contribution.workspace_id IS NULL
+        ${sharedWith ? sql`FALSE` : sql`contribution.workspace_id IS NULL`}
         OR (
           project.id IS NOT NULL
-          AND (${includePrivate ? sql`TRUE` : sql`project.status <> 'draft' AND (project.visibility IN ('public', 'unlisted')
-            -- Org only child workspaces: the member's own story, no link, when the org is public (report §24.6).
-            OR (project.visibility = 'org' AND parent_org.visibility IN ('public', 'unlisted')))
+          AND (${includePrivate ? sql`TRUE` : sql`${projectRule}
             AND NOT EXISTS (
           SELECT 1 FROM workspace_members show_pref
           WHERE show_pref.user_id = ${profileId}::uuid AND show_pref.show_on_profile = false
@@ -981,6 +1013,16 @@ async function readProfileCollaborationSummary(profileId: string, options: {
     durationMs: Date.now() - startedAt,
   });
   return { ...summary, cacheStatus: includePrivate ? "bypass" : "miss" };
+}
+
+/**
+ * Decision 105: a private organization's entries show only to the person and its members. The public summary is
+ * cached for everyone, so a fellow member's extra entries come from here and are added to their view.
+ */
+export async function readSharedPrivateOrgContributions(profileId: string, viewerId: string | null | undefined) {
+  if (!viewerId || viewerId === profileId) return [];
+  const rows = await queryProfileContributionRows(profileId, { sharedWith: viewerId, limit: 50 });
+  return Promise.all(rows.map(contributionFromRow).map(hydratePublicStory));
 }
 
 export async function getProfileContributions(profileId: string, options: {
@@ -1152,6 +1194,17 @@ export async function upsertProfileWorkspaceContributionFromMembership(
         AND NOT EXISTS (SELECT 1 FROM ${profileContributions} c WHERE c.profile_id = ${params.profileId} AND c.workspace_id = p.id)`);
     if (guestOfOrg?.skip) return;
   }
+  // Decision 3: a removed person who rejoins gets their words back as an unpublished draft, never republished.
+  await executor.execute(sql`
+    WITH removed AS (
+      UPDATE ${profileContributions} c SET presentation = NULL, published_at = NULL
+      FROM (SELECT id, presentation FROM ${profileContributions}
+            WHERE profile_id = ${params.profileId} AND workspace_id = ${params.projectId} AND deleted_at IS NULL AND end_reason = 'removed' FOR UPDATE) old
+      WHERE c.id = old.id
+      RETURNING c.id, old.presentation)
+    INSERT INTO profile_contribution_drafts (contribution_id, profile_id, document, updated_at)
+    SELECT id, ${params.profileId}, presentation, now() FROM removed WHERE presentation IS NOT NULL
+    ON CONFLICT (contribution_id) DO NOTHING`);
   const contributionRows = await executor.execute<{
     id: string;
     profile_id: string;
@@ -1221,6 +1274,8 @@ export async function upsertProfileWorkspaceContributionFromMembership(
       started_at = COALESCE(${profileContributions.startedAt}, EXCLUDED.started_at),
       verified_at = EXCLUDED.verified_at,
       verified_by = COALESCE(EXCLUDED.verified_by, ${profileContributions.verifiedBy}),
+      -- Rejoining starts a new period; the old one stays in the position history (report §10.1).
+      ended_at = NULL, end_reason = NULL, ended_by = NULL, end_note = NULL,
       updated_at = now()
     RETURNING id, profile_id, workspace_id AS project_id, source, role_kind, role_title, skills, started_at, verified_at, verified_by, visibility
   `);
@@ -1264,14 +1319,23 @@ export async function upsertProfileWorkspaceContributionFromMembership(
   await markProfileCollaborationSummaryStale(params.profileId, executor);
 }
 
+/** How a membership ended (report §10.1): leaving keeps credit; removal also withdraws verification (§4.3). */
+export type MembershipEnding = { reason: "left" | "removed"; by: string | null; note?: string | null; orgTitle?: string | null };
+
 export async function endProfileWorkspaceContributionMembership(
   executor: DbExecutor,
-  params: { profileId: string; projectId: string; verifiedBy: string | null; eventId?: string | null; endedAt?: Date },
+  params: { profileId: string; projectId: string; verifiedBy: string | null; eventId?: string | null; endedAt?: Date; ending?: MembershipEnding },
 ) {
   const endedAt = params.endedAt ?? new Date();
+  const ending = params.ending;
   await executor
     .update(profileContributions)
-    .set({ endedAt, updatedAt: new Date() })
+    .set({
+      endedAt, updatedAt: new Date(),
+      ...(ending ? { endReason: ending.reason, endedBy: ending.by, endNote: ending.note?.trim().slice(0, 500) || null } : {}),
+      // Verification speaks for the organization, so removal withdraws it, and the person sees why.
+      ...(ending?.reason === "removed" ? { verifiedAt: null, verifiedBy: null, verificationRevokedReason: `Removed from ${ending.orgTitle || "the organization"}` } : {}),
+    })
     .where(and(
       eq(profileContributions.profileId, params.profileId),
       eq(profileContributions.projectId, params.projectId),

@@ -388,7 +388,7 @@ export async function removeMembersAction(orgId: string, userIds: string[], opti
         const opened = [];
         for (const id of userIds) {
             // Admins can't remove admins, so the owner acts when an admin is removed.
-            opened.push(...await removeFromOrg(tx, orgId, id, roles.get(id) === 'admin' ? viewer.ownerId : viewer.userId));
+            opened.push(...await removeFromOrg(tx, orgId, id, roles.get(id) === 'admin' ? viewer.ownerId : viewer.userId, { by: viewer.userId, note: options.reason ?? null }));
             if (options.block) await tx.insert(orgJoinBlocks).values({ orgId, userId: id, blockedBy: viewer.userId }).onConflictDoNothing();
         }
         return opened;

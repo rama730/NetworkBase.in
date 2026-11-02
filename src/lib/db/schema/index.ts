@@ -1019,6 +1019,8 @@ export const workspaceMembers = pgTable(
     lastSeenUpdatesAt: timestamp("last_seen_updates_at", { withTimezone: true }),
     /** Last time they opened this organization or one of its workspaces, at most hourly (report §29.4, 0043). */
     lastActiveHereAt: timestamp("last_active_here_at", { withTimezone: true }),
+    /** Order on the profile's Organizations section, set in Manage organizations (0049, report §38.2). */
+    profileOrder: integer("profile_order"),
     unitId: uuid("unit_id").references((): AnyPgColumn => workspaceOpenRoles.id, { onDelete: "set null" }),
   },
   (t) => ({
@@ -1304,6 +1306,13 @@ export const profileContributions = pgTable(
     verifiedAt: timestamp("verified_at", { withTimezone: true }),
     /** Org admins revoke a "Verified by <org>" with a reason (0248). */
     verificationRevokedReason: text("verification_revoked_reason"),
+    /** How the membership ended (0049, report §10.1): left, removed, term_ended or org_deleted; null reads as left. */
+    endReason: text("end_reason", { enum: ["left", "removed", "term_ended", "org_deleted"] }),
+    endedBy: uuid("ended_by").references(() => profiles.id, { onDelete: "set null" }),
+    /** The reason the admin wrote, kept for Former (report §36.4). */
+    endNote: text("end_note"),
+    /** The write-up nudge was dismissed (report §38.6, DB5). */
+    nudgeDismissedAt: timestamp("nudge_dismissed_at", { withTimezone: true }),
     verifiedBy: uuid("verified_by").references(() => profiles.id, {
       onDelete: "set null",
     }),

@@ -17,6 +17,7 @@ import { normalizeProfile } from '@/lib/utils/normalize-profile'
 import { consumeRateLimit } from '@/lib/security/rate-limit'
 import {
     getProfileCollaborationSummary,
+    readSharedPrivateOrgContributions,
     type ProfileCollaborationSummary,
 } from '@/lib/profile/collaboration'
 import { getRedisClient } from '@/lib/redis'
@@ -359,6 +360,10 @@ export async function getProfileDetails(username?: string, options: ProfileDetai
                 : getProfileCollaborationSummary(profileData.id, {
                     includePrivate: !!isOwner,
                     preferCached: true,
+                }).then(async (summary) => {
+                    // Decision 105: a fellow member of a private organization also sees its entries.
+                    const shared = !isOwner && viewerUser?.id ? await readSharedPrivateOrgContributions(profileData.id, viewerUser.id) : [];
+                    return shared.length ? { ...summary, contributions: [...summary.contributions, ...shared.filter((c) => !summary.contributions.some((s) => s.id === c.id))] } : summary;
                 }),
             shouldResolveViewerState && viewerUser
                 ? getProfileMutualCount(viewerUser.id, profileData.id)
