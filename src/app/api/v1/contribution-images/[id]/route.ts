@@ -24,7 +24,14 @@ export async function GET(
     const limited = await enforceFileReadLimit(request, "files:public-read", 300, 60, user?.id);
     if (limited) return limited;
     const [asset] = await db
-      .select()
+      .select({
+        ownerUserId: storageAssets.ownerUserId,
+        bucket: storageAssets.bucket,
+        storageKey: storageAssets.storageKey,
+        verifiedSize: storageAssets.verifiedSize,
+        verifiedMimeType: storageAssets.verifiedMimeType,
+        contentHash: storageAssets.contentHash,
+      })
       .from(storageAssets)
       .where(
         and(
@@ -103,6 +110,7 @@ export async function GET(
       filename: "contribution-image",
       disposition: "inline",
       etag: `"${asset.contentHash}"`,
+      cacheControl: "private, max-age=300, must-revalidate",
     });
   } catch {
     return unavailable();

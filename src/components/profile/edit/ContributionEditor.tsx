@@ -42,6 +42,7 @@ import {
 } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils";
+import { compressImage } from "@/lib/messaging/image-compression";
 import { scrollContributionEditorTarget } from "@/lib/profile/contribution-editor-scroll";
 import { Button } from "@/components/ui/button";
 import { SearchField } from "@/components/ui/SearchField";
@@ -796,7 +797,8 @@ export function ContributionEditor({
         );
     if (files.length > available)
       setError("You can include up to eight images.");
-    for (const file of files.slice(0, available)) {
+    for (const selected of files.slice(0, available)) {
+      const file = await compressImage(selected, { maxWidth: 1600, maxHeight: 1600 });
       const id = crypto.randomUUID();
       setPending((current) => [...current, { id, owner, replaceId, file }]);
       try {

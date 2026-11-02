@@ -151,7 +151,7 @@ test("workspace update media route authorizes normalized assets and streams byte
     assert.match(routeSource, /createSignedUrl\(storageKey, 60\)/);
     assert.match(routeSource, /streamPrivateObject/);
     assert.match(routeSource, /publicTabVisibility: access\.project\.publicTabVisibility/);
-    assert.match(routeSource, /private, no-store/);
+    assert.match(routeSource, /private, max-age=300, must-revalidate/);
     assert.equal(routeSource.includes(".from(projects)"), false);
     assert.match(accessSource, /publicTabVisibility\?: unknown/);
     assert.match(accessSource, /publicTabVisibility: workspaces\.publicTabVisibility/);

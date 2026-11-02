@@ -17,8 +17,9 @@ test("stable project media routes use the shared conditional streaming owner", (
     assert.match(source, /streamPrivateObject/);
     assert.match(source, /etag(?:,|:)/);
   }
-  assert.match(read("src/app/api/v1/workspaces/[id]/image/route.ts"), /private, no-store/);
-  assert.match(read("src/app/api/v1/workspaces/[id]/update-media/route.ts"), /private, no-store/);
+  assert.match(read("src/app/api/v1/workspaces/[id]/image/route.ts"), /private, max-age=300, must-revalidate/);
+  assert.match(read("src/app/api/v1/workspaces/[id]/update-media/route.ts"), /private, max-age=300, must-revalidate/);
+  assert.match(read("src/app/api/v1/contribution-images/[id]/route.ts"), /private, max-age=300, must-revalidate/);
 });
 
 test("app chrome renders before the legal gate and profile pages reuse server reads", () => {

@@ -49,6 +49,7 @@ import { get as idbGet, set as idbSet, del as idbDel } from "idb-keyval";
 import { WorkspaceUpdateMediaFrame, isWorkspaceUpdateVideoMedia } from "./WorkspaceUpdateMediaFrame";
 import { WorkspaceUpdateRichTextEditor } from "./WorkspaceUpdateRichTextEditor";
 import { ComposerReferenceOptions } from "./ComposerReferenceOptions";
+import { compressImage } from "@/lib/messaging/image-compression";
 
 const EMPTY_REFS: WorkspaceUpdateEntityRefs = {};
 const EMPTY_CONTEXT_OPTIONS: Record<WorkspaceUpdateContextKind, WorkspaceUpdateContextOption[]> = {
@@ -135,56 +136,6 @@ function readImageDimensions(file: File): Promise<{ width: number; height: numbe
             resolve(null);
         };
         image.src = url;
-    });
-}
-
-function compressImage(file: File): Promise<File> {
-    if (!file.type.startsWith("image/")) return Promise.resolve(file);
-    return new Promise((resolve) => {
-        const img = new globalThis.Image();
-        img.src = URL.createObjectURL(file);
-        img.onload = () => {
-            URL.revokeObjectURL(img.src);
-            const canvas = document.createElement("canvas");
-            const maxDim = 1600;
-            let width = img.naturalWidth;
-            let height = img.naturalHeight;
-            if (width > maxDim || height > maxDim) {
-                if (width > height) {
-                    height = Math.round((height * maxDim) / width);
-                    width = maxDim;
-                } else {
-                    width = Math.round((width * maxDim) / height);
-                    height = maxDim;
-                }
-            }
-            canvas.width = width;
-            canvas.height = height;
-            const ctx = canvas.getContext("2d");
-            if (!ctx) {
-                resolve(file);
-                return;
-            }
-            ctx.drawImage(img, 0, 0, width, height);
-            canvas.toBlob((blob) => {
-                if (blob) {
-                    const compressedFile = new File([blob], file.name.replace(/\.[^.]+$/, "") + ".webp", {
-                        type: "image/webp",
-                        lastModified: Date.now()
-                    });
-                    if (compressedFile.size < file.size) {
-                        resolve(compressedFile);
-                    } else {
-                        resolve(file);
-                    }
-                } else {
-                    resolve(file);
-                }
-            }, "image/webp", 0.8);
-        };
-        img.onerror = () => {
-            resolve(file);
-        };
     });
 }
 
@@ -627,7 +578,7 @@ export function WorkspaceUpdateComposer({
             },
         ]);
         try {
-            const file = await compressImage(originalFile);
+            const file = await compressImage(originalFile, { maxWidth: 1600, maxHeight: 1600 });
             const dimensions = await readImageDimensions(file);
             updatePendingUpload(id, {
                 fileName: file.name,

@@ -103,7 +103,7 @@ async function handle(request: NextRequest, context: { params: Promise<{ id: str
     etag: `"update-media-${identity}"`,
     cacheControl: isPublic
       ? "public, max-age=300, s-maxage=300, must-revalidate"
-      : "private, no-store",
+      : "private, max-age=300, must-revalidate",
   });
 }
 
