@@ -2212,20 +2212,6 @@ export async function deleteWorkspace(
         message: "Only the owner can delete this workspace.",
       };
     }
-    // Work handed in to an organization stays on its record: archive instead (decision 90, report §35.3).
-    const [handedIn] = await db.execute<{ org: string | null }>(sql`
-      SELECT (SELECT o.title FROM tasks m JOIN workspaces o ON o.id = m.workspace_id WHERE m.id = t.assignment_id) AS org
-      FROM tasks t WHERE t.workspace_id = ${projectId}::uuid AND t.assignment_id IS NOT NULL AND t.deleted_at IS NULL
-        AND (t.review_status = 'pending' OR t.status = 'done' OR t.review_submitted_at IS NOT NULL)
-      LIMIT 1`);
-    if (handedIn) {
-      return {
-        success: false,
-        errorCode: "FORBIDDEN",
-        message: `This workspace holds work handed in to ${handedIn.org ?? "its organization"}. Archive it instead.`,
-      };
-    }
-
     const unregisteredStorage = await countUnregisteredWorkspaceStorage(projectId);
     if (unregisteredStorage > 0) {
       return {
@@ -2247,6 +2233,13 @@ export async function deleteWorkspace(
         .for("update");
       if (!locked || locked.ownerId !== user.id) return "FORBIDDEN" as const;
       if (await countUnregisteredWorkspaceStorage(projectId, tx) > 0) return "STORAGE_MIGRATION_PENDING" as const;
+      // Work handed in to an organization stays on its record: archive instead (decision 90, report §35.3). Checked
+      // under the row lock, so a hand-in can't land between the check and the delete.
+      const [handedIn] = await tx.execute<{ id: string }>(sql`
+        SELECT t.id FROM tasks t WHERE t.workspace_id = ${projectId}::uuid AND t.assignment_id IS NOT NULL AND t.deleted_at IS NULL
+          AND (t.review_status = 'pending' OR t.status = 'done' OR t.review_submitted_at IS NOT NULL)
+        LIMIT 1 FOR UPDATE`);
+      if (handedIn) return "HANDED_IN" as const;
       // The applications go with the project: their applicants are told once the delete has committed.
       waitingApplicants = await tx
         .select({ id: roleApplications.id, applicantId: roleApplications.applicantId, roleId: roleApplications.roleId })
@@ -2274,10 +2267,12 @@ export async function deleteWorkspace(
     if (blocked) {
       return {
         success: false,
-        errorCode: blocked,
-        message: blocked === "FORBIDDEN"
-          ? "Only the owner can delete this workspace."
-          : "Workspace deletion is waiting for storage references to be registered.",
+        errorCode: blocked === "HANDED_IN" ? "FORBIDDEN" : blocked,
+        message: blocked === "HANDED_IN"
+          ? "This workspace holds work handed in to its organization. Archive it instead."
+          : blocked === "FORBIDDEN"
+            ? "Only the owner can delete this workspace."
+            : "Workspace deletion is waiting for storage references to be registered.",
       };
     }
 
