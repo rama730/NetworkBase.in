@@ -220,7 +220,8 @@ export async function createCopiesForNewMember(executor: Executor, orgId: string
     const s = master.settings;
     if (!s?.publishedAt || s.closedAt || (master.dueDate && master.dueDate.getTime() < now)) continue;
     if (!(s.target.mode === "everyone" || (s.target.mode === "role" && s.target.role === "member"))) continue;
-    const [existing] = await executor.select({ id: tasks.id }).from(tasks).where(and(eq(tasks.assignmentId, master.id), eq(tasks.assigneeId, userId))).limit(1);
+    // A copy removed when they left doesn't count: someone who comes back gets the open work again (decision 50).
+    const [existing] = await executor.select({ id: tasks.id }).from(tasks).where(and(eq(tasks.assignmentId, master.id), eq(tasks.assigneeId, userId), isNull(tasks.deletedAt))).limit(1);
     if (!existing) await createCopies(executor, master.id, [{ projectId: orgId, assigneeId: userId }], master.creatorId ?? userId);
   }
 }

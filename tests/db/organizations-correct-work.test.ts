@@ -525,3 +525,29 @@ test("smaller bug 3: a teammate who isn't the lead leaving never makes a second 
   const leads = await sql`SELECT user_id FROM task_team_members WHERE task_id = ${copy!.id} AND is_lead`;
   assert.deepEqual(leads.map((l) => l.user_id), [o.a]);
 });
+
+test("decision 50: someone who leaves and comes back gets new copies of open assignments", async () => {
+  const o = await org();
+  const code = generateJoinCode();
+  await sql`UPDATE workspaces SET join_code = ${code} WHERE id = ${o.org}`;
+  const { master } = await published(o, "Lab 26");
+  const orgs = await loadAppModule(() => import("../../src/app/actions/organizations"));
+  viewerId = o.a;
+  assert.equal((await orgs.leaveOrgAction(o.org)).success, true);
+  const joined = await orgs.joinOrganizationAction(code);
+  assert.equal(joined.success, true, JSON.stringify(joined));
+  const [live] = await sql`SELECT count(*)::int AS n FROM tasks WHERE assignment_id = ${master} AND assignee_id = ${o.a} AND deleted_at IS NULL`;
+  assert.equal(live!.n, 1);
+});
+
+test("decision 90: a workspace holding work handed in to the organization can't be deleted, only archived", async () => {
+  const o = await org();
+  const { child, make } = await groupWork(o);
+  const copy = await make("Final report");
+  viewerId = o.a;
+  assert.equal((await assignments.submitAssignmentAction(copy, {})).success, true);
+  const lifecycle = await loadAppModule(() => import("../../src/lib/workspaces/server/lifecycle"));
+  const deleted = await lifecycle.deleteWorkspace(child);
+  assert.equal(deleted.success, false);
+  assert.match(deleted.message, /Archive it instead/);
+});

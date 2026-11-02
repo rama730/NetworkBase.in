@@ -2212,6 +2212,19 @@ export async function deleteWorkspace(
         message: "Only the owner can delete this workspace.",
       };
     }
+    // Work handed in to an organization stays on its record: archive instead (decision 90, report §35.3).
+    const [handedIn] = await db.execute<{ org: string | null }>(sql`
+      SELECT (SELECT o.title FROM tasks m JOIN workspaces o ON o.id = m.workspace_id WHERE m.id = t.assignment_id) AS org
+      FROM tasks t WHERE t.workspace_id = ${projectId}::uuid AND t.assignment_id IS NOT NULL AND t.deleted_at IS NULL
+        AND (t.review_status = 'pending' OR t.status = 'done' OR t.review_submitted_at IS NOT NULL)
+      LIMIT 1`);
+    if (handedIn) {
+      return {
+        success: false,
+        errorCode: "FORBIDDEN",
+        message: `This workspace holds work handed in to ${handedIn.org ?? "its organization"}. Archive it instead.`,
+      };
+    }
 
     const unregisteredStorage = await countUnregisteredWorkspaceStorage(projectId);
     if (unregisteredStorage > 0) {
