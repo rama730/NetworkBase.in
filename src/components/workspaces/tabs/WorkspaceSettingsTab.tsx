@@ -1392,7 +1392,7 @@ function ProjectSettingsContent({
             <WorkspaceSettingsNavigation sections={sections} activeSection={activeSection} onNavigate={handleNavigateSection} />
             <main data-project-settings-document className="mx-auto min-w-0 w-full max-w-4xl space-y-12 p-4 md:p-[calc(var(--ui-panel-padding)+4px)] [&>[data-project-settings-section]]:border-b [&>[data-project-settings-section]]:border-border [&>[data-project-settings-section]]:pb-8 [&>[data-project-settings-section]:last-child]:border-b-0">
                 {organization && sections.some((s) => s.id === "you-membership") && <OrgMembershipSection orgId={projectId} organization={organization} role={orgRole} />}
-                {organization && sections.some((s) => s.id === "you-leave") && <OrgLeaveSection orgId={projectId} organization={organization} role={orgRole} title={project?.title ?? "this organization"} />}
+                {organization && sections.some((s) => s.id === "you-leave") && <OrgLeaveSection orgId={projectId} organization={organization} role={orgRole} title={project?.title ?? "this organization"} afterLeaveHref={savedVisibility === "public" ? `/org/${encodeURIComponent(project?.slug ?? projectId)}?tab=about` : "/discover"} />}
                 {sections.some((s) => s.id === "general") && (
                     <GeneralSettingsSection
                         projectId={projectId}

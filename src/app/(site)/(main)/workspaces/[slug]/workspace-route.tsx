@@ -8,6 +8,7 @@ import WorkspaceDashboardClient from '@/components/workspaces/dashboard/Workspac
 import { readWorkspaceDetailShell, readWorkspaceSprintDetail } from '@/app/actions/workspace';
 import WorkspaceDetailLoading from './loading';
 import { PrivateOrgHeader } from '@/components/organizations/PrivateOrgHeader';
+import { readPrivateOrgState } from '@/lib/organizations/join';
 import { readOrgCard, resolveHeldOrgHandle } from '@/lib/organizations/detail';
 import { stampLastActiveHere } from '@/lib/organizations/members';
 import { copyWorkspacePath } from '@/lib/organizations/assignments';
@@ -126,7 +127,7 @@ async function ResolvedProjectDashboard({
         }
         if (result.errorCode === 'FORBIDDEN') {
             const card = await readOrgCard(slug);
-            if (card) return <PrivateOrgHeader title={card.title} coverImage={card.coverImage} />;
+            if (card) return <PrivateOrgHeader orgId={card.id} title={card.title} coverImage={card.coverImage} state={await readPrivateOrgState(card.id, user?.id ?? null)} signedIn={Boolean(user)} />;
         }
         if (result.errorCode === 'NOT_FOUND' || result.errorCode === 'FORBIDDEN') {
             notFound();

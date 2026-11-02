@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import { currentOrganizations, entryStatus, groupProfileContributions, nestContributions, orgDiscoverable, showKeeps } from "../../src/lib/organizations/profile-rules";
+import { privateOrgLine } from "../../src/lib/organizations/join-rules";
 
 test("new public orgs reach Discover after 3 members and 7 days, or when verified", () => {
   const now = new Date("2026-10-30T00:00:00Z");
@@ -56,4 +57,14 @@ test("4.5, 16.9: contributions split into organizations and workspaces; your own
   assert.equal(entryStatus({ id: "x", projectId: "x", endReason: "term_ended" }), "Completed");
   assert.equal(entryStatus({ id: "x", projectId: "x", endDate: "Nov 2026", endReason: null }), "Left", "old endings read as Left");
   assert.equal(entryStatus({ id: "x", projectId: "x" }), null);
+});
+
+test("26.9, decision 48: the private page tells each person their own state, and nothing from inside", () => {
+  assert.deepEqual(privateOrgLine({ kind: "invited", role: "Student" }, "CSE 3B"), { line: "You’re invited as Student", join: false, action: "invite" });
+  assert.deepEqual(privateOrgLine({ kind: "waiting" }, "CSE 3B"), { line: "Request sent", join: false, action: "cancel" });
+  assert.equal(privateOrgLine({ kind: "left", date: "2 Nov" }, "CSE 3B").line, "You left CSE 3B on 2 Nov.");
+  assert.deepEqual(privateOrgLine({ kind: "removed" }, "CSE 3B"), { line: "You’re no longer in CSE 3B.", join: true, action: null });
+  assert.deepEqual(privateOrgLine({ kind: "blocked" }, "CSE 3B"), { line: "You can’t join this organization.", join: false, action: null });
+  assert.equal(privateOrgLine({ kind: "ended" }, "CSE 3B").join, false);
+  assert.deepEqual(privateOrgLine({ kind: "none" }, "CSE 3B"), { line: null, join: true, action: null });
 });

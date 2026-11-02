@@ -394,6 +394,37 @@ export async function saveMyOrganizationOrderAction(orgIds: string[]): Promise<{
     return { success: true };
 }
 
+export type LeavePreview = { teams: string[]; led: Array<{ id: string; title: string; slug: string | null }>; open: number; submitted: number; keptBy: string };
+
+/** What leaving would do (report §26.10), shown before the person confirms. */
+export async function readLeavePreviewAction(orgId: string): Promise<{ success: true; preview: LeavePreview } | Failure> {
+    const viewer = await orgViewer(orgId, 'read');
+    if (!viewer || viewer.role === 'visitor') return DENIED;
+    const [led, teams, [work], [org]] = await Promise.all([
+        ledChildWorkspaces(db, orgId, viewer.userId),
+        db.select({ title: workspaces.title }).from(workspaceMembers).innerJoin(workspaces, eq(workspaces.id, workspaceMembers.projectId))
+            .where(and(eq(workspaces.parentId, orgId), eq(workspaceMembers.userId, viewer.userId), isNull(workspaces.deletedAt))),
+        db.execute<{ open: number; submitted: number }>(sql`
+            SELECT count(*) FILTER (WHERE NOT handed)::int AS open, count(*) FILTER (WHERE handed)::int AS submitted FROM (
+              SELECT (c.review_status IN ('pending', 'approved', 'rejected') OR c.submission IS NOT NULL OR c.status = 'done') AS handed
+              FROM tasks c JOIN tasks m ON m.id = c.assignment_id AND m.workspace_id = ${orgId} AND m.deleted_at IS NULL
+              WHERE c.deleted_at IS NULL AND c.excused_at IS NULL AND c.assignee_id = ${viewer.userId}
+                AND NOT EXISTS (SELECT 1 FROM task_team_members tm WHERE tm.task_id = c.id AND tm.user_id <> ${viewer.userId})) own`),
+        db.select({ orgType: workspaces.orgType, orgSettings: workspaces.orgSettings }).from(workspaces).where(eq(workspaces.id, orgId)).limit(1),
+    ]);
+    const names = orgRoleNames(org?.orgType, org?.orgSettings);
+    const plural = (word: string) => (/s$/i.test(word) ? word : `${word}s`);
+    return {
+        success: true,
+        preview: {
+            teams: teams.map((t) => t.title ?? 'Workspace'),
+            led: led.map((l) => ({ id: l.id, title: l.title ?? 'Workspace', slug: l.slug ?? null })),
+            open: work?.open ?? 0, submitted: work?.submitted ?? 0,
+            keptBy: `${plural(names.owner)} and ${plural(names.admin)}`,
+        },
+    };
+}
+
 /** "Leave organization" (report §21.3). The owner transfers ownership first; child projects follow in P4. */
 export async function leaveOrgAction(orgId: string): Promise<{ success: true } | Failure> {
     const viewer = await orgViewer(orgId, 'read');

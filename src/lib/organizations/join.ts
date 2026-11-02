@@ -13,11 +13,12 @@ import {
   reservedUsernames,
   roleApplications,
 } from "@/lib/db/schema";
-import { decideOrgJoin, orgMemberCap, type OrgJoinMode, type OrgJoinOutcome } from "@/lib/organizations/join-rules";
+import { decideOrgJoin, orgMemberCap, type OrgJoinMode, type OrgJoinOutcome, type PrivateOrgState } from "@/lib/organizations/join-rules";
+import { orgRoleNames } from "@/lib/organizations/config";
 import { addWorkspaceMemberInternal } from "@/lib/workspaces/collaborator-lifecycle";
 import { createCopiesForNewMember } from "@/lib/organizations/assignments";
 import { notifyNewCopies } from "@/lib/organizations/assignment-notify";
-import { acceptOrgInvite, AccountOrgLimitError, accountOrgLimit } from "@/lib/organizations/members";
+import { acceptOrgInvite, AccountOrgLimitError, accountOrgLimit, openInvitesFor } from "@/lib/organizations/members";
 
 export type OrgSummary = { id: string; title: string; slug: string | null };
 
@@ -65,6 +66,33 @@ export async function viewerOrgStatus(orgId: string, ownerId: string, userId: st
       .where(and(eq(roleApplications.projectId, orgId), eq(roleApplications.applicantId, userId), eq(roleApplications.status, "pending"))).limit(1),
   ]);
   return member ? "member" : pending ? "pending" : null;
+}
+
+/**
+ * What a private organization's page says to this person (report §26.9, decision 48). Ended first, then a block,
+ * an open invite, a pending or declined request, and finally how their last membership ended.
+ */
+export async function readPrivateOrgState(orgId: string, userId: string | null): Promise<PrivateOrgState> {
+  if (!userId) return { kind: "none" };
+  const [row] = await db.execute<{ ended: boolean; blocked: boolean; request: string | null; end_reason: string | null; ended_at: string | null; org_type: string | null; org_settings: unknown }>(sql`
+    SELECT (w.status = 'archived' OR w.deletion_scheduled_at IS NOT NULL) AS ended, w.org_type, w.org_settings,
+      EXISTS (SELECT 1 FROM org_join_blocks b WHERE b.org_id = w.id AND b.user_id = ${userId}) AS blocked,
+      (SELECT a.status FROM role_applications a WHERE a.workspace_id = w.id AND a.applicant_id = ${userId} AND a.role_id IS NULL
+         AND (a.status = 'pending' OR a.updated_at > now() - interval '1 day') ORDER BY a.updated_at DESC LIMIT 1) AS request,
+      c.end_reason, c.ended_at::text
+    FROM workspaces w
+    LEFT JOIN profile_contributions c ON c.workspace_id = w.id AND c.profile_id = ${userId} AND c.deleted_at IS NULL AND c.ended_at IS NOT NULL
+    WHERE w.id = ${orgId}`);
+  if (!row) return { kind: "none" };
+  if (row.ended) return { kind: "ended" };
+  if (row.blocked) return { kind: "blocked" };
+  const [invite] = await openInvitesFor(userId, orgId);
+  if (invite) return { kind: "invited", inviteId: invite.id, role: orgRoleNames(row.org_type, row.org_settings)[invite.role as "admin" | "member" | "viewer"] ?? "Member" };
+  if (row.request === "pending") return { kind: "waiting" };
+  if (row.request === "rejected") return { kind: "declined" };
+  if (row.end_reason === "removed") return { kind: "removed" };
+  if (row.ended_at) return { kind: "left", date: new Intl.DateTimeFormat("en", { day: "numeric", month: "short" }).format(new Date(row.ended_at)) };
+  return { kind: "none" };
 }
 
 /**

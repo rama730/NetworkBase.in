@@ -115,7 +115,7 @@ export async function openInvitesFor(userId: string, orgId?: string) {
 
 /** Child projects of the org this person leads; they transfer or detach those before leaving (report §20.7). */
 export async function ledChildWorkspaces(executor: Executor, orgId: string, userId: string) {
-  return executor.select({ id: workspaces.id }).from(workspaces)
+  return executor.select({ id: workspaces.id, title: workspaces.title, slug: workspaces.slug }).from(workspaces)
     .where(and(eq(workspaces.parentId, orgId), eq(workspaces.ownerId, userId), isNull(workspaces.deletedAt)));
 }
 

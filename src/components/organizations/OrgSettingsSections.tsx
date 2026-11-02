@@ -5,6 +5,8 @@ import { useState, useTransition, type ReactNode } from 'react'
 
 import {
     leaveOrgAction,
+    readLeavePreviewAction,
+    type LeavePreview,
     previewVisibilityCapAction,
     regenerateJoinCodeAction,
     renameOrgHandleAction,
@@ -16,6 +18,8 @@ import { SettingsSwitch } from '@/components/settings/ui/SettingsSwitch'
 import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { Input } from '@/components/ui/input'
+import { toast } from '@/lib/feedback'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { ORG_TYPES, orgTypeLabel } from '@/lib/organizations/config'
 import { typeProfile } from '@/lib/organizations/type-profile'
 import { orgChatSettings } from '@/lib/organizations/chat-rules'
@@ -97,10 +101,26 @@ export function OrgMembershipSection({ orgId, organization, role }: SectionProps
     )
 }
 
-export function OrgLeaveSection({ orgId, role, title }: SectionProps & { title: string }) {
+export function OrgLeaveSection({ orgId, role, title, afterLeaveHref = '/discover' }: SectionProps & { title: string; afterLeaveHref?: string }) {
     const router = useRouter()
     const [open, setOpen] = useState(false)
+    const [preview, setPreview] = useState<LeavePreview | null>(null)
     const [error, setError] = useState<string | null>(null)
+    const [pending, startTransition] = useTransition()
+    const ask = () => startTransition(async () => {
+        const result = await readLeavePreviewAction(orgId)
+        if (!result.success) return setError(result.error)
+        setPreview(result.preview)
+        setOpen(true)
+    })
+    const leave = () => startTransition(async () => {
+        const result = await leaveOrgAction(orgId)
+        if (!result.success) return setError(result.error)
+        // Report §26.10 and §38.6: back to About if the organization is public, with the write-up nudge.
+        toast.success(`You left ${title}. You can still write up your work.`)
+        router.push(afterLeaveHref)
+    })
+    const month = new Intl.DateTimeFormat('en', { month: 'short', year: 'numeric' }).format(new Date())
     return (
         <Section id="you-leave">
             <SettingsCard title="Leave organization" headingLevel={2} description="Stop being a member. You can join again later with the code." danger>
@@ -108,24 +128,37 @@ export function OrgLeaveSection({ orgId, role, title }: SectionProps & { title: 
                     <p className="text-sm text-muted-foreground">Transfer ownership first, in Organization management below.</p>
                 ) : (
                     <div className="space-y-2">
-                        <Button variant="destructive" onClick={() => setOpen(true)}>Leave {title}</Button>
+                        <Button variant="destructive" disabled={pending} onClick={ask}>Leave {title}</Button>
                         {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}
                     </div>
                 )}
             </SettingsCard>
-            <ConfirmDialog
-                open={open}
-                onOpenChange={setOpen}
-                title={`Leave ${title}?`}
-                description="You lose access to its private content. Your tasks are unassigned."
-                confirmLabel="Leave"
-                variant="destructive"
-                onConfirm={async () => {
-                    const result = await leaveOrgAction(orgId)
-                    if (!result.success) return setError(result.error)
-                    router.push('/discover')
-                }}
-            />
+            <Dialog open={open} onOpenChange={setOpen}>
+                <DialogContent className="max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>Leave {title}?</DialogTitle>
+                        <DialogDescription>{preview?.led.length ? 'You own these workspaces. Transfer or detach each one first.' : 'Here’s what happens.'}</DialogDescription>
+                    </DialogHeader>
+                    {preview?.led.length ? (
+                        // Report §26.10: a lead sees the workspaces to hand over instead of Leave.
+                        <ul className="space-y-1.5 text-sm">
+                            {preview.led.map((w) => <li key={w.id}><a className="text-primary hover:underline" href={`/workspaces/${encodeURIComponent(w.slug ?? w.id)}?tab=settings`}>{w.title}</a> · Transfer or Detach in its Settings</li>)}
+                        </ul>
+                    ) : preview ? (
+                        <ul className="list-disc space-y-1 pl-5 text-sm">
+                            {preview.teams.length ? <li>You’ll leave {preview.teams.join(' and ')}; your {preview.teams.length === 1 ? 'seat reopens' : 'seats reopen'}</li> : null}
+                            {preview.open ? <li>{preview.open} open {preview.open === 1 ? 'assignment is' : 'assignments are'} removed</li> : null}
+                            {preview.submitted ? <li>{preview.submitted} submitted {preview.submitted === 1 ? 'assignment stays' : 'assignments stay'} with the {preview.keptBy}</li> : null}
+                            <li>Your profile entry stays, as “Left {month}”</li>
+                            <li>To come back, you’ll need the current code or a new invite</li>
+                        </ul>
+                    ) : null}
+                    <div className="flex justify-end gap-2">
+                        <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
+                        {preview && !preview.led.length ? <Button variant="destructive" disabled={pending} onClick={leave}>Leave</Button> : null}
+                    </div>
+                </DialogContent>
+            </Dialog>
         </Section>
     )
 }

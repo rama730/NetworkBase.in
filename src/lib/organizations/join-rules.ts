@@ -68,3 +68,28 @@ export const ORG_JOIN_MESSAGES = {
   unavailable: "This organization isn’t accepting new members.",
   cooldown: "Your last request was declined. You can ask again tomorrow.",
 } as const;
+
+/** Who is looking at a private organization's page (report §26.9, decision 48). */
+export type PrivateOrgState =
+  | { kind: "none" }
+  | { kind: "invited"; role: string; inviteId?: string }
+  | { kind: "waiting" }
+  | { kind: "declined" }
+  | { kind: "left"; date: string }
+  | { kind: "removed" }
+  | { kind: "blocked" }
+  | { kind: "ended" };
+
+/** The one line and the actions a private organization's page shows each person; nothing else from inside. */
+export function privateOrgLine(state: PrivateOrgState, org: string): { line: string | null; join: boolean; action: "invite" | "cancel" | null } {
+  switch (state.kind) {
+    case "invited": return { line: `You’re invited as ${state.role}`, join: false, action: "invite" };
+    case "waiting": return { line: "Request sent", join: false, action: "cancel" };
+    case "declined": return { line: "Your request was declined. You can ask again tomorrow.", join: false, action: null };
+    case "left": return { line: `You left ${org} on ${state.date}.`, join: true, action: null };
+    case "removed": return { line: `You’re no longer in ${org}.`, join: true, action: null };
+    case "blocked": return { line: "You can’t join this organization.", join: false, action: null };
+    case "ended": return { line: "This organization has ended.", join: false, action: null };
+    default: return { line: null, join: true, action: null };
+  }
+}
