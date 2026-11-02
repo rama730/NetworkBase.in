@@ -170,3 +170,93 @@ test("problem 49: likes follow the post's audience", async () => {
   const liked = await updates.toggleWorkspaceUpdateLikeAction(o.org, id);
   assert.equal(liked.success, true, JSON.stringify(liked));
 });
+
+test("problems 43, 45 and 48, smaller bug 22: Viewers only read; the server sets the post type by role; read-only means read only; a removed author can't edit", async () => {
+  const o = await orgWithChild(true);
+  const [viewer] = await Promise.all([sql.begin((tx) => createUser(tx))]);
+  await sql`INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (${o.org}, ${viewer!}, 'viewer')`;
+  const posted = await post(o.org, o.admin, { updateType: "announcement" });
+  const id = posted.success ? posted.data!.id : "";
+  viewerId = viewer!;
+  assert.equal((await updates.toggleWorkspaceUpdateLikeAction(o.org, id)).success, false, "Viewers can't like (problem 43)");
+  assert.equal((await updates.createWorkspaceUpdateCommentAction(o.org, id, "Hi")).success, false, "or comment");
+
+  const mine = await post(o.org, o.member, { updateType: "announcement" });
+  assert.equal(mine.success, false, "members can't announce");
+  const discussion = await post(o.org, o.member, {});
+  assert.equal(discussion.success, true, JSON.stringify(discussion));
+  const discussionId = discussion.success ? discussion.data!.id : "";
+  const [type] = await sql`SELECT update_type FROM workspace_updates WHERE id = ${discussionId}`;
+  assert.equal(type!.update_type, "discussion", "the server makes it a discussion (problem 45)");
+  viewerId = o.member;
+  await updates.editWorkspaceUpdateAction(o.org, discussionId, { content: "Edited", updateType: "announcement" });
+  const [still] = await sql`SELECT update_type FROM workspace_updates WHERE id = ${discussionId}`;
+  assert.equal(still!.update_type, "discussion", "and keeps it one on edit");
+
+  await sql`DELETE FROM workspace_members WHERE workspace_id = ${o.org} AND user_id = ${o.other}`;
+  await sql`UPDATE workspaces SET visibility = 'public' WHERE id = ${o.org}`;
+  await sql`INSERT INTO workspace_updates (workspace_id, author_id, content, update_type, visibility) VALUES (${o.org}, ${o.other}, 'Old post', 'discussion', 'public')`;
+  const [old] = await sql`SELECT id FROM workspace_updates WHERE workspace_id = ${o.org} AND author_id = ${o.other}`;
+  viewerId = o.other;
+  assert.equal((await updates.editWorkspaceUpdateAction(o.org, old!.id, { content: "Rewritten after removal" })).success, false, "smaller bug 22");
+
+  await sql`UPDATE workspaces SET status = 'archived' WHERE id = ${o.org}`;
+  viewerId = o.admin;
+  const blocked = await updates.toggleWorkspaceUpdatePinAction(o.org, id, true);
+  assert.deepEqual([blocked.success, (blocked as { error?: string }).error], [false, "This organization has ended. Everything is read-only."], "problem 48");
+  assert.equal((await updates.editWorkspaceUpdateAction(o.org, id, { content: "Changed after the end" })).success, false);
+  assert.equal((await updates.setWorkspaceUpdateReplyPolicyAction(o.org, id, "closed")).success, false);
+  await assert.rejects(sql`UPDATE workspace_updates SET content = 'Direct write' WHERE id = ${id}`, /project_read_only/, "the database refuses edits too (DB11)");
+  await sql`UPDATE workspaces SET status = 'active' WHERE id = ${o.org}`;
+});
+
+test("problem 47 (decision 154): Overview's pinned line, activity and the sidebar dot follow the post's audience; your own posts don't light the dot", async () => {
+  const o = await orgWithChild();
+  const dash = await loadAppModule(() => import("../../src/app/actions/org-dashboard"));
+  const side = await loadAppModule(() => import("../../src/app/actions/org-workspace"));
+  const forMembers = await post(o.org, o.admin, { updateType: "announcement", audience: { roles: ["member"] }, pin: true });
+  assert.equal(forMembers.success, true, JSON.stringify(forMembers));
+  viewerId = o.member;
+  const overview = await dash.readOrgDashboardAction(o.org);
+  assert.equal(overview.success && overview.pinned?.id, forMembers.success ? forMembers.data!.id : "", "a pinned notice for Members shows to members");
+  assert.equal(overview.success && overview.activity.some((a) => a.kind === "announcement"), true);
+  const dot = async (as: string) => {
+    viewerId = as;
+    const s = await side.readSidebarWorkspacesAction();
+    return s?.orgs.find((x) => x.id === o.org)?.unseenAnnouncement;
+  };
+  await sql`UPDATE workspace_members SET last_seen_updates_at = now() - interval '1 day' WHERE workspace_id = ${o.org}`;
+  assert.equal(await dot(o.member), true);
+  await sql`UPDATE workspace_members SET role = 'viewer' WHERE workspace_id = ${o.org} AND user_id = ${o.other}`;
+  assert.equal(await dot(o.other), false, "not lit for a post you can't open");
+  assert.equal(await dot(o.admin), false, "not lit by your own post");
+});
+
+test("problem 42: the organization's people can like and comment on a post shared up from a workspace", async () => {
+  const o = await orgWithChild(true);
+  const shared = await post(o.child, o.member, { shareToOrg: true });
+  assert.equal(shared.success, true, JSON.stringify(shared));
+  const id = shared.success ? shared.data!.id : "";
+  viewerId = o.other;
+  const liked = await updates.toggleWorkspaceUpdateLikeAction(o.child, id);
+  assert.equal(liked.success, true, JSON.stringify(liked));
+  const replied = await updates.createWorkspaceUpdateCommentAction(o.child, id, "Nice work");
+  assert.equal(replied.success, true, JSON.stringify(replied));
+});
+
+test("problem 46: a deleted shared post frees its pin slot", async () => {
+  const o = await orgWithChild(true);
+  const sharedIds: string[] = [];
+  for (let i = 0; i < 3; i += 1) {
+    const s = await post(o.child, o.member, { shareToOrg: true });
+    assert.equal(s.success, true, JSON.stringify(s));
+    sharedIds.push(s.success ? s.data!.id : "");
+  }
+  viewerId = o.admin;
+  for (const id of sharedIds) assert.equal((await updates.toggleWorkspaceUpdatePinAction(o.org, id, true)).success, true);
+  await sql`UPDATE workspace_updates SET deleted_at = now() WHERE id = ${sharedIds[0]!}`;
+  const own = await post(o.org, o.admin, { updateType: "announcement" });
+  viewerId = o.admin;
+  const pinned = await updates.toggleWorkspaceUpdatePinAction(o.org, own.success ? own.data!.id : "", true);
+  assert.equal(pinned.success, true, JSON.stringify(pinned));
+});

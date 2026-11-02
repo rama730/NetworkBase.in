@@ -47,7 +47,8 @@
     "drizzle/0041_workspace_last_update.sql",
     "drizzle/0042_org_task_visibility.sql",
     "drizzle/0043_member_last_active_here.sql",
-    "drizzle/0044_live_copy_events.sql"
+    "drizzle/0044_live_copy_events.sql",
+    "drizzle/0045_update_read_only_edits.sql"
   ],
   "legacyDatabaseTags": [],
   "allowedUtilitySqlFiles": [

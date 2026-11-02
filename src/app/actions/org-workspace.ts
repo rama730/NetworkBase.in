@@ -9,6 +9,7 @@ import { orgFileAccessSql } from '@/lib/files/internal-helpers';
 import { readNeedsYou, type OrgViewer } from '@/lib/organizations/needs-you';
 import { openInvitesFor } from '@/lib/organizations/members';
 import { readOrgRules } from '@/lib/organizations/settings';
+import { audienceSql } from '@/lib/organizations/org-updates';
 import { getViewerAuthContext } from '@/lib/server/viewer-context';
 
 // The app-wide org pieces (report §29.2 My work, §29.3 left navigation, §30.1 search, §30.6 Network).
@@ -59,11 +60,14 @@ export async function readSidebarWorkspacesAction(): Promise<SidebarWorkspaces |
         const access = await getWorkspaceAccessById(org.id, userId);
         const isAdmin = org.role === 'owner' || org.role === 'admin';
         const v: OrgViewer = { userId, access, isAdmin, isInside: true, isGuest: org.role === 'viewer', org: { id: org.id, title: org.title, slug: org.slug, status: org.status } };
+        const kids = childRows.filter((c) => c.parent_id === org.id);
+        // The dot follows the post's audience and skips your own posts (decision 154, report §42.15 problem 47).
+        const audience = audienceSql({ isOrgAdmin: isAdmin, viewerRole: org.role as 'owner' | 'admin' | 'member' | 'viewer', viewerChildIds: kids.map((k) => k.id) }, userId);
         const [needs, [latest]] = await Promise.all([
             readNeedsYou(v, now).catch(() => []),
-            ROWS<{ at: string | null }>(sql`SELECT max(created_at)::text AS at FROM workspace_updates WHERE workspace_id = ${org.id} AND update_type = 'announcement' AND deleted_at IS NULL`),
+            ROWS<{ at: string | null }>(sql`SELECT max(created_at)::text AS at FROM workspace_updates WHERE workspace_id = ${org.id} AND update_type = 'announcement' AND deleted_at IS NULL
+                AND author_id IS DISTINCT FROM ${userId}::uuid ${audience ? sql`AND ${audience}` : sql``}`),
         ]);
-        const kids = childRows.filter((c) => c.parent_id === org.id);
         const rules = readOrgRules(org.settings);
         orgs.push({
             id: org.id, title: org.title, slug: org.slug, logo: org.logo, isAdmin,

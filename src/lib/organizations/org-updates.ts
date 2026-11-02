@@ -57,8 +57,11 @@ export async function readOrgUpdateContext(project: { id: string; kind?: string 
   };
 }
 
-/** SQL mirror of audienceAllows for the feed (and of app_private.nb_update_audience_ok). */
-function audienceSql(ctx: OrgUpdateContext, viewerId: string | null): SQL | undefined {
+/**
+ * SQL mirror of audienceAllows (and of app_private.nb_update_audience_ok): one audience rule for the feed, Overview
+ * and the sidebar dot (decision 154). Only bare columns, so it works on its own or inside a join.
+ */
+export function audienceSql(ctx: Pick<OrgUpdateContext, "isOrgAdmin" | "viewerRole" | "viewerChildIds">, viewerId: string | null): SQL | undefined {
   if (ctx.isOrgAdmin) return undefined;
   const conditions: SQL[] = [sql`${workspaceUpdates.audience} = '{}'::jsonb`];
   if (viewerId) conditions.push(eq(workspaceUpdates.authorId, viewerId));

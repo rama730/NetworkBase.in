@@ -15,6 +15,7 @@ import {
     gt,
     ilike,
     inArray,
+    isNotNull,
     isNull,
     lt,
     or,
@@ -390,6 +391,8 @@ type ProjectUpdateAccess = {
     canRead: boolean;
     canCreate: boolean;
     canManage: boolean;
+    /** Archived, suspended or being deleted: every post change is refused with this sentence (decision 156). */
+    readOnly: string | null;
 };
 
 function encodeUpdateCursor(row: { isPinned: boolean; createdAt: Date | string; id: string }) {
@@ -753,6 +756,26 @@ function canCreateForRole(access: Pick<ProjectUpdateAccess, "isOwner" | "memberR
     return false;
 }
 
+/**
+ * Why this viewer can't change or react to posts here, or null: read-only places (decision 156, problem 48), and
+ * an organization's Viewers, who read and see likes only (problem 43).
+ */
+/**
+ * Who reads a post past the workspace's own membership rule (report §42.15 problem 42): everyone for Public posts,
+ * and the organization's people for posts its workspace shared up, which follow the organization feed's rule.
+ */
+function sharedOrPublicSql(access: ProjectUpdateAccess) {
+    if (access.isOwner || access.isMember) return undefined;
+    const inOrg = access.org?.kind === "child" && Boolean(access.org.viewerRole);
+    return inOrg ? or(eq(workspaceUpdates.visibility, "public"), isNotNull(workspaceUpdates.sharedToOrgAt)) : eq(workspaceUpdates.visibility, "public");
+}
+
+function postInteractionBlock(access: ProjectUpdateAccess) {
+    if (access.readOnly) return access.readOnly;
+    if (access.org?.kind === "org" && access.memberRole === "viewer") return "Viewers can read posts but not reply or like.";
+    return null;
+}
+
 async function resolveProjectUpdateAccess(projectId: string, viewerId: string | null): Promise<ProjectUpdateAccess> {
     const [project] = await db
         .select({
@@ -766,6 +789,8 @@ async function resolveProjectUpdateAccess(projectId: string, viewerId: string | 
             memberUpdatesEnabled: workspaces.memberUpdatesEnabled,
             kind: workspaces.kind,
             parentId: workspaces.parentId,
+            suspendedAt: workspaces.suspendedAt,
+            deletionScheduledAt: workspaces.deletionScheduledAt,
         })
         .from(workspaces)
         .where(and(eq(workspaces.id, projectId), isNull(workspaces.deletedAt)))
@@ -782,8 +807,13 @@ async function resolveProjectUpdateAccess(projectId: string, viewerId: string | 
             canRead: false,
             canCreate: false,
             canManage: false,
+            readOnly: null,
         };
     }
+    const place = project.kind === "organization" ? "organization" : "workspace";
+    const readOnly = project.deletionScheduledAt ? `This ${place} is scheduled for deletion.`
+        : project.suspendedAt ? `This ${place} is suspended. Everything is read-only.`
+            : project.status === "archived" ? (place === "organization" ? "This organization has ended. Everything is read-only." : "This workspace is archived. Everything is read-only.") : null;
 
     const isOwner = Boolean(viewerId && viewerId === project.ownerId);
     const [membership] = viewerId && !isOwner
@@ -818,9 +848,10 @@ async function resolveProjectUpdateAccess(projectId: string, viewerId: string | 
         isMember,
         memberRole,
         canRead,
-        canCreate: canRead && canCreateForRole({ isOwner, memberRole, memberUpdatesEnabled: project.memberUpdatesEnabled }),
+        canCreate: canRead && !readOnly && canCreateForRole({ isOwner, memberRole, memberUpdatesEnabled: project.memberUpdatesEnabled }),
         // Org admins moderate child project updates too (report §29.4).
         canManage: canRead && (isModerator({ isOwner, memberRole }) || isInheritedAdmin),
+        readOnly,
     };
     return effectiveAccess;
 }
@@ -1546,7 +1577,9 @@ export async function createWorkspaceUpdateAction(projectId: string, input: {
         const access = await resolveProjectUpdateAccess(projectId, viewer.userId);
         if (!access.canCreate || !access.project) return { success: false as const, error: "You don’t have access to post updates here." };
 
-        const updateType = normalizeWorkspaceUpdateType(input.updateType);
+        // Decision 155: in an organization the server sets the type by role: admins announce, members discuss.
+        const requestedType = normalizeWorkspaceUpdateType(input.updateType);
+        const updateType = access.org?.kind === "org" ? requestedType ?? (access.canManage ? "announcement" : "discussion") : requestedType;
         // Decisions 5, 27 and 152: an organization's posts stay with its members unless an admin picks Public.
         const visibility: WorkspaceUpdateVisibility = access.org?.kind === "org"
             ? (access.canManage && input.visibility === "public" ? "public" : "members")
@@ -1704,6 +1737,12 @@ export async function editWorkspaceUpdateAction(projectId: string, updateId: str
         const viewer = await getViewerAuthContext();
         if (!viewer.userId) return { success: false as const, error: "Sign in to edit updates." };
         const access = await resolveProjectUpdateAccess(projectId, viewer.userId);
+        const interactionBlock = postInteractionBlock(access);
+        if (interactionBlock) return { success: false as const, error: interactionBlock };
+        // Someone no longer in the organization can't rewrite what they posted there (report §42.15 smaller bug 22).
+        if (access.org?.kind === "org" && !access.isOwner && !access.isMember) return { success: false as const, error: "You’re no longer in this organization." };
+        // Members keep their posts as discussions; only admins switch the type (decision 155).
+        const editType = input.updateType === undefined || (access.org?.kind === "org" && !access.canManage) ? undefined : normalizeWorkspaceUpdateType(input.updateType);
         if (!access.canRead || !access.project) return { success: false as const, error: "This update isn’t available." };
         const content = sanitizeWorkspaceUpdateContent(input.content);
         const entityRefs = normalizeEntityRefs(input.entityRefs);
@@ -1752,7 +1791,7 @@ export async function editWorkspaceUpdateAction(projectId: string, updateId: str
                 .set({
                     content,
                     // An edit that leaves the type out keeps it, so an announcement stays one.
-                    ...(input.updateType === undefined ? {} : { updateType: normalizeWorkspaceUpdateType(input.updateType) }),
+                    ...(editType === undefined ? {} : { updateType: editType }),
                     entityRefs,
                     media,
                     editedAt: now,
@@ -1780,6 +1819,8 @@ export async function deleteWorkspaceUpdateAction(projectId: string, updateId: s
         const viewer = await getViewerAuthContext();
         if (!viewer.userId) return { success: false as const, error: "Sign in to delete updates." };
         const access = await resolveProjectUpdateAccess(projectId, viewer.userId);
+        const interactionBlock = postInteractionBlock(access);
+        if (interactionBlock) return { success: false as const, error: interactionBlock };
         if (!access.canRead || !access.project) return { success: false as const, error: "This update isn’t available." };
         const now = new Date();
         let removedAuthorId: string | null = null;
@@ -1879,13 +1920,26 @@ async function countOrgOwnPins(tx: Parameters<Parameters<typeof db.transaction>[
     return own?.n ?? 0;
 }
 
+/**
+ * The shared posts the organization pinned that are still live: not deleted, still shared, their workspace still in
+ * the organization. Only these use a pin slot, so a deleted or departed post never holds one (problem 46).
+ */
+async function liveSharedPins(tx: Parameters<Parameters<typeof db.transaction>[0]>[0], orgId: string) {
+    const [org] = await tx.select({ settings: workspaces.orgSettings }).from(workspaces).where(eq(workspaces.id, orgId)).limit(1);
+    const saved = readSharedPins(org?.settings);
+    if (saved.length === 0) return [];
+    const live = await tx.select({ id: workspaceUpdates.id }).from(workspaceUpdates)
+        .where(and(inArray(workspaceUpdates.id, saved), isNull(workspaceUpdates.deletedAt), isNotNull(workspaceUpdates.sharedToOrgAt),
+            sql`${workspaceUpdates.projectId} IN (SELECT id FROM workspaces WHERE parent_id = ${orgId} AND deleted_at IS NULL)`));
+    return saved.filter((id) => live.some((row) => row.id === id));
+}
+
 async function pinSharedInOrgFeed(tx: Parameters<Parameters<typeof db.transaction>[0]>[0], orgId: string, updateId: string, pinned: boolean) {
     const [shared] = await tx.select({ id: workspaceUpdates.id }).from(workspaceUpdates)
         .where(and(eq(workspaceUpdates.id, updateId), isNull(workspaceUpdates.deletedAt), sql`${workspaceUpdates.sharedToOrgAt} IS NOT NULL`,
             sql`${workspaceUpdates.projectId} IN (SELECT id FROM workspaces WHERE parent_id = ${orgId} AND deleted_at IS NULL)`)).limit(1);
     if (!shared) return false;
-    const [org] = await tx.select({ settings: workspaces.orgSettings }).from(workspaces).where(eq(workspaces.id, orgId)).limit(1);
-    const current = readSharedPins(org?.settings);
+    const current = await liveSharedPins(tx, orgId);
     const next = pinned ? [...new Set([...current, updateId])] : current.filter((id) => id !== updateId);
     if (pinned && !current.includes(updateId)) {
         if ((await countOrgOwnPins(tx, orgId)) + next.length > 3) throw new Error("ORG_PIN_LIMIT");
@@ -1899,6 +1953,8 @@ export async function toggleWorkspaceUpdatePinAction(projectId: string, updateId
         const viewer = await getViewerAuthContext();
         if (!viewer.userId) return { success: false as const, error: "Sign in to pin updates." };
         const access = await resolveProjectUpdateAccess(projectId, viewer.userId);
+        const interactionBlock = postInteractionBlock(access);
+        if (interactionBlock) return { success: false as const, error: interactionBlock };
         if (!access.canManage || !access.project) return { success: false as const, error: "Only the owner and admins can pin updates." };
         const found = await db.transaction(async (tx) => {
             // COR-046: the project row lock serializes pin swaps, and the target is validated before
@@ -1915,7 +1971,7 @@ export async function toggleWorkspaceUpdatePinAction(projectId: string, updateId
             const isOrg = access.project?.kind === "organization";
             // Shared posts pinned in the org feed count toward the same 3.
             if (pinned && isOrg && access.org?.kind === "org"
-                && (await countOrgOwnPins(tx, projectId, updateId)) + access.org.sharedPinIds.length >= 3) throw new Error("ORG_PIN_LIMIT");
+                && (await countOrgOwnPins(tx, projectId, updateId)) + (await liveSharedPins(tx, projectId)).length >= 3) throw new Error("ORG_PIN_LIMIT");
             if (pinned && !isOrg) {
                 await tx
                     .update(workspaceUpdates)
@@ -1974,6 +2030,8 @@ export async function toggleWorkspaceUpdateLikeAction(projectId: string, updateI
         // Likes from a suspended account don't count (UP13).
         if (await accountRestriction(viewer.userId)) return { success: false as const, error: "Your account can’t like right now." };
         const access = await resolveProjectUpdateAccess(projectId, viewer.userId);
+        const interactionBlock = postInteractionBlock(access);
+        if (interactionBlock) return { success: false as const, error: interactionBlock };
         if (!access.canRead || !access.project) return { success: false as const, error: "This update isn’t available." };
         const [update] = await db
             .select({ id: workspaceUpdates.id, visibility: workspaceUpdates.visibility, authorId: workspaceUpdates.authorId, content: workspaceUpdates.content, audience: workspaceUpdates.audience })
@@ -1982,7 +2040,7 @@ export async function toggleWorkspaceUpdateLikeAction(projectId: string, updateI
                 eq(workspaceUpdates.id, updateId),
                 eq(workspaceUpdates.projectId, projectId),
                 isNull(workspaceUpdates.deletedAt),
-                access.isOwner || access.isMember ? undefined : eq(workspaceUpdates.visibility, "public"),
+                sharedOrPublicSql(access),
             ))
             .limit(1);
         // Report §42.15 problem 49: a post limited to an audience can't be liked from outside it.
@@ -2211,13 +2269,14 @@ async function assertReadableUpdate(projectId: string, updateId: string, access:
             replyPolicy: workspaceUpdates.replyPolicy,
             visibility: workspaceUpdates.visibility,
             deletedAt: workspaceUpdates.deletedAt,
+            sharedToOrgAt: workspaceUpdates.sharedToOrgAt,
         })
         .from(workspaceUpdates)
         .where(and(
             eq(workspaceUpdates.id, updateId),
             eq(workspaceUpdates.projectId, projectId),
             isNull(workspaceUpdates.deletedAt),
-            access.isOwner || access.isMember ? undefined : eq(workspaceUpdates.visibility, "public"),
+            sharedOrPublicSql(access),
             orgAudienceWhere(access),
         ))
         .limit(1);
@@ -2314,11 +2373,15 @@ export async function createWorkspaceUpdateCommentAction(projectId: string, upda
         const viewer = await getViewerProfileContext();
         if (!viewer.userId) return { success: false as const, error: "Sign in to comment." };
         const access = await resolveProjectUpdateAccess(projectId, viewer.userId);
+        const interactionBlock = postInteractionBlock(access);
+        if (interactionBlock) return { success: false as const, error: interactionBlock };
         const update = await assertReadableUpdate(projectId, updateId, access);
         if (!update || !access.project) return { success: false as const, error: "This update isn’t available." };
         const project = access.project;
         if (update.replyPolicy === "closed") return { success: false as const, error: "Comments are off for this post." };
-        if (update.replyPolicy === "members" && !access.isOwner && !access.isMember) {
+        // A shared post follows the organization feed: its people count as members for replies (problem 42).
+        const orgReader = Boolean(update.sharedToOrgAt && access.org?.kind === "child" && access.org.viewerRole);
+        if (update.replyPolicy === "members" && !access.isOwner && !access.isMember && !orgReader) {
             return { success: false as const, error: "Only workspace members can comment on this update." };
         }
         const content = sanitizeWorkspaceUpdateContent(contentInput, 1_000);
@@ -2485,6 +2548,8 @@ export async function setWorkspaceUpdateReplyPolicyAction(projectId: string, upd
         if (!viewer.userId) return { success: false as const, error: "Sign in first." };
         if (!isLooseUuid(updateId) || !["logged_in", "members", "closed"].includes(replyPolicy)) return { success: false as const, error: "Update not found." };
         const access = await resolveProjectUpdateAccess(projectId, viewer.userId);
+        const interactionBlock = postInteractionBlock(access);
+        if (interactionBlock) return { success: false as const, error: interactionBlock };
         const update = await assertReadableUpdate(projectId, updateId, access);
         if (!update) return { success: false as const, error: "Update not found." };
         if (update.authorId !== viewer.userId && !access.canManage) return { success: false as const, error: "Only the author and the workspace’s admins can change this." };
@@ -2516,6 +2581,8 @@ export async function toggleWorkspaceUpdateCommentLikeAction(projectId: string, 
         if (!rate.allowed) return { success: false as const, error: "Too many likes. Try again in a minute." };
         if (await accountRestriction(viewer.userId)) return { success: false as const, error: "Your account can’t like right now." };
         const access = await resolveProjectUpdateAccess(projectId, viewer.userId);
+        const interactionBlock = postInteractionBlock(access);
+        if (interactionBlock) return { success: false as const, error: interactionBlock };
         const [comment] = await db
             .select({ updateId: workspaceUpdateComments.updateId })
             .from(workspaceUpdateComments)
@@ -2551,6 +2618,8 @@ export async function deleteWorkspaceUpdateCommentAction(projectId: string, comm
         const viewer = await getViewerAuthContext();
         if (!viewer.userId) return { success: false as const, error: "Sign in to delete comments." };
         const access = await resolveProjectUpdateAccess(projectId, viewer.userId);
+        const interactionBlock = postInteractionBlock(access);
+        if (interactionBlock) return { success: false as const, error: interactionBlock };
         if (!access.canRead || !access.project) return { success: false as const, error: "This update isn’t available." };
         const [comment] = await db
             .select({

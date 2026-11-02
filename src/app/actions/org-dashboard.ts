@@ -9,6 +9,7 @@ import { orgFileAccessSql } from '@/lib/files/internal-helpers';
 import { copyState, type CopyState } from '@/lib/organizations/assignment-rules';
 import { activityVisible, getStartedSteps, journeyFromSprints, needsAttention, type ActivityKind } from '@/lib/organizations/dashboard-rules';
 import { readViewerOrgRole } from '@/lib/organizations/detail';
+import { audienceSql } from '@/lib/organizations/org-updates';
 import { readOrgDocsAction } from '@/app/actions/org-docs';
 import { normalizeWorkspacePublicTabVisibility } from '@/lib/workspaces/settings-policies';
 import { getViewerAuthContext } from '@/lib/server/viewer-context';
@@ -42,7 +43,15 @@ async function orgViewer(orgId: string): Promise<OrgViewer | null> {
 }
 
 /** Org activity with the privacy filter (report §27.2); `publicOnly` is About's public-safe list (§22.2). */
-async function readActivity(v: OrgViewer, filter: string, opts: { publicOnly?: boolean; limit?: number } = {}): Promise<ActivityItem[]> {
+/** What the audience rule needs about the viewer (decision 154): admin or not, their role, their workspaces. */
+async function viewerAudience(v: OrgViewer) {
+    const children = v.userId ? await db.select({ id: workspaces.id }).from(workspaces)
+        .innerJoin(workspaceMembers, and(eq(workspaceMembers.projectId, workspaces.id), eq(workspaceMembers.userId, v.userId)))
+        .where(and(eq(workspaces.parentId, v.org.id), isNull(workspaces.deletedAt))) : [];
+    return { isOrgAdmin: v.isAdmin, viewerRole: v.access.isOwner ? 'owner' as const : (v.access.memberRole ?? null), viewerChildIds: children.map((c) => c.id) };
+}
+
+async function readActivity(v: OrgViewer, filter: string, opts: { publicOnly?: boolean; limit?: number; audience?: Awaited<ReturnType<typeof viewerAudience>> } = {}): Promise<ActivityItem[]> {
     const base = `/org/${encodeURIComponent(v.org.slug ?? v.org.id)}`;
     const since = new Date(Date.now() - 30 * DAY);
     const want = (k: ActivityKind) => filter === 'all' || (filter === 'assignments' && (k === 'assignment' || k === 'submission')) || (filter === 'people' && k === 'joins') || (filter === 'files' && (k === 'file' || k === 'doc')) || (filter === 'projects' && k === 'project');
@@ -54,7 +63,8 @@ async function readActivity(v: OrgViewer, filter: string, opts: { publicOnly?: b
             .from(workspaces).where(and(eq(workspaces.parentId, v.org.id), isNull(workspaces.deletedAt), gte(workspaces.createdAt, since))),
         db.select({ n: sql<number>`count(*)::int` }).from(workspaceMembers).where(and(eq(workspaceMembers.projectId, v.org.id), gte(workspaceMembers.joinedAt, new Date(Date.now() - 7 * DAY)))),
         db.select({ id: workspaceUpdates.id, content: workspaceUpdates.content, createdAt: workspaceUpdates.createdAt, visibility: workspaceUpdates.visibility, audience: workspaceUpdates.audience, authorId: workspaceUpdates.authorId })
-            .from(workspaceUpdates).where(and(eq(workspaceUpdates.projectId, v.org.id), eq(workspaceUpdates.updateType, 'announcement'), isNull(workspaceUpdates.deletedAt), gte(workspaceUpdates.createdAt, since))),
+            .from(workspaceUpdates).where(and(eq(workspaceUpdates.projectId, v.org.id), eq(workspaceUpdates.updateType, 'announcement'), isNull(workspaceUpdates.deletedAt), gte(workspaceUpdates.createdAt, since),
+                opts.audience ? audienceSql(opts.audience, v.userId) : undefined)),
         opts.publicOnly ? Promise.resolve([]) : db.select({ id: workspaceNodeEvents.id, nodeId: workspaceNodes.id, name: workspaceNodes.name, at: workspaceNodeEvents.createdAt, actorId: workspaceNodeEvents.actorId })
             .from(workspaceNodeEvents).innerJoin(workspaceNodes, and(eq(workspaceNodes.id, workspaceNodeEvents.nodeId), isNull(workspaceNodes.deletedAt), isNull(workspaceNodes.taskId)))
             .where(and(eq(workspaceNodeEvents.projectId, v.org.id), eq(workspaceNodeEvents.type, 'create_file'), gte(workspaceNodeEvents.createdAt, since), orgFileAccessSql(v.access)))
@@ -78,7 +88,8 @@ async function readActivity(v: OrgViewer, filter: string, opts: { publicOnly?: b
     if (joins[0] && joins[0].n > 0) items.push({ id: 'joins:week', kind: 'joins', text: `${plural(joins[0].n, 'person')} joined this week`.replace('persons', 'people'), at: new Date().toISOString(), href: base, actorId: null });
     for (const p of posts) {
         const everyone = !p.audience || Object.keys(p.audience as object).length === 0;
-        if (!v.isAdmin && !everyone) continue;
+        // Audience-limited posts reach only their audience (decision 154); without the viewer's audience, everyone-posts only.
+        if (!v.isAdmin && !everyone && !opts.audience) continue;
         if (!v.isInside && p.visibility !== 'public') continue;
         items.push({ id: `post:${p.id}`, kind: 'announcement', text: p.content.slice(0, 120), at: p.createdAt.toISOString(), href: `${base}?tab=updates&updateId=${p.id}`, actorId: p.authorId, public: p.visibility === 'public' && everyone });
     }
@@ -117,18 +128,19 @@ export async function readOrgDashboardAction(orgId: string, activityFilter = 'al
     const v = await orgViewer(orgId);
     if (!v || !v.isInside) return DENIED;
     const now = new Date();
+    const audience = await viewerAudience(v);
     const [[pinned], sprints, masters, needsYou, activity, people, [counts]] = await Promise.all([
         db.select({ id: workspaceUpdates.id, content: workspaceUpdates.content }).from(workspaceUpdates).where(and(
             eq(workspaceUpdates.projectId, orgId), eq(workspaceUpdates.isPinned, true), isNull(workspaceUpdates.deletedAt),
             or(isNull(workspaceUpdates.pinnedUntil), gt(workspaceUpdates.pinnedUntil, now)),
-            v.isAdmin ? undefined : sql`${workspaceUpdates.audience} = '{}'::jsonb`,
+            audienceSql(audience, v.userId),
         )).orderBy(desc(workspaceUpdates.createdAt)).limit(1),
         db.select({ id: workspaceSprints.id, name: workspaceSprints.name, status: workspaceSprints.status, startDate: workspaceSprints.startDate, endDate: workspaceSprints.endDate })
             .from(workspaceSprints).where(and(eq(workspaceSprints.projectId, orgId), ne(workspaceSprints.status, 'completed'))).orderBy(asc(workspaceSprints.startDate)),
         db.select({ id: tasks.id, title: tasks.title, dueDate: tasks.dueDate, sprintId: tasks.sprintId }).from(tasks)
             .where(and(eq(tasks.projectId, orgId), eq(tasks.kind, 'assignment'), isNull(tasks.assignmentId), isNull(tasks.deletedAt), v.isAdmin ? undefined : published)),
         readNeedsYou(v, now),
-        readActivity(v, activityFilter),
+        readActivity(v, activityFilter, { audience }),
         db.select({ id: profiles.id, name: profiles.fullName, username: profiles.username, avatarUrl: profiles.avatarUrl, joinedAt: workspaceMembers.joinedAt, show: workspaceMembers.showOnProfile })
             .from(workspaceMembers).innerJoin(profiles, eq(profiles.id, workspaceMembers.userId)).where(eq(workspaceMembers.projectId, orgId)).orderBy(desc(workspaceMembers.joinedAt)),
         db.select({
