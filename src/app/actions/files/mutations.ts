@@ -770,13 +770,13 @@ export async function renameNode(nodeId: string, newName: string, projectId: str
     if (!user) throw new Error("Sign in to continue");
     const { allowed } = await consumeRateLimit(`files:${user.id}`, 60, 60);
     if (!allowed) throw new Error("Too many attempts. Try again in a minute.");
-    await assertWorkspaceWriteAccess(projectId, user.id);
+    await assertWorkspaceWriteAccess(projectId, user.id, { nodeId });
 
     const safeName = normalizeNodeName(newName);
     assertValidNodeName(safeName);
 
     const node = await db.transaction(async (tx) => {
-        await assertWorkspaceWriteAccessTx(tx, projectId, user.id);
+        await assertWorkspaceWriteAccessTx(tx, projectId, user.id, { nodeId });
         await assertNodeNotLockedByAnotherUser(projectId, nodeId, user.id, tx);
         const current = await tx.query.workspaceNodes.findFirst({
             where: and(eq(workspaceNodes.id, nodeId), eq(workspaceNodes.projectId, projectId)),
@@ -1006,10 +1006,10 @@ export async function restoreNode(nodeId: string, projectId: string) {
     if (!user) throw new Error("Sign in to continue");
     const { allowed } = await consumeRateLimit(`files:${user.id}`, 60, 60);
     if (!allowed) throw new Error("Too many attempts. Try again in a minute.");
-    await assertWorkspaceWriteAccess(projectId, user.id);
+    await assertWorkspaceWriteAccess(projectId, user.id, { nodeId });
 
     await db.transaction(async (tx) => {
-        await assertWorkspaceWriteAccessTx(tx, projectId, user.id);
+        await assertWorkspaceWriteAccessTx(tx, projectId, user.id, { nodeId });
         const node = await tx.query.workspaceNodes.findFirst({
             where: and(eq(workspaceNodes.id, nodeId), eq(workspaceNodes.projectId, projectId)),
             columns: { id: true, parentId: true, name: true, deletedAt: true, metadata: true },
@@ -1066,14 +1066,14 @@ export async function bulkTrashNodes(nodeIds: string[], projectId: string, expec
     if (!user) throw new Error("Sign in to continue");
     const { allowed } = await consumeRateLimit(`files:${user.id}`, 60, 60);
     if (!allowed) throw new Error("Too many attempts. Try again in a minute.");
-    await assertWorkspaceWriteAccess(projectId, user.id);
+    await assertWorkspaceWriteAccess(projectId, user.id, { nodeIds: nodeIds.filter(Boolean) });
 
     const uniqueIds = Array.from(new Set(nodeIds.filter(Boolean)));
     assertBulkLimit(uniqueIds);
 
     const now = new Date();
     const result = await db.transaction(async (tx) => {
-        await assertWorkspaceWriteAccessTx(tx, projectId, user.id);
+        await assertWorkspaceWriteAccessTx(tx, projectId, user.id, { nodeIds: uniqueIds });
         const nodes = await tx.query.workspaceNodes.findMany({
             where: and(eq(workspaceNodes.projectId, projectId), inArray(workspaceNodes.id, uniqueIds)),
             columns: { id: true, name: true, path: true, type: true, taskId: true, metadata: true, deletedAt: true, updatedAt:true },
@@ -1159,14 +1159,14 @@ export async function bulkRestoreNodes(nodeIds: string[], projectId: string, exp
     if (!user) throw new Error("Sign in to continue");
     const { allowed } = await consumeRateLimit(`files:${user.id}`, 60, 60);
     if (!allowed) throw new Error("Too many attempts. Try again in a minute.");
-    await assertWorkspaceWriteAccess(projectId, user.id);
+    await assertWorkspaceWriteAccess(projectId, user.id, { nodeIds: nodeIds.filter(Boolean) });
 
     const uniqueIds = Array.from(new Set(nodeIds.filter(Boolean)));
     assertBulkLimit(uniqueIds);
 
     const now = new Date();
     const result = await db.transaction(async (tx) => {
-        await assertWorkspaceWriteAccessTx(tx, projectId, user.id);
+        await assertWorkspaceWriteAccessTx(tx, projectId, user.id, { nodeIds: nodeIds.filter(Boolean) });
         const selectedNodes = await tx.query.workspaceNodes.findMany({
             where: and(eq(workspaceNodes.projectId, projectId), inArray(workspaceNodes.id, uniqueIds)),
             columns: { id: true, parentId: true, name: true, deletedAt: true, metadata: true },

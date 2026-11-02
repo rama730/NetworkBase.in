@@ -396,3 +396,45 @@ test("security review: work that changed after it was handed in can't be approve
   const [row] = await sql`SELECT updated_at FROM tasks WHERE id = ${copyOf(o.a)}`;
   assert.equal((await taskActions.requestTaskChangesAction(copyOf(o.a), other, "Redo", new Date(row!.updated_at).toISOString())).success, false, "wrong workspace");
 });
+
+test("problems 38, 39, 51 and decision 173: files on your own copy can be fixed until Submit; then they're locked for everyone", async () => {
+  const o = await org();
+  const { copyOf } = await published(o, "Lab 19");
+  const mutations = await loadAppModule(() => import("../../src/app/actions/files/mutations"));
+  const links = await loadAppModule(() => import("../../src/app/actions/files/links"));
+  const fileOn = async (taskId: string, name: string) => (await sql`INSERT INTO workspace_nodes (workspace_id, type, name, path, task_id) VALUES (${o.org}, 'file', ${name}, ${"/" + name}, ${taskId}) RETURNING id`)[0]!.id as string;
+  const mine = await fileOn(copyOf(o.a), "lab19-a.txt");
+  const wrong = await fileOn(copyOf(o.a), "wrong.txt");
+  const theirs = await fileOn(copyOf(o.b), "lab19-b.txt");
+  const [linked] = await sql`INSERT INTO workspace_nodes (workspace_id, type, name, path) VALUES (${o.org}, 'file', 'notes.txt', '/notes.txt') RETURNING id`;
+  await sql`INSERT INTO task_node_links (task_id, node_id) VALUES (${copyOf(o.a)}, ${linked!.id})`;
+
+  viewerId = o.a;
+  const ok = async (p: Promise<unknown>) => p.then(() => true, () => false);
+  assert.equal(await ok(mutations.renameNode(mine, "lab19-final.txt", o.org)), true, "rename your own copy's file (problem 51)");
+  assert.equal(await ok(mutations.bulkTrashNodes([wrong], o.org)), true, "remove a wrong file (problem 39)");
+  assert.equal(await ok(links.unlinkNodeFromTask(copyOf(o.a), linked!.id)), true, "unlink one from your copy");
+  assert.equal(await ok(mutations.renameNode(theirs, "mine-now.txt", o.org)), false, "never a classmate's");
+
+  assert.equal((await assignments.submitAssignmentAction(copyOf(o.a), {})).success, true);
+  assert.equal(await ok(mutations.renameNode(mine, "after.txt", o.org)), false, "locked once handed in (decision 173)");
+  viewerId = o.admin;
+  assert.equal(await ok(mutations.bulkTrashNodes([mine], o.org)), false, "admins too (problem 38)");
+});
+
+test("problem 50 (decision 157): a full organization never blocks a hand-in; hand-ins have 50 MB per person", async () => {
+  const o = await org();
+  await published(o, "Lab 20");
+  const uploads = await loadAppModule(() => import("../../src/lib/upload/upload-intents"));
+  const MB = 1024 ** 2;
+  await sql`INSERT INTO storage_quota_scopes (scope_type, scope_id, limit_bytes, retained_bytes) VALUES ('project', ${o.org}, ${50 * 1024 ** 3}, ${5 * 1024 ** 3})
+    ON CONFLICT (scope_type, scope_id) DO UPDATE SET retained_bytes = EXCLUDED.retained_bytes`;
+  const intent = (userId: string, size: number) => uploads.createUploadIntent({ userId, projectId: o.org, bucket: "project-files",
+    storageKey: `${o.org}/${crypto.randomUUID()}.txt`, scope: "workspace_file", kind: "file", expectedMimeType: "text/plain", expectedSize: size, metadata: {} })
+    .then(() => true, (error: Error) => error.message);
+  assert.equal(await intent(o.a, MB), true, "a member's hand-in goes through");
+  assert.notEqual(await intent(o.admin, MB), true, "the organization's own files still stop at 5 GB");
+  const [node] = await sql`INSERT INTO workspace_nodes (workspace_id, type, name, path) VALUES (${o.org}, 'file', 'big.zip', '/big.zip') RETURNING id`;
+  await sql`INSERT INTO file_versions (node_id, version, s3_key, size, mime_type, uploaded_by) VALUES (${node!.id}, 1, 'k', ${50 * MB}, 'application/zip', ${o.b})`;
+  assert.match(String(await intent(o.b, MB)), /50 MB/, "the per-person allowance applies");
+});

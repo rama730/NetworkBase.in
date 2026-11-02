@@ -96,7 +96,28 @@ export async function assertFileNodeVisible(access: ExistingProjectAccess, node:
     if (!row?.ok) throw new NotFoundError("File not found");
 }
 
-type OwnCopyTarget = { taskId?: string | null; nodeId?: string | null; anyOwnCopy?: boolean };
+type OwnCopyTarget = { taskId?: string | null; nodeId?: string | null; nodeIds?: string[]; anyOwnCopy?: boolean };
+
+const targetNodeIds = (target: OwnCopyTarget) => [...new Set([...(target.nodeId ? [target.nodeId] : []), ...(target.nodeIds ?? [])])];
+const uuidArray = (ids: string[]) => sql`ARRAY[${sql.join(ids.map((id) => sql`${id}::uuid`), sql`, `)}]::uuid[]`;
+
+/**
+ * Decision 173 and report §42.14 (problems 38, 151): once a copy is waiting for review or approved, its files are
+ * locked with that version for everyone, admins included; Returned work opens again for the resubmission.
+ */
+async function assertCopyFilesOpen(executor: Executor, projectId: string, target: OwnCopyTarget) {
+    const nodeIds = targetNodeIds(target);
+    if (!target.taskId && nodeIds.length === 0) return;
+    const touched = sql`(${target.taskId ? sql`t.id = ${target.taskId}::uuid` : sql`false`}${nodeIds.length ? sql`
+        OR t.id IN (SELECT n.task_id FROM workspace_nodes n WHERE n.workspace_id = ${projectId}::uuid AND n.id = ANY(${uuidArray(nodeIds)}))
+        OR t.id IN (SELECT l.task_id FROM task_node_links l WHERE l.node_id = ANY(${uuidArray(nodeIds)}))` : sql``})`;
+    const rows = Array.from(await executor.execute<{ title: string }>(sql`
+        SELECT t.title FROM tasks t
+        WHERE t.assignment_id IS NOT NULL AND t.deleted_at IS NULL AND (t.review_status = 'pending' OR t.status = 'done') AND ${touched}
+        LIMIT 1
+    `));
+    if (rows[0]) throw new ForbiddenError(`${rows[0].title} was handed in. Resubmit to change its files.`);
+}
 type Executor = typeof db | DbTransaction;
 
 /**
@@ -105,19 +126,22 @@ type Executor = typeof db | DbTransaction;
  */
 async function assertOrgWrite(executor: Executor, projectId: string, userId: string, isAdmin: boolean, target: OwnCopyTarget = {}) {
     if (isAdmin) return;
-    const taskScope = target.anyOwnCopy
-        ? sql`true`
-        : target.taskId
-            ? sql`t.id = ${target.taskId}::uuid`
-            : target.nodeId
-                ? sql`t.id = (SELECT n.task_id FROM workspace_nodes n WHERE n.id = ${target.nodeId}::uuid AND n.workspace_id = ${projectId}::uuid)`
-                : sql`false`;
-    const rows = Array.from(await executor.execute<{ id: string }>(sql`
-        SELECT t.id FROM tasks t
-        WHERE t.workspace_id = ${projectId}::uuid AND t.deleted_at IS NULL AND t.assignment_id IS NOT NULL AND ${taskScope}
-          AND (t.assignee_id = ${userId}::uuid OR EXISTS (SELECT 1 FROM task_team_members tm WHERE tm.task_id = t.id AND tm.user_id = ${userId}::uuid))
-        LIMIT 1
-    `));
+    const mine = sql`t.workspace_id = ${projectId}::uuid AND t.deleted_at IS NULL AND t.assignment_id IS NOT NULL
+          AND (t.assignee_id = ${userId}::uuid OR EXISTS (SELECT 1 FROM task_team_members tm WHERE tm.task_id = t.id AND tm.user_id = ${userId}::uuid))`;
+    const nodeIds = targetNodeIds(target);
+    if (nodeIds.length > 0) {
+        // Every file must sit on one of the member's own copies, owned by it or linked to it (problems 39, 51).
+        const [row] = Array.from(await executor.execute<{ n: number }>(sql`
+            SELECT count(*)::int AS n FROM workspace_nodes n
+            WHERE n.workspace_id = ${projectId}::uuid AND n.id = ANY(${uuidArray(nodeIds)})
+              AND EXISTS (SELECT 1 FROM tasks t WHERE ${mine}
+                AND (t.id = n.task_id OR EXISTS (SELECT 1 FROM task_node_links l WHERE l.task_id = t.id AND l.node_id = n.id)))
+        `));
+        if ((row?.n ?? 0) !== nodeIds.length) throw new ForbiddenError("Only organization owners and admins can change the organization’s files.");
+        return;
+    }
+    const taskScope = target.anyOwnCopy ? sql`true` : target.taskId ? sql`t.id = ${target.taskId}::uuid` : sql`false`;
+    const rows = Array.from(await executor.execute<{ id: string }>(sql`SELECT t.id FROM tasks t WHERE ${mine} AND ${taskScope} LIMIT 1`));
     if (rows.length === 0) throw new ForbiddenError("Only organization owners and admins can change the organization’s files.");
 }
 
@@ -126,6 +150,7 @@ export async function assertWorkspaceWriteAccess(projectId: string, userId: stri
     if (!access.canWrite) throw new ForbiddenError("You don’t have access to this");
     if (access.project.kind === "organization") await assertOrgWrite(db, projectId, userId, access.isOwner || access.memberRole === "admin", target);
     await requireWorkspaceCapability(projectId, userId, "upload_files");
+    if (target) await assertCopyFilesOpen(db, projectId, target);
     return { ...access, canWrite: true };
 }
 
@@ -181,6 +206,7 @@ export async function assertWorkspaceWriteAccessTx(
         throw new ForbiddenError("You don’t have access to this");
     }
 
+    if (target) await assertCopyFilesOpen(tx, projectId, target);
     const isOwner = project.owner_id === userId;
     if (isOwner) {
         return {

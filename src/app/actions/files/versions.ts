@@ -348,7 +348,7 @@ export async function restoreFileVersion(
   if (!user) throw new Error("Sign in to continue");
   const { allowed } = await consumeRateLimit(`files-versions:${user.id}`, 30, 60);
   if (!allowed) throw new Error("Too many attempts. Try again in a minute.");
-  await assertWorkspaceWriteAccess(projectId, user.id);
+  await assertWorkspaceWriteAccess(projectId, user.id, { nodeId });
 
   const result = await withTransientFileLease(
     { projectId, nodeId, userId: user.id },

@@ -18,6 +18,8 @@ export const ORG_LIMITS = {
   docGroupsPerOrg: 20,
   sprintsPerSeries: 52,
   orgStorageBytes: 5 * 1024 ** 3,
+  /** Hand-ins and their versions, per person, outside the organization's 5 GB (decision 157, report §42.16). */
+  handInBytesPerPerson: 50 * 1024 ** 2,
   orgStorageWarnRatio: 0.8,
   orgChatChannels: 200,
   joinCodeAttemptsPerMinutePerAccount: 5,

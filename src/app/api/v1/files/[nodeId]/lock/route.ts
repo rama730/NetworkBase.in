@@ -37,7 +37,7 @@ export async function POST(
     if (auth.response) return auth.response;
     const parsed = await parseFileLeaseBody(request, acquireSchema, "This request isn’t valid");
     if (parsed.response) return parsed.response;
-    await assertWorkspaceWriteAccess(parsed.data.projectId, auth.user!.id);
+    await assertWorkspaceWriteAccess(parsed.data.projectId, auth.user!.id, { nodeId });
 
     const lease = await acquireFileLease({
       projectId: parsed.data.projectId,
@@ -66,7 +66,7 @@ export async function DELETE(
     if (auth.response) return auth.response;
     const parsed = await parseFileLeaseBody(request, releaseSchema, "This request isn’t valid");
     if (parsed.response) return parsed.response;
-    await assertWorkspaceWriteAccess(parsed.data.projectId, auth.user!.id);
+    await assertWorkspaceWriteAccess(parsed.data.projectId, auth.user!.id, { nodeId });
     const released = await releaseFileLease({
       projectId: parsed.data.projectId,
       nodeId,

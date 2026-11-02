@@ -37,7 +37,8 @@ type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
 // COR-023: authority, the live task and the live file are re-read in the write transaction.
 async function assertLinkTargetsTx(tx: Tx, projectId: string, userId: string, taskId: string, nodeId: string) {
-    await assertWorkspaceWriteAccessTx(tx, projectId, userId);
+    // A member links files to their own copy only, and never once it was handed in (problems 38, 39).
+    await assertWorkspaceWriteAccessTx(tx, projectId, userId, { taskId });
     const [task] = await tx.select({ id: tasks.id }).from(tasks)
         .where(and(eq(tasks.id, taskId), eq(tasks.projectId, projectId), isNull(tasks.deletedAt))).limit(1);
     if (!task) throw new Error("Task not found");
@@ -214,7 +215,7 @@ export async function unlinkNodeFromTask(taskId: string, nodeId: string) {
     if (!user) throw new Error("Sign in to continue");
 
     const projectId = await getTaskWorkspaceId(taskId);
-    await assertWorkspaceWriteAccess(projectId, user.id);
+    await assertWorkspaceWriteAccess(projectId, user.id, { taskId });
 
     // Ensure node belongs to the same project (prevents unlinking arbitrary links across projects)
     const node = await db.query.workspaceNodes.findFirst({
@@ -226,7 +227,7 @@ export async function unlinkNodeFromTask(taskId: string, nodeId: string) {
     // Removing from a task must never delete a project file. Deletion remains an
     // explicit Files action; this operation only removes the task relationship.
     await db.transaction(async tx => {
-        await assertWorkspaceWriteAccessTx(tx, projectId, user.id);
+        await assertWorkspaceWriteAccessTx(tx, projectId, user.id, { taskId });
         // PURE OPTIMIZATION (Item 11): Consolidate link deletion and node metadata detachment into 1 atomic query.
         await tx.execute(sql`
             WITH deleted_link AS (

@@ -7,6 +7,7 @@ import { db } from "@/lib/db";
 import {
   importJobFiles,
   workspaces,
+  workspaceMembers,
   storageAssetOperations,
   storageAssets,
   storageQuotaScopes,
@@ -432,10 +433,22 @@ export async function createUploadIntent(rawParams: CreateUploadIntentParams) {
     const byteQuota = projectQuota ?? userQuota;
     // Organizations hold 5 GB (report §23, ORG_LIMITS.orgStorageBytes); copies of org files are counted once.
     const [scopeProject] = projectQuota
-      ? await tx.select({ kind: workspaces.kind }).from(workspaces).where(eq(workspaces.id, projectQuota.scopeId)).limit(1)
+      ? await tx.select({ kind: workspaces.kind, ownerId: workspaces.ownerId }).from(workspaces).where(eq(workspaces.id, projectQuota.scopeId)).limit(1)
       : [];
+    // A member uploads only to their own copy, so it's a hand-in: it never meets the organization's 5 GB, only its
+    // own allowance per person (decision 157, report §42.16 problem 50).
+    const handIn = scopeProject?.kind === "organization" && scopeProject.ownerId !== rawParams.userId && !(await tx.select({ role: workspaceMembers.role }).from(workspaceMembers)
+      .where(and(eq(workspaceMembers.projectId, projectQuota!.scopeId), eq(workspaceMembers.userId, rawParams.userId), eq(workspaceMembers.role, "admin"))).limit(1)).length;
+    if (handIn) {
+      const [used] = await tx.execute<{ bytes: string | number }>(sql`
+        SELECT coalesce(sum(v.size), 0) AS bytes FROM file_versions v JOIN workspace_nodes n ON n.id = v.node_id
+        WHERE n.workspace_id = ${projectQuota!.scopeId} AND v.uploaded_by = ${rawParams.userId}`);
+      if (Number(used?.bytes ?? 0) + expectedSize > ORG_LIMITS.handInBytesPerPerson) {
+        throw new Error("Your hand-ins have used their 50 MB. Remove an old file or ask an admin for more room.");
+      }
+    }
     assertStorageQuotaAdmission({
-      limitBytes: scopeProject?.kind === "organization" ? Math.min(byteQuota.limitBytes, ORG_LIMITS.orgStorageBytes) : byteQuota.limitBytes,
+      limitBytes: scopeProject?.kind === "organization" && !handIn ? Math.min(byteQuota.limitBytes, ORG_LIMITS.orgStorageBytes) : byteQuota.limitBytes,
       retainedBytes: byteQuota.retainedBytes,
       reservedBytes: byteQuota.reservedBytes,
       outstandingUploads: userQuota.outstandingUploads,

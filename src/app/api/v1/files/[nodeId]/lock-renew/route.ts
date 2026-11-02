@@ -29,7 +29,7 @@ export async function POST(
     if (auth.response) return auth.response;
     const parsed = await parseFileLeaseBody(request, schema, "This request isn’t valid");
     if (parsed.response) return parsed.response;
-    await assertWorkspaceWriteAccess(parsed.data.projectId, auth.user!.id);
+    await assertWorkspaceWriteAccess(parsed.data.projectId, auth.user!.id, { nodeId });
     const lease = await renewFileLease({
       projectId: parsed.data.projectId,
       nodeId,
