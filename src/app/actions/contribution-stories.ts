@@ -739,13 +739,16 @@ export async function saveContributionStoryAction(
         ? new Date(`${contributionEnd}-01T00:00:00.000Z`)
         : null;
       const roleTitle = headlinePos?.title ?? current.roleTitle;
+      // Decision 104 (report §38.3, §38.4): an entry from a real membership keeps the role and dates from the record,
+      // so a verified ✓ always means what it says. People add detail and their own steps, not new dates.
+      const fromRecord = Boolean(current.projectId) && current.source !== "manual";
 
       const patch = {
         version: current.version + 1,
         updatedAt: now,
-        startedAt,
-        endedAt,
-        ...(roleTitle ? { roleTitle } : {}),
+        startedAt: fromRecord ? current.startedAt : startedAt,
+        endedAt: fromRecord ? current.endedAt : endedAt,
+        ...(roleTitle && !fromRecord ? { roleTitle } : {}),
         ...(publishing
           ? {
               presentation: document,

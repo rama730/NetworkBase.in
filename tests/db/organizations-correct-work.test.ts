@@ -551,3 +551,22 @@ test("decision 90: a workspace holding work handed in to the organization can't 
   assert.equal(deleted.success, false);
   assert.match(deleted.message, /Archive it instead/);
 });
+
+test("decision 106: Start from my work lists only approved or finished work, never work waiting for review", async () => {
+  const o = await org();
+  const one = await published(o, "Waiting lab");
+  const two = await published(o, "Approved lab");
+  viewerId = o.a;
+  for (const copy of [one.copyOf(o.a), two.copyOf(o.a)]) assert.equal((await assignments.submitAssignmentAction(copy, {})).success, true);
+  viewerId = o.owner;
+  assert.equal((await assignments.reviewAssignmentCopyAction(two.copyOf(o.a), "approve")).success, true);
+  const [entry] = await sql`INSERT INTO profile_contributions (profile_id, workspace_id, source, visibility) VALUES (${o.a}, ${o.org}, 'membership', 'private')
+    ON CONFLICT (profile_id, workspace_id) WHERE deleted_at IS NULL AND workspace_id IS NOT NULL DO UPDATE SET visibility = 'private' RETURNING id`;
+  const profile = await loadAppModule(() => import("../../src/app/actions/org-profile"));
+  viewerId = o.a;
+  const starter = await profile.readOrgStoryStarterAction(entry!.id, "work");
+  assert.equal(starter.success, true, JSON.stringify(starter));
+  const text = starter.success ? starter.text : "";
+  assert.match(text, /Approved lab/);
+  assert.doesNotMatch(text, /Waiting lab/);
+});

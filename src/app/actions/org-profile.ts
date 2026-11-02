@@ -84,7 +84,7 @@ export async function readOrgStoryStarterAction(contributionId: string, kind: 'a
             SELECT DISTINCT c.title FROM tasks c JOIN tasks m ON m.id = c.assignment_id AND m.workspace_id = ${entry.org_id} AND m.deleted_at IS NULL
             LEFT JOIN task_team_members tm ON tm.task_id = c.id AND tm.user_id = ${entry.userId}
             WHERE c.deleted_at IS NULL AND (c.assignee_id = ${entry.userId} OR tm.user_id IS NOT NULL)
-              AND c.status = 'done' ORDER BY 1 LIMIT 40`),
+              AND c.status = 'done' AND c.review_status <> 'pending' ORDER BY 1 LIMIT 40`), // approved or finished, never waiting (decision 106)
         db.execute<{ title: string; unit: string | null }>(sql`
             SELECT p.title, (SELECT coalesce(r.title, r.role) FROM workspace_open_roles r WHERE r.id = m.unit_id) AS unit
             FROM workspace_members m JOIN workspaces p ON p.id = m.workspace_id AND p.parent_id = ${entry.org_id} AND p.deleted_at IS NULL

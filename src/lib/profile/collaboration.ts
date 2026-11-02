@@ -745,7 +745,7 @@ async function queryProfileContributionRows(profileId: string, options: {
       contribution.show_work_record,
       CASE WHEN contribution.show_work_record AND project.kind = 'organization' THEN (
         SELECT jsonb_build_object(
-          'done', count(*) FILTER (WHERE c.status = 'done'),
+          'done', count(*) FILTER (WHERE c.status = 'done' AND c.review_status <> 'pending'), -- approved or finished (decision 106)
           'total', count(*),
           'sprints', (SELECT count(*) FROM workspace_sprints s WHERE s.workspace_id = project.id AND s.status IN ('active', 'completed')))
         FROM tasks c JOIN tasks m ON m.id = c.assignment_id AND m.workspace_id = project.id AND m.deleted_at IS NULL

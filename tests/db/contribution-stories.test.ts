@@ -823,3 +823,14 @@ test("privacy hide cannot be blocked by an unavailable image in the existing dra
     "private",
   );
 });
+
+test("decision 104: an entry from a real membership keeps the role and dates from the record when the editor sends others", async () => {
+  const id = randomUUID();
+  ids.push(id);
+  await sql`DELETE FROM profile_contributions WHERE profile_id=${owner} AND workspace_id=${project}`;
+  await sql`INSERT INTO profile_contributions(id,profile_id,workspace_id,source,visibility,role_title,started_at) VALUES(${id},${owner},${project},'membership','private','Engineer','2026-02-01T00:00:00Z')`;
+  const saved = await command(id, 1, "draft", { ...blankContributionStory("Platform"), summary: "More detail", start: "2020-01", end: "2020-06" });
+  assert.equal(saved.success, true, JSON.stringify(saved));
+  const [row] = await sql`SELECT role_title, started_at, ended_at FROM profile_contributions WHERE id=${id}`;
+  assert.deepEqual([row!.role_title, new Date(row!.started_at).toISOString().slice(0, 10), row!.ended_at], ["Engineer", "2026-02-01", null]);
+});
