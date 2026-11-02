@@ -1015,6 +1015,8 @@ export const workspaceMembers = pgTable(
     title: text("title"),
     showOnProfile: boolean("show_on_profile").default(true).notNull(),
     lastSeenUpdatesAt: timestamp("last_seen_updates_at", { withTimezone: true }),
+    /** Last time they opened this organization or one of its workspaces, at most hourly (report §29.4, 0043). */
+    lastActiveHereAt: timestamp("last_active_here_at", { withTimezone: true }),
     unitId: uuid("unit_id").references((): AnyPgColumn => workspaceOpenRoles.id, { onDelete: "set null" }),
   },
   (t) => ({

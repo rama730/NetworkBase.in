@@ -114,7 +114,7 @@ export async function GET(request: Request) {
       });
     }
 
-    // Org rules (report §16.11, §23): members see masters and their own copies, and no Admins-only folders.
+    // Org rules (report §16.11, §23, §42.2): members see published masters and their own copies, and no Admins-only folders.
     const seesAllOf = (projectRef: ReturnType<typeof sql>) => sql`EXISTS (
       SELECT 1 FROM workspaces pr WHERE pr.id = ${projectRef} AND (pr.kind <> 'organization' OR pr.owner_id = ${user.id}::uuid
         OR EXISTS (SELECT 1 FROM workspace_members pm WHERE pm.workspace_id = pr.id AND pm.user_id = ${user.id}::uuid AND pm.role = 'admin'))
@@ -129,8 +129,7 @@ export async function GET(request: Request) {
                    task_number AS "taskNumber", updated_at AS "updatedAt"
             FROM tasks
             WHERE workspace_id = p.id AND deleted_at IS NULL
-              AND (${seesAllOf(sql`p.id`)} OR (kind = 'assignment' AND assignment_id IS NULL) OR assignee_id = ${user.id}::uuid
-                OR EXISTS (SELECT 1 FROM task_team_members tm WHERE tm.task_id = tasks.id AND tm.user_id = ${user.id}::uuid))
+              AND app_private.nb_org_task_visible_to(tasks.id, ${user.id}::uuid)
             ORDER BY updated_at DESC
             LIMIT 50
           ) t

@@ -144,3 +144,17 @@ export async function notifySeatsReopened(orgId: string, seats: ReopenedSeat[]) 
       href: `/workspaces/${encodeURIComponent(seat.slug ?? seat.projectId)}?tab=settings`, sourceEventId: `seat:${seat.projectId}:${seat.unit}:${stamp}`, refs: { projectId: seat.projectId } });
   }
 }
+
+/**
+ * Last active here (report §29.4, decision 62): opening an organization or one of its workspaces stamps that
+ * person's organization membership, at most hourly. A workspace outside any organization changes nothing.
+ */
+export async function stampLastActiveHere(workspaceId: string, userId: string) {
+  await db.execute(sql`
+    UPDATE workspace_members m SET last_active_here_at = now()
+    FROM workspaces w
+    WHERE w.id = ${workspaceId}::uuid AND w.deleted_at IS NULL
+      AND m.workspace_id = CASE WHEN w.kind = 'organization' THEN w.id ELSE w.parent_id END
+      AND m.user_id = ${userId}::uuid
+      AND (m.last_active_here_at IS NULL OR m.last_active_here_at < now() - interval '1 hour')`);
+}

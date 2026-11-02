@@ -14,6 +14,7 @@ import {
 
 import { db } from "@/lib/db";
 import { toIsoString } from "@/lib/utils/date";
+import { orgTaskVisibleToSql } from "@/lib/organizations/assignments";
 import {
   commentMentions,
   profiles,
@@ -109,6 +110,8 @@ async function assertTaskAccess(params: {
       title: workspaces.title,
       deletedAt: workspaces.deletedAt,
       role: workspaceMembers.role,
+      // Decision 37: comments follow the task's own visibility, so a private copy's conversation stays private.
+      visible: orgTaskVisibleToSql(sql`${tasks.id}`, params.userId),
     })
     .from(tasks)
     .innerJoin(workspaces, eq(tasks.projectId, workspaces.id))
@@ -135,7 +138,7 @@ async function assertTaskAccess(params: {
 
   const isOwner = row.ownerId === params.userId;
   if (!isOwner) {
-    if (!row.role) {
+    if (!row.role || !row.visible) {
       throw new Error("You don’t have access to this");
     }
     if (params.mode === "write" && row.role.toLowerCase() === "viewer") {
@@ -170,6 +173,7 @@ async function assertCommentAccess(params: {
       ownerId: workspaces.ownerId,
       projectDeletedAt: workspaces.deletedAt,
       role: workspaceMembers.role,
+      visible: orgTaskVisibleToSql(sql`${tasks.id}`, params.userId),
     })
     .from(taskComments)
     .innerJoin(tasks, eq(taskComments.taskId, tasks.id))
@@ -198,7 +202,7 @@ async function assertCommentAccess(params: {
 
   const isOwner = row.ownerId === params.userId;
   if (!isOwner) {
-    if (!row.role) {
+    if (!row.role || !row.visible) {
       throw new Error("You don’t have access to this");
     }
     if (params.mode === "write" && row.role.toLowerCase() === "viewer") {
@@ -606,6 +610,8 @@ export async function createTaskCommentAction(
           and(
             eq(workspaceMembers.projectId, projectId),
             inArray(workspaceMembers.userId, personIds),
+            // Only people who can see this task (decision 37): a classmate can't be pulled into a private copy.
+            orgTaskVisibleToSql(sql`${taskId}::uuid`, sql`${workspaceMembers.userId}`),
           ),
         );
 

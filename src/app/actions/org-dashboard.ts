@@ -22,6 +22,8 @@ export type ActivityItem = { id: string; kind: ActivityKind; text: string; at: s
 type Failure = { success: false; error: string };
 const DENIED: Failure = { success: false, error: "You don’t have permission to see this." };
 const DAY = 86_400_000;
+/** Drafts stay with owners and admins (report §42.2 problem 1). */
+const published = sql`${tasks.assignmentSettings}->>'publishedAt' IS NOT NULL`;
 
 
 async function orgViewer(orgId: string): Promise<OrgViewer | null> {
@@ -58,7 +60,7 @@ async function readActivity(v: OrgViewer, filter: string, opts: { publicOnly?: b
             .where(and(eq(workspaceNodeEvents.projectId, v.org.id), eq(workspaceNodeEvents.type, 'create_file'), gte(workspaceNodeEvents.createdAt, since), orgFileAccessSql(v.access)))
             .orderBy(desc(workspaceNodeEvents.createdAt)).limit(10),
         opts.publicOnly ? Promise.resolve([]) : db.select({ id: tasks.id, title: tasks.title, createdAt: tasks.createdAt, creatorId: tasks.creatorId }).from(tasks)
-            .where(and(eq(tasks.projectId, v.org.id), eq(tasks.kind, 'assignment'), isNull(tasks.assignmentId), isNull(tasks.deletedAt), gte(tasks.createdAt, since))),
+            .where(and(eq(tasks.projectId, v.org.id), eq(tasks.kind, 'assignment'), isNull(tasks.assignmentId), isNull(tasks.deletedAt), gte(tasks.createdAt, since), v.isAdmin ? undefined : published)),
         opts.publicOnly ? Promise.resolve([]) : db.select({ id: taskActivityEvents.id, at: taskActivityEvents.createdAt, actorId: taskActivityEvents.actorId, title: tasks.title, name: profiles.fullName, username: profiles.username })
             .from(taskActivityEvents).innerJoin(tasks, eq(tasks.id, taskActivityEvents.taskId)).leftJoin(profiles, eq(profiles.id, taskActivityEvents.actorId))
             .where(and(eq(taskActivityEvents.projectId, v.org.id), eq(taskActivityEvents.eventType, 'review_submitted'), isNotNull(tasks.assignmentId), gte(taskActivityEvents.createdAt, since)))
@@ -124,7 +126,7 @@ export async function readOrgDashboardAction(orgId: string, activityFilter = 'al
         db.select({ id: workspaceSprints.id, name: workspaceSprints.name, status: workspaceSprints.status, startDate: workspaceSprints.startDate, endDate: workspaceSprints.endDate })
             .from(workspaceSprints).where(and(eq(workspaceSprints.projectId, orgId), ne(workspaceSprints.status, 'completed'))).orderBy(asc(workspaceSprints.startDate)),
         db.select({ id: tasks.id, title: tasks.title, dueDate: tasks.dueDate, sprintId: tasks.sprintId }).from(tasks)
-            .where(and(eq(tasks.projectId, orgId), eq(tasks.kind, 'assignment'), isNull(tasks.assignmentId), isNull(tasks.deletedAt))),
+            .where(and(eq(tasks.projectId, orgId), eq(tasks.kind, 'assignment'), isNull(tasks.assignmentId), isNull(tasks.deletedAt), v.isAdmin ? undefined : published)),
         readNeedsYou(v, now),
         readActivity(v, activityFilter),
         db.select({ id: profiles.id, name: profiles.fullName, username: profiles.username, avatarUrl: profiles.avatarUrl, joinedAt: workspaceMembers.joinedAt, show: workspaceMembers.showOnProfile })

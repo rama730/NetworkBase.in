@@ -48,7 +48,8 @@ export async function hydrateCards(viewerId: string, refs: ChatCardRef[]): Promi
              p.key AS project_key, p.slug AS project_slug, p.title AS project_title,
              CASE WHEN asg.id IS NULL THEN NULL ELSE ${person("asg")} END AS assignee,
              t.deleted_at IS NOT NULL AS deleted,
-             app_private.chat_is_workspace_member(t.workspace_id, ${viewerId}::uuid) AS can_view,
+             -- In an organization, only the tasks the board would show them (0042): never a draft or another person's copy.
+             (app_private.chat_is_workspace_member(t.workspace_id, ${viewerId}::uuid) AND app_private.nb_org_task_visible_to(t.id, ${viewerId}::uuid)) AS can_view,
              -- Same rule as updateTaskStatusAction (lockTaskForWrite): the owner, or a member who isn't a viewer.
              (p.owner_id = ${viewerId}::uuid OR EXISTS (
                SELECT 1 FROM workspace_members pm
@@ -92,7 +93,8 @@ export async function hydrateCards(viewerId: string, refs: ChatCardRef[]): Promi
     assignmentIds.length === 0 ? [] : chatRows<Record<string, unknown>>(sql`
       SELECT t.id, t.title, t.due_date, t.workspace_id AS project_id, p.slug AS project_slug, p.title AS project_title, t.deleted_at IS NOT NULL AS deleted,
              (p.owner_id = ${viewerId}::uuid OR EXISTS (SELECT 1 FROM workspace_members m WHERE m.workspace_id = p.id AND m.user_id = ${viewerId}::uuid AND m.role = 'admin')) AS is_admin,
-             EXISTS (SELECT 1 FROM workspace_members m WHERE m.workspace_id = p.id AND m.user_id = ${viewerId}::uuid) OR p.owner_id = ${viewerId}::uuid AS can_view,
+             (EXISTS (SELECT 1 FROM workspace_members m WHERE m.workspace_id = p.id AND m.user_id = ${viewerId}::uuid) OR p.owner_id = ${viewerId}::uuid)
+               AND app_private.nb_org_task_visible_to(t.id, ${viewerId}::uuid) AS can_view,
              (SELECT jsonb_build_object('copy_id', c.id, 'status', c.status, 'review_status', c.review_status, 'due_date', c.due_date,
                      'submitted_at', c.review_submitted_at, 'completed_at', c.completed_at, 'excused_at', c.excused_at)
               FROM tasks c WHERE c.assignment_id = t.id AND c.deleted_at IS NULL AND (c.assignee_id = ${viewerId}::uuid

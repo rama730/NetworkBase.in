@@ -288,6 +288,20 @@
       "when": 1793466846300,
       "tag": "0041_workspace_last_update",
       "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1793553246300,
+      "tag": "0042_org_task_visibility",
+      "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "7",
+      "when": 1793639646300,
+      "tag": "0043_member_last_active_here",
+      "breakpoints": true
     }
   ]
 }

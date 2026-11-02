@@ -142,7 +142,8 @@ export async function readOrgDetail(
     childProjectCount: children?.n ?? 0,
     memberCount: members?.n ?? 0,
     suspended: Boolean(org.suspendedAt),
-    suspendReason: viewer.isInOrg ? org.suspendReason : null,
+    // Decision 53: the reason goes to the owner and admins only; members see that it's suspended.
+    suspendReason: viewer.isAdmin ? org.suspendReason : null,
     archived: org.status === "archived",
     deletionScheduledAt: org.deletionScheduledAt ? org.deletionScheduledAt.toISOString() : null,
     verified: Boolean(org.verifiedAt),

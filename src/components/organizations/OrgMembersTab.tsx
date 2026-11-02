@@ -43,6 +43,8 @@ type Row = OrgMembersData['rows'][number]
 
 const select = 'h-9 rounded-md border border-border bg-background px-2 text-sm'
 const ago = (iso: string | null) => (iso ? formatDistanceToNow(new Date(iso), { addSuffix: true }) : '—')
+/** Last active here (report §29.4, §41.4): empty until they next open the organization. */
+const activeHere = (iso: string | null) => (iso ? ago(iso) : 'No data yet')
 const workLine = (w: RosterRow['work']) => (w.total === 0 ? '—' : `${w.done} of ${w.total} done${w.missing ? ` · ${w.missing} missing` : ''}`)
 
 export function OrgMembersTab({ orgId, roleNames }: { orgId: string; roleNames?: RoleNames }) {
@@ -100,7 +102,7 @@ export function OrgMembersTab({ orgId, roleNames }: { orgId: string; roleNames?:
                         <option value="outside">Outside people</option>
                     </select>
                     <select aria-label="Sort" className={select} value={filter.sort ?? 'name'} onChange={(e) => setFilter({ ...filter, sort: e.target.value as RosterFilter['sort'] })}>
-                        <option value="name">Sort: Name</option><option value="behind">Needs attention</option><option value="active">Last active</option><option value="joined">Joined</option>
+                        <option value="name">Sort: Name</option><option value="behind">Needs attention</option><option value="active">Last active here</option><option value="joined">Joined</option>
                     </select>
                 </div>
 
@@ -155,10 +157,10 @@ export function OrgMembersTab({ orgId, roleNames }: { orgId: string; roleNames?:
                                     <span className="mt-0.5 block truncate text-[12px] text-muted-foreground">
                                         {r.projects.length ? r.projects.map((p) => (p.unit ? `${p.title} · ${p.unit}` : p.title)).join(', ') : '— not in a workspace'}
                                     </span>
-                                    <span className={cn('mt-0.5 block text-[12px] sm:hidden', r.behind ? 'text-destructive' : 'text-muted-foreground')}>{workLine(r.work)} · active {ago(r.lastActiveAt)}</span>
+                                    <span className={cn('mt-0.5 block text-[12px] sm:hidden', r.behind ? 'text-destructive' : 'text-muted-foreground')}>{workLine(r.work)} · active here {activeHere(r.lastActiveAt)}</span>
                                 </button>
                                 <span className={cn('hidden shrink-0 text-[12px] sm:inline', r.behind ? 'text-destructive' : 'text-muted-foreground')}>{workLine(r.work)}</span>
-                                <span className="hidden w-24 shrink-0 text-right font-mono text-[11px] text-muted-foreground sm:inline">{ago(r.lastActiveAt)}</span>
+                                <span className="hidden w-24 shrink-0 text-right font-mono text-[11px] text-muted-foreground sm:inline">{activeHere(r.lastActiveAt)}</span>
                             </li>
                         ))}
                     </ul>
@@ -327,7 +329,7 @@ function MemberDrawer({ orgId, row, data, label, pending, run }: { orgId: string
             <header className="space-y-1">
                 <p className="text-lg font-semibold">{row.name}</p>
                 <p className="text-muted-foreground">{label(row.role)}{row.title ? ` · ${row.title}` : ''}</p>
-                <p className="font-mono text-[11px] text-muted-foreground">Joined {ago(row.joinedAt)} · active {ago(row.lastActiveAt)}</p>
+                <p className="font-mono text-[11px] text-muted-foreground">Joined {ago(row.joinedAt)} · active here {activeHere(row.lastActiveAt)}</p>
                 <p className="flex gap-3 text-[13px]">
                     {row.username ? <Link href={`/u/${row.username}`} className="underline underline-offset-4">View profile</Link> : null}
                     <Link href={`/messages?userId=${row.userId}`} onClick={(e) => messageUserInWindow(row.userId, e)} className="underline underline-offset-4">Message</Link>

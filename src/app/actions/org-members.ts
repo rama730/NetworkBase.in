@@ -64,7 +64,7 @@ export async function readOrgMembersAction(orgId: string): Promise<OrgMembersDat
     if (!viewer) return DENIED;
     // ponytail: one roster read per open, sized for ORG_LIMITS.membersPerOrg (2,000). Upgrade: server paging.
     const [people, childRows, units, copies, teamCopies, requests, invites, [org], myBlocks] = await Promise.all([
-        db.select({ userId: workspaceMembers.userId, role: workspaceMembers.role, title: workspaceMembers.title, joinedAt: workspaceMembers.joinedAt, name: profiles.fullName, username: profiles.username, avatarUrl: profiles.avatarUrl, lastActiveAt: profiles.lastActiveAt })
+        db.select({ userId: workspaceMembers.userId, role: workspaceMembers.role, title: workspaceMembers.title, joinedAt: workspaceMembers.joinedAt, name: profiles.fullName, username: profiles.username, avatarUrl: profiles.avatarUrl, lastActiveAt: workspaceMembers.lastActiveHereAt })
             .from(workspaceMembers).innerJoin(profiles, eq(profiles.id, workspaceMembers.userId))
                 // Memberships are hidden while an account deletion is pending (report §30.7); back on cancel.
                 .where(and(eq(workspaceMembers.projectId, orgId), isNull(profiles.deletedAt))),
@@ -102,7 +102,8 @@ export async function readOrgMembersAction(orgId: string): Promise<OrgMembersDat
     const rows = people.map((p) => {
         const role: OrgMemberRole = p.userId === viewer.ownerId ? 'owner' : (p.role as OrgMemberRole);
         const work = workSummary([...(copiesByUser.get(p.userId) ?? [])].map((id) => stateByCopy.get(id)!).filter(Boolean));
-        const status = memberStatus({ missing: work.missing, lastActiveAt: p.lastActiveAt, now });
+        // Last active here only, never account-wide (decision 62).
+        const status = memberStatus({ missing: work.missing, lastActiveAt: p.lastActiveAt, joinedAt: p.joinedAt, now });
         return {
             userId: p.userId,
             name: p.name || p.username || 'Member',

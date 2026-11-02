@@ -15,16 +15,19 @@ type Executor = typeof db | Parameters<Parameters<typeof db.transaction>[0]>[0];
 
 export type CopyRecipient = { projectId: string; assigneeId: string; teamName?: string; members?: string[] };
 
+/** The rule below for SQL written by hand that names the viewer (chat cards, the extension, comments): 0042. */
+export const orgTaskVisibleToSql = (taskId: SQL, viewer: string | null | SQL) => sql`app_private.nb_org_task_visible_to(${taskId}, ${viewer}::uuid)`;
+
 /**
- * Decision-19 read rule for task lists in an organization, mirroring app_private.nb_task_visible (0244):
- * members and guests see the masters, their own copies and their team's copies; owners and admins see all,
- * with copies kept off their board (they live in the roster and the Review queue).
+ * Decision-19 read rule for task lists in an organization, mirroring app_private.nb_org_task_visible_to (0042):
+ * members and guests see the published masters, their own copies and their team's copies; owners and admins see
+ * all, with copies kept off their board (they live in the roster and the Review queue).
  */
 export function orgTaskReadFilter(access: WorkspaceAccess, viewerId: string | null, scope: string = "all"): SQL | undefined {
   if (access.project?.kind !== "organization") return undefined;
   const isAdmin = access.isOwner || access.memberRole === "admin";
   if (isAdmin) return scope === "review" ? undefined : isNull(tasks.assignmentId);
-  const master = and(eq(tasks.kind, "assignment"), isNull(tasks.assignmentId));
+  const master = and(eq(tasks.kind, "assignment"), isNull(tasks.assignmentId), sql`${tasks.assignmentSettings}->>'publishedAt' IS NOT NULL`);
   if (!viewerId) return master;
   return or(
     master,

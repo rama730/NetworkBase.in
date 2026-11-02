@@ -1,5 +1,6 @@
 import { notFound, redirect } from 'next/navigation';
 import { headers } from 'next/headers';
+import { after } from 'next/server';
 import { WORKSPACE_TAB_LABELS } from '@/lib/copy/terms';
 import type { Metadata } from 'next';
 import { cache, Suspense } from 'react';
@@ -8,6 +9,7 @@ import { readWorkspaceDetailShell, readWorkspaceSprintDetail } from '@/app/actio
 import WorkspaceDetailLoading from './loading';
 import { PrivateOrgHeader } from '@/components/organizations/PrivateOrgHeader';
 import { readOrgCard, resolveHeldOrgHandle } from '@/lib/organizations/detail';
+import { stampLastActiveHere } from '@/lib/organizations/members';
 import { getViewerIdentityContext, toClientViewer } from '@/lib/server/viewer-context';
 import { shareMetadata } from '@/lib/sharing/metadata';
 import { readSharePreview } from '@/lib/sharing/read';
@@ -125,6 +127,10 @@ async function ResolvedProjectDashboard({
     }
 
     const { project, capabilities } = result.data;
+    // Last active here (report §29.4): only inside an organization, and never holding up the page.
+    if (user && (project.organization || project.parentOrg)) {
+        after(() => stampLastActiveHere(project.id, user.id).catch(() => undefined));
+    }
     // Canonical address: the human-readable slug, under /org for organizations and /projects otherwise.
     const canonicalBase: WorkspaceRouteBase = project.organization ? '/org' : '/workspaces';
     if ((project.slug && slug !== project.slug) || base !== canonicalBase) {

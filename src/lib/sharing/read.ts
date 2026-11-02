@@ -9,6 +9,7 @@ import { resolvePrivacyRelationship, readableProfileIdentitySql } from '@/lib/pr
 import { getWorkspaceAccessByIdentifier, getWorkspaceAccessByIds, canReadWorkspaceTab } from '@/lib/data/workspace-access';
 import { normalizeSafeExternalUrl } from '@/lib/messaging/safe-links';
 import { logger } from '@/lib/logger';
+import { orgIndexableSql } from '@/lib/discover/listed-sql';
 import { formatWorkspaceTeamRole } from '@/lib/workspaces/settings-policies';
 import { genericSharePreview, parseShareResource, portfolioSummary, previewAlt, shareImageUrl, shareSkillSummary, shareText, shareMetric, type WorkspaceShareDetails, type SharePreview, type ShareResource } from './presentation';
 
@@ -137,7 +138,7 @@ async function readProject(resource: ShareResource, viewerId: string | null): Pr
   const resolved = { ...resource, url: new URL(`/${access.project.kind === 'organization' ? 'org' : 'workspaces'}/${access.project.slug || access.project.id}`, resource.url).href };
   const dashboard = canReadWorkspaceTab(access, 'dashboard');
   const [project] = await db.select({ title: workspaces.title, description: workspaces.description, shortDescription: workspaces.shortDescription,
-    coverImage: workspaces.coverImage, coverAsset: workspaces.coverImageAssetId, coverHash: storageAssets.contentHash, coverKey: storageAssets.storageKey, views: workspaces.viewCount, followers: workspaces.followersCount, discoverHiddenAt: workspaces.discoverHiddenAt })
+    coverImage: workspaces.coverImage, coverAsset: workspaces.coverImageAssetId, coverHash: storageAssets.contentHash, coverKey: storageAssets.storageKey, views: workspaces.viewCount, followers: workspaces.followersCount, discoverHiddenAt: workspaces.discoverHiddenAt, qualifies: orgIndexableSql() })
     .from(workspaces).leftJoin(storageAssets,and(eq(storageAssets.id,workspaces.coverImageAssetId),eq(storageAssets.projectId,workspaces.id),eq(storageAssets.state,'verified'))).where(and(eq(workspaces.id, access.project.id), isNull(workspaces.deletedAt))).limit(1);
   if (!project) return genericSharePreview(resource, 'unavailable');
   const unknown = (part: string, error: unknown) => { logger.warn('share.project.'+part+'.unavailable', { error: String(error) }); return null; };
@@ -156,7 +157,7 @@ async function readProject(resource: ShareResource, viewerId: string | null): Pr
     roles: roleSummary?.roles ?? null, roleOverflow: roleSummary?.roleOverflow ?? null,
     views: shareMetric(project.views), followers: shareMetric(project.followers) };
   const result: SharePreview = { ...genericSharePreview(resolved, 'ready'), visibility, indexable: visibility === 'public' && ['active','completed','archived'].includes(access.project.status ?? '')
-      && !project.discoverHiddenAt && access.writeBlocked !== 'suspended' && access.writeBlocked !== 'deleting', draft: access.project.status === 'draft',
+      && !project.discoverHiddenAt && project.qualifies && access.writeBlocked !== 'suspended' && access.writeBlocked !== 'deleting', draft: access.project.status === 'draft',
     entityKey: createHash('sha256').update(`project:${access.project.id}`).digest('hex'),
     title: shareText(project.title).slice(0,160) || 'Workspace on NetworkBase',
     description: shareText(project.shortDescription || (dashboard ? project.description : null)).slice(0,300) || 'View this workspace on NetworkBase.',

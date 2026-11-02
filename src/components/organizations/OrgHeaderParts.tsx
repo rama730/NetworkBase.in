@@ -167,7 +167,7 @@ export function ChildOrgChips({ parentOrg, visibility, archived }: { parentOrg: 
     )
 }
 
-/** Suspended (everyone, with the reason for members) or scheduled for deletion (the owner, with Restore). Report §30.3, §30.5. */
+/** Suspended (everyone; the reason only reaches owners and admins, decision 53) or scheduled for deletion (the owner, with Restore). Report §30.3, §30.5. */
 export function OrgStatusBanner({ orgId, organization, isOwner }: { orgId: string; organization: OrgDetail; isOwner: boolean }) {
     const router = useRouter()
     const [pending, start] = useTransition()

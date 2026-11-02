@@ -1,14 +1,21 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { filterRoster, memberChangeBlock, memberStatus, parseInviteEmails, workSummary, type RosterRow } from "../../src/lib/organizations/member-rules";
+import { filterRoster, LAST_ACTIVE_HERE_SINCE, memberChangeBlock, memberStatus, parseInviteEmails, workSummary, type RosterRow } from "../../src/lib/organizations/member-rules";
 
 test("work counts skip excused copies; Behind means something is missing; Inactive after 14 days", () => {
   assert.deepEqual(workSummary(["done", "done", "missing", "excused", "in_progress"]), { done: 2, total: 4, missing: 1 });
-  const now = new Date("2026-10-30T00:00:00Z");
-  assert.deepEqual(memberStatus({ missing: 1, lastActiveAt: new Date("2026-10-29T00:00:00Z"), now }), { behind: true, inactive: false });
-  assert.deepEqual(memberStatus({ missing: 0, lastActiveAt: new Date("2026-10-10T00:00:00Z"), now }), { behind: false, inactive: true });
-  assert.equal(memberStatus({ missing: 0, lastActiveAt: null, now }).inactive, true);
+  const now = new Date("2026-12-30T00:00:00Z");
+  assert.deepEqual(memberStatus({ missing: 1, lastActiveAt: new Date("2026-12-29T00:00:00Z"), now }), { behind: true, inactive: false });
+  assert.deepEqual(memberStatus({ missing: 0, lastActiveAt: new Date("2026-12-10T00:00:00Z"), now }), { behind: false, inactive: true });
+  assert.equal(memberStatus({ missing: 0, lastActiveAt: null, joinedAt: new Date("2026-09-01T00:00:00Z"), now }).inactive, true);
+});
+
+test("Last active here (§41.4, decision 60): 14 days count from joining, and nobody is inactive just because the value started empty", () => {
+  const justJoined = new Date("2026-12-25T00:00:00Z");
+  assert.equal(memberStatus({ missing: 0, lastActiveAt: null, joinedAt: justJoined, now: new Date("2026-12-30T00:00:00Z") }).inactive, false);
+  const afterRollout = new Date(LAST_ACTIVE_HERE_SINCE.getTime() + 3 * 86_400_000);
+  assert.equal(memberStatus({ missing: 0, lastActiveAt: null, joinedAt: new Date("2026-01-01T00:00:00Z"), now: afterRollout }).inactive, false);
 });
 
 test("only the owner manages admins; nobody changes the owner here", () => {

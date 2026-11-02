@@ -3,6 +3,7 @@ import { and, eq, isNotNull, isNull } from "drizzle-orm";
 
 import { db } from "@/lib/db";
 import { workspaces } from "@/lib/db/schema";
+import { orgIndexableSql } from "@/lib/discover/listed-sql";
 import { LEGAL_VERSIONS } from "@/lib/legal/versions";
 import { logger } from "@/lib/logger";
 
@@ -26,13 +27,13 @@ const PUBLIC_LEGAL_PATHS = [
   "/open-source",
 ] as const;
 
-/** Public organizations people can find (report §31.2 G15): not hidden, suspended or being deleted. */
+/** Public organizations people can find (report §31.2 G15): not hidden, suspended or being deleted, and qualified (decision 69). */
 async function publicOrgs(): Promise<MetadataRoute.Sitemap> {
   try {
     // ponytail: one sitemap capped at 5,000 orgs; split with generateSitemaps when public orgs pass that.
     const rows = await db.select({ slug: workspaces.slug, updatedAt: workspaces.updatedAt }).from(workspaces)
       .where(and(eq(workspaces.kind, "organization"), eq(workspaces.visibility, "public"), eq(workspaces.status, "active"), isNotNull(workspaces.slug),
-        isNull(workspaces.deletedAt), isNull(workspaces.discoverHiddenAt), isNull(workspaces.suspendedAt), isNull(workspaces.deletionScheduledAt)))
+        isNull(workspaces.deletedAt), isNull(workspaces.discoverHiddenAt), isNull(workspaces.suspendedAt), isNull(workspaces.deletionScheduledAt), orgIndexableSql()))
       .limit(5_000);
     return rows.map((row) => ({ url: `${SITE_ORIGIN}/org/${encodeURIComponent(row.slug!)}`, lastModified: row.updatedAt ?? undefined, changeFrequency: "weekly", priority: 0.5 }));
   } catch (error) {

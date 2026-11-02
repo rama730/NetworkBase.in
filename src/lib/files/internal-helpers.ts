@@ -53,11 +53,11 @@ export function orgFileAccessSql(access: OrgFileViewer, node: NodeRef = NODE_COL
           AND nb_f.metadata->>'access' = ${level}
           AND (${node.path} = nb_f.path OR starts_with(${node.path}, nb_f.path || '/'))
     )`;
-    // Decision-19 read rule for task files: masters, and copies the viewer holds or shares as a team.
+    // Decision-19 read rule for task files: published masters, and copies the viewer holds or shares as a team.
     // Aliases are unusual on purpose: callers pass outer columns such as t.id or n.path.
     const taskVisible = sql`(${node.taskId} IS NULL OR EXISTS (
         SELECT 1 FROM tasks nb_vt WHERE nb_vt.id = ${node.taskId} AND (
-            (nb_vt.kind = 'assignment' AND nb_vt.assignment_id IS NULL)
+            (nb_vt.kind = 'assignment' AND nb_vt.assignment_id IS NULL AND nb_vt.assignment_settings->>'publishedAt' IS NOT NULL)
             OR nb_vt.assignee_id = ${viewerId}
             OR EXISTS (SELECT 1 FROM task_team_members nb_tm WHERE nb_tm.task_id = nb_vt.id AND nb_tm.user_id = ${viewerId})
         )

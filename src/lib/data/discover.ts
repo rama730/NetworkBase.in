@@ -1,4 +1,4 @@
-import { discoverListedSql } from '@/lib/discover/listed-sql';
+import { discoverListedSql, orgQualifiesSql } from '@/lib/discover/listed-sql';
 import { and, asc, desc, eq, ilike, inArray, isNull, lte, ne, or, sql, type SQL } from 'drizzle-orm';
 import { canonicalSkillKey } from '@/lib/skills/matching';
 import { normalizeSkillLookup } from '@/lib/skills/normalization';
@@ -330,11 +330,7 @@ export const buildBaseConditions = (
         sql<boolean>`${workspaces.deletedAt} IS NULL AND ${workspaces.visibility} IN ('public', 'unlisted') AND ${workspaces.status} <> 'draft'`,
         // A deleted account's projects leave Discover with it.
         sql<boolean>`EXISTS (SELECT 1 FROM ${profiles} owner WHERE owner.id = ${workspaces.ownerId} AND owner.deleted_at IS NULL)`,
-        // Decision 160: a new org reaches Discover after 3+ members and 7+ days, or once verified (profile-rules.ts).
-        sql<boolean>`(${workspaces.kind} <> 'organization' OR ${workspaces.verifiedAt} IS NOT NULL OR (
-            ${workspaces.createdAt} <= now() - interval '7 days'
-            AND (SELECT count(*) FROM workspace_members m WHERE m.workspace_id = ${workspaces.id}) >= 3
-        ))`,
+        orgQualifiesSql(),
         discoverListedSql(),
     ];
     const show = showKeeps(filters.show ?? 'all');
