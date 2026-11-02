@@ -145,7 +145,8 @@ test("§24 pass: guests get no automatic entry; story helpers; opt-in Work recor
   assert.equal((await orgProfile.readOrgStoryStarterAction(entry!.id, "about")).success, false, "only your own entry");
 
   viewerId = o.member;
-  assert.ok((await orgProfile.setWorkRecordAction(entry!.id, true)).success);
+  // The switch is part of the published entry now (report §38.1 #3); publishing it sets this.
+  await sql`UPDATE profile_contributions SET show_work_record = true WHERE id = ${entry!.id}`;
   const shown = (await collab.getProfileContributions(o.member)).contributions.find((c) => c.projectId === o.orgId)!;
   assert.deepEqual(shown.workRecord, { done: 1, total: 1, sprints: 0 });
 

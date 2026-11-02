@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useTransition } from "react";
 
-import { readOrgStoryStarterAction, setWorkRecordAction } from "@/app/actions/org-profile";
+import { readOrgStoryStarterAction } from "@/app/actions/org-profile";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/lib/feedback";
 
@@ -10,13 +10,14 @@ import { toast } from "@/lib/feedback";
  * An org entry's story helpers (report §24.5): Start from About (owners and admins), Start from my work, and the
  * opt-in Work record. The inserted text is the member's to edit; About stays org content.
  */
-export function OrgStoryHelpers({ contributionId, canStartFromAbout, showWorkRecord, onInsert }: {
+export function OrgStoryHelpers({ contributionId, canStartFromAbout, showWorkRecord, onWorkRecordChange, onInsert }: {
   contributionId: string;
   canStartFromAbout: boolean;
   showWorkRecord: boolean;
+  /** Saved with Save draft and Publish, like everything else (report §38.1 #3). */
+  onWorkRecordChange: (show: boolean) => void;
   onInsert: (text: string) => void;
 }) {
-  const [workRecord, setWorkRecord] = useState(showWorkRecord);
   const [pending, startTransition] = useTransition();
   const start = (kind: "about" | "work") => startTransition(async () => {
     const result = await readOrgStoryStarterAction(contributionId, kind);
@@ -29,14 +30,7 @@ export function OrgStoryHelpers({ contributionId, canStartFromAbout, showWorkRec
       {canStartFromAbout ? <Button type="button" size="sm" variant="outline" disabled={pending} onClick={() => start("about")}>Start from About</Button> : null}
       <Button type="button" size="sm" variant="outline" disabled={pending} onClick={() => start("work")}>Start from my work</Button>
       <label className="ml-auto flex items-center gap-2 text-[13px]">
-        <input type="checkbox" checked={workRecord} disabled={pending} onChange={(e) => {
-          const next = e.target.checked;
-          setWorkRecord(next);
-          startTransition(async () => {
-            const result = await setWorkRecordAction(contributionId, next);
-            if (!result.success) { setWorkRecord(!next); toast.error(result.error); }
-          });
-        }} />
+        <input type="checkbox" checked={showWorkRecord} onChange={(e) => onWorkRecordChange(e.target.checked)} />
         Show my Work record (counts only)
       </label>
     </div>

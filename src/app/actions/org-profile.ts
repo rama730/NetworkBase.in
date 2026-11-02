@@ -97,11 +97,13 @@ export async function readOrgStoryStarterAction(contributionId: string, kind: 'a
     return { success: true, text: lines.join('\n').trim() };
 }
 
-/** The opt-in Work record (report §24.5): counts from platform records, off by default. */
-export async function setWorkRecordAction(contributionId: string, show: boolean): Promise<{ success: true } | Failure> {
-    const entry = await ownOrgEntry(contributionId);
-    if (!entry) return DENIED;
-    await db.update(profileContributions).set({ showWorkRecord: show, updatedAt: new Date() }).where(eq(profileContributions.id, entry.id));
-    await markProfileCollaborationSummaryStale(entry.userId);
-    return { success: true };
+
+/** The write-up nudge goes away for good once dismissed (report §38.6, decision 107, DB5). Only your own entry. */
+export async function dismissContributionNudgeAction(contributionId: string): Promise<{ success: true } | Failure> {
+    const { userId } = await getViewerAuthContext();
+    if (!userId) return DENIED;
+    const done = await db.update(profileContributions).set({ nudgeDismissedAt: new Date() })
+        .where(and(eq(profileContributions.id, contributionId), eq(profileContributions.profileId, userId), isNull(profileContributions.deletedAt)))
+        .returning({ id: profileContributions.id });
+    return done.length ? { success: true } : DENIED;
 }

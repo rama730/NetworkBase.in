@@ -15,6 +15,7 @@
  * - Strict adherence to Ponytail design tokens and contract assertions.
  */
 
+import { editorEntryStatus } from "@/lib/organizations/profile-rules";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { get, set, del, createStore } from "idb-keyval";
@@ -1102,8 +1103,9 @@ export function ContributionEditor({
                       </div>
                     </div>
                     <div className="flex flex-wrap items-center justify-end gap-2">
-                      <span className="nb-micro text-muted-foreground">
-                        {r.visibility === "public" ? "Public" : "Private"}
+                      {/* Report §16.10, §38.3: Published, Draft, Hidden, Left, Completed or Private to you. */}
+                      <span className="nb-micro text-muted-foreground" data-testid="editor-entry-status">
+                        {editorEntryStatus(r)}
                       </span>
                       <Button
                         type="button"
@@ -1306,6 +1308,12 @@ export function ContributionEditor({
               </Button>
             </section>
           )}
+          {active.endReason === "removed" ? (
+            // Report §4.6, §38.5: after a removal the entry is the person's alone; the server refuses to publish it.
+            <p role="note" className="mb-6 rounded-[6px] border border-border bg-muted/40 p-3 nb-compact text-muted-foreground">
+              Private to you. You were removed from {active.parentOrg?.title ?? active.projectTitle}, so this can’t be published. Your words are kept until you delete them.
+            </p>
+          ) : null}
           <section className="nb-story-section" id="contribution-summary">
             <h3 className="nb-section-title">Your contribution</h3>
             <p className="nb-compact mt-1 mb-5 text-muted-foreground">
@@ -1315,7 +1323,8 @@ export function ContributionEditor({
               <OrgStoryHelpers
                 contributionId={active.id}
                 canStartFromAbout={active.membershipRole === "owner" || active.membershipRole === "admin"}
-                showWorkRecord={Boolean(active.showWorkRecord)}
+                showWorkRecord={d.showWorkRecord ?? Boolean(active.showWorkRecord)}
+                onWorkRecordChange={(showWorkRecord) => patch(active.id, { showWorkRecord })}
                 onInsert={(text) => patch(active.id, { summary: d.summary.trim() ? `${d.summary.trim()}\n\n${text}` : text })}
               />
             ) : null}

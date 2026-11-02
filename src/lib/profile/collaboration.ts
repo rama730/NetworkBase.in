@@ -126,6 +126,8 @@ export type ProfileCollaborationContribution = {
   orgVerified?: boolean;
   orgOnly?: boolean;
   verificationRevokedReason?: string | null;
+  /** The person dismissed the write-up nudge (report §38.6); only on their own view. */
+  nudgeDismissed?: boolean;
   /** Manage organizations (report §38.2): the person's order and Show switch for an organization entry. */
   profileOrder?: number | null;
   showOnProfile?: boolean | null;
@@ -200,6 +202,7 @@ type ProfileProjectRow = {
 };
 
 type ProfileContributionRow = {
+  nudge_dismissed_at?: Date | string | null;
   profile_order?: number | null;
   show_on_profile?: boolean | null;
   end_reason?: string | null;
@@ -542,6 +545,7 @@ function contributionFromRow(row: ProfileContributionRow): ProfileCollaborationC
     projectKind: row.project_kind ?? null,
     endReason: (row.end_reason as ProfileCollaborationContribution["endReason"]) ?? null,
     profileOrder: row.profile_order ?? null,
+    nudgeDismissed: Boolean(row.nudge_dismissed_at),
     showOnProfile: row.show_on_profile ?? null,
     parentOrg: row.parent_org_id ? { id: row.parent_org_id, title: row.parent_org_title ?? "Organization", slug: row.parent_org_slug ?? null } : null,
     orgVerified: Boolean(row.org_verified),
@@ -789,6 +793,7 @@ async function queryProfileContributionRows(profileId: string, options: {
       END AS work_record,
       contribution.verification_revoked_reason,
       contribution.end_reason,
+      ${includePrivate ? sql`contribution.nudge_dismissed_at` : sql`NULL::timestamptz`} AS nudge_dismissed_at,
       CASE WHEN project.kind = 'organization' THEN project.org_type END AS org_type,
       CASE WHEN project.kind = 'organization' THEN project.org_settings->'roleNames' END AS org_role_names,
       member.title AS member_title,

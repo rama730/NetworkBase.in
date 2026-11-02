@@ -50,6 +50,8 @@ export const contributionStorySchema = z
     current: z.boolean(),
     visible: z.boolean(),
     allowUnlisted: z.boolean(),
+    /** Report §38.8, §38.1 #3: the Work record switch saves and publishes with the rest of the entry. */
+    showWorkRecord: z.boolean().optional(),
     positions: z.array(storyPositionSchema).max(STORY_LIMITS.positions),
     images: z.array(storyImageSchema).max(STORY_LIMITS.images),
     coverId: id.nullable(),

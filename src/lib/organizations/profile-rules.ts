@@ -85,3 +85,13 @@ export function entryStatus(e: ProfileEntry): "Left" | "Completed" | null {
   if (e.endReason === "term_ended") return "Completed";
   return e.endDate || e.endReason === "left" ? "Left" : null;
 }
+
+/** Each row's status in the contribution editor (report §16.10, §38.3). */
+export function editorEntryStatus(e: ProfileEntry & { visibility?: string | null }): "Published" | "Draft" | "Hidden" | "Left" | "Completed" | "Private to you" {
+  if (removed(e)) return "Private to you";
+  const ended = entryStatus(e);
+  if (ended) return ended;
+  if (!e.publishedAt && !e.presentation) return "Draft";
+  if (e.visibility === "private" || (e.presentation as { visible?: boolean } | null)?.visible === false) return "Hidden";
+  return "Published";
+}

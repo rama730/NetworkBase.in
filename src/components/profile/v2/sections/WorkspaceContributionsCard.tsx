@@ -5,6 +5,7 @@ import { EyeOff, FolderGit2, Pencil, Plus } from "lucide-react";
 import { Card } from "./Card";
 import type { ProfileCollaborationContribution } from "@/lib/profile/collaboration";
 import { ContributionStoryView } from "@/components/profile/ContributionStoryView";
+import { dismissContributionNudgeAction } from "@/app/actions/org-profile";
 import { entryStatus, groupProfileContributions } from "@/lib/organizations/profile-rules";
 
 /** Org context above an entry (report §24.5, §24.6): Verified by <org>, the child's org, org-only, revocation. */
@@ -43,6 +44,7 @@ export function WorkspaceContributionsCard({
   onAdd,
   onProjectIntent,
 }: ProjectContributionsCardProps) {
+  const [dismissed, setDismissed] = useState<Set<string>>(new Set());
   const [live, setLive] = useState(contributions),
     [showAll, setShowAll] = useState(false);
   useEffect(() => setLive(contributions), [contributions]);
@@ -154,12 +156,17 @@ export function WorkspaceContributionsCard({
             {groups.workspaces.length ? <Group title="Workspaces">{groups.workspaces.map((c) => entry(c))}</Group> : null}
             {groups.drafts.length ? (
               <Group title="Not on your profile yet">
-                {groups.drafts.map((c) => (
-                  <div key={c.id} className="flex flex-wrap items-center gap-2 py-3 text-sm">
-                    <span className="min-w-0 flex-1"><span className="font-medium">{c.projectTitle}</span><span className="text-muted-foreground"> · Draft</span></span>
-                    {onAdd ? <button type="button" onClick={onAdd} className="nb-ui-label text-primary">{c.projectKind === "organization" || c.parentOrg ? `Write about your work in ${c.parentOrg?.title ?? c.projectTitle}` : "Publish"}</button> : null}
-                  </div>
-                ))}
+                {groups.drafts.map((c) => {
+                  // Report §38.6, decision 107: the nudge shows once and goes for good when dismissed or published.
+                  const nudge = (c.projectKind === "organization" || c.parentOrg) && !c.nudgeDismissed && !dismissed.has(c.id);
+                  return (
+                    <div key={c.id} className="flex flex-wrap items-center gap-2 py-3 text-sm">
+                      <span className="min-w-0 flex-1"><span className="font-medium">{c.projectTitle}</span><span className="text-muted-foreground"> · Draft</span></span>
+                      {onAdd ? <button type="button" onClick={onAdd} className="nb-ui-label text-primary">{nudge ? `Write about your work in ${c.parentOrg?.title ?? c.projectTitle}` : "Publish"}</button> : null}
+                      {nudge ? <button type="button" onClick={() => { setDismissed((d) => new Set(d).add(c.id)); void dismissContributionNudgeAction(c.id); }} className="nb-ui-label text-muted-foreground hover:text-foreground">Dismiss</button> : null}
+                    </div>
+                  );
+                })}
               </Group>
             ) : null}
             {groups.privateToYou.length ? (

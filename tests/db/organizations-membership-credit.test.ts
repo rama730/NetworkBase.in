@@ -164,3 +164,48 @@ test("26.10: the leave dialog says what happens, in the organization's words", a
   const result = await orgs.readLeavePreviewAction(o.id);
   assert.deepEqual(result.success && result.preview, { teams: ["Team Falcon"], led: [], open: 1, submitted: 1, keptBy: "Teachers and TAs" });
 });
+
+test("38.5, 4.6: a removed entry can't be published; Delete removes the person's words and keeps the record", async () => {
+  const o = await org();
+  const entry = await publishedEntry(o.a, o.id, o.owner);
+  viewerId = o.owner;
+  await members.removeMembersAction(o.id, [o.a], { block: false });
+  const stories = await loadAppModule(() => import("../../src/app/actions/contribution-stories"));
+  const [{ version }] = await sql`SELECT version FROM profile_contributions WHERE id = ${entry}`;
+  const story = { ...blankContributionStory("CSE 3B"), summary: "Ran the weekly labs.", visible: true };
+  viewerId = o.a;
+  const published = await stories.saveContributionStoryAction({ id: entry, expectedVersion: version, requestId: crypto.randomUUID(), operation: "publish", document: story });
+  assert.equal(published.success, false);
+  assert.match(published.success ? "" : published.error, /private to you/);
+  const deleted = await stories.saveContributionStoryAction({ id: entry, expectedVersion: version, requestId: crypto.randomUUID(), operation: "delete", document: story });
+  assert.equal(deleted.success, true, JSON.stringify(deleted));
+  const [row] = await sql`SELECT presentation, deleted_at, end_reason FROM profile_contributions WHERE id = ${entry}`;
+  assert.deepEqual([row!.presentation, row!.deleted_at, row!.end_reason], [null, null, "removed"], "the words go; the record stays");
+});
+
+test("38.1 #3: the Work record switch waits for Publish like everything else", async () => {
+  const o = await org();
+  const entry = await publishedEntry(o.a, o.id, o.owner);
+  const stories = await loadAppModule(() => import("../../src/app/actions/contribution-stories"));
+  const story = { ...blankContributionStory("CSE 3B"), summary: "Ran the weekly labs.", visible: true, showWorkRecord: true };
+  const version = async () => (await sql`SELECT version FROM profile_contributions WHERE id = ${entry}`)[0]!.version as number;
+  const shown = async () => (await sql`SELECT show_work_record FROM profile_contributions WHERE id = ${entry}`)[0]!.show_work_record as boolean;
+  viewerId = o.a;
+  assert.equal((await stories.saveContributionStoryAction({ id: entry, expectedVersion: await version(), requestId: crypto.randomUUID(), operation: "draft", document: story })).success, true);
+  assert.equal(await shown(), false, "a draft doesn't turn it on");
+  assert.equal((await stories.saveContributionStoryAction({ id: entry, expectedVersion: await version(), requestId: crypto.randomUUID(), operation: "publish", document: story })).success, true);
+  assert.equal(await shown(), true);
+});
+
+test("38.6, decision 107: the write-up nudge is dismissed for good, and only by the person", async () => {
+  const o = await org();
+  await appDb.db.transaction((tx) => collaboration.upsertProfileWorkspaceContributionFromMembership(tx, { profileId: o.a, projectId: o.id, verifiedBy: null }));
+  const [{ id }] = await sql`SELECT id FROM profile_contributions WHERE profile_id = ${o.a} AND workspace_id = ${o.id}`;
+  const orgProfile = await loadAppModule(() => import("../../src/app/actions/org-profile"));
+  viewerId = o.b;
+  assert.equal((await orgProfile.dismissContributionNudgeAction(id)).success, false, "not someone else's");
+  viewerId = o.a;
+  assert.equal((await orgProfile.dismissContributionNudgeAction(id)).success, true);
+  const mine = (await collaboration.getProfileContributions(o.a, { includePrivate: true })).contributions.find((c) => c.id === id)!;
+  assert.equal(mine.nudgeDismissed, true);
+});

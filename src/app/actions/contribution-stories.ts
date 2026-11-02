@@ -278,6 +278,17 @@ export async function saveContributionStoryAction(
         );
       let document = reconcileStoryCurrentStatus(input.document);
       const now = new Date();
+      // Report §4.6, §38.5: after a removal the entry is private to the person. It can't be published, and Delete
+      // removes their own words only; the record stays for the organization's history.
+      if (current.projectId && current.endReason === "removed") {
+        if (input.operation === "delete") {
+          await tx.update(profileContributions).set({ presentation: null, publishedAt: null, version: current.version + 1, updatedAt: now }).where(eq(profileContributions.id, current.id));
+          await tx.delete(profileContributionDrafts).where(eq(profileContributionDrafts.contributionId, current.id));
+          await markProfileCollaborationSummaryStale([userId], tx);
+          return { success: true as const, id: current.id, version: current.version + 1, document: blankContributionStory(current.projectTitle ?? ""), featured: current.featured, published: false, removed: true };
+        }
+        if (!["draft", "hide"].includes(input.operation)) throw new StoryError("This entry is private to you since you were removed. It can’t be published.");
+      }
       // Privacy and pin/delete actions must not depend on unfinished narrative or expired media.
       if (["hide", "feature", "delete"].includes(input.operation)) {
         if (input.operation === "delete" && current.projectId)
@@ -774,6 +785,7 @@ export async function saveContributionStoryAction(
           ? {
               presentation: document,
               publishedAt: now,
+              showWorkRecord: document.showWorkRecord ?? current.showWorkRecord,
               visibility: document.visible
                 ? ("public" as const)
                 : ("private" as const),

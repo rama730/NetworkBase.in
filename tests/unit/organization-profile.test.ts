@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { currentOrganizations, entryStatus, groupProfileContributions, nestContributions, orgDiscoverable, showKeeps } from "../../src/lib/organizations/profile-rules";
+import { currentOrganizations, editorEntryStatus, entryStatus, groupProfileContributions, nestContributions, orgDiscoverable, showKeeps } from "../../src/lib/organizations/profile-rules";
 import { privateOrgLine } from "../../src/lib/organizations/join-rules";
 
 test("new public orgs reach Discover after 3 members and 7 days, or when verified", () => {
@@ -67,4 +67,13 @@ test("26.9, decision 48: the private page tells each person their own state, and
   assert.deepEqual(privateOrgLine({ kind: "blocked" }, "CSE 3B"), { line: "You can’t join this organization.", join: false, action: null });
   assert.equal(privateOrgLine({ kind: "ended" }, "CSE 3B").join, false);
   assert.deepEqual(privateOrgLine({ kind: "none" }, "CSE 3B"), { line: null, join: true, action: null });
+});
+
+test("16.10, 38.3: every editor row has a status", () => {
+  const base = { id: "x", projectId: "x", projectKind: "organization" };
+  assert.equal(editorEntryStatus({ ...base, publishedAt: "2026-10-01", visibility: "public", presentation: { visible: true } }), "Published");
+  assert.equal(editorEntryStatus({ ...base, publishedAt: null }), "Draft");
+  assert.equal(editorEntryStatus({ ...base, publishedAt: "2026-10-01", visibility: "private" }), "Hidden");
+  assert.equal(editorEntryStatus({ ...base, endDate: "Nov 2026", endReason: "left", publishedAt: "2026-10-01" }), "Left");
+  assert.equal(editorEntryStatus({ ...base, endReason: "removed", endDate: "Oct 2026" }), "Private to you");
 });
