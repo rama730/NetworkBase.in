@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { profiles, workspaceMembers, workspaces } from "@/lib/db/schema";
 import { syncWorkspaceChat } from "@/lib/messaging/integrations";
 import { notifyOrg } from "@/lib/organizations/notify";
+import { moveGroupWorkToLead } from "@/lib/organizations/assignments";
 
 // Account deletion and organizations (report §30.7): owners of an org can't delete their account; child projects
 // a person leads never go with the account. They pass to a project admin → unit lead → the org owner.
@@ -41,6 +42,7 @@ async function makeOwner(executor: Executor, projectId: string, from: string, to
   await executor.insert(workspaceMembers).values({ projectId, userId: to, role: "owner" })
     .onConflictDoUpdate({ target: [workspaceMembers.projectId, workspaceMembers.userId], set: { role: "owner" } });
   await syncWorkspaceChat(executor, projectId, to, "role");
+  await moveGroupWorkToLead(executor, projectId, to);
 }
 
 /**
@@ -49,7 +51,8 @@ async function makeOwner(executor: Executor, projectId: string, from: string, to
  * ponytail: "unit lead" is the longest-serving member placed in a unit (units have no lead column yet).
  */
 export async function handOverLedChildWorkspaces(executor: Executor, userId: string) {
-  const led = await executor.select({ id: workspaces.id, orgOwnerId: sql<string>`(SELECT o.owner_id FROM workspaces o WHERE o.id = ${workspaces.parentId})` })
+  // Spelled out: Drizzle writes a bare "parent_id" in one-table queries, which inside the subquery would mean o's.
+  const led = await executor.select({ id: workspaces.id, orgOwnerId: sql<string>`(SELECT o.owner_id FROM workspaces o WHERE o.id = workspaces.parent_id)` })
     .from(workspaces).where(and(eq(workspaces.ownerId, userId), isNotNull(workspaces.parentId), isNull(workspaces.deletedAt)));
   for (const child of led) {
     const next = await longestServing(executor, child.id, userId, { role: "admin" })

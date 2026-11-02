@@ -271,7 +271,7 @@ export async function readOrgWorkspacesAction(orgId: string): Promise<{ success:
         units: sql<number>`(SELECT count(*)::int FROM ${workspaceOpenRoles} r WHERE r.workspace_id = ${workspaces.id})`,
         open: sql<number>`(SELECT count(*)::int FROM tasks t WHERE t.workspace_id = ${workspaces.id} AND t.deleted_at IS NULL AND t.status <> 'done')`,
         overdue: sql<number>`(SELECT count(*)::int FROM tasks t WHERE t.workspace_id = ${workspaces.id} AND t.deleted_at IS NULL AND t.status <> 'done' AND t.due_date < now())`,
-        inReview: sql<number>`(SELECT count(*)::int FROM tasks t WHERE t.workspace_id = ${workspaces.id} AND t.deleted_at IS NULL AND t.review_status = 'pending')`,
+        inReview: sql<number>`(SELECT count(*)::int FROM tasks t WHERE t.workspace_id = ${workspaces.id} AND t.deleted_at IS NULL AND t.excused_at IS NULL AND t.review_status = 'pending')`,
         lastTaskAt: sql<Date | null>`(SELECT max(t.updated_at) FROM tasks t WHERE t.workspace_id = ${workspaces.id})`,
         stage: sql<string | null>`${workspaces.lifecycleStages}->>coalesce(${workspaces.currentStageIndex}, 0)`,
         sprintName: sql<string | null>`(SELECT s.name FROM workspace_sprints s WHERE s.workspace_id = ${workspaces.id} AND s.status = 'active' ORDER BY s.start_date DESC LIMIT 1)`,

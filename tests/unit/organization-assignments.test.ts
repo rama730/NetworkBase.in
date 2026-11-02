@@ -24,6 +24,18 @@ test("a submission after the due date is Late; review decides Submitted vs Done"
   assert.deepEqual(copyState(returned, now), { state: "returned", late: false });
 });
 
+test("problem 2: Late is measured from when it was handed in, not when it was approved", () => {
+  const handedInOnTime = { ...base, status: "done", submittedAt: new Date("2026-11-09T10:00:00Z"), completedAt: new Date("2026-11-10T09:00:00Z") };
+  assert.deepEqual(copyState(handedInOnTime, now), { state: "done", late: false }, "approved after the due date, handed in before it");
+  const handedInLate = { ...base, status: "done", submittedAt: new Date("2026-11-10T08:00:00Z"), completedAt: new Date("2026-11-10T09:00:00Z") };
+  assert.deepEqual(copyState(handedInLate, now), { state: "done", late: true });
+});
+
+test("decision 86: Returned work keeps showing Returned after its due date", () => {
+  const returned = { ...base, status: "in_progress", reviewStatus: "rejected", submittedAt: new Date("2026-11-09T10:00:00Z") };
+  assert.deepEqual(copyState(returned, now), { state: "returned", late: false });
+});
+
 test("auto-make teams: sizes stay within one of each other and everyone is placed once", () => {
   const people = Array.from({ length: 10 }, (_, i) => `p${i}`);
   const teams = splitIntoTeams(people, 3, () => 0.5);

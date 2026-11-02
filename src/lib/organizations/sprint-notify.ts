@@ -50,6 +50,28 @@ export function notifyOrgSprintStarted(sprintId: string, projectId: string, acto
   });
 }
 
+/**
+ * "CO1 closed · you completed 3 of 3", one line per distinct count, so 2,000 members are a handful of fan-outs.
+ * Per person: their own copies and their team's; excused ones don't count, and work waiting for review isn't
+ * finished yet (report §42.2 smaller bug 5).
+ */
+export async function sprintCompletionLines(sprintId: string, orgId: string, sprintName: string) {
+  const counts = await db.execute<{ user_id: string; done: number; total: number }>(sql`
+    SELECT pm.user_id, count(c.id) FILTER (WHERE c.status = 'done' AND c.review_status <> 'pending')::int AS done, count(c.id)::int AS total
+    FROM workspace_members pm
+    LEFT JOIN tasks c ON c.deleted_at IS NULL AND c.excused_at IS NULL
+      AND c.assignment_id IN (SELECT m.id FROM tasks m WHERE m.sprint_id = ${sprintId} AND m.kind = 'assignment' AND m.deleted_at IS NULL)
+      AND (c.assignee_id = pm.user_id OR EXISTS (SELECT 1 FROM task_team_members tm WHERE tm.task_id = c.id AND tm.user_id = pm.user_id))
+    WHERE pm.workspace_id = ${orgId}
+    GROUP BY pm.user_id`);
+  const groups = new Map<string, string[]>();
+  for (const row of counts) {
+    const line = row.total ? `${sprintName} closed · you completed ${row.done} of ${row.total}` : `${sprintName} closed`;
+    groups.set(line, [...(groups.get(line) ?? []), row.user_id]);
+  }
+  return groups;
+}
+
 /** Closed: each member hears how much of the sprint's work they finished ("CO1 closed · you completed 3 of 3"). */
 export async function notifyOrgSprintCompleted(sprintId: string, projectId: string, actorId: string | null): Promise<boolean> {
   const org = await projectOf(projectId).catch(() => null);
@@ -57,21 +79,7 @@ export async function notifyOrgSprintCompleted(sprintId: string, projectId: stri
   await safely("completed", async () => {
     const [sprint] = await db.execute<{ name: string }>(sql`SELECT name FROM workspace_sprints WHERE id = ${sprintId}`);
     if (!sprint) return;
-    // Per person: their own copies and their team's, of the assignments in this sprint.
-    const counts = await db.execute<{ user_id: string; done: number; total: number }>(sql`
-      SELECT pm.user_id, count(c.id) FILTER (WHERE c.status = 'done')::int AS done, count(c.id)::int AS total
-      FROM workspace_members pm
-      LEFT JOIN tasks c ON c.deleted_at IS NULL AND c.excused_at IS NULL
-        AND c.assignment_id IN (SELECT m.id FROM tasks m WHERE m.sprint_id = ${sprintId} AND m.kind = 'assignment' AND m.deleted_at IS NULL)
-        AND (c.assignee_id = pm.user_id OR EXISTS (SELECT 1 FROM task_team_members tm WHERE tm.task_id = c.id AND tm.user_id = pm.user_id))
-      WHERE pm.workspace_id = ${org.id}
-      GROUP BY pm.user_id`);
-    // One notice per distinct line, so 2,000 members are a handful of fan-outs.
-    const groups = new Map<string, string[]>();
-    for (const row of counts) {
-      const line = row.total ? `${sprint.name} closed · you completed ${row.done} of ${row.total}` : `${sprint.name} closed`;
-      groups.set(line, [...(groups.get(line) ?? []), row.user_id]);
-    }
+    const groups = await sprintCompletionLines(sprintId, org.id, sprint.name);
     let i = 0;
     for (const [title, to] of groups) {
       await notifyOrg({ orgId: org.id, eventKey: "org_sprints.completed", actorId, to, title, href: orgHref(org, "?tab=sprints"), sourceEventId: `sprint-closed:${sprintId}:${i++}` });

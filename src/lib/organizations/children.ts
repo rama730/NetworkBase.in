@@ -8,7 +8,7 @@ import { capChildVisibility, isAboveCap, type ChildVisibility } from "@/lib/orga
 import { readOrgRules } from "@/lib/organizations/settings";
 import { readViewerOrgRole } from "@/lib/organizations/detail";
 import { unlinkSprints } from "@/lib/organizations/sprints";
-import { releaseGroupCopies } from "@/lib/organizations/assignments";
+import { createCopiesForNewChild, releaseGroupCopies } from "@/lib/organizations/assignments";
 import { notifyOrg } from "@/lib/organizations/notify";
 import { isWorkspacePubliclyReadableVisibility } from "@/lib/workspaces/workspace-visibility";
 
@@ -91,6 +91,9 @@ export async function moveIntoOrg(projectId: string, orgId: string, currentVisib
     updatedAt: new Date(),
   }).where(eq(workspaces.id, projectId));  // Its channels move under the org: #general becomes #<handle> (report §25.2).
   await db.execute(sql`SELECT app_private.chat_reparent_workspace(${projectId}::uuid)`);
+  // Open group work reaches it, as it reaches a new workspace (report §42.2 problem 7).
+  const [lead] = await db.select({ ownerId: workspaces.ownerId }).from(workspaces).where(eq(workspaces.id, projectId)).limit(1);
+  if (lead) await createCopiesForNewChild(db, orgId, projectId, lead.ownerId);
 }
 
 /** Takes a child out of its org: it becomes a Private personal project and its sprints unlink (report §14.7, §15.8). */

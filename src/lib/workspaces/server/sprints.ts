@@ -9,7 +9,7 @@ import "server-only";
 
 import { isMissingRelationError } from "@/lib/db/errors";
 import { db } from "@/lib/db";
-import { sql, and, eq, inArray, desc, ilike, isNull, or } from "drizzle-orm";
+import { sql, and, eq, inArray, desc, ilike, isNull, ne, or } from "drizzle-orm";
 import { getWorkspaceAccessById, assertWorkspaceTabReadAccess, type WorkspaceAccess, canReadWorkspaceTab, WorkspaceTabForbiddenError } from "@/lib/data/workspace-access";
 import { createClient } from "@/lib/supabase/server";
 import { runInFlightDeduped } from "@/lib/utils/inflight-dedupe";
@@ -1868,6 +1868,9 @@ export async function completeSprintAction(
             eq(tasks.sprintId, sprintId),
             isNull(tasks.deletedAt),
             sql`(${tasks.status} <> 'done' OR ${tasks.reviewStatus} = 'pending')`,
+            // Assignments and their copies stay in their sprint; only tasks are unfinished work (decision 124).
+            ne(tasks.kind, "assignment"),
+            isNull(tasks.assignmentId),
           ),
           columns: { id: true },
         });

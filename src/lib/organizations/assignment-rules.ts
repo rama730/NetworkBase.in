@@ -46,12 +46,14 @@ type CopyInput = {
 /** One copy's roster state plus the Late label; Missing is "not handed in and past due" (report §16.3). */
 export function copyState(copy: CopyInput, now: Date = new Date()): { state: CopyState; late: boolean } {
   if (copy.excusedAt) return { state: "excused", late: false };
-  const handedInAt = copy.reviewStatus === "pending" ? copy.submittedAt : copy.status === "done" ? copy.completedAt ?? copy.submittedAt : null;
+  // Late is about when it was handed in, never when someone reviewed it (report §42.2 problem 2, §42.4).
+  const handedInAt = copy.reviewStatus === "pending" || copy.status === "done" ? copy.submittedAt ?? copy.completedAt : null;
   const late = Boolean(handedInAt && copy.dueDate && handedInAt.getTime() > copy.dueDate.getTime());
   if (copy.reviewStatus === "pending") return { state: "submitted", late };
   if (copy.status === "done") return { state: "done", late };
-  if (copy.dueDate && now.getTime() > copy.dueDate.getTime()) return { state: "missing", late: false };
+  // Returned work stays Returned past its due date, so the person knows to resubmit (decision 86).
   if (copy.reviewStatus === "rejected") return { state: "returned", late: false };
+  if (copy.dueDate && now.getTime() > copy.dueDate.getTime()) return { state: "missing", late: false };
   return { state: copy.status === "todo" ? "not_started" : "in_progress", late: false };
 }
 

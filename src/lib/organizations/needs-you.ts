@@ -37,7 +37,7 @@ export async function readNeedsYou(v: OrgViewer, now: Date): Promise<NeedsYouRow
         const [reviews, [requests], ended, children, [cap]] = await Promise.all([
             db.select({ title: tasks.title, n: sql<number>`count(*)::int` }).from(tasks)
                 .innerJoin(workspaces, eq(workspaces.id, tasks.projectId))
-                .where(and(isNotNull(tasks.assignmentId), isNull(tasks.deletedAt), eq(tasks.reviewStatus, 'pending'), or(eq(tasks.projectId, v.org.id), eq(workspaces.parentId, v.org.id))))
+                .where(and(isNotNull(tasks.assignmentId), isNull(tasks.deletedAt), isNull(tasks.excusedAt), eq(tasks.reviewStatus, 'pending'), or(eq(tasks.projectId, v.org.id), eq(workspaces.parentId, v.org.id))))
                 .groupBy(tasks.title).orderBy(asc(tasks.title)),
             db.select({ n: sql<number>`count(*)::int` }).from(roleApplications).where(and(eq(roleApplications.projectId, v.org.id), isNull(roleApplications.roleId), eq(roleApplications.status, 'pending'))),
             db.select({ name: workspaceSprints.name }).from(workspaceSprints).where(and(eq(workspaceSprints.projectId, v.org.id), eq(workspaceSprints.status, 'active'), lt(workspaceSprints.endDate, now))),

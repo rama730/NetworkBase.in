@@ -69,7 +69,7 @@ export async function readSprintAssignmentsAction(projectId: string, sprintId: s
         for (const c of copies.filter((copy) => copy.assignmentId === m.id)) {
             const { state } = stateOf(c, now);
             counts[state] += 1;
-            counts.total += 1;
+            if (state !== 'excused') counts.total += 1; // As the Tasks tab counts (report §42.2 smaller bug 1).
             if (state === 'missing' && c.assigneeId) missingPeople.add(c.assigneeId);
         }
         return { masterId: m.id, title: m.title, dueDate: m.dueDate?.toISOString() ?? null, status: s.closedAt ? 'closed' : 'open', submissionType: s.submissionType,

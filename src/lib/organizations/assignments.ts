@@ -226,7 +226,8 @@ export async function createCopiesForNewChild(executor: Executor, orgId: string,
 export async function releaseCopiesOnLeave(executor: Executor, orgId: string, userId: string) {
   await executor.update(tasks).set({ deletedAt: new Date(), updatedAt: new Date() }).where(and(
     eq(tasks.projectId, orgId), eq(tasks.assigneeId, userId), isNotNull(tasks.assignmentId), isNull(tasks.deletedAt),
-    ne(tasks.reviewStatus, "pending"), ne(tasks.status, "done"),
+    // Anything handed in stays, Returned work included (decision 143).
+    sql`NOT ${handedInSql}`,
     sql`NOT EXISTS (SELECT 1 FROM ${taskTeamMembers} tm WHERE tm.task_id = ${tasks.id} AND tm.user_id <> ${userId})`,
   ));
   const teamCopies = await executor.select({ taskId: taskTeamMembers.taskId }).from(taskTeamMembers)
@@ -243,7 +244,25 @@ export async function releaseCopiesOnLeave(executor: Executor, orgId: string, us
 }
 
 /** Detaching a child project turns its group copies into ordinary tasks (report §16.9). */
+/** "When something was handed in" (report §42.4): waiting for review, done, or submitted at least once. */
+export const handedInSql = sql`(${tasks.reviewStatus} = 'pending' OR ${tasks.status} = 'done' OR ${tasks.reviewSubmittedAt} IS NOT NULL)`;
+
+/**
+ * Detaching (decision 130): handed-in group work stays linked, so the teacher's roster keeps it as "Detached";
+ * only unsubmitted work is released to the workspace as its own tasks.
+ */
 export async function releaseGroupCopies(executor: Executor, childProjectId: string) {
   await executor.update(tasks).set({ assignmentId: null, updatedAt: new Date() })
-    .where(and(eq(tasks.projectId, childProjectId), isNotNull(tasks.assignmentId)));
+    .where(and(eq(tasks.projectId, childProjectId), isNotNull(tasks.assignmentId), sql`NOT ${handedInSql}`));
+}
+
+/**
+ * "When a lead changes" (report §42.4, decision 129): a workspace's group work is held by whoever leads it, however
+ * the lead changed. An organization's own copies belong to their people and never move.
+ */
+export async function moveGroupWorkToLead(executor: Executor, workspaceId: string, leadId: string) {
+  await executor.update(tasks).set({ assigneeId: leadId, updatedAt: new Date() }).where(and(
+    eq(tasks.projectId, workspaceId), isNotNull(tasks.assignmentId), isNull(tasks.deletedAt),
+    sql`EXISTS (SELECT 1 FROM workspaces w WHERE w.id = ${workspaceId}::uuid AND w.kind <> 'organization')`,
+  ));
 }

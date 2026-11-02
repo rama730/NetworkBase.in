@@ -127,7 +127,7 @@ export async function fetchToReviewAction(): Promise<ToReviewRow[] | null> {
         FROM tasks t JOIN workspaces p ON p.id = t.workspace_id AND p.deleted_at IS NULL
         LEFT JOIN workspaces o ON o.id = p.parent_id AND o.kind = 'organization'
         LEFT JOIN profiles pr ON pr.id = t.assignee_id
-        WHERE t.review_status = 'pending' AND t.deleted_at IS NULL AND (
+        WHERE t.review_status = 'pending' AND t.deleted_at IS NULL AND t.excused_at IS NULL AND (
           p.owner_id = ${userId}::uuid
           OR EXISTS (SELECT 1 FROM workspace_members m WHERE m.workspace_id = p.id AND m.user_id = ${userId}::uuid AND m.role = 'admin')
           OR o.owner_id = ${userId}::uuid

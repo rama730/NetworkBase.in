@@ -19,6 +19,7 @@ import { enqueueWorkspaceNotificationEvent } from '@/lib/notifications/workspace
 import { z } from 'zod';
 import { cancelAccountDeletionForUser } from '@/lib/account/deletion';
 import { syncWorkspaceChat } from '@/lib/messaging/integrations';
+import { moveGroupWorkToLead } from '@/lib/organizations/assignments';
 import { queueSecurityEmail } from '@/lib/email/security-queue';
 import { recordSecurityEventFromHeaders } from '@/lib/security/audit-from-headers';
 
@@ -215,6 +216,8 @@ export async function transferWorkspaceOwnership(
                     )
                 );
 
+            // Group work follows the new lead (decision 129).
+            await moveGroupWorkToLead(tx, projectId, newOwnerId);
             // Application threads follow the new reviewers (both are still reviewers, but their chat role changed).
             await syncWorkspaceChat(tx, projectId, newOwnerId, 'role');
             await syncWorkspaceChat(tx, projectId, user.id, 'role');

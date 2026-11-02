@@ -203,7 +203,8 @@ async function fetchProjectTasksForActor(
             pageCursor,
             // Organizations: members see the masters and their own (or team) copies (decision 19).
             orgTaskReadFilter(access, actorId, normalizedScope),
-            normalizedScope === "review" ? eq(t.reviewStatus, "pending") : undefined,
+            // Excused work leaves the queue (report §42.2 smaller bug 4).
+            normalizedScope === "review" ? and(eq(t.reviewStatus, "pending"), isNull(t.excusedAt)) : undefined,
             normalizedScope === "backlog"
               ? isNull(t.sprintId)
               : normalizedScope === "sprint"
