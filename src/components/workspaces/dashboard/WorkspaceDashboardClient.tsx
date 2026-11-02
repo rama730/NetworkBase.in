@@ -1219,7 +1219,7 @@ export default function WorkspaceDashboardClient({ project, currentUserId, viewe
             )}
 
             {organization && canManageProjectSettings ? (
-                <OrgInviteDialog orgId={project.id} title={project.title} joinCode={organization.joinCode} open={isOrgInviteOpen} onOpenChange={setIsOrgInviteOpen} />
+                <OrgInviteDialog orgId={project.id} orgHandle={project.slug ?? null} title={project.title} open={isOrgInviteOpen} onOpenChange={setIsOrgInviteOpen} />
             ) : null}
 
             {isOnboardingOpen ? (

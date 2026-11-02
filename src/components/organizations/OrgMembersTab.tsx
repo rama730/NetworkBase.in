@@ -29,6 +29,7 @@ import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { filterRoster, remindSummary, type RosterFilter, type RosterRow } from '@/lib/organizations/member-rules'
 import { toast } from '@/lib/feedback'
+import { OrgInvitePanel } from '@/components/organizations/OrgInvitePanel'
 import { formatDistanceToNow } from '@/lib/utils/date'
 import { cn } from '@/lib/utils'
 import { messageUserInWindow } from '@/components/messages/message-user'
@@ -124,11 +125,12 @@ export function OrgMembersTab({ orgId, roleNames }: { orgId: string; roleNames?:
                     </ul>
                 ) : filter.invited ? (
                     <ul className="divide-y divide-border rounded-lg border border-border">
-                        {data.invites.length === 0 ? <li className="p-4 text-sm text-muted-foreground">No open invites.</li> : null}
+                        {data.invites.length === 0 ? <li className="p-4 text-sm text-muted-foreground">No invites waiting.</li> : null}
                         {data.invites.map((i) => (
                             <li key={i.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 p-3 text-sm">
                                 <span className="font-medium">{i.email}</span>
-                                <span className="text-muted-foreground">{label(i.role)}{i.title ? ` · ${i.title}` : ''} · Invited · expires {new Date(i.expiresAt).toLocaleDateString()}</span>
+                                <span className="text-muted-foreground">{label(i.role)}{i.title ? ` · ${i.title}` : ''} · {i.expired ? 'Expired' : `Invited · expires ${new Date(i.expiresAt).toLocaleDateString()}`}</span>
+                                {i.expired ? <span className="nb-status" data-status="archived">Expired</span> : null}
                                 <span className="ml-auto flex gap-1.5">
                                     <Button type="button" size="sm" variant="outline" disabled={pending} onClick={() => run(() => resendOrgInviteAction(orgId, i.id), 'Invite extended')}>Resend</Button>
                                     <Button type="button" size="sm" variant="ghost" disabled={pending} onClick={() => run(() => cancelOrgInviteAction(orgId, i.id), 'Invite canceled')}>Cancel</Button>
@@ -171,7 +173,8 @@ export function OrgMembersTab({ orgId, roleNames }: { orgId: string; roleNames?:
             <aside className="space-y-5">
                 <OrgReportsSection orgId={orgId} />
                 <div className={data.requests.length > 0 ? 'hidden lg:block' : undefined}><Requests orgId={orgId} data={data} pending={pending} run={run} /></div>
-                <InviteBox label={label} orgId={orgId} data={data} pending={pending} run={run} onCode={(joinCode) => setData({ ...data, joinCode })} />
+                {/* Report §7.11: the same invite panel as the header and About. */}
+                <div className="border-t border-border pt-4"><OrgInvitePanel orgId={orgId} orgHandle={null} /></div>
                 <section aria-label="Summary" className="space-y-1 text-sm">
                     <button type="button" className="block hover:underline" onClick={() => setFilter({ sort: 'name' })}>{s.members} {s.members === 1 ? 'member' : 'members'}</button>
                     <button type="button" className="block hover:underline" onClick={() => setFilter({ role: 'admins' })}>{s.admins} {s.admins === 1 ? 'owner or admin' : 'owners and admins'} · {s.guests} {s.guests === 1 ? 'viewer' : 'viewers'}</button>
@@ -255,63 +258,6 @@ function Requests({ orgId, data, pending, run }: { orgId: string; data: OrgMembe
                 </div>
             ))}
             {data.requests.length > 1 ? <Button type="button" size="sm" variant="outline" disabled={pending} onClick={() => run(() => approveJoinRequestsAction(orgId, data.requests.map((r) => r.id)), 'All approved')}>Approve all</Button> : null}
-        </section>
-    )
-}
-
-function InviteBox({ orgId, data, label, pending, run, onCode }: { orgId: string; data: OrgMembersData; label: (role: string) => string; pending: boolean; run: Run; onCode: (code: string) => void }) {
-    const [emails, setEmails] = useState('')
-    const [role, setRole] = useState<'member' | 'admin' | 'viewer'>('member')
-    const [title, setTitle] = useState('')
-    const [childId, setChildId] = useState('')
-    const [unitId, setUnitId] = useState('')
-    const units = data.children.find((c) => c.id === childId)?.units ?? []
-    return (
-        <section aria-label="Invite" className="space-y-2 border-t border-border pt-4">
-            <h3 className="text-sm font-semibold">Invite</h3>
-            {data.joinCode ? (
-                <p className="flex items-center gap-2 text-[13px]">
-                    Code <span className="font-mono font-semibold">{data.joinCode}</span>
-                    <button type="button" className="underline underline-offset-4" onClick={() => void navigator.clipboard.writeText(data.joinCode!).then(() => toast.success('Code copied'))}>Copy</button>
-                    <button type="button" className="underline underline-offset-4" disabled={pending} onClick={() => {
-                        if (window.confirm('Make a new code? The old one stops working.')) void regenerateJoinCodeAction(orgId).then((r) => { if (r.success) onCode(r.joinCode); else toast.error(r.error) })
-                    }}>New code</button>
-                </p>
-            ) : <p className="text-[13px] text-muted-foreground">Joining by code is turned off.</p>}
-            <form className="space-y-1.5" onSubmit={(e) => {
-                e.preventDefault()
-                run(async () => {
-                    const r = await inviteByEmailAction(orgId, { emails, role, title: title || null, childProjectId: childId || null, unitId: unitId || null })
-                    if (r.success) {
-                        setEmails('')
-                        if (r.invalid.length) toast.warning(`Skipped: ${r.invalid.join(', ')}`)
-                    }
-                    return r
-                }, 'Invites saved')
-            }}>
-                <textarea value={emails} onChange={(e) => setEmails(e.target.value)} rows={3} placeholder="Emails, comma or one per line" aria-label="Emails to invite" className="w-full rounded-md border border-border bg-background p-2 text-sm" />
-                <p className="text-[12px] text-muted-foreground">{data.invitesLeft === 0 ? 'No invites left today.' : `${data.invitesLeft} left today`}</p>
-                <div className="flex gap-1.5">
-                    <select aria-label="Invite as" className={cn(select, 'flex-1')} value={role} onChange={(e) => setRole(e.target.value as typeof role)}>
-                        <option value="member">{label('member')}</option><option value="viewer">{label('viewer')}</option>
-                        {data.viewerRole === 'owner' ? <option value="admin">Admin</option> : null}
-                    </select>
-                    <Input value={title} onChange={(e) => setTitle(e.target.value)} maxLength={60} placeholder="Title (optional)" aria-label="Title" className="h-9 flex-1" />
-                </div>
-                <div className="flex gap-1.5">
-                    <select aria-label="Workspace" className={cn(select, 'flex-1')} value={childId} onChange={(e) => { setChildId(e.target.value); setUnitId('') }}>
-                        <option value="">No workspace</option>
-                        {data.children.map((c) => <option key={c.id} value={c.id}>{c.title}</option>)}
-                    </select>
-                    {childId ? (
-                        <select aria-label="Team" className={cn(select, 'flex-1')} value={unitId} onChange={(e) => setUnitId(e.target.value)}>
-                            <option value="">No team</option>
-                            {units.map((u) => <option key={u.id} value={u.id}>{u.title}</option>)}
-                        </select>
-                    ) : null}
-                </div>
-                <Button type="submit" size="sm" disabled={pending || !emails.trim()}>Invite by email</Button>
-            </form>
         </section>
     )
 }

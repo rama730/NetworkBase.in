@@ -10,6 +10,7 @@ import { cancelJoinRequestAction, joinPublicOrgAction, regenerateJoinCodeAction 
 import { restoreOrgAction } from '@/app/actions/org-lifecycle'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Button } from '@/components/ui/button'
+import { OrgInvitePanel } from '@/components/organizations/OrgInvitePanel'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import type { OrgDetail, ParentOrgLink } from '@/lib/organizations/detail'
 
@@ -77,68 +78,22 @@ export function OrgVisitorActions({ orgId, href, joinMode, requestPending, logge
     )
 }
 
-/** Admins' Invite: the join code with Copy, Copy invite message and Regenerate (report §18.2, §6.1). Email lists come with Members (P10). */
-export function OrgInviteDialog({ orgId, title, joinCode, open, onOpenChange }: {
+/** Admins' Invite (report §7.11): the one invite panel in a dialog. */
+export function OrgInviteDialog({ orgId, orgHandle, title, open, onOpenChange }: {
     orgId: string
+    orgHandle: string | null
     title: string
-    joinCode: string | null
     open: boolean
     onOpenChange: (open: boolean) => void
 }) {
-    const router = useRouter()
-    const [code, setCode] = useState(joinCode)
-    const [message, setMessage] = useState<string | null>(null)
-    const [confirming, setConfirming] = useState(false)
-    const [pending, startTransition] = useTransition()
-
-    const copy = async (text: string, label: string) => {
-        try {
-            await navigator.clipboard.writeText(text)
-            setMessage(label)
-        } catch {
-            setMessage('Copy failed. Select the text and copy it yourself.')
-        }
-    }
-    const regenerate = () =>
-        startTransition(async () => {
-            const result = await regenerateJoinCodeAction(orgId)
-            setConfirming(false)
-            if (!result.success) return setMessage(result.error)
-            setCode(result.joinCode)
-            setMessage('New code ready. The old code no longer works.')
-            router.refresh()
-        })
-
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="max-w-md">
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2"><UserPlus className="size-4" aria-hidden="true" />Invite people to {title}</DialogTitle>
-                    <DialogDescription>Share the code. People enter it at /join or open the link.</DialogDescription>
+                    <DialogDescription>Share the code or the link, or invite by email.</DialogDescription>
                 </DialogHeader>
-                {code ? (
-                    <div className="space-y-4">
-                        <p className="select-all text-center font-mono text-4xl font-semibold tracking-[0.25em]" aria-label={`Join code ${code.split('').join(' ')}`}>{code}</p>
-                        <div className="grid gap-2 sm:grid-cols-2">
-                            <Button variant="outline" onClick={() => copy(code, 'Code copied')}>Copy code</Button>
-                            <Button variant="outline" onClick={() => copy(`Join ${title} on NetworkBase with code ${code}: ${window.location.origin}/join/${code}`, 'Invite message copied')}>Copy invite message</Button>
-                        </div>
-                        {confirming ? (
-                            <div className="rounded-md border border-border p-3 text-sm">
-                                <p>The current code stops working at once. People who haven’t joined need the new one.</p>
-                                <div className="mt-3 flex gap-2">
-                                    <Button size="sm" variant="destructive" disabled={pending} onClick={regenerate}>Make a new code</Button>
-                                    <Button size="sm" variant="ghost" onClick={() => setConfirming(false)}>Keep this code</Button>
-                                </div>
-                            </div>
-                        ) : (
-                            <Button variant="ghost" size="sm" onClick={() => setConfirming(true)}>Regenerate code</Button>
-                        )}
-                    </div>
-                ) : (
-                    <p className="text-sm text-muted-foreground">Only owners and admins see the join code.</p>
-                )}
-                <p role="status" aria-live="polite" className="min-h-5 text-sm text-muted-foreground">{message}</p>
+                {open ? <OrgInvitePanel orgId={orgId} orgHandle={orgHandle} /> : null}
             </DialogContent>
         </Dialog>
     )

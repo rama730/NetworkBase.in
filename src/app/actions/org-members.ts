@@ -11,13 +11,14 @@ import { getWorkspaceAccessById } from '@/lib/data/workspace-access';
 import { notifyNewCopies } from '@/lib/organizations/assignment-notify';
 import { copyState } from '@/lib/organizations/assignment-rules';
 import { createCopiesForNewMember } from '@/lib/organizations/assignments';
-import { ORG_LIMITS } from '@/lib/organizations/config';
+import { ORG_LIMITS, orgRoleNames } from '@/lib/organizations/config';
+import { buildOrgEmail } from '@/lib/email/org-templates';
 import { orgMemberCap } from '@/lib/organizations/join-rules';
 import { acceptOrgInvite, AccountOrgLimitError, accountOrgLimit, createOrgEmailInvites, INVITE_DAYS, ledChildWorkspaces, notifyInvites, notifySeatsReopened, openInvitesFor, removeFromOrg } from '@/lib/organizations/members';
 import { memberChangeBlock, memberStatus, parseInviteEmails, workSummary, type OrgMemberRole, type RosterRow } from '@/lib/organizations/member-rules';
 import { addWorkspaceMemberInternal, changeWorkspaceMemberRoleInternal } from '@/lib/workspaces/collaborator-lifecycle';
 import { getViewerAuthContext } from '@/lib/server/viewer-context';
-import { namesOf, notifyJoined, notifyOrg, orgHref, orgLabel, queueOrgInviteSignupEmails, remindedRecently } from '@/lib/organizations/notify';
+import { namesOf, notifyJoined, notifyOrg, orgEmailBase, orgHref, orgLabel, queueOrgInviteSignupEmails, remindedRecently } from '@/lib/organizations/notify';
 import { orgGrant, type OrgAction, type OrgRole } from '@/lib/organizations/permissions';
 import { invitesLeftToday, orgLimitBlock } from '@/lib/organizations/limits';
 
@@ -66,7 +67,7 @@ export type OrgMembersData = {
     /** blockedByMe: the viewer's own personal block, shown only to them (Blocking B51). */
     rows: Array<RosterRow & { avatarUrl: string | null; username: string | null; blockedByMe: boolean }>;
     requests: Array<{ id: string; userId: string; name: string; note: string | null; createdAt: string }>;
-    invites: Array<{ id: string; email: string; role: string; title: string | null; expiresAt: string }>;
+    invites: Array<{ id: string; email: string; role: string; title: string | null; expiresAt: string; expired: boolean }>;
     children: Array<{ id: string; title: string; units: Array<{ id: string; title: string }> }>;
     /** People in child projects who aren't in the org (report §20.2 Status: Outside people). */
     outside: Array<{ userId: string; name: string; username: string | null; projects: string[] }>;
@@ -100,7 +101,8 @@ export async function readOrgMembersAction(orgId: string): Promise<OrgMembersDat
                 // A join request goes to an admin who isn't in a block with the person, when there is one (Blocking B37, D4).
                 sql`NOT app_private.review_hidden_by_block(${viewer.userId}::uuid, ${roleApplications.applicantId}, ${orgId}::uuid)`)).orderBy(asc(roleApplications.createdAt)),
         db.select({ id: orgEmailInvites.id, email: orgEmailInvites.email, role: orgEmailInvites.role, title: orgEmailInvites.title, expiresAt: orgEmailInvites.expiresAt })
-            .from(orgEmailInvites).where(and(eq(orgEmailInvites.orgId, orgId), isNull(orgEmailInvites.acceptedAt), gt(orgEmailInvites.expiresAt, sql`now()`))).orderBy(asc(orgEmailInvites.email)),
+            // Report §26.3: expired invites stay listed, marked, with Resend, so nobody disappears silently.
+            .from(orgEmailInvites).where(and(eq(orgEmailInvites.orgId, orgId), isNull(orgEmailInvites.acceptedAt))).orderBy(asc(orgEmailInvites.email)),
         db.select({ joinCode: workspaces.joinCode, joinCodeEnabled: workspaces.joinCodeEnabled }).from(workspaces).where(eq(workspaces.id, orgId)).limit(1),
         db.select({ id: userBlocks.blockedId }).from(userBlocks).where(eq(userBlocks.blockerId, viewer.userId)),
     ]);
@@ -155,7 +157,7 @@ export async function readOrgMembersAction(orgId: string): Promise<OrgMembersDat
         joinCode: org?.joinCodeEnabled ? org.joinCode : null,
         rows,
         requests: requests.map((r) => ({ id: r.id, userId: r.userId, name: r.name || r.username || 'Someone', note: r.note, createdAt: r.createdAt.toISOString() })),
-        invites: invites.map((i) => ({ ...i, expiresAt: i.expiresAt.toISOString() })),
+        invites: invites.map((i) => ({ ...i, expiresAt: i.expiresAt.toISOString(), expired: i.expiresAt.getTime() <= now.getTime() })),
         children: children.sort((a, b) => a.title.localeCompare(b.title)),
         outside: outside.map((o) => ({ userId: o.user_id, name: o.name || 'Someone', username: o.username, projects: o.projects })),
         summary: {
@@ -505,3 +507,50 @@ export async function readMemberWorkAction(orgId: string, userId: string): Promi
     };
 }
 
+
+export type OrgInvitePanelData = {
+    joinCode: string | null;
+    codeEnabled: boolean;
+    joinMode: 'instant' | 'approval';
+    invitesLeft: number;
+    viewerRole: 'owner' | 'admin';
+    roleNames: { owner: string; admin: string; member: string; viewer: string };
+    children: Array<{ id: string; title: string; units: Array<{ id: string; title: string }> }>;
+};
+
+/** The one invite panel's data (report §5.5, §7.11, §10.2): one read for the header, About and Members. */
+export async function readOrgInvitePanelAction(orgId: string): Promise<{ success: true; data: OrgInvitePanelData } | Failure> {
+    const viewer = await orgManager(orgId, 'invite_members_guests', 'read');
+    if (!viewer) return DENIED;
+    const [[org], children, units] = await Promise.all([
+        db.select({ joinCode: workspaces.joinCode, enabled: workspaces.joinCodeEnabled, settings: workspaces.orgSettings, orgType: workspaces.orgType }).from(workspaces).where(eq(workspaces.id, orgId)).limit(1),
+        db.select({ id: workspaces.id, title: workspaces.title }).from(workspaces).where(and(eq(workspaces.parentId, orgId), isNull(workspaces.deletedAt))).orderBy(asc(workspaces.title)),
+        db.select({ id: workspaceOpenRoles.id, projectId: workspaceOpenRoles.projectId, title: sql<string>`coalesce(${workspaceOpenRoles.title}, ${workspaceOpenRoles.role})` })
+            .from(workspaceOpenRoles).innerJoin(workspaces, eq(workspaces.id, workspaceOpenRoles.projectId)).where(and(eq(workspaces.parentId, orgId), isNull(workspaces.deletedAt))),
+    ]);
+    return {
+        success: true,
+        data: {
+            joinCode: org?.enabled ? org.joinCode : null,
+            codeEnabled: Boolean(org?.enabled),
+            joinMode: (org?.settings as { joinMode?: string } | null)?.joinMode === 'approval' ? 'approval' : 'instant',
+            invitesLeft: invitesLeftToday(await invitesSentToday(orgId)),
+            viewerRole: viewer.role,
+            roleNames: orgRoleNames(org?.orgType, org?.settings),
+            children: children.map((c) => ({ id: c.id, title: c.title ?? 'Workspace', units: units.filter((u) => u.projectId === c.id).map((u) => ({ id: u.id, title: u.title })) })),
+        },
+    };
+}
+
+/** The email an invite sends, rendered with the real template so the preview can't drift (report §7.11). */
+export async function previewOrgInviteEmailAction(orgId: string, input: { role: 'admin' | 'member' | 'viewer'; title?: string | null }): Promise<{ success: true; subject: string; html: string } | Failure> {
+    const viewer = await orgManager(orgId, 'invite_members_guests', 'read');
+    if (!viewer) return DENIED;
+    const base = await orgEmailBase(orgId, viewer.userId);
+    if (!base) return DENIED;
+    const [org] = await db.select({ orgType: workspaces.orgType, settings: workspaces.orgSettings }).from(workspaces).where(eq(workspaces.id, orgId)).limit(1);
+    const names = orgRoleNames(org?.orgType, org?.settings);
+    const role = input.role === 'admin' ? names.admin : input.role === 'viewer' ? names.viewer : names.member;
+    const email = buildOrgEmail('org_invite', { ...base, role, memberTitle: input.title?.trim().slice(0, 60) || null, expiresAt: new Date(Date.now() + INVITE_DAYS * 86_400_000).toISOString() } as Parameters<typeof buildOrgEmail>[1], { email: 'preview@networkbase.in' });
+    return { success: true, subject: email.subject, html: email.html };
+}

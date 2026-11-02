@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import { currentOrganizations, editorEntryStatus, entryStatus, groupProfileContributions, nestContributions, orgDiscoverable, showKeeps } from "../../src/lib/organizations/profile-rules";
-import { privateOrgLine } from "../../src/lib/organizations/join-rules";
+import { adminsCanSeeLine, joinPageState, ORG_JOIN_MESSAGES, privateOrgLine } from "../../src/lib/organizations/join-rules";
 
 test("new public orgs reach Discover after 3 members and 7 days, or when verified", () => {
   const now = new Date("2026-10-30T00:00:00Z");
@@ -76,4 +76,22 @@ test("16.10, 38.3: every editor row has a status", () => {
   assert.equal(editorEntryStatus({ ...base, publishedAt: "2026-10-01", visibility: "private" }), "Hidden");
   assert.equal(editorEntryStatus({ ...base, endDate: "Nov 2026", endReason: "left", publishedAt: "2026-10-01" }), "Left");
   assert.equal(editorEntryStatus({ ...base, endReason: "removed", endDate: "Oct 2026" }), "Private to you");
+});
+
+test("26.2, gap 14: the join page knows every state, in order", () => {
+  const base = { available: true, isMember: false, pending: false, blocked: false, declinedRecently: false, memberCount: 3, maxMembers: null, limit: null };
+  assert.equal(joinPageState(base), "open");
+  assert.equal(joinPageState({ ...base, isMember: true, blocked: true }), "member");
+  assert.equal(joinPageState({ ...base, pending: true }), "waiting");
+  assert.equal(joinPageState({ ...base, available: false }), "unavailable");
+  assert.equal(joinPageState({ ...base, blocked: true }), "blocked");
+  assert.equal(joinPageState({ ...base, declinedRecently: true }), "cooldown");
+  assert.equal(joinPageState({ ...base, limit: "You’ve joined 50 organizations. Leave one to join this one." }), "limit");
+  assert.equal(joinPageState({ ...base, memberCount: 40, maxMembers: 40 }), "full");
+  assert.equal(ORG_JOIN_MESSAGES.no_match, "That code doesn’t work. Ask your organization for the current one.");
+});
+
+test("29.4, decision 63: the join page says what admins can see, in the organization's words", () => {
+  assert.equal(adminsCanSeeLine("CSE 3B", { owner: "Teacher", admin: "TA" }),
+    "CSE 3B’s Teachers and TAs can see your work here and when you were last active here. They can’t see your DMs or anything outside CSE 3B.");
 });

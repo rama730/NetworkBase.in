@@ -1,5 +1,6 @@
 import { calculateCooldown } from "@/lib/applications/utils";
 import { ORG_LIMITS } from "@/lib/organizations/config";
+import { rolePlural } from "@/lib/organizations/role-words";
 
 // No look-alikes: no O/0, no I/1 (report §6.1).
 const JOIN_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -62,7 +63,7 @@ export function decideOrgJoin(state: OrgJoinState): OrgJoinOutcome {
 }
 
 export const ORG_JOIN_MESSAGES = {
-  no_match: "That code doesn’t match an organization.",
+  no_match: "That code doesn’t work. Ask your organization for the current one.",
   blocked: "You can’t join this organization.",
   full: "This organization is full.",
   unavailable: "This organization isn’t accepting new members.",
@@ -92,4 +93,23 @@ export function privateOrgLine(state: PrivateOrgState, org: string): { line: str
     case "ended": return { line: "This organization has ended.", join: false, action: null };
     default: return { line: null, join: true, action: null };
   }
+}
+
+export type JoinPageState = "member" | "waiting" | "unavailable" | "blocked" | "cooldown" | "limit" | "full" | "open";
+
+/** Every state the join page shows (report §26.2, gap 14), most specific first. Nothing is created for any but "open". */
+export function joinPageState(s: { available: boolean; isMember: boolean; pending: boolean; blocked: boolean; declinedRecently: boolean; memberCount: number; maxMembers: number | null; limit: string | null }): JoinPageState {
+  if (s.isMember) return "member";
+  if (s.pending) return "waiting";
+  if (!s.available) return "unavailable";
+  if (s.blocked) return "blocked";
+  if (s.declinedRecently) return "cooldown";
+  if (s.limit) return "limit";
+  if (s.memberCount >= Math.min(s.maxMembers ?? ORG_LIMITS.membersPerOrg, ORG_LIMITS.membersPerOrg)) return "full";
+  return "open";
+}
+
+/** What admins can see, said before anyone joins (report §29.4, decision 63), in the organization's role names. */
+export function adminsCanSeeLine(org: string, names: { owner: string; admin: string }) {
+  return `${org}’s ${rolePlural(names.owner)} and ${rolePlural(names.admin)} can see your work here and when you were last active here. They can’t see your DMs or anything outside ${org}.`;
 }

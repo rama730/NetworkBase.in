@@ -2,6 +2,7 @@
 
 import { typeProfile } from '@/lib/organizations/type-profile'
 import { ActivityItem } from '@/components/ui/activity-item'
+import { OrgInvitePanel } from '@/components/organizations/OrgInvitePanel'
 import { useState, type ReactNode } from 'react'
 import { X } from 'lucide-react'
 import { aboutStages } from '@/lib/organizations/dashboard-rules'
@@ -102,14 +103,8 @@ export function OrgAboutTab({ project, isCreator, onEdit, memberRole = null, vis
                 ) : null}
                 {data ? (
                     data.card.kind === 'invite' ? (
-                        <RailSection title="Invite">
-                            {data.card.joinCode ? (
-                                <p className="text-sm">Code <span className="font-mono font-semibold">{data.card.joinCode}</span>{' · '}
-                                    <button type="button" className="underline underline-offset-4" onClick={() => void navigator.clipboard.writeText((data.card as { joinCode: string }).joinCode).then(() => toast.success('Code copied'))}>Copy</button>
-                                </p>
-                            ) : <p className="text-sm text-muted-foreground">Joining by code is turned off.</p>}
-                            <Link href={`${base}?tab=members`} className="text-sm underline underline-offset-4">Invite by email</Link>
-                        </RailSection>
+                        // Report §7.11: the same invite panel as the header and Members.
+                        <OrgInvitePanel orgId={project.id} orgHandle={project.slug ?? null} />
                     ) : data.card.kind === 'member' || data.card.kind === 'guest' ? (
                         <RailSection title={project.title}>
                             {/* Report §39.5: the role word without "a" or "an"; links to My membership (§7.3). */}

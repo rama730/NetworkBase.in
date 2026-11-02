@@ -38,6 +38,10 @@ export async function findOrgByJoinCode(code: string) {
       coverImage: workspaces.coverImage,
       visibility: workspaces.visibility,
       orgSettings: workspaces.orgSettings,
+      status: workspaces.status,
+      suspendedAt: workspaces.suspendedAt,
+      deletionScheduledAt: workspaces.deletionScheduledAt,
+      maxCollaborators: workspaces.maxCollaborators,
     })
     .from(workspaces)
     .where(and(

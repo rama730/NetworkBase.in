@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation'
 import { useState, useTransition } from 'react'
 
-import { joinOrganizationAction } from '@/app/actions/organizations'
+import { cancelJoinRequestAction, joinOrganizationAction } from '@/app/actions/organizations'
 import { Button } from '@/components/ui/button'
 import type { OrgJoinMode } from '@/lib/organizations/join-rules'
 
@@ -46,6 +46,24 @@ export function JoinOrgButton({ code, joinMode, orgHref }: { code: string; joinM
             <Button type="button" onClick={submit} disabled={pending} className="min-h-11 w-full">
                 {pending ? 'Joining…' : joinMode === 'approval' ? 'Request to join' : 'Join'}
             </Button>
+        </div>
+    )
+}
+
+/** Report §26.2: "Request sent", with Cancel, on the join page itself. */
+export function JoinRequestPending({ orgId }: { orgId: string }) {
+    const router = useRouter()
+    const [pending, startTransition] = useTransition()
+    const [error, setError] = useState<string | null>(null)
+    return (
+        <div className="space-y-2 text-center">
+            <p role="status" className="rounded-md border border-border bg-muted px-3 py-2 text-sm">Request sent. The admins will review it.</p>
+            <Button type="button" variant="outline" className="h-11 w-full" disabled={pending} onClick={() => startTransition(async () => {
+                const result = await cancelJoinRequestAction(orgId)
+                if (!result.success) return setError(result.error)
+                router.refresh()
+            })}>Cancel request</Button>
+            {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}
         </div>
     )
 }

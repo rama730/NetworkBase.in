@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 
 import { getJoinPreviewAction } from '@/app/actions/organizations'
-import { JoinOrgButton } from '@/components/organizations/JoinOrgButton'
+import { JoinOrgButton, JoinRequestPending } from '@/components/organizations/JoinOrgButton'
 import { JoinReportLink } from '@/components/organizations/JoinReportLink'
 import { WorkspaceAvatar } from '@/components/workspaces/WorkspaceAvatar'
 import { AUTH_LINK, AuthShell } from '@/components/auth/AuthShell'
@@ -32,7 +32,7 @@ export default async function JoinOrganizationPage({ params }: { params: Promise
     const result = code ? await getJoinPreviewAction(code) : null
     if (!result?.success) {
         return (
-            <AuthShell title={result?.error ?? "That code doesn’t match an organization."} description="If your organization made a new code, ask for it." panel={JOIN_PANEL}>
+            <AuthShell title={result?.error ?? "That code doesn’t work. Ask your organization for the current one."} description="Codes change when an organization makes a new one." panel={JOIN_PANEL}>
                 <Button asChild variant="outline" className="h-11 w-full"><Link href="/join">Enter a code</Link></Button>
             </AuthShell>
         )
@@ -62,13 +62,19 @@ export default async function JoinOrganizationPage({ params }: { params: Promise
                             Already have an account? <Link className={AUTH_LINK} href={buildAuthPageHref('/login', here)}>Sign in</Link>
                         </p>
                     </div>
-                ) : preview.viewer === 'member' ? (
+                ) : preview.state === 'member' ? (
                     <Button asChild className="h-11 w-full font-medium"><Link href={orgHref}>Open {preview.title}</Link></Button>
-                ) : preview.viewer === 'pending' ? (
-                    <p role="status" className="rounded-md border border-border bg-muted px-3 py-2 text-center text-sm">Request pending. The admins will review it.</p>
+                ) : preview.state === 'waiting' ? (
+                    // Report §26.1 #6, §26.2: someone waiting can withdraw from here.
+                    <JoinRequestPending orgId={preview.id} />
+                ) : preview.stateMessage ? (
+                    // Full, blocked, ended, recently declined or at the 50-organization limit: said plainly, nothing is created.
+                    <p role="status" className="rounded-md border border-border bg-muted px-3 py-2 text-center text-sm">{preview.stateMessage}</p>
                 ) : (
                     <JoinOrgButton code={code!} joinMode={preview.joinMode} orgHref={orgHref} />
                 )}
+                {/* Report §29.4, decision 63: what admins can see, before anyone joins. */}
+                {preview.state === 'open' || preview.state === 'waiting' ? <p className="text-center text-xs text-muted-foreground" data-testid="join-admins-line">{preview.adminsLine}</p> : null}
                 {/* Decision 163: launch is 18 and over. */}
                 {preview.viewer !== 'member' ? <p className="text-center text-xs text-muted-foreground">You must be 18 or older to join.</p> : null}
                 {user && preview.viewer !== 'member' ? <JoinReportLink orgId={preview.id} code={code!} /> : null}

@@ -24,9 +24,9 @@ import { generateJoinCode } from '@/lib/organizations/join-rules';
 import { allowedChildVisibilities, type ChildVisibility } from '@/lib/organizations/child-rules';
 import { applyChildVisibilityCap, countChildrenAboveCap, countOutsidePeople, detachFromOrg, moveIntoOrg, readOrgCap } from '@/lib/organizations/children';
 import { listCreateLocations, readViewerOrgRole } from '@/lib/organizations/detail';
-import { acceptOrgInvite, AccountOrgLimitError, ledChildWorkspaces, notifySeatsReopened, openInvitesFor, removeFromOrg } from '@/lib/organizations/members';
+import { acceptOrgInvite, AccountOrgLimitError, accountOrgLimit, ledChildWorkspaces, notifySeatsReopened, openInvitesFor, removeFromOrg } from '@/lib/organizations/members';
 import { countOrgMembers, findOrgByJoinCode, isOrgHandleAvailable, joinOrgByCode, joinPublicOrg, viewerOrgStatus } from '@/lib/organizations/join';
-import { normalizeJoinCode, ORG_JOIN_MESSAGES, type OrgJoinMode, type OrgJoinOutcome } from '@/lib/organizations/join-rules';
+import { adminsCanSeeLine, joinPageState, normalizeJoinCode, orgMemberCap, ORG_JOIN_MESSAGES, type JoinPageState, type OrgJoinMode, type OrgJoinOutcome } from '@/lib/organizations/join-rules';
 import { isWorkspacePubliclyReadableVisibility } from '@/lib/workspaces/workspace-visibility';
 import { namesOf, notifyJoined, notifyOrg, orgHref, orgLabel } from '@/lib/organizations/notify';
 import { logger } from '@/lib/logger';
@@ -47,6 +47,11 @@ export type OrgJoinPreview = {
     joinMode: OrgJoinMode;
     /** The logged-in viewer's standing: already in, request pending, or neither. */
     viewer: 'member' | 'pending' | null;
+    /** Report §26.2: what the page shows, and the sentence for the states that stop joining. */
+    state: JoinPageState;
+    stateMessage: string | null;
+    /** Decision 63: what admins can see, before anyone joins. */
+    adminsLine: string;
 };
 
 const NO_MATCH: Failure = { success: false, error: ORG_JOIN_MESSAGES.no_match };
@@ -75,17 +80,35 @@ export async function getJoinPreviewAction(rawCode: string): Promise<{ success: 
     const org = code ? await findOrgByJoinCode(code) : null;
     if (!org) return NO_MATCH;
     const isPublic = isWorkspacePubliclyReadableVisibility(org.visibility);
+    // Report §26.2, gap 14: every state the page can show, decided here so nothing is created for the others.
+    const memberCount = await countOrgMembers(org.id);
+    const status = userId ? await viewerOrgStatus(org.id, org.ownerId, userId) : null;
+    const [standing] = userId ? await db.execute<{ blocked: boolean; declined: boolean }>(sql`
+        SELECT EXISTS (SELECT 1 FROM org_join_blocks b WHERE b.org_id = ${org.id} AND b.user_id = ${userId}) AS blocked,
+          EXISTS (SELECT 1 FROM role_applications a WHERE a.workspace_id = ${org.id} AND a.applicant_id = ${userId} AND a.role_id IS NULL
+            AND a.status = 'rejected' AND a.updated_at > now() - interval '1 day') AS declined`) : [];
+    const limit = userId && status !== 'member' ? await accountOrgLimit(db, userId, 'join') : null;
+    const state = joinPageState({
+        available: org.status !== 'archived' && !org.suspendedAt && !org.deletionScheduledAt,
+        isMember: status === 'member', pending: status === 'pending', blocked: Boolean(standing?.blocked), declinedRecently: Boolean(standing?.declined),
+        memberCount, maxMembers: orgMemberCap(org.maxCollaborators), limit,
+    });
+    const names = orgRoleNames(org.orgType, org.orgSettings);
     return {
         success: true,
         preview: {
+            state,
+            stateMessage: state === 'limit' ? limit : state === 'unavailable' ? ORG_JOIN_MESSAGES.unavailable : state === 'blocked' ? ORG_JOIN_MESSAGES.blocked
+                : state === 'cooldown' ? ORG_JOIN_MESSAGES.cooldown : state === 'full' ? ORG_JOIN_MESSAGES.full : null,
+            adminsLine: adminsCanSeeLine(org.title ?? 'This organization', names),
             id: org.id,
             title: org.title,
             slug: org.slug,
             orgType: orgTypeLabel(org.orgType, org.orgSettings),
             coverImage: org.coverImage,
-            memberCount: isPublic ? await countOrgMembers(org.id) : null,
+            memberCount: isPublic ? memberCount : null,
             joinMode: (org.orgSettings as { joinMode?: unknown })?.joinMode === 'approval' ? 'approval' : 'instant',
-            viewer: userId ? await viewerOrgStatus(org.id, org.ownerId, userId) : null,
+            viewer: status,
         },
     };
 }
