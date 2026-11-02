@@ -296,7 +296,7 @@ export async function reviewAssignmentCopyAction(copyId: string, decision: 'appr
     if (loaded.copy.reviewStatus !== 'pending') return { success: false, error: 'Nothing is waiting for review.' };
     if (decision === 'return' && !reason?.trim()) return { success: false, error: 'Say what to change.' };
     const [own] = await db.select({ id: tasks.id }).from(tasks).where(and(eq(tasks.id, copyId), ownWork(copyId, viewer.userId))).limit(1);
-    if (own) return { success: false, error: "You can't review your own work. Ask another admin." };
+    if (own) return { success: false, error: "You can’t review your own work. Ask another admin." };
     await reviewOne(copyId, viewer.userId, decision, reason?.trim().slice(0, 1000));
     touch(viewer.slug, loaded.master.projectId);
     return { success: true };

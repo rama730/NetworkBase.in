@@ -16,6 +16,7 @@ import { getTaskFileWarnings } from "@/lib/workspaces/task-file-intelligence";
 import { logger } from "@/lib/logger";
 import { projectTaskHref } from "@/lib/workspaces/task-presentation";
 import { taskReviewSnapshot } from "@/lib/workspaces/task-review-snapshot";
+import { assertAssignmentWrite } from "@/lib/organizations/assignments";
 
 export type TaskStatus = "todo" | "in_progress" | "done" | "blocked";
 export function taskActorSnapshot(user: {
@@ -234,19 +235,10 @@ export async function transitionTaskTx(
     locked.previousAssigneeId !== input.userId
   )
     throw new Error("Only the assignee, the owner or an admin can move this task.");
-  // Handing in an assignment copy goes through Submit, which records the link or text (report §16.4);
-  // a file submission needs its file attached to the copy first.
-  if (status === "done" && locked.currentStatus !== "done" && locked.copySubmissionType) {
-    if (locked.copySubmissionType === "link" || locked.copySubmissionType === "text") {
-      throw new Error("Use Submit to hand this in.");
-    }
-    if (locked.copySubmissionType === "file") {
-      const [file] = await tx.execute<{ id: string }>(sql`
-        SELECT id FROM workspace_nodes WHERE task_id = ${input.taskId} AND deleted_at IS NULL AND type = 'file'
-        UNION ALL SELECT node_id FROM task_node_links WHERE task_id = ${input.taskId}
-        LIMIT 1`);
-      if (!file) throw new Error("Attach your file to this task, then move it to Done.");
-    }
+  // Assignment work (report §19.3, decisions 85, 140, 147): only Submit hands a copy in, approved work is locked,
+  // and a main assignment has no state of its own. Return and Resubmit are review actions with their own checks.
+  if (!input.reviewReason && !input.resubmit) {
+    await assertAssignmentWrite(tx, input.taskId, locked.isLeader, status === "done" && locked.currentStatus !== "done" ? "done" : "status");
   }
   if (input.resubmit && locked.reviewStatus !== "pending")
     throw new Error("Task is not pending review. Reload before submitting.");

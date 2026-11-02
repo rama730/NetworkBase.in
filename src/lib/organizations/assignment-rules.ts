@@ -85,10 +85,47 @@ export function splitIntoTeams<T>(people: T[], size: number, random: () => numbe
  * only within its team, by an organization admin or the team's lead. Null means allowed.
  */
 export function reassignBlock(task: { isMaster: boolean; isCopy: boolean; hasTeam: boolean; actorIsAdmin: boolean; actorIsLead: boolean; targetOnTeam: boolean }): string | null {
-  if (task.isMaster) return "An assignment's people are set when it's published. Use Give to for someone new.";
+  if (task.isMaster) return "An assignment’s people are set when it’s published. Use Give to for someone new.";
   if (!task.isCopy) return null;
-  if (!task.hasTeam) return "Each person keeps their own copy, so it can't be reassigned.";
-  if (!task.actorIsAdmin && !task.actorIsLead) return "Only the team's lead or an admin can reassign this.";
+  if (!task.hasTeam) return "Each person keeps their own copy, so it can’t be reassigned.";
+  if (!task.actorIsAdmin && !task.actorIsLead) return "Only the team’s lead or an admin can reassign this.";
   if (!task.targetOnTeam) return "Pick someone on this team.";
   return null;
+}
+
+export type AssignmentWrite = "title" | "description" | "priority" | "storyPoints" | "dueDate" | "sprintId" | "status" | "done" | "delete";
+
+/**
+ * Who may change what on assignment work (report §19.3, §42.12, decisions 85, 140, 142, 147): one rule for field
+ * updates, status moves, sprint moves and delete, from the board, the panel or the editor. Ordinary tasks are never
+ * touched (42.18). "done" is a move to Completed, which only Submit may make. Null means allowed.
+ */
+export function assignmentWriteBlock(task: {
+  isMaster: boolean; isCopy: boolean; handedIn: boolean; approved: boolean; groupCopy: boolean; orgTitle: string; actorIsOrgAdmin: boolean;
+}, write: AssignmentWrite): string | null {
+  if (task.isMaster) {
+    if (!task.actorIsOrgAdmin) return `Only ${task.orgTitle}’s admins change an assignment.`;
+    if (write === "status" || write === "done") return "An assignment’s state comes from its copies.";
+    if (write === "delete" && task.handedIn) return "Someone has handed this in, so it can’t be deleted. Close it instead.";
+    return null;
+  }
+  if (!task.isCopy) return null;
+  switch (write) {
+    case "title":
+    case "description":
+      return `Set by ${task.orgTitle}`;
+    case "dueDate":
+      return `Set by ${task.orgTitle}. Ask for an extension.`;
+    case "done":
+      return "Use Submit to hand this in.";
+    case "status":
+      return task.approved ? "This was approved, so it’s locked." : null;
+    case "delete":
+      if (!task.actorIsOrgAdmin) return `Only ${task.orgTitle}’s admins can remove this.`;
+      return task.handedIn ? "This was handed in, so it stays." : null;
+    case "sprintId":
+      return task.groupCopy ? null : "This moves with its assignment.";
+    default:
+      return null;
+  }
 }

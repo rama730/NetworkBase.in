@@ -153,7 +153,7 @@ test("group assignment: a copy in each child project for its lead; the org revie
   assert.equal((await assignments.reviewAssignmentCopyAction(groupCopy!.id, "approve")).success, true);
   assert.equal((await orgs.detachChildAction(child)).success, true);
   const [after] = await sql`SELECT assignment_id FROM tasks WHERE id = ${groupCopy!.id}`;
-  assert.equal(after!.assignment_id, null, "a detached project keeps it as a normal task");
+  assert.equal(after!.assignment_id, master, "approved work stays on the roster as Detached (decision 130)");
 });
 
 test("admin actions: extend, excuse, edit the master, close, and delete only before anyone submits", async () => {

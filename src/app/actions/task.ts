@@ -4,7 +4,8 @@ import { requireAuthenticatedUser } from "@/app/api/v1/_shared";
 import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { reassignBlock } from "@/lib/organizations/assignment-rules";
+import { reassignBlock, type AssignmentWrite } from "@/lib/organizations/assignment-rules";
+import { assertAssignmentWrite } from "@/lib/organizations/assignments";
 import { db } from "@/lib/db";
 import { wakeEmailWorker } from "@/lib/email/outbox";
 import { recordTaskAssignment, refusePeerAssignmentAcrossBlock, taskAssignmentNotification } from "@/lib/workspaces/task-assignment";
@@ -100,6 +101,7 @@ export async function updateTaskFieldAction(
       if (locked.projectId !== projectId) {
         throw new Error("Task does not belong to this workspace");
       }
+      const assignment = await assertAssignmentWrite(tx, taskId, locked.isLeader, field as AssignmentWrite);
 
       const updatedAt = new Date();
       const updates: Partial<typeof tasks.$inferInsert> = {
@@ -120,9 +122,10 @@ export async function updateTaskFieldAction(
         }
         updates.priority = priority as Priority;
       } else if (field === "sprintId") {
-        if (!locked.isOwner) {
+        // Owners and admins plan sprints (decision 146); a team plans its own group work (report §19.3).
+        if (!locked.isOwner && !locked.isLeader && !assignment?.groupCopy) {
           throw new Error(
-            "Only the owner can change sprint assignments",
+            "Only owners and admins can change sprint assignments",
           );
         }
         const sprintId = requestedSprintId;
@@ -171,6 +174,19 @@ export async function updateTaskFieldAction(
       }
 
       await tx.update(tasks).set(updates).where(eq(tasks.id, taskId));
+      // A main assignment's copies in the organization change sprint with it (report §42.10 problem 18).
+      if (field === "sprintId" && assignment?.isMaster && locked.previousSprintId !== requestedSprintId) {
+        const copies = await tx.update(tasks).set({ sprintId: requestedSprintId, updatedAt })
+          .where(and(eq(tasks.assignmentId, taskId), eq(tasks.projectId, locked.projectId), isNull(tasks.deletedAt)))
+          .returning({ id: tasks.id });
+        if (copies.length > 0) {
+          await tx.update(sprintTaskMemberships).set({ removedAt: updatedAt, removedBy: user.id })
+            .where(and(inArray(sprintTaskMemberships.taskId, copies.map((c) => c.id)), isNull(sprintTaskMemberships.removedAt)));
+          if (requestedSprintId) {
+            await tx.insert(sprintTaskMemberships).values(copies.map((c) => ({ projectId: locked.projectId, sprintId: requestedSprintId, taskId: c.id, addedBy: user.id })));
+          }
+        }
+      }
       if (
         field === "sprintId" &&
         locked.previousSprintId !== requestedSprintId
@@ -635,7 +651,7 @@ export async function approveTaskReviewAction(
       const locked = await lockTaskForWrite(tx, taskId, user.id);
       if (locked.projectId !== projectId) throw new Error("Task mismatch");
       // Decision 95, assignment copies only (42.18): nobody reviews their own or their group's work.
-      if (locked.copySubmissionType !== null && (locked.previousAssigneeId === user.id || locked.isTeamMember)) throw new Error("You can't review your own work. Ask another admin.");
+      if (locked.copySubmissionType !== null && (locked.previousAssigneeId === user.id || locked.isTeamMember)) throw new Error("You can’t review your own work. Ask another admin.");
       if(expectedUpdatedAt && new Date(locked.currentUpdatedAt).getTime()!==new Date(expectedUpdatedAt).getTime()) throw new Error("Task changed elsewhere. Reload before approving.");
       if (!locked.isLeader)
         return { error: "Only the owner and admins can approve tasks" } as const;
@@ -719,7 +735,7 @@ async function performTaskReviewAction(taskId: string, projectId: string, expect
       const locked = await lockTaskForWrite(tx, taskId, user.id);
       if (locked.projectId !== projectId) throw new Error("Task mismatch");
       // Decision 95, assignment copies only (42.18): nobody reviews their own or their group's work. Resubmitting is theirs.
-      if (!action.resubmit && locked.copySubmissionType !== null && (locked.previousAssigneeId === user.id || locked.isTeamMember)) throw new Error("You can't review your own work. Ask another admin.");
+      if (!action.resubmit && locked.copySubmissionType !== null && (locked.previousAssigneeId === user.id || locked.isTeamMember)) throw new Error("You can’t review your own work. Ask another admin.");
       if (!expectedUpdatedAt || new Date(locked.currentUpdatedAt).getTime() !== new Date(expectedUpdatedAt).getTime()) throw new Error("Task changed elsewhere. Reload before retrying.");
       if (locked.reviewStatus !== "pending") throw new Error("Task is not pending review");
       const result = await transitionTaskTx(tx, locked, { taskId, userId: user.id, status: action.resubmit ? "done" : "in_progress", ...action });

@@ -1,4 +1,6 @@
-import { orgTaskReadFilter } from "@/lib/organizations/assignments";
+import { assignmentWriteContext, orgTaskReadFilter } from "@/lib/organizations/assignments";
+import { assignmentWriteBlock } from "@/lib/organizations/assignment-rules";
+import { readViewerOrgRole } from "@/lib/organizations/detail";
 import { lockTaskForWrite, transitionTaskTx, afterTaskTransition } from "@/lib/workspaces/task-transition-service";
 import "server-only";
 
@@ -1284,6 +1286,17 @@ export async function deleteTaskAction(taskId: string, projectId: string) {
 
       if (!existingTask) {
         throw new Error("Task not found in this workspace");
+      }
+      // Assignment work follows the assignment rule (report §42.12 problems 22 and 32, decision 142): the
+      // organization's admins only, never once handed in, and a main assignment goes with its copies.
+      const assignment = await assignmentWriteContext(tx, taskId);
+      if (assignment) {
+        const role = assignment.orgId ? await readViewerOrgRole(assignment.orgId, user.id) : null;
+        const blocked = assignmentWriteBlock({ ...assignment, actorIsOrgAdmin: role === "owner" || role === "admin" }, "delete");
+        if (blocked) throw new Error(blocked);
+        if (assignment.isMaster) {
+          await tx.update(tasks).set({ deletedAt: new Date(), updatedAt: new Date() }).where(and(eq(tasks.assignmentId, taskId), isNull(tasks.deletedAt)));
+        }
       }
 
       // Soft-deleting a task must not strand its private working files behind

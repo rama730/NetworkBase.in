@@ -7,7 +7,7 @@ import { and, eq, inArray, isNotNull, isNull, ne, or, sql, type SQL } from "driz
 import { db } from "@/lib/db";
 import { workspaceMembers, workspaceSprints, workspaceWorkflowColumns, workspaces, sprintTaskMemberships, taskSubtasks, taskTeamMembers, tasks } from "@/lib/db/schema";
 import type { WorkspaceAccess } from "@/lib/data/workspace-access";
-import type { AssignmentSettings, AssignmentTarget } from "@/lib/organizations/assignment-rules";
+import { assignmentWriteBlock, type AssignmentSettings, type AssignmentTarget, type AssignmentWrite } from "@/lib/organizations/assignment-rules";
 
 // Assignments (report §16, §16.11): a master task on the org and one copy per person, team or child project.
 
@@ -265,4 +265,31 @@ export async function moveGroupWorkToLead(executor: Executor, workspaceId: strin
     eq(tasks.projectId, workspaceId), isNotNull(tasks.assignmentId), isNull(tasks.deletedAt),
     sql`EXISTS (SELECT 1 FROM workspaces w WHERE w.id = ${workspaceId}::uuid AND w.kind <> 'organization')`,
   ));
+}
+
+/** What assignmentWriteBlock needs about one task, read inside the write's transaction (report §19.3). */
+export async function assignmentWriteContext(executor: Executor, taskId: string) {
+  const rows = await executor.execute<{ master: boolean; copy: boolean; handed_in: boolean; approved: boolean; group_copy: boolean; org_title: string | null; org_id: string | null }>(sql`
+    SELECT t.kind = 'assignment' AND t.assignment_id IS NULL AS master,
+           t.assignment_id IS NOT NULL AS copy,
+           CASE WHEN t.assignment_id IS NULL
+             THEN EXISTS (SELECT 1 FROM tasks c WHERE c.assignment_id = t.id AND c.deleted_at IS NULL
+               AND (c.review_status = 'pending' OR c.status = 'done' OR c.review_submitted_at IS NOT NULL))
+             ELSE (t.review_status = 'pending' OR t.status = 'done' OR t.review_submitted_at IS NOT NULL) END AS handed_in,
+           t.status = 'done' AND t.review_status <> 'pending' AS approved,
+           p.kind <> 'organization' AS group_copy,
+           (SELECT o.title FROM tasks m JOIN workspaces o ON o.id = m.workspace_id WHERE m.id = coalesce(t.assignment_id, t.id)) AS org_title,
+           (SELECT m.workspace_id FROM tasks m WHERE m.id = coalesce(t.assignment_id, t.id)) AS org_id
+    FROM tasks t JOIN workspaces p ON p.id = t.workspace_id WHERE t.id = ${taskId}::uuid`);
+  const row = Array.from(rows)[0];
+  if (!row || (!row.master && !row.copy)) return null;
+  return { isMaster: row.master, isCopy: row.copy, handedIn: row.handed_in, approved: row.approved, groupCopy: row.group_copy, orgTitle: row.org_title ?? "the organization", orgId: row.org_id };
+}
+
+/** Throws the plain reason when assignment work can't take this write; ordinary tasks pass (report §19.3). */
+export async function assertAssignmentWrite(executor: Executor, taskId: string, actorIsOrgAdmin: boolean, write: AssignmentWrite) {
+  const context = await assignmentWriteContext(executor, taskId);
+  const blocked = context && assignmentWriteBlock({ ...context, actorIsOrgAdmin }, write);
+  if (blocked) throw new Error(blocked);
+  return context;
 }

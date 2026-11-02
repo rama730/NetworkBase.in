@@ -122,7 +122,7 @@ export { readOrgCap };
 export async function orgSeatApplyBlock(parentId: string | null, visibility: string | null, userId: string): Promise<string | null> {
   if (!parentId) return null;
   const role = await readViewerOrgRole(parentId, userId);
-  if (role === "viewer") return "Viewers can't apply for seats.";
+  if (role === "viewer") return "Viewers can’t apply for seats.";
   if (role) return null;
   const [org] = await db.select({ settings: workspaces.orgSettings }).from(workspaces).where(eq(workspaces.id, parentId)).limit(1);
   if (visibility === "public" && readOrgRules(org?.settings).outsidePeople) return null;

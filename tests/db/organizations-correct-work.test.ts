@@ -237,3 +237,52 @@ test("problem 26 (decision 143): leaving keeps any copy that was handed in, incl
   assert.equal(rows[o.a], null, "Returned work stays");
   assert.ok(rows[o.b], "never-submitted work goes");
 });
+
+test("problems 23, 34 and 18: only admins edit a main assignment; it has no status of its own; its copies change sprint with it", async () => {
+  const o = await org();
+  const { master, copyOf } = await published(o, "Lab 10");
+  viewerId = o.a;
+  assert.equal((await taskActions.updateTaskFieldAction(master, "title", "Renamed by a student", o.org)).success, false, "members can't rename it (problem 23)");
+  viewerId = o.admin;
+  assert.equal((await taskActions.updateTaskFieldAction(master, "description", "Clearer brief", o.org)).success, true);
+  assert.equal((await taskActions.updateTaskStatusAction(master, "done", o.org)).success, false, "no Completed on the main assignment (problem 34)");
+  const [sprint] = await sql`INSERT INTO workspace_sprints (workspace_id, name, start_date, end_date, status) VALUES (${o.org}, 'CO2', now(), now() + interval '7 days', 'planning') RETURNING id`;
+  const moved = await taskActions.updateTaskFieldAction(master, "sprintId", sprint!.id, o.org);
+  assert.equal(moved.success, true, "admins put tasks in sprints (problem 31) " + JSON.stringify(moved));
+  const [copy] = await sql`SELECT sprint_id FROM tasks WHERE id = ${copyOf(o.a)}`;
+  assert.equal(copy!.sprint_id, sprint!.id, "the copies follow (problem 18)");
+});
+
+test("problems 20, 23 and decision 85: on a copy the brief and date are set by the organization, hand-in is only through Submit, and approved work is locked", async () => {
+  const o = await org();
+  const { copyOf } = await published(o, "Lab 11");
+  viewerId = o.a;
+  assert.equal((await taskActions.updateTaskFieldAction(copyOf(o.a), "title", "My title", o.org)).success, false);
+  assert.equal((await taskActions.updateTaskFieldAction(copyOf(o.a), "dueDate", future(), o.org)).success, false);
+  assert.equal((await taskActions.updateTaskFieldAction(copyOf(o.a), "priority", "high", o.org)).success, true, "their own priority is fine");
+  const dragged = await taskActions.updateTaskStatusAction(copyOf(o.a), "done", o.org);
+  assert.deepEqual([dragged.success, (dragged as { error?: string }).error], [false, "Use Submit to hand this in."], "the board can't hand in (problem 20)");
+  assert.equal((await taskActions.updateTaskStatusAction(copyOf(o.a), "in_progress", o.org)).success, true);
+  assert.equal((await assignments.submitAssignmentAction(copyOf(o.a), {})).success, true);
+  viewerId = o.owner;
+  assert.equal((await assignments.reviewAssignmentCopyAction(copyOf(o.a), "approve")).success, true);
+  viewerId = o.a;
+  assert.equal((await taskActions.updateTaskStatusAction(copyOf(o.a), "in_progress", o.org)).success, false, "approved work is locked (85)");
+});
+
+test("problems 22 and 32: deleting a main assignment or a copy follows the assignment rule from the task panel", async () => {
+  const o = await org();
+  const { master, copyOf } = await published(o, "Lab 12");
+  viewerId = o.a;
+  assert.equal((await assignments.submitAssignmentAction(copyOf(o.a), {})).success, true);
+  viewerId = o.owner;
+  const panelDelete = await tasks.deleteTaskAction(master, o.org);
+  assert.equal(panelDelete.success, false, "handed-in work blocks deleting the main assignment (problem 22)");
+  assert.equal((await tasks.deleteTaskAction(copyOf(o.a), o.org)).success, false, "a handed-in copy can't be deleted (problem 32)");
+  const [left] = await sql`SELECT count(*)::int AS n FROM tasks WHERE assignment_id = ${master} AND deleted_at IS NULL`;
+  assert.equal(left!.n, 2, "nothing was removed");
+  const fresh = await published(o, "Lab 13");
+  assert.equal((await tasks.deleteTaskAction(fresh.master, o.org)).success, true, "with nothing handed in, it goes");
+  const [gone] = await sql`SELECT count(*)::int AS n FROM tasks WHERE assignment_id = ${fresh.master} AND deleted_at IS NULL`;
+  assert.equal(gone!.n, 0, "with its copies, not stranding them");
+});
