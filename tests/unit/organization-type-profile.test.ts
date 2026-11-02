@@ -90,3 +90,14 @@ test("22.4: What each role can do is generated from every row of the permissions
   assert.deepEqual([...listed].sort(), [...ORG_ACTIONS].sort());
   assert.equal(new Set(listed).size, listed.length);
 });
+
+test("19.2, decision 30: a workspace inside an organization holds 2 GB; the organization 5 GB; hand-ins keep their own allowance", async () => {
+  const { projectStorageLimit, storageFullMessage } = await import("@/lib/organizations/limits");
+  const GB = 1024 ** 3;
+  assert.equal(projectStorageLimit({ kind: "workspace", parentId: "org" }, 10 * GB), 2 * GB);
+  assert.equal(projectStorageLimit({ kind: "workspace", parentId: null }, 10 * GB), 10 * GB, "back to 10 GB once detached");
+  assert.equal(projectStorageLimit({ kind: "organization", parentId: null }, 10 * GB), 5 * GB);
+  assert.equal(projectStorageLimit({ kind: "organization", parentId: null }, 10 * GB, true), 10 * GB);
+  assert.equal(storageFullMessage({ kind: "workspace", parentId: "org" }, false), "Team storage is full. Remove files to make room.");
+  assert.equal(storageFullMessage({ kind: "organization", parentId: null }, false), "Storage is full. Ask an admin.");
+});

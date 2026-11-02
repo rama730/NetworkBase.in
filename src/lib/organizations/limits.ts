@@ -24,3 +24,20 @@ export function orgLimitBlock(limit: OrgLimit, count: number, who: { org: string
 export function invitesLeftToday(sentToday: number) {
   return Math.max(0, ORG_LIMITS.emailInvitesPerOrgPerDay - sentToday);
 }
+
+/**
+ * The storage a project may hold (report §19.2, §42.16): an organization 5 GB, a workspace inside one 2 GB, anything
+ * else its stored limit. Hand-ins never meet the organization's 5 GB; they have their own allowance per person.
+ */
+export function projectStorageLimit(project: { kind: string | null; parentId: string | null } | null | undefined, storedLimit: number, handIn = false) {
+  if (project?.kind === "organization") return handIn ? storedLimit : Math.min(storedLimit, ORG_LIMITS.orgStorageBytes);
+  if (project?.parentId) return Math.min(storedLimit, ORG_LIMITS.teamStorageBytes);
+  return storedLimit;
+}
+
+/** What a full upload says (report §7.8, §19.2): who can make room, and where. */
+export function storageFullMessage(project: { kind: string | null; parentId: string | null } | null | undefined, isAdmin: boolean) {
+  if (project?.kind === "organization") return isAdmin ? "The organization’s storage is full. Free up space in Settings → Storage." : "Storage is full. Ask an admin.";
+  if (project?.parentId) return "Team storage is full. Remove files to make room.";
+  return null;
+}

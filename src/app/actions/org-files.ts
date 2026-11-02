@@ -14,6 +14,7 @@ import { ORG_LIMITS } from '@/lib/organizations/config';
 import { copyState } from '@/lib/organizations/assignment-rules';
 import { orgGrant, type OrgAction } from '@/lib/organizations/permissions';
 import { ASSIGNMENT_STATE_LABELS } from '@/lib/copy/terms';
+import { scheduleAssetDeletionIfUnreferenced } from '@/lib/storage/asset-deletion';
 import { UUID_RE } from '@/lib/validations/uuid';
 
 // Org Files (report §23): folder access and Template marks for admins; the From <org> view and copies in
@@ -318,4 +319,93 @@ export async function readChildFinalFilesAction(childProjectId: string): Promise
             return { nodeId: r.node_id, name: r.name, assignment: r.assignment, review: state === 'done' ? `Reviewed by ${org.title}` : ASSIGNMENT_STATE_LABELS[state] };
         }),
     };
+}
+
+export type OrgStorageBreakdown = {
+    usedBytes: number
+    limitBytes: number
+    byType: Record<'documents' | 'images' | 'video' | 'code' | 'submissions' | 'other', number>
+    trashBytes: number
+    largeFiles: number
+    oldVersionBytes: number
+    byWorkspace: Array<{ id: string; title: string; bytes: number }>
+}
+
+const LARGE_FILE_BYTES = 100 * 1024 * 1024;
+
+/** Versions beyond the latest 3 of the organization's own files; hand-ins keep their whole history. */
+const OLD_VERSIONS = (orgId: string) => sql`
+    SELECT v.id, v.node_id, v.size, v.asset_id FROM (
+        SELECT v.*, row_number() OVER (PARTITION BY v.node_id ORDER BY v.version DESC) AS rn, n.current_version
+        FROM file_versions v JOIN workspace_nodes n ON n.id = v.node_id
+        WHERE n.workspace_id = ${orgId} AND n.deleted_at IS NULL AND n.task_id IS NULL) v
+    WHERE v.rn > 3 AND v.version <> v.current_version`;
+
+/**
+ * Settings → Storage (report §7.12): the bar by type, recommendations that say what they free, and each workspace's
+ * own use, read only (team storage stays separate, 19.2). Admins only.
+ */
+export async function readOrgStorageBreakdownAction(orgId: string): Promise<{ success: true; storage: OrgStorageBreakdown } | Failure> {
+    if (!(await orgAdmin(orgId, 'read', 'see_storage'))) return DENIED;
+    // ponytail: summed on open, one query per part. Upgrade: cache the type totals when organizations get large.
+    const [types] = await db.execute<{ documents: number; images: number; video: number; code: number; submissions: number; other: number; trash: number; large: number }>(sql`
+        WITH f AS (
+            SELECT n.size, n.deleted_at,
+                CASE WHEN n.task_id IS NOT NULL AND EXISTS (SELECT 1 FROM tasks t WHERE t.id = n.task_id AND t.assignment_id IS NOT NULL) THEN 'submissions'
+                     WHEN n.mime_type LIKE 'image/%' THEN 'images'
+                     WHEN n.mime_type LIKE 'video/%' THEN 'video'
+                     WHEN n.mime_type IN ('application/pdf', 'text/plain', 'text/markdown', 'application/rtf', 'application/msword')
+                       OR n.mime_type LIKE 'application/vnd.openxmlformats%' OR n.mime_type LIKE 'application/vnd.ms-%' OR n.mime_type LIKE 'application/vnd.oasis.opendocument%' THEN 'documents'
+                     WHEN n.mime_type LIKE 'text/%' OR n.mime_type IN ('application/json', 'application/javascript', 'application/xml', 'application/x-sh') THEN 'code'
+                     ELSE 'other' END AS kind
+            FROM workspace_nodes n WHERE n.workspace_id = ${orgId} AND n.type = 'file')
+        SELECT ${sql.join((['documents', 'images', 'video', 'code', 'submissions', 'other'] as const).map((k) => sql`coalesce(sum(size) FILTER (WHERE deleted_at IS NULL AND kind = ${k}), 0)::bigint AS ${sql.raw(k)}`), sql`, `)},
+               coalesce(sum(size) FILTER (WHERE deleted_at IS NOT NULL), 0)::bigint AS trash,
+               count(*) FILTER (WHERE deleted_at IS NULL AND size > ${LARGE_FILE_BYTES})::int AS large
+        FROM f`);
+    const [old] = await db.execute<{ bytes: number }>(sql`SELECT coalesce(sum(size), 0)::bigint AS bytes FROM (${OLD_VERSIONS(orgId)}) o`);
+    const [quota] = await db.execute<{ used: number | null }>(sql`SELECT (retained_bytes + reserved_bytes)::bigint AS used FROM storage_quota_scopes WHERE scope_type = 'project' AND scope_id = ${orgId}`);
+    const children = await db.execute<{ id: string; title: string; bytes: number }>(sql`
+        SELECT w.id, w.title, coalesce(q.retained_bytes, 0)::bigint AS bytes FROM workspaces w
+        LEFT JOIN storage_quota_scopes q ON q.scope_type = 'project' AND q.scope_id = w.id
+        WHERE w.parent_id = ${orgId} AND w.deleted_at IS NULL ORDER BY 3 DESC, w.title LIMIT 200`);
+    const n = (v: unknown) => Number(v ?? 0);
+    return {
+        success: true,
+        storage: {
+            usedBytes: n(quota?.used),
+            limitBytes: ORG_LIMITS.orgStorageBytes,
+            byType: { documents: n(types?.documents), images: n(types?.images), video: n(types?.video), code: n(types?.code), submissions: n(types?.submissions), other: n(types?.other) },
+            trashBytes: n(types?.trash),
+            largeFiles: n(types?.large),
+            oldVersionBytes: n(old?.bytes),
+            byWorkspace: children.map((c) => ({ id: c.id, title: c.title, bytes: n(c.bytes) })),
+        },
+    };
+}
+
+/** Review large files (report §37.5): the organization's biggest files, largest first, to open or move to Trash. */
+export async function readLargeFilesAction(orgId: string): Promise<{ success: true; files: Array<{ id: string; name: string; path: string; size: number }> } | Failure> {
+    if (!(await orgAdmin(orgId, 'read', 'see_storage'))) return DENIED;
+    const files = await db.select({ id: workspaceNodes.id, name: workspaceNodes.name, path: workspaceNodes.path, size: workspaceNodes.size }).from(workspaceNodes)
+        .where(and(eq(workspaceNodes.projectId, orgId), eq(workspaceNodes.type, 'file'), isNull(workspaceNodes.deletedAt), sql`${workspaceNodes.size} IS NOT NULL`))
+        .orderBy(desc(workspaceNodes.size)).limit(50);
+    return { success: true, files: files.map((f) => ({ ...f, size: Number(f.size ?? 0) })) };
+}
+
+/**
+ * Old versions → Keep latest 3 (report §37.5): without `confirm` it says what goes; with it, older versions of the
+ * organization's own files are removed. Hand-ins keep every version, and the current version always stays.
+ */
+export async function keepLatestVersionsAction(orgId: string, confirm: boolean): Promise<{ success: true; files: number; versions: number; bytes: number } | Failure> {
+    if (!(await orgAdmin(orgId, 'write', 'see_storage'))) return DENIED;
+    return db.transaction(async (tx) => {
+        const rows = Array.from(await tx.execute<{ id: string; node_id: string; size: number; asset_id: string | null }>(OLD_VERSIONS(orgId)));
+        const summary = { success: true as const, files: new Set(rows.map((r) => r.node_id)).size, versions: rows.length, bytes: rows.reduce((sum, r) => sum + Number(r.size), 0) };
+        if (!confirm || rows.length === 0) return summary;
+        await tx.execute(sql`DELETE FROM file_versions WHERE id IN ${rows.map((r) => r.id)}`);
+        const assets = rows.map((r) => r.asset_id).filter((id): id is string => Boolean(id));
+        if (assets.length) await scheduleAssetDeletionIfUnreferenced(tx, assets, { lastErrorCode: "FILE_VERSION_DETACHED" });
+        return summary;
+    });
 }

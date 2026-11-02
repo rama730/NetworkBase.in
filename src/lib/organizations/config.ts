@@ -20,6 +20,8 @@ export const ORG_LIMITS = {
   docGroupsPerOrg: 20,
   sprintsPerSeries: 52,
   orgStorageBytes: 5 * 1024 ** 3,
+  /** A workspace inside an organization (report §19.2, decision 30); back to the normal 10 GB if it detaches. */
+  teamStorageBytes: 2 * 1024 ** 3,
   /** Hand-ins and their versions, per person, outside the organization's 5 GB (decision 157, report §42.16). */
   handInBytesPerPerson: 50 * 1024 ** 2,
   orgStorageWarnRatio: 0.8,

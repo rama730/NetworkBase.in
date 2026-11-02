@@ -26,10 +26,12 @@ import {
 } from "@/lib/upload/security";
 import {
   assertStorageQuotaAdmission,
+  StorageQuotaError,
   WORKSPACE_STORAGE_LIMIT_BYTES,
   USER_STORAGE_LIMIT_BYTES,
 } from "@/lib/storage/storage-quota";
 import { ORG_LIMITS } from "@/lib/organizations/config";
+import { projectStorageLimit, storageFullMessage } from "@/lib/organizations/limits";
 
 const DEFAULT_UPLOAD_INTENT_TTL_MS = 60 * 60 * 1000;
 const VERIFICATION_LEASE_MS = 10 * 60 * 1000;
@@ -433,7 +435,7 @@ export async function createUploadIntent(rawParams: CreateUploadIntentParams) {
     const byteQuota = projectQuota ?? userQuota;
     // Organizations hold 5 GB (report §23, ORG_LIMITS.orgStorageBytes); copies of org files are counted once.
     const [scopeProject] = projectQuota
-      ? await tx.select({ kind: workspaces.kind, ownerId: workspaces.ownerId }).from(workspaces).where(eq(workspaces.id, projectQuota.scopeId)).limit(1)
+      ? await tx.select({ kind: workspaces.kind, ownerId: workspaces.ownerId, parentId: workspaces.parentId }).from(workspaces).where(eq(workspaces.id, projectQuota.scopeId)).limit(1)
       : [];
     // A member uploads only to their own copy, so it's a hand-in: it never meets the organization's 5 GB, only its
     // own allowance per person (decision 157, report §42.16 problem 50).
@@ -447,13 +449,22 @@ export async function createUploadIntent(rawParams: CreateUploadIntentParams) {
         throw new Error("Your hand-ins have used their 50 MB. Remove an old file or ask an admin for more room.");
       }
     }
-    assertStorageQuotaAdmission({
-      limitBytes: scopeProject?.kind === "organization" && !handIn ? Math.min(byteQuota.limitBytes, ORG_LIMITS.orgStorageBytes) : byteQuota.limitBytes,
-      retainedBytes: byteQuota.retainedBytes,
-      reservedBytes: byteQuota.reservedBytes,
-      outstandingUploads: userQuota.outstandingUploads,
-      incomingBytes: expectedSize,
-    });
+    try {
+      assertStorageQuotaAdmission({
+        limitBytes: projectStorageLimit(scopeProject, byteQuota.limitBytes, handIn),
+        retainedBytes: byteQuota.retainedBytes,
+        reservedBytes: byteQuota.reservedBytes,
+        outstandingUploads: userQuota.outstandingUploads,
+        incomingBytes: expectedSize,
+      });
+    } catch (error) {
+      // Report §7.8, §19.2: a full organization or team says who can make room; nothing already there is removed.
+      const full = error instanceof StorageQuotaError && error.code === "STORAGE_QUOTA_EXCEEDED" && scopeProject
+        ? storageFullMessage(scopeProject, scopeProject.ownerId === rawParams.userId || !handIn)
+        : null;
+      if (full) throw new StorageQuotaError(full, "STORAGE_QUOTA_EXCEEDED", (error as StorageQuotaError).availableBytes);
+      throw error;
+    }
 
     if (projectQuota) {
       await tx.update(storageQuotaScopes)

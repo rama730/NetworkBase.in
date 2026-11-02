@@ -4,6 +4,8 @@ import { ChildOrgSection } from "@/components/organizations/ChildOrgSection";
 import { ChildUnitsPanel } from "@/components/organizations/ChildUnitsPanel";
 import { OrgDangerZone } from "@/components/organizations/OrgDangerZone";
 import { OrgAccessSection, OrgAllowedSection, OrgChatSection, OrgHandleSection, OrgManagementSection, OrgNotificationsSection, OrgUpdatesSection, OrgVerificationSection, OrgMembershipSection, OrgPeopleSection, OrgProfileSection, OrgWorkspacesSection, OrgWorkSection } from "@/components/organizations/OrgSettingsSections";
+import { OrgStorageSection } from "@/components/organizations/OrgStorageSection";
+import { typeProfile } from "@/lib/organizations/type-profile";
 import { ORG_REUSED_LABELS, ORG_SECTION_DEFS, orgSettingsSectionIds, type OrgMemberRole, type OrgSettingsSectionId } from "@/lib/organizations/settings";
 import { useRoleApplicationCounts } from "@/hooks/useRoleApplicationCounts";
 import { TaskCompletionSettings } from "@/components/workspaces/settings/TaskCompletionSettings";
@@ -1856,6 +1858,7 @@ function ProjectSettingsContent({
                 )}
                 {organization && sections.some((s) => s.id === "org-updates") && <OrgUpdatesSection orgId={projectId} organization={organization} memberPosts={memberUpdatesEnabled} />}
                 {organization && sections.some((s) => s.id === "org-messages") && <OrgChatSection orgId={projectId} organization={organization} />}
+                {organization && sections.some((s) => s.id === "org-storage") && <OrgStorageSection orgId={projectId} orgTitle={project?.title ?? "Organization"} handle={project?.slug ?? null} submissionsWord={typeProfile(organization.type).finishedWork} />}
                 {sections.some((s) => s.id === "updates") && (
                     <section id="project-settings-updates" data-project-settings-section className="space-y-6">
                         <div className="space-y-6">
