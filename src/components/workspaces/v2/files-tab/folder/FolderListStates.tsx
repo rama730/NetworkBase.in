@@ -74,6 +74,8 @@ export function FolderListLoading({
 export interface FolderListEmptyProps {
   className?: string;
   message?: string;
+  /** The line under the title; null hides it. */
+  hint?: string | null;
 }
 
 /**
@@ -83,6 +85,7 @@ export interface FolderListEmptyProps {
 export function FolderListEmpty({
   className,
   message = "This folder is empty",
+  hint = "Upload or drag files into this folder to get started.",
 }: FolderListEmptyProps): React.JSX.Element {
   return (
     <div
@@ -95,9 +98,7 @@ export function FolderListEmpty({
     >
       <Folder className="nb-empty-state-icon mb-2" />
       <p className="nb-card-title text-foreground">{message}</p>
-      <p className="nb-compact mt-1 text-muted-foreground">
-        Upload or drag files into this folder to get started.
-      </p>
+      {hint ? <p className="nb-compact mt-1 text-muted-foreground">{hint}</p> : null}
     </div>
   );
 }

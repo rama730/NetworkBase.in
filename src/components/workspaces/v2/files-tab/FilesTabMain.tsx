@@ -25,6 +25,7 @@ import dynamic from "next/dynamic";
 import type { GithubImportAccessState } from "@/lib/github/import-types";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SkeletonGitHubSync } from "@/components/workspaces/skeletons/SkeletonGitHubSync";
+import { OrgFilesCollection } from "@/components/organizations/OrgFilesPanel";
 
 const RepositorySync = dynamic(
   () => import("./RepositorySync").then((mod) => mod.RepositorySync),
@@ -144,6 +145,8 @@ export function FilesTabMain({
             />
           ) : filesView.view === "trash" ? (
             <TrashFilesCollection projectId={projectId} />
+          ) : (filesView.view === "materials" || filesView.view === "submissions" || filesView.view === "from_org") && filesView.org ? (
+            <OrgFilesCollection view={filesView.view} projectId={projectId} org={filesView.org} />
           ) : (
             <SavedFilesCollection projectId={projectId} />
           )

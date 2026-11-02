@@ -107,6 +107,17 @@ test("a submissions check gives the same answer as the download when a file isn'
   await assert.rejects(exporter.prepareSubmissionsExport({ masterId }), /isn’t ready to download yet/);
 });
 
+test("28.5: Download all takes up to 2 GB; over that it says to download by group or person", async () => {
+  const fits = await seedSubmission({ who: "Asha" });
+  await sql`UPDATE public.storage_assets a SET verified_size = 1500000000 FROM public.workspace_nodes n JOIN public.tasks c ON c.id = n.task_id
+    WHERE a.id = n.asset_id AND c.assignment_id = ${fits}`;
+  assert.equal((await exporter.prepareSubmissionsExport({ masterId: fits, dryRun: true })).entries.length, 2, "1.5 GB is one download");
+  const big = await seedSubmission({ who: "Ravi" });
+  await sql`UPDATE public.storage_assets a SET verified_size = 2200000000 FROM public.workspace_nodes n JOIN public.tasks c ON c.id = n.task_id
+    WHERE a.id = n.asset_id AND c.assignment_id = ${big}`;
+  await assert.rejects(exporter.prepareSubmissionsExport({ masterId: big, dryRun: true }), /^Error: Too large for one download\. Download by group or person\.$/);
+});
+
 test("a person named only dots can't climb out of the folder a zip is unpacked into", async () => {
   const masterId = await seedSubmission({ who: "..", fileNames: ["..", "report.pdf"] });
   const { entries } = await exporter.prepareSubmissionsExport({ masterId, dryRun: true });

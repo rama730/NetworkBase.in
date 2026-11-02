@@ -25,6 +25,7 @@ import {
   FolderOpen,
   FolderPlus,
   Pencil,
+  Lock,
   Star,
   StarOff,
   Trash2,
@@ -48,6 +49,7 @@ import {
 import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import { getWorkspaceNodes } from "@/app/actions/files/nodes";
 import { useFilesViews } from "../FilesViews";
+import { FolderAccessDialog } from "@/components/organizations/OrgFilesPanel";
 import { FilesViewsMenu, FilesHeaderSlot } from "../FilesHeader";
 import type { TaskFileRole } from "@/lib/workspaces/task-file-intelligence";
 import { isTextLike as isTextFile } from "../../utils/fileKind";
@@ -293,6 +295,11 @@ export function FolderListView({
   const workspace = useFilesViews();
   const [selectionMode, setSelectionMode] = React.useState(false);
   const [editingLabelNodeId, setEditingLabelNodeId] = React.useState<string | null>(null);
+  // Report §7.8, decision 11: folder access lives in each folder's menu, for organization admins only.
+  const [accessFolder, setAccessFolder] = React.useState<WorkspaceNode | null>(null);
+  const orgAdminFolders = workspace?.org?.mode === "org" && workspace.org.isAdmin ? workspace.org : null;
+  // Report §7.8 stages: an organization with no files yet says who sees what's added.
+  const orgRootEmpty = workspace?.org?.mode === "org" && !folderId && !collection ? workspace.org : null;
   // Search is committed from the dialog, not on every keystroke. Applying it
   // synchronously prevents stale, clickable rows under a new query label.
   const search = workspace?.query ?? "";
@@ -974,6 +981,12 @@ export function FolderListView({
                       Rename…
                     </DropdownMenuItem>
                   )}
+                  {menuNode.type === "folder" && orgAdminFolders ? (
+                    <DropdownMenuItem onSelect={() => setAccessFolder(menuNode!)}>
+                      <Lock className="w-4 h-4 mr-2" />
+                      Who can see this?
+                    </DropdownMenuItem>
+                  ) : null}
                   {canManageFiles ? (
                     <DropdownMenuItem
                       onSelect={() => handleMoveFromMenu(menuNode!)}
@@ -1014,6 +1027,7 @@ export function FolderListView({
     handleDeleteFromMenu,
     setAttachTaskNode,
     setTargetRevisionNode,
+    orgAdminFolders,
   ]);
 
   // ── Render ────────────────────────────────────────────────────────
@@ -1114,8 +1128,10 @@ export function FolderListView({
               message={
                 collection?.emptyMessage ?? (search ? "No matching files." : currentFolderIsSystemManaged
                   ? "No task files have been added yet"
+                  : orgRootEmpty && !search ? (orgRootEmpty.isAdmin ? "Share materials here" : "No files shared yet")
                   : undefined)
               }
+              hint={orgRootEmpty && !search ? (orgRootEmpty.isAdmin ? `Everyone in ${orgRootEmpty.title} can see what you add.` : null) : undefined}
             />
             {!collection && !search && canEditCurrentFolder ? (
               <p className="text-sm text-muted-foreground">Use the toolbar or actions menu to upload files or create a folder.</p>
@@ -1306,6 +1322,12 @@ export function FolderListView({
           onSelect={handleAttachTaskSelect}
         />
       )}
+
+      {accessFolder && orgAdminFolders ? (
+        <FolderAccessDialog orgId={orgAdminFolders.orgId} orgTitle={orgAdminFolders.title} folder={accessFolder} open
+          onOpenChange={(open) => { if (!open) setAccessFolder(null); }}
+          onSaved={(metadata) => upsertNodes(projectId, [{ ...accessFolder, metadata } as WorkspaceNode])} />
+      ) : null}
 
       {/* RevisionControlModal for Upload revision action */}
       {isRevisionModalOpen && targetRevisionNode && (

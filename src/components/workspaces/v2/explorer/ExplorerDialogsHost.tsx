@@ -30,6 +30,11 @@ import { readOrgFileUsageAction } from "@/app/actions/org-files";
 import { isInternalTaskWorkingFilesNode } from "@/lib/files/task-working-files";
 import { useFilesStore } from "@/stores/filesStore";
 
+/** "CO1, Lab 3 and Week 2": plain names, joined the way people say them. */
+function listNames(names: string[]) {
+  return names.length <= 1 ? names[0] ?? "" : `${names.slice(0, -1).join(", ")} and ${names.at(-1)}`;
+}
+
 // --- FolderPicker (standalone sub-component) ---
 
 export function FolderPicker({
@@ -757,9 +762,8 @@ export function DeleteDialog({
         </DialogHeader>
         {usage.length > 0 ? (
           <div role="alert" className="rounded-[5px] border border-amber-500/30 bg-amber-500/10 p-3 text-[13px] text-foreground">
-            <p className="font-medium">Still in use</p>
-            <ul className="mt-1 list-disc pl-5">{usage.map((label) => <li key={label}>{label}</li>)}</ul>
-            <p className="mt-1 text-muted-foreground">References will show “File in Trash”; a trashed template leaves the workspace wizard.</p>
+            {/* Report §37.5: "Used by CO1 and Lab 3. They’ll lose this file." The choice stays yours. */}
+            <p>Used by {listNames(usage)}. They’ll lose {deleteDialog.nodes.length > 1 || deleteDialog.nodes[0]?.type === "folder" ? "these files" : "this file"}.</p>
           </div>
         ) : null}
         <DialogFooter className="bg-muted/50 border-t border-border -mx-6 -mb-6 px-6 py-3 rounded-b-[12px] flex items-center justify-end gap-2">

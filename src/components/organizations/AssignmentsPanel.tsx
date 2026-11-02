@@ -534,7 +534,7 @@ export function GroupCopiesPanel({ projectId, onBoardChanged }: { projectId: str
     useEffect(() => { load() }, [load])
     if (rows.length === 0) return null
     return (
-        <section aria-label="From the organization" className="mb-5 rounded-lg border border-border bg-card p-4">
+        <section aria-label={`From ${rows[0]!.orgTitle}`} className="mb-5 rounded-lg border border-border bg-card p-4">
             <ul className="divide-y divide-border">
                 {rows.map((row) => (
                     <li key={row.copyId} className="flex flex-wrap items-center gap-x-3 gap-y-1 py-2 text-sm">

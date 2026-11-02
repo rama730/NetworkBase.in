@@ -19,6 +19,8 @@ export interface FilesTabRoleContextValue {
   canEdit: boolean;
   canManageFiles: boolean;
   canReadTasks?: boolean;
+  /** Report §24.2: an organization's members may open its files in an editor but not change them. */
+  editorReadOnly?: boolean;
 }
 
 /**
@@ -35,6 +37,7 @@ export interface FilesTabRoleProviderProps {
   canEdit: boolean;
   canManageFiles?: boolean;
   canReadTasks?: boolean;
+  editorReadOnly?: boolean;
   children: ReactNode;
 }
 
@@ -52,11 +55,12 @@ export function FilesTabRoleProvider({
   canEdit,
   canManageFiles = false,
   canReadTasks = role !== "Role_Viewer",
+  editorReadOnly = false,
   children,
 }: FilesTabRoleProviderProps): React.JSX.Element {
   const value = useMemo<FilesTabRoleContextValue>(
-    () => ({ role, canEdit, canManageFiles, canReadTasks }),
-    [role, canEdit, canManageFiles, canReadTasks],
+    () => ({ role, canEdit, canManageFiles, canReadTasks, editorReadOnly }),
+    [role, canEdit, canManageFiles, canReadTasks, editorReadOnly],
   );
   return (
     <FilesTabRoleContext.Provider value={value}>

@@ -42,6 +42,7 @@ import { QuickOpenDialog } from "./quick-open/QuickOpenDialog";
 import { FilesHeaderContext, FilesHeaderSlot } from "./FilesHeaderSlot";
 export { FilesHeaderSlot } from "./FilesHeaderSlot";
 import { OpenInIdeButton, OpenInIdeSheet } from "./OpenInIdeButton";
+import { FilesTabRoleContext } from "./FilesTabRoleContext";
 
 export function FilesHeader({
   projectId,
@@ -57,6 +58,7 @@ export function FilesHeader({
   children: React.ReactNode;
 }) {
   const workspace = useFilesViews();
+  const editorReadOnly = useContext(FilesTabRoleContext)?.editorReadOnly ?? false;
   const transfers = useFileTransfers();
   const collapsed = useFilesStore(
     (s) => s.byProjectId[projectId]?.ui.sidebarCollapsed ?? false,
@@ -196,6 +198,7 @@ export function FilesHeader({
               projectSlug={projectSlug}
               location={location}
               taskId={workspace?.taskId}
+              readOnlyNote={editorReadOnly ? "Read only here. You can open files, but only admins can change them." : null}
             />
           </span>
         )}
@@ -402,6 +405,12 @@ const collectionInfo = {
     "Workspace files are stored in folders. Search finds accessible filenames across the workspace, not just the currently loaded rows. Upload and New use the open folder.",
   tasks:
     "Draft files and references are grouped by task. Linked files stay in their original location. Open a task to add or link files with an explicit role.",
+  materials:
+    "Files linked to each sprint, newest sprint first. Admins add them from the sprint’s page.",
+  from_org:
+    "The organization’s shared files, read only. Copy one into this workspace to change it.",
+  submissions:
+    "Work handed in for each assignment, by person or group, with when it came in and its status.",
   deliverables:
     "Submitted outputs with version-specific review status. New versions require a new approval; a completed task does not automatically approve every file.",
   recent:

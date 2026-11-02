@@ -150,9 +150,10 @@ test("admins set folder access with a preview; a folder can't be more open than 
   assert.equal((await orgFiles.setFolderAccessAction(o.orgId, co1, "admins", true)).success, true);
   assert.deepEqual(await search(o.orgId, o.a, "slides"), []);
   viewerId = o.admin;
-  assert.equal((await orgFiles.setFolderTemplateAction(o.orgId, co1, true)).success, true);
+  // Decision 61 (step 8): an Admins-only folder can't be a template.
+  assert.equal((await orgFiles.setFolderTemplateAction(o.orgId, co1, true)).success, false);
   const [row] = await sql`SELECT metadata FROM workspace_nodes WHERE id = ${co1}`;
-  assert.deepEqual([row!.metadata.access, row!.metadata.template], ["admins", true]);
+  assert.deepEqual([row!.metadata.access, row!.metadata.template], ["admins", undefined]);
 });
 
 test("new orgs get starter folders by type, the last one Admins only", async () => {
@@ -197,7 +198,7 @@ test("§23 pass: Sprint materials by access, trash-in-use warnings, storage line
   const [course] = await sql`SELECT id FROM workspace_nodes WHERE workspace_id = ${o.orgId} AND path = '/Course materials'`;
   await sql`UPDATE workspace_nodes SET metadata = metadata || '{"template": true}'::jsonb WHERE id = ${course!.id}`;
   const usage = await orgFiles.readOrgFileUsageAction(o.orgId, [course!.id]);
-  assert.deepEqual(usage.sort(), ["Material in CO2", "Template folder Course materials"]);
+  assert.deepEqual(usage.sort(), ["CO2", "the Course materials template"]);
   viewerId = o.a;
   assert.deepEqual(await orgFiles.readOrgFileUsageAction(o.orgId, [course!.id]), [], "admins only");
   assert.deepEqual((await orgFiles.listOrgTemplateFoldersAction(o.orgId)).map((f) => f.name), ["Course materials"]);
@@ -209,11 +210,12 @@ test("§23 pass: Sprint materials by access, trash-in-use warnings, storage line
   assert.deepEqual([storage?.limitBytes, storage?.warn], [5 * 1024 ** 3, true]);
   await sql`DELETE FROM storage_quota_scopes WHERE scope_type = 'project' AND scope_id = ${o.orgId}`;
 
-  // A group copy in the child project with a handed-in file shows in the org's deliverables.
+  // A group copy in the child project with a handed-in file shows on the Submissions page under its workspace (step 8).
   const [group] = await sql`INSERT INTO tasks (workspace_id, title, kind, assignment_id, assignee_id, creator_id, review_status) VALUES (${o.child}, 'Lab 2', 'task', ${o.master}, ${o.a}, ${o.owner}, 'pending') RETURNING id`;
   await node(o.child, `/.system/tasks/${group!.id}/parser.zip`, "file", { taskId: group!.id });
-  const deliverables = await orgFiles.readGroupDeliverablesAction(o.orgId);
-  assert.deepEqual(deliverables.success && deliverables.rows.map((r) => [r.name, r.project, r.review]), [["parser.zip", "Compiler Lab", "submitted"]]);
+  const submissions = await orgFiles.readOrgSubmissionsAction(o.orgId);
+  const groupRow = submissions.success ? submissions.assignments.flatMap((a) => a.rows).find((r) => r.copyId === group!.id) : null;
+  assert.deepEqual([groupRow?.who, groupRow?.files, groupRow?.status], ["Compiler Lab", 1, "Submitted"]);
 
   const github = await loadAppModule(() => import("../../src/app/actions/github-sync"));
   const refused = await github.connectGitHubSyncRepository(o.orgId, "https://github.com/acme/repo", "main") as { success?: boolean; error?: string };

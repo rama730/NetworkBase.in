@@ -39,6 +39,8 @@ interface OpenInIdeButtonProps {
   location?: CurrentLocation | null;
   taskId?: string | null;
   className?: string;
+  /** Report §24.2: organization members open files here but can't change them; the button and picker say so. */
+  readOnlyNote?: string | null;
 }
 
 const controlClass =
@@ -50,6 +52,7 @@ export function OpenInIdeButton({
   location,
   taskId,
   className,
+  readOnlyNote = null,
 }: OpenInIdeButtonProps): React.JSX.Element {
   const sessions = useExtensionSessionsData();
   const {
@@ -203,6 +206,7 @@ export function OpenInIdeButton({
                   <span>Code editor</span>
                 </>
               )}
+              {readOnlyNote ? <span className="rounded-[3px] border border-border px-1 text-[10px] text-muted-foreground">Read only</span> : null}
               <ChevronDown
                 aria-hidden="true"
                 className={cn(
@@ -231,6 +235,7 @@ export function OpenInIdeButton({
             className="z-[240] w-[304px] max-w-[calc(100vw-24px)] overflow-hidden rounded-lg border border-border bg-popover p-0 text-popover-foreground shadow-md outline-none"
             aria-label="Desktop editor picker"
           >
+            {readOnlyNote ? <p role="note" className="border-b border-border px-3 py-2 text-[12px] text-muted-foreground">{readOnlyNote}</p> : null}
             <DesktopIdePicker
               connectedIdes={connectedIdes}
               preferredIde={activeConnectedIde?.id}

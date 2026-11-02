@@ -23,6 +23,7 @@ import { getNodeMetadataBatch } from "@/app/actions/files/nodes";
 import { useExplorerBoot } from "../explorer/useExplorerBoot";
 
 import { FilesTabRoleProvider, type Role } from "./FilesTabRoleContext";
+import { OrgStorageNotice, type OrgFilesInfo } from "@/components/organizations/OrgFilesPanel";
 import { FilesTabSidebar } from "./FilesTabSidebar";
 import { FilesTabMain } from "./FilesTabMain";
 import { QuickOpenDialog } from "./quick-open/QuickOpenDialog";
@@ -95,6 +96,8 @@ export interface FilesTabRootProps {
   isOrganization?: boolean;
   /** Education orgs call Deliverables "Submissions" (report §23.3). */
   orgType?: string | null;
+  /** The organization this is, or sits inside (report §7.8, §18.6): its left-panel views and folder access. */
+  orgFiles?: OrgFilesInfo | null;
 }
 
 function findVerticalScrollPane(target: EventTarget | null, boundary: HTMLElement) {
@@ -788,6 +791,7 @@ export function FilesTabRoot(props: FilesTabRootProps): React.JSX.Element {
         canEdit={canEdit}
         canManageFiles={canManageFiles}
         canReadTasks={canReadTasks}
+        editorReadOnly={props.orgFiles?.mode === "org" && !canManageFiles}
       >
         <FileTransfersProvider>
           <FilesViews
@@ -795,7 +799,9 @@ export function FilesTabRoot(props: FilesTabRootProps): React.JSX.Element {
             canReadTasks={canReadTasks}
             canOpenGitHub={canOpenGitHub}
             githubAccessResolved={githubAccessResolved}
-            viewLabels={props.isOrganization ? { project: "Organization files", deliverables: typeProfile(props.orgType).finishedWork } : undefined}
+            viewLabels={props.orgFiles?.mode === "org" ? { deliverables: typeProfile(props.orgType).finishedWork, submissions: typeProfile(props.orgType).finishedWork }
+              : props.orgFiles?.mode === "child" ? { from_org: `From ${props.orgFiles.title}` } : undefined}
+            org={props.orgFiles ?? null}
           >
             <div
               ref={filesRootRef}
@@ -805,6 +811,7 @@ export function FilesTabRoot(props: FilesTabRootProps): React.JSX.Element {
               className="relative flex h-full min-h-0 w-full"
             >
               <HydrationProgressBanner projectId={projectId} />
+              {props.orgFiles ? <div className="absolute right-3 top-1 z-10"><OrgStorageNotice org={props.orgFiles} /></div> : null}
               <FilesTabSidebar
                 projectId={projectId}
                 canEdit={canEdit}

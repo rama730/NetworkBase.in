@@ -6,6 +6,7 @@ import { eq, and, isNull, sql, ne, gt, type SQL } from "drizzle-orm";
 import { isWithParent } from "@/app/actions/files/_constants";
 import { requireWorkspaceCapability } from "@/lib/workspaces/collaborator-lifecycle";
 import { canWorkspaceMemberUploadFiles, projectMemberCan } from "@/lib/workspaces/settings-policies";
+import { orgGrant, type OrgAction } from "@/lib/organizations/permissions";
 
 type DbTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
 type ExistingProjectAccess = WorkspaceAccess & { project: NonNullable<WorkspaceAccess["project"]> };
@@ -278,6 +279,17 @@ export async function assertWorkspaceManageFilesAccessTx(
         project: { id: project.id, ownerId: project.owner_id, visibility: project.visibility },
         isOwner: false,
     };
+}
+
+/** In an organization, the permissions table decides this action (report §21.3); elsewhere nothing extra. */
+export async function assertOrgActionTx(tx: DbTransaction, projectId: string, userId: string, action: OrgAction) {
+    const [row] = Array.from(await tx.execute<{ kind: string; owner_id: string; role: string | null }>(sql`
+        SELECT w.kind, w.owner_id, m.role FROM workspaces w
+        LEFT JOIN workspace_members m ON m.workspace_id = w.id AND m.user_id = ${userId}
+        WHERE w.id = ${projectId}`));
+    if (row?.kind !== "organization") return;
+    const role = row.owner_id === userId ? "owner" : row.role === "admin" ? "admin" : row.role === "member" ? "member" : row.role === "viewer" ? "guest" : "visitor";
+    if (orgGrant(role, action) !== "yes") throw new ForbiddenError("You don’t have access to this");
 }
 
 export async function assertWorkspaceUploadAccessTx(

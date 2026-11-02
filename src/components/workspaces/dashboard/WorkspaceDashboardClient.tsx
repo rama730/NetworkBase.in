@@ -39,7 +39,7 @@ import { DashboardTab, DocTab, UpdatesTab, TasksTab, FilesTab, SprintPlanning, W
 import { SkeletonSprints } from '@/components/workspaces/skeletons/SkeletonSprints';
 import { OrgAboutTab } from '@/components/organizations/OrgAboutTab';
 import { AssignmentsPanel, GroupCopiesPanel } from '@/components/organizations/AssignmentsPanel';
-import { OrgFilesPanel, OrgSprintMaterials } from '@/components/organizations/OrgFilesPanel';
+import type { OrgFilesInfo } from '@/components/organizations/OrgFilesPanel';
 import { OrgMembersTab } from '@/components/organizations/OrgMembersTab';
 import { ChildOrgHeaderDetails, ChildOrgLine, ChildUnitsLine, OrgDashboard, OrgWorkspacesTab } from '@/components/organizations/OrgOverviewParts';
 import { OrgInviteBanner } from '@/components/organizations/OrgInviteBanner';
@@ -1077,14 +1077,20 @@ export default function WorkspaceDashboardClient({ project, currentUserId, viewe
     const initialOpenFileId = searchParams?.get('fileId') || null;
     const initialOpenPath = searchParams?.get('path') || null;
 
+    // Report §7.8, §18.6: the organization's views sit in the Files left panel; an outside person gets none.
+    const orgFiles = useMemo<OrgFilesInfo | null>(() => (
+        isOrganization ? { mode: 'org', orgId: project.id, title: project.title, slug: project.slug ?? null, isAdmin: canManageFiles, canCopy: false }
+            : parentOrg && (parentOrg.viewerRole || isInheritedAdmin) ? { mode: 'child', orgId: parentOrg.id, title: parentOrg.title, slug: parentOrg.slug, isAdmin: isInheritedAdmin || parentOrg.viewerRole === 'owner' || parentOrg.viewerRole === 'admin', canCopy: canUploadFiles || isInheritedAdmin }
+                : null
+    ), [isOrganization, project.id, project.title, project.slug, canManageFiles, parentOrg, isInheritedAdmin, canUploadFiles]);
     // Memoize the Files tab while active so parent shell updates do not churn the workspace.
     const filesTabContent = useMemo(
         () => (
             <TabErrorBoundary tabName="Files" fillContainer>
-                <FilesTab key={`${project.id}:${currentUserId ?? 'viewer'}`} projectId={project.id} projectSlug={project.slug || undefined} projectName={project.title} currentUserId={currentUserId || undefined} isOwner={isOwner} isOwnerOrMember={isOwnerOrMember} canManageFiles={canManageFiles} canUploadFiles={canUploadFiles} canReadTasks={canReadTaskFiles} isActive={activeTab === 'files'} syncStatus={filesSyncStatus} initialOpenFileId={initialOpenFileId} initialOpenPath={initialOpenPath} isOrganization={isOrganization} orgType={organization?.type ?? null} />
+                <FilesTab key={`${project.id}:${currentUserId ?? 'viewer'}`} projectId={project.id} projectSlug={project.slug || undefined} projectName={project.title} currentUserId={currentUserId || undefined} isOwner={isOwner} isOwnerOrMember={isOwnerOrMember} canManageFiles={canManageFiles} canUploadFiles={canUploadFiles} canReadTasks={canReadTaskFiles} isActive={activeTab === 'files'} syncStatus={filesSyncStatus} initialOpenFileId={initialOpenFileId} initialOpenPath={initialOpenPath} isOrganization={isOrganization} orgType={organization?.type ?? null} orgFiles={orgFiles} />
             </TabErrorBoundary>
         ),
-        [project.id, project.slug, project.title, currentUserId, isOwner, isOwnerOrMember, canManageFiles, canUploadFiles, canReadTaskFiles, activeTab, filesSyncStatus, initialOpenFileId, initialOpenPath, isOrganization, organization?.type],
+        [project.id, project.slug, project.title, currentUserId, isOwner, isOwnerOrMember, canManageFiles, canUploadFiles, canReadTaskFiles, activeTab, filesSyncStatus, initialOpenFileId, initialOpenPath, isOrganization, organization?.type, orgFiles],
     );
 
     return (
@@ -1202,10 +1208,6 @@ export default function WorkspaceDashboardClient({ project, currentUserId, viewe
 
             {activeTab === 'files' && (
                 <div className="w-full h-full min-h-0">
-                    {/* Org Files (report §23): folder access for org admins; From <org> in child projects. */}
-                    {isOrganization && canManageFiles ? <OrgFilesPanel projectId={project.id} mode="org-admin" canCopy={false} /> : null}
-                    {isOrganization && isOwnerOrMember ? <OrgSprintMaterials orgId={project.id} orgSlug={project.slug ?? null} /> : null}
-                    {parentOrg && (isOwnerOrMember || isInheritedAdmin) ? <OrgFilesPanel projectId={project.id} mode="child" canCopy={canUploadFiles || isInheritedAdmin} /> : null}
                     {filesTabContent}
                 </div>
             )}

@@ -17,7 +17,11 @@ import {
   Star,
   Trash2,
   Github,
+  CalendarRange,
+  Inbox,
+  Building2,
 } from "lucide-react";
+import type { OrgFilesInfo } from "@/components/organizations/OrgFilesPanel";
 import { useFilesTabRole } from "./FilesTabRoleContext";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { useFilesStore } from "@/stores/filesStore";
@@ -31,6 +35,9 @@ export type FilesInspector =
 export type FilesViewId =
   | "project"
   | "tasks"
+  | "materials"
+  | "from_org"
+  | "submissions"
   | "deliverables"
   | "github"
   | "recent"
@@ -39,6 +46,9 @@ export type FilesViewId =
 export const fileCollectionViews = [
   { id: "project", label: "All files", Icon: Folder },
   { id: "tasks", label: "Task files", Icon: ListTodo },
+  { id: "materials", label: "Sprint materials", Icon: CalendarRange },
+  { id: "from_org", label: "From the organization", Icon: Building2 },
+  { id: "submissions", label: "Final files", Icon: Inbox },
   { id: "deliverables", label: "Final files", Icon: FileOutput },
   { id: "github", label: "Repository sync", Icon: Github },
   { id: "recent", label: "Recent", Icon: Clock3 },
@@ -47,6 +57,18 @@ export const fileCollectionViews = [
 ] as const;
 
 export type FileRoleFilter = "all" | "deliverable" | "reference" | "working";
+
+/**
+ * The organization's own views (report §7.8, §18.6): Sprint materials for its people, Submissions for its admins;
+ * From the organization and Final files inside one of its workspaces. Nowhere else.
+ */
+export function orgViewAllowed(view: FilesViewId, org: OrgFilesInfo | null | undefined, canReadTasks: boolean) {
+  if (view !== "materials" && view !== "from_org" && view !== "submissions") return true;
+  if (!org) return false;
+  if (view === "materials") return org.mode === "org" && canReadTasks;
+  if (view === "from_org") return org.mode === "child";
+  return org.mode === "org" ? org.isAdmin : canReadTasks || org.isAdmin;
+}
 
 const FilesViewsContext = createContext<{
   scrollOffsets: React.RefObject<Map<string, number>>;
@@ -65,8 +87,10 @@ const FilesViewsContext = createContext<{
   showCollections: () => void;
   canReadTasks: boolean;
   canOpenGitHub: boolean;
-  /** Orgs rename collections (report §23.3): "Org files", and "Submissions" in Education. */
+  /** Orgs rename collections (report §23.3): "Submissions" in Education, "From CSE 3B" in its workspaces. */
   viewLabel: (view: FilesViewId) => string;
+  /** The organization this Files tab belongs to, or is inside. */
+  org: OrgFilesInfo | null;
   returnToCollection: () => void;
   selectView: (view: FilesViewId) => void;
   selectTask: (id: string | null) => void;
@@ -79,6 +103,7 @@ export function FilesViews({
   canOpenGitHub,
   githubAccessResolved,
   viewLabels,
+  org = null,
   children,
 }: {
   projectId: string;
@@ -86,6 +111,7 @@ export function FilesViews({
   canOpenGitHub: boolean;
   githubAccessResolved: boolean;
   viewLabels?: Partial<Record<FilesViewId, string>>;
+  org?: OrgFilesInfo | null;
   children: React.ReactNode;
 }) {
   const viewLabel = useCallback(
@@ -151,7 +177,8 @@ export function FilesViews({
       fileCollectionViews.some((item) => item.id === value) &&
       (canEdit || value !== "trash") &&
       (canReadTasks || !["tasks", "deliverables"].includes(value)) &&
-      (value !== "github" || canOpenGitHub)
+      (value !== "github" || canOpenGitHub) &&
+      orgViewAllowed(value, org, canReadTasks)
         ? value
         : "project";
     setView(nextView);
@@ -188,7 +215,7 @@ export function FilesViews({
       nextUrl.search = params.toString();
       window.history.replaceState(window.history.state, "", nextUrl);
     }
-  }, [canReadTasks, canEdit, canOpenGitHub, githubAccessResolved]);
+  }, [canReadTasks, canEdit, canOpenGitHub, githubAccessResolved, org]);
   useEffect(() => {
     restoreView();
     window.addEventListener("popstate", restoreView);
@@ -285,6 +312,7 @@ export function FilesViews({
       canReadTasks,
       canOpenGitHub,
       viewLabel,
+      org,
       selectView,
       selectTask,
       returnToCollection: handleReturnToCollection,
@@ -307,6 +335,7 @@ export function FilesViews({
       canReadTasks,
       canOpenGitHub,
       viewLabel,
+      org,
       selectView,
       selectTask,
       handleReturnToCollection,

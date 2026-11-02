@@ -182,7 +182,7 @@ export function FilesTabUploadModal({
     sizeFeedbackId.current = toast.warning("File too large", {
       id: sizeFeedbackId.current ?? undefined,
       dismissOnAction: false,
-      description: `Upload limit: ${formatBytes(DEFAULT_WORKSPACE_UPLOAD_MAX_FILE_BYTES)}.`,
+      description: `${oversizedFiles.length === 1 ? `${oversizedFiles[0]!.name} is` : `${oversizedFiles.length} files are`} over ${formatBytes(DEFAULT_WORKSPACE_UPLOAD_MAX_FILE_BYTES)}.`,
       action: { label: "Choose file", onClick: () => {
         const input = document.createElement("input"); input.type = "file"; input.multiple = true;
         input.onchange = () => { if (input.files?.length) setFileList(Array.from(input.files)); };
@@ -301,7 +301,8 @@ export function FilesTabUploadModal({
     isProcessing ||
     intent === null ||
     fileList.length === 0 ||
-    oversizedFiles.length > 0 ||
+    // Report §28.5: one file over the limit doesn't stop the others; it's named and left out.
+    oversizedFiles.length === fileList.length ||
     (intent === "version" && !versionNodeId) ||
     (isTaskCategory && !activeTaskId && !selectedTaskId);
 
@@ -356,6 +357,7 @@ export function FilesTabUploadModal({
       }
     }
 
+    currentFiles = currentFiles.filter((f) => (f.size || 0) <= DEFAULT_WORKSPACE_UPLOAD_MAX_FILE_BYTES);
     if (intent === "version") {
       onConfirm({
         intent,
@@ -516,7 +518,7 @@ export function FilesTabUploadModal({
         {oversizedFiles.length > 0 && <div className="space-y-2 border-t border-border pt-2" aria-label="Files that can’t be uploaded">
           {oversizedFiles.map((file, index) => <div key={`${file.name}-${index}`} className="flex items-start gap-2 text-[12px] leading-4">
             <AlertCircle className="mt-0.5 size-3.5 shrink-0 text-[var(--status-warning)]" aria-hidden="true" />
-            <div className="min-w-0 flex-1"><strong className="block break-all font-medium">{file.name}</strong><span className="text-muted-foreground">{formatBytes(file.size)} · Limit {formatBytes(DEFAULT_WORKSPACE_UPLOAD_MAX_FILE_BYTES)} · Not uploaded</span></div>
+            <p className="min-w-0 flex-1 break-words">{file.name} is {formatBytes(file.size)}. Files can be up to {formatBytes(DEFAULT_WORKSPACE_UPLOAD_MAX_FILE_BYTES)}.{fileList.length > oversizedFiles.length ? " The others still upload." : ""}</p>
           </div>)}
         </div>}
 

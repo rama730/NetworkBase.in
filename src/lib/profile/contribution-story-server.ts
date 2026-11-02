@@ -9,6 +9,15 @@ import {
   type StoryReferenceKind,
 } from "./contribution-story";
 
+/**
+ * Report §38.1 #6: an organization's file is offered only when a visitor could open it, under a Public folder and
+ * no Members or Admins-only folder (the visitor half of orgFileAccessSql).
+ */
+const ORG_VISITOR_FILE = sql`(EXISTS (SELECT 1 FROM workspace_nodes f WHERE f.workspace_id=n.workspace_id AND f.type='folder' AND f.deleted_at IS NULL
+    AND f.metadata->>'access'='public' AND starts_with(n.path, f.path || '/'))
+  AND NOT EXISTS (SELECT 1 FROM workspace_nodes f WHERE f.workspace_id=n.workspace_id AND f.type='folder' AND f.deleted_at IS NULL
+    AND f.metadata->>'access' IN ('members','admins') AND starts_with(n.path, f.path || '/')))`;
+
 export type ContributionReferenceOption = ResolvedStoryReference & {
   mimeType?: string | null;
 };
@@ -39,7 +48,7 @@ export async function contributionReferenceOptions(
     mime_type: string | null;
   }>(sql`
     WITH project AS (
-      SELECT id,slug,owner_id,public_tab_visibility,visibility,status FROM workspaces
+      SELECT id,slug,owner_id,public_tab_visibility,visibility,status,kind FROM workspaces
       WHERE id=${projectId}::uuid AND deleted_at IS NULL
     ), candidates AS (
       SELECT p.id::text AS id, COALESCE(NULLIF(p.full_name,''),p.username,'Contributor') AS label,
@@ -53,6 +62,7 @@ export async function contributionReferenceOptions(
       FROM workspace_nodes n,project j WHERE ${kind}='file' AND n.workspace_id=j.id AND n.type='file'
         AND n.deleted_at IS NULL AND n.task_id IS NULL AND n.path NOT LIKE '/.system/%'
         AND j.visibility IN ('public','unlisted') AND j.status<>'draft' AND COALESCE((j.public_tab_visibility->>'files')::boolean,false)
+        AND (j.kind<>'organization' OR ${ORG_VISITOR_FILE})
       UNION ALL
       SELECT t.id::text,t.title,'/workspaces/'||COALESCE(j.slug,j.id::text)||'?tab=tasks&drawerType=task&drawerId='||t.id::text,NULL::text,NULL::text
       FROM tasks t,project j WHERE ${kind}='task' AND t.workspace_id=j.id AND t.deleted_at IS NULL

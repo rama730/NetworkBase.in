@@ -129,10 +129,10 @@ export const CHILD_ACTIONS = Object.keys(CHILD) as ChildAction[];
 export const PENDING_ENFORCEMENT: Partial<Record<OrgAction | ChildAction, string>> = {
   create_org_tasks: "Step 13", edit_group_task_details: "Step 13", update_own_copy: "Step 13", update_assigned_task: "Step 13",
   edit_for_everyone: "Step 13", close_assignment: "Step 13", approve_return: "Step 13", set_reviewers: "Step 13",
-  export_progress: "Step 13", download_all: "Step 8", submit_ask_questions: "Step 13", see_class_overview: "Step 4",
+  export_progress: "Step 13", submit_ask_questions: "Step 13", see_class_overview: "Step 4",
   mark_away: "Step 14 (after the pilot)", see_former: "Step 11", invite_back_unblock: "Step 11", remove_outside_person: "Step 11",
   handle_team_change: "Step 11", assign_lead: "Step 11",
-  publish_document: "Step 10", see_storage: "Step 9", set_folder_access: "Step 8", empty_trash: "Step 8",
+  publish_document: "Step 10", see_storage: "Step 9",
   handle_reports: "Step 9", see_standing: "Step 9", appeal: "Step 9", request_verified: "Step 9", copy_link: "Step 14",
   decide_applications: "Step 11", team_tasks: "Step 13", reassign_group_work: "Step 13", github_connect_push: "Step 11",
   github_status: "Step 11", unarchive: "Step 11",

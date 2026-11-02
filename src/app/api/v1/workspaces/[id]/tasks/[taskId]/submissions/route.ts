@@ -11,6 +11,7 @@ import { prepareSubmissionsExport, streamFolderExport } from "@/lib/files/folder
 import { safeContentDisposition } from "@/lib/storage/private-object-response";
 import { createClient } from "@/lib/supabase/server";
 import { recordDownloadNow } from "@/lib/files/download-history";
+import { orgGrant } from "@/lib/organizations/permissions";
 
 export const dynamic = "force-dynamic";
 
@@ -22,7 +23,8 @@ async function orgAdminOf(orgId: string) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return null;
   const access = await getWorkspaceAccessById(orgId, user.id);
-  return access.project?.kind === "organization" && (access.isOwner || access.memberRole === "admin") ? user.id : null;
+  const role = access.isOwner ? "owner" : access.memberRole === "admin" ? "admin" : null;
+  return access.project?.kind === "organization" && role && orgGrant(role, "download_all") === "yes" ? user.id : null;
 }
 
 async function handle(request: NextRequest, context: RouteContext) {
@@ -44,7 +46,7 @@ async function handle(request: NextRequest, context: RouteContext) {
     prepared = await prepareSubmissionsExport({ masterId: taskId, dryRun: isCheck });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Couldn’t prepare the download";
-    const status = message.includes("limited") ? 413 : message.startsWith("No submitted") ? 422 : 409;
+    const status = message.includes("limited") || message.startsWith("Too large") ? 413 : message.startsWith("No submitted") ? 422 : 409;
     return jsonError(message, status, status === 409 ? "CONFLICT" : "BAD_REQUEST");
   }
   if (isCheck) {

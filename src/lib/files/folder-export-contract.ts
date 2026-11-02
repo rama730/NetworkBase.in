@@ -1,5 +1,7 @@
 export const FOLDER_EXPORT_MAX_ENTRIES = 20_000;
 export const FOLDER_EXPORT_MAX_BYTES = 1024 * 1024 * 1024;
+/** Download all for an assignment (report §28.5): one zip up to 2 GB. */
+export const SUBMISSIONS_EXPORT_MAX_BYTES = 2 * 1024 * 1024 * 1024;
 
 export type FolderExportRow = {
   id: string;

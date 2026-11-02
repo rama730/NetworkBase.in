@@ -6,7 +6,7 @@ import { z } from "zod";
 import { jsonError } from "@/app/api/v1/_shared";
 import { leaseCredentialsSchema } from "@/app/api/v1/_file-lease-route";
 import { db } from "@/lib/db";
-import { fileVersions, workspaceNodes } from "@/lib/db/schema";
+import { fileVersions, workspaceNodes, workspaces } from "@/lib/db/schema";
 import { getWorkspaceAccessById } from "@/lib/data/workspace-access";
 import type { ApplyFileRevisionResult } from "@/lib/files/apply-file-revision";
 import { buildWorkspaceFileKey } from "@/lib/storage/workspace-file-key";
@@ -45,7 +45,7 @@ export async function resolveWritableExtensionFile(
   try {
     await assertWorkspaceUploadAccess(projectId, userId);
   } catch {
-    return { response: jsonError("File uploads are disabled for this member", 403, "FORBIDDEN"), node: null };
+    return { response: jsonError(await refusedSaveMessage(access.project), 403, "FORBIDDEN"), node: null };
   }
   if (existingNode) {
     return { response: null, node: existingNode };
@@ -218,4 +218,11 @@ export async function readCommittedExtensionReceipt(projectId:string,nodeId:stri
  if((metadata.nodeId||committed.nodeId)!==nodeId)throw new Error("This operation already committed to a removed or different file");
  if(metadata.hash!==contentHash)throw new Error("Operation ID was already used for different contents");
  return {nodeId,version:Number(metadata.version),size:Number(metadata.size),contentHash:String(metadata.hash),mimeType:metadata.mimeType,revisionMode:metadata.revisionMode,versionIncremented:Boolean(metadata.versionIncremented),sequenceNumber:committed.sequenceNumber,updatedAt:committed.createdAt.toISOString()};
+}
+
+/** Report §24.2: in an organization a member's editor save is refused in words that say their work is safe. */
+async function refusedSaveMessage(project: { id: string; kind?: string | null }) {
+  if (project.kind !== "organization") return "File uploads are disabled for this member";
+  const [org] = await db.select({ title: workspaces.title }).from(workspaces).where(eq(workspaces.id, project.id)).limit(1);
+  return `Only admins can change ${org?.title || "this organization"}’s files. Your changes stay on your computer.`;
 }

@@ -10,7 +10,7 @@ import {
   buildFolderExportEntries,
   buildSelectionExportEntries,
   uniqueExportName,
-  FOLDER_EXPORT_MAX_BYTES,
+  SUBMISSIONS_EXPORT_MAX_BYTES,
   FOLDER_EXPORT_MAX_ENTRIES,
   type FolderExportEntry,
   type FolderExportRow,
@@ -122,7 +122,7 @@ export async function prepareSubmissionsExport(input: { masterId: string; dryRun
     // Never a partial zip: the person folders count toward the entry cap too.
     if (list.length > FOLDER_EXPORT_MAX_ENTRIES) throw new Error(`Submissions are limited to ${FOLDER_EXPORT_MAX_ENTRIES.toLocaleString("en")} files per download`);
     // Checked before pinning, or a refused download would hold its files until the pins expire.
-    if (list.reduce((sum, entry) => sum + entry.size, 0) > FOLDER_EXPORT_MAX_BYTES) throw new Error("Submissions are limited to 1 GB per download");
+    if (list.reduce((sum, entry) => sum + entry.size, 0) > SUBMISSIONS_EXPORT_MAX_BYTES) throw new Error("Too large for one download. Download by group or person.");
     if (!input.dryRun) await pinExportAssets(tx, list, operationId, expiresAt);
     return list;
   });

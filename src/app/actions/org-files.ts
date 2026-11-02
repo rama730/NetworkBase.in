@@ -11,6 +11,9 @@ import { readViewerOrgRole } from '@/lib/organizations/detail';
 import { effectiveAccess, folderAccessBlock, readFolderAccess, type FolderAccess } from '@/lib/organizations/file-rules';
 import { getViewerAuthContext } from '@/lib/server/viewer-context';
 import { ORG_LIMITS } from '@/lib/organizations/config';
+import { copyState } from '@/lib/organizations/assignment-rules';
+import { orgGrant, type OrgAction } from '@/lib/organizations/permissions';
+import { ASSIGNMENT_STATE_LABELS } from '@/lib/copy/terms';
 import { UUID_RE } from '@/lib/validations/uuid';
 
 // Org Files (report §23): folder access and Template marks for admins; the From <org> view and copies in
@@ -21,13 +24,27 @@ const DENIED: Failure = { success: false, error: "You don’t have permission to
 type ReadableAccess = Awaited<ReturnType<typeof getWorkspaceAccessById>> & { project: NonNullable<Awaited<ReturnType<typeof getWorkspaceAccessById>>['project']> };
 
 /** The viewer when they own or admin the org; writes refuse a suspended or archived org. */
-async function orgAdmin(orgId: string, mode: 'read' | 'write' = 'write') {
+async function orgAdmin(orgId: string, mode: 'read' | 'write' = 'write', action?: OrgAction) {
     const { userId } = await getViewerAuthContext();
     if (!userId) return null;
     const access = await getWorkspaceAccessById(orgId, userId);
     if (mode === 'write' && access.writeBlocked) return null;
-    return access.project?.kind === 'organization' && (access.isOwner || access.memberRole === 'admin') ? { userId, slug: access.project.slug ?? null } : null;
+    const role = access.isOwner ? 'owner' as const : access.memberRole === 'admin' ? 'admin' as const : null;
+    if (access.project?.kind !== 'organization' || !role || (action && orgGrant(role, action) !== 'yes')) return null;
+    return { userId, slug: access.project.slug ?? null };
 }
+
+/** The strictest access on a folder and the folders above it. */
+async function folderEffectiveAccess(orgId: string, path: string) {
+    const rows = await db.select({ metadata: workspaceNodes.metadata }).from(workspaceNodes).where(and(
+        eq(workspaceNodes.projectId, orgId), eq(workspaceNodes.type, 'folder'), isNull(workspaceNodes.deletedAt),
+        sql`(${workspaceNodes.path} = ${path} OR starts_with(${path}, ${workspaceNodes.path} || '/'))`,
+    ));
+    return effectiveAccess(rows.map((r) => readFolderAccess(r.metadata)));
+}
+
+const isTemplate = (metadata: unknown) => (metadata as { template?: unknown } | null)?.template === true;
+const NOT_A_TEMPLATE = 'Admins-only folders can’t be templates. Copying would show them to the team.';
 
 async function orgFolder(orgId: string, folderId: string) {
     const [folder] = await db.select({ id: workspaceNodes.id, path: workspaceNodes.path, metadata: workspaceNodes.metadata })
@@ -45,7 +62,7 @@ const plural = (n: number) => `${n} ${n === 1 ? 'file' : 'files'}`;
  * preview: who gains or loses access (report §23.9 #5). Access is only stricter going down.
  */
 export async function setFolderAccessAction(orgId: string, folderId: string, access: FolderAccess | null, confirm: boolean): Promise<{ success: true; preview?: { files: number; message: string } } | Failure> {
-    const admin = await orgAdmin(orgId);
+    const admin = await orgAdmin(orgId, 'write', 'set_folder_access');
     if (!admin) return DENIED;
     if (access !== null && !['admins', 'members', 'public'].includes(access)) return { success: false, error: 'Pick an access level.' };
     const folder = await orgFolder(orgId, folderId);
@@ -64,10 +81,12 @@ export async function setFolderAccessAction(orgId: string, folderId: string, acc
         const message = access === 'admins' ? `Members will lose access to ${plural(n)}.`
             : access === 'public' ? `${plural(n)} will become visible to visitors.`
                 : `${plural(n)} will follow the parent folder’s access.`;
-        return { success: true, preview: { files: n, message } };
+        // Decision 61: an Admins-only folder can't be a template, so the mark goes with this change.
+        return { success: true, preview: { files: n, message: access === 'admins' && isTemplate(folder.metadata) ? `${message} It stops being a template.` : message } };
     }
+    const base = access === 'admins' ? sql`(coalesce(${workspaceNodes.metadata}, '{}'::jsonb) - 'template')` : sql`coalesce(${workspaceNodes.metadata}, '{}'::jsonb)`;
     await db.update(workspaceNodes).set({
-        metadata: access ? sql`coalesce(${workspaceNodes.metadata}, '{}'::jsonb) || ${JSON.stringify({ access })}::jsonb` : sql`coalesce(${workspaceNodes.metadata}, '{}'::jsonb) - 'access'`,
+        metadata: access ? sql`${base} || ${JSON.stringify({ access })}::jsonb` : sql`${base} - 'access'`,
         updatedAt: new Date(),
     }).where(eq(workspaceNodes.id, folder.id));
     touch(admin.slug, orgId);
@@ -76,28 +95,17 @@ export async function setFolderAccessAction(orgId: string, folderId: string, acc
 
 /** The Template mark on a folder (report §23.3). */
 export async function setFolderTemplateAction(orgId: string, folderId: string, template: boolean): Promise<{ success: true } | Failure> {
-    const admin = await orgAdmin(orgId);
+    const admin = await orgAdmin(orgId, 'write', 'set_folder_access');
     if (!admin) return DENIED;
     const folder = await orgFolder(orgId, folderId);
     if (!folder) return { success: false, error: 'That folder is no longer available.' };
+    if (template && (await folderEffectiveAccess(orgId, folder.path)) === 'admins') return { success: false, error: NOT_A_TEMPLATE };
     await db.update(workspaceNodes).set({
         metadata: template ? sql`coalesce(${workspaceNodes.metadata}, '{}'::jsonb) || '{"template": true}'::jsonb` : sql`coalesce(${workspaceNodes.metadata}, '{}'::jsonb) - 'template'`,
         updatedAt: new Date(),
     }).where(eq(workspaceNodes.id, folder.id));
     touch(admin.slug, orgId);
     return { success: true };
-}
-
-export type OrgFolderRow = { id: string; path: string; access: FolderAccess | null; template: boolean };
-
-/** Every folder of the org tree with its marks, for the admin panel. */
-export async function listOrgFoldersAction(orgId: string): Promise<{ success: true; folders: OrgFolderRow[] } | Failure> {
-    if (!(await orgAdmin(orgId, 'read'))) return DENIED;
-    // ponytail: 300 folders, sorted by path. Upgrade: per-folder controls in the Files tree when orgs outgrow it.
-    const rows = await db.select({ id: workspaceNodes.id, path: workspaceNodes.path, metadata: workspaceNodes.metadata }).from(workspaceNodes)
-        .where(and(eq(workspaceNodes.projectId, orgId), eq(workspaceNodes.type, 'folder'), isNull(workspaceNodes.deletedAt), projectContentNodeSql))
-        .orderBy(asc(workspaceNodes.path)).limit(300);
-    return { success: true, folders: rows.map((r) => ({ id: r.id, path: r.path, access: readFolderAccess(r.metadata), template: (r.metadata as { template?: unknown } | null)?.template === true })) };
 }
 
 /** The org's access for an org person inside one of its child projects; null for anyone else (§23.6). */
@@ -192,10 +200,10 @@ export async function readOrgFileUsageAction(orgId: string, nodeIds: string[]): 
             SELECT n.id, n.name, n.type, n.metadata FROM workspace_nodes n
             WHERE n.workspace_id = ${orgId} AND n.deleted_at IS NULL
               AND EXISTS (SELECT 1 FROM picked p WHERE n.path = p.path OR n.path LIKE p.path || '/%'))
-        SELECT DISTINCT 'Material in ' || s.name AS label FROM sprint_materials m JOIN workspace_sprints s ON s.id = m.sprint_id WHERE m.node_id IN (SELECT id FROM affected)
-        UNION SELECT DISTINCT 'Reference on ' || t.title FROM task_node_links l JOIN tasks t ON t.id = l.task_id AND t.deleted_at IS NULL WHERE l.node_id IN (SELECT id FROM affected)
-        UNION SELECT DISTINCT 'Template folder ' || a.name FROM affected a WHERE a.type = 'folder' AND (a.metadata->>'template')::boolean IS TRUE
-        UNION SELECT DISTINCT 'Doc ' || d.filename FROM workspace_documents d WHERE d.workspace_id = ${orgId} AND d.linked_node_id IN (SELECT id FROM affected)
+        SELECT DISTINCT s.name AS label FROM sprint_materials m JOIN workspace_sprints s ON s.id = m.sprint_id WHERE m.node_id IN (SELECT id FROM affected)
+        UNION SELECT DISTINCT t.title FROM task_node_links l JOIN tasks t ON t.id = l.task_id AND t.deleted_at IS NULL WHERE l.node_id IN (SELECT id FROM affected)
+        UNION SELECT DISTINCT 'the ' || a.name || ' template' FROM affected a WHERE a.type = 'folder' AND (a.metadata->>'template')::boolean IS TRUE
+        UNION SELECT DISTINCT d.filename FROM workspace_documents d WHERE d.workspace_id = ${orgId} AND d.linked_node_id IN (SELECT id FROM affected)
         LIMIT 20`);
     return rows.map((r) => r.label);
 }
@@ -236,24 +244,6 @@ export async function readOrgSprintMaterialsAction(orgId: string): Promise<{ suc
     return { success: true, groups: [...groups.values()] };
 }
 
-export type GroupDeliverableRow = { nodeId: string; name: string; project: string; projectSlug: string | null; projectId: string; assignment: string; review: string };
-
-/** The org's Deliverables also list child projects' group-copy files (report §23.6, §23.9 #14), for admins. */
-export async function readGroupDeliverablesAction(orgId: string): Promise<{ success: true; rows: GroupDeliverableRow[] } | Failure> {
-    if (!(await orgAdmin(orgId, 'read'))) return DENIED;
-    const rows = await db.execute<{ node_id: string; name: string; project: string; project_slug: string | null; project_id: string; assignment: string; review: string }>(sql`
-        SELECT n.id AS node_id, n.name, p.title AS project, p.slug AS project_slug, p.id AS project_id, m.title AS assignment,
-               -- The copy's real state, in the shipped words (report §42.10 smaller bug 10).
-               CASE WHEN c.review_status = 'pending' THEN 'submitted' WHEN c.review_status = 'rejected' THEN 'returned'
-                    WHEN c.status = 'done' THEN 'completed' ELSE 'not_handed_in' END AS review
-        FROM tasks m JOIN tasks c ON c.assignment_id = m.id AND c.deleted_at IS NULL AND c.workspace_id <> m.workspace_id
-        JOIN workspaces p ON p.id = c.workspace_id AND p.parent_id = ${orgId} AND p.deleted_at IS NULL
-        JOIN workspace_nodes n ON n.task_id = c.id AND n.type = 'file' AND n.deleted_at IS NULL
-        WHERE m.workspace_id = ${orgId} AND m.deleted_at IS NULL
-        ORDER BY m.title, p.title, n.name LIMIT 300`);
-    return { success: true, rows: rows.map((r) => ({ nodeId: r.node_id, name: r.name, project: r.project, projectSlug: r.project_slug, projectId: r.project_id, assignment: r.assignment, review: r.review })) };
-}
-
 /** Template folders a member may start a child project from (report §23.3 Template mark, §23.6). */
 export async function listOrgTemplateFoldersAction(orgId: string): Promise<Array<{ id: string; name: string }>> {
     const { userId } = await getViewerAuthContext();
@@ -262,6 +252,70 @@ export async function listOrgTemplateFoldersAction(orgId: string): Promise<Array
     if (access.project?.kind !== 'organization' || !(access.isOwner || access.isMember)) return [];
     return db.select({ id: workspaceNodes.id, name: workspaceNodes.name }).from(workspaceNodes)
         .where(and(eq(workspaceNodes.projectId, orgId), eq(workspaceNodes.type, 'folder'), isNull(workspaceNodes.deletedAt),
-            sql`(${workspaceNodes.metadata}->>'template')::boolean IS TRUE`, orgFileAccessSql(access)))
+            sql`(${workspaceNodes.metadata}->>'template')::boolean IS TRUE`, orgFileAccessSql(access),
+            // Report §28.5, decision 61: never an Admins-only folder (or one inside it), never an empty one.
+            sql`NOT EXISTS (SELECT 1 FROM workspace_nodes a WHERE a.workspace_id = ${orgId} AND a.type = 'folder' AND a.deleted_at IS NULL
+                AND a.metadata->>'access' = 'admins' AND (a.path = ${workspaceNodes.path} OR starts_with(${workspaceNodes.path}, a.path || '/')))`,
+            sql`EXISTS (SELECT 1 FROM workspace_nodes f WHERE f.workspace_id = ${orgId} AND f.type = 'file' AND f.deleted_at IS NULL
+                AND starts_with(f.path, ${workspaceNodes.path} || '/'))`))
         .orderBy(asc(workspaceNodes.name)).limit(50);
+}
+
+export type SubmissionRow = { copyId: string; who: string; files: number; version: number | null; submittedAt: string | null; late: boolean; status: string };
+export type SubmissionGroup = { id: string; title: string; dueDate: string | null; rows: SubmissionRow[] };
+
+/**
+ * The Submissions page (report §37.5; "Final files" for other types): per assignment, each person or group with
+ * their files, version, when, Late and status. Admins only; members use My work → Submitted.
+ */
+export async function readOrgSubmissionsAction(orgId: string): Promise<{ success: true; assignments: SubmissionGroup[] } | Failure> {
+    if (!(await orgAdmin(orgId, 'read', 'download_all'))) return DENIED;
+    const rows = await db.execute<{ master_id: string; title: string; master_due: string | null; copy_id: string; who: string; files: number; version: number | null;
+        status: string; review_status: string; due_date: string | null; submitted_at: string | null; completed_at: string | null; excused_at: string | null }>(sql`
+        SELECT m.id AS master_id, m.title, m.due_date::text AS master_due, c.id AS copy_id,
+               coalesce(c.team_name, (SELECT p.title FROM workspaces p WHERE p.id = c.workspace_id AND p.id <> m.workspace_id),
+                        (SELECT coalesce(pr.full_name, pr.username) FROM profiles pr WHERE pr.id = c.assignee_id), 'Member') AS who,
+               (SELECT count(*)::int FROM workspace_nodes n WHERE n.task_id = c.id AND n.type = 'file' AND n.deleted_at IS NULL) AS files,
+               (c.submission->>'version')::int AS version, c.status, c.review_status, c.due_date::text AS due_date,
+               c.review_submitted_at::text AS submitted_at, c.completed_at::text AS completed_at, c.excused_at::text AS excused_at
+        FROM tasks m JOIN tasks c ON c.assignment_id = m.id AND c.deleted_at IS NULL
+        WHERE m.workspace_id = ${orgId} AND m.kind = 'assignment' AND m.deleted_at IS NULL
+        ORDER BY m.due_date DESC NULLS LAST, m.title, 5
+        LIMIT 5000`);
+    const groups = new Map<string, SubmissionGroup>();
+    const at = (v: string | null) => (v ? new Date(v) : null);
+    for (const r of rows) {
+        const { state, late } = copyState({ status: r.status, reviewStatus: r.review_status, dueDate: at(r.due_date), submittedAt: at(r.submitted_at), completedAt: at(r.completed_at), excusedAt: at(r.excused_at) });
+        const group = groups.get(r.master_id) ?? { id: r.master_id, title: r.title, dueDate: r.master_due, rows: [] };
+        group.rows.push({ copyId: r.copy_id, who: r.who, files: r.files, version: r.version, submittedAt: r.submitted_at ?? r.completed_at, late, status: ASSIGNMENT_STATE_LABELS[state] });
+        groups.set(r.master_id, group);
+    }
+    return { success: true, assignments: [...groups.values()] };
+}
+
+export type ChildFinalFileRow = { nodeId: string; name: string; assignment: string; review: string };
+
+/** A workspace's Final files (report §18.6): its group work handed in, with "Reviewed by CSE 3B" once completed. */
+export async function readChildFinalFilesAction(childProjectId: string): Promise<{ success: true; orgTitle: string; rows: ChildFinalFileRow[] } | Failure> {
+    const { userId } = await getViewerAuthContext();
+    if (!userId || !UUID_RE.test(childProjectId)) return DENIED;
+    const access = await getWorkspaceAccessById(childProjectId, userId);
+    const [org] = access.project?.parentId ? await db.select({ id: workspaces.id, title: workspaces.title }).from(workspaces).where(eq(workspaces.id, access.project.parentId)).limit(1) : [];
+    const orgRole = org ? await readViewerOrgRole(org.id, userId) : null;
+    if (!org || !(access.isOwner || access.isMember || orgRole === 'owner' || orgRole === 'admin')) return DENIED;
+    const rows = await db.execute<{ node_id: string; name: string; assignment: string; status: string; review_status: string; due_date: string | null; submitted_at: string | null; completed_at: string | null; excused_at: string | null }>(sql`
+        SELECT n.id AS node_id, n.name, m.title AS assignment, c.status, c.review_status, c.due_date::text AS due_date,
+               c.review_submitted_at::text AS submitted_at, c.completed_at::text AS completed_at, c.excused_at::text AS excused_at
+        FROM tasks c JOIN tasks m ON m.id = c.assignment_id AND m.workspace_id = ${org.id}
+        JOIN workspace_nodes n ON n.task_id = c.id AND n.type = 'file' AND n.deleted_at IS NULL
+        WHERE c.workspace_id = ${childProjectId} AND c.deleted_at IS NULL
+        ORDER BY m.title, n.name LIMIT 500`);
+    const at = (v: string | null) => (v ? new Date(v) : null);
+    return {
+        success: true, orgTitle: org.title,
+        rows: rows.map((r) => {
+            const { state } = copyState({ status: r.status, reviewStatus: r.review_status, dueDate: at(r.due_date), submittedAt: at(r.submitted_at), completedAt: at(r.completed_at), excusedAt: at(r.excused_at) });
+            return { nodeId: r.node_id, name: r.name, assignment: r.assignment, review: state === 'done' ? `Reviewed by ${org.title}` : ASSIGNMENT_STATE_LABELS[state] };
+        }),
+    };
 }

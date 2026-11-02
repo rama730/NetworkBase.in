@@ -19,6 +19,7 @@ const EMPTY_FOLDER_SIZES: Record<string, number> = {};
 import {
   useFilesViews,
   fileCollectionViews,
+  orgViewAllowed,
 } from "./FilesViews";
 
 import type { WorkspaceNode } from "@/lib/db/schema";
@@ -599,7 +600,8 @@ export function FilesTabSidebar({
                   (canEdit || item.id !== "trash") &&
                   (filesView.canReadTasks ||
                      !["tasks", "deliverables"].includes(item.id)) &&
-                  (item.id !== "github" || filesView.canOpenGitHub),
+                  (item.id !== "github" || filesView.canOpenGitHub) &&
+                  orgViewAllowed(item.id, filesView.org, filesView.canReadTasks),
               )
               .map(({ id, Icon }) => {
                 const label = filesView.viewLabel(id);
