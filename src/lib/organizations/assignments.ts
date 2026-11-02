@@ -45,7 +45,14 @@ export async function canSeeOrgTask(access: WorkspaceAccess, viewerId: string | 
 }
 
 /** Who gets a copy (report §16.2): people in the org, teams, or each (or some) child project's lead. */
-export async function resolveRecipients(executor: Executor, orgId: string, target: AssignmentTarget): Promise<CopyRecipient[]> {
+/** Some of a draft's chosen people have left (report §42.10 problem 15); publish again with dropMissing for the rest. */
+export class PeopleLeftError extends Error {
+  constructor(readonly left: number, readonly rest: number) {
+    super(`${left === 1 ? "1 person has" : `${left} people have`} left. Publish to the other ${rest}?`);
+  }
+}
+
+export async function resolveRecipients(executor: Executor, orgId: string, target: AssignmentTarget, options: { dropMissing?: boolean } = {}): Promise<CopyRecipient[]> {
   const members = await executor
     .select({ userId: workspaceMembers.userId, role: workspaceMembers.role })
     .from(workspaceMembers)
@@ -56,10 +63,21 @@ export async function resolveRecipients(executor: Executor, orgId: string, targe
 
   if (target.mode === "everyone") return members.filter((m) => m.role === "member").map((m) => ({ projectId: orgId, assigneeId: m.userId }));
   if (target.mode === "role") return members.filter((m) => m.role === target.role || (target.role === "admin" && m.role === "owner")).map((m) => ({ projectId: orgId, assigneeId: m.userId }));
+  // People who left since the draft was saved: asked about first, then left out (problem 15).
+  const named = target.mode === "people" ? target.userIds : target.mode === "teams" ? [...target.teams.flatMap((t) => t.userIds), ...target.individuals] : [];
+  const left = [...new Set(named)].filter((id) => !assignable(id));
+  if (left.length && !options.dropMissing) {
+    if (left.length === new Set(named).size) throw new Error("Pick people who are members of the organization.");
+    throw new PeopleLeftError(left.length, new Set(named).size - left.length);
+  }
   if (target.mode === "people") {
-    const ids = [...new Set(target.userIds)];
-    if (ids.some((id) => !assignable(id))) throw new Error("Pick people who are members of the organization.");
+    const ids = [...new Set(target.userIds)].filter(assignable);
+    if (ids.length === 0) throw new Error("Pick people who are members of the organization.");
     return ids.map((assigneeId) => ({ projectId: orgId, assigneeId }));
+  }
+  if (target.mode === "teams" && left.length) {
+    const teams = target.teams.map((t) => ({ ...t, userIds: t.userIds.filter(assignable) })).filter((t) => t.userIds.length > 0);
+    return resolveRecipients(executor, orgId, { mode: "teams", teams, individuals: target.individuals.filter(assignable) });
   }
   if (target.mode === "teams") {
     const everyone = [...target.teams.flatMap((t) => t.userIds), ...target.individuals];

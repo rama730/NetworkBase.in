@@ -500,7 +500,13 @@ export function AssignmentsPanel({ orgId, onBoardChanged, startComposing = false
                         )}
                         {data.isAdmin ? (
                             <span className="ml-auto flex flex-wrap gap-1">
-                                {row.status === 'draft' ? <Button type="button" size="sm" disabled={pending} onClick={() => run(() => publishAssignmentAction(row.masterId))}>Publish</Button> : null}
+                                {row.status === 'draft' ? <Button type="button" size="sm" disabled={pending} onClick={() => run(async () => {
+                                    const first = await publishAssignmentAction(row.masterId)
+                                    // "2 people have left. Publish to the other 38?" (report §42.10 problem 15)
+                                    if (!first.success && 'left' in first && first.left && window.confirm(first.error)) return publishAssignmentAction(row.masterId, { dropMissing: true })
+                                    return first
+                                })}>Publish</Button> : null}
+                                {row.status === 'draft' && row.note ? <span className="basis-full text-[13px] text-muted-foreground">{row.note}</span> : null}
                                 {row.status !== 'draft' ? <Button type="button" size="sm" variant="outline" onClick={() => setRoster(row)}>Roster</Button> : null}
                                 {row.status === 'open' ? <Button type="button" size="sm" variant="ghost" disabled={pending} onClick={() => run(() => closeAssignmentAction(row.masterId))}>Close</Button> : null}
                                 <Button type="button" size="sm" variant="ghost" disabled={pending} onClick={() => { if (window.confirm(`Delete ${row.title}?`)) run(() => deleteAssignmentAction(row.masterId)) }}>Delete</Button>

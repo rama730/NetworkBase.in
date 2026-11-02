@@ -11,7 +11,7 @@ import {
 import { syncWorkspaceChat } from "@/lib/messaging/integrations";
 import { generateWorkspaceKey } from "@/lib/workspace-key";
 import { countUnregisteredWorkspaceStorage, scheduleWorkspaceStorageDeletion } from "@/lib/workspaces/server/lifecycle";
-import type { AssignmentSettings } from "@/lib/organizations/assignment-rules";
+import { resetDuplicatedTarget, type AssignmentSettings } from "@/lib/organizations/assignment-rules";
 import { createMasterTask } from "@/lib/organizations/assignments";
 import { detachFromOrg } from "@/lib/organizations/children";
 import { generateJoinCode } from "@/lib/organizations/join-rules";
@@ -231,7 +231,9 @@ export async function duplicateOrg(sourceId: string, actorId: string, options: D
     const masters = await db.select().from(tasks).where(and(eq(tasks.projectId, sourceId), eq(tasks.kind, "assignment"), isNull(tasks.deletedAt)));
     for (const master of masters) {
       const steps = await db.select({ title: taskSubtasks.title }).from(taskSubtasks).where(eq(taskSubtasks.taskId, master.id)).orderBy(taskSubtasks.position);
-      const settings = { ...(master.assignmentSettings as AssignmentSettings), publishedAt: null, closedAt: null };
+      const saved = master.assignmentSettings as AssignmentSettings;
+      const { target, note } = resetDuplicatedTarget(saved.target);
+      const settings = { ...saved, target, note, publishedAt: null, closedAt: null };
       if (settings.lateUntil) settings.lateUntil = shiftBy(new Date(settings.lateUntil), deltaMs)!.toISOString();
       await createMasterTask(db, {
         orgId: newId, title: master.title, description: master.description, dueDate: shiftBy(master.dueDate, deltaMs) ?? new Date(),

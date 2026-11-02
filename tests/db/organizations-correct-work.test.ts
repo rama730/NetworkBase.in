@@ -467,3 +467,21 @@ test("problem 14: someone given an extension sees their own date, marked Extende
   const other = await assignments.listAssignmentsAction(o.org);
   assert.equal(other.success && other.rows.find((r) => r.masterId === master)?.mine?.extended, false);
 });
+
+test("problem 15: publishing a draft whose people left asks to publish to the rest; Duplicate resets saved people and workspaces", async () => {
+  const o = await org();
+  viewerId = o.owner;
+  const made = await assignments.createAssignmentAction({ projectId: o.org, title: "Lab 24", dueDate: future(), publish: false, submissionType: "none", lateRule: "none",
+    target: { mode: "people", userIds: [o.a, o.b] }, steps: [] } as Parameters<typeof assignments.createAssignmentAction>[0]);
+  const master = made.success ? made.masterId : "";
+  await sql`DELETE FROM workspace_members WHERE workspace_id = ${o.org} AND user_id = ${o.b}`;
+  const first = await assignments.publishAssignmentAction(master);
+  assert.deepEqual([first.success, (first as { error?: string }).error, (first as { left?: number }).left], [false, "1 person has left. Publish to the other 1?", 1]);
+  const second = await assignments.publishAssignmentAction(master, { dropMissing: true });
+  assert.equal(second.success && second.copies, 1);
+
+  const { resetDuplicatedTarget } = await loadAppModule(() => import("../../src/lib/organizations/assignment-rules"));
+  assert.deepEqual(resetDuplicatedTarget({ mode: "people", userIds: [o.a] }), { target: { mode: "everyone" }, note: "Copied from last term: it now goes to everyone. Check who gets it before publishing." });
+  assert.deepEqual(resetDuplicatedTarget({ mode: "children", projectIds: ["x"] }).target, { mode: "each_child" });
+  assert.deepEqual(resetDuplicatedTarget({ mode: "everyone" }), { target: { mode: "everyone" }, note: null });
+});

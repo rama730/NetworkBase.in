@@ -9,7 +9,7 @@ import { profiles, workspaces, workspaceSprints, workspaceWorkflowColumns, taskA
 import { getWorkspaceAccessById, writeBlockedMessage } from '@/lib/data/workspace-access';
 import { createClient } from '@/lib/supabase/server';
 import { assignmentHref, canStillSubmit, copyState, lateRuleBlock, type AssignmentSettings, type AssignmentTarget, type CopyState } from '@/lib/organizations/assignment-rules';
-import { createCopies, createMasterTask, handedInSql, resolveRecipients } from '@/lib/organizations/assignments';
+import { createCopies, createMasterTask, handedInSql, PeopleLeftError, resolveRecipients } from '@/lib/organizations/assignments';
 import { shareToOrgGeneral } from '@/lib/organizations/org-chat';
 import { postOrgAnnouncement } from '@/lib/organizations/org-updates';
 import { ORG_LIMITS } from '@/lib/organizations/config';
@@ -131,14 +131,14 @@ async function adminOfMaster(masterId: string) {
 }
 
 /** Publish a draft: copies are made now. */
-export async function publishAssignmentAction(masterId: string): Promise<{ success: true; copies: number } | Failure> {
+export async function publishAssignmentAction(masterId: string, options: { dropMissing?: boolean } = {}): Promise<{ success: true; copies: number } | (Failure & { left?: number })> {
     const ctx = await adminOfMaster(masterId);
     if (!ctx) return DENIED;
     if (ctx.master.settings.publishedAt) return { success: false, error: 'Already published.' };
     try {
         const copies = await db.transaction(async (tx) => {
-            const recipients = await resolveRecipients(tx, ctx.master.projectId, ctx.master.settings.target);
-            await tx.update(tasks).set({ assignmentSettings: { ...ctx.master.settings, publishedAt: new Date().toISOString() }, updatedAt: new Date() }).where(eq(tasks.id, masterId));
+            const recipients = await resolveRecipients(tx, ctx.master.projectId, ctx.master.settings.target, options);
+            await tx.update(tasks).set({ assignmentSettings: { ...ctx.master.settings, publishedAt: new Date().toISOString(), note: null }, updatedAt: new Date() }).where(eq(tasks.id, masterId));
             await createCopies(tx, masterId, recipients, ctx.viewer.userId);
             return recipients.length;
         });
@@ -146,6 +146,7 @@ export async function publishAssignmentAction(masterId: string): Promise<{ succe
         await notifyAssignmentPublished(masterId, ctx.viewer.userId);
         return { success: true, copies };
     } catch (error) {
+        if (error instanceof PeopleLeftError) return { success: false, error: error.message, left: error.left };
         return { success: false, error: error instanceof Error ? error.message : 'Couldn’t publish.' };
     }
 }
@@ -384,6 +385,8 @@ export type AssignmentRow = {
     title: string;
     dueDate: string | null;
     status: 'draft' | 'open' | 'closed';
+    /** A draft Duplicate changed: what to check before publishing (problem 15). */
+    note?: string | null;
     submissionType: string;
     reviewRequired: boolean;
     teams: boolean;
@@ -428,7 +431,7 @@ export async function listAssignmentsAction(orgId: string): Promise<{ success: t
             return s.state === 'excused' ? acc : { done: acc.done + (s.state === 'done' ? size : 0), total: acc.total + size };
         }, { done: 0, total: 0 }) : undefined;
         return {
-            masterId: m.id, title: m.title, dueDate: m.dueDate?.toISOString() ?? null,
+            masterId: m.id, title: m.title, dueDate: m.dueDate?.toISOString() ?? null, note: viewer.isAdmin ? settings.note ?? null : null,
             status: !settings.publishedAt ? 'draft' : settings.closedAt ? 'closed' : 'open',
             submissionType: settings.submissionType, reviewRequired: settings.reviewRequired, teams: settings.target.mode === 'teams',
             counts, mine, ...(teamPeople ? { people: teamPeople } : {}),

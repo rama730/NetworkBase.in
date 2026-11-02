@@ -21,6 +21,8 @@ export type AssignmentSettings = {
   target: AssignmentTarget;
   publishedAt?: string | null;
   closedAt?: string | null;
+  /** Shown on a draft that Duplicate changed, until it's published (report §42.10 problem 15). */
+  note?: string | null;
 };
 
 /** Stored on a copy when it is handed in. */
@@ -145,4 +147,14 @@ export function lateRuleBlock(settings: { lateRule: LateRule; lateUntil?: string
   if (!settings.lateUntil) return "Pick the last day late work is accepted.";
   if (dueDate && new Date(settings.lateUntil).getTime() <= dueDate.getTime()) return "Late work must be accepted until after the due date.";
   return null;
+}
+
+/**
+ * Duplicate for a new term (report §42.10 problem 15): last term's people, teams and chosen workspaces mean nothing
+ * here, so those drafts go to everyone, or to each workspace, with a note to check before publishing.
+ */
+export function resetDuplicatedTarget(target: AssignmentTarget): { target: AssignmentTarget; note: string | null } {
+  if (target.mode === "people" || target.mode === "teams") return { target: { mode: "everyone" }, note: "Copied from last term: it now goes to everyone. Check who gets it before publishing." };
+  if (target.mode === "children") return { target: { mode: "each_child" }, note: "Copied from last term: it now goes to each workspace. Check who gets it before publishing." };
+  return { target, note: null };
 }
