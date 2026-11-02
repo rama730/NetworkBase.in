@@ -555,15 +555,21 @@ async function readProjectSprintListItem(projectId: string, sprintId: string) {
 
 async function readSprintSummary(sprintId: string) {
   const rows = await db.execute<SprintSummaryQueryRow>(sql`
-        WITH sprint_tasks AS (
-            SELECT DISTINCT ON (m.task_id)
-                t.id,
-                t.status,
-                t.review_status,
-                t.story_points
+        WITH in_sprint AS (
+            SELECT t.id, t.kind, t.assignment_id, t.status, t.review_status, t.story_points
             FROM ${sprintTaskMemberships} m
             JOIN ${tasks} t ON t.id = m.task_id AND t.deleted_at IS NULL
             WHERE m.sprint_id = ${sprintId} AND m.removed_at IS NULL
+        ), sprint_tasks AS (
+            -- An assignment counts by its copies, never its main task, which never finishes (report §42.12 problem 25).
+            SELECT DISTINCT ON (id) id, status, review_status, story_points FROM (
+                SELECT id, status, review_status, story_points FROM in_sprint
+                WHERE NOT (kind = 'assignment' AND assignment_id IS NULL)
+                UNION ALL
+                SELECT c.id, c.status, c.review_status, c.story_points FROM ${tasks} c
+                WHERE c.assignment_id IN (SELECT id FROM in_sprint WHERE kind = 'assignment' AND assignment_id IS NULL)
+                  AND c.deleted_at IS NULL AND c.excused_at IS NULL
+            ) counted
         )
         SELECT
             COUNT(*)::int AS total_tasks,

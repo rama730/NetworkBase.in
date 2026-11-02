@@ -485,3 +485,18 @@ test("problem 15: publishing a draft whose people left asks to publish to the re
   assert.deepEqual(resetDuplicatedTarget({ mode: "children", projectIds: ["x"] }).target, { mode: "each_child" });
   assert.deepEqual(resetDuplicatedTarget({ mode: "everyone" }), { target: { mode: "everyone" }, note: null });
 });
+
+test("problem 25: an organization sprint's numbers count assignments by their copies", async () => {
+  const o = await org();
+  const [sprint] = await sql`INSERT INTO workspace_sprints (workspace_id, name, start_date, end_date, status) VALUES (${o.org}, 'CO4', now() - interval '1 day', now() + interval '6 days', 'active') RETURNING id`;
+  const { master, copyOf } = await published(o, "Lab 25");
+  await sql`INSERT INTO sprint_task_memberships (workspace_id, sprint_id, task_id) VALUES (${o.org}, ${sprint!.id}, ${master})`;
+  viewerId = o.a;
+  assert.equal((await assignments.submitAssignmentAction(copyOf(o.a), {})).success, true);
+  viewerId = o.owner;
+  assert.equal((await assignments.reviewAssignmentCopyAction(copyOf(o.a), "approve")).success, true);
+  const detail = await sprints.fetchWorkspaceSprintDetailAction({ projectId: o.org, sprintId: sprint!.id });
+  assert.equal(detail.success, true, JSON.stringify(detail).slice(0, 200));
+  const summary = detail.success ? (detail.data as unknown as { summary: { totalTasks: number; completedTasks: number } }).summary : null;
+  assert.deepEqual([summary?.completedTasks, summary?.totalTasks], [1, 2], "1 of 2 copies done, not 0 of 1 main assignment");
+});
