@@ -286,3 +286,27 @@ test("problems 22 and 32: deleting a main assignment or a copy follows the assig
   const [gone] = await sql`SELECT count(*)::int AS n FROM tasks WHERE assignment_id = ${fresh.master} AND deleted_at IS NULL`;
   assert.equal(gone!.n, 0, "with its copies, not stranding them");
 });
+
+test("decision 87 and problem 31: only owners and admins add tasks to an organization's board, and admins can put them in sprints", async () => {
+  const o = await org();
+  const [sprint] = await sql`INSERT INTO workspace_sprints (workspace_id, name, start_date, end_date, status) VALUES (${o.org}, 'CO3', now(), now() + interval '7 days', 'planning') RETURNING id`;
+  viewerId = o.a;
+  assert.equal((await tasks.createTaskAction({ projectId: o.org, title: "My own todo", status: "todo", priority: "medium" })).success, false, "members don't add to the organization's board");
+  viewerId = o.admin;
+  const made = await tasks.createTaskAction({ projectId: o.org, title: "Set the quiz", status: "todo", priority: "medium", sprintId: sprint!.id });
+  assert.equal(made.success, true, JSON.stringify(made));
+});
+
+test("decision 146 guard (41.6): in a normal workspace an admin adds a task to a sprint; a member still can't", async () => {
+  const [owner, admin, member] = await Promise.all([1, 2, 3].map(() => sql.begin((tx) => createUser(tx))));
+  const project = await sql.begin((tx) => createProject(tx, owner!));
+  created.push(project);
+  await sql`INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (${project}, ${owner!}, 'owner'), (${project}, ${admin!}, 'admin'), (${project}, ${member!}, 'member')`;
+  const [sprint] = await sql`INSERT INTO workspace_sprints (workspace_id, name, start_date, end_date, status) VALUES (${project}, 'Sprint 1', now(), now() + interval '7 days', 'planning') RETURNING id`;
+  viewerId = admin!;
+  const made = await tasks.createTaskAction({ projectId: project, title: "Ship it", status: "todo", priority: "medium", sprintId: sprint!.id });
+  assert.equal(made.success, true, JSON.stringify(made));
+  viewerId = member!;
+  assert.equal((await tasks.createTaskAction({ projectId: project, title: "Mine", status: "todo", priority: "medium", sprintId: sprint!.id })).success, false);
+  assert.equal((await tasks.createTaskAction({ projectId: project, title: "Mine", status: "todo", priority: "medium" })).success, true, "members still add tasks to a normal board");
+});

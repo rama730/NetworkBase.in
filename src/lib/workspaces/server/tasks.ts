@@ -931,15 +931,16 @@ export async function createTaskAction(data: z.infer<typeof createTaskSchema>) {
       user.id,
       "create_tasks",
     );
-    if (validated.sprintId) {
-      const sprintAccess = await getWorkspaceAccessById(
-        validated.projectId,
-        user.id,
-      );
-      if (!sprintAccess.project) throw new Error("Workspace not found");
-      if (!sprintAccess.isOwner) {
-        throw new Error("Only the owner can add tasks to a sprint");
-      }
+    const access = await getWorkspaceAccessById(validated.projectId, user.id);
+    if (!access.project) throw new Error("Workspace not found");
+    const ownerOrAdmin = access.isOwner || access.memberRole === "admin";
+    // Decision 87: an organization's board takes tasks from its owners and admins only.
+    if (access.project.kind === "organization" && !ownerOrAdmin) {
+      throw new Error("Only owners and admins add tasks here.");
+    }
+    // Decision 146: owners and admins plan sprints.
+    if (validated.sprintId && !ownerOrAdmin) {
+      throw new Error("Only owners and admins can add tasks to a sprint");
     }
 
     if (validated.assigneeId) {
