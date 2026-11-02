@@ -570,3 +570,27 @@ test("decision 106: Start from my work lists only approved or finished work, nev
   assert.match(text, /Approved lab/);
   assert.doesNotMatch(text, /Waiting lab/);
 });
+
+test("report §26.11 and §27.1: nobody joins a 51st organization or is handed a 6th to own", async () => {
+  const o = await org();
+  const code = generateJoinCode();
+  await sql`UPDATE workspaces SET join_code = ${code} WHERE id = ${o.org}`;
+  const [joiner] = await Promise.all([sql.begin((tx) => createUser(tx))]);
+  const many: string[] = [];
+  for (let i = 0; i < 50; i += 1) {
+    const id = await sql.begin((tx) => createProject(tx, o.owner));
+    many.push(id);
+    created.push(id);
+  }
+  await sql`UPDATE workspaces SET kind = 'organization' WHERE id = ANY(${many})`;
+  await sql`INSERT INTO workspace_members (workspace_id, user_id, role) SELECT unnest(${many}::uuid[]), ${joiner!}, 'member'`;
+  const orgs = await loadAppModule(() => import("../../src/app/actions/organizations"));
+  viewerId = joiner!;
+  const joined = await orgs.joinOrganizationAction(code);
+  assert.deepEqual([joined.success, (joined as { error?: string }).error], [false, "You can be in up to 50 organizations. Leave one to join another."]);
+
+  const { accountOrgLimit } = await loadAppModule(() => import("../../src/lib/organizations/members"));
+  await sql`UPDATE workspaces SET owner_id = ${o.admin} WHERE id = ANY(${many.slice(0, 5)})`;
+  assert.match(String(await accountOrgLimit(appDb.db, o.admin, "own")), /own up to 5/, "the new owner's limit is checked on transfer");
+  assert.equal(await accountOrgLimit(appDb.db, o.a, "own"), null);
+});

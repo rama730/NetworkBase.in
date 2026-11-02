@@ -11,6 +11,7 @@ import { getWorkspaceAccessById, writeBlockedMessage } from '@/lib/data/workspac
 import { ORG_LIMITS } from '@/lib/organizations/config';
 import { validateOrgHandle } from '@/lib/organizations/handle';
 import { isOrgHandleAvailable } from '@/lib/organizations/join';
+import { accountOrgLimit } from '@/lib/organizations/members';
 import { archiveOrg, orgLifecyclePreview, restoreOrg, scheduleOrgDeletion, unarchiveOrg, ORG_DELETION_GRACE_DAYS } from '@/lib/organizations/lifecycle';
 import { getViewerAuthContext } from '@/lib/server/viewer-context';
 
@@ -108,4 +109,10 @@ export async function duplicateOrgAction(orgId: string, input: z.input<typeof du
         return { success: false, error: 'Duplicating is unavailable right now. Try again in a minute.' };
     }
     return { success: true };
+}
+
+/** The wizard's first step (report §27.1 #3): say now, not at Create, when someone already owns the most allowed. */
+export async function readOrgCreationLimitAction(): Promise<{ block: string | null }> {
+    const { userId } = await getViewerAuthContext();
+    return { block: userId ? await accountOrgLimit(db, userId, 'own') : null };
 }

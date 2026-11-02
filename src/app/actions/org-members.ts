@@ -13,7 +13,7 @@ import { copyState } from '@/lib/organizations/assignment-rules';
 import { createCopiesForNewMember } from '@/lib/organizations/assignments';
 import { ORG_LIMITS } from '@/lib/organizations/config';
 import { orgMemberCap } from '@/lib/organizations/join-rules';
-import { acceptOrgInvite, createOrgEmailInvites, INVITE_DAYS, ledChildWorkspaces, notifyInvites, notifySeatsReopened, openInvitesFor, removeFromOrg } from '@/lib/organizations/members';
+import { acceptOrgInvite, accountOrgLimit, createOrgEmailInvites, INVITE_DAYS, ledChildWorkspaces, notifyInvites, notifySeatsReopened, openInvitesFor, removeFromOrg } from '@/lib/organizations/members';
 import { memberChangeBlock, memberStatus, parseInviteEmails, workSummary, type OrgMemberRole, type RosterRow } from '@/lib/organizations/member-rules';
 import { addWorkspaceMemberInternal, changeWorkspaceMemberRoleInternal } from '@/lib/workspaces/collaborator-lifecycle';
 import { getViewerAuthContext } from '@/lib/server/viewer-context';
@@ -165,6 +165,8 @@ export async function approveJoinRequestsAction(orgId: string, applicationIds: s
         if (n + pending.length > max) return { success: false as const, error: `This organization is full (${max} members). Raise Max members in Settings first.` };
         const now = new Date();
         for (const request of pending) {
+            // Someone already in 50 organizations stays waiting (report §26.11).
+            if (await accountOrgLimit(tx, request.userId, 'join')) continue;
             await addWorkspaceMemberInternal(tx, { projectId: orgId, userId: request.userId, role: 'member', actorId: viewer.userId, source: 'application_accept', applicationId: request.id });
             await createCopiesForNewMember(tx, orgId, request.userId);
             await tx.update(roleApplications).set({ status: 'accepted', decisionAt: now, decisionBy: viewer.userId, updatedAt: now }).where(eq(roleApplications.id, request.id));
@@ -279,7 +281,8 @@ export async function acceptOrgInviteAction(inviteId: string): Promise<{ success
     const { userId } = await getViewerAuthContext();
     if (!userId) return DENIED;
     const mine = (await openInvitesFor(userId)).some((i) => i.id === inviteId);
-    const accepted = mine ? await acceptOrgInvite(userId, inviteId) : null;
+    const accepted = mine ? await acceptOrgInvite(userId, inviteId).catch((error: Error) => error) : null;
+    if (accepted instanceof Error) return { success: false, error: accepted.message };
     if (accepted && 'full' in accepted) return { success: false, error: 'This organization is full. Ask an admin to raise Max members.' };
     if (!accepted) return { success: false, error: 'That invite is no longer open.' };
     const { orgId } = accepted;

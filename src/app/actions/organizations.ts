@@ -97,13 +97,16 @@ export async function joinOrganizationAction(
     // An invite waiting for this person is accepted instead, with its role (report §20.11).
     const target = code ? await findOrgByJoinCode(code) : null;
     const invite = target ? (await openInvitesFor(userId, target.id))[0] : undefined;
-    const accepted = target && invite ? await acceptOrgInvite(userId, invite.id) : null;
+    // A refusal such as the 50-organization limit comes back as its sentence (report §26.11).
+    const accepted = target && invite ? await acceptOrgInvite(userId, invite.id).catch((error: Error) => error) : null;
+    if (accepted instanceof Error) return { success: false, error: accepted.message };
     if (target && invite && accepted && 'orgId' in accepted) {
         revalidatePath(`/workspaces/${target.slug ?? target.id}`);
         await notifyJoined(target.id, userId, `${invite.id}:accepted`);
         return { success: true, outcome: 'joined', org: { id: target.id, title: target.title, slug: target.slug } };
     }
-    const result = code ? await joinOrgByCode(userId, code, note) : null;
+    const result = code ? await joinOrgByCode(userId, code, note).catch((error: Error) => error) : null;
+    if (result instanceof Error) return { success: false, error: result.message };
     if (!result) return NO_MATCH;
     const { outcome, org } = result;
     if (outcome === 'blocked' || outcome === 'full' || outcome === 'unavailable' || outcome === 'cooldown') {

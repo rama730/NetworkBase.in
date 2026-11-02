@@ -19,6 +19,7 @@ import WizardFooter, { WIZARD_COLUMN } from './WizardFooter';
 import { Button } from '@/components/ui/button';
 import LeaveWorkspaceSetupDialog from './LeaveWorkspaceSetupDialog';
 import { getCreateWorkspaceReturnPath, readGithubOAuthResume, type CreateWorkspaceGithubOAuthResume } from './github-oauth-resume';
+import { readOrgCreationLimitAction } from '@/app/actions/org-lifecycle';
 
 // Dynamic Phase Imports with Consistent Loading States
 const PhaseLoadingPlaceholder = () => (
@@ -114,8 +115,16 @@ export default function CreateWorkspaceWizard({ onClose, onSuccess, initialSourc
     const sourceMetadata = rawSourceMetadata as Record<string, unknown> | undefined;
     const [organization, orgType, orgTypeLabel] = useWatch({ control: methods.control, name: ['organization', 'organization.org_type', 'organization.type_label'] });
     const isOrganization = Boolean(organization);
+    // Report §27.1 #3: the 5-organization limit shows on the first step, not after the whole wizard.
+    const [ownLimit, setOwnLimit] = useState<string | null>(null);
+    useEffect(() => {
+        if (!isOrganization) return;
+        let live = true;
+        void readOrgCreationLimitAction().then((r) => { if (live) setOwnLimit(r.block); }).catch(() => undefined);
+        return () => { live = false; };
+    }, [isOrganization]);
     // Report §34.2: no type is picked for you; Other needs its own name.
-    const orgStartBlock = !isOrganization ? null : !orgType ? 'Choose what kind of organization this is.' : orgType === 'other' && !orgTypeLabel?.trim() ? 'Say what you call it, for example Nonprofit.' : null;
+    const orgStartBlock = !isOrganization ? null : ownLimit ? ownLimit : !orgType ? 'Choose what kind of organization this is.' : orgType === 'other' && !orgTypeLabel?.trim() ? 'Say what you call it, for example Nonprofit.' : null;
 
     useEffect(() => {
         if (!githubOAuthResume || restoredGithubOAuthResumeRef.current === githubOAuthResume.id) return;

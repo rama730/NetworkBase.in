@@ -20,6 +20,7 @@ import { z } from 'zod';
 import { cancelAccountDeletionForUser } from '@/lib/account/deletion';
 import { syncWorkspaceChat } from '@/lib/messaging/integrations';
 import { moveGroupWorkToLead } from '@/lib/organizations/assignments';
+import { accountOrgLimit } from '@/lib/organizations/members';
 import { queueSecurityEmail } from '@/lib/email/security-queue';
 import { recordSecurityEventFromHeaders } from '@/lib/security/audit-from-headers';
 
@@ -180,6 +181,10 @@ export async function transferWorkspaceOwnership(
             if (lockedProject.kind === 'organization' && membership.role !== 'admin') {
                 return { ok: false as const, code: 'NOT_AN_ADMIN' as const };
             }
+            // The new owner's own limit holds too (report §27.1 #4).
+            if (lockedProject.kind === 'organization' && await accountOrgLimit(tx, newOwnerId, 'own')) {
+                return { ok: false as const, code: 'OWNER_LIMIT' as const };
+            }
 
             // Transfer ownership
             await tx
@@ -299,6 +304,8 @@ export async function transferWorkspaceOwnership(
                     return { success: false, error: 'New owner must be a workspace member', errorCode: 'NOT_A_MEMBER' };
                 case 'NOT_AN_ADMIN':
                     return { success: false, error: 'An organization can only pass to one of its admins.', errorCode: 'NOT_A_MEMBER' };
+                case 'OWNER_LIMIT':
+                    return { success: false, error: 'They already own the most organizations allowed. Pick another admin.', errorCode: 'NOT_A_MEMBER' };
                 case 'PROJECT_NOT_FOUND':
                     return { success: false, error: 'Workspace not found', errorCode: 'PROJECT_NOT_FOUND' };
             }

@@ -9,6 +9,7 @@ import { notifyNewCopies } from "@/lib/organizations/assignment-notify";
 import { namesOf, notifyOrg, orgLabel, queueOrgInviteSignupEmails, ROLE_LABEL } from "@/lib/organizations/notify";
 import { addWorkspaceMemberInternal, removeWorkspaceMemberInternal } from "@/lib/workspaces/collaborator-lifecycle";
 import { orgMemberCap } from "@/lib/organizations/join-rules";
+import { ORG_LIMITS } from "@/lib/organizations/config";
 
 type Executor = typeof db | Parameters<Parameters<typeof db.transaction>[0]>[0];
 
@@ -76,6 +77,8 @@ export async function acceptOrgInvite(userId: string, inviteId: string): Promise
       .where(and(eq(orgEmailInvites.id, inviteId), isNull(orgEmailInvites.acceptedAt), gt(orgEmailInvites.expiresAt, sql`now()`)))
       .returning();
     if (!invite) return null;
+    const limit = await accountOrgLimit(tx, userId, "join");
+    if (limit) throw new Error(limit);
     await addWorkspaceMemberInternal(tx, { projectId: invite.orgId, userId, role: invite.role, actorId: userId, source: "email_invite" });
     if (invite.role === "member") await createCopiesForNewMember(tx, invite.orgId, userId);
     if (invite.title) {
@@ -157,4 +160,20 @@ export async function stampLastActiveHere(workspaceId: string, userId: string) {
       AND m.workspace_id = CASE WHEN w.kind = 'organization' THEN w.id ELSE w.parent_id END
       AND m.user_id = ${userId}::uuid
       AND (m.last_active_here_at IS NULL OR m.last_active_here_at < now() - interval '1 hour')`);
+}
+
+/**
+ * Per-account limits (report §21.4, §26.11, §27.1 #3–4): own up to 5 organizations, belong to up to 50. Null when
+ * there's room; otherwise the sentence to show. Checked when creating (from the wizard's first step), duplicating,
+ * transferring, joining, accepting an invite and approving a request.
+ */
+export async function accountOrgLimit(executor: Pick<typeof db, "execute">, userId: string, kind: "own" | "join"): Promise<string | null> {
+  const [row] = Array.from(await executor.execute<{ n: number }>(kind === "own"
+    ? sql`SELECT count(*)::int AS n FROM workspaces WHERE owner_id = ${userId}::uuid AND kind = 'organization' AND deleted_at IS NULL`
+    : sql`SELECT count(*)::int AS n FROM workspace_members m JOIN workspaces w ON w.id = m.workspace_id
+          WHERE m.user_id = ${userId}::uuid AND w.kind = 'organization' AND w.deleted_at IS NULL`));
+  const n = row?.n ?? 0;
+  if (kind === "own" && n >= ORG_LIMITS.orgsOwnedPerUser) return `You can own up to ${ORG_LIMITS.orgsOwnedPerUser} organizations. Contact support to raise this.`;
+  if (kind === "join" && n >= ORG_LIMITS.orgsJoinedPerUser) return `You can be in up to ${ORG_LIMITS.orgsJoinedPerUser} organizations. Leave one to join another.`;
+  return null;
 }

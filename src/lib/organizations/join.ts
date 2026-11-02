@@ -17,7 +17,7 @@ import { decideOrgJoin, orgMemberCap, type OrgJoinMode, type OrgJoinOutcome } fr
 import { addWorkspaceMemberInternal } from "@/lib/workspaces/collaborator-lifecycle";
 import { createCopiesForNewMember } from "@/lib/organizations/assignments";
 import { notifyNewCopies } from "@/lib/organizations/assignment-notify";
-import { acceptOrgInvite } from "@/lib/organizations/members";
+import { acceptOrgInvite, accountOrgLimit } from "@/lib/organizations/members";
 
 export type OrgSummary = { id: string; title: string; slug: string | null };
 
@@ -127,6 +127,11 @@ async function joinOrg(
       request: request ? { status: request.status, updatedAt: request.updatedAt, decidedBySelf: request.decisionBy === userId } : null,
     });
     const summary = { id: org.id, title: org.title, slug: org.slug };
+    // Belong to up to 50 organizations (report §26.11): checked before joining or asking to.
+    if (outcome === "joined" || outcome === "requested") {
+      const limit = await accountOrgLimit(tx, userId, "join");
+      if (limit) throw new Error(limit);
+    }
 
     if (outcome === "joined") {
       // Joining by code is always Member (decision 58); a pending request is closed by the join.
