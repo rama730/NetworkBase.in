@@ -62,6 +62,9 @@ function countsLine(row: AssignmentRow) {
 }
 
 /** Submit dialog: a link or text, or a reminder to attach the file to the task (report §16.4). */
+/** A date as a datetime-local value in the viewer's own zone. */
+const toLocalInput = (d: Date) => new Date(d.getTime() - d.getTimezoneOffset() * 60_000).toISOString().slice(0, 16)
+
 function SubmitDialog({ copyId, submissionType, title, open, onOpenChange, onDone, docsProjectId }: { copyId: string; submissionType: string; title: string; open: boolean; onOpenChange: (open: boolean) => void; onDone: () => void; docsProjectId?: string }) {
     const [link, setLink] = useState('')
     // Submit with a doc (report §19.7): a child project's doc becomes the submitted link.
@@ -162,6 +165,7 @@ function AssignmentComposer({ orgId, open, onOpenChange, onCreated }: { orgId: s
     const defaultAnnouncement = `${title.trim() || 'A new assignment'} is out${dueLocal ? ` · due ${new Date(dueLocal).toLocaleString('en', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}` : ''}.`
     const save = (publish: boolean) => startTransition(async () => {
         if (!dueLocal) return setError('Pick a due date and time.')
+        if (lateRule === 'until' && !lateUntilLocal) return setError('Pick the last day late work is accepted.')
         // Report §16.9: a past due date is allowed, after a check.
         if (publish && new Date(dueLocal).getTime() < Date.now() && !window.confirm('The due date has passed. Publish as already late?')) return
         const result = await createAssignmentAction({
@@ -303,12 +307,17 @@ function AssignmentComposer({ orgId, open, onOpenChange, onCreated }: { orgId: s
                             </select>
                         </label>
                         <label className="block text-sm font-medium">Late submissions
-                            <select value={lateRule} onChange={(e) => setLateRule(e.target.value as typeof lateRule)} className={`${select} mt-1 w-full`}>
+                            <select value={lateRule} onChange={(e) => {
+                                const next = e.target.value as typeof lateRule
+                                setLateRule(next)
+                                // Starts 7 days after the due date (report §42.10 problem 13); still required.
+                                if (next === 'until' && !lateUntilLocal && dueLocal) setLateUntilLocal(toLocalInput(new Date(new Date(dueLocal).getTime() + 7 * 86_400_000)))
+                            }} className={`${select} mt-1 w-full`}>
                                 <option value="always">Always allowed</option><option value="until">Allowed until a date</option><option value="none">Not allowed</option>
                             </select>
                         </label>
                     </div>
-                    {lateRule === 'until' ? <label className="block text-sm font-medium">Late work accepted until<Input type="datetime-local" value={lateUntilLocal} onChange={(e) => setLateUntilLocal(e.target.value)} className="mt-1" /></label> : null}
+                    {lateRule === 'until' ? <label className="block text-sm font-medium">Late work accepted until<Input type="datetime-local" required value={lateUntilLocal} onChange={(e) => setLateUntilLocal(e.target.value)} className="mt-1" /></label> : null}
                     <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={reviewRequired} onChange={(e) => setReviewRequired(e.target.checked)} />Review required (Approve or Return each submission)</label>
 
                     <div className="space-y-2">
@@ -475,7 +484,7 @@ export function AssignmentsPanel({ orgId, onBoardChanged, startComposing = false
                 {rows.map((row) => (
                     <li key={row.masterId} className="flex flex-wrap items-center gap-x-3 gap-y-1 py-2 text-sm">
                         <span className="font-medium">{row.title}</span>
-                        <span className="text-muted-foreground" title={orgTime(row.dueDate, data.timeZone)}>{due(row.dueDate)}{row.teams ? ' · Teams' : ''}</span>
+                        <span className="text-muted-foreground" title={orgTime(row.mine?.dueDate ?? row.dueDate, data.timeZone)}>{due(row.mine?.dueDate ?? row.dueDate)}{row.mine?.extended ? ' · Extended' : ''}{row.teams ? ' · Teams' : ''}</span>
                         {row.status !== 'open' ? <Status text={row.status === 'draft' ? 'Draft' : 'Closed'} tone={row.status === 'draft' ? 'draft' : 'archived'} /> : null}
                         {row.mine ? (
                             <>

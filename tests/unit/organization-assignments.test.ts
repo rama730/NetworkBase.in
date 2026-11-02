@@ -77,3 +77,12 @@ test("decision 133: every assignment link opens Tasks, with the exact copy's pan
   assert.equal(assignmentHref("/workspaces/w1", "c1"), "/workspaces/w1?tab=tasks&drawerType=task&drawerId=c1");
   assert.equal(assignmentHref("/org/cse-3b", null, true), "/org/cse-3b?tab=tasks&taskScope=review");
 });
+
+test("problem 13 and smaller bug 16: 'Allowed until a date' needs a date, after the due date", async () => {
+  const { lateRuleBlock } = await import("../../src/lib/organizations/assignment-rules");
+  const due = new Date("2026-11-20T18:00:00Z");
+  assert.equal(lateRuleBlock({ lateRule: "until", lateUntil: null }, due), "Pick the last day late work is accepted.");
+  assert.equal(lateRuleBlock({ lateRule: "until", lateUntil: "2026-11-19T00:00:00Z" }, due), "Late work must be accepted until after the due date.");
+  assert.equal(lateRuleBlock({ lateRule: "until", lateUntil: "2026-11-27T18:00:00Z" }, due), null);
+  assert.equal(lateRuleBlock({ lateRule: "always", lateUntil: null }, due), null);
+});

@@ -8,8 +8,8 @@ import { db } from '@/lib/db';
 import { profiles, workspaces, workspaceSprints, workspaceWorkflowColumns, taskActivityEvents, taskTeamMembers, tasks } from '@/lib/db/schema';
 import { getWorkspaceAccessById, writeBlockedMessage } from '@/lib/data/workspace-access';
 import { createClient } from '@/lib/supabase/server';
-import { assignmentHref, canStillSubmit, copyState, type AssignmentSettings, type AssignmentTarget, type CopyState } from '@/lib/organizations/assignment-rules';
-import { createCopies, createMasterTask, resolveRecipients } from '@/lib/organizations/assignments';
+import { assignmentHref, canStillSubmit, copyState, lateRuleBlock, type AssignmentSettings, type AssignmentTarget, type CopyState } from '@/lib/organizations/assignment-rules';
+import { createCopies, createMasterTask, handedInSql, resolveRecipients } from '@/lib/organizations/assignments';
 import { shareToOrgGeneral } from '@/lib/organizations/org-chat';
 import { postOrgAnnouncement } from '@/lib/organizations/org-updates';
 import { ORG_LIMITS } from '@/lib/organizations/config';
@@ -80,6 +80,8 @@ export async function createAssignmentAction(input: z.input<typeof createSchema>
     const data = parsed.data;
     const viewer = await orgRole(data.projectId);
     if (!viewer?.isAdmin) return DENIED;
+    const lateBlock = lateRuleBlock(data, new Date(data.dueDate));
+    if (lateBlock) return { success: false, error: lateBlock };
     try {
         const result = await db.transaction(async (tx) => {
             await tx.execute(sql`SELECT id FROM ${workspaces} WHERE id = ${data.projectId} FOR UPDATE`);
@@ -161,6 +163,9 @@ export async function updateAssignmentAction(masterId: string, patch: z.input<ty
     const ctx = await adminOfMaster(masterId);
     if (!ctx) return DENIED;
     const { title, description, dueDate } = parsed.data;
+    // A moved due date can't pass the late date (report §42.12 smaller bug 16).
+    const lateBlock = dueDate ? lateRuleBlock(ctx.master.settings, new Date(dueDate)) : null;
+    if (lateBlock) return { success: false, error: lateBlock };
     const now = new Date();
     await db.transaction(async (tx) => {
         const shared = { ...(title !== undefined ? { title } : {}), ...(description !== undefined ? { description } : {}), updatedAt: now };
@@ -173,20 +178,20 @@ export async function updateAssignmentAction(masterId: string, patch: z.input<ty
     touch(ctx.viewer.slug, ctx.master.projectId);
     // A due-date move reaches the people whose copy moved with it (report §16.3, "Due date moved to Mon").
     if (dueDate && ctx.master.dueDate && new Date(dueDate).getTime() !== ctx.master.dueDate.getTime()) {
-        const moved = await db.select({ id: tasks.id }).from(tasks).where(and(eq(tasks.assignmentId, masterId), isNull(tasks.deletedAt), eq(tasks.dueDate, new Date(dueDate))));
+        // Only people still working on it hear about it (smaller bug 17).
+        const moved = await db.select({ id: tasks.id }).from(tasks).where(and(eq(tasks.assignmentId, masterId), isNull(tasks.deletedAt), eq(tasks.dueDate, new Date(dueDate)), sql`NOT ${handedInSql}`));
         const when = new Intl.DateTimeFormat('en', { weekday: 'short', month: 'short', day: 'numeric' }).format(new Date(dueDate));
         for (const { id } of moved) await notifyAssignmentDueChanged(id, ctx.viewer.userId, (t) => `${t}: due date moved to ${when}`, `${id}:moved:${dueDate}`);
     }
     return { success: true };
 }
 
-const handedIn = sql`(${tasks.reviewStatus} = 'pending' OR ${tasks.status} = 'done' OR ${tasks.submission} IS NOT NULL)`;
 
 /** Delete only while nobody has submitted; afterwards, Close only (report §16.3). */
 export async function deleteAssignmentAction(masterId: string): Promise<{ success: true } | Failure> {
     const ctx = await adminOfMaster(masterId);
     if (!ctx) return DENIED;
-    const [submitted] = await db.select({ id: tasks.id }).from(tasks).where(and(eq(tasks.assignmentId, masterId), isNull(tasks.deletedAt), handedIn)).limit(1);
+    const [submitted] = await db.select({ id: tasks.id }).from(tasks).where(and(eq(tasks.assignmentId, masterId), isNull(tasks.deletedAt), handedInSql)).limit(1);
     if (submitted) return { success: false, error: 'Someone already handed this in. Close it instead.' };
     const now = new Date();
     await db.update(tasks).set({ deletedAt: now, updatedAt: now }).where(sql`${tasks.id} = ${masterId} OR ${tasks.assignmentId} = ${masterId}`);
@@ -386,7 +391,7 @@ export type AssignmentRow = {
     /** Teams mode: people done out of everyone placed ("7 of 11 people", report §16.11). */
     people?: { done: number; total: number };
     /** Members: their own copy (or their team's). */
-    mine: { copyId: string; state: CopyState; late: boolean; teamName: string | null; submission: unknown; projectId: string; returnedReason?: string | null } | null;
+    mine: { copyId: string; state: CopyState; late: boolean; teamName: string | null; submission: unknown; projectId: string; returnedReason?: string | null; dueDate: string | null; extended: boolean } | null;
 };
 
 const emptyCounts = (): AssignmentRow['counts'] => ({ not_started: 0, in_progress: 0, submitted: 0, returned: 0, done: 0, missing: 0, excused: 0, total: 0 });
@@ -413,7 +418,9 @@ export async function listAssignmentsAction(orgId: string): Promise<{ success: t
             const s = copyState({ status: c.status, reviewStatus: c.reviewStatus, dueDate: c.dueDate, submittedAt: c.reviewSubmittedAt, completedAt: c.completedAt, excusedAt: c.excusedAt }, now);
             counts[s.state] += 1;
             if (s.state !== 'excused') counts.total += 1;
-            if (c.assigneeId === viewer.userId || myTeams.has(c.id)) mine = { copyId: c.id, ...s, teamName: c.teamName, submission: c.submission, projectId: c.projectId };
+            // Their own date, marked Extended when it isn't the assignment's (report §42.10 problem 14).
+            if (c.assigneeId === viewer.userId || myTeams.has(c.id)) mine = { copyId: c.id, ...s, teamName: c.teamName, submission: c.submission, projectId: c.projectId,
+                dueDate: c.dueDate?.toISOString() ?? null, extended: Boolean(c.dueDate && m.dueDate && c.dueDate.getTime() !== m.dueDate.getTime()) };
         }
         const teamPeople = settings.target.mode === 'teams' ? copies.filter((c) => c.assignmentId === m.id).reduce((acc, c) => {
             const size = Math.max(1, teamSizes.get(c.id) ?? 0);
@@ -553,7 +560,7 @@ export async function remindCopiesAction(masterId: string, copyIds?: string[]): 
     const ctx = await adminOfMaster(masterId);
     if (!ctx) return DENIED;
     const open = await db.select({ id: tasks.id }).from(tasks).where(and(
-        eq(tasks.assignmentId, masterId), isNull(tasks.deletedAt), isNull(tasks.excusedAt), sql`NOT ${handedIn}`,
+        eq(tasks.assignmentId, masterId), isNull(tasks.deletedAt), isNull(tasks.excusedAt), sql`NOT ${handedInSql}`,
         ...(copyIds?.length ? [inArray(tasks.id, copyIds.slice(0, 2000))] : []),
     ));
     const window = Math.floor(Date.now() / (ORG_LIMITS.remindSamePersonHours * 3_600_000));

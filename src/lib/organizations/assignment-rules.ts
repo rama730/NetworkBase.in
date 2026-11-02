@@ -138,3 +138,11 @@ export function assignmentHref(workspacePath: string, copyId?: string | null, re
   if (copyId) return `${workspacePath}?tab=tasks&drawerType=task&drawerId=${encodeURIComponent(copyId)}`;
   return `${workspacePath}?tab=tasks${review ? "&taskScope=review" : ""}`;
 }
+
+/** "Allowed until a date" needs that date, after the due date (report §42.10 problem 13, §42.12 smaller bug 16). */
+export function lateRuleBlock(settings: { lateRule: LateRule; lateUntil?: string | null }, dueDate: Date | null): string | null {
+  if (settings.lateRule !== "until") return null;
+  if (!settings.lateUntil) return "Pick the last day late work is accepted.";
+  if (dueDate && new Date(settings.lateUntil).getTime() <= dueDate.getTime()) return "Late work must be accepted until after the due date.";
+  return null;
+}

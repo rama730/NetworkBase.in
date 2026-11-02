@@ -63,7 +63,7 @@ export function OrgDashboard({ orgId, orgSlug }: { orgId: string; orgSlug: strin
                     {s.sprint ? (
                         s.items.length ? <ul>{s.items.map((i) => (
                             <li key={i.masterId} className={row}>
-                                <span className="truncate">{i.title}{i.dueDate ? ` · due ${day(i.dueDate)}` : ''}</span>
+                                <span className="truncate">{i.title}{i.dueDate ? ` · due ${day(i.dueDate)}` : ''}{i.own?.extended ? ' · Extended' : ''}</span>
                                 <span className="shrink-0 text-[12px] text-muted-foreground">
                                     {i.counts ? `${i.counts.done} of ${i.counts.total} done${i.counts.missing ? ` · ${i.counts.missing} missing` : ''}` : i.own ? `${STATE[i.own.state] ?? i.own.state}${i.own.late ? ' · late' : ''}` : ''}
                                 </span>

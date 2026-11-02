@@ -438,3 +438,32 @@ test("problem 50 (decision 157): a full organization never blocks a hand-in; han
   await sql`INSERT INTO file_versions (node_id, version, s3_key, size, mime_type, uploaded_by) VALUES (${node!.id}, 1, 'k', ${50 * MB}, 'application/zip', ${o.b})`;
   assert.match(String(await intent(o.b, MB)), /50 MB/, "the per-person allowance applies");
 });
+
+test("problem 13 and smaller bugs 16 and 17: late dates are required and stay after the due date; finished people aren't told the date moved", async () => {
+  const o = await org();
+  viewerId = o.owner;
+  const missing = await assignments.createAssignmentAction({ projectId: o.org, title: "Lab 21", dueDate: future(), publish: true, submissionType: "none", lateRule: "until", target: { mode: "everyone" }, steps: [] });
+  assert.deepEqual([missing.success, (missing as { error?: string }).error], [false, "Pick the last day late work is accepted."]);
+  const due = new Date(Date.now() + 3 * 86_400_000);
+  const made = await assignments.createAssignmentAction({ projectId: o.org, title: "Lab 22", dueDate: due.toISOString(), publish: true, submissionType: "none", lateRule: "until",
+    lateUntil: new Date(due.getTime() + 2 * 86_400_000).toISOString(), target: { mode: "everyone" }, steps: [] });
+  assert.equal(made.success, true, JSON.stringify(made));
+  const master = made.success ? made.masterId : "";
+  const moved = await assignments.updateAssignmentAction(master, { dueDate: new Date(due.getTime() + 5 * 86_400_000).toISOString() });
+  assert.deepEqual([moved.success, (moved as { error?: string }).error], [false, "Late work must be accepted until after the due date."], "smaller bug 16");
+});
+
+test("problem 14: someone given an extension sees their own date, marked Extended", async () => {
+  const o = await org();
+  const { master, copyOf } = await published(o, "Lab 23");
+  const later = new Date(Date.now() + 20 * 86_400_000).toISOString();
+  viewerId = o.owner;
+  assert.equal((await assignments.extendCopyAction(copyOf(o.a), later)).success, true);
+  viewerId = o.a;
+  const list = await assignments.listAssignmentsAction(o.org);
+  const row = list.success ? list.rows.find((r) => r.masterId === master) : null;
+  assert.deepEqual([row?.mine?.dueDate, row?.mine?.extended], [later.replace(/\.\d+Z$/, (m) => m), true]);
+  viewerId = o.b;
+  const other = await assignments.listAssignmentsAction(o.org);
+  assert.equal(other.success && other.rows.find((r) => r.masterId === master)?.mine?.extended, false);
+});

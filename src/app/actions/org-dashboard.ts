@@ -106,7 +106,7 @@ async function readActivity(v: OrgViewer, filter: string, opts: { publicOnly?: b
         .map(({ actorId: _actor, public: _public, ...item }) => item);
 }
 
-export type SprintItem = { masterId: string; title: string; dueDate: string | null; counts?: { done: number; total: number; missing: number }; own?: { state: CopyState; late: boolean } };
+export type SprintItem = { masterId: string; title: string; dueDate: string | null; counts?: { done: number; total: number; missing: number }; own?: { state: CopyState; late: boolean; extended: boolean } };
 
 export type OrgDashboardData = {
     success: true;
@@ -159,10 +159,12 @@ export async function readOrgDashboardAction(orgId: string, activityFilter = 'al
         const of = copies.filter((c) => c.assignmentId === m.id).map((c) => ({ c, s: stateOf(c, now) }));
         const counted = of.filter(({ s }) => s.state !== 'excused');
         const own = of.find(({ c }) => mine.has(c.id));
+        // Everyone sees their own copy's date, marked Extended when it differs (report §42.10 problem 14).
+        const extended = Boolean(own?.c.dueDate && m.dueDate && own.c.dueDate.getTime() !== m.dueDate.getTime());
         return {
-            masterId: m.id, title: m.title, dueDate: m.dueDate?.toISOString() ?? null,
+            masterId: m.id, title: m.title, dueDate: (own?.c.dueDate ?? m.dueDate)?.toISOString() ?? null,
             ...(v.isAdmin || v.isGuest ? { counts: { done: counted.filter(({ s }) => s.state === 'done').length, total: counted.length, missing: counted.filter(({ s }) => s.state === 'missing').length } } : {}),
-            ...(own ? { own: own.s } : {}),
+            ...(own ? { own: { ...own.s, extended } } : {}),
         };
     });
     // Coming up · next 7 days (report §27.2): members their own due items; admins everything.
