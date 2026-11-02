@@ -784,7 +784,7 @@ export function useCreateWorkspaceWizard({ onClose, onSuccess, initialValues, in
 
             if (!result.success || !result.project) throw Object.assign(new Error(result.error || 'Creation failed'), { code: (result as { code?: string }).code });
             createdProjectId = result.project.id;
-            if (result.project.joinCode) createdOrganization = { title: result.project.title, joinCode: result.project.joinCode, invites: result.project.invites, creatorTitle: data.organization?.creator_title || null };
+            if (result.project.joinCode) createdOrganization = { title: result.project.title, joinCode: result.project.joinCode, invites: result.project.invites, creatorTitle: data.organization?.creator_title || null, joinMode: data.organization?.join_mode ?? null };
             // Things that didn't happen but didn't stop creation, e.g. an invitation refused by privacy rules.
             for (const notice of result.notices ?? []) warnCreation(notice);
 

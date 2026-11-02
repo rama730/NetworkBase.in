@@ -758,7 +758,7 @@ export function GeneralSettingsSection({
         </section>
 
         <SettingsCard
-            title="Workspace or workspace"
+            title="Workspace"
             description="Shown in the workspace page, cards, search and notifications."
 
         >

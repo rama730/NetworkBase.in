@@ -44,7 +44,7 @@ import { toast } from '@/lib/feedback'
 
 const DUE = new Intl.DateTimeFormat('en', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
 const STATE_LABEL: Record<CopyState, string> = {
-    not_started: 'Not started', in_progress: 'In progress', submitted: 'Submitted', returned: 'Returned for changes', done: 'Completed', missing: 'Missing', excused: 'Excused',
+    not_started: 'Not started', in_progress: 'In progress', submitted: 'Submitted', returned: 'Returned', done: 'Completed', missing: 'Missing', excused: 'Excused',
 }
 const due = (iso: string | null) => (iso ? `due ${DUE.format(new Date(iso))}` : 'no due date')
 const area = 'w-full resize-y rounded-md border border-input bg-transparent px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring'
@@ -56,6 +56,8 @@ function Status({ text, tone = 'draft' }: { text: string; tone?: string }) {
 
 function countsLine(row: AssignmentRow) {
     const c = row.counts
+    // Parity wording 17: with nobody to give it to, say why instead of "0 of 0 done".
+    if (c.total === 0 && row.status !== 'draft') return 'Nobody has it yet. People get it when they join.'
     const parts = [`${c.done} of ${c.total} done`]
     if (c.submitted) parts.push(`${c.submitted} submitted`)
     if (c.missing) parts.push(`${c.missing} missing`)

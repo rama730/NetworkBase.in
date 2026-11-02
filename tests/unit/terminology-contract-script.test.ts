@@ -49,3 +49,8 @@ test('ratchet: counts may only go down, and new project paths fail', () => {
   assert.deepEqual(ratchet({ strings: { 'a.tsx': { project: 1 } }, paths: baseline.paths }, baseline), { failures: [], lowered: true });
   assert.equal(ratchet({ strings: {}, paths: [...baseline.paths, 'src/new-project.ts'] }, baseline).failures.length, 1);
 });
+
+test("39.4: the organization glossary's never-say words are counted on screen", () => {
+  for (const text of ["Returned for changes", "Invite a Guest", "Needs you", "Org overview", "master assignment"]) assert.ok(ruleHits(text).includes("org-word"), text);
+  for (const text of ["Organization overview", "Returned", "Viewer", "Needs your attention"]) assert.ok(!ruleHits(text).includes("org-word"), text);
+});

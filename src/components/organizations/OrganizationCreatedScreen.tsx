@@ -12,10 +12,12 @@ export type CreatedOrganization = {
     /** Invites sent at creation (report §34.8). */
     invites?: { coAdmins: number; members: number; skipped: number }
     creatorTitle?: string | null
+    /** Report §27.3: whether people join at once or wait for approval. */
+    joinMode?: 'instant' | 'approval' | null
 }
 
 /** After creating an org (report §34.8): the join code large, Copy code, Copy invite message, what was sent, then Go to organization. */
-export function OrganizationCreatedScreen({ title, joinCode, invites, creatorTitle, onContinue }: CreatedOrganization & { onContinue: () => void }) {
+export function OrganizationCreatedScreen({ title, joinCode, invites, creatorTitle, joinMode, onContinue }: CreatedOrganization & { onContinue: () => void }) {
     const [copied, setCopied] = useState<string | null>(null)
     const { user } = useAuth()
     const name = (user?.user_metadata?.full_name as string | undefined)?.trim()
@@ -26,6 +28,8 @@ export function OrganizationCreatedScreen({ title, joinCode, invites, creatorTit
         invites?.coAdmins ? `${invites.coAdmins} co-admin ${invites.coAdmins === 1 ? 'invite' : 'invites'}` : null,
         invites?.members ? `${invites.members} member ${invites.members === 1 ? 'invite' : 'invites'}` : null,
     ].filter(Boolean).join(' and ')
+    const joining = joinMode === 'approval' ? 'Needs your approval' : joinMode === 'instant' ? 'People join right away' : null
+    const skipped = invites?.skipped ?? 0
 
     const copy = async (text: string, label: string) => {
         try {
@@ -51,7 +55,8 @@ export function OrganizationCreatedScreen({ title, joinCode, invites, creatorTit
                     <Button type="button" variant="outline" className="min-h-11" onClick={() => copy(invite, 'Invite message copied')}>Copy invite message</Button>
                 </div>
                 <p role="status" aria-live="polite" className="min-h-5 text-sm text-muted-foreground">{copied}</p>
-                {sent ? <p className="text-sm text-foreground" data-testid="org-created-invites">{sent} sent.</p> : null}
+                {joining || sent ? <p className="text-sm text-foreground" data-testid="org-created-invites">{[joining, sent ? `${sent} sent` : null].filter(Boolean).join(' · ')}</p> : null}
+                {skipped ? <p className="text-sm text-muted-foreground">{skipped} {skipped === 1 ? 'address' : 'addresses'} looked wrong and {skipped === 1 ? 'was' : 'were'} skipped</p> : null}
                 <Button type="button" className="min-h-11 w-full" onClick={onContinue}>Go to organization</Button>
             </div>
         </main>

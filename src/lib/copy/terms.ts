@@ -63,6 +63,8 @@ export const REPORT_REASONS = [
   { id: 'hate_speech', label: 'Hate speech' },
   { id: 'impersonation', label: 'Impersonation' },
   { id: 'evading_block', label: 'Getting around a block' },
+  // Decision 163: launch is 18 and over; this goes to NetworkBase, never the organization.
+  { id: 'under_18', label: 'This person may be under 18' },
   { id: 'scam', label: 'Scam or fraud' },
   { id: 'inappropriate', label: 'Inappropriate content' },
   { id: 'spam', label: 'Spam' },

@@ -173,8 +173,8 @@ export function OrgMembersTab({ orgId, roleNames }: { orgId: string; roleNames?:
                 <div className={data.requests.length > 0 ? 'hidden lg:block' : undefined}><Requests orgId={orgId} data={data} pending={pending} run={run} /></div>
                 <InviteBox label={label} orgId={orgId} data={data} pending={pending} run={run} onCode={(joinCode) => setData({ ...data, joinCode })} />
                 <section aria-label="Summary" className="space-y-1 text-sm">
-                    <button type="button" className="block hover:underline" onClick={() => setFilter({ sort: 'name' })}>{s.members} members</button>
-                    <button type="button" className="block hover:underline" onClick={() => setFilter({ role: 'admins' })}>{s.admins} owners and admins · {s.guests} guests</button>
+                    <button type="button" className="block hover:underline" onClick={() => setFilter({ sort: 'name' })}>{s.members} {s.members === 1 ? 'member' : 'members'}</button>
+                    <button type="button" className="block hover:underline" onClick={() => setFilter({ role: 'admins' })}>{s.admins} {s.admins === 1 ? 'owner or admin' : 'owners and admins'} · {s.guests} {s.guests === 1 ? 'viewer' : 'viewers'}</button>
                     <button type="button" className="block hover:underline" onClick={() => setFilter({ status: 'behind', sort: 'behind' })}>{s.behind} behind</button>
                     <button type="button" className="block hover:underline" onClick={() => setFilter({ project: 'none' })}>{s.notInProject} not in a workspace</button>
                     <button type="button" className="block hover:underline" onClick={() => setFilter({ status: 'inactive' })}>{s.inactive} inactive for 14 days</button>

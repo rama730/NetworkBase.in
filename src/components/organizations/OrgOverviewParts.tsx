@@ -24,7 +24,7 @@ import { cn } from '@/lib/utils'
 const ago = (iso: string) => formatDistanceToNow(new Date(iso), { addSuffix: true })
 const day = (iso: string) => new Date(iso).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })
 const row = 'flex min-w-0 items-center justify-between gap-3 py-1.5 text-sm'
-const STATE: Record<string, string> = { not_started: 'Not started', in_progress: 'In progress', submitted: 'Submitted', returned: 'Returned for changes', done: 'Completed', missing: 'Missing', excused: 'Excused' }
+const STATE: Record<string, string> = { not_started: 'Not started', in_progress: 'In progress', submitted: 'Submitted', returned: 'Returned', done: 'Completed', missing: 'Missing', excused: 'Excused' }
 const FILTERS = [['all', 'All'], ['assignments', 'Assignments'], ['people', 'People'], ['files', 'Files and docs'], ['projects', 'Workspaces']] as const
 
 /** The org Dashboard for people in the org (report §27). */
@@ -211,7 +211,7 @@ export function OrgWorkspacesTab({ orgId, orgSlug }: { orgId: string; orgSlug?: 
         <div className="mx-auto w-full max-w-[1240px] space-y-3">
             {data.isAdmin ? <WorkspaceRequests requests={data.requests} onDone={load} /> : null}
             <p className="text-sm">
-                <button type="button" className="hover:underline" onClick={() => setStatus('all')}>{data.summary.total} projects</button>
+                <button type="button" className="hover:underline" onClick={() => setStatus('all')}>{data.summary.total} {data.summary.total === 1 ? 'workspace' : 'workspaces'}</button>
                 {data.isAdmin ? <>
                     {' · '}<button type="button" className="hover:underline" onClick={() => setStatus('attention')}>{data.summary.attention} need attention</button>
                     {' · '}<button type="button" className="hover:underline" onClick={() => setStatus('quiet')}>{data.summary.quiet} quiet</button>
@@ -243,7 +243,7 @@ export function OrgWorkspacesTab({ orgId, orgSlug }: { orgId: string; orgSlug?: 
                 </select>
                 {data.canCreate ? <Button asChild size="sm" className="ml-auto"><Link href={`/workspaces/new?org=${encodeURIComponent(orgSlug ?? orgId)}`}>+ New workspace</Link></Button> : null}
                 {data.isAdmin && selected.size ? <Button type="button" size="sm" variant="outline" disabled={pending} onClick={remind}>Remind owners</Button> : null}
-                {data.isAdmin && selected.size ? <Button type="button" size="sm" variant="outline" disabled={pending} onClick={() => { if (window.confirm(`Archive ${selected.size} ${selected.size === 1 ? 'project' : 'projects'}?`)) archive() }}>Archive {selected.size}</Button> : null}
+                {data.isAdmin && selected.size ? <Button type="button" size="sm" variant="outline" disabled={pending} onClick={() => { if (window.confirm(`Archive ${selected.size} ${selected.size === 1 ? 'workspace' : 'workspaces'}?`)) archive() }}>Archive {selected.size}</Button> : null}
                 <span className="flex rounded-md border border-border text-[12px]" role="group" aria-label="View">
                     {(['list', 'cards'] as const).map((v) => <button key={v} type="button" aria-pressed={layout === v} onClick={() => setView(v)} className={cn('px-2 py-1 capitalize', layout === v ? 'bg-muted font-medium' : 'text-muted-foreground')}>{v}</button>)}
                 </span>

@@ -95,6 +95,8 @@ export function SidebarNav() {
         refetchOnWindowFocus: false,
     });
     const workspaces = workspacesQuery.data ?? null;
+    // Parity bug 10: one placeholder until both lists arrive, so "No workspaces yet" and a second order never flash.
+    const loadingWorkspaces = projectsQuery.isLoading || workspacesQuery.isLoading;
 
     return (
         <div className="nb-sidebar-scroll app-scroll app-scroll-y min-h-0 flex-1 space-y-3 pr-1">
@@ -123,15 +125,15 @@ export function SidebarNav() {
                     <h2 id="sidebar-workspace-heading" className="nb-micro whitespace-nowrap">Workspaces</h2>
                     <div className="h-px min-w-0 flex-1 bg-border" aria-hidden="true" />
                 </div>
-                <div className="space-y-1" aria-label="Your workspaces" aria-busy={projectsQuery.isLoading}>
-                    {projectsQuery.isLoading && <><span className="sr-only" role="status">Loading workspaces…</span>{[1, 2, 3].map((key) => <Skeleton key={key} className="mx-2 h-8 rounded" />)}</>}
-                    {workspaces ? <SidebarWorkspaces data={workspaces} /> : projects.map((project) => {
+                <div className="space-y-1" aria-label="Your workspaces" aria-busy={loadingWorkspaces}>
+                    {loadingWorkspaces && !workspaces && <><span className="sr-only" role="status">Loading workspaces…</span>{[1, 2, 3].map((key) => <Skeleton key={key} className="mx-2 h-8 rounded" />)}</>}
+                    {workspaces ? <SidebarWorkspaces data={workspaces} /> : loadingWorkspaces ? null : projects.map((project) => {
                         const active = pathname === project.href || pathname?.startsWith(`${project.href}/`);
                         return <Link key={project.id} href={project.href} className="nb-nav-link" title={project.title} aria-current={active ? "page" : undefined}>
                             <span className="nb-sidebar-label truncate">{project.title}</span>
                         </Link>;
                     })}
-                    {!workspaces && !projectsQuery.isLoading && !projectsQuery.isError && projects.length === 0 && <p className="px-2 py-1 text-xs text-muted-foreground">No workspaces yet</p>}
+                    {!workspaces && !loadingWorkspaces && !projectsQuery.isError && projects.length === 0 && <p className="px-2 py-1 text-xs text-muted-foreground">No workspaces yet</p>}
                     {projectsQuery.isError && !workspaces && <p className="px-2 py-1 text-xs text-muted-foreground">Workspaces unavailable</p>}
                 </div>
             </section>}

@@ -11,7 +11,8 @@ export function RailSectionHeading({ title, id, action }: {
 }) {
   return (
     <div className="mb-3 flex items-center gap-3">
-      <h2 id={id} className="nb-micro whitespace-nowrap">{title}</h2>
+      {/* Parity bug 12: a long heading cuts off instead of widening the page; the full text stays in the title. */}
+      <h2 id={id} className="nb-micro min-w-0 truncate" title={title}>{title}</h2>
       <div className="h-px min-w-0 flex-1 bg-border" aria-hidden="true" />
       {action ? <div className="flex shrink-0 items-center">{action}</div> : null}
     </div>

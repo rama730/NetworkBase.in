@@ -29,11 +29,16 @@ export const REASON_RULES: Record<ReportReason, ReasonRule> = {
   impersonation: { severity: "high", rule: 5, hint: "Pretending to be another person or organization", only: PEOPLE_AND_PLACES },
   // A new account made to reach someone who blocked them (Blocking B28, K26): §15, a strike like any decision.
   evading_block: { severity: "high", rule: 15, hint: "A new account made to reach someone who blocked them", only: ["person"] },
+  // Terms §2 (eligibility), not an Acceptable Use rule; decision 163. Only NetworkBase decides these.
+  under_18: { severity: "high", rule: 15, hint: "NetworkBase is for people 18 and over", only: ["person"] },
   scam: { severity: "high", rule: 6, hint: "Fake jobs, payment requests, phishing links", only: ["person", "chat_message", "role", "project", "invitation", "connection_request"] },
   inappropriate: { severity: "normal", rule: 9, hint: "Sexual, violent or graphic content" },
   spam: { severity: "normal", rule: 4, hint: "Ads, repeated posts, mass messages" },
   other: { severity: "normal", rule: 15, hint: "Tell us what’s wrong in the details" },
 };
+
+/** Reasons only NetworkBase's team decides, never an organization's admins (report §29.2, decision 163). */
+export const STAFF_ONLY_REASONS: ReportReason[] = ["under_18"];
 
 /** The reasons offered for one kind of thing, most serious first. */
 export function reasonsFor(kind: ReportTargetKind): ReportReason[] {

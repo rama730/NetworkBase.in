@@ -461,7 +461,7 @@ export default function Phase5Review({ goToPhase, onReady, projectImage = null }
                         <ProjectCard project={previewProject} />
                     </div>
                     <p className="nb-compact text-muted-foreground">
-                        This is how your workspace card will appear in Discover and search results.
+                        {formData.visibility === 'public' ? 'This is how it appears on Discover.' : 'Only members see this card.'}
                     </p>
                 </aside>
             </div>

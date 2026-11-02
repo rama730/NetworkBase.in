@@ -57,7 +57,7 @@ export const ORG_SETTINGS_PATCH = {
     term_start: isoDate,
     term_end: isoDate,
     time_zone: z.string().max(64).refine(isTimeZone, "Unknown time zone").nullable().optional(),
-    welcome_note: z.string().trim().max(2000).nullable().optional(),
+    welcome_note: z.string().trim().max(500).nullable().optional(),
     // Report §34.2–34.3: Other's own label, the body it belongs to and where it is.
     type_label: z.string().trim().max(30).nullable().optional(),
     part_of: z.string().trim().max(100).nullable().optional(),

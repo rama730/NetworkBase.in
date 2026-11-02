@@ -122,3 +122,11 @@ test("the data export lists your reports and the decisions about you, without an
   assert.equal(theirs.decisionsAboutYou[0]!.action, "remove");
   assert.ok(!JSON.stringify(theirs).includes(reporter!), "never the reporter");
 });
+
+test("decision 163: 'This person may be under 18' is a reason people can file, and only NetworkBase decides it", async () => {
+  const [reporter, person] = await sql.begin(async (tx) => [await createUser(tx), await createUser(tx)]);
+  const filed = await cases.fileReport(reporter!, { kind: "person", targetId: person!, reason: "under_18" });
+  assert.equal(filed.ok, true, JSON.stringify(filed));
+  const [row] = await sql`SELECT c.routed_to, c.severity FROM content_reports r JOIN moderation_cases c ON c.id = r.case_id WHERE r.reporter_id = ${reporter!} AND r.reason = 'under_18'`;
+  assert.deepEqual([row!.routed_to, row!.severity], ["staff", "high"]);
+});

@@ -48,7 +48,7 @@ function OrgRow({ org, active }: { org: SidebarOrg; active: (href: string) => bo
                 </Link>
                 <div className="flex shrink-0 items-center gap-1">
                     {org.canCreate ? (
-                        <Link prefetch={false} href={`/workspaces/new?org=${encodeURIComponent(org.id)}`} className="nb-sidebar-label relative z-10 rounded p-0.5 text-muted-foreground hover:text-foreground" aria-label={`New workspace in ${org.title}`} title={`New workspace in ${org.title}`}>
+                        <Link prefetch={false} href={`/workspaces/new?org=${encodeURIComponent(org.slug ?? org.id)}`} className="nb-sidebar-label relative z-10 rounded p-0.5 text-muted-foreground hover:text-foreground" aria-label={`New workspace in ${org.title}`} title={`New workspace in ${org.title}`}>
                             <Plus className="size-3.5" />
                         </Link>
                     ) : null}

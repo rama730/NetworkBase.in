@@ -69,6 +69,8 @@ export default async function JoinOrganizationPage({ params }: { params: Promise
                 ) : (
                     <JoinOrgButton code={code!} joinMode={preview.joinMode} orgHref={orgHref} />
                 )}
+                {/* Decision 163: launch is 18 and over. */}
+                {preview.viewer !== 'member' ? <p className="text-center text-xs text-muted-foreground">You must be 18 or older to join.</p> : null}
                 {user && preview.viewer !== 'member' ? <JoinReportLink orgId={preview.id} code={code!} /> : null}
             </div>
         </AuthShell>

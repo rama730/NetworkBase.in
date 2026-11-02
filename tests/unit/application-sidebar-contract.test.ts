@@ -57,6 +57,6 @@ test("workspace workspace links in application sidebar render titles without fil
 
   // 2. Workspaces workspace links render title directly in nb-sidebar-label without leading icon
   // With organizations on, SidebarWorkspaces renders the tree (report §29.3); the plain list stays the fallback.
-  assert.match(sidebar, /<section className="nb-sidebar-workspace[\s\S]*?(?:\{|\{workspaces \? <SidebarWorkspaces data=\{workspaces\} \/> : )projects\.map\(\(project\) => \{/);
+  assert.match(sidebar, /<section className="nb-sidebar-workspace[\s\S]*?(?:\{|\{workspaces \? <SidebarWorkspaces data=\{workspaces\} \/> : (?:loadingWorkspaces \? null : )?)projects\.map\(\(project\) => \{/);
   assert.match(sidebar, /<Link key=\{project\.id\} href=\{project\.href\} className="nb-nav-link"[^>]*>\s*<span className="nb-sidebar-label truncate">\{project\.title\}<\/span>\s*<\/Link>/);
 });

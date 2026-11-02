@@ -184,6 +184,8 @@ export default function UpdatesTab({
   }, []);
   const capabilities = updatesQuery.data?.pages[0]?.capabilities;
   const org = updatesQuery.data?.pages[0]?.org ?? null;
+  // Smaller bug 20: an organization's feed is for its members, not followers or progress posts.
+  const orgFeed = org?.kind === "org";
   // New markers compare against the last visit as it was on arrival; opening the feed then marks it seen.
   const [seenBefore, setSeenBefore] = useState<string | null | undefined>(undefined);
   const firstPage = updatesQuery.data?.pages[0];
@@ -352,7 +354,7 @@ export default function UpdatesTab({
             : prependUpdate(existing, update),
       );
       void queryClient.invalidateQueries({ queryKey: updatesQueryKey });
-      toast.success("Workspace update posted");
+      toast.success(orgFeed ? "Posted" : "Workspace update posted");
     },
   });
 
@@ -387,9 +389,11 @@ export default function UpdatesTab({
         No updates yet
       </h3>
       <p className="nb-empty-state-desc">
-        {canCreate
-          ? "Share the first progress post so followers can see what is moving."
-          : "Follow this workspace to get notified when the team shares progress."}
+        {orgFeed
+          ? "Post the first announcement or discussion for members."
+          : canCreate
+            ? "Share the first progress post so followers can see what is moving."
+            : "Follow this workspace to get notified when the team shares progress."}
       </p>
     </div>
   ) : shouldVirtualizeFeed ? (
@@ -448,7 +452,7 @@ export default function UpdatesTab({
               Updates
             </h2>
             <p className="nb-compact text-muted-foreground">
-              Progress posts for followers and workspace visitors.
+              {orgFeed ? "Announcements and discussions for members." : "Progress posts for followers and workspace visitors."}
             </p>
           </div>
           <button

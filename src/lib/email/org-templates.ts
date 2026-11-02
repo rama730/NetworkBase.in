@@ -128,7 +128,8 @@ function partsFor(kind: OrgEmailKind, d: OrgEmailData, url: (path: string) => st
         subject: kind === "org_invite" ? `${actor} invited you to ${org}` : `${actor} invited you to ${org} on NetworkBase`,
         preview: `${actor} invited you to join ${org}${d.role ? ` as ${d.role}` : ""}.`,
         identity: "actor", label: "Invited by", headline: `Join ${org}`,
-        paragraphs: [d.org.tagline ?? "", kind === "org_invite_signup" ? "Create your account with this email address and you’ll join automatically." : ""].filter(Boolean),
+        // Decision 163: launch is 18 and over.
+        paragraphs: [d.org.tagline ?? "", kind === "org_invite_signup" ? "Create your account with this email address and you’ll join automatically." : "", "You must be 18 or older to join."].filter(Boolean),
         pills: [d.role ?? "", d.memberTitle ?? "", d.expiresAt ? `Expires ${when(d.expiresAt)}` : ""].filter(Boolean),
         quote: d.note ?? null,
         primary: kind === "org_invite" ? { label: "Accept invitation →", href: url("/network?tab=invitations") } : { label: "Create your account →", href: url("/signup") },

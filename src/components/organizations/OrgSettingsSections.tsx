@@ -203,7 +203,7 @@ export function OrgProfileSection({ orgId, organization, role, handle }: Section
                     <div>
                         <label htmlFor="org-welcome" className={labelClass}>Welcome note</label>
                         <p className={helpClass}>Shown to members on About, for example &quot;Read the syllabus first&quot;.</p>
-                        <textarea id="org-welcome" value={welcome} onChange={(e) => setWelcome(e.target.value)} rows={4} maxLength={2000} className="mt-2 w-full resize-y rounded-md border border-input bg-transparent px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring" />
+                        <textarea id="org-welcome" value={welcome} onChange={(e) => setWelcome(e.target.value)} rows={4} maxLength={500} className="mt-2 w-full resize-y rounded-md border border-input bg-transparent px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring" />
                     </div>
                     <div className="flex items-center gap-3">
                         <Button disabled={pending || (type === 'other' && !typeLabel.trim())} onClick={() => save(() => updateOrgSettingsAction(orgId, 'profile', {
@@ -340,7 +340,7 @@ export function OrgPeopleSection({ orgId, organization, role }: SectionProps) {
 }
 
 const CAP_OPTIONS = [
-    { value: 'public', label: 'Public', hint: 'Workspaces choose Public, Org only or Private.' },
+    { value: 'public', label: 'Public', hint: 'Workspaces choose Public, Organization only or Private.' },
     { value: 'org', label: 'Organization only', hint: 'Nothing leaves the organization.' },
     { value: 'private', label: 'Private', hint: 'Each workspace is seen by its team and admins only.' },
 ] as const

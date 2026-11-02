@@ -4,7 +4,7 @@ import { defaultOrgRoleNames, type OrgType } from "@/lib/organizations/config";
 // Client-safe: the wizard reads it, and the server reads the same defaults when it creates the org.
 
 export const ORG_TYPE_CARDS: Record<OrgType, { label: string; hint: string }> = {
-  education: { label: "Education", hint: "A class, batch or semester" },
+  education: { label: "Education", hint: "A college or university class" },
   company: { label: "Company", hint: "A team, department or region" },
   community: { label: "Community", hint: "An open group with shared workspaces" },
   research: { label: "Research", hint: "A lab or research group" },

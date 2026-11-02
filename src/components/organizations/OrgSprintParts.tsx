@@ -70,7 +70,7 @@ export function LinkedWorkspacesBlock({ org }: { org: SprintOrgContext }) {
                     </li>
                 ))}
             </ul>
-            {org.notLinkedCount > 0 ? <p className="mt-2 text-sm text-muted-foreground">{org.notLinkedCount} {org.notLinkedCount === 1 ? 'project' : 'projects'} not linked</p> : null}
+            {org.notLinkedCount > 0 ? <p className="mt-2 text-sm text-muted-foreground">{org.notLinkedCount} {org.notLinkedCount === 1 ? 'workspace' : 'workspaces'} not linked</p> : null}
         </section>
     )
 }
@@ -227,7 +227,7 @@ export function PlanSeriesButton({ projectId, suggestedPrefix, onPlanned }: { pr
     )
 }
 
-const STATE: Record<string, string> = { not_started: 'Not started', in_progress: 'In progress', submitted: 'Submitted', returned: 'Returned for changes', done: 'Completed', missing: 'Missing', excused: 'Excused' }
+const STATE: Record<string, string> = { not_started: 'Not started', in_progress: 'In progress', submitted: 'Submitted', returned: 'Returned', done: 'Completed', missing: 'Missing', excused: 'Excused' }
 const dueText = (iso: string | null) => (iso ? `due ${DAY.format(new Date(iso))}` : 'no due date')
 
 /**

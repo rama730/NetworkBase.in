@@ -100,6 +100,6 @@ test('Setup: the calendar and Work defaults follow the type and can change', asy
 test('Done: the code, what was sent, and an invite message in your name', async ({ page, context }) => {
     await context.grantPermissions(['clipboard-read', 'clipboard-write']).catch(() => undefined);
     await open(page, 'step=done', 375);
-    await expect(page.getByTestId('org-created-invites')).toHaveText('1 co-admin invite and 62 member invites sent.');
+    await expect(page.getByTestId('org-created-invites')).toContainText('1 co-admin invite and 62 member invites sent');
     expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0);
 });

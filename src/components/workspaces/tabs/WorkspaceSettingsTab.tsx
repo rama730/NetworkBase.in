@@ -1447,7 +1447,7 @@ function ProjectSettingsContent({
                                         </div>
                                         {project?.parentOrg ? (
                                             <p className="nb-compact text-muted-foreground">
-                                                Public, Org only or Private, within {project.parentOrg.title}&apos;s rules: change it in{" "}
+                                                Public, Organization only or Private, within {project.parentOrg.title}&apos;s rules: change it in{" "}
                                                 <button type="button" className="font-medium text-foreground underline underline-offset-4" onClick={() => handleNavigateSection("child-org")}>Organization</button>.
                                             </p>
                                         ) : isProjectOwner ? (

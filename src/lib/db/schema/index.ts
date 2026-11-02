@@ -2896,7 +2896,7 @@ export const contentReports = pgTable("content_reports", {
   caseIdx: index("content_reports_case_idx").on(t.caseId).where(sql`${t.caseId} IS NOT NULL`),
   reporterStatusIdx: index("content_reports_reporter_status_idx").on(t.reporterId, t.status),
   kindCheck: check("content_reports_kind_check", sql`${t.targetKind} IN ('project', 'person', 'update', 'update_comment', 'doc', 'task', 'task_comment', 'file', 'chat_message', 'chat_channel', 'role', 'application', 'invitation', 'connection_request', 'contribution')`),
-  reasonCheck: check("content_reports_reason_check", sql`${t.reason} IN ('threat', 'self_harm', 'child_safety', 'intimate_images', 'private_info', 'harassment', 'hate_speech', 'impersonation', 'scam', 'inappropriate', 'spam', 'other')`),
+  reasonCheck: check("content_reports_reason_check", sql`${t.reason} IN ('threat', 'self_harm', 'child_safety', 'intimate_images', 'private_info', 'harassment', 'hate_speech', 'impersonation', 'evading_block', 'under_18', 'scam', 'inappropriate', 'spam', 'other')`),
   statusCheck: check("content_reports_status_check", sql`${t.status} IN ('open', 'dismissed', 'actioned')`),
   actionCheck: check("content_reports_action_check", sql`${t.action} IS NULL OR ${t.action} IN ('hidden', 'removed', 'suspended')`),
 }));

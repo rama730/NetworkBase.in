@@ -794,7 +794,7 @@ export function FilesTabRoot(props: FilesTabRootProps): React.JSX.Element {
             canReadTasks={canReadTasks}
             canOpenGitHub={canOpenGitHub}
             githubAccessResolved={githubAccessResolved}
-            viewLabels={props.isOrganization ? { project: "Org files", ...(props.orgType === "education" ? { deliverables: "Submissions" } : {}) } : undefined}
+            viewLabels={props.isOrganization ? { project: "Organization files", ...(props.orgType === "education" ? { deliverables: "Submissions" } : {}) } : undefined}
           >
             <div
               ref={filesRootRef}

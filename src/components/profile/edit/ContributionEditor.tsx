@@ -1264,7 +1264,7 @@ export function ContributionEditor({
             className="nb-tabs-list mb-8 flex min-h-10 w-full items-center gap-6 border-b border-border overflow-x-auto"
           >
             {[
-              ...(!active.projectId ? [["identity", "Workspace or workspace"]] : []),
+              ...(!active.projectId ? [["identity", "Workspace"]] : []),
               ["summary", "Summary"],
               ["positions", "Roles and dates"],
               ["work", "Work samples"],
@@ -1286,7 +1286,7 @@ export function ContributionEditor({
           </nav>
           {!active.projectId && (
             <section className="nb-story-section" id="contribution-identity">
-              <h3 className="nb-section-title">Workspace or workspace</h3>
+              <h3 className="nb-section-title">Workspace</h3>
               <Field label="Workspace name">
                 <input
                   className="nb-story-input"

@@ -451,7 +451,7 @@ export default function WorkspaceLayout({
                                     </DropdownMenuItem>
                                     <DropdownMenuItem onSelect={() => onTabChange("dashboard")}>
                                         <LayoutDashboard className="size-4" aria-hidden="true" />
-                                        {isOrganization ? "Org overview" : "Workspace overview"}
+                                        {isOrganization ? "Organization overview" : "Workspace overview"}
                                     </DropdownMenuItem>
                                 </DropdownMenuContent>
                             </DropdownMenu>

@@ -85,7 +85,7 @@ export async function restoreOrgAction(orgId: string): Promise<{ success: true }
 }
 
 const duplicateSchema = z.object({
-    title: z.string().trim().min(2).max(80),
+    title: z.string().trim().min(3).max(100),
     handle: z.string().trim().min(3).max(40),
     termStart: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable(),
     copy: z.object({ about: z.boolean(), docs: z.boolean(), files: z.boolean(), sprints: z.boolean(), assignments: z.boolean(), channels: z.boolean(), admins: z.boolean() }).strict(),

@@ -1257,6 +1257,7 @@ export async function updateWorkspace(projectId: string, input: UpdateWorkspaceI
           slug: workspaces.slug,
           title: workspaces.title,
           status: workspaces.status,
+          kind: workspaces.kind,
         })
         .from(workspaces)
         .where(eq(workspaces.id, projectId))
@@ -1264,6 +1265,10 @@ export async function updateWorkspace(projectId: string, input: UpdateWorkspaceI
 
       if (!project) throw new Error("Workspace not found");
       if (project.ownerId !== user.id) throw new Error("Sign in to continue");
+      // Report §27.8, decision 55: an organization's name is 3–100 characters everywhere, as when it was created.
+      if (project.kind === "organization" && data.title !== undefined && data.title.trim() !== project.title && data.title.trim().length < 3) {
+        throw new Error("Use 3–100 characters for the name.");
+      }
       // Pending applications this update closes (the project stopped taking them, or a role went away); their applicants are told after commit.
       const closedApplications: Array<{ reason: ClosingReason; items: ClosedApplication[] }> = [];
 

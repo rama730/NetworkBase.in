@@ -22,7 +22,7 @@ import { caseLabel, KIND_NOUN, REPORT_REASON_LABEL, type ReportTargetKind } from
 export const itemKey = (i: Pick<InboxItem, 'type' | 'id' | 'number'>) => (i.type === 'verification' ? `org:${i.id}` : `${i.type}:${caseLabel(i.number ?? 0)}`)
 const VIEWS: Array<{ id: InboxView; label: string; count?: (c: InboxCounts) => number }> = [
     { id: 'needs_me', label: 'Needs me' }, { id: 'unclaimed', label: 'Unclaimed', count: (c) => c.unclaimed }, { id: 'urgent', label: 'Urgent', count: (c) => c.urgent },
-    { id: 'appeals', label: 'Appeals', count: (c) => c.appeals }, { id: 'org', label: 'Org cases' }, { id: 'escalated', label: 'Needs an admin', count: (c) => c.escalated },
+    { id: 'appeals', label: 'Appeals', count: (c) => c.appeals }, { id: 'org', label: 'Organization cases' }, { id: 'escalated', label: 'Needs an admin', count: (c) => c.escalated },
     { id: 'mine', label: 'Mine' }, { id: 'done', label: 'Done' },
 ]
 const KINDS: ReportTargetKind[] = ['person', 'update', 'update_comment', 'chat_message', 'file', 'project', 'doc', 'task', 'task_comment', 'chat_channel', 'role', 'application', 'invitation', 'connection_request', 'contribution']

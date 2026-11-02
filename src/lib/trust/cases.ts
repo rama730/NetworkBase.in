@@ -9,7 +9,7 @@ import { logger } from "@/lib/logger";
 import { notifySafety } from "@/lib/trust/notify";
 import {
   caseLabel, deadlinesFor, HIDEABLE_KINDS, HIDE_ON_FIRST_REPORT, HIDE_ON_TWO_REPORTS, higherSeverity, KIND_NOUN, REASON_RULES, reasonsFor,
-  SUPPORT_FIRST, type ReportReason, type ReportTargetKind, type Severity,
+  STAFF_ONLY_REASONS, SUPPORT_FIRST, type ReportReason, type ReportTargetKind, type Severity,
 } from "@/lib/trust/rules";
 import { canSoftHide, resolveReportTarget, setContentHidden, type ReportTarget } from "@/lib/trust/targets";
 
@@ -34,8 +34,8 @@ async function isOrgLeader(executor: Executor, orgId: string, userId: string | n
   return Boolean(row?.ok);
 }
 
-async function routeTo(executor: Executor, target: ReportTarget, severity: Severity): Promise<"org" | "staff"> {
-  if (!target.orgId || target.privateConversation || severity === "urgent" || !ORG_ROUTABLE.includes(target.kind)) return "staff";
+async function routeTo(executor: Executor, target: ReportTarget, severity: Severity, reason: ReportReason): Promise<"org" | "staff"> {
+  if (!target.orgId || target.privateConversation || severity === "urgent" || STAFF_ONLY_REASONS.includes(reason) || !ORG_ROUTABLE.includes(target.kind)) return "staff";
   return (await isOrgLeader(executor, target.orgId, target.subjectId)) ? "staff" : "org";
 }
 
@@ -112,7 +112,7 @@ export async function fileReport(reporterId: string, input: { kind: ReportTarget
     let selfHarmFirst = false;
     if (open) {
       severity = higherSeverity(open.severity, rule.severity);
-      const routedTo = severity === "urgent" ? "staff" : open.routed_to;
+      const routedTo = severity === "urgent" || STAFF_ONLY_REASONS.includes(input.reason) ? "staff" : open.routed_to;
       const { deadlineAt, orgDeadlineAt } = deadlinesFor(severity, new Date(open.created_at), routedTo === "org");
       await tx.update(moderationCases).set({
         severity, reason: severity === open.severity ? open.reason : input.reason, routedTo,
@@ -124,7 +124,7 @@ export async function fileReport(reporterId: string, input: { kind: ReportTarget
       if (severity !== open.severity) await logModerationEvent(tx, { caseId, actorId: null, kind: "severity_raised", data: { from: open.severity, to: severity, reason: input.reason } });
     } else {
       severity = rule.severity;
-      const routedTo = await routeTo(tx, target, severity);
+      const routedTo = await routeTo(tx, target, severity, input.reason);
       const { deadlineAt, orgDeadlineAt } = deadlinesFor(severity, now, routedTo === "org");
       const [created] = await tx.insert(moderationCases).values({
         targetKind: input.kind, targetId: input.targetId, targetSeq: target.seq, workspaceId: target.workspaceId, orgId: target.orgId,

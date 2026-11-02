@@ -11,7 +11,7 @@ import { BANNED_TERMS } from "../src/lib/copy/terms";
  * Also fails any new file path containing "project" (§14.3).
  */
 
-export type Rule = "banned" | "project" | "ampersand" | "ellipsis" | "apostrophe" | "exclamation" | "successfully" | "please" | "log-in" | "british" | "title-case" | "annotation";
+export type Rule = "banned" | "org-word" | "project" | "ampersand" | "ellipsis" | "apostrophe" | "exclamation" | "successfully" | "please" | "log-in" | "british" | "title-case" | "annotation";
 type Counts = Record<string, Partial<Record<Rule, number>>>;
 export type Baseline = { strings: Counts; paths: string[] };
 
@@ -20,6 +20,8 @@ const PROPER_NAMES = /NetworkBase|GitHub|GitLab|Google|Microsoft|Apple|VS Code|V
 
 const RULES: Array<[Rule, (text: string) => boolean]> = [
   ["banned", (t) => BANNED_TERMS.some((term) => term.pattern.test(t))],
+  // The organization glossary's "never say" words (report §39.4, decisions 44, 108, 110). "Org" only on screen.
+  ["org-word", (t) => /\bReturned for changes\b|\bGuests?\b|\bNeeds you\b|\bOrg\b|\bmaster assignments?\b|\bRole box(?:es)?\b/.test(t)],
   ["project", (t) => /\bprojects?\b/i.test(t.replace(/\b(?:external|side|open[- ]source) projects?\b/gi, ""))],
   ["ampersand", (t) => /\s&\s/.test(t)],
   ["ellipsis", (t) => t.includes("...")],
