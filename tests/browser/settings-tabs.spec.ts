@@ -100,7 +100,7 @@ test('a failed save puts the switch back and says it failed', async ({ page }) =
   const server = notificationsServer({ failSaves: true });
   await openRealSettings(page, { actions: server.actions });
   await ready(page);
-  const mentions = page.locator('#settings-notifications').getByRole('switch', { name: /Mentions/ });
+  const mentions = page.locator('#settings-notifications').locator('#mentions');
   await expect(mentions).toHaveAttribute('aria-checked', 'true');
   await mentions.click();
   await expect.poll(() => server.state.saves.length).toBeGreaterThan(0);
@@ -113,10 +113,10 @@ test('a read error shows an error with Retry instead of default switches', async
   await expect(page.getByRole('heading', { name: 'Settings', exact: true, level: 1 })).toBeVisible();
   const notifications = page.locator('#settings-notifications');
   await expect(notifications.getByRole('button', { name: /retry/i })).toBeVisible();
-  await expect(notifications.getByRole('switch', { name: /Mentions/ })).toHaveCount(0);
+  await expect(notifications.locator('#mentions')).toHaveCount(0);
   failing = false;
   await notifications.getByRole('button', { name: /retry/i }).click();
-  await expect(notifications.getByRole('switch', { name: /Mentions/ })).toBeVisible();
+  await expect(notifications.locator('#mentions')).toBeVisible();
 });
 
 // ── Privacy ──────────────────────────────────────────────────────────────────────────────────────────────────

@@ -62,11 +62,11 @@ test('canonical URL, full skills and native/copy feedback obey the approved flow
   const dialog=page.getByRole('dialog');await expect(dialog.getByRole('textbox',{name:'Profile link'})).toHaveValue(origin+'/u/builder');
   await expect(dialog.getByText('Public portfolio · Ponytail')).toBeVisible();await expect(dialog.getByText('+3',{exact:true})).toBeVisible();
   await page.evaluate(()=>{(window as any).sharingFixture.copyDenied=true;});await dialog.getByRole('button',{name:'Copy link'}).click();
-  await expect(dialog.getByRole('status')).toHaveText('Select and copy the link manually.');
+  await expect(dialog.locator('p[role=status]')).toHaveText('Select and copy the link manually.');
   expect(await dialog.getByRole('textbox',{name:'Profile link'}).evaluate((input:HTMLInputElement)=>input.selectionEnd!-input.selectionStart!)).toBe((origin+'/u/builder').length);
   await page.evaluate(()=>{(window as any).sharingFixture.nativeResult='cancel';});await dialog.getByRole('button',{name:'Share to…'}).click();
-  await expect(dialog.getByRole('status')).not.toContainText('Could not');
-  await page.evaluate(()=>{(window as any).sharingFixture.nativeResult='failure';});await dialog.getByRole('button',{name:'Share to…'}).click();await expect(dialog.getByRole('status')).toContainText('Copy the link instead');
+  await expect(dialog.locator('p[role=status]')).not.toContainText('Could not');
+  await page.evaluate(()=>{(window as any).sharingFixture.nativeResult='failure';});await dialog.getByRole('button',{name:'Share to…'}).click();await expect(dialog.locator('p[role=status]')).toContainText('Copy the link instead');
   await page.keyboard.press('Escape');await expect(dialog).not.toBeVisible();await expect(page.getByRole('button',{name:'Share profile',exact:true})).toBeFocused();
 });
 
@@ -81,9 +81,9 @@ test('failed/uncertain sends retain drafts and receipt retries use one intent',a
   const dialog=page.getByRole('dialog');await dialog.getByRole('button',{name:'Send in NetworkBase'}).click();await dialog.getByRole('button',{name:/Ponytail/}).click();await dialog.getByRole('radio').check();
   await dialog.getByRole('textbox',{name:'Note (optional)'}).fill('Please meet this builder.');
   await page.evaluate(()=>{const f=(window as any).sharingFixture;f.sendResult='uncertain';f.delay=150;});
-  await dialog.getByRole('button',{name:'Send',exact:true}).click();await expect(dialog.getByRole('status')).toContainText('Check the earlier receipt');
+  await dialog.getByRole('button',{name:'Send',exact:true}).click();await expect(dialog.locator('p[role=status]')).toContainText('Check the earlier receipt');
   await expect(dialog.getByRole('textbox',{name:'Note (optional)'})).toHaveValue('Please meet this builder.');
-  await dialog.getByRole('button',{name:'Check earlier send',exact:true}).click();await expect(dialog.getByRole('status')).toHaveText('Already sent.');
+  await dialog.getByRole('button',{name:'Check earlier send',exact:true}).click();await expect(dialog.locator('p[role=status]')).toHaveText('Already sent.');
   const ids=await page.evaluate(()=>(window as any).sharingFixture.attempts.map((input:any)=>input.clientId));expect(ids.length).toBe(2);expect(ids[0]).toBe(ids[1]);
 });
 
@@ -269,12 +269,12 @@ test('project share preview presents the approved team, statistics and open role
 
 test('an uncertain original receipt survives Back, edited notes and a different destination',async({page})=>{
   const dialog=page.getByRole('dialog');await dialog.getByRole('button',{name:'Send in NetworkBase'}).click();await dialog.getByRole('button',{name:/Ponytail/}).click();await dialog.getByRole('radio').check();await dialog.getByRole('textbox',{name:'Note (optional)'}).fill('Original note');await page.evaluate(()=>{(window as any).sharingFixture.sendResult='uncertain';});await dialog.getByRole('button',{name:'Send',exact:true}).click();await expect(dialog.getByRole('button',{name:'Check earlier send'})).toBeVisible();
-  await dialog.getByRole('button',{name:'Back to sharing'}).click();await dialog.getByRole('button',{name:'Send in NetworkBase'}).click();await dialog.getByRole('textbox',{name:'Note (optional)'}).fill('Edited draft');await dialog.getByRole('button',{name:'Direct messages',exact:true}).click();await dialog.getByRole('radio').check();await expect(dialog.getByRole('button',{name:'Send',exact:true})).toBeDisabled();await dialog.getByRole('button',{name:'Check earlier send'}).click();await expect(dialog.getByRole('textbox',{name:'Note (optional)'})).toHaveValue('Edited draft');await expect(dialog.getByRole('status')).toContainText('No additional message');
+  await dialog.getByRole('button',{name:'Back to sharing'}).click();await dialog.getByRole('button',{name:'Send in NetworkBase'}).click();await dialog.getByRole('textbox',{name:'Note (optional)'}).fill('Edited draft');await dialog.getByRole('button',{name:'Direct messages',exact:true}).click();await dialog.getByRole('radio').check();await expect(dialog.getByRole('button',{name:'Send',exact:true})).toBeDisabled();await dialog.getByRole('button',{name:'Check earlier send'}).click();await expect(dialog.getByRole('textbox',{name:'Note (optional)'})).toHaveValue('Edited draft');await expect(dialog.locator('p[role=status]')).toContainText('No additional message');
   const attempts=await page.evaluate(()=>(window as any).sharingFixture.attempts);expect(attempts).toHaveLength(2);expect(attempts[1].clientId).toBe(attempts[0].clientId);expect(attempts[1].channelId).toBe(attempts[0].channelId);expect(attempts[1].note).toBe('Original note');expect(attempts[1].checkOnly).toBe(true);
 });
 
 test('a missing receipt only retries the original intent and leaves an edited draft separate',async({page})=>{
-  const dialog=page.getByRole('dialog');await dialog.getByRole('button',{name:'Send in NetworkBase'}).click();await dialog.getByRole('button',{name:/Ponytail/}).click();await dialog.getByRole('radio').check();await dialog.getByRole('textbox',{name:'Note (optional)'}).fill('Original');await page.evaluate(()=>{(window as any).sharingFixture.sendResult='unconfirmed-missing';});await dialog.getByRole('button',{name:'Send',exact:true}).click();await dialog.getByRole('textbox',{name:'Note (optional)'}).fill('Edited');await dialog.getByRole('button',{name:'Check earlier send'}).click();await expect(dialog.getByRole('status')).toContainText('No earlier receipt');await expect(dialog.getByRole('button',{name:'Send',exact:true})).toBeDisabled();await page.evaluate(()=>{(window as any).sharingFixture.sendResult='success';});await dialog.getByRole('button',{name:'Retry earlier send'}).click();await expect(dialog.getByRole('textbox',{name:'Note (optional)'})).toHaveValue('Edited');const attempts=await page.evaluate(()=>(window as any).sharingFixture.attempts);expect(new Set(attempts.map((a:any)=>a.clientId)).size).toBe(1);expect(attempts.at(-1).note).toBe('Original');
+  const dialog=page.getByRole('dialog');await dialog.getByRole('button',{name:'Send in NetworkBase'}).click();await dialog.getByRole('button',{name:/Ponytail/}).click();await dialog.getByRole('radio').check();await dialog.getByRole('textbox',{name:'Note (optional)'}).fill('Original');await page.evaluate(()=>{(window as any).sharingFixture.sendResult='unconfirmed-missing';});await dialog.getByRole('button',{name:'Send',exact:true}).click();await dialog.getByRole('textbox',{name:'Note (optional)'}).fill('Edited');await dialog.getByRole('button',{name:'Check earlier send'}).click();await expect(dialog.locator('p[role=status]')).toContainText('No earlier receipt');await expect(dialog.getByRole('button',{name:'Send',exact:true})).toBeDisabled();await page.evaluate(()=>{(window as any).sharingFixture.sendResult='success';});await dialog.getByRole('button',{name:'Retry earlier send'}).click();await expect(dialog.getByRole('textbox',{name:'Note (optional)'})).toHaveValue('Edited');const attempts=await page.evaluate(()=>(window as any).sharingFixture.attempts);expect(new Set(attempts.map((a:any)=>a.clientId)).size).toBe(1);expect(attempts.at(-1).note).toBe('Original');
 });
 
 

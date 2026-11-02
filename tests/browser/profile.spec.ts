@@ -327,11 +327,15 @@ test('visitor actions keep Share in the connection row and Message in the permit
     await control.click();
     const menu = page.getByRole('menu');
     await expect(menu.getByRole('menuitem', {name: 'Message Builder', exact: true})).toBeVisible();
-    for (const item of state === 'accepted' ? ['Disconnect', 'Block Builder'] : state === 'pending_outgoing' ? ['Cancel', 'Block Builder'] : state === 'pending_incoming' ? ['Accept', 'Decline', 'Block Builder'] : ['Connect', 'Block Builder']) {
+    for (const item of state === 'accepted' ? ['Disconnect'] : state === 'pending_outgoing' ? ['Cancel'] : state === 'pending_incoming' ? ['Accept', 'Decline'] : ['Connect']) {
       await expect(menu.getByRole('menuitem', {name: item, exact: true})).toBeVisible();
     }
     await menu.getByRole('menuitem', {name: 'Message Builder', exact: true}).click();
     await expect(menu).toHaveCount(0);
+    // Block lives in the person's own menu, for every connection state (Blocking B6).
+    await header.getByRole('button', {name: 'More actions for Builder', exact: true}).click();
+    await expect(page.getByRole('menuitem', {name: 'Block Builder', exact: true})).toBeVisible();
+    await page.keyboard.press('Escape');
   }
   expect(await page.evaluate(() => (window as any).profileFixture.messaged.length)).toBe(4);
   await page.evaluate(() => { const f = (window as any).profileFixture; f.canMessage = false; f.refresh(); });
