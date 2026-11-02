@@ -33,6 +33,7 @@ import { markProfileCollaborationSummaryStale } from "@/lib/profile/collaboratio
 import {
   contributionStorySchema,
   blankContributionStory,
+  lockRecordedStory,
   storyValidation,
   reconcileStoryCurrentStatus,
   sortedStoryPositions,
@@ -350,7 +351,12 @@ export async function saveContributionStoryAction(
         : [];
       if (errors.length) throw new StoryError(errors[0]!.message);
       const stages = await tx
-        .select({ id: profileContributionStages.id })
+        .select({
+          id: profileContributionStages.id,
+          roleTitle: profileContributionStages.roleTitle,
+          startedAt: profileContributionStages.startedAt,
+          endedAt: profileContributionStages.endedAt,
+        })
         .from(profileContributionStages)
         .where(
           and(
@@ -384,6 +390,23 @@ export async function saveContributionStoryAction(
         : [];
       if (current.projectId && project)
         document = { ...document, title: project.title };
+      // Decision 104 (report §38.3): organization entries, and workspaces inside one, take role and dates from the
+      // record; a personal workspace entry stays as today.
+      const [parent] = project?.parentId
+        ? await tx
+            .select({ kind: workspaces.kind })
+            .from(workspaces)
+            .where(eq(workspaces.id, project.parentId))
+            .limit(1)
+        : [];
+      const fromRecord =
+        current.source !== "manual" &&
+        (project?.kind === "organization" || parent?.kind === "organization");
+      if (fromRecord)
+        document = lockRecordedStory(document, current, [
+          ...stages,
+          { id: `${current.id}:current`, roleTitle: current.roleTitle, startedAt: current.startedAt, endedAt: current.endedAt },
+        ]);
       if (
         publishing &&
         current.projectId &&
@@ -739,9 +762,7 @@ export async function saveContributionStoryAction(
         ? new Date(`${contributionEnd}-01T00:00:00.000Z`)
         : null;
       const roleTitle = headlinePos?.title ?? current.roleTitle;
-      // Decision 104 (report §38.3, §38.4): an entry from a real membership keeps the role and dates from the record,
-      // so a verified ✓ always means what it says. People add detail and their own steps, not new dates.
-      const fromRecord = Boolean(current.projectId) && current.source !== "manual";
+      // Decision 104: a locked entry's columns keep the record too, so a verified ✓ always means what it says.
 
       const patch = {
         version: current.version + 1,

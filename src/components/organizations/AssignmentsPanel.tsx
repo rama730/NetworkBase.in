@@ -486,7 +486,7 @@ export function AssignmentsPanel({ orgId, onBoardChanged, startComposing = false
                 {rows.map((row) => (
                     <li key={row.masterId} className="flex flex-wrap items-center gap-x-3 gap-y-1 py-2 text-sm">
                         <span className="font-medium">{row.title}</span>
-                        <span className="text-muted-foreground" title={orgTime(row.mine?.dueDate ?? row.dueDate, data.timeZone)}>{due(row.mine?.dueDate ?? row.dueDate)}{row.mine?.extended ? ' · Extended' : ''}{row.teams ? ' · Teams' : ''}</span>
+                        <span className="text-muted-foreground" title={orgTime(row.mine?.dueDate ?? row.dueDate, data.timeZone)}>{due(row.mine?.dueDate ?? row.dueDate)}{row.mine?.extended ? ' · Extended' : ''}{row.teams ? ' · Teams' : ''}{row.lateNote ? ` · ${row.lateNote}` : ''}</span>
                         {row.status !== 'open' ? <Status text={row.status === 'draft' ? 'Draft' : 'Closed'} tone={row.status === 'draft' ? 'draft' : 'archived'} /> : null}
                         {row.mine ? (
                             <>

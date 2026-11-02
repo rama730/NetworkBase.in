@@ -141,6 +141,11 @@ export function assignmentHref(workspacePath: string, copyId?: string | null, re
   return `${workspacePath}?tab=tasks${review ? "&taskScope=review" : ""}`;
 }
 
+/** Old "Allowed until a date" assignments saved with no date accept nothing late, so they say so (problem 13). */
+export function lateWorkLabel(settings: { lateRule: LateRule; lateUntil?: string | null }): string | null {
+  return settings.lateRule === "until" && !settings.lateUntil ? "Late work closed" : null;
+}
+
 /** "Allowed until a date" needs that date, after the due date (report §42.10 problem 13, §42.12 smaller bug 16). */
 export function lateRuleBlock(settings: { lateRule: LateRule; lateUntil?: string | null }, dueDate: Date | null): string | null {
   if (settings.lateRule !== "until") return null;

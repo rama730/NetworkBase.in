@@ -14,6 +14,8 @@ const PAIRS: Array<[string, string]> = [
   ['src/app/api/v1/extension/project-summary', 'src/app/api/v1/extension/workspace-summary'],
   ['src/app/api/v1/extension/project-tasks', 'src/app/api/v1/extension/workspace-tasks'],
 ];
+// Routes made after the rename have no old callers, so they get no old address (and none may add "project").
+const BORN_AFTER_RENAME = new Set(['src/app/api/v1/workspaces/[id]/view/route.ts']);
 const METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'];
 const routes = (dir: string): string[] => readdirSync(dir).flatMap((name) => {
   const p = path.join(dir, name);
@@ -26,6 +28,10 @@ test('every old API address re-exports the same handlers as its new address', ()
   let checked = 0;
   for (const [oldDir, newDir] of PAIRS) {
     for (const newFile of routes(newDir)) {
+      if (BORN_AFTER_RENAME.has(newFile)) {
+        assert.ok(!existsSync(path.join(oldDir, path.relative(newDir, newFile))), `${newFile} is new; it needs no old address`);
+        continue;
+      }
       const oldFile = path.join(oldDir, path.relative(newDir, newFile));
       assert.ok(existsSync(oldFile), `missing alias ${oldFile}`);
       const oldSrc = readFileSync(oldFile, 'utf8');

@@ -84,7 +84,7 @@ export function ruleHits(text: string): Rule[] {
 const KEPT: Array<[RegExp, RegExp]> = [
   [/src\/lib\/skills\//, /./],
   [/src\/lib\/profile\/(?:domain-presence|normalization|interests)\.ts$/, /./],
-  [/src\/lib\/profile\/role-preferences\.ts$/, /^(?:Lead|Quality Assurance)$/],
+  [/src\/lib\/profile\/role-preferences\.ts$/, /^(?:Lead|Quality Assurance|freelance projects|consulting projects)$/],
   [/src\/lib\/profile\/contribution-story\.ts$/, /^Enter the workspace or project name\.$/],
   [/src\/components\/layout\/header\/global-search\.ts$/, /\blog(?:in|out)\b/],
   [/./, /^(?:Apache Airflow|John Doe|Office Online|Excel Online|Android Studio|Samsung Internet|Claude Code|Instrument Sans)$/],

@@ -9,7 +9,7 @@ import { db } from '@/lib/db';
 import { profiles, workspaces, workspaceSprints, workspaceWorkflowColumns, taskActivityEvents, taskTeamMembers, tasks } from '@/lib/db/schema';
 import { getWorkspaceAccessById, writeBlockedMessage } from '@/lib/data/workspace-access';
 import { createClient } from '@/lib/supabase/server';
-import { assignmentHref, canStillSubmit, copyState, lateRuleBlock, type AssignmentSettings, type AssignmentTarget, type CopyState } from '@/lib/organizations/assignment-rules';
+import { assignmentHref, canStillSubmit, copyState, lateRuleBlock, lateWorkLabel, type AssignmentSettings, type AssignmentTarget, type CopyState } from '@/lib/organizations/assignment-rules';
 import { createCopies, createMasterTask, handedInSql, PeopleLeftError, resolveRecipients } from '@/lib/organizations/assignments';
 import { shareToOrgGeneral } from '@/lib/organizations/org-chat';
 import { postOrgAnnouncement } from '@/lib/organizations/org-updates';
@@ -396,6 +396,8 @@ export type AssignmentRow = {
     status: 'draft' | 'open' | 'closed';
     /** A draft Duplicate changed: what to check before publishing (problem 15). */
     note?: string | null;
+    /** "Late work closed" on old assignments with no late date (problem 13). */
+    lateNote: string | null;
     submissionType: string;
     reviewRequired: boolean;
     teams: boolean;
@@ -440,7 +442,7 @@ export async function listAssignmentsAction(orgId: string): Promise<{ success: t
             return s.state === 'excused' ? acc : { done: acc.done + (s.state === 'done' ? size : 0), total: acc.total + size };
         }, { done: 0, total: 0 }) : undefined;
         return {
-            masterId: m.id, title: m.title, dueDate: m.dueDate?.toISOString() ?? null, note: viewer.isAdmin ? settings.note ?? null : null,
+            masterId: m.id, title: m.title, dueDate: m.dueDate?.toISOString() ?? null, note: viewer.isAdmin ? settings.note ?? null : null, lateNote: lateWorkLabel(settings),
             status: !settings.publishedAt ? 'draft' : settings.closedAt ? 'closed' : 'open',
             submissionType: settings.submissionType, reviewRequired: settings.reviewRequired, teams: settings.target.mode === 'teams',
             counts, mine, ...(teamPeople ? { people: teamPeople } : {}),

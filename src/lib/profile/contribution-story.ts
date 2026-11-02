@@ -82,6 +82,33 @@ export function reconcileRecordedPositionTitles(
     }),
   };
 }
+type RecordDates = { startedAt: Date | null; endedAt: Date | null };
+
+/**
+ * Decision 104 (report §38.3, §38.4): an organization entry, or one for a workspace inside an organization, shows
+ * the role and dates from the record. Recorded steps keep their name and dates; detail, hiding and steps you add
+ * stay yours.
+ */
+export function lockRecordedStory(
+  story: ContributionStory,
+  record: RecordDates,
+  stages: Array<RecordDates & { id: string; roleTitle: string | null }>,
+): ContributionStory {
+  const month = (date: Date | null) => (date ? date.toISOString().slice(0, 7) : "");
+  return {
+    ...story,
+    start: month(record.startedAt),
+    end: month(record.endedAt),
+    current: !record.endedAt,
+    positions: story.positions.map((position) => {
+      const stage = stages.find((s) => s.id === position.recordedStageId);
+      return stage
+        ? { ...position, title: stage.roleTitle ?? position.title, start: month(stage.startedAt), end: month(stage.endedAt), current: !record.endedAt && !stage.endedAt }
+        : position;
+    }),
+  };
+}
+
 export type StoryReferenceKind =
   | "person"
   | "file"

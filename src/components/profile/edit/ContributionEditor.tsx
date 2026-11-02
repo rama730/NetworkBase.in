@@ -223,6 +223,9 @@ export function ContributionEditor({
     >(async () => {});
   const active = records.find((r) => r.id === selected),
     d = selected ? documents[selected] : undefined;
+  // Decision 104 (report §38.3): the server keeps these from the record, so the editor shows them locked.
+  const recordLocked =
+    !!active && active.source !== "manual" && (active.projectKind === "organization" || !!active.parentOrg);
   const validationIssues =
     active && d && validationProject === active.id
       ? storyValidation(d, { publish: true, platform: !!active.projectId })
@@ -1341,9 +1344,12 @@ export function ContributionEditor({
             />
           </section>
           <section className="nb-story-section" id="contribution-positions">
+            {/* Decision 104: organization entries, and workspaces inside one, take role and dates from the record. */}
             <h3 className="nb-section-title">Roles and dates</h3>
             <p className="nb-compact mt-1 mb-5 text-muted-foreground">
-              Show how your contribution evolved over time.
+              {recordLocked
+                ? "Role and dates come from the organization’s records. Ask an admin if they’re wrong."
+                : "Show how your contribution evolved over time."}
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-[140px_auto_140px_1fr] items-center gap-2.5 rounded-[6px] border border-border/70 bg-muted/20 p-2.5">
               <input
@@ -1351,6 +1357,7 @@ export function ContributionEditor({
                 aria-label="Started contributing"
                 max={new Date().toISOString().slice(0, 7)}
                 value={d.start}
+                disabled={recordLocked}
                 onChange={(e) => patch(active.id, { start: e.target.value })}
                 className="h-8 pointer-coarse:h-11 rounded-[4px] border border-border bg-background px-2.5 sm:text-xs text-base text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
               />
@@ -1361,7 +1368,7 @@ export function ContributionEditor({
                 min={d.start || undefined}
                 max={new Date().toISOString().slice(0, 7)}
                 value={d.current ? "" : d.end}
-                disabled={d.current}
+                disabled={d.current || recordLocked}
                 placeholder={d.current ? "Present" : "End month"}
                 onChange={(e) => patch(active.id, { end: e.target.value })}
                 className="h-8 pointer-coarse:h-11 rounded-[4px] border border-border bg-background px-2.5 sm:text-xs text-base text-foreground disabled:opacity-50 focus:outline-none focus:ring-1 focus:ring-ring"
@@ -1370,6 +1377,7 @@ export function ContributionEditor({
                 <input
                   type="checkbox"
                   checked={d.current}
+                  disabled={recordLocked}
                   onChange={(e) =>
                     patch(active.id, {
                       current: e.target.checked,
@@ -1445,6 +1453,8 @@ export function ContributionEditor({
                   const recorded = active.roleStages?.find(
                     (s) => s.id === role.recordedStageId,
                   );
+                  // Decision 104: a step from the record keeps its name and dates; detail stays yours.
+                  const stepLocked = recordLocked && Boolean(role.recordedStageId);
                   return (
                     <div
                       key={role.id}
@@ -1516,15 +1526,16 @@ export function ContributionEditor({
                             <Field label="Position title">
                               <input
                                 id={`story-role-title-${role.id}`}
-                                className="nb-story-input"
+                                className="nb-story-input disabled:opacity-60"
                                 maxLength={120}
                                 value={role.title}
+                                disabled={stepLocked}
                                 onChange={(e) =>
                                   rolePatch(role.id, { title: e.target.value })
                                 }
                               />
                             </Field>
-                            {recorded && recorded.roleTitle !== role.title && (
+                            {!stepLocked && recorded && recorded.roleTitle !== role.title && (
                               <button
                                 type="button"
                                 className="nb-touch-target nb-compact text-primary"
@@ -1541,9 +1552,10 @@ export function ContributionEditor({
                               <input
                                 type="month"
                                 aria-label="Start month"
-                                className="h-8 pointer-coarse:h-11 rounded-[4px] border border-border bg-background px-2 sm:text-xs text-base"
+                                className="h-8 pointer-coarse:h-11 rounded-[4px] border border-border bg-background px-2 sm:text-xs text-base disabled:opacity-50"
                                 max={new Date().toISOString().slice(0, 7)}
                                 value={role.start}
+                                disabled={stepLocked}
                                 onChange={(e) =>
                                   rolePatch(role.id, {
                                     start: e.target.value,
@@ -1557,7 +1569,7 @@ export function ContributionEditor({
                                 className="h-8 pointer-coarse:h-11 rounded-[4px] border border-border bg-background px-2 sm:text-xs text-base disabled:opacity-50"
                                 max={new Date().toISOString().slice(0, 7)}
                                 min={role.start || undefined}
-                                disabled={role.current}
+                                disabled={role.current || stepLocked}
                                 placeholder={role.current ? "Present" : "End month"}
                                 value={role.current ? "" : role.end}
                                 onChange={(e) =>
@@ -1568,6 +1580,7 @@ export function ContributionEditor({
                                 <input
                                   type="checkbox"
                                   checked={role.current}
+                                  disabled={stepLocked}
                                   onChange={(e) =>
                                     rolePatch(role.id, {
                                       current: e.target.checked,

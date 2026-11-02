@@ -824,13 +824,40 @@ test("privacy hide cannot be blocked by an unavailable image in the existing dra
   );
 });
 
-test("decision 104: an entry from a real membership keeps the role and dates from the record when the editor sends others", async () => {
+test("decision 104: an organization entry keeps the role, dates and recorded steps from the record when the editor sends others", async () => {
+  const id = randomUUID();
+  const stage = randomUUID();
+  ids.push(id);
+  const org = await sql.begin((tx) => createProject(tx, owner));
+  await sql`UPDATE workspaces SET kind = 'organization', org_type = 'education' WHERE id = ${org}`;
+  try {
+    await sql`INSERT INTO profile_contributions(id,profile_id,workspace_id,source,visibility,role_title,started_at) VALUES(${id},${owner},${org},'membership','private','Engineer','2026-02-01T00:00:00Z')`;
+    await sql`INSERT INTO profile_contribution_stages (id,contribution_id,profile_id,workspace_id,role_kind,role_title,started_at)
+      VALUES (${stage},${id},${owner},${org},'member','Engineer','2026-02-01T00:00:00Z')`;
+    const mine = { id: randomUUID(), recordedStageId: null, title: "Course mentor", start: "2026-03", end: "", current: true, description: "", hidden: false };
+    const saved = await command(id, 1, "draft", { ...blankContributionStory("Platform"), summary: "More detail", start: "2020-01", end: "2020-06", current: false,
+      positions: [{ id: stage, recordedStageId: stage, title: "Chief engineer", start: "2019-01", end: "2019-02", current: false, description: "Ran labs", hidden: false }, mine] });
+    assert.equal(saved.success, true, JSON.stringify(saved));
+    const [row] = await sql`SELECT role_title, started_at, ended_at FROM profile_contributions WHERE id=${id}`;
+    assert.deepEqual([row!.role_title, new Date(row!.started_at).toISOString().slice(0, 10), row!.ended_at], ["Engineer", "2026-02-01", null]);
+    const [{ document }] = await sql`SELECT document FROM profile_contribution_drafts WHERE contribution_id=${id}`;
+    assert.deepEqual([document.start, document.end, document.current], ["2026-02", "", true], "the shown dates are the record's");
+    const recorded = document.positions.find((p: { id: string }) => p.id === stage);
+    assert.deepEqual([recorded.title, recorded.start, recorded.end, recorded.current, recorded.description], ["Engineer", "2026-02", "", true, "Ran labs"], "name and dates locked; detail kept");
+    assert.equal(document.positions.find((p: { id: string }) => p.id === mine.id).title, "Course mentor", "a step added by you stays");
+  } finally {
+    await sql`DELETE FROM profile_contributions WHERE id = ${id}`;
+    await sql`DELETE FROM workspaces WHERE id = ${org}`;
+  }
+});
+
+test("decision 104 guard: a personal workspace entry keeps the dates its owner writes, as today", async () => {
   const id = randomUUID();
   ids.push(id);
   await sql`DELETE FROM profile_contributions WHERE profile_id=${owner} AND workspace_id=${project}`;
   await sql`INSERT INTO profile_contributions(id,profile_id,workspace_id,source,visibility,role_title,started_at) VALUES(${id},${owner},${project},'membership','private','Engineer','2026-02-01T00:00:00Z')`;
-  const saved = await command(id, 1, "draft", { ...blankContributionStory("Platform"), summary: "More detail", start: "2020-01", end: "2020-06" });
+  const saved = await command(id, 1, "draft", { ...blankContributionStory("Platform"), start: "2025-01", end: "2025-06" });
   assert.equal(saved.success, true, JSON.stringify(saved));
-  const [row] = await sql`SELECT role_title, started_at, ended_at FROM profile_contributions WHERE id=${id}`;
-  assert.deepEqual([row!.role_title, new Date(row!.started_at).toISOString().slice(0, 10), row!.ended_at], ["Engineer", "2026-02-01", null]);
+  const [row] = await sql`SELECT started_at, ended_at FROM profile_contributions WHERE id=${id}`;
+  assert.deepEqual([new Date(row!.started_at).toISOString().slice(0, 7), new Date(row!.ended_at).toISOString().slice(0, 7)], ["2025-01", "2025-06"]);
 });

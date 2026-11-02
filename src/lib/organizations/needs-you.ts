@@ -32,19 +32,17 @@ export async function ownCopies(orgId: string, userId: string) {
 /** A workspace asking to move in or to leave, for Workspaces → Requests (report §28.6, decision 57). */
 export type OrgWorkspaceRequest = { id: string; title: string; slug: string | null; kind: 'move_in' | 'leave'; lead: string; members: number; at: string | null };
 
-/**
- * Admins only: pending move-in and leave requests, oldest first.
- * ponytail: move-ins are found by scanning top-level workspaces' settings. Ceiling: fine to ~100k workspaces;
- * upgrade to a partial index on org_settings->'moveInRequest'->>'orgId' when the measures call for it.
- */
+/** Admins only: pending move-in (through workspaces_move_in_request_idx) and leave requests, oldest first. */
 export async function readWorkspaceRequests(orgId: string): Promise<OrgWorkspaceRequest[]> {
     const rows = await db.execute<{ id: string; title: string | null; slug: string | null; kind: 'move_in' | 'leave'; lead: string | null; members: number; at: string | null }>(sql`
         SELECT w.id, w.title, w.slug, CASE WHEN w.parent_id IS NULL THEN 'move_in' ELSE 'leave' END AS kind,
             coalesce(p.full_name, p.username) AS lead, (SELECT count(*)::int FROM workspace_members m WHERE m.workspace_id = w.id) AS members,
             coalesce(w.org_settings->'moveInRequest'->>'at', w.org_settings->'detachRequest'->>'at') AS at
-        FROM workspaces w LEFT JOIN profiles p ON p.id = w.owner_id
-        WHERE w.deleted_at IS NULL AND w.kind = 'workspace'
-          AND ((w.parent_id IS NULL AND w.org_settings->'moveInRequest'->>'orgId' = ${orgId}) OR (w.parent_id = ${orgId} AND w.org_settings ? 'detachRequest'))
+        FROM (
+            SELECT * FROM workspaces WHERE deleted_at IS NULL AND parent_id IS NULL AND org_settings ? 'moveInRequest' AND org_settings->'moveInRequest'->>'orgId' = ${orgId}
+            UNION ALL SELECT * FROM workspaces WHERE deleted_at IS NULL AND parent_id = ${orgId} AND org_settings ? 'detachRequest'
+        ) w LEFT JOIN profiles p ON p.id = w.owner_id
+        WHERE w.kind = 'workspace'
         ORDER BY at NULLS FIRST LIMIT 200`);
     return rows.map((r) => ({ id: r.id, title: r.title || 'Workspace', slug: r.slug, kind: r.kind, lead: r.lead || 'Owner', members: r.members, at: r.at }));
 }

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { copyState, splitIntoTeams } from "../../src/lib/organizations/assignment-rules";
+import { copyState, lateWorkLabel, splitIntoTeams } from "../../src/lib/organizations/assignment-rules";
 
 // Report §16.3: Missing and Late are derived from the due date and submission time, never stored.
 const now = new Date("2026-11-10T12:00:00Z");
@@ -85,4 +85,11 @@ test("problem 13 and smaller bug 16: 'Allowed until a date' needs a date, after 
   assert.equal(lateRuleBlock({ lateRule: "until", lateUntil: "2026-11-19T00:00:00Z" }, due), "Late work must be accepted until after the due date.");
   assert.equal(lateRuleBlock({ lateRule: "until", lateUntil: "2026-11-27T18:00:00Z" }, due), null);
   assert.equal(lateRuleBlock({ lateRule: "always", lateUntil: null }, due), null);
+});
+
+test("problem 13: an old 'allowed until a date' assignment with no date says Late work closed", () => {
+  assert.equal(lateWorkLabel({ lateRule: "until", lateUntil: null }), "Late work closed");
+  assert.equal(lateWorkLabel({ lateRule: "until", lateUntil: "2026-11-13T18:00:00Z" }), null);
+  assert.equal(lateWorkLabel({ lateRule: "always" }), null);
+  assert.equal(lateWorkLabel({ lateRule: "none" }), null);
 });

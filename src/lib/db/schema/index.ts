@@ -972,6 +972,8 @@ export const workspaces = pgTable(
       "workspaces_owner_deleted_view_count_idx",
     ).on(t.ownerId, t.deletedAt, t.viewCount),
     parentIdx: index("workspaces_parent_idx").on(t.parentId).where(sql`${t.parentId} IS NOT NULL`),
+    // Decision 57: admins find move-in requests by organization (0046).
+    moveInRequestIdx: index("workspaces_move_in_request_idx").on(sql`((${t.orgSettings} -> 'moveInRequest') ->> 'orgId')`).where(sql`${t.orgSettings} ? 'moveInRequest' AND ${t.deletedAt} IS NULL`),
     deletionScheduledIdx: index("workspaces_deletion_scheduled_idx").on(t.deletionScheduledAt).where(sql`${t.deletionScheduledAt} IS NOT NULL`),
     verificationRequestedIdx: index("workspaces_verification_requested_idx").on(t.verificationRequestedAt).where(sql`${t.verificationRequestedAt} IS NOT NULL`),
     verifiedByIdx: index("workspaces_verified_by_idx").on(t.verifiedBy).where(sql`${t.verifiedBy} IS NOT NULL`),
