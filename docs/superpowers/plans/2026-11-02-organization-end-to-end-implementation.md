@@ -181,7 +181,7 @@ For every step below:
 **Report:** 41.3 1d, 9, 17.9, 25.2, 27.1, 27.10, 31.5, 31.8, 32.3, 35.6, 39.4, 39.5, 42.10, 42.15, 44.1, 29.5.
 **Decisions:** 44, 55, 63, 75, 108, 110, 112, 163, 167.
 **Problems:** smaller bugs S12, S20.
-- [ ] The global focus ring (32.3, decision 75, first half; shared on purpose, 41.6).
+- [x] ~~The global focus ring (32.3, decision 75, first half)~~ Owner's call, 2 November 2026: focus stays as it is, with no outer ring.
 - [ ] The sidebar plus button link, the "No workspaces yet" flash replaced by a loading row, long-title rows, and the remaining sidebar rows (9, 31.5, gap 62).
 - [ ] Wizard and ready screen wording (27.2, 27.3, 35.2 wizard changes, gaps 36 and 37). Names are 3–100 characters and welcome notes 500 (27.8, decision 55).
 - [ ] The terminology check: add the organization words to `check:terminology` (39.5, decisions 44, 108, 110).
