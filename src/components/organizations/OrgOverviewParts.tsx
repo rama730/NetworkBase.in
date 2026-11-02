@@ -19,13 +19,14 @@ import { remindSummary } from '@/lib/organizations/member-rules'
 import { typeProfile } from '@/lib/organizations/type-profile'
 import { formatDistanceToNow } from '@/lib/utils/date'
 import { cn } from '@/lib/utils'
+import { ASSIGNMENT_STATE_LABELS } from '@/lib/copy/terms'
 
 // Org Dashboard (report §27), Projects tab (§28) and the child project's org line (§22.5, §27.5).
 
 const ago = (iso: string) => formatDistanceToNow(new Date(iso), { addSuffix: true })
 const day = (iso: string) => new Date(iso).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })
 const row = 'flex min-w-0 items-center justify-between gap-3 py-1.5 text-sm'
-const STATE: Record<string, string> = { not_started: 'Not started', in_progress: 'In progress', submitted: 'Submitted', returned: 'Returned', done: 'Completed', missing: 'Missing', excused: 'Excused' }
+const STATE: Record<string, string> = ASSIGNMENT_STATE_LABELS
 const FILTERS = [['all', 'All'], ['assignments', 'Assignments'], ['people', 'People'], ['files', 'Files and docs'], ['projects', 'Workspaces']] as const
 
 /** The org Dashboard for people in the org (report §27). */
@@ -303,12 +304,12 @@ const useChildOrgLine = (projectId: string) => useQuery({ queryKey: ['child-org-
 /** `Part of CSE-3A · CO2 ends Fri · 1 assignment due`, under a child workspace's header buttons. */
 export function ChildOrgHeaderDetails({ projectId }: { projectId: string }) {
     const { data: line } = useChildOrgLine(projectId)
-    if (!line) return null
+    // Report §17.1: the breadcrumb already names the organization, so this line says only what's running.
+    const parts = [line?.sprint ? `Inside ${line.sprint.name} · ends ${day(line.sprint.endDate)}` : null, line?.dueCount ? `${line.dueCount} ${line.dueCount === 1 ? 'assignment' : 'assignments'} due` : null].filter(Boolean)
+    if (!line || parts.length === 0) return null
     return (
         <p className="max-w-[280px] text-right text-[13px] leading-5 text-muted-foreground xl:max-w-[420px] max-md:max-w-none max-md:text-left" data-testid="child-org-header-details">
-            Part of <Link href={`/org/${encodeURIComponent(line.orgSlug ?? '')}`} className="font-medium text-foreground hover:underline">{line.orgTitle}</Link>
-            {line.sprint ? ` · ${line.sprint.name} ends ${day(line.sprint.endDate)}` : ''}
-            {line.dueCount ? ` · ${line.dueCount} ${line.dueCount === 1 ? 'assignment' : 'assignments'} due` : ''}
+            {parts.join(' · ')}
         </p>
     )
 }

@@ -19,6 +19,10 @@ export function accessLevelLabel(level: AccessLevel, customName?: string | null)
 export const TASK_STATUS_LABELS = { todo: 'To do', in_progress: 'In progress', in_review: 'In review', blocked: 'Blocked', done: 'Completed' } as const;
 
 /** Decisions 21 and 23. */
+/** Report §5.7, §34.2, decision 84: one set of words for an assignment copy's state, plus a Late mark. */
+export const ASSIGNMENT_STATE_LABELS = { not_started: 'Not started', in_progress: 'In progress', submitted: 'Submitted', returned: 'Returned', done: 'Completed', missing: 'Missing', excused: 'Excused' } as const;
+export const LATE_MARK = 'Late';
+
 export const SPRINT_STATUS_LABELS = { planning: 'Upcoming', active: 'Active', completed: 'Completed', archived: 'Archived', cancelled: 'Canceled' } as const;
 
 /** Decision 11: status only; a workspace's progress is its Stages. */

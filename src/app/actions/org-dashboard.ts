@@ -8,6 +8,7 @@ import { getWorkspaceAccessById, type WorkspaceAccess } from '@/lib/data/workspa
 import { orgFileAccessSql } from '@/lib/files/internal-helpers';
 import { copyState, type CopyState } from '@/lib/organizations/assignment-rules';
 import { activityVisible, getStartedSteps, journeyFromSprints, needsAttention, type ActivityKind } from '@/lib/organizations/dashboard-rules';
+import { activityTime } from '@/lib/organizations/activity-rules';
 import { readViewerOrgRole } from '@/lib/organizations/detail';
 import { audienceSql } from '@/lib/organizations/org-updates';
 import { readOrgDocsAction } from '@/app/actions/org-docs';
@@ -57,11 +58,11 @@ async function readActivity(v: OrgViewer, filter: string, opts: { publicOnly?: b
     const want = (k: ActivityKind) => filter === 'all' || (filter === 'assignments' && (k === 'assignment' || k === 'submission')) || (filter === 'people' && k === 'joins') || (filter === 'files' && (k === 'file' || k === 'doc')) || (filter === 'projects' && k === 'project');
     const items: Array<ActivityItem & { actorId: string | null; public?: boolean }> = [];
     const [sprints, children, joins, posts, files, masters, submissions] = await Promise.all([
-        db.select({ id: workspaceSprints.id, name: workspaceSprints.name, status: workspaceSprints.status, startDate: workspaceSprints.startDate, completedAt: workspaceSprints.completedAt })
+        db.select({ id: workspaceSprints.id, name: workspaceSprints.name, status: workspaceSprints.status, startDate: workspaceSprints.startDate, startedAt: workspaceSprints.startedAt, completedAt: workspaceSprints.completedAt })
             .from(workspaceSprints).where(and(eq(workspaceSprints.projectId, v.org.id), or(gte(workspaceSprints.completedAt, since), and(eq(workspaceSprints.status, 'active'), gte(workspaceSprints.startDate, since))))),
         db.select({ id: workspaces.id, title: workspaces.title, slug: workspaces.slug, visibility: workspaces.visibility, createdAt: workspaces.createdAt, ownerId: workspaces.ownerId })
             .from(workspaces).where(and(eq(workspaces.parentId, v.org.id), isNull(workspaces.deletedAt), gte(workspaces.createdAt, since))),
-        db.select({ n: sql<number>`count(*)::int` }).from(workspaceMembers).where(and(eq(workspaceMembers.projectId, v.org.id), gte(workspaceMembers.joinedAt, new Date(Date.now() - 7 * DAY)))),
+        db.select({ n: sql<number>`count(*)::int`, latest: sql<Date | null>`max(${workspaceMembers.joinedAt})` }).from(workspaceMembers).where(and(eq(workspaceMembers.projectId, v.org.id), gte(workspaceMembers.joinedAt, new Date(Date.now() - 7 * DAY)))),
         db.select({ id: workspaceUpdates.id, content: workspaceUpdates.content, createdAt: workspaceUpdates.createdAt, visibility: workspaceUpdates.visibility, audience: workspaceUpdates.audience, authorId: workspaceUpdates.authorId })
             .from(workspaceUpdates).where(and(eq(workspaceUpdates.projectId, v.org.id), eq(workspaceUpdates.updateType, 'announcement'), isNull(workspaceUpdates.deletedAt), gte(workspaceUpdates.createdAt, since),
                 opts.audience ? audienceSql(opts.audience, v.userId) : undefined)),
@@ -78,14 +79,16 @@ async function readActivity(v: OrgViewer, filter: string, opts: { publicOnly?: b
     ]);
     for (const s of sprints) {
         if (s.completedAt) items.push({ id: `sprint-done:${s.id}`, kind: 'sprint', text: `${s.name} completed`, at: s.completedAt.toISOString(), href: `${base}?tab=sprints`, actorId: null });
-        else items.push({ id: `sprint-start:${s.id}`, kind: 'sprint', text: `${s.name} started`, at: s.startDate.toISOString(), href: `${base}?tab=sprints`, actorId: null });
+        // Parity bug 3, report §5.3: when it really started, not the planned date.
+        else items.push({ id: `sprint-start:${s.id}`, kind: 'sprint', text: `${s.name} started`, at: activityTime({ kind: 'sprint', startedAt: s.startedAt, plannedStart: s.startDate }).toISOString(), href: `${base}?tab=sprints`, actorId: null });
     }
     for (const c of children) {
         const seen = c.visibility === 'public' || (v.isInside && (c.visibility !== 'private' || v.isAdmin));
         if ((opts.publicOnly && c.visibility !== 'public') || !seen) continue;
         items.push({ id: `project:${c.id}`, kind: 'project', text: `${c.title} was created`, at: c.createdAt.toISOString(), href: `/workspaces/${encodeURIComponent(c.slug ?? c.id)}`, actorId: c.ownerId });
     }
-    if (joins[0] && joins[0].n > 0) items.push({ id: 'joins:week', kind: 'joins', text: `${plural(joins[0].n, 'person')} joined this week`.replace('persons', 'people'), at: new Date().toISOString(), href: base, actorId: null });
+    // Parity bug 4: the grouped row carries the time of the latest join, not the moment the page loaded.
+    if (joins[0] && joins[0].n > 0) items.push({ id: 'joins:week', kind: 'joins', text: `${plural(joins[0].n, 'person')} joined this week`.replace('persons', 'people'), at: new Date(joins[0].latest ?? Date.now()).toISOString(), href: base, actorId: null });
     for (const p of posts) {
         const everyone = !p.audience || Object.keys(p.audience as object).length === 0;
         // Audience-limited posts reach only their audience (decision 154); without the viewer's audience, everyone-posts only.

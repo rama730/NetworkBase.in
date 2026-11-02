@@ -81,7 +81,8 @@ export default function TopNav() {
     const profileMenuTriggerRef = useRef<HTMLButtonElement>(null);
     const mobileMenuTriggerRef = useRef<HTMLButtonElement>(null);
 
-    const isProjectDetailRoute = pathname.startsWith('/workspaces/');
+    // Report §7.1: on a workspace or organization page the page has its own main action, so this one is outlined.
+    const isProjectDetailRoute = pathname.startsWith('/workspaces/') || pathname.startsWith('/org/');
     const isCreateProjectRoute = pathname === '/workspaces/new';
 
 

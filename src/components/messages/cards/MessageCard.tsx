@@ -16,6 +16,7 @@ import { getTaskStatusLabel } from "@/lib/workspaces/task-presentation";
 import { UserAvatar } from "@/components/ui/UserAvatar";
 import { personName } from "@/lib/messaging/channel-view";
 import type { AnnouncementCardView, AssignmentCardView, ChatCardRef, ChatCardView, InviteCardView, TaskCardView } from "@/lib/messaging/types";
+import { ASSIGNMENT_STATE_LABELS } from "@/lib/copy/terms";
 
 /** Live cards (report 7.10 "Cards"): registry by kind; every action calls the existing domain action, then refetches the card. */
 export function MessageCard({ card }: { card: ChatCardRef }) {
@@ -49,7 +50,7 @@ function AnnouncementCard({ view }: { view: AnnouncementCardView }) {
   );
 }
 
-const COPY_STATE_LABEL: Record<string, string> = { not_started: "Not started", in_progress: "In progress", submitted: "Submitted", returned: "Returned", done: "Completed", missing: "Missing", excused: "Excused" };
+const COPY_STATE_LABEL: Record<string, string> = ASSIGNMENT_STATE_LABELS;
 
 /** An assignment shared in #general: your own status, or counts for owners and admins (report §25.5). */
 function AssignmentCard({ view }: { view: AssignmentCardView }) {

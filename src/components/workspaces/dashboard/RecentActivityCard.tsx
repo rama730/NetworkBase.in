@@ -1,20 +1,10 @@
 "use client";
 
 import { RailSection } from "@/components/ui/rail-section";
-import Link from "next/link";
-import { formatDistanceToNow } from "@/lib/utils/date";
-import { CheckCircle2, FilePlus2, GitBranch, UserRoundPlus } from "lucide-react";
+import { ActivityItem } from "@/components/ui/activity-item";
 import { useQuery } from "@tanstack/react-query";
 import { readWorkspaceRecentActivityAction } from "@/app/actions/workspace/recent-activity";
 import { queryKeys } from "@/lib/query-keys";
-import type { WorkspaceRecentActivityType } from "@/lib/workspaces/recent-activity";
-
-const icons: Record<WorkspaceRecentActivityType, typeof GitBranch> = {
-  member: UserRoundPlus,
-  task: CheckCircle2,
-  file: FilePlus2,
-  github: GitBranch,
-};
 
 export function RecentActivityCard({ projectId }: { projectId: string }) {
   const activity = useQuery({
@@ -35,16 +25,8 @@ export function RecentActivityCard({ projectId }: { projectId: string }) {
         <p className="text-muted-foreground">Recent activity could not be loaded.</p>
         <button type="button" onClick={() => void activity.refetch()} className="font-medium text-primary underline underline-offset-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">Try again</button>
       </div> : <ol className="space-y-3">
-        {activity.data.map((item) => {
-          const Icon = icons[item.type];
-          return <li key={item.id} className="flex min-w-0 items-start gap-2.5">
-            <Icon aria-hidden="true" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-            <div className="min-w-0">
-              <Link href={item.href} className="block break-words leading-5 hover:text-primary hover:underline focus-visible:rounded-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">{item.text}</Link>
-              <time dateTime={item.occurredAt} className="mt-0.5 block font-mono text-xs text-muted-foreground">{formatDistanceToNow(new Date(item.occurredAt), { addSuffix: true })}</time>
-            </div>
-          </li>;
-        })}
+        {/* Report §5.3: the same activity item as the organization's About and Overview. */}
+        {activity.data.map((item) => <ActivityItem key={item.id} kind={item.type} text={item.text} href={item.href} at={item.occurredAt} />)}
       </ol>}
   </RailSection>;
 }

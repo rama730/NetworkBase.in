@@ -19,6 +19,7 @@ import { useQuery } from '@tanstack/react-query'
 import { readSprintAssignmentsAction } from '@/app/actions/sprint-assignments'
 import { RosterDialog } from '@/components/organizations/AssignmentsPanel'
 import type { AssignmentRow } from '@/app/actions/assignments'
+import { ASSIGNMENT_STATE_LABELS } from '@/lib/copy/terms'
 
 // The organization parts of the Sprints tab (report §15.4–15.5). The existing tab keeps its layout.
 
@@ -227,7 +228,7 @@ export function PlanSeriesButton({ projectId, suggestedPrefix, onPlanned }: { pr
     )
 }
 
-const STATE: Record<string, string> = { not_started: 'Not started', in_progress: 'In progress', submitted: 'Submitted', returned: 'Returned', done: 'Completed', missing: 'Missing', excused: 'Excused' }
+const STATE: Record<string, string> = ASSIGNMENT_STATE_LABELS
 const dueText = (iso: string | null) => (iso ? `due ${DAY.format(new Date(iso))}` : 'no due date')
 
 /**

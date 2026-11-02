@@ -1,6 +1,7 @@
 'use client'
 
 import { typeProfile } from '@/lib/organizations/type-profile'
+import { ActivityItem } from '@/components/ui/activity-item'
 import type { ReactNode } from 'react'
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
@@ -71,10 +72,8 @@ export function OrgAboutTab({ project, isCreator, onEdit, memberRole = null, vis
                 ) : null}
                 {data?.activity.length ? (
                     <RailSection title="Recent activity">
-                        <ol className="space-y-2 text-sm">
-                            {data.activity.map((a) => (
-                                <li key={a.id}><Link href={a.href} className="hover:underline">{a.text}</Link><span className="block font-mono text-[11px] text-muted-foreground">{formatDistanceToNow(new Date(a.at), { addSuffix: true })}</span></li>
-                            ))}
+                        <ol className="space-y-3 text-sm">
+                            {data.activity.map((a) => <ActivityItem key={a.id} kind={a.kind} text={a.text} href={a.href} at={a.at} />)}
                         </ol>
                     </RailSection>
                 ) : null}

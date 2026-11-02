@@ -18,6 +18,7 @@ import { getWorkspaceAccessById } from '@/lib/data/workspace-access';
 import { removeWorkspaceMemberInternal } from '@/lib/workspaces/collaborator-lifecycle';
 import { childGrant, orgGrant, type ChildAction, type ChildRole, type OrgRole } from '@/lib/organizations/permissions';
 import { customRoleNames } from '@/lib/organizations/type-profile';
+import { rolePlural } from '@/lib/organizations/role-words';
 import { ORG_SECTION_OWNER_ONLY, ORG_SETTINGS_PATCH, type OrgSettingsSection } from '@/lib/organizations/settings';
 import { generateJoinCode } from '@/lib/organizations/join-rules';
 import { allowedChildVisibilities, type ChildVisibility } from '@/lib/organizations/child-rules';
@@ -413,14 +414,13 @@ export async function readLeavePreviewAction(orgId: string): Promise<{ success: 
         db.select({ orgType: workspaces.orgType, orgSettings: workspaces.orgSettings }).from(workspaces).where(eq(workspaces.id, orgId)).limit(1),
     ]);
     const names = orgRoleNames(org?.orgType, org?.orgSettings);
-    const plural = (word: string) => (/s$/i.test(word) ? word : `${word}s`);
     return {
         success: true,
         preview: {
             teams: teams.map((t) => t.title ?? 'Workspace'),
             led: led.map((l) => ({ id: l.id, title: l.title ?? 'Workspace', slug: l.slug ?? null })),
             open: work?.open ?? 0, submitted: work?.submitted ?? 0,
-            keptBy: `${plural(names.owner)} and ${plural(names.admin)}`,
+            keptBy: `${rolePlural(names.owner)} and ${rolePlural(names.admin)}`,
         },
     };
 }

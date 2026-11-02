@@ -74,6 +74,8 @@ interface ProjectLayoutProps {
     /** The overflow "⋯", always the last header action (after Share). */
     actionsEnd?: React.ReactNode;
     showFollow?: boolean;
+    /** Decision 22: views and followers mean nothing on an organization-only or private workspace. */
+    showStats?: boolean;
     /** Org tab badges (report §18.3): a count, or a dot for something unseen. */
     tabBadges?: Partial<Record<string, number | "dot">>;
     /** The compact bar on Files / Tasks / Sprints (report §18.7): the org's active sprint chip in place of the
@@ -123,6 +125,7 @@ export default function WorkspaceLayout({
     actionsStart = null,
     actionsEnd = null,
     showFollow = true,
+    showStats = true,
     tabBadges = {},
     compactChip,
     compactPrefix = null,
@@ -342,12 +345,12 @@ export default function WorkspaceLayout({
                         {/* Right: actions, then who last updated it, then where it sits. */}
                         <div className="flex min-w-0 flex-col items-end gap-2 max-md:basis-full max-md:items-start" data-testid="workspace-header-side">
                         <div className="flex flex-wrap items-center justify-end gap-2 max-md:justify-start">
-                            <WorkspaceStatsBar
+                            {showStats ? <WorkspaceStatsBar
                                 viewCount={viewCount ?? (project as any)?.viewCount ?? 0}
                                 followersCount={followersCount ?? (project as any)?.followersCount ?? 0}
                                 isTeam={isOwnerOrMember}
                                 className="max-md:basis-full"
-                            />
+                            /> : null}
 
                             {actionsStart}
                             {canInvite && onInvite ? (

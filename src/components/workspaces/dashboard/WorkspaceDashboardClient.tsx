@@ -285,7 +285,8 @@ export default function WorkspaceDashboardClient({ project, currentUserId, viewe
     const resolvedActiveTab = resolveAllowedWorkspaceTab({
         requestedTab: normalizeProjectDetailTabParam(searchParams?.get('tab')),
         isOwnerOrMember: canSeeAllTabs,
-        canManageSettings: isOwner,
+        // Smaller bug 13: admins can open Members, so ?tab=members must not start on Overview and then jump.
+        canManageSettings: isOwner || (isMember && normalizeWorkspaceMemberRole(memberRole, 'member') === 'admin'),
         publicTabVisibility,
         isOrganization,
     });
@@ -1093,7 +1094,7 @@ export default function WorkspaceDashboardClient({ project, currentUserId, viewe
             isOrganization={isOrganization}
             canOpenSettings={isInheritedAdmin}
             breadcrumb={parentOrg ? <OrgBreadcrumb parentOrg={parentOrg} /> : null}
-            identityExtra={parentOrg ? <ChildOrgChips parentOrg={parentOrg} visibility={project.visibility} archived={project.status === 'archived'} /> : organization ? <>{project.status === 'archived' ? <OrgArchivedNotice /> : null}<OrgStatusBanner orgId={project.id} organization={organization} isOwner={isOwner} /></> : null}
+            identityExtra={parentOrg ? <ChildOrgChips parentOrg={parentOrg} visibility={project.visibility} archived={project.status === 'archived'} isWorkspaceMember={isOwnerOrMember} /> : organization ? <>{project.status === 'archived' ? <OrgArchivedNotice /> : null}<OrgStatusBanner orgId={project.id} organization={organization} isOwner={isOwner} /></> : null}
             headerDetails={parentOrg ? <ChildOrgHeaderDetails projectId={project.id} /> : organization ? <OrgHeaderDetails organization={organization} /> : null}
             metadataExtra={organization?.childProjectCount ? <span className="nb-compact text-muted-foreground">· {organization.childProjectCount} {organization.childProjectCount === 1 ? 'workspace' : 'workspaces'}</span> : null}
             tabBadges={tabBadges}
@@ -1107,7 +1108,9 @@ export default function WorkspaceDashboardClient({ project, currentUserId, viewe
                     {parentOrg && isMember ? <DropdownMenuItem onSelect={() => void askToChangeTeam(project.id)}>Ask to change team</DropdownMenuItem> : null}
                 </HeaderReportMenu>
             ) : null}
-            showFollow={!organization || (!isOwnerOrMember && isWorkspacePubliclyReadableVisibility(project.visibility))} onTabHover={handleTabHover} members={allMembers} loadingMembers={loadingMembers} stageLabel={lifecycleStageNames[optimisticStageIndex] ?? null} stageIndex={optimisticStageIndex} stageCount={lifecycleStageNames.length} applicationLabel={applicationHeaderLabel} openRolesCount={rolesWithFilled.filter((role: any) => (role?.count || 0) - (role?.filled || 0) > 0).length}>
+            // Decision 22: inside an organization, Follow is only for outsiders of a public workspace, and the counts go when it isn't public.
+            showFollow={!organization && !parentOrg ? true : !isOwnerOrMember && isWorkspacePubliclyReadableVisibility(project.visibility)}
+            showStats={!parentOrg || isWorkspacePubliclyReadableVisibility(project.visibility)} onTabHover={handleTabHover} members={allMembers} loadingMembers={loadingMembers} stageLabel={lifecycleStageNames[optimisticStageIndex] ?? null} stageIndex={optimisticStageIndex} stageCount={lifecycleStageNames.length} applicationLabel={applicationHeaderLabel} openRolesCount={rolesWithFilled.filter((role: any) => (role?.count || 0) - (role?.filled || 0) > 0).length}>
             {!activeTab && (
                 <div className="w-full h-full min-h-[40vh] flex items-center justify-center p-8">
                     <div className="nb-empty-state max-w-md text-center py-12" role="status">

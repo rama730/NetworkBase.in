@@ -38,14 +38,13 @@ import { splitIntoTeams, type AssignmentTarget, type CopyState } from '@/lib/org
 import { DownloadLink } from '@/components/ui/download-link'
 import { remindSummary } from '@/lib/organizations/member-rules'
 import { toast } from '@/lib/feedback'
+import { ASSIGNMENT_STATE_LABELS } from '@/lib/copy/terms'
 
 // Assignments in the org Tasks tab (report §16.2–16.5, §16.11) and group copies in a child project (§16.6).
 // The Kanban board below stays as it is: members' own copies appear there through the read rule.
 
 const DUE = new Intl.DateTimeFormat('en', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
-const STATE_LABEL: Record<CopyState, string> = {
-    not_started: 'Not started', in_progress: 'In progress', submitted: 'Submitted', returned: 'Returned', done: 'Completed', missing: 'Missing', excused: 'Excused',
-}
+const STATE_LABEL: Record<CopyState, string> = ASSIGNMENT_STATE_LABELS
 const due = (iso: string | null) => (iso ? `due ${DUE.format(new Date(iso))}` : 'no due date')
 const area = 'w-full resize-y rounded-md border border-input bg-transparent px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring'
 const select = 'h-[var(--ui-control-height)] rounded-md border border-input bg-background px-2 text-sm'

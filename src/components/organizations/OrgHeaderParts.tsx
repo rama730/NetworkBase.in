@@ -147,7 +147,8 @@ export function OrgInviteDialog({ orgId, title, joinCode, open, onOpenChange }: 
 /** Above a child project's title: the org, linked for people who can open it (report §18.4). */
 export function OrgBreadcrumb({ parentOrg }: { parentOrg: ParentOrgLink }) {
     const canOpen = Boolean(parentOrg.viewerRole) || parentOrg.isPublic
-    const label = <span className="inline-flex items-center gap-1.5"><Building2 className="size-3.5" aria-hidden="true" />{parentOrg.title} /</span>
+    // Report §17.1: the one organization link, with no trailing slash above the title.
+    const label = <span className="inline-flex items-center gap-1.5"><Building2 className="size-3.5" aria-hidden="true" />{parentOrg.title}</span>
     return (
         <p className="nb-compact text-muted-foreground" data-testid="child-org-breadcrumb">
             {canOpen ? <Link href={`/org/${parentOrg.slug ?? parentOrg.id}`} className="hover:text-foreground hover:underline">{label}</Link> : label}
@@ -155,14 +156,18 @@ export function OrgBreadcrumb({ parentOrg }: { parentOrg: ParentOrgLink }) {
     )
 }
 
-/** `Org only` / `Private` and, for inherited admins, `<Org> admin` (report §18.4, §18.6). */
-export function ChildOrgChips({ parentOrg, visibility, archived }: { parentOrg: ParentOrgLink; visibility: string | null | undefined; archived: boolean }) {
-    const visibilityChip = visibility === 'org' ? 'Organization' : visibility === 'private' ? 'Private' : null
-    if (!visibilityChip && !parentOrg.viewerIsInheritedAdmin && !archived) return null
+/**
+ * Report §17.1: a chip only when something is unusual. Organization-only is the default, so only `Private` shows;
+ * an organization admin who isn't on the team sees a small `Viewing as admin` (never the workspace's own people).
+ */
+export function ChildOrgChips({ parentOrg, visibility, archived, isWorkspaceMember }: { parentOrg: ParentOrgLink; visibility: string | null | undefined; archived: boolean; isWorkspaceMember: boolean }) {
+    const visibilityChip = visibility === 'private' ? 'Private' : null
+    const viewingAsAdmin = parentOrg.viewerIsInheritedAdmin && !isWorkspaceMember
+    if (!visibilityChip && !viewingAsAdmin && !archived) return null
     return (
         <p className="flex flex-wrap items-center gap-1.5" data-testid="child-org-chips">
             {visibilityChip ? <span className="nb-status" data-status="draft">{visibilityChip}</span> : null}
-            {parentOrg.viewerIsInheritedAdmin ? <span className="nb-status" data-status="active">Admin · from {parentOrg.title}</span> : null}
+            {viewingAsAdmin ? <span className="nb-status" data-status="active">Viewing as admin</span> : null}
             {archived && parentOrg.archived ? <span className="nb-status" data-status="archived">Archived with {parentOrg.title}</span> : null}
         </p>
     )

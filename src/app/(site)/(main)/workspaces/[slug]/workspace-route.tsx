@@ -64,7 +64,9 @@ export async function generateWorkspaceRouteMetadata({
     const metadata = shareMetadata(preview ?? genericSharePreview({ kind: 'project', identifier: slug, url }, 'unavailable'));
 
     const tab = firstParam(_searchParams?.tab) ?? 'dashboard';
-    if (tab && preview?.state === 'ready' && !isShareCrawler((await headers()).get('user-agent'))) {
+    // Report §17.1: people who can open the workspace get its real title, even when it isn't public (an
+    // organization-only workspace). The read below uses their own access; crawlers keep the share preview.
+    if (tab && !isShareCrawler((await headers()).get('user-agent'))) {
         const tabTitle = (WORKSPACE_TAB_LABELS as Record<string, string>)[tab];
         if (tabTitle) {
             const { result } = await readProjectRouteShell(slug);
