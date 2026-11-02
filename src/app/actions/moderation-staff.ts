@@ -212,7 +212,11 @@ export async function unsuspendOrgAction(orgId: string): Promise<Result> {
 export async function decideVerificationAction(orgId: string, approve: boolean, note?: string): Promise<Result> {
     const me = await staff();
     if (!me || !uuid.safeParse(orgId).success) return DENIED;
-    await db.update(workspaces).set(approve ? { verifiedAt: new Date(), verificationRequestedAt: null } : { verificationRequestedAt: null })
+    // Report §27.9: a decline keeps its note so the owner sees the reason and can ask again.
+    const declined = { state: 'declined', reason: note?.trim().slice(0, 500) || null, at: new Date().toISOString() };
+    await db.update(workspaces).set(approve
+        ? { verifiedAt: new Date(), verificationRequestedAt: null, orgSettings: sql`coalesce(${workspaces.orgSettings}, '{}'::jsonb) - 'verification'` }
+        : { verificationRequestedAt: null, orgSettings: sql`coalesce(${workspaces.orgSettings}, '{}'::jsonb) || jsonb_build_object('verification', ${JSON.stringify(declined)}::jsonb)` })
         .where(and(eq(workspaces.id, orgId), eq(workspaces.kind, 'organization')));
     const org = await orgLabel(orgId);
     const [row] = await db.select({ ownerId: workspaces.ownerId }).from(workspaces).where(eq(workspaces.id, orgId)).limit(1);

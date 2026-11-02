@@ -1,12 +1,12 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 
 import { db } from '@/lib/db';
 import { workspaces } from '@/lib/db/schema';
 import { getWorkspaceAccessById } from '@/lib/data/workspace-access';
-import { verificationDomain } from '@/lib/organizations/trust-rules';
+import { linkUrls, verificationDomain } from '@/lib/organizations/trust-rules';
 import { createClient } from '@/lib/supabase/server';
 
 // The Verified badge request (report §30.3). Reports go through actions/moderation.ts; staff review in
@@ -16,11 +16,6 @@ type Failure = { success: false; error: string };
 const DENIED: Failure = { success: false, error: "You don’t have permission to do this." };
 
 /** Every URL in a project's links (stored as a map or a list). */
-function linkUrls(links: unknown): string[] {
-    if (Array.isArray(links)) return links.map((item) => (item as { url?: unknown })?.url).filter((url): url is string => typeof url === 'string');
-    return links && typeof links === 'object' ? Object.values(links).filter((url): url is string => typeof url === 'string') : [];
-}
-
 async function signedInUser() {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -40,9 +35,11 @@ export async function requestOrgVerificationAction(orgId: string): Promise<{ suc
     if (org?.verifiedAt) return { success: true, verified: true };
     const websites = linkUrls(org?.links);
     const domain = user.email_confirmed_at ? verificationDomain(user.email, websites) : null;
-    await db.update(workspaces).set(domain
-        ? { verifiedAt: new Date(), verificationDomain: domain, verificationRequestedAt: null }
-        : { verificationRequestedAt: new Date() }).where(eq(workspaces.id, orgId));
+    // Asking again clears a past decline or removal (report §27.9).
+    await db.update(workspaces).set({
+        ...(domain ? { verifiedAt: new Date(), verificationDomain: domain, verificationRequestedAt: null } : { verificationRequestedAt: new Date() }),
+        orgSettings: sql`coalesce(${workspaces.orgSettings}, '{}'::jsonb) - 'verification'`,
+    }).where(eq(workspaces.id, orgId));
     revalidatePath(`/org/${access.project.slug ?? orgId}`);
     return { success: true, verified: Boolean(domain) };
 }

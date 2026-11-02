@@ -33,3 +33,30 @@ export function verificationDomain(ownerEmail: string | null | undefined, websit
 
 /** Join spike (report §30.3): 50+ joins in an hour. */
 export const JOIN_SPIKE_PER_HOUR = 50;
+
+/** The website addresses saved in a project's links. */
+export function linkUrls(links: unknown): string[] {
+  if (Array.isArray(links)) return links.map((item) => (item as { url?: unknown })?.url).filter((url): url is string => typeof url === "string");
+  return links && typeof links === "object" ? Object.values(links).filter((url): url is string => typeof url === "string") : [];
+}
+
+/** Report §27.9: a domain-verified badge holds only while a website in Links is still on that domain. */
+export function websiteStillOnDomain(domain: string, websites: string[]) {
+  return websites.some((url) => {
+    const site = host(url);
+    return Boolean(site && (site === domain || site.endsWith(`.${domain}`) || domain.endsWith(`.${site}`)));
+  });
+}
+
+export type VerificationOutcome = { state: "declined" | "removed"; reason: string | null; at: string };
+
+/**
+ * When a badge is rechecked (report §27.9): the website moving off the verified domain removes ✓; a rename keeps a
+ * domain badge and sends a staff-given one back to Requested; a transfer changes nothing.
+ */
+export function recheckVerification(org: { verified: boolean; domain: string | null }, change: { websites?: string[]; renamed?: boolean }): "keep" | "remove" | "request_again" {
+  if (!org.verified) return "keep";
+  if (org.domain && change.websites && !websiteStillOnDomain(org.domain, change.websites)) return "remove";
+  if (!org.domain && change.renamed) return "request_again";
+  return "keep";
+}

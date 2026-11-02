@@ -9,6 +9,7 @@ import { orgLimitBlock } from "@/lib/organizations/limits";
 import { childCreationBlock, type VisibilityCap } from "@/lib/organizations/child-rules";
 import { readOrgRules, readOrgWork, type OrgWork } from "@/lib/organizations/settings";
 import { isWorkspacePubliclyReadableVisibility } from "@/lib/workspaces/workspace-visibility";
+import { linkUrls } from "@/lib/organizations/trust-rules";
 
 type OrgSettingsRecord = {
   joinMode?: string;
@@ -67,6 +68,10 @@ export type OrgDetail = {
   deletionScheduledAt: string | null;
   verified: boolean;
   verificationRequested: boolean;
+  /** Report §27.9: a decline or removal, with its reason; owners and admins only. */
+  verificationOutcome: import("@/lib/organizations/trust-rules").VerificationOutcome | null;
+  /** A website in Links, which the badge needs. */
+  hasWebsite: boolean;
   /** Owners and admins only. */
   joinCode: string | null;
   joinCodeEnabled: boolean;
@@ -98,6 +103,7 @@ export async function readOrgDetail(
       deletionScheduledAt: workspaces.deletionScheduledAt,
       verifiedAt: workspaces.verifiedAt,
       verificationRequestedAt: workspaces.verificationRequestedAt,
+      externalLinks: workspaces.externalLinks,
       joinCode: workspaces.joinCode,
       joinCodeEnabled: workspaces.joinCodeEnabled,
     }).from(workspaces).where(and(eq(workspaces.id, orgId), eq(workspaces.kind, "organization"))).limit(1),
@@ -149,6 +155,8 @@ export async function readOrgDetail(
     deletionScheduledAt: org.deletionScheduledAt ? org.deletionScheduledAt.toISOString() : null,
     verified: Boolean(org.verifiedAt),
     verificationRequested: Boolean(org.verificationRequestedAt),
+    verificationOutcome: viewer.isAdmin ? ((settings as { verification?: import("@/lib/organizations/trust-rules").VerificationOutcome }).verification ?? null) : null,
+    hasWebsite: linkUrls(org.externalLinks).length > 0,
     joinCode: viewer.isAdmin ? org.joinCode : null,
     joinCodeEnabled: org.joinCodeEnabled,
     handleRenameAvailableAt: renameAt && renameAt.getTime() > Date.now() ? renameAt.toISOString() : null,
@@ -202,6 +210,8 @@ export type ParentOrgLink = {
   coverImage: string | null;
   isPublic: boolean;
   archived: boolean;
+  /** Report §27.7: a suspended organization makes its workspaces read only, and they say so. */
+  suspended: boolean;
   viewerRole: OrgMemberRoleOrNone;
   viewerIsInheritedAdmin: boolean;
   visibilityCap: VisibilityCap;
@@ -229,7 +239,7 @@ export async function readChildOrgLink(
   }
 
   const [[org], admins] = await Promise.all([
-    db.select({ id: workspaces.id, title: workspaces.title, slug: workspaces.slug, coverImage: workspaces.coverImage, visibility: workspaces.visibility, status: workspaces.status, orgSettings: workspaces.orgSettings, orgType: workspaces.orgType, ownerId: workspaces.ownerId })
+    db.select({ id: workspaces.id, title: workspaces.title, slug: workspaces.slug, coverImage: workspaces.coverImage, visibility: workspaces.visibility, status: workspaces.status, orgSettings: workspaces.orgSettings, orgType: workspaces.orgType, ownerId: workspaces.ownerId, suspendedAt: workspaces.suspendedAt })
       .from(workspaces).where(and(eq(workspaces.id, project.parentId), isNull(workspaces.deletedAt))).limit(1),
     db.select({ userId: profiles.id, fullName: profiles.fullName, username: profiles.username, role: workspaceMembers.role })
       .from(workspaceMembers).innerJoin(profiles, eq(profiles.id, workspaceMembers.userId))
@@ -249,6 +259,7 @@ export async function readChildOrgLink(
       coverImage: org.coverImage,
       isPublic: isWorkspacePubliclyReadableVisibility(org.visibility),
       archived: org.status === "archived",
+      suspended: Boolean(org.suspendedAt),
       viewerRole: viewer.parentOrgRole,
       viewerIsInheritedAdmin: inherited,
       visibilityCap: rules.visibilityCap,

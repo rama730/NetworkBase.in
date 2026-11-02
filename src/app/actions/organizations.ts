@@ -328,7 +328,9 @@ export async function renameOrgHandleAction(orgId: string, raw: string): Promise
         if (org.slug === handle) return { success: true as const, handle };
         const changedAt = (org.orgSettings as { handleChangedAt?: string })?.handleChangedAt;
         if (changedAt && Date.now() - new Date(changedAt).getTime() < ORG_LIMITS.handleRenameDays * 24 * 3600 * 1000) {
-            return { success: false as const, error: `You can change the handle once every ${ORG_LIMITS.handleRenameDays} days.` };
+            // Report §27.8: say the day it opens again.
+            const next = new Date(new Date(changedAt).getTime() + ORG_LIMITS.handleRenameDays * 24 * 3600 * 1000);
+            return { success: false as const, error: `You can change it again on ${new Intl.DateTimeFormat('en', { day: 'numeric', month: 'short' }).format(next)}.` };
         }
         // Taking back this org's own held handle is fine; anyone else's address or hold is not.
         const [ownHold] = await tx.select({ handle: orgHandleHolds.handle }).from(orgHandleHolds)

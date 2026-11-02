@@ -132,7 +132,10 @@ async function applyAction(tx: Tx, c: CaseRow, action: ModerationActionKind, mes
         UPDATE workspaces SET deletion_scheduled_at = now() WHERE parent_id = ${c.target_id} AND deleted_at IS NULL AND deletion_scheduled_at IS NULL RETURNING id`);
       children = [...rows].map((r) => r.id);
     }
-    if (action === "remove_verified") await tx.execute(sql`UPDATE workspaces SET verified_at = NULL WHERE id = ${c.target_id}`);
+    // Report §27.9: the owner sees why, and can ask again.
+    if (action === "remove_verified") await tx.execute(sql`UPDATE workspaces SET verified_at = NULL, verification_domain = NULL,
+      org_settings = coalesce(org_settings, '{}'::jsonb) || jsonb_build_object('verification', jsonb_build_object('state', 'removed', 'reason', ${message ?? null}::text, 'at', now()))
+      WHERE id = ${c.target_id}`);
     return { restore: { workspace: w ?? null, ...(children.length ? { children } : {}) }, endsAt };
   }
   // Account actions apply to the person responsible.
@@ -205,7 +208,7 @@ async function revertAction(tx: Tx, a: { action: ModerationActionKind; target_ki
       const children = Array.isArray(r.children) ? (r.children as string[]) : [];
       if (children.length) await tx.execute(sql`UPDATE workspaces SET deletion_scheduled_at = NULL WHERE id IN (${sql.join(children.map((id) => sql`${id}`), sql`, `)})`);
     }
-    if (a.action === "remove_verified") await tx.execute(sql`UPDATE workspaces SET verified_at = ${ts(w.verified_at)}::timestamptz WHERE id = ${a.target_id}`);
+    if (a.action === "remove_verified") await tx.execute(sql`UPDATE workspaces SET verified_at = ${ts(w.verified_at)}::timestamptz, org_settings = coalesce(org_settings, '{}'::jsonb) - 'verification' WHERE id = ${a.target_id}`);
   }
   if (a.action === "suspension" && a.subject_id && typeof r.visibility === "string") {
     await tx.execute(sql`UPDATE profiles SET visibility = ${r.visibility} WHERE id = ${a.subject_id} AND app_private.moderation_restriction(${a.subject_id}::uuid) IS DISTINCT FROM 'ban'`);

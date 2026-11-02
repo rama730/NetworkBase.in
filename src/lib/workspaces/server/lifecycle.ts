@@ -3,6 +3,7 @@ import { customRoleNames, savedTypeSettings, typeProfile } from "@/lib/organizat
 
 import { type WorkspaceVisibility, isWorkspaceVisibility } from "@/lib/workspaces/workspace-visibility";
 import { db } from "@/lib/db";
+import { recheckOrgVerification } from "@/lib/organizations/verification";
 import { workspaces, workspaceMembers, profiles, workspaceOpenRoles, tags, workspaceTags, storageAssets, workspaceNodeEvents, workspaceMentors, workspaceFollows, roleApplications } from "@/lib/db/schema";
 import { eq, sql, inArray, and, desc, isNull, gt, ilike } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
@@ -1579,6 +1580,8 @@ export async function updateWorkspace(projectId: string, input: UpdateWorkspaceI
         revalidatePath(`/workspaces/${slug}`);
         revalidatePath(`/workspaces/${id}`);
         await invalidateWorkspacePublicCaches(id);
+        // Report §27.9: a rename sends a staff-given badge back for review.
+        if (data.title !== undefined) await recheckOrgVerification(id, { renamed: true });
         for (const closed of closedApplications) {
           await notifyClosedApplications(closed.items, { reason: closed.reason, projectId: id, projectSlug: slug, projectTitle: title, actorUserId: user.id, traceId: `project_update_${id.slice(0, 8)}` });
         }
@@ -2000,6 +2003,8 @@ export async function updateWorkspaceExternalLinksAction(
       });
     });
     await revalidateWorkspacePaths(projectId);
+    // Report §27.9: an organization's badge holds only while its website stays on the verified domain.
+    await recheckOrgVerification(projectId, { links: true });
     logger.metric("project.social_links.update", {
       projectId,
       userId: user.id,

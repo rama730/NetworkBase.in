@@ -95,3 +95,13 @@ test("29.4, decision 63: the join page says what admins can see, in the organiza
   assert.equal(adminsCanSeeLine("CSE 3B", { owner: "Teacher", admin: "TA" }),
     "CSE 3B’s Teachers and TAs can see your work here and when you were last active here. They can’t see your DMs or anything outside CSE 3B.");
 });
+
+test("27.9, decision 56: a badge is rechecked when the website or name changes", async () => {
+  const { recheckVerification } = await import("@/lib/organizations/trust-rules");
+  const byDomain = { verified: true, domain: "rvce.edu.in" };
+  assert.equal(recheckVerification(byDomain, { websites: ["https://www.rvce.edu.in/cse"] }), "keep");
+  assert.equal(recheckVerification(byDomain, { websites: ["https://cse3b.example.com"] }), "remove", "moved off the verified domain");
+  assert.equal(recheckVerification(byDomain, { renamed: true }), "keep", "a rename keeps a domain badge");
+  assert.equal(recheckVerification({ verified: true, domain: null }, { renamed: true }), "request_again", "a staff badge goes back to Requested");
+  assert.equal(recheckVerification({ verified: false, domain: null }, { renamed: true }), "keep");
+});

@@ -733,26 +733,34 @@ export function OrgUpdatesSection({ orgId, organization, memberPosts }: { orgId:
     )
 }
 
-/**
- * Settings → General, Verified badge (report §30.3): automatic when your verified email domain matches the
- * organization's website; otherwise the NetworkBase team reviews the request.
- */
-export function OrgVerificationSection({ orgId, organization }: { orgId: string; organization: OrgDetail }) {
+/** Verified badge (report §22.4, §27.9): each state says what ✓ means and what to do next. Owner only. */
+export function OrgVerificationSection({ orgId, organization, onOpenLinks }: { orgId: string; organization: OrgDetail; onOpenLinks?: () => void }) {
     const { pending, save, status } = useSave()
+    const outcome = organization.verificationOutcome
+    const ask = (label: string) => (
+        <div className="flex items-center gap-3">
+            <Button disabled={pending} onClick={() => save(async () => {
+                const result = await requestOrgVerificationAction(orgId)
+                return result.success ? { success: true } : result
+            })}>{label}</Button>
+            {status}
+        </div>
+    )
     return (
-        <SettingsCard title="Verified badge" headingLevel={2} description="A ✓ next to the name on the header, cards and Discover.">
+        <SettingsCard title="Verified badge" headingLevel={2} description="A ✓ next to the name on the header, cards and Discover. It says NetworkBase checked this organization is who it says it is.">
             {organization.verified ? <p className="text-sm text-foreground">This organization is verified.</p>
                 : organization.verificationRequested ? <p className="text-sm text-muted-foreground">Requested. The NetworkBase team will review it.</p>
-                : (
+                : !organization.hasWebsite ? (
+                    <p className="text-sm">Add your website in Links first.{onOpenLinks ? <> <button type="button" className="text-primary underline underline-offset-4" onClick={onOpenLinks}>Go to Links</button></> : null}</p>
+                ) : outcome ? (
+                    <div className="space-y-3">
+                        <p className="text-sm">{outcome.state === 'declined' ? 'Not verified this time.' : 'The badge was removed.'}{outcome.reason ? ` ${outcome.reason}` : ''}</p>
+                        {ask('Ask again')}
+                    </div>
+                ) : (
                     <div className="space-y-3">
                         <p className={helpClass}>Verified at once when your email address is on the same domain as the website in Links (not Gmail, Outlook and the like). Otherwise our team reviews it.</p>
-                        <div className="flex items-center gap-3">
-                            <Button disabled={pending} onClick={() => save(async () => {
-                                const result = await requestOrgVerificationAction(orgId)
-                                return result.success ? { success: true } : result
-                            })}>Request verification</Button>
-                            {status}
-                        </div>
+                        {ask('Request verification')}
                     </div>
                 )}
         </SettingsCard>

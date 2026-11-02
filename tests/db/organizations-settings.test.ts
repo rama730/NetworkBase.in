@@ -96,7 +96,7 @@ test("renaming the handle: owner only, holds the old handle for redirects, once 
   assert.equal((await settingsOf(id)).slug, next);
   assert.equal(await detail.resolveHeldOrgHandle(oldHandle), next);
   const again = await orgs.renameOrgHandleAction(id, `${next}-2`);
-  assert.equal(!again.success && /7 days/.test(again.error), true, JSON.stringify(again));
+  assert.equal(!again.success && /You can change it again on/.test(again.error), true, JSON.stringify(again));
   const other = await org();
   viewerId = other.owner;
   assert.equal((await orgs.renameOrgHandleAction(other.id, oldHandle)).success, false, "a held handle is taken");

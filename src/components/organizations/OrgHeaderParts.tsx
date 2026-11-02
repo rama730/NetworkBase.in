@@ -118,12 +118,13 @@ export function OrgBreadcrumb({ parentOrg }: { parentOrg: ParentOrgLink }) {
 export function ChildOrgChips({ parentOrg, visibility, archived, isWorkspaceMember }: { parentOrg: ParentOrgLink; visibility: string | null | undefined; archived: boolean; isWorkspaceMember: boolean }) {
     const visibilityChip = visibility === 'private' ? 'Private' : null
     const viewingAsAdmin = parentOrg.viewerIsInheritedAdmin && !isWorkspaceMember
-    if (!visibilityChip && !viewingAsAdmin && !archived) return null
+    if (!visibilityChip && !viewingAsAdmin && !archived && !parentOrg.suspended) return null
     return (
         <p className="flex flex-wrap items-center gap-1.5" data-testid="child-org-chips">
             {visibilityChip ? <span className="nb-status" data-status="draft">{visibilityChip}</span> : null}
             {viewingAsAdmin ? <span className="nb-status" data-status="active">Viewing as admin</span> : null}
             {archived && parentOrg.archived ? <span className="nb-status" data-status="archived">Archived with {parentOrg.title}</span> : null}
+            {parentOrg.suspended ? <span className="nb-status" data-status="blocked">{parentOrg.title} is suspended · read only</span> : null}
         </p>
     )
 }

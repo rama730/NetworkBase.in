@@ -1410,7 +1410,7 @@ function ProjectSettingsContent({
                     />
                 )}
                 {organization && sections.some((s) => s.id === "general") ? <OrgHandleSection orgId={projectId} organization={organization} role={orgRole} handle={project?.slug ?? null} /> : null}
-                {organization && isProjectOwner && sections.some((s) => s.id === "general") ? <OrgVerificationSection orgId={projectId} organization={organization} /> : null}
+                {organization && isProjectOwner && sections.some((s) => s.id === "general") ? <OrgVerificationSection orgId={projectId} organization={organization} onOpenLinks={() => handleNavigateSection("links")} /> : null}
                 {sections.some((s) => s.id === "child-org") && project ? <ChildOrgSection project={project} isLead={isProjectOwner} canManage={canManageSettings} /> : null}
                 {organization && sections.some((s) => s.id === "org-profile") && <OrgProfileSection orgId={projectId} organization={organization} role={orgRole} />}
                 {sections.some((s) => s.id === "links") && (
