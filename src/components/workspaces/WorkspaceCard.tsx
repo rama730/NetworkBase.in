@@ -68,7 +68,7 @@ export default memo(function ProjectCard({ project, viewModel, isFollowing = fal
     const orgTypeLabel = project.orgTypeLabel ?? (project.orgType ? project.orgType.charAt(0).toUpperCase() + project.orgType.slice(1) : "Organization");
     // A child project's org line, its own link above the card link (report §24.2).
     const orgLine = project.cardOrg ? (
-        <Link href={`/org/${encodeURIComponent(project.cardOrg.slug ?? "")}`} className="relative z-10 -mb-1 inline-flex w-fit items-center gap-1 text-[12px] text-muted-foreground hover:text-foreground hover:underline">
+        <Link prefetch={false} href={`/org/${encodeURIComponent(project.cardOrg.slug ?? "")}`} className="relative z-10 -mb-1 inline-flex w-fit items-center gap-1 text-[12px] text-muted-foreground hover:text-foreground hover:underline">
             <span aria-hidden="true" className="inline-block size-2 rounded-[2px] bg-foreground/60" />{project.cardOrg.title} /
         </Link>
     ) : null;
@@ -112,7 +112,7 @@ export default memo(function ProjectCard({ project, viewModel, isFollowing = fal
                 <div className="min-w-0 flex-1">
                     {typeChip ? <div className="float-right">{typeChip}</div> : null}
                     <h3 className="nb-project-card-title min-w-0">
-                        <Link href={href} onClick={(event) => { if (!event.metaKey && !event.ctrlKey && !event.shiftKey) onOpenProject?.(project.id); }} className="after:absolute after:inset-0 after:rounded-lg focus-visible:outline-none">{project.title}</Link>
+                        <Link prefetch={false} href={href} onClick={(event) => { if (!event.metaKey && !event.ctrlKey && !event.shiftKey) onOpenProject?.(project.id); }} className="after:absolute after:inset-0 after:rounded-lg focus-visible:outline-none">{project.title}</Link>
                     </h3>
                     {partOfLine}
                     {(project.shortDescription || project.description) && (
@@ -127,7 +127,7 @@ export default memo(function ProjectCard({ project, viewModel, isFollowing = fal
             <>
                 <div className="flex flex-wrap items-start gap-2">
                     <h3 className="nb-project-card-title min-w-0">
-                        <Link href={href} onClick={(event) => { if (!event.metaKey && !event.ctrlKey && !event.shiftKey) onOpenProject?.(project.id); }} className="after:absolute after:inset-0 after:rounded-lg focus-visible:outline-none">{project.title}</Link>
+                        <Link prefetch={false} href={href} onClick={(event) => { if (!event.metaKey && !event.ctrlKey && !event.shiftKey) onOpenProject?.(project.id); }} className="after:absolute after:inset-0 after:rounded-lg focus-visible:outline-none">{project.title}</Link>
                     </h3>
                     {partOfLine}
                     {typeChip}
@@ -155,7 +155,7 @@ export default memo(function ProjectCard({ project, viewModel, isFollowing = fal
                 {collaborators.length === 0 && <span className="nb-meta inline-flex items-center gap-1"><Users size={14} aria-hidden="true" />No team yet</span>}
                 {isOrg ? <>
                     {typeof project.childProjectCount === "number" ? <span className="nb-meta">{project.childProjectCount} {project.childProjectCount === 1 ? "project" : "projects"}</span> : null}
-                    {project.slug ? <Link href={`/discover?org=${encodeURIComponent(project.slug)}`} className="nb-meta relative z-10 hover:text-foreground hover:underline" title={`Show everything from ${project.title}`}>Show everything</Link> : null}
+                    {project.slug ? <Link prefetch={false} href={`/discover?org=${encodeURIComponent(project.slug)}`} className="nb-meta relative z-10 hover:text-foreground hover:underline" title={`Show everything from ${project.title}`}>Show everything</Link> : null}
                 </> : applicationChip ? <span className="nb-status relative z-10" data-status={APPLICATION_CHIP_TONE[applicationChip]} title="Your application in this workspace">{APPLICATION_CHIP_LABEL[applicationChip]}</span>
                     : totalOpenRoles > 0 && <span className="nb-meta text-primary">{totalOpenRoles} open {totalOpenRoles === 1 ? "role" : "roles"}</span>}
             </div>
@@ -197,7 +197,7 @@ export default memo(function ProjectCard({ project, viewModel, isFollowing = fal
         </div>
         {error === "signed-out" ? (
             <p role="alert" className="relative z-10 nb-compact text-muted-foreground">
-                <Link href={`${ROUTES.LOGIN}?redirect=${encodeURIComponent(href)}`} className="font-medium text-primary hover:underline">Sign in</Link> to follow workspaces.
+                <Link prefetch={false} href={`${ROUTES.LOGIN}?redirect=${encodeURIComponent(href)}`} className="font-medium text-primary hover:underline">Sign in</Link> to follow workspaces.
             </p>
         ) : error === "failed" ? (
             <ErrorNotice message="Couldn’t update your follow." onRetry={() => void toggleFollow()} className="relative z-10" />

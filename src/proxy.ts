@@ -178,6 +178,10 @@ export async function proxy(request: NextRequest) {
     return response;
   }
 
+  // Every server action POSTs to the current page, so only its id says which read or write is busy.
+  const serverAction = request.headers.get("next-action");
+  if (serverAction) console.info(JSON.stringify({ event: "server_action", route: toPrivacySafeRouteMetric(request.nextUrl.pathname), action: serverAction }));
+
   const nonce = toBase64Url(crypto.getRandomValues(new Uint8Array(24)).buffer);
   requestHeaders.set(CSP_NONCE_HEADER, nonce);
 
@@ -217,6 +221,6 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|txt|xml|map|woff2?|ttf|eot)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|txt|xml|map|woff2?|ttf|eot|webmanifest|json|mp3)$).*)",
   ],
 };

@@ -107,7 +107,7 @@ function ProjectLink({ update, onVisit }: { update: DiscoverUpdateView; onVisit:
     const [coverFailed, setCoverFailed] = useState(false);
     const href = `/workspaces/${encodeURIComponent(update.projectSlug || update.projectId)}`;
     return (
-        <Link
+        <Link prefetch={false}
             href={href}
             onClick={onVisit}
             className="inline-flex min-h-11 min-w-0 max-w-full items-center gap-1.5 rounded-[5px] px-2.5 text-xs text-muted-foreground hover:text-foreground focus-visible:underline"
@@ -154,7 +154,7 @@ export default memo(function DiscoverUpdateCard({ update, viewerId, onOpen, onHi
         >
             <div className="flex items-start gap-3">
                 {!masked && author.username ? (
-                    <Link href={`/u/${author.username}`} className="shrink-0 rounded-[6px] focus-visible:opacity-80" aria-label={`${authorName}'s profile`}>
+                    <Link prefetch={false} href={`/u/${author.username}`} className="shrink-0 rounded-[6px] focus-visible:opacity-80" aria-label={`${authorName}'s profile`}>
                         <UserAvatar identity={{ fullName: authorName, username: author.username, avatarUrl: author.avatarUrl }} size={40} className="rounded-[6px]" />
                     </Link>
                 ) : (
@@ -163,7 +163,7 @@ export default memo(function DiscoverUpdateCard({ update, viewerId, onOpen, onHi
                 <div className="min-w-0 flex-1 self-center">
                     <h3 id={titleId} className="flex min-w-0 flex-wrap items-baseline gap-x-2 text-[15px] font-semibold leading-tight text-foreground">
                         {!masked && author.username ? (
-                            <Link href={`/u/${author.username}`} className="truncate hover:underline focus-visible:underline">{authorName}</Link>
+                            <Link prefetch={false} href={`/u/${author.username}`} className="truncate hover:underline focus-visible:underline">{authorName}</Link>
                         ) : (
                             <span className="truncate">{authorName}</span>
                         )}
@@ -226,7 +226,7 @@ export default memo(function DiscoverUpdateCard({ update, viewerId, onOpen, onHi
                                 <Heart className={cn("h-3.5 w-3.5", update.likedByViewer && "fill-current text-[var(--status-danger)]")} aria-hidden="true" />
                             </button>
                         ) : (
-                            <Link
+                            <Link prefetch={false}
                                 href={signInHref}
                                 onClick={(e) => e.stopPropagation()}
                                 className="inline-flex items-center justify-center hover:text-foreground focus-visible:underline"
@@ -283,7 +283,7 @@ export default memo(function DiscoverUpdateCard({ update, viewerId, onOpen, onHi
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                             <DropdownMenuItem asChild>
-                                <Link href={directHref} onClick={() => onVisitProject(update.projectId)}>View in workspace</Link>
+                                <Link prefetch={false} href={directHref} onClick={() => onVisitProject(update.projectId)}>View in workspace</Link>
                             </DropdownMenuItem>
                             <DropdownMenuItem onSelect={() => onHide(update.id)}>Hide update</DropdownMenuItem>
                             {viewerId ? <MutePostMenuItem updateId={update.id} /> : null}

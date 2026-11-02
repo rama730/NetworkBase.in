@@ -151,7 +151,7 @@ export async function POST(request: Request) {
           success: true,
           status: 200,
         });
-        return jsonSuccess({ session: shapeSessionPayload(currentSession) });
+        return jsonSuccess({});
       }
 
       logApiRoute(request, {
@@ -182,7 +182,8 @@ export async function POST(request: Request) {
       success: true,
       status: 200,
     });
-    return jsonSuccess({ session: shapeSessionPayload(data.session) });
+    // The browser already holds these tokens and never reads this body.
+    return jsonSuccess({});
   } catch (error) {
     logger.error("auth.session.failed", { requestId, mode, error });
     logApiRoute(request, {

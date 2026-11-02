@@ -413,7 +413,7 @@ function Section({ id, title, count, noun = "unread", collapsed, onToggle, actio
 /** Small icon button in a section header (+, mark read). Always visible on touch, on hover with a mouse. */
 function HeaderButton({ label, onClick, children, href }: { label: string; onClick?: () => void; children: ReactNode; href?: string }) {
   const className = "nb-icon-button size-7 flex-none pointer-coarse:size-11 focus-visible:opacity-100 pointer-fine:opacity-0 pointer-fine:group-hover/section:opacity-100 pointer-fine:group-focus-within/section:opacity-100";
-  if (href) return <Link href={href} prefetch={true} className={className} aria-label={label} title={label}>{children}</Link>;
+  if (href) return <Link href={href} className={className} aria-label={label} title={label}>{children}</Link>;
   return <button type="button" onClick={onClick} className={className} aria-label={label} title={label}>{children}</button>;
 }
 

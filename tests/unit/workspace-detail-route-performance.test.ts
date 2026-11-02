@@ -18,10 +18,10 @@ test("project detail has an immediate route shell and a shared server read", () 
   assert.match(loading, /aria-label="Loading workspace"/);
 });
 
-test("project cards use one native route-prefetch path", () => {
+test("scrolling past project cards fetches no pages", () => {
   const card = source("src/components/workspaces/WorkspaceCard.tsx");
 
-  assert.doesNotMatch(card, /prefetch=\{false\}/);
+  assert.match(card, /<Link prefetch=\{false\} href=\{href\}/);
   assert.doesNotMatch(card, /useRouteWarmPrefetch/);
 });
 

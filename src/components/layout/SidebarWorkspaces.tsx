@@ -41,14 +41,14 @@ function OrgRow({ org, active }: { org: SidebarOrg; active: (href: string) => bo
         <div>
             {/* The row is the highlight; the name's link stretches across it, and the plus and drop-down sit above that link. */}
             <div className="nb-nav-link relative" style={{ gap: 0 }} aria-current={current} data-org-row>
-                <Link href={href} className="flex min-w-0 flex-1 items-center justify-center gap-2 after:absolute after:inset-0 after:rounded-[5px]" title={org.title} aria-current={current}
+                <Link prefetch={false} href={href} className="flex min-w-0 flex-1 items-center justify-center gap-2 after:absolute after:inset-0 after:rounded-[5px]" title={org.title} aria-current={current}
                     aria-label={`${org.title}${org.needsYou ? `, ${org.needsYou} need you` : ""}${org.unseenAnnouncement ? ", new announcement" : ""}`}>
                     <Mark title={org.title} logo={org.logo} />
                     <span className="nb-sidebar-label min-w-0 flex-1 truncate pr-2">{org.title}</span>
                 </Link>
                 <div className="flex shrink-0 items-center gap-1">
                     {org.canCreate ? (
-                        <Link href={`/workspaces/new?org=${encodeURIComponent(org.id)}`} className="nb-sidebar-label relative z-10 rounded p-0.5 text-muted-foreground hover:text-foreground" aria-label={`New workspace in ${org.title}`} title={`New workspace in ${org.title}`}>
+                        <Link prefetch={false} href={`/workspaces/new?org=${encodeURIComponent(org.id)}`} className="nb-sidebar-label relative z-10 rounded p-0.5 text-muted-foreground hover:text-foreground" aria-label={`New workspace in ${org.title}`} title={`New workspace in ${org.title}`}>
                             <Plus className="size-3.5" />
                         </Link>
                     ) : null}
@@ -62,12 +62,12 @@ function OrgRow({ org, active }: { org: SidebarOrg; active: (href: string) => bo
             {open && (org.children.length > 0 || org.isAdmin) ? (
                 <div className="nb-sidebar-label ml-7 space-y-0.5">
                     {org.children.map((child) => (
-                        <Link key={child.id} href={projectHref(child)} className="nb-nav-link py-1 text-[13px]" title={child.title} aria-current={active(projectHref(child)) ? "page" : undefined}>
+                        <Link prefetch={false} key={child.id} href={projectHref(child)} className="nb-nav-link py-1 text-[13px]" title={child.title} aria-current={active(projectHref(child)) ? "page" : undefined}>
                             <span className="truncate">{child.title}</span>
                         </Link>
                     ))}
-                    {org.moreChildren > 0 ? <Link href={`${href}?tab=projects`} className="block px-2 py-0.5 text-xs text-muted-foreground hover:text-foreground">See all</Link> : null}
-                    {org.isAdmin ? <Link href={`${href}?tab=projects`} className="block px-2 py-0.5 text-xs text-muted-foreground hover:text-foreground">All workspaces</Link> : null}
+                    {org.moreChildren > 0 ? <Link prefetch={false} href={`${href}?tab=projects`} className="block px-2 py-0.5 text-xs text-muted-foreground hover:text-foreground">See all</Link> : null}
+                    {org.isAdmin ? <Link prefetch={false} href={`${href}?tab=projects`} className="block px-2 py-0.5 text-xs text-muted-foreground hover:text-foreground">All workspaces</Link> : null}
                 </div>
             ) : null}
         </div>
@@ -86,20 +86,20 @@ export function SidebarWorkspaces({ data }: { data: Data }) {
             {orgs.map((org) => <OrgRow key={org.id} org={org} active={active} />)}
             {!showAllOrgs && data.orgs.length > MAX_ORGS ? <button type="button" onClick={() => setShowAllOrgs(true)} className="nb-sidebar-label px-2 py-1 text-xs text-muted-foreground hover:text-foreground">More ({data.orgs.length - MAX_ORGS})</button> : null}
             {data.requested.map((org) => (
-                <Link key={org.id} href={`${orgHref(org)}?tab=about`} className="nb-nav-link opacity-60" title={`${org.title} · Requested`}>
+                <Link prefetch={false} key={org.id} href={`${orgHref(org)}?tab=about`} className="nb-nav-link opacity-60" title={`${org.title} · Requested`}>
                     <Mark title={org.title} />
                     <span className="nb-sidebar-label truncate">{org.title}</span>
                     <span className="nb-sidebar-label ml-auto text-[11px] text-muted-foreground">Requested</span>
                 </Link>
             ))}
             {data.outside.map((p) => (
-                <Link key={p.id} href={projectHref(p)} className="nb-nav-link" title={`${p.orgTitle} / ${p.title}`} aria-current={active(projectHref(p)) ? "page" : undefined}>
+                <Link prefetch={false} key={p.id} href={projectHref(p)} className="nb-nav-link" title={`${p.orgTitle} / ${p.title}`} aria-current={active(projectHref(p)) ? "page" : undefined}>
                     <Mark title={p.title} />
                     <span className="nb-sidebar-label truncate"><span className="text-muted-foreground">{p.orgTitle} / </span>{p.title}</span>
                 </Link>
             ))}
             {data.personal.map((p) => (
-                <Link key={p.id} href={projectHref(p)} className="nb-nav-link" title={p.title} aria-current={active(projectHref(p)) ? "page" : undefined}>
+                <Link prefetch={false} key={p.id} href={projectHref(p)} className="nb-nav-link" title={p.title} aria-current={active(projectHref(p)) ? "page" : undefined}>
                     <Mark title={p.title} logo={p.logo} />
                     <span className="nb-sidebar-label truncate">{p.title}</span>
                 </Link>
@@ -111,13 +111,13 @@ export function SidebarWorkspaces({ data }: { data: Data }) {
                         {showArchived ? <ChevronDown className="size-3.5" /> : <ChevronRight className="size-3.5" />}Archived ({data.archived.length})
                     </button>
                     {showArchived ? data.archived.map((p) => (
-                        <Link key={p.id} href={p.kind === "organization" ? orgHref(p) : projectHref(p)} className={cn("nb-nav-link ml-5 py-1 text-[13px] text-muted-foreground")} title={p.title}>
+                        <Link prefetch={false} key={p.id} href={p.kind === "organization" ? orgHref(p) : projectHref(p)} className={cn("nb-nav-link ml-5 py-1 text-[13px] text-muted-foreground")} title={p.title}>
                             <span className="truncate">{p.title}</span>
                         </Link>
                     )) : null}
                 </div>
             ) : null}
-            <Link href="/join" className="nb-sidebar-label flex items-center gap-1.5 px-2 py-1 text-xs text-muted-foreground hover:text-foreground"><Plus className="size-3.5" aria-hidden="true" />Join with code</Link>
+            <Link prefetch={false} href="/join" className="nb-sidebar-label flex items-center gap-1.5 px-2 py-1 text-xs text-muted-foreground hover:text-foreground"><Plus className="size-3.5" aria-hidden="true" />Join with code</Link>
         </div>
     );
 }

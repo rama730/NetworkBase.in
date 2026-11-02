@@ -89,7 +89,7 @@ export function HomePane() {
         {project ? (
           <Button asChild variant="outline" size="sm"><Link href={`/messages/w/${project.id}/browse`}><Compass size={16} aria-hidden="true" /> Browse channels</Link></Button>
         ) : null}
-        <Button asChild size="sm"><Link href="/messages/new" prefetch={true}><SquarePen size={16} aria-hidden="true" /> New message</Link></Button>
+        <Button asChild size="sm"><Link href="/messages/new"><SquarePen size={16} aria-hidden="true" /> New message</Link></Button>
       </header>
       <div className="app-scroll app-scroll-y min-h-0 flex-1">
       {caughtUp ? (

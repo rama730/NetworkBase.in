@@ -91,6 +91,9 @@ export async function bootstrapBrowserSessionFromServer() {
     const refreshToken = body?.data?.session?.refreshToken?.trim() || '';
     if (!accessToken || !refreshToken) return null;
 
+    // These tokens came from the server, so adopting them has nothing to sync back.
+    lastSyncedSessionToken = `${accessToken}:${refreshToken}`;
+
     return {
         access_token: accessToken,
         refresh_token: refreshToken,

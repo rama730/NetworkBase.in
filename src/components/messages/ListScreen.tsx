@@ -19,7 +19,7 @@ export function ListScreen({ onSelect, onNewMessage, onInbox, actions }: { onSel
         {onNewMessage ? (
           <button type="button" onClick={onNewMessage} className="nb-icon-button nb-touch-target" aria-label="New message"><SquarePen size={16} aria-hidden="true" /></button>
         ) : (
-          <Link href="/messages/new" prefetch={true} className="nb-icon-button nb-touch-target" aria-label="New message"><SquarePen size={16} aria-hidden="true" /></Link>
+          <Link href="/messages/new" className="nb-icon-button nb-touch-target" aria-label="New message"><SquarePen size={16} aria-hidden="true" /></Link>
         )}
         {actions}
       </header>

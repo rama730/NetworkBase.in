@@ -54,9 +54,15 @@ const nextConfig: NextConfig = {
         ],
       },
       {
-        source: '/(favicon.ico|favicon.svg|manifest.webmanifest|robots.txt|apple-touch-icon.png)',
+        source: '/(favicon.ico|favicon.svg|robots.txt|apple-touch-icon.png)',
         headers: [
           { key: 'Cache-Control', value: 'public, max-age=0, must-revalidate' },
+        ],
+      },
+      {
+        source: '/manifest.webmanifest',
+        headers: [
+          { key: 'Cache-Control', value: 'public, max-age=86400' },
         ],
       },
       {
@@ -125,6 +131,8 @@ const nextConfig: NextConfig = {
   experimental: {
     globalNotFound: true,
     scrollRestoration: true,
+    // Going back to a page within 30 s reuses it; a server action or router.refresh still clears it.
+    staleTimes: { dynamic: 30 },
     // ponytail: disabling persistent dev cache avoids observed multi-second compaction stalls. ceiling: slower cold dev starts. upgrade: re-enable once Turbopack compaction stops stalling.
     turbopackFileSystemCacheForDev: false,
     optimizePackageImports: [
