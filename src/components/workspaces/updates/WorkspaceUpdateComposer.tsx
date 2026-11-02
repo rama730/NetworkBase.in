@@ -148,6 +148,7 @@ export function WorkspaceUpdateComposer({
     canCreate,
     canManage,
     isPosting,
+    defaultVisibility = "public",
     onPost,
 }: {
     projectId: string;
@@ -158,20 +159,23 @@ export function WorkspaceUpdateComposer({
     canCreate: boolean;
     canManage: boolean;
     isPosting: boolean;
+    /** Members in an organization (decision 152); Public everywhere else, as before. */
+    defaultVisibility?: WorkspaceUpdateVisibility;
+    /** Resolves false when the post failed, so what was written and its audience stay (report §42.15 problem 44). */
     onPost: (input: {
         content: string;
         updateType: null;
         visibility: WorkspaceUpdateVisibility;
         entityRefs: WorkspaceUpdateEntityRefs;
     media: WorkspaceUpdateMediaItem[];
-    }) => void;
+    }) => void | Promise<boolean>;
 }) {
     const containerRef = useRef<HTMLDivElement | null>(null);
     const imageInputRef = useRef<HTMLInputElement | null>(null);
     const pendingMediaUploadsRef = useRef<PendingMediaUpload[]>([]);
     const [content, setContent] = useState("");
     const [expanded, setExpanded] = useState(false);
-    const [visibility, setVisibility] = useState<WorkspaceUpdateVisibility>("public");
+    const [visibility, setVisibility] = useState<WorkspaceUpdateVisibility>(defaultVisibility);
     const [entityRefs, setEntityRefs] = useState<WorkspaceUpdateEntityRefs>(EMPTY_REFS);
     const [media, setMedia] = useState<WorkspaceUpdateMediaItem[]>([]);
     const [pendingMediaUploads, setPendingMediaUploads] = useState<PendingMediaUpload[]>([]);
@@ -272,7 +276,7 @@ export function WorkspaceUpdateComposer({
             if (cancelled) return;
 
             let initialContent = "";
-            let initialVisibility: WorkspaceUpdateVisibility = "public";
+            let initialVisibility: WorkspaceUpdateVisibility = defaultVisibility;
             let initialEntityRefs: WorkspaceUpdateEntityRefs = {};
             let initialMedia: WorkspaceUpdateMediaItem[] = [];
             if (parsed && typeof parsed.content === "string") {
@@ -311,10 +315,10 @@ export function WorkspaceUpdateComposer({
 
     useEffect(() => {
         if (!canCreate || !draftInitialized) return;
-        const hasDraft = content.trim() || hasEntityReferences(entityRefs) || media.length > 0 || visibility !== "public";
+        const hasDraft = content.trim() || hasEntityReferences(entityRefs) || media.length > 0 || visibility !== defaultVisibility;
         const payload = {
             content: hasDraft ? content : "",
-            visibility: hasDraft ? visibility : "public",
+            visibility: hasDraft ? visibility : defaultVisibility,
             updateType: null,
             entityRefs: hasDraft ? entityRefs : {},
             media: hasDraft ? media : [],
@@ -329,10 +333,10 @@ export function WorkspaceUpdateComposer({
 
     useEffect(() => {
         if (!canCreate || !draftInitialized) return;
-        const hasDraft = content.trim() || hasEntityReferences(entityRefs) || media.length > 0 || visibility !== "public";
+        const hasDraft = content.trim() || hasEntityReferences(entityRefs) || media.length > 0 || visibility !== defaultVisibility;
         const payload = {
             content: hasDraft ? content : "",
-            visibility: hasDraft ? visibility : "public",
+            visibility: hasDraft ? visibility : defaultVisibility,
             updateType: null,
             entityRefs: hasDraft ? entityRefs : {},
             media: hasDraft ? media : [],
@@ -351,10 +355,10 @@ export function WorkspaceUpdateComposer({
     useEffect(() => {
         if (!canCreate || !draftInitialized) return;
         const handleSync = () => {
-            const hasDraft = content.trim() || hasEntityReferences(entityRefs) || media.length > 0 || visibility !== "public";
+            const hasDraft = content.trim() || hasEntityReferences(entityRefs) || media.length > 0 || visibility !== defaultVisibility;
             const payload = {
                 content: hasDraft ? content : "",
-                visibility: hasDraft ? visibility : "public",
+                visibility: hasDraft ? visibility : defaultVisibility,
                 updateType: null,
                 entityRefs: hasDraft ? entityRefs : {},
                 media: hasDraft ? media : [],
@@ -660,8 +664,8 @@ export function WorkspaceUpdateComposer({
                 console.warn("Failed to delete draft from IndexedDB:", err);
             });
         }
-        if (!canManage) setVisibility("public");
-        lastSavedDraftRef.current = JSON.stringify({ content: "", visibility: "public", updateType: null, entityRefs: {}, media: [] });
+        setVisibility(defaultVisibility);
+        lastSavedDraftRef.current = JSON.stringify({ content: "", visibility: defaultVisibility, updateType: null, entityRefs: {}, media: [] });
     };
 
     const toolbarButtonClass = "size-7 rounded-[5px] flex items-center justify-center text-muted-foreground transition-colors hover:bg-muted hover:text-foreground aria-pressed:bg-muted aria-pressed:text-foreground aria-pressed:ring-1 aria-pressed:ring-border";
@@ -878,7 +882,7 @@ export function WorkspaceUpdateComposer({
                                 className="inline-flex items-center gap-1.5 rounded-[3px] border border-border bg-muted/40 px-2.5 py-1 font-mono text-[11px] font-medium uppercase tracking-[0.09em] text-foreground transition hover:border-foreground/30 hover:bg-muted"
                             >
                                 {visibility === "public" ? <Globe2 className="h-3.5 w-3.5 text-muted-foreground" /> : <Users className="h-3.5 w-3.5 text-muted-foreground" />}
-                                {visibility === "public" ? "Public" : "Workspace members"}
+                                {visibility === "public" ? (defaultVisibility === "members" ? "Public · Also on Discover" : "Public") : defaultVisibility === "members" ? "Members" : "Workspace members"}
                             </button>
                             <span className="text-xs text-muted-foreground">
                                 {visibility === "public" ? "Everyone on NetworkBase can see this, including on Discover." : "Only this workspace’s members can see this."}
@@ -994,17 +998,18 @@ export function WorkspaceUpdateComposer({
                                     type="button"
                                     disabled={disabled}
                                     onClick={() => {
-                                        onPost({
+                                        void Promise.resolve(onPost({
                                             content,
                                             updateType: null,
-                                            visibility: canManage ? visibility : "public",
+                                            visibility: canManage ? visibility : defaultVisibility,
                                             entityRefs: {
                                                 ...entityRefs,
                                                 references: normalizeWorkspaceUpdateReferences(entityRefs.references),
                                             },
                                             media,
+                                        })).then((posted) => {
+                                            if (posted !== false) resetAfterPost();
                                         });
-                                        resetAfterPost();
                                     }}
                                     className="nb-touch-target h-[34px] rounded-[5px] px-3.5 text-[13px] font-medium"
                                 >

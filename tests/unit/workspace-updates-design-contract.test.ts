@@ -68,7 +68,8 @@ test("Project Updates Tab Design Specification Conformance Contract (Section 25 
 
     await t.test("WorkspaceUpdateComposer adheres to audience label and toolbar design contracts", () => {
         // Audience chip must show "Public" and never "Public followers"
-        assert.match(composer, /visibility === "public" \? "Public" : "Workspace members"/, "Audience chip must display 'Public' instead of 'Public followers'");
+        // Workspaces: "Public" / "Workspace members". Organizations: "Public · Also on Discover" / "Members" (decision 152).
+        assert.match(composer, /visibility === "public" \? \(defaultVisibility === "members" \? "Public · Also on Discover" : "Public"\) : defaultVisibility === "members" \? "Members" : "Workspace members"/, "Audience chip must display 'Public' instead of 'Public followers'");
         assert.doesNotMatch(composer, /Public followers/, "Composer must not contain 'Public followers'");
 
         // Toolbar must never wrap icons and must use standardized semantic icons

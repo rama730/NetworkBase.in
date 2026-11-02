@@ -159,3 +159,24 @@ test("no browser role can run the senders", async () => {
     WHERE n.nspname = 'app_private' AND p.proname LIKE 'live\\_%' AND has_function_privilege(r.role, p.oid, 'EXECUTE')`;
   assert.equal(rows.length, 0);
 });
+
+test("decision 145: an organization copy's changes reach its people on their own topic, never the organization's board topic", async () => {
+  await inRollback(async (tx) => {
+    const { projectId, owner } = await projectWithPeople(tx);
+    const [student, classmate] = [await createUser(tx), await createUser(tx)];
+    await addMember(tx, projectId, student);
+    await addMember(tx, projectId, classmate);
+    await tx`UPDATE public.workspaces SET kind = 'organization' WHERE id = ${projectId}`;
+    const master = randomUUID();
+    const copy = randomUUID();
+    await tx`INSERT INTO public.tasks (id, workspace_id, title, kind, creator_id) VALUES (${master}, ${projectId}, 'Lab', 'assignment', ${owner})`;
+    await tx`INSERT INTO public.tasks (id, workspace_id, title, assignment_id, assignee_id) VALUES (${copy}, ${projectId}, 'Lab', ${master}, ${student})`;
+    await tx`UPDATE public.tasks SET status = 'in_progress' WHERE id = ${copy}`;
+    const board = await events(tx, `live:tasks:${projectId}`);
+    assert.deepEqual(board.filter((e) => e.event === "task.changed").map((e) => e.payload.id), [master], "only the main assignment reaches the whole organization");
+    const mine = (await events(tx, `chat:user:${student}`)).filter((e) => e.event === "task.changed");
+    assert.deepEqual(mine.map((e) => [e.payload.op, e.payload.id, e.payload.workspace_id]), [["INSERT", copy, projectId], ["UPDATE", copy, projectId]]);
+    assert.equal((await events(tx, `chat:user:${classmate}`)).length, 0, "a classmate hears nothing");
+    assert.equal((await events(tx, `live:task:${copy}`)).length, 2, "the copy's own topic still works for whoever may open it");
+  });
+});

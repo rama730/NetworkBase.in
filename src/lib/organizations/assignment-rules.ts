@@ -76,3 +76,17 @@ export function splitIntoTeams<T>(people: T[], size: number, random: () => numbe
   shuffled.forEach((person, index) => teams[index % count]!.push(person));
   return teams;
 }
+
+/**
+ * Reassigning assignment work (report §42.14, decision 149): a main assignment's people are set by publishing and
+ * an individual copy belongs to its person, so neither is reassigned (Give to makes new copies). A team copy moves
+ * only within its team, by an organization admin or the team's lead. Null means allowed.
+ */
+export function reassignBlock(task: { isMaster: boolean; isCopy: boolean; hasTeam: boolean; actorIsAdmin: boolean; actorIsLead: boolean; targetOnTeam: boolean }): string | null {
+  if (task.isMaster) return "An assignment's people are set when it's published. Use Give to for someone new.";
+  if (!task.isCopy) return null;
+  if (!task.hasTeam) return "Each person keeps their own copy, so it can't be reassigned.";
+  if (!task.actorIsAdmin && !task.actorIsLead) return "Only the team's lead or an admin can reassign this.";
+  if (!task.targetOnTeam) return "Pick someone on this team.";
+  return null;
+}

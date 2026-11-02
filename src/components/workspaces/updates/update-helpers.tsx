@@ -18,6 +18,8 @@ export type UpdatesPage = {
     canCreate: boolean;
     canManage: boolean;
     canInteract: boolean;
+    /** Members in an organization or a workspace only its organization sees (decision 152). */
+    defaultVisibility?: "public" | "members";
   };
 };
 

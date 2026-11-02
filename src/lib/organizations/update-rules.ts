@@ -32,3 +32,9 @@ export function shareBlock(input: { childVisibility: string | null; orgAllowsSha
   if (!input.orgAllowsShare) return "The organization turned sharing off.";
   return null;
 }
+
+/** Decision 153: followers hear about a post only when it's Public, on a public workspace, and meant for everyone. */
+export function followersHear(post: { visibility: string; projectVisibility: string | null; audience: UpdateAudience | null | undefined }) {
+  const limited = (post.audience?.roles?.length ?? 0) > 0 || (post.audience?.projectIds?.length ?? 0) > 0;
+  return post.visibility === "public" && post.projectVisibility === "public" && !limited;
+}

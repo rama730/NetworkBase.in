@@ -4,6 +4,7 @@ import { requireAuthenticatedUser } from "@/app/api/v1/_shared";
 import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { reassignBlock } from "@/lib/organizations/assignment-rules";
 import { db } from "@/lib/db";
 import { wakeEmailWorker } from "@/lib/email/outbox";
 import { recordTaskAssignment, refusePeerAssignmentAcrossBlock, taskAssignmentNotification } from "@/lib/workspaces/task-assignment";
@@ -488,6 +489,21 @@ export async function assignTaskAction(
       if (locked.projectId !== projectId) {
         throw new Error("Task does not belong to this workspace");
       }
+      // Decision 149. A group copy inside a workspace has that workspace as its team, and its lead as the lead;
+      // the membership check below keeps the new person inside it.
+      const [work] = await tx.execute<{ master: boolean; copy: boolean; team: boolean; lead: boolean; target: boolean; group: boolean }>(sql`
+        SELECT t.kind = 'assignment' AND t.assignment_id IS NULL AS master, t.assignment_id IS NOT NULL AS copy,
+               EXISTS (SELECT 1 FROM task_team_members tm WHERE tm.task_id = t.id) AS team,
+               EXISTS (SELECT 1 FROM task_team_members tm WHERE tm.task_id = t.id AND tm.user_id = ${user.id} AND tm.is_lead) AS lead,
+               (${assigneeId}::uuid IS NULL OR EXISTS (SELECT 1 FROM task_team_members tm WHERE tm.task_id = t.id AND tm.user_id = ${assigneeId}::uuid)) AS target,
+               p.kind <> 'organization' AS "group"
+        FROM tasks t JOIN workspaces p ON p.id = t.workspace_id WHERE t.id = ${taskId}`);
+      const group = Boolean(work?.copy && work.group);
+      const blocked = reassignBlock({
+        isMaster: Boolean(work?.master), isCopy: Boolean(work?.copy), hasTeam: Boolean(work?.team) || group,
+        actorIsAdmin: locked.isLeader, actorIsLead: Boolean(work?.lead) || (group && locked.isOwner), targetOnTeam: Boolean(work?.target) || group,
+      });
+      if (blocked) throw new Error(blocked);
 
       const snapshotIds = [
         user.id,

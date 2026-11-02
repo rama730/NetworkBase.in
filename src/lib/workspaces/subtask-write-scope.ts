@@ -21,8 +21,11 @@ export async function lockSubtaskWriteScope(
     project_id: string;
     owner_id: string;
     role: string | null;
+    org: boolean;
+    mine: boolean;
   }>(sql`
-        SELECT t.id, t.workspace_id AS project_id, p.owner_id, m.role
+        SELECT t.id, t.workspace_id AS project_id, p.owner_id, m.role, p.kind = 'organization' AS org,
+               (t.assignee_id = ${userId} OR EXISTS (SELECT 1 FROM task_team_members tm WHERE tm.task_id = t.id AND tm.user_id = ${userId})) AS mine
         FROM ${tasks} t
         JOIN ${workspaces} p ON p.id = t.workspace_id AND p.deleted_at IS NULL
         LEFT JOIN ${workspaceMembers} m ON m.workspace_id = p.id AND m.user_id = ${userId}
@@ -41,6 +44,11 @@ export async function lockSubtaskWriteScope(
     throw new Error(
       "You do not have permission to perform this workspace action",
     );
+  }
+  // Report §42.12 problem 28: in an organization, members change steps only on their own (or their team's) copy;
+  // the main assignment and everything else on its board belong to owners and admins.
+  if (row.org && role === "member" && !row.mine) {
+    throw new Error("Only your own work's steps can be changed here.");
   }
   return row.id;
 }

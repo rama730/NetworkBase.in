@@ -198,8 +198,11 @@ export default function UpdatesTab({
     const orgInput = org?.kind === "org"
       ? { ...orgOptions, updateType: org.isAdmin ? orgOptions.updateType ?? "announcement" : "discussion" }
       : orgOptions;
-    createMutation.mutate({ ...input, ...orgInput });
-    setOrgOptions({});
+    // Options clear only once the post is in, so a retry keeps its audience (report §42.15 problem 44).
+    return createMutation.mutateAsync({ ...input, ...orgInput }).then(() => {
+      setOrgOptions({});
+      return true;
+    }, () => false);
   };
   const canCreate = Boolean(capabilities?.canCreate ?? canCreateUpdates);
   const canManage = Boolean(capabilities?.canManage ?? canManageUpdates);
@@ -468,6 +471,7 @@ export default function UpdatesTab({
             canCreate={canCreate}
             canManage={canManage}
             isPosting={createMutation.isPending}
+            defaultVisibility={capabilities?.defaultVisibility}
             onPost={postWithOrgOptions}
           />
         ) : null}
@@ -588,6 +592,7 @@ export default function UpdatesTab({
                   canCreate={canCreate}
                   canManage={canManage}
                   isPosting={createMutation.isPending}
+                  defaultVisibility={capabilities?.defaultVisibility}
                   onPost={postWithOrgOptions}
                 />
               ) : null}

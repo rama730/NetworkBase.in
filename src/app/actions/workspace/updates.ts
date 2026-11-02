@@ -2,7 +2,7 @@
 
 import { readViewerOrgRole } from "@/lib/organizations/detail";
 import { orgFeedWhere, orgLivePinSql, readLastSeenUpdates, readOrgUpdateContext, readWorkspaceTitles, readSharedPins, type OrgUpdateContext } from "@/lib/organizations/org-updates";
-import { isPinnedNow, type UpdateAudience } from "@/lib/organizations/update-rules";
+import { audienceAllows, followersHear, isPinnedNow, type UpdateAudience } from "@/lib/organizations/update-rules";
 import { shareToOrgGeneral } from "@/lib/organizations/org-chat";
 import { readWorkspaceRoleTitles, roleTitleKey } from "@/lib/workspaces/update-roles";
 import { randomUUID } from "node:crypto";
@@ -1238,6 +1238,8 @@ export async function readWorkspaceUpdatesAction(projectId: string, params?: {
                     canCreate: access.canCreate,
                     canManage: access.canManage,
                     canInteract: Boolean(viewer.userId),
+                    // Decisions 27 and 152, gap 33: an organization, or a workspace only its organization sees, starts on Members.
+                    defaultVisibility: (access.org?.kind === "org" || (access.org?.kind === "child" && access.project.visibility !== "public") ? "members" : "public") as WorkspaceUpdateVisibility,
                 },
             },
         };
@@ -1545,7 +1547,10 @@ export async function createWorkspaceUpdateAction(projectId: string, input: {
         if (!access.canCreate || !access.project) return { success: false as const, error: "You don’t have access to post updates here." };
 
         const updateType = normalizeWorkspaceUpdateType(input.updateType);
-        const visibility: WorkspaceUpdateVisibility = input.visibility === "members" ? "members" : "public";
+        // Decisions 5, 27 and 152: an organization's posts stay with its members unless an admin picks Public.
+        const visibility: WorkspaceUpdateVisibility = access.org?.kind === "org"
+            ? (access.canManage && input.visibility === "public" ? "public" : "members")
+            : input.visibility === "members" ? "members" : "public";
         const orgOptions = await resolveOrgPostOptions(access, updateType, input);
         if ("error" in orgOptions) return { success: false as const, error: orgOptions.error };
         const replyPolicy: WorkspaceUpdateReplyPolicy = orgOptions.commentsOff ? "closed" : input.replyPolicy === "members" ? "members"
@@ -1603,8 +1608,7 @@ export async function createWorkspaceUpdateAction(projectId: string, input: {
         const contextByUpdateId = await contextSummariesForRows(rows, access);
         const update = rows[0] ? normalizeUpdate(rows[0], { access, likedIds: new Set(), contextByUpdateId }) : null;
 
-        const shouldNotifyFollowers = visibility === "public"
-            && access.project.visibility === "public"
+        const shouldNotifyFollowers = followersHear({ visibility, projectVisibility: access.project.visibility ?? null, audience: "audience" in orgOptions ? orgOptions.audience : null })
             && shouldNotifyWorkspaceUpdateFollowers({ content, entityRefs, media });
         if (shouldNotifyFollowers) {
             try {
@@ -1972,7 +1976,7 @@ export async function toggleWorkspaceUpdateLikeAction(projectId: string, updateI
         const access = await resolveProjectUpdateAccess(projectId, viewer.userId);
         if (!access.canRead || !access.project) return { success: false as const, error: "This update isn’t available." };
         const [update] = await db
-            .select({ id: workspaceUpdates.id, visibility: workspaceUpdates.visibility, authorId: workspaceUpdates.authorId, content: workspaceUpdates.content })
+            .select({ id: workspaceUpdates.id, visibility: workspaceUpdates.visibility, authorId: workspaceUpdates.authorId, content: workspaceUpdates.content, audience: workspaceUpdates.audience })
             .from(workspaceUpdates)
             .where(and(
                 eq(workspaceUpdates.id, updateId),
@@ -1981,7 +1985,10 @@ export async function toggleWorkspaceUpdateLikeAction(projectId: string, updateI
                 access.isOwner || access.isMember ? undefined : eq(workspaceUpdates.visibility, "public"),
             ))
             .limit(1);
-        if (!update) return { success: false as const, error: "Update not found." };
+        // Report §42.15 problem 49: a post limited to an audience can't be liked from outside it.
+        if (!update || (access.org?.kind === "org" && !audienceAllows(update.audience as UpdateAudience | null, {
+            isAdmin: access.org.isOrgAdmin, isAuthor: update.authorId === viewer.userId, role: access.org.viewerRole, childProjectIds: access.org.viewerChildIds,
+        }))) return { success: false as const, error: "Update not found." };
 
         const result = await db.transaction(async (tx) => {
             const deletedRows = await tx

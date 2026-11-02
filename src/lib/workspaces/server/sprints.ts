@@ -606,8 +606,16 @@ async function readSprintTaskActivityPage(input: {
   limit: number;
   cursor: SprintDetailPaginationCursor | null;
   taskReference?: string | null;
+  access: WorkspaceAccess;
 }) {
   const { sprintId, limit, cursor } = input;
+  // The board's rule (report §42.12 problem 24): in an organization, members see published masters and their own
+  // copies; admins see every master, with copies left to the roster.
+  const orgRule = input.access.project?.kind !== "organization"
+    ? sql``
+    : input.access.isOwner || input.access.memberRole === "admin"
+      ? sql`AND t.assignment_id IS NULL`
+      : sql`AND app_private.nb_org_task_visible_to(t.id, ${input.access.viewerId ?? null}::uuid)`;
 
   const activityRowsResult = await db.execute<SprintTaskActivityQueryRow>(sql`
         WITH memberships AS (
@@ -641,7 +649,7 @@ async function readSprintTaskActivityPage(input: {
                 0::int AS linked_file_count
             FROM ${tasks} t
             INNER JOIN memberships m ON m.task_id = t.id
-            WHERE t.workspace_id = ${input.projectId}
+            WHERE t.workspace_id = ${input.projectId} ${orgRule}
         )
         SELECT *
         FROM task_activity
@@ -728,7 +736,7 @@ async function readSprintTaskActivityPage(input: {
                 0::int AS linked_file_count
             FROM ${tasks} t
             INNER JOIN memberships m ON m.task_id = t.id
-            WHERE t.workspace_id = ${input.projectId} AND ${targetCondition}
+            WHERE t.workspace_id = ${input.projectId} AND ${targetCondition} ${orgRule}
             LIMIT 1
         `);
     const targetRow = Array.from(targetRowsResult)[0];
@@ -1001,10 +1009,11 @@ async function buildSprintDetailPayload(input: {
       limit: safeLimit,
       cursor: parsedCursor,
       taskReference: input.taskReference,
+      access,
     }) : Promise.resolve(NO_SPRINT_TASK_PAGE),
     readSprintOrgContext(input.projectId, selectedSprint.id),
     // Visitors get sprint names, goals and dates only: no materials or linked projects (report §15.4).
-    isSprintInsider ? readSprintMaterials(selectedSprint.id) : Promise.resolve([]),
+    isSprintInsider ? readSprintMaterials(selectedSprint.id, access) : Promise.resolve([]),
   ]);
 
   const rows = buildSprintTimeline({
@@ -1071,6 +1080,7 @@ async function buildSprintTimelinePagePayload(input: {
       sprintId: selectedSprint.id,
       limit: safeLimit,
       cursor: parsedCursor,
+      access,
     }) : Promise.resolve(NO_SPRINT_TASK_PAGE),
   ]);
 

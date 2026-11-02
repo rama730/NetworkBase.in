@@ -6,6 +6,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 import { subscribeBroadcast } from "@/lib/realtime/private-broadcast";
 import { liveTopics } from "@/lib/realtime/subscriptions";
+import { userTopic } from "@/lib/messaging/constants";
 import { queryKeys } from "@/lib/query-keys";
 
 export function useRealtimeTasks(projectId: string, deferredTaskId: string | null = null) {
@@ -42,7 +43,7 @@ export function useRealtimeTasks(projectId: string, deferredTaskId: string | nul
       }, 250);
     };
 
-    const live = subscribeBroadcast(liveTopics.tasks(projectId), (event, payload) => {
+    const onTaskChanged = (event: string, payload: Record<string, unknown>) => {
       if (event !== "task.changed") return;
       // While a drag or its move is in flight, any refetch would replace the board under the
       // pointer with pre-move data; hold every reconcile until the move settles.
@@ -70,12 +71,18 @@ export function useRealtimeTasks(projectId: string, deferredTaskId: string | nul
 
       // Events carry ids only: the board re-reads what this viewer may see.
       scheduleReconcile();
+    };
+    const live = subscribeBroadcast(liveTopics.tasks(projectId), onTaskChanged);
+    // An organization's copies are announced only to their people, on their own topic (decision 145, 0044).
+    const own = subscribeBroadcast(userTopic(userId), (event, payload) => {
+      if (payload.workspace_id === projectId) onTaskChanged(event, payload);
     });
 
     return () => {
       if (reconcileTimerRef.current) clearTimeout(reconcileTimerRef.current);
       reconcileTimerRef.current = null;
       live.unsubscribe();
+      own.unsubscribe();
     };
   }, [projectId, queryClient, userId]);
 }

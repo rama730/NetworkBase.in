@@ -6,6 +6,8 @@ import { db } from "@/lib/db";
 import { workspaceDocuments, workspaceNodes, workspaceSprintEvents, workspaceSprints, workspaces, sprintMaterials } from "@/lib/db/schema";
 import { fitsInside, overlaps } from "@/lib/organizations/sprint-rules";
 import { readOrgWork } from "@/lib/organizations/settings";
+import type { WorkspaceAccess } from "@/lib/data/workspace-access";
+import { orgFileAccessSql } from "@/lib/files/internal-helpers";
 
 // Org sprints (report §15): checks, matching child sprints, links and materials, kept beside the project
 // sprint actions that call them.
@@ -194,11 +196,12 @@ export async function readSprintOrgContext(projectId: string, selectedSprintId: 
 
 export type SprintMaterial = { id: string; kind: "file" | "doc"; title: string; nodeId: string | null; docSlug: string | null };
 
-export async function readSprintMaterials(sprintId: string): Promise<SprintMaterial[]> {
+/** A viewer's `access` hides files they can't open, names included (report §42.10 problem 16); without it, all. */
+export async function readSprintMaterials(sprintId: string, access?: WorkspaceAccess): Promise<SprintMaterial[]> {
   const rows = await db
     .select({ id: sprintMaterials.id, nodeId: sprintMaterials.nodeId, nodeName: workspaceNodes.name, docSlug: workspaceDocuments.slug, docFilename: workspaceDocuments.filename })
     .from(sprintMaterials)
-    .leftJoin(workspaceNodes, and(eq(workspaceNodes.id, sprintMaterials.nodeId), isNull(workspaceNodes.deletedAt)))
+    .leftJoin(workspaceNodes, and(eq(workspaceNodes.id, sprintMaterials.nodeId), isNull(workspaceNodes.deletedAt), access ? orgFileAccessSql(access) : undefined))
     .leftJoin(workspaceDocuments, eq(workspaceDocuments.id, sprintMaterials.docId))
     .where(eq(sprintMaterials.sprintId, sprintId))
     .orderBy(sprintMaterials.createdAt);

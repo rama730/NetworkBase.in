@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { audienceAllows, isPinnedNow, pinLimit, shareBlock } from "../../src/lib/organizations/update-rules";
+import { audienceAllows, followersHear, isPinnedNow, pinLimit, shareBlock } from "../../src/lib/organizations/update-rules";
 
 // Report §17.3–17.6.
 test("audience: everyone by default; a role or child projects narrow it; admins and the author always see it", () => {
@@ -30,4 +30,12 @@ test("share to org: blocked for Private workspaces and when the org turned shari
   assert.equal(shareBlock({ childVisibility: "org", orgAllowsShare: true }), null);
   assert.equal(shareBlock({ childVisibility: "private", orgAllowsShare: true }), "Private workspaces can’t share to the org.");
   assert.equal(shareBlock({ childVisibility: "public", orgAllowsShare: false }), "The organization turned sharing off.");
+});
+
+test("decision 153: followers hear only Public posts on a public workspace that are meant for everyone", () => {
+  const base = { visibility: "public", projectVisibility: "public", audience: {} } as const;
+  assert.equal(followersHear(base), true);
+  assert.equal(followersHear({ ...base, audience: { roles: ["admin" as const] } }), false, "a limited announcement stays inside");
+  assert.equal(followersHear({ ...base, visibility: "members" }), false);
+  assert.equal(followersHear({ ...base, projectVisibility: "org" }), false);
 });

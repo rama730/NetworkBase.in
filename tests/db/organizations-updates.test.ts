@@ -2,9 +2,10 @@ import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
 
 import { generateJoinCode } from "../../src/lib/organizations/join-rules";
-import { closeAppDb, createProject, createUser, loadAppModule, moduleStubs, sql } from "./_helpers";
+import { closeAppDb, createProject, createUser, loadAppModule, moduleStubs, sql, stubNextAfter } from "./_helpers";
 
 let viewerId = "";
+stubNextAfter();
 moduleStubs.set("@/lib/supabase/server", {
   createClient: async () => ({ auth: {
     getUser: async () => ({ data: { user: viewerId ? { id: viewerId, user_metadata: {} } : null }, error: null }),
@@ -144,4 +145,28 @@ test("inherited org admins moderate child workspace updates", async () => {
   const r = await post(o.child, o.member);
   viewerId = o.admin;
   assert.equal((await updates.deleteWorkspaceUpdateAction(o.child, r.success ? r.data!.id : "", "Off topic")).success, true);
+});
+
+test("problem 40 (decisions 5, 27, 152): organization posts are Members unless an admin picks Public on purpose", async () => {
+  const o = await orgWithChild(true);
+  const stored = async (result: Awaited<ReturnType<typeof post>>) => {
+    assert.equal(result.success, true, JSON.stringify(result));
+    const [row] = await sql`SELECT visibility FROM workspace_updates WHERE id = ${result.success ? result.data!.id : ""}`;
+    return row!.visibility;
+  };
+  assert.equal(await stored(await post(o.org, o.member, { visibility: "public", updateType: "discussion" })), "members", "members can't make a discussion public");
+  assert.equal(await stored(await post(o.org, o.admin, { visibility: undefined, updateType: "announcement" })), "members", "no choice means Members");
+  assert.equal(await stored(await post(o.org, o.admin, { visibility: "public", updateType: "announcement" })), "public", "admins choose Public on purpose");
+});
+
+test("problem 49: likes follow the post's audience", async () => {
+  const o = await orgWithChild();
+  const result = await post(o.org, o.admin, { updateType: "announcement", audience: { roles: ["admin"] } });
+  assert.equal(result.success, true, JSON.stringify(result));
+  const id = result.success ? result.data!.id : "";
+  viewerId = o.member;
+  assert.equal((await updates.toggleWorkspaceUpdateLikeAction(o.org, id)).success, false, "outside the audience: no like");
+  viewerId = o.owner;
+  const liked = await updates.toggleWorkspaceUpdateLikeAction(o.org, id);
+  assert.equal(liked.success, true, JSON.stringify(liked));
 });

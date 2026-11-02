@@ -27,6 +27,9 @@ let appDb: typeof import("../../src/lib/db");
 let schema: typeof import("../../src/lib/db/schema");
 let orm: typeof import("drizzle-orm");
 let comments: typeof import("../../src/app/actions/task-comment");
+let sprints: typeof import("../../src/lib/workspaces/server/sprints");
+let subtasks: typeof import("../../src/app/actions/subtask");
+let taskActions: typeof import("../../src/app/actions/task");
 before(async () => {
   const viewerContext = await loadAppModule(() => import("../../src/lib/server/viewer-context"));
   moduleStubs.set("@/lib/server/viewer-context", {
@@ -35,6 +38,9 @@ before(async () => {
     getViewerProfileContext: async () => ({ userId: viewerId || null }),
   });
   comments = await loadAppModule(() => import("../../src/app/actions/task-comment"));
+  sprints = await loadAppModule(() => import("../../src/lib/workspaces/server/sprints"));
+  subtasks = await loadAppModule(() => import("../../src/app/actions/subtask"));
+  taskActions = await loadAppModule(() => import("../../src/app/actions/task"));
   assignments = await loadAppModule(() => import("../../src/app/actions/assignments"));
   tasks = await loadAppModule(() => import("../../src/lib/workspaces/server/tasks"));
   dash = await loadAppModule(() => import("../../src/app/actions/org-dashboard"));
@@ -244,4 +250,76 @@ test("decision 69: the sitemap and page indexing use Discover's rule, so a new p
   assert.deepEqual(by[fresh.org], [false, false], "the share page and Discover agree on a new one");
   assert.deepEqual(by[grown.org], [true, true]);
   assert.deepEqual(by[old.org], [true, false], "an old small one stays indexed but was never on Discover");
+});
+
+test("problems 16 and 24: the Sprints tab never shows members an Admins-only file's name, a draft, or another person's copy", async () => {
+  const o = await org();
+  const [sprint] = await sql`INSERT INTO workspace_sprints (workspace_id, name, start_date, end_date, status) VALUES (${o.org}, 'CO1', now() - interval '1 day', now() + interval '6 days', 'active') RETURNING id`;
+  const [locked] = await sql`INSERT INTO workspace_nodes (workspace_id, type, name, path, metadata) VALUES (${o.org}, 'folder', 'Staff', '/Staff', '{"access": "admins"}') RETURNING id`;
+  const [key] = await sql`INSERT INTO workspace_nodes (workspace_id, type, name, path) VALUES (${o.org}, 'file', 'Exam answers.pdf', '/Staff/Exam answers.pdf') RETURNING id`;
+  const [notes] = await sql`INSERT INTO workspace_nodes (workspace_id, type, name, path) VALUES (${o.org}, 'file', 'notes.pdf', '/notes.pdf') RETURNING id`;
+  assert.ok(locked);
+  await sql`INSERT INTO sprint_materials (sprint_id, node_id) VALUES (${sprint!.id}, ${key!.id}), (${sprint!.id}, ${notes!.id})`;
+
+  const hidden = await draft(o, "Final exam");
+  const { master, copyOf } = await published(o, "Lab 3");
+  for (const id of [hidden, master, copyOf(o.a), copyOf(o.b)]) {
+    await sql`INSERT INTO sprint_task_memberships (workspace_id, sprint_id, task_id, added_at) VALUES (${o.org}, ${sprint!.id}, ${id}, now())`;
+  }
+
+  const sprintFor = async (as: string) => {
+    viewerId = as;
+    const r = await sprints.fetchWorkspaceSprintDetailAction({ projectId: o.org, sprintId: sprint!.id });
+    assert.equal(r.success, true, JSON.stringify(r));
+    if (!r.success) return { materials: [] as string[], tasks: [] as string[] };
+    return {
+      materials: r.data.materials.map((m) => m.title).sort(),
+      tasks: r.data.rows.flatMap((row) => row.kind === "task" ? [`${row.task.title}:${row.task.id === master || row.task.id === hidden ? "main" : row.task.id === copyOf(o.a) ? "a" : "b"}`] : []).sort(),
+    };
+  };
+  const member = await sprintFor(o.a);
+  assert.deepEqual(member.materials, ["notes.pdf"], "the answer key's name stays hidden");
+  assert.deepEqual(member.tasks, ["Lab 3:a", "Lab 3:main"], "no draft and no classmate's copy");
+  const admin = await sprintFor(o.admin);
+  assert.deepEqual(admin.materials, ["Exam answers.pdf", "notes.pdf"]);
+  assert.deepEqual(admin.tasks, ["Final exam:main", "Lab 3:main"], "admins see drafts; copies live in the roster, not here");
+});
+
+test("problem 28: steps change only on your own copy; a main assignment's steps only for admins", async () => {
+  const o = await org();
+  const { master, copyOf } = await published(o, "Lab 4");
+  const [bStep] = await sql`SELECT id FROM task_subtasks WHERE task_id = ${copyOf(o.b)} LIMIT 1`;
+  const [mainStep] = await sql`INSERT INTO task_subtasks (task_id, title, position) VALUES (${master}, 'Read the brief', 1) RETURNING id`;
+  viewerId = o.a;
+  assert.equal((await subtasks.createSubtaskAction(copyOf(o.a), "My own step", o.org)).success, true, "your own copy: fine");
+  assert.equal((await subtasks.createSubtaskAction(copyOf(o.b), "Sneaky", o.org)).success, false, "a classmate's copy: refused");
+  if (bStep) assert.equal((await subtasks.toggleSubtaskAction(bStep.id, true, o.org)).success, false);
+  assert.equal((await subtasks.deleteSubtaskAction(mainStep!.id, o.org)).success, false, "the main assignment: refused");
+  viewerId = o.admin;
+  assert.equal((await subtasks.updateSubtaskAction(mainStep!.id, "Read the whole brief", o.org)).success, true, "admins edit the main assignment");
+});
+
+test("problem 37 (decision 149): nobody reassigns a main assignment or an individual copy; a team copy only by an admin or its lead, within the team", async () => {
+  const o = await org();
+  const { master, copyOf } = await published(o, "Lab 5");
+  viewerId = o.a;
+  assert.equal((await taskActions.assignTaskAction(copyOf(o.a), o.b, o.org)).success, false, "can't give your copy away");
+  assert.equal((await taskActions.assignTaskAction(master, o.a, o.org)).success, false, "can't take over the main assignment");
+  viewerId = o.admin;
+  assert.equal((await taskActions.assignTaskAction(copyOf(o.a), o.b, o.org)).success, false, "an individual copy has no reassign");
+
+  const [c] = await Promise.all([sql.begin((tx) => createUser(tx))]);
+  await sql`INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (${o.org}, ${c!}, 'member')`;
+  viewerId = o.owner;
+  const team = await assignments.createAssignmentAction({ projectId: o.org, title: "Project", dueDate: future(), publish: true, submissionType: "none", lateRule: "none",
+    target: { mode: "teams", teams: [{ name: "Falcon", userIds: [o.a, o.b], leadId: o.a }], individuals: [c!] }, steps: [] } as Parameters<typeof assignments.createAssignmentAction>[0]);
+  assert.equal(team.success, true, JSON.stringify(team));
+  const [falcon] = await sql`SELECT id FROM tasks WHERE assignment_id = ${team.success ? team.masterId : ""} AND team_name = 'Falcon'`;
+  viewerId = o.b;
+  assert.equal((await taskActions.assignTaskAction(falcon!.id, o.b, o.org)).success, false, "only the lead or an admin");
+  viewerId = o.a;
+  assert.equal((await taskActions.assignTaskAction(falcon!.id, c!, o.org)).success, false, "only within the team");
+  assert.equal((await taskActions.assignTaskAction(falcon!.id, o.b, o.org)).success, true, "the lead hands it to a teammate");
+  viewerId = o.admin;
+  assert.equal((await taskActions.assignTaskAction(falcon!.id, o.a, o.org)).success, true, "an admin too");
 });

@@ -240,7 +240,9 @@ test("workspace update draft hydration does not immediately autosave an unchange
     const composerSource = readFileSync(path.join(process.cwd(), "src/components/workspaces/updates/WorkspaceUpdateComposer.tsx"), "utf8");
 
     assert.match(composerSource, /let initialContent = ""/);
-    assert.match(composerSource, /let initialVisibility: WorkspaceUpdateVisibility = "public"/);
+    // Public in a workspace, Members in an organization (decision 152).
+    assert.match(composerSource, /let initialVisibility: WorkspaceUpdateVisibility = defaultVisibility/);
+    assert.match(composerSource, /defaultVisibility = "public",/);
     assert.match(composerSource, /lastSavedDraftRef\.current = JSON\.stringify\(\{/);
     assert.match(composerSource, /content: initialContent/);
     assert.match(composerSource, /visibility: initialVisibility/);
