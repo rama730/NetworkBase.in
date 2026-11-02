@@ -83,3 +83,10 @@ test("21.4, decision 34: limits say why, with a different line for admins and me
   assert.equal(invitesLeftToday(588), 412);
   assert.equal(invitesLeftToday(1_200), 0);
 });
+
+test("22.4: What each role can do is generated from every row of the permissions table, once each", async () => {
+  const { PERMISSION_AREAS } = await import("@/lib/organizations/permission-labels");
+  const listed = PERMISSION_AREAS.flatMap((a) => a.rows.map((r) => r.action));
+  assert.deepEqual([...listed].sort(), [...ORG_ACTIONS].sort());
+  assert.equal(new Set(listed).size, listed.length);
+});

@@ -232,6 +232,8 @@ export function GeneralSettingsSection({
     initialIdentity,
     projectTitle,
     onProjectTitleChange,
+    organization = false,
+    orgAdmin = false,
 }: {
     projectId: string;
     project: any;
@@ -239,6 +241,10 @@ export function GeneralSettingsSection({
     initialIdentity: ReturnType<typeof resetIdentityFromWorkspace>;
     projectTitle: string;
     onProjectTitleChange: (title: string) => void;
+    /** Report §22.4: an organization's Details have no category or skills; its Type lives in Organization profile. */
+    organization?: boolean;
+    /** Report §22.3: admins edit the tagline, description and tags; image and name stay the owner's. */
+    orgAdmin?: boolean;
 }) {
     const router = useRouter();
     const queryClient = useQueryClient();
@@ -319,14 +325,16 @@ export function GeneralSettingsSection({
         }
         setSavingSettings(true);
         try {
-            const identityResult = await updateWorkspace(projectId, {
-                title: trimmedTitle,
-                shortDescription: shortDescription.trim() || null,
-                description: description.trim() || null,
-                category: nextCategory || null,
-                tags,
-                skills,
-            });
+            const identityResult = await updateWorkspace(projectId, orgAdmin
+                ? { shortDescription: shortDescription.trim() || null, description: description.trim() || null, tags }
+                : {
+                    title: trimmedTitle,
+                    shortDescription: shortDescription.trim() || null,
+                    description: description.trim() || null,
+                    category: nextCategory || null,
+                    tags,
+                    ...(organization ? {} : { skills }),
+                });
             if (!identityResult?.success) {
                 toast.error("Couldn’t update workspace identity");
                 return;
@@ -529,8 +537,12 @@ export function GeneralSettingsSection({
 
     return (
     <section id="project-settings-general" data-project-settings-section className="space-y-8">
-        <SettingsPageHeader level={2} title="General" description="Manage your workspace’s avatar, public identity, tags, and skills." />
+        {organization
+            ? <SettingsPageHeader level={2} title="Details" description="The organization’s image, name, tagline, description and tags." />
+            : <SettingsPageHeader level={2} title="General" description="Manage your workspace’s avatar, public identity, tags, and skills." />}
         <div className="space-y-8 divide-y divide-border [&>section]:pb-6">
+        <fieldset disabled={orgAdmin} className="min-w-0">
+        {orgAdmin ? <p className="nb-compact mb-3 text-muted-foreground">Only the owner can change the image and name.</p> : null}
         <section
             data-testid="project-avatar-settings-card"
             className="space-y-4"
@@ -756,31 +768,32 @@ export function GeneralSettingsSection({
                 })() : null}
             </div>
         </section>
+        </fieldset>
 
         <SettingsCard
-            title="Workspace"
-            description="Shown in the workspace page, cards, search and notifications."
+            title={organization ? "Organization" : "Workspace"}
+            description={organization ? "Shown on the header, About, cards and Discover." : "Shown in the workspace page, cards, search and notifications."}
 
         >
             <fieldset disabled={savingSettings} className="min-w-0 divide-y divide-border">
                 <div className="pb-6">
                     <ReadOnlySlugField slug={project?.slug ?? ""} />
                 </div>
-                <div className="py-6">
+                <fieldset disabled={orgAdmin} className="py-6">
                     <TextField
                         id="settings-project-name"
-                        error={identitySubmitted && !projectTitle.trim() ? "Workspace name is required." : undefined}
-                        label="Workspace name"
-                        description="The public title shown in headers, cards, and search."
+                        error={identitySubmitted && !projectTitle.trim() ? (organization ? "Name is required." : "Workspace name is required.") : undefined}
+                        label={organization ? "Name" : "Workspace name"}
+                        description={organization ? (orgAdmin ? "Only the owner can change this." : "3–100 characters, in any language.") : "The public title shown in headers, cards, and search."}
                         value={projectTitle}
                         onChange={onProjectTitleChange}
                         placeholder="Workspace name"
                     />
-                </div>
+                </fieldset>
                 <div className="py-6">
                     <TextField
-                        label="Summary"
-                        description="A one-line workspace summary for cards and search previews (recommended under 160 characters)."
+                        label={organization ? "Tagline" : "Summary"}
+                        description={organization ? "One line for cards and Discover." : "A one-line workspace summary for cards and search previews (recommended under 160 characters)."}
                         value={shortDescription}
                         onChange={setShortDescription}
                         placeholder="A one-line workspace summary"
@@ -789,13 +802,13 @@ export function GeneralSettingsSection({
                 <div className="py-6">
                     <TextAreaField
                         label="Description"
-                        description="Detailed overview explaining what this workspace does and why it matters."
+                        description={organization ? "Shows on About." : "Detailed overview explaining what this workspace does and why it matters."}
                         value={description}
                         onChange={setDescription}
                         placeholder="Describe what this workspace does and why it matters"
                     />
                 </div>
-                <div className="pt-6">
+                {organization ? null : <div className="pt-6">
                     <CategorySelector
                         choice={categoryChoice}
                         customValue={customCategory}
@@ -803,13 +816,13 @@ export function GeneralSettingsSection({
                         onCustomChange={setCustomCategory}
                         description="Primary category to help people discover your workspace."
                     />
-                </div>
+                </div>}
             </fieldset>
         </SettingsCard>
 
         <SettingsCard
-            title="Tags and skills"
-            description="Select the technologies and professional disciplines associated with this workspace."
+            title={organization ? "Tags" : "Tags and skills"}
+            description={organization ? "Keywords people search for on Discover." : "Select the technologies and professional disciplines associated with this workspace."}
             footer={
                 <>
                     <p className="nb-compact text-muted-foreground">
@@ -852,7 +865,7 @@ export function GeneralSettingsSection({
                         limit={PROJECT_TAG_LIMIT}
                     />
                 </div>
-                <div className="pt-6">
+                {organization ? null : <div className="pt-6">
                     <SkillPicker
                         value={skills}
                         onChange={setSkills}
@@ -860,7 +873,7 @@ export function GeneralSettingsSection({
                         label="Workspace skills and technologies"
                         description="Select the technologies and professional skills used by this workspace (up to 12 skills)."
                     />
-                </div>
+                </div>}
             </fieldset>
         </SettingsCard>
         </div>

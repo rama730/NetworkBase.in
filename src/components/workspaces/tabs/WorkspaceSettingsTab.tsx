@@ -3,8 +3,8 @@
 import { ChildOrgSection } from "@/components/organizations/ChildOrgSection";
 import { ChildUnitsPanel } from "@/components/organizations/ChildUnitsPanel";
 import { OrgDangerZone } from "@/components/organizations/OrgDangerZone";
-import { OrgAccessSection, OrgChatSection, OrgNotificationsSection, OrgVerificationSection, OrgLeaveSection, OrgMembershipSection, OrgPeopleSection, OrgProfileSection, OrgWorkspacesSection, OrgWorkSection } from "@/components/organizations/OrgSettingsSections";
-import { ORG_SECTION_DEFS, orgSettingsSectionIds, type OrgMemberRole, type OrgSettingsSectionId } from "@/lib/organizations/settings";
+import { OrgAccessSection, OrgAllowedSection, OrgChatSection, OrgHandleSection, OrgManagementSection, OrgNotificationsSection, OrgUpdatesSection, OrgVerificationSection, OrgMembershipSection, OrgPeopleSection, OrgProfileSection, OrgWorkspacesSection, OrgWorkSection } from "@/components/organizations/OrgSettingsSections";
+import { ORG_REUSED_LABELS, ORG_SECTION_DEFS, orgSettingsSectionIds, type OrgMemberRole, type OrgSettingsSectionId } from "@/lib/organizations/settings";
 import { useRoleApplicationCounts } from "@/hooks/useRoleApplicationCounts";
 import { TaskCompletionSettings } from "@/components/workspaces/settings/TaskCompletionSettings";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -223,7 +223,8 @@ function ProjectSettingsContent({
             // Report §21.4: You sections for everyone, org sections for admins, owner extras for the owner.
             return orgSettingsSectionIds(orgRole).flatMap((id) => {
                 const orgDef = ORG_SECTION_DEFS[id as OrgSettingsSectionId];
-                const def = orgDef ? { id, ...orgDef } : visible.find((section) => section.id === id);
+                const reused = visible.find((section) => section.id === id);
+                const def = orgDef ? { id, ...orgDef } : reused ? { ...reused, label: ORG_REUSED_LABELS[reused.id] ?? reused.label } : null;
                 return def ? [def] : [];
             });
         }
@@ -748,8 +749,9 @@ function ProjectSettingsContent({
             const preflight: AccessTransitionPreflightData = preflightResult.data;
             const isPrivateTransition = preflight.nextVisibility === "private";
             setConfirmAction({
-                title: isPrivateTransition ? "Make workspace private" : "Make workspace public",
-                description: preflight.policy.confirmationSummary.join(" "),
+                title: isPrivateTransition ? (organization ? "Make the organization private" : "Make workspace private") : (organization ? "Make the organization public" : "Make workspace public"),
+                // Report §22.4: going Private says it leaves Discover.
+                description: organization && isPrivateTransition ? `It leaves Discover, and only its people can see it. ${preflight.policy.confirmationSummary.join(" ")}` : preflight.policy.confirmationSummary.join(" "),
                 confirmLabel: isPrivateTransition ? "Make private" : "Make public",
                 variant: isPrivateTransition ? "destructive" : "default",
                 content: <AccessTransitionDetails preflight={preflight} />,
@@ -1391,8 +1393,8 @@ function ProjectSettingsContent({
         <div className="grid w-full min-w-0 grid-cols-1 bg-card xl:grid-cols-[var(--nb-sidebar-width)_minmax(0,1fr)]">
             <WorkspaceSettingsNavigation sections={sections} activeSection={activeSection} onNavigate={handleNavigateSection} />
             <main data-project-settings-document className="mx-auto min-w-0 w-full max-w-4xl space-y-12 p-4 md:p-[calc(var(--ui-panel-padding)+4px)] [&>[data-project-settings-section]]:border-b [&>[data-project-settings-section]]:border-border [&>[data-project-settings-section]]:pb-8 [&>[data-project-settings-section]:last-child]:border-b-0">
-                {organization && sections.some((s) => s.id === "you-membership") && <OrgMembershipSection orgId={projectId} organization={organization} role={orgRole} />}
-                {organization && sections.some((s) => s.id === "you-leave") && <OrgLeaveSection orgId={projectId} organization={organization} role={orgRole} title={project?.title ?? "this organization"} afterLeaveHref={savedVisibility === "public" ? `/org/${encodeURIComponent(project?.slug ?? projectId)}?tab=about` : "/discover"} />}
+                {organization && orgRole !== "owner" && orgRole !== "admin" && sections.some((s) => s.id === "you-membership") && <OrgMembershipSection orgId={projectId} organization={organization} role={orgRole} />}
+                {organization && sections.some((s) => s.id === "org-allowed") && <OrgAllowedSection organization={organization} />}
                 {sections.some((s) => s.id === "general") && (
                     <GeneralSettingsSection
                         projectId={projectId}
@@ -1401,11 +1403,14 @@ function ProjectSettingsContent({
                         initialIdentity={initialIdentity}
                         projectTitle={projectTitle}
                         onProjectTitleChange={setProjectTitle}
+                        orgAdmin={Boolean(organization) && !isProjectOwner}
+                        organization={Boolean(organization)}
                     />
                 )}
+                {organization && sections.some((s) => s.id === "general") ? <OrgHandleSection orgId={projectId} organization={organization} role={orgRole} handle={project?.slug ?? null} /> : null}
                 {organization && isProjectOwner && sections.some((s) => s.id === "general") ? <OrgVerificationSection orgId={projectId} organization={organization} /> : null}
                 {sections.some((s) => s.id === "child-org") && project ? <ChildOrgSection project={project} isLead={isProjectOwner} canManage={canManageSettings} /> : null}
-                {organization && sections.some((s) => s.id === "org-profile") && <OrgProfileSection orgId={projectId} organization={organization} role={orgRole} handle={project?.slug ?? null} />}
+                {organization && sections.some((s) => s.id === "org-profile") && <OrgProfileSection orgId={projectId} organization={organization} role={orgRole} />}
                 {sections.some((s) => s.id === "links") && (
                     <section id="project-settings-links" data-project-settings-section className="space-y-6">
                         <div className="space-y-6">
@@ -1433,9 +1438,9 @@ function ProjectSettingsContent({
                     <section id="project-settings-access" data-project-settings-section className="space-y-6">
                         <div className="space-y-6">
                             <SettingsCard
-                                title="Workspace access and visibility"
+                                title={organization ? "Access and visibility" : "Workspace access and visibility"}
                                 headingLevel={2}
-                                description="This one owner-controlled policy is used by workspace cards, detail pages, search, files, applications, notifications, and public surfaces."
+                                description={organization ? (isProjectOwner ? "Who can find the organization, and what visitors see." : "Only the owner can change this.") : "This one owner-controlled policy is used by workspace cards, detail pages, search, files, applications, notifications, and public surfaces."}
                             >
                                 <div className="divide-y divide-border">
                                     <div className="pb-6">
@@ -1499,7 +1504,7 @@ function ProjectSettingsContent({
                                         <PublicTabVisibilityEditor
                                             value={publicTabVisibility}
                                             onChange={handleTogglePublicTab}
-                                            disabled={savingAccess}
+                                            disabled={savingAccess || (Boolean(organization) && !isProjectOwner)}
                                             savingTabId={savingPublicTabId}
                                         />
                                         <div className="mt-4 border-t border-border pt-4 text-xs leading-relaxed text-muted-foreground">
@@ -1511,8 +1516,8 @@ function ProjectSettingsContent({
                         </div>
                     </section>
                 )}
-                {organization && sections.some((s) => s.id === "org-access") && <OrgAccessSection orgId={projectId} organization={organization} role={orgRole} maxMembers={project?.maxCollaborators ?? null} />}
-                {organization && sections.some((s) => s.id === "org-people") && <OrgPeopleSection orgId={projectId} organization={organization} role={orgRole} />}
+                {organization && sections.some((s) => s.id === "org-access") && <OrgAccessSection orgId={projectId} organization={organization} role={orgRole} maxMembers={project?.maxCollaborators ?? null} handle={project?.slug ?? null} />}
+                {organization && sections.some((s) => s.id === "org-people") && <OrgPeopleSection orgId={projectId} organization={organization} role={orgRole} handle={project?.slug ?? null} onOpenSection={(id) => handleNavigateSection(id as WorkspaceSettingsSectionId)} />}
                 {organization && sections.some((s) => s.id === "org-projects") && <OrgWorkspacesSection orgId={projectId} organization={organization} role={orgRole} />}
                 {organization && sections.some((s) => s.id === "org-work") && <OrgWorkSection orgId={projectId} organization={organization} role={orgRole} />}
                 {sections.some((s) => s.id === "collaborators") && (
@@ -1849,11 +1854,11 @@ function ProjectSettingsContent({
                         </div>
                     </section>
                 )}
+                {organization && sections.some((s) => s.id === "org-updates") && <OrgUpdatesSection orgId={projectId} organization={organization} memberPosts={memberUpdatesEnabled} />}
+                {organization && sections.some((s) => s.id === "org-messages") && <OrgChatSection orgId={projectId} organization={organization} />}
                 {sections.some((s) => s.id === "updates") && (
                     <section id="project-settings-updates" data-project-settings-section className="space-y-6">
                         <div className="space-y-6">
-                            {/* Org chat rules sit with Updates (report §25.4: Settings → Updates & messages). */}
-                            {organization ? <OrgChatSection orgId={projectId} organization={organization} /> : null}
                             <SettingsCard
                                 title="Workspace updates"
                                 headingLevel={2}
@@ -2096,15 +2101,22 @@ function ProjectSettingsContent({
                         </div>
                     </section>
                 )}
+                {organization && (orgRole === "owner" || orgRole === "admin") && sections.some((s) => s.id === "you-membership") && <OrgMembershipSection orgId={projectId} organization={organization} role={orgRole} />}
                 {sections.some((s) => s.id === "privacy-policies" || s.id === "privacy-terms") && (
                     <section id="project-settings-privacy-policies" data-project-settings-section className="space-y-6">
                         <SettingsPageHeader level={2} title="Privacy" description="These agreements and data rights apply to your signed-in account, not everyone in this workspace." />
                         <LegalAndDataRightsSection />
                     </section>
                 )}
-                {sections.some((s) => s.id === "danger") && (
+                {organization && sections.some((s) => s.id === "org-management") && (
+                    <OrgManagementSection orgId={projectId} organization={organization} role={orgRole} title={project?.title ?? "this organization"}
+                        afterLeaveHref={savedVisibility === "public" ? `/org/${encodeURIComponent(project?.slug ?? projectId)}?tab=about` : "/discover"}>
+                        {isProjectOwner ? <OrgDangerZone orgId={projectId} organization={organization} handle={project?.slug ?? null} /> : null}
+                    </OrgManagementSection>
+                )}
+                {!organization && sections.some((s) => s.id === "danger") && (
                     <section id="project-settings-danger" data-project-settings-section className="space-y-6">
-                        {organization ? <OrgDangerZone orgId={projectId} organization={organization} handle={project?.slug ?? null} /> : <SettingsCard
+                        {<SettingsCard
                             title="Workspace management"
                                 headingLevel={2}
                                 loadState={{ loading: dangerPreflightLoading, hasData: Boolean(dangerPreflight), error: settingsErrors.danger ?? null, retry: () => void loadDangerPreflight(true) }}

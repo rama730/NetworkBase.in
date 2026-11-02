@@ -23,12 +23,17 @@ export type WorkspaceSettingsSectionId =
   | "danger"
   // Organizations only (report §21.2–21.3).
   | "you-membership"
-  | "you-leave"
   | "org-profile"
   | "org-access"
   | "org-people"
   | "org-projects"
   | "org-work"
+  | "org-updates"
+  | "org-messages"
+  | "org-storage"
+  | "org-moderation"
+  | "org-allowed"
+  | "org-management"
   | "child-org";
 
 type ProjectSettingsSectionDefinition = {

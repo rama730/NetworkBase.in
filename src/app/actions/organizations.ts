@@ -192,6 +192,24 @@ function revalidateOrg(slug: string | null, orgId: string) {
  * Saves one org settings section (report §21.2). Owners and admins save every section except role names,
  * which are the owner's; the section footer records who changed it last.
  */
+export type OrgSettingsFacts = { members: number; admins: number; workspaces: number; outsidePeople: number; channels: number; waitingRequests: number };
+
+/** The counts Settings shows beside its fields (report §22.4): "38 members now", "3 of 20", "12 of 200". Admins only. */
+export async function readOrgSettingsFactsAction(orgId: string): Promise<{ success: true; facts: OrgSettingsFacts } | Failure> {
+    const viewer = await orgViewer(orgId, 'read');
+    if (!viewer || (viewer.role !== 'owner' && viewer.role !== 'admin')) return DENIED;
+    const [row] = await db.execute<OrgSettingsFacts>(sql`
+        SELECT (SELECT count(*)::int FROM workspace_members WHERE workspace_id = ${orgId}) AS members,
+               (SELECT count(*)::int FROM workspace_members WHERE workspace_id = ${orgId} AND role = 'admin') AS admins,
+               (SELECT count(*)::int FROM workspaces WHERE parent_id = ${orgId} AND deleted_at IS NULL) AS workspaces,
+               (SELECT count(DISTINCT c.user_id)::int FROM workspace_members c JOIN workspaces w ON w.id = c.workspace_id
+                 WHERE w.parent_id = ${orgId} AND w.deleted_at IS NULL
+                   AND NOT EXISTS (SELECT 1 FROM workspace_members o WHERE o.workspace_id = ${orgId} AND o.user_id = c.user_id)) AS "outsidePeople",
+               (SELECT count(*)::int FROM chat_channels WHERE workspace_id = ${orgId} AND kind <> 'dm' AND archived_at IS NULL) AS channels,
+               (SELECT count(*)::int FROM role_applications WHERE workspace_id = ${orgId} AND status = 'pending') AS "waitingRequests"`);
+    return { success: true, facts: row! };
+}
+
 export async function updateOrgSettingsAction(orgId: string, section: OrgSettingsSection, patch: unknown): Promise<{ success: true } | Failure> {
     const viewer = await orgViewer(orgId);
     if (!viewer || !(section in ORG_SETTINGS_PATCH)) return DENIED;
@@ -202,7 +220,7 @@ export async function updateOrgSettingsAction(orgId: string, section: OrgSetting
     const value = parsed.data as Record<string, unknown>;
 
     const [actor] = await db.select({ fullName: profiles.fullName }).from(profiles).where(eq(profiles.id, viewer.userId)).limit(1);
-    const [current] = await db.select({ orgType: workspaces.orgType, orgSettings: workspaces.orgSettings }).from(workspaces).where(eq(workspaces.id, orgId)).limit(1);
+    const [current] = await db.select({ orgType: workspaces.orgType, orgSettings: workspaces.orgSettings, termStart: workspaces.termStart, termEnd: workspaces.termEnd }).from(workspaces).where(eq(workspaces.id, orgId)).limit(1);
     const storedNames = (current?.orgSettings as { roleNames?: Record<string, string> } | null)?.roleNames;
     const settingsPatch: Record<string, unknown> = {
         changes: { [section]: { by: viewer.userId, byName: actor?.fullName ?? null, at: new Date().toISOString() } },
@@ -224,9 +242,16 @@ export async function updateOrgSettingsAction(orgId: string, section: OrgSetting
         if ('type_label' in value) settingsPatch.typeLabel = (value.type_label as string) || null;
         if ('part_of' in value) settingsPatch.partOf = (value.part_of as string) || null;
         if ('location' in value) settingsPatch.location = (value.location as string) || null;
+        const [start, end] = [columns.termStart ?? current?.termStart ?? null, columns.termEnd ?? current?.termEnd ?? null];
+        if (start && end && end <= start) return { success: false, error: 'The term has to end after it starts.' };
     } else if (section === 'access') {
         if ('join_mode' in value) settingsPatch.joinMode = value.join_mode;
         if ('join_code_enabled' in value) columns.joinCodeEnabled = value.join_code_enabled as boolean;
+        if (typeof value.max_members === 'number') {
+            // Smaller bug 24: nobody is removed by lowering it, so it can't go below the people already here.
+            const [{ n } = { n: 0 }] = await db.select({ n: sql<number>`count(*)::int` }).from(workspaceMembers).where(eq(workspaceMembers.projectId, orgId));
+            if (value.max_members < n) return { success: false, error: `There are ${n} members now. Max members can’t be lower.` };
+        }
         if ('max_members' in value) columns.maxCollaborators = value.max_members == null ? null : String(value.max_members);
     } else if (section === 'people') {
         // Names equal to the type's aren't saved, so a later type change still renames them.
@@ -237,6 +262,8 @@ export async function updateOrgSettingsAction(orgId: string, section: OrgSetting
         for (const [field, key] of Object.entries(keys)) if (field in value) settingsPatch[key] = value[field];
     } else if (section === 'notifications') {
         if ('admin_digest' in value) settingsPatch.adminDigest = value.admin_digest;
+    } else if (section === 'updates') {
+        if ('member_posts' in value) columns.memberUpdatesEnabled = value.member_posts as boolean;
         if ('announcement_notify' in value) settingsPatch.announcementNotify = value.announcement_notify;
         if ('reply_rule' in value) settingsPatch.replyRule = value.reply_rule;
     } else {

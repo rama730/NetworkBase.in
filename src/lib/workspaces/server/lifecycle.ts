@@ -1277,7 +1277,15 @@ export async function updateWorkspace(projectId: string, input: UpdateWorkspaceI
         .limit(1);
 
       if (!project) throw new Error("Workspace not found");
-      if (project.ownerId !== user.id) throw new Error("Sign in to continue");
+      if (project.ownerId !== user.id) {
+        // Report §22.3–22.4: an organization's admins edit the tagline, description and tags; the rest stays the owner's.
+        const [member] = project.kind === "organization"
+          ? await tx.select({ role: workspaceMembers.role }).from(workspaceMembers).where(and(eq(workspaceMembers.projectId, projectId), eq(workspaceMembers.userId, user.id))).limit(1)
+          : [];
+        if (member?.role !== "admin") throw new Error("Sign in to continue");
+        const touched = Object.entries(data).filter(([, v]) => v !== undefined).map(([k]) => k);
+        if (touched.some((key) => !["shortDescription", "description", "tags"].includes(key))) throw new Error("Only the owner can change this.");
+      }
       // Report §27.8, decision 55: an organization's name is 3–100 characters everywhere, as when it was created.
       if (project.kind === "organization" && data.title !== undefined && data.title.trim() !== project.title && data.title.trim().length < 3) {
         throw new Error("Use 3–100 characters for the name.");

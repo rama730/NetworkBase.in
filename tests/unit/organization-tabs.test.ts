@@ -32,17 +32,15 @@ test("visitors land on About, people in the org on Dashboard", () => {
   assert.equal(resolveAllowedWorkspaceTab({ isOwnerOrMember: false, publicTabVisibility: publicTabs, requestedTab: "about" }), "dashboard", "no About outside orgs");
 });
 
-test("settings sections by org role", () => {
+test("settings sections by org role (report §22.3)", () => {
   const owner = orgSettingsSectionIds("owner");
   const admin = orgSettingsSectionIds("admin");
-  assert.deepEqual(orgSettingsSectionIds("member"), ["you-membership", "you-leave"]);
-  assert.deepEqual(orgSettingsSectionIds("viewer"), ["you-membership", "you-leave"]);
-  for (const id of ["org-profile", "org-access", "org-people", "org-projects", "general", "danger"]) assert.ok(owner.includes(id), id);
-  assert.ok(admin.includes("org-people"), "admins read the people section");
-  for (const id of ["general", "danger"]) assert.ok(!admin.includes(id), id);
-  for (const ids of [owner, admin]) assert.ok(!ids.includes("roles-applications"), "orgs have no open roles");
-  for (const ids of [owner, admin]) assert.ok(!ids.includes("collaborators"), "no second Members list; the Members tab follows organization rules (problem 52)");
-  assert.equal(owner[0], "you-membership", "You group first");
+  assert.deepEqual(orgSettingsSectionIds("member"), ["you-membership", "org-allowed", "privacy-policies", "org-management"]);
+  assert.deepEqual(orgSettingsSectionIds("viewer"), orgSettingsSectionIds("member"));
+  assert.deepEqual(owner, admin, "admins see every section; some fields are read only");
+  assert.equal(owner[0], "general", "owners and admins open on Details");
+  for (const id of ["org-profile", "org-access", "org-people", "org-projects", "org-work", "org-updates", "org-messages", "org-storage", "org-moderation", "org-management"]) assert.ok(owner.includes(id), id);
+  for (const id of ["roles-applications", "collaborators", "tasks-workflow", "files-workspace", "danger"]) assert.ok(!owner.includes(id), `${id} isn't an organization section`);
 });
 
 test("Members is for org owners and admins only (report §20.8)", () => {

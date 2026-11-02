@@ -1,13 +1,17 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { useState, useTransition, type ReactNode } from 'react'
+import { useMemo, useState, useTransition, type ReactNode } from 'react'
+import Link from 'next/link'
+import { useQuery } from '@tanstack/react-query'
+import { X } from 'lucide-react'
 
 import {
     leaveOrgAction,
     readLeavePreviewAction,
     type LeavePreview,
     previewVisibilityCapAction,
+    readOrgSettingsFactsAction,
     regenerateJoinCodeAction,
     renameOrgHandleAction,
     updateMyOrgMembershipAction,
@@ -20,13 +24,14 @@ import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { Input } from '@/components/ui/input'
 import { toast } from '@/lib/feedback'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { ORG_TYPES, orgTypeLabel } from '@/lib/organizations/config'
+import { ORG_LIMITS, ORG_TYPES, orgRoleNames, orgTypeLabel } from '@/lib/organizations/config'
+import { GRANT_WORDS, PERMISSION_AREAS } from '@/lib/organizations/permission-labels'
 import { typeProfile } from '@/lib/organizations/type-profile'
 import { orgChatSettings } from '@/lib/organizations/chat-rules'
 import { updateOrgChatSettingsAction } from '@/app/actions/org-chat'
 import { requestOrgVerificationAction } from '@/app/actions/trust'
 import type { OrgDetail } from '@/lib/organizations/detail'
-import { orgGrant, type OrgAction, type OrgRole } from '@/lib/organizations/permissions'
+import { orgGrant, type OrgRole } from '@/lib/organizations/permissions'
 import type { OrgMemberRole, OrgSettingsSection } from '@/lib/organizations/settings'
 
 // Org settings sections (report §21.2–21.4), rendered inside the project Settings document. Each saves on its
@@ -67,6 +72,14 @@ function useSave() {
     return { pending, save, status }
 }
 
+/** The counts beside the fields (report §22.4), read once for the whole page. Admins only. */
+function useOrgFacts(orgId: string, enabled = true) {
+    const q = useQuery({ queryKey: ['org-settings-facts', orgId], queryFn: () => readOrgSettingsFactsAction(orgId), enabled, staleTime: 30_000 })
+    return q.data?.success ? q.data.facts : null
+}
+
+const membersHref = (handle: string | null | undefined, orgId: string) => `/org/${encodeURIComponent(handle ?? orgId)}?tab=members`
+
 export function OrgMembershipSection({ orgId, organization, role }: SectionProps) {
     const [title, setTitle] = useState(organization.you?.title ?? '')
     const [showOnProfile, setShowOnProfile] = useState(organization.you?.showOnProfile ?? true)
@@ -101,7 +114,11 @@ export function OrgMembershipSection({ orgId, organization, role }: SectionProps
     )
 }
 
-export function OrgLeaveSection({ orgId, role, title, afterLeaveHref = '/discover' }: SectionProps & { title: string; afterLeaveHref?: string }) {
+/**
+ * Management (report §22.4, decision 28): Leave is everyone's; the owner's transfer, archive, duplicate and delete
+ * come in as children.
+ */
+export function OrgManagementSection({ orgId, role, title, afterLeaveHref = '/discover', children }: SectionProps & { title: string; afterLeaveHref?: string; children?: ReactNode }) {
     const router = useRouter()
     const [open, setOpen] = useState(false)
     const [preview, setPreview] = useState<LeavePreview | null>(null)
@@ -122,10 +139,11 @@ export function OrgLeaveSection({ orgId, role, title, afterLeaveHref = '/discove
     })
     const month = new Intl.DateTimeFormat('en', { month: 'short', year: 'numeric' }).format(new Date())
     return (
-        <Section id="you-leave">
-            <SettingsCard title="Leave organization" headingLevel={2} description="Stop being a member. You can join again later with the code." danger>
+        <Section id="org-management">
+            {children}
+            <SettingsCard title="Leave organization" headingLevel={2} description="Stop being a member. To come back you’ll need the current code or a new invite." danger>
                 {role === 'owner' ? (
-                    <p className="text-sm text-muted-foreground">Transfer ownership first, in Organization management below.</p>
+                    <p className="text-sm text-muted-foreground">Transfer ownership first.</p>
                 ) : (
                     <div className="space-y-2">
                         <Button variant="destructive" disabled={pending} onClick={ask}>Leave {title}</Button>
@@ -163,8 +181,38 @@ export function OrgLeaveSection({ orgId, role, title, afterLeaveHref = '/discove
     )
 }
 
-export function OrgProfileSection({ orgId, organization, role, handle }: SectionProps & { handle: string | null }) {
+/** Every zone the browser knows, for the searchable time zone field (report §22.4). */
+const TIME_ZONES: string[] = (() => { try { return Intl.supportedValuesOf('timeZone') } catch { return [] } })()
+
+/** Handle (report §22.4, §27.8): in Details, owner only, once every 7 days; the old address redirects for 90 days. */
+export function OrgHandleSection({ orgId, organization, role, handle }: SectionProps & { handle: string | null }) {
     const router = useRouter()
+    const [newHandle, setNewHandle] = useState(handle ?? '')
+    const rename = useSave()
+    const isOwner = role === 'owner'
+    return (
+        <SettingsCard title="Handle" headingLevel={2} description="The organization’s address. People type it to find you.">
+            <div>
+                <label htmlFor="org-handle" className={labelClass}>Address</label>
+                <p className={helpClass}>{isOwner ? `networkbase.in/org/${handle}. Change it at most once every 7 days; the old one keeps redirecting for 90 days.` : OWNER_ONLY}</p>
+                <div className="mt-2 flex max-w-md items-center gap-2">
+                    <span aria-hidden="true" className="text-muted-foreground">@</span>
+                    <Input id="org-handle" value={newHandle} onChange={(e) => setNewHandle(e.target.value)} disabled={!isOwner || Boolean(organization.handleRenameAvailableAt)} maxLength={40} />
+                    {isOwner ? (
+                        <Button variant="outline" disabled={rename.pending || newHandle === handle || Boolean(organization.handleRenameAvailableAt)} onClick={() => rename.save(
+                            () => renameOrgHandleAction(orgId, newHandle),
+                            () => router.replace(`/org/${newHandle.trim().toLowerCase()}?tab=settings`),
+                        )}>Change</Button>
+                    ) : null}
+                </div>
+                {organization.handleRenameAvailableAt ? <p className={helpClass}>You can change it again on {DATE.format(new Date(organization.handleRenameAvailableAt))}.</p> : null}
+                {rename.status}
+            </div>
+        </SettingsCard>
+    )
+}
+
+export function OrgProfileSection({ orgId, organization, role }: SectionProps) {
     const [type, setType] = useState(organization.type ?? 'community')
     const [termStart, setTermStart] = useState(organization.termStart ?? '')
     const [termEnd, setTermEnd] = useState(organization.termEnd ?? '')
@@ -173,76 +221,76 @@ export function OrgProfileSection({ orgId, organization, role, handle }: Section
     const [typeLabel, setTypeLabel] = useState(organization.type === 'other' ? organization.typeLabel ?? '' : '')
     const [partOf, setPartOf] = useState(organization.partOf ?? '')
     const [location, setLocation] = useState(organization.location ?? '')
-    const [newHandle, setNewHandle] = useState(handle ?? '')
+    const [confirmType, setConfirmType] = useState(false)
     const { pending, save, status } = useSave()
-    const rename = useSave()
+    const typeSave = useSave()
     const isOwner = role === 'owner'
+    const termWrong = Boolean(termStart && termEnd && termEnd <= termStart)
+    // Report §22.1 #2: the confirmation lists what really changes; roles you renamed keep your names.
+    const nextNames = orgRoleNames(type, { roleNames: Object.fromEntries(Object.entries(organization.roleNames).filter(([k, v]) => v !== orgRoleNames(organization.type, {})[k as keyof typeof organization.roleNames])) })
+    const renamed = (Object.keys(nextNames) as Array<keyof typeof nextNames>).filter((k) => nextNames[k] !== organization.roleNames[k])
     return (
         <Section id="org-profile">
             <SettingsCard title="Organization profile" headingLevel={2} description="What people see on About, and how the organization keeps time." footer={<LastChanged organization={organization} section="profile" />}>
                 <div className="space-y-6">
                     <div>
-                        <label htmlFor="org-handle" className={labelClass}>Organization URL</label>
-                        <p className={helpClass}>{isOwner ? `The address, networkbase.in/org/${handle}. Change it at most once every 7 days; the old one keeps redirecting for 90 days.` : OWNER_ONLY}</p>
-                        <div className="mt-2 flex max-w-md items-center gap-2">
-                            <span aria-hidden="true" className="text-muted-foreground">@</span>
-                            <Input id="org-handle" value={newHandle} onChange={(e) => setNewHandle(e.target.value)} disabled={!isOwner || Boolean(organization.handleRenameAvailableAt)} maxLength={40} />
-                            {isOwner ? (
-                                <Button variant="outline" disabled={rename.pending || newHandle === handle || Boolean(organization.handleRenameAvailableAt)} onClick={() => rename.save(
-                                    () => renameOrgHandleAction(orgId, newHandle),
-                                    () => router.replace(`/org/${newHandle.trim().toLowerCase()}?tab=settings`),
-                                )}>Change</Button>
-                            ) : null}
-                        </div>
-                        {organization.handleRenameAvailableAt ? <p className={helpClass}>You can change it again on {DATE.format(new Date(organization.handleRenameAvailableAt))}.</p> : null}
-                        {rename.status}
-                    </div>
-                    <div>
                         <label htmlFor="org-type" className={labelClass}>Type</label>
-                        {/* Report §21.2: the owner changes type; it renames roles still on the type's names and changes labels such as Submissions. */}
-                        <p className={helpClass}>{isOwner ? 'Changing it renames roles you haven’t renamed and labels such as Submissions. People, folders, work, joining, visibility and rules stay the same.' : OWNER_ONLY}</p>
-                        <select id="org-type" value={type} disabled={!isOwner} onChange={(e) => setType(e.target.value as typeof type)} className="mt-2 h-[var(--ui-control-height)] rounded-md border border-input bg-background px-2 text-sm">
-                            {ORG_TYPES.map((t) => <option key={t} value={t}>{orgTypeLabel(t)}</option>)}
-                        </select>
+                        <p className={helpClass}>{isOwner ? 'It sets the words used here, such as Submissions. It has its own save.' : OWNER_ONLY}</p>
+                        <div className="mt-2 flex flex-wrap items-center gap-2">
+                            <select id="org-type" value={type} disabled={!isOwner} onChange={(e) => setType(e.target.value as typeof type)} className="h-[var(--ui-control-height)] rounded-md border border-input bg-background px-2 text-sm">
+                                {ORG_TYPES.map((t) => <option key={t} value={t}>{orgTypeLabel(t)}</option>)}
+                            </select>
+                            {isOwner ? <Button variant="outline" disabled={typeSave.pending || (type === organization.type && (type !== 'other' || typeLabel === (organization.typeLabel ?? ''))) || (type === 'other' && !typeLabel.trim())} onClick={() => setConfirmType(true)}>Save type</Button> : null}
+                        </div>
                         {type === 'other' ? (
                             <label className="mt-3 block max-w-sm text-xs text-muted-foreground">What do you call it?
-                                <Input value={typeLabel} onChange={(e) => setTypeLabel(e.target.value)} placeholder="Nonprofit" maxLength={30} className="mt-1" />
+                                <Input value={typeLabel} onChange={(e) => setTypeLabel(e.target.value)} placeholder="Nonprofit" maxLength={30} disabled={!isOwner} className="mt-1" />
                             </label>
                         ) : null}
+                        {typeSave.status}
+                        <ConfirmDialog open={confirmType} onOpenChange={setConfirmType} title={`Change the type to ${orgTypeLabel(type)}?`}
+                            description={[
+                                renamed.length ? `Roles become ${renamed.map((k) => `${organization.roleNames[k]} → ${nextNames[k]}`).join(', ')}.` : 'Role names stay as they are.',
+                                'Labels such as Submissions follow the new type. People, folders, work, joining, visibility and rules stay the same.',
+                            ].join(' ')}
+                            confirmLabel="Change type"
+                            onConfirm={() => typeSave.save(() => updateOrgSettingsAction(orgId, 'profile', { org_type: type, type_label: type === 'other' ? typeLabel.trim() : null }))} />
                     </div>
                     <div className="grid max-w-2xl gap-4 sm:grid-cols-2">
                         <label className="block">
                             <span className={labelClass}>Part of</span>
-                            <span className={`block ${helpClass}`}>The bigger body it belongs to, for example RV College of Engineering.</span>
+                            <span className={`block ${helpClass}`}>The bigger body it belongs to, for example RV College of Engineering. Shows in the header.</span>
                             <Input value={partOf} onChange={(e) => setPartOf(e.target.value)} maxLength={100} className="mt-2" />
                         </label>
                         <label className="block">
                             <span className={labelClass}>Where</span>
-                            <span className={`block ${helpClass}`}>A city, or Online.</span>
+                            <span className={`block ${helpClass}`}>A city, or Online. Shows in the header.</span>
                             <Input value={location} onChange={(e) => setLocation(e.target.value)} maxLength={100} className="mt-2" />
                         </label>
                     </div>
                     {typeProfile(organization.type).termDates ? <fieldset>
-                        <legend className={labelClass}>Term or period</legend>
-                        <p className={helpClass}>Optional, for example Aug–Dec 2026. Shown on About.</p>
+                        <legend className={labelClass}>Term</legend>
+                        <p className={helpClass}>Optional, for example Aug–Dec 2026. Shown on About, and it sets the week line.</p>
                         <div className="mt-2 grid max-w-md gap-3 sm:grid-cols-2">
                             <label className="text-xs text-muted-foreground">Starts<Input type="date" value={termStart} onChange={(e) => setTermStart(e.target.value)} className="mt-1" /></label>
-                            <label className="text-xs text-muted-foreground">Ends<Input type="date" value={termEnd} onChange={(e) => setTermEnd(e.target.value)} className="mt-1" /></label>
+                            <label className="text-xs text-muted-foreground">Ends<Input type="date" value={termEnd} min={termStart || undefined} onChange={(e) => setTermEnd(e.target.value)} className="mt-1" /></label>
                         </div>
+                        {termWrong ? <p role="alert" className="mt-1 text-xs text-destructive">The term has to end after it starts.</p> : null}
                     </fieldset> : null}
                     <div>
                         <label htmlFor="org-tz" className={labelClass}>Time zone</label>
-                        <p className={helpClass}>Due dates and reminders use it, for example Asia/Kolkata. Empty uses each person’s own.</p>
-                        <Input id="org-tz" value={timeZone} onChange={(e) => setTimeZone(e.target.value)} placeholder="Asia/Kolkata" maxLength={64} className="mt-2 max-w-sm" />
+                        <p className={helpClass}>Due dates and the admin email use it. Empty means each person’s own.</p>
+                        <Input id="org-tz" list="org-tz-list" value={timeZone} onChange={(e) => setTimeZone(e.target.value)} placeholder="Search, for example Kolkata" maxLength={64} className="mt-2 max-w-sm" />
+                        <datalist id="org-tz-list">{TIME_ZONES.map((z) => <option key={z} value={z} />)}</datalist>
                     </div>
                     <div>
                         <label htmlFor="org-welcome" className={labelClass}>Welcome note</label>
-                        <p className={helpClass}>Shown to members on About, for example &quot;Read the syllabus first&quot;.</p>
+                        <p className={helpClass}>New members see it once when they join, and members see it on About. Up to 500 characters.</p>
                         <textarea id="org-welcome" value={welcome} onChange={(e) => setWelcome(e.target.value)} rows={4} maxLength={500} className="mt-2 w-full resize-y rounded-md border border-input bg-transparent px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring" />
                     </div>
                     <div className="flex items-center gap-3">
-                        <Button disabled={pending || (type === 'other' && !typeLabel.trim())} onClick={() => (type === organization.type || window.confirm(`Change the type to ${orgTypeLabel(type)}? Roles you haven’t renamed get ${orgTypeLabel(type)}’s names, and labels such as Submissions change. People, folders, work, joining, visibility and rules stay the same.`)) && save(() => updateOrgSettingsAction(orgId, 'profile', {
-                            org_type: type, type_label: type === 'other' ? typeLabel.trim() : null, part_of: partOf.trim() || null, location: location.trim() || null,
+                        <Button disabled={pending || termWrong} onClick={() => save(() => updateOrgSettingsAction(orgId, 'profile', {
+                            part_of: partOf.trim() || null, location: location.trim() || null,
                             term_start: termStart || null, term_end: termEnd || null, time_zone: timeZone.trim() || null, welcome_note: welcome.trim() || null,
                         }))}>Save</Button>
                         {status}
@@ -253,7 +301,8 @@ export function OrgProfileSection({ orgId, organization, role, handle }: Section
     )
 }
 
-export function OrgAccessSection({ orgId, organization, maxMembers }: SectionProps & { maxMembers: string | null }) {
+export function OrgAccessSection({ orgId, organization, maxMembers, handle }: SectionProps & { maxMembers: string | null; handle?: string | null }) {
+    const facts = useOrgFacts(orgId)
     const [joinMode, setJoinMode] = useState(organization.joinMode)
     const [codeOn, setCodeOn] = useState(organization.joinCodeEnabled)
     const [max, setMax] = useState(maxMembers ?? '')
@@ -263,15 +312,15 @@ export function OrgAccessSection({ orgId, organization, maxMembers }: SectionPro
     const regen = useSave()
     return (
         <Section id="org-access">
-            <SettingsCard title="Access and joining" headingLevel={2} description="Who can join and how. Public or private is set in Access and Visibility." footer={<LastChanged organization={organization} section="access" />}>
+            <SettingsCard title="Joining" headingLevel={2} description="How people join. Invites are in the Members tab; Public or Private is in Access and visibility." footer={<LastChanged organization={organization} section="access" />}>
                 <div className="space-y-6">
                     <div>
                         <p className={labelClass}>Join code</p>
-                        <p className={helpClass}>People enter it at /join. Regenerating stops the old code at once.</p>
+                        <p className={helpClass}>People enter it at /join. A new code stops the old one at once.</p>
                         <div className="mt-2 flex flex-wrap items-center gap-3">
                             <span className="select-all font-mono text-2xl font-semibold tracking-[0.2em]">{code}</span>
                             <Button variant="outline" size="sm" onClick={() => code && navigator.clipboard.writeText(code)}>Copy</Button>
-                            <Button variant="ghost" size="sm" disabled={regen.pending} onClick={() => setConfirming(true)}>Regenerate</Button>
+                            <Button variant="ghost" size="sm" disabled={regen.pending} onClick={() => setConfirming(true)}>Make a new code</Button>
                         </div>
                         {regen.status}
                         <ConfirmDialog open={confirming} onOpenChange={setConfirming} title="Make a new join code?" description="The current code stops working at once." confirmLabel="Make a new code"
@@ -284,7 +333,7 @@ export function OrgAccessSection({ orgId, organization, maxMembers }: SectionPro
                     <div className="flex items-start justify-between gap-4">
                         <div>
                             <p className={labelClass}>Code works</p>
-                            <p className={helpClass}>Mute to stop new joins by code without changing it.</p>
+                            <p className={helpClass}>Off means nobody can join by code. The code itself doesn’t change.</p>
                         </div>
                         <SettingsSwitch checked={codeOn} onCheckedChange={setCodeOn} aria-label="Join code works" />
                     </div>
@@ -294,11 +343,13 @@ export function OrgAccessSection({ orgId, organization, maxMembers }: SectionPro
                             <label className="flex items-center gap-2"><input type="radio" name="org-join-mode" checked={joinMode === 'instant'} onChange={() => setJoinMode('instant')} /> Instant: anyone with the code becomes a member</label>
                             <label className="flex items-center gap-2"><input type="radio" name="org-join-mode" checked={joinMode === 'approval'} onChange={() => setJoinMode('approval')} /> Approval: the code sends a request an admin approves</label>
                         </div>
+                        {facts?.waitingRequests ? <p className="mt-2 text-sm">{facts.waitingRequests} {facts.waitingRequests === 1 ? 'request' : 'requests'} waiting · <Link href={membersHref(handle, orgId)} className="text-primary hover:underline">Review</Link></p> : null}
                     </fieldset>
                     <div>
                         <label htmlFor="org-max" className={labelClass}>Max members</label>
-                        <p className={helpClass}>Off when empty. When full, the code says &quot;This organization is full&quot;.</p>
-                        <Input id="org-max" type="number" min={1} max={2000} value={max} onChange={(e) => setMax(e.target.value)} className="mt-2 w-32" />
+                        <p className={helpClass}>Empty means up to {ORG_LIMITS.membersPerOrg.toLocaleString('en')}. When full, the join page says &quot;This organization is full&quot;.{facts ? ` ${facts.members} ${facts.members === 1 ? 'member' : 'members'} now.` : ''}</p>
+                        <Input id="org-max" type="number" min={facts?.members ?? 1} max={ORG_LIMITS.membersPerOrg} value={max} onChange={(e) => setMax(e.target.value)} className="mt-2 w-32" />
+                        {facts && max && Number(max) < facts.members ? <p role="alert" className="mt-1 text-xs text-destructive">There are {facts.members} members now. Max members can’t be lower.</p> : null}
                     </div>
                     <div className="flex items-center gap-3">
                         <Button disabled={pending} onClick={() => save(() => updateOrgSettingsAction(orgId, 'access', { join_mode: joinMode, join_code_enabled: codeOn, max_members: max ? Number(max) : null }))}>Save</Button>
@@ -310,31 +361,57 @@ export function OrgAccessSection({ orgId, organization, maxMembers }: SectionPro
     )
 }
 
-// The plain-language table of what each role can do: a few rows from the permissions matrix.
-const PEOPLE_ROWS: Array<[OrgAction, string]> = [
-    ['open_dashboard', 'Open the dashboard'],
-    ['post_discussion', 'Post discussions'],
-    ['submit_own', 'Submit their own work'],
-    ['create_child_project', 'Create workspaces'],
-    ['create_assignments', 'Create tasks and assignments'],
-    ['remove_members_guests', 'Remove members and guests'],
-    ['manage_admins', 'Manage admins'],
-    ['org_lifecycle', 'Archive, transfer or delete'],
-]
 const TABLE_ROLES: Array<[OrgRole, 'owner' | 'admin' | 'member' | 'viewer']> = [['owner', 'owner'], ['admin', 'admin'], ['member', 'member'], ['guest', 'viewer']]
-const GRANT_TEXT: Record<string, string> = { yes: 'Yes', no: '—', setting: 'If allowed', own: 'Own', read: 'Read', counts: 'Counts' }
 
-export function OrgPeopleSection({ orgId, organization, role }: SectionProps) {
+/** What each role can do (report §22.4): every row of the real permissions, grouped by area, in the org's role names. */
+export function RolesTable({ organization, onOpenSection }: { organization: OrgDetail; onOpenSection?: (id: string) => void }) {
+    return (
+        <div className="space-y-4 overflow-x-auto">
+            {PERMISSION_AREAS.map(({ area, rows }) => (
+                <table key={area} className="w-full min-w-[30rem] text-left text-sm">
+                    <caption className="nb-micro pb-1 text-left text-muted-foreground">{area}</caption>
+                    <thead>
+                        <tr className="border-b border-border text-xs text-muted-foreground">
+                            <th scope="col" className="w-1/2 py-1.5 pr-3 font-medium">Can…</th>
+                            {TABLE_ROLES.map(([, key]) => <th key={key} scope="col" className="py-1.5 pr-3 font-medium">{organization.roleNames[key]}</th>)}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {rows.map((row) => (
+                            <tr key={row.action} className="border-b border-border/60 last:border-b-0">
+                                <th scope="row" className="py-1.5 pr-3 font-normal text-foreground">{row.label}</th>
+                                {TABLE_ROLES.map(([grantRole, key]) => {
+                                    const grant = orgGrant(grantRole, row.action)
+                                    return (
+                                        <td key={key} className="py-1.5 pr-3 text-muted-foreground">
+                                            {grant === 'setting' && row.setting && onOpenSection
+                                                ? <button type="button" className="underline underline-offset-2 hover:text-foreground" onClick={() => onOpenSection(row.setting!)}>{GRANT_WORDS[grant]}</button>
+                                                : GRANT_WORDS[grant] ?? '—'}
+                                        </td>
+                                    )
+                                })}
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            ))}
+        </div>
+    )
+}
+
+export function OrgPeopleSection({ orgId, organization, role, handle, onOpenSection }: SectionProps & { handle?: string | null; onOpenSection?: (id: string) => void }) {
     const [names, setNames] = useState(organization.roleNames)
     const { pending, save, status } = useSave()
+    const facts = useOrgFacts(orgId)
     const isOwner = role === 'owner'
+    const typeNames = useMemo(() => orgRoleNames(organization.type, {}), [organization.type])
     return (
         <Section id="org-people">
-            <SettingsCard title="People and roles" headingLevel={2} description="Role names and what each role can do. Only the owner manages admins." footer={<LastChanged organization={organization} section="people" />}>
+            <SettingsCard title="People and roles" headingLevel={2} description="Role names and what each role can do. Admins are managed in the Members tab." footer={<LastChanged organization={organization} section="people" />}>
                 <div className="space-y-6">
                     <div>
                         <p className={labelClass}>Role names</p>
-                        <p className={helpClass}>{isOwner ? 'For example Teacher / TA / Student / Viewer. Permissions always come from the role.' : OWNER_ONLY}</p>
+                        <p className={helpClass}>{isOwner ? 'For example Teacher / TA / Student / Viewer. What each role can do always comes from the role.' : OWNER_ONLY}</p>
                         <div className="mt-2 grid max-w-md gap-2 sm:grid-cols-2">
                             {TABLE_ROLES.map(([, key]) => (
                                 <label key={key} className="text-xs capitalize text-muted-foreground">{key}
@@ -343,32 +420,33 @@ export function OrgPeopleSection({ orgId, organization, role }: SectionProps) {
                             ))}
                         </div>
                         {isOwner ? (
-                            <div className="mt-3 flex items-center gap-3">
+                            <div className="mt-3 flex flex-wrap items-center gap-3">
                                 <Button disabled={pending} onClick={() => save(() => updateOrgSettingsAction(orgId, 'people', { role_names: names }))}>Save</Button>
+                                <Button variant="ghost" disabled={pending} onClick={() => { setNames(typeNames); save(() => updateOrgSettingsAction(orgId, 'people', { role_names: typeNames })) }}>Reset to {orgTypeLabel(organization.type)}’s names</Button>
                                 {status}
                             </div>
                         ) : null}
                     </div>
-                    <div className="overflow-x-auto">
-                        <table className="w-full min-w-[28rem] text-left text-sm">
-                            <caption className="sr-only">What each role can do</caption>
-                            <thead>
-                                <tr className="border-b border-border text-xs text-muted-foreground">
-                                    <th scope="col" className="py-2 pr-3 font-medium">Can…</th>
-                                    {TABLE_ROLES.map(([, key]) => <th key={key} scope="col" className="py-2 pr-3 font-medium">{organization.roleNames[key]}</th>)}
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {PEOPLE_ROWS.map(([action, label]) => (
-                                    <tr key={action} className="border-b border-border/60 last:border-b-0">
-                                        <th scope="row" className="py-2 pr-3 font-normal text-foreground">{label}</th>
-                                        {TABLE_ROLES.map(([grantRole, key]) => <td key={key} className="py-2 pr-3 text-muted-foreground">{GRANT_TEXT[orgGrant(grantRole, action)] ?? '—'}</td>)}
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
+                    <div>
+                        <p className={labelClass}>Admins</p>
+                        <p className="mt-1 text-sm">{facts ? `${facts.admins} of ${ORG_LIMITS.adminsPerOrg}` : '…'} · <Link href={membersHref(handle, orgId)} className="text-primary hover:underline">Manage in Members</Link></p>
+                    </div>
+                    <div>
+                        <p className={labelClass}>What each role can do</p>
+                        <div className="mt-2"><RolesTable organization={organization} onOpenSection={onOpenSection} /></div>
                     </div>
                 </div>
+            </SettingsCard>
+        </Section>
+    )
+}
+
+/** What's allowed (report §22.4): the same table, read only, for members and viewers. */
+export function OrgAllowedSection({ organization }: { organization: OrgDetail }) {
+    return (
+        <Section id="org-allowed">
+            <SettingsCard title="What’s allowed" headingLevel={2} description="What each role can do in this organization. Admins set some of these in Settings.">
+                <RolesTable organization={organization} />
             </SettingsCard>
         </Section>
     )
@@ -380,16 +458,42 @@ const CAP_OPTIONS = [
     { value: 'private', label: 'Private', hint: 'Each workspace is seen by its team and admins only.' },
 ] as const
 
+/** Default teams as chips (report §22.4): Enter adds one, × removes it; up to 20. */
+function ChipsInput({ value, onChange, label }: { value: string[]; onChange: (next: string[]) => void; label: string }) {
+    const [draft, setDraft] = useState('')
+    const add = () => {
+        const v = draft.trim().slice(0, 100)
+        if (v && !value.includes(v) && value.length < 20) onChange([...value, v])
+        setDraft('')
+    }
+    return (
+        <div className="mt-2 flex flex-wrap items-center gap-1.5 rounded-md border border-border p-1.5">
+            {value.map((chip) => (
+                <span key={chip} className="inline-flex items-center gap-1 rounded-[4px] bg-muted px-2 py-0.5 text-sm">
+                    {chip}
+                    <button type="button" aria-label={`Remove ${chip}`} onClick={() => onChange(value.filter((c) => c !== chip))}><X className="size-3" aria-hidden="true" /></button>
+                </span>
+            ))}
+            <input aria-label={label} value={draft} onChange={(e) => setDraft(e.target.value)} disabled={value.length >= 20}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ',') { e.preventDefault(); add() } }} onBlur={add}
+                placeholder={value.length >= 20 ? 'Up to 20' : 'Add a team'} className="min-w-28 flex-1 bg-transparent px-1 py-0.5 text-sm outline-none" />
+        </div>
+    )
+}
+
 export function OrgWorkspacesSection({ orgId, organization }: SectionProps) {
+    const facts = useOrgFacts(orgId)
+    const [confirmCap, setConfirmCap] = useState(false)
     const [childCreation, setChildCreation] = useState(organization.childCreation)
     const [outside, setOutside] = useState(organization.outsidePeople)
     const [childShare, setChildShare] = useState(organization.childShare)
     const [cap, setCap] = useState(organization.visibilityCap)
-    const [defaultUnits, setDefaultUnits] = useState(organization.defaultUnits.join('\n'))
+    const [defaultUnits, setDefaultUnits] = useState<string[]>(organization.defaultUnits)
     const [followSprints, setFollowSprints] = useState(organization.followSprintsDefault)
     // Impact preview (report §21.1 principle 4): how many projects a tighter cap would lower.
     const [affected, setAffected] = useState<number | null>(null)
     const { pending, save, status } = useSave()
+    const saveAll = () => save(() => updateOrgSettingsAction(orgId, 'projects', { follow_sprints: followSprints, child_creation: childCreation, outside_people: outside, child_share: childShare, default_units: defaultUnits, ...(cap !== organization.visibilityCap ? { visibility_cap: cap } : {}) }))
     const chooseCap = async (next: typeof cap) => {
         setCap(next)
         setAffected(null)
@@ -398,8 +502,9 @@ export function OrgWorkspacesSection({ orgId, organization }: SectionProps) {
     }
     return (
         <Section id="org-projects">
-            <SettingsCard title="Workspaces" headingLevel={2} description="Who creates workspaces inside the organization, and who can be added to them." footer={<LastChanged organization={organization} section="projects" />}>
+            <SettingsCard title="Workspaces" headingLevel={2} description="Who creates workspaces inside the organization, and the rules they follow." footer={<LastChanged organization={organization} section="projects" />}>
                 <div className="space-y-6">
+                    <p className="text-sm text-muted-foreground">{facts ? `${facts.workspaces} of ${ORG_LIMITS.childProjectsPerOrg} workspaces` : '…'}</p>
                     <fieldset>
                         <legend className={labelClass}>Who can create workspaces</legend>
                         <p className={helpClass}>Owners and admins always can. Changing this affects new workspaces only.</p>
@@ -410,7 +515,7 @@ export function OrgWorkspacesSection({ orgId, organization }: SectionProps) {
                     </fieldset>
                     <fieldset>
                         <legend className={labelClass}>Highest allowed visibility</legend>
-                        <p className={helpClass}>The most open a workspace here can be. Tightening it lowers workspaces above it.</p>
+                        <p className={helpClass}>The most open a workspace here can be. Tightening it lowers workspaces above it, after you confirm.</p>
                         <div className="mt-2 space-y-2 text-sm">
                             {CAP_OPTIONS.map((option) => (
                                 <label key={option.value} className="flex items-start gap-2">
@@ -419,12 +524,12 @@ export function OrgWorkspacesSection({ orgId, organization }: SectionProps) {
                                 </label>
                             ))}
                         </div>
-                        {affected ? <p role="status" className="mt-2 text-sm text-foreground">This will change {affected} {affected === 1 ? 'project' : 'projects'} to {cap === 'private' ? 'Private' : 'Organization'}.</p> : null}
+
                     </fieldset>
                     <div className="flex items-start justify-between gap-4">
                         <div>
                             <p className={labelClass}>People outside the organization can be added to its workspaces</p>
-                            <p className={helpClass}>Off by default. They see only that workspace, never the organization’s content.</p>
+                            <p className={helpClass}>They see only that workspace, never the organization’s content. Turning it off removes nobody.{facts?.outsidePeople ? ` ${facts.outsidePeople} outside ${facts.outsidePeople === 1 ? 'person is' : 'people are'} in workspaces now.` : ''}</p>
                         </div>
                         <SettingsSwitch checked={outside} onCheckedChange={setOutside} aria-label="People outside the organization can be added to its workspaces" />
                     </div>
@@ -436,20 +541,23 @@ export function OrgWorkspacesSection({ orgId, organization }: SectionProps) {
                         <SettingsSwitch checked={childShare} onCheckedChange={setChildShare} aria-label="Workspaces can share updates to the organization" />
                     </div>
                     <div>
-                        <label htmlFor="org-default-units" className={labelClass}>Default teams</label>
-                        <p className={helpClass}>Pre-fill the team of every new workspace, one per line, for example Frontend, Backend, Testing. Still editable per workspace.</p>
-                        <textarea id="org-default-units" value={defaultUnits} onChange={(e) => setDefaultUnits(e.target.value)} rows={3} className="mt-2 w-full rounded-md border border-border bg-background p-2 text-sm" />
+                        <p className={labelClass}>Default teams</p>
+                        <p className={helpClass}>Every new workspace starts with these, for example Frontend, Backend, Testing. Each workspace can still change them.</p>
+                        <ChipsInput value={defaultUnits} onChange={setDefaultUnits} label="Add a default team" />
                     </div>
                     <div className="flex items-start justify-between gap-4">
                         <div>
-                            <p className={labelClass}>New workspaces follow org sprints</p>
-                            <p className={helpClass}>On by default. A new workspace’s sprints link to the organization’s sprint holding their dates; the owner can turn it off.</p>
+                            <p className={labelClass}>New workspaces follow the organization’s sprints</p>
+                            <p className={helpClass}>New workspaces only. Each workspace has its own switch.</p>
                         </div>
                         <SettingsSwitch checked={followSprints} onCheckedChange={setFollowSprints} aria-label="New workspaces follow org sprints" />
                     </div>
                     <div className="flex items-center gap-3">
-                        <Button disabled={pending} onClick={() => save(() => updateOrgSettingsAction(orgId, 'projects', { follow_sprints: followSprints, child_creation: childCreation, outside_people: outside, child_share: childShare, default_units: defaultUnits.split('\n').map((u) => u.trim()).filter(Boolean).slice(0, 20), ...(cap !== organization.visibilityCap ? { visibility_cap: cap } : {}) }))}>Save</Button>
+                        <Button disabled={pending} onClick={() => (affected ? setConfirmCap(true) : saveAll())}>Save</Button>
                         {status}
+                        <ConfirmDialog open={confirmCap} onOpenChange={setConfirmCap} title="Lower workspaces’ visibility?"
+                            description={`${affected} ${affected === 1 ? 'workspace becomes' : 'workspaces become'} ${cap === 'private' ? 'Private' : 'Organization only'}. Their teams are told.`}
+                            confirmLabel="Save" onConfirm={() => saveAll()} />
                     </div>
                 </div>
             </SettingsCard>
@@ -471,13 +579,13 @@ export function OrgWorkSection({ orgId, organization }: SectionProps) {
     const select = 'mt-2 h-9 w-full max-w-xs rounded-md border border-border bg-background px-2 text-sm'
     return (
         <Section id="org-work">
-            <SettingsCard title="Work" headingLevel={2} description="Defaults for new assignments and sprints. Each assignment or sprint can still change them." footer={<LastChanged organization={organization} section="work" />}>
+            <SettingsCard title="Work" headingLevel={2} description="Defaults for new tasks and sprints. Each one can still change them." footer={<LastChanged organization={organization} section="work" />}>
                 <div className="space-y-6">
-                    <p className="nb-ui-label text-[11px] font-semibold uppercase tracking-[0.09em] text-muted-foreground">Assignments</p>
-                    {toggle('reviewRequired', 'Review required', 'Admins approve or return each submission, for example a lab report. On for Education, off for other types.')}
+                    <p className="nb-ui-label text-[11px] font-semibold uppercase tracking-[0.09em] text-muted-foreground">Tasks</p>
+                    {toggle('reviewRequired', 'Check finished work', 'Admins approve or return finished work before it counts as done. Fills in the task form.')}
                     <div>
-                        <label htmlFor="org-late-rule" className={labelClass}>Late submissions</label>
-                        <p className={helpClass}>What happens after the due date. Education accepts late work until a date you set per assignment.</p>
+                        <label htmlFor="org-late-rule" className={labelClass}>Late work</label>
+                        <p className={helpClass}>What happens after the due date. Fills in the task form.</p>
                         <select id="org-late-rule" className={select} value={work.lateRule} onChange={(e) => set('lateRule', e.target.value as typeof work.lateRule)}>
                             <option value="always">Always allowed</option><option value="until">Allowed until a date</option><option value="none">Not allowed</option>
                         </select>
@@ -490,8 +598,8 @@ export function OrgWorkSection({ orgId, organization }: SectionProps) {
                         </select>
                     </div>
                     <div>
-                        <label htmlFor="org-story-points" className={labelClass}>Estimate</label>
-                        <p className={helpClass}>Hidden for Education, where work is counted by assignment, shown for other types.</p>
+                        <label htmlFor="org-story-points" className={labelClass}>Story points</label>
+                        <p className={helpClass}>Hidden removes the field everywhere in this organization.</p>
                         <select id="org-story-points" className={select} value={work.storyPoints} onChange={(e) => set('storyPoints', e.target.value as typeof work.storyPoints)}>
                             <option value="shown">Shown</option><option value="hidden">Hidden</option>
                         </select>
@@ -516,13 +624,15 @@ export function OrgWorkSection({ orgId, organization }: SectionProps) {
 
 /** Settings → Updates & messages, chat rows (report §25.4): #general posting and who creates org channels. */
 export function OrgChatSection({ orgId, organization }: { orgId: string; organization: OrgDetail }) {
+    const facts = useOrgFacts(orgId)
     const defaults = orgChatSettings(organization.chat ?? {}, organization.type)
     const [adminsOnly, setAdminsOnly] = useState(defaults.generalAdminsOnly)
     const [membersCreate, setMembersCreate] = useState(defaults.membersCreateChannels)
     const [generalNotify, setGeneralNotify] = useState(defaults.generalNotify)
     const { pending, save, status } = useSave()
     return (
-        <SettingsCard title="Messages" headingLevel={2} description="How the organization’s messages work for everyone in it.">
+        <Section id="org-messages">
+        <SettingsCard title="Messages" headingLevel={2} description="How the organization’s channels work for everyone in it.">
             <div className="space-y-5">
                 <div className="flex items-start justify-between gap-4">
                     <div>
@@ -534,7 +644,7 @@ export function OrgChatSection({ orgId, organization }: { orgId: string; organiz
                 <div className="flex items-start justify-between gap-4">
                     <div>
                         <p className={labelClass}>Members can create organization channels</p>
-                        <p className={helpClass}>Workspace teams always create channels in their own workspaces.</p>
+                        <p className={helpClass}>Workspace teams always create channels in their own workspaces.{facts ? ` ${facts.channels} of ${ORG_LIMITS.orgChatChannels} channels.` : ''}</p>
                     </div>
                     <SettingsSwitch checked={membersCreate} onCheckedChange={setMembersCreate} aria-label="Members can create organization channels" />
                 </div>
@@ -551,48 +661,75 @@ export function OrgChatSection({ orgId, organization }: { orgId: string; organiz
                 </div>
             </div>
         </SettingsCard>
+        </Section>
     )
 }
 
-/** Settings → Notifications (report §26.8): admins get one daily summary email, or only tray notices. */
+/** Notifications → Admin emails (report §22.4, §30.6; was "Admin batching"). */
 export function OrgNotificationsSection({ orgId, organization }: { orgId: string; organization: OrgDetail }) {
     const [digest, setDigest] = useState(organization.adminDigest)
-    const [announce, setAnnounce] = useState(organization.announcementNotify)
-    const [replies, setReplies] = useState(organization.replyRule)
     const { pending, save, status } = useSave()
     return (
-        <SettingsCard title="Admin batching" headingLevel={2} description="How owners and admins hear about submissions and join requests." footer={<LastChanged organization={organization} section="notifications" />}>
+        <SettingsCard title="Admin emails" headingLevel={2} description="How owners and admins hear about work to review, join requests and reports." footer={<LastChanged organization={organization} section="notifications" />}>
             <div className="space-y-4">
                 <fieldset className="space-y-2 text-sm">
-                    <legend className="sr-only">Admin batching</legend>
+                    <legend className="sr-only">Admin emails</legend>
                     <label className="flex items-start gap-2">
                         <input type="radio" name="org-admin-digest" checked={digest === 'daily'} onChange={() => setDigest('daily')} className="mt-1" />
-                        <span>Daily summary email<span className="block text-xs text-muted-foreground">At 8:00 in the organization’s time zone. Skipped when there’s nothing to report.</span></span>
+                        <span>Daily summary<span className="block text-xs text-muted-foreground">At 8:00 in the organization’s time zone. Skipped when there’s nothing to report.</span></span>
                     </label>
                     <label className="flex items-start gap-2">
                         <input type="radio" name="org-admin-digest" checked={digest === 'instant'} onChange={() => setDigest('instant')} className="mt-1" />
                         <span>Instant<span className="block text-xs text-muted-foreground">Notifications only, as things happen. No summary email.</span></span>
                     </label>
                 </fieldset>
-                {/* Org Settings → Updates (report §17.10): the starting choices in the announcement composer. */}
-                <label className="block text-sm">
-                    <span className="font-medium text-foreground">Announcements notify</span>
-                    <select value={announce} onChange={(e) => setAnnounce(e.target.value as typeof announce)} className="mt-1 block h-9 rounded-md border border-border bg-background px-2 text-sm">
-                        <option value="in_app">In-app</option><option value="email">In-app and email</option>
-                    </select>
-                </label>
-                <label className="block text-sm">
-                    <span className="font-medium text-foreground">Who can reply to posts</span>
-                    <select value={replies} onChange={(e) => setReplies(e.target.value as typeof replies)} className="mt-1 block h-9 rounded-md border border-border bg-background px-2 text-sm">
-                        <option value="members">Organization members</option><option value="logged_in">Anyone signed in</option>
-                    </select>
-                </label>
                 <div className="flex items-center gap-3">
-                    <Button disabled={pending} onClick={() => save(() => updateOrgSettingsAction(orgId, 'notifications', { admin_digest: digest, announcement_notify: announce, reply_rule: replies }))}>Save</Button>
+                    <Button disabled={pending} onClick={() => save(() => updateOrgSettingsAction(orgId, 'notifications', { admin_digest: digest }))}>Save</Button>
                     {status}
                 </div>
             </div>
         </SettingsCard>
+    )
+}
+
+/** Updates (report §22.4): member discussions, who can reply, how announcements notify. Moved from Admin batching. */
+export function OrgUpdatesSection({ orgId, organization, memberPosts }: { orgId: string; organization: OrgDetail; memberPosts: boolean }) {
+    const [posts, setPosts] = useState(memberPosts)
+    const [announce, setAnnounce] = useState(organization.announcementNotify)
+    const [replies, setReplies] = useState(organization.replyRule)
+    const { pending, save, status } = useSave()
+    return (
+        <Section id="org-updates">
+            <SettingsCard title="Updates" headingLevel={2} description="Who posts and replies in Updates, and how announcements reach people." footer={<LastChanged organization={organization} section="updates" />}>
+                <div className="space-y-5">
+                    <div className="flex items-start justify-between gap-4">
+                        <div>
+                            <p className={labelClass}>Members can post discussions</p>
+                            <p className={helpClass}>Announcements stay with owners and admins.</p>
+                        </div>
+                        <SettingsSwitch checked={posts} onCheckedChange={setPosts} aria-label="Members can post discussions" />
+                    </div>
+                    <label className="block">
+                        <span className={labelClass}>Who can reply</span>
+                        <span className={`block ${helpClass}`}>Where posts start; each post can change it.</span>
+                        <select value={replies} onChange={(e) => setReplies(e.target.value as typeof replies)} className="mt-2 block h-9 rounded-md border border-border bg-background px-2 text-sm">
+                            <option value="members">Members</option><option value="logged_in">Anyone signed in</option>
+                        </select>
+                    </label>
+                    <label className="block">
+                        <span className={labelClass}>Announcements notify</span>
+                        <span className={`block ${helpClass}`}>Where the composer starts. Up to {ORG_LIMITS.emailAnnouncementsPerOrgPerDay} emails a day.</span>
+                        <select value={announce} onChange={(e) => setAnnounce(e.target.value as typeof announce)} className="mt-2 block h-9 rounded-md border border-border bg-background px-2 text-sm">
+                            <option value="in_app">In-app</option><option value="email">In-app and email</option>
+                        </select>
+                    </label>
+                    <div className="flex items-center gap-3">
+                        <Button disabled={pending} onClick={() => save(() => updateOrgSettingsAction(orgId, 'updates', { member_posts: posts, reply_rule: replies, announcement_notify: announce }))}>Save</Button>
+                        {status}
+                    </div>
+                </div>
+            </SettingsCard>
+        </Section>
     )
 }
 

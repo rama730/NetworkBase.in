@@ -23,8 +23,8 @@ test("project general settings renders 3 canonical cards and removes redundant o
 
   // 3 Canonical settings cards
   assert.match(generalBlock, /data-testid="project-avatar-settings-card"/, "Must render Workspace image card matching profile summary layout");
-  assert.match(generalBlock, /title="Workspace"/, "Must render the Workspace card");
-  assert.match(generalBlock, /title="Tags and skills"/, "Must render Tags and skills card");
+  assert.match(generalBlock, /title=\{organization \? "Organization" : "Workspace"\}/, "Must render the Workspace card");
+  assert.match(generalBlock, /title=\{organization \? "Tags" : "Tags and skills"\}/, "Must render Tags and skills card");
 
   // Avatar card matches Profile Summary layout:
   // 1. Picture on the left
