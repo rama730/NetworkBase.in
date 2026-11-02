@@ -170,7 +170,10 @@ export function shiftBy(date: Date | null, deltaMs: number) {
 export async function duplicateOrg(sourceId: string, actorId: string, options: DuplicateOptions) {
   const [source] = await db.select().from(workspaces).where(and(eq(workspaces.id, sourceId), eq(workspaces.kind, "organization"))).limit(1);
   if (!source) throw new Error("Organization not found");
-  const deltaMs = options.termStart && source.termStart ? Date.parse(`${options.termStart}T00:00:00Z`) - Date.parse(`${source.termStart}T00:00:00Z`) : 0;
+  // Dates move from the old term start, or else from the first sprint (decision 52, report §27.4).
+  const [firstSprint] = source.termStart ? [] : await db.select({ start: sql<Date | null>`min(${workspaceSprints.startDate})` }).from(workspaceSprints).where(eq(workspaceSprints.projectId, sourceId));
+  const anchor = source.termStart ? Date.parse(`${source.termStart}T00:00:00Z`) : firstSprint?.start ? new Date(firstSprint.start).getTime() : null;
+  const deltaMs = options.termStart && anchor !== null ? Date.parse(`${options.termStart}T00:00:00Z`) - anchor : 0;
   const shiftDate = (d: string | null) => (d ? new Date(Date.parse(`${d}T00:00:00Z`) + deltaMs).toISOString().slice(0, 10) : null);
   const keepSettings = Object.fromEntries(Object.entries(source.orgSettings ?? {}).filter(([k]) => !["changes", "detachRequest", "moveInRequest", "archivedWithOrg", "handleChangedAt"].includes(k)));
 

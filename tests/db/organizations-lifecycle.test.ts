@@ -184,3 +184,14 @@ test("reports and suspension: reports open cases; staff suspend the org (read-on
   assert.equal((await sql`SELECT status FROM content_reports WHERE case_id = ${orgCase!.id}`)[0]!.status, "actioned");
   viewerId = "";
 });
+
+test("decision 52: with no term start, Duplicate moves dates from the first sprint", async () => {
+  const o = await org();
+  await sql`UPDATE workspaces SET term_start = NULL WHERE id = ${o.id}`;
+  await sql`INSERT INTO workspace_sprints (workspace_id, sprint_number, name, start_date, end_date, status) VALUES (${o.id}, 1, 'CO1', '2026-07-06', '2026-07-31', 'completed')`;
+  const newId = await lifecycle.duplicateOrg(o.id, o.owner, { title: "CSE-3A next", handle: `dup2-${o.id.slice(0, 8)}`, termStart: "2027-01-04",
+    copy: { about: true, docs: false, files: false, sprints: true, assignments: false, channels: false, admins: false } });
+  created.push(newId);
+  const [s] = await sql`SELECT start_date::date::text AS start FROM workspace_sprints WHERE workspace_id = ${newId}`;
+  assert.equal(s!.start, "2027-01-04");
+});
