@@ -2,6 +2,7 @@ import crypto from "crypto";
 import mime from "mime-types";
 
 import { enforceFileReadLimit, requireAuthenticatedUser, jsonSuccess, jsonError } from "@/app/api/v1/_shared";
+import { publicRequestUrl } from "@/lib/auth/redirects";
 import { db } from "@/lib/db";
 import { workspaceNodes, fileVersions, storageAssets } from "@/lib/db/schema";
 import { eq, and, isNull } from "drizzle-orm";
@@ -151,7 +152,7 @@ export async function GET(request: Request) {
         return jsonError("File key does not belong to this workspace", 409, "CONFLICT");
       }
       const expiresInSeconds = 4 * 60;
-      const authorizedUrl = new URL(request.url);
+      const authorizedUrl = publicRequestUrl(request);
       authorizedUrl.searchParams.set("transfer", "raw");
 
       recordExtensionMetric("extension.file.download_intent", {

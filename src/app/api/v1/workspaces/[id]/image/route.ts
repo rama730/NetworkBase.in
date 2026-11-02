@@ -7,6 +7,7 @@ import { workspaces, storageAssets } from "@/lib/db/schema";
 import { getWorkspaceAccessById } from "@/lib/data/workspace-access";
 import { createAdminClient, createClient } from "@/lib/supabase/server";
 import { logger } from "@/lib/logger";
+import { publicRequestUrl } from "@/lib/auth/redirects";
 import { streamPrivateObject } from "@/lib/storage/private-object-response";
 import { enforceFileReadLimit, jsonError, requireAuthenticatedUser } from "@/app/api/v1/_shared";
 import { isLooseUuid } from "@/lib/validations/uuid";
@@ -65,7 +66,7 @@ export async function GET(
         ? "public, max-age=300, s-maxage=300, must-revalidate"
         : "private, no-store";
     if (request.nextUrl.searchParams.get("v") !== version) {
-        const canonicalUrl = request.nextUrl.clone();
+        const canonicalUrl = publicRequestUrl(request);
         canonicalUrl.searchParams.set("v", version);
         return new Response(null, {
             status: 307,

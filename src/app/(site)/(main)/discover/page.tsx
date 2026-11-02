@@ -17,7 +17,7 @@ export function generateMetadata() {
         title: 'Discover · NetworkBase',
         description: 'Find workspaces and people to work with.',
         path: '/discover',
-        image: '/og/hub-card.png',
+        image: '/og/discover-card.png',
     });
 }
 

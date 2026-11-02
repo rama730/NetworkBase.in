@@ -4,6 +4,7 @@ import {
     buildAuthPageHref,
     buildOAuthRedirectTo,
     normalizeAuthNextPath,
+    publicRequestUrl,
     resolveAuthBaseUrl,
 } from '@/lib/auth/redirects'
 
@@ -134,3 +135,16 @@ describe('auth redirects', () => {
         )
     })
 })
+
+it('links handed to clients use the public origin, not the bind address', () => {
+    const env = process.env as Record<string, string | undefined>;
+    const saved = { NODE_ENV: env.NODE_ENV, APP_URL: env.APP_URL };
+    env.NODE_ENV = 'production';
+    env.APP_URL = 'https://networkbase.in';
+    try {
+        const url = publicRequestUrl({ url: 'https://0.0.0.0:8080/api/v1/projects/abc/image?a=1' });
+        assert.equal(url.href, 'https://networkbase.in/api/v1/projects/abc/image?a=1');
+    } finally {
+        Object.assign(env, saved);
+    }
+});

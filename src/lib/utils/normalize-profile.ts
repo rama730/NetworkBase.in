@@ -60,9 +60,9 @@ export function normalizeProfile(p: any) {
         connectionsCount: Number(p.connectionsCount ?? p.connections_count ?? 0),
         projectsCount: Number(p.projectsCount ?? p.projects_count ?? 0),
         followersCount: Number(p.followersCount ?? p.followers_count ?? 0),
-        workspaceInboxCount: p.workspaceInboxCount ?? p.workspace_inbox_count ?? 0,
-        workspaceDueTodayCount: p.workspaceDueTodayCount ?? p.workspace_due_today_count ?? 0,
-        workspaceOverdueCount: p.workspaceOverdueCount ?? p.workspace_overdue_count ?? 0,
-        workspaceInProgressCount: p.workspaceInProgressCount ?? p.workspace_in_progress_count ?? 0,
+        workspaceInboxCount: p.workspaceInboxCount ?? p.my_work_inbox_count ?? 0,
+        workspaceDueTodayCount: p.workspaceDueTodayCount ?? p.my_work_due_today_count ?? 0,
+        workspaceOverdueCount: p.workspaceOverdueCount ?? p.my_work_overdue_count ?? 0,
+        workspaceInProgressCount: p.workspaceInProgressCount ?? p.my_work_in_progress_count ?? 0,
     };
 }

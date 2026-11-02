@@ -75,10 +75,10 @@ export async function refreshMyWorkCountersForUsers(
             LEFT JOIN connection_counts cc ON cc.user_id = tu.user_id
         )
         UPDATE ${sql.raw('"profiles"')} profile
-        SET ${sql.raw('"workspace_inbox_count"')} = counts.inbox_count,
-            ${sql.raw('"workspace_due_today_count"')} = counts.due_today_count,
-            ${sql.raw('"workspace_overdue_count"')} = counts.overdue_count,
-            ${sql.raw('"workspace_in_progress_count"')} = counts.in_progress_count,
+        SET ${sql.raw('"my_work_inbox_count"')} = counts.inbox_count,
+            ${sql.raw('"my_work_due_today_count"')} = counts.due_today_count,
+            ${sql.raw('"my_work_overdue_count"')} = counts.overdue_count,
+            ${sql.raw('"my_work_in_progress_count"')} = counts.in_progress_count,
             ${sql.raw('"updated_at"')} = NOW()
         FROM counts
         WHERE profile.${sql.raw('"id"')} = counts.user_id

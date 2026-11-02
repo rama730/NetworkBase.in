@@ -9,6 +9,7 @@ import {
   jsonSuccess,
   requireAuthenticatedUser,
 } from "@/app/api/v1/_shared";
+import { publicRequestUrl } from "@/lib/auth/redirects";
 import { db } from "@/lib/db";
 import {
   extensionRecoveryDrafts,
@@ -420,7 +421,7 @@ export async function GET(request: Request) {
     if (!row) return jsonError("Draft not found", 404, "NOT_FOUND");
     const accessError = await requireProjectAccess(row.projectId, auth.user.id, false);
     if (accessError) return accessError;
-    const contentUrl = new URL(request.url);
+    const contentUrl = publicRequestUrl(request);
     contentUrl.search = "";
     contentUrl.searchParams.set("draftId", row.id);
     contentUrl.searchParams.set("content", "1");
@@ -475,7 +476,7 @@ export async function GET(request: Request) {
   
   const drafts = visible.map((row) => {
     const draft = row.draft;
-    const contentUrl = new URL(request.url);
+    const contentUrl = publicRequestUrl(request);
     contentUrl.search = "";
     contentUrl.searchParams.set("draftId", draft.id);
     contentUrl.searchParams.set("content", "1");

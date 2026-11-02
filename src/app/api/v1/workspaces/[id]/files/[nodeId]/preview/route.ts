@@ -13,6 +13,7 @@ import { versionedFilename } from "@/lib/files/versioned-filename";
 import { recordDownload } from "@/lib/files/download-history";
 import { UUID_RE } from "@/app/actions/files/_constants";
 import { enforceDownloadLimit, enforceFileReadLimit } from "@/app/api/v1/_shared";
+import { publicRequestUrl } from "@/lib/auth/redirects";
 
 export const dynamic = "force-dynamic";
 
@@ -173,7 +174,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
   // Avoid 307 redirect waterfalls when a valid version (number or hash) or Range header is present.
   // Direct serving eliminates 400ms+ latency penalties for media streaming and byte-range seeks.
   if (!isValidVersion && !request.headers.get("range")) {
-    const canonicalUrl = request.nextUrl.clone();
+    const canonicalUrl = publicRequestUrl(request);
     canonicalUrl.searchParams.set("v", revisionIdentity);
     return new Response(null, {
       status: 307,

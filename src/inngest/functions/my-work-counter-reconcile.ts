@@ -51,10 +51,10 @@ export const reconcileMyWorkProfileCounters = inngest.createFunction(
                     SELECT user_id FROM connection_counts
                     UNION
                     SELECT ${sql.raw('"id"')} AS user_id FROM ${sql.raw('"profiles"')}
-                    WHERE ${sql.raw('"workspace_inbox_count"')} > 0
-                       OR ${sql.raw('"workspace_due_today_count"')} > 0
-                       OR ${sql.raw('"workspace_overdue_count"')} > 0
-                       OR ${sql.raw('"workspace_in_progress_count"')} > 0
+                    WHERE ${sql.raw('"my_work_inbox_count"')} > 0
+                       OR ${sql.raw('"my_work_due_today_count"')} > 0
+                       OR ${sql.raw('"my_work_overdue_count"')} > 0
+                       OR ${sql.raw('"my_work_in_progress_count"')} > 0
                 ),
                 counts AS (
                     SELECT
@@ -68,18 +68,18 @@ export const reconcileMyWorkProfileCounters = inngest.createFunction(
                     LEFT JOIN connection_counts cc ON cc.user_id = ru.user_id
                 )
                 UPDATE ${sql.raw('"profiles"')} profile
-                SET ${sql.raw('"workspace_inbox_count"')} = counts.inbox_count,
-                    ${sql.raw('"workspace_due_today_count"')} = counts.due_today_count,
-                    ${sql.raw('"workspace_overdue_count"')} = counts.overdue_count,
-                    ${sql.raw('"workspace_in_progress_count"')} = counts.in_progress_count,
+                SET ${sql.raw('"my_work_inbox_count"')} = counts.inbox_count,
+                    ${sql.raw('"my_work_due_today_count"')} = counts.due_today_count,
+                    ${sql.raw('"my_work_overdue_count"')} = counts.overdue_count,
+                    ${sql.raw('"my_work_in_progress_count"')} = counts.in_progress_count,
                     ${sql.raw('"updated_at"')} = NOW()
                 FROM counts
                 WHERE profile.${sql.raw('"id"')} = counts.user_id
                   AND (
-                    profile.${sql.raw('"workspace_inbox_count"')} IS DISTINCT FROM counts.inbox_count OR
-                    profile.${sql.raw('"workspace_due_today_count"')} IS DISTINCT FROM counts.due_today_count OR
-                    profile.${sql.raw('"workspace_overdue_count"')} IS DISTINCT FROM counts.overdue_count OR
-                    profile.${sql.raw('"workspace_in_progress_count"')} IS DISTINCT FROM counts.in_progress_count
+                    profile.${sql.raw('"my_work_inbox_count"')} IS DISTINCT FROM counts.inbox_count OR
+                    profile.${sql.raw('"my_work_due_today_count"')} IS DISTINCT FROM counts.due_today_count OR
+                    profile.${sql.raw('"my_work_overdue_count"')} IS DISTINCT FROM counts.overdue_count OR
+                    profile.${sql.raw('"my_work_in_progress_count"')} IS DISTINCT FROM counts.in_progress_count
                   )
             `)
         })

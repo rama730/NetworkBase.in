@@ -101,6 +101,12 @@ export function resolveAuthBaseUrl(options: ResolveAuthBaseUrlOptions = {}): str
     return requestOrigin ?? browserOrigin ?? fallbackOrigin;
 }
 
+/** Behind the proxy `request.url` holds the server's bind address (0.0.0.0:8080); anything handed to a client needs the public origin. */
+export function publicRequestUrl(request: Pick<Request, 'url'>): URL {
+    const { pathname, search } = new URL(request.url);
+    return new URL(`${pathname}${search}`, resolveAuthBaseUrl({ requestUrl: request.url }));
+}
+
 export function normalizeAuthNextPath(
     value: string | null | undefined,
     fallback: string = DEFAULT_AUTH_NEXT_PATH,
