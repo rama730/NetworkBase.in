@@ -59,12 +59,11 @@ export async function GET(
     }
 
     const version = coverVersion(project.key);
-    const isPublicRequest = !user && access.canRead;
     // Object identity is immutable, but project visibility can change without
-    // changing the key. Keep public caches inside the revocation budget.
-    const cacheControl = isPublicRequest
+    // changing the key. Keep every cache inside the revocation budget.
+    const cacheControl = access.project.visibility === "public"
         ? "public, max-age=300, s-maxage=300, must-revalidate"
-        : "private, no-store";
+        : "private, max-age=300, must-revalidate";
     if (request.nextUrl.searchParams.get("v") !== version) {
         const canonicalUrl = publicRequestUrl(request);
         canonicalUrl.searchParams.set("v", version);
@@ -75,6 +74,13 @@ export async function GET(
     }
 
     const etag = `"project-cover-${projectId}-${version}"`;
+    // The browser already holds these bytes: no signed URL, no storage read.
+    if (request.headers.get("if-none-match") === etag) {
+        return new Response(null, {
+            status: 304,
+            headers: { ETag: etag, "Cache-Control": cacheControl, Vary: "Cookie, Authorization" },
+        });
+    }
     const admin = await createAdminClient();
     const [{ data: signedData, error: signError }, [asset]] = await Promise.all([
         admin.storage.from(project.bucket).createSignedUrl(project.key, 15 * 60),

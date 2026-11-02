@@ -727,7 +727,7 @@ export function GeneralSettingsSection({
                         <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-3">
                             <p className="nb-compact text-muted-foreground">
                                 {isDraftGif
-                                    ? "Animated GIF will be saved in full motion without lossy compression or frame flattening."
+                                    ? "Animated GIFs keep their motion and are saved at a smaller size."
                                     : "Drag and zoom before publishing. The saved square avatar powers cards and link previews."}
                             </p>
                             <div className="flex items-center gap-2">

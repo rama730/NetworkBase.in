@@ -32,6 +32,7 @@ import { normalizeAndValidateMimeType, normalizeAndValidateFileSize } from "@/li
 import { randomUUID } from "crypto";
 import { createUploadIntent, finalizeUploadIntent } from "@/lib/upload/upload-intents";
 import { scheduleAssetDeletionIfUnreferenced } from "@/lib/storage/asset-deletion";
+import { CoverTooLargeError, shrinkStoredWorkspaceCover } from "@/lib/workspaces/server/cover-image";
 import { getWorkspaceAccessById } from "@/lib/data/workspace-access";
 import { resolvePrivacyRelationship } from "@/lib/privacy/resolver";
 import { getTrustedHeadersIp } from "@/lib/security/request-ip";
@@ -1738,6 +1739,13 @@ export async function finalizeWorkspaceCoverImageUploadAction(input: {
     });
     if (!intent.assetId) throw new Error("Verified workspace image is missing lifecycle identity");
     const assetId = intent.assetId;
+    try {
+      await shrinkStoredWorkspaceCover(assetId);
+    } catch (error) {
+      if (!(error instanceof CoverTooLargeError)) throw error;
+      await db.transaction((tx) => scheduleAssetDeletionIfUnreferenced(tx, [assetId]));
+      return { success: false, error: error.message };
+    }
     const imageUrl = buildWorkspaceImageRoute(input.projectId, intent.storageKey);
 
     const updated = await db.transaction(async (tx) => {

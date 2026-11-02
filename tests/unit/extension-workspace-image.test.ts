@@ -14,7 +14,8 @@ const version = createHash("sha256")
   .slice(0, 16);
 function route({ validBearer = true, publicProject = false } = {}) {
   let cookieReads = 0,
-    reads = 0;
+    reads = 0,
+    signings = 0;
   const viewers: Array<string | null> = [];
   const source = ts.transpileModule(
     fs.readFileSync(
@@ -56,7 +57,7 @@ function route({ validBearer = true, publicProject = false } = {}) {
       getWorkspaceAccessById: async (_id: string, userId: string | null) => {
         viewers.push(userId);
         return {
-          project: { id: projectId },
+          project: { id: projectId, visibility: publicProject ? "public" : "private" },
           canRead: !!userId || publicProject,
         };
       },
@@ -73,9 +74,10 @@ function route({ validBearer = true, publicProject = false } = {}) {
       createAdminClient: async () => ({
         storage: {
           from: () => ({
-            createSignedUrl: async () => ({
-              data: { signedUrl: "https://storage.example/private-cover" },
-            }),
+            createSignedUrl: async () => {
+              signings++;
+              return { data: { signedUrl: "https://storage.example/private-cover" } };
+            },
           }),
         },
       }),
@@ -113,18 +115,22 @@ function route({ validBearer = true, publicProject = false } = {}) {
     URL,
     Buffer,
   });
-  const request = (authorization?: string) => {
+  const request = (authorization?: string, ifNoneMatch?: string) => {
     const url = new URL(
       `https://networkbase.in/api/v1/workspaces/${projectId}/image?v=${version}`,
     );
     return {
-      headers: new Headers(authorization ? { authorization } : {}),
+      headers: new Headers({
+        ...(authorization ? { authorization } : {}),
+        ...(ifNoneMatch ? { "if-none-match": ifNoneMatch } : {}),
+      }),
       nextUrl: url,
     };
   };
   return {
-    get: (authorization?: string) =>
-      exports.GET(request(authorization), {
+    signings: () => signings,
+    get: (authorization?: string, ifNoneMatch?: string) =>
+      exports.GET(request(authorization, ifNoneMatch), {
         params: Promise.resolve({ id: projectId }),
       }),
     viewers,
@@ -137,7 +143,7 @@ test("private workspace images use the verified device identity without browser 
   assert.equal(response.status, 200);
   assert.deepEqual(r.viewers, ["device-owner"]);
   assert.equal(r.cookieReads(), 0);
-  assert.equal(response.headers.get("cache-control"), "private, no-store");
+  assert.equal(response.headers.get("cache-control"), "private, max-age=300, must-revalidate");
   assert.deepEqual(
     [...new Uint8Array(await response.arrayBuffer())],
     [137, 80, 78, 71],
@@ -156,4 +162,17 @@ test("existing anonymous public image access remains available and private image
   const privateRoute = route();
   assert.equal((await privateRoute.get()).status, 404);
   assert.deepEqual(privateRoute.viewers, [null]);
+});
+test("a public workspace image is cacheable for every viewer, signed in or not", async () => {
+  const signedIn = await route({ publicProject: true }).get("Bearer nb_dev_private");
+  const signedOut = await route({ publicProject: true }).get();
+  const expected = "public, max-age=300, s-maxage=300, must-revalidate";
+  assert.equal(signedIn.headers.get("cache-control"), expected);
+  assert.equal(signedOut.headers.get("cache-control"), expected);
+});
+test("a revalidation the browser can answer itself creates no signed URL", async () => {
+  const r = route({ publicProject: true });
+  const response = await r.get(undefined, `"project-cover-${projectId}-${version}"`);
+  assert.equal(response.status, 304);
+  assert.equal(r.signings(), 0);
 });

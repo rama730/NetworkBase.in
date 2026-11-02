@@ -4,7 +4,7 @@ import { createWorkspaceCoverImageUploadUrlAction, finalizeWorkspaceCoverImageUp
 
 // One place for the project picture rules, shared by Project settings and create step 4.
 export const WORKSPACE_IMAGE_UPLOAD_MAX_BYTES = 2 * 1024 * 1024;
-export const WORKSPACE_IMAGE_OUTPUT_SIZE = 1024;
+export const WORKSPACE_IMAGE_OUTPUT_SIZE = 256;
 export const WORKSPACE_IMAGE_PREVIEW_SIZE = 224;
 export const ALLOWED_WORKSPACE_IMAGE_MIME_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
 
