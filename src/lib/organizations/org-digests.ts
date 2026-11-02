@@ -58,6 +58,8 @@ export async function runOrgDueSoon(now = new Date()) {
       const clock = localClock(now, zone);
       if (clock.hour !== DUE_SOON_HOUR) continue;
       if (due.getTime() < now.getTime()) {
+        // Smaller bug 2: Reminders Off stops overdue notices and emails too.
+        if (remindersOf.get(org.id) === "off") continue;
         const lateOpen = row.late_rule === "always" || (row.late_rule === "until" && row.late_until && new Date(row.late_until).getTime() > now.getTime());
         if (!lateOpen) continue;
         overdue++;

@@ -27,6 +27,7 @@ import { countOrgMembers, findOrgByJoinCode, isOrgHandleAvailable, joinOrgByCode
 import { normalizeJoinCode, ORG_JOIN_MESSAGES, type OrgJoinMode, type OrgJoinOutcome } from '@/lib/organizations/join-rules';
 import { isWorkspacePubliclyReadableVisibility } from '@/lib/workspaces/workspace-visibility';
 import { namesOf, notifyJoined, notifyOrg, orgHref, orgLabel } from '@/lib/organizations/notify';
+import { logger } from '@/lib/logger';
 
 type Failure = { success: false; error: string };
 
@@ -400,11 +401,13 @@ export async function requestDetachAction(projectId: string): Promise<{ success:
     return { success: true };
 }
 
-export async function cancelDetachRequestAction(projectId: string): Promise<{ success: true } | Failure> {
+export async function cancelDetachRequestAction(projectId: string, reason?: string | null): Promise<{ success: true } | Failure> {
     const viewer = await childViewer(projectId);
     if (!viewer?.project.parentId || !(viewer.isLead || isAdminRole(viewer.parentRole))) return DENIED;
     await db.update(workspaces).set({ orgSettings: sql`${workspaces.orgSettings} - 'detachRequest'` }).where(eq(workspaces.id, projectId));
     revalidateChild(viewer.project);
+    // The lead cancelling hears nothing; an admin declining tells the lead (report §28.6).
+    if (!viewer.isLead) await notifyChildDecision(viewer.project.parentId, projectId, viewer.project.ownerId, viewer.userId, declined(reason));
     return { success: true };
 }
 
@@ -422,8 +425,14 @@ export async function detachChildAction(projectId: string): Promise<{ success: t
 export async function archiveChildAction(projectId: string): Promise<{ success: true } | Failure> {
     const viewer = await childViewer(projectId);
     if (!viewer?.project.parentId || !isAdminRole(viewer.parentRole)) return DENIED;
-    await db.update(workspaces).set({ status: 'archived', updatedAt: new Date() }).where(eq(workspaces.id, projectId));
+    const now = new Date();
+    await db.update(workspaces).set({ status: 'archived', updatedAt: now }).where(eq(workspaces.id, projectId));
     revalidateChild(viewer.project);
+    // Decision 93: the team and lead always hear it, each time it's archived.
+    const { enqueueWorkspaceNotificationEvent } = await import('@/lib/notifications/workspace-events');
+    await enqueueWorkspaceNotificationEvent({ projectId, actorUserId: viewer.userId, eventKey: 'security.project_archived', body: 'An organization admin archived the workspace.',
+        href: `/workspaces/${encodeURIComponent(viewer.project.slug ?? projectId)}`, sourceEventId: `archive:${projectId}:${now.getTime()}` })
+        .catch((error) => logger.warn('org.archive_notice_failed', { projectId, error: error instanceof Error ? error.message : String(error) }));
     return { success: true };
 }
 
@@ -505,15 +514,18 @@ export async function approveMoveInAction(projectId: string): Promise<{ success:
     return { success: true };
 }
 
-/** The lead withdraws, or an org admin declines, a move-in request. */
-export async function cancelMoveInAction(projectId: string): Promise<{ success: true } | Failure> {
+/** The lead withdraws, or an org admin declines, a move-in request; a decline tells the lead, with the reason (report §28.6). */
+export async function cancelMoveInAction(projectId: string, reason?: string | null): Promise<{ success: true } | Failure> {
     const userId = await viewerId();
     const pending = userId ? await pendingMoveIn(projectId) : null;
     if (!pending || !(pending.project.ownerId === userId || isAdminRole(await readViewerOrgRole(pending.orgId, userId)))) return DENIED;
     await db.update(workspaces).set({ orgSettings: sql`${workspaces.orgSettings} - 'moveInRequest'` }).where(eq(workspaces.id, projectId));
     revalidatePath(`/workspaces/${pending.project.slug ?? projectId}`);
+    if (pending.project.ownerId !== userId) await notifyChildDecision(pending.orgId, projectId, pending.project.ownerId, userId!, declined(reason));
     return { success: true };
 }
+
+const declined = (reason?: string | null) => (child: string, org: string) => `${org} declined ${child}${reason?.trim() ? `: ${reason.trim().slice(0, 300)}` : ''}`;
 
 /** Impact preview before tightening the cap: how many child projects would be lowered. */
 export async function previewVisibilityCapAction(orgId: string, cap: 'public' | 'org' | 'private'): Promise<{ success: true; affected: number } | Failure> {

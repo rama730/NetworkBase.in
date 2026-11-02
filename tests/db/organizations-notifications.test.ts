@@ -163,7 +163,7 @@ test("the signed mute link: GET only asks, POST mutes that org's email; a forged
   delete process.env.EMAIL_LINK_SECRET;
 });
 
-test("§21 Work → Reminders: due-day only skips the day-before email; off sends neither; overdue still goes", async () => {
+test("§21 Work → Reminders: due-day only skips the day-before email; off sends nothing, overdue included (smaller bug 2)", async () => {
   const o = await org();
   const now = new Date();
   now.setUTCHours(9, 20, 0, 0);
@@ -182,5 +182,5 @@ test("§21 Work → Reminders: due-day only skips the day-before email; off send
   await sql`UPDATE workspaces SET org_settings = coalesce(org_settings, '{}'::jsonb) || '{"assignmentReminders":"off"}'::jsonb WHERE id = ${o2.id}`;
   await digests.runOrgDueSoon(now);
   assert.equal((await tray(o2.id, o2.b)).length, 0, "off: no due-today notice");
-  assert.equal((await tray(o2.id, o2.a)).length, 1, "overdue is not a reminder");
+  assert.equal((await tray(o2.id, o2.a)).length, 0, "Off stops overdue too (smaller bug 2)");
 });

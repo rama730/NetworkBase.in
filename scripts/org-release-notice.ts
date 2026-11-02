@@ -17,7 +17,7 @@ moduleWithLoad._load = (request, parent, isMain) => (request === "server-only" ?
 const NOTICES: Record<string, { title: string; body: string }> = {
   "1a": {
     title: "Privacy fixes in your organization",
-    body: "Drafts, other people's work, suspension reasons and activity now reach only the people meant to see them. Posts start as Members only.",
+    body: "Drafts, other people’s work, suspension reasons and activity now reach only the people meant to see them. Posts start as Members only.",
   },
   "1b": {
     title: "Fixes to assignments and reviews",
@@ -25,7 +25,7 @@ const NOTICES: Record<string, { title: string; body: string }> = {
   },
   "1c": {
     title: "Fixes to notices and reminders",
-    body: "Reminders follow the Off setting, notices use each person's time zone, and archiving or deleting work tells the people affected.",
+    body: "Reminders follow the Off setting, notices use each person’s time zone, and archiving or deleting work tells the people affected.",
   },
 };
 

@@ -13,7 +13,8 @@ import type { OrgNotificationEventKey } from "@/lib/notifications/workspace-poli
 import type { NotificationEntityRefs } from "@/lib/notifications/types";
 import { audienceAllows, type UpdateAudience } from "@/lib/organizations/update-rules";
 import { ACCESS_LEVEL_LABELS } from "@/lib/copy/terms";
-import { orgRoleNames, orgTypeLabel } from "@/lib/organizations/config";
+import { ORG_LIMITS, orgRoleNames, orgTypeLabel } from "@/lib/organizations/config";
+import { normalizeNotificationPreferences } from "@/lib/notifications/preferences";
 
 // One door for organization notifications (report §26): the tray goes through the project event pipeline
 // (org rules, member overrides, bursts, push for Important), email through the outbox. Best effort: the
@@ -97,6 +98,31 @@ export async function queueOrgInviteSignupEmails(orgId: string, actorId: string,
   }
 }
 
+/** People grouped by their own zone (their notification setting), else the organization's (report §32.5). */
+export async function peopleByZone(userIds: string[], orgZone: string | null) {
+  const rows = userIds.length ? await db.select({ id: profiles.id, preferences: profiles.notificationPreferences }).from(profiles).where(inArray(profiles.id, userIds)) : [];
+  const own = new Map(rows.map((r) => [r.id, normalizeNotificationPreferences(r.preferences).quietHours.timeZone]));
+  const byZone = new Map<string, string[]>();
+  for (const id of new Set(userIds)) {
+    const zone = own.get(id) ?? orgZone ?? "UTC";
+    byZone.set(zone, [...(byZone.get(zone) ?? []), id]);
+  }
+  return byZone;
+}
+
+/**
+ * Who already got this reminder in the last 12 hours, counted from their last one (report §28.8). `subject` is the
+ * first part of the reminder's event id ("remind" for a copy); the result holds the second part (the copy id).
+ */
+export async function remindedRecently(orgId: string, subject: string, userIds: string[]) {
+  if (userIds.length === 0) return new Set<string>();
+  const rows = await db.execute<{ id: string }>(sql`
+    SELECT DISTINCT split_part(dedupe_key, ':', 5) AS id FROM user_notifications
+    WHERE user_id IN ${[...new Set(userIds)]} AND dedupe_key LIKE ${`project:${orgId}:assignments.reminded:${subject}:%`}
+      AND created_at > now() - make_interval(hours => ${ORG_LIMITS.remindSamePersonHours})`);
+  return new Set(rows.map((r) => r.id));
+}
+
 /** Display names for tray titles ("Ravi asked to join CSE-3A"). */
 export async function namesOf(userIds: string[]) {
   if (userIds.length === 0) return new Map<string, string>();
@@ -108,9 +134,9 @@ export const orgHref = (org: { slug: string | null; id: string }, query = "") =>
 
 /** Title, handle and welcome note for tray titles and links. */
 export async function orgLabel(orgId: string) {
-  const [org] = await db.select({ id: workspaces.id, title: workspaces.title, slug: workspaces.slug, welcomeNote: workspaces.welcomeNote, orgType: workspaces.orgType, orgSettings: workspaces.orgSettings })
+  const [org] = await db.select({ id: workspaces.id, title: workspaces.title, slug: workspaces.slug, welcomeNote: workspaces.welcomeNote, orgType: workspaces.orgType, orgSettings: workspaces.orgSettings, timeZone: workspaces.timeZone })
     .from(workspaces).where(eq(workspaces.id, orgId)).limit(1);
-  return org ? { id: org.id, title: org.title || "Organization", slug: org.slug, welcomeNote: org.welcomeNote, roleNames: orgRoleNames(org.orgType, org.orgSettings) } : null;
+  return org ? { id: org.id, title: org.title || "Organization", slug: org.slug, welcomeNote: org.welcomeNote, roleNames: orgRoleNames(org.orgType, org.orgSettings), timeZone: org.timeZone } : null;
 }
 
 export const ROLE_LABEL: Record<string, string> = ACCESS_LEVEL_LABELS;

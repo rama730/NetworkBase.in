@@ -29,6 +29,26 @@ export async function ownCopies(orgId: string, userId: string) {
     )));
 }
 
+/** A workspace asking to move in or to leave, for Workspaces → Requests (report §28.6, decision 57). */
+export type OrgWorkspaceRequest = { id: string; title: string; slug: string | null; kind: 'move_in' | 'leave'; lead: string; members: number; at: string | null };
+
+/**
+ * Admins only: pending move-in and leave requests, oldest first.
+ * ponytail: move-ins are found by scanning top-level workspaces' settings. Ceiling: fine to ~100k workspaces;
+ * upgrade to a partial index on org_settings->'moveInRequest'->>'orgId' when the measures call for it.
+ */
+export async function readWorkspaceRequests(orgId: string): Promise<OrgWorkspaceRequest[]> {
+    const rows = await db.execute<{ id: string; title: string | null; slug: string | null; kind: 'move_in' | 'leave'; lead: string | null; members: number; at: string | null }>(sql`
+        SELECT w.id, w.title, w.slug, CASE WHEN w.parent_id IS NULL THEN 'move_in' ELSE 'leave' END AS kind,
+            coalesce(p.full_name, p.username) AS lead, (SELECT count(*)::int FROM workspace_members m WHERE m.workspace_id = w.id) AS members,
+            coalesce(w.org_settings->'moveInRequest'->>'at', w.org_settings->'detachRequest'->>'at') AS at
+        FROM workspaces w LEFT JOIN profiles p ON p.id = w.owner_id
+        WHERE w.deleted_at IS NULL AND w.kind = 'workspace'
+          AND ((w.parent_id IS NULL AND w.org_settings->'moveInRequest'->>'orgId' = ${orgId}) OR (w.parent_id = ${orgId} AND w.org_settings ? 'detachRequest'))
+        ORDER BY at NULLS FIRST LIMIT 200`);
+    return rows.map((r) => ({ id: r.id, title: r.title || 'Workspace', slug: r.slug, kind: r.kind, lead: r.lead || 'Owner', members: r.members, at: r.at }));
+}
+
 /** Needs you (report §26.4), derived from state, so rows clear by themselves. Shared by the dashboard and the sidebar badge. */
 export async function readNeedsYou(v: OrgViewer, now: Date): Promise<NeedsYouRow[]> {
     const base = `/org/${encodeURIComponent(v.org.slug ?? v.org.id)}`;
@@ -41,13 +61,14 @@ export async function readNeedsYou(v: OrgViewer, now: Date): Promise<NeedsYouRow
                 .groupBy(tasks.title).orderBy(asc(tasks.title)),
             db.select({ n: sql<number>`count(*)::int` }).from(roleApplications).where(and(eq(roleApplications.projectId, v.org.id), isNull(roleApplications.roleId), eq(roleApplications.status, 'pending'))),
             db.select({ name: workspaceSprints.name }).from(workspaceSprints).where(and(eq(workspaceSprints.projectId, v.org.id), eq(workspaceSprints.status, 'active'), lt(workspaceSprints.endDate, now))),
-            db.select({ title: workspaces.title, settings: workspaces.orgSettings }).from(workspaces).where(and(eq(workspaces.parentId, v.org.id), isNull(workspaces.deletedAt), sql`${workspaces.orgSettings} ? 'detachRequest'`)),
+            readWorkspaceRequests(v.org.id),
             db.select({ max: workspaces.maxCollaborators, members: sql<number>`(SELECT count(*)::int FROM workspace_members WHERE workspace_id = ${v.org.id})` }).from(workspaces).where(eq(workspaces.id, v.org.id)),
         ]);
         for (const r of reviews) rows.push({ kind: 'review', label: `${plural(r.n, 'submission')} to review · ${r.title}`, href: `${base}?tab=tasks` });
         if (requests && requests.n > 0) rows.push({ kind: 'requests', label: plural(requests.n, 'join request'), href: `${base}?tab=members` });
         for (const s of ended) rows.push({ kind: 'sprint', label: `${s.name} ended · Complete it?`, href: `${base}?tab=sprints` });
-        for (const c of children) rows.push({ kind: 'detach', label: `${c.title} asks to leave`, href: `${base}?tab=projects` });
+        // Decision 57: move-in and leave requests, each with Approve and Decline on the Workspaces tab.
+        for (const c of children) rows.push({ kind: c.kind === 'leave' ? 'detach' : 'move_in', label: `${c.title} asks to ${c.kind === 'leave' ? 'leave' : 'join'}`, href: `${base}?tab=projects` });
         const max = cap?.max ? Number.parseInt(cap.max, 10) : NaN;
         if (Number.isFinite(max) && cap && cap.members >= max) rows.push({ kind: 'full', label: `${v.org.title} is full`, href: `${base}?tab=settings` });
         // Report §30.3: 50+ joins in an hour with the code; §30.5: verify after archive; §30.7: a lead left.

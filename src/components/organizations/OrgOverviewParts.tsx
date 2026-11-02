@@ -6,14 +6,16 @@ import { useQuery } from '@tanstack/react-query'
 import { Pin } from 'lucide-react'
 
 import { readChildOrgLineAction, readOrgDashboardAction, readOrgWorkspacesAction, remindLeadsAction, type OrgWorkspaceRow } from '@/app/actions/org-dashboard'
+import type { OrgWorkspaceRequest } from '@/lib/organizations/needs-you'
 import { messageUserInWindow } from '@/components/messages/message-user'
-import { archiveChildAction } from '@/app/actions/organizations'
+import { approveMoveInAction, archiveChildAction, cancelDetachRequestAction, cancelMoveInAction, detachChildAction } from '@/app/actions/organizations'
 import { readWorkspaceUnitsAction } from '@/app/actions/child-units'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { RailSection } from '@/components/ui/rail-section'
 import { WorkspaceLastUpdate } from '@/components/workspaces/WorkspaceLastUpdate'
 import { toast } from '@/lib/feedback'
+import { remindSummary } from '@/lib/organizations/member-rules'
 import { formatDistanceToNow } from '@/lib/utils/date'
 import { cn } from '@/lib/utils'
 
@@ -107,9 +109,54 @@ function ownLine(items: Array<{ own?: { state: string } | null }>) {
     return own.length ? ` · you have ${own.filter((i) => i.own!.state === 'done').length} of ${own.length} done` : ''
 }
 
+/** Workspaces → Requests (report §28.6, decision 57): move in and leave, each with Approve and Decline. */
+function WorkspaceRequests({ requests, onDone }: { requests: OrgWorkspaceRequest[]; onDone: () => void }) {
+    const [declining, setDeclining] = useState<string | null>(null)
+    const [reason, setReason] = useState('')
+    const [pending, startTransition] = useTransition()
+    if (requests.length === 0) return null
+    const act = (work: () => Promise<{ success: boolean; error?: string }>, done: string) => startTransition(async () => {
+        const result = await work()
+        if (!result.success) return void toast.error(result.error ?? 'Something went wrong.')
+        toast.success(done)
+        setDeclining(null)
+        setReason('')
+        onDone()
+    })
+    return (
+        <section aria-labelledby="workspace-requests-heading" className="rounded-lg border border-border">
+            <h3 id="workspace-requests-heading" className="nb-micro border-b border-border px-3 py-2">Requests ({requests.length})</h3>
+            <ul className="divide-y divide-border">
+                {requests.map((r) => (
+                    <li key={r.id} className="flex flex-wrap items-center gap-2 px-3 py-2.5 text-sm">
+                        <span className="min-w-0 flex-1">
+                            <span className="font-medium">{r.title}</span>
+                            <span className="text-muted-foreground"> · {r.kind === 'move_in' ? 'asks to join' : 'asks to leave'} · {r.lead} (lead) · {r.members} {r.members === 1 ? 'member' : 'members'}</span>
+                        </span>
+                        {declining === r.id ? (
+                            <>
+                                <Input value={reason} onChange={(e) => setReason(e.target.value)} maxLength={300} placeholder="Reason (optional)" aria-label={`Reason for declining ${r.title}`} className="h-8 w-full sm:w-56" />
+                                <Button type="button" size="sm" variant="destructive" disabled={pending}
+                                    onClick={() => act(() => (r.kind === 'move_in' ? cancelMoveInAction(r.id, reason) : cancelDetachRequestAction(r.id, reason)), 'Request declined')}>Decline</Button>
+                                <Button type="button" size="sm" variant="ghost" disabled={pending} onClick={() => setDeclining(null)}>Cancel</Button>
+                            </>
+                        ) : (
+                            <>
+                                <Button type="button" size="sm" disabled={pending}
+                                    onClick={() => act(() => (r.kind === 'move_in' ? approveMoveInAction(r.id) : detachChildAction(r.id)), r.kind === 'move_in' ? `${r.title} is now part of the organization` : `${r.title} left the organization`)}>Approve</Button>
+                                <Button type="button" size="sm" variant="outline" disabled={pending} onClick={() => { setDeclining(r.id); setReason('') }}>Decline</Button>
+                            </>
+                        )}
+                    </li>
+                ))}
+            </ul>
+        </section>
+    )
+}
+
 /** Projects tab (report §28): a list with filters for everyone in the org; Needs attention and bulk Archive for admins. */
 export function OrgWorkspacesTab({ orgId, orgSlug }: { orgId: string; orgSlug?: string | null }) {
-    const [data, setData] = useState<{ isAdmin: boolean; canCreate?: boolean; rows: OrgWorkspaceRow[]; summary: { total: number; attention: number; quiet: number; notInProject: number } } | null>(null)
+    const [data, setData] = useState<{ isAdmin: boolean; canCreate?: boolean; rows: OrgWorkspaceRow[]; requests: OrgWorkspaceRequest[]; summary: { total: number; attention: number; quiet: number; notInProject: number } } | null>(null)
     const [q, setQ] = useState('')
     const [status, setStatus] = useState<'all' | 'attention' | 'quiet' | 'archived'>('all')
     const [visibility, setVisibility] = useState('all')
@@ -145,7 +192,7 @@ export function OrgWorkspacesTab({ orgId, orgSlug }: { orgId: string; orgSlug?: 
     const remind = () => startTransition(async () => {
         const r = await remindLeadsAction(orgId, [...selected])
         if (!r.success) return void toast.error(r.error)
-        toast.success(r.reminded ? `Reminded ${r.reminded} ${r.reminded === 1 ? 'owner' : 'owners'}` : 'Nothing overdue or missing in those workspaces')
+        toast.success(remindSummary(r))
         setSelected(new Set())
     })
     const projectHref = (r: OrgWorkspaceRow) => `/workspaces/${encodeURIComponent(r.slug ?? r.id)}`
@@ -162,6 +209,7 @@ export function OrgWorkspacesTab({ orgId, orgSlug }: { orgId: string; orgSlug?: 
     })
     return (
         <div className="mx-auto w-full max-w-[1240px] space-y-3">
+            {data.isAdmin ? <WorkspaceRequests requests={data.requests} onDone={load} /> : null}
             <p className="text-sm">
                 <button type="button" className="hover:underline" onClick={() => setStatus('all')}>{data.summary.total} projects</button>
                 {data.isAdmin ? <>

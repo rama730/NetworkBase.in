@@ -205,7 +205,7 @@ test("§20 pass: Max members holds for invites; bulk Remind; drawer activity; Ou
   const [copy] = await sql`INSERT INTO tasks (workspace_id, title, kind, assignment_id, assignee_id, creator_id, due_date) VALUES (${o.orgId}, 'Lab 1', 'task', ${m!.id}, ${o.a}, ${o.owner}, now() - interval '1 day') RETURNING id`;
   viewerId = o.admin;
   const reminded = await members.remindMembersAction(o.orgId, [o.a, o.b]);
-  assert.deepEqual(reminded, { success: true, reminded: 1 });
+  assert.deepEqual(reminded, { success: true, reminded: 1, skipped: 0 });
   await members.remindMembersAction(o.orgId, [o.a]);
   const notes = await sql`SELECT title FROM user_notifications WHERE user_id = ${o.a} AND title LIKE 'Reminder:%'`;
   assert.equal(notes.length, 1, "one per 12 hours");

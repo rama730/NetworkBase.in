@@ -28,6 +28,13 @@ export function memberStatus(input: { missing: number; lastActiveAt: Date | null
   };
 }
 
+/** After Remind (report §28.8, decision 60): "Sent to 9. 3 were reminded recently." */
+export function remindSummary(result: { reminded: number; skipped: number }) {
+  const recent = result.skipped === 0 ? "" : `${result.skipped} ${result.skipped === 1 ? "was" : "were"} reminded recently.`;
+  if (result.reminded === 0) return recent ? `Nobody sent. ${recent}` : "Nothing open to remind about.";
+  return `Sent to ${result.reminded}.${recent ? ` ${recent}` : ""}`;
+}
+
 /**
  * Who may change whom (report §20.4): nobody touches the owner (Transfer ownership does that); only the owner
  * promotes to admin, demotes or removes an admin; admins manage members and guests. `next` is the new role,

@@ -15,7 +15,8 @@ import { shareToOrgGeneral } from '@/lib/organizations/org-chat';
 import { postOrgAnnouncement } from '@/lib/organizations/org-updates';
 import { ORG_LIMITS } from '@/lib/organizations/config';
 import { readOrgWork } from '@/lib/organizations/settings';
-import { notifyAssignmentDueChanged, notifyAssignmentPublished, notifyAssignmentReviewed, notifyAssignmentSubmitted } from '@/lib/organizations/assignment-notify';
+import { assignmentPeopleOf, notifyAssignmentDueChanged, notifyAssignmentPublished, notifyAssignmentRemoved, notifyAssignmentReviewed, notifyAssignmentSubmitted, notifyTeamMoved } from '@/lib/organizations/assignment-notify';
+import { remindedRecently } from '@/lib/organizations/notify';
 import { taskReviewSnapshot } from '@/lib/workspaces/task-review-snapshot';
 
 // Assignments (report §16, §16.11). Owners and admins create, review and manage; recipients submit.
@@ -187,8 +188,7 @@ export async function updateAssignmentAction(masterId: string, patch: z.input<ty
     if (dueDate && ctx.master.dueDate && new Date(dueDate).getTime() !== ctx.master.dueDate.getTime()) {
         // Only people still working on it hear about it (smaller bug 17).
         const moved = await db.select({ id: tasks.id }).from(tasks).where(and(eq(tasks.assignmentId, masterId), isNull(tasks.deletedAt), eq(tasks.dueDate, new Date(dueDate)), sql`NOT ${handedInSql}`));
-        const when = new Intl.DateTimeFormat('en', { weekday: 'short', month: 'short', day: 'numeric' }).format(new Date(dueDate));
-        for (const { id } of moved) await notifyAssignmentDueChanged(id, ctx.viewer.userId, (t) => `${t}: due date moved to ${when}`, `${id}:moved:${dueDate}`);
+        for (const { id } of moved) await notifyAssignmentDueChanged(id, ctx.viewer.userId, (t, day) => `${t}: due date moved to ${day(new Date(dueDate))}`, `${id}:moved:${dueDate}`);
     }
     return { success: true };
 }
@@ -201,8 +201,11 @@ export async function deleteAssignmentAction(masterId: string): Promise<{ succes
     const [submitted] = await db.select({ id: tasks.id }).from(tasks).where(and(eq(tasks.assignmentId, masterId), isNull(tasks.deletedAt), handedInSql)).limit(1);
     if (submitted) return { success: false, error: 'Someone already handed this in. Close it instead.' };
     const now = new Date();
+    const people = await assignmentPeopleOf(db, masterId);
     await db.update(tasks).set({ deletedAt: now, updatedAt: now }).where(sql`${tasks.id} = ${masterId} OR ${tasks.assignmentId} = ${masterId}`);
     touch(ctx.viewer.slug, ctx.master.projectId);
+    await notifyAssignmentRemoved(ctx.master.projectId, ctx.master.title, people, ctx.viewer.userId, `removed:${masterId}`)
+        .catch((error) => logger.warn('assignments.after_save_failed', { module: 'assignments', step: 'removed', masterId, error: error instanceof Error ? error.message : String(error) }));
     return { success: true };
 }
 
@@ -565,19 +568,22 @@ export async function addAssignmentStepAction(masterId: string, title: string): 
 }
 
 /** Remind one copy, or everyone not done (report §16.3); a person is reminded at most once per 12 hours. */
-export async function remindCopiesAction(masterId: string, copyIds?: string[]): Promise<{ success: true; reminded: number } | Failure> {
+export async function remindCopiesAction(masterId: string, copyIds?: string[]): Promise<{ success: true; reminded: number; skipped: number } | Failure> {
     const ctx = await adminOfMaster(masterId);
     if (!ctx) return DENIED;
     const open = await db.select({ id: tasks.id }).from(tasks).where(and(
         eq(tasks.assignmentId, masterId), isNull(tasks.deletedAt), isNull(tasks.excusedAt), sql`NOT ${handedInSql}`,
         ...(copyIds?.length ? [inArray(tasks.id, copyIds.slice(0, 2000))] : []),
     ));
-    const window = Math.floor(Date.now() / (ORG_LIMITS.remindSamePersonHours * 3_600_000));
-    const due = ctx.master.dueDate ? new Intl.DateTimeFormat('en', { weekday: 'short', month: 'short', day: 'numeric' }).format(ctx.master.dueDate) : null;
-    for (const { id } of open) {
-        await notifyAssignmentDueChanged(id, ctx.viewer.userId, (t) => `Reminder: ${t}${due ? ` is due ${due}` : ' is waiting for you'}`, `remind:${id}:${window}`);
+    // Decision 60: skip copies reminded in the last 12 hours, and say so; the minute in the id stops a double click.
+    const recent = await remindedRecently(ctx.master.projectId, 'remind', await assignmentPeopleOf(db, masterId));
+    const send = open.filter((c) => !recent.has(c.id));
+    const minute = Math.floor(Date.now() / 60_000);
+    const due = ctx.master.dueDate;
+    for (const { id } of send) {
+        await notifyAssignmentDueChanged(id, ctx.viewer.userId, (t, day) => `Reminder: ${t}${due ? ` is due ${day(due)}` : ' is waiting for you'}`, `remind:${id}:${minute}`, 'assignments.reminded');
     }
-    return { success: true, reminded: open.length };
+    return { success: true, reminded: send.length, skipped: open.length - send.length };
 }
 
 /** Teams of an earlier teams assignment, for "Copy teams from" (report §16.11). */
@@ -640,7 +646,7 @@ export async function moveTeamMemberAction(masterId: string, userId: string, toC
     touch(ctx.viewer.slug, ctx.master.projectId);
     const [copy] = await db.select({ id: tasks.id }).from(tasks).where(and(eq(tasks.assignmentId, masterId), isNull(tasks.deletedAt),
         toCopyId ? eq(tasks.id, toCopyId) : eq(tasks.assigneeId, userId))).limit(1);
-    if (copy) await notifyAssignmentDueChanged(copy.id, ctx.viewer.userId, (t) => (title ? `You moved to ${title} for ${t}` : `You now have your own assignment of ${t}`), `team-move:${masterId}:${userId}:${Date.now()}`);
+    if (copy) await notifyTeamMoved(copy.id, userId, ctx.viewer.userId, title, `team-move:${masterId}:${userId}:${Date.now()}`);
     return { success: true };
 }
 

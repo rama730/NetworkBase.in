@@ -13,7 +13,7 @@ import { audienceSql } from '@/lib/organizations/org-updates';
 import { readOrgDocsAction } from '@/app/actions/org-docs';
 import { normalizeWorkspacePublicTabVisibility } from '@/lib/workspaces/settings-policies';
 import { getViewerAuthContext } from '@/lib/server/viewer-context';
-import { copyColumns, leadSprintRows, ownCopies, plural, readNeedsYou, stateOf, type NeedsYouRow, type OrgViewer } from '@/lib/organizations/needs-you';
+import { copyColumns, leadSprintRows, ownCopies, plural, readNeedsYou, readWorkspaceRequests, stateOf, type NeedsYouRow, type OrgViewer, type OrgWorkspaceRequest } from '@/lib/organizations/needs-you';
 
 export type { NeedsYouRow };
 export type ActivityItem = { id: string; kind: ActivityKind; text: string; at: string; href: string };
@@ -273,7 +273,7 @@ export type OrgWorkspaceRow = {
 };
 
 /** Projects tab (report §28): admins see every child project (Private too) with Needs attention; others what they may. */
-export async function readOrgWorkspacesAction(orgId: string): Promise<{ success: true; isAdmin: boolean; canCreate: boolean; rows: OrgWorkspaceRow[]; summary: { total: number; attention: number; quiet: number; notInProject: number } } | Failure> {
+export async function readOrgWorkspacesAction(orgId: string): Promise<{ success: true; isAdmin: boolean; canCreate: boolean; rows: OrgWorkspaceRow[]; requests: OrgWorkspaceRequest[]; summary: { total: number; attention: number; quiet: number; notInProject: number } } | Failure> {
     const v = await orgViewer(orgId);
     if (!v || !v.isInside) return DENIED;
     const now = new Date();
@@ -328,6 +328,7 @@ export async function readOrgWorkspacesAction(orgId: string): Promise<{ success:
         isAdmin: v.isAdmin,
         canCreate,
         rows: out,
+        requests: v.isAdmin ? await readWorkspaceRequests(orgId) : [],
         summary: { total: out.length, attention: out.filter((r) => r.reasons.length > 0).length, quiet: out.filter((r) => r.reasons.includes('quiet 7 days')).length, notInProject },
     };
 }
@@ -366,22 +367,27 @@ export async function readChildOrgLineAction(childProjectId: string) {
  * Remind leads (report §28.4, §28.7): each selected project's lead hears what's open, "CSE-3A reminded you: Proposal
  * is missing" or "3 tasks overdue". Admins only; at most once per lead and project every 12 hours.
  */
-export async function remindLeadsAction(orgId: string, projectIds: string[]): Promise<{ success: true; reminded: number } | Failure> {
+export async function remindLeadsAction(orgId: string, projectIds: string[]): Promise<{ success: true; reminded: number; skipped: number } | Failure> {
     const v = await orgViewer(orgId);
     if (!v?.isAdmin || !v.userId) return DENIED;
     const read = await readOrgWorkspacesAction(orgId);
     if (!read.success) return read;
-    const { notifyOrg } = await import('@/lib/organizations/notify');
-    const window = Math.floor(Date.now() / (12 * 3_600_000));
+    const { notifyOrg, remindedRecently } = await import('@/lib/organizations/notify');
+    const rows = read.rows.filter((r) => projectIds.includes(r.id) && r.lead);
+    // Decision 60: a lead reminded about this workspace in the last 12 hours is skipped and counted.
+    const recent = await remindedRecently(orgId, 'remind-lead', rows.map((r) => r.lead!.id));
+    const minute = Math.floor(Date.now() / 60_000);
     let reminded = 0;
-    for (const row of read.rows.filter((r) => projectIds.includes(r.id) && r.lead)) {
+    let skipped = 0;
+    for (const row of rows) {
         const what = row.groupCopy && ['missing', 'returned', 'not_started', 'in_progress'].includes(row.groupCopy.state)
             ? `${row.groupCopy.title} is ${row.groupCopy.state === 'missing' ? 'missing' : row.groupCopy.state === 'returned' ? 'returned' : 'not submitted yet'}`
             : row.overdue ? `${row.overdue} ${row.overdue === 1 ? 'task is' : 'tasks are'} overdue in ${row.title}` : null;
         if (!what) continue;
-        await notifyOrg({ orgId, eventKey: 'assignments.due_changed', actorId: v.userId, to: [row.lead!.id], title: `${v.org.title} reminded you: ${what}`,
-            href: `/workspaces/${encodeURIComponent(row.slug ?? row.id)}?tab=tasks`, sourceEventId: `remind-lead:${row.id}:${window}` });
+        if (recent.has(row.id)) { skipped += 1; continue; }
+        await notifyOrg({ orgId, eventKey: 'assignments.reminded', actorId: v.userId, to: [row.lead!.id], title: `${v.org.title} reminded you: ${what}`,
+            href: `/workspaces/${encodeURIComponent(row.slug ?? row.id)}?tab=tasks`, sourceEventId: `remind-lead:${row.id}:${minute}` });
         reminded += 1;
     }
-    return { success: true, reminded };
+    return { success: true, reminded, skipped };
 }

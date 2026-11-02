@@ -6,7 +6,8 @@ import { ALWAYS_SENT_EMAILS, buildOrgEmail, formatEmailWhen, orgMuteToken, readO
 import { getVisibleWorkspaceNotificationEntries, groupWorkspaceNotificationEntries } from "@/lib/notifications/workspace-policy";
 import { DEFAULT_NOTIFICATION_PREFERENCES, normalizeNotificationPreferences, orgChoiceBlocks } from "@/lib/notifications/preferences";
 import { notificationMatchesMuteScope } from "@/lib/notifications/presentation";
-import { digestIsEmpty, localClock, nextDate } from "@/lib/organizations/notify-rules";
+import { digestIsEmpty, formatDueDay, localClock, nextDate } from "@/lib/organizations/notify-rules";
+import { remindSummary } from "@/lib/organizations/member-rules";
 
 process.env.APP_URL = "https://networkbase.in";
 const ORG = "11111111-1111-4111-8111-111111111111";
@@ -103,4 +104,17 @@ test("org event groups show for organizations only", () => {
   // Decision 38: one category list, each category once.
   const titles = sections(true).map((s) => s.title);
   assert.equal(new Set(titles).size, titles.length);
+});
+
+test("1c: reminders and team moves are their own settings; dates read in the reader's zone; Remind says who was skipped", () => {
+  const keys = getVisibleWorkspaceNotificationEntries(true).map((e) => e.key);
+  for (const key of ["assignments.reminded", "org.team_changed", "assignments.due_changed"]) assert.ok(keys.includes(key as never), key);
+  const due = new Date("2026-11-06T20:00:00Z");
+  assert.equal(formatDueDay(due, "UTC"), "Fri, Nov 6");
+  assert.equal(formatDueDay(due, "Asia/Kolkata"), "Sat, Nov 7");
+  assert.equal(formatDueDay(due, "Not/AZone"), "Fri, Nov 6", "an unknown zone counts as UTC");
+  assert.equal(remindSummary({ reminded: 9, skipped: 3 }), "Sent to 9. 3 were reminded recently.");
+  assert.equal(remindSummary({ reminded: 1, skipped: 0 }), "Sent to 1.");
+  assert.equal(remindSummary({ reminded: 0, skipped: 1 }), "Nobody sent. 1 was reminded recently.");
+  assert.equal(remindSummary({ reminded: 0, skipped: 0 }), "Nothing open to remind about.");
 });

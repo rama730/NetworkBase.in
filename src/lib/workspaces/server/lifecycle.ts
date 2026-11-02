@@ -2064,7 +2064,8 @@ export async function archiveWorkspaceAction(
         title: `${actor.actorName || "Someone"} archived ${owned.project.title || "Workspace"}`,
         body: "The workspace was archived from settings.",
         href: `/workspaces/${encodeURIComponent(owned.project.slug || projectId)}?tab=settings&settings=danger`,
-        sourceEventId: `archive:${projectId}`,
+        // Each archive is its own event, so archiving again after Unarchive tells people again (decision 93).
+        sourceEventId: `archive:${projectId}:${archivedAt.getTime()}`,
         entityRefs: {
           projectId,
           projectSlug: owned.project.slug ?? null,

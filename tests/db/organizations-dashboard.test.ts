@@ -210,7 +210,7 @@ test("§28 pass: rows carry stage, sprint inside the org sprint and New in <org>
   const row = read.success ? read.rows.find((r) => r.id === o.child)! : null;
   assert.deepEqual([row?.stage, row?.sprint, row?.newInOrg], ["Build", { name: "Parser week", inOrgSprint: true }, true]);
   const reminded = await dash.remindLeadsAction(o.orgId, [o.child]);
-  assert.deepEqual(reminded, { success: true, reminded: 1 });
+  assert.deepEqual(reminded, { success: true, reminded: 1, skipped: 0 });
   const [note] = await sql`SELECT title FROM user_notifications WHERE user_id = ${o.a} AND title LIKE 'CSE-3A reminded you:%'`;
   assert.ok(note, "the lead heard");
   viewerId = o.b;

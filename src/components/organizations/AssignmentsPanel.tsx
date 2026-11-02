@@ -36,6 +36,8 @@ import { Input } from '@/components/ui/input'
 import { formatDistanceToNow } from '@/lib/utils/date'
 import { splitIntoTeams, type AssignmentTarget, type CopyState } from '@/lib/organizations/assignment-rules'
 import { DownloadLink } from '@/components/ui/download-link'
+import { remindSummary } from '@/lib/organizations/member-rules'
+import { toast } from '@/lib/feedback'
 
 // Assignments in the org Tasks tab (report §16.2–16.5, §16.11) and group copies in a child project (§16.6).
 // The Kanban board below stays as it is: members' own copies appear there through the read rule.
@@ -370,7 +372,7 @@ export function RosterDialog({ row, orgId, open, onOpenChange, onChanged }: { ro
                 </DialogHeader>
                 <div className="flex flex-wrap gap-2">
                     {row.counts.submitted > 0 ? <Button type="button" size="sm" disabled={pending} onClick={() => run(() => approveAllSubmittedAction(row.masterId))}>Approve all submitted</Button> : null}
-                    <Button type="button" size="sm" variant="outline" disabled={pending} onClick={() => run(async () => { const r = await remindCopiesAction(row.masterId); return r.success ? { success: true } : r })}>Remind everyone not done</Button>
+                    <Button type="button" size="sm" variant="outline" disabled={pending} onClick={() => run(async () => { const r = await remindCopiesAction(row.masterId); if (r.success) toast.success(remindSummary(r)); return r.success ? { success: true } : r })}>Remind everyone not done</Button>
                     {/* Brief and shared Q&A live on the master task (report §16.4 Conversation, §16.5 Brief / Discussion). */}
                     {/* Download all (report §23.5): one folder per person or team, latest handed-in files. */}
                     {orgId && row.submissionType === 'file' && row.counts.submitted + row.counts.done > 0 ? <Button asChild size="sm" variant="outline"><DownloadLink href={`/api/v1/workspaces/${orgId}/tasks/${row.masterId}/submissions`}>Download all</DownloadLink></Button> : null}
@@ -414,7 +416,7 @@ export function RosterDialog({ row, orgId, open, onOpenChange, onChanged }: { ro
                                         const reason = window.prompt('Why is this person excused?')
                                         if (reason) run(() => excuseCopyAction(r.copyId, reason))
                                     }}>{r.state === 'excused' ? 'Un-excuse' : 'Excuse'}</Button>
-                                    {r.state !== 'done' && r.state !== 'excused' && r.state !== 'submitted' ? <Button type="button" size="sm" variant="ghost" disabled={pending} onClick={() => run(async () => { const res = await remindCopiesAction(row.masterId, [r.copyId]); return res.success ? { success: true } : res })}>Remind</Button> : null}
+                                    {r.state !== 'done' && r.state !== 'excused' && r.state !== 'submitted' ? <Button type="button" size="sm" variant="ghost" disabled={pending} onClick={() => run(async () => { const res = await remindCopiesAction(row.masterId, [r.copyId]); if (res.success) toast.success(remindSummary(res)); return res.success ? { success: true } : res })}>Remind</Button> : null}
                                 </div>
                                 {r.people?.length && r.state !== 'submitted' && r.state !== 'done' ? (
                                     <div className="flex flex-wrap gap-2 text-xs">

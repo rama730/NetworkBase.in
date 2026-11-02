@@ -27,7 +27,7 @@ import { revokeOrgVerificationAction, verifyOrgContributionsAction } from '@/app
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
-import { filterRoster, type RosterFilter, type RosterRow } from '@/lib/organizations/member-rules'
+import { filterRoster, remindSummary, type RosterFilter, type RosterRow } from '@/lib/organizations/member-rules'
 import { toast } from '@/lib/feedback'
 import { formatDistanceToNow } from '@/lib/utils/date'
 import { cn } from '@/lib/utils'
@@ -68,10 +68,10 @@ export function OrgMembersTab({ orgId, roleNames }: { orgId: string; roleNames?:
     }, [load])
     const rows = useMemo(() => (data ? (filterRoster(data.rows, filter) as Row[]) : []), [data, filter])
 
-    const run = (work: () => Promise<{ success: boolean; error?: string }>, done: string) => startTransition(async () => {
+    const run = <R extends { success: boolean; error?: string }>(work: () => Promise<R>, done: string | ((result: R) => string)) => startTransition(async () => {
         const result = await work()
         if (!result.success) return void toast.error(result.error ?? 'Something went wrong.')
-        toast.success(done)
+        toast.success(typeof done === 'string' ? done : done(result))
         setSelected(new Set())
         load()
     })
@@ -191,7 +191,7 @@ export function OrgMembersTab({ orgId, roleNames }: { orgId: string; roleNames?:
     )
 }
 
-type Run = (work: () => Promise<{ success: boolean; error?: string }>, done: string) => void
+type Run = <R extends { success: boolean; error?: string }>(work: () => Promise<R>, done: string | ((result: R) => string)) => void
 
 function BulkBar({ orgId, data, label, ids, pending, run, onClear }: { orgId: string; data: OrgMembersData; label: (role: string) => string; ids: string[]; pending: boolean; run: Run; onClear: () => void }) {
     const [childId, setChildId] = useState('')
@@ -200,7 +200,7 @@ function BulkBar({ orgId, data, label, ids, pending, run, onClear }: { orgId: st
     return (
         <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-muted/30 p-2 text-sm" role="group" aria-label="Bulk actions">
             <span className="font-medium">{ids.length} selected</span>
-            <Button type="button" size="sm" variant="outline" disabled={pending} onClick={() => run(() => remindMembersAction(orgId, ids), 'Reminders sent to people with open work')}>Remind</Button>
+            <Button type="button" size="sm" variant="outline" disabled={pending} onClick={() => run(() => remindMembersAction(orgId, ids), (r) => ('reminded' in r ? remindSummary(r) : ''))}>Remind</Button>
             <select aria-label="Change access level" className={select} value="" disabled={pending} onChange={(e) => {
                 const role = e.target.value as 'admin' | 'member' | 'viewer'
                 if (role) run(() => changeMemberRoleAction(orgId, ids, role), 'Roles changed')

@@ -4,7 +4,7 @@ import { sql } from "drizzle-orm";
 
 import { db } from "@/lib/db";
 import { logger } from "@/lib/logger";
-import { notifyOrg, orgHref } from "@/lib/organizations/notify";
+import { notifyOrg, orgHref, peopleByZone } from "@/lib/organizations/notify";
 import { readSprintMaterials } from "@/lib/organizations/sprints";
 
 // Org sprint notices (report §26 C). Best effort: a failed notice never fails the sprint change.
@@ -171,9 +171,12 @@ export function shiftOrgSprintDueDates(orgId: string, sprintId: string, shiftMs:
         SELECT c.assignee_id AS user_id FROM tasks c WHERE c.assignment_id = ${master.id} AND c.deleted_at IS NULL AND c.assignee_id IS NOT NULL
         UNION SELECT tm.user_id FROM task_team_members tm JOIN tasks c ON c.id = tm.task_id WHERE c.assignment_id = ${master.id} AND c.deleted_at IS NULL`);
       if (people.length === 0) continue;
-      const due = new Intl.DateTimeFormat("en", { timeZone: org?.time_zone || "UTC", weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }).format(new Date(master.due_date));
-      await notifyOrg({ orgId, eventKey: "assignments.due_changed", actorId, to: people.map((p) => p.user_id), title: `${master.title} is now due ${due}`,
-        href: orgHref({ id: orgId, slug: org?.slug ?? null }, "?tab=tasks"), sourceEventId: `shift:${master.id}:${master.due_date}`, refs: { taskId: master.id } });
+      // Decision 74: each person reads the new date in their own zone.
+      for (const [zone, to] of await peopleByZone(people.map((p) => p.user_id), org?.time_zone ?? null)) {
+        const due = new Intl.DateTimeFormat("en", { timeZone: zone, weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }).format(new Date(master.due_date));
+        await notifyOrg({ orgId, eventKey: "assignments.due_changed", actorId, to, title: `${master.title} is now due ${due}`,
+          href: orgHref({ id: orgId, slug: org?.slug ?? null }, "?tab=tasks"), sourceEventId: `shift:${master.id}:${master.due_date}`, refs: { taskId: master.id } });
+      }
     }
   });
 }

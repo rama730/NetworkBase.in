@@ -74,7 +74,7 @@ type MemberRow = {
 // it still arrives, from the place and without their name (Blocking B46, B47). Assigned work counts only from an admin.
 const PLACE_EVENTS = new Set<string>([
     "members.removed", "members.role_changed", "members.ownership_transferred", "access.file_upload_permission_changed",
-    "applications.decision", "assignments.published", "assignments.reviewed", "assignments.due_changed", "assignments.due_soon",
+    "applications.decision", "assignments.published", "assignments.reviewed", "assignments.due_changed", "assignments.due_soon", "assignments.reminded", "org.team_changed", "org.member_deleted",
     "announcements.posted", "org.role_changed", "org.lifecycle", "org.child_added", "org.child_notice", "org_sprints.notice",
     "security.project_archived", "security.delete_scheduled",
 ]);

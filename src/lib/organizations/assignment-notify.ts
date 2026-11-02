@@ -6,7 +6,8 @@ import { db } from "@/lib/db";
 import { workspaces, taskSubtasks, taskTeamMembers, tasks } from "@/lib/db/schema";
 import type { OrgEmailData } from "@/lib/email/org-templates";
 import type { AssignmentSettings } from "@/lib/organizations/assignment-rules";
-import { namesOf, notifyOrg, orgHref, orgLabel, queueOrgEmails } from "@/lib/organizations/notify";
+import { namesOf, notifyOrg, orgHref, orgLabel, peopleByZone, queueOrgEmails } from "@/lib/organizations/notify";
+import { formatDueDay } from "@/lib/organizations/notify-rules";
 
 // Assignment notices (report §26.3 D): published, submitted, returned or approved, extended or excused.
 // Privacy: each person sees only their own copy and their own team; materials skip Admins-only folders.
@@ -126,11 +127,66 @@ export async function notifyAssignmentReviewed(copyId: string, actorId: string, 
   });
 }
 
-/** Extended or excused (tray, push). */
-export async function notifyAssignmentDueChanged(copyId: string, actorId: string, title: (assignment: string) => string, eventId: string) {
+/**
+ * Extended, excused or reminded (tray, push). A date in the title goes through `day`, which writes it in each
+ * reader's own zone (decision 74), so the notice goes out once per zone among the copy's people.
+ */
+export async function notifyAssignmentDueChanged(copyId: string, actorId: string, title: (assignment: string, day: (date: Date) => string) => string, eventId: string,
+  eventKey: "assignments.due_changed" | "assignments.reminded" = "assignments.due_changed") {
   const ctx = await copyContext(copyId);
   if (!ctx) return;
-  await notifyOrg({ orgId: ctx.org.id, eventKey: "assignments.due_changed", actorId, to: await copyPeople(copyId), title: title(ctx.copy.title), href: ctx.href, sourceEventId: eventId, refs: { taskId: copyId } });
+  for (const [zone, to] of await peopleByZone(await copyPeople(copyId), ctx.org.timeZone)) {
+    await notifyOrg({ orgId: ctx.org.id, eventKey, actorId, to, title: title(ctx.copy.title, (date) => formatDueDay(date, zone)), href: ctx.href, sourceEventId: eventId, refs: { taskId: copyId } });
+  }
+}
+
+/** "You’re now in Backend" to the one person who moved (report §30.4, decision 66). */
+export async function notifyTeamMoved(copyId: string, userId: string, actorId: string, teamName: string, eventId: string) {
+  const ctx = await copyContext(copyId);
+  if (!ctx) return;
+  await notifyOrg({ orgId: ctx.org.id, eventKey: "org.team_changed", actorId, to: [userId], title: teamName ? `You’re now in ${teamName} for ${ctx.copy.title}` : `You now have your own assignment of ${ctx.copy.title}`,
+    href: ctx.href, sourceEventId: eventId, refs: { taskId: copyId } });
+}
+
+/** Everyone who has a copy of a main assignment, or of one copy (assignee and team), read before it's deleted. */
+export async function assignmentPeopleOf(executor: Pick<typeof db, "execute">, taskId: string) {
+  const rows = await executor.execute<{ user_id: string }>(sql`
+    SELECT c.assignee_id AS user_id FROM tasks c WHERE (c.assignment_id = ${taskId} OR c.id = ${taskId}) AND c.assignment_id IS NOT NULL AND c.deleted_at IS NULL AND c.assignee_id IS NOT NULL
+    UNION SELECT tm.user_id FROM task_team_members tm JOIN tasks c ON c.id = tm.task_id
+    WHERE (c.assignment_id = ${taskId} OR c.id = ${taskId}) AND c.assignment_id IS NOT NULL AND c.deleted_at IS NULL`);
+  return rows.map((r) => r.user_id);
+}
+
+/** "Lab 3 was removed" to the people who had it (report §42.12 problems 27 and 32, decision 142). */
+export async function notifyAssignmentRemoved(orgId: string, title: string, people: string[], actorId: string, eventId: string) {
+  const org = await orgLabel(orgId);
+  if (!org || people.length === 0) return;
+  await notifyOrg({ orgId, eventKey: "assignments.due_changed", actorId, to: people, title: `${title} was removed`, href: orgHref(org, "?tab=tasks"), sourceEventId: eventId });
+}
+
+/**
+ * Before an account's own copies go (report §45.5, decision 174): how many handed-in submissions each organization
+ * loses. Every organization they were in is listed, with 0 when nothing was handed in.
+ */
+export async function submissionsRemovedOnDelete(tx: Pick<typeof db, "execute">, userId: string) {
+  const rows = await tx.execute<{ org_id: string; submissions: number }>(sql`
+    SELECT w.id AS org_id, (SELECT count(*)::int FROM tasks c JOIN tasks m ON m.id = c.assignment_id
+      WHERE m.workspace_id = w.id AND c.assignee_id = ${userId}::uuid AND c.deleted_at IS NULL
+        AND (c.review_status IN ('pending', 'approved', 'rejected') OR c.submission IS NOT NULL)
+        AND NOT EXISTS (SELECT 1 FROM task_team_members tm WHERE tm.task_id = c.id AND tm.user_id <> ${userId}::uuid)) AS submissions
+    FROM workspaces w JOIN workspace_members wm ON wm.workspace_id = w.id AND wm.user_id = ${userId}::uuid
+    WHERE w.kind = 'organization' AND w.deleted_at IS NULL AND w.owner_id <> ${userId}::uuid`);
+  return rows.map((r) => ({ orgId: r.org_id, submissions: r.submissions }));
+}
+
+/** One notice per organization to its admins, naming nobody: asking to delete is private (report §45.5). */
+export async function notifyAccountDeleted(removed: Array<{ orgId: string; submissions: number }>, deletionId: string) {
+  for (const { orgId, submissions } of removed) {
+    const org = await orgLabel(orgId);
+    if (!org) continue;
+    const went = submissions === 0 ? "" : ` Their ${submissions} ${submissions === 1 ? "submission was" : "submissions were"} removed.`;
+    await notifyOrg({ orgId, eventKey: "org.member_deleted", title: `A member’s account was deleted.${went}`, href: orgHref(org, "?tab=members"), sourceEventId: `account-deleted:${deletionId}` });
+  }
 }
 
 /**

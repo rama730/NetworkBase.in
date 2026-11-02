@@ -105,6 +105,9 @@ export type OrgNotificationEventKey =
     | "assignments.reviewed"
     | "assignments.due_changed"
     | "assignments.due_soon"
+    | "assignments.reminded"
+    | "org.team_changed"
+    | "org.member_deleted"
     | "announcements.posted"
     | "credit.changed"
     | "org.code_changed"
@@ -944,8 +947,12 @@ export const WORKSPACE_NOTIFICATION_EVENT_REGISTRY = {
     "assignments.published": orgEvent("assignments.published", "org_assignments", "Assignment published", "Recipients hear about new work and its due date.", "important"),
     "assignments.submitted": orgEvent("assignments.submitted", "org_assignments", "Submissions", "Admins see new submissions, combined.", "more", { aggregate: "burst_10m", recipients: ["owner", "co_leaders"] }),
     "assignments.reviewed": orgEvent("assignments.reviewed", "org_assignments", "Returned or approved", "A member hears their work was returned or approved.", "important"),
-    "assignments.due_changed": orgEvent("assignments.due_changed", "org_assignments", "Extended or excused", "A member hears their due date changed or they were excused.", "important"),
+    "assignments.due_changed": orgEvent("assignments.due_changed", "org_assignments", "Extended, excused or removed", "A member hears their due date changed, they were excused, or the work was removed.", "important"),
     "assignments.due_soon": orgEvent("assignments.due_soon", "org_assignments", "Due soon and overdue", "People who aren’t done hear once a day, at 9:00 their time.", "important"),
+    // Report §30.4, decision 66: reminders and team moves are their own settings, apart from due date changes.
+    "assignments.reminded": orgEvent("assignments.reminded", "org_assignments", "Reminders", "A member hears when an admin reminds them about open work.", "important"),
+    "org.team_changed": orgEvent("org.team_changed", "org_membership", "Team or group moves", "A member hears they were moved to another team or group.", "important"),
+    "org.member_deleted": orgEvent("org.member_deleted", "org_membership", "Deleted accounts", "Admins hear when a member’s account is deleted, with how many submissions went.", "important", { recipients: ["owner", "co_leaders"] }),
     "announcements.posted": orgEvent("announcements.posted", "org_announcements", "Announcements", "Each announcement’s audience hears about it.", "important"),
     "credit.changed": orgEvent("credit.changed", "org_credit", "Verified or removed", "A member hears their role was verified or the verification removed.", "important"),
     "org.child_created": orgEvent("org.child_created", "org_membership", "Workspace created in the organization", "Admins hear when someone creates a workspace in the organization, combined.", "more", { aggregate: "burst_10m", recipients: ["owner", "co_leaders"] }),

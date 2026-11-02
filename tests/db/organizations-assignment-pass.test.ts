@@ -89,7 +89,7 @@ test("teams after publish: move a person, add a late joiner, lock once submitted
   viewerId = o.owner;
   assert.ok((await assignments.moveTeamMemberAction(m, o.b, teamB)).success);
   assert.equal(await copyOf(m, o.b), teamB);
-  assert.ok((await titles(o.b)).some((t) => t === "You moved to Team B for Lab 2"));
+  assert.ok((await titles(o.b)).some((t) => t === "You’re now in Team B for Lab 2"));
   // d joined late, outside any team: add them to Team A.
   assert.ok((await assignments.moveTeamMemberAction(m, o.d, teamA)).success);
   assert.equal(await copyOf(m, o.d), teamA);

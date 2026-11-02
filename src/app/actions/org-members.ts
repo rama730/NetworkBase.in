@@ -17,7 +17,7 @@ import { acceptOrgInvite, AccountOrgLimitError, accountOrgLimit, createOrgEmailI
 import { memberChangeBlock, memberStatus, parseInviteEmails, workSummary, type OrgMemberRole, type RosterRow } from '@/lib/organizations/member-rules';
 import { addWorkspaceMemberInternal, changeWorkspaceMemberRoleInternal } from '@/lib/workspaces/collaborator-lifecycle';
 import { getViewerAuthContext } from '@/lib/server/viewer-context';
-import { namesOf, notifyJoined, notifyOrg, orgHref, orgLabel, queueOrgInviteSignupEmails } from '@/lib/organizations/notify';
+import { namesOf, notifyJoined, notifyOrg, orgHref, orgLabel, queueOrgInviteSignupEmails, remindedRecently } from '@/lib/organizations/notify';
 
 // Org Members (report §20): the admin roster, join requests, email invites, roles and titles, removal,
 // and adding people to child projects. Each change notifies the person it is about (report §26.3 A, B).
@@ -322,7 +322,7 @@ export async function changeMemberRoleAction(orgId: string, userIds: string[], r
     const changed = userIds.filter((id) => roles.get(id) !== role);
     if (org && changed.length) {
         await notifyOrg({
-            orgId, eventKey: 'org.role_changed', actorId: viewer.userId, to: changed, title: `You’re now ${/^[aeiou]/i.test(org.roleNames[role]) ? 'an' : 'a'} ${org.roleNames[role]} in ${org.title}`,
+            orgId, eventKey: 'org.role_changed', actorId: viewer.userId, to: changed, title: `Your role in ${org.title} is now ${org.roleNames[role]}`,
             href: orgHref(org), sourceEventId: `role:${role}:${Date.now()}`,
         });
     }
@@ -410,12 +410,12 @@ export type MemberWorkRow = { copyId: string; title: string; dueDate: string | n
 export type MemberActivityRow = { at: string; what: string; task: string; project: string };
 
 /** Remind about missing work (report §20.6): one notice per person with what's still open, at most every 12 hours. */
-export async function remindMembersAction(orgId: string, userIds: string[]): Promise<{ success: true; reminded: number } | Failure> {
+export async function remindMembersAction(orgId: string, userIds: string[]): Promise<{ success: true; reminded: number; skipped: number } | Failure> {
     const viewer = await orgManager(orgId);
     if (!viewer) return DENIED;
     const [org] = await db.select({ id: workspaces.id, title: workspaces.title, slug: workspaces.slug }).from(workspaces).where(eq(workspaces.id, orgId)).limit(1);
     userIds = userIds.filter((id) => UUID_RE.test(id));
-    if (!org || userIds.length === 0) return { success: true, reminded: 0 };
+    if (!org || userIds.length === 0) return { success: true, reminded: 0, skipped: 0 };
     const open = await db.execute<{ user_id: string; n: number }>(sql`
         SELECT u.user_id, count(DISTINCT c.id)::int AS n
         FROM tasks c JOIN tasks m ON m.id = c.assignment_id
@@ -425,15 +425,18 @@ export async function remindMembersAction(orgId: string, userIds: string[]): Pro
           AND NOT (c.review_status IN ('pending', 'approved') OR c.status = 'done' OR c.submission IS NOT NULL)
           AND u.user_id IN ${userIds.slice(0, ORG_LIMITS.membersPerOrg)}
         GROUP BY u.user_id`);
-    const window = Math.floor(Date.now() / (12 * 3_600_000));
-    for (const row of open) {
+    // Decision 60: people reminded in the last 12 hours are skipped and counted, not silently dropped.
+    const recent = await remindedRecently(orgId, 'remind-member', open.map((r) => r.user_id));
+    const send = open.filter((r) => !recent.has(r.user_id));
+    const minute = Math.floor(Date.now() / 60_000);
+    for (const row of send) {
         await notifyOrg({
-            orgId, eventKey: 'assignments.due_changed', actorId: viewer.userId, to: [row.user_id],
+            orgId, eventKey: 'assignments.reminded', actorId: viewer.userId, to: [row.user_id],
             title: `Reminder: ${row.n} ${row.n === 1 ? 'piece of work is' : 'pieces of work are'} still open in ${org.title}`,
-            href: orgHref(org, '?tab=tasks'), sourceEventId: `remind-member:${row.user_id}:${window}`,
+            href: orgHref(org, '?tab=tasks'), sourceEventId: `remind-member:${row.user_id}:${minute}`,
         });
     }
-    return { success: true, reminded: open.length };
+    return { success: true, reminded: send.length, skipped: open.length - send.length };
 }
 
 /** The drawer's Recent activity (report §20.3): their last 10 task events across the org and its child projects. */

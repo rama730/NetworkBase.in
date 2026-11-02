@@ -1,6 +1,7 @@
 import { and, eq, isNull, lte, sql } from "drizzle-orm";
 
 import { handOverLedChildWorkspaces, handOverOwnedOrgs, notifyLeadHandovers } from "@/lib/organizations/succession";
+import { notifyAccountDeleted, submissionsRemovedOnDelete } from "@/lib/organizations/assignment-notify";
 import { db } from "@/lib/db";
 import { anonymizeChatAuthor, deleteDirectMessagesSql } from "@/lib/messaging/account";
 import {
@@ -62,6 +63,7 @@ export async function executeHardDelete(
     // Phase 1 (destructive, transactional): only from storage_scheduled, past
     // the grace period, not cancelled. The deletion row lock makes cancellation
     // and this phase mutually exclusive (COR-053).
+    let removedSubmissions: Array<{ orgId: string; submissions: number }> = [];
     const phase = await db.transaction(async (tx) => {
       const [deletion] = await tx
         .select({ phase: accountDeletions.cleanupStatus })
@@ -92,6 +94,8 @@ export async function executeHardDelete(
       // assignment copies go; team copies stay, shown as "Deleted user" (assignee set null by the cascade).
       await handOverLedChildWorkspaces(tx, userId);
       if (await handOverOwnedOrgs(tx, userId)) return "org_owner_without_admin" as const;
+      // Decision 174: what each organization loses, read before the copies go; admins hear after commit.
+      removedSubmissions = await submissionsRemovedOnDelete(tx, userId);
       await tx.execute(sql`
         DELETE FROM tasks t WHERE t.assignee_id = ${userId}::uuid AND t.assignment_id IS NOT NULL
           AND NOT EXISTS (SELECT 1 FROM task_team_members tm WHERE tm.task_id = t.id AND tm.user_id <> ${userId}::uuid)`);
@@ -127,6 +131,7 @@ export async function executeHardDelete(
       return { success: false, error: phase === "ineligible" ? "Deletion record not found, canceled or not yet due" : `Deletion is in phase ${phase}; retry later` };
     }
     await notifyLeadHandovers(userId);
+    await notifyAccountDeleted(removedSubmissions, deletionId).catch((error) => logger.warn("account.hard-delete.org_notice_failed", { module: "account", deletionId, error: error instanceof Error ? error.message : String(error) }));
 
     // Phase 2: Auth deletion (idempotent). Failure keeps db_deleted for retry.
     const admin = await createAdminClient();

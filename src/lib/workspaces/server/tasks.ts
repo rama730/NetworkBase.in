@@ -1,5 +1,7 @@
 import { assignmentWriteContext, orgTaskReadFilter } from "@/lib/organizations/assignments";
 import { assignmentWriteBlock } from "@/lib/organizations/assignment-rules";
+import { assignmentPeopleOf, notifyAssignmentRemoved } from "@/lib/organizations/assignment-notify";
+import { logger } from "@/lib/logger";
 import { readViewerOrgRole } from "@/lib/organizations/detail";
 import { lockTaskForWrite, transitionTaskTx, afterTaskTransition } from "@/lib/workspaces/task-transition-service";
 import "server-only";
@@ -1273,6 +1275,7 @@ export async function deleteTaskAction(taskId: string, projectId: string) {
       throw new Error("Only the owner can delete tasks");
     }
 
+    let removed = null as { orgId: string; people: string[] } | null;
     const deletedTask = await db.transaction(async (tx) => {
       const existingTask = await tx.query.tasks.findFirst({
         where: and(eq(tasks.id, taskId), eq(tasks.projectId, projectId)),
@@ -1295,6 +1298,8 @@ export async function deleteTaskAction(taskId: string, projectId: string) {
         const role = assignment.orgId ? await readViewerOrgRole(assignment.orgId, user.id) : null;
         const blocked = assignmentWriteBlock({ ...assignment, actorIsOrgAdmin: role === "owner" || role === "admin" }, "delete");
         if (blocked) throw new Error(blocked);
+        // Problems 27 and 32: whoever had it hears it was removed, once the delete commits.
+        if (assignment.orgId) removed = { orgId: assignment.orgId, people: await assignmentPeopleOf(tx, taskId) };
         if (assignment.isMaster) {
           await tx.update(tasks).set({ deletedAt: new Date(), updatedAt: new Date() }).where(and(eq(tasks.assignmentId, taskId), isNull(tasks.deletedAt)));
         }
@@ -1380,6 +1385,11 @@ export async function deleteTaskAction(taskId: string, projectId: string) {
     });
 
     await queueCounterRefreshBestEffort([deletedTask?.assigneeId ?? null]);
+    if (removed) {
+      const { orgId, people } = removed;
+      await notifyAssignmentRemoved(orgId, deletedTask.title, people, user.id, `removed:${taskId}`)
+        .catch((error) => logger.warn("tasks.removed_notice_failed", { taskId, error: error instanceof Error ? error.message : String(error) }));
+    }
 
     const slugOrId = project.slug || projectId;
     revalidatePath(`/workspaces/${slugOrId}`);
