@@ -665,7 +665,7 @@ export function GeneralSettingsSection({
                         </div>
                         {isDraftGif ? (
                             <div className="flex items-center justify-between rounded-lg border border-border bg-muted/30 px-3.5 py-2.5 text-xs">
-                                <span className="font-semibold text-foreground">Animated GIF · 1:1 Direct Upload</span>
+                                <span className="font-semibold text-foreground">Animated GIF · Motion kept</span>
                                 <span className="text-muted-foreground">Original frames and motion preserved</span>
                             </div>
                         ) : (

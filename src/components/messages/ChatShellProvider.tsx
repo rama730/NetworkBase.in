@@ -160,7 +160,7 @@ export function ChatShellProvider({ children }: { children: React.ReactNode }) {
     };
     const onReturn = () => {
       if (document.visibilityState !== "visible") return schedule();
-      refresh();
+      void pollDelta();
       schedule();
     };
     const onPageShow = (event: PageTransitionEvent) => {

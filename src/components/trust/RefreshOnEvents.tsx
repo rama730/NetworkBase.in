@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { useRef } from 'react'
+import { useEffect, useRef } from 'react'
 
 import { useLiveEvents } from '@/components/trust/live'
 
@@ -9,7 +9,15 @@ import { useLiveEvents } from '@/components/trust/live'
 export function RefreshOnEvents() {
     const router = useRouter()
     const timer = useRef<number | null>(null)
+    const missed = useRef(false)
+    useEffect(() => {
+        const onVisible = () => { if (!document.hidden && missed.current) { missed.current = false; router.refresh() } }
+        document.addEventListener('visibilitychange', onVisible)
+        return () => document.removeEventListener('visibilitychange', onVisible)
+    }, [router])
     useLiveEvents(() => {
+        // A hidden console re-renders once on return, not per event.
+        if (document.hidden) { missed.current = true; return }
         if (timer.current) window.clearTimeout(timer.current)
         timer.current = window.setTimeout(() => {
             const active = document.activeElement

@@ -28,8 +28,8 @@ const FILTERS = [['all', 'All'], ['assignments', 'Assignments'], ['people', 'Peo
 /** The org Dashboard for people in the org (report §27). */
 export function OrgDashboard({ orgId, orgSlug }: { orgId: string; orgSlug: string | null }) {
     const [filter, setFilter] = useState('all')
-    // Refetch on focus and every 30 s while visible (report §27.4).
-    const query = useQuery({ queryKey: ['org-dashboard', orgId, filter], queryFn: () => readOrgDashboardAction(orgId, filter), refetchInterval: 30_000, refetchOnWindowFocus: true })
+    // Refetch on focus and every 2 minutes while visible.
+    const query = useQuery({ queryKey: ['org-dashboard', orgId, filter], queryFn: () => readOrgDashboardAction(orgId, filter), refetchInterval: 120_000, refetchOnWindowFocus: true })
     const base = `/org/${encodeURIComponent(orgSlug ?? orgId)}`
     if (query.isPending) return <div role="status" aria-label="Loading dashboard" className="space-y-3">{[0, 1, 2].map((i) => <div key={i} className="nb-skeleton h-10 rounded-[5px]" />)}</div>
     const data = query.data

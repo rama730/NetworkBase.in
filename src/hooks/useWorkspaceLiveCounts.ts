@@ -69,7 +69,7 @@ export function followWorkspaceTopic(workspaceId: string, onEvent: (event: strin
             if (joined) catchUp();
             joined = true;
         } else if (status === 'disconnected' || status === 'disabled') {
-            poll ??= setInterval(catchUp, DISCONNECTED_POLL_MS);
+            poll ??= setInterval(() => { if (!document.hidden) catchUp(); }, DISCONNECTED_POLL_MS);
         }
     });
     const onVisibility = () => {

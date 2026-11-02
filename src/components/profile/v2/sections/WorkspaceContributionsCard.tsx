@@ -61,10 +61,8 @@ export function WorkspaceContributionsCard({
       void refresh();
     };
     window.addEventListener("focus", focus);
-    const timer = isOwner ? setInterval(() => void refresh(), 30000) : null;
     return () => {
       cancelled = true;
-      if (timer) clearInterval(timer);
       window.removeEventListener("focus", focus);
     };
   }, [profileId, isOwner]);

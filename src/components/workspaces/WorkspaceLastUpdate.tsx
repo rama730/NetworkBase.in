@@ -21,7 +21,7 @@ export function WorkspaceLastUpdate({ projectId, timeOnly = false, className }: 
     enabled: Boolean(id),
     queryFn: () => load(id!),
     staleTime: 60_000,
-    refetchInterval: 90_000,
+    refetchInterval: 5 * 60_000,
     refetchIntervalInBackground: false,
   });
   if (!data) return null;

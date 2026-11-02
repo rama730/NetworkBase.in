@@ -18,6 +18,7 @@ import { queryKeys } from "@/lib/query-keys";
 
 const STALE_MS = 60_000;
 const REFRESH_MS = 90_000;
+const REALTIME_REFRESH_MS = 5 * 60_000;
 
 // Actions load on first use: avatars and cards that show a badge stay light.
 export const actions = () => import("@/app/actions/presence");
@@ -82,7 +83,8 @@ export function usePersonPresence(userId: string | null | undefined, options: { 
     queryFn: () => loadPerson(userId!),
     retry: retryPresence,
     staleTime: STALE_MS,
-    refetchInterval: REFRESH_MS,
+    // Live online state arrives over Realtime; the read only refreshes status and last-active then.
+    refetchInterval: (state) => (state.state.data?.realtime ? REALTIME_REFRESH_MS : REFRESH_MS),
     refetchIntervalInBackground: false,
   });
   // One shared realtime source for every badge; an explicit `live` (the viewer's own badge) wins. Only people

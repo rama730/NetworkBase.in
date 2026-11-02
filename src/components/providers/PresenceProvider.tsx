@@ -14,7 +14,8 @@ interface PresenceProviderProps {
 const IDLE_MS = 5 * 60_000;
 // One heartbeat a minute while engaged keeps "Active now" fresh everywhere (the
 // server's live key lives 150 s); the database write stays at once per 5 minutes.
-const HEARTBEAT_INTERVAL_MS = 60_000;
+// Under LIVE_TTL_SECONDS (150 s), so an engaged person never drops out of "Active now" between beats.
+const HEARTBEAT_INTERVAL_MS = 120_000;
 const INITIAL_HEARTBEAT_COOLDOWN_MS = 60_000;
 let lastSuccessfulHeartbeatAt = 0;
 let heartbeatInFlight = false;
@@ -93,8 +94,8 @@ export function PresenceProvider({ children = null, presenceEnabled = true }: Pr
                 const response = await fetch('/api/v1/presence/heartbeat', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    // The time zone powers "local time" on someone's details (chat).
-                    body: JSON.stringify({ tz: Intl.DateTimeFormat().resolvedOptions().timeZone }),
+                    // The time zone powers "local time" on someone's details (chat). It lasts 30 days: once per mount is plenty.
+                    body: JSON.stringify(initial ? { tz: Intl.DateTimeFormat().resolvedOptions().timeZone } : {}),
                     keepalive: true,
                 });
                 if (response.ok) {

@@ -11,7 +11,7 @@ import type { DiscoverFilters, DiscoverUpdatesPage, DiscoverUpdateView } from '@
 const PAGE_SIZE = 8;
 /** Updates are kept this many ahead of the cards that need them, so a slot is never built before its update arrives. */
 const LEAD = 4;
-const NEW_POSTS_POLL_MS = 60_000;
+const NEW_POSTS_POLL_MS = 120_000;
 
 async function fetchUpdatesPage(filters: DiscoverFilters, view: FilterView, cursor: string | undefined, signal: AbortSignal | undefined): Promise<DiscoverUpdatesPage> {
     const params = new URLSearchParams({

@@ -72,7 +72,7 @@ export function SidebarNav() {
     const { badge: chatBadge } = useChatShell();
     // Staff only (trust and safety R11): the role is in the session, so nobody else asks the server.
     const isStaff = ["admin", "moderator"].includes(String(user?.app_metadata?.role ?? ""));
-    const staffBadge = useQuery({ queryKey: ["trust", "sidebar-badge"], queryFn: () => staffBadgeAction(), enabled: isStaff, staleTime: 60_000, refetchInterval: 60_000 });
+    const staffBadge = useQuery({ queryKey: ["trust", "sidebar-badge"], queryFn: () => staffBadgeAction(), enabled: isStaff, staleTime: 60_000, refetchInterval: 5 * 60_000 });
     const staffCount = staffBadge.data?.count ?? 0;
     const { connectionHealth } = useRealtime();
     const people = useNetworkNotifications();

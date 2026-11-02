@@ -172,7 +172,7 @@ function useTopic(topic: string | null, projectId: string, catchUp: () => void, 
                 if (joined) catchUpRef.current();
                 joined = true;
             } else if (status === 'disconnected' || status === 'disabled') {
-                poll ??= setInterval(() => catchUpRef.current(), DISCONNECTED_POLL_MS);
+                poll ??= setInterval(() => { if (!document.hidden) catchUpRef.current(); }, DISCONNECTED_POLL_MS);
             }
         });
         const onVisibility = () => {

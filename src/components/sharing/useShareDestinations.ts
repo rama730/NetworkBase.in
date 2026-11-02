@@ -25,7 +25,7 @@ export function useShareDestinations(scope:ConversationScope, search:string, ena
       if(response.viewerId!==userId)throw new Error('chat_unauthorized');
       return response;
     }, getNextPageParam:page=>page.nextCursor,staleTime:0,gcTime:5*60_000,
-    refetchOnMount:'always',refetchOnWindowFocus:true,refetchOnReconnect:true,refetchInterval:30_000,retry:false,
+    refetchOnMount:'always',refetchOnWindowFocus:true,refetchOnReconnect:true,retry:false,
   });
   // Cached pages are account/session scoped and never persisted. Withhold them while access is unknown.
   const ready=list&&enabled&&online&&!result.isRefetching&&!result.isError&&query===search.trim();
@@ -41,7 +41,7 @@ export function useShareWorkspaces(search:string,enabled:boolean) {
     enabled:Boolean(enabled&&online&&userId),initialPageParam:null as string|null,
     queryFn:async({pageParam,signal})=>{const response=await listShareWorkspaces({expectedActorId:userId!,query,cursor:pageParam});signal.throwIfAborted();
       if(!response.success)throw new Error(response.error);if(response.viewerId!==userId)throw new Error('chat_unauthorized');return response;},
-    getNextPageParam:page=>page.nextCursor,staleTime:0,gcTime:5*60_000,refetchOnMount:'always',refetchOnWindowFocus:true,refetchOnReconnect:true,refetchInterval:30_000,retry:false});
+    getNextPageParam:page=>page.nextCursor,staleTime:0,gcTime:5*60_000,refetchOnMount:'always',refetchOnWindowFocus:true,refetchOnReconnect:true,retry:false});
   const ready=enabled&&online&&!result.isRefetching&&!result.isError&&query===search.trim();
   const ids=new Set<string>();
   return {...result,ready,projects:ready?(result.data?.pages.flatMap(page=>page.projects)??[]).filter(p=>!ids.has(p.id)&&Boolean(ids.add(p.id))):[]};

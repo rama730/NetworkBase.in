@@ -531,14 +531,12 @@ export default function WorkspaceDashboardClient({ project, currentUserId, viewe
         // A decision made while this page is open shows up when the tab is looked at again.
         const onVisible = () => { if (document.visibilityState === 'visible') void refreshApplicationStatus(); };
         document.addEventListener('visibilitychange', onVisible);
-        window.addEventListener('focus', onVisible);
         // A reviewer's decision arrives live, so the card changes while the page is open.
         const live = subscribeBroadcast(userTopic(currentUserId), (event, payload) => {
             if (event === 'application.changed' && payload.project_id === project.id) void refreshApplicationStatus();
         });
         return () => {
             document.removeEventListener('visibilitychange', onVisible);
-            window.removeEventListener('focus', onVisible);
             live.unsubscribe();
         };
     }, [currentUserId, isOwner, isMember, project.id, refreshApplicationStatus]);

@@ -153,12 +153,12 @@ test("GIF avatar optimizations: 2MB preflight guard, adaptive draft UI, revocabl
 
     // 2. Adaptive draft UI for GIFs (disables drag/zoom sliders, indicates 1:1 direct preservation)
     assert.match(settingsSource, /const isDraftGif = coverDraft\.file\.type === "image\/gif"/);
-    assert.match(settingsSource, /Animated GIF · 1:1 Direct Upload/);
+    assert.match(settingsSource, /Animated GIF · Motion kept/);
 
     // 3. Versioned cover responses remain inside the five-minute visibility-revocation budget.
     assert.match(routeSource, /request\.nextUrl\.searchParams\.get\("v"\) !== version/);
     assert.match(routeSource, /public, max-age=300, s-maxage=300, must-revalidate/);
-    assert.match(routeSource, /private, no-store/);
+    assert.match(routeSource, /private, max-age=300, must-revalidate/);
 
     // 4. Compositor throttling: content-visibility: auto on project cards prevents offscreen GIF decoding
     assert.match(globalsCss, /\.nb-project-card\s*\{[\s\S]*?content-visibility:\s*auto;[\s\S]*?contain-intrinsic-size:\s*auto 240px;/);

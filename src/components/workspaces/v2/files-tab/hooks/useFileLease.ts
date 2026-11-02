@@ -100,15 +100,12 @@ export function useFileLease(projectId: string, nodeId: string, keepAliveWhenHid
       if (document.hidden && !keepAliveRef.current) return;
       void renew().catch(() => null);
     }, delay);
-    const onFocus = () => void renew().catch(() => null);
     const onVisibility = () => {
-      if (document.visibilityState === "visible") onFocus();
+      if (document.visibilityState === "visible") void renew().catch(() => null);
     };
-    window.addEventListener("focus", onFocus);
     document.addEventListener("visibilitychange", onVisibility);
     return () => {
       window.clearInterval(timer);
-      window.removeEventListener("focus", onFocus);
       document.removeEventListener("visibilitychange", onVisibility);
     };
   }, [lease, renew]);
