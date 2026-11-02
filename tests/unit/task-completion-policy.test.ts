@@ -242,7 +242,8 @@ function approval() {
     "@/lib/security/rate-limit": {
       consumeRateLimit: async () => ({ allowed: true }),
     },
-    "@/lib/db": { db: { transaction: (fn: any) => fn(tx) } },
+    // An ordinary task: the "is this an assignment copy?" lookup (decision 141) finds no row.
+    "@/lib/db": { db: { transaction: (fn: any) => fn(tx), select: () => ({ from: () => ({ where: () => ({ limit: async () => [] }) }) }) } },
     "@/lib/workspaces/task-transition-service": {
       lockTaskForWrite: async () => locked,
       afterTaskTransition: async () => {

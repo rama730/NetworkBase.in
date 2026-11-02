@@ -74,7 +74,7 @@ function TransferRow({ orgId, admins }: { orgId: string; admins: Array<{ userId:
     const identity = useIdentityStepUp('Confirm it’s you', 'Transferring an organization needs a recent check.')
     const name = admins.find((a) => a.userId === target)?.name
     // The identity check opens here when needed, then the transfer carries on (decision 134).
-    const transfer = async () => (await identity.withIdentity(() => transferWorkspaceOwnership(orgId, target))) ?? { success: false, error: 'Transfer cancelled.' }
+    const transfer = async () => (await identity.withIdentity(() => transferWorkspaceOwnership(orgId, target))) ?? { success: false, error: 'The transfer was stopped.' }
     return (
         <div>
             {identity.dialog}

@@ -332,7 +332,8 @@ describe("Server-side mutation authorization (Req 19.6)", () => {
       );
       assert.match(
         source,
-        /assertWorkspaceWriteAccess\([\s\S]*auth\.user!\.id\)/,
+        // The file is named too, so a member's own copy and the hand-in lock apply (decision 173).
+        /assertWorkspaceWriteAccess\([\s\S]*auth\.user!\.id(?:, \{ nodeId \})?\)/,
         `${label}: route must reject viewer/read-only users before mutating leases`,
       );
       assert.match(

@@ -35,9 +35,10 @@ describe("sprint lifecycle and history integrity contract", () => {
     assert.match(schema, /taskId: uuid\("task_id"\)[\s\S]*?references\(\(\) => tasks\.id, \{ onDelete: "restrict" \}\)/);
   });
 
-  it("keeps Sprint assignment and lifecycle mutations on the same owner boundary", () => {
-    assert.match(projectActions, /Only the owner can add tasks to a sprint/);
-    assert.match(taskActions, /Only the owner can change sprint assignments/);
+  // Decision 146: owners and admins both plan sprints, in organizations and normal workspaces.
+  it("keeps Sprint assignment and lifecycle mutations on the same owner-and-admin boundary", () => {
+    assert.match(projectActions, /Only owners and admins can add tasks to a sprint/);
+    assert.match(taskActions, /Only owners and admins can change sprint assignments/);
     assert.match(projectActions, /eq\(workspaceSprints\.status, "active"\)/);
   });
 

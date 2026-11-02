@@ -83,7 +83,11 @@ function transition() {
       }),
     }),
   };
-  const service = load("src/lib/workspaces/task-transition-service.ts", { "@/lib/workspaces/task-review-snapshot": { taskReviewSnapshot: async () => "snapshot" } });
+  // Ordinary tasks: the assignment rule (report §19.3) lets them through, as it does in the app.
+  const service = load("src/lib/workspaces/task-transition-service.ts", {
+    "@/lib/workspaces/task-review-snapshot": { taskReviewSnapshot: async () => "snapshot" },
+    "@/lib/organizations/assignments": { assertAssignmentWrite: async () => null },
+  });
   const locked = {
     projectId: "p",
     isOwner: false,
