@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { Toaster } from 'sonner';
+import { Toaster } from '@/components/ui/sonner';
 import { EditProfileEditor } from '@/components/profile/edit/EditProfileEditor';
 import { confirmAppNavigation } from '@/lib/navigation/confirm-navigation';
 import { parseProfileEditSection } from '@/lib/profile/edit-route';

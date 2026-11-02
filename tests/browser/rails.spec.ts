@@ -1,3 +1,4 @@
+import { serverActionsPlugin } from './server-actions-plugin';
 import path from 'node:path';
 import { readFile } from 'node:fs/promises';
 import { build } from 'esbuild';
@@ -18,7 +19,7 @@ test.beforeAll(async () => {
     'next/link': `import React from 'react';export default ({href,children,...props})=>React.createElement('a',{href,...props},children);`,
     'next/image': `import React from 'react';export default ({priority,fill,unoptimized,...props})=>React.createElement('img',props);`,
     'next/dynamic': `import React from 'react';export default (load,options)=>{const C=React.lazy(load);return props=>React.createElement(React.Suspense,{fallback:options.loading?React.createElement(options.loading):null},React.createElement(C,props));};`,
-    'next/navigation': `import {useMemo,useSyncExternalStore} from 'react';const subscribe=fn=>{window.addEventListener('popstate',fn);return()=>window.removeEventListener('popstate',fn);};const navigate=(url,replace=false)=>{history[replace?'replaceState':'pushState']({},'',url);window.dispatchEvent(new PopStateEvent('popstate'));};const router={push:url=>navigate(url),replace:url=>navigate(url,true)};export const useRouter=()=>router;export const useSearchParams=()=>{const search=useSyncExternalStore(subscribe,()=>location.search);return useMemo(()=>new URLSearchParams(search),[search]);};`,
+    'next/navigation': `import {useMemo,useSyncExternalStore} from 'react';const subscribe=fn=>{window.addEventListener('popstate',fn);return()=>window.removeEventListener('popstate',fn);};const navigate=(url,replace=false)=>{history[replace?'replaceState':'pushState']({},'',url);window.dispatchEvent(new PopStateEvent('popstate'));};const router={push:url=>navigate(url),replace:url=>navigate(url,true)};export const useRouter=()=>router;export const useSearchParams=()=>{const search=useSyncExternalStore(subscribe,()=>location.search);return useMemo(()=>new URLSearchParams(search),[search]);};export const usePathname=()=>location.pathname;`,
     '@/hooks/useNetworkNotifications': `export const useNetworkNotifications=()=>({pendingConnections:2,pendingInvites:1,totalConnections:8,refresh:async()=>{}});`,
     '@/components/network/ConnectionsClient': `import React from 'react';export default ({onReady})=>{React.useEffect(()=>{onReady?.();},[onReady]);return React.createElement('p',{},'Your connected people');};`,
     '@/components/network/InvitationsClient': `import React from 'react';export default ({onReady})=>{React.useEffect(()=>{onReady?.();},[onReady]);return React.createElement('p',{},'Your pending invitations');};`,
@@ -36,7 +37,7 @@ test.beforeAll(async () => {
       return args.path in mocks ? { path: args.path, namespace: 'fixture' } : undefined;
     });
     b.onLoad({ filter: /.*/, namespace: 'fixture' }, args => ({ contents: mocks[args.path], resolveDir: process.cwd(), loader: 'js' }));
-  } }] });
+  } }, serverActionsPlugin] });
   script = bundle.outputFiles![0]!.text;
   const result = await postcss([tailwind()]).process(await readFile('src/app/globals.css', 'utf8'), { from: path.resolve('src/app/globals.css') });
   [sans, mono] = await Promise.all([readFile('src/app/fonts/InstrumentSans.woff2'), readFile('src/app/fonts/JetBrainsMono.woff2')]);

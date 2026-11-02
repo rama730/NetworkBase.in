@@ -1,3 +1,4 @@
+import { serverActionsPlugin } from './server-actions-plugin';
 import path from 'node:path';
 import {readFile} from 'node:fs/promises';
 import {build} from 'esbuild';
@@ -30,7 +31,7 @@ test.beforeAll(async()=>{
   script=(await build({entryPoints:[path.resolve('tests/browser/sharing.fixture.tsx')],bundle:true,write:false,format:'iife',platform:'browser',define:{'process.env.NODE_ENV':'"test"','process.env.APP_URL':'undefined','process.env.NEXT_PUBLIC_APP_URL':'"https://networkbase.in"'},plugins:[{name:'isolated-sharing',setup(b){
     b.onResolve({filter:/.*/},args=>args.path in mocks?{path:args.path,namespace:'fixture'}:undefined);
     b.onLoad({filter:/.*/,namespace:'fixture'},args=>({contents:mocks[args.path],resolveDir:process.cwd(),loader:'js'}));
-  }}]})).outputFiles![0]!.text;
+  }}, serverActionsPlugin]})).outputFiles![0]!.text;
   css=(await postcss([tailwind()]).process(await readFile('src/app/globals.css','utf8'),{from:path.resolve('src/app/globals.css')})).css;
 });
 test.beforeEach(async({page})=>{

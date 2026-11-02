@@ -1,3 +1,4 @@
+import { serverActionsPlugin } from './server-actions-plugin';
 import path from 'node:path';
 import { readFile } from 'node:fs/promises';
 import { build } from 'esbuild';
@@ -50,7 +51,7 @@ test.beforeAll(async () => {
         '@/components/messages/message-user': `export const messageUserInWindow=()=>false;`,
         '@/app/actions/org-lifecycle': `export const restoreOrgAction=${ok};`,
         '@/hooks/useFileVersions': `export const saveFileRevision=async()=>({success:true});`,
-        '@/components/reports/ReportDialog': `export const ReportDialog=()=>null;`,
+        '@/components/reports/ReportDialog': `export const ReportDialog=()=>null;export const useReportDialog=()=>({open:()=>{},dialog:null});export const ReportMenuItem=()=>null;export const useOpenReportCase=()=>()=>{};`,
         '@/components/workspaces/dashboard/WorkspaceSocialLinksCard': `export const WorkspaceLinkCluster=()=>null;`,
         '@/app/actions/presence': `const none=async()=>({success:true,data:{}});export const getPresence=none,getMyPresenceSettings=none,setMyStatus=none,clearMyStatus=none,resumeNotifications=none,setStatusVisibility=none,setShowActivity=none;`,
         '@/app/actions/workspace/doc': `export const listWorkspaceDocsAction=async()=>({success:true,docs:[]});`,
@@ -69,7 +70,7 @@ test.beforeAll(async () => {
     const bundle = await build({ entryPoints: [path.resolve('tests/browser/org-tabs.fixture.tsx')], bundle: true, write: false, format: 'iife', platform: 'browser', define: { 'process.env.NODE_ENV': '"test"', 'process.env': '{}' }, plugins: [{ name: 'org-tabs-boundaries', setup(builder) {
         builder.onResolve({ filter: /.*/ }, args => args.path in mocks ? { path: args.path, namespace: 'fixture' } : undefined);
         builder.onLoad({ filter: /.*/, namespace: 'fixture' }, args => ({ contents: mocks[args.path], resolveDir: process.cwd(), loader: 'js' }));
-    } }] });
+    } }, serverActionsPlugin] });
     script = bundle.outputFiles![0]!.text;
     css = (await postcss([tailwind()]).process(await readFile('src/app/globals.css', 'utf8'), { from: path.resolve('src/app/globals.css') })).css;
 });

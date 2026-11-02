@@ -1,4 +1,5 @@
 import path from 'node:path';
+import { serverActionsPlugin } from './server-actions-plugin';
 import { readFile } from 'node:fs/promises';
 import { readFileSync } from 'node:fs';
 import { build } from 'esbuild';
@@ -41,7 +42,7 @@ export async function buildApp(entry: string) {
         for (const m of text.matchAll(/export\s*\{([^}]*)\}/g)) for (const part of m[1].split(',')) { const n = part.trim().split(/\s+as\s+/).pop()!.trim(); if (n && !n.startsWith('type ')) names.add(n); }
         return { contents: [...names].map((n) => `export const ${n}=(...a)=>(window.__actions&&window.__actions.${n}?window.__actions.${n}(...a):Promise.resolve({success:true}));`).join('\n') + '\nexport default {};', loader: 'js' };
       });
-    } }],
+    } }, serverActionsPlugin],
   });
   const result = await postcss([tailwind()]).process(await readFile('src/app/globals.css', 'utf8'), { from: path.resolve('src/app/globals.css') });
   const [sans, mono] = await Promise.all([readFile('src/app/fonts/InstrumentSans.woff2'), readFile('src/app/fonts/JetBrainsMono.woff2')]);

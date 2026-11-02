@@ -1,5 +1,5 @@
 import React, { Profiler, useEffect, useState } from 'react';
-import { Toaster } from 'sonner';
+import { Toaster } from '@/components/ui/sonner';
 import { createRoot } from 'react-dom/client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ShareDialog } from '@/components/sharing/ShareDialog';

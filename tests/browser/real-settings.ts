@@ -1,4 +1,5 @@
 import path from 'node:path';
+import { serverActionsPlugin } from './server-actions-plugin';
 import { readFile } from 'node:fs/promises';
 import { readFileSync } from 'node:fs';
 import { build } from 'esbuild';
@@ -37,7 +38,7 @@ export async function buildRealSettings() {
         const names = new Set([...readFileSync(file, 'utf8').matchAll(/export\s+(?:async\s+)?(?:function|const)\s+([A-Za-z0-9_]+)/g)].map((m) => m[1]));
         return { contents: [...names].map((n) => `export const ${n}=(...a)=>window.__actions.${n}(...a);`).join('\n') + '\nexport default {};', loader: 'js' };
       });
-    } }],
+    } }, serverActionsPlugin],
   });
   const result = await postcss([tailwind()]).process(await readFile('src/app/globals.css', 'utf8'), { from: path.resolve('src/app/globals.css') });
   const [sans, mono] = await Promise.all([readFile('src/app/fonts/InstrumentSans.woff2'), readFile('src/app/fonts/JetBrainsMono.woff2')]);

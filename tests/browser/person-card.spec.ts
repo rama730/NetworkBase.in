@@ -1,3 +1,4 @@
+import { serverActionsPlugin } from './server-actions-plugin';
 import path from 'node:path';
 import { readFile } from 'node:fs/promises';
 import { build } from 'esbuild';
@@ -13,24 +14,26 @@ test.beforeAll(async () => {
         'next/link': `import React from 'react';export default ({href,children,...p})=>React.createElement('a',{href,...p},children);`,
         'next/image': `import React from 'react';export default ({priority,fill,unoptimized,fetchPriority,...p})=>React.createElement('img',p);`,
         '@/components/messages/message-user': `export const messageUserInWindow=()=>true;`,
+        '@/components/organizations/OrgRequestsSection': `export const useOrgRequests=()=>({data:null});export const OrgRequestsSection=()=>null;`,
         '@/hooks/useConnections': `const person={openToCollaborate:true,skills:['React','TypeScript'],mutualConnections:1};export const usePendingRequests=()=>({data:{incoming:[{id:'incoming',requesterId:'incoming-person',requesterUsername:'incoming',requesterFullName:'Incoming person',requesterHeadline:'Engineer',createdAt:new Date(),personCard:person}],sent:[{id:'sent',addresseeId:'sent-person',addresseeUsername:'sent',addresseeFullName:'Sent person',createdAt:new Date(),personCard:person}]},isLoading:false,isError:false});const resolve=async()=>{if(window.personCardFixture.decisionsFail)throw new Error('Request service unavailable');};export const useConnectionMutations=()=>({acceptRequest:{mutateAsync:resolve},rejectRequest:{mutateAsync:resolve},undoRejectRequest:{mutateAsync:resolve},withdrawAllSent:{mutateAsync:resolve},cancelRequest:{mutateAsync:resolve},blockProfile:{mutateAsync:resolve}});`,
         '@/hooks/useNetworkNotifications': `export const useNetworkNotifications=()=>({refresh:async()=>{}});`,
         '@/app/actions/network-invitations': `export const readNetworkInvitationsAction=async()=>({success:true,total:5,hasMore:false,nextCursor:null,items:[['incoming','connection','received','incoming-person','Incoming person'],['sent','connection','sent','sent-person','Sent person'],['project-invite','invitation','received','project-person','Project person'],['application','application','received','project-person','Project person'],['project-sent','invitation','sent','project-person','Project person']].map(([id,source,direction,personId,name])=>({id,source,direction,createdAt:new Date().toISOString(),note:null,projectId:'p',projectTitle:'Field Notes',projectSlug:'field-notes',roleTitle:'Designer',person:{id:personId,username:personId,fullName:name,headline:source==='connection'?'Engineer':'Designer',skills:['React','TypeScript'],openToCollaborate:true,mutualConnections:1}}))});`,
         '@/app/actions/workspace/guidance': `export const resolveWorkspaceInvitationAction=async()=>({success:!window.personCardFixture.decisionsFail,error:'Project service unavailable'});`,
-        '@/app/actions/applications': `const actor={id:'project-person',username:'project-person',fullName:'Project person',headline:'Designer',openToCollaborate:true,skills:['Figma']};export const getIncomingApplicationsAction=async()=>({success:true,applications:[{id:'project-invite',projectId:'p',projectTitle:'Field Notes',roleTitle:'Designer',actor,applicant:actor,status:'pending',isInvitation:true,createdAt:new Date()},{id:'application',projectId:'p',projectTitle:'Field Notes',roleTitle:'Engineer',actor,applicant:actor,status:'pending',isInvitation:false,createdAt:new Date()}]});export const getSentWorkspaceInvitationsAction=async()=>({success:true,invitations:[{id:'project-sent',invitationId:'project-sent',projectId:'p',projectTitle:'Field Notes',roleTitle:'Designer',candidate:actor,createdAt:new Date()}]});export const cancelSentWorkspaceInvitationAction=async()=>({success:true});export const acceptApplicationAction=async()=>({success:!window.personCardFixture.decisionsFail});export const rejectApplicationAction=async()=>({success:!window.personCardFixture.decisionsFail});`,
-        '@/components/presence/usePresence': `export const usePersonPresence=()=>({loaded:true,availability:'now',availabilityText:'Active now',label:'Active now',status:null});export const useWorkspacePresence=()=>({availability:'offline',label:'Offline'});`,
+        '@/app/actions/applications': `export const getApplicationAlignmentAction=async()=>({success:false});export const reopenApplicationAction=async()=>({success:true});export const withdrawApplicationAction=async()=>({success:true});const actor={id:'project-person',username:'project-person',fullName:'Project person',headline:'Designer',openToCollaborate:true,skills:['Figma']};export const getIncomingApplicationsAction=async()=>({success:true,applications:[{id:'project-invite',projectId:'p',projectTitle:'Field Notes',roleTitle:'Designer',actor,applicant:actor,status:'pending',isInvitation:true,createdAt:new Date()},{id:'application',projectId:'p',projectTitle:'Field Notes',roleTitle:'Engineer',actor,applicant:actor,status:'pending',isInvitation:false,createdAt:new Date()}]});export const getSentWorkspaceInvitationsAction=async()=>({success:true,invitations:[{id:'project-sent',invitationId:'project-sent',projectId:'p',projectTitle:'Field Notes',roleTitle:'Designer',candidate:actor,createdAt:new Date()}]});export const cancelSentWorkspaceInvitationAction=async()=>({success:true});export const acceptApplicationAction=async()=>({success:!window.personCardFixture.decisionsFail});export const rejectApplicationAction=async()=>({success:!window.personCardFixture.decisionsFail});`,
+        '@/components/presence/usePresence': `export const useNow=()=>Date.now();export const usePersonPresence=()=>({loaded:true,availability:'now',availabilityText:'Active now',label:'Active now',status:null});export const useWorkspacePresence=()=>({availability:'offline',label:'Offline'});`,
         '@/app/actions/connections': `export const readPersonSharedConnectionsAction=async({offset=0})=>{window.personCardFixture.sharedCalls++;return window.personCardFixture.fail?{success:false,error:'Shared connection service unavailable'}:{success:true,summary:{targetIds:[],total:26,people:Array.from({length:offset?6:20},(_,i)=>({id:'peer-'+(offset+i),username:'peer'+(offset+i),fullName:'Peer '+(offset+i),avatarUrl:null}))}}};`,
     };
     const bundle = await build({ entryPoints: [path.resolve('tests/browser/person-card.fixture.tsx')], bundle: true, write: false, format: 'iife', platform: 'browser', define: { 'process.env.NODE_ENV': '"test"' }, plugins: [{ name: 'person-card-boundaries', setup(builder) {
         builder.onResolve({ filter: /.*/ }, args => args.path in mocks ? { path: args.path, namespace: 'fixture' } : undefined);
         builder.onLoad({ filter: /.*/, namespace: 'fixture' }, args => ({ contents: mocks[args.path], resolveDir: process.cwd(), loader: 'js' }));
-    } }] });
+    } }, serverActionsPlugin] });
     script = bundle.outputFiles![0]!.text;
     const compiled = await postcss([tailwind()]).process(await readFile('src/app/globals.css', 'utf8'), { from: path.resolve('src/app/globals.css') });
     [sans, mono] = await Promise.all([readFile('src/app/fonts/InstrumentSans.woff2'), readFile('src/app/fonts/JetBrainsMono.woff2')]);
     css = `@font-face{font-family:Instrument;src:url('/sans.ttf');font-weight:100 900}@font-face{font-family:Mono;src:url('/mono.ttf');font-weight:100 900}:root{--font-instrument-sans:Instrument;--font-jetbrains-mono:Mono}` + compiled.css;
 });
 async function setup(page: Page) {
+    page.on('pageerror', error => console.error(`Person card fixture: ${error.stack ?? error.message}`));
     await page.route(origin + '/**', async route => {
         const url = new URL(route.request().url());
         if (url.pathname === '/skill-catalog.json') return route.fulfill({ body: await readFile('public/skill-catalog.json'), contentType: 'application/json' });
@@ -110,9 +113,9 @@ test('connection skills include canonical icons and disclose the complete list w
     await expect(page.locator('.nb-person-skill-strip > .nb-person-skill .nb-person-skill-icon').first()).toHaveAttribute('style', /skill-icons/);
     await page.getByRole('button', {name:/Show \d+ more skills/}).click();
     const dialog = page.getByRole('dialog');
-    await expect(dialog.locator('.nb-person-skill-label')).toHaveText(['React','TypeScript','Figma','Next.js','Node.js','PostgreSQL','Accessibility','Design systems']);
+    await expect(dialog.locator('.nb-person-skill-label')).toHaveText(['React','TypeScript','Figma','Next.js','Node.js','PostgreSQL','Accessibility','Design Systems']);
     await expect(dialog.locator('.nb-person-skill-icon')).toHaveCount(6);
-    for (const name of ['Accessibility', 'Design systems']) {
+    for (const name of ['Accessibility', 'Design Systems']) {
         const skill = dialog.locator('.nb-person-skill').filter({hasText:name});
         await expect(skill).toHaveText(name);
         await expect(skill.locator('.nb-person-skill-icon')).toHaveCount(0);

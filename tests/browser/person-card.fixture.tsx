@@ -53,4 +53,4 @@ function Fixture() {
         </div>
     </div>;
 }
-createRoot(document.getElementById('root')!).render(<Fixture />);
+createRoot(document.getElementById("root")!).render(<QueryClientProvider client={new QueryClient()}><Fixture /></QueryClientProvider>);

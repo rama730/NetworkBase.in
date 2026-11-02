@@ -1,3 +1,4 @@
+import { serverActionsPlugin } from './server-actions-plugin';
 import path from 'node:path';
 import { readFile } from 'node:fs/promises';
 import { build } from 'esbuild';
@@ -19,13 +20,14 @@ test.beforeAll(async () => {
     '@/hooks/useAuth': `export const useAuth=()=>({user:{id:'11111111-1111-4111-8111-111111111111'},session:null,refreshProfile:async()=>{}});`,
     '@/app/actions/sharing-destinations': `export const listShareDestinations=async()=>({success:true,viewerId:'11111111-1111-4111-8111-111111111111',channels:[],nextCursor:null});export const listShareWorkspaces=async()=>({success:true,viewerId:'11111111-1111-4111-8111-111111111111',projects:[],nextCursor:null});export const getShareDestination=async()=>({success:false,error:'chat_not_member'});`,
     '@/app/actions/sharing': `export const sendSharedLink=async()=>({success:true});export const saveShareUsername=async()=>({success:true});`,
-    '@/components/messages/ChatShellProvider': `export const useChatShell=()=>({data:{channels:[]},refresh:()=>{},loadError:null});`,
+    '@/components/messages/ChatShellProvider': `export const useMutedIds=()=>new Set();export const useChatShell=()=>({data:{channels:[]},refresh:()=>{},loadError:null});`,
+    '@/components/providers/AuthProvider': `export const useAuthContext=()=>({user:window.profileFixture.actorId?{id:window.profileFixture.actorId}:null,refreshProfile:async()=>{}});export const AuthProvider=({children})=>children;export default ({children})=>children;`,
     '@/hooks/use-auth': `export const useAuth=()=>({user:window.profileFixture.actorId?{id:window.profileFixture.actorId}:null,refreshProfile:async()=>{}});`,
     '@/hooks/useUsernameAvailability': `export const useUsernameAvailability=()=>({status:'valid',message:''});`,
     '@/lib/skills/client': `const catalog={version:'fixture',categories:[{key:'engineering',name:'Engineering',iconKey:'code'}],lookup:{},defaults:[]};export const useSkillCatalog=()=>catalog;export const resolveClientSkill=name=>({name,canonicalKey:name.toLowerCase(),categoryKey:'engineering',kind:'framework',iconSource:'monogram',status:'active'});export const defaultClientSkills=()=>['React','TypeScript'].map(resolveClientSkill);`,
     '@/components/skills': `export const SkillIcon=()=>null;`,
     '@/components/presence/presence-ui-store': `export const usePresenceUi=()=>open=>{window.profileFixture.pickerOpen=open;};`,
-    '@/components/presence/usePresence': `export const usePersonPresence=()=>{const p=window.profileFixture.presence||({availability:'now',availabilityText:'Active now',status:null});return {...p,label:[p.status?.emoji,p.statusText,p.availabilityText].filter(Boolean).join(' · ')};};export const useWorkspacePresence=()=>({availability:'offline',label:'Offline'});`,
+    '@/components/presence/usePresence': `export const useNow=()=>Date.now();export const usePersonPresence=()=>{const p=window.profileFixture.presence||({availability:'now',availabilityText:'Active now',status:null});return {...p,label:[p.status?.emoji,p.statusText,p.availabilityText].filter(Boolean).join(' · ')};};export const useWorkspacePresence=()=>({availability:'offline',label:'Offline'});`,
     '@/components/messages/message-user': `export const messageUserInWindow=id=>{window.profileFixture.messaged.push(id);return true;};`,
     './sections/WorkspacesGridCard': `export const WorkspacesGridCard=()=>null;`,
     './sections/WorkspaceContributionsCard': `export const WorkspaceContributionsCard=()=>null;`,
@@ -43,7 +45,7 @@ test.beforeAll(async () => {
   const bundle = await build({ entryPoints: [path.resolve('tests/browser/profile.fixture.tsx')], bundle: true, write: false, format: 'iife', platform: 'browser', define: { 'process.env.NODE_ENV': '"test"', 'process.env.APP_URL':'undefined', 'process.env.NEXT_PUBLIC_APP_URL': '"https://profile.test"' }, plugins: [{ name: 'isolated-profile', setup(b) {
     b.onResolve({ filter: /.*/ }, args => args.path in mocks ? { path: args.path, namespace: 'fixture' } : undefined);
     b.onLoad({ filter: /.*/, namespace: 'fixture' }, args => ({ contents: mocks[args.path], resolveDir: process.cwd(), loader: 'js' }));
-  } }] });
+  } }, serverActionsPlugin] });
   script = bundle.outputFiles![0]!.text;
   const result = await postcss([tailwind()]).process(await readFile('src/app/globals.css', 'utf8'), { from: path.resolve('src/app/globals.css') });
   [instrumentFont,monoFont]=await Promise.all([readFile('src/app/fonts/InstrumentSans.woff2'),readFile('src/app/fonts/JetBrainsMono.woff2')]);
@@ -51,6 +53,7 @@ test.beforeAll(async () => {
 });
 
 test.beforeEach(async ({ page }) => {
+  page.on('pageerror', error => console.error(`Profile fixture: ${error.stack ?? error.message}`));
   await page.route(`${origin}/**`, route => {
     const name = new URL(route.request().url()).pathname;
     if(name==='/instrument.ttf'||name==='/mono.ttf') return route.fulfill({contentType:'font/ttf',body:name==='/instrument.ttf'?instrumentFont:monoFont});
@@ -198,8 +201,8 @@ test('role preference values share one column and stay aligned in narrow cards',
   const card=page.locator('#profile-open-to-roles');
   await expect(card.getByRole('heading')).toHaveText('Collaboration preferences');
   await expect(card.locator('.nb-tag')).toHaveCount(0);
-  await expect(card.getByText('<5 hrs/week',{exact:true})).toBeVisible();
-  await expect(card.getByText('Less than 5 hours per week',{exact:true})).toHaveClass('sr-only');
+  await expect(card.getByText('<5 h/week',{exact:true})).toBeVisible();
+  await expect(card.getByText('Less than 5 hours a week',{exact:true})).toHaveClass('sr-only');
   await expect(card.locator('dt')).toHaveText(['Role types','Preferred roles','Categories','Experience','Weekly availability']);
   for(const width of [320,280]) {
     await card.evaluate((el,w)=>{el.style.width=`${w}px`;},width);
@@ -324,7 +327,7 @@ test('visitor actions keep Share in the connection row and Message in the permit
     await control.click();
     const menu = page.getByRole('menu');
     await expect(menu.getByRole('menuitem', {name: 'Message Builder', exact: true})).toBeVisible();
-    for (const item of state === 'accepted' ? ['Disconnect', 'Block'] : state === 'pending_outgoing' ? ['Cancel', 'Block'] : state === 'pending_incoming' ? ['Accept', 'Decline', 'Block'] : ['Connect', 'Block']) {
+    for (const item of state === 'accepted' ? ['Disconnect', 'Block Builder'] : state === 'pending_outgoing' ? ['Cancel', 'Block Builder'] : state === 'pending_incoming' ? ['Accept', 'Decline', 'Block Builder'] : ['Connect', 'Block Builder']) {
       await expect(menu.getByRole('menuitem', {name: item, exact: true})).toBeVisible();
     }
     await menu.getByRole('menuitem', {name: 'Message Builder', exact: true}).click();
@@ -353,7 +356,7 @@ test('visitor status shares the collaboration badge row and presence stays on th
   const status=header.locator('[data-profile-status]');
   const dot=header.locator('.nb-presence');
   await expect(status).toHaveText('💻Building something new');
-  const collaboration=header.locator('.nb-status[data-status="completed"]');
+  const collaboration=header.getByText('Open to collaboration',{exact:true});
   expect(await status.evaluate(el=>el.previousElementSibling?.textContent?.trim())).toBe('Open to collaboration');
   for(const [availability,label] of [['offline','Offline'],['now','Active now'],['today','Active today'],['week','Active this week']]) {
     await page.evaluate(([availability,availabilityText])=>{
