@@ -8,7 +8,7 @@ import { createClient } from '@/lib/supabase/server';
 import { consumeRateLimit } from '@/lib/security/rate-limit';
 import { getTrustedHeadersIp } from '@/lib/security/request-ip';
 import { z } from 'zod';
-import { ORG_LIMITS, orgTypeLabel } from '@/lib/organizations/config';
+import { ORG_LIMITS, orgRoleNames, orgTypeLabel } from '@/lib/organizations/config';
 import { validateOrgHandle } from '@/lib/organizations/handle';
 import { and, eq, isNull, sql } from 'drizzle-orm';
 
@@ -29,6 +29,7 @@ import { normalizeJoinCode, ORG_JOIN_MESSAGES, type OrgJoinMode, type OrgJoinOut
 import { isWorkspacePubliclyReadableVisibility } from '@/lib/workspaces/workspace-visibility';
 import { namesOf, notifyJoined, notifyOrg, orgHref, orgLabel } from '@/lib/organizations/notify';
 import { logger } from '@/lib/logger';
+import { markProfileCollaborationSummaryStale } from '@/lib/profile/collaboration';
 
 type Failure = { success: false; error: string };
 
@@ -357,7 +358,39 @@ export async function updateMyOrgMembershipAction(orgId: string, patch: unknown)
         ...('title' in parsed.data ? { title: parsed.data.title || null } : {}),
         ...('show_on_profile' in parsed.data ? { showOnProfile: parsed.data.show_on_profile } : {}),
     }).where(and(eq(workspaceMembers.projectId, orgId), eq(workspaceMembers.userId, viewer.userId)));
+    // The public profile is cached: the switch and the title must show there at once (report §38.2).
+    await markProfileCollaborationSummaryStale(viewer.userId);
     revalidateOrg(viewer.slug, orgId);
+    return { success: true };
+}
+
+export type MyProfileOrganization = { orgId: string; title: string; slug: string | null; role: string; showOnProfile: boolean };
+
+/** Manage organizations (report §38.2): the viewer's organizations in their profile order, with each Show switch. */
+export async function readMyProfileOrganizationsAction(): Promise<MyProfileOrganization[]> {
+    const userId = await viewerId();
+    if (!userId) return [];
+    const rows = await db.select({ orgId: workspaces.id, title: workspaces.title, slug: workspaces.slug, orgType: workspaces.orgType, orgSettings: workspaces.orgSettings,
+        role: workspaceMembers.role, ownerId: workspaces.ownerId, showOnProfile: workspaceMembers.showOnProfile, order: workspaceMembers.profileOrder })
+        .from(workspaceMembers).innerJoin(workspaces, eq(workspaces.id, workspaceMembers.projectId))
+        .where(and(eq(workspaceMembers.userId, userId), eq(workspaces.kind, 'organization'), isNull(workspaces.deletedAt)));
+    return rows
+        .sort((a, b) => (a.order ?? Number.MAX_SAFE_INTEGER) - (b.order ?? Number.MAX_SAFE_INTEGER) || (a.title ?? '').localeCompare(b.title ?? ''))
+        .map((r) => ({ orgId: r.orgId, title: r.title ?? 'Organization', slug: r.slug, showOnProfile: r.showOnProfile !== false,
+            role: orgRoleNames(r.orgType, r.orgSettings)[(r.ownerId === userId ? 'owner' : r.role) as 'owner' | 'admin' | 'member' | 'viewer'] ?? 'Member' }));
+}
+
+/** Saves the order chosen in Manage organizations; only the viewer's own memberships change. */
+export async function saveMyOrganizationOrderAction(orgIds: string[]): Promise<{ success: true } | Failure> {
+    const userId = await viewerId();
+    if (!userId) return DENIED;
+    const ids = orgIds.filter((id) => typeof id === 'string').slice(0, ORG_LIMITS.orgsJoinedPerUser);
+    await db.transaction(async (tx) => {
+        for (const [index, orgId] of ids.entries()) {
+            await tx.update(workspaceMembers).set({ profileOrder: index }).where(and(eq(workspaceMembers.projectId, orgId), eq(workspaceMembers.userId, userId)));
+        }
+    });
+    await markProfileCollaborationSummaryStale(userId);
     return { success: true };
 }
 

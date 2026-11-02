@@ -5,7 +5,7 @@ import { EyeOff, FolderGit2, Pencil, Plus } from "lucide-react";
 import { Card } from "./Card";
 import type { ProfileCollaborationContribution } from "@/lib/profile/collaboration";
 import { ContributionStoryView } from "@/components/profile/ContributionStoryView";
-import { nestContributions } from "@/lib/organizations/profile-rules";
+import { entryStatus, groupProfileContributions } from "@/lib/organizations/profile-rules";
 
 /** Org context above an entry (report §24.5, §24.6): Verified by <org>, the child's org, org-only, revocation. */
 function OrgEntryLine({ c, isOwner, nested }: { c: ProfileCollaborationContribution; isOwner: boolean; nested?: boolean }) {
@@ -17,6 +17,15 @@ function OrgEntryLine({ c, isOwner, nested }: { c: ProfileCollaborationContribut
   if (c.orgOnly && c.parentOrg && !c.projectHref) parts.push(`Visible to ${c.parentOrg.title} members`);
   if (isOwner && c.verificationRevokedReason) parts.push(`Verification removed: ${c.verificationRevokedReason}`);
   return parts.length ? <p className="nb-compact pt-4 text-muted-foreground">{parts.join(" · ")}</p> : null;
+}
+
+function Group({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <section className="border-b border-border last:border-b-0">
+      <h3 className="nb-micro pt-4 text-muted-foreground">{title}</h3>
+      <div className="divide-y divide-border">{children}</div>
+    </section>
+  );
 }
 
 interface ProjectContributionsCardProps {
@@ -81,6 +90,43 @@ export function WorkspaceContributionsCard({
       return b.id.localeCompare(a.id);
     });
   if (!isOwner && !visible.length) return null;
+  const groups = groupProfileContributions(visible, isOwner);
+  const shownCount = groups.organizations.length + groups.workspaces.length;
+  let index = 0;
+  const entry = (c: (typeof groups.organizations)[number]) => {
+    const position = index++;
+    const status = entryStatus(c);
+    return (
+      <div key={c.id + ":" + JSON.stringify(c.presentation)} className={!showAll && position >= 2 ? "max-md:hidden" : ""}>
+        {isOwner && c.visibility === "private" && (
+          <p className="nb-compact pt-4 text-muted-foreground" title="Only you can see this contribution">
+            <EyeOff className="mr-1 inline size-3.5" />
+            Private · only you can see this contribution
+          </p>
+        )}
+        <OrgEntryLine c={c} isOwner={isOwner} />
+        {status ? <p className="nb-compact pt-1 text-muted-foreground" data-testid="entry-status">{status}{c.endDate ? ` ${c.endDate}` : ""}</p> : null}
+        {/* Report a contribution story (C15); not on your own profile. */}
+        {!isOwner ? <div className="flex justify-end pt-3"><ItemMenu label="Contribution actions" report={{ kind: "contribution", targetId: c.id, noun: "contribution story" }} /></div> : null}
+        <ContributionStoryView contribution={{ ...c, draftStory: null }} onProjectIntent={onProjectIntent} />
+        {c.children.length ? (
+          <div className="mb-4 ml-4 border-l border-border pl-4" aria-label={`Workspaces in ${c.projectTitle}`}>
+            {c.children.map((child) => (
+              <div key={child.id}>
+                <OrgEntryLine c={child} isOwner={isOwner} nested />
+                <ContributionStoryView contribution={{ ...child, draftStory: null }} onProjectIntent={onProjectIntent} />
+              </div>
+            ))}
+          </div>
+        ) : null}
+        {c.workRecord ? (
+          <p className="nb-compact mb-4 text-muted-foreground" data-testid="work-record">
+            Work record: {c.workRecord.done} of {c.workRecord.total} assignments · {c.workRecord.sprints} {c.workRecord.sprints === 1 ? "sprint" : "sprints"}
+          </p>
+        ) : null}
+      </div>
+    );
+  };
   return (
     <Card
       title="Contributions"
@@ -101,53 +147,38 @@ export function WorkspaceContributionsCard({
     >
       <div className="px-5 max-md:px-4">
         {visible.length ? (
-          <div className="divide-y divide-border">
-            {/* Child project entries sit under their org's entry (report §24.5). */}
-            {nestContributions(visible).map((c, index) => (
-              <div
-                key={c.id + ":" + JSON.stringify(c.presentation)}
-                className={!showAll && index >= 2 ? "max-md:hidden" : ""}
-              >
-                {isOwner && c.visibility === "private" && (
-                  <p
-                    className="nb-compact pt-4 text-muted-foreground"
-                    title="Only you can see this contribution"
-                  >
-                    <EyeOff className="mr-1 inline size-3.5" />
-                    Private · only you can see this contribution
-                  </p>
-                )}
-                <OrgEntryLine c={c} isOwner={isOwner} />
-                {/* Report a contribution story (C15); not on your own profile. */}
-                {!isOwner ? <div className="flex justify-end pt-3"><ItemMenu label="Contribution actions" report={{ kind: "contribution", targetId: c.id, noun: "contribution story" }} /></div> : null}
-                <ContributionStoryView
-                  contribution={{ ...c, draftStory: null }}
-                  onProjectIntent={onProjectIntent}
-                />
-                {c.children.length ? (
-                  <div className="mb-4 ml-4 border-l border-border pl-4" aria-label={`Workspaces in ${c.projectTitle}`}>
-                    {c.children.map((child) => (
-                      <div key={child.id}>
-                        <OrgEntryLine c={child} isOwner={isOwner} nested />
-                        <ContributionStoryView contribution={{ ...child, draftStory: null }} onProjectIntent={onProjectIntent} />
-                      </div>
-                    ))}
+          <div>
+            {/* Report §4.5, §16.9: organizations (with their workspaces nested), then workspaces; your own view adds
+                drafts and removed entries, so a draft can't be mistaken for a public entry. */}
+            {groups.organizations.length ? <Group title="Organizations">{groups.organizations.map((c) => entry(c))}</Group> : null}
+            {groups.workspaces.length ? <Group title="Workspaces">{groups.workspaces.map((c) => entry(c))}</Group> : null}
+            {groups.drafts.length ? (
+              <Group title="Not on your profile yet">
+                {groups.drafts.map((c) => (
+                  <div key={c.id} className="flex flex-wrap items-center gap-2 py-3 text-sm">
+                    <span className="min-w-0 flex-1"><span className="font-medium">{c.projectTitle}</span><span className="text-muted-foreground"> · Draft</span></span>
+                    {onAdd ? <button type="button" onClick={onAdd} className="nb-ui-label text-primary">{c.projectKind === "organization" || c.parentOrg ? `Write about your work in ${c.parentOrg?.title ?? c.projectTitle}` : "Publish"}</button> : null}
                   </div>
-                ) : null}
-                {c.workRecord ? (
-                  <p className="nb-compact mb-4 text-muted-foreground" data-testid="work-record">
-                    Work record: {c.workRecord.done} of {c.workRecord.total} assignments · {c.workRecord.sprints} {c.workRecord.sprints === 1 ? "sprint" : "sprints"}
-                  </p>
-                ) : null}
-              </div>
-            ))}
-            {!showAll && visible.length > 2 && (
+                ))}
+              </Group>
+            ) : null}
+            {groups.privateToYou.length ? (
+              <Group title="Private to you">
+                {groups.privateToYou.map((c) => (
+                  <div key={c.id} className="py-3 text-sm">
+                    <p><span className="font-medium">{c.projectTitle}</span><span className="text-muted-foreground"> · Removed{c.endDate ? ` ${c.endDate}` : ""}</span></p>
+                    <p className="nb-compact text-muted-foreground"><EyeOff className="mr-1 inline size-3.5" />Only you can see this. Your words are kept, and you can delete them in Edit.</p>
+                  </div>
+                ))}
+              </Group>
+            ) : null}
+            {!showAll && shownCount > 2 && (
               <button
                 type="button"
                 onClick={() => setShowAll(true)}
                 className="nb-touch-target w-full py-3 nb-ui-label text-primary md:hidden"
               >
-                Show all {visible.length}
+                Show all {shownCount}
               </button>
             )}
           </div>

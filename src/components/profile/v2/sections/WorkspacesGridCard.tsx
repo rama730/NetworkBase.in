@@ -64,8 +64,10 @@ function toDiscoveryProject(project: ProfileCollaborationWorkspace): Workspace {
     } as any;
 }
 
-export function WorkspacesGridCard({ projects, title = "Workspaces", description, isOwner = false, isLoading = false, onProjectIntent }: ProjectsGridCardProps) {
+export function WorkspacesGridCard({ projects: allProjects, title = "Workspaces", description, isOwner = false, isLoading = false, onProjectIntent }: ProjectsGridCardProps) {
     const { user } = useAuth();
+    // Report §31.3, decision 71: workspaces only; organizations live in their own section (§4.5).
+    const projects = useMemo(() => allProjects.filter((p) => p.kind !== "organization"), [allProjects]);
     // The bell shows whether you follow each project (one lookup for the whole grid).
     const pageIds = useMemo(() => [projects.map((project) => project.id)], [projects]);
     const followed = useUserFollowedWorkspaces(user?.id, pageIds);
@@ -82,10 +84,8 @@ export function WorkspacesGridCard({ projects, title = "Workspaces", description
                 {[1,2,3,4].map(key => <WorkspaceCardSkeleton key={key} />)}
             </div>
         ) : projects.length ? (
-            // Organizations first, then projects (report §24.4).
-            [projects.filter((p) => p.kind === "organization"), projects.filter((p) => p.kind !== "organization")].filter((group) => group.length).map((group, groupIndex, groups) => (
+            [projects].map((group, groupIndex) => (
             <div key={groupIndex} className="space-y-2">
-            {groups.length > 1 ? <h3 className="nb-ui-label text-muted-foreground">{group[0]?.kind === "organization" ? "Organizations" : "Workspaces"}</h3> : null}
             <div className="nb-portfolio-grid flex flex-col gap-4 w-full">
                 {group.map(project => {
                     const cardProject = toDiscoveryProject(project);

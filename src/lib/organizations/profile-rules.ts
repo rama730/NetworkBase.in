@@ -39,3 +39,49 @@ export function nestContributions<T extends Nestable>(entries: T[]): Array<T & {
   }
   return entries.filter((e) => !nested.has(e.id)).map((e) => ({ ...e, children: (e.projectId && childrenOf.get(e.projectId)) || [] }));
 }
+
+type ProfileEntry = Nestable & {
+  endDate?: string | null;
+  endReason?: string | null;
+  publishedAt?: string | null;
+  presentation?: unknown;
+  profileOrder?: number | null;
+  showOnProfile?: boolean | null;
+  projectTitle?: string | null;
+};
+
+const removed = (e: ProfileEntry) => e.endReason === "removed" && (e.projectKind === "organization" || Boolean(e.parentOrg));
+
+/**
+ * The profile's Organizations section (report §4.5, decision 13): current members only, in the person's own order.
+ * Others see only what's shown on the profile; the person sees everything, hidden ones marked.
+ */
+export function currentOrganizations<T extends ProfileEntry>(entries: T[], isOwner: boolean): T[] {
+  return entries
+    .filter((e) => e.projectKind === "organization" && !e.endDate && !e.endReason && (isOwner || e.showOnProfile !== false))
+    .sort((a, b) => (a.profileOrder ?? Number.MAX_SAFE_INTEGER) - (b.profileOrder ?? Number.MAX_SAFE_INTEGER) || (a.projectTitle ?? "").localeCompare(b.projectTitle ?? ""));
+}
+
+/**
+ * Contributions in four groups (report §4.5, §16.9): organizations with their workspaces nested, then workspaces.
+ * The person's own view adds drafts ("Not on your profile yet") and removed entries ("Private to you").
+ */
+export function groupProfileContributions<T extends ProfileEntry>(entries: T[], isOwner: boolean) {
+  const privateToYou = isOwner ? entries.filter(removed) : [];
+  const live = entries.filter((e) => !removed(e));
+  const published = (e: T) => !isOwner || Boolean(e.publishedAt || e.presentation);
+  const drafts = isOwner ? live.filter((e) => !published(e)) : [];
+  const shown = nestContributions(live.filter(published));
+  return {
+    organizations: shown.filter((e) => e.projectKind === "organization"),
+    workspaces: shown.filter((e) => e.projectKind !== "organization"),
+    drafts,
+    privateToYou,
+  };
+}
+
+/** The status chip (report §4.5): Left or Completed; nothing for a current entry. Old endings without a reason read as Left. */
+export function entryStatus(e: ProfileEntry): "Left" | "Completed" | null {
+  if (e.endReason === "term_ended") return "Completed";
+  return e.endDate || e.endReason === "left" ? "Left" : null;
+}

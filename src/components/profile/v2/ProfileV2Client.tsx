@@ -35,7 +35,7 @@ import { ProfileRightRail } from './ProfileRightRail'
 import { OpenToRolesCard } from './sections/OpenToRolesCard'
 import { WorkspaceContributionsCard } from './sections/WorkspaceContributionsCard'
 import { WorkspacesGridCard } from './sections/WorkspacesGridCard'
-import { OrgChipsRow } from './sections/OrgChipsRow'
+import { ProfileOrganizationsSection } from './sections/ProfileOrganizationsSection'
 
 type UserConnectionsModalComponent = typeof import('@/components/profile/v2/UserConnectionsModal')['UserConnectionsModal'];
 type ProfileInviteModalComponent = typeof import('./ProfileInviteModal')['default'];
@@ -617,7 +617,6 @@ export function ProfileV2Client({
                 mainBottom={renderMainBottom()}
                 highlights={lockedShell ? null : (
                     <>
-                    <OrgChipsRow contributions={collaborationContributions} />
                     <ComponentErrorBoundary fallbackMessage="Couldn’t load role preferences.">
                         <OpenToRolesCard
                             openTo={safeProfile.openTo}
@@ -634,6 +633,8 @@ export function ProfileV2Client({
                             hasOpenRoles={openRolesProjects.length > 0 || applicationsCapReached}
                         />
                     </ComponentErrorBoundary>
+                    {/* Report §4.5, decision 13: between Collaboration preferences and Links; the chip row is gone. */}
+                    <ProfileOrganizationsSection contributions={collaborationContributions} isOwner={isOwner} />
                     </>
                 )}
                 rail={lockedShell ? null : (

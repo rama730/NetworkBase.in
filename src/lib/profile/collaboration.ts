@@ -126,6 +126,9 @@ export type ProfileCollaborationContribution = {
   orgVerified?: boolean;
   orgOnly?: boolean;
   verificationRevokedReason?: string | null;
+  /** Manage organizations (report §38.2): the person's order and Show switch for an organization entry. */
+  profileOrder?: number | null;
+  showOnProfile?: boolean | null;
   /** How the membership ended (report §10.1); null on an ended entry reads as "left". */
   endReason?: "left" | "removed" | "term_ended" | "org_deleted" | null;
   /** History labels (report §24.5): a detached child "with CSE-3A (until Nov 2026)"; a deleted org's kept name. */
@@ -197,6 +200,8 @@ type ProfileProjectRow = {
 };
 
 type ProfileContributionRow = {
+  profile_order?: number | null;
+  show_on_profile?: boolean | null;
   end_reason?: string | null;
   org_type?: string | null;
   org_role_names?: unknown;
@@ -536,6 +541,8 @@ function contributionFromRow(row: ProfileContributionRow): ProfileCollaborationC
     visibility,
     projectKind: row.project_kind ?? null,
     endReason: (row.end_reason as ProfileCollaborationContribution["endReason"]) ?? null,
+    profileOrder: row.profile_order ?? null,
+    showOnProfile: row.show_on_profile ?? null,
     parentOrg: row.parent_org_id ? { id: row.parent_org_id, title: row.parent_org_title ?? "Organization", slug: row.parent_org_slug ?? null } : null,
     orgVerified: Boolean(row.org_verified),
     orgOnly: row.project_visibility === "org",
@@ -785,6 +792,8 @@ async function queryProfileContributionRows(profileId: string, options: {
       CASE WHEN project.kind = 'organization' THEN project.org_type END AS org_type,
       CASE WHEN project.kind = 'organization' THEN project.org_settings->'roleNames' END AS org_role_names,
       member.title AS member_title,
+      member.profile_order,
+      member.show_on_profile,
       -- "Verified by <org>": an org owner or admin verified someone else's org entry (report §24.5).
       (project.kind = 'organization' AND contribution.verified_at IS NOT NULL AND contribution.verified_by IS NOT NULL
         AND contribution.verified_by <> contribution.profile_id
