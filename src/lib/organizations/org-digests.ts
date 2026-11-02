@@ -90,7 +90,7 @@ export async function runOrgDueSoon(now = new Date()) {
     await notifyOrg({
       orgId: org.id, eventKey: "assignments.due_soon", to: [entry.userId],
       title: one ? `${entry.items[0]!.title} is due tomorrow` : `${entry.items.length} assignments due tomorrow in ${org.title}`,
-      href: orgHref(org, "?tab=assignments"), sourceEventId: `due:${org.id}:${entry.date}`,
+      href: orgHref(org, "?tab=tasks"), sourceEventId: `due:${org.id}:${entry.date}`,
       email: { kind: "org_due_soon", data: { items: entry.items, timeZone: zoneOf.get(entry.userId) ?? null } },
     });
   }

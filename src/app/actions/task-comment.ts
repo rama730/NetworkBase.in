@@ -95,6 +95,12 @@ function normalizeTaskDiscussionEntry(params: {
 }
 
 // PURE OPTIMIZATION (Item 9): Single flat join verifies task access, project existence, and user role.
+/** An admin or the owner of the organization an assignment copy belongs to (problem 36). */
+const orgReviewerSql = (userId: string) => sql<boolean>`EXISTS (
+  SELECT 1 FROM tasks nb_m JOIN workspaces nb_o ON nb_o.id = nb_m.workspace_id
+  WHERE nb_m.id = ${tasks.assignmentId} AND (nb_o.owner_id = ${userId}::uuid
+    OR EXISTS (SELECT 1 FROM workspace_members nb_om WHERE nb_om.workspace_id = nb_o.id AND nb_om.user_id = ${userId}::uuid AND nb_om.role = 'admin')))`;
+
 async function assertTaskAccess(params: {
   taskId: string;
   projectId: string;
@@ -112,6 +118,7 @@ async function assertTaskAccess(params: {
       role: workspaceMembers.role,
       // Decision 37: comments follow the task's own visibility, so a private copy's conversation stays private.
       visible: orgTaskVisibleToSql(sql`${tasks.id}`, params.userId),
+      orgReviewer: orgReviewerSql(params.userId),
     })
     .from(tasks)
     .innerJoin(workspaces, eq(tasks.projectId, workspaces.id))
@@ -137,7 +144,8 @@ async function assertTaskAccess(params: {
   }
 
   const isOwner = row.ownerId === params.userId;
-  if (!isOwner) {
+  // Report §42.14 problem 36: the organization's admins review group work in workspaces they aren't on.
+  if (!isOwner && !row.orgReviewer) {
     if (!row.role || !row.visible) {
       throw new Error("You don’t have access to this");
     }
@@ -174,6 +182,7 @@ async function assertCommentAccess(params: {
       projectDeletedAt: workspaces.deletedAt,
       role: workspaceMembers.role,
       visible: orgTaskVisibleToSql(sql`${tasks.id}`, params.userId),
+      orgReviewer: orgReviewerSql(params.userId),
     })
     .from(taskComments)
     .innerJoin(tasks, eq(taskComments.taskId, tasks.id))
@@ -201,7 +210,8 @@ async function assertCommentAccess(params: {
   }
 
   const isOwner = row.ownerId === params.userId;
-  if (!isOwner) {
+  // Report §42.14 problem 36: the organization's admins review group work in workspaces they aren't on.
+  if (!isOwner && !row.orgReviewer) {
     if (!row.role || !row.visible) {
       throw new Error("You don’t have access to this");
     }

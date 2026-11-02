@@ -67,7 +67,7 @@ export async function notifyAssignmentPublished(masterId: string, actorId: strin
     title: master.title, dueAt: master.dueDate?.toISOString() ?? null, description: master.description, steps: steps.map((s) => s.title),
     materials: [...materials], reviewRequired: Boolean(settings?.reviewRequired), submission: settings?.submissionType && settings.submissionType !== "none" ? settings.submissionType : null,
   };
-  const href = orgHref(org, "?tab=assignments");
+  const href = orgHref(org, "?tab=tasks");
   const individuals: string[] = [];
   for (const copy of copies) {
     const team = teams.get(copy.id) ?? [];
@@ -76,7 +76,8 @@ export async function notifyAssignmentPublished(masterId: string, actorId: strin
     if (childTitle || copy.teamName) {
       // Team and group copies each get their own line ("You're in Team A for Lab 2").
       const title = childTitle ? `${org.title} assigned ${master.title} to ${childTitle}` : `You’re in ${copy.teamName} for ${master.title}`;
-      await notifyOrg({ orgId: org.id, eventKey: "assignments.published", actorId, to: people, title, href, sourceEventId: `published:${copy.id}`, refs: { taskId: copy.id } });
+      // Opens that copy in the workspace it lives in (decision 133, through the old-link redirect).
+      await notifyOrg({ orgId: org.id, eventKey: "assignments.published", actorId, to: people, title, href: orgHref(org, `?tab=assignments&copy=${encodeURIComponent(copy.id)}`), sourceEventId: `published:${copy.id}`, refs: { taskId: copy.id } });
       // The group copy also lands in the project's own channel (report §25.5): "CSE-3A assigned Mini-project proposal".
       if (childTitle) {
         await db.execute(sql`
@@ -108,7 +109,7 @@ async function copyContext(copyId: string) {
 export async function notifyAssignmentSubmitted(copyId: string, actorId: string) {
   const ctx = await copyContext(copyId);
   if (!ctx) return;
-  await notifyOrg({ orgId: ctx.org.id, eventKey: "assignments.submitted", actorId, title: `New submission for ${ctx.copy.title}`, href: orgHref(ctx.org, "?tab=assignments&view=review"), sourceEventId: `${copyId}:v${ctx.copy.version ?? 1}`, refs: { taskId: ctx.copy.assignmentId } });
+  await notifyOrg({ orgId: ctx.org.id, eventKey: "assignments.submitted", actorId, title: `New submission for ${ctx.copy.title}`, href: orgHref(ctx.org, "?tab=tasks&taskScope=review"), sourceEventId: `${copyId}:v${ctx.copy.version ?? 1}`, refs: { taskId: ctx.copy.assignmentId } });
 }
 
 /** Returned (tray, push, E8) or approved (tray), to the member or the whole team. */

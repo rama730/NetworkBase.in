@@ -642,10 +642,10 @@ export async function assignTaskAction(
  * Decision 141: Approve and Return on an assignment copy are the review queue's action, with its checks and
  * notices, from the task panel too. Null for ordinary tasks, which keep their own review.
  */
-async function reviewCopyFromPanel(taskId: string, decision: "approve" | "return", reason?: string) {
+async function reviewCopyFromPanel(taskId: string, projectId: string, decision: "approve" | "return", reason?: string, expectedUpdatedAt?: string) {
   const [task] = await db.select({ assignmentId: tasks.assignmentId }).from(tasks).where(eq(tasks.id, taskId)).limit(1);
   if (!task?.assignmentId) return null;
-  const result = await reviewAssignmentCopyAction(taskId, decision, reason);
+  const result = await reviewAssignmentCopyAction(taskId, decision, reason, { projectId, updatedAt: expectedUpdatedAt });
   if (!result.success) return { success: false as const, error: result.error };
   const [after] = await db.select({ updatedAt: tasks.updatedAt, status: tasks.status, reviewStatus: tasks.reviewStatus }).from(tasks).where(eq(tasks.id, taskId)).limit(1);
   return { success: true as const, updatedAt: after!.updatedAt.toISOString(), status: after!.status, reviewStatus: after!.reviewStatus, outcome: decision === "approve" ? "approved" as const : "changes_requested" as const };
@@ -658,10 +658,11 @@ export async function approveTaskReviewAction(
 ) {
   try {
     if (!z.string().uuid().safeParse(taskId).success || !z.string().uuid().safeParse(projectId).success || (expectedUpdatedAt && !z.string().datetime().safeParse(expectedUpdatedAt).success)) return { success: false, error: "Invalid task review request" };
-    const copyReview = await reviewCopyFromPanel(taskId, "approve");
-    if (copyReview) return copyReview;
+    // Signed in and rate limited like any review, then a copy goes through the queue's review (decision 141).
     const user = await requireTaskWriter();
     if (!user) return { success: false, error: "Sign in to continue" };
+    const copyReview = await reviewCopyFromPanel(taskId, projectId, "approve", undefined, expectedUpdatedAt);
+    if (copyReview) return copyReview;
 
     const result = await db.transaction(async (tx) => {
       const locked = await lockTaskForWrite(tx, taskId, user.id);
@@ -734,10 +735,16 @@ export async function approveTaskReviewAction(
 
 /** Explicit review actions cannot be bypassed with a generic status move. */
 export async function requestTaskChangesAction(taskId: string, projectId: string, reason: string, expectedUpdatedAt: string) {
-  if (!z.string().uuid().safeParse(taskId).success) return { success: false as const, error: "Invalid task review request" };
-  const copyReview = await reviewCopyFromPanel(taskId, "return", reason);
-  if (copyReview) return copyReview;
-  return performTaskReviewAction(taskId, projectId, expectedUpdatedAt, { reviewReason: reason });
+  if (!z.string().uuid().safeParse(taskId).success || !z.string().uuid().safeParse(projectId).success) return { success: false as const, error: "Invalid task review request" };
+  const [task] = await db.select({ assignmentId: tasks.assignmentId }).from(tasks).where(eq(tasks.id, taskId)).limit(1);
+  if (!task?.assignmentId) return performTaskReviewAction(taskId, projectId, expectedUpdatedAt, { reviewReason: reason });
+  // A copy: signed in and rate limited like any review, then the queue's review (decision 141).
+  try {
+    if (!await requireTaskWriter()) return { success: false as const, error: "Sign in to continue" };
+  } catch (error) {
+    return { success: false as const, error: error instanceof Error ? error.message : "Review update failed" };
+  }
+  return (await reviewCopyFromPanel(taskId, projectId, "return", reason, expectedUpdatedAt))!;
 }
 
 export async function resubmitTaskReviewAction(taskId: string, projectId: string, expectedUpdatedAt: string) {

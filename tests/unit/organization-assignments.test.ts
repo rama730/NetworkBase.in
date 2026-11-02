@@ -70,3 +70,10 @@ test("report §19.3 and §42.12: one rule for every write to assignment work", a
   assert.equal(assignmentWriteBlock(copy, "sprintId"), "This moves with its assignment.");
   assert.equal(assignmentWriteBlock({ ...copy, groupCopy: true }, "sprintId"), null, "a team plans its own group work");
 });
+
+test("decision 133: every assignment link opens Tasks, with the exact copy's panel in its own workspace", async () => {
+  const { assignmentHref } = await import("../../src/lib/organizations/assignment-rules");
+  assert.equal(assignmentHref("/org/cse-3b"), "/org/cse-3b?tab=tasks");
+  assert.equal(assignmentHref("/workspaces/w1", "c1"), "/workspaces/w1?tab=tasks&drawerType=task&drawerId=c1");
+  assert.equal(assignmentHref("/org/cse-3b", null, true), "/org/cse-3b?tab=tasks&taskScope=review");
+});

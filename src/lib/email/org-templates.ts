@@ -108,7 +108,7 @@ function partsFor(kind: OrgEmailKind, d: OrgEmailData, url: (path: string) => st
   const when = (iso?: string | null) => formatEmailWhen(iso, d.timeZone, d.orgTimeZone);
   const member = `You’re receiving this because you’re a member of ${org}.`;
   const a = d.assignment;
-  const copyHref = url(a?.copyId ? `${orgPath}?tab=assignments&copy=${encodeURIComponent(a.copyId)}` : `${orgPath}?tab=assignments`);
+  const copyHref = url(a?.copyId ? `${orgPath}?tab=assignments&copy=${encodeURIComponent(a.copyId)}` : `${orgPath}?tab=tasks`);
   const orgLabel = `ORGANIZATION${d.org.type ? ` · ${d.org.type.toUpperCase()}` : ""}`;
 
   switch (kind) {
@@ -158,7 +158,7 @@ function partsFor(kind: OrgEmailKind, d: OrgEmailData, url: (path: string) => st
           a?.materials?.length ? { title: `Materials (${a.materials.length})`, rows: a.materials.map((m) => `${m.name}${formatSize(m.size)}`) } : null,
           a?.team?.length ? { title: "Your team", rows: a.team } : null,
         ].filter((s): s is { title: string; rows: string[] } => Boolean(s)),
-        primary: { label: d.child ? "Open assignment →" : "Open assignment →", href: copyHref }, secondary: { label: `View in ${org}`, href: url(`${orgPath}?tab=assignments`) },
+        primary: { label: d.child ? "Open assignment →" : "Open assignment →", href: copyHref }, secondary: { label: `View in ${org}`, href: url(`${orgPath}?tab=tasks`) },
         reason: member,
       };
     }
@@ -169,7 +169,7 @@ function partsFor(kind: OrgEmailKind, d: OrgEmailData, url: (path: string) => st
         preview: items.map((i) => i.title).join(", "),
         identity: "org", label: "Due soon", headline: items.length === 1 ? `${items[0]!.title} is due tomorrow` : `${items.length} assignments are due tomorrow`,
         sections: [{ title: "Due soon", rows: items.map((i) => `${i.title}${i.dueAt ? ` · due ${when(i.dueAt)}` : ""} · ${i.status}`) }],
-        primary: { label: "Open my work →", href: url(`${orgPath}?tab=assignments`) }, reason: member,
+        primary: { label: "Open my work →", href: url(`${orgPath}?tab=tasks`) }, reason: member,
       };
     }
     case "org_overdue":
@@ -219,7 +219,7 @@ function partsFor(kind: OrgEmailKind, d: OrgEmailData, url: (path: string) => st
           g.needsYou.length ? { title: "Needs your attention", rows: g.needsYou } : null,
           g.behind ? { title: "Needs attention", rows: [`${g.behind} ${g.behind === 1 ? "person has" : "people have"} missing work`] } : null,
         ].filter((s): s is { title: string; rows: string[] } => Boolean(s)),
-        primary: { label: "Open review queue →", href: url(`${orgPath}?tab=assignments&view=review`) }, secondary: { label: "Open overview", href: url(orgPath) },
+        primary: { label: "Open review queue →", href: url(`${orgPath}?tab=tasks&taskScope=review`) }, secondary: { label: "Open overview", href: url(orgPath) },
         reason: `You’re receiving this daily summary as an admin of ${org}.`,
       };
     }

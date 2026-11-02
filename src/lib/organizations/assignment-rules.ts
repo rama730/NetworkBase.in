@@ -129,3 +129,12 @@ export function assignmentWriteBlock(task: {
       return null;
   }
 }
+
+/**
+ * Every assignment link (decision 133, report §42.10 problem 11): Tasks, with the copy's panel open in the workspace
+ * the copy lives in, or the In review filter for the queue. `?tab=assignments` links redirect here.
+ */
+export function assignmentHref(workspacePath: string, copyId?: string | null, review = false) {
+  if (copyId) return `${workspacePath}?tab=tasks&drawerType=task&drawerId=${encodeURIComponent(copyId)}`;
+  return `${workspacePath}?tab=tasks${review ? "&taskScope=review" : ""}`;
+}

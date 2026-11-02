@@ -351,3 +351,48 @@ test("decision 141: the task panel's Approve and Return on a copy are the queue'
   const [event] = await sql`SELECT payload->>'source' AS source FROM task_activity_events WHERE task_id = ${copyOf(o.a)} AND event_type = 'changes_requested'`;
   assert.equal(event!.source, "assignment_review", "the same path as the review queue");
 });
+
+test("problem 36: an organization admin can read and write a group copy's private conversation without joining the workspace", async () => {
+  const o = await org();
+  const { child, make } = await groupWork(o);
+  const copy = await make("Pitch");
+  const comments = await loadAppModule(() => import("../../src/app/actions/task-comment"));
+  viewerId = o.a;
+  assert.equal((await comments.createTaskCommentAction(copy, child, "Here's our pitch")).success, true);
+  viewerId = o.admin;
+  const read = await comments.readTaskDiscussionAction(child, copy);
+  assert.equal(read.success, true, JSON.stringify(read).slice(0, 200));
+  assert.equal((await comments.createTaskCommentAction(copy, child, "Looks good")).success, true);
+});
+
+test("problems 11 and 35 (decision 133): assignment links open the exact copy in the workspace it lives in", async () => {
+  const o = await org();
+  const { copyOf } = await published(o, "Lab 17");
+  const { child, make } = await groupWork(o);
+  const group = await make("Demo day");
+  viewerId = o.a;
+  assert.equal((await assignments.submitAssignmentAction(group, {})).success, true);
+  const { copyWorkspacePath } = await loadAppModule(() => import("../../src/lib/organizations/assignments"));
+  const [orgRow] = await sql`SELECT slug FROM workspaces WHERE id = ${o.org}`;
+  assert.equal(await copyWorkspacePath(copyOf(o.a)), `/org/${orgRow!.slug ?? o.org}`);
+  assert.equal(await copyWorkspacePath(group), `/workspaces/${child}`, "group work lives in its workspace, named by id");
+  viewerId = o.owner;
+  const queue = await assignments.readReviewQueueAction(o.org);
+  const row = queue.success ? queue.rows.find((r) => r.copyId === group) : null;
+  assert.equal(row?.href, `/workspaces/${child}?tab=tasks&drawerType=task&drawerId=${group}`, "Open from the queue reaches it (problem 35)");
+});
+
+test("security review: work that changed after it was handed in can't be approved; a panel review must name the copy's own workspace", async () => {
+  const o = await org();
+  const { copyOf } = await published(o, "Lab 18");
+  viewerId = o.a;
+  assert.equal((await assignments.submitAssignmentAction(copyOf(o.a), {})).success, true);
+  await sql`INSERT INTO task_subtasks (task_id, title, position) VALUES (${copyOf(o.a)}, 'Snuck in later', 99)`;
+  viewerId = o.owner;
+  const approved = await assignments.reviewAssignmentCopyAction(copyOf(o.a), "approve");
+  assert.deepEqual([approved.success, (approved as { error?: string }).error], [false, "This changed after it was handed in. Ask them to resubmit."]);
+  const other = await sql.begin((tx) => createProject(tx, o.owner));
+  created.push(other);
+  const [row] = await sql`SELECT updated_at FROM tasks WHERE id = ${copyOf(o.a)}`;
+  assert.equal((await taskActions.requestTaskChangesAction(copyOf(o.a), other, "Redo", new Date(row!.updated_at).toISOString())).success, false, "wrong workspace");
+});

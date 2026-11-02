@@ -240,10 +240,10 @@ export async function searchOrgPreviewsAction(query: string, orgIdentifier?: str
           AND (m.assignment_settings->>'publishedAt' IS NOT NULL OR ${isAdminOf})
         ORDER BY m.due_date DESC NULLS LAST LIMIT 5`);
     for (const a of assignments) {
-        const base = `/org/${encodeURIComponent(a.slug ?? a.org_id)}?tab=assignments`;
+        const base = `/org/${encodeURIComponent(a.slug ?? a.org_id)}?tab=tasks`;
         const due = a.due ? ` · due ${new Date(a.due).toLocaleDateString('en', { weekday: 'short', day: 'numeric', month: 'short' })}` : '';
         if (a.admin || a.guest) results.push({ id: `assignment:${a.id}`, kind: 'assignment', title: a.title, subtitle: `${a.org_title}${due}`, href: base, chip: `${a.submitted}/${a.total} submitted` });
-        else if (a.copy_id) results.push({ id: `assignment:${a.id}`, kind: 'assignment', title: a.title, subtitle: `${a.org_title}${due}`, href: `${base}&copy=${a.copy_id}`, chip: a.copy_review === 'pending' ? 'Submitted' : a.copy_review === 'rejected' ? 'Returned' : a.copy_status === 'done' ? 'Completed' : 'To do' });
+        else if (a.copy_id) results.push({ id: `assignment:${a.id}`, kind: 'assignment', title: a.title, subtitle: `${a.org_title}${due}`, href: `/org/${encodeURIComponent(a.slug ?? a.org_id)}?tab=assignments&copy=${a.copy_id}`, chip: a.copy_review === 'pending' ? 'Submitted' : a.copy_review === 'rejected' ? 'Returned' : a.copy_status === 'done' ? 'Completed' : 'To do' });
     }
 
     // Org docs (outside an org's own search): docs of orgs you're in.

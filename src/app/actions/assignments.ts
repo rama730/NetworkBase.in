@@ -8,7 +8,7 @@ import { db } from '@/lib/db';
 import { profiles, workspaces, workspaceSprints, workspaceWorkflowColumns, taskActivityEvents, taskTeamMembers, tasks } from '@/lib/db/schema';
 import { getWorkspaceAccessById, writeBlockedMessage } from '@/lib/data/workspace-access';
 import { createClient } from '@/lib/supabase/server';
-import { canStillSubmit, copyState, type AssignmentSettings, type AssignmentTarget, type CopyState } from '@/lib/organizations/assignment-rules';
+import { assignmentHref, canStillSubmit, copyState, type AssignmentSettings, type AssignmentTarget, type CopyState } from '@/lib/organizations/assignment-rules';
 import { createCopies, createMasterTask, resolveRecipients } from '@/lib/organizations/assignments';
 import { shareToOrgGeneral } from '@/lib/organizations/org-chat';
 import { postOrgAnnouncement } from '@/lib/organizations/org-updates';
@@ -279,6 +279,12 @@ async function reviewOne(copyId: string, reviewerId: string, decision: 'approve'
     const [copy] = await db.select({ projectId: tasks.projectId, sprintId: tasks.sprintId, title: tasks.title }).from(tasks).where(eq(tasks.id, copyId)).limit(1);
     if (!copy) return false;
     const reviewed = await db.transaction(async (tx) => {
+        // Approve only what was handed in: files and steps can't have changed since (problems 21, 29). Submissions
+        // from before Submit saved this have no value to compare and are taken as they are.
+        if (decision === 'approve') {
+            const [row] = await tx.execute<{ hash: string | null }>(sql`SELECT review_content_hash AS hash FROM tasks WHERE id = ${copyId}::uuid FOR UPDATE`);
+            if (row?.hash && row.hash !== await taskReviewSnapshot(tx, copyId, true)) throw new Error('This changed after it was handed in. Ask them to resubmit.');
+        }
         const updated = await tx.update(tasks).set(decision === 'approve'
             ? { reviewStatus: 'none', status: 'done', completedAt: now, completedBy: reviewerId, completionSource: 'review', updatedAt: now }
             : { reviewStatus: 'rejected', status: 'in_progress', workflowColumnId: await columnFor(copy.projectId, 'in_progress'), completedAt: null, completedBy: null, completionSource: null, updatedAt: now },
@@ -305,16 +311,21 @@ async function lastReviewer(copyId: string) {
 }
 
 /** Approve, or Return with a reason, one submitted copy (org admins; report §16.4). */
-export async function reviewAssignmentCopyAction(copyId: string, decision: 'approve' | 'return', reason?: string): Promise<{ success: true } | Failure> {
+export async function reviewAssignmentCopyAction(copyId: string, decision: 'approve' | 'return', reason?: string, expected?: { projectId: string; updatedAt?: string }): Promise<{ success: true } | Failure> {
     const loaded = await loadCopy(copyId);
     if (!loaded) return DENIED;
+    // From the task panel: the copy must be in that workspace, and the panel must be looking at its current version.
+    if (expected && loaded.copy.projectId !== expected.projectId) return DENIED;
+    if (expected?.updatedAt && loaded.copy.updatedAt.getTime() !== new Date(expected.updatedAt).getTime()) return { success: false, error: 'This changed. Reload before reviewing.' };
     const viewer = await orgRole(loaded.master.projectId);
     if (!viewer?.isAdmin) return DENIED;
     if (loaded.copy.reviewStatus !== 'pending') return { success: false, error: `Already reviewed by ${await lastReviewer(copyId)}.` };
     if (decision === 'return' && !reason?.trim()) return { success: false, error: 'Say what to change.' };
     const [own] = await db.select({ id: tasks.id }).from(tasks).where(and(eq(tasks.id, copyId), ownWork(copyId, viewer.userId))).limit(1);
     if (own) return { success: false, error: "You can’t review your own work. Ask another admin." };
-    if (!await reviewOne(copyId, viewer.userId, decision, reason?.trim().slice(0, 1000))) {
+    const reviewed = await reviewOne(copyId, viewer.userId, decision, reason?.trim().slice(0, 1000)).catch((error: Error) => error);
+    if (reviewed instanceof Error) return { success: false, error: reviewed.message };
+    if (!reviewed) {
         return { success: false, error: `Already reviewed by ${await lastReviewer(copyId)}.` };
     }
     touch(viewer.slug, loaded.master.projectId);
@@ -630,18 +641,19 @@ export async function excuseTeamMemberAction(copyId: string, userId: string, rea
     return own ? excuseCopyAction(own.id, reason) : { success: true };
 }
 
-export type ReviewQueueRow = { copyId: string; masterId: string; title: string; who: string; submittedBy: string | null; submittedAt: string; late: boolean };
+export type ReviewQueueRow = { copyId: string; masterId: string; title: string; who: string; submittedBy: string | null; submittedAt: string; late: boolean; href: string };
 
 /** The marking inbox across every assignment (report §16.4–16.5): oldest first, with who handed in. */
 export async function readReviewQueueAction(orgId: string): Promise<{ success: true; rows: ReviewQueueRow[] } | Failure> {
     const viewer = await orgRole(orgId, 'read');
     if (!viewer?.isAdmin) return DENIED;
-    const rows = await db.execute<{ copy_id: string; master_id: string; title: string; team_name: string | null; assignee: string | null; project: string | null; submitted_by: string | null; submitted_at: string; due_date: string | null }>(sql`
+    const rows = await db.execute<{ copy_id: string; master_id: string; title: string; team_name: string | null; assignee: string | null; project: string | null; submitted_by: string | null; submitted_at: string; due_date: string | null; in_org: boolean; workspace_id: string }>(sql`
         SELECT c.id AS copy_id, m.id AS master_id, m.title, c.team_name,
                (SELECT coalesce(p.full_name, p.username) FROM profiles p WHERE p.id = c.assignee_id) AS assignee,
                (SELECT pr.title FROM workspaces pr WHERE pr.id = c.workspace_id AND pr.id <> m.workspace_id) AS project,
                (SELECT coalesce(p.full_name, p.username) FROM profiles p WHERE p.id = (c.submission->>'by')::uuid) AS submitted_by,
-               c.review_submitted_at::text AS submitted_at, c.due_date::text AS due_date
+               c.review_submitted_at::text AS submitted_at, c.due_date::text AS due_date,
+               (SELECT pr.kind = 'organization' FROM workspaces pr WHERE pr.id = c.workspace_id) AS in_org, c.workspace_id AS workspace_id
         FROM tasks c JOIN tasks m ON m.id = c.assignment_id
         WHERE m.workspace_id = ${orgId} AND m.deleted_at IS NULL AND c.deleted_at IS NULL AND c.excused_at IS NULL AND c.review_status = 'pending'
         ORDER BY c.review_submitted_at ASC NULLS LAST LIMIT 200`);
@@ -649,6 +661,8 @@ export async function readReviewQueueAction(orgId: string): Promise<{ success: t
         copyId: r.copy_id, masterId: r.master_id, title: r.title,
         who: r.team_name ?? r.project ?? r.assignee ?? 'Member', submittedBy: r.team_name ? r.submitted_by : null,
         submittedAt: r.submitted_at, late: Boolean(r.due_date && new Date(r.submitted_at) > new Date(r.due_date)),
+        // Group work opens in its own workspace (report §42.14 problem 35, decision 133).
+        href: r.in_org ? assignmentHref('', r.copy_id) : assignmentHref(`/workspaces/${r.workspace_id}`, r.copy_id),
     })) };
 }
 

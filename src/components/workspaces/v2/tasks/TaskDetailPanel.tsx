@@ -80,6 +80,8 @@ interface TaskDetailPanelProps {
   canEdit: boolean;
   /** Visitors read details and subtasks; comments, files and source links are for members. */
   isMember?: boolean;
+  /** Organization admins outside the workspace review its group work (report §42.14 problem 36). */
+  reviewsGroupWork?: boolean;
   canManageFiles?: boolean;
   isOwner?: boolean;
   sprints?: any[];
@@ -101,6 +103,7 @@ export default function TaskDetailPanel({
   onTaskUpdated,
   canEdit,
   isMember = true,
+  reviewsGroupWork = false,
   canManageFiles = false,
   isOwner = false,
   sprints = [],
@@ -137,7 +140,7 @@ export default function TaskDetailPanel({
 
   const readReceiptTaskIdRef = useRef<string | null>(null);
 
-  const restrictedTab = !isMember && (activeTab === "comments" || activeTab === "files");
+  const restrictedTab = !isMember && !(reviewsGroupWork && normalizedTask.assignmentId) && (activeTab === "comments" || activeTab === "files");
   const resource = useTaskPanelResource({
     task: normalizedTask,
     projectId,

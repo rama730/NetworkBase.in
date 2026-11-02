@@ -568,7 +568,7 @@ function ReviewQueue({ orgId, onChanged }: { orgId: string; onChanged: () => voi
             <div className="flex flex-wrap gap-2">
                 <Button type="button" size="sm" disabled={pending} onClick={() => decide('approve')}>Approve</Button>
                 <Button type="button" size="sm" variant="outline" disabled={pending} onClick={() => decide('return')}>Return</Button>
-                <a href={`?tab=tasks&drawerType=task&drawerId=${current.copyId}`} className="self-center text-primary underline-offset-4 hover:underline">Open</a>
+                <a href={current.href} className="self-center text-primary underline-offset-4 hover:underline">Open</a>
                 <Button type="button" size="sm" variant="ghost" className="ml-auto" disabled={rows.length < 2} onClick={() => setIndex((index + 1) % rows.length)}>Next</Button>
             </div>
             {error ? <p role="alert" className="text-destructive">{error}</p> : null}

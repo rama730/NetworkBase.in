@@ -92,6 +92,8 @@ interface TasksTabProps {
   canEditTasks: boolean;
   /** Comments, files and source messages on tasks are members-only. */
   isProjectMember?: boolean;
+  /** Organization admins outside the workspace review its group work (problem 36). */
+  reviewsGroupWork?: boolean;
   canManageFiles?: boolean;
   canManageWorkflow: boolean;
   /** A child project: leads and admins also make team tasks (report §16.11). */
@@ -116,6 +118,7 @@ export default function TasksTab({
   isOwner = false,
   canEditTasks,
   isProjectMember = true,
+  reviewsGroupWork = false,
   canManageFiles = false,
   canManageWorkflow,
   isChildProject = false,
@@ -1061,6 +1064,7 @@ export default function TasksTab({
           projectSlug={projectSlug}
           canEdit={canEditTasks}
           isMember={isProjectMember}
+          reviewsGroupWork={reviewsGroupWork}
           canManageFiles={canManageFiles}
           isOwner={isOwner}
           members={members}

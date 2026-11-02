@@ -293,3 +293,14 @@ export async function assertAssignmentWrite(executor: Executor, taskId: string, 
   if (blocked) throw new Error(blocked);
   return context;
 }
+
+/** The workspace a copy lives in, as a path for assignmentHref: the organization's, or its group workspace's by id. */
+export async function copyWorkspacePath(copyId: string): Promise<string | null> {
+  const rows = await db.execute<{ kind: string; slug: string | null; id: string }>(sql`
+    SELECT p.kind, p.slug, p.id FROM tasks t JOIN workspaces p ON p.id = t.workspace_id
+    WHERE t.id = ${copyId}::uuid AND t.assignment_id IS NOT NULL AND t.deleted_at IS NULL`);
+  const row = Array.from(rows)[0];
+  if (!row) return null;
+  // A workspace goes by id, so a copy id never reveals a private workspace's name; its page redirects to the slug.
+  return row.kind === "organization" ? `/org/${encodeURIComponent(row.slug ?? row.id)}` : `/workspaces/${row.id}`;
+}

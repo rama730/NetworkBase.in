@@ -10,6 +10,8 @@ import WorkspaceDetailLoading from './loading';
 import { PrivateOrgHeader } from '@/components/organizations/PrivateOrgHeader';
 import { readOrgCard, resolveHeldOrgHandle } from '@/lib/organizations/detail';
 import { stampLastActiveHere } from '@/lib/organizations/members';
+import { copyWorkspacePath } from '@/lib/organizations/assignments';
+import { assignmentHref } from '@/lib/organizations/assignment-rules';
 import { getViewerIdentityContext, toClientViewer } from '@/lib/server/viewer-context';
 import { shareMetadata } from '@/lib/sharing/metadata';
 import { readSharePreview } from '@/lib/sharing/read';
@@ -99,6 +101,12 @@ async function ResolvedProjectDashboard({
     if (isShareCrawler((await headers()).get('user-agent'))) {
         const preview = await readSharePreview(new URL(`/workspaces/${encodeURIComponent(slug)}`, shareOrigin()).href);
         return <article className="p-6"><h1>{preview?.title ?? 'Workspace on NetworkBase'}</h1><p>{preview?.description ?? 'Open this workspace on NetworkBase.'}</p><a href={preview?.url ?? '/discover'}>Open NetworkBase</a></article>;
+    }
+    // Old assignment links (report §42.10 problem 11): Tasks, with the exact copy open in its own workspace.
+    if (firstParam(_searchParams?.tab) === "assignments") {
+        const copyId = firstParam(_searchParams?.copy);
+        const copyPath = copyId ? await copyWorkspacePath(copyId) : null;
+        redirect(assignmentHref(copyPath ?? `${base}/${encodeURIComponent(slug)}`, copyPath ? copyId : null, firstParam(_searchParams?.view) === "review"));
     }
     const selectedTab = firstParam(_searchParams?.tab) || "dashboard";
     const sprintId = firstParam(_searchParams?.sprint) ?? firstParam(_searchParams?.sprintId);
