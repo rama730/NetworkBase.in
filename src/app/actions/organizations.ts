@@ -22,7 +22,7 @@ import { generateJoinCode } from '@/lib/organizations/join-rules';
 import { allowedChildVisibilities, type ChildVisibility } from '@/lib/organizations/child-rules';
 import { applyChildVisibilityCap, countChildrenAboveCap, countOutsidePeople, detachFromOrg, moveIntoOrg, readOrgCap } from '@/lib/organizations/children';
 import { listCreateLocations, readViewerOrgRole } from '@/lib/organizations/detail';
-import { acceptOrgInvite, ledChildWorkspaces, notifySeatsReopened, openInvitesFor, removeFromOrg } from '@/lib/organizations/members';
+import { acceptOrgInvite, AccountOrgLimitError, ledChildWorkspaces, notifySeatsReopened, openInvitesFor, removeFromOrg } from '@/lib/organizations/members';
 import { countOrgMembers, findOrgByJoinCode, isOrgHandleAvailable, joinOrgByCode, joinPublicOrg, viewerOrgStatus } from '@/lib/organizations/join';
 import { normalizeJoinCode, ORG_JOIN_MESSAGES, type OrgJoinMode, type OrgJoinOutcome } from '@/lib/organizations/join-rules';
 import { isWorkspacePubliclyReadableVisibility } from '@/lib/workspaces/workspace-visibility';
@@ -86,6 +86,12 @@ export async function getJoinPreviewAction(rawCode: string): Promise<{ success: 
     };
 }
 
+/** Turns only the account-limit refusal into a value; anything else rethrows and stays redacted (report §26.11). */
+function limitOnly(error: unknown): AccountOrgLimitError {
+    if (error instanceof AccountOrgLimitError) return error;
+    throw error;
+}
+
 export async function joinOrganizationAction(
     rawCode: string,
     note?: string | null,
@@ -98,15 +104,15 @@ export async function joinOrganizationAction(
     const target = code ? await findOrgByJoinCode(code) : null;
     const invite = target ? (await openInvitesFor(userId, target.id))[0] : undefined;
     // A refusal such as the 50-organization limit comes back as its sentence (report §26.11).
-    const accepted = target && invite ? await acceptOrgInvite(userId, invite.id).catch((error: Error) => error) : null;
-    if (accepted instanceof Error) return { success: false, error: accepted.message };
+    const accepted = target && invite ? await acceptOrgInvite(userId, invite.id).catch(limitOnly) : null;
+    if (accepted instanceof AccountOrgLimitError) return { success: false, error: accepted.message };
     if (target && invite && accepted && 'orgId' in accepted) {
         revalidatePath(`/workspaces/${target.slug ?? target.id}`);
         await notifyJoined(target.id, userId, `${invite.id}:accepted`);
         return { success: true, outcome: 'joined', org: { id: target.id, title: target.title, slug: target.slug } };
     }
-    const result = code ? await joinOrgByCode(userId, code, note).catch((error: Error) => error) : null;
-    if (result instanceof Error) return { success: false, error: result.message };
+    const result = code ? await joinOrgByCode(userId, code, note).catch(limitOnly) : null;
+    if (result instanceof AccountOrgLimitError) return { success: false, error: result.message };
     if (!result) return NO_MATCH;
     const { outcome, org } = result;
     if (outcome === 'blocked' || outcome === 'full' || outcome === 'unavailable' || outcome === 'cooldown') {

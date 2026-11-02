@@ -100,7 +100,7 @@ test("requests: approve, approve all, decline with a reason; Max members blocks 
   await sql`UPDATE workspaces SET max_collaborators = '4' WHERE id = ${o.orgId}`;
   assert.match(JSON.stringify(await members.approveJoinRequestsAction(o.orgId, [r1.applicationId])), /full/i);
   await sql`UPDATE workspaces SET max_collaborators = NULL WHERE id = ${o.orgId}`;
-  assert.deepEqual(await members.approveJoinRequestsAction(o.orgId, [r1.applicationId, r2.applicationId]), { success: true, approved: 2 });
+  assert.deepEqual(await members.approveJoinRequestsAction(o.orgId, [r1.applicationId, r2.applicationId]), { success: true, approved: 2, atLimit: 0 });
   assert.equal((await members.declineJoinRequestAction(o.orgId, r3.applicationId, "Not in this section")).success, true);
   const rows = await sql`SELECT user_id FROM workspace_members WHERE workspace_id = ${o.orgId} AND user_id IN (${r1.user}, ${r2.user}, ${r3.user})`;
   assert.equal(rows.length, 2);

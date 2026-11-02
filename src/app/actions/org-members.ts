@@ -13,7 +13,7 @@ import { copyState } from '@/lib/organizations/assignment-rules';
 import { createCopiesForNewMember } from '@/lib/organizations/assignments';
 import { ORG_LIMITS } from '@/lib/organizations/config';
 import { orgMemberCap } from '@/lib/organizations/join-rules';
-import { acceptOrgInvite, accountOrgLimit, createOrgEmailInvites, INVITE_DAYS, ledChildWorkspaces, notifyInvites, notifySeatsReopened, openInvitesFor, removeFromOrg } from '@/lib/organizations/members';
+import { acceptOrgInvite, AccountOrgLimitError, accountOrgLimit, createOrgEmailInvites, INVITE_DAYS, ledChildWorkspaces, notifyInvites, notifySeatsReopened, openInvitesFor, removeFromOrg } from '@/lib/organizations/members';
 import { memberChangeBlock, memberStatus, parseInviteEmails, workSummary, type OrgMemberRole, type RosterRow } from '@/lib/organizations/member-rules';
 import { addWorkspaceMemberInternal, changeWorkspaceMemberRoleInternal } from '@/lib/workspaces/collaborator-lifecycle';
 import { getViewerAuthContext } from '@/lib/server/viewer-context';
@@ -153,7 +153,7 @@ export async function readOrgMembersAction(orgId: string): Promise<OrgMembersDat
 }
 
 /** Approve one request or several ("Approve all"); Max members blocks approvals when full (report §20.5). */
-export async function approveJoinRequestsAction(orgId: string, applicationIds: string[]): Promise<{ success: true; approved: number } | Failure> {
+export async function approveJoinRequestsAction(orgId: string, applicationIds: string[]): Promise<{ success: true; approved: number; atLimit: number } | Failure> {
     const viewer = await orgManager(orgId);
     if (!viewer) return DENIED;
     const result = await db.transaction(async (tx) => {
@@ -164,16 +164,18 @@ export async function approveJoinRequestsAction(orgId: string, applicationIds: s
         const max = orgMemberCap(org?.max ?? null);
         if (n + pending.length > max) return { success: false as const, error: `This organization is full (${max} members). Raise Max members in Settings first.` };
         const now = new Date();
+        const added: typeof pending = [];
         for (const request of pending) {
-            // Someone already in 50 organizations stays waiting (report §26.11).
+            // Someone already in 50 organizations stays waiting (report §26.11), and isn't told they're in.
             if (await accountOrgLimit(tx, request.userId, 'join')) continue;
+            added.push(request);
             await addWorkspaceMemberInternal(tx, { projectId: orgId, userId: request.userId, role: 'member', actorId: viewer.userId, source: 'application_accept', applicationId: request.id });
             await createCopiesForNewMember(tx, orgId, request.userId);
             await tx.update(roleApplications).set({ status: 'accepted', decisionAt: now, decisionBy: viewer.userId, updatedAt: now }).where(eq(roleApplications.id, request.id));
             await tx.insert(applicationEvents).values({ applicationId: request.id, actorId: viewer.userId, kind: 'accepted', fromStatus: 'pending', toStatus: 'accepted', metadata: { source: 'org_request' } });
         }
         touch(viewer.slug, orgId);
-        return { success: true as const, approved: pending.length, pending };
+        return { success: true as const, approved: added.length, atLimit: pending.length - added.length, pending: added };
     });
     if (!result.success) return result;
     const org = await orgLabel(orgId);
@@ -186,7 +188,7 @@ export async function approveJoinRequestsAction(orgId: string, applicationIds: s
             await notifyNewCopies(orgId, { userId: request.userId });
         }
     }
-    return { success: true, approved: result.approved };
+    return { success: true, approved: result.approved, atLimit: result.atLimit };
 }
 
 /** Decline with an optional reason; they may ask again after the cool-down (report §20.5). */
@@ -281,8 +283,9 @@ export async function acceptOrgInviteAction(inviteId: string): Promise<{ success
     const { userId } = await getViewerAuthContext();
     if (!userId) return DENIED;
     const mine = (await openInvitesFor(userId)).some((i) => i.id === inviteId);
-    const accepted = mine ? await acceptOrgInvite(userId, inviteId).catch((error: Error) => error) : null;
-    if (accepted instanceof Error) return { success: false, error: accepted.message };
+    // Only the account-limit sentence is shown; anything else stays a redacted server error.
+    const accepted = mine ? await acceptOrgInvite(userId, inviteId).catch((error: unknown) => { if (error instanceof AccountOrgLimitError) return error; throw error }) : null;
+    if (accepted instanceof AccountOrgLimitError) return { success: false, error: accepted.message };
     if (accepted && 'full' in accepted) return { success: false, error: 'This organization is full. Ask an admin to raise Max members.' };
     if (!accepted) return { success: false, error: 'That invite is no longer open.' };
     const { orgId } = accepted;

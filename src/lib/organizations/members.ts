@@ -78,7 +78,7 @@ export async function acceptOrgInvite(userId: string, inviteId: string): Promise
       .returning();
     if (!invite) return null;
     const limit = await accountOrgLimit(tx, userId, "join");
-    if (limit) throw new Error(limit);
+    if (limit) throw new AccountOrgLimitError(limit);
     await addWorkspaceMemberInternal(tx, { projectId: invite.orgId, userId, role: invite.role, actorId: userId, source: "email_invite" });
     if (invite.role === "member") await createCopiesForNewMember(tx, invite.orgId, userId);
     if (invite.title) {
@@ -161,6 +161,9 @@ export async function stampLastActiveHere(workspaceId: string, userId: string) {
       AND m.user_id = ${userId}::uuid
       AND (m.last_active_here_at IS NULL OR m.last_active_here_at < now() - interval '1 hour')`);
 }
+
+/** A per-account limit refused the join: its message is safe to show; any other error stays redacted. */
+export class AccountOrgLimitError extends Error {}
 
 /**
  * Per-account limits (report §21.4, §26.11, §27.1 #3–4): own up to 5 organizations, belong to up to 50. Null when

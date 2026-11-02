@@ -17,7 +17,7 @@ import { decideOrgJoin, orgMemberCap, type OrgJoinMode, type OrgJoinOutcome } fr
 import { addWorkspaceMemberInternal } from "@/lib/workspaces/collaborator-lifecycle";
 import { createCopiesForNewMember } from "@/lib/organizations/assignments";
 import { notifyNewCopies } from "@/lib/organizations/assignment-notify";
-import { acceptOrgInvite, accountOrgLimit } from "@/lib/organizations/members";
+import { acceptOrgInvite, AccountOrgLimitError, accountOrgLimit } from "@/lib/organizations/members";
 
 export type OrgSummary = { id: string; title: string; slug: string | null };
 
@@ -130,7 +130,7 @@ async function joinOrg(
     // Belong to up to 50 organizations (report §26.11): checked before joining or asking to.
     if (outcome === "joined" || outcome === "requested") {
       const limit = await accountOrgLimit(tx, userId, "join");
-      if (limit) throw new Error(limit);
+      if (limit) throw new AccountOrgLimitError(limit);
     }
 
     if (outcome === "joined") {
