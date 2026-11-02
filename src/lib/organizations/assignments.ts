@@ -248,12 +248,13 @@ export async function releaseCopiesOnLeave(executor: Executor, orgId: string, us
     sql`NOT ${handedInSql}`,
     sql`NOT EXISTS (SELECT 1 FROM ${taskTeamMembers} tm WHERE tm.task_id = ${tasks.id} AND tm.user_id <> ${userId})`,
   ));
-  const teamCopies = await executor.select({ taskId: taskTeamMembers.taskId }).from(taskTeamMembers)
+  const teamCopies = await executor.select({ taskId: taskTeamMembers.taskId, isLead: taskTeamMembers.isLead }).from(taskTeamMembers)
     .innerJoin(tasks, eq(tasks.id, taskTeamMembers.taskId))
     .where(and(eq(taskTeamMembers.userId, userId), eq(tasks.projectId, orgId)));
-  for (const { taskId } of teamCopies) {
+  for (const { taskId, isLead } of teamCopies) {
     await executor.delete(taskTeamMembers).where(and(eq(taskTeamMembers.taskId, taskId), eq(taskTeamMembers.userId, userId)));
-    const [next] = await executor.select({ userId: taskTeamMembers.userId }).from(taskTeamMembers).where(eq(taskTeamMembers.taskId, taskId)).limit(1);
+    // Only a leaving lead passes the lead on, so a team never ends up with two (report §42.2 smaller bug 3).
+    const [next] = isLead ? await executor.select({ userId: taskTeamMembers.userId }).from(taskTeamMembers).where(eq(taskTeamMembers.taskId, taskId)).limit(1) : [];
     if (next) {
       await executor.update(taskTeamMembers).set({ isLead: true }).where(and(eq(taskTeamMembers.taskId, taskId), eq(taskTeamMembers.userId, next.userId)));
       await executor.update(tasks).set({ assigneeId: next.userId, updatedAt: new Date() }).where(and(eq(tasks.id, taskId), eq(tasks.assigneeId, userId)));

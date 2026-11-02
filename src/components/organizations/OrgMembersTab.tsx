@@ -78,7 +78,8 @@ export function OrgMembersTab({ orgId, roleNames }: { orgId: string; roleNames?:
 
     if (error) return <p role="alert" className="py-10 text-center text-sm text-muted-foreground">{error}</p>
     if (!data) return <p className="py-10 text-center text-sm text-muted-foreground">Loading members…</p>
-    const ids = [...selected]
+    // Bulk actions reach only ticked people still on screen, so a changed filter never removes someone hidden (smaller bug 9).
+    const ids = rows.filter((r) => selected.has(r.userId)).map((r) => r.userId)
     const s = data.summary
 
     return (

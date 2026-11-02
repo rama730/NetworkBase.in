@@ -511,3 +511,17 @@ test("problem 52: the plain workspace member actions refuse an organization; the
   const [still] = await sql`SELECT role FROM workspace_members WHERE workspace_id = ${o.org} AND user_id = ${o.a}`;
   assert.equal(still!.role, "member");
 });
+
+test("smaller bug 3: a teammate who isn't the lead leaving never makes a second lead", async () => {
+  const o = await org();
+  const [c] = await Promise.all([sql.begin((tx) => createUser(tx))]);
+  await sql`INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (${o.org}, ${c!}, 'member')`;
+  viewerId = o.owner;
+  const made = await assignments.createAssignmentAction({ projectId: o.org, title: "Team lab", dueDate: future(), publish: true, submissionType: "none", lateRule: "none",
+    target: { mode: "teams", teams: [{ name: "Owl", userIds: [o.a, o.b, c!], leadId: o.a }], individuals: [] }, steps: [] } as Parameters<typeof assignments.createAssignmentAction>[0]);
+  const [copy] = await sql`SELECT id FROM tasks WHERE assignment_id = ${made.success ? made.masterId : ""}`;
+  const { releaseCopiesOnLeave } = await loadAppModule(() => import("../../src/lib/organizations/assignments"));
+  await releaseCopiesOnLeave(appDb.db, o.org, o.b);
+  const leads = await sql`SELECT user_id FROM task_team_members WHERE task_id = ${copy!.id} AND is_lead`;
+  assert.deepEqual(leads.map((l) => l.user_id), [o.a]);
+});

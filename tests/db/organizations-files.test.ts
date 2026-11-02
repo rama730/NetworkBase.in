@@ -213,7 +213,7 @@ test("§23 pass: Sprint materials by access, trash-in-use warnings, storage line
   const [group] = await sql`INSERT INTO tasks (workspace_id, title, kind, assignment_id, assignee_id, creator_id, review_status) VALUES (${o.child}, 'Lab 2', 'task', ${o.master}, ${o.a}, ${o.owner}, 'pending') RETURNING id`;
   await node(o.child, `/.system/tasks/${group!.id}/parser.zip`, "file", { taskId: group!.id });
   const deliverables = await orgFiles.readGroupDeliverablesAction(o.orgId);
-  assert.deepEqual(deliverables.success && deliverables.rows.map((r) => [r.name, r.project, r.review]), [["parser.zip", "Compiler Lab", "pending"]]);
+  assert.deepEqual(deliverables.success && deliverables.rows.map((r) => [r.name, r.project, r.review]), [["parser.zip", "Compiler Lab", "submitted"]]);
 
   const github = await loadAppModule(() => import("../../src/app/actions/github-sync"));
   const refused = await github.connectGitHubSyncRepository(o.orgId, "https://github.com/acme/repo", "main") as { success?: boolean; error?: string };

@@ -242,7 +242,10 @@ export type GroupDeliverableRow = { nodeId: string; name: string; project: strin
 export async function readGroupDeliverablesAction(orgId: string): Promise<{ success: true; rows: GroupDeliverableRow[] } | Failure> {
     if (!(await orgAdmin(orgId, 'read'))) return DENIED;
     const rows = await db.execute<{ node_id: string; name: string; project: string; project_slug: string | null; project_id: string; assignment: string; review: string }>(sql`
-        SELECT n.id AS node_id, n.name, p.title AS project, p.slug AS project_slug, p.id AS project_id, m.title AS assignment, c.review_status AS review
+        SELECT n.id AS node_id, n.name, p.title AS project, p.slug AS project_slug, p.id AS project_id, m.title AS assignment,
+               -- The copy's real state, in the shipped words (report §42.10 smaller bug 10).
+               CASE WHEN c.review_status = 'pending' THEN 'submitted' WHEN c.review_status = 'rejected' THEN 'returned'
+                    WHEN c.status = 'done' THEN 'completed' ELSE 'not_handed_in' END AS review
         FROM tasks m JOIN tasks c ON c.assignment_id = m.id AND c.deleted_at IS NULL AND c.workspace_id <> m.workspace_id
         JOIN workspaces p ON p.id = c.workspace_id AND p.parent_id = ${orgId} AND p.deleted_at IS NULL
         JOIN workspace_nodes n ON n.task_id = c.id AND n.type = 'file' AND n.deleted_at IS NULL

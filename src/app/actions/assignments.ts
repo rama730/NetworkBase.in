@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { and, asc, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
+import { logger } from '@/lib/logger';
 import { z } from 'zod';
 
 import { db } from '@/lib/db';
@@ -109,9 +110,14 @@ export async function createAssignmentAction(input: z.input<typeof createSchema>
             return { masterId, copies: recipients.length };
         });
         touch(viewer.slug, data.projectId);
-        if (data.publish && data.shareToGeneral) await shareToOrgGeneral(data.projectId, viewer.userId, { kind: 'assignment', ref_id: result.masterId });
-        if (data.publish && data.announcement) await postOrgAnnouncement(data.projectId, viewer.userId, data.announcement);
-        if (data.publish) await notifyAssignmentPublished(result.masterId, viewer.userId);
+        // Saved is saved: a failed share, announcement or notice is logged, never reported as a failed publish,
+        // or a retry would make a second assignment with a second set of copies (report §42.2 smaller bug 6).
+        const afterSave = async (step: string, run: () => Promise<unknown>) => {
+            try { await run(); } catch (error) { logger.warn('assignments.after_save_failed', { module: 'assignments', step, masterId: result.masterId, error: error instanceof Error ? error.message : String(error) }); }
+        };
+        if (data.publish && data.shareToGeneral) await afterSave('share', () => shareToOrgGeneral(data.projectId, viewer.userId, { kind: 'assignment', ref_id: result.masterId }));
+        if (data.publish && data.announcement) await afterSave('announcement', () => postOrgAnnouncement(data.projectId, viewer.userId, data.announcement!));
+        if (data.publish) await afterSave('notify', () => notifyAssignmentPublished(result.masterId, viewer.userId));
         return { success: true, ...result };
     } catch (error) {
         return { success: false, error: error instanceof Error ? error.message : 'Couldn’t create the assignment.' };

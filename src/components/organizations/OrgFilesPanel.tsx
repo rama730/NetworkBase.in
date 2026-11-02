@@ -228,7 +228,7 @@ export function OrgSprintMaterials({ orgId, orgSlug }: { orgId: string; orgSlug:
     )
 }
 
-const REVIEW: Record<string, string> = { pending: 'In review', approved: 'Approved', returned: 'Returned', none: 'Handed in' }
+const REVIEW: Record<string, string> = { submitted: 'Submitted', returned: 'Returned', completed: 'Completed', not_handed_in: 'Not handed in yet' }
 
 /** Group copies' files from child projects, in the org's Deliverables (report §23.6): "Reviewed by <org>". */
 function GroupDeliverables({ orgId }: { orgId: string }) {
