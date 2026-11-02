@@ -2,7 +2,9 @@
 
 import { typeProfile } from '@/lib/organizations/type-profile'
 import { ActivityItem } from '@/components/ui/activity-item'
-import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
+import { X } from 'lucide-react'
+import { aboutStages } from '@/lib/organizations/dashboard-rules'
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
 
@@ -40,13 +42,22 @@ export function OrgAboutTab({ project, isCreator, onEdit, memberRole = null, vis
     // The overview card reads these off the full project payload; the shared Project type doesn't list them.
     const statements = project as Workspace & { problemStatement?: string | null; solutionStatement?: string | null }
     const roleName = (role: 'owner' | 'admin') => org?.roleNames?.[role] ?? (role === 'owner' ? 'Owner' : 'Admin')
+    const [noteTucked, setNoteTucked] = useState(false)
+    const viewer = data?.card.kind === 'invite' ? 'admin' as const : data?.card.kind === 'visitor' ? 'visitor' as const : 'member' as const
+    const stages = data ? aboutStages(data.stageCount, viewer) : null
     return (
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
             <div className="min-w-0 space-y-4 lg:col-span-8">
-                {org?.welcomeNote ? (
-                    <section aria-label="Welcome note" className="rounded-lg border border-border bg-card p-4">
-                        <p className="nb-body whitespace-pre-line text-foreground">{org.welcomeNote}</p>
+                {/* Report §26.9: a former member of a public organization sees their own line, nothing more. */}
+                {data?.formerLine ? <p role="status" className="rounded-[5px] border border-border bg-muted/40 px-3 py-2 text-sm">{data.formerLine}</p> : null}
+                {/* Report §7.3: the welcome note is for people inside; members can tuck it away, admins add one. */}
+                {org?.welcomeNote && viewer !== 'visitor' && !noteTucked ? (
+                    <section aria-label="Welcome note" className="flex items-start gap-2 rounded-lg border border-border bg-card p-4">
+                        <p className="nb-body min-w-0 flex-1 whitespace-pre-line text-foreground">{org.welcomeNote}</p>
+                        {viewer === 'member' ? <button type="button" aria-label="Hide welcome note" className="rounded p-1 text-muted-foreground hover:bg-muted" onClick={() => setNoteTucked(true)}><X className="size-4" /></button> : null}
                     </section>
+                ) : !org?.welcomeNote && viewer === 'admin' ? (
+                    <Link href={`${base}?tab=settings`} className="inline-block text-sm underline underline-offset-4">Add a welcome note</Link>
                 ) : null}
                 <ProjectOverviewCard project={project} isCreator={isCreator} onEdit={onEdit} labels={ORG_LABELS} />
                 {/* Empty-state prompts for admins (report §22.3). */}
@@ -58,17 +69,29 @@ export function OrgAboutTab({ project, isCreator, onEdit, memberRole = null, vis
                 ) : null}
                 {data?.projects.length ? (
                     <RailSection title="Workspaces" action={data.card.kind !== 'visitor' ? <Link href={`${base}?tab=projects`} className="text-[12px] underline underline-offset-4">See all</Link> : undefined}>
-                        <p className="text-sm">
-                            {data.projects.map((p, i) => <span key={p.id}>{i ? ' · ' : ''}<Link href={`/workspaces/${encodeURIComponent(p.slug ?? p.id)}`} className="hover:underline">{p.title}</Link></span>)}
-                        </p>
+                        <ul className="divide-y divide-border">
+                            {data.projects.map((p) => <li key={p.id}><Link href={`/workspaces/${encodeURIComponent(p.slug ?? p.id)}`} className="flex min-h-10 items-center justify-between gap-2 text-sm hover:text-primary"><span className="truncate">{p.title}</span><span aria-hidden="true">→</span></Link></li>)}
+                        </ul>
                     </RailSection>
                 ) : null}
             </div>
             <aside aria-label="Organization details" className="min-w-0 space-y-6 lg:col-span-4">
-                {data?.journey ? (
+                {/* Report §7.3, decision 79: stages come from sprints and teach when empty; one sprint is a plain stop. */}
+                {stages === 'timeline' && data?.journey ? (
                     <JourneyTimeline stages={data.journey.stages} currentStageIndex={data.journey.currentIndex} isCreator={false} stageCompletionDates={data.journey.completionDates} layout="rail" />
-                ) : data?.card.kind === 'invite' ? (
-                    <RailSection title="Stages"><Link href={`${base}?tab=sprints`} className="text-sm underline underline-offset-4">{typeProfile(org?.type).planLabel}</Link></RailSection>
+                ) : stages === 'single' && data?.journey ? (
+                    <RailSection title="Stages">
+                        <p className="text-sm">{data.journey.stages[0]}{data.journey.currentIndex > 0 ? ' · Completed' : ''}</p>
+                        {viewer === 'admin' ? <Link href={`${base}?tab=sprints`} className="text-[13px] text-primary hover:underline">Add the next sprint</Link> : null}
+                    </RailSection>
+                ) : stages === 'ghost' ? (
+                    <RailSection title="Stages">
+                        <div aria-hidden="true" className="mb-2 flex items-center gap-2 opacity-40">{[0, 1, 2].map((i) => <span key={i} className="flex flex-1 items-center gap-2"><span className="size-2.5 rounded-full border border-border" /><span className="h-px flex-1 bg-border" /></span>)}</div>
+                        <p className="text-sm text-muted-foreground">Your sprints become stages here.</p>
+                        <Link href={`${base}?tab=sprints`} className="text-[13px] text-primary hover:underline">Plan your first sprint</Link>
+                    </RailSection>
+                ) : stages === 'hint' ? (
+                    <RailSection title="Stages"><p className="text-sm text-muted-foreground">Stages appear once sprints are planned.</p></RailSection>
                 ) : null}
                 {data?.activity.length ? (
                     <RailSection title="Recent activity">
@@ -89,10 +112,12 @@ export function OrgAboutTab({ project, isCreator, onEdit, memberRole = null, vis
                         </RailSection>
                     ) : data.card.kind === 'member' || data.card.kind === 'guest' ? (
                         <RailSection title={project.title}>
+                            {/* Report §39.5: the role word without "a" or "an"; links to My membership (§7.3). */}
                             <p className="text-sm text-muted-foreground">
-                                {data.card.kind === 'guest' ? 'Viewer · read only' : `You’re a ${org?.roleNames?.member ?? 'Member'}`}
-                                {data.card.joinedAt ? ` · joined ${new Date(data.card.joinedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}` : ''}
+                                {data.card.kind === 'guest' ? 'Viewer · read only' : org?.roleNames?.member ?? 'Member'}
+                                {data.card.joinedAt ? ` · Joined ${new Date(data.card.joinedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}` : ''}
                             </p>
+                            <Link href={`${base}?tab=settings`} className="text-[13px] text-primary hover:underline">My membership</Link>
                         </RailSection>
                     ) : visitorActions && project.status !== 'archived' ? (
                         <RailSection title={`Join ${project.title}`}>{visitorActions}</RailSection>
@@ -117,7 +142,11 @@ export function OrgAboutTab({ project, isCreator, onEdit, memberRole = null, vis
                             {details.map(([term, value]) => (
                                 <div key={term} className="flex justify-between gap-3">
                                     <dt className="shrink-0 text-muted-foreground">{term}</dt>
-                                    <dd className="min-w-0 break-words text-right">{value}</dd>
+                                    <dd className="min-w-0 break-words text-right">
+                                        {value}
+                                        {/* Gap 21: the handle gets a Copy button. */}
+                                        {term === 'Handle' ? <button type="button" className="ml-2 text-[12px] underline underline-offset-4" onClick={() => void navigator.clipboard.writeText(value ?? '').then(() => toast.success('Handle copied'))}>Copy</button> : null}
+                                    </dd>
                                 </div>
                             ))}
                         </dl>

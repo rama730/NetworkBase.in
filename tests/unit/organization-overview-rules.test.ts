@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { classStanding, getStartedCards, todayRows, weekGroup, weekLine } from "@/lib/organizations/dashboard-rules";
+import { aboutStages, classStanding, getStartedCards, todayRows, weekGroup, weekLine } from "@/lib/organizations/dashboard-rules";
 
 // Step 4 (report §7.2, §33.5): the Overview rules, pure so the server and the screen agree.
 
@@ -43,4 +43,12 @@ test("33.5, decision 80: Today puts deadlines and sprint endings first, then the
     attention: [{ kind: "review", label: "6 submissions to review · Lab 2", href: "/r" }],
   }, new Date("2026-11-03T08:00:00Z"), "UTC");
   assert.deepEqual(rows.map((r) => r.label), ["Lab 3 due today · 28 of 40 in", "CO3 ends Thu · 4 behind", "Term ends 15 Nov · Review open work, verify members, then archive or duplicate", "6 submissions to review · Lab 2"]);
+});
+
+test("7.3, decision 79, gaps 5 and 6: About's stages teach when empty and never show a lone dot", () => {
+  assert.equal(aboutStages(0, "admin"), "ghost");
+  assert.equal(aboutStages(0, "member"), "hint");
+  assert.equal(aboutStages(0, "visitor"), null);
+  assert.equal(aboutStages(1, "visitor"), "single");
+  assert.equal(aboutStages(3, "member"), "timeline");
 });

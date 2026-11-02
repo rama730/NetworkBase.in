@@ -209,3 +209,17 @@ test("38.6, decision 107: the write-up nudge is dismissed for good, and only by 
   const mine = (await collaboration.getProfileContributions(o.a, { includePrivate: true })).contributions.find((c) => c.id === id)!;
   assert.equal(mine.nudgeDismissed, true);
 });
+
+test("26.9: on a public organization, a former member sees their own line on About", async () => {
+  const o = await org("public");
+  const dash = await loadAppModule(() => import("../../src/app/actions/org-dashboard"));
+  await publishedEntry(o.a, o.id, o.owner);
+  viewerId = o.owner;
+  await members.removeMembersAction(o.id, [o.a], { block: false });
+  viewerId = o.a;
+  const about = await dash.readOrgAboutAction(o.id);
+  assert.equal(about.success && about.formerLine, "You’re no longer in CSE 3B.");
+  viewerId = o.b;
+  const current = await dash.readOrgAboutAction(o.id);
+  assert.equal(current.success && current.formerLine, null, "members see nothing");
+});

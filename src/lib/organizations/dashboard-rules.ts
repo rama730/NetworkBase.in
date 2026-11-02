@@ -115,3 +115,12 @@ export function todayRows(input: {
     ...input.attention,
   ];
 }
+
+/**
+ * About's Stages (report §7.3, decision 79, gaps 5 and 6): stages come from sprints. When there are none, admins
+ * see a faded timeline that teaches, members a line, visitors nothing. One sprint is a plain stop, never a lone dot.
+ */
+export function aboutStages(stageCount: number, viewer: "admin" | "member" | "visitor"): "ghost" | "hint" | "single" | "timeline" | null {
+  if (stageCount === 0) return viewer === "admin" ? "ghost" : viewer === "member" ? "hint" : null;
+  return stageCount === 1 ? "single" : "timeline";
+}

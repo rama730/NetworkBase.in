@@ -9,6 +9,8 @@ import { orgFileAccessSql } from '@/lib/files/internal-helpers';
 import { copyState, type CopyState } from '@/lib/organizations/assignment-rules';
 import { activityVisible, classStanding, getStartedCards, journeyFromSprints, needsAttention, todayRows, weekGroup, weekLine, type ActivityKind, type TodayRow } from '@/lib/organizations/dashboard-rules';
 import { typeProfile } from '@/lib/organizations/type-profile';
+import { readPrivateOrgState } from '@/lib/organizations/join';
+import { privateOrgLine } from '@/lib/organizations/join-rules';
 
 /** "How the class is doing" in the type's word (report §34.2). */
 const CLASS_WORD: Record<string, string> = { education: 'class', company: 'team', research: 'lab', community: 'group', club: 'club', other: 'group' };
@@ -292,6 +294,9 @@ export async function readOrgDashboardAction(orgId: string, activityFilter = 'al
 
 export type OrgAboutData = {
     success: true;
+    formerLine: string | null;
+    /** Sprints the viewer can see; Stages teach when there are none (report §7.3). */
+    stageCount: number;
     projects: Array<{ id: string; title: string; slug: string | null; visibility: string | null }>;
     journey: ReturnType<typeof journeyFromSprints> | null;
     activity: ActivityItem[];
@@ -323,8 +328,16 @@ export async function readOrgAboutAction(orgId: string): Promise<OrgAboutData | 
     const card: OrgAboutData['card'] = v.isAdmin ? { kind: 'invite', joinCode: org?.joinCodeEnabled ? org.joinCode : null }
         : v.isInside ? { kind: v.isGuest ? 'guest' : 'member', joinedAt: me?.joinedAt?.toISOString() ?? null }
             : { kind: 'visitor' };
+    // Report §26.9: on a public organization a former member sees their own line; nothing from inside.
+    let formerLine: string | null = null;
+    if (!v.isInside && v.userId) {
+        const state = await readPrivateOrgState(orgId, v.userId);
+        if (state.kind === 'left' || state.kind === 'removed' || state.kind === 'blocked') formerLine = privateOrgLine(state, v.org.title).line;
+    }
     return {
         success: true,
+        formerLine,
+        stageCount: sprints?.length ?? 0,
         projects: children,
         journey: sprints && sprints.length ? journeyFromSprints(sprints) : null,
         activity: await readActivity(v, 'all', { publicOnly: true, limit: 5 }),
