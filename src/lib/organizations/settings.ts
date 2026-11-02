@@ -18,10 +18,11 @@ export const ORG_SECTION_DEFS: Record<OrgSettingsSectionId, { label: string; des
 };
 
 const YOU: OrgSettingsSectionId[] = ["you-membership", "you-leave"];
-// The project sections an org keeps, in report §21.2 order; open roles don't apply (people join with the code).
+// The project sections an org keeps, in report §21.2 order; open roles don't apply (people join with the code), and
+// people are managed in the Members tab, whose actions follow organization rules (report §42.17 problem 52).
 // Same order as the Settings document renders them, so the rail and the page agree.
 const ORG_FOR_ADMINS: Array<OrgSettingsSectionId | WorkspaceSettingsSectionId> = [
-  "org-profile", "links", "access", "org-access", "org-people", "org-projects", "org-work", "collaborators",
+  "org-profile", "links", "access", "org-access", "org-people", "org-projects", "org-work",
   "readme", "updates", "tasks-workflow", "files-workspace", "notifications", "privacy-policies", "privacy-terms",
 ];
 

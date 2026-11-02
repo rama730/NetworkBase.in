@@ -500,3 +500,14 @@ test("problem 25: an organization sprint's numbers count assignments by their co
   const summary = detail.success ? (detail.data as unknown as { summary: { totalTasks: number; completedTasks: number } }).summary : null;
   assert.deepEqual([summary?.completedTasks, summary?.totalTasks], [1, 2], "1 of 2 copies done, not 0 of 1 main assignment");
 });
+
+test("problem 52: the plain workspace member actions refuse an organization; the Members tab handles its people", async () => {
+  const o = await org();
+  const settings = await loadAppModule(() => import("../../src/lib/workspaces/server/settings"));
+  viewerId = o.owner;
+  const removed = await settings.removeWorkspaceMemberAction(o.org, o.a);
+  assert.deepEqual([removed.success, removed.message], [false, "Manage this organization’s people in its Members tab."]);
+  assert.equal((await settings.updateWorkspaceMemberRoleAction(o.org, o.a, "admin")).success, false);
+  const [still] = await sql`SELECT role FROM workspace_members WHERE workspace_id = ${o.org} AND user_id = ${o.a}`;
+  assert.equal(still!.role, "member");
+});

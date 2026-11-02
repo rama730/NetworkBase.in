@@ -1442,6 +1442,15 @@ export async function resetWorkspaceMemberNotificationSettingsAction(
 }
 
 
+/**
+ * An organization's people change only through its Members tab, whose actions follow organization rules: copies,
+ * seats, Former and notices (report §42.17 problem 52). These plain workspace actions refuse organizations.
+ */
+async function orgMembersElsewhere(projectId: string): Promise<ProjectMemberMutationResult | null> {
+  const [row] = await db.select({ kind: workspaces.kind }).from(workspaces).where(eq(workspaces.id, projectId)).limit(1);
+  return row?.kind === "organization" ? { success: false, errorCode: "FORBIDDEN", message: "Manage this organization’s people in its Members tab." } : null;
+}
+
 export async function updateWorkspaceMemberRoleAction(
   projectId: string,
   memberUserId: string,
@@ -1458,6 +1467,8 @@ export async function updateWorkspaceMemberRoleAction(
         errorCode: "UNAUTHORIZED",
         message: "You must be signed in.",
       };
+    const elsewhere = await orgMembersElsewhere(projectId);
+    if (elsewhere) return elsewhere;
     if (!["admin", "member", "viewer"].includes(nextRole)) {
       return {
         success: false,
@@ -1756,6 +1767,8 @@ export async function removeWorkspaceMemberAction(
         errorCode: "UNAUTHORIZED",
         message: "You must be signed in.",
       };
+    const elsewhere = await orgMembersElsewhere(projectId);
+    if (elsewhere) return elsewhere;
     const parsed = removeProjectMemberSchema.safeParse(options ?? {});
     if (!parsed.success)
       return {

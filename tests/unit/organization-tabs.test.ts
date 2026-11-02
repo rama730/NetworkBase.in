@@ -41,6 +41,7 @@ test("settings sections by org role", () => {
   assert.ok(admin.includes("org-people"), "admins read the people section");
   for (const id of ["general", "danger"]) assert.ok(!admin.includes(id), id);
   for (const ids of [owner, admin]) assert.ok(!ids.includes("roles-applications"), "orgs have no open roles");
+  for (const ids of [owner, admin]) assert.ok(!ids.includes("collaborators"), "no second Members list; the Members tab follows organization rules (problem 52)");
   assert.equal(owner[0], "you-membership", "You group first");
 });
 
