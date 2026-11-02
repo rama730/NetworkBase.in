@@ -323,3 +323,61 @@ test("problem 37 (decision 149): nobody reassigns a main assignment or an indivi
   viewerId = o.admin;
   assert.equal((await taskActions.assignTaskAction(falcon!.id, o.a, o.org)).success, true, "an admin too");
 });
+
+test("decision 95: nobody reviews their own or their group's submission; Approve all skips it", async () => {
+  const o = await org();
+  viewerId = o.owner;
+  const made = await assignments.createAssignmentAction({ projectId: o.org, title: "Peer lab", dueDate: future(), publish: true, submissionType: "none", lateRule: "none", reviewRequired: true,
+    target: { mode: "people", userIds: [o.admin, o.a] }, steps: [] } as Parameters<typeof assignments.createAssignmentAction>[0]);
+  assert.equal(made.success, true, JSON.stringify(made));
+  const master = made.success ? made.masterId : "";
+  const rows = await sql`SELECT id, assignee_id FROM tasks WHERE assignment_id = ${master}`;
+  const adminCopy = rows.find((r) => r.assignee_id === o.admin)!.id as string;
+  const aCopy = rows.find((r) => r.assignee_id === o.a)!.id as string;
+  for (const [as, copy] of [[o.admin, adminCopy], [o.a, aCopy]] as const) {
+    viewerId = as;
+    assert.equal((await assignments.submitAssignmentAction(copy, {})).success, true);
+  }
+  viewerId = o.admin;
+  assert.equal((await assignments.reviewAssignmentCopyAction(adminCopy, "approve")).success, false, "an admin can't approve their own copy");
+  const [locked] = await sql`SELECT updated_at FROM tasks WHERE id = ${adminCopy}`;
+  assert.equal((await taskActions.approveTaskReviewAction(adminCopy, o.org, new Date(locked!.updated_at).toISOString())).success, false, "nor from the task panel");
+  const all = await assignments.approveAllSubmittedAction(master);
+  assert.equal(all.success && all.approved, 1, "Approve all skips their own");
+  const [still] = await sql`SELECT review_status FROM tasks WHERE id = ${adminCopy}`;
+  assert.equal(still!.review_status, "pending");
+  viewerId = o.owner;
+  assert.equal((await assignments.reviewAssignmentCopyAction(adminCopy, "approve")).success, true, "someone else can");
+});
+
+test("decision 95 guard (41.6): in a normal workspace an admin still approves their own task, as today", async () => {
+  const [owner, admin] = await Promise.all([1, 2].map(() => sql.begin((tx) => createUser(tx))));
+  const project = await sql.begin((tx) => createProject(tx, owner!));
+  created.push(project);
+  await sql`INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (${project}, ${owner!}, 'owner'), (${project}, ${admin!}, 'admin')`;
+  await sql`UPDATE workspaces SET task_review_required = true WHERE id = ${project}`;
+  const [task] = await sql`INSERT INTO tasks (workspace_id, title, assignee_id, creator_id) VALUES (${project}, 'Write the docs', ${admin!}, ${owner!}) RETURNING id`;
+  viewerId = admin!;
+  const submitted = await taskActions.updateTaskStatusAction(task!.id, "done", project);
+  assert.equal(submitted.success, true, JSON.stringify(submitted));
+  const [row] = await sql`SELECT review_status, updated_at FROM tasks WHERE id = ${task!.id}`;
+  assert.equal(row!.review_status, "pending");
+  const approved = await taskActions.approveTaskReviewAction(task!.id, project, new Date(row!.updated_at).toISOString());
+  assert.equal(approved.success, true, JSON.stringify(approved));
+});
+
+test("decision 41: inside an organization, a workspace that isn't Public uses only private repositories", async () => {
+  const o = await org();
+  await sql`UPDATE workspaces SET title = 'CSE 3B' WHERE id = ${o.org}`;
+  const team = await sql.begin((tx) => createProject(tx, o.a, { visibility: "org" }));
+  const open = await sql.begin((tx) => createProject(tx, o.a, { visibility: "public" }));
+  const personal = await sql.begin((tx) => createProject(tx, o.a, { visibility: "private" }));
+  created.push(team, open, personal);
+  await sql`UPDATE workspaces SET parent_id = ${o.org} WHERE id IN (${team}, ${open})`;
+  const { orgRepositoryBlock } = await loadAppModule(() => import("../../src/lib/organizations/children"));
+  assert.equal(await orgRepositoryBlock(team, false, "connect"), "This workspace is only visible inside CSE 3B, so its repository must be private.");
+  assert.equal(await orgRepositoryBlock(team, false, "push"), "This repository is now public. Make it private or disconnect it.");
+  assert.equal(await orgRepositoryBlock(team, true, "connect"), null);
+  assert.equal(await orgRepositoryBlock(open, false, "connect"), null, "a Public workspace may use a public repository");
+  assert.equal(await orgRepositoryBlock(personal, false, "connect"), null, "outside an organization nothing changes");
+});

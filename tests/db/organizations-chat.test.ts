@@ -142,7 +142,7 @@ test("Also share in #general posts a live card; each viewer sees what they may, 
   const limitedId = limited.success ? limited.data!.id : "";
   assert.ok("restricted" in (await cards.hydrateCards(o.a, [{ kind: "announcement", ref_id: limitedId }]))[`announcement:${limitedId}`]!, "outside the audience");
 
-  const [master] = await sql`INSERT INTO tasks (workspace_id, title, kind, creator_id, due_date) VALUES (${o.orgId}, 'Lab 2', 'assignment', ${o.owner}, now() + interval '2 days') RETURNING id`;
+  const [master] = await sql`INSERT INTO tasks (workspace_id, title, kind, creator_id, due_date, assignment_settings) VALUES (${o.orgId}, 'Lab 2', 'assignment', ${o.owner}, now() + interval '2 days', jsonb_build_object('publishedAt', now())) RETURNING id`;
   await sql`INSERT INTO tasks (workspace_id, title, kind, assignment_id, assignee_id, creator_id, review_status, review_submitted_at) VALUES
     (${o.orgId}, 'Lab 2', 'task', ${master!.id}, ${o.a}, ${o.owner}, 'pending', now()), (${o.orgId}, 'Lab 2', 'task', ${master!.id}, ${o.b}, ${o.owner}, 'none', null)`;
   const mine = (await cards.hydrateCards(o.a, [{ kind: "assignment", ref_id: master!.id }]))[`assignment:${master!.id}`] as { own: { state: string } | null; counts: unknown };

@@ -135,3 +135,33 @@ test("reopen refuses a closed role; a second reviewer is told who already decide
     void two; void projectId;
   });
 });
+
+test("report §25.4: outside people apply to an organization's workspace only when it's Public and the organization allows them; Viewers never", async () => {
+  const [owner, lead, outsider, viewer, member] = await Promise.all([0, 1, 2, 3, 4].map(() => sql.begin((tx) => createUser(tx))));
+  const org = await sql.begin((tx) => createProject(tx, owner!));
+  await sql.begin(async (tx) => { await addMember(tx, org, owner!, "owner"); await addMember(tx, org, viewer!, "viewer"); await addMember(tx, org, member!, "member"); });
+  await sql`UPDATE workspaces SET kind = 'organization', org_settings = '{"outsidePeople": false}' WHERE id = ${org}`;
+  const child = await sql.begin((tx) => createProject(tx, lead!, { visibility: "public" }));
+  await sql.begin((tx) => addMember(tx, child, lead!, "owner"));
+  await sql`UPDATE workspaces SET parent_id = ${org} WHERE id = ${child}`;
+  const [role] = await sql`INSERT INTO workspace_open_roles (workspace_id, role, count) VALUES (${child}, 'Frontend', 3) RETURNING id`;
+  try {
+    viewerId = outsider!;
+    assert.equal((await apps.applyToRoleAction(child, role!.id, "hi")).success, false, "Outside people off: refused");
+    viewerId = viewer!;
+    assert.equal((await apps.applyToRoleAction(child, role!.id, "hi")).success, false, "Viewers can't apply");
+    viewerId = member!;
+    assert.equal((await apps.applyToRoleAction(child, role!.id, "hi")).success, true, "members can");
+
+    await sql`UPDATE workspaces SET org_settings = '{"outsidePeople": true}' WHERE id = ${org}`;
+    viewerId = outsider!;
+    const applied = await apps.applyToRoleAction(child, role!.id, "hi");
+    assert.equal(applied.success, true, JSON.stringify(applied));
+    await sql`UPDATE workspaces SET org_settings = '{"outsidePeople": false}' WHERE id = ${org}`;
+    const [pending] = await sql`SELECT id FROM role_applications WHERE workspace_id = ${child} AND applicant_id = ${outsider!}`;
+    viewerId = lead!;
+    assert.equal((await apps.acceptApplicationAction(pending!.id)).success, false, "checked again on accept");
+  } finally {
+    await sql`DELETE FROM workspaces WHERE id IN (${child}, ${org})`;
+  }
+});

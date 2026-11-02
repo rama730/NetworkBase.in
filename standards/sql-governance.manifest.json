@@ -44,7 +44,10 @@
     "drizzle/0038_update_reply_policy_live.sql",
     "drizzle/0039_file_download_history.sql",
     "drizzle/0040_workspace_view_daily.sql",
-    "drizzle/0041_workspace_last_update.sql"
+    "drizzle/0041_workspace_last_update.sql",
+    "drizzle/0042_org_task_visibility.sql",
+    "drizzle/0043_member_last_active_here.sql",
+    "drizzle/0044_live_copy_events.sql"
   ],
   "legacyDatabaseTags": [],
   "allowedUtilitySqlFiles": [

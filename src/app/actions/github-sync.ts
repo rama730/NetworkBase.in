@@ -51,6 +51,7 @@ import { assertWorkspaceTabReadAccess } from "@/lib/data/workspace-access";
 import { ensureDefaultGithubContributorIdentity } from "@/lib/github/contributor-identity";
 import { resolveGithubUserAccessToken } from "@/lib/github/user-access-token";
 import { GITHUB_SYNC_LIMITS } from "@/lib/github/sync-limits";
+import { orgRepositoryBlock } from "@/lib/organizations/children";
 
 const idSchema = z.string().uuid();
 const compareSchema = z.object({
@@ -239,6 +240,8 @@ export async function connectGitHubSyncRepository(
       throw new Error(
         "A writable repository and GitHub authorization are required",
       );
+    const repoBlock = await orgRepositoryBlock(projectId, repo.private === true, "connect");
+    if (repoBlock) throw new Error(repoBlock);
     await db.transaction(async (tx) => {
       await tx.execute(
         sql`SELECT id FROM workspaces WHERE id = ${projectId} FOR UPDATE`,

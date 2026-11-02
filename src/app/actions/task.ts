@@ -634,6 +634,8 @@ export async function approveTaskReviewAction(
     const result = await db.transaction(async (tx) => {
       const locked = await lockTaskForWrite(tx, taskId, user.id);
       if (locked.projectId !== projectId) throw new Error("Task mismatch");
+      // Decision 95, assignment copies only (42.18): nobody reviews their own or their group's work.
+      if (locked.copySubmissionType !== null && (locked.previousAssigneeId === user.id || locked.isTeamMember)) throw new Error("You can't review your own work. Ask another admin.");
       if(expectedUpdatedAt && new Date(locked.currentUpdatedAt).getTime()!==new Date(expectedUpdatedAt).getTime()) throw new Error("Task changed elsewhere. Reload before approving.");
       if (!locked.isLeader)
         return { error: "Only the owner and admins can approve tasks" } as const;
@@ -716,6 +718,8 @@ async function performTaskReviewAction(taskId: string, projectId: string, expect
     const { locked, result } = await db.transaction(async (tx) => {
       const locked = await lockTaskForWrite(tx, taskId, user.id);
       if (locked.projectId !== projectId) throw new Error("Task mismatch");
+      // Decision 95, assignment copies only (42.18): nobody reviews their own or their group's work. Resubmitting is theirs.
+      if (!action.resubmit && locked.copySubmissionType !== null && (locked.previousAssigneeId === user.id || locked.isTeamMember)) throw new Error("You can't review your own work. Ask another admin.");
       if (!expectedUpdatedAt || new Date(locked.currentUpdatedAt).getTime() !== new Date(expectedUpdatedAt).getTime()) throw new Error("Task changed elsewhere. Reload before retrying.");
       if (locked.reviewStatus !== "pending") throw new Error("Task is not pending review");
       const result = await transitionTaskTx(tx, locked, { taskId, userId: user.id, status: action.resubmit ? "done" : "in_progress", ...action });

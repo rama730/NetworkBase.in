@@ -58,6 +58,7 @@ import type {
 import { refreshMyWorkCountersForUsers } from '@/lib/my-work/profile-counters';
 import { addWorkspaceMemberInternal } from '@/lib/workspaces/collaborator-lifecycle';
 import { computeWorkspaceReadAccess } from '@/lib/data/workspace-access';
+import { orgSeatApplyBlock } from '@/lib/organizations/children';
 import { readViewerOrgRole } from '@/lib/organizations/detail';
 import { isUuid } from '@/lib/validations/uuid';
 import { resolvePrivacyRelationship } from '@/lib/privacy/resolver';
@@ -925,6 +926,8 @@ export async function applyToRoleAction(
             if (!canReadProject && (!existingApp || existingApp.status === 'rejected')) {
                 return toApplicationFailure(traceId, 'FORBIDDEN', 'This workspace is private.');
             }
+            const seatBlock = await orgSeatApplyBlock(project.parentId, project.visibility, user.id);
+            if (seatBlock) return toApplicationFailure(traceId, 'FORBIDDEN', seatBlock);
 
             const roleTitleText = role.title || role.role || 'Unknown role';
             const notifyReviewers = async (applicationId: string, channelId: string | null, again = false) => {
@@ -1104,7 +1107,7 @@ export async function acceptApplicationAction(
             const application = await db.query.roleApplications.findFirst({
                 where: eq(roleApplications.id, applicationId),
                 with: {
-                    project: { columns: { id: true, title: true, slug: true, ownerId: true, status: true, deletedAt: true } },
+                    project: { columns: { id: true, title: true, slug: true, ownerId: true, status: true, deletedAt: true, parentId: true, visibility: true } },
                     role: { columns: { id: true, role: true, title: true, filled: true, count: true, projectId: true } }
                 }
             });
@@ -1138,6 +1141,8 @@ export async function acceptApplicationAction(
             if (application.project) {
                 const blocked = await guardDecision(application.project, application.applicantId, user.id);
                 if (blocked) return toApplicationFailure(traceId, blocked.code, blocked.message);
+                const seatBlock = await orgSeatApplyBlock(application.project.parentId, application.project.visibility, application.applicantId);
+                if (seatBlock) return toApplicationFailure(traceId, 'FORBIDDEN', seatBlock);
             }
 
             if (!application.role || application.role.projectId !== application.projectId) {

@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { workspaceMembers, workspaces } from "@/lib/db/schema";
 import { capChildVisibility, isAboveCap, type ChildVisibility } from "@/lib/organizations/child-rules";
 import { readOrgRules } from "@/lib/organizations/settings";
+import { readViewerOrgRole } from "@/lib/organizations/detail";
 import { unlinkSprints } from "@/lib/organizations/sprints";
 import { releaseGroupCopies } from "@/lib/organizations/assignments";
 import { notifyOrg } from "@/lib/organizations/notify";
@@ -109,3 +110,35 @@ export async function detachFromOrg(projectId: string) {
 }
 
 export { readOrgCap };
+
+/**
+ * Who may apply for a seat in an organization's workspace (report §25.4, §36.3): its members and admins; outside
+ * people only to a Public workspace while the organization allows them; Viewers never. Checked on apply and on
+ * accept, so a setting turned off in between still counts. Null means allowed, or no organization.
+ */
+export async function orgSeatApplyBlock(parentId: string | null, visibility: string | null, userId: string): Promise<string | null> {
+  if (!parentId) return null;
+  const role = await readViewerOrgRole(parentId, userId);
+  if (role === "viewer") return "Viewers can't apply for seats.";
+  if (role) return null;
+  const [org] = await db.select({ settings: workspaces.orgSettings }).from(workspaces).where(eq(workspaces.id, parentId)).limit(1);
+  if (visibility === "public" && readOrgRules(org?.settings).outsidePeople) return null;
+  return "Only people in this organization can apply here.";
+}
+
+/**
+ * Decision 41 (report §24.3): inside an organization, a workspace that isn't Public uses only private repositories.
+ * Checked when connecting or creating one, and again on every push, since a repository can turn public on GitHub.
+ */
+export async function orgRepositoryBlock(projectId: string, repoIsPrivate: boolean, moment: "connect" | "push"): Promise<string | null> {
+  if (repoIsPrivate) return null;
+  // Spelled out: Drizzle writes a bare "parent_id" in one-table queries, which inside the subquery would mean o's.
+  const [row] = await db.select({
+    visibility: workspaces.visibility,
+    orgTitle: sql<string | null>`(SELECT o.title FROM workspaces o WHERE o.id = workspaces.parent_id AND o.kind = 'organization' AND o.deleted_at IS NULL)`,
+  }).from(workspaces).where(eq(workspaces.id, projectId)).limit(1);
+  if (!row?.orgTitle || row.visibility === "public") return null;
+  return moment === "push"
+    ? "This repository is now public. Make it private or disconnect it."
+    : `This workspace is only visible inside ${row.orgTitle}, so its repository must be private.`;
+}

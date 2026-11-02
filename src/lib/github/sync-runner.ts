@@ -49,6 +49,7 @@ import {
   recordNodeEvent,
   assertWorkspaceWriteAccessTx,
 } from "@/lib/files/internal-helpers";
+import { orgRepositoryBlock } from "@/lib/organizations/children";
 
 type Transaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
 async function ensureIncomingParent(
@@ -333,6 +334,8 @@ export async function runReviewedGitHubSync(
     if (manifest.newRepository && !result.repositoryCreated) {
       await update({ stage: "Creating repository" });
       const spec = manifest.newRepository;
+      const repoBlock = await orgRepositoryBlock(projectId, spec.private === true, "connect");
+      if (repoBlock) throw new Error(repoBlock);
       const marker = `NetworkBase synchronization ${runId}`;
       if (!spec.organization) {
         const account = await syncGithub<{ login: string }>(ctx.token, "/user");
@@ -418,6 +421,8 @@ export async function runReviewedGitHubSync(
     if (manifest.direction === "push") {
       if (repo.permissions?.push === false)
         throw new Error("GitHub write permission was removed");
+      const repoBlock = await orgRepositoryBlock(projectId, repo.private === true, "push");
+      if (repoBlock) throw new Error(repoBlock);
       if (!result.pushed && result.commitSha && result.branch) {
         if (
           (await readGitHubHead(

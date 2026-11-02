@@ -52,7 +52,7 @@ async function org() {
   created.push(orgId, child, secret);
   const [sprint] = await sql`INSERT INTO workspace_sprints (workspace_id, sprint_number, name, start_date, end_date, status) VALUES (${orgId}, 2, 'CO2', now() - interval '10 days', now() + interval '3 days', 'active') RETURNING id`;
   await sql`INSERT INTO workspace_sprints (workspace_id, sprint_number, name, start_date, end_date, status, completed_at) VALUES (${orgId}, 1, 'CO1', now() - interval '40 days', now() - interval '11 days', 'completed', now() - interval '11 days')`;
-  const [master] = await sql`INSERT INTO tasks (workspace_id, title, kind, creator_id, sprint_id, due_date) VALUES (${orgId}, 'Lab 2', 'assignment', ${owner!}, ${sprint!.id}, now() + interval '1 day') RETURNING id`;
+  const [master] = await sql`INSERT INTO tasks (workspace_id, title, kind, creator_id, sprint_id, due_date, assignment_settings) VALUES (${orgId}, 'Lab 2', 'assignment', ${owner!}, ${sprint!.id}, now() + interval '1 day', jsonb_build_object('publishedAt', now())) RETURNING id`;
   const copy = async (assignee: string, extra: { status?: string; review?: string; due?: string; project?: string } = {}) => {
     const [row] = await sql`INSERT INTO tasks (workspace_id, title, kind, assignment_id, assignee_id, creator_id, sprint_id, status, review_status, due_date, review_submitted_at)
       VALUES (${extra.project ?? orgId}, 'Lab 2', 'task', ${master!.id}, ${assignee}, ${owner!}, ${extra.project ? null : sprint!.id}, ${extra.status ?? "todo"}, ${extra.review ?? "none"}, now() + ${extra.due ?? "1 day"}::interval, ${extra.review === "pending" ? sql`now()` : null}) RETURNING id`;

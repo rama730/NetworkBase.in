@@ -266,6 +266,9 @@ export async function submitAssignmentAction(copyId: string, input: z.input<type
     return { success: true };
 }
 
+/** Decision 95: the copy's own person, or anyone on its team, never reviews it. */
+const ownWork = (copyId: string, userId: string) => sql`(${tasks.assigneeId} = ${userId} OR EXISTS (SELECT 1 FROM task_team_members tm WHERE tm.task_id = ${copyId}::uuid AND tm.user_id = ${userId}))`;
+
 async function reviewOne(copyId: string, reviewerId: string, decision: 'approve' | 'return', reason?: string) {
     const now = new Date();
     const [copy] = await db.select({ projectId: tasks.projectId, sprintId: tasks.sprintId, title: tasks.title }).from(tasks).where(eq(tasks.id, copyId)).limit(1);
@@ -292,6 +295,8 @@ export async function reviewAssignmentCopyAction(copyId: string, decision: 'appr
     if (!viewer?.isAdmin) return DENIED;
     if (loaded.copy.reviewStatus !== 'pending') return { success: false, error: 'Nothing is waiting for review.' };
     if (decision === 'return' && !reason?.trim()) return { success: false, error: 'Say what to change.' };
+    const [own] = await db.select({ id: tasks.id }).from(tasks).where(and(eq(tasks.id, copyId), ownWork(copyId, viewer.userId))).limit(1);
+    if (own) return { success: false, error: "You can't review your own work. Ask another admin." };
     await reviewOne(copyId, viewer.userId, decision, reason?.trim().slice(0, 1000));
     touch(viewer.slug, loaded.master.projectId);
     return { success: true };
@@ -300,7 +305,8 @@ export async function reviewAssignmentCopyAction(copyId: string, decision: 'appr
 export async function approveAllSubmittedAction(masterId: string): Promise<{ success: true; approved: number } | Failure> {
     const ctx = await adminOfMaster(masterId);
     if (!ctx) return DENIED;
-    const pending = await db.select({ id: tasks.id }).from(tasks).where(and(eq(tasks.assignmentId, masterId), eq(tasks.reviewStatus, 'pending'), isNull(tasks.deletedAt)));
+    const pending = await db.select({ id: tasks.id }).from(tasks).where(and(eq(tasks.assignmentId, masterId), eq(tasks.reviewStatus, 'pending'), isNull(tasks.deletedAt), isNull(tasks.excusedAt),
+        sql`NOT (${tasks.assigneeId} IS NOT DISTINCT FROM ${ctx.viewer.userId}::uuid OR EXISTS (SELECT 1 FROM task_team_members tm WHERE tm.task_id = ${tasks.id} AND tm.user_id = ${ctx.viewer.userId}::uuid))`));
     for (const { id } of pending) await reviewOne(id, ctx.viewer.userId, 'approve');
     touch(ctx.viewer.slug, ctx.master.projectId);
     return { success: true, approved: pending.length };
@@ -617,7 +623,7 @@ export async function readReviewQueueAction(orgId: string): Promise<{ success: t
                (SELECT coalesce(p.full_name, p.username) FROM profiles p WHERE p.id = (c.submission->>'by')::uuid) AS submitted_by,
                c.review_submitted_at::text AS submitted_at, c.due_date::text AS due_date
         FROM tasks c JOIN tasks m ON m.id = c.assignment_id
-        WHERE m.workspace_id = ${orgId} AND m.deleted_at IS NULL AND c.deleted_at IS NULL AND c.review_status = 'pending'
+        WHERE m.workspace_id = ${orgId} AND m.deleted_at IS NULL AND c.deleted_at IS NULL AND c.excused_at IS NULL AND c.review_status = 'pending'
         ORDER BY c.review_submitted_at ASC NULLS LAST LIMIT 200`);
     return { success: true, rows: rows.map((r) => ({
         copyId: r.copy_id, masterId: r.master_id, title: r.title,
@@ -637,7 +643,7 @@ export async function readOrgTabBadgesAction(orgId: string): Promise<OrgTabBadge
         SELECT
           ${viewer.isAdmin
             ? sql`(SELECT count(*)::int FROM tasks c JOIN tasks m ON m.id = c.assignment_id
-                   WHERE m.workspace_id = ${orgId} AND m.deleted_at IS NULL AND c.deleted_at IS NULL AND c.review_status = 'pending')`
+                   WHERE m.workspace_id = ${orgId} AND m.deleted_at IS NULL AND c.deleted_at IS NULL AND c.excused_at IS NULL AND c.review_status = 'pending')`
             : sql`(SELECT count(DISTINCT c.id)::int FROM tasks c JOIN tasks m ON m.id = c.assignment_id
                    LEFT JOIN task_team_members tm ON tm.task_id = c.id AND tm.user_id = ${viewer.userId}
                    WHERE m.workspace_id = ${orgId} AND m.deleted_at IS NULL AND m.assignment_settings->>'closedAt' IS NULL

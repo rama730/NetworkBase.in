@@ -48,7 +48,7 @@ export async function lockSubtaskWriteScope(
   // Report §42.12 problem 28: in an organization, members change steps only on their own (or their team's) copy;
   // the main assignment and everything else on its board belong to owners and admins.
   if (row.org && role === "member" && !row.mine) {
-    throw new Error("Only your own work's steps can be changed here.");
+    throw new Error("Only your own work’s steps can be changed here.");
   }
   return row.id;
 }
