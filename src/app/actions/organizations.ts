@@ -16,7 +16,8 @@ import { db } from '@/lib/db';
 import { orgHandleHolds, profiles, workspaceMembers, workspaces, roleApplications, applicationEvents } from '@/lib/db/schema';
 import { getWorkspaceAccessById } from '@/lib/data/workspace-access';
 import { removeWorkspaceMemberInternal } from '@/lib/workspaces/collaborator-lifecycle';
-import { orgGrant, type OrgRole } from '@/lib/organizations/permissions';
+import { childGrant, orgGrant, type ChildAction, type ChildRole, type OrgRole } from '@/lib/organizations/permissions';
+import { customRoleNames } from '@/lib/organizations/type-profile';
 import { ORG_SECTION_OWNER_ONLY, ORG_SETTINGS_PATCH, type OrgSettingsSection } from '@/lib/organizations/settings';
 import { generateJoinCode } from '@/lib/organizations/join-rules';
 import { allowedChildVisibilities, type ChildVisibility } from '@/lib/organizations/child-rules';
@@ -176,12 +177,20 @@ export async function updateOrgSettingsAction(orgId: string, section: OrgSetting
     const value = parsed.data as Record<string, unknown>;
 
     const [actor] = await db.select({ fullName: profiles.fullName }).from(profiles).where(eq(profiles.id, viewer.userId)).limit(1);
+    const [current] = await db.select({ orgType: workspaces.orgType, orgSettings: workspaces.orgSettings }).from(workspaces).where(eq(workspaces.id, orgId)).limit(1);
+    const storedNames = (current?.orgSettings as { roleNames?: Record<string, string> } | null)?.roleNames;
     const settingsPatch: Record<string, unknown> = {
         changes: { [section]: { by: viewer.userId, byName: actor?.fullName ?? null, at: new Date().toISOString() } },
     };
     const columns: Partial<typeof workspaces.$inferInsert> = {};
     if (section === 'profile') {
-        if ('org_type' in value) columns.orgType = value.org_type as typeof columns.orgType;
+        // Report §21.2: only the owner changes type. It renames roles still on the old type's names and changes
+        // labels; joining, visibility, rules and work stay, because those were saved when the organization was made.
+        if ('org_type' in value && value.org_type !== current?.orgType) {
+            if (orgGrant(viewer.role, 'change_org_type') !== 'yes') return DENIED;
+            columns.orgType = value.org_type as typeof columns.orgType;
+            settingsPatch.roleNames = customRoleNames(current?.orgType, storedNames);
+        }
         if ('term_start' in value) columns.termStart = (value.term_start as string) || null;
         if ('term_end' in value) columns.termEnd = (value.term_end as string) || null;
         if ('time_zone' in value) columns.timeZone = (value.time_zone as string) || null;
@@ -195,7 +204,8 @@ export async function updateOrgSettingsAction(orgId: string, section: OrgSetting
         if ('join_code_enabled' in value) columns.joinCodeEnabled = value.join_code_enabled as boolean;
         if ('max_members' in value) columns.maxCollaborators = value.max_members == null ? null : String(value.max_members);
     } else if (section === 'people') {
-        settingsPatch.roleNames = value.role_names;
+        // Names equal to the type's aren't saved, so a later type change still renames them.
+        settingsPatch.roleNames = customRoleNames(current?.orgType, value.role_names as Record<string, string>);
     } else if (section === 'work') {
         const keys = { review_required: 'assignmentReview', late_rule: 'assignmentLateRule', reminders: 'assignmentReminders', story_points: 'storyPoints',
             sprint_auto_start: 'sprintAutoStart', sprint_notify_on_start: 'sprintNotifyOnStart', sprint_show_in_children: 'sprintShowInChildren', sprint_create_matching: 'sprintCreateMatching' } as const;
@@ -387,12 +397,23 @@ async function childViewer(projectId: string): Promise<ChildViewer | null> {
 }
 
 const isAdminRole = (role: string | null) => role === 'owner' || role === 'admin';
+
+/** The viewer's place in a child workspace, for the permissions table (report §21.3, decision 109). */
+async function childRoleOf(viewer: ChildViewer): Promise<ChildRole> {
+    if (viewer.isLead) return 'lead';
+    if (isAdminRole(viewer.parentRole)) return 'inherited_admin';
+    const [membership] = await db.select({ role: workspaceMembers.role }).from(workspaceMembers)
+        .where(and(eq(workspaceMembers.projectId, viewer.project.id), eq(workspaceMembers.userId, viewer.userId))).limit(1);
+    if (membership) return !viewer.parentRole ? 'outside' : membership.role === 'admin' ? 'project_admin' : 'unit_member';
+    return viewer.parentRole ? 'org_member' : 'visitor';
+}
+const childCan = async (viewer: ChildViewer, action: ChildAction, grant: 'yes' | 'request' = 'yes') => childGrant(await childRoleOf(viewer), action) === grant;
 const revalidateChild = (project: ChildViewer['project']) => revalidatePath(`/workspaces/${project.slug ?? project.id}`);
 
 /** The lead asks the org to let the project go; an org admin decides (report §29.4: detach is "request" for the lead). */
 export async function requestDetachAction(projectId: string): Promise<{ success: true } | Failure> {
     const viewer = await childViewer(projectId);
-    if (!viewer?.project.parentId || !viewer.isLead) return DENIED;
+    if (!viewer?.project.parentId || !(await childCan(viewer, 'detach', 'request'))) return DENIED;
     await db.update(workspaces).set({
         orgSettings: sql`${workspaces.orgSettings} || ${JSON.stringify({ detachRequest: { by: viewer.userId, at: new Date().toISOString() } })}::jsonb`,
     }).where(eq(workspaces.id, projectId));
@@ -414,7 +435,7 @@ export async function cancelDetachRequestAction(projectId: string, reason?: stri
 /** Inherited org admins detach at once (approving a request, or on their own): the project becomes Private. */
 export async function detachChildAction(projectId: string): Promise<{ success: true } | Failure> {
     const viewer = await childViewer(projectId);
-    if (!viewer?.project.parentId || !isAdminRole(viewer.parentRole)) return DENIED;
+    if (!viewer?.project.parentId || !(await childCan(viewer, 'detach'))) return DENIED;
     await detachFromOrg(projectId);
     revalidateChild(viewer.project);
     await notifyChildDecision(viewer.project.parentId, projectId, viewer.project.ownerId, viewer.userId, (child, org) => `${child} left ${org}`);
@@ -424,7 +445,8 @@ export async function detachChildAction(projectId: string): Promise<{ success: t
 /** Inherited org admins may archive a child project; deleting stays the lead's (decision 145). */
 export async function archiveChildAction(projectId: string): Promise<{ success: true } | Failure> {
     const viewer = await childViewer(projectId);
-    if (!viewer?.project.parentId || !isAdminRole(viewer.parentRole)) return DENIED;
+    // The lead archives from the workspace's own Settings; this is the organization admins' door.
+    if (!viewer?.project.parentId || viewer.isLead || !(await childCan(viewer, 'archive'))) return DENIED;
     const now = new Date();
     await db.update(workspaces).set({ status: 'archived', updatedAt: now }).where(eq(workspaces.id, projectId));
     revalidateChild(viewer.project);
@@ -439,10 +461,7 @@ export async function archiveChildAction(projectId: string): Promise<{ success: 
 /** Public / Org only / Private for a child project, never above the org's cap (report §21.6). */
 export async function setChildVisibilityAction(projectId: string, next: ChildVisibility): Promise<{ success: true } | Failure> {
     const viewer = await childViewer(projectId);
-    if (!viewer?.project.parentId) return DENIED;
-    const [membership] = await db.select({ role: workspaceMembers.role }).from(workspaceMembers)
-        .where(and(eq(workspaceMembers.projectId, projectId), eq(workspaceMembers.userId, viewer.userId))).limit(1);
-    if (!(viewer.isLead || membership?.role === 'admin' || isAdminRole(viewer.parentRole))) return DENIED;
+    if (!viewer?.project.parentId || !(await childCan(viewer, 'change_visibility'))) return DENIED;
     const org = await readOrgCap(db, viewer.project.parentId);
     if (!org || !['public', 'org', 'private'].includes(next)) return DENIED;
     if (!allowedChildVisibilities(org.cap, org.orgPublic).includes(next)) return { success: false, error: 'The organization does not allow this visibility.' };

@@ -1,5 +1,6 @@
 'use client'
 
+import { typeProfile } from '@/lib/organizations/type-profile'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState, useTransition } from 'react'
@@ -20,7 +21,7 @@ const month = (iso: string | null) => (iso ? MONTH.format(new Date(`${iso}T00:00
 
 /** Under the header's buttons: `Part of Northgate · Bengaluru · Education · Term Aug 2026 – Dec 2026`. Nothing to say, no line. */
 export function OrgHeaderDetails({ organization }: { organization: OrgDetail }) {
-    const term = organization.termStart || organization.termEnd ? `Term ${month(organization.termStart) ?? '…'} – ${month(organization.termEnd) ?? '…'}` : null
+    const term = typeProfile(organization.type).termDates && (organization.termStart || organization.termEnd) ? `Term ${month(organization.termStart) ?? '…'} – ${month(organization.termEnd) ?? '…'}` : null
     const parts = [organization.partOf ? `Part of ${organization.partOf}` : null, organization.location, organization.typeLabel, term].filter(Boolean)
     if (parts.length === 0) return null
     return <p className="max-w-[280px] text-right text-[13px] leading-5 text-muted-foreground xl:max-w-[420px] max-md:max-w-none max-md:text-left" data-testid="org-header-details">{parts.join(' · ')}</p>

@@ -21,7 +21,7 @@ describe("organization permissions", () => {
   });
 
   it("keeps guests read-only", () => {
-    const allowed = new Set(["open_dashboard", "open_about", "leave"]);
+    const allowed = new Set(["open_dashboard", "open_about", "leave", "copy_link"]); // Copy link changes nothing (report §39.2)
     for (const action of ORG_ACTIONS) {
       if (orgGrant("guest", action) === "yes") assert.ok(allowed.has(action), `guest can ${action}`);
     }

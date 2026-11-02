@@ -1,6 +1,7 @@
 'use client';
 
 import { ChildLeadAndUnassigned, InheritedAdminRows, UnitPeople } from '@/components/organizations/ChildTeamFields';
+import { typeProfile } from '@/lib/organizations/type-profile'
 import { useCreateLocation } from '@/components/organizations/CreateLocation';
 import { OrgPeopleFields } from '@/components/organizations/OrgWizardFields';
 import { type ReactNode, useEffect, useState } from 'react';
@@ -67,7 +68,7 @@ export default function Phase3TeamRoles({ wizardContext, showValidationSummary =
     const { org } = useCreateLocation();
     // Default units pre-fill an empty team (report §14.4 additions); Education hides compensation (§14.4).
     useEffect(() => { if (org?.defaultUnits?.length) prefillUnits(org.id, org.defaultUnits); }, [org?.id, org?.defaultUnits, prefillUnits]);
-    const showCompensation = org?.orgType !== 'education';
+    const showCompensation = !org || typeProfile(org.orgType).showCompensation;
     const creatorRole = watch('creator_role');
     const leadFocus = creatorRole?.title || '';
     const [roleSuggestionsOpen, setRoleSuggestionsOpen] = useState<Record<string, boolean>>({});

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
 
+import { orgRoleNames } from "../../src/lib/organizations/config";
 import { closeAppDb, createUser, loadAppModule, moduleStubs, sql, stubNextAfter } from "./_helpers";
 
 // Organization creation end to end (report §34): Other with its label, identity fields, chosen roles and Work
@@ -87,7 +88,9 @@ test("Research gets PI and Researcher, and an empty subject leaves the category 
   const result = await lifecycle.createWorkspaceAction(base(`lab-${viewerId.slice(0, 6)}`, { org_type: "research" }));
   assert.equal(result.success, true, JSON.stringify(result));
   created.push(result.project!.id);
-  const [row] = await sql`SELECT category, org_settings->'roleNames' AS roles FROM workspaces WHERE id = ${result.project!.id}`;
+  const [row] = await sql`SELECT category, org_type, org_settings FROM workspaces WHERE id = ${result.project!.id}`;
   assert.equal(row!.category, null);
-  assert.deepEqual(row!.roles, { owner: "PI", admin: "Researcher", member: "Member", viewer: "Viewer" });
+  // Step T (report §21.2): the type's names aren't stored as custom, so a later type change still renames them.
+  assert.deepEqual(row!.org_settings.roleNames, {});
+  assert.deepEqual(orgRoleNames(row!.org_type, row!.org_settings), { owner: "PI", admin: "Researcher", member: "Member", viewer: "Viewer" });
 });

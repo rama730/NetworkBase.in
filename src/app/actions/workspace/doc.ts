@@ -1,5 +1,6 @@
 'use server';
 
+import { orgLimitBlock } from "@/lib/organizations/limits";
 import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { revalidatePath, revalidateTag } from "next/cache";
 import { z } from "zod";
@@ -151,6 +152,7 @@ async function loadDocProjectBase(projectId: string, actorUserId: string | null)
             githubRepoUrl: true,
             githubDefaultBranch: true,
             key: true,
+            kind: true,
         },
         with: {
             docs: { with: { linkedNode: { columns: { deletedAt: true } } } },
@@ -972,6 +974,11 @@ export async function linkWorkspaceDocAction(projectId: string, nodeId: string) 
 
         const existing = base.docs.find((doc) => doc.linkedNodeId === nodeId);
         if (existing) return { success: true as const, slug: existing.slug, id: existing.id };
+        // Report §21.4: an organization holds up to 500 documents, checked before the new one is made.
+        if (base.project.kind === "organization") {
+            const full = orgLimitBlock("documents", base.docs.length, { org: base.project.title || "This organization", isAdmin: base.project.ownerId === userId || base.membership?.role === "admin" });
+            if (full) return { success: false as const, error: full };
+        }
 
         // Rows with no file and no published content are dead weight; reuse their slug.
         const taken = new Set(base.docs.filter((doc) => doc.linkedNodeId || doc.publishedVersionId).map((doc) => doc.slug));

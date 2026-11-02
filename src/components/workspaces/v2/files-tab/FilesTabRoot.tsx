@@ -4,6 +4,7 @@
 "use client";
 
 import { toast, feedbackError } from "@/lib/feedback";
+import { typeProfile } from "@/lib/organizations/type-profile";
 import { useQueryClient } from "@tanstack/react-query";
 
 import React, {
@@ -794,7 +795,7 @@ export function FilesTabRoot(props: FilesTabRootProps): React.JSX.Element {
             canReadTasks={canReadTasks}
             canOpenGitHub={canOpenGitHub}
             githubAccessResolved={githubAccessResolved}
-            viewLabels={props.isOrganization ? { project: "Organization files", ...(props.orgType === "education" ? { deliverables: "Submissions" } : {}) } : undefined}
+            viewLabels={props.isOrganization ? { project: "Organization files", deliverables: typeProfile(props.orgType).finishedWork } : undefined}
           >
             <div
               ref={filesRootRef}

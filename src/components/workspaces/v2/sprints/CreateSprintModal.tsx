@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { typeProfile } from "@/lib/organizations/type-profile";
 import { AlertTriangle, Trash2, X } from "lucide-react";
 import { z } from "zod";
 
@@ -335,7 +336,7 @@ export default function SprintEditorModal({
                   required
                   value={draft.name}
                   onChange={(event) => handleFieldChange("name", event.target.value)}
-                  placeholder={org?.kind === "org" && org.orgType === "education" ? "e.g., CO1" : org?.kind === "org" && org.orgType === "company" ? "e.g., Sprint 12" : "e.g., Sprint 4"}
+                  placeholder={org?.kind === "org" ? `e.g., ${typeProfile(org.orgType).sprintPrefix}1` : "e.g., Sprint 4"}
                   className={cn("nb-touch-target h-[34px]", inputClassName(!!fieldErrors.name))}
                 />
               </Field>

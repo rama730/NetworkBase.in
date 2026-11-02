@@ -18,6 +18,8 @@ import { memberChangeBlock, memberStatus, parseInviteEmails, workSummary, type O
 import { addWorkspaceMemberInternal, changeWorkspaceMemberRoleInternal } from '@/lib/workspaces/collaborator-lifecycle';
 import { getViewerAuthContext } from '@/lib/server/viewer-context';
 import { namesOf, notifyJoined, notifyOrg, orgHref, orgLabel, queueOrgInviteSignupEmails, remindedRecently } from '@/lib/organizations/notify';
+import { orgGrant, type OrgAction, type OrgRole } from '@/lib/organizations/permissions';
+import { invitesLeftToday, orgLimitBlock } from '@/lib/organizations/limits';
 
 // Org Members (report §20): the admin roster, join requests, email invites, roles and titles, removal,
 // and adding people to child projects. Each change notifies the person it is about (report §26.3 A, B).
@@ -26,17 +28,30 @@ type Failure = { success: false; error: string };
 const DENIED: Failure = { success: false, error: "You don’t have permission to do this." };
 
 /** Owners and admins of the org (the Members tab is theirs alone in v1, report §20.8). */
-async function orgManager(orgId: string, mode: 'read' | 'write' = 'write'): Promise<{ userId: string; role: 'owner' | 'admin'; slug: string | null; ownerId: string } | null> {
+/**
+ * The viewer, when the permissions table gives their role this action (report §21.3, decisions 33 and 109). Every
+ * Members action names its row, and a test keeps that true. All of them are owners and admins only.
+ */
+async function orgManager(orgId: string, action: OrgAction, mode: 'read' | 'write' = 'write'): Promise<{ userId: string; role: 'owner' | 'admin'; slug: string | null; ownerId: string } | null> {
     const { userId } = await getViewerAuthContext();
     if (!userId) return null;
     const access = await getWorkspaceAccessById(orgId, userId);
     if (mode === 'write' && access.writeBlocked) return null;
     if (access.project?.kind !== 'organization') return null;
-    const role = access.isOwner ? 'owner' : access.memberRole === 'admin' ? 'admin' : null;
-    return role ? { userId, role, slug: access.project.slug ?? null, ownerId: access.project.ownerId } : null;
+    const role: OrgRole = access.isOwner ? 'owner' : access.memberRole === 'admin' ? 'admin' : access.memberRole === 'member' ? 'member' : access.memberRole === 'viewer' ? 'guest' : 'visitor';
+    if (orgGrant(role, action) !== 'yes' || (role !== 'owner' && role !== 'admin')) return null;
+    return { userId, role, slug: access.project.slug ?? null, ownerId: access.project.ownerId };
 }
 
 const touch = (slug: string | null, id: string) => revalidatePath(`/org/${slug ?? id}`);
+
+/** Email invites sent today, in the organization's own calendar day (report §21.4: 1,000 a day). */
+async function invitesSentToday(orgId: string) {
+    const [row] = await db.execute<{ n: number }>(sql`
+        SELECT count(*)::int AS n FROM org_email_invites i JOIN workspaces w ON w.id = i.org_id
+        WHERE i.org_id = ${orgId} AND i.created_at >= (date_trunc('day', now() AT TIME ZONE coalesce(w.time_zone, 'UTC')) AT TIME ZONE coalesce(w.time_zone, 'UTC'))`);
+    return row?.n ?? 0;
+}
 
 async function rolesOf(orgId: string, ownerId: string, userIds: string[]) {
     const rows = await db.select({ userId: workspaceMembers.userId, role: workspaceMembers.role }).from(workspaceMembers)
@@ -56,11 +71,13 @@ export type OrgMembersData = {
     /** People in child projects who aren't in the org (report §20.2 Status: Outside people). */
     outside: Array<{ userId: string; name: string; username: string | null; projects: string[] }>;
     summary: { members: number; admins: number; guests: number; behind: number; notInProject: number; inactive: number };
+    /** "412 left today" (report §21.4). */
+    invitesLeft: number;
 };
 
 /** The roster, requests, open invites and summary lines (report §20.2). Filtering happens in the browser. */
 export async function readOrgMembersAction(orgId: string): Promise<OrgMembersData | Failure> {
-    const viewer = await orgManager(orgId, 'read');
+    const viewer = await orgManager(orgId, 'members_tab', 'read');
     if (!viewer) return DENIED;
     // ponytail: one roster read per open, sized for ORG_LIMITS.membersPerOrg (2,000). Upgrade: server paging.
     const [people, childRows, units, copies, teamCopies, requests, invites, [org], myBlocks] = await Promise.all([
@@ -149,12 +166,13 @@ export async function readOrgMembersAction(orgId: string): Promise<OrgMembersDat
             notInProject: rows.filter((r) => r.projects.length === 0).length,
             inactive: rows.filter((r) => r.inactive).length,
         },
+        invitesLeft: invitesLeftToday(await invitesSentToday(orgId)),
     };
 }
 
 /** Approve one request or several ("Approve all"); Max members blocks approvals when full (report §20.5). */
 export async function approveJoinRequestsAction(orgId: string, applicationIds: string[]): Promise<{ success: true; approved: number; atLimit: number } | Failure> {
-    const viewer = await orgManager(orgId);
+    const viewer = await orgManager(orgId, 'review_join_requests');
     if (!viewer) return DENIED;
     const result = await db.transaction(async (tx) => {
         const [org] = await tx.select({ max: workspaces.maxCollaborators }).from(workspaces).where(eq(workspaces.id, orgId)).for('update').limit(1);
@@ -193,7 +211,7 @@ export async function approveJoinRequestsAction(orgId: string, applicationIds: s
 
 /** Decline with an optional reason; they may ask again after the cool-down (report §20.5). */
 export async function declineJoinRequestAction(orgId: string, applicationId: string, reason?: string | null): Promise<{ success: true } | Failure> {
-    const viewer = await orgManager(orgId);
+    const viewer = await orgManager(orgId, 'review_join_requests');
     if (!viewer) return DENIED;
     const now = new Date();
     const declined = await db.update(roleApplications)
@@ -227,14 +245,17 @@ const inviteSchema = z.object({
  * and unit. Existing accounts accept in-app; others accept when they sign up with that address.
  */
 export async function inviteByEmailAction(orgId: string, input: z.input<typeof inviteSchema>): Promise<{ success: true; invited: number; existing: number; invalid: string[] } | Failure> {
-    const viewer = await orgManager(orgId);
+    const viewer = await orgManager(orgId, 'invite_members_guests');
     if (!viewer) return DENIED;
     const parsed = inviteSchema.safeParse(input);
     if (!parsed.success) return { success: false, error: 'Check the invite details.' };
     if (parsed.data.role === 'admin' && viewer.role !== 'owner') return { success: false, error: 'Only the owner invites admins.' };
     const { valid, invalid } = parseInviteEmails(parsed.data.emails);
     if (valid.length === 0) return { success: false, error: 'Add at least one email address.' };
-    if (valid.length > ORG_LIMITS.emailInvitesPerPaste) return { success: false, error: `Up to ${ORG_LIMITS.emailInvitesPerPaste} addresses at a time.` };
+    if (valid.length > ORG_LIMITS.emailInvitesPerPaste) return { success: false, error: `You pasted ${valid.length}. Up to ${ORG_LIMITS.emailInvitesPerPaste} at a time.` };
+    // Report §21.4: 1,000 a day, checked before anything is sent so nothing goes half out.
+    const left = invitesLeftToday(await invitesSentToday(orgId));
+    if (valid.length > left) return { success: false, error: left === 0 ? 'No invites left today. Try again tomorrow.' : `${left} ${left === 1 ? 'invite' : 'invites'} left today. Send fewer at once.` };
     let unitId = parsed.data.unitId ?? null;
     if (parsed.data.childProjectId) {
         const [child] = await db.select({ id: workspaces.id }).from(workspaces).where(and(eq(workspaces.id, parsed.data.childProjectId), eq(workspaces.parentId, orgId), isNull(workspaces.deletedAt))).limit(1);
@@ -251,7 +272,7 @@ export async function inviteByEmailAction(orgId: string, input: z.input<typeof i
 
 /** Resend: another 14 days (the email itself goes out with P14). */
 export async function resendOrgInviteAction(orgId: string, inviteId: string): Promise<{ success: true } | Failure> {
-    const viewer = await orgManager(orgId);
+    const viewer = await orgManager(orgId, 'invite_members_guests');
     if (!viewer) return DENIED;
     const expiresAt = new Date(Date.now() + INVITE_DAYS * 86_400_000);
     const updated = await db.update(orgEmailInvites).set({ expiresAt })
@@ -266,7 +287,7 @@ export async function resendOrgInviteAction(orgId: string, inviteId: string): Pr
 }
 
 export async function cancelOrgInviteAction(orgId: string, inviteId: string): Promise<{ success: true } | Failure> {
-    const viewer = await orgManager(orgId);
+    const viewer = await orgManager(orgId, 'invite_members_guests');
     if (!viewer) return DENIED;
     await db.delete(orgEmailInvites).where(and(eq(orgEmailInvites.id, inviteId), eq(orgEmailInvites.orgId, orgId), isNull(orgEmailInvites.acceptedAt)));
     touch(viewer.slug, orgId);
@@ -303,11 +324,19 @@ export async function declineOrgInviteAction(inviteId: string): Promise<{ succes
 
 /** Change role for one or many (report §20.4, §20.6). Only the owner manages admins; nobody changes the owner here. */
 export async function changeMemberRoleAction(orgId: string, userIds: string[], role: 'admin' | 'member' | 'viewer'): Promise<{ success: true; changed: number } | Failure> {
-    const viewer = await orgManager(orgId);
+    const viewer = await orgManager(orgId, 'change_member_viewer_role');
     if (!viewer || !['admin', 'member', 'viewer'].includes(role)) return DENIED;
     const roles = await rolesOf(orgId, viewer.ownerId, userIds);
     for (const id of userIds) {
         const block = roles.has(id) ? memberChangeBlock(viewer.role, roles.get(id)!, role) : 'That person is no longer a member.';
+        if (block) return { success: false, error: block };
+    }
+    if (role === 'admin') {
+        // Report §21.4: 20 admins, checked before anyone changes.
+        const [{ n } = { n: 0 }] = await db.select({ n: sql<number>`count(*)::int` }).from(workspaceMembers).where(and(eq(workspaceMembers.projectId, orgId), eq(workspaceMembers.role, 'admin')));
+        const adding = userIds.filter((id) => roles.get(id) !== 'admin').length;
+        const org = adding ? await orgLabel(orgId) : null;
+        const block = adding ? orgLimitBlock('admins', n + adding - 1, { org: org?.title ?? 'This organization', isAdmin: true }) : null;
         if (block) return { success: false, error: block };
     }
     await db.transaction(async (tx) => {
@@ -331,7 +360,7 @@ export async function changeMemberRoleAction(orgId: string, userIds: string[], r
 
 /** Admins edit anyone's title ("Section B", "TA · Lab 2"); members edit their own in Settings (report §20.4). */
 export async function setMemberTitleAction(orgId: string, userId: string, title: string | null): Promise<{ success: true } | Failure> {
-    const viewer = await orgManager(orgId);
+    const viewer = await orgManager(orgId, 'members_tab');
     if (!viewer) return DENIED;
     const clean = title?.trim().slice(0, 60) || null;
     const updated = await db.update(workspaceMembers).set({ title: clean })
@@ -346,7 +375,7 @@ export async function setMemberTitleAction(orgId: string, userId: string, title:
  * kept. "Block from rejoining" stops the join code. Project leads transfer or detach their projects first.
  */
 export async function removeMembersAction(orgId: string, userIds: string[], options: { block: boolean; reason?: string | null }): Promise<{ success: true; removed: number } | Failure> {
-    const viewer = await orgManager(orgId);
+    const viewer = await orgManager(orgId, 'remove_members_guests');
     if (!viewer) return DENIED;
     const roles = await rolesOf(orgId, viewer.ownerId, userIds);
     for (const id of userIds) {
@@ -380,7 +409,7 @@ export async function removeMembersAction(orgId: string, userIds: string[], opti
 
 /** Add to child project (report §20.6): admins add people directly, into a unit when one is picked. */
 export async function addMembersToChildAction(orgId: string, childProjectId: string, userIds: string[], unitId: string | null): Promise<{ success: true; added: number } | Failure> {
-    const viewer = await orgManager(orgId);
+    const viewer = await orgManager(orgId, 'move_member_workspace');
     if (!viewer) return DENIED;
     const [child] = await db.select({ id: workspaces.id, ownerId: workspaces.ownerId, title: workspaces.title, slug: workspaces.slug }).from(workspaces)
         .where(and(eq(workspaces.id, childProjectId), eq(workspaces.parentId, orgId), isNull(workspaces.deletedAt))).limit(1);
@@ -411,7 +440,7 @@ export type MemberActivityRow = { at: string; what: string; task: string; projec
 
 /** Remind about missing work (report §20.6): one notice per person with what's still open, at most every 12 hours. */
 export async function remindMembersAction(orgId: string, userIds: string[]): Promise<{ success: true; reminded: number; skipped: number } | Failure> {
-    const viewer = await orgManager(orgId);
+    const viewer = await orgManager(orgId, 'extend_excuse_remind');
     if (!viewer) return DENIED;
     const [org] = await db.select({ id: workspaces.id, title: workspaces.title, slug: workspaces.slug }).from(workspaces).where(eq(workspaces.id, orgId)).limit(1);
     userIds = userIds.filter((id) => UUID_RE.test(id));
@@ -449,7 +478,7 @@ async function recordViewAcrossBlock(orgId: string, viewerId: string, userId: st
 }
 
 export async function readMemberActivityAction(orgId: string, userId: string): Promise<{ success: true; activity: MemberActivityRow[] } | Failure> {
-    const viewer = await orgManager(orgId, 'read');
+    const viewer = await orgManager(orgId, 'members_tab', 'read');
     if (!viewer || !UUID_RE.test(userId)) return DENIED;
     await recordViewAcrossBlock(orgId, viewer.userId, userId, 'activity');
     const rows = await db.execute<{ at: string; event_type: string; task: string; project: string }>(sql`
@@ -461,7 +490,7 @@ export async function readMemberActivityAction(orgId: string, userId: string): P
 }
 
 export async function readMemberWorkAction(orgId: string, userId: string): Promise<{ success: true; work: MemberWorkRow[] } | Failure> {
-    const viewer = await orgManager(orgId, 'read');
+    const viewer = await orgManager(orgId, 'members_tab', 'read');
     if (!viewer || !UUID_RE.test(userId)) return DENIED;
     await recordViewAcrossBlock(orgId, viewer.userId, userId, 'work');
     const rows = await db.select({ id: tasks.id, title: tasks.title, status: tasks.status, reviewStatus: tasks.reviewStatus, dueDate: tasks.dueDate, reviewSubmittedAt: tasks.reviewSubmittedAt, completedAt: tasks.completedAt, excusedAt: tasks.excusedAt })

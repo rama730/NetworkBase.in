@@ -1,6 +1,7 @@
 'use client';
 
 import { useCreateLocation } from '@/components/organizations/CreateLocation';
+import { typeProfile } from '@/lib/organizations/type-profile'
 import { useEffect, useMemo, useState, type ComponentType, type ReactNode } from 'react';
 import { useFormContext, useWatch } from 'react-hook-form';
 import { Edit3, Folder, GitBranch, Globe, Lock } from 'lucide-react';
@@ -365,7 +366,7 @@ export default function Phase5Review({ goToPhase, onReady, projectImage = null }
                                         <p className="nb-ui-label text-foreground">{role.role}</p>
                                         <DetailLabel>{role.count} {role.count === 1 ? 'opening' : 'openings'}</DetailLabel>
                                         <DetailLabel>{role.experienceLevel || 'any'}</DetailLabel>
-                                        {childOrg?.orgType !== 'education' ? <DetailLabel>{(role.compensationType || 'unpaid').replace('_', ' ')}</DetailLabel> : null}
+                                        {!childOrg || typeProfile(childOrg.orgType).showCompensation ? <DetailLabel>{(role.compensationType || 'unpaid').replace('_', ' ')}</DetailLabel> : null}
                                         {role.lead_user_id ? <DetailLabel>★ {role.people?.find((person) => person.user_id === role.lead_user_id)?.label ?? 'Team lead'}</DetailLabel> : null}
                                     </div>
                                     {role.description ? <p className="nb-compact mt-2 whitespace-pre-wrap text-muted-foreground">{role.description}</p> : null}

@@ -290,6 +290,7 @@ function InviteBox({ orgId, data, label, pending, run, onCode }: { orgId: string
                 }, 'Invites saved')
             }}>
                 <textarea value={emails} onChange={(e) => setEmails(e.target.value)} rows={3} placeholder="Emails, comma or one per line" aria-label="Emails to invite" className="w-full rounded-md border border-border bg-background p-2 text-sm" />
+                <p className="text-[12px] text-muted-foreground">{data.invitesLeft === 0 ? 'No invites left today.' : `${data.invitesLeft} left today`}</p>
                 <div className="flex gap-1.5">
                     <select aria-label="Invite as" className={cn(select, 'flex-1')} value={role} onChange={(e) => setRole(e.target.value as typeof role)}>
                         <option value="member">{label('member')}</option><option value="viewer">{label('viewer')}</option>

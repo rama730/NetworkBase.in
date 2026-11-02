@@ -1,3 +1,5 @@
+import { typeProfile } from "@/lib/organizations/type-profile";
+
 // Org Messages rules (report §25), pure so the SQL (0249), the server and the chat sidebar agree.
 
 /** A child project's default channel is named after its handle (`#compiler-lab`); others keep `#general`. */
@@ -11,10 +13,10 @@ export function defaultChannelName(handleOrTitle: string | null, isChild: boolea
 export function orgChatSettings(orgSettings: unknown, orgType: string | null) {
   const s = (orgSettings && typeof orgSettings === "object" ? orgSettings : {}) as { membersCreateChannels?: unknown; generalAdminsOnly?: unknown; generalNotify?: unknown };
   return {
-    membersCreateChannels: typeof s.membersCreateChannels === "boolean" ? s.membersCreateChannels : orgType !== "education",
+    membersCreateChannels: typeof s.membersCreateChannels === "boolean" ? s.membersCreateChannels : typeProfile(orgType).membersPost,
     generalAdminsOnly: s.generalAdminsOnly === true,
     // New members' #general notify level (0261 applies it on join): Mentions for Education, All otherwise.
-    generalNotify: s.generalNotify === "all" || s.generalNotify === "mentions" ? s.generalNotify : orgType === "education" ? "mentions" as const : "all" as const,
+    generalNotify: s.generalNotify === "all" || s.generalNotify === "mentions" ? s.generalNotify : typeProfile(orgType).generalNotify,
   };
 }
 

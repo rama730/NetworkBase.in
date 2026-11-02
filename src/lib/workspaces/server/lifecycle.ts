@@ -1,4 +1,5 @@
 import "server-only";
+import { customRoleNames, savedTypeSettings, typeProfile } from "@/lib/organizations/type-profile";
 
 import { type WorkspaceVisibility, isWorkspaceVisibility } from "@/lib/workspaces/workspace-visibility";
 import { db } from "@/lib/db";
@@ -44,6 +45,7 @@ import { validateOrgHandle } from "@/lib/organizations/handle";
 import { isOrgHandleAvailable } from "@/lib/organizations/join";
 import { generateJoinCode } from "@/lib/organizations/join-rules";
 import { capChildVisibility, childCreationBlock } from "@/lib/organizations/child-rules";
+import { orgLimitBlock } from "@/lib/organizations/limits";
 import { readViewerOrgRole } from "@/lib/organizations/detail";
 import { isTimeZone, readOrgRules } from "@/lib/organizations/settings";
 import { createOrgEmailInvites } from "@/lib/organizations/members";
@@ -634,6 +636,10 @@ export async function createWorkspaceAction(
       const block = childCreationBlock(role, rules.childCreation, open);
       // Report §14.6: the wizard keeps everything and offers "Create as a personal workspace".
       if (block) return refuse(!role ? `You’re no longer in ${org.title}.` : !open ? `${org.title} is archived.` : block, "ORG_BLOCKED");
+      // ponytail: counted before the insert, so two creates at once can pass 200 by one. Ceiling: harmless; a lock if it matters.
+      const [{ n: children } = { n: 0 }] = await db.select({ n: sql<number>`count(*)::int` }).from(workspaces).where(and(eq(workspaces.parentId, parentOrgId), isNull(workspaces.deletedAt)));
+      const full = orgLimitBlock("workspaces", children, { org: org.title || "This organization", isAdmin: role === "owner" || role === "admin" });
+      if (full) return refuse(full, "ORG_BLOCKED");
       const isOrgAdmin = role === "owner" || role === "admin";
       if (input.lead_user_id && input.lead_user_id !== user.id) {
         if (!isOrgAdmin) return refuse("Only admins pick someone else as lead.");
@@ -781,6 +787,9 @@ export async function createWorkspaceAction(
     if ("error" in externalLinksSplit)
       return { success: false, error: externalLinksSplit.error };
     const openRoles = (input.roles || []).filter((role) => role.role.trim().length > 0);
+    // Report §21.4: a workspace in an organization has up to 20 teams.
+    const tooManyTeams = parentOrgId ? orgLimitBlock("teams", openRoles.length - 1, { org: input.title?.trim() || "This workspace", isAdmin: true }) : null;
+    if (tooManyTeams) return { success: false, error: tooManyTeams };
     const lookingForCollaborators = openRoles.length > 0;
 
     let requestedSlug = orgHandle ?? (input.slug || "").trim().toLowerCase();
@@ -882,7 +891,10 @@ export async function createWorkspaceAction(
                   joinMode: organization.join_mode,
                   childCreation: organization.child_creation,
                   outsidePeople: organization.outside_people,
-                  roleNames: organization.role_names ?? defaultOrgRoleNames(organization.org_type),
+                  // Report §21.2: every value the type sets is saved now, so it stops following the type. Role names
+                  // keep only what differs from the type's, so changing type later still renames the rest.
+                  ...savedTypeSettings(organization.org_type),
+                  roleNames: customRoleNames(organization.org_type, organization.role_names),
                   // Report §34: Other's label, identity, and the Work defaults chosen in Setup (unset keys keep the type's).
                   ...(organization.org_type === "other" ? { typeLabel: organization.type_label?.trim() } : {}),
                   ...(organization.part_of ? { partOf: organization.part_of } : {}),
@@ -899,7 +911,7 @@ export async function createWorkspaceAction(
                 maxCollaborators: organization.max_members ? String(organization.max_members) : null,
                 joinCode,
                 // Education reviews assignments by default (report §21.5), unless Setup changed it.
-                taskReviewRequired: organization.work?.review_required ?? organization.org_type === "education",
+                taskReviewRequired: organization.work?.review_required ?? typeProfile(organization.org_type).reviewRequired,
               }
             : {}),
         };
@@ -1258,6 +1270,7 @@ export async function updateWorkspace(projectId: string, input: UpdateWorkspaceI
           title: workspaces.title,
           status: workspaces.status,
           kind: workspaces.kind,
+          parentId: workspaces.parentId,
         })
         .from(workspaces)
         .where(eq(workspaces.id, projectId))
@@ -1417,6 +1430,13 @@ export async function updateWorkspace(projectId: string, input: UpdateWorkspaceI
         const cleanDeletedIds = (deletedRoleIds || []).filter(
           (id: string) => id !== "lead-role",
         );
+        // Report §21.4: a workspace in an organization has up to 20 teams, checked before any team is written.
+        if (project.parentId) {
+          const [{ n } = { n: 0 }] = await tx.select({ n: sql<number>`count(*)::int` }).from(workspaceOpenRoles).where(eq(workspaceOpenRoles.projectId, projectId));
+          const after = n - cleanDeletedIds.length + cleanRoles.filter((role) => !role.id).length;
+          const full = orgLimitBlock("teams", after - 1, { org: project.title || "This workspace", isAdmin: true });
+          if (full) throw new Error(full);
+        }
 
         // Every client-supplied role id must belong to this project before any
         // write in this command (COR-001).

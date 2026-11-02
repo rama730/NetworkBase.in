@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { typeProfile } from "@/lib/organizations/type-profile";
 
 import type { WorkspaceSettingsSectionId } from "@/lib/workspaces/settings-policies";
 import { ORG_LIMITS, ORG_TYPES } from "@/lib/organizations/config";
@@ -118,13 +119,14 @@ export type OrgWork = {
  */
 export function readOrgWork(orgSettings: unknown, orgType: string | null | undefined): OrgWork {
   const s = (orgSettings ?? {}) as Record<string, unknown>;
-  const education = orgType === "education";
+  // Saved when the organization is made (0048 for older ones); the type only fills a key that is somehow missing.
+  const type = typeProfile(orgType);
   const pick = <T extends string>(value: unknown, options: readonly T[], fallback: T): T => (options.includes(value as T) ? (value as T) : fallback);
   return {
-    reviewRequired: typeof s.assignmentReview === "boolean" ? s.assignmentReview : education,
-    lateRule: pick(s.assignmentLateRule, ["none", "until", "always"] as const, education ? "until" : "always"),
+    reviewRequired: typeof s.assignmentReview === "boolean" ? s.assignmentReview : type.reviewRequired,
+    lateRule: pick(s.assignmentLateRule, ["none", "until", "always"] as const, type.lateRule),
     reminders: pick(s.assignmentReminders, ["both", "day_before", "due_day", "off"] as const, "both"),
-    storyPoints: pick(s.storyPoints, ["shown", "hidden"] as const, education ? "hidden" : "shown"),
+    storyPoints: pick(s.storyPoints, ["shown", "hidden"] as const, type.storyPoints),
     sprintAutoStart: s.sprintAutoStart !== false,
     sprintNotifyOnStart: s.sprintNotifyOnStart !== false,
     sprintShowInChildren: s.sprintShowInChildren !== false,

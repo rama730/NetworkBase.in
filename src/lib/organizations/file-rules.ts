@@ -1,3 +1,5 @@
+import { typeProfile } from "@/lib/organizations/type-profile";
+
 // Org Files rules (report §23.3), pure so the server, the DB rule (0247) and the Files tab agree.
 
 /** Folder access in an organization; an unmarked folder counts as Members. */
@@ -31,11 +33,11 @@ export function readFolderAccess(metadata: unknown): FolderAccess | null {
 
 /** Starter folders by org type (§23.3); the last one is Admins only. Docs is where New doc lands (§19.3). */
 export function starterFolders(orgType: string | null | undefined): Array<{ name: string; access: FolderAccess | null }> {
-  const [shared, staff] = orgType === "education" ? ["Course materials", "Staff"] : orgType === "company" ? ["Shared", "Managers"] : ["Shared", "Admins"];
+  const [shared, docs, templates, staff] = typeProfile(orgType).starterFolders;
   return [
     { name: shared, access: null },
-    { name: "Docs", access: null },
-    { name: "Templates", access: null },
+    { name: docs, access: null },
+    { name: templates, access: null },
     { name: staff, access: "admins" },
   ];
 }

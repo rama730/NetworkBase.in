@@ -16,6 +16,7 @@ import { RailSection } from '@/components/ui/rail-section'
 import { WorkspaceLastUpdate } from '@/components/workspaces/WorkspaceLastUpdate'
 import { toast } from '@/lib/feedback'
 import { remindSummary } from '@/lib/organizations/member-rules'
+import { typeProfile } from '@/lib/organizations/type-profile'
 import { formatDistanceToNow } from '@/lib/utils/date'
 import { cn } from '@/lib/utils'
 
@@ -28,7 +29,7 @@ const STATE: Record<string, string> = { not_started: 'Not started', in_progress:
 const FILTERS = [['all', 'All'], ['assignments', 'Assignments'], ['people', 'People'], ['files', 'Files and docs'], ['projects', 'Workspaces']] as const
 
 /** The org Dashboard for people in the org (report §27). */
-export function OrgDashboard({ orgId, orgSlug }: { orgId: string; orgSlug: string | null }) {
+export function OrgDashboard({ orgId, orgSlug, orgType = null }: { orgId: string; orgSlug: string | null; orgType?: string | null }) {
     const [filter, setFilter] = useState('all')
     // Refetch on focus and every 2 minutes while visible.
     const query = useQuery({ queryKey: ['org-dashboard', orgId, filter], queryFn: () => readOrgDashboardAction(orgId, filter), refetchInterval: 120_000, refetchOnWindowFocus: true })
@@ -72,7 +73,7 @@ export function OrgDashboard({ orgId, orgSlug }: { orgId: string; orgSlug: strin
                             </li>
                         ))}</ul> : <p className="text-sm text-muted-foreground">No assignments in this sprint.</p>
                     ) : s.next ? <p className="text-sm text-muted-foreground">{s.next.name} starts {day(s.next.startDate)}.</p>
-                        : data.role === 'admin' ? <Link href={`${base}?tab=sprints`} className="text-sm underline underline-offset-4">Plan your term</Link>
+                        : data.role === 'admin' ? <Link href={`${base}?tab=sprints`} className="text-sm underline underline-offset-4">{typeProfile(orgType).planLabel}</Link>
                             : <p className="text-sm text-muted-foreground">No sprint right now.</p>}
                 </RailSection>
                 <RailSection title="Coming up · next 7 days">

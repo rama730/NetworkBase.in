@@ -142,8 +142,9 @@ test("creating an organization keeps the exact handle, makes a join code and app
   assert.equal(result.project!.slug, handle);
   assert.match(result.project!.joinCode ?? "", /^[A-HJ-NP-Z2-9]{6}$/);
   const [row] = await sql`SELECT kind, org_type, task_review_required, term_end::text AS term_end, org_settings->>'joinMode' AS join_mode,
-                                 org_settings->'roleNames'->>'member' AS member_name FROM workspaces WHERE id = ${result.project!.id}`;
-  assert.deepEqual({ ...row }, { kind: "organization", org_type: "education", task_review_required: true, term_end: "2026-12-15", join_mode: "approval", member_name: "Student" });
+                                 org_settings->'roleNames'->>'member' AS member_name, org_settings->>'generalNotify' AS general_notify FROM workspaces WHERE id = ${result.project!.id}`;
+  assert.deepEqual({ ...row }, { kind: "organization", org_type: "education", task_review_required: true, term_end: "2026-12-15", join_mode: "approval", member_name: null, general_notify: "mentions" });
+  // Step T (report §21.2): "Student" comes from the type and isn't stored as custom; the type's values are saved.
   const [owner] = await sql`SELECT role, title FROM workspace_members WHERE workspace_id = ${result.project!.id} AND user_id = ${viewerId}`;
   assert.deepEqual({ ...owner }, { role: "owner", title: "Teacher" });
 

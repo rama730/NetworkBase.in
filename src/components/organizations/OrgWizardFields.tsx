@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useFieldArray, useFormContext, useWatch, type UseFormReturn } from 'react-hook-form'
+import { typeProfile } from '@/lib/organizations/type-profile'
 import { X } from 'lucide-react'
 
 import { checkOrgHandleAction } from '@/app/actions/organizations'
@@ -196,9 +197,11 @@ export function OrgWelcomeField() {
 export function OrgCalendarFields() {
     const { register } = useFormContext<CreateWorkspaceInput>()
     const copy = useOrgCopy()
+    // Report §21.2: term dates are an Education thing; other types plan sprints only.
+    const termDates = typeProfile(useWatch<CreateWorkspaceInput, 'organization.org_type'>({ name: 'organization.org_type' })).termDates
     return (
         <div className="space-y-5">
-            <fieldset>
+            {termDates ? <fieldset>
                 <legend className={labelClass}>{copy.termLabel} (optional)</legend>
                 <div className="mt-1.5 grid gap-3 sm:grid-cols-2">
                     <label className="text-[13px] text-muted-foreground">
@@ -210,7 +213,7 @@ export function OrgCalendarFields() {
                         <Input type="date" {...register('organization.term_end')} className="mt-1" />
                     </label>
                 </div>
-            </fieldset>
+            </fieldset> : null}
             <PlanFirstSprints />
         </div>
     )

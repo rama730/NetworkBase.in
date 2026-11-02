@@ -5,6 +5,7 @@ import { and, count, eq, gt, isNull, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { orgHandleHolds, profiles, workspaceMembers, workspaces, roleApplications } from "@/lib/db/schema";
 import { orgRoleNames, orgTypeLabel, type OrgType } from "@/lib/organizations/config";
+import { orgLimitBlock } from "@/lib/organizations/limits";
 import { childCreationBlock, type VisibilityCap } from "@/lib/organizations/child-rules";
 import { readOrgRules, readOrgWork, type OrgWork } from "@/lib/organizations/settings";
 import { isWorkspacePubliclyReadableVisibility } from "@/lib/workspaces/workspace-visibility";
@@ -264,7 +265,8 @@ export async function readChildOrgLink(
 /** Every org the person is in, for the create wizard's Where picker, with why they can't create there (report §14.1). */
 export async function listCreateLocations(userId: string) {
   const rows = await db
-    .select({ id: workspaces.id, title: workspaces.title, slug: workspaces.slug, ownerId: workspaces.ownerId, role: workspaceMembers.role, visibility: workspaces.visibility, status: workspaces.status, suspendedAt: workspaces.suspendedAt, orgSettings: workspaces.orgSettings, orgType: workspaces.orgType, category: workspaces.category, tags: workspaces.tags, memberUpdatesEnabled: workspaces.memberUpdatesEnabled, memberFileUploadDefault: workspaces.memberFileUploadDefault })
+    .select({ id: workspaces.id, title: workspaces.title, slug: workspaces.slug, ownerId: workspaces.ownerId, role: workspaceMembers.role, visibility: workspaces.visibility, status: workspaces.status, suspendedAt: workspaces.suspendedAt, orgSettings: workspaces.orgSettings, orgType: workspaces.orgType, category: workspaces.category, tags: workspaces.tags, memberUpdatesEnabled: workspaces.memberUpdatesEnabled, memberFileUploadDefault: workspaces.memberFileUploadDefault,
+      children: sql<number>`(SELECT count(*)::int FROM workspaces c WHERE c.parent_id = ${workspaces.id} AND c.deleted_at IS NULL)` })
     .from(workspaces)
     .innerJoin(workspaceMembers, and(eq(workspaceMembers.projectId, workspaces.id), eq(workspaceMembers.userId, userId)))
     .where(and(eq(workspaces.kind, "organization"), isNull(workspaces.deletedAt)))
@@ -276,7 +278,9 @@ export async function listCreateLocations(userId: string) {
       id: row.id,
       title: row.title,
       slug: row.slug,
-      block: childCreationBlock(role, rules.childCreation, row.status !== "archived" && !row.suspendedAt),
+      // Report §21.4: 200 workspaces, said on the create button rather than after the wizard.
+      block: childCreationBlock(role, rules.childCreation, row.status !== "archived" && !row.suspendedAt)
+        ?? orgLimitBlock("workspaces", row.children, { org: row.title || "This organization", isAdmin: role === "owner" || role === "admin" }),
       visibilityCap: rules.visibilityCap,
       orgPublic: isWorkspacePubliclyReadableVisibility(row.visibility),
       isAdmin: role === "owner" || role === "admin",

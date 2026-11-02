@@ -1,3 +1,5 @@
+import { typeProfile } from "@/lib/organizations/type-profile";
+
 /**
  * Every organization limit (docs/organization-concept-report.md §30.4), in one place.
  * ponytail: fixed v1 values; raise a value here when real orgs hit it (support asks first).
@@ -37,11 +39,7 @@ export type OrgType = (typeof ORG_TYPES)[number];
 
 /** Default role names by org type (report §5, §21.5, §34.2): owner / admin / member / viewer. Editable in Settings; shown beside the base level (terminology report §4.3). */
 export function defaultOrgRoleNames(type: OrgType) {
-  if (type === "education") return { owner: "Teacher", admin: "TA", member: "Student", viewer: "Viewer" };
-  if (type === "company") return { owner: "Owner", admin: "Manager", member: "Member", viewer: "Viewer" };
-  if (type === "research") return { owner: "PI", admin: "Researcher", member: "Member", viewer: "Viewer" };
-  if (type === "club") return { owner: "President", admin: "Coordinator", member: "Member", viewer: "Viewer" };
-  return { owner: "Owner", admin: "Admin", member: "Member", viewer: "Viewer" };
+  return { ...typeProfile(type).roleNames };
 }
 
 /** The organization's role names: its type's defaults, overridden by its own (blank names fall back). */

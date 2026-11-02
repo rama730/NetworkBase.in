@@ -17,6 +17,7 @@ import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { Input } from '@/components/ui/input'
 import { ORG_TYPES, orgTypeLabel } from '@/lib/organizations/config'
+import { typeProfile } from '@/lib/organizations/type-profile'
 import { orgChatSettings } from '@/lib/organizations/chat-rules'
 import { updateOrgChatSettingsAction } from '@/app/actions/org-chat'
 import { requestOrgVerificationAction } from '@/app/actions/trust'
@@ -165,8 +166,9 @@ export function OrgProfileSection({ orgId, organization, role, handle }: Section
                     </div>
                     <div>
                         <label htmlFor="org-type" className={labelClass}>Type</label>
-                        <p className={helpClass}>Sets the role names for new organizations; changing it later keeps your role names.</p>
-                        <select id="org-type" value={type} onChange={(e) => setType(e.target.value as typeof type)} className="mt-2 h-[var(--ui-control-height)] rounded-md border border-input bg-background px-2 text-sm">
+                        {/* Report §21.2: the owner changes type; it renames roles still on the type's names and changes labels such as Submissions. */}
+                        <p className={helpClass}>{isOwner ? 'Changing it renames roles you haven’t renamed and labels such as Submissions. People, folders, work, joining, visibility and rules stay the same.' : OWNER_ONLY}</p>
+                        <select id="org-type" value={type} disabled={!isOwner} onChange={(e) => setType(e.target.value as typeof type)} className="mt-2 h-[var(--ui-control-height)] rounded-md border border-input bg-background px-2 text-sm">
                             {ORG_TYPES.map((t) => <option key={t} value={t}>{orgTypeLabel(t)}</option>)}
                         </select>
                         {type === 'other' ? (
@@ -187,14 +189,14 @@ export function OrgProfileSection({ orgId, organization, role, handle }: Section
                             <Input value={location} onChange={(e) => setLocation(e.target.value)} maxLength={100} className="mt-2" />
                         </label>
                     </div>
-                    <fieldset>
+                    {typeProfile(organization.type).termDates ? <fieldset>
                         <legend className={labelClass}>Term or period</legend>
                         <p className={helpClass}>Optional, for example Aug–Dec 2026. Shown on About.</p>
                         <div className="mt-2 grid max-w-md gap-3 sm:grid-cols-2">
                             <label className="text-xs text-muted-foreground">Starts<Input type="date" value={termStart} onChange={(e) => setTermStart(e.target.value)} className="mt-1" /></label>
                             <label className="text-xs text-muted-foreground">Ends<Input type="date" value={termEnd} onChange={(e) => setTermEnd(e.target.value)} className="mt-1" /></label>
                         </div>
-                    </fieldset>
+                    </fieldset> : null}
                     <div>
                         <label htmlFor="org-tz" className={labelClass}>Time zone</label>
                         <p className={helpClass}>Due dates and reminders use it, for example Asia/Kolkata. Empty uses each person’s own.</p>
@@ -206,7 +208,7 @@ export function OrgProfileSection({ orgId, organization, role, handle }: Section
                         <textarea id="org-welcome" value={welcome} onChange={(e) => setWelcome(e.target.value)} rows={4} maxLength={500} className="mt-2 w-full resize-y rounded-md border border-input bg-transparent px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring" />
                     </div>
                     <div className="flex items-center gap-3">
-                        <Button disabled={pending || (type === 'other' && !typeLabel.trim())} onClick={() => save(() => updateOrgSettingsAction(orgId, 'profile', {
+                        <Button disabled={pending || (type === 'other' && !typeLabel.trim())} onClick={() => (type === organization.type || window.confirm(`Change the type to ${orgTypeLabel(type)}? Roles you haven’t renamed get ${orgTypeLabel(type)}’s names, and labels such as Submissions change. People, folders, work, joining, visibility and rules stay the same.`)) && save(() => updateOrgSettingsAction(orgId, 'profile', {
                             org_type: type, type_label: type === 'other' ? typeLabel.trim() : null, part_of: partOf.trim() || null, location: location.trim() || null,
                             term_start: termStart || null, term_end: termEnd || null, time_zone: timeZone.trim() || null, welcome_note: welcome.trim() || null,
                         }))}>Save</Button>
@@ -302,7 +304,7 @@ export function OrgPeopleSection({ orgId, organization, role }: SectionProps) {
                         <p className={helpClass}>{isOwner ? 'For example Teacher / TA / Student / Viewer. Permissions always come from the role.' : OWNER_ONLY}</p>
                         <div className="mt-2 grid max-w-md gap-2 sm:grid-cols-2">
                             {TABLE_ROLES.map(([, key]) => (
-                                <label key={key} className="text-xs capitalize text-muted-foreground">{key === 'viewer' ? 'guest' : key}
+                                <label key={key} className="text-xs capitalize text-muted-foreground">{key}
                                     <Input value={names[key]} onChange={(e) => setNames({ ...names, [key]: e.target.value })} disabled={!isOwner} maxLength={30} className="mt-1" />
                                 </label>
                             ))}

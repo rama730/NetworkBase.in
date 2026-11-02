@@ -49,7 +49,7 @@ const targetSchema: z.ZodType<AssignmentTarget> = z.union([
     z.object({ mode: z.literal('people'), userIds: z.array(z.string().uuid()).min(1).max(2000) }),
     z.object({
         mode: z.literal('teams'),
-        teams: z.array(z.object({ name: z.string().trim().min(1).max(60), userIds: z.array(z.string().uuid()).max(100), leadId: z.string().uuid().nullable().optional() })).max(500),
+        teams: z.array(z.object({ name: z.string().trim().min(1).max(60), userIds: z.array(z.string().uuid()).max(100), leadId: z.string().uuid().nullable().optional() })).max(ORG_LIMITS.teamsPerAssignment, `An assignment can go to up to ${ORG_LIMITS.teamsPerAssignment} teams.`),
         individuals: z.array(z.string().uuid()).max(2000),
     }),
     z.object({ mode: z.literal('each_child') }),

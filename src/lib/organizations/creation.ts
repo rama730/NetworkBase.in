@@ -1,4 +1,5 @@
 import { defaultOrgRoleNames, type OrgType } from "@/lib/organizations/config";
+import { typeProfile } from "@/lib/organizations/type-profile";
 
 // Organization creation by type (report §34): the words each step shows and the defaults the type sets.
 // Client-safe: the wizard reads it, and the server reads the same defaults when it creates the org.
@@ -88,14 +89,14 @@ export const ORG_CREATION_COPY: Record<OrgType, CreationCopy> = {
 /** What the type sets until the person changes it (report §34.4, §34.5, decision 185). */
 export function orgTypeDefaults(type: OrgType) {
   const roleNames = defaultOrgRoleNames(type);
-  const open = type === "education" || type === "community" || type === "club";
+  const profile = typeProfile(type);
   return {
     roleNames,
     creatorTitle: roleNames.owner,
-    joinMode: open ? ("instant" as const) : ("approval" as const),
-    visibility: type === "community" || type === "club" ? ("public" as const) : ("private" as const),
-    memberUpdates: type !== "education",
-    sprintPrefix: type === "education" ? "CO" : "Sprint ",
+    joinMode: profile.joinMode,
+    visibility: profile.visibility,
+    memberUpdates: profile.membersPost,
+    sprintPrefix: profile.sprintPrefix,
   };
 }
 
