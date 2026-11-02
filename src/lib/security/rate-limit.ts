@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto'
+
 import { getRedisClient } from '@/lib/redis'
 
 export interface RateLimitResult {
@@ -70,6 +72,23 @@ end
 
 return { allowed, count, tokens, retry_after_ms }
 `
+
+const TOKEN_BUCKET_SHA = createHash('sha1').update(TOKEN_BUCKET_SCRIPT).digest('hex')
+
+type TokenBucketRedis = {
+    evalsha: (sha: string, keys: string[], args: string[]) => Promise<number[]>
+    eval: (script: string, keys: string[], args: string[]) => Promise<number[]>
+}
+
+/** Sends the 1 KB script only when Redis has not seen it yet, not on every limited request. */
+export async function runTokenBucket(redis: TokenBucketRedis, keys: string[], args: string[]) {
+    try {
+        return await redis.evalsha(TOKEN_BUCKET_SHA, keys, args)
+    } catch (error) {
+        if (!String(error).includes('NOSCRIPT')) throw error
+        return redis.eval(TOKEN_BUCKET_SCRIPT, keys, args)
+    }
+}
 
 const MAX_TEST_BUCKETS = 500
 const TEST_BUCKETS = new Map<string, InMemoryBucket>()
@@ -368,10 +387,8 @@ export async function consumeRateLimitPolicy(policy: RateLimitPolicy): Promise<R
     const ttlMs = Math.max(1_000, Math.ceil((burst / refillRate) * 1000 * 2))
 
     try {
-        const raw = await (redis as unknown as {
-            eval: (script: string, keys: string[], args: string[]) => Promise<number[]>
-        }).eval(
-            TOKEN_BUCKET_SCRIPT,
+        const raw = await runTokenBucket(
+            redis as unknown as TokenBucketRedis,
             [redisKey],
             [
                 String(burst),

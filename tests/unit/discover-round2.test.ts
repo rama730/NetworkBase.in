@@ -44,7 +44,7 @@ test("round 2: caches drop a project or creator that goes private at once", () =
   assert.doesNotMatch(project, /revalidateTag\(DISCOVER_ANON_CACHE_TAG, "max"\)/);
   assert.match(project, /revalidateTag\(DISCOVER_ANON_CACHE_TAG, \{ expire: 0 \}\)/);
   assert.match(profile, /invalidatePublicWorkspacesFeedCache\(\)/);
-  assert.match(read("src/app/api/og/workspace/[slug]/route.tsx"), /s-maxage=3600/);
+  assert.match(read("src/lib/sharing/social-image.tsx"), /private, no-store, no-cache, must-revalidate/);
 });
 
 test("round 2: Escape in an open combobox closes its list, not the dialog", () => {
