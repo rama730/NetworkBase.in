@@ -44,7 +44,7 @@ test('a PDF renders on the canvas with its text layer on top', async ({ page }) 
         if (url.pathname === '/app.js') return route.fulfill({ body: script, contentType: 'application/javascript' });
         if (url.pathname === '/pdf.worker.min.mjs') return route.fulfill({ body: worker, contentType: 'application/javascript' });
         if (url.pathname === '/app.css') return route.fulfill({ body: css, contentType: 'text/css' });
-        if (url.pathname === '/sample.pdf') return route.fulfill({ body: samplePdf(), contentType: 'application/pdf' });
+        if (url.pathname === '/sample.pdf' || url.pathname.endsWith('/preview')) return route.fulfill({ body: samplePdf(), contentType: 'application/pdf' });
         return route.fulfill({ body: '<html><head><meta charset="utf-8"><link rel="stylesheet" href="/app.css"></head><body><div id="root"></div><script type="module" src="/app.js"></script></body></html>', contentType: 'text/html' });
     });
     await page.goto(origin);

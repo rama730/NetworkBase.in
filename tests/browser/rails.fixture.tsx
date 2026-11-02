@@ -93,7 +93,7 @@ function Fixture() {
             <h1 className="nb-page-title px-6" style={{ height: 100 }}>Example project</h1>
             <nav data-testid="project-tabs" className="sticky top-0 z-30 bg-card px-6" style={{ height: 'var(--workspace-tabs-height)' }}>Dashboard · Docs</nav>
             <div data-testid="dashboard-fixture" className="p-6">
-              <style>{`[data-testid="dashboard-fixture"] > div > div { min-height: 3000px; } [data-testid="dashboard-fixture"] aside[aria-label="Project details"] { min-height: ${params.has('short') ? 0 : 1100}px; }`}</style>
+              <style>{`[data-testid="dashboard-fixture"] > div > div { min-height: 3000px; } [data-testid="dashboard-fixture"] aside[aria-label="Workspace details"] { min-height: ${params.has('short') ? 0 : 1100}px; }`}</style>
               <DashboardTab project={{ id: 'project-1', description: 'Project description' }}
                 isCreator={owner} isCollaborator={false} rolesWithFilled={roles} onEdit={record('manage-roles')}
                 lifecycleStages={['Plan', 'Build', 'Launch']} currentStageIndex={stage}
@@ -137,7 +137,7 @@ function Fixture() {
             tabs={<div className="border-b border-border pb-3">Overview · Portfolio</div>}
             main={<Card title="About"><p className="nb-body p-5">I build things.</p></Card>}
             highlights={<OpenToRolesCard isOwner={owner} openToCollaborate={!params.has('paused')}
-              openTo={empty ? [] : ['Full-time roles', 'Freelance projects', 'Co-founder opportunities']} categories={empty ? [] : ['Design']}
+              openTo={empty ? [] : ['Full-time roles', 'Freelance workspaces', 'Co-founder opportunities']} categories={empty ? [] : ['Design']}
               hoursPerWeek={empty ? undefined : 'h_5_10'} onEdit={record('edit-roles')}
               onInvite={record('invite')} onApply={record('apply-profile')} hasOpenRoles />}
             rail={<ProfileRightRail profile={profile} isOwner={owner} socialLinks={[]}

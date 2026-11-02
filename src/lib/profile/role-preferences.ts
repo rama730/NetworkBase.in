@@ -69,6 +69,8 @@ const roleAliases = new Map<string, RolePreferenceValue>([
   ['freelance', 'Freelance workspaces'],
   ['freelance work', 'Freelance workspaces'],
   ['freelance workspaces', 'Freelance workspaces'],
+  // Saved under this name until the workspace rename (2026-10-29).
+  ['freelance projects', 'Freelance workspaces'],
   ['internship', 'Internships'],
   ['internships', 'Internships'],
   ['cofounder', 'Co-founder opportunities'],
@@ -82,6 +84,7 @@ const roleAliases = new Map<string, RolePreferenceValue>([
   ['consultants', 'Consulting workspaces'],
   ['consulting', 'Consulting workspaces'],
   ['consulting workspaces', 'Consulting workspaces'],
+  ['consulting projects', 'Consulting workspaces'],
   ['fractional', 'Fractional leadership'],
   ['fractional leadership', 'Fractional leadership'],
   ['board', 'Board member roles'],

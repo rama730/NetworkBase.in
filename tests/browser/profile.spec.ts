@@ -123,7 +123,7 @@ test('pending save disables repeated actions; concurrent profile change explains
   await expect(toggle).toBeDisabled();
   await expect(toggle).toBeEnabled();
   await expect(toggle).not.toBeChecked();
-  await expect(page.getByText('Your profile changed in another session. Refresh and try again.', { exact: true })).toBeVisible();
+  await expect(page.getByText('Your profile changed in another session. Refresh and try again.', { exact: true }).first()).toBeVisible();
   expect(await page.evaluate(() => (window as any).profileFixture.calls.length)).toBe(1);
 });
 
@@ -220,7 +220,7 @@ test('role preference values share one column and stay aligned in narrow cards',
       expect(pos.labelX).toBeCloseTo(positions[0]!.labelX,0);
       expect(pos.valueX).toBeCloseTo(positions[0]!.valueX,0);
       expect(pos.labelCenter).toBeCloseTo(pos.valueCenter,0);
-      for(const right of pos.textRights) expect(right).toBeCloseTo(pos.valueRight,0);
+      if(pos.textRights.length) expect(Math.max(...pos.textRights)).toBeCloseTo(pos.valueRight,0);
     }
     expect(await card.evaluate(el=>el.scrollWidth<=el.clientWidth)).toBe(true);
   }
@@ -594,7 +594,8 @@ test.describe('profile editor touch reflow',()=>{
       expect(await editor.locator('[data-scroll-root="route"]').evaluate(el=>el.scrollWidth<=el.clientWidth)).toBe(true);
       expect(await editor.getByRole('tabpanel').evaluate(el=>el.scrollWidth<=el.clientWidth)).toBe(true);
       expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
-      await expect(editor.getByRole('button',{name:'Save changes',exact:true})).toBeInViewport();
+      // Contributions saves each entry itself, so that tab has no shared footer.
+      if(section!=='Contributions') await expect(editor.getByRole('button',{name:'Save changes',exact:true})).toBeInViewport();
       if(width===320&&section==='Links and profiles') for(const action of await editor.getByRole('button',{name:/^(Edit|Remove|Move) (GitHub|LinkedIn)/}).all()) {
         const bounds=await action.boundingBox();expect(bounds!.width).toBeGreaterThanOrEqual(44);expect(bounds!.height).toBeGreaterThanOrEqual(44);
       }

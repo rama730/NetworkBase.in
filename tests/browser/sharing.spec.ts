@@ -134,7 +134,7 @@ test('send picker starts with projects, isolates channels and retains notes acro
   await expect(dialog.getByText('Send to Priya Sharma',{exact:true})).toBeVisible();
   await expect(dialog.getByRole('textbox',{name:'Note (optional)'})).toHaveValue('Keep this note while browsing');
   await dialog.getByRole('button',{name:'More',exact:true}).click();
-  await dialog.getByRole('button',{name:/Group conversations/}).click();
+  await dialog.getByRole('button',{name:/Group messages/}).click();
   await expect(dialog.getByRole('radio')).toHaveCount(1);
   await expect(dialog.getByText('Design review',{exact:true})).toBeVisible();
   await expect(dialog.getByText('Priya Sharma',{exact:true})).not.toBeVisible();
@@ -165,7 +165,7 @@ async function openMessages(page:any,options:Record<string,unknown>={}){
 }
 
 test('both first-party card types use half the lane, wrap on narrow panes and reuse author actions',async({page})=>{
-  await openMessages(page);const row=page.getByRole('article'),preview=page.locator('.msg-first-party-preview');
+  await openMessages(page);const row=page.locator('[data-message-row]'),preview=page.locator('.msg-first-party-preview');
   for(const kind of ['profile','project']){
     if(kind==='project')await page.evaluate(()=>{const f=(window as any).sharingFixture;f.path='/workspaces/ponytail';f.messagePages=[];f.refresh();});
     await expect(preview).toContainText(kind==='profile'?'Builder One':'Ponytail');
@@ -178,7 +178,7 @@ test('both first-party card types use half the lane, wrap on narrow panes and re
     const remove=row.getByRole('button',{name:'Remove link preview for everyone'});await remove.focus();expect(await remove.evaluate(e=>getComputedStyle(e).opacity)).toBe('1');expect(await remove.evaluate(e=>e.closest('a'))).toBeNull();
     expect((await remove.boundingBox())!.width).toBe(44);await remove.click();await expect(preview).toHaveCount(0);await expect(row).toContainText('Sharing this for you to explore.');await expect(row.getByRole('link').first()).toHaveAttribute('href',kind==='profile'?'/u/builder':'/workspaces/ponytail');
     await row.hover();await row.getByRole('button',{name:'More actions'}).click();await page.getByRole('menuitem',{name:'Restore link preview'}).click();await expect(preview).toContainText(kind==='profile'?'Builder One':'Ponytail');
-    await page.evaluate(()=>{(window as any).sharingFixture.removeFails=true;});await remove.click();await expect(preview).toContainText(kind==='profile'?'Builder One':'Ponytail');await expect(page.getByText(/can't.*edit|no longer.*change|not.*edit|permission|cannot.*edit/i).last()).toBeVisible();await page.evaluate(()=>{(window as any).sharingFixture.removeFails=false;});
+    await page.evaluate(()=>{(window as any).sharingFixture.removeFails=true;});await remove.click();await expect(preview).toContainText(kind==='profile'?'Builder One':'Ponytail');await expect(page.getByText('Couldn’t update the link preview',{exact:true}).last()).toBeVisible();await page.evaluate(()=>{(window as any).sharingFixture.removeFails=false;});
   }
   await page.evaluate(()=>{const f=(window as any).sharingFixture;f.user={id:'33333333-3333-4333-8333-333333333333'};f.session={id:'session-b'};f.refresh();});await expect(row.getByRole('button',{name:'Remove link preview for everyone'})).toHaveCount(0);await row.hover();await row.getByRole('button',{name:'More actions'}).click();await expect(page.getByRole('menuitem',{name:/link preview/})).toHaveCount(0);
 });
@@ -269,7 +269,7 @@ test('project share preview presents the approved team, statistics and open role
 
 test('an uncertain original receipt survives Back, edited notes and a different destination',async({page})=>{
   const dialog=page.getByRole('dialog');await dialog.getByRole('button',{name:'Send in NetworkBase'}).click();await dialog.getByRole('button',{name:/Ponytail/}).click();await dialog.getByRole('radio').check();await dialog.getByRole('textbox',{name:'Note (optional)'}).fill('Original note');await page.evaluate(()=>{(window as any).sharingFixture.sendResult='uncertain';});await dialog.getByRole('button',{name:'Send',exact:true}).click();await expect(dialog.getByRole('button',{name:'Check earlier send'})).toBeVisible();
-  await dialog.getByRole('button',{name:'Back to sharing'}).click();await dialog.getByRole('button',{name:'Send in NetworkBase'}).click();await dialog.getByRole('textbox',{name:'Note (optional)'}).fill('Edited draft');await dialog.getByRole('button',{name:'Direct messages',exact:true}).click();await dialog.getByRole('radio').check();await expect(dialog.getByRole('button',{name:'Send',exact:true})).toBeDisabled();await dialog.getByRole('button',{name:'Check earlier send'}).click();await expect(dialog.getByRole('textbox',{name:'Note (optional)'})).toHaveValue('Edited draft');await expect(dialog.locator('p[role=status]')).toContainText('No additional message');
+  await dialog.getByRole('button',{name:'Back to sharing'}).click();await dialog.getByRole('button',{name:'Send in NetworkBase'}).click();await dialog.getByRole('textbox',{name:'Note (optional)'}).fill('Edited draft');await dialog.getByRole('button',{name:'Direct messages',exact:true}).click();await dialog.getByRole('radio').check();await expect(dialog.getByRole('button',{name:'Send',exact:true})).toBeDisabled();await dialog.getByRole('button',{name:'Check earlier send'}).click();await expect(dialog.getByRole('textbox',{name:'Note (optional)'})).toHaveValue('Edited draft');await expect(dialog.locator('p[role=status]')).toContainText('Already sent.');
   const attempts=await page.evaluate(()=>(window as any).sharingFixture.attempts);expect(attempts).toHaveLength(2);expect(attempts[1].clientId).toBe(attempts[0].clientId);expect(attempts[1].channelId).toBe(attempts[0].channelId);expect(attempts[1].note).toBe('Original note');expect(attempts[1].checkOnly).toBe(true);
 });
 

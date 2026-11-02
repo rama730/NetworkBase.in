@@ -158,7 +158,7 @@ test('all invitation and application cards share the approved layout and failed 
     await setup(page);
     await page.getByRole('combobox',{name:'Scenario'}).selectOption('invitations');
     await expect(page.locator('[data-slot=person-card]')).toHaveCount(5);
-    await expect(page.getByRole('button',{name:/Review request from/})).toHaveCount(3);
+    await expect(page.getByRole('button',{name:/Review (request|application) from/})).toHaveCount(3);
     const heights=await page.locator('[data-slot=person-card]').evaluateAll(cards=>cards.map(card=>card.getBoundingClientRect().height));
     expect(heights).toEqual([176,176,176,176,176]);
     await page.evaluate(()=>{window.personCardFixture.decisionsFail=true;});

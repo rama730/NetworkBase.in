@@ -279,7 +279,7 @@ test("connection loading and failed lookup expose recovery", async ({
     .getByRole("button", { name: "Connect your code editor", exact: true })
     .click();
   await expect(
-    page.getByText("Couldn't load editor connections."),
+    page.getByText("Couldn’t load editor connections."),
   ).toBeVisible();
   await page.evaluate(() => {
     (window as any).ideFixture.failSessions = false;
@@ -347,7 +347,7 @@ test("mobile sheet and dark My Work header fit the viewport and keep the picker 
   await page.setViewportSize({ width: 390, height: 844 });
   await open(page, "surface=task&mobile&dark");
   await page
-    .getByRole("button", { name: "Code editor options", exact: true })
+    .getByRole("button", { name: "Desktop IDE options", exact: true })
     .click();
   await page
     .getByRole("button", { name: "Connect your code editor", exact: true })
@@ -411,7 +411,7 @@ test.describe("touch controls", () => {
     await open(page, "surface=work&connected=VS%20Code%20Insiders&dark");
     await expect.poll(async () => (await page.getByTestId("my-work-drawer").boundingBox())!.x).toBeCloseTo(0, 0);
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(320);
-    const close = await page.getByRole("button", { name: "Close workspace", exact: true }).boundingBox();
+    const close = await page.getByRole("button", { name: "Close My work", exact: true }).boundingBox();
     expect(close!.x + close!.width).toBeLessThanOrEqual(320);
     expect(
       (await page.getByTestId("open-in-ide-tool").boundingBox())!.height,

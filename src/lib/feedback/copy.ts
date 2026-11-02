@@ -2,6 +2,7 @@ import type { FeedbackType } from './store';
 
 /** Reviewed copy contracts. Runtime object names, counts, dates and limits stay at their call sites. */
 export const FEEDBACK_COPY: Record<string, { title: string; description?: string; type?: FeedbackType }> = {
+  "Your profile changed in another session. Refresh and try again.": { "title": "Your profile changed in another session. Refresh and try again." },
   "Couldn’t copy the hex dump": { "title": "Couldn’t copy the hex dump" },
   "Couldn’t copy the cell": { "title": "Couldn’t copy the cell" },
   "Couldn’t copy the table": { "title": "Couldn’t copy the table" },

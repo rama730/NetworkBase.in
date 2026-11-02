@@ -42,7 +42,7 @@ test('Start: nothing is picked, Other asks for its name, and the type sets defau
     await open(page, 'step=type');
     await expect(page.getByTestId('create-org-type-required')).toBeVisible();
     await expect(page.getByRole('radio', { checked: true })).toHaveCount(0);
-    await expect(page.getByText('PI · Researcher · Member · Guest')).toBeVisible();
+    await expect(page.getByText('PI · Researcher · Member · Viewer')).toBeVisible();
     await page.getByText('A class, batch or semester').click();
     let v = await values(page);
     expect([v.organization.org_type, v.organization.join_mode, v.visibility, v.member_updates_enabled, (v.organization.role_names as { member: string }).member]).toEqual(['education', 'instant', 'private', false, 'Student']);
@@ -60,14 +60,14 @@ test('Start: nothing is picked, Other asks for its name, and the type sets defau
 test('Details: organization words, Part of and Where, no problem/solution or skills', async ({ page }) => {
     await open(page, 'step=details&type=education');
     await expect(page.getByRole('heading', { name: 'Organization details' })).toBeVisible();
-    for (const label of ['Subject', 'Name', 'Handle', 'Part of', 'Where', 'Time zone', 'About', "Who it’s for", 'What members do here', 'Welcome note', 'Topics']) {
+    for (const label of ['Subject', 'Name', 'Organization URL', 'Part of', 'Where', 'Time zone', 'About', "Who it’s for", 'What members do here', 'Welcome note', 'Topics']) {
         await expect(page.getByLabel(label, { exact: false }).first()).toBeVisible();
     }
     await expect(page.getByText('Problem statement')).toHaveCount(0);
     await expect(page.getByText('Workspace category')).toHaveCount(0);
     await expect(page.getByPlaceholder('Students of B.Tech CSE, 3rd semester, Section A')).toBeVisible();
     await page.locator('#create-project-title').fill('CSE-3A 2026');
-    await expect(page.getByLabel(/Handle/)).toHaveValue('cse-3a-2026');
+    await expect(page.getByLabel(/Organization URL/)).toHaveValue('cse-3a-2026');
     expect((await values(page)).organization.time_zone).toBeTruthy();
 });
 

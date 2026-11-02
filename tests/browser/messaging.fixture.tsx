@@ -27,8 +27,8 @@ async function routeHead(path: string) {
   const base = path.split("?")[0]!;
   const lists = { "/messages": homeMetadata, "/messages/inbox": inboxMetadata, "/messages/saved": savedMetadata, "/messages/drafts": draftsMetadata, "/messages/search": searchMetadata, "/messages/new": newMetadata };
   const metadata = base in lists ? lists[base as keyof typeof lists]()
-    : base.endsWith("/browse") ? await browseMetadata({ params: Promise.resolve({ projectId: id }) })
-      : base.includes("/p/") ? await projectMetadata({ params: Promise.resolve({ projectId: id }) })
+    : base.endsWith("/browse") ? await browseMetadata({ params: Promise.resolve({ workspaceId: id }) })
+      : base.includes("/w/") ? await projectMetadata({ params: Promise.resolve({ workspaceId: id }) })
         : await conversationMetadata({ params: Promise.resolve({ channelId: id }) });
   return { ...metadata, robots: messagingMetadata.robots };
 }

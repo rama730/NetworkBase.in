@@ -125,17 +125,18 @@ test('Projects, Tasks and Files fit a phone', async ({ page }) => {
         await page.screenshot({ path: test.info().outputPath(`${tab}-375.png`), fullPage: true });
     }
     await open(page, 'projects', 1200);
-    await expect(page.locator('li', { hasText: 'Team Osprey' }).getByText(/^active /)).toBeVisible();
+    await page.getByRole('button', { name: 'cards' }).click();
+    await expect(page.locator('li', { hasText: 'Team Osprey' }).getByText(/· active /)).toBeVisible();
 });
 
 test('Create wizard team (§14.4): unit lead ★, Move to…, picker filters and the Outside tab work by keyboard at phone width', async ({ page }) => {
     await open(page, 'team');
     await expect(page.getByText('Ms. Rao, Teacher')).toBeVisible();
     await noSideScroll(page);
-    const star = page.getByRole('button', { name: 'Make Asha Nair unit lead' });
+    const star = page.getByRole('button', { name: 'Make Asha Nair team lead' });
     await star.focus();
     await page.keyboard.press('Enter');
-    await expect(page.getByRole('button', { name: 'Asha Nair is unit lead' })).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByRole('button', { name: 'Asha Nair is team lead' })).toHaveAttribute('aria-pressed', 'true');
     await page.getByRole('combobox', { name: 'Move Ravi Kumar to…' }).selectOption({ label: 'Testing' });
     await expect(page.getByRole('combobox', { name: 'Move Ravi Kumar to…' })).toHaveCount(0);
     await page.getByRole('button', { name: 'Add people' }).first().click();
@@ -153,7 +154,7 @@ test('Create wizard team (§14.4): unit lead ★, Move to…, picker filters and
 test('Units panel (§14.4): rename, seats, unit lead and Move to…, all native controls, no side scroll on a phone', async ({ page }) => {
     await open(page, 'units');
     await expect(page.getByRole('textbox', { name: 'Name of Frontend developers' })).toBeVisible();
-    await expect(page.getByRole('combobox', { name: 'Unit lead of Frontend developers' })).toHaveValue('u1');
+    await expect(page.getByRole('combobox', { name: 'Team lead of Frontend developers' })).toHaveValue('u1');
     await expect(page.getByRole('combobox', { name: 'Move to…' }).first()).toBeVisible();
     await expect(page.getByRole('option', { name: 'Developer testing unit (full)' }).first()).toBeDisabled();
     await noSideScroll(page);
@@ -172,7 +173,7 @@ test('Assignments (§16): the review queue steps with Next; the roster has Remin
     await page.getByRole('button', { name: 'Roster' }).first().click();
     const dialog = page.getByRole('dialog');
     await expect(dialog.getByRole('button', { name: 'Remind everyone not done' })).toBeVisible();
-    await expect(dialog.getByRole('textbox', { name: 'Add a step to every copy' })).toBeVisible();
+    await expect(dialog.getByRole('textbox', { name: 'Add a step to every assignment' })).toBeVisible();
     await expect(dialog.getByRole('combobox', { name: 'Move Alexandria Ramana Chandrasekhar to…' })).toBeVisible();
     await expect(dialog.getByText('Ravi Kumar ★', { exact: false })).toBeVisible();
     await noSideScroll(page);
@@ -237,7 +238,7 @@ test('Projects (§28): Stage, Lead and Sprint filters, Remind leads, Cards view 
     await page.getByRole('button', { name: 'Remind owners' }).click();
     await expect(page.getByRole('button', { name: 'Remind owners' })).toHaveCount(0);
     await page.getByRole('button', { name: 'cards' }).click();
-    await expect(page.getByRole('list', { name: 'Projects' })).toContainText('New');
+    await expect(page.getByRole('list', { name: 'Workspaces' })).toContainText('New');
     await expect(page.getByRole('link', { name: 'Message owner' }).first()).toBeVisible();
     await noSideScroll(page);
 });

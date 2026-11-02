@@ -67,7 +67,7 @@ function Fixture() {
       <Button data-testid="primary">New project</Button>
       <div data-testid="rich-text"><EditorContent editor={editor} /></div>
       <div data-testid="files" style={{ height: 180 }}>
-        <TextViewer projectId="isolated-selection-fixture" node={node} mode={mode} canEdit />
+        <TextViewer projectId="isolated-selection-fixture" node={node} mode={mode} canEdit lease={{ leaseToken: "fixture" } as never} />
       </div>
     </main>
   );

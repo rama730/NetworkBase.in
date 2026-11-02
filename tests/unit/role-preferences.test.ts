@@ -60,3 +60,8 @@ test('role aliases normalize extended role types', () => {
   assert.equal(canonicalRolePreference('temporary'), 'Temporary / Seasonal')
 })
 
+
+test('profiles saved before the workspace rename keep their freelance and consulting preferences', () => {
+  assert.deepEqual(getRolePreferences(['Freelance projects', 'Consulting projects']), ['Freelance workspaces', 'Consulting workspaces']);
+  assert.equal(rolePreferenceLabel('Freelance projects'), 'Freelance');
+});
