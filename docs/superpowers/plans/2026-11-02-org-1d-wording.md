@@ -16,4 +16,4 @@
 | 9 | Terminology check (39.5, 44, 108, 110) | Retired organization words added to the check: "Returned for changes", "Guest", "progress post" |
 | 10 | 18 and over (163) | Education card "A college or university class"; join page and invite email "You must be 18 or older to join"; Report reason "This person may be under 18" |
 | 11 | Privacy Policy draft (167) | Section from 29.4 in `docs/`, not published until a lawyer reviews it |
-| 12 | Focus ring (32.3, decision 75) | **Waits for the owner:** it reverses the earlier "no outer focus line" rule (`global-outline-elimination-contract.test.ts`) |
+| 12 | Focus ring (32.3, decision 75) | One ring from `--focus-ring` on keyboard focus; owner approved replacing the old "no outer focus line" rule |

@@ -7,18 +7,20 @@ function source(relativePath: string) {
   return fs.readFileSync(path.join(process.cwd(), relativePath), "utf8");
 }
 
-test("application focus never renders an outer orange line", () => {
+// Decision 75 (report §32.3): one visible keyboard focus ring everywhere, from one token. It replaces the old
+// "no outer line" guard; component halos (Tailwind ring shadows) stay off so there is only ever one ring.
+test("keyboard focus shows one ring from one token, and components add no second halo", () => {
   const globals = source("src/app/globals.css");
   const button = source("src/components/ui/button.tsx");
   const input = source("src/components/ui/input.tsx");
   const select = source("src/components/ui/select.tsx");
 
-  assert.doesNotMatch(globals, /0 0 0 4px var\(--ring\)/);
-  assert.match(globals, /Final focus-chrome guard/);
-  assert.match(globals, /\*:focus,\s*\*:focus-visible,[\s\S]*\.nb-command-input[\s\S]*\[data-command-palette-dialog\][\s\S]*\{/);
-  assert.match(globals, /outline-width:\s*0\s*!important;/);
+  assert.match(globals, /--focus-ring:\s*var\(--ring\)/);
+  assert.match(globals, /:focus-visible\s*\{[^}]*outline:\s*2px solid var\(--focus-ring\)\s*!important/);
+  assert.doesNotMatch(globals, /\*:focus-visible\s*\{\s*outline:\s*none/, "the global removal goes");
+  assert.doesNotMatch(globals, /Final focus-chrome guard/);
   assert.match(globals, /--tw-ring-shadow:\s*0 0 #0000\s*!important;/);
-  assert.match(globals, /box-shadow:\s*none\s*!important;/);
+  assert.doesNotMatch(globals, /0 0 0 4px var\(--ring\)/);
 
   // Project cards do not turn orange on focus
   assert.doesNotMatch(globals, /\.nb-project-card:focus-within\s*\{\s*border-color:var\(--ring\)/);

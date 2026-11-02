@@ -186,6 +186,8 @@
   --border: #DBD5C8;
   --input: #8E9AA1;
   --ring: var(--theme-ring-light);
+  /* Decision 75 (report §32.3): the one keyboard focus ring; follows the theme's ring colour in light and dark. */
+  --focus-ring: var(--ring);
   --chart-1: #C24720;
   --chart-2: #2563C9;
   --chart-3: #2F6B4F;
@@ -364,9 +366,9 @@ html .cm-editor .cm-content ::selection {
     @apply border-border;
   }
 
-  *:focus,
-  *:focus-visible {
-    outline: none !important;
+  /* Mouse and touch focus show nothing; keyboard focus gets the ring below. */
+  *:focus:not(:focus-visible) {
+    outline: none;
   }
 
   body {
@@ -758,8 +760,7 @@ html[data-reduce-motion="true"] .nb-skeleton {
 /* NetworkBase brand primitives. The product mark is semantic: only exported
    files use a fixed Clay/Ink/Paper colour. */
 .nb-wordmark { display:inline-flex; flex:none; color:var(--foreground); text-decoration:none; }
-.nb-wordmark:focus,
-.nb-wordmark:focus-visible { outline: none !important; border-radius:var(--radius-sm); }
+.nb-wordmark:focus-visible { border-radius:var(--radius-sm); }
 .nb-brand-mark { --nb-brand-mark-size:17px; --nb-brand-dot-size:7px; display:inline-flex; align-items:center; color:var(--foreground); font-family:var(--font-instrument-sans),sans-serif; font-size:var(--nb-brand-mark-size); font-weight:600; letter-spacing:-.01em; line-height:1; white-space:nowrap; }
 .nb-brand-mark--lockup { gap:calc(var(--nb-brand-dot-size) * .55); }
 .nb-brand-mark--stacked { flex-direction:column; gap:calc(var(--nb-brand-dot-size) * .55); text-align:center; }
@@ -876,7 +877,7 @@ html[data-reduce-motion="true"] .nb-skeleton {
 .nb-project-card:focus-within { border-color:var(--border); }
 /* After :focus-within, so hover still shows once Follow has focus. */
 .nb-project-card:hover { border-color:var(--input); }
-/* The guard below removes every ring, so keyboard focus shows as clay instead: the card's border for its
+/* With the focus ring (decision 75), cards also show which part has focus: the card's border for its
    stretched title link, a clay tint on icon buttons and on links and buttons inside person cards. */
 /* Only the stretched title link lights the card; the icon links inside show their own focus. */
 .nb-project-card:has(.nb-project-card-title a:focus-visible) { border-color:var(--primary); }
@@ -900,7 +901,6 @@ svg.lucide { stroke-width:1.75; }
 [data-slot="dialog-content"][data-presentation="center"] { max-height:calc(100dvh - 32px); overflow-y:auto; }
 [data-slot="dialog-content"][data-confirm-dialog] { overflow:hidden; }
 [data-slot="dialog-content"]:focus, [data-slot="dialog-content"]:focus-visible { outline: none !important; }
-[data-slot="input"]:focus, [data-slot="input"]:focus-visible, [data-slot="button"]:focus, [data-slot="button"]:focus-visible, .nb-tab:focus, .nb-tab:focus-visible, .nb-nav-link:focus, .nb-nav-link:focus-visible { outline: none !important; }
 [data-slot="dialog-overlay"] { backdrop-filter:none; }
 @media (min-width:768px) {
   .nb-sidebar { display:flex; }
@@ -1022,7 +1022,7 @@ svg.lucide { stroke-width:1.75; }
 .nb-person-connect:active { border-color:var(--primary-active); background:var(--primary-active); }
 /* One disabled look across buttons (spec: 45%); aria-disabled keeps focus where it is. */
 .nb-person-connect:disabled, .nb-person-connect[aria-disabled="true"] { cursor:not-allowed; opacity:.45; }
-/* The guard strips rings: keyboard focus is a darker clay fill instead. */
+/* Keyboard focus: the ring, plus a darker clay fill. */
 .nb-person-connect:focus-visible { border-color:var(--primary-active); background:var(--primary-active); }
 @media (min-width:1200px) {
   .nb-discover-columns, .nb-network-columns { grid-template-columns:minmax(0,1fr) 320px; }
@@ -1091,38 +1091,17 @@ svg.lucide { stroke-width:1.75; }
 }
 .nb-portfolio-grid { display:flex; flex-direction:column; gap:16px; }
 
-/* Final focus-chrome guard: no component may paint an outer keyline or ring. */
-*:focus,
-*:focus-visible,
-:where(a, button, input, select, textarea, summary, [tabindex], [data-slot]):focus,
-:where(a, button, input, select, textarea, summary, [tabindex], [data-slot]):focus-visible,
-[data-slot="dialog-content"]:focus,
-[data-slot="dialog-content"]:focus-visible,
-[data-slot="button"]:focus,
-[data-slot="button"]:focus-visible,
-[data-slot="input"]:focus,
-[data-slot="input"]:focus-visible,
-.nb-command-input,
-.nb-command-input:focus,
-.nb-command-input:focus-visible,
-[data-command-palette-dialog],
-[data-command-palette-dialog]:focus,
-[data-command-palette-dialog]:focus-visible,
-.nb-tab:focus,
-.nb-tab:focus-visible,
-.nb-nav-link:focus,
-.nb-nav-link:focus-visible,
-.nb-icon-button:focus,
-.nb-icon-button:focus-visible,
-.nb-person-connect:focus,
-.nb-person-connect:focus-visible {
-  outline: none !important;
-  outline-width: 0 !important;
-  outline-color: transparent !important;
+/* Decision 75 (report §32.3): one visible keyboard focus ring everywhere, from --focus-ring. Components add no
+   second halo (Tailwind ring shadows stay off). Rows and fields in clipped lists draw it inside their edge. Dialog
+   and palette containers only hold focus for their contents, so they get no ring. */
+:focus-visible {
+  outline: 2px solid var(--focus-ring) !important;
+  outline-offset: 2px;
   --tw-ring-offset-shadow: 0 0 #0000 !important;
   --tw-ring-shadow: 0 0 #0000 !important;
-  box-shadow: none !important;
 }
+:is(.nb-nav-link, .nb-tab, [data-slot="input"], input, textarea, select, [role="option"], [role="menuitem"], [role="treeitem"], [data-messages-surface] *):focus-visible { outline-offset: -2px; }
+:is([data-slot="dialog-content"], [data-command-palette-dialog], .nb-command-input, [tabindex="-1"]):focus-visible { outline: none !important; }
 
 .nb-avatar-fallback, .nb-avatar-fallback > div, .nb-avatar-fallback > span {
   color: var(--foreground);
@@ -1150,10 +1129,9 @@ svg.lucide { stroke-width:1.75; }
 
 .nb-message-composer { padding-bottom:max(8px,env(safe-area-inset-bottom)); }
 
-/* App-wide keyboard focus (WCAG 2.4.7). The guard above removes every ring (no outer keylines, by
-   design), so focus is a tone instead: a clay tint on links and plain controls (zero specificity, so a
-   component's own background still wins), and on shared Buttons a light ink overlay plus a clay border,
-   which shows on any fill (outline, ghost or solid) and never looks like hover. */
+/* App-wide keyboard focus (WCAG 2.4.7): the ring above, plus a tone: a clay tint on links and plain controls
+   (zero specificity, so a component's own background still wins), and on shared Buttons a light ink overlay
+   plus a clay border, which shows on any fill (outline, ghost or solid) and never looks like hover. */
 /* In @layer base so any Tailwind bg-* utility (a solid Button's fill) wins over the tint. */
 @layer base {
   :where(a, button, summary, [tabindex]:not([tabindex="-1"]), [role="tab"], [role="option"], [role="menuitem"], [role="radio"], [role="switch"], [role="treeitem"], [role="button"]):focus-visible {
@@ -1166,9 +1144,8 @@ svg.lucide { stroke-width:1.75; }
   border-color: var(--primary);
 }
 
-/* Messages keyboard focus (report §7.13, WCAG 2.4.7). The app's guard above removes every ring,
-   so focus here is a tone of its own: a clay tint (spec: focus is clay), never the hover grey,
-   and never an outer halo. Shared Buttons and fields keep their own focus look. */
+/* Messages keyboard focus (report §7.13, WCAG 2.4.7): the app's ring, drawn inside the row, plus a clay
+   tint (spec: focus is clay), never the hover grey. Shared Buttons and fields keep their own focus look. */
 [data-messages-surface] :is(a, button, summary, [role="tab"], [role="option"], [role="menuitem"], [tabindex]):not([data-slot="button"], [contenteditable], input, textarea, select):focus-visible {
   background-color: color-mix(in srgb, var(--primary) 14%, transparent);
   color: var(--foreground);
