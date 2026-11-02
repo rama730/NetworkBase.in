@@ -12,8 +12,10 @@ import {
     detachChildAction,
     moveWorkspaceToOrgAction,
     requestDetachAction,
+    setChildFollowSprintsAction,
     setChildVisibilityAction,
 } from '@/app/actions/organizations'
+import { SettingsSwitch } from '@/components/settings/ui/SettingsSwitch'
 import { SettingsCard } from '@/components/workspaces/settings/SettingsFormFields'
 import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
@@ -102,19 +104,15 @@ export function ChildOrgSection({ project, isLead, canManage }: { project: Works
                         <LockedRow label="Leaving the organization" value={inherited ? 'Remove now' : 'Needs admin approval'} org={parentOrg.title} />
                     </div>
                     {canManage || inherited ? (
-                        <fieldset>
-                            <legend className="nb-ui-label text-sm font-semibold text-foreground">Visibility</legend>
-                            <div className="mt-2 space-y-2 text-sm">
-                                {(['public', 'org', 'private'] as const).map((v) => options.includes(v) ? (
-                                    <label key={v} className="flex items-center gap-2">
-                                        <input type="radio" name="child-visibility" checked={current === v} disabled={pending} onChange={() => run(() => setChildVisibilityAction(projectId, v), `Now ${VIS_LABEL[v]}.`)} />
-                                        {VIS_LABEL[v]}{v === 'org' ? ` · every member of ${parentOrg.title}` : v === 'private' ? ` · the team and ${parentOrg.title} admins` : ''}
-                                    </label>
-                                ) : (
-                                    <p key={v} className="flex items-center gap-2 text-muted-foreground"><Lock className="size-3.5" aria-hidden="true" />{VIS_LABEL[v]} · Set by {parentOrg.title}</p>
-                                ))}
+                        // Report §18.7, gap 41: following can change after creation.
+                        <div className="flex items-start justify-between gap-4">
+                            <div>
+                                <p className="nb-ui-label text-sm font-semibold text-foreground">Follow {parentOrg.title}’s sprints</p>
+                                <p className="nb-compact mt-0.5 text-muted-foreground">New sprints here link to the organization’s sprint holding their dates. Sprints already made stay as they are.</p>
                             </div>
-                        </fieldset>
+                            <SettingsSwitch checked={parentOrg.followsSprints} disabled={pending}
+                                onCheckedChange={(on) => run(() => setChildFollowSprintsAction(projectId, on), on ? `Following ${parentOrg.title}’s sprints.` : 'Not following.')} aria-label={`Follow ${parentOrg.title}’s sprints`} />
+                        </div>
                     ) : null}
                     <div>
                         <p className="nb-ui-label text-sm font-semibold text-foreground">Admins from the organization</p>
@@ -157,5 +155,33 @@ export function ChildOrgSection({ project, isLead, canManage }: { project: Works
                 onConfirm={() => run(() => (confirm === 'archive' ? archiveChildAction(projectId) : detachChildAction(projectId)), confirm === 'archive' ? 'Archived.' : 'Detached.')}
             />
         </section>
+    )
+}
+
+/**
+ * Visibility for a workspace inside an organization (report §18.7): in Access, the one place for it; options the
+ * organization blocks show "Set by CSE 3B".
+ */
+export function ChildVisibilityPicker({ project, canManage }: { project: Workspace; canManage: boolean }) {
+    const parentOrg = project.parentOrg
+    const { pending, run, status } = useRun()
+    if (!parentOrg) return null
+    const options = allowedChildVisibilities(parentOrg.visibilityCap, parentOrg.isPublic)
+    const current = (project.visibility === 'unlisted' ? 'public' : project.visibility) as ChildVisibility
+    return (
+        <fieldset>
+            <legend className="sr-only">Visibility</legend>
+            <div className="space-y-2 text-sm">
+                {(['public', 'org', 'private'] as const).map((v) => options.includes(v) ? (
+                    <label key={v} className="flex items-center gap-2">
+                        <input type="radio" name="child-visibility" checked={current === v} disabled={pending || !canManage} onChange={() => run(() => setChildVisibilityAction(project.id, v), `Now ${VIS_LABEL[v]}.`)} />
+                        {VIS_LABEL[v]}{v === 'org' ? ` · every member of ${parentOrg.title}` : v === 'private' ? ` · the team and ${parentOrg.title} admins` : ''}
+                    </label>
+                ) : (
+                    <p key={v} className="flex items-center gap-2 text-muted-foreground"><Lock className="size-3.5" aria-hidden="true" />{VIS_LABEL[v]} · Set by {parentOrg.title}</p>
+                ))}
+            </div>
+            <div className="mt-2">{status}</div>
+        </fieldset>
     )
 }

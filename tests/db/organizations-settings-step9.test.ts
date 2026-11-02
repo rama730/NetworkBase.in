@@ -88,3 +88,30 @@ test("22.4: the facts Settings shows beside its fields: members, admins, workspa
   viewerId = o.member;
   assert.equal((await orgs.readOrgSettingsFactsAction(o.id)).success, false);
 });
+
+test("18.7, gap 41: a workspace's lead can turn following the organization's sprints on or off after creation", async () => {
+  const o = await org();
+  const child = await sql.begin((tx) => createProject(tx, o.member, { visibility: "org" }));
+  await sql`INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (${child}, ${o.member}, 'owner')`;
+  await sql`UPDATE workspaces SET parent_id = ${o.id} WHERE id = ${child}`;
+  viewerId = o.member;
+  assert.equal((await orgs.setChildFollowSprintsAction(child, true)).success, true);
+  assert.equal((await sql`SELECT org_settings->>'followOrgSprints' AS f FROM workspaces WHERE id = ${child}`)[0]!.f, "true");
+  viewerId = o.admin;
+  assert.equal((await orgs.setChildFollowSprintsAction(child, false)).success, true, "an organization admin can too");
+});
+
+test("29.3, 22.4 Moderation: blocked people are listed with who blocked them, and Unblock lets them join again; standing reads good", async () => {
+  const o = await org();
+  const moderation = await loadAppModule(() => import("../../src/app/actions/moderation-org"));
+  const blocked = await sql.begin((tx) => createUser(tx));
+  await sql`INSERT INTO org_join_blocks (org_id, user_id, blocked_by) VALUES (${o.id}, ${blocked}, ${o.admin})`;
+  viewerId = o.member;
+  assert.equal((await moderation.readOrgJoinBlocksAction(o.id)).success, false);
+  viewerId = o.owner;
+  const list = await moderation.readOrgJoinBlocksAction(o.id);
+  assert.deepEqual(list.success && list.people.map((p) => p.userId), [blocked]);
+  assert.deepEqual(await moderation.readOrgStandingAction(o.id), { success: true, standing: null });
+  assert.equal((await moderation.unblockFromOrgAction(o.id, blocked)).success, true);
+  assert.equal((await sql`SELECT 1 FROM org_join_blocks WHERE org_id = ${o.id}`).length, 0);
+});

@@ -574,6 +574,16 @@ export async function archiveChildAction(projectId: string): Promise<{ success: 
     return { success: true };
 }
 
+/** Follow the organization's sprints (report §18.7, gap 41): changeable after creation by whoever sets visibility. */
+export async function setChildFollowSprintsAction(projectId: string, on: boolean): Promise<{ success: true } | Failure> {
+    const viewer = await childViewer(projectId);
+    if (!viewer?.project.parentId || !(await childCan(viewer, 'change_visibility'))) return DENIED;
+    await db.update(workspaces).set({ orgSettings: sql`coalesce(${workspaces.orgSettings}, '{}'::jsonb) || jsonb_build_object('followOrgSprints', ${on}::boolean)`, updatedAt: new Date() })
+        .where(eq(workspaces.id, projectId));
+    revalidateChild(viewer.project);
+    return { success: true };
+}
+
 /** Public / Org only / Private for a child project, never above the org's cap (report §21.6). */
 export async function setChildVisibilityAction(projectId: string, next: ChildVisibility): Promise<{ success: true } | Failure> {
     const viewer = await childViewer(projectId);

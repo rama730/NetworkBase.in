@@ -1,10 +1,13 @@
 "use client";
 
-import { ChildOrgSection } from "@/components/organizations/ChildOrgSection";
+import { ChildOrgSection, ChildVisibilityPicker } from "@/components/organizations/ChildOrgSection";
 import { ChildUnitsPanel } from "@/components/organizations/ChildUnitsPanel";
 import { OrgDangerZone, OrgOwnershipPanel } from "@/components/organizations/OrgDangerZone";
 import { OrgAccessSection, OrgAllowedSection, OrgChatSection, OrgHandleSection, OrgManagementSection, OrgNotificationsSection, OrgUpdatesSection, OrgVerificationSection, OrgMembershipSection, OrgPeopleSection, OrgProfileSection, OrgWorkspacesSection, OrgWorkSection } from "@/components/organizations/OrgSettingsSections";
 import { OrgStorageSection } from "@/components/organizations/OrgStorageSection";
+import { OrgModerationSection } from "@/components/organizations/OrgModerationSection";
+import { useQuery } from "@tanstack/react-query";
+import { readOrgReportsAction } from "@/app/actions/moderation-org";
 import { typeProfile } from "@/lib/organizations/type-profile";
 import { ORG_REUSED_LABELS, ORG_SECTION_DEFS, orgSettingsSectionIds, type OrgMemberRole, type OrgSettingsSectionId } from "@/lib/organizations/settings";
 import { useRoleApplicationCounts } from "@/hooks/useRoleApplicationCounts";
@@ -217,6 +220,10 @@ function ProjectSettingsContent({
     const canManageSettings = isProjectOwner || actorProjectRole === "admin";
     const organization = project?.organization ?? null;
     const orgRole = (isProjectOwner ? "owner" : actorProjectRole) as OrgMemberRole;
+    // Report §22.4: the Moderation item shows how many reports are open.
+    const isOrgManager = Boolean(organization) && (orgRole === "owner" || orgRole === "admin");
+    const openReports = useQuery({ queryKey: ["org-open-reports", projectId], queryFn: () => readOrgReportsAction(projectId), enabled: isOrgManager, staleTime: 60_000 });
+    const reportCount = openReports.data?.success ? openReports.data.cases.length : 0;
     const sections = useMemo(() => {
         // A child project's role boxes are its units (report §21 #6, "Units & open seats").
         const visible = getVisibleWorkspaceSettingsSections().map((section) => (project?.parentOrg && section.id === "roles-applications"
@@ -226,7 +233,7 @@ function ProjectSettingsContent({
             return orgSettingsSectionIds(orgRole).flatMap((id) => {
                 const orgDef = ORG_SECTION_DEFS[id as OrgSettingsSectionId];
                 const reused = visible.find((section) => section.id === id);
-                const def = orgDef ? { id, ...orgDef } : reused ? { ...reused, label: ORG_REUSED_LABELS[reused.id] ?? reused.label } : null;
+                const def = orgDef ? { id, ...orgDef, label: id === "org-moderation" && reportCount ? `${orgDef.label} · ${reportCount}` : orgDef.label } : reused ? { ...reused, label: ORG_REUSED_LABELS[reused.id] ?? reused.label } : null;
                 return def ? [def] : [];
             });
         }
@@ -256,7 +263,7 @@ function ProjectSettingsContent({
             return visible.filter((section) => adminSections.includes(section.id));
         }
         return visible.filter((section) => section.id === "collaborators" || section.id === "privacy-policies" || section.id === "privacy-terms");
-    }, [actorProjectRole, isProjectOwner, organization, orgRole, project?.parentOrg, project?.pendingMoveIn, project?.moveTargets?.length]);
+    }, [actorProjectRole, isProjectOwner, organization, orgRole, project?.parentOrg, project?.pendingMoveIn, project?.moveTargets?.length, reportCount]);
     const { activeSection, navigate: handleNavigateSection } = useWorkspaceSettingsNavigation(sections);
     const [savingAccess, setSavingAccess] = useState(false);
     const [savingRoles, setSavingRoles] = useState(false);
@@ -1453,10 +1460,7 @@ function ProjectSettingsContent({
                                             </p>
                                         </div>
                                         {project?.parentOrg ? (
-                                            <p className="nb-compact text-muted-foreground">
-                                                Public, Organization only or Private, within {project.parentOrg.title}&apos;s rules: change it in{" "}
-                                                <button type="button" className="font-medium text-foreground underline underline-offset-4" onClick={() => handleNavigateSection("child-org")}>Organization</button>.
-                                            </p>
+                                            <ChildVisibilityPicker project={project} canManage={canManageSettings || Boolean(project.parentOrg.viewerIsInheritedAdmin)} />
                                         ) : isProjectOwner ? (
                                             <div role="group" aria-label="Workspace visibility" className="grid gap-3 sm:grid-cols-2">
                                                 {VISIBILITY_OPTIONS.map((option) => {
@@ -1858,6 +1862,7 @@ function ProjectSettingsContent({
                 )}
                 {organization && sections.some((s) => s.id === "org-updates") && <OrgUpdatesSection orgId={projectId} organization={organization} memberPosts={memberUpdatesEnabled} />}
                 {organization && sections.some((s) => s.id === "org-messages") && <OrgChatSection orgId={projectId} organization={organization} />}
+                {organization && sections.some((s) => s.id === "org-moderation") && <OrgModerationSection orgId={projectId} />}
                 {organization && sections.some((s) => s.id === "org-storage") && <OrgStorageSection orgId={projectId} orgTitle={project?.title ?? "Organization"} handle={project?.slug ?? null} submissionsWord={typeProfile(organization.type).finishedWork} />}
                 {sections.some((s) => s.id === "updates") && (
                     <section id="project-settings-updates" data-project-settings-section className="space-y-6">

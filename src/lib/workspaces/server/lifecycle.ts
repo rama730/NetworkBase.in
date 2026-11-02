@@ -797,8 +797,11 @@ export async function createWorkspaceAction(
     if (requestedSlug && (isReservedWorkspaceSlug(requestedSlug) || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(requestedSlug))) {
       requestedSlug = "";
     }
-    let finalSlug = requestedSlug || generateSlug(input.title);
-    if (isReservedWorkspaceSlug(finalSlug)) {
+    // Report §17.8, §18.7: a workspace in an organization gets its plain address when it's free; a clash still adds an ending below.
+    let finalSlug = requestedSlug || (parentOrgId && generateSlugBase(input.title) ? generateSlugBase(input.title) : generateSlug(input.title));
+    // A held organization handle stays free for its organization to take back.
+    const held = parentOrgId && !requestedSlug ? (await db.execute<{ n: number }>(sql`SELECT count(*)::int AS n FROM org_handle_holds WHERE handle = ${finalSlug}`))[0]?.n : 0;
+    if (isReservedWorkspaceSlug(finalSlug) || held) {
       finalSlug = `${generateSlugBase(input.title) || "project"}-${Math.random().toString(36).substring(2, 7)}`;
     }
     // Initial Key Generation

@@ -137,6 +137,8 @@ export type OrgDashboardData = {
     getStarted: string[];
     /** Archived orgs (report §27.4): "CSE-3A ended Dec 2026 · 5 sprints · 40 assignments · 64 members". */
     archivedSummary: string | null;
+    /** Term summary (report §33.5): admins see how much work was completed; members their own record. */
+    termSummary: { completedPercent: number | null; mine: { done: number; total: number } | null } | null;
 };
 
 /** The org Dashboard for people in the org (report §27); visitors never see it. */
@@ -251,11 +253,20 @@ export async function readOrgDashboardAction(orgId: string, activityFilter = 'al
     const weekAgo = now.getTime() - 7 * DAY;
     const archived = v.org.status === 'archived';
     let archivedSummary: string | null = null;
+    let termSummary: OrgDashboardData['termSummary'] = null;
     if (archived) {
         const [org] = await db.select({ title: workspaces.title, termEnd: workspaces.termEnd, updatedAt: workspaces.updatedAt }).from(workspaces).where(eq(workspaces.id, orgId)).limit(1);
         const ended = new Intl.DateTimeFormat('en', { month: 'short', year: 'numeric' }).format(org?.termEnd ? new Date(org.termEnd) : org?.updatedAt ?? now);
         const n = (count: number, word: string) => `${count} ${word}${count === 1 ? '' : 's'}`;
         archivedSummary = `${org?.title ?? 'This organization'} ended ${ended} · ${n(counts?.allSprints ?? 0, 'sprint')} · ${n(masters.length, 'assignment')} · ${n(people.length, 'member')}`;
+        const copies = await db.select(copyColumns).from(tasks).innerJoin(workspaces, eq(workspaces.id, tasks.projectId))
+            .where(and(isNotNull(tasks.assignmentId), isNull(tasks.deletedAt), or(eq(tasks.projectId, orgId), eq(workspaces.parentId, orgId)),
+                v.isAdmin ? undefined : sql`(${tasks.assigneeId} = ${v.userId} OR EXISTS (SELECT 1 FROM task_team_members tm WHERE tm.task_id = ${tasks.id} AND tm.user_id = ${v.userId}))`));
+        const counted = copies.map((c) => stateOf(c, now).state).filter((st) => st !== 'excused');
+        const done = counted.filter((st) => st === 'done').length;
+        termSummary = v.isAdmin
+            ? { completedPercent: counted.length ? Math.round((done / counted.length) * 100) : null, mine: null }
+            : { completedPercent: null, mine: v.isGuest || !counted.length ? null : { done, total: counted.length } };
     }
     // Archived: admins keep end-of-term verification (report §27.4); everything else is read-only.
     const archivedNeeds: NeedsYouRow[] = archived && v.isAdmin ? [{ kind: 'verify', label: 'Verify contributions for the term', href: `/org/${encodeURIComponent(v.org.slug ?? orgId)}?tab=members` }] : [];
@@ -286,6 +297,7 @@ export async function readOrgDashboardAction(orgId: string, activityFilter = 'al
             requests: v.isAdmin ? counts?.requests ?? 0 : 0,
         },
         archivedSummary,
+        termSummary,
         // Report §7.2, decision 7: only while the organization is truly empty; any real thing makes it go.
         getStarted: v.isAdmin && !archived ? getStartedCards({ members: people.length, sprints: counts?.allSprints ?? 0, tasks: counts?.tasks ?? 0, workspaces: counts?.workspaces ?? 0,
             announcements: counts?.announcements ?? 0, documents: counts?.documents ?? 0, files: counts?.files ?? 0 }) : [],

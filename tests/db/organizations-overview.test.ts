@@ -105,3 +105,14 @@ test("26.7, decision 49: the welcome panel shows once after joining and goes for
   assert.equal((await dash.dismissWelcomeAction(o.id)).success, true);
   assert.equal((await board(o.id, asha)).welcome, null);
 });
+
+test("33.5: an ended organization shows the term summary: completion for admins, each member's own record", async () => {
+  const o = await org();
+  const [asha, ravi] = [await member(o.id), await member(o.id)];
+  const [lab] = await sql`INSERT INTO tasks (workspace_id, title, kind, creator_id, due_date) VALUES (${o.id}, 'Lab 1', 'assignment', ${o.owner}, now() - interval '3 days') RETURNING id`;
+  await sql`INSERT INTO tasks (workspace_id, title, creator_id, assignee_id, assignment_id, status, completed_at) VALUES (${o.id}, 'Lab 1', ${o.owner}, ${asha}, ${lab!.id}, 'done', now() - interval '4 days')`;
+  await sql`INSERT INTO tasks (workspace_id, title, creator_id, assignee_id, assignment_id) VALUES (${o.id}, 'Lab 1', ${o.owner}, ${ravi}, ${lab!.id})`;
+  await sql`UPDATE workspaces SET status = 'archived' WHERE id = ${o.id}`;
+  assert.deepEqual((await board(o.id, o.owner)).termSummary, { completedPercent: 50, mine: null });
+  assert.deepEqual((await board(o.id, asha)).termSummary, { completedPercent: null, mine: { done: 1, total: 1 } });
+});

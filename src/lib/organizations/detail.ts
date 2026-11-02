@@ -212,6 +212,8 @@ export type ParentOrgLink = {
   archived: boolean;
   /** Report §27.7: a suspended organization makes its workspaces read only, and they say so. */
   suspended: boolean;
+  /** This workspace follows the organization's sprints (report §18.7). */
+  followsSprints: boolean;
   viewerRole: OrgMemberRoleOrNone;
   viewerIsInheritedAdmin: boolean;
   visibilityCap: VisibilityCap;
@@ -260,6 +262,7 @@ export async function readChildOrgLink(
       isPublic: isWorkspacePubliclyReadableVisibility(org.visibility),
       archived: org.status === "archived",
       suspended: Boolean(org.suspendedAt),
+      followsSprints: (childSettings as { followOrgSprints?: unknown }).followOrgSprints === true,
       viewerRole: viewer.parentOrgRole,
       viewerIsInheritedAdmin: inherited,
       visibilityCap: rules.visibilityCap,

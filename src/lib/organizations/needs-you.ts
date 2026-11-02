@@ -1,4 +1,5 @@
 import "server-only";
+import { readOrgCases } from '@/lib/trust/console';
 
 import { and, asc, eq, gte, isNotNull, isNull, lt, or, sql } from "drizzle-orm";
 
@@ -65,6 +66,9 @@ export async function readNeedsYou(v: OrgViewer, now: Date): Promise<NeedsYouRow
         ]);
         for (const r of reviews) rows.push({ kind: 'review', label: `${plural(r.n, 'submission')} to review · ${r.title}`, href: `${base}?tab=tasks` });
         if (requests && requests.n > 0) rows.push({ kind: 'requests', label: plural(requests.n, 'join request'), href: `${base}?tab=members` });
+        // Report §22.4: reports live in Settings → Moderation, and this row links there.
+        const reports = v.userId ? (await readOrgCases(v.org.id, v.userId)).length : 0;
+        if (reports > 0) rows.push({ kind: 'reports', label: `${plural(reports, 'report')} to review`, href: `${base}?tab=settings&section=org-moderation` });
         for (const s of ended) rows.push({ kind: 'sprint', label: `${s.name} ended · Complete it?`, href: `${base}?tab=sprints` });
         // Decision 57: move-in and leave requests, each with Approve and Decline on the Workspaces tab.
         for (const c of children) rows.push({ kind: c.kind === 'leave' ? 'detach' : 'move_in', label: `${c.title} asks to ${c.kind === 'leave' ? 'leave' : 'join'}`, href: `${base}?tab=projects` });

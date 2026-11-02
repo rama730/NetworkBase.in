@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button'
 import { toast } from '@/lib/feedback'
 import { KIND_NOUN, REPORT_REASON_LABEL } from '@/lib/trust/rules'
 
-// Members → Reports (docs/trust-and-safety-concept.md §11.6): the org's own non-urgent cases. Unanswered cases pass
+// Settings → Moderation → Reports (report §22.4; docs/trust-and-safety-concept.md §11.6): the org's own non-urgent cases. Unanswered cases pass
 // to NetworkBase at the deadline. Reporters are never named.
 
 type Cases = Extract<Awaited<ReturnType<typeof readOrgReportsAction>>, { success: true }>['cases']
@@ -19,12 +19,13 @@ const dueText = (at: string | null) => {
     return hours <= 0 ? 'passing to NetworkBase' : hours < 24 ? `${hours}h left` : `${Math.round(hours / 24)}d left`
 }
 
-export function OrgReportsSection({ orgId }: { orgId: string }) {
+export function OrgReportsSection({ orgId, showEmpty = false }: { orgId: string; showEmpty?: boolean }) {
     const [cases, setCases] = useState<Cases | null>(null)
     const [pending, start] = useTransition()
     const load = useCallback(() => void readOrgReportsAction(orgId).then((r) => setCases(r.success ? r.cases : [])), [orgId])
     useEffect(() => { load() }, [load])
-    if (!cases?.length) return null
+    // Report §22.4: Settings → Moderation says so when there's nothing open.
+    if (!cases?.length) return showEmpty && cases ? <p className="text-sm text-muted-foreground">No open reports.</p> : null
     const decide = (caseId: string, choice: 'dismiss' | 'hide' | 'remove' | 'warn', done: string) => start(async () => {
         const result = await decideOrgReportAction(orgId, caseId, choice)
         toast(result.success ? done : result.error)

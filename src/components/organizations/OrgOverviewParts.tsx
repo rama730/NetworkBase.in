@@ -61,7 +61,8 @@ export function OrgDashboard({ orgId, orgSlug, orgType = null }: { orgId: string
                 {data.weekLine ? <p className="font-mono text-[12px] text-muted-foreground" data-testid="org-week-line">{data.weekLine}</p> : null}
                 {/* Report §29.2: everyone inside sees it; the owner's reason and Appeal live in Settings → Moderation. */}
                 {data.restricted ? <p role="status" className="rounded-[5px] border border-border bg-muted/40 px-3 py-2 text-sm">This organization is restricted for now.</p> : null}
-                {data.archivedSummary ? <p className="text-sm text-muted-foreground" data-testid="org-archived-summary">{data.archivedSummary}</p> : null}
+                {data.archivedSummary ? <p className="text-sm text-muted-foreground" data-testid="org-archived-summary">{data.archivedSummary}{data.termSummary?.completedPercent != null ? ` · ${data.termSummary.completedPercent}% of work completed` : ''}</p> : null}
+                {data.termSummary?.mine ? <p className="text-sm" data-testid="org-term-mine">Your record: {data.termSummary.mine.done} of {data.termSummary.mine.total} done</p> : null}
                 {data.welcome && !welcomeClosed ? (
                     // Report §26.7, decision 49: once after joining; × hides it for good.
                     <section aria-label="Welcome" className="rounded-lg border border-border bg-card p-4" data-testid="org-welcome">

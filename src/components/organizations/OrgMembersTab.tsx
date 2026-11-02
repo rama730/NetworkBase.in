@@ -33,7 +33,6 @@ import { OrgInvitePanel } from '@/components/organizations/OrgInvitePanel'
 import { formatDistanceToNow } from '@/lib/utils/date'
 import { cn } from '@/lib/utils'
 import { messageUserInWindow } from '@/components/messages/message-user'
-import { OrgReportsSection } from '@/components/organizations/OrgReportsSection'
 import { RELATIONSHIP_EVENT, useBlockFlow } from '@/components/privacy/BlockDialog'
 import { Ban } from 'lucide-react'
 
@@ -171,7 +170,6 @@ export function OrgMembersTab({ orgId, roleNames }: { orgId: string; roleNames?:
             </div>
 
             <aside className="space-y-5">
-                <OrgReportsSection orgId={orgId} />
                 <div className={data.requests.length > 0 ? 'hidden lg:block' : undefined}><Requests orgId={orgId} data={data} pending={pending} run={run} /></div>
                 {/* Report §7.11: the same invite panel as the header and About. */}
                 <div className="border-t border-border pt-4"><OrgInvitePanel orgId={orgId} orgHandle={null} /></div>

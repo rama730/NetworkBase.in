@@ -7,6 +7,7 @@ import { db } from '@/lib/db';
 import { workspaces } from '@/lib/db/schema';
 import { getWorkspaceAccessById } from '@/lib/data/workspace-access';
 import { linkUrls, verificationDomain } from '@/lib/organizations/trust-rules';
+import { orgGrant } from '@/lib/organizations/permissions';
 import { createClient } from '@/lib/supabase/server';
 
 // The Verified badge request (report §30.3). Reports go through actions/moderation.ts; staff review in
@@ -30,7 +31,8 @@ export async function requestOrgVerificationAction(orgId: string): Promise<{ suc
     const user = await signedInUser();
     if (!user) return DENIED;
     const access = await getWorkspaceAccessById(orgId, user.id);
-    if (access.project?.kind !== 'organization' || !access.isOwner) return DENIED;
+    // The permissions table decides (report §21.3): the owner asks for the badge.
+    if (access.project?.kind !== 'organization' || orgGrant(access.isOwner ? 'owner' : access.memberRole === 'admin' ? 'admin' : 'member', 'request_verified') !== 'yes') return DENIED;
     const [org] = await db.select({ links: workspaces.externalLinks, verifiedAt: workspaces.verifiedAt }).from(workspaces).where(eq(workspaces.id, orgId)).limit(1);
     if (org?.verifiedAt) return { success: true, verified: true };
     const websites = linkUrls(org?.links);
