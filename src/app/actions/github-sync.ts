@@ -1,7 +1,7 @@
 "use server";
 
 import { z } from "zod";
-import { and, count, eq, desc, inArray, isNull, sql } from "drizzle-orm";
+import { and, count, eq, desc, inArray, isNull, ne, sql } from "drizzle-orm";
 import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import {
@@ -1054,8 +1054,9 @@ export async function getWorkspaceSyncTasks(projectId: string) {
       where: and(eq(workspaces.id, projectId), isNull(workspaces.deletedAt)),
       columns: { key: true },
     });
+    // Assignment work is handed in through Submit, never completed by a push (decision 43).
     const candidateTasks = await db.query.tasks.findMany({
-      where: and(eq(tasks.projectId, projectId), isNull(tasks.deletedAt)),
+      where: and(eq(tasks.projectId, projectId), isNull(tasks.deletedAt), isNull(tasks.assignmentId), ne(tasks.kind, "assignment")),
       columns: {
         id: true,
         title: true,
