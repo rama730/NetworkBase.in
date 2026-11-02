@@ -51,8 +51,8 @@ test.beforeAll(async () => {
     { from: path.resolve("src/app/globals.css") },
   );
   [sans, mono] = await Promise.all([
-    readFile("src/app/fonts/InstrumentSans.ttf"),
-    readFile("src/app/fonts/JetBrainsMono.ttf"),
+    readFile("src/app/fonts/InstrumentSans.woff2"),
+    readFile("src/app/fonts/JetBrainsMono.woff2"),
   ]);
   css =
     `@font-face{font-family:'Instrument Sans';src:url('/sans.ttf');font-weight:100 900;}@font-face{font-family:'JetBrains Mono';src:url('/mono.ttf');font-weight:100 900;}:root{--font-instrument-sans:'Instrument Sans';--font-jetbrains-mono:'JetBrains Mono';}` +

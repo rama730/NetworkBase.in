@@ -27,7 +27,7 @@ test.beforeAll(async () => {
     } }] });
     script = bundle.outputFiles![0]!.text;
     const compiled = await postcss([tailwind()]).process(await readFile('src/app/globals.css', 'utf8'), { from: path.resolve('src/app/globals.css') });
-    [sans, mono] = await Promise.all([readFile('src/app/fonts/InstrumentSans.ttf'), readFile('src/app/fonts/JetBrainsMono.ttf')]);
+    [sans, mono] = await Promise.all([readFile('src/app/fonts/InstrumentSans.woff2'), readFile('src/app/fonts/JetBrainsMono.woff2')]);
     css = `@font-face{font-family:Instrument;src:url('/sans.ttf');font-weight:100 900}@font-face{font-family:Mono;src:url('/mono.ttf');font-weight:100 900}:root{--font-instrument-sans:Instrument;--font-jetbrains-mono:Mono}` + compiled.css;
 });
 async function setup(page: Page) {

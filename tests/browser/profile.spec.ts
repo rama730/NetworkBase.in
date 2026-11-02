@@ -46,7 +46,7 @@ test.beforeAll(async () => {
   } }] });
   script = bundle.outputFiles![0]!.text;
   const result = await postcss([tailwind()]).process(await readFile('src/app/globals.css', 'utf8'), { from: path.resolve('src/app/globals.css') });
-  [instrumentFont,monoFont]=await Promise.all([readFile('src/app/fonts/InstrumentSans.ttf'),readFile('src/app/fonts/JetBrainsMono.ttf')]);
+  [instrumentFont,monoFont]=await Promise.all([readFile('src/app/fonts/InstrumentSans.woff2'),readFile('src/app/fonts/JetBrainsMono.woff2')]);
   css = `@font-face{font-family:'Instrument Sans';src:url('/instrument.ttf');font-weight:100 900;font-display:swap;}@font-face{font-family:'JetBrains Mono';src:url('/mono.ttf');font-weight:100 900;font-display:swap;}:root{--font-instrument-sans:'Instrument Sans';--font-jetbrains-mono:'JetBrains Mono';}`+result.css;
 });
 

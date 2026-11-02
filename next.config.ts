@@ -42,13 +42,7 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       {
-        source: '/skill-sprites.svg',
-        headers: [
-          { key: 'Cache-Control', value: 'public, max-age=31536000, immutable' },
-        ],
-      },
-      {
-        source: '/(images|skill-icons|ide-icons|social-icons|fonts)/(.*)',
+        source: '/(skill-icons|ide-icons|social-icons)/(.*)',
         headers: [
           { key: 'Cache-Control', value: 'public, max-age=31536000, immutable' },
         ],
@@ -57,6 +51,18 @@ const nextConfig: NextConfig = {
         source: '/(favicon.ico|favicon.svg|robots.txt|apple-touch-icon.png)',
         headers: [
           { key: 'Cache-Control', value: 'public, max-age=0, must-revalidate' },
+        ],
+      },
+      {
+        source: '/(og|patterns|brand)/(.*)',
+        headers: [
+          { key: 'Cache-Control', value: 'public, max-age=86400' },
+        ],
+      },
+      {
+        source: '/skill-catalog.json',
+        headers: [
+          { key: 'Cache-Control', value: 'public, max-age=86400' },
         ],
       },
       {

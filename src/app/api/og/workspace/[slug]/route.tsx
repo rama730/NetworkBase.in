@@ -2,7 +2,7 @@ import { renderShareImage } from '@/lib/sharing/social-image';
 import { parseShareResource, shareOrigin } from '@/lib/sharing/presentation';
 import { enforceRouteLimit } from '@/app/api/v1/_shared';
 
-// An hour: a project made private must not keep its social card for a month (SEC-009 s-maxage=3600).
+// Rendered per request with `no-store` (social-image.tsx): a project made private drops its card at once.
 export async function GET(request: Request, { params }: { params: Promise<{ slug: string }> }) {
   const limited = await enforceRouteLimit(request, 'share-image', 60, 60, 'publicRead');
   if (limited) return limited;

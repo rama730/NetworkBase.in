@@ -6,6 +6,6 @@ Unmodified fonts from the official Google Fonts repository, downloaded 7 Septemb
 - Instrument Serif: https://github.com/google/fonts/tree/main/ofl/instrumentserif (regular 400).
 - JetBrains Mono: https://github.com/google/fonts/tree/main/ofl/jetbrainsmono (variable 100–800).
 
-Next localFont serves these assets locally with display: swap; builds do not require a font CDN connection.
+The three served families are the same fonts in WOFF2 (format conversion only, about 60% smaller). Next localFont serves these assets locally with display: swap; builds do not require a font CDN connection.
 
 The `*-Share-*.ttf` files are static instances derived from these existing variable fonts for the social-image renderer: Instrument Sans 400/600 and JetBrains Mono 400, with every other axis at its default. They retain the adjacent families' SIL Open Font Licenses. Instantiate with FontTools `fontTools.varLib.instancer.instantiateVariableFont` and save as TTF; no runtime font conversion or remote font lookup is used.
