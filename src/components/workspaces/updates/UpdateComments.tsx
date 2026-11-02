@@ -978,6 +978,8 @@ export function UpdateComments({
         </div>
       ) : (
         <>
+          {/* Report §28.3, §37.3: turned off later, the old comments stay and this says so. */}
+          {update.replyPolicy === "closed" ? <p className="mb-2 text-xs text-muted-foreground">Comments are off</p> : null}
           {currentUserId && update.canComment ? (
             <div className="mb-2 flex shrink-0 gap-2">
               <UserAvatar

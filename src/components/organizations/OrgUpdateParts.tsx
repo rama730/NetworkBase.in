@@ -1,134 +1,331 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import Link from 'next/link'
-import { useQuery } from '@tanstack/react-query'
-import { Pin } from 'lucide-react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { Hash, Mail, MoreHorizontal, Pin, Users } from 'lucide-react'
 
-import { readAssignmentComposerOptionsAction } from '@/app/actions/assignments'
-import { countAnnouncementAudienceAction, readOrgPinnedLineAction } from '@/app/actions/org-updates'
+import { countAnnouncementAudienceAction, readOrgPinnedLineAction, readUnseenPeopleAction, remindUnseenAction, setOrgUpdateAudienceAction } from '@/app/actions/org-updates'
+import { Button } from '@/components/ui/button'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import {
+    DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuRadioGroup,
+    DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { toast } from '@/lib/feedback'
 import type { OrgFeedFilter } from '@/lib/organizations/org-updates'
-import type { UpdateAudience } from '@/lib/organizations/update-rules'
+import { rolePlural } from '@/lib/organizations/role-words'
+import { audienceLabel, type UpdateAudience } from '@/lib/organizations/update-rules'
 import { cn } from '@/lib/utils'
 
-// Org Updates (report §17): the composer's org options, the feed filters, and the pinned org line.
+// Org Updates (report §7.5, §16.3, §18.4, §28.3, §37.3): the options inside the composer, the feed filters, the
+// pinned org line, and the card's audience and seen parts.
 
-export type OrgFeedInfo = { kind: 'org' | 'child'; title: string; isAdmin: boolean; shareBlockedReason: string | null; notifyDefault?: 'in_app' | 'email' }
+export type OrgFeedInfo = {
+    kind: 'org' | 'child'
+    title: string
+    isAdmin: boolean
+    shareBlockedReason: string | null
+    notifyDefault?: 'in_app' | 'email'
+    replyDefault?: 'members' | 'logged_in'
+    roleNames?: Record<'owner' | 'admin' | 'member' | 'viewer', string>
+    memberPostsOn?: boolean
+    childIsPublic?: boolean
+    emailsLeft?: number
+    pins?: Array<{ id: string; excerpt: string }>
+    workspaces?: Array<{ id: string; title: string }>
+}
 
 export type OrgPostOptions = {
     updateType?: 'announcement' | 'discussion'
     audience?: UpdateAudience
+    isPublic?: boolean
     notifyLevel?: 'in_app' | 'email'
     pin?: boolean
     pinnedUntil?: string | null
-    commentsOff?: boolean
-    shareToOrg?: boolean
+    replyPolicy?: 'members' | 'logged_in' | 'closed'
     shareToGeneral?: boolean
+    /** A workspace inside an organization: Who sees this (report §18.4). */
+    childAudience?: 'team' | 'org' | 'public'
 }
 
-const chip = 'inline-flex min-h-8 items-center gap-1.5 rounded-[5px] border border-border px-2.5 text-[12px] text-foreground'
-const ROLE_OPTIONS = [
-    { value: 'admin', label: 'Admins' },
-    { value: 'member', label: 'Members' },
-    { value: 'viewer', label: 'Viewers' },
-] as const
+/** What the composer shows for an organization, and what it posts with (see WorkspaceUpdateComposer's orgControls). */
+export type OrgComposerControls = {
+    top: ReactNode
+    toolbar: ReactNode
+    postLabel: string
+    blockedReason: string | null
+    visibility: 'members' | 'public'
+    placeholder: string
+}
 
-/** What the next post carries on top of the composer's own fields. Admins in an org get the full set. */
-export function OrgUpdateOptions({ org, orgId, value, onChange }: { org: OrgFeedInfo; orgId: string; value: OrgPostOptions; onChange: (next: OrgPostOptions) => void }) {
-    const [children, setChildren] = useState<Array<{ id: string; title: string }>>([])
+const EMAIL_LIMIT = 5
+const chip = 'inline-flex min-h-8 items-center gap-1.5 rounded-[5px] border border-border px-2.5 text-[12px] text-foreground'
+const tool = 'size-7 rounded-[5px] flex items-center justify-center text-muted-foreground transition-colors hover:bg-muted hover:text-foreground aria-pressed:bg-muted aria-pressed:text-foreground aria-pressed:ring-1 aria-pressed:ring-border disabled:opacity-50'
+const DEFAULT_ROLES = { owner: 'Owner', admin: 'Admin', member: 'Member', viewer: 'Viewer' }
+
+const people = (n: number) => `${n} ${n === 1 ? 'person' : 'people'}`
+
+/** The child workspace's starting choice (report §18.4): public starts on Everyone in the organization; Public is never the default. */
+export function childAudienceDefault(org: OrgFeedInfo): 'team' | 'org' {
+    return org.childIsPublic && !org.shareBlockedReason ? 'org' : 'team'
+}
+
+/**
+ * The organization's options inside the one composer (report §7.5, §16.3, decision 8): type and audience on top;
+ * Pin, Also email, #general and Comments in the toolbar; the button names the real reach.
+ */
+export function useOrgComposer(org: OrgFeedInfo | null, orgId: string, value: OrgPostOptions, onChange: (next: OrgPostOptions) => void, canCreate: boolean): OrgComposerControls | null {
     const [reach, setReach] = useState<number | null>(null)
-    const isOrgAdmin = org.kind === 'org' && org.isAdmin
+    const isOrgAdmin = org?.kind === 'org' && org.isAdmin
     const audienceKey = JSON.stringify(value.audience ?? {})
     useEffect(() => {
-        if (!isOrgAdmin) return
+        if (!isOrgAdmin || !canCreate) return
         let cancelled = false
         const timer = setTimeout(() => void countAnnouncementAudienceAction(orgId, JSON.parse(audienceKey)).then((n) => { if (!cancelled) setReach(n) }), 300)
         return () => { cancelled = true; clearTimeout(timer) }
-    }, [audienceKey, isOrgAdmin, orgId])
-    useEffect(() => {
-        if (isOrgAdmin) void readAssignmentComposerOptionsAction(orgId).then((r) => { if (r.success) setChildren(r.children) })
-    }, [isOrgAdmin, orgId])
+    }, [audienceKey, canCreate, isOrgAdmin, orgId])
+    if (!org || !canCreate) return null
+    const roleNames = org.roleNames ?? DEFAULT_ROLES
+    const replyPolicy = value.replyPolicy ?? org.replyDefault ?? 'members'
+    const comments = (
+        <DropdownMenu>
+            <DropdownMenuTrigger asChild><button type="button" className={tool} aria-label="Post settings" title="Post settings"><MoreHorizontal className="h-4 w-4" /></button></DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+                <DropdownMenuLabel>Comments</DropdownMenuLabel>
+                <DropdownMenuRadioGroup value={replyPolicy} onValueChange={(next) => onChange({ ...value, replyPolicy: next as OrgPostOptions['replyPolicy'] })}>
+                    <DropdownMenuRadioItem value="members">Members</DropdownMenuRadioItem>
+                    <DropdownMenuRadioItem value="logged_in">Anyone signed in</DropdownMenuRadioItem>
+                    <DropdownMenuRadioItem value="closed">Off</DropdownMenuRadioItem>
+                </DropdownMenuRadioGroup>
+            </DropdownMenuContent>
+        </DropdownMenu>
+    )
 
     if (org.kind === 'child') {
-        return (
-            <label className={cn(chip, 'mb-2', org.shareBlockedReason && 'opacity-60')} title={org.shareBlockedReason ?? undefined}>
-                <input type="checkbox" disabled={Boolean(org.shareBlockedReason)} checked={Boolean(value.shareToOrg)} onChange={(e) => onChange({ ...value, shareToOrg: e.target.checked })} />
-                Share to {org.title}
-                {org.shareBlockedReason ? <span className="text-muted-foreground">· {org.shareBlockedReason}</span> : null}
-            </label>
-        )
-    }
-    if (!isOrgAdmin) return null
-
-    const roles = value.audience?.roles ?? []
-    const projectIds = value.audience?.projectIds ?? []
-    const setAudience = (next: UpdateAudience) => onChange({ ...value, audience: next })
-    const toggle = <T,>(list: T[], item: T) => (list.includes(item) ? list.filter((x) => x !== item) : [...list, item])
-
-    return (
-        <fieldset className="mb-2 space-y-2 rounded-[5px] border border-border p-2.5 text-[12px]">
-            <legend className="sr-only">Post options</legend>
-            <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label="Post type">
-                {(['announcement', 'discussion'] as const).map((type) => (
-                    <label key={type} className={cn(chip, (value.updateType ?? 'announcement') === type && 'border-foreground')}>
-                        <input type="radio" name="org-post-type" checked={(value.updateType ?? 'announcement') === type} onChange={() => onChange({ ...value, updateType: type })} />
-                        {type === 'announcement' ? 'Announcement' : 'Discussion'}
-                    </label>
-                ))}
-            </div>
-            <details>
-                <summary className="cursor-pointer text-muted-foreground">
-                    Audience: {roles.length === 0 && projectIds.length === 0 ? 'Everyone' : [...roles.map((r) => ROLE_OPTIONS.find((o) => o.value === r)?.label), ...projectIds.map((id) => children.find((c) => c.id === id)?.title)].filter(Boolean).join(', ')}
-                </summary>
-                <div className="mt-2 flex flex-wrap gap-1.5">
-                    {ROLE_OPTIONS.map((option) => (
-                        <label key={option.value} className={chip}>
-                            <input type="checkbox" checked={roles.includes(option.value)} onChange={() => setAudience({ ...value.audience, roles: toggle(roles, option.value) })} />
-                            {option.label}
-                        </label>
+        const choice = value.childAudience ?? childAudienceDefault(org)
+        const options: Array<{ value: 'team' | 'org' | 'public'; label: string; reason: string | null }> = [
+            { value: 'team', label: 'Team', reason: null },
+            { value: 'org', label: `Everyone in ${org.title}`, reason: org.shareBlockedReason },
+            ...(org.childIsPublic ? [{ value: 'public' as const, label: 'Public', reason: org.shareBlockedReason }] : []),
+        ]
+        return {
+            top: (
+                <div className="mb-2 flex flex-wrap items-center gap-1.5" role="radiogroup" aria-label="Who sees this">
+                    <span className="text-[12px] text-muted-foreground">Who sees this</span>
+                    {options.map((o) => (
+                        <button key={o.value} type="button" role="radio" aria-checked={choice === o.value} disabled={Boolean(o.reason)} title={o.reason ?? undefined}
+                            onClick={() => onChange({ ...value, childAudience: o.value })}
+                            className={cn(chip, choice === o.value && 'border-foreground font-medium', o.reason && 'opacity-60')}>
+                            {o.label}{o.value === 'public' ? <span className="text-muted-foreground">· Also on Discover</span> : null}
+                        </button>
                     ))}
-                    {children.map((child) => (
-                        <label key={child.id} className={chip}>
-                            <input type="checkbox" checked={projectIds.includes(child.id)} onChange={() => setAudience({ ...value.audience, projectIds: toggle(projectIds, child.id) })} />
-                            {child.title}
-                        </label>
-                    ))}
+                    {org.shareBlockedReason ? <span className="text-[12px] text-muted-foreground">{org.shareBlockedReason}</span> : null}
                 </div>
-            </details>
-            <div className="flex flex-wrap items-center gap-1.5">
-                <label className={chip}>
-                    <input type="checkbox" checked={(value.notifyLevel ?? org.notifyDefault) === 'email'} onChange={(e) => onChange({ ...value, notifyLevel: e.target.checked ? 'email' : 'in_app' })} />
-                    Also email
-                </label>
-                <label className={chip}>
-                    <input type="checkbox" checked={Boolean(value.pin)} onChange={(e) => onChange({ ...value, pin: e.target.checked })} />
-                    Pin
-                </label>
+            ),
+            toolbar: null,
+            postLabel: choice === 'team' ? 'Post to your team' : choice === 'org' ? `Post to ${org.title}` : 'Post publicly',
+            blockedReason: null,
+            visibility: choice === 'public' ? 'public' : 'members',
+            placeholder: 'Share something with your team…',
+        }
+    }
+
+    if (!org.isAdmin) {
+        // Members only start discussions (decision 155); the server sets the type too.
+        return {
+            top: <div className="mb-2"><span className={chip}><Users className="h-3.5 w-3.5" aria-hidden="true" />Discussion · Members</span></div>,
+            toolbar: comments,
+            postLabel: 'Post',
+            blockedReason: null,
+            visibility: 'members',
+            placeholder: `Start a discussion in ${org.title}…`,
+        }
+    }
+
+    const type = value.updateType ?? 'announcement'
+    const emailsLeft = org.emailsLeft ?? EMAIL_LIMIT
+    const emailOn = emailsLeft > 0 && (value.notifyLevel ?? org.notifyDefault) === 'email'
+    const pins = org.pins ?? []
+    const pinFull = pins.length >= 3 && !value.pin
+    const label = audienceLabel({ audience: value.audience, visibility: value.isPublic ? 'public' : 'members' }, roleNames, new Map((org.workspaces ?? []).map((w) => [w.id, w.title])))
+    const reachLine = value.isPublic ? 'Anyone · also on Discover' : reach === null ? null : `Goes to ${people(reach)}`
+    const blockedReason = !value.isPublic && reach === 0 ? 'Nobody is in this audience yet. Pick another before posting.' : null
+    return {
+        top: (
+            <div className="mb-2 space-y-1.5">
+                <div className="flex flex-wrap items-center gap-1.5">
+                    <div className="inline-flex rounded-[5px] border border-border p-0.5" role="radiogroup" aria-label="Post type">
+                        {(['announcement', 'discussion'] as const).map((t) => (
+                            <button key={t} type="button" role="radio" aria-checked={type === t} onClick={() => onChange({ ...value, updateType: t })}
+                                className={cn('rounded-[3px] px-2 py-0.5 text-[12px]', type === t ? 'bg-muted font-medium text-foreground' : 'text-muted-foreground')}>
+                                {t === 'announcement' ? 'Announcement' : 'Discussion'}
+                            </button>
+                        ))}
+                    </div>
+                    <AudienceMenu org={org} value={{ audience: value.audience ?? {}, isPublic: Boolean(value.isPublic) }} label={label}
+                        onChange={(next) => onChange({ ...value, audience: next.audience, isPublic: next.isPublic })} />
+                    {reachLine ? <span role="status" className={cn('text-[12px]', blockedReason ? 'text-destructive' : 'text-muted-foreground')}>{blockedReason ?? reachLine}</span> : null}
+                </div>
                 {value.pin ? (
-                    <label className={chip}>
-                        Unpin on
-                        <input type="date" className="bg-transparent" value={value.pinnedUntil?.slice(0, 10) ?? ''} onChange={(e) => onChange({ ...value, pinnedUntil: e.target.value ? new Date(`${e.target.value}T23:59:59`).toISOString() : null })} />
+                    <label className="flex items-center gap-1.5 text-[12px] text-muted-foreground">
+                        Pinned · unpin on
+                        <input type="date" className="rounded border border-border bg-transparent px-1" value={value.pinnedUntil?.slice(0, 10) ?? ''}
+                            onChange={(e) => onChange({ ...value, pinnedUntil: e.target.value ? new Date(`${e.target.value}T23:59:59`).toISOString() : null })} />
                     </label>
                 ) : null}
-                <label className={chip}>
-                    <input type="checkbox" checked={Boolean(value.commentsOff)} onChange={(e) => onChange({ ...value, commentsOff: e.target.checked })} />
-                    Comments off
-                </label>
-                {(value.updateType ?? 'announcement') === 'announcement' ? (
-                    <label className={chip}>
-                        <input type="checkbox" checked={Boolean(value.shareToGeneral)} onChange={(e) => onChange({ ...value, shareToGeneral: e.target.checked })} />
-                        Also share in #general
-                    </label>
+                {type === 'announcement' ? (
+                    <p className="text-[12px] text-muted-foreground" role="status">
+                        {emailsLeft === 0 ? `${EMAIL_LIMIT} emails sent today. Resets tomorrow.` : emailOn ? `Also email · ${emailsLeft} of ${EMAIL_LIMIT} left today` : null}
+                    </p>
                 ) : null}
             </div>
-            {/* Preview line and the empty-audience warning (report §17.3, §17.11). */}
-            {reach !== null ? (
-                <p role="status" className={reach === 0 ? 'text-destructive' : 'text-muted-foreground'}>
-                    {reach === 0 ? 'Nobody is in this audience yet. Pick another before posting.'
-                        : `Visible to ${reach} ${reach === 1 ? 'person' : 'people'} · ${(value.updateType ?? 'announcement') === 'announcement' ? `notifies ${reach} by in-app${(value.notifyLevel ?? org.notifyDefault) === 'email' ? ' and email' : ''}` : 'no notifications'}`}
-                </p>
-            ) : null}
-        </fieldset>
+        ),
+        toolbar: (
+            <>
+                {pinFull ? (
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild><button type="button" className={tool} aria-label="Pin: unpin one first" title="Unpin one first"><Pin className="h-4 w-4" /></button></DropdownMenuTrigger>
+                        <DropdownMenuContent align="start" className="max-w-72">
+                            <DropdownMenuLabel>Unpin one first</DropdownMenuLabel>
+                            {pins.map((p) => <DropdownMenuItem key={p.id} disabled className="truncate">{p.excerpt || 'Pinned post'}</DropdownMenuItem>)}
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                ) : (
+                    <button type="button" className={tool} aria-pressed={Boolean(value.pin)} aria-label="Pin" title="Pin" onClick={() => onChange({ ...value, pin: !value.pin })}><Pin className="h-4 w-4" /></button>
+                )}
+                {type === 'announcement' ? (
+                    <>
+                        <button type="button" className={tool} aria-pressed={emailOn} disabled={emailsLeft === 0}
+                            aria-label={emailsLeft === 0 ? `${EMAIL_LIMIT} emails sent today. Resets tomorrow.` : `Also email · ${emailsLeft} of ${EMAIL_LIMIT} left today`}
+                            title={emailsLeft === 0 ? `${EMAIL_LIMIT} emails sent today. Resets tomorrow.` : `Also email · ${emailsLeft} of ${EMAIL_LIMIT} left today`}
+                            onClick={() => onChange({ ...value, notifyLevel: emailOn ? 'in_app' : 'email' })}><Mail className="h-4 w-4" /></button>
+                        <button type="button" className={tool} aria-pressed={Boolean(value.shareToGeneral)} aria-label="Also share in #general" title="Also share in #general"
+                            onClick={() => onChange({ ...value, shareToGeneral: !value.shareToGeneral })}><Hash className="h-4 w-4" /></button>
+                    </>
+                ) : null}
+                {comments}
+            </>
+        ),
+        postLabel: value.isPublic ? 'Post publicly' : reach === null ? 'Post' : `Post to ${people(reach)}`,
+        blockedReason,
+        visibility: value.isPublic ? 'public' : 'members',
+        placeholder: `Share something with ${org.title}…`,
+    }
+}
+
+/** Everyone, Admins, the org's roles, its workspaces, or Public, which says "Also on Discover" (report §7.5, §37.3). */
+export function AudienceMenu({ org, value, label, onChange }: {
+    org: OrgFeedInfo
+    value: { audience: UpdateAudience; isPublic: boolean }
+    label: string
+    onChange: (next: { audience: UpdateAudience; isPublic: boolean }) => void
+}) {
+    const roleNames = org.roleNames ?? DEFAULT_ROLES
+    const roles = value.audience.roles ?? []
+    const projectIds = value.audience.projectIds ?? []
+    const toggle = <T,>(list: T[], item: T) => (list.includes(item) ? list.filter((x) => x !== item) : [...list, item])
+    const set = (audience: UpdateAudience) => onChange({ audience: { ...(audience.roles?.length ? { roles: audience.roles } : {}), ...(audience.projectIds?.length ? { projectIds: audience.projectIds } : {}) }, isPublic: false })
+    return (
+        <DropdownMenu>
+            <DropdownMenuTrigger asChild><button type="button" className={chip} aria-label={`Audience: ${label}`}><Users className="h-3.5 w-3.5" aria-hidden="true" />{label}</button></DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="max-h-80 overflow-y-auto">
+                <DropdownMenuCheckboxItem checked={!value.isPublic && roles.length === 0 && projectIds.length === 0} onSelect={(e) => { e.preventDefault(); set({}) }}>Everyone in {org.title}</DropdownMenuCheckboxItem>
+                <DropdownMenuCheckboxItem checked={roles.includes('admin')} onSelect={(e) => { e.preventDefault(); set({ roles: toggle(roles, 'admin'), projectIds }) }}>Admins</DropdownMenuCheckboxItem>
+                {(['member', 'viewer'] as const).map((r) => (
+                    <DropdownMenuCheckboxItem key={r} checked={roles.includes(r)} onSelect={(e) => { e.preventDefault(); set({ roles: toggle(roles, r), projectIds }) }}>{rolePlural(roleNames[r])}</DropdownMenuCheckboxItem>
+                ))}
+                {(org.workspaces ?? []).length ? <DropdownMenuSeparator /> : null}
+                {(org.workspaces ?? []).map((w) => (
+                    <DropdownMenuCheckboxItem key={w.id} checked={projectIds.includes(w.id)} onSelect={(e) => { e.preventDefault(); set({ roles, projectIds: toggle(projectIds, w.id) }) }}>{w.title}</DropdownMenuCheckboxItem>
+                ))}
+                <DropdownMenuSeparator />
+                <DropdownMenuCheckboxItem checked={value.isPublic} onSelect={(e) => { e.preventDefault(); onChange({ audience: {}, isPublic: !value.isPublic }) }}>Public · Also on Discover</DropdownMenuCheckboxItem>
+            </DropdownMenuContent>
+        </DropdownMenu>
+    )
+}
+
+/** "Seen by 32 of 40" on an announcement, for admins; it lists who hasn't, with Remind (report §28.3, decision 58). */
+export function SeenCount({ orgId, updateId, seen }: { orgId: string; updateId: string; seen: { seen: number; total: number } }) {
+    const [open, setOpen] = useState(false)
+    const [busy, setBusy] = useState(false)
+    const unseen = useQuery({ queryKey: ['org-update-unseen', updateId], queryFn: () => readUnseenPeopleAction(orgId, updateId), enabled: open })
+    const list = unseen.data?.success ? unseen.data.people : []
+    const remind = async () => {
+        setBusy(true)
+        const r = await remindUnseenAction(orgId, updateId).finally(() => setBusy(false))
+        if (!r.success) return void toast.error(r.error)
+        toast.success([`Reminded ${people(r.reminded)}`, r.skipped ? `${r.skipped} reminded in the last 12 hours` : null].filter(Boolean).join(' · '))
+    }
+    return (
+        <>
+            <button type="button" onClick={(e) => { e.stopPropagation(); setOpen(true) }} className="text-[11px] text-muted-foreground hover:text-foreground hover:underline">
+                Seen by {seen.seen} of {seen.total}
+            </button>
+            <Dialog open={open} onOpenChange={setOpen}>
+                <DialogContent onClick={(e) => e.stopPropagation()}>
+                    <DialogHeader>
+                        <DialogTitle>Not seen yet</DialogTitle>
+                        <DialogDescription>People this was for who haven’t opened Updates since it was posted.</DialogDescription>
+                    </DialogHeader>
+                    {unseen.isPending ? <div className="nb-skeleton h-16 rounded" /> : list.length === 0 ? <p className="text-sm text-muted-foreground">Everyone has seen it.</p> : (
+                        <ul className="max-h-72 space-y-1 overflow-y-auto text-sm">{list.map((p) => <li key={p.id}>{p.name}</li>)}</ul>
+                    )}
+                    {list.length ? <div className="flex justify-end"><Button size="sm" disabled={busy} onClick={() => void remind()}>Remind {people(list.length)}</Button></div> : null}
+                </DialogContent>
+            </Dialog>
+        </>
+    )
+}
+
+/** What a post card knows about the organization feed it sits in (report §37.3). */
+export type OrgCardView = { org: OrgFeedInfo; workspaceTitles: Map<string, string> }
+
+/** The card's audience label in the organization's words (report §37.3). */
+export function cardAudienceLabel(view: OrgCardView, post: { audience: UpdateAudience; visibility: string }) {
+    return audienceLabel(post, view.org.roleNames ?? DEFAULT_ROLES, view.workspaceTitles)
+}
+
+/** Change who sees a post (report §37.3): widening asks first; narrowing applies at once with a line about memory. */
+export function ChangeAudienceDialog({ view, orgId, updateId, current, open, onOpenChange }: {
+    view: OrgCardView
+    orgId: string
+    updateId: string
+    current: { audience: UpdateAudience; visibility: 'members' | 'public' }
+    open: boolean
+    onOpenChange: (open: boolean) => void
+}) {
+    const client = useQueryClient()
+    const [next, setNext] = useState({ audience: current.audience, isPublic: current.visibility === 'public' })
+    const [askWider, setAskWider] = useState(false)
+    const [busy, setBusy] = useState(false)
+    const save = async (confirmedWider: boolean) => {
+        setBusy(true)
+        const r = await setOrgUpdateAudienceAction(orgId, updateId, { audience: next.audience, visibility: next.isPublic ? 'public' : 'members' }, confirmedWider).finally(() => setBusy(false))
+        if (!r.success && r.error === 'wider') return void setAskWider(true)
+        if (!r.success) return void toast.error(r.error)
+        toast.success(r.change === 'narrower' ? 'Audience narrowed. People who already saw it may remember it.' : 'Audience changed')
+        setAskWider(false)
+        onOpenChange(false)
+        void client.invalidateQueries({ queryKey: ['project'] })
+    }
+    const label = audienceLabel({ audience: next.audience, visibility: next.isPublic ? 'public' : 'members' }, view.org.roleNames ?? DEFAULT_ROLES, view.workspaceTitles)
+    return (
+        <Dialog open={open} onOpenChange={(o) => { setAskWider(false); onOpenChange(o) }}>
+            <DialogContent onClick={(e) => e.stopPropagation()}>
+                <DialogHeader>
+                    <DialogTitle>Who sees this</DialogTitle>
+                    <DialogDescription>Narrowing applies at once. Widening asks you first.</DialogDescription>
+                </DialogHeader>
+                <AudienceMenu org={view.org} value={next} label={label} onChange={(v) => { setAskWider(false); setNext(v) }} />
+                {askWider ? <p role="alert" className="text-sm">More people will see this, and they’ll be able to open it now. Change it?</p> : null}
+                <div className="flex justify-end gap-2">
+                    <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>Cancel</Button>
+                    <Button size="sm" disabled={busy} onClick={() => void save(askWider)}>{askWider ? 'Yes, widen it' : 'Save'}</Button>
+                </div>
+            </DialogContent>
+        </Dialog>
     )
 }
 
@@ -138,6 +335,14 @@ const FILTERS: Array<{ value: OrgFeedFilter; label: string }> = [
     { value: 'discussion', label: 'Discussions' },
     { value: 'from_projects', label: 'From workspaces' },
 ]
+
+/** The empty title when a filter has nothing (report §7.5). */
+export const FILTER_EMPTY: Record<OrgFeedFilter, string> = {
+    all: 'No announcements yet',
+    announcement: 'No announcements yet',
+    discussion: 'No discussions yet',
+    from_projects: 'Nothing shared from workspaces yet',
+}
 
 export function OrgFeedFilters({ value, onChange }: { value: OrgFeedFilter; onChange: (next: OrgFeedFilter) => void }) {
     return (

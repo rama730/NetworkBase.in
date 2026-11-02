@@ -25,7 +25,8 @@ import { prependUpdate, replaceUpdate, type UpdatesPage } from '@/components/wor
 import { MemoizedUpdateCard } from '@/components/workspaces/updates/UpdateCard';
 import { ModeratedPlaceholder, useModeratedItems, withPlaceholders } from '@/components/reports/ModeratedPlaceholder';
 import { UpdatesRightRail } from '@/components/workspaces/updates/UpdatesRightRail';
-import { OrgFeedFilters, OrgPinnedLine, OrgUpdateOptions, type OrgPostOptions } from '@/components/organizations/OrgUpdateParts';
+import { childAudienceDefault, FILTER_EMPTY, OrgFeedFilters, OrgPinnedLine, useOrgComposer, type OrgPostOptions } from '@/components/organizations/OrgUpdateParts';
+import { rolePlural } from '@/lib/organizations/role-words';
 import type { OrgFeedFilter } from '@/lib/organizations/org-updates';
 import { markOrgUpdatesSeenAction } from '@/app/actions/org-updates';
 
@@ -197,9 +198,14 @@ export default function UpdatesTab({
   const isNewUpdate = (update: WorkspaceUpdateView) =>
     seenBefore !== undefined && update.authorId !== currentUserId && (seenBefore === null || update.createdAt > seenBefore);
   const postWithOrgOptions = (input: Parameters<typeof createWorkspaceUpdateAction>[1]) => {
+    const { childAudience, isPublic: _isPublic, replyPolicy, ...rest } = orgOptions;
+    const replies = replyPolicy === "closed" ? { commentsOff: true } : replyPolicy ? { replyPolicy } : {};
     const orgInput = org?.kind === "org"
-      ? { ...orgOptions, updateType: org.isAdmin ? orgOptions.updateType ?? "announcement" : "discussion" }
-      : orgOptions;
+      ? { ...rest, ...replies, updateType: org.isAdmin ? rest.updateType ?? "announcement" : "discussion" }
+      : org?.kind === "child"
+        // Report §18.4: Everyone in the organization and Public also show under its From workspaces.
+        ? { shareToOrg: !org.shareBlockedReason && (childAudience ?? childAudienceDefault(org)) !== "team" }
+        : {};
     // Options clear only once the post is in, so a retry keeps its audience (report §42.15 problem 44).
     return createMutation.mutateAsync({ ...input, ...orgInput }).then(() => {
       setOrgOptions({});
@@ -208,6 +214,11 @@ export default function UpdatesTab({
   };
   const canCreate = Boolean(capabilities?.canCreate ?? canCreateUpdates);
   const canManage = Boolean(capabilities?.canManage ?? canManageUpdates);
+  const orgControls = useOrgComposer(org, projectId, orgOptions, setOrgOptions, canCreate);
+  const orgView = useMemo(() => org ? { org, workspaceTitles: new Map((org.workspaces ?? []).map((w) => [w.id, w.title])) } : null, [org]);
+  // Report §7.5: a member who can't post is told who posts here.
+  const whoPosts = org?.kind === "org" && !canCreate && isMember
+    ? `Only ${org.roleNames ? rolePlural(org.roleNames.admin) : "admins"} post here. You can reply to posts.` : null;
 
   useEffect(() => {
     const routeScrollRoot = document.querySelector<HTMLElement>('[data-scroll-root="route"]');
@@ -286,6 +297,8 @@ export default function UpdatesTab({
       const result = await createWorkspaceUpdateAction(projectId, input);
       if (!result.success || !result.data)
         throw new Error(result.error || "Couldn’t post update");
+      // Decision 67: the post went out; the daily email limit stopped its email.
+      if (result.emailStopped) toast.warning("Posted. The email wasn’t sent: 5 emails went out today. Resets tomorrow.");
       return result.data;
     },
     onMutate: async (input) => {
@@ -386,15 +399,21 @@ export default function UpdatesTab({
     <div className="nb-empty-state nb-grid-ground py-16" role="status">
       <MessageCircle className="nb-empty-state-icon mb-3" />
       <h3 className="nb-empty-state-title">
-        No updates yet
+        {orgFeed ? (orgFilter !== "all" ? FILTER_EMPTY[orgFilter] : isMember || org?.isAdmin ? FILTER_EMPTY.all : "No public updates") : "No updates yet"}
       </h3>
       <p className="nb-empty-state-desc">
         {orgFeed
-          ? "Post the first announcement or discussion for members."
+          ? orgFilter !== "all" ? null : org?.isAdmin ? "Post your first announcement. Everyone gets notified." : isMember ? "Announcements from admins show here." : null
+          : org?.kind === "child" ? (canCreate ? "Post your team’s first update." : "Nothing posted here yet.")
           : canCreate
             ? "Share the first progress post so followers can see what is moving."
             : "Follow this workspace to get notified when the team shares progress."}
       </p>
+      {orgFeed && orgFilter !== "all" ? (
+        <button type="button" onClick={() => setOrgFilter("all")} className="nb-touch-target mt-3 rounded-[5px] border border-border px-3 py-1.5 text-sm font-medium text-foreground hover:bg-muted">
+          Clear filter
+        </button>
+      ) : null}
     </div>
   ) : shouldVirtualizeFeed ? (
     <Virtuoso
@@ -413,6 +432,7 @@ export default function UpdatesTab({
           currentUserId={currentUserId}
           highlighted={initialUpdateId === entry.item.id}
           isNew={isNewUpdate(entry.item)}
+          orgView={orgView}
         />
       )}
     />
@@ -433,6 +453,7 @@ export default function UpdatesTab({
             currentUserId={currentUserId}
             highlighted={initialUpdateId === entry.item.id}
             isNew={isNewUpdate(entry.item)}
+            orgView={orgView}
           />
         ))}
       </>
@@ -452,7 +473,7 @@ export default function UpdatesTab({
               Updates
             </h2>
             <p className="nb-compact text-muted-foreground">
-              {orgFeed ? "Announcements and discussions for members." : "Progress posts for followers and workspace visitors."}
+              {orgFeed ? `Announcements and discussions for ${org.title}.` : org?.kind === "child" ? "Updates for your team." : "Progress posts for followers and workspace visitors."}
             </p>
           </div>
           <button
@@ -464,7 +485,7 @@ export default function UpdatesTab({
           </button>
         </div>
 
-        {isDesktopUpdatesRail === false && canCreate && org ? <OrgUpdateOptions org={org} orgId={projectId} value={orgOptions} onChange={setOrgOptions} /> : null}
+        {whoPosts ? <p className="px-1 pb-3 text-[13px] text-muted-foreground">{whoPosts}</p> : null}
         {isDesktopUpdatesRail === false ? (
           <WorkspaceUpdateComposer
             projectId={projectId}
@@ -477,6 +498,7 @@ export default function UpdatesTab({
             isPosting={createMutation.isPending}
             defaultVisibility={capabilities?.defaultVisibility}
             onPost={postWithOrgOptions}
+            orgControls={orgControls}
           />
         ) : null}
 
@@ -532,6 +554,7 @@ export default function UpdatesTab({
                 <DialogTitle className="nb-card-title">Shortcuts</DialogTitle>
                 <UpdatesRightRail
                   updates={visibleUpdates}
+                  emptyText={org ? "People who post here will show up here." : undefined}
                   onOpenDetail={(updateId) => {
                     setShortcutsOpen(false);
                     openDetail(updateId);
@@ -585,7 +608,6 @@ export default function UpdatesTab({
             />
           ) : (
             <div className="space-y-6">
-              {isDesktopUpdatesRail === true && canCreate && org ? <OrgUpdateOptions org={org} orgId={projectId} value={orgOptions} onChange={setOrgOptions} /> : null}
               {isDesktopUpdatesRail === true ? (
                 <WorkspaceUpdateComposer
                   projectId={projectId}
@@ -598,11 +620,13 @@ export default function UpdatesTab({
                   isPosting={createMutation.isPending}
                   defaultVisibility={capabilities?.defaultVisibility}
                   onPost={postWithOrgOptions}
+                  orgControls={orgControls}
                 />
               ) : null}
               <UpdatesRightRail
                 updates={visibleUpdates}
                 onOpenDetail={openDetail}
+                emptyText={org ? "People who post here will show up here." : undefined}
               />
             </div>
           )}

@@ -9,9 +9,12 @@ import { updateAuthorName, updateAuthorRoleLabel, updateRelativeTime } from '@/c
 export function UpdatesRightRail({
   updates,
   onOpenDetail,
+  emptyText,
 }: {
   updates: WorkspaceUpdateView[];
   onOpenDetail: (updateId: string) => void;
+  /** Organizations and their workspaces (report §7.5, gap 20). */
+  emptyText?: string;
 }) {
   const postingMembers = useMemo(
     () => {
@@ -89,7 +92,7 @@ export function UpdatesRightRail({
             No updates yet
           </p>
           <p className="nb-empty-state-desc">
-            Workspace members will appear here after their first post.
+            {emptyText ?? "Workspace members will appear here after their first post."}
           </p>
         </div>
       )}

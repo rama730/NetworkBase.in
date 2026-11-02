@@ -19,6 +19,8 @@ import {
     Pin,
     Flag,
     Trash2,
+    Users,
+    EyeOff,
 } from "lucide-react";
 import { toast, feedbackError } from "@/lib/feedback";
 import { BlockPersonDialog, type BlockPerson } from "@/components/privacy/BlockDialog";
@@ -41,6 +43,8 @@ import { useUpdatePostLive } from "@/hooks/useUpdateLive";
 import { cn } from "@/lib/utils";
 import { isUpdateCardControl, removeUpdate, updateAuthorName, updateContextItems, updatePages, updateRelativeTime, type UpdatesPage } from '@/components/workspaces/updates/update-helpers';
 import { WorkspaceUpdateContent, UpdateContextAndMedia } from '@/components/workspaces/updates/UpdateContent';
+import { cardAudienceLabel, ChangeAudienceDialog, SeenCount, type OrgCardView } from '@/components/organizations/OrgUpdateParts';
+import { hideSharedFromOrgAction } from '@/app/actions/org-updates';
 
 function UpdateCard({
   projectId: feedProjectId,
@@ -52,6 +56,7 @@ function UpdateCard({
   currentUserId,
   highlighted,
   isNew = false,
+  orgView = null,
 }: {
   projectId: string;
   projectSlug?: string | null;
@@ -63,6 +68,8 @@ function UpdateCard({
   highlighted: boolean;
   /** Org feed: posted since the viewer last opened it. */
   isNew?: boolean;
+  /** Organizations and their workspaces (report §37.3): audience label, seen count, admin actions. */
+  orgView?: OrgCardView | null;
 }) {
   // A post shared up from a child project acts in that project (likes, comments, edits).
   const projectId = update.fromProject ? update.projectId : feedProjectId;
@@ -74,6 +81,12 @@ function UpdateCard({
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [isReporting, setIsReporting] = useState(false);
   const [isLikersOpen, setIsLikersOpen] = useState(false);
+  const [removeReason, setRemoveReason] = useState("");
+  const [audienceOpen, setAudienceOpen] = useState(false);
+  const [hideAsk, setHideAsk] = useState(false);
+  const inOrgFeed = orgView?.org.kind === "org";
+  // Report §37.3: removing someone else's post in an organization or its workspace needs a reason the author sees.
+  const needsReason = Boolean(orgView && update.authorId && update.authorId !== currentUserId);
   // A post from someone you blocked or muted folds until you ask (Blocking B26, B40); nothing is removed.
   const blockedIds = useBlockedIds();
   const mutedIds = useMutedIds();
@@ -125,13 +138,7 @@ function UpdateCard({
 
   const deleteMutation = useMutation({
     mutationFn: async () => {
-      let result = await deleteWorkspaceUpdateAction(projectId, update.id);
-      // Removing someone else's post in an org needs a reason the author will see (report §17.4).
-      if (!result.success && result.error?.startsWith("Say why")) {
-        const reason = window.prompt(result.error);
-        if (!reason?.trim()) throw new Error("Not removed: a reason is needed.");
-        result = await deleteWorkspaceUpdateAction(projectId, update.id, reason);
-      }
+      const result = await deleteWorkspaceUpdateAction(projectId, update.id, needsReason ? removeReason : null);
       if (!result.success)
         throw new Error(result.error || "Failed to delete update");
       return result.data ?? null;
@@ -267,7 +274,9 @@ function UpdateCard({
                 {update.sharedToOrgTitle ? (
                   <span className="rounded-[3px] border border-border px-1 text-[11px] text-muted-foreground">Shared to {update.sharedToOrgTitle}</span>
                 ) : null}
-                {update.visibility === "members" || update.audience.roles?.length || update.audience.projectIds?.length ? (
+                {inOrgFeed && orgView && !update.fromProject ? (
+                  <span className="text-[11px] text-muted-foreground">· {cardAudienceLabel(orgView, update)}</span>
+                ) : update.visibility === "members" || update.audience.roles?.length || update.audience.projectIds?.length ? (
                   <span className="text-[11px] text-muted-foreground">· Members only</span>
                 ) : null}
                 {isNew ? (
@@ -279,6 +288,7 @@ function UpdateCard({
                 {!isDeleted && update.editedAt ? (
                   <span className="font-mono text-[10px] max-md:text-[11px] uppercase tracking-wider text-muted-foreground">Edited</span>
                 ) : null}
+                {update.seen && !isDeleted ? <SeenCount orgId={feedProjectId} updateId={update.id} seen={update.seen} /> : null}
               </div>
             </div>
             <DropdownMenu>
@@ -310,6 +320,18 @@ function UpdateCard({
                     {update.isPinned ? "Unpin update" : "Pin update"}
                   </DropdownMenuItem>
                 ) : null}
+                {inOrgFeed && orgView?.org.isAdmin && !update.fromProject && !isDeleted ? (
+                  <DropdownMenuItem onClick={() => setAudienceOpen(true)}>
+                    <Users className="h-4 w-4" />
+                    Change who sees this
+                  </DropdownMenuItem>
+                ) : null}
+                {inOrgFeed && orgView?.org.isAdmin && update.fromProject && !isDeleted ? (
+                  <DropdownMenuItem onClick={() => setHideAsk(true)}>
+                    <EyeOff className="h-4 w-4" />
+                    Hide from {orgView.org.title}
+                  </DropdownMenuItem>
+                ) : null}
                 {update.canEdit ? (
                   <DropdownMenuItem onClick={() => setIsEditing(true)}>
                     <FileText className="h-4 w-4" />
@@ -320,7 +342,7 @@ function UpdateCard({
                   <BlockPostAuthorItem person={{ id: update.authorId, name: updateAuthorName(update) }} onBlock={(person) => setBlockAsk({ ...person, at: Date.now() })} />
                 ) : null}
                 {/* Report a post or announcement (report §30.3); authors and managers act on their own posts. */}
-                {!update.canEdit && !update.canDelete && !isDeleted ? (
+                {!isDeleted && (orgView ? Boolean(currentUserId) && update.authorId !== currentUserId : !update.canEdit && !update.canDelete) ? (
                   <DropdownMenuItem onClick={() => setIsReporting(true)}>
                     <Flag className="h-4 w-4" />
                     Report {update.updateType === "announcement" ? "announcement" : "post"}
@@ -477,13 +499,36 @@ function UpdateCard({
       <ConfirmDialog
         open={isDeleteConfirmOpen}
         onOpenChange={setIsDeleteConfirmOpen}
-        title="Delete update"
-        description="Delete this update? This can’t be undone."
-        confirmLabel="Delete"
+        title={needsReason ? "Remove this post" : "Delete update"}
+        description={needsReason ? "Say why. The author will see it." : "Delete this update? This can’t be undone."}
+        confirmLabel={needsReason ? "Remove" : "Delete"}
         variant="destructive"
         loading={deleteMutation.isPending}
         onConfirm={async () => {
+          if (needsReason && !removeReason.trim()) throw new Error("Say why you’re removing this post.");
           await deleteMutation.mutateAsync();
+        }}
+      >
+        {needsReason ? (
+          <textarea value={removeReason} onChange={(e) => setRemoveReason(e.target.value)} maxLength={300} rows={3} aria-label="Reason"
+            placeholder="Reason" className="w-full rounded-md border border-border bg-background p-2 text-sm" />
+        ) : null}
+      </ConfirmDialog>
+      {orgView && inOrgFeed && audienceOpen ? (
+        <ChangeAudienceDialog view={orgView} orgId={feedProjectId} updateId={update.id} current={{ audience: update.audience, visibility: update.visibility }}
+          open={audienceOpen} onOpenChange={setAudienceOpen} />
+      ) : null}
+      <ConfirmDialog
+        open={hideAsk}
+        onOpenChange={setHideAsk}
+        title={`Hide from ${orgView?.org.title ?? "the organization"}?`}
+        description={`It leaves ${orgView?.org.title ?? "the organization"}’s feed and stays in ${update.fromProject?.title ?? "its workspace"}. The workspace lead is told.`}
+        confirmLabel="Hide"
+        onConfirm={async () => {
+          const result = await hideSharedFromOrgAction(feedProjectId, update.id);
+          if (!result.success) throw new Error(result.error);
+          queryClient.setQueryData(updatesQueryKey, (existing: InfiniteData<UpdatesPage> | undefined) => removeUpdate(existing, update.id));
+          toast.success(`Hidden from ${orgView?.org.title ?? "the organization"}`);
         }}
       />
       <WorkspaceUpdateLikersModal

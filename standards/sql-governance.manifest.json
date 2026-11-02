@@ -53,7 +53,8 @@
     "drizzle/0047_report_reason_under_18.sql",
     "drizzle/0048_org_saved_type_settings.sql",
     "drizzle/0049_membership_endings.sql",
-    "drizzle/0050_welcome_dismissed.sql"
+    "drizzle/0050_welcome_dismissed.sql",
+    "drizzle/0051_update_hidden_from_org.sql"
   ],
   "legacyDatabaseTags": [],
   "allowedUtilitySqlFiles": [

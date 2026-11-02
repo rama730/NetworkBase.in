@@ -1,7 +1,7 @@
 "use server";
 
 import { readViewerOrgRole } from "@/lib/organizations/detail";
-import { orgFeedWhere, orgLivePinSql, readLastSeenUpdates, readOrgUpdateContext, readWorkspaceTitles, readSharedPins, type OrgUpdateContext } from "@/lib/organizations/org-updates";
+import { orgFeedWhere, orgLivePinSql, readAudienceWorkspaces, readLastSeenUpdates, readOrgPins, readOrgUpdateContext, readSeenCounts, readWorkspaceTitles, readSharedPins, type OrgUpdateContext } from "@/lib/organizations/org-updates";
 import { audienceAllows, followersHear, isPinnedNow, type UpdateAudience } from "@/lib/organizations/update-rules";
 import { shareToOrgGeneral } from "@/lib/organizations/org-chat";
 import { readWorkspaceRoleTitles, roleTitleKey } from "@/lib/workspaces/update-roles";
@@ -53,7 +53,8 @@ import {
 import { computeWorkspaceReadAccess } from "@/lib/data/workspace-access";
 import { enqueueWorkspaceNotificationEvent, readWorkspaceNotificationActorSnapshot } from "@/lib/notifications/workspace-events";
 import { publishUser } from "@/lib/messaging/publish";
-import { notifyAnnouncement, notifyOrg } from "@/lib/organizations/notify";
+import { orgGrant } from "@/lib/organizations/permissions";
+import { ANNOUNCEMENT_EMAILS_PER_DAY, notifyAnnouncement, notifyOrg, orgEmailsSentToday } from "@/lib/organizations/notify";
 import { dismissUpdateNotifications, isUpdateNotification } from "@/lib/notifications/service";
 import { syncCommentLikeNotification, syncUpdateActivityNotifications } from "@/lib/notifications/update-activity";
 import { readUpdatePreviews, type UpdatePreview } from "@/lib/workspaces/update-previews";
@@ -327,6 +328,8 @@ export type WorkspaceUpdateView = {
     /** A child project's own post shared up to its org (report §17.6): "Shared to CSE-3A". */
     sharedToOrgTitle?: string | null;
     canComment: boolean;
+    /** Org admins on the organization's own announcements: "Seen by 32 of 40" (report §28.3, decision 58). */
+    seen?: { seen: number; total: number } | null;
     editedAt: string | null;
     deletedAt: string | null;
     createdAt: string;
@@ -767,7 +770,7 @@ function canCreateForRole(access: Pick<ProjectUpdateAccess, "isOwner" | "memberR
 function sharedOrPublicSql(access: ProjectUpdateAccess) {
     if (access.isOwner || access.isMember) return undefined;
     const inOrg = access.org?.kind === "child" && Boolean(access.org.viewerRole);
-    return inOrg ? or(eq(workspaceUpdates.visibility, "public"), isNotNull(workspaceUpdates.sharedToOrgAt)) : eq(workspaceUpdates.visibility, "public");
+    return inOrg ? or(eq(workspaceUpdates.visibility, "public"), and(isNotNull(workspaceUpdates.sharedToOrgAt), isNull(workspaceUpdates.hiddenFromOrgAt))) : eq(workspaceUpdates.visibility, "public");
 }
 
 function postInteractionBlock(access: ProjectUpdateAccess) {
@@ -856,7 +859,7 @@ async function resolveProjectUpdateAccess(projectId: string, viewerId: string | 
     return effectiveAccess;
 }
 
-type UpdateRow = Omit<typeof workspaceUpdates.$inferSelect, "activitySeq"> & {
+type UpdateRow = Omit<typeof workspaceUpdates.$inferSelect, "activitySeq" | "hiddenFromOrgAt" | "hiddenFromOrgBy"> & {
     authorFullName: string | null;
     authorUsername: string | null;
     authorAvatarUrl: string | null;
@@ -1228,8 +1231,17 @@ export async function readWorkspaceUpdatesAction(projectId: string, params?: {
             readWorkspaceTitles([...new Set(pageRows.filter((row) => row.projectId !== projectId).map((row) => row.projectId))]),
             orgFeed ? readLastSeenUpdates(orgFeed.orgId, viewer.userId) : null,
         ]);
-        const previews = await readUpdatePreviews(pageRows.map((row) => row.id), viewer.userId ?? null);
-        const updates = pageRows.map((row) => ({ ...normalizeUpdate(row, { access, likedIds, contextByUpdateId, fromProjects }), preview: previews.get(row.id) }));
+        const announcementIds = orgFeed?.isOrgAdmin ? pageRows.filter((row) => row.projectId === projectId && row.updateType === "announcement").map((row) => row.id) : [];
+        const [previews, seenCounts, composer] = await Promise.all([
+            readUpdatePreviews(pageRows.map((row) => row.id), viewer.userId ?? null),
+            orgFeed ? readSeenCounts(orgFeed.orgId, announcementIds) : null,
+            access.org && !params?.cursor ? readOrgComposerFacts(access) : null,
+        ]);
+        const updates = pageRows.map((row) => ({
+            ...normalizeUpdate(row, { access, likedIds, contextByUpdateId, fromProjects }),
+            preview: previews.get(row.id),
+            seen: announcementIds.includes(row.id) ? seenCounts?.get(row.id) ?? { seen: 0, total: 0 } : null,
+        }));
         const last = updates[updates.length - 1] ?? null;
         const durationMs = Math.round(performance.now() - startedAt);
         logger.metric("project_updates.read", {
@@ -1264,6 +1276,13 @@ export async function readWorkspaceUpdatesAction(projectId: string, params?: {
                     isAdmin: access.org.isOrgAdmin,
                     shareBlockedReason: access.org.shareBlockedReason,
                     notifyDefault: access.org.notifyDefault,
+                    replyDefault: access.org.replyDefault,
+                    roleNames: access.org.roleNames,
+                    memberPostsOn: access.org.memberPostsOn,
+                    childIsPublic: access.project.visibility === "public",
+                    emailsLeft: composer?.emailsLeft ?? 0,
+                    pins: composer?.pins ?? [],
+                    workspaces: composer?.workspaces ?? [],
                 } : null,
                 capabilities: {
                     canCreate: access.canCreate,
@@ -1278,6 +1297,18 @@ export async function readWorkspaceUpdatesAction(projectId: string, params?: {
         console.error("Failed to read project updates:", error);
         return { success: false as const, error: "Couldn’t load updates. Try again.", data: { updates: [], nextCursor: null, hasMore: false, movementSummary: null } };
     }
+}
+
+/** What the composer needs on top of the feed (report §7.5, §28.3): emails left today, the pins holding the slots, audience workspaces. */
+async function readOrgComposerFacts(access: ProjectUpdateAccess) {
+    const org = access.org!;
+    const admin = org.kind === "org" && org.isOrgAdmin;
+    const [sent, pins, audienceWorkspaces] = await Promise.all([
+        admin ? orgEmailsSentToday(org.orgId) : ANNOUNCEMENT_EMAILS_PER_DAY,
+        org.kind === "org" ? readOrgPins(org.orgId) : [],
+        org.kind === "org" ? readAudienceWorkspaces(org) : [],
+    ]);
+    return { emailsLeft: Math.max(0, ANNOUNCEMENT_EMAILS_PER_DAY - sent), pins, workspaces: audienceWorkspaces };
 }
 
 export async function readWorkspaceUpdateAction(projectId: string, updateId: string) {
@@ -1545,7 +1576,8 @@ async function resolveOrgPostOptions(access: ProjectUpdateAccess, updateType: Wo
         notifyLevel: orgAdmin && (input.notifyLevel ?? access.org?.notifyDefault) === "email" ? "email" as const : "in_app" as const,
         pin: Boolean(orgAdmin && input.pin),
         pinnedUntil: orgAdmin && input.pin ? futureDate(input.pinnedUntil) : null,
-        commentsOff: Boolean(orgAdmin && input.commentsOff),
+        // Report §28.3, §37.3: anyone posting in an organization sets replies on their own post, Off included.
+        commentsOff: Boolean(access.org && input.commentsOff),
         shareToOrg: Boolean(input.shareToOrg),
     };
 }
@@ -1581,9 +1613,11 @@ export async function createWorkspaceUpdateAction(projectId: string, input: {
         const requestedType = normalizeWorkspaceUpdateType(input.updateType);
         const updateType = access.org?.kind === "org" ? requestedType ?? (access.canManage ? "announcement" : "discussion") : requestedType;
         // Decisions 5, 27 and 152: an organization's posts stay with its members unless an admin picks Public.
+        // Report §17.7, §18.4: a workspace inside an organization posts Public only when the workspace itself is public.
         const visibility: WorkspaceUpdateVisibility = access.org?.kind === "org"
             ? (access.canManage && input.visibility === "public" ? "public" : "members")
-            : input.visibility === "members" ? "members" : "public";
+            : access.org?.kind === "child" && access.project.visibility !== "public" ? "members"
+                : input.visibility === "members" ? "members" : "public";
         const orgOptions = await resolveOrgPostOptions(access, updateType, input);
         if ("error" in orgOptions) return { success: false as const, error: orgOptions.error };
         const replyPolicy: WorkspaceUpdateReplyPolicy = orgOptions.commentsOff ? "closed" : input.replyPolicy === "members" ? "members"
@@ -1696,8 +1730,11 @@ export async function createWorkspaceUpdateAction(projectId: string, input: {
             await shareToOrgGeneral(projectId, viewer.userId, { kind: "announcement", ref_id: inserted.id });
         }
         // Org announcements: tray and push for the audience, E9 when the post asked for email (report §26.3 E).
+        let emailStopped = false;
         if (updateType === "announcement" && access.org?.kind === "org" && access.canManage) {
-            await notifyAnnouncement({ orgId: projectId, updateId: inserted.id, actorId: viewer.userId, content, audience: orgOptions.audience ?? null, email: orgOptions.notifyLevel === "email" });
+            const sent = await notifyAnnouncement({ orgId: projectId, updateId: inserted.id, actorId: viewer.userId, content, audience: orgOptions.audience ?? null, email: orgOptions.notifyLevel === "email" });
+            // Decision 67: the daily limit stopped the email; the post went out in the app.
+            emailStopped = orgOptions.notifyLevel === "email" && sent?.emailed === false;
         }
         revalidatePath(projectBaseHref(access.project)); // paths never carry a query string
         const durationMs = Math.round(performance.now() - startedAt);
@@ -1717,7 +1754,7 @@ export async function createWorkspaceUpdateAction(projectId: string, input: {
                 count: content.length,
             });
         }
-        return { success: true as const, data: update };
+        return { success: true as const, data: update, emailStopped };
     } catch (error) {
         if (isPinLimitError(error)) return { success: false as const, error: PIN_LIMIT_MESSAGE };
         console.error("Couldn’t post the update. Try again.:", error);
@@ -1837,7 +1874,11 @@ export async function deleteWorkspaceUpdateAction(projectId: string, updateId: s
                 .limit(1)
                 .for("update");
             if (!existing || existing.deletedAt) throw new Error("Update not found.");
-            if (existing.authorId !== viewer.userId && !access.canManage) {
+            // In an organization the permissions table decides (report §21.3, delete_others_post); elsewhere moderators do.
+            const mayRemoveOthers = access.org?.kind === "org"
+                ? orgGrant(access.isOwner ? "owner" : access.memberRole === "admin" ? "admin" : "visitor", "delete_others_post") === "yes"
+                : access.canManage;
+            if (existing.authorId !== viewer.userId && !mayRemoveOthers) {
                 throw new Error("You do not have permission to delete this update.");
             }
             // In an org or child project, removing someone else's post needs a reason, which the author hears (report §17.4).
@@ -1929,14 +1970,14 @@ async function liveSharedPins(tx: Parameters<Parameters<typeof db.transaction>[0
     const saved = readSharedPins(org?.settings);
     if (saved.length === 0) return [];
     const live = await tx.select({ id: workspaceUpdates.id }).from(workspaceUpdates)
-        .where(and(inArray(workspaceUpdates.id, saved), isNull(workspaceUpdates.deletedAt), isNotNull(workspaceUpdates.sharedToOrgAt),
+        .where(and(inArray(workspaceUpdates.id, saved), isNull(workspaceUpdates.deletedAt), isNotNull(workspaceUpdates.sharedToOrgAt), isNull(workspaceUpdates.hiddenFromOrgAt),
             sql`${workspaceUpdates.projectId} IN (SELECT id FROM workspaces WHERE parent_id = ${orgId} AND deleted_at IS NULL)`));
     return saved.filter((id) => live.some((row) => row.id === id));
 }
 
 async function pinSharedInOrgFeed(tx: Parameters<Parameters<typeof db.transaction>[0]>[0], orgId: string, updateId: string, pinned: boolean) {
     const [shared] = await tx.select({ id: workspaceUpdates.id }).from(workspaceUpdates)
-        .where(and(eq(workspaceUpdates.id, updateId), isNull(workspaceUpdates.deletedAt), sql`${workspaceUpdates.sharedToOrgAt} IS NOT NULL`,
+        .where(and(eq(workspaceUpdates.id, updateId), isNull(workspaceUpdates.deletedAt), sql`${workspaceUpdates.sharedToOrgAt} IS NOT NULL`, isNull(workspaceUpdates.hiddenFromOrgAt),
             sql`${workspaceUpdates.projectId} IN (SELECT id FROM workspaces WHERE parent_id = ${orgId} AND deleted_at IS NULL)`)).limit(1);
     if (!shared) return false;
     const current = await liveSharedPins(tx, orgId);

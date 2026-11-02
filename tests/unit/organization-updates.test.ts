@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { audienceAllows, followersHear, isPinnedNow, pinLimit, shareBlock } from "../../src/lib/organizations/update-rules";
+import { audienceAllows, audienceChange, audienceLabel, followersHear, isPinnedNow, pinLimit, shareBlock } from "../../src/lib/organizations/update-rules";
 
 // Report §17.3–17.6.
 test("audience: everyone by default; a role or child projects narrow it; admins and the author always see it", () => {
@@ -38,4 +38,24 @@ test("decision 153: followers hear only Public posts on a public workspace that 
   assert.equal(followersHear({ ...base, audience: { roles: ["admin" as const] } }), false, "a limited announcement stays inside");
   assert.equal(followersHear({ ...base, visibility: "members" }), false);
   assert.equal(followersHear({ ...base, projectVisibility: "org" }), false);
+});
+
+test("37.3: changing an audience later: widening asks first, narrowing applies at once", () => {
+  const members = { audience: {}, visibility: "members" };
+  assert.equal(audienceChange({ audience: { roles: ["member"] }, visibility: "members" }, members), "wider");
+  assert.equal(audienceChange(members, { audience: { roles: ["admin"] }, visibility: "members" }), "narrower");
+  assert.equal(audienceChange(members, { audience: {}, visibility: "public" }), "wider", "Public reaches outside");
+  assert.equal(audienceChange({ audience: { roles: ["member"] }, visibility: "members" }, { audience: { roles: ["viewer"] }, visibility: "members" }), "mixed");
+  assert.equal(audienceChange(members, { audience: {}, visibility: "members" }), "same");
+});
+
+test("37.3: the card's audience label names the reach in the organization's words", () => {
+  const roles = { admin: "Teacher", member: "Student", viewer: "Guest" };
+  const titles = new Map([["a", "Team Falcon"], ["b", "Team Owl"], ["c", "Team Kite"]]);
+  assert.equal(audienceLabel({ audience: {}, visibility: "public" }, roles, titles), "Public");
+  assert.equal(audienceLabel({ audience: {}, visibility: "members" }, roles, titles), "Members");
+  assert.equal(audienceLabel({ audience: { roles: ["admin"] }, visibility: "members" }, roles, titles), "Admins");
+  assert.equal(audienceLabel({ audience: { roles: ["member"] }, visibility: "members" }, roles, titles), "Students");
+  assert.equal(audienceLabel({ audience: { projectIds: ["a", "b", "c"] }, visibility: "members" }, roles, titles), "Team Falcon +2");
+  assert.equal(audienceLabel({ audience: { projectIds: ["z"] }, visibility: "members" }, roles, new Map()), "Selected workspaces");
 });

@@ -24,6 +24,8 @@ import { MultiAttachmentPicker } from "@/components/workspaces/v2/files-tab/pick
 import { createWorkspaceUpdateMediaUploadUrlAction, finalizeWorkspaceUpdateMediaUploadAction, readWorkspaceUpdateContextOptionsAction, readWorkspaceUpdateDraftAction, saveWorkspaceUpdateDraftAction } from "@/app/actions/workspace/updates";
 import { Button } from "@/components/ui/button";
 import { UserAvatar } from "@/components/ui/UserAvatar";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import type { OrgComposerControls } from "@/components/organizations/OrgUpdateParts";
 import { queryKeys } from "@/lib/query-keys";
 import {
     WORKSPACE_UPDATE_MAX_MEDIA_ITEMS,
@@ -150,6 +152,7 @@ export function WorkspaceUpdateComposer({
     isPosting,
     defaultVisibility = "public",
     onPost,
+    orgControls = null,
 }: {
     projectId: string;
     projectName: string;
@@ -161,6 +164,8 @@ export function WorkspaceUpdateComposer({
     isPosting: boolean;
     /** Members in an organization (decision 152); Public everywhere else, as before. */
     defaultVisibility?: WorkspaceUpdateVisibility;
+    /** Organizations and their workspaces (report §7.5, §18.4): options live inside this composer, not beside it. */
+    orgControls?: OrgComposerControls | null;
     /** Resolves false when the post failed, so what was written and its audience stay (report §42.15 problem 44). */
     onPost: (input: {
         content: string;
@@ -175,6 +180,7 @@ export function WorkspaceUpdateComposer({
     const pendingMediaUploadsRef = useRef<PendingMediaUpload[]>([]);
     const [content, setContent] = useState("");
     const [expanded, setExpanded] = useState(false);
+    const [confirmDiscard, setConfirmDiscard] = useState(false);
     const [visibility, setVisibility] = useState<WorkspaceUpdateVisibility>(defaultVisibility);
     const [entityRefs, setEntityRefs] = useState<WorkspaceUpdateEntityRefs>(EMPTY_REFS);
     const [media, setMedia] = useState<WorkspaceUpdateMediaItem[]>([]);
@@ -867,7 +873,7 @@ export function WorkspaceUpdateComposer({
                             "block truncate text-[13px]",
                             draftPreview ? "text-foreground font-medium" : "text-muted-foreground",
                         )}>
-                            {draftPreview || `Share a workspace update for ${projectName}…`}
+                            {draftPreview || orgControls?.placeholder || `Share a workspace update for ${projectName}…`}
                         </span>
                         {draftPreview ? (
                             <span className="mt-1 inline-block font-mono text-[10px] max-md:text-[11px] font-semibold uppercase tracking-[0.09em] text-primary">Draft saved</span>
@@ -875,6 +881,7 @@ export function WorkspaceUpdateComposer({
                     </button>
                 ) : (
                     <>
+                        {orgControls ? orgControls.top : (
                         <div className="mb-2 flex flex-wrap items-center gap-2">
                             <button
                                 type="button"
@@ -888,10 +895,11 @@ export function WorkspaceUpdateComposer({
                                 {visibility === "public" ? "Everyone on NetworkBase can see this, including on Discover." : "Only this workspace’s members can see this."}
                             </span>
                         </div>
+                        )}
                         <div className="rounded-[8px] border border-border bg-card p-3 transition focus-within:border-foreground/30">
                             <WorkspaceUpdateRichTextEditor
                                 content={content}
-                                placeholder={`Share a workspace update for ${projectName}…`}
+                                placeholder={orgControls?.placeholder ?? `Share a workspace update for ${projectName}…`}
                                 onChange={setContent}
                                 onCommand={openPanel}
                                 onMention={() => openPanel("task")}
@@ -983,25 +991,27 @@ export function WorkspaceUpdateComposer({
                                 <button type="button" className={toolbarButtonClass} onClick={() => openPanel("link")} title="Attach link" aria-label="Attach link" aria-pressed={activePanel === "link"}>
                                     <Link2 className="h-4 w-4" />
                                 </button>
+                                {orgControls?.toolbar ? <><span className="mx-0.5 h-4 w-px bg-border shrink-0" aria-hidden="true" />{orgControls.toolbar}</> : null}
                             </div>
                             <div className="flex items-center gap-2.5 shrink-0">
                                 <span className={cn("font-mono text-[11px] font-medium tabular-nums", remaining < 0 ? "text-destructive font-semibold" : "text-muted-foreground")}>{remaining}</span>
                                 <Button
                                     type="button"
                                     variant="outline"
-                                    onClick={resetAfterPost}
+                                    onClick={() => (orgControls && content.trim() ? setConfirmDiscard(true) : resetAfterPost())}
                                     className="nb-touch-target h-[34px] rounded-[5px] border-border px-3 text-[13px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
                                 >
                                     Discard
                                 </Button>
                                 <Button
                                     type="button"
-                                    disabled={disabled}
+                                    disabled={disabled || Boolean(orgControls?.blockedReason)}
+                                    title={orgControls?.blockedReason ?? undefined}
                                     onClick={() => {
                                         void Promise.resolve(onPost({
                                             content,
                                             updateType: null,
-                                            visibility: canManage ? visibility : defaultVisibility,
+                                            visibility: orgControls ? orgControls.visibility : canManage ? visibility : defaultVisibility,
                                             entityRefs: {
                                                 ...entityRefs,
                                                 references: normalizeWorkspaceUpdateReferences(entityRefs.references),
@@ -1014,7 +1024,7 @@ export function WorkspaceUpdateComposer({
                                     className="nb-touch-target h-[34px] rounded-[5px] px-3.5 text-[13px] font-medium"
                                 >
                                     {isPosting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                                    Post
+                                    {orgControls?.postLabel ?? "Post"}
                                 </Button>
                             </div>
                         </div>
@@ -1043,6 +1053,15 @@ export function WorkspaceUpdateComposer({
             >
             {composerBody}
             {hiddenImageInput}
+            <ConfirmDialog
+                open={confirmDiscard}
+                onOpenChange={setConfirmDiscard}
+                title="Discard this post?"
+                description="What you wrote will be lost."
+                confirmLabel="Discard"
+                variant="destructive"
+                onConfirm={() => { resetAfterPost(); }}
+            />
 
 
             <MultiAttachmentPicker

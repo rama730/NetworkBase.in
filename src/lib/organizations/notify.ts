@@ -114,11 +114,11 @@ export async function peopleByZone(userIds: string[], orgZone: string | null) {
  * Who already got this reminder in the last 12 hours, counted from their last one (report §28.8). `subject` is the
  * first part of the reminder's event id ("remind" for a copy); the result holds the second part (the copy id).
  */
-export async function remindedRecently(orgId: string, subject: string, userIds: string[]) {
+export async function remindedRecently(orgId: string, subject: string, userIds: string[], eventKey: OrgNotificationEventKey = "assignments.reminded") {
   if (userIds.length === 0) return new Set<string>();
   const rows = await db.execute<{ id: string }>(sql`
     SELECT DISTINCT split_part(dedupe_key, ':', 5) AS id FROM user_notifications
-    WHERE user_id IN ${[...new Set(userIds)]} AND dedupe_key LIKE ${`project:${orgId}:assignments.reminded:${subject}:%`}
+    WHERE user_id IN ${[...new Set(userIds)]} AND dedupe_key LIKE ${`project:${orgId}:${eventKey}:${subject}:%`}
       AND created_at > now() - make_interval(hours => ${ORG_LIMITS.remindSamePersonHours})`);
   return new Set(rows.map((r) => r.id));
 }
@@ -153,6 +153,15 @@ export async function notifyJoined(orgId: string, userId: string, eventId: strin
 /** At most 5 emailed announcements per org per day (report §26.5); more posts still reach the tray. */
 export const ANNOUNCEMENT_EMAILS_PER_DAY = 5;
 
+/** Emailed announcements since midnight in the organization's time zone, deleted posts left out (report §28.3, §30.5). */
+export async function orgEmailsSentToday(orgId: string) {
+  const [row] = await db.execute<{ n: number }>(sql`
+    SELECT count(*)::int AS n FROM workspace_updates u JOIN workspaces w ON w.id = u.workspace_id
+    WHERE u.workspace_id = ${orgId} AND u.notify_level = 'email' AND u.deleted_at IS NULL
+      AND u.created_at >= date_trunc('day', now() AT TIME ZONE coalesce(w.time_zone, 'UTC')) AT TIME ZONE coalesce(w.time_zone, 'UTC')`);
+  return row?.n ?? 0;
+}
+
 /** Announcements reach their audience only (report §26.10 #5); `again` is "Edited with Notify again" (in-app, §17.9). */
 export async function notifyAnnouncement(input: { orgId: string; updateId: string; actorId: string; content: string; audience: UpdateAudience | null; email: boolean; again?: boolean }) {
   const org = await orgLabel(input.orgId);
@@ -168,11 +177,11 @@ export async function notifyAnnouncement(input: { orgId: string; updateId: strin
     role: m.role as "owner" | "admin" | "member" | "viewer", childProjectIds: inChild.has(m.userId) ? childIds : [],
   })).map((m) => m.userId);
   let email = input.email && !input.again;
-  if (email) {
-    const [{ n } = { n: 0 }] = await db.select({ n: sql<number>`count(*)::int` }).from(workspaceUpdates)
-      .where(and(eq(workspaceUpdates.projectId, input.orgId), eq(workspaceUpdates.notifyLevel, "email"), sql`${workspaceUpdates.createdAt} > now() - interval '1 day'`));
-    // ponytail: a rolling 24 hours, not the org's calendar day. Upgrade: count from midnight in projects.time_zone.
-    email = n <= ANNOUNCEMENT_EMAILS_PER_DAY;
+  // Smaller bug 21: counted by the organization's calendar day; this post is already in the count.
+  if (email && await orgEmailsSentToday(input.orgId) > ANNOUNCEMENT_EMAILS_PER_DAY) {
+    email = false;
+    // Decision 67: a stopped email isn't counted as sent, and the author is told (createWorkspaceUpdateAction).
+    await db.update(workspaceUpdates).set({ notifyLevel: "in_app" }).where(eq(workspaceUpdates.id, input.updateId));
   }
   const author = (await namesOf([input.actorId])).get(input.actorId) ?? "Someone";
   await notifyOrg({

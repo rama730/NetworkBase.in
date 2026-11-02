@@ -4,6 +4,7 @@ import { and, eq, inArray, isNotNull, isNull, or, sql, type SQL } from "drizzle-
 
 import { db } from "@/lib/db";
 import { workspaceMembers, workspaceUpdates, workspaces } from "@/lib/db/schema";
+import { orgRoleNames } from "@/lib/organizations/config";
 import { readViewerOrgRole, type OrgMemberRoleOrNone } from "@/lib/organizations/detail";
 import { shareBlock, type UpdateAudience } from "@/lib/organizations/update-rules";
 
@@ -25,12 +26,16 @@ export type OrgUpdateContext = {
   /** Org Settings → Updates (report §17.10): announcements notify in-app by default; replies from org members only. */
   notifyDefault: "in_app" | "email";
   replyDefault: "members" | "logged_in";
+  /** The organization's own role words ("Teacher", "Student"), for audience choices and labels (report §39.4). */
+  roleNames: Record<"owner" | "admin" | "member" | "viewer", string>;
+  /** Members may start discussions (Settings → Updates). */
+  memberPostsOn: boolean;
 };
 
 export async function readOrgUpdateContext(project: { id: string; kind?: string | null; parentId?: string | null; visibility?: string | null }, viewerId: string | null): Promise<OrgUpdateContext | null> {
   const orgId = project.kind === "organization" ? project.id : project.parentId ?? null;
   if (!orgId) return null;
-  const [org] = await db.select({ title: workspaces.title, slug: workspaces.slug, orgSettings: workspaces.orgSettings })
+  const [org] = await db.select({ title: workspaces.title, slug: workspaces.slug, orgSettings: workspaces.orgSettings, orgType: workspaces.orgType, memberUpdatesEnabled: workspaces.memberUpdatesEnabled })
     .from(workspaces).where(and(eq(workspaces.id, orgId), eq(workspaces.kind, "organization"), isNull(workspaces.deletedAt))).limit(1);
   if (!org) return null;
   const viewerRole = await readViewerOrgRole(orgId, viewerId);
@@ -50,6 +55,8 @@ export async function readOrgUpdateContext(project: { id: string; kind?: string 
     sharedPinIds: readSharedPins(org.orgSettings),
     notifyDefault: (org.orgSettings as { announcementNotify?: string } | null)?.announcementNotify === "email" ? "email" : "in_app",
     replyDefault: (org.orgSettings as { replyRule?: string } | null)?.replyRule === "logged_in" ? "logged_in" : "members",
+    roleNames: orgRoleNames(org.orgType, org.orgSettings),
+    memberPostsOn: org.memberUpdatesEnabled,
     shareBlockedReason: project.kind === "organization" ? null : shareBlock({
       childVisibility: project.visibility ?? null,
       orgAllowsShare: (org.orgSettings as { childShare?: boolean } | null)?.childShare !== false,
@@ -81,6 +88,7 @@ export function orgFeedWhere(ctx: OrgUpdateContext, viewerId: string | null, fil
   const own = and(eq(workspaceUpdates.projectId, ctx.orgId), audienceSql(ctx, viewerId), inOrg ? undefined : eq(workspaceUpdates.visibility, "public"))!;
   const shared = and(
     isNotNull(workspaceUpdates.sharedToOrgAt),
+    isNull(workspaceUpdates.hiddenFromOrgAt),
     sql`${workspaceUpdates.projectId} IN (SELECT id FROM ${workspaces} WHERE parent_id = ${ctx.orgId} AND deleted_at IS NULL AND visibility <> 'private' ${inOrg ? sql`` : sql`AND visibility IN ('public', 'unlisted')`})`,
     inOrg ? undefined : eq(workspaceUpdates.visibility, "public"),
   )!;
@@ -124,7 +132,7 @@ export async function readPinnedOrgLine(ctx: OrgUpdateContext, viewerId: string 
 /** Pinned-first in the org feed: the org's own live pins and the shared posts it pinned (a child's own pin stays in the child). */
 export function orgLivePinSql(orgId: string): SQL<boolean> {
   return sql<boolean>`((${workspaceUpdates.isPinned} AND ${workspaceUpdates.projectId} = ${orgId} AND (${workspaceUpdates.pinnedUntil} IS NULL OR ${workspaceUpdates.pinnedUntil} > now()))
-    OR (${workspaceUpdates.sharedToOrgAt} IS NOT NULL AND ${workspaceUpdates.id}::text IN (SELECT jsonb_array_elements_text(coalesce(org_settings->'sharedPins', '[]'::jsonb)) FROM workspaces WHERE id = ${orgId})))`;
+    OR (${workspaceUpdates.sharedToOrgAt} IS NOT NULL AND ${workspaceUpdates.hiddenFromOrgAt} IS NULL AND ${workspaceUpdates.id}::text IN (SELECT jsonb_array_elements_text(coalesce(org_settings->'sharedPins', '[]'::jsonb)) FROM workspaces WHERE id = ${orgId})))`;
 }
 
 export function readSharedPins(orgSettings: unknown): string[] {
@@ -161,4 +169,57 @@ export async function postOrgAnnouncement(orgId: string, actorId: string, conten
   const { notifyAnnouncement } = await import("@/lib/organizations/notify");
   await notifyAnnouncement({ orgId, updateId: row.id, actorId, content: text, audience: {}, email: false });
   return row.id;
+}
+
+/** Who in the organization an org post reaches, as SQL over a membership row `m` and a post row `u` (mirrors countAudience). */
+const inAudience = sql`(u.audience = '{}'::jsonb OR m.role IN ('owner', 'admin')
+  OR m.role IN (SELECT jsonb_array_elements_text(coalesce(u.audience->'roles', '[]'::jsonb)))
+  OR EXISTS (SELECT 1 FROM workspace_members c JOIN workspaces p ON p.id = c.workspace_id
+    WHERE c.user_id = m.user_id AND p.parent_id = u.workspace_id AND p.deleted_at IS NULL
+      AND p.id::text IN (SELECT jsonb_array_elements_text(coalesce(u.audience->'projectIds', '[]'::jsonb)))))`;
+
+/**
+ * "Seen by 32 of 40" (report §28.3, decision 58): people in the post's audience, not its author, who opened Updates
+ * since it was posted. Uses the existing last_seen_updates_at; nothing new is tracked.
+ */
+export async function readSeenCounts(orgId: string, updateIds: string[]) {
+  if (updateIds.length === 0) return new Map<string, { seen: number; total: number }>();
+  const rows = await db.execute<{ id: string; seen: number; total: number }>(sql`
+    SELECT u.id, count(*) FILTER (WHERE m.last_seen_updates_at >= u.created_at)::int AS seen, count(*)::int AS total
+    FROM workspace_updates u JOIN workspace_members m ON m.workspace_id = u.workspace_id AND m.user_id IS DISTINCT FROM u.author_id
+    WHERE u.workspace_id = ${orgId} AND u.id IN ${updateIds} AND ${inAudience}
+    GROUP BY u.id`);
+  return new Map(rows.map((r) => [r.id, { seen: r.seen, total: r.total }]));
+}
+
+/** Who in the audience hasn't opened Updates since the post (report §28.3), for the admins' list and Remind. */
+export async function readUnseenPeople(orgId: string, updateId: string) {
+  return db.execute<{ id: string; name: string }>(sql`
+    SELECT m.user_id AS id, coalesce(pr.full_name, pr.username, 'Someone') AS name
+    FROM workspace_updates u JOIN workspace_members m ON m.workspace_id = u.workspace_id AND m.user_id IS DISTINCT FROM u.author_id
+    LEFT JOIN profiles pr ON pr.id = m.user_id
+    WHERE u.workspace_id = ${orgId} AND u.id = ${updateId} AND u.deleted_at IS NULL AND ${inAudience}
+      AND (m.last_seen_updates_at IS NULL OR m.last_seen_updates_at < u.created_at)
+    ORDER BY 2`);
+}
+
+/** The pinned posts holding the organization's 3 slots, for the composer's "Unpin one first" (report §28.3). */
+export async function readOrgPins(orgId: string) {
+  const rows = await db.select({ id: workspaceUpdates.id, content: workspaceUpdates.content }).from(workspaceUpdates)
+    .where(and(isNull(workspaceUpdates.deletedAt), or(
+      and(eq(workspaceUpdates.projectId, orgId), eq(workspaceUpdates.isPinned, true), or(isNull(workspaceUpdates.pinnedUntil), sql`${workspaceUpdates.pinnedUntil} > now()`)),
+      and(isNotNull(workspaceUpdates.sharedToOrgAt), isNull(workspaceUpdates.hiddenFromOrgAt),
+        sql`${workspaceUpdates.projectId} IN (SELECT id FROM workspaces WHERE parent_id = ${orgId} AND deleted_at IS NULL)`,
+        sql`${workspaceUpdates.id}::text IN (SELECT jsonb_array_elements_text(coalesce(org_settings->'sharedPins', '[]'::jsonb)) FROM workspaces WHERE id = ${orgId})`),
+    )))
+    .orderBy(sql`${workspaceUpdates.createdAt} DESC`).limit(3);
+  return rows.map((r) => ({ id: r.id, excerpt: r.content.replace(/\s+/g, " ").trim().slice(0, 80) }));
+}
+
+/** The workspaces an audience can name: every one for admins, otherwise the viewer's own (report §37.3 labels). */
+export async function readAudienceWorkspaces(ctx: Pick<OrgUpdateContext, "orgId" | "isOrgAdmin" | "viewerChildIds">) {
+  if (!ctx.isOrgAdmin && ctx.viewerChildIds.length === 0) return [];
+  return db.select({ id: workspaces.id, title: workspaces.title }).from(workspaces)
+    .where(and(eq(workspaces.parentId, ctx.orgId), isNull(workspaces.deletedAt), ctx.isOrgAdmin ? undefined : inArray(workspaces.id, ctx.viewerChildIds)))
+    .orderBy(workspaces.title).limit(200);
 }

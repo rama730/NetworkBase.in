@@ -1851,6 +1851,9 @@ export const workspaceUpdates = pgTable(
     notifyLevel: text("notify_level", { enum: ["in_app", "email"] }).default("in_app").notNull(),
     pinnedUntil: timestamp("pinned_until", { withTimezone: true }),
     sharedToOrgAt: timestamp("shared_to_org_at", { withTimezone: true }),
+    /** Report §37.3 (DB6): an org admin hid this shared post from the org feed; it stays in its workspace. */
+    hiddenFromOrgAt: timestamp("hidden_from_org_at", { withTimezone: true }),
+    hiddenFromOrgBy: uuid("hidden_from_org_by"),
     entityRefs: jsonb("entity_refs")
       .$type<WorkspaceUpdateEntityRefs>()
       .default({})
