@@ -9,6 +9,7 @@ import { useRoleApplicationCounts } from "@/hooks/useRoleApplicationCounts";
 import { TaskCompletionSettings } from "@/components/workspaces/settings/TaskCompletionSettings";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useIdentityStepUp } from "@/hooks/useIdentityStepUp";
 import dynamic from "next/dynamic";
 import { useFieldArray, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -204,6 +205,7 @@ function ProjectSettingsContent({
     loadingMembers = false,
 }: ProjectSettingsTabProps) {
     const router = useRouter();
+    const identity = useIdentityStepUp("Confirm it’s you", "Transferring a workspace needs a recent check.");
     const mountedRef = useRef(true);
     useEffect(() => { mountedRef.current = true; return () => { mountedRef.current = false; }; }, []);
     const [settingsErrors, setSettingsErrors] = useState<Record<string, string | null>>({});
@@ -1124,7 +1126,9 @@ function ProjectSettingsContent({
     const handleExecuteTransfer = useCallback(async (candidate: WorkspaceSettingsMember) => {
         setConfirmLoading(true);
         try {
-            const result = await transferWorkspaceOwnership(projectId, candidate.id);
+            // The identity check opens in place when needed, then the transfer carries on (decision 134).
+            const result = await identity.withIdentity(() => transferWorkspaceOwnership(projectId, candidate.id));
+            if (!result) return;
             if (!result.success) {
                 toast.error(feedbackError(result.error ?? "Couldn’t transfer ownership", "Couldn’t transfer ownership"));
                 return;
@@ -1142,7 +1146,7 @@ function ProjectSettingsContent({
         } finally {
             setConfirmLoading(false);
         }
-    }, [loadCollaborators, loadDangerPreflight, onProjectUpdated, projectId]);
+    }, [identity, loadCollaborators, loadDangerPreflight, onProjectUpdated, projectId]);
 
     const prepareArchive = useCallback(() => {
         if (!dangerPreflight) {
@@ -1383,6 +1387,7 @@ function ProjectSettingsContent({
 
     return (
         <OpenSettingsSections>
+        {identity.dialog}
         <div className="grid w-full min-w-0 grid-cols-1 bg-card xl:grid-cols-[var(--nb-sidebar-width)_minmax(0,1fr)]">
             <WorkspaceSettingsNavigation sections={sections} activeSection={activeSection} onNavigate={handleNavigateSection} />
             <main data-project-settings-document className="mx-auto min-w-0 w-full max-w-4xl space-y-12 p-4 md:p-[calc(var(--ui-panel-padding)+4px)] [&>[data-project-settings-section]]:border-b [&>[data-project-settings-section]]:border-border [&>[data-project-settings-section]]:pb-8 [&>[data-project-settings-section]:last-child]:border-b-0">

@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import { useEffect, useState, useTransition } from 'react'
 
 import { transferWorkspaceOwnership } from '@/app/actions/account'
+import { useIdentityStepUp } from '@/hooks/useIdentityStepUp'
 import { archiveOrgAction, deleteOrgAction, duplicateOrgAction, readOrgLifecyclePreviewAction, restoreOrgAction, unarchiveOrgAction } from '@/app/actions/org-lifecycle'
 import { readOrgMembersAction } from '@/app/actions/org-members'
 import { SettingsCard } from '@/components/workspaces/settings/SettingsFormFields'
@@ -70,9 +71,13 @@ function TransferRow({ orgId, admins }: { orgId: string; admins: Array<{ userId:
     const [target, setTarget] = useState('')
     const [confirming, setConfirming] = useState(false)
     const { pending, run, status } = useRun()
+    const identity = useIdentityStepUp('Confirm it’s you', 'Transferring an organization needs a recent check.')
     const name = admins.find((a) => a.userId === target)?.name
+    // The identity check opens here when needed, then the transfer carries on (decision 134).
+    const transfer = async () => (await identity.withIdentity(() => transferWorkspaceOwnership(orgId, target))) ?? { success: false, error: 'Transfer cancelled.' }
     return (
         <div>
+            {identity.dialog}
             <p className={label}>Transfer ownership</p>
             <p className={help}>Only to an existing admin. You stay an admin.</p>
             {admins.length === 0 ? <p className="mt-2 text-sm text-muted-foreground">Make someone an admin first.</p> : (
@@ -83,7 +88,7 @@ function TransferRow({ orgId, admins }: { orgId: string; admins: Array<{ userId:
                     </select>
                     {!confirming
                         ? <Button variant="outline" disabled={!target} onClick={() => setConfirming(true)}>Transfer…</Button>
-                        : <Button variant="destructive" disabled={pending} onClick={() => run(() => transferWorkspaceOwnership(orgId, target), `${name} owns the organization now.`)}>Yes, make {name} the owner</Button>}
+                        : <Button variant="destructive" disabled={pending} onClick={() => run(transfer, `${name} owns the organization now.`)}>Yes, make {name} the owner</Button>}
                     {status}
                 </div>
             )}

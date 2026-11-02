@@ -15,7 +15,7 @@ moduleStubs.set("@/lib/supabase/server", {
   createAdminClient: async () => { throw new Error("not used"); },
 });
 moduleStubs.set("next/cache", { revalidatePath: () => undefined, revalidateTag: () => undefined, unstable_cache: (fn: unknown) => fn, updateTag: () => undefined });
-moduleStubs.set("next/headers", { headers: async () => new Headers({ "x-forwarded-for": "203.0.113.15" }) });
+moduleStubs.set("next/headers", { headers: async () => new Headers({ "x-forwarded-for": "203.0.113.15" }), cookies: async () => ({ get: () => undefined, set: () => undefined, delete: () => undefined }) });
 
 let assignments: typeof import("../../src/app/actions/assignments");
 let tasks: typeof import("../../src/lib/workspaces/server/tasks");
@@ -593,4 +593,14 @@ test("report §26.11 and §27.1: nobody joins a 51st organization or is handed a
   await sql`UPDATE workspaces SET owner_id = ${o.admin} WHERE id = ANY(${many.slice(0, 5)})`;
   assert.match(String(await accountOrgLimit(appDb.db, o.admin, "own")), /own up to 5/, "the new owner's limit is checked on transfer");
   assert.equal(await accountOrgLimit(appDb.db, o.a, "own"), null);
+});
+
+test("problem 12 (decision 134): without a recent identity check, transfer asks for one instead of failing, and changes nothing", async () => {
+  const o = await org();
+  const account = await loadAppModule(() => import("../../src/app/actions/account"));
+  viewerId = o.owner;
+  const result = await account.transferWorkspaceOwnership(o.org, o.admin);
+  assert.deepEqual([result.success, result.errorCode], [false, "STEP_UP_REQUIRED"], "the panel opens the identity check on this code");
+  const [row] = await sql`SELECT owner_id FROM workspaces WHERE id = ${o.org}`;
+  assert.equal(row!.owner_id, o.owner);
 });
