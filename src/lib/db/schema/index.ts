@@ -796,6 +796,9 @@ export const workspaces = pgTable(
       enum: ["public", "private", "unlisted", "org"],
     }).default("public"),
     // Organizations (0241): an org is a project with kind "organization"; children point to it with parentId.
+    /** Report §45.2 (DB12): an admin asked to take over while the owner was away; one request at a time. */
+    takeoverRequestedBy: uuid("takeover_requested_by"),
+    takeoverRequestedAt: timestamp("takeover_requested_at", { withTimezone: true }),
     kind: text("kind", { enum: ["workspace", "organization"] }).default("workspace").notNull(),
     parentId: uuid("parent_id").references((): AnyPgColumn => workspaces.id, { onDelete: "set null" }),
     orgType: text("org_type", { enum: ["education", "company", "community", "research", "club", "other"] }),

@@ -54,7 +54,8 @@
     "drizzle/0048_org_saved_type_settings.sql",
     "drizzle/0049_membership_endings.sql",
     "drizzle/0050_welcome_dismissed.sql",
-    "drizzle/0051_update_hidden_from_org.sql"
+    "drizzle/0051_update_hidden_from_org.sql",
+    "drizzle/0052_org_takeover_request.sql"
   ],
   "legacyDatabaseTags": [],
   "allowedUtilitySqlFiles": [

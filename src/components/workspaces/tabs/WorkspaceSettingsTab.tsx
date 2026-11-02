@@ -2,7 +2,7 @@
 
 import { ChildOrgSection } from "@/components/organizations/ChildOrgSection";
 import { ChildUnitsPanel } from "@/components/organizations/ChildUnitsPanel";
-import { OrgDangerZone } from "@/components/organizations/OrgDangerZone";
+import { OrgDangerZone, OrgOwnershipPanel } from "@/components/organizations/OrgDangerZone";
 import { OrgAccessSection, OrgAllowedSection, OrgChatSection, OrgHandleSection, OrgManagementSection, OrgNotificationsSection, OrgUpdatesSection, OrgVerificationSection, OrgMembershipSection, OrgPeopleSection, OrgProfileSection, OrgWorkspacesSection, OrgWorkSection } from "@/components/organizations/OrgSettingsSections";
 import { OrgStorageSection } from "@/components/organizations/OrgStorageSection";
 import { typeProfile } from "@/lib/organizations/type-profile";
@@ -2114,6 +2114,7 @@ function ProjectSettingsContent({
                 {organization && sections.some((s) => s.id === "org-management") && (
                     <OrgManagementSection orgId={projectId} organization={organization} role={orgRole} title={project?.title ?? "this organization"}
                         afterLeaveHref={savedVisibility === "public" ? `/org/${encodeURIComponent(project?.slug ?? projectId)}?tab=about` : "/discover"}>
+                        {orgRole === "owner" || orgRole === "admin" ? <OrgOwnershipPanel orgId={projectId} /> : null}
                         {isProjectOwner ? <OrgDangerZone orgId={projectId} organization={organization} handle={project?.slug ?? null} /> : null}
                     </OrgManagementSection>
                 )}

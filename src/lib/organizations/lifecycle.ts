@@ -5,14 +5,14 @@ import { and, eq, inArray, isNotNull, isNull, lte, ne, sql } from "drizzle-orm";
 
 import { db } from "@/lib/db";
 import {
-  chatChannels, fileVersions, orgEmailInvites, profiles, workspaceDocuments, workspaceDocumentVersions, workspaceMembers, workspaceNodes,
+  chatChannels, fileVersions, orgEmailInvites, profileAuditEvents, profiles, sprintMaterials, taskNodeLinks, workspaceDocuments, workspaceDocumentVersions, workspaceMembers, workspaceNodes,
   workspaces, workspaceSprints, taskSubtasks, tasks,
 } from "@/lib/db/schema";
 import { syncWorkspaceChat } from "@/lib/messaging/integrations";
 import { generateWorkspaceKey } from "@/lib/workspace-key";
 import { countUnregisteredWorkspaceStorage, scheduleWorkspaceStorageDeletion } from "@/lib/workspaces/server/lifecycle";
 import { resetDuplicatedTarget, type AssignmentSettings } from "@/lib/organizations/assignment-rules";
-import { createMasterTask } from "@/lib/organizations/assignments";
+import { createMasterTask, moveGroupWorkToLead } from "@/lib/organizations/assignments";
 import { detachFromOrg } from "@/lib/organizations/children";
 import { generateJoinCode } from "@/lib/organizations/join-rules";
 import { notifyOrg, orgHref, orgLabel, queueOrgEmails } from "@/lib/organizations/notify";
@@ -31,16 +31,37 @@ async function everyone(orgId: string) {
   return [...new Set([org?.ownerId, ...members.map((m) => m.userId)].filter((id): id is string => Boolean(id)))];
 }
 
-/** What the confirmation dialogs show before archive or delete. */
-export async function orgLifecyclePreview(orgId: string) {
-  const [counts] = await db.execute<{ children: number; members: number; files: number; sprints: number }>(sql`
+/**
+ * What the confirmation dialogs show before archive or delete (report §19.1, §27.5, §45.7): each workspace with its
+ * lead, members and files, work still waiting for review, each assignment's Download all, and after a restore the
+ * workspaces that were kept apart.
+ */
+export async function orgLifecyclePreview(orgId: string, viewerId?: string | null) {
+  const [counts] = await db.execute<{ children: number; members: number; files: number; sprints: number; waiting: number }>(sql`
     SELECT (SELECT count(*)::int FROM workspaces c WHERE c.parent_id = ${orgId} AND c.deleted_at IS NULL) AS children,
       (SELECT count(*)::int FROM workspace_members m WHERE m.workspace_id = ${orgId}) AS members,
       (SELECT count(*)::int FROM workspace_nodes n WHERE n.workspace_id = ${orgId} AND n.type = 'file' AND n.deleted_at IS NULL) AS files,
-      (SELECT count(*)::int FROM workspace_sprints s WHERE s.workspace_id = ${orgId} AND s.status IN ('planning', 'active')) AS sprints`);
-  const children = await db.select({ id: workspaces.id, title: workspaces.title, ownerId: workspaces.ownerId }).from(workspaces)
-    .where(and(eq(workspaces.parentId, orgId), isNull(workspaces.deletedAt)));
-  return { ...(counts ?? { children: 0, members: 0, files: 0, sprints: 0 }), childProjects: children };
+      (SELECT count(*)::int FROM workspace_sprints s WHERE s.workspace_id = ${orgId} AND s.status IN ('planning', 'active')) AS sprints,
+      (SELECT count(*)::int FROM tasks c JOIN tasks m ON m.id = c.assignment_id WHERE m.workspace_id = ${orgId} AND c.deleted_at IS NULL AND c.review_status = 'pending') AS waiting`);
+  const children = await db.execute<{ id: string; title: string; owner_id: string; lead: string | null; members: number; files: number }>(sql`
+    SELECT w.id, w.title, w.owner_id, coalesce(p.full_name, p.username) AS lead,
+      (SELECT count(*)::int FROM workspace_members m WHERE m.workspace_id = w.id) AS members,
+      (SELECT count(*)::int FROM workspace_nodes n WHERE n.workspace_id = w.id AND n.type = 'file' AND n.deleted_at IS NULL) AS files
+    FROM workspaces w LEFT JOIN profiles p ON p.id = w.owner_id
+    WHERE w.parent_id = ${orgId} AND w.deleted_at IS NULL ORDER BY w.title`);
+  const assignments = await db.execute<{ id: string; title: string }>(sql`
+    SELECT m.id, m.title FROM tasks m WHERE m.workspace_id = ${orgId} AND m.kind = 'assignment' AND m.assignment_id IS NULL AND m.deleted_at IS NULL
+      AND EXISTS (SELECT 1 FROM tasks c JOIN workspace_nodes n ON n.task_id = c.id AND n.type = 'file' AND n.deleted_at IS NULL WHERE c.assignment_id = m.id AND c.deleted_at IS NULL)
+    ORDER BY m.title LIMIT 200`);
+  const detached = await db.execute<{ id: string; title: string }>(sql`
+    SELECT w.id, w.title FROM workspaces o, jsonb_array_elements_text(coalesce(o.org_settings->'detachedOnDelete', '[]'::jsonb)) d(id)
+    JOIN workspaces w ON w.id = d.id::uuid WHERE o.id = ${orgId} AND w.parent_id IS NULL AND w.deleted_at IS NULL AND w.deletion_scheduled_at IS NULL ORDER BY w.title`);
+  const c = counts ?? { children: 0, members: 0, files: 0, sprints: 0, waiting: 0 };
+  return {
+    children: c.children, members: c.members, files: c.files, sprints: c.sprints, waitingReviews: c.waiting,
+    childProjects: children.map((w) => ({ id: w.id, title: w.title, ownerId: w.owner_id, lead: w.lead ?? "Someone", members: w.members, files: w.files, mine: w.owner_id === viewerId })),
+    assignments: [...assignments], detached: [...detached],
+  };
 }
 
 /** Archive: read-only, join code off, scheduled work stops, child projects archived with it, E10 to everyone. */
@@ -84,31 +105,53 @@ export async function unarchiveOrg(orgId: string, actorId: string) {
 }
 
 /**
- * Delete (report §30.5): child projects detach to their leads (default) or are deleted with the org; the org is
- * hidden for 30 days, then purged. E14 goes out now with the date.
+ * Delete (report §19.1, decision 29): each workspace the owner leads is kept as personal (the default) or deleted with
+ * the organization; anyone else's is always kept and goes to its lead. Kept ones detach and become private now, and
+ * are remembered so a restore can invite them back. The organization is hidden for 30 days, then purged.
  */
-export async function scheduleOrgDeletion(orgId: string, actorId: string, childMode: "detach" | "delete") {
+export async function scheduleOrgDeletion(orgId: string, actorId: string, choices: Record<string, "keep" | "delete">) {
   const now = new Date();
   const recipients = await everyone(orgId);
   const children = await db.select({ id: workspaces.id, title: workspaces.title, ownerId: workspaces.ownerId }).from(workspaces)
     .where(and(eq(workspaces.parentId, orgId), isNull(workspaces.deletedAt)));
-  if (childMode === "detach") {
-    for (const child of children) await detachFromOrg(child.id);
-  } else if (children.length) {
-    await db.update(workspaces).set({ deletionScheduledAt: now, updatedAt: now }).where(inArray(workspaces.id, children.map((c) => c.id)));
-  }
-  await db.update(workspaces).set({ deletionScheduledAt: now, joinCodeEnabled: false, updatedAt: now }).where(eq(workspaces.id, orgId));
+  const deleting = children.filter((c) => c.ownerId === actorId && choices[c.id] === "delete");
+  const kept = children.filter((c) => !deleting.includes(c));
+  for (const child of kept) await detachFromOrg(child.id);
+  if (deleting.length) await db.update(workspaces).set({ deletionScheduledAt: now, updatedAt: now }).where(inArray(workspaces.id, deleting.map((c) => c.id)));
+  await db.update(workspaces).set({
+    deletionScheduledAt: now, joinCodeEnabled: false, updatedAt: now,
+    orgSettings: sql`coalesce(${workspaces.orgSettings}, '{}'::jsonb) || jsonb_build_object('detachedOnDelete', ${JSON.stringify(kept.map((c) => c.id))}::jsonb)`,
+  }).where(eq(workspaces.id, orgId));
   const org = await orgLabel(orgId);
-  if (!org) return { deleteAt: new Date(now.getTime() + ORG_DELETION_GRACE_DAYS * DAY_MS) };
+  if (!org) return { deleteAt: new Date(now.getTime() + ORG_DELETION_GRACE_DAYS * DAY_MS), kept: kept.length, deleted: deleting.length };
   const led = new Map<string, string[]>();
-  if (childMode === "detach") for (const child of children) led.set(child.ownerId, [...(led.get(child.ownerId) ?? []), child.title]);
+  for (const child of kept) led.set(child.ownerId, [...(led.get(child.ownerId) ?? []), child.title]);
   await notifyOrg({
     orgId, eventKey: "org.lifecycle", actorId, to: recipients,
     title: `${org.title} was deleted`, body: `It will be removed for good in ${ORG_DELETION_GRACE_DAYS} days. Download your submissions from My work before then.`,
     href: "/workspaces", sourceEventId: `deleted:${orgId}:${now.getTime()}`,
     email: { kind: "org_deleted", data: (userId) => ({ personalProjects: led.get(userId) ?? [] }) },
   });
-  return { deleteAt: new Date(now.getTime() + ORG_DELETION_GRACE_DAYS * DAY_MS) };
+  return { deleteAt: new Date(now.getTime() + ORG_DELETION_GRACE_DAYS * DAY_MS), kept: kept.length, deleted: deleting.length };
+}
+
+/** After a restore (report §19.1): the owner invites a kept workspace back; its lead moves it in with one click. */
+export async function inviteBack(orgId: string, projectId: string, actorId: string) {
+  const [row] = await db.execute<{ id: string; title: string; slug: string | null; owner_id: string }>(sql`
+    SELECT w.id, w.title, w.slug, w.owner_id FROM workspaces o, jsonb_array_elements_text(coalesce(o.org_settings->'detachedOnDelete', '[]'::jsonb)) d(id)
+    JOIN workspaces w ON w.id = d.id::uuid WHERE o.id = ${orgId} AND w.id = ${projectId} AND w.parent_id IS NULL AND w.deleted_at IS NULL`);
+  if (!row) return false;
+  await db.update(workspaces).set({
+    orgSettings: sql`coalesce(${workspaces.orgSettings}, '{}'::jsonb) || jsonb_build_object('invitedBack', coalesce(${workspaces.orgSettings}->'invitedBack', '[]'::jsonb) || to_jsonb(${projectId}::text))`,
+  }).where(eq(workspaces.id, orgId));
+  const org = await orgLabel(orgId);
+  if (org) {
+    await notifyOrg({
+      orgId, eventKey: "org.lifecycle", actorId, to: [row.owner_id], title: `${org.title} invited ${row.title} back. Move it in from its Settings.`,
+      href: `/workspaces/${encodeURIComponent(row.slug ?? row.id)}?tab=settings&section=child-org`, sourceEventId: `invite-back:${projectId}:${Date.now()}`,
+    });
+  }
+  return true;
 }
 
 /** Restore within the grace: the org (and child projects deleted with it) come back; detached ones stay personal. */
@@ -192,6 +235,19 @@ export async function duplicateOrg(sourceId: string, actorId: string, options: D
     return created!.id;
   });
 
+  try {
+    return await fillDuplicate(sourceId, newId, actorId, options, deltaMs);
+  } catch (error) {
+    // Report §27.4: a failed duplicate leaves nothing half made, and the owner is told.
+    logger.warn("org.duplicate.failed", { module: "organizations", sourceId, error: error instanceof Error ? error.message : String(error) });
+    await db.delete(workspaces).where(eq(workspaces.id, newId));
+    const sourceLabel = await orgLabel(sourceId);
+    if (sourceLabel) await notifyOrg({ orgId: sourceId, eventKey: "org.lifecycle", to: [actorId], title: `Couldn’t finish ${options.title}. Try duplicating again.`, href: orgHref(sourceLabel, "?tab=settings&section=org-management"), sourceEventId: `duplicate-failed:${newId}` });
+    throw error;
+  }
+}
+
+async function fillDuplicate(sourceId: string, newId: string, actorId: string, options: DuplicateOptions, deltaMs: number) {
   // Folders and admin files (never submissions: nodes on a task), then docs pointing at the copied files.
   const docs = options.copy.docs ? await db.select().from(workspaceDocuments).where(eq(workspaceDocuments.projectId, sourceId)) : [];
   const nodes = (options.copy.files || docs.some((d) => d.linkedNodeId))
@@ -238,11 +294,24 @@ export async function duplicateOrg(sourceId: string, actorId: string, options: D
       const { target, note } = resetDuplicatedTarget(saved.target);
       const settings = { ...saved, target, note, publishedAt: null, closedAt: null };
       if (settings.lateUntil) settings.lateUntil = shiftBy(new Date(settings.lateUntil), deltaMs)!.toISOString();
-      await createMasterTask(db, {
+      const newMasterId = await createMasterTask(db, {
         orgId: newId, title: master.title, description: master.description, dueDate: shiftBy(master.dueDate, deltaMs) ?? new Date(),
         sprintId: master.sprintId ? sprintMap.get(master.sprintId) ?? null : null, creatorId: actorId, settings, steps: steps.map((s) => s.title),
       });
+      // Smaller bug 7, decision 132: the assignment's own files come along, and its links to copied files.
+      const own = await db.select().from(workspaceNodes).where(and(eq(workspaceNodes.taskId, master.id), eq(workspaceNodes.type, "file"), isNull(workspaceNodes.deletedAt)));
+      const ownMap = await copyNodes(own.map((n) => ({ ...n, parentId: null, path: `/.system/tasks/${newMasterId}/${n.name}` })), sourceId, newId, actorId);
+      if (ownMap.size) await db.update(workspaceNodes).set({ taskId: newMasterId }).where(inArray(workspaceNodes.id, [...ownMap.values()]));
+      const links = await db.select({ nodeId: taskNodeLinks.nodeId, order: taskNodeLinks.order, annotation: taskNodeLinks.annotation }).from(taskNodeLinks).where(eq(taskNodeLinks.taskId, master.id));
+      const kept = links.filter((l) => nodeMap.has(l.nodeId));
+      if (kept.length) await db.insert(taskNodeLinks).values(kept.map((l) => ({ taskId: newMasterId, nodeId: nodeMap.get(l.nodeId)!, order: l.order, annotation: l.annotation, createdBy: actorId }))).onConflictDoNothing();
     }
+  }
+  // Decision 132: sprint materials follow their sprint, when the file came along too.
+  if (sprintMap.size && nodeMap.size) {
+    const materials = await db.select({ sprintId: sprintMaterials.sprintId, nodeId: sprintMaterials.nodeId }).from(sprintMaterials).where(inArray(sprintMaterials.sprintId, [...sprintMap.keys()]));
+    const kept = materials.filter((m) => m.nodeId && nodeMap.has(m.nodeId));
+    if (kept.length) await db.insert(sprintMaterials).values(kept.map((m) => ({ sprintId: sprintMap.get(m.sprintId)!, nodeId: nodeMap.get(m.nodeId!)!, addedBy: actorId }))).onConflictDoNothing();
   }
 
   // Org channel names and topics (#general already exists).
@@ -264,8 +333,11 @@ export async function duplicateOrg(sourceId: string, actorId: string, options: D
   }
 
   const [sourceLabel, label] = await Promise.all([orgLabel(sourceId), orgLabel(newId)]);
+  // Report §27.4: dates still in the past are listed afterwards.
+  const [past] = await db.select({ n: sql<number>`count(*)::int` }).from(workspaceSprints).where(and(eq(workspaceSprints.projectId, newId), sql`${workspaceSprints.startDate} < now()`));
+  const pastLine = past?.n ? ` · ${past.n} ${past.n === 1 ? "sprint has a past date" : "sprints have past dates"}` : "";
   if (label) {
-    await notifyOrg({ orgId: newId, eventKey: "org.lifecycle", to: [actorId], title: `${label.title} created from ${sourceLabel?.title ?? "your organization"}`, href: orgHref(label), sourceEventId: `duplicated:${newId}` });
+    await notifyOrg({ orgId: newId, eventKey: "org.lifecycle", to: [actorId], title: `${label.title} is ready, from ${sourceLabel?.title ?? "your organization"}${pastLine}`, href: orgHref(label), sourceEventId: `duplicated:${newId}` });
   }
   return newId;
 }
@@ -305,4 +377,40 @@ async function copyNodes(nodes: Array<typeof workspaceNodes.$inferSelect>, sourc
     }
   }
   return map;
+}
+
+/**
+ * Take over now (report §45.2): the asking admin becomes owner after 7 days without a refusal; the old owner becomes an
+ * admin and is told. Runs the same swap as Transfer, recorded in both audit logs.
+ */
+export async function takeOverOrg(orgId: string, adminId: string, stepUpMethod: string | null) {
+  const now = new Date();
+  const previousOwner = await db.transaction(async (tx) => {
+    const [org] = await tx.select({ ownerId: workspaces.ownerId, by: workspaces.takeoverRequestedBy }).from(workspaces).where(eq(workspaces.id, orgId)).limit(1).for("update");
+    if (!org || org.by !== adminId) return null;
+    await tx.update(workspaces).set({ ownerId: adminId, takeoverRequestedBy: null, takeoverRequestedAt: null, updatedAt: now }).where(eq(workspaces.id, orgId));
+    await tx.update(workspaceMembers).set({ role: "admin" }).where(and(eq(workspaceMembers.projectId, orgId), eq(workspaceMembers.userId, org.ownerId)));
+    await tx.update(workspaceMembers).set({ role: "owner" }).where(and(eq(workspaceMembers.projectId, orgId), eq(workspaceMembers.userId, adminId)));
+    await moveGroupWorkToLead(tx, orgId, adminId);
+    await syncWorkspaceChat(tx, orgId, adminId, "role");
+    await syncWorkspaceChat(tx, orgId, org.ownerId, "role");
+    await tx.insert(profileAuditEvents).values([
+      { userId: org.ownerId, eventType: "project_ownership_transferred_out", previousValue: { ownerId: org.ownerId }, nextValue: { ownerId: adminId }, metadata: { projectId: orgId, newOwnerId: adminId, actorId: adminId, takeover: true, at: now.toISOString() } },
+      { userId: adminId, eventType: "project_ownership_transferred_in", previousValue: { ownerId: org.ownerId }, nextValue: { ownerId: adminId }, metadata: { projectId: orgId, previousOwnerId: org.ownerId, actorId: adminId, takeover: true, stepUpMethod, at: now.toISOString() } },
+    ]);
+    // Last changed records it (report §45.2).
+    const [actor] = await tx.select({ name: profiles.fullName }).from(profiles).where(eq(profiles.id, adminId)).limit(1);
+    await tx.update(workspaces).set({ orgSettings: sql`jsonb_set(coalesce(${workspaces.orgSettings}, '{}'::jsonb), '{changes,ownership}', ${JSON.stringify({ by: adminId, byName: actor?.name ?? null, at: now.toISOString() })}::jsonb, true)` }).where(eq(workspaces.id, orgId));
+    return org.ownerId;
+  });
+  if (!previousOwner) return false;
+  const org = await orgLabel(orgId);
+  const name = (await db.select({ name: profiles.fullName }).from(profiles).where(eq(profiles.id, adminId)).limit(1))[0]?.name ?? "An admin";
+  if (org) {
+    await notifyOrg({
+      orgId, eventKey: "org.lifecycle", actorId: adminId, to: [previousOwner], title: `${name} took over ${org.title}. You’re an admin now.`,
+      href: orgHref(org), sourceEventId: `takeover:${orgId}:${now.getTime()}`, email: { kind: "org_ownership" },
+    });
+  }
+  return true;
 }

@@ -90,7 +90,7 @@ test("archive: read-only everywhere, join code off, child projects archived with
 test("delete: 30-day grace (owner only, members lose access), children detached; restore; purge keeps contribution names", async () => {
   const o = await org();
   await sql`INSERT INTO profile_contributions (profile_id, workspace_id, project_title, role_title) VALUES (${o.a}, ${o.id}, 'CSE-3A', 'Student')`.catch(() => undefined);
-  await lifecycle.scheduleOrgDeletion(o.id, o.owner, "detach");
+  await lifecycle.scheduleOrgDeletion(o.id, o.owner, {});
   const [child] = await sql`SELECT parent_id FROM workspaces WHERE id = ${o.child}`;
   assert.equal(child!.parent_id, null, "detached to its lead at once");
   assert.equal((await access.getWorkspaceAccessById(o.id, o.a)).canRead, false);
@@ -100,7 +100,7 @@ test("delete: 30-day grace (owner only, members lose access), children detached;
   assert.equal(await lifecycle.restoreOrg(o.id, o.owner), true);
   assert.equal((await access.getWorkspaceAccessById(o.id, o.a)).canRead, true);
 
-  await lifecycle.scheduleOrgDeletion(o.id, o.owner, "delete");
+  await lifecycle.scheduleOrgDeletion(o.id, o.owner, {});
   assert.equal((await lifecycle.purgeDueOrgs(new Date())).purged, 0, "not before 30 days");
   const { purged } = await lifecycle.purgeDueOrgs(new Date(Date.now() + 31 * 86_400_000));
   assert.ok(purged >= 1);

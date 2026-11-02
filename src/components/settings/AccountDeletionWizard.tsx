@@ -152,7 +152,7 @@ export default function AccountDeletionWizard({ onClose, onDeleted }: Props) {
                     <div role="alert" className="space-y-1 rounded-lg border border-[var(--status-danger)]/30 bg-[var(--status-danger-soft)] p-3 text-foreground">
                         <p className="font-medium">You own {ownedOrgs.length === 1 ? "an organization" : `${ownedOrgs.length} organizations`}. Transfer ownership or delete {ownedOrgs.length === 1 ? "it" : "them"} first.</p>
                         <ul className="list-disc pl-4">
-                            {ownedOrgs.map((org) => <li key={org.id}><Link href={`/org/${encodeURIComponent(org.slug ?? org.id)}?tab=settings`} onClick={onClose} className="text-primary hover:underline">{org.title}</Link></li>)}
+                            {ownedOrgs.map((org) => <li key={org.id}>{org.title} · <Link href={`/org/${encodeURIComponent(org.slug ?? org.id)}?tab=settings&section=org-management`} onClick={onClose} className="text-primary hover:underline">Transfer ownership</Link></li>)}
                         </ul>
                     </div>
                 ) : null}

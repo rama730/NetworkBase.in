@@ -601,8 +601,11 @@ export async function moveWorkspaceToOrgAction(projectId: string, orgId: string)
         const outside = await countOutsidePeople(projectId, orgId);
         if (outside > 0) return { success: false, error: `${outside} ${outside === 1 ? 'person isn’t' : 'people aren’t'} in that organization. Remove them first.` };
     }
-    if (isAdminRole(role)) {
+    // Report §19.1: a workspace the organization invited back after a restore moves in with one click.
+    const [invite] = await db.execute<{ yes: boolean }>(sql`SELECT coalesce(org_settings->'invitedBack', '[]'::jsonb) ? ${projectId} AS yes FROM workspaces WHERE id = ${orgId}`);
+    if (isAdminRole(role) || invite?.yes) {
         await moveIntoOrg(projectId, orgId, viewer.project.visibility);
+        if (invite?.yes) await db.update(workspaces).set({ orgSettings: sql`jsonb_set(${workspaces.orgSettings}, '{invitedBack}', (coalesce(${workspaces.orgSettings}->'invitedBack', '[]'::jsonb) - ${projectId}::text))` }).where(eq(workspaces.id, orgId));
         revalidateChild(viewer.project);
         return { success: true, outcome: 'moved' };
     }
