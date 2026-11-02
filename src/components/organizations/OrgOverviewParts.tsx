@@ -2,10 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useState, useTransition } from 'react'
 import Link from 'next/link'
-import { useQuery } from '@tanstack/react-query'
-import { Pin } from 'lucide-react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { Check, FolderKanban, IterationCcw, Pin, UserPlus, X } from 'lucide-react'
 
-import { readChildOrgLineAction, readOrgDashboardAction, readOrgWorkspacesAction, remindLeadsAction, type OrgWorkspaceRow } from '@/app/actions/org-dashboard'
+import { dismissWelcomeAction, readChildOrgLineAction, readOrgDashboardAction, readOrgWorkspacesAction, remindLeadsAction, type OrgWorkspaceRow } from '@/app/actions/org-dashboard'
 import type { OrgWorkspaceRequest } from '@/lib/organizations/needs-you'
 import { messageUserInWindow } from '@/components/messages/message-user'
 import { approveMoveInAction, archiveChildAction, cancelDetachRequestAction, cancelMoveInAction, detachChildAction } from '@/app/actions/organizations'
@@ -16,6 +16,8 @@ import { RailSection } from '@/components/ui/rail-section'
 import { WorkspaceLastUpdate } from '@/components/workspaces/WorkspaceLastUpdate'
 import { toast } from '@/lib/feedback'
 import { remindSummary } from '@/lib/organizations/member-rules'
+import { subscribeBroadcast } from '@/lib/realtime/private-broadcast'
+import { liveTopics } from '@/lib/realtime/subscriptions'
 import { typeProfile } from '@/lib/organizations/type-profile'
 import { formatDistanceToNow } from '@/lib/utils/date'
 import { cn } from '@/lib/utils'
@@ -32,9 +34,19 @@ const FILTERS = [['all', 'All'], ['assignments', 'Assignments'], ['people', 'Peo
 /** The org Dashboard for people in the org (report §27). */
 export function OrgDashboard({ orgId, orgSlug, orgType = null }: { orgId: string; orgSlug: string | null; orgType?: string | null }) {
     const [filter, setFilter] = useState('all')
+    const [moreToday, setMoreToday] = useState(false)
+    const [welcomeClosed, setWelcomeClosed] = useState(false)
+    const client = useQueryClient()
     // Refetch on focus and every 2 minutes while visible.
     const query = useQuery({ queryKey: ['org-dashboard', orgId, filter], queryFn: () => readOrgDashboardAction(orgId, filter), refetchInterval: 120_000, refetchOnWindowFocus: true })
     const base = `/org/${encodeURIComponent(orgSlug ?? orgId)}`
+    // Report §32.4, decision 76: other people's changes show by themselves; bursts are combined over 2 seconds.
+    useEffect(() => {
+        let timer: ReturnType<typeof setTimeout> | null = null
+        const reload = () => { if (!timer) timer = setTimeout(() => { timer = null; void client.invalidateQueries({ queryKey: ['org-dashboard', orgId] }) }, 2_000) }
+        const subscriptions = [subscribeBroadcast(liveTopics.tasks(orgId), reload), subscribeBroadcast(liveTopics.workspace(orgId), reload)]
+        return () => { subscriptions.forEach((s) => s.unsubscribe()); if (timer) clearTimeout(timer) }
+    }, [client, orgId])
     if (query.isPending) return <div role="status" aria-label="Loading dashboard" className="space-y-3">{[0, 1, 2].map((i) => <div key={i} className="nb-skeleton h-10 rounded-[5px]" />)}</div>
     const data = query.data
     if (!data || !data.success) return (
@@ -46,21 +58,59 @@ export function OrgDashboard({ orgId, orgSlug, orgType = null }: { orgId: string
     return (
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
             <div className="min-w-0 space-y-6 lg:col-span-8">
+                {data.weekLine ? <p className="font-mono text-[12px] text-muted-foreground" data-testid="org-week-line">{data.weekLine}</p> : null}
+                {/* Report §29.2: everyone inside sees it; the owner's reason and Appeal live in Settings → Moderation. */}
+                {data.restricted ? <p role="status" className="rounded-[5px] border border-border bg-muted/40 px-3 py-2 text-sm">This organization is restricted for now.</p> : null}
                 {data.archivedSummary ? <p className="text-sm text-muted-foreground" data-testid="org-archived-summary">{data.archivedSummary}</p> : null}
+                {data.welcome && !welcomeClosed ? (
+                    // Report §26.7, decision 49: once after joining; × hides it for good.
+                    <section aria-label="Welcome" className="rounded-lg border border-border bg-card p-4" data-testid="org-welcome">
+                        <div className="flex items-start justify-between gap-3">
+                            <h2 className="nb-card-title">Welcome</h2>
+                            <button type="button" aria-label="Close welcome" className="rounded p-1 text-muted-foreground hover:bg-muted" onClick={() => { setWelcomeClosed(true); void dismissWelcomeAction(orgId) }}><X className="size-4" /></button>
+                        </div>
+                        {data.welcome.note ? <p className="mt-1 whitespace-pre-line text-sm">{data.welcome.note}</p> : null}
+                        {data.welcome.start.length ? <ul className="mt-3">{data.welcome.start.map((r) => <li key={r.href}><Link href={r.href} className={cn(row, 'hover:text-primary')}><span className="truncate">{r.label}</span><span aria-hidden="true">→</span></Link></li>)}</ul> : null}
+                        {data.welcome.addToProfile ? <Link href="/profile/edit?section=experience" className="mt-3 inline-block text-[13px] font-medium text-primary hover:underline">Add to your profile</Link> : null}
+                    </section>
+                ) : null}
                 {data.pinned ? (
                     <Link href={`${base}?tab=updates&updateId=${data.pinned.id}`} className="flex min-h-10 items-center gap-2 rounded-[5px] border border-border bg-muted/30 px-3 text-sm hover:bg-muted">
                         <Pin className="size-3.5 shrink-0" aria-hidden="true" /><span className="truncate">{data.pinned.content}</span>
                     </Link>
                 ) : null}
                 {data.getStarted.length ? (
+                    // Report §7.2, decision 7: three cards while the organization is empty, each opening the real form.
                     <RailSection title="Get started">
-                        <ul className="space-y-1 text-sm">{data.getStarted.map((step) => <li key={step}>○ {step}</li>)}</ul>
+                        <ul className="grid gap-2 sm:grid-cols-3">
+                            {data.getStarted.map((card) => {
+                                const [label, href, Icon] = card === 'invite' ? ['Invite people', `${base}?tab=members`, UserPlus] as const
+                                    : card === 'sprint' ? ['Plan your first sprint', `${base}?tab=sprints`, IterationCcw] as const
+                                    : ['Create the first workspace', `/workspaces/new?org=${encodeURIComponent(orgSlug ?? orgId)}`, FolderKanban] as const
+                                return <li key={card}><Link href={href} className="flex h-full items-center gap-2 rounded-lg border border-border p-3 text-sm hover:bg-muted"><Icon className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />{label}</Link></li>
+                            })}
+                        </ul>
                     </RailSection>
                 ) : null}
-                {data.needsYou.length ? (
-                    <RailSection title="Needs your attention">
-                        <ul>{data.needsYou.slice(0, 5).map((n) => <li key={`${n.kind}:${n.label}`}><Link href={n.href} className={cn(row, 'hover:text-primary')}><span className="truncate">{n.label}</span><span aria-hidden="true">→</span></Link></li>)}</ul>
-                        {data.needsYou.length > 5 ? <p className="text-[12px] text-muted-foreground">and {data.needsYou.length - 5} more</p> : null}
+                {data.role !== 'guest' ? (
+                    // Report §33.5, decision 80: Today takes over Needs your attention; 5 rows, then the rest on request.
+                    <RailSection title="Today">
+                        {data.today.length ? (
+                            <>
+                                <ul>{(moreToday ? data.today : data.today.slice(0, 5)).map((n) => <li key={`${n.kind}:${n.label}`}><Link href={n.href} className={cn(row, 'hover:text-primary')}><span className="truncate">{n.label}</span><span aria-hidden="true">→</span></Link></li>)}</ul>
+                                {!moreToday && data.today.length > 5 ? <button type="button" className="text-[12px] text-primary hover:underline" onClick={() => setMoreToday(true)}>Show {data.today.length - 5} more</button> : null}
+                            </>
+                        ) : <p className="flex items-center gap-1.5 text-sm text-muted-foreground"><Check className="size-3.5" aria-hidden="true" />{data.role === 'admin' ? 'Nothing needs you today' : 'You’re all caught up'}</p>}
+                    </RailSection>
+                ) : null}
+                {data.standing ? (
+                    // Decision 81: admins only; each count opens Members filtered.
+                    <RailSection title={`How the ${data.standingWord} is doing`}>
+                        <p className="text-sm">
+                            <Link href={`${base}?tab=members`} className="hover:underline">{data.standing.onTrack} on track</Link>{' · '}
+                            <Link href={`${base}?tab=members&status=behind`} className="hover:underline">{data.standing.behind} behind</Link>{' · '}
+                            <Link href={`${base}?tab=members&status=inactive`} className="hover:underline">{data.standing.inactive} inactive</Link>
+                        </p>
                     </RailSection>
                 ) : null}
                 <RailSection title={s.sprint ? `This sprint · ${s.sprint.name} · ends ${day(s.sprint.endDate)}${ownLine(s.items)}` : 'This sprint'}>
@@ -77,9 +127,12 @@ export function OrgDashboard({ orgId, orgSlug, orgType = null }: { orgId: string
                         : data.role === 'admin' ? <Link href={`${base}?tab=sprints`} className="text-sm underline underline-offset-4">{typeProfile(orgType).planLabel}</Link>
                             : <p className="text-sm text-muted-foreground">No sprint right now.</p>}
                 </RailSection>
-                <RailSection title="Coming up · next 7 days">
-                    {data.comingUp.length ? <ul>{data.comingUp.map((c) => <li key={`${c.date}:${c.label}`} className={row}><span className="w-28 shrink-0 font-mono text-[12px] text-muted-foreground">{day(c.date)}</span><span className="min-w-0 flex-1 truncate">{c.label}</span></li>)}</ul>
-                        : <p className="text-sm text-muted-foreground">Nothing due.</p>}
+                <RailSection title="This week">
+                    {/* Decision 80: calendar days in the organization's zone, grouped Today, Tomorrow, This week. */}
+                    {data.thisWeek.length ? (['Today', 'Tomorrow', 'This week'] as const).map((group) => {
+                        const rows = data.thisWeek.filter((c) => c.group === group)
+                        return rows.length ? <div key={group}><p className="nb-micro mt-2 text-muted-foreground">{group}</p><ul>{rows.map((c) => <li key={`${c.date}:${c.label}`} className={row}><span className="w-28 shrink-0 font-mono text-[12px] text-muted-foreground">{day(c.date)}</span><span className="min-w-0 flex-1 truncate">{c.label}</span></li>)}</ul></div> : null
+                    }) : <p className="text-sm text-muted-foreground">Nothing due in the next 7 days.</p>}
                 </RailSection>
                 <RailSection title="Activity" action={
                     <span className="flex flex-wrap gap-1" role="tablist" aria-label="Filter activity">

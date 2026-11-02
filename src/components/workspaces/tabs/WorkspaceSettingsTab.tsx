@@ -218,7 +218,7 @@ function ProjectSettingsContent({
     const sections = useMemo(() => {
         // A child project's role boxes are its units (report §21 #6, "Units & open seats").
         const visible = getVisibleWorkspaceSettingsSections().map((section) => (project?.parentOrg && section.id === "roles-applications"
-            ? { ...section, label: "Teams and open seats", description: "Teams, their seats and team leads; open seats org members can apply to." } : section));
+            ? { ...section, label: "Teams", description: "Teams, their seats and team leads; open seats org members can apply to." } : section));
         if (organization) {
             // Report §21.4: You sections for everyone, org sections for admins, owner extras for the owner.
             return orgSettingsSectionIds(orgRole).flatMap((id) => {

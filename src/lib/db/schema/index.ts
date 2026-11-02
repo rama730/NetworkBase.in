@@ -1021,6 +1021,8 @@ export const workspaceMembers = pgTable(
     lastActiveHereAt: timestamp("last_active_here_at", { withTimezone: true }),
     /** Order on the profile's Organizations section, set in Manage organizations (0049, report §38.2). */
     profileOrder: integer("profile_order"),
+    /** The welcome panel was closed (0050, report §26.7, DB4); null shows it once after joining. */
+    welcomeDismissedAt: timestamp("welcome_dismissed_at", { withTimezone: true }),
     unitId: uuid("unit_id").references((): AnyPgColumn => workspaceOpenRoles.id, { onDelete: "set null" }),
   },
   (t) => ({

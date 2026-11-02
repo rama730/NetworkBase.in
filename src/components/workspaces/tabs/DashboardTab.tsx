@@ -68,6 +68,7 @@ export function DashboardTab({
                 ) : null}
                 <RecentActivityCard projectId={project.id} />
                 <OpenRolesCard
+                    inOrganization={Boolean(project.parentOrg)}
                     roles={rolesWithFilled}
                     isCreator={isCreator}
                     isCollaborator={isCollaborator}

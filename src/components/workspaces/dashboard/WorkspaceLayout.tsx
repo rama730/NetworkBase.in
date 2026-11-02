@@ -74,6 +74,8 @@ interface ProjectLayoutProps {
     /** The overflow "⋯", always the last header action (after Share). */
     actionsEnd?: React.ReactNode;
     showFollow?: boolean;
+    /** Decision 70: a verified organization's ✓ beside its name. */
+    titleBadge?: React.ReactNode;
     /** Decision 22: views and followers mean nothing on an organization-only or private workspace. */
     showStats?: boolean;
     /** Org tab badges (report §18.3): a count, or a dot for something unseen. */
@@ -126,6 +128,7 @@ export default function WorkspaceLayout({
     actionsEnd = null,
     showFollow = true,
     showStats = true,
+    titleBadge = null,
     tabBadges = {},
     compactChip,
     compactPrefix = null,
@@ -327,7 +330,7 @@ export default function WorkspaceLayout({
                                             />
                                         </div>
                                         <h1 className="nb-page-title min-w-0 break-words text-foreground">
-                                            {project?.title}
+                                            {project?.title}{titleBadge}
                                         </h1>
                                         {project.shortDescription && (
                                             <p className={cn("nb-body mt-1 max-w-[64ch] text-muted-foreground max-md:col-span-2 max-md:mt-2", !summaryExpanded && "max-md:line-clamp-3")}>

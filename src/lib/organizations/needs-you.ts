@@ -7,6 +7,7 @@ import { db } from "@/lib/db";
 import { workspaceMembers, workspaces, workspaceSprints, roleApplications, taskTeamMembers, tasks } from "@/lib/db/schema";
 import type { WorkspaceAccess } from "@/lib/data/workspace-access";
 import { copyState } from "@/lib/organizations/assignment-rules";
+import { memberStatus } from "@/lib/organizations/member-rules";
 import { JOIN_SPIKE_PER_HOUR } from "@/lib/organizations/trust-rules";
 
 // Needs you (report §26.4) and the copy helpers the org dashboard shares. Not a server action: it trusts its viewer.
@@ -172,5 +173,39 @@ export async function leadSprintRows(orgId: string, userId: string): Promise<Nee
         if (r.kind === 'plan') return { kind: 'plan_sprint', label: `${r.org_sprint} started. Plan your sprint in ${r.title}`, href };
         if (r.kind === 'complete') return { kind: 'complete_sprint', label: `${r.org_sprint} closed · Complete ${r.child_sprint}?`, href };
         return { kind: 'sprint_dates', label: `${r.child_sprint} is outside ${r.org_sprint}'s dates`, href };
+    });
+}
+
+/**
+ * Each member's standing (report §33.5, decision 81), the same way the Members tab counts it: behind means any
+ * missing work; inactive means 14 days without activity here, counted from joining. Also which sprints each
+ * person is behind in, for "CO3 ends Thursday · 4 behind".
+ */
+export async function readMemberStanding(orgId: string, now: Date) {
+    const [people, copies, teams] = await Promise.all([
+        db.select({ userId: workspaceMembers.userId, joinedAt: workspaceMembers.joinedAt, lastActiveAt: workspaceMembers.lastActiveHereAt })
+            .from(workspaceMembers).where(and(eq(workspaceMembers.projectId, orgId), eq(workspaceMembers.role, 'member'))),
+        db.execute<{ id: string; assignee_id: string | null; status: string; review_status: string; due_date: Date | null; review_submitted_at: Date | null; completed_at: Date | null; excused_at: Date | null; sprint_id: string | null }>(sql`
+            SELECT c.id, c.assignee_id, c.status, c.review_status, c.due_date, c.review_submitted_at, c.completed_at, c.excused_at, m.sprint_id
+            FROM tasks c JOIN tasks m ON m.id = c.assignment_id AND m.workspace_id = ${orgId} AND m.deleted_at IS NULL
+            WHERE c.deleted_at IS NULL`),
+        db.select({ taskId: taskTeamMembers.taskId, userId: taskTeamMembers.userId }).from(taskTeamMembers)
+            .innerJoin(tasks, eq(tasks.id, taskTeamMembers.taskId)).where(and(eq(tasks.projectId, orgId), isNull(tasks.deletedAt))),
+    ]);
+    const missing = new Map<string, Set<string | null>>();
+    const add = (userId: string | null, sprintId: string | null) => { if (userId) missing.set(userId, (missing.get(userId) ?? new Set()).add(sprintId)); };
+    const teamOf = new Map<string, string[]>();
+    for (const t of teams) teamOf.set(t.taskId, [...(teamOf.get(t.taskId) ?? []), t.userId]);
+    for (const c of copies) {
+        const date = (d: Date | string | null) => (d ? new Date(d) : null);
+        if (copyState({ status: c.status, reviewStatus: c.review_status, dueDate: date(c.due_date), submittedAt: date(c.review_submitted_at), completedAt: date(c.completed_at), excusedAt: date(c.excused_at) }, now).state === 'missing') {
+            add(c.assignee_id, c.sprint_id);
+            for (const userId of teamOf.get(c.id) ?? []) add(userId, c.sprint_id);
+        }
+    }
+    return people.map((p) => {
+        const sprints = missing.get(p.userId) ?? new Set<string | null>();
+        const status = memberStatus({ missing: sprints.size, lastActiveAt: p.lastActiveAt, joinedAt: p.joinedAt, now });
+        return { userId: p.userId, behind: status.behind, inactive: status.inactive, behindIn: sprints };
     });
 }

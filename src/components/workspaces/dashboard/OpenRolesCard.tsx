@@ -37,6 +37,8 @@ interface OpenRolesCardProps {
     onAcceptInvitation?: () => void;
     onDeclineInvitation?: () => void;
     invitationLoading?: boolean;
+    /** Report §17.2: inside an organization these are its Teams, the same word Settings uses. */
+    inOrganization?: boolean;
 }
 
 export const OpenRolesCard = memo(function OpenRolesCard({
@@ -51,6 +53,7 @@ export const OpenRolesCard = memo(function OpenRolesCard({
     onAcceptInvitation,
     onDeclineInvitation,
     invitationLoading = false,
+    inOrganization = false,
 }: OpenRolesCardProps) {
     const [showAllMobile, setShowAllMobile] = useState(false);
     // The Edit window is 10 minutes: the link goes away when it ends, without waiting for the next read.
@@ -79,9 +82,9 @@ export const OpenRolesCard = memo(function OpenRolesCard({
 
     if (isCreator && openRoles.length === 0 && !isGuidanceInvitation) {
         return (
-            <RailSection title="Open roles" id="open-roles" className="scroll-mt-28" contentClassName="p-3">
+            <RailSection title={inOrganization ? "Teams" : "Open roles"} id="open-roles" className="scroll-mt-28" contentClassName="p-3">
                 <div className="space-y-3 py-1">
-                    <p className="text-xs text-muted-foreground">No open roles yet.</p>
+                    <p className="text-xs text-muted-foreground">{inOrganization ? "No teams yet." : "No open roles yet."}</p>
                     <button
                         type="button"
                         onClick={onManageRoles}
@@ -104,7 +107,7 @@ export const OpenRolesCard = memo(function OpenRolesCard({
     const showMoreCount = openRoles.length - 10;
 
     return (
-        <RailSection title="Open roles" id="open-roles" className="scroll-mt-28" contentClassName="p-3">
+        <RailSection title={inOrganization ? "Teams" : "Open roles"} id="open-roles" className="scroll-mt-28" contentClassName="p-3">
             <div className="space-y-3">
                 {blockedReason ? (
                     <p id="open-roles-apply-disabled-reason" className="px-1 text-[11px] text-muted-foreground">

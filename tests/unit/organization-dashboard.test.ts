@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { activityVisible, getStartedSteps, journeyFromSprints, needsAttention } from "../../src/lib/organizations/dashboard-rules";
+import { activityVisible, journeyFromSprints, needsAttention } from "../../src/lib/organizations/dashboard-rules";
 
 const now = new Date("2026-10-30T12:00:00Z");
 
@@ -35,8 +35,4 @@ test("activity privacy: members never see other people's submissions; About show
   assert.equal(activityVisible({ kind: "joins", actorId: null }, about), true);
 });
 
-test("Get started drops each step once done", () => {
-  assert.deepEqual(getStartedSteps({ members: 1, sprints: 0, files: 0, announcements: 0, assignments: 0 }).length, 5);
-  assert.deepEqual(getStartedSteps({ members: 12, sprints: 3, files: 4, announcements: 0, assignments: 1 }), ["Post a welcome announcement"]);
-  assert.deepEqual(getStartedSteps({ members: 2, sprints: 1, files: 1, announcements: 1, assignments: 1 }), []);
-});
+// Get started is now three cards that go once anything real exists (report §7.2): organization-overview-rules.test.ts.

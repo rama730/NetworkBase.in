@@ -53,13 +53,65 @@ export function activityVisible(event: { kind: ActivityKind; actorId: string | n
   return true;
 }
 
-/** Get started for a new org's admins (report §27.4): each line goes when done; the list goes when all are. */
-export function getStartedSteps(state: { members: number; sprints: number; files: number; announcements: number; assignments: number }) {
+/**
+ * Get started (report §7.2, decision 7): three action cards for admins, only while nothing real exists. Starter
+ * folders aren't uploaded files. Nothing is stored; once anything real exists it's gone, and it returns if all of
+ * it is deleted.
+ */
+export function getStartedCards(state: { members: number; sprints: number; tasks: number; workspaces: number; announcements: number; documents: number; files: number }) {
+  const empty = state.members <= 1 && state.sprints === 0 && state.tasks === 0 && state.workspaces === 0 && state.announcements === 0 && state.documents === 0 && state.files === 0;
+  return empty ? (["invite", "sprint", "workspace"] as const).slice() : [];
+}
+
+function zoneDay(date: Date, timeZone: string) {
+  return new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" }).format(date);
+}
+const dayNumber = (isoDay: string) => Math.round(Date.parse(`${isoDay}T00:00:00Z`) / 86_400_000);
+const safeZone = (timeZone?: string | null) => { try { if (timeZone) { new Intl.DateTimeFormat("en", { timeZone }); return timeZone; } } catch { /* UTC */ } return "UTC"; };
+
+/** This week (report §33.5, parity bug 7): calendar days in the organization's zone, not 168 hours. */
+export function weekGroup(date: Date, now: Date, timeZone?: string | null): "Today" | "Tomorrow" | "This week" | null {
+  const zone = safeZone(timeZone);
+  const days = dayNumber(zoneDay(date, zone)) - dayNumber(zoneDay(now, zone));
+  if (days < 0 || days > 7 || date.getTime() < now.getTime() - 86_400_000) return null;
+  return days === 0 ? "Today" : days === 1 ? "Tomorrow" : "This week";
+}
+
+/** "Week 6 of 16" (report §33.5): from the term, in the organization's zone; nothing without a term or outside it. */
+export function weekLine(termStart: string | null | undefined, termEnd: string | null | undefined, now: Date, timeZone?: string | null) {
+  if (!termStart || !termEnd) return null;
+  const today = dayNumber(zoneDay(now, safeZone(timeZone)));
+  const start = dayNumber(termStart), end = dayNumber(termEnd);
+  if (today < start || today > end) return null;
+  return `Week ${Math.floor((today - start) / 7) + 1} of ${Math.ceil((end - start + 1) / 7)}`;
+}
+
+/** How the class is doing (report §33.5, decision 81): behind first; inactive counts only people not already behind. */
+export function classStanding(people: Array<{ behind: boolean; inactive: boolean }>) {
+  const behind = people.filter((p) => p.behind).length;
+  const inactive = people.filter((p) => !p.behind && p.inactive).length;
+  return { onTrack: people.length - behind - inactive, behind, inactive };
+}
+
+export type TodayRow = { kind: string; label: string; href: string };
+
+/**
+ * Today (report §33.5, decision 80): what needs an admin now, most urgent first: deadlines today, sprints ending
+ * within 2 days, the Education term-end prompt, then the attention rows. The screen shows 5 and "Show N more".
+ */
+export function todayRows(input: {
+  dueToday: Array<{ title: string; handedIn: number; total: number; href: string }>;
+  sprintsEnding: Array<{ name: string; endDate: Date; behind: number; href: string }>;
+  termEnd: { date: string; href: string } | null;
+  attention: TodayRow[];
+}, now: Date, timeZone?: string | null): TodayRow[] {
+  const zone = safeZone(timeZone);
+  const weekday = (d: Date) => new Intl.DateTimeFormat("en", { timeZone: zone, weekday: "short" }).format(d);
+  const termDay = (iso: string) => new Intl.DateTimeFormat("en-GB", { timeZone: "UTC", day: "numeric", month: "short" }).format(new Date(`${iso}T00:00:00Z`));
   return [
-    state.members <= 1 ? "Share the join code" : null,
-    state.sprints === 0 ? "Plan your sprints" : null,
-    state.files === 0 ? "Add materials" : null,
-    state.announcements === 0 ? "Post a welcome announcement" : null,
-    state.assignments === 0 ? "Create the first assignment" : null,
-  ].filter((step): step is string => Boolean(step));
+    ...input.dueToday.map((d) => ({ kind: "due_today", label: `${d.title} due today · ${d.handedIn} of ${d.total} in`, href: d.href })),
+    ...input.sprintsEnding.map((s) => ({ kind: "sprint_ending", label: `${s.name} ends ${weekGroup(s.endDate, now, zone) === "Today" ? "today" : weekday(s.endDate)}${s.behind ? ` · ${s.behind} behind` : ""}`, href: s.href })),
+    ...(input.termEnd ? [{ kind: "term_end", label: `Term ends ${termDay(input.termEnd.date)} · Review open work, verify members, then archive or duplicate`, href: input.termEnd.href }] : []),
+    ...input.attention,
+  ];
 }

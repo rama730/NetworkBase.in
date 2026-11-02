@@ -218,11 +218,10 @@ test("decision 174: a deleted account tells each organization's admins how many 
   assert.ok(!(await titles(o.b)).some((t) => t.includes("account was deleted")), "members aren't told");
 });
 
-test("decision 57: move-in requests are found through their own index, not a scan of every workspace", async () => {
-  const plan = await sql.begin(async (tx) => {
-    await tx`SET LOCAL enable_seqscan = off`;
-    return tx`EXPLAIN SELECT id FROM workspaces WHERE deleted_at IS NULL AND parent_id IS NULL AND org_settings ? 'moveInRequest'
-      AND org_settings->'moveInRequest'->>'orgId' = ${"00000000-0000-0000-0000-000000000000"}`;
-  });
-  assert.match(plan.map((r) => Object.values(r)[0]).join("\n"), /workspaces_move_in_request_idx/);
+test("decision 57: move-in requests have their own index, matching the query's conditions", async () => {
+  // The planner's choice depends on table size, so this checks the index itself rather than one plan.
+  const [row] = await sql`SELECT indexdef FROM pg_indexes WHERE schemaname = 'public' AND indexname = 'workspaces_move_in_request_idx'`;
+  assert.ok(row, "the index exists");
+  assert.match(row!.indexdef, /\(\(org_settings -> 'moveInRequest'::text\) ->> 'orgId'::text\)/);
+  assert.match(row!.indexdef, /WHERE \(\(org_settings \? 'moveInRequest'::text\) AND \(deleted_at IS NULL\)\)/);
 });

@@ -3,18 +3,22 @@
 import { and, asc, desc, eq, gt, gte, inArray, isNotNull, isNull, lt, ne, or, sql } from 'drizzle-orm';
 
 import { db } from '@/lib/db';
-import { profiles, workspaceMembers, workspaceNodeEvents, workspaceNodes, workspaceOpenRoles, workspaces, workspaceSprints, workspaceUpdates, roleApplications, taskActivityEvents, taskTeamMembers, tasks } from '@/lib/db/schema';
+import { profileContributions, profiles, workspaceMembers, workspaceNodeEvents, workspaceNodes, workspaceOpenRoles, workspaces, workspaceSprints, workspaceUpdates, roleApplications, taskActivityEvents, taskTeamMembers, tasks } from '@/lib/db/schema';
 import { getWorkspaceAccessById, type WorkspaceAccess } from '@/lib/data/workspace-access';
 import { orgFileAccessSql } from '@/lib/files/internal-helpers';
 import { copyState, type CopyState } from '@/lib/organizations/assignment-rules';
-import { activityVisible, getStartedSteps, journeyFromSprints, needsAttention, type ActivityKind } from '@/lib/organizations/dashboard-rules';
+import { activityVisible, classStanding, getStartedCards, journeyFromSprints, needsAttention, todayRows, weekGroup, weekLine, type ActivityKind, type TodayRow } from '@/lib/organizations/dashboard-rules';
+import { typeProfile } from '@/lib/organizations/type-profile';
+
+/** "How the class is doing" in the type's word (report §34.2). */
+const CLASS_WORD: Record<string, string> = { education: 'class', company: 'team', research: 'lab', community: 'group', club: 'club', other: 'group' };
 import { activityTime } from '@/lib/organizations/activity-rules';
 import { readViewerOrgRole } from '@/lib/organizations/detail';
 import { audienceSql } from '@/lib/organizations/org-updates';
 import { readOrgDocsAction } from '@/app/actions/org-docs';
 import { normalizeWorkspacePublicTabVisibility } from '@/lib/workspaces/settings-policies';
 import { getViewerAuthContext } from '@/lib/server/viewer-context';
-import { copyColumns, leadSprintRows, ownCopies, plural, readNeedsYou, readWorkspaceRequests, stateOf, type NeedsYouRow, type OrgViewer, type OrgWorkspaceRequest } from '@/lib/organizations/needs-you';
+import { copyColumns, leadSprintRows, ownCopies, plural, readMemberStanding, readNeedsYou, readWorkspaceRequests, stateOf, type NeedsYouRow, type OrgViewer, type OrgWorkspaceRequest } from '@/lib/organizations/needs-you';
 
 export type { NeedsYouRow };
 export type ActivityItem = { id: string; kind: ActivityKind; text: string; at: string; href: string };
@@ -118,6 +122,13 @@ export type OrgDashboardData = {
     needsYou: NeedsYouRow[];
     thisSprint: { sprint: { id: string; name: string; endDate: string } | null; next: { name: string; startDate: string } | null; items: SprintItem[] };
     comingUp: Array<{ date: string; label: string }>;
+    thisWeek: Array<{ date: string; label: string; group: 'Today' | 'Tomorrow' | 'This week' }>;
+    today: TodayRow[];
+    standing: { onTrack: number; behind: number; inactive: number } | null;
+    standingWord: string;
+    weekLine: string | null;
+    welcome: { note: string | null; start: Array<{ kind: string; label: string; href: string }>; addToProfile: boolean } | null;
+    restricted: boolean;
     activity: ActivityItem[];
     projects: Array<{ id: string; title: string; slug: string | null }>;
     people: { avatars: Array<{ id: string; name: string; avatarUrl: string | null }>; total: number; joinedThisWeek: number; requests: number };
@@ -151,8 +162,15 @@ export async function readOrgDashboardAction(orgId: string, activityFilter = 'al
             files: sql<number>`(SELECT count(*)::int FROM workspace_nodes WHERE workspace_id = ${orgId} AND type = 'file' AND deleted_at IS NULL)`,
             announcements: sql<number>`(SELECT count(*)::int FROM workspace_updates WHERE workspace_id = ${orgId} AND update_type = 'announcement' AND deleted_at IS NULL)`,
             allSprints: sql<number>`(SELECT count(*)::int FROM workspace_sprints WHERE workspace_id = ${orgId})`,
+            tasks: sql<number>`(SELECT count(*)::int FROM tasks WHERE workspace_id = ${orgId} AND deleted_at IS NULL)`,
+            workspaces: sql<number>`(SELECT count(*)::int FROM workspaces c WHERE c.parent_id = ${orgId} AND c.deleted_at IS NULL)`,
+            documents: sql<number>`(SELECT count(*)::int FROM workspace_documents WHERE workspace_id = ${orgId})`,
+            termStart: workspaces.termStart, termEnd: workspaces.termEnd, timeZone: workspaces.timeZone, orgType: workspaces.orgType,
+            welcomeNote: workspaces.welcomeNote, restrictedAt: workspaces.restrictedAt,
         }).from(workspaces).where(eq(workspaces.id, orgId)),
     ]);
+    const zone = counts?.timeZone ?? null;
+    const profile = typeProfile(counts?.orgType);
     const active = sprints.find((s) => s.status === 'active') ?? null;
     const next = sprints.find((s) => s.status !== 'active' && s.startDate > now) ?? null;
     const inSprint = active ? masters.filter((m) => m.sprintId === active.id) : [];
@@ -170,9 +188,8 @@ export async function readOrgDashboardAction(orgId: string, activityFilter = 'al
             ...(own ? { own: { ...own.s, extended } } : {}),
         };
     });
-    // Coming up · next 7 days (report §27.2): members their own due items; admins everything.
-    const horizon = now.getTime() + 7 * DAY;
-    const within = (d: Date | null) => Boolean(d && d.getTime() >= now.getTime() && d.getTime() <= horizon);
+    // This week (report §33.5, decision 80; was Coming up): calendar days in the organization's zone (parity bug 7).
+    const within = (d: Date | null) => Boolean(d && d.getTime() >= now.getTime() && weekGroup(d, now, zone));
     const comingUp: Array<{ date: string; label: string }> = [];
     for (const s of sprints) {
         if (within(s.endDate)) comingUp.push({ date: s.endDate.toISOString(), label: `${s.name} ends` });
@@ -181,6 +198,49 @@ export async function readOrgDashboardAction(orgId: string, activityFilter = 'al
     if (v.isAdmin || v.isGuest) for (const m of masters) { if (within(m.dueDate)) comingUp.push({ date: m.dueDate!.toISOString(), label: `${m.title} due` }) }
     else if (v.userId) for (const c of await ownCopies(orgId, v.userId)) { if (within(c.dueDate) && stateOf(c, now).state !== 'done') comingUp.push({ date: c.dueDate!.toISOString(), label: `${c.title} due` }) }
     comingUp.sort((a, b) => a.date.localeCompare(b.date));
+    const thisWeek = comingUp.map((c) => ({ ...c, group: weekGroup(new Date(c.date), now, zone)! }));
+
+    // Today (report §33.5, decision 80): admins get deadlines, sprint endings and the term-end prompt above the attention rows.
+    const archivedNow = v.org.status === 'archived';
+    let today: TodayRow[] = v.isGuest || archivedNow ? [] : needsYou;
+    let standing: ReturnType<typeof classStanding> | null = null;
+    if (v.isAdmin && !archivedNow) {
+        const members = await readMemberStanding(orgId, now);
+        standing = classStanding(members);
+        const dueMasters = masters.filter((m) => m.dueDate && m.dueDate.getTime() >= now.getTime() - 12 * 3_600_000 && weekGroup(m.dueDate, now, zone) === 'Today');
+        const dueCopies = dueMasters.length ? await db.select(copyColumns).from(tasks).where(and(inArray(tasks.assignmentId, dueMasters.map((m) => m.id)), isNull(tasks.deletedAt))) : [];
+        const base = `/org/${encodeURIComponent(v.org.slug ?? orgId)}`;
+        const ending = sprints.filter((s) => s.status === 'active' && s.endDate.getTime() >= now.getTime() && ['Today', 'Tomorrow'].includes(weekGroup(s.endDate, now, zone) ?? '')
+            || (s.status === 'active' && s.endDate.getTime() >= now.getTime() && s.endDate.getTime() - now.getTime() <= 2 * DAY));
+        const daysToTermEnd = counts?.termEnd ? Math.round((Date.parse(`${counts.termEnd}T00:00:00Z`) - Date.parse(new Intl.DateTimeFormat('en-CA', { timeZone: zone ?? 'UTC' }).format(now) + 'T00:00:00Z')) / DAY) : null;
+        today = todayRows({
+            dueToday: dueMasters.map((m) => {
+                const of = dueCopies.filter((c) => c.assignmentId === m.id).map((c) => stateOf(c, now).state).filter((st) => st !== 'excused');
+                return { title: m.title, handedIn: of.filter((st) => st === 'submitted' || st === 'done').length, total: of.length, href: `${base}?tab=tasks` };
+            }),
+            sprintsEnding: ending.map((s) => ({ name: s.name, endDate: s.endDate, behind: members.filter((p) => p.behindIn.has(s.id)).length, href: `${base}?tab=sprints` })),
+            // Decision 54: Education only, from 14 days before; nothing archives by itself.
+            termEnd: profile.termDates && counts?.termEnd && daysToTermEnd !== null && daysToTermEnd >= 0 && daysToTermEnd <= 14 ? { date: counts.termEnd, href: `${base}?tab=settings` } : null,
+            attention: needsYou,
+        }, now, zone);
+    }
+
+    // Welcome panel (report §26.7, decision 49): once, after joining, until closed.
+    const [membership] = v.userId ? await db.select({ dismissed: workspaceMembers.welcomeDismissedAt }).from(workspaceMembers)
+        .where(and(eq(workspaceMembers.projectId, orgId), eq(workspaceMembers.userId, v.userId))).limit(1) : [];
+    let welcome: OrgDashboardData['welcome'] = null;
+    // The owner made it rather than joined it, so they get Get started instead.
+    if (membership && !membership.dismissed && !archivedNow && !v.access.isOwner) {
+        const base = `/org/${encodeURIComponent(v.org.slug ?? orgId)}`;
+        const start: Array<{ kind: string; label: string; href: string }> = [];
+        const next = v.userId && !v.isAdmin ? (await ownCopies(orgId, v.userId)).filter((c) => c.dueDate && stateOf(c, now).state !== 'done').sort((a, b) => a.dueDate!.getTime() - b.dueDate!.getTime())[0] : null;
+        if (next) start.push({ kind: 'assignment', label: `${next.title} · due ${new Intl.DateTimeFormat('en', { timeZone: zone ?? 'UTC', weekday: 'short' }).format(next.dueDate!)}`, href: `${base}?tab=tasks&drawerType=task&drawerId=${next.id}` });
+        if (v.isAdmin) start.push({ kind: 'invite', label: 'Invite people', href: `${base}?tab=members` });
+        else start.push({ kind: 'workspace', label: 'Join a workspace', href: `${base}?tab=projects` });
+        const [entry] = v.userId ? await db.select({ publishedAt: profileContributions.publishedAt }).from(profileContributions)
+            .where(and(eq(profileContributions.projectId, orgId), eq(profileContributions.profileId, v.userId), isNull(profileContributions.deletedAt))).limit(1) : [];
+        welcome = { note: counts?.welcomeNote ?? null, start: start.slice(0, 3), addToProfile: !v.isGuest && !entry?.publishedAt };
+    }
 
     const projectRows = await db.select({ id: workspaces.id, title: workspaces.title, slug: workspaces.slug, updatedAt: workspaces.updatedAt, visibility: workspaces.visibility }).from(workspaces)
         .where(and(eq(workspaces.parentId, orgId), isNull(workspaces.deletedAt), ne(workspaces.status, 'archived'),
@@ -208,6 +268,13 @@ export async function readOrgDashboardAction(orgId: string, activityFilter = 'al
             items,
         },
         comingUp: comingUp.slice(0, 12),
+        thisWeek: thisWeek.slice(0, 12),
+        today,
+        standing,
+        standingWord: CLASS_WORD[counts?.orgType ?? ''] ?? 'group',
+        weekLine: profile.termDates ? weekLine(counts?.termStart ?? null, counts?.termEnd ?? null, now, zone) : null,
+        welcome,
+        restricted: Boolean(counts?.restrictedAt),
         activity,
         projects: projectRows.map((p) => ({ id: p.id, title: p.title, slug: p.slug })),
         people: {
@@ -217,7 +284,9 @@ export async function readOrgDashboardAction(orgId: string, activityFilter = 'al
             requests: v.isAdmin ? counts?.requests ?? 0 : 0,
         },
         archivedSummary,
-        getStarted: v.isAdmin && !archived ? getStartedSteps({ members: people.length, sprints: counts?.allSprints ?? 0, files: counts?.files ?? 0, announcements: counts?.announcements ?? 0, assignments: masters.length }) : [],
+        // Report §7.2, decision 7: only while the organization is truly empty; any real thing makes it go.
+        getStarted: v.isAdmin && !archived ? getStartedCards({ members: people.length, sprints: counts?.allSprints ?? 0, tasks: counts?.tasks ?? 0, workspaces: counts?.workspaces ?? 0,
+            announcements: counts?.announcements ?? 0, documents: counts?.documents ?? 0, files: counts?.files ?? 0 }) : [],
     };
 }
 
@@ -393,4 +462,13 @@ export async function remindLeadsAction(orgId: string, projectIds: string[]): Pr
         reminded += 1;
     }
     return { success: true, reminded, skipped };
+}
+
+/** The welcome panel's × (report §26.7, decision 49): hidden for good, on every device. */
+export async function dismissWelcomeAction(orgId: string): Promise<{ success: true } | Failure> {
+    const { userId } = await getViewerAuthContext();
+    if (!userId) return DENIED;
+    await db.update(workspaceMembers).set({ welcomeDismissedAt: new Date() })
+        .where(and(eq(workspaceMembers.projectId, orgId), eq(workspaceMembers.userId, userId)));
+    return { success: true };
 }
