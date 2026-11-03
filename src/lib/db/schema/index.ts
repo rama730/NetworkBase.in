@@ -1082,6 +1082,20 @@ export const assignmentSubmissions = pgTable("assignment_submissions", {
   late: boolean("late").default(false).notNull(),
 });
 
+/** Away (report §33.5, DB7): an admin marks a member away; their work due then is excused. Server only. */
+export const orgMemberAway = pgTable("org_member_away", {
+    id: uuid("id").defaultRandom().primaryKey(),
+    orgId: uuid("org_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+    userId: uuid("user_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+    startsAt: timestamp("starts_at", { withTimezone: true }).notNull(),
+    endsAt: timestamp("ends_at", { withTimezone: true }).notNull(),
+    reason: text("reason"),
+    createdBy: uuid("created_by").references(() => profiles.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+    memberIdx: index("org_member_away_member_idx").on(t.orgId, t.userId, t.endsAt),
+}));
+
 export const orgEmailInvites = pgTable(
   "org_email_invites",
   {

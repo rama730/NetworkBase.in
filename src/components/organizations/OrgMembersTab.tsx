@@ -14,6 +14,10 @@ import {
     moveMemberToWorkspaceAction,
     readMemberActivityAction,
     readMemberWorkAction,
+    readMemberAwayAction,
+    markAwayAction,
+    endAwayAction,
+    type AwayRow,
     readOrgMembersAction,
     readProgressExportAction,
     remindMembersAction,
@@ -382,6 +386,7 @@ function MemberDrawer({ orgId, row, data, label, pending, run, onRole, onRemove,
                     </ul>
                 )}
             </section>
+            {row.role === 'member' ? <MemberAway orgId={orgId} userId={row.userId} name={row.name} /> : null}
             <section className="space-y-1.5">
                 <h4 className="font-semibold">Contribution credit</h4>
                 <p className="text-muted-foreground">{row.verified ? '✓ Verified. It covers role and dates, not what they wrote.' : 'Not verified yet.'}</p>
@@ -436,5 +441,49 @@ function MemberDrawer({ orgId, row, data, label, pending, run, onRole, onRemove,
                 {blocking.dialog}
             </section>
         </div>
+    )
+}
+
+/** Away (report §33.5, §33.7): dates and an optional reason; their own work due then is excused, and they're told. */
+function MemberAway({ orgId, userId, name }: { orgId: string; userId: string; name: string }) {
+    const [rows, setRows] = useState<AwayRow[] | null>(null)
+    const [form, setForm] = useState<{ from: string; to: string; reason: string } | null>(null)
+    const [error, setError] = useState<string | null>(null)
+    const [pending, startTransition] = useTransition()
+    const load = useCallback(() => void readMemberAwayAction(orgId, userId).then((r) => setRows(r.success ? r.away : [])), [orgId, userId])
+    useEffect(() => { load() }, [load])
+    const day = (iso: string) => new Date(iso).toLocaleDateString('en', { day: 'numeric', month: 'short' })
+    const save = () => startTransition(async () => {
+        if (!form) return
+        const r = await markAwayAction(orgId, userId, { from: form.from, to: form.to, reason: form.reason.trim() || null })
+        if (!r.success) return setError(r.error)
+        toast.success(r.excused ? `${name} is away. ${r.excused} excused.` : `${name} is away.`)
+        setForm(null); setError(null); load()
+    })
+    return (
+        <section className="space-y-1.5">
+            <h4 className="font-semibold">Away</h4>
+            {rows?.length ? rows.map((a) => (
+                <p key={a.id} className="flex flex-wrap items-center gap-2">
+                    {day(a.from)}–{day(a.to)}{a.reason ? ` · ${a.reason}` : ''}
+                    <Button type="button" size="sm" variant="ghost" disabled={pending} onClick={() => startTransition(async () => { await endAwayAction(orgId, a.id); load() })}>End now</Button>
+                </p>
+            )) : <p className="text-muted-foreground">Not marked away.</p>}
+            {form ? (
+                <div className="space-y-2 rounded-md border border-border p-3">
+                    <div className="flex flex-wrap gap-2">
+                        <label className="space-y-1"><span className="block text-[12px]">First day</span><Input type="date" value={form.from} onChange={(e) => setForm({ ...form, from: e.target.value })} className="h-9" /></label>
+                        <label className="space-y-1"><span className="block text-[12px]">Last day</span><Input type="date" value={form.to} min={form.from} onChange={(e) => setForm({ ...form, to: e.target.value })} className="h-9" /></label>
+                    </div>
+                    <Input value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} maxLength={300} placeholder="Reason (optional, they see it)" aria-label="Reason" className="h-9" />
+                    <p className="text-[12px] text-muted-foreground">Their own work due in these days is excused, and work given then starts excused.</p>
+                    {error ? <p role="alert" className="text-destructive">{error}</p> : null}
+                    <span className="flex gap-1.5">
+                        <Button type="button" size="sm" disabled={pending || !form.from || !form.to} onClick={save}>Mark away</Button>
+                        <Button type="button" size="sm" variant="ghost" onClick={() => { setForm(null); setError(null) }}>Cancel</Button>
+                    </span>
+                </div>
+            ) : <Button type="button" size="sm" variant="outline" onClick={() => { const today = new Date().toISOString().slice(0, 10); setForm({ from: today, to: today, reason: '' }) }}>Mark away</Button>}
+        </section>
     )
 }

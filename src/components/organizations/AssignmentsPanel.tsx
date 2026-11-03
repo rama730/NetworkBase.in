@@ -52,6 +52,7 @@ import { webLink, type AssignmentTarget, type CopyState } from '@/lib/organizati
 import { DownloadLink } from '@/components/ui/download-link'
 import { remindSummary } from '@/lib/organizations/member-rules'
 import { toast } from '@/lib/feedback'
+import { cn } from '@/lib/utils'
 import { ASSIGNMENT_STATE_LABELS } from '@/lib/copy/terms'
 import { EditAssignmentDialog, ExcuseDialog, ExtendDialog, GiveToDialog, ReturnDialog } from '@/components/organizations/AssignmentDialogs'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
@@ -790,6 +791,8 @@ export function ReviewQueue({ orgId, onChanged, onClose }: { orgId: string; onCh
     const [index, setIndex] = useState(0)
     const [assignment, setAssignment] = useState('all')
     const [lateOnly, setLateOnly] = useState(false)
+    // Reviewers (report §33.5): Mine is the work you review, plus anything nobody was picked for.
+    const [mineOnly, setMineOnly] = useState(false)
     const [returning, setReturning] = useState(false)
     const [reason, setReason] = useState('')
     const [fixBy, setFixBy] = useState('')
@@ -799,7 +802,7 @@ export function ReviewQueue({ orgId, onChanged, onClose }: { orgId: string; onCh
     const load = useCallback(() => void readReviewQueueAction(orgId).then((r) => { setRows(r.success ? r.rows : []); setTotal(r.success ? r.total : 0); if (!r.success) setError(r.error) }), [orgId])
     useEffect(() => { load() }, [load])
     useReloadOnNotice(load)
-    const shown = useMemo(() => (rows ?? []).filter((r) => (assignment === 'all' || r.masterId === assignment) && (!lateOnly || r.late)), [rows, assignment, lateOnly])
+    const shown = useMemo(() => (rows ?? []).filter((r) => (assignment === 'all' || r.masterId === assignment) && (!lateOnly || r.late) && (!mineOnly || r.mine)), [rows, assignment, lateOnly, mineOnly])
     const current = shown[Math.min(index, Math.max(0, shown.length - 1))] ?? null
     const step = (by: number) => { setReturning(false); setIndex((i) => (shown.length ? (i + by + shown.length) % shown.length : 0)) }
     const decide = (decision: 'approve' | 'return') => {
@@ -853,6 +856,12 @@ export function ReviewQueue({ orgId, onChanged, onClose }: { orgId: string; onCh
                     {titles.map(([id, title]) => <option key={id} value={id}>{title}</option>)}
                 </select>
                 <label className="flex items-center gap-1.5 text-xs"><input type="checkbox" checked={lateOnly} onChange={(e) => { setLateOnly(e.target.checked); setIndex(0) }} /> Late only</label>
+                {rows.some((r) => !r.mine) ? (
+                    <span className="flex gap-1 text-xs" role="group" aria-label="Whose reviews">
+                        <button type="button" aria-pressed={mineOnly} className={cn('rounded-[3px] border px-1.5', mineOnly ? 'border-foreground font-medium' : 'border-border')} onClick={() => { setMineOnly(true); setIndex(0) }}>Mine</button>
+                        <button type="button" aria-pressed={!mineOnly} className={cn('rounded-[3px] border px-1.5', !mineOnly ? 'border-foreground font-medium' : 'border-border')} onClick={() => { setMineOnly(false); setIndex(0) }}>All</button>
+                    </span>
+                ) : null}
                 <span className="ml-auto text-xs text-muted-foreground">{shown.length ? `${Math.min(index, shown.length - 1) + 1} of ${shown.length} waiting` : ''}{total > rows.length ? ` · ${rows.length} of ${total} loaded` : ''}</span>
                 <Button type="button" size="sm" variant="ghost" disabled={shown.length < 2} onClick={() => step(-1)} aria-label="Previous">‹</Button>
                 <Button type="button" size="sm" variant="ghost" disabled={shown.length < 2} onClick={() => step(1)}>Next</Button>

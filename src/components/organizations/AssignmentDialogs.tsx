@@ -125,14 +125,18 @@ export function EditAssignmentDialog({ orgId, row, open, onClose, onSave, timeZo
     const [submissionType, setSubmissionType] = useState(row.submissionType)
     const [review, setReview] = useState(row.reviewRequired)
     const [sprintId, setSprintId] = useState('')
+    const [admins, setAdmins] = useState<Array<{ id: string; name: string }>>([])
+    const [reviewers, setReviewers] = useState<string[] | null>(null)
+    const [savedReviewers, setSavedReviewers] = useState<string[]>([])
     useEffect(() => {
         if (!open) return
         void readAssignmentForReuseAction(row.masterId).then((r) => {
             if (!r.success) return
             setLoaded({ description: r.form.description, lateRule: r.form.lateRule, lateAfterMinutes: r.form.lateAfterMinutes })
             setDescription(r.form.description); setLateRule(r.form.lateRule); setLateAfter(r.form.lateAfterMinutes)
+            setReviewers(r.form.reviewers ?? []); setSavedReviewers(r.form.reviewers ?? [])
         })
-        void readAssignmentComposerOptionsAction(orgId).then((r) => setSprints(r.success ? r.sprints : []))
+        void readAssignmentComposerOptionsAction(orgId).then((r) => { setSprints(r.success ? r.sprints : []); setAdmins(r.success ? r.admins ?? [] : []) })
     }, [open, orgId, row.masterId])
     const published = row.status === 'open' || row.status === 'closed'
     const handedIn = row.counts.submitted + row.counts.done > 0
@@ -147,6 +151,7 @@ export function EditAssignmentDialog({ orgId, row, open, onClose, onSave, timeZo
         ...(submissionType !== row.submissionType ? { submissionType: submissionType as 'none' | 'file' | 'link' | 'text' } : {}),
         ...(review !== row.reviewRequired ? { reviewRequired: review } : {}),
         ...(sprintId ? { sprintId } : {}),
+        ...(reviewers && [...reviewers].sort().join() !== [...savedReviewers].sort().join() ? { reviewers } : {}),
     })
     return (
         <ConfirmDialog open={open} onOpenChange={(v) => { if (!v) onClose() }} size="wide" title={published ? `Edit ${row.title} for everyone` : `Edit ${row.title}`}
@@ -186,6 +191,17 @@ export function EditAssignmentDialog({ orgId, row, open, onClose, onSave, timeZo
                     <Input type="number" min={0} max={60} value={lateAfter} onChange={(e) => setLateAfter(Math.max(0, Math.min(60, Number(e.target.value) || 0)))} className="w-20" aria-label="Late after, in minutes" /> minutes
                 </label>
                 <label className="flex items-center gap-2"><input type="checkbox" checked={review} onChange={(e) => setReview(e.target.checked)} /> Review each submission</label>
+                {review && admins.length > 1 && reviewers ? (
+                    // Reviewers (report §33.5): pick who reviews; nobody picked means every admin's queue has it.
+                    <fieldset className="space-y-1 sm:col-span-2"><legend className="font-medium">Reviewers <span className="font-normal text-muted-foreground">(none picked: everyone)</span></legend>
+                        <div className="flex flex-wrap gap-x-4 gap-y-1">
+                            {admins.map((a) => (
+                                <label key={a.id} className="flex items-center gap-1.5"><input type="checkbox" checked={reviewers.includes(a.id)}
+                                    onChange={(e) => setReviewers(e.target.checked ? [...reviewers, a.id] : reviewers.filter((id) => id !== a.id))} />{a.name}</label>
+                            ))}
+                        </div>
+                    </fieldset>
+                ) : null}
                 {published ? <p className="text-[12px] text-muted-foreground sm:col-span-2">Steps can only be added after publishing (Roster → Add step). Turning review off approves nothing already waiting.</p> : null}
             </div>
         </ConfirmDialog>

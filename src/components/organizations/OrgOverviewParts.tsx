@@ -78,6 +78,21 @@ export function OrgDashboard({ orgId, orgSlug, orgType = null }: { orgId: string
                         {data.welcome.addToProfile ? <Link href="/profile/edit?section=experience" className="mt-3 inline-block text-[13px] font-medium text-primary hover:underline">Add to your profile</Link> : null}
                     </section>
                 ) : null}
+                {data.catchUp ? (
+                    // Report §33.5: Catch up for a late joiner, earlier sprints and their materials, with nothing to hand in.
+                    <section aria-label="Catch up" className="rounded-lg border border-border bg-card p-4" data-testid="org-catch-up">
+                        <h2 className="nb-card-title">Catch up</h2>
+                        <p className="mt-1 text-sm text-muted-foreground">{data.catchUp.line}</p>
+                        <ul className="mt-2 space-y-2 text-sm">
+                            {data.catchUp.sprints.map((s) => (
+                                <li key={s.id}>
+                                    <Link href={`${base}?tab=sprints&sprintId=${s.id}`} className="font-medium hover:underline">{s.name}</Link>
+                                    {s.materials.length ? <ul className="ml-3 mt-0.5 space-y-0.5">{s.materials.map((m) => <li key={m.href}><Link href={m.href} className="text-muted-foreground hover:text-foreground hover:underline">{m.name}</Link></li>)}</ul> : null}
+                                </li>
+                            ))}
+                        </ul>
+                    </section>
+                ) : null}
                 {data.pinned ? (
                     <Link href={`${base}?tab=updates&updateId=${data.pinned.id}`} className="flex min-h-10 items-center gap-2 rounded-[5px] border border-border bg-muted/30 px-3 text-sm hover:bg-muted">
                         <Pin className="size-3.5 shrink-0" aria-hidden="true" /><span className="truncate">{data.pinned.content}</span>

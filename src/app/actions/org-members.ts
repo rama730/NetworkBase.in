@@ -6,9 +6,11 @@ import { z } from 'zod';
 import { UUID_RE } from '@/lib/validations/uuid';
 
 import { db } from '@/lib/db';
-import { applicationEvents, orgEmailInvites, orgJoinBlocks, profiles, workspaceMembers, workspaceOpenRoles, workspaces, roleApplications, taskTeamMembers, tasks, userBlocks } from '@/lib/db/schema';
+import { applicationEvents, orgEmailInvites, orgJoinBlocks, orgMemberAway, profiles, workspaceMembers, workspaceOpenRoles, workspaces, roleApplications, taskTeamMembers, tasks, userBlocks } from '@/lib/db/schema';
 import { getWorkspaceAccessById } from '@/lib/data/workspace-access';
 import { notifyNewCopies } from '@/lib/organizations/assignment-notify';
+import { formatDueDay } from '@/lib/organizations/notify-rules';
+import { zonedInputToIso } from '@/lib/organizations/zoned-time';
 import { copyState } from '@/lib/organizations/assignment-rules';
 import { createCopiesForNewMember, handedInSql, releaseCopiesOnLeave } from '@/lib/organizations/assignments';
 import { ORG_LIMITS, orgRoleNames } from '@/lib/organizations/config';
@@ -839,4 +841,62 @@ export async function previewOrgInviteEmailAction(orgId: string, input: { role: 
     const role = input.role === 'admin' ? names.admin : input.role === 'viewer' ? names.viewer : names.member;
     const email = buildOrgEmail('org_invite', { ...base, role, memberTitle: input.title?.trim().slice(0, 60) || null, note: input.message?.trim().slice(0, 500) || null, expiresAt: new Date(Date.now() + INVITE_DAYS * 86_400_000).toISOString() } as Parameters<typeof buildOrgEmail>[1], { email: 'preview@networkbase.in' });
     return { success: true, subject: email.subject, html: email.html };
+}
+
+const day = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+const awaySchema = z.object({ from: day, to: day, reason: z.string().trim().max(300).nullable().optional() }).strict();
+
+export type AwayRow = { id: string; from: string; to: string; reason: string | null };
+
+/** Away (report §33.5, §33.7): the member panel's current and coming dates, for admins (mark_away). */
+export async function readMemberAwayAction(orgId: string, userId: string): Promise<{ success: true; away: AwayRow[] } | Failure> {
+    if (!(await orgManager(orgId, 'mark_away', 'read'))) return DENIED;
+    const rows = await db.select({ id: orgMemberAway.id, from: orgMemberAway.startsAt, to: orgMemberAway.endsAt, reason: orgMemberAway.reason }).from(orgMemberAway)
+        .where(and(eq(orgMemberAway.orgId, orgId), eq(orgMemberAway.userId, userId), sql`${orgMemberAway.endsAt} > now()`)).orderBy(orgMemberAway.startsAt);
+    return { success: true, away: rows.map((r) => ({ id: r.id, from: r.from.toISOString(), to: r.to.toISOString(), reason: r.reason })) };
+}
+
+/**
+ * Mark away (report §33.5): their own work due in those dates is excused now, work published then starts excused,
+ * and they're told. Group work stays with the group. Ending it early never un-excuses anything.
+ */
+export async function markAwayAction(orgId: string, userId: string, input: z.input<typeof awaySchema>): Promise<{ success: true; excused: number } | Failure> {
+    const viewer = await orgManager(orgId, 'mark_away');
+    if (!viewer) return DENIED;
+    const parsed = awaySchema.safeParse(input);
+    if (!parsed.success) return { success: false, error: 'Pick the first and last day.' };
+    // Whole days in the organization's time zone (report §32.5): from the first day's start to the last day's end.
+    const zone = (await orgLabel(orgId))?.timeZone ?? null;
+    const from = new Date(zonedInputToIso(`${parsed.data.from}T00:00`, zone)), to = new Date(zonedInputToIso(`${parsed.data.to}T23:59`, zone));
+    if (to <= from) return { success: false, error: 'The last day can’t be before the first.' };
+    const [member] = await db.select({ role: workspaceMembers.role }).from(workspaceMembers).where(and(eq(workspaceMembers.projectId, orgId), eq(workspaceMembers.userId, userId))).limit(1);
+    if (member?.role !== 'member') return { success: false, error: 'Only members can be marked away.' };
+    const reason = parsed.data.reason?.trim() || null;
+    const excused = await db.transaction(async (tx) => {
+        await tx.insert(orgMemberAway).values({ orgId, userId, startsAt: from, endsAt: to, reason, createdBy: viewer.userId });
+        const rows = await tx.execute<{ id: string }>(sql`
+            UPDATE tasks c SET excused_at = now(), excused_reason = ${reason ? `Away: ${reason}` : 'Away'}, updated_at = now()
+            FROM tasks m WHERE m.id = c.assignment_id AND m.workspace_id = ${orgId} AND c.workspace_id = ${orgId} AND c.assignee_id = ${userId}
+              AND c.team_name IS NULL AND c.deleted_at IS NULL AND c.excused_at IS NULL AND c.status <> 'done' AND c.review_status IS DISTINCT FROM 'pending'
+              AND c.due_date >= ${from.toISOString()}::timestamptz AND c.due_date <= ${to.toISOString()}::timestamptz
+            RETURNING c.id`);
+        return rows.length;
+    });
+    const org = await orgLabel(orgId);
+    if (org) {
+        const until = formatDueDay(to, org.timeZone);
+        await notifyOrg({ orgId, eventKey: 'assignments.due_changed', actorId: viewer.userId, to: [userId],
+            title: excused ? `You’re marked away until ${until}. ${excused} ${excused === 1 ? 'piece of work is' : 'pieces of work are'} excused.` : `You’re marked away until ${until}. Work due then is excused.`,
+            href: orgHref(org, '?tab=tasks'), sourceEventId: `away:${orgId}:${userId}:${from.getTime()}` });
+    }
+    revalidatePath(orgHref({ slug: viewer.slug, id: orgId }));
+    return { success: true, excused };
+}
+
+/** End an Away early (report §33.7): nothing already excused comes back. */
+export async function endAwayAction(orgId: string, awayId: string): Promise<{ success: true } | Failure> {
+    if (!(await orgManager(orgId, 'mark_away'))) return DENIED;
+    await db.update(orgMemberAway).set({ endsAt: sql`greatest(${orgMemberAway.startsAt} + interval '1 minute', now())` })
+        .where(and(eq(orgMemberAway.id, awayId), eq(orgMemberAway.orgId, orgId)));
+    return { success: true };
 }

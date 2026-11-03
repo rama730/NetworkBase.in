@@ -223,6 +223,16 @@ export async function createCopies(executor: Executor, masterId: string, recipie
   if (sprintRows.length) await executor.insert(sprintTaskMemberships).values(sprintRows);
   const teamRows = all.flatMap((c) => (c.members ?? []).map((userId) => ({ taskId: c.id, userId, isLead: userId === c.assigneeId })));
   for (let i = 0; i < teamRows.length; i += 1000) await executor.insert(taskTeamMembers).values(teamRows.slice(i, i + 1000));
+  // Away (report §33.5): someone marked away over the due date gets their own copy already excused.
+  if (master.dueDate) {
+    const own = all.filter((c) => !c.members?.length && c.assigneeId && c.projectId === master.projectId).map((c) => c.id);
+    for (let i = 0; i < own.length; i += 1000) {
+      await executor.execute(sql`
+        UPDATE ${tasks} c SET excused_at = now(), excused_reason = coalesce('Away: ' || a.reason, 'Away')
+        FROM org_member_away a WHERE c.id IN ${own.slice(i, i + 1000)} AND a.org_id = ${master.projectId} AND a.user_id = c.assignee_id
+          AND ${master.dueDate.toISOString()}::timestamptz BETWEEN a.starts_at AND a.ends_at`);
+    }
+  }
 }
 
 /** Late joiners get copies of open assignments that aren't past due; teams mode excepted (report §16.9, §16.11). */

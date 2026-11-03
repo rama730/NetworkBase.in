@@ -316,6 +316,8 @@ const updateSchema = z.object({
     storyPoints: z.number().int().min(0).max(100).nullable().optional(),
     /** "Tell everyone?" when the instructions change. */
     tellEveryone: z.boolean().optional(),
+    /** Reviewers (report §33.5): admins of the organization; an empty list means everyone reviews. */
+    reviewers: z.array(z.string().uuid()).max(20).optional(),
 }).strict();
 
 /**
@@ -339,8 +341,19 @@ export async function updateAssignmentAction(masterId: string, patch: z.input<ty
         const [sprint] = await db.select({ status: workspaceSprints.status }).from(workspaceSprints).where(and(eq(workspaceSprints.id, sprintId), eq(workspaceSprints.projectId, ctx.master.projectId))).limit(1);
         if (!sprint || (sprint.status !== 'planning' && sprint.status !== 'active')) return { success: false, error: 'Pick a planned or active sprint.' };
     }
+    let reviewers: string[] | undefined
+    if (parsed.data.reviewers) {
+        if (!orgCan(orgRoleOf(ctx.viewer.role), 'set_reviewers')) return DENIED;
+        const admins = await db.execute<{ id: string }>(sql`
+            SELECT owner_id AS id FROM workspaces WHERE id = ${ctx.master.projectId}
+            UNION SELECT user_id FROM workspace_members WHERE workspace_id = ${ctx.master.projectId} AND role = 'admin'`);
+        const allowed = new Set(admins.map((a) => a.id));
+        reviewers = [...new Set(parsed.data.reviewers)].filter((id) => allowed.has(id));
+        if (reviewers.length !== new Set(parsed.data.reviewers).size) return { success: false, error: 'Reviewers are the organization’s admins.' };
+    }
     const nextSettings: AssignmentSettings = {
         ...settings,
+        ...(reviewers ? { reviewers } : {}),
         ...(parsed.data.lateRule ? { lateRule: parsed.data.lateRule, lateUntil: parsed.data.lateRule === 'until' ? parsed.data.lateUntil ?? settings.lateUntil ?? null : null } : {}),
         ...(parsed.data.lateAfterMinutes !== undefined ? { lateAfterMinutes: parsed.data.lateAfterMinutes } : {}),
         ...(parsed.data.submissionType ? { submissionType: parsed.data.submissionType } : {}),
@@ -437,6 +450,7 @@ export async function readAssignmentExportAction(masterId: string): Promise<{ su
 /** Use again (report §33.5): the form filled from an earlier assignment, with new dates left to choose. */
 export async function readAssignmentForReuseAction(masterId: string): Promise<{ success: true; form: {
     title: string; description: string; submissionType: string; reviewRequired: boolean; lateRule: string; lateAfterMinutes: number; steps: string[]; target: AssignmentTarget; materials: Array<{ id: string; name: string }>; dueDate: null;
+    reviewers: string[];
 } } | Failure> {
     const ctx = await adminOfMaster(masterId, 'edit_for_everyone');
     if (!ctx) return DENIED;
@@ -448,6 +462,7 @@ export async function readAssignmentForReuseAction(masterId: string): Promise<{ 
     return { success: true, form: {
         title: ctx.master.title, description: ctx.master.description ?? '', submissionType: s.submissionType, reviewRequired: s.reviewRequired, lateRule: s.lateRule,
         lateAfterMinutes: s.lateAfterMinutes ?? LATE_AFTER_DEFAULT_MINUTES, steps: steps.map((r) => r.title), target: s.target, materials: [...materials], dueDate: null,
+        reviewers: s.reviewers ?? [],
     } };
 }
 
@@ -888,7 +903,12 @@ export async function readAssignmentComposerOptionsAction(orgId: string) {
     ]);
     // Settings → Work defaults (report §21.2 #5); the composer can still change them per assignment.
     const work = readOrgWork(org?.settings, org?.type);
-    return { success: true as const, children, sprints, teamAssignments, defaults: { reviewRequired: work.reviewRequired, lateRule: work.lateRule } };
+    // Reviewers (report §33.5): the owner and admins who can be picked.
+    const admins = await db.execute<{ id: string; name: string }>(sql`
+        SELECT p.id, coalesce(p.full_name, p.username, 'Admin') AS name FROM profiles p
+        WHERE p.id IN (SELECT owner_id FROM workspaces WHERE id = ${orgId} UNION SELECT user_id FROM workspace_members WHERE workspace_id = ${orgId} AND role = 'admin')
+        ORDER BY 2`);
+    return { success: true as const, children, sprints, teamAssignments, defaults: { reviewRequired: work.reviewRequired, lateRule: work.lateRule }, admins: [...admins] };
 }
 
 export type GroupCopyRow = { copyId: string; title: string; orgTitle: string; dueDate: string | null; state: CopyState; late: boolean; submissionType: string; canSubmit: boolean };
@@ -1049,6 +1069,8 @@ export async function excuseTeamMemberAction(copyId: string, userId: string, rea
 export type ReviewQueueRow = {
     /** Problem 33: the queue reads the same list as In review, so ordinary board tasks waiting come too ("task"). */
     kind: 'copy' | 'task';
+    /** Reviewers (report §33.5): the viewer is one of them, or none are set. Drives the queue's Mine. */
+    mine: boolean;
     copyId: string; masterId: string; title: string; who: string; submittedBy: string | null; submittedAt: string; late: boolean; href: string;
     /** The review panel (report §23.2): what was handed in, its version, steps and the private conversation. */
     projectId: string; updatedAt: string; version: number | null; link: string | null; text: string | null; note: string | null; files: string[];
@@ -1060,8 +1082,9 @@ export async function readReviewQueueAction(orgId: string): Promise<{ success: t
     const viewer = await orgRole(orgId, 'read');
     if (!viewer || !orgCan(orgRoleOf(viewer.role), 'approve_return')) return DENIED;
     const rows = await db.execute<{ copy_id: string; master_id: string; title: string; team_name: string | null; assignee: string | null; project: string | null; submitted_by: string | null; submitted_at: string; due_date: string | null; in_org: boolean; workspace_id: string;
-        updated_at: string; submission: { version?: number; link?: string | null; text?: string | null; note?: string | null } | null; files: string[] | null; steps_done: number; steps_total: number; comments: number; left_org: boolean; late_after: number | null; total: number }>(sql`
+        updated_at: string; submission: { version?: number; link?: string | null; text?: string | null; note?: string | null } | null; files: string[] | null; steps_done: number; steps_total: number; comments: number; left_org: boolean; late_after: number | null; total: number; mine: boolean }>(sql`
         SELECT c.id AS copy_id, m.id AS master_id, m.title, c.team_name, c.updated_at::text AS updated_at, c.submission,
+               (coalesce(jsonb_array_length(m.assignment_settings->'reviewers'), 0) = 0 OR m.assignment_settings->'reviewers' ? ${viewer.userId}) AS mine,
                (SELECT array_agg(f->>'name') FROM assignment_submissions s, jsonb_array_elements(s.files) f WHERE s.copy_id = c.id AND s.version = (c.submission->>'version')::int) AS files,
                (SELECT count(*) FILTER (WHERE st.completed)::int FROM task_subtasks st WHERE st.task_id = c.id) AS steps_done,
                (SELECT count(*)::int FROM task_subtasks st WHERE st.task_id = c.id) AS steps_total,
@@ -1087,13 +1110,13 @@ export async function readReviewQueueAction(orgId: string): Promise<{ success: t
         FROM tasks t WHERE t.workspace_id = ${orgId} AND t.assignment_id IS NULL AND t.kind <> 'assignment' AND t.deleted_at IS NULL AND t.review_status = 'pending'
         ORDER BY t.review_submitted_at ASC NULLS LAST LIMIT 100`);
     const taskRows: ReviewQueueRow[] = tasksWaiting.map((t) => ({
-        kind: 'task', copyId: t.id, masterId: 'tasks', title: t.title, who: t.assignee ?? 'Unassigned', submittedBy: null, submittedAt: t.submitted_at ?? t.updated_at,
+        kind: 'task', mine: true, copyId: t.id, masterId: 'tasks', title: t.title, who: t.assignee ?? 'Unassigned', submittedBy: null, submittedAt: t.submitted_at ?? t.updated_at,
         late: Boolean(t.due_date && t.submitted_at && new Date(t.submitted_at).getTime() > new Date(t.due_date).getTime()), href: assignmentHref('', t.id),
         projectId: orgId, updatedAt: new Date(t.updated_at).toISOString(), version: null, link: null, text: null, note: null, files: [],
         steps: { done: t.steps_done, total: t.steps_total }, comments: t.comments, left: false,
     }));
     return { success: true, rows: [...rows.map((r): ReviewQueueRow => ({
-        kind: 'copy', copyId: r.copy_id, masterId: r.master_id, title: r.title,
+        kind: 'copy', mine: r.mine, copyId: r.copy_id, masterId: r.master_id, title: r.title,
         who: r.team_name ?? r.project ?? r.assignee ?? 'Member', submittedBy: r.team_name ? r.submitted_by : null,
         submittedAt: r.submitted_at, late: Boolean(r.due_date && new Date(r.submitted_at).getTime() > new Date(r.due_date).getTime() + (r.late_after ?? LATE_AFTER_DEFAULT_MINUTES) * 60_000),
         // Group work opens in its own workspace (report §42.14 problem 35, decision 133).

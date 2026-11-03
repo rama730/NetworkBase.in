@@ -23,6 +23,7 @@ let units: typeof import("../../src/app/actions/child-units");
 let orgFiles: typeof import("../../src/app/actions/org-files");
 let assignments: typeof import("../../src/app/actions/assignments");
 let comments: typeof import("../../src/app/actions/task-comment");
+let dashboard: typeof import("../../src/app/actions/org-dashboard");
 before(async () => {
   const viewerContext = await loadAppModule(() => import("../../src/lib/server/viewer-context"));
   moduleStubs.set("@/lib/server/viewer-context", {
@@ -36,6 +37,7 @@ before(async () => {
   orgFiles = await loadAppModule(() => import("../../src/app/actions/org-files"));
   assignments = await loadAppModule(() => import("../../src/app/actions/assignments"));
   comments = await loadAppModule(() => import("../../src/app/actions/task-comment"));
+  dashboard = await loadAppModule(() => import("../../src/app/actions/org-dashboard"));
 });
 
 const created: string[] = [];
@@ -159,4 +161,53 @@ test("30.4: a team lead who moves away leaves the team without one, and the work
   assert.equal(moved.success, true, JSON.stringify(moved));
   assert.equal((await sql`SELECT team_lead_user_id FROM workspace_open_roles WHERE id = ${front!.id}`)[0]!.team_lead_user_id, null);
   assert.ok((await sql`SELECT 1 FROM user_notifications WHERE user_id = ${lead} AND title = 'Frontend has no team lead'`).length);
+});
+
+const day = (offset: number) => new Date(Date.now() + offset * 86_400_000).toISOString().slice(0, 10);
+
+test("33.5 Away: work due in the dates is excused at once, work published then starts excused; only admins mark it", async () => {
+  const o = await org();
+  const [m1] = await sql`INSERT INTO tasks (workspace_id, title, kind, due_date, assignment_settings, creator_id)
+    VALUES (${o.id}, 'Lab A', 'assignment', now() + interval '2 days', ${sql.json({ publishedAt: new Date().toISOString(), submissionType: "none", target: { mode: "everyone" } })}, ${o.owner}) RETURNING id`;
+  const [copy] = await sql`INSERT INTO tasks (workspace_id, title, kind, assignment_id, assignee_id, creator_id, due_date) VALUES (${o.id}, 'Lab A', 'task', ${m1!.id}, ${o.a}, ${o.owner}, now() + interval '2 days') RETURNING id`;
+  viewerId = o.b;
+  assert.equal((await members.markAwayAction(o.id, o.a, { from: day(0), to: day(5) })).success, false);
+  viewerId = o.admin;
+  const away = await members.markAwayAction(o.id, o.a, { from: day(0), to: day(5), reason: "Ill" });
+  assert.deepEqual(away, { success: true, excused: 1 });
+  assert.equal((await sql`SELECT excused_reason FROM tasks WHERE id = ${copy!.id}`)[0]!.excused_reason, "Away: Ill");
+  const { createCopies } = await loadAppModule(() => import("../../src/lib/organizations/assignments"));
+  const [m2] = await sql`INSERT INTO tasks (workspace_id, title, kind, due_date, assignment_settings, creator_id)
+    VALUES (${o.id}, 'Lab B', 'assignment', now() + interval '3 days', ${sql.json({ publishedAt: new Date().toISOString(), submissionType: "none", target: { mode: "everyone" } })}, ${o.owner}) RETURNING id`;
+  const appDb = await loadAppModule(() => import("../../src/lib/db"));
+  await createCopies(appDb.db, m2!.id, [{ projectId: o.id, assigneeId: o.a }, { projectId: o.id, assigneeId: o.b }], o.owner);
+  const rows = Object.fromEntries((await sql`SELECT assignee_id, excused_reason FROM tasks WHERE assignment_id = ${m2!.id}`).map((r) => [r.assignee_id, r.excused_reason]));
+  assert.deepEqual([rows[o.a], rows[o.b]], ["Away: Ill", null]);
+});
+
+test("33.5 Catch up: a member who joined after sprints began sees the earlier ones; an admin doesn't", async () => {
+  const o = await org();
+  await sql`INSERT INTO workspace_sprints (workspace_id, name, sprint_number, start_date, end_date, status) VALUES (${o.id}, 'CO1', 1, now() - interval '20 days', now() - interval '13 days', 'completed')`;
+  await sql`UPDATE workspace_members SET joined_at = now() - interval '2 days' WHERE workspace_id = ${o.id} AND user_id = ${o.a}`;
+  viewerId = o.a;
+  const mine = await dashboard.readOrgDashboardAction(o.id);
+  assert.ok(mine.success);
+  assert.deepEqual(mine.success ? mine.catchUp?.sprints.map((s) => s.name) : null, ["CO1"]);
+  viewerId = o.admin;
+  const theirs = await dashboard.readOrgDashboardAction(o.id);
+  assert.equal(theirs.success ? theirs.catchUp : "x", null);
+});
+
+test("33.5 Reviewers: only the organization's admins can be picked; the queue marks each row Mine or not", async () => {
+  const o = await org();
+  const master = await published(o, `Lab ${o.tag}`);
+  await sql`UPDATE tasks SET review_status = 'pending', review_submitted_at = now() WHERE assignment_id = ${master} AND assignee_id = ${o.a}`;
+  viewerId = o.owner;
+  assert.equal((await assignments.updateAssignmentAction(master, { reviewers: [o.a] })).success, false, "a member can't review");
+  assert.equal((await assignments.updateAssignmentAction(master, { reviewers: [o.admin] })).success, true);
+  const ownerQueue = await assignments.readReviewQueueAction(o.id);
+  assert.deepEqual(ownerQueue.success ? ownerQueue.rows.filter((r) => r.kind === "copy").map((r) => r.mine) : null, [false]);
+  viewerId = o.admin;
+  const adminQueue = await assignments.readReviewQueueAction(o.id);
+  assert.deepEqual(adminQueue.success ? adminQueue.rows.filter((r) => r.kind === "copy").map((r) => r.mine) : null, [true]);
 });

@@ -393,6 +393,13 @@
       "when": 1793481906300,
       "tag": "0056_org_invite_message",
       "breakpoints": true
+    },
+    {
+      "idx": 56,
+      "version": "7",
+      "when": 1793481966300,
+      "tag": "0057_org_member_away",
+      "breakpoints": true
     }
   ]
 }

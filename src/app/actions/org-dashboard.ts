@@ -138,6 +138,8 @@ export type OrgDashboardData = {
     getStarted: string[];
     /** Archived orgs (report §27.4): "CSE-3A ended Dec 2026 · 5 sprints · 40 assignments · 64 members". */
     archivedSummary: string | null;
+    /** Catch up (report §33.5): a late joiner's two weeks of "here's what you missed", with no copies. */
+    catchUp: { line: string; sprints: Array<{ id: string; name: string; materials: Array<{ name: string; href: string }> }> } | null;
     /** Term summary (report §33.5): admins see how much work was completed; members their own record. */
     termSummary: { completedPercent: number | null; mine: { done: number; total: number } | null } | null;
 };
@@ -299,6 +301,7 @@ export async function readOrgDashboardAction(orgId: string, activityFilter = 'al
             requests: v.isAdmin ? counts?.requests ?? 0 : 0,
         },
         archivedSummary,
+        catchUp: v.isAdmin || v.isGuest || archived ? null : await readCatchUp(v, orgId, now, counts?.termStart ?? null, counts?.termEnd ?? null, zone, profile.termDates),
         termSummary,
         // Report §7.2, decision 7: only while the organization is truly empty; any real thing makes it go.
         getStarted: v.isAdmin && !archived ? getStartedCards({ members: people.length, sprints: counts?.allSprints ?? 0, tasks: counts?.tasks ?? 0, workspaces: counts?.workspaces ?? 0,
@@ -518,4 +521,38 @@ export async function dismissWelcomeAction(orgId: string): Promise<{ success: tr
     await db.update(workspaceMembers).set({ welcomeDismissedAt: new Date() })
         .where(and(eq(workspaceMembers.projectId, orgId), eq(workspaceMembers.userId, userId)));
     return { success: true };
+}
+
+/**
+ * Catch up (report §33.5, §33.7): for two weeks after joining, a member who joined once sprints had begun sees the
+ * earlier ones and their materials, through the same file and document rules as Files. No copies are made.
+ */
+async function readCatchUp(v: OrgViewer, orgId: string, now: Date, termStart: string | null, termEnd: string | null, zone: string | null, termDates: boolean): Promise<OrgDashboardData['catchUp']> {
+    if (!v.userId) return null;
+    const [me] = await db.select({ joinedAt: workspaceMembers.joinedAt }).from(workspaceMembers)
+        .where(and(eq(workspaceMembers.projectId, orgId), eq(workspaceMembers.userId, v.userId))).limit(1);
+    if (!me?.joinedAt || now.getTime() - me.joinedAt.getTime() > 14 * DAY) return null;
+    const earlier = await db.select({ id: workspaceSprints.id, name: workspaceSprints.name }).from(workspaceSprints)
+        .where(and(eq(workspaceSprints.projectId, orgId), lt(workspaceSprints.startDate, me.joinedAt), inArray(workspaceSprints.status, ['active', 'completed'])))
+        .orderBy(asc(workspaceSprints.startDate)).limit(20);
+    if (earlier.length === 0) return null;
+    const base = `/org/${encodeURIComponent(v.org.slug ?? orgId)}`;
+    const ids = earlier.map((s) => s.id);
+    const files = await db.execute<{ sprint_id: string; name: string; path: string }>(sql`
+        SELECT m.sprint_id, n.name, n.path FROM sprint_materials m JOIN workspace_nodes n ON n.id = m.node_id AND n.deleted_at IS NULL
+        WHERE m.sprint_id IN ${ids} AND ${orgFileAccessSql(v.access, { projectId: sql`n.workspace_id`, path: sql`n.path`, taskId: sql`n.task_id` }) ?? sql`TRUE`}`);
+    const docRows = await db.execute<{ sprint_id: string; doc_id: string }>(sql`SELECT m.sprint_id, m.doc_id FROM sprint_materials m WHERE m.sprint_id IN ${ids} AND m.doc_id IS NOT NULL`);
+    const docs = docRows.length ? await readOrgDocsAction(orgId) : null;
+    const docById = new Map(docs?.success && docs.data ? docs.data.docs.map((d) => [d.id, d]) : []);
+    const week = termDates ? weekLine(termStart, termEnd, me.joinedAt, zone)?.replace(/ of \d+$/, '') : null;
+    return {
+        line: week ? `You joined in ${week.toLowerCase()}. Here’s what you missed.` : 'Here’s what happened before you joined.',
+        sprints: earlier.map((s) => ({
+            id: s.id, name: s.name,
+            materials: [
+                ...files.filter((f) => f.sprint_id === s.id).map((f) => ({ name: f.name, href: `${base}?tab=files&path=${encodeURIComponent(f.path)}` })),
+                ...docRows.filter((d) => d.sprint_id === s.id && docById.has(d.doc_id)).map((d) => { const doc = docById.get(d.doc_id)!; return { name: doc.filename.replace(/\.(md|mdx|markdown)$/i, ''), href: `${base}?tab=readme&doc=${encodeURIComponent(doc.slug)}` } }),
+            ],
+        })),
+    };
 }

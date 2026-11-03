@@ -32,6 +32,8 @@ export type AssignmentSettings = {
   publishOnSprintStart?: boolean;
   /** "Instructions updated 2 Nov" on each copy (report §23.3); no history. */
   instructionsUpdatedAt?: string | null;
+  /** Reviewers (report §33.5): the admins who review it; none means everyone. The queue's Mine follows this. */
+  reviewers?: string[];
 };
 
 export const LATE_AFTER_DEFAULT_MINUTES = 15;
