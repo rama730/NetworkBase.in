@@ -43,7 +43,9 @@ export function AssignmentGlance({ row, orgId, timeZone, onChanged, onFullRoster
     const [error, setError] = useState<string | null>(null)
     const [pending, startTransition] = useTransition()
     const load = useCallback(() => void readAssignmentRosterAction(row.masterId).then((r) => { if (r.success) setRows(r.rows) }), [row.masterId])
-    useEffect(() => { load() }, [load])
+    // The tiles' counts change when work is decided anywhere (Full roster, the queue); the lists follow them.
+    const countsKey = JSON.stringify(row.counts)
+    useEffect(() => { load() }, [load, countsKey])
     const run = (action: () => Promise<{ success: boolean; error?: string }>, done?: string) => startTransition(async () => {
         const result = await action()
         setError(result.success ? null : result.error ?? 'Something went wrong.')

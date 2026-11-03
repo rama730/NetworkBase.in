@@ -45,7 +45,7 @@ export function ReviewWork({ row }: { row: ReviewQueueRow }) {
                 ) : null}
                 {view && view !== 'unavailable' ? <a href={view.download} className="text-[13px] text-primary underline-offset-4 hover:underline" aria-label={`Download ${file.name}`}>Download</a> : null}
             </div>
-            <div className="h-[60vh] overflow-hidden rounded-md border border-border bg-card max-md:h-[50vh]" data-testid="review-preview">
+            <div className="h-[60vh] overflow-auto rounded-md border border-border bg-card max-md:h-[50vh]" data-testid="review-preview">
                 {view === 'unavailable' ? (
                     <p className="p-4 text-[13px] text-muted-foreground">The preview isn’t available here. <a href={row.href} className="text-primary underline-offset-4 hover:underline">Open the hand-in</a></p>
                 ) : view ? <UniversalPreviewEngine node={view.node} fileUrl={view.url} projectId={row.projectId} /> : <p className="p-4 text-[13px] text-muted-foreground">Loading {file.name}…</p>}

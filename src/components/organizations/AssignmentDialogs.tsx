@@ -24,7 +24,7 @@ export function ReturnDialog({ label, change = false, open, onClose, onReturn, t
             confirmLabel="Return" onConfirm={() => { if (reason.trim() && fixBy) onReturn(reason.trim(), zonedInputToIso(fixBy, timeZone)); onClose() }}>
             <div className="space-y-3 text-sm">
                 <label className="block space-y-1"><span className="font-medium">What should they change?</span>
-                    <textarea required value={reason} onChange={(e) => setReason(e.target.value)} rows={3} maxLength={1000} className={area} />
+                    <textarea required value={reason} onChange={(e) => setReason(e.target.value)} rows={3} maxLength={1000} className={area} aria-label="What should they change?" />
                     <span className="block text-[12px] text-muted-foreground">They’ll see this.</span>
                 </label>
                 <label className="block space-y-1"><span className="font-medium">Fix by <span className="font-normal text-muted-foreground">({zoneName(timeZone)})</span></span>
@@ -77,7 +77,7 @@ export function ExcuseDialog({ label, open, onClose, onExcuse }: { label: string
         <ConfirmDialog open={open} onOpenChange={(v) => { if (!v) onClose() }} title={`Excuse ${label}?`} confirmLabel="Excuse"
             onConfirm={() => { if (reason.trim()) onExcuse(reason.trim()); onClose() }}>
             <label className="block space-y-1 text-sm"><span className="font-medium">Reason</span>
-                <textarea required value={reason} onChange={(e) => setReason(e.target.value)} rows={2} maxLength={500} className={area} />
+                <textarea required value={reason} onChange={(e) => setReason(e.target.value)} rows={2} maxLength={500} className={area} aria-label="Reason" />
                 <span className="block text-[12px] text-muted-foreground">They’ll see this. Their work stays, and they leave the counts.</span>
             </label>
         </ConfirmDialog>
