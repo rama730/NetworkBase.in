@@ -80,6 +80,7 @@ type RawProjectRow = {
     externalLinks: import('@/lib/profile/normalization').SocialLinkStorage | null;
     githubRepoUrl: string | null;
     kind: 'workspace' | 'organization';
+    orgVerified: boolean;
     orgType: string | null;
     /** Other's own label and "Part of" for the org card (report §34.11). */
     orgCard: { typeLabel?: string | null; partOf?: string | null } | null;
@@ -335,6 +336,9 @@ export const buildBaseConditions = (
     ];
     const show = showKeeps(filters.show ?? 'all');
     if (show.projectKind) conditions.push(eq(workspaces.kind, show.projectKind as 'workspace' | 'organization'));
+    // Report §31.6: Organization type and Verified only, with Show: Organizations.
+    if (filters.show === 'organizations' && filters.orgType) conditions.push(sql<boolean>`${workspaces.orgType} = ${filters.orgType}`);
+    if (filters.show === 'organizations' && filters.verified) conditions.push(sql<boolean>`${workspaces.verifiedAt} IS NOT NULL`);
     if (filters.org) {
         // "Show everything from CSE-3A": the org itself and its public child projects.
         conditions.push(sql<boolean>`(${workspaces.slug} = ${filters.org} AND ${workspaces.kind} = 'organization'
@@ -655,6 +659,7 @@ const projectSelectFields = {
     externalLinks: workspaces.externalLinks,
     githubRepoUrl: workspaces.githubRepoUrl,
     kind: workspaces.kind,
+    orgVerified: sql<boolean>`${workspaces.verifiedAt} IS NOT NULL`,
     orgType: workspaces.orgType,
     orgCard: sql<{ typeLabel?: string | null; partOf?: string | null } | null>`CASE WHEN ${workspaces.kind} = 'organization' THEN jsonb_build_object('typeLabel', ${workspaces.orgSettings}->>'typeLabel', 'partOf', ${workspaces.orgSettings}->>'partOf') END`,
     parentId: workspaces.parentId,
@@ -972,6 +977,8 @@ const hydrateProjects = async (
             orgType: project.orgType,
             orgTypeLabel: orgTypeLabel(project.orgType, project.orgCard),
             orgPartOf: project.orgCard?.partOf ?? null,
+            orgVerified: project.kind === 'organization' && Boolean(project.orgVerified),
+            viewerIsMember: viewerProjects.has(project.id),
             childProjectCount: project.kind === 'organization' ? childCountMap.get(project.id) ?? 0 : undefined,
             cardOrg: project.parentId ? parentOrgMap.get(project.parentId) ?? null : null,
             createdAt: project.createdAt.toISOString(),

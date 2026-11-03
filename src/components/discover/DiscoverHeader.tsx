@@ -1,5 +1,6 @@
 'use client';
 
+import { ORG_TYPES, orgTypeLabel } from '@/lib/organizations/config';
 import { useEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
 import { SlidersHorizontal, Users, X } from 'lucide-react';
 
@@ -139,7 +140,7 @@ export default function DiscoverHeader({ query, activeFilters, announcement, loa
                         {SCOPES.map((item) => <SelectItem key={item.id} value={item.id}>{item.label}</SelectItem>)}
                     </SelectContent>
                 </Select>
-                <Select value={query.show} onValueChange={(value) => onChange({ show: value as DiscoverQuery['show'] })}>
+                <Select value={query.show} onValueChange={(value) => onChange({ show: value as DiscoverQuery['show'], ...(value === 'organizations' ? {} : { orgType: '', verified: false }) })}>
                     <SelectTrigger aria-label="Show" className="w-auto min-w-[128px] bg-card pointer-coarse:h-11">
                         <SelectValue />
                     </SelectTrigger>
@@ -147,6 +148,23 @@ export default function DiscoverHeader({ query, activeFilters, announcement, loa
                         {SHOW_OPTIONS.map((option) => <SelectItem key={option.id} value={option.id}>{option.label}</SelectItem>)}
                     </SelectContent>
                 </Select>
+                {/* Report §31.6: with Organizations, a type filter and Verified only. */}
+                {query.show === 'organizations' ? (
+                    <>
+                        <Select value={query.orgType || 'all'} onValueChange={(value) => onChange({ orgType: value === 'all' ? '' : value })}>
+                            <SelectTrigger aria-label="Organization type" className="w-auto min-w-[140px] bg-card pointer-coarse:h-11">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">All types</SelectItem>
+                                {ORG_TYPES.map((type) => <SelectItem key={type} value={type}>{orgTypeLabel(type, null)}</SelectItem>)}
+                            </SelectContent>
+                        </Select>
+                        <label className="flex items-center gap-1.5 text-sm text-foreground">
+                            <input type="checkbox" checked={query.verified} onChange={(e) => onChange({ verified: e.target.checked })} /> Verified only
+                        </label>
+                    </>
+                ) : null}
                 <SearchBox value={query.q} loading={loading} onSearch={(q) => onChange({ q }, { replace: Boolean(query.q) })} />
                 <div className="flex items-center gap-2 max-sm:w-full">
                     {sortable ? (

@@ -49,6 +49,8 @@ export function useDiscoverUrlFilters() {
             tech: [],
             hideOpened: false,
             org: '',
+            orgType: '',
+            verified: false,
         });
     }, [updateUrlFilters]);
 

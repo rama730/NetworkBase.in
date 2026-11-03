@@ -32,6 +32,8 @@ export async function GET(request: Request) {
     search: query.q || undefined,
     ...(query.show !== "all" ? { show: query.show } : {}),
     ...(query.org ? { org: query.org } : {}),
+    ...(query.orgType ? { orgType: query.orgType } : {}),
+    ...(query.verified ? { verified: true } : {}),
   };
 
   const result = await fetchDiscoverWorkspacesAction(filters, params.data.cursor, params.data.limit, query.view, "full");

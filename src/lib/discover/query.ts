@@ -9,6 +9,7 @@ import {
     type SortOption,
 } from '@/constants/discover';
 import { WORKSPACE_TYPE_OPTIONS } from '@/lib/workspaces/workspace-create-options';
+import { ORG_TYPES } from '@/lib/organizations/config';
 import type { DiscoverFilters as PeopleFilters } from '@/app/actions/connections';
 
 /** Discover's people rail: people you can see and connect with. The server render and the rail use the same filters. */
@@ -28,6 +29,9 @@ export type DiscoverQuery = {
     /** Show: Everything · Projects · Organizations · Updates; org: one org's @handle (report §24.3). */
     show: 'all' | 'projects' | 'organizations' | 'updates';
     org: string;
+    /** With Show: Organizations (report §31.6): one of the 6 types, and Verified only. */
+    orgType: string;
+    verified: boolean;
 };
 
 const SHOWS = ['all', 'projects', 'organizations', 'updates'] as const;
@@ -54,6 +58,8 @@ export function parseDiscoverQuery(get: (key: string) => string | null | undefin
         hideOpened: read('hideOpened') === 'true',
         show: pick(read('show'), SHOWS, 'all'),
         org: /^[a-z0-9-]{1,40}$/.test(read('org') ?? '') ? read('org')! : '',
+        orgType: pick(read('orgType'), ORG_TYPES, ''),
+        verified: read('verified') === 'true',
     };
 }
 
@@ -66,7 +72,9 @@ export function isDefaultDiscoverQuery(query: DiscoverQuery): boolean {
         && query.tech.length === 0
         && !query.q
         && query.show === 'all'
-        && !query.org;
+        && !query.org
+        && !query.orgType
+        && !query.verified;
 }
 
 /** The filters shown as tags (status, type, skills, hide opened): the Filters button's count. */
@@ -75,5 +83,7 @@ export function activeFilterCount(query: DiscoverQuery): number {
         + (query.type !== WORKSPACE_TYPE.ALL ? 1 : 0)
         + query.tech.length
         + (query.hideOpened ? 1 : 0)
-        + (query.org ? 1 : 0);
+        + (query.org ? 1 : 0)
+        + (query.orgType ? 1 : 0)
+        + (query.verified ? 1 : 0);
 }

@@ -123,6 +123,9 @@ export interface Workspace {
   /** The type as people read it and the body it belongs to (report §34.11). */
   orgTypeLabel?: string | null;
   orgPartOf?: string | null;
+  /** Report §31.6, decision 70: the organization's ✓, and "You're a member" in place of the count. */
+  orgVerified?: boolean;
+  viewerIsMember?: boolean;
   childProjectCount?: number;
   cardOrg?: { title: string; slug: string | null } | null;
   /** Organizations only: header, About and Settings data (null or absent for other projects). */
@@ -145,6 +148,9 @@ export interface DiscoverFilters {
   show?: "all" | "projects" | "organizations" | "updates";
   /** An org's @handle: that org and its public child projects (report §24.3). */
   org?: string;
+  /** Show: Organizations only (report §31.6): one organization type, and Verified only. */
+  orgType?: string;
+  verified?: boolean;
 }
 
 /** Everything the browser gets about an author. A masked author (private, deleted) carries no identity at all. */

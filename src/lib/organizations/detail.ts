@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, count, eq, gt, isNull, sql } from "drizzle-orm";
+import { and, isNotNull, count, eq, gt, isNull, sql } from "drizzle-orm";
 
 import { db } from "@/lib/db";
 import { orgHandleHolds, profiles, workspaceMembers, workspaces, roleApplications } from "@/lib/db/schema";
@@ -200,6 +200,13 @@ export async function readOrgCard(slug: string) {
     .where(and(eq(workspaces.slug, slug), eq(workspaces.kind, "organization"), isNull(workspaces.deletedAt)))
     .limit(1);
   return row ?? null;
+}
+
+/** An organization-only workspace inside an organization, by its slug (report §31.2): outsiders get "not available". */
+export async function isOrgOnlyWorkspace(slug: string) {
+  const [row] = await db.select({ id: workspaces.id }).from(workspaces)
+    .where(and(eq(workspaces.slug, slug), eq(workspaces.visibility, "org"), isNotNull(workspaces.parentId), isNull(workspaces.deletedAt))).limit(1);
+  return Boolean(row);
 }
 
 /** A child project's parent org, as its header and Organization settings section show it (report §18.4, §21.6). */

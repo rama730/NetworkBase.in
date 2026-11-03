@@ -10,6 +10,7 @@ import { getWorkspaceAccessByIdentifier, getWorkspaceAccessByIds, canReadWorkspa
 import { normalizeSafeExternalUrl } from '@/lib/messaging/safe-links';
 import { logger } from '@/lib/logger';
 import { orgIndexableSql } from '@/lib/discover/listed-sql';
+import { orgTypeLabel } from '@/lib/organizations/config';
 import { formatWorkspaceTeamRole } from '@/lib/workspaces/settings-policies';
 import { genericSharePreview, parseShareResource, portfolioSummary, previewAlt, shareImageUrl, shareSkillSummary, shareText, shareMetric, type WorkspaceShareDetails, type SharePreview, type ShareResource } from './presentation';
 
@@ -133,11 +134,15 @@ async function readProject(resource: ShareResource, viewerId: string | null): Pr
   const access = await getWorkspaceAccessByIdentifier(resource.identifier, viewerId);
   if (!access.project) return genericSharePreview(resource, 'unavailable');
   const visibility = access.project.visibility === 'public' ? 'public' : access.project.visibility === 'unlisted' ? 'unlisted' : 'private';
-  if (!access.canRead) return { ...genericSharePreview(resource, 'restricted'), visibility };
+  const isOrg = access.project.kind === 'organization';
+  // Report §31.2: a private organization says so and nothing more; a suspended, deleting or restricted one isn't
+  // available at all.
+  if (!access.canRead) return { ...genericSharePreview(resource, 'restricted'), visibility, ...(isOrg ? { title: 'Private organization', description: 'A private organization on NetworkBase.' } : {}) };
+  if (isOrg && (access.writeBlocked === 'suspended' || access.writeBlocked === 'deleting')) return { ...genericSharePreview(resource, 'unavailable'), title: 'Organization on NetworkBase', description: 'This organization isn’t available.' };
   // An organization's canonical address is /org/<handle> (report §24).
   const resolved = { ...resource, url: new URL(`/${access.project.kind === 'organization' ? 'org' : 'workspaces'}/${access.project.slug || access.project.id}`, resource.url).href };
   const dashboard = canReadWorkspaceTab(access, 'dashboard');
-  const [project] = await db.select({ title: workspaces.title, description: workspaces.description, shortDescription: workspaces.shortDescription,
+  const [project] = await db.select({ title: workspaces.title, description: workspaces.description, shortDescription: workspaces.shortDescription, orgType: workspaces.orgType, orgSettings: workspaces.orgSettings,
     coverImage: workspaces.coverImage, coverAsset: workspaces.coverImageAssetId, coverHash: storageAssets.contentHash, coverKey: storageAssets.storageKey, views: workspaces.viewCount, followers: workspaces.followersCount, discoverHiddenAt: workspaces.discoverHiddenAt, qualifies: orgIndexableSql() })
     .from(workspaces).leftJoin(storageAssets,and(eq(storageAssets.id,workspaces.coverImageAssetId),eq(storageAssets.projectId,workspaces.id),eq(storageAssets.state,'verified'))).where(and(eq(workspaces.id, access.project.id), isNull(workspaces.deletedAt))).limit(1);
   if (!project) return genericSharePreview(resource, 'unavailable');
@@ -160,7 +165,9 @@ async function readProject(resource: ShareResource, viewerId: string | null): Pr
       && !project.discoverHiddenAt && project.qualifies && access.writeBlocked !== 'suspended' && access.writeBlocked !== 'deleting', draft: access.project.status === 'draft',
     entityKey: createHash('sha256').update(`project:${access.project.id}`).digest('hex'),
     title: shareText(project.title).slice(0,160) || 'Workspace on NetworkBase',
-    description: shareText(project.shortDescription || (dashboard ? project.description : null)).slice(0,300) || 'View this workspace on NetworkBase.',
+    // An organization's preview names its type, and says Archived when it is (report §31.2).
+    description: [isOrg && access.project.status === 'archived' ? 'Archived' : null, isOrg ? orgTypeLabel(project.orgType, project.orgSettings) : null,
+      shareText(project.shortDescription || (dashboard ? project.description : null)).slice(0,300) || (isOrg ? null : 'View this workspace on NetworkBase.')].filter(Boolean).join(' · ').slice(0,300) || 'View this organization on NetworkBase.',
     identity: { name: shareText(project.title).slice(0,160) || 'Workspace', username: null, headline: null, avatarUrl: shareImageUrl(project.coverImage, resolved.url), avatarRevision:createHash('sha256').update(JSON.stringify([project.coverAsset,project.coverHash,project.coverKey,project.coverImage])).digest('hex').slice(0,16) },
     ...(skillSummary ?? {}), project: details };
   result.imageAlt = previewAlt(result);

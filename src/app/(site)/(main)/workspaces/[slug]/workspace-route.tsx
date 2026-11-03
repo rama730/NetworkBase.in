@@ -9,7 +9,7 @@ import { readWorkspaceDetailShell, readWorkspaceSprintDetail } from '@/app/actio
 import WorkspaceDetailLoading from './loading';
 import { PrivateOrgHeader } from '@/components/organizations/PrivateOrgHeader';
 import { readPrivateOrgState } from '@/lib/organizations/join';
-import { readOrgCard, resolveHeldOrgHandle } from '@/lib/organizations/detail';
+import { isOrgOnlyWorkspace, readOrgCard, resolveHeldOrgHandle } from '@/lib/organizations/detail';
 import { stampLastActiveHere } from '@/lib/organizations/members';
 import { copyWorkspacePath } from '@/lib/organizations/assignments';
 import { assignmentHref } from '@/lib/organizations/assignment-rules';
@@ -63,7 +63,8 @@ export async function generateWorkspaceRouteMetadata({
     const preview = await readSharePreview(url);
     const metadata = shareMetadata(preview ?? genericSharePreview({ kind: 'project', identifier: slug, url }, 'unavailable'));
 
-    const tab = firstParam(_searchParams?.tab) ?? 'dashboard';
+    const requested = firstParam(_searchParams?.tab);
+    const tab = requested ?? 'dashboard';
     // Report §17.1: people who can open the workspace get its real title, even when it isn't public (an
     // organization-only workspace). The read below uses their own access; crawlers keep the share preview.
     if (tab && !isShareCrawler((await headers()).get('user-agent'))) {
@@ -74,15 +75,18 @@ export async function generateWorkspaceRouteMetadata({
                 const { project, capabilities } = result.data;
                 const isOwnerOrMember = capabilities.isOwner || capabilities.isMember;
                 const canManageSettings = capabilities.isOwner || capabilities.memberRole === 'admin';
-                const isVisible = isWorkspaceTabVisibleToViewer({
-                    tabId: tab === 'privacy' ? 'settings' : tab,
+                const visible = (tabId: string) => isWorkspaceTabVisibleToViewer({
+                    tabId: tabId === 'privacy' ? 'settings' : tabId,
                     isOwnerOrMember,
                     canManageSettings,
                     publicTabVisibility: project.publicTabVisibility,
                     isOrganization: Boolean(project.organization),
                 });
-                if (isVisible) {
+                if (visible(tab)) {
                     metadata.title = `${tabTitle} · ${project.title} · NetworkBase`;
+                } else if (!requested && project.organization && visible('about')) {
+                    // Report §31.2: an organization's visitors land on About, so the title says so.
+                    metadata.title = `About · ${project.title} · NetworkBase`;
                 }
             }
         }
@@ -130,6 +134,16 @@ async function ResolvedProjectDashboard({
         if (result.errorCode === 'FORBIDDEN') {
             const card = await readOrgCard(slug);
             if (card) return <PrivateOrgHeader orgId={card.id} title={card.title} coverImage={card.coverImage} state={await readPrivateOrgState(card.id, user?.id ?? null)} signedIn={Boolean(user)} />;
+            // Report §31.2: an organization-only workspace tells outsiders it isn't available, without details.
+            if (await isOrgOnlyWorkspace(slug)) {
+                return (
+                    <div className="flex min-h-[60vh] flex-col items-center justify-center gap-3 px-4 text-center">
+                        <h1 className="nb-page-title text-foreground">This workspace isn’t available</h1>
+                        <p className="text-sm text-muted-foreground">It’s only for the members of its organization.</p>
+                        <a href="/discover" className="text-sm text-primary hover:underline">Go to Discover</a>
+                    </div>
+                );
+            }
         }
         if (result.errorCode === 'NOT_FOUND' || result.errorCode === 'FORBIDDEN') {
             notFound();

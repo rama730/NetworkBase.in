@@ -75,6 +75,8 @@ export default memo(function ProjectCard({ project, viewModel, isFollowing = fal
     // "Part of RV College of Engineering" under an org's name (report §34.11).
     const partOfLine = isOrg && project.orgPartOf ? <p className="nb-compact mt-0.5 truncate text-muted-foreground" data-testid="org-card-part-of">{project.orgPartOf}</p> : null;
     const typeChip = isOrg ? <span className="nb-status relative z-10 ml-auto shrink-0" data-status="active">{orgTypeLabel}</span> : null;
+    // Decision 70: a verified organization's ✓ beside its name.
+    const verifiedMark = isOrg && project.orgVerified ? <span className="ml-1 text-primary" title={`${project.title} is verified`}><span aria-hidden="true">✓</span><span className="sr-only"> Verified</span></span> : null;
     const linkHref = (link: (typeof links)[number]) => `/go/project/${encodeURIComponent(project.id)}/${encodeURIComponent(link.id || link.canonicalKey)}`;
 
     async function toggleFollow() {
@@ -112,7 +114,7 @@ export default memo(function ProjectCard({ project, viewModel, isFollowing = fal
                 <div className="min-w-0 flex-1">
                     {typeChip ? <div className="float-right">{typeChip}</div> : null}
                     <h3 className="nb-project-card-title min-w-0">
-                        <Link prefetch={false} href={href} onClick={(event) => { if (!event.metaKey && !event.ctrlKey && !event.shiftKey) onOpenProject?.(project.id); }} className="after:absolute after:inset-0 after:rounded-lg focus-visible:outline-none">{project.title}</Link>
+                        <Link prefetch={false} href={href} onClick={(event) => { if (!event.metaKey && !event.ctrlKey && !event.shiftKey) onOpenProject?.(project.id); }} className="after:absolute after:inset-0 after:rounded-lg focus-visible:outline-none">{project.title}</Link>{verifiedMark}
                     </h3>
                     {partOfLine}
                     {(project.shortDescription || project.description) && (
@@ -127,7 +129,7 @@ export default memo(function ProjectCard({ project, viewModel, isFollowing = fal
             <>
                 <div className="flex flex-wrap items-start gap-2">
                     <h3 className="nb-project-card-title min-w-0">
-                        <Link prefetch={false} href={href} onClick={(event) => { if (!event.metaKey && !event.ctrlKey && !event.shiftKey) onOpenProject?.(project.id); }} className="after:absolute after:inset-0 after:rounded-lg focus-visible:outline-none">{project.title}</Link>
+                        <Link prefetch={false} href={href} onClick={(event) => { if (!event.metaKey && !event.ctrlKey && !event.shiftKey) onOpenProject?.(project.id); }} className="after:absolute after:inset-0 after:rounded-lg focus-visible:outline-none">{project.title}</Link>{verifiedMark}
                     </h3>
                     {partOfLine}
                     {typeChip}
@@ -154,7 +156,9 @@ export default memo(function ProjectCard({ project, viewModel, isFollowing = fal
                 </div>
                 {collaborators.length === 0 && <span className="nb-meta inline-flex items-center gap-1"><Users size={14} aria-hidden="true" />No team yet</span>}
                 {isOrg ? <>
-                    {typeof project.childProjectCount === "number" ? <span className="nb-meta">{project.childProjectCount} {project.childProjectCount === 1 ? "project" : "projects"}</span> : null}
+                    {/* Report §31.6: member count, or "You're a member"; workspace count. Join is on the page (decision 73). */}
+                    <span className="nb-meta">{project.viewerIsMember ? "You’re a member" : `${teamSize} ${teamSize === 1 ? "member" : "members"}`}</span>
+                    {typeof project.childProjectCount === "number" ? <span className="nb-meta">{project.childProjectCount} {project.childProjectCount === 1 ? "workspace" : "workspaces"}</span> : null}
                     {project.slug ? <Link prefetch={false} href={`/discover?org=${encodeURIComponent(project.slug)}`} className="nb-meta relative z-10 hover:text-foreground hover:underline" title={`Show everything from ${project.title}`}>Show everything</Link> : null}
                 </> : applicationChip ? <span className="nb-status relative z-10" data-status={APPLICATION_CHIP_TONE[applicationChip]} title="Your application in this workspace">{APPLICATION_CHIP_LABEL[applicationChip]}</span>
                     : totalOpenRoles > 0 && <span className="nb-meta text-primary">{totalOpenRoles} open {totalOpenRoles === 1 ? "role" : "roles"}</span>}

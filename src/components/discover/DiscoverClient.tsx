@@ -146,7 +146,7 @@ export default function DiscoverClient({
     const viewerId = currentUser?.id ?? null;
 
     const { urlFilters, updateUrlFilters, clearFilters, activeFilters, isDefault } = useDiscoverUrlFilters();
-    const { view, q, status, type, sort, tech, hideOpened, show, org } = urlFilters;
+    const { view, q, status, type, sort, tech, hideOpened, show, org, orgType, verified } = urlFilters;
     const { hiddenIds, markSeen } = useDiscoverSessionSeen();
     const [filtersOpen, setFiltersOpen] = useState(false);
     const filtersButton = useRef<HTMLButtonElement>(null);
@@ -166,7 +166,9 @@ export default function DiscoverClient({
         search: q || undefined,
         ...(show !== 'all' ? { show } : {}),
         ...(org ? { org } : {}),
-    }), [org, q, show, sort, status, tech, type, view]);
+        ...(show === 'organizations' && orgType ? { orgType } : {}),
+        ...(show === 'organizations' && verified ? { verified } : {}),
+    }), [org, orgType, q, show, sort, status, tech, type, verified, view]);
     // Show filter (report §24.3): cards by kind on the server; update cards only for Everything and Updates.
     const keeps = showKeeps(show);
 
@@ -432,6 +434,9 @@ export default function DiscoverClient({
         : '';
 
     const emptyState = (() => {
+        if (show === 'organizations' && (q || activeFilters)) {
+            return <EmptyState icon={Search} title="No organizations match" description="Try another type, or turn off Verified only." action={<Button type="button" variant="outline" onClick={clearAll}>Clear filters</Button>} />;
+        }
         if (q || activeFilters) {
             return <EmptyState icon={Search} title="Nothing matches" description="Try other words or fewer filters." action={<Button type="button" variant="outline" onClick={clearAll}>{q ? 'Clear search and filters' : 'Clear filters'}</Button>} />;
         }
