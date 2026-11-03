@@ -38,7 +38,7 @@ type PublicProjectRow = {
     coverImage: string | null
     kind: string | null
     orgType: string | null
-    orgSettings: unknown
+    orgTypeName: string | null
     orgVerified: boolean
     childCount: number
     externalLinks: any | null
@@ -89,7 +89,7 @@ function mapProjectRow(row: PublicProjectRow, counts: { openSeats: number; teamS
         cover_image: row.coverImage,
         kind: row.kind,
         org_type: row.orgType,
-        org_settings: row.orgSettings,
+        org_type_label: row.orgTypeName,
         org_verified: row.orgVerified,
         child_count: row.childCount,
         external_links: filterWorkspaceLinksForAudience(row.externalLinks, false),
@@ -146,7 +146,8 @@ export async function queryAndCachePublicWorkspacesFeed(limit: number, cursor: P
             coverImage: workspaces.coverImage,
             kind: workspaces.kind,
             orgType: workspaces.orgType,
-            orgSettings: workspaces.orgSettings,
+            // Only the type label leaves the server; the rest of org_settings stays private (security review).
+            orgTypeName: sql<string | null>`${workspaces.orgSettings}->>'typeLabel'`,
             orgVerified: sql<boolean>`${workspaces.verifiedAt} IS NOT NULL`,
             childCount: sql<number>`CASE WHEN ${workspaces.kind} = 'organization' THEN (SELECT count(*)::int FROM workspaces c WHERE c.parent_id = ${workspaces.id} AND c.deleted_at IS NULL) ELSE 0 END`,
             externalLinks: workspaces.externalLinks,

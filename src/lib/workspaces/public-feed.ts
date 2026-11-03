@@ -25,7 +25,7 @@ export type PublicWorkspacesFeedItem = {
     /** Live-fix 50: organizations get their own card on the first page too. */
     kind?: string | null
     org_type?: string | null
-    org_settings?: unknown
+    org_type_label?: string | null
     org_verified?: boolean
     child_count?: number
     external_links?: any
@@ -143,7 +143,7 @@ export function mapPublicWorkspaceToDiscoverWorkspace(project: PublicWorkspacesF
         updatedAt: project.updated_at,
         kind: project.kind === "organization" ? "organization" : "workspace",
         orgType: project.org_type ?? null,
-        orgTypeLabel: project.kind === "organization" ? orgTypeLabel(project.org_type, project.org_settings) : null,
+        orgTypeLabel: project.kind === "organization" ? orgTypeLabel(project.org_type, { typeLabel: project.org_type_label }) : null,
         orgVerified: project.kind === "organization" && Boolean(project.org_verified),
         childProjectCount: project.kind === "organization" ? project.child_count ?? 0 : undefined,
         collaborators: Array.isArray(project.collaborators)
