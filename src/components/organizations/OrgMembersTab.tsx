@@ -15,6 +15,7 @@ import {
     readMemberActivityAction,
     readMemberWorkAction,
     readOrgMembersAction,
+    readProgressExportAction,
     remindMembersAction,
     removeOutsidePersonAction,
     resendOrgInviteAction,
@@ -32,6 +33,10 @@ import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { filterRoster, remindSummary, type RosterFilter, type RosterRow } from '@/lib/organizations/member-rules'
 import { toast } from '@/lib/feedback'
+import { saveBlob, toCsvBlob } from '@/lib/download'
+import { useAuth } from '@/hooks/use-auth'
+import { userTopic } from '@/lib/messaging/constants'
+import { subscribeBroadcast } from '@/lib/realtime/private-broadcast'
 import { OrgInvitePanel } from '@/components/organizations/OrgInvitePanel'
 import { formatDistanceToNow } from '@/lib/utils/date'
 import { cn } from '@/lib/utils'
@@ -68,6 +73,16 @@ export function OrgMembersTab({ orgId, roleNames }: { orgId: string; roleNames?:
         if (r.success) { setData(r); setError(null) } else setError(r.error)
     }), [orgId])
     useEffect(() => { load() }, [load])
+    // Report §32.4: requests update by themselves (0053), combined over 2 seconds.
+    const viewerId = useAuth().user?.id
+    useEffect(() => {
+        if (!viewerId) return
+        let timer: ReturnType<typeof setTimeout> | null = null
+        const live = subscribeBroadcast(userTopic(viewerId), (event, payload) => {
+            if (event === 'org.requests.changed' && payload.workspace_id === orgId && !timer) timer = setTimeout(() => { timer = null; load() }, 2_000)
+        })
+        return () => { live.unsubscribe(); if (timer) clearTimeout(timer) }
+    }, [load, orgId, viewerId])
     // A block or unblock anywhere refreshes the private "Blocked" tags.
     useEffect(() => {
         window.addEventListener(RELATIONSHIP_EVENT, load)
@@ -117,6 +132,12 @@ export function OrgMembersTab({ orgId, roleNames }: { orgId: string; roleNames?:
                     <select aria-label="Sort" className={select} value={filter.sort ?? 'name'} onChange={(e) => setFilter({ ...filter, sort: e.target.value as RosterFilter['sort'] })}>
                         <option value="name">Sort: Name</option><option value="behind">Needs attention</option><option value="active">Last active here</option><option value="joined">Joined</option>
                     </select>
+                    {/* Report §33.5: statuses and dates only, never what anyone handed in. */}
+                    <Button type="button" size="sm" variant="outline" className="sm:ml-auto" disabled={pending} onClick={() => startTransition(async () => {
+                        const r = await readProgressExportAction(orgId)
+                        if (!r.success) return void toast.error(r.error)
+                        saveBlob(toCsvBlob(r.rows), `progress-${new Date().toISOString().slice(0, 10)}.csv`)
+                    })}>Export CSV</Button>
                 </div>
 
                 {data.requests.length + data.teamChanges.length > 0 ? <div className="lg:hidden"><Requests orgId={orgId} data={data} pending={pending} run={run} /></div> : null}

@@ -39,7 +39,7 @@ function unwrap<T extends { success: boolean; error?: string }>(result: T): T {
 
 function MyWorkRequestsSkeleton() {
     return (
-        <div className="w-full space-y-5 px-1 py-1" aria-busy="true" aria-label="Loading invitations">
+        <div className="w-full space-y-5 px-1 py-1" aria-busy="true" aria-label="Loading requests">
             <div aria-hidden="true" className="nb-skeleton mb-4 h-4 w-3/4 rounded-[3px]" />
             {[1, 2].map((section) => (
                 <div key={section} className="space-y-2.5">
@@ -107,7 +107,7 @@ export default function MyWorkRequestsTab({ isActive = true }: MyWorkRequestsTab
     );
     const pendingConnections = connectionsQuery.data?.incoming ?? [];
     const orgRequests = useOrgRequests(isMyWorkOpen && isActive).data;
-    const hasOrgRequests = Boolean(orgRequests && (orgRequests.invites.length > 0 || orgRequests.joinRequests.length > 0));
+    const hasOrgRequests = Boolean(orgRequests && (orgRequests.invites.length > 0 || orgRequests.joinRequests.length > 0 || orgRequests.mine.length > 0));
 
     const removeOptimistically = (id: string) => {
         queryClient.setQueryData(queryKeys.myWork.joinRequests(20), (previous: typeof data) => {
@@ -270,9 +270,9 @@ export default function MyWorkRequestsTab({ isActive = true }: MyWorkRequestsTab
         return (
             <div className="nb-empty-state nb-grid-ground py-12">
                 <Inbox className="nb-empty-state-icon" aria-hidden="true" />
-                <h4 className="nb-card-title text-foreground">No pending invitations</h4>
+                <h4 className="nb-card-title text-foreground">No requests waiting</h4>
                 <p className="nb-compact mx-auto mt-1 max-w-xs text-muted-foreground">
-                    You have no new invitations at this time.
+                    Invitations, join requests and applications show here.
                 </p>
             </div>
         );

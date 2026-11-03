@@ -158,3 +158,39 @@ test("26.5: someone waiting adds a note to their join request; admins see it on 
   viewerId = t.asha;
   assert.equal((await orgs.updateJoinRequestNoteAction(t.org, "hi")).success, false, "only your own waiting request");
 });
+
+test("33.5, decision 83: Export progress has statuses and dates, never what was handed in; admins only", async () => {
+  const t = await setup();
+  await sql`UPDATE tasks SET description = 'my secret answer', completed_at = now() WHERE id = ${t.handedIn}`;
+  viewerId = t.asha;
+  assert.equal((await members.readProgressExportAction(t.org)).success, false);
+  viewerId = t.admin;
+  const r = await members.readProgressExportAction(t.org);
+  assert.ok(r.success, JSON.stringify(r));
+  const rows = r.success ? r.rows : [];
+  assert.deepEqual(rows[0], ["Person", "Assignment", "Due", "Status", "Handed in", "Late"]);
+  assert.deepEqual(rows.slice(1).map((x) => [x[1], x[3]]).sort(), [["Lab 1", "done"], ["Lab 2", "not started"]]);
+  assert.ok(!JSON.stringify(rows).includes("secret"));
+});
+
+test("32.4, 0053: a join request pings the owner and admins on their own topic, never the organization's", async () => {
+  const t = await setup();
+  const asker = await sql.begin((tx) => createUser(tx));
+  const heard = async (user: string) => (await sql`SELECT count(*)::int AS n FROM realtime.messages WHERE topic = ${`chat:user:${user}`} AND event = 'org.requests.changed'`)[0]!.n as number;
+  const [before] = await Promise.all([heard(t.admin)]);
+  await sql`INSERT INTO role_applications (workspace_id, applicant_id, creator_id, status) VALUES (${t.org}, ${asker}, ${t.owner}, 'pending')`;
+  assert.deepEqual([await heard(t.owner) > 0, (await heard(t.admin)) - before, await heard(t.asha)], [true, 1, 0]);
+  assert.equal((await sql`SELECT count(*)::int AS n FROM realtime.messages WHERE topic = ${`live:workspace:${t.org}`} AND event = 'org.requests.changed'`)[0]!.n, 0);
+});
+
+test("24.3, permissions table: the GitHub line shows to the team and admins, not every organization member", async () => {
+  const t = await setup();
+  const kiran = await sql.begin((tx) => createUser(tx));
+  await sql`INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (${t.org}, ${kiran}, 'member')`;
+  await sql`UPDATE workspaces SET github_repo_url = 'https://github.com/cse3b/falcon' WHERE id = ${t.falcon}`;
+  const dash = await loadAppModule(() => import("../../src/app/actions/org-dashboard"));
+  const line = async (who: string) => { viewerId = who; return (await dash.readChildOrgLineAction(t.falcon))?.github?.repo ?? null; };
+  assert.deepEqual([await line(t.asha), await line(t.admin), await line(kiran)], ["cse3b/falcon", "cse3b/falcon", null]);
+  viewerId = kiran;
+  assert.ok(await dash.readChildOrgLineAction(t.falcon), "they still get the rest of the line");
+});

@@ -33,7 +33,7 @@ export default function MyWorkDrawer() {
   const requestCount = (summary?.success ? summary.requestCount : 0) + pendingConnections;
   const tabs = [
     { id: "tasks" as const, label: "Tasks", icon: ListChecks, count: taskCount },
-    { id: "requests" as const, label: "Invitations", icon: Inbox, count: requestCount },
+    { id: "requests" as const, label: "Requests", icon: Inbox, count: requestCount },
   ];
 
   const onTabKeyDown = (event: React.KeyboardEvent<HTMLButtonElement>, index: number) => {
@@ -71,7 +71,7 @@ export default function MyWorkDrawer() {
                 My work
               </DialogTitle>
               <DialogDescription className="sr-only">
-                Review open work and pending invitations.
+                Review open work and waiting requests.
               </DialogDescription>
             </div>
             <div className="flex min-w-0 items-center gap-2">

@@ -365,6 +365,13 @@
       "when": 1793481666300,
       "tag": "0052_org_takeover_request",
       "breakpoints": true
+    },
+    {
+      "idx": 52,
+      "version": "7",
+      "when": 1793481726300,
+      "tag": "0053_live_join_requests",
+      "breakpoints": true
     }
   ]
 }

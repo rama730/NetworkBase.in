@@ -218,6 +218,8 @@ function ProjectSettingsContent({
     const [readmeLoaded, setReadmeLoaded] = useState(false);
     const actorProjectRole = isProjectOwner ? "owner" : actorRole ?? "member";
     const canManageSettings = isProjectOwner || actorProjectRole === "admin";
+    // Organization admins not on the team (decision 159): Organization, plus Members and teams for teams and seats.
+    const inheritedOnly = Boolean(project?.parentOrg?.viewerIsInheritedAdmin) && !isProjectOwner && actorProjectRole !== "admin";
     const organization = project?.organization ?? null;
     const orgRole = (isProjectOwner ? "owner" : actorProjectRole) as OrgMemberRole;
     // Report §22.4: the Moderation item shows how many reports are open.
@@ -240,7 +242,7 @@ function ProjectSettingsContent({
         // Settings → Organization (report §21.6): second for the lead, first for admins, alone for inherited org admins.
         const childOrgSection = { id: "child-org" as const, label: "Organization", description: "The organization this workspace belongs to, and its rules." };
         const showsChildOrg = Boolean(project?.parentOrg || project?.pendingMoveIn || project?.moveTargets?.length);
-        if (project?.parentOrg?.viewerIsInheritedAdmin && !isProjectOwner && actorProjectRole !== "admin") return [childOrgSection];
+        if (inheritedOnly) return [childOrgSection, { id: "collaborators" as const, label: "Members and teams", description: "Teams, their seats and team leads." }];
         if (isProjectOwner) return showsChildOrg ? visible.flatMap((section) => (section.id === "general" ? [section, childOrgSection] : [section])) : visible;
         if (actorProjectRole === "admin" && project?.parentOrg) {
             const adminSections: WorkspaceSettingsSectionId[] = ["links", "access", "collaborators", "roles-applications", "readme", "updates", "tasks-workflow", "files-workspace", "notifications", "privacy-policies", "privacy-terms"];
@@ -1530,6 +1532,9 @@ function ProjectSettingsContent({
                     <section id="project-settings-collaborators" data-project-settings-section className="space-y-6">
                         <div className="space-y-6">
                         {project?.parentOrg ? <ChildUnitsPanel projectId={projectId} /> : null}
+                        {inheritedOnly ? (
+                            <p className="nb-compact text-muted-foreground">Its workspace lead adds and removes members. To move someone to another workspace, use Members in the organization.</p>
+                        ) : (
                         <SettingsCard
                             title="Members"
                                 headingLevel={2}
@@ -1745,6 +1750,7 @@ function ProjectSettingsContent({
                                 ) : null}
                             </div>
                         </SettingsCard>
+                        )}
                         </div>
                     </section>
                 )}

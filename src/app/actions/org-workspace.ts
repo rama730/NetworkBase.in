@@ -93,10 +93,10 @@ export async function readSidebarWorkspacesAction(): Promise<SidebarWorkspaces |
 export type JoinRequestGroup = { orgId: string; title: string; slug: string | null; count: number; first: Array<{ id: string; userId: string; name: string; note: string | null }> };
 
 /** My work and Network (report §29.2, §30.6): my org invitations, and for orgs I run, their join requests. */
-export async function readOrgRequestsForMeAction(): Promise<{ invites: Awaited<ReturnType<typeof openInvitesFor>>; joinRequests: JoinRequestGroup[] } | null> {
+export async function readOrgRequestsForMeAction(): Promise<{ invites: Awaited<ReturnType<typeof openInvitesFor>>; joinRequests: JoinRequestGroup[]; mine: Array<{ orgId: string; title: string; slug: string | null; at: string }> } | null> {
     const userId = await viewer();
     if (!userId) return null;
-    const [invites, requests] = await Promise.all([
+    const [invites, requests, mine] = await Promise.all([
         openInvitesFor(userId),
         ROWS<{ id: string; user_id: string; name: string | null; note: string | null; org_id: string; title: string; slug: string | null }>(sql`
             SELECT a.id, a.applicant_id AS user_id, coalesce(pr.full_name, pr.username) AS name, a.message AS note, o.id AS org_id, o.title, o.slug
@@ -105,6 +105,11 @@ export async function readOrgRequestsForMeAction(): Promise<{ invites: Awaited<R
             WHERE a.role_id IS NULL AND a.status = 'pending'
               AND (o.owner_id = ${userId}::uuid OR EXISTS (SELECT 1 FROM workspace_members m WHERE m.workspace_id = o.id AND m.user_id = ${userId}::uuid AND m.role = 'admin'))
             ORDER BY a.created_at ASC LIMIT 500`),
+        // Your own requests (report §30.7): waiting, with Cancel.
+        ROWS<{ org_id: string; title: string; slug: string | null; at: Date | string }>(sql`
+            SELECT o.id AS org_id, o.title, o.slug, a.created_at AS at
+            FROM role_applications a JOIN workspaces o ON o.id = a.workspace_id AND o.kind = 'organization' AND o.deleted_at IS NULL
+            WHERE a.applicant_id = ${userId}::uuid AND a.role_id IS NULL AND a.status = 'pending' ORDER BY a.created_at DESC LIMIT 50`),
     ]);
     const groups = new Map<string, JoinRequestGroup>();
     for (const r of requests) {
@@ -113,7 +118,7 @@ export async function readOrgRequestsForMeAction(): Promise<{ invites: Awaited<R
         if (g.first.length < 5) g.first.push({ id: r.id, userId: r.user_id, name: r.name ?? 'Someone', note: r.note });
         groups.set(r.org_id, g);
     }
-    return { invites, joinRequests: [...groups.values()] };
+    return { invites, joinRequests: [...groups.values()], mine: mine.map((r) => ({ orgId: r.org_id, title: r.title, slug: r.slug, at: new Date(r.at).toISOString() })) };
 }
 
 export type ToReviewRow = { id: string; title: string; who: string; context: string; submittedAt: string | null; href: string };

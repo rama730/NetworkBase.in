@@ -505,7 +505,7 @@ export async function leaveOrgAction(orgId: string): Promise<{ success: true } |
     revalidateOrg(viewer.slug, orgId);
     const org = await orgLabel(orgId);
     const name = (await namesOf([viewer.userId])).get(viewer.userId) ?? 'Someone';
-    if (org) await notifyOrg({ orgId, eventKey: 'org.member_joined', actorId: viewer.userId, title: `${name} left ${org.title}`, href: orgHref(org, '?tab=members'), sourceEventId: `left:${viewer.userId}:${Date.now()}` });
+    if (org) await notifyOrg({ orgId, eventKey: 'org.member_left', actorId: viewer.userId, title: `${name} left ${org.title}`, href: orgHref(org, '?tab=members'), sourceEventId: `left:${viewer.userId}:${Date.now()}` });
     return { success: true };
 }
 

@@ -16,7 +16,8 @@ describe("My work drawer contracts", () => {
     assert.match(requests, /queryKeys.myWork\.joinRequests\(20\)/);
     assert.match(requests, /getIncomingApplicationsAction\(\{ limit: 20 \}\)/);
     assert.match(requests, /View all invitations/);
-    assert.match(drawer, /label: "Invitations"/);
+    // Report §30.7: Invitations became Requests.
+    assert.match(drawer, /label: "Requests"/);
     assert.match(drawer, /getMyWorkSummaryAction/);
     assert.match(drawer, /queryKeys.myWork\.summary\(\)/);
   });

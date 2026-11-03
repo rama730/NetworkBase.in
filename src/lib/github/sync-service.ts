@@ -1,5 +1,6 @@
 import "server-only";
 import { reusableBlobSha } from "@/lib/github/blob-reuse";
+import { childGrant } from "@/lib/organizations/permissions";
 import { randomUUID } from "node:crypto";
 import { and, eq, isNull, isNotNull, inArray, desc, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
@@ -108,7 +109,8 @@ export async function requireSyncOwner(
         })
       : Promise.resolve(null),
   ]);
-  if (!project || project.ownerId !== userId)
+  // A workspace in an organization follows the permissions table: connecting and pushing are its lead's alone.
+  if (!project || project.ownerId !== userId || (project.parentId && childGrant("lead", "github_connect_push") !== "yes"))
     throw new Error(
       "Only the owner can manage repository sync.",
     );

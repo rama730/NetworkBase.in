@@ -16,6 +16,7 @@ import { privateOrgLine } from '@/lib/organizations/join-rules';
 const CLASS_WORD: Record<string, string> = { education: 'class', company: 'team', research: 'lab', community: 'group', club: 'club', other: 'group' };
 import { activityTime } from '@/lib/organizations/activity-rules';
 import { readViewerOrgRole } from '@/lib/organizations/detail';
+import { childGrant } from '@/lib/organizations/permissions';
 import { audienceSql } from '@/lib/organizations/org-updates';
 import { readOrgDocsAction } from '@/app/actions/org-docs';
 import { normalizeWorkspacePublicTabVisibility } from '@/lib/workspaces/settings-policies';
@@ -447,9 +448,14 @@ export async function readOrgWorkspacesAction(orgId: string): Promise<{ success:
 export async function readChildOrgLineAction(childProjectId: string) {
     const { userId } = await getViewerAuthContext();
     const [child] = await db.select({ parentId: workspaces.parentId, ownerId: workspaces.ownerId, slug: workspaces.slug, repo: workspaces.githubRepoUrl, syncedAt: workspaces.githubLastSyncAt }).from(workspaces).where(and(eq(workspaces.id, childProjectId), isNull(workspaces.deletedAt))).limit(1);
-    if (!child?.parentId || !(await readViewerOrgRole(child.parentId, userId))) return null; // outside people don't get the org line
+    const orgRole = child?.parentId ? await readViewerOrgRole(child.parentId, userId) : null;
+    if (!child?.parentId || !orgRole) return null; // outside people don't get the org line
     // Org membership alone doesn't open a private child project: its sprint and group copies need read access.
-    if (!userId || !(await getWorkspaceAccessById(childProjectId, userId)).canRead) return null;
+    const access = userId ? await getWorkspaceAccessById(childProjectId, userId) : null;
+    if (!userId || !access?.canRead) return null;
+    // The GitHub line follows the permissions table: the team and admins, not every organization member.
+    const childRole = child.ownerId === userId ? 'lead' : access.memberRole === 'admin' ? 'project_admin' : orgRole === 'owner' || orgRole === 'admin' ? 'inherited_admin' : access.memberRole ? 'unit_member' : 'org_member';
+    const seesGithub = childGrant(childRole, 'github_status') === 'yes';
     const [[org], [sprint], due, [ownSprint]] = await Promise.all([
         db.select({ title: workspaces.title, slug: workspaces.slug }).from(workspaces).where(eq(workspaces.id, child.parentId)).limit(1),
         db.select({ name: workspaceSprints.name, endDate: workspaceSprints.endDate }).from(workspaceSprints).where(and(eq(workspaceSprints.projectId, child.parentId), eq(workspaceSprints.status, 'active'))).limit(1),
@@ -471,7 +477,7 @@ export async function readChildOrgLineAction(childProjectId: string) {
         needsYou: needsYou.slice(0, 5),
         ownSprint: ownSprint ? { name: ownSprint.name, endDate: ownSprint.end_date, parent: ownSprint.parent } : null,
         // Report §24.3: the team and organization admins see where it syncs; the lead has the full GitHub view.
-        github: child.repo && child.ownerId !== userId ? { repo: child.repo.replace(/^https?:\/\/github\.com\//i, '').replace(/\.git$/i, ''), syncedAt: child.syncedAt?.toISOString() ?? null } : null,
+        github: child.repo && child.ownerId !== userId && seesGithub ? { repo: child.repo.replace(/^https?:\/\/github\.com\//i, '').replace(/\.git$/i, ''), syncedAt: child.syncedAt?.toISOString() ?? null } : null,
     };
 }
 

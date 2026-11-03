@@ -7,6 +7,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { acceptOrgInviteAction, approveJoinRequestsAction, declineJoinRequestAction, declineOrgInviteAction } from '@/app/actions/org-members'
 import { readOrgRequestsForMeAction } from '@/app/actions/org-workspace'
+import { cancelJoinRequestAction } from '@/app/actions/organizations'
 import { Button } from '@/components/ui/button'
 import { toast } from '@/lib/feedback'
 
@@ -26,7 +27,7 @@ export function OrgRequestsSection({ joinRequests = 'decide', onNavigate, enable
     const [hidden, setHidden] = useState<Set<string>>(new Set())
     const timers = useRef(new Map<string, ReturnType<typeof setTimeout>>())
     const data = query.data
-    if (!data || (data.invites.length === 0 && data.joinRequests.length === 0)) return null
+    if (!data || (data.invites.length === 0 && data.joinRequests.length === 0 && data.mine.length === 0)) return null
     const refresh = () => void client.invalidateQueries({ queryKey: ORG_REQUESTS_KEY })
     const hide = (id: string, on: boolean) => setHidden((prev) => { const next = new Set(prev); if (on) next.add(id); else next.delete(id); return next })
 
@@ -54,6 +55,24 @@ export function OrgRequestsSection({ joinRequests = 'decide', onNavigate, enable
                                     refresh()
                                 }}>Accept</Button>
                                 <Button size="sm" variant="outline" onClick={() => declineInvite(invite.id, invite.orgTitle)}>Decline</Button>
+                            </div>
+                        ))}
+                    </div>
+                </section>
+            ) : null}
+            {data.mine.length > 0 ? (
+                <section aria-labelledby="org-my-requests-heading">
+                    <h4 id="org-my-requests-heading" className="nb-micro mb-3 pl-1">Your requests ({data.mine.length})</h4>
+                    <div className="space-y-2">
+                        {data.mine.map((r) => (
+                            <div key={r.orgId} className="flex flex-wrap items-center gap-2 rounded-[6px] border border-border bg-card px-3 py-2 text-sm">
+                                <span className="min-w-0 flex-1"><Link href={`/org/${encodeURIComponent(r.slug ?? r.orgId)}`} onClick={onNavigate} className="font-medium text-foreground hover:underline">{r.title}</Link><span className="text-muted-foreground"> · Waiting</span></span>
+                                <Button size="sm" variant="outline" onClick={async () => {
+                                    const result = await cancelJoinRequestAction(r.orgId)
+                                    if (!result.success) return void toast.error(result.error)
+                                    toast.success('Request canceled')
+                                    refresh()
+                                }}>Cancel</Button>
                             </div>
                         ))}
                     </div>

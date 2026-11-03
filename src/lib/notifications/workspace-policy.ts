@@ -94,6 +94,7 @@ export type OrgNotificationEventKey =
     | "org.join_decided"
     | "org.invited"
     | "org.member_joined"
+    | "org.member_left"
     | "org.role_changed"
     | "org.removed"
     | "org.child_added"
@@ -937,7 +938,9 @@ export const WORKSPACE_NOTIFICATION_EVENT_REGISTRY = {
     "org.join_requested": orgEvent("org.join_requested", "org_membership", "Join requests", "Admins hear about requests to join, combined.", "important", { aggregate: "burst_10m", recipients: ["owner", "co_leaders"] }),
     "org.join_decided": orgEvent("org.join_decided", "org_membership", "Request approved or declined", "The person who asked hears the answer.", "important"),
     "org.invited": orgEvent("org.invited", "org_membership", "Invitations", "People with an account hear they were invited.", "important"),
-    "org.member_joined": orgEvent("org.member_joined", "org_membership", "Joins and leaves", "Admins see people joining and leaving, combined.", "more", { aggregate: "burst_10m", recipients: ["owner", "co_leaders"] }),
+    "org.member_joined": orgEvent("org.member_joined", "org_membership", "People joining", "Admins see people joining, combined.", "more", { aggregate: "burst_10m", recipients: ["owner", "co_leaders"] }),
+    // Report §16.11 finding 23: leaving has its own setting.
+    "org.member_left": orgEvent("org.member_left", "org_membership", "People leaving", "Admins see people leaving, combined.", "more", { aggregate: "burst_10m", recipients: ["owner", "co_leaders"] }),
     "org.role_changed": orgEvent("org.role_changed", "org_membership", "Role changed", "A member hears their new role.", "important"),
     "org.removed": orgEvent("org.removed", "org_membership", "Removed", "A member hears they were removed.", "important", { mandatory: true }),
     "org.child_added": orgEvent("org.child_added", "org_membership", "Added to a workspace", "A member hears they were added to a workspace in the organization.", "important"),

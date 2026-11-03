@@ -129,11 +129,10 @@ export const CHILD_ACTIONS = Object.keys(CHILD) as ChildAction[];
 export const PENDING_ENFORCEMENT: Partial<Record<OrgAction | ChildAction, string>> = {
   create_org_tasks: "Step 13", edit_group_task_details: "Step 13", update_own_copy: "Step 13", update_assigned_task: "Step 13",
   edit_for_everyone: "Step 13", close_assignment: "Step 13", approve_return: "Step 13", set_reviewers: "Step 13",
-  export_progress: "Step 13", submit_ask_questions: "Step 13", see_class_overview: "Step 4",
+  submit_ask_questions: "Step 13", see_class_overview: "Step 4",
   mark_away: "Step 14 (after the pilot)",
   copy_link: "Step 14",
-  team_tasks: "Step 13", reassign_group_work: "Step 13", github_connect_push: "Step 11d",
-  github_status: "Step 11d",
+  team_tasks: "Step 13", reassign_group_work: "Step 13",
 };
 
 export function orgGrant(role: OrgRole, action: OrgAction): Grant {
