@@ -135,3 +135,10 @@ export function aboutStages(stageCount: number, viewer: "admin" | "member" | "vi
   if (stageCount === 0) return viewer === "admin" ? "ghost" : viewer === "member" ? "hint" : null;
   return stageCount === 1 ? "single" : "timeline";
 }
+
+/** Mockup task 5: "Good morning, Asha" at the top of Overview; the hour is the organization's local hour. */
+export function greetingFor(hour: number, fullName: string | null) {
+  const part = hour >= 5 && hour < 12 ? "Good morning" : hour >= 12 && hour < 17 ? "Good afternoon" : "Good evening";
+  const first = fullName?.trim().split(/\s+/)[0];
+  return first ? `${part}, ${first}` : part;
+}

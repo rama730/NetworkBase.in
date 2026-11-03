@@ -34,3 +34,20 @@ test("task 4: an assignment card shows its chips, a progress bar and the done li
   assert.deepEqual(assignmentCardBits({ draft: true, closed: false, done: 0, total: 40, toReview: 0, excused: 0 }).chips, ["Draft", "Assignment"]);
   assert.deepEqual(assignmentCardBits({ draft: false, closed: false, done: 3, total: 12, toReview: 0, excused: 0, teams: true }).chips, ["Assignment", "Groups"]);
 });
+
+test("task 5: the Overview greets by time of day and first name", async () => {
+  const { greetingFor } = await import("../../src/lib/organizations/dashboard-rules");
+  assert.equal(greetingFor(8, "Ramanayudu CH"), "Good morning, Ramanayudu");
+  assert.equal(greetingFor(14, null), "Good afternoon");
+  assert.equal(greetingFor(22, "Asha Rao"), "Good evening, Asha");
+  assert.equal(greetingFor(4, "Asha Rao"), "Good evening, Asha");
+});
+
+test("task 5: the greeting heads Overview, the class bar has three parts, and This week and Activity sit in the right column", async () => {
+  const { readFileSync } = await import("node:fs");
+  const o = readFileSync("src/components/organizations/OrgOverviewParts.tsx", "utf8");
+  assert.match(o, /<h2 className="[^"]*">\{data\.greeting\}<\/h2>/);
+  assert.match(o, /role="img" aria-label=\{`\$\{data\.standing\.onTrack\} on track, \$\{data\.standing\.behind\} behind, \$\{data\.standing\.inactive\} inactive`\}/);
+  const aside = o.slice(o.indexOf('<aside aria-label="Organization details"'), o.indexOf("</aside>"));
+  assert.ok(aside.indexOf('<RailSection title="This week">') >= 0 && aside.indexOf('<RailSection title="Activity"') > aside.indexOf('<RailSection title="Workspaces"'));
+});

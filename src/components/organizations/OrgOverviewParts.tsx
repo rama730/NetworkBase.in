@@ -206,7 +206,11 @@ export function OrgDashboard({ orgId, orgSlug, orgType = null, started = null }:
     return (
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
             <div className="min-w-0 space-y-6 lg:col-span-8">
-                {data.weekLine ? <p className="font-mono text-[12px] text-muted-foreground" data-testid="org-week-line">{data.weekLine}</p> : null}
+                {/* Mockup task 5: a greeting with the week of the term. */}
+                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                    <h2 className="text-[20px] font-semibold tracking-[-0.01em]">{data.greeting}</h2>
+                    {data.weekLine ? <p className="font-mono text-[12px] text-muted-foreground" data-testid="org-week-line">{data.weekLine}</p> : null}
+                </div>
                 {/* Report §29.2: everyone inside sees it; the owner's reason and Appeal live in Settings → Moderation. */}
                 {data.restricted ? <p role="status" className="rounded-[5px] border border-border bg-muted/40 px-3 py-2 text-sm">This organization is restricted for now.</p> : null}
                 {data.archivedSummary ? <p className="text-sm text-muted-foreground" data-testid="org-archived-summary">{data.archivedSummary}{data.termSummary?.completedPercent != null ? ` · ${data.termSummary.completedPercent}% of work completed` : ''}</p> : null}
@@ -268,14 +272,23 @@ export function OrgDashboard({ orgId, orgSlug, orgType = null, started = null }:
                 {data.standing ? (
                     // Decision 81: admins only; each count opens Members filtered.
                     <RailSection title={`How the ${data.standingWord} is doing`}>
-                        <p className="text-sm">
-                            <Link href={`${base}?tab=members`} className="hover:underline">{data.standing.onTrack} on track</Link>{' · '}
-                            <Link href={`${base}?tab=members&status=behind`} className="hover:underline">{data.standing.behind} behind</Link>{' · '}
-                            <Link href={`${base}?tab=members&status=inactive`} className="hover:underline">{data.standing.inactive} inactive</Link>
-                        </p>
+                        {/* Mockup task 5: one bar in three parts, then each number large, each opening Members filtered. */}
+                        <div className="flex h-2 gap-0.5 overflow-hidden rounded-[3px] bg-muted" role="img" aria-label={`${data.standing.onTrack} on track, ${data.standing.behind} behind, ${data.standing.inactive} inactive`}>
+                            {data.standing.onTrack ? <div className="bg-[var(--status-success)]" style={{ flex: data.standing.onTrack }} /> : null}
+                            {data.standing.behind ? <div className="bg-[var(--status-warning)]" style={{ flex: data.standing.behind }} /> : null}
+                            {data.standing.inactive ? <div className="bg-muted-foreground" style={{ flex: data.standing.inactive }} /> : null}
+                        </div>
+                        <div className="mt-3 grid grid-cols-3 gap-3">
+                            <Link href={`${base}?tab=members`} className="hover:underline"><span className="block text-[20px] font-semibold">{data.standing.onTrack}</span><span className="text-[13px] text-muted-foreground">On track</span></Link>
+                            <Link href={`${base}?tab=members&status=behind`} className="hover:underline"><span className="block text-[20px] font-semibold text-[var(--status-warning)]">{data.standing.behind}</span><span className="text-[13px] text-muted-foreground">Behind</span></Link>
+                            <Link href={`${base}?tab=members&status=inactive`} className="hover:underline"><span className="block text-[20px] font-semibold">{data.standing.inactive}</span><span className="text-[13px] text-muted-foreground">Inactive</span></Link>
+                        </div>
                     </RailSection>
                 ) : null}
                 <SprintCard orgId={orgId} base={base} s={s} isAdmin={data.role === 'admin'} planLabel={typeProfile(orgType).planLabel} onChanged={() => void query.refetch()} />
+            </div>
+            <aside aria-label="Organization details" className="min-w-0 space-y-6 lg:col-span-4">
+                {/* Mockup task 5: This week heads the right column and Activity closes it, as drawn. */}
                 <RailSection title="This week">
                     {/* Decision 80: calendar days in the organization's zone, grouped Today, Tomorrow, This week. */}
                     {data.thisWeek.length ? (['Today', 'Tomorrow', 'This week'] as const).map((group) => {
@@ -291,21 +304,6 @@ export function OrgDashboard({ orgId, orgSlug, orgType = null, started = null }:
                     }) : <p className="text-sm text-muted-foreground">Nothing due in the next 7 days.</p>}
                     {data.thisWeek.length ? <Link href={`${base}?tab=tasks`} className="mt-2 inline-block text-[12px] underline underline-offset-4">See all →</Link> : null}
                 </RailSection>
-                <RailSection title="Activity" action={
-                    // One small menu (problem 16), not a row of buttons.
-                    <select aria-label="Filter activity" value={filter} onChange={(e) => { setFilter(e.target.value); setMoreActivity(false) }} className="h-7 rounded-[4px] border border-border bg-background px-1.5 text-[12px] text-muted-foreground">
-                        {FILTERS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-                    </select>
-                }>
-                    {activity.length ? (
-                        <>
-                            <ol className="space-y-3">{(moreActivity ? activity : activity.slice(0, 5)).map((a) => <ActivityItem key={a.id} kind={a.kind} text={a.text} subject={a.subject} href={a.href} at={a.at} />)}</ol>
-                            {!moreActivity && activity.length > 5 ? <button type="button" className="mt-2 text-[12px] text-primary hover:underline" onClick={() => setMoreActivity(true)}>Show more</button> : null}
-                        </>
-                    ) : <p className="text-sm text-muted-foreground">Activity shows here once people start working.</p>}
-                </RailSection>
-            </div>
-            <aside aria-label="Organization details" className="min-w-0 space-y-6 lg:col-span-4">
                 <RailSection title="Workspaces" action={
                     <span className="flex items-center gap-2">
                         {data.role === 'admin' ? <Link href={`/workspaces/new?org=${encodeURIComponent(orgSlug ?? orgId)}`} aria-label="New workspace" className="rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"><Plus className="size-3.5" aria-hidden="true" /></Link> : null}
@@ -338,6 +336,19 @@ export function OrgDashboard({ orgId, orgSlug, orgType = null, started = null }:
                         </Link>
                     )}
                     {data.people.requests && data.role === 'admin' ? <Link href={`${base}?tab=members`} className="nb-tag mt-2 inline-flex">{data.people.requests} {data.people.requests === 1 ? 'request' : 'requests'}</Link> : null}
+                </RailSection>
+                <RailSection title="Activity" action={
+                    // One small menu (problem 16), not a row of buttons.
+                    <select aria-label="Filter activity" value={filter} onChange={(e) => { setFilter(e.target.value); setMoreActivity(false) }} className="h-7 rounded-[4px] border border-border bg-background px-1.5 text-[12px] text-muted-foreground">
+                        {FILTERS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                    </select>
+                }>
+                    {activity.length ? (
+                        <>
+                            <ol className="space-y-3">{(moreActivity ? activity : activity.slice(0, 5)).map((a) => <ActivityItem key={a.id} kind={a.kind} text={a.text} subject={a.subject} href={a.href} at={a.at} />)}</ol>
+                            {!moreActivity && activity.length > 5 ? <button type="button" className="mt-2 text-[12px] text-primary hover:underline" onClick={() => setMoreActivity(true)}>Show more</button> : null}
+                        </>
+                    ) : <p className="text-sm text-muted-foreground">Activity shows here once people start working.</p>}
                 </RailSection>
             </aside>
         </div>

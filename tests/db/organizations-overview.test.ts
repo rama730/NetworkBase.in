@@ -106,6 +106,13 @@ test("26.7, decision 49: the welcome panel shows once after joining and goes for
   assert.equal((await board(o.id, asha)).welcome, null);
 });
 
+test("mockup task 5: the Overview greets the viewer by first name", async () => {
+  const o = await org();
+  await sql`UPDATE profiles SET full_name = 'Ramanayudu CH' WHERE id = ${o.owner}`;
+  const d = await board(o.id, o.owner);
+  assert.match(d.greeting, /^Good (morning|afternoon|evening), Ramanayudu$/);
+});
+
 test("student check 8: Welcome's workspace row names open seats or their own workspace, never a dead end", async () => {
   const o = await org();
   const asha = await member(o.id);

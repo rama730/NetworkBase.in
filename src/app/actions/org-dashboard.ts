@@ -9,7 +9,8 @@ import { profileContributions, profiles, workspaceMembers, workspaceUpdateHidden
 import { getWorkspaceAccessById, type WorkspaceAccess } from '@/lib/data/workspace-access';
 import { orgFileAccessSql } from '@/lib/files/internal-helpers';
 import { copyState, type CopyState } from '@/lib/organizations/assignment-rules';
-import { activityVisible, classStanding, getStartedCards, journeyFromSprints, needsAttention, todayRows, weekGroup, weekLine, type ActivityKind, type TodayRow } from '@/lib/organizations/dashboard-rules';
+import { activityVisible, classStanding, getStartedCards, greetingFor, journeyFromSprints, needsAttention, todayRows, weekGroup, weekLine, type ActivityKind, type TodayRow } from '@/lib/organizations/dashboard-rules';
+import { localClock } from '@/lib/organizations/notify-rules';
 import { typeProfile } from '@/lib/organizations/type-profile';
 import { readPrivateOrgState } from '@/lib/organizations/join';
 import { privateOrgLine } from '@/lib/organizations/join-rules';
@@ -137,6 +138,8 @@ export type OrgDashboardData = {
     standing: { onTrack: number; behind: number; inactive: number } | null;
     standingWord: string;
     weekLine: string | null;
+    /** Mockup task 5: "Good morning, Asha". */
+    greeting: string;
     welcome: { note: string | null; start: Array<{ kind: string; label: string; href: string }>; addToProfile: boolean } | null;
     restricted: boolean;
     activity: ActivityItem[];
@@ -191,6 +194,8 @@ export async function readOrgDashboardAction(orgId: string, activityFilter = 'al
         }).from(workspaces).where(eq(workspaces.id, orgId)),
     ]);
     const zone = counts?.timeZone ?? null;
+    const me = people.find((p) => p.id === v.userId);
+    const viewerName = me?.name ?? me?.username ?? null;
     const profile = typeProfile(counts?.orgType);
     const active = sprints.find((s) => s.status === 'active') ?? null;
     const next = sprints.find((s) => s.status !== 'active' && s.startDate > now) ?? null;
@@ -332,6 +337,7 @@ export async function readOrgDashboardAction(orgId: string, activityFilter = 'al
         standing,
         standingWord: CLASS_WORD[counts?.orgType ?? ''] ?? 'group',
         weekLine: profile.termDates ? weekLine(counts?.termStart ?? null, counts?.termEnd ?? null, now, zone) : null,
+        greeting: greetingFor(localClock(now, zone).hour, viewerName),
         welcome,
         restricted: Boolean(counts?.restrictedAt),
         activity,
