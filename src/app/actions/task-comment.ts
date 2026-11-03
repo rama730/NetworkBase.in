@@ -758,6 +758,11 @@ export async function createTaskCommentAction(
     ) {
       try {
         const actorName = viewer.profile?.fullName ?? viewer.profile?.username ?? null;
+        // A class question (report §30.4): members can't open the main assignment, so the link is the asker's own copy.
+        const [askerCopy] = await db.execute<{ id: string }>(sql`
+          SELECT c.id FROM tasks c JOIN tasks m ON m.id = c.assignment_id AND m.kind = 'assignment'
+          WHERE m.id = ${taskId} AND c.deleted_at IS NULL AND (c.assignee_id = ${parentCommentAuthorId}
+            OR EXISTS (SELECT 1 FROM task_team_members tm WHERE tm.task_id = c.id AND tm.user_id = ${parentCommentAuthorId})) LIMIT 1`);
         await enqueueWorkspaceNotificationEvent({
           projectId,
           actorUserId: viewer.userId,
@@ -765,9 +770,9 @@ export async function createTaskCommentAction(
           actorAvatarUrl: viewer.profile?.avatarUrl ?? null,
           eventKey: "tasks.replies",
           affectedMemberId: parentCommentAuthorId,
-          title: `${actorName || "Someone"} replied to your task comment`,
+          title: askerCopy ? `${actorName || "Someone"} answered your question` : `${actorName || "Someone"} replied to your task comment`,
           body: parsedMentions.plainText,
-          href: `/workspaces/${encodeURIComponent(taskAccess.slug || projectId)}?tab=tasks&drawerType=task&drawerId=${encodeURIComponent(taskId)}&panelTab=comments&commentId=${encodeURIComponent(inserted.id)}`,
+          href: `/workspaces/${encodeURIComponent(taskAccess.slug || projectId)}?tab=tasks&drawerType=task&drawerId=${encodeURIComponent(askerCopy?.id ?? taskId)}&panelTab=comments&commentId=${encodeURIComponent(inserted.id)}`,
           entityRefs: {
             projectId,
             projectSlug: taskAccess.slug ?? null,

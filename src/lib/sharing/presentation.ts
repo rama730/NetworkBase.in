@@ -158,6 +158,8 @@ export function accessCopy(preview: SharePreview): string {
   if (preview.state === 'unavailable') return `This ${preview.kind} is no longer available.`;
   if (preview.state === 'unknown') return 'Preview details could not load. You can still copy a resolved link.';
   if (preview.kind === 'project' && preview.draft) return 'Draft · unpublished. Sharing this link does not publish the workspace or grant access.';
+  // Report §37.7: an organization that isn't public shows outsiders its private page.
+  if (preview.title === 'Private organization') return 'People without access will see the private page.';
   if (preview.visibility === 'connections') return 'Only permitted connections can view this profile. Sharing does not change access.';
   if (preview.visibility === 'private') return `This ${preview.kind} is private. Sharing does not change access.`;
   if (preview.state === 'restricted') return `Access is required to view this ${preview.kind}. Sharing does not grant access.`;

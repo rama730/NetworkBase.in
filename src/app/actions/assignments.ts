@@ -17,7 +17,7 @@ import { shareToOrgGeneral } from '@/lib/organizations/org-chat';
 import { postOrgAnnouncement } from '@/lib/organizations/org-updates';
 import { ORG_LIMITS } from '@/lib/organizations/config';
 import { readOrgWork } from '@/lib/organizations/settings';
-import { assignmentPeopleOf, notifyAssignmentDueChanged, notifyAssignmentPublished, notifyNewCopies, notifyAssignmentRemoved, notifyAssignmentReviewed, notifyAssignmentSubmitted, notifyTeamMoved } from '@/lib/organizations/assignment-notify';
+import { assignmentPeopleOf, notifyAssignmentDueChanged, notifyAssignmentPublished, notifyNewCopies, notifyAssignmentRemoved, notifyAssignmentReopened, notifyAssignmentReviewed, notifyAssignmentSubmitted, notifyTeamMoved } from '@/lib/organizations/assignment-notify';
 import { notifyOrg, orgHref, orgLabel, remindedRecently } from '@/lib/organizations/notify';
 import { taskReviewSnapshot } from '@/lib/workspaces/task-review-snapshot';
 import { ASSIGNMENT_STATE_LABELS } from '@/lib/copy/terms';
@@ -471,6 +471,7 @@ export async function reopenAssignmentAction(masterId: string): Promise<{ succes
     if (!ctx) return DENIED;
     if (!ctx.master.settings.closedAt) return { success: false, error: 'This assignment is open.' };
     await db.update(tasks).set({ assignmentSettings: { ...ctx.master.settings, closedAt: null }, updatedAt: new Date() }).where(eq(tasks.id, masterId));
+    await notifyAssignmentReopened(masterId, ctx.viewer.userId).catch((error) => logger.warn('assignments.after_save_failed', { module: 'assignments', step: 'reopen', masterId, error: error instanceof Error ? error.message : String(error) }));
     touch(ctx.viewer.slug, ctx.master.projectId);
     return { success: true };
 }

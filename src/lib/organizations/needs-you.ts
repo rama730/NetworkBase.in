@@ -116,8 +116,13 @@ export async function readNeedsYou(v: OrgViewer, now: Date): Promise<NeedsYouRow
               WHERE c.user_id = ${v.userId} AND p.parent_id = ${v.org.id} AND u.audience->'projectIds' @> to_jsonb(p.id::text)))
         ORDER BY u.created_at DESC LIMIT 3`);
     for (const a of unread) rows.push({ kind: 'announcement', label: `Read: ${a.content.replace(/\s+/g, ' ').slice(0, 60)}`, href: `${base}?tab=updates&updateId=${a.id}` });
-    const docs = await readOrgDocsAction(v.org.id);
-    if (docs.success && docs.data) for (const d of docs.data.docs) if (d.required && d.label === 'new') rows.push({ kind: 'doc', label: `Read ${d.filename.replace(/\.(md|mdx|markdown)$/i, '')}`, href: `${base}?tab=readme&doc=${d.slug}` });
+    // Smaller bug 8: the full document read runs only when a required document is still unread at its version.
+    const [unreadDoc] = await db.execute<{ one: number }>(sql`
+        SELECT 1 AS one FROM workspace_documents d WHERE d.workspace_id = ${v.org.id} AND d.settings->'org'->>'required' = 'true'
+          AND NOT EXISTS (SELECT 1 FROM doc_opens o WHERE o.doc_id = d.id AND o.user_id = ${v.userId}
+            AND o.version >= coalesce((d.settings->'org'->>'readVersion')::int, 0)) LIMIT 1`);
+    const docs = unreadDoc ? await readOrgDocsAction(v.org.id) : null;
+    if (docs?.success && docs.data) for (const d of docs.data.docs) if (d.required && d.label === 'new') rows.push({ kind: 'doc', label: `Read ${d.filename.replace(/\.(md|mdx|markdown)$/i, '')}`, href: `${base}?tab=readme&doc=${d.slug}` });
     return rows;
 }
 

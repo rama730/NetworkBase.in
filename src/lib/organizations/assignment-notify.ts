@@ -203,3 +203,15 @@ export async function notifyNewCopies(orgId: string, where: { userId?: string; p
   for (const r of rows) byMaster.set(r.master_id, { creator: r.creator_id, copies: [...(byMaster.get(r.master_id)?.copies ?? []), r.copy_id] });
   for (const [masterId, { creator, copies }] of byMaster) if (creator) await notifyAssignmentPublished(masterId, creator, copies);
 }
+
+/** Reopened (report §30.4): "Lab 1 is open again" to everyone on a copy that isn't done or excused. */
+export async function notifyAssignmentReopened(masterId: string, actorId: string) {
+  const [master] = await db.select({ title: tasks.title, projectId: tasks.projectId }).from(tasks).where(eq(tasks.id, masterId)).limit(1);
+  const org = master ? await orgLabel(master.projectId) : null;
+  if (!master || !org) return;
+  const open = await db.select({ id: tasks.id, assigneeId: tasks.assigneeId }).from(tasks)
+    .where(and(eq(tasks.assignmentId, masterId), isNull(tasks.deletedAt), isNull(tasks.excusedAt), sql`${tasks.status} <> 'done'`));
+  const teams = await teamsOf(open.map((c) => c.id));
+  const to = [...new Set(open.flatMap((c) => [c.assigneeId, ...(teams.get(c.id) ?? [])]).filter((id): id is string => Boolean(id)))];
+  if (to.length) await notifyOrg({ orgId: org.id, eventKey: "assignments.due_changed", actorId, to, title: `${master.title} is open again`, href: orgHref(org, "?tab=tasks"), sourceEventId: `reopen:${masterId}:${Date.now()}`, refs: { taskId: masterId } });
+}

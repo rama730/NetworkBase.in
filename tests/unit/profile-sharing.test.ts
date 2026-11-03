@@ -51,6 +51,7 @@ test('restricted metadata stays generic, while public image metadata carries exp
   assert.equal(preview.identity,undefined);assert.deepEqual(preview.skills,[]);
   assert.match(accessCopy({...preview,visibility:'private'}),/Sharing does not change access/);
   assert.match(accessCopy({...preview,state:'unknown'}),/could not load/);
+  assert.equal(accessCopy({...preview,state:'restricted',title:'Private organization'}),'People without access will see the private page.');
 });
 
 test('in-app preview normalization strips identity from restricted payloads and rejects foreign canonical targets', () => {

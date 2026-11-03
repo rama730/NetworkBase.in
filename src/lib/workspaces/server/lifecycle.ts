@@ -2447,6 +2447,11 @@ export async function toggleWorkspaceFollowAction(
     if (!access.project || !access.canRead) {
       return { success: false, error: "Workspace not found or private." };
     }
+    // Report §37.8: an organization's followers are outsiders, and a suspended or deleting one can't be followed.
+    if (shouldFollow && access.project.kind === "organization") {
+      if (access.isOwner || access.isMember) return { success: false, error: "You’re a member, so you already see its posts." };
+      if (access.writeBlocked === "suspended" || access.writeBlocked === "deleting") return { success: false, error: "This organization isn’t available." };
+    }
     // Across a block (either way) there's no following: the blocked side can't reach the other's projects.
     if (shouldFollow && access.project.ownerId !== user.id) {
       const relationship = await resolvePrivacyRelationship(user.id, access.project.ownerId);
