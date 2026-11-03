@@ -18,8 +18,9 @@ import { postOrgAnnouncement } from '@/lib/organizations/org-updates';
 import { ORG_LIMITS } from '@/lib/organizations/config';
 import { readOrgWork } from '@/lib/organizations/settings';
 import { assignmentPeopleOf, notifyAssignmentDueChanged, notifyAssignmentPublished, notifyNewCopies, notifyAssignmentRemoved, notifyAssignmentReviewed, notifyAssignmentSubmitted, notifyTeamMoved } from '@/lib/organizations/assignment-notify';
-import { remindedRecently } from '@/lib/organizations/notify';
+import { notifyOrg, orgHref, orgLabel, remindedRecently } from '@/lib/organizations/notify';
 import { taskReviewSnapshot } from '@/lib/workspaces/task-review-snapshot';
+import { ASSIGNMENT_STATE_LABELS } from '@/lib/copy/terms';
 
 // Assignments (report §16, §16.11). Owners and admins create, review and manage; recipients submit.
 
@@ -236,23 +237,59 @@ const updateSchema = z.object({
     title: z.string().trim().min(1).max(200).optional(),
     description: z.string().trim().max(10000).nullable().optional(),
     dueDate: z.string().datetime({ offset: true }).optional(),
+    // Edit for everyone (report §23.3): field by field.
+    lateRule: z.enum(['none', 'until', 'always']).optional(),
+    lateUntil: z.string().datetime({ offset: true }).nullable().optional(),
+    lateAfterMinutes: z.number().int().min(0).max(60).optional(),
+    submissionType: z.enum(['none', 'file', 'link', 'text']).optional(),
+    reviewRequired: z.boolean().optional(),
+    sprintId: z.string().uuid().nullable().optional(),
+    priority: z.enum(['low', 'medium', 'high', 'urgent']).optional(),
+    storyPoints: z.number().int().min(0).max(100).nullable().optional(),
+    /** "Tell everyone?" when the instructions change. */
+    tellEveryone: z.boolean().optional(),
 }).strict();
 
-/** Editing the master updates every copy; a moved due date moves copies that weren't extended (report §16.3). */
+/**
+ * Edit for everyone (report §16.3, §23.3, decision 39): the master and every copy follow; a moved due date moves
+ * copies that weren't extended. The hand-in type locks at the first submission; a closed one reopens first for
+ * instructions or the due date. Turning review off approves nothing already waiting.
+ */
 export async function updateAssignmentAction(masterId: string, patch: z.input<typeof updateSchema>): Promise<{ success: true } | Failure> {
     const parsed = updateSchema.safeParse(patch);
     if (!parsed.success) return { success: false, error: 'Check the changes.' };
     const ctx = await adminOfMaster(masterId);
     if (!ctx) return DENIED;
-    const { title, description, dueDate } = parsed.data;
+    const { title, description, dueDate, sprintId, priority, storyPoints, tellEveryone } = parsed.data;
+    const settings = ctx.master.settings;
+    if (settings.closedAt && (description !== undefined || dueDate)) return { success: false, error: 'Reopen it to change the instructions or due date.' };
+    if (parsed.data.submissionType && parsed.data.submissionType !== settings.submissionType) {
+        const [handedIn] = await db.select({ id: tasks.id }).from(tasks).where(and(eq(tasks.assignmentId, masterId), isNull(tasks.deletedAt), handedInSql)).limit(1);
+        if (handedIn) return { success: false, error: 'Someone has handed this in, so the hand-in type is locked.' };
+    }
+    if (sprintId) {
+        const [sprint] = await db.select({ status: workspaceSprints.status }).from(workspaceSprints).where(and(eq(workspaceSprints.id, sprintId), eq(workspaceSprints.projectId, ctx.master.projectId))).limit(1);
+        if (!sprint || (sprint.status !== 'planning' && sprint.status !== 'active')) return { success: false, error: 'Pick a planned or active sprint.' };
+    }
+    const nextSettings: AssignmentSettings = {
+        ...settings,
+        ...(parsed.data.lateRule ? { lateRule: parsed.data.lateRule, lateUntil: parsed.data.lateRule === 'until' ? parsed.data.lateUntil ?? settings.lateUntil ?? null : null } : {}),
+        ...(parsed.data.lateAfterMinutes !== undefined ? { lateAfterMinutes: parsed.data.lateAfterMinutes } : {}),
+        ...(parsed.data.submissionType ? { submissionType: parsed.data.submissionType } : {}),
+        ...(parsed.data.reviewRequired !== undefined ? { reviewRequired: parsed.data.reviewRequired } : {}),
+        ...(description !== undefined && settings.publishedAt ? { instructionsUpdatedAt: new Date().toISOString() } : {}),
+    };
     // A moved due date can't pass the late date (report §42.12 smaller bug 16).
-    const lateBlock = dueDate ? lateRuleBlock(ctx.master.settings, new Date(dueDate)) : null;
+    const lateBlock = lateRuleBlock(nextSettings, new Date(dueDate ?? ctx.master.dueDate ?? Date.now()));
     if (lateBlock) return { success: false, error: lateBlock };
     const now = new Date();
     await db.transaction(async (tx) => {
-        const shared = { ...(title !== undefined ? { title } : {}), ...(description !== undefined ? { description } : {}), updatedAt: now };
-        await tx.update(tasks).set({ ...shared, ...(dueDate ? { dueDate: new Date(dueDate) } : {}) }).where(eq(tasks.id, masterId));
+        const shared = { ...(title !== undefined ? { title } : {}), ...(description !== undefined ? { description } : {}),
+            ...(priority ? { priority } : {}), ...(storyPoints !== undefined ? { storyPoints } : {}), updatedAt: now };
+        await tx.update(tasks).set({ ...shared, assignmentSettings: nextSettings, ...(dueDate ? { dueDate: new Date(dueDate) } : {}), ...(sprintId !== undefined ? { sprintId } : {}) }).where(eq(tasks.id, masterId));
         await tx.update(tasks).set(shared).where(eq(tasks.assignmentId, masterId));
+        // All of the organization's own copies move with it; group copies keep their workspace's linked sprint.
+        if (sprintId !== undefined) await tx.update(tasks).set({ sprintId }).where(and(eq(tasks.assignmentId, masterId), eq(tasks.projectId, ctx.master.projectId)));
         if (dueDate && ctx.master.dueDate) {
             await tx.update(tasks).set({ dueDate: new Date(dueDate) }).where(and(eq(tasks.assignmentId, masterId), eq(tasks.dueDate, ctx.master.dueDate)));
         }
@@ -264,7 +301,86 @@ export async function updateAssignmentAction(masterId: string, patch: z.input<ty
         const moved = await db.select({ id: tasks.id }).from(tasks).where(and(eq(tasks.assignmentId, masterId), isNull(tasks.deletedAt), eq(tasks.dueDate, new Date(dueDate)), sql`NOT ${handedInSql}`));
         for (const { id } of moved) await notifyAssignmentDueChanged(id, ctx.viewer.userId, (t, day) => `${t}: due date moved to ${day(new Date(dueDate))}`, `${id}:moved:${dueDate}`);
     }
+    // "Tell everyone?" (report §23.3): one notice for the change, to everyone who has it.
+    if (tellEveryone && description !== undefined && settings.publishedAt) {
+        const org = await orgLabel(ctx.master.projectId);
+        const people = await assignmentPeopleOf(db, masterId);
+        if (org && people.length) await notifyOrg({ orgId: org.id, eventKey: 'assignments.due_changed', actorId: ctx.viewer.userId, to: people,
+            title: `Instructions updated: ${title ?? ctx.master.title}`, href: orgHref(org, '?tab=tasks'), sourceEventId: `instructions:${masterId}:${now.getTime()}` })
+            .catch((error) => logger.warn('assignments.after_save_failed', { module: 'assignments', step: 'instructions', masterId, error: error instanceof Error ? error.message : String(error) }));
+    }
     return { success: true };
+}
+
+/** Roster Remove (report §34.6): only a copy nobody has started; they're told it was removed. */
+export async function removeCopyAction(copyId: string): Promise<{ success: true } | Failure> {
+    const ctx = await adminOfCopy(copyId);
+    if (!ctx) return DENIED;
+    const { copy } = ctx;
+    if (copy.status !== 'todo' || copy.submission || copy.reviewSubmittedAt) return { success: false, error: 'They’ve started this, so it stays. Excuse them instead.' };
+    const people = await assignmentPeopleOf(db, copyId);
+    await db.update(tasks).set({ deletedAt: new Date(), updatedAt: new Date() }).where(and(eq(tasks.id, copyId), eq(tasks.status, 'todo')));
+    touch(ctx.viewer.slug, ctx.master.projectId);
+    await notifyAssignmentRemoved(ctx.master.projectId, ctx.master.title, people, ctx.viewer.userId, `removed-copy:${copyId}`).catch(() => undefined);
+    return { success: true };
+}
+
+/** Extend for the selected people (report §34.6): each is told. A closed assignment needs reopen for them. */
+export async function extendCopiesAction(copyIds: string[], dueDate: string, options: { reopen?: boolean } = {}): Promise<{ success: true; extended: number } | Failure> {
+    let extended = 0;
+    for (const id of copyIds.slice(0, 500)) {
+        const result = await extendCopyAction(id, dueDate, options);
+        if (!result.success) return extended ? { success: true, extended } : result;
+        extended += 1;
+    }
+    return { success: true, extended };
+}
+
+/** Return selected (report §23.2): one reason and Fix by for everyone selected; work that isn't waiting is skipped. */
+export async function returnCopiesAction(copyIds: string[], reason: string, fixBy: string): Promise<{ success: true; returned: number; skipped: number } | Failure> {
+    if (!reason.trim()) return { success: false, error: 'Say what to change.' };
+    let returned = 0;
+    let skipped = 0;
+    for (const id of copyIds.slice(0, 500)) {
+        const result = await reviewAssignmentCopyAction(id, 'return', reason, undefined, { fixBy });
+        if (result.success) returned += 1;
+        else if (result.error === DENIED.error) return result;
+        else skipped += 1;
+    }
+    return { success: true, returned, skipped };
+}
+
+/** Export (report §33.5, decision 83): one assignment's roster as rows, statuses and dates only, never content. */
+export async function readAssignmentExportAction(masterId: string): Promise<{ success: true; rows: string[][] } | Failure> {
+    const roster = await readAssignmentRosterAction(masterId);
+    if (!roster.success) return roster;
+    const ctx = await adminOfMaster(masterId);
+    if (!ctx) return DENIED;
+    const day = (iso: string | null | undefined) => (iso ? iso.slice(0, 10) : '');
+    return {
+        success: true,
+        rows: [['Person', 'Status', 'Due', 'Handed in', 'Late', 'Version'], ...roster.rows.map((r) => {
+            const sub = r.submission as { at?: string; version?: number } | null;
+            return [r.people?.length ? `${r.label} (${r.people.map((p) => p.name).join(', ')})` : r.label, ASSIGNMENT_STATE_LABELS[r.state], day(r.dueDate), day(sub?.at), r.late ? 'Late' : '', sub?.version ? String(sub.version) : ''];
+        })],
+    };
+}
+
+/** Use again (report §33.5): the form filled from an earlier assignment, with new dates left to choose. */
+export async function readAssignmentForReuseAction(masterId: string): Promise<{ success: true; form: {
+    title: string; description: string; submissionType: string; reviewRequired: boolean; lateRule: string; lateAfterMinutes: number; steps: string[]; target: AssignmentTarget; materials: Array<{ id: string; name: string }>; dueDate: null;
+} } | Failure> {
+    const ctx = await adminOfMaster(masterId);
+    if (!ctx) return DENIED;
+    const [steps, materials] = await Promise.all([
+        db.execute<{ title: string }>(sql`SELECT title FROM task_subtasks WHERE task_id = ${masterId} ORDER BY position`),
+        db.execute<{ id: string; name: string }>(sql`SELECT n.id, n.name FROM task_node_links l JOIN workspace_nodes n ON n.id = l.node_id AND n.deleted_at IS NULL WHERE l.task_id = ${masterId}`),
+    ]);
+    const s = ctx.master.settings;
+    return { success: true, form: {
+        title: ctx.master.title, description: ctx.master.description ?? '', submissionType: s.submissionType, reviewRequired: s.reviewRequired, lateRule: s.lateRule,
+        lateAfterMinutes: s.lateAfterMinutes ?? LATE_AFTER_DEFAULT_MINUTES, steps: steps.map((r) => r.title), target: s.target, materials: [...materials], dueDate: null,
+    } };
 }
 
 

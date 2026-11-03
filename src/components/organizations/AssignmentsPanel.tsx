@@ -11,6 +11,7 @@ import {
     deleteAssignmentAction,
     excuseCopyAction,
     excuseTeamMemberAction,
+    extendCopiesAction,
     extendCopyAction,
     giveCopyAction,
     listAssignmentsAction,
@@ -18,16 +19,21 @@ import {
     moveTeamMemberAction,
     publishAssignmentAction,
     readAssignmentComposerOptionsAction,
+    readAssignmentExportAction,
+    readAssignmentForReuseAction,
     readAssignmentMaterialsAction,
     readAssignmentRosterAction,
     readAssignmentTeamsAction,
     readReviewQueueAction,
     remindCopiesAction,
+    removeCopyAction,
     reopenAssignmentAction,
+    returnCopiesAction,
     reviewAssignmentCopyAction,
     scheduleAssignmentAction,
     searchAssignmentMaterialsAction,
     submitAssignmentAction,
+    updateAssignmentAction,
     type AssignmentRow,
     type GroupCopyRow,
     type ReviewQueueRow,
@@ -44,7 +50,9 @@ import { DownloadLink } from '@/components/ui/download-link'
 import { remindSummary } from '@/lib/organizations/member-rules'
 import { toast } from '@/lib/feedback'
 import { ASSIGNMENT_STATE_LABELS } from '@/lib/copy/terms'
-import { ExcuseDialog, ExtendDialog, GiveToDialog, ReturnDialog } from '@/components/organizations/AssignmentDialogs'
+import { EditAssignmentDialog, ExcuseDialog, ExtendDialog, GiveToDialog, ReturnDialog } from '@/components/organizations/AssignmentDialogs'
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
+import { saveBlob, toCsvBlob } from '@/lib/download'
 
 // Assignments in the org Tasks tab (report §16.2–16.5, §16.11) and group copies in a child project (§16.6).
 // The Kanban board below stays as it is: members' own copies appear there through the read rule.
@@ -132,7 +140,7 @@ function SubmitDialog({ copyId, submissionType, title, open, onOpenChange, onDon
 type TeamBox = { name: string; people: OrgRosterPerson[]; leadId: string | null }
 
 /** New assignment (report §16.2): who it goes to, submission, late rule, steps; Publish or Save as draft. */
-function AssignmentComposer({ orgId, open, onOpenChange, onCreated }: { orgId: string; open: boolean; onOpenChange: (open: boolean) => void; onCreated: () => void }) {
+function AssignmentComposer({ orgId, open, onOpenChange, onCreated, reuseFrom = null }: { orgId: string; open: boolean; onOpenChange: (open: boolean) => void; onCreated: () => void; reuseFrom?: string | null }) {
     const [title, setTitle] = useState('')
     const [description, setDescription] = useState('')
     const [dueLocal, setDueLocal] = useState('')
@@ -179,8 +187,17 @@ function AssignmentComposer({ orgId, open, onOpenChange, onCreated }: { orgId: s
             // A new assignment starts from the org's Work defaults (report §21.2 #5).
             setReviewRequired(r.defaults.reviewRequired)
             setLateRule(r.defaults.lateRule)
+            // Use again (report §33.5): the form filled in from an earlier assignment, with new dates to choose.
+            if (reuseFrom) void readAssignmentForReuseAction(reuseFrom).then((again) => {
+                if (!again.success) return
+                const f = again.form
+                setTitle(f.title); setDescription(f.description); setSubmissionType(f.submissionType as typeof submissionType); setReviewRequired(f.reviewRequired)
+                setLateRule(f.lateRule as typeof lateRule); setLateAfter(f.lateAfterMinutes); setSteps(f.steps); setDueLocal('')
+                setMaterials(f.materials.map((m) => ({ ...m, adminsOnly: false })))
+                if (f.target.mode === 'people') { setMode('people'); setPeople(f.target.userIds) } else if (f.target.mode === 'everyone' || f.target.mode === 'each_child') setMode(f.target.mode)
+            })
         })
-    }, [open, orgId])
+    }, [open, orgId, reuseFrom])
 
     const placed = new Set(teams.flatMap((t) => t.people.map((p) => p.userId)))
     const individuals = people.filter((id) => !placed.has(id))
@@ -432,7 +449,8 @@ export function RosterDialog({ row, orgId, open, onOpenChange, onChanged }: { ro
     const [rows, setRows] = useState<RosterRow[]>([])
     const [withoutCopy, setWithoutCopy] = useState<Array<{ userId: string; name: string }>>([])
     const [closed, setClosed] = useState(false)
-    const [ask, setAsk] = useState<{ kind: 'return' | 'change' | 'extend' | 'excuse'; row: RosterRow } | { kind: 'give' } | null>(null)
+    const [ask, setAsk] = useState<{ kind: 'return' | 'change' | 'extend' | 'excuse' | 'remove'; row: RosterRow } | { kind: 'give' | 'bulk-return' | 'bulk-extend' } | null>(null)
+    const [picked, setPicked] = useState<Set<string>>(new Set())
     const [error, setError] = useState<string | null>(null)
     const [pending, startTransition] = useTransition()
     const load = useCallback(() => void readAssignmentRosterAction(row.masterId).then((r) => { if (r.success) { setRows(r.rows); setWithoutCopy(r.withoutCopy); setClosed(r.closed) } }), [row.masterId])
@@ -457,18 +475,40 @@ export function RosterDialog({ row, orgId, open, onOpenChange, onChanged }: { ro
                     {/* Download all (report §23.5): one folder per person or team, latest handed-in files. */}
                     {orgId && row.submissionType === 'file' && row.counts.submitted + row.counts.done > 0 ? <Button asChild size="sm" variant="outline"><DownloadLink href={`/api/v1/workspaces/${orgId}/tasks/${row.masterId}/submissions`}>Download all</DownloadLink></Button> : null}
                     {withoutCopy.length ? <Button type="button" size="sm" variant="outline" disabled={pending} onClick={() => setAsk({ kind: 'give' })}>Give to…</Button> : null}
+                    {/* Report §33.5, decision 83: statuses and dates only. */}
+                    <Button type="button" size="sm" variant="outline" disabled={pending} onClick={() => startTransition(async () => {
+                        const r = await readAssignmentExportAction(row.masterId)
+                        if (!r.success) return setError(r.error)
+                        saveBlob(toCsvBlob(r.rows), `${row.title.replace(/[^\w-]+/g, '-').slice(0, 60)}-progress.csv`)
+                    })}>Export CSV</Button>
                     <a href={`?tab=tasks&drawerType=task&drawerId=${row.masterId}`} className="self-center text-sm text-primary underline-offset-4 hover:underline">Brief and Q&amp;A</a>
                 </div>
                 <form className="flex gap-2" onSubmit={(e) => { e.preventDefault(); const input = e.currentTarget.elements.namedItem('step') as HTMLInputElement; const value = input.value.trim(); if (value) run(async () => { const r = await addAssignmentStepAction(row.masterId, value); if (r.success) input.value = ''; return r }) }}>
                     <Input name="step" placeholder="Add a step to every assignment" maxLength={200} aria-label="Add a step to every assignment" className="h-8" />
                     <Button type="submit" size="sm" variant="outline" disabled={pending}>Add step</Button>
                 </form>
+                {picked.size ? (
+                    <div className="flex flex-wrap items-center gap-2 rounded-md border border-border bg-muted/30 p-2 text-sm" role="group" aria-label="Selected">
+                        <span className="font-medium">{picked.size} selected</span>
+                        <Button type="button" size="sm" disabled={pending} onClick={() => run(async () => {
+                            let approved = 0
+                            for (const id of picked) if ((await reviewAssignmentCopyAction(id, 'approve')).success) approved += 1
+                            toast.success(`Approved ${approved}. Each person is told.`)
+                            setPicked(new Set())
+                            return { success: true }
+                        })}>Approve selected</Button>
+                        <Button type="button" size="sm" variant="outline" disabled={pending} onClick={() => setAsk({ kind: 'bulk-return' })}>Return selected</Button>
+                        <Button type="button" size="sm" variant="outline" disabled={pending} onClick={() => setAsk({ kind: 'bulk-extend' })}>Extend for {picked.size}</Button>
+                        <Button type="button" size="sm" variant="ghost" onClick={() => setPicked(new Set())}>Clear</Button>
+                    </div>
+                ) : null}
                 <ul className="divide-y divide-border" aria-label="Roster">
                     {rows.map((r) => {
                         const submission = r.submission as { link?: string | null; text?: string | null } | null
                         return (
                             <li key={r.copyId} className="space-y-1 py-2 text-sm">
                                 <div className="flex flex-wrap items-center gap-2">
+                                    <input type="checkbox" aria-label={`Select ${r.label}`} checked={picked.has(r.copyId)} onChange={(e) => setPicked((cur) => { const next = new Set(cur); if (e.target.checked) next.add(r.copyId); else next.delete(r.copyId); return next })} />
                                     <span className="font-medium">{r.label}</span>
                                     {r.people?.length ? <span className="text-muted-foreground">· {r.people.map((p) => `${p.name}${p.lead ? ' ★' : ''}`).join(' · ')}</span>
                                         : r.members.length ? <span className="text-muted-foreground">· {r.members.join(' · ')}</span> : null}
@@ -493,6 +533,8 @@ export function RosterDialog({ row, orgId, open, onOpenChange, onChanged }: { ro
                                         setAsk({ kind: 'excuse', row: r })
                                     }}>{r.state === 'excused' ? 'Un-excuse' : 'Excuse'}</Button>
                                     {r.state !== 'done' && r.state !== 'excused' && r.state !== 'submitted' ? <Button type="button" size="sm" variant="ghost" disabled={pending} onClick={() => run(async () => { const res = await remindCopiesAction(row.masterId, [r.copyId]); if (res.success) toast.success(remindSummary(res)); return res.success ? { success: true } : res })}>Remind</Button> : null}
+                                    {/* Report §34.6: Remove only for a copy nobody has started. */}
+                                    {r.state === 'not_started' && !r.submission ? <Button type="button" size="sm" variant="ghost" disabled={pending} onClick={() => setAsk({ kind: 'remove', row: r })}>Remove</Button> : null}
                                 </div>
                                 {r.people?.length && r.state !== 'submitted' && r.state !== 'done' ? (
                                     <div className="flex flex-wrap gap-2 text-xs">
@@ -521,6 +563,13 @@ export function RosterDialog({ row, orgId, open, onOpenChange, onChanged }: { ro
                 <ExcuseDialog label={ask && 'row' in ask ? ask.row.label : ''} open={ask?.kind === 'excuse'} onClose={() => setAsk(null)}
                     onExcuse={(reason) => { if (ask && 'row' in ask) { const copyId = ask.row.copyId; run(() => excuseCopyAction(copyId, reason)) } }} />
                 <GiveToDialog people={withoutCopy} open={ask?.kind === 'give'} onClose={() => setAsk(null)} onGive={(userId, due) => run(() => giveCopyAction(row.masterId, userId, due))} />
+                <ReturnDialog label={`${picked.size} people`} open={ask?.kind === 'bulk-return'} onClose={() => setAsk(null)}
+                    onReturn={(reason, fixBy) => run(async () => { const r = await returnCopiesAction([...picked], reason, fixBy); if (r.success) { toast.success(`Returned ${r.returned}${r.skipped ? `. ${r.skipped} weren’t waiting for review.` : '.'}`); setPicked(new Set()) } return r })} />
+                <ExtendDialog label={`${picked.size} people`} currentDue={row.dueDate} closed={closed} open={ask?.kind === 'bulk-extend'} onClose={() => setAsk(null)}
+                    onExtend={(due, reopen) => run(async () => { const r = await extendCopiesAction([...picked], due, { reopen }); if (r.success) setPicked(new Set()); return r })} />
+                <ConfirmDialog open={ask?.kind === 'remove'} onOpenChange={(v) => { if (!v) setAsk(null) }} variant="destructive"
+                    title={`Remove ${ask && 'row' in ask ? ask.row.label : ''}’s copy?`} description="They haven’t started it. It leaves their list, and they’re told."
+                    confirmLabel="Remove" onConfirm={() => { if (ask && 'row' in ask) { const copyId = ask.row.copyId; run(() => removeCopyAction(copyId)) } setAsk(null) }} />
             </DialogContent>
         </Dialog>
     )
@@ -532,6 +581,8 @@ export function AssignmentsPanel({ orgId, onBoardChanged, startComposing = false
     const [composing, setComposing] = useState(false)
     const [roster, setRoster] = useState<AssignmentRow | null>(null)
     const [submitting, setSubmitting] = useState<AssignmentRow | null>(null)
+    const [editing, setEditing] = useState<AssignmentRow | null>(null)
+    const [reuseFrom, setReuseFrom] = useState<string | null>(null)
     const [reviewing, setReviewing] = useState(false)
     const [error, setError] = useState<string | null>(null)
     const [pending, startTransition] = useTransition()
@@ -597,6 +648,8 @@ export function AssignmentsPanel({ orgId, onBoardChanged, startComposing = false
                                 {row.status === 'open' || row.status === 'closed' ? <Button type="button" size="sm" variant="outline" onClick={() => setRoster(row)}>Roster</Button> : null}
                                 {row.status === 'open' ? <Button type="button" size="sm" variant="ghost" disabled={pending} onClick={() => run(() => closeAssignmentAction(row.masterId))}>Close</Button> : null}
                                 {row.status === 'closed' ? <Button type="button" size="sm" variant="ghost" disabled={pending} onClick={() => run(() => reopenAssignmentAction(row.masterId))}>Reopen</Button> : null}
+                                <Button type="button" size="sm" variant="ghost" disabled={pending} onClick={() => setEditing(row)}>{row.status === 'open' || row.status === 'closed' ? 'Edit for everyone' : 'Edit'}</Button>
+                                <Button type="button" size="sm" variant="ghost" disabled={pending} onClick={() => { setReuseFrom(row.masterId); setComposing(true) }}>Use again</Button>
                                 <Button type="button" size="sm" variant="ghost" disabled={pending} onClick={() => { if (window.confirm(`Delete ${row.title}?`)) run(() => deleteAssignmentAction(row.masterId)) }}>Delete</Button>
                             </span>
                         ) : null}
@@ -604,7 +657,8 @@ export function AssignmentsPanel({ orgId, onBoardChanged, startComposing = false
                 ))}
             </ul>
             {error ? <p role="alert" className="mt-2 text-sm text-destructive">{error}</p> : null}
-            {data.isAdmin ? <AssignmentComposer orgId={orgId} open={composing} onOpenChange={setComposing} onCreated={refresh} /> : null}
+            {data.isAdmin ? <AssignmentComposer orgId={orgId} open={composing} onOpenChange={(v) => { setComposing(v); if (!v) setReuseFrom(null) }} onCreated={refresh} reuseFrom={reuseFrom} /> : null}
+            {editing ? <EditAssignmentDialog orgId={orgId} row={editing} open onClose={() => setEditing(null)} onSave={(patch) => run(() => updateAssignmentAction(editing.masterId, patch))} /> : null}
             {roster ? <RosterDialog row={roster} orgId={orgId} open onOpenChange={(open) => { if (!open) setRoster(null) }} onChanged={load} /> : null}
             {submitting?.mine ? <SubmitDialog copyId={submitting.mine.copyId} submissionType={submitting.submissionType} title={submitting.title} open onOpenChange={(open) => { if (!open) setSubmitting(null) }} onDone={refresh} /> : null}
         </section>

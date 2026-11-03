@@ -69,7 +69,9 @@ test.beforeAll(async () => {
               {copyId:'t2',label:'Priya (individual)',members:[],state:'missing',late:false,projectId:'org',dueDate:null,submission:null,excusedReason:null},
               {copyId:'t3',label:'Kiran',members:[],state:'submitted',late:false,projectId:'org',dueDate:null,submission:{link:'https://example.com/k'},excusedReason:null}],withoutCopy:[{userId:'u9',name:'Late Joiner'}],closed:false});
             export const listWorkspaceGroupCopiesAction=async()=>({success:true,rows:[]});
-            export const approveAllSubmittedAction=${ok},closeAssignmentAction=${ok},createAssignmentAction=${ok},deleteAssignmentAction=${ok},excuseCopyAction=${ok},extendCopyAction=${ok},publishAssignmentAction=${ok},reviewAssignmentCopyAction=${ok},submitAssignmentAction=${ok},giveCopyAction=${ok},reopenAssignmentAction=${ok},scheduleAssignmentAction=${ok};
+            export const approveAllSubmittedAction=${ok},closeAssignmentAction=${ok},createAssignmentAction=${ok},deleteAssignmentAction=${ok},excuseCopyAction=${ok},extendCopyAction=${ok},publishAssignmentAction=${ok},reviewAssignmentCopyAction=${ok},submitAssignmentAction=${ok},giveCopyAction=${ok},reopenAssignmentAction=${ok},scheduleAssignmentAction=${ok},updateAssignmentAction=${ok},removeCopyAction=${ok};
+            export const extendCopiesAction=async()=>({success:true,extended:1}),returnCopiesAction=async()=>({success:true,returned:1,skipped:0}),readAssignmentExportAction=async()=>({success:true,rows:[['Person']]});
+            export const readAssignmentForReuseAction=async()=>({success:true,form:{title:'Lab 3',description:'Read chapter 3',submissionType:'link',reviewRequired:true,lateRule:'always',lateAfterMinutes:15,steps:['Read'],target:{mode:'everyone'},materials:[],dueDate:null}});
             export const searchAssignmentMaterialsAction=async()=>({success:true,files:[{id:'k',name:'answers.pdf',adminsOnly:true}]}),readAssignmentMaterialsAction=async()=>({success:true,materials:[]});
             export const addAssignmentStepAction=${ok},excuseTeamMemberAction=${ok},moveTeamMemberAction=${ok},remindCopiesAction=async()=>({success:true,reminded:3}),readAssignmentTeamsAction=async()=>({success:true,teams:[]});
             export const readReviewQueueAction=async()=>({success:true,rows:[{copyId:'c1',masterId:'a1',title:'Lab 3 — Consensus protocols',who:'Team A',submittedBy:'Asha Nair',submittedAt:new Date(Date.now()-7200000).toISOString(),late:true},{copyId:'c2',masterId:'a1',title:'Lab 3',who:'Priya',submittedBy:null,submittedAt:new Date().toISOString(),late:false}]});`,
@@ -188,6 +190,11 @@ test('Assignments (§16): the review queue steps with Next; the roster has Remin
     await returning.getByRole('button', { name: 'Cancel' }).click();
     await dialog.getByRole('button', { name: 'Give to…' }).click();
     await expect(page.getByRole('alertdialog')).toContainText('Late Joiner');
+    await page.getByRole('alertdialog').getByRole('button', { name: 'Cancel' }).click();
+    // Step 13c: tick rows for bulk actions.
+    await dialog.getByLabel('Select Kiran').check();
+    await expect(dialog.getByRole('group', { name: 'Selected' })).toContainText('1 selected');
+    await expect(dialog.getByRole('button', { name: 'Approve selected' })).toBeVisible();
 });
 
 test('Org header (§18): + New ▾ by keyboard, tab badges with spoken text, and the compact bar with the sprint chip and New items on a phone', async ({ page }) => {
@@ -311,4 +318,13 @@ test('New assignment (§42.5): publish timing choices, and Admins-only materials
     await page.getByLabel('Search files for materials').fill('ans');
     await expect(page.getByRole('list', { name: 'Files' })).toContainText('Admins only. Members won’t be able to open this.');
     await expect(page.getByLabel('Late after, in minutes')).toHaveValue('15');
+});
+
+test('Edit for everyone (§23.3): says how many it reaches, and the hand-in type is locked after a submission', async ({ page }) => {
+    await open(page, 'tasks', 1280);
+    await page.getByRole('button', { name: 'Edit for everyone' }).first().click();
+    const edit = page.getByRole('alertdialog');
+    await expect(edit.getByRole('button', { name: /^Save for \d+ people$/ })).toBeVisible();
+    await expect(edit).toContainText('Locked: someone has handed this in.');
+    await expect(edit.getByRole('textbox').nth(1)).toHaveValue('Read chapter 3');
 });

@@ -28,6 +28,8 @@ export type AssignmentSettings = {
   /** Publish timing (report §42.5, decision 125): a draft waits as Scheduled for a date, or for its sprint to start. */
   publishAt?: string | null;
   publishOnSprintStart?: boolean;
+  /** "Instructions updated 2 Nov" on each copy (report §23.3); no history. */
+  instructionsUpdatedAt?: string | null;
 };
 
 export const LATE_AFTER_DEFAULT_MINUTES = 15;

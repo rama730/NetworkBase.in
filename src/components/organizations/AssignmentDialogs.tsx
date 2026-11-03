@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 
+import { readAssignmentComposerOptionsAction, readAssignmentForReuseAction, type AssignmentRow, type updateAssignmentAction } from '@/app/actions/assignments'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { Input } from '@/components/ui/input'
 
@@ -98,6 +99,91 @@ export function GiveToDialog({ people, open, onClose, onGive }: { people: Array<
                     <Input type="datetime-local" required value={due} onChange={(e) => setDue(e.target.value)} />
                 </label>
                 <p className="text-[12px] text-muted-foreground">They get their own copy and are told.</p>
+            </div>
+        </ConfirmDialog>
+    )
+}
+
+type EditPatch = Parameters<typeof updateAssignmentAction>[1]
+
+/**
+ * Edit for everyone (report §23.3, decision 39): the same fields as the form, sent only when changed. The hand-in
+ * type locks once someone has handed in; a closed one keeps its instructions and due date until reopened.
+ */
+export function EditAssignmentDialog({ orgId, row, open, onClose, onSave }: { orgId: string; row: AssignmentRow; open: boolean; onClose: () => void; onSave: (patch: EditPatch) => void }) {
+    const [loaded, setLoaded] = useState<{ description: string; lateRule: string; lateAfterMinutes: number } | null>(null)
+    const [sprints, setSprints] = useState<Array<{ id: string; name: string }>>([])
+    const [title, setTitle] = useState(row.title)
+    const [description, setDescription] = useState('')
+    const [tell, setTell] = useState(false)
+    const [due, setDue] = useState(row.dueDate ? toLocalInput(new Date(row.dueDate)) : '')
+    const [lateRule, setLateRule] = useState('none')
+    const [lateAfter, setLateAfter] = useState(15)
+    const [submissionType, setSubmissionType] = useState(row.submissionType)
+    const [review, setReview] = useState(row.reviewRequired)
+    const [sprintId, setSprintId] = useState('')
+    useEffect(() => {
+        if (!open) return
+        void readAssignmentForReuseAction(row.masterId).then((r) => {
+            if (!r.success) return
+            setLoaded({ description: r.form.description, lateRule: r.form.lateRule, lateAfterMinutes: r.form.lateAfterMinutes })
+            setDescription(r.form.description); setLateRule(r.form.lateRule); setLateAfter(r.form.lateAfterMinutes)
+        })
+        void readAssignmentComposerOptionsAction(orgId).then((r) => setSprints(r.success ? r.sprints : []))
+    }, [open, orgId, row.masterId])
+    const published = row.status === 'open' || row.status === 'closed'
+    const handedIn = row.counts.submitted + row.counts.done > 0
+    const closed = row.status === 'closed'
+    const reach = row.counts.total + row.counts.excused
+    const patch = (): EditPatch => ({
+        ...(title.trim() && title.trim() !== row.title ? { title: title.trim() } : {}),
+        ...(loaded && description !== loaded.description ? { description, tellEveryone: tell } : {}),
+        ...(due && (!row.dueDate || new Date(due).getTime() !== new Date(row.dueDate).getTime()) ? { dueDate: new Date(due).toISOString() } : {}),
+        ...(loaded && lateRule !== loaded.lateRule ? { lateRule: lateRule as 'none' | 'always' } : {}),
+        ...(loaded && lateAfter !== loaded.lateAfterMinutes ? { lateAfterMinutes: lateAfter } : {}),
+        ...(submissionType !== row.submissionType ? { submissionType: submissionType as 'none' | 'file' | 'link' | 'text' } : {}),
+        ...(review !== row.reviewRequired ? { reviewRequired: review } : {}),
+        ...(sprintId ? { sprintId } : {}),
+    })
+    return (
+        <ConfirmDialog open={open} onOpenChange={(v) => { if (!v) onClose() }} size="wide" title={published ? `Edit ${row.title} for everyone` : `Edit ${row.title}`}
+            description={published ? `Changes reach ${reach} ${reach === 1 ? 'person' : 'people'}.` : undefined}
+            confirmLabel={published ? `Save for ${reach} ${reach === 1 ? 'person' : 'people'}` : 'Save'}
+            onConfirm={() => { const p = patch(); if (Object.keys(p).length) onSave(p); onClose() }}>
+            <div className="grid gap-3 text-sm sm:grid-cols-2">
+                <label className="block space-y-1 sm:col-span-2"><span className="font-medium">Title</span><Input value={title} onChange={(e) => setTitle(e.target.value)} maxLength={200} /></label>
+                <label className="block space-y-1 sm:col-span-2"><span className="font-medium">Instructions</span>
+                    <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={4} maxLength={10000} disabled={closed} className={area} />
+                    {closed ? <span className="block text-[12px] text-muted-foreground">Reopen it to change the instructions or due date.</span> : null}
+                </label>
+                {published && loaded && description !== loaded.description ? (
+                    <label className="flex items-center gap-2 sm:col-span-2"><input type="checkbox" checked={tell} onChange={(e) => setTell(e.target.checked)} /> Tell everyone</label>
+                ) : null}
+                <label className="block space-y-1"><span className="font-medium">Due</span><Input type="datetime-local" value={due} disabled={closed} onChange={(e) => setDue(e.target.value)} /></label>
+                <label className="block space-y-1"><span className="font-medium">Sprint</span>
+                    <select value={sprintId} onChange={(e) => setSprintId(e.target.value)} className="h-9 w-full rounded-md border border-input bg-background px-2">
+                        <option value="">Keep as is</option>
+                        {sprints.map((sp) => <option key={sp.id} value={sp.id}>{sp.name}</option>)}
+                    </select>
+                </label>
+                <label className="block space-y-1"><span className="font-medium">Hand-in</span>
+                    <select value={submissionType} disabled={handedIn} onChange={(e) => setSubmissionType(e.target.value)} className="h-9 w-full rounded-md border border-input bg-background px-2">
+                        <option value="file">A file</option><option value="link">A link</option><option value="text">Text</option><option value="none">No submission</option>
+                    </select>
+                    {handedIn ? <span className="block text-[12px] text-muted-foreground">Locked: someone has handed this in.</span> : null}
+                </label>
+                <label className="block space-y-1"><span className="font-medium">Late work</span>
+                    <select value={lateRule} onChange={(e) => setLateRule(e.target.value)} className="h-9 w-full rounded-md border border-input bg-background px-2">
+                        <option value="always">Always allowed</option><option value="none">Not allowed</option>
+                        {lateRule === 'until' ? <option value="until">Allowed until a date</option> : null}
+                    </select>
+                    {handedIn ? <span className="block text-[12px] text-muted-foreground">Applies from now on; past submissions keep their marks.</span> : null}
+                </label>
+                <label className="flex items-center gap-2">Late after
+                    <Input type="number" min={0} max={60} value={lateAfter} onChange={(e) => setLateAfter(Math.max(0, Math.min(60, Number(e.target.value) || 0)))} className="w-20" aria-label="Late after, in minutes" /> minutes
+                </label>
+                <label className="flex items-center gap-2"><input type="checkbox" checked={review} onChange={(e) => setReview(e.target.checked)} /> Review each submission</label>
+                {published ? <p className="text-[12px] text-muted-foreground sm:col-span-2">Steps can only be added after publishing (Roster → Add step). Turning review off approves nothing already waiting.</p> : null}
             </div>
         </ConfirmDialog>
     )
