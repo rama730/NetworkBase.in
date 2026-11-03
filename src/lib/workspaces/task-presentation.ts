@@ -50,7 +50,7 @@ export type TaskSurfaceRecord = {
   fromLabel?: string | null;
   /** A main assignment on an organization's board (decision 14): its class progress, worked out from the copies. */
   kind?: "task" | "assignment";
-  assignmentProgress?: { draft: boolean; closed: boolean; done: number; total: number; toReview: number; excused: number } | null;
+  assignmentProgress?: { draft: boolean; closed: boolean; done: number; total: number; toReview: number; excused: number; teams?: boolean } | null;
   dueDate: string | null;
   storyPoints: number | null;
   taskNumber: number | null;

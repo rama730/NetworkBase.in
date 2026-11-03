@@ -26,3 +26,11 @@ test("task 3: Hand in shows its chip, a coloured state box, file rows with sizes
   assert.match(hand, /<FileRow key=\{f\.nodeId\} name=\{f\.name\} bytes=\{f\.size\}/);
   assert.match(hand, /\{h\.wouldBeLate \? <p[^>]*>This will be marked Late\.<\/p> : null\}/);
 });
+
+test("task 4: an assignment card shows its chips, a progress bar and the done line", async () => {
+  const { assignmentCardBits } = await import("../../src/components/workspaces/v2/tasks/TaskCard");
+  assert.deepEqual(assignmentCardBits({ draft: false, closed: false, done: 22, total: 40, toReview: 6, excused: 0 }), { chips: ["Assignment", "6 to review"], percent: 55, line: "22 of 40 done · 6 to review" });
+  assert.deepEqual(assignmentCardBits({ draft: false, closed: false, done: 0, total: 0, toReview: 0, excused: 0 }), { chips: ["Assignment"], percent: 0, line: "Nobody has joined yet" });
+  assert.deepEqual(assignmentCardBits({ draft: true, closed: false, done: 0, total: 40, toReview: 0, excused: 0 }).chips, ["Draft", "Assignment"]);
+  assert.deepEqual(assignmentCardBits({ draft: false, closed: false, done: 3, total: 12, toReview: 0, excused: 0, teams: true }).chips, ["Assignment", "Groups"]);
+});

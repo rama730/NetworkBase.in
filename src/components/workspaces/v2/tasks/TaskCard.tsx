@@ -43,6 +43,12 @@ function assignmentProgressLine(p: { draft: boolean; closed: boolean; done: numb
   return [`${p.done} of ${p.total} done`, p.toReview ? `${p.toReview} to review` : null, p.closed ? "Closed" : null].filter(Boolean).join(" · ");
 }
 
+/** Mockup task 4: the card's chips, its progress bar's width and the line under it. */
+export function assignmentCardBits(p: { draft: boolean; closed: boolean; done: number; total: number; toReview: number; excused: number; teams?: boolean }) {
+  const chips = [p.draft ? "Draft" : null, "Assignment", p.teams ? "Groups" : null, p.toReview ? `${p.toReview} to review` : null].filter((c): c is string => Boolean(c));
+  return { chips, percent: p.total ? Math.round((p.done / p.total) * 100) : 0, line: assignmentProgressLine(p) };
+}
+
 export type Task = TaskSurfaceRecord;
 
 type TaskMetaIndicatorProps = {
@@ -143,6 +149,7 @@ export const TaskCard = memo(function TaskCard({
 }: TaskCardProps) {
   const taskRecord = normalizeTaskSurfaceRecord(task);
   const titlePresentation = getTaskTitlePresentation(taskRecord);
+  const bits = taskRecord.assignmentProgress ? assignmentCardBits(taskRecord.assignmentProgress) : null;
   const assigneeRemoved = Boolean(
     taskRecord.assigneeId &&
     taskRecord.assignee &&
@@ -171,6 +178,14 @@ export const TaskCard = memo(function TaskCard({
       )}
     >
       <div className="grid min-h-[128px] grid-rows-[auto_auto_auto] gap-3 p-3">
+        {/* Mockup task 4: an assignment's chips sit above its title, its class progress below. */}
+        {bits ? (
+          <div className="flex min-w-0 flex-wrap gap-1.5">
+            {bits.chips.map((chip) => (
+              <span key={chip} className="nb-status" data-status={chip === "Draft" || chip.endsWith("to review") ? "draft" : "archived"}>{chip}</span>
+            ))}
+          </div>
+        ) : null}
         <div className="flex min-w-0 items-center gap-1.5">
           <h4
             className={cn(
@@ -183,6 +198,14 @@ export const TaskCard = memo(function TaskCard({
             {taskRecord.title}
           </h4>
         </div>
+        {bits ? (
+          <div className="space-y-1">
+            <div className="h-[5px] overflow-hidden rounded-[3px] bg-muted" role="img" aria-label={bits.line}>
+              <div className="h-full bg-primary" style={{ width: `${bits.percent}%` }} />
+            </div>
+            <p className="font-mono text-[12px] text-muted-foreground">{bits.line}</p>
+          </div>
+        ) : null}
 
         {/* Keep the card compact: stable status first (if enabled), then semantic labels without a horizontal scroller. */}
         <div className="flex min-h-6 min-w-0 flex-wrap items-center gap-1.5">
@@ -272,11 +295,7 @@ export const TaskCard = memo(function TaskCard({
             )}
             <TaskMetaIndicators {...taskRecord} />
             {/* Decisions 6 and 14, gap 24: the assignment card shows class progress; it moves by itself. */}
-            {taskRecord.assignmentProgress ? (
-              <span className="truncate rounded-[3px] border border-border px-1 text-[10px] text-muted-foreground" title="Assignment">
-                Assignment · {assignmentProgressLine(taskRecord.assignmentProgress)}
-              </span>
-            ) : taskRecord.assignmentId && !taskRecord.fromLabel ? (
+            {taskRecord.assignmentProgress ? null : taskRecord.assignmentId && !taskRecord.fromLabel ? (
               <span className="rounded-[3px] border border-border px-1 text-[10px] text-muted-foreground">Assignment</span>
             ) : null}
             {taskRecord.fromLabel ? (
