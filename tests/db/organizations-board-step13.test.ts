@@ -88,6 +88,40 @@ test("decision 85: the panel's Hand in shows what's asked, the latest version an
   assert.deepEqual(admin.success && [admin.handIn.holder, admin.handIn.canSubmit], [false, false], "admins read it");
 });
 
+test("mockup task 3: the hand-in says who returned it, each file's size, and whether handing in now is late", async () => {
+  const [owner, asha] = await Promise.all([1, 2].map(() => sql.begin((tx) => createUser(tx))));
+  const org = await sql.begin((tx) => createProject(tx, owner!));
+  await sql`INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (${org}, ${owner!}, 'owner'), (${org}, ${asha!}, 'member')`;
+  await sql`UPDATE workspaces SET kind = 'organization', org_type = 'education', title = 'CSE 3B', join_code = ${generateJoinCode()} WHERE id = ${org}`;
+  await sql`UPDATE profiles SET full_name = 'Ms. Rao' WHERE id = ${owner!}`;
+  created.push(org);
+  viewerId = owner!;
+  const made = await assignments.createAssignmentAction({ projectId: org, title: "Lab 2", dueDate: new Date(Date.now() + 864e5).toISOString(), publish: true,
+    submissionType: "file", reviewRequired: true, lateRule: "always", target: { mode: "everyone" }, steps: [] });
+  const masterId = made.success ? made.masterId : "";
+  const [copy] = await sql`SELECT id FROM tasks WHERE assignment_id = ${masterId} AND assignee_id = ${asha!}`;
+  await sql`INSERT INTO workspace_nodes (workspace_id, task_id, path, type, name, size, metadata, current_version)
+    VALUES (${org}, ${copy!.id}, ${`/.system/tasks/${copy!.id}/lab2.pdf`}, 'file', 'lab2.pdf', 2100000, '{}'::jsonb, 1)`;
+  viewerId = asha!;
+  assert.equal((await assignments.submitAssignmentAction(copy!.id, {})).success, true);
+  viewerId = owner!;
+  await assignments.reviewAssignmentCopyAction(copy!.id, "return", "Add the test cases for empty lists.");
+  await sql`UPDATE tasks SET due_date = now() - interval '2 days' WHERE id = ${copy!.id}`;
+  viewerId = asha!;
+  const read = await assignments.readHandInAction(copy!.id);
+  assert.ok(read.success);
+  const h = read.success ? read.handIn : null!;
+  assert.equal(h.returned?.by, "Ms. Rao");
+  assert.deepEqual(h.files.map((f) => [f.name, f.size]), [["lab2.pdf", 2100000]]);
+  assert.equal(h.latest?.files[0]?.size, 2100000);
+  assert.equal(h.wouldBeLate, true, "late work allowed, past due: it will be marked late");
+  await sql`UPDATE tasks SET assignment_settings = jsonb_set(assignment_settings, '{lateRule}', '"none"'), submit_until = NULL WHERE id = ${masterId}`;
+  await sql`UPDATE tasks SET submit_until = NULL WHERE id = ${copy!.id}`;
+  const closed = await assignments.readHandInAction(copy!.id);
+  assert.deepEqual(closed.success && [closed.handIn.canSubmit, closed.handIn.wouldBeLate], [false, false], "late work closed: no Submit, nothing to warn");
+  viewerId = "";
+});
+
 test("mockup task 1: roster rows carry when and which version was handed in, and when the person was last reminded", async () => {
   const [owner, asha, ravi] = await Promise.all([1, 2, 3].map(() => sql.begin((tx) => createUser(tx))));
   const org = await sql.begin((tx) => createProject(tx, owner!));

@@ -239,9 +239,11 @@ export async function scheduleAssignmentAction(masterId: string, schedule: z.inp
 export type HandIn = {
     holder: boolean; submissionType: string; reviewRequired: boolean; dueDate: string | null; lateLabel: string | null; from: string; reviewers: string;
     state: CopyState; late: boolean; canSubmit: boolean; closed: boolean; approved: boolean; excusedReason: string | null;
-    returned: { reason: string | null; fixBy: string | null } | null;
-    latest: { version: number; at: string; by: string; link: string | null; text: string | null; note: string | null; files: Array<{ nodeId: string; name: string }> } | null;
-    files: Array<{ nodeId: string; name: string }>;
+    returned: { reason: string | null; fixBy: string | null; by: string | null } | null;
+    latest: { version: number; at: string; by: string; link: string | null; text: string | null; note: string | null; files: Array<{ nodeId: string; name: string; size: number | null }> } | null;
+    files: Array<{ nodeId: string; name: string; size: number | null }>;
+    /** Mockup task 3: handing in now would be marked late. */
+    wouldBeLate: boolean;
     materials: Array<{ nodeId: string; name: string }>;
 };
 
@@ -262,11 +264,12 @@ export async function readHandInAction(copyId: string): Promise<{ success: true;
     const s = copyState({ status: copy.status, reviewStatus: copy.reviewStatus, dueDate: copy.dueDate, submittedAt: copy.reviewSubmittedAt, completedAt: copy.completedAt, excusedAt: copy.excusedAt }, now, lateAfterMs(master.settings));
     const approved = copy.status === 'done' && copy.completionSource === 'review';
     const [latest] = await db.select().from(assignmentSubmissions).where(eq(assignmentSubmissions.copyId, copyId)).orderBy(desc(assignmentSubmissions.version)).limit(1);
-    const [returnedEvent] = s.state === 'returned' ? await db.execute<{ reason: string | null; fix_by: string | null }>(sql`
-        SELECT payload->>'reason' AS reason, payload->>'fixBy' AS fix_by FROM task_activity_events WHERE task_id = ${copyId} AND event_type = 'changes_requested' ORDER BY created_at DESC LIMIT 1`) : [];
+    const [returnedEvent] = s.state === 'returned' ? await db.execute<{ reason: string | null; fix_by: string | null; by: string | null }>(sql`
+        SELECT e.payload->>'reason' AS reason, e.payload->>'fixBy' AS fix_by, (SELECT coalesce(p.full_name, p.username) FROM profiles p WHERE p.id = e.actor_id) AS by
+        FROM task_activity_events e WHERE e.task_id = ${copyId} AND e.event_type = 'changes_requested' ORDER BY e.created_at DESC LIMIT 1`) : [];
     // Live loop 34: a file removed from the copy (detached, like the panel's Files list) isn't handed in.
-    const files = await db.execute<{ node_id: string; name: string }>(sql`
-        SELECT n.id AS node_id, n.name FROM workspace_nodes n WHERE n.deleted_at IS NULL AND n.type = 'file' AND ((n.task_id = ${copyId} AND (n.metadata->>'taskFileDetachedFrom') IS DISTINCT FROM ${copyId}::text) OR n.id IN (SELECT node_id FROM task_node_links WHERE task_id = ${copyId})) ORDER BY n.name`);
+    const files = await db.execute<{ node_id: string; name: string; size: number | null }>(sql`
+        SELECT n.id AS node_id, n.name, n.size FROM workspace_nodes n WHERE n.deleted_at IS NULL AND n.type = 'file' AND ((n.task_id = ${copyId} AND (n.metadata->>'taskFileDetachedFrom') IS DISTINCT FROM ${copyId}::text) OR n.id IN (SELECT node_id FROM task_node_links WHERE task_id = ${copyId})) ORDER BY n.name`);
     const materials = await readAssignmentMaterialsAction(copyId);
     const byName = latest?.submittedBy ? (await db.select({ name: sql<string>`coalesce(${profiles.fullName}, ${profiles.username}, 'Someone')` }).from(profiles).where(eq(profiles.id, latest.submittedBy)).limit(1))[0]?.name : null;
     const [org] = await db.select({ title: workspaces.title, orgType: workspaces.orgType, orgSettings: workspaces.orgSettings }).from(workspaces).where(eq(workspaces.id, master.projectId)).limit(1);
@@ -275,12 +278,16 @@ export async function readHandInAction(copyId: string): Promise<{ success: true;
     // Submit is open per the same rules the server checks on Submit.
     const replaceLocked = approved || (copy.status === 'done' && copy.reviewStatus === 'none' && copy.dueDate && now.getTime() > copy.dueDate.getTime() + lateAfterMs(master.settings) && !(copy.submitUntil && now <= copy.submitUntil));
     const canSubmit = holder && !copy.excusedAt && !replaceLocked && canStillSubmit(master.settings, copy.dueDate, now, copy.submitUntil);
+    // Mockup task 3: "This will be marked Late." when handing in now would be.
+    const wouldBeLate = canSubmit && Boolean(copy.dueDate && now.getTime() > copy.dueDate.getTime() + lateAfterMs(master.settings));
+    const sizes = new Map<string, number | null>(latest?.files.length ? (await db.select({ id: workspaceNodes.id, size: workspaceNodes.size }).from(workspaceNodes).where(inArray(workspaceNodes.id, latest.files.map((f) => f.nodeId)))).map((n) => [n.id, n.size == null ? null : Number(n.size)]) : []);
     return { success: true, handIn: {
         holder, submissionType: master.settings.submissionType, reviewRequired: master.settings.reviewRequired, dueDate: copy.dueDate?.toISOString() ?? null,
         lateLabel: lateWorkLabel(master.settings), from: org?.title ?? 'the organization', reviewers: `${roles.owner} or ${roles.admin}`, state: s.state, late: s.late, canSubmit, closed: Boolean(master.settings.closedAt), approved,
-        excusedReason: copy.excusedReason, returned: s.state === 'returned' ? { reason: returnedEvent?.reason ?? null, fixBy: returnedEvent?.fix_by ?? copy.submitUntil?.toISOString() ?? null } : null,
-        latest: latest ? { version: latest.version, at: latest.submittedAt.toISOString(), by: byName ?? 'Someone', link: latest.link, text: latest.body, note: latest.note, files: latest.files.map((f) => ({ nodeId: f.nodeId, name: f.name })) } : null,
-        files: files.map((f) => ({ nodeId: f.node_id, name: f.name })), materials: materials.success ? materials.materials : [],
+        excusedReason: copy.excusedReason, returned: s.state === 'returned' ? { reason: returnedEvent?.reason ?? null, fixBy: returnedEvent?.fix_by ?? copy.submitUntil?.toISOString() ?? null, by: returnedEvent?.by ?? null } : null,
+        latest: latest ? { version: latest.version, at: latest.submittedAt.toISOString(), by: byName ?? 'Someone', link: latest.link, text: latest.body, note: latest.note, files: latest.files.map((f) => ({ nodeId: f.nodeId, name: f.name, size: sizes.get(f.nodeId) ?? null })) } : null,
+        files: files.map((f) => ({ nodeId: f.node_id, name: f.name, size: f.size == null ? null : Number(f.size) })), materials: materials.success ? materials.materials : [],
+        wouldBeLate,
     } };
 }
 

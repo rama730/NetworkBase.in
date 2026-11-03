@@ -84,7 +84,7 @@ test("student check 17, 24: Publish confirms how many copies went out, and warns
 });
 
 test("live after deploy: lists from SQL come back as JSON, because production reads Postgres arrays as text (fetch_types off)", () => {
-  assert.match(source("src/app/actions/assignments.ts"), /\(SELECT to_jsonb\(array_agg\(f->>'name'\)\) FROM assignment_submissions/);
+  assert.match(source("src/app/actions/assignments.ts"), /\(SELECT jsonb_agg\(jsonb_build_object\('nodeId', f->>'nodeId', 'name', f->>'name', 'size', n\.size\)\) FROM assignment_submissions/);
   assert.match(source("src/app/actions/organizations.ts"), /\(SELECT to_jsonb\(array_agg\(s\.name ORDER BY s\.name\)\) FROM/);
   // Every array_agg that comes back whole (not one element with [1]) goes through to_jsonb.
   for (const file of ["src/app/actions/assignments.ts", "src/app/actions/organizations.ts"]) {
@@ -107,7 +107,7 @@ test("live loop 30–33: the review queue labels its Return box, drops a stale c
   const fixBy = defaultFixBy(new Date(2026, 10, 4, 2, 43));
   assert.deepEqual([fixBy.getFullYear(), fixBy.getMonth(), fixBy.getDate(), fixBy.getHours(), fixBy.getMinutes()], [2026, 10, 7, 23, 59]);
   const panel = source("src/components/organizations/AssignmentsPanel.tsx");
-  assert.match(panel, /aria-label="What should they change\?"/);
+  assert.match(panel, /aria-label=\{`What should \$\{current\.who\} change\?`\}/);
   assert.match(panel, /aria-label="Fix by"/);
   assert.match(panel, /setFixBy\(toLocalInput\(defaultFixBy\(\)\)\)/);
   assert.match(panel, /setTotal\(\(t\) => Math\.max\(0, t - 1\)\)/);
@@ -120,7 +120,7 @@ test("live loop 33: the roster's Return dialog defaults Fix by to 11:59 PM three
 
 test("live loop 34: open work lists each file with Remove, wired to the panel's unlink", () => {
   const hand = source("src/components/organizations/HandInSection.tsx");
-  assert.match(hand, /aria-label=\{`Remove \$\{f\.name\}`\}/);
+  assert.match(hand, /aria-label=\{`Remove \$\{name\}`\}/);
   assert.match(hand, /canAttach && onRemoveFile \?/);
   assert.match(source("src/components/workspaces/v2/tasks/TaskDetailPanel.tsx"), /onRemoveFile=\{resource\.fileMutations\.unlinkAttachment\}/);
   assert.match(source("src/components/workspaces/v2/tasks/TaskDetailTabs/DetailsTab.tsx"), /onUploadFiles=\{onUploadFiles\} onRemoveFile=\{onRemoveFile\}/);

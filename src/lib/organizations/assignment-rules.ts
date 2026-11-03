@@ -269,3 +269,16 @@ export function defaultFixBy(now: Date = new Date()) {
 export function rosterTiles(counts: Record<CopyState, number> & { total: number }) {
   return { done: counts.done, submitted: counts.submitted, notIn: counts.not_started + counts.in_progress + counts.returned + counts.missing, excused: counts.excused };
 }
+
+/** Mockup task 3: the Hand in section's chip, in the board's status tones. */
+export function handInChip(state: CopyState, approved: boolean): { label: string; tone: "info" | "warn" | "ok" | "danger" | "muted" } {
+  switch (state) {
+    case "in_progress": return { label: "In progress", tone: "info" };
+    case "submitted": return { label: "Submitted", tone: "warn" };
+    case "done": return approved ? { label: "Approved", tone: "ok" } : { label: "Done", tone: "ok" };
+    case "returned": return { label: "Returned", tone: "danger" };
+    case "missing": return { label: "Missing", tone: "danger" };
+    case "excused": return { label: "Excused", tone: "muted" };
+    default: return { label: "Not started", tone: "muted" };
+  }
+}

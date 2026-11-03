@@ -6,7 +6,8 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { readHandInAction, submitAssignmentAction, type HandIn } from '@/app/actions/assignments'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { webLink } from '@/lib/organizations/assignment-rules'
+import { handInChip, webLink } from '@/lib/organizations/assignment-rules'
+import { cn } from '@/lib/utils'
 
 // Hand in, in the task panel (report §34.4, decision 85): every hand-in type, an optional note, and the state with
 // what to do next. Files attach in the panel's Files tab; Submit locks them with this version (decision 127).
@@ -16,16 +17,42 @@ const WHEN = new Intl.DateTimeFormat('en', { weekday: 'short', month: 'short', d
 const ASKED: Record<string, string> = { file: 'a file', link: 'a link', text: 'text', none: 'nothing to attach' }
 const area = 'w-full resize-y rounded-md border border-input bg-transparent px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring'
 
+const size = (bytes: number | null) => (bytes == null ? '' : bytes >= 1e6 ? `${(bytes / 1e6).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1e3))} KB`)
+const TONE = { info: 'active', warn: 'draft', ok: 'completed', danger: 'blocked', muted: 'archived' } as const
+// Mockup task 3 (Submit artboard): the state in a coloured box, green when it's in, red when it came back.
+const box = (tone: 'ok' | 'danger') => cn('rounded-[5px] px-3 py-2.5', tone === 'ok' ? 'bg-[var(--status-success-soft)]' : 'bg-[var(--status-danger-soft)]')
+
 function StateLine({ h }: { h: HandIn }) {
     const at = h.latest ? WHEN.format(new Date(h.latest.at)) : null
     if (h.excusedReason) return <p>You’re excused: {h.excusedReason}</p>
-    if (h.returned) return <p className="font-medium text-amber-700 dark:text-amber-400">Returned: {h.returned.reason ?? 'Make the changes and hand it in again.'}{h.returned.fixBy ? ` Fix by ${WHEN.format(new Date(h.returned.fixBy))}.` : ''}</p>
-    if (h.approved) return <p>Approved{at ? ` · handed in ${at}` : ''}. It’s locked now.</p>
-    if (h.state === 'submitted') return <p>Submitted {at} · Version {h.latest?.version ?? 1}{h.late ? ' · Late' : ''} · Waiting for review</p>
-    if (h.state === 'done') return <p>Done {at}{h.late ? ' · Late' : ''}</p>
+    if (h.returned) return (
+        <div className={box('danger')}>
+            <p className="font-semibold">{h.returned.by ?? h.from} returned this</p>
+            <p className="text-[13px]">{h.returned.reason ?? 'Make the changes and hand it in again.'}</p>
+            {h.returned.fixBy ? <p className="mt-0.5 font-mono text-[12px] text-muted-foreground">Fix by {WHEN.format(new Date(h.returned.fixBy))}</p> : null}
+        </div>
+    )
+    if (h.approved) return <div className={box('ok')}><p className="font-semibold text-[var(--status-success)]">Approved{at ? ` · handed in ${at}` : ''}. It’s locked now.</p></div>
+    if (h.state === 'submitted') return (
+        <div className={box('ok')}>
+            <p className="font-semibold text-[var(--status-success)]">Submitted {at}</p>
+            <p className="font-mono text-[12px] text-muted-foreground">Version {h.latest?.version ?? 1}{h.late ? ' · Late' : ''} · Waiting for review</p>
+        </div>
+    )
+    if (h.state === 'done') return <div className={box('ok')}><p className="font-semibold text-[var(--status-success)]">Done {at}{h.late ? ' · Late' : ''}</p></div>
     if (h.closed && !h.canSubmit) return <p>This assignment is closed.</p>
-    if (h.state === 'missing') return <p>{h.canSubmit ? `Overdue.${h.lateLabel ? ` ${h.lateLabel}.` : ''}` : `The due date has passed. Ask ${h.from} if you need more time.`}</p>
+    if (h.state === 'missing') return <p className="text-[var(--status-danger)]">{h.canSubmit ? `Overdue.${h.lateLabel ? ` ${h.lateLabel}.` : ''}` : `The due date has passed. Ask ${h.from} if you need more time.`}</p>
     return null
+}
+
+function FileRow({ name, bytes, onRemove }: { name: string; bytes: number | null; onRemove?: () => void }) {
+    return (
+        <li className="flex items-center gap-2 rounded-[5px] border border-border px-2.5 py-1.5 text-[13px]">
+            <span className="min-w-0 flex-1 truncate">{name}</span>
+            <span className="font-mono text-[12px] text-muted-foreground">{size(bytes)}</span>
+            {onRemove ? <button type="button" aria-label={`Remove ${name}`} className="rounded-[3px] px-1.5 text-muted-foreground hover:bg-muted hover:text-foreground" onClick={onRemove}>×</button> : null}
+        </li>
+    )
 }
 
 export function HandInSection({ copyId, onOpenFiles, onSubmitted, onUploadFiles, onRemoveFile }: { copyId: string; onOpenFiles: () => void; onSubmitted: (reviewRequired: boolean) => void; onUploadFiles?: (files: File[]) => Promise<{ success: boolean; error?: string }>; onRemoveFile?: (nodeId: string) => Promise<{ success: boolean; error?: string }> }) {
@@ -73,11 +100,15 @@ export function HandInSection({ copyId, onOpenFiles, onSubmitted, onUploadFiles,
         await client.invalidateQueries({ queryKey: ['hand-in', copyId] })
         onSubmitted(h.reviewRequired)
     })
+    const chip = handInChip(h.state, h.approved)
     const label = h.state === 'returned' ? 'Submit again' : h.state === 'submitted' || h.state === 'done' ? 'Replace submission' : h.submissionType === 'none' ? 'Mark as done' : 'Submit'
     return (
         <section aria-labelledby="hand-in-heading" className="space-y-3 rounded-[6px] border border-border p-4 text-sm">
             <div className="space-y-0.5">
-                <h3 id="hand-in-heading" className="font-mono text-[11px] font-medium uppercase tracking-[0.09em] text-muted-foreground">Hand in</h3>
+                <div className="flex items-center gap-2">
+                    <h3 id="hand-in-heading" className="flex-1 font-mono text-[11px] font-medium uppercase tracking-[0.09em] text-muted-foreground">Hand in</h3>
+                    <span className="nb-status" data-status={TONE[chip.tone]}>{chip.label}</span>
+                </div>
                 <p className="text-muted-foreground">
                     What’s asked: {ASKED[h.submissionType] ?? h.submissionType}
                     {h.dueDate ? ` · Due ${WHEN.format(new Date(h.dueDate))}` : ''}{h.lateLabel ? ` · ${h.lateLabel}` : ''}
@@ -92,7 +123,7 @@ export function HandInSection({ copyId, onOpenFiles, onSubmitted, onUploadFiles,
                     <p className="text-[12px] text-muted-foreground">Version {h.latest.version} · {WHEN.format(new Date(h.latest.at))} · by {h.latest.by}</p>
                     {webLink(h.latest.link) ? <a href={webLink(h.latest.link)!} target="_blank" rel="noreferrer noopener" className="break-all text-primary underline">{h.latest.link}</a> : h.latest.link ? <span className="break-all">{h.latest.link}</span> : null}
                     {h.latest.text ? <p className="whitespace-pre-line">{h.latest.text}</p> : null}
-                    {h.latest.files.length ? <p>{h.latest.files.map((f) => f.name).join(', ')}</p> : null}
+                    {h.latest.files.length ? <ul className="space-y-1" aria-label={`Version ${h.latest.version} files`}>{h.latest.files.map((f) => <FileRow key={f.nodeId} name={f.name} bytes={f.size} />)}</ul> : null}
                     {h.latest.note ? <p className="text-muted-foreground">Note: {h.latest.note}</p> : null}
                 </div>
             ) : null}
@@ -104,13 +135,10 @@ export function HandInSection({ copyId, onOpenFiles, onSubmitted, onUploadFiles,
                     {h.submissionType === 'file' ? (
                         <div onDragOver={(e) => { if (canAttach) { e.preventDefault(); setDragging(true) } }} onDragLeave={() => setDragging(false)}
                             onDrop={(e) => { if (!canAttach) return; e.preventDefault(); setDragging(false); void attach(Array.from(e.dataTransfer.files)) }}
-                            className={dragging ? 'rounded-md border border-dashed border-primary p-2' : canAttach ? 'rounded-md border border-dashed border-border p-2' : undefined}>
-                            <p className="flex flex-wrap items-center gap-2">
-                                {uploading ? 'Adding…' : h.files.length ? h.files.map((f) => (
-                                    <span key={f.nodeId} className="inline-flex items-center gap-1">{f.name}
-                                        {canAttach && onRemoveFile ? <button type="button" aria-label={`Remove ${f.name}`} className="rounded-[3px] px-1 text-muted-foreground hover:bg-muted hover:text-foreground" onClick={() => void remove(f.nodeId)}>×</button> : null}
-                                    </span>
-                                )) : canAttach ? 'Drop your file here, or choose one.' : 'No file attached yet.'}
+                            className="space-y-2">
+                            {h.files.length ? <ul className="space-y-1" aria-label="Your files">{h.files.map((f) => <FileRow key={f.nodeId} name={f.name} bytes={f.size} onRemove={canAttach && onRemoveFile ? () => void remove(f.nodeId) : undefined} />)}</ul> : null}
+                            <p className={cn('flex flex-wrap items-center justify-center gap-2 rounded-[5px] p-3 text-center text-[13px] text-muted-foreground', canAttach && 'border border-dashed', dragging ? 'border-primary' : 'border-border')}>
+                                {uploading ? 'Adding…' : canAttach ? (h.files.length ? 'Drop another file, or' : 'Drop your file here, or') : h.files.length ? null : 'No file attached yet.'}
                                 {canAttach ? (
                                     <label className="inline-flex cursor-pointer items-center rounded-md border border-input px-2.5 py-1 text-[13px] hover:bg-muted">
                                         Choose file<input type="file" multiple className="sr-only" disabled={uploading} onChange={(e) => { void attach(Array.from(e.target.files ?? [])); e.target.value = '' }} />
@@ -125,6 +153,7 @@ export function HandInSection({ copyId, onOpenFiles, onSubmitted, onUploadFiles,
                     </label>
                     {error ? <p role="alert" className="text-destructive">{error}</p> : null}
                     <Button type="button" disabled={pending || uploading || (h.submissionType === 'file' && h.files.length === 0)} onClick={submit}>{pending ? 'Submitting…' : label}</Button>
+                    {h.wouldBeLate ? <p className="font-mono text-[12px] text-[var(--status-warning)]">This will be marked Late.</p> : null}
                 </div>
             ) : null}
         </section>
