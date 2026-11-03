@@ -49,5 +49,5 @@ export function getUploadCollisionMessage(summary: UploadCollisionSummary): stri
 /** Asks in the shared dialog (report §32.3); true when there's nothing to ask or the person continues. */
 export async function confirmUploadCollisions(summary: UploadCollisionSummary): Promise<boolean> {
   const message = getUploadCollisionMessage(summary);
-  return message === null || askConfirm({ title: "Some items already exist", description: message.replace(/^Some uploaded items already exist\. /, ""), confirmLabel: "Continue" });
+  return message === null || askConfirm({ title: "Some items already exist", description: message, confirmLabel: "Continue" });
 }

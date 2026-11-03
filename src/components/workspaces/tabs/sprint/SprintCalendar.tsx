@@ -78,8 +78,9 @@ function SprintCalendar({ projectId, onClose }: { projectId: string; onClose: ()
             <p className="text-[13px] text-muted-foreground">You already have a link. It’s shown only once, so make a new one to copy it again. The old one then stops working.</p>
           ) : null}
           <span className="flex flex-wrap gap-2">
-            {hasLink || link ? null : <Button type="button" size="sm" disabled={pending} onClick={() => getLink(false)}>Copy link</Button>}
-            {hasLink || link ? <Button type="button" size="sm" variant={link ? "ghost" : "default"} disabled={pending} onClick={() => getLink(true)}>Make a new link</Button> : null}
+            {hasLink || link
+              ? <Button type="button" size="sm" variant={link ? "ghost" : "default"} disabled={pending} onClick={() => getLink(true)}>Make a new link</Button>
+              : <Button type="button" size="sm" disabled={pending} onClick={() => getLink(false)}>Copy link</Button>}
           </span>
         </section>
       </DialogContent>
