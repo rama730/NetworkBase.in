@@ -105,6 +105,8 @@ test("profile: org entries verified by org admins, child entries nested data, or
   assert.equal((await orgProfile.revokeOrgVerificationAction(o.orgId, o.member, "Left before the term ended")).success, true);
   const after = (await collab.getProfileContributions(o.member, { includePrivate: true })).contributions.find((c) => c.projectId === o.orgId)!;
   assert.deepEqual([after.orgVerified, after.verificationRevokedReason], [false, "Left before the term ended"]);
+  // Live-fix 41: nobody revokes their own verification.
+  assert.deepEqual(await orgProfile.revokeOrgVerificationAction(o.orgId, o.admin, "test"), { success: false, error: "You can’t change your own verification. Ask another admin." });
 });
 
 test("profile: Show on my profile off hides the org entry, its project entries and its card from others", async () => {

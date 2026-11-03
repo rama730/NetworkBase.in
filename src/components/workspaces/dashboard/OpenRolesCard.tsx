@@ -84,13 +84,14 @@ export const OpenRolesCard = memo(function OpenRolesCard({
         return (
             <RailSection title={inOrganization ? "Teams" : "Open roles"} id="open-roles" className="scroll-mt-28" contentClassName="p-3">
                 <div className="space-y-3 py-1">
-                    <p className="text-xs text-muted-foreground">{inOrganization ? "No teams yet." : "No open roles yet."}</p>
+                    <p className="text-xs text-muted-foreground">{inOrganization ? "No teams yet. A workspace works fine without them." : "No open roles yet."}</p>
                     <button
                         type="button"
                         onClick={onManageRoles}
                         className="nb-touch-target inline-flex h-[34px] w-full items-center justify-center rounded-[5px] border border-border bg-card px-3 text-[13px] font-medium text-foreground transition-[background-color,border-color,color] duration-[130ms] hover:bg-muted"
                     >
-                        Add role
+                        {/* Live-fix 51: one name for the box and its button. */}
+                        {inOrganization ? "Add team" : "Add role"}
                     </button>
                 </div>
             </RailSection>

@@ -569,7 +569,7 @@ export function GeneralSettingsSection({
                         </div>
 
                         <div className="min-w-0 flex-1">
-                            <h3 className="nb-card-title text-foreground">Workspace image</h3>
+                            <h3 className="nb-card-title text-foreground">{organization ? "Organization image" : "Workspace image"}</h3>
                             <p className="nb-compact mt-1 text-muted-foreground">
                                 Square avatar displayed on workspace cards, header, and link previews.
                             </p>
@@ -614,7 +614,7 @@ export function GeneralSettingsSection({
                             <DropdownMenuContent align="end" className="w-48">
                                 <DropdownMenuItem onClick={handleOpenProjectImagePicker}>
                                     <Upload className="mr-2 size-4" />
-                                    {coverImageUrl ? "Workspace image" : "Upload avatar"}
+                                    {coverImageUrl ? (organization ? "Organization image" : "Workspace image") : "Upload avatar"}
                                 </DropdownMenuItem>
                                 {coverImageUrl ? (
                                     <>
@@ -777,7 +777,8 @@ export function GeneralSettingsSection({
         >
             <fieldset disabled={savingSettings} className="min-w-0 divide-y divide-border">
                 <div className="pb-6">
-                    <ReadOnlySlugField slug={project?.slug ?? ""} />
+                    {/* Live-fix 44: an organization's address is its Handle, one control. */}
+                    {organization ? null : <ReadOnlySlugField slug={project?.slug ?? ""} />}
                 </div>
                 <fieldset disabled={orgAdmin} className="py-6">
                     <TextField
@@ -826,7 +827,7 @@ export function GeneralSettingsSection({
             footer={
                 <>
                     <p className="nb-compact text-muted-foreground">
-                        {identityDirty ? "You have unsaved changes in General settings." : "All General settings are saved."}
+                        {identityDirty ? "You have unsaved changes in Details." : "All details are saved."}
                     </p>
                     <div className="flex items-center gap-2">
                         <Button

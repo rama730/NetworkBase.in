@@ -36,6 +36,11 @@ type PublicProjectRow = {
     followersCount: number
     savesCount: number | null
     coverImage: string | null
+    kind: string | null
+    orgType: string | null
+    orgSettings: unknown
+    orgVerified: boolean
+    childCount: number
     externalLinks: any | null
     githubRepoUrl: string | null
     createdAt: Date
@@ -82,6 +87,11 @@ function mapProjectRow(row: PublicProjectRow, counts: { openSeats: number; teamS
         followers_count: row.followersCount ?? 0,
         saves_count: row.savesCount ?? 0,
         cover_image: row.coverImage,
+        kind: row.kind,
+        org_type: row.orgType,
+        org_settings: row.orgSettings,
+        org_verified: row.orgVerified,
+        child_count: row.childCount,
         external_links: filterWorkspaceLinksForAudience(row.externalLinks, false),
         github_repo_url: row.githubRepoUrl,
         created_at: row.createdAt.toISOString(),
@@ -134,6 +144,11 @@ export async function queryAndCachePublicWorkspacesFeed(limit: number, cursor: P
             followersCount: workspaces.followersCount,
             savesCount: workspaces.savesCount,
             coverImage: workspaces.coverImage,
+            kind: workspaces.kind,
+            orgType: workspaces.orgType,
+            orgSettings: workspaces.orgSettings,
+            orgVerified: sql<boolean>`${workspaces.verifiedAt} IS NOT NULL`,
+            childCount: sql<number>`CASE WHEN ${workspaces.kind} = 'organization' THEN (SELECT count(*)::int FROM workspaces c WHERE c.parent_id = ${workspaces.id} AND c.deleted_at IS NULL) ELSE 0 END`,
             externalLinks: workspaces.externalLinks,
             githubRepoUrl: workspaces.githubRepoUrl,
             createdAt: workspaces.createdAt,

@@ -40,6 +40,7 @@ import { filterRoster, remindSummary, type RosterFilter, type RosterRow } from '
 import { toast } from '@/lib/feedback'
 import { saveBlob, toCsvBlob } from '@/lib/download'
 import { useAuth } from '@/hooks/use-auth'
+import { UserAvatar } from '@/components/ui/UserAvatar'
 import { userTopic } from '@/lib/messaging/constants'
 import { subscribeBroadcast } from '@/lib/realtime/private-broadcast'
 import { OrgInvitePanel } from '@/components/organizations/OrgInvitePanel'
@@ -202,6 +203,8 @@ export function OrgMembersTab({ orgId, roleNames, started = null }: { orgId: str
                             <li key={r.userId} className="flex items-start gap-3 px-3 py-2.5 text-sm">
                                 <input type="checkbox" className="mt-1" aria-label={`Select ${r.name}`} disabled={r.role === 'owner'} checked={selected.has(r.userId)}
                                     onChange={(e) => setSelected((cur) => { const next = new Set(cur); if (e.target.checked) next.add(r.userId); else next.delete(r.userId); return next })} />
+                                {/* Live-fix 39: a photo on every row. */}
+                                <UserAvatar identity={{ id: r.userId, fullName: r.name, username: r.username, avatarUrl: r.avatarUrl }} size={32} roundedClassName="rounded-full" />
                                 <button type="button" onClick={() => setOpen(r)} className="min-w-0 flex-1 text-left">
                                     <span className="flex flex-wrap items-center gap-x-1.5">
                                         <span className="font-medium">{r.name}</span>
@@ -227,7 +230,11 @@ export function OrgMembersTab({ orgId, roleNames, started = null }: { orgId: str
             <aside className="space-y-5">
                 <div className={data.requests.length + data.teamChanges.length > 0 ? 'hidden lg:block' : undefined}><Requests orgId={orgId} data={data} pending={pending} run={run} /></div>
                 {/* Report §7.11: the same invite panel as the header and About. */}
-                <div className="border-t border-border pt-4"><OrgInvitePanel orgId={orgId} orgHandle={null} /></div>
+                {/* Live-fix 40: alone, the invite panel leads with a plain line. */}
+                <div className="border-t border-border pt-4">
+                    {data.summary.members <= 1 ? <p className="mb-2 text-sm font-medium">You’re the only one here so far</p> : null}
+                    <OrgInvitePanel orgId={orgId} orgHandle={null} />
+                </div>
                 <section aria-label="Summary" className="space-y-1 text-sm">
                     <button type="button" className="block hover:underline" onClick={() => setFilter({ sort: 'name' })}>{s.members} {s.members === 1 ? 'member' : 'members'}</button>
                     <button type="button" className="block hover:underline" onClick={() => setFilter({ role: 'admins' })}>{s.admins} {s.admins === 1 ? 'owner or admin' : 'owners and admins'} · {s.guests} {s.guests === 1 ? 'viewer' : 'viewers'}</button>
@@ -238,9 +245,9 @@ export function OrgMembersTab({ orgId, roleNames, started = null }: { orgId: str
             </aside>
 
             <Dialog open={Boolean(open)} onOpenChange={(v) => { if (!v) setOpen(null) }}>
-                <DialogContent presentation="right-drawer" className="overflow-y-auto p-5">
+                <DialogContent presentation="right-drawer" className="overflow-y-auto p-5 sm:max-w-[560px]">
                     <DialogTitle className="sr-only">{open ? `Member: ${open.name}` : 'Member'}</DialogTitle>
-                    {open ? <MemberDrawer orgId={orgId} row={open} data={data} label={label} pending={pending} run={(w, d) => { run(w, d); setOpen(null) }}
+                    {open ? <MemberDrawer orgId={orgId} row={open} isSelf={open.userId === viewerId} data={data} label={label} pending={pending} run={(w, d) => { run(w, d); setOpen(null) }}
                         onRole={(role) => { setOpen(null); setRoleAsk({ ids: [open.userId], names: [open.name], role }) }}
                         onRemove={(block) => { setOpen(null); setRemoveAsk({ ids: [open.userId], names: [open.name], block }) }}
                         onRevoke={() => { setOpen(null); setRevoke({ userId: open.userId, name: open.name }) }} /> : null}
@@ -355,7 +362,9 @@ function MoveToWorkspace({ orgId, data, userId, fromId, pending, run, children }
     )
 }
 
-function MemberDrawer({ orgId, row, data, label, pending, run, onRole, onRemove, onRevoke }: {
+function MemberDrawer({ orgId, row, isSelf, data, label, pending, run, onRole, onRemove, onRevoke }: {
+    /** Live-fix 41: your own panel offers nothing aimed at yourself. */
+    isSelf: boolean
     orgId: string; row: Row; data: OrgMembersData; label: (role: string) => string; pending: boolean; run: Run
     onRole: (role: 'admin' | 'member' | 'viewer') => void; onRemove: (block: boolean) => void; onRevoke: () => void
 }) {
@@ -397,7 +406,7 @@ function MemberDrawer({ orgId, row, data, label, pending, run, onRole, onRemove,
                 <h4 className="font-semibold">Contribution credit</h4>
                 <p className="text-muted-foreground">{row.verified ? '✓ Verified. It covers role and dates, not what they wrote.' : 'Not verified yet.'}</p>
                 <div className="flex flex-wrap gap-1.5">
-                    {row.verified
+                    {isSelf ? null : row.verified
                         ? <Button type="button" size="sm" variant="ghost" disabled={pending} onClick={onRevoke}>Revoke</Button>
                         : <Button type="button" size="sm" variant="outline" disabled={pending} onClick={() => run(() => verifyOrgContributionsAction(orgId, [row.userId]), 'Contribution verified')}>Verify contribution</Button>}
                 </div>
@@ -441,9 +450,9 @@ function MemberDrawer({ orgId, row, data, label, pending, run, onRole, onRemove,
                     </div>
                 ) : null}
                 {/* A personal block is yours alone: it changes nothing about their place here (Blocking B45, B50). */}
-                <Button type="button" size="sm" variant="ghost" className="text-muted-foreground" onClick={() => (row.blockedByMe ? blocking.openUnblock : blocking.openBlock)({ id: row.userId, name: row.name })}>
+                {isSelf ? null : <Button type="button" size="sm" variant="ghost" className="text-muted-foreground" onClick={() => (row.blockedByMe ? blocking.openUnblock : blocking.openBlock)({ id: row.userId, name: row.name })}>
                     <Ban className="size-4" aria-hidden="true" /> {row.blockedByMe ? `Unblock ${row.name}` : `Block ${row.name}`}
-                </Button>
+                </Button>}
                 {blocking.dialog}
             </section>
         </div>

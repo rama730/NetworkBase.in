@@ -451,7 +451,7 @@ export function OrgWorkspacesTab({ orgId, orgSlug, started = null }: { orgId: st
                     <DropdownMenuItem onSelect={() => remind([r.id])}>Remind workspace lead</DropdownMenuItem>
                     {r.needsLead ? <DropdownMenuItem onSelect={() => setAssigning(r)}>Assign workspace lead</DropdownMenuItem> : null}
                     <DropdownMenuItem onSelect={() => setAsk({ kind: 'archive', rows: [r] })}>Archive</DropdownMenuItem>
-                    <DropdownMenuItem onSelect={() => setAsk({ kind: 'detach', rows: [r] })}>Remove from the organization</DropdownMenuItem>
+                    <DropdownMenuItem onSelect={() => setAsk({ kind: 'detach', rows: [r] })}>Detach</DropdownMenuItem>
                 </>}
             </DropdownMenuContent>
         </DropdownMenu>
@@ -538,6 +538,8 @@ export function OrgWorkspacesTab({ orgId, orgSlug, started = null }: { orgId: st
                     {page.map((r) => (
                         <li key={r.id} className={cn('flex items-start gap-3 px-3 py-2.5 text-sm', r.status === 'archived' && 'opacity-70')}>
                             {data.isAdmin ? <input type="checkbox" className="mt-1" aria-label={`Select ${r.title}`} checked={selected.has(r.id)} onChange={(e) => setSelected((cur) => { const next = new Set(cur); if (e.target.checked) next.add(r.id); else next.delete(r.id); return next })} /> : null}
+                            {/* Live-fix 38: the workspace's own picture on its row. */}
+                            <WorkspaceAvatar project={{ title: r.title, coverImage: r.coverImage }} size="row" placeholder />
                             <div className="min-w-0 flex-1">
                                 <p className="flex flex-wrap items-center gap-x-1.5">
                                     <Link href={href(r)} className="font-medium hover:underline">{r.title}</Link>
@@ -564,11 +566,11 @@ export function OrgWorkspacesTab({ orgId, orgSlug, started = null }: { orgId: st
             )}
             {rows.length > shown ? <Button type="button" size="sm" variant="outline" onClick={() => setShown((n) => n + 50)}>Show 50 more ({rows.length - shown} left)</Button> : null}
             <ConfirmDialog open={Boolean(ask)} onOpenChange={(open) => { if (!open) setAsk(null) }}
-                title={ask?.kind === 'detach' ? `Remove ${ask.rows[0]?.title} from the organization?` : `Archive ${ask?.rows.length === 1 ? ask.rows[0]!.title : `${ask?.rows.length ?? 0} workspaces`}?`}
+                title={ask?.kind === 'detach' ? `Detach ${ask.rows[0]?.title}?` : `Archive ${ask?.rows.length === 1 ? ask.rows[0]!.title : `${ask?.rows.length ?? 0} workspaces`}?`}
                 description={ask?.kind === 'detach'
                     ? 'It becomes a private personal workspace for its workspace lead. Unsubmitted group work goes and its sprints unlink. The workspace lead is told.'
                     : `${people(ask?.rows.reduce((n, r) => n + r.members, 0) ?? 0)} will have read-only access. They’ll be told. Unarchive it from the Archived filter.`}
-                confirmLabel={ask?.kind === 'detach' ? 'Remove' : 'Archive'} variant="destructive"
+                confirmLabel={ask?.kind === 'detach' ? 'Detach' : 'Archive'} variant="destructive"
                 onConfirm={async () => {
                     if (!ask) return
                     let done = 0

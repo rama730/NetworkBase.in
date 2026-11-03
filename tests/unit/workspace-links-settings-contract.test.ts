@@ -22,7 +22,8 @@ test("workspace links tab eliminates duplicate headers, summary cards, and leave
   assert.doesNotMatch(linksBlock, /<SummaryCard/, "Redundant SummaryCard must be removed from Project Links tab");
 
   // Single canonical SettingsCard hosting WorkspaceLinksManager
-  assert.match(linksBlock, /<SettingsCard[\s\S]*?title="Workspace links"/, "Canonical SettingsCard must be used");
+  // Live-fix 43: an organization's card is just "Links".
+  assert.match(linksBlock, /<SettingsCard[\s\S]*?title=\{organization \? "Links" : "Workspace links"\}/, "Canonical SettingsCard must be used");
   assert.match(linksBlock, /<WorkspaceLinksManager[\s\S]*?mode="inline"/, "WorkspaceLinksManager must be rendered in inline mode");
   assert.equal((linksBlock.match(/<WorkspaceLinksManager/g) ?? []).length, 1, "Exactly one WorkspaceLinksManager in links tab");
 });

@@ -397,7 +397,7 @@ export async function readOrgAboutAction(orgId: string): Promise<OrgAboutData | 
 }
 
 export type OrgWorkspaceRow = {
-    id: string; title: string; slug: string | null; visibility: string | null; status: string | null;
+    id: string; title: string; slug: string | null; visibility: string | null; status: string | null; coverImage: string | null;
     lead: { id: string; name: string } | null; members: number; units: number;
     open: number; overdue: number; inReview: number; groupCopy: { title: string; state: CopyState } | null;
     lastActivityAt: string; reasons: string[]; mine: boolean;
@@ -418,7 +418,7 @@ export async function readOrgWorkspacesAction(orgId: string): Promise<{ success:
     const now = new Date();
     // ponytail: every child project in one read, sized for ORG_LIMITS.childProjectsPerOrg (200). Upgrade: 50-row pages.
     const rows = await db.select({
-        id: workspaces.id, title: workspaces.title, slug: workspaces.slug, visibility: workspaces.visibility, status: workspaces.status, updatedAt: workspaces.updatedAt, ownerId: workspaces.ownerId,
+        id: workspaces.id, title: workspaces.title, slug: workspaces.slug, visibility: workspaces.visibility, status: workspaces.status, updatedAt: workspaces.updatedAt, ownerId: workspaces.ownerId, coverImage: workspaces.coverImage,
         leadName: profiles.fullName, leadUsername: profiles.username,
         members: sql<number>`(SELECT count(*)::int FROM workspace_members pm WHERE pm.workspace_id = ${workspaces.id})`,
         units: sql<number>`(SELECT count(*)::int FROM ${workspaceOpenRoles} r WHERE r.workspace_id = ${workspaces.id})`,
@@ -446,7 +446,7 @@ export async function readOrgWorkspacesAction(orgId: string): Promise<{ success:
         const state = copy ? stateOf(copy, now).state : null;
         const lastActivity = [r.updatedAt, r.lastTaskAt ? new Date(r.lastTaskAt) : null].filter((d): d is Date => Boolean(d)).sort((a, b) => b.getTime() - a.getTime())[0] ?? r.updatedAt;
         return {
-            id: r.id, title: r.title, slug: r.slug, visibility: r.visibility, status: r.status,
+            id: r.id, title: r.title, slug: r.slug, visibility: r.visibility, status: r.status, coverImage: r.coverImage,
             lead: { id: r.ownerId, name: r.leadName || r.leadUsername || 'Owner' },
             members: r.members, units: r.units, open: r.open, overdue: r.overdue, inReview: r.inReview,
             groupCopy: copy && state ? { title: copy.title, state } : null,

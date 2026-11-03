@@ -1312,7 +1312,8 @@ function ProjectSettingsContent({
         setDeleteModalOpen(true);
     }, [dangerPreflight]);
 
-    if (!canManageSettings) {
+    // Live-fix 46: in an organization members open their own sections (My membership, What's allowed, Privacy, Leave).
+    if (!canManageSettings && !organization) {
         return (
             <div className="mx-auto flex max-w-xl flex-col items-center justify-center rounded-lg border border-border bg-card px-8 py-16 text-center shadow-none">
                 <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-lg bg-muted">
@@ -1403,7 +1404,7 @@ function ProjectSettingsContent({
         <OpenSettingsSections>
         {identity.dialog}
         <div className="grid w-full min-w-0 grid-cols-1 bg-card xl:grid-cols-[var(--nb-sidebar-width)_minmax(0,1fr)]">
-            <WorkspaceSettingsNavigation sections={sections} activeSection={activeSection} onNavigate={handleNavigateSection} />
+            <WorkspaceSettingsNavigation sections={sections} activeSection={activeSection} onNavigate={handleNavigateSection} organization={Boolean(organization)} />
             <main data-project-settings-document className="mx-auto min-w-0 w-full max-w-4xl space-y-12 p-4 md:p-[calc(var(--ui-panel-padding)+4px)] [&>[data-project-settings-section]]:border-b [&>[data-project-settings-section]]:border-border [&>[data-project-settings-section]]:pb-8 [&>[data-project-settings-section]:last-child]:border-b-0">
                 {organization && orgRole !== "owner" && orgRole !== "admin" && sections.some((s) => s.id === "you-membership") && <OrgMembershipSection orgId={projectId} organization={organization} role={orgRole} />}
                 {organization && sections.some((s) => s.id === "org-allowed") && <OrgAllowedSection organization={organization} />}
@@ -1427,7 +1428,7 @@ function ProjectSettingsContent({
                     <section id="project-settings-links" data-project-settings-section className="space-y-6">
                         <div className="space-y-6">
                             <SettingsCard
-                                title="Workspace links"
+                                title={organization ? "Links" : "Workspace links"}
                                 headingLevel={2}
                                 description="Links and connected repositories shown beside the workspace title and on public pages."
                             >

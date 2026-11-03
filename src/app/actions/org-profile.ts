@@ -47,6 +47,8 @@ export async function verifyOrgContributionsAction(orgId: string, userIds: strin
 export async function revokeOrgVerificationAction(orgId: string, userId: string, reason: string): Promise<{ success: true } | Failure> {
     const adminId = await orgAdmin(orgId);
     if (!adminId) return DENIED;
+    // Live-fix 41: nobody changes their own verification.
+    if (userId === adminId) return { success: false, error: 'You can’t change your own verification. Ask another admin.' };
     const clean = reason.trim().slice(0, 500);
     if (!clean) return { success: false, error: 'Give a reason; the member sees it.' };
     const revoked = await db.update(profileContributions)

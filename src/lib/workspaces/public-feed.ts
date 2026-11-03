@@ -1,4 +1,5 @@
 import type { Workspace } from '@/types/discover'
+import { orgTypeLabel } from '@/lib/organizations/config'
 
 export type PublicWorkspacesCursor = {
     createdAt: string
@@ -21,6 +22,12 @@ export type PublicWorkspacesFeedItem = {
     followers_count: number
     saves_count: number
     cover_image: string | null
+    /** Live-fix 50: organizations get their own card on the first page too. */
+    kind?: string | null
+    org_type?: string | null
+    org_settings?: unknown
+    org_verified?: boolean
+    child_count?: number
     external_links?: any
     github_repo_url?: string | null
     created_at: string
@@ -90,8 +97,8 @@ export function decodePublicWorkspacesCursor(cursor: string | null | undefined):
 
 export function buildPublicWorkspacesCacheKey(limit: number, cursor: PublicWorkspacesCursor | null) {
     const suffix = cursor ? `${cursor.createdAt}:${cursor.id}` : 'origin'
-    // v5: owners masked and members-only links removed on the server.
-    return `projects:public:v5:limit:${limit}:cursor:${suffix}`
+    // v5: owners masked and members-only links removed on the server. v6: organization card fields (live-fix 50).
+    return `projects:public:v6:limit:${limit}:cursor:${suffix}`
 }
 
 function normalizeProjectStatus(status: string | null): Workspace['status'] {
@@ -134,6 +141,11 @@ export function mapPublicWorkspaceToDiscoverWorkspace(project: PublicWorkspacesF
         },
         createdAt: project.created_at,
         updatedAt: project.updated_at,
+        kind: project.kind === "organization" ? "organization" : "workspace",
+        orgType: project.org_type ?? null,
+        orgTypeLabel: project.kind === "organization" ? orgTypeLabel(project.org_type, project.org_settings) : null,
+        orgVerified: project.kind === "organization" && Boolean(project.org_verified),
+        childProjectCount: project.kind === "organization" ? project.child_count ?? 0 : undefined,
         collaborators: Array.isArray(project.collaborators)
             ? project.collaborators.map((c) => ({
                 userId: c.user_id,

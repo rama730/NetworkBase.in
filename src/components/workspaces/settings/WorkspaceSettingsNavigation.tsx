@@ -64,7 +64,10 @@ export function WorkspaceSettingsNavigation({
   sections,
   activeSection,
   onNavigate,
+  organization = false,
 }: {
+  /** Live-fix 43: an organization's settings say so. */
+  organization?: boolean;
   sections: WorkspaceSettingsSection[];
   activeSection: WorkspaceSettingsSectionId;
   onNavigate: (id: WorkspaceSettingsSectionId) => void;
@@ -109,7 +112,7 @@ export function WorkspaceSettingsNavigation({
         className="sticky top-[calc(var(--workspace-tabs-height)+1rem)] hidden max-h-[calc(100dvh-var(--ui-topnav-height)-var(--workspace-tabs-height)-2rem)] self-start overflow-y-auto border-r border-border px-3 py-4 app-scroll app-scroll-y xl:block"
       >
         <div className="mb-3 space-y-3 px-2">
-          <p className="nb-micro">Workspace settings</p>
+          <p className="nb-micro">{organization ? "Organization settings" : "Workspace settings"}</p>
           <div className="h-px bg-border" aria-hidden="true" />
         </div>
         {links}
@@ -121,7 +124,7 @@ export function WorkspaceSettingsNavigation({
         <summary className="nb-nav-link cursor-pointer list-none justify-between">
           <span>
             {sections.find((section) => section.id === activeSection)?.label ??
-              "Workspace settings"}
+              (organization ? "Organization settings" : "Workspace settings")}
           </span>
           <ChevronDown className="size-4 shrink-0" aria-hidden="true" />
         </summary>
