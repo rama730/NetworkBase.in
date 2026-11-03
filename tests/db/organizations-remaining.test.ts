@@ -211,3 +211,36 @@ test("33.5 Reviewers: only the organization's admins can be picked; the queue ma
   const adminQueue = await assignments.readReviewQueueAction(o.id);
   assert.deepEqual(adminQueue.success ? adminQueue.rows.filter((r) => r.kind === "copy").map((r) => r.mine) : null, [true]);
 });
+
+test("33.5 Repeat: later weeks are made as drafts with their own due dates", async () => {
+  const o = await org();
+  viewerId = o.owner;
+  const due = new Date(Date.now() + 3 * 86_400_000);
+  const made = await assignments.createAssignmentAction({ projectId: o.id, title: `Quiz ${o.tag} 1`, dueDate: due.toISOString(), publish: true, submissionType: "none",
+    lateRule: "none", target: { mode: "everyone" }, steps: [], repeatWeeklyUntil: new Date(due.getTime() + 15 * 86_400_000).toISOString() });
+  assert.equal(made.success, true, JSON.stringify(made));
+  assert.equal(made.success ? made.drafts : 0, 2);
+  const drafts = await sql`SELECT title, assignment_settings->>'publishedAt' AS published FROM tasks WHERE workspace_id = ${o.id} AND kind = 'assignment' AND title LIKE ${`Quiz ${o.tag} %`} ORDER BY title`;
+  assert.deepEqual(drafts.map((d) => [d.title, d.published]), [[`Quiz ${o.tag} 1`, drafts[0]!.published], [`Quiz ${o.tag} 2`, null], [`Quiz ${o.tag} 3`, null]]);
+  assert.ok(drafts[0]!.published, "the first week is published");
+});
+
+test("33.5 Calendar: the private link's feed holds only the person's own due work and their sprints; a wrong token finds no one", async () => {
+  const o = await org();
+  const master = await published(o, `Essay ${o.tag}`);
+  await sql`UPDATE tasks SET due_date = now() + interval '5 days' WHERE assignment_id = ${master}`;
+  await sql`INSERT INTO workspace_sprints (workspace_id, name, sprint_number, start_date, end_date, status) VALUES (${o.id}, ${`CO-${o.tag}`}, 1, now(), now() + interval '7 days', 'active')`;
+  const feed = await loadAppModule(() => import("../../src/lib/calendar/feed"));
+  const token = await feed.calendarToken(o.a);
+  assert.equal(await feed.userForCalendarToken(token), o.a);
+  assert.equal(await feed.userForCalendarToken("x".repeat(43)), null);
+  const entries = await feed.readCalendarEntries(o.a);
+  assert.equal(entries.filter((e) => e.kind === "due" && e.title === `Essay ${o.tag}`).length, 1, "their own copy only, not b's");
+  assert.ok(entries.some((e) => e.kind === "sprint" && e.title === `CO-${o.tag}`));
+  const ics = feed.toIcs(entries, "https://networkbase.test");
+  assert.match(ics, /^BEGIN:VCALENDAR\r\n/);
+  assert.match(ics, new RegExp(`SUMMARY:Due: Essay ${o.tag}`));
+  const fresh = await feed.calendarToken(o.a, true);
+  assert.notEqual(fresh, token);
+  assert.equal(await feed.userForCalendarToken(token), null, "a reset link stops the old one");
+});

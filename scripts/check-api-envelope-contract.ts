@@ -22,6 +22,8 @@ const ENVELOPE_EXEMPT_ROUTES = new Set<string>([
   // streamed binary body with range/content headers; a JSON envelope would
   // corrupt the browser preview contract.
   path.join("src", "app", "api", "v1", "workspaces", "[id]", "files", "[nodeId]", "preview", "route.ts"),
+  // An iCalendar feed (report §33.5): calendar apps read text/calendar, never a JSON envelope.
+  path.join("src", "app", "api", "v1", "calendar", "[token]", "route.ts"),
 ]);
 
 function collectRouteFiles(dir: string, into: string[]) {

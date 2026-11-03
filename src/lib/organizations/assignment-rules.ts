@@ -231,3 +231,20 @@ export function webLink(link: string | null | undefined): string | null {
     return null;
   }
 }
+
+export const REPEAT_WEEKS_MAX = 26;
+
+/**
+ * Repeat weekly until (report §33.5, "Later"): the later weeks' titles and due dates. A title ending in a number counts
+ * on from it ("Lab 1" → "Lab 2"); otherwise the week is added ("Reading · week 2"). The first week is the one created.
+ */
+export function weeklyRepeats(title: string, firstDue: Date, until: Date): Array<{ title: string; dueDate: Date }> {
+  const match = title.match(/^(.*?)(\d+)$/);
+  const out: Array<{ title: string; dueDate: Date }> = [];
+  for (let week = 1; week <= REPEAT_WEEKS_MAX; week += 1) {
+    const dueDate = new Date(firstDue.getTime() + week * 7 * 86_400_000);
+    if (dueDate.getTime() > until.getTime()) break;
+    out.push({ title: (match ? `${match[1]}${Number(match[2]) + week}` : `${title} · week ${week + 1}`).slice(0, 200), dueDate });
+  }
+  return out;
+}

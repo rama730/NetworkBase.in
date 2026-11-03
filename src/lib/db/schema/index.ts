@@ -1082,6 +1082,13 @@ export const assignmentSubmissions = pgTable("assignment_submissions", {
   late: boolean("late").default(false).notNull(),
 });
 
+/** Calendar (report §33.5, "Later"): one private feed token per person. Server only. */
+export const calendarFeedTokens = pgTable("calendar_feed_tokens", {
+    userId: uuid("user_id").primaryKey().references(() => profiles.id, { onDelete: "cascade" }),
+    token: text("token").notNull().unique(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
 /** Away (report §33.5, DB7): an admin marks a member away; their work due then is excused. Server only. */
 export const orgMemberAway = pgTable("org_member_away", {
     id: uuid("id").defaultRandom().primaryKey(),

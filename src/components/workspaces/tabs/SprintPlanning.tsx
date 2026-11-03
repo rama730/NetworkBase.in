@@ -38,6 +38,7 @@ import {
 } from "@/lib/workspaces/sprints";
 
 import CreateSprintModal from "@/components/workspaces/v2/sprints/CreateSprintModal";
+import { SprintCalendarButton } from "@/components/workspaces/tabs/sprint/SprintCalendar";
 import { ChildSprintLine, LinkedWorkspacesBlock, RunningOrgSprintPrompt, SprintMaterials, StartNowButton, SprintAssignmentRows, sprintEmptyLine } from "@/components/organizations/OrgSprintParts";
 import { SprintLifecycleModals } from "@/components/workspaces/tabs/sprint/SprintLifecycleModals";
 import { SkeletonSprints } from "@/components/workspaces/skeletons/SkeletonSprints";
@@ -443,7 +444,10 @@ export default function SprintPlanning({
 
   return (
     <>
-      {viewingAsAdmin ? <p className="nb-meta mb-3"><span className="nb-status" data-status="draft">Viewing as admin</span></p> : null}
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        {viewingAsAdmin ? <span className="nb-status" data-status="draft">Viewing as admin</span> : <span />}
+        {isOwnerOrMember ? <SprintCalendarButton projectId={projectId} /> : null}
+      </div>
       <div className="lg:hidden mb-4 flex items-center justify-between gap-3">
         <label htmlFor="mobile-sprint-select" className="sr-only">Select sprint</label>
         <select

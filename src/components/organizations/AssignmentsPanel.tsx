@@ -175,6 +175,8 @@ export function AssignmentComposer({ orgId, open, onOpenChange, onCreated, reuse
     const [title, setTitle] = useState('')
     const [description, setDescription] = useState('')
     const [dueLocal, setDueLocal] = useState('')
+    // Repeat weekly until (report §33.5): later weeks are made as drafts to check before publishing.
+    const [repeatUntil, setRepeatUntil] = useState('')
     const [sprintId, setSprintId] = useState('')
     const [submissionType, setSubmissionType] = useState<'none' | 'file' | 'link' | 'text'>('file')
     const [reviewRequired, setReviewRequired] = useState(true)
@@ -262,9 +264,12 @@ export function AssignmentComposer({ orgId, open, onOpenChange, onCreated, reuse
             target: target(), steps, shareToGeneral, lateAfterMinutes: lateAfter, materials: materials.map((m) => m.id),
             schedule: when === 'date' ? { at: at(publishLocal) } : when === 'sprint' ? { sprintStart: true } : null,
             ...(publish && announce ? { announcement: (announcement ?? defaultAnnouncement).trim() } : {}),
+            ...(repeatUntil ? { repeatWeeklyUntil: at(`${repeatUntil}T23:59`) } : {}),
         })
         if (!result.success) return setError(result.error)
+        if (result.drafts) toast.success(`${result.drafts} more ${result.drafts === 1 ? 'week is' : 'weeks are'} saved as drafts to check before publishing.`)
         setError(null)
+        setRepeatUntil('')
         onOpenChange(false)
         onCreated()
     })
@@ -309,7 +314,14 @@ export function AssignmentComposer({ orgId, open, onOpenChange, onCreated, reuse
                     <label className="block text-sm font-medium">Title<Input value={title} onChange={(e) => setTitle(e.target.value)} maxLength={200} className="mt-1" placeholder="Lab 1" /></label>
                     <label className="block text-sm font-medium">Instructions<textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3} maxLength={10000} className={`${area} mt-1`} /></label>
                     <div className="grid gap-3 sm:grid-cols-2">
-                        <label className="block text-sm font-medium">Due <span className="font-normal text-muted-foreground">({zone})</span><Input type="datetime-local" value={dueLocal} onChange={(e) => setDueLocal(e.target.value)} className="mt-1" /></label>
+                        <div className="space-y-1">
+                            <label className="block text-sm font-medium">Due <span className="font-normal text-muted-foreground">({zone})</span><Input type="datetime-local" value={dueLocal} onChange={(e) => setDueLocal(e.target.value)} className="mt-1" /></label>
+                            <label className="flex flex-wrap items-center gap-2 text-[13px]">
+                                <input type="checkbox" checked={Boolean(repeatUntil)} disabled={!dueLocal} onChange={(e) => setRepeatUntil(e.target.checked ? new Date(new Date(dueLocal).getTime() + 28 * 86_400_000).toISOString().slice(0, 10) : '')} />
+                                Repeat weekly until
+                                {repeatUntil ? <Input type="date" value={repeatUntil} min={dueLocal.slice(0, 10)} onChange={(e) => setRepeatUntil(e.target.value)} className="h-8 w-auto" aria-label="Repeat until" /> : null}
+                            </label>
+                        </div>
                         <label className="block text-sm font-medium">Sprint
                             <select value={sprintId} onChange={(e) => setSprintId(e.target.value)} className={`${select} mt-1 w-full`}>
                                 <option value="">No sprint</option>

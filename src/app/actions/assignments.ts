@@ -9,7 +9,7 @@ import { db } from '@/lib/db';
 import { assignmentSubmissions, profiles, taskNodeLinks, workspaceMembers, workspaceNodes, workspaces, workspaceSprints, workspaceWorkflowColumns, taskActivityEvents, taskTeamMembers, tasks } from '@/lib/db/schema';
 import { getWorkspaceAccessById, writeBlockedMessage } from '@/lib/data/workspace-access';
 import { createClient } from '@/lib/supabase/server';
-import { assignmentHref, canStillSubmit, copyState, splitIntoTeams, webLink, LATE_AFTER_DEFAULT_MINUTES, lateAfterMs, lateRuleBlock, lateWorkLabel, type AssignmentSettings, type AssignmentTarget, type CopyState } from '@/lib/organizations/assignment-rules';
+import { assignmentHref, canStillSubmit, copyState, splitIntoTeams, webLink, LATE_AFTER_DEFAULT_MINUTES, lateAfterMs, lateRuleBlock, lateWorkLabel, type AssignmentSettings, type AssignmentTarget, type CopyState, weeklyRepeats } from '@/lib/organizations/assignment-rules';
 import { createCopies, createMasterTask, handedInSql, PeopleLeftError, resolveRecipients } from '@/lib/organizations/assignments';
 import { publishMaster } from '@/lib/organizations/assignment-publish';
 import { orgFileAccessSql } from '@/lib/files/internal-helpers';
@@ -83,6 +83,8 @@ const createSchema = z.object({
     schedule: z.union([z.object({ at: z.string().datetime({ offset: true }) }), z.object({ sprintStart: z.literal(true) })]).nullable().optional(),
     /** Materials (decision 128): this organization's files, read only on every copy. */
     materials: z.array(z.string().uuid()).max(20, 'Up to 20 materials.').optional(),
+    /** Repeat weekly until (report §33.5): one draft per later week, each checked before it's published. */
+    repeatWeeklyUntil: z.string().datetime({ offset: true }).nullable().optional(),
 });
 
 const scheduleSchema = z.union([z.object({ at: z.string().datetime({ offset: true }) }), z.object({ sprintStart: z.literal(true) })]);
@@ -99,7 +101,7 @@ function scheduleFields(schedule: z.infer<typeof scheduleSchema> | null | undefi
 }
 
 /** New assignment: a master, and copies when published (report §16.2). Drafts make no copies. */
-export async function createAssignmentAction(input: z.input<typeof createSchema>): Promise<{ success: true; masterId: string; copies: number } | Failure> {
+export async function createAssignmentAction(input: z.input<typeof createSchema>): Promise<{ success: true; masterId: string; copies: number; drafts?: number } | Failure> {
     const parsed = createSchema.safeParse(input);
     if (!parsed.success) return { success: false, error: parsed.error.issues[0]?.message ?? 'Check the assignment details.' };
     const data = parsed.data;
@@ -141,7 +143,19 @@ export async function createAssignmentAction(input: z.input<typeof createSchema>
                 if (files.length) await tx.insert(taskNodeLinks).values(files.map((f) => ({ taskId: masterId, nodeId: f.id, createdBy: viewer.userId }))).onConflictDoNothing();
             }
             if (recipients.length > 0) await createCopies(tx, masterId, recipients, viewer.userId);
-            return { masterId, copies: recipients.length };
+            // Repeat weekly (report §33.5): later weeks wait as drafts with their own due dates, to be checked first.
+            const repeats = data.repeatWeeklyUntil ? weeklyRepeats(data.title, new Date(data.dueDate), new Date(data.repeatWeeklyUntil)) : [];
+            for (const week of repeats) {
+                const draftId = await createMasterTask(tx, {
+                    orgId: data.projectId, title: week.title, description: data.description || null, dueDate: week.dueDate, sprintId: null, creatorId: viewer.userId,
+                    settings: { ...settings, publishedAt: null, publishAt: null, publishOnSprintStart: false }, steps: data.steps,
+                });
+                if (data.materials?.length) {
+                    const files = await tx.select({ id: taskNodeLinks.nodeId }).from(taskNodeLinks).where(eq(taskNodeLinks.taskId, masterId));
+                    if (files.length) await tx.insert(taskNodeLinks).values(files.map((f) => ({ taskId: draftId, nodeId: f.id, createdBy: viewer.userId }))).onConflictDoNothing();
+                }
+            }
+            return { masterId, copies: recipients.length, drafts: repeats.length };
         });
         touch(viewer.slug, data.projectId);
         // Saved is saved: a failed share, announcement or notice is logged, never reported as a failed publish,

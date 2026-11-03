@@ -60,7 +60,8 @@
     "drizzle/0054_assignment_submissions.sql",
     "drizzle/0055_org_channels_and_followers.sql",
     "drizzle/0056_org_invite_message.sql",
-    "drizzle/0057_org_member_away.sql"
+    "drizzle/0057_org_member_away.sql",
+    "drizzle/0058_calendar_feed_tokens.sql"
   ],
   "legacyDatabaseTags": [],
   "allowedUtilitySqlFiles": [

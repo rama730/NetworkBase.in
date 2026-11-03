@@ -89,6 +89,7 @@ const STATIC_LEGAL_PATHS = new Set([
   "/dpa",
   "/eula",
   "/grievances",
+  "/help/running-a-class",
   "/open-source",
   "/privacy",
   "/security-reporting",
