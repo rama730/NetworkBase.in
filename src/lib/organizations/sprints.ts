@@ -4,7 +4,7 @@ import { and, eq, inArray, isNull, ne, notInArray, sql } from "drizzle-orm";
 
 import { db } from "@/lib/db";
 import { workspaceDocuments, workspaceNodes, workspaceSprintEvents, workspaceSprints, workspaces, sprintMaterials } from "@/lib/db/schema";
-import { fitsInside, overlaps } from "@/lib/organizations/sprint-rules";
+import { fitsInside, insideError, overlaps } from "@/lib/organizations/sprint-rules";
 import { readOrgWork } from "@/lib/organizations/settings";
 import type { WorkspaceAccess } from "@/lib/data/workspace-access";
 import { orgFileAccessSql } from "@/lib/files/internal-helpers";
@@ -69,7 +69,8 @@ export async function assertOrgSprintRules(executor: Executor, input: {
     .where(and(eq(workspaceSprints.id, input.parentSprintId), eq(workspaceSprints.projectId, project.parentId)))
     .limit(1);
   if (!parent || (parent.status !== "planning" && parent.status !== "active")) throw new Error("Pick a planned or active sprint of your organization.");
-  if (!fitsInside(range, parent)) throw new Error(`The sprint must stay inside ${parent.name}'s dates.`);
+  const outside = insideError(range, parent);
+  if (outside) throw new Error(outside);
   return input.parentSprintId;
 }
 
@@ -137,6 +138,10 @@ export type SprintOrgContext = {
   /** Orgs: child sprints linked to the selected org sprint, and how many child projects have none. */
   linkedProjects: Array<{ projectId: string; title: string; slug: string | null; sprintId: string; sprintName: string; status: string }>;
   notLinkedCount: number;
+  /** Orgs: the workspaces with no sprint inside the selected one, for Remind (report §37.2). */
+  notLinked: Array<{ projectId: string; title: string; slug: string | null }>;
+  /** Child projects: group copies in the backlog, offered to a new linked sprint (decision 131). */
+  groupBacklog: number;
   /** Per sprint of this project: its link and whether it starts automatically. */
   sprintFlags: Record<string, { parentSprintId: string | null; autoStart: boolean; showInChildren: boolean; notifyOnStart: boolean }>;
   /** Orgs: the org type (name suggestions) and the Work defaults for a new sprint (report §15.2, §21). */
@@ -152,7 +157,7 @@ export async function readSprintOrgContext(projectId: string, selectedSprintId: 
     .from(workspaceSprints)
     .where(eq(workspaceSprints.projectId, projectId));
   const sprintFlags = Object.fromEntries(flags.map((f) => [f.id, { parentSprintId: f.parentSprintId, autoStart: f.autoStart, showInChildren: f.showInChildren, notifyOnStart: f.notifyOnStart }]));
-  const empty: SprintOrgContext = { kind: project.kind === "organization" ? "org" : "child", orgSprints: [], orgTitle: null, orgSlug: null, parentSprint: null, runningOrgSprint: null, linkedProjects: [], notLinkedCount: 0, sprintFlags };
+  const empty: SprintOrgContext = { kind: project.kind === "organization" ? "org" : "child", orgSprints: [], orgTitle: null, orgSlug: null, parentSprint: null, runningOrgSprint: null, linkedProjects: [], notLinkedCount: 0, notLinked: [], groupBacklog: 0, sprintFlags };
 
   if (project.kind === "organization") {
     const work = readOrgWork(project.orgSettings, project.orgType);
@@ -163,10 +168,11 @@ export async function readSprintOrgContext(projectId: string, selectedSprintId: 
       db.select({ projectId: workspaces.id, title: workspaces.title, slug: workspaces.slug, sprintId: workspaceSprints.id, sprintName: workspaceSprints.name, status: workspaceSprints.status })
         .from(workspaceSprints).innerJoin(workspaces, eq(workspaces.id, workspaceSprints.projectId))
         .where(and(eq(workspaceSprints.parentSprintId, selectedSprintId), isNull(workspaces.deletedAt), notInArray(workspaceSprints.status, ["cancelled"]))),
-      db.select({ id: workspaces.id }).from(workspaces).where(and(eq(workspaces.parentId, projectId), isNull(workspaces.deletedAt))),
+      db.select({ id: workspaces.id, title: workspaces.title, slug: workspaces.slug }).from(workspaces).where(and(eq(workspaces.parentId, projectId), isNull(workspaces.deletedAt), ne(workspaces.status, "archived"))),
     ]);
     const linkedIds = new Set(linked.map((row) => row.projectId));
-    return { ...empty, linkedProjects: linked, notLinkedCount: children.filter((c) => !linkedIds.has(c.id)).length };
+    const notLinked = children.filter((c) => !linkedIds.has(c.id)).map((c) => ({ projectId: c.id, title: c.title, slug: c.slug }));
+    return { ...empty, linkedProjects: linked, notLinkedCount: notLinked.length, notLinked };
   }
 
   const [org] = await db.select({ title: workspaces.title, slug: workspaces.slug }).from(workspaces).where(eq(workspaces.id, project.parentId!)).limit(1);
@@ -183,8 +189,11 @@ export async function readSprintOrgContext(projectId: string, selectedSprintId: 
     ? await db.select({ id: workspaceSprints.id, name: workspaceSprints.name, startDate: workspaceSprints.startDate, endDate: workspaceSprints.endDate }).from(workspaceSprints).where(eq(workspaceSprints.id, selected.parentSprintId)).limit(1)
     : [];
   const running = orgSprints.find((s) => s.status === "active");
+  const [backlog] = await db.execute<{ n: number }>(sql`
+    SELECT count(*)::int AS n FROM tasks WHERE workspace_id = ${projectId} AND assignment_id IS NOT NULL AND sprint_id IS NULL AND deleted_at IS NULL AND status <> 'done'`);
   return {
     ...empty,
+    groupBacklog: backlog?.n ?? 0,
     orgTitle: org?.title ?? null,
     orgSlug: org?.slug ?? null,
     orgSprints: orgSprints.map((s) => ({ id: s.id, name: s.name, status: s.status, startDate: s.startDate.toISOString(), endDate: s.endDate.toISOString() })),

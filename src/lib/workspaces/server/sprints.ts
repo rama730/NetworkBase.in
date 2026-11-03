@@ -1,5 +1,6 @@
 import { assertOrgSprintRules, createMatchingChildSprints, readSprintMaterials, readSprintOrgContext, unlinkSprints } from "@/lib/organizations/sprints";
-import { buildSprintSeries } from "@/lib/organizations/sprint-rules";
+import { notifyOrg, remindedRecently } from "@/lib/organizations/notify";
+import { buildSprintSeries, nextSeriesNumber } from "@/lib/organizations/sprint-rules";
 import { readOrgWork } from "@/lib/organizations/settings";
 import { readViewerOrgRole } from "@/lib/organizations/detail";
 import { startSprint } from "@/lib/workspaces/sprint-schedule";
@@ -9,7 +10,7 @@ import "server-only";
 
 import { isMissingRelationError } from "@/lib/db/errors";
 import { db } from "@/lib/db";
-import { sql, and, eq, inArray, desc, ilike, isNull, ne, or } from "drizzle-orm";
+import { sql, and, eq, inArray, desc, ilike, isNotNull, isNull, ne, or } from "drizzle-orm";
 import { getWorkspaceAccessById, assertWorkspaceTabReadAccess, type WorkspaceAccess, canReadWorkspaceTab, WorkspaceTabForbiddenError } from "@/lib/data/workspace-access";
 import { createClient } from "@/lib/supabase/server";
 import { runInFlightDeduped } from "@/lib/utils/inflight-dedupe";
@@ -1386,6 +1387,14 @@ export async function createSprintAction(data: CreateSprintInput) {
           parentSprintId,
         })
         .returning({ id: workspaceSprints.id });
+      // Plan your sprint brings the group work (report §42.5, decision 131): the workspace's open group copies in
+      // its backlog join a sprint inside an organization sprint.
+      if (created && parentSprintId && validated.includeGroupWork) {
+        const moved = await tx.update(tasks).set({ sprintId: created.id, updatedAt: new Date() })
+          .where(and(eq(tasks.projectId, validated.projectId), isNotNull(tasks.assignmentId), isNull(tasks.sprintId), isNull(tasks.deletedAt), ne(tasks.status, "done")))
+          .returning({ id: tasks.id });
+        if (moved.length) await tx.insert(sprintTaskMemberships).values(moved.map((t) => ({ projectId: validated.projectId, sprintId: created.id, taskId: t.id, addedBy: user.id, addedAt: new Date() })));
+      }
       if (created && validated.createMatching) {
         await createMatchingChildSprints(tx, {
           orgId: validated.projectId,
@@ -1511,17 +1520,28 @@ export async function updateSprintAction(data: UpdateSprintInput) {
     if (!existingSprint) {
       throw new Error("Sprint not found");
     }
-    if (
-      existingSprint.status !== "planning"
-    ) {
-      throw new Error(
-        "Active, completed, canceled, and archived Sprints are read-only",
-      );
+    // A running sprint can still be renamed or extended (report §37.2); its start stays.
+    if (existingSprint.status !== "planning" && existingSprint.status !== "active") {
+      throw new Error("Completed, canceled, and archived Sprints are read-only");
+    }
+    if (existingSprint.status === "active" && startDate.toISOString().slice(0, 10) !== existingSprint.startDate.toISOString().slice(0, 10)) {
+      throw new Error("A running sprint keeps its start date.");
     }
 
     const changedAt = new Date();
+    const shiftMs = startDate.getTime() - existingSprint.startDate.getTime();
+    let movedLater: string[] = [];
     const updatedSprintId = await db.transaction(async (tx) => {
       await tx.execute(sql`SELECT id FROM ${workspaces} WHERE id = ${validated.projectId} FOR UPDATE`);
+      // Move later sprints too (report §28.2, decision 59): later Planning sprints shift by the same days. They're
+      // checked after every move, so a clash names the sprint and nothing is saved.
+      if (validated.moveLaterSprints && shiftMs !== 0 && existingSprint.status === "planning") {
+        const moved = await tx.execute<{ id: string }>(sql`
+          UPDATE ${workspaceSprints} SET start_date = start_date + make_interval(secs => ${shiftMs / 1000}::double precision), end_date = end_date + make_interval(secs => ${shiftMs / 1000}::double precision), updated_at = now()
+          WHERE workspace_id = ${validated.projectId} AND status = 'planning' AND id <> ${validated.sprintId} AND start_date > ${existingSprint.startDate.toISOString()}::timestamptz
+          RETURNING id`);
+        movedLater = moved.map((row) => row.id);
+      }
       const parentSprintId = validated.parentSprintId === undefined ? existingSprint.parentSprintId : validated.parentSprintId;
       await assertOrgSprintRules(tx, { projectId: validated.projectId, startDate, endDate, parentSprintId, excludeSprintId: validated.sprintId });
       const [updated] = await tx
@@ -1542,12 +1562,16 @@ export async function updateSprintAction(data: UpdateSprintInput) {
           and(
             eq(workspaceSprints.id, validated.sprintId),
             eq(workspaceSprints.projectId, validated.projectId),
-            eq(workspaceSprints.status, "planning"),
+            eq(workspaceSprints.status, existingSprint.status),
           ),
         )
         .returning({ id: workspaceSprints.id });
       if (!updated)
         throw new Error("The Sprint changed before it could be saved");
+      for (const id of movedLater) {
+        const [later] = await tx.select({ startDate: workspaceSprints.startDate, endDate: workspaceSprints.endDate, parentSprintId: workspaceSprints.parentSprintId }).from(workspaceSprints).where(eq(workspaceSprints.id, id)).limit(1);
+        if (later) await assertOrgSprintRules(tx, { projectId: validated.projectId, ...later, excludeSprintId: id });
+      }
 
       await tx.insert(workspaceSprintEvents).values({
         projectId: validated.projectId,
@@ -1589,10 +1613,11 @@ export async function updateSprintAction(data: UpdateSprintInput) {
       },
       { sprintId: sprintListItem.id },
     );
-    await notifyLinkedSprintsOutside(sprintListItem.id, validated.projectId, user.id);
-    // "Move due dates too" (report §15.3): the sprint's assignments and their copies shift by the same days.
-    const shiftMs = startDate.getTime() - existingSprint.startDate.getTime();
-    if (validated.moveDueDates && shiftMs !== 0) await shiftOrgSprintDueDates(validated.projectId, sprintListItem.id, shiftMs, user.id);
+    // "Move due dates too" (report §15.3): each moved sprint's assignments and their copies shift by the same days.
+    for (const id of [sprintListItem.id, ...movedLater]) {
+      await notifyLinkedSprintsOutside(id, validated.projectId, user.id);
+      if (validated.moveDueDates && shiftMs !== 0) await shiftOrgSprintDueDates(validated.projectId, id, shiftMs, user.id);
+    }
 
     recordSprintMetric("project.sprint.update.result", {
       projectId: validated.projectId,
@@ -2127,35 +2152,44 @@ export async function cancelSprintAction(sprintId: string, projectId: string) {
 
 // --- Org sprints (report §15) ---
 
-/** "Plan a series" on an organization: CO1–CO5 back to back, as planned sprints that never overlap. */
-export async function planSprintSeriesAction(input: { projectId: string; prefix: string; count: number; lengthDays: number; startDate: string }) {
+/**
+ * Repeat in the sprint form ("Plan more like this", report §16.2, §28.2, decision 9), in any workspace: back-to-back
+ * planned sprints, numbered on from the last one with the prefix. Organization sprints never overlap.
+ */
+export async function planSprintSeriesAction(input: { projectId: string; prefix: string; count: number; lengthDays: number; startDate: string; goal?: string | null; description?: string | null; autoStart?: boolean }) {
   try {
     const user = await getAuthUserOrThrow();
     await requireSprintOwner(input.projectId, user.id);
-    const prefix = input.prefix.trim().slice(0, 40);
-    if (!prefix) throw new Error("Enter a name prefix, for example CO.");
-    const series = buildSprintSeries({ ...input, prefix });
+    const prefix = input.prefix.slice(0, 40);
+    if (!prefix.trim()) throw new Error("Enter a name prefix, for example CO.");
+    let count = 0;
     await db.transaction(async (tx) => {
       await tx.execute(sql`SELECT id FROM ${workspaces} WHERE id = ${input.projectId} FOR UPDATE`);
       const [project] = await tx.select({ kind: workspaces.kind, orgSettings: workspaces.orgSettings, orgType: workspaces.orgType }).from(workspaces).where(eq(workspaces.id, input.projectId)).limit(1);
-      if (project?.kind !== "organization") throw new Error("Series are planned on an organization.");
+      if (!project) throw new Error("Workspace not found");
+      const names = await tx.select({ name: workspaceSprints.name }).from(workspaceSprints).where(eq(workspaceSprints.projectId, input.projectId));
+      const series = buildSprintSeries({ ...input, prefix, firstNumber: nextSeriesNumber(prefix, names.map((n) => n.name)) });
+      count = series.length;
       // The org's Work defaults apply to every planned sprint (report §21).
-      const work = readOrgWork(project.orgSettings, project.orgType);
+      const work = project.kind === "organization" ? readOrgWork(project.orgSettings, project.orgType) : null;
       for (const item of series) {
         const startDate = parseSprintDateInput(item.startDate);
         const endDate = parseSprintDateInput(item.endDate);
-        await assertOrgSprintRules(tx, { projectId: input.projectId, startDate, endDate });
+        const parentSprintId = await assertOrgSprintRules(tx, { projectId: input.projectId, startDate, endDate });
         const [created] = await tx.insert(workspaceSprints).values({
           projectId: input.projectId,
           creatorId: user.id,
           sprintNumber: sql<number>`(SELECT COALESCE(MAX(sprint_number), 0) + 1 FROM ${workspaceSprints} WHERE workspace_id = ${input.projectId})`,
           name: item.name,
+          goal: input.goal?.trim() || null,
+          description: input.description?.trim() || null,
           startDate,
           endDate,
           status: "planning",
-          autoStart: work.sprintAutoStart,
-          showInChildren: work.sprintShowInChildren,
-          notifyOnStart: work.sprintNotifyOnStart,
+          autoStart: input.autoStart ?? work?.sprintAutoStart ?? true,
+          showInChildren: work?.sprintShowInChildren ?? true,
+          notifyOnStart: work?.sprintNotifyOnStart ?? true,
+          parentSprintId,
         }).returning({ id: workspaceSprints.id });
         await tx.insert(workspaceSprintEvents).values({
           projectId: input.projectId,
@@ -2167,7 +2201,7 @@ export async function planSprintSeriesAction(input: { projectId: string; prefix:
       }
     });
     await revalidateWorkspacePaths(input.projectId);
-    return { success: true as const, created: series.length };
+    return { success: true as const, created: count };
   } catch (error) {
     return { success: false as const, error: error instanceof Error ? error.message : "Couldn’t plan the series" };
   }
@@ -2235,7 +2269,8 @@ export async function searchSprintMaterialCandidatesAction(input: { projectId: s
     await requireSprintOwner(input.projectId, user.id);
     const pattern = `%${input.query.trim().slice(0, 80).replace(/[%_\\]/g, (c) => `\\${c}`)}%`;
     const [files, docs] = await Promise.all([
-      db.select({ id: workspaceNodes.id, title: workspaceNodes.name }).from(workspaceNodes)
+      // Decision 137: an Admins-only file is marked, so adding it warns that members can't open it.
+      db.select({ id: workspaceNodes.id, title: workspaceNodes.name, adminsOnly: sql<boolean>`EXISTS (SELECT 1 FROM workspace_nodes f WHERE f.workspace_id = workspace_nodes.workspace_id AND f.type = 'folder' AND f.deleted_at IS NULL AND f.metadata->>'access' = 'admins' AND starts_with(workspace_nodes.path, f.path || '/'))` }).from(workspaceNodes)
         .where(and(eq(workspaceNodes.projectId, input.projectId), eq(workspaceNodes.type, "file"), isNull(workspaceNodes.deletedAt), isNull(workspaceNodes.taskId), ilike(workspaceNodes.name, pattern)))
         .limit(20),
       db.select({ id: workspaceDocuments.id, title: workspaceDocuments.filename }).from(workspaceDocuments)
@@ -2245,6 +2280,59 @@ export async function searchSprintMaterialCandidatesAction(input: { projectId: s
     return { success: true as const, files, docs };
   } catch (error) {
     return { success: false as const, error: error instanceof Error ? error.message : "Search failed", files: [], docs: [] };
+  }
+}
+
+/** Fix dates (report §18.2): a team sprint outside its organization sprint is pulled back inside it. */
+export async function fitSprintToParentAction(input: { projectId: string; sprintId: string }) {
+  try {
+    const user = await getAuthUserOrThrow();
+    await requireSprintOwner(input.projectId, user.id);
+    const [row] = await db.execute<{ start: Date; end: Date; status: string; parent_start: Date; parent_end: Date }>(sql`
+      SELECT c.start_date AS start, c.end_date AS "end", c.status, o.start_date AS parent_start, o.end_date AS parent_end
+      FROM ${workspaceSprints} c JOIN ${workspaceSprints} o ON o.id = c.parent_sprint_id
+      WHERE c.id = ${input.sprintId} AND c.workspace_id = ${input.projectId}`);
+    if (!row) throw new Error("This sprint isn’t inside an organization sprint.");
+    if (row.status !== "planning" && row.status !== "active") throw new Error("Only a planned or running sprint can change dates.");
+    const time = (d: Date | string) => new Date(d).getTime();
+    // A running sprint keeps its start; only its end comes back inside.
+    const start = row.status === "active" ? new Date(row.start) : new Date(Math.min(Math.max(time(row.start), time(row.parent_start)), time(row.parent_end)));
+    const end = new Date(Math.max(Math.min(time(row.end), time(row.parent_end)), start.getTime()));
+    await db.update(workspaceSprints).set({ startDate: start, endDate: end, updatedAt: new Date() }).where(eq(workspaceSprints.id, input.sprintId));
+    await revalidateWorkspacePaths(input.projectId);
+    return { success: true as const };
+  } catch (error) {
+    return { success: false as const, error: error instanceof Error ? error.message : "Couldn’t fix the dates" };
+  }
+}
+
+/**
+ * The Workspaces panel's Remind (report §37.2): leads of workspaces with no sprint inside this organization sprint,
+ * once per 12 hours each, with an honest count (report §28.8).
+ */
+export async function remindSprintLeadsAction(input: { projectId: string; sprintId: string; workspaceIds: string[] }) {
+  try {
+    const user = await getAuthUserOrThrow();
+    await requireSprintOwner(input.projectId, user.id);
+    const [sprint] = await db.select({ name: workspaceSprints.name }).from(workspaceSprints)
+      .innerJoin(workspaces, eq(workspaces.id, workspaceSprints.projectId))
+      .where(and(eq(workspaceSprints.id, input.sprintId), eq(workspaceSprints.projectId, input.projectId), eq(workspaces.kind, "organization"))).limit(1);
+    if (!sprint) throw new Error("Sprint not found");
+    const leads = input.workspaceIds.length ? await db.select({ id: workspaces.id, title: workspaces.title, slug: workspaces.slug, leadId: workspaces.ownerId }).from(workspaces)
+      .where(and(inArray(workspaces.id, input.workspaceIds), eq(workspaces.parentId, input.projectId), isNull(workspaces.deletedAt),
+        sql`NOT EXISTS (SELECT 1 FROM ${workspaceSprints} c WHERE c.workspace_id = ${workspaces.id} AND c.parent_sprint_id = ${input.sprintId})`)) : [];
+    const recent = await remindedRecently(input.projectId, `remind-sprint-${input.sprintId.slice(0, 8)}`, leads.map((l) => l.leadId), "org_sprints.notice");
+    let reminded = 0;
+    let skipped = 0;
+    for (const lead of leads) {
+      if (recent.has(lead.id)) { skipped += 1; continue; }
+      await notifyOrg({ orgId: input.projectId, eventKey: "org_sprints.notice", actorId: user.id, to: [lead.leadId], title: `Plan your sprint in ${lead.title} for ${sprint.name}`,
+        href: `/workspaces/${encodeURIComponent(lead.slug ?? lead.id)}?tab=sprints`, sourceEventId: `remind-sprint-${input.sprintId.slice(0, 8)}:${lead.id}:${Date.now()}` });
+      reminded += 1;
+    }
+    return { success: true as const, reminded, skipped };
+  } catch (error) {
+    return { success: false as const, error: error instanceof Error ? error.message : "Couldn’t remind them" };
   }
 }
 

@@ -62,7 +62,7 @@ export async function sprintCompletionLines(sprintId: string, orgId: string, spr
     LEFT JOIN tasks c ON c.deleted_at IS NULL AND c.excused_at IS NULL
       AND c.assignment_id IN (SELECT m.id FROM tasks m WHERE m.sprint_id = ${sprintId} AND m.kind = 'assignment' AND m.deleted_at IS NULL)
       AND (c.assignee_id = pm.user_id OR EXISTS (SELECT 1 FROM task_team_members tm WHERE tm.task_id = c.id AND tm.user_id = pm.user_id))
-    WHERE pm.workspace_id = ${orgId}
+    WHERE pm.workspace_id = ${orgId} AND pm.role NOT IN ('owner', 'admin')
     GROUP BY pm.user_id`);
   const groups = new Map<string, string[]>();
   for (const row of counts) {
@@ -84,6 +84,15 @@ export async function notifyOrgSprintCompleted(sprintId: string, projectId: stri
     for (const [title, to] of groups) {
       await notifyOrg({ orgId: org.id, eventKey: "org_sprints.completed", actorId, to, title, href: orgHref(org, "?tab=sprints"), sourceEventId: `sprint-closed:${sprintId}:${i++}` });
     }
+    // The sprint summary (report §33.4, §33.8): admins hear the class's numbers in one line.
+    const [totals] = await db.execute<{ done: number; total: number; missing: number; admins: string[] }>(sql`
+      SELECT count(c.id) FILTER (WHERE c.status = 'done' AND c.review_status <> 'pending')::int AS done, count(c.id)::int AS total,
+        count(c.id) FILTER (WHERE c.status <> 'done' AND c.review_status <> 'pending' AND c.review_submitted_at IS NULL AND c.due_date < now())::int AS missing,
+        to_jsonb(array(SELECT o.owner_id FROM workspaces o WHERE o.id = ${org.id} UNION SELECT m.user_id FROM workspace_members m WHERE m.workspace_id = ${org.id} AND m.role = 'admin')) AS admins
+      FROM tasks c WHERE c.deleted_at IS NULL AND c.excused_at IS NULL
+        AND c.assignment_id IN (SELECT m.id FROM tasks m WHERE m.sprint_id = ${sprintId} AND m.kind = 'assignment' AND m.deleted_at IS NULL)`);
+    const summary = [`${sprint.name} completed`, totals?.total ? `${totals.done} of ${totals.total} done` : null, totals?.missing ? `${totals.missing} missing` : null].filter(Boolean).join(" · ");
+    await notifyOrg({ orgId: org.id, eventKey: "org_sprints.completed", actorId, to: (totals?.admins ?? []).filter((id) => id !== actorId), title: summary, href: orgHref(org, "?tab=sprints"), sourceEventId: `sprint-summary:${sprintId}` });
   });
   return true;
 }

@@ -226,6 +226,14 @@ export async function searchSprintMaterialCandidatesAction(...args: Parameters<t
   return sprintsImpl.searchSprintMaterialCandidatesAction(...args);
 }
 
+export async function fitSprintToParentAction(...args: Parameters<typeof sprintsImpl.fitSprintToParentAction>): ReturnType<typeof sprintsImpl.fitSprintToParentAction> {
+  return sprintsImpl.fitSprintToParentAction(...args);
+}
+
+export async function remindSprintLeadsAction(...args: Parameters<typeof sprintsImpl.remindSprintLeadsAction>): ReturnType<typeof sprintsImpl.remindSprintLeadsAction> {
+  return sprintsImpl.remindSprintLeadsAction(...args);
+}
+
 export async function deleteTaskAction(...args: Parameters<typeof tasksImpl.deleteTaskAction>): ReturnType<typeof tasksImpl.deleteTaskAction> {
   return tasksImpl.deleteTaskAction(...args);
 }
