@@ -47,7 +47,7 @@ import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { formatDistanceToNow } from '@/lib/utils/date'
-import { type AssignmentTarget, type CopyState } from '@/lib/organizations/assignment-rules'
+import { webLink, type AssignmentTarget, type CopyState } from '@/lib/organizations/assignment-rules'
 import { DownloadLink } from '@/components/ui/download-link'
 import { remindSummary } from '@/lib/organizations/member-rules'
 import { toast } from '@/lib/feedback'
@@ -550,7 +550,7 @@ export function RosterDialog({ row, orgId, open, onOpenChange, onChanged }: { ro
                                     {r.submittedBy ? <span className="text-muted-foreground">· Submitted by {r.submittedBy}</span> : null}
                                     <Status text={STATE_LABEL[r.state] + (r.late ? ' · Late' : '')} tone={r.state === 'done' ? 'completed' : r.state === 'missing' ? 'archived' : r.state === 'submitted' ? 'active' : 'draft'} />
                                 </div>
-                                {submission?.link ? <a href={submission.link} target="_blank" rel="noreferrer noopener" className="break-all text-primary underline">{submission.link}</a> : null}
+                                {webLink(submission?.link) ? <a href={webLink(submission?.link)!} target="_blank" rel="noreferrer noopener" className="break-all text-primary underline">{submission!.link}</a> : submission?.link ? <span className="break-all">{submission.link}</span> : null}
                                 {submission?.text ? <p className="whitespace-pre-line rounded-md bg-muted px-2 py-1">{submission.text}</p> : null}
                                 {r.excusedReason ? <p className="text-muted-foreground">Excused: {r.excusedReason}</p> : null}
                                 <div className="flex flex-wrap gap-2">
@@ -832,7 +832,7 @@ export function ReviewQueue({ orgId, onChanged, onClose }: { orgId: string; onCh
                 <>
                     <p><span className="font-medium">{current.who}</span> · {current.title} · {formatDistanceToNow(new Date(current.submittedAt), { addSuffix: true })}{current.late ? ' · Late' : ''}{current.version ? ` · Version ${current.version}` : ''}{current.submittedBy ? ` · submitted by ${current.submittedBy}` : ''}{current.left ? ' · Left the organization' : ''}</p>
                     <div className="space-y-1 rounded-md bg-muted/40 px-3 py-2">
-                        {current.link ? <a href={current.link} target="_blank" rel="noreferrer noopener" className="break-all text-primary underline">{current.link}</a> : null}
+                        {webLink(current.link) ? <a href={webLink(current.link)!} target="_blank" rel="noreferrer noopener" className="break-all text-primary underline">{current.link}</a> : current.link ? <span className="break-all">{current.link}</span> : null}
                         {current.text ? <p className="whitespace-pre-line">{current.text}</p> : null}
                         {current.files.length ? <p>{current.files.join(', ')}</p> : null}
                         {current.note ? <p className="text-muted-foreground">Note: {current.note}</p> : null}

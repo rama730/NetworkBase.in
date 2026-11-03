@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { readMySubmissionsAction } from "@/app/actions/assignments";
+import { webLink } from "@/lib/organizations/assignment-rules";
 import { fetchMyWorkTasksAction } from "@/app/actions/my-work";
 import { fetchToReviewAction } from "@/app/actions/org-workspace";
 import { queryKeys } from "@/lib/query-keys";
@@ -516,7 +517,7 @@ export default function MyWorkTasksTab({ isActive = true }: MyWorkTasksTabProps)
                             <span className="min-w-0 flex-1 truncate"><span className="font-medium text-foreground">{row.title}</span> · <span className="text-muted-foreground">{row.org} · Version {row.version} · {row.state === "waiting" ? "Waiting for review" : row.state === "approved" ? "Approved" : row.state === "returned" ? "Returned" : "Done"}</span></span>
                             <span className="shrink-0 font-mono text-[11px] text-muted-foreground">{format(parseISO(row.at), "MMM d")}</span>
                             {row.files.map((f) => <a key={f.nodeId} href={`/api/v1/workspaces/${row.projectId}/files/${f.nodeId}/preview?download=1`} className="shrink-0 text-primary underline-offset-4 hover:underline">Download {f.name}</a>)}
-                            {row.link ? <a href={row.link} target="_blank" rel="noreferrer noopener" className="shrink-0 text-primary underline-offset-4 hover:underline">Open link</a> : null}
+                            {webLink(row.link) ? <a href={webLink(row.link)!} target="_blank" rel="noreferrer noopener" className="shrink-0 text-primary underline-offset-4 hover:underline">Open link</a> : null}
                         </li>
                     ))}
                 </ul>

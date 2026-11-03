@@ -9,7 +9,7 @@ import { db } from '@/lib/db';
 import { assignmentSubmissions, profiles, taskNodeLinks, workspaceMembers, workspaceNodes, workspaces, workspaceSprints, workspaceWorkflowColumns, taskActivityEvents, taskTeamMembers, tasks } from '@/lib/db/schema';
 import { getWorkspaceAccessById, writeBlockedMessage } from '@/lib/data/workspace-access';
 import { createClient } from '@/lib/supabase/server';
-import { assignmentHref, canStillSubmit, copyState, splitIntoTeams, LATE_AFTER_DEFAULT_MINUTES, lateAfterMs, lateRuleBlock, lateWorkLabel, type AssignmentSettings, type AssignmentTarget, type CopyState } from '@/lib/organizations/assignment-rules';
+import { assignmentHref, canStillSubmit, copyState, splitIntoTeams, webLink, LATE_AFTER_DEFAULT_MINUTES, lateAfterMs, lateRuleBlock, lateWorkLabel, type AssignmentSettings, type AssignmentTarget, type CopyState } from '@/lib/organizations/assignment-rules';
 import { createCopies, createMasterTask, handedInSql, PeopleLeftError, resolveRecipients } from '@/lib/organizations/assignments';
 import { publishMaster } from '@/lib/organizations/assignment-publish';
 import { orgFileAccessSql } from '@/lib/files/internal-helpers';
@@ -521,7 +521,8 @@ async function columnFor(projectId: string, status: 'in_progress' | 'done') {
 }
 
 const submitSchema = z.object({
-    link: z.string().trim().url('Enter a valid link.').max(2000).optional(),
+    // Web addresses only: a javascript: link would run for whoever opens it (security review).
+    link: z.string().trim().url('Enter a valid link.').max(2000).refine((value) => webLink(value) !== null, 'Enter a link that starts with https://.').optional(),
     text: z.string().trim().max(10000, 'Up to 10,000 characters.').optional(),
     // Decision 85: an optional note with any hand-in.
     note: z.string().trim().max(500, 'Notes are up to 500 characters.').optional(),

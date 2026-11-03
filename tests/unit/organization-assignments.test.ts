@@ -116,3 +116,11 @@ test("decision 64: auto-made groups quietly keep blocked pairs apart, sizes stil
     assert.ok(teams.every((t) => !(t.includes("a") && t.includes("b")) && !(t.includes("c") && t.includes("d"))), JSON.stringify(teams));
   }
 });
+
+test("security review: only http and https hand-in links are ever links", async () => {
+  const { webLink } = await import("../../src/lib/organizations/assignment-rules");
+  assert.equal(webLink("javascript:alert(1)"), null);
+  assert.equal(webLink("data:text/html,hi"), null);
+  assert.equal(webLink("https://example.com/a"), "https://example.com/a");
+  assert.equal(webLink("not a url"), null);
+});

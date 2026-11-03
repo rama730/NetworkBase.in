@@ -6,6 +6,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { readHandInAction, submitAssignmentAction, type HandIn } from '@/app/actions/assignments'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { webLink } from '@/lib/organizations/assignment-rules'
 
 // Hand in, in the task panel (report §34.4, decision 85): every hand-in type, an optional note, and the state with
 // what to do next. Files attach in the panel's Files tab; Submit locks them with this version (decision 127).
@@ -62,7 +63,7 @@ export function HandInSection({ copyId, onOpenFiles, onSubmitted }: { copyId: st
             {h.latest ? (
                 <div className="space-y-1 rounded-md bg-muted/40 px-3 py-2">
                     <p className="text-[12px] text-muted-foreground">Version {h.latest.version} · {WHEN.format(new Date(h.latest.at))} · by {h.latest.by}</p>
-                    {h.latest.link ? <a href={h.latest.link} target="_blank" rel="noreferrer noopener" className="break-all text-primary underline">{h.latest.link}</a> : null}
+                    {webLink(h.latest.link) ? <a href={webLink(h.latest.link)!} target="_blank" rel="noreferrer noopener" className="break-all text-primary underline">{h.latest.link}</a> : h.latest.link ? <span className="break-all">{h.latest.link}</span> : null}
                     {h.latest.text ? <p className="whitespace-pre-line">{h.latest.text}</p> : null}
                     {h.latest.files.length ? <p>{h.latest.files.map((f) => f.name).join(', ')}</p> : null}
                     {h.latest.note ? <p className="text-muted-foreground">Note: {h.latest.note}</p> : null}

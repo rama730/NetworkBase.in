@@ -211,3 +211,14 @@ export function resetDuplicatedTarget(target: AssignmentTarget): { target: Assig
   if (target.mode === "children") return { target: { mode: "each_child" }, note: "Copied from last term: it now goes to each workspace. Check who gets it before publishing." };
   return { target, note: null };
 }
+
+/** A handed-in link is only ever a web address; anything else (javascript:, data:) is never shown as a link. */
+export function webLink(link: string | null | undefined): string | null {
+  if (!link) return null;
+  try {
+    const url = new URL(link);
+    return url.protocol === "https:" || url.protocol === "http:" ? url.href : null;
+  } catch {
+    return null;
+  }
+}

@@ -76,6 +76,9 @@ test("decisions 85, 127: each hand-in is saved as a version with its note; repla
   viewerId = o.asha;
   assert.deepEqual(await assignments.submitAssignmentAction(copyOf(o.asha), { link: "https://example.com/v3" }), { success: false, error: "Approved work is locked." });
   assert.equal((await assignments.submitAssignmentAction(copyOf(o.asha), { link: "https://example.com/v1", note: "x".repeat(501) })).success, false, "notes up to 500");
+  const [ravis] = await sql`SELECT id FROM tasks WHERE assignee_id = ${o.ravi} AND assignment_id IS NOT NULL`;
+  viewerId = o.ravi;
+  assert.deepEqual(await assignments.submitAssignmentAction(ravis!.id, { link: "javascript:alert(1)" }), { success: false, error: "Enter a link that starts with https://." }, "security review");
 });
 
 test("34.4: with no review, done work can be replaced until the due date", async () => {
