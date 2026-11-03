@@ -48,7 +48,7 @@ import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { formatDistanceToNow } from '@/lib/utils/date'
-import { deleteAssignmentWarning, webLink, type AssignmentTarget, type CopyState } from '@/lib/organizations/assignment-rules'
+import { defaultFixBy, deleteAssignmentWarning, webLink, type AssignmentTarget, type CopyState } from '@/lib/organizations/assignment-rules'
 import { DownloadLink } from '@/components/ui/download-link'
 import { remindSummary } from '@/lib/organizations/member-rules'
 import { toast } from '@/lib/feedback'
@@ -736,7 +736,7 @@ export function ReviewQueue({ orgId, onChanged, onClose }: { orgId: string; onCh
     const step = (by: number) => { setReturning(false); setIndex((i) => (shown.length ? (i + by + shown.length) % shown.length : 0)) }
     const decide = (decision: 'approve' | 'return') => {
         if (!current) return
-        if (decision === 'return' && !returning) { setReturning(true); setReason(''); setFixBy(toLocalInput(new Date(Date.now() + 3 * 86_400_000))); return }
+        if (decision === 'return' && !returning) { setReturning(true); setReason(''); setFixBy(toLocalInput(defaultFixBy())); return }
         if (decision === 'return' && !reason.trim()) return setError('Say what to change.')
         startTransition(async () => {
             // An ordinary board task uses the task's own review (problem 33); a copy uses the assignment's.
@@ -748,13 +748,16 @@ export function ReviewQueue({ orgId, onChanged, onClose }: { orgId: string; onCh
             if (!r.success) {
                 // "Already reviewed by Priya" moves on; a new version reloads to show it (23.2 awkward cases).
                 setError(r.error.startsWith('This changed') ? `${current.who} sent a new version. Showing it now.` : r.error)
-                if (r.error.startsWith('Already reviewed')) setRows((cur) => (cur ?? []).filter((x) => x.copyId !== current.copyId))
+                if (r.error.startsWith('Already reviewed')) { setRows((cur) => (cur ?? []).filter((x) => x.copyId !== current.copyId)); setTotal((t) => Math.max(0, t - 1)) }
                 else load()
                 return
             }
             if (decision === 'approve' && note.trim()) await createTaskCommentAction(current.copyId, current.projectId, note.trim()).catch(() => undefined)
             setError(null); setNote(''); setReturning(false)
+            // Live loop 31, 32: the count follows the queue, and each decision says it happened.
             setRows((cur) => (cur ?? []).filter((x) => x.copyId !== current.copyId))
+            setTotal((t) => Math.max(0, t - 1))
+            toast.success(decision === 'approve' ? `Approved ${current.who}’s ${current.title}.` : `Returned ${current.title} to ${current.who}.`)
             onChanged()
         })
     }
@@ -811,8 +814,8 @@ export function ReviewQueue({ orgId, onChanged, onClose }: { orgId: string; onCh
                     {returning ? (
                         <div className="space-y-2">
                             <label className="block space-y-1"><span className="font-medium">What should they change?</span>
-                                <textarea autoFocus value={reason} onChange={(e) => setReason(e.target.value)} rows={2} maxLength={1000} className={area} /></label>
-                            {current.kind === 'copy' ? <label className="flex flex-wrap items-center gap-2">Fix by <Input type="datetime-local" value={fixBy} onChange={(e) => setFixBy(e.target.value)} className="w-auto" /></label> : null}
+                                <textarea autoFocus value={reason} onChange={(e) => setReason(e.target.value)} rows={2} maxLength={1000} className={area} aria-label="What should they change?" /></label>
+                            {current.kind === 'copy' ? <label className="flex flex-wrap items-center gap-2">Fix by <Input type="datetime-local" value={fixBy} onChange={(e) => setFixBy(e.target.value)} className="w-auto" aria-label="Fix by" /></label> : null}
                             <div className="flex gap-2">
                                 <Button type="button" size="sm" disabled={pending} onClick={() => decide('return')}>Return</Button>
                                 <Button type="button" size="sm" variant="ghost" onClick={() => setReturning(false)}>Cancel</Button>

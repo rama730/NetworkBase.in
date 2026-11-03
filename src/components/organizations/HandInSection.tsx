@@ -28,7 +28,7 @@ function StateLine({ h }: { h: HandIn }) {
     return null
 }
 
-export function HandInSection({ copyId, onOpenFiles, onSubmitted, onUploadFiles }: { copyId: string; onOpenFiles: () => void; onSubmitted: (reviewRequired: boolean) => void; onUploadFiles?: (files: File[]) => Promise<{ success: boolean; error?: string }> }) {
+export function HandInSection({ copyId, onOpenFiles, onSubmitted, onUploadFiles, onRemoveFile }: { copyId: string; onOpenFiles: () => void; onSubmitted: (reviewRequired: boolean) => void; onUploadFiles?: (files: File[]) => Promise<{ success: boolean; error?: string }>; onRemoveFile?: (nodeId: string) => Promise<{ success: boolean; error?: string }> }) {
     const client = useQueryClient()
     const query = useQuery({ queryKey: ['hand-in', copyId], queryFn: () => readHandInAction(copyId), staleTime: 0 })
     const [link, setLink] = useState('')
@@ -47,6 +47,14 @@ export function HandInSection({ copyId, onOpenFiles, onSubmitted, onUploadFiles 
         // Student check 1: production hides a thrown server message behind React's code, which means nothing to a student.
         const detail = result.error && !/React error|Server Components/.test(result.error) ? ` ${result.error}` : ''
         if (!result.success) return setError(`Couldn’t add the file. Try again.${detail}`)
+        setError(null)
+        await client.invalidateQueries({ queryKey: ['hand-in', copyId] })
+    }
+    // Live loop 34: returned work can drop the earlier file instead of handing both in.
+    const remove = async (nodeId: string) => {
+        if (!onRemoveFile) return
+        const result = await onRemoveFile(nodeId)
+        if (!result.success) return setError('Couldn’t remove the file. Try again.')
         setError(null)
         await client.invalidateQueries({ queryKey: ['hand-in', copyId] })
     }
@@ -98,7 +106,11 @@ export function HandInSection({ copyId, onOpenFiles, onSubmitted, onUploadFiles 
                             onDrop={(e) => { if (!canAttach) return; e.preventDefault(); setDragging(false); void attach(Array.from(e.dataTransfer.files)) }}
                             className={dragging ? 'rounded-md border border-dashed border-primary p-2' : canAttach ? 'rounded-md border border-dashed border-border p-2' : undefined}>
                             <p className="flex flex-wrap items-center gap-2">
-                                {uploading ? 'Adding…' : h.files.length ? h.files.map((f) => f.name).join(', ') : canAttach ? 'Drop your file here, or choose one.' : 'No file attached yet.'}
+                                {uploading ? 'Adding…' : h.files.length ? h.files.map((f) => (
+                                    <span key={f.nodeId} className="inline-flex items-center gap-1">{f.name}
+                                        {canAttach && onRemoveFile ? <button type="button" aria-label={`Remove ${f.name}`} className="rounded-[3px] px-1 text-muted-foreground hover:bg-muted hover:text-foreground" onClick={() => void remove(f.nodeId)}>×</button> : null}
+                                    </span>
+                                )) : canAttach ? 'Drop your file here, or choose one.' : 'No file attached yet.'}
                                 {canAttach ? (
                                     <label className="inline-flex cursor-pointer items-center rounded-md border border-input px-2.5 py-1 text-[13px] hover:bg-muted">
                                         Choose file<input type="file" multiple className="sr-only" disabled={uploading} onChange={(e) => { void attach(Array.from(e.target.files ?? [])); e.target.value = '' }} />

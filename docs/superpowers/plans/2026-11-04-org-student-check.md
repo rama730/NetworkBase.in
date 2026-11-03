@@ -75,12 +75,12 @@ After a666ab334 went live, the whole loop ran on production: the teacher's queue
 reached the student ("Returned: … Fix by …", Choose file back); the student handed in version 2 (chip In review, Choose file
 hidden); the teacher approved; the student sees "Approved · It's locked now" and the card sits in Completed.
 
-Small things the loop showed, not fixed yet:
+Small things the loop showed, fixed locally afterwards:
 
 | # | Problem | Fix |
 |---|---|---|
 | 30 | The Return reason box ("What should they change?") has no accessible name. | Label it. |
 | 31 | Once the queue empties it reads "· 0 of 1 loaded". | Drop the line when nothing is waiting. |
 | 32 | Approve and Return from the queue say nothing. | "Approved Rama's Lab 1" / "Returned to Rama". |
-| 33 | The default Fix by is exactly three days from the click (Sat 2:43 AM). | Default to the due date, or 11:59 PM three days on. |
-| 34 | A resubmission keeps the first version's file next to the new one (v2 held both zips). | Offer to replace the old file when adding one to returned work. |
+| 33 | The default Fix by is exactly three days from the click (Sat 2:43 AM). | 11:59 PM three days on, in the queue and the roster's Return. |
+| 34 | A resubmission keeps the first version's file next to the new one (v2 held both zips). | Each file on open work has Remove; a removed file is left out of the hand-in and the next version (it was still counted). |

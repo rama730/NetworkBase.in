@@ -256,3 +256,11 @@ export function deleteAssignmentWarning(counts: { total: number; in_progress: nu
   const started = counts.in_progress + counts.returned;
   return started ? `${copies} ${started} ${started === 1 ? "person has" : "people have"} started.` : copies;
 }
+
+/** Live loop 33: Return's default Fix by is the end of the day three days on, never the minute of the click. */
+export function defaultFixBy(now: Date = new Date()) {
+  const at = new Date(now);
+  at.setDate(at.getDate() + 3);
+  at.setHours(23, 59, 0, 0);
+  return at;
+}

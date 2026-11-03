@@ -264,8 +264,9 @@ export async function readHandInAction(copyId: string): Promise<{ success: true;
     const [latest] = await db.select().from(assignmentSubmissions).where(eq(assignmentSubmissions.copyId, copyId)).orderBy(desc(assignmentSubmissions.version)).limit(1);
     const [returnedEvent] = s.state === 'returned' ? await db.execute<{ reason: string | null; fix_by: string | null }>(sql`
         SELECT payload->>'reason' AS reason, payload->>'fixBy' AS fix_by FROM task_activity_events WHERE task_id = ${copyId} AND event_type = 'changes_requested' ORDER BY created_at DESC LIMIT 1`) : [];
+    // Live loop 34: a file removed from the copy (detached, like the panel's Files list) isn't handed in.
     const files = await db.execute<{ node_id: string; name: string }>(sql`
-        SELECT n.id AS node_id, n.name FROM workspace_nodes n WHERE n.deleted_at IS NULL AND n.type = 'file' AND (n.task_id = ${copyId} OR n.id IN (SELECT node_id FROM task_node_links WHERE task_id = ${copyId})) ORDER BY n.name`);
+        SELECT n.id AS node_id, n.name FROM workspace_nodes n WHERE n.deleted_at IS NULL AND n.type = 'file' AND ((n.task_id = ${copyId} AND (n.metadata->>'taskFileDetachedFrom') IS DISTINCT FROM ${copyId}::text) OR n.id IN (SELECT node_id FROM task_node_links WHERE task_id = ${copyId})) ORDER BY n.name`);
     const materials = await readAssignmentMaterialsAction(copyId);
     const byName = latest?.submittedBy ? (await db.select({ name: sql<string>`coalesce(${profiles.fullName}, ${profiles.username}, 'Someone')` }).from(profiles).where(eq(profiles.id, latest.submittedBy)).limit(1))[0]?.name : null;
     const [org] = await db.select({ title: workspaces.title, orgType: workspaces.orgType, orgSettings: workspaces.orgSettings }).from(workspaces).where(eq(workspaces.id, master.projectId)).limit(1);
@@ -625,7 +626,7 @@ export async function submitAssignmentAction(copyId: string, input: z.input<type
         const version = Math.max(last?.version ?? 0, copy.submission?.version ?? 0) + 1;
         const files = type === 'file' ? await tx.execute<{ id: string; name: string; version: number | null }>(sql`
             SELECT n.id, n.name, n.current_version AS version FROM workspace_nodes n
-            WHERE n.deleted_at IS NULL AND n.type = 'file' AND (n.task_id = ${copyId} OR n.id IN (SELECT node_id FROM task_node_links WHERE task_id = ${copyId}))`) : [];
+            WHERE n.deleted_at IS NULL AND n.type = 'file' AND ((n.task_id = ${copyId} AND (n.metadata->>'taskFileDetachedFrom') IS DISTINCT FROM ${copyId}::text) OR n.id IN (SELECT node_id FROM task_node_links WHERE task_id = ${copyId}))`) : [];
         await tx.insert(assignmentSubmissions).values({ copyId, projectId: copy.projectId, version, submittedBy: userId, submittedAt: now, link: link ?? null, body: text ?? null, note: note || null,
             files: files.map((f) => ({ nodeId: f.id, name: f.name, version: f.version })), late });
         await tx.update(tasks).set({

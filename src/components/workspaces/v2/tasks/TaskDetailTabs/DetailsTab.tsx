@@ -94,6 +94,8 @@ interface DetailsTabProps {
   onOpenTab: (tab: TaskPanelTab) => void;
   /** Hand in takes files straight in (step 13 gap), through the panel's own upload. */
   onUploadFiles?: (files: File[]) => Promise<{ success: boolean; error?: string }>;
+  /** Live loop 34: take an earlier file off work that's open again. */
+  onRemoveFile?: (nodeId: string) => Promise<{ success: boolean; error?: string }>;
   workflowColumns?: { id: string; name: string }[];
   onMoveToColumn?: (columnId: string) => Promise<{ success: boolean; error?: string }>;
 }
@@ -117,6 +119,7 @@ export default function DetailsTab({
   onUpdateAssignee,
   onReviewApproved,
   onUploadFiles,
+  onRemoveFile,
   onOpenTab,
   workflowColumns,
   onMoveToColumn,
@@ -321,7 +324,7 @@ export default function DetailsTab({
 
       {/* Decision 85: an assignment copy is handed in here, for every hand-in type. */}
       {task.assignmentId ? (
-        <HandInSection copyId={task.id} onOpenFiles={() => onOpenTab("files")} onUploadFiles={onUploadFiles}
+        <HandInSection copyId={task.id} onOpenFiles={() => onOpenTab("files")} onUploadFiles={onUploadFiles} onRemoveFile={onRemoveFile}
           onSubmitted={(review) => onReviewApproved(new Date().toISOString(), "done", review ? "pending" : "none")} />
       ) : null}
 

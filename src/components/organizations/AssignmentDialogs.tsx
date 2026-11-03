@@ -17,7 +17,8 @@ const area = 'w-full resize-y rounded-md border border-input bg-transparent px-3
 export function ReturnDialog({ label, change = false, open, onClose, onReturn, timeZone = null }: { label: string; change?: boolean; open: boolean; onClose: () => void; onReturn: (reason: string, fixBy: string) => void; timeZone?: string | null }) {
     const [reason, setReason] = useState('')
     const [fixBy, setFixBy] = useState('')
-    useEffect(() => { if (open) { setReason(''); setFixBy(isoToZonedInput(new Date(Date.now() + 3 * DAY).toISOString(), timeZone)) } }, [open, timeZone])
+    // Live loop 33: end of the day three days on, in the organization's zone.
+    useEffect(() => { if (open) { setReason(''); setFixBy(`${isoToZonedInput(new Date(Date.now() + 3 * DAY).toISOString(), timeZone).slice(0, 10)}T23:59`) } }, [open, timeZone])
     return (
         <ConfirmDialog open={open} onOpenChange={(v) => { if (!v) onClose() }} title={change ? `Return ${label}’s approved work?` : `Return ${label}’s work?`}
             confirmLabel="Return" onConfirm={() => { if (reason.trim() && fixBy) onReturn(reason.trim(), zonedInputToIso(fixBy, timeZone)); onClose() }}>

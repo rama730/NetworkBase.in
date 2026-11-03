@@ -88,6 +88,29 @@ test("decision 85: the panel's Hand in shows what's asked, the latest version an
   assert.deepEqual(admin.success && [admin.handIn.holder, admin.handIn.canSubmit], [false, false], "admins read it");
 });
 
+test("live loop 34: a file removed from returned work leaves the hand-in and the next version", async () => {
+  const [owner, asha] = await Promise.all([1, 2].map(() => sql.begin((tx) => createUser(tx))));
+  const org = await sql.begin((tx) => createProject(tx, owner!));
+  await sql`INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (${org}, ${owner!}, 'owner'), (${org}, ${asha!}, 'member')`;
+  await sql`UPDATE workspaces SET kind = 'organization', org_type = 'education', title = 'CSE 3B', join_code = ${generateJoinCode()} WHERE id = ${org}`;
+  created.push(org);
+  viewerId = owner!;
+  const made = await assignments.createAssignmentAction({ projectId: org, title: "Lab 1", dueDate: new Date(Date.now() + 864e5).toISOString(), publish: true,
+    submissionType: "file", reviewRequired: true, lateRule: "none", target: { mode: "everyone" }, steps: [] });
+  const [copy] = await sql`SELECT id FROM tasks WHERE assignment_id = ${made.success ? made.masterId : ""} AND assignee_id = ${asha!}`;
+  const file = (name: string, metadata: Record<string, string>) => sql`INSERT INTO workspace_nodes (workspace_id, task_id, path, type, name, metadata, current_version)
+    VALUES (${org}, ${copy!.id}, ${`/.system/tasks/${copy!.id}/${name}`}, 'file', ${name}, ${sql.json(metadata)}, 1)`;
+  await file("lab1-v1.zip", { taskFileDetachedFrom: copy!.id });
+  await file("lab1-v2.zip", {});
+  viewerId = asha!;
+  const read = await assignments.readHandInAction(copy!.id);
+  assert.deepEqual(read.success && read.handIn.files.map((f) => f.name), ["lab1-v2.zip"], "a removed file isn't part of the hand-in");
+  assert.equal((await assignments.submitAssignmentAction(copy!.id, {})).success, true);
+  const after = await assignments.readHandInAction(copy!.id);
+  assert.deepEqual(after.success && after.handIn.latest?.files.map((f) => f.name), ["lab1-v2.zip"], "nor of the version handed in");
+  viewerId = "";
+});
+
 test("problem 19, decision 139: an organization admin not on the team creates, assigns and moves tasks in a workspace", async () => {
   const [owner, admin, lead, member] = await Promise.all([1, 2, 3, 4].map(() => sql.begin((tx) => createUser(tx))));
   const org = await sql.begin((tx) => createProject(tx, owner!));

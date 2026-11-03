@@ -101,3 +101,27 @@ test("live after deploy: no Choose file while a hand-in waits for review or is a
   assert.match(hand, /const canAttach = Boolean\(onUploadFiles\) && h\.state !== 'submitted' && !h\.approved/);
   assert.match(hand, /\{canAttach \? \(\s*<label/);
 });
+
+test("live loop 30–33: the review queue labels its Return box, drops a stale count, confirms each decision, and defaults Fix by to a sensible time", async () => {
+  const { defaultFixBy } = await import("../../src/lib/organizations/assignment-rules");
+  const fixBy = defaultFixBy(new Date(2026, 10, 4, 2, 43));
+  assert.deepEqual([fixBy.getFullYear(), fixBy.getMonth(), fixBy.getDate(), fixBy.getHours(), fixBy.getMinutes()], [2026, 10, 7, 23, 59]);
+  const panel = source("src/components/organizations/AssignmentsPanel.tsx");
+  assert.match(panel, /aria-label="What should they change\?"/);
+  assert.match(panel, /aria-label="Fix by"/);
+  assert.match(panel, /setFixBy\(toLocalInput\(defaultFixBy\(\)\)\)/);
+  assert.match(panel, /setTotal\(\(t\) => Math\.max\(0, t - 1\)\)/);
+  assert.match(panel, /toast\.success\(decision === 'approve' \? `Approved \$\{current\.who\}’s \$\{current\.title\}\.` : `Returned \$\{current\.title\} to \$\{current\.who\}\.`\)/);
+});
+
+test("live loop 33: the roster's Return dialog defaults Fix by to 11:59 PM three days on", () => {
+  assert.match(source("src/components/organizations/AssignmentDialogs.tsx"), /\.slice\(0, 10\)\}T23:59`\)/);
+});
+
+test("live loop 34: open work lists each file with Remove, wired to the panel's unlink", () => {
+  const hand = source("src/components/organizations/HandInSection.tsx");
+  assert.match(hand, /aria-label=\{`Remove \$\{f\.name\}`\}/);
+  assert.match(hand, /canAttach && onRemoveFile \?/);
+  assert.match(source("src/components/workspaces/v2/tasks/TaskDetailPanel.tsx"), /onRemoveFile=\{resource\.fileMutations\.unlinkAttachment\}/);
+  assert.match(source("src/components/workspaces/v2/tasks/TaskDetailTabs/DetailsTab.tsx"), /onUploadFiles=\{onUploadFiles\} onRemoveFile=\{onRemoveFile\}/);
+});
