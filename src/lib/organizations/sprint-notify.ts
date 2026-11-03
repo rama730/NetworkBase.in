@@ -41,7 +41,10 @@ export function notifyOrgSprintStarted(sprintId: string, projectId: string, acto
     }
     const leads = await db.execute<{ owner_id: string; title: string; slug: string | null; id: string }>(sql`
       SELECT p.owner_id, p.title, p.slug, p.id FROM workspaces p
+      JOIN workspace_sprints o ON o.id = ${sprintId}
       WHERE p.parent_id = ${org.id} AND p.deleted_at IS NULL AND p.status <> 'archived'
+        -- Live-fix 34: only the workspaces this sprint is shared with are asked to plan inside it.
+        AND o.show_in_children AND (NOT EXISTS (SELECT 1 FROM sprint_shared_workspaces ss WHERE ss.sprint_id = o.id) OR EXISTS (SELECT 1 FROM sprint_shared_workspaces ss WHERE ss.sprint_id = o.id AND ss.workspace_id = p.id))
         AND NOT EXISTS (SELECT 1 FROM workspace_sprints c WHERE c.workspace_id = p.id AND c.parent_sprint_id = ${sprintId})`);
     for (const lead of leads) {
       await notifyOrg({ orgId: org.id, eventKey: "org_sprints.notice", actorId, to: [lead.owner_id], title: `${sprint.name} started. Plan your sprint in ${lead.title}`,

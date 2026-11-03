@@ -57,7 +57,7 @@ export async function assertOrgSprintRules(executor: Executor, input: {
     const live = await executor
       .select({ id: workspaceSprints.id, startDate: workspaceSprints.startDate, endDate: workspaceSprints.endDate })
       .from(workspaceSprints)
-      .where(and(eq(workspaceSprints.projectId, project.parentId), inArray(workspaceSprints.status, ["planning", "active"])));
+      .where(and(eq(workspaceSprints.projectId, project.parentId), inArray(workspaceSprints.status, ["planning", "active"]), sprintSharedWithSql(workspaceSprints.id, input.projectId)));
     const holder = live.find((sprint) => fitsInside(range, sprint));
     if (!holder) throw new Error("This workspace follows its organization’s sprints: pick dates inside one of them.");
     return holder.id;
@@ -66,7 +66,8 @@ export async function assertOrgSprintRules(executor: Executor, input: {
   const [parent] = await executor
     .select({ name: workspaceSprints.name, status: workspaceSprints.status, startDate: workspaceSprints.startDate, endDate: workspaceSprints.endDate })
     .from(workspaceSprints)
-    .where(and(eq(workspaceSprints.id, input.parentSprintId), eq(workspaceSprints.projectId, project.parentId)))
+    // Live-fix 34: only a sprint shared with this workspace can hold its sprint.
+    .where(and(eq(workspaceSprints.id, input.parentSprintId), eq(workspaceSprints.projectId, project.parentId), sprintSharedWithSql(workspaceSprints.id, input.projectId)))
     .limit(1);
   if (!parent || (parent.status !== "planning" && parent.status !== "active")) throw new Error("Pick a planned or active sprint of your organization.");
   const outside = insideError(range, parent);

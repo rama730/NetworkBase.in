@@ -861,3 +861,21 @@ test("decision 104 guard: a personal workspace entry keeps the dates its owner w
   const [row] = await sql`SELECT started_at, ended_at FROM profile_contributions WHERE id=${id}`;
   assert.deepEqual([new Date(row!.started_at).toISOString().slice(0, 7), new Date(row!.ended_at).toISOString().slice(0, 7)], ["2025-01", "2025-06"]);
 });
+
+test("live-fix 63: an organization entry publishes once it has a summary, and says what's missing before that", async () => {
+  const org = await sql.begin((tx) => createProject(tx, owner));
+  await sql`UPDATE workspaces SET kind = 'organization', org_type = 'education', title = 'CSE 3B' WHERE id = ${org}`;
+  const [row] = await sql`INSERT INTO profile_contributions (profile_id, workspace_id, source, role_kind, role_title, visibility, started_at)
+    VALUES (${owner}, ${org}, 'membership', 'owner', 'Owner', 'public', now()) RETURNING id, version`;
+  ids.push(row!.id);
+  actor = owner;
+  const blank = blankContributionStory("CSE 3B");
+  const missing = await command(row!.id, row!.version, "publish", blank);
+  assert.equal(missing.success, false);
+  assert.match(missing.success ? "" : missing.error, /summary/i, "it points to the missing summary");
+  const published = await command(row!.id, row!.version, "publish", { ...blank, summary: "I ran the labs and the reviews." });
+  assert.equal(published.success, true, JSON.stringify(published));
+  const [after] = await sql`SELECT published_at FROM profile_contributions WHERE id = ${row!.id}`;
+  assert.ok(after!.published_at, "published");
+  await sql`DELETE FROM workspaces WHERE id = ${org}`;
+});

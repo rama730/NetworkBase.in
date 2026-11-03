@@ -1617,6 +1617,11 @@ export async function updateSprintAction(data: UpdateSprintInput) {
     );
     if (!sprintListItem) throw new Error("Couldn’t reload updated sprint");
 
+    // Post an announcement on a change too (report §37.2), organizations only.
+    if (validated.announcement?.trim()) {
+      const [project] = await db.select({ kind: workspaces.kind }).from(workspaces).where(eq(workspaces.id, validated.projectId)).limit(1);
+      if (project?.kind === "organization") await postOrgAnnouncement(validated.projectId, user.id, validated.announcement);
+    }
     await revalidateWorkspacePaths(validated.projectId);
 
     await enqueueWorkspaceNotificationBestEffort(

@@ -196,7 +196,9 @@ export default function SprintEditorModal({
   }, [defaultParent, mode, org, orgDefaults, sprint, sprintCount]);
   const [draft, setDraft] = React.useState<SprintEditorDraft>(initialDraft);
   // Post an announcement: prefilled from the form, editable (report §37.2).
-  const defaultAnnouncement = `${draft.name.trim() || "A new sprint"} is planned${draft.startDate ? ` · starts ${SHORT.format(utc(draft.startDate))}` : ""}.`;
+  const defaultAnnouncement = mode === "edit"
+    ? `${draft.name.trim() || "The sprint"} changed${draft.startDate && draft.endDate ? ` · now ${rangeLabel(draft.startDate, draft.endDate)}` : ""}.`
+    : `${draft.name.trim() || "A new sprint"} is planned${draft.startDate ? ` · starts ${SHORT.format(utc(draft.startDate))}` : ""}.`;
   // Sprints can arrive after the form opens: move the untouched defaults along (CO1 → CO2, not CO1 again).
   const defaultsRef = React.useRef<{ name?: string; startDate?: string; endDate?: string }>({});
   React.useEffect(() => {
@@ -327,7 +329,7 @@ export default function SprintEditorModal({
           ...parsed.data,
           autoStart: orgFields.autoStart,
           ...(org?.kind === "org" ? { sharedWith: orgFields.sharedWith, sharedWorkspaceIds: orgFields.sharedWith === "selected" ? orgFields.sharedWorkspaceIds ?? [] : [], createMatching: mode === "create" && orgFields.sharedWith !== "none" && orgFields.createMatching,
-            notifyOnStart: orgFields.notifyOnStart, ...(mode === "create" && orgFields.announce ? { announcement: (orgFields.announcement ?? defaultAnnouncement).trim() } : {}), ...(mode === "edit" ? { moveDueDates: orgFields.moveDueDates } : {}) } : {}),
+            notifyOnStart: orgFields.notifyOnStart, ...(orgFields.announce ? { announcement: (orgFields.announcement ?? defaultAnnouncement).trim() } : {}), ...(mode === "edit" ? { moveDueDates: orgFields.moveDueDates } : {}) } : {}),
           ...(org?.kind === "child" ? { parentSprintId: orgFields.parentSprintId ?? null, ...(mode === "create" ? { includeGroupWork: orgFields.includeGroupWork } : {}) } : {}),
           ...(mode === "edit" && laterSprints.length && shiftDays ? { moveLaterSprints: orgFields.moveLaterSprints } : {}),
         });
@@ -627,16 +629,15 @@ export default function SprintEditorModal({
                       Teams plan their own sprint inside it
                     </label>
                   ) : null}
-                  {mode === "create" ? (
-                    <div className="space-y-1.5">
-                      <label className="flex items-center gap-2 text-[13px] text-foreground">
-                        <input type="checkbox" checked={orgFields.announce ?? false} onChange={(e) => setOrgFields((f) => ({ ...f, announce: e.target.checked }))} />
-                        Post an announcement
-                      </label>
-                      {orgFields.announce ? <textarea aria-label="Announcement" rows={2} maxLength={5000} value={orgFields.announcement ?? defaultAnnouncement}
-                        onChange={(e) => setOrgFields((f) => ({ ...f, announcement: e.target.value }))} className="w-full rounded-[5px] border border-border bg-background px-3 py-2 text-[13px]" /> : null}
-                    </div>
-                  ) : null}
+                  {/* Post an announcement, when creating or changing a sprint (report §37.2). */}
+                  <div className="space-y-1.5">
+                    <label className="flex items-center gap-2 text-[13px] text-foreground">
+                      <input type="checkbox" checked={orgFields.announce ?? false} onChange={(e) => setOrgFields((f) => ({ ...f, announce: e.target.checked }))} />
+                      Post an announcement
+                    </label>
+                    {orgFields.announce ? <textarea aria-label="Announcement" rows={2} maxLength={5000} value={orgFields.announcement ?? defaultAnnouncement}
+                      onChange={(e) => setOrgFields((f) => ({ ...f, announcement: e.target.value }))} className="w-full rounded-[5px] border border-border bg-background px-3 py-2 text-[13px]" /> : null}
+                  </div>
                   {mode === "edit" ? (
                     <label className="flex items-start gap-2 text-[13px] text-foreground">
                       <input type="checkbox" className="mt-0.5" checked={orgFields.moveDueDates ?? false} onChange={(e) => setOrgFields((f) => ({ ...f, moveDueDates: e.target.checked }))} />

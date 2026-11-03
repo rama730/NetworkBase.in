@@ -61,3 +61,17 @@ test("live-fix 19–21: About has Edit details and Edit on the welcome note, a t
   assert.match(source("src/components/workspaces/dashboard/WorkspaceOverviewCard.tsx"), /isCreator && onEdit && editLabel/);
   assert.match(source("src/app/actions/org-dashboard.ts"), /leaders: Array<\{ id: string; name: string; username: string \| null; avatarUrl: string \| null;/);
 });
+
+test("live-fix 12–16 follow-ups: every Today type has an icon and action, the sprint card has Start now, Add task and a roster badge, This week has See all, Activity bolds its subject", () => {
+  for (const kind of ["team", "unplaced", "needs_projects", "autostart", "plan_sprint", "complete_sprint", "sprint_dates", "group", "reports", "sprint_ending", "term_end", "due_today"]) {
+    assert.match(overview, new RegExp(`TODAY_ICON[^\\n]*\\b${kind}:`), `${kind} icon`);
+    assert.match(overview, new RegExp(`TODAY_ACTION[^\\n]*\\b${kind}:`), `${kind} action`);
+  }
+  assert.match(overview, /<StartNowButton projectId=\{orgId\} sprintId=\{s\.next\.id\}/);
+  assert.match(overview, />Add task<\/Link>/);
+  assert.match(overview, /aria-label=\{`Roster for \$\{i\.title\}`\}/);
+  assert.match(overview, /See all →/);
+  const item = source("src/components/ui/activity-item.tsx");
+  assert.match(item, /subject && text\.startsWith\(subject\)/);
+  assert.match(source("src/app/actions/org-dashboard.ts"), /next: !active && next \? \{ id: next\.id, name: next\.name/);
+});

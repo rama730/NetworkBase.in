@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState, useTransition } from 'react'
 import Link from 'next/link'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { AlertTriangle, BadgeCheck, BookOpenText, Check, ClipboardCheck, Clock, CornerDownLeft, FolderKanban, IterationCcw, ListTodo, Megaphone, MoreHorizontal, Plus, ShieldAlert, UserPlus, UserX, X, type LucideIcon } from 'lucide-react'
+import { AlertTriangle, BadgeCheck, BookOpenText, CalendarClock, Check, ClipboardCheck, Clock, CornerDownLeft, Flag, FolderKanban, IterationCcw, ListTodo, Megaphone, MoreHorizontal, Plus, ShieldAlert, UserPlus, Users, UserX, X, type LucideIcon } from 'lucide-react'
 
 import { dismissWelcomeAction, hidePinnedForMeAction, readChildOrgLineAction, readOrgDashboardAction, readOrgWorkspacesAction, remindLeadsAction, type OrgWorkspaceRow } from '@/app/actions/org-dashboard'
 import type { OrgWorkspaceRequest } from '@/lib/organizations/needs-you'
@@ -21,6 +21,7 @@ import { UserAvatar } from '@/components/ui/UserAvatar'
 import { WorkspaceAvatar } from '@/components/workspaces/WorkspaceAvatar'
 import { OrgInvitePanel } from '@/components/organizations/OrgInvitePanel'
 import { approveJoinRequestsAction } from '@/app/actions/org-members'
+import { StartNowButton } from '@/components/organizations/OrgSprintParts'
 import { toggleWorkspaceUpdatePinAction } from '@/app/actions/workspace/updates'
 import { formatInZone } from '@/lib/organizations/zoned-time'
 import type { OrgDashboardData } from '@/app/actions/org-dashboard'
@@ -46,8 +47,8 @@ const FILTERS = [['all', 'All'], ['assignments', 'Assignments'], ['people', 'Peo
 
 const DAY = 86_400_000
 // Today rows (report §7.2): an icon by type and the word for what you'd do.
-const TODAY_ICON: Record<string, LucideIcon> = { review: ClipboardCheck, requests: UserPlus, sprint: IterationCcw, complete_sprint: IterationCcw, lead: UserX, full: AlertTriangle, join_spike: ShieldAlert, verify: BadgeCheck, overdue: Clock, due: Clock, due_today: Clock, returned: CornerDownLeft, doc: BookOpenText, announcement: Megaphone }
-const TODAY_ACTION: Record<string, string> = { review: 'Review', requests: 'Review', sprint: 'Complete', complete_sprint: 'Complete', lead: 'Assign', full: 'Manage', join_spike: 'Review', verify: 'Verify', overdue: 'Open', due: 'Open', due_today: 'Open', returned: 'Fix', doc: 'Read', announcement: 'Read', reports: 'Review' }
+const TODAY_ICON: Record<string, LucideIcon> = { review: ClipboardCheck, requests: UserPlus, reports: Flag, sprint: IterationCcw, complete_sprint: IterationCcw, plan_sprint: IterationCcw, sprint_ending: IterationCcw, sprint_dates: CalendarClock, autostart: AlertTriangle, lead: UserX, full: AlertTriangle, join_spike: ShieldAlert, verify: BadgeCheck, term_end: BadgeCheck, overdue: Clock, due: Clock, due_today: Clock, returned: CornerDownLeft, doc: BookOpenText, announcement: Megaphone, team: Users, unplaced: Users, needs_projects: FolderKanban, group: FolderKanban }
+const TODAY_ACTION: Record<string, string> = { review: 'Review', requests: 'Review', reports: 'Review', sprint: 'Complete', complete_sprint: 'Complete', plan_sprint: 'Plan', sprint_ending: 'Open', sprint_dates: 'Fix', autostart: 'Fix', lead: 'Assign', full: 'Manage', join_spike: 'Review', verify: 'Verify', term_end: 'Review', overdue: 'Open', due: 'Open', due_today: 'Open', returned: 'Fix', doc: 'Read', announcement: 'Read', team: 'Place', unplaced: 'Place', needs_projects: 'Create', group: 'Open' }
 const TASK_STATUS: Record<string, string> = { todo: 'To do', in_progress: 'In progress', done: 'Done', blocked: 'Blocked' }
 
 function PinnedRow({ orgId, base, pinned, onChanged }: { orgId: string; base: string; pinned: NonNullable<OrgDashboardData['pinned']>; onChanged: () => void }) {
@@ -114,7 +115,7 @@ function DateTile({ iso, timeZone }: { iso: string; timeZone: string | null }) {
     )
 }
 
-function SprintCard({ base, s, isAdmin, planLabel }: { base: string; s: OrgDashboardData['thisSprint']; isAdmin: boolean; planLabel: string }) {
+function SprintCard({ orgId, base, s, isAdmin, planLabel, onChanged }: { orgId: string; base: string; s: OrgDashboardData['thisSprint']; isAdmin: boolean; planLabel: string; onChanged: () => void }) {
     const sprint = s.sprint
     const daysLeft = sprint ? Math.max(0, Math.ceil((new Date(sprint.endDate).getTime() - Date.now()) / DAY)) : 0
     const percent = s.progress.total ? Math.round((s.progress.done / s.progress.total) * 100) : 0
@@ -143,7 +144,9 @@ function SprintCard({ base, s, isAdmin, planLabel }: { base: string; s: OrgDashb
                                     <span className="flex min-w-0 items-center gap-2"><ClipboardCheck className="size-3.5 shrink-0 text-muted-foreground" aria-hidden="true" /><Link href={`${base}?tab=tasks&drawerType=task&drawerId=${i.masterId}`} className="truncate hover:underline">{i.title}</Link></span>
                                     <span className="shrink-0 text-[12px] text-muted-foreground">
                                         {i.dueDate ? `Due ${day(i.dueDate)}${i.own?.extended ? ' · Extended' : ''} · ` : ''}
-                                        {i.counts ? (i.counts.total === 0 ? <Link href={`${base}?tab=members`} className="text-primary underline underline-offset-4">Nobody has joined yet</Link> : `${i.counts.done}/${i.counts.total}${i.counts.missing ? ` · ${i.counts.missing} missing` : ''}`)
+                                        {/* Admins: the 12/40 badge opens the assignment, where its Roster is (report §7.2). */}
+                                        {i.counts ? (i.counts.total === 0 ? <Link href={`${base}?tab=members`} className="text-primary underline underline-offset-4">Nobody has joined yet</Link>
+                                            : <Link href={`${base}?tab=tasks&drawerType=task&drawerId=${i.masterId}`} aria-label={`Roster for ${i.title}`} className="nb-tag hover:underline">{i.counts.done}/{i.counts.total}{i.counts.missing ? ` · ${i.counts.missing} missing` : ''}</Link>)
                                             : i.own ? `${ASSIGNMENT_STATE_LABELS[i.own.state] ?? i.own.state}${i.own.late ? ' · late' : ''}` : ''}
                                     </span>
                                 </li>
@@ -155,9 +158,17 @@ function SprintCard({ base, s, isAdmin, planLabel }: { base: string; s: OrgDashb
                                 </li>
                             ))}
                         </ul>
-                    ) : <p className="text-sm text-muted-foreground">{isAdmin ? 'Nothing in this sprint yet.' : 'Nothing assigned yet.'}</p>}
+                    ) : isAdmin ? (
+                        <p className="flex items-center gap-2 text-sm text-muted-foreground">Nothing in this sprint yet. <Link href={`${base}?tab=tasks&new=1`} className="text-primary underline underline-offset-4">Add task</Link></p>
+                    ) : <p className="text-sm text-muted-foreground">Nothing assigned yet.</p>}
                 </div>
-            ) : s.next ? <p className="text-sm text-muted-foreground">Next: {s.next.name} starts {day(s.next.startDate)}.</p>
+            ) : s.next ? (
+                <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+                    <span>{s.next.status === 'planning' ? `${s.next.name} starts ${day(s.next.startDate)}.` : `Next: ${s.next.name} starts ${day(s.next.startDate)}.`}</span>
+                    {/* Planned, not started (report §7.2): admins can start it now. */}
+                    {isAdmin && s.next.status === 'planning' ? <StartNowButton projectId={orgId} sprintId={s.next.id} onStarted={onChanged} announceAs={s.next.name} /> : null}
+                </div>
+            )
                 : isAdmin ? <Link href={`${base}?tab=sprints`} className="text-sm underline underline-offset-4">{planLabel}</Link>
                     : <p className="text-sm text-muted-foreground">No sprint right now.</p>}
         </RailSection>
@@ -264,7 +275,7 @@ export function OrgDashboard({ orgId, orgSlug, orgType = null, started = null }:
                         </p>
                     </RailSection>
                 ) : null}
-                <SprintCard base={base} s={s} isAdmin={data.role === 'admin'} planLabel={typeProfile(orgType).planLabel} />
+                <SprintCard orgId={orgId} base={base} s={s} isAdmin={data.role === 'admin'} planLabel={typeProfile(orgType).planLabel} onChanged={() => void query.refetch()} />
                 <RailSection title="This week">
                     {/* Decision 80: calendar days in the organization's zone, grouped Today, Tomorrow, This week. */}
                     {data.thisWeek.length ? (['Today', 'Tomorrow', 'This week'] as const).map((group) => {
@@ -278,6 +289,7 @@ export function OrgDashboard({ orgId, orgSlug, orgType = null, started = null }:
                             </li>
                         ))}</ul></div> : null
                     }) : <p className="text-sm text-muted-foreground">Nothing due in the next 7 days.</p>}
+                    {data.thisWeek.length ? <Link href={`${base}?tab=tasks`} className="mt-2 inline-block text-[12px] underline underline-offset-4">See all →</Link> : null}
                 </RailSection>
                 <RailSection title="Activity" action={
                     // One small menu (problem 16), not a row of buttons.
@@ -287,7 +299,7 @@ export function OrgDashboard({ orgId, orgSlug, orgType = null, started = null }:
                 }>
                     {activity.length ? (
                         <>
-                            <ol className="space-y-3">{(moreActivity ? activity : activity.slice(0, 5)).map((a) => <ActivityItem key={a.id} kind={a.kind} text={a.text} href={a.href} at={a.at} />)}</ol>
+                            <ol className="space-y-3">{(moreActivity ? activity : activity.slice(0, 5)).map((a) => <ActivityItem key={a.id} kind={a.kind} text={a.text} subject={a.subject} href={a.href} at={a.at} />)}</ol>
                             {!moreActivity && activity.length > 5 ? <button type="button" className="mt-2 text-[12px] text-primary hover:underline" onClick={() => setMoreActivity(true)}>Show more</button> : null}
                         </>
                     ) : <p className="text-sm text-muted-foreground">Activity shows here once people start working.</p>}

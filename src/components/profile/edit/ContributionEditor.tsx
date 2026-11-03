@@ -16,6 +16,8 @@
  */
 
 import { editorEntryStatus, groupProfileContributions } from "@/lib/organizations/profile-rules";
+import { WorkspaceAvatar } from "@/components/workspaces/WorkspaceAvatar";
+import { hiddenReason, previewText, roleCount } from "@/lib/profile/contribution-editor-text";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { get, set, del, createStore } from "idb-keyval";
@@ -97,7 +99,6 @@ import {
   type StoryPosition,
   type StoryReferenceKind,
   type ResolvedStoryReference,
-  STORY_REFERENCE_PATTERN,
 } from "@/lib/profile/contribution-story";
 
 type Item = ProfileCollaborationContribution;
@@ -134,27 +135,6 @@ function Field({
       )}
     </label>
   );
-}
-const roleCount = (n: number) => `${n} ${n === 1 ? "position" : "positions"}`;
-
-/** A list preview: mentions become their names, Markdown marks and backslash escapes go (live-fix 60). */
-function previewText(summary: string, refs: Array<{ kind: string; id: string; label: string }>) {
-  return summary
-    .replace(new RegExp(STORY_REFERENCE_PATTERN), (_m, kind: string, id: string) => refs.find((ref) => ref.kind === kind && ref.id === id)?.label ?? "")
-    .replace(/\\([\\`*_{}[\]()#+\-.!>])/g, "$1")
-    .replace(/[*#_`]/g, "")
-    .replace(/\s{2,}/g, " ")
-    .trim();
-}
-
-/** Why a contribution doesn't show to visitors, first reason first (live-fix 65). */
-function hiddenReason(c: { visibility?: string | null; presentation?: { visible?: boolean } | null; projectVisibility?: string | null; projectStatus?: string | null }, profileVisibility: string | null | undefined) {
-  if (!c.presentation) return "It isn’t published yet. Publish it to show it.";
-  if (c.visibility === "private" || c.presentation.visible === false) return "Show on profile is off for it.";
-  if (c.projectVisibility === "private") return "Its workspace is private.";
-  if (["draft", "deleted"].includes(c.projectStatus ?? "")) return "Its workspace isn’t live.";
-  if (profileVisibility !== "public") return "Your profile isn’t public.";
-  return null;
 }
 
 export function ContributionEditor({
@@ -1218,6 +1198,7 @@ export function ContributionEditor({
             <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
               <div className="min-w-0 flex-1 space-y-1.5">
                 <div className="flex flex-wrap items-center gap-2.5">
+                  {active.projectId ? <WorkspaceAvatar project={{ title: active.projectTitle, coverImage: active.projectCoverImage }} size="row" placeholder /> : null}
                   <h1 className="nb-section-title text-foreground">
                     {active.projectId
                       ? active.projectTitle
@@ -1227,7 +1208,9 @@ export function ContributionEditor({
                     {setByTitle ? (
                       <>
                         <ShieldCheck className="size-3 text-primary" aria-hidden="true" />
-                        {`Set by ${setByTitle}`}{active.orgVerified ? ` · ✓ Verified by ${setByTitle}` : " · Not verified yet"}
+                        {`Set by ${setByTitle}`}{active.orgVerified
+                          ? ` · ✓ Verified by ${active.verifiedByName ?? setByTitle}${active.verifiedAt ? `, ${new Date(active.verifiedAt).toLocaleDateString("en", { month: "short", day: "numeric", year: "numeric" })}` : ""}`
+                          : " · Not verified yet"}
                       </>
                     ) : active.projectId ? (
                       <>
@@ -1241,9 +1224,21 @@ export function ContributionEditor({
                 </div>
                 <p className="nb-compact text-muted-foreground">
                   {active.projectId
-                    ? "Tell the story behind your contributions, roles, and highlights for this workspace."
+                    ? isOrgEntry ? "Tell the story behind your part in this organization." : "Tell the story behind your contributions, roles, and highlights for this workspace."
                     : "Tell the story behind your work on this external project."}
                 </p>
+                {/* Live-fix 66: the organization's own workspaces sit beneath it, each with its own editor. */}
+                {isOrgEntry && records.some((r) => r.parentOrg?.id === active.projectId) ? (
+                  <ul aria-label="Workspaces in this organization" className="mt-2 space-y-1 border-l-2 border-border pl-3">
+                    {records.filter((r) => r.parentOrg?.id === active.projectId).map((r) => (
+                      <li key={r.id} className="flex items-center gap-2 text-[13px]">
+                        <span className="min-w-0 flex-1 truncate">{r.projectTitle}</span>
+                        <span className="nb-micro text-muted-foreground">{editorEntryStatus(r)}</span>
+                        <button type="button" className="text-primary hover:underline" onClick={() => nav(r.id)}>Edit</button>
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
               </div>
 
               {/* Action Controls */}
@@ -1275,6 +1270,10 @@ export function ContributionEditor({
                         if (!checked) {
                           docs.current[active.id] = { ...d, visible: false };
                           void save("hide");
+                        } else {
+                          // Live-fix 63: turning it on saves too: it publishes, and the checks list anything missing.
+                          docs.current[active.id] = { ...d, visible: true };
+                          void save("publish");
                         }
                       }
                     }}

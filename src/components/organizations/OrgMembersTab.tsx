@@ -233,7 +233,7 @@ export function OrgMembersTab({ orgId, roleNames, started = null }: { orgId: str
                 {/* Live-fix 40: alone, the invite panel leads with a plain line. */}
                 <div className="border-t border-border pt-4">
                     {data.summary.members <= 1 ? <p className="mb-2 text-sm font-medium">You’re the only one here so far</p> : null}
-                    <OrgInvitePanel orgId={orgId} orgHandle={null} />
+                    <OrgInvitePanel orgId={orgId} orgHandle={null} prominent={data.summary.members <= 1} />
                 </div>
                 <section aria-label="Summary" className="space-y-1 text-sm">
                     <button type="button" className="block hover:underline" onClick={() => setFilter({ sort: 'name' })}>{s.members} {s.members === 1 ? 'member' : 'members'}</button>

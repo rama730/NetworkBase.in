@@ -15,7 +15,6 @@ import { currentOrganizations, sinceMonth } from "@/lib/organizations/profile-ru
 import { WorkspaceAvatar } from "@/components/workspaces/WorkspaceAvatar";
 import type { ProfileCollaborationContribution } from "@/lib/profile/collaboration";
 
-const initials = (title: string) => title.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]!.toUpperCase()).join("") || "O";
 
 /**
  * Organizations on the profile (report §4.5, decision 13): right column, between Collaboration preferences and
@@ -40,7 +39,8 @@ export function ProfileOrganizationsSection({ contributions, isOwner }: { contri
           {rows.map((c) => {
             const body = (
               <>
-                <span aria-hidden="true" className="flex size-8 shrink-0 items-center justify-center rounded-[5px] border border-border bg-muted text-[11px] font-semibold">{initials(c.projectTitle)}</span>
+                {/* Live-fix 56: the organization's logo, initials when it has none. */}
+                <WorkspaceAvatar project={{ title: c.projectTitle, coverImage: c.projectCoverImage }} size="row" placeholder />
                 <span className="min-w-0">
                   <span className="block truncate text-sm font-medium text-foreground">{c.projectTitle}</span>
                   <span className="block truncate text-[12px] text-muted-foreground">

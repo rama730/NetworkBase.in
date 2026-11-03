@@ -817,7 +817,7 @@ const hydrateProjects = async (
     const parentIds = Array.from(new Set(rawProjects.map((project) => project.parentId).filter((id): id is string => Boolean(id))));
     const [childCounts, parentOrgs] = await Promise.all([
         orgIds.length ? db.select({ parentId: workspaces.parentId, n: sql<number>`count(*)::int` }).from(workspaces)
-            .where(and(inArray(workspaces.parentId, orgIds), isNull(workspaces.deletedAt))).groupBy(workspaces.parentId) : Promise.resolve([]),
+            .where(and(inArray(workspaces.parentId, orgIds), isNull(workspaces.deletedAt), ne(workspaces.visibility, 'private'))).groupBy(workspaces.parentId) : Promise.resolve([]),
         parentIds.length ? db.select({ id: workspaces.id, title: workspaces.title, slug: workspaces.slug }).from(workspaces)
             .where(and(inArray(workspaces.id, parentIds), eq(workspaces.kind, 'organization'), isNull(workspaces.deletedAt), inArray(workspaces.visibility, ['public', 'unlisted']))) : Promise.resolve([]),
     ]);

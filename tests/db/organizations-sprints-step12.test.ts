@@ -223,3 +223,30 @@ test("live-fix 34: Share with workspaces: Selected reaches only the chosen ones,
   const selected = await orgSprints.readSprintOrgContext(o.id, shared.success ? shared.sprint.id : null);
   assert.deepEqual(selected?.notLinked.map((n) => n.title), [], "Team Osprey isn't in this sprint, so it isn't 'not linked'");
 });
+
+test("live-fix 34: a workspace the sprint isn't shared with can't link to it and gets no Plan your sprint prompt", async () => {
+  const o = await org();
+  const other = await sql.begin((tx) => createProject(tx, o.lead, { visibility: "org" }));
+  await sql`UPDATE workspaces SET parent_id = ${o.id}, title = 'Team Osprey' WHERE id = ${other}`;
+  viewerId = o.owner;
+  const made = await sprints.createSprintAction({ projectId: o.id, name: "CO1", startDate: day(0), endDate: day(14), sharedWith: "selected", sharedWorkspaceIds: [o.child] });
+  const co1 = made.success ? made.sprint.id : "";
+  await sql`UPDATE workspace_sprints SET status = 'active' WHERE id = ${co1}`;
+  viewerId = o.lead;
+  const linked = await sprints.createSprintAction({ projectId: other, name: "Osprey week", startDate: day(1), endDate: day(5), parentSprintId: co1 });
+  assert.equal(linked.success, false, "not shared with Team Osprey");
+  const { leadSprintRows } = await loadAppModule(() => import("../../src/lib/organizations/needs-you"));
+  const prompts = (await leadSprintRows(o.id, o.lead)).map((r) => r.label);
+  assert.deepEqual(prompts.filter((l) => l.includes("Plan your sprint")), ["CO1 started. Plan your sprint in Team Falcon"]);
+});
+
+test("live-fix 34: changing a sprint can post an announcement too", async () => {
+  const o = await org();
+  viewerId = o.owner;
+  const made = await sprints.createSprintAction({ projectId: o.id, name: "CO1", startDate: day(2), endDate: day(14) });
+  assert.ok(made.success);
+  const changed = await sprints.updateSprintAction({ projectId: o.id, sprintId: made.success ? made.sprint.id : "", name: "CO1", startDate: day(3), endDate: day(15), announcement: "CO1 moved a day later." });
+  assert.equal(changed.success, true, JSON.stringify(changed));
+  const [post] = await sql`SELECT 1 FROM workspace_updates WHERE workspace_id = ${o.id} AND content = 'CO1 moved a day later.'`;
+  assert.ok(post);
+});

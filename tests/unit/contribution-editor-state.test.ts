@@ -484,3 +484,14 @@ test("the footer portals into the editor sibling and file selection restores foc
     h.close();
   }
 });
+
+test("live-fix 60, 64, 65: list previews keep mentioned names, counts read right, and hidden entries say why", async () => {
+  const { hiddenReason, previewText, roleCount } = await import("../../src/lib/profile/contribution-editor-text");
+  const refs = [{ kind: "person", id: "u1", label: "Lakshmi CH" }, { kind: "person", id: "u2", label: "Rama" }];
+  assert.equal(previewText('Built it working with {% ref.person id="u1" %} and {% ref.person id="u2" %}.', refs), "Built it working with Lakshmi CH and Rama.");
+  assert.equal(previewText("Fixed the parser \\\\ and *docs* \\_here", []), "Fixed the parser and docs here");
+  assert.deepEqual([roleCount(1), roleCount(3)], ["1 position", "3 positions"]);
+  assert.equal(hiddenReason({ presentation: null }, "public"), "It isn’t published yet. Publish it to show it.");
+  assert.equal(hiddenReason({ presentation: { visible: true }, projectVisibility: "private" }, "public"), "Its workspace is private.");
+  assert.equal(hiddenReason({ presentation: { visible: true } }, "private"), "Your profile isn’t public.");
+});

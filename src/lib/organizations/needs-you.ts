@@ -65,7 +65,9 @@ export async function readNeedsYou(v: OrgViewer, now: Date): Promise<NeedsYouRow
                 .where(and(isNotNull(tasks.assignmentId), isNull(tasks.deletedAt), isNull(tasks.excusedAt), eq(tasks.reviewStatus, 'pending'), or(eq(tasks.projectId, v.org.id), eq(workspaces.parentId, v.org.id))))
                 .groupBy(tasks.title).orderBy(asc(tasks.title)),
             db.select({ n: sql<number>`count(*)::int`, id: sql<string>`min(${roleApplications.id}::text)`, at: sql<string>`min(${roleApplications.createdAt})::text`,
-                name: sql<string | null>`min(COALESCE(p.full_name, p.username))` }).from(roleApplications).leftJoin(sql`profiles p`, sql`p.id = ${roleApplications.applicantId}`)
+                name: sql<string | null>`min(COALESCE(p.full_name, p.username))`,
+                // Where it came from (report §7.2 "Rama · via code · 1 day ago"): the request's own event says.
+                viaCode: sql<boolean>`bool_or(EXISTS (SELECT 1 FROM application_events e WHERE e.application_id = ${roleApplications.id} AND e.metadata->>'source' = 'org_join_code'))` }).from(roleApplications).leftJoin(sql`profiles p`, sql`p.id = ${roleApplications.applicantId}`)
                 .where(and(eq(roleApplications.projectId, v.org.id), isNull(roleApplications.roleId), eq(roleApplications.status, 'pending'))),
             db.select({ name: workspaceSprints.name }).from(workspaceSprints).where(and(eq(workspaceSprints.projectId, v.org.id), eq(workspaceSprints.status, 'active'), lt(workspaceSprints.endDate, now))),
             readWorkspaceRequests(v.org.id),
@@ -74,7 +76,7 @@ export async function readNeedsYou(v: OrgViewer, now: Date): Promise<NeedsYouRow
         for (const r of reviews) rows.push({ kind: 'review', ...reviewRow(r.title, r.n, r.oldest ? new Date(r.oldest) : null, now), title: `${r.n} ${r.n === 1 ? 'submission' : 'submissions'} to review`,
             detail: `${r.title}${r.oldest ? ` · oldest ${formatDistanceToNow(new Date(r.oldest), { addSuffix: true })}` : ''}`, href: `${base}?tab=tasks&taskScope=review` });
         if (requests && requests.n > 0) rows.push({ kind: 'requests', label: plural(requests.n, 'join request'), title: plural(requests.n, 'join request'), href: `${base}?tab=members`,
-            detail: requests.n === 1 ? `${requests.name ?? 'Someone'} · ${formatDistanceToNow(new Date(requests.at), { addSuffix: true })}` : `oldest ${formatDistanceToNow(new Date(requests.at), { addSuffix: true })}`,
+            detail: requests.n === 1 ? [requests.name ?? 'Someone', requests.viaCode ? 'via code' : null, formatDistanceToNow(new Date(requests.at), { addSuffix: true })].filter(Boolean).join(' · ') : `oldest ${formatDistanceToNow(new Date(requests.at), { addSuffix: true })}`,
             ...(requests.n === 1 ? { approveId: requests.id } : {}) });
         // Report §22.4: reports live in Settings → Moderation, and this row links there.
         const reports = v.userId ? (await readOrgCases(v.org.id, v.userId)).length : 0;
@@ -183,7 +185,7 @@ export async function leadSprintRows(orgId: string, userId: string): Promise<Nee
         JOIN workspace_sprints o ON o.workspace_id = ${orgId} AND o.status IN ('active', 'completed')
         LEFT JOIN workspace_sprints c ON c.workspace_id = p.id AND c.parent_sprint_id = o.id AND c.status <> 'completed'
         WHERE p.parent_id = ${orgId} AND p.owner_id = ${userId} AND p.deleted_at IS NULL AND p.status <> 'archived'
-          AND ((o.status = 'active' AND NOT EXISTS (SELECT 1 FROM workspace_sprints x WHERE x.workspace_id = p.id AND x.parent_sprint_id = o.id))
+          AND ((o.status = 'active' AND o.show_in_children AND (NOT EXISTS (SELECT 1 FROM sprint_shared_workspaces ss WHERE ss.sprint_id = o.id) OR EXISTS (SELECT 1 FROM sprint_shared_workspaces ss WHERE ss.sprint_id = o.id AND ss.workspace_id = p.id)) AND NOT EXISTS (SELECT 1 FROM workspace_sprints x WHERE x.workspace_id = p.id AND x.parent_sprint_id = o.id))
             OR (o.status = 'completed' AND c.status = 'active')
             OR (c.id IS NOT NULL AND (c.start_date < o.start_date OR c.end_date > o.end_date)))
         ORDER BY o.start_date DESC LIMIT 10`);

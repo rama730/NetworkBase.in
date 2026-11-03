@@ -126,6 +126,10 @@ export type ProfileCollaborationContribution = {
   orgVerified?: boolean;
   orgOnly?: boolean;
   verificationRevokedReason?: string | null;
+  /** Live-fix 61: who verified it and when, and the workspace's picture. */
+  verifiedByName?: string | null;
+  verifiedAt?: string | null;
+  projectCoverImage?: string | null;
   /** The person dismissed the write-up nudge (report §38.6); only on their own view. */
   nudgeDismissed?: boolean;
   /** Manage organizations (report §38.2): the person's order and Show switch for an organization entry. */
@@ -218,6 +222,8 @@ type ProfileContributionRow = {
   parent_org_title?: string | null;
   parent_org_slug?: string | null;
   org_verified?: boolean | null;
+  verified_by_name?: string | null;
+  project_cover_image?: string | null;
   project_link_hidden?: boolean | null;
   verification_revoked_reason?: string | null;
   project_github_repo_url: string | null;
@@ -551,6 +557,9 @@ function contributionFromRow(row: ProfileContributionRow): ProfileCollaborationC
     showOnProfile: row.show_on_profile ?? null,
     parentOrg: row.parent_org_id ? { id: row.parent_org_id, title: row.parent_org_title ?? "Organization", slug: row.parent_org_slug ?? null } : null,
     orgVerified: Boolean(row.org_verified),
+    verifiedByName: row.verified_by_name ?? null,
+    verifiedAt: row.verified_at ? new Date(row.verified_at).toISOString() : null,
+    projectCoverImage: row.project_cover_image ?? null,
     orgOnly: row.project_visibility === "org",
     verificationRevokedReason: row.verification_revoked_reason ?? null,
     formerOrg: row.former_org?.title && row.former_org.until ? { title: row.former_org.title, until: row.former_org.until } : null,
@@ -776,6 +785,8 @@ async function queryProfileContributionRows(profileId: string, options: {
       contribution.ended_at,
       contribution.source,
       contribution.verified_at,
+      (SELECT COALESCE(v.full_name, v.username) FROM profiles v WHERE v.id = contribution.verified_by) AS verified_by_name,
+      project.cover_image AS project_cover_image,
       contribution.visibility,
       project.kind AS project_kind,
       parent_org.id AS parent_org_id,

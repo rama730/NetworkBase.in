@@ -77,3 +77,8 @@ test("review fix: New task's assignment fields use the organization's time zone"
   assert.match(source("src/components/workspaces/v2/TasksTab.tsx"), /<AssignmentFields orgId=\{orgId\} timeZone=\{orgTimeZone\}/);
   assert.match(source("src/components/workspaces/dashboard/WorkspaceDashboardClient.tsx"), /orgTimeZone=\{organization\?\.timeZone \?\? null\}/);
 });
+
+test("live-fix 5: New task offers every assign mode the assignment has", () => {
+  const tab = source("src/components/workspaces/v2/TasksTab.tsx");
+  for (const mode of ['"everyone"', '"role"', '"people"', '"teams"', '"each_child"', '"children"']) assert.ok(tab.includes(`{ value: ${mode}, label:`), mode);
+});

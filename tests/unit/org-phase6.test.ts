@@ -41,3 +41,20 @@ test("live-fix 49–51: Join knows you're in, Discover cards carry the org type,
   assert.match(roles, /Add team/);
   assert.match(roles, /No teams yet\. A workspace works fine without them\./);
 });
+
+test("live-fix 40, 50 follow-ups: alone, the invite panel is the larger one; Discover counts only workspaces people can find", () => {
+  const panel = source("src/components/organizations/OrgInvitePanel.tsx");
+  assert.match(panel, /prominent \? "text-2xl" : "text-lg"/);
+  assert.match(source("src/components/organizations/OrgMembersTab.tsx"), /<OrgInvitePanel orgId=\{orgId\} orgHandle=\{null\} prominent=\{data\.summary\.members <= 1\} \/>/);
+  assert.match(source("src/lib/workspaces/public-feed-service.ts"), /c\.visibility <> 'private'/);
+  assert.match(source("src/lib/data/discover.ts"), /ne\(workspaces\.visibility, 'private'\)\)\)\.groupBy\(workspaces\.parentId\)/);
+});
+
+test("live-fix 46: a member's Settings are their own sections only, never an admin one", async () => {
+  const { orgSettingsSectionIds } = await import("../../src/lib/organizations/settings");
+  assert.deepEqual(orgSettingsSectionIds("member"), ["you-membership", "org-allowed", "privacy-policies", "org-management"]);
+  assert.deepEqual(orgSettingsSectionIds("viewer"), ["you-membership", "org-allowed", "privacy-policies", "org-management"]);
+  for (const admin of ["general", "org-access", "org-people", "org-work", "org-moderation", "links"]) assert.equal(orgSettingsSectionIds("member").includes(admin as never), false, admin);
+  // The tab opens a member on My membership: it's their first section.
+  assert.equal(orgSettingsSectionIds("member")[0], "you-membership");
+});

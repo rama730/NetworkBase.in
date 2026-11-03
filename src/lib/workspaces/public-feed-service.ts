@@ -149,7 +149,7 @@ export async function queryAndCachePublicWorkspacesFeed(limit: number, cursor: P
             // Only the type label leaves the server; the rest of org_settings stays private (security review).
             orgTypeName: sql<string | null>`${workspaces.orgSettings}->>'typeLabel'`,
             orgVerified: sql<boolean>`${workspaces.verifiedAt} IS NOT NULL`,
-            childCount: sql<number>`CASE WHEN ${workspaces.kind} = 'organization' THEN (SELECT count(*)::int FROM workspaces c WHERE c.parent_id = ${workspaces.id} AND c.deleted_at IS NULL) ELSE 0 END`,
+            childCount: sql<number>`CASE WHEN ${workspaces.kind} = 'organization' THEN (SELECT count(*)::int FROM workspaces c WHERE c.parent_id = ${workspaces.id} AND c.deleted_at IS NULL AND c.visibility <> 'private') ELSE 0 END`,
             externalLinks: workspaces.externalLinks,
             githubRepoUrl: workspaces.githubRepoUrl,
             createdAt: workspaces.createdAt,

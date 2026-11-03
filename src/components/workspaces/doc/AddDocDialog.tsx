@@ -136,7 +136,8 @@ export function AddDocDialog({
                     onSubmit={(event) => {
                         event.preventDefault();
                         const clean = title.trim();
-                        if (clean) void createDoc("new", async () => ({ filename: docFileName(clean), content: `# ${clean}\n` }));
+                        // Live-fix 23: blank; the title comes from the file name.
+                        if (clean) void createDoc("new", async () => ({ filename: docFileName(clean), content: "" }));
                     }}
                 >
                     <Input value={title} onChange={(event) => setTitle(event.target.value)} maxLength={120} placeholder="Document title" aria-label="Document title" />

@@ -17,6 +17,7 @@ import dynamic from "next/dynamic";
 import { useSearchParams, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { AssignmentFields, ReviewQueue } from "@/components/organizations/AssignmentsPanel";
+import type { AssignmentTarget } from "@/lib/organizations/assignment-rules";
 import { useTaskCompletionPolicy } from "@/hooks/useTaskCompletionPolicy";
 import { useRealtimeTasks } from "@/hooks/useRealtimeTasks";
 import {
@@ -965,9 +966,13 @@ export default function TasksTab({
           isOpen={showCreateModal}
           canAssignSprint={isOwner}
           manyOptions={orgId && canManageWorkflow ? [
+            // Every mode the assignment's Assign to has (live-fix 5), so the one form starts where you meant.
             { value: "everyone", label: "Everyone · an assignment" },
-            { value: "people", label: "Selected people or groups · an assignment" },
+            { value: "role", label: "Admins · an assignment" },
+            { value: "people", label: "Selected people · an assignment" },
+            { value: "teams", label: "Teams · an assignment" },
             { value: "each_child", label: "Each workspace · an assignment" },
+            { value: "children", label: "Selected workspaces · an assignment" },
           ] : isChildProject && canManageWorkflow ? [{ value: "units", label: "A team, or each team · a shared task" }] : []}
           onAssignMany={(_choice, carry) => {
             setShowCreateModal(false);
@@ -975,7 +980,7 @@ export default function TasksTab({
             setTeamTaskOpen(true);
           }}
           renderMany={orgId && !isChildProject ? ({ choice, title, description, onBack, onDone }) => (
-            <AssignmentFields orgId={orgId} timeZone={orgTimeZone} prefill={{ title, description, mode: choice as "everyone" | "people" | "each_child" }} onBackToTask={onBack} onDone={onDone}
+            <AssignmentFields orgId={orgId} timeZone={orgTimeZone} prefill={{ title, description, mode: choice as AssignmentTarget["mode"] }} onBackToTask={onBack} onDone={onDone}
               onCreated={() => void queryClient.invalidateQueries({ queryKey: queryKeys.project.detail.tasksRoot(projectId) })} />
           ) : undefined}
           onClose={() => setShowCreateModal(false)}

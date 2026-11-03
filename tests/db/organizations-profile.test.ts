@@ -180,3 +180,14 @@ test("live-fix 56, 59: Manage organizations brings each org's logo and the entry
   const [entry] = await sql`SELECT id FROM profile_contributions WHERE profile_id = ${o.member} AND workspace_id = ${o.orgId}`;
   assert.deepEqual([row.coverImage, row.contributionId], ["https://cdn.example.com/cse.png", entry!.id]);
 });
+
+test("live-fix 61: an organization entry knows who verified it, when, and the organization's logo", async () => {
+  const o = await org();
+  await contribution(o.member, o.orgId, null);
+  await sql`UPDATE profiles SET full_name = 'Ms. Rao' WHERE id = ${o.admin}`;
+  await sql`UPDATE workspaces SET cover_image = 'https://cdn.example.com/cse.png' WHERE id = ${o.orgId}`;
+  viewerId = o.admin;
+  assert.equal((await orgProfile.verifyOrgContributionsAction(o.orgId, [o.member])).success, true);
+  const entry = (await collab.getProfileContributions(o.member, { includePrivate: true })).contributions.find((c) => c.projectId === o.orgId)!;
+  assert.deepEqual([entry.verifiedByName, typeof entry.verifiedAt, entry.projectCoverImage], ["Ms. Rao", "string", "https://cdn.example.com/cse.png"]);
+});

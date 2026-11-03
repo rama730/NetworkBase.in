@@ -43,3 +43,15 @@ test("live-fix 61–66: the organization entry reads as one, Publish is always t
   assert.match(editor, /Explain your part in the organization|isOrgEntry \? "Explain your part in the organization"/);
   assert.match(editor, /hiddenReason/);
 });
+
+test("live-fix 56, 61, 63, 66 follow-ups: who verified and when, logos, Show publishes, nested workspaces in the entry", () => {
+  const editor = source("src/components/profile/edit/ContributionEditor.tsx");
+  assert.match(editor, /Verified by \$\{active\.verifiedByName/);
+  assert.match(editor, /<WorkspaceAvatar project=\{\{ title: active\.projectTitle, coverImage: active\.projectCoverImage \}\}/);
+  assert.match(editor, /docs\.current\[active\.id\] = \{ \.\.\.d, visible: true \};\s*void save\("publish"\);/);
+  assert.match(editor, /aria-label="Workspaces in this organization"/);
+  assert.match(source("src/components/profile/v2/sections/ProfileOrganizationsSection.tsx"), /<WorkspaceAvatar project=\{\{ title: c\.projectTitle, coverImage: c\.projectCoverImage \}\}/);
+  const collab = source("src/lib/profile/collaboration.ts");
+  assert.match(collab, /AS verified_by_name/);
+  assert.match(collab, /project\.cover_image AS project_cover_image/);
+});

@@ -24,6 +24,9 @@ test("live-fix 22, 24: the reader has a header with updated by, read status, Edi
   assert.match(parts, /label="Document actions"|aria-label="Document actions"/);
   for (const item of ["Options…", "History", "Remove", "Publish…"]) assert.ok(parts.includes(item), item);
   assert.doesNotMatch(source("src/components/workspaces/doc/WorkspaceDocRail.tsx"), /<OrgDocAdminTools/);
+  // History opens the file with its version drawer, the parameter FileView reads.
+  assert.match(parts, /&filesPanel=version_history/);
+  assert.match(source("src/components/workspaces/v2/files-tab/file/FileView.tsx"), /panel === "version_history"/);
 });
 
 test("live-fix 23, 26: an empty document says so with Start writing; Add offers blank or a template in the org too", () => {
@@ -31,6 +34,7 @@ test("live-fix 23, 26: an empty document says so with Start writing; Add offers 
   assert.match(viewer, /isEmptyDoc\(/);
   const add = source("src/components/workspaces/doc/AddDocDialog.tsx");
   assert.match(add, /Blank, or start from a template/);
+  assert.match(add, /docFileName\(clean\), content: "" \}/, "a new document starts blank");
   assert.doesNotMatch(add, /org\?\.mode === "child" \? org\.docs\.filter/);
 });
 

@@ -27,7 +27,8 @@ import { getViewerAuthContext } from '@/lib/server/viewer-context';
 import { copyColumns, leadSprintRows, ownCopies, plural, readMemberStanding, readNeedsYou, readWorkspaceRequests, stateOf, type NeedsYouRow, type OrgViewer, type OrgWorkspaceRequest } from '@/lib/organizations/needs-you';
 
 export type { NeedsYouRow };
-export type ActivityItem = { id: string; kind: ActivityKind; text: string; at: string; href: string };
+/** `subject` is the part of `text` shown bold (report §5.3, live-fix 16). */
+export type ActivityItem = { id: string; kind: ActivityKind; text: string; subject?: string; at: string; href: string };
 
 // Org Dashboard (report §27), About (§22) and Projects (§28). Everything is derived; no new tables.
 
@@ -88,14 +89,14 @@ async function readActivity(v: OrgViewer, filter: string, opts: { publicOnly?: b
             .orderBy(desc(taskActivityEvents.createdAt)).limit(20),
     ]);
     for (const s of sprints) {
-        if (s.completedAt) items.push({ id: `sprint-done:${s.id}`, kind: 'sprint', text: `${s.name} completed`, at: s.completedAt.toISOString(), href: `${base}?tab=sprints`, actorId: null });
+        if (s.completedAt) items.push({ id: `sprint-done:${s.id}`, kind: 'sprint', text: `${s.name} completed`, subject: s.name, at: s.completedAt.toISOString(), href: `${base}?tab=sprints`, actorId: null });
         // Parity bug 3, report §5.3: when it really started, not the planned date.
-        else items.push({ id: `sprint-start:${s.id}`, kind: 'sprint', text: `${s.name} started`, at: activityTime({ kind: 'sprint', startedAt: s.startedAt, plannedStart: s.startDate }).toISOString(), href: `${base}?tab=sprints`, actorId: null });
+        else items.push({ id: `sprint-start:${s.id}`, kind: 'sprint', text: `${s.name} started`, subject: s.name, at: activityTime({ kind: 'sprint', startedAt: s.startedAt, plannedStart: s.startDate }).toISOString(), href: `${base}?tab=sprints`, actorId: null });
     }
     for (const c of children) {
         const seen = c.visibility === 'public' || (v.isInside && (c.visibility !== 'private' || v.isAdmin));
         if ((opts.publicOnly && c.visibility !== 'public') || !seen) continue;
-        items.push({ id: `project:${c.id}`, kind: 'project', text: `${c.title} was created`, at: c.createdAt.toISOString(), href: `/workspaces/${encodeURIComponent(c.slug ?? c.id)}`, actorId: c.ownerId });
+        items.push({ id: `project:${c.id}`, kind: 'project', text: `${c.title} was created`, subject: c.title, at: c.createdAt.toISOString(), href: `/workspaces/${encodeURIComponent(c.slug ?? c.id)}`, actorId: c.ownerId });
     }
     // Parity bug 4: the grouped row carries the time of the latest join, not the moment the page loaded.
     if (joins[0] && joins[0].n > 0) items.push({ id: 'joins:week', kind: 'joins', text: `${plural(joins[0].n, 'person')} joined this week`.replace('persons', 'people'), at: new Date(joins[0].latest ?? Date.now()).toISOString(), href: base, actorId: null });
@@ -107,9 +108,9 @@ async function readActivity(v: OrgViewer, filter: string, opts: { publicOnly?: b
         items.push({ id: `post:${p.id}`, kind: 'announcement', text: p.content.slice(0, 120), at: p.createdAt.toISOString(), href: `${base}?tab=updates&updateId=${p.id}`, actorId: p.authorId, public: p.visibility === 'public' && everyone });
     }
     if (v.isInside) {
-        for (const f of files) items.push({ id: `file:${f.id}`, kind: 'file', text: `${f.name} added`, at: f.at.toISOString(), href: `${base}?tab=files&fileId=${f.nodeId}`, actorId: f.actorId });
-        for (const m of masters) items.push({ id: `assignment:${m.id}`, kind: 'assignment', text: `${m.title} was assigned`, at: m.createdAt.toISOString(), href: `${base}?tab=tasks`, actorId: m.creatorId });
-        for (const s of submissions) items.push({ id: `submission:${s.id}`, kind: 'submission', text: `${s.name || s.username || 'Someone'} submitted ${s.title}`, at: s.at.toISOString(), href: `${base}?tab=tasks`, actorId: s.actorId });
+        for (const f of files) items.push({ id: `file:${f.id}`, kind: 'file', text: `${f.name} added`, subject: f.name, at: f.at.toISOString(), href: `${base}?tab=files&fileId=${f.nodeId}`, actorId: f.actorId });
+        for (const m of masters) items.push({ id: `assignment:${m.id}`, kind: 'assignment', text: `${m.title} was assigned`, subject: m.title, at: m.createdAt.toISOString(), href: `${base}?tab=tasks`, actorId: m.creatorId });
+        for (const s of submissions) items.push({ id: `submission:${s.id}`, kind: 'submission', text: `${s.name || s.username || 'Someone'} submitted ${s.title}`, subject: s.name || s.username || 'Someone', at: s.at.toISOString(), href: `${base}?tab=tasks`, actorId: s.actorId });
     }
     const viewer = { isAdmin: v.isAdmin, userId: v.userId, publicOnly: opts.publicOnly };
     return items
@@ -128,7 +129,7 @@ export type OrgDashboardData = {
     pinned: { id: string; content: string; at: string; authorName: string; authorAvatarUrl: string | null; unread: boolean; canUnpin: boolean } | null;
     needsYou: NeedsYouRow[];
     /** Live-fix 13: a real card. `ended` is a running sprint past its end date (Complete it); progress counts tasks and assignments. */
-    thisSprint: { sprint: { id: string; name: string; goal: string | null; status: 'active' | 'ended'; startDate: string; endDate: string } | null; next: { name: string; startDate: string } | null; items: SprintItem[];
+    thisSprint: { sprint: { id: string; name: string; goal: string | null; status: 'active' | 'ended'; startDate: string; endDate: string } | null; next: { id: string; name: string; status: string; startDate: string } | null; items: SprintItem[];
         tasks: Array<{ id: string; title: string; assignee: string | null; status: string }>; progress: { done: number; total: number } };
     comingUp: Array<{ date: string; label: string; kind: 'sprint' | 'due' }>;
     thisWeek: Array<{ date: string; label: string; kind: 'sprint' | 'due'; group: 'Today' | 'Tomorrow' | 'This week' }>;
@@ -306,7 +307,7 @@ export async function readOrgDashboardAction(orgId: string, activityFilter = 'al
         needsYou: v.isGuest ? [] : archived ? archivedNeeds : needsYou,
         thisSprint: {
             sprint: active ? { id: active.id, name: active.name, goal: active.goal ?? null, status: active.endDate < now ? 'ended' : 'active', startDate: active.startDate.toISOString(), endDate: active.endDate.toISOString() } : null,
-            next: !active && next ? { name: next.name, startDate: next.startDate.toISOString() } : null,
+            next: !active && next ? { id: next.id, name: next.name, status: next.status, startDate: next.startDate.toISOString() } : null,
             items,
             tasks: sprintTasks.slice(0, 8).map((t) => ({ id: t.id, title: t.title, assignee: t.assignee, status: t.status })),
             progress: {

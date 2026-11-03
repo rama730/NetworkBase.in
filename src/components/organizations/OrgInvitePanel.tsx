@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
 import { toast } from '@/lib/feedback'
+import { cn } from '@/lib/utils'
 import { parseInviteEmails } from '@/lib/organizations/member-rules'
 
 const select = 'h-9 rounded-md border border-border bg-background px-2 text-sm'
@@ -21,7 +22,8 @@ const select = 'h-9 rounded-md border border-border bg-background px-2 text-sm'
  * Invite by email, and a menu for a new code, turning the code off and the join settings. One read, used by
  * the header's Invite, About and Members. No QR code (section 14).
  */
-export function OrgInvitePanel({ orgId, orgHandle }: { orgId: string; orgHandle: string | null }) {
+/** `prominent`: the larger panel when you're the only one here (report §7.10, live-fix 40). */
+export function OrgInvitePanel({ orgId, orgHandle, prominent = false }: { orgId: string; orgHandle: string | null; prominent?: boolean }) {
     const client = useQueryClient()
     const query = useQuery({ queryKey: ['org-invite-panel', orgId], queryFn: () => readOrgInvitePanelAction(orgId), staleTime: 30_000 })
     const [copied, setCopied] = useState<'code' | 'link' | null>(null)
@@ -59,9 +61,9 @@ export function OrgInvitePanel({ orgId, orgHandle }: { orgId: string; orgHandle:
                 </DropdownMenu>
             </div>
             {data.joinCode ? (
-                <div className="space-y-2 rounded-lg border border-border p-3">
+                <div className={cn("space-y-2 rounded-lg border border-border", prominent ? "bg-muted/30 p-5" : "p-3")}>
                     <div className="flex items-center justify-between gap-2">
-                        <span className="select-all font-mono text-lg font-semibold tracking-[0.2em]" aria-label={`Join code ${data.joinCode.split('').join(' ')}`}>{data.joinCode}</span>
+                        <span className={cn("select-all font-mono font-semibold tracking-[0.2em]", prominent ? "text-2xl" : "text-lg")} aria-label={`Join code ${data.joinCode.split('').join(' ')}`}>{data.joinCode}</span>
                         <Button type="button" size="sm" variant="outline" onClick={() => copy('code', data.joinCode!)}>{copied === 'code' ? <><Check className="size-3.5" aria-hidden="true" />Copied</> : 'Copy code'}</Button>
                     </div>
                     {link ? (

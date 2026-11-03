@@ -83,6 +83,8 @@ test("Needs your attentionr attention: admins see reviews and requests; members 
   assert.deepEqual([review!.title, review!.detail?.startsWith("Lab 2 · oldest")], ["1 submission to review", true]);
   const [app] = await sql`SELECT id FROM role_applications WHERE workspace_id = ${o.orgId} AND applicant_id = ${applicant}`;
   assert.deepEqual([request!.title, request!.approveId, /ago$/.test(request!.detail ?? "")], ["1 join request", app!.id, true]);
+  await sql`INSERT INTO application_events (application_id, actor_id, kind, to_status, metadata) VALUES (${app!.id}, ${applicant}, 'created', 'pending', '{"source":"org_join_code"}'::jsonb)`;
+  assert.match((await dashboard(o.orgId, o.admin))!.needsYou[1]!.detail ?? "", / · via code · /, "where the request came from");
 
   await o.copy(o.b, { review: "rejected", status: "in_progress", due: "5 days" });
   await o.copy(o.b, { due: "-2 days" });
