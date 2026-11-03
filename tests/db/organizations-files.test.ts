@@ -247,3 +247,20 @@ test("§23 pass: a member's folder zip skips Admins-only folders and other peopl
   assert.deepEqual(await plan(o.a), ["lab2-a.pdf", "notes.pdf", "syllabus.pdf"]);
   assert.ok((await plan(o.owner)).includes("answer-key.pdf"));
 });
+
+test("live-fix 36: starter folders say what they're for, Templates carries the chip, and 0062 fills in older orgs", async () => {
+  const o = await org();
+  const fresh = await sql.begin((tx) => createProject(tx, o.owner));
+  created.push(fresh);
+  await sql`UPDATE workspaces SET kind = 'organization' WHERE id = ${fresh}`;
+  await orgFilesLib.createStarterFolders(db, fresh, o.owner, "education");
+  const made = await sql`SELECT name, metadata->>'template' AS template, metadata->>'purpose' AS purpose FROM workspace_nodes WHERE workspace_id = ${fresh} ORDER BY name`;
+  assert.deepEqual(made.map((r) => [r.name, r.template, Boolean(r.purpose)]), [["Course materials", null, true], ["Docs", null, true], ["Staff", null, true], ["Templates", "true", true]]);
+
+  // An organization made before this fix: plain folders, then the backfill.
+  await sql`UPDATE workspace_nodes SET metadata = CASE WHEN name = 'Staff' THEN '{"access":"admins"}'::jsonb ELSE '{}'::jsonb END WHERE workspace_id = ${fresh}`;
+  const { readFileSync } = await import("node:fs");
+  await sql.unsafe(readFileSync("drizzle/0062_starter_folder_metadata.sql", "utf8"));
+  const filled = await sql`SELECT name, metadata->>'template' AS template, metadata->>'access' AS access, metadata->>'purpose' AS purpose FROM workspace_nodes WHERE workspace_id = ${fresh} ORDER BY name`;
+  assert.deepEqual(filled.map((r) => [r.name, r.template, r.access, Boolean(r.purpose)]), [["Course materials", null, null, true], ["Docs", null, null, true], ["Staff", null, "admins", true], ["Templates", "true", null, true]]);
+});

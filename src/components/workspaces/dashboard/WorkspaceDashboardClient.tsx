@@ -649,10 +649,8 @@ export default function WorkspaceDashboardClient({ project, currentUserId, viewe
 
             const nextParams = new URLSearchParams(window.location.search);
             if (tabId === 'readme') {
+                // No made-up doc=readme: the Documents tab opens the first document and puts its real slug in the address.
                 nextParams.set('tab', 'docs');
-                if (!nextParams.has('doc')) {
-                    nextParams.set('doc', 'readme');
-                }
             } else {
                 nextParams.set('tab', tabId);
             }
@@ -1195,7 +1193,7 @@ export default function WorkspaceDashboardClient({ project, currentUserId, viewe
             {activeTab === 'updates' && (
                 <div className="w-full h-full min-h-0">
                     <TabErrorBoundary tabName="Updates">
-                        <UpdatesTab projectId={project.id} projectSlug={project.slug || project.id} projectName={project.title} currentUserId={currentUserId} currentUserName={currentUserName} currentUserAvatarUrl={currentUserAvatarUrl} canCreateUpdates={canCreateUpdates} isMember={isOwnerOrMember} canManageUpdates={canManageUpdates} focusComposer={newIntent === 'announcement'} onComposerFocused={() => setNewIntent(null)} initialUpdateId={searchParams?.get('updateId') || null} initialCommentId={searchParams?.get('commentId') || null} />
+                        <UpdatesTab isOrganization={isOrganization} isChild={Boolean(parentOrg)} projectId={project.id} projectSlug={project.slug || project.id} projectName={project.title} currentUserId={currentUserId} currentUserName={currentUserName} currentUserAvatarUrl={currentUserAvatarUrl} canCreateUpdates={canCreateUpdates} isMember={isOwnerOrMember} canManageUpdates={canManageUpdates} focusComposer={newIntent === 'announcement'} onComposerFocused={() => setNewIntent(null)} initialUpdateId={searchParams?.get('updateId') || null} initialCommentId={searchParams?.get('commentId') || null} />
                     </TabErrorBoundary>
                 </div>
             )}

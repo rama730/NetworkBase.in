@@ -5,6 +5,7 @@ import { and, asc, eq, gte, isNotNull, isNull, lt, or, sql } from "drizzle-orm";
 
 import { readOrgDocsAction } from "@/app/actions/org-docs";
 import { db } from "@/lib/db";
+import { docTitle } from "@/lib/organizations/doc-rules";
 import { workspaceMembers, workspaces, workspaceSprints, roleApplications, taskTeamMembers, tasks } from "@/lib/db/schema";
 import type { WorkspaceAccess } from "@/lib/data/workspace-access";
 import { copyState } from "@/lib/organizations/assignment-rules";
@@ -131,7 +132,7 @@ export async function readNeedsYou(v: OrgViewer, now: Date): Promise<NeedsYouRow
           AND NOT EXISTS (SELECT 1 FROM doc_opens o WHERE o.doc_id = d.id AND o.user_id = ${v.userId}
             AND o.version >= coalesce((d.settings->'org'->>'readVersion')::int, 0)) LIMIT 1`);
     const docs = unreadDoc ? await readOrgDocsAction(v.org.id) : null;
-    if (docs?.success && docs.data) for (const d of docs.data.docs) if (d.required && d.label === 'new') rows.push({ kind: 'doc', label: `Read ${d.filename.replace(/\.(md|mdx|markdown)$/i, '')}`, href: `${base}?tab=readme&doc=${d.slug}` });
+    if (docs?.success && docs.data) for (const d of docs.data.docs) if (d.required && d.label === 'new') rows.push({ kind: 'doc', label: `Read ${docTitle(d.filename)}`, href: `${base}?tab=readme&doc=${d.slug}` });
     return rows;
 }
 

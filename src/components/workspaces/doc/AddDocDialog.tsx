@@ -36,7 +36,8 @@ export function AddDocDialog({
     const [pendingId, setPendingId] = useState<string | null>(null);
     const { data: docs = [] } = useWorkspaceDocList(projectId, open);
     const org = useOrgDocs(projectId, open).data ?? null;
-    const templates = org?.mode === "child" ? org.docs.filter((doc) => doc.template) : [];
+    // Blank, or start from a template (live-fix 26): the organization's templates, in the organization and its workspaces.
+    const templates = org ? org.docs.filter((doc) => doc.template) : [];
     const [title, setTitle] = useState("");
     const [creating, setCreating] = useState<string | null>(null);
 
@@ -128,7 +129,7 @@ export function AddDocDialog({
             <DialogContent className="max-w-[520px] gap-3 p-4">
                 <DialogHeader>
                     <DialogTitle>Add document</DialogTitle>
-                    <DialogDescription>Start a new doc, or pick a Markdown file from Files.</DialogDescription>
+                    <DialogDescription>{templates.length ? "Blank, or start from a template. You can also pick a Markdown file from Files." : "Start a new doc, or pick a Markdown file from Files."}</DialogDescription>
                 </DialogHeader>
                 <form
                     className="flex gap-2"

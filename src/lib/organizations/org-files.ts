@@ -15,6 +15,6 @@ export async function createStarterFolders(executor: Executor, orgId: string, us
     name: folder.name,
     path: `/${folder.name}`,
     createdBy: userId,
-    metadata: folder.access ? { access: folder.access } : {},
+    metadata: { ...(folder.access ? { access: folder.access } : {}), ...(folder.template ? { template: true } : {}), purpose: folder.purpose },
   })));
 }

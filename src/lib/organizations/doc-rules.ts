@@ -67,7 +67,7 @@ export function fillDocTemplate(content: string, values: { project: string; team
 }
 
 export function templateCopyTitle(templateName: string, project: string, date: string) {
-  return `${templateName.replace(/\.(md|mdx|markdown)$/i, "")}: ${project} — ${date}`;
+  return `${docTitle(templateName)}: ${project} — ${date}`;
 }
 
 /** Filenames can't hold "/" or ":" in every store; keep the title readable. */
@@ -89,3 +89,17 @@ export function docState(input: { lifecycle: OrgDocOptions["lifecycle"]; publish
   if (!input.publishedVersionId) return "draft";
   return input.latestVersionId && input.latestVersionId !== input.publishedVersionId ? "changed" : "published";
 }
+
+/** A document's title is its file name without the Markdown extension (live-fix 25). */
+export function docTitle(filename: string) {
+  return filename.replace(/\.(md|mdx|markdown)$/i, "");
+}
+
+/** Empty: nothing but whitespace, or only a heading equal to its title, as a new document starts (live-fix 23). */
+export function isEmptyDoc(content: string, title: string) {
+  const text = content.trim();
+  if (!text) return true;
+  const heading = /^#{1,6}\s+(.+)$/.exec(text);
+  return Boolean(heading && !text.includes("\n") && heading[1]!.trim().toLowerCase() === title.trim().toLowerCase());
+}
+

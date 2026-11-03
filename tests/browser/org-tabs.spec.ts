@@ -35,7 +35,7 @@ test.beforeAll(async () => {
               .filter((p)=>!admins||p[2]!=='member').map(([userId,name,role,projectHint,skills])=>({userId,name,username:null,avatarUrl:null,title:role==='owner'?'Teacher':null,role,projectHint,skills}));
             export const listOutsidePeopleAction=async()=>[{userId:'x1',name:'Client Person',username:'client',avatarUrl:null,title:'Mentor',role:'outside',projectHint:null}];`,
         '@/app/actions/org-profile': `export const revokeOrgVerificationAction=${ok},verifyOrgContributionsAction=${ok};`,
-        '@/app/actions/workspace/updates': `export const toggleWorkspaceUpdatePinAction=async()=>({success:true});`,
+        '@/app/actions/workspace/updates': `const ok=async()=>({success:true});export const toggleWorkspaceUpdatePinAction=ok,createWorkspaceUpdateMediaUploadUrlAction=ok,finalizeWorkspaceUpdateMediaUploadAction=ok,saveWorkspaceUpdateDraftAction=ok;export const readWorkspaceUpdateDraftAction=async()=>({success:true,draft:null}),readWorkspaceUpdateContextOptionsAction=async()=>({success:true,tasks:[],sprints:[],files:[]});`,
         '@/app/actions/org-dashboard': `export const dismissWelcomeAction=async()=>({success:true}),hidePinnedForMeAction=async()=>({success:true});export const readChildOrgLineAction=async()=>null,readOrgDashboardAction=async()=>({success:false,error:'unused'});
             export const readOrgWorkspacesAction=async()=>({success:true,isAdmin:true,requests:[],summary:{total:3,attention:1,quiet:1,notInProject:2},rows:['Team Falcon — Distributed Systems Capstone','Team Osprey','Team Kestrel'].map((title,i)=>({
             id:'c'+i,title,slug:'p'+i,visibility:['org','private','public'][i],status:'active',lead:{id:'l',name:'Alexandria Ramana Chandrasekhar'},members:6,units:2,open:4,overdue:i,inReview:1,
@@ -355,5 +355,18 @@ test('Accessibility (§32.3): no WCAG A or AA problems on the Members, Workspace
         await open(page, tab, 1200);
         await expect(page.getByText(text).first()).toBeVisible();
         expect(await axeViolations(page), tab).toEqual([]);
+    }
+});
+
+test('Live-fix 28: the composer\'s Post button stays inside the column at 1280px and on a phone', async ({ page }) => {
+    for (const width of [1280, 375]) {
+        await open(page, 'composer', width);
+        await page.getByText('Share with CSE-3A…').first().click();
+        const post = page.getByRole('button', { name: 'Post to 40 people' });
+        await expect(post).toBeVisible();
+        const column = await page.getByTestId('composer-column').boundingBox();
+        const button = await post.boundingBox();
+        expect(button!.x + button!.width).toBeLessThanOrEqual(column!.x + column!.width + 0.5);
+        await noSideScroll(page);
     }
 });

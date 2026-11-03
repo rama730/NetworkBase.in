@@ -52,7 +52,8 @@ test("smaller bug 12: Returned, never Returned for changes", () => {
 test("smaller bug 20: organization feeds lose the follower and progress wording; workspaces keep theirs", () => {
   const updates = source("src/components/workspaces/tabs/UpdatesTab.tsx");
   // Step 7 (42.15 design): "Announcements and discussions for CSE 3B"; a workspace inside one says "Updates for your team".
-  assert.match(updates, /orgFeed \? `Announcements and discussions for \$\{org\.title\}\.` : org\?\.kind === "child" \? "Updates for your team\." : "Progress posts for followers and workspace visitors\."/);
+  // Live-fix 29: the page's own flags give the wording before the feed loads.
+  assert.match(updates, /orgFeed \? `Announcements and discussions for \$\{org\?\.title \?\? projectName\}\.` : \(org \? org\.kind === "child" : isChild\) \? "Updates for your team\." : "Progress posts for followers and workspace visitors\."/);
   assert.match(updates, /"Post your first announcement\. Everyone gets notified\."/);
   assert.match(updates, /toast\.success\(orgFeed \? "Posted" : "Workspace update posted"\)/);
 });

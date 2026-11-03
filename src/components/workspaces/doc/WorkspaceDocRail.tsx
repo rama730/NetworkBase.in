@@ -16,7 +16,8 @@ import {
     useWorkspaceDocList,
 } from "@/hooks/workspaces/useWorkspaceDocData";
 import { cn } from "@/lib/utils";
-import { FromOrgDocs, OrgDocAdminTools, OrgDocChips, useOrgDocs } from "@/components/organizations/OrgDocParts";
+import { FromOrgDocs, OrgDocChips, useOrgDocs } from "@/components/organizations/OrgDocParts";
+import { docTitle } from "@/lib/organizations/doc-rules";
 
 const ACTIVE_ITEM = "border-foreground/20 bg-muted text-foreground font-semibold";
 const IDLE_ITEM = "border-border bg-card text-muted-foreground hover:border-foreground/20 hover:text-foreground hover:bg-muted/40";
@@ -69,7 +70,7 @@ export function useDocRail(projectId: string, activeSlug: string): DocRailState 
             <ConfirmDialog
                 open={removing !== null}
                 onOpenChange={(open) => !open && setRemoving(null)}
-                title={`Remove ${removing?.filename ?? "doc"} from Docs?`}
+                title={`Remove ${removing ? docTitle(removing.filename) : "doc"} from Docs?`}
                 description="The file stays in Files."
                 confirmLabel="Remove"
                 variant="destructive"
@@ -164,14 +165,14 @@ export function WorkspaceDocRail({
                                         )}
                                     >
                                         <FileText className={cn("size-3.5 shrink-0", isActive ? "text-foreground" : "text-muted-foreground")} />
-                                        <span className="min-w-0 flex-1 truncate">{doc.filename}</span>
+                                        <span className="min-w-0 flex-1 truncate">{docTitle(doc.filename)}</span>
                                         <OrgDocChips item={org?.mode === "org" ? orgById.get(doc.id) : undefined} />
                                     </button>
                                     {canEdit ? (
                                         <button
                                             type="button"
                                             onClick={() => rail.askRemove(doc)}
-                                            aria-label={`Remove ${doc.filename} from Docs`}
+                                            aria-label={`Remove ${docTitle(doc.filename)} from Docs`}
                                             title="Remove from docs"
                                             className="absolute right-1.5 top-1/2 inline-flex size-6 -translate-y-1/2 items-center justify-center rounded-[4px] text-muted-foreground opacity-0 pointer-coarse:opacity-100 transition-opacity hover:bg-muted hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100"
                                         >
@@ -185,7 +186,7 @@ export function WorkspaceDocRail({
                     )}
                 </nav>
                 {org ? <FromOrgDocs data={org} activeSlug={activeSlug} /> : null}
-                {org ? <OrgDocAdminTools data={org} doc={orgById.get(rail.docs.find((doc) => doc.slug === activeSlug)?.id ?? "")} visibility={visibility} /> : null}
+                {/* Live-fix 24: the document's options moved to ⋯ in its header. */}
             </div>
             {!passedRail && canEdit ? rail.dialogs : null}
         </aside>
@@ -234,7 +235,7 @@ export function WorkspaceDocMobileBar({
                             )}
                         >
                             <FileText className="size-3.5 shrink-0 mr-1.5 text-muted-foreground" />
-                            <span className="truncate">{doc.filename}</span>
+                            <span className="truncate">{docTitle(doc.filename)}</span>
                         </button>
                     );
                 })

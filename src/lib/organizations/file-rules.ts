@@ -32,12 +32,20 @@ export function readFolderAccess(metadata: unknown): FolderAccess | null {
 }
 
 /** Starter folders by org type (§23.3); the last one is Admins only. Docs is where New doc lands (§19.3). */
-export function starterFolders(orgType: string | null | undefined): Array<{ name: string; access: FolderAccess | null }> {
+export function starterFolders(orgType: string | null | undefined): Array<{ name: string; access: FolderAccess | null; template?: true; purpose: string }> {
   const [shared, docs, templates, staff] = typeProfile(orgType).starterFolders;
+  // Live-fix 36: each says what it's for, and Templates carries the Template chip. 0062 uses the same words.
   return [
-    { name: shared, access: null },
-    { name: docs, access: null },
-    { name: templates, access: null },
-    { name: staff, access: "admins" },
+    { name: shared, access: null, purpose: STARTER_PURPOSE.shared },
+    { name: docs, access: null, purpose: STARTER_PURPOSE.docs },
+    { name: templates, access: null, template: true, purpose: STARTER_PURPOSE.templates },
+    { name: staff, access: "admins", purpose: STARTER_PURPOSE.staff },
   ];
 }
+
+export const STARTER_PURPOSE = {
+  shared: "Files everyone in the organization can open",
+  docs: "Where new documents are kept",
+  templates: "Starting points people copy",
+  staff: "Only admins can open this",
+};

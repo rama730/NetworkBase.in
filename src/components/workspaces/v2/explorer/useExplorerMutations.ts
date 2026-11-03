@@ -46,6 +46,8 @@ interface UseExplorerMutationsOptions {
   loadFolderContent: (parentId: string | null, mode?: "append" | "refresh") => Promise<void>;
   onOpenFile: (node: WorkspaceNode) => void;
   onNodeDeleted?: (nodeId: string) => void;
+  /** Live-fix 37: in an organization, a new folder asks who can see it. */
+  onFolderCreated?: (node: WorkspaceNode) => void;
   showToast: (msg: string, type?: "success" | "error" | "info" | "warning") => void;
   recordOperation: (operation: Omit<ExplorerOperation, "id" | "at">) => void;
 }
@@ -70,6 +72,7 @@ export function useExplorerMutations({
   onNodeDeleted,
   showToast,
   recordOperation,
+  onFolderCreated,
 }: UseExplorerMutationsOptions) {
   const { chooseUploadCollision, uploadCollisionDialog } = useUploadCollisionDecision();
   const transfers = useFileTransfers();
@@ -217,6 +220,7 @@ export function useExplorerMutations({
       // Use the normal, explicitly confirmed Trash action instead.
       showToast(`Created ${createDialog.kind} ${createdNode.name}`, "success");
       setCreateDialog({ open: false });
+      if (createDialog.kind === "folder") onFolderCreated?.(createdNode);
     } catch (e: unknown) {
       showToast(`Create failed: ${getErrorMessage(e, "Unknown error")}`, "error");
       recordOperation({
@@ -231,6 +235,7 @@ export function useExplorerMutations({
     loadedChildren,
     loadFolderContent,
     nodesById,
+    onFolderCreated,
     projectId,
     recordOperation,
     runUniqueMutation,

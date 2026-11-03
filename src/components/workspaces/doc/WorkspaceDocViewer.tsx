@@ -13,6 +13,8 @@ import type { WorkspaceDocSmartBlockPreview } from "@/lib/workspaces/doc-blocks"
 import { decodeReadmeHashTarget } from "@/lib/workspaces/doc-navigation";
 import { buildWorkspaceDocViewModel } from "@/lib/workspaces/doc-view-model";
 import { WorkspaceDocRail, WorkspaceDocMobileBar, useDocRail } from "@/components/workspaces/doc/WorkspaceDocRail";
+import { OrgDocHeader, useOrgDocs } from "@/components/organizations/OrgDocParts";
+import { docTitle, isEmptyDoc } from "@/lib/organizations/doc-rules";
 import type { Workspace } from "@/types/discover";
 
 const WorkspaceDocRenderer = dynamic(
@@ -121,6 +123,12 @@ export function WorkspaceDocViewer({
 }) {
     const normalizedDocSlug = useMemo(() => normalizeWorkspaceDocSlug(docSlug), [docSlug]);
     const rail = useDocRail(project.id, normalizedDocSlug);
+    // An organization's document reads with its own header (live-fix 22); a workspace's docs stay as they are.
+    const orgDocs = useOrgDocs(project.id).data;
+    const orgDoc = !inPlaceBanner && orgDocs?.mode === "org" ? orgDocs.docs.find((doc) => doc.slug === normalizedDocSlug) : undefined;
+    const listed = rail.docs.find((doc) => doc.slug === normalizedDocSlug);
+    const title = docTitle(orgDoc?.filename ?? listed?.filename ?? "");
+    const fileHref = payload.linkedNode ? `/workspaces/${encodeURIComponent(project.slug ?? project.id)}?tab=files&fileId=${encodeURIComponent(payload.linkedNode.id)}` : null;
     
     const version = payload.version;
     const readmeContent = version?.content ?? "";
@@ -264,14 +272,12 @@ export function WorkspaceDocViewer({
         };
     }, []);
 
-    if (!version) return null;
-
-    // Report §7.4: an empty document says so; editors get Start writing, which opens its file.
-    const renderer = !version.content.trim() ? (
+    // Report §7.4, live-fix 23: an empty document says so (blank, or only its title as a heading); editors get Start writing.
+    const renderer = !version || isEmptyDoc(version.content, title) ? (
         <div className="nb-empty-state py-12" role="status">
             <p className="nb-card-title text-foreground">This document is empty</p>
-            {payload.canEdit && payload.linkedNode ? (
-                <Link href={`/workspaces/${encodeURIComponent(project.slug ?? project.id)}?tab=files&fileId=${encodeURIComponent(payload.linkedNode.id)}`} className="mt-3 inline-flex text-sm font-medium text-primary underline underline-offset-4">Start writing</Link>
+            {payload.canEdit && fileHref ? (
+                <Link href={fileHref} className="mt-3 inline-flex text-sm font-medium text-primary underline underline-offset-4">Start writing</Link>
             ) : null}
         </div>
     ) : (
@@ -308,6 +314,10 @@ export function WorkspaceDocViewer({
             />
             <div className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_260px]">
                 <div className="min-w-0">
+                    {orgDocs?.mode === "org" && orgDoc ? (
+                        <OrgDocHeader data={orgDocs} doc={orgDoc} updatedBy={version?.createdByName ?? null} updatedAt={version?.createdAt ?? null}
+                            editHref={payload.canEdit ? fileHref : null} onRemove={payload.canEdit && listed ? () => rail.askRemove(listed) : null} visibility={payload.settings.visibilityOverride} />
+                    ) : null}
                     {renderer}
                 </div>
                 <WorkspaceDocRail

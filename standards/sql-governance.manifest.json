@@ -64,7 +64,8 @@
     "drizzle/0058_calendar_feed_tokens.sql",
     "drizzle/0059_master_review_cleanup.sql",
     "drizzle/0060_update_hidden_for_user.sql",
-    "drizzle/0061_sprint_shared_workspaces.sql"
+    "drizzle/0061_sprint_shared_workspaces.sql",
+    "drizzle/0062_starter_folder_metadata.sql"
   ],
   "legacyDatabaseTags": [],
   "allowedUtilitySqlFiles": [

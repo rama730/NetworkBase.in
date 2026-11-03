@@ -510,7 +510,8 @@ export const FolderListRow = React.memo(function FolderListRow({
             </div>
           )}
           <span data-file-mobile-meta className="truncate text-xs text-[#6B7880] dark:text-muted-foreground">
-            {[updatedLabel, sizeLabel(node), byLabel].filter((label) => label && label !== MISSING).join(" · ")}
+            {/* Live-fix 36: a starter folder says what it's for. */}
+            {[(node.metadata as { purpose?: unknown } | null)?.purpose as string | undefined, updatedLabel, sizeLabel(node), byLabel].filter((label) => label && label !== MISSING).join(" · ")}
           </span>
         </div>
         <VersionPill v={node.currentVersion} />

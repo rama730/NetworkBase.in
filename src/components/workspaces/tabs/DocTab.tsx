@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { BookOpenText, Plus } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 
@@ -77,6 +77,14 @@ function OwnDocs({ projectId, project, paramDoc }: { projectId: string; project:
     const isOrg = orgDocs?.mode === "org" && orgDocs.signedIn;
     const reportDocId = readmeQuery.data?.docs?.find((doc) => doc.slug === docSlug)?.id ?? null;
     useMarkOrgDocOpened(isOrg && readmeQuery.data?.version ? projectId : null, docSlug, projectId);
+    // Live-fix 27: the address names the document you're reading, not a made-up doc=readme.
+    const openedSlug = readmeQuery.data?.version ? readmeQuery.data.docSlug : null;
+    useEffect(() => {
+        if (!openedSlug || paramDoc === openedSlug) return;
+        const url = new URL(window.location.href);
+        url.searchParams.set("doc", openedSlug);
+        window.history.replaceState(window.history.state, "", url);
+    }, [openedSlug, paramDoc]);
 
     if (readmeQuery.isLoading) return <SkeletonDoc />;
 

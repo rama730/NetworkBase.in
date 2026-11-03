@@ -11,7 +11,7 @@ import { enqueueWorkspaceNotificationEvent } from '@/lib/notifications/workspace
 import { ORG_LIMITS } from '@/lib/organizations/config';
 import { readViewerOrgRole } from '@/lib/organizations/detail';
 import { orgGrant, type OrgAction } from '@/lib/organizations/permissions';
-import { docFileName, docLabel, docState, fillDocTemplate, readDocGroups, readOrgDocOptions, templateCopyTitle, type DocGroup, type OrgDocOptions } from '@/lib/organizations/doc-rules';
+import { docFileName, docLabel, docState, docTitle, fillDocTemplate, readDocGroups, readOrgDocOptions, templateCopyTitle, type DocGroup, type OrgDocOptions } from '@/lib/organizations/doc-rules';
 import { getOrBuildWorkspaceDocPublishMetadata } from '@/lib/workspaces/doc';
 import { readWorkspaceFileText } from '@/lib/files/content-reader';
 import { notifyOrg, orgHref, orgLabel, remindedRecently } from '@/lib/organizations/notify';
@@ -221,7 +221,7 @@ export async function publishOrgDocAction(orgId: string, docId: string, input: z
         }).where(eq(workspaceDocuments.id, doc.id));
     });
     if (parsed.data.notify) {
-        const name = doc.filename.replace(/\.(md|mdx|markdown)$/i, '');
+        const name = docTitle(doc.filename);
         await enqueueWorkspaceNotificationEvent({
             projectId: orgId,
             actorUserId: userId,
@@ -278,14 +278,16 @@ export async function saveOrgDocGroupsAction(orgId: string, groups: DocGroup[]):
 export async function readOrgTemplateCopyAction(childProjectId: string, orgDocId: string): Promise<{ success: true; filename: string; content: string } | Failure> {
     const { userId } = await getViewerAuthContext();
     if (!userId) return DENIED;
-    const [child] = await db.select({ id: workspaces.id, title: workspaces.title, parentId: workspaces.parentId })
+    const [child] = await db.select({ id: workspaces.id, title: workspaces.title, parentId: workspaces.parentId, kind: workspaces.kind })
         .from(workspaces).where(and(eq(workspaces.id, childProjectId), isNull(workspaces.deletedAt))).limit(1);
-    if (!child?.parentId) return DENIED;
+    // Live-fix 26: the organization itself starts a document from one of its own templates too.
+    const orgId = child?.parentId ?? (child?.kind === 'organization' ? child.id : null);
+    if (!child || !orgId) return DENIED;
     const [role, access, org, doc] = await Promise.all([
-        readViewerOrgRole(child.parentId, userId),
+        readViewerOrgRole(orgId, userId),
         getWorkspaceAccessById(child.id, userId),
-        readOrg(child.parentId),
-        orgDocRow(child.parentId, orgDocId),
+        readOrg(orgId),
+        orgDocRow(orgId, orgDocId),
     ]);
     if (!role || !access.canWrite || !org) return DENIED; // outside people get no org templates
     if (!doc || !readOrgDocOptions(normalizeWorkspaceDocSettings(doc.settings).org).template) return { success: false, error: 'That template is no longer available.' };
@@ -361,7 +363,7 @@ export async function remindUnreadDocAction(orgId: string, docId: string): Promi
     const recent = await remindedRecently(orgId, subject, unread);
     const send = unread.filter((id) => !recent.has(id));
     const minute = Math.floor(Date.now() / 60_000);
-    const name = doc.filename.replace(/\.(md|mdx|markdown)$/i, '');
+    const name = docTitle(doc.filename);
     for (const userId of send) {
         await notifyOrg({ orgId, eventKey: 'assignments.reminded', actorId: adminId, to: [userId], title: `Reminder: read ${name} in ${org.title}`,
             href: orgHref(org, `?tab=readme&doc=${encodeURIComponent(doc.slug)}`), sourceEventId: `${subject}:${userId}:${minute}` });

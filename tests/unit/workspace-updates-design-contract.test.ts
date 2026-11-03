@@ -73,7 +73,9 @@ test("Project Updates Tab Design Specification Conformance Contract (Section 25 
         assert.doesNotMatch(composer, /Public followers/, "Composer must not contain 'Public followers'");
 
         // Toolbar must never wrap icons and must use standardized semantic icons
-        assert.match(composer, /flex items-center gap-1 shrink-0/, "Toolbar icons must stay inline without wrapping");
+        // Live-fix 28: the tools wrap so Post never leaves a narrow column; the Post group itself never shrinks.
+        assert.match(composer, /flex min-w-0 flex-wrap items-center gap-1/, "Toolbar icons wrap inside the column");
+        assert.match(composer, /ml-auto flex items-center gap-2\.5 shrink-0/, "The Post group stays whole");
         assert.match(composer, /ListTodo className="h-4 w-4"/, "Task context must use ListTodo icon");
         assert.match(composer, /Timer className="h-4 w-4"/, "Sprint context must use Timer icon");
         assert.match(composer, /Paperclip className="h-4 w-4"/, "File context must use Paperclip icon");

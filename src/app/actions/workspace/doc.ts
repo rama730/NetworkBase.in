@@ -1,6 +1,6 @@
 'use server';
 
-import { readOrgDocOptions } from "@/lib/organizations/doc-rules";
+import { docTitle, isEmptyDoc, readOrgDocOptions } from "@/lib/organizations/doc-rules";
 import { orgLimitBlock } from "@/lib/organizations/limits";
 import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { revalidatePath, revalidateTag } from "next/cache";
@@ -169,8 +169,11 @@ async function loadDocProjectBase(projectId: string, actorUserId: string | null)
     const { docs: rawDocs, members, ...project } = row;
     // Report §7.4, §17.6: in an organization and its workspaces, an empty published document never reaches visitors.
     const published = rawDocs.map((d) => d.publishedVersionId).filter((id): id is string => Boolean(id));
+    // Empty means blank, or only its title as a heading, as a new document starts (live-fix 23).
+    const titleOf = new Map(rawDocs.map((d) => [d.publishedVersionId, docTitle(d.filename)]));
     const emptyVersions = (project.kind === "organization" || project.parentId) && published.length
-        ? new Set((await db.execute<{ id: string }>(sql`SELECT id FROM workspace_document_versions WHERE id IN ${published} AND length(trim(content)) = 0`)).map((r) => r.id))
+        ? new Set(Array.from(await db.execute<{ id: string; content: string }>(sql`SELECT id, content FROM workspace_document_versions WHERE id IN ${published} AND length(content) < 400`))
+            .filter((r) => isEmptyDoc(r.content, titleOf.get(r.id) ?? "")).map((r) => r.id))
         : new Set<string>();
     const docs = rawDocs.map((d) => ({ ...d, empty: d.linkedNodeId ? (d.linkedNode?.size ?? 0) === 0 : Boolean(d.publishedVersionId && emptyVersions.has(d.publishedVersionId)) }));
     // Inherited org admins edit a child project's docs like its admins; their edits carry their name (report §19.7).

@@ -441,6 +441,7 @@ export function FolderListView({
     setSelectedNodeIds,
     loadFolderContent,
     onOpenFile: (node) => navigateTo(node.id),
+    onFolderCreated: orgAdminFolders ? setAccessFolder : undefined,
     showToast: showFilesToast,
     recordOperation,
   });

@@ -60,6 +60,7 @@ import { ReasonDialog } from '@/components/organizations/ReasonDialog'
 import { ClassQuestions } from '@/components/organizations/ClassQuestions'
 import { saveBlob, toCsvBlob } from '@/lib/download'
 import { zonedInputToIso, zoneName } from '@/lib/organizations/zoned-time'
+import { docTitle } from '@/lib/organizations/doc-rules'
 import { useAuth } from '@/hooks/use-auth'
 import { userTopic } from '@/lib/messaging/constants'
 import { subscribeBroadcast } from '@/lib/realtime/private-broadcast'
@@ -133,7 +134,7 @@ function SubmitDialog({ copyId, submissionType, title, open, onOpenChange, onDon
                     <select defaultValue="" aria-label="Or pick a workspace doc" className="h-9 rounded-md border border-border bg-background px-2 text-sm"
                         onChange={(e) => { if (e.target.value) setLink(`${window.location.origin}/workspaces/${encodeURIComponent(docsProjectId!)}?tab=docs&doc=${encodeURIComponent(e.target.value)}`) }}>
                         <option value="">Or pick a workspace doc…</option>
-                        {projectDocs.map((doc) => <option key={doc.slug} value={doc.slug}>{doc.filename}</option>)}
+                        {projectDocs.map((doc) => <option key={doc.slug} value={doc.slug}>{docTitle(doc.filename)}</option>)}
                     </select>
                 ) : null}
                 {submissionType === 'text' ? <textarea value={text} onChange={(e) => setText(e.target.value)} rows={6} maxLength={10000} className={area} aria-label="Your answer" /> : null}

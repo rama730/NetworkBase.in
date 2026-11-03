@@ -12,6 +12,7 @@ import { CreateLocationProvider } from '@/components/organizations/CreateLocatio
 import WorkspaceLayout from '@/components/workspaces/dashboard/WorkspaceLayout';
 import CreateSprintModal from '@/components/workspaces/v2/sprints/CreateSprintModal';
 import { OrgNewItems, OrgNewMenu } from '@/components/organizations/OrgHeaderParts';
+import { WorkspaceUpdateComposer } from '@/components/workspaces/updates/WorkspaceUpdateComposer';
 
 // The org Tasks, Members, Files and Projects tabs and the sidebar tree (report §31.2 G13, G16), one per ?tab=.
 const tab = new URLSearchParams(location.search).get('tab') ?? 'members';
@@ -69,6 +70,11 @@ createRoot(document.getElementById('root')!).render(
             {/* One board (live-fix 3): In review's queue, and a card's assignment panel (published, then a draft). */}
             {tab === 'tasks' ? <><ReviewQueue orgId="org" onChanged={() => undefined} /><h2>Lab 3 — Consensus protocols</h2><AssignmentManageSection orgId="org" masterId="a1" /></> : null}
             {tab === 'tasks-draft' ? <><h2>Reading quiz</h2><AssignmentManageSection orgId="org" masterId="a2" /></> : null}
+            {/* Live-fix 28: the right column is ~380px at 1280; the org toolbar used to push Post past its edge. */}
+            {tab === 'composer' ? <div data-testid="composer-column" style={{ maxWidth: 380 }}><WorkspaceUpdateComposer projectId="org" projectName="CSE-3A" currentUserId="u1" canCreate canManage isPosting={false} defaultPlaceholder="Share with CSE-3A…"
+                orgControls={{ top: null, postLabel: 'Post to 40 people', blockedReason: null, visibility: 'members', placeholder: 'Share with CSE-3A…',
+                    toolbar: <>{['Pin', 'Also email · 5 of 5 left today', '#general'].map((t) => <button key={t} type="button" className="inline-flex min-h-8 items-center rounded-[5px] border border-border px-2.5 text-[12px]">{t}</button>)}</> }}
+                onPost={async () => true} /></div> : null}
             {tab === 'compose' ? <AssignmentComposer orgId="org" open onOpenChange={() => undefined} onCreated={() => undefined} /> : null}
             {tab === 'files' ? <><OrgStorageNotice org={{ mode: 'org', orgId: 'org', title: 'CSE-3A', slug: 'cse-3a', isAdmin: true, canCopy: false }} /><OrgFilesCollection view="from_org" projectId="child" org={{ mode: 'child', orgId: 'org', title: 'CSE-3A Software Engineering', slug: 'cse-3a', isAdmin: false, canCopy: true }} /></> : null}
             {tab === 'team' ? <Team /> : null}

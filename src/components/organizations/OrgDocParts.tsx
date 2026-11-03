@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, useTransition } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowDown, ArrowUp, Lock, Plus, X } from 'lucide-react'
+import { ArrowDown, ArrowUp, Lock, MoreHorizontal, Plus, X } from 'lucide-react'
 
 import {
     ensureDocsFolderAction,
@@ -25,7 +25,9 @@ import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { toast } from '@/lib/feedback'
 import { Input } from '@/components/ui/input'
-import type { DocGroup } from '@/lib/organizations/doc-rules'
+import { docTitle, type DocGroup } from '@/lib/organizations/doc-rules'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import { formatDistanceToNow } from '@/lib/utils/date'
 import { buildWorkspaceFileKey } from '@/lib/storage/workspace-file-key'
 import { uploadToSupabaseSignedUrl } from '@/lib/upload/supabase-signed-upload-client'
 import { cn } from '@/lib/utils'
@@ -141,7 +143,7 @@ export function FromOrgDocs({ data, activeSlug }: { data: OrgDocsData; activeSlu
                                 aria-current={searchParams?.get('from') === 'org' && doc.slug === activeSlug ? 'page' : undefined}
                                 className="flex w-full items-center gap-2 rounded-[5px] border border-border bg-card px-2.5 py-2 text-left text-[13px] text-muted-foreground hover:bg-muted/40 hover:text-foreground aria-[current=page]:bg-muted aria-[current=page]:text-foreground">
                                 <Lock className="size-3.5 shrink-0" aria-hidden="true" />
-                                <span className="min-w-0 flex-1 truncate">{doc.filename}</span>
+                                <span className="min-w-0 flex-1 truncate">{docTitle(doc.filename)}</span>
                                 <OrgDocChips item={doc} />
                             </button>
                         ))}
@@ -210,6 +212,61 @@ export function OrgDocAdminTools({ data, doc, visibility }: { data: OrgDocsData;
             {editingGroups ? <GroupEditor orgId={data.orgId} groups={data.groups} onSaved={() => { setEditingGroups(false); void queryClient.invalidateQueries({ queryKey: ORG_DOCS_QUERY_KEY(data.orgId) }) }} /> : null}
             {status ? <p role="status" className="text-muted-foreground">{status}</p> : null}
         </div>
+    )
+}
+
+/**
+ * The reader's header (live-fix 22, 24; report §7.4): the title, who updated it and when, where it stands, Edit, and
+ * ⋯ for the options that used to sit in the rail, Publish, History and Remove.
+ */
+export function OrgDocHeader({ data, doc, updatedBy, updatedAt, editHref, onRemove, visibility }: {
+    data: OrgDocsData; doc: OrgDocItem; updatedBy: string | null; updatedAt: string | null; editHref: string | null; onRemove: (() => void) | null; visibility: string
+}) {
+    const queryClient = useQueryClient()
+    const [optionsOpen, setOptionsOpen] = useState(false)
+    const [publishOpen, setPublishOpen] = useState(false)
+    const [pending, startTransition] = useTransition()
+    const admin = data.mode === 'org' && data.isAdmin
+    const status = admin ? (doc.state === 'draft' ? 'Draft' : doc.state === 'changed' ? 'Unpublished changes' : 'Published') : doc.label === 'new' ? 'New' : doc.label === 'updated' ? 'Updated' : 'Read'
+    return (
+        <header className="mb-5 space-y-1.5 border-b border-border pb-4" data-testid="org-doc-header">
+            <div className="flex items-start gap-2">
+                <h1 className="nb-section-title min-w-0 flex-1 break-words">{docTitle(doc.filename)}</h1>
+                {editHref ? <Button asChild size="sm" variant="outline"><Link href={editHref}>Edit</Link></Button> : null}
+                {admin || onRemove ? (
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild><button type="button" aria-label="Document actions" className="nb-touch-target rounded-[5px] p-1.5 text-muted-foreground hover:bg-muted"><MoreHorizontal className="size-4" /></button></DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                            {admin ? <DropdownMenuItem onSelect={() => setOptionsOpen(true)}>Options…</DropdownMenuItem> : null}
+                            {admin && doc.state !== 'published' ? <DropdownMenuItem onSelect={() => setPublishOpen(true)}>Publish…</DropdownMenuItem> : null}
+                            {editHref ? <DropdownMenuItem asChild><Link href={`${editHref}&panel=history`}>History</Link></DropdownMenuItem> : null}
+                            {onRemove ? <DropdownMenuItem className="text-destructive focus:text-destructive" onSelect={onRemove}>Remove</DropdownMenuItem> : null}
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                ) : null}
+            </div>
+            <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] text-muted-foreground">
+                {updatedAt ? <span>Updated by {updatedBy ?? 'someone'} · {formatDistanceToNow(new Date(updatedAt), { addSuffix: true })}</span> : null}
+                <span className="nb-tag">{status}</span>
+                {admin && doc.readers ? <ReadByLine orgId={data.orgId} docId={doc.id} readers={doc.readers} /> : null}
+            </p>
+            {admin ? (
+                <Dialog open={optionsOpen} onOpenChange={setOptionsOpen}>
+                    <DialogContent className="max-w-md">
+                        <DialogHeader><DialogTitle>Document options</DialogTitle><DialogDescription>Group, who can see it and where it shows.</DialogDescription></DialogHeader>
+                        <OrgDocAdminTools data={data} doc={doc} visibility={visibility} />
+                    </DialogContent>
+                </Dialog>
+            ) : null}
+            {admin ? <PublishDialog open={publishOpen} onOpenChange={setPublishOpen} required={doc.required} memberCount={data.memberCount}
+                onPublish={(input) => startTransition(async () => {
+                    const result = await publishOrgDocAction(data.orgId, doc.id, input)
+                    if (!result.success) return void toast.error(result.error ?? 'Couldn’t publish.')
+                    toast.success(input.notify ? 'Published, and members were told' : 'Published')
+                    await queryClient.invalidateQueries({ queryKey: ORG_DOCS_QUERY_KEY(data.orgId) })
+                })} /> : null}
+            {pending ? <span className="sr-only" role="status">Publishing…</span> : null}
+        </header>
     )
 }
 

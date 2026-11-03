@@ -3,6 +3,7 @@
 import { and, desc, eq, isNull, sql } from 'drizzle-orm';
 
 import { db } from '@/lib/db';
+import { docTitle } from '@/lib/organizations/doc-rules';
 import { workspaceMembers, workspaces } from '@/lib/db/schema';
 import { getWorkspaceAccessById } from '@/lib/data/workspace-access';
 import { orgFileAccessSql } from '@/lib/files/internal-helpers';
@@ -215,7 +216,7 @@ export async function searchOrgPreviewsAction(query: string, orgIdentifier?: str
                 db.execute(sql`SELECT n.id, n.name, n.path FROM workspace_nodes n WHERE n.workspace_id = ${org.id} AND n.type = 'file' AND n.deleted_at IS NULL AND n.task_id IS NULL AND n.name ILIKE ${pattern} AND NOT EXISTS (SELECT 1 FROM workspace_documents wd WHERE wd.linked_node_id = n.id) AND ${orgFileAccessSql(access, { projectId: sql`n.workspace_id`, path: sql`n.path`, taskId: sql`n.task_id` }) ?? sql`TRUE`} LIMIT 5`) as unknown as Promise<Array<{ id: string; name: string; path: string }>>,
             ]);
             const canOpen = docs.length ? await visibleDocIds(org.id) : new Set<string>();
-            for (const d of docs) if (canOpen.has(d.id)) results.push({ id: `doc:${d.id}`, kind: 'doc', title: d.filename.replace(/\.(md|mdx|markdown)$/i, ''), subtitle: `Doc · ${org.title}`, href: `${base}?tab=docs&doc=${encodeURIComponent(d.slug)}`, chip: null });
+            for (const d of docs) if (canOpen.has(d.id)) results.push({ id: `doc:${d.id}`, kind: 'doc', title: docTitle(d.filename), subtitle: `Doc · ${org.title}`, href: `${base}?tab=docs&doc=${encodeURIComponent(d.slug)}`, chip: null });
             for (const c of children) results.push({ id: `child:${c.id}`, kind: 'child', title: c.title, subtitle: `Workspace · ${org.title}`, href: `/workspaces/${encodeURIComponent(c.slug ?? c.id)}`, chip: null });
             for (const s of sprints) results.push({ id: `sprint:${s.id}`, kind: 'sprint', title: s.name, subtitle: `Sprint · ${org.title}`, href: `${base}?tab=sprints`, chip: null });
             for (const m of members) results.push({ id: `member:${m.id}`, kind: 'member', title: m.name ?? m.username ?? 'Member', subtitle: `Member · ${org.title}`, href: `${base}?tab=members`, chip: null });
@@ -235,7 +236,7 @@ export async function searchOrgPreviewsAction(query: string, orgIdentifier?: str
             // The From <org> section's rules: published and shown in workspaces only.
             const shown = docs.length ? await readOrgDocsAction(child.id) : null;
             const canOpen = new Set(shown?.success && shown.data ? shown.data.docs.map((d) => d.id) : []);
-            for (const d of docs) if (canOpen.has(d.id)) results.push({ id: `doc:${d.id}`, kind: 'doc', title: d.filename.replace(/\.(md|mdx|markdown)$/i, ''), subtitle: 'Doc', href: `${base}?tab=docs&doc=${encodeURIComponent(d.slug)}`, chip: `From ${parent!.title}` });
+            for (const d of docs) if (canOpen.has(d.id)) results.push({ id: `doc:${d.id}`, kind: 'doc', title: docTitle(d.filename), subtitle: 'Doc', href: `${base}?tab=docs&doc=${encodeURIComponent(d.slug)}`, chip: `From ${parent!.title}` });
             for (const f of files) results.push({ id: `file:${f.id}`, kind: 'file', title: f.name, subtitle: f.path, href: `${base}?tab=files&path=${encodeURIComponent(f.path)}`, chip: `From ${parent!.title}` });
             return results;
         }
@@ -281,7 +282,7 @@ export async function searchOrgPreviewsAction(query: string, orgIdentifier?: str
             WHERE (d.filename ILIKE ${pattern} OR d.slug ILIKE ${pattern}) AND ${memberOf} LIMIT 20`);
         const canOpen = new Map<string, Set<string>>();
         for (const orgId of new Set(docs.map((d) => d.org_id))) canOpen.set(orgId, await visibleDocIds(orgId));
-        for (const d of docs.filter((d) => canOpen.get(d.org_id)?.has(d.id)).slice(0, 5)) results.push({ id: `doc:${d.id}`, kind: 'doc', title: d.filename.replace(/\.(md|mdx|markdown)$/i, ''), subtitle: `Doc · ${d.org_title}`, href: `/org/${encodeURIComponent(d.org_slug ?? d.org_id)}?tab=docs&doc=${encodeURIComponent(d.slug)}`, chip: null });
+        for (const d of docs.filter((d) => canOpen.get(d.org_id)?.has(d.id)).slice(0, 5)) results.push({ id: `doc:${d.id}`, kind: 'doc', title: docTitle(d.filename), subtitle: `Doc · ${d.org_title}`, href: `/org/${encodeURIComponent(d.org_slug ?? d.org_id)}?tab=docs&doc=${encodeURIComponent(d.slug)}`, chip: null });
     }
 
     // Quick actions (report §30.1).

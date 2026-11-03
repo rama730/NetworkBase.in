@@ -3,6 +3,7 @@
 import { and, asc, desc, eq, gt, gte, inArray, isNotNull, isNull, lt, ne, or, sql } from 'drizzle-orm';
 
 import { db } from '@/lib/db';
+import { docTitle } from '@/lib/organizations/doc-rules';
 import { isUuid } from '@/lib/validations/uuid';
 import { profileContributions, profiles, workspaceMembers, workspaceUpdateHidden, workspaceNodeEvents, workspaceNodes, workspaceOpenRoles, workspaces, workspaceSprints, workspaceUpdates, roleApplications, taskActivityEvents, taskTeamMembers, tasks } from '@/lib/db/schema';
 import { getWorkspaceAccessById, type WorkspaceAccess } from '@/lib/data/workspace-access';
@@ -591,7 +592,7 @@ async function readCatchUp(v: OrgViewer, orgId: string, now: Date, termStart: st
             id: s.id, name: s.name,
             materials: [
                 ...files.filter((f) => f.sprint_id === s.id).map((f) => ({ name: f.name, href: `${base}?tab=files&path=${encodeURIComponent(f.path)}` })),
-                ...docRows.filter((d) => d.sprint_id === s.id && docById.has(d.doc_id)).map((d) => { const doc = docById.get(d.doc_id)!; return { name: doc.filename.replace(/\.(md|mdx|markdown)$/i, ''), href: `${base}?tab=readme&doc=${encodeURIComponent(doc.slug)}` } }),
+                ...docRows.filter((d) => d.sprint_id === s.id && docById.has(d.doc_id)).map((d) => { const doc = docById.get(d.doc_id)!; return { name: docTitle(doc.filename), href: `${base}?tab=readme&doc=${encodeURIComponent(doc.slug)}` } }),
             ],
         })),
     };

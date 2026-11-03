@@ -31,6 +31,9 @@ import type { OrgFeedFilter } from '@/lib/organizations/org-updates';
 import { markOrgUpdatesSeenAction } from '@/app/actions/org-updates';
 
 type UpdatesTabProps = {
+  /** Known from the page (live-fix 29), so the wording is the organization's before the feed loads. */
+  isOrganization?: boolean;
+  isChild?: boolean;
   projectId: string;
   projectSlug?: string | null;
   projectName: string;
@@ -80,6 +83,8 @@ function useMediaMatch(media: string) {
 
 
 export default function UpdatesTab({
+  isOrganization = false,
+  isChild = false,
   projectId,
   projectSlug,
   projectName,
@@ -203,7 +208,7 @@ export default function UpdatesTab({
   const capabilities = updatesQuery.data?.pages[0]?.capabilities;
   const org = updatesQuery.data?.pages[0]?.org ?? null;
   // Smaller bug 20: an organization's feed is for its members, not followers or progress posts.
-  const orgFeed = org?.kind === "org";
+  const orgFeed = org ? org.kind === "org" : isOrganization;
   // New markers compare against the last visit as it was on arrival; opening the feed then marks it seen.
   const [seenBefore, setSeenBefore] = useState<string | null | undefined>(undefined);
   const firstPage = updatesQuery.data?.pages[0];
@@ -490,7 +495,7 @@ export default function UpdatesTab({
               Updates
             </h2>
             <p className="nb-compact text-muted-foreground">
-              {orgFeed ? `Announcements and discussions for ${org.title}.` : org?.kind === "child" ? "Updates for your team." : "Progress posts for followers and workspace visitors."}
+              {orgFeed ? `Announcements and discussions for ${org?.title ?? projectName}.` : (org ? org.kind === "child" : isChild) ? "Updates for your team." : "Progress posts for followers and workspace visitors."}
             </p>
           </div>
           <button
@@ -516,6 +521,7 @@ export default function UpdatesTab({
             defaultVisibility={capabilities?.defaultVisibility}
             onPost={postWithOrgOptions}
             orgControls={orgControls}
+            defaultPlaceholder={isOrganization ? `Share with ${projectName}…` : isChild ? "Share something with your team…" : undefined}
           />
         ) : null}
 
@@ -638,6 +644,7 @@ export default function UpdatesTab({
                   defaultVisibility={capabilities?.defaultVisibility}
                   onPost={postWithOrgOptions}
                   orgControls={orgControls}
+                  defaultPlaceholder={isOrganization ? `Share with ${projectName}…` : isChild ? "Share something with your team…" : undefined}
                 />
               ) : null}
               <UpdatesRightRail

@@ -153,6 +153,7 @@ export function WorkspaceUpdateComposer({
     defaultVisibility = "public",
     onPost,
     orgControls = null,
+    defaultPlaceholder,
 }: {
     projectId: string;
     projectName: string;
@@ -166,6 +167,8 @@ export function WorkspaceUpdateComposer({
     defaultVisibility?: WorkspaceUpdateVisibility;
     /** Organizations and their workspaces (report §7.5, §18.4): options live inside this composer, not beside it. */
     orgControls?: OrgComposerControls | null;
+    /** The placeholder before the organization's options load, so the wording is right from the start (live-fix 29). */
+    defaultPlaceholder?: string;
     /** Resolves false when the post failed, so what was written and its audience stay (report §42.15 problem 44). */
     onPost: (input: {
         content: string;
@@ -873,7 +876,7 @@ export function WorkspaceUpdateComposer({
                             "block truncate text-[13px]",
                             draftPreview ? "text-foreground font-medium" : "text-muted-foreground",
                         )}>
-                            {draftPreview || orgControls?.placeholder || `Share a workspace update for ${projectName}…`}
+                            {draftPreview || orgControls?.placeholder || defaultPlaceholder || `Share a workspace update for ${projectName}…`}
                         </span>
                         {draftPreview ? (
                             <span className="mt-1 inline-block font-mono text-[10px] max-md:text-[11px] font-semibold uppercase tracking-[0.09em] text-primary">Draft saved</span>
@@ -899,7 +902,7 @@ export function WorkspaceUpdateComposer({
                         <div className="rounded-[8px] border border-border bg-card p-3 transition focus-within:border-foreground/30">
                             <WorkspaceUpdateRichTextEditor
                                 content={content}
-                                placeholder={orgControls?.placeholder ?? `Share a workspace update for ${projectName}…`}
+                                placeholder={orgControls?.placeholder ?? defaultPlaceholder ?? `Share a workspace update for ${projectName}…`}
                                 onChange={setContent}
                                 onCommand={openPanel}
                                 onMention={() => openPanel("task")}
@@ -973,8 +976,9 @@ export function WorkspaceUpdateComposer({
                 {expanded ? (
                     <>
                         {bottomPanel}
-                        <div className="mt-3 flex items-center justify-between gap-2 border-t border-border pt-3">
-                            <div className="flex items-center gap-1 shrink-0">
+                        {/* Live-fix 28: the tools wrap, so Post stays inside a narrow column. */}
+                        <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-border pt-3">
+                            <div className="flex min-w-0 flex-wrap items-center gap-1">
                                 <button type="button" className={toolbarButtonClass} onClick={() => openPanel("task")} title="Task context" aria-label="Task context" aria-pressed={activePanel === "task"}>
                                     <ListTodo className="h-4 w-4" />
                                 </button>
@@ -993,7 +997,7 @@ export function WorkspaceUpdateComposer({
                                 </button>
                                 {orgControls?.toolbar ? <><span className="mx-0.5 h-4 w-px bg-border shrink-0" aria-hidden="true" />{orgControls.toolbar}</> : null}
                             </div>
-                            <div className="flex items-center gap-2.5 shrink-0">
+                            <div className="ml-auto flex items-center gap-2.5 shrink-0">
                                 <span className={cn("font-mono text-[11px] font-medium tabular-nums", remaining < 0 ? "text-destructive font-semibold" : "text-muted-foreground")}>{remaining}</span>
                                 <Button
                                     type="button"

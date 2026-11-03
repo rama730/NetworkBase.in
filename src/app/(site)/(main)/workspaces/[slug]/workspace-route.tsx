@@ -82,7 +82,8 @@ export async function generateWorkspaceRouteMetadata({
                 const isOwnerOrMember = capabilities.isOwner || capabilities.isMember;
                 const canManageSettings = capabilities.isOwner || capabilities.memberRole === 'admin';
                 const visible = (tabId: string) => isWorkspaceTabVisibleToViewer({
-                    tabId: tabId === 'privacy' ? 'settings' : tabId,
+                    // Live-fix 27: the Documents tab is `docs` in the address and `readme` in the visibility rules.
+                    tabId: tabId === 'privacy' ? 'settings' : tabId === 'docs' ? 'readme' : tabId,
                     isOwnerOrMember,
                     canManageSettings,
                     publicTabVisibility: project.publicTabVisibility,
