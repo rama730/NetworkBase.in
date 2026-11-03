@@ -34,6 +34,15 @@ interface TaskCardProps {
   dragListeners?: Record<string, any>;
 }
 
+
+/** "Draft", "0 of 40", "12 of 40 done · 6 to review" or "All done · 2 excused" (report §16.1). */
+function assignmentProgressLine(p: { draft: boolean; closed: boolean; done: number; total: number; toReview: number; excused: number }) {
+  if (p.draft) return "Draft";
+  if (p.total === 0) return "Nobody has joined yet";
+  if (p.done >= p.total) return `All done${p.excused ? ` · ${p.excused} excused` : ""}`;
+  return [`${p.done} of ${p.total} done`, p.toReview ? `${p.toReview} to review` : null, p.closed ? "Closed" : null].filter(Boolean).join(" · ");
+}
+
 export type Task = TaskSurfaceRecord;
 
 type TaskMetaIndicatorProps = {
@@ -262,6 +271,14 @@ export const TaskCard = memo(function TaskCard({
               </div>
             )}
             <TaskMetaIndicators {...taskRecord} />
+            {/* Decisions 6 and 14, gap 24: the assignment card shows class progress; it moves by itself. */}
+            {taskRecord.assignmentProgress ? (
+              <span className="truncate rounded-[3px] border border-border px-1 text-[10px] text-muted-foreground" title="Assignment">
+                Assignment · {assignmentProgressLine(taskRecord.assignmentProgress)}
+              </span>
+            ) : taskRecord.assignmentId && !taskRecord.fromLabel ? (
+              <span className="rounded-[3px] border border-border px-1 text-[10px] text-muted-foreground">Assignment</span>
+            ) : null}
             {taskRecord.fromLabel ? (
               <span className="truncate rounded-[3px] border border-border px-1 text-[10px] text-muted-foreground" title={`From ${taskRecord.fromLabel}`}>
                 From {taskRecord.fromLabel}{taskRecord.teamName ? ` · ${taskRecord.teamName}` : ""}

@@ -48,6 +48,9 @@ export type TaskSurfaceRecord = {
   assignmentId?: string | null;
   teamName?: string | null;
   fromLabel?: string | null;
+  /** A main assignment on an organization's board (decision 14): its class progress, worked out from the copies. */
+  kind?: "task" | "assignment";
+  assignmentProgress?: { draft: boolean; closed: boolean; done: number; total: number; toReview: number; excused: number } | null;
   dueDate: string | null;
   storyPoints: number | null;
   taskNumber: number | null;
@@ -290,6 +293,8 @@ export function normalizeTaskSurfaceRecord(value: any): TaskSurfaceRecord {
     assignmentId: asTrimmedString(value?.assignmentId) ?? asTrimmedString(value?.assignment_id),
     teamName: asTrimmedString(value?.teamName) ?? asTrimmedString(value?.team_name),
     fromLabel: asTrimmedString(value?.fromLabel),
+    kind: value?.kind === "assignment" ? "assignment" : "task",
+    assignmentProgress: value?.assignmentProgress ?? null,
     dueDate: asIsoString(value?.dueDate) ?? asIsoString(value?.due_date),
     storyPoints: asNumber(value?.storyPoints) ?? asNumber(value?.story_points),
     taskNumber: asNumber(value?.taskNumber) ?? asNumber(value?.task_number),

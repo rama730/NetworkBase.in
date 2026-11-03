@@ -141,7 +141,7 @@ function SubmitDialog({ copyId, submissionType, title, open, onOpenChange, onDon
 type TeamBox = { name: string; people: OrgRosterPerson[]; leadId: string | null }
 
 /** New assignment (report §16.2): who it goes to, submission, late rule, steps; Publish or Save as draft. */
-function AssignmentComposer({ orgId, open, onOpenChange, onCreated, reuseFrom = null }: { orgId: string; open: boolean; onOpenChange: (open: boolean) => void; onCreated: () => void; reuseFrom?: string | null }) {
+export function AssignmentComposer({ orgId, open, onOpenChange, onCreated, reuseFrom = null, prefill = null }: { orgId: string; open: boolean; onOpenChange: (open: boolean) => void; onCreated: () => void; reuseFrom?: string | null; prefill?: { title: string; description: string; mode: AssignmentTarget['mode'] } | null }) {
     const [title, setTitle] = useState('')
     const [description, setDescription] = useState('')
     const [dueLocal, setDueLocal] = useState('')
@@ -188,6 +188,8 @@ function AssignmentComposer({ orgId, open, onOpenChange, onCreated, reuseFrom = 
             // A new assignment starts from the org's Work defaults (report §21.2 #5).
             setReviewRequired(r.defaults.reviewRequired)
             setLateRule(r.defaults.lateRule)
+            // New task with many people (decision 10): the text typed there comes along.
+            if (prefill) { setTitle(prefill.title); setDescription(prefill.description); setMode(prefill.mode) }
             // Use again (report §33.5): the form filled in from an earlier assignment, with new dates to choose.
             if (reuseFrom) void readAssignmentForReuseAction(reuseFrom).then((again) => {
                 if (!again.success) return
@@ -724,7 +726,7 @@ function orgTime(iso: string | null, timeZone?: string | null) {
 }
 
 /** The marking inbox (report §16.4–16.5): oldest first; Approve or Return, then Next. */
-function ReviewQueue({ orgId, onChanged }: { orgId: string; onChanged: () => void }) {
+export function ReviewQueue({ orgId, onChanged }: { orgId: string; onChanged: () => void }) {
     const [rows, setRows] = useState<ReviewQueueRow[] | null>(null)
     const [index, setIndex] = useState(0)
     const [pending, startTransition] = useTransition()

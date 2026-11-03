@@ -1,4 +1,4 @@
-import { assignmentWriteContext, orgTaskReadFilter } from "@/lib/organizations/assignments";
+import { assignmentColumn, assignmentWriteContext, orgTaskReadFilter } from "@/lib/organizations/assignments";
 import { assignmentWriteBlock } from "@/lib/organizations/assignment-rules";
 import { assignmentPeopleOf, notifyAssignmentRemoved } from "@/lib/organizations/assignment-notify";
 import { logger } from "@/lib/logger";
@@ -245,6 +245,8 @@ async function fetchProjectTasksForActor(
           title: true,
           assignmentId: true,
           teamName: true,
+          kind: true,
+          assignmentSettings: true,
           description: surface === "full",
           status: true,
           reviewStatus: true,
@@ -363,10 +365,31 @@ async function fetchProjectTasksForActor(
       const parentOrgTitle = limitedTasks.some((task) => task.assignmentId)
         ? (await db.execute<{ title: string | null }>(sql`SELECT o.title FROM workspaces p JOIN workspaces o ON o.id = p.parent_id WHERE p.id = ${projectId}`))[0]?.title ?? null
         : null;
+      // Assignment cards (decision 14, gap 24): their column and class progress come from the copies, in one query.
+      const masters = limitedTasks.filter((task) => task.kind === "assignment" && !task.assignmentId);
+      const progressRows = masters.length === 0 ? [] : await db.execute<{ master_id: string; total: number; started: number; done: number; to_review: number; excused: number }>(sql`
+        SELECT c.assignment_id AS master_id,
+               count(*) FILTER (WHERE c.excused_at IS NULL)::int AS total,
+               count(*) FILTER (WHERE c.excused_at IS NULL AND (c.status <> 'todo' OR c.submission IS NOT NULL))::int AS started,
+               count(*) FILTER (WHERE c.excused_at IS NULL AND c.status = 'done' AND c.review_status <> 'pending')::int AS done,
+               count(*) FILTER (WHERE c.excused_at IS NULL AND c.review_status = 'pending')::int AS to_review,
+               count(*) FILTER (WHERE c.excused_at IS NOT NULL)::int AS excused
+        FROM tasks c WHERE c.assignment_id IN (${sql.join(masters.map((m) => sql`${m.id}::uuid`), sql`, `)}) AND c.deleted_at IS NULL
+        GROUP BY c.assignment_id`);
+      const progressByMaster = new Map(progressRows.map((r) => [r.master_id, r]));
+      const defaultColumns = masters.length === 0 ? new Map<string, string>() : new Map((await db.execute<{ status: string; id: string }>(sql`
+        SELECT DISTINCT ON (status) status, id FROM workspace_workflow_columns WHERE workspace_id = ${projectId} AND is_default ORDER BY status, position`)).map((r) => [r.status, r.id]));
       const normalizedTasks = limitedTasks.map((task) => {
         const counts = countsByTaskId.get(task.id);
+        const isMaster = task.kind === "assignment" && !task.assignmentId;
+        const p = isMaster ? progressByMaster.get(task.id) : undefined;
+        const progress = isMaster ? { draft: !task.assignmentSettings?.publishedAt, closed: Boolean(task.assignmentSettings?.closedAt), done: Number(p?.done ?? 0), total: Number(p?.total ?? 0), toReview: Number(p?.to_review ?? 0), excused: Number(p?.excused ?? 0) } : null;
+        const column = progress ? assignmentColumn({ ...progress, started: Number(p?.started ?? 0) }) : null;
+        const { assignmentSettings: _settings, ...rest } = task;
         return normalizeTaskSurfaceRecord({
-          ...task,
+          ...rest,
+          ...(column ? { status: column, workflowColumnId: defaultColumns.get(column) ?? task.workflowColumnId } : {}),
+          assignmentProgress: progress,
           fromLabel: task.assignmentId ? parentOrgTitle ?? (task as { creator?: { fullName?: string | null } }).creator?.fullName ?? null : null,
           subtaskCount: Number(counts?.subtask_count ?? 0),
           completedSubtaskCount: Number(counts?.completed_subtask_count ?? 0),

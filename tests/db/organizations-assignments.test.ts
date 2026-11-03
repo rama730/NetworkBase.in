@@ -78,7 +78,7 @@ test("publishing to everyone makes one copy per member with the steps; a draft m
   assert.equal(draft.success && (await copies(draft.masterId)).length, 3);
 });
 
-test("members see the master and their own copy only; admins see every copy in the roster, not on the board", async () => {
+test("members see their own copy only (decision 15); admins see every copy in the roster, not on the board", async () => {
   const o = await org();
   const master = await publish(o);
   await sql`INSERT INTO tasks (workspace_id, title, assignee_id) VALUES (${o.org}, 'Prepare CO2 quiz', ${o.owner})`;
@@ -86,7 +86,7 @@ test("members see the master and their own copy only; admins see every copy in t
   const mine = await tasks.fetchWorkspaceTasksAction(o.org);
   assert.equal(mine.success, true, JSON.stringify(mine));
   const titles = mine.success ? mine.tasks.map((t) => `${t.title}:${t.assigneeId === o.a ? "me" : t.assigneeId ?? "master"}`) : [];
-  assert.deepEqual(titles.sort(), ["Lab 1:master", "Lab 1:me"].sort());
+  assert.deepEqual(titles.sort(), ["Lab 1:me"]);
   viewerId = o.owner;
   const board = await tasks.fetchWorkspaceTasksAction(o.org);
   assert.deepEqual(board.success ? board.tasks.map((t) => t.title).sort() : [], ["Lab 1", "Prepare CO2 quiz"].sort(), "copies stay off the admin board");

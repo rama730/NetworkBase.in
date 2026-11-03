@@ -137,7 +137,8 @@ test("problem 1: a draft assignment and its files stay hidden from members, on t
   // Once published, members see it everywhere.
   viewerId = o.owner;
   assert.equal((await assignments.publishAssignmentAction(master)).success, true);
-  assert.deepEqual(await boardTitles(o, o.a), ["Exam answers", "Exam answers"], "the master and their own copy");
+  // Decision 15 (step 13): their own copy only; the main one stays readable from it.
+  assert.deepEqual(await boardTitles(o, o.a), ["Exam answers"], "their own copy");
   assert.equal(await nodeVisibleTo(o, o.a, node!.id), true);
   assert.deepEqual({ ...(await databaseRule(o.a, master, o.org, "/key.pdf")) }, { task: true, node: true });
   const published = await cards.hydrateCards(o.a, [{ kind: "assignment", ref_id: master }]);

@@ -570,7 +570,8 @@ export default function WorkspaceDashboardClient({ project, currentUserId, viewe
         ? 'owner'
         : isMember ? normalizeWorkspaceMemberRole(memberRole, 'member') : null;
     const canManageProjectSettings = isOwner || currentProjectRole === 'admin';
-    const canEditTasks = isOwner || currentProjectRole === 'admin' || currentProjectRole === 'member';
+    // Decision 139: an organization admin not on the team creates and moves its tasks too, marked Viewing as admin.
+    const canEditTasks = isOwner || currentProjectRole === 'admin' || currentProjectRole === 'member' || isInheritedAdmin;
     const canManageFiles = isOwner || currentProjectRole === 'admin';
     const currentFileMember = allMembers.find((item: any) => item?.id === currentUserId);
     // Org files: only owners and admins write the org tree; members add files to their own copies (report §23.4).
@@ -1201,7 +1202,7 @@ export default function WorkspaceDashboardClient({ project, currentUserId, viewe
                         {/* Assignments (report §16.5) and, in child projects, the org's group copies (§16.6). */}
                         {isOrganization ? <AssignmentsPanel orgId={project.id} onBoardChanged={() => refreshProjectData('tasks')} startComposing={newIntent === 'assignment'} onComposingStarted={() => setNewIntent(null)} /> : null}
                         {parentOrg ? <GroupCopiesPanel projectId={project.id} onBoardChanged={() => refreshProjectData('tasks')} /> : null}
-                        <TasksTab projectId={project.id} projectSlug={project.slug || project.id} projectName={project.title} currentUserId={currentUserId || undefined} currentUserName={currentUserName} currentUserAvatarUrl={currentUserAvatarUrl} isOwner={isOwner} canEditTasks={canEditTasks} isProjectMember={isOwnerOrMember} reviewsGroupWork={isInheritedAdmin} canManageFiles={canManageFiles} canManageWorkflow={canManageProjectSettings} isChildProject={Boolean(parentOrg)} initialTasks={tasks} members={allMembers} sprints={sprints} initialOpenTaskId={initialTaskDrawerId ?? myWorkInitialTaskId} initialPanelTab={initialTaskPanelTab} initialCommentId={searchParams?.get('commentId')} initialFileId={searchParams?.get('fileId')} onInitialTaskOpened={myWorkInitialTaskId ? consumeMyWorkTaskHandoff : undefined} />
+                        <TasksTab projectId={project.id} projectSlug={project.slug || project.id} projectName={project.title} currentUserId={currentUserId || undefined} currentUserName={currentUserName} currentUserAvatarUrl={currentUserAvatarUrl} isOwner={isOwner} canEditTasks={canEditTasks} isProjectMember={isOwnerOrMember} reviewsGroupWork={isInheritedAdmin} canManageFiles={canManageFiles} canManageWorkflow={canManageProjectSettings} isChildProject={Boolean(parentOrg)} orgId={isOrganization ? project.id : null} initialTasks={tasks} members={allMembers} sprints={sprints} initialOpenTaskId={initialTaskDrawerId ?? myWorkInitialTaskId} initialPanelTab={initialTaskPanelTab} initialCommentId={searchParams?.get('commentId')} initialFileId={searchParams?.get('fileId')} onInitialTaskOpened={myWorkInitialTaskId ? consumeMyWorkTaskHandoff : undefined} />
                     </TabErrorBoundary>
                 </div>
             )}

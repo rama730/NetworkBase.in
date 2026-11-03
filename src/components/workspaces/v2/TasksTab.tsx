@@ -16,6 +16,7 @@ import {
 import dynamic from "next/dynamic";
 import { useSearchParams, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
+import { AssignmentComposer, ReviewQueue } from "@/components/organizations/AssignmentsPanel";
 import { useTaskCompletionPolicy } from "@/hooks/useTaskCompletionPolicy";
 import { useRealtimeTasks } from "@/hooks/useRealtimeTasks";
 import {
@@ -98,6 +99,8 @@ interface TasksTabProps {
   canManageWorkflow: boolean;
   /** A child project: leads and admins also make team tasks (report §16.11). */
   isChildProject?: boolean;
+  /** An organization's own board (report §16.1): assignment cards, and In review opens the shared queue. */
+  orgId?: string | null;
   initialTasks?: any[];
   members?: any[];
   sprints?: any[];
@@ -122,6 +125,7 @@ export default function TasksTab({
   canManageFiles = false,
   canManageWorkflow,
   isChildProject = false,
+  orgId = null,
   initialTasks = [],
   members = [],
   sprints = [],
@@ -179,6 +183,8 @@ export default function TasksTab({
     [members],
   );
   // Local State
+  // One form (decisions 10, 89): text carried from New task into the assignment or team form.
+  const [manyCarry, setManyCarry] = useState<{ title: string; description: string; mode: "everyone" | "people" | "each_child" } | null>(null);
   const [scope, setScope] = useState<"all" | "backlog" | "sprint" | "review">(() => {
     const requestedScope = searchParams.get("taskScope");
     return requestedScope === "backlog" || requestedScope === "sprint" || requestedScope === "review"
@@ -731,10 +737,13 @@ export default function TasksTab({
 
   return (
     <div className="flex min-h-0 flex-col space-y-4">
-      <p className="nb-meta flex flex-wrap items-center gap-2 text-muted-foreground">
+      {/* Decision 139: an organization admin working in a workspace they aren't on. */}
+      {reviewsGroupWork ? <p className="nb-meta"><span className="nb-status" data-status="draft">Viewing as admin</span></p> : null}
+      {/* Smaller bug 19: on an organization each assignment says what happens in its Hand in section instead. */}
+      {orgId ? null : <p className="nb-meta flex flex-wrap items-center gap-2 text-muted-foreground">
         {completionPolicy.isPending ? "Loading completion workflow…" : completionPolicy.isError ? "Completion workflow unavailable; the server will apply the current workspace setting." : completionPolicy.data?.reviewRequired ? "Marking work as completed sends it to a reviewer. An owner or admin approves it." : "Marking work as done completes it immediately."}
         {completionPolicy.data?.canManage ? <a className="underline" href={`/workspaces/${projectSlug || projectId}?tab=settings&section=tasks-workflow`}>Completion settings</a> : null}
-      </p>
+      </p>}
       <div className="w-full shrink-0">
         <div className="flex w-full flex-wrap items-center justify-between gap-3 border-b border-border pb-3">
           <div className="flex items-center gap-2.5">
@@ -794,14 +803,13 @@ export default function TasksTab({
               />
             </span>
 
-            {isChildProject && canManageWorkflow ? (
-              <button type="button" onClick={() => setTeamTaskOpen(true)}
-                className="nb-touch-target inline-flex h-[34px] items-center gap-1.5 rounded-[5px] border border-border bg-card px-3 text-[13px] font-medium text-foreground hover:bg-muted max-md:h-11">
-                Team task
-              </button>
-            ) : null}
+            {/* Decision 89: team tasks come from New task's Assign to, not a separate button. */}
             {isChildProject && teamTaskOpen ? (
-              <TeamTaskDialog projectId={projectId} members={members} open={teamTaskOpen} onOpenChange={setTeamTaskOpen}
+              <TeamTaskDialog projectId={projectId} members={members} open={teamTaskOpen} onOpenChange={(open) => { setTeamTaskOpen(open); if (!open) setManyCarry(null) }} prefill={manyCarry ?? undefined}
+                onCreated={() => void queryClient.invalidateQueries({ queryKey: queryKeys.project.detail.tasksRoot(projectId) })} />
+            ) : null}
+            {orgId && manyCarry && !isChildProject ? (
+              <AssignmentComposer orgId={orgId} open onOpenChange={(open) => { if (!open) setManyCarry(null) }} prefill={manyCarry}
                 onCreated={() => void queryClient.invalidateQueries({ queryKey: queryKeys.project.detail.tasksRoot(projectId) })} />
             ) : null}
 
@@ -899,8 +907,9 @@ export default function TasksTab({
         </div>
       ) : null}
 
-      {/* Main Content */}
-      <div className="flex-1 min-h-0">
+      {/* Main Content. Problem 33: on an organization, In review is the one queue the badge counts, group work included. */}
+      {orgId && scope === "review" && canManageWorkflow ? <ReviewQueue orgId={orgId} onChanged={() => void refetchTasks()} /> : null}
+      <div className={cn("flex-1 min-h-0", orgId && scope === "review" && canManageWorkflow && "hidden")}>
         <KanbanBoard
           projectId={projectId}
           workflow={workflow}
@@ -926,6 +935,16 @@ export default function TasksTab({
         <CreateTaskModal
           isOpen={showCreateModal}
           canAssignSprint={isOwner}
+          manyOptions={orgId && canManageWorkflow ? [
+            { value: "everyone", label: "Everyone · an assignment" },
+            { value: "people", label: "Selected people or groups · an assignment" },
+            { value: "each_child", label: "Each workspace · an assignment" },
+          ] : isChildProject && canManageWorkflow ? [{ value: "units", label: "A team, or each team · a shared task" }] : []}
+          onAssignMany={(choice, carry) => {
+            setShowCreateModal(false);
+            if (isChildProject) { setManyCarry({ ...carry, mode: "everyone" }); setTeamTaskOpen(true); }
+            else setManyCarry({ ...carry, mode: choice as "everyone" | "people" | "each_child" });
+          }}
           onClose={() => setShowCreateModal(false)}
           onCreate={async (value) => {
             const payload = buildTaskSubmitPayload({

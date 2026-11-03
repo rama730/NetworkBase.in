@@ -29,11 +29,24 @@ export function orgTaskReadFilter(access: WorkspaceAccess, viewerId: string | nu
   if (isAdmin) return scope === "review" ? undefined : isNull(tasks.assignmentId);
   const master = and(eq(tasks.kind, "assignment"), isNull(tasks.assignmentId), sql`${tasks.assignmentSettings}->>'publishedAt' IS NOT NULL`);
   if (!viewerId) return master;
-  return or(
-    master,
+  const own = or(
     eq(tasks.assigneeId, viewerId),
     sql`EXISTS (SELECT 1 FROM ${taskTeamMembers} tm WHERE tm.task_id = ${tasks.id} AND tm.user_id = ${viewerId})`,
   );
+  // Decision 15: a member's board holds their own copy, never the main assignment too. The main one stays readable
+  // (scope "review") so class questions open from the copy. Viewers have no copies and see the main ones.
+  if (access.memberRole === "member" && scope !== "review") return own;
+  return or(master, own);
+}
+
+/**
+ * Where an assignment card sits and what it says (report §16.1, decision 14): To do while it's a draft or nobody
+ * has started, Completed once everyone is done or excused or it's closed, In progress otherwise.
+ */
+export function assignmentColumn(p: { draft: boolean; closed: boolean; started: number; done: number; total: number }): "todo" | "in_progress" | "done" {
+  if (p.draft) return "todo";
+  if (p.closed || (p.total > 0 && p.done >= p.total)) return "done";
+  return p.started > 0 ? "in_progress" : "todo";
 }
 
 /** Whether one task passes the same rule (task detail, sprint rows, the extension). */

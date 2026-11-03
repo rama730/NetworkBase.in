@@ -58,6 +58,11 @@ test("decision 64: auto-made groups never put a blocked pair together, and nobod
     assert.ok(!groups.some((g) => g.includes(members[0]!) && g.includes(members[1]!)), "kept apart");
   }
   assert.equal((await sql`SELECT count(*)::int AS n FROM user_notifications WHERE user_id IN ${sql(members)}`)[0]!.n, before, "quietly");
+  // Security review: people outside the organization are dropped, so their blocks are never read.
+  const [stranger1, stranger2] = await Promise.all([1, 2].map(() => sql.begin((tx) => createUser(tx))));
+  const outside = await assignments.autoMakeGroupsAction(org, [stranger1!, stranger2!], 1);
+  assert.deepEqual(outside.success && outside.groups, []);
+  assert.equal((await assignments.autoMakeGroupsAction(org, ["not-a-uuid"], 2)).success, false);
 });
 
 test("decision 47: a late joiner on group work is listed for the roster and admins are told where to place them", async () => {

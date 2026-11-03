@@ -199,6 +199,51 @@ export async function scheduleAssignmentAction(masterId: string, schedule: z.inp
     return { success: true };
 }
 
+export type HandIn = {
+    holder: boolean; submissionType: string; reviewRequired: boolean; dueDate: string | null; lateLabel: string | null; from: string;
+    state: CopyState; late: boolean; canSubmit: boolean; closed: boolean; approved: boolean; excusedReason: string | null;
+    returned: { reason: string | null; fixBy: string | null } | null;
+    latest: { version: number; at: string; by: string; link: string | null; text: string | null; note: string | null; files: Array<{ nodeId: string; name: string }> } | null;
+    files: Array<{ nodeId: string; name: string }>;
+    materials: Array<{ nodeId: string; name: string }>;
+};
+
+/**
+ * The task panel's Hand in section (report §34.4, decision 85): what's asked, the state with its reason or date,
+ * the latest version handed in, and whether Submit is open. Its people get the form; org admins read it.
+ */
+export async function readHandInAction(copyId: string): Promise<{ success: true; handIn: HandIn } | Failure> {
+    const userId = await viewerId();
+    const loaded = await loadCopy(copyId);
+    if (!userId || !loaded) return DENIED;
+    const { copy, master } = loaded;
+    const [teammate] = await db.select({ userId: taskTeamMembers.userId }).from(taskTeamMembers).where(and(eq(taskTeamMembers.taskId, copyId), eq(taskTeamMembers.userId, userId))).limit(1);
+    const holder = copy.assigneeId === userId || Boolean(teammate);
+    const orgAccess = await getWorkspaceAccessById(master.projectId, userId);
+    if (!holder && !(orgAccess.isOwner || orgAccess.memberRole === 'admin')) return DENIED;
+    const now = new Date();
+    const s = copyState({ status: copy.status, reviewStatus: copy.reviewStatus, dueDate: copy.dueDate, submittedAt: copy.reviewSubmittedAt, completedAt: copy.completedAt, excusedAt: copy.excusedAt }, now, lateAfterMs(master.settings));
+    const approved = copy.status === 'done' && copy.completionSource === 'review';
+    const [latest] = await db.select().from(assignmentSubmissions).where(eq(assignmentSubmissions.copyId, copyId)).orderBy(desc(assignmentSubmissions.version)).limit(1);
+    const [returnedEvent] = s.state === 'returned' ? await db.execute<{ reason: string | null; fix_by: string | null }>(sql`
+        SELECT payload->>'reason' AS reason, payload->>'fixBy' AS fix_by FROM task_activity_events WHERE task_id = ${copyId} AND event_type = 'changes_requested' ORDER BY created_at DESC LIMIT 1`) : [];
+    const files = await db.execute<{ node_id: string; name: string }>(sql`
+        SELECT n.id AS node_id, n.name FROM workspace_nodes n WHERE n.deleted_at IS NULL AND n.type = 'file' AND (n.task_id = ${copyId} OR n.id IN (SELECT node_id FROM task_node_links WHERE task_id = ${copyId})) ORDER BY n.name`);
+    const materials = await readAssignmentMaterialsAction(copyId);
+    const byName = latest?.submittedBy ? (await db.select({ name: sql<string>`coalesce(${profiles.fullName}, ${profiles.username}, 'Someone')` }).from(profiles).where(eq(profiles.id, latest.submittedBy)).limit(1))[0]?.name : null;
+    const [org] = await db.select({ title: workspaces.title }).from(workspaces).where(eq(workspaces.id, master.projectId)).limit(1);
+    // Submit is open per the same rules the server checks on Submit.
+    const replaceLocked = approved || (copy.status === 'done' && copy.reviewStatus === 'none' && copy.dueDate && now.getTime() > copy.dueDate.getTime() + lateAfterMs(master.settings) && !(copy.submitUntil && now <= copy.submitUntil));
+    const canSubmit = holder && !copy.excusedAt && !replaceLocked && canStillSubmit(master.settings, copy.dueDate, now, copy.submitUntil);
+    return { success: true, handIn: {
+        holder, submissionType: master.settings.submissionType, reviewRequired: master.settings.reviewRequired, dueDate: copy.dueDate?.toISOString() ?? null,
+        lateLabel: lateWorkLabel(master.settings), from: org?.title ?? 'the organization', state: s.state, late: s.late, canSubmit, closed: Boolean(master.settings.closedAt), approved,
+        excusedReason: copy.excusedReason, returned: s.state === 'returned' ? { reason: returnedEvent?.reason ?? null, fixBy: returnedEvent?.fix_by ?? copy.submitUntil?.toISOString() ?? null } : null,
+        latest: latest ? { version: latest.version, at: latest.submittedAt.toISOString(), by: byName ?? 'Someone', link: latest.link, text: latest.body, note: latest.note, files: latest.files.map((f) => ({ nodeId: f.nodeId, name: f.name })) } : null,
+        files: files.map((f) => ({ nodeId: f.node_id, name: f.name })), materials: materials.success ? materials.materials : [],
+    } };
+}
+
 /** The composer's Materials picker (decision 128): this organization's files by name, Admins-only ones marked (137). */
 export async function searchAssignmentMaterialsAction(orgId: string, query: string): Promise<{ success: true; files: Array<{ id: string; name: string; adminsOnly: boolean }> } | Failure> {
     const viewer = await orgRole(orgId, 'read');
@@ -946,8 +991,11 @@ export async function moveTeamMemberAction(masterId: string, userId: string, toC
  */
 export async function autoMakeGroupsAction(orgId: string, userIds: string[], size: number): Promise<{ success: true; groups: string[][] } | Failure> {
     const viewer = await orgRole(orgId, 'read');
-    if (!viewer?.isAdmin) return DENIED;
-    const ids = [...new Set(userIds)].slice(0, 2000);
+    const parsed = z.array(z.string().uuid()).max(2000).safeParse(userIds);
+    if (!viewer?.isAdmin || !parsed.success) return DENIED;
+    // Only this organization's members: the block graph of anyone else is never read (no cross-org probing).
+    const ids = parsed.data.length ? (await db.select({ id: workspaceMembers.userId }).from(workspaceMembers)
+        .where(and(eq(workspaceMembers.projectId, orgId), inArray(workspaceMembers.userId, [...new Set(parsed.data)]), eq(workspaceMembers.role, 'member')))).map((r) => r.id) : [];
     const blocks = ids.length ? await db.execute<{ a: string; b: string }>(sql`
         SELECT blocker_id AS a, blocked_id AS b FROM user_blocks WHERE blocker_id IN ${ids} AND blocked_id IN ${ids}`) : [];
     const blocked = new Set(blocks.map((r) => [r.a, r.b].sort().join('|')));

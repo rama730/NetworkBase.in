@@ -53,6 +53,12 @@ interface CreateTaskModalProps {
   projectName?: string;
   /** Only the owner may put a new task in a sprint (the server enforces the same). */
   canAssignSprint?: boolean;
+  /**
+   * One form (report §16.1, §34.7; decisions 10, 25, 89): many people in Assign to carries the title and
+   * description on to the assignment form (an organization) or the team form (a workspace in one).
+   */
+  manyOptions?: Array<{ value: string; label: string }>;
+  onAssignMany?: (choice: string, carry: { title: string; description: string }) => void;
 }
 
 function SectionDivider({
@@ -157,6 +163,8 @@ export default function CreateTaskModal({
   projectId,
   projectName,
   canAssignSprint = false,
+  manyOptions = [],
+  onAssignMany,
 }: CreateTaskModalProps) {
   const completionPolicy = useTaskCompletionPolicy(projectId ?? "");
   const plainContentHeadings = usePlainContentHeadings();
@@ -415,6 +423,13 @@ export default function CreateTaskModal({
                         id="task-assignee"
                         name="assigneeId"
                         defaultValue=""
+                        onChange={(event) => {
+                          const choice = manyOptions.find((o) => o.value === event.target.value);
+                          if (!choice || !onAssignMany) return;
+                          const form = event.currentTarget.form;
+                          const read = (name: string) => String((form?.elements.namedItem(name) as HTMLInputElement | null)?.value ?? "");
+                          onAssignMany(choice.value, { title: read("title"), description: read("description") });
+                        }}
                         className={cn(
                           inputClassName(!!fieldErrors.assigneeId),
                           "appearance-none pl-9 pr-9 cursor-pointer",
@@ -426,6 +441,11 @@ export default function CreateTaskModal({
                             {member.label}
                           </option>
                         ))}
+                        {manyOptions.length ? (
+                          <optgroup label="Many people">
+                            {manyOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                          </optgroup>
+                        ) : null}
                       </select>
                       <User className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
                       <ChevronDown className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />

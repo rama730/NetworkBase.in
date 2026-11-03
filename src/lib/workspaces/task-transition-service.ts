@@ -97,6 +97,7 @@ export async function lockTaskForWrite(
     master_settings: { submissionType?: string; reviewRequired?: boolean } | null;
     in_team: boolean;
     master_org_admin: boolean;
+    parent_org_admin: boolean;
   }>(sql`
         SELECT
             t.id, t.workspace_id AS project_id, t.assignee_id, t.sprint_id, t.workflow_column_id,
@@ -109,7 +110,12 @@ export async function lockTaskForWrite(
             EXISTS (SELECT 1 FROM task_team_members tm WHERE tm.task_id = t.id AND tm.user_id = ${userId}) AS in_team,
             (mp.owner_id = ${userId} OR EXISTS (
               SELECT 1 FROM workspace_members om WHERE om.workspace_id = mp.id AND om.user_id = ${userId} AND om.role = 'admin'
-            )) AS master_org_admin
+            )) AS master_org_admin,
+            -- Decision 139: an organization admin moves a workspace's tasks without being on its team.
+            (p.parent_id IS NOT NULL AND EXISTS (
+              SELECT 1 FROM workspaces po WHERE po.id = p.parent_id AND po.kind = 'organization' AND po.deleted_at IS NULL AND (po.owner_id = ${userId}
+                OR EXISTS (SELECT 1 FROM workspace_members pm WHERE pm.workspace_id = po.id AND pm.user_id = ${userId} AND pm.role = 'admin'))
+            )) AS parent_org_admin
         FROM tasks t
         JOIN workspaces p ON p.id = t.workspace_id
         LEFT JOIN workspace_members m ON m.workspace_id = p.id AND m.user_id = ${userId}
@@ -140,7 +146,7 @@ export async function lockTaskForWrite(
   // even on a group copy inside a child project they are not members of.
   const isCopy = Boolean(row.assignment_id);
   const orgReviewer = isCopy && Boolean(row.master_org_admin);
-  if (!isOwner && !orgReviewer) {
+  if (!isOwner && !orgReviewer && !(row.parent_org_admin && !row.member_role)) {
     if (!row.member_role) {
       throw new Error("You don’t have access to this");
     }
@@ -155,7 +161,7 @@ export async function lockTaskForWrite(
     policyVersion: row.task_completion_policy_version,
     reviewContentHash: row.review_content_hash,
     isOwner,
-    isLeader: isCopy ? orgReviewer : isOwner || (row.member_role ?? "").toLowerCase() === "admin",
+    isLeader: isCopy ? orgReviewer : isOwner || (row.member_role ?? "").toLowerCase() === "admin" || (row.parent_org_admin && !row.member_role),
     previousAssigneeId: row.assignee_id ?? null,
     previousSprintId: row.sprint_id ?? null,
     currentWorkflowColumnId: row.workflow_column_id ?? null,

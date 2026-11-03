@@ -14,9 +14,9 @@ import { Input } from '@/components/ui/input'
 type Member = { id: string; fullName?: string | null; username?: string | null }
 type Box = { name: string; userIds: string[]; leadId: string | null }
 
-export function TeamTaskDialog({ projectId, members, open, onOpenChange, onCreated }: { projectId: string; members: Member[]; open: boolean; onOpenChange: (open: boolean) => void; onCreated: () => void }) {
-    const [title, setTitle] = useState('')
-    const [description, setDescription] = useState('')
+export function TeamTaskDialog({ projectId, members, open, onOpenChange, onCreated, prefill }: { projectId: string; members: Member[]; open: boolean; onOpenChange: (open: boolean) => void; onCreated: () => void; prefill?: { title: string; description: string } }) {
+    const [title, setTitle] = useState(prefill?.title ?? '')
+    const [description, setDescription] = useState(prefill?.description ?? '')
     const [due, setDue] = useState('')
     const [mode, setMode] = useState<'units' | 'teams'>('units')
     const [teams, setTeams] = useState<Box[]>([{ name: 'Team A', userIds: [], leadId: null }])

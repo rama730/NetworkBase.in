@@ -1,5 +1,6 @@
 "use client";
 
+import { HandInSection } from "@/components/organizations/HandInSection";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { formatTaskDueDate, isTaskOverdue } from "@/lib/workspaces/task-presentation";
 import {
@@ -303,6 +304,12 @@ export default function DetailsTab({
         <div className="rounded-[5px] border border-destructive/20 bg-destructive/10 px-3 py-2 text-xs text-destructive">
           {mutationError}
         </div>
+      ) : null}
+
+      {/* Decision 85: an assignment copy is handed in here, for every hand-in type. */}
+      {task.assignmentId ? (
+        <HandInSection copyId={task.id} onOpenFiles={() => onOpenTab("files")}
+          onSubmitted={(review) => onReviewApproved(new Date().toISOString(), "done", review ? "pending" : "none")} />
       ) : null}
 
       {task.reviewStatus === "pending" ? (

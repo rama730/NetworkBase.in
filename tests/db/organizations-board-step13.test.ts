@@ -1,0 +1,112 @@
+import assert from "node:assert/strict";
+import { after, before, test } from "node:test";
+
+import { generateJoinCode } from "../../src/lib/organizations/join-rules";
+import { closeAppDb, createProject, createUser, loadAppModule, moduleStubs, sql, stubNextAfter } from "./_helpers";
+
+// Step 13e (report §16.1; decisions 14, 15, gap 24): one board holding both.
+
+let viewerId = "";
+moduleStubs.set("@/lib/supabase/server", {
+  createClient: async () => ({ auth: {
+    getUser: async () => ({ data: { user: viewerId ? { id: viewerId, user_metadata: {} } : null }, error: null }),
+    getSession: async () => ({ data: { session: null }, error: null }),
+  } }),
+  createAdminClient: async () => { throw new Error("not used"); },
+});
+moduleStubs.set("next/cache", { revalidatePath: () => undefined, revalidateTag: () => undefined, unstable_cache: (fn: unknown) => fn, updateTag: () => undefined });
+moduleStubs.set("next/headers", { headers: async () => new Headers({ "x-forwarded-for": "203.0.113.134" }) });
+stubNextAfter();
+
+let assignments: typeof import("../../src/app/actions/assignments");
+let tasks: typeof import("../../src/lib/workspaces/server/tasks");
+before(async () => {
+  const viewerContext = await loadAppModule(() => import("../../src/lib/server/viewer-context"));
+  moduleStubs.set("@/lib/server/viewer-context", {
+    ...viewerContext,
+    getViewerAuthContext: async () => ({ supabase: null, snapshot: null, user: viewerId ? { id: viewerId } : null, userId: viewerId || null, emailVerified: true }),
+  });
+  assignments = await loadAppModule(() => import("../../src/app/actions/assignments"));
+  tasks = await loadAppModule(() => import("../../src/lib/workspaces/server/tasks"));
+});
+
+const created: string[] = [];
+after(async () => {
+  for (const id of created.reverse()) await sql`DELETE FROM workspaces WHERE id = ${id}`;
+  await sql.end();
+  await closeAppDb();
+});
+
+test("decisions 14 and 15: students see only their copy; the assignment card moves by itself and shows class progress", async () => {
+  const [owner, asha, ravi, guest] = await Promise.all([1, 2, 3, 4].map(() => sql.begin((tx) => createUser(tx))));
+  const org = await sql.begin((tx) => createProject(tx, owner!));
+  await sql`INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (${org}, ${owner!}, 'owner'), (${org}, ${asha!}, 'member'), (${org}, ${ravi!}, 'member'), (${org}, ${guest!}, 'viewer')`;
+  await sql`UPDATE workspaces SET kind = 'organization', org_type = 'education', join_code = ${generateJoinCode()} WHERE id = ${org}`;
+  created.push(org);
+  viewerId = owner!;
+  const made = await assignments.createAssignmentAction({ projectId: org, title: "Lab 1", dueDate: new Date(Date.now() + 864e5).toISOString(), publish: true,
+    submissionType: "link", reviewRequired: true, lateRule: "none", target: { mode: "everyone" }, steps: [] });
+  const masterId = made.success ? made.masterId : "";
+  const board = async (as: string) => { viewerId = as; const r = await tasks.fetchWorkspaceTasksAction(org); assert.ok(r.success); return r.success ? r.tasks : []; };
+  const card = async () => (await board(owner!)).find((t) => t.id === masterId)!;
+
+  const asha1 = await board(asha!);
+  assert.deepEqual(asha1.map((t) => [t.title, t.assignmentId === masterId]), [["Lab 1", true]], "her copy, not the main one too");
+  assert.deepEqual((await board(guest!)).map((t) => t.id), [masterId], "viewers see the main one");
+  assert.deepEqual([(await card()).status, (await card()).assignmentProgress], ["todo", { draft: false, closed: false, done: 0, total: 2, toReview: 0, excused: 0 }]);
+
+  const [copy] = await sql`SELECT id FROM tasks WHERE assignment_id = ${masterId} AND assignee_id = ${asha!}`;
+  viewerId = asha!;
+  await assignments.submitAssignmentAction(copy!.id, { link: "https://example.com/a" });
+  assert.deepEqual([(await card()).status, (await card()).assignmentProgress?.toReview], ["in_progress", 1]);
+  viewerId = owner!;
+  await assignments.closeAssignmentAction(masterId);
+  assert.equal((await card()).status, "done", "closed sits in Completed");
+});
+
+test("decision 85: the panel's Hand in shows what's asked, the latest version and whether Submit is open, to its people and admins", async () => {
+  const [owner, asha, ravi] = await Promise.all([1, 2, 3].map(() => sql.begin((tx) => createUser(tx))));
+  const org = await sql.begin((tx) => createProject(tx, owner!));
+  await sql`INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (${org}, ${owner!}, 'owner'), (${org}, ${asha!}, 'member'), (${org}, ${ravi!}, 'member')`;
+  await sql`UPDATE workspaces SET kind = 'organization', org_type = 'education', title = 'CSE 3B', join_code = ${generateJoinCode()} WHERE id = ${org}`;
+  created.push(org);
+  viewerId = owner!;
+  const made = await assignments.createAssignmentAction({ projectId: org, title: "Lab 1", dueDate: new Date(Date.now() + 864e5).toISOString(), publish: true,
+    submissionType: "text", reviewRequired: true, lateRule: "none", target: { mode: "everyone" }, steps: [] });
+  const [copy] = await sql`SELECT id FROM tasks WHERE assignment_id = ${made.success ? made.masterId : ""} AND assignee_id = ${asha!}`;
+  viewerId = asha!;
+  const before = await assignments.readHandInAction(copy!.id);
+  assert.ok(before.success);
+  assert.deepEqual(before.success && [before.handIn.holder, before.handIn.canSubmit, before.handIn.submissionType, before.handIn.from, before.handIn.latest], [true, true, "text", "CSE 3B", null]);
+  await assignments.submitAssignmentAction(copy!.id, { text: "My answer", note: "Short one" });
+  const after = await assignments.readHandInAction(copy!.id);
+  assert.deepEqual(after.success && [after.handIn.state, after.handIn.latest?.version, after.handIn.latest?.text, after.handIn.latest?.note], ["submitted", 1, "My answer", "Short one"]);
+  viewerId = ravi!;
+  assert.equal((await assignments.readHandInAction(copy!.id)).success, false, "not someone else's");
+  viewerId = owner!;
+  const admin = await assignments.readHandInAction(copy!.id);
+  assert.deepEqual(admin.success && [admin.handIn.holder, admin.handIn.canSubmit], [false, false], "admins read it");
+});
+
+test("problem 19, decision 139: an organization admin not on the team creates, assigns and moves tasks in a workspace", async () => {
+  const [owner, admin, lead, member] = await Promise.all([1, 2, 3, 4].map(() => sql.begin((tx) => createUser(tx))));
+  const org = await sql.begin((tx) => createProject(tx, owner!));
+  await sql`INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (${org}, ${owner!}, 'owner'), (${org}, ${admin!}, 'admin'), (${org}, ${lead!}, 'member'), (${org}, ${member!}, 'member')`;
+  await sql`UPDATE workspaces SET kind = 'organization', org_type = 'education', join_code = ${generateJoinCode()} WHERE id = ${org}`;
+  const child = await sql.begin((tx) => createProject(tx, lead!, { visibility: "org" }));
+  await sql`INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (${child}, ${lead!}, 'owner'), (${child}, ${member!}, 'member')`;
+  await sql`UPDATE workspaces SET parent_id = ${org} WHERE id = ${child}`;
+  created.push(org, child);
+  const taskActions = await loadAppModule(() => import("../../src/app/actions/task"));
+  viewerId = admin!;
+  const made = await tasks.createTaskAction({ projectId: child, title: "Fix the parser", assigneeId: member!, status: "todo", priority: "medium" } as never);
+  assert.equal(made.success, true, JSON.stringify(made));
+  const [task] = await sql`SELECT id, assignee_id FROM tasks WHERE workspace_id = ${child} AND title = 'Fix the parser'`;
+  assert.equal(task!.assignee_id, member!);
+  assert.equal((await taskActions.updateTaskStatusAction(task!.id, "in_progress", child)).success, true, "moves it");
+  const [moved] = await sql`SELECT status FROM tasks WHERE id = ${task!.id}`;
+  assert.equal(moved!.status, "in_progress");
+  const stranger = await sql.begin((tx) => createUser(tx));
+  viewerId = stranger;
+  assert.equal((await tasks.createTaskAction({ projectId: child, title: "Nope", status: "todo", priority: "medium" } as never)).success, false);
+});

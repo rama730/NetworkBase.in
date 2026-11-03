@@ -169,9 +169,12 @@ export function isWorkspaceMemberEligibleFor(role: unknown, eligibility: Workspa
 }
 
 /** The capability check on an access record that is already loaded, so one read can serve several checks. */
+/** What an organization admin not on the team may do in its workspace (decision 139): its tasks, as an admin would. */
+const INHERITED_ADMIN_CAPABILITIES = new Set<WorkspaceMemberCapability>(["create_tasks", "assign_tasks", "manage_tasks", "comment"]);
+
 export function capabilityFromAccess(access: WorkspaceAccess, capability: WorkspaceMemberCapability) {
     if (!access.project) throw new NotFoundError("Workspace not found");
-    const role = access.isOwner ? "owner" : access.memberRole;
+    const role = access.isOwner ? "owner" : access.memberRole ?? (access.isInheritedAdmin && INHERITED_ADMIN_CAPABILITIES.has(capability) ? "admin" : null);
     if (!role || !projectMemberCan(role, capability)) {
         throw new ForbiddenError("You do not have permission to perform this workspace action");
     }
