@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import dynamic from "next/dynamic";
 
@@ -264,7 +266,15 @@ export function WorkspaceDocViewer({
 
     if (!version) return null;
 
-    const renderer = (
+    // Report §7.4: an empty document says so; editors get Start writing, which opens its file.
+    const renderer = !version.content.trim() ? (
+        <div className="nb-empty-state py-12" role="status">
+            <p className="nb-card-title text-foreground">This document is empty</p>
+            {payload.canEdit && payload.linkedNode ? (
+                <Link href={`/workspaces/${encodeURIComponent(project.slug ?? project.id)}?tab=files&fileId=${encodeURIComponent(payload.linkedNode.id)}`} className="mt-3 inline-flex text-sm font-medium text-primary underline underline-offset-4">Start writing</Link>
+            ) : null}
+        </div>
+    ) : (
         <WorkspaceDocRenderer
             content={version.content}
             project={project}

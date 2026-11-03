@@ -1,5 +1,6 @@
 'use server';
 
+import { readOrgDocOptions } from "@/lib/organizations/doc-rules";
 import { orgLimitBlock } from "@/lib/organizations/limits";
 import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { revalidatePath, revalidateTag } from "next/cache";
@@ -153,9 +154,10 @@ async function loadDocProjectBase(projectId: string, actorUserId: string | null)
             githubDefaultBranch: true,
             key: true,
             kind: true,
+            parentId: true,
         },
         with: {
-            docs: { with: { linkedNode: { columns: { deletedAt: true } } } },
+            docs: { with: { linkedNode: { columns: { deletedAt: true, size: true } } } },
             members: {
                 where: actorUserId ? eq(workspaceMembers.userId, actorUserId) : sql`false`,
                 columns: { role: true },
@@ -164,7 +166,13 @@ async function loadDocProjectBase(projectId: string, actorUserId: string | null)
         },
     });
     if (!row) throw new Error("Workspace not found");
-    const { docs, members, ...project } = row;
+    const { docs: rawDocs, members, ...project } = row;
+    // Report §7.4, §17.6: in an organization and its workspaces, an empty published document never reaches visitors.
+    const published = rawDocs.map((d) => d.publishedVersionId).filter((id): id is string => Boolean(id));
+    const emptyVersions = (project.kind === "organization" || project.parentId) && published.length
+        ? new Set((await db.execute<{ id: string }>(sql`SELECT id FROM workspace_document_versions WHERE id IN ${published} AND length(trim(content)) = 0`)).map((r) => r.id))
+        : new Set<string>();
+    const docs = rawDocs.map((d) => ({ ...d, empty: d.linkedNodeId ? (d.linkedNode?.size ?? 0) === 0 : Boolean(d.publishedVersionId && emptyVersions.has(d.publishedVersionId)) }));
     // Inherited org admins edit a child project's docs like its admins; their edits carry their name (report §19.7).
     if (!members[0] && actorUserId) {
         const [inherited] = await db.execute<{ ok: number }>(sql`
@@ -216,6 +224,9 @@ function visibleDocs(base: DocProjectBase, actorUserId: string | null) {
             isActiveMember: isOwner || Boolean(membership),
             hasPublishedReadme: true,
         });
+        // Report §37.4: an organization's draft is for those who can edit it; an empty one never reaches visitors (§7.4).
+        if (!permission.canEdit && project.kind === "organization" && readOrgDocOptions(normalizeWorkspaceDocSettings(doc.settings).org).lifecycle === "draft") continue;
+        if (!permission.canEdit && !membership && !isOwner && doc.empty && (project.kind === "organization" || project.parentId)) continue;
         if (permission.canReadPublished || permission.canEdit) {
             results.push({ id: doc.id, slug: doc.slug, filename: doc.filename, linkedNodeId: doc.linkedNodeId });
         }
@@ -537,7 +548,10 @@ export async function readWorkspaceDocAction(projectId: string, requestedSlug: s
         }
         let versionRow = null;
         let linkedNode = null;
-        if (context.readme?.linkedNodeId) {
+        // Report §37.4: once an organization's document is published, members read that copy, not the live file.
+        const readsPublished = !context.permission.canEdit && context.project.kind === "organization" && Boolean(context.readme?.publishedVersionId)
+            && readOrgDocOptions(context.settings.org).lifecycle === "published";
+        if (context.readme?.linkedNodeId && !readsPublished) {
             // Scoped to this project; a missing or trashed file makes the doc
             // unavailable but never deletes it (COR-035).
             const node = await db.query.workspaceNodes.findFirst({
@@ -986,7 +1000,8 @@ export async function linkWorkspaceDocAction(projectId: string, nodeId: string) 
         const [linked] = await db
             .insert(workspaceDocuments)
             // A new doc takes the project's defaults, never another doc's org options (Required, group…).
-            .values({ projectId, slug, filename: node.name, linkedNodeId: nodeId, settings: { ...context.settings, org: undefined } })
+            // Report §37.4, decision 101: a new organization document starts as a draft only its editors see.
+            .values({ projectId, slug, filename: node.name, linkedNodeId: nodeId, settings: { ...context.settings, org: base.project.kind === "organization" ? { lifecycle: "draft" } : undefined } })
             .onConflictDoUpdate({
                 target: [workspaceDocuments.projectId, workspaceDocuments.slug],
                 set: { filename: node.name, linkedNodeId: nodeId, updatedAt: new Date() },

@@ -11,12 +11,19 @@ import {
     markDocOpenedAction,
     publishOrgDocAction,
     readOrgDocsAction,
+    readOrgTemplateCopyAction,
+    readTemplateTargetsAction,
+    readUnreadDocPeopleAction,
+    remindUnreadDocAction,
     saveOrgDocGroupsAction,
     updateOrgDocOptionsAction,
     type OrgDocItem,
     type OrgDocsData,
 } from '@/app/actions/org-docs'
 import { Button } from '@/components/ui/button'
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { toast } from '@/lib/feedback'
 import { Input } from '@/components/ui/input'
 import type { DocGroup } from '@/lib/organizations/doc-rules'
 import { buildWorkspaceFileKey } from '@/lib/storage/workspace-file-key'
@@ -86,7 +93,9 @@ export function OrgDocChips({ item }: { item?: OrgDocItem }) {
         <span className="flex shrink-0 items-center gap-1">
             {item.label === 'new' ? <span className="rounded-[3px] bg-foreground px-1 font-mono text-[10px] uppercase tracking-wider text-background">New</span> : null}
             {item.label === 'updated' ? <span className={chip}>Updated</span> : null}
-            {item.required ? <span className={chip} title="Required reading">Req</span> : null}
+            {item.state === 'draft' ? <span className={chip}>Draft</span> : null}
+            {item.state === 'changed' ? <span className={chip} title="Unpublished changes">Changed</span> : null}
+            {item.required ? <span className={chip} title="Required reading">Required</span> : null}
             {item.sprint ? <span className={chip}>{item.sprint}</span> : null}
         </span>
     )
@@ -148,8 +157,7 @@ export function OrgDocAdminTools({ data, doc, visibility }: { data: OrgDocsData;
     const queryClient = useQueryClient()
     const [pending, startTransition] = useTransition()
     const [status, setStatus] = useState<string | null>(null)
-    const [summary, setSummary] = useState('')
-    const [reread, setReread] = useState(false)
+    const [publishOpen, setPublishOpen] = useState(false)
     const [editingGroups, setEditingGroups] = useState(false)
     if (data.mode !== 'org' || !data.isAdmin || !doc) return null
     const run = (work: () => Promise<{ success: boolean; error?: string }>, done: string) => startTransition(async () => {
@@ -174,6 +182,7 @@ export function OrgDocAdminTools({ data, doc, visibility }: { data: OrgDocsData;
                     <option value="members_only">Members only</option>
                     <option value="public">Public</option>
                 </select>
+                <span className="block text-[11px] text-muted-foreground">Public shows it to anyone once published. An empty document never shows to visitors.</span>
             </label>
             {data.sprints.length > 0 || doc.sprintId ? (
                 <label className="block space-y-1">
@@ -186,16 +195,17 @@ export function OrgDocAdminTools({ data, doc, visibility }: { data: OrgDocsData;
                 </label>
             ) : null}
             <label className={box}><input type="checkbox" checked={doc.required} disabled={pending} onChange={(e) => setOption({ required: e.target.checked })} /> Required reading</label>
-            <label className={box}><input type="checkbox" checked={doc.template} disabled={pending} onChange={(e) => setOption({ template: e.target.checked })} /> Template</label>
+            <label className={box}><input type="checkbox" checked={doc.template} disabled={pending} onChange={(e) => setOption({ template: e.target.checked })} /> Template · moves it to Templates</label>
             <label className={box}><input type="checkbox" checked={doc.showInChildren} disabled={pending} onChange={(e) => setOption({ showInChildren: e.target.checked })} /> Show in every workspace in the organization</label>
+            {/* Report §37.4, decision 101: where it stands, and Publish when there's something to publish. */}
             <div className="space-y-1.5 rounded-[5px] border border-border p-2">
-                <Input value={summary} onChange={(e) => setSummary(e.target.value)} maxLength={200} placeholder="What changed? (optional)" aria-label="Change summary" className="h-8 text-[12px]" />
-                <label className={box}><input type="checkbox" checked={reread} onChange={(e) => setReread(e.target.checked)} /> Ask members to re-read</label>
-                <div className="flex flex-wrap gap-1.5">
-                    <Button type="button" size="sm" disabled={pending} onClick={() => run(() => publishOrgDocAction(data.orgId, doc.id, { summary, reread, notify: true }), 'Members notified')}>Publish and notify</Button>
-                    {reread ? <Button type="button" size="sm" variant="outline" disabled={pending} onClick={() => run(() => publishOrgDocAction(data.orgId, doc.id, { summary, reread: true, notify: false }), 'Marked as new')}>Ask to re-read</Button> : null}
-                </div>
+                <p>{doc.state === 'draft' ? 'Draft · only admins see it' : doc.state === 'changed' ? 'Unpublished changes · members see the last published version' : 'Published'}</p>
+                {doc.state !== 'published' ? <Button type="button" size="sm" disabled={pending} onClick={() => setPublishOpen(true)}>Publish…</Button> : null}
+                {doc.readers ? <ReadByLine orgId={data.orgId} docId={doc.id} readers={doc.readers} /> : null}
             </div>
+            {doc.template ? <UseTemplateButton orgId={data.orgId} docId={doc.id} /> : null}
+            <PublishDialog open={publishOpen} onOpenChange={setPublishOpen} required={doc.required} memberCount={data.memberCount}
+                onPublish={(input) => run(() => publishOrgDocAction(data.orgId, doc.id, input), input.notify ? 'Published, and members were told' : 'Published')} />
             <button type="button" className="text-muted-foreground underline underline-offset-4 hover:text-foreground" onClick={() => setEditingGroups((v) => !v)}>{editingGroups ? 'Close groups' : 'Edit groups'}</button>
             {editingGroups ? <GroupEditor orgId={data.orgId} groups={data.groups} onSaved={() => { setEditingGroups(false); void queryClient.invalidateQueries({ queryKey: ORG_DOCS_QUERY_KEY(data.orgId) }) }} /> : null}
             {status ? <p role="status" className="text-muted-foreground">{status}</p> : null}
@@ -206,6 +216,7 @@ export function OrgDocAdminTools({ data, doc, visibility }: { data: OrgDocsData;
 /** Rename, reorder and add groups; ids stay so docs keep their group (report §19.2). */
 function GroupEditor({ orgId, groups, onSaved }: { orgId: string; groups: DocGroup[]; onSaved: () => void }) {
     const [rows, setRows] = useState(groups)
+    const [removing, setRemoving] = useState<DocGroup | null>(null)
     const [error, setError] = useState<string | null>(null)
     const [pending, startTransition] = useTransition()
     const move = (index: number, by: number) => setRows((current) => {
@@ -222,7 +233,7 @@ function GroupEditor({ orgId, groups, onSaved }: { orgId: string; groups: DocGro
                         onChange={(e) => setRows((current) => current.map((g) => (g.id === row.id ? { ...g, name: e.target.value } : g)))} />
                     <button type="button" aria-label="Move up" disabled={index === 0} onClick={() => move(index, -1)} className="p-1 text-muted-foreground disabled:opacity-30"><ArrowUp className="size-3.5" /></button>
                     <button type="button" aria-label="Move down" disabled={index === rows.length - 1} onClick={() => move(index, 1)} className="p-1 text-muted-foreground disabled:opacity-30"><ArrowDown className="size-3.5" /></button>
-                    <button type="button" aria-label="Remove group" disabled={rows.length === 1} onClick={() => setRows((current) => current.filter((g) => g.id !== row.id))} className="p-1 text-muted-foreground disabled:opacity-30"><X className="size-3.5" /></button>
+                    <button type="button" aria-label="Remove group" disabled={rows.length === 1} onClick={() => setRemoving(row)} className="p-1 text-muted-foreground disabled:opacity-30"><X className="size-3.5" /></button>
                 </div>
             ))}
             <div className="flex gap-1.5">
@@ -234,7 +245,105 @@ function GroupEditor({ orgId, groups, onSaved }: { orgId: string; groups: DocGro
                 })}>Save groups</Button>
             </div>
             {error ? <p role="alert" className="text-destructive">{error}</p> : null}
+            {/* Report §28.4: removing a group moves its documents to the first group, after a confirmation. */}
+            <ConfirmDialog open={Boolean(removing)} onOpenChange={(open) => { if (!open) setRemoving(null) }} title={`Remove ${removing?.name ?? 'this group'}?`}
+                description={`Its documents move to ${rows.find((g) => g.id !== removing?.id)?.name ?? 'the first group'}.`} confirmLabel="Remove group"
+                onConfirm={() => { setRows((current) => current.filter((g) => g.id !== removing?.id)); setRemoving(null) }} />
         </div>
+    )
+}
+
+/** Publish (report §37.4): what changed, Tell members off by default, Ask to re-read on Required documents. */
+function PublishDialog({ open, onOpenChange, required, memberCount, onPublish }: { open: boolean; onOpenChange: (open: boolean) => void; required: boolean; memberCount: number; onPublish: (input: { summary: string; reread: boolean; notify: boolean }) => void }) {
+    const [summary, setSummary] = useState('')
+    const [notify, setNotify] = useState(false)
+    const [reread, setReread] = useState(false)
+    const people = `${memberCount} ${memberCount === 1 ? 'person' : 'people'}`
+    return (
+        <Dialog open={open} onOpenChange={onOpenChange}>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Publish</DialogTitle>
+                    <DialogDescription>Members will read this version. Edits after this wait until you publish again.</DialogDescription>
+                </DialogHeader>
+                <Input value={summary} onChange={(e) => setSummary(e.target.value)} maxLength={200} placeholder="What changed? (optional)" aria-label="What changed" />
+                <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={notify} onChange={(e) => setNotify(e.target.checked)} /> Tell members</label>
+                {required ? <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={reread} onChange={(e) => setReread(e.target.checked)} /> Ask to re-read · Read by counts from zero</label> : null}
+                <div className="flex justify-end gap-2">
+                    <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>Cancel</Button>
+                    <Button size="sm" onClick={() => { onPublish({ summary, notify, reread: required && reread }); onOpenChange(false) }}>{notify ? `Publish and tell ${people}` : 'Publish'}</Button>
+                </div>
+            </DialogContent>
+        </Dialog>
+    )
+}
+
+/** "Read by 32 of 40" (report §28.4, decision 58): it opens who hasn't, with Remind. "Read" means opened. */
+function ReadByLine({ orgId, docId, readers }: { orgId: string; docId: string; readers: { read: number; total: number } }) {
+    const [open, setOpen] = useState(false)
+    const [busy, setBusy] = useState(false)
+    const unread = useQuery({ queryKey: ['org-doc-unread', docId], queryFn: () => readUnreadDocPeopleAction(orgId, docId), enabled: open })
+    const list = unread.data?.success ? unread.data.people : []
+    const remind = async () => {
+        setBusy(true)
+        const r = await remindUnreadDocAction(orgId, docId).finally(() => setBusy(false))
+        if (!r.success) return void toast.error(r.error)
+        toast.success([`Reminded ${r.reminded}`, r.skipped ? `${r.skipped} reminded in the last 12 hours` : null].filter(Boolean).join(' · '))
+    }
+    return (
+        <>
+            <button type="button" className="text-left underline underline-offset-4" onClick={() => setOpen(true)}>Read by {readers.read} of {readers.total}</button>
+            <Dialog open={open} onOpenChange={setOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Not read yet</DialogTitle>
+                        <DialogDescription>“Read” means they opened it. We can’t know more than that.</DialogDescription>
+                    </DialogHeader>
+                    {unread.isPending ? <div className="nb-skeleton h-16 rounded" /> : list.length === 0 ? <p className="text-sm text-muted-foreground">Everyone has opened it.</p> : (
+                        <ul className="max-h-72 space-y-1 overflow-y-auto text-sm">{list.map((p) => <li key={p.id}>{p.name}</li>)}</ul>
+                    )}
+                    {list.length ? <div className="flex justify-end"><Button size="sm" disabled={busy} onClick={() => void remind()}>Remind {list.length}</Button></div> : null}
+                </DialogContent>
+            </Dialog>
+        </>
+    )
+}
+
+/** Use this template (report §28.4): pick one of your workspaces; a filled copy is made there and doesn't update later. */
+function UseTemplateButton({ orgId, docId }: { orgId: string; docId: string }) {
+    const router = useRouter()
+    const [open, setOpen] = useState(false)
+    const [busy, setBusy] = useState(false)
+    const targets = useQuery({ queryKey: ['org-template-targets', orgId], queryFn: () => readTemplateTargetsAction(orgId), enabled: open })
+    const list = targets.data?.success ? targets.data.workspaces : []
+    const use = async (workspaceId: string) => {
+        setBusy(true)
+        try {
+            const copy = await readOrgTemplateCopyAction(workspaceId, docId)
+            if (!copy.success) throw new Error(copy.error)
+            const made = await createDocFile(workspaceId, copy.filename, copy.content)
+            router.push(`/workspaces/${encodeURIComponent(workspaceId)}?tab=docs&doc=${encodeURIComponent(made.slug)}`)
+        } catch (error) {
+            toast.error(error instanceof Error ? error.message : 'Couldn’t copy the template')
+        } finally {
+            setBusy(false)
+        }
+    }
+    return (
+        <>
+            <Button type="button" size="sm" variant="outline" onClick={() => setOpen(true)}>Use this template</Button>
+            <Dialog open={open} onOpenChange={setOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Use this template</DialogTitle>
+                        <DialogDescription>A copy goes into the workspace you pick. Later changes here don’t reach it.</DialogDescription>
+                    </DialogHeader>
+                    {targets.isPending ? <div className="nb-skeleton h-16 rounded" /> : list.length === 0 ? <p className="text-sm text-muted-foreground">You’re not in a workspace here yet.</p> : (
+                        <ul className="space-y-1">{list.map((w) => <li key={w.id}><Button variant="ghost" className="w-full justify-start" disabled={busy} onClick={() => void use(w.id)}>{w.title}</Button></li>)}</ul>
+                    )}
+                </DialogContent>
+            </Dialog>
+        </>
     )
 }
 
@@ -244,7 +353,7 @@ export function OrgDocBanner({ orgTitle, href, backHref }: { orgTitle: string; h
         <div className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-[5px] border border-border bg-muted/30 px-3 py-2 text-[13px]">
             <Lock className="size-3.5 text-muted-foreground" aria-hidden="true" />
             <span className="font-medium">From {orgTitle}</span>
-            <span className="text-muted-foreground">· read-only</span>
+            <span className="text-muted-foreground">· Read only</span>
             <Link href={href} className="ml-auto underline underline-offset-4">Open in {orgTitle} →</Link>
             <Link href={backHref} className={cn('text-muted-foreground underline underline-offset-4')}>Workspace docs</Link>
         </div>

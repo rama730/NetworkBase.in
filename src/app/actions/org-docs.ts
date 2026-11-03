@@ -10,7 +10,12 @@ import { getWorkspaceAccessById } from '@/lib/data/workspace-access';
 import { enqueueWorkspaceNotificationEvent } from '@/lib/notifications/workspace-events';
 import { ORG_LIMITS } from '@/lib/organizations/config';
 import { readViewerOrgRole } from '@/lib/organizations/detail';
-import { docFileName, docLabel, fillDocTemplate, readDocGroups, readOrgDocOptions, templateCopyTitle, type DocGroup, type OrgDocOptions } from '@/lib/organizations/doc-rules';
+import { docFileName, docLabel, docState, fillDocTemplate, readDocGroups, readOrgDocOptions, templateCopyTitle, type DocGroup, type OrgDocOptions } from '@/lib/organizations/doc-rules';
+import { getOrBuildWorkspaceDocPublishMetadata } from '@/lib/workspaces/doc';
+import { readWorkspaceFileText } from '@/lib/files/content-reader';
+import { notifyOrg, orgHref, orgLabel, remindedRecently } from '@/lib/organizations/notify';
+import { workspaceDocumentVersions } from '@/lib/db/schema';
+import { desc } from 'drizzle-orm';
 import { normalizeWorkspaceDocSettings } from '@/lib/workspaces/doc';
 import { getViewerAuthContext } from '@/lib/server/viewer-context';
 import { listWorkspaceDocsAction, readWorkspaceDocAction } from '@/app/actions/workspace/doc';
@@ -22,13 +27,23 @@ import { createFolder } from '@/app/actions/files/mutations';
 type Failure = { success: false; error: string };
 const DENIED: Failure = { success: false, error: "You don’t have permission to do this." };
 
-export type OrgDocItem = OrgDocOptions & { id: string; slug: string; filename: string; label: 'new' | 'updated' | null; sprint: string | null; sprintId: string | null };
+export type OrgDocItem = OrgDocOptions & {
+    id: string; slug: string; filename: string; label: 'new' | 'updated' | null; sprint: string | null; sprintId: string | null
+    /** Admins (report §37.4): Draft, Published, or Published with changes waiting. Members always get 'published'. */
+    state: 'draft' | 'published' | 'changed'
+    /** Admins on Required documents (report §28.4, decision 58): members who opened it at this re-read version. */
+    readers: { read: number; total: number } | null
+}
 export type OrgDocsData = {
     mode: 'org' | 'child';
     orgId: string;
     orgTitle: string;
     orgSlug: string | null;
     isAdmin: boolean;
+    /** In the organization (any role); visitors aren't. */
+    isInside: boolean;
+    /** Members counted for Read by and Tell members (report §28.4, §37.4). Admins only. */
+    memberCount: number;
     /** Signed in: opens are recorded and labels shown. */
     signedIn: boolean;
     groups: DocGroup[];
@@ -51,7 +66,7 @@ async function orgAdmin(orgId: string) {
 }
 
 async function orgDocRow(orgId: string, docId: string) {
-    const [doc] = await db.select({ id: workspaceDocuments.id, slug: workspaceDocuments.slug, filename: workspaceDocuments.filename, settings: workspaceDocuments.settings })
+    const [doc] = await db.select({ id: workspaceDocuments.id, slug: workspaceDocuments.slug, filename: workspaceDocuments.filename, settings: workspaceDocuments.settings, linkedNodeId: workspaceDocuments.linkedNodeId })
         .from(workspaceDocuments).where(and(eq(workspaceDocuments.id, docId), eq(workspaceDocuments.projectId, orgId))).limit(1);
     return doc ?? null;
 }
@@ -85,7 +100,9 @@ export async function readOrgDocsAction(projectId: string): Promise<{ success: t
     const ids = listed.docs.map((d) => d.id);
     const groups = readDocGroups((org.orgSettings as { docGroups?: unknown } | null)?.docGroups);
     const [rows, opens, sprints] = ids.length === 0 ? [[], [], []] : await Promise.all([
-        db.select({ id: workspaceDocuments.id, settings: workspaceDocuments.settings, updatedAt: workspaceNodes.updatedAt })
+        db.select({ id: workspaceDocuments.id, settings: workspaceDocuments.settings, updatedAt: workspaceNodes.updatedAt, linkedNodeId: workspaceDocuments.linkedNodeId,
+            publishedVersionId: workspaceDocuments.publishedVersionId,
+            latestVersionId: sql<string | null>`(SELECT v.id FROM workspace_document_versions v WHERE v.doc_id = ${workspaceDocuments.id} ORDER BY v.version_number DESC LIMIT 1)` })
             .from(workspaceDocuments).leftJoin(workspaceNodes, eq(workspaceNodes.id, workspaceDocuments.linkedNodeId)).where(inArray(workspaceDocuments.id, ids)),
         userId ? db.select({ docId: docOpens.docId, version: docOpens.version, at: docOpens.openedAt }).from(docOpens)
             .where(and(eq(docOpens.userId, userId), inArray(docOpens.docId, ids))) : Promise.resolve([]),
@@ -95,23 +112,32 @@ export async function readOrgDocsAction(projectId: string): Promise<{ success: t
     const byId = new Map(rows.map((r) => [r.id, r]));
     const openById = new Map(opens.map((o) => [o.docId, o]));
     const sprintById = new Map(sprints.map((s) => [s.docId, s]));
+    const isAdmin = role === 'owner' || role === 'admin';
+    // Read by N of M (report §28.4): members only; owners, admins and viewers aren't counted.
+    const readers = isAdmin && mode === 'org' ? await readRequiredReaders(orgId, rows.filter((r) => readOrgDocOptions(normalizeWorkspaceDocSettings(r.settings).org).required).map((r) => r.id)) : new Map<string, { read: number; total: number }>();
     const docs = listed.docs.flatMap((d): OrgDocItem[] => {
-        const options = readOrgDocOptions(normalizeWorkspaceDocSettings(byId.get(d.id)?.settings).org, groups);
-        if (mode === 'child' && !options.showInChildren) return [];
+        const row = byId.get(d.id);
+        const options = readOrgDocOptions(normalizeWorkspaceDocSettings(row?.settings).org, groups);
+        if (mode === 'child' && (!options.showInChildren || options.lifecycle === 'draft')) return [];
         const opened = openById.get(d.id);
+        const state = docState({ lifecycle: options.lifecycle, publishedAt: options.publishedAt, fileUpdatedAt: row?.updatedAt ?? null, latestVersionId: row?.latestVersionId ?? null, publishedVersionId: row?.publishedVersionId ?? null, linked: Boolean(row?.linkedNodeId) });
+        // Members see "Updated" from the publish, not from edits still waiting (report §37.4).
+        const changedAt = options.lifecycle === 'published' && options.publishedAt ? new Date(options.publishedAt) : row?.updatedAt ?? null;
         return [{
             id: d.id, slug: d.slug, filename: d.filename, ...options,
-            label: userId ? docLabel({ readVersion: options.readVersion, opened: opened ? { version: opened.version, at: opened.at } : null, updatedAt: byId.get(d.id)?.updatedAt ?? null }) : null,
+            label: userId ? docLabel({ readVersion: options.readVersion, opened: opened ? { version: opened.version, at: opened.at } : null, updatedAt: changedAt }) : null,
             sprint: sprintById.get(d.id)?.name ?? null,
             sprintId: sprintById.get(d.id)?.sprintId ?? null,
+            state: isAdmin ? state : 'published',
+            readers: readers.get(d.id) ?? null,
         }];
     });
-    const isAdmin = role === 'owner' || role === 'admin';
     const linkable = mode === 'org' && isAdmin
         ? await db.select({ id: workspaceSprints.id, name: workspaceSprints.name }).from(workspaceSprints)
             .where(and(eq(workspaceSprints.projectId, orgId), inArray(workspaceSprints.status, ['planning', 'active']))).orderBy(workspaceSprints.startDate)
         : [];
-    return { success: true, data: { mode, orgId, orgTitle: org.title, orgSlug: org.slug, isAdmin, signedIn: Boolean(userId), groups, docs, sprints: linkable } };
+    const [members] = isAdmin ? await db.execute<{ n: number }>(sql`SELECT count(*)::int AS n FROM workspace_members WHERE workspace_id = ${orgId} AND role IN ('member', 'viewer')`) : [];
+    return { success: true, data: { mode, orgId, orgTitle: org.title, orgSlug: org.slug, isAdmin, isInside: Boolean(role), memberCount: members?.n ?? 0, signedIn: Boolean(userId), groups, docs, sprints: linkable } };
 }
 
 const optionsSchema = z.object({
@@ -133,6 +159,11 @@ export async function updateOrgDocOptionsAction(orgId: string, docId: string, in
     const doc = await orgDocRow(orgId, docId);
     if (!doc) return { success: false, error: 'That doc is no longer available.' };
     const { visibility, sprintId, ...patch } = parsed.data;
+    const org = await readOrg(orgId);
+    // Report §37.4: Public only when the organization itself is public.
+    if (visibility === 'public' && org && !(await orgIsPublic(orgId))) return { success: false, error: `${org.title} is private, so its documents can’t be public.` };
+    // A template moves to the Templates group unless a group is chosen too (report §37.4).
+    if (patch.template === true && patch.group === undefined && readDocGroups((org?.orgSettings as { docGroups?: unknown } | null)?.docGroups).some((g) => g.id === 'templates')) patch.group = 'templates';
     if (sprintId !== undefined) {
         const [sprint] = sprintId ? await db.select({ id: workspaceSprints.id }).from(workspaceSprints)
             .where(and(eq(workspaceSprints.id, sprintId), eq(workspaceSprints.projectId, orgId))).limit(1) : [];
@@ -144,14 +175,16 @@ export async function updateOrgDocOptionsAction(orgId: string, docId: string, in
         });
     }
     if (Object.keys(patch).length > 0 || visibility) await writeOrgOptions(doc.id, doc.settings, patch, visibility ? { visibilityOverride: visibility } : {});
-    const org = await readOrg(orgId);
     touch(org?.slug ?? null, orgId);
     return { success: true };
 }
 
 const publishSchema = z.object({ summary: z.string().trim().max(200), reread: z.boolean(), notify: z.boolean() }).strict();
 
-/** Publish & notify (report §19.3): tell members what changed; Ask members to re-read makes it New again. */
+/**
+ * Publish (report §37.4, decision 101): the document as it is now becomes what members read, with "What changed" in
+ * its history. Telling members is off unless chosen; Ask to re-read counts again from zero (Required only).
+ */
 export async function publishOrgDocAction(orgId: string, docId: string, input: z.input<typeof publishSchema>): Promise<{ success: true } | Failure> {
     const userId = await orgAdmin(orgId);
     if (!userId) return DENIED;
@@ -159,10 +192,32 @@ export async function publishOrgDocAction(orgId: string, docId: string, input: z
     if (!parsed.success) return { success: false, error: 'Keep the summary under 200 characters.' };
     const [doc, org] = await Promise.all([orgDocRow(orgId, docId), readOrg(orgId)]);
     if (!doc || !org) return { success: false, error: 'That doc is no longer available.' };
-    if (parsed.data.reread) {
-        const current = readOrgDocOptions(normalizeWorkspaceDocSettings(doc.settings).org);
-        await writeOrgOptions(doc.id, doc.settings, { readVersion: current.readVersion + 1 });
+    const options = readOrgDocOptions(normalizeWorkspaceDocSettings(doc.settings).org);
+    let content: string | null = null;
+    if (doc.linkedNodeId) {
+        const access = await getWorkspaceAccessById(orgId, userId);
+        if (!access.project) return DENIED;
+        content = await readWorkspaceFileText({ ...access, project: access.project }, orgId, doc.linkedNodeId).catch(() => null);
+    } else {
+        const [latest] = await db.select({ content: workspaceDocumentVersions.content }).from(workspaceDocumentVersions)
+            .where(eq(workspaceDocumentVersions.docId, doc.id)).orderBy(desc(workspaceDocumentVersions.versionNumber)).limit(1);
+        content = latest?.content ?? null;
     }
+    if (content === null) return { success: false, error: 'Couldn’t read the document to publish it. Try again.' };
+    const metadata = getOrBuildWorkspaceDocPublishMetadata(content);
+    const now = new Date();
+    await db.transaction(async (tx) => {
+        const [{ n } = { n: 0 }] = await tx.select({ n: sql<number>`coalesce(max(${workspaceDocumentVersions.versionNumber}), 0)::int` }).from(workspaceDocumentVersions).where(eq(workspaceDocumentVersions.docId, doc.id));
+        const [version] = await tx.insert(workspaceDocumentVersions).values({
+            projectId: orgId, docId: doc.id, versionNumber: n + 1, content: metadata.content, excerpt: metadata.excerpt, headings: metadata.headings,
+            qualityReport: metadata.qualityReport, contentHash: metadata.contentHash, changeSummary: parsed.data.summary || 'Published', createdBy: userId,
+        }).returning({ id: workspaceDocumentVersions.id });
+        const current = normalizeWorkspaceDocSettings(doc.settings);
+        await tx.update(workspaceDocuments).set({
+            publishedVersionId: version!.id, updatedAt: now,
+            settings: { ...current, org: { ...(current.org ?? {}), lifecycle: 'published', publishedAt: now.toISOString(), readVersion: options.required && parsed.data.reread ? options.readVersion + 1 : options.readVersion } },
+        }).where(eq(workspaceDocuments.id, doc.id));
+    });
     if (parsed.data.notify) {
         const name = doc.filename.replace(/\.(md|mdx|markdown)$/i, '');
         await enqueueWorkspaceNotificationEvent({
@@ -260,4 +315,65 @@ export async function ensureDocsFolderAction(projectId: string): Promise<{ succe
     } catch (error) {
         return { success: false, error: error instanceof Error ? error.message : "Couldn’t create the Docs folder." };
     }
+}
+
+async function orgIsPublic(orgId: string) {
+    const [row] = await db.select({ visibility: workspaces.visibility }).from(workspaces).where(eq(workspaces.id, orgId)).limit(1);
+    return row?.visibility === 'public';
+}
+
+/** Members (not owners, admins or viewers) who have opened each Required document at its re-read version. */
+async function readRequiredReaders(orgId: string, docIds: string[]) {
+    if (docIds.length === 0) return new Map<string, { read: number; total: number }>();
+    const rows = await db.execute<{ id: string; read: number; total: number }>(sql`
+        SELECT d.id,
+               (SELECT count(*)::int FROM doc_opens o JOIN workspace_members m ON m.user_id = o.user_id AND m.workspace_id = ${orgId} AND m.role = 'member'
+                 WHERE o.doc_id = d.id AND o.version >= coalesce((d.settings->'org'->>'readVersion')::int, 0)) AS read,
+               (SELECT count(*)::int FROM workspace_members m WHERE m.workspace_id = ${orgId} AND m.role = 'member') AS total
+        FROM workspace_documents d WHERE d.id IN ${docIds}`);
+    return new Map(rows.map((r) => [r.id, { read: r.read, total: r.total }]));
+}
+
+const UNREAD = (orgId: string, docId: string) => sql`
+    SELECT m.user_id AS id, coalesce(p.full_name, p.username, 'Someone') AS name
+    FROM workspace_members m JOIN workspace_documents d ON d.id = ${docId} AND d.workspace_id = ${orgId}
+    LEFT JOIN profiles p ON p.id = m.user_id
+    WHERE m.workspace_id = ${orgId} AND m.role = 'member'
+      AND NOT EXISTS (SELECT 1 FROM doc_opens o WHERE o.doc_id = d.id AND o.user_id = m.user_id AND o.version >= coalesce((d.settings->'org'->>'readVersion')::int, 0))
+    ORDER BY 2`;
+
+/** Read by N of M → who hasn't (report §28.4): admins only, on Required documents. */
+export async function readUnreadDocPeopleAction(orgId: string, docId: string): Promise<{ success: true; people: Array<{ id: string; name: string }> } | Failure> {
+    if (!(await orgAdmin(orgId))) return DENIED;
+    return { success: true, people: [...await db.execute<{ id: string; name: string }>(UNREAD(orgId, docId))] };
+}
+
+/** Remind who hasn't read a Required document: once per 12 hours each, with an honest count (decision 60). */
+export async function remindUnreadDocAction(orgId: string, docId: string): Promise<{ success: true; reminded: number; skipped: number } | Failure> {
+    const adminId = await orgAdmin(orgId);
+    const doc = adminId ? await orgDocRow(orgId, docId) : null;
+    const org = await orgLabel(orgId);
+    if (!adminId || !doc || !org) return DENIED;
+    const unread = (await db.execute<{ id: string }>(UNREAD(orgId, docId))).map((r) => r.id);
+    const subject = `remind-doc-${docId}`;
+    const recent = await remindedRecently(orgId, subject, unread);
+    const send = unread.filter((id) => !recent.has(id));
+    const minute = Math.floor(Date.now() / 60_000);
+    const name = doc.filename.replace(/\.(md|mdx|markdown)$/i, '');
+    for (const userId of send) {
+        await notifyOrg({ orgId, eventKey: 'assignments.reminded', actorId: adminId, to: [userId], title: `Reminder: read ${name} in ${org.title}`,
+            href: orgHref(org, `?tab=readme&doc=${encodeURIComponent(doc.slug)}`), sourceEventId: `${subject}:${userId}:${minute}` });
+    }
+    return { success: true, reminded: send.length, skipped: unread.length - send.length };
+}
+
+/** Use this template (report §28.4): the workspaces in this organization where the viewer can add documents. */
+export async function readTemplateTargetsAction(orgId: string): Promise<{ success: true; workspaces: Array<{ id: string; title: string }> } | Failure> {
+    const { userId } = await getViewerAuthContext();
+    if (!userId || !(await readViewerOrgRole(orgId, userId))) return DENIED;
+    const rows = await db.select({ id: workspaces.id, title: workspaces.title }).from(workspaces)
+        .innerJoin(workspaceMembers, and(eq(workspaceMembers.projectId, workspaces.id), eq(workspaceMembers.userId, userId)))
+        .where(and(eq(workspaces.parentId, orgId), isNull(workspaces.deletedAt), sql`${workspaces.status} <> 'archived'`, inArray(workspaceMembers.role, ['owner', 'admin', 'member'])))
+        .orderBy(workspaces.title);
+    return { success: true, workspaces: rows };
 }

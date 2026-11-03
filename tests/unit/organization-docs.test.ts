@@ -22,9 +22,19 @@ test("New until opened at the current re-read version; Updated for 7 days after 
 });
 
 test("options default to the first group, templates to Templates, and show in child projects", () => {
-  assert.deepEqual(readOrgDocOptions(undefined), { group: "start", required: false, template: false, showInChildren: true, readVersion: 0 });
+  assert.deepEqual(readOrgDocOptions(undefined), { group: "start", required: false, template: false, showInChildren: true, readVersion: 0, lifecycle: null, publishedAt: null }, "older documents have no lifecycle and read live");
   assert.equal(readOrgDocOptions({ template: true }).group, "templates");
   assert.equal(readOrgDocOptions({ group: "gone" }).group, "start", "a removed group falls back");
   assert.deepEqual(readDocGroups([]), DEFAULT_DOC_GROUPS);
   assert.deepEqual(readDocGroups([{ id: "a", name: "Week 1" }, { id: "b", name: " " }]), [{ id: "a", name: "Week 1" }]);
+});
+
+test("37.4, decision 101: a document is a Draft, Published, or Published with changes waiting", async () => {
+  const { docState } = await import("../../src/lib/organizations/doc-rules");
+  const at = "2026-11-01T10:00:00Z";
+  assert.equal(docState({ lifecycle: "draft", publishedAt: null, fileUpdatedAt: null, latestVersionId: null, publishedVersionId: null, linked: true }), "draft");
+  assert.equal(docState({ lifecycle: "published", publishedAt: at, fileUpdatedAt: new Date("2026-11-02T10:00:00Z"), latestVersionId: null, publishedVersionId: "v", linked: true }), "changed");
+  assert.equal(docState({ lifecycle: "published", publishedAt: at, fileUpdatedAt: new Date("2026-10-31T10:00:00Z"), latestVersionId: null, publishedVersionId: "v", linked: true }), "published");
+  assert.equal(docState({ lifecycle: null, publishedAt: null, fileUpdatedAt: new Date(), latestVersionId: null, publishedVersionId: null, linked: true }), "published", "older file documents read live");
+  assert.equal(docState({ lifecycle: null, publishedAt: null, fileUpdatedAt: null, latestVersionId: "v2", publishedVersionId: "v1", linked: false }), "changed");
 });

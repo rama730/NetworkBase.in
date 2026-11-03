@@ -18,6 +18,10 @@ export type OrgDocOptions = {
   showInChildren: boolean;
   /** Bumped by "Ask members to re-read"; an open below it is stale. */
   readVersion: number;
+  /** Report §37.4, decision 101: new documents start as drafts; older ones (null) read live, as before. */
+  lifecycle: "draft" | "published" | null;
+  /** When it was last published; "Updated" and Unpublished changes count from here. */
+  publishedAt: string | null;
 };
 
 export function readDocGroups(value: unknown): DocGroup[] {
@@ -38,6 +42,8 @@ export function readOrgDocOptions(value: unknown, groups: DocGroup[] = DEFAULT_D
     template,
     showInChildren: o.showInChildren !== false,
     readVersion: Number.isInteger(o.readVersion) && (o.readVersion as number) > 0 ? (o.readVersion as number) : 0,
+    lifecycle: o.lifecycle === "draft" || o.lifecycle === "published" ? o.lifecycle : null,
+    publishedAt: typeof o.publishedAt === "string" ? o.publishedAt : null,
   };
 }
 
@@ -68,4 +74,18 @@ export function templateCopyTitle(templateName: string, project: string, date: s
 export function docFileName(title: string) {
   const clean = title.replace(/[/\\:*?"<>|]+/g, " ").replace(/\s+/g, " ").trim().slice(0, 120) || "Untitled";
   return `${clean}.md`;
+}
+
+/**
+ * Where a document stands for its admins (report §37.4): a Draft nobody else sees, Published, or Published with
+ * changes not yet published. A file-backed document has changes when the file moved on after publishing; a
+ * version-backed one when a newer version exists than the published one.
+ */
+export function docState(input: { lifecycle: OrgDocOptions["lifecycle"]; publishedAt: string | null; fileUpdatedAt: Date | null; latestVersionId: string | null; publishedVersionId: string | null; linked: boolean }): "draft" | "published" | "changed" {
+  if (input.lifecycle === "draft") return "draft";
+  if (input.linked) {
+    return input.lifecycle === "published" && input.publishedAt && input.fileUpdatedAt && input.fileUpdatedAt.getTime() > Date.parse(input.publishedAt) ? "changed" : "published";
+  }
+  if (!input.publishedVersionId) return "draft";
+  return input.latestVersionId && input.latestVersionId !== input.publishedVersionId ? "changed" : "published";
 }

@@ -123,11 +123,14 @@ function OwnDocs({ projectId, project, paramDoc }: { projectId: string; project:
         <div className="nb-empty-state nb-grid-ground py-12" role="status">
             <BookOpenText className="nb-empty-state-icon" aria-hidden="true" />
             <p className="nb-card-title mt-4 text-foreground">
-                {hasDocs ? "Not published yet" : "No documents yet"}
+                {hasDocs ? "Not published yet" : orgDocs?.mode === "org" && !canEdit ? (orgDocs.isInside ? "Nothing shared yet" : "No public documents") : "No documents yet"}
             </p>
             <p className="nb-compact mt-2 text-muted-foreground">
                 {hasDocs
                     ? "This doc has no published version yet."
+                    : orgDocs?.mode === "org"
+                        // Report §7.4: what each person sees with no documents.
+                        ? canEdit ? "Add the first document. It stays a draft until you publish it." : orgDocs.isInside ? "Documents your admins publish show here." : "This organization hasn’t made any documents public."
                     : canEdit
                         ? "Add Markdown files from Files to see them here."
                         : "This workspace has no docs visible to you."}
