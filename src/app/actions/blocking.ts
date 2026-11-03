@@ -131,6 +131,12 @@ export async function askToChangeTeamAction(workspaceId: string): Promise<Result
         JOIN profiles p ON p.id = ${userId}::uuid
         WHERE t.id = ${workspaceId}::uuid AND t.deleted_at IS NULL`) as unknown as Array<{ title: string; org_id: string; org_slug: string | null; name: string; admins: string[] }>
     if (!team) return { success: false, error: 'Only members of a team in an organization can ask this.' }
+    // Kept for Members → Requests (report §25.5, decision 46), one per person and workspace.
+    await db.execute(sql`
+        UPDATE workspaces SET org_settings = jsonb_set(org_settings, '{teamChangeRequests}',
+            coalesce((SELECT jsonb_agg(r) FROM jsonb_array_elements(org_settings->'teamChangeRequests') r WHERE NOT (r->>'userId' = ${userId} AND r->>'workspaceId' = ${workspaceId})), '[]'::jsonb)
+            || jsonb_build_array(jsonb_build_object('userId', ${userId}::text, 'workspaceId', ${workspaceId}::text, 'at', now())))
+        WHERE id = ${team.org_id}::uuid`)
     await notifyOrg({
         orgId: team.org_id, eventKey: 'org.child_notice', actorId: userId, to: team.admins.filter((id) => id !== userId),
         title: `${team.name} asked to change team`, body: `They’re in ${team.title} and would like to be moved. No reason is given, so don’t ask for one.`,

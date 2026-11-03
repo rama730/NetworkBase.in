@@ -1,6 +1,6 @@
 'use server';
 
-import { and, asc, eq, isNull, ne, sql } from 'drizzle-orm';
+import { and, asc, count, eq, isNull, ne, sql } from 'drizzle-orm';
 
 import { db } from '@/lib/db';
 import { profiles, workspaceMembers, workspaceOpenRoles, workspaces } from '@/lib/db/schema';
@@ -10,6 +10,9 @@ import { insertTask } from '@/lib/organizations/assignments';
 import { enqueueWorkspaceNotificationEvent } from '@/lib/notifications/workspace-events';
 import { taskTeamMembers } from '@/lib/db/schema';
 import { getViewerAuthContext } from '@/lib/server/viewer-context';
+import { closePendingApplications } from '@/lib/applications/closing';
+import { notifyClosedApplications } from '@/lib/applications/notifications';
+import { ORG_LIMITS } from '@/lib/organizations/config';
 
 // Units after creation (report §14.4, §21 "Units & open seats"): the lead, a project admin or an inherited org admin
 // renames units, changes seats, picks the unit lead ★ and moves people between units.
@@ -86,9 +89,69 @@ export async function updateUnitAction(projectId: string, unitId: string, patch:
     return { success: true };
 }
 
-/** Move one person into a unit (a free seat) or out of every unit; seat counts follow, and a unit lead who moves stops leading it. */
-export async function moveMemberToUnitAction(projectId: string, userId: string, unitId: string | null): Promise<{ success: true } | Failure> {
+const unitName = (u: { title: string | null; role: string }) => u.title || u.role;
+
+/** Add team (report §25.3, decision 45): lead, workspace admins and organization admins; up to 20; names unique here. */
+export async function createUnitAction(projectId: string, input: { title: string; count: number; description?: string | null }): Promise<{ success: true; id: string } | Failure> {
+    const m = await manager(projectId);
+    if (!m) return DENIED;
+    const title = input.title.trim().slice(0, 100);
+    const seats = Math.trunc(input.count);
+    if (!title) return { success: false, error: 'A team needs a name.' };
+    if (!(seats >= 1 && seats <= UNIT_SEATS)) return { success: false, error: `A team has 1 to ${UNIT_SEATS} seats.` };
+    const [{ n } = { n: 0 }] = await db.select({ n: count() }).from(workspaceOpenRoles).where(eq(workspaceOpenRoles.projectId, projectId));
+    if (n >= ORG_LIMITS.unitsPerChildProject) return { success: false, error: `A workspace has up to ${ORG_LIMITS.unitsPerChildProject} teams.` };
+    const [clash] = await db.select({ id: workspaceOpenRoles.id }).from(workspaceOpenRoles)
+        .where(and(eq(workspaceOpenRoles.projectId, projectId), sql`lower(coalesce(${workspaceOpenRoles.title}, ${workspaceOpenRoles.role})) = lower(${title})`)).limit(1);
+    if (clash) return { success: false, error: 'Another team already has that name.' };
+    const [row] = await db.insert(workspaceOpenRoles).values({ projectId, role: title, title, count: seats, filled: 0, description: input.description?.trim().slice(0, 2000) || null })
+        .returning({ id: workspaceOpenRoles.id });
+    return { success: true, id: row!.id };
+}
+
+/** Remove a team (report §25.3): its people stay in the workspace, not in a team; waiting applications close and are told. */
+export async function removeUnitAction(projectId: string, unitId: string): Promise<{ success: true; people: number } | Failure> {
+    const m = await manager(projectId);
+    if (!m) return DENIED;
+    const result = await db.transaction(async (tx) => {
+        const [unit] = await tx.select({ id: workspaceOpenRoles.id }).from(workspaceOpenRoles).where(and(eq(workspaceOpenRoles.id, unitId), eq(workspaceOpenRoles.projectId, projectId))).limit(1);
+        if (!unit) return null;
+        const moved = await tx.update(workspaceMembers).set({ unitId: null }).where(and(eq(workspaceMembers.projectId, projectId), eq(workspaceMembers.unitId, unitId))).returning({ id: workspaceMembers.id });
+        const closed = await closePendingApplications(tx, { projectId, actorId: m.userId, reason: 'role_removed', roleIds: [unitId], source: 'team_removed' });
+        await tx.delete(workspaceOpenRoles).where(eq(workspaceOpenRoles.id, unitId));
+        return { people: moved.length, closed };
+    });
+    if (!result) return { success: false, error: 'That team is gone.' };
+    if (result.closed.length) await notifyClosedApplications(result.closed, { reason: 'role_removed', projectId, projectSlug: m.project.slug ?? null, projectTitle: '', actorUserId: m.userId, traceId: `team_removed_${unitId.slice(0, 8)}` }).catch(() => undefined);
+    return { success: true, people: result.people };
+}
+
+/** Open team tasks a move would carry over (report §42.10, decision 138): their old team's, not handed in. */
+async function openTeamTasks(projectId: string, userId: string, teamName: string) {
+    return db.execute<{ id: string }>(sql`
+        SELECT t.id FROM tasks t JOIN task_team_members tm ON tm.task_id = t.id AND tm.user_id = ${userId}
+        WHERE t.workspace_id = ${projectId} AND t.deleted_at IS NULL AND t.team_name = ${teamName} AND t.status <> 'done'
+          AND t.assignment_id IS NULL AND t.review_status IS DISTINCT FROM 'pending'`);
+}
+
+/** "Also move them on 2 open team tasks?" before a move. */
+export async function readTeamMovePreviewAction(projectId: string, userId: string, unitId: string | null): Promise<{ success: true; openTasks: number } | Failure> {
     if (!(await manager(projectId))) return DENIED;
+    const [member] = await db.select({ unitId: workspaceMembers.unitId }).from(workspaceMembers).where(and(eq(workspaceMembers.projectId, projectId), eq(workspaceMembers.userId, userId))).limit(1);
+    const [from] = member?.unitId ? await db.select({ title: workspaceOpenRoles.title, role: workspaceOpenRoles.role }).from(workspaceOpenRoles).where(eq(workspaceOpenRoles.id, member.unitId)).limit(1) : [];
+    if (!from || member?.unitId === unitId) return { success: true, openTasks: 0 };
+    return { success: true, openTasks: (await openTeamTasks(projectId, userId, unitName(from))).length };
+}
+
+/**
+ * Move one person into a unit (a free seat) or out of every unit; seat counts follow, and a unit lead who moves stops
+ * leading it. With `moveTasks` (on by default, report §42.10, decision 138) they leave the old team's open tasks and
+ * join the new team's; handed-in tasks stay as they are. They're told (report §25.1 #4).
+ */
+export async function moveMemberToUnitAction(projectId: string, userId: string, unitId: string | null, moveTasks = true): Promise<{ success: true } | Failure> {
+    const m = await manager(projectId);
+    if (!m) return DENIED;
+    let names: { from: string | null; to: string | null } = { from: null, to: null };
     try {
         await db.transaction(async (tx) => {
             const [member] = await tx.select({ unitId: workspaceMembers.unitId }).from(workspaceMembers)
@@ -110,9 +173,31 @@ export async function moveMemberToUnitAction(projectId: string, userId: string, 
                 }).where(eq(workspaceOpenRoles.id, member.unitId));
             }
             await tx.update(workspaceMembers).set({ unitId }).where(and(eq(workspaceMembers.projectId, projectId), eq(workspaceMembers.userId, userId)));
+            const named = async (id: string | null) => {
+                if (!id) return null;
+                const [u] = await tx.select({ title: workspaceOpenRoles.title, role: workspaceOpenRoles.role }).from(workspaceOpenRoles).where(eq(workspaceOpenRoles.id, id)).limit(1);
+                return u ? unitName(u) : null;
+            };
+            names = { from: await named(member.unitId), to: await named(unitId) };
         });
     } catch (error) {
         return { success: false, error: error instanceof Error ? error.message : 'Couldn’t move them.' };
+    }
+    if (moveTasks && names.from) {
+        const leaving = (await openTeamTasks(projectId, userId, names.from)).map((r) => r.id);
+        if (leaving.length) await db.execute(sql`DELETE FROM task_team_members WHERE user_id = ${userId} AND task_id IN ${leaving}`);
+        if (names.to) {
+            await db.execute(sql`
+                INSERT INTO task_team_members (task_id, user_id)
+                SELECT t.id, ${userId}::uuid FROM tasks t WHERE t.workspace_id = ${projectId} AND t.deleted_at IS NULL AND t.team_name = ${names.to}
+                  AND t.status <> 'done' AND t.assignment_id IS NULL AND t.review_status IS DISTINCT FROM 'pending'
+                ON CONFLICT DO NOTHING`);
+        }
+    }
+    if (m.project.parentId && names.to !== names.from) {
+        await notifyOrg({ orgId: m.project.parentId, eventKey: 'org.team_changed', actorId: m.userId, to: [userId],
+            title: names.to ? `You were moved to ${names.to}` : `You’re no longer in ${names.from}`, href: `/workspaces/${encodeURIComponent(m.project.slug ?? projectId)}`,
+            sourceEventId: `team-move:${projectId}:${userId}:${Date.now()}`, refs: { projectId } });
     }
     return { success: true };
 }

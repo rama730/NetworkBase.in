@@ -2,7 +2,7 @@ import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AssignmentsPanel } from '@/components/organizations/AssignmentsPanel';
-import { OrgFilesPanel } from '@/components/organizations/OrgFilesPanel';
+import { OrgFilesCollection, OrgStorageNotice } from '@/components/organizations/OrgFilesPanel';
 import { OrgMembersTab } from '@/components/organizations/OrgMembersTab';
 import { OrgWorkspacesTab } from '@/components/organizations/OrgOverviewParts';
 import { FormProvider, useForm } from 'react-hook-form';
@@ -51,7 +51,7 @@ createRoot(document.getElementById('root')!).render(
             {tab === 'members' ? <OrgMembersTab orgId="org" /> : null}
             {tab === 'projects' ? <OrgWorkspacesTab orgId="org" /> : null}
             {tab === 'tasks' ? <AssignmentsPanel orgId="org" /> : null}
-            {tab === 'files' ? <><OrgFilesPanel projectId="child" mode="child" canCopy /><OrgFilesPanel projectId="org" mode="org-admin" canCopy={false} /></> : null}
+            {tab === 'files' ? <><OrgStorageNotice org={{ mode: 'org', orgId: 'org', title: 'CSE-3A', slug: 'cse-3a', isAdmin: true, canCopy: false }} /><OrgFilesCollection view="from_org" projectId="child" org={{ mode: 'child', orgId: 'org', title: 'CSE-3A Software Engineering', slug: 'cse-3a', isAdmin: false, canCopy: true }} /></> : null}
             {tab === 'team' ? <Team /> : null}
             {tab === 'units' ? <ChildUnitsPanel projectId="child" /> : null}
             {tab === 'header' ? <Header /> : null}

@@ -591,9 +591,10 @@ export async function unarchiveChildAction(projectId: string): Promise<{ success
     if (row?.status !== 'archived') return { success: false, error: 'This workspace isn’t archived.' };
     const settings = (row.settings ?? {}) as { archivedBy?: { admin?: boolean }; archivedWithOrg?: boolean };
     if (settings.archivedWithOrg) return { success: false, error: 'It was archived with the organization, and returns when the organization does.' };
-    const isOrgAdmin = viewer.parentRole === 'owner' || viewer.parentRole === 'admin';
-    if (settings.archivedBy?.admin && !isOrgAdmin) return { success: false, error: 'An organization admin archived it, so only an admin can unarchive it.' };
-    if (!isOrgAdmin && !viewer.isLead) return DENIED;
+    // The lead's grant is "own": only an archive they made themself (decision 91).
+    const grant = childGrant(await childRoleOf(viewer), 'unarchive');
+    if (grant === 'no') return DENIED;
+    if (settings.archivedBy?.admin && grant !== 'yes') return { success: false, error: 'An organization admin archived it, so only an admin can unarchive it.' };
     await db.update(workspaces).set({ status: 'active', updatedAt: new Date(), orgSettings: sql`coalesce(${workspaces.orgSettings}, '{}'::jsonb) - 'archivedBy'` }).where(eq(workspaces.id, projectId));
     revalidateChild(viewer.project);
     const [org, team] = await Promise.all([orgLabel(viewer.project.parentId),

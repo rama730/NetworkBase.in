@@ -10,7 +10,9 @@ import {
     cancelOrgInviteAction,
     changeMemberRoleAction,
     declineJoinRequestAction,
+    dismissTeamChangeAction,
     inviteByEmailAction,
+    moveMemberToWorkspaceAction,
     readMemberActivityAction,
     readMemberWorkAction,
     readOrgMembersAction,
@@ -107,7 +109,7 @@ export function OrgMembersTab({ orgId, roleNames }: { orgId: string; roleNames?:
                     </select>
                 </div>
 
-                {data.requests.length > 0 ? <div className="lg:hidden"><Requests orgId={orgId} data={data} pending={pending} run={run} /></div> : null}
+                {data.requests.length + data.teamChanges.length > 0 ? <div className="lg:hidden"><Requests orgId={orgId} data={data} pending={pending} run={run} /></div> : null}
 
                 {ids.length > 0 ? <BulkBar label={label} orgId={orgId} data={data} ids={ids} pending={pending} run={run} onClear={() => setSelected(new Set())} /> : null}
 
@@ -170,7 +172,7 @@ export function OrgMembersTab({ orgId, roleNames }: { orgId: string; roleNames?:
             </div>
 
             <aside className="space-y-5">
-                <div className={data.requests.length > 0 ? 'hidden lg:block' : undefined}><Requests orgId={orgId} data={data} pending={pending} run={run} /></div>
+                <div className={data.requests.length + data.teamChanges.length > 0 ? 'hidden lg:block' : undefined}><Requests orgId={orgId} data={data} pending={pending} run={run} /></div>
                 {/* Report §7.11: the same invite panel as the header and About. */}
                 <div className="border-t border-border pt-4"><OrgInvitePanel orgId={orgId} orgHandle={null} /></div>
                 <section aria-label="Summary" className="space-y-1 text-sm">
@@ -240,8 +242,17 @@ function BulkBar({ orgId, data, label, ids, pending, run, onClear }: { orgId: st
 function Requests({ orgId, data, pending, run }: { orgId: string; data: OrgMembersData; pending: boolean; run: Run }) {
     return (
         <section aria-label="Requests" className="space-y-2">
-            <h3 className="text-sm font-semibold">Requests · {data.requests.length}</h3>
-            {data.requests.length === 0 ? <p className="text-[13px] text-muted-foreground">No one is waiting.</p> : null}
+            <h3 className="text-sm font-semibold">Requests · {data.requests.length + data.teamChanges.length}</h3>
+            {data.requests.length + data.teamChanges.length === 0 ? <p className="text-[13px] text-muted-foreground">No one is waiting.</p> : null}
+            {/* Ask to change team (report §25.5, decision 46): admins only, since it can be about a block. */}
+            {data.teamChanges.map((c) => (
+                <div key={`${c.userId}:${c.workspaceId}`} className="space-y-1 rounded-md border border-border p-2 text-[13px]">
+                    <p><span className="font-medium">{c.name}</span> asks to change team <span className="text-muted-foreground">· in {c.workspace} · {ago(c.at)}</span></p>
+                    <MoveToWorkspace orgId={orgId} data={data} userId={c.userId} fromId={c.workspaceId} pending={pending} run={run}>
+                        <Button type="button" size="sm" variant="outline" disabled={pending} onClick={() => run(() => dismissTeamChangeAction(orgId, c.userId, c.workspaceId), 'Dismissed')}>Dismiss</Button>
+                    </MoveToWorkspace>
+                </div>
+            ))}
             {data.requests.map((r) => (
                 <div key={r.id} className="space-y-1 rounded-md border border-border p-2 text-[13px]">
                     <p><span className="font-medium">{r.name}</span> <span className="text-muted-foreground">· via code · {ago(r.createdAt)}</span></p>
@@ -257,6 +268,29 @@ function Requests({ orgId, data, pending, run }: { orgId: string; data: OrgMembe
             ))}
             {data.requests.length > 1 ? <Button type="button" size="sm" variant="outline" disabled={pending} onClick={() => run(() => approveJoinRequestsAction(orgId, data.requests.map((r) => r.id)), 'All approved')}>Approve all</Button> : null}
         </section>
+    )
+}
+
+/** Move to another workspace (report §25.5): pick the workspace and team; the old lead hears only that a seat opened. */
+function MoveToWorkspace({ orgId, data, userId, fromId, pending, run, children }: { orgId: string; data: OrgMembersData; userId: string; fromId: string; pending: boolean; run: Run; children?: React.ReactNode }) {
+    const [toId, setToId] = useState('')
+    const [unitId, setUnitId] = useState('')
+    const units = data.children.find((c) => c.id === toId)?.units ?? []
+    return (
+        <div className="flex flex-wrap items-center gap-1.5">
+            <select aria-label="Move to workspace" className={select} value={toId} onChange={(e) => { setToId(e.target.value); setUnitId('') }}>
+                <option value="">Move to…</option>
+                {data.children.filter((c) => c.id !== fromId).map((c) => <option key={c.id} value={c.id}>{c.title}</option>)}
+            </select>
+            {toId ? (
+                <select aria-label="Team" className={select} value={unitId} onChange={(e) => setUnitId(e.target.value)}>
+                    <option value="">No team</option>
+                    {units.map((u) => <option key={u.id} value={u.id}>{u.title}</option>)}
+                </select>
+            ) : null}
+            {toId ? <Button type="button" size="sm" disabled={pending} onClick={() => run(() => moveMemberToWorkspaceAction(orgId, userId, fromId, toId, unitId || null), 'Moved. They’re told.')}>Move</Button> : null}
+            {children}
+        </div>
     )
 }
 
@@ -306,7 +340,12 @@ function MemberDrawer({ orgId, row, data, label, pending, run }: { orgId: string
             </section>
             <section className="space-y-1">
                 <h4 className="font-semibold">Workspaces and teams</h4>
-                {row.projects.length === 0 ? <p className="text-muted-foreground">Not in a workspace.</p> : row.projects.map((p) => <p key={p.id}>{p.title}{p.unit ? ` · ${p.unit}` : ''}</p>)}
+                {row.projects.length === 0 ? <p className="text-muted-foreground">Not in a workspace.</p> : row.projects.map((p) => (
+                    <div key={p.id} className="space-y-1">
+                        <p>{p.title}{p.unit ? ` · ${p.unit}` : ''}</p>
+                        {data.children.length > 1 ? <MoveToWorkspace orgId={orgId} data={data} userId={row.userId} fromId={p.id} pending={pending} run={run} /> : null}
+                    </div>
+                ))}
             </section>
             <section className="space-y-1.5">
                 <h4 className="font-semibold">Recent activity</h4>

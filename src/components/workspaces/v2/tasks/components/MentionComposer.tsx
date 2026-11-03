@@ -490,7 +490,8 @@ export const MentionComposer = React.forwardRef<MentionComposerHandle, MentionCo
                 const members = (payload.data?.members ?? []).slice(0, MAX_RESULTS);
                 // Units of a child project match by name and come first (report §14.4).
                 const units = (await readWorkspaceUnitsAction(projectId).catch(() => []))
-                    .filter((unit) => unit.title.toLowerCase().includes(query.toLowerCase()))
+                    // An empty team isn't offered (report §25.8).
+                    .filter((unit) => unit.memberIds.length > 0 && unit.title.toLowerCase().includes(query.toLowerCase()))
                     .map((unit): MentionCandidate => ({ id: unit.id, username: null, fullName: unit.title, avatarUrl: null, unitSize: unit.memberIds.length }));
                 if (cancelled) return;
                 setCandidates([...units, ...members].slice(0, MAX_RESULTS));

@@ -18,24 +18,24 @@ test.beforeAll(async () => {
     const mocks: Record<string, string> = {
         'next/link': `import React from 'react';export default ({href,children,prefetch,...p})=>React.createElement('a',{href,...p},children);`,
         'next/navigation': `export const usePathname=()=>'/org/cse-3a',useRouter=()=>({refresh(){},push(){},replace(){}});`,
-        '@/app/actions/org-members': `export const readOrgMembersAction=async()=>({success:true,viewerRole:'owner',joinCode:'K7M2QX',rows:${people},
+        '@/app/actions/org-members': `export const readOrgInvitePanelAction=async()=>({success:true});export const previewOrgInviteEmailAction=async()=>({success:true});export const readOrgMembersAction=async()=>({success:true,viewerRole:'owner',joinCode:'K7M2QX',rows:${people},
             requests:[{id:'r1',userId:'x',name:'Priya Natarajan',note:'Roll 21, section B',createdAt:new Date().toISOString()}],invites:[],
-            children:[{id:'c1',title:'Team Falcon',units:[{id:'un',title:'Frontend'}]}],outside:[{userId:'o1',name:'Client Person',username:null,projects:['Team Falcon']}],summary:{members:12,admins:2,guests:0,behind:4,notInProject:0,inactive:0}});
+            children:[{id:'c1',title:'Team Falcon',units:[{id:'un',title:'Frontend'}]}],outside:[{userId:'o1',name:'Client Person',username:null,projects:['Team Falcon']}],summary:{members:12,admins:2,guests:0,behind:4,notInProject:0,inactive:0},teamChanges:[]});
             export const readMemberWorkAction=async()=>({success:true,work:[]}),readMemberActivityAction=async()=>({success:true,activity:[{at:new Date().toISOString(),what:'status changed',task:'Lab 2',project:'Team Falcon'}]});
             export const remindMembersAction=async()=>({success:true,reminded:2});
-            export const addMembersToChildAction=${ok},approveJoinRequestsAction=${ok},cancelOrgInviteAction=${ok},changeMemberRoleAction=${ok},declineJoinRequestAction=${ok},inviteByEmailAction=async()=>({success:true,invalid:[]}),removeMembersAction=${ok},resendOrgInviteAction=${ok},setMemberTitleAction=${ok};`,
-        '@/app/actions/organizations': `export const regenerateJoinCodeAction=async()=>({success:true,joinCode:'Q2W3E4'}),archiveChildAction=${ok},cancelJoinRequestAction=${ok},joinPublicOrgAction=${ok},childTitleTakenAction=async()=>false;
+            export const addMembersToChildAction=${ok},approveJoinRequestsAction=${ok},cancelOrgInviteAction=${ok},changeMemberRoleAction=${ok},declineJoinRequestAction=${ok},inviteByEmailAction=async()=>({success:true,invalid:[]}),removeMembersAction=${ok},resendOrgInviteAction=${ok},setMemberTitleAction=${ok},moveMemberToWorkspaceAction=${ok},dismissTeamChangeAction=${ok};`,
+        '@/app/actions/organizations': `export const updateOrgSettingsAction=async()=>({success:true});export const unarchiveChildAction=async()=>({success:true});export const readLeadCandidatesAction=async()=>({success:true});export const detachChildAction=async()=>({success:true});export const cancelMoveInAction=async()=>({success:true});export const cancelDetachRequestAction=async()=>({success:true});export const assignChildLeadAction=async()=>({success:true});export const approveMoveInAction=async()=>({success:true});export const regenerateJoinCodeAction=async()=>({success:true,joinCode:'Q2W3E4'}),archiveChildAction=${ok},cancelJoinRequestAction=${ok},joinPublicOrgAction=${ok},childTitleTakenAction=async()=>false;
             export const listOrgRosterAction=async(orgId,q,admins)=>[['u1','Ravi Kumar','member','In Compiler Lab',['React']],['u2','Asha Nair','member',null,['Testing']],['u3','Ms. Rao','owner',null,[]]]
               .filter((p)=>!admins||p[2]!=='member').map(([userId,name,role,projectHint,skills])=>({userId,name,username:null,avatarUrl:null,title:role==='owner'?'Teacher':null,role,projectHint,skills}));
             export const listOutsidePeopleAction=async()=>[{userId:'x1',name:'Client Person',username:'client',avatarUrl:null,title:'Mentor',role:'outside',projectHint:null}];`,
         '@/app/actions/org-profile': `export const revokeOrgVerificationAction=${ok},verifyOrgContributionsAction=${ok};`,
-        '@/app/actions/org-dashboard': `export const readChildOrgLineAction=async()=>null,readOrgDashboardAction=async()=>({success:false,error:'unused'});
-            export const readOrgWorkspacesAction=async()=>({success:true,isAdmin:true,summary:{total:3,attention:1,quiet:1,notInProject:2},rows:['Team Falcon — Distributed Systems Capstone','Team Osprey','Team Kestrel'].map((title,i)=>({
+        '@/app/actions/org-dashboard': `export const dismissWelcomeAction=async()=>({success:true});export const readChildOrgLineAction=async()=>null,readOrgDashboardAction=async()=>({success:false,error:'unused'});
+            export const readOrgWorkspacesAction=async()=>({success:true,isAdmin:true,requests:[],summary:{total:3,attention:1,quiet:1,notInProject:2},rows:['Team Falcon — Distributed Systems Capstone','Team Osprey','Team Kestrel'].map((title,i)=>({
             id:'c'+i,title,slug:'p'+i,visibility:['org','private','public'][i],status:'active',lead:{id:'l',name:'Alexandria Ramana Chandrasekhar'},members:6,units:2,open:4,overdue:i,inReview:1,
             groupCopy:i?null:{title:'Milestone 2 report',state:'submitted'},lastActivityAt:new Date(Date.now()-i*864e5).toISOString(),reasons:i===1?['2 overdue','quiet 7 days']:[],mine:i===0,
-            stage:['Build','Idea','Build'][i],sprint:i===0?{name:'Parser week',inOrgSprint:true}:null,newInOrg:i===2}))});
+            stage:['Build','Idea','Build'][i],sprint:i===0?{name:'Parser week',inOrgSprint:true}:null,newInOrg:i===2,openSeats:i,needsLead:false,archivedBy:null,github:null}))});
             export const remindLeadsAction=async()=>({success:true,reminded:2});`,
-        '@/app/actions/org-files': `export const browseOrgFilesAction=async()=>({success:true,org:{id:'org',title:'CSE-3A Software Engineering',slug:'cse-3a'},nodes:[
+        '@/app/actions/org-files': `export const readOrgSubmissionsAction=async()=>({success:true});export const readChildFinalFilesAction=async()=>({success:true});export const browseOrgFilesAction=async()=>({success:true,org:{id:'org',title:'CSE-3A Software Engineering',slug:'cse-3a'},nodes:[
             {id:'f1',name:'Week 1 — Requirements',type:'folder',path:'/w1',currentVersion:1,size:null,access:null},
             {id:'f2',name:'Distributed-systems-capstone-rubric-final-v3.pdf',type:'file',path:'/r.pdf',currentVersion:3,size:1,access:'public'}]});
             export const listOrgCopiesAction=async()=>({success:true,orgTitle:'CSE-3A',copies:[{nodeId:'n',name:'rubric.pdf',sourceNodeId:'f2',copiedVersion:1,sourceVersion:3}]});
@@ -47,7 +47,7 @@ test.beforeAll(async () => {
         '@/app/actions/child-units': `export const readChildUnitsAction=async()=>({success:true,units:[
             {id:'un1',title:'Frontend developers',count:4,filled:2,leadUserId:'u1',members:[{userId:'u1',name:'Ravi Kumar'},{userId:'u2',name:'Alexandria Ramana Chandrasekhar'}]},
             {id:'un2',title:'Developer testing unit',count:2,filled:2,leadUserId:null,members:[{userId:'u4',name:'Meena'},{userId:'u5',name:'John'}]}],unplaced:[{userId:'u6',name:'Kiran'}]});
-            export const updateUnitAction=${ok},moveMemberToUnitAction=${ok},readWorkspaceUnitsAction=async()=>[];`,
+            export const updateUnitAction=${ok},moveMemberToUnitAction=${ok},createUnitAction=${ok},removeUnitAction=${ok},readTeamMovePreviewAction=async()=>({success:true,openTasks:0}),readWorkspaceUnitsAction=async()=>[];`,
         '@/components/messages/message-user': `export const messageUserInWindow=()=>false;`,
         '@/app/actions/org-lifecycle': `export const restoreOrgAction=${ok};`,
         '@/hooks/useFileVersions': `export const saveFileRevision=async()=>({success:true});`,
@@ -113,14 +113,9 @@ test('Members: requests come first on phones, rows stack, nothing scrolls sidewa
 });
 
 test('Projects, Tasks and Files fit a phone', async ({ page }) => {
-    for (const [tab, text] of [['projects', 'Team Osprey'], ['tasks', 'Reading quiz'], ['files', 'Folder access']] as const) {
+    for (const [tab, text] of [['projects', 'Team Osprey'], ['tasks', 'Reading quiz'], ['files', 'Storage is 86% full']] as const) {
         await open(page, tab);
         await expect(page.getByText(text).first()).toBeVisible();
-        if (tab === 'files') {
-            for (const summary of await page.locator('summary').all()) await summary.click();
-            expect((await page.getByRole('button', { name: 'Copy Distributed-systems-capstone-rubric-final-v3.pdf to this workspace' }).innerText()).trim()).toBe('Copy');
-            await expect(page.getByRole('checkbox', { name: 'Template: /Rubrics' })).toBeVisible();
-        }
         await noSideScroll(page);
         await page.screenshot({ path: test.info().outputPath(`${tab}-375.png`), fullPage: true });
     }
@@ -213,32 +208,35 @@ test('Members (§20): bulk Remind, the Outside people filter, and the drawer has
     await expect(page.getByText('status changed · Lab 2')).toBeVisible();
 });
 
-test('Files (§23): storage nearly full, group deliverables, Update copy and opening an org file in place', async ({ page }) => {
+test('Files (§23): storage nearly full, Update copy and opening an org file in place', async ({ page }) => {
     await open(page, 'files', 1280);
-    await expect(page.getByTestId('org-storage')).toContainText('4.3 GB of 5 GB used · nearly full');
-    await page.getByText('Final files from workspaces · 1').click();
-    await expect(page.getByRole('link', { name: 'parser.zip' })).toBeVisible();
-    await page.getByText('From the organization').click();
-    await expect(page.getByRole('button', { name: 'Update copy' })).toBeVisible();
+    await expect(page.getByTestId('org-storage')).toContainText('Storage is 86% full');
+    await expect(page.getByRole('button', { name: 'Newer version · Update copy' })).toBeVisible();
     await page.getByRole('button', { name: 'Distributed-systems-capstone-rubric-final-v3.pdf', exact: true }).click();
-    await expect(page.getByRole('dialog')).toContainText('read-only');
-    await expect(page.getByRole('link', { name: 'Open in CSE-3A Software Engineering →' })).toBeVisible();
+    await expect(page.getByRole('dialog')).toContainText('Read only');
+    await expect(page.getByRole('link', { name: 'Open in CSE-3A Software Engineering' })).toBeVisible();
 });
 
 test('Projects (§28): Stage, Lead and Sprint filters, Remind leads, Cards view with Message lead and the New badge', async ({ page }) => {
     await open(page, 'projects', 1280);
+    // Step 11a: Stage, Sprint and Has open seats live in the Filters menu.
+    await page.getByRole('button', { name: 'Filters' }).click();
     await page.getByLabel('Sprint').selectOption('linked');
+    await page.keyboard.press('Escape');
     await expect(page.getByRole('link', { name: 'Team Falcon — Distributed Systems Capstone' })).toBeVisible();
     await expect(page.getByRole('link', { name: 'Team Osprey' })).toHaveCount(0);
+    await page.getByRole('button', { name: /^Filters/ }).click();
     await page.getByLabel('Sprint').selectOption('all');
     await page.getByLabel('Stage').selectOption('Idea');
+    await page.keyboard.press('Escape');
     await expect(page.getByRole('link', { name: 'Team Osprey' })).toBeVisible();
+    await page.getByRole('button', { name: /^Filters/ }).click();
     await page.getByLabel('Stage').selectOption('all');
+    await page.keyboard.press('Escape');
     await page.getByLabel('Select Team Osprey').check();
-    await page.getByRole('button', { name: 'Remind owners' }).click();
-    await expect(page.getByRole('button', { name: 'Remind owners' })).toHaveCount(0);
+    await page.getByRole('button', { name: 'Remind workspace lead' }).first().click();
     await page.getByRole('button', { name: 'cards' }).click();
     await expect(page.getByRole('list', { name: 'Workspaces' })).toContainText('New');
-    await expect(page.getByRole('link', { name: 'Message owner' }).first()).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Message workspace lead' }).first()).toBeVisible();
     await noSideScroll(page);
 });

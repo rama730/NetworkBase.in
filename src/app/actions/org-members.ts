@@ -16,7 +16,7 @@ import { buildOrgEmail } from '@/lib/email/org-templates';
 import { orgMemberCap } from '@/lib/organizations/join-rules';
 import { acceptOrgInvite, AccountOrgLimitError, accountOrgLimit, createOrgEmailInvites, INVITE_DAYS, ledChildWorkspaces, notifyInvites, notifySeatsReopened, openInvitesFor, removeFromOrg } from '@/lib/organizations/members';
 import { memberChangeBlock, memberStatus, parseInviteEmails, workSummary, type OrgMemberRole, type RosterRow } from '@/lib/organizations/member-rules';
-import { addWorkspaceMemberInternal, changeWorkspaceMemberRoleInternal } from '@/lib/workspaces/collaborator-lifecycle';
+import { addWorkspaceMemberInternal, changeWorkspaceMemberRoleInternal, removeWorkspaceMemberInternal } from '@/lib/workspaces/collaborator-lifecycle';
 import { getViewerAuthContext } from '@/lib/server/viewer-context';
 import { namesOf, notifyJoined, notifyOrg, orgEmailBase, orgHref, orgLabel, queueOrgInviteSignupEmails, remindedRecently } from '@/lib/organizations/notify';
 import { orgGrant, type OrgAction, type OrgRole } from '@/lib/organizations/permissions';
@@ -74,7 +74,11 @@ export type OrgMembersData = {
     summary: { members: number; admins: number; guests: number; behind: number; notInProject: number; inactive: number };
     /** "412 left today" (report §21.4). */
     invitesLeft: number;
+    /** Ask to change team (report §25.5, decision 46): Move or Dismiss. */
+    teamChanges: Array<{ userId: string; name: string; workspaceId: string; workspace: string; at: string }>;
 };
+
+type TeamChangeRequest = { userId: string; workspaceId: string; at: string };
 
 /** The roster, requests, open invites and summary lines (report §20.2). Filtering happens in the browser. */
 export async function readOrgMembersAction(orgId: string): Promise<OrgMembersData | Failure> {
@@ -103,7 +107,7 @@ export async function readOrgMembersAction(orgId: string): Promise<OrgMembersDat
         db.select({ id: orgEmailInvites.id, email: orgEmailInvites.email, role: orgEmailInvites.role, title: orgEmailInvites.title, expiresAt: orgEmailInvites.expiresAt })
             // Report §26.3: expired invites stay listed, marked, with Resend, so nobody disappears silently.
             .from(orgEmailInvites).where(and(eq(orgEmailInvites.orgId, orgId), isNull(orgEmailInvites.acceptedAt))).orderBy(asc(orgEmailInvites.email)),
-        db.select({ joinCode: workspaces.joinCode, joinCodeEnabled: workspaces.joinCodeEnabled }).from(workspaces).where(eq(workspaces.id, orgId)).limit(1),
+        db.select({ joinCode: workspaces.joinCode, joinCodeEnabled: workspaces.joinCodeEnabled, teamChangeRequests: sql<TeamChangeRequest[] | null>`${workspaces.orgSettings}->'teamChangeRequests'` }).from(workspaces).where(eq(workspaces.id, orgId)).limit(1),
         db.select({ id: userBlocks.blockedId }).from(userBlocks).where(eq(userBlocks.blockerId, viewer.userId)),
     ]);
     const blockedByMe = new Set(myBlocks.map((b) => b.id));
@@ -150,6 +154,13 @@ export async function readOrgMembersAction(orgId: string): Promise<OrgMembersDat
         JOIN profiles pr ON pr.id = m.user_id
         WHERE NOT EXISTS (SELECT 1 FROM workspace_members o WHERE o.workspace_id = ${orgId} AND o.user_id = m.user_id) AND m.user_id <> ${viewer.ownerId}
         GROUP BY m.user_id, pr.full_name, pr.username ORDER BY 2 LIMIT 500`);
+    // Still waiting only while they're in that workspace.
+    const titles = new Map(children.map((c) => [c.id, c.title]));
+    const teamChanges = (org?.teamChangeRequests ?? []).flatMap((r) => {
+        const person = rows.find((p) => p.userId === r.userId);
+        return person && titles.has(r.workspaceId) && person.projects.some((x) => x.id === r.workspaceId)
+            ? [{ userId: r.userId, name: person.name, workspaceId: r.workspaceId, workspace: titles.get(r.workspaceId)!, at: r.at }] : [];
+    });
 
     return {
         success: true,
@@ -169,7 +180,80 @@ export async function readOrgMembersAction(orgId: string): Promise<OrgMembersDat
             inactive: rows.filter((r) => r.inactive).length,
         },
         invitesLeft: invitesLeftToday(await invitesSentToday(orgId)),
+        teamChanges,
     };
+}
+
+/** Dismiss a change-team request (report §25.5): nobody is told. */
+export async function dismissTeamChangeAction(orgId: string, userId: string, workspaceId: string): Promise<{ success: true } | Failure> {
+    const viewer = await orgManager(orgId, 'handle_team_change');
+    if (!viewer) return DENIED;
+    await dropTeamChange(orgId, userId, workspaceId);
+    touch(viewer.slug, orgId);
+    return { success: true };
+}
+
+async function dropTeamChange(orgId: string, userId: string, workspaceId: string) {
+    await db.execute(sql`
+        UPDATE workspaces SET org_settings = jsonb_set(org_settings, '{teamChangeRequests}', coalesce(
+            (SELECT jsonb_agg(r) FROM jsonb_array_elements(org_settings->'teamChangeRequests') r WHERE NOT (r->>'userId' = ${userId} AND r->>'workspaceId' = ${workspaceId})), '[]'::jsonb))
+        WHERE id = ${orgId} AND org_settings ? 'teamChangeRequests'`);
+}
+
+/** Seats left in a team for these people, or the message refusing them (report §25.6). */
+async function seatBlock(executor: Pick<typeof db, 'select'>, unitId: string, userIds: string[]) {
+    const [unit] = await executor.select({ title: sql<string>`coalesce(${workspaceOpenRoles.title}, ${workspaceOpenRoles.role})`, count: workspaceOpenRoles.count, filled: workspaceOpenRoles.filled })
+        .from(workspaceOpenRoles).where(eq(workspaceOpenRoles.id, unitId)).limit(1);
+    if (!unit) return 'That team is no longer in the workspace.';
+    const already = userIds.length ? await executor.select({ id: workspaceMembers.userId }).from(workspaceMembers).where(and(eq(workspaceMembers.unitId, unitId), inArray(workspaceMembers.userId, userIds))) : [];
+    const open = Math.max(0, unit.count - unit.filled);
+    const coming = userIds.length - already.length;
+    if (coming <= open) return null;
+    return `${unit.title} has ${open} open seat${open === 1 ? '' : 's'}. Add seats first, or choose fewer people.`;
+}
+
+/**
+ * Move to another workspace (report §25.5): organization admins only. They leave the old one with its open tasks
+ * unassigned; the old lead hears only that a seat opened, never where they went. They're told where they are now.
+ */
+export async function moveMemberToWorkspaceAction(orgId: string, userId: string, fromChildId: string, toChildId: string, unitId: string | null): Promise<{ success: true } | Failure> {
+    const viewer = await orgManager(orgId, 'move_member_workspace');
+    if (!viewer) return DENIED;
+    if (fromChildId === toChildId) return { success: false, error: 'Pick a different workspace.' };
+    const kids = await db.select({ id: workspaces.id, ownerId: workspaces.ownerId, title: workspaces.title, slug: workspaces.slug }).from(workspaces)
+        .where(and(inArray(workspaces.id, [fromChildId, toChildId]), eq(workspaces.parentId, orgId), isNull(workspaces.deletedAt)));
+    const from = kids.find((k) => k.id === fromChildId);
+    const to = kids.find((k) => k.id === toChildId);
+    if (!from || !to) return { success: false, error: 'That workspace is no longer in this organization.' };
+    if (userId === from.ownerId) return { success: false, error: 'They’re its workspace lead. They hand it over first.' };
+    if (!(await rolesOf(orgId, viewer.ownerId, [userId])).has(userId)) return { success: false, error: 'Only organization members can be moved.' };
+    if (unitId) {
+        const [unit] = await db.select({ id: workspaceOpenRoles.id }).from(workspaceOpenRoles).where(and(eq(workspaceOpenRoles.id, unitId), eq(workspaceOpenRoles.projectId, to.id))).limit(1);
+        if (!unit) return { success: false, error: 'That team is no longer in the workspace.' };
+        const full = await seatBlock(db, unitId, [userId]);
+        if (full) return { success: false, error: full };
+    }
+    let seat: string | null = null;
+    try {
+        await db.transaction(async (tx) => {
+            const [member] = await tx.select({ unit: sql<string | null>`(SELECT coalesce(r.title, r.role) FROM workspace_open_roles r WHERE r.id = ${workspaceMembers.unitId})` })
+                .from(workspaceMembers).where(and(eq(workspaceMembers.projectId, from.id), eq(workspaceMembers.userId, userId))).limit(1);
+            if (!member) throw new Error('They’re no longer in that workspace.');
+            seat = member.unit ?? from.title;
+            // Org admins act with the lead's powers in child projects (report §29.4).
+            await removeWorkspaceMemberInternal(tx, { projectId: from.id, actorId: from.ownerId, targetUserId: userId, mode: 'unassign_active_tasks' });
+            await addWorkspaceMemberInternal(tx, { projectId: to.id, userId, role: 'member', actorId: to.ownerId, source: 'manual', roleId: unitId });
+        });
+    } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Couldn’t move them.' };
+    }
+    await dropTeamChange(orgId, userId, from.id);
+    touch(viewer.slug, orgId);
+    await notifyOrg({ orgId, eventKey: 'org.child_notice', to: [from.ownerId], title: `1 seat open in ${seat}`,
+        href: `/workspaces/${encodeURIComponent(from.slug ?? from.id)}?tab=settings`, sourceEventId: `seat:${from.id}:${userId}:${Date.now()}`, refs: { projectId: from.id } });
+    await notifyOrg({ orgId, eventKey: 'org.child_added', actorId: viewer.userId, to: [userId], title: `You were moved to ${to.title}`,
+        href: `/workspaces/${encodeURIComponent(to.slug ?? to.id)}`, sourceEventId: `child:${to.id}:${userId}:${Date.now()}`, refs: { projectId: to.id } });
+    return { success: true };
 }
 
 /** Approve one request or several ("Approve all"); Max members blocks approvals when full (report §20.5). */
@@ -422,6 +506,10 @@ export async function addMembersToChildAction(orgId: string, childProjectId: str
     }
     const inOrg = await rolesOf(orgId, viewer.ownerId, userIds);
     const people = userIds.filter((id) => inOrg.has(id));
+    if (unitId) {
+        const full = await seatBlock(db, unitId, people);
+        if (full) return { success: false, error: full };
+    }
     await db.transaction(async (tx) => {
         for (const id of people) await addWorkspaceMemberInternal(tx, { projectId: child.id, userId: id, role: 'member', actorId: child.ownerId, source: 'manual', roleId: unitId });
     });
