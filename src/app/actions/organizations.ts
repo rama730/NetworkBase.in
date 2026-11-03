@@ -433,19 +433,21 @@ export async function updateMyOrgMembershipAction(orgId: string, patch: unknown)
     return { success: true };
 }
 
-export type MyProfileOrganization = { orgId: string; title: string; slug: string | null; role: string; showOnProfile: boolean };
+export type MyProfileOrganization = { orgId: string; title: string; slug: string | null; role: string; showOnProfile: boolean; contributionId: string | null; coverImage: string | null };
 
 /** Manage organizations (report §38.2): the viewer's organizations in their profile order, with each Show switch. */
 export async function readMyProfileOrganizationsAction(): Promise<MyProfileOrganization[]> {
     const userId = await viewerId();
     if (!userId) return [];
     const rows = await db.select({ orgId: workspaces.id, title: workspaces.title, slug: workspaces.slug, orgType: workspaces.orgType, orgSettings: workspaces.orgSettings,
-        role: workspaceMembers.role, ownerId: workspaces.ownerId, showOnProfile: workspaceMembers.showOnProfile, order: workspaceMembers.profileOrder })
+        role: workspaceMembers.role, ownerId: workspaces.ownerId, showOnProfile: workspaceMembers.showOnProfile, order: workspaceMembers.profileOrder, coverImage: workspaces.coverImage,
+        // Live-fix 59: Edit contribution opens this organization's own entry.
+        contributionId: sql<string | null>`(SELECT pc.id FROM profile_contributions pc WHERE pc.profile_id = ${userId}::uuid AND pc.workspace_id = ${workspaces.id} AND pc.deleted_at IS NULL LIMIT 1)` })
         .from(workspaceMembers).innerJoin(workspaces, eq(workspaces.id, workspaceMembers.projectId))
         .where(and(eq(workspaceMembers.userId, userId), eq(workspaces.kind, 'organization'), isNull(workspaces.deletedAt)));
     return rows
         .sort((a, b) => (a.order ?? Number.MAX_SAFE_INTEGER) - (b.order ?? Number.MAX_SAFE_INTEGER) || (a.title ?? '').localeCompare(b.title ?? ''))
-        .map((r) => ({ orgId: r.orgId, title: r.title ?? 'Organization', slug: r.slug, showOnProfile: r.showOnProfile !== false,
+        .map((r) => ({ orgId: r.orgId, title: r.title ?? 'Organization', slug: r.slug, showOnProfile: r.showOnProfile !== false, contributionId: r.contributionId, coverImage: r.coverImage,
             role: orgRoleNames(r.orgType, r.orgSettings)[(r.ownerId === userId ? 'owner' : r.role) as 'owner' | 'admin' | 'member' | 'viewer'] ?? 'Member' }));
 }
 

@@ -70,7 +70,8 @@ export function groupProfileContributions<T extends ProfileEntry>(entries: T[], 
   const privateToYou = isOwner ? entries.filter(removed) : [];
   const live = entries.filter((e) => !removed(e));
   const published = (e: T) => !isOwner || Boolean(e.publishedAt || e.presentation);
-  const drafts = isOwner ? live.filter((e) => !published(e)) : [];
+  // Live-fix 53: drafts nest like the rest, a team workspace under its organization.
+  const drafts = isOwner ? nestContributions(live.filter((e) => !published(e))) : [];
   const shown = nestContributions(live.filter(published));
   return {
     organizations: shown.filter((e) => e.projectKind === "organization"),
@@ -94,4 +95,11 @@ export function editorEntryStatus(e: ProfileEntry & { visibility?: string | null
   if (!e.publishedAt && !e.presentation) return "Draft";
   if (e.visibility === "private" || (e.presentation as { visible?: boolean } | null)?.visible === false) return "Hidden";
   return "Published";
+}
+
+/** "Since Oct 2026" (live-fix 52): the month and year of a YYYY-MM-DD start date, read as a calendar date. */
+export function sinceMonth(startDate: string | null | undefined) {
+  if (!startDate) return null;
+  const d = new Date(`${startDate.slice(0, 10)}T00:00:00Z`);
+  return Number.isFinite(d.getTime()) ? new Intl.DateTimeFormat("en", { month: "short", year: "numeric", timeZone: "UTC" }).format(d) : null;
 }

@@ -18,6 +18,7 @@ moduleStubs.set("next/headers", { headers: async () => new Headers({ "x-forwarde
 let discover: typeof import("../../src/lib/data/discover");
 let collab: typeof import("../../src/lib/profile/collaboration");
 let orgProfile: typeof import("../../src/app/actions/org-profile");
+let orgActions: typeof import("../../src/app/actions/organizations");
 before(async () => {
   const viewerContext = await loadAppModule(() => import("../../src/lib/server/viewer-context"));
   moduleStubs.set("@/lib/server/viewer-context", {
@@ -27,6 +28,7 @@ before(async () => {
   discover = await loadAppModule(() => import("../../src/lib/data/discover"));
   collab = await loadAppModule(() => import("../../src/lib/profile/collaboration"));
   orgProfile = await loadAppModule(() => import("../../src/app/actions/org-profile"));
+  orgActions = await loadAppModule(() => import("../../src/app/actions/organizations"));
 });
 
 const created: string[] = [];
@@ -166,4 +168,15 @@ test("§24 pass: guests get no automatic entry; story helpers; opt-in Work recor
   await sql`UPDATE workspaces SET deleted_at = now() WHERE id = ${o.orgId}`;
   const gone = (await collab.getProfileContributions(o.member, { includePrivate: true })).contributions.find((c) => c.projectId === o.orgId)!;
   assert.deepEqual([gone.goneOrgTitle, gone.projectHref], [`CSE ${o.tag}`, null]);
+});
+
+test("live-fix 56, 59: Manage organizations brings each org's logo and the entry Edit contribution opens", async () => {
+  const o = await org();
+  await contribution(o.member, o.orgId);
+  await sql`UPDATE workspaces SET cover_image = 'https://cdn.example.com/cse.png' WHERE id = ${o.orgId}`;
+  viewerId = o.member;
+  const rows = await orgActions.readMyProfileOrganizationsAction();
+  const row = rows.find((r) => r.orgId === o.orgId)!;
+  const [entry] = await sql`SELECT id FROM profile_contributions WHERE profile_id = ${o.member} AND workspace_id = ${o.orgId}`;
+  assert.deepEqual([row.coverImage, row.contributionId], ["https://cdn.example.com/cse.png", entry!.id]);
 });

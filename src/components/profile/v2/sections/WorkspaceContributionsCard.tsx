@@ -7,6 +7,7 @@ import type { ProfileCollaborationContribution } from "@/lib/profile/collaborati
 import { ContributionStoryView } from "@/components/profile/ContributionStoryView";
 import { dismissContributionNudgeAction } from "@/app/actions/org-profile";
 import { entryStatus, groupProfileContributions } from "@/lib/organizations/profile-rules";
+import { profileEditHref } from "@/lib/profile/edit-route";
 
 /** Org context above an entry (report §24.5, §24.6): Verified by <org>, the child's org, org-only, revocation. */
 function OrgEntryLine({ c, isOwner, nested }: { c: ProfileCollaborationContribution; isOwner: boolean; nested?: boolean }) {
@@ -156,13 +157,16 @@ export function WorkspaceContributionsCard({
             {groups.workspaces.length ? <Group title="Workspaces">{groups.workspaces.map((c) => entry(c))}</Group> : null}
             {groups.drafts.length ? (
               <Group title="Not on your profile yet">
-                {groups.drafts.map((c) => {
+                {groups.drafts.flatMap((d) => [d, ...d.children]).map((c) => {
                   // Report §38.6, decision 107: the nudge shows once and goes for good when dismissed or published.
                   const nudge = (c.projectKind === "organization" || c.parentOrg) && !c.nudgeDismissed && !dismissed.has(c.id);
+                  const nested = Boolean(c.parentOrg && groups.drafts.some((d) => d.projectId === c.parentOrg!.id));
                   return (
-                    <div key={c.id} className="flex flex-wrap items-center gap-2 py-3 text-sm">
+                    <div key={c.id} className={`flex flex-wrap items-center gap-2 py-3 text-sm ${nested ? "pl-5" : ""}`}>
                       <span className="min-w-0 flex-1"><span className="font-medium">{c.projectTitle}</span><span className="text-muted-foreground"> · Draft</span></span>
-                      {onAdd ? <button type="button" onClick={onAdd} className="nb-ui-label text-primary">{nudge ? `Write about your work in ${c.parentOrg?.title ?? c.projectTitle}` : "Publish"}</button> : null}
+                      {/* Live-fix 54, 55: the nudge names this entry's own workspace, and Publish sits beside it; both open the entry. */}
+                      {onAdd && nudge ? <a href={profileEditHref("experience", "overview", { contribution: c.id })} className="nb-ui-label text-primary">{`Write about your work in ${c.projectTitle}`}</a> : null}
+                      {onAdd ? <a href={profileEditHref("experience", "overview", { contribution: c.id })} className="nb-ui-label text-primary">Publish</a> : null}
                       {nudge ? <button type="button" onClick={() => { setDismissed((d) => new Set(d).add(c.id)); void dismissContributionNudgeAction(c.id); }} className="nb-ui-label text-muted-foreground hover:text-foreground">Dismiss</button> : null}
                     </div>
                   );

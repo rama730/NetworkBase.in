@@ -15,7 +15,7 @@
  * - Strict adherence to Ponytail design tokens and contract assertions.
  */
 
-import { editorEntryStatus } from "@/lib/organizations/profile-rules";
+import { editorEntryStatus, groupProfileContributions } from "@/lib/organizations/profile-rules";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { get, set, del, createStore } from "idb-keyval";
@@ -97,6 +97,7 @@ import {
   type StoryPosition,
   type StoryReferenceKind,
   type ResolvedStoryReference,
+  STORY_REFERENCE_PATTERN,
 } from "@/lib/profile/contribution-story";
 
 type Item = ProfileCollaborationContribution;
@@ -134,6 +135,28 @@ function Field({
     </label>
   );
 }
+const roleCount = (n: number) => `${n} ${n === 1 ? "position" : "positions"}`;
+
+/** A list preview: mentions become their names, Markdown marks and backslash escapes go (live-fix 60). */
+function previewText(summary: string, refs: Array<{ kind: string; id: string; label: string }>) {
+  return summary
+    .replace(new RegExp(STORY_REFERENCE_PATTERN), (_m, kind: string, id: string) => refs.find((ref) => ref.kind === kind && ref.id === id)?.label ?? "")
+    .replace(/\\([\\`*_{}[\]()#+\-.!>])/g, "$1")
+    .replace(/[*#_`]/g, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}
+
+/** Why a contribution doesn't show to visitors, first reason first (live-fix 65). */
+function hiddenReason(c: { visibility?: string | null; presentation?: { visible?: boolean } | null; projectVisibility?: string | null; projectStatus?: string | null }, profileVisibility: string | null | undefined) {
+  if (!c.presentation) return "It isn’t published yet. Publish it to show it.";
+  if (c.visibility === "private" || c.presentation.visible === false) return "Show on profile is off for it.";
+  if (c.projectVisibility === "private") return "Its workspace is private.";
+  if (["draft", "deleted"].includes(c.projectStatus ?? "")) return "Its workspace isn’t live.";
+  if (profileVisibility !== "public") return "Your profile isn’t public.";
+  return null;
+}
+
 export function ContributionEditor({
   items,
   profileId,
@@ -227,6 +250,9 @@ export function ContributionEditor({
   // Decision 104 (report §38.3): the server keeps these from the record, so the editor shows them locked.
   const recordLocked =
     !!active && active.source !== "manual" && (active.projectKind === "organization" || !!active.parentOrg);
+  // Live-fix 61, 62: an organization entry reads as the organization's, not a workspace's.
+  const isOrgEntry = active?.projectKind === "organization";
+  const setByTitle = isOrgEntry ? active?.projectTitle : active?.parentOrg?.title;
   const orgSlugOrId = active?.parentOrg ? (active.parentOrg.slug ?? active.parentOrg.id) : active?.projectKind === "organization" ? active.projectId : null;
   const adminsHref = orgSlugOrId ? `/org/${encodeURIComponent(orgSlugOrId)}?tab=members` : null;
   const validationIssues =
@@ -962,7 +988,8 @@ export function ContributionEditor({
           >
             Cancel
           </Button>
-          {hasPublishChanges && (
+          {/* Live-fix 63: an entry that isn't on the profile yet can always be published; checks list what's missing. */}
+          {(hasPublishChanges || (!!active && !active.publishedAt && !active.presentation)) && (
             <Button
               type="button"
               disabled={busy}
@@ -1070,67 +1097,77 @@ export function ContributionEditor({
             </div>
           </div>
           <div className="divide-y divide-border">
-            {filtered.map((r) => {
-              const doc = documents[r.id];
-              return (
-                <article key={r.id} className="py-5">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="min-w-0">
-                      <button
-                        type="button"
-                        className="nb-card-title break-words text-left hover:underline"
-                        onClick={() => nav(r.id)}
-                      >
-                        {r.projectId
-                          ? r.projectTitle
-                          : doc?.title || r.projectTitle}
-                        {r.featured && (
-                          <Pin className="ml-2 inline size-3.5 text-primary" />
-                        )}
-                      </button>
-                      <p className="nb-compact mt-1 text-muted-foreground">
-                        {doc?.positions.find((p) => !p.hidden)?.title ||
-                          r.title}
-                      </p>
-                      <p className="nb-meta mt-1 text-muted-foreground">
-                        {doc && storyPeriod(doc)}
-                      </p>
-                      <div className="mt-2">
-                        <ContributionIdentityLinks
-                          links={[
-                            ...(r.projectIdentityLinks ?? []),
-                            ...(doc?.links ?? []),
-                          ]}
-                        />
+            {/* Live-fix 57, 66: grouped like the profile, an organization's workspaces nested under it. */}
+            {(() => {
+              const g = groupProfileContributions(filtered, true);
+              const groups: Array<[string, Array<Item & { children?: Item[] }>]> = [["Organizations", g.organizations], ["Workspaces", g.workspaces], ["Not on your profile yet", g.drafts], ["Private to you", g.privateToYou]];
+              const row = (r: Item, nested: boolean) => {
+                const doc = documents[r.id];
+                return (
+                  <article key={r.id} className={nested ? "border-l-2 border-border py-5 pl-4 ml-2" : "py-5"}>
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="min-w-0">
+                        <button
+                          type="button"
+                          className="nb-card-title break-words text-left hover:underline"
+                          onClick={() => nav(r.id)}
+                        >
+                          {r.projectId
+                            ? r.projectTitle
+                            : doc?.title || r.projectTitle}
+                          {r.featured && (
+                            <Pin className="ml-2 inline size-3.5 text-primary" />
+                          )}
+                        </button>
+                        <p className="nb-compact mt-1 text-muted-foreground">
+                          {doc?.positions.find((p) => !p.hidden)?.title ||
+                            r.title}
+                        </p>
+                        <p className="nb-meta mt-1 text-muted-foreground">
+                          {doc && storyPeriod(doc)}
+                        </p>
+                        <div className="mt-2">
+                          <ContributionIdentityLinks
+                            links={[
+                              ...(r.projectIdentityLinks ?? []),
+                              ...(doc?.links ?? []),
+                            ]}
+                          />
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap items-center justify-end gap-2">
+                        {/* Report §16.10, §38.3: Published, Draft, Hidden, Left, Completed or Private to you. */}
+                        <span className="nb-micro text-muted-foreground" data-testid="editor-entry-status">
+                          {editorEntryStatus(r)}
+                        </span>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          aria-label={`Edit ${r.projectTitle}`}
+                          onClick={() => nav(r.id)}
+                        >
+                          <Pencil className="size-3.5" />
+                          Edit
+                        </Button>
                       </div>
                     </div>
-                    <div className="flex flex-wrap items-center justify-end gap-2">
-                      {/* Report §16.10, §38.3: Published, Draft, Hidden, Left, Completed or Private to you. */}
-                      <span className="nb-micro text-muted-foreground" data-testid="editor-entry-status">
-                        {editorEntryStatus(r)}
-                      </span>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="ghost"
-                        aria-label={`Edit ${r.projectTitle}`}
-                        onClick={() => nav(r.id)}
-                      >
-                        <Pencil className="size-3.5" />
-                        Edit
-                      </Button>
-                    </div>
-                  </div>
-                  {doc?.summary && (
-                    <p className="nb-compact mt-3 line-clamp-2 text-muted-foreground">
-                      {doc.summary
-                        .replace(/\{%[^%]*%\}/g, "")
-                        .replace(/[*#_]/g, "")}
-                    </p>
-                  )}
-                </article>
-              );
-            })}
+                    {doc?.summary && (
+                      <p className="nb-compact mt-3 line-clamp-2 text-muted-foreground">
+                        {/* Live-fix 60: mentions read as their names; Markdown marks and escapes drop out. */}
+                        {previewText(doc.summary, r.resolvedReferences ?? [])}
+                      </p>
+                    )}
+                  </article>
+                );
+              };
+              return groups.filter(([, rows]) => rows.length).map(([title, rows]) => (
+                <section key={title} aria-label={title}>
+                  <h3 className="nb-micro pt-5 text-muted-foreground">{title}</h3>
+                  {rows.flatMap((p) => [row(p, false), ...(p.children ?? []).map((c) => row(c, true))])}
+                </section>
+              ));
+            })()}
           </div>
           {!filtered.length && (
             <div className="nb-empty-state nb-grid-ground rounded-lg py-12 text-center">
@@ -1173,7 +1210,7 @@ export function ContributionEditor({
                 className="-ml-2 h-8 gap-1.5 rounded-[6px] px-2.5 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
               >
                 <ArrowLeft className="size-3.5" aria-hidden="true" />
-                Back to workspace contributions
+                Back to contributions
               </Button>
             </div>
 
@@ -1187,7 +1224,12 @@ export function ContributionEditor({
                       : d.title || "Untitled external project"}
                   </h1>
                   <span className="inline-flex items-center gap-1 rounded-[4px] border border-border bg-muted/60 px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
-                    {active.projectId ? (
+                    {setByTitle ? (
+                      <>
+                        <ShieldCheck className="size-3 text-primary" aria-hidden="true" />
+                        {`Set by ${setByTitle}`}{active.orgVerified ? ` · ✓ Verified by ${setByTitle}` : " · Not verified yet"}
+                      </>
+                    ) : active.projectId ? (
                       <>
                         <ShieldCheck className="size-3 text-primary" aria-hidden="true" />
                         Linked NetworkBase workspace
@@ -1319,7 +1361,7 @@ export function ContributionEditor({
           <section className="nb-story-section" id="contribution-summary">
             <h3 className="nb-section-title">Your contribution</h3>
             <p className="nb-compact mt-1 mb-5 text-muted-foreground">
-              Explain your part in the workspace, in your own words.
+              {isOrgEntry ? "Explain your part in the organization, in your own words." : "Explain your part in the workspace, in your own words."}
             </p>
             {active.projectKind === "organization" ? (
               <OrgStoryHelpers
@@ -1401,13 +1443,15 @@ export function ContributionEditor({
                   }
                   className="size-4 rounded-[4px] border-border text-[#D14E24] focus:ring-[#D14E24]"
                 />
-                <span>I currently contribute to this workspace</span>
+                <span>{isOrgEntry ? "I’m currently in this organization" : "I currently contribute to this workspace"}</span>
               </label>
             </div>
-            <p className="nb-compact mt-1.5 text-muted-foreground">
-              Clearing this also marks your positions as no longer current. End
-              dates can stay blank.
-            </p>
+            {recordLocked ? null : (
+              <p className="nb-compact mt-1.5 text-muted-foreground">
+                Clearing this also marks your positions as no longer current. End
+                dates can stay blank.
+              </p>
+            )}
             {active.projectId && (
               <p className="nb-compact mt-3 flex flex-wrap items-center gap-1.5 text-muted-foreground">
                 <ShieldCheck className="size-3.5" />
@@ -1426,7 +1470,7 @@ export function ContributionEditor({
                 <div className="flex flex-wrap items-baseline gap-3">
                   <h4 className="nb-card-title">Role history</h4>
                   <span className="nb-meta text-muted-foreground">
-                    {d.positions.length} positions
+                    {roleCount(d.positions.length)}
                   </span>
                 </div>
                 <Button
@@ -2452,7 +2496,8 @@ export function ContributionEditor({
             />
           ) : (
             <p className="nb-compact py-8">
-              This contribution is not shown to public visitors.
+              {/* Live-fix 65: say why, and what to do. */}
+              This contribution is not shown to public visitors. {active ? hiddenReason(active, profileVisibility) : null}
             </p>
           )}
         </DialogContent>

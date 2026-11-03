@@ -11,7 +11,8 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { RailSection } from "@/components/ui/rail-section";
 import { profileEditHref } from "@/lib/profile/edit-route";
 import { toast } from "@/lib/feedback";
-import { currentOrganizations } from "@/lib/organizations/profile-rules";
+import { currentOrganizations, sinceMonth } from "@/lib/organizations/profile-rules";
+import { WorkspaceAvatar } from "@/components/workspaces/WorkspaceAvatar";
 import type { ProfileCollaborationContribution } from "@/lib/profile/collaboration";
 
 const initials = (title: string) => title.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]!.toUpperCase()).join("") || "O";
@@ -43,7 +44,7 @@ export function ProfileOrganizationsSection({ contributions, isOwner }: { contri
                 <span className="min-w-0">
                   <span className="block truncate text-sm font-medium text-foreground">{c.projectTitle}</span>
                   <span className="block truncate text-[12px] text-muted-foreground">
-                    {[c.title, c.startDate ? `Since ${c.startDate}` : null, isOwner && c.showOnProfile === false ? "Hidden" : null].filter(Boolean).join(" · ")}
+                    {[c.title, c.startDate ? `Since ${sinceMonth(c.startDate)}` : null, isOwner && c.showOnProfile === false ? "Hidden" : null].filter(Boolean).join(" · ")}
                   </span>
                 </span>
               </>
@@ -113,12 +114,13 @@ function ManageOrganizationsDialog({ open, onOpenChange }: { open: boolean; onOp
                   <button type="button" aria-label={`Move ${row.title} up`} disabled={pending || index === 0} onClick={() => move(index, -1)} className="rounded p-0.5 text-muted-foreground hover:bg-muted disabled:opacity-30"><ArrowUp className="size-3.5" /></button>
                   <button type="button" aria-label={`Move ${row.title} down`} disabled={pending || index === rows.length - 1} onClick={() => move(index, 1)} className="rounded p-0.5 text-muted-foreground hover:bg-muted disabled:opacity-30"><ArrowDown className="size-3.5" /></button>
                 </span>
+                <WorkspaceAvatar project={{ title: row.title, coverImage: row.coverImage }} size="row" placeholder />
                 <span className="min-w-0 flex-1"><span className="block truncate font-medium">{row.title}</span><span className="text-[12px] text-muted-foreground">{row.role}</span></span>
                 <label className="flex items-center gap-1.5 text-[13px]">
                   <input type="checkbox" role="switch" checked={row.showOnProfile} disabled={pending} onChange={() => toggle(row)} aria-label={`Show ${row.title} on my profile`} />
                   Show
                 </label>
-                <Link href={profileEditHref("experience")} className="text-[13px] text-primary hover:underline">Edit contribution</Link>
+                <Link href={profileEditHref("experience", "overview", { contribution: row.contributionId ?? undefined })} className="text-[13px] text-primary hover:underline">Edit contribution</Link>
               </li>
             ))}
           </ul>

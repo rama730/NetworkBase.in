@@ -454,6 +454,8 @@ function contributionRoleLabel(row: ProfileContributionRow) {
     if (label) return label;
   }
   const membershipRole = trimDisplayText(row.membership_role) || trimDisplayText(row.role_kind) || "member";
+  // Live-fix 58: the owner of a team workspace in an organization leads it; "Contributor" is only for when nothing is known.
+  if (membershipRole === "owner" && row.parent_org_id && !trimDisplayText(row.lead_focus) && !trimDisplayText(row.accepted_role_title) && !trimDisplayText(row.role_title)) return "Team lead";
   return formatContributionPosition({
     title: row.role_title,
     projectPosition: membershipRole === "owner"
