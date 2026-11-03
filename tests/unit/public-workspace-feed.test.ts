@@ -42,11 +42,11 @@ describe('public projects feed cursor helpers', () => {
 
         assert.equal(
             buildPublicWorkspacesCacheKey(24, cursor),
-            'projects:public:v6:limit:24:cursor:2026-03-12T10:00:00.000Z:11111111-2222-4333-8444-555555555555',
+            'projects:public:v7:limit:24:cursor:2026-03-12T10:00:00.000Z:11111111-2222-4333-8444-555555555555',
         )
         assert.equal(
             buildPublicWorkspacesCacheKey(24, null),
-            'projects:public:v6:limit:24:cursor:origin',
+            'projects:public:v7:limit:24:cursor:origin',
         )
     })
 })
