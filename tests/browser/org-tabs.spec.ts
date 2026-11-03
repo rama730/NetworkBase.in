@@ -258,3 +258,34 @@ test('Projects (§28): Stage, Lead and Sprint filters, Remind leads, Cards view 
     await expect(page.getByRole('link', { name: 'Message workspace lead' }).first()).toBeVisible();
     await noSideScroll(page);
 });
+
+test('Sprint form (§28.2): an organization names the next sprint, Repeat previews, blocks an overlap and fixes it in one click', async ({ page }) => {
+    await open(page, 'sprint-org', 1280);
+    await expect(page.locator('#sprint-name')).toHaveValue('CO2');
+    await page.locator('#sprint-start-date').fill('2027-01-04');
+    await page.locator('#sprint-end-date').fill('2027-01-17');
+    await page.getByLabel('Plan more sprints like this').check();
+    const list = page.getByRole('list', { name: 'Sprints to create' });
+    await expect(list).toContainText('CO3 · Jan 18–Jan 31 · Overlaps Mid-term break');
+    await expect(page.getByRole('button', { name: 'Create 4 sprints' })).toBeDisabled();
+    await page.getByRole('button', { name: 'Start after Mid-term break' }).click();
+    await expect(page.locator('#sprint-start-date')).toHaveValue('2027-01-25');
+    await expect(list).not.toContainText('Overlaps');
+    await expect(list).toContainText('Passes the term end');
+    await expect(page.getByRole('button', { name: 'Create 4 sprints' })).toBeEnabled();
+    await page.screenshot({ path: test.info().outputPath('sprint-org.png') });
+});
+
+test('Sprint form (§18.2): a team sprint sits inside CO1, says its limit beside the dates, and offers the group work', async ({ page }) => {
+    await open(page, 'sprint-child', 1280);
+    await expect(page.getByText('Inside CO1 · Jan 4–Jan 17')).toBeVisible();
+    await expect(page.getByRole('option', { name: 'Not inside a sprint' })).toHaveCount(0);
+    await expect(page.getByLabel('Also add 2 group assignments from the backlog')).toBeChecked();
+    await page.locator('#sprint-end-date').fill('2027-01-20');
+    await expect(page.getByRole('alert').filter({ hasText: 'CO1 ends Jan 17. Pick an earlier date.' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Create sprint' })).toBeDisabled();
+    await expect(page.getByRole('button', { name: 'Plan more sprints like this' })).toHaveCount(0);
+    await noSideScroll(page);
+    await page.screenshot({ path: test.info().outputPath('sprint-child.png') });
+});
+

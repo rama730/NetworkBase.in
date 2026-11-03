@@ -16,7 +16,7 @@ type Executor = typeof db | Parameters<Parameters<typeof db.transaction>[0]>[0];
 const LIVE = ["planning", "active", "completed"] as const;
 
 async function readPlacement(executor: Executor, projectId: string) {
-  const [project] = await executor.select({ kind: workspaces.kind, parentId: workspaces.parentId, orgSettings: workspaces.orgSettings, orgType: workspaces.orgType }).from(workspaces).where(eq(workspaces.id, projectId)).limit(1);
+  const [project] = await executor.select({ kind: workspaces.kind, parentId: workspaces.parentId, orgSettings: workspaces.orgSettings, orgType: workspaces.orgType, termEnd: workspaces.termEnd }).from(workspaces).where(eq(workspaces.id, projectId)).limit(1);
   return project ?? null;
 }
 
@@ -142,6 +142,10 @@ export type SprintOrgContext = {
   notLinked: Array<{ projectId: string; title: string; slug: string | null }>;
   /** Child projects: group copies in the backlog, offered to a new linked sprint (decision 131). */
   groupBacklog: number;
+  /** Child projects: every sprint must sit inside an organization sprint (report §14.3 Phase 4). */
+  followsOrgSprints: boolean;
+  /** Orgs: the Repeat preview warns past it (report §28.2). */
+  termEnd: string | null;
   /** Per sprint of this project: its link and whether it starts automatically. */
   sprintFlags: Record<string, { parentSprintId: string | null; autoStart: boolean; showInChildren: boolean; notifyOnStart: boolean }>;
   /** Orgs: the org type (name suggestions) and the Work defaults for a new sprint (report §15.2, §21). */
@@ -157,7 +161,9 @@ export async function readSprintOrgContext(projectId: string, selectedSprintId: 
     .from(workspaceSprints)
     .where(eq(workspaceSprints.projectId, projectId));
   const sprintFlags = Object.fromEntries(flags.map((f) => [f.id, { parentSprintId: f.parentSprintId, autoStart: f.autoStart, showInChildren: f.showInChildren, notifyOnStart: f.notifyOnStart }]));
-  const empty: SprintOrgContext = { kind: project.kind === "organization" ? "org" : "child", orgSprints: [], orgTitle: null, orgSlug: null, parentSprint: null, runningOrgSprint: null, linkedProjects: [], notLinkedCount: 0, notLinked: [], groupBacklog: 0, sprintFlags };
+  const empty: SprintOrgContext = { kind: project.kind === "organization" ? "org" : "child", orgSprints: [], orgTitle: null, orgSlug: null, parentSprint: null, runningOrgSprint: null, linkedProjects: [], notLinkedCount: 0, notLinked: [], groupBacklog: 0, sprintFlags,
+    followsOrgSprints: (project.orgSettings as { followOrgSprints?: unknown } | null)?.followOrgSprints === true,
+    termEnd: project.termEnd ? String(project.termEnd).slice(0, 10) : null };
 
   if (project.kind === "organization") {
     const work = readOrgWork(project.orgSettings, project.orgType);

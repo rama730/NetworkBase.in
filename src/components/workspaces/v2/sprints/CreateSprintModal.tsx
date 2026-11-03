@@ -2,6 +2,7 @@
 
 import React from "react";
 import { typeProfile } from "@/lib/organizations/type-profile";
+import { buildSprintSeries, insideError, nextSeriesNumber, seriesPreview } from "@/lib/organizations/sprint-rules";
 import { AlertTriangle, Trash2, X } from "lucide-react";
 import { z } from "zod";
 
@@ -49,9 +50,22 @@ interface SprintEditorModalProps {
     /** Orgs: name suggestions by type and the Work defaults for a new sprint (report §15.2, §21). */
     orgType?: string | null;
     defaults?: { autoStart: boolean; showInChildren: boolean; createMatching: boolean; notifyOnStart: boolean };
+    /** Orgs: Repeat warns past it (report §28.2). Workspaces: every sprint sits inside one; group work to bring. */
+    termEnd?: string | null;
+    followsOrgSprints?: boolean;
+    groupBacklog?: number;
   } | null;
   initialOrgFields?: SprintOrgFields;
+  /** This workspace's sprints: Repeat numbering and overlaps, and Move later sprints (report §28.2). */
+  existingSprints?: Array<{ id: string; name: string; startDate: string | null; endDate: string | null; status: string }>;
+  /** Repeat ("Plan more like this", decision 9): creates the series instead of one sprint. */
+  onRepeat?: (input: { prefix: string; count: number; lengthDays: number; startDate: string; goal: string; description: string; autoStart: boolean }) => Promise<SprintEditorSubmitResult>;
 }
+
+const DAY_MS = 86_400_000;
+const SHORT = new Intl.DateTimeFormat("en", { month: "short", day: "numeric", timeZone: "UTC" });
+const utc = (iso: string) => new Date(`${iso.slice(0, 10)}T00:00:00.000Z`);
+const rangeLabel = (start: string, end: string) => `${SHORT.format(utc(start))}–${SHORT.format(utc(end))}`;
 
 type DraftField = keyof SprintEditorDraft;
 type FieldErrors = Partial<Record<DraftField, string>>;
@@ -130,18 +144,42 @@ export default function SprintEditorModal({
   deleteImpact = null,
   org = null,
   initialOrgFields,
+  existingSprints = [],
+  onRepeat,
 }: SprintEditorModalProps) {
+  // Plan your sprint (report §18.2): inside the running organization sprint, or the next planned one, by default.
+  const defaultParent = mode === "create" && org?.kind === "child"
+    ? org.orgSprints.find((s) => s.id === initialOrgFields?.parentSprintId) ?? org.orgSprints.find((s) => s.status === "active") ?? org.orgSprints[0] ?? null
+    : null;
   const [orgFields, setOrgFields] = React.useState<SprintOrgFields>(() => ({
     autoStart: initialOrgFields?.autoStart ?? org?.defaults?.autoStart ?? true,
     showInChildren: initialOrgFields?.showInChildren ?? org?.defaults?.showInChildren ?? true,
     createMatching: mode === "create" ? org?.defaults?.createMatching ?? false : false,
-    parentSprintId: initialOrgFields?.parentSprintId ?? null,
+    parentSprintId: initialOrgFields?.parentSprintId ?? defaultParent?.id ?? null,
     notifyOnStart: initialOrgFields?.notifyOnStart ?? org?.defaults?.notifyOnStart ?? true,
     moveDueDates: false,
+    moveLaterSprints: false,
+    includeGroupWork: true,
   }));
-  const [draft, setDraft] = React.useState<SprintEditorDraft>(() =>
-    buildSprintEditorDraft({ sprint, sprintCount }),
-  );
+  const [repeat, setRepeat] = React.useState(false);
+  const [repeatCount, setRepeatCount] = React.useState(4);
+  const initialDraft = React.useCallback((): SprintEditorDraft => {
+    const base = buildSprintEditorDraft({ sprint, sprintCount });
+    if (mode !== "create") return base;
+    // Report §7.6, smaller bug 14: an organization's next name follows its type ("CO4" for Education).
+    if (org?.kind === "org") {
+      const prefix = typeProfile(org.orgType).sprintPrefix;
+      return { ...base, name: `${prefix}${nextSeriesNumber(prefix, existingSprints.map((s) => s.name))}` };
+    }
+    // A team sprint's name is its own (report §18.2); its dates start inside the organization sprint.
+    if (org?.kind === "child" && defaultParent) {
+      const today = new Date().toISOString().slice(0, 10);
+      const start = defaultParent.startDate.slice(0, 10) > today ? defaultParent.startDate.slice(0, 10) : today;
+      return { ...base, name: "", startDate: start, endDate: defaultParent.endDate.slice(0, 10) };
+    }
+    return base;
+  }, [defaultParent, existingSprints, mode, org, sprint, sprintCount]);
+  const [draft, setDraft] = React.useState<SprintEditorDraft>(initialDraft);
   const [fieldErrors, setFieldErrors] = React.useState<FieldErrors>({});
   const [errorMessage, setErrorMessage] = React.useState("");
   const [pendingAction, setPendingAction] = React.useState<PendingAction>(null);
@@ -167,12 +205,13 @@ export default function SprintEditorModal({
     }
     if (initializedDraftKeyRef.current === editorKey) return;
     initializedDraftKeyRef.current = editorKey;
-    setDraft(buildSprintEditorDraft({ sprint, sprintCount }));
+    setDraft(initialDraft());
+    setRepeat(false);
     setFieldErrors({});
     setErrorMessage("");
     setPendingAction(null);
     setConfirmDelete(false);
-  }, [editorKey, isOpen, sprint, sprintCount]);
+  }, [editorKey, initialDraft, isOpen]);
 
   React.useEffect(() => {
     if (!isOpen) return;
@@ -187,6 +226,32 @@ export default function SprintEditorModal({
     () => getSprintDurationSummary(draft.startDate, draft.endDate),
     [draft.endDate, draft.startDate],
   );
+  const parent = org?.kind === "child" ? org.orgSprints.find((s) => s.id === orgFields.parentSprintId) ?? null : null;
+  // Report §18.2: errors appear beside the dates before saving.
+  const dateError = parent && draft.startDate && draft.endDate
+    ? insideError({ startDate: utc(draft.startDate), endDate: utc(draft.endDate) }, { name: parent.name, startDate: utc(parent.startDate), endDate: utc(parent.endDate) })
+    : null;
+  const lengthDays = draft.startDate && draft.endDate ? Math.round((utc(draft.endDate).getTime() - utc(draft.startDate).getTime()) / DAY_MS) + 1 : 0;
+  const prefix = draft.name.replace(/\d+$/, "") || "Sprint ";
+  // Repeat's live preview (report §16.2, §28.2): organization sprints can't overlap; the term end only warns.
+  const preview = React.useMemo(() => {
+    if (!repeat || lengthDays < 1 || !draft.startDate) return null;
+    try {
+      const rows = buildSprintSeries({ prefix, count: repeatCount, lengthDays, startDate: draft.startDate, firstNumber: nextSeriesNumber(prefix, existingSprints.map((s) => s.name)) });
+      const live = org?.kind === "org"
+        ? existingSprints.filter((s) => s.startDate && s.endDate && ["planning", "active", "completed"].includes(s.status)).map((s) => ({ name: s.name, startDate: utc(s.startDate!), endDate: utc(s.endDate!) }))
+        : [];
+      return seriesPreview(rows, live, org?.kind === "org" ? org.termEnd : null);
+    } catch {
+      return null;
+    }
+  }, [draft.startDate, existingSprints, lengthDays, org, prefix, repeat, repeatCount]);
+  // Move later sprints too (decision 59): only Planning sprints that start after this one.
+  const shiftDays = sprint?.startDate && draft.startDate ? Math.round((utc(draft.startDate).getTime() - utc(sprint.startDate).getTime()) / DAY_MS) : 0;
+  const laterSprints = mode === "edit" && sprint?.status === "planning" && sprint.startDate
+    ? existingSprints.filter((s) => s.id !== sprint.id && s.status === "planning" && s.startDate && s.startDate > sprint.startDate!)
+    : [];
+  const isRunning = mode === "edit" && sprint?.status === "active";
 
   const handleFieldChange = React.useCallback((field: DraftField, value: string) => {
     setDraft((current) => ({ ...current, [field]: value }));
@@ -218,13 +283,20 @@ export default function SprintEditorModal({
         return;
       }
 
+      if (dateError) {
+        setErrorMessage(dateError);
+        return;
+      }
       setPendingAction("save");
       try {
-        const result = await onSubmit({
+        const result = repeat && onRepeat
+          ? await onRepeat({ prefix, count: repeatCount, lengthDays, startDate: parsed.data.startDate, goal: parsed.data.goal ?? "", description: parsed.data.description ?? "", autoStart: orgFields.autoStart ?? true })
+          : await onSubmit({
           ...parsed.data,
           autoStart: orgFields.autoStart,
           ...(org?.kind === "org" ? { showInChildren: orgFields.showInChildren, createMatching: mode === "create" && orgFields.createMatching, notifyOnStart: orgFields.notifyOnStart, ...(mode === "edit" ? { moveDueDates: orgFields.moveDueDates } : {}) } : {}),
-          ...(org?.kind === "child" ? { parentSprintId: orgFields.parentSprintId ?? null } : {}),
+          ...(org?.kind === "child" ? { parentSprintId: orgFields.parentSprintId ?? null, ...(mode === "create" ? { includeGroupWork: orgFields.includeGroupWork } : {}) } : {}),
+          ...(mode === "edit" && laterSprints.length && shiftDays ? { moveLaterSprints: orgFields.moveLaterSprints } : {}),
         });
         if (!result.success) {
           setErrorMessage(result.error ?? "Couldn’t save sprint");
@@ -237,7 +309,7 @@ export default function SprintEditorModal({
         setPendingAction(null);
       }
     },
-    [draft, mode, onClose, onSubmit, org?.kind, orgFields, projectId, sprint?.id],
+    [dateError, draft, laterSprints.length, lengthDays, mode, onClose, onRepeat, onSubmit, org?.kind, orgFields, prefix, projectId, repeat, repeatCount, shiftDays, sprint?.id],
   );
 
   const handleDelete = React.useCallback(async () => {
@@ -262,6 +334,8 @@ export default function SprintEditorModal({
     if (!draft.startDate) return;
     handleFieldChange("endDate", addDaysToSprintDateInput(draft.startDate, days));
   }, [draft.startDate, handleFieldChange]);
+  /** A shortcut that would pass the organization sprint's end is off, with the reason (report §18.2). */
+  const tooLong = (days: number) => Boolean(parent && draft.startDate && addDaysToSprintDateInput(draft.startDate, days) > parent.endDate.slice(0, 10));
 
   if (!isOpen) return null;
 
@@ -336,7 +410,7 @@ export default function SprintEditorModal({
                   required
                   value={draft.name}
                   onChange={(event) => handleFieldChange("name", event.target.value)}
-                  placeholder={org?.kind === "org" ? `e.g., ${typeProfile(org.orgType).sprintPrefix}1` : "e.g., Sprint 4"}
+                  placeholder={org?.kind === "org" ? `e.g., ${typeProfile(org.orgType).sprintPrefix}1` : org?.kind === "child" ? "e.g., Parser week" : "e.g., Sprint 4"}
                   className={cn("nb-touch-target h-[34px]", inputClassName(!!fieldErrors.name))}
                 />
               </Field>
@@ -373,21 +447,27 @@ export default function SprintEditorModal({
                   <button
                     type="button"
                     onClick={() => setDuration(7)}
-                    className="inline-flex h-6 items-center rounded-[3px] border border-border bg-card px-2 font-mono text-[10px] max-md:text-[11px] font-medium uppercase tracking-[0.06em] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                    disabled={tooLong(7)}
+                    title={tooLong(7) && parent ? `Ends after ${parent.name}` : undefined}
+                    className="inline-flex h-6 items-center rounded-[3px] border border-border bg-card px-2 font-mono text-[10px] max-md:text-[11px] font-medium uppercase tracking-[0.06em] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-40"
                   >
                     1 week
                   </button>
                   <button
                     type="button"
                     onClick={() => setDuration(14)}
-                    className="inline-flex h-6 items-center rounded-[3px] border border-border bg-card px-2 font-mono text-[10px] max-md:text-[11px] font-medium uppercase tracking-[0.06em] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                    disabled={tooLong(14)}
+                    title={tooLong(14) && parent ? `Ends after ${parent.name}` : undefined}
+                    className="inline-flex h-6 items-center rounded-[3px] border border-border bg-card px-2 font-mono text-[10px] max-md:text-[11px] font-medium uppercase tracking-[0.06em] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-40"
                   >
                     2 weeks
                   </button>
                   <button
                     type="button"
                     onClick={() => setDuration(28)}
-                    className="inline-flex h-6 items-center rounded-[3px] border border-border bg-card px-2 font-mono text-[10px] max-md:text-[11px] font-medium uppercase tracking-[0.06em] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                    disabled={tooLong(28)}
+                    title={tooLong(28) && parent ? `Ends after ${parent.name}` : undefined}
+                    className="inline-flex h-6 items-center rounded-[3px] border border-border bg-card px-2 font-mono text-[10px] max-md:text-[11px] font-medium uppercase tracking-[0.06em] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-40"
                   >
                     4 weeks
                   </button>
@@ -400,6 +480,10 @@ export default function SprintEditorModal({
                     id="sprint-start-date"
                     type="date"
                     required
+                    disabled={isRunning}
+                    title={isRunning ? "A running sprint keeps its start date." : undefined}
+                    min={parent?.startDate.slice(0, 10)}
+                    max={parent?.endDate.slice(0, 10)}
                     value={draft.startDate}
                     onChange={(event) => handleFieldChange("startDate", event.target.value)}
                     className={cn("nb-touch-target h-[34px]", inputClassName(!!fieldErrors.startDate))}
@@ -412,6 +496,7 @@ export default function SprintEditorModal({
                     type="date"
                     required
                     min={draft.startDate}
+                    max={parent?.endDate.slice(0, 10)}
                     value={draft.endDate}
                     onChange={(event) => handleFieldChange("endDate", event.target.value)}
                     className={cn("nb-touch-target h-[34px]", inputClassName(!!fieldErrors.endDate))}
@@ -429,6 +514,50 @@ export default function SprintEditorModal({
                   </span>
                 ) : null}
               </div>
+              {dateError ? <p role="alert" className="text-xs font-mono text-destructive">{dateError}</p> : null}
+
+              {mode === "create" && onRepeat && org?.kind !== "child" ? (
+                <div className="space-y-2">
+                  <label className="flex items-center gap-2 text-[13px] text-foreground">
+                    <input type="checkbox" checked={repeat} onChange={(e) => setRepeat(e.target.checked)} />
+                    Plan more sprints like this
+                  </label>
+                  {repeat ? (
+                    <div className="space-y-2 rounded-[5px] border border-border p-3">
+                      <label className="flex items-center gap-2 text-[13px] text-foreground">How many
+                        <input type="number" min={2} max={52} value={repeatCount} onChange={(e) => setRepeatCount(Math.max(2, Math.min(52, Number(e.target.value) || 2)))}
+                          className={cn("h-[30px] w-20", inputClassName(false))} />
+                      </label>
+                      {preview ? (
+                        <ul aria-label="Sprints to create" className="max-h-40 space-y-0.5 overflow-y-auto font-mono text-[12px]">
+                          {preview.rows.map((row) => (
+                            <li key={row.name} className={cn(row.clash ? "text-destructive" : "text-foreground")}>
+                              {row.name} · {rangeLabel(row.startDate, row.endDate)}
+                              {row.clash ? ` · Overlaps ${row.clash}` : ""}
+                              {row.pastTermEnd ? <span className="text-amber-600 dark:text-amber-400"> · Passes the term end</span> : null}
+                            </li>
+                          ))}
+                        </ul>
+                      ) : <p className="text-xs text-muted-foreground">Set valid dates to see the sprints.</p>}
+                      {preview?.blocked && preview.startAfter ? (
+                        <button type="button" className="text-xs font-medium text-primary hover:underline"
+                          onClick={() => { const start = preview.startAfter!; handleFieldChange("startDate", start); handleFieldChange("endDate", addDaysToSprintDateInput(start, lengthDays - 1)); }}>
+                          Start after {preview.rows.find((r) => r.clash)?.clash}
+                        </button>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
+
+              {laterSprints.length && shiftDays ? (
+                <label className="flex items-start gap-2 text-[13px] text-foreground">
+                  <input type="checkbox" className="mt-0.5" checked={orgFields.moveLaterSprints ?? false} onChange={(e) => setOrgFields((f) => ({ ...f, moveLaterSprints: e.target.checked }))} />
+                  <span>Move later sprints too<span className="block text-[12px] text-muted-foreground">
+                    {laterSprints.map((s) => s.name).join(", ")} also {laterSprints.length === 1 ? "moves" : "move"} by {Math.abs(shiftDays)} {Math.abs(shiftDays) === 1 ? "day" : "days"}.
+                  </span></span>
+                </label>
+              ) : null}
             </div>
 
             {/* Organization: start on the date, child projects, or the org sprint this sits inside (report §15) */}
@@ -463,7 +592,7 @@ export default function SprintEditorModal({
                 </>
               ) : null}
               {org?.kind === "child" && org.orgSprints.length > 0 ? (
-                <Field label={`Part of the ${org.orgTitle ?? "organization"} sprint`} htmlFor="sprint-parent">
+                <Field label={parent ? `Inside ${parent.name} · ${rangeLabel(parent.startDate, parent.endDate)}` : "Inside"} htmlFor="sprint-parent">
                   <select
                     id="sprint-parent"
                     value={orgFields.parentSprintId ?? ""}
@@ -478,15 +607,22 @@ export default function SprintEditorModal({
                     }}
                     className={cn("nb-touch-target h-[34px]", inputClassName(false))}
                   >
-                    <option value="">Not part of an organization sprint</option>
-                    {org.orgSprints.map((s) => <option key={s.id} value={s.id}>{s.name} ({s.status === "active" ? "running" : "planned"})</option>)}
+                    {/* A workspace that follows its organization's sprints always sits inside one. */}
+                    {!org.followsOrgSprints ? <option value="">Not inside a sprint</option> : null}
+                    {org.orgSprints.map((s) => <option key={s.id} value={s.id}>{s.name} · {rangeLabel(s.startDate, s.endDate)} ({s.status === "active" ? "running" : "planned"})</option>)}
                   </select>
                 </Field>
               ) : null}
+              {org?.kind === "child" && mode === "create" && parent && (org.groupBacklog ?? 0) > 0 ? (
+                <label className="flex items-center gap-2 text-[13px] text-foreground">
+                  <input type="checkbox" checked={orgFields.includeGroupWork ?? true} onChange={(e) => setOrgFields((f) => ({ ...f, includeGroupWork: e.target.checked }))} />
+                  Also add {org.groupBacklog} group {org.groupBacklog === 1 ? "assignment" : "assignments"} from the backlog
+                </label>
+              ) : null}
             </div>
 
-            {/* Delete sprint (Edit mode only) */}
-            {mode === "edit" ? (
+            {/* Delete sprint: Planning only; once started, Cancel instead (report §37.2) */}
+            {mode === "edit" && sprint?.status === "planning" ? (
               <div className="space-y-3 pt-1">
                 <div className="flex items-center justify-between border-b border-destructive/20 pb-1.5">
                   <span className="font-mono text-[11px] font-medium uppercase tracking-[0.09em] text-destructive">
@@ -570,10 +706,10 @@ export default function SprintEditorModal({
             </button>
             <button
               type="submit"
-              disabled={!!pendingAction}
+              disabled={!!pendingAction || Boolean(repeat && preview?.blocked) || Boolean(dateError)}
               className="nb-touch-target inline-flex h-[34px] items-center justify-center rounded-[5px] bg-primary px-4 font-mono text-xs font-medium uppercase tracking-[0.09em] text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
             >
-              {isSubmitting ? "Saving..." : mode === "create" ? "Create sprint" : "Save changes"}
+              {isSubmitting ? "Saving..." : mode === "create" ? (repeat && preview ? `Create ${preview.rows.length} sprints` : "Create sprint") : "Save changes"}
             </button>
           </div>
         </form>

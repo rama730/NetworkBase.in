@@ -6,7 +6,8 @@ import { AlertTriangle, CalendarRange, FileText, Paperclip, Play, X } from 'luci
 
 import {
     addSprintMaterialAction,
-    planSprintSeriesAction,
+    fitSprintToParentAction,
+    remindSprintLeadsAction,
     removeSprintMaterialAction,
     searchSprintMaterialCandidatesAction,
     startSprintNowAction,
@@ -20,6 +21,7 @@ import { readSprintAssignmentsAction } from '@/app/actions/sprint-assignments'
 import { RosterDialog } from '@/components/organizations/AssignmentsPanel'
 import type { AssignmentRow } from '@/app/actions/assignments'
 import { ASSIGNMENT_STATE_LABELS } from '@/lib/copy/terms'
+import { toast } from '@/lib/feedback'
 
 // The organization parts of the Sprints tab (report §15.4–15.5). The existing tab keeps its layout.
 
@@ -27,8 +29,29 @@ const DAY = new Intl.DateTimeFormat('en', { month: 'short', day: 'numeric', time
 
 type Done = () => void
 
-/** Child sprint header line: `Inside CO1 · CSE-3A · ends Oct 31`, flagged when it no longer fits (report §15.3). */
-export function ChildSprintLine({ org }: { org: SprintOrgContext }) {
+/** The empty Sprints tab: one line for the situation and its one button (report §7.6, §17.3, §18.2). */
+export function sprintEmptyLine(org: SprintOrgContext | null, canCreate: boolean): { title: string; line: string; button: string } {
+    if (org?.kind === 'child') {
+        const running = org.orgSprints.find((s) => s.status === 'active')
+        const next = org.orgSprints.find((s) => s.status === 'planning')
+        if (!canCreate) return { title: 'No sprints yet', line: 'Your team hasn’t planned a sprint yet.', button: '' }
+        if (running) return { title: 'Plan your sprint', line: `${running.name} is running. Plan what your team will do during it.`, button: 'Plan your sprint' }
+        if (next) return { title: 'Plan your sprint', line: `${next.name} starts ${DAY.format(new Date(next.startDate))}. Get ready.`, button: 'Plan your sprint' }
+        return { title: 'No sprints yet', line: 'Plan your team’s first sprint.', button: 'Create sprint' }
+    }
+    if (org?.kind === 'org') {
+        return canCreate
+            ? { title: 'No sprints yet', line: 'Plan the term as sprints. Turn on “Plan more sprints like this” to plan several at once.', button: 'Plan your first sprint' }
+            : { title: 'No sprints planned yet', line: 'Sprints your admins plan show here.', button: '' }
+    }
+    return canCreate
+        ? { title: 'No sprints yet', line: 'Create the first sprint to plan the work inside it.', button: 'Create sprint' }
+        : { title: 'No sprints yet', line: 'Sprints created by the owner or admins show here.', button: '' }
+}
+
+/** Child sprint header line: `Inside CO1 · CSE-3A · ends Oct 31`, flagged when it no longer fits, with Fix dates (report §15.3, §18.2). */
+export function ChildSprintLine({ org, projectId, sprintId, canManage, onFixed }: { org: SprintOrgContext; projectId: string; sprintId: string; canManage: boolean; onFixed: Done }) {
+    const [pending, startTransition] = useTransition()
     const parent = org.parentSprint
     if (!parent) return null
     const orgName = org.orgSlug ? <Link href={`/org/${org.orgSlug}`} className="underline underline-offset-4">{org.orgTitle}</Link> : org.orgTitle
@@ -37,7 +60,15 @@ export function ChildSprintLine({ org }: { org: SprintOrgContext }) {
             <CalendarRange className="size-3.5" aria-hidden="true" />
             Inside {parent.name} · {orgName} · ends {DAY.format(new Date(parent.endDate))}
             {!parent.fits ? (
-                <span className="inline-flex items-center gap-1 text-amber-600 dark:text-amber-400"><AlertTriangle className="size-3.5" aria-hidden="true" />Outside {parent.name} dates</span>
+                <span className="inline-flex items-center gap-1 text-amber-600 dark:text-amber-400"><AlertTriangle className="size-3.5" aria-hidden="true" />Outside {parent.name}</span>
+            ) : null}
+            {!parent.fits && canManage ? (
+                <Button type="button" size="sm" variant="outline" disabled={pending} onClick={() => startTransition(async () => {
+                    const result = await fitSprintToParentAction({ projectId, sprintId })
+                    if (!result.success) return void toast.error(result.error)
+                    toast.success(`Dates fit inside ${parent.name} again`)
+                    onFixed()
+                })}>Fix dates</Button>
             ) : null}
         </p>
     )
@@ -49,18 +80,29 @@ export function RunningOrgSprintPrompt({ org, canCreate, onCreateLinked }: { org
     if (!running) return null
     return (
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-md border border-border bg-secondary/50 px-4 py-3" role="status">
-            <p className="text-sm text-foreground">{running.name} is running in {org.orgTitle}. Plan your sprint inside it.</p>
-            {canCreate ? <Button size="sm" onClick={() => onCreateLinked(running.id)}>Create linked sprint</Button> : null}
+            <p className="text-sm text-foreground">{running.name} is running. Plan what your team will do during it.</p>
+            {canCreate ? <Button size="sm" onClick={() => onCreateLinked(running.id)}>Plan your sprint</Button> : null}
         </div>
     )
 }
 
-/** Org sprint: the child projects' linked sprints, and how many have none (report §15.4). */
-export function LinkedWorkspacesBlock({ org }: { org: SprintOrgContext }) {
-    if (org.linkedProjects.length === 0 && org.notLinkedCount === 0) return null
+/** Workspaces panel (report §37.2): `3 of 5 workspaces linked`, each one's sprint or Not planned, with Remind. Admins only. */
+export function LinkedWorkspacesBlock({ org, projectId, sprintId }: { org: SprintOrgContext; projectId: string; sprintId: string }) {
+    const [pending, startTransition] = useTransition()
+    const total = org.linkedProjects.length + org.notLinked.length
+    if (total === 0) return null
+    const remind = (ids: string[]) => startTransition(async () => {
+        const result = await remindSprintLeadsAction({ projectId, sprintId, workspaceIds: ids })
+        if (!result.success) return void toast.error(result.error)
+        // Report §28.8: an honest count.
+        toast.success(result.skipped ? `Sent to ${result.reminded}. ${result.skipped} ${result.skipped === 1 ? 'was' : 'were'} reminded recently.` : `Sent to ${result.reminded}.`)
+    })
     return (
-        <section aria-label="Linked workspaces" className="mb-4 rounded-md border border-border p-3">
-            <p className="font-mono text-[11px] font-medium uppercase tracking-[0.09em] text-muted-foreground">Linked workspaces</p>
+        <section aria-label="Workspaces" className="mb-4 rounded-md border border-border p-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="font-mono text-[11px] font-medium uppercase tracking-[0.09em] text-muted-foreground">Workspaces · {org.linkedProjects.length} of {total} linked</p>
+                {org.notLinked.length > 1 ? <Button type="button" size="sm" variant="outline" disabled={pending} onClick={() => remind(org.notLinked.map((w) => w.projectId))}>Remind {org.notLinked.length}</Button> : null}
+            </div>
             <ul className="mt-2 space-y-1 text-sm">
                 {org.linkedProjects.map((row) => (
                     <li key={row.sprintId}>
@@ -70,8 +112,14 @@ export function LinkedWorkspacesBlock({ org }: { org: SprintOrgContext }) {
                         <span className="text-muted-foreground"> · {row.status === 'planning' ? 'planned' : row.status}</span>
                     </li>
                 ))}
+                {org.notLinked.map((row) => (
+                    <li key={row.projectId} className="flex flex-wrap items-center gap-x-2">
+                        <Link href={`/workspaces/${row.slug ?? row.projectId}?tab=sprints`} className="hover:underline">{row.title}</Link>
+                        <span className="text-muted-foreground">· Not planned</span>
+                        <button type="button" disabled={pending} className="text-xs font-medium text-primary hover:underline" onClick={() => remind([row.projectId])}>Remind</button>
+                    </li>
+                ))}
             </ul>
-            {org.notLinkedCount > 0 ? <p className="mt-2 text-sm text-muted-foreground">{org.notLinkedCount} {org.notLinkedCount === 1 ? 'workspace' : 'workspaces'} not linked</p> : null}
         </section>
     )
 }
@@ -114,7 +162,7 @@ export function SprintMaterials({ projectId, sprintId, projectSlug, materials, c
 
 function MaterialPicker({ open, onOpenChange, projectId, sprintId, onAdded }: { open: boolean; onOpenChange: (open: boolean) => void; projectId: string; sprintId: string; onAdded: Done }) {
     const [query, setQuery] = useState('')
-    const [results, setResults] = useState<{ files: Array<{ id: string; title: string }>; docs: Array<{ id: string; title: string }> }>({ files: [], docs: [] })
+    const [results, setResults] = useState<{ files: Array<{ id: string; title: string; adminsOnly?: boolean }>; docs: Array<{ id: string; title: string }> }>({ files: [], docs: [] })
     const [error, setError] = useState<string | null>(null)
     useEffect(() => {
         if (!open) return
@@ -140,7 +188,12 @@ function MaterialPicker({ open, onOpenChange, projectId, sprintId, onAdded }: { 
                     {[...results.docs.map((d) => ({ ...d, kind: 'doc' as const })), ...results.files.map((f) => ({ ...f, kind: 'file' as const }))].map((item) => (
                         <li key={`${item.kind}-${item.id}`}>
                             <button type="button" className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-muted/50" onClick={() => void add(item.kind === 'doc' ? { docId: item.id } : { nodeId: item.id })}>
-                                <FileText className="size-3.5 text-muted-foreground" aria-hidden="true" />{item.title}
+                                <FileText className="size-3.5 text-muted-foreground" aria-hidden="true" />
+                                <span className="min-w-0">
+                                    {item.title}
+                                    {/* Decision 137: an Admins-only file says so before it becomes a material. */}
+                                    {'adminsOnly' in item && item.adminsOnly ? <span className="block text-xs text-amber-700 dark:text-amber-400">Admins only. Members won’t be able to open this.</span> : null}
+                                </span>
                                 <span className="ml-auto text-xs text-muted-foreground">{item.kind === 'doc' ? 'Doc' : 'File'}</span>
                             </button>
                         </li>
@@ -186,45 +239,6 @@ export function StartNowButton({ projectId, sprintId, onStarted, announceAs }: {
             <Button type="button" size="sm" variant="outline" disabled={pending} onClick={() => (announceAs ? setConfirming(true) : start())}><Play className="size-3.5" aria-hidden="true" />Start now</Button>
             {error ? <span role="alert" className="text-xs text-destructive">{error}</span> : null}
         </span>
-    )
-}
-
-/** "Plan a series" on an org: prefix, count, length, start date (report §15.2). */
-export function PlanSeriesButton({ projectId, suggestedPrefix, onPlanned }: { projectId: string; suggestedPrefix: string; onPlanned: Done }) {
-    const [open, setOpen] = useState(false)
-    const [prefix, setPrefix] = useState(suggestedPrefix)
-    const [count, setCount] = useState(5)
-    const [length, setLength] = useState(7)
-    const [start, setStart] = useState(() => new Date().toISOString().slice(0, 10))
-    const [error, setError] = useState<string | null>(null)
-    const [pending, startTransition] = useTransition()
-    const submit = () => startTransition(async () => {
-        const result = await planSprintSeriesAction({ projectId, prefix, count, lengthDays: length, startDate: start })
-        if (!result.success) return setError(result.error)
-        setError(null)
-        setOpen(false)
-        onPlanned()
-    })
-    return (
-        <>
-            <Button type="button" variant="outline" size="sm" onClick={() => setOpen(true)}><CalendarRange className="size-3.5" aria-hidden="true" />Plan a series</Button>
-            <Dialog open={open} onOpenChange={setOpen}>
-                <DialogContent className="max-w-md">
-                    <DialogHeader>
-                        <DialogTitle>Plan a series</DialogTitle>
-                        <DialogDescription>Planned sprints back to back, for example {prefix || 'CO'}1–{prefix || 'CO'}{count} every {length} days.</DialogDescription>
-                    </DialogHeader>
-                    <div className="grid gap-3 sm:grid-cols-2">
-                        <label className="text-sm">Name prefix<Input value={prefix} onChange={(e) => setPrefix(e.target.value)} maxLength={40} className="mt-1" /></label>
-                        <label className="text-sm">How many<Input type="number" min={1} max={52} value={count} onChange={(e) => setCount(Number(e.target.value))} className="mt-1" /></label>
-                        <label className="text-sm">Days each<Input type="number" min={1} max={366} value={length} onChange={(e) => setLength(Number(e.target.value))} className="mt-1" /></label>
-                        <label className="text-sm">First starts<Input type="date" value={start} onChange={(e) => setStart(e.target.value)} className="mt-1" /></label>
-                    </div>
-                    {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}
-                    <Button type="button" disabled={pending} onClick={submit}>Create {count} sprints</Button>
-                </DialogContent>
-            </Dialog>
-        </>
     )
 }
 

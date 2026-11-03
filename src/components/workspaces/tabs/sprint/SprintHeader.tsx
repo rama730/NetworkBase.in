@@ -127,8 +127,8 @@ export function SprintHeader({
                   </button>
                 ) : null}
 
-                {/* Only a Planning sprint can be edited; the server rejects the rest. */}
-                {permissions.canWrite && sprint.status === "planning" ? (
+                {/* Report §37.2: Edit while Planning or Running; a running sprint keeps its start. */}
+                {permissions.canWrite && (sprint.status === "planning" || sprint.status === "active") ? (
                   <button
                     type="button"
                     onClick={onEdit}

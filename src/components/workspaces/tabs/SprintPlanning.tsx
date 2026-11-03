@@ -15,6 +15,7 @@ import {
   completeSprintAction,
   createSprintAction,
   deleteSprintAction,
+  planSprintSeriesAction,
   updateSprintAction,
 } from "@/app/actions/workspace";
 import {
@@ -35,7 +36,7 @@ import {
 } from "@/lib/workspaces/sprints";
 
 import CreateSprintModal from "@/components/workspaces/v2/sprints/CreateSprintModal";
-import { ChildSprintLine, LinkedWorkspacesBlock, PlanSeriesButton, RunningOrgSprintPrompt, SprintMaterials, StartNowButton, SprintAssignmentRows } from "@/components/organizations/OrgSprintParts";
+import { ChildSprintLine, LinkedWorkspacesBlock, RunningOrgSprintPrompt, SprintMaterials, StartNowButton, SprintAssignmentRows, sprintEmptyLine } from "@/components/organizations/OrgSprintParts";
 import { SprintLifecycleModals } from "@/components/workspaces/tabs/sprint/SprintLifecycleModals";
 import { SkeletonSprints } from "@/components/workspaces/skeletons/SkeletonSprints";
 
@@ -139,7 +140,8 @@ export default function SprintPlanning({
   const isEditorOpen = editorState !== null;
   // Organizations and child projects (report §15): editor options, links and materials.
   const orgContext = detail?.org ?? null;
-  const editorOrg = orgContext ? { kind: orgContext.kind, orgTitle: orgContext.orgTitle, orgSprints: orgContext.orgSprints, orgType: orgContext.orgType, defaults: orgContext.defaults } : null;
+  const editorOrg = orgContext ? { kind: orgContext.kind, orgTitle: orgContext.orgTitle, orgSprints: orgContext.orgSprints, orgType: orgContext.orgType, defaults: orgContext.defaults, termEnd: orgContext.termEnd, followsOrgSprints: orgContext.followsOrgSprints, groupBacklog: orgContext.groupBacklog } : null;
+  const existingSprints = useMemo(() => (detail?.sprints ?? []).map((s) => ({ id: s.id, name: s.name, startDate: s.startDate, endDate: s.endDate, status: s.status })), [detail?.sprints]);
   const editingFlags = editorState?.sprint ? orgContext?.sprintFlags[editorState.sprint.id] : undefined;
   const refreshSprints = () => void queryClient.invalidateQueries({ queryKey: queryKeys.project.detail.sprintDetailRoot(projectId) });
   const canManageSprints = permissions.canCreate;
@@ -187,6 +189,19 @@ export default function SprintPlanning({
       }
     },
     [projectId, projectSlug, queryClient, router],
+  );
+
+  /** Repeat in the form (decision 9): the series is created together, then the list refreshes. */
+  const handleRepeatSprints = useCallback(
+    async (input: { prefix: string; count: number; lengthDays: number; startDate: string; goal: string; description: string; autoStart: boolean }) => {
+      const result = await planSprintSeriesAction({ projectId, ...input });
+      if (!result.success) return { success: false as const, error: result.error };
+      toast.success(`${result.created} sprints planned`);
+      await queryClient.invalidateQueries({ queryKey: queryKeys.project.detail.sprintDetailRoot(projectId) });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.project.detail.sprints(projectId) });
+      return { success: true as const };
+    },
+    [projectId, queryClient],
   );
 
   const handleUpdateSprint = useCallback(
@@ -362,16 +377,13 @@ export default function SprintPlanning({
     return (
       <div className="nb-empty-state nb-grid-ground py-16" role="status">
         <CalendarDays className="nb-empty-state-icon mb-3" aria-hidden="true" />
+        {/* Report §7.6, §17.3, §18.2: one line for the situation, and one main button. */}
         <h3 className="nb-empty-state-title">
-          No sprints yet
+          {sprintEmptyLine(orgContext, permissions.canCreate).title}
         </h3>
         <p className="nb-empty-state-desc">
-          {permissions.canCreate
-            ? "Create the first sprint and this space will turn into a clean execution timeline for the work inside it."
-            : "No sprints have been planned yet. Sprints created by the owner or admins appear here."}
+          {sprintEmptyLine(orgContext, permissions.canCreate).line}
         </p>
-        {orgContext ? <RunningOrgSprintPrompt org={orgContext} canCreate={canManageSprints} onCreateLinked={(parentSprintId) => setEditorState({ mode: "create", sprint: null, parentSprintId })} /> : null}
-        {orgContext?.kind === "org" && canManageSprints ? <div className="mb-3"><PlanSeriesButton projectId={projectId} suggestedPrefix="Sprint " onPlanned={refreshSprints} /></div> : null}
         {permissions.canCreate ? (
           <>
             <button
@@ -380,7 +392,7 @@ export default function SprintPlanning({
               className="nb-touch-target nb-ui-label inline-flex h-[34px] items-center gap-2 rounded-[5px] border border-primary bg-primary px-4 text-primary-foreground transition-[background-color,border-color,transform] duration-150 hover:border-[var(--primary-hover)] hover:bg-[var(--primary-hover)] active:translate-y-px active:border-[var(--primary-active)] active:bg-[var(--primary-active)]"
             >
               <Plus className="h-3.5 w-3.5" />
-              Create sprint
+              {sprintEmptyLine(orgContext, permissions.canCreate).button}
             </button>
             {isEditorOpen ? (
               <CreateSprintModal
@@ -392,6 +404,8 @@ export default function SprintPlanning({
                 sprintCount={0}
                 org={editorOrg}
                 initialOrgFields={{ parentSprintId: editorState?.parentSprintId ?? null }}
+                existingSprints={existingSprints}
+                onRepeat={handleRepeatSprints}
               />
             ) : null}
           </>
@@ -452,7 +466,6 @@ export default function SprintPlanning({
           ) : null}
           <div className="flex-1 min-w-0">
             {orgContext ? <RunningOrgSprintPrompt org={orgContext} canCreate={canManageSprints} onCreateLinked={(parentSprintId) => setEditorState({ mode: "create", sprint: null, parentSprintId })} /> : null}
-            {orgContext?.kind === "org" && canManageSprints ? <div className="mb-3 flex justify-end"><PlanSeriesButton projectId={projectId} suggestedPrefix="Sprint " onPlanned={refreshSprints} /></div> : null}
             {selectedSprint ? (
               <SprintHeader
                 sprint={selectedSprint}
@@ -464,14 +477,14 @@ export default function SprintPlanning({
                 onCancel={() => setActiveModal("cancel")}
               />
             ) : null}
-            {selectedSprint && orgContext ? <ChildSprintLine org={orgContext} /> : null}
+            {selectedSprint && orgContext ? <ChildSprintLine org={orgContext} projectId={projectId} sprintId={selectedSprint.id} canManage={canManageSprints} onFixed={refreshSprints} /> : null}
             {selectedSprint?.status === "planning" && permissions.canStart ? (
               <div className="mb-3"><StartNowButton projectId={projectId} sprintId={selectedSprint.id} onStarted={refreshSprints} announceAs={orgContext?.kind === "org" ? selectedSprint.name : null} /></div>
             ) : null}
             {selectedSprint ? (
               <SprintMaterials projectId={projectId} sprintId={selectedSprint.id} projectSlug={projectSlug} materials={detail.materials ?? []} canManage={canManageSprints} onChanged={refreshSprints} />
             ) : null}
-            {selectedSprint && orgContext?.kind === "org" ? <LinkedWorkspacesBlock org={orgContext} /> : null}
+            {selectedSprint && orgContext?.kind === "org" && canManageSprints ? <LinkedWorkspacesBlock org={orgContext} projectId={projectId} sprintId={selectedSprint.id} /> : null}
             {selectedSprint && orgContext ? <SprintAssignmentRows projectId={projectId} sprintId={selectedSprint.id} /> : null}
             <SprintTimelineContent
               projectSlug={projectSlug}
@@ -506,6 +519,8 @@ export default function SprintPlanning({
           sprintCount={detail.sprints.length}
           deleteImpact={deleteImpact}
           org={editorOrg}
+          existingSprints={existingSprints}
+          onRepeat={editorState?.mode === "edit" ? undefined : handleRepeatSprints}
           initialOrgFields={editingFlags ? { autoStart: editingFlags.autoStart, showInChildren: editingFlags.showInChildren, parentSprintId: editingFlags.parentSprintId, notifyOnStart: editingFlags.notifyOnStart } : { parentSprintId: editorState?.parentSprintId ?? null }}
         />
       ) : null}
