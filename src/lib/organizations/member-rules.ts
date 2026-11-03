@@ -69,6 +69,8 @@ export type RosterRow = {
   joinedAt: string | null;
   behind: boolean;
   inactive: boolean;
+  /** Contribution credit (§31.4). */
+  verified?: boolean;
 };
 
 export type RosterFilter = {
@@ -76,6 +78,7 @@ export type RosterFilter = {
   role?: "all" | "admins" | "members" | "guests";
   project?: "all" | "none" | string;
   status?: "all" | "behind" | "inactive";
+  verified?: "all" | "yes" | "no";
   sort?: "name" | "joined" | "active" | "behind";
 };
 
@@ -86,7 +89,8 @@ export function filterRoster(rows: RosterRow[], f: RosterFilter): RosterRow[] {
     (!q || r.name.toLowerCase().includes(q) || (r.title ?? "").toLowerCase().includes(q))
     && (!f.role || f.role === "all" || (f.role === "admins" ? r.role === "owner" || r.role === "admin" : f.role === "members" ? r.role === "member" : r.role === "viewer"))
     && (!f.project || f.project === "all" || (f.project === "none" ? r.projects.length === 0 : r.projects.some((p) => p.id === f.project)))
-    && (!f.status || f.status === "all" || (f.status === "behind" ? r.behind : r.inactive)));
+    && (!f.status || f.status === "all" || (f.status === "behind" ? r.behind : r.inactive))
+    && (!f.verified || f.verified === "all" || (f.verified === "yes") === Boolean(r.verified)));
   const byName = (a: RosterRow, b: RosterRow) => a.name.localeCompare(b.name);
   const sort = f.sort ?? "name";
   return [...kept].sort((a, b) =>

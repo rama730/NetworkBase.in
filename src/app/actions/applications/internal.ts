@@ -17,6 +17,7 @@ import {
 } from '@/lib/db/schema';
 import { eq, and, sql, or, inArray, desc, lt, isNull, ne, notExists, asc } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
+import { childGrant } from '@/lib/organizations/permissions';
 import { createClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
 import { after } from 'next/server';
@@ -266,7 +267,13 @@ async function canReviewProjectApplicationInternal(
         where: and(eq(workspaceMembers.projectId, projectId), eq(workspaceMembers.userId, userId)),
         columns: { role: true },
     });
-    return isApplicationReviewerRole(membership?.role);
+    if (isApplicationReviewerRole(membership?.role)) return true;
+    // Organization admins decide on a workspace's team applications too (report §25.4, permissions table).
+    if (childGrant('inherited_admin', 'decide_applications') !== 'yes') return false;
+    const [orgAdmin] = await txOrDb.execute(sql`
+        SELECT 1 FROM workspaces w JOIN workspaces o ON o.id = w.parent_id AND o.kind = 'organization' AND o.deleted_at IS NULL
+        WHERE w.id = ${projectId} AND (o.owner_id = ${userId} OR EXISTS (SELECT 1 FROM workspace_members m WHERE m.workspace_id = o.id AND m.user_id = ${userId} AND m.role = 'admin'))`);
+    return Boolean(orgAdmin);
 }
 
 async function getDecisionMetadataMap(applicationIds: string[]) {

@@ -3,8 +3,9 @@
 import { useRouter } from 'next/navigation'
 import { useState, useTransition } from 'react'
 
-import { cancelJoinRequestAction, joinOrganizationAction } from '@/app/actions/organizations'
+import { cancelJoinRequestAction, joinOrganizationAction, updateJoinRequestNoteAction } from '@/app/actions/organizations'
 import { Button } from '@/components/ui/button'
+import { toast } from '@/lib/feedback'
 import type { OrgJoinMode } from '@/lib/organizations/join-rules'
 
 /** Join (instant mode) or Request to join (approval mode) with an optional note. */
@@ -65,5 +66,27 @@ export function JoinRequestPending({ orgId }: { orgId: string }) {
             })}>Cancel request</Button>
             {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}
         </div>
+    )
+}
+
+/** "Add a note" while a join request waits (report §26.5); the admins see it on the request. */
+export function JoinRequestNote({ orgId, size = 'default' }: { orgId: string; size?: 'sm' | 'default' }) {
+    const [open, setOpen] = useState(false)
+    const [note, setNote] = useState('')
+    const [pending, startTransition] = useTransition()
+    if (!open) return <Button type="button" size={size} variant="ghost" onClick={() => setOpen(true)}>Add a note</Button>
+    return (
+        <form className="flex w-full max-w-sm flex-col gap-1.5" onSubmit={(e) => {
+            e.preventDefault()
+            startTransition(async () => {
+                const result = await updateJoinRequestNoteAction(orgId, note)
+                if (!result.success) return void toast.error(result.error)
+                toast.success('Note added to your request')
+                setOpen(false)
+            })
+        }}>
+            <textarea aria-label="Note for the admins" value={note} onChange={(e) => setNote(e.target.value)} maxLength={500} rows={2} className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-sm" />
+            <Button type="submit" size="sm" disabled={pending}>Save note</Button>
+        </form>
     )
 }

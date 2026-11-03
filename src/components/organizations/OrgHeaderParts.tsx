@@ -7,6 +7,7 @@ import { useState, useTransition } from 'react'
 import { Archive, Building2, ChevronDown, FolderKanban, IterationCcw, ListTodo, Megaphone, Plus, UserPlus } from 'lucide-react'
 
 import { cancelJoinRequestAction, joinPublicOrgAction, regenerateJoinCodeAction } from '@/app/actions/organizations'
+import { JoinRequestNote } from '@/components/organizations/JoinOrgButton'
 import { restoreOrgAction } from '@/app/actions/org-lifecycle'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Button } from '@/components/ui/button'
@@ -66,6 +67,7 @@ export function OrgVisitorActions({ orgId, href, joinMode, requestPending, logge
             {requestPending ? (
                 <>
                     <Button size="sm" variant="outline" disabled>Request pending</Button>
+                    <JoinRequestNote orgId={orgId} size="sm" />
                     <Button size="sm" variant="ghost" disabled={pending} onClick={() => run(() => cancelJoinRequestAction(orgId))}>Cancel request</Button>
                 </>
             ) : (

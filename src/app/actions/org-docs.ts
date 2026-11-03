@@ -10,6 +10,7 @@ import { getWorkspaceAccessById } from '@/lib/data/workspace-access';
 import { enqueueWorkspaceNotificationEvent } from '@/lib/notifications/workspace-events';
 import { ORG_LIMITS } from '@/lib/organizations/config';
 import { readViewerOrgRole } from '@/lib/organizations/detail';
+import { orgGrant, type OrgAction } from '@/lib/organizations/permissions';
 import { docFileName, docLabel, docState, fillDocTemplate, readDocGroups, readOrgDocOptions, templateCopyTitle, type DocGroup, type OrgDocOptions } from '@/lib/organizations/doc-rules';
 import { getOrBuildWorkspaceDocPublishMetadata } from '@/lib/workspaces/doc';
 import { readWorkspaceFileText } from '@/lib/files/content-reader';
@@ -58,11 +59,12 @@ async function readOrg(orgId: string) {
     return org ?? null;
 }
 
-/** The viewer when they own or admin `orgId` (an org, with the flag on). */
-async function orgAdmin(orgId: string) {
+/** The viewer when they own or admin `orgId` (an org, with the flag on), and the permissions table gives them `action`. */
+async function orgAdmin(orgId: string, action?: OrgAction) {
     const { userId } = await getViewerAuthContext();
     const role = userId ? await readViewerOrgRole(orgId, userId) : null;
-    return userId && (role === 'owner' || role === 'admin') ? userId : null;
+    if (!userId || (role !== 'owner' && role !== 'admin')) return null;
+    return !action || orgGrant(role, action) === 'yes' ? userId : null;
 }
 
 async function orgDocRow(orgId: string, docId: string) {
@@ -186,7 +188,7 @@ const publishSchema = z.object({ summary: z.string().trim().max(200), reread: z.
  * its history. Telling members is off unless chosen; Ask to re-read counts again from zero (Required only).
  */
 export async function publishOrgDocAction(orgId: string, docId: string, input: z.input<typeof publishSchema>): Promise<{ success: true } | Failure> {
-    const userId = await orgAdmin(orgId);
+    const userId = await orgAdmin(orgId, 'publish_document');
     if (!userId) return DENIED;
     const parsed = publishSchema.safeParse(input);
     if (!parsed.success) return { success: false, error: 'Keep the summary under 200 characters.' };

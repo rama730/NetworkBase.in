@@ -6,6 +6,7 @@ import { useTransition } from 'react'
 
 import { acceptOrgInviteAction, declineOrgInviteAction } from '@/app/actions/org-members'
 import { cancelJoinRequestAction } from '@/app/actions/organizations'
+import { JoinRequestNote } from '@/components/organizations/JoinOrgButton'
 import { WorkspaceAvatar } from '@/components/workspaces/WorkspaceAvatar'
 import { Button } from '@/components/ui/button'
 import { toast } from '@/lib/feedback'
@@ -37,7 +38,12 @@ export function PrivateOrgHeader({ orgId, title, coverImage, state = { kind: 'no
                         <Button variant="outline" disabled={pending} onClick={() => run(() => declineOrgInviteAction(state.inviteId!))}>Decline</Button>
                     </div>
                 ) : null}
-                {action === 'cancel' ? <Button variant="outline" disabled={pending} onClick={() => run(() => cancelJoinRequestAction(orgId))}>Cancel request</Button> : null}
+                {action === 'cancel' ? (
+                    <div className="flex flex-col items-center gap-2">
+                        <JoinRequestNote orgId={orgId} />
+                        <Button variant="outline" disabled={pending} onClick={() => run(() => cancelJoinRequestAction(orgId))}>Cancel request</Button>
+                    </div>
+                ) : null}
                 {join ? <Button asChild className="mt-2 min-h-11"><Link href="/join">Join with code</Link></Button> : null}
                 {join && !signedIn ? <Link href="/login" className="text-sm text-primary hover:underline">Sign in</Link> : null}
             </div>

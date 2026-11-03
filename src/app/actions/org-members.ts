@@ -10,11 +10,11 @@ import { applicationEvents, orgEmailInvites, orgJoinBlocks, profiles, workspaceM
 import { getWorkspaceAccessById } from '@/lib/data/workspace-access';
 import { notifyNewCopies } from '@/lib/organizations/assignment-notify';
 import { copyState } from '@/lib/organizations/assignment-rules';
-import { createCopiesForNewMember } from '@/lib/organizations/assignments';
+import { createCopiesForNewMember, handedInSql, releaseCopiesOnLeave } from '@/lib/organizations/assignments';
 import { ORG_LIMITS, orgRoleNames } from '@/lib/organizations/config';
 import { buildOrgEmail } from '@/lib/email/org-templates';
 import { orgMemberCap } from '@/lib/organizations/join-rules';
-import { acceptOrgInvite, AccountOrgLimitError, accountOrgLimit, createOrgEmailInvites, INVITE_DAYS, ledChildWorkspaces, notifyInvites, notifySeatsReopened, openInvitesFor, removeFromOrg } from '@/lib/organizations/members';
+import { acceptOrgInvite, AccountOrgLimitError, accountOrgLimit, createOrgEmailInvites, INVITE_DAYS, ledChildWorkspaces, notifyInvites, notifySeatsReopened, openInvitesFor, removeFromOrg, type ReopenedSeat } from '@/lib/organizations/members';
 import { memberChangeBlock, memberStatus, parseInviteEmails, workSummary, type OrgMemberRole, type RosterRow } from '@/lib/organizations/member-rules';
 import { addWorkspaceMemberInternal, changeWorkspaceMemberRoleInternal, removeWorkspaceMemberInternal } from '@/lib/workspaces/collaborator-lifecycle';
 import { getViewerAuthContext } from '@/lib/server/viewer-context';
@@ -65,12 +65,12 @@ export type OrgMembersData = {
     viewerRole: 'owner' | 'admin';
     joinCode: string | null;
     /** blockedByMe: the viewer's own personal block, shown only to them (Blocking B51). */
-    rows: Array<RosterRow & { avatarUrl: string | null; username: string | null; blockedByMe: boolean }>;
+    rows: Array<RosterRow & { avatarUrl: string | null; username: string | null; blockedByMe: boolean; verified: boolean }>;
     requests: Array<{ id: string; userId: string; name: string; note: string | null; createdAt: string }>;
     invites: Array<{ id: string; email: string; role: string; title: string | null; expiresAt: string; expired: boolean }>;
     children: Array<{ id: string; title: string; units: Array<{ id: string; title: string }> }>;
     /** People in child projects who aren't in the org (report §20.2 Status: Outside people). */
-    outside: Array<{ userId: string; name: string; username: string | null; projects: string[] }>;
+    outside: Array<{ userId: string; name: string; username: string | null; projects: Array<{ id: string; title: string }> }>;
     summary: { members: number; admins: number; guests: number; behind: number; notInProject: number; inactive: number };
     /** "412 left today" (report §21.4). */
     invitesLeft: number;
@@ -111,6 +111,9 @@ export async function readOrgMembersAction(orgId: string): Promise<OrgMembersDat
         db.select({ id: userBlocks.blockedId }).from(userBlocks).where(eq(userBlocks.blockerId, viewer.userId)),
     ]);
     const blockedByMe = new Set(myBlocks.map((b) => b.id));
+    // Contribution credit (report §31.4): a ✓ on the row, and the Verified filter.
+    const verified = new Set((await db.execute<{ id: string }>(sql`
+        SELECT profile_id AS id FROM profile_contributions WHERE workspace_id = ${orgId} AND verified_at IS NOT NULL AND deleted_at IS NULL`)).map((r) => r.id));
 
     const now = new Date();
     const stateByCopy = new Map(copies.map((c) => [c.id, copyState({ status: c.status, reviewStatus: c.reviewStatus, dueDate: c.dueDate, submittedAt: c.reviewSubmittedAt, completedAt: c.completedAt, excusedAt: c.excusedAt }, now).state]));
@@ -133,6 +136,7 @@ export async function readOrgMembersAction(orgId: string): Promise<OrgMembersDat
             username: p.username,
             avatarUrl: p.avatarUrl,
             blockedByMe: blockedByMe.has(p.userId),
+            verified: verified.has(p.userId),
             role,
             title: p.title,
             projects: childRows.filter((c) => c.userId === p.userId).map((c) => ({ id: c.projectId, title: c.title, unit: c.unit })),
@@ -148,8 +152,8 @@ export async function readOrgMembersAction(orgId: string): Promise<OrgMembersDat
     const emptyChildren = await db.select({ id: workspaces.id, title: workspaces.title }).from(workspaces)
         .where(and(eq(workspaces.parentId, orgId), isNull(workspaces.deletedAt)));
     for (const child of emptyChildren) if (!children.some((c) => c.id === child.id)) children.push({ id: child.id, title: child.title, units: units.filter((u) => u.projectId === child.id).map((u) => ({ id: u.id, title: u.title })) });
-    const outside = await db.execute<{ user_id: string; name: string | null; username: string | null; projects: string[] }>(sql`
-        SELECT m.user_id, coalesce(pr.full_name, pr.username) AS name, pr.username, json_agg(p.title ORDER BY p.title) AS projects
+    const outside = await db.execute<{ user_id: string; name: string | null; username: string | null; projects: Array<{ id: string; title: string }> }>(sql`
+        SELECT m.user_id, coalesce(pr.full_name, pr.username) AS name, pr.username, json_agg(json_build_object('id', p.id, 'title', p.title) ORDER BY p.title) AS projects
         FROM workspace_members m JOIN workspaces p ON p.id = m.workspace_id AND p.parent_id = ${orgId} AND p.deleted_at IS NULL
         JOIN profiles pr ON pr.id = m.user_id
         WHERE NOT EXISTS (SELECT 1 FROM workspace_members o WHERE o.workspace_id = ${orgId} AND o.user_id = m.user_id) AND m.user_id <> ${viewer.ownerId}
@@ -412,10 +416,14 @@ export async function declineOrgInviteAction(inviteId: string): Promise<{ succes
 export async function changeMemberRoleAction(orgId: string, userIds: string[], role: 'admin' | 'member' | 'viewer'): Promise<{ success: true; changed: number } | Failure> {
     const viewer = await orgManager(orgId, 'change_member_viewer_role');
     if (!viewer || !['admin', 'member', 'viewer'].includes(role)) return DENIED;
+    if (userIds.includes(viewer.userId)) return { success: false, error: 'You can’t change your own role. Use Leave instead.' };
     const roles = await rolesOf(orgId, viewer.ownerId, userIds);
     for (const id of userIds) {
         const block = roles.has(id) ? memberChangeBlock(viewer.role, roles.get(id)!, role) : 'That person is no longer a member.';
         if (block) return { success: false, error: block };
+        // Viewers can't be on a workspace, so a lead transfers first (report §36.2).
+        const led = role === 'viewer' ? await ledChildWorkspaces(db, orgId, id) : [];
+        if (led[0]) return { success: false, error: `Transfer ${led[0].title} first.` };
     }
     if (role === 'admin') {
         // Report §21.4: 20 admins, checked before anyone changes.
@@ -425,23 +433,180 @@ export async function changeMemberRoleAction(orgId: string, userIds: string[], r
         const block = adding ? orgLimitBlock('admins', n + adding - 1, { org: org?.title ?? 'This organization', isAdmin: true }) : null;
         if (block) return { success: false, error: block };
     }
-    await db.transaction(async (tx) => {
+    const seats = await db.transaction(async (tx) => {
+        const opened: ReopenedSeat[] = [];
         for (const id of userIds) {
-            if (roles.get(id) === role) continue;
+            const before = roles.get(id);
+            if (before === role) continue;
             // The lifecycle helper checks ranks against the project's own members; the owner acts for admin changes.
             await changeWorkspaceMemberRoleInternal(tx, { projectId: orgId, actorId: viewer.ownerId, targetUserId: id, nextRole: role });
+            // Report §36.2: admins and viewers hold no copies (handed-in work stays); becoming Member brings open ones.
+            if (before === 'member') await releaseCopiesOnLeave(tx, orgId, id);
+            if (role === 'member') await createCopiesForNewMember(tx, orgId, id);
+            if (role === 'viewer') opened.push(...await leaveChildWorkspaces(tx, orgId, id));
         }
+        return opened;
     });
     touch(viewer.slug, orgId);
     const org = await orgLabel(orgId);
     const changed = userIds.filter((id) => roles.get(id) !== role);
     if (org && changed.length) {
         await notifyOrg({
-            orgId, eventKey: 'org.role_changed', actorId: viewer.userId, to: changed, title: `Your role in ${org.title} is now ${org.roleNames[role]}`,
+            orgId, eventKey: 'org.role_changed', actorId: viewer.userId, to: changed, title: `Your role in ${org.title} is now ${org.roleNames[role]}`, body: ROLE_CHANGE_NOTE[role],
             href: orgHref(org), sourceEventId: `role:${role}:${Date.now()}`,
         });
+        if (role === 'member') for (const id of changed) await notifyNewCopies(orgId, { userId: id });
     }
+    await notifySeatsReopened(orgId, seats);
     return { success: true, changed: userIds.length };
+}
+
+/** What the new role means, in the notice (report §36.2 "Told"). */
+const ROLE_CHANGE_NOTE: Record<'admin' | 'member' | 'viewer', string> = {
+    admin: 'You can now review work, except your own. Your open assignments were removed; handed-in work stays in your record.',
+    member: 'Open assignments are now on your list.',
+    viewer: 'You can read here, without posting or handing in work. Your open assignments were removed; handed-in work stays.',
+};
+
+/** Out of every workspace here, open tasks unassigned (a Viewer, report §36.2); returns the team seats it opened. */
+async function leaveChildWorkspaces(tx: Parameters<Parameters<typeof db.transaction>[0]>[0], orgId: string, userId: string): Promise<ReopenedSeat[]> {
+    const rows = await tx.select({ projectId: workspaceMembers.projectId, leadId: workspaces.ownerId, slug: workspaces.slug, unit: sql<string | null>`(SELECT coalesce(r.title, r.role) FROM workspace_open_roles r WHERE r.id = ${workspaceMembers.unitId})` })
+        .from(workspaceMembers).innerJoin(workspaces, eq(workspaces.id, workspaceMembers.projectId))
+        .where(and(eq(workspaces.parentId, orgId), eq(workspaceMembers.userId, userId), isNull(workspaces.deletedAt)));
+    for (const r of rows) await removeWorkspaceMemberInternal(tx, { projectId: r.projectId, actorId: r.leadId, targetUserId: userId, mode: 'unassign_active_tasks' });
+    return rows.flatMap((r) => (r.unit ? [{ projectId: r.projectId, slug: r.slug, leadId: r.leadId, unit: r.unit }] : []));
+}
+
+/** Open copies a person holds, and handed-in ones, for the role and Remove dialogs (report §36.2, §36.5). */
+async function copyCounts(orgId: string, userIds: string[]) {
+    if (!userIds.length) return { open: 0, handedIn: 0 };
+    const [row] = await db.select({
+        open: sql<number>`count(*) FILTER (WHERE NOT ${handedInSql})::int`,
+        handedIn: sql<number>`count(*) FILTER (WHERE ${handedInSql})::int`,
+    }).from(tasks).where(and(eq(tasks.projectId, orgId), inArray(tasks.assigneeId, userIds), isNotNull(tasks.assignmentId), isNull(tasks.deletedAt)));
+    return { open: row?.open ?? 0, handedIn: row?.handedIn ?? 0 };
+}
+
+/** Workspaces each person leads here, by name: they transfer those first. */
+async function leadsOf(orgId: string, userIds: string[]) {
+    const rows = userIds.length ? await db.select({ userId: workspaces.ownerId, title: workspaces.title, slug: workspaces.slug, id: workspaces.id }).from(workspaces)
+        .where(and(eq(workspaces.parentId, orgId), inArray(workspaces.ownerId, userIds), isNull(workspaces.deletedAt))) : [];
+    const names = await namesOf([...new Set(rows.map((r) => r.userId))]);
+    return rows.map((r) => ({ userId: r.userId, name: names.get(r.userId) ?? 'Someone', workspace: r.title, workspaceId: r.id, slug: r.slug }));
+}
+
+type RoleChangePreview = { success: true; people: number; openRemoved: number; submittedKept: number; gainsOpen: number; leads: Awaited<ReturnType<typeof leadsOf>> };
+
+/**
+ * The role dialog's list (report §36.2): open copies removed and handed-in ones kept (Member to Admin or Viewer),
+ * open assignments gained (to Member), and leads refused before Viewer.
+ */
+export async function readRoleChangePreviewAction(orgId: string, userIds: string[], role: 'admin' | 'member' | 'viewer'): Promise<RoleChangePreview | Failure> {
+    const viewer = await orgManager(orgId, 'change_member_viewer_role', 'read');
+    if (!viewer) return DENIED;
+    const roles = await rolesOf(orgId, viewer.ownerId, userIds);
+    const changing = userIds.filter((id) => roles.has(id) && roles.get(id) !== role);
+    const losing = role === 'member' ? [] : changing.filter((id) => roles.get(id) === 'member');
+    const counts = await copyCounts(orgId, losing);
+    const [gains] = role === 'member' && changing.length ? await db.execute<{ n: number }>(sql`
+        SELECT count(*)::int AS n FROM tasks WHERE workspace_id = ${orgId} AND kind = 'assignment' AND assignment_id IS NULL AND deleted_at IS NULL
+          AND assignment_settings->>'publishedAt' IS NOT NULL AND assignment_settings->>'closedAt' IS NULL AND (due_date IS NULL OR due_date > now())
+          AND (assignment_settings->'target'->>'mode' = 'everyone' OR (assignment_settings->'target'->>'mode' = 'role' AND assignment_settings->'target'->>'role' = 'member'))`) : [];
+    return {
+        success: true, people: changing.length, openRemoved: counts.open, submittedKept: counts.handedIn, gainsOpen: gains?.n ?? 0,
+        leads: role === 'viewer' ? await leadsOf(orgId, changing) : [],
+    };
+}
+
+type RemovalPreview = {
+    success: true; people: number; workspaces: number; seats: number; openRemoved: number; submittedKept: number; tasks: number;
+    skipped: Array<{ userId: string; name: string; workspaces: string[] }>;
+};
+
+/**
+ * The Remove dialog's list (report §36.5): totals for everyone it can remove; workspace leads are listed and left out.
+ */
+export async function readRemovalPreviewAction(orgId: string, userIds: string[]): Promise<RemovalPreview | Failure> {
+    const viewer = await orgManager(orgId, 'remove_members_guests', 'read');
+    if (!viewer) return DENIED;
+    const roles = await rolesOf(orgId, viewer.ownerId, userIds);
+    const leads = await leadsOf(orgId, userIds);
+    const leading = new Set(leads.map((l) => l.userId));
+    const going = userIds.filter((id) => roles.has(id) && !leading.has(id) && !memberChangeBlock(viewer.role, roles.get(id)!, null) && id !== viewer.userId);
+    const counts = await copyCounts(orgId, going);
+    const [places] = going.length ? await db.execute<{ workspaces: number; seats: number; tasks: number }>(sql`
+        SELECT count(DISTINCT m.workspace_id)::int AS workspaces, count(m.unit_id)::int AS seats,
+          (SELECT count(*)::int FROM tasks t JOIN workspaces c ON c.id = t.workspace_id AND (c.id = ${orgId} OR c.parent_id = ${orgId})
+           WHERE t.assignee_id IN ${going} AND t.assignment_id IS NULL AND t.deleted_at IS NULL AND t.kind <> 'assignment' AND t.status <> 'done') AS tasks
+        FROM workspace_members m JOIN workspaces w ON w.id = m.workspace_id AND w.parent_id = ${orgId} AND w.deleted_at IS NULL
+        WHERE m.user_id IN ${going}`) : [];
+    return {
+        success: true, people: going.length, workspaces: places?.workspaces ?? 0, seats: places?.seats ?? 0, openRemoved: counts.open, submittedKept: counts.handedIn, tasks: places?.tasks ?? 0,
+        skipped: [...new Set(leads.map((l) => l.userId))].map((id) => ({ userId: id, name: leads.find((l) => l.userId === id)!.name, workspaces: leads.filter((l) => l.userId === id).map((l) => l.workspace) })),
+    };
+}
+
+export type FormerMember = { userId: string; name: string; how: 'left' | 'removed' | 'term_ended' | 'org_deleted'; at: string; by: string | null; note: string | null; blocked: boolean; done: number; total: number };
+
+/** Members → Status → Former (report §36.4): how it ended, when, who, the reason written, and what they did. Admins only. */
+export async function readFormerMembersAction(orgId: string): Promise<{ success: true; rows: FormerMember[] } | Failure> {
+    const viewer = await orgManager(orgId, 'see_former', 'read');
+    if (!viewer) return DENIED;
+    const rows = await db.execute<{ user_id: string; name: string | null; gone: boolean; end_reason: FormerMember['how'] | null; ended_at: Date | string; by_name: string | null; end_note: string | null; blocked: boolean; done: number; total: number }>(sql`
+        SELECT c.profile_id AS user_id, coalesce(p.full_name, p.username) AS name, p.deleted_at IS NOT NULL AS gone, c.end_reason, c.ended_at, c.end_note,
+               coalesce(b.full_name, b.username) AS by_name,
+               EXISTS (SELECT 1 FROM org_join_blocks j WHERE j.org_id = ${orgId} AND j.user_id = c.profile_id) AS blocked,
+               (SELECT count(*) FILTER (WHERE t.status = 'done')::int FROM tasks t WHERE t.workspace_id = ${orgId} AND t.assignee_id = c.profile_id AND t.assignment_id IS NOT NULL AND t.deleted_at IS NULL) AS done,
+               (SELECT count(*)::int FROM tasks t WHERE t.workspace_id = ${orgId} AND t.assignee_id = c.profile_id AND t.assignment_id IS NOT NULL AND t.deleted_at IS NULL) AS total
+        FROM profile_contributions c LEFT JOIN profiles p ON p.id = c.profile_id LEFT JOIN profiles b ON b.id = c.ended_by
+        WHERE c.workspace_id = ${orgId} AND c.ended_at IS NOT NULL AND c.deleted_at IS NULL
+          AND NOT EXISTS (SELECT 1 FROM workspace_members m WHERE m.workspace_id = ${orgId} AND m.user_id = c.profile_id)
+        ORDER BY c.ended_at DESC LIMIT 500`);
+    return {
+        success: true,
+        rows: rows.map((r) => ({
+            userId: r.user_id, name: r.gone ? 'Deleted user' : r.name || 'Someone', how: r.end_reason ?? 'left', at: new Date(r.ended_at).toISOString(),
+            by: r.end_reason === 'removed' ? r.by_name : null, note: r.end_note, blocked: r.blocked, done: r.done, total: r.total,
+        })),
+    };
+}
+
+/** Invite back from Former (report §36.4): an invitation to their account's address; a blocked person is unblocked first. */
+export async function inviteFormerMemberAction(orgId: string, userId: string): Promise<{ success: true } | Failure> {
+    const viewer = await orgManager(orgId, 'invite_back_unblock');
+    if (!viewer) return DENIED;
+    if ((await rolesOf(orgId, viewer.ownerId, [userId])).has(userId)) return { success: false, error: 'They’re already a member.' };
+    const [blocked] = await db.select({ id: orgJoinBlocks.userId }).from(orgJoinBlocks).where(and(eq(orgJoinBlocks.orgId, orgId), eq(orgJoinBlocks.userId, userId))).limit(1);
+    if (blocked) return { success: false, error: 'Unblock them first.' };
+    const [person] = await db.select({ email: profiles.email }).from(profiles).where(and(eq(profiles.id, userId), isNull(profiles.deletedAt))).limit(1);
+    if (!person?.email) return { success: false, error: 'This account no longer exists.' };
+    await createOrgEmailInvites(orgId, viewer.userId, { emails: [person.email], role: 'member', title: null, childProjectId: null, unitId: null });
+    touch(viewer.slug, orgId);
+    return { success: true };
+}
+
+/** Outside people (report §36.3): an admin removes one from a workspace here; its lead is told. */
+export async function removeOutsidePersonAction(orgId: string, userId: string, workspaceId: string): Promise<{ success: true } | Failure> {
+    const viewer = await orgManager(orgId, 'remove_outside_person');
+    if (!viewer) return DENIED;
+    if ((await rolesOf(orgId, viewer.ownerId, [userId])).has(userId)) return { success: false, error: 'They’re a member of this organization. Use Remove instead.' };
+    const [child] = await db.select({ id: workspaces.id, ownerId: workspaces.ownerId, title: workspaces.title, slug: workspaces.slug }).from(workspaces)
+        .where(and(eq(workspaces.id, workspaceId), eq(workspaces.parentId, orgId), isNull(workspaces.deletedAt))).limit(1);
+    if (!child) return { success: false, error: 'That workspace is no longer in this organization.' };
+    if (child.ownerId === userId) return { success: false, error: 'They’re its workspace lead.' };
+    try {
+        await db.transaction((tx) => removeWorkspaceMemberInternal(tx, { projectId: child.id, actorId: child.ownerId, targetUserId: userId, mode: 'unassign_active_tasks' }));
+    } catch {
+        return { success: false, error: 'They’re no longer in that workspace.' };
+    }
+    touch(viewer.slug, orgId);
+    const name = (await namesOf([userId])).get(userId) ?? 'Someone';
+    const stamp = Date.now();
+    await notifyOrg({ orgId, eventKey: 'org.child_notice', actorId: viewer.userId, to: [child.ownerId], title: `${name} was removed from ${child.title} by an organization admin`,
+        href: `/workspaces/${encodeURIComponent(child.slug ?? child.id)}?tab=settings`, sourceEventId: `outside-removed:${child.id}:${userId}:${stamp}`, refs: { projectId: child.id } });
+    await notifyOrg({ orgId, eventKey: 'org.removed', actorId: viewer.userId, to: [userId], title: `You were removed from ${child.title}`,
+        href: '/workspaces', sourceEventId: `outside-removed-you:${child.id}:${userId}:${stamp}` });
+    return { success: true };
 }
 
 /** Admins edit anyone's title ("Section B", "TA · Lab 2"); members edit their own in Settings (report §20.4). */
@@ -460,7 +625,7 @@ export async function setMemberTitleAction(orgId: string, userId: string, title:
  * Remove (report §20.7): out of the org and its child projects, unfinished copies released, handed-in work
  * kept. "Block from rejoining" stops the join code. Project leads transfer or detach their projects first.
  */
-export async function removeMembersAction(orgId: string, userIds: string[], options: { block: boolean; reason?: string | null }): Promise<{ success: true; removed: number } | Failure> {
+export async function removeMembersAction(orgId: string, userIds: string[], options: { block: boolean; reason?: string | null }): Promise<{ success: true; removed: number; skipped: number } | Failure> {
     const viewer = await orgManager(orgId, 'remove_members_guests');
     if (!viewer) return DENIED;
     const roles = await rolesOf(orgId, viewer.ownerId, userIds);
@@ -468,8 +633,12 @@ export async function removeMembersAction(orgId: string, userIds: string[], opti
         if (id === viewer.userId) return { success: false, error: 'Use Leave organization to remove yourself.' };
         const block = roles.has(id) ? memberChangeBlock(viewer.role, roles.get(id)!, null) : 'That person is no longer a member.';
         if (block) return { success: false, error: block };
-        if ((await ledChildWorkspaces(db, orgId, id)).length > 0) return { success: false, error: 'This person owns a workspace here. Transfer or detach it first.' };
     }
+    // Report §36.5 "Remove 11, skip 1": workspace leads transfer first, so they're left out.
+    const leads = await leadsOf(orgId, userIds);
+    const all = userIds.length;
+    userIds = userIds.filter((id) => !leads.some((l) => l.userId === id));
+    if (!userIds.length) return { success: false, error: `${leads[0]!.name} leads ${leads[0]!.workspace}. Transfer it first.` };
     const seats = await db.transaction(async (tx) => {
         const opened = [];
         for (const id of userIds) {
@@ -490,7 +659,7 @@ export async function removeMembersAction(orgId: string, userIds: string[], opti
             href: '/workspaces', sourceEventId: `removed:${Date.now()}`, email: { kind: 'org_removed', data: { reason } },
         });
     }
-    return { success: true, removed: userIds.length };
+    return { success: true, removed: userIds.length, skipped: all - userIds.length };
 }
 
 /** Add to child project (report §20.6): admins add people directly, into a unit when one is picked. */

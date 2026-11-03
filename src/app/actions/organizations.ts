@@ -386,6 +386,18 @@ async function afterJoin(orgId: string, outcome: OrgJoinOutcome, userId: string)
 }
 
 /** Withdraws the viewer's pending join request; withdrawing is not a decline, so there is no cool-down. */
+/** Add a note to a waiting join request (report §26.5): up to 500 characters; the admins' row shows the newest. */
+export async function updateJoinRequestNoteAction(orgId: string, note: string): Promise<{ success: true } | Failure> {
+    const userId = await viewerId();
+    if (!userId) return DENIED;
+    const clean = note.trim().slice(0, 500) || null;
+    const updated = await db.update(roleApplications).set({ message: clean, updatedAt: new Date() })
+        .where(and(eq(roleApplications.projectId, orgId), eq(roleApplications.applicantId, userId), eq(roleApplications.status, 'pending'), isNull(roleApplications.roleId)))
+        .returning({ id: roleApplications.id });
+    if (!updated.length) return { success: false, error: 'There is no waiting request to add a note to.' };
+    return { success: true };
+}
+
 export async function cancelJoinRequestAction(orgId: string): Promise<{ success: true } | Failure> {
     const userId = await viewerId();
     if (!userId) return DENIED;

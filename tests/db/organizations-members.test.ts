@@ -150,7 +150,9 @@ test("joining by code while invited accepts the invite instead", async () => {
 test("roles and titles: admins manage members and guests; only the owner manages admins", async () => {
   const o = await org();
   viewerId = o.admin;
-  assert.deepEqual(await members.changeMemberRoleAction(o.orgId, [o.a, o.b], "viewer"), { success: true, changed: 2 });
+  // Step 11c (§36.2): a workspace lead transfers first, so a Viewer never leads one.
+  assert.deepEqual(await members.changeMemberRoleAction(o.orgId, [o.a, o.b], "viewer"), { success: false, error: "Transfer Compiler Lab first." });
+  assert.deepEqual(await members.changeMemberRoleAction(o.orgId, [o.b], "viewer"), { success: true, changed: 1 });
   assert.equal((await members.changeMemberRoleAction(o.orgId, [o.a], "admin")).success, false);
   assert.equal((await members.changeMemberRoleAction(o.orgId, [o.owner], "member")).success, false);
   assert.equal((await members.setMemberTitleAction(o.orgId, o.b, "Section C")).success, true);
@@ -165,14 +167,14 @@ test("remove: out of the org and its projects; Block from rejoining stops the co
   await sql`INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (${o.child}, ${o.b}, 'member')`;
   viewerId = o.admin;
   assert.equal((await members.removeMembersAction(o.orgId, [o.admin], { block: false })).success, false);
-  assert.deepEqual(await members.removeMembersAction(o.orgId, [o.b], { block: true, reason: "Left the course" }), { success: true, removed: 1 });
+  assert.deepEqual(await members.removeMembersAction(o.orgId, [o.b], { block: true, reason: "Left the course" }), { success: true, removed: 1, skipped: 0 });
   assert.equal((await sql`SELECT 1 FROM workspace_members WHERE user_id = ${o.b} AND workspace_id IN (${o.orgId}, ${o.child})`).length, 0);
   viewerId = o.b;
   const again = await orgs.joinOrganizationAction(o.code);
   assert.equal(again.success, false);
   assert.equal((await members.removeMembersAction(o.orgId, [o.a], { block: false })).success, false, "members can't remove");
   viewerId = o.admin;
-  assert.match(JSON.stringify(await members.removeMembersAction(o.orgId, [o.a], { block: false })), /owns a workspace/, "workspace owners transfer first");
+  assert.match(JSON.stringify(await members.removeMembersAction(o.orgId, [o.a], { block: false })), /Transfer it first/, "workspace owners transfer first");
 });
 
 test("add to a child project: admins add people straight into a unit", async () => {
@@ -218,7 +220,7 @@ test("§20 pass: Max members holds for invites; bulk Remind; drawer activity; Ou
 
   const outsider = await sql.begin((tx) => createUser(tx));
   await sql`INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (${o.child}, ${outsider}, 'member')`;
-  assert.deepEqual((await roster(o.orgId, o.admin))!.outside.map((p) => [p.userId, p.projects]), [[outsider, ["Compiler Lab"]]]);
+  assert.deepEqual((await roster(o.orgId, o.admin))!.outside.map((p) => [p.userId, p.projects.map((x) => x.title)]), [[outsider, ["Compiler Lab"]]]);
 
   await sql`UPDATE workspace_members SET show_on_profile = false WHERE workspace_id = ${o.orgId} AND user_id = ${o.b}`;
   await sql`UPDATE workspaces SET visibility = 'public', status = 'active' WHERE id = ${o.orgId}`;

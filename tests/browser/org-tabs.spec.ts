@@ -20,11 +20,15 @@ test.beforeAll(async () => {
         'next/navigation': `export const usePathname=()=>'/org/cse-3a',useRouter=()=>({refresh(){},push(){},replace(){}});`,
         '@/app/actions/org-members': `export const readOrgInvitePanelAction=async()=>({success:true});export const previewOrgInviteEmailAction=async()=>({success:true});export const readOrgMembersAction=async()=>({success:true,viewerRole:'owner',joinCode:'K7M2QX',rows:${people},
             requests:[{id:'r1',userId:'x',name:'Priya Natarajan',note:'Roll 21, section B',createdAt:new Date().toISOString()}],invites:[],
-            children:[{id:'c1',title:'Team Falcon',units:[{id:'un',title:'Frontend'}]}],outside:[{userId:'o1',name:'Client Person',username:null,projects:['Team Falcon']}],summary:{members:12,admins:2,guests:0,behind:4,notInProject:0,inactive:0},teamChanges:[]});
+            children:[{id:'c1',title:'Team Falcon',units:[{id:'un',title:'Frontend'}]}],outside:[{userId:'o1',name:'Client Person',username:null,projects:[{id:'c1',title:'Team Falcon'}]}],summary:{members:12,admins:2,guests:0,behind:4,notInProject:0,inactive:0},teamChanges:[]});
             export const readMemberWorkAction=async()=>({success:true,work:[]}),readMemberActivityAction=async()=>({success:true,activity:[{at:new Date().toISOString(),what:'status changed',task:'Lab 2',project:'Team Falcon'}]});
             export const remindMembersAction=async()=>({success:true,reminded:2});
-            export const addMembersToChildAction=${ok},approveJoinRequestsAction=${ok},cancelOrgInviteAction=${ok},changeMemberRoleAction=${ok},declineJoinRequestAction=${ok},inviteByEmailAction=async()=>({success:true,invalid:[]}),removeMembersAction=${ok},resendOrgInviteAction=${ok},setMemberTitleAction=${ok},moveMemberToWorkspaceAction=${ok},dismissTeamChangeAction=${ok};`,
-        '@/app/actions/organizations': `export const updateOrgSettingsAction=async()=>({success:true});export const unarchiveChildAction=async()=>({success:true});export const readLeadCandidatesAction=async()=>({success:true});export const detachChildAction=async()=>({success:true});export const cancelMoveInAction=async()=>({success:true});export const cancelDetachRequestAction=async()=>({success:true});export const assignChildLeadAction=async()=>({success:true});export const approveMoveInAction=async()=>({success:true});export const regenerateJoinCodeAction=async()=>({success:true,joinCode:'Q2W3E4'}),archiveChildAction=${ok},cancelJoinRequestAction=${ok},joinPublicOrgAction=${ok},childTitleTakenAction=async()=>false;
+            export const addMembersToChildAction=${ok},approveJoinRequestsAction=${ok},cancelOrgInviteAction=${ok},changeMemberRoleAction=${ok},declineJoinRequestAction=${ok},inviteByEmailAction=async()=>({success:true,invalid:[]}),removeMembersAction=${ok},resendOrgInviteAction=${ok},setMemberTitleAction=${ok},moveMemberToWorkspaceAction=${ok},dismissTeamChangeAction=${ok},removeOutsidePersonAction=${ok},inviteFormerMemberAction=${ok};
+            export const readRoleChangePreviewAction=async()=>({success:true,people:1,openRemoved:2,submittedKept:3,gainsOpen:0,leads:[]});
+            export const readRemovalPreviewAction=async()=>({success:true,people:1,workspaces:1,seats:1,openRemoved:2,submittedKept:3,tasks:1,skipped:[]});
+            export const readFormerMembersAction=async()=>({success:true,rows:[{userId:'f1',name:'Asha Rao',how:'removed',at:new Date().toISOString(),by:'Ms. Rao',note:'Repeated no-shows',blocked:true,done:3,total:4}]});`,
+        '@/app/actions/moderation-org': `export const unblockFromOrgAction=${ok};`,
+        '@/app/actions/organizations': `export const joinOrganizationAction=${ok},updateJoinRequestNoteAction=${ok};export const updateOrgSettingsAction=async()=>({success:true});export const unarchiveChildAction=async()=>({success:true});export const readLeadCandidatesAction=async()=>({success:true});export const detachChildAction=async()=>({success:true});export const cancelMoveInAction=async()=>({success:true});export const cancelDetachRequestAction=async()=>({success:true});export const assignChildLeadAction=async()=>({success:true});export const approveMoveInAction=async()=>({success:true});export const regenerateJoinCodeAction=async()=>({success:true,joinCode:'Q2W3E4'}),archiveChildAction=${ok},cancelJoinRequestAction=${ok},joinPublicOrgAction=${ok},childTitleTakenAction=async()=>false;
             export const listOrgRosterAction=async(orgId,q,admins)=>[['u1','Ravi Kumar','member','In Compiler Lab',['React']],['u2','Asha Nair','member',null,['Testing']],['u3','Ms. Rao','owner',null,[]]]
               .filter((p)=>!admins||p[2]!=='member').map(([userId,name,role,projectHint,skills])=>({userId,name,username:null,avatarUrl:null,title:role==='owner'?'Teacher':null,role,projectHint,skills}));
             export const listOutsidePeopleAction=async()=>[{userId:'x1',name:'Client Person',username:'client',avatarUrl:null,title:'Mentor',role:'outside',projectHint:null}];`,
@@ -202,10 +206,23 @@ test('Members (§20): bulk Remind, the Outside people filter, and the drawer has
     await expect(page.getByRole('group', { name: 'Bulk actions' }), 'success clears the selection').toHaveCount(0);
     await page.getByLabel('Status').selectOption('outside');
     await expect(page.getByRole('list', { name: 'Outside people' })).toContainText('Client Person');
+    await expect(page.getByRole('button', { name: 'Remove from Team Falcon' })).toBeVisible();
+    // Step 11c: Former, with how it ended, who and why, and Unblock.
+    await page.getByLabel('Status').selectOption('former');
+    await expect(page.getByRole('list', { name: 'Former members' })).toContainText('Ms. Rao · “Repeated no-shows” · Blocked');
+    await expect(page.getByRole('button', { name: 'Unblock' })).toBeVisible();
     await page.getByLabel('Status').selectOption('all');
+    // The Remove dialog lists what goes and what stays, with a reason and the block.
+    await page.getByLabel('Select Student 4').check();
+    await page.getByRole('group', { name: 'Bulk actions' }).getByRole('button', { name: 'Remove', exact: true }).click();
+    await expect(page.getByRole('alertdialog')).toContainText('Keep 3 submitted assignments for admins');
+    await expect(page.getByRole('button', { name: 'Remove Student 4' })).toBeVisible();
+    await page.getByRole('button', { name: 'Cancel' }).click();
     await page.getByRole('button', { name: /^Student 5/ }).click();
     await expect(page.getByRole('link', { name: 'Message' })).toBeVisible();
     await expect(page.getByText('status changed · Lab 2')).toBeVisible();
+    await page.getByLabel('Role', { exact: true }).last().selectOption('viewer');
+    await expect(page.getByRole('alertdialog')).toContainText('2 open assignments are removed from their list');
 });
 
 test('Files (§23): storage nearly full, Update copy and opening an org file in place', async ({ page }) => {

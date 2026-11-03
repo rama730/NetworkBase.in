@@ -8,7 +8,6 @@ import {
     addMembersToChildAction,
     approveJoinRequestsAction,
     cancelOrgInviteAction,
-    changeMemberRoleAction,
     declineJoinRequestAction,
     dismissTeamChangeAction,
     inviteByEmailAction,
@@ -17,7 +16,7 @@ import {
     readMemberWorkAction,
     readOrgMembersAction,
     remindMembersAction,
-    removeMembersAction,
+    removeOutsidePersonAction,
     resendOrgInviteAction,
     setMemberTitleAction,
     type MemberActivityRow,
@@ -25,7 +24,9 @@ import {
     type OrgMembersData,
 } from '@/app/actions/org-members'
 import { regenerateJoinCodeAction } from '@/app/actions/organizations'
-import { revokeOrgVerificationAction, verifyOrgContributionsAction } from '@/app/actions/org-profile'
+import { verifyOrgContributionsAction } from '@/app/actions/org-profile'
+import { FormerList, RemoveDialog, RevokeDialog, RoleDialog } from '@/components/organizations/OrgMemberDialogs'
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
@@ -52,9 +53,13 @@ const workLine = (w: RosterRow['work']) => (w.total === 0 ? '—' : `${w.done} o
 export function OrgMembersTab({ orgId, roleNames }: { orgId: string; roleNames?: RoleNames }) {
     const [data, setData] = useState<OrgMembersData | null>(null)
     const [error, setError] = useState<string | null>(null)
-    const [filter, setFilter] = useState<RosterFilter & { invited?: boolean; outside?: boolean }>({ sort: 'name' })
+    const [filter, setFilter] = useState<RosterFilter & { invited?: boolean; outside?: boolean; former?: boolean }>({ sort: 'name' })
     const [selected, setSelected] = useState<Set<string>>(new Set())
     const [open, setOpen] = useState<Row | null>(null)
+    const [roleAsk, setRoleAsk] = useState<{ ids: string[]; names: string[]; role: 'admin' | 'member' | 'viewer' } | null>(null)
+    const [removeAsk, setRemoveAsk] = useState<{ ids: string[]; names: string[]; block: boolean } | null>(null)
+    const [revoke, setRevoke] = useState<{ userId: string; name: string } | null>(null)
+    const [outsideAsk, setOutsideAsk] = useState<{ userId: string; name: string; projectId: string; title: string } | null>(null)
     const [pending, startTransition] = useTransition()
     // Report §4.3: the organization's own name beside the base access level ("TA · Admin").
     const label = (role: string) => (role in ACCESS_LEVEL_LABELS ? accessLevelLabel(role as AccessLevel, roleNames?.[role as keyof RoleNames]) : role)
@@ -96,13 +101,18 @@ export function OrgMembersTab({ orgId, roleNames }: { orgId: string; roleNames?:
                         <option value="all">All workspaces</option><option value="none">Not in a workspace</option>
                         {data.children.map((c) => <option key={c.id} value={c.id}>{c.title}</option>)}
                     </select>
-                    <select aria-label="Status" className={select} value={filter.invited ? 'invited' : filter.outside ? 'outside' : filter.status ?? 'all'}
+                    <select aria-label="Status" className={select}
+                        value={filter.invited ? 'invited' : filter.outside ? 'outside' : filter.former ? 'former' : filter.verified && filter.verified !== 'all' ? `verified_${filter.verified}` : filter.status ?? 'all'}
                         onChange={(e) => {
                             const v = e.target.value
-                            setFilter({ ...filter, invited: v === 'invited', outside: v === 'outside', status: v === 'invited' || v === 'outside' ? 'all' : (v as RosterFilter['status']) })
+                            const list = v === 'invited' || v === 'outside' || v === 'former'
+                            setFilter({ ...filter, invited: v === 'invited', outside: v === 'outside', former: v === 'former',
+                                verified: v.startsWith('verified_') ? (v.slice(9) as 'yes' | 'no') : 'all',
+                                status: list || v.startsWith('verified_') ? 'all' : (v as RosterFilter['status']) })
                         }}>
-                        <option value="all">Any status</option><option value="behind">Needs attention</option><option value="inactive">Inactive for 14 days</option><option value="invited">Invited</option>
-                        <option value="outside">Outside people</option>
+                        <option value="all">Any status</option><option value="behind">Needs attention</option><option value="inactive">Inactive for 14 days</option>
+                        <option value="verified_yes">Verified</option><option value="verified_no">Not verified</option><option value="invited">Invited</option>
+                        <option value="outside">Outside people</option><option value="former">Former</option>
                     </select>
                     <select aria-label="Sort" className={select} value={filter.sort ?? 'name'} onChange={(e) => setFilter({ ...filter, sort: e.target.value as RosterFilter['sort'] })}>
                         <option value="name">Sort: Name</option><option value="behind">Needs attention</option><option value="active">Last active here</option><option value="joined">Joined</option>
@@ -111,16 +121,26 @@ export function OrgMembersTab({ orgId, roleNames }: { orgId: string; roleNames?:
 
                 {data.requests.length + data.teamChanges.length > 0 ? <div className="lg:hidden"><Requests orgId={orgId} data={data} pending={pending} run={run} /></div> : null}
 
-                {ids.length > 0 ? <BulkBar label={label} orgId={orgId} data={data} ids={ids} pending={pending} run={run} onClear={() => setSelected(new Set())} /> : null}
+                {ids.length > 0 && !filter.former ? <BulkBar label={label} orgId={orgId} data={data} ids={ids} pending={pending} run={run} onClear={() => setSelected(new Set())}
+                    onRole={(role) => setRoleAsk({ ids, names: ids.map((id) => data.rows.find((r) => r.userId === id)?.name ?? 'Someone'), role })}
+                    onRemove={(block) => setRemoveAsk({ ids, names: ids.map((id) => data.rows.find((r) => r.userId === id)?.name ?? 'Someone'), block })} /> : null}
 
-                {filter.outside ? (
+                {filter.former ? <FormerList orgId={orgId} q={filter.q ?? ''} pending={pending} run={run} /> : filter.outside ? (
                     <ul className="divide-y divide-border rounded-lg border border-border" aria-label="Outside people">
                         {data.outside.length === 0 ? <li className="p-4 text-sm text-muted-foreground">No outside people in this organization’s workspaces.</li> : null}
                         {data.outside.map((o) => (
                             <li key={o.userId} className="flex flex-wrap items-center gap-x-3 gap-y-1 p-3 text-sm">
                                 <span className="font-medium">{o.name}</span>
                                 <span className="rounded-[3px] border border-border px-1 text-[11px] text-muted-foreground">Outside</span>
-                                <span className="min-w-0 truncate text-muted-foreground">{o.projects.join(', ')}</span>
+                                <span className="min-w-0 truncate text-muted-foreground">{o.projects.map((p) => p.title).join(', ')}</span>
+                                <span className="ml-auto flex flex-wrap gap-1.5">
+                                    <Link href={`/messages?userId=${o.userId}`} onClick={(e) => messageUserInWindow(o.userId, e)} className="text-[13px] underline underline-offset-4">Message</Link>
+                                    {o.projects.map((p) => (
+                                        <Button key={p.id} type="button" size="sm" variant="ghost" disabled={pending} onClick={() => setOutsideAsk({ userId: o.userId, name: o.name, projectId: p.id, title: p.title })}>
+                                            Remove from {p.title}
+                                        </Button>
+                                    ))}
+                                </span>
                             </li>
                         ))}
                     </ul>
@@ -154,6 +174,7 @@ export function OrgMembersTab({ orgId, roleNames }: { orgId: string; roleNames?:
                                     <span className="flex flex-wrap items-center gap-x-1.5">
                                         <span className="font-medium">{r.name}</span>
                                         <span className="rounded-[3px] border border-border px-1 text-[11px] text-muted-foreground">{label(r.role)}</span>
+                                        {r.verified ? <span className="text-[12px] text-muted-foreground" title="Contribution verified"><span aria-hidden="true">✓</span><span className="sr-only">Verified</span></span> : null}
                                         {/* Your personal block, seen only by you (Blocking B51). */}
                                         {r.blockedByMe ? <span className="rounded-[3px] border border-border px-1 text-[11px] text-muted-foreground">Blocked</span> : null}
                                         {r.title ? <span className="text-muted-foreground">· {r.title}</span> : null}
@@ -187,16 +208,26 @@ export function OrgMembersTab({ orgId, roleNames }: { orgId: string; roleNames?:
             <Dialog open={Boolean(open)} onOpenChange={(v) => { if (!v) setOpen(null) }}>
                 <DialogContent presentation="right-drawer" className="overflow-y-auto p-5">
                     <DialogTitle className="sr-only">{open ? `Member: ${open.name}` : 'Member'}</DialogTitle>
-                    {open ? <MemberDrawer orgId={orgId} row={open} data={data} label={label} pending={pending} run={(w, d) => { run(w, d); setOpen(null) }} /> : null}
+                    {open ? <MemberDrawer orgId={orgId} row={open} data={data} label={label} pending={pending} run={(w, d) => { run(w, d); setOpen(null) }}
+                        onRole={(role) => { setOpen(null); setRoleAsk({ ids: [open.userId], names: [open.name], role }) }}
+                        onRemove={(block) => { setOpen(null); setRemoveAsk({ ids: [open.userId], names: [open.name], block }) }}
+                        onRevoke={() => { setOpen(null); setRevoke({ userId: open.userId, name: open.name }) }} /> : null}
                 </DialogContent>
             </Dialog>
+            <RoleDialog orgId={orgId} userIds={roleAsk?.ids ?? []} names={roleAsk?.names ?? []} role={roleAsk?.role ?? null} label={label} run={run} onClose={() => setRoleAsk(null)} />
+            <RemoveDialog orgId={orgId} userIds={removeAsk?.ids ?? []} names={removeAsk?.names ?? []} block={removeAsk ? removeAsk.block : null} run={run} onClose={() => setRemoveAsk(null)} />
+            <RevokeDialog orgId={orgId} person={revoke} run={run} onClose={() => setRevoke(null)} />
+            <ConfirmDialog open={Boolean(outsideAsk)} onOpenChange={(v) => { if (!v) setOutsideAsk(null) }} variant="destructive"
+                title={`Remove ${outsideAsk?.name ?? 'them'} from ${outsideAsk?.title ?? 'this workspace'}?`}
+                description="Their open tasks there are unassigned; handed-in work stays. Its workspace lead is told."
+                confirmLabel="Remove" onConfirm={() => { const a = outsideAsk; setOutsideAsk(null); if (a) run(() => removeOutsidePersonAction(orgId, a.userId, a.projectId), `${a.name} was removed from ${a.title}`) }} />
         </div>
     )
 }
 
 type Run = <R extends { success: boolean; error?: string }>(work: () => Promise<R>, done: string | ((result: R) => string)) => void
 
-function BulkBar({ orgId, data, label, ids, pending, run, onClear }: { orgId: string; data: OrgMembersData; label: (role: string) => string; ids: string[]; pending: boolean; run: Run; onClear: () => void }) {
+function BulkBar({ orgId, data, label, ids, pending, run, onClear, onRole, onRemove }: { orgId: string; data: OrgMembersData; label: (role: string) => string; ids: string[]; pending: boolean; run: Run; onClear: () => void; onRole: (role: 'admin' | 'member' | 'viewer') => void; onRemove: (block: boolean) => void }) {
     const [childId, setChildId] = useState('')
     const [unitId, setUnitId] = useState('')
     const units = data.children.find((c) => c.id === childId)?.units ?? []
@@ -206,7 +237,7 @@ function BulkBar({ orgId, data, label, ids, pending, run, onClear }: { orgId: st
             <Button type="button" size="sm" variant="outline" disabled={pending} onClick={() => run(() => remindMembersAction(orgId, ids), (r) => ('reminded' in r ? remindSummary(r) : ''))}>Remind</Button>
             <select aria-label="Change access level" className={select} value="" disabled={pending} onChange={(e) => {
                 const role = e.target.value as 'admin' | 'member' | 'viewer'
-                if (role) run(() => changeMemberRoleAction(orgId, ids, role), 'Roles changed')
+                if (role) onRole(role)
             }}>
                 <option value="">Change access level…</option>
                 <option value="member">{label('member')}</option><option value="viewer">{label('viewer')}</option>
@@ -226,14 +257,11 @@ function BulkBar({ orgId, data, label, ids, pending, run, onClear }: { orgId: st
                 </>
             ) : null}
             {/* End-of-term verification (report §20.6, §24.5): role and dates, never the story text. */}
-            <Button type="button" size="sm" variant="outline" disabled={pending} onClick={() => run(() => verifyOrgContributionsAction(orgId, ids), 'Contributions verified')}>Verify contributions</Button>
+            <Button type="button" size="sm" variant="outline" disabled={pending} title="Verify covers role and dates, not what they wrote"
+                onClick={() => run(() => verifyOrgContributionsAction(orgId, ids), 'Verified. It covers role and dates, not what they wrote.')}>Verify {ids.length}</Button>
             {/* Two named actions, each with its own confirmation (Blocking B50): removal, and the organization's own block. */}
-            <Button type="button" size="sm" variant="destructive" className="ml-auto" disabled={pending} onClick={() => {
-                if (window.confirm(`Remove ${ids.length} ${ids.length === 1 ? 'person' : 'people'}? They leave every workspace here; submitted work stays. They can ask to join again.`)) run(() => removeMembersAction(orgId, ids, { block: false }), 'Removed')
-            }}>Remove</Button>
-            <Button type="button" size="sm" variant="destructive" disabled={pending} onClick={() => {
-                if (window.confirm(`Remove and block ${ids.length} ${ids.length === 1 ? 'person' : 'people'} from this organization? They leave every workspace here and can’t join again until an admin lifts it. This is the organization’s block, not a personal one.`)) run(() => removeMembersAction(orgId, ids, { block: true }), 'Removed and blocked from the organization')
-            }}>Remove and block from organization</Button>
+            <Button type="button" size="sm" variant="destructive" className="ml-auto" disabled={pending} onClick={() => onRemove(false)}>Remove</Button>
+            <Button type="button" size="sm" variant="destructive" disabled={pending} onClick={() => onRemove(true)}>Remove and block from organization</Button>
             <Button type="button" size="sm" variant="ghost" onClick={onClear}>Clear</Button>
         </div>
     )
@@ -294,7 +322,10 @@ function MoveToWorkspace({ orgId, data, userId, fromId, pending, run, children }
     )
 }
 
-function MemberDrawer({ orgId, row, data, label, pending, run }: { orgId: string; row: Row; data: OrgMembersData; label: (role: string) => string; pending: boolean; run: Run }) {
+function MemberDrawer({ orgId, row, data, label, pending, run, onRole, onRemove, onRevoke }: {
+    orgId: string; row: Row; data: OrgMembersData; label: (role: string) => string; pending: boolean; run: Run
+    onRole: (role: 'admin' | 'member' | 'viewer') => void; onRemove: (block: boolean) => void; onRevoke: () => void
+}) {
     const [work, setWork] = useState<MemberWorkRow[] | null>(null)
     const [activity, setActivity] = useState<MemberActivityRow[] | null>(null)
     const [title, setTitle] = useState(row.title ?? '')
@@ -330,12 +361,11 @@ function MemberDrawer({ orgId, row, data, label, pending, run }: { orgId: string
             </section>
             <section className="space-y-1.5">
                 <h4 className="font-semibold">Contribution credit</h4>
+                <p className="text-muted-foreground">{row.verified ? '✓ Verified. It covers role and dates, not what they wrote.' : 'Not verified yet.'}</p>
                 <div className="flex flex-wrap gap-1.5">
-                    <Button type="button" size="sm" variant="outline" disabled={pending} onClick={() => run(() => verifyOrgContributionsAction(orgId, [row.userId]), 'Contribution verified')}>Verify contribution</Button>
-                    <Button type="button" size="sm" variant="ghost" disabled={pending} onClick={() => {
-                        const reason = window.prompt('Why remove the verification? They will see this.')
-                        if (reason) run(() => revokeOrgVerificationAction(orgId, row.userId, reason), 'Verification removed')
-                    }}>Revoke</Button>
+                    {row.verified
+                        ? <Button type="button" size="sm" variant="ghost" disabled={pending} onClick={onRevoke}>Revoke</Button>
+                        : <Button type="button" size="sm" variant="outline" disabled={pending} onClick={() => run(() => verifyOrgContributionsAction(orgId, [row.userId]), 'Contribution verified')}>Verify contribution</Button>}
                 </div>
             </section>
             <section className="space-y-1">
@@ -368,16 +398,12 @@ function MemberDrawer({ orgId, row, data, label, pending, run }: { orgId: string
                 </form>
                 {canChange ? (
                     <div className="flex flex-wrap gap-1.5">
-                        <select aria-label="Role" className={select} value={row.role} disabled={pending} onChange={(e) => run(() => changeMemberRoleAction(orgId, [row.userId], e.target.value as 'admin' | 'member' | 'viewer'), 'Role changed')}>
+                        <select aria-label="Role" className={select} value={row.role} disabled={pending} onChange={(e) => onRole(e.target.value as 'admin' | 'member' | 'viewer')}>
                             <option value="member">{label('member')}</option><option value="viewer">{label('viewer')}</option>
                             {data.viewerRole === 'owner' ? <option value="admin">{label('admin')}</option> : null}
                         </select>
-                        <Button type="button" size="sm" variant="destructive" disabled={pending} onClick={() => {
-                            if (window.confirm(`Remove ${row.name}? They leave every workspace here; submitted work stays. They can ask to join again.`)) run(() => removeMembersAction(orgId, [row.userId], { block: false }), 'Removed')
-                        }}>Remove</Button>
-                        <Button type="button" size="sm" variant="destructive" disabled={pending} onClick={() => {
-                            if (window.confirm(`Remove and block ${row.name} from this organization? They leave every workspace here and can’t join again until an admin lifts it. This is the organization’s block, not a personal one.`)) run(() => removeMembersAction(orgId, [row.userId], { block: true }), 'Removed and blocked from the organization')
-                        }}>Remove and block from organization</Button>
+                        <Button type="button" size="sm" variant="destructive" disabled={pending} onClick={() => onRemove(false)}>Remove</Button>
+                        <Button type="button" size="sm" variant="destructive" disabled={pending} onClick={() => onRemove(true)}>Remove and block from organization</Button>
                     </div>
                 ) : null}
                 {/* A personal block is yours alone: it changes nothing about their place here (Blocking B45, B50). */}
