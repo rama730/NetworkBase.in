@@ -6,11 +6,13 @@ import { logger } from '@/lib/logger';
 import { z } from 'zod';
 
 import { db } from '@/lib/db';
-import { assignmentSubmissions, profiles, workspaceMembers, workspaces, workspaceSprints, workspaceWorkflowColumns, taskActivityEvents, taskTeamMembers, tasks } from '@/lib/db/schema';
+import { assignmentSubmissions, profiles, taskNodeLinks, workspaceMembers, workspaceNodes, workspaces, workspaceSprints, workspaceWorkflowColumns, taskActivityEvents, taskTeamMembers, tasks } from '@/lib/db/schema';
 import { getWorkspaceAccessById, writeBlockedMessage } from '@/lib/data/workspace-access';
 import { createClient } from '@/lib/supabase/server';
 import { assignmentHref, canStillSubmit, copyState, LATE_AFTER_DEFAULT_MINUTES, lateAfterMs, lateRuleBlock, lateWorkLabel, type AssignmentSettings, type AssignmentTarget, type CopyState } from '@/lib/organizations/assignment-rules';
 import { createCopies, createMasterTask, handedInSql, PeopleLeftError, resolveRecipients } from '@/lib/organizations/assignments';
+import { publishMaster } from '@/lib/organizations/assignment-publish';
+import { orgFileAccessSql } from '@/lib/files/internal-helpers';
 import { shareToOrgGeneral } from '@/lib/organizations/org-chat';
 import { postOrgAnnouncement } from '@/lib/organizations/org-updates';
 import { ORG_LIMITS } from '@/lib/organizations/config';
@@ -75,7 +77,24 @@ const createSchema = z.object({
     announcement: z.string().trim().max(5000).optional(),
     /** Late after (report §45.3, decision 171): minutes past the due time, 0 to 60. */
     lateAfterMinutes: z.number().int().min(0, 'Late after is 0 to 60 minutes.').max(60, 'Late after is 0 to 60 minutes.').optional(),
+    /** Publish timing for a draft (decision 125): On a date, or When the sprint starts. */
+    schedule: z.union([z.object({ at: z.string().datetime({ offset: true }) }), z.object({ sprintStart: z.literal(true) })]).nullable().optional(),
+    /** Materials (decision 128): this organization's files, read only on every copy. */
+    materials: z.array(z.string().uuid()).max(20, 'Up to 20 materials.').optional(),
 });
+
+const scheduleSchema = z.union([z.object({ at: z.string().datetime({ offset: true }) }), z.object({ sprintStart: z.literal(true) })]);
+
+/** The settings a schedule writes, or why it can't (a time in the past, or a sprint to wait for). */
+function scheduleFields(schedule: z.infer<typeof scheduleSchema> | null | undefined, sprintId: string | null) {
+    if (!schedule) return { fields: { publishAt: null, publishOnSprintStart: false } };
+    if ('at' in schedule) {
+        if (new Date(schedule.at).getTime() <= Date.now()) return { error: 'Pick a time after now, or publish now.' };
+        return { fields: { publishAt: new Date(schedule.at).toISOString(), publishOnSprintStart: false } };
+    }
+    if (!sprintId) return { error: 'Pick the sprint it starts with.' };
+    return { fields: { publishAt: null, publishOnSprintStart: true } };
+}
 
 /** New assignment: a master, and copies when published (report §16.2). Drafts make no copies. */
 export async function createAssignmentAction(input: z.input<typeof createSchema>): Promise<{ success: true; masterId: string; copies: number } | Failure> {
@@ -86,6 +105,8 @@ export async function createAssignmentAction(input: z.input<typeof createSchema>
     if (!viewer?.isAdmin) return DENIED;
     const lateBlock = lateRuleBlock(data, new Date(data.dueDate));
     if (lateBlock) return { success: false, error: lateBlock };
+    const scheduled = data.publish ? { fields: {} } : scheduleFields(data.schedule, data.sprintId ?? null);
+    if ('error' in scheduled) return { success: false, error: scheduled.error! };
     try {
         const result = await db.transaction(async (tx) => {
             await tx.execute(sql`SELECT id FROM ${workspaces} WHERE id = ${data.projectId} FOR UPDATE`);
@@ -105,11 +126,18 @@ export async function createAssignmentAction(input: z.input<typeof createSchema>
                 publishedAt: data.publish ? new Date().toISOString() : null,
                 closedAt: null,
                 lateAfterMinutes: data.lateAfterMinutes ?? LATE_AFTER_DEFAULT_MINUTES,
+                ...scheduled.fields,
             };
             const masterId = await createMasterTask(tx, {
                 orgId: data.projectId, title: data.title, description: data.description || null, dueDate: new Date(data.dueDate),
                 sprintId: data.sprintId ?? null, creatorId: viewer.userId, settings, steps: data.steps,
             });
+            if (data.materials?.length) {
+                // Only this organization's own files, never task files (decision 128).
+                const files = await tx.select({ id: workspaceNodes.id }).from(workspaceNodes).where(and(inArray(workspaceNodes.id, data.materials), eq(workspaceNodes.projectId, data.projectId),
+                    eq(workspaceNodes.type, 'file'), isNull(workspaceNodes.deletedAt), isNull(workspaceNodes.taskId)));
+                if (files.length) await tx.insert(taskNodeLinks).values(files.map((f) => ({ taskId: masterId, nodeId: f.id, createdBy: viewer.userId }))).onConflictDoNothing();
+            }
             if (recipients.length > 0) await createCopies(tx, masterId, recipients, viewer.userId);
             return { masterId, copies: recipients.length };
         });
@@ -146,19 +174,62 @@ export async function publishAssignmentAction(masterId: string, options: { dropM
     if (!ctx) return DENIED;
     if (ctx.master.settings.publishedAt) return { success: false, error: 'Already published.' };
     try {
-        const copies = await db.transaction(async (tx) => {
-            const recipients = await resolveRecipients(tx, ctx.master.projectId, ctx.master.settings.target, options);
-            await tx.update(tasks).set({ assignmentSettings: { ...ctx.master.settings, publishedAt: new Date().toISOString(), note: null }, updatedAt: new Date() }).where(eq(tasks.id, masterId));
-            await createCopies(tx, masterId, recipients, ctx.viewer.userId);
-            return recipients.length;
-        });
+        const copies = await publishMaster(masterId, ctx.viewer.userId, options);
+        if (copies === null) return { success: false, error: 'Already published.' };
         touch(ctx.viewer.slug, ctx.master.projectId);
-        await notifyAssignmentPublished(masterId, ctx.viewer.userId);
         return { success: true, copies };
     } catch (error) {
         if (error instanceof PeopleLeftError) return { success: false, error: error.message, left: error.left };
         return { success: false, error: error instanceof Error ? error.message : 'Couldn’t publish.' };
     }
+}
+
+/** Schedule a draft, or Back to draft with null (decision 125). */
+export async function scheduleAssignmentAction(masterId: string, schedule: z.input<typeof scheduleSchema> | null): Promise<{ success: true } | Failure> {
+    const parsed = schedule === null ? { success: true as const, data: null } : scheduleSchema.safeParse(schedule);
+    if (!parsed.success) return { success: false, error: 'Pick when to publish.' };
+    const ctx = await adminOfMaster(masterId);
+    if (!ctx) return DENIED;
+    if (ctx.master.settings.publishedAt) return { success: false, error: 'Already published.' };
+    const fields = scheduleFields(parsed.data, ctx.master.sprintId);
+    if ('error' in fields) return { success: false, error: fields.error! };
+    await db.update(tasks).set({ assignmentSettings: { ...ctx.master.settings, ...fields.fields }, updatedAt: new Date() }).where(eq(tasks.id, masterId));
+    touch(ctx.viewer.slug, ctx.master.projectId);
+    return { success: true };
+}
+
+/** The composer's Materials picker (decision 128): this organization's files by name, Admins-only ones marked (137). */
+export async function searchAssignmentMaterialsAction(orgId: string, query: string): Promise<{ success: true; files: Array<{ id: string; name: string; adminsOnly: boolean }> } | Failure> {
+    const viewer = await orgRole(orgId, 'read');
+    if (!viewer?.isAdmin) return DENIED;
+    const pattern = `%${query.trim().slice(0, 80).replace(/[%_\\]/g, (c) => `\\${c}`)}%`;
+    const files = await db.select({ id: workspaceNodes.id, name: workspaceNodes.name,
+        adminsOnly: sql<boolean>`EXISTS (SELECT 1 FROM workspace_nodes f WHERE f.workspace_id = workspace_nodes.workspace_id AND f.type = 'folder' AND f.deleted_at IS NULL AND f.metadata->>'access' = 'admins' AND starts_with(workspace_nodes.path, f.path || '/'))` })
+        .from(workspaceNodes).where(and(eq(workspaceNodes.projectId, orgId), eq(workspaceNodes.type, 'file'), isNull(workspaceNodes.deletedAt), isNull(workspaceNodes.taskId), sql`${workspaceNodes.name} ILIKE ${pattern}`))
+        .orderBy(asc(workspaceNodes.name)).limit(20);
+    return { success: true, files };
+}
+
+/**
+ * Materials on the assignment (decision 128, problem 10): the main assignment's files, read only from each copy.
+ * Admins-only files stay hidden from members, names included.
+ */
+export async function readAssignmentMaterialsAction(copyId: string): Promise<{ success: true; materials: Array<{ nodeId: string; name: string }> } | Failure> {
+    const userId = await viewerId();
+    const loaded = await loadCopy(copyId);
+    if (!userId || !loaded) return DENIED;
+    const access = await getWorkspaceAccessById(loaded.master.projectId, userId);
+    const isAdmin = access.isOwner || access.memberRole === 'admin';
+    const [mine] = isAdmin ? [true] : await db.select({ id: tasks.id }).from(tasks).where(and(eq(tasks.id, copyId),
+        sql`(${tasks.assigneeId} = ${userId} OR EXISTS (SELECT 1 FROM task_team_members tm WHERE tm.task_id = ${copyId}::uuid AND tm.user_id = ${userId}))`)).limit(1);
+    if (!mine) return DENIED;
+    const masterId = loaded.master.id;
+    const rows = await db.select({ nodeId: workspaceNodes.id, name: workspaceNodes.name }).from(workspaceNodes)
+        .where(and(isNull(workspaceNodes.deletedAt), eq(workspaceNodes.type, 'file'),
+            sql`(${workspaceNodes.taskId} = ${masterId} OR ${workspaceNodes.id} IN (SELECT node_id FROM task_node_links WHERE task_id = ${masterId}))`,
+            orgFileAccessSql({ ...access, viewerId: userId })))
+        .orderBy(asc(workspaceNodes.name));
+    return { success: true, materials: rows };
 }
 
 const updateSchema = z.object({
@@ -467,7 +538,12 @@ export type AssignmentRow = {
     masterId: string;
     title: string;
     dueDate: string | null;
-    status: 'draft' | 'open' | 'closed';
+    status: 'draft' | 'scheduled' | 'open' | 'closed';
+    /** "From Ms. Rao", or the organization once they're no longer an admin; "Draft by" on drafts (decision 98). */
+    from: string;
+    /** Scheduled: when, or with its sprint (decision 125). */
+    publishAt?: string | null;
+    publishOnSprintStart?: boolean;
     /** A draft Duplicate changed: what to check before publishing (problem 15). */
     note?: string | null;
     /** "Late work closed" on old assignments with no late date (problem 13). */
@@ -498,6 +574,13 @@ export async function listAssignmentsAction(orgId: string): Promise<{ success: t
     const teamSizes = new Map(copies.length === 0 ? [] : (await db.select({ taskId: taskTeamMembers.taskId, n: sql<number>`count(*)::int` }).from(taskTeamMembers)
         .where(inArray(taskTeamMembers.taskId, copies.map((c) => c.id))).groupBy(taskTeamMembers.taskId)).map((r) => [r.taskId, r.n]));
     const now = new Date();
+    // Decision 98: nothing depends on the person who made it; "From" falls back to the organization.
+    const creatorIds = [...new Set(visible.map((m) => m.creatorId).filter((id): id is string => Boolean(id)))];
+    const [org] = await db.select({ title: workspaces.title, ownerId: workspaces.ownerId, timeZone: workspaces.timeZone }).from(workspaces).where(eq(workspaces.id, orgId)).limit(1);
+    const admins = new Set(creatorIds.length ? (await db.select({ id: workspaceMembers.userId }).from(workspaceMembers)
+        .where(and(eq(workspaceMembers.projectId, orgId), inArray(workspaceMembers.userId, creatorIds), eq(workspaceMembers.role, 'admin')))).map((r) => r.id) : []);
+    if (org) admins.add(org.ownerId);
+    const creatorNames = new Map(creatorIds.length ? (await db.select({ id: profiles.id, name: sql<string>`coalesce(${profiles.fullName}, ${profiles.username}, 'Someone')` }).from(profiles).where(inArray(profiles.id, creatorIds))).map((p) => [p.id, p.name]) : []);
     const rows: AssignmentRow[] = visible.map((m) => {
         const settings = m.assignmentSettings!;
         const counts = emptyCounts();
@@ -517,7 +600,12 @@ export async function listAssignmentsAction(orgId: string): Promise<{ success: t
         }, { done: 0, total: 0 }) : undefined;
         return {
             masterId: m.id, title: m.title, dueDate: m.dueDate?.toISOString() ?? null, note: viewer.isAdmin ? settings.note ?? null : null, lateNote: lateWorkLabel(settings),
-            status: !settings.publishedAt ? 'draft' : settings.closedAt ? 'closed' : 'open',
+            status: !settings.publishedAt ? (settings.publishAt || settings.publishOnSprintStart ? 'scheduled' : 'draft') : settings.closedAt ? 'closed' : 'open',
+            from: (() => {
+                const name = m.creatorId && admins.has(m.creatorId) ? creatorNames.get(m.creatorId) ?? null : null;
+                return !settings.publishedAt ? (name ? `Draft by ${name}` : 'Draft') : `From ${name ?? org?.title ?? 'the organization'}`;
+            })(),
+            ...(viewer.isAdmin && !settings.publishedAt ? { publishAt: settings.publishAt ?? null, publishOnSprintStart: Boolean(settings.publishOnSprintStart) } : {}),
             submissionType: settings.submissionType, reviewRequired: settings.reviewRequired, teams: settings.target.mode === 'teams',
             counts, mine, ...(teamPeople ? { people: teamPeople } : {}),
         };
@@ -532,7 +620,6 @@ export async function listAssignmentsAction(orgId: string): Promise<{ success: t
         const byCopy = new Map(reasons.map((r) => [r.task_id, r.reason]));
         for (const row of rows) if (row.mine && byCopy.has(row.mine.copyId)) row.mine.returnedReason = byCopy.get(row.mine.copyId) ?? null;
     }
-    const [org] = await db.select({ timeZone: workspaces.timeZone }).from(workspaces).where(eq(workspaces.id, orgId)).limit(1);
     return { success: true, isAdmin: viewer.isAdmin, rows: viewer.isAdmin || viewer.role === 'viewer' ? rows : rows.filter((r) => r.mine), timeZone: org?.timeZone ?? null };
 }
 
@@ -566,12 +653,10 @@ export async function readAssignmentRosterAction(masterId: string): Promise<{ su
     });
     const closed = Boolean(master.settings.closedAt);
     if (!viewer.isAdmin) return { success: true, rows: [], counts, withoutCopy: [], closed };
-    // Give to (decision 88): members with no copy, late joiners included.
-    const withoutCopy = (await db.select({ userId: workspaceMembers.userId, name: sql<string>`coalesce(${profiles.fullName}, ${profiles.username}, 'Member')` })
+    const memberRows = db.select({ userId: workspaceMembers.userId, name: sql<string>`coalesce(${profiles.fullName}, ${profiles.username}, 'Member')` })
         .from(workspaceMembers).innerJoin(profiles, eq(profiles.id, workspaceMembers.userId))
-        .where(and(eq(workspaceMembers.projectId, master.projectId), eq(workspaceMembers.role, 'member'), isNull(profiles.deletedAt),
-            sql`NOT EXISTS (SELECT 1 FROM tasks c WHERE c.assignment_id = ${masterId} AND c.deleted_at IS NULL AND (c.assignee_id = ${workspaceMembers.userId} OR EXISTS (SELECT 1 FROM task_team_members tm WHERE tm.task_id = c.id AND tm.user_id = ${workspaceMembers.userId})))`))
-        .orderBy(asc(profiles.fullName)).limit(500));
+        .where(and(eq(workspaceMembers.projectId, master.projectId), eq(workspaceMembers.role, 'member'), isNull(profiles.deletedAt)))
+        .orderBy(asc(profiles.fullName));
     const people = copies.length === 0 ? [] : await db.select({ copyId: taskTeamMembers.taskId, userId: taskTeamMembers.userId, isLead: taskTeamMembers.isLead, name: profiles.fullName, username: profiles.username })
         .from(taskTeamMembers).innerJoin(profiles, eq(profiles.id, taskTeamMembers.userId))
         .where(inArray(taskTeamMembers.taskId, copies.map((c) => c.id)));
@@ -590,6 +675,9 @@ export async function readAssignmentRosterAction(masterId: string): Promise<{ su
             approved: c.status === 'done' && c.completionSource === 'review',
             ...(c.teamName ? { people: team, submittedBy: by ? names.get(by) ?? null : null } : {}) };
     });
+    // Give to (decision 88): members with no copy, late joiners included.
+    const holders = new Set([...copies.map((c) => c.assigneeId), ...people.map((p) => p.userId)]);
+    const withoutCopy = (await memberRows).filter((m) => !holders.has(m.userId)).slice(0, 500);
     return { success: true, rows, counts, withoutCopy, closed };
 }
 

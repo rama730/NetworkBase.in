@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { workspaceSprintEvents, workspaceSprints, workspaces } from "@/lib/db/schema";
 import { notifyOrgSprintBlocked, notifyOrgSprintCompleted, notifyOrgSprintStarted } from "@/lib/organizations/sprint-notify";
 import { isSprintReadyToClose } from "@/lib/workspaces/sprint-detail";
+import { publishDueAssignments } from "@/lib/organizations/assignment-publish";
 
 /** Starts one planning sprint unless its project already has an active one. */
 export async function startSprint(sprintId: string, projectId: string, now: Date, actorId: string | null, source: "schedule" | "manual") {
@@ -31,7 +32,11 @@ export async function startSprint(sprintId: string, projectId: string, now: Date
     });
     return true;
   });
-  if (started) await notifyOrgSprintStarted(sprintId, projectId, actorId);
+  if (started) {
+    // "When the sprint starts" (decision 125): its scheduled assignments publish with it, before members hear.
+    await publishDueAssignments(now, { sprintId });
+    await notifyOrgSprintStarted(sprintId, projectId, actorId);
+  }
   return started;
 }
 

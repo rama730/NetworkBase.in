@@ -25,6 +25,9 @@ export type AssignmentSettings = {
   note?: string | null;
   /** Late after (report §45.3, decision 171): minutes past the due time before work counts as Late; 15 by default. */
   lateAfterMinutes?: number;
+  /** Publish timing (report §42.5, decision 125): a draft waits as Scheduled for a date, or for its sprint to start. */
+  publishAt?: string | null;
+  publishOnSprintStart?: boolean;
 };
 
 export const LATE_AFTER_DEFAULT_MINUTES = 15;

@@ -81,12 +81,20 @@ test("an org at 2,000 members: fan-out, roster, dashboard, projects and My work 
   }
 
   viewerId = owner;
+  // Decision 168: count what one publish writes, with email on, since network sends can't run locally.
+  const emailBefore = process.env.RESEND_EMAIL_ENABLED;
+  process.env.RESEND_EMAIL_ENABLED = "true";
   const created = await timed("publish to everyone (copy fan-out)", 30_000, () => assignments.createAssignmentAction({
     projectId: orgId, title: "Lab 1", dueDate: new Date(Date.now() + 864e5).toISOString(), publish: true,
     submissionType: "none", lateRule: "none", target: { mode: "everyone" }, steps: [],
   }));
   assert.ok(created.success, created.success ? "" : created.error);
   assert.equal(created.success && created.copies, size - 1);
+  if (emailBefore === undefined) delete process.env.RESEND_EMAIL_ENABLED; else process.env.RESEND_EMAIL_ENABLED = emailBefore;
+  const [{ notices }] = await sql`SELECT count(*)::int AS notices FROM user_notifications WHERE dedupe_key LIKE ${`project:${orgId}:%`}` as unknown as [{ notices: number }];
+  const [{ emails }] = await sql`SELECT count(*)::int AS emails FROM email_outbox WHERE workspace_id = ${orgId}` as unknown as [{ emails: number }];
+  console.log("org-scale publish writes:", JSON.stringify({ copies: size - 1, notices, emails }));
+  assert.ok(notices <= size && emails <= size, "at most one notice and one email per person");
   await sql`UPDATE tasks SET review_status = 'pending', review_submitted_at = now() WHERE assignment_id = ${created.success ? created.masterId : ""} AND assignee_id = ANY(${memberIds.slice(0, 300)}::uuid[])`;
 
   const roster = await timed("Members tab roster", 3_000, () => members.readOrgMembersAction(orgId));

@@ -72,7 +72,7 @@ export async function readSprintAssignmentsAction(projectId: string, sprintId: s
             if (state !== 'excused') counts.total += 1; // As the Tasks tab counts (report §42.2 smaller bug 1).
             if (state === 'missing' && c.assigneeId) missingPeople.add(c.assigneeId);
         }
-        return { masterId: m.id, title: m.title, dueDate: m.dueDate?.toISOString() ?? null, status: s.closedAt ? 'closed' : 'open', lateNote: lateWorkLabel(s), submissionType: s.submissionType,
+        return { masterId: m.id, title: m.title, dueDate: m.dueDate?.toISOString() ?? null, status: s.closedAt ? 'closed' : 'open', from: '', lateNote: lateWorkLabel(s), submissionType: s.submissionType,
             reviewRequired: s.reviewRequired, teams: s.target.mode === 'teams', counts, mine: null };
     });
     // The completed row (report §15.3): "Ms. Rao completed CO1 · 4 assignments · 2 people with missing work".

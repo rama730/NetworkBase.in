@@ -18,12 +18,15 @@ import {
     moveTeamMemberAction,
     publishAssignmentAction,
     readAssignmentComposerOptionsAction,
+    readAssignmentMaterialsAction,
     readAssignmentRosterAction,
     readAssignmentTeamsAction,
     readReviewQueueAction,
     remindCopiesAction,
     reopenAssignmentAction,
     reviewAssignmentCopyAction,
+    scheduleAssignmentAction,
+    searchAssignmentMaterialsAction,
     submitAssignmentAction,
     type AssignmentRow,
     type GroupCopyRow,
@@ -81,6 +84,9 @@ function SubmitDialog({ copyId, submissionType, title, open, onOpenChange, onDon
     }, [docsProjectId, submissionType])
     const [text, setText] = useState('')
     const [note, setNote] = useState('')
+    // Decision 128: the main assignment's materials, read only.
+    const [materials, setMaterials] = useState<Array<{ nodeId: string; name: string }>>([])
+    useEffect(() => { if (open) void readAssignmentMaterialsAction(copyId).then((r) => setMaterials(r.success ? r.materials : [])) }, [copyId, open])
     const [error, setError] = useState<string | null>(null)
     const [pending, startTransition] = useTransition()
     const submit = () => startTransition(async () => {
@@ -99,6 +105,11 @@ function SubmitDialog({ copyId, submissionType, title, open, onOpenChange, onDon
                     <DialogTitle>Submit {title}</DialogTitle>
                     <DialogDescription>{submissionType === 'file' ? 'Attach your file to this task first (Tasks → open the card → Files), then submit.' : 'Submit your work. You can resubmit until it is reviewed.'}</DialogDescription>
                 </DialogHeader>
+                {materials.length ? (
+                    <div className="text-sm"><p className="font-medium">Materials</p>
+                        <ul className="mt-1 space-y-0.5">{materials.map((m) => <li key={m.nodeId}><a href={`?tab=files&fileId=${encodeURIComponent(m.nodeId)}`} className="text-primary underline-offset-4 hover:underline">{m.name}</a></li>)}</ul>
+                    </div>
+                ) : null}
                 {submissionType === 'link' ? <Input value={link} onChange={(e) => setLink(e.target.value)} placeholder="https://" aria-label="Link to your work" /> : null}
                 {submissionType === 'link' && projectDocs.length > 0 ? (
                     <select defaultValue="" aria-label="Or pick a workspace doc" className="h-9 rounded-md border border-border bg-background px-2 text-sm"
@@ -131,6 +142,17 @@ function AssignmentComposer({ orgId, open, onOpenChange, onCreated }: { orgId: s
     const [lateRule, setLateRule] = useState<'none' | 'until' | 'always'>('always')
     const [lateUntilLocal, setLateUntilLocal] = useState('')
     const [lateAfter, setLateAfter] = useState(15)
+    // Publish timing (decision 125) and Materials (decision 128).
+    const [when, setWhen] = useState<'now' | 'sprint' | 'date' | 'draft'>('now')
+    const [publishLocal, setPublishLocal] = useState('')
+    const [materials, setMaterials] = useState<Array<{ id: string; name: string; adminsOnly: boolean }>>([])
+    const [materialQuery, setMaterialQuery] = useState('')
+    const [materialResults, setMaterialResults] = useState<Array<{ id: string; name: string; adminsOnly: boolean }>>([])
+    useEffect(() => {
+        if (!open || !materialQuery.trim()) return setMaterialResults([])
+        const timer = setTimeout(() => void searchAssignmentMaterialsAction(orgId, materialQuery).then((r) => setMaterialResults(r.success ? r.files : [])), 250)
+        return () => clearTimeout(timer)
+    }, [open, orgId, materialQuery])
     const [mode, setMode] = useState<AssignmentTarget['mode']>('everyone')
     const [people, setPeople] = useState<string[]>([])
     const [teams, setTeams] = useState<TeamBox[]>([])
@@ -176,15 +198,18 @@ function AssignmentComposer({ orgId, open, onOpenChange, onCreated }: { orgId: s
                     : mode === 'each_child' ? { mode } : { mode: 'children', projectIds: childIds }
 
     const defaultAnnouncement = `${title.trim() || 'A new assignment'} is out${dueLocal ? ` · due ${new Date(dueLocal).toLocaleString('en', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}` : ''}.`
-    const save = (publish: boolean) => startTransition(async () => {
+    const save = () => startTransition(async () => {
+        const publish = when === 'now'
         if (!dueLocal) return setError('Pick a due date and time.')
         if (lateRule === 'until' && !lateUntilLocal) return setError('Pick the last day late work is accepted.')
+        if (when === 'date' && !publishLocal) return setError('Pick when to publish.')
         // Report §16.9: a past due date is allowed, after a check.
         if (publish && new Date(dueLocal).getTime() < Date.now() && !window.confirm('The due date has passed. Publish as already late?')) return
         const result = await createAssignmentAction({
             projectId: orgId, title, description, dueDate: new Date(dueLocal).toISOString(), sprintId: sprintId || null, publish,
             submissionType, reviewRequired, lateRule, lateUntil: lateRule === 'until' && lateUntilLocal ? new Date(lateUntilLocal).toISOString() : null,
-            target: target(), steps, shareToGeneral, lateAfterMinutes: lateAfter,
+            target: target(), steps, shareToGeneral, lateAfterMinutes: lateAfter, materials: materials.map((m) => m.id),
+            schedule: when === 'date' ? { at: new Date(publishLocal).toISOString() } : when === 'sprint' ? { sprintStart: true } : null,
             ...(publish && announce ? { announcement: (announcement ?? defaultAnnouncement).trim() } : {}),
         })
         if (!result.success) return setError(result.error)
@@ -349,6 +374,32 @@ function AssignmentComposer({ orgId, open, onOpenChange, onCreated }: { orgId: s
                         </div>
                     </div>
 
+                    <div className="space-y-2">
+                        <p className="text-sm font-medium">Materials <span className="font-normal text-muted-foreground">(read only on every copy)</span></p>
+                        {materials.length ? (
+                            <ul className="flex flex-wrap gap-1.5">
+                                {materials.map((m) => (
+                                    <li key={m.id} className="inline-flex items-center gap-1 rounded-full border border-border py-0.5 pl-2 pr-1 text-xs">
+                                        {m.name}{m.adminsOnly ? <span className="text-amber-700 dark:text-amber-400"> · Admins only</span> : null}
+                                        <button type="button" aria-label={`Remove ${m.name}`} className="nb-icon-button size-5" onClick={() => setMaterials((cur) => cur.filter((x) => x.id !== m.id))}><X className="size-3" aria-hidden="true" /></button>
+                                    </li>
+                                ))}
+                            </ul>
+                        ) : null}
+                        <Input value={materialQuery} onChange={(e) => setMaterialQuery(e.target.value)} placeholder="Search this organization’s files" aria-label="Search files for materials" className="h-8" />
+                        {materialResults.length ? (
+                            <ul className="max-h-36 divide-y divide-border overflow-y-auto rounded-md border border-border text-sm" aria-label="Files">
+                                {materialResults.filter((f) => !materials.some((m) => m.id === f.id)).map((f) => (
+                                    <li key={f.id}><button type="button" className="w-full px-3 py-1.5 text-left hover:bg-muted/50" onClick={() => { setMaterials((cur) => [...cur, f]); setMaterialQuery('') }}>
+                                        {f.name}
+                                        {/* Decision 137: say so before an Admins-only file becomes a material. */}
+                                        {f.adminsOnly ? <span className="block text-xs text-amber-700 dark:text-amber-400">Admins only. Members won’t be able to open this.</span> : null}
+                                    </button></li>
+                                ))}
+                            </ul>
+                        ) : null}
+                    </div>
+
                     <p className="text-sm text-muted-foreground" role="status">{preview}</p>
                     {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}
                     <div className="flex flex-wrap items-center justify-end gap-2">
@@ -357,8 +408,18 @@ function AssignmentComposer({ orgId, open, onOpenChange, onCreated }: { orgId: s
                             <label className="flex items-center gap-1.5"><input type="checkbox" checked={announce} onChange={(e) => setAnnounce(e.target.checked)} /> Also post an announcement</label>
                         </span>
                         {announce ? <textarea value={announcement ?? defaultAnnouncement} onChange={(e) => setAnnouncement(e.target.value)} rows={2} maxLength={5000} aria-label="Announcement" className={`${area} basis-full`} /> : null}
-                        <Button type="button" variant="outline" disabled={pending} onClick={() => save(false)}>Save as draft</Button>
-                        <Button type="button" disabled={pending || !title.trim()} onClick={() => save(true)}>Publish</Button>
+                        {/* Publish timing (report §42.5, decision 125). */}
+                        <select value={when} onChange={(e) => setWhen(e.target.value as typeof when)} aria-label="When to publish" className={select}>
+                            <option value="now">Publish now</option>
+                            {sprintId ? <option value="sprint">When the sprint starts</option> : null}
+                            <option value="date">On a date</option>
+                            <option value="draft">Save as draft</option>
+                        </select>
+                        {when === 'date' ? <Input type="datetime-local" required value={publishLocal} onChange={(e) => setPublishLocal(e.target.value)} aria-label="Publish on" className="w-auto" /> : null}
+                        <Button type="button" disabled={pending || !title.trim()} onClick={save}>
+                            {/* Report §44.3: publishing to many takes a few seconds, so it says so. */}
+                            {pending ? (when === 'now' ? 'Publishing…' : 'Saving…') : when === 'now' ? 'Publish' : when === 'draft' ? 'Save as draft' : 'Schedule'}
+                        </Button>
                     </div>
                 </div>
             </DialogContent>
@@ -509,7 +570,8 @@ export function AssignmentsPanel({ orgId, onBoardChanged, startComposing = false
                     <li key={row.masterId} className="flex flex-wrap items-center gap-x-3 gap-y-1 py-2 text-sm">
                         <span className="font-medium">{row.title}</span>
                         <span className="text-muted-foreground" title={orgTime(row.mine?.dueDate ?? row.dueDate, data.timeZone)}>{due(row.mine?.dueDate ?? row.dueDate)}{row.mine?.extended ? ' · Extended' : ''}{row.teams ? ' · Teams' : ''}{row.lateNote ? ` · ${row.lateNote}` : ''}</span>
-                        {row.status !== 'open' ? <Status text={row.status === 'draft' ? 'Draft' : 'Closed'} tone={row.status === 'draft' ? 'draft' : 'archived'} /> : null}
+                        {row.status !== 'open' ? <Status text={row.status === 'draft' ? 'Draft' : row.status === 'scheduled' ? (row.publishOnSprintStart ? 'Publishes when the sprint starts' : `Publishes ${row.publishAt ? DUE.format(new Date(row.publishAt)) : ''}`) : 'Closed'} tone={row.status === 'closed' ? 'archived' : 'draft'} /> : null}
+                        {row.from ? <span className="text-[13px] text-muted-foreground">{row.from}</span> : null}
                         {row.mine ? (
                             <>
                                 <Status text={STATE_LABEL[row.mine.state] + (row.mine.late ? ' · Late' : '')} tone={row.mine.state === 'done' ? 'completed' : row.mine.state === 'missing' ? 'archived' : 'active'} />
@@ -524,14 +586,15 @@ export function AssignmentsPanel({ orgId, onBoardChanged, startComposing = false
                         )}
                         {data.isAdmin ? (
                             <span className="ml-auto flex flex-wrap gap-1">
-                                {row.status === 'draft' ? <Button type="button" size="sm" disabled={pending} onClick={() => run(async () => {
+                                {row.status === 'scheduled' ? <Button type="button" size="sm" variant="ghost" disabled={pending} onClick={() => run(() => scheduleAssignmentAction(row.masterId, null))}>Back to draft</Button> : null}
+                                {row.status === 'draft' || row.status === 'scheduled' ? <Button type="button" size="sm" disabled={pending} onClick={() => run(async () => {
                                     const first = await publishAssignmentAction(row.masterId)
                                     // "2 people have left. Publish to the other 38?" (report §42.10 problem 15)
                                     if (!first.success && 'left' in first && first.left && window.confirm(first.error)) return publishAssignmentAction(row.masterId, { dropMissing: true })
                                     return first
-                                })}>Publish</Button> : null}
-                                {row.status === 'draft' && row.note ? <span className="basis-full text-[13px] text-muted-foreground">{row.note}</span> : null}
-                                {row.status !== 'draft' ? <Button type="button" size="sm" variant="outline" onClick={() => setRoster(row)}>Roster</Button> : null}
+                                })}>{row.status === 'scheduled' ? 'Publish now' : 'Publish'}</Button> : null}
+                                {row.status !== 'open' && row.status !== 'closed' && row.note ? <span className="basis-full text-[13px] text-muted-foreground">{row.note}</span> : null}
+                                {row.status === 'open' || row.status === 'closed' ? <Button type="button" size="sm" variant="outline" onClick={() => setRoster(row)}>Roster</Button> : null}
                                 {row.status === 'open' ? <Button type="button" size="sm" variant="ghost" disabled={pending} onClick={() => run(() => closeAssignmentAction(row.masterId))}>Close</Button> : null}
                                 {row.status === 'closed' ? <Button type="button" size="sm" variant="ghost" disabled={pending} onClick={() => run(() => reopenAssignmentAction(row.masterId))}>Reopen</Button> : null}
                                 <Button type="button" size="sm" variant="ghost" disabled={pending} onClick={() => { if (window.confirm(`Delete ${row.title}?`)) run(() => deleteAssignmentAction(row.masterId)) }}>Delete</Button>

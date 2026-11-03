@@ -69,7 +69,8 @@ test.beforeAll(async () => {
               {copyId:'t2',label:'Priya (individual)',members:[],state:'missing',late:false,projectId:'org',dueDate:null,submission:null,excusedReason:null},
               {copyId:'t3',label:'Kiran',members:[],state:'submitted',late:false,projectId:'org',dueDate:null,submission:{link:'https://example.com/k'},excusedReason:null}],withoutCopy:[{userId:'u9',name:'Late Joiner'}],closed:false});
             export const listWorkspaceGroupCopiesAction=async()=>({success:true,rows:[]});
-            export const approveAllSubmittedAction=${ok},closeAssignmentAction=${ok},createAssignmentAction=${ok},deleteAssignmentAction=${ok},excuseCopyAction=${ok},extendCopyAction=${ok},publishAssignmentAction=${ok},reviewAssignmentCopyAction=${ok},submitAssignmentAction=${ok},giveCopyAction=${ok},reopenAssignmentAction=${ok};
+            export const approveAllSubmittedAction=${ok},closeAssignmentAction=${ok},createAssignmentAction=${ok},deleteAssignmentAction=${ok},excuseCopyAction=${ok},extendCopyAction=${ok},publishAssignmentAction=${ok},reviewAssignmentCopyAction=${ok},submitAssignmentAction=${ok},giveCopyAction=${ok},reopenAssignmentAction=${ok},scheduleAssignmentAction=${ok};
+            export const searchAssignmentMaterialsAction=async()=>({success:true,files:[{id:'k',name:'answers.pdf',adminsOnly:true}]}),readAssignmentMaterialsAction=async()=>({success:true,materials:[]});
             export const addAssignmentStepAction=${ok},excuseTeamMemberAction=${ok},moveTeamMemberAction=${ok},remindCopiesAction=async()=>({success:true,reminded:3}),readAssignmentTeamsAction=async()=>({success:true,teams:[]});
             export const readReviewQueueAction=async()=>({success:true,rows:[{copyId:'c1',masterId:'a1',title:'Lab 3 — Consensus protocols',who:'Team A',submittedBy:'Asha Nair',submittedAt:new Date(Date.now()-7200000).toISOString(),late:true},{copyId:'c2',masterId:'a1',title:'Lab 3',who:'Priya',submittedBy:null,submittedAt:new Date().toISOString(),late:false}]});`,
     };
@@ -298,3 +299,16 @@ test('Sprint form (§18.2): a team sprint sits inside CO1, says its limit beside
     await page.screenshot({ path: test.info().outputPath('sprint-child.png') });
 });
 
+
+test('New assignment (§42.5): publish timing choices, and Admins-only materials warn before they are added', async ({ page }) => {
+    await open(page, 'tasks', 1280);
+    await page.getByRole('button', { name: 'New assignment' }).click();
+    const when = page.getByLabel('When to publish');
+    await expect(when.getByRole('option')).toHaveText(['Publish now', 'On a date', 'Save as draft']);
+    await when.selectOption('date');
+    await expect(page.getByLabel('Publish on')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Schedule' })).toBeVisible();
+    await page.getByLabel('Search files for materials').fill('ans');
+    await expect(page.getByRole('list', { name: 'Files' })).toContainText('Admins only. Members won’t be able to open this.');
+    await expect(page.getByLabel('Late after, in minutes')).toHaveValue('15');
+});
