@@ -6,6 +6,8 @@ Checked on networkbase.in on 2026-11-03, after commit 773052541 was deployed. I 
 opened and closed without saving; nothing was changed.
 
 The plan ticked most of these as done; the live site shows they're not. **66 problems** in all. "Report §" names the
+
+**Fix plan:** `2026-11-03-org-live-fixes.md` (approved 3 Nov 2026; seven phases, migrations 0059–0062).
 section each one comes from.
 
 ## 1. Speed — every tab (report 41.7)
