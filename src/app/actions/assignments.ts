@@ -570,9 +570,10 @@ export async function submitAssignmentAction(copyId: string, input: z.input<type
     const { copy, master } = loaded;
     const [teammate] = await db.select({ userId: taskTeamMembers.userId }).from(taskTeamMembers).where(and(eq(taskTeamMembers.taskId, copyId), eq(taskTeamMembers.userId, userId))).limit(1);
     if (copy.assigneeId !== userId && !teammate) return DENIED;
-    // Decisions 33 and 109: handing in is submit_ask_questions in the organization (Viewers read only).
+    // Decisions 33 and 109: submit_ask_questions is "read" for Viewers, so they never hand in. Owners and admins hand in
+    // only a copy given to them by name or by the admin role, which the holder check above already proves.
     const submitter = await orgRole(master.projectId, 'read');
-    if (copy.projectId === master.projectId && (!submitter || !orgCan(orgRoleOf(submitter.role), 'submit_ask_questions'))) return DENIED;
+    if (copy.projectId === master.projectId && (!submitter || ['guest', 'visitor'].includes(orgRoleOf(submitter.role)))) return DENIED;
     if (copy.excusedAt) return { success: false, error: "You’re excused from this one." };
     const copyAccess = await getWorkspaceAccessById(copy.projectId, userId);
     if (copyAccess.writeBlocked) return { success: false, error: writeBlockedMessage(copyAccess.writeBlocked) };

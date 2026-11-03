@@ -36,7 +36,7 @@ function SprintCalendar({ projectId, onClose }: { projectId: string; onClose: ()
   const [link, setLink] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const entries = query.data?.success ? query.data.entries : [];
-  const weeks = [...new Map(entries.map((e) => [weekOf(e.start), entries.filter((x) => weekOf(x.start) === weekOf(e.start))])).entries()];
+  const weeks = [...Map.groupBy(entries, (e) => weekOf(e.start))];
   const getLink = (reset: boolean) => startTransition(async () => {
     const r = await readCalendarLinkAction(reset);
     if (!r.success) return void toast.error(r.error);

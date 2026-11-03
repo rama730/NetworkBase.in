@@ -1824,17 +1824,13 @@ export async function countOpenSprintAssignmentsAction(sprintId: string, project
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return 0;
   try { await requireSprintOwner(projectId, user.id); } catch { return 0; }
-  return countOpenSprintAssignments(sprintId, projectId);
-}
-
-/** Open assignments in a sprint (report §37.2), for Complete's question. Zero outside organizations. */
-async function countOpenSprintAssignments(sprintId: string, projectId: string) {
   const [row] = await db.execute<{ n: number }>(sql`
     SELECT count(*)::int AS n FROM tasks m JOIN workspaces o ON o.id = m.workspace_id AND o.kind = 'organization'
     WHERE m.workspace_id = ${projectId} AND m.sprint_id = ${sprintId} AND m.kind = 'assignment' AND m.assignment_id IS NULL AND m.deleted_at IS NULL
       AND m.assignment_settings->>'publishedAt' IS NOT NULL AND m.assignment_settings->>'closedAt' IS NULL`);
   return row?.n ?? 0;
 }
+
 
 
 async function requireSprintOwner(projectId: string, userId: string) {

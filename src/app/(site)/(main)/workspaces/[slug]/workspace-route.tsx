@@ -179,7 +179,7 @@ async function ResolvedProjectDashboard({
     return (
         <>
         {previewing ? <MemberPreviewBar /> : null}
-        <MaybePreviewFrame previewing={previewing}>
+        <MemberPreviewFrame on={previewing}>
         <WorkspaceDashboardClient
             project={project}
             currentUserId={user?.id || null}
@@ -190,7 +190,7 @@ async function ResolvedProjectDashboard({
             memberRole={capabilities.memberRole}
             initialSprintData={initialSprintData}
         />
-        </MaybePreviewFrame>
+        </MemberPreviewFrame>
         </>
     );
 }
@@ -214,8 +214,4 @@ export function WorkspaceRoute({
             </Suspense>
         </div>
     );
-}
-
-function MaybePreviewFrame({ previewing, children }: { previewing: boolean; children: React.ReactNode }) {
-    return previewing ? <MemberPreviewFrame>{children}</MemberPreviewFrame> : <>{children}</>;
 }

@@ -240,6 +240,10 @@ test("33.5 Calendar: the private link's feed holds only the person's own due wor
   const ics = feed.toIcs(entries, "https://networkbase.test");
   assert.match(ics, /^BEGIN:VCALENDAR\r\n/);
   assert.match(ics, new RegExp(`SUMMARY:Due: Essay ${o.tag}`));
+  // A hostile title can't start a property or an event of its own (RFC 5545 §3.3.11).
+  const hostile = feed.toIcs([{ id: "1", kind: "due", title: "A;B,C\\D\r\nBEGIN:VEVENT\rX\u0001", start: new Date().toISOString(), end: null, place: "P", href: "/x" }], "https://networkbase.test");
+  assert.equal(hostile.split("\r\n").find((l) => l.startsWith("SUMMARY")), "SUMMARY:Due: A\\;B\\,C\\\\D\\nBEGIN:VEVENT\\nX");
+  assert.equal(hostile.split("\r\n").filter((l) => l === "BEGIN:VEVENT").length, 1);
   const fresh = await feed.calendarToken(o.a, true);
   assert.notEqual(fresh, token);
   assert.equal(await feed.userForCalendarToken(token), null, "a reset link stops the old one");

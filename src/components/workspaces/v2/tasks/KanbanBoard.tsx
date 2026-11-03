@@ -1065,7 +1065,7 @@ export default function KanbanBoard({
           </div>
           {workflow.length > 1 ? (
             <div className="-mt-2 mb-2 flex justify-center gap-1.5 md:hidden" aria-hidden="true" data-testid="board-column-dots">
-              {workflow.map((col, i) => <span key={col.id} className={cn("size-1.5 rounded-full", i === columnInView ? "bg-foreground" : "bg-border")} />)}
+              {workflow.map((col, i) => <span key={col.id} className={cn("size-1.5 rounded-[1px]", i === columnInView ? "bg-foreground" : "bg-border")} />)}
             </div>
           ) : null}
         </SortableContext>

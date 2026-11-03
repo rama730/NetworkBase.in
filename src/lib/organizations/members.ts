@@ -33,9 +33,8 @@ export async function createOrgEmailInvites(orgId: string, actorId: string, inpu
   const invites: Array<{ id: string; email: string }> = [];
   // ponytail: one upsert per address (500 at most per paste); batch it if pastes ever grow past that.
   for (const email of toInvite) {
-    const message = input.message ?? null;
-    const [row] = await db.insert(orgEmailInvites).values({ orgId, email, role: input.role, title: input.title, childProjectId: input.childProjectId, unitId: input.unitId, invitedBy: actorId, expiresAt, message })
-      .onConflictDoUpdate({ target: [orgEmailInvites.orgId, orgEmailInvites.email], targetWhere: sql`${orgEmailInvites.acceptedAt} IS NULL`, set: { role: input.role, title: input.title, childProjectId: input.childProjectId, unitId: input.unitId, invitedBy: actorId, expiresAt, message } })
+    const [row] = await db.insert(orgEmailInvites).values({ orgId, email, role: input.role, title: input.title, childProjectId: input.childProjectId, unitId: input.unitId, invitedBy: actorId, expiresAt, message: input.message ?? null })
+      .onConflictDoUpdate({ target: [orgEmailInvites.orgId, orgEmailInvites.email], targetWhere: sql`${orgEmailInvites.acceptedAt} IS NULL`, set: { role: input.role, title: input.title, childProjectId: input.childProjectId, unitId: input.unitId, invitedBy: actorId, expiresAt, message: input.message ?? null } })
       .returning({ id: orgEmailInvites.id });
     if (row) invites.push({ id: row.id, email });
   }

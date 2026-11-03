@@ -48,7 +48,12 @@ export async function userForCalendarToken(token: string) {
   return row?.userId ?? null;
 }
 
-const icsText = (value: string) => value.replace(/\\/g, "\\\\").replace(/;/g, "\;").replace(/,/g, "\\,").replace(/\r?\n/g, "\\n");
+// RFC 5545 §3.3.11: backslash, semicolon and comma are escaped, every line break becomes \n, and other control
+// characters go, so a title can never start a line or a property of its own.
+const icsText = (value: string) => value
+  .replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,")
+  .replace(/\r\n|\r|\n/g, "\\n")
+  .replace(/[\u0000-\u0008\u000b-\u001f\u007f]/g, "");
 const icsTime = (iso: string) => iso.replace(/[-:]/g, "").replace(/\.\d{3}/, "");
 const icsDay = (iso: string) => iso.slice(0, 10).replace(/-/g, "");
 
