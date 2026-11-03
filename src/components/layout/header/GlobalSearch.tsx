@@ -45,7 +45,8 @@ export default function GlobalSearch({ onOpenCommandPalette, condensed = false }
                 case "messages":
                     return "Find a conversation";
                 case "project":
-                    return "Search this workspace";
+                    // Live-check follow-up: on an organization's page the button names the organization, like the palette.
+                    return placeholder.startsWith("Search this organization") ? "Search this organization" : "Search this workspace";
                 case "settings":
                     return "Search settings";
                 default:

@@ -260,3 +260,13 @@ test("live-fix 11: pinned shows who and when, a dot until you've read Updates, a
   assert.equal((await dashboard(o.orgId, o.a))!.pinned, null, "hidden for her");
   assert.equal((await dashboard(o.orgId, o.b))!.pinned?.id, post!.id, "still pinned for everyone else");
 });
+
+test("live-fix 17: the Overview's workspace rows count their own members and overdue work", async () => {
+  const o = await org();
+  const [members] = await sql`SELECT count(*)::int AS n FROM workspace_members WHERE workspace_id = ${o.child}`;
+  const [col] = await sql`SELECT id FROM workspace_workflow_columns WHERE workspace_id = ${o.child} AND status = 'todo' LIMIT 1`;
+  await sql`INSERT INTO tasks (workspace_id, creator_id, title, status, workflow_column_id, due_date) VALUES (${o.child}, ${o.a}, 'Late one', 'todo', ${col!.id}, now() - interval '2 days')`;
+  const row = (await dashboard(o.orgId, o.admin))!.projects.find((p) => p.id === o.child)!;
+  assert.deepEqual([row.members, row.overdue], [members!.n, 1]);
+  assert.ok(row.members > 0);
+});

@@ -1,10 +1,11 @@
 'use server';
 
-import { and, desc, eq, isNull, sql } from 'drizzle-orm';
+import { and, desc, eq, ilike, isNull, sql } from 'drizzle-orm';
 
 import { db } from '@/lib/db';
 import { docTitle } from '@/lib/organizations/doc-rules';
-import { workspaceMembers, workspaces } from '@/lib/db/schema';
+import { tasks, workspaceMembers, workspaces } from '@/lib/db/schema';
+import { orgTaskReadFilter } from '@/lib/organizations/assignments';
 import { getWorkspaceAccessById } from '@/lib/data/workspace-access';
 import { orgFileAccessSql } from '@/lib/files/internal-helpers';
 import { readNeedsYou, type OrgViewer } from '@/lib/organizations/needs-you';
@@ -181,7 +182,7 @@ export async function readSharedOrgsAction(userIds: string[]): Promise<Record<st
     return Object.fromEntries([...byUser].map(([id, titles]) => [id, titles.length > 1 ? `${titles[0]} +${titles.length - 1}` : titles[0]!]));
 }
 
-export type OrgSearchResult = { id: string; kind: 'org' | 'assignment' | 'doc' | 'child' | 'sprint' | 'member' | 'file' | 'action'; title: string; subtitle: string; href: string; chip: string | null };
+export type OrgSearchResult = { id: string; kind: 'org' | 'assignment' | 'task' | 'doc' | 'child' | 'sprint' | 'member' | 'file' | 'action'; title: string; subtitle: string; href: string; chip: string | null };
 
 /**
  * Org results for ⌘K (report §30.1). Without `orgId`: organizations (yours first, then public — never a private
@@ -206,7 +207,7 @@ export async function searchOrgPreviewsAction(query: string, orgIdentifier?: str
             const isAdmin = access.isOwner || access.memberRole === 'admin';
             scope = { id: org.id, title: org.title, slug: org.slug, isAdmin, isGuest: access.memberRole === 'viewer', canCreate: !access.writeBlocked && access.memberRole !== 'viewer' && (isAdmin || readOrgRules(org.settings).childCreation === 'members') };
             const base = `/org/${encodeURIComponent(org.slug ?? org.id)}`;
-            const [docs, children, sprints, members, files] = await Promise.all([
+            const [docs, children, sprints, members, files, orgTasks] = await Promise.all([
                 ROWS<{ id: string; slug: string; filename: string }>(sql`SELECT id, slug, filename FROM workspace_documents WHERE workspace_id = ${org.id} AND (filename ILIKE ${pattern} OR slug ILIKE ${pattern}) LIMIT 5`),
                 ROWS<{ id: string; title: string; slug: string | null }>(sql`SELECT c.id, c.title, c.slug FROM workspaces c WHERE c.parent_id = ${org.id} AND c.deleted_at IS NULL AND c.title ILIKE ${pattern}
                     AND (c.visibility <> 'private' OR ${isAdmin} OR EXISTS (SELECT 1 FROM workspace_members m WHERE m.workspace_id = c.id AND m.user_id = ${userId}::uuid)) LIMIT 5`),
@@ -214,12 +215,16 @@ export async function searchOrgPreviewsAction(query: string, orgIdentifier?: str
                 isAdmin ? ROWS<{ id: string; name: string | null; username: string | null }>(sql`SELECT pr.id, pr.full_name AS name, pr.username FROM workspace_members m JOIN profiles pr ON pr.id = m.user_id
                     WHERE m.workspace_id = ${org.id} AND pr.deleted_at IS NULL AND (pr.full_name ILIKE ${pattern} OR pr.username ILIKE ${pattern} OR m.title ILIKE ${pattern}) LIMIT 5`) : Promise.resolve([]),
                 db.execute(sql`SELECT n.id, n.name, n.path FROM workspace_nodes n WHERE n.workspace_id = ${org.id} AND n.type = 'file' AND n.deleted_at IS NULL AND n.task_id IS NULL AND n.name ILIKE ${pattern} AND NOT EXISTS (SELECT 1 FROM workspace_documents wd WHERE wd.linked_node_id = n.id) AND ${orgFileAccessSql(access, { projectId: sql`n.workspace_id`, path: sql`n.path`, taskId: sql`n.task_id` }) ?? sql`TRUE`} LIMIT 5`) as unknown as Promise<Array<{ id: string; name: string; path: string }>>,
+                // The organization's own tasks (not assignment copies), by the board's read rule: members see theirs.
+                db.select({ id: tasks.id, title: tasks.title }).from(tasks).where(and(eq(tasks.projectId, org.id), eq(tasks.kind, 'task'), isNull(tasks.assignmentId),
+                    isNull(tasks.deletedAt), ilike(tasks.title, pattern), orgTaskReadFilter(access, userId))).limit(5),
             ]);
             const canOpen = docs.length ? await visibleDocIds(org.id) : new Set<string>();
             for (const d of docs) if (canOpen.has(d.id)) results.push({ id: `doc:${d.id}`, kind: 'doc', title: docTitle(d.filename), subtitle: `Doc · ${org.title}`, href: `${base}?tab=docs&doc=${encodeURIComponent(d.slug)}`, chip: null });
             for (const c of children) results.push({ id: `child:${c.id}`, kind: 'child', title: c.title, subtitle: `Workspace · ${org.title}`, href: `/workspaces/${encodeURIComponent(c.slug ?? c.id)}`, chip: null });
             for (const s of sprints) results.push({ id: `sprint:${s.id}`, kind: 'sprint', title: s.name, subtitle: `Sprint · ${org.title}`, href: `${base}?tab=sprints`, chip: null });
             for (const m of members) results.push({ id: `member:${m.id}`, kind: 'member', title: m.name ?? m.username ?? 'Member', subtitle: `Member · ${org.title}`, href: `${base}?tab=members`, chip: null });
+            for (const t of orgTasks) results.push({ id: `task:${t.id}`, kind: 'task', title: t.title, subtitle: `Task · ${org.title}`, href: `${base}?tab=tasks&drawerType=task&drawerId=${t.id}`, chip: null });
             for (const f of files) results.push({ id: `file:${f.id}`, kind: 'file', title: f.name, subtitle: `File · ${f.path}`, href: `${base}?tab=files&path=${encodeURIComponent(f.path)}`, chip: null });
         } else {
             // Inside a child project: its org's docs and files, marked "From CSE-3A" — never for outside people.
@@ -249,7 +254,7 @@ export async function searchOrgPreviewsAction(query: string, orgIdentifier?: str
             FROM workspaces o WHERE o.kind = 'organization' AND o.deleted_at IS NULL AND o.deletion_scheduled_at IS NULL AND o.suspended_at IS NULL AND o.discover_hidden_at IS NULL
               AND (o.title ILIKE ${pattern} OR o.slug ILIKE ${pattern}) AND (${memberOf} OR o.visibility = 'public')
             ORDER BY ${memberOf} DESC, o.title LIMIT 5`);
-        for (const o of orgs) results.push({ id: `org:${o.id}`, kind: 'org', title: o.title, subtitle: [o.org_type ? o.org_type[0]!.toUpperCase() + o.org_type.slice(1) : 'Organization', `${o.members} members`].join(' · '), href: `/org/${encodeURIComponent(o.slug ?? o.id)}`, chip: o.mine ? 'Member' : null });
+        for (const o of orgs) results.push({ id: `org:${o.id}`, kind: 'org', title: o.title, subtitle: [o.org_type ? o.org_type[0]!.toUpperCase() + o.org_type.slice(1) : 'Organization', `${o.members} ${o.members === 1 ? "member" : "members"}`].join(' · '), href: `/org/${encodeURIComponent(o.slug ?? o.id)}`, chip: o.mine ? 'Member' : null });
     }
 
     // Assignments: members find their own copy (with its state), admins the master with counts, guests counts only.

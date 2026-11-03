@@ -137,7 +137,7 @@ export function SprintTimelineContent({
       <ul className="divide-y divide-border/60 rounded-[8px] border border-border bg-card overflow-hidden shadow-none">
         {tasks.map((task) => {
           // Live-fix 31: a main assignment reads "12/40", its class progress, never "Unassigned".
-          const assignee = task.assignmentProgress ? `${task.assignmentProgress.done}/${task.assignmentProgress.total}` : sprintTimelinePersonName(task.assignee, "Unassigned");
+          const assignee = task.assignmentProgress ? (task.assignmentProgress.total ? `${task.assignmentProgress.done}/${task.assignmentProgress.total}` : "Nobody has joined yet") : sprintTimelinePersonName(task.assignee, "Unassigned");
           const taskReference = task.taskNumber == null ? null : `${projectKey?.trim() || "Task"}-${task.taskNumber}`;
 
           const completedSubtasks = task.subtasks?.filter(st => st.completed).length ?? 0;

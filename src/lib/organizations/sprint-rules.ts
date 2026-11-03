@@ -49,7 +49,9 @@ export function nextOrgSprintStart(sprints: Array<{ status: string; endDate: str
 export function nextSeriesNumber(prefix: string, names: string[]) {
   const numbers = names.flatMap((name) => {
     const rest = name.startsWith(prefix) ? name.slice(prefix.length) : "";
-    return /^\d+$/.test(rest) ? [Number(rest)] : [];
+    // "CO1 Arrays and linked lists" and "CO3: Trees" are CO1 and CO3 (live-fix 32).
+    const number = /^(\d+)(?:$|[\s:·\-–—])/.exec(rest);
+    return number ? [Number(number[1])] : [];
   });
   return numbers.length ? Math.max(...numbers) + 1 : 1;
 }

@@ -97,8 +97,8 @@ export function decodePublicWorkspacesCursor(cursor: string | null | undefined):
 
 export function buildPublicWorkspacesCacheKey(limit: number, cursor: PublicWorkspacesCursor | null) {
     const suffix = cursor ? `${cursor.createdAt}:${cursor.id}` : 'origin'
-    // v5: owners masked and members-only links removed on the server. v7: organization card fields, type label only (live-fix 50).
-    return `projects:public:v7:limit:${limit}:cursor:${suffix}`
+    // v5: owners masked and members-only links removed on the server. v7: organization card fields, type label only (live-fix 50). v8: new organizations wait (decision 160).
+    return `projects:public:v8:limit:${limit}:cursor:${suffix}`
 }
 
 function normalizeProjectStatus(status: string | null): Workspace['status'] {

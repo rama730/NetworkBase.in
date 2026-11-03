@@ -361,8 +361,8 @@ export default function WorkspaceLayout({
                                     type="button"
                                     onClick={onInvite}
                                     className="nb-touch-target nb-ui-label inline-flex h-[var(--ui-control-height)] items-center gap-1.5 rounded-md border border-border bg-card px-3 text-foreground transition-colors duration-[180ms] ease-[cubic-bezier(.2,.8,.3,1)] hover:bg-muted"
-                                    aria-label="Invite a workspace member"
-                                    title="Invite a workspace member"
+                                    aria-label={isOrganization ? "Invite people" : "Invite a workspace member"}
+                                    title={isOrganization ? "Invite people" : "Invite a workspace member"}
                                 >
                                     <UserPlus className="size-4" aria-hidden="true" />
                                     <span>Invite</span>
@@ -402,8 +402,8 @@ export default function WorkspaceLayout({
                                 type="button"
                                 onClick={event => onShare?.(event.currentTarget)}
                                 className="nb-icon-button h-[var(--ui-control-height)] w-[var(--ui-control-height)] rounded-[5px] border border-border bg-card text-muted-foreground transition-colors duration-[180ms] ease-[cubic-bezier(.2,.8,.3,1)] hover:bg-muted hover:text-foreground"
-                                title="Share workspace"
-                                aria-label="Share workspace"
+                                title={isOrganization ? "Share organization" : "Share workspace"}
+                                aria-label={isOrganization ? "Share organization" : "Share workspace"}
                             >
                                 <Share2 className="size-4" aria-hidden="true" />
                             </button>

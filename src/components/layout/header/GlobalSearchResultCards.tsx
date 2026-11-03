@@ -384,7 +384,7 @@ export function SettingsSearchResultCard({ result, onOpen, ...interaction }: Res
     );
 }
 
-const ORG_KIND_LABEL: Record<GlobalSearchOrgPreview["orgKind"], string> = { org: "Organization", assignment: "Assignment", doc: "Doc", child: "Workspace", sprint: "Sprint", member: "Member", file: "File", action: "Action" };
+const ORG_KIND_LABEL: Record<GlobalSearchOrgPreview["orgKind"], string> = { org: "Organization", assignment: "Assignment", task: "Task", doc: "Doc", child: "Workspace", sprint: "Sprint", member: "Member", file: "File", action: "Action" };
 
 /** Organizations, assignments, docs and "Search <org>" results (report §30.1). */
 export function OrgSearchResultCard({ result, onOpen, onRemove, ...interaction }: ResultInteractionProps & { result: GlobalSearchOrgPreview; onOpen: (result: GlobalSearchPreview) => void; onRemove?: () => void }) {

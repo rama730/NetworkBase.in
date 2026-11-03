@@ -59,7 +59,7 @@ const CONTEXT_PRESENTATION = {
 } satisfies Record<GlobalSearchContext, { label: string; hints: string[] }>;
 // An organization's page (problem 47): its own words, not the workspace's.
 const ORG_PRESENTATION = { label: "this organization", hints: ["Assignments", "Documents", "Files", "Sprints", "People"] };
-const ORG_GROUP_LABEL: Record<string, string> = { action: "Actions", assignment: "Assignments", doc: "Documents", file: "Files", sprint: "Sprints", child: "Workspaces", member: "People", org: "Organizations" };
+const ORG_GROUP_LABEL: Record<string, string> = { action: "Actions", assignment: "Assignments", task: "Tasks", doc: "Documents", file: "Files", sprint: "Sprints", child: "Workspaces", member: "People", org: "Organizations" };
 
 function resultDomId(result: GlobalSearchPreview | SettingsSearchItem, settings = false) {
     return `global-search-preview-${settings ? `settings-${result.id}` : result.id}`;
@@ -464,7 +464,7 @@ export default function CommandPalette({ isOpen, onClose, initialQuery = "", con
                                                     </span>
                                                 ))}
                                             </div>
-                                            <p className="mt-4 nb-meta text-xs text-muted-foreground/80">Start typing to preview matching {searchContext === "network" ? "builders" : searchContext === "project" ? "tasks" : "projects"}.</p>
+                                            <p className="mt-4 nb-meta text-xs text-muted-foreground/80">Start typing to preview matching {searchContext === "network" ? "builders" : onOrgPage ? "assignments, documents, files and people" : searchContext === "project" ? "tasks" : "projects"}.</p>
                                         </div>
                                     )}
                                 </div>

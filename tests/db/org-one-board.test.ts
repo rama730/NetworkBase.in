@@ -22,6 +22,7 @@ let assignments: typeof import("../../src/app/actions/assignments");
 let tasks: typeof import("../../src/lib/workspaces/server/tasks");
 let taskActions: typeof import("../../src/app/actions/task");
 let sprints: typeof import("../../src/lib/workspaces/server/sprints");
+let orgWorkspace: typeof import("../../src/app/actions/org-workspace");
 before(async () => {
   const viewerContext = await loadAppModule(() => import("../../src/lib/server/viewer-context"));
   moduleStubs.set("@/lib/server/viewer-context", {
@@ -32,6 +33,7 @@ before(async () => {
   tasks = await loadAppModule(() => import("../../src/lib/workspaces/server/tasks"));
   taskActions = await loadAppModule(() => import("../../src/app/actions/task"));
   sprints = await loadAppModule(() => import("../../src/lib/workspaces/server/sprints"));
+  orgWorkspace = await loadAppModule(() => import("../../src/app/actions/org-workspace"));
 });
 
 const created: string[] = [];
@@ -122,4 +124,35 @@ test("live-fix 31: in a sprint's work list a main assignment shows class progres
   const row = r.success ? r.data.rows.find((x) => x.kind === "task" && x.task.id === masterId) : undefined;
   assert.ok(row && row.kind === "task");
   assert.deepEqual(row && row.kind === "task" ? row.task.assignmentProgress : null, { done: 0, total: 1 });
+});
+
+test("live-fix 31: a main assignment nobody has yet still shows 0/0 in the sprint list, with the board's column, not Unassigned", async () => {
+  const [owner] = await Promise.all([sql.begin((tx) => createUser(tx))]);
+  const org = await sql.begin((tx) => createProject(tx, owner!));
+  await sql`INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (${org}, ${owner!}, 'owner')`;
+  await sql`UPDATE workspaces SET kind = 'organization', org_type = 'education', join_code = ${generateJoinCode()} WHERE id = ${org}`;
+  created.push(org);
+  viewerId = owner!;
+  const made = await assignments.createAssignmentAction({ projectId: org, title: "Lab 1", dueDate: new Date(Date.now() + 864e5).toISOString(), publish: true,
+    submissionType: "link", reviewRequired: true, lateRule: "none", target: { mode: "everyone" }, steps: [] });
+  const masterId = made.success ? made.masterId : "";
+  const [sprint] = await sql`INSERT INTO workspace_sprints (workspace_id, creator_id, name, start_date, end_date, status) VALUES (${org}, ${owner!}, 'CO1', now() - interval '1 day', now() + interval '13 days', 'active') RETURNING id`;
+  // The live state: the main one carried an old "in progress" of its own.
+  await sql`UPDATE tasks SET sprint_id = ${sprint!.id}, status = 'in_progress' WHERE id = ${masterId}`;
+  await sql`INSERT INTO sprint_task_memberships (workspace_id, sprint_id, task_id, added_at) VALUES (${org}, ${sprint!.id}, ${masterId}, now())`;
+  const r = await sprints.fetchWorkspaceSprintDetailAction({ projectId: org, sprintId: sprint!.id });
+  const row = r.success ? r.data.rows.find((x) => x.kind === "task" && x.task.id === masterId) : undefined;
+  assert.ok(row && row.kind === "task");
+  assert.deepEqual(row && row.kind === "task" ? [row.task.assignmentProgress, row.task.status] : null, [{ done: 0, total: 0 }, "todo"]);
+});
+
+test("live-check follow-up: organization search finds the organization's own tasks, by the board's read rule", async () => {
+  const { owner, asha, org } = await classWithLab();
+  const [col] = await sql`SELECT id FROM workspace_workflow_columns WHERE workspace_id = ${org} AND status = 'todo' LIMIT 1`;
+  const [task] = await sql`INSERT INTO tasks (workspace_id, creator_id, title, status, workflow_column_id, assignee_id) VALUES (${org}, ${owner}, 'Prepare the grading rubric', 'todo', ${col!.id}, ${owner}) RETURNING id`;
+  viewerId = owner;
+  const found = (await orgWorkspace.searchOrgPreviewsAction("rubric", org)).filter((r) => r.kind === "task");
+  assert.deepEqual(found.map((r) => [r.title, r.href.includes(`drawerId=${task!.id}`)]), [["Prepare the grading rubric", true]]);
+  viewerId = asha;
+  assert.equal((await orgWorkspace.searchOrgPreviewsAction("rubric", org)).some((r) => r.kind === "task"), false, "a member sees only their own tasks, as on the board");
 });

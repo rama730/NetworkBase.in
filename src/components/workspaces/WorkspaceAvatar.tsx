@@ -86,8 +86,8 @@ export function WorkspaceAvatar({
                 {!hasImage ? (isOwner && slugOrId ? (
                     <Link
                         href={`/workspaces/${slugOrId}?tab=settings#project-settings-general`}
-                        aria-label="Add workspace avatar"
-                        title="Add workspace avatar"
+                        aria-label={project.kind === "organization" ? "Add organization image" : "Add workspace avatar"}
+                        title={project.kind === "organization" ? "Add organization image" : "Add workspace avatar"}
                         className="flex size-full items-center justify-center text-muted-foreground transition-colors duration-[180ms] hover:bg-muted hover:text-foreground"
                     >
                         <Camera className="size-5" aria-hidden="true" />

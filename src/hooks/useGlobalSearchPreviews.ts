@@ -80,7 +80,7 @@ export type GlobalSearchLinkPreview = GlobalSearchPreviewBase & {
 /** Organizations, assignments, org docs and "Search <org>" results (report §30.1). */
 export type GlobalSearchOrgPreview = GlobalSearchPreviewBase & {
     kind: "org";
-    orgKind: "org" | "assignment" | "doc" | "child" | "sprint" | "member" | "file" | "action";
+    orgKind: "org" | "assignment" | "task" | "doc" | "child" | "sprint" | "member" | "file" | "action";
     chip: string | null;
 };
 
@@ -311,7 +311,7 @@ async function fetchTaskPreviews(projectIdentifier: string, query: string): Prom
     });
 }
 
-const ORG_KIND_ORDER = ["action", "assignment", "doc", "file", "sprint", "child", "member", "org"];
+const ORG_KIND_ORDER = ["action", "assignment", "task", "doc", "file", "sprint", "child", "member", "org"];
 function sortByOrgKind(rows: GlobalSearchPreview[]) {
     const rank = (row: GlobalSearchPreview) => (row.kind === "org" ? ORG_KIND_ORDER.indexOf(row.orgKind) : ORG_KIND_ORDER.length);
     return [...rows].sort((a, b) => rank(a) - rank(b));

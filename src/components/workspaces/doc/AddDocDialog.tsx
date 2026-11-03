@@ -129,7 +129,7 @@ export function AddDocDialog({
             <DialogContent className="max-w-[520px] gap-3 p-4">
                 <DialogHeader>
                     <DialogTitle>Add document</DialogTitle>
-                    <DialogDescription>{templates.length ? "Blank, or start from a template. You can also pick a Markdown file from Files." : "Start a new doc, or pick a Markdown file from Files."}</DialogDescription>
+                    <DialogDescription>{org ? "Blank, or start from a template. You can also pick a Markdown file from Files." : "Start a new doc, or pick a Markdown file from Files."}</DialogDescription>
                 </DialogHeader>
                 <form
                     className="flex gap-2"
@@ -146,6 +146,8 @@ export function AddDocDialog({
                         Add document
                     </Button>
                 </form>
+                {/* Live-fix 26: in an organization the template choice is always offered, and says how to make one. */}
+                {org && templates.length === 0 ? <p className="text-[12px] text-muted-foreground">No templates yet. Turn one on from a document’s ⋯ → Options → Template.</p> : null}
                 {templates.length > 0 ? (
                     <div role="list" aria-label={`From ${org?.orgTitle} templates`} className="space-y-1">
                         <p className="text-[12px] font-medium text-muted-foreground">From {org?.orgTitle} templates</p>

@@ -69,7 +69,7 @@ test("Architectural enhancements: native single tooltip, default cursor, zero-pr
 
     // 4. With no image the owner adds one from the slot itself
     assert.doesNotMatch(layoutSource, /Add image/);
-    assert.match(avatarSource, /aria-label="Add workspace avatar"/);
+    assert.match(avatarSource, /aria-label=\{project\.kind === "organization" \? "Add organization image" : "Add workspace avatar"\}/);
 
     // 5. Cross-platform design consistency: Global Search project cards render WorkspaceAvatar with presence dot
     assert.match(searchCardsSource, /import WorkspaceAvatar from "@\/components\/workspaces\/WorkspaceAvatar"/);

@@ -193,3 +193,46 @@ The class has one member (the owner), and a join request from "Rama" is waiting.
 The 3 November deploy took about 18 minutes: the web compile took 15.0 min, against 2.4–3.6 min before. The new code
 compiles about twice as slowly on this Mac (88 s → 2.8 min, under 2 GB of memory); the rest was a slow Railway build
 machine on that run. The worker also compiles the whole site.
+
+## Live re-check — 4 November 2026 (after 8e2cfbeb8, migrations 0059–0062)
+
+Signed in as the owner on networkbase.in. Forms and menus were opened and closed without saving. **Fixed** means seen
+working on the live site. **Fixed after the next deploy** means the re-check found it incomplete, it's fixed and tested
+locally, and it isn't live yet. **Tests only** means it can't be seen without making real changes or a second account.
+
+| # | Result |
+|---|---|
+| 1 | Fixed. Content on screen: Overview 0.76 s, Tasks 0.55 s, Workspaces 0.37 s, Members 0.56 s, Files 0.65 s, Sprints 0.51 s, Updates 1.36 s, Documents 2.34 s (were 3.6–17.5 s) |
+| 2 | Fixed. Photo at once, sidebar workspaces at 0.5 s, Trust and safety at 0.45 s, ⌘K; no #418 in the console |
+| 3, 4 | Fixed. No Assignments box; one New task button; + New offers Task |
+| 5 | Fixed. Everyone turns the same form into Create assignment, keeping the title; One person · a task goes back |
+| 6 | Fixed. All tasks, Sprint, Backlog, In review, Assignments, Mine |
+| 7 | Fixed. No Move to… on Lab 1 |
+| 8 | Fixed. No Status, Section or Assignee on the main assignment |
+| 9 | Fixed. "Changes requested" is gone (0059) |
+| 10 | Fixed. Opens at To do on desktop and phone |
+| 11–16 | Fixed. Pinned with photo, ⋯ and ×; Today row "Rama · via code" with Approve; sprint card with 12 days left, goal and progress; "Nobody has joined yet"; SUN / 8 tile; activity menu |
+| 17 | Fixed after the next deploy. Avatar, lead and + are live, but the member count read 0 (an unqualified column in the subquery); fixed with a test |
+| 18 | Fixed |
+| 19–21 | Fixed. Edit details and Edit on the welcome note; stage line CO1 → Next; "Teacher · Course Instructor" with photo |
+| 22 | Fixed after the next deploy. The header is live, but it read "Updated by System"; now the file's last uploader |
+| 23 | Tests only (needs an empty document) |
+| 24, 25, 27 | Fixed. Options left the rail; ⋯ has Options…, History, Remove; titles not file names; Documents · title and real slug |
+| 26 | Fixed after the next deploy. The template choice now shows even with no templates yet |
+| 28 | Fixed. At 1280 px Post ends at 1244 px, inside the column; Discard fully visible |
+| 29 | Fixed |
+| 30 | Fixed. Complete sprint and 12 days left |
+| 31 | Fixed after the next deploy. The separate block is gone, but Lab 1 still read "Unassigned" and "In progress"; now "Nobody has joined yet" with the board's column |
+| 32 | Fixed after the next deploy. Named sprints ("CO1 Arrays and linked lists") now count, so the next is CO2 |
+| 33, 34, 35 | Fixed. Starts 16 Nov; All / Selected / None, Teams plan their own sprint, Post an announcement; no stray dash |
+| 36 | Fixed after the next deploy. The Template chip is live (0062); the purpose line showed only on phones, now on desktop too |
+| 37 | Tests only (needs a new folder) |
+| 38–42 | Fixed. Avatar and Detach; roster photos; only-one-here line and larger panel; no Block, Verify or Revoke on your own panel; side panel |
+| 43–45 | Fixed |
+| 46 | Tests only (needs a member account) |
+| 47, 48 | Fixed, plus a follow-up after the next deploy: the organization's own tasks are back in organization search; the header button says "Search this organization" |
+| 49, 50, 51 | Fixed. 50 also exposed that Discover's first page ignored decision 160 (new organizations wait); fixed after the next deploy, so CSE 3B leaves Discover until it qualifies |
+| 52–57, 59–66 | Fixed |
+| 58 | Fixed after the next deploy. Team Falcon still read Contributor (the stored default); now Team lead |
+
+Also fixed after the next deploy: the header buttons on an organization say Invite people, Share organization, Manage links and Add organization image; org search shows "1 member".

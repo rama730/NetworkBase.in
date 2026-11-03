@@ -8,7 +8,7 @@ import { startSprint } from "@/lib/workspaces/sprint-schedule";
 import { postOrgAnnouncement } from "@/lib/organizations/org-updates";
 import { notifyChildSprintsUnlinked, notifyLinkedSprintsOutside, notifyOrgSprintCompleted, orgSprintNotifyDefault, readLinkedChildSprints, shiftOrgSprintDueDates, type LinkedChildSprint } from "@/lib/organizations/sprint-notify";
 import "server-only";
-import { readMasterProgress } from "@/lib/organizations/assignments";
+import { assignmentColumn, readMasterProgress } from "@/lib/organizations/assignments";
 
 import { isMissingRelationError } from "@/lib/db/errors";
 import { db } from "@/lib/db";
@@ -169,6 +169,7 @@ type SprintTaskActivityQueryRow = {
   creator_id: string | null;
   kind: string | null;
   assignment_id: string | null;
+  assignment_settings: { publishedAt?: string | null; closedAt?: string | null } | null;
 };
 
 
@@ -657,6 +658,7 @@ async function readSprintTaskActivityPage(input: {
                 t.creator_id,
                 t.kind,
                 t.assignment_id,
+                t.assignment_settings,
                 COALESCE(m.added_at, t.created_at) AS activity_at,
                 m.removed_at AS membership_removed_at,
                 0::int AS linked_file_count
@@ -746,6 +748,7 @@ async function readSprintTaskActivityPage(input: {
                 t.creator_id,
                 t.kind,
                 t.assignment_id,
+                t.assignment_settings,
                 COALESCE(m.added_at, t.created_at) AS activity_at,
                 m.removed_at AS membership_removed_at,
                 0::int AS linked_file_count
@@ -833,7 +836,13 @@ async function readSprintTaskActivityPage(input: {
 
   const actorById = new Map(actorRows.map((row) => [row.id, row]));
   // Live-fix 31: a main assignment shows its class progress ("12/40"), not "Unassigned".
-  const progressByMaster = await readMasterProgress(pageRows.filter((row) => row.kind === "assignment" && !row.assignment_id).map((row) => row.id));
+  const isMaster = (row: (typeof pageRows)[number]) => row.kind === "assignment" && !row.assignment_id;
+  const progressByMaster = await readMasterProgress(pageRows.filter(isMaster).map((row) => row.id));
+  // A main assignment's column comes from its copies, as on the board; its own stored status means nothing.
+  const masterStatus = (row: (typeof pageRows)[number]) => {
+    const p = progressByMaster.get(row.id);
+    return assignmentColumn({ draft: !row.assignment_settings?.publishedAt, closed: Boolean(row.assignment_settings?.closedAt), started: p?.started ?? 0, done: p?.done ?? 0, total: p?.total ?? 0 });
+  };
 
   const filesByTaskId = new Map<
     string,
@@ -892,8 +901,8 @@ async function readSprintTaskActivityPage(input: {
     taskNumber: row.task_number ?? null,
     title: row.title,
     description: row.description ?? null,
-    status: row.status,
-    reviewStatus: row.review_status,
+    status: isMaster(row) ? masterStatus(row) : row.status,
+    reviewStatus: isMaster(row) ? "none" : row.review_status,
     priority: row.priority,
     storyPoints: row.story_points ?? null,
     dueDate: toIsoString(row.due_date),
@@ -912,7 +921,8 @@ async function readSprintTaskActivityPage(input: {
     removedAt: toIsoString(row.membership_removed_at),
     linkedFiles: filesByTaskId.get(row.id) ?? [],
     subtasks: subtasksByTaskId.get(row.id) ?? [],
-    assignmentProgress: progressByMaster.has(row.id) ? { done: progressByMaster.get(row.id)!.done, total: progressByMaster.get(row.id)!.total } : null,
+    // Nobody has it yet reads 0/0 ("Nobody has joined yet"), never "Unassigned".
+    assignmentProgress: isMaster(row) ? { done: progressByMaster.get(row.id)?.done ?? 0, total: progressByMaster.get(row.id)?.total ?? 0 } : null,
     assignee: row.assignee_id
       ? actorById.get(row.assignee_id)
         ? {

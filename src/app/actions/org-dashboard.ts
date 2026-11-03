@@ -275,11 +275,12 @@ export async function readOrgDashboardAction(orgId: string, activityFilter = 'al
 
     const projectRows = await db.select({ id: workspaces.id, title: workspaces.title, slug: workspaces.slug, updatedAt: workspaces.updatedAt, visibility: workspaces.visibility, coverImage: workspaces.coverImage,
         lead: sql<string | null>`(SELECT COALESCE(p.full_name, p.username) FROM profiles p WHERE p.id = ${workspaces.ownerId})`,
-        members: sql<number>`(SELECT count(*)::int FROM workspace_members pm WHERE pm.workspace_id = ${workspaces.id})`,
-        overdue: sql<number>`(SELECT count(*)::int FROM tasks t WHERE t.workspace_id = ${workspaces.id} AND t.deleted_at IS NULL AND t.status <> 'done' AND t.due_date < now())` }).from(workspaces)
+        // A single-table select writes columns bare, so inside a subquery "id" would mean the subquery's own row: name the table.
+        members: sql<number>`(SELECT count(*)::int FROM workspace_members pm WHERE pm.workspace_id = workspaces.id)`,
+        overdue: sql<number>`(SELECT count(*)::int FROM tasks t WHERE t.workspace_id = workspaces.id AND t.deleted_at IS NULL AND t.status <> 'done' AND t.due_date < now())` }).from(workspaces)
         .where(and(eq(workspaces.parentId, orgId), isNull(workspaces.deletedAt), ne(workspaces.status, 'archived'),
             v.isAdmin ? undefined : sql`EXISTS (SELECT 1 FROM workspace_members pm WHERE pm.workspace_id = ${workspaces.id} AND pm.user_id = ${v.userId})`))
-        .orderBy(v.isAdmin ? sql`(SELECT count(*) FROM tasks t WHERE t.workspace_id = ${workspaces.id} AND t.deleted_at IS NULL AND t.status <> 'done' AND t.due_date < now()) DESC` : sql`1`, desc(workspaces.updatedAt)).limit(5);
+        .orderBy(v.isAdmin ? sql`(SELECT count(*) FROM tasks t WHERE t.workspace_id = workspaces.id AND t.deleted_at IS NULL AND t.status <> 'done' AND t.due_date < now()) DESC` : sql`1`, desc(workspaces.updatedAt)).limit(5);
     const weekAgo = now.getTime() - 7 * DAY;
     const archived = v.org.status === 'archived';
     let archivedSummary: string | null = null;

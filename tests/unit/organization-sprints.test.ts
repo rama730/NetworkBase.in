@@ -74,3 +74,9 @@ test("live-fix 34: the sprint form shares with All, Selected or None, in plain w
   assert.match(modal, /Post an announcement/);
   assert.match(modal, /sharedWorkspaceIds: orgFields\.sharedWith === "selected"/);
 });
+
+test("live-fix 32: a sprint named 'CO1 Arrays and linked lists' still counts as CO1, so the next is CO2", () => {
+  assert.equal(nextSeriesNumber("CO", ["CO1 Arrays and linked lists"]), 2);
+  assert.equal(nextSeriesNumber("CO", ["CO1", "CO3: Trees"]), 4);
+  assert.equal(nextSeriesNumber("CO", ["COBOL week", "Company day"]), 1, "a word that only starts with CO isn't in the series");
+});

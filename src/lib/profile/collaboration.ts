@@ -461,7 +461,9 @@ function contributionRoleLabel(row: ProfileContributionRow) {
   }
   const membershipRole = trimDisplayText(row.membership_role) || trimDisplayText(row.role_kind) || "member";
   // Live-fix 58: the owner of a team workspace in an organization leads it; "Contributor" is only for when nothing is known.
-  if (membershipRole === "owner" && row.parent_org_id && !trimDisplayText(row.lead_focus) && !trimDisplayText(row.accepted_role_title) && !trimDisplayText(row.role_title)) return "Team lead";
+  // The stored "Contributor" is only the default, so it counts as not known (the live entry had it).
+  const storedTitle = trimDisplayText(row.role_title);
+  if (membershipRole === "owner" && row.parent_org_id && !trimDisplayText(row.lead_focus) && !trimDisplayText(row.accepted_role_title) && (!storedTitle || storedTitle === "Contributor")) return "Team lead";
   return formatContributionPosition({
     title: row.role_title,
     projectPosition: membershipRole === "owner"
@@ -477,7 +479,9 @@ function contributionFromRow(row: ProfileContributionRow): ProfileCollaborationC
   const stages = roleStages(row.role_stages, row.contribution_id).map((stage) => ({
     ...stage,
     roleTitle: row.project_id
-      ? formatContributionPosition({
+      ? formattedRole === "Team lead" && stage.roleTitle === "Contributor"
+        ? "Team lead"
+        : formatContributionPosition({
           title: stage.roleTitle,
           projectPosition: stage.currentlyActive ? formattedRole : null,
         })

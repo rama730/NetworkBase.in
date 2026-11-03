@@ -34,6 +34,7 @@ test("live-fix 23, 26: an empty document says so with Start writing; Add offers 
   assert.match(viewer, /isEmptyDoc\(/);
   const add = source("src/components/workspaces/doc/AddDocDialog.tsx");
   assert.match(add, /Blank, or start from a template/);
+  assert.match(add, /No templates yet\. Turn one on from a document/, "the choice shows even with no templates");
   assert.match(add, /docFileName\(clean\), content: "" \}/, "a new document starts blank");
   assert.doesNotMatch(add, /org\?\.mode === "child" \? org\.docs\.filter/);
 });
@@ -52,5 +53,5 @@ test("live-fix 36, 37: starter folders carry a Template chip and a purpose; New 
   const folders = starterFolders("education");
   assert.ok(folders.some((f) => f.template === true), "the Templates folder");
   assert.ok(folders.every((f) => typeof f.purpose === "string" && f.purpose.length > 0));
-  assert.match(source("src/components/workspaces/v2/files-tab/folder/FolderListRow.tsx"), /purpose/);
+  assert.match(source("src/components/workspaces/v2/files-tab/folder/FolderListRow.tsx"), /md:inline">\{\(node\.metadata as \{ purpose: string \}\)\.purpose\}/, "shown on desktop, not only in the phone meta line");
 });

@@ -43,7 +43,7 @@ test('Left is identity; right is buttons, then the updated line, then details', 
     const title = await box(page, page.locator('h1'));
     const tagline = await box(page, page.getByText('Data Structures for 3rd-semester'));
     const people = await box(page, page.getByRole('button', { name: '40 members' }));
-    const share = await box(page, page.getByRole('button', { name: 'Share workspace' }));
+    const share = await box(page, page.getByRole('button', { name: /^Share (workspace|organization)$/ }));
     const updated = await box(page, page.getByTestId('workspace-last-update'));
     const details = await box(page, page.getByTestId('org-header-details'));
 
@@ -142,7 +142,7 @@ test('Details take one line on a wide screen and wrap at 280px below that', asyn
 test('The name and the buttons share the top line', async ({ page }) => {
     await open(page, 'image');
     const name = await box(page, page.locator('h1'));
-    const share = await box(page, page.getByRole('button', { name: 'Share workspace' }));
+    const share = await box(page, page.getByRole('button', { name: /^Share (workspace|organization)$/ }));
     expect(Math.abs(name.y + name.height / 2 - (share.y + share.height / 2))).toBeLessThanOrEqual(4);
 });
 
@@ -150,7 +150,7 @@ test('On a phone it stacks left-aligned, with nothing pushing the page sideways'
     await open(page, 'org', 375);
     const name = await box(page, page.locator('h1'));
     const people = await box(page, page.getByRole('button', { name: '40 members' }));
-    const share = await box(page, page.getByRole('button', { name: 'Share workspace' }));
+    const share = await box(page, page.getByRole('button', { name: /^Share (workspace|organization)$/ }));
     const updated = await box(page, page.getByTestId('workspace-last-update'));
     const details = await box(page, page.getByTestId('org-header-details'));
     expect(share.y).toBeGreaterThan(people.y);

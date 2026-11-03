@@ -1,6 +1,7 @@
 'use server';
 
 import { docTitle, isEmptyDoc, readOrgDocOptions } from "@/lib/organizations/doc-rules";
+import { linkedFileEditor } from "@/lib/workspaces/doc-linked-editor";
 import { orgLimitBlock } from "@/lib/organizations/limits";
 import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { revalidatePath, revalidateTag } from "next/cache";
@@ -577,6 +578,8 @@ export async function readWorkspaceDocAction(projectId: string, requestedSlug: s
                     if (!access.project || !access.canRead) throw new Error("Workspace not readable");
                     const content = await readWorkspaceFileText({ ...access, project: access.project }, projectId, node.id);
                     const metadata = getOrBuildWorkspaceDocPublishMetadata(content);
+                    // "Updated by" names whoever last saved the file (live-fix 22), not "System".
+                    const editor = await linkedFileEditor(node.id);
                     versionRow = {
                         id: `linked-${node.id}`,
                         projectId,
@@ -589,8 +592,8 @@ export async function readWorkspaceDocAction(projectId: string, requestedSlug: s
                         contentHash: metadata.contentHash,
                         changeSummary: "Linked file content",
                         coAuthors: [],
-                        createdBy: node.createdBy,
-                        createdByName: "System",
+                        createdBy: editor.id ?? node.createdBy,
+                        createdByName: editor.name,
                         createdAt: node.updatedAt || new Date(),
                         deletedAt: null,
                     };

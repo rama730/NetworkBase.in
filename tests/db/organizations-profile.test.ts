@@ -191,3 +191,12 @@ test("live-fix 61: an organization entry knows who verified it, when, and the or
   const entry = (await collab.getProfileContributions(o.member, { includePrivate: true })).contributions.find((c) => c.projectId === o.orgId)!;
   assert.deepEqual([entry.verifiedByName, typeof entry.verifiedAt, entry.projectCoverImage], ["Ms. Rao", "string", "https://cdn.example.com/cse.png"]);
 });
+
+test("live-fix 58: the owner of a team workspace reads Team lead, even when the stored title is the default Contributor", async () => {
+  const o = await org();
+  await sql`INSERT INTO profile_contributions (profile_id, workspace_id, source, role_kind, role_title, visibility, started_at)
+    VALUES (${o.member}, ${o.child}, 'membership', 'owner', 'Contributor', 'public', now())`;
+  const entry = (await collab.getProfileContributions(o.member, { includePrivate: true })).contributions.find((c) => c.projectId === o.child)!;
+  assert.equal(entry.title, "Team lead");
+  assert.ok((entry.roleStages ?? []).every((s) => s.roleTitle !== "Contributor"), JSON.stringify(entry.roleStages));
+});

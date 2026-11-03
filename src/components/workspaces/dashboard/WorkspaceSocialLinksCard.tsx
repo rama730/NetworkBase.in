@@ -808,11 +808,11 @@ export function WorkspaceLinkCluster({
                 {canManage ? (
                     <Tooltip>
                         <TooltipTrigger asChild>
-                            <button type="button" onClick={() => setEditorOpen(true)} aria-label="Manage workspace links" className="nb-touch-target nb-icon-button h-7 w-7 shrink-0 rounded-[5px] text-muted-foreground transition-colors duration-[180ms] ease-[cubic-bezier(.2,.8,.3,1)] hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                            <button type="button" onClick={() => setEditorOpen(true)} aria-label="Manage links" className="nb-touch-target nb-icon-button h-7 w-7 shrink-0 rounded-[5px] text-muted-foreground transition-colors duration-[180ms] ease-[cubic-bezier(.2,.8,.3,1)] hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                                 <Plus className="h-4 w-4" aria-hidden="true" />
                             </button>
                         </TooltipTrigger>
-                        <TooltipContent side="bottom" sideOffset={6}>{resolved.length ? 'Manage workspace links' : 'Add workspace link'}</TooltipContent>
+                        <TooltipContent side="bottom" sideOffset={6}>{resolved.length ? 'Manage links' : 'Add link'}</TooltipContent>
                     </Tooltip>
                 ) : null}
             </div>

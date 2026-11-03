@@ -516,6 +516,9 @@ export const FolderListRow = React.memo(function FolderListRow({
         </div>
         <VersionPill v={node.currentVersion} />
         {node.type === "folder" ? <FolderAccessChip metadata={node.metadata} /> : null}
+        {/* Live-fix 36: a starter folder's purpose on desktop too (phones show it in the meta line). */}
+        {node.type === "folder" && typeof (node.metadata as { purpose?: unknown } | null)?.purpose === "string"
+          ? <span className="hidden max-w-64 truncate text-xs text-muted-foreground md:inline">{(node.metadata as { purpose: string }).purpose}</span> : null}
         {isFavorite && <Star aria-label="Starred" className="size-3.5 shrink-0 text-[#9A6B00]" fill="currentColor" />}
         {showGitBadge ? <GitChangeBadge status={gitChange!} /> : null}
         {(taskLinkCount ?? 0) > 0 ? (
