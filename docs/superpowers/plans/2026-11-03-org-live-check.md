@@ -5,14 +5,14 @@ Checked on networkbase.in on 2026-11-03, after commit 773052541 was deployed. I 
 (`docs/superpowers/specs/2026-11-01-organization-end-to-end-design.md`, sections 7, 16, 22, 35–37). Forms and dialogs were
 opened and closed without saving; nothing was changed.
 
-The plan ticked most of these as done; the live site shows they're not. **51 problems** in all. "Report §" names the
+The plan ticked most of these as done; the live site shows they're not. **66 problems** in all. "Report §" names the
 section each one comes from.
 
 ## 1. Speed — every tab (report 41.7)
 
 | # | Problem |
 |---|---|
-| 1 | The tabs take far too long to show their content: Overview about 3.6 s, Files about 13 s, Tasks about 14 s, Workspaces about 15 s, Members about 17.5 s. Preview as member about 10 s. Each tab makes 10–16 server calls one after another (each about 450–1,100 ms) instead of together. |
+| 1 | The tabs take far too long to show their content: Overview about 3.6 s, Files about 13 s, Tasks about 14 s, Workspaces about 15 s, Members about 17.5 s. Each tab makes 10–16 server calls one after another (each about 450–1,100 ms) instead of together. |
 | 2 | While a tab loads, the sidebar says "No workspaces yet" (plan step 1d said this flash would be replaced by a loading row). The header shows initials instead of your photo, "Trust and safety" and the badges are missing, and the shortcut reads "Ctrl K", so for several seconds the page looks signed out. |
 
 ## 2. Tasks (report §16.1, §7.7) — the biggest gap
@@ -124,6 +124,40 @@ section each one comes from.
 | 50 | The Discover card has no type chip, member photos or workspace count (step D) |
 | 51 | Team Falcon's box is titled "TEAMS" but its button says "Add role" (one name, gap 32) |
 
+## 14. Profile and contributions (report §4.4–4.6, §16.9, §16.10, §38)
+
+Checked on your own profile (`/my-profile`), Manage organizations, and the contribution editor for CSE 3B.
+
+| # | Problem |
+|---|---|
+| 52 | The Organizations row reads "Since 2026-10-31", an unformatted date; the report shows "Since Oct 2026" |
+| 53 | Under "Not on your profile yet", Team Falcon is its own row; the report nests a team workspace under its organization (CSE 3B, then Team Falcon) |
+| 54 | Team Falcon's write-up nudge says "Write about your work in CSE 3B · Data Structures 2026", the wrong place |
+| 55 | The CSE 3B and Team Falcon drafts have only "Dismiss", no "Publish" (Caveman and Network for builders do have Publish) |
+| 56 | Manage organizations rows have no logo |
+| 57 | The contribution editor's list is flat. The report groups it: Organizations (with their workspaces nested), Workspaces, Not on your profile yet, Private to you |
+| 58 | Team Falcon's role shows "Contributor" though you lead it; the report keeps "Contributor" for when no role is found at all |
+| 59 | "Edit contribution" in Manage organizations opens the whole list, not that organization's entry |
+| 60 | The editor list's previews are garbled: Ponytail shows stray "\ \" characters, and DeepScope's "working with Lakshmi CH and Rama" shows as "working with and" (the mentioned names are dropped) |
+| 61 | The organization entry's header says "Linked NetworkBase workspace". The report wants the organization, its type and logo, "Set by CSE 3B", and the verified state with who and when |
+| 62 | Workspace wording throughout an organization entry: "Back to workspace contributions", "Explain your part in the workspace", "I currently contribute to this workspace", and "Clearing this also marks your positions…" under dates that can't be changed |
+| 63 | There's no Publish button, only "Save draft". "Show on profile" is switched on, yet the entry is still a Draft, and nothing says what's missing (the report: Publish checks a summary exists and points to what's missing) |
+| 64 | "Role history · 1 positions" |
+| 65 | "View as visitor" says "This contribution is not shown to public visitors" without saying why or what to do |
+| 66 | The organization entry doesn't show its nested workspace (Team Falcon) beneath it |
+
+Works as designed:
+- the Organizations section's place (between Collaboration preferences and Links), its pencil and "Join with code"
+- Manage organizations' Show switch, up/down order, and "Edit contribution"
+- locked role and dates with "Ask an admin"
+- the role history step "From team records", locked but able to take detail
+- "Start from About", "Start from my work", the Work record switch, up to 8 images, "From workspace", and Featured
+
+## Removed at the owner's request
+
+**Preview as member** (report §45.6, decision 175). It worked live, but the owner doesn't want it. It's removed from the
+code: the header button, the bar, the cookie and every check that read it. The plan records it as dropped.
+
 ## Every page
 
 React error #418 appears in the browser console on every page, not only the organization (server and browser drew
@@ -136,7 +170,7 @@ different text). It's not traced yet, and it may be older than this deploy; it's
 - **Updates:** the feed, its filters, and the composer's options ("Goes to 1 person", "Also email · 5 of 5 left today", "Post to 1 person").
 - **Files:** the left panel, "Who can see this?" with "Use as template", and Submissions.
 - **Settings:** the menu, and one review setting in Work.
-- **New features:** Preview as member, the Calendar dialog, and "Last active here".
+- **New features:** the Calendar dialog and "Last active here". (Preview as member worked, but the owner asked for it to be removed; it's gone from the code.)
 - **Team workspace:** "Inside CO1" and "From CSE 3B".
 - **Phone layout:** no sideways page scroll.
 

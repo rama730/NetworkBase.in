@@ -70,7 +70,7 @@ Checking all 207 plan items against the code turned up these gaps. All are now b
 - **Calendar tokens:** only the token's SHA-256 is stored, and the link is shown once (fac2f7b62).
 - **The "no team lead" notice:** it waits for the removal to commit (`transactionThen`/`afterCommit`). It also used
   to skip the lead whenever an organization admin did the removal; now it doesn't (fac2f7b62).
-- **Preview as member:** it also holds in search and the sidebar (fac2f7b62).
+- **Preview as member:** it was made to hold in search and the sidebar too (fac2f7b62). The owner then asked for the whole feature to be removed (3 Nov 2026), and it was.
 - **Reviewers:** they can be picked when an assignment is created (fac2f7b62).
 - **33.7 "Nobody reviews for a week":** the review row turns amber and shows the oldest wait (b8f751b14).
 - **33.7 "Term ends with nothing archived":** the prompt stays after the term ends (b8f751b14).

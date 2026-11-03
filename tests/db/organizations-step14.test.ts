@@ -4,10 +4,10 @@ import { after, before, test } from "node:test";
 import { generateJoinCode } from "../../src/lib/organizations/join-rules";
 import { closeAppDb, createProject, createUser, loadAppModule, moduleStubs, sql } from "./_helpers";
 
-// Step 14 (report §30.3, §30.4, §31.7, §32.2, §37.8, §45.6; decisions 103, 175; smaller bug 8): the final pass.
+// Step 14 (report §30.3, §30.4, §31.7, §32.2, §37.8; decision 103; smaller bug 8): the final pass. Preview as member
+// (§45.6, decision 175) was removed at the owner's request on 2026-11-03.
 
 let viewerId = "";
-let preview: string | null = null;
 moduleStubs.set("@/lib/supabase/server", {
   createClient: async () => ({ auth: {
     getUser: async () => ({ data: { user: viewerId ? { id: viewerId, user_metadata: {} } : null }, error: null }),
@@ -18,14 +18,13 @@ moduleStubs.set("@/lib/supabase/server", {
 moduleStubs.set("next/cache", { revalidatePath: () => undefined, revalidateTag: () => undefined, unstable_cache: (fn: unknown) => fn, updateTag: () => undefined });
 moduleStubs.set("next/headers", {
   headers: async () => new Headers({ "x-forwarded-for": "203.0.113.141" }),
-  cookies: async () => ({ get: (name: string) => (name === "nb_member_preview" && preview ? { name, value: preview } : undefined), set: (name: string, value: string) => { if (name === "nb_member_preview") preview = value || null; }, delete: () => { preview = null; } }),
+  cookies: async () => ({ get: () => undefined, set: () => undefined, delete: () => undefined }),
 });
 
 let search: typeof import("../../src/app/actions/org-workspace");
 let lifecycle: typeof import("../../src/lib/workspaces/server/lifecycle");
 let assignments: typeof import("../../src/app/actions/assignments");
 let access: typeof import("../../src/lib/data/workspace-access");
-let previewActions: typeof import("../../src/app/actions/member-preview");
 before(async () => {
   const viewerContext = await loadAppModule(() => import("../../src/lib/server/viewer-context"));
   moduleStubs.set("@/lib/server/viewer-context", {
@@ -36,7 +35,6 @@ before(async () => {
   lifecycle = await loadAppModule(() => import("../../src/lib/workspaces/server/lifecycle"));
   assignments = await loadAppModule(() => import("../../src/app/actions/assignments"));
   access = await loadAppModule(() => import("../../src/lib/data/workspace-access"));
-  previewActions = await loadAppModule(() => import("../../src/app/actions/member-preview"));
 });
 
 const created: string[] = [];
@@ -136,41 +134,6 @@ test("30.4: reopening tells the people not done that it's open again", async () 
   assert.equal((await assignments.reopenAssignmentAction(master!.id)).success, true);
   const [n] = await sql`SELECT title FROM user_notifications WHERE user_id = ${o.member} AND title = 'Lab 1 is open again'`;
   assert.ok(n);
-});
-
-test("45.6, decision 175: an admin previewing as a member reads as a member and every write is blocked; members can't start one", async () => {
-  const o = await org();
-  viewerId = o.member;
-  assert.equal((await previewActions.startMemberPreviewAction(o.id)).success, false);
-  assert.equal(preview, null);
-  viewerId = o.owner;
-  assert.equal((await previewActions.startMemberPreviewAction(o.id)).success, true);
-  const seen = await access.getWorkspaceAccessById(o.id, o.owner);
-  assert.deepEqual([seen.isOwner, seen.memberRole, seen.canWrite, seen.writeBlocked], [false, "member", false, "preview"]);
-  const detail = await loadAppModule(() => import("../../src/lib/organizations/detail"));
-  assert.equal(await detail.readViewerOrgRole(o.id, o.owner), "member");
-  await previewActions.exitMemberPreviewAction();
-  assert.equal(preview, null);
-});
-
-test("45.6, decision 175: previewing as a member also holds in search and the sidebar, which read the database directly", async () => {
-  const o = await org();
-  await sql`INSERT INTO tasks (workspace_id, title, kind, status, assignment_settings, creator_id)
-    VALUES (${o.id}, ${`Lab ${o.tag}`}, 'assignment', 'todo', ${sql.json({ publishedAt: new Date().toISOString(), submissionType: "none", target: { mode: "everyone" } })}, ${o.admin})`;
-  viewerId = o.owner;
-  const sidebarAdmin = async () => (await search.readSidebarWorkspacesAction())!.orgs.find((g) => g.id === o.id)!.isAdmin;
-  assert.ok((await find(o.owner, o.tag, null)).includes(`assignment:Lab ${o.tag}`), "the owner finds the assignment with its counts");
-  assert.equal(await sidebarAdmin(), true);
-  assert.equal((await previewActions.startMemberPreviewAction(o.id)).success, true);
-  try {
-    viewerId = o.owner;
-    assert.ok(!(await find(o.owner, o.tag, null)).includes(`assignment:Lab ${o.tag}`), "a member without a copy finds none");
-    assert.equal(await sidebarAdmin(), false, "the sidebar reads as a member");
-  } finally {
-    viewerId = o.owner;
-    await previewActions.exitMemberPreviewAction();
-  }
-  assert.equal(await sidebarAdmin(), true);
 });
 
 test("41.4: Last active here and the indexing rule count from when migration 0043 ran, not a hand-set date", async () => {

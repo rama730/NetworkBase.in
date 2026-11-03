@@ -69,7 +69,7 @@ export default function RunningAClassPage() {
         {
           id: "watch",
           title: "6. Keep an eye on the class",
-          content: <p>Overview shows what needs you today, this week, and who is behind or inactive. Members has each person’s work, and Preview as member shows the organization exactly as a student sees it.</p>,
+          content: <p>Overview shows what needs you today, this week, and who is behind or inactive. Members has each person’s work.</p>,
         },
         {
           id: "end",

@@ -1,6 +1,5 @@
 import "server-only";
 
-import { memberPreviewOrgId } from "@/lib/organizations/member-preview";
 import { and, isNotNull, count, eq, gt, isNull, sql } from "drizzle-orm";
 
 import { db } from "@/lib/db";
@@ -170,7 +169,7 @@ export async function readOrgDetail(
 export type OrgMemberRoleOrNone = "owner" | "admin" | "member" | "viewer" | null;
 
 /** The viewer's role in an org (the org owner is "owner"), or null outside it, without one, or when it isn't a live org. */
-export async function readViewerOrgRole(orgId: string | null | undefined, userId: string | null | undefined, options: { ignorePreview?: boolean } = {}): Promise<OrgMemberRoleOrNone> {
+export async function readViewerOrgRole(orgId: string | null | undefined, userId: string | null | undefined): Promise<OrgMemberRoleOrNone> {
   if (!orgId || !userId) return null;
   const [row] = await db
     .select({ ownerId: workspaces.ownerId, role: workspaceMembers.role })
@@ -179,10 +178,7 @@ export async function readViewerOrgRole(orgId: string | null | undefined, userId
     .where(and(eq(workspaces.id, orgId), eq(workspaces.kind, "organization"), isNull(workspaces.deletedAt)))
     .limit(1);
   if (!row) return null;
-  const role = row.ownerId === userId ? "owner" : (row.role as OrgMemberRoleOrNone) ?? null;
-  // Preview as member (report §45.6): an owner or admin reads this organization as an ordinary member.
-  if ((role === "owner" || role === "admin") && !options.ignorePreview && await memberPreviewOrgId() === orgId) return "member";
-  return role;
+  return row.ownerId === userId ? "owner" : (row.role as OrgMemberRoleOrNone) ?? null;
 }
 
 /** An old handle still within its 90-day hold resolves to the org's current handle (report §30.2). */

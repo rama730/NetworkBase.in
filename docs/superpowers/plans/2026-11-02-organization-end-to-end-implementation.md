@@ -395,7 +395,7 @@ For every step below:
 - [x] Only organizations and workspaces get the Share dialog; items inside get Copy link (37.7, decision 102). Followers get public posts in Discover only, with no notices by default and no list (37.8, decision 103).
 - [x] Every browser pop-up becomes the shared dialog (32.3, decision 75). A failed save always keeps what was written (32.6, decision 77). Full review of phones, dark mode and accessibility (32.7, 32.8, gaps 67 and 68). Consistency for members (7.13).
 - [x] Smaller bug 8: the sidebar stops running the full attention query and document reads on every load.
-- [x] Preview as member, read only, through the member read rules (45.6, decision 175).
+- [x] ~~Preview as member, read only, through the member read rules (45.6, decision 175).~~ **Removed at the owner's request, 3 November 2026:** the owner doesn't want this feature. It was built (f29fea9de) and taken out again; decision 175 is dropped, and nothing else depends on it.
 - [x] Everything connected (16.11). Walk every whole-life scenario in 16.12 and 33.7 as browser checks.
 - [x] The measures SQL file for 41.7, including emails waiting more than an hour (164) and failed hand-in uploads (172).
 
@@ -609,7 +609,7 @@ For every step below:
 | 172 | 14, After the pilot |
 | 173 | 1b |
 | 174 | 1c |
-| 175 | 14 |
+| 175 | 14 — removed at the owner's request, 3 Nov 2026 |
 | 176 | 9 |
 | 177 | Before opening up |
 

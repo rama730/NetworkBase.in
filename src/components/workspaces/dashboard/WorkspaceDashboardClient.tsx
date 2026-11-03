@@ -46,7 +46,6 @@ import { OrgInviteBanner } from '@/components/organizations/OrgInviteBanner';
 import { HeaderReportMenu } from '@/components/reports/ItemMenu';
 import { DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { ChildOrgChips, OrgArchivedNotice, OrgBreadcrumb, OrgCompactMark, OrgHeaderDetails, OrgInviteDialog, OrgNewItems, OrgNewMenu, OrgStatusBanner, OrgVisitorActions, type OrgNewKind } from '@/components/organizations/OrgHeaderParts';
-import { PreviewAsMemberButton, useStartMemberPreview } from '@/components/organizations/MemberPreview';
 import { readOrgTabBadgesAction, type OrgTabBadges } from '@/app/actions/assignments';
 import { isWorkspacePubliclyReadableVisibility } from '@/lib/workspaces/workspace-visibility';
 import { confirmFileNavigation } from '@/lib/files/unsaved-navigation';
@@ -1069,7 +1068,6 @@ export default function WorkspaceDashboardClient({ project, currentUserId, viewe
         return () => { delete document.documentElement.dataset.storyPoints; };
     }, [hideStoryPoints]);
     const canStartNew = isOrganization && canManageProjectSettings && project.status !== 'archived' && !organization?.suspended;
-    const startPreview = useStartMemberPreview(project.id);
     const activeSprintName = (sprints as Array<{ status?: string; name?: string }>).find((s) => s.status === 'active')?.name ?? null;
     const filesSyncBadge = useFilesStore((s) => s.byProjectId[project.id]?.git?.syncBadge ?? null);
     // `drawerType=task&drawerId=` is the task link; `taskId` is the legacy form some old links carry.
@@ -1109,8 +1107,8 @@ export default function WorkspaceDashboardClient({ project, currentUserId, viewe
             tabBadges={tabBadges}
             compactChip={organization ? (activeSprintName ? <span className="nb-status shrink-0" data-status="active">{activeSprintName}</span> : null) : undefined}
             compactPrefix={parentOrg ? <OrgCompactMark parentOrg={parentOrg} /> : null}
-            compactMenuItems={canStartNew ? <><OrgNewItems onNew={startNew} prefix="New " /><DropdownMenuItem onSelect={startPreview.run}>Preview as member</DropdownMenuItem></> : null}
-            actionsStart={organization ? <>{canStartNew ? <><OrgNewMenu onNew={startNew} /><PreviewAsMemberButton orgId={project.id} /></> : null}{!isOwnerOrMember && currentUserId ? <OrgInviteBanner orgId={project.id} /> : null}{!isOwnerOrMember && isWorkspacePubliclyReadableVisibility(project.visibility) && project.status !== 'archived' && !organization.suspended ? <OrgVisitorActions orgId={project.id} href={canonicalProjectHref} joinMode={organization.joinMode} requestPending={organization.viewerRequestPending} loggedIn={Boolean(currentUserId)} /> : null}</> : null}
+            compactMenuItems={canStartNew ? <OrgNewItems onNew={startNew} prefix="New " /> : null}
+            actionsStart={organization ? <>{canStartNew ? <OrgNewMenu onNew={startNew} /> : null}{!isOwnerOrMember && currentUserId ? <OrgInviteBanner orgId={project.id} /> : null}{!isOwnerOrMember && isWorkspacePubliclyReadableVisibility(project.visibility) && project.status !== 'archived' && !organization.suspended ? <OrgVisitorActions orgId={project.id} href={canonicalProjectHref} joinMode={organization.joinMode} requestPending={organization.viewerRequestPending} loggedIn={Boolean(currentUserId)} /> : null}</> : null}
             actionsEnd={currentUserId && !isOwner ? (
                 <HeaderReportMenu targetId={project.id} noun={organization ? 'organization' : 'workspace'}>
                     {/* A member of a team inside an organization can ask to move, privately (Blocking B48). */}
