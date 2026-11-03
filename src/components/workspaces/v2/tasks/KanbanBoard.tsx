@@ -88,7 +88,7 @@ const SortableTaskCard = React.memo(function SortableTaskCard({
   currentUserId?: string;
   isDragLocked?: boolean;
   /** Move to… (report §32.3, §32.7): the other columns, for keyboard and phones, the same rule as dragging. */
-  moveTargets?: Array<{ id: string; title: string }>;
+  moveTargets?: Array<{ id: string; title: string; done?: boolean }>;
   onMoveTo?: (task: Task, columnId: string) => void;
 }) {
   // Mirrors the server rule in moveTaskToWorkflowColumnAction.
@@ -159,7 +159,8 @@ const SortableTaskCard = React.memo(function SortableTaskCard({
         <select aria-label={`Move ${task.title} to…`} value="" className="mt-1 h-7 w-full rounded-[5px] border border-border bg-background px-1.5 text-[12px] text-muted-foreground md:sr-only md:focus:not-sr-only"
           onChange={(e) => { if (e.target.value) onMoveTo(task, e.target.value); }}>
           <option value="">Move to…</option>
-          {moveTargets.filter((c) => c.id !== (task.workflowColumnId ?? "")).map((c) => <option key={c.id} value={c.id}>{c.title}</option>)}
+          {/* Student check 5: a copy reaches Completed only through Submit. */}
+          {moveTargets.filter((c) => c.id !== (task.workflowColumnId ?? "") && !(c.done && task.assignmentId)).map((c) => <option key={c.id} value={c.id}>{c.title}</option>)}
         </select>
       ) : null}
     </div>
@@ -693,7 +694,7 @@ export default function KanbanBoard({
     await commitTaskMove(String(active.id), target);
   }
 
-  const moveTargets = workflow.map((col) => ({ id: String(col.id), title: String(col.title ?? col.name ?? "Column") }));
+  const moveTargets = workflow.map((col) => ({ id: String(col.id), title: String(col.title ?? col.name ?? "Column"), done: col.status === "done" }));
 
   // One move path for a drop and for a card's Move to (report §32.3, §32.7: every drag has a Move to alternative).
   async function commitTaskMove(taskId: string, target: { columnId: string; beforeTaskId?: string | null } | null) {

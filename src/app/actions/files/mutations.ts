@@ -675,7 +675,8 @@ export async function getUploadCollisionSummary(
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error("Sign in to continue");
-    await assertWorkspaceUploadAccess(projectId, user.id);
+    // Student check 1: a member's hand-in is checked against their own copy, like every later upload step.
+    await assertWorkspaceUploadAccess(projectId, user.id, { taskId: options?.taskId ?? null });
 
     if (paths.length > 5000) {
         throw new Error("Maximum 5000 paths allowed per collision check");

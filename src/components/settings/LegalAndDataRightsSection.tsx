@@ -45,7 +45,8 @@ const governingDocuments = [
 // Rights that have no button yet are asked for by email, with the subject filled in.
 const RIGHTS_REQUEST_HREF = "mailto:privacy@networkbase.in?subject=Privacy%20rights%20request";
 
-export function LegalAndDataRightsSection() {
+/** `inWorkspace`: shown inside a workspace's or organization's Settings, where Delete account isn't below (student check 13). */
+export function LegalAndDataRightsSection({ inWorkspace = false }: { inWorkspace?: boolean } = {}) {
   const [state, setState] = useState<AcceptanceState | null>(null);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState(false);
@@ -271,7 +272,7 @@ export function LegalAndDataRightsSection() {
       <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="max-w-xl">
           <h4 className="nb-ui-label text-foreground">Other rights requests</h4>
-          <p className="nb-compact mt-0.5 text-muted-foreground">To correct or restrict how your data is used, or to object, write to us at privacy@networkbase.in. Deletion and export are above and in Delete account below.</p>
+          <p className="nb-compact mt-0.5 text-muted-foreground">To correct or restrict how your data is used, or to object, write to us at privacy@networkbase.in. {inWorkspace ? <>Export is above; to delete your account, go to <Link href="/settings#settings-delete-account" className="underline underline-offset-2">your account settings</Link>.</> : "Deletion and export are above and in Delete account below."}</p>
         </div>
         <Button variant="outline" size="sm" asChild><a href={RIGHTS_REQUEST_HREF}>Email a request</a></Button>
       </div>

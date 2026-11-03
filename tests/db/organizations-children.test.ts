@@ -118,6 +118,9 @@ test("Organization children open for org people and inherited admins, not outsid
   viewerId = o.member2;
   const memberView = await detail.readWorkspaceDetailShell({ slugOrId: slug });
   assert.equal(memberView.success, true, `org member not in the workspace: ${JSON.stringify(memberView).slice(0, 300)}`);
+  await sql`UPDATE workspaces SET key = 'TFH' WHERE id = ${result.project!.id}`;
+  const keyed = await detail.readWorkspaceDetailShell({ slugOrId: slug });
+  assert.equal(keyed.success && keyed.data.project.key, "TFH", "student check 9: the shell carries the task key for Sprints");
   const outsider = await sql.begin((tx) => createUser(tx));
   viewerId = outsider;
   assert.equal((await detail.readWorkspaceDetailShell({ slugOrId: slug })).success, false);

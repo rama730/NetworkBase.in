@@ -277,7 +277,7 @@ export async function searchOrgPreviewsAction(query: string, orgIdentifier?: str
         const base = `/org/${encodeURIComponent(a.slug ?? a.org_id)}?tab=tasks`;
         const due = a.due ? ` · due ${formatDueDay(new Date(a.due), [...(await peopleByZone([userId], a.zone)).keys()][0])}` : '';
         if (a.admin) results.push({ id: `assignment:${a.id}`, kind: 'assignment', title: a.title, subtitle: `${a.org_title}${due}`, href: `${base}&drawerType=task&drawerId=${a.id}`, chip: `${a.submitted}/${a.total} submitted` });
-        else if (a.copy_id) results.push({ id: `assignment:${a.id}`, kind: 'assignment', title: a.title, subtitle: `${a.org_title}${due}`, href: `${base}&drawerType=task&drawerId=${a.copy_id}`, chip: a.copy_review === 'pending' ? 'Submitted' : a.copy_review === 'rejected' ? 'Returned' : a.copy_status === 'done' ? 'Completed' : 'To do' });
+        else if (a.copy_id) results.push({ id: `assignment:${a.id}`, kind: 'assignment', title: a.title, subtitle: `${a.org_title}${due}`, href: `${base}&drawerType=task&drawerId=${a.copy_id}`, chip: a.copy_review === 'pending' ? 'Submitted' : a.copy_review === 'rejected' ? 'Returned' : a.copy_status === 'done' ? 'Completed' : a.copy_status === 'in_progress' ? 'In progress' : a.copy_status === 'blocked' ? 'Blocked' : 'To do' });
     }
 
     // Org docs (outside an org's own search): docs of orgs you're in.

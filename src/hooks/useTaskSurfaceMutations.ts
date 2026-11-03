@@ -123,6 +123,9 @@ export function useTaskSurfaceMutations(params: {
       field: string,
     ) => {
       restoreSnapshots(snapshots);
+      // Student check 6: a list still loading when the snapshot was taken has nothing to restore, so the refused
+      // edit stayed on the board. Write the previous task back into every cached list too.
+      patchWorkspaceTaskCaches(queryClient, projectId, previousTask);
       onTaskChange(previousTask);
       recordSprintMetric("project.sprint.optimistic_patch", {
         projectId,
@@ -131,7 +134,7 @@ export function useTaskSurfaceMutations(params: {
         result: "rolled_back",
       });
     },
-    [onTaskChange, projectId, restoreSnapshots, task.id],
+    [onTaskChange, projectId, queryClient, restoreSnapshots, task.id],
   );
 
   const buildFieldTask = useCallback(

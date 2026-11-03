@@ -53,7 +53,7 @@ test("project settings eliminates Security & Data tab completely and standardize
     );
     assert.match(
         settingsTab,
-        /<LegalAndDataRightsSection \/>/,
+        /<LegalAndDataRightsSection( inWorkspace)? \/>/,
         "Must render LegalAndDataRightsSection for Privacy",
     );
 });

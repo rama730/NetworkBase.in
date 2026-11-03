@@ -44,6 +44,8 @@ export function formatDistanceToNow(value: DateInput, options: { addSuffix?: boo
   const seconds = Math.round((toDate(value).getTime() - Date.now()) / 1000);
   const [unit, size] = RELATIVE_UNITS.find(([, unitSeconds]) => Math.abs(seconds) >= unitSeconds) ?? ["second", 1];
   const amount = Math.round(seconds / size);
+  // Student check 15: under a minute reads "just now", never "0 seconds ago".
+  if (options.addSuffix && Math.abs(seconds) < 60) return "just now";
   if (options.addSuffix) return relativeFormatter.format(amount, unit);
   return new Intl.NumberFormat("en", { style: "unit", unit, unitDisplay: "long" }).format(Math.abs(amount));
 }

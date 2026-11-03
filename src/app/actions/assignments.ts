@@ -9,6 +9,7 @@ import { db } from '@/lib/db';
 import { assignmentSubmissions, profiles, taskNodeLinks, workspaceMembers, workspaceNodes, workspaces, workspaceSprints, workspaceWorkflowColumns, taskActivityEvents, taskTeamMembers, tasks } from '@/lib/db/schema';
 import { getWorkspaceAccessById, writeBlockedMessage } from '@/lib/data/workspace-access';
 import { createClient } from '@/lib/supabase/server';
+import { orgRoleNames } from '@/lib/organizations/config';
 import { assignmentHref, canStillSubmit, copyState, splitIntoTeams, webLink, LATE_AFTER_DEFAULT_MINUTES, lateAfterMs, lateRuleBlock, lateWorkLabel, type AssignmentSettings, type AssignmentTarget, type CopyState, weeklyRepeats } from '@/lib/organizations/assignment-rules';
 import { createCopies, createMasterTask, handedInSql, PeopleLeftError, resolveRecipients } from '@/lib/organizations/assignments';
 import { publishMaster } from '@/lib/organizations/assignment-publish';
@@ -236,7 +237,7 @@ export async function scheduleAssignmentAction(masterId: string, schedule: z.inp
 }
 
 export type HandIn = {
-    holder: boolean; submissionType: string; reviewRequired: boolean; dueDate: string | null; lateLabel: string | null; from: string;
+    holder: boolean; submissionType: string; reviewRequired: boolean; dueDate: string | null; lateLabel: string | null; from: string; reviewers: string;
     state: CopyState; late: boolean; canSubmit: boolean; closed: boolean; approved: boolean; excusedReason: string | null;
     returned: { reason: string | null; fixBy: string | null } | null;
     latest: { version: number; at: string; by: string; link: string | null; text: string | null; note: string | null; files: Array<{ nodeId: string; name: string }> } | null;
@@ -267,13 +268,15 @@ export async function readHandInAction(copyId: string): Promise<{ success: true;
         SELECT n.id AS node_id, n.name FROM workspace_nodes n WHERE n.deleted_at IS NULL AND n.type = 'file' AND (n.task_id = ${copyId} OR n.id IN (SELECT node_id FROM task_node_links WHERE task_id = ${copyId})) ORDER BY n.name`);
     const materials = await readAssignmentMaterialsAction(copyId);
     const byName = latest?.submittedBy ? (await db.select({ name: sql<string>`coalesce(${profiles.fullName}, ${profiles.username}, 'Someone')` }).from(profiles).where(eq(profiles.id, latest.submittedBy)).limit(1))[0]?.name : null;
-    const [org] = await db.select({ title: workspaces.title }).from(workspaces).where(eq(workspaces.id, master.projectId)).limit(1);
+    const [org] = await db.select({ title: workspaces.title, orgType: workspaces.orgType, orgSettings: workspaces.orgSettings }).from(workspaces).where(eq(workspaces.id, master.projectId)).limit(1);
+    // Student check 15: who reviews, by role ("Teacher or TA"), not the organization's name.
+    const roles = orgRoleNames(org?.orgType, org?.orgSettings);
     // Submit is open per the same rules the server checks on Submit.
     const replaceLocked = approved || (copy.status === 'done' && copy.reviewStatus === 'none' && copy.dueDate && now.getTime() > copy.dueDate.getTime() + lateAfterMs(master.settings) && !(copy.submitUntil && now <= copy.submitUntil));
     const canSubmit = holder && !copy.excusedAt && !replaceLocked && canStillSubmit(master.settings, copy.dueDate, now, copy.submitUntil);
     return { success: true, handIn: {
         holder, submissionType: master.settings.submissionType, reviewRequired: master.settings.reviewRequired, dueDate: copy.dueDate?.toISOString() ?? null,
-        lateLabel: lateWorkLabel(master.settings), from: org?.title ?? 'the organization', state: s.state, late: s.late, canSubmit, closed: Boolean(master.settings.closedAt), approved,
+        lateLabel: lateWorkLabel(master.settings), from: org?.title ?? 'the organization', reviewers: `${roles.owner} or ${roles.admin}`, state: s.state, late: s.late, canSubmit, closed: Boolean(master.settings.closedAt), approved,
         excusedReason: copy.excusedReason, returned: s.state === 'returned' ? { reason: returnedEvent?.reason ?? null, fixBy: returnedEvent?.fix_by ?? copy.submitUntil?.toISOString() ?? null } : null,
         latest: latest ? { version: latest.version, at: latest.submittedAt.toISOString(), by: byName ?? 'Someone', link: latest.link, text: latest.body, note: latest.note, files: latest.files.map((f) => ({ nodeId: f.nodeId, name: f.name })) } : null,
         files: files.map((f) => ({ nodeId: f.node_id, name: f.name })), materials: materials.success ? materials.materials : [],

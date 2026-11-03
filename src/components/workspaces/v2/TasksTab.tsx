@@ -208,11 +208,13 @@ export default function TasksTab({
   });
 
   const [showCreateModal, setShowCreateModal] = useState(false);
+  // Student check 7 (decision 87, create_org_tasks): an organization's board takes new tasks from its owners and admins.
+  const canCreateTasks = canEditTasks && (!orgId || canManageWorkflow);
   useEffect(() => {
     if (!startCreate) return;
-    if (canEditTasks) setShowCreateModal(true);
+    if (canCreateTasks) setShowCreateModal(true);
     onCreateStarted?.();
-  }, [startCreate, canEditTasks, onCreateStarted]);
+  }, [startCreate, canCreateTasks, onCreateStarted]);
   const [ideSheetOpen, setIdeSheetOpen] = useState(false);
   const [isAddSectionOpen, setIsAddSectionOpen] = useState(false);
   const [sectionTitle, setSectionTitle] = useState("");
@@ -858,7 +860,7 @@ export default function TasksTab({
             ) : null}
 
             {/* New Task */}
-            {canEditTasks ? (
+            {canCreateTasks ? (
               <button
                 type="button"
                 onClick={() => setShowCreateModal(true)}

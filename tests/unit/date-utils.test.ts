@@ -8,6 +8,9 @@ test("relative time matches the date-fns shapes callers rely on", () => {
     assert.equal(formatDistanceToNow(new Date(now - 5 * 60_000), { addSuffix: true }), "5 minutes ago");
     assert.equal(formatDistanceToNow(new Date(now - 3 * 3_600_000)), "3 hours");
     assert.equal(formatDistanceToNow(new Date(now + 2 * 86_400_000), { addSuffix: true }), "in 2 days");
+    // Student check 15: a class question posted a moment ago never reads "0 seconds ago".
+    assert.equal(formatDistanceToNow(new Date(now), { addSuffix: true }), "just now");
+    assert.equal(formatDistanceToNow(new Date(now - 20_000), { addSuffix: true }), "just now");
 });
 
 test("fixed patterns format in en-US", () => {

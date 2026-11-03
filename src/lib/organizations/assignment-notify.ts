@@ -94,7 +94,9 @@ export async function notifyAssignmentPublished(masterId: string, actorId: strin
     }
   }
   // Individual copies share one line, so a 2,000-person assignment is one tray fan-out, not 2,000.
-  if (individuals.length) await notifyOrg({ orgId: org.id, eventKey: "assignments.published", actorId, to: individuals, title: `${actor} assigned ${master.title}`, href, sourceEventId: `published:${masterId}`, refs: { taskId: masterId } });
+  // Student check 11: the notice says when it's due, in the organization's zone (decision 74).
+  const body = master.dueDate ? `Due ${formatDueDay(master.dueDate, org.timeZone)}` : null;
+  if (individuals.length) await notifyOrg({ orgId: org.id, eventKey: "assignments.published", actorId, to: individuals, title: `${actor} assigned ${master.title}`, body, href, sourceEventId: `published:${masterId}`, refs: { taskId: masterId } });
   await queueOrgEmails(org.id, actorId, `published:${masterId}`, { kind: "org_assignment", data: (userId) => perUser.get(userId) ?? null }, [...perUser.keys()]);
 }
 

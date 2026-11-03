@@ -119,7 +119,7 @@ function OwnDocs({ projectId, project, paramDoc }: { projectId: string; project:
                 project={project}
                 payload={readmeQuery.data}
                 docSlug={docSlug}
-                inPlaceBanner={!canEdit && reportDocId ? (
+                reportMenu={!canEdit && reportDocId ? (
                     // Report a doc from its "⋯" menu (C15); editors fix their own docs instead.
                     <div className="mb-3 flex justify-end"><ItemMenu label="Doc actions" report={{ kind: "doc", targetId: reportDocId, noun: "doc" }} /></div>
                 ) : undefined}

@@ -248,3 +248,11 @@ export function weeklyRepeats(title: string, firstDue: Date, until: Date): Array
   }
   return out;
 }
+
+/** Student check 18, 22: what Delete takes with it, and how many had started (started counts work in progress). */
+export function deleteAssignmentWarning(counts: { total: number; in_progress: number; returned: number; missing: number }): string | null {
+  if (counts.total === 0) return null;
+  const copies = counts.total === 1 ? "1 copy goes with it, with its class questions and comments." : `${counts.total} copies go with it, with their class questions and comments.`;
+  const started = counts.in_progress + counts.returned;
+  return started ? `${copies} ${started} ${started === 1 ? "person has" : "people have"} started.` : copies;
+}

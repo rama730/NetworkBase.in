@@ -267,7 +267,17 @@ export async function readOrgDashboardAction(orgId: string, activityFilter = 'al
         const next = v.userId && !v.isAdmin ? (await ownCopies(orgId, v.userId)).filter((c) => c.dueDate && stateOf(c, now).state !== 'done').sort((a, b) => a.dueDate!.getTime() - b.dueDate!.getTime())[0] : null;
         if (next) start.push({ kind: 'assignment', label: `${next.title} · due ${new Intl.DateTimeFormat('en', { timeZone: zone ?? 'UTC', weekday: 'short' }).format(next.dueDate!)}`, href: `${base}?tab=tasks&drawerType=task&drawerId=${next.id}` });
         if (v.isAdmin) start.push({ kind: 'invite', label: 'Invite people', href: `${base}?tab=members` });
-        else start.push({ kind: 'workspace', label: 'Join a workspace', href: `${base}?tab=projects` });
+        else if (v.userId) {
+            // Student check 8 (§26.7): their own workspace, or open seats to apply for; nothing when neither exists.
+            const [teams] = await db.execute<{ own_id: string | null; own_slug: string | null; own_title: string | null; seats: number }>(sql`
+                SELECT own.id AS own_id, own.slug AS own_slug, own.title AS own_title,
+                       (SELECT coalesce(sum(greatest(r.count - r.filled, 0)), 0)::int FROM workspace_open_roles r JOIN workspaces c ON c.id = r.workspace_id
+                         WHERE c.parent_id = ${orgId} AND c.deleted_at IS NULL AND c.visibility <> 'private' AND c.status <> 'archived') AS seats
+                FROM (SELECT 1) one LEFT JOIN LATERAL (SELECT c.id, c.slug, c.title FROM workspaces c JOIN workspace_members m ON m.workspace_id = c.id AND m.user_id = ${v.userId}
+                    WHERE c.parent_id = ${orgId} AND c.deleted_at IS NULL ORDER BY c.title LIMIT 1) own ON true`);
+            if (teams?.own_id) start.push({ kind: 'own_workspace', label: `Open ${teams.own_title}`, href: `/workspaces/${encodeURIComponent(teams.own_slug ?? teams.own_id)}` });
+            else if ((teams?.seats ?? 0) > 0) start.push({ kind: 'workspace', label: `Join a workspace · ${teams!.seats} open seat${teams!.seats === 1 ? '' : 's'}`, href: `${base}?tab=projects` });
+        }
         const [entry] = v.userId ? await db.select({ publishedAt: profileContributions.publishedAt }).from(profileContributions)
             .where(and(eq(profileContributions.projectId, orgId), eq(profileContributions.profileId, v.userId), isNull(profileContributions.deletedAt))).limit(1) : [];
         welcome = { note: counts?.welcomeNote ?? null, start: start.slice(0, 3), addToProfile: !v.isGuest && !entry?.publishedAt };

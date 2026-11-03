@@ -368,7 +368,8 @@ export function buildProjectNotificationWrites(params: {
                 category: entry.category,
                 importance: decision.rule.importance,
                 title: titleFor(input, project),
-                body: input.body ?? entry.description,
+                // Student check 11: the event's settings description is for Settings, never the notice itself.
+                body: input.body ?? null,
                 href: defaultHref(input, project),
                 entityRefs: {
                     ...(input.entityRefs ?? {}),

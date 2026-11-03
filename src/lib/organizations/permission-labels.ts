@@ -3,7 +3,8 @@ import type { OrgAction } from "@/lib/organizations/permissions";
 // Report §22.4: "What each role can do", generated from the real permissions, grouped by area. A test keeps every
 // row of the permissions table here. `setting` names the Settings section that decides a "setting" row.
 
-export type PermissionRow = { action: OrgAction; label: string; setting?: string };
+// `words` reads a grant differently on one row (student check 12), where the generic word says the wrong thing.
+export type PermissionRow = { action: OrgAction; label: string; setting?: string; words?: Partial<Record<string, string>> };
 
 export const PERMISSION_AREAS: Array<{ area: string; rows: PermissionRow[] }> = [
   { area: "Joining and people", rows: [
@@ -29,7 +30,7 @@ export const PERMISSION_AREAS: Array<{ area: string; rows: PermissionRow[] }> = 
     { action: "announce", label: "Post announcements" },
     { action: "post_discussion", label: "Start discussions", setting: "org-updates" },
     { action: "comment_posts", label: "Reply to posts" },
-    { action: "read_posts", label: "Read posts" },
+    { action: "read_posts", label: "Read posts", words: { own: "Posts meant for them" } },
     { action: "hide_shared_post", label: "Hide a workspace’s post from the organization" },
     { action: "delete_others_post", label: "Remove someone else’s post, with a reason" },
     { action: "general_channel", label: "Post in #general" },
@@ -61,7 +62,7 @@ export const PERMISSION_AREAS: Array<{ area: string; rows: PermissionRow[] }> = 
     { action: "edit_docs", label: "Write documents" },
     { action: "publish_document", label: "Publish documents and mark them required" },
     { action: "read_docs", label: "Read documents" },
-    { action: "manage_files", label: "Upload and change files" },
+    { action: "manage_files", label: "Upload and change the organization’s files" },
     { action: "read_files", label: "Open files" },
     { action: "set_folder_access", label: "Choose who can see a folder" },
     { action: "download_submissions", label: "Download submissions" },
@@ -69,7 +70,7 @@ export const PERMISSION_AREAS: Array<{ area: string; rows: PermissionRow[] }> = 
     { action: "see_storage", label: "See storage" },
   ] },
   { area: "Workspaces", rows: [
-    { action: "projects_tab", label: "See workspaces" },
+    { action: "projects_tab", label: "See workspaces", words: { own: "Shared ones and their own" } },
     { action: "create_child_project", label: "Create workspaces", setting: "org-projects" },
     { action: "archive_detach_child", label: "Archive or detach a workspace" },
     { action: "approve_move_in", label: "Approve move-in and leave requests" },

@@ -75,7 +75,6 @@ export function ClassQuestions({ copyId }: { copyId: string }) {
             </ul>
             {data.canPost && !data.isAdmin ? (
                 <div className="space-y-2">
-                    <p className="text-[12px] text-muted-foreground">Everyone with this assignment sees this.</p>
                     <textarea value={draft} onChange={(e) => setDraft(e.target.value)} rows={2} maxLength={5000} className={area} aria-label="Ask the class" />
                     {error ? <p role="alert" className="text-destructive">{error}</p> : null}
                     <Button type="button" size="sm" disabled={pending || !draft.trim()} onClick={post}>Ask</Button>

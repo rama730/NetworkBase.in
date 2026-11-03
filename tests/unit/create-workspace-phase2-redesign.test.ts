@@ -35,7 +35,8 @@ test('Phase 2 fields expose density-aware controls, field labels, limits, and se
     assert.match(phase, /status-danger-soft/);
     assert.match(wizard, /setPhase2ValidationAttempted\(true\)/);
     assert.match(wizard, /trigger\(fieldsToValidate, \{ shouldFocus: true \}\)/);
-    assert.match(select, /z-\[60\]/);
+    // Student check 2: selects sit above every dialog and drawer, the task panel (201) included.
+    assert.match(select, /z-\[400\]/);
     assert.match(select, /w-full min-w-\[var\(--radix-select-trigger-width\)\]/);
     assert.doesNotMatch(select, /h-\[var\(--radix-select-trigger-height\)\]/);
 });

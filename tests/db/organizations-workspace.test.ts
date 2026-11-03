@@ -71,9 +71,33 @@ test("My work: masters never show, admins don't see copies, teammates see team c
   assert.equal(found.find((r) => r.kind === "org")?.chip, "Member");
   const assignment = (await orgWorkspace.searchOrgPreviewsAction(`Lab ${tag}`)).find((r) => r.kind === "assignment");
   assert.equal(assignment?.chip, "Submitted", "a member sees their own copy's state");
+  await sql`UPDATE tasks SET review_status = 'none', status = 'in_progress' WHERE id = ${team!.id}`;
+  const working = (await orgWorkspace.searchOrgPreviewsAction(`Lab ${tag}`)).find((r) => r.kind === "assignment");
+  assert.equal(working?.chip, "In progress", "student check 10: a started copy doesn't read To do");
 
   // Sidebar: the org shows with its tree for members.
   const sidebar = await orgWorkspace.readSidebarWorkspacesAction();
   assert.ok(sidebar?.orgs.some((o) => o.id === org));
+  viewerId = "";
+});
+
+test("student check 3: a member's My work holds only their own organization work, never a teacher's tasks", async () => {
+  const [owner, a] = await Promise.all([1, 2].map(() => sql.begin((tx) => createUser(tx))));
+  const org = await sql.begin((tx) => createProject(tx, owner!));
+  created.push(org);
+  await sql`INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (${org}, ${owner!}, 'owner'), (${org}, ${a!}, 'member')`;
+  await sql`UPDATE workspaces SET kind = 'organization', org_type = 'education', join_code = ${generateJoinCode()}, status = 'active' WHERE id = ${org}`;
+  const [rubric] = await sql`INSERT INTO tasks (workspace_id, title, kind, creator_id, assignee_id) VALUES (${org}, 'Prepare the Lab 1 grading rubric', 'task', ${owner!}, ${owner!}) RETURNING id`;
+  const [open] = await sql`INSERT INTO tasks (workspace_id, title, kind, creator_id) VALUES (${org}, 'Unassigned org task', 'task', ${owner!}) RETURNING id`;
+  const [given] = await sql`INSERT INTO tasks (workspace_id, title, kind, creator_id, assignee_id) VALUES (${org}, 'Given to the student', 'task', ${owner!}, ${a!}) RETURNING id`;
+
+  viewerId = a!;
+  const all = await workspace.fetchMyWorkTasksAction(50, "all");
+  const ids = all.success ? all.tasks.map((t) => t.id) : [];
+  assert.ok(!ids.includes(rubric!.id) && !ids.includes(open!.id), "the teacher's own and unassigned tasks stay off a student's list");
+  assert.ok(ids.includes(given!.id), "a task given to the student shows");
+  viewerId = owner!;
+  const teacher = await workspace.fetchMyWorkTasksAction(50, "all");
+  assert.ok(teacher.success && teacher.tasks.some((t) => t.id === open!.id), "admins still see the organization's open work");
   viewerId = "";
 });

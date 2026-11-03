@@ -51,7 +51,7 @@ function DialogOverlay({
     <DialogPrimitive.Overlay
       data-slot="dialog-overlay"
       className={cn(
-        "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 fixed inset-0 z-50 bg-[rgba(13,17,20,0.44)] duration-[180ms] ease-[cubic-bezier(.2,.8,.3,1)] motion-reduce:animate-none",
+        "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 fixed inset-0 z-[300] bg-[rgba(13,17,20,0.44)] duration-[180ms] ease-[cubic-bezier(.2,.8,.3,1)] motion-reduce:animate-none",
         className
       )}
       {...props}
@@ -110,7 +110,7 @@ function DialogContent({
           onEscapeKeyDown?.(event)
         }}
         className={cn(
-          "bg-card fixed z-[51] border shadow-lg outline-none",
+          "bg-card fixed z-[301] border shadow-lg outline-none",
           presentation === "bottom-sheet"
             ? "inset-x-0 bottom-0 flex max-h-[85dvh] w-full flex-col gap-0 rounded-t-xl rounded-b-none border-x-0 border-b-0 p-0 pb-[env(safe-area-inset-bottom)] data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=open]:slide-in-from-bottom-full data-[state=closed]:slide-out-to-bottom-full duration-[180ms] ease-[cubic-bezier(.2,.8,.3,1)] motion-reduce:animate-none"
             : presentation === "right-drawer"

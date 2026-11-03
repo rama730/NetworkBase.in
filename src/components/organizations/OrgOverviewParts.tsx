@@ -262,7 +262,7 @@ export function OrgDashboard({ orgId, orgSlug, orgType = null, started = null }:
                                 <ul className="space-y-1">{(moreToday ? data.today : data.today.slice(0, 5)).map((n) => <TodayItem key={`${n.kind}:${n.label}`} orgId={orgId} n={n} onChanged={() => void query.refetch()} />)}</ul>
                                 {!moreToday && data.today.length > 5 ? <button type="button" className="text-[12px] text-primary hover:underline" onClick={() => setMoreToday(true)}>Show {data.today.length - 5} more</button> : null}
                             </>
-                        ) : <p className="flex items-center gap-1.5 text-sm text-muted-foreground"><Check className="size-3.5" aria-hidden="true" />{data.role === 'admin' ? 'Nothing needs you today' : 'You’re all caught up'}</p>}
+                        ) : <p className="flex items-center gap-1.5 text-sm text-muted-foreground"><Check className="size-3.5" aria-hidden="true" />{data.role === 'admin' ? 'Nothing needs you today' : 'Nothing due in the next 2 days'}</p>}
                     </RailSection>
                 ) : null}
                 {data.standing ? (

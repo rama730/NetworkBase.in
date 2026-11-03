@@ -123,6 +123,10 @@ export default function DetailsTab({
 }: DetailsTabProps) {
   const policy = useTaskCompletionPolicy(task.projectId ?? "");
   const master = isAssignmentMaster(task);
+  // Student check 5 (assignmentWriteBlock, reassignBlock): a copy's title, instructions and due date are set by the
+  // organization, Submit hands it in, and only a team copy changes hands.
+  const canEditSet = canEdit && !task.assignmentId;
+  const copyKeepsPerson = Boolean(task.assignmentId) && !task.teamName;
   const reviewState = useQuery({
     queryKey: ["task-review-state", task.id, task.updatedAt, completedSubtaskCount, attachmentCount],
     enabled: Boolean(task.projectId),
@@ -432,7 +436,7 @@ export default function DetailsTab({
                 event.currentTarget.blur();
               }
             }}
-            disabled={!canEdit || isMutating}
+            disabled={!canEditSet || isMutating}
             rows={1}
             aria-label={titlePresentation.ariaLabel ?? "Task title"}
             className={cn(
@@ -534,7 +538,7 @@ export default function DetailsTab({
           <label className="block text-xs font-semibold uppercase tracking-[0.06em] text-muted-foreground">
             Description
           </label>
-          {!isEditingDescription && task.description && canEdit ? (
+          {!isEditingDescription && task.description && canEditSet ? (
             <button
               type="button"
               onClick={() => setIsEditingDescription(true)}
@@ -603,18 +607,18 @@ export default function DetailsTab({
           </div>
         ) : task.description ? (
           <div
-            onClick={() => canEdit && setIsEditingDescription(true)}
+            onClick={() => canEditSet && setIsEditingDescription(true)}
             className={cn(
               "group relative min-h-[72px] w-full rounded-[5px] border border-border/80 bg-background px-3.5 py-2.5 text-[13px] leading-relaxed text-foreground transition",
               "focus-visible:outline-none focus-visible:border-primary focus-visible:ring-1 focus-visible:ring-primary",
-              canEdit
+              canEditSet
                 ? "cursor-pointer hover:border-foreground/30 hover:bg-muted/10"
                 : "",
             )}
-            role={canEdit ? "button" : undefined}
-            tabIndex={canEdit ? 0 : -1}
+            role={canEditSet ? "button" : undefined}
+            tabIndex={canEditSet ? 0 : -1}
             onKeyDown={(e) => {
-              if (canEdit && (e.key === "Enter" || e.key === " ")) {
+              if (canEditSet && (e.key === "Enter" || e.key === " ")) {
                 setIsEditingDescription(true);
               }
             }}
@@ -627,7 +631,7 @@ export default function DetailsTab({
         ) : (
           <button
             type="button"
-            disabled={!canEdit}
+            disabled={!canEditSet}
             onClick={() => setIsEditingDescription(true)}
             className="flex min-h-[64px] w-full items-center justify-start rounded-[5px] border border-dashed border-border bg-muted/10 px-3.5 py-3 text-[13px] text-muted-foreground/70 transition hover:border-foreground/30 hover:text-muted-foreground focus-visible:outline-none focus-visible:border-primary focus-visible:ring-1 focus-visible:ring-primary disabled:cursor-not-allowed text-left"
           >
@@ -683,7 +687,7 @@ export default function DetailsTab({
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="w-48 p-1">
-                {TASK_WORKFLOW_STATUSES.map((status) => {
+                {TASK_WORKFLOW_STATUSES.filter((s) => !(task.assignmentId && s === "done")).map((status) => {
                   const pres = getTaskStatusPresentation(status);
                   const isSelected = task.status === status;
                   return (
@@ -817,7 +821,7 @@ export default function DetailsTab({
               <DropdownMenuTrigger asChild>
                 <button
                   type="button"
-                  disabled={!canEdit || isMutating}
+                  disabled={!canEdit || copyKeepsPerson || isMutating}
                   className="nb-touch-target h-[34px] w-full rounded-[5px] border border-border bg-background px-3 text-[13px] text-foreground flex items-center justify-between transition hover:border-foreground/30 focus:border-primary disabled:opacity-50"
                   aria-label="Select assignee"
                 >
@@ -989,13 +993,13 @@ export default function DetailsTab({
               onChange={(event) =>
                 void onUpdateField("dueDate", event.target.value || null)
               }
-              disabled={!canEdit || isMutating}
+              disabled={!canEditSet || isMutating}
               className="nb-touch-target h-[34px] w-full rounded-[5px] border border-border bg-background px-3 text-[13px] text-foreground outline-none transition focus:border-primary disabled:opacity-50"
             />
-            <div className={cn("flex flex-wrap items-center gap-1 pt-0.5", !canEdit && "hidden")}>
+            <div className={cn("flex flex-wrap items-center gap-1 pt-0.5", !canEditSet && "hidden")}>
               <button
                 type="button"
-                disabled={!canEdit || isMutating}
+                disabled={!canEditSet || isMutating}
                 onClick={() => setDueDatePreset(0)}
                 className="nb-touch-target h-5 rounded-[3px] border border-border bg-muted/30 px-1.5 font-mono text-[10px] font-medium max-md:text-[11px] text-muted-foreground hover:bg-muted hover:text-foreground transition disabled:opacity-50"
               >
@@ -1003,7 +1007,7 @@ export default function DetailsTab({
               </button>
               <button
                 type="button"
-                disabled={!canEdit || isMutating}
+                disabled={!canEditSet || isMutating}
                 onClick={() => setDueDatePreset(7)}
                 className="nb-touch-target h-5 rounded-[3px] border border-border bg-muted/30 px-1.5 font-mono text-[10px] font-medium max-md:text-[11px] text-muted-foreground hover:bg-muted hover:text-foreground transition disabled:opacity-50"
               >
@@ -1011,7 +1015,7 @@ export default function DetailsTab({
               </button>
               <button
                 type="button"
-                disabled={!canEdit || isMutating}
+                disabled={!canEditSet || isMutating}
                 onClick={() => setDueDatePreset(14)}
                 className="nb-touch-target h-5 rounded-[3px] border border-border bg-muted/30 px-1.5 font-mono text-[10px] font-medium max-md:text-[11px] text-muted-foreground hover:bg-muted hover:text-foreground transition disabled:opacity-50"
               >
@@ -1020,7 +1024,7 @@ export default function DetailsTab({
               {task.dueDate ? (
                 <button
                   type="button"
-                  disabled={!canEdit || isMutating}
+                  disabled={!canEditSet || isMutating}
                   onClick={() => setDueDatePreset(null)}
                   className="nb-touch-target h-5 rounded-[3px] border border-border bg-muted/30 px-1.5 font-mono text-[10px] font-medium max-md:text-[11px] text-muted-foreground hover:bg-destructive/10 hover:text-destructive hover:border-destructive/30 transition disabled:opacity-50"
                 >

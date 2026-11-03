@@ -294,8 +294,9 @@ export default function CreateTaskModal({
         <DialogTitle className="text-base font-semibold text-foreground">
           {many ? "Create assignment" : "Create task"}
         </DialogTitle>
+        {/* Student check 19: screen readers hear what an assignment does (the header stays caption-free). */}
         <DialogDescription className="sr-only">
-          Create a new task
+          {many ? "Everyone it goes to gets their own copy." : "Create a new task"}
         </DialogDescription>
       </DialogHeader>
       <button

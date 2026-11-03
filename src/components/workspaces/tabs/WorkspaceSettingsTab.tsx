@@ -2123,8 +2123,8 @@ function ProjectSettingsContent({
                 {organization && (orgRole === "owner" || orgRole === "admin") && sections.some((s) => s.id === "you-membership") && <OrgMembershipSection orgId={projectId} organization={organization} role={orgRole} />}
                 {sections.some((s) => s.id === "privacy-policies" || s.id === "privacy-terms") && (
                     <section id="project-settings-privacy-policies" data-project-settings-section className="space-y-6">
-                        <SettingsPageHeader level={2} title="Privacy" description="These agreements and data rights apply to your signed-in account, not everyone in this workspace." />
-                        <LegalAndDataRightsSection />
+                        <SettingsPageHeader level={2} title="Privacy" description={`These agreements and data rights apply to your signed-in account, not everyone in this ${organization ? "organization" : "workspace"}.`} />
+                        <LegalAndDataRightsSection inWorkspace />
                     </section>
                 )}
                 {organization && sections.some((s) => s.id === "org-management") && (

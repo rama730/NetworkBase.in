@@ -11,7 +11,8 @@ import { webLink } from '@/lib/organizations/assignment-rules'
 // Hand in, in the task panel (report §34.4, decision 85): every hand-in type, an optional note, and the state with
 // what to do next. Files attach in the panel's Files tab; Submit locks them with this version (decision 127).
 
-const WHEN = new Intl.DateTimeFormat('en', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
+// Student check 21: the reader's own zone (§32.5), named, so nobody guesses whose 11 pm it is.
+const WHEN = new Intl.DateTimeFormat('en', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZoneName: 'short' })
 const ASKED: Record<string, string> = { file: 'a file', link: 'a link', text: 'text', none: 'nothing to attach' }
 const area = 'w-full resize-y rounded-md border border-input bg-transparent px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring'
 
@@ -43,7 +44,9 @@ export function HandInSection({ copyId, onOpenFiles, onSubmitted, onUploadFiles 
         setUploading(true)
         const result = await onUploadFiles(files).catch((e: unknown) => ({ success: false, error: e instanceof Error ? e.message : undefined }))
         setUploading(false)
-        if (!result.success) return setError(`Couldn’t add the file. Try again.${result.error ? ` ${result.error}` : ''}`)
+        // Student check 1: production hides a thrown server message behind React's code, which means nothing to a student.
+        const detail = result.error && !/React error|Server Components/.test(result.error) ? ` ${result.error}` : ''
+        if (!result.success) return setError(`Couldn’t add the file. Try again.${detail}`)
         setError(null)
         await client.invalidateQueries({ queryKey: ['hand-in', copyId] })
     }
@@ -68,7 +71,7 @@ export function HandInSection({ copyId, onOpenFiles, onSubmitted, onUploadFiles 
                 <p className="text-muted-foreground">
                     What’s asked: {ASKED[h.submissionType] ?? h.submissionType}
                     {h.dueDate ? ` · Due ${WHEN.format(new Date(h.dueDate))}` : ''}{h.lateLabel ? ` · ${h.lateLabel}` : ''}
-                    {h.reviewRequired ? ` · Reviewed by ${h.from}` : ''}
+                    {h.reviewRequired ? ` · Reviewed by ${h.reviewers}` : ''}
                 </p>
                 {/* Locked fields say who set them (report §17.4, §18.3), in a workspace as in the organization. */}
                 <p className="text-[12px] text-muted-foreground">Set by {h.from}: the title, instructions and due date.</p>

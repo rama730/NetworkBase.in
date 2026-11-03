@@ -184,6 +184,16 @@ test("From <org> in a child project: org members browse the org tree read-only; 
   if (copies.success) assert.deepEqual(copies.copies.map((c) => [c.nodeId, c.copiedVersion, c.sourceVersion]), [[copy, 1, 3]]);
 });
 
+test("student check 1: a member's hand-in gets through the task folder and the name check for their own copy only", async () => {
+  const o = await org();
+  viewerId = o.a;
+  const folder = await mutations.getOrCreateTaskSystemFolderAction(o.orgId, o.copyA);
+  const summary = await mutations.getUploadCollisionSummary(o.orgId, folder, ["lab1.zip"], { taskId: o.copyA });
+  assert.deepEqual(summary.existingFiles, []);
+  await assert.rejects(mutations.getUploadCollisionSummary(o.orgId, folder, ["lab1.zip"], { taskId: o.copyB }), /organization/i);
+  await assert.rejects(mutations.getUploadCollisionSummary(o.orgId, null, ["lab1.zip"]), /organization/i);
+});
+
 test("§23 pass: Sprint materials by access, trash-in-use warnings, storage line, template folders, group deliverables; no GitHub sync for orgs", async () => {
   const o = await org();
   const [sprint] = await sql`INSERT INTO workspace_sprints (workspace_id, sprint_number, name, status, start_date, end_date) VALUES (${o.orgId}, 1, 'CO2', 'active', now(), now() + interval '7 days') RETURNING id`;

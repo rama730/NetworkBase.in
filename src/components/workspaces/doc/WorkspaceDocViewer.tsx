@@ -114,12 +114,15 @@ export function WorkspaceDocViewer({
     payload,
     docSlug = "readme",
     inPlaceBanner,
+    reportMenu,
 }: {
     project: Workspace;
     payload: WorkspaceDocPublishedPayload;
     docSlug?: string;
     /** An org doc read inside a child project: this banner instead of the doc rail (report §19.7). */
     inPlaceBanner?: React.ReactNode;
+    /** Report this doc, for people who can't edit it (C15). Student check 4: it never replaces the header and list. */
+    reportMenu?: React.ReactNode;
 }) {
     const normalizedDocSlug = useMemo(() => normalizeWorkspaceDocSlug(docSlug), [docSlug]);
     const rail = useDocRail(project.id, normalizedDocSlug);
@@ -314,6 +317,7 @@ export function WorkspaceDocViewer({
             />
             <div className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_260px]">
                 <div className="min-w-0">
+                    {reportMenu}
                     {orgDocs?.mode === "org" && orgDoc ? (
                         <OrgDocHeader data={orgDocs} doc={orgDoc} updatedBy={version?.createdByName ?? null} updatedAt={version?.createdAt ?? null}
                             editHref={payload.canEdit ? fileHref : null} onRemove={payload.canEdit && listed ? () => rail.askRemove(listed) : null} visibility={payload.settings.visibilityOverride} />

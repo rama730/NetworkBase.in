@@ -106,6 +106,21 @@ test("26.7, decision 49: the welcome panel shows once after joining and goes for
   assert.equal((await board(o.id, asha)).welcome, null);
 });
 
+test("student check 8: Welcome's workspace row names open seats or their own workspace, never a dead end", async () => {
+  const o = await org();
+  const asha = await member(o.id);
+  const kinds = async () => (await board(o.id, asha)).welcome?.start.map((s) => `${s.kind}:${s.label}`) ?? [];
+  assert.ok(!(await kinds()).some((k) => k.startsWith("workspace")), "no teams with seats: no row to follow");
+
+  const team = await sql.begin((tx) => createProject(tx, o.owner, { visibility: "org" }));
+  await sql`UPDATE workspaces SET parent_id = ${o.id}, title = 'Team Falcon' WHERE id = ${team}`;
+  await sql`INSERT INTO workspace_open_roles (workspace_id, role, title, count, filled) VALUES (${team}, 'member', 'Falcon', 3, 1)`;
+  assert.ok((await kinds()).includes("workspace:Join a workspace · 2 open seats"));
+
+  await sql`INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (${team}, ${asha}, 'member')`;
+  assert.ok((await kinds()).includes("own_workspace:Open Team Falcon"), "once in a team, the row opens it");
+});
+
 test("33.5: an ended organization shows the term summary: completion for admins, each member's own record", async () => {
   const o = await org();
   const [asha, ravi] = [await member(o.id), await member(o.id)];

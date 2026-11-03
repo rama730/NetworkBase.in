@@ -92,6 +92,8 @@ const projectDetailProjectSchema = z.object({
   ownerId: z.string().uuid(),
   title: z.string().min(1),
   slug: z.string().min(1).optional(),
+  /** Student check 9: task keys (C3D-4) read the same in Sprints as on the board. */
+  key: z.string().nullable().optional(),
   description: z.string().nullable(),
   shortDescription: z.string().nullable(),
   problemStatement: z.string().nullable(),
@@ -777,6 +779,7 @@ async function readProjectDetailShellForActor(input: {
           createdAt: project.createdAt?.toISOString?.(),
           updatedAt: project.updatedAt?.toISOString?.() ?? null,
           viewCount: Math.max(0, project.viewCount ?? 0),
+          key: project.key ?? null,
           followersCount: Math.max(
             0,
             project.followersCount ?? shell.followersCount ?? 0,

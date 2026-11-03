@@ -385,8 +385,8 @@ export function RolesTable({ organization, onOpenSection }: { organization: OrgD
                                     return (
                                         <td key={key} className="py-1.5 pr-3 text-muted-foreground">
                                             {grant === 'setting' && row.setting && onOpenSection
-                                                ? <button type="button" className="underline underline-offset-2 hover:text-foreground" onClick={() => onOpenSection(row.setting!)}>{GRANT_WORDS[grant]}</button>
-                                                : GRANT_WORDS[grant] ?? '—'}
+                                                ? <button type="button" className="underline underline-offset-2 hover:text-foreground" onClick={() => onOpenSection(row.setting!)}>{row.words?.[grant] ?? GRANT_WORDS[grant]}</button>
+                                                : row.words?.[grant] ?? GRANT_WORDS[grant] ?? '—'}
                                         </td>
                                     )
                                 })}

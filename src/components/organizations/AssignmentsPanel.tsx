@@ -48,7 +48,7 @@ import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { formatDistanceToNow } from '@/lib/utils/date'
-import { webLink, type AssignmentTarget, type CopyState } from '@/lib/organizations/assignment-rules'
+import { deleteAssignmentWarning, webLink, type AssignmentTarget, type CopyState } from '@/lib/organizations/assignment-rules'
 import { DownloadLink } from '@/components/ui/download-link'
 import { remindSummary } from '@/lib/organizations/member-rules'
 import { toast } from '@/lib/feedback'
@@ -291,6 +291,10 @@ export function AssignmentFields({ orgId, onDone, onCreated, reuseFrom = null, p
             ...(repeatUntil ? { repeatWeeklyUntil: at(`${repeatUntil}T23:59`) } : {}),
         })
         if (!result.success) return setError(result.error)
+        // Student check 17: say it worked, and to how many.
+        // Student check 24: a team assignment with nobody in the teams reaches no one, and says so.
+        if (publish && result.copies === 0) toast.warning(`Published ${title.trim()}, but nobody got a copy: no one is in what you picked yet.`)
+        else toast.success(publish ? `Published ${title.trim()}: ${result.copies} ${result.copies === 1 ? 'copy' : 'copies'} handed out.` : `Saved ${title.trim()}.`)
         if (result.drafts) toast.success(`${result.drafts} more ${result.drafts === 1 ? 'week is' : 'weeks are'} saved as drafts to check before publishing.`)
         setError(null)
         setRepeatUntil('')
@@ -839,7 +843,7 @@ export function AssignmentManageSection({ orgId, masterId, onChanged }: { orgId:
     const [dialog, setDialog] = useState<'roster' | 'edit' | 'reuse' | null>(null)
     const [questions, setQuestions] = useState(false)
     const [scheduleLocal, setScheduleLocal] = useState<string | null>(null)
-    const [confirm, setConfirm] = useState<{ title: string; label: string; destructive?: boolean; act: () => Promise<{ success: boolean; error?: string }> } | null>(null)
+    const [confirm, setConfirm] = useState<{ title: string; description?: string | null; label: string; destructive?: boolean; act: () => Promise<{ success: boolean; error?: string }> } | null>(null)
     const [error, setError] = useState<string | null>(null)
     const [pending, startTransition] = useTransition()
     const load = useCallback(() => void listAssignmentsAction(orgId).then((r) => {
@@ -884,7 +888,7 @@ export function AssignmentManageSection({ orgId, masterId, onChanged }: { orgId:
                     if (!r.success) return void setError(r.error)
                     saveBlob(toCsvBlob(r.rows), `${row.title.replace(/[^\w-]+/g, '-')}-progress.csv`)
                 })}>Export</Button> : null}
-                <Button type="button" size="sm" variant="ghost" disabled={pending} onClick={() => setConfirm({ title: `Delete ${row.title}?`, label: 'Delete', destructive: true, act: () => deleteAssignmentAction(row.masterId) })}>Delete</Button>
+                <Button type="button" size="sm" variant="ghost" disabled={pending} onClick={() => setConfirm({ title: `Delete ${row.title}?`, description: deleteAssignmentWarning(row.counts), label: 'Delete', destructive: true, act: () => deleteAssignmentAction(row.masterId) })}>Delete</Button>
             </div>
             {scheduleLocal !== null ? (
                 <div className="flex flex-wrap items-center gap-2">
@@ -897,7 +901,7 @@ export function AssignmentManageSection({ orgId, masterId, onChanged }: { orgId:
             {error ? <p role="alert" className="text-destructive">{error}</p> : null}
             {dialog === 'roster' ? <RosterDialog row={row} orgId={orgId} timeZone={data.timeZone} open onOpenChange={(open) => { if (!open) setDialog(null) }} onChanged={load} /> : null}
             {dialog === 'edit' ? <EditAssignmentDialog orgId={orgId} row={row} open timeZone={data.timeZone} onClose={() => setDialog(null)} onSave={(patch) => run(() => updateAssignmentAction(row.masterId, patch))} /> : null}
-            <ConfirmDialog open={Boolean(confirm)} onOpenChange={(v) => { if (!v) setConfirm(null) }} title={confirm?.title ?? ''}
+            <ConfirmDialog open={Boolean(confirm)} onOpenChange={(v) => { if (!v) setConfirm(null) }} title={confirm?.title ?? ''} description={confirm?.description ?? undefined}
                 confirmLabel={confirm?.label} variant={confirm?.destructive ? 'destructive' : 'default'} onConfirm={() => { if (confirm) run(confirm.act) }} />
             <AssignmentComposer orgId={orgId} open={dialog === 'reuse'} onOpenChange={(open) => { if (!open) setDialog(null) }} onCreated={() => { load(); onChanged?.() }} reuseFrom={row.masterId} timeZone={data.timeZone} />
         </section>

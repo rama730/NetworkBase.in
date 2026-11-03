@@ -123,6 +123,17 @@ test("E5 lists only materials the members can open, and each person only their o
   assert.equal((await tray(o.id, o.b)).length, 1);
 });
 
+test("student check 11: the assigned notice says when it's due, never the settings text", async () => {
+  const o = await org();
+  const m = await master(o.id, o.owner);
+  await sql`UPDATE tasks SET due_date = '2026-11-08T17:30:00Z' WHERE id = ${m}`;
+  await copy(o.id, m, o.a, new Date("2026-11-08T17:30:00Z"));
+  await assignmentNotify.notifyAssignmentPublished(m, o.owner);
+  const [row] = await sql`SELECT body FROM user_notifications WHERE user_id = ${o.a} AND entity_refs->>'orgId' = ${o.id}`;
+  assert.match(row!.body, /^Due Sun, Nov 8/);
+  assert.doesNotMatch(row!.body, /Recipients hear/);
+});
+
 test("announcements reach their audience only; the sixth emailed one in a day goes to the tray alone", async () => {
   const o = await org();
   const post = async (audience: unknown, email = false) => {
