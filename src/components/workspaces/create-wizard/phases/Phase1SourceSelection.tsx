@@ -71,6 +71,7 @@ export default function Phase1SourceSelection({
     loadGithubFolder,
     startGithubRootPreview,
     initialSource = null,
+    startAsOrganization = false,
     onSourceChange,
     isResumingGithubOAuth = false,
 }: {
@@ -87,6 +88,7 @@ export default function Phase1SourceSelection({
     loadGithubFolder: (folderPath: string) => Promise<void>;
     startGithubRootPreview: (repoUrl: string, branch?: string | null) => Promise<void>;
     initialSource?: SourceType | null;
+    startAsOrganization?: boolean;
     onSourceChange?: (source: SourceType | null) => void;
     isResumingGithubOAuth?: boolean;
 }) {
@@ -415,6 +417,13 @@ export default function Phase1SourceSelection({
     };
 
     const [switchAsk, setSwitchAsk] = useState<StartingPoint | null>(null);
+    // Opened from "Create an organization" (report §45.8): start there once; nothing is picked for them after that.
+    const startedAsOrg = useRef(false);
+    useEffect(() => {
+        if (!startAsOrganization || startedAsOrg.current || getValues('organization')) return;
+        startedAsOrg.current = true;
+        handleSelectStartingPoint('organization');
+    });
     const handleSelectStartingPoint = (type: StartingPoint, confirmed = false) => {
         if (type === 'organization') {
             handleSelectSource('scratch');

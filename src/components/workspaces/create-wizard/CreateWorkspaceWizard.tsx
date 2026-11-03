@@ -42,6 +42,8 @@ interface Props {
     onClose: () => void;
     onSuccess?: (projectId: string, organization?: import('@/components/organizations/OrganizationCreatedScreen').CreatedOrganization) => void;
     initialSource?: 'scratch' | 'github' | 'upload' | null;
+    /** Open on the Organization starting point (report §45.8). */
+    startAsOrganization?: boolean;
     onSourceChange?: (source: 'scratch' | 'github' | 'upload' | null) => void;
     githubOAuthResume?: CreateWorkspaceGithubOAuthResume | null;
     onGithubOAuthResumeRestored?: (resumeId: string) => void;
@@ -50,7 +52,7 @@ interface Props {
     locationNotice?: string | null;
 }
 
-export default function CreateWorkspaceWizard({ onClose, onSuccess, initialSource = null, onSourceChange, githubOAuthResume = null, onGithubOAuthResumeRestored, createLocations = [], initialOrgId = null, locationNotice = null }: Props) {
+export default function CreateWorkspaceWizard({ onClose, onSuccess, initialSource = null, startAsOrganization = false, onSourceChange, githubOAuthResume = null, onGithubOAuthResumeRestored, createLocations = [], initialOrgId = null, locationNotice = null }: Props) {
     const {
         phase, methods, wizardContext, isSubmitting, isSavingDraft, phase2ValidationAttempted, phase3ValidationAttempted, phase4ValidationAttempted,
         phase4LinkComposerPending, setPhase4LinkComposerPending, isPhaseTransitioning, isReviewReady, setIsReviewReady,
@@ -323,6 +325,7 @@ export default function CreateWorkspaceWizard({ onClose, onSuccess, initialSourc
                                                 loadGithubFolder={loadGithubFolder}
                                                 startGithubRootPreview={startGithubRootPreview}
                                                 initialSource={isResumingGithubOAuth ? 'github' : initialSource}
+                                                startAsOrganization={startAsOrganization && !isResumingGithubOAuth}
                                                 onSourceChange={onSourceChange}
                                                 isResumingGithubOAuth={isResumingGithubOAuth}
                                             />

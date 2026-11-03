@@ -94,6 +94,8 @@ export function OrgDashboard({ orgId, orgSlug, orgType = null }: { orgId: string
                                 return <li key={card}><Link href={href} className="flex h-full items-center gap-2 rounded-lg border border-border p-3 text-sm hover:bg-muted"><Icon className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />{label}</Link></li>
                             })}
                         </ul>
+                        {/* Report §45.8: the teacher guide, from the empty Overview. */}
+                        <p className="mt-2 text-[13px] text-muted-foreground"><Link href="/help/running-a-class" className="underline underline-offset-4 hover:text-foreground">Running a class on NetworkBase</Link></p>
                     </RailSection>
                 ) : null}
                 {data.role !== 'guest' ? (

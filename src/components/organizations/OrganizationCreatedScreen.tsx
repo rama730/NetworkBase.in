@@ -58,6 +58,8 @@ export function OrganizationCreatedScreen({ title, joinCode, invites, creatorTit
                 {joining || sent ? <p className="text-sm text-foreground" data-testid="org-created-invites">{[joining, sent ? `${sent} sent` : null].filter(Boolean).join(' · ')}</p> : null}
                 {skipped ? <p className="text-sm text-muted-foreground">{skipped} {skipped === 1 ? 'address' : 'addresses'} looked wrong and {skipped === 1 ? 'was' : 'were'} skipped</p> : null}
                 <Button type="button" className="min-h-11 w-full" onClick={onContinue}>Go to organization</Button>
+                {/* Report §45.8: the teacher guide, from the Ready screen. */}
+                <a href="/help/running-a-class" target="_blank" rel="noopener" className="block text-center text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground">Running a class on NetworkBase</a>
             </div>
         </main>
     )

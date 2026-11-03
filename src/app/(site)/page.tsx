@@ -21,6 +21,13 @@ const anchors = [
   { href: "#how-it-works", label: "How it works" },
   { href: "#people", label: "People" },
   { href: "#workspace", label: "Workspace" },
+  { href: "#classes", label: "Classes" },
+];
+
+const classSteps = [
+  { title: "Create an organization", body: "Pick the kind: a class, a company team, a club or a lab. It sets the words and starting choices." },
+  { title: "Invite by code or email", body: "Share one code with the class, or paste their emails. Everyone gets their own workspace and channels." },
+  { title: "Assign and review", body: "Give work to everyone or to groups, then approve or return each hand-in from one queue." },
 ];
 
 const steps = [
@@ -209,6 +216,24 @@ export default function HomePage() {
               <p className="text-sm leading-relaxed text-muted-foreground">{body}</p>
             </div>
           ))}
+        </div>
+      </section>
+
+      {/* Report §45.8: the one way in for teachers and team leads. Visitors sign up first, then land on the wizard. */}
+      <section className="nb-site-section nb-site-anchor border-t border-border" id="classes" aria-labelledby="classes-title">
+        <SectionHeading id="classes-title" eyebrow="For classes and teams" title="Run a class or a team in one place." body="An organization holds your people, their workspaces and the work you give them." />
+        <div className="grid gap-4 md:grid-cols-3">
+          {classSteps.map(({ title, body }, index) => (
+            <article key={title} className="nb-site-preview flex flex-col items-start gap-3 p-6">
+              <span className="nb-micro">0{index + 1}</span>
+              <h3 className="text-lg font-semibold leading-snug">{title}</h3>
+              <p className="text-sm leading-relaxed text-muted-foreground">{body}</p>
+            </article>
+          ))}
+        </div>
+        <div className="mt-6 flex flex-wrap items-center gap-4">
+          <Button asChild><Link href={buildAuthPageHref("/signup", "/workspaces/new?start=organization")}>Create an organization <ArrowRight size={16} aria-hidden="true" /></Link></Button>
+          <Link href="/help/running-a-class" className="inline-flex min-h-11 items-center text-sm font-medium hover:text-primary">Running a class on NetworkBase</Link>
         </div>
       </section>
 

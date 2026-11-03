@@ -26,7 +26,7 @@ interface CreateProjectRouteClientProps {
     locationNotice?: string | null
 }
 
-type Handoff = { source: CreateWorkspaceSource | null; resume: CreateWorkspaceGithubOAuthResume | null }
+type Handoff = { source: CreateWorkspaceSource | null; resume: CreateWorkspaceGithubOAuthResume | null; organization: boolean }
 
 /** The only home of the create-project wizard: the /workspaces/new page (spec §18). */
 export function CreateWorkspaceRouteClient({
@@ -57,6 +57,8 @@ export function CreateWorkspaceRouteClient({
                 ?? resume?.values.import_source?.type
                 ?? initialSource,
             resume,
+            // "Create an organization" on the landing page and in the teacher guide (report §45.8).
+            organization: params.get('start') === 'organization',
         })
         if (
             params.has('createProject')
@@ -108,6 +110,7 @@ export function CreateWorkspaceRouteClient({
             onClose={handleClose}
             onSuccess={handleSuccess}
             initialSource={handoff.source}
+            startAsOrganization={handoff.organization}
             onSourceChange={handleSourceChange}
             githubOAuthResume={handoff.resume}
             onGithubOAuthResumeRestored={handleResumeRestored}
