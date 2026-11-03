@@ -501,6 +501,37 @@ export async function readTaskDiscussionAction(
   }
 }
 
+/**
+ * Class questions (report §23.5, decision 16): a copy's people read and ask on the main assignment's thread, beside
+ * their private conversation. Organization members only; a question shows Answered once an admin replies.
+ */
+export async function readClassQuestionsAction(copyId: string) {
+  try {
+    const viewer = await getViewerProfileContext();
+    if (!viewer.userId) return { success: false as const, error: "Sign in to continue" };
+    const [row] = await db.execute<{ master_id: string; org_id: string; role: string | null; owner_id: string; closed: boolean }>(sql`
+      SELECT m.id AS master_id, m.workspace_id AS org_id, om.role, o.owner_id, (m.assignment_settings->>'closedAt') IS NOT NULL AS closed
+      FROM tasks c JOIN tasks m ON m.id = c.assignment_id AND m.deleted_at IS NULL JOIN workspaces o ON o.id = m.workspace_id
+      LEFT JOIN workspace_members om ON om.workspace_id = o.id AND om.user_id = ${viewer.userId}
+      WHERE c.id = ${copyId} AND c.deleted_at IS NULL`);
+    // People outside the organization get no Class questions tab (23.5).
+    if (!row || (!row.role && row.owner_id !== viewer.userId)) return { success: false as const, error: "Class questions are for the organization." };
+    const data = await readTaskDiscussionInternal({ projectId: row.org_id, taskId: row.master_id, viewerId: viewer.userId });
+    const admins = new Set((await db.execute<{ id: string }>(sql`
+      SELECT owner_id AS id FROM workspaces WHERE id = ${row.org_id} UNION SELECT user_id FROM workspace_members WHERE workspace_id = ${row.org_id} AND role = 'admin'`)).map((r) => r.id));
+    return {
+      success: true as const,
+      masterId: row.master_id,
+      orgId: row.org_id,
+      // Viewers read but don't post; a closed assignment is read only (23.5).
+      canPost: row.role !== "viewer" && !row.closed,
+      questions: data.comments.map((c) => ({ ...c, answered: c.replies.some((r) => admins.has(r.userId)) })),
+    };
+  } catch (error) {
+    return { success: false as const, error: error instanceof Error ? error.message : "Couldn’t load class questions" };
+  }
+}
+
 export async function readTaskDiscussionCommentAction(
   projectId: string,
   taskId: string,

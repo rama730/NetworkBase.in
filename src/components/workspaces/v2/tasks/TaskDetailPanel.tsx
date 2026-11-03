@@ -1,5 +1,7 @@
 "use client";
 
+import { ClassQuestions } from "@/components/organizations/ClassQuestions";
+import { Button } from "@/components/ui/button";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { projectTaskHref } from "@/lib/workspaces/task-presentation";
 import { useQueryClient } from "@tanstack/react-query";
@@ -127,6 +129,7 @@ export default function TaskDetailPanel({
     initialTab ?? "details",
   );
   const [showRealtimeIssue, setShowRealtimeIssue] = useState(false);
+  const [conversation, setConversation] = useState<"private" | "class">("private");
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -641,6 +644,16 @@ export default function TaskDetailPanel({
                 aria-labelledby="task-tab-comments"
                 hidden={activeTab !== "comments"}
               >
+                {/* Decision 16: a copy has two conversations; private is the default, the worse mistake being the other. */}
+                {normalizedTask.assignmentId ? (
+                  <div className="flex flex-wrap items-center gap-2 px-6 pt-4 text-sm max-md:px-4" role="group" aria-label="Conversation">
+                    <Button type="button" size="sm" variant={conversation === "private" ? "default" : "outline"} aria-pressed={conversation === "private"} onClick={() => setConversation("private")}>Private with admins</Button>
+                    <Button type="button" size="sm" variant={conversation === "class" ? "default" : "outline"} aria-pressed={conversation === "class"} onClick={() => setConversation("class")}>Class questions</Button>
+                    <span className="basis-full text-[12px] text-muted-foreground">{conversation === "private" ? "Only you, your group and the organization’s admins see this." : "Everyone with this assignment sees this."}</span>
+                  </div>
+                ) : null}
+                {normalizedTask.assignmentId && conversation === "class" ? <ClassQuestions copyId={normalizedTask.id} /> : null}
+                <div hidden={Boolean(normalizedTask.assignmentId) && conversation === "class"}>
                 <CommentsTab
                   projectId={projectId}
                   taskId={resource.task?.id}
@@ -666,6 +679,7 @@ export default function TaskDetailPanel({
                   onSendTyping={resource.sendCommentTyping}
                   initialCommentId={initialCommentId}
                 />
+                </div>
               </div>
             ) : null}
 

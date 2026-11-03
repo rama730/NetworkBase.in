@@ -1016,14 +1016,28 @@ export async function excuseTeamMemberAction(copyId: string, userId: string, rea
     return own ? excuseCopyAction(own.id, reason) : { success: true };
 }
 
-export type ReviewQueueRow = { copyId: string; masterId: string; title: string; who: string; submittedBy: string | null; submittedAt: string; late: boolean; href: string };
+export type ReviewQueueRow = {
+    copyId: string; masterId: string; title: string; who: string; submittedBy: string | null; submittedAt: string; late: boolean; href: string;
+    /** The review panel (report §23.2): what was handed in, its version, steps and the private conversation. */
+    projectId: string; updatedAt: string; version: number | null; link: string | null; text: string | null; note: string | null; files: string[];
+    steps: { done: number; total: number }; comments: number; left: boolean;
+};
 
 /** The marking inbox across every assignment (report §16.4–16.5): oldest first, with who handed in. */
-export async function readReviewQueueAction(orgId: string): Promise<{ success: true; rows: ReviewQueueRow[] } | Failure> {
+export async function readReviewQueueAction(orgId: string): Promise<{ success: true; rows: ReviewQueueRow[]; total: number } | Failure> {
     const viewer = await orgRole(orgId, 'read');
     if (!viewer?.isAdmin) return DENIED;
-    const rows = await db.execute<{ copy_id: string; master_id: string; title: string; team_name: string | null; assignee: string | null; project: string | null; submitted_by: string | null; submitted_at: string; due_date: string | null; in_org: boolean; workspace_id: string }>(sql`
-        SELECT c.id AS copy_id, m.id AS master_id, m.title, c.team_name,
+    const rows = await db.execute<{ copy_id: string; master_id: string; title: string; team_name: string | null; assignee: string | null; project: string | null; submitted_by: string | null; submitted_at: string; due_date: string | null; in_org: boolean; workspace_id: string;
+        updated_at: string; submission: { version?: number; link?: string | null; text?: string | null; note?: string | null } | null; files: string[] | null; steps_done: number; steps_total: number; comments: number; left_org: boolean; late_after: number | null; total: number }>(sql`
+        SELECT c.id AS copy_id, m.id AS master_id, m.title, c.team_name, c.updated_at::text AS updated_at, c.submission,
+               (SELECT array_agg(f->>'name') FROM assignment_submissions s, jsonb_array_elements(s.files) f WHERE s.copy_id = c.id AND s.version = (c.submission->>'version')::int) AS files,
+               (SELECT count(*) FILTER (WHERE st.completed)::int FROM task_subtasks st WHERE st.task_id = c.id) AS steps_done,
+               (SELECT count(*)::int FROM task_subtasks st WHERE st.task_id = c.id) AS steps_total,
+               (SELECT count(*)::int FROM task_comments tc WHERE tc.task_id = c.id AND tc.deleted_at IS NULL) AS comments,
+               (c.assignee_id IS NOT NULL AND c.team_name IS NULL AND c.workspace_id = m.workspace_id
+                 AND NOT EXISTS (SELECT 1 FROM workspace_members wm WHERE wm.workspace_id = m.workspace_id AND wm.user_id = c.assignee_id)) AS left_org,
+               (m.assignment_settings->>'lateAfterMinutes')::int AS late_after,
+               count(*) OVER ()::int AS total,
                (SELECT coalesce(p.full_name, p.username) FROM profiles p WHERE p.id = c.assignee_id) AS assignee,
                (SELECT pr.title FROM workspaces pr WHERE pr.id = c.workspace_id AND pr.id <> m.workspace_id) AS project,
                (SELECT coalesce(p.full_name, p.username) FROM profiles p WHERE p.id = (c.submission->>'by')::uuid) AS submitted_by,
@@ -1035,10 +1049,12 @@ export async function readReviewQueueAction(orgId: string): Promise<{ success: t
     return { success: true, rows: rows.map((r) => ({
         copyId: r.copy_id, masterId: r.master_id, title: r.title,
         who: r.team_name ?? r.project ?? r.assignee ?? 'Member', submittedBy: r.team_name ? r.submitted_by : null,
-        submittedAt: r.submitted_at, late: Boolean(r.due_date && new Date(r.submitted_at) > new Date(r.due_date)),
+        submittedAt: r.submitted_at, late: Boolean(r.due_date && new Date(r.submitted_at).getTime() > new Date(r.due_date).getTime() + (r.late_after ?? LATE_AFTER_DEFAULT_MINUTES) * 60_000),
         // Group work opens in its own workspace (report §42.14 problem 35, decision 133).
         href: r.in_org ? assignmentHref('', r.copy_id) : assignmentHref(`/workspaces/${r.workspace_id}`, r.copy_id),
-    })) };
+        projectId: r.workspace_id, updatedAt: new Date(r.updated_at).toISOString(), version: r.submission?.version ?? null, link: r.submission?.link ?? null, text: r.submission?.text ?? null,
+        note: r.submission?.note ?? null, files: r.files ?? [], steps: { done: r.steps_done, total: r.steps_total }, comments: r.comments, left: r.left_org,
+    })), total: rows[0]?.total ?? 0 };
 }
 
 export type OrgTabBadges = { tasks: number; updates: boolean; members: number };

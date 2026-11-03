@@ -74,7 +74,9 @@ test.beforeAll(async () => {
             export const readAssignmentForReuseAction=async()=>({success:true,form:{title:'Lab 3',description:'Read chapter 3',submissionType:'link',reviewRequired:true,lateRule:'always',lateAfterMinutes:15,steps:['Read'],target:{mode:'everyone'},materials:[],dueDate:null}});
             export const searchAssignmentMaterialsAction=async()=>({success:true,files:[{id:'k',name:'answers.pdf',adminsOnly:true}]}),readAssignmentMaterialsAction=async()=>({success:true,materials:[]});
             export const addAssignmentStepAction=${ok},excuseTeamMemberAction=${ok},moveTeamMemberAction=${ok},remindCopiesAction=async()=>({success:true,reminded:3}),readAssignmentTeamsAction=async()=>({success:true,teams:[]});
-            export const readReviewQueueAction=async()=>({success:true,rows:[{copyId:'c1',masterId:'a1',title:'Lab 3 — Consensus protocols',who:'Team A',submittedBy:'Asha Nair',submittedAt:new Date(Date.now()-7200000).toISOString(),late:true},{copyId:'c2',masterId:'a1',title:'Lab 3',who:'Priya',submittedBy:null,submittedAt:new Date().toISOString(),late:false}]});`,
+            const q={projectId:'org',updatedAt:new Date().toISOString(),version:2,link:null,text:'Consensus answer',note:'Used Raft',files:[],steps:{done:4,total:5},comments:2,left:false};
+            export const readReviewQueueAction=async()=>({success:true,total:2,rows:[{...q,copyId:'c1',masterId:'a1',title:'Lab 3 — Consensus protocols',who:'Team A',submittedBy:'Asha Nair',submittedAt:new Date(Date.now()-7200000).toISOString(),late:true},{...q,copyId:'c2',masterId:'a1',title:'Lab 3',who:'Priya',submittedBy:null,submittedAt:new Date().toISOString(),late:false}]});`,
+        '@/app/actions/task-comment': `export const createTaskCommentAction=async()=>({success:true});`,
     };
     const bundle = await build({ entryPoints: [path.resolve('tests/browser/org-tabs.fixture.tsx')], bundle: true, write: false, format: 'iife', platform: 'browser', define: { 'process.env.NODE_ENV': '"test"', 'process.env': '{}' }, plugins: [{ name: 'org-tabs-boundaries', setup(builder) {
         builder.onResolve({ filter: /.*/ }, args => args.path in mocks ? { path: args.path, namespace: 'fixture' } : undefined);
@@ -170,9 +172,18 @@ test('Assignments (§16): the review queue steps with Next; the roster has Remin
     await page.getByRole('button', { name: 'Review' }).click();
     const queue = page.getByRole('region', { name: 'To review' });
     await expect(queue.getByText('1 of 2 waiting')).toBeVisible();
-    await expect(queue.getByText(/Team A · Lab 3 — Consensus protocols · .* · Late · submitted by Asha Nair/)).toBeVisible();
+    await expect(queue.getByText(/Team A · Lab 3 — Consensus protocols · .* · Late · Version 2 · submitted by Asha Nair/)).toBeVisible();
+    await expect(queue).toContainText('Steps 4 of 5 ticked · Private conversation (2)');
+    await expect(queue).toContainText('Note: Used Raft');
     await queue.getByRole('button', { name: 'Next' }).click();
     await expect(queue.getByText('2 of 2 waiting')).toBeVisible();
+    // Keys (23.2): K goes back, R opens the reason box with Fix by.
+    await page.keyboard.press('k');
+    await expect(queue.getByText('1 of 2 waiting')).toBeVisible();
+    await page.keyboard.press('r');
+    await expect(queue).toContainText('What should they change?');
+    await expect(queue).toContainText('Fix by');
+    await queue.getByRole('button', { name: 'Cancel' }).click();
     await noSideScroll(page);
     await page.getByRole('button', { name: 'Roster' }).first().click();
     const dialog = page.getByRole('dialog');

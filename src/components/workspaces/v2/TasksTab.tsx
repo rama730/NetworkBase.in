@@ -908,7 +908,7 @@ export default function TasksTab({
       ) : null}
 
       {/* Main Content. Problem 33: on an organization, In review is the one queue the badge counts, group work included. */}
-      {orgId && scope === "review" && canManageWorkflow ? <ReviewQueue orgId={orgId} onChanged={() => void refetchTasks()} /> : null}
+      {orgId && scope === "review" && canManageWorkflow ? <ReviewQueue orgId={orgId} onChanged={() => void refetchTasks()} onClose={() => setScope("all")} /> : null}
       <div className={cn("flex-1 min-h-0", orgId && scope === "review" && canManageWorkflow && "hidden")}>
         <KanbanBoard
           projectId={projectId}

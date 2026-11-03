@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState, useTransition } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from 'react'
 import { ClipboardList, Plus, Shuffle, X } from 'lucide-react'
 
 import {
@@ -42,6 +42,7 @@ import {
 } from '@/app/actions/assignments'
 import { listOrgRosterAction, type OrgRosterPerson } from '@/app/actions/organizations'
 import { listWorkspaceDocsAction } from '@/app/actions/workspace/doc'
+import { createTaskCommentAction } from '@/app/actions/task-comment'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
@@ -641,7 +642,7 @@ export function AssignmentsPanel({ orgId, onBoardChanged, startComposing = false
                     </span>
                 ) : null}
             </div>
-            {reviewing ? <ReviewQueue orgId={orgId} onChanged={refresh} /> : null}
+            {reviewing ? <ReviewQueue orgId={orgId} onChanged={refresh} onClose={() => setReviewing(false)} /> : null}
             {rows.length === 0 ? <p className="mt-2 text-sm text-muted-foreground">No assignments yet. Give everyone (or teams, or each workspace) their own assignment to submit.</p> : null}
             <ul className="mt-3 divide-y divide-border">
                 {rows.map((row) => (
@@ -726,35 +727,111 @@ function orgTime(iso: string | null, timeZone?: string | null) {
 }
 
 /** The marking inbox (report §16.4–16.5): oldest first; Approve or Return, then Next. */
-export function ReviewQueue({ orgId, onChanged }: { orgId: string; onChanged: () => void }) {
+/**
+ * The review queue (report §23.2): one submission at a time, oldest first, with what was handed in. Approve opens the
+ * next; Return asks for a reason and Fix by right here. Keys A, R, J, K and Esc, never while typing.
+ */
+export function ReviewQueue({ orgId, onChanged, onClose }: { orgId: string; onChanged: () => void; onClose?: () => void }) {
     const [rows, setRows] = useState<ReviewQueueRow[] | null>(null)
+    const [total, setTotal] = useState(0)
     const [index, setIndex] = useState(0)
+    const [assignment, setAssignment] = useState('all')
+    const [lateOnly, setLateOnly] = useState(false)
+    const [returning, setReturning] = useState(false)
+    const [reason, setReason] = useState('')
+    const [fixBy, setFixBy] = useState('')
+    const [note, setNote] = useState('')
     const [pending, startTransition] = useTransition()
     const [error, setError] = useState<string | null>(null)
-    const load = useCallback(() => void readReviewQueueAction(orgId).then((r) => { setRows(r.success ? r.rows : []); if (!r.success) setError(r.error) }), [orgId])
+    const load = useCallback(() => void readReviewQueueAction(orgId).then((r) => { setRows(r.success ? r.rows : []); setTotal(r.success ? r.total : 0); if (!r.success) setError(r.error) }), [orgId])
     useEffect(() => { load() }, [load])
-    if (!rows) return <p className="mt-3 text-sm text-muted-foreground">Loading submissions…</p>
-    if (rows.length === 0) return <p className="mt-3 text-sm text-muted-foreground">Nothing waiting for review.</p>
-    const current = rows[Math.min(index, rows.length - 1)]!
+    const shown = useMemo(() => (rows ?? []).filter((r) => (assignment === 'all' || r.masterId === assignment) && (!lateOnly || r.late)), [rows, assignment, lateOnly])
+    const current = shown[Math.min(index, Math.max(0, shown.length - 1))] ?? null
+    const step = (by: number) => { setReturning(false); setIndex((i) => (shown.length ? (i + by + shown.length) % shown.length : 0)) }
     const decide = (decision: 'approve' | 'return') => {
-        const reason = decision === 'return' ? window.prompt('What should they change?') : undefined
-        if (decision === 'return' && !reason) return
+        if (!current) return
+        if (decision === 'return' && !returning) { setReturning(true); setReason(''); setFixBy(toLocalInput(new Date(Date.now() + 3 * 86_400_000))); return }
+        if (decision === 'return' && !reason.trim()) return setError('Say what to change.')
         startTransition(async () => {
-            const r = await reviewAssignmentCopyAction(current.copyId, decision, reason ?? undefined)
-            setError(r.success ? null : r.error)
-            if (r.success) { setRows(rows.filter((x) => x.copyId !== current.copyId)); onChanged() }
+            const r = await reviewAssignmentCopyAction(current.copyId, decision, decision === 'return' ? reason.trim() : undefined,
+                { projectId: current.projectId, updatedAt: current.updatedAt }, decision === 'return' && fixBy ? { fixBy: new Date(fixBy).toISOString() } : {})
+            if (!r.success) {
+                // "Already reviewed by Priya" moves on; a new version reloads to show it (23.2 awkward cases).
+                setError(r.error.startsWith('This changed') ? `${current.who} sent a new version. Showing it now.` : r.error)
+                if (r.error.startsWith('Already reviewed')) setRows((cur) => (cur ?? []).filter((x) => x.copyId !== current.copyId))
+                else load()
+                return
+            }
+            if (decision === 'approve' && note.trim()) await createTaskCommentAction(current.copyId, current.projectId, note.trim()).catch(() => undefined)
+            setError(null); setNote(''); setReturning(false)
+            setRows((cur) => (cur ?? []).filter((x) => x.copyId !== current.copyId))
+            onChanged()
         })
     }
+    const keys = useRef({ decide, step, onClose })
+    keys.current = { decide, step, onClose }
+    useEffect(() => {
+        const onKey = (event: KeyboardEvent) => {
+            const target = event.target as HTMLElement | null
+            if (event.metaKey || event.ctrlKey || event.altKey || (target && (target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName)))) return
+            const k = event.key.toLowerCase()
+            if (k === 'a') keys.current.decide('approve')
+            else if (k === 'r') { event.preventDefault(); keys.current.decide('return') }
+            else if (k === 'j') keys.current.step(1)
+            else if (k === 'k') keys.current.step(-1)
+            else if (k === 'escape') keys.current.onClose?.()
+            else return
+        }
+        window.addEventListener('keydown', onKey)
+        return () => window.removeEventListener('keydown', onKey)
+    }, [])
+    if (!rows) return <p className="mt-3 text-sm text-muted-foreground">Loading submissions…</p>
+    const titles = [...new Map(rows.map((r) => [r.masterId, r.title])).entries()]
     return (
         <section aria-label="To review" className="mt-3 space-y-2 rounded-md border border-border p-3 text-sm">
-            <p className="text-xs text-muted-foreground">{Math.min(index, rows.length - 1) + 1} of {rows.length} waiting</p>
-            <p><span className="font-medium">{current.who}</span> · {current.title} · {formatDistanceToNow(new Date(current.submittedAt), { addSuffix: true })}{current.late ? ' · Late' : ''}{current.submittedBy ? ` · submitted by ${current.submittedBy}` : ''}</p>
-            <div className="flex flex-wrap gap-2">
-                <Button type="button" size="sm" disabled={pending} onClick={() => decide('approve')}>Approve</Button>
-                <Button type="button" size="sm" variant="outline" disabled={pending} onClick={() => decide('return')}>Return</Button>
-                <a href={current.href} className="self-center text-primary underline-offset-4 hover:underline">Open</a>
-                <Button type="button" size="sm" variant="ghost" className="ml-auto" disabled={rows.length < 2} onClick={() => setIndex((index + 1) % rows.length)}>Next</Button>
+            <div className="flex flex-wrap items-center gap-2">
+                <select aria-label="Assignment" value={assignment} onChange={(e) => { setAssignment(e.target.value); setIndex(0) }} className={`${select} h-8 text-xs`}>
+                    <option value="all">All assignments</option>
+                    {titles.map(([id, title]) => <option key={id} value={id}>{title}</option>)}
+                </select>
+                <label className="flex items-center gap-1.5 text-xs"><input type="checkbox" checked={lateOnly} onChange={(e) => { setLateOnly(e.target.checked); setIndex(0) }} /> Late only</label>
+                <span className="ml-auto text-xs text-muted-foreground">{shown.length ? `${Math.min(index, shown.length - 1) + 1} of ${shown.length} waiting` : ''}{total > rows.length ? ` · ${rows.length} of ${total} loaded` : ''}</span>
+                <Button type="button" size="sm" variant="ghost" disabled={shown.length < 2} onClick={() => step(-1)} aria-label="Previous">‹</Button>
+                <Button type="button" size="sm" variant="ghost" disabled={shown.length < 2} onClick={() => step(1)}>Next</Button>
             </div>
+            {!current ? (
+                <p>All caught up. {onClose ? <button type="button" className="text-primary underline-offset-4 hover:underline" onClick={onClose}>Back to board</button> : null}</p>
+            ) : (
+                <>
+                    <p><span className="font-medium">{current.who}</span> · {current.title} · {formatDistanceToNow(new Date(current.submittedAt), { addSuffix: true })}{current.late ? ' · Late' : ''}{current.version ? ` · Version ${current.version}` : ''}{current.submittedBy ? ` · submitted by ${current.submittedBy}` : ''}{current.left ? ' · Left the organization' : ''}</p>
+                    <div className="space-y-1 rounded-md bg-muted/40 px-3 py-2">
+                        {current.link ? <a href={current.link} target="_blank" rel="noreferrer noopener" className="break-all text-primary underline">{current.link}</a> : null}
+                        {current.text ? <p className="whitespace-pre-line">{current.text}</p> : null}
+                        {current.files.length ? <p>{current.files.join(', ')}</p> : null}
+                        {current.note ? <p className="text-muted-foreground">Note: {current.note}</p> : null}
+                        {!current.link && !current.text && !current.files.length ? <p className="text-muted-foreground">Marked as done, nothing attached.</p> : null}
+                        <p className="text-xs text-muted-foreground">Steps {current.steps.done} of {current.steps.total} ticked · Private conversation ({current.comments}) · <a href={current.href} className="text-primary underline-offset-4 hover:underline">Open</a></p>
+                    </div>
+                    {returning ? (
+                        <div className="space-y-2">
+                            <label className="block space-y-1"><span className="font-medium">What should they change?</span>
+                                <textarea autoFocus value={reason} onChange={(e) => setReason(e.target.value)} rows={2} maxLength={1000} className={area} /></label>
+                            <label className="flex flex-wrap items-center gap-2">Fix by <Input type="datetime-local" value={fixBy} onChange={(e) => setFixBy(e.target.value)} className="w-auto" /></label>
+                            <div className="flex gap-2">
+                                <Button type="button" size="sm" disabled={pending} onClick={() => decide('return')}>Return</Button>
+                                <Button type="button" size="sm" variant="ghost" onClick={() => setReturning(false)}>Cancel</Button>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="flex flex-wrap items-center gap-2">
+                            <Button type="button" size="sm" disabled={pending} onClick={() => decide('approve')}>Approve</Button>
+                            <Button type="button" size="sm" variant="outline" disabled={pending} onClick={() => decide('return')}>Return</Button>
+                            <Input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Add note (optional)" aria-label="Add note" maxLength={2000} className="h-8 w-48" />
+                            <span className="ml-auto text-[11px] text-muted-foreground">A approve · R return · J next · K previous · Esc close</span>
+                        </div>
+                    )}
+                </>
+            )}
             {error ? <p role="alert" className="text-destructive">{error}</p> : null}
         </section>
     )
