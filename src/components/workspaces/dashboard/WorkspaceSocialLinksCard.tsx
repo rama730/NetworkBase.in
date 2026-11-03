@@ -8,6 +8,7 @@ import { updateWorkspaceExternalLinksAction } from '@/app/actions/workspace';
 import { SocialPresenceIcon } from '@/components/profile/SocialPresenceIcon';
 import { SortableLinkList } from '@/components/links/SortableLinkList';
 import { Button } from '@/components/ui/button';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import {
     Dialog,
     DialogContent,
@@ -635,8 +636,10 @@ export function WorkspaceLinksManager({
         }
     };
 
+    // Closing with unsaved links asks in the shared dialog, never a browser pop-up (report §32.3).
+    const [confirmDiscard, setConfirmDiscard] = useState(false);
     const requestOpenChange = (nextOpen: boolean) => {
-        if (!nextOpen && hasUnsavedChanges && !window.confirm('Discard your unsaved workspace link changes?')) return;
+        if (!nextOpen && hasUnsavedChanges) return setConfirmDiscard(true);
         onOpenChange?.(nextOpen);
     };
 
@@ -716,6 +719,16 @@ export function WorkspaceLinksManager({
     }
 
     return (
+        <>
+        <ConfirmDialog
+            open={confirmDiscard}
+            onOpenChange={setConfirmDiscard}
+            title="Discard your unsaved workspace link changes?"
+            confirmLabel="Discard"
+            cancelLabel="Keep editing"
+            variant="destructive"
+            onConfirm={() => onOpenChange?.(false)}
+        />
         <Dialog open={open} onOpenChange={requestOpenChange}>
             <DialogContent className="max-h-[min(90dvh,48rem)] w-[calc(100vw-1rem)] min-w-0 max-w-2xl overflow-x-hidden overflow-y-auto p-4 sm:w-[calc(100vw-2rem)] sm:p-6">
                 <DialogHeader className="min-w-0">
@@ -739,6 +752,7 @@ export function WorkspaceLinksManager({
                 </DialogFooter>
             </DialogContent>
         </Dialog>
+        </>
     );
 }
 

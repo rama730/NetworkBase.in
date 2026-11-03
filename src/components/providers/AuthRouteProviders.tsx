@@ -2,6 +2,7 @@
 
 import { AuthProvider } from '@/components/providers/AuthProvider';
 import { QueryProvider } from '@/components/providers/query-provider';
+import { SharedConfirmHost } from '@/components/ui/SharedConfirmHost';
 import { Toaster } from '@/components/ui/sonner';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import type { User } from '@supabase/supabase-js';
@@ -20,6 +21,7 @@ export function AuthRouteProviders({ children, initialUser, initialProfile = nul
           {children}
         </AuthProvider>
         <Toaster />
+        <SharedConfirmHost />
       </TooltipProvider>
     </QueryProvider>
   );

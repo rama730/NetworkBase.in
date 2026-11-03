@@ -94,8 +94,7 @@ function PopoverTaskRow({ task, projectId, nodeId }: { task: LinkedTask; project
         onClick={event => {
           if (event.metaKey || event.ctrlKey || event.shiftKey) return;
           event.preventDefault();
-          if (!confirmFileNavigation(projectId)) return;
-          router.push(href, { scroll: false });
+          confirmFileNavigation(projectId, () => router.push(href, { scroll: false }));
         }}
         className="flex min-h-11 items-center gap-2 px-3 py-2 transition-colors hover:bg-[#F3F0EA] focus-visible:outline-[#D14E24] dark:hover:bg-muted"
       >

@@ -245,26 +245,25 @@ export default function CommandPalette({ isOpen, onClose, initialQuery = "", con
         });
     };
 
-    const openSettingsResult = (result: SettingsSearchItem) => {
-        if (!confirmAppNavigation()) return;
+    const openSettingsResult = (result: SettingsSearchItem) => confirmAppNavigation(() => {
         cancelActivePreviews();
         recordRecentSearch(query);
         router.push(result.href);
         onClose();
-    };
+    });
 
     const openPreviewResult = (result: GlobalSearchPreview) => {
-        if (result.kind !== "link" && !confirmAppNavigation()) return;
-        cancelActivePreviews();
-        if (result.kind === "skill") recordRecentSearch(result.title);
-        else recordRecentPreview(result);
-        if (result.kind === "link") {
-            window.open(result.href, "_blank", "noopener,noreferrer");
+        const open = () => {
+            cancelActivePreviews();
+            if (result.kind === "skill") recordRecentSearch(result.title);
+            else recordRecentPreview(result);
+            if (result.kind === "link") window.open(result.href, "_blank", "noopener,noreferrer");
+            else router.push(result.href);
             onClose();
-            return;
-        }
-        router.push(result.href);
-        onClose();
+        };
+        // A link opens in a new tab, so nothing here is left behind.
+        if (result.kind === "link") open();
+        else confirmAppNavigation(open);
     };
 
     const connectProfile = async (result: Extract<GlobalSearchPreview, { kind: "profile" }>) => {
@@ -286,11 +285,13 @@ export default function CommandPalette({ isOpen, onClose, initialQuery = "", con
             context: searchContext,
             query,
         });
-        if (!href || !confirmAppNavigation()) return;
-        cancelActivePreviews();
-        recordRecentSearch(query);
-        router.push(href);
-        onClose();
+        if (!href) return;
+        confirmAppNavigation(() => {
+            cancelActivePreviews();
+            recordRecentSearch(query);
+            router.push(href);
+            onClose();
+        });
     };
 
     const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {

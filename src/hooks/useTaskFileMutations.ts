@@ -150,7 +150,7 @@ export function useTaskFileMutations(params: {
         files.map((file) => file.name),
         { taskId },
       );
-      if (!confirmUploadCollisions(collisions)) {
+      if (!(await confirmUploadCollisions(collisions))) {
         return { success: false as const, error: "Upload canceled" };
       }
       const filesToUpload = files.filter(
@@ -199,7 +199,7 @@ export function useTaskFileMutations(params: {
         uploadPaths,
         { taskId },
       );
-      if (!confirmUploadCollisions(collisions)) {
+      if (!(await confirmUploadCollisions(collisions))) {
         return { success: false as const, error: "Upload canceled" };
       }
       const existingFiles = new Set(collisions.existingFiles);

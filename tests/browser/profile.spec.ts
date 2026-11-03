@@ -428,15 +428,20 @@ test('edit profile uses a full page, preserves section links on refresh and keep
 
 test('dirty drafts warn on browser Back, keep editing on cancel, and leave on confirmation',async({page})=>{
   await page.getByRole('button',{name:'Edit role preferences',exact:true}).click();const editor=page.getByRole('region',{name:'Edit profile',exact:true});await editor.getByRole('button',{name:'Design',exact:true}).click();
-  const warning=page.waitForEvent('dialog').then(async confirm=>{expect(confirm.type()).toBe('confirm');await confirm.dismiss();});await page.evaluate(()=>history.back());await warning;await expect(page).toHaveURL(/\/my-profile\/edit/);await expect(editor.getByRole('button',{name:'Design',exact:true})).toHaveAttribute('aria-pressed','true');
-  const second=page.waitForEvent('dialog').then(confirm=>confirm.accept());await page.evaluate(()=>history.back());await second;await expect(editor).not.toBeVisible();await expect(page.getByRole('switch',{name:'Open to collaboration',exact:true})).toBeVisible();
+  await page.evaluate(()=>history.back());const ask=page.getByRole('alertdialog',{name:'Discard unsaved changes?'});await expect(ask).toBeVisible();await ask.getByRole('button',{name:'Keep editing',exact:true}).click();await expect(ask).toHaveCount(0);await expect(page).toHaveURL(/\/my-profile\/edit/);await expect(editor.getByRole('button',{name:'Design',exact:true})).toHaveAttribute('aria-pressed','true');
+  await page.evaluate(()=>history.back());await page.getByRole('alertdialog',{name:'Discard unsaved changes?'}).getByRole('button',{name:'Discard and leave',exact:true}).click();await expect(editor).not.toBeVisible();await expect(page.getByRole('switch',{name:'Open to collaboration',exact:true})).toBeVisible();
 });
 
 test('dirty drafts protect sidebar navigation and refresh; pristine cancel returns without a warning',async({page})=>{
   await page.getByRole('button',{name:'Edit role preferences',exact:true}).click();const editor=page.getByRole('region',{name:'Edit profile',exact:true});await editor.getByRole('button',{name:'Design',exact:true}).click();
   expect(await page.evaluate(()=>{const e=new Event('beforeunload',{cancelable:true});window.dispatchEvent(e);return e.defaultPrevented;})).toBe(true);
-  const warning=page.waitForEvent('dialog').then(confirm=>confirm.dismiss());await page.getByRole('link',{name:'Network',exact:true}).click();await warning;await expect(editor).toBeVisible();
+  await page.getByRole('link',{name:'Network',exact:true}).click();await page.getByRole('alertdialog',{name:'Discard unsaved changes?'}).getByRole('button',{name:'Keep editing',exact:true}).click();await expect(editor).toBeVisible();
   await editor.getByRole('button',{name:'Reset',exact:true}).click();expect(await page.evaluate(()=>{const e=new Event('beforeunload',{cancelable:true});window.dispatchEvent(e);return e.defaultPrevented;})).toBe(false);await editor.getByRole('button',{name:'Cancel',exact:true}).click();await expect(page).toHaveURL(/\/my-profile$/);
+});
+
+test('Discard and leave on a plain link follows that link',async({page})=>{
+  await page.getByRole('button',{name:'Edit role preferences',exact:true}).click();const editor=page.getByRole('region',{name:'Edit profile',exact:true});await editor.getByRole('button',{name:'Design',exact:true}).click();
+  await page.getByRole('link',{name:'Network',exact:true}).click();await page.getByRole('alertdialog',{name:'Discard unsaved changes?'}).getByRole('button',{name:'Discard and leave',exact:true}).click();await expect(page).toHaveURL(/\/network$/);
 });
 
 test('editor sections form a left navigation rail beside the form and use vertical keyboard navigation',async({page})=>{
@@ -545,8 +550,8 @@ test('portfolio edit links return to portfolio without changing the selected pro
 
 test('programmatic search navigation uses the same unsaved profile guard',async({page})=>{
   await page.getByRole('button',{name:'Edit role preferences',exact:true}).click();const editor=page.getByRole('region',{name:'Edit profile',exact:true});await editor.getByRole('button',{name:'Design',exact:true}).click();
-  const canceled=page.waitForEvent('dialog').then(dialog=>dialog.dismiss());await page.getByRole('button',{name:'Open search result',exact:true}).click();await canceled;await expect(editor.getByRole('button',{name:'Design',exact:true})).toHaveAttribute('aria-pressed','true');
-  const accepted=page.waitForEvent('dialog').then(dialog=>dialog.accept());await page.getByRole('button',{name:'Open search result',exact:true}).click();await accepted;await expect(page.getByRole('heading',{name:'Network destination'})).toBeVisible();
+  await page.getByRole('button',{name:'Open search result',exact:true}).click();await page.getByRole('alertdialog',{name:'Discard unsaved changes?'}).getByRole('button',{name:'Keep editing',exact:true}).click();await expect(editor.getByRole('button',{name:'Design',exact:true})).toHaveAttribute('aria-pressed','true');
+  await page.getByRole('button',{name:'Open search result',exact:true}).click();await page.getByRole('alertdialog',{name:'Discard unsaved changes?'}).getByRole('button',{name:'Discard and leave',exact:true}).click();await expect(page.getByRole('heading',{name:'Network destination'})).toBeVisible();
 });
 
 test('editor typography, control density and selection colors follow the design tokens',async({page})=>{

@@ -5,6 +5,7 @@ import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { filesReturnQuery, taskFilesHref } from "@/lib/files/task-navigation";
 import { confirmFileNavigation } from "@/lib/files/unsaved-navigation";
+import { confirmStore } from "@/lib/ui/ask-confirm";
 import { useFilesStore } from "@/stores/filesStore";
 import {
   formatBytes,
@@ -122,18 +123,16 @@ test("FileIcon provides accurate license and readme iconography adhering to desi
   assert.equal(isTextLike({ type: "file", name: "README.md", mimeType: null }), true);
 });
 
-test("cancelled cross-tab navigation preserves the draft; discard targets only this file", () => {
+test("cancelled cross-tab navigation preserves the draft; discard targets only this file", async () => {
   const originalWindow = Object.getOwnPropertyDescriptor(globalThis, "window");
   const originalStorage = useFilesStore.persist.getOptions().storage;
   useFilesStore.persist.setOptions({
     storage: { getItem: () => null, setItem: () => {}, removeItem: () => {} },
   });
   const events: CustomEvent[] = [];
-  let accept = false;
   Object.defineProperty(globalThis, "window", {
     configurable: true,
     value: {
-      confirm: () => accept,
       dispatchEvent: (event: CustomEvent) => {
         events.push(event);
         return true;
@@ -142,24 +141,32 @@ test("cancelled cross-tab navigation preserves the draft; discard targets only t
   });
   const store = useFilesStore.getState();
   const projectId = "recovery-test";
+  let went = 0;
+  const go = () => { went += 1; };
+  const settle = () => new Promise((resolve) => setImmediate(resolve));
   try {
     store.ensureProjectFilesState(projectId);
     store.setDirtyFile(projectId, "file-1", true);
-    assert.equal(confirmFileNavigation(projectId), false);
-    assert.equal(
-      useFilesStore.getState().byProjectId[projectId]?.dirtyFileId,
-      "file-1",
-    );
+    // Unsaved: the shared dialog asks (no browser pop-up), and Keep editing leaves the draft and stays.
+    confirmFileNavigation(projectId, go);
+    assert.equal(confirmStore.current()?.title, "Discard unsaved file changes and leave this file?");
+    confirmStore.current()!.answer(false);
+    await settle();
+    assert.equal(went, 0);
+    assert.equal(useFilesStore.getState().byProjectId[projectId]?.dirtyFileId, "file-1");
     assert.equal(events.length, 0);
-    accept = true;
-    assert.equal(confirmFileNavigation(projectId), true);
-    assert.equal(
-      useFilesStore.getState().byProjectId[projectId]?.dirtyFileId,
-      null,
-    );
+    // Discard clears only this file's draft, then goes.
+    confirmFileNavigation(projectId, go);
+    confirmStore.current()!.answer(true);
+    await settle();
+    assert.equal(went, 1);
+    assert.equal(useFilesStore.getState().byProjectId[projectId]?.dirtyFileId, null);
     assert.equal(events[0]?.type, "project:discard-file-edits");
     assert.deepEqual(events[0]?.detail, { projectId, nodeId: "file-1" });
-    assert.equal(confirmFileNavigation(projectId), true);
+    // Nothing unsaved: it goes at once, without asking.
+    confirmFileNavigation(projectId, go);
+    assert.equal(went, 2);
+    assert.equal(confirmStore.current(), null);
     assert.equal(events.length, 1);
   } finally {
     useFilesStore.persist.setOptions({ storage: originalStorage });

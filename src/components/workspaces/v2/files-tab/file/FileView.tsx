@@ -208,8 +208,7 @@ export function FileView({
   }, [docs, node.id]);
 
   const handleNavigateToDoc = React.useCallback((slug: string) => {
-    if (!confirmFileNavigation(projectId)) return;
-    router.push(`/workspaces/${projectSlug}?tab=docs&doc=${normalizeWorkspaceDocSlug(slug)}`, { scroll: false });
+    confirmFileNavigation(projectId, () => router.push(`/workspaces/${projectSlug}?tab=docs&doc=${normalizeWorkspaceDocSlug(slug)}`, { scroll: false }));
   }, [router, projectSlug, projectId]);
 
   // ── LinkedTasksPanel toggle state (Req 8.1, 8.6) ───────────────────
@@ -683,13 +682,10 @@ export function FileView({
                 nodeId={node.id}
                 canEdit={canEdit}
                 onClose={closeInspectorPanel}
-                onOpenTask={(taskId) => {
-                  if (!confirmFileNavigation(projectId)) return;
-                  router.push(
-                    `/workspaces/${encodeURIComponent(projectSlug)}${taskFilesHref(window.location.search, taskId, node.id)}`,
-                    { scroll: false },
-                  );
-                }}
+                onOpenTask={(taskId) => confirmFileNavigation(projectId, () => router.push(
+                  `/workspaces/${encodeURIComponent(projectSlug)}${taskFilesHref(window.location.search, taskId, node.id)}`,
+                  { scroll: false },
+                ))}
               />
             </FileInspectorContainer>
           )}
@@ -709,14 +705,13 @@ export function FileView({
                 isDeleted={node.deletedAt != null}
                 uploaderNames={undefined}
                 isTextKind={textLike || kind === "image"}
-                onCompareClick={(textLike || kind === "image") ? (version, target) => {
-                  if (!confirmFileNavigation(projectId)) return;
+                onCompareClick={(textLike || kind === "image") ? (version, target) => confirmFileNavigation(projectId, () => {
                   leaveEditMode("view");
                   setCompareTarget({
                     base: version,
                     target: typeof target === "number" ? target : (node.currentVersion ?? 1),
                   });
-                } : undefined}
+                }) : undefined}
                 onVersionChangeStart={() => setRestoringActive(true)}
                 onVersionChanged={() => {
                   setRestoringActive(false);

@@ -1,4 +1,5 @@
 import type { UploadCollisionSummary } from "@/app/actions/files/mutations";
+import { askConfirm } from "@/lib/ui/ask-confirm";
 
 /** Retry safely: leave existing destinations intact and send each filename once. */
 export function selectUploadFiles<T extends { name: string }>(files: readonly T[], existingFiles: readonly string[]): T[] {
@@ -45,7 +46,8 @@ export function getUploadCollisionMessage(summary: UploadCollisionSummary): stri
   return `Some uploaded items already exist. ${parts.join(" and ")}. Continue?`;
 }
 
-export function confirmUploadCollisions(summary: UploadCollisionSummary): boolean {
+/** Asks in the shared dialog (report §32.3); true when there's nothing to ask or the person continues. */
+export async function confirmUploadCollisions(summary: UploadCollisionSummary): Promise<boolean> {
   const message = getUploadCollisionMessage(summary);
-  return message === null || window.confirm(message);
+  return message === null || askConfirm({ title: "Some items already exist", description: message.replace(/^Some uploaded items already exist\. /, ""), confirmLabel: "Continue" });
 }

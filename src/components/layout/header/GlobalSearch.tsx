@@ -69,7 +69,7 @@ export default function GlobalSearch({ onOpenCommandPalette, condensed = false }
             searchParams: new URLSearchParams(searchParams?.toString()),
             context,
         });
-        if (confirmAppNavigation()) router.push(href);
+        confirmAppNavigation(() => router.push(href));
     };
 
     return (

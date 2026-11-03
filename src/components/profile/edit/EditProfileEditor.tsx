@@ -8,6 +8,7 @@ import { toast, feedbackError } from "@/lib/feedback";
 import { saveProfileContributionsAction } from "@/app/actions/profile-contributions";
 import { updateProfileAction } from "@/app/actions/profile";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { useRouter, useSearchParams } from "next/navigation";
 import { parseProfileEditSection, profileEditHref, profileEditReturnHref } from "@/lib/profile/edit-route";
 import { useProfileEditNavigationGuard } from "./useProfileEditNavigationGuard";
@@ -225,7 +226,7 @@ export function EditProfileEditor({
         void queryClient.invalidateQueries({ queryKey: queryKeys.connections.root() });
     };
 
-    const allowLeave = useProfileEditNavigationGuard(hasChanges, saveState === "saving");
+    const { allowLeave, leaveDialog } = useProfileEditNavigationGuard(hasChanges, saveState === "saving");
     const onClose = () => {
         allowLeave();
         router.replace(returnHref);
@@ -481,6 +482,7 @@ export function EditProfileEditor({
 
     return (
         <section data-profile-editor className="flex h-full min-h-0 flex-col overflow-clip bg-background text-foreground" aria-labelledby="profile-editor-title">
+                <ConfirmDialog {...leaveDialog} title="Discard unsaved changes?" description="Your profile changes haven’t been saved." confirmLabel="Discard and leave" cancelLabel="Keep editing" variant="destructive" />
                 <form className="flex min-h-0 flex-1 flex-col overflow-clip" onSubmit={(event) => { event.preventDefault(); void persistChanges(true); }} aria-label="Edit profile form">
                     <fieldset disabled={saveState === "saving"} className="flex min-h-0 min-w-0 w-full flex-1 flex-col overflow-clip md:flex-row">
                         <EditProfileTabs

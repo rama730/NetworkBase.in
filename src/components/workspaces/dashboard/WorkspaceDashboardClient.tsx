@@ -606,9 +606,8 @@ export default function WorkspaceDashboardClient({ project, currentUserId, viewe
     }, [lifecycleStageNames, optimisticStageIndex]);
 
     // Tab change handler
-    const handleTabChange = useCallback(
+    const switchTab = useCallback(
         (tabId: string) => {
-            if (!confirmFileNavigation(project.id)) return;
             if (
                 !isWorkspaceTabVisibleToViewer({
                     tabId,
@@ -658,6 +657,7 @@ export default function WorkspaceDashboardClient({ project, currentUserId, viewe
         },
         [activeTab, canManageProjectSettings, isOwnerOrMember, pathname, publicTabVisibility, router],
     );
+    const handleTabChange = useCallback((tabId: string) => confirmFileNavigation(project.id, () => switchTab(tabId)), [project.id, switchTab]);
 
     // Keep the URL canonical from the URL state itself. This avoids the tab
     // rollback that happens when optimistic local tab state cleans a stale URL.

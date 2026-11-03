@@ -37,7 +37,7 @@ import { fetchWorkspaceFileLeases } from "@/lib/files/file-lease-client";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { FilesViews } from "./FilesViews";
 import { FileTransfersProvider } from "./FileTransfers";
-import { confirmFileNavigation } from "@/lib/files/unsaved-navigation";
+import { confirmFileNavigation, fileHasUnsavedEdits } from "@/lib/files/unsaved-navigation";
 import { fetchGithubImportAccessState } from "@/lib/github/import-client";
 import type { GithubImportAccessState } from "@/lib/github/import-types";
 
@@ -200,11 +200,12 @@ export function FilesTabRoot(props: FilesTabRootProps): React.JSX.Element {
     const previousUrl = window.location.href;
     const previousState = window.history.state;
     const guardHistory = (event: PopStateEvent) => {
-      if (confirmFileNavigation(projectId)) return;
+      if (!fileHasUnsavedEdits(projectId)) return;
       event.stopImmediatePropagation();
       // The browser has already traversed. Restore the editor entry before
-      // collection/URL listeners can consume the rejected destination.
+      // collection/URL listeners can consume the rejected destination; Discard goes back again.
       window.history.pushState(previousState, "", previousUrl);
+      confirmFileNavigation(projectId, () => window.history.back());
     };
     const guardLink = (event: MouseEvent) => {
       if (
@@ -226,10 +227,10 @@ export function FilesTabRoot(props: FilesTabRootProps): React.JSX.Element {
         anchor.href === window.location.href
       )
         return;
-      if (!confirmFileNavigation(projectId)) {
-        event.preventDefault();
-        event.stopImmediatePropagation();
-      }
+      if (!fileHasUnsavedEdits(projectId)) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      confirmFileNavigation(projectId, () => anchor.click());
     };
     window.addEventListener("popstate", guardHistory, true);
     document.addEventListener("click", guardLink, true);

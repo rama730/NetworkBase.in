@@ -1,15 +1,19 @@
 'use client';
 
-import { useEffect, useLayoutEffect, useRef } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
-import { APP_BEFORE_NAVIGATE_EVENT } from '@/lib/navigation/confirm-navigation';
+import { APP_BEFORE_NAVIGATE_EVENT, type AppBeforeNavigateEvent } from '@/lib/navigation/confirm-navigation';
 
-/** Keep the draft mounted when an ordinary link or browser Back is canceled. */
+/**
+ * Keep the draft mounted when an ordinary link, browser Back or a programmatic move is canceled. Leaving with unsaved
+ * changes asks in the shared dialog (report §32.3): the move is stopped, and Discard and leave replays it.
+ */
 export function useProfileEditNavigationGuard(dirty: boolean, saving: boolean) {
     const pathname = usePathname();
     const search = useSearchParams().toString();
     const leaving = useRef(false);
     const state = useRef({ dirty, saving, url: '', history: null as unknown });
+    const [pendingLeave, setPendingLeave] = useState<(() => void) | null>(null);
 
     // The next browser event must see the committed draft, even before passive effects run.
     useLayoutEffect(() => {
@@ -17,10 +21,13 @@ export function useProfileEditNavigationGuard(dirty: boolean, saving: boolean) {
     }, [dirty, saving, pathname, search]);
 
     useEffect(() => {
-        const canLeave = () => {
+        // True when the move may go on now. Otherwise the caller stops it, and the dialog runs `retry` on Discard.
+        const canLeave = (retry: () => void) => {
             if (leaving.current) return true;
             if (state.current.saving) return false;
-            return !state.current.dirty || window.confirm('Discard unsaved profile changes and leave this page?');
+            if (!state.current.dirty) return true;
+            setPendingLeave(() => () => { leaving.current = true; retry(); });
+            return false;
         };
         const unload = (event: BeforeUnloadEvent) => {
             if (leaving.current || (!state.current.dirty && !state.current.saving)) return;
@@ -35,12 +42,12 @@ export function useProfileEditNavigationGuard(dirty: boolean, saving: boolean) {
             if (!['http:', 'https:'].includes(target.protocol)) return;
             const current = new URL(state.current.url);
             if (target.origin === current.origin && target.pathname === current.pathname && target.search === current.search) return;
-            if (canLeave()) { leaving.current = true; return; }
+            if (canLeave(() => anchor.click())) { leaving.current = true; return; }
             event.preventDefault();
             event.stopImmediatePropagation();
         };
         const pop = (event: PopStateEvent) => {
-            if (canLeave()) { leaving.current = true; return; }
+            if (canLeave(() => window.history.back())) { leaving.current = true; return; }
             event.stopImmediatePropagation();
             // Preserve Next's existing history state; no synthetic sentinel or router patch.
             window.history.pushState(state.current.history, '', state.current.url);
@@ -51,13 +58,15 @@ export function useProfileEditNavigationGuard(dirty: boolean, saving: boolean) {
             if (attempt.navigationType !== 'traverse' || !event.cancelable || attempt.hashChange) return;
             // Some engines dispatch after the entry already changed; their popstate fallback restores it.
             if (attempt.destination?.key && attempt.destination.key === navigation?.currentEntry?.key) return;
-            if (!canLeave()) event.preventDefault();
+            const key = attempt.destination?.key;
+            const traverse = navigation as unknown as { traverseTo?: (key: string) => unknown } | undefined;
+            if (!canLeave(() => { if (key && traverse?.traverseTo) traverse.traverseTo(key); else window.history.back(); })) event.preventDefault();
             else leaving.current = true;
         };
         // Native traversal cancellation runs before a framework can unmount the editor.
         navigation?.addEventListener('navigate', navigate);
         const programmatic = (event: Event) => {
-            if (!canLeave()) event.preventDefault();
+            if (!canLeave((event as AppBeforeNavigateEvent).detail.go)) event.preventDefault();
             else leaving.current = true;
         };
         window.addEventListener(APP_BEFORE_NAVIGATE_EVENT, programmatic);
@@ -73,5 +82,11 @@ export function useProfileEditNavigationGuard(dirty: boolean, saving: boolean) {
         };
     }, []);
 
-    return () => { leaving.current = true; };
+    const allowLeave = () => { leaving.current = true; };
+    const leaveDialog = {
+        open: pendingLeave !== null,
+        onOpenChange: (open: boolean) => { if (!open) setPendingLeave(null); },
+        onConfirm: () => pendingLeave?.(),
+    };
+    return { allowLeave, leaveDialog };
 }
