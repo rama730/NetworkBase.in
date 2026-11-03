@@ -254,7 +254,8 @@ export default function DetailsTab({
     if (next !== (task.storyPoints ?? null)) void onUpdateField("storyPoints", next);
   };
 
-  const showDoneWarnings = task.status === "done" && fileWarnings.length > 0;
+  // Mockup task 1: a main assignment has no files of its own, so the final-file check never applies to it.
+  const showDoneWarnings = task.status === "done" && fileWarnings.length > 0 && !master;
   const sourceLinksQuery = useQuery({
     queryKey: queryKeys.chat.taskSource(task.id),
     enabled: canReadSourceMessages,

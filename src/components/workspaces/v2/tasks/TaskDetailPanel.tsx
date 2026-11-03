@@ -61,6 +61,7 @@ const FilesTab = dynamic(() => import("./TaskDetailTabs/FilesTab"), {
 import SubtasksTab from "./TaskDetailTabs/SubtasksTab";
 import TaskPriorityBadge from "./badges/TaskPriorityBadge";
 import TaskStatusBadge from "./badges/TaskStatusBadge";
+import { isAssignmentMaster } from "@/lib/workspaces/task-presentation";
 import { OpenInIdeButton, OpenInIdeSheet } from "@/components/workspaces/v2/files-tab/OpenInIdeButton";
 import {
   DropdownMenu,
@@ -376,13 +377,16 @@ export default function TaskDetailPanel({
               </div>
 
               <div className="flex items-center gap-2 shrink-0">
-                <span className="hidden md:contents">
-                  <OpenInIdeButton
-                    projectId={projectId}
-                    projectSlug={projectSlug}
-                    taskId={resource.task.id}
-                  />
-                </span>
+                {/* Mockup task 1: a main assignment is managed, not coded; its copies keep the editor. */}
+                {isAssignmentMaster(resource.task) ? null : (
+                  <span className="hidden md:contents">
+                    <OpenInIdeButton
+                      projectId={projectId}
+                      projectSlug={projectSlug}
+                      taskId={resource.task.id}
+                    />
+                  </span>
+                )}
                 {isOwner ? (
                   <button
                     onClick={() => {

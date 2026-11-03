@@ -869,6 +869,8 @@ export type RosterRow = {
     people?: Array<{ id: string; name: string; lead: boolean }>; submittedBy?: string | null;
     /** Approved by a reviewer: Change decision can still return it while open (decision 40). */
     approved?: boolean;
+    /** The panel's lists (mockup task 1): when and which version was handed in, and the last reminder. */
+    submittedAt: string | null; version: number | null; remindedAt: string | null;
 };
 
 /** The roster for one assignment (report §16.5): admins see names; guests see counts without names. */
@@ -906,6 +908,10 @@ export async function readAssignmentRosterAction(masterId: string): Promise<{ su
     const assigneeIds = [...copies.map((c) => c.assigneeId).filter((id): id is string => Boolean(id)), ...submitterIds];
     const names = new Map((assigneeIds.length ? await db.select({ id: profiles.id, name: profiles.fullName, username: profiles.username }).from(profiles).where(inArray(profiles.id, assigneeIds)) : [])
         .map((p) => [p.id, p.name || p.username || 'Member']));
+    // The latest reminder per copy, from the notices Remind leaves (the key remindedRecently reads).
+    const reminded = new Map(copies.length === 0 ? [] : Array.from(await db.execute<{ id: string; at: string }>(sql`
+        SELECT split_part(dedupe_key, ':', 5) AS id, max(created_at)::text AS at FROM user_notifications
+        WHERE dedupe_key LIKE ${`project:${master.projectId}:assignments.reminded:remind:%`} GROUP BY 1`)).map((r) => [r.id, new Date(r.at).toISOString()]));
     const rows = copies.map((c, i) => {
         const members = people.filter((p) => p.copyId === c.id).map((p) => p.name || p.username || 'Member');
         // A group copy whose project left the org stays on the roster as "Detached" (report §14.7).
@@ -915,6 +921,7 @@ export async function readAssignmentRosterAction(masterId: string): Promise<{ su
         const by = (c.submission as { by?: string } | null)?.by;
         return { copyId: c.id, label, members, ...states[i]!, projectId: c.projectId, dueDate: c.dueDate?.toISOString() ?? null, submission: c.submission, excusedReason: c.excusedReason,
             approved: c.status === 'done' && c.completionSource === 'review',
+            submittedAt: (c.submission as { at?: string } | null)?.at ?? null, version: (c.submission as { version?: number } | null)?.version ?? null, remindedAt: reminded.get(c.id) ?? null,
             ...(c.teamName ? { people: team, submittedBy: by ? names.get(by) ?? null : null } : {}) };
     });
     // Give to (decision 88): members with no copy, late joiners included.

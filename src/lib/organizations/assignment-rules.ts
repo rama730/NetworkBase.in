@@ -264,3 +264,8 @@ export function defaultFixBy(now: Date = new Date()) {
   at.setHours(23, 59, 0, 0);
   return at;
 }
+
+/** Mockup task 1: the assignment panel's four tiles; Not in is everyone still to hand in, returned work included. */
+export function rosterTiles(counts: Record<CopyState, number> & { total: number }) {
+  return { done: counts.done, submitted: counts.submitted, notIn: counts.not_started + counts.in_progress + counts.returned + counts.missing, excused: counts.excused };
+}

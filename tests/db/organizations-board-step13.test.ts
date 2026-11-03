@@ -88,6 +88,37 @@ test("decision 85: the panel's Hand in shows what's asked, the latest version an
   assert.deepEqual(admin.success && [admin.handIn.holder, admin.handIn.canSubmit], [false, false], "admins read it");
 });
 
+test("mockup task 1: roster rows carry when and which version was handed in, and when the person was last reminded", async () => {
+  const [owner, asha, ravi] = await Promise.all([1, 2, 3].map(() => sql.begin((tx) => createUser(tx))));
+  const org = await sql.begin((tx) => createProject(tx, owner!));
+  await sql`INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (${org}, ${owner!}, 'owner'), (${org}, ${asha!}, 'member'), (${org}, ${ravi!}, 'member')`;
+  await sql`UPDATE workspaces SET kind = 'organization', org_type = 'education', title = 'CSE 3B', join_code = ${generateJoinCode()} WHERE id = ${org}`;
+  created.push(org);
+  viewerId = owner!;
+  const made = await assignments.createAssignmentAction({ projectId: org, title: "Lab 3", dueDate: new Date(Date.now() + 864e5).toISOString(), publish: true,
+    submissionType: "text", reviewRequired: true, lateRule: "none", target: { mode: "everyone" }, steps: [] });
+  const masterId = made.success ? made.masterId : "";
+  const copyOf = async (user: string) => (await sql`SELECT id FROM tasks WHERE assignment_id = ${masterId} AND assignee_id = ${user}`)[0]!.id as string;
+  const [ashaCopy, raviCopy] = [await copyOf(asha!), await copyOf(ravi!)];
+  viewerId = asha!;
+  await assignments.submitAssignmentAction(ashaCopy, { text: "v1" });
+  viewerId = owner!;
+  await assignments.reviewAssignmentCopyAction(ashaCopy, "return", "Again");
+  viewerId = asha!;
+  await assignments.submitAssignmentAction(ashaCopy, { text: "v2" });
+  viewerId = owner!;
+  await assignments.remindCopiesAction(masterId, [raviCopy]);
+  const roster = await assignments.readAssignmentRosterAction(masterId);
+  assert.ok(roster.success);
+  const byCopy = new Map(roster.success ? roster.rows.map((r) => [r.copyId, r]) : []);
+  assert.equal(byCopy.get(ashaCopy)!.version, 2);
+  assert.ok(byCopy.get(ashaCopy)!.submittedAt && !Number.isNaN(Date.parse(byCopy.get(ashaCopy)!.submittedAt!)));
+  assert.equal(byCopy.get(ashaCopy)!.remindedAt, null);
+  assert.ok(byCopy.get(raviCopy)!.remindedAt, "the reminded copy says when");
+  assert.equal(byCopy.get(raviCopy)!.version, null);
+  viewerId = "";
+});
+
 test("live loop 34: a file removed from returned work leaves the hand-in and the next version", async () => {
   const [owner, asha] = await Promise.all([1, 2].map(() => sql.begin((tx) => createUser(tx))));
   const org = await sql.begin((tx) => createProject(tx, owner!));

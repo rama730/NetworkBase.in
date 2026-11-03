@@ -67,9 +67,9 @@ test.beforeAll(async () => {
             {masterId:'a1',title:'Lab 3 — Consensus protocols and failure detectors',dueDate:new Date(Date.now()+864e5).toISOString(),status:'open',submissionType:'link',reviewRequired:true,teams:true,counts,mine:null},
             {masterId:'a2',title:'Reading quiz',dueDate:null,status:'draft',submissionType:'none',reviewRequired:false,teams:false,counts,mine:null}]});
             export const readAssignmentComposerOptionsAction=async()=>({success:true,children:[],sprints:[],teamAssignments:[],defaults:{reviewRequired:true,lateRule:'until'}}),readAssignmentRosterAction=async()=>({success:true,counts,rows:[
-              {copyId:'t1',label:'Team A',members:[],people:[{id:'u1',name:'Ravi Kumar',lead:true},{id:'u2',name:'Alexandria Ramana Chandrasekhar',lead:false}],submittedBy:null,state:'in_progress',late:false,projectId:'org',dueDate:null,submission:null,excusedReason:null},
-              {copyId:'t2',label:'Priya (individual)',members:[],state:'missing',late:false,projectId:'org',dueDate:null,submission:null,excusedReason:null},
-              {copyId:'t3',label:'Kiran',members:[],state:'submitted',late:false,projectId:'org',dueDate:null,submission:{link:'https://example.com/k'},excusedReason:null}],withoutCopy:[{userId:'u9',name:'Late Joiner'}],closed:false});
+              {copyId:'t1',label:'Team A',members:[],people:[{id:'u1',name:'Ravi Kumar',lead:true},{id:'u2',name:'Alexandria Ramana Chandrasekhar',lead:false}],submittedBy:null,state:'in_progress',late:false,projectId:'org',dueDate:null,submission:null,excusedReason:null,submittedAt:null,version:null,remindedAt:new Date(Date.now()-3*3600e3).toISOString()},
+              {copyId:'t2',label:'Priya (individual)',members:[],state:'missing',late:false,projectId:'org',dueDate:null,submission:null,excusedReason:null,submittedAt:null,version:null,remindedAt:null},
+              {copyId:'t3',label:'Kiran',members:[],state:'submitted',late:true,projectId:'org',dueDate:null,submission:{link:'https://example.com/k'},excusedReason:null,submittedAt:new Date(Date.now()-600e3).toISOString(),version:2,remindedAt:null}],withoutCopy:[{userId:'u9',name:'Late Joiner'}],closed:false});
             export const listWorkspaceGroupCopiesAction=async()=>({success:true,rows:[]});
             export const approveAllSubmittedAction=${ok},closeAssignmentAction=${ok},createAssignmentAction=${ok},deleteAssignmentAction=${ok},excuseCopyAction=${ok},extendCopyAction=${ok},publishAssignmentAction=${ok},reviewAssignmentCopyAction=${ok},submitAssignmentAction=${ok},giveCopyAction=${ok},reopenAssignmentAction=${ok},scheduleAssignmentAction=${ok},updateAssignmentAction=${ok},removeCopyAction=${ok},autoMakeGroupsAction=async()=>({success:true,groups:[]});
             export const extendCopiesAction=async()=>({success:true,extended:1}),returnCopiesAction=async()=>({success:true,returned:1,skipped:0}),readAssignmentExportAction=async()=>({success:true,rows:[['Person']]});
@@ -187,7 +187,7 @@ test('Assignments (§16): the review queue steps with Next; the roster has Remin
     await queue.getByRole('button', { name: 'Cancel' }).click();
     await noSideScroll(page);
     // Published work lives on the board (decisions 6, 10); its card's panel has the roster.
-    await page.getByRole('button', { name: 'Roster' }).first().click();
+    await page.getByRole('button', { name: 'Full roster' }).first().click();
     const dialog = page.getByRole('dialog');
     await expect(dialog.getByRole('button', { name: 'Remind everyone not done' })).toBeVisible();
     await expect(dialog.getByRole('textbox', { name: 'Add a step to every assignment' })).toBeVisible();
@@ -332,6 +332,27 @@ test('New assignment (§42.5): publish timing choices, and Admins-only materials
     await expect(page.getByLabel('Late after, in minutes')).toHaveValue('15');
 });
 
+test('Mockup task 1: the assignment panel shows the class at a glance, with who is waiting and who is not in yet', async ({ page }) => {
+    await open(page, 'tasks', 1280);
+    const panel = page.getByRole('region', { name: 'Assignment' });
+    const tiles = panel.getByRole('group', { name: 'Class at a glance' });
+    await expect(tiles.getByRole('button', { name: '1 Done' })).toBeVisible();
+    await expect(tiles.getByRole('button', { name: '4 Submitted' })).toBeVisible();
+    await expect(tiles.getByRole('button', { name: '7 Not in' })).toBeVisible();
+    await expect(tiles.getByRole('button', { name: '0 Excused' })).toBeVisible();
+    await expect(panel.getByRole('link', { name: 'Review 4' })).toHaveAttribute('href', /taskScope=review&assignment=a1/);
+    await expect(panel.getByRole('button', { name: 'Remind 7' })).toBeVisible();
+    const waiting = panel.getByRole('list', { name: 'Waiting for review' });
+    await expect(waiting.getByRole('listitem').filter({ hasText: 'Kiran' })).toContainText(/Version 2 · Late/);
+    await expect(waiting.getByRole('button', { name: 'Approve Kiran' })).toBeVisible();
+    const notIn = panel.getByRole('list', { name: 'Not in yet' });
+    await expect(notIn.getByRole('listitem').filter({ hasText: 'Team A' })).toContainText(/In progress · Reminded 3 hours ago/);
+    await expect(notIn.getByRole('button', { name: 'Extend Team A' })).toBeVisible();
+    await tiles.getByRole('button', { name: '4 Submitted' }).click();
+    await expect(notIn).toHaveCount(0);
+    await expect(waiting).toBeVisible();
+});
+
 test('Live-fix 3: a draft is published, scheduled or deleted from its own card', async ({ page }) => {
     await open(page, 'tasks-draft', 1280);
     await expect(page.getByRole('button', { name: 'Publish', exact: true })).toBeVisible();
@@ -343,7 +364,8 @@ test('Live-fix 3: a draft is published, scheduled or deleted from its own card',
 
 test('Edit for everyone (§23.3): says how many it reaches, and the hand-in type is locked after a submission', async ({ page }) => {
     await open(page, 'tasks', 1280);
-    await page.getByRole('button', { name: 'Edit for everyone' }).first().click();
+    await page.getByRole('button', { name: 'Manage assignment' }).first().click();
+    await page.getByRole('menuitem', { name: 'Edit for everyone' }).click();
     const edit = page.getByRole('alertdialog');
     await expect(edit.getByRole('button', { name: /^Save for \d+ people$/ })).toBeVisible();
     await expect(edit).toContainText('Locked: someone has handed this in.');

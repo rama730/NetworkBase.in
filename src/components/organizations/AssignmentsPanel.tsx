@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from 'react'
-import { ClipboardList, Plus, Shuffle, X } from 'lucide-react'
+import { ClipboardList, MoreHorizontal, Plus, Shuffle, X } from 'lucide-react'
 
 import {
     addAssignmentStepAction,
@@ -56,6 +56,8 @@ import { cn } from '@/lib/utils'
 import { ASSIGNMENT_STATE_LABELS } from '@/lib/copy/terms'
 import { EditAssignmentDialog, ExcuseDialog, ExtendDialog, GiveToDialog, ReturnDialog, ReviewersPicker } from '@/components/organizations/AssignmentDialogs'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import { AssignmentGlance } from '@/components/organizations/AssignmentGlance'
 import { ReasonDialog } from '@/components/organizations/ReasonDialog'
 import { ClassQuestions } from '@/components/organizations/ClassQuestions'
 import { saveBlob, toCsvBlob } from '@/lib/download'
@@ -863,10 +865,31 @@ export function AssignmentManageSection({ orgId, masterId, onChanged }: { orgId:
         onChanged?.()
     })
     const live = row.status === 'open' || row.status === 'closed'
+    const exportCsv = () => startTransition(async () => {
+        const r = await readAssignmentExportAction(row.masterId)
+        if (!r.success) return void setError(r.error)
+        saveBlob(toCsvBlob(r.rows), `${row.title.replace(/[^\w-]+/g, '-')}-progress.csv`)
+    })
+    const askDelete = () => setConfirm({ title: `Delete ${row.title}?`, description: deleteAssignmentWarning(row.counts), label: 'Delete', destructive: true, act: () => deleteAssignmentAction(row.masterId) })
     return (
         <section aria-labelledby="assignment-manage-heading" className="space-y-2 rounded-[6px] border border-border p-4 text-sm">
-            <h3 id="assignment-manage-heading" className="font-mono text-[11px] font-medium uppercase tracking-[0.09em] text-muted-foreground">Assignment</h3>
-            <p className="text-muted-foreground">{countsLine(row)}</p>
+            <div className="flex items-center gap-2">
+                <h3 id="assignment-manage-heading" className="flex-1 font-mono text-[11px] font-medium uppercase tracking-[0.09em] text-muted-foreground">Assignment</h3>
+                {/* Mockup task 1: the rarer actions sit in one menu; the panel itself shows the class. */}
+                {live ? (
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild><Button type="button" size="sm" variant="ghost" aria-label="Manage assignment" disabled={pending}><MoreHorizontal className="size-4" /></Button></DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                            <DropdownMenuItem onSelect={() => setDialog('edit')}>Edit for everyone</DropdownMenuItem>
+                            <DropdownMenuItem onSelect={() => setDialog('reuse')}>Use again</DropdownMenuItem>
+                            {row.status === 'open' ? <DropdownMenuItem onSelect={() => run(() => closeAssignmentAction(row.masterId))}>Close</DropdownMenuItem> : null}
+                            {row.status === 'closed' ? <DropdownMenuItem onSelect={() => run(() => reopenAssignmentAction(row.masterId))}>Reopen</DropdownMenuItem> : null}
+                            <DropdownMenuItem className="text-destructive focus:text-destructive" onSelect={askDelete}>Delete</DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                ) : null}
+            </div>
+            {live ? null : <p className="text-muted-foreground">{countsLine(row)}</p>}
             {!live && row.note ? <p className="text-[13px] text-muted-foreground">{row.note}</p> : null}
             <div className="flex flex-wrap gap-1.5">
                 {/* Drafts and scheduled ones are managed here too, now the list above the board is gone (problem 3). */}
@@ -881,18 +904,13 @@ export function AssignmentManageSection({ orgId, masterId, onChanged }: { orgId:
                 })}>{row.status === 'scheduled' ? 'Publish now' : 'Publish'}</Button> : null}
                 {row.status === 'scheduled' ? <Button type="button" size="sm" variant="ghost" disabled={pending} onClick={() => run(() => scheduleAssignmentAction(row.masterId, null))}>Back to draft</Button> : null}
                 {row.status === 'draft' ? <Button type="button" size="sm" variant="ghost" disabled={pending} aria-expanded={scheduleLocal !== null} onClick={() => setScheduleLocal(scheduleLocal === null ? '' : null)}>Schedule</Button> : null}
-                {live ? <Button type="button" size="sm" variant="outline" onClick={() => setDialog('roster')}>Roster</Button> : null}
-                <Button type="button" size="sm" variant="outline" disabled={pending} onClick={() => setDialog('edit')}>{live ? 'Edit for everyone' : 'Edit'}</Button>
-                <Button type="button" size="sm" variant="ghost" disabled={pending} onClick={() => setDialog('reuse')}>Use again</Button>
-                {row.status === 'open' ? <Button type="button" size="sm" variant="ghost" disabled={pending} onClick={() => run(() => closeAssignmentAction(row.masterId))}>Close</Button> : null}
-                {row.status === 'closed' ? <Button type="button" size="sm" variant="ghost" disabled={pending} onClick={() => run(() => reopenAssignmentAction(row.masterId))}>Reopen</Button> : null}
-                {live ? <Button type="button" size="sm" variant="ghost" disabled={pending} onClick={() => startTransition(async () => {
-                    const r = await readAssignmentExportAction(row.masterId)
-                    if (!r.success) return void setError(r.error)
-                    saveBlob(toCsvBlob(r.rows), `${row.title.replace(/[^\w-]+/g, '-')}-progress.csv`)
-                })}>Export</Button> : null}
-                <Button type="button" size="sm" variant="ghost" disabled={pending} onClick={() => setConfirm({ title: `Delete ${row.title}?`, description: deleteAssignmentWarning(row.counts), label: 'Delete', destructive: true, act: () => deleteAssignmentAction(row.masterId) })}>Delete</Button>
+                {!live ? <>
+                    <Button type="button" size="sm" variant="outline" disabled={pending} onClick={() => setDialog('edit')}>Edit</Button>
+                    <Button type="button" size="sm" variant="ghost" disabled={pending} onClick={() => setDialog('reuse')}>Use again</Button>
+                    <Button type="button" size="sm" variant="ghost" disabled={pending} onClick={askDelete}>Delete</Button>
+                </> : null}
             </div>
+            {live ? <AssignmentGlance row={row} orgId={orgId} timeZone={data.timeZone} onChanged={() => { load(); onChanged?.() }} onFullRoster={() => setDialog('roster')} onExport={exportCsv} /> : null}
             {scheduleLocal !== null ? (
                 <div className="flex flex-wrap items-center gap-2">
                     <Input type="datetime-local" value={scheduleLocal} onChange={(e) => setScheduleLocal(e.target.value)} aria-label={`Publish on (${zoneName(data.timeZone)})`} className="h-8 w-auto" />
