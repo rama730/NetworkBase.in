@@ -8,7 +8,7 @@ import WorkspaceDashboardClient from '@/components/workspaces/dashboard/Workspac
 import { readWorkspaceDetailShell, readWorkspaceSprintDetail } from '@/app/actions/workspace';
 import WorkspaceDetailLoading from './loading';
 import { PrivateOrgHeader } from '@/components/organizations/PrivateOrgHeader';
-import { MemberPreviewBar } from '@/components/organizations/MemberPreview';
+import { MemberPreviewBar, MemberPreviewFrame } from '@/components/organizations/MemberPreview';
 import { memberPreviewOrgId } from '@/lib/organizations/member-preview';
 import { readPrivateOrgState } from '@/lib/organizations/join';
 import { isOrgOnlyWorkspace, readOrgCard, resolveHeldOrgHandle } from '@/lib/organizations/detail';
@@ -179,6 +179,7 @@ async function ResolvedProjectDashboard({
     return (
         <>
         {previewing ? <MemberPreviewBar /> : null}
+        <MaybePreviewFrame previewing={previewing}>
         <WorkspaceDashboardClient
             project={project}
             currentUserId={user?.id || null}
@@ -189,6 +190,7 @@ async function ResolvedProjectDashboard({
             memberRole={capabilities.memberRole}
             initialSprintData={initialSprintData}
         />
+        </MaybePreviewFrame>
         </>
     );
 }
@@ -212,4 +214,8 @@ export function WorkspaceRoute({
             </Suspense>
         </div>
     );
+}
+
+function MaybePreviewFrame({ previewing, children }: { previewing: boolean; children: React.ReactNode }) {
+    return previewing ? <MemberPreviewFrame>{children}</MemberPreviewFrame> : <>{children}</>;
 }

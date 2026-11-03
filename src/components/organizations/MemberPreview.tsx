@@ -38,3 +38,21 @@ export function MemberPreviewBar() {
         </div>
     )
 }
+
+/**
+ * Every button is off while previewing (report §45.6): clicks, key presses, submits and typing on controls stop here,
+ * so nothing even reaches the server (which refuses anyway). Tabs and links still move around the organization.
+ */
+export function MemberPreviewFrame({ children }: { children: React.ReactNode }) {
+    const blocked = (target: EventTarget | null) => {
+        const el = target instanceof Element ? target.closest('button, input, textarea, select, [role="button"], [contenteditable="true"]') : null
+        return Boolean(el && el.getAttribute('role') !== 'tab')
+    }
+    const stop = (e: React.SyntheticEvent) => { if (blocked(e.target)) { e.preventDefault(); e.stopPropagation() } }
+    return (
+        <div data-member-preview className="contents [&_:is(button,input,textarea,select):not([role=tab])]:opacity-60"
+            onClickCapture={stop} onSubmitCapture={(e) => { e.preventDefault(); e.stopPropagation() }} onBeforeInputCapture={stop} onPointerDownCapture={stop}>
+            {children}
+        </div>
+    )
+}

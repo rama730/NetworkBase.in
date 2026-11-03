@@ -40,6 +40,7 @@ import { consumeRateLimit } from "@/lib/security/rate-limit";
 import { getViewerProfileContext } from "@/lib/server/viewer-context";
 import { logger } from "@/lib/logger";
 import { notifyOrg, orgHref, orgLabel } from "@/lib/organizations/notify";
+import { memberPreviewOrgId } from "@/lib/organizations/member-preview";
 import {
   TASK_COMMENT_MAX_MENTIONS,
   taskCommentContentSchema,
@@ -97,10 +98,20 @@ function normalizeTaskDiscussionEntry(params: {
 
 // PURE OPTIMIZATION (Item 9): Single flat join verifies task access, project existence, and user role.
 /** An admin or the owner of the organization an assignment copy belongs to (problem 36). */
-const orgReviewerSql = (userId: string) => sql<boolean>`EXISTS (
+const orgReviewerSql = (userId: string, previewOrgId: string | null) => sql<boolean>`EXISTS (
   SELECT 1 FROM tasks nb_m JOIN workspaces nb_o ON nb_o.id = nb_m.workspace_id
-  WHERE nb_m.id = ${tasks.assignmentId} AND (nb_o.owner_id = ${userId}::uuid
+  WHERE nb_m.id = ${tasks.assignmentId} AND nb_o.id IS DISTINCT FROM ${previewOrgId}::uuid AND (nb_o.owner_id = ${userId}::uuid
     OR EXISTS (SELECT 1 FROM workspace_members nb_om WHERE nb_om.workspace_id = nb_o.id AND nb_om.user_id = ${userId}::uuid AND nb_om.role = 'admin')))`;
+
+/**
+ * Preview as member (report §45.6): in the previewed organization an admin reads as a member, so someone else's copy
+ * and an unpublished assignment are hidden from them there.
+ */
+const previewFenceSql = (userId: string, previewOrgId: string | null) => previewOrgId ? sql<boolean>`NOT (
+  (${tasks.assignmentId} IS NOT NULL AND EXISTS (SELECT 1 FROM tasks pv_m WHERE pv_m.id = ${tasks.assignmentId} AND pv_m.workspace_id = ${previewOrgId}::uuid)
+    AND ${tasks.assigneeId} IS DISTINCT FROM ${userId}::uuid
+    AND NOT EXISTS (SELECT 1 FROM task_team_members pv_t WHERE pv_t.task_id = ${tasks.id} AND pv_t.user_id = ${userId}::uuid))
+  OR (${tasks.kind} = 'assignment' AND ${tasks.assignmentId} IS NULL AND ${tasks.projectId} = ${previewOrgId}::uuid AND ${tasks.assignmentSettings}->>'publishedAt' IS NULL))` : sql<boolean>`TRUE`;
 
 async function assertTaskAccess(params: {
   taskId: string;
@@ -108,6 +119,7 @@ async function assertTaskAccess(params: {
   userId: string;
   mode: "read" | "write";
 }) {
+  const previewOrgId = await memberPreviewOrgId();
   const rows = await db
     .select({
       id: tasks.id,
@@ -118,8 +130,8 @@ async function assertTaskAccess(params: {
       deletedAt: workspaces.deletedAt,
       role: workspaceMembers.role,
       // Decision 37: comments follow the task's own visibility, so a private copy's conversation stays private.
-      visible: orgTaskVisibleToSql(sql`${tasks.id}`, params.userId),
-      orgReviewer: orgReviewerSql(params.userId),
+      visible: sql<boolean>`(${orgTaskVisibleToSql(sql`${tasks.id}`, params.userId)} AND ${previewFenceSql(params.userId, previewOrgId)})`,
+      orgReviewer: orgReviewerSql(params.userId, previewOrgId),
     })
     .from(tasks)
     .innerJoin(workspaces, eq(tasks.projectId, workspaces.id))
@@ -171,6 +183,7 @@ async function assertCommentAccess(params: {
   userId: string;
   mode: "read" | "write";
 }) {
+  const previewOrgId = await memberPreviewOrgId();
   const rows = await db
     .select({
       id: taskComments.id,
@@ -182,8 +195,8 @@ async function assertCommentAccess(params: {
       ownerId: workspaces.ownerId,
       projectDeletedAt: workspaces.deletedAt,
       role: workspaceMembers.role,
-      visible: orgTaskVisibleToSql(sql`${tasks.id}`, params.userId),
-      orgReviewer: orgReviewerSql(params.userId),
+      visible: sql<boolean>`(${orgTaskVisibleToSql(sql`${tasks.id}`, params.userId)} AND ${previewFenceSql(params.userId, previewOrgId)})`,
+      orgReviewer: orgReviewerSql(params.userId, previewOrgId),
     })
     .from(taskComments)
     .innerJoin(tasks, eq(taskComments.taskId, tasks.id))

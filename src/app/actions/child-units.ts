@@ -5,7 +5,7 @@ import { and, asc, count, eq, isNull, ne, sql } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { profiles, workspaceMembers, workspaceOpenRoles, workspaces } from '@/lib/db/schema';
 import { getWorkspaceAccessById } from '@/lib/data/workspace-access';
-import { notifyOrg } from '@/lib/organizations/notify';
+import { notifyOrg, notifyTeamsWithoutLead } from '@/lib/organizations/notify';
 import { insertTask } from '@/lib/organizations/assignments';
 import { enqueueWorkspaceNotificationEvent } from '@/lib/notifications/workspace-events';
 import { taskTeamMembers } from '@/lib/db/schema';
@@ -154,6 +154,7 @@ export async function moveMemberToUnitAction(projectId: string, userId: string, 
     const m = await manager(projectId);
     if (!m) return DENIED;
     let names: { from: string | null; to: string | null } = { from: null, to: null };
+    let leftLeadless = false
     try {
         await db.transaction(async (tx) => {
             const [member] = await tx.select({ unitId: workspaceMembers.unitId }).from(workspaceMembers)
@@ -168,6 +169,8 @@ export async function moveMemberToUnitAction(projectId: string, userId: string, 
                 await tx.update(workspaceOpenRoles).set({ filled: sql`${workspaceOpenRoles.filled} + 1`, updatedAt: new Date() }).where(eq(workspaceOpenRoles.id, unitId));
             }
             if (member.unitId) {
+                const [old] = await tx.select({ leadUserId: workspaceOpenRoles.leadUserId }).from(workspaceOpenRoles).where(eq(workspaceOpenRoles.id, member.unitId)).limit(1);
+                leftLeadless = old?.leadUserId === userId;
                 await tx.update(workspaceOpenRoles).set({
                     filled: sql`GREATEST(0, ${workspaceOpenRoles.filled} - 1)`,
                     leadUserId: sql`CASE WHEN ${workspaceOpenRoles.leadUserId} = ${userId}::uuid THEN NULL ELSE ${workspaceOpenRoles.leadUserId} END`,
@@ -185,6 +188,7 @@ export async function moveMemberToUnitAction(projectId: string, userId: string, 
     } catch (error) {
         return { success: false, error: error instanceof Error ? error.message : 'Couldn’t move them.' };
     }
+    if (leftLeadless && names.from) await notifyTeamsWithoutLead(projectId, m.userId, [names.from]).catch(() => undefined)
     if (moveTasks && names.from) {
         const leaving = (await openTeamTasks(projectId, userId, names.from)).map((r) => r.id);
         if (leaving.length) await db.execute(sql`DELETE FROM task_team_members WHERE user_id = ${userId} AND task_id IN ${leaving}`);

@@ -2,6 +2,7 @@ import { and, desc, eq, inArray, isNull, ne, sql } from "drizzle-orm";
 
 import { ForbiddenError, NotFoundError } from "@/lib/errors/domain";
 import { db } from "@/lib/db";
+import { logger } from "@/lib/logger";
 import {
     applicationEvents,
     chatChannelMembers,
@@ -584,7 +585,7 @@ export async function removeWorkspaceMemberInternal(
         /** How it ended, recorded on their profile entry (report §10.1). */
         ending?: MembershipEnding;
     },
-): Promise<WorkspaceCollaboratorLifecycleResult & { assignmentNotifications: EnqueueWorkspaceNotificationEventInput[] }> {
+): Promise<WorkspaceCollaboratorLifecycleResult & { assignmentNotifications: EnqueueWorkspaceNotificationEventInput[]; teamsWithoutLead?: string[] }> {
     const project = await readProjectForUpdate(executor, params.projectId);
     if (!project) throw new NotFoundError("Workspace not found");
     const actorRole = await readMembershipRole(executor, params.projectId, params.actorId, project.ownerId, true);
@@ -639,6 +640,16 @@ export async function removeWorkspaceMemberInternal(
     await executor
         .delete(workspaceMembers)
         .where(and(eq(workspaceMembers.projectId, params.projectId), eq(workspaceMembers.userId, params.targetUserId)));
+    // A team lead who leaves leaves the team without one, and the workspace's lead is told (report §30.4).
+    // ponytail: sent beside the caller's transaction, not after it; a rolled-back removal could leave a stray notice.
+    const teamsWithoutLead = (await executor.update(workspaceOpenRoles)
+        .set({ leadUserId: null, updatedAt: new Date() })
+        .where(and(eq(workspaceOpenRoles.projectId, params.projectId), eq(workspaceOpenRoles.leadUserId, params.targetUserId)))
+        .returning({ title: workspaceOpenRoles.title, role: workspaceOpenRoles.role })).map((t) => t.title || t.role);
+    if (teamsWithoutLead.length) {
+        void import("@/lib/organizations/notify").then(({ notifyTeamsWithoutLead }) => notifyTeamsWithoutLead(params.projectId, params.actorId, teamsWithoutLead))
+            .catch((error) => logger.warn("workspace_members.no_lead_notice_failed", { projectId: params.projectId, error: error instanceof Error ? error.message : String(error) }));
+    }
 
     const [capacityApplication] = await executor
         .select({ roleId: roleApplications.roleId })
@@ -685,5 +696,5 @@ export async function removeWorkspaceMemberInternal(
     });
     await markProfileCollaborationSummaryStale(project.ownerId, executor);
 
-    return { eventId: event?.id ?? null, changed: true, project, target, previousRole, nextRole: null, assignmentNotifications };
+    return { eventId: event?.id ?? null, changed: true, project, target, previousRole, nextRole: null, assignmentNotifications, teamsWithoutLead };
 }

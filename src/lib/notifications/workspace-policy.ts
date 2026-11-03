@@ -108,6 +108,7 @@ export type OrgNotificationEventKey =
     | "assignments.due_soon"
     | "assignments.reminded"
     | "assignments.question_asked"
+    | "org.reports"
     | "assignments.answer_shared"
     | "org.team_changed"
     | "org.member_deleted"
@@ -958,6 +959,8 @@ export const WORKSPACE_NOTIFICATION_EVENT_REGISTRY = {
     "assignments.reminded": orgEvent("assignments.reminded", "org_assignments", "Reminders", "A member hears when an admin reminds them about open work.", "important"),
     // Report §23.5: a new class question reaches admins, combined; an answer an admin shares reaches everyone on it.
     "assignments.question_asked": orgEvent("assignments.question_asked", "org_assignments", "Class questions", "Admins hear new questions about an assignment, combined.", "more", { aggregate: "burst_10m", recipients: ["owner", "co_leaders"] }),
+    // Report §30.4: a new report on organization content, combined: "2 reports to review". Never urgent ones or ones about that admin.
+    "org.reports": orgEvent("org.reports", "org_membership", "Reports to review", "Admins hear about new reports on the organization’s content, combined.", "more", { aggregate: "burst_10m", recipients: ["owner", "co_leaders"] }),
     "assignments.answer_shared": orgEvent("assignments.answer_shared", "org_assignments", "Shared answers", "Everyone on an assignment hears an answer an admin shares with them.", "important"),
     "org.team_changed": orgEvent("org.team_changed", "org_membership", "Team or group moves", "A member hears they were moved to another team or group.", "important"),
     "org.member_deleted": orgEvent("org.member_deleted", "org_membership", "Deleted accounts", "Admins hear when a member’s account is deleted, with how many submissions went.", "important", { recipients: ["owner", "co_leaders"] }),

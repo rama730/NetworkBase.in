@@ -17,6 +17,7 @@ import { caseLabel, parseCaseLabel, REPORT_REASONS, type ReportTargetKind } from
 import { moderatedInChannel, moderatedInWorkspace, type ModeratedItem } from '@/lib/trust/placeholders';
 import { readStanding } from '@/lib/trust/standing';
 import { resolveReportTarget } from '@/lib/trust/targets';
+import { notifyOrgReport } from '@/lib/organizations/notify';
 
 // Reporting (docs/trust-and-safety-concept.md §5, C17): anyone signed in reports what they can see. Staff work in
 // actions/moderation-staff.ts.
@@ -48,6 +49,7 @@ export async function reportAction(input: z.input<typeof reportSchema>): Promise
     const result = await fileReport(userId, { kind: data.kind, targetId: data.targetId, seq: data.seq ?? null, reason: data.reason, details: data.details, alsoBlock: data.alsoBlock, joinCode: data.joinCode });
     if (!result.ok) return { success: false, error: result.error, caseNumber: result.caseNumber };
     logger.info('trust.report.created', { module: 'trust', kind: data.kind, severity: result.severity });
+    await notifyOrgReport(result.caseNumber).catch((error) => logger.warn('trust.report.org_notice_failed', { module: 'trust', error: error instanceof Error ? error.message : String(error) }));
 
     // "Also block" (T3): only people and their messages, and never yourself.
     let blocked = false;

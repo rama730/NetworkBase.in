@@ -153,7 +153,7 @@ test("units after creation: rename, seats, lead, move; @unit reaches the unit; l
   assert.ok((await units.moveMemberToUnitAction(id, o.a, testing!.id)).success);
   assert.ok((await units.updateUnitAction(id, testing!.id, { leadUserId: o.a })).success);
   assert.ok((await titles(o.a)).some((t) => t === "You’re team lead of Testing"));
-  const after = await sql`SELECT role, filled, team_lead_user_id AS lead_user_id FROM workspace_open_roles WHERE workspace_id = ${id} ORDER BY created_at`;
+  const after = await sql`SELECT role, filled, team_lead_user_id AS lead_user_id FROM workspace_open_roles WHERE workspace_id = ${id} ORDER BY role`; // made together, so by name
   assert.deepEqual(after.map((r) => [r.role, r.filled]), [["Frontend", 0], ["Testing", 2]]);
 
   // @Testing reaches both people in it.

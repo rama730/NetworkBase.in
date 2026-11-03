@@ -145,3 +145,18 @@ test("23.5: a new class question tells the admins; Tell everyone tells everyone 
   const told = (await sql`SELECT user_id FROM user_notifications WHERE title = ${`New answer on Lab ${o.tag}`}`).map((r) => r.user_id).sort();
   assert.deepEqual(told, [o.a, o.b].sort());
 });
+
+test("30.4: a team lead who moves away leaves the team without one, and the workspace lead hears it", async () => {
+  const o = await org();
+  const lead = await sql.begin((tx) => createUser(tx));
+  const child = await sql.begin((tx) => createProject(tx, lead, { visibility: "org" }));
+  await sql`UPDATE workspaces SET parent_id = ${o.id}, title = 'Team Falcon' WHERE id = ${child}`;
+  const [front] = await sql`INSERT INTO workspace_open_roles (workspace_id, role, title, count, filled, team_lead_user_id) VALUES (${child}, 'Frontend', 'Frontend', 3, 1, ${o.a}) RETURNING id`;
+  const [back] = await sql`INSERT INTO workspace_open_roles (workspace_id, role, title, count, filled) VALUES (${child}, 'Backend', 'Backend', 3, 0) RETURNING id`;
+  await sql`INSERT INTO workspace_members (workspace_id, user_id, role, unit_id) VALUES (${child}, ${lead}, 'owner', NULL), (${child}, ${o.a}, 'member', ${front!.id})`;
+  viewerId = o.admin;
+  const moved = await units.moveMemberToUnitAction(child, o.a, back!.id, false);
+  assert.equal(moved.success, true, JSON.stringify(moved));
+  assert.equal((await sql`SELECT team_lead_user_id FROM workspace_open_roles WHERE id = ${front!.id}`)[0]!.team_lead_user_id, null);
+  assert.ok((await sql`SELECT 1 FROM user_notifications WHERE user_id = ${lead} AND title = 'Frontend has no team lead'`).length);
+});

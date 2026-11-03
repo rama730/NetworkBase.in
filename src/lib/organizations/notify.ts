@@ -229,3 +229,36 @@ export async function muteOrgEmails(userId: string, orgId: string) {
   }).where(eq(profiles.id, userId)).returning({ id: profiles.id });
   return rows.length > 0;
 }
+
+/** "Frontend has no team lead" (report §30.4) to the workspace's lead, after a team's lead left it or moved team. */
+export async function notifyTeamsWithoutLead(projectId: string, actorId: string, teams: string[]) {
+  if (teams.length === 0) return;
+  const [project] = await db.select({ ownerId: workspaces.ownerId, parentId: workspaces.parentId, slug: workspaces.slug }).from(workspaces).where(eq(workspaces.id, projectId)).limit(1);
+  if (!project?.parentId || project.ownerId === actorId) return;
+  for (const team of teams) {
+    await notifyOrg({ orgId: project.parentId, eventKey: "org.team_changed", actorId, to: [project.ownerId], title: `${team} has no team lead`,
+      href: `/workspaces/${encodeURIComponent(project.slug ?? projectId)}?tab=settings`, sourceEventId: `no-lead:${projectId}:${team}:${Date.now()}`, refs: { projectId } });
+  }
+}
+
+/**
+ * A new report routed to an organization (report §30.4, §30.6): each admin hears how many reports wait for them, combined
+ * in the tray, counted by their own Moderation list, so urgent cases and cases about them never count.
+ */
+export async function notifyOrgReport(caseNumber: number) {
+  const [row] = await db.execute<{ org_id: string | null; routed_to: string | null; severity: string | null }>(sql`
+    SELECT org_id, routed_to, severity FROM moderation_cases WHERE number = ${caseNumber}`);
+  if (!row?.org_id || row.routed_to !== "org" || row.severity === "urgent") return;
+  const org = await orgLabel(row.org_id);
+  if (!org) return;
+  const { readOrgCases } = await import("@/lib/trust/console");
+  const [owner] = await db.select({ ownerId: workspaces.ownerId }).from(workspaces).where(eq(workspaces.id, row.org_id)).limit(1);
+  const admins = await db.select({ userId: workspaceMembers.userId }).from(workspaceMembers)
+    .where(and(eq(workspaceMembers.projectId, row.org_id), eq(workspaceMembers.role, "admin")));
+  for (const adminId of new Set([owner?.ownerId, ...admins.map((a) => a.userId)].filter((id): id is string => Boolean(id)))) {
+    const waiting = (await readOrgCases(row.org_id, adminId)).length;
+    if (waiting === 0) continue;
+    await notifyOrg({ orgId: row.org_id, eventKey: "org.reports", to: [adminId], title: `${waiting} ${waiting === 1 ? "report" : "reports"} to review`,
+      href: orgHref(org, "?tab=settings&section=org-moderation"), sourceEventId: `report:${caseNumber}:${adminId}` });
+  }
+}
