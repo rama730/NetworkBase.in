@@ -71,4 +71,16 @@ Locked fields, the named zone and "Reviewed by Teacher or TA" showed as built. T
 | 28 | The handed-in copy's header chip read "COMPLETED". | The panel didn't pass the review state to the badge. | It reads "In review". |
 | 29 | "Choose file" stayed while the hand-in waited for review, though its files are locked (decision 173). | — | Hidden while waiting or approved; back when returned. |
 
-Approve, Return and Resubmit wait on 27 reaching production.
+After a666ab334 went live, the whole loop ran on production: the teacher's queue showed `lab1-rama.zip`; Return with a reason
+reached the student ("Returned: … Fix by …", Choose file back); the student handed in version 2 (chip In review, Choose file
+hidden); the teacher approved; the student sees "Approved · It's locked now" and the card sits in Completed.
+
+Small things the loop showed, not fixed yet:
+
+| # | Problem | Fix |
+|---|---|---|
+| 30 | The Return reason box ("What should they change?") has no accessible name. | Label it. |
+| 31 | Once the queue empties it reads "· 0 of 1 loaded". | Drop the line when nothing is waiting. |
+| 32 | Approve and Return from the queue say nothing. | "Approved Rama's Lab 1" / "Returned to Rama". |
+| 33 | The default Fix by is exactly three days from the click (Sat 2:43 AM). | Default to the due date, or 11:59 PM three days on. |
+| 34 | A resubmission keeps the first version's file next to the new one (v2 held both zips). | Offer to replace the old file when adding one to returned work. |
