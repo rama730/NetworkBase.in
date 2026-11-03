@@ -35,7 +35,7 @@ The owner designed organizations end to end in one report before building anythi
 - Launch is 18 and over (163). No grades, attendance, peer review, LMS import, plagiarism checks, AI writing, billing or parent accounts (45.11).
 - Tests run on the disposable database: `npm run db:disposable`, then `env -u DATABASE_URL DATABASE_URL_FRESH=postgresql://postgres@localhost:54332/nb_test npm run test:db`.
 
-> **Live check 2026-11-03:** 23 problems found on networkbase.in reopen ticked items (the Tasks tab most of all); see `2026-11-03-org-live-check.md`.
+> **Live check 2026-11-03:** 51 problems found on networkbase.in reopen ticked items (the Tasks tab most of all); see `2026-11-03-org-live-check.md`.
 >
 > **Status 2026-11-03:** every build item is ticked; what each one shipped as, and what was skipped, is in `2026-11-03-org-build-record.md`. Unticked: the per-step workflow (done once for the phase, not per step), Step 0's pre-code baseline, the owner notices that go out with each deploy, and the owner's items (the 44.4 count, legal review, plans, signed-in checks, the pilot).
 
