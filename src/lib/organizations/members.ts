@@ -22,7 +22,7 @@ export const INVITE_DAYS = 14;
  * Shared by Members → Invite and by creation (co-admins and a pasted roster). The caller checks who may invite.
  */
 export async function createOrgEmailInvites(orgId: string, actorId: string, input: {
-  emails: string[]; role: "member" | "admin" | "viewer"; title: string | null; childProjectId: string | null; unitId: string | null;
+  emails: string[]; role: "member" | "admin" | "viewer"; title: string | null; childProjectId: string | null; unitId: string | null; message?: string | null;
 }) {
   const valid = [...new Set(input.emails.map((e) => e.trim().toLowerCase()).filter(Boolean))];
   if (valid.length === 0) return { invited: 0, existing: 0 };
@@ -33,24 +33,26 @@ export async function createOrgEmailInvites(orgId: string, actorId: string, inpu
   const invites: Array<{ id: string; email: string }> = [];
   // ponytail: one upsert per address (500 at most per paste); batch it if pastes ever grow past that.
   for (const email of toInvite) {
-    const [row] = await db.insert(orgEmailInvites).values({ orgId, email, role: input.role, title: input.title, childProjectId: input.childProjectId, unitId: input.unitId, invitedBy: actorId, expiresAt })
-      .onConflictDoUpdate({ target: [orgEmailInvites.orgId, orgEmailInvites.email], targetWhere: sql`${orgEmailInvites.acceptedAt} IS NULL`, set: { role: input.role, title: input.title, childProjectId: input.childProjectId, unitId: input.unitId, invitedBy: actorId, expiresAt } })
+    const message = input.message ?? null;
+    const [row] = await db.insert(orgEmailInvites).values({ orgId, email, role: input.role, title: input.title, childProjectId: input.childProjectId, unitId: input.unitId, invitedBy: actorId, expiresAt, message })
+      .onConflictDoUpdate({ target: [orgEmailInvites.orgId, orgEmailInvites.email], targetWhere: sql`${orgEmailInvites.acceptedAt} IS NULL`, set: { role: input.role, title: input.title, childProjectId: input.childProjectId, unitId: input.unitId, invitedBy: actorId, expiresAt, message } })
       .returning({ id: orgEmailInvites.id });
     if (row) invites.push({ id: row.id, email });
   }
   const accounts = toInvite.length === 0 ? [] : await db.select({ id: profiles.id, email: profiles.email }).from(profiles).where(inArray(profiles.email, toInvite));
-  await notifyInvites(orgId, actorId, invites, accounts, { role: input.role, title: input.title, expiresAt });
+  await notifyInvites(orgId, actorId, invites, accounts, { role: input.role, title: input.title, expiresAt, message: input.message ?? null });
   return { invited: toInvite.length, existing: accounts.length };
 }
 
 /** E2 for people with an account (plus the tray), E3 for addresses without one (report §26.3 A). */
 export async function notifyInvites(orgId: string, actorId: string, invites: Array<{ id: string; email: string }>, accounts: Array<{ id: string; email: string }>,
-  details: { role: string; title: string | null; expiresAt: Date }, eventSuffix = "") {
+  details: { role: string; title: string | null; expiresAt: Date; message?: string | null }, eventSuffix = "") {
   const org = await orgLabel(orgId);
   if (!org || invites.length === 0) return;
   const byEmail = new Map(accounts.map((a) => [a.email.toLowerCase(), a.id]));
   const inviter = (await namesOf([actorId])).get(actorId) ?? "Someone";
-  const data = { role: org.roleNames[details.role as keyof typeof org.roleNames] ?? ROLE_LABEL[details.role] ?? details.role, memberTitle: details.title, expiresAt: details.expiresAt.toISOString() };
+  // The sender's message shows as the email's quote (report §7.11).
+  const data = { role: org.roleNames[details.role as keyof typeof org.roleNames] ?? ROLE_LABEL[details.role] ?? details.role, memberTitle: details.title, expiresAt: details.expiresAt.toISOString(), note: details.message || null };
   for (const invite of invites) {
     const userId = byEmail.get(invite.email.toLowerCase());
     if (!userId) continue;

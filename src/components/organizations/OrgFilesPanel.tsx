@@ -21,6 +21,7 @@ import {
     type SubmissionGroup,
 } from '@/app/actions/org-files'
 import { uploadWorkspaceFile } from '@/components/organizations/OrgDocParts'
+import { getWorkspaceNodes } from '@/app/actions/files/nodes'
 import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -275,6 +276,51 @@ function OrgFilePeek({ orgId, orgTitle, file, href, onClose }: { orgId: string; 
     )
 }
 
+/** Where a copy from the organization goes: this workspace's folders, one level at a time. */
+function CopyToFolderDialog({ projectId, name, onClose, onPick }: { projectId: string; name: string; onClose: () => void; onPick: (parentId: string | null) => void }) {
+    const [trail, setTrail] = useState<Array<{ id: string; name: string }>>([])
+    const [folders, setFolders] = useState<Array<{ id: string; name: string }> | null>(null)
+    const parentId = trail.at(-1)?.id ?? null
+    useEffect(() => {
+        setFolders(null)
+        void getWorkspaceNodes(projectId, parentId, undefined, 100, undefined, { itemType: 'folder' })
+            .then((r) => setFolders(r.nodes.filter((n) => n.type === 'folder').map((n) => ({ id: n.id, name: n.name }))), () => setFolders([]))
+    }, [parentId, projectId])
+    return (
+        <Dialog open onOpenChange={(open) => { if (!open) onClose() }}>
+            <DialogContent className="max-w-md">
+                <DialogHeader>
+                    <DialogTitle>Copy {name}</DialogTitle>
+                    <DialogDescription>Pick the folder in this workspace.</DialogDescription>
+                </DialogHeader>
+                <nav aria-label="Folders" className="flex flex-wrap items-center gap-1 text-[12px] text-muted-foreground">
+                    <button type="button" onClick={() => setTrail([])} className="hover:text-foreground">Top folder</button>
+                    {trail.map((step, index) => (
+                        <span key={step.id} className="flex items-center gap-1"><ChevronRight className="size-3" aria-hidden="true" />
+                            <button type="button" onClick={() => setTrail(trail.slice(0, index + 1))} className="hover:text-foreground">{step.name}</button>
+                        </span>
+                    ))}
+                </nav>
+                {folders === null ? <div className="nb-skeleton h-16 rounded-md" aria-label="Loading folders" /> : folders.length === 0 ? <p className="text-sm text-muted-foreground">No folders inside.</p> : (
+                    <ul className="max-h-64 divide-y divide-border overflow-y-auto text-sm">
+                        {folders.map((f) => (
+                            <li key={f.id}>
+                                <button type="button" className="flex w-full items-center gap-2 py-1.5 text-left hover:underline" onClick={() => setTrail([...trail, f])}>
+                                    <Folder className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />{f.name}
+                                </button>
+                            </li>
+                        ))}
+                    </ul>
+                )}
+                <div className="flex justify-end gap-2">
+                    <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+                    <Button type="button" onClick={() => onPick(parentId)}>Copy to {trail.at(-1)?.name ?? 'top folder'}</Button>
+                </div>
+            </DialogContent>
+        </Dialog>
+    )
+}
+
 /** From CSE 3B (report §17.5, §18.6): the organization's tree, read only, with Copy and the Newer version chip. */
 function FromOrgFiles({ projectId, org }: { projectId: string; org: OrgFilesInfo }) {
     const [trail, setTrail] = useState<Array<{ id: string; name: string }>>([])
@@ -283,6 +329,7 @@ function FromOrgFiles({ projectId, org }: { projectId: string; org: OrgFilesInfo
     const [copying, setCopying] = useState<string | null>(null)
     const [peek, setPeek] = useState<OrgBrowseNode | null>(null)
     const [askUpdate, setAskUpdate] = useState<OrgCopyRow | null>(null)
+    const [copyTarget, setCopyTarget] = useState<OrgBrowseNode | null>(null)
     const folderId = trail.at(-1)?.id ?? null
     const loadCopies = useCallback(() => void listOrgCopiesAction(projectId).then((r) => setCopies(r.success ? r.copies : [])), [projectId])
     useEffect(() => { void browseOrgFilesAction(projectId, folderId).then((r) => setNodes(r.success ? r.nodes : [])) }, [folderId, projectId])
@@ -310,13 +357,13 @@ function FromOrgFiles({ projectId, org }: { projectId: string; org: OrgFilesInfo
             setCopying(null)
         }
     }
-    // ponytail: copies land in this workspace's top folder; a folder picker comes if teams ask for it.
-    const copy = async (file: OrgBrowseNode) => {
+    // The copy goes into the folder picked in CopyToFolderDialog (step 8 gap); null is the top folder.
+    const copy = async (file: OrgBrowseNode, parentId: string | null) => {
         setCopying(file.id)
         try {
             const response = await fetch(`/api/v1/workspaces/${org.orgId}/files/${file.id}/preview`)
             if (!response.ok) throw new Error('Couldn’t read the file')
-            const created = await uploadWorkspaceFile(projectId, null, file.name, await response.blob())
+            const created = await uploadWorkspaceFile(projectId, parentId, file.name, await response.blob())
             const recorded = await recordOrgCopyAction(projectId, created.id, file.id)
             if (!recorded.success) throw new Error(recorded.error)
             toast.success(`Copied from ${org.title} · v${file.currentVersion}`)
@@ -358,7 +405,7 @@ function FromOrgFiles({ projectId, org }: { projectId: string; org: OrgFilesInfo
                                     <button type="button" disabled={copying !== null} onClick={() => setAskUpdate(mine)} className="rounded-[3px] border border-border px-1.5 text-[11px] hover:bg-muted">Newer version · Update copy</button>
                                 ) : null}
                                 {n.type === 'file' && org.canCopy && !mine ? (
-                                    <Button type="button" size="sm" variant="outline" aria-label={`Copy ${n.name} to this workspace`} disabled={copying !== null} onClick={() => void copy(n)}>
+                                    <Button type="button" size="sm" variant="outline" aria-label={`Copy ${n.name} to this workspace`} disabled={copying !== null} onClick={() => setCopyTarget(n)}>
                                         {copying === n.id ? 'Copying…' : 'Copy to this workspace'}
                                     </Button>
                                 ) : null}
@@ -368,6 +415,7 @@ function FromOrgFiles({ projectId, org }: { projectId: string; org: OrgFilesInfo
                 </ul>
             )}
             {peek ? <OrgFilePeek orgId={org.orgId} orgTitle={org.title} file={peek} href={fileHref(org, peek.id)} onClose={() => setPeek(null)} /> : null}
+            {copyTarget ? <CopyToFolderDialog projectId={projectId} name={copyTarget.name} onClose={() => setCopyTarget(null)} onPick={(parentId) => { const file = copyTarget; setCopyTarget(null); void copy(file, parentId) }} /> : null}
             <ConfirmDialog
                 open={Boolean(askUpdate)}
                 onOpenChange={(open) => { if (!open) setAskUpdate(null) }}

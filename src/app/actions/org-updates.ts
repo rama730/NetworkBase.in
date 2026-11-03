@@ -8,7 +8,8 @@ import { workspaceMembers, workspaces, workspaceUpdates } from '@/lib/db/schema'
 import { getWorkspaceAccessById } from '@/lib/data/workspace-access';
 import { countAudience, readOrgUpdateContext, readPinnedOrgLine, readSharedPins, readUnseenPeople } from '@/lib/organizations/org-updates';
 import { readViewerOrgRole } from '@/lib/organizations/detail';
-import { notifyOrg, orgHref, orgLabel, remindedRecently } from '@/lib/organizations/notify';
+import { notifyAudienceWidened, notifyOrg, orgHref, orgLabel, remindedRecently } from '@/lib/organizations/notify';
+import { logger } from '@/lib/logger';
 import { orgGrant, type OrgAction } from '@/lib/organizations/permissions';
 import { audienceChange, type UpdateAudience } from '@/lib/organizations/update-rules';
 import { getViewerAuthContext } from '@/lib/server/viewer-context';
@@ -133,7 +134,7 @@ export async function hideSharedFromOrgAction(orgId: string, updateId: string): 
 export async function setOrgUpdateAudienceAction(orgId: string, updateId: string, next: { audience: UpdateAudience | null; visibility: 'members' | 'public' }, confirmedWider: boolean): Promise<{ success: true; change: string } | Failure> {
     const viewer = await orgPostManager(orgId, 'announce', 'write');
     if (!viewer || !UUID_RE.test(updateId)) return DENIED;
-    const [post] = await db.select({ audience: workspaceUpdates.audience, visibility: workspaceUpdates.visibility }).from(workspaceUpdates)
+    const [post] = await db.select({ audience: workspaceUpdates.audience, visibility: workspaceUpdates.visibility, content: workspaceUpdates.content, authorId: workspaceUpdates.authorId }).from(workspaceUpdates)
         .where(and(eq(workspaceUpdates.id, updateId), eq(workspaceUpdates.projectId, orgId), isNull(workspaceUpdates.deletedAt))).limit(1);
     if (!post) return { success: false, error: 'This post isn’t available.' };
     const roles = (next.audience?.roles ?? []).filter((r) => r === 'admin' || r === 'member' || r === 'viewer');
@@ -145,6 +146,11 @@ export async function setOrgUpdateAudienceAction(orgId: string, updateId: string
     const change = audienceChange({ audience: post.audience as UpdateAudience, visibility: post.visibility }, { audience, visibility });
     if ((change === 'wider' || change === 'mixed') && !confirmedWider) return { success: false, error: 'wider' };
     if (change !== 'same') await db.update(workspaceUpdates).set({ audience, visibility }).where(eq(workspaceUpdates.id, updateId));
+    // The people a wider audience adds are told once (report §37.3, step 7 gap).
+    if (change === 'wider' || change === 'mixed') {
+        await notifyAudienceWidened({ orgId, updateId, actorId: viewer.userId, authorId: post.authorId, content: post.content, before: post.audience as UpdateAudience, after: audience })
+            .catch((error) => logger.warn('org_updates.widened_notice_failed', { module: 'org-updates', updateId, error: error instanceof Error ? error.message : String(error) }));
+    }
     revalidatePath(orgHref(viewer.org));
     return { success: true, change };
 }

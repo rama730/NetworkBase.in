@@ -58,7 +58,8 @@
     "drizzle/0052_org_takeover_request.sql",
     "drizzle/0053_live_join_requests.sql",
     "drizzle/0054_assignment_submissions.sql",
-    "drizzle/0055_org_channels_and_followers.sql"
+    "drizzle/0055_org_channels_and_followers.sql",
+    "drizzle/0056_org_invite_message.sql"
   ],
   "legacyDatabaseTags": [],
   "allowedUtilitySqlFiles": [

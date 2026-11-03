@@ -8,7 +8,9 @@ import { useIdentityStepUp } from '@/hooks/useIdentityStepUp'
 import { archiveOrgAction, askToTakeOverAction, deleteOrgAction, duplicateOrgAction, inviteBackAction, readOrgLifecyclePreviewAction, readTakeoverAction, refuseTakeoverAction, restoreOrgAction, takeOverNowAction, unarchiveOrgAction } from '@/app/actions/org-lifecycle'
 import { DownloadLink } from '@/components/ui/download-link'
 import { typeProfile } from '@/lib/organizations/type-profile'
-import { readOrgMembersAction } from '@/app/actions/org-members'
+import { readOrgMembersAction, readProgressExportAction } from '@/app/actions/org-members'
+import { saveBlob, toCsvBlob } from '@/lib/download'
+import { toast } from '@/lib/feedback'
 import { SettingsCard } from '@/components/workspaces/settings/SettingsFormFields'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -127,12 +129,24 @@ function TransferRow({ orgId, admins, organization }: { orgId: string; admins: A
     )
 }
 
-/** Records before Archive or Delete (report §45.7): each assignment's Download all, one at a time to stay under 2 GB. */
+/**
+ * Records before Archive or Delete (report §45.7, decision 176): Export progress (the Members sheet: statuses and
+ * dates, never anyone's work), then each assignment's Download all, one at a time to stay under 2 GB.
+ */
 function Records({ orgId, preview }: { orgId: string; preview: Preview | null }) {
+    const [exporting, startExport] = useTransition()
     if (!preview?.assignments.length) return null
     return (
         <div className="mt-2 rounded-md border border-border p-3 text-sm">
             <p className="font-medium">Keep a record first</p>
+            <p className="mt-1 flex flex-wrap items-center justify-between gap-2">
+                <span className={help}>Everyone’s status and dates for every assignment, as a sheet.</span>
+                <Button type="button" size="sm" variant="outline" disabled={exporting} onClick={() => startExport(async () => {
+                    const r = await readProgressExportAction(orgId)
+                    if (!r.success) return void toast.error(r.error)
+                    saveBlob(toCsvBlob(r.rows), `progress-${new Date().toISOString().slice(0, 10)}.csv`)
+                })}>Export progress</Button>
+            </p>
             <p className={help}>Download everyone’s files for each assignment, one at a time.</p>
             <ul className="mt-2 space-y-1">
                 {preview.assignments.map((a) => <li key={a.id} className="flex items-center justify-between gap-2">{a.title}<Button asChild size="sm" variant="outline"><DownloadLink href={`/api/v1/workspaces/${orgId}/tasks/${a.id}/submissions`}>Download all</DownloadLink></Button></li>)}

@@ -341,6 +341,27 @@ const OLD_VERSIONS = (orgId: string) => sql`
         WHERE n.workspace_id = ${orgId} AND n.deleted_at IS NULL AND n.task_id IS NULL) v
     WHERE v.rn > 3 AND v.version <> v.current_version`;
 
+/** One file's storage type, for a node aliased `n`: the same groups the bar shows. */
+const FILE_KIND = sql`CASE WHEN n.task_id IS NOT NULL AND EXISTS (SELECT 1 FROM tasks t WHERE t.id = n.task_id AND t.assignment_id IS NOT NULL) THEN 'submissions'
+                     WHEN n.mime_type LIKE 'image/%' THEN 'images'
+                     WHEN n.mime_type LIKE 'video/%' THEN 'video'
+                     WHEN n.mime_type IN ('application/pdf', 'text/plain', 'text/markdown', 'application/rtf', 'application/msword')
+                       OR n.mime_type LIKE 'application/vnd.openxmlformats%' OR n.mime_type LIKE 'application/vnd.ms-%' OR n.mime_type LIKE 'application/vnd.oasis.opendocument%' THEN 'documents'
+                     WHEN n.mime_type LIKE 'text/%' OR n.mime_type IN ('application/json', 'application/javascript', 'application/xml', 'application/x-sh') THEN 'code'
+                     ELSE 'other' END`;
+
+const STORAGE_KINDS = ['documents', 'images', 'video', 'code', 'other'] as const;
+
+/** A By type row opened (step 9 gap): that type's 20 largest files, each opening in Files. Admins only. */
+export async function readOrgStorageFilesAction(orgId: string, kind: (typeof STORAGE_KINDS)[number]): Promise<{ success: true; files: Array<{ id: string; name: string; path: string; size: number }> } | Failure> {
+    if (!(STORAGE_KINDS as readonly string[]).includes(kind) || !(await orgAdmin(orgId, 'read', 'see_storage'))) return DENIED;
+    const files = await db.execute<{ id: string; name: string; path: string; size: number }>(sql`
+        SELECT n.id, n.name, n.path, coalesce(n.size, 0)::bigint AS size FROM workspace_nodes n
+        WHERE n.workspace_id = ${orgId} AND n.type = 'file' AND n.deleted_at IS NULL AND ${FILE_KIND} = ${kind}
+        ORDER BY n.size DESC NULLS LAST LIMIT 20`);
+    return { success: true, files: Array.from(files).map((f) => ({ ...f, size: Number(f.size) })) };
+}
+
 /**
  * Settings → Storage (report §7.12): the bar by type, recommendations that say what they free, and each workspace's
  * own use, read only (team storage stays separate, 19.2). Admins only.
@@ -350,14 +371,7 @@ export async function readOrgStorageBreakdownAction(orgId: string): Promise<{ su
     // ponytail: summed on open, one query per part. Upgrade: cache the type totals when organizations get large.
     const [types] = await db.execute<{ documents: number; images: number; video: number; code: number; submissions: number; other: number; trash: number; large: number }>(sql`
         WITH f AS (
-            SELECT n.size, n.deleted_at,
-                CASE WHEN n.task_id IS NOT NULL AND EXISTS (SELECT 1 FROM tasks t WHERE t.id = n.task_id AND t.assignment_id IS NOT NULL) THEN 'submissions'
-                     WHEN n.mime_type LIKE 'image/%' THEN 'images'
-                     WHEN n.mime_type LIKE 'video/%' THEN 'video'
-                     WHEN n.mime_type IN ('application/pdf', 'text/plain', 'text/markdown', 'application/rtf', 'application/msword')
-                       OR n.mime_type LIKE 'application/vnd.openxmlformats%' OR n.mime_type LIKE 'application/vnd.ms-%' OR n.mime_type LIKE 'application/vnd.oasis.opendocument%' THEN 'documents'
-                     WHEN n.mime_type LIKE 'text/%' OR n.mime_type IN ('application/json', 'application/javascript', 'application/xml', 'application/x-sh') THEN 'code'
-                     ELSE 'other' END AS kind
+            SELECT n.size, n.deleted_at, ${FILE_KIND} AS kind
             FROM workspace_nodes n WHERE n.workspace_id = ${orgId} AND n.type = 'file')
         SELECT ${sql.join((['documents', 'images', 'video', 'code', 'submissions', 'other'] as const).map((k) => sql`coalesce(sum(size) FILTER (WHERE deleted_at IS NULL AND kind = ${k}), 0)::bigint AS ${sql.raw(k)}`), sql`, `)},
                coalesce(sum(size) FILTER (WHERE deleted_at IS NOT NULL), 0)::bigint AS trash,

@@ -1090,6 +1090,8 @@ export const orgEmailInvites = pgTable(
     email: text("email").notNull(),
     role: text("role", { enum: ["admin", "member", "viewer"] }).default("member").notNull(),
     title: text("title"),
+    /** A short personal note from whoever sent it, shown in the email (report §7.11). */
+    message: text("message"),
     childProjectId: uuid("child_workspace_id").references(() => workspaces.id, { onDelete: "set null" }),
     unitId: uuid("unit_id").references(() => workspaceOpenRoles.id, { onDelete: "set null" }),
     invitedBy: uuid("invited_by").references(() => profiles.id, { onDelete: "set null" }),

@@ -111,7 +111,24 @@ export default function UpdatesTab({
   }, [focusComposer, onComposerFocused]);
   // Org feeds filter by kind (report §17.5); the plain key stays the prefix so invalidations still reach every filter.
   const [orgFilter, setOrgFilter] = useState<OrgFeedFilter>("all");
+  // A draft keeps its organization options too (step 7 gap): kept in this browser beside the composer's own draft.
+  const orgOptionsKey = `nb-org-post-options:${projectId}:${currentUserId ?? "anon"}`;
   const [orgOptions, setOrgOptions] = useState<OrgPostOptions>({});
+  const optionsLoaded = useRef(false);
+  useEffect(() => {
+    try {
+      const saved = window.localStorage.getItem(orgOptionsKey);
+      if (saved) setOrgOptions(JSON.parse(saved) as OrgPostOptions);
+    } catch { /* nothing saved, or storage off */ }
+    optionsLoaded.current = true;
+  }, [orgOptionsKey]);
+  useEffect(() => {
+    if (!optionsLoaded.current) return;
+    try {
+      if (Object.keys(orgOptions).length) window.localStorage.setItem(orgOptionsKey, JSON.stringify(orgOptions));
+      else window.localStorage.removeItem(orgOptionsKey);
+    } catch { /* storage off: options last only this visit */ }
+  }, [orgOptions, orgOptionsKey]);
   const baseQueryKey = queryKeys.project.detail.updates(projectId);
   const updatesQueryKey = useMemo(
     () => (orgFilter === "all" ? baseQueryKey : [...baseQueryKey, orgFilter]),

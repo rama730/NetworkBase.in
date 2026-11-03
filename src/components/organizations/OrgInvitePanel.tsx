@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Check, MoreHorizontal } from 'lucide-react'
-import { useMemo, useState, useTransition } from 'react'
+import { useEffect, useMemo, useState, useTransition } from 'react'
 
 import { inviteByEmailAction, previewOrgInviteEmailAction, readOrgInvitePanelAction, type OrgInvitePanelData } from '@/app/actions/org-members'
 import { regenerateJoinCodeAction, updateOrgSettingsAction } from '@/app/actions/organizations'
@@ -93,15 +93,19 @@ function InviteEmailDialog({ orgId, data, open, onOpenChange, onSent }: { orgId:
     const [emails, setEmails] = useState('')
     const [role, setRole] = useState<'member' | 'admin' | 'viewer'>('member')
     const [title, setTitle] = useState('')
+    const [message, setMessage] = useState('')
     const [childId, setChildId] = useState('')
     const [unitId, setUnitId] = useState('')
     const [result, setResult] = useState<string | null>(null)
     const [pending, startTransition] = useTransition()
     const parsed = useMemo(() => parseInviteEmails(emails), [emails])
-    const preview = useQuery({ queryKey: ['org-invite-preview', orgId, role, title], queryFn: () => previewOrgInviteEmailAction(orgId, { role, title }), enabled: open, staleTime: 60_000 })
+    // The preview waits until typing pauses, so it isn't rebuilt on every key.
+    const [previewMessage, setPreviewMessage] = useState('')
+    useEffect(() => { const t = window.setTimeout(() => setPreviewMessage(message), 400); return () => window.clearTimeout(t) }, [message])
+    const preview = useQuery({ queryKey: ['org-invite-preview', orgId, role, title, previewMessage], queryFn: () => previewOrgInviteEmailAction(orgId, { role, title, message: previewMessage }), enabled: open, staleTime: 60_000 })
     const units = data.children.find((c) => c.id === childId)?.units ?? []
     const send = () => startTransition(async () => {
-        const r = await inviteByEmailAction(orgId, { emails, role, title: title || null, childProjectId: childId || null, unitId: unitId || null })
+        const r = await inviteByEmailAction(orgId, { emails, role, title: title || null, childProjectId: childId || null, unitId: unitId || null, message: message.trim() || null })
         if (!r.success) return void setResult(r.error)
         setResult([`${r.invited} sent`, r.existing ? `${r.existing} already had accounts and were told in the app` : null, r.invalid.length ? `${r.invalid.length} skipped: ${r.invalid.join(', ')}` : null].filter(Boolean).join(' · '))
         setEmails('')
@@ -134,6 +138,9 @@ function InviteEmailDialog({ orgId, data, open, onOpenChange, onSent }: { orgId:
                             </select>
                         ) : null}
                     </div>
+                    <label className="block space-y-1 text-sm"><span className="font-medium">Add a message (optional)</span>
+                        <textarea value={message} onChange={(e) => setMessage(e.target.value)} rows={2} maxLength={500} placeholder="Welcome to the class. We start on Monday." className="w-full rounded-md border border-border bg-background p-2 text-sm" />
+                    </label>
                     {preview.data?.success ? (
                         <div>
                             <p className="nb-micro mb-1 text-muted-foreground">Preview · {preview.data.subject}</p>

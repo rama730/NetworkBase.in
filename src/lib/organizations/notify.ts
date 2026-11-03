@@ -171,20 +171,39 @@ export async function orgEmailsSentToday(orgId: string) {
   return row?.n ?? 0;
 }
 
+/** Everyone an announcement's audience reaches in this organization (report §26.10 #5), author included. */
+export async function announcementPeople(orgId: string, audience: UpdateAudience | null, actorId: string) {
+  const [owner] = await db.select({ ownerId: workspaces.ownerId }).from(workspaces).where(eq(workspaces.id, orgId)).limit(1);
+  const members = await db.select({ userId: workspaceMembers.userId, role: workspaceMembers.role }).from(workspaceMembers).where(eq(workspaceMembers.projectId, orgId));
+  const childIds = audience?.projectIds ?? [];
+  const inChild = new Set(childIds.length ? (await db.select({ userId: workspaceMembers.userId }).from(workspaceMembers)
+    .innerJoin(workspaces, eq(workspaces.id, workspaceMembers.projectId))
+    .where(and(inArray(workspaceMembers.projectId, childIds), eq(workspaces.parentId, orgId)))).map((r) => r.userId) : []);
+  return [{ userId: owner?.ownerId ?? "", role: "owner" }, ...members].filter((m) => m.userId && audienceAllows(audience, {
+    isAdmin: m.role === "owner" || m.role === "admin", isAuthor: m.userId === actorId,
+    role: m.role as "owner" | "admin" | "member" | "viewer", childProjectIds: inChild.has(m.userId) ? childIds : [],
+  })).map((m) => m.userId);
+}
+
+/** A wider audience (report §37.3): the people it adds hear about the post once, in the tray; no email. */
+export async function notifyAudienceWidened(input: { orgId: string; updateId: string; actorId: string; authorId: string | null; content: string; before: UpdateAudience | null; after: UpdateAudience | null }) {
+  const org = await orgLabel(input.orgId);
+  if (!org) return;
+  const had = new Set(await announcementPeople(input.orgId, input.before, input.authorId ?? input.actorId));
+  const added = (await announcementPeople(input.orgId, input.after, input.authorId ?? input.actorId)).filter((id) => !had.has(id) && id !== input.actorId);
+  if (added.length === 0) return;
+  const author = (await namesOf([input.authorId ?? input.actorId])).get(input.authorId ?? input.actorId) ?? "Someone";
+  await notifyOrg({
+    orgId: input.orgId, eventKey: "announcements.posted", actorId: input.actorId, to: added, title: `${author}: ${input.content.replace(/\s+/g, " ").slice(0, 120)}`,
+    href: orgHref(org, `?tab=updates&updateId=${encodeURIComponent(input.updateId)}`), sourceEventId: `announcement:${input.updateId}:widened:${Date.now()}`, refs: { updateId: input.updateId },
+  });
+}
+
 /** Announcements reach their audience only (report §26.10 #5); `again` is "Edited with Notify again" (in-app, §17.9). */
 export async function notifyAnnouncement(input: { orgId: string; updateId: string; actorId: string; content: string; audience: UpdateAudience | null; email: boolean; again?: boolean }) {
   const org = await orgLabel(input.orgId);
   if (!org) return;
-  const [owner] = await db.select({ ownerId: workspaces.ownerId }).from(workspaces).where(eq(workspaces.id, input.orgId)).limit(1);
-  const members = await db.select({ userId: workspaceMembers.userId, role: workspaceMembers.role }).from(workspaceMembers).where(eq(workspaceMembers.projectId, input.orgId));
-  const childIds = input.audience?.projectIds ?? [];
-  const inChild = new Set(childIds.length ? (await db.select({ userId: workspaceMembers.userId }).from(workspaceMembers)
-    .innerJoin(workspaces, eq(workspaces.id, workspaceMembers.projectId))
-    .where(and(inArray(workspaceMembers.projectId, childIds), eq(workspaces.parentId, input.orgId)))).map((r) => r.userId) : []);
-  const people = [{ userId: owner?.ownerId ?? "", role: "owner" }, ...members].filter((m) => m.userId && audienceAllows(input.audience, {
-    isAdmin: m.role === "owner" || m.role === "admin", isAuthor: m.userId === input.actorId,
-    role: m.role as "owner" | "admin" | "member" | "viewer", childProjectIds: inChild.has(m.userId) ? childIds : [],
-  })).map((m) => m.userId);
+  const people = await announcementPeople(input.orgId, input.audience, input.actorId);
   let email = input.email && !input.again;
   // Smaller bug 21: counted by the organization's calendar day; this post is already in the count.
   if (email && await orgEmailsSentToday(input.orgId) > ANNOUNCEMENT_EMAILS_PER_DAY) {

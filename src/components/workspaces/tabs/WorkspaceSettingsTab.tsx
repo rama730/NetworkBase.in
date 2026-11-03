@@ -1,6 +1,7 @@
 "use client";
 
 import { ChildOrgSection, ChildVisibilityPicker } from "@/components/organizations/ChildOrgSection";
+import { TeamApplications } from '@/components/organizations/TeamApplications';
 import { ChildUnitsPanel } from "@/components/organizations/ChildUnitsPanel";
 import { OrgDangerZone, OrgOwnershipPanel } from "@/components/organizations/OrgDangerZone";
 import { OrgAccessSection, OrgAllowedSection, OrgChatSection, OrgHandleSection, OrgManagementSection, OrgNotificationsSection, OrgUpdatesSection, OrgVerificationSection, OrgMembershipSection, OrgPeopleSection, OrgProfileSection, OrgWorkspacesSection, OrgWorkSection } from "@/components/organizations/OrgSettingsSections";
@@ -1533,7 +1534,10 @@ function ProjectSettingsContent({
                         <div className="space-y-6">
                         {project?.parentOrg ? <ChildUnitsPanel projectId={projectId} /> : null}
                         {inheritedOnly ? (
+                            <>
+                            <TeamApplications projectId={projectId} />
                             <p className="nb-compact text-muted-foreground">Its workspace lead adds and removes members. To move someone to another workspace, use Members in the organization.</p>
+                            </>
                         ) : (
                         <SettingsCard
                             title="Members"

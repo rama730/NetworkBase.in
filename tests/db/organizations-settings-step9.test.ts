@@ -74,6 +74,15 @@ test("22.3, 22.4 Details: admins edit the tagline, description and tags; the nam
   await assert.rejects(lifecycle.updateWorkspace(o.id, { shortDescription: "x" }));
 });
 
+test("27.8, decision 55: Settings refuses an organization name of 1 or 2 characters; 3 is fine", async () => {
+  const o = await org();
+  viewerId = o.owner;
+  await assert.rejects(lifecycle.updateWorkspace(o.id, { title: "AB" }), /Use 3–100 characters for the name/);
+  await assert.rejects(lifecycle.updateWorkspace(o.id, { title: " X " }), /Use 3–100 characters for the name/);
+  await lifecycle.updateWorkspace(o.id, { title: "CSE" });
+  assert.equal((await sql`SELECT title FROM workspaces WHERE id = ${o.id}`)[0]!.title, "CSE");
+});
+
 test("22.4: the facts Settings shows beside its fields: members, admins, workspaces, outside people, channels, requests", async () => {
   const o = await org();
   const outsider = await sql.begin((tx) => createUser(tx));

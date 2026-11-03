@@ -274,3 +274,16 @@ export async function createTeamTasksAction(projectId: string, input: {
     }
     return { success: true, created: created.length };
 }
+
+export type TeamApplication = { id: string; name: string; username: string | null; team: string; message: string | null; createdAt: string };
+
+/** Open applications to a workspace's teams (step 11 gap): for its lead, its admins and the organization's admins. */
+export async function readTeamApplicationsAction(projectId: string): Promise<{ success: true; applications: TeamApplication[] } | Failure> {
+    if (!(await manager(projectId, 'decide_applications'))) return DENIED;
+    const rows = await db.execute<{ id: string; name: string | null; username: string | null; team: string | null; message: string | null; created_at: string }>(sql`
+        SELECT a.id, p.full_name AS name, p.username, coalesce(r.title, r.role) AS team, a.message, a.created_at::text
+        FROM role_applications a JOIN profiles p ON p.id = a.applicant_id LEFT JOIN workspace_open_roles r ON r.id = a.role_id
+        WHERE a.workspace_id = ${projectId} AND a.role_id IS NOT NULL AND a.status = 'pending' AND p.deleted_at IS NULL
+        ORDER BY a.created_at LIMIT 100`);
+    return { success: true, applications: Array.from(rows).map((r) => ({ id: r.id, name: r.name || r.username || 'Someone', username: r.username, team: r.team ?? 'a team', message: r.message, createdAt: r.created_at })) };
+}

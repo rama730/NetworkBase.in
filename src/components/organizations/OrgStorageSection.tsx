@@ -4,7 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 
-import { keepLatestVersionsAction, readLargeFilesAction, readOrgStorageBreakdownAction, type OrgStorageBreakdown } from '@/app/actions/org-files'
+import { keepLatestVersionsAction, readLargeFilesAction, readOrgStorageBreakdownAction, readOrgStorageFilesAction, type OrgStorageBreakdown } from '@/app/actions/org-files'
 import { bulkTrashNodes } from '@/app/actions/files/mutations'
 import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
@@ -84,8 +84,10 @@ export function OrgStorageSection({ orgId, orgTitle, handle, submissionsWord }: 
                             <div>
                                 <h3 className="nb-micro mb-1 text-muted-foreground">By type</h3>
                                 <ul className="text-sm">
-                                    {TYPES.filter((t) => s.byType[t.key] > 0).map((t) => (
-                                        <li key={t.key} className="flex justify-between py-1"><Link href={`${base}?tab=files`} className="hover:underline">{t.key === 'submissions' ? submissionsWord : t.label}</Link><span className="text-muted-foreground">{formatSize(s.byType[t.key])}</span></li>
+                                    {TYPES.filter((t) => s.byType[t.key] > 0).map((t) => t.key === 'submissions' ? (
+                                        <li key={t.key} className="flex justify-between py-1"><Link href={`${base}?tab=files&filesView=submissions`} className="hover:underline">{submissionsWord}</Link><span className="text-muted-foreground">{formatSize(s.byType[t.key])}</span></li>
+                                    ) : (
+                                        <TypeRow key={t.key} orgId={orgId} base={base} kind={t.key} label={t.label} bytes={s.byType[t.key]} />
                                     ))}
                                     {s.trashBytes > 0 ? <li className="flex justify-between py-1"><Link href={`${base}?tab=files&filesView=trash`} className="hover:underline">Trash</Link><span className="text-muted-foreground">{formatSize(s.trashBytes)}</span></li> : null}
                                 </ul>
@@ -157,5 +159,33 @@ function LargeFilesDialog({ orgId, base, open, onOpenChange, onChanged }: { orgI
                 )}
             </DialogContent>
         </Dialog>
+    )
+}
+
+/** A By type row (step 9 gap): opens that type's largest files, each linking to it in Files. */
+function TypeRow({ orgId, base, kind, label, bytes }: { orgId: string; base: string; kind: Exclude<keyof OrgStorageBreakdown['byType'], 'submissions'>; label: string; bytes: number }) {
+    const [open, setOpen] = useState(false)
+    const [files, setFiles] = useState<Array<{ id: string; name: string; path: string; size: number }> | null>(null)
+    const toggle = () => {
+        setOpen(!open)
+        if (!files) void readOrgStorageFilesAction(orgId, kind).then((r) => setFiles(r.success ? r.files : []))
+    }
+    return (
+        <li className="py-1">
+            <div className="flex justify-between">
+                <button type="button" aria-expanded={open} onClick={toggle} className="hover:underline">{label}</button>
+                <span className="text-muted-foreground">{formatSize(bytes)}</span>
+            </div>
+            {open ? files === null ? <div className="nb-skeleton mt-1 h-10 rounded" aria-label={`Loading ${label}`} /> : (
+                <ul className="mt-1 space-y-0.5 border-l border-border pl-3 text-[13px]">
+                    {files.map((f) => (
+                        <li key={f.id} className="flex justify-between gap-2">
+                            <Link href={`${base}?tab=files&path=${encodeURIComponent(f.path)}`} className="min-w-0 truncate hover:underline">{f.name}</Link>
+                            <span className="shrink-0 text-muted-foreground">{formatSize(f.size)}</span>
+                        </li>
+                    ))}
+                </ul>
+            ) : null}
+        </li>
     )
 }

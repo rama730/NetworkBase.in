@@ -1047,6 +1047,14 @@ export function FolderListView({
       {!selectionMode && !search && canEditCurrentFolder && (!collection || Boolean(workspace?.taskId)) && (
         <FilesHeaderSlot slot="actions">
           <div className="flex items-center gap-1.5 mr-1">
+            {/* Folder access from the folder's own header too, not only its menu (step 8 gap). */}
+            {folderId && orgAdminFolders && nodesById[folderId] ? (
+              <button type="button" onClick={() => setAccessFolder(nodesById[folderId]!)} title="Who can see this folder?"
+                className="nb-touch-target flex h-8 items-center gap-1.5 rounded-[5px] border border-border px-2.5 text-xs hover:bg-muted">
+                <Lock className="size-3.5" aria-hidden="true" />
+                <span className="hidden sm:inline">Who can see this?</span>
+              </button>
+            ) : null}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button

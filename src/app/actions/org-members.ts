@@ -329,6 +329,7 @@ const inviteSchema = z.object({
     title: z.string().trim().max(60).nullable().optional(),
     childProjectId: z.string().uuid().nullable().optional(),
     unitId: z.string().uuid().nullable().optional(),
+    message: z.string().trim().max(500, 'Keep the message to 500 characters.').nullable().optional(),
 }).strict();
 
 /**
@@ -356,7 +357,7 @@ export async function inviteByEmailAction(orgId: string, input: z.input<typeof i
             unitId = unit?.id ?? null;
         }
     } else unitId = null;
-    const sent = await createOrgEmailInvites(orgId, viewer.userId, { emails: valid, role: parsed.data.role, title: parsed.data.title || null, childProjectId: parsed.data.childProjectId ?? null, unitId });
+    const sent = await createOrgEmailInvites(orgId, viewer.userId, { emails: valid, role: parsed.data.role, title: parsed.data.title || null, childProjectId: parsed.data.childProjectId ?? null, unitId, message: parsed.data.message || null });
     touch(viewer.slug, orgId);
     return { success: true, invited: sent.invited, existing: sent.existing, invalid };
 }
@@ -828,7 +829,7 @@ export async function readOrgInvitePanelAction(orgId: string): Promise<{ success
 }
 
 /** The email an invite sends, rendered with the real template so the preview can't drift (report §7.11). */
-export async function previewOrgInviteEmailAction(orgId: string, input: { role: 'admin' | 'member' | 'viewer'; title?: string | null }): Promise<{ success: true; subject: string; html: string } | Failure> {
+export async function previewOrgInviteEmailAction(orgId: string, input: { role: 'admin' | 'member' | 'viewer'; title?: string | null; message?: string | null }): Promise<{ success: true; subject: string; html: string } | Failure> {
     const viewer = await orgManager(orgId, 'invite_members_guests', 'read');
     if (!viewer) return DENIED;
     const base = await orgEmailBase(orgId, viewer.userId);
@@ -836,6 +837,6 @@ export async function previewOrgInviteEmailAction(orgId: string, input: { role: 
     const [org] = await db.select({ orgType: workspaces.orgType, settings: workspaces.orgSettings }).from(workspaces).where(eq(workspaces.id, orgId)).limit(1);
     const names = orgRoleNames(org?.orgType, org?.settings);
     const role = input.role === 'admin' ? names.admin : input.role === 'viewer' ? names.viewer : names.member;
-    const email = buildOrgEmail('org_invite', { ...base, role, memberTitle: input.title?.trim().slice(0, 60) || null, expiresAt: new Date(Date.now() + INVITE_DAYS * 86_400_000).toISOString() } as Parameters<typeof buildOrgEmail>[1], { email: 'preview@networkbase.in' });
+    const email = buildOrgEmail('org_invite', { ...base, role, memberTitle: input.title?.trim().slice(0, 60) || null, note: input.message?.trim().slice(0, 500) || null, expiresAt: new Date(Date.now() + INVITE_DAYS * 86_400_000).toISOString() } as Parameters<typeof buildOrgEmail>[1], { email: 'preview@networkbase.in' });
     return { success: true, subject: email.subject, html: email.html };
 }

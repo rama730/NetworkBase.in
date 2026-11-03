@@ -17,6 +17,7 @@ import { revokeOrgVerificationAction } from '@/app/actions/org-profile'
 import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { formatDistanceToNow } from '@/lib/utils/date'
+import { messageUserInWindow } from '@/components/messages/message-user'
 
 // Members tab dialogs (report §36.2, §36.4, §36.5, §28.7): each says what will happen before it does.
 
@@ -151,7 +152,9 @@ export function FormerList({ orgId, q, pending, run }: { orgId: string; q: strin
                     </span>
                     {r.total ? <span className="text-[12px] text-muted-foreground">{r.done} of {r.total} done</span> : null}
                     {r.name !== 'Deleted user' ? (
-                        <span className="ml-auto flex gap-1.5">
+                        <span className="ml-auto flex items-center gap-1.5">
+                            {/* Former has Message too (step 11 gap); their own privacy settings still decide. */}
+                            {!r.blocked ? <Link href={`/messages?userId=${r.userId}`} onClick={(e) => messageUserInWindow(r.userId, e)} className="text-[13px] underline underline-offset-4">Message</Link> : null}
                             {r.blocked
                                 ? <Button type="button" size="sm" variant="outline" disabled={pending} onClick={() => act(() => unblockFromOrgAction(orgId, r.userId), `${r.name} can join again`)}>Unblock</Button>
                                 : <Button type="button" size="sm" variant="outline" disabled={pending} onClick={() => act(() => inviteFormerMemberAction(orgId, r.userId), `${r.name} was invited back`)}>Invite back</Button>}

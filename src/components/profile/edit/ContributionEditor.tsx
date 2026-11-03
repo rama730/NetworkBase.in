@@ -227,6 +227,8 @@ export function ContributionEditor({
   // Decision 104 (report §38.3): the server keeps these from the record, so the editor shows them locked.
   const recordLocked =
     !!active && active.source !== "manual" && (active.projectKind === "organization" || !!active.parentOrg);
+  const orgSlugOrId = active?.parentOrg ? (active.parentOrg.slug ?? active.parentOrg.id) : active?.projectKind === "organization" ? active.projectId : null;
+  const adminsHref = orgSlugOrId ? `/org/${encodeURIComponent(orgSlugOrId)}?tab=members` : null;
   const validationIssues =
     active && d && validationProject === active.id
       ? storyValidation(d, { publish: true, platform: !!active.projectId })
@@ -1356,9 +1358,13 @@ export function ContributionEditor({
             {/* Decision 104: organization entries, and workspaces inside one, take role and dates from the record. */}
             <h3 className="nb-section-title">Roles and dates</h3>
             <p className="nb-compact mt-1 mb-5 text-muted-foreground">
-              {recordLocked
-                ? "Role and dates come from the organization’s records. Ask an admin if they’re wrong."
-                : "Show how your contribution evolved over time."}
+              {recordLocked ? (
+                <>
+                  Role and dates come from the organization’s records.{" "}
+                  {/* Members → Admins lists who to ask (report §29.6); a former member sees the organization's own page. */}
+                  {adminsHref ? <a href={adminsHref} className="text-primary underline underline-offset-2">Ask an admin</a> : "Ask an admin"} if they’re wrong.
+                </>
+              ) : "Show how your contribution evolved over time."}
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-[140px_auto_140px_1fr] items-center gap-2.5 rounded-[6px] border border-border/70 bg-muted/20 p-2.5">
               <input
