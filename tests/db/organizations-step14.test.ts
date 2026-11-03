@@ -153,6 +153,26 @@ test("45.6, decision 175: an admin previewing as a member reads as a member and 
   assert.equal(preview, null);
 });
 
+test("45.6, decision 175: previewing as a member also holds in search and the sidebar, which read the database directly", async () => {
+  const o = await org();
+  await sql`INSERT INTO tasks (workspace_id, title, kind, status, assignment_settings, creator_id)
+    VALUES (${o.id}, ${`Lab ${o.tag}`}, 'assignment', 'todo', ${sql.json({ publishedAt: new Date().toISOString(), submissionType: "none", target: { mode: "everyone" } })}, ${o.admin})`;
+  viewerId = o.owner;
+  const sidebarAdmin = async () => (await search.readSidebarWorkspacesAction())!.orgs.find((g) => g.id === o.id)!.isAdmin;
+  assert.ok((await find(o.owner, o.tag, null)).includes(`assignment:Lab ${o.tag}`), "the owner finds the assignment with its counts");
+  assert.equal(await sidebarAdmin(), true);
+  assert.equal((await previewActions.startMemberPreviewAction(o.id)).success, true);
+  try {
+    viewerId = o.owner;
+    assert.ok(!(await find(o.owner, o.tag, null)).includes(`assignment:Lab ${o.tag}`), "a member without a copy finds none");
+    assert.equal(await sidebarAdmin(), false, "the sidebar reads as a member");
+  } finally {
+    viewerId = o.owner;
+    await previewActions.exitMemberPreviewAction();
+  }
+  assert.equal(await sidebarAdmin(), true);
+});
+
 test("41.4: Last active here and the indexing rule count from when migration 0043 ran, not a hand-set date", async () => {
   const members = await loadAppModule(() => import("../../src/lib/organizations/members"));
   const [row] = await sql`SELECT min(applied_at) AS at FROM app_migration_journal WHERE tag = '0043_member_last_active_here'`;

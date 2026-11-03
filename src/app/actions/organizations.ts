@@ -13,6 +13,7 @@ import { validateOrgHandle } from '@/lib/organizations/handle';
 import { and, eq, isNull, sql } from 'drizzle-orm';
 
 import { db } from '@/lib/db';
+import { transactionThen } from '@/lib/db/after-commit';
 import { orgHandleHolds, profiles, workspaceMembers, workspaces, roleApplications, applicationEvents } from '@/lib/db/schema';
 import { getWorkspaceAccessById } from '@/lib/data/workspace-access';
 import { removeWorkspaceMemberInternal } from '@/lib/workspaces/collaborator-lifecycle';
@@ -500,7 +501,7 @@ export async function leaveOrgAction(orgId: string): Promise<{ success: true } |
     const led = await ledChildWorkspaces(db, orgId, viewer.userId);
     if (led.length > 0) return { success: false, error: `You own ${led.length} ${led.length === 1 ? 'workspace' : 'workspaces'} here. Transfer or detach ${led.length === 1 ? 'it' : 'them'} first.` };
     // Leaving the org removes you from its projects too (report §14.4, §20.7).
-    const seats = await db.transaction((tx) => removeFromOrg(tx, orgId, viewer.userId, viewer.userId));
+    const seats = await transactionThen((tx) => removeFromOrg(tx, orgId, viewer.userId, viewer.userId));
     await notifySeatsReopened(orgId, seats);
     revalidateOrg(viewer.slug, orgId);
     const org = await orgLabel(orgId);

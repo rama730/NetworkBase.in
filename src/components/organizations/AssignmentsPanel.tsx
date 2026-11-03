@@ -54,7 +54,7 @@ import { remindSummary } from '@/lib/organizations/member-rules'
 import { toast } from '@/lib/feedback'
 import { cn } from '@/lib/utils'
 import { ASSIGNMENT_STATE_LABELS } from '@/lib/copy/terms'
-import { EditAssignmentDialog, ExcuseDialog, ExtendDialog, GiveToDialog, ReturnDialog } from '@/components/organizations/AssignmentDialogs'
+import { EditAssignmentDialog, ExcuseDialog, ExtendDialog, GiveToDialog, ReturnDialog, ReviewersPicker } from '@/components/organizations/AssignmentDialogs'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { ReasonDialog } from '@/components/organizations/ReasonDialog'
 import { ClassQuestions } from '@/components/organizations/ClassQuestions'
@@ -180,6 +180,8 @@ export function AssignmentComposer({ orgId, open, onOpenChange, onCreated, reuse
     const [sprintId, setSprintId] = useState('')
     const [submissionType, setSubmissionType] = useState<'none' | 'file' | 'link' | 'text'>('file')
     const [reviewRequired, setReviewRequired] = useState(true)
+    const [admins, setAdmins] = useState<Array<{ id: string; name: string }>>([])
+    const [reviewers, setReviewers] = useState<string[]>([])
     const [lateRule, setLateRule] = useState<'none' | 'until' | 'always'>('always')
     const [lateUntilLocal, setLateUntilLocal] = useState('')
     const [lateAfter, setLateAfter] = useState(15)
@@ -218,6 +220,7 @@ export function AssignmentComposer({ orgId, open, onOpenChange, onCreated, reuse
         void readAssignmentComposerOptionsAction(orgId).then((r) => {
             if (!r.success) return
             setOptions({ children: r.children, sprints: r.sprints, teamAssignments: r.teamAssignments })
+            setAdmins(r.admins ?? [])
             // A new assignment starts from the org's Work defaults (report §21.2 #5).
             setReviewRequired(r.defaults.reviewRequired)
             setLateRule(r.defaults.lateRule)
@@ -262,6 +265,7 @@ export function AssignmentComposer({ orgId, open, onOpenChange, onCreated, reuse
             projectId: orgId, title, description, dueDate: at(dueLocal), sprintId: sprintId || null, publish,
             submissionType, reviewRequired, lateRule, lateUntil: lateRule === 'until' && lateUntilLocal ? at(lateUntilLocal) : null,
             target: target(), steps, shareToGeneral, lateAfterMinutes: lateAfter, materials: materials.map((m) => m.id),
+            ...(reviewRequired && reviewers.length ? { reviewers } : {}),
             schedule: when === 'date' ? { at: at(publishLocal) } : when === 'sprint' ? { sprintStart: true } : null,
             ...(publish && announce ? { announcement: (announcement ?? defaultAnnouncement).trim() } : {}),
             ...(repeatUntil ? { repeatWeeklyUntil: at(`${repeatUntil}T23:59`) } : {}),
@@ -430,6 +434,7 @@ export function AssignmentComposer({ orgId, open, onOpenChange, onCreated, reuse
                         <span className="font-normal text-muted-foreground">minutes past the due time</span>
                     </label>
                     <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={reviewRequired} onChange={(e) => setReviewRequired(e.target.checked)} />Review required (Approve or Return each submission)</label>
+                    {reviewRequired ? <ReviewersPicker admins={admins} value={reviewers} onChange={setReviewers} className="text-sm" /> : null}
 
                     <div className="space-y-2">
                         <p className="text-sm font-medium">Steps <span className="font-normal text-muted-foreground">(copied into every copy)</span></p>

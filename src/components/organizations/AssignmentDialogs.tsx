@@ -191,19 +191,24 @@ export function EditAssignmentDialog({ orgId, row, open, onClose, onSave, timeZo
                     <Input type="number" min={0} max={60} value={lateAfter} onChange={(e) => setLateAfter(Math.max(0, Math.min(60, Number(e.target.value) || 0)))} className="w-20" aria-label="Late after, in minutes" /> minutes
                 </label>
                 <label className="flex items-center gap-2"><input type="checkbox" checked={review} onChange={(e) => setReview(e.target.checked)} /> Review each submission</label>
-                {review && admins.length > 1 && reviewers ? (
-                    // Reviewers (report §33.5): pick who reviews; nobody picked means every admin's queue has it.
-                    <fieldset className="space-y-1 sm:col-span-2"><legend className="font-medium">Reviewers <span className="font-normal text-muted-foreground">(none picked: everyone)</span></legend>
-                        <div className="flex flex-wrap gap-x-4 gap-y-1">
-                            {admins.map((a) => (
-                                <label key={a.id} className="flex items-center gap-1.5"><input type="checkbox" checked={reviewers.includes(a.id)}
-                                    onChange={(e) => setReviewers(e.target.checked ? [...reviewers, a.id] : reviewers.filter((id) => id !== a.id))} />{a.name}</label>
-                            ))}
-                        </div>
-                    </fieldset>
-                ) : null}
+                {review && reviewers ? <ReviewersPicker admins={admins} value={reviewers} onChange={setReviewers} className="sm:col-span-2" /> : null}
                 {published ? <p className="text-[12px] text-muted-foreground sm:col-span-2">Steps can only be added after publishing (Roster → Add step). Turning review off approves nothing already waiting.</p> : null}
             </div>
         </ConfirmDialog>
+    )
+}
+
+/** Reviewers (report §33.5): pick who reviews; nobody picked means every admin's queue has it. Only with 2+ admins. */
+export function ReviewersPicker({ admins, value, onChange, className }: { admins: Array<{ id: string; name: string }>; value: string[]; onChange: (ids: string[]) => void; className?: string }) {
+    if (admins.length < 2) return null
+    return (
+        <fieldset className={`space-y-1 ${className ?? ''}`}><legend className="font-medium">Reviewers <span className="font-normal text-muted-foreground">(none picked: everyone)</span></legend>
+            <div className="flex flex-wrap gap-x-4 gap-y-1">
+                {admins.map((a) => (
+                    <label key={a.id} className="flex items-center gap-1.5"><input type="checkbox" checked={value.includes(a.id)}
+                        onChange={(e) => onChange(e.target.checked ? [...value, a.id] : value.filter((id) => id !== a.id))} />{a.name}</label>
+                ))}
+            </div>
+        </fieldset>
     )
 }

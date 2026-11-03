@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { UUID_RE } from '@/lib/validations/uuid';
 
 import { db } from '@/lib/db';
+import { transactionThen } from '@/lib/db/after-commit';
 import { applicationEvents, orgEmailInvites, orgJoinBlocks, orgMemberAway, profiles, workspaceMembers, workspaceOpenRoles, workspaces, roleApplications, taskTeamMembers, tasks, userBlocks } from '@/lib/db/schema';
 import { getWorkspaceAccessById } from '@/lib/data/workspace-access';
 import { notifyNewCopies } from '@/lib/organizations/assignment-notify';
@@ -242,13 +243,13 @@ export async function moveMemberToWorkspaceAction(orgId: string, userId: string,
     }
     let seat: string | null = null;
     try {
-        await db.transaction(async (tx) => {
+        await transactionThen(async (tx) => {
             const [member] = await tx.select({ unit: sql<string | null>`(SELECT coalesce(r.title, r.role) FROM workspace_open_roles r WHERE r.id = ${workspaceMembers.unitId})` })
                 .from(workspaceMembers).where(and(eq(workspaceMembers.projectId, from.id), eq(workspaceMembers.userId, userId))).limit(1);
             if (!member) throw new Error('They’re no longer in that workspace.');
             seat = member.unit ?? from.title;
             // Org admins act with the lead's powers in child projects (report §29.4).
-            await removeWorkspaceMemberInternal(tx, { projectId: from.id, actorId: from.ownerId, targetUserId: userId, mode: 'unassign_active_tasks' });
+            await removeWorkspaceMemberInternal(tx, { projectId: from.id, actorId: from.ownerId, realActorId: viewer.userId, targetUserId: userId, mode: 'unassign_active_tasks' });
             await addWorkspaceMemberInternal(tx, { projectId: to.id, userId, role: 'member', actorId: to.ownerId, source: 'manual', roleId: unitId });
         });
     } catch (error) {
@@ -437,7 +438,7 @@ export async function changeMemberRoleAction(orgId: string, userIds: string[], r
         const block = adding ? orgLimitBlock('admins', n + adding - 1, { org: org?.title ?? 'This organization', isAdmin: true }) : null;
         if (block) return { success: false, error: block };
     }
-    const seats = await db.transaction(async (tx) => {
+    const seats = await transactionThen(async (tx) => {
         const opened: ReopenedSeat[] = [];
         for (const id of userIds) {
             const before = roles.get(id);
@@ -447,7 +448,7 @@ export async function changeMemberRoleAction(orgId: string, userIds: string[], r
             // Report §36.2: admins and viewers hold no copies (handed-in work stays); becoming Member brings open ones.
             if (before === 'member') await releaseCopiesOnLeave(tx, orgId, id);
             if (role === 'member') await createCopiesForNewMember(tx, orgId, id);
-            if (role === 'viewer') opened.push(...await leaveChildWorkspaces(tx, orgId, id));
+            if (role === 'viewer') opened.push(...await leaveChildWorkspaces(tx, orgId, id, viewer.userId));
         }
         return opened;
     });
@@ -473,11 +474,11 @@ const ROLE_CHANGE_NOTE: Record<'admin' | 'member' | 'viewer', string> = {
 };
 
 /** Out of every workspace here, open tasks unassigned (a Viewer, report §36.2); returns the team seats it opened. */
-async function leaveChildWorkspaces(tx: Parameters<Parameters<typeof db.transaction>[0]>[0], orgId: string, userId: string): Promise<ReopenedSeat[]> {
+async function leaveChildWorkspaces(tx: Parameters<Parameters<typeof db.transaction>[0]>[0], orgId: string, userId: string, realActorId: string): Promise<ReopenedSeat[]> {
     const rows = await tx.select({ projectId: workspaceMembers.projectId, leadId: workspaces.ownerId, slug: workspaces.slug, unit: sql<string | null>`(SELECT coalesce(r.title, r.role) FROM workspace_open_roles r WHERE r.id = ${workspaceMembers.unitId})` })
         .from(workspaceMembers).innerJoin(workspaces, eq(workspaces.id, workspaceMembers.projectId))
         .where(and(eq(workspaces.parentId, orgId), eq(workspaceMembers.userId, userId), isNull(workspaces.deletedAt)));
-    for (const r of rows) await removeWorkspaceMemberInternal(tx, { projectId: r.projectId, actorId: r.leadId, targetUserId: userId, mode: 'unassign_active_tasks' });
+    for (const r of rows) await removeWorkspaceMemberInternal(tx, { projectId: r.projectId, actorId: r.leadId, realActorId, targetUserId: userId, mode: 'unassign_active_tasks' });
     return rows.flatMap((r) => (r.unit ? [{ projectId: r.projectId, slug: r.slug, leadId: r.leadId, unit: r.unit }] : []));
 }
 
@@ -599,7 +600,7 @@ export async function removeOutsidePersonAction(orgId: string, userId: string, w
     if (!child) return { success: false, error: 'That workspace is no longer in this organization.' };
     if (child.ownerId === userId) return { success: false, error: 'They’re its workspace lead.' };
     try {
-        await db.transaction((tx) => removeWorkspaceMemberInternal(tx, { projectId: child.id, actorId: child.ownerId, targetUserId: userId, mode: 'unassign_active_tasks' }));
+        await transactionThen((tx) => removeWorkspaceMemberInternal(tx, { projectId: child.id, actorId: child.ownerId, realActorId: viewer.userId, targetUserId: userId, mode: 'unassign_active_tasks' }));
     } catch {
         return { success: false, error: 'They’re no longer in that workspace.' };
     }
@@ -670,7 +671,7 @@ export async function removeMembersAction(orgId: string, userIds: string[], opti
     const all = userIds.length;
     userIds = userIds.filter((id) => !leads.some((l) => l.userId === id));
     if (!userIds.length) return { success: false, error: `${leads[0]!.name} leads ${leads[0]!.workspace}. Transfer it first.` };
-    const seats = await db.transaction(async (tx) => {
+    const seats = await transactionThen(async (tx) => {
         const opened = [];
         for (const id of userIds) {
             // Admins can't remove admins, so the owner acts when an admin is removed.

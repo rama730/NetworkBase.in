@@ -6,6 +6,7 @@ import { db } from '@/lib/db';
 import { workspaceMembers, workspaces } from '@/lib/db/schema';
 import { getWorkspaceAccessById } from '@/lib/data/workspace-access';
 import { orgFileAccessSql } from '@/lib/files/internal-helpers';
+import { memberPreviewOrgId } from '@/lib/organizations/member-preview';
 import { readNeedsYou, type OrgViewer } from '@/lib/organizations/needs-you';
 import { formatDueDay } from '@/lib/organizations/notify-rules';
 import { peopleByZone } from '@/lib/organizations/notify';
@@ -62,6 +63,9 @@ export async function readSidebarWorkspacesAction(): Promise<SidebarWorkspaces |
         LEFT JOIN workspaces o ON o.id = p.parent_id AND o.kind = 'organization' AND o.deleted_at IS NULL
         WHERE p.deleted_at IS NULL AND p.deletion_scheduled_at IS NULL AND (p.owner_id = ${userId}::uuid OR pm.user_id IS NOT NULL)
         ORDER BY opened DESC NULLS LAST LIMIT 300`);
+    // Preview as member (decision 175): the previewed organization's row reads with a member's role, like its pages.
+    const preview = await memberPreviewOrgId();
+    for (const r of mine) if (r.id === preview && (r.role === 'owner' || r.role === 'admin')) r.role = 'member';
     const orgRows = mine.filter((r) => r.kind === 'organization' && r.status !== 'archived');
     const childRows = mine.filter((r) => r.parent_id && r.in_org && r.status !== 'archived');
     const now = new Date();
@@ -194,7 +198,9 @@ export async function searchOrgPreviewsAction(query: string, orgIdentifier?: str
     const pattern = `%${q.replace(/[%_\\]/g, (c) => `\\${c}`)}%`;
     const results: OrgSearchResult[] = [];
     const memberOf = sql`(o.owner_id = ${userId}::uuid OR EXISTS (SELECT 1 FROM workspace_members m WHERE m.workspace_id = o.id AND m.user_id = ${userId}::uuid))`;
-    const isAdminOf = sql`(o.owner_id = ${userId}::uuid OR EXISTS (SELECT 1 FROM workspace_members m WHERE m.workspace_id = o.id AND m.user_id = ${userId}::uuid AND m.role = 'admin'))`;
+    // Preview as member (decision 175): never an admin of the organization being previewed.
+    const preview = await memberPreviewOrgId();
+    const isAdminOf = sql`((o.owner_id = ${userId}::uuid OR EXISTS (SELECT 1 FROM workspace_members m WHERE m.workspace_id = o.id AND m.user_id = ${userId}::uuid AND m.role = 'admin')) AND o.id IS DISTINCT FROM ${preview}::uuid)`;
 
     let scope: { id: string; title: string; slug: string | null; isAdmin: boolean; isGuest: boolean; canCreate: boolean } | null = null;
     if (orgIdentifier) {

@@ -36,10 +36,12 @@ function SprintCalendar({ projectId, onClose }: { projectId: string; onClose: ()
   const [link, setLink] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const entries = query.data?.success ? query.data.entries : [];
+  const hasLink = Boolean(query.data?.success && query.data.hasLink);
   const weeks = [...Map.groupBy(entries, (e) => weekOf(e.start))];
   const getLink = (reset: boolean) => startTransition(async () => {
     const r = await readCalendarLinkAction(reset);
     if (!r.success) return void toast.error(r.error);
+    if (!r.url) return void query.refetch();
     setLink(r.url);
     try { await navigator.clipboard.writeText(r.url); toast.success(reset ? "New link copied. The old one stopped working." : "Calendar link copied"); } catch { /* shown below to copy by hand */ }
   });
@@ -70,10 +72,14 @@ function SprintCalendar({ projectId, onClose }: { projectId: string; onClose: ()
         <section className="space-y-2 border-t border-border pt-3 text-sm">
           <p className="font-medium">Add to your calendar</p>
           <p className="text-[13px] text-muted-foreground">A private link for Google or Apple Calendar. Anyone with it can see your dates, so keep it to yourself.</p>
-          {link ? <p className="break-all rounded-md bg-muted px-2 py-1 font-mono text-[12px]">{link}</p> : null}
+          {link ? (
+            <p className="break-all rounded-md bg-muted px-2 py-1 font-mono text-[12px]">{link}</p>
+          ) : hasLink ? (
+            <p className="text-[13px] text-muted-foreground">You already have a link. It’s shown only once, so make a new one to copy it again. The old one then stops working.</p>
+          ) : null}
           <span className="flex flex-wrap gap-2">
-            <Button type="button" size="sm" disabled={pending} onClick={() => getLink(false)}>Copy link</Button>
-            {link ? <Button type="button" size="sm" variant="ghost" disabled={pending} onClick={() => getLink(true)}>Make a new link</Button> : null}
+            {hasLink || link ? null : <Button type="button" size="sm" disabled={pending} onClick={() => getLink(false)}>Copy link</Button>}
+            {hasLink || link ? <Button type="button" size="sm" variant={link ? "ghost" : "default"} disabled={pending} onClick={() => getLink(true)}>Make a new link</Button> : null}
           </span>
         </section>
       </DialogContent>

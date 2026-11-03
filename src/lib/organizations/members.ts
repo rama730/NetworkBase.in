@@ -139,7 +139,7 @@ export async function removeFromOrg(executor: Executor, orgId: string, userId: s
   await releaseCopiesOnLeave(executor, orgId, userId);
   for (const { projectId, leadId } of childMemberships) {
     // Org admins act with the lead's powers in child projects (report §29.4), so the lead is the actor there.
-    await removeWorkspaceMemberInternal(executor, { projectId, actorId: self ? userId : leadId, targetUserId: userId, mode: "unassign_active_tasks", allowSelf: self, ending });
+    await removeWorkspaceMemberInternal(executor, { projectId, actorId: self ? userId : leadId, realActorId: removal?.by ?? actorId, targetUserId: userId, mode: "unassign_active_tasks", allowSelf: self, ending });
   }
   await removeWorkspaceMemberInternal(executor, { projectId: orgId, actorId, targetUserId: userId, mode: "unassign_active_tasks", allowSelf: self, ending });
   return childMemberships.flatMap((m) => (m.unit ? [{ projectId: m.projectId, slug: m.slug, leadId: m.leadId, unit: m.unit }] : []));

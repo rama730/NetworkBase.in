@@ -2,7 +2,7 @@ import { and, desc, eq, inArray, isNull, ne, sql } from "drizzle-orm";
 
 import { ForbiddenError, NotFoundError } from "@/lib/errors/domain";
 import { db } from "@/lib/db";
-import { logger } from "@/lib/logger";
+import { afterCommit } from "@/lib/db/after-commit";
 import {
     applicationEvents,
     chatChannelMembers,
@@ -584,6 +584,8 @@ export async function removeWorkspaceMemberInternal(
         allowSelf?: boolean;
         /** How it ended, recorded on their profile entry (report §10.1). */
         ending?: MembershipEnding;
+        /** Who really did it, when an organization admin acts with the lead's powers (`actorId` is then the lead). */
+        realActorId?: string;
     },
 ): Promise<WorkspaceCollaboratorLifecycleResult & { assignmentNotifications: EnqueueWorkspaceNotificationEventInput[]; teamsWithoutLead?: string[] }> {
     const project = await readProjectForUpdate(executor, params.projectId);
@@ -640,15 +642,14 @@ export async function removeWorkspaceMemberInternal(
     await executor
         .delete(workspaceMembers)
         .where(and(eq(workspaceMembers.projectId, params.projectId), eq(workspaceMembers.userId, params.targetUserId)));
-    // A team lead who leaves leaves the team without one, and the workspace's lead is told (report §30.4).
-    // ponytail: sent beside the caller's transaction, not after it; a rolled-back removal could leave a stray notice.
+    // A team lead who leaves leaves the team without one, and the workspace's lead is told (report §30.4), once the
+    // caller's transaction commits (`transactionThen`), so a rolled-back removal tells no one.
     const teamsWithoutLead = (await executor.update(workspaceOpenRoles)
         .set({ leadUserId: null, updatedAt: new Date() })
         .where(and(eq(workspaceOpenRoles.projectId, params.projectId), eq(workspaceOpenRoles.leadUserId, params.targetUserId)))
         .returning({ title: workspaceOpenRoles.title, role: workspaceOpenRoles.role })).map((t) => t.title || t.role);
     if (teamsWithoutLead.length) {
-        void import("@/lib/organizations/notify").then(({ notifyTeamsWithoutLead }) => notifyTeamsWithoutLead(params.projectId, params.actorId, teamsWithoutLead))
-            .catch((error) => logger.warn("workspace_members.no_lead_notice_failed", { projectId: params.projectId, error: error instanceof Error ? error.message : String(error) }));
+        afterCommit(executor, () => import("@/lib/organizations/notify").then(({ notifyTeamsWithoutLead }) => notifyTeamsWithoutLead(params.projectId, params.realActorId ?? params.actorId, teamsWithoutLead)));
     }
 
     const [capacityApplication] = await executor

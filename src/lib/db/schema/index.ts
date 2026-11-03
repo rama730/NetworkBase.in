@@ -1085,7 +1085,7 @@ export const assignmentSubmissions = pgTable("assignment_submissions", {
 /** Calendar (report §33.5, "Later"): one private feed token per person. Server only. */
 export const calendarFeedTokens = pgTable("calendar_feed_tokens", {
     userId: uuid("user_id").primaryKey().references(() => profiles.id, { onDelete: "cascade" }),
-    token: text("token").notNull().unique(),
+    tokenHash: text("token_hash").notNull().unique(),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 

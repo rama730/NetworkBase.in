@@ -1,6 +1,6 @@
 import "server-only";
 
-import { randomBytes } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import { eq, sql } from "drizzle-orm";
 
 import { db } from "@/lib/db";
@@ -31,20 +31,31 @@ export async function readCalendarEntries(userId: string, projectId?: string | n
   ].sort((a, b) => a.start.localeCompare(b.start));
 }
 
-/** The person's private feed token, made on first use; `reset` replaces it so an old link stops working. */
+// Only the token's SHA-256 is stored, so the database alone opens no one's calendar. The token is 256 random bits,
+// so a plain hash (no salt or slow hash) is enough.
+const tokenHash = (token: string) => createHash("sha256").update(token).digest("hex");
+
+export async function hasCalendarToken(userId: string) {
+  const [row] = await db.select({ userId: calendarFeedTokens.userId }).from(calendarFeedTokens).where(eq(calendarFeedTokens.userId, userId)).limit(1);
+  return Boolean(row);
+}
+
+/**
+ * A new private feed token, or null when the person already has one and didn't ask for a new one (it can't be shown
+ * again). `reset` replaces it, so the old link stops working.
+ */
 export async function calendarToken(userId: string, reset = false) {
-  if (!reset) {
-    const [row] = await db.select({ token: calendarFeedTokens.token }).from(calendarFeedTokens).where(eq(calendarFeedTokens.userId, userId)).limit(1);
-    if (row) return row.token;
-  }
   const token = randomBytes(32).toString("base64url");
-  await db.insert(calendarFeedTokens).values({ userId, token }).onConflictDoUpdate({ target: calendarFeedTokens.userId, set: { token, createdAt: new Date() } });
-  return token;
+  const values = { userId, tokenHash: tokenHash(token) };
+  const made = reset
+    ? await db.insert(calendarFeedTokens).values(values).onConflictDoUpdate({ target: calendarFeedTokens.userId, set: { tokenHash: values.tokenHash, createdAt: new Date() } }).returning({ userId: calendarFeedTokens.userId })
+    : await db.insert(calendarFeedTokens).values(values).onConflictDoNothing({ target: calendarFeedTokens.userId }).returning({ userId: calendarFeedTokens.userId });
+  return made.length ? token : null;
 }
 
 export async function userForCalendarToken(token: string) {
   if (!/^[A-Za-z0-9_-]{32,64}$/.test(token)) return null;
-  const [row] = await db.select({ userId: calendarFeedTokens.userId }).from(calendarFeedTokens).where(eq(calendarFeedTokens.token, token)).limit(1);
+  const [row] = await db.select({ userId: calendarFeedTokens.userId }).from(calendarFeedTokens).where(eq(calendarFeedTokens.tokenHash, tokenHash(token))).limit(1);
   return row?.userId ?? null;
 }
 

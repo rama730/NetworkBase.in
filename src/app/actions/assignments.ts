@@ -85,7 +85,19 @@ const createSchema = z.object({
     materials: z.array(z.string().uuid()).max(20, 'Up to 20 materials.').optional(),
     /** Repeat weekly until (report §33.5): one draft per later week, each checked before it's published. */
     repeatWeeklyUntil: z.string().datetime({ offset: true }).nullable().optional(),
+    /** Reviewers (report §33.5): the admins who review it; none means every admin's queue has it. */
+    reviewers: z.array(z.string().uuid()).max(20).optional(),
 });
+
+/** Reviewers are the organization's admins (owner included), each once; an error when anyone else is named. */
+async function checkReviewers(orgId: string, ids: string[]): Promise<{ reviewers: string[] } | { error: string }> {
+    const admins = await db.execute<{ id: string }>(sql`
+        SELECT owner_id AS id FROM workspaces WHERE id = ${orgId}
+        UNION SELECT user_id FROM workspace_members WHERE workspace_id = ${orgId} AND role = 'admin'`);
+    const allowed = new Set(admins.map((a) => a.id));
+    const asked = [...new Set(ids)];
+    return asked.every((id) => allowed.has(id)) ? { reviewers: asked } : { error: 'Reviewers are the organization’s admins.' };
+}
 
 const scheduleSchema = z.union([z.object({ at: z.string().datetime({ offset: true }) }), z.object({ sprintStart: z.literal(true) })]);
 
@@ -111,6 +123,13 @@ export async function createAssignmentAction(input: z.input<typeof createSchema>
     if (lateBlock) return { success: false, error: lateBlock };
     const scheduled = data.publish ? { fields: {} } : scheduleFields(data.schedule, data.sprintId ?? null);
     if ('error' in scheduled) return { success: false, error: scheduled.error! };
+    let reviewers: string[] | undefined
+    if (data.reviewers?.length) {
+        if (!orgCan(orgRoleOf(viewer.role), 'set_reviewers')) return DENIED;
+        const checked = await checkReviewers(data.projectId, data.reviewers);
+        if ('error' in checked) return { success: false, error: checked.error };
+        reviewers = checked.reviewers;
+    }
     try {
         const result = await db.transaction(async (tx) => {
             await tx.execute(sql`SELECT id FROM ${workspaces} WHERE id = ${data.projectId} FOR UPDATE`);
@@ -130,6 +149,7 @@ export async function createAssignmentAction(input: z.input<typeof createSchema>
                 publishedAt: data.publish ? new Date().toISOString() : null,
                 closedAt: null,
                 lateAfterMinutes: data.lateAfterMinutes ?? LATE_AFTER_DEFAULT_MINUTES,
+                ...(reviewers ? { reviewers } : {}),
                 ...scheduled.fields,
             };
             const masterId = await createMasterTask(tx, {
@@ -358,12 +378,9 @@ export async function updateAssignmentAction(masterId: string, patch: z.input<ty
     let reviewers: string[] | undefined
     if (parsed.data.reviewers) {
         if (!orgCan(orgRoleOf(ctx.viewer.role), 'set_reviewers')) return DENIED;
-        const admins = await db.execute<{ id: string }>(sql`
-            SELECT owner_id AS id FROM workspaces WHERE id = ${ctx.master.projectId}
-            UNION SELECT user_id FROM workspace_members WHERE workspace_id = ${ctx.master.projectId} AND role = 'admin'`);
-        const allowed = new Set(admins.map((a) => a.id));
-        reviewers = [...new Set(parsed.data.reviewers)].filter((id) => allowed.has(id));
-        if (reviewers.length !== new Set(parsed.data.reviewers).size) return { success: false, error: 'Reviewers are the organization’s admins.' };
+        const checked = await checkReviewers(ctx.master.projectId, parsed.data.reviewers);
+        if ('error' in checked) return { success: false, error: checked.error };
+        reviewers = checked.reviewers;
     }
     const nextSettings: AssignmentSettings = {
         ...settings,

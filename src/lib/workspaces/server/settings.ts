@@ -4,6 +4,7 @@ import { encodeFilePermissionCursor, normalizeFilePermissionOptions, type FilePe
 import { type WorkspaceVisibility, normalizeWorkspaceVisibility } from "@/lib/workspaces/workspace-visibility";
 import { type WorkspaceNotificationPolicy, summarizeWorkspaceNotificationPolicy, type WorkspaceMemberNotificationOverrides, normalizeWorkspaceNotificationPolicy, type WorkspaceNotificationPreset, buildDefaultWorkspaceNotificationPolicy, normalizeWorkspaceMemberNotificationOverrides } from "@/lib/notifications/workspace-policy";
 import { db } from "@/lib/db";
+import { transactionThen } from "@/lib/db/after-commit";
 import { tasks, taskNodeLinks, workspaceNodes, roleApplications, chatChannelMembers, chatChannels, workspaceOpenRoles, workspaceMembers, profiles, workspaces, workspaceNodeEvents } from "@/lib/db/schema";
 import { sql, and, eq, isNull, inArray, desc, or, ilike } from "drizzle-orm";
 import { createClient } from "@/lib/supabase/server";
@@ -1777,7 +1778,7 @@ export async function removeWorkspaceMemberAction(
         message: "Invalid removal options.",
       };
 
-    const txResult = await db.transaction(async (tx) => {
+    const txResult = await transactionThen(async (tx) => {
         const lifecycle = await removeWorkspaceMemberInternal(tx, {
           projectId,
           actorId: user.id,

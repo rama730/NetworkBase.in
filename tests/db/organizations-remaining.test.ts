@@ -163,6 +163,27 @@ test("30.4: a team lead who moves away leaves the team without one, and the work
   assert.ok((await sql`SELECT 1 FROM user_notifications WHERE user_id = ${lead} AND title = 'Frontend has no team lead'`).length);
 });
 
+test("30.4: a removed team lead's notice goes out only after the removal commits; a rollback tells no one", async () => {
+  const o = await org();
+  const lead = await sql.begin((tx) => createUser(tx));
+  const child = await sql.begin((tx) => createProject(tx, lead, { visibility: "org" }));
+  await sql`UPDATE workspaces SET parent_id = ${o.id} WHERE id = ${child}`;
+  const [front] = await sql`INSERT INTO workspace_open_roles (workspace_id, role, title, count, filled, team_lead_user_id) VALUES (${child}, 'Frontend', ${`Front ${o.tag}`}, 3, 1, ${o.a}) RETURNING id`;
+  await sql`INSERT INTO workspace_members (workspace_id, user_id, role, unit_id) VALUES (${child}, ${lead}, 'owner', NULL), (${child}, ${o.a}, 'member', ${front!.id})`;
+  const { transactionThen } = await loadAppModule(() => import("../../src/lib/db/after-commit"));
+  const { removeWorkspaceMemberInternal } = await loadAppModule(() => import("../../src/lib/workspaces/collaborator-lifecycle"));
+  const told = async () => (await sql`SELECT 1 FROM user_notifications WHERE user_id = ${lead} AND title = ${`Front ${o.tag} has no team lead`}`).length;
+  await assert.rejects(transactionThen(async (tx) => {
+    await removeWorkspaceMemberInternal(tx, { projectId: child, actorId: lead, realActorId: o.admin, targetUserId: o.a, mode: "unassign_active_tasks" });
+    throw new Error("rolled back");
+  }), /rolled back/);
+  assert.equal(await told(), 0, "a rolled-back removal tells no one");
+  assert.equal((await sql`SELECT team_lead_user_id FROM workspace_open_roles WHERE id = ${front!.id}`)[0]!.team_lead_user_id, o.a);
+  // An organization admin acts with the lead's powers, so the lead hears it even though the removal runs as them.
+  await transactionThen((tx) => removeWorkspaceMemberInternal(tx, { projectId: child, actorId: lead, realActorId: o.admin, targetUserId: o.a, mode: "unassign_active_tasks" }));
+  assert.equal(await told(), 1, "told once it has committed");
+});
+
 const day = (offset: number) => new Date(Date.now() + offset * 86_400_000).toISOString().slice(0, 10);
 
 test("33.5 Away: work due in the dates is excused at once, work published then starts excused; only admins mark it", async () => {
@@ -212,6 +233,18 @@ test("33.5 Reviewers: only the organization's admins can be picked; the queue ma
   assert.deepEqual(adminQueue.success ? adminQueue.rows.filter((r) => r.kind === "copy").map((r) => r.mine) : null, [true]);
 });
 
+test("33.5 Reviewers can be picked when the assignment is made, admins only", async () => {
+  const o = await org();
+  viewerId = o.owner;
+  const base = { projectId: o.id, dueDate: new Date(Date.now() + 3 * 86_400_000).toISOString(), publish: false, submissionType: "none" as const, reviewRequired: true, lateRule: "none" as const, target: { mode: "everyone" as const }, steps: [] };
+  const refused = await assignments.createAssignmentAction({ ...base, title: `Essay ${o.tag} A`, reviewers: [o.a] });
+  assert.deepEqual(refused, { success: false, error: "Reviewers are the organization’s admins." });
+  const made = await assignments.createAssignmentAction({ ...base, title: `Essay ${o.tag} B`, reviewers: [o.admin, o.admin] });
+  assert.ok(made.success, JSON.stringify(made));
+  const [row] = await sql`SELECT assignment_settings->'reviewers' AS reviewers FROM tasks WHERE id = ${made.success ? made.masterId : ""}`;
+  assert.deepEqual(row!.reviewers, [o.admin]);
+});
+
 test("33.5 Repeat: later weeks are made as drafts with their own due dates", async () => {
   const o = await org();
   viewerId = o.owner;
@@ -231,8 +264,14 @@ test("33.5 Calendar: the private link's feed holds only the person's own due wor
   await sql`UPDATE tasks SET due_date = now() + interval '5 days' WHERE assignment_id = ${master}`;
   await sql`INSERT INTO workspace_sprints (workspace_id, name, sprint_number, start_date, end_date, status) VALUES (${o.id}, ${`CO-${o.tag}`}, 1, now(), now() + interval '7 days', 'active')`;
   const feed = await loadAppModule(() => import("../../src/lib/calendar/feed"));
-  const token = await feed.calendarToken(o.a);
+  const token = (await feed.calendarToken(o.a))!;
   assert.equal(await feed.userForCalendarToken(token), o.a);
+  // Only the hash is stored, and an existing link isn't handed out again.
+  const [stored] = await sql`SELECT token_hash FROM calendar_feed_tokens WHERE user_id = ${o.a}`;
+  assert.match(stored!.token_hash, /^[0-9a-f]{64}$/);
+  assert.notEqual(stored!.token_hash, token);
+  assert.equal(await feed.calendarToken(o.a), null, "the link is shown once");
+  assert.equal(await feed.userForCalendarToken(token), o.a, "asking again keeps the link working");
   assert.equal(await feed.userForCalendarToken("x".repeat(43)), null);
   const entries = await feed.readCalendarEntries(o.a);
   assert.equal(entries.filter((e) => e.kind === "due" && e.title === `Essay ${o.tag}`).length, 1, "their own copy only, not b's");
@@ -244,7 +283,8 @@ test("33.5 Calendar: the private link's feed holds only the person's own due wor
   const hostile = feed.toIcs([{ id: "1", kind: "due", title: "A;B,C\\D\r\nBEGIN:VEVENT\rX\u0001", start: new Date().toISOString(), end: null, place: "P", href: "/x" }], "https://networkbase.test");
   assert.equal(hostile.split("\r\n").find((l) => l.startsWith("SUMMARY")), "SUMMARY:Due: A\\;B\\,C\\\\D\\nBEGIN:VEVENT\\nX");
   assert.equal(hostile.split("\r\n").filter((l) => l === "BEGIN:VEVENT").length, 1);
-  const fresh = await feed.calendarToken(o.a, true);
+  const fresh = (await feed.calendarToken(o.a, true))!;
   assert.notEqual(fresh, token);
   assert.equal(await feed.userForCalendarToken(token), null, "a reset link stops the old one");
+  assert.equal(await feed.userForCalendarToken(fresh), o.a);
 });
