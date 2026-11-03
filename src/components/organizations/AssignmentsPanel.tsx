@@ -12,6 +12,7 @@ import {
     excuseCopyAction,
     excuseTeamMemberAction,
     extendCopyAction,
+    giveCopyAction,
     listAssignmentsAction,
     listWorkspaceGroupCopiesAction,
     moveTeamMemberAction,
@@ -21,6 +22,7 @@ import {
     readAssignmentTeamsAction,
     readReviewQueueAction,
     remindCopiesAction,
+    reopenAssignmentAction,
     reviewAssignmentCopyAction,
     submitAssignmentAction,
     type AssignmentRow,
@@ -39,6 +41,7 @@ import { DownloadLink } from '@/components/ui/download-link'
 import { remindSummary } from '@/lib/organizations/member-rules'
 import { toast } from '@/lib/feedback'
 import { ASSIGNMENT_STATE_LABELS } from '@/lib/copy/terms'
+import { ExcuseDialog, ExtendDialog, GiveToDialog, ReturnDialog } from '@/components/organizations/AssignmentDialogs'
 
 // Assignments in the org Tasks tab (report §16.2–16.5, §16.11) and group copies in a child project (§16.6).
 // The Kanban board below stays as it is: members' own copies appear there through the read rule.
@@ -77,10 +80,13 @@ function SubmitDialog({ copyId, submissionType, title, open, onOpenChange, onDon
         void listWorkspaceDocsAction(docsProjectId).then((r) => setProjectDocs(r.success ? r.docs : []))
     }, [docsProjectId, submissionType])
     const [text, setText] = useState('')
+    const [note, setNote] = useState('')
     const [error, setError] = useState<string | null>(null)
     const [pending, startTransition] = useTransition()
     const submit = () => startTransition(async () => {
-        const result = await submitAssignmentAction(copyId, submissionType === 'link' ? { link } : submissionType === 'text' ? { text } : {})
+        // Decision 85: an optional note goes with any hand-in.
+        const withNote = note.trim() ? { note: note.trim() } : {}
+        const result = await submitAssignmentAction(copyId, submissionType === 'link' ? { link, ...withNote } : submissionType === 'text' ? { text, ...withNote } : withNote)
         if (!result.success) return setError(result.error)
         setError(null)
         onOpenChange(false)
@@ -102,6 +108,9 @@ function SubmitDialog({ copyId, submissionType, title, open, onOpenChange, onDon
                     </select>
                 ) : null}
                 {submissionType === 'text' ? <textarea value={text} onChange={(e) => setText(e.target.value)} rows={6} maxLength={10000} className={area} aria-label="Your answer" /> : null}
+                <label className="block space-y-1 text-sm"><span className="font-medium">Add a note (optional)</span>
+                    <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2} maxLength={500} className={area} placeholder="I used the second dataset" />
+                </label>
                 {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}
                 <Button type="button" disabled={pending} onClick={submit}>Submit</Button>
             </DialogContent>
@@ -121,6 +130,7 @@ function AssignmentComposer({ orgId, open, onOpenChange, onCreated }: { orgId: s
     const [reviewRequired, setReviewRequired] = useState(true)
     const [lateRule, setLateRule] = useState<'none' | 'until' | 'always'>('always')
     const [lateUntilLocal, setLateUntilLocal] = useState('')
+    const [lateAfter, setLateAfter] = useState(15)
     const [mode, setMode] = useState<AssignmentTarget['mode']>('everyone')
     const [people, setPeople] = useState<string[]>([])
     const [teams, setTeams] = useState<TeamBox[]>([])
@@ -174,7 +184,7 @@ function AssignmentComposer({ orgId, open, onOpenChange, onCreated }: { orgId: s
         const result = await createAssignmentAction({
             projectId: orgId, title, description, dueDate: new Date(dueLocal).toISOString(), sprintId: sprintId || null, publish,
             submissionType, reviewRequired, lateRule, lateUntil: lateRule === 'until' && lateUntilLocal ? new Date(lateUntilLocal).toISOString() : null,
-            target: target(), steps, shareToGeneral,
+            target: target(), steps, shareToGeneral, lateAfterMinutes: lateAfter,
             ...(publish && announce ? { announcement: (announcement ?? defaultAnnouncement).trim() } : {}),
         })
         if (!result.success) return setError(result.error)
@@ -321,6 +331,11 @@ function AssignmentComposer({ orgId, open, onOpenChange, onCreated }: { orgId: s
                         </label>
                     </div>
                     {lateRule === 'until' ? <label className="block text-sm font-medium">Late work accepted until<Input type="datetime-local" required value={lateUntilLocal} onChange={(e) => setLateUntilLocal(e.target.value)} className="mt-1" /></label> : null}
+                    {/* Report §45.3, decision 171: members still see the due time; Late counts from due + this. */}
+                    <label className="flex items-center gap-2 text-sm font-medium">Late after
+                        <Input type="number" min={0} max={60} value={lateAfter} onChange={(e) => setLateAfter(Math.max(0, Math.min(60, Number(e.target.value) || 0)))} className="w-20" aria-label="Late after, in minutes" />
+                        <span className="font-normal text-muted-foreground">minutes past the due time</span>
+                    </label>
                     <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={reviewRequired} onChange={(e) => setReviewRequired(e.target.checked)} />Review required (Approve or Return each submission)</label>
 
                     <div className="space-y-2">
@@ -354,9 +369,12 @@ function AssignmentComposer({ orgId, open, onOpenChange, onCreated }: { orgId: s
 /** One assignment's roster: per person or team, with Approve / Return / Extend / Excuse (report §16.5). */
 export function RosterDialog({ row, orgId, open, onOpenChange, onChanged }: { row: AssignmentRow; orgId?: string; open: boolean; onOpenChange: (open: boolean) => void; onChanged: () => void }) {
     const [rows, setRows] = useState<RosterRow[]>([])
+    const [withoutCopy, setWithoutCopy] = useState<Array<{ userId: string; name: string }>>([])
+    const [closed, setClosed] = useState(false)
+    const [ask, setAsk] = useState<{ kind: 'return' | 'change' | 'extend' | 'excuse'; row: RosterRow } | { kind: 'give' } | null>(null)
     const [error, setError] = useState<string | null>(null)
     const [pending, startTransition] = useTransition()
-    const load = useCallback(() => void readAssignmentRosterAction(row.masterId).then((r) => { if (r.success) setRows(r.rows) }), [row.masterId])
+    const load = useCallback(() => void readAssignmentRosterAction(row.masterId).then((r) => { if (r.success) { setRows(r.rows); setWithoutCopy(r.withoutCopy); setClosed(r.closed) } }), [row.masterId])
     useEffect(() => { if (open) load() }, [open, load])
     const run = (action: () => Promise<{ success: boolean; error?: string }>) => startTransition(async () => {
         const result = await action()
@@ -377,6 +395,7 @@ export function RosterDialog({ row, orgId, open, onOpenChange, onChanged }: { ro
                     {/* Brief and shared Q&A live on the master task (report §16.4 Conversation, §16.5 Brief / Discussion). */}
                     {/* Download all (report §23.5): one folder per person or team, latest handed-in files. */}
                     {orgId && row.submissionType === 'file' && row.counts.submitted + row.counts.done > 0 ? <Button asChild size="sm" variant="outline"><DownloadLink href={`/api/v1/workspaces/${orgId}/tasks/${row.masterId}/submissions`}>Download all</DownloadLink></Button> : null}
+                    {withoutCopy.length ? <Button type="button" size="sm" variant="outline" disabled={pending} onClick={() => setAsk({ kind: 'give' })}>Give to…</Button> : null}
                     <a href={`?tab=tasks&drawerType=task&drawerId=${row.masterId}`} className="self-center text-sm text-primary underline-offset-4 hover:underline">Brief and Q&amp;A</a>
                 </div>
                 <form className="flex gap-2" onSubmit={(e) => { e.preventDefault(); const input = e.currentTarget.elements.namedItem('step') as HTMLInputElement; const value = input.value.trim(); if (value) run(async () => { const r = await addAssignmentStepAction(row.masterId, value); if (r.success) input.value = ''; return r }) }}>
@@ -402,20 +421,15 @@ export function RosterDialog({ row, orgId, open, onOpenChange, onChanged }: { ro
                                     {r.state === 'submitted' ? (
                                         <>
                                             <Button type="button" size="sm" disabled={pending} onClick={() => run(() => reviewAssignmentCopyAction(r.copyId, 'approve'))}>Approve</Button>
-                                            <Button type="button" size="sm" variant="outline" disabled={pending} onClick={() => {
-                                                const reason = window.prompt('What should they change?')
-                                                if (reason) run(() => reviewAssignmentCopyAction(r.copyId, 'return', reason))
-                                            }}>Return</Button>
+                                            <Button type="button" size="sm" variant="outline" disabled={pending} onClick={() => setAsk({ kind: 'return', row: r })}>Return</Button>
                                         </>
                                     ) : null}
-                                    <Button type="button" size="sm" variant="ghost" disabled={pending} onClick={() => {
-                                        const value = window.prompt('New due date (YYYY-MM-DD HH:MM)', r.dueDate ? r.dueDate.slice(0, 16).replace('T', ' ') : '')
-                                        if (value) run(() => extendCopyAction(r.copyId, new Date(value.replace(' ', 'T')).toISOString()))
-                                    }}>Extend</Button>
+                                    {/* Decision 40: approved work can be returned while the assignment is open. */}
+                                    {r.approved && !closed ? <Button type="button" size="sm" variant="ghost" disabled={pending} onClick={() => setAsk({ kind: 'change', row: r })}>Change decision</Button> : null}
+                                    <Button type="button" size="sm" variant="ghost" disabled={pending} onClick={() => setAsk({ kind: 'extend', row: r })}>Extend</Button>
                                     <Button type="button" size="sm" variant="ghost" disabled={pending} onClick={() => {
                                         if (r.state === 'excused') return run(() => excuseCopyAction(r.copyId, null))
-                                        const reason = window.prompt('Why is this person excused?')
-                                        if (reason) run(() => excuseCopyAction(r.copyId, reason))
+                                        setAsk({ kind: 'excuse', row: r })
                                     }}>{r.state === 'excused' ? 'Un-excuse' : 'Excuse'}</Button>
                                     {r.state !== 'done' && r.state !== 'excused' && r.state !== 'submitted' ? <Button type="button" size="sm" variant="ghost" disabled={pending} onClick={() => run(async () => { const res = await remindCopiesAction(row.masterId, [r.copyId]); if (res.success) toast.success(remindSummary(res)); return res.success ? { success: true } : res })}>Remind</Button> : null}
                                 </div>
@@ -439,6 +453,13 @@ export function RosterDialog({ row, orgId, open, onOpenChange, onChanged }: { ro
                     })}
                 </ul>
                 {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}
+                <ReturnDialog label={ask && 'row' in ask ? ask.row.label : ''} change={ask?.kind === 'change'} open={ask?.kind === 'return' || ask?.kind === 'change'} onClose={() => setAsk(null)}
+                    onReturn={(reason, fixBy) => { if (ask && 'row' in ask) { const copyId = ask.row.copyId; const change = ask.kind === 'change'; run(() => reviewAssignmentCopyAction(copyId, 'return', reason, undefined, { fixBy, change })) } }} />
+                <ExtendDialog label={ask && 'row' in ask ? ask.row.label : ''} currentDue={ask && 'row' in ask ? ask.row.dueDate : null} closed={closed} open={ask?.kind === 'extend'} onClose={() => setAsk(null)}
+                    onExtend={(due, reopen) => { if (ask && 'row' in ask) { const copyId = ask.row.copyId; run(() => extendCopyAction(copyId, due, { reopen })) } }} />
+                <ExcuseDialog label={ask && 'row' in ask ? ask.row.label : ''} open={ask?.kind === 'excuse'} onClose={() => setAsk(null)}
+                    onExcuse={(reason) => { if (ask && 'row' in ask) { const copyId = ask.row.copyId; run(() => excuseCopyAction(copyId, reason)) } }} />
+                <GiveToDialog people={withoutCopy} open={ask?.kind === 'give'} onClose={() => setAsk(null)} onGive={(userId, due) => run(() => giveCopyAction(row.masterId, userId, due))} />
             </DialogContent>
         </Dialog>
     )
@@ -494,8 +515,8 @@ export function AssignmentsPanel({ orgId, onBoardChanged, startComposing = false
                                 <Status text={STATE_LABEL[row.mine.state] + (row.mine.late ? ' · Late' : '')} tone={row.mine.state === 'done' ? 'completed' : row.mine.state === 'missing' ? 'archived' : 'active'} />
                                 {row.mine.teamName ? <span className="text-muted-foreground">{row.mine.teamName}</span> : null}
                                 {row.mine.returnedReason ? <span className="basis-full text-[13px] text-muted-foreground">Returned: {row.mine.returnedReason}</span> : null}
-                                {['not_started', 'in_progress', 'returned', 'missing', 'submitted'].includes(row.mine.state) && row.status === 'open' ? (
-                                    <Button type="button" size="sm" variant="outline" className="ml-auto" onClick={() => setSubmitting(row)}>{row.mine.state === 'submitted' ? 'Resubmit' : 'Submit'}</Button>
+                                {['not_started', 'in_progress', 'returned', 'missing', 'submitted'].includes(row.mine.state) && (row.status === 'open' || row.mine.state === 'returned') ? (
+                                    <Button type="button" size="sm" variant="outline" className="ml-auto" onClick={() => setSubmitting(row)}>{row.mine.state === 'submitted' ? 'Replace submission' : 'Submit'}</Button>
                                 ) : null}
                             </>
                         ) : (
@@ -512,6 +533,7 @@ export function AssignmentsPanel({ orgId, onBoardChanged, startComposing = false
                                 {row.status === 'draft' && row.note ? <span className="basis-full text-[13px] text-muted-foreground">{row.note}</span> : null}
                                 {row.status !== 'draft' ? <Button type="button" size="sm" variant="outline" onClick={() => setRoster(row)}>Roster</Button> : null}
                                 {row.status === 'open' ? <Button type="button" size="sm" variant="ghost" disabled={pending} onClick={() => run(() => closeAssignmentAction(row.masterId))}>Close</Button> : null}
+                                {row.status === 'closed' ? <Button type="button" size="sm" variant="ghost" disabled={pending} onClick={() => run(() => reopenAssignmentAction(row.masterId))}>Reopen</Button> : null}
                                 <Button type="button" size="sm" variant="ghost" disabled={pending} onClick={() => { if (window.confirm(`Delete ${row.title}?`)) run(() => deleteAssignmentAction(row.masterId)) }}>Delete</Button>
                             </span>
                         ) : null}

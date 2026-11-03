@@ -66,9 +66,10 @@ test.beforeAll(async () => {
             {masterId:'a2',title:'Reading quiz',dueDate:null,status:'draft',submissionType:'none',reviewRequired:false,teams:false,counts,mine:null}]});
             export const readAssignmentComposerOptionsAction=async()=>({success:true,children:[],sprints:[],teamAssignments:[],defaults:{reviewRequired:true,lateRule:'until'}}),readAssignmentRosterAction=async()=>({success:true,counts,rows:[
               {copyId:'t1',label:'Team A',members:[],people:[{id:'u1',name:'Ravi Kumar',lead:true},{id:'u2',name:'Alexandria Ramana Chandrasekhar',lead:false}],submittedBy:null,state:'in_progress',late:false,projectId:'org',dueDate:null,submission:null,excusedReason:null},
-              {copyId:'t2',label:'Priya (individual)',members:[],state:'missing',late:false,projectId:'org',dueDate:null,submission:null,excusedReason:null}]});
+              {copyId:'t2',label:'Priya (individual)',members:[],state:'missing',late:false,projectId:'org',dueDate:null,submission:null,excusedReason:null},
+              {copyId:'t3',label:'Kiran',members:[],state:'submitted',late:false,projectId:'org',dueDate:null,submission:{link:'https://example.com/k'},excusedReason:null}],withoutCopy:[{userId:'u9',name:'Late Joiner'}],closed:false});
             export const listWorkspaceGroupCopiesAction=async()=>({success:true,rows:[]});
-            export const approveAllSubmittedAction=${ok},closeAssignmentAction=${ok},createAssignmentAction=${ok},deleteAssignmentAction=${ok},excuseCopyAction=${ok},extendCopyAction=${ok},publishAssignmentAction=${ok},reviewAssignmentCopyAction=${ok},submitAssignmentAction=${ok};
+            export const approveAllSubmittedAction=${ok},closeAssignmentAction=${ok},createAssignmentAction=${ok},deleteAssignmentAction=${ok},excuseCopyAction=${ok},extendCopyAction=${ok},publishAssignmentAction=${ok},reviewAssignmentCopyAction=${ok},submitAssignmentAction=${ok},giveCopyAction=${ok},reopenAssignmentAction=${ok};
             export const addAssignmentStepAction=${ok},excuseTeamMemberAction=${ok},moveTeamMemberAction=${ok},remindCopiesAction=async()=>({success:true,reminded:3}),readAssignmentTeamsAction=async()=>({success:true,teams:[]});
             export const readReviewQueueAction=async()=>({success:true,rows:[{copyId:'c1',masterId:'a1',title:'Lab 3 — Consensus protocols',who:'Team A',submittedBy:'Asha Nair',submittedAt:new Date(Date.now()-7200000).toISOString(),late:true},{copyId:'c2',masterId:'a1',title:'Lab 3',who:'Priya',submittedBy:null,submittedAt:new Date().toISOString(),late:false}]});`,
     };
@@ -178,6 +179,14 @@ test('Assignments (§16): the review queue steps with Next; the roster has Remin
     await expect(dialog.getByText('Ravi Kumar ★', { exact: false })).toBeVisible();
     await noSideScroll(page);
     await page.screenshot({ path: test.info().outputPath('assignments-375.png') });
+    // Step 13a: Return asks for a reason and Fix by; Give to lists people without a copy.
+    await dialog.getByRole('button', { name: 'Return', exact: true }).click();
+    const returning = page.getByRole('alertdialog');
+    await expect(returning).toContainText('Fix by');
+    await expect(returning).toContainText('They can hand it in again until then, even past the due date.');
+    await returning.getByRole('button', { name: 'Cancel' }).click();
+    await dialog.getByRole('button', { name: 'Give to…' }).click();
+    await expect(page.getByRole('alertdialog')).toContainText('Late Joiner');
 });
 
 test('Org header (§18): + New ▾ by keyboard, tab badges with spoken text, and the compact bar with the sprint chip and New items on a phone', async ({ page }) => {

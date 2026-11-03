@@ -56,7 +56,8 @@
     "drizzle/0050_welcome_dismissed.sql",
     "drizzle/0051_update_hidden_from_org.sql",
     "drizzle/0052_org_takeover_request.sql",
-    "drizzle/0053_live_join_requests.sql"
+    "drizzle/0053_live_join_requests.sql",
+    "drizzle/0054_assignment_submissions.sql"
   ],
   "legacyDatabaseTags": [],
   "allowedUtilitySqlFiles": [

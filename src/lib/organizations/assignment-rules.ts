@@ -23,7 +23,13 @@ export type AssignmentSettings = {
   closedAt?: string | null;
   /** Shown on a draft that Duplicate changed, until it's published (report §42.10 problem 15). */
   note?: string | null;
+  /** Late after (report §45.3, decision 171): minutes past the due time before work counts as Late; 15 by default. */
+  lateAfterMinutes?: number;
 };
+
+export const LATE_AFTER_DEFAULT_MINUTES = 15;
+/** Late after in milliseconds; assignments saved before it existed get the default. */
+export const lateAfterMs = (settings?: Pick<AssignmentSettings, "lateAfterMinutes"> | null) => (settings?.lateAfterMinutes ?? LATE_AFTER_DEFAULT_MINUTES) * 60_000;
 
 /** Stored on a copy when it is handed in. */
 export type AssignmentSubmission = {
@@ -32,6 +38,9 @@ export type AssignmentSubmission = {
   by: string;
   at: string;
   version: number;
+  /** An optional note with any hand-in (decision 85). */
+  note?: string | null;
+  late?: boolean;
 };
 
 export type CopyState = "not_started" | "in_progress" | "submitted" | "returned" | "done" | "missing" | "excused";
@@ -45,24 +54,32 @@ type CopyInput = {
   excusedAt: Date | null;
 };
 
-/** One copy's roster state plus the Late label; Missing is "not handed in and past due" (report §16.3). */
-export function copyState(copy: CopyInput, now: Date = new Date()): { state: CopyState; late: boolean } {
+/**
+ * One copy's roster state plus the Late label; Missing is "not handed in and past due" (report §16.3). Both wait for
+ * Late after past the due time (decision 171); callers without the assignment's settings get the default.
+ */
+// ponytail: screens that don't read the main assignment use the 15-minute default. Pass graceMs where settings are loaded.
+export function copyState(copy: CopyInput, now: Date = new Date(), graceMs: number = LATE_AFTER_DEFAULT_MINUTES * 60_000): { state: CopyState; late: boolean } {
   if (copy.excusedAt) return { state: "excused", late: false };
   // Late is about when it was handed in, never when someone reviewed it (report §42.2 problem 2, §42.4).
   const handedInAt = copy.reviewStatus === "pending" || copy.status === "done" ? copy.submittedAt ?? copy.completedAt : null;
-  const late = Boolean(handedInAt && copy.dueDate && handedInAt.getTime() > copy.dueDate.getTime());
+  const late = Boolean(handedInAt && copy.dueDate && handedInAt.getTime() > copy.dueDate.getTime() + graceMs);
   if (copy.reviewStatus === "pending") return { state: "submitted", late };
   if (copy.status === "done") return { state: "done", late };
   // Returned work stays Returned past its due date, so the person knows to resubmit (decision 86).
   if (copy.reviewStatus === "rejected") return { state: "returned", late: false };
-  if (copy.dueDate && now.getTime() > copy.dueDate.getTime()) return { state: "missing", late: false };
+  if (copy.dueDate && now.getTime() > copy.dueDate.getTime() + graceMs) return { state: "missing", late: false };
   return { state: copy.status === "todo" ? "not_started" : "in_progress", late: false };
 }
 
-/** Whether a copy may still be handed in now (report §16.3: closed, or past due with late work not allowed). */
-export function canStillSubmit(settings: AssignmentSettings, dueDate: Date | null, now: Date = new Date()) {
+/**
+ * Whether a copy may still be handed in now (report §16.3: closed, or past due with late work not allowed). Its own
+ * "submit until" (Fix by on Return, or reopened for one person) wins over both (decision 126, smaller bug 18).
+ */
+export function canStillSubmit(settings: AssignmentSettings, dueDate: Date | null, now: Date = new Date(), submitUntil?: Date | null) {
+  if (submitUntil && now.getTime() <= submitUntil.getTime()) return true;
   if (settings.closedAt) return false;
-  if (!dueDate || now.getTime() <= dueDate.getTime()) return true;
+  if (!dueDate || now.getTime() <= dueDate.getTime() + lateAfterMs(settings)) return true;
   if (settings.lateRule === "always") return true;
   if (settings.lateRule === "until") return Boolean(settings.lateUntil && now.getTime() <= new Date(settings.lateUntil).getTime());
   return false;

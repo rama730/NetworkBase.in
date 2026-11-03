@@ -6,16 +6,16 @@ import { logger } from '@/lib/logger';
 import { z } from 'zod';
 
 import { db } from '@/lib/db';
-import { profiles, workspaces, workspaceSprints, workspaceWorkflowColumns, taskActivityEvents, taskTeamMembers, tasks } from '@/lib/db/schema';
+import { assignmentSubmissions, profiles, workspaceMembers, workspaces, workspaceSprints, workspaceWorkflowColumns, taskActivityEvents, taskTeamMembers, tasks } from '@/lib/db/schema';
 import { getWorkspaceAccessById, writeBlockedMessage } from '@/lib/data/workspace-access';
 import { createClient } from '@/lib/supabase/server';
-import { assignmentHref, canStillSubmit, copyState, lateRuleBlock, lateWorkLabel, type AssignmentSettings, type AssignmentTarget, type CopyState } from '@/lib/organizations/assignment-rules';
+import { assignmentHref, canStillSubmit, copyState, LATE_AFTER_DEFAULT_MINUTES, lateAfterMs, lateRuleBlock, lateWorkLabel, type AssignmentSettings, type AssignmentTarget, type CopyState } from '@/lib/organizations/assignment-rules';
 import { createCopies, createMasterTask, handedInSql, PeopleLeftError, resolveRecipients } from '@/lib/organizations/assignments';
 import { shareToOrgGeneral } from '@/lib/organizations/org-chat';
 import { postOrgAnnouncement } from '@/lib/organizations/org-updates';
 import { ORG_LIMITS } from '@/lib/organizations/config';
 import { readOrgWork } from '@/lib/organizations/settings';
-import { assignmentPeopleOf, notifyAssignmentDueChanged, notifyAssignmentPublished, notifyAssignmentRemoved, notifyAssignmentReviewed, notifyAssignmentSubmitted, notifyTeamMoved } from '@/lib/organizations/assignment-notify';
+import { assignmentPeopleOf, notifyAssignmentDueChanged, notifyAssignmentPublished, notifyNewCopies, notifyAssignmentRemoved, notifyAssignmentReviewed, notifyAssignmentSubmitted, notifyTeamMoved } from '@/lib/organizations/assignment-notify';
 import { remindedRecently } from '@/lib/organizations/notify';
 import { taskReviewSnapshot } from '@/lib/workspaces/task-review-snapshot';
 
@@ -73,6 +73,8 @@ const createSchema = z.object({
     shareToGeneral: z.boolean().optional(),
     /** "Also post an announcement" (report §17.2), off by default; only when published. */
     announcement: z.string().trim().max(5000).optional(),
+    /** Late after (report §45.3, decision 171): minutes past the due time, 0 to 60. */
+    lateAfterMinutes: z.number().int().min(0, 'Late after is 0 to 60 minutes.').max(60, 'Late after is 0 to 60 minutes.').optional(),
 });
 
 /** New assignment: a master, and copies when published (report §16.2). Drafts make no copies. */
@@ -102,6 +104,7 @@ export async function createAssignmentAction(input: z.input<typeof createSchema>
                 target: data.target,
                 publishedAt: data.publish ? new Date().toISOString() : null,
                 closedAt: null,
+                lateAfterMinutes: data.lateAfterMinutes ?? LATE_AFTER_DEFAULT_MINUTES,
             };
             const masterId = await createMasterTask(tx, {
                 orgId: data.projectId, title: data.title, description: data.description || null, dueDate: new Date(data.dueDate),
@@ -209,6 +212,39 @@ export async function deleteAssignmentAction(masterId: string): Promise<{ succes
     return { success: true };
 }
 
+/** Reopen (decision 40): submissions resume; instructions and the due date can change again. */
+export async function reopenAssignmentAction(masterId: string): Promise<{ success: true } | Failure> {
+    const ctx = await adminOfMaster(masterId);
+    if (!ctx) return DENIED;
+    if (!ctx.master.settings.closedAt) return { success: false, error: 'This assignment is open.' };
+    await db.update(tasks).set({ assignmentSettings: { ...ctx.master.settings, closedAt: null }, updatedAt: new Date() }).where(eq(tasks.id, masterId));
+    touch(ctx.viewer.slug, ctx.master.projectId);
+    return { success: true };
+}
+
+/** Give to (report §34.6, decisions 17 and 88): a copy for a member without one, with its own due date. They're told. */
+export async function giveCopyAction(masterId: string, userId: string, dueDate: string): Promise<{ success: true } | Failure> {
+    if (!z.string().datetime({ offset: true }).safeParse(dueDate).success) return { success: false, error: 'Pick a due date.' };
+    const ctx = await adminOfMaster(masterId);
+    if (!ctx) return DENIED;
+    if (!ctx.master.settings.publishedAt) return { success: false, error: 'Publish it first.' };
+    const [member] = await db.select({ role: workspaceMembers.role }).from(workspaceMembers).where(and(eq(workspaceMembers.projectId, ctx.master.projectId), eq(workspaceMembers.userId, userId))).limit(1);
+    if (member?.role !== 'member') return { success: false, error: 'Only members get assignments.' };
+    const [existing] = await db.select({ id: tasks.id }).from(tasks).where(and(eq(tasks.assignmentId, masterId), isNull(tasks.deletedAt),
+        sql`(${tasks.assigneeId} = ${userId} OR EXISTS (SELECT 1 FROM task_team_members tm WHERE tm.task_id = ${tasks.id} AND tm.user_id = ${userId}))`)).limit(1);
+    if (existing) return { success: false, error: 'They already have this one.' };
+    const due = new Date(dueDate);
+    await db.transaction(async (tx) => {
+        await createCopies(tx, masterId, [{ projectId: ctx.master.projectId, assigneeId: userId }], ctx.viewer.userId);
+        // Their own date, and open to them even if the assignment has closed since.
+        await tx.update(tasks).set({ dueDate: due, ...(ctx.master.settings.closedAt ? { submitUntil: due } : {}) })
+            .where(and(eq(tasks.assignmentId, masterId), eq(tasks.assigneeId, userId), isNull(tasks.deletedAt)));
+    });
+    touch(ctx.viewer.slug, ctx.master.projectId);
+    await notifyNewCopies(ctx.master.projectId, { userId }).catch((error) => logger.warn('assignments.after_save_failed', { module: 'assignments', step: 'give', masterId, error: error instanceof Error ? error.message : String(error) }));
+    return { success: true };
+}
+
 /** No more submissions; Missing stays in history. */
 export async function closeAssignmentAction(masterId: string): Promise<{ success: true } | Failure> {
     const ctx = await adminOfMaster(masterId);
@@ -231,13 +267,18 @@ async function columnFor(projectId: string, status: 'in_progress' | 'done') {
     return column?.id ?? null;
 }
 
-const submitSchema = z.object({ link: z.string().trim().url().max(2000).optional(), text: z.string().trim().max(10000).optional() }).strict();
+const submitSchema = z.object({
+    link: z.string().trim().url('Enter a valid link.').max(2000).optional(),
+    text: z.string().trim().max(10000, 'Up to 10,000 characters.').optional(),
+    // Decision 85: an optional note with any hand-in.
+    note: z.string().trim().max(500, 'Notes are up to 500 characters.').optional(),
+}).strict();
 
 /** Hand in a copy: its assignee or any teammate (report §16.4, §16.11). Review on → Submitted; off → Done. */
 export async function submitAssignmentAction(copyId: string, input: z.input<typeof submitSchema>): Promise<{ success: true } | Failure> {
     const userId = await viewerId();
     const parsed = submitSchema.safeParse(input);
-    if (!userId || !parsed.success) return parsed.success ? DENIED : { success: false, error: 'Enter a valid link.' };
+    if (!userId || !parsed.success) return parsed.success ? DENIED : { success: false, error: parsed.error.issues[0]?.message ?? 'Check what you’re handing in.' };
     const loaded = await loadCopy(copyId);
     if (!loaded) return DENIED;
     const { copy, master } = loaded;
@@ -246,8 +287,14 @@ export async function submitAssignmentAction(copyId: string, input: z.input<type
     if (copy.excusedAt) return { success: false, error: "You’re excused from this one." };
     const copyAccess = await getWorkspaceAccessById(copy.projectId, userId);
     if (copyAccess.writeBlocked) return { success: false, error: writeBlockedMessage(copyAccess.writeBlocked) };
-    if (!canStillSubmit(master.settings, copy.dueDate)) return { success: false, error: master.settings.closedAt ? 'This assignment is closed.' : 'Late submissions are not accepted.' };
-    const { link, text } = parsed.data;
+    // Approved work is locked (decision 85); done work with no review can be replaced until it's due (34.4).
+    if (copy.status === 'done' && copy.reviewStatus === 'none' && copy.completionSource === 'review') return { success: false, error: 'Approved work is locked.' };
+    const now = new Date();
+    if (copy.status === 'done' && copy.reviewStatus === 'none' && copy.dueDate && now.getTime() > copy.dueDate.getTime() + lateAfterMs(master.settings) && !(copy.submitUntil && now <= copy.submitUntil)) {
+        return { success: false, error: 'The due date has passed, so this can’t be replaced.' };
+    }
+    if (!canStillSubmit(master.settings, copy.dueDate, now, copy.submitUntil)) return { success: false, error: master.settings.closedAt ? 'This assignment is closed.' : 'Late submissions are not accepted.' };
+    const { link, text, note } = parsed.data;
     const type = master.settings.submissionType;
     if (type === 'link' && !link) return { success: false, error: 'Add the link to your work.' };
     if (type === 'text' && !text) return { success: false, error: 'Write your answer first.' };
@@ -257,11 +304,20 @@ export async function submitAssignmentAction(copyId: string, input: z.input<type
             UNION ALL SELECT node_id FROM task_node_links WHERE task_id = ${copyId} LIMIT 1`);
         if (!file) return { success: false, error: 'Attach your file to this task first.' };
     }
-    const now = new Date();
     const review = master.settings.reviewRequired;
+    // Late against the copy's own due date (Fix by moves it) plus Late after (decisions 126, 171).
+    const late = Boolean(copy.dueDate && now.getTime() > copy.dueDate.getTime() + lateAfterMs(master.settings));
     await db.transaction(async (tx) => {
         // What was handed in, so the panel and Approve can tell whether it changed since (problems 21, 29).
         const reviewContentHash = review ? await taskReviewSnapshot(tx, copyId, true) : null;
+        // The submission record (decision 127, problem 9): this version, its note and its files, kept for good.
+        const [last] = await tx.select({ version: sql<number>`coalesce(max(${assignmentSubmissions.version}), 0)::int` }).from(assignmentSubmissions).where(eq(assignmentSubmissions.copyId, copyId));
+        const version = Math.max(last?.version ?? 0, copy.submission?.version ?? 0) + 1;
+        const files = type === 'file' ? await tx.execute<{ id: string; name: string; version: number | null }>(sql`
+            SELECT n.id, n.name, n.current_version AS version FROM workspace_nodes n
+            WHERE n.deleted_at IS NULL AND n.type = 'file' AND (n.task_id = ${copyId} OR n.id IN (SELECT node_id FROM task_node_links WHERE task_id = ${copyId}))`) : [];
+        await tx.insert(assignmentSubmissions).values({ copyId, projectId: copy.projectId, version, submittedBy: userId, submittedAt: now, link: link ?? null, body: text ?? null, note: note || null,
+            files: files.map((f) => ({ nodeId: f.id, name: f.name, version: f.version })), late });
         await tx.update(tasks).set({
             status: 'done',
             workflowColumnId: await columnFor(copy.projectId, 'done'),
@@ -271,7 +327,7 @@ export async function submitAssignmentAction(copyId: string, input: z.input<type
             completedAt: review ? null : now,
             completedBy: review ? null : userId,
             completionSource: review ? null : 'direct',
-            submission: { link: link ?? null, text: text ?? null, by: userId, at: now.toISOString(), version: (copy.submission?.version ?? 0) + 1 },
+            submission: { link: link ?? null, text: text ?? null, by: userId, at: now.toISOString(), version, note: note || null, late },
             updatedAt: now,
         }).where(eq(tasks.id, copyId));
         await tx.insert(taskActivityEvents).values({
@@ -289,7 +345,7 @@ export async function submitAssignmentAction(copyId: string, input: z.input<type
 const ownWork = (copyId: string, userId: string) => sql`(${tasks.assigneeId} = ${userId} OR EXISTS (SELECT 1 FROM task_team_members tm WHERE tm.task_id = ${copyId}::uuid AND tm.user_id = ${userId}))`;
 
 /** Reviews one waiting copy; false when someone else got there first (report §42.12 smaller bug 15). */
-async function reviewOne(copyId: string, reviewerId: string, decision: 'approve' | 'return', reason?: string): Promise<boolean> {
+async function reviewOne(copyId: string, reviewerId: string, decision: 'approve' | 'return', reason?: string, fixBy?: Date, change = false): Promise<boolean> {
     const now = new Date();
     const [copy] = await db.select({ projectId: tasks.projectId, sprintId: tasks.sprintId, title: tasks.title }).from(tasks).where(eq(tasks.id, copyId)).limit(1);
     if (!copy) return false;
@@ -302,13 +358,18 @@ async function reviewOne(copyId: string, reviewerId: string, decision: 'approve'
         }
         const updated = await tx.update(tasks).set(decision === 'approve'
             ? { reviewStatus: 'none', status: 'done', completedAt: now, completedBy: reviewerId, completionSource: 'review', updatedAt: now }
-            : { reviewStatus: 'rejected', status: 'in_progress', workflowColumnId: await columnFor(copy.projectId, 'in_progress'), completedAt: null, completedBy: null, completionSource: null, updatedAt: now },
-        ).where(and(eq(tasks.id, copyId), eq(tasks.reviewStatus, 'pending'))).returning({ id: tasks.id });
+            // Return with Fix by (decision 126): the copy's own due date and its submit-until move there.
+            : { reviewStatus: 'rejected', status: 'in_progress', workflowColumnId: await columnFor(copy.projectId, 'in_progress'), completedAt: null, completedBy: null, completionSource: null, updatedAt: now,
+                ...(fixBy ? { submitUntil: fixBy, dueDate: sql`greatest(${tasks.dueDate}, ${fixBy.toISOString()}::timestamptz)` } : {}) },
+        ).where(and(eq(tasks.id, copyId), decision === 'return'
+            // Decision 40: an approved copy can be returned too, while the assignment is open (checked by the caller).
+            ? sql`(${tasks.reviewStatus} = 'pending' OR (${tasks.status} = 'done' AND ${tasks.completionSource} = 'review' AND ${change}))`
+            : eq(tasks.reviewStatus, 'pending'))).returning({ id: tasks.id });
         if (updated.length === 0) return false;
         await tx.insert(taskActivityEvents).values({
             taskId: copyId, projectId: copy.projectId, sprintId: copy.sprintId, actorId: reviewerId,
             eventType: decision === 'approve' ? 'review_approved' : 'changes_requested',
-            payload: { version: 1, source: 'assignment_review', taskTitle: copy.title, reason: reason ?? null },
+            payload: { version: 1, source: 'assignment_review', taskTitle: copy.title, reason: reason ?? null, fixBy: fixBy?.toISOString() ?? null },
         });
         return true;
     });
@@ -326,7 +387,7 @@ async function lastReviewer(copyId: string) {
 }
 
 /** Approve, or Return with a reason, one submitted copy (org admins; report §16.4). */
-export async function reviewAssignmentCopyAction(copyId: string, decision: 'approve' | 'return', reason?: string, expected?: { projectId: string; updatedAt?: string }): Promise<{ success: true } | Failure> {
+export async function reviewAssignmentCopyAction(copyId: string, decision: 'approve' | 'return', reason?: string, expected?: { projectId: string; updatedAt?: string }, options: { fixBy?: string; change?: boolean } = {}): Promise<{ success: true } | Failure> {
     const loaded = await loadCopy(copyId);
     if (!loaded) return DENIED;
     // From the task panel: the copy must be in that workspace, and the panel must be looking at its current version.
@@ -334,11 +395,19 @@ export async function reviewAssignmentCopyAction(copyId: string, decision: 'appr
     if (expected?.updatedAt && loaded.copy.updatedAt.getTime() !== new Date(expected.updatedAt).getTime()) return { success: false, error: 'This changed. Reload before reviewing.' };
     const viewer = await orgRole(loaded.master.projectId);
     if (!viewer?.isAdmin) return DENIED;
-    if (loaded.copy.reviewStatus !== 'pending') return { success: false, error: `Already reviewed by ${await lastReviewer(copyId)}.` };
+    const approved = loaded.copy.status === 'done' && loaded.copy.completionSource === 'review';
+    // Decision 40: approved work can be returned while the assignment is open, as a deliberate change of decision;
+    // a second admin reviewing at the same moment is still told it's done (smaller bug 15).
+    if (decision === 'return' && approved && options.change) {
+        if (loaded.master.settings.closedAt) return { success: false, error: 'Reopen the assignment to return approved work.' };
+    } else if (loaded.copy.reviewStatus !== 'pending') return { success: false, error: `Already reviewed by ${await lastReviewer(copyId)}.` };
     if (decision === 'return' && !reason?.trim()) return { success: false, error: 'Say what to change.' };
+    // Fix by (decision 126): 3 days from now by default, never in the past.
+    const fixBy = decision === 'return' ? new Date(options.fixBy ?? Date.now() + 3 * 86_400_000) : undefined;
+    if (fixBy && !(fixBy.getTime() > Date.now())) return { success: false, error: 'Pick a Fix by date after now.' };
     const [own] = await db.select({ id: tasks.id }).from(tasks).where(and(eq(tasks.id, copyId), ownWork(copyId, viewer.userId))).limit(1);
     if (own) return { success: false, error: "You can’t review your own work. Ask another admin." };
-    const reviewed = await reviewOne(copyId, viewer.userId, decision, reason?.trim().slice(0, 1000)).catch((error: Error) => error);
+    const reviewed = await reviewOne(copyId, viewer.userId, decision, reason?.trim().slice(0, 1000), fixBy, Boolean(options.change && approved)).catch((error: Error) => error);
     if (reviewed instanceof Error) return { success: false, error: reviewed.message };
     if (!reviewed) {
         return { success: false, error: `Already reviewed by ${await lastReviewer(copyId)}.` };
@@ -365,12 +434,17 @@ async function adminOfCopy(copyId: string) {
     return viewer?.isAdmin ? { ...loaded, viewer } : null;
 }
 
-/** One person's (or team's) own due date. */
-export async function extendCopyAction(copyId: string, dueDate: string): Promise<{ success: true } | Failure> {
+/**
+ * One person's (or team's) own due date. On a closed assignment it also reopens it for them, when asked
+ * ("Reopen it for Asha?", smaller bug 18), so the new date means they can hand it in.
+ */
+export async function extendCopyAction(copyId: string, dueDate: string, options: { reopen?: boolean } = {}): Promise<{ success: true } | Failure> {
     if (!z.string().datetime({ offset: true }).safeParse(dueDate).success) return { success: false, error: 'Pick a date.' };
     const ctx = await adminOfCopy(copyId);
     if (!ctx) return DENIED;
-    await db.update(tasks).set({ dueDate: new Date(dueDate), updatedAt: new Date() }).where(eq(tasks.id, copyId));
+    const closed = Boolean(ctx.master.settings.closedAt);
+    if (closed && !options.reopen) return { success: false, error: 'This assignment is closed. Reopen it for this person to give them a new date.' };
+    await db.update(tasks).set({ dueDate: new Date(dueDate), ...(closed ? { submitUntil: new Date(dueDate) } : {}), updatedAt: new Date() }).where(eq(tasks.id, copyId));
     touch(ctx.viewer.slug, ctx.master.projectId);
     await notifyAssignmentDueChanged(copyId, ctx.viewer.userId, (title) => `Your due date for ${title} changed`, `${copyId}:due:${dueDate}`);
     return { success: true };
@@ -466,10 +540,12 @@ export type RosterRow = {
     copyId: string; label: string; members: string[]; state: CopyState; late: boolean; projectId: string; dueDate: string | null; submission: unknown; excusedReason: string | null;
     /** Team copies (report §16.11): who is on it (★ lead) and who handed in for the team. */
     people?: Array<{ id: string; name: string; lead: boolean }>; submittedBy?: string | null;
+    /** Approved by a reviewer: Change decision can still return it while open (decision 40). */
+    approved?: boolean;
 };
 
 /** The roster for one assignment (report §16.5): admins see names; guests see counts without names. */
-export async function readAssignmentRosterAction(masterId: string): Promise<{ success: true; rows: RosterRow[]; counts: AssignmentRow['counts'] } | Failure> {
+export async function readAssignmentRosterAction(masterId: string): Promise<{ success: true; rows: RosterRow[]; counts: AssignmentRow['counts']; withoutCopy: Array<{ userId: string; name: string }>; closed: boolean } | Failure> {
     const master = await loadMaster(masterId);
     if (!master) return DENIED;
     const viewer = await orgRole(master.projectId, 'read');
@@ -477,18 +553,25 @@ export async function readAssignmentRosterAction(masterId: string): Promise<{ su
     const copies = await db.select({
         id: tasks.id, projectId: tasks.projectId, assigneeId: tasks.assigneeId, teamName: tasks.teamName, status: tasks.status, reviewStatus: tasks.reviewStatus,
         dueDate: tasks.dueDate, reviewSubmittedAt: tasks.reviewSubmittedAt, completedAt: tasks.completedAt, excusedAt: tasks.excusedAt, excusedReason: tasks.excusedReason,
-        submission: tasks.submission, projectTitle: workspaces.title, projectParent: workspaces.parentId,
+        submission: tasks.submission, projectTitle: workspaces.title, projectParent: workspaces.parentId, completionSource: tasks.completionSource,
     }).from(tasks).innerJoin(workspaces, eq(workspaces.id, tasks.projectId))
         .where(and(eq(tasks.assignmentId, masterId), isNull(tasks.deletedAt)));
     const counts = emptyCounts();
     const now = new Date();
     const states = copies.map((c) => {
-        const s = copyState({ status: c.status, reviewStatus: c.reviewStatus, dueDate: c.dueDate, submittedAt: c.reviewSubmittedAt, completedAt: c.completedAt, excusedAt: c.excusedAt }, now);
+        const s = copyState({ status: c.status, reviewStatus: c.reviewStatus, dueDate: c.dueDate, submittedAt: c.reviewSubmittedAt, completedAt: c.completedAt, excusedAt: c.excusedAt }, now, lateAfterMs(master.settings));
         counts[s.state] += 1;
         if (s.state !== 'excused') counts.total += 1;
         return s;
     });
-    if (!viewer.isAdmin) return { success: true, rows: [], counts };
+    const closed = Boolean(master.settings.closedAt);
+    if (!viewer.isAdmin) return { success: true, rows: [], counts, withoutCopy: [], closed };
+    // Give to (decision 88): members with no copy, late joiners included.
+    const withoutCopy = (await db.select({ userId: workspaceMembers.userId, name: sql<string>`coalesce(${profiles.fullName}, ${profiles.username}, 'Member')` })
+        .from(workspaceMembers).innerJoin(profiles, eq(profiles.id, workspaceMembers.userId))
+        .where(and(eq(workspaceMembers.projectId, master.projectId), eq(workspaceMembers.role, 'member'), isNull(profiles.deletedAt),
+            sql`NOT EXISTS (SELECT 1 FROM tasks c WHERE c.assignment_id = ${masterId} AND c.deleted_at IS NULL AND (c.assignee_id = ${workspaceMembers.userId} OR EXISTS (SELECT 1 FROM task_team_members tm WHERE tm.task_id = c.id AND tm.user_id = ${workspaceMembers.userId})))`))
+        .orderBy(asc(profiles.fullName)).limit(500));
     const people = copies.length === 0 ? [] : await db.select({ copyId: taskTeamMembers.taskId, userId: taskTeamMembers.userId, isLead: taskTeamMembers.isLead, name: profiles.fullName, username: profiles.username })
         .from(taskTeamMembers).innerJoin(profiles, eq(profiles.id, taskTeamMembers.userId))
         .where(inArray(taskTeamMembers.taskId, copies.map((c) => c.id)));
@@ -504,9 +587,10 @@ export async function readAssignmentRosterAction(masterId: string): Promise<{ su
         const team = people.filter((p) => p.copyId === c.id).map((p) => ({ id: p.userId, name: p.name || p.username || 'Member', lead: p.isLead }));
         const by = (c.submission as { by?: string } | null)?.by;
         return { copyId: c.id, label, members, ...states[i]!, projectId: c.projectId, dueDate: c.dueDate?.toISOString() ?? null, submission: c.submission, excusedReason: c.excusedReason,
+            approved: c.status === 'done' && c.completionSource === 'review',
             ...(c.teamName ? { people: team, submittedBy: by ? names.get(by) ?? null : null } : {}) };
     });
-    return { success: true, rows, counts };
+    return { success: true, rows, counts, withoutCopy, closed };
 }
 
 /** Composer pickers: the org's child projects and its planned or active sprints. */

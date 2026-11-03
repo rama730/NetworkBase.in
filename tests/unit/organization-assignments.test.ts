@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { copyState, lateWorkLabel, splitIntoTeams } from "../../src/lib/organizations/assignment-rules";
+import { canStillSubmit, copyState, lateWorkLabel, splitIntoTeams } from "../../src/lib/organizations/assignment-rules";
 
 // Report §16.3: Missing and Late are derived from the due date and submission time, never stored.
 const now = new Date("2026-11-10T12:00:00Z");
@@ -92,4 +92,15 @@ test("problem 13: an old 'allowed until a date' assignment with no date says Lat
   assert.equal(lateWorkLabel({ lateRule: "until", lateUntil: "2026-11-13T18:00:00Z" }), null);
   assert.equal(lateWorkLabel({ lateRule: "always" }), null);
   assert.equal(lateWorkLabel({ lateRule: "none" }), null);
+});
+
+test("decision 171: Late after waits 15 minutes by default; 0 is strict; submit-until wins over Close", () => {
+  const handedIn = (minutesAfter: number) => ({ ...base, status: "done", submittedAt: new Date(due.getTime() + minutesAfter * 60_000) });
+  assert.equal(copyState(handedIn(10), now).late, false);
+  assert.equal(copyState(handedIn(20), now).late, true);
+  assert.equal(copyState(handedIn(1), now, 0).late, true);
+  const settings = { version: 1 as const, submissionType: "link" as const, reviewRequired: true, lateRule: "none" as const, target: { mode: "everyone" as const } };
+  assert.equal(canStillSubmit(settings, due, new Date(due.getTime() + 10 * 60_000)), true);
+  assert.equal(canStillSubmit({ ...settings, lateAfterMinutes: 0 }, due, new Date(due.getTime() + 60_000)), false);
+  assert.equal(canStillSubmit({ ...settings, closedAt: "2026-11-09T00:00:00Z" }, due, now, new Date(now.getTime() + 60_000)), true);
 });

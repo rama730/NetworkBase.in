@@ -372,6 +372,13 @@
       "when": 1793481726300,
       "tag": "0053_live_join_requests",
       "breakpoints": true
+    },
+    {
+      "idx": 53,
+      "version": "7",
+      "when": 1793481786300,
+      "tag": "0054_assignment_submissions",
+      "breakpoints": true
     }
   ]
 }

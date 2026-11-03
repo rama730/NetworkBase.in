@@ -1067,6 +1067,21 @@ export const orgJoinBlocks = pgTable(
 );
 
 /** Invites for people without an account yet, matched by email at sign-up. */
+/** One saved hand-in per version (report §42.5, decision 127, 0054). */
+export const assignmentSubmissions = pgTable("assignment_submissions", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  copyId: uuid("copy_id").notNull().references(() => tasks.id, { onDelete: "cascade" }),
+  projectId: uuid("workspace_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+  version: integer("version").notNull(),
+  submittedBy: uuid("submitted_by").references(() => profiles.id, { onDelete: "set null" }),
+  submittedAt: timestamp("submitted_at", { withTimezone: true }).defaultNow().notNull(),
+  link: text("link"),
+  body: text("body"),
+  note: text("note"),
+  files: jsonb("files").$type<Array<{ nodeId: string; name: string; version: number | null }>>().default([]).notNull(),
+  late: boolean("late").default(false).notNull(),
+});
+
 export const orgEmailInvites = pgTable(
   "org_email_invites",
   {
@@ -2379,6 +2394,8 @@ export const tasks = pgTable(
     submission: jsonb("submission").$type<import("@/lib/organizations/assignment-rules").AssignmentSubmission>(),
     excusedAt: timestamp("excused_at", { withTimezone: true }),
     excusedReason: text("excused_reason"),
+    /** Can be handed in until this, past due and after Close: Fix by on Return, or reopened for one person (0054). */
+    submitUntil: timestamp("submit_until", { withTimezone: true }),
     teamName: text("team_name"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
