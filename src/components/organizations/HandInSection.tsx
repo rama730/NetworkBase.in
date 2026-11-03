@@ -54,6 +54,8 @@ export function HandInSection({ copyId, onOpenFiles, onSubmitted, onUploadFiles 
     // Failure keeps the text (report §32.6); a fresh load starts from what was last handed in.
     useEffect(() => { if (h?.latest) { setLink((v) => v || h.latest!.link || ''); setText((v) => v || h.latest!.text || '') } }, [h?.latest])
     if (!h) return null
+    // Decision 173: waiting for review or approved, the files are locked until it's returned.
+    const canAttach = Boolean(onUploadFiles) && h.state !== 'submitted' && !h.approved
     const submit = () => startTransition(async () => {
         const withNote = note.trim() ? { note: note.trim() } : {}
         const result = await submitAssignmentAction(copyId, h.submissionType === 'link' ? { link, ...withNote } : h.submissionType === 'text' ? { text, ...withNote } : withNote)
@@ -92,12 +94,12 @@ export function HandInSection({ copyId, onOpenFiles, onSubmitted, onUploadFiles 
                     {h.submissionType === 'link' ? <Input value={link} onChange={(e) => setLink(e.target.value)} placeholder="https://" aria-label="Link to your work" /> : null}
                     {h.submissionType === 'text' ? <textarea value={text} onChange={(e) => setText(e.target.value)} rows={5} maxLength={10000} className={area} aria-label="Your answer" /> : null}
                     {h.submissionType === 'file' ? (
-                        <div onDragOver={(e) => { if (onUploadFiles) { e.preventDefault(); setDragging(true) } }} onDragLeave={() => setDragging(false)}
-                            onDrop={(e) => { if (!onUploadFiles) return; e.preventDefault(); setDragging(false); void attach(Array.from(e.dataTransfer.files)) }}
-                            className={dragging ? 'rounded-md border border-dashed border-primary p-2' : onUploadFiles ? 'rounded-md border border-dashed border-border p-2' : undefined}>
+                        <div onDragOver={(e) => { if (canAttach) { e.preventDefault(); setDragging(true) } }} onDragLeave={() => setDragging(false)}
+                            onDrop={(e) => { if (!canAttach) return; e.preventDefault(); setDragging(false); void attach(Array.from(e.dataTransfer.files)) }}
+                            className={dragging ? 'rounded-md border border-dashed border-primary p-2' : canAttach ? 'rounded-md border border-dashed border-border p-2' : undefined}>
                             <p className="flex flex-wrap items-center gap-2">
-                                {uploading ? 'Adding…' : h.files.length ? h.files.map((f) => f.name).join(', ') : onUploadFiles ? 'Drop your file here, or choose one.' : 'No file attached yet.'}
-                                {onUploadFiles ? (
+                                {uploading ? 'Adding…' : h.files.length ? h.files.map((f) => f.name).join(', ') : canAttach ? 'Drop your file here, or choose one.' : 'No file attached yet.'}
+                                {canAttach ? (
                                     <label className="inline-flex cursor-pointer items-center rounded-md border border-input px-2.5 py-1 text-[13px] hover:bg-muted">
                                         Choose file<input type="file" multiple className="sr-only" disabled={uploading} onChange={(e) => { void attach(Array.from(e.target.files ?? [])); e.target.value = '' }} />
                                     </label>

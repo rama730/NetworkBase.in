@@ -59,3 +59,16 @@ the pinned update. A 188-byte test zip was chosen for hand-in; it was refused (p
 
 All of 1–13, 15–19, 21, 22 and 24, each with a test (`tests/unit/org-student-check.test.ts`, `tests/browser/panel-layers.spec.ts`,
 and DB cases named "student check N"). 14 and 23 need no change. 20 is the live loop after deploy, and 26 is Cloudflare.
+
+## After the deploy (f6d0f3d11, 4 November)
+
+The student handed in `lab1-rama.zip` live: it attached, Submit opened, and the copy reads "Waiting for review" (problem 1 fixed).
+Locked fields, the named zone and "Reviewed by Teacher or TA" showed as built. Then:
+
+| # | Problem | Cause | Fix |
+|---|---|---|---|
+| 27 | **The teacher's Tasks tab crashed** ("Something went wrong in Tasks") as soon as a file was waiting for review. | The review queue read file names with `array_agg`; production runs with `fetch_types: false`, so the list arrived as the text `{lab1-rama.zip}` and `.join` threw. Tests passed because the test database parses arrays. The roster's skills had the same read. | Both wrap the list in `to_jsonb`, like the other queries that already did. |
+| 28 | The handed-in copy's header chip read "COMPLETED". | The panel didn't pass the review state to the badge. | It reads "In review". |
+| 29 | "Choose file" stayed while the hand-in waited for review, though its files are locked (decision 173). | — | Hidden while waiting or approved; back when returned. |
+
+Approve, Return and Resubmit wait on 27 reaching production.

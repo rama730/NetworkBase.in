@@ -365,7 +365,7 @@ export default function TaskDetailPanel({
                       <Copy className="size-3 opacity-0 group-hover:opacity-100 transition-opacity" />
                     )}
                   </button>
-                  <TaskStatusBadge status={resource.task.status} />
+                  <TaskStatusBadge status={resource.task.status} reviewStatus={resource.task.reviewStatus} />
                   <TaskPriorityBadge priority={resource.task.priority} />
                   {showRealtimeIssue ? (
                     <span className="rounded-[3px] border border-amber-500/20 bg-amber-500/10 px-2 py-0.5 font-mono text-[11px] font-medium text-amber-700 dark:text-amber-400">

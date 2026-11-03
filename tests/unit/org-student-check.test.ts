@@ -82,3 +82,22 @@ test("student check 17, 24: Publish confirms how many copies went out, and warns
   assert.match(panel, /Published \$\{title\.trim\(\)\}: \$\{result\.copies\}/);
   assert.match(panel, /if \(publish && result\.copies === 0\) toast\.warning\(/);
 });
+
+test("live after deploy: lists from SQL come back as JSON, because production reads Postgres arrays as text (fetch_types off)", () => {
+  assert.match(source("src/app/actions/assignments.ts"), /\(SELECT to_jsonb\(array_agg\(f->>'name'\)\) FROM assignment_submissions/);
+  assert.match(source("src/app/actions/organizations.ts"), /\(SELECT to_jsonb\(array_agg\(s\.name ORDER BY s\.name\)\) FROM/);
+  // Every array_agg that comes back whole (not one element with [1]) goes through to_jsonb.
+  for (const file of ["src/app/actions/assignments.ts", "src/app/actions/organizations.ts"]) {
+    assert.doesNotMatch(source(file), /\(SELECT array_agg\(/, file);
+  }
+});
+
+test("live after deploy: a handed-in copy's panel chip reads In review, not Completed", () => {
+  assert.match(source("src/components/workspaces/v2/tasks/TaskDetailPanel.tsx"), /<TaskStatusBadge status=\{resource\.task\.status\} reviewStatus=\{resource\.task\.reviewStatus\} \/>/);
+});
+
+test("live after deploy: no Choose file while a hand-in waits for review or is approved", () => {
+  const hand = source("src/components/organizations/HandInSection.tsx");
+  assert.match(hand, /const canAttach = Boolean\(onUploadFiles\) && h\.state !== 'submitted' && !h\.approved/);
+  assert.match(hand, /\{canAttach \? \(\s*<label/);
+});

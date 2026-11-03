@@ -1120,7 +1120,7 @@ export async function readReviewQueueAction(orgId: string): Promise<{ success: t
         updated_at: string; submission: { version?: number; link?: string | null; text?: string | null; note?: string | null } | null; files: string[] | null; steps_done: number; steps_total: number; comments: number; left_org: boolean; late_after: number | null; total: number; mine: boolean }>(sql`
         SELECT c.id AS copy_id, m.id AS master_id, m.title, c.team_name, c.updated_at::text AS updated_at, c.submission,
                (coalesce(jsonb_array_length(m.assignment_settings->'reviewers'), 0) = 0 OR m.assignment_settings->'reviewers' ? ${viewer.userId}) AS mine,
-               (SELECT array_agg(f->>'name') FROM assignment_submissions s, jsonb_array_elements(s.files) f WHERE s.copy_id = c.id AND s.version = (c.submission->>'version')::int) AS files,
+               (SELECT to_jsonb(array_agg(f->>'name')) FROM assignment_submissions s, jsonb_array_elements(s.files) f WHERE s.copy_id = c.id AND s.version = (c.submission->>'version')::int) AS files,
                (SELECT count(*) FILTER (WHERE st.completed)::int FROM task_subtasks st WHERE st.task_id = c.id) AS steps_done,
                (SELECT count(*)::int FROM task_subtasks st WHERE st.task_id = c.id) AS steps_total,
                (SELECT count(*)::int FROM task_comments tc WHERE tc.task_id = c.id AND tc.deleted_at IS NULL) AS comments,

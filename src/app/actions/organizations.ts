@@ -816,7 +816,7 @@ export async function listOrgRosterAction(orgId: string, query = '', adminsOnly 
                (SELECT c.title FROM ${workspaces} c JOIN ${workspaceMembers} cm ON cm.workspace_id = c.id
                  WHERE c.parent_id = ${orgId} AND c.deleted_at IS NULL AND cm.user_id = pm.user_id
                  ORDER BY c.created_at DESC LIMIT 1) AS hint,
-               (SELECT array_agg(s.name ORDER BY s.name) FROM (SELECT sk.name FROM profile_skills ps JOIN skills sk ON sk.id = ps.skill_id
+               (SELECT to_jsonb(array_agg(s.name ORDER BY s.name)) FROM (SELECT sk.name FROM profile_skills ps JOIN skills sk ON sk.id = ps.skill_id
                  WHERE ps.profile_id = pm.user_id LIMIT 6) s) AS skills
         FROM ${workspaceMembers} pm
         JOIN ${profiles} p ON p.id = pm.user_id
