@@ -54,6 +54,7 @@ import { toast } from '@/lib/feedback'
 import { ASSIGNMENT_STATE_LABELS } from '@/lib/copy/terms'
 import { EditAssignmentDialog, ExcuseDialog, ExtendDialog, GiveToDialog, ReturnDialog } from '@/components/organizations/AssignmentDialogs'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
+import { ReasonDialog } from '@/components/organizations/ReasonDialog'
 import { saveBlob, toCsvBlob } from '@/lib/download'
 import { zonedInputToIso, zoneName } from '@/lib/organizations/zoned-time'
 import { useAuth } from '@/hooks/use-auth'
@@ -203,6 +204,7 @@ export function AssignmentComposer({ orgId, open, onOpenChange, onCreated, reuse
     const [roster, setRoster] = useState<OrgRosterPerson[]>([])
     const [options, setOptions] = useState<{ children: Array<{ id: string; title: string }>; sprints: Array<{ id: string; name: string; status: string }>; teamAssignments?: Array<{ id: string; title: string }> }>({ children: [], sprints: [] })
     const [error, setError] = useState<string | null>(null)
+    const [lateAsk, setLateAsk] = useState(false)
     const [pending, startTransition] = useTransition()
 
     useEffect(() => {
@@ -244,13 +246,13 @@ export function AssignmentComposer({ orgId, open, onOpenChange, onCreated, reuse
                     : mode === 'each_child' ? { mode } : { mode: 'children', projectIds: childIds }
 
     const defaultAnnouncement = `${title.trim() || 'A new assignment'} is out${dueLocal ? ` · due ${new Date(dueLocal).toLocaleString('en', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}` : ''}.`
-    const save = () => startTransition(async () => {
+    const save = (late = false) => startTransition(async () => {
         const publish = when === 'now'
         if (!dueLocal) return setError('Pick a due date and time.')
         if (lateRule === 'until' && !lateUntilLocal) return setError('Pick the last day late work is accepted.')
         if (when === 'date' && !publishLocal) return setError('Pick when to publish.')
         // Report §16.9: a past due date is allowed, after a check.
-        if (publish && new Date(at(dueLocal)).getTime() < Date.now() && !window.confirm('The due date has passed. Publish as already late?')) return
+        if (publish && !late && new Date(at(dueLocal)).getTime() < Date.now()) return setLateAsk(true)
         const result = await createAssignmentAction({
             projectId: orgId, title, description, dueDate: at(dueLocal), sprintId: sprintId || null, publish,
             submissionType, reviewRequired, lateRule, lateUntil: lateRule === 'until' && lateUntilLocal ? at(lateUntilLocal) : null,
@@ -467,12 +469,14 @@ export function AssignmentComposer({ orgId, open, onOpenChange, onCreated, reuse
                             <option value="draft">Save as draft</option>
                         </select>
                         {when === 'date' ? <Input type="datetime-local" required value={publishLocal} onChange={(e) => setPublishLocal(e.target.value)} aria-label="Publish on" className="w-auto" /> : null}
-                        <Button type="button" disabled={pending || !title.trim()} onClick={save}>
+                        <Button type="button" disabled={pending || !title.trim()} onClick={() => save()}>
                             {/* Report §44.3: publishing to many takes a few seconds, so it says so. */}
                             {pending ? (when === 'now' ? 'Publishing…' : 'Saving…') : when === 'now' ? 'Publish' : when === 'draft' ? 'Save as draft' : 'Schedule'}
                         </Button>
                     </div>
                 </div>
+                <ConfirmDialog open={lateAsk} onOpenChange={setLateAsk} title="The due date has passed" description="Publish it as already late?"
+                    confirmLabel="Publish as late" onConfirm={() => save(true)} />
             </DialogContent>
         </Dialog>
     )
@@ -484,6 +488,7 @@ export function RosterDialog({ row, orgId, open, onOpenChange, onChanged }: { ro
     const [withoutCopy, setWithoutCopy] = useState<Array<{ userId: string; name: string }>>([])
     const [closed, setClosed] = useState(false)
     const [ask, setAsk] = useState<{ kind: 'return' | 'change' | 'extend' | 'excuse' | 'remove'; row: RosterRow } | { kind: 'give' | 'bulk-return' | 'bulk-extend' } | null>(null)
+    const [teamExcuse, setTeamExcuse] = useState<{ copyId: string; userId: string; name: string } | null>(null)
     const [picked, setPicked] = useState<Set<string>>(new Set())
     const [error, setError] = useState<string | null>(null)
     const [pending, startTransition] = useTransition()
@@ -576,7 +581,7 @@ export function RosterDialog({ row, orgId, open, onOpenChange, onChanged }: { ro
                                         {r.people.map((p) => (
                                             <span key={p.id} className="inline-flex items-center gap-1">
                                                 <select value="" aria-label={`Move ${p.name} to…`} className="h-7 rounded border border-border bg-background px-1 text-xs" disabled={pending}
-                                                    onChange={(e) => { const v = e.target.value; if (!v) return; if (v === 'excuse') { const reason = window.prompt(`Why is ${p.name} excused?`); if (reason) run(() => excuseTeamMemberAction(r.copyId, p.id, reason)); return } run(() => moveTeamMemberAction(row.masterId, p.id, v === 'own' ? null : v)) }}>
+                                                    onChange={(e) => { const v = e.target.value; if (!v) return; if (v === 'excuse') { setTeamExcuse({ copyId: r.copyId, userId: p.id, name: p.name }); return } run(() => moveTeamMemberAction(row.masterId, p.id, v === 'own' ? null : v)) }}>
                                                     <option value="">{p.name}…</option>
                                                     {rows.filter((o) => o.copyId !== r.copyId && o.people && o.state !== 'submitted' && o.state !== 'done').map((o) => <option key={o.copyId} value={o.copyId}>Move to {o.label}</option>)}
                                                     <option value="own">Own assignment</option>
@@ -624,6 +629,9 @@ export function RosterDialog({ row, orgId, open, onOpenChange, onChanged }: { ro
                 <ConfirmDialog open={ask?.kind === 'remove'} onOpenChange={(v) => { if (!v) setAsk(null) }} variant="destructive"
                     title={`Remove ${ask && 'row' in ask ? ask.row.label : ''}’s copy?`} description="They haven’t started it. It leaves their list, and they’re told."
                     confirmLabel="Remove" onConfirm={() => { if (ask && 'row' in ask) { const copyId = ask.row.copyId; run(() => removeCopyAction(copyId)) } setAsk(null) }} />
+                <ReasonDialog open={Boolean(teamExcuse)} onOpenChange={(v) => { if (!v) setTeamExcuse(null) }} title={`Excuse ${teamExcuse?.name ?? ''}?`}
+                    label={`Why is ${teamExcuse?.name ?? 'this person'} excused?`} confirmLabel="Excuse" required
+                    onConfirm={(reason) => { if (teamExcuse) run(() => excuseTeamMemberAction(teamExcuse.copyId, teamExcuse.userId, reason)) }} />
             </DialogContent>
         </Dialog>
     )
@@ -638,6 +646,7 @@ export function AssignmentsPanel({ orgId, onBoardChanged, startComposing = false
     const [editing, setEditing] = useState<AssignmentRow | null>(null)
     const [reuseFrom, setReuseFrom] = useState<string | null>(null)
     const [reviewing, setReviewing] = useState(false)
+    const [confirm, setConfirm] = useState<{ title: string; description?: string; label: string; destructive?: boolean; act: () => Promise<{ success: boolean; error?: string }> } | null>(null)
     const [error, setError] = useState<string | null>(null)
     const [pending, startTransition] = useTransition()
     const load = useCallback(() => void listAssignmentsAction(orgId).then((r) => setData(r.success ? { isAdmin: r.isAdmin, rows: r.rows, timeZone: r.timeZone } : null)), [orgId])
@@ -695,7 +704,10 @@ export function AssignmentsPanel({ orgId, onBoardChanged, startComposing = false
                                 {row.status === 'draft' || row.status === 'scheduled' ? <Button type="button" size="sm" disabled={pending} onClick={() => run(async () => {
                                     const first = await publishAssignmentAction(row.masterId)
                                     // "2 people have left. Publish to the other 38?" (report §42.10 problem 15)
-                                    if (!first.success && 'left' in first && first.left && window.confirm(first.error)) return publishAssignmentAction(row.masterId, { dropMissing: true })
+                                    if (!first.success && 'left' in first && first.left) {
+                                        setConfirm({ title: first.error, label: 'Publish', act: () => publishAssignmentAction(row.masterId, { dropMissing: true }) })
+                                        return { success: true }
+                                    }
                                     return first
                                 })}>{row.status === 'scheduled' ? 'Publish now' : 'Publish'}</Button> : null}
                                 {row.status !== 'open' && row.status !== 'closed' && row.note ? <span className="basis-full text-[13px] text-muted-foreground">{row.note}</span> : null}
@@ -704,7 +716,7 @@ export function AssignmentsPanel({ orgId, onBoardChanged, startComposing = false
                                 {row.status === 'closed' ? <Button type="button" size="sm" variant="ghost" disabled={pending} onClick={() => run(() => reopenAssignmentAction(row.masterId))}>Reopen</Button> : null}
                                 <Button type="button" size="sm" variant="ghost" disabled={pending} onClick={() => setEditing(row)}>{row.status === 'open' || row.status === 'closed' ? 'Edit for everyone' : 'Edit'}</Button>
                                 <Button type="button" size="sm" variant="ghost" disabled={pending} onClick={() => { setReuseFrom(row.masterId); setComposing(true) }}>Use again</Button>
-                                <Button type="button" size="sm" variant="ghost" disabled={pending} onClick={() => { if (window.confirm(`Delete ${row.title}?`)) run(() => deleteAssignmentAction(row.masterId)) }}>Delete</Button>
+                                <Button type="button" size="sm" variant="ghost" disabled={pending} onClick={() => setConfirm({ title: `Delete ${row.title}?`, label: 'Delete', destructive: true, act: () => deleteAssignmentAction(row.masterId) })}>Delete</Button>
                             </span>
                         ) : null}
                     </li>
@@ -715,6 +727,8 @@ export function AssignmentsPanel({ orgId, onBoardChanged, startComposing = false
             {editing ? <EditAssignmentDialog orgId={orgId} row={editing} open timeZone={data.timeZone} onClose={() => setEditing(null)} onSave={(patch) => run(() => updateAssignmentAction(editing.masterId, patch))} /> : null}
             {roster ? <RosterDialog row={roster} orgId={orgId} open onOpenChange={(open) => { if (!open) setRoster(null) }} onChanged={load} /> : null}
             {submitting?.mine ? <SubmitDialog copyId={submitting.mine.copyId} submissionType={submitting.submissionType} title={submitting.title} open onOpenChange={(open) => { if (!open) setSubmitting(null) }} onDone={refresh} /> : null}
+            <ConfirmDialog open={Boolean(confirm)} onOpenChange={(v) => { if (!v) setConfirm(null) }} title={confirm?.title ?? ''} description={confirm?.description}
+                confirmLabel={confirm?.label} variant={confirm?.destructive ? 'destructive' : 'default'} onConfirm={() => { if (confirm) run(confirm.act) }} />
         </section>
     )
 }

@@ -28,6 +28,7 @@ import { regenerateJoinCodeAction } from '@/app/actions/organizations'
 import { verifyOrgContributionsAction } from '@/app/actions/org-profile'
 import { FormerList, RemoveDialog, RevokeDialog, RoleDialog } from '@/components/organizations/OrgMemberDialogs'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
+import { ReasonDialog } from '@/components/organizations/ReasonDialog'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
@@ -289,6 +290,7 @@ function BulkBar({ orgId, data, label, ids, pending, run, onClear, onRole, onRem
 }
 
 function Requests({ orgId, data, pending, run }: { orgId: string; data: OrgMembersData; pending: boolean; run: Run }) {
+    const [declining, setDeclining] = useState<{ id: string; name: string } | null>(null)
     return (
         <section aria-label="Requests" className="space-y-2">
             <h3 className="text-sm font-semibold">Requests · {data.requests.length + data.teamChanges.length}</h3>
@@ -308,14 +310,14 @@ function Requests({ orgId, data, pending, run }: { orgId: string; data: OrgMembe
                     {r.note ? <p className="text-muted-foreground">“{r.note}”</p> : null}
                     <div className="flex gap-1.5">
                         <Button type="button" size="sm" disabled={pending} onClick={() => run(() => approveJoinRequestsAction(orgId, [r.id]), `${r.name} approved`)}>Approve</Button>
-                        <Button type="button" size="sm" variant="outline" disabled={pending} onClick={() => {
-                            const reason = window.prompt('Reason (optional)') ?? undefined
-                            run(() => declineJoinRequestAction(orgId, r.id, reason), 'Request declined')
-                        }}>Decline</Button>
+                        <Button type="button" size="sm" variant="outline" disabled={pending} onClick={() => setDeclining({ id: r.id, name: r.name })}>Decline</Button>
                     </div>
                 </div>
             ))}
             {data.requests.length > 1 ? <Button type="button" size="sm" variant="outline" disabled={pending} onClick={() => run(() => approveJoinRequestsAction(orgId, data.requests.map((r) => r.id)), 'All approved')}>Approve all</Button> : null}
+            <ReasonDialog open={Boolean(declining)} onOpenChange={(v) => { if (!v) setDeclining(null) }} title={`Decline ${declining?.name ?? 'this request'}?`}
+                label="Reason (optional)" confirmLabel="Decline" variant="destructive"
+                onConfirm={(reason) => { if (declining) run(() => declineJoinRequestAction(orgId, declining.id, reason || undefined), 'Request declined') }} />
         </section>
     )
 }

@@ -2,6 +2,7 @@
 
 import { useCreateLocation, WherePicker } from '@/components/organizations/CreateLocation';
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import dynamic from 'next/dynamic';
 import { useFormContext } from 'react-hook-form';
 import { Check, ChevronDown, ChevronRight, CircleHelp, File, Folder, FolderUp, GitBranch, Github, Loader2, RefreshCcw } from 'lucide-react';
@@ -413,7 +414,8 @@ export default function Phase1SourceSelection({
         }
     };
 
-    const handleSelectStartingPoint = (type: StartingPoint) => {
+    const [switchAsk, setSwitchAsk] = useState<StartingPoint | null>(null);
+    const handleSelectStartingPoint = (type: StartingPoint, confirmed = false) => {
         if (type === 'organization') {
             handleSelectSource('scratch');
             if (!getValues('organization')) {
@@ -431,7 +433,7 @@ export default function Phase1SourceSelection({
         if (org) {
             // Report §34.9: the shared text stays; org-only fields go after a confirm.
             const typed = Boolean(org.part_of || org.location || org.welcome_note || org.invite_emails?.trim() || org.co_admins?.length || getFieldState('organization.handle').isDirty);
-            if (typed && !window.confirm('Switch to a workspace? Organization details like the handle and invites will be removed.')) return;
+            if (typed && !confirmed) return setSwitchAsk(type);
             setValue('organization', undefined, { shouldDirty: true });
             if (getValues('project_type') === 'organization') setValue('project_type', '');
             setValue('member_file_upload_default', true);
@@ -1605,7 +1607,7 @@ export default function Phase1SourceSelection({
             <WherePicker />
             <Phase1SourceMethodGroup
                 value={organization ? 'organization' : selectedSource}
-                onChange={handleSelectStartingPoint}
+                onChange={(type) => handleSelectStartingPoint(type)}
                 // Orgs cannot nest: no Organization card inside an org (report §14.3).
                 showOrganization={!location.org || Boolean(organization)}
             />
@@ -1615,6 +1617,9 @@ export default function Phase1SourceSelection({
             >
                 {sourcePanel}
             </section>
+            <ConfirmDialog open={Boolean(switchAsk)} onOpenChange={(open) => { if (!open) setSwitchAsk(null); }} title="Switch to a workspace?"
+                description="Organization details like the handle and invites will be removed." confirmLabel="Switch"
+                onConfirm={() => { if (switchAsk) handleSelectStartingPoint(switchAsk, true); setSwitchAsk(null); }} />
         </div>
     );
 }

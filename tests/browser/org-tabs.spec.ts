@@ -5,6 +5,7 @@ import { build } from 'esbuild';
 import postcss from 'postcss';
 import tailwind from '@tailwindcss/postcss';
 import { expect, test, type Page } from '@playwright/test';
+import { axeViolations } from './axe';
 
 // Org tabs at phone width (report §31.2 G13) and keyboard reach (G16), against the real components and stylesheet.
 const origin = 'https://org-tabs.test';
@@ -91,7 +92,7 @@ async function open(page: Page, tab: string, width = 375) {
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.route(origin + '/**', route => {
         const url = new URL(route.request().url());
-        const body = url.pathname === '/app.js' ? script : url.pathname === '/app.css' ? css : '<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="/app.css"></head><body><div id="root"></div><script src="/app.js"></script></body></html>';
+        const body = url.pathname === '/app.js' ? script : url.pathname === '/app.css' ? css : '<html lang="en"><head><title>Org tabs</title><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="/app.css"></head><body><div id="root"></div><script src="/app.js"></script></body></html>';
         return route.fulfill({ body, contentType: url.pathname.endsWith('.js') ? 'application/javascript' : url.pathname.endsWith('.css') ? 'text/css' : 'text/html' });
     });
     await page.goto(`${origin}/?tab=${tab}`);
@@ -338,4 +339,12 @@ test('Edit for everyone (§23.3): says how many it reaches, and the hand-in type
     await expect(edit.getByRole('button', { name: /^Save for \d+ people$/ })).toBeVisible();
     await expect(edit).toContainText('Locked: someone has handed this in.');
     await expect(edit.getByRole('textbox').nth(1)).toHaveValue('Read chapter 3');
+});
+
+test('Accessibility (§32.3): no WCAG A or AA problems on the Members, Workspaces, Tasks and Files tabs', async ({ page }) => {
+    for (const [tab, text] of [['members', 'Student 11'], ['projects', 'Team Osprey'], ['tasks', 'Reading quiz'], ['files', 'Storage is 86% full']] as const) {
+        await open(page, tab, 1200);
+        await expect(page.getByText(text).first()).toBeVisible();
+        expect(await axeViolations(page), tab).toEqual([]);
+    }
 });
