@@ -8,6 +8,8 @@ import WorkspaceDashboardClient from '@/components/workspaces/dashboard/Workspac
 import { readWorkspaceDetailShell, readWorkspaceSprintDetail } from '@/app/actions/workspace';
 import WorkspaceDetailLoading from './loading';
 import { PrivateOrgHeader } from '@/components/organizations/PrivateOrgHeader';
+import { MemberPreviewBar } from '@/components/organizations/MemberPreview';
+import { memberPreviewOrgId } from '@/lib/organizations/member-preview';
 import { readPrivateOrgState } from '@/lib/organizations/join';
 import { isOrgOnlyWorkspace, readOrgCard, resolveHeldOrgHandle } from '@/lib/organizations/detail';
 import { stampLastActiveHere } from '@/lib/organizations/members';
@@ -171,7 +173,12 @@ async function ResolvedProjectDashboard({
         ? sprintPromise.then((sprintResult) => (sprintResult.success ? sprintResult.data : null), () => null)
         : null;
 
+    // Preview as member (report §45.6): the bar sits on every tab of the previewed organization and its workspaces.
+    const previewOrgId = user ? await memberPreviewOrgId() : null;
+    const previewing = Boolean(previewOrgId && (previewOrgId === project.id || previewOrgId === project.parentOrg?.id));
     return (
+        <>
+        {previewing ? <MemberPreviewBar /> : null}
         <WorkspaceDashboardClient
             project={project}
             currentUserId={user?.id || null}
@@ -182,6 +189,7 @@ async function ResolvedProjectDashboard({
             memberRole={capabilities.memberRole}
             initialSprintData={initialSprintData}
         />
+        </>
     );
 }
 

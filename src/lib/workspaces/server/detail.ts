@@ -20,6 +20,7 @@ import { normalizeWorkspacePublicTabVisibility } from "@/lib/workspaces/settings
 import { normalizeJourneyCompletionDates } from "@/lib/workspaces/journey-completion";
 import { isLooseUuid } from "@/lib/validations/uuid";
 import { createClient } from "@/lib/supabase/server";
+import { memberPreviewOrgId } from "@/lib/organizations/member-preview";
 import { isWorkspaceDetailMemberRole, retryWorkspaceDetailRead, PUBLIC_WORKSPACE_DETAIL_SHELL_CACHE_TAG, resolveWorkspaceDetailTarget, PUBLIC_WORKSPACE_DETAIL_METADATA_CACHE_TAG, resolveWorkspaceDetailViewerState } from "./common";
 
 
@@ -629,17 +630,20 @@ async function readProjectDetailShellForActor(input: {
       };
     }
 
+    // Preview as member (report §45.6): the previewed organization's owner or admins read it as a member.
+    const previewing = Boolean(actorUserId && project.kind === "organization" && (project.ownerId === actorUserId || project.memberRole === "admin")
+      && await memberPreviewOrgId() === project.id);
     return await runInFlightDeduped(
-      `project:detail-shell:${project.id}:${actorUserId ?? "anon"}`,
+      `project:detail-shell:${project.id}:${actorUserId ?? "anon"}${previewing ? ":preview" : ""}`,
       async () => {
         const parentOrgRole = project.parentId ? await readViewerOrgRole(project.parentId, actorUserId) : null;
         const viewerState = resolveWorkspaceDetailViewerState({
           projectId: project.id,
-          ownerId: project.ownerId,
+          ownerId: previewing ? "" : project.ownerId,
           visibility: project.visibility,
           status: project.status,
           actorUserId,
-          memberRoleRaw: project.memberRole,
+          memberRoleRaw: previewing ? "member" : project.memberRole,
           isFollowed: project.isFollowed,
           parentOrgRole,
         });

@@ -9,6 +9,7 @@ import {
 import { isWorkspaceTabVisibleToViewer, type WorkspacePublicTabId } from "@/lib/workspaces/settings-policies";
 import { and, eq, isNull, inArray, or, sql, type SQL } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
+import { memberPreviewOrgId } from "@/lib/organizations/member-preview";
 
 // `projects.visibility` has a database default but is not declared NOT NULL,
 // so DB-selected values must remain nullable-safe and fail closed downstream.
@@ -47,7 +48,7 @@ export type WorkspaceAccess = {
      * Why nobody may change anything here (report §30.3, §30.5): the org (or this project's org) is suspended,
      * or the org is archived (with its child projects). canWrite is false while this is set.
      */
-    writeBlocked?: "suspended" | "archived" | "deleting" | null;
+    writeBlocked?: "suspended" | "archived" | "deleting" | "preview" | null;
 };
 
 /** The plain sentence for a blocked write. */
@@ -55,6 +56,7 @@ export function writeBlockedMessage(reason: WorkspaceAccess["writeBlocked"]) {
     if (reason === "suspended") return "This organization is suspended. Everything is read-only.";
     if (reason === "archived") return "This organization has ended. Everything is read-only.";
     if (reason === "deleting") return "This organization is scheduled for deletion.";
+    if (reason === "preview") return "You’re previewing as a member. Exit preview to make changes.";
     return "You don’t have permission to do this.";
 }
 
@@ -202,8 +204,24 @@ function toProjectAccess(row: Awaited<ReturnType<typeof selectAccessRows>>[numbe
     };
 }
 
+/**
+ * Preview as member (report §45.6, decision 175): in the previewed organization an owner or admin is an ordinary
+ * member, and in its workspaces an inherited admin is an organization member. Every write is refused.
+ */
+function asPreview(access: WorkspaceAccess, row: Awaited<ReturnType<typeof selectAccessRows>>[number], orgId: string | null): WorkspaceAccess {
+    if (!orgId || !access.viewerId) return access;
+    if (row.id === orgId && row.kind === "organization" && (access.isOwner || access.memberRole === "admin")) {
+        return { ...access, isOwner: false, isMember: true, memberRole: "member", member: { role: "member", fileUploadEnabled: access.member?.fileUploadEnabled ?? true }, canWrite: false, writeBlocked: "preview" };
+    }
+    if (row.parentId === orgId && access.isInheritedAdmin) {
+        const canRead = access.isOwner || access.isMember || computeWorkspaceReadAccess(row.visibility, row.status, false, false, "member");
+        return { ...access, parentOrgRole: "member", isInheritedAdmin: false, canRead, canWrite: false, writeBlocked: "preview" };
+    }
+    return access;
+}
+
 async function getProjectAccess(where: SQL<unknown>, userId: string | null): Promise<WorkspaceAccess> {
-    const [row] = await selectAccessRows(where, userId).limit(1);
+    const [[row], previewOrgId] = await Promise.all([selectAccessRows(where, userId).limit(1), userId ? memberPreviewOrgId() : null]);
     if (!row) {
         return {
             project: null,
@@ -217,7 +235,7 @@ async function getProjectAccess(where: SQL<unknown>, userId: string | null): Pro
             canWrite: false,
         };
     }
-    return toProjectAccess(row, userId);
+    return asPreview(toProjectAccess(row, userId), row, previewOrgId);
 }
 
 export const getWorkspaceAccessById = cache(
@@ -236,6 +254,6 @@ export const getWorkspaceAccessByIdentifier = cache(
 
 export async function getWorkspaceAccessByIds(projectIds: string[], userId: string | null): Promise<Record<string, WorkspaceAccess>> {
     if (projectIds.length === 0) return {};
-    const rows = await selectAccessRows(inArray(workspaces.id, projectIds), userId);
-    return Object.fromEntries(rows.map((row) => [row.id, toProjectAccess(row, userId)]));
+    const [rows, previewOrgId] = await Promise.all([selectAccessRows(inArray(workspaces.id, projectIds), userId), userId ? memberPreviewOrgId() : null]);
+    return Object.fromEntries(rows.map((row) => [row.id, asPreview(toProjectAccess(row, userId), row, previewOrgId)]));
 }
