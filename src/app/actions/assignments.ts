@@ -916,9 +916,11 @@ export async function readAssignmentRosterAction(masterId: string): Promise<{ su
     const names = new Map((assigneeIds.length ? await db.select({ id: profiles.id, name: profiles.fullName, username: profiles.username }).from(profiles).where(inArray(profiles.id, assigneeIds)) : [])
         .map((p) => [p.id, p.name || p.username || 'Member']));
     // The latest reminder per copy, from the notices Remind leaves (the key remindedRecently reads).
-    const reminded = new Map(copies.length === 0 ? [] : Array.from(await db.execute<{ id: string; at: string }>(sql`
+    // Only these copies' people, so the (user_id, dedupe_key) index serves it.
+    const remindable = [...new Set([...copies.map((c) => c.assigneeId).filter((id): id is string => Boolean(id)), ...people.map((p) => p.userId)])];
+    const reminded = new Map(remindable.length === 0 ? [] : Array.from(await db.execute<{ id: string; at: string }>(sql`
         SELECT split_part(dedupe_key, ':', 5) AS id, max(created_at)::text AS at FROM user_notifications
-        WHERE dedupe_key LIKE ${`project:${master.projectId}:assignments.reminded:remind:%`} GROUP BY 1`)).map((r) => [r.id, new Date(r.at).toISOString()]));
+        WHERE user_id IN ${remindable} AND dedupe_key LIKE ${`project:${master.projectId}:assignments.reminded:remind:%`} GROUP BY 1`)).map((r) => [r.id, new Date(r.at).toISOString()]));
     const rows = copies.map((c, i) => {
         const members = people.filter((p) => p.copyId === c.id).map((p) => p.name || p.username || 'Member');
         // A group copy whose project left the org stays on the roster as "Detached" (report §14.7).

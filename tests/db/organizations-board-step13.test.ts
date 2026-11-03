@@ -53,7 +53,7 @@ test("decisions 14 and 15: students see only their copy; the assignment card mov
   const asha1 = await board(asha!);
   assert.deepEqual(asha1.map((t) => [t.title, t.assignmentId === masterId]), [["Lab 1", true]], "her copy, not the main one too");
   assert.deepEqual((await board(guest!)).map((t) => t.id), [masterId], "viewers see the main one");
-  assert.deepEqual([(await card()).status, (await card()).assignmentProgress], ["todo", { draft: false, closed: false, done: 0, total: 2, toReview: 0, excused: 0 }]);
+  assert.deepEqual([(await card()).status, (await card()).assignmentProgress], ["todo", { draft: false, closed: false, done: 0, total: 2, toReview: 0, excused: 0, teams: false }]);
 
   const [copy] = await sql`SELECT id FROM tasks WHERE assignment_id = ${masterId} AND assignee_id = ${asha!}`;
   viewerId = asha!;

@@ -20,7 +20,7 @@ async function bundle(rows: string) {
         '@/hooks/use-auth': `export const useAuth=()=>({user:{id:'u1'}});`,
         'next/dynamic': `import React from 'react';export default (load)=>{const C=React.lazy(()=>load().then((m)=>({default:m.default??m})));return (p)=>React.createElement(React.Suspense,{fallback:null},React.createElement(C,p));};`,
         '@/components/workspaces/v2/preview/UniversalPreviewEngine': `import React from 'react';export default ({node,fileUrl})=>React.createElement('div',{title:'Preview of '+node.name,'data-url':fileUrl},node.name);`,
-        '@/app/actions/files/nodes': `export const getNodesByIds=async(p,ids)=>ids.map((id)=>({id,name:id==='n1'?'lab3-report.pdf':'lab3.zip',type:'file',mimeType:null}));`,
+        '@/app/actions/files/nodes': `export const getNodesByIds=async(p,ids)=>ids.filter((id)=>id!=='n3').map((id)=>({id,name:id==='n1'?'lab3-report.pdf':'lab3.zip',type:'file',mimeType:null}));`,
         '@/app/actions/assignments': `export const readReviewQueueAction=async()=>({success:true,total:${rows.split('kind:').length - 1},rows:[${rows}]});export const reviewAssignmentCopyAction=${ok};`,
         '@/app/actions/files/content': `export const getFilePreviewUrl=async(p,n,d)=>({url:'/files/'+n+(d?'?download=1':'')});`,
         '@/app/actions/task-comment': `export const createTaskCommentAction=${ok};export const readTaskDiscussionAction=async()=>({success:true,data:{comments:[
@@ -73,6 +73,15 @@ test('the queue sits beside the work: waiting list, the file, then note, steps, 
     await expect(work.getByRole('link', { name: 'Download lab3.zip' })).toBeVisible();
     await details.getByRole('button', { name: 'Return' }).click();
     await expect(details.getByRole('textbox', { name: 'What should Student 2 change?' })).toBeVisible();
+});
+
+test('a file the reviewer cannot open here says so and links to the hand-in, instead of loading forever', async ({ page }) => {
+    await open(page, 1440);
+    await page.getByRole('region', { name: 'Waiting' }).getByRole('button', { name: /Student 3/ }).click();
+    const work = page.getByRole('region', { name: 'Submission' });
+    await expect(work).toContainText("The preview isn’t available here.");
+    await expect(work.getByRole('link', { name: 'Open the hand-in' })).toHaveAttribute('href', '?tab=tasks&drawerId=c3');
+    await expect(work).not.toContainText('Loading lab3.zip');
 });
 
 test('Review N from the panel opens the queue on that assignment', async ({ page }) => {

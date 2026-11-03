@@ -18,15 +18,17 @@ const UniversalPreviewEngine = dynamic(() => import('@/components/workspaces/v2/
 /** The current submission's first file in the Files viewer, with Download and the earlier versions. */
 export function ReviewWork({ row }: { row: ReviewQueueRow }) {
     const file = row.files[0] ?? null
-    const [view, setView] = useState<{ node: WorkspaceNode; url: string; download: string } | null>(null)
+    const [view, setView] = useState<{ node: WorkspaceNode; url: string; download: string } | 'unavailable' | null>(null)
     useEffect(() => {
         let live = true
         setView(null)
         if (!file) return
         void Promise.all([getNodesByIds(row.projectId, [file.nodeId]), getFilePreviewUrl(row.projectId, file.nodeId), getFilePreviewUrl(row.projectId, file.nodeId, true)]).then(([nodes, url, download]) => {
+            if (!live) return
             const node = (nodes as WorkspaceNode[])[0]
-            if (live && node && url && 'url' in url && download && 'url' in download) setView({ node, url: url.url as string, download: download.url as string })
-        }).catch(() => undefined)
+            // A file this reviewer can't read here (a team's own workspace) says so instead of loading forever.
+            setView(node && url && 'url' in url && download && 'url' in download ? { node, url: url.url as string, download: download.url as string } : 'unavailable')
+        }).catch(() => { if (live) setView('unavailable') })
         return () => { live = false }
     }, [file, row.projectId])
     const versions = row.versions ?? []
@@ -41,10 +43,12 @@ export function ReviewWork({ row }: { row: ReviewQueueRow }) {
                         {versions.map((v) => <option key={v.version} value={v.version}>Version {v.version} · {v.files.join(', ') || 'nothing attached'} · {DAY.format(new Date(v.at))}</option>)}
                     </select>
                 ) : null}
-                {view ? <a href={view.download} className="text-[13px] text-primary underline-offset-4 hover:underline" aria-label={`Download ${file.name}`}>Download</a> : null}
+                {view && view !== 'unavailable' ? <a href={view.download} className="text-[13px] text-primary underline-offset-4 hover:underline" aria-label={`Download ${file.name}`}>Download</a> : null}
             </div>
             <div className="h-[60vh] overflow-hidden rounded-md border border-border bg-card max-md:h-[50vh]" data-testid="review-preview">
-                {view ? <UniversalPreviewEngine node={view.node} fileUrl={view.url} projectId={row.projectId} /> : <p className="p-4 text-[13px] text-muted-foreground">Loading {file.name}…</p>}
+                {view === 'unavailable' ? (
+                    <p className="p-4 text-[13px] text-muted-foreground">The preview isn’t available here. <a href={row.href} className="text-primary underline-offset-4 hover:underline">Open the hand-in</a></p>
+                ) : view ? <UniversalPreviewEngine node={view.node} fileUrl={view.url} projectId={row.projectId} /> : <p className="p-4 text-[13px] text-muted-foreground">Loading {file.name}…</p>}
             </div>
             {row.files.length > 1 ? <p className="text-[12px] text-muted-foreground">Also: {row.files.slice(1).map((f) => f.name).join(', ')}</p> : null}
         </div>
