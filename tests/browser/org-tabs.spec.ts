@@ -76,9 +76,9 @@ test.beforeAll(async () => {
             export const readAssignmentForReuseAction=async()=>({success:true,form:{title:'Lab 3',description:'Read chapter 3',submissionType:'link',reviewRequired:true,lateRule:'always',lateAfterMinutes:15,steps:['Read'],target:{mode:'everyone'},materials:[],dueDate:null}});
             export const searchAssignmentMaterialsAction=async()=>({success:true,files:[{id:'k',name:'answers.pdf',adminsOnly:true}]}),readAssignmentMaterialsAction=async()=>({success:true,materials:[]});
             export const addAssignmentStepAction=${ok},excuseTeamMemberAction=${ok},moveTeamMemberAction=${ok},remindCopiesAction=async()=>({success:true,reminded:3}),readAssignmentTeamsAction=async()=>({success:true,teams:[]});
-            const q={kind:'copy',projectId:'org',updatedAt:new Date().toISOString(),version:2,link:null,text:'Consensus answer',note:'Used Raft',files:[],steps:{done:4,total:5},comments:2,left:false};
+            const q={kind:'copy',projectId:'org',updatedAt:new Date().toISOString(),version:2,link:null,text:'Consensus answer',note:'Used Raft',files:[],versions:[],steps:{done:4,total:5},comments:2,left:false};
             export const readReviewQueueAction=async()=>({success:true,total:2,rows:[{...q,copyId:'c1',masterId:'a1',title:'Lab 3 — Consensus protocols',who:'Team A',submittedBy:'Asha Nair',submittedAt:new Date(Date.now()-7200000).toISOString(),late:true},{...q,copyId:'c2',masterId:'a1',title:'Lab 3',who:'Priya',submittedBy:null,submittedAt:new Date().toISOString(),late:false}]});`,
-        '@/app/actions/task-comment': `export const createTaskCommentAction=async()=>({success:true,data:{comment:null}}),readClassQuestionsAction=async()=>({success:false,error:'none'}),shareClassAnswerAction=async()=>({success:true,told:0});`,
+        '@/app/actions/task-comment': `export const readTaskDiscussionAction=async()=>({success:true,data:{comments:[],nextCursor:null,totalCount:0}});export const createTaskCommentAction=async()=>({success:true,data:{comment:null}}),readClassQuestionsAction=async()=>({success:false,error:'none'}),shareClassAnswerAction=async()=>({success:true,told:0});`,
     };
     const bundle = await build({ entryPoints: [path.resolve('tests/browser/org-tabs.fixture.tsx')], bundle: true, write: false, format: 'iife', platform: 'browser', define: { 'process.env.NODE_ENV': '"test"', 'process.env': '{}' }, plugins: [{ name: 'org-tabs-boundaries', setup(builder) {
         builder.onResolve({ filter: /.*/ }, args => args.path in mocks ? { path: args.path, namespace: 'fixture' } : undefined);
@@ -182,7 +182,7 @@ test('Assignments (§16): the review queue steps with Next; the roster has Remin
     await page.keyboard.press('k');
     await expect(queue.getByText('1 of 2 waiting')).toBeVisible();
     await page.keyboard.press('r');
-    await expect(queue).toContainText('What should they change?');
+    await expect(queue).toContainText(/What should .+ change\?/);
     await expect(queue).toContainText('Fix by');
     await queue.getByRole('button', { name: 'Cancel' }).click();
     await noSideScroll(page);

@@ -68,6 +68,29 @@ test("23.2: the queue shows what was handed in, its version, note, steps and con
   assert.equal(after.success && after.rows.find((r) => r.copyId === t.copyOf(t.asha))?.left, true, "Left the organization");
 });
 
+test("mockup task 2: the queue row carries its files with ids and sizes, and the earlier versions", async () => {
+  const t = await setup();
+  await sql`UPDATE tasks SET assignment_settings = jsonb_set(assignment_settings, '{submissionType}', '"file"') WHERE id = ${t.masterId}`;
+  const copy = t.copyOf(t.asha);
+  const file = async (name: string, size: number) => (await sql`INSERT INTO workspace_nodes (workspace_id, task_id, path, type, name, size, metadata, current_version)
+    VALUES (${t.org}, ${copy}, ${`/.system/tasks/${copy}/${name}`}, 'file', ${name}, ${size}, '{}'::jsonb, 1) RETURNING id`)[0]!.id as string;
+  const v1 = await file("lab1-v1.zip", 188);
+  viewerId = t.asha;
+  assert.equal((await assignments.submitAssignmentAction(copy, {})).success, true);
+  viewerId = t.owner;
+  await assignments.reviewAssignmentCopyAction(copy, "return", "Add tests");
+  await sql`UPDATE workspace_nodes SET metadata = jsonb_build_object('taskFileDetachedFrom', ${copy}::text) WHERE id = ${v1}`;
+  const v2 = await file("lab1-v2.zip", 360);
+  viewerId = t.asha;
+  assert.equal((await assignments.submitAssignmentAction(copy, {})).success, true);
+  viewerId = t.owner;
+  const queue = await assignments.readReviewQueueAction(t.org);
+  const row = queue.success ? queue.rows.find((r) => r.copyId === copy)! : null!;
+  assert.deepEqual(row.files, [{ nodeId: v2, name: "lab1-v2.zip", size: 360 }]);
+  assert.deepEqual(row.versions.map((v) => [v.version, v.files]), [[1, ["lab1-v1.zip"]]]);
+  assert.ok(!Number.isNaN(Date.parse(row.versions[0]!.at)));
+});
+
 test("decision 16, 23.5: students ask class questions from their own copy; viewers read; an admin's reply marks it Answered", async () => {
   const t = await setup();
   viewerId = t.asha;

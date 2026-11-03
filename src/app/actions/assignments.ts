@@ -1116,7 +1116,9 @@ export type ReviewQueueRow = {
     mine: boolean;
     copyId: string; masterId: string; title: string; who: string; submittedBy: string | null; submittedAt: string; late: boolean; href: string;
     /** The review panel (report §23.2): what was handed in, its version, steps and the private conversation. */
-    projectId: string; updatedAt: string; version: number | null; link: string | null; text: string | null; note: string | null; files: string[];
+    projectId: string; updatedAt: string; version: number | null; link: string | null; text: string | null; note: string | null;
+    /** Mockup task 2: the files to preview and download, and the versions before this one, newest first. */
+    files: Array<{ nodeId: string; name: string; size: number | null }>; versions: Array<{ version: number; at: string; files: string[] }>;
     steps: { done: number; total: number }; comments: number; left: boolean;
 };
 
@@ -1125,10 +1127,13 @@ export async function readReviewQueueAction(orgId: string): Promise<{ success: t
     const viewer = await orgRole(orgId, 'read');
     if (!viewer || !orgCan(orgRoleOf(viewer.role), 'approve_return')) return DENIED;
     const rows = await db.execute<{ copy_id: string; master_id: string; title: string; team_name: string | null; assignee: string | null; project: string | null; submitted_by: string | null; submitted_at: string; due_date: string | null; in_org: boolean; workspace_id: string;
-        updated_at: string; submission: { version?: number; link?: string | null; text?: string | null; note?: string | null } | null; files: string[] | null; steps_done: number; steps_total: number; comments: number; left_org: boolean; late_after: number | null; total: number; mine: boolean }>(sql`
+        updated_at: string; submission: { version?: number; link?: string | null; text?: string | null; note?: string | null } | null; files: Array<{ nodeId: string; name: string; size: number | null }> | null; versions: Array<{ version: number; at: string; files: string[] }> | null; steps_done: number; steps_total: number; comments: number; left_org: boolean; late_after: number | null; total: number; mine: boolean }>(sql`
         SELECT c.id AS copy_id, m.id AS master_id, m.title, c.team_name, c.updated_at::text AS updated_at, c.submission,
                (coalesce(jsonb_array_length(m.assignment_settings->'reviewers'), 0) = 0 OR m.assignment_settings->'reviewers' ? ${viewer.userId}) AS mine,
-               (SELECT to_jsonb(array_agg(f->>'name')) FROM assignment_submissions s, jsonb_array_elements(s.files) f WHERE s.copy_id = c.id AND s.version = (c.submission->>'version')::int) AS files,
+               (SELECT jsonb_agg(jsonb_build_object('nodeId', f->>'nodeId', 'name', f->>'name', 'size', n.size)) FROM assignment_submissions s CROSS JOIN jsonb_array_elements(s.files) f
+                  LEFT JOIN workspace_nodes n ON n.id = (f->>'nodeId')::uuid WHERE s.copy_id = c.id AND s.version = (c.submission->>'version')::int) AS files,
+               (SELECT jsonb_agg(jsonb_build_object('version', s.version, 'at', s.submitted_at, 'files', (SELECT coalesce(jsonb_agg(g->>'name'), '[]'::jsonb) FROM jsonb_array_elements(s.files) g)) ORDER BY s.version DESC)
+                  FROM assignment_submissions s WHERE s.copy_id = c.id AND s.version < (c.submission->>'version')::int) AS versions,
                (SELECT count(*) FILTER (WHERE st.completed)::int FROM task_subtasks st WHERE st.task_id = c.id) AS steps_done,
                (SELECT count(*)::int FROM task_subtasks st WHERE st.task_id = c.id) AS steps_total,
                (SELECT count(*)::int FROM task_comments tc WHERE tc.task_id = c.id AND tc.deleted_at IS NULL) AS comments,
@@ -1155,7 +1160,7 @@ export async function readReviewQueueAction(orgId: string): Promise<{ success: t
     const taskRows: ReviewQueueRow[] = tasksWaiting.map((t) => ({
         kind: 'task', mine: true, copyId: t.id, masterId: 'tasks', title: t.title, who: t.assignee ?? 'Unassigned', submittedBy: null, submittedAt: t.submitted_at ?? t.updated_at,
         late: Boolean(t.due_date && t.submitted_at && new Date(t.submitted_at).getTime() > new Date(t.due_date).getTime()), href: assignmentHref('', t.id),
-        projectId: orgId, updatedAt: new Date(t.updated_at).toISOString(), version: null, link: null, text: null, note: null, files: [],
+        projectId: orgId, updatedAt: new Date(t.updated_at).toISOString(), version: null, link: null, text: null, note: null, files: [], versions: [],
         steps: { done: t.steps_done, total: t.steps_total }, comments: t.comments, left: false,
     }));
     return { success: true, rows: [...rows.map((r): ReviewQueueRow => ({
@@ -1165,7 +1170,7 @@ export async function readReviewQueueAction(orgId: string): Promise<{ success: t
         // Group work opens in its own workspace (report §42.14 problem 35, decision 133).
         href: r.in_org ? assignmentHref('', r.copy_id) : assignmentHref(`/workspaces/${r.workspace_id}`, r.copy_id),
         projectId: r.workspace_id, updatedAt: new Date(r.updated_at).toISOString(), version: r.submission?.version ?? null, link: r.submission?.link ?? null, text: r.submission?.text ?? null,
-        note: r.submission?.note ?? null, files: r.files ?? [], steps: { done: r.steps_done, total: r.steps_total }, comments: r.comments, left: r.left_org,
+        note: r.submission?.note ?? null, files: r.files ?? [], versions: (r.versions ?? []).map((v) => ({ ...v, at: new Date(v.at).toISOString() })), steps: { done: r.steps_done, total: r.steps_total }, comments: r.comments, left: r.left_org,
     })), ...taskRows], total: (rows[0]?.total ?? 0) + taskRows.length };
 }
 

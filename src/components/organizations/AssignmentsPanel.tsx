@@ -58,6 +58,7 @@ import { EditAssignmentDialog, ExcuseDialog, ExtendDialog, GiveToDialog, ReturnD
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { AssignmentGlance } from '@/components/organizations/AssignmentGlance'
+import { ReviewConversation, ReviewWork } from '@/components/organizations/ReviewQueueParts'
 import { ReasonDialog } from '@/components/organizations/ReasonDialog'
 import { ClassQuestions } from '@/components/organizations/ClassQuestions'
 import { saveBlob, toCsvBlob } from '@/lib/download'
@@ -720,7 +721,8 @@ export function ReviewQueue({ orgId, onChanged, onClose }: { orgId: string; onCh
     const [rows, setRows] = useState<ReviewQueueRow[] | null>(null)
     const [total, setTotal] = useState(0)
     const [index, setIndex] = useState(0)
-    const [assignment, setAssignment] = useState('all')
+    // Mockup task 2: "Review N" on an assignment's panel opens the queue on that assignment.
+    const [assignment, setAssignment] = useState(() => (typeof window === 'undefined' ? 'all' : new URLSearchParams(window.location.search).get('assignment') ?? 'all'))
     const [lateOnly, setLateOnly] = useState(false)
     // Reviewers (report §33.5): Mine is the work you review, plus anything nobody was picked for.
     const [mineOnly, setMineOnly] = useState(false)
@@ -733,6 +735,7 @@ export function ReviewQueue({ orgId, onChanged, onClose }: { orgId: string; onCh
     const load = useCallback(() => void readReviewQueueAction(orgId).then((r) => { setRows(r.success ? r.rows : []); setTotal(r.success ? r.total : 0); if (!r.success) setError(r.error) }), [orgId])
     useEffect(() => { load() }, [load])
     useReloadOnNotice(load)
+    useEffect(() => { if (rows && assignment !== 'all' && !rows.some((r) => r.masterId === assignment)) setAssignment('all') }, [rows, assignment])
     const shown = useMemo(() => (rows ?? []).filter((r) => (assignment === 'all' || r.masterId === assignment) && (!lateOnly || r.late) && (!mineOnly || r.mine)), [rows, assignment, lateOnly, mineOnly])
     const current = shown[Math.min(index, Math.max(0, shown.length - 1))] ?? null
     const step = (by: number) => { setReturning(false); setIndex((i) => (shown.length ? (i + by + shown.length) % shown.length : 0)) }
@@ -782,6 +785,7 @@ export function ReviewQueue({ orgId, onChanged, onClose }: { orgId: string; onCh
     }, [])
     if (!rows) return <p className="mt-3 text-sm text-muted-foreground">Loading submissions…</p>
     const titles = [...new Map(rows.map((r) => [r.masterId, r.kind === 'task' ? 'Other tasks' : r.title])).entries()]
+    const label = 'font-mono text-[11px] font-medium uppercase tracking-[0.09em] text-muted-foreground'
     return (
         <section aria-label="To review" className="mt-3 space-y-2 rounded-md border border-border p-3 text-sm">
             <div className="flex flex-wrap items-center gap-2">
@@ -803,36 +807,53 @@ export function ReviewQueue({ orgId, onChanged, onClose }: { orgId: string; onCh
             {!current ? (
                 <p>All caught up. {onClose ? <button type="button" className="text-primary underline-offset-4 hover:underline" onClick={onClose}>Back to board</button> : null}</p>
             ) : (
-                <>
-                    <p><span className="font-medium">{current.who}</span> · {current.title} · {formatDistanceToNow(new Date(current.submittedAt), { addSuffix: true })}{current.late ? ' · Late' : ''}{current.version ? ` · Version ${current.version}` : ''}{current.submittedBy ? ` · submitted by ${current.submittedBy}` : ''}{current.left ? ' · Left the organization' : ''}</p>
-                    <div className="space-y-1 rounded-md bg-muted/40 px-3 py-2">
+                // Mockup task 2: who is waiting, the work itself, then everything needed to decide.
+                <div className="grid gap-4 md:grid-cols-[minmax(0,220px)_minmax(0,1fr)_minmax(0,280px)]">
+                    <section aria-label="Waiting" className="min-w-0">
+                        <ul className="max-h-[60vh] space-y-1 overflow-y-auto max-md:max-h-56">
+                            {shown.map((r, i) => (
+                                <li key={r.copyId}>
+                                    <button type="button" aria-current={r.copyId === current.copyId ? 'true' : undefined} onClick={() => { setReturning(false); setIndex(i) }}
+                                        className={cn('w-full rounded-[5px] px-2 py-1.5 text-left', r.copyId === current.copyId ? 'bg-muted' : 'hover:bg-muted/60')}>
+                                        <span className="block truncate text-[13px] font-medium">{r.who}</span>
+                                        <span className="block truncate font-mono text-[11px] text-muted-foreground">{r.title} · {formatDistanceToNow(new Date(r.submittedAt), { addSuffix: true })}{r.late ? ' · Late' : ''}</span>
+                                    </button>
+                                </li>
+                            ))}
+                        </ul>
+                    </section>
+                    <section aria-label="Submission" className="min-w-0 space-y-2">
+                        <p><span className="font-medium">{current.who}</span> · {current.title} · {formatDistanceToNow(new Date(current.submittedAt), { addSuffix: true })}{current.late ? ' · Late' : ''}{current.version ? ` · Version ${current.version}` : ''}{current.submittedBy ? ` · submitted by ${current.submittedBy}` : ''}{current.left ? ' · Left the organization' : ''}</p>
                         {webLink(current.link) ? <a href={webLink(current.link)!} target="_blank" rel="noreferrer noopener" className="break-all text-primary underline">{current.link}</a> : current.link ? <span className="break-all">{current.link}</span> : null}
-                        {current.text ? <p className="whitespace-pre-line">{current.text}</p> : null}
-                        {current.files.length ? <p>{current.files.join(', ')}</p> : null}
-                        {current.note ? <p className="text-muted-foreground">Note: {current.note}</p> : null}
+                        {current.text ? <p className="whitespace-pre-line rounded-md bg-muted/40 px-3 py-2">{current.text}</p> : null}
+                        <ReviewWork row={current} />
                         {!current.link && !current.text && !current.files.length ? <p className="text-muted-foreground">Marked as done, nothing attached.</p> : null}
+                    </section>
+                    <section aria-label="Details" className="min-w-0 space-y-3">
+                        {current.note ? <div><p className={label}>Their note</p><p className="mt-1">Note: {current.note}</p></div> : null}
                         <p className="text-xs text-muted-foreground">Steps {current.steps.done} of {current.steps.total} ticked · Private conversation ({current.comments}) · <a href={current.href} className="text-primary underline-offset-4 hover:underline">Open</a></p>
-                    </div>
-                    {returning ? (
-                        <div className="space-y-2">
-                            <label className="block space-y-1"><span className="font-medium">What should they change?</span>
-                                <textarea autoFocus value={reason} onChange={(e) => setReason(e.target.value)} rows={2} maxLength={1000} className={area} aria-label="What should they change?" /></label>
-                            {current.kind === 'copy' ? <label className="flex flex-wrap items-center gap-2">Fix by <Input type="datetime-local" value={fixBy} onChange={(e) => setFixBy(e.target.value)} className="w-auto" aria-label="Fix by" /></label> : null}
-                            <div className="flex gap-2">
-                                <Button type="button" size="sm" disabled={pending} onClick={() => decide('return')}>Return</Button>
-                                <Button type="button" size="sm" variant="ghost" onClick={() => setReturning(false)}>Cancel</Button>
+                        <ReviewConversation row={current} />
+                        {returning ? (
+                            <div className="space-y-2">
+                                <label className="block space-y-1"><span className="font-medium">What should {current.who} change?</span>
+                                    <textarea autoFocus value={reason} onChange={(e) => setReason(e.target.value)} rows={3} maxLength={1000} className={area} aria-label={`What should ${current.who} change?`} /></label>
+                                {current.kind === 'copy' ? <label className="flex flex-wrap items-center gap-2">Fix by <Input type="datetime-local" value={fixBy} onChange={(e) => setFixBy(e.target.value)} className="w-auto" aria-label="Fix by" /></label> : null}
+                                <div className="flex gap-2">
+                                    <Button type="button" size="sm" disabled={pending} onClick={() => decide('return')}>Return</Button>
+                                    <Button type="button" size="sm" variant="ghost" onClick={() => setReturning(false)}>Cancel</Button>
+                                </div>
                             </div>
-                        </div>
-                    ) : (
-                        // Report §32.7: on phones Approve and Return stay at the bottom; no swipe, so nothing decides by accident.
-                        <div className="flex flex-wrap items-center gap-2 max-md:sticky max-md:bottom-0 max-md:bg-card max-md:py-2">
-                            <Button type="button" size="sm" disabled={pending} onClick={() => decide('approve')}>Approve</Button>
-                            <Button type="button" size="sm" variant="outline" disabled={pending} onClick={() => decide('return')}>Return</Button>
-                            <Input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Add note (optional)" aria-label="Add note" maxLength={2000} className="h-8 w-48" />
-                            <span className="ml-auto text-[11px] text-muted-foreground">A approve · R return · J next · K previous · Esc close</span>
-                        </div>
-                    )}
-                </>
+                        ) : (
+                            // Report §32.7: on phones Approve and Return stay at the bottom; no swipe, so nothing decides by accident.
+                            <div className="flex flex-wrap items-center gap-2 max-md:sticky max-md:bottom-0 max-md:bg-card max-md:py-2">
+                                <Button type="button" size="sm" disabled={pending} onClick={() => decide('approve')}>Approve</Button>
+                                <Button type="button" size="sm" variant="outline" disabled={pending} onClick={() => decide('return')}>Return</Button>
+                                <Input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Add note (optional)" aria-label="Add note" maxLength={2000} className="h-8 w-full" />
+                                <span className="text-[11px] text-muted-foreground">A approve · R return · J next · K previous · Esc close</span>
+                            </div>
+                        )}
+                    </section>
+                </div>
             )}
             {error ? <p role="alert" className="text-destructive">{error}</p> : null}
         </section>
