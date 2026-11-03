@@ -1,6 +1,7 @@
 import path from 'node:path';
 import { readFile } from 'node:fs/promises';
 import { build } from 'esbuild';
+import { serverActionsPlugin } from './server-actions-plugin';
 import postcss from 'postcss';
 import tailwind from '@tailwindcss/postcss';
 import { expect, test, type Page } from '@playwright/test';
@@ -15,14 +16,12 @@ test.beforeAll(async () => {
         'next/image': `import React from 'react';export default ({priority,fill,unoptimized,...p})=>React.createElement('img',p);`,
         'next/navigation': `export const useRouter=()=>({refresh(){},push(){}}),usePathname=()=>'/',useSearchParams=()=>new URLSearchParams();`,
         '@/app/actions/workspace/last-update': `export const getWorkspaceLastUpdates=async({projectIds})=>{await new Promise(r=>setTimeout(r,150));return projectIds.map(projectId=>({projectId,at:new Date(Date.now()-5*864e5).toISOString(),byName:'Ramanayudu Chandrasekhar Venkata Subramanian Naidu'}));};`,
-        '@/app/actions/organizations': `const ok=async()=>({success:true});export const cancelJoinRequestAction=ok,joinPublicOrgAction=ok,regenerateJoinCodeAction=ok;`,
-        '@/app/actions/org-lifecycle': `export const restoreOrgAction=async()=>({success:true});`,
         '@/components/workspaces/dashboard/WorkspaceSocialLinksCard': `export const WorkspaceLinkCluster=()=>null;`,
     };
     const bundle = await build({ entryPoints: [path.resolve('tests/browser/workspace-header.fixture.tsx')], bundle: true, write: false, format: 'iife', platform: 'browser', define: { 'process.env.NODE_ENV': '"test"', 'process.env': '{}' }, plugins: [{ name: 'workspace-header-boundaries', setup(builder) {
         builder.onResolve({ filter: /.*/ }, args => args.path in mocks ? { path: args.path, namespace: 'fixture' } : undefined);
         builder.onLoad({ filter: /.*/, namespace: 'fixture' }, args => ({ contents: mocks[args.path], resolveDir: process.cwd(), loader: 'js' }));
-    } }] });
+    } }, serverActionsPlugin] });
     script = bundle.outputFiles![0]!.text;
     css = (await postcss([tailwind()]).process(await readFile('src/app/globals.css', 'utf8'), { from: path.resolve('src/app/globals.css') })).css;
 });

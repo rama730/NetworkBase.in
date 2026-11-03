@@ -1,6 +1,7 @@
 import path from 'node:path';
 import { readFile } from 'node:fs/promises';
 import { build } from 'esbuild';
+import { serverActionsPlugin } from './server-actions-plugin';
 import postcss from 'postcss';
 import tailwind from '@tailwindcss/postcss';
 import { expect, test, type Page } from '@playwright/test';
@@ -22,7 +23,7 @@ test.beforeAll(async () => {
     const bundle = await build({ entryPoints: [path.resolve('tests/browser/org-create.fixture.tsx')], bundle: true, write: false, format: 'iife', platform: 'browser', define: { 'process.env.NODE_ENV': '"test"', 'process.env': '{}' }, plugins: [{ name: 'org-create-boundaries', setup(builder) {
         builder.onResolve({ filter: /.*/ }, args => args.path in mocks ? { path: args.path, namespace: 'fixture' } : undefined);
         builder.onLoad({ filter: /.*/, namespace: 'fixture' }, args => ({ contents: mocks[args.path], resolveDir: process.cwd(), loader: 'js' }));
-    } }] });
+    } }, serverActionsPlugin] });
     script = bundle.outputFiles![0]!.text;
     css = (await postcss([tailwind()]).process(await readFile('src/app/globals.css', 'utf8'), { from: path.resolve('src/app/globals.css') })).css;
 });
@@ -43,7 +44,7 @@ test('Start: nothing is picked, Other asks for its name, and the type sets defau
     await expect(page.getByTestId('create-org-type-required')).toBeVisible();
     await expect(page.getByRole('radio', { checked: true })).toHaveCount(0);
     await expect(page.getByText('PI · Researcher · Member · Viewer')).toBeVisible();
-    await page.getByText('A class, batch or semester').click();
+    await page.getByText('A college or university class').click();
     let v = await values(page);
     expect([v.organization.org_type, v.organization.join_mode, v.visibility, v.member_updates_enabled, (v.organization.role_names as { member: string }).member]).toEqual(['education', 'instant', 'private', false, 'Student']);
     await page.getByText('Anything else: a nonprofit, an event, a government team').click();
