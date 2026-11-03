@@ -194,7 +194,8 @@ let activeHereSince: Promise<Date> | null = null;
  */
 export function lastActiveHereSince(): Promise<Date> {
   activeHereSince ??= db.execute<{ at: string | null }>(sql`SELECT min(applied_at)::text AS at FROM app_migration_journal WHERE tag = ${LAST_ACTIVE_HERE_MIGRATION}`)
-    .then(([row]) => (row?.at ? new Date(row.at) : LAST_ACTIVE_HERE_SINCE))
+    // Not applied yet: use the fallback now and look again next time, so a later migration is picked up.
+    .then(([row]) => { if (row?.at) return new Date(row.at); activeHereSince = null; return LAST_ACTIVE_HERE_SINCE; })
     .catch(() => { activeHereSince = null; return LAST_ACTIVE_HERE_SINCE; });
   return activeHereSince;
 }
