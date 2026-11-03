@@ -59,6 +59,7 @@ export function ChildSprintLine({ org, projectId, sprintId, canManage, onFixed }
         <p className="nb-compact mb-3 flex flex-wrap items-center gap-1.5 text-muted-foreground" data-testid="child-sprint-line">
             <CalendarRange className="size-3.5" aria-hidden="true" />
             Inside {parent.name} · {orgName} · ends {DAY.format(new Date(parent.endDate))}
+            {parent.endedFirst ? <span className="font-medium text-foreground">{parent.name} ended. Complete {parent.endedFirst}?</span> : null}
             {!parent.fits ? (
                 <span className="inline-flex items-center gap-1 text-amber-600 dark:text-amber-400"><AlertTriangle className="size-3.5" aria-hidden="true" />Outside {parent.name}</span>
             ) : null}
@@ -109,7 +110,7 @@ export function LinkedWorkspacesBlock({ org, projectId, sprintId }: { org: Sprin
                         <Link href={`/workspaces/${row.slug ?? row.projectId}?tab=sprints&sprintId=${row.sprintId}`} className="hover:underline">
                             {row.title} · {row.sprintName}
                         </Link>
-                        <span className="text-muted-foreground"> · {row.status === 'planning' ? 'planned' : row.status}</span>
+                        <span className="text-muted-foreground"> · {row.status === 'planning' ? 'planned' : row.status}{row.total ? ` · ${row.done ?? 0} of ${row.total} done` : ''}</span>
                     </li>
                 ))}
                 {org.notLinked.map((row) => (

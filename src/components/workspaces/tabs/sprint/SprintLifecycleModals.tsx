@@ -29,7 +29,10 @@ type SprintLifecycleModalsProps = {
   onConfirmComplete: (
     unfinished: UnfinishedWorkChoice,
     nextSprintId: string | null,
+    closeAssignments: boolean,
   ) => Promise<boolean>;
+  /** An organization sprint's open assignments (report §37.2): Complete asks whether they close too. */
+  openAssignments?: number;
   onConfirmArchive: () => Promise<boolean>;
   onConfirmCancel: () => Promise<boolean>;
   /** Child projects: sprints linked to an org sprint, listed first as "Move to" targets (report §15.5). */
@@ -71,7 +74,9 @@ export function SprintLifecycleModals({
   onConfirmArchive,
   onConfirmCancel,
   linkedSprintIds,
+  openAssignments = 0,
 }: SprintLifecycleModalsProps) {
+  const [closeAssignments, setCloseAssignments] = useState(false);
   const [unfinishedChoice, setUnfinishedChoice] =
     useState<UnfinishedWorkChoice>("keep");
   const [nextSprintId, setNextSprintId] = useState("");
@@ -90,6 +95,7 @@ export function SprintLifecycleModals({
     openerRef.current = document.activeElement as HTMLElement | null;
     setUnfinishedChoice("keep");
     setNextSprintId("");
+    setCloseAssignments(false);
   }, [openModal, selectedSprint?.id]);
 
   if (!openModal || !selectedSprint) return null;
@@ -122,6 +128,7 @@ export function SprintLifecycleModals({
         ? await onConfirmComplete(
             unfinishedChoice,
             requiresTargetSprint ? nextSprintId : null,
+            closeAssignments,
           )
         : openModal === "archive"
           ? await onConfirmArchive()
@@ -194,6 +201,16 @@ export function SprintLifecycleModals({
                 </label>
               ))}
             </div>
+
+            {openAssignments > 0 ? (
+              <label className="flex items-start gap-3 rounded-[6px] border border-border p-3.5 text-sm">
+                <input type="checkbox" className="mt-1" checked={closeAssignments} disabled={isMutating} onChange={(e) => setCloseAssignments(e.target.checked)} />
+                <span>
+                  <span className="block font-medium text-foreground">Close {openAssignments === 1 ? "its open assignment" : `its ${openAssignments} open assignments`}</span>
+                  <span className="mt-1 block text-muted-foreground">Nobody can hand them in after this. Leave unticked to keep them open.</span>
+                </span>
+              </label>
+            ) : null}
 
             {requiresTargetSprint ? (
               <label className="block space-y-2 font-mono text-xs font-medium uppercase tracking-[0.09em] text-foreground">

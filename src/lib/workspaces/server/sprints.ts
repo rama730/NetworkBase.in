@@ -3,6 +3,7 @@ import { notifyOrg, remindedRecently } from "@/lib/organizations/notify";
 import { buildSprintSeries, nextSeriesNumber } from "@/lib/organizations/sprint-rules";
 import { readOrgWork } from "@/lib/organizations/settings";
 import { readViewerOrgRole } from "@/lib/organizations/detail";
+import { orgCan, orgRoleOf } from "@/lib/organizations/permissions";
 import { startSprint } from "@/lib/workspaces/sprint-schedule";
 import { postOrgAnnouncement } from "@/lib/organizations/org-updates";
 import { notifyChildSprintsUnlinked, notifyLinkedSprintsOutside, notifyOrgSprintCompleted, orgSprintNotifyDefault, readLinkedChildSprints, shiftOrgSprintDueDates, type LinkedChildSprint } from "@/lib/organizations/sprint-notify";
@@ -1813,7 +1814,27 @@ export async function deleteSprintAction(data: {
 type CompleteSprintOptions = {
   unfinished?: "keep" | "backlog" | "next_sprint";
   nextSprintId?: string | null;
+  /** Report §37.2: an organization's open assignments in the sprint close with it, or stay open (the default). */
+  closeAssignments?: boolean;
 };
+
+/** Complete's question (report §37.2): how many open assignments the sprint holds, for whoever can complete it. */
+export async function countOpenSprintAssignmentsAction(sprintId: string, projectId: string): Promise<number> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return 0;
+  try { await requireSprintOwner(projectId, user.id); } catch { return 0; }
+  return countOpenSprintAssignments(sprintId, projectId);
+}
+
+/** Open assignments in a sprint (report §37.2), for Complete's question. Zero outside organizations. */
+async function countOpenSprintAssignments(sprintId: string, projectId: string) {
+  const [row] = await db.execute<{ n: number }>(sql`
+    SELECT count(*)::int AS n FROM tasks m JOIN workspaces o ON o.id = m.workspace_id AND o.kind = 'organization'
+    WHERE m.workspace_id = ${projectId} AND m.sprint_id = ${sprintId} AND m.kind = 'assignment' AND m.assignment_id IS NULL AND m.deleted_at IS NULL
+      AND m.assignment_settings->>'publishedAt' IS NOT NULL AND m.assignment_settings->>'closedAt' IS NULL`);
+  return row?.n ?? 0;
+}
 
 
 async function requireSprintOwner(projectId: string, userId: string) {
@@ -1947,6 +1968,13 @@ export async function completeSprintAction(
         createdAt: now,
       });
     });
+    // Close its open assignments too, when asked and the table allows it (close_assignment).
+    if (options.closeAssignments && orgCan(orgRoleOf(await readViewerOrgRole(projectId, user.id)), "close_assignment")) {
+      await db.execute(sql`
+        UPDATE tasks SET assignment_settings = assignment_settings || jsonb_build_object('closedAt', ${new Date().toISOString()}::text), updated_at = now()
+        WHERE workspace_id = ${projectId} AND sprint_id = ${sprintId} AND kind = 'assignment' AND assignment_id IS NULL AND deleted_at IS NULL
+          AND assignment_settings->>'publishedAt' IS NOT NULL AND assignment_settings->>'closedAt' IS NULL`);
+    }
     const sprint = await readLifecycleSprint(projectId, sprintId);
     await revalidateWorkspacePaths(projectId);
     // Orgs tell each member how much of the sprint they finished instead (report §26 C).
@@ -2280,6 +2308,43 @@ export async function searchSprintMaterialCandidatesAction(input: { projectId: s
     return { success: true as const, files, docs };
   } catch (error) {
     return { success: false as const, error: error instanceof Error ? error.message : "Search failed", files: [], docs: [] };
+  }
+}
+
+/**
+ * Plan one for each (report §18.2): one planned team sprint inside each planned organization sprint that has none
+ * here yet, with its dates, named "<name> 1", "<name> 2"… and never the organization's own name.
+ */
+export async function planOneForEachAction(input: { projectId: string; name: string }) {
+  try {
+    const user = await getAuthUserOrThrow();
+    await requireSprintOwner(input.projectId, user.id);
+    const name = input.name.trim().slice(0, 80);
+    if (!name) throw new Error("Give the sprints a name.");
+    const created = await db.transaction(async (tx) => {
+      await tx.execute(sql`SELECT id FROM ${workspaces} WHERE id = ${input.projectId} FOR UPDATE`);
+      const targets = await tx.execute<{ id: string; start_date: Date; end_date: Date }>(sql`
+        SELECT o.id, o.start_date, o.end_date FROM ${workspaceSprints} o JOIN ${workspaces} p ON p.parent_id = o.workspace_id
+        WHERE p.id = ${input.projectId} AND o.status = 'planning' AND o.show_in_children
+          AND NOT EXISTS (SELECT 1 FROM ${workspaceSprints} c WHERE c.workspace_id = p.id AND c.parent_sprint_id = o.id AND c.status <> 'cancelled')
+        ORDER BY o.start_date`);
+      let n = 0;
+      for (const target of targets) {
+        n += 1;
+        const [row] = await tx.insert(workspaceSprints).values({
+          projectId: input.projectId, creatorId: user.id, name: `${name} ${n}`, status: "planning", parentSprintId: target.id,
+          startDate: new Date(target.start_date), endDate: new Date(target.end_date),
+          sprintNumber: sql<number>`(SELECT COALESCE(MAX(sprint_number), 0) + 1 FROM ${workspaceSprints} WHERE workspace_id = ${input.projectId})`,
+        }).returning({ id: workspaceSprints.id });
+        if (row) await tx.insert(workspaceSprintEvents).values({ projectId: input.projectId, sprintId: row.id, actorId: user.id, eventType: "created", payload: { name: `${name} ${n}`, status: "planning", source: "plan_one_for_each", orgSprintId: target.id } });
+      }
+      return n;
+    });
+    if (created === 0) throw new Error("Every planned organization sprint already has one here.");
+    await revalidateWorkspacePaths(input.projectId);
+    return { success: true as const, created };
+  } catch (error) {
+    return { success: false as const, error: error instanceof Error ? error.message : "Couldn’t plan the sprints" };
   }
 }
 

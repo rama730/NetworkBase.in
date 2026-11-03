@@ -198,6 +198,10 @@ export async function completeSprintAction(...args: Parameters<typeof sprintsImp
   return sprintsImpl.completeSprintAction(...args);
 }
 
+export async function countOpenSprintAssignmentsAction(...args: Parameters<typeof sprintsImpl.countOpenSprintAssignmentsAction>): ReturnType<typeof sprintsImpl.countOpenSprintAssignmentsAction> {
+  return sprintsImpl.countOpenSprintAssignmentsAction(...args);
+}
+
 export async function archiveSprintAction(...args: Parameters<typeof sprintsImpl.archiveSprintAction>): ReturnType<typeof sprintsImpl.archiveSprintAction> {
   return sprintsImpl.archiveSprintAction(...args);
 }
@@ -228,6 +232,10 @@ export async function searchSprintMaterialCandidatesAction(...args: Parameters<t
 
 export async function fitSprintToParentAction(...args: Parameters<typeof sprintsImpl.fitSprintToParentAction>): ReturnType<typeof sprintsImpl.fitSprintToParentAction> {
   return sprintsImpl.fitSprintToParentAction(...args);
+}
+
+export async function planOneForEachAction(...args: Parameters<typeof sprintsImpl.planOneForEachAction>): ReturnType<typeof sprintsImpl.planOneForEachAction> {
+  return sprintsImpl.planOneForEachAction(...args);
 }
 
 export async function remindSprintLeadsAction(...args: Parameters<typeof sprintsImpl.remindSprintLeadsAction>): ReturnType<typeof sprintsImpl.remindSprintLeadsAction> {

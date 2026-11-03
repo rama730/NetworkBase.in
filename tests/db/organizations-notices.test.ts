@@ -153,7 +153,7 @@ test("org sprints: start tells members and leads without a linked sprint; close 
   assert.equal(await sprintNotify.notifyOrgSprintCompleted(co1, o.id, o.owner), true);
   assert.ok((await titles(o.a)).includes("CO1 closed · you completed 1 of 1"));
   assert.ok((await titles(o.b)).includes("CO1 closed · you completed 0 of 1"));
-  assert.ok((await needsYou.readNeedsYou(viewerFor(o, o.a, false), now)).some((r) => r.label === "CO1 closed · Complete Lab sprint 1?"));
+  assert.ok((await needsYou.readNeedsYou(viewerFor(o, o.a, false), now)).some((r) => r.label === "CO1 ended. Complete Lab sprint 1?"));
   // A plain workspace is left to the generic notice.
   assert.equal(await sprintNotify.notifyOrgSprintCompleted(co1, lab, o.owner), false);
 });

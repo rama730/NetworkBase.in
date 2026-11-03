@@ -132,11 +132,11 @@ export type SprintOrgContext = {
   orgTitle: string | null;
   orgSlug: string | null;
   /** Child projects: the selected sprint's org sprint, and whether it still fits its dates. */
-  parentSprint: { id: string; name: string; endDate: string; fits: boolean } | null;
+  parentSprint: { id: string; name: string; endDate: string; fits: boolean; endedFirst: string | null } | null;
   /** Child projects: an org sprint is running and this project has no active sprint (the empty state). */
   runningOrgSprint: { id: string; name: string; endDate: string } | null;
   /** Orgs: child sprints linked to the selected org sprint, and how many child projects have none. */
-  linkedProjects: Array<{ projectId: string; title: string; slug: string | null; sprintId: string; sprintName: string; status: string }>;
+  linkedProjects: Array<{ projectId: string; title: string; slug: string | null; sprintId: string; sprintName: string; status: string; done?: number; total?: number }>;
   notLinkedCount: number;
   /** Orgs: the workspaces with no sprint inside the selected one, for Remind (report §37.2). */
   notLinked: Array<{ projectId: string; title: string; slug: string | null }>;
@@ -171,7 +171,10 @@ export async function readSprintOrgContext(projectId: string, selectedSprintId: 
     empty.defaults = { autoStart: work.sprintAutoStart, showInChildren: work.sprintShowInChildren, createMatching: work.sprintCreateMatching, notifyOnStart: work.sprintNotifyOnStart };
     if (!selectedSprintId) return empty;
     const [linked, children] = await Promise.all([
-      db.select({ projectId: workspaces.id, title: workspaces.title, slug: workspaces.slug, sprintId: workspaceSprints.id, sprintName: workspaceSprints.name, status: workspaceSprints.status })
+      // Per-team progress (step 12 gap): the team sprint's tasks, done of all, excused work left out.
+      db.select({ projectId: workspaces.id, title: workspaces.title, slug: workspaces.slug, sprintId: workspaceSprints.id, sprintName: workspaceSprints.name, status: workspaceSprints.status,
+        done: sql<number>`(SELECT count(*)::int FROM tasks t WHERE t.sprint_id = ${workspaceSprints.id} AND t.deleted_at IS NULL AND t.excused_at IS NULL AND t.status = 'done')`,
+        total: sql<number>`(SELECT count(*)::int FROM tasks t WHERE t.sprint_id = ${workspaceSprints.id} AND t.deleted_at IS NULL AND t.excused_at IS NULL)` })
         .from(workspaceSprints).innerJoin(workspaces, eq(workspaces.id, workspaceSprints.projectId))
         .where(and(eq(workspaceSprints.parentSprintId, selectedSprintId), isNull(workspaces.deletedAt), notInArray(workspaceSprints.status, ["cancelled"]))),
       db.select({ id: workspaces.id, title: workspaces.title, slug: workspaces.slug }).from(workspaces).where(and(eq(workspaces.parentId, projectId), isNull(workspaces.deletedAt), ne(workspaces.status, "archived"))),
@@ -189,10 +192,10 @@ export async function readSprintOrgContext(projectId: string, selectedSprintId: 
     .orderBy(workspaceSprints.startDate);
   const selected = flags.find((f) => f.id === selectedSprintId);
   const [own] = selected?.parentSprintId
-    ? await db.select({ startDate: workspaceSprints.startDate, endDate: workspaceSprints.endDate }).from(workspaceSprints).where(eq(workspaceSprints.id, selected.id)).limit(1)
+    ? await db.select({ name: workspaceSprints.name, status: workspaceSprints.status, startDate: workspaceSprints.startDate, endDate: workspaceSprints.endDate }).from(workspaceSprints).where(eq(workspaceSprints.id, selected.id)).limit(1)
     : [];
   const [parent] = selected?.parentSprintId
-    ? await db.select({ id: workspaceSprints.id, name: workspaceSprints.name, startDate: workspaceSprints.startDate, endDate: workspaceSprints.endDate }).from(workspaceSprints).where(eq(workspaceSprints.id, selected.parentSprintId)).limit(1)
+    ? await db.select({ id: workspaceSprints.id, name: workspaceSprints.name, status: workspaceSprints.status, startDate: workspaceSprints.startDate, endDate: workspaceSprints.endDate }).from(workspaceSprints).where(eq(workspaceSprints.id, selected.parentSprintId)).limit(1)
     : [];
   const running = orgSprints.find((s) => s.status === "active");
   const [backlog] = await db.execute<{ n: number }>(sql`
@@ -204,7 +207,8 @@ export async function readSprintOrgContext(projectId: string, selectedSprintId: 
     orgSlug: org?.slug ?? null,
     orgSprints: orgSprints.map((s) => ({ id: s.id, name: s.name, status: s.status, startDate: s.startDate.toISOString(), endDate: s.endDate.toISOString() })),
     // "Outside CO1 dates" is worked out on read: dates are never changed automatically (report §15.3).
-    parentSprint: parent && own ? { id: parent.id, name: parent.name, endDate: parent.endDate.toISOString(), fits: fitsInside(own, parent) } : null,
+    // Report §18.2: "CO1 ended. Complete Parser week?" while this one still runs; it never closes by itself.
+    parentSprint: parent && own ? { id: parent.id, name: parent.name, endDate: parent.endDate.toISOString(), fits: fitsInside(own, parent), endedFirst: parent.status === "completed" && own.status === "active" ? own.name : null } : null,
     runningOrgSprint: running && !flags.some((f) => f.status === "active") ? { id: running.id, name: running.name, endDate: running.endDate.toISOString() } : null,
   };
 }

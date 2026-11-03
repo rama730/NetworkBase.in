@@ -168,3 +168,30 @@ test("37.2, decision 137: material search marks Admins-only files; the Workspace
   viewerId = o.member;
   assert.equal((await sprints.remindSprintLeadsAction({ projectId: o.id, sprintId: co1Id, workspaceIds: [o.child] })).success, false);
 });
+
+test("37.2: Complete can close the sprint's open assignments; left unticked they stay open", async () => {
+  const o = await org();
+  const [s1] = await sql`INSERT INTO workspace_sprints (workspace_id, name, start_date, end_date, status) VALUES (${o.id}, 'CO1', now() - interval '7 days', now() - interval '1 day', 'active') RETURNING id`;
+  const settings = { publishedAt: new Date().toISOString(), submissionType: "none", target: { mode: "everyone" } };
+  await sql`INSERT INTO tasks (workspace_id, title, kind, sprint_id, assignment_settings, creator_id) VALUES (${o.id}, 'Lab 1', 'assignment', ${s1!.id}, ${sql.json(settings)}, ${o.owner})`;
+  viewerId = o.owner;
+  assert.equal(await sprints.countOpenSprintAssignmentsAction(s1!.id, o.id), 1);
+  const done = await sprints.completeSprintAction(s1!.id, o.id, { closeAssignments: true });
+  assert.equal(done.success, true, JSON.stringify(done));
+  const [lab] = await sql`SELECT assignment_settings->>'closedAt' AS closed FROM tasks WHERE sprint_id = ${s1!.id} AND kind = 'assignment'`;
+  assert.ok(lab!.closed, "closed with the sprint");
+  viewerId = o.member;
+  assert.equal(await sprints.countOpenSprintAssignmentsAction(s1!.id, o.id), 0, "members don't get the count");
+});
+
+test("18.2: Plan one for each makes a team sprint inside every planned organization sprint, once", async () => {
+  const o = await org();
+  await sql`INSERT INTO workspace_sprints (workspace_id, name, sprint_number, start_date, end_date, status, show_in_children) VALUES
+    (${o.id}, 'CO2', 2, now() + interval '10 days', now() + interval '16 days', 'planning', true), (${o.id}, 'CO3', 3, now() + interval '17 days', now() + interval '23 days', 'planning', true)`;
+  viewerId = o.lead;
+  const made = await sprints.planOneForEachAction({ projectId: o.child, name: "Parser week" });
+  assert.deepEqual(made, { success: true, created: 2 });
+  const rows = await sql`SELECT c.name, o.name AS parent FROM workspace_sprints c JOIN workspace_sprints o ON o.id = c.parent_sprint_id WHERE c.workspace_id = ${o.child} ORDER BY c.name`;
+  assert.deepEqual(rows.map((r) => [r.name, r.parent]), [["Parser week 1", "CO2"], ["Parser week 2", "CO3"]]);
+  assert.equal((await sprints.planOneForEachAction({ projectId: o.child, name: "Again" })).success, false, "nothing left to plan");
+});

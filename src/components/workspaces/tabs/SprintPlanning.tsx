@@ -13,6 +13,8 @@ import {
   archiveSprintAction,
   cancelSprintAction,
   completeSprintAction,
+  countOpenSprintAssignmentsAction,
+  planOneForEachAction,
   createSprintAction,
   deleteSprintAction,
   planSprintSeriesAction,
@@ -47,6 +49,8 @@ interface SprintPlanningProps {
   projectKey?: string | null;
   isOwner: boolean;
   isOwnerOrMember: boolean;
+  /** An organization admin not on the team (decision 139): the tab says so, as Tasks does. */
+  viewingAsAdmin?: boolean;
   initialSprintData?: Promise<SprintDetailPayload | null> | null;
   /** + New → Sprint from the org header (report §18.2). */
   startCreate?: boolean;
@@ -69,6 +73,7 @@ export default function SprintPlanning({
   projectKey,
   isOwner,
   isOwnerOrMember,
+  viewingAsAdmin = false,
   initialSprintData: initialSprintPromise = null,
   startCreate = false,
   onCreateStarted,
@@ -113,6 +118,14 @@ export default function SprintPlanning({
   const rows = useMemo(() => detail?.rows ?? [], [detail?.rows]);
 
   const selectedSprintId = detail?.selectedSprintId ?? null;
+  // Complete asks about the sprint's open assignments (report §37.2); counted when the dialog opens.
+  const [openAssignments, setOpenAssignments] = useState(0);
+  useEffect(() => {
+    if (activeModal !== "complete" || !selectedSprintId) return;
+    let live = true;
+    void countOpenSprintAssignmentsAction(selectedSprintId, projectId).then((n) => { if (live) setOpenAssignments(n); }, () => undefined);
+    return () => { live = false; setOpenAssignments(0); };
+  }, [activeModal, projectId, selectedSprintId]);
   const selectedSprint =
     detail?.sprints.find((sprint) => sprint.id === selectedSprintId) ?? null;
 
@@ -197,6 +210,19 @@ export default function SprintPlanning({
       const result = await planSprintSeriesAction({ projectId, ...input });
       if (!result.success) return { success: false as const, error: result.error };
       toast.success(`${result.created} sprints planned`);
+      await queryClient.invalidateQueries({ queryKey: queryKeys.project.detail.sprintDetailRoot(projectId) });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.project.detail.sprints(projectId) });
+      return { success: true as const };
+    },
+    [projectId, queryClient],
+  );
+
+  // Plan one for each (report §18.2): a team sprint inside each planned organization sprint.
+  const handlePlanEach = useCallback(
+    async (name: string) => {
+      const result = await planOneForEachAction({ projectId, name });
+      if (!result.success) return { success: false as const, error: result.error };
+      toast.success(`${result.created} ${result.created === 1 ? "sprint" : "sprints"} planned`);
       await queryClient.invalidateQueries({ queryKey: queryKeys.project.detail.sprintDetailRoot(projectId) });
       await queryClient.invalidateQueries({ queryKey: queryKeys.project.detail.sprints(projectId) });
       return { success: true as const };
@@ -338,10 +364,11 @@ export default function SprintPlanning({
   const completeSelectedSprint = useCallback(async (
     unfinished: "keep" | "backlog" | "next_sprint",
     nextSprintId: string | null,
+    closeAssignments: boolean,
   ) => {
     if (!selectedSprintId) return false;
     return await applyLifecycleResult(
-      () => completeSprintAction(selectedSprintId, projectId, { unfinished, nextSprintId }),
+      () => completeSprintAction(selectedSprintId, projectId, { unfinished, nextSprintId, closeAssignments }),
       "Sprint completed",
     );
   }, [applyLifecycleResult, projectId, selectedSprintId]);
@@ -416,6 +443,7 @@ export default function SprintPlanning({
 
   return (
     <>
+      {viewingAsAdmin ? <p className="nb-meta mb-3"><span className="nb-status" data-status="draft">Viewing as admin</span></p> : null}
       <div className="lg:hidden mb-4 flex items-center justify-between gap-3">
         <label htmlFor="mobile-sprint-select" className="sr-only">Select sprint</label>
         <select
@@ -521,6 +549,7 @@ export default function SprintPlanning({
           org={editorOrg}
           existingSprints={existingSprints}
           onRepeat={editorState?.mode === "edit" ? undefined : handleRepeatSprints}
+          onPlanEach={editorState?.mode === "edit" ? undefined : handlePlanEach}
           initialOrgFields={editingFlags ? { autoStart: editingFlags.autoStart, showInChildren: editingFlags.showInChildren, parentSprintId: editingFlags.parentSprintId, notifyOnStart: editingFlags.notifyOnStart } : { parentSprintId: editorState?.parentSprintId ?? null }}
         />
       ) : null}
@@ -534,6 +563,7 @@ export default function SprintPlanning({
           openModal={activeModal}
           onClose={() => setActiveModal(null)}
           onConfirmComplete={completeSelectedSprint}
+          openAssignments={openAssignments}
           onConfirmArchive={archiveSelectedSprint}
           onConfirmCancel={cancelSelectedSprint}
           linkedSprintIds={orgContext?.kind === "child" ? new Set(Object.entries(orgContext.sprintFlags).filter(([, f]) => f.parentSprintId).map(([id]) => id)) : undefined}

@@ -181,7 +181,7 @@ export async function leadSprintRows(orgId: string, userId: string): Promise<Nee
     return rows.map((r) => {
         const href = `/workspaces/${encodeURIComponent(r.slug ?? r.id)}?tab=sprints`;
         if (r.kind === 'plan') return { kind: 'plan_sprint', label: `${r.org_sprint} started. Plan your sprint in ${r.title}`, href };
-        if (r.kind === 'complete') return { kind: 'complete_sprint', label: `${r.org_sprint} closed · Complete ${r.child_sprint}?`, href };
+        if (r.kind === 'complete') return { kind: 'complete_sprint', label: `${r.org_sprint} ended. Complete ${r.child_sprint}?`, href };
         return { kind: 'sprint_dates', label: `${r.child_sprint} is outside ${r.org_sprint}'s dates`, href };
     });
 }

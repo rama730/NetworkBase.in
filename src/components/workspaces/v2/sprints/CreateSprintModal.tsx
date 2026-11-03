@@ -60,6 +60,8 @@ interface SprintEditorModalProps {
   existingSprints?: Array<{ id: string; name: string; startDate: string | null; endDate: string | null; status: string }>;
   /** Repeat ("Plan more like this", decision 9): creates the series instead of one sprint. */
   onRepeat?: (input: { prefix: string; count: number; lengthDays: number; startDate: string; goal: string; description: string; autoStart: boolean }) => Promise<SprintEditorSubmitResult>;
+  /** Workspaces in an organization: Plan one for each planned organization sprint (report §18.2). Off by default. */
+  onPlanEach?: (name: string) => Promise<SprintEditorSubmitResult>;
 }
 
 const DAY_MS = 86_400_000;
@@ -146,6 +148,7 @@ export default function SprintEditorModal({
   initialOrgFields,
   existingSprints = [],
   onRepeat,
+  onPlanEach,
 }: SprintEditorModalProps) {
   // Plan your sprint (report §18.2): inside the running organization sprint, or the next planned one, by default.
   const defaultParent = mode === "create" && org?.kind === "child"
@@ -162,6 +165,8 @@ export default function SprintEditorModal({
     includeGroupWork: true,
   }));
   const [repeat, setRepeat] = React.useState(false);
+  const [planEach, setPlanEach] = React.useState(false);
+  const plannedOrgSprints = org?.kind === "child" ? org.orgSprints.filter((s) => s.status === "planning").length : 0;
   const [repeatCount, setRepeatCount] = React.useState(4);
   const initialDraft = React.useCallback((): SprintEditorDraft => {
     const base = buildSprintEditorDraft({ sprint, sprintCount });
@@ -207,6 +212,7 @@ export default function SprintEditorModal({
     initializedDraftKeyRef.current = editorKey;
     setDraft(initialDraft());
     setRepeat(false);
+    setPlanEach(false);
     setFieldErrors({});
     setErrorMessage("");
     setPendingAction(null);
@@ -289,7 +295,9 @@ export default function SprintEditorModal({
       }
       setPendingAction("save");
       try {
-        const result = repeat && onRepeat
+        const result = planEach && onPlanEach
+          ? await onPlanEach(parsed.data.name)
+          : repeat && onRepeat
           ? await onRepeat({ prefix, count: repeatCount, lengthDays, startDate: parsed.data.startDate, goal: parsed.data.goal ?? "", description: parsed.data.description ?? "", autoStart: orgFields.autoStart ?? true })
           : await onSubmit({
           ...parsed.data,
@@ -309,7 +317,7 @@ export default function SprintEditorModal({
         setPendingAction(null);
       }
     },
-    [dateError, draft, laterSprints.length, lengthDays, mode, onClose, onRepeat, onSubmit, org?.kind, orgFields, prefix, projectId, repeat, repeatCount, shiftDays, sprint?.id],
+    [dateError, draft, laterSprints.length, lengthDays, mode, onClose, onPlanEach, onRepeat, onSubmit, planEach, org?.kind, orgFields, prefix, projectId, repeat, repeatCount, shiftDays, sprint?.id],
   );
 
   const handleDelete = React.useCallback(async () => {
@@ -613,6 +621,12 @@ export default function SprintEditorModal({
                   </select>
                 </Field>
               ) : null}
+              {org?.kind === "child" && mode === "create" && onPlanEach && plannedOrgSprints > 1 ? (
+                <label className="flex items-center gap-2 text-[13px] text-foreground">
+                  <input type="checkbox" checked={planEach} onChange={(e) => setPlanEach(e.target.checked)} />
+                  Plan one for each of {org.orgTitle ?? "the organization"}’s {plannedOrgSprints} planned sprints
+                </label>
+              ) : null}
               {org?.kind === "child" && mode === "create" && parent && (org.groupBacklog ?? 0) > 0 ? (
                 <label className="flex items-center gap-2 text-[13px] text-foreground">
                   <input type="checkbox" checked={orgFields.includeGroupWork ?? true} onChange={(e) => setOrgFields((f) => ({ ...f, includeGroupWork: e.target.checked }))} />
@@ -709,7 +723,7 @@ export default function SprintEditorModal({
               disabled={!!pendingAction || Boolean(repeat && preview?.blocked) || Boolean(dateError)}
               className="nb-touch-target inline-flex h-[34px] items-center justify-center rounded-[5px] bg-primary px-4 font-mono text-xs font-medium uppercase tracking-[0.09em] text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
             >
-              {isSubmitting ? "Saving..." : mode === "create" ? (repeat && preview ? `Create ${preview.rows.length} sprints` : "Create sprint") : "Save changes"}
+              {isSubmitting ? "Saving..." : mode === "create" ? (planEach && onPlanEach ? `Create ${plannedOrgSprints} sprints` : repeat && preview ? `Create ${preview.rows.length} sprints` : "Create sprint") : "Save changes"}
             </button>
           </div>
         </form>

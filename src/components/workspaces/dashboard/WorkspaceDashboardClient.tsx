@@ -1191,7 +1191,7 @@ export default function WorkspaceDashboardClient({ project, currentUserId, viewe
                     <TabErrorBoundary tabName="Sprints">
                         <div className="space-y-6">
                             <Suspense fallback={<SkeletonSprints />}>
-                                <SprintPlanning projectId={project.id} projectSlug={project.slug || project.id} projectName={project.title} projectKey={project.key} isOwner={isOwner} isOwnerOrMember={isOwnerOrMember} initialSprintData={initialSprintData} startCreate={newIntent === 'sprint'} onCreateStarted={() => setNewIntent(null)} />
+                                <SprintPlanning projectId={project.id} projectSlug={project.slug || project.id} projectName={project.title} projectKey={project.key} isOwner={isOwner} isOwnerOrMember={isOwnerOrMember} viewingAsAdmin={isInheritedAdmin} initialSprintData={initialSprintData} startCreate={newIntent === 'sprint'} onCreateStarted={() => setNewIntent(null)} />
                             </Suspense>
                         </div>
                     </TabErrorBoundary>
