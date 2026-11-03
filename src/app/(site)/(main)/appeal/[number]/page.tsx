@@ -26,11 +26,13 @@ export default async function AppealPage({ params }: { params: Promise<{ number:
         main?.label ? `${main.label.charAt(0).toLowerCase()}${main.label.slice(1)} on ${shortDate(main.created_at)}` : null,
     ].filter(Boolean).join(' · ')
     return (
+        <div data-scroll-root="route" className="h-full min-h-0 app-scroll app-scroll-y app-scroll-gutter overscroll-y-contain bg-background">
         <main className="mx-auto w-full max-w-[64ch] px-4 py-10">
             <h1 className="nb-page-title text-foreground">Appeal {caseLabel(ctx.number)}</h1>
             <p className="nb-compact mt-3 text-foreground"><span className="font-medium">What happened:</span> {what}</p>
             <AppealForm caseNumber={caseLabel(ctx.number)} status={ctx.status} appealState={ctx.appealState} workspaceAction={ctx.workspaceAction}
                 appealUntil={ctx.appealUntil ? shortDate(ctx.appealUntil) : null} />
         </main>
+        </div>
     )
 }

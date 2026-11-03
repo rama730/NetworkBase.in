@@ -5,7 +5,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 
 import { eventsSinceAction } from '@/app/actions/moderation-staff'
 import { isPrivateRealtimeAuthorizationEnabled } from '@/lib/realtime/authorization'
-import { realtimeUserToken } from '@/lib/realtime/private-broadcast'
+import { openPrivateChannel } from '@/lib/realtime/private-broadcast'
 import { createClient } from '@/lib/supabase/client'
 
 // The console's live layer (Trust & Safety Console Redesign R6, S1–S5): one private staff-only channel,
@@ -117,12 +117,9 @@ export function TrustLiveProvider({ staffId, name, children }: { staffId: string
             set('off')
         } else {
             void (async () => {
-                const token = await realtimeUserToken()
-                if (stopped) return
-                if (!token) return set('reconnecting')
-                const supabase = createClient()
-                await supabase.realtime.setAuth(token)
-                const ch = supabase.channel('trust:console', { config: { private: true, presence: { key: staffId }, broadcast: { self: true } } })
+                const ch = await openPrivateChannel('trust:console', { presence: { key: staffId }, broadcast: { self: true } })
+                if (stopped) { if (ch) void createClient().removeChannel(ch); return }
+                if (!ch) return set('reconnecting')
                 channel.current = ch
                 ch.on('broadcast', { event: 'event' }, (message: { payload?: Record<string, unknown> }) => {
                     const p = message.payload ?? {}

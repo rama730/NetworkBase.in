@@ -21,7 +21,7 @@ const ENVELOPE_EXEMPT_ROUTES = new Set<string>([
   // This endpoint intentionally returns a redirect, conditional 304, or a
   // streamed binary body with range/content headers; a JSON envelope would
   // corrupt the browser preview contract.
-  path.join("src", "app", "api", "v1", "projects", "[id]", "files", "[nodeId]", "preview", "route.ts"),
+  path.join("src", "app", "api", "v1", "workspaces", "[id]", "files", "[nodeId]", "preview", "route.ts"),
 ]);
 
 function collectRouteFiles(dir: string, into: string[]) {

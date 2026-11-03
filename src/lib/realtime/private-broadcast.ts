@@ -51,6 +51,18 @@ function waitForSession(supabase: Client, ms: number) {
  * AuthProvider copies the server's (httpOnly) session into the browser; if that
  * has not landed, wait briefly, then restore it here once.
  */
+/**
+ * A private channel the caller wires itself, for a screen that needs presence and broadcast on one topic (the trust
+ * console). The token is set first; null without a session. Shared topics should use subscribeBroadcast instead.
+ */
+export async function openPrivateChannel(topic: string, config: Record<string, unknown> = {}): Promise<RealtimeChannel | null> {
+  const token = await realtimeUserToken();
+  if (!token) return null;
+  const supabase = createClient();
+  await supabase.realtime.setAuth(token);
+  return supabase.channel(topic, { config: { ...config, private: true } });
+}
+
 export async function realtimeUserToken(): Promise<string | null> {
   const supabase = createClient();
   const { data } = await supabase.auth.getSession();
