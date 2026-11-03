@@ -2,6 +2,7 @@
 
 import { HandInSection } from "@/components/organizations/HandInSection";
 import { AssignmentManageSection } from "@/components/organizations/AssignmentsPanel";
+import { isAssignmentMaster } from "@/lib/workspaces/task-presentation";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { formatTaskDueDate, isTaskOverdue } from "@/lib/workspaces/task-presentation";
 import {
@@ -121,6 +122,7 @@ export default function DetailsTab({
   onMoveToColumn,
 }: DetailsTabProps) {
   const policy = useTaskCompletionPolicy(task.projectId ?? "");
+  const master = isAssignmentMaster(task);
   const reviewState = useQuery({
     queryKey: ["task-review-state", task.id, task.updatedAt, completedSubtaskCount, attachmentCount],
     enabled: Boolean(task.projectId),
@@ -311,7 +313,7 @@ export default function DetailsTab({
       ) : null}
 
       {/* One board (decisions 6, 10): an admin manages the main assignment from its own card. */}
-      {task.assignmentProgress && !task.assignmentId && task.projectId ? <AssignmentManageSection orgId={task.projectId} masterId={task.id} /> : null}
+      {master && task.projectId ? <AssignmentManageSection orgId={task.projectId} masterId={task.id} /> : null}
 
       {/* Decision 85: an assignment copy is handed in here, for every hand-in type. */}
       {task.assignmentId ? (
@@ -319,7 +321,7 @@ export default function DetailsTab({
           onSubmitted={(review) => onReviewApproved(new Date().toISOString(), "done", review ? "pending" : "none")} />
       ) : null}
 
-      {task.reviewStatus === "pending" ? (
+      {task.reviewStatus === "pending" && !master ? (
         <div className="rounded-[6px] border border-primary/20 bg-primary/10 px-4 py-3 text-sm text-foreground">
           <div className="flex items-start gap-3">
             <Lock className="mt-0.5 h-4 w-4 flex-shrink-0 text-primary" />
@@ -366,7 +368,7 @@ export default function DetailsTab({
           </div>
         </div>
       ) : null}
-      {task.reviewStatus === "rejected" && reviewState.data?.reason ? <p className="border-b border-border pb-3 text-sm"><span className="font-medium">Changes requested: </span>{reviewState.data.reason}</p> : null}
+      {task.reviewStatus === "rejected" && !master && reviewState.data?.reason ? <p className="border-b border-border pb-3 text-sm"><span className="font-medium">Changes requested: </span>{reviewState.data.reason}</p> : null}
       {reviewState.data?.completedAt ? <p className="nb-meta text-muted-foreground">Completed {format(new Date(reviewState.data.completedAt), "MMM d, yyyy h:mm a")}</p> : null}
 
       {showDoneWarnings ? (
@@ -646,8 +648,8 @@ export default function DetailsTab({
         </div>
 
         <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
-          {/* Status Dropdown */}
-          <div className="space-y-1.5">
+          {/* Status Dropdown: a main assignment has no status, section or assignee of its own (problem 8). */}
+          {master ? null : <div className="space-y-1.5">
             <label className="flex items-center gap-1.5 text-[13px] font-medium text-foreground">
               <Flag className="size-3 text-muted-foreground" />
               Status
@@ -714,10 +716,10 @@ export default function DetailsTab({
                 })}
               </DropdownMenuContent>
             </DropdownMenu>
-          </div>
+          </div>}
 
           {/* Section Dropdown */}
-          {workflowColumns && workflowColumns.length > 0 ? (
+          {!master && workflowColumns && workflowColumns.length > 0 ? (
             <div className="space-y-1.5">
               <label className="flex items-center gap-1.5 text-[13px] font-medium text-foreground">
                 <FolderPlus className="size-3 text-muted-foreground" />
@@ -802,7 +804,7 @@ export default function DetailsTab({
           </div>
 
           {/* Assignee Dropdown with Search */}
-          <div className="space-y-1.5">
+          {master ? null : <div className="space-y-1.5">
             <label className="flex items-center gap-1.5 text-[13px] font-medium text-foreground">
               <User className="size-3 text-muted-foreground" />
               Assignee
@@ -895,7 +897,7 @@ export default function DetailsTab({
                 Removed from workspace · needs reassignment
               </p>
             ) : null}
-          </div>
+          </div>}
 
           {/* Sprint Dropdown */}
           <div className="space-y-1.5">

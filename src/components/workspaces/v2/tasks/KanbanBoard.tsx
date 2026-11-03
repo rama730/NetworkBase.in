@@ -49,7 +49,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { moveTaskToWorkflowColumnAction } from "@/app/actions/task";
 import { toast, feedbackError } from "@/lib/feedback";
 import { patchWorkspaceTaskCaches } from "@/lib/workspaces/task-cache";
-import { taskSurfaceVersionMs } from "@/lib/workspaces/task-presentation";
+import { isAssignmentMaster, taskSurfaceVersionMs } from "@/lib/workspaces/task-presentation";
 import {
   buildTaskPreviewColumns,
   getTaskWorkflowColumnId,
@@ -92,7 +92,9 @@ const SortableTaskCard = React.memo(function SortableTaskCard({
   onMoveTo?: (task: Task, columnId: string) => void;
 }) {
   // Mirrors the server rule in moveTaskToWorkflowColumnAction.
+  // A main assignment moves by itself, from its copies (problem 7); the server refuses a move too.
   const canDrag =
+    !isAssignmentMaster(task) &&
     !isDragLocked &&
     !!canEditTasks &&
     (isLeader || !task.assigneeId || task.assigneeId === currentUserId);
@@ -863,7 +865,8 @@ export default function KanbanBoard({
   isDraggingAnyRef.current = Boolean(activeTask || activeColumn);
 
   useEffect(() => {
-    if (workflow.length > prevWorkflowLengthRef.current) {
+    // Only a column added by hand scrolls; the first load (0 → N) opens at the first column (problem 10).
+    if (prevWorkflowLengthRef.current > 0 && workflow.length > prevWorkflowLengthRef.current) {
       // A new section was added, scroll to the end smoothly
       // The DOM is already updated by the time useEffect runs.
       if (scrollContainerRef.current) {

@@ -21,7 +21,7 @@ type TaskInfiniteData = {
   pageParams: unknown[];
 };
 
-type TaskScope = "all" | "backlog" | "sprint" | "review";
+type TaskScope = "all" | "backlog" | "sprint" | "review" | "assignments" | "mine";
 
 function isInfiniteTaskData(value: unknown): value is TaskInfiniteData {
   return (
@@ -35,6 +35,7 @@ function matchesScope(task: TaskSurfaceRecord, scope: TaskScope) {
   if (scope === "backlog") return !task.sprintId;
   if (scope === "review") return task.reviewStatus === "pending";
   if (scope === "sprint") return !!task.sprintId;
+  if (scope === "assignments") return task.kind === "assignment" || !!task.assignmentId;
   return true;
 }
 
@@ -61,7 +62,8 @@ function patchTaskList(
   const nextList = list
     .filter((t) => t.id !== incoming.id)
     .map(normalizeTaskSurfaceRecord);
-  if (matchesScope(merged, scope)) nextList.push(merged);
+  // Mine: the cache doesn't know who you are, so it only keeps what the server already listed; the refetch adds new ones.
+  if (matchesScope(merged, scope) && (scope !== "mine" || current)) nextList.push(merged);
 
   return nextList.sort(compareTaskSurfaceRecords);
 }

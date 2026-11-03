@@ -212,10 +212,10 @@ export async function searchOrgPreviewsAction(query: string, orgIdentifier?: str
                 ROWS<{ id: string; name: string }>(sql`SELECT id, name FROM workspace_sprints WHERE workspace_id = ${org.id} AND name ILIKE ${pattern} LIMIT 3`),
                 isAdmin ? ROWS<{ id: string; name: string | null; username: string | null }>(sql`SELECT pr.id, pr.full_name AS name, pr.username FROM workspace_members m JOIN profiles pr ON pr.id = m.user_id
                     WHERE m.workspace_id = ${org.id} AND pr.deleted_at IS NULL AND (pr.full_name ILIKE ${pattern} OR pr.username ILIKE ${pattern} OR m.title ILIKE ${pattern}) LIMIT 5`) : Promise.resolve([]),
-                db.execute(sql`SELECT n.id, n.name, n.path FROM workspace_nodes n WHERE n.workspace_id = ${org.id} AND n.type = 'file' AND n.deleted_at IS NULL AND n.task_id IS NULL AND n.name ILIKE ${pattern} AND ${orgFileAccessSql(access, { projectId: sql`n.workspace_id`, path: sql`n.path`, taskId: sql`n.task_id` }) ?? sql`TRUE`} LIMIT 5`) as unknown as Promise<Array<{ id: string; name: string; path: string }>>,
+                db.execute(sql`SELECT n.id, n.name, n.path FROM workspace_nodes n WHERE n.workspace_id = ${org.id} AND n.type = 'file' AND n.deleted_at IS NULL AND n.task_id IS NULL AND n.name ILIKE ${pattern} AND NOT EXISTS (SELECT 1 FROM workspace_documents wd WHERE wd.linked_node_id = n.id) AND ${orgFileAccessSql(access, { projectId: sql`n.workspace_id`, path: sql`n.path`, taskId: sql`n.task_id` }) ?? sql`TRUE`} LIMIT 5`) as unknown as Promise<Array<{ id: string; name: string; path: string }>>,
             ]);
             const canOpen = docs.length ? await visibleDocIds(org.id) : new Set<string>();
-            for (const d of docs) if (canOpen.has(d.id)) results.push({ id: `doc:${d.id}`, kind: 'doc', title: d.filename.replace(/\.(md|mdx|markdown)$/i, ''), subtitle: `Doc · ${org.title}`, href: `${base}?tab=readme&doc=${encodeURIComponent(d.slug)}`, chip: null });
+            for (const d of docs) if (canOpen.has(d.id)) results.push({ id: `doc:${d.id}`, kind: 'doc', title: d.filename.replace(/\.(md|mdx|markdown)$/i, ''), subtitle: `Doc · ${org.title}`, href: `${base}?tab=docs&doc=${encodeURIComponent(d.slug)}`, chip: null });
             for (const c of children) results.push({ id: `child:${c.id}`, kind: 'child', title: c.title, subtitle: `Workspace · ${org.title}`, href: `/workspaces/${encodeURIComponent(c.slug ?? c.id)}`, chip: null });
             for (const s of sprints) results.push({ id: `sprint:${s.id}`, kind: 'sprint', title: s.name, subtitle: `Sprint · ${org.title}`, href: `${base}?tab=sprints`, chip: null });
             for (const m of members) results.push({ id: `member:${m.id}`, kind: 'member', title: m.name ?? m.username ?? 'Member', subtitle: `Member · ${org.title}`, href: `${base}?tab=members`, chip: null });
@@ -230,12 +230,12 @@ export async function searchOrgPreviewsAction(query: string, orgIdentifier?: str
             const base = `/org/${encodeURIComponent(parent!.slug ?? parent!.id)}`;
             const [docs, files] = await Promise.all([
                 ROWS<{ slug: string; filename: string; id: string }>(sql`SELECT id, slug, filename FROM workspace_documents WHERE workspace_id = ${parent!.id} AND (filename ILIKE ${pattern} OR slug ILIKE ${pattern}) LIMIT 5`),
-                db.execute(sql`SELECT n.id, n.name, n.path FROM workspace_nodes n WHERE n.workspace_id = ${parent!.id} AND n.type = 'file' AND n.deleted_at IS NULL AND n.task_id IS NULL AND n.name ILIKE ${pattern} AND ${orgFileAccessSql(orgAccess, { projectId: sql`n.workspace_id`, path: sql`n.path`, taskId: sql`n.task_id` }) ?? sql`TRUE`} LIMIT 5`) as unknown as Promise<Array<{ id: string; name: string; path: string }>>,
+                db.execute(sql`SELECT n.id, n.name, n.path FROM workspace_nodes n WHERE n.workspace_id = ${parent!.id} AND n.type = 'file' AND n.deleted_at IS NULL AND n.task_id IS NULL AND n.name ILIKE ${pattern} AND NOT EXISTS (SELECT 1 FROM workspace_documents wd WHERE wd.linked_node_id = n.id) AND ${orgFileAccessSql(orgAccess, { projectId: sql`n.workspace_id`, path: sql`n.path`, taskId: sql`n.task_id` }) ?? sql`TRUE`} LIMIT 5`) as unknown as Promise<Array<{ id: string; name: string; path: string }>>,
             ]);
             // The From <org> section's rules: published and shown in workspaces only.
             const shown = docs.length ? await readOrgDocsAction(child.id) : null;
             const canOpen = new Set(shown?.success && shown.data ? shown.data.docs.map((d) => d.id) : []);
-            for (const d of docs) if (canOpen.has(d.id)) results.push({ id: `doc:${d.id}`, kind: 'doc', title: d.filename.replace(/\.(md|mdx|markdown)$/i, ''), subtitle: 'Doc', href: `${base}?tab=readme&doc=${encodeURIComponent(d.slug)}`, chip: `From ${parent!.title}` });
+            for (const d of docs) if (canOpen.has(d.id)) results.push({ id: `doc:${d.id}`, kind: 'doc', title: d.filename.replace(/\.(md|mdx|markdown)$/i, ''), subtitle: 'Doc', href: `${base}?tab=docs&doc=${encodeURIComponent(d.slug)}`, chip: `From ${parent!.title}` });
             for (const f of files) results.push({ id: `file:${f.id}`, kind: 'file', title: f.name, subtitle: f.path, href: `${base}?tab=files&path=${encodeURIComponent(f.path)}`, chip: `From ${parent!.title}` });
             return results;
         }
@@ -270,8 +270,8 @@ export async function searchOrgPreviewsAction(query: string, orgIdentifier?: str
         if (a.guest && !a.admin) continue;
         const base = `/org/${encodeURIComponent(a.slug ?? a.org_id)}?tab=tasks`;
         const due = a.due ? ` · due ${formatDueDay(new Date(a.due), [...(await peopleByZone([userId], a.zone)).keys()][0])}` : '';
-        if (a.admin) results.push({ id: `assignment:${a.id}`, kind: 'assignment', title: a.title, subtitle: `${a.org_title}${due}`, href: base, chip: `${a.submitted}/${a.total} submitted` });
-        else if (a.copy_id) results.push({ id: `assignment:${a.id}`, kind: 'assignment', title: a.title, subtitle: `${a.org_title}${due}`, href: `/org/${encodeURIComponent(a.slug ?? a.org_id)}?tab=assignments&copy=${a.copy_id}`, chip: a.copy_review === 'pending' ? 'Submitted' : a.copy_review === 'rejected' ? 'Returned' : a.copy_status === 'done' ? 'Completed' : 'To do' });
+        if (a.admin) results.push({ id: `assignment:${a.id}`, kind: 'assignment', title: a.title, subtitle: `${a.org_title}${due}`, href: `${base}&drawerType=task&drawerId=${a.id}`, chip: `${a.submitted}/${a.total} submitted` });
+        else if (a.copy_id) results.push({ id: `assignment:${a.id}`, kind: 'assignment', title: a.title, subtitle: `${a.org_title}${due}`, href: `${base}&drawerType=task&drawerId=${a.copy_id}`, chip: a.copy_review === 'pending' ? 'Submitted' : a.copy_review === 'rejected' ? 'Returned' : a.copy_status === 'done' ? 'Completed' : 'To do' });
     }
 
     // Org docs (outside an org's own search): docs of orgs you're in.
@@ -281,13 +281,14 @@ export async function searchOrgPreviewsAction(query: string, orgIdentifier?: str
             WHERE (d.filename ILIKE ${pattern} OR d.slug ILIKE ${pattern}) AND ${memberOf} LIMIT 20`);
         const canOpen = new Map<string, Set<string>>();
         for (const orgId of new Set(docs.map((d) => d.org_id))) canOpen.set(orgId, await visibleDocIds(orgId));
-        for (const d of docs.filter((d) => canOpen.get(d.org_id)?.has(d.id)).slice(0, 5)) results.push({ id: `doc:${d.id}`, kind: 'doc', title: d.filename.replace(/\.(md|mdx|markdown)$/i, ''), subtitle: `Doc · ${d.org_title}`, href: `/org/${encodeURIComponent(d.org_slug ?? d.org_id)}?tab=readme&doc=${encodeURIComponent(d.slug)}`, chip: null });
+        for (const d of docs.filter((d) => canOpen.get(d.org_id)?.has(d.id)).slice(0, 5)) results.push({ id: `doc:${d.id}`, kind: 'doc', title: d.filename.replace(/\.(md|mdx|markdown)$/i, ''), subtitle: `Doc · ${d.org_title}`, href: `/org/${encodeURIComponent(d.org_slug ?? d.org_id)}?tab=docs&doc=${encodeURIComponent(d.slug)}`, chip: null });
     }
 
     // Quick actions (report §30.1).
     const lower = q.toLowerCase();
     if ('join with code'.includes(lower) || lower.startsWith('join')) results.push({ id: 'action:join', kind: 'action', title: 'Join with code', subtitle: 'Enter an organization code', href: '/join', chip: null });
-    if (scope?.isAdmin && ('new assignment'.includes(lower) || lower.startsWith('assign'))) results.push({ id: 'action:assignment', kind: 'action', title: `New assignment in ${scope.title}`, subtitle: 'Quick action', href: `/org/${encodeURIComponent(scope.slug ?? scope.id)}?tab=assignments&new=1`, chip: null });
+    // One button (problem 4): New task, which becomes an assignment when it goes to many people.
+    if (scope?.isAdmin && ('new task'.includes(lower) || lower.startsWith('new t') || lower.startsWith('assign'))) results.push({ id: 'action:task', kind: 'action', title: `New task in ${scope.title}`, subtitle: 'Quick action', href: `/org/${encodeURIComponent(scope.slug ?? scope.id)}?tab=tasks&new=1`, chip: null });
     if (scope?.canCreate && ('new workspace'.includes(lower) || lower.startsWith('new p'))) results.push({ id: 'action:project', kind: 'action', title: `New workspace in ${scope.title}`, subtitle: 'Quick action', href: `/workspaces/new?org=${encodeURIComponent(scope.id)}`, chip: null });
     return results;
 }

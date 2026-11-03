@@ -16,7 +16,7 @@ import {
 import dynamic from "next/dynamic";
 import { useSearchParams, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { AssignmentComposer, ReviewQueue } from "@/components/organizations/AssignmentsPanel";
+import { AssignmentFields, ReviewQueue } from "@/components/organizations/AssignmentsPanel";
 import { useTaskCompletionPolicy } from "@/hooks/useTaskCompletionPolicy";
 import { useRealtimeTasks } from "@/hooks/useRealtimeTasks";
 import {
@@ -38,7 +38,7 @@ import {
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import type { WorkspaceWorkflowColumn as WorkflowColumn } from "@/lib/db/schema";
 import KanbanBoard from "@/components/workspaces/v2/tasks/KanbanBoard";
-import TaskFilters from "@/components/workspaces/v2/tasks/TaskFilters";
+import TaskFilters, { type TaskFilterScope } from "@/components/workspaces/v2/tasks/TaskFilters";
 import {
   useWorkspaceInfiniteTasks,
   useWorkspaceSprints,
@@ -107,6 +107,11 @@ interface TasksTabProps {
   initialTasks?: any[];
   /** The first reads the page started on the server for this tab (live-fix phase 1). */
   started?: TasksBoot | null;
+  /** + New → Task (problem 4): open New task once, then clear the request. */
+  startCreate?: boolean;
+  onCreateStarted?: () => void;
+  /** Decision 74: an organization's dates are entered in its time zone. */
+  orgTimeZone?: string | null;
   members?: any[];
   sprints?: any[];
   initialOpenTaskId?: string | null;
@@ -133,6 +138,9 @@ export default function TasksTab({
   orgId = null,
   initialTasks = [],
   started = null,
+  startCreate = false,
+  onCreateStarted,
+  orgTimeZone = null,
   members = [],
   sprints = [],
   initialOpenTaskId = null,
@@ -190,15 +198,20 @@ export default function TasksTab({
   );
   // Local State
   // One form (decisions 10, 89): text carried from New task into the assignment or team form.
-  const [manyCarry, setManyCarry] = useState<{ title: string; description: string; mode: "everyone" | "people" | "each_child" } | null>(null);
-  const [scope, setScope] = useState<"all" | "backlog" | "sprint" | "review">(() => {
+  const [manyCarry, setManyCarry] = useState<{ title: string; description: string; mode: "everyone" } | null>(null);
+  const [scope, setScope] = useState<TaskFilterScope>(() => {
     const requestedScope = searchParams.get("taskScope");
-    return requestedScope === "backlog" || requestedScope === "sprint" || requestedScope === "review"
+    return requestedScope === "backlog" || requestedScope === "sprint" || requestedScope === "review" || (orgId && (requestedScope === "assignments" || requestedScope === "mine"))
       ? requestedScope
       : "all";
   });
 
   const [showCreateModal, setShowCreateModal] = useState(false);
+  useEffect(() => {
+    if (!startCreate) return;
+    if (canEditTasks) setShowCreateModal(true);
+    onCreateStarted?.();
+  }, [startCreate, canEditTasks, onCreateStarted]);
   const [ideSheetOpen, setIdeSheetOpen] = useState(false);
   const [isAddSectionOpen, setIsAddSectionOpen] = useState(false);
   const [sectionTitle, setSectionTitle] = useState("");
@@ -805,7 +818,7 @@ export default function TasksTab({
             </div>
 
             {/* Filter */}
-            <TaskFilters scope={scope} setScope={setScope} />
+            <TaskFilters scope={scope} setScope={setScope} organization={Boolean(orgId)} />
             {units.length ? (
               <select aria-label="Team" value={unitFilter} onChange={(e) => setUnitFilter(e.target.value)}
                 className="nb-touch-target h-[34px] rounded-[5px] border border-border bg-card px-2 text-[13px] text-foreground max-md:h-11">
@@ -826,10 +839,6 @@ export default function TasksTab({
             {/* Decision 89: team tasks come from New task's Assign to, not a separate button. */}
             {isChildProject && teamTaskOpen ? (
               <TeamTaskDialog projectId={projectId} members={members} open={teamTaskOpen} onOpenChange={(open) => { setTeamTaskOpen(open); if (!open) setManyCarry(null) }} prefill={manyCarry ?? undefined}
-                onCreated={() => void queryClient.invalidateQueries({ queryKey: queryKeys.project.detail.tasksRoot(projectId) })} />
-            ) : null}
-            {orgId && manyCarry && !isChildProject ? (
-              <AssignmentComposer orgId={orgId} open onOpenChange={(open) => { if (!open) setManyCarry(null) }} prefill={manyCarry}
                 onCreated={() => void queryClient.invalidateQueries({ queryKey: queryKeys.project.detail.tasksRoot(projectId) })} />
             ) : null}
 
@@ -960,11 +969,15 @@ export default function TasksTab({
             { value: "people", label: "Selected people or groups · an assignment" },
             { value: "each_child", label: "Each workspace · an assignment" },
           ] : isChildProject && canManageWorkflow ? [{ value: "units", label: "A team, or each team · a shared task" }] : []}
-          onAssignMany={(choice, carry) => {
+          onAssignMany={(_choice, carry) => {
             setShowCreateModal(false);
-            if (isChildProject) { setManyCarry({ ...carry, mode: "everyone" }); setTeamTaskOpen(true); }
-            else setManyCarry({ ...carry, mode: choice as "everyone" | "people" | "each_child" });
+            setManyCarry({ ...carry, mode: "everyone" });
+            setTeamTaskOpen(true);
           }}
+          renderMany={orgId && !isChildProject ? ({ choice, title, description, onBack, onDone }) => (
+            <AssignmentFields orgId={orgId} timeZone={orgTimeZone} prefill={{ title, description, mode: choice as "everyone" | "people" | "each_child" }} onBackToTask={onBack} onDone={onDone}
+              onCreated={() => void queryClient.invalidateQueries({ queryKey: queryKeys.project.detail.tasksRoot(projectId) })} />
+          ) : undefined}
           onClose={() => setShowCreateModal(false)}
           onCreate={async (value) => {
             const payload = buildTaskSubmitPayload({

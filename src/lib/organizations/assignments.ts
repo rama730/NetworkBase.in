@@ -27,7 +27,8 @@ export const orgTaskVisibleToSql = (taskId: SQL, viewer: string | null | SQL) =>
 export function orgTaskReadFilter(access: WorkspaceAccess, viewerId: string | null, scope: string = "all"): SQL | undefined {
   if (access.project?.kind !== "organization") return undefined;
   const isAdmin = access.isOwner || access.memberRole === "admin";
-  if (isAdmin) return scope === "review" ? undefined : isNull(tasks.assignmentId);
+  // Mine shows an admin their own copies too (an assignment given to admins); the scope itself narrows to theirs.
+  if (isAdmin) return scope === "review" || scope === "mine" ? undefined : isNull(tasks.assignmentId);
   const master = and(eq(tasks.kind, "assignment"), isNull(tasks.assignmentId), sql`${tasks.assignmentSettings}->>'publishedAt' IS NOT NULL`);
   if (!viewerId) return master;
   const own = or(

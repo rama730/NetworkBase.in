@@ -10,9 +10,10 @@ import { mergeSprintTimelineRows } from '@/lib/workspaces/sprint-timeline';
 import { normalizeTaskSurfaceRecord } from '@/lib/workspaces/task-presentation';
 import { serverFirst } from '@/lib/server-first';
 
-export type WorkspaceTaskScope = 'all' | 'backlog' | 'sprint' | 'review';
+export type WorkspaceTaskScope = 'all' | 'backlog' | 'sprint' | 'review' | 'assignments' | 'mine';
 
-const normalizeScope = (scope: WorkspaceTaskScope): WorkspaceTaskScope => (scope === 'backlog' || scope === 'sprint' || scope === 'review' ? scope : 'all');
+const SCOPES: WorkspaceTaskScope[] = ['backlog', 'sprint', 'review', 'assignments', 'mine'];
+const normalizeScope = (scope: WorkspaceTaskScope): WorkspaceTaskScope => (SCOPES.includes(scope) ? scope : 'all');
 
 const filterTasksByScope = (tasks: any[], scope: WorkspaceTaskScope) => {
     if (!Array.isArray(tasks) || tasks.length === 0) return [];
@@ -20,6 +21,9 @@ const filterTasksByScope = (tasks: any[], scope: WorkspaceTaskScope) => {
     if (scope === 'backlog') return normalized.filter((task) => !task.sprintId);
     if (scope === 'review') return normalized.filter((task) => task.reviewStatus === 'pending');
     if (scope === 'sprint') return normalized.filter((task) => !!task.sprintId);
+    if (scope === 'assignments') return normalized.filter((task) => task.kind === 'assignment' || !!task.assignmentId);
+    // Mine needs the server's rule (your copies and team work), so it starts from the server's page.
+    if (scope === 'mine') return [];
     return normalized;
 };
 

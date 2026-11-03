@@ -125,7 +125,7 @@ test('Members: requests come first on phones, rows stack, nothing scrolls sidewa
 });
 
 test('Projects, Tasks and Files fit a phone', async ({ page }) => {
-    for (const [tab, text] of [['projects', 'Team Osprey'], ['tasks', 'Reading quiz'], ['files', 'Storage is 86% full']] as const) {
+    for (const [tab, text] of [['projects', 'Team Osprey'], ['tasks', 'Lab 3 — Consensus protocols'], ['files', 'Storage is 86% full']] as const) {
         await open(page, tab);
         await expect(page.getByText(text).first()).toBeVisible();
         await noSideScroll(page);
@@ -170,7 +170,6 @@ test('Units panel (§14.4): rename, seats, unit lead and Move to…, all native 
 
 test('Assignments (§16): the review queue steps with Next; the roster has Remind, Add step and per-person team moves, on a phone', async ({ page }) => {
     await open(page, 'tasks');
-    await page.getByRole('button', { name: 'Review' }).click();
     const queue = page.getByRole('region', { name: 'To review' });
     await expect(queue.getByText('1 of 2 waiting')).toBeVisible();
     await expect(queue.getByText(/Team A · Lab 3 — Consensus protocols · .* · Late · Version 2 · submitted by Asha Nair/)).toBeVisible();
@@ -186,8 +185,7 @@ test('Assignments (§16): the review queue steps with Next; the roster has Remin
     await expect(queue).toContainText('Fix by');
     await queue.getByRole('button', { name: 'Cancel' }).click();
     await noSideScroll(page);
-    // Published work lives on the board (decisions 6, 10); the list shows it on request.
-    await page.getByRole('button', { name: /Show published/ }).click();
+    // Published work lives on the board (decisions 6, 10); its card's panel has the roster.
     await page.getByRole('button', { name: 'Roster' }).first().click();
     const dialog = page.getByRole('dialog');
     await expect(dialog.getByRole('button', { name: 'Remind everyone not done' })).toBeVisible();
@@ -322,8 +320,7 @@ test('Sprint form (§18.2): a team sprint sits inside CO1, says its limit beside
 
 
 test('New assignment (§42.5): publish timing choices, and Admins-only materials warn before they are added', async ({ page }) => {
-    await open(page, 'tasks', 1280);
-    await page.getByRole('button', { name: 'New assignment' }).click();
+    await open(page, 'compose', 1280);
     const when = page.getByLabel('When to publish');
     await expect(when.getByRole('option')).toHaveText(['Publish now', 'On a date', 'Save as draft']);
     await when.selectOption('date');
@@ -334,9 +331,17 @@ test('New assignment (§42.5): publish timing choices, and Admins-only materials
     await expect(page.getByLabel('Late after, in minutes')).toHaveValue('15');
 });
 
+test('Live-fix 3: a draft is published, scheduled or deleted from its own card', async ({ page }) => {
+    await open(page, 'tasks-draft', 1280);
+    await expect(page.getByRole('button', { name: 'Publish', exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'Schedule' }).click();
+    await expect(page.getByLabel(/Publish on/)).toBeVisible();
+    await page.getByRole('button', { name: 'Delete' }).click();
+    await expect(page.getByRole('alertdialog')).toContainText('Delete Reading quiz?');
+});
+
 test('Edit for everyone (§23.3): says how many it reaches, and the hand-in type is locked after a submission', async ({ page }) => {
     await open(page, 'tasks', 1280);
-    await page.getByRole('button', { name: /Show published/ }).click();
     await page.getByRole('button', { name: 'Edit for everyone' }).first().click();
     const edit = page.getByRole('alertdialog');
     await expect(edit.getByRole('button', { name: /^Save for \d+ people$/ })).toBeVisible();
@@ -345,7 +350,7 @@ test('Edit for everyone (§23.3): says how many it reaches, and the hand-in type
 });
 
 test('Accessibility (§32.3): no WCAG A or AA problems on the Members, Workspaces, Tasks and Files tabs', async ({ page }) => {
-    for (const [tab, text] of [['members', 'Student 11'], ['projects', 'Team Osprey'], ['tasks', 'Reading quiz'], ['files', 'Storage is 86% full']] as const) {
+    for (const [tab, text] of [['members', 'Student 11'], ['projects', 'Team Osprey'], ['tasks', 'Lab 3 — Consensus protocols'], ['files', 'Storage is 86% full']] as const) {
         await open(page, tab, 1200);
         await expect(page.getByText(text).first()).toBeVisible();
         expect(await axeViolations(page), tab).toEqual([]);

@@ -2,26 +2,32 @@
 
 import { cn } from "@/lib/utils";
 
+export type TaskFilterScope = "all" | "backlog" | "sprint" | "review" | "assignments" | "mine";
+
 interface TaskFiltersProps {
-  scope: "all" | "backlog" | "sprint" | "review";
-  setScope?: (scope: "all" | "backlog" | "sprint" | "review") => void;
+  scope: TaskFilterScope;
+  setScope?: (scope: TaskFilterScope) => void;
+  /** An organization's board adds Assignments and Mine (report §16.1). */
+  organization?: boolean;
 }
 
-const options = [
+const options: Array<{ value: TaskFilterScope; label: string; orgOnly?: boolean }> = [
   { value: "all", label: "All tasks" },
   { value: "sprint", label: "Sprint" },
   { value: "backlog", label: "Backlog" },
   { value: "review", label: "In review" },
-] as const;
+  { value: "assignments", label: "Assignments", orgOnly: true },
+  { value: "mine", label: "Mine", orgOnly: true },
+];
 
-export default function TaskFilters({ scope, setScope }: TaskFiltersProps) {
+export default function TaskFilters({ scope, setScope, organization = false }: TaskFiltersProps) {
   return (
     <div
       role="group"
       className="inline-flex h-[34px] items-center gap-0.5 rounded-[5px] border border-border bg-muted/30 p-0.5 max-md:h-11"
       aria-label="Show"
     >
-      {options.map((option) => {
+      {options.filter((option) => organization || !option.orgOnly).map((option) => {
         const isSelected = scope === option.value;
         return (
           <button

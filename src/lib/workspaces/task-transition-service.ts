@@ -44,6 +44,8 @@ export function taskContextLabel(
  * SEC-H5 & PURE OPTIMIZATION (Item 3): Atomically lock the task's project + membership
  * rows in a single join query and verify caller write access in 1 DB round-trip.
  */
+export const MAIN_ASSIGNMENT_NOT_REVIEWED = "A main assignment isn’t reviewed. Review each person’s copy from In review.";
+
 export async function lockTaskForWrite(
   tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
   taskId: string,
@@ -77,6 +79,8 @@ export async function lockTaskForWrite(
   /** An assignment copy (0244): its master's submission type, or null for ordinary tasks. */
   copySubmissionType: string | null;
   isTeamMember: boolean;
+  /** An organization's main assignment (decision 14): no state of its own, never reviewed. */
+  isMaster: boolean;
 }> {
   const rows = await tx.execute<{
     id: string;
@@ -103,6 +107,7 @@ export async function lockTaskForWrite(
     assignment_id: string | null;
     master_settings: { submissionType?: string; reviewRequired?: boolean } | null;
     in_team: boolean;
+    kind: string | null;
     org_role: string | null;
     project_kind: string | null;
     parent_org_admin: boolean;
@@ -113,7 +118,7 @@ export async function lockTaskForWrite(
             t.status, t.review_status, t.review_content_hash, t.updated_at, t.deleted_at AS task_deleted_at,
             p.owner_id, p.slug, p.key, p.deleted_at, p.task_review_required, p.task_completion_policy_version,
             m.role as member_role,
-            t.assignment_id,
+            t.assignment_id, t.kind,
             mt.assignment_settings AS master_settings,
             EXISTS (SELECT 1 FROM task_team_members tm WHERE tm.task_id = t.id AND tm.user_id = ${userId}) AS in_team,
             -- The actor's role in the organization the work belongs to: a copy's assignment's org, or this org's board.
@@ -193,6 +198,7 @@ export async function lockTaskForWrite(
     // Their own work: the assignee, the team, or anyone in the workspace holding a group copy.
     isHolder: row.assignee_id === userId || Boolean(row.in_team) || (isCopy && row.project_kind !== "organization" && Boolean(row.member_role)),
     onOrgBoard: row.project_kind === "organization",
+    isMaster: row.kind === "assignment" && !row.assignment_id,
   };
 }
 
@@ -260,6 +266,8 @@ export async function transitionTaskTx(
     throw new Error("Only the assignee, the owner or an admin can move this task.");
   // Assignment work (report §19.3, decisions 85, 140, 147): only Submit hands a copy in, approved work is locked,
   // and a main assignment has no state of its own. Return and Resubmit are review actions with their own checks.
+  // Live-fix 9: Request changes and Resubmit skip the check below, so a main assignment is refused here first.
+  if (locked.isMaster && (input.reviewReason || input.resubmit)) throw new Error(MAIN_ASSIGNMENT_NOT_REVIEWED);
   if (!input.reviewReason && !input.resubmit) {
     await assertAssignmentWrite(tx, input.taskId, { role: locked.orgRole, isHolder: locked.isHolder, onOrgBoard: locked.onOrgBoard }, status === "done" && locked.currentStatus !== "done" ? "done" : "status");
   }

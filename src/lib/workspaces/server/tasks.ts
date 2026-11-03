@@ -7,6 +7,9 @@ import { readViewerOrgRole } from "@/lib/organizations/detail";
 import { lockTaskForWrite, transitionTaskTx, afterTaskTransition } from "@/lib/workspaces/task-transition-service";
 import "server-only";
 
+type TaskListScope = "all" | "backlog" | "sprint" | "review" | "assignments" | "mine";
+const LIST_SCOPES: TaskListScope[] = ["backlog", "sprint", "review", "assignments", "mine"];
+
 import { type WorkspaceAccess, getWorkspaceAccessById, canReadWorkspaceTab, WorkspaceTabForbiddenError, getWorkspaceAccessByIdentifier, assertWorkspaceTabReadAccess } from "@/lib/data/workspace-access";
 import { normalizeSearchQuery, containsLikePattern, escapeLikePattern, tokenizeSearchQuery } from "@/lib/search/query";
 import { sql, eq, and, or, isNull, isNotNull, ilike, desc, inArray } from "drizzle-orm";
@@ -103,14 +106,13 @@ async function fetchProjectTasksForActor(
   actorId: string | null,
   limit: number = 100,
   cursor?: string,
-  scope: "all" | "backlog" | "sprint" | "review" = "all",
+  scope: TaskListScope = "all",
   search: string = "",
   authorizedAccess?: WorkspaceAccess,
   surface: "full" | "preview" = "full",
 ) {
   const safeLimit = Math.min(Math.max(limit, 1), 200);
-  const normalizedScope =
-    scope === "backlog" || scope === "sprint" || scope === "review" ? scope : "all";
+  const normalizedScope: TaskListScope = LIST_SCOPES.includes(scope) ? scope : "all";
   const normalizedSearch = normalizeSearchQuery(search);
   const searchPattern = normalizedSearch
     ? containsLikePattern(normalizedSearch)
@@ -209,7 +211,15 @@ async function fetchProjectTasksForActor(
             // Organizations: members see the masters and their own (or team) copies (decision 19).
             orgTaskReadFilter(access, actorId, normalizedScope),
             // Excused work leaves the queue (report §42.2 smaller bug 4).
-            normalizedScope === "review" ? and(eq(t.reviewStatus, "pending"), isNull(t.excusedAt)) : undefined,
+            // Live-fix 9: only a person's copy is reviewed, never the main assignment.
+            normalizedScope === "review" ? and(eq(t.reviewStatus, "pending"), isNull(t.excusedAt), or(sql`${t.kind} IS DISTINCT FROM 'assignment'`, isNotNull(t.assignmentId))) : undefined,
+            // Live-fix 6: Assignments and Mine (yours, or your team's).
+            normalizedScope === "assignments" ? or(eq(t.kind, "assignment"), isNotNull(t.assignmentId)) : undefined,
+            normalizedScope === "mine"
+              ? actorId
+                ? or(eq(t.assigneeId, actorId), sql`EXISTS (SELECT 1 FROM task_team_members tm WHERE tm.task_id = ${t.id} AND tm.user_id = ${actorId})`)
+                : sql`false`
+              : undefined,
             normalizedScope === "backlog"
               ? isNull(t.sprintId)
               : normalizedScope === "sprint"
@@ -472,7 +482,7 @@ export async function fetchWorkspaceTasksAction(
   projectId: string,
   limit: number = 100,
   cursor?: string,
-  scope: "all" | "backlog" | "sprint" | "review" = "all",
+  scope: TaskListScope = "all",
   search: string = "",
 ) {
   try {
@@ -747,6 +757,9 @@ export async function getWorkspaceTaskDetailAction(
         dueDate: true,
         createdAt: true,
         updatedAt: true,
+        // The panel tells a main assignment from its copies (problem 8).
+        kind: true,
+        assignmentId: true,
       },
       with: {
         project: {

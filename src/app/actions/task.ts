@@ -46,7 +46,7 @@ import {
 import { canReadWorkspaceTab, getWorkspaceAccessById } from "@/lib/data/workspace-access";
 import { childGrant, orgCan } from "@/lib/organizations/permissions";
 import { taskReviewSnapshot } from "@/lib/workspaces/task-review-snapshot";
-import { taskActorSnapshot, taskContextLabel, lockTaskForWrite, transitionTaskTx, afterTaskTransition } from "@/lib/workspaces/task-transition-service";
+import { taskActorSnapshot, taskContextLabel, lockTaskForWrite, transitionTaskTx, afterTaskTransition, MAIN_ASSIGNMENT_NOT_REVIEWED } from "@/lib/workspaces/task-transition-service";
 
 type Priority = "low" | "medium" | "high" | "urgent";
 export type TaskStatus = "todo" | "in_progress" | "done" | "blocked";
@@ -670,6 +670,7 @@ export async function approveTaskReviewAction(
     const result = await db.transaction(async (tx) => {
       const locked = await lockTaskForWrite(tx, taskId, user.id);
       if (locked.projectId !== projectId) throw new Error("Task mismatch");
+      if (locked.isMaster) throw new Error(MAIN_ASSIGNMENT_NOT_REVIEWED);
       // Decision 95, assignment copies only (42.18): nobody reviews their own or their group's work.
       if (locked.copySubmissionType !== null && (locked.previousAssigneeId === user.id || locked.isTeamMember)) throw new Error("You can’t review your own work. Ask another admin.");
       if(expectedUpdatedAt && new Date(locked.currentUpdatedAt).getTime()!==new Date(expectedUpdatedAt).getTime()) throw new Error("Task changed elsewhere. Reload before approving.");

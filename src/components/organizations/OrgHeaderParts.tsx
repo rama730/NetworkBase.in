@@ -155,9 +155,9 @@ export function OrgStatusBanner({ orgId, organization, isOwner }: { orgId: strin
     return null
 }
 
-export type OrgNewKind = 'assignment' | 'announcement' | 'sprint' | 'project'
+export type OrgNewKind = 'task' | 'announcement' | 'sprint' | 'project'
 const NEW_ITEMS: Array<{ kind: OrgNewKind; label: string; icon: typeof Plus }> = [
-    { kind: 'assignment', label: 'Assignment', icon: ListTodo },
+    { kind: 'task', label: 'Task', icon: ListTodo },
     { kind: 'announcement', label: 'Announcement', icon: Megaphone },
     { kind: 'sprint', label: 'Sprint', icon: IterationCcw },
     { kind: 'project', label: 'Workspace', icon: FolderKanban },

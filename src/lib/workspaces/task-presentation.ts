@@ -80,6 +80,11 @@ export type TaskTitlePresentation = {
  * One presentation rule for every task-oriented surface. A task is visually
  * complete only after direct completion or review approval.
  */
+/** An organization's main assignment (decision 14): it has no state of its own and is never reviewed; its copies are. */
+export function isAssignmentMaster(task: { kind?: string | null; assignmentId?: string | null }) {
+  return task.kind === "assignment" && !task.assignmentId;
+}
+
 export function getTaskTitlePresentation(task: {
   status?: string | null;
   title?: string | null;
@@ -358,6 +363,10 @@ export function mergeTaskSurfaceRecords(
     creator: nextCreator,
     sprint: nextSprint,
     projectKey: incoming.projectKey ?? current.projectKey,
+    // Board-only fields: the panel's detail read doesn't carry them, so opening a card must not wipe them.
+    assignmentProgress: incoming.assignmentProgress ?? current.assignmentProgress,
+    fromLabel: incoming.fromLabel ?? current.fromLabel,
+    teamName: incoming.teamName ?? current.teamName,
   };
 }
 

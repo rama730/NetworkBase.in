@@ -1,7 +1,7 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { AssignmentsPanel } from '@/components/organizations/AssignmentsPanel';
+import { AssignmentComposer, AssignmentManageSection, ReviewQueue } from '@/components/organizations/AssignmentsPanel';
 import { OrgFilesCollection, OrgStorageNotice } from '@/components/organizations/OrgFilesPanel';
 import { OrgMembersTab } from '@/components/organizations/OrgMembersTab';
 import { OrgWorkspacesTab } from '@/components/organizations/OrgOverviewParts';
@@ -66,7 +66,10 @@ createRoot(document.getElementById('root')!).render(
         <main style={{ padding: 16 }}>
             {tab === 'members' ? <OrgMembersTab orgId="org" /> : null}
             {tab === 'projects' ? <OrgWorkspacesTab orgId="org" /> : null}
-            {tab === 'tasks' ? <AssignmentsPanel orgId="org" /> : null}
+            {/* One board (live-fix 3): In review's queue, and a card's assignment panel (published, then a draft). */}
+            {tab === 'tasks' ? <><ReviewQueue orgId="org" onChanged={() => undefined} /><h2>Lab 3 — Consensus protocols</h2><AssignmentManageSection orgId="org" masterId="a1" /></> : null}
+            {tab === 'tasks-draft' ? <><h2>Reading quiz</h2><AssignmentManageSection orgId="org" masterId="a2" /></> : null}
+            {tab === 'compose' ? <AssignmentComposer orgId="org" open onOpenChange={() => undefined} onCreated={() => undefined} /> : null}
             {tab === 'files' ? <><OrgStorageNotice org={{ mode: 'org', orgId: 'org', title: 'CSE-3A', slug: 'cse-3a', isAdmin: true, canCopy: false }} /><OrgFilesCollection view="from_org" projectId="child" org={{ mode: 'child', orgId: 'org', title: 'CSE-3A Software Engineering', slug: 'cse-3a', isAdmin: false, canCopy: true }} /></> : null}
             {tab === 'team' ? <Team /> : null}
             {tab === 'units' ? <ChildUnitsPanel projectId="child" /> : null}

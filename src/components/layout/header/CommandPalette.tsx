@@ -4,7 +4,7 @@ import { confirmAppNavigation } from "@/lib/navigation/confirm-navigation";
 
 import { CONNECTION_COPY } from "@/lib/connections/copy";
 import { History, RotateCcw, Search, ShieldCheck, X } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { toast } from "@/lib/feedback";
@@ -57,6 +57,9 @@ const CONTEXT_PRESENTATION = {
     settings: { label: "Settings", hints: ["Theme", "Privacy", "Integrations"] },
     messages: { label: "Messages", hints: [] },
 } satisfies Record<GlobalSearchContext, { label: string; hints: string[] }>;
+// An organization's page (problem 47): its own words, not the workspace's.
+const ORG_PRESENTATION = { label: "this organization", hints: ["Assignments", "Documents", "Files", "Sprints", "People"] };
+const ORG_GROUP_LABEL: Record<string, string> = { action: "Actions", assignment: "Assignments", doc: "Documents", file: "Files", sprint: "Sprints", child: "Workspaces", member: "People", org: "Organizations" };
 
 function resultDomId(result: GlobalSearchPreview | SettingsSearchItem, settings = false) {
     return `global-search-preview-${settings ? `settings-${result.id}` : result.id}`;
@@ -154,9 +157,10 @@ export default function CommandPalette({ isOpen, onClose, initialQuery = "", con
     const peopleScope = getNetworkSearchScope(currentParams);
     const projectIdentifier = getWorkspaceIdentifierFromPathname(pathname);
     const recentSearchScope = getGlobalSearchRecentScope(searchContext, peopleScope, projectIdentifier);
+    const onOrgPage = searchContext === "project" && Boolean(pathname?.startsWith("/org/"));
     const presentation = searchContext === "network" && peopleScope === "network"
         ? { label: "Connections / Network", hints: ["Connection name", "Username"] }
-        : CONTEXT_PRESENTATION[searchContext];
+        : onOrgPage ? ORG_PRESENTATION : CONTEXT_PRESENTATION[searchContext];
     const palettePlaceholder = `Search ${presentation.label}…`;
     // Staff only (trust and safety C2): "trust" or a case number opens the console. Asked once per opening.
     const [isStaff, setIsStaff] = useState(false);
@@ -182,6 +186,7 @@ export default function CommandPalette({ isOpen, onClose, initialQuery = "", con
         enabled: isOpen,
         projectIdentifier,
         peopleScope,
+        organization: onOrgPage,
     });
     const previewResults = previews.isDebouncing ? [] : previews.data ?? [];
     const orgResults = previewResults.map((result, index) => ({ result, index })).filter((entry): entry is { result: Extract<GlobalSearchPreview, { kind: "org" }>; index: number } => entry.result.kind === "org");
@@ -325,7 +330,9 @@ export default function CommandPalette({ isOpen, onClose, initialQuery = "", con
         return true;
     };
 
-    const resultLabel = projectResults.length
+    const resultLabel = onOrgPage && orgResults.length
+        ? ORG_GROUP_LABEL[orgResults[0]!.result.orgKind] ?? "Results"
+        : projectResults.length
         ? `Workspaces · ${projectResults.length}`
         : profileResults.length
             ? `People · ${profileResults.length}`
@@ -490,7 +497,12 @@ export default function CommandPalette({ isOpen, onClose, initialQuery = "", con
                                         <span className="nb-micro uppercase tracking-[0.09em] text-muted-foreground">{resultLabel}</span>
                                         {previews.isFetching ? <span className="nb-meta text-[11px] text-muted-foreground/70">Refreshing…</span> : null}
                                     </div>
-                                    {orgResults.map(({ result, index }) => <OrgSearchResultCard key={result.id} result={result} index={index} activeIndex={activeIndex} onActivate={setActiveIndex} onOpen={openPreviewResult} />)}
+                                    {orgResults.map(({ result, index }, i) => (
+                                        <Fragment key={result.id}>
+                                            {onOrgPage && i > 0 && orgResults[i - 1]!.result.orgKind !== result.orgKind ? <p className="nb-micro px-3 pb-1.5 pt-3 uppercase tracking-[0.09em] text-muted-foreground">{ORG_GROUP_LABEL[result.orgKind] ?? result.orgKind}</p> : null}
+                                            <OrgSearchResultCard result={result} index={index} activeIndex={activeIndex} onActivate={setActiveIndex} onOpen={openPreviewResult} />
+                                        </Fragment>
+                                    ))}
                                     {projectResults.map(({ result, index }) => <WorkspaceSearchResultCard key={result.id} result={result} index={index} activeIndex={activeIndex} onActivate={setActiveIndex} onOpen={openPreviewResult} />)}
                                     {profileResults.map(({ result, index }) => <ProfileSearchResultCard key={result.id} result={result} index={index} activeIndex={activeIndex} onActivate={setActiveIndex} onOpen={openPreviewResult} onConnect={connectProfile} isConnecting={sendRequest.isPending && sendRequest.variables?.userId === result.userId} />)}
                                     {taskResults.map(({ result, index }) => <TaskSearchResultCard key={result.id} result={result} index={index} activeIndex={activeIndex} onActivate={setActiveIndex} onOpen={openPreviewResult} />)}

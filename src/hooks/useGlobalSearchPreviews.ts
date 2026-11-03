@@ -311,6 +311,12 @@ async function fetchTaskPreviews(projectIdentifier: string, query: string): Prom
     });
 }
 
+const ORG_KIND_ORDER = ["action", "assignment", "doc", "file", "sprint", "child", "member", "org"];
+function sortByOrgKind(rows: GlobalSearchPreview[]) {
+    const rank = (row: GlobalSearchPreview) => (row.kind === "org" ? ORG_KIND_ORDER.indexOf(row.orgKind) : ORG_KIND_ORDER.length);
+    return [...rows].sort((a, b) => rank(a) - rank(b));
+}
+
 async function fetchProjectContextPreviews(projectIdentifier: string, query: string): Promise<GlobalSearchPreview[]> {
     const [tasks, linkResult] = await Promise.all([
         fetchTaskPreviews(projectIdentifier, query),
@@ -337,12 +343,15 @@ export function useGlobalSearchPreviews({
     enabled,
     projectIdentifier,
     peopleScope = "discover",
+    organization = false,
 }: {
     context: GlobalSearchContext;
     query: string;
     enabled: boolean;
     projectIdentifier?: string | null;
     peopleScope?: NetworkSearchScope;
+    /** On an organization's page the org search covers its work, so the workspace task previews are skipped (problem 48). */
+    organization?: boolean;
 }) {
     const [debouncedQuery] = useDebounce(
         normalizeGlobalSearchQuery(query),
@@ -360,12 +369,12 @@ export function useGlobalSearchPreviews({
     }, [cooldownUntil]);
 
     const queryResult = useQuery({
-        queryKey: queryKeys.globalSearch.preview(
+        queryKey: [...queryKeys.globalSearch.preview(
             previewContext,
             peopleScope,
             projectIdentifier ?? null,
             debouncedQuery.toLowerCase(),
-        ),
+        ), organization],
         queryFn: async () => {
             if (Date.now() <= globalCooldownUntil) {
                 throw new SearchPreviewError("Rate limit cooldown active", "RATE_LIMITED", globalCooldownUntil - Date.now());
@@ -378,11 +387,12 @@ export function useGlobalSearchPreviews({
                     previewContext === "network"
                         ? fetchProfilePreviews(debouncedQuery, peopleScope)
                         : previewContext === "project" && projectIdentifier
-                            ? fetchProjectContextPreviews(projectIdentifier, debouncedQuery)
+                            ? organization ? Promise.resolve([]) : fetchProjectContextPreviews(projectIdentifier, debouncedQuery)
                             : fetchProjectPreviews(debouncedQuery),
                 ]);
                 
-                const merged = [...orgResults, ...results];
+                // One heading per kind on an organization's page, so its rows sit together in keyboard order too.
+                const merged = [...(organization ? sortByOrgKind(orgResults) : orgResults), ...results];
                 void setIdb(cacheKey, merged).catch(() => {});
                 return merged;
             } catch (error) {

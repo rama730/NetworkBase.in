@@ -59,6 +59,8 @@ interface CreateTaskModalProps {
    */
   manyOptions?: Array<{ value: string; label: string }>;
   onAssignMany?: (choice: string, carry: { title: string; description: string }) => void;
+  /** An organization (problem 5): the assignment's fields, shown in this same form in place of the task's. */
+  renderMany?: (many: { choice: string; title: string; description: string; onBack: (carry: { title: string; description: string }) => void; onDone: () => void }) => React.ReactNode;
 }
 
 function SectionDivider({
@@ -165,7 +167,11 @@ export default function CreateTaskModal({
   canAssignSprint = false,
   manyOptions = [],
   onAssignMany,
+  renderMany,
 }: CreateTaskModalProps) {
+  // Many people picked: the same dialog becomes "Create assignment"; going back keeps the title and description.
+  const [many, setMany] = React.useState<{ choice: string; title: string; description: string } | null>(null);
+  const [carry, setCarry] = React.useState({ title: "", description: "" });
   const completionPolicy = useTaskCompletionPolicy(projectId ?? "");
   const plainContentHeadings = usePlainContentHeadings();
   const availableSprints = React.useMemo(
@@ -281,6 +287,28 @@ export default function CreateTaskModal({
     }
   };
 
+  // Modal Header
+  const header = (
+    <div className="flex shrink-0 items-center justify-between border-b border-border px-6 py-4">
+      <DialogHeader className="space-y-0.5 text-left">
+        <DialogTitle className="text-base font-semibold text-foreground">
+          {many ? "Create assignment" : "Create task"}
+        </DialogTitle>
+        <DialogDescription className="sr-only">
+          Create a new task
+        </DialogDescription>
+      </DialogHeader>
+      <button
+        type="button"
+        onClick={onClose}
+        aria-label="Close create task dialog"
+        className="nb-touch-target size-7 flex items-center justify-center rounded-[5px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+      >
+        <X className="size-4" />
+      </button>
+    </div>
+  );
+
   return (
     <>
       {/* Ignore dismissal while saving, so a half-submitted task cannot be closed away. */}
@@ -296,29 +324,19 @@ export default function CreateTaskModal({
           }}
           className="z-[201] flex max-h-[88vh] w-full sm:max-w-[640px] flex-col gap-0 overflow-hidden rounded-[12px] border border-[#DBD5C8] bg-card p-0 shadow-2xl dark:border-white/10"
         >
+          {many && renderMany ? (
+            <div className="flex min-h-0 w-full flex-col">
+              {header}
+              <div className="flex-1 overflow-y-auto px-6 py-5">
+                {renderMany({ ...many, onBack: (back) => { setCarry(back); setMany(null); }, onDone: onClose })}
+              </div>
+            </div>
+          ) : (
           <form
             onSubmit={handleSubmit}
             className="flex min-h-0 w-full flex-col"
           >
-            {/* Modal Header */}
-            <div className="flex shrink-0 items-center justify-between border-b border-border px-6 py-4">
-              <DialogHeader className="space-y-0.5 text-left">
-                <DialogTitle className="text-base font-semibold text-foreground">
-                  Create task
-                </DialogTitle>
-                <DialogDescription className="sr-only">
-                  Create a new task
-                </DialogDescription>
-              </DialogHeader>
-              <button
-                type="button"
-                onClick={onClose}
-                aria-label="Close create task dialog"
-                className="nb-touch-target size-7 flex items-center justify-center rounded-[5px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-              >
-                <X className="size-4" />
-              </button>
-            </div>
+            {header}
 
             {/* Scrollable Modal Body */}
             <div className="flex-1 space-y-5 overflow-y-auto px-6 py-5">
@@ -345,7 +363,7 @@ export default function CreateTaskModal({
                     id="task-title"
                     name="title"
                     required
-                    defaultValue=""
+                    defaultValue={carry.title}
                     placeholder="e.g., Conduct end-to-end testing on core flows"
                     className={inputClassName(!!fieldErrors.title)}
                     autoFocus
@@ -360,7 +378,7 @@ export default function CreateTaskModal({
                   <textarea
                     id="task-description"
                     name="description"
-                    defaultValue=""
+                    defaultValue={carry.description}
                     placeholder="Add context, acceptance criteria, or implementation notes…"
                     rows={3}
                     className={cn(
@@ -425,10 +443,11 @@ export default function CreateTaskModal({
                         defaultValue=""
                         onChange={(event) => {
                           const choice = manyOptions.find((o) => o.value === event.target.value);
-                          if (!choice || !onAssignMany) return;
+                          if (!choice || (!onAssignMany && !renderMany)) return;
                           const form = event.currentTarget.form;
                           const read = (name: string) => String((form?.elements.namedItem(name) as HTMLInputElement | null)?.value ?? "");
-                          onAssignMany(choice.value, { title: read("title"), description: read("description") });
+                          if (renderMany) setMany({ choice: choice.value, title: read("title"), description: read("description") });
+                          else onAssignMany?.(choice.value, { title: read("title"), description: read("description") });
                         }}
                         className={cn(
                           inputClassName(!!fieldErrors.assigneeId),
@@ -767,6 +786,7 @@ export default function CreateTaskModal({
               </button>
             </div>
           </form>
+          )}
         </DialogContent>
       </Dialog>
 
