@@ -256,6 +256,10 @@ async function setupDatabase() {
 
   await acquireMigrationLock();
   try {
+    // A migration that can't get its table lock fails in seconds. Without this it waits out statement_timeout,
+    // and every query on that table queues behind it meanwhile, stalling the live site. Override with
+    // MIGRATION_LOCK_TIMEOUT (e.g. "30s").
+    await sql.unsafe(`SET lock_timeout = '${(process.env.MIGRATION_LOCK_TIMEOUT ?? "5s").replace(/[^0-9a-z]/gi, "")}'`);
     await ensureJournalTable();
     const appliedMigrations = await readAppliedMigrations();
     if (appliedMigrations.size === 0 && await databaseHasExistingApplicationSchema()) {
