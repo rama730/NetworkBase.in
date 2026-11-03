@@ -14,7 +14,7 @@ import { privateOrgLine } from '@/lib/organizations/join-rules';
 
 /** "How the class is doing" in the type's word (report §34.2). */
 const CLASS_WORD: Record<string, string> = { education: 'class', company: 'team', research: 'lab', community: 'group', club: 'club', other: 'group' };
-import { activityTime } from '@/lib/organizations/activity-rules';
+import { activityMatches, activityTime } from '@/lib/organizations/activity-rules';
 import { readViewerOrgRole } from '@/lib/organizations/detail';
 import { childGrant, orgCan, orgRoleOf } from '@/lib/organizations/permissions';
 import { audienceSql } from '@/lib/organizations/org-updates';
@@ -62,7 +62,7 @@ async function viewerAudience(v: OrgViewer) {
 async function readActivity(v: OrgViewer, filter: string, opts: { publicOnly?: boolean; limit?: number; audience?: Awaited<ReturnType<typeof viewerAudience>> } = {}): Promise<ActivityItem[]> {
     const base = `/org/${encodeURIComponent(v.org.slug ?? v.org.id)}`;
     const since = new Date(Date.now() - 30 * DAY);
-    const want = (k: ActivityKind) => filter === 'all' || (filter === 'assignments' && (k === 'assignment' || k === 'submission')) || (filter === 'people' && k === 'joins') || (filter === 'files' && (k === 'file' || k === 'doc')) || (filter === 'projects' && k === 'project');
+    const want = (k: ActivityKind) => activityMatches(filter, k);
     const items: Array<ActivityItem & { actorId: string | null; public?: boolean }> = [];
     const [sprints, children, joins, posts, files, masters, submissions] = await Promise.all([
         db.select({ id: workspaceSprints.id, name: workspaceSprints.name, status: workspaceSprints.status, startDate: workspaceSprints.startDate, startedAt: workspaceSprints.startedAt, completedAt: workspaceSprints.completedAt })

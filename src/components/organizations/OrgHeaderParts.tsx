@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/button'
 import { OrgInvitePanel } from '@/components/organizations/OrgInvitePanel'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import type { OrgDetail, ParentOrgLink } from '@/lib/organizations/detail'
+import { formatInZone } from '@/lib/organizations/zoned-time'
 
 // The organization parts of the project header (report §18.1–18.2, §18.6). WorkspaceLayout keeps its layout;
 // these fill the details, the archived line and the visitor's actions.
@@ -146,7 +147,7 @@ export function OrgStatusBanner({ orgId, organization, isOwner }: { orgId: strin
         const purge = new Date(new Date(organization.deletionScheduledAt).getTime() + 30 * 86_400_000)
         return (
             <p role="status" className="mt-2 flex flex-wrap items-center gap-2 rounded-[5px] border border-destructive/30 bg-destructive/5 px-3 py-2 text-[13px] text-foreground">
-                Scheduled for deletion on {purge.toLocaleDateString('en', { month: 'short', day: 'numeric', year: 'numeric' })}
+                Scheduled for deletion on {formatInZone(purge, { month: 'short', day: 'numeric', year: 'numeric' }, organization.timeZone)}
                 <button type="button" disabled={pending} className="font-medium underline underline-offset-2" onClick={() => start(async () => { const r = await restoreOrgAction(orgId); if (r.success) router.refresh() })}>Restore</button>
             </p>
         )

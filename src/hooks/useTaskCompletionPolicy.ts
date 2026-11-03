@@ -1,18 +1,21 @@
 "use client";
 
+import { useState } from "react";
 import { useQuery, type QueryClient } from "@tanstack/react-query";
+import { serverFirst } from "@/lib/server-first";
 import { getTaskCompletionPolicyAction } from "@/app/actions/workspace/task-completion";
 
 export const taskCompletionPolicyKey = (projectId: string) =>
   ["project", projectId, "task-completion-policy"] as const;
 
-export function useTaskCompletionPolicy(projectId: string) {
+export function useTaskCompletionPolicy(projectId: string, started?: ReturnType<typeof getTaskCompletionPolicyAction> | null) {
+  const [read] = useState(() => serverFirst(started, () => getTaskCompletionPolicyAction(projectId)));
   return useQuery({
     queryKey: taskCompletionPolicyKey(projectId),
     enabled: Boolean(projectId),
     staleTime: 30_000,
     queryFn: async () => {
-      const result = await getTaskCompletionPolicyAction(projectId);
+      const result = await read();
       if (!result.success) throw new Error(result.error);
       return result;
     },

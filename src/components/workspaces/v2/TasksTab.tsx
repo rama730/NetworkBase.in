@@ -62,6 +62,8 @@ import type { TaskPanelTab } from "@/hooks/useTaskPanelResource";
 import { OpenInIdeButton, OpenInIdeSheet } from "@/components/workspaces/v2/files-tab/OpenInIdeButton";
 import { SkeletonTasks } from "@/components/workspaces/skeletons/SkeletonTasks";
 import { useDocumentTitlePrefix } from "@/hooks/useDocumentTitlePrefix";
+import { serverFirst } from "@/lib/server-first";
+import type { TasksBoot } from "@/lib/workspaces/server/tasks-boot";
 
 const PAGE_NORMALIZED_TASKS_CACHE = new WeakMap<object, TaskSurfaceRecord[]>();
 
@@ -103,6 +105,8 @@ interface TasksTabProps {
   /** An organization's own board (report §16.1): assignment cards, and In review opens the shared queue. */
   orgId?: string | null;
   initialTasks?: any[];
+  /** The first reads the page started on the server for this tab (live-fix phase 1). */
+  started?: TasksBoot | null;
   members?: any[];
   sprints?: any[];
   initialOpenTaskId?: string | null;
@@ -128,6 +132,7 @@ export default function TasksTab({
   isChildProject = false,
   orgId = null,
   initialTasks = [],
+  started = null,
   members = [],
   sprints = [],
   initialOpenTaskId = null,
@@ -136,7 +141,7 @@ export default function TasksTab({
   initialFileId = null,
   onInitialTaskOpened,
 }: TasksTabProps) {
-  const completionPolicy = useTaskCompletionPolicy(projectId);
+  const completionPolicy = useTaskCompletionPolicy(projectId, started?.policy);
   const queryClient = useQueryClient();
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -268,6 +273,7 @@ export default function TasksTab({
     initialTasks,
     queryScope,
     taskSearchQuery,
+    started?.tasks,
   );
 
   // Flatten pages for filtering and focus strips
@@ -303,10 +309,11 @@ export default function TasksTab({
     () => queryKeys.project.detail.workflow(projectId),
     [projectId],
   );
+  const [readWorkflow] = useState(() => serverFirst(started?.workflow, () => getWorkspaceWorkflowColumnsAction(projectId)));
   const workflowQuery = useQuery({
     queryKey: workflowQueryKey,
     queryFn: async () => {
-      const result = await getWorkspaceWorkflowColumnsAction(projectId);
+      const result = await readWorkflow();
       if (!result.success || !result.columns) {
         throw new Error(result.error || "Couldn’t load workflow");
       }
@@ -611,7 +618,8 @@ export default function TasksTab({
   // would drop a "KEY-12" match whose title does not contain the text. The Unit filter (child
   // projects, report §14.4) narrows to work assigned to a unit's people.
   // ponytail: filters the loaded pages only, like the count beside the title; a server filter if units grow large.
-  const { data: units = [] } = useQuery({ queryKey: ["project-units", projectId], queryFn: () => readWorkspaceUnitsAction(projectId), staleTime: 60_000 });
+  const [readUnits] = useState(() => serverFirst(started?.units, () => readWorkspaceUnitsAction(projectId)));
+  const { data: units = [] } = useQuery({ queryKey: ["project-units", projectId], queryFn: readUnits, staleTime: 60_000 });
   const [unitFilter, setUnitFilter] = useState("");
   const [teamTaskOpen, setTeamTaskOpen] = useState(false);
   const unitMembers = units.find((unit) => unit.id === unitFilter)?.memberIds;

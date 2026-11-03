@@ -18,6 +18,12 @@ import { shareMetadata } from '@/lib/sharing/metadata';
 import { readSharePreview } from '@/lib/sharing/read';
 import { genericSharePreview, isShareCrawler, shareOrigin } from '@/lib/sharing/presentation';
 import { isWorkspaceTabVisibleToViewer } from '@/lib/workspaces/settings-policies';
+import { readOrgTabBadgesAction } from '@/app/actions/assignments';
+import { readOrgDashboardAction, readOrgWorkspacesAction } from '@/app/actions/org-dashboard';
+import { readOrgMembersAction } from '@/app/actions/org-members';
+import type { OrgStartedReads } from '@/lib/organizations/started-reads';
+import { startTasksBoot } from '@/lib/workspaces/server/tasks-boot';
+import { getWorkspaceNodesWithCounts } from '@/app/actions/files/nodes';
 
 const readProjectSprintDetailCached = cache((slugOrId: string, limit?: number, sprintId?: string, taskReference?: string) => readWorkspaceSprintDetail({ slugOrId, limit, sprintId, taskReference }));
 
@@ -170,6 +176,20 @@ async function ResolvedProjectDashboard({
     const initialSprintData = canViewSprints && sprintPromise
         ? sprintPromise.then((sprintResult) => (sprintResult.success ? sprintResult.data : null), () => null)
         : null;
+    // A browser runs server actions one at a time, so an organization's open tab starts its first reads here, while the
+    // page renders; the tab uses them once (live-fix phase 1, problem 1).
+    const orgStarted = project.organization && user && (capabilities.isOwner || capabilities.isMember)
+        ? startOrgReads(project.id, selectedTab)
+        : null;
+    const tasksStarted = selectedTab === 'tasks' && isWorkspaceTabVisibleToViewer({
+        tabId: "tasks",
+        isOwnerOrMember: capabilities.isOwner || capabilities.isMember,
+        publicTabVisibility: project.publicTabVisibility,
+        isOrganization: Boolean(project.organization),
+    }) ? startTasksBoot(project.id) : null;
+    // The Files tab's root folder, the same first page the explorer asks for (100 rows).
+    const filesStarted = selectedTab === 'files' && user ? getWorkspaceNodesWithCounts(project.id, null, undefined, 100) : null;
+    filesStarted?.catch(() => null);
 
     return (
         <WorkspaceDashboardClient
@@ -181,6 +201,9 @@ async function ResolvedProjectDashboard({
             isMember={capabilities.isMember}
             memberRole={capabilities.memberRole}
             initialSprintData={initialSprintData}
+            orgStarted={orgStarted}
+            tasksStarted={tasksStarted}
+            filesStarted={filesStarted}
         />
     );
 }
@@ -204,4 +227,15 @@ export function WorkspaceRoute({
             </Suspense>
         </div>
     );
+}
+
+/** The open tab's read and the tab badges, started without waiting; a failure falls back to the tab's own load. */
+function startOrgReads(orgId: string, tab: string): OrgStartedReads {
+    const quiet = <T,>(read: Promise<T>) => { read.catch(() => undefined); return read; };
+    return {
+        badges: quiet(readOrgTabBadgesAction(orgId)),
+        ...(tab === 'dashboard' ? { dashboard: quiet(readOrgDashboardAction(orgId)) } : {}),
+        ...(tab === 'projects' ? { workspaces: quiet(readOrgWorkspacesAction(orgId)) } : {}),
+        ...(tab === 'members' ? { members: quiet(readOrgMembersAction(orgId)) } : {}),
+    };
 }

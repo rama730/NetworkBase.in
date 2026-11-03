@@ -14,6 +14,15 @@ export function activityIcon(kind: string) {
   return ICONS[(ALIASES[kind] ?? kind) as ActivityKind] ?? ICONS.task;
 }
 
+/** Whether an activity row belongs under an Overview filter; the server and the browser use the same rule. */
+export function activityMatches(filter: string, kind: string) {
+  return filter === "all"
+    || (filter === "assignments" && (kind === "assignment" || kind === "submission"))
+    || (filter === "people" && kind === "joins")
+    || (filter === "files" && (kind === "file" || kind === "doc"))
+    || (filter === "projects" && kind === "project");
+}
+
 /** Real event time, always: a sprint uses when it actually started, never its planned date (parity bug 3). */
 export function activityTime(item: { kind: string; at?: Date | null; startedAt?: Date | null; plannedStart?: Date | null }): Date {
   if (item.kind === "sprint") return item.startedAt ?? item.at ?? item.plannedStart ?? new Date(0);

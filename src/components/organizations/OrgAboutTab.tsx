@@ -17,8 +17,8 @@ import { messageUserInWindow } from '@/components/messages/message-user'
 import { toast } from '@/lib/feedback'
 import { formatDistanceToNow } from '@/lib/utils/date'
 import type { Workspace } from '@/types/discover'
+import { formatInZone } from '@/lib/organizations/zoned-time'
 
-const MONTH = new Intl.DateTimeFormat('en', { month: 'short', year: 'numeric' })
 // The project columns, read as an organization's (report §34.11).
 const ORG_LABELS = { description: 'About', problem: "Who it’s for", solution: 'What happens here' }
 
@@ -38,7 +38,7 @@ export function OrgAboutTab({ project, isCreator, onEdit, memberRole = null, vis
         project.slug ? ['Handle', `@${project.slug}`] : null,
         yourRole ? ['Your role', yourRole] : null,
         org?.timeZone ? ['Time zone', org.timeZone] : null,
-        project.createdAt ? ['Since', MONTH.format(new Date(project.createdAt))] : null,
+        project.createdAt ? ['Since', formatInZone(project.createdAt, { month: 'short', year: 'numeric' }, org?.timeZone)] : null,
     ].filter((row): row is string[] => row !== null)
     // The overview card reads these off the full project payload; the shared Project type doesn't list them.
     const statements = project as Workspace & { problemStatement?: string | null; solutionStatement?: string | null }

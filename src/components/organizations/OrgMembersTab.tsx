@@ -48,6 +48,8 @@ import { cn } from '@/lib/utils'
 import { messageUserInWindow } from '@/components/messages/message-user'
 import { RELATIONSHIP_EVENT, useBlockFlow } from '@/components/privacy/BlockDialog'
 import { Ban } from 'lucide-react'
+import { serverFirst } from '@/lib/server-first'
+import { useQueryClient } from '@tanstack/react-query'
 
 // Members tab (report §20): roster with filters and bulk actions, Requests / Invite / summary rail, member drawer.
 
@@ -60,7 +62,7 @@ const ago = (iso: string | null) => (iso ? formatDistanceToNow(new Date(iso), { 
 const activeHere = (iso: string | null) => (iso ? ago(iso) : 'No data yet')
 const workLine = (w: RosterRow['work']) => (w.total === 0 ? '—' : `${w.done} of ${w.total} done${w.missing ? ` · ${w.missing} missing` : ''}`)
 
-export function OrgMembersTab({ orgId, roleNames }: { orgId: string; roleNames?: RoleNames }) {
+export function OrgMembersTab({ orgId, roleNames, started = null }: { orgId: string; roleNames?: RoleNames; started?: ReturnType<typeof readOrgMembersAction> | null }) {
     const [data, setData] = useState<OrgMembersData | null>(null)
     const [error, setError] = useState<string | null>(null)
     const [filter, setFilter] = useState<RosterFilter & { invited?: boolean; outside?: boolean; former?: boolean }>({ sort: 'name' })
@@ -74,9 +76,13 @@ export function OrgMembersTab({ orgId, roleNames }: { orgId: string; roleNames?:
     // Report §4.3: the organization's own name beside the base access level ("TA · Admin").
     const label = (role: string) => (role in ACCESS_LEVEL_LABELS ? accessLevelLabel(role as AccessLevel, roleNames?.[role as keyof RoleNames]) : role)
 
-    const load = useCallback(() => void readOrgMembersAction(orgId).then((r) => {
-        if (r.success) { setData(r); setError(null) } else setError(r.error)
-    }), [orgId])
+    // The page started this read on the server; a browser runs actions one at a time (live-fix phase 1).
+    const [read] = useState(() => serverFirst(started, () => readOrgMembersAction(orgId)))
+    const client = useQueryClient()
+    const load = useCallback(() => void read().then((r) => {
+        // The invite panel's data came with the roster; seed its cache before it mounts.
+        if (r.success) { client.setQueryData(['org-invite-panel', orgId], r.invitePanel); setData(r); setError(null) } else setError(r.error)
+    }), [client, orgId, read])
     useEffect(() => { load() }, [load])
     // Report §32.4: requests update by themselves (0053), combined over 2 seconds.
     const viewerId = useAuth().user?.id

@@ -31,3 +31,16 @@ export function zoneName(timeZone: string | null | undefined) {
   if (!timeZone) return "your time";
   return new Intl.DateTimeFormat("en-US", { timeZone, timeZoneName: "long" }).formatToParts(new Date()).find((p) => p.type === "timeZoneName")?.value ?? timeZone;
 }
+
+/**
+ * A date as text in the organization's zone, or UTC without a valid one. Text the server renders must not depend on
+ * the machine's zone, or the browser draws something else (React error #418).
+ */
+export function formatInZone(date: string | Date, options: Intl.DateTimeFormatOptions, timeZone: string | null | undefined) {
+  const at = new Date(date);
+  try {
+    return new Intl.DateTimeFormat("en", { ...options, timeZone: timeZone || "UTC" }).format(at);
+  } catch {
+    return new Intl.DateTimeFormat("en", { ...options, timeZone: "UTC" }).format(at);
+  }
+}

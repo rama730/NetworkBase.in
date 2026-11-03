@@ -9,6 +9,7 @@ import type { WorkspaceNode } from "@/lib/db/schema";
 import { getErrorMessage } from "./explorerTypes";
 import { FILES_RUNTIME_BUDGETS } from "@/lib/files/runtime-budgets";
 import { recordFilesMetric } from "@/lib/files/observability";
+import { takeStartedRoot } from "@/lib/files/started-root";
 
 const EMPTY_OBJ: Record<string, boolean> = {};
 
@@ -102,13 +103,15 @@ export function useExplorerBoot(options: {
           let nextCursor: string | null = null;
           let taskCounts: Record<string, number> | null = null;
           do {
-            const payload = await getWorkspaceNodesWithCounts(
+            // The root's first page may already be on its way from the server (live-fix phase 1).
+            const startedRoot: ReturnType<typeof getWorkspaceNodesWithCounts> | null = parentId === null && !(nextCursor ?? cursor) && newNodes.length === 0 ? takeStartedRoot(projectId) : null;
+            const payload: Awaited<ReturnType<typeof getWorkspaceNodesWithCounts>> = await (startedRoot ?? getWorkspaceNodesWithCounts(
               projectId,
               parentId,
               undefined,
               Math.min(200, wanted - newNodes.length),
               nextCursor ?? cursor,
-            );
+            ));
             if (!payload.success) {
               throw new Error(payload.message || "Couldn’t load files");
             }

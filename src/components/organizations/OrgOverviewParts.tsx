@@ -19,6 +19,8 @@ import { RailSection } from '@/components/ui/rail-section'
 import { WorkspaceLastUpdate } from '@/components/workspaces/WorkspaceLastUpdate'
 import { toast } from '@/lib/feedback'
 import { remindSummary } from '@/lib/organizations/member-rules'
+import { activityMatches } from '@/lib/organizations/activity-rules'
+import { serverFirst } from '@/lib/server-first'
 import { subscribeBroadcast } from '@/lib/realtime/private-broadcast'
 import { liveTopics } from '@/lib/realtime/subscriptions'
 import { typeProfile } from '@/lib/organizations/type-profile'
@@ -35,14 +37,17 @@ const STATE: Record<string, string> = ASSIGNMENT_STATE_LABELS
 const FILTERS = [['all', 'All'], ['assignments', 'Assignments'], ['people', 'People'], ['files', 'Files and docs'], ['projects', 'Workspaces']] as const
 
 /** The org Dashboard for people in the org (report §27). */
-export function OrgDashboard({ orgId, orgSlug, orgType = null }: { orgId: string; orgSlug: string | null; orgType?: string | null }) {
+export function OrgDashboard({ orgId, orgSlug, orgType = null, started = null }: { orgId: string; orgSlug: string | null; orgType?: string | null; started?: ReturnType<typeof readOrgDashboardAction> | null }) {
     const [filter, setFilter] = useState('all')
     const [moreToday, setMoreToday] = useState(false)
     const [welcomeClosed, setWelcomeClosed] = useState(false)
     const client = useQueryClient()
     // Refetch on focus and every 2 minutes while visible.
-    const query = useQuery({ queryKey: ['org-dashboard', orgId, filter], queryFn: () => readOrgDashboardAction(orgId, filter), refetchInterval: 120_000, refetchOnWindowFocus: true })
+    // The page started this read on the server (a browser runs actions one at a time); the filter applies here.
+    const [read] = useState(() => serverFirst(started, () => readOrgDashboardAction(orgId)))
+    const query = useQuery({ queryKey: ['org-dashboard', orgId], queryFn: read, refetchInterval: 120_000, refetchOnWindowFocus: true })
     const base = `/org/${encodeURIComponent(orgSlug ?? orgId)}`
+    const activity = query.data?.success ? query.data.activity.filter((a) => activityMatches(filter, a.kind)) : []
     // Report §32.4, decision 76: other people's changes show by themselves; bursts are combined over 2 seconds.
     useEffect(() => {
         let timer: ReturnType<typeof setTimeout> | null = null
@@ -160,7 +165,7 @@ export function OrgDashboard({ orgId, orgSlug, orgType = null }: { orgId: string
                         {FILTERS.map(([value, label]) => <button key={value} type="button" role="tab" aria-selected={filter === value} onClick={() => setFilter(value)} className={cn('rounded-[4px] px-1.5 text-[11px]', filter === value ? 'bg-muted font-medium text-foreground' : 'text-muted-foreground')}>{label}</button>)}
                     </span>
                 }>
-                    {data.activity.length ? <ol>{data.activity.map((a) => <li key={a.id} className={row}><Link href={a.href} className="min-w-0 truncate hover:underline">{a.text}</Link><time dateTime={a.at} className="shrink-0 font-mono text-[11px] text-muted-foreground">{ago(a.at)}</time></li>)}</ol>
+                    {activity.length ? <ol>{activity.map((a) => <li key={a.id} className={row}><Link href={a.href} className="min-w-0 truncate hover:underline">{a.text}</Link><time dateTime={a.at} className="shrink-0 font-mono text-[11px] text-muted-foreground">{ago(a.at)}</time></li>)}</ol>
                         : <p className="text-sm text-muted-foreground">Nothing yet.</p>}
                 </RailSection>
             </div>
@@ -235,7 +240,7 @@ function WorkspaceRequests({ requests, onDone }: { requests: OrgWorkspaceRequest
  * Workspaces tab (report §7.9, §35.5): Requests when there are some, the summary that filters, Search, Status, Sort,
  * Mine, List or Cards and a Filters menu, rows with open seats and their reasons, and each row's actions.
  */
-export function OrgWorkspacesTab({ orgId, orgSlug }: { orgId: string; orgSlug?: string | null }) {
+export function OrgWorkspacesTab({ orgId, orgSlug, started = null }: { orgId: string; orgSlug?: string | null; started?: ReturnType<typeof readOrgWorkspacesAction> | null }) {
     const [data, setData] = useState<Extract<Awaited<ReturnType<typeof readOrgWorkspacesAction>>, { success: true }> | null>(null)
     const [q, setQ] = useState('')
     const [status, setStatus] = useState<'all' | 'attention' | 'quiet' | 'archived'>('all')
@@ -252,7 +257,8 @@ export function OrgWorkspacesTab({ orgId, orgSlug }: { orgId: string; orgSlug?: 
     const [ask, setAsk] = useState<{ kind: 'archive' | 'detach'; rows: OrgWorkspaceRow[] } | null>(null)
     const [assigning, setAssigning] = useState<OrgWorkspaceRow | null>(null)
     const [pending, startTransition] = useTransition()
-    const load = useCallback(() => void readOrgWorkspacesAction(orgId).then((r) => setData(r.success ? r : null)), [orgId])
+    const [read] = useState(() => serverFirst(started, () => readOrgWorkspacesAction(orgId)))
+    const load = useCallback(() => void read().then((r) => setData(r.success ? r : null)), [read])
     useEffect(() => { load() }, [load])
     const rows = useMemo(() => {
         const needle = q.trim().toLowerCase()

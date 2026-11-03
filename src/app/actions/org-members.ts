@@ -79,6 +79,8 @@ export type OrgMembersData = {
     invitesLeft: number;
     /** Ask to change team (report §25.5, decision 46): Move or Dismiss. */
     teamChanges: Array<{ userId: string; name: string; workspaceId: string; workspace: string; at: string }>;
+    /** The invite panel's own read, made here so the panel needs no call of its own (live-fix phase 1). */
+    invitePanel: Awaited<ReturnType<typeof readOrgInvitePanelAction>>;
 };
 
 type TeamChangeRequest = { userId: string; workspaceId: string; at: string };
@@ -87,6 +89,8 @@ type TeamChangeRequest = { userId: string; workspaceId: string; at: string };
 export async function readOrgMembersAction(orgId: string): Promise<OrgMembersData | Failure> {
     const viewer = await orgManager(orgId, 'members_tab', 'read');
     if (!viewer) return DENIED;
+    const invitePanel = readOrgInvitePanelAction(orgId);
+    invitePanel.catch(() => undefined); // awaited below; this only keeps an early failure from going unhandled
     // ponytail: one roster read per open, sized for ORG_LIMITS.membersPerOrg (2,000). Upgrade: server paging.
     const [people, childRows, units, copies, teamCopies, requests, invites, [org], myBlocks] = await Promise.all([
         db.select({ userId: workspaceMembers.userId, role: workspaceMembers.role, title: workspaceMembers.title, joinedAt: workspaceMembers.joinedAt, name: profiles.fullName, username: profiles.username, avatarUrl: profiles.avatarUrl, lastActiveAt: workspaceMembers.lastActiveHereAt })
@@ -189,6 +193,7 @@ export async function readOrgMembersAction(orgId: string): Promise<OrgMembersDat
         },
         invitesLeft: invitesLeftToday(await invitesSentToday(orgId)),
         teamChanges,
+        invitePanel: await invitePanel,
     };
 }
 

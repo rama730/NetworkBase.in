@@ -89,6 +89,17 @@ test("the roster: roles, titles, projects and units, work counts, requests and i
   assert.equal(data!.summary.members, 4);
 });
 
+test("live-fix phase 1: the roster read brings the invite panel's data, so the panel makes no call of its own", async () => {
+  const o = await org();
+  await sql`UPDATE workspaces SET join_code_enabled = true WHERE id = ${o.orgId}`;
+  const r = await roster(o.orgId, o.admin);
+  assert.ok(r?.invitePanel?.success, JSON.stringify(r?.invitePanel));
+  const panel = r!.invitePanel.success ? r!.invitePanel.data : null;
+  assert.equal(panel?.joinCode, o.code);
+  assert.equal(panel?.joinMode, "approval");
+  assert.deepEqual(panel?.children.map((c) => c.title), ["Compiler Lab"]);
+});
+
 test("requests: approve, approve all, decline with a reason; Max members blocks approvals", async () => {
   const o = await org();
   const r1 = await request(o.orgId, o.code);

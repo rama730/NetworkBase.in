@@ -1,3 +1,5 @@
+import { useSyncExternalStore } from "react";
+
 export const isMac = () => typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
 
 const KEY_NAMES: Record<string, [mac: string, other: string]> = {
@@ -10,6 +12,16 @@ export function keyLabel(combo: string) {
   const mac = isMac();
   const parts = combo.split("+").map((part) => KEY_NAMES[part.toLowerCase()]?.[mac ? 0 : 1] ?? part.toUpperCase());
   return parts.join(mac ? "" : "+");
+}
+
+const noSubscribe = () => () => undefined;
+
+/**
+ * "⌘K" or "Ctrl+K" for mod plus `key`. The server can't know the platform, so it always writes the Mac form and the
+ * browser swaps in its own after hydrating; reading the platform while rendering made React error #418 on every page.
+ */
+export function useModKeyHint(key: string) {
+  return useSyncExternalStore(noSubscribe, () => keyLabel(`mod+${key}`), () => `⌘${key.toUpperCase()}`);
 }
 
 /** Conversation details: ⌘⇧I on a Mac, Ctrl+Alt+I elsewhere (Ctrl+Shift+I is the browser's DevTools). */

@@ -16,8 +16,7 @@ import { useRealtime } from "@/components/providers/RealtimeProvider";
 import MyWorkIndicator from "./header/MyWorkIndicator";
 import { queryKeys } from "@/lib/query-keys";
 import { useUIStore } from "@/stores/ui-store";
-import { readSidebarWorkspacesAction } from "@/app/actions/org-workspace";
-import { staffBadgeAction } from "@/app/actions/moderation-staff";
+import { readShellPart } from "@/lib/shell-batch";
 import { SidebarWorkspaces } from "./SidebarWorkspaces";
 
 type SidebarProject = {
@@ -72,11 +71,12 @@ export function SidebarNav() {
     const { badge: chatBadge } = useChatShell();
     // Staff only (trust and safety R11): the role is in the session, so nobody else asks the server.
     const isStaff = ["admin", "moderator"].includes(String(user?.app_metadata?.role ?? ""));
-    const staffBadge = useQuery({ queryKey: ["trust", "sidebar-badge"], queryFn: () => staffBadgeAction(), enabled: isStaff, staleTime: 60_000, refetchInterval: 5 * 60_000 });
+    const staffBadge = useQuery({ queryKey: ["trust", "sidebar-badge"], queryFn: async () => (await readShellPart("staffBadge")) ?? null, enabled: isStaff, staleTime: 60_000, refetchInterval: 5 * 60_000 });
     const staffCount = staffBadge.data?.count ?? 0;
     const { connectionHealth } = useRealtime();
     const people = useNetworkNotifications();
-    const profileId = profile?.id ?? null;
+    // The profile id is the user id; keying on the user means the lists start loading before the profile arrives.
+    const profileId = profile?.id ?? user?.id ?? null;
     const projectsQuery = useQuery({
         queryKey: queryKeys.profile.sidebarProjects(profileId ?? "unknown"),
         queryFn: () => fetchSidebarProjects(profileId!),
@@ -89,14 +89,15 @@ export function SidebarNav() {
     // feature is off, so the plain project list stays.
     const workspacesQuery = useQuery({
         queryKey: ["sidebar-workspaces", profileId ?? "unknown"],
-        queryFn: () => readSidebarWorkspacesAction(),
+        queryFn: async () => (await readShellPart("sidebarWorkspaces")) ?? null,
         enabled: Boolean(isAuthenticated && profileId),
         staleTime: 60_000,
         refetchOnWindowFocus: false,
     });
     const workspaces = workspacesQuery.data ?? null;
     // Parity bug 10: one placeholder until both lists arrive, so "No workspaces yet" and a second order never flash.
-    const loadingWorkspaces = projectsQuery.isLoading || workspacesQuery.isLoading;
+    // Pending, not loading: a query waiting to start counts too (problem 2).
+    const loadingWorkspaces = projectsQuery.isPending || workspacesQuery.isPending;
 
     return (
         <div className="nb-sidebar-scroll app-scroll app-scroll-y min-h-0 flex-1 space-y-3 pr-1">
@@ -113,7 +114,7 @@ export function SidebarNav() {
                 })}
                 <Link href={ROUTES.MY_PROFILE} className="nb-nav-link" aria-label="My profile" title="My profile" aria-current={isMainNavRouteActive(pathname, ROUTES.MY_PROFILE) ? "page" : undefined}><UserRound size={16} aria-hidden="true" /><span className="nb-sidebar-label">My profile</span></Link>
                 {isAuthenticated && <MyWorkIndicator />}
-                {isStaff && staffBadge.data ? (
+                {isStaff ? (
                     <Link href="/admin/trust" className="nb-nav-link" aria-label={`Trust and safety${staffCount ? `, ${staffCount} urgent or overdue` : ""}`} title="Trust and safety" aria-current={pathname.startsWith("/admin/trust") ? "page" : undefined}>
                         <ShieldCheck size={16} aria-hidden="true" /><span className="nb-sidebar-label">Trust and safety</span>
                         {staffCount > 0 && <span className="nb-nav-count" aria-hidden="true">{staffCount > 99 ? "99+" : staffCount}</span>}

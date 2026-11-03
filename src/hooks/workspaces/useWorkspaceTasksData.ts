@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { useQuery, useInfiniteQuery } from '@tanstack/react-query';
 
 import { fetchWorkspaceSprintDetailAction, fetchWorkspaceSprintTimelinePageAction, fetchWorkspaceSprintsAction, fetchWorkspaceTasksAction } from '@/app/actions/workspace';
@@ -7,6 +8,7 @@ import { queryKeys } from '@/lib/query-keys';
 import type { SprintDetailPayload } from '@/lib/workspaces/sprint-detail';
 import { mergeSprintTimelineRows } from '@/lib/workspaces/sprint-timeline';
 import { normalizeTaskSurfaceRecord } from '@/lib/workspaces/task-presentation';
+import { serverFirst } from '@/lib/server-first';
 
 export type WorkspaceTaskScope = 'all' | 'backlog' | 'sprint' | 'review';
 
@@ -40,7 +42,7 @@ function mergeSprintDetailPages(pages: SprintDetailPayload[]): SprintDetailPaylo
     };
 }
 
-export function useWorkspaceInfiniteTasks(projectId: string, initialData?: any, scope: WorkspaceTaskScope = 'all', search = '') {
+export function useWorkspaceInfiniteTasks(projectId: string, initialData?: any, scope: WorkspaceTaskScope = 'all', search = '', started?: ReturnType<typeof fetchWorkspaceTasksAction> | null) {
     const normalizedScope = normalizeScope(scope);
     const normalizedSearch = search.trim().slice(0, 100);
     const initialTasksRaw = Array.isArray(initialData) ? initialData : [];
@@ -66,10 +68,14 @@ export function useWorkspaceInfiniteTasks(projectId: string, initialData?: any, 
           }
         : undefined;
 
+    // The page may have started the first page on the server (live-fix phase 1); it's used once, for All with no search.
+    const [readFirstPage] = useState(() => serverFirst(started, () => fetchWorkspaceTasksAction(projectId, 50, undefined, 'all', '')));
     return useInfiniteQuery({
         queryKey: WORKSPACE_TASKS_QUERY_KEY(projectId, normalizedScope, normalizedSearch),
         queryFn: async ({ pageParam }: { pageParam: string | undefined }) => {
-            const result = await fetchWorkspaceTasksAction(projectId, 50, pageParam, normalizedScope, normalizedSearch);
+            const result = !pageParam && normalizedScope === 'all' && !normalizedSearch
+                ? await readFirstPage()
+                : await fetchWorkspaceTasksAction(projectId, 50, pageParam, normalizedScope, normalizedSearch);
             if (!result.success) throw new Error(result.error);
             return result;
         },

@@ -24,7 +24,9 @@ test("stable project media routes use the shared conditional streaming owner", (
 
 test("app chrome renders before the legal gate and profile pages reuse server reads", () => {
   const layout = read("src/app/(site)/(main)/layout.tsx");
-  assert.match(layout, /initialProfile=\{null\}/);
+  // Live-fix problem 2: name and photo come from the light identity read, never the full profile.
+  assert.match(layout, /getViewerIdentityContext/);
+  assert.match(layout, /initialProfile=\{initialProfile\}/);
   assert.doesNotMatch(layout, /getViewerProfileContext/);
   assert.match(layout, /<MainLayout>\s*<Suspense[\s\S]*<LegalAcceptanceGate user=\{user\}>\{children\}<\/LegalAcceptanceGate>/);
   assert.match(read("src/app/(site)/(main)/u/[username]/page.tsx"), /const readPublicProfileRoute = cache/);

@@ -9,7 +9,7 @@ import { redirect } from 'next/navigation';
 import { normalizeAuthNextPath } from '@/lib/auth/redirects';
 import { hasCurrentLegalAcceptance } from '@/lib/legal/acceptance';
 import { hasCompletedOnboarding } from '@/lib/onboarding/completion';
-import { getViewerAuthContext } from '@/lib/server/viewer-context';
+import { getViewerIdentityContext } from '@/lib/server/viewer-context';
 
 async function LegalAcceptanceGate({
   user,
@@ -43,10 +43,12 @@ export default async function MainRouteLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { user } = await getViewerAuthContext();
+  // The viewer's name and photo from the server, so the header and sidebar never start as a signed-out shell (problem 2).
+  const { user, profile } = await getViewerIdentityContext();
+  const initialProfile = user && profile ? { id: user.id, username: profile.username, full_name: profile.fullName, avatar_url: profile.avatarUrl } : null;
 
   return (
-    <AuthRouteProviders initialUser={user} initialProfile={null}>
+    <AuthRouteProviders initialUser={user} initialProfile={initialProfile}>
       <MainRuntimeProviders>
         <MainLayout>
           <Suspense fallback={<div className="h-full w-full bg-background" />}>

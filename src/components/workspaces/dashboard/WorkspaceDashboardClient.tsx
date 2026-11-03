@@ -47,6 +47,11 @@ import { HeaderReportMenu } from '@/components/reports/ItemMenu';
 import { DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { ChildOrgChips, OrgArchivedNotice, OrgBreadcrumb, OrgCompactMark, OrgHeaderDetails, OrgInviteDialog, OrgNewItems, OrgNewMenu, OrgStatusBanner, OrgVisitorActions, type OrgNewKind } from '@/components/organizations/OrgHeaderParts';
 import { readOrgTabBadgesAction, type OrgTabBadges } from '@/app/actions/assignments';
+import type { OrgStartedReads } from '@/lib/organizations/started-reads';
+import type { TasksBoot } from '@/lib/workspaces/server/tasks-boot';
+import type { getWorkspaceNodesWithCounts } from '@/app/actions/files/nodes';
+import { offerStartedRoot } from '@/lib/files/started-root';
+import { serverFirst } from '@/lib/server-first';
 import { isWorkspacePubliclyReadableVisibility } from '@/lib/workspaces/workspace-visibility';
 import { confirmFileNavigation } from '@/lib/files/unsaved-navigation';
 import { useFilesStore } from '@/stores/filesStore';
@@ -160,6 +165,12 @@ interface ProjectDashboardClientProps {
     /** The viewer's role from the server capabilities, never derived from a members page. */
     memberRole?: string | null;
     initialSprintData?: Promise<SprintDetailPayload | null> | null;
+    /** Reads the page started on the server for an organization's open tab (a browser runs actions one at a time). */
+    orgStarted?: OrgStartedReads | null;
+    /** The Tasks tab's first reads, started on the server when the page opens on Tasks. */
+    tasksStarted?: TasksBoot | null;
+    /** The Files tab's root folder, started on the server when the page opens on Files. */
+    filesStarted?: ReturnType<typeof getWorkspaceNodesWithCounts> | null;
 }
 
 const ResourceShareDialog = dynamic(() => import('@/components/sharing/ShareDialog').then(mod => mod.ShareDialog), { ssr: false });
@@ -169,7 +180,7 @@ async function askToChangeTeam(workspaceId: string) {
     toast(result.success ? 'Your request went to the organization’s admins. Nobody else is told.' : result.error);
 }
 
-export default function WorkspaceDashboardClient({ project, currentUserId, viewerDisplayName = null, viewerAvatarUrl = null, isOwner, isMember, memberRole = null, initialSprintData = null }: ProjectDashboardClientProps) {
+export default function WorkspaceDashboardClient({ project, currentUserId, viewerDisplayName = null, viewerAvatarUrl = null, isOwner, isMember, memberRole = null, initialSprintData = null, orgStarted = null, tasksStarted = null, filesStarted = null }: ProjectDashboardClientProps) {
     const router = useRouter();
     const pathname = usePathname();
     const queryClient = useQueryClient();
@@ -850,7 +861,8 @@ export default function WorkspaceDashboardClient({ project, currentUserId, viewe
         : applicationStatus.status === 'rejected' ? 'Application declined'
             : applicationStatus.status === 'withdrawn' ? 'Application withdrawn' : null;
     // Owners and admins see how many applications wait for them (the counts action answers only for reviewers).
-    const roleApplicationCounts = useRoleApplicationCounts(project.id, canManageProjectSettings);
+    // Organizations don't show these counts; only the workspace Dashboard does.
+    const roleApplicationCounts = useRoleApplicationCounts(project.id, canManageProjectSettings && !isOrganization);
     const pendingApplicationsForReviewer = Object.values(roleApplicationCounts).reduce((sum, counts) => sum + counts.pending, 0);
     const projectClosed = ['archived', 'completed'].includes(String((project as { status?: string | null }).status ?? ''));
     const applicationControls = useMemo(() => ({
@@ -1043,13 +1055,16 @@ export default function WorkspaceDashboardClient({ project, currentUserId, viewe
 
     const filesSyncStatus = extendedProject?.syncStatus;
     // Org tab badges (report §18.3), re-read on each tab change; opening Updates clears its dot.
+    // The page started the Files root read on the server; the explorer takes it once.
+    useState(() => offerStartedRoot(project.id, filesStarted));
     const orgIdForBadges = isOrganization && isOwnerOrMember ? project.id : null;
+    const [readBadges] = useState(() => serverFirst(orgStarted?.badges, () => readOrgTabBadgesAction(project.id)));
     useEffect(() => {
         if (!orgIdForBadges) return;
         let live = true;
-        void readOrgTabBadgesAction(orgIdForBadges).then((b) => { if (live) setOrgBadges(b); });
+        void readBadges().then((b) => { if (live) setOrgBadges(b); });
         return () => { live = false; };
-    }, [orgIdForBadges, activeTab]);
+    }, [orgIdForBadges, activeTab, readBadges]);
     const tabBadges = useMemo(() => orgBadges ? {
         tasks: orgBadges.tasks || undefined,
         updates: orgBadges.updates && activeTab !== 'updates' ? 'dot' as const : undefined,
@@ -1135,7 +1150,7 @@ export default function WorkspaceDashboardClient({ project, currentUserId, viewe
                 <div className="w-full h-full min-h-0">
                     <TabErrorBoundary tabName="Overview">
                         {/* Orgs get their own Dashboard (report §27); child projects add the org line (§27.5). */}
-                        {isOrganization ? <OrgDashboard orgId={project.id} orgSlug={project.slug ?? null} orgType={organization?.type ?? null} /> : <>
+                        {isOrganization ? <OrgDashboard orgId={project.id} orgSlug={project.slug ?? null} orgType={organization?.type ?? null} started={orgStarted?.dashboard} /> : <>
                         {parentOrg ? <ChildOrgLine projectId={project.id} /> : null}
                         {parentOrg ? <ChildUnitsLine projectId={project.id} members={allMembers} /> : null}
                         <DashboardTab project={projectWithLiveStats} isCreator={isOwner} isCollaborator={isMember} rolesWithFilled={rolesWithFilled} onEdit={handleEdit} onAdvanceStage={handleAdvanceStage} onRedoStage={handleRegressStage} onApplyToRole={handleApplyToRole} lifecycleStages={lifecycleStages} currentStageIndex={optimisticStageIndex} applicationStatus={applicationStatus} onAcceptInvitation={() => void handleInvitation('accept')} onDeclineInvitation={() => void handleInvitation('decline')} invitationLoading={invitationLoading} application={applicationControls} pendingApplications={pendingApplicationsForReviewer} />
@@ -1155,7 +1170,7 @@ export default function WorkspaceDashboardClient({ project, currentUserId, viewe
             {isOrganization && isOwnerOrMember && activeTab === 'projects' && (
                 <div className="w-full h-full min-h-0">
                     <TabErrorBoundary tabName="Workspaces">
-                        <OrgWorkspacesTab orgId={project.id} orgSlug={project.slug} />
+                        <OrgWorkspacesTab orgId={project.id} orgSlug={project.slug} started={orgStarted?.workspaces} />
                     </TabErrorBoundary>
                 </div>
             )}
@@ -1163,7 +1178,7 @@ export default function WorkspaceDashboardClient({ project, currentUserId, viewe
             {isOrganization && canManageProjectSettings && activeTab === 'members' && (
                 <div className="w-full h-full min-h-0">
                     <TabErrorBoundary tabName="Members">
-                        <OrgMembersTab orgId={project.id} roleNames={organization?.roleNames} />
+                        <OrgMembersTab orgId={project.id} roleNames={organization?.roleNames} started={orgStarted?.members} />
                     </TabErrorBoundary>
                 </div>
             )}
@@ -1202,7 +1217,7 @@ export default function WorkspaceDashboardClient({ project, currentUserId, viewe
                         {/* Assignments (report §16.5) and, in child projects, the org's group copies (§16.6). */}
                         {isOrganization ? <AssignmentsPanel orgId={project.id} onBoardChanged={() => refreshProjectData('tasks')} startComposing={newIntent === 'assignment'} onComposingStarted={() => setNewIntent(null)} /> : null}
                         {parentOrg ? <GroupCopiesPanel projectId={project.id} onBoardChanged={() => refreshProjectData('tasks')} /> : null}
-                        <TasksTab projectId={project.id} projectSlug={project.slug || project.id} projectName={project.title} currentUserId={currentUserId || undefined} currentUserName={currentUserName} currentUserAvatarUrl={currentUserAvatarUrl} isOwner={isOwner} canEditTasks={canEditTasks} isProjectMember={isOwnerOrMember} reviewsGroupWork={isInheritedAdmin} canManageFiles={canManageFiles} canManageWorkflow={canManageProjectSettings} isChildProject={Boolean(parentOrg)} orgId={isOrganization ? project.id : null} initialTasks={tasks} members={allMembers} sprints={sprints} initialOpenTaskId={initialTaskDrawerId ?? myWorkInitialTaskId} initialPanelTab={initialTaskPanelTab} initialCommentId={searchParams?.get('commentId')} initialFileId={searchParams?.get('fileId')} onInitialTaskOpened={myWorkInitialTaskId ? consumeMyWorkTaskHandoff : undefined} />
+                        <TasksTab projectId={project.id} projectSlug={project.slug || project.id} projectName={project.title} currentUserId={currentUserId || undefined} currentUserName={currentUserName} currentUserAvatarUrl={currentUserAvatarUrl} isOwner={isOwner} canEditTasks={canEditTasks} isProjectMember={isOwnerOrMember} reviewsGroupWork={isInheritedAdmin} canManageFiles={canManageFiles} canManageWorkflow={canManageProjectSettings} isChildProject={Boolean(parentOrg)} orgId={isOrganization ? project.id : null} initialTasks={tasks} started={tasksStarted} members={allMembers} sprints={sprints} initialOpenTaskId={initialTaskDrawerId ?? myWorkInitialTaskId} initialPanelTab={initialTaskPanelTab} initialCommentId={searchParams?.get('commentId')} initialFileId={searchParams?.get('fileId')} onInitialTaskOpened={myWorkInitialTaskId ? consumeMyWorkTaskHandoff : undefined} />
                     </TabErrorBoundary>
                 </div>
             )}

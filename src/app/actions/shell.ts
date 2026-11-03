@@ -4,6 +4,8 @@ import { bootstrap as readChatSummary } from "@/app/actions/chat/read";
 import { readNetworkPendingCountsAction } from "@/app/actions/connections";
 import { readNotificationPreferencesAction, readNotificationUnreadCountAction } from "@/app/actions/notifications";
 import { getMyWorkSummaryAction } from "@/app/actions/my-work";
+import { staffBadgeAction } from "@/app/actions/moderation-staff";
+import { readSidebarWorkspacesAction } from "@/app/actions/org-workspace";
 
 const SHELL_READERS = {
     myWorkSummary: getMyWorkSummaryAction,
@@ -11,6 +13,9 @@ const SHELL_READERS = {
     notificationPreferences: readNotificationPreferencesAction,
     chatSummary: () => readChatSummary(),
     networkPendingCounts: readNetworkPendingCountsAction,
+    // A browser runs server actions one at a time; these ride the one shell call instead of queueing their own.
+    sidebarWorkspaces: readSidebarWorkspacesAction,
+    staffBadge: staffBadgeAction,
 };
 
 export type ShellPart = keyof typeof SHELL_READERS;

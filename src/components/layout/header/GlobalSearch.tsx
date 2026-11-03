@@ -6,6 +6,7 @@ import { Search, X } from "lucide-react";
 import { useMemo } from "react";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 
+import { useModKeyHint } from "@/components/messages/keys";
 import {
     buildGlobalSearchClearHref,
     getGlobalSearchQuery,
@@ -32,10 +33,7 @@ export default function GlobalSearch({ onOpenCommandPalette, condensed = false }
         [context, searchParams],
     );
 
-    const isMac = useMemo(() => {
-        if (typeof navigator === "undefined") return false;
-        return navigator.platform.toUpperCase().includes("MAC");
-    }, []);
+    const shortcut = useModKeyHint("k");
 
     const triggerLabel = useMemo(() => {
         const contextLabel = (() => {
@@ -126,7 +124,7 @@ export default function GlobalSearch({ onOpenCommandPalette, condensed = false }
                     </button>
                 ) : (
                     <kbd className="hidden sm:inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-[3px] bg-muted/60 border border-border text-[11px] font-mono text-muted-foreground shadow-none">
-                        {isMac ? "⌘" : "Ctrl"}K
+                        {shortcut}
                     </kbd>
                 )}
             </div>

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Bell, BellOff, Bookmark, CheckCheck, ChevronDown, Compass, FolderOpen, House, Inbox, Keyboard, LayoutGrid, Link2, ListFilter, LogOut, MailOpen, MoreHorizontal, Pencil, Plus, Search, Settings, SquarePen, Star, StarOff, UserPlus, X } from "lucide-react";
 import { toast } from "@/lib/feedback";
 
@@ -38,7 +38,7 @@ import { OrgBrowseWorkspaces } from "@/components/messages/OrgBrowseWorkspaces";
 import { ConversationIcon } from "@/components/messages/ConversationIcon";
 import { useConversationExit } from "@/components/messages/useConversationExit";
 import { useMarkAllRead } from "@/components/messages/useMarkAllRead";
-import { keyLabel } from "@/components/messages/keys";
+import { keyLabel, useModKeyHint } from "@/components/messages/keys";
 import { queryKeys } from "@/lib/query-keys";
 
 export type ChatSectionsVariant = "sidebar" | "list";
@@ -417,9 +417,6 @@ function HeaderButton({ label, onClick, children, href }: { label: string; onCli
   return <button type="button" onClick={onClick} className={className} aria-label={label} title={label}>{children}</button>;
 }
 
-const noSubscribe = () => () => undefined;
-const modKeyHint = () => keyLabel("mod+k");
-
 /**
  * The project switcher, always at the top (Slack's workspace header): the
  * open project, or All projects, with its options beside it.
@@ -440,7 +437,7 @@ function ProjectSwitcher({ inPage, unreadsOnly, onToggleUnreads }: { inPage: boo
   // Only with a project open: in All projects every project's count is already on screen.
   const otherUnread = open ? projects.reduce((sum, project) => sum + (project.id === open.id ? 0 : badges.get(project.id) ?? 0), 0) : 0;
   const projectHref = open ? `/${open.kind === "organization" ? "org" : "projects"}/${open.slug ?? open.id}` : "";
-  const shortcutHint = useSyncExternalStore(noSubscribe, () => modKeyHint().replace("K", "/"), () => "⌘/");
+  const shortcutHint = useModKeyHint("/");
 
   return (
     <div className="flex items-center gap-0.5">
@@ -545,7 +542,7 @@ export function ChatSections({ variant, onSelect, onNewMessage, onInbox }: Props
   const setSwitcherOpen = useChatUi((state) => state.setSwitcherOpen);
   const inPage = !onSelect;
   const markAll = useMarkAllRead();
-  const searchHint = useSyncExternalStore(noSubscribe, modKeyHint, () => "⌘K");
+  const searchHint = useModKeyHint("k");
   const drafts = useDrafts();
   const scheduled = useQuery({
     queryKey: queryKeys.chat.scheduled(),

@@ -15,7 +15,7 @@ test("parity bug 1: the sidebar plus sends the handle, so the owner isn't told t
 
 test("parity bug 10: the sidebar shows a placeholder until both lists arrive, never 'No workspaces yet' early", () => {
   const sidebar = source("src/components/layout/AppSidebar.tsx");
-  assert.match(sidebar, /const loadingWorkspaces = projectsQuery\.isLoading \|\| workspacesQuery\.isLoading/);
+  assert.match(sidebar, /const loadingWorkspaces = projectsQuery\.isPending \|\| workspacesQuery\.isPending/);
   assert.match(sidebar, /!workspaces && !loadingWorkspaces && !projectsQuery\.isError && projects\.length === 0/);
 });
 
