@@ -29,6 +29,9 @@ import { countOrgMembers, findOrgByJoinCode, isOrgHandleAvailable, joinOrgByCode
 import { adminsCanSeeLine, joinPageState, normalizeJoinCode, orgMemberCap, ORG_JOIN_MESSAGES, type JoinPageState, type OrgJoinMode, type OrgJoinOutcome } from '@/lib/organizations/join-rules';
 import { isWorkspacePubliclyReadableVisibility } from '@/lib/workspaces/workspace-visibility';
 import { namesOf, notifyJoined, notifyOrg, orgHref, orgLabel } from '@/lib/organizations/notify';
+import { moveGroupWorkToLead } from '@/lib/organizations/assignments';
+import { UUID_RE } from '@/lib/validations/uuid';
+import { syncWorkspaceChat } from '@/lib/messaging/integrations';
 import { logger } from '@/lib/logger';
 import { markProfileCollaborationSummaryStale } from '@/lib/profile/collaboration';
 
@@ -564,13 +567,93 @@ export async function archiveChildAction(projectId: string): Promise<{ success: 
     // The lead archives from the workspace's own Settings; this is the organization admins' door.
     if (!viewer?.project.parentId || viewer.isLead || !(await childCan(viewer, 'archive'))) return DENIED;
     const now = new Date();
-    await db.update(workspaces).set({ status: 'archived', updatedAt: now }).where(eq(workspaces.id, projectId));
+    // Report §35.3: who archived it decides who can unarchive it.
+    await db.update(workspaces).set({ status: 'archived', updatedAt: now,
+        orgSettings: sql`coalesce(${workspaces.orgSettings}, '{}'::jsonb) || jsonb_build_object('archivedBy', jsonb_build_object('userId', ${viewer.userId}::text, 'admin', true, 'at', ${now.toISOString()}::text))` })
+        .where(eq(workspaces.id, projectId));
     revalidateChild(viewer.project);
     // Decision 93: the team and lead always hear it, each time it's archived.
     const { enqueueWorkspaceNotificationEvent } = await import('@/lib/notifications/workspace-events');
     await enqueueWorkspaceNotificationEvent({ projectId, actorUserId: viewer.userId, eventKey: 'security.project_archived', body: 'An organization admin archived the workspace.',
         href: `/workspaces/${encodeURIComponent(viewer.project.slug ?? projectId)}`, sourceEventId: `archive:${projectId}:${now.getTime()}` })
         .catch((error) => logger.warn('org.archive_notice_failed', { projectId, error: error instanceof Error ? error.message : String(error) }));
+    return { success: true };
+}
+
+/**
+ * Unarchive (report §35.3, decision 91): whoever could archive it, except that an organization admin's archive only
+ * an admin undoes. A workspace archived with its organization returns with it. The team is told.
+ */
+export async function unarchiveChildAction(projectId: string): Promise<{ success: true } | Failure> {
+    const viewer = await childViewer(projectId);
+    if (!viewer?.project.parentId) return DENIED;
+    const [row] = await db.select({ status: workspaces.status, title: workspaces.title, settings: workspaces.orgSettings }).from(workspaces).where(eq(workspaces.id, projectId)).limit(1);
+    if (row?.status !== 'archived') return { success: false, error: 'This workspace isn’t archived.' };
+    const settings = (row.settings ?? {}) as { archivedBy?: { admin?: boolean }; archivedWithOrg?: boolean };
+    if (settings.archivedWithOrg) return { success: false, error: 'It was archived with the organization, and returns when the organization does.' };
+    const isOrgAdmin = viewer.parentRole === 'owner' || viewer.parentRole === 'admin';
+    if (settings.archivedBy?.admin && !isOrgAdmin) return { success: false, error: 'An organization admin archived it, so only an admin can unarchive it.' };
+    if (!isOrgAdmin && !viewer.isLead) return DENIED;
+    await db.update(workspaces).set({ status: 'active', updatedAt: new Date(), orgSettings: sql`coalesce(${workspaces.orgSettings}, '{}'::jsonb) - 'archivedBy'` }).where(eq(workspaces.id, projectId));
+    revalidateChild(viewer.project);
+    const [org, team] = await Promise.all([orgLabel(viewer.project.parentId),
+        db.select({ id: workspaceMembers.userId }).from(workspaceMembers).where(eq(workspaceMembers.projectId, projectId))]);
+    if (org) await notifyOrg({ orgId: org.id, eventKey: 'org.lifecycle', actorId: viewer.userId, to: team.map((m) => m.id).filter((id) => id !== viewer.userId),
+        title: `${row.title} is open again`, href: `/workspaces/${encodeURIComponent(viewer.project.slug ?? projectId)}`, sourceEventId: `unarchive:${projectId}:${Date.now()}` });
+    return { success: true };
+}
+
+/** A workspace that lost its lead (report §35.4): admins of its organization, and whether it's flagged. */
+async function leadlessChild(projectId: string) {
+    const userId = await viewerId();
+    if (!userId || !UUID_RE.test(projectId)) return null;
+    const [child] = await db.select({ id: workspaces.id, title: workspaces.title, slug: workspaces.slug, parentId: workspaces.parentId, ownerId: workspaces.ownerId, settings: workspaces.orgSettings })
+        .from(workspaces).where(and(eq(workspaces.id, projectId), isNull(workspaces.deletedAt))).limit(1);
+    if (!child?.parentId) return null;
+    const role = await readViewerOrgRole(child.parentId, userId);
+    if (!role || orgGrant(role === 'viewer' ? 'guest' : role, 'assign_lead') !== 'yes') return null;
+    return { userId, child: { ...child, parentId: child.parentId }, flagged: Boolean((child.settings as { leadHandover?: unknown } | null)?.leadHandover) };
+}
+
+/** Assign dialog (report §35.4): team members first, then anyone in the organization; no Viewers, outside or blocked people. */
+export async function readLeadCandidatesAction(projectId: string): Promise<{ success: true; people: Array<{ id: string; name: string; onTeam: boolean }> } | Failure> {
+    const ctx = await leadlessChild(projectId);
+    if (!ctx) return DENIED;
+    const rows = await db.execute<{ id: string; name: string; on_team: boolean }>(sql`
+        SELECT m.user_id AS id, coalesce(p.full_name, p.username, 'Member') AS name,
+               EXISTS (SELECT 1 FROM workspace_members c WHERE c.workspace_id = ${projectId} AND c.user_id = m.user_id) AS on_team
+        FROM workspace_members m JOIN profiles p ON p.id = m.user_id AND p.deleted_at IS NULL
+        WHERE m.workspace_id = ${ctx.child.parentId} AND m.role IN ('admin', 'member') AND m.user_id <> ${ctx.child.ownerId}
+          AND NOT EXISTS (SELECT 1 FROM org_join_blocks b WHERE b.org_id = ${ctx.child.parentId} AND b.user_id = m.user_id)
+        ORDER BY 3 DESC, 2 LIMIT 500`);
+    return { success: true, people: rows.map((r) => ({ id: r.id, name: r.name, onTeam: r.on_team })) };
+}
+
+/**
+ * Assign a lead (report §35.4, decision 92): only for a workspace flagged with no lead; the holder steps back to admin
+ * access, group work moves to the new lead, the flag clears, and they're told.
+ */
+export async function assignChildLeadAction(projectId: string, userId: string): Promise<{ success: true } | Failure> {
+    const ctx = await leadlessChild(projectId);
+    if (!ctx || !UUID_RE.test(userId)) return DENIED;
+    if (!ctx.flagged) return { success: false, error: `${ctx.child.title} already has a workspace lead. Only they can hand it over.` };
+    const role = await readViewerOrgRole(ctx.child.parentId, userId);
+    const [blocked] = await db.execute<{ n: number }>(sql`SELECT count(*)::int AS n FROM org_join_blocks WHERE org_id = ${ctx.child.parentId} AND user_id = ${userId}`);
+    if ((role !== 'member' && role !== 'admin') || blocked?.n) return { success: false, error: 'Choose someone in the organization who isn’t a Viewer.' };
+    const holder = ctx.child.ownerId;
+    await db.transaction(async (tx) => {
+        await tx.update(workspaces).set({ ownerId: userId, updatedAt: new Date(), orgSettings: sql`coalesce(${workspaces.orgSettings}, '{}'::jsonb) - 'leadHandover'` }).where(eq(workspaces.id, projectId));
+        await tx.update(workspaceMembers).set({ role: 'admin' }).where(and(eq(workspaceMembers.projectId, projectId), eq(workspaceMembers.userId, holder)));
+        await tx.insert(workspaceMembers).values({ projectId, userId, role: 'owner' })
+            .onConflictDoUpdate({ target: [workspaceMembers.projectId, workspaceMembers.userId], set: { role: 'owner' } });
+        await syncWorkspaceChat(tx, projectId, userId, 'role');
+        await syncWorkspaceChat(tx, projectId, holder, 'role');
+        await moveGroupWorkToLead(tx, projectId, userId);
+    });
+    revalidatePath(`/workspaces/${ctx.child.slug ?? projectId}`);
+    const org = await orgLabel(ctx.child.parentId);
+    if (org) await notifyOrg({ orgId: org.id, eventKey: 'org.child_decided', actorId: ctx.userId, to: [userId], title: `You now lead ${ctx.child.title}`,
+        href: `/workspaces/${encodeURIComponent(ctx.child.slug ?? projectId)}`, sourceEventId: `assign-lead:${projectId}:${Date.now()}` });
     return { success: true };
 }
 

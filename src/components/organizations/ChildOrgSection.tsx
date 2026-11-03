@@ -13,6 +13,7 @@ import {
     moveWorkspaceToOrgAction,
     requestDetachAction,
     setChildFollowSprintsAction,
+    unarchiveChildAction,
     setChildVisibilityAction,
 } from '@/app/actions/organizations'
 import { SettingsSwitch } from '@/components/settings/ui/SettingsSwitch'
@@ -121,6 +122,13 @@ export function ChildOrgSection({ project, isLead, canManage }: { project: Works
                             {parentOrg.inheritedAdmins.map((admin) => <li key={`${admin.name}-${admin.roleName}`}>{admin.name}, {admin.roleName} · Admin · from {parentOrg.title}</li>)}
                         </ul>
                     </div>
+                    {project.status === 'archived' && (isLead || inherited) ? (
+                        // Report §35.3, decision 91: whoever archived it can unarchive it; an admin's archive needs an admin.
+                        <div className="flex flex-wrap items-center gap-2 border-t border-border pt-4">
+                            <p className="text-sm">This workspace is archived and read only.</p>
+                            <Button variant="outline" disabled={pending} onClick={() => run(() => unarchiveChildAction(projectId), 'Open again. The team was told.')}>Unarchive</Button>
+                        </div>
+                    ) : null}
                     <div className="space-y-3 border-t border-border pt-4">
                         <p className="nb-ui-label text-sm font-semibold text-foreground">Leave {parentOrg.title}</p>
                         <p className="nb-compact text-muted-foreground">Removing makes this a private personal workspace. Its organization views go away.</p>

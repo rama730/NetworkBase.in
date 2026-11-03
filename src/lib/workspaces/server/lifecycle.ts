@@ -2060,7 +2060,8 @@ export async function archiveWorkspaceAction(
     await db.transaction(async (tx) => {
       await tx
         .update(workspaces)
-        .set({ status: "archived", updatedAt: archivedAt })
+        // Report §35.3: who archived it decides who can unarchive it.
+        .set({ status: "archived", updatedAt: archivedAt, orgSettings: sql`coalesce(${workspaces.orgSettings}, '{}'::jsonb) || jsonb_build_object('archivedBy', jsonb_build_object('userId', ${user.id}::text, 'admin', false, 'at', ${archivedAt.toISOString()}::text))` })
         .where(eq(workspaces.id, projectId));
       closedByArchive = await closePendingApplications(tx, { projectId, actorId: user.id, reason: "project_closed", source: "project_archived" });
       const ended = await tx

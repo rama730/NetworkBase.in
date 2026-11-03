@@ -3,12 +3,15 @@
 import { useCallback, useEffect, useMemo, useState, useTransition } from 'react'
 import Link from 'next/link'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Check, FolderKanban, IterationCcw, Pin, UserPlus, X } from 'lucide-react'
+import { Check, FolderKanban, IterationCcw, MoreHorizontal, Pin, UserPlus, X } from 'lucide-react'
 
 import { dismissWelcomeAction, readChildOrgLineAction, readOrgDashboardAction, readOrgWorkspacesAction, remindLeadsAction, type OrgWorkspaceRow } from '@/app/actions/org-dashboard'
 import type { OrgWorkspaceRequest } from '@/lib/organizations/needs-you'
 import { messageUserInWindow } from '@/components/messages/message-user'
-import { approveMoveInAction, archiveChildAction, cancelDetachRequestAction, cancelMoveInAction, detachChildAction } from '@/app/actions/organizations'
+import { approveMoveInAction, archiveChildAction, assignChildLeadAction, cancelDetachRequestAction, cancelMoveInAction, detachChildAction, readLeadCandidatesAction, unarchiveChildAction } from '@/app/actions/organizations'
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { readWorkspaceUnitsAction } from '@/app/actions/child-units'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -211,20 +214,26 @@ function WorkspaceRequests({ requests, onDone }: { requests: OrgWorkspaceRequest
 }
 
 /** Projects tab (report §28): a list with filters for everyone in the org; Needs attention and bulk Archive for admins. */
+/**
+ * Workspaces tab (report §7.9, §35.5): Requests when there are some, the summary that filters, Search, Status, Sort,
+ * Mine, List or Cards and a Filters menu, rows with open seats and their reasons, and each row's actions.
+ */
 export function OrgWorkspacesTab({ orgId, orgSlug }: { orgId: string; orgSlug?: string | null }) {
-    const [data, setData] = useState<{ isAdmin: boolean; canCreate?: boolean; rows: OrgWorkspaceRow[]; requests: OrgWorkspaceRequest[]; summary: { total: number; attention: number; quiet: number; notInProject: number } } | null>(null)
+    const [data, setData] = useState<Extract<Awaited<ReturnType<typeof readOrgWorkspacesAction>>, { success: true }> | null>(null)
     const [q, setQ] = useState('')
     const [status, setStatus] = useState<'all' | 'attention' | 'quiet' | 'archived'>('all')
     const [visibility, setVisibility] = useState('all')
     const [mine, setMine] = useState(false)
+    const [seats, setSeats] = useState(false)
     const [sort, setSort] = useState<'active' | 'name' | 'overdue'>('active')
     const [stage, setStage] = useState('all')
     const [lead, setLead] = useState('all')
     const [sprint, setSprint] = useState<'all' | 'linked' | 'not_linked'>('all')
-    // List for admins, Cards for members (report §28.1); 50 rows a page (§28.6).
     const [view, setView] = useState<'list' | 'cards' | null>(null)
     const [shown, setShown] = useState(50)
     const [selected, setSelected] = useState<Set<string>>(new Set())
+    const [ask, setAsk] = useState<{ kind: 'archive' | 'detach'; rows: OrgWorkspaceRow[] } | null>(null)
+    const [assigning, setAssigning] = useState<OrgWorkspaceRow | null>(null)
     const [pending, startTransition] = useTransition()
     const load = useCallback(() => void readOrgWorkspacesAction(orgId).then((r) => setData(r.success ? r : null)), [orgId])
     useEffect(() => { load() }, [load])
@@ -237,41 +246,60 @@ export function OrgWorkspacesTab({ orgId, orgSlug }: { orgId: string; orgSlug?: 
             && (stage === 'all' || r.stage === stage)
             && (lead === 'all' || r.lead?.id === lead)
             && (sprint === 'all' || (sprint === 'linked' ? Boolean(r.sprint?.inOrgSprint) : !r.sprint?.inOrgSprint))
+            && (!seats || r.openSeats > 0)
             && (!mine || r.mine),
-        ).sort((a, b) => sort === 'name' ? a.title.localeCompare(b.title) : sort === 'overdue' ? b.overdue - a.overdue : b.lastActivityAt.localeCompare(a.lastActivityAt))
-    }, [data, lead, mine, q, sort, sprint, stage, status, visibility])
-    if (!data) return <p className="py-10 text-center text-sm text-muted-foreground">Loading workspaces…</p>
+        // Members see their own workspaces first (report §35.5).
+        ).sort((a, b) => (data?.isAdmin ? 0 : Number(b.mine) - Number(a.mine)) || (sort === 'name' ? a.title.localeCompare(b.title) : sort === 'overdue' ? b.overdue - a.overdue : b.lastActivityAt.localeCompare(a.lastActivityAt)))
+    }, [data, lead, mine, q, seats, sort, sprint, stage, status, visibility])
+    if (!data) return <div className="nb-skeleton mx-auto h-40 w-full max-w-[1240px] rounded-lg" aria-label="Loading workspaces" />
     const layout = view ?? (data.isAdmin ? 'list' : 'cards')
     const stages = [...new Set(data.rows.map((r) => r.stage).filter((s): s is string => Boolean(s)))].sort()
     const leads = [...new Map(data.rows.flatMap((r) => (r.lead ? [[r.lead.id, r.lead.name] as const] : []))).entries()].sort((a, b) => a[1].localeCompare(b[1]))
     const page = rows.slice(0, shown)
-    const remind = () => startTransition(async () => {
-        const r = await remindLeadsAction(orgId, [...selected])
+    const picked = data.rows.filter((r) => selected.has(r.id))
+    const filtersOn = [visibility, stage, lead, sprint].filter((v) => v !== 'all').length + (seats ? 1 : 0)
+    const clear = () => { setQ(''); setStatus('all'); setVisibility('all'); setStage('all'); setLead('all'); setSprint('all'); setSeats(false); setMine(false) }
+    const remind = (ids: string[]) => startTransition(async () => {
+        const r = await remindLeadsAction(orgId, ids)
         if (!r.success) return void toast.error(r.error)
         toast.success(remindSummary(r))
         setSelected(new Set())
     })
-    const projectHref = (r: OrgWorkspaceRow) => `/workspaces/${encodeURIComponent(r.slug ?? r.id)}`
-    const messageLead = (r: OrgWorkspaceRow) => r.lead && !r.mine ? <Link href={`/messages?userId=${r.lead.id}`} onClick={(e) => messageUserInWindow(r.lead!.id, e)} className="text-[12px] underline underline-offset-4">Message owner</Link> : null
-    const sel = 'h-9 rounded-md border border-border bg-background px-2 text-sm'
-    const archive = () => startTransition(async () => {
-        for (const id of selected) {
-            const r = await archiveChildAction(id)
-            if (!r.success) return void toast.error(r.error)
-        }
-        toast.success('Archived')
-        setSelected(new Set())
+    const unarchive = (r: OrgWorkspaceRow) => startTransition(async () => {
+        const res = await unarchiveChildAction(r.id)
+        if (!res.success) return void toast.error(res.error)
+        toast.success(`${r.title} is open again`)
         load()
     })
+    const href = (r: OrgWorkspaceRow) => `/workspaces/${encodeURIComponent(r.slug ?? r.id)}`
+    const messageLead = (r: OrgWorkspaceRow) => r.lead && !r.mine ? <Link href={`/messages?userId=${r.lead.id}`} onClick={(e) => messageUserInWindow(r.lead!.id, e)} className="text-[12px] underline underline-offset-4">Message workspace lead</Link> : null
+    const sel = 'h-9 rounded-md border border-border bg-background px-2 text-sm'
+    const visWord = (v: string | null) => v === 'org' ? 'Organization' : v === 'private' ? 'Private' : 'Public'
+    const seatsChip = (r: OrgWorkspaceRow) => r.openSeats > 0 && r.status !== 'archived'
+        ? <Link href={`${href(r)}?tab=dashboard#teams`} className="rounded-[3px] border border-border px-1 text-[11px] text-primary hover:underline">{r.openSeats} open {r.openSeats === 1 ? 'seat' : 'seats'}{data.isAdmin || r.mine ? '' : ' · Apply'}</Link> : null
+    const actions = (r: OrgWorkspaceRow) => data.isAdmin ? (
+        <DropdownMenu>
+            <DropdownMenuTrigger asChild><button type="button" aria-label={`Actions for ${r.title}`} className="rounded p-1 text-muted-foreground hover:bg-muted"><MoreHorizontal className="size-4" /></button></DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+                {r.status === 'archived' ? <DropdownMenuItem onSelect={() => unarchive(r)}>Unarchive</DropdownMenuItem> : <>
+                    <DropdownMenuItem onSelect={() => remind([r.id])}>Remind workspace lead</DropdownMenuItem>
+                    {r.needsLead ? <DropdownMenuItem onSelect={() => setAssigning(r)}>Assign workspace lead</DropdownMenuItem> : null}
+                    <DropdownMenuItem onSelect={() => setAsk({ kind: 'archive', rows: [r] })}>Archive</DropdownMenuItem>
+                    <DropdownMenuItem onSelect={() => setAsk({ kind: 'detach', rows: [r] })}>Remove from the organization</DropdownMenuItem>
+                </>}
+            </DropdownMenuContent>
+        </DropdownMenu>
+    ) : null
+    const people = (n: number) => `${n} ${n === 1 ? 'person' : 'people'}`
     return (
         <div className="mx-auto w-full max-w-[1240px] space-y-3">
             {data.isAdmin ? <WorkspaceRequests requests={data.requests} onDone={load} /> : null}
             <p className="text-sm">
                 <button type="button" className="hover:underline" onClick={() => setStatus('all')}>{data.summary.total} {data.summary.total === 1 ? 'workspace' : 'workspaces'}</button>
                 {data.isAdmin ? <>
-                    {' · '}<button type="button" className="hover:underline" onClick={() => setStatus('attention')}>{data.summary.attention} need attention</button>
+                    {' · '}<button type="button" className="hover:underline" onClick={() => setStatus('attention')}>{data.summary.attention} {data.summary.attention === 1 ? 'needs' : 'need'} attention</button>
                     {' · '}<button type="button" className="hover:underline" onClick={() => setStatus('quiet')}>{data.summary.quiet} quiet</button>
-                    {' · '}{data.summary.notInProject} members not in a workspace
+                    {' · '}<Link href={`/org/${encodeURIComponent(orgSlug ?? orgId)}?tab=members`} className="hover:underline">{people(data.summary.notInProject)} not in one</Link>
                 </> : null}
             </p>
             <div className="flex flex-wrap items-center gap-2">
@@ -279,77 +307,159 @@ export function OrgWorkspacesTab({ orgId, orgSlug }: { orgId: string; orgSlug?: 
                 <select aria-label="Status" className={sel} value={status} onChange={(e) => setStatus(e.target.value as typeof status)}>
                     <option value="all">Active</option>{data.isAdmin ? <option value="attention">Needs attention</option> : null}<option value="quiet">Quiet 7 days</option><option value="archived">Archived</option>
                 </select>
-                <select aria-label="Visibility" className={sel} value={visibility} onChange={(e) => setVisibility(e.target.value)}>
-                    <option value="all">Any visibility</option><option value="org">Organization</option><option value="private">Private</option><option value="public">Public</option>
-                </select>
-                {stages.length ? (
-                    <select aria-label="Stage" className={sel} value={stage} onChange={(e) => setStage(e.target.value)}>
-                        <option value="all">Any stage</option>{stages.map((s) => <option key={s} value={s}>{s}</option>)}
-                    </select>
-                ) : null}
-                <select aria-label="Owner" className={sel} value={lead} onChange={(e) => setLead(e.target.value)}>
-                    <option value="all">Any owner</option>{leads.map(([id, name]) => <option key={id} value={id}>{name}</option>)}
-                </select>
-                <select aria-label="Sprint" className={sel} value={sprint} onChange={(e) => setSprint(e.target.value as typeof sprint)}>
-                    <option value="all">Any sprint</option><option value="linked">Part of the organization sprint</option><option value="not_linked">Not part of an organization sprint</option>
-                </select>
-                <label className="flex items-center gap-1.5 text-sm"><input type="checkbox" checked={mine} onChange={(e) => setMine(e.target.checked)} /> Mine</label>
                 <select aria-label="Sort" className={sel} value={sort} onChange={(e) => setSort(e.target.value as typeof sort)}>
                     <option value="active">Recently active</option><option value="name">Name</option><option value="overdue">Most overdue</option>
                 </select>
-                {data.canCreate ? <Button asChild size="sm" className="ml-auto"><Link href={`/workspaces/new?org=${encodeURIComponent(orgSlug ?? orgId)}`}>+ New workspace</Link></Button> : null}
-                {data.isAdmin && selected.size ? <Button type="button" size="sm" variant="outline" disabled={pending} onClick={remind}>Remind owners</Button> : null}
-                {data.isAdmin && selected.size ? <Button type="button" size="sm" variant="outline" disabled={pending} onClick={() => { if (window.confirm(`Archive ${selected.size} ${selected.size === 1 ? 'workspace' : 'workspaces'}?`)) archive() }}>Archive {selected.size}</Button> : null}
+                <label className="flex items-center gap-1.5 text-sm"><input type="checkbox" checked={mine} onChange={(e) => setMine(e.target.checked)} /> Mine</label>
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild><Button type="button" size="sm" variant="outline">Filters{filtersOn ? ` · ${filtersOn}` : ''}</Button></DropdownMenuTrigger>
+                    <DropdownMenuContent align="start" className="w-64 space-y-2 p-3">
+                        <select aria-label="Visibility" className={cn(sel, 'w-full')} value={visibility} onChange={(e) => setVisibility(e.target.value)}>
+                            <option value="all">Any visibility</option><option value="org">Organization</option><option value="private">Private</option><option value="public">Public</option>
+                        </select>
+                        {stages.length ? <select aria-label="Stage" className={cn(sel, 'w-full')} value={stage} onChange={(e) => setStage(e.target.value)}><option value="all">Any stage</option>{stages.map((st) => <option key={st} value={st}>{st}</option>)}</select> : null}
+                        <select aria-label="Workspace lead" className={cn(sel, 'w-full')} value={lead} onChange={(e) => setLead(e.target.value)}>
+                            <option value="all">Any workspace lead</option>{leads.map(([id, name]) => <option key={id} value={id}>{name}</option>)}
+                        </select>
+                        <select aria-label="Sprint" className={cn(sel, 'w-full')} value={sprint} onChange={(e) => setSprint(e.target.value as typeof sprint)}>
+                            <option value="all">Any sprint</option><option value="linked">Inside the organization sprint</option><option value="not_linked">Not inside one</option>
+                        </select>
+                        <label className="flex items-center gap-1.5 text-sm"><input type="checkbox" checked={seats} onChange={(e) => setSeats(e.target.checked)} /> Has open seats</label>
+                    </DropdownMenuContent>
+                </DropdownMenu>
                 <span className="flex rounded-md border border-border text-[12px]" role="group" aria-label="View">
                     {(['list', 'cards'] as const).map((v) => <button key={v} type="button" aria-pressed={layout === v} onClick={() => setView(v)} className={cn('px-2 py-1 capitalize', layout === v ? 'bg-muted font-medium' : 'text-muted-foreground')}>{v}</button>)}
                 </span>
+                {data.canCreate ? <Button asChild size="sm" className="ml-auto"><Link href={`/workspaces/new?org=${encodeURIComponent(orgSlug ?? orgId)}`}>New workspace</Link></Button> : null}
             </div>
-            {layout === 'cards' ? (
+            {data.isAdmin && picked.length ? (
+                <div className="flex flex-wrap items-center gap-2 rounded-md border border-border bg-muted/30 px-3 py-2 text-sm" role="toolbar" aria-label="Selected workspaces">
+                    <span>{picked.length} selected</span>
+                    <Button type="button" size="sm" variant="outline" disabled={pending} onClick={() => remind(picked.map((r) => r.id))}>Remind workspace {picked.length === 1 ? 'lead' : 'leads'}</Button>
+                    <Button type="button" size="sm" variant="outline" disabled={pending} onClick={() => setAsk({ kind: 'archive', rows: picked.filter((r) => r.status !== 'archived') })}>Archive {picked.filter((r) => r.status !== 'archived').length}</Button>
+                    <button type="button" className="text-muted-foreground underline" onClick={() => setSelected(new Set())}>Clear</button>
+                </div>
+            ) : null}
+            {rows.length === 0 ? (
+                data.rows.length === 0 ? (
+                    <div className="nb-empty-state py-12" role="status">
+                        <p className="nb-card-title">{data.isAdmin ? 'Create the first workspace' : 'You’re not in a workspace yet'}</p>
+                        <p className="nb-empty-state-desc">{data.isAdmin ? 'Each team works in its own workspace, inside this organization.' : 'When there are workspaces here, the ones with open seats show first.'}</p>
+                        {data.canCreate ? <Button asChild className="mt-3"><Link href={`/workspaces/new?org=${encodeURIComponent(orgSlug ?? orgId)}`}>New workspace</Link></Button> : null}
+                    </div>
+                ) : (
+                    <div className="nb-empty-state py-10" role="status"><p className="nb-card-title">No workspaces match</p><Button type="button" variant="outline" size="sm" className="mt-2" onClick={clear}>Clear filters</Button></div>
+                )
+            ) : layout === 'cards' ? (
                 <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3" aria-label="Workspaces">
-                    {rows.length === 0 ? <li className="text-sm text-muted-foreground">{data.rows.length === 0 ? 'No workspaces yet.' : 'No workspaces match.'}</li> : null}
                     {page.map((r) => (
-                        <li key={r.id} className="rounded-lg border border-border bg-card p-3 text-sm">
+                        <li key={r.id} className={cn('rounded-lg border border-border bg-card p-3 text-sm', r.status === 'archived' && 'opacity-70')}>
                             <p className="flex items-center gap-1.5">
-                                <Link href={projectHref(r)} className="min-w-0 truncate font-medium hover:underline">{r.title}</Link>
+                                <Link href={href(r)} className="min-w-0 truncate font-medium hover:underline">{r.title}</Link>
                                 {r.newInOrg ? <span className="nb-status shrink-0" data-status="active">New</span> : null}
+                                <span className="ml-auto">{actions(r)}</span>
                             </p>
-                            <p className="mt-1 text-[12px] text-muted-foreground">{r.lead?.name} (lead) · {r.members} {r.members === 1 ? 'member' : 'members'}{r.sprint ? ` · ${r.sprint.name}` : ''}</p>
-                            <p className="mt-1 flex items-center justify-between gap-2 text-[12px] text-muted-foreground">
-                                <span>{r.visibility === 'org' ? 'Organization' : r.visibility === 'private' ? 'Private' : 'Public'} · active {ago(r.lastActivityAt)}</span>
-                                {messageLead(r)}
+                            <p className="mt-1 text-[12px] text-muted-foreground">{r.lead?.name} (lead) · {people(r.members)}{r.sprint ? ` · ${r.sprint.name}` : ''}</p>
+                            <p className="mt-1 flex flex-wrap items-center justify-between gap-2 text-[12px] text-muted-foreground">
+                                <span>{visWord(r.visibility)} · active {ago(r.lastActivityAt)}</span>
+                                {seatsChip(r)}{messageLead(r)}
                             </p>
                         </li>
                     ))}
                 </ul>
-            ) : null}
-            {layout === 'list' ? <ul className="divide-y divide-border rounded-lg border border-border">
-                {rows.length === 0 ? <li className="p-4 text-sm text-muted-foreground">{data.rows.length === 0 ? (data.isAdmin ? 'Create workspaces for your groups.' : 'No workspaces yet.') : 'No workspaces match.'}</li> : null}
-                {page.map((r) => (
-                    <li key={r.id} className="flex items-start gap-3 px-3 py-2.5 text-sm">
-                        {data.isAdmin ? <input type="checkbox" className="mt-1" aria-label={`Select ${r.title}`} checked={selected.has(r.id)} onChange={(e) => setSelected((cur) => { const next = new Set(cur); if (e.target.checked) next.add(r.id); else next.delete(r.id); return next })} /> : null}
-                        <div className="min-w-0 flex-1">
-                            <p className="flex flex-wrap items-center gap-x-1.5">
-                                <Link href={`/workspaces/${encodeURIComponent(r.slug ?? r.id)}`} className="font-medium hover:underline">{r.title}</Link>
-                                <span className="rounded-[3px] border border-border px-1 text-[11px] text-muted-foreground">{r.visibility === 'org' ? 'Organization' : r.visibility === 'private' ? 'Private' : 'Public'}</span>
-                                {r.newInOrg ? <span className="nb-status" data-status="active">New in this org</span> : null}
-                                <span className="text-muted-foreground">{r.lead?.name} (lead) · {r.members} {r.members === 1 ? 'member' : 'members'}{r.units ? ` · ${r.units} teams` : ''}</span>
-                                {r.sprint ? <span className="text-muted-foreground">· {r.sprint.name}{r.sprint.inOrgSprint ? ' · in the org sprint' : ''}</span> : null}
-                                {r.stage ? <span className="text-muted-foreground">· {r.stage}</span> : null}
-                                {messageLead(r)}
-                            </p>
-                            <p className="mt-0.5 text-[12px] text-muted-foreground">
-                                {r.open} open · {r.overdue} overdue · {r.inReview} in review
-                                {r.groupCopy ? ` · ${r.groupCopy.title}: ${STATE[r.groupCopy.state] ?? r.groupCopy.state}` : ''}
-                                <WorkspaceLastUpdate projectId={r.id} className="block sm:hidden" />
-                            </p>
-                            {r.reasons.length ? <p className="mt-0.5 text-[12px] text-destructive">⚠ Needs attention: {r.reasons.join(' · ')}</p> : null}
-                        </div>
-                        <WorkspaceLastUpdate projectId={r.id} className="hidden max-w-48 shrink-0 truncate font-mono text-[11px] text-muted-foreground sm:inline" />
-                    </li>
-                ))}
-            </ul> : null}
+            ) : (
+                <ul className="divide-y divide-border rounded-lg border border-border">
+                    {page.map((r) => (
+                        <li key={r.id} className={cn('flex items-start gap-3 px-3 py-2.5 text-sm', r.status === 'archived' && 'opacity-70')}>
+                            {data.isAdmin ? <input type="checkbox" className="mt-1" aria-label={`Select ${r.title}`} checked={selected.has(r.id)} onChange={(e) => setSelected((cur) => { const next = new Set(cur); if (e.target.checked) next.add(r.id); else next.delete(r.id); return next })} /> : null}
+                            <div className="min-w-0 flex-1">
+                                <p className="flex flex-wrap items-center gap-x-1.5">
+                                    <Link href={href(r)} className="font-medium hover:underline">{r.title}</Link>
+                                    <span className="rounded-[3px] border border-border px-1 text-[11px] text-muted-foreground">{visWord(r.visibility)}</span>
+                                    {r.newInOrg ? <span className="nb-status" data-status="active">New</span> : null}
+                                    {seatsChip(r)}
+                                </p>
+                                <p className="mt-0.5 text-[12px] text-muted-foreground">{r.lead?.name} (lead) · {people(r.members)}{r.units ? ` · ${r.units} ${r.units === 1 ? 'team' : 'teams'}` : ''}{r.stage ? ` · ${r.stage}` : ''}{r.sprint ? ` · ${r.sprint.name}` : ''}</p>
+                                <p className="mt-0.5 text-[12px] text-muted-foreground">
+                                    {r.open} open · {r.overdue} overdue · {r.inReview} in review
+                                    {r.groupCopy ? ` · ${r.groupCopy.title}: ${STATE[r.groupCopy.state] ?? r.groupCopy.state}` : ''}
+                                </p>
+                                {r.archivedBy ? <p className="mt-0.5 text-[12px] text-muted-foreground">Archived by {r.archivedBy.name}{data.isAdmin ? <> · <button type="button" className="underline" onClick={() => unarchive(r)}>Unarchive</button></> : null}</p> : null}
+                                {r.needsLead && data.isAdmin ? <p className="mt-0.5 text-[12px] text-amber-700 dark:text-amber-400">⚠ Needs a new workspace lead · <button type="button" className="underline" onClick={() => setAssigning(r)}>Assign</button></p>
+                                    : r.reasons.length ? <p className="mt-0.5 text-[12px] text-amber-700 dark:text-amber-400">⚠ {r.reasons.join(' · ')} · <button type="button" className="underline" disabled={pending} onClick={() => remind([r.id])}>Remind workspace lead</button></p> : null}
+                            </div>
+                            <span className="flex shrink-0 items-center gap-2">
+                                <WorkspaceLastUpdate projectId={r.id} className="hidden max-w-48 truncate font-mono text-[11px] text-muted-foreground sm:inline" />
+                                {messageLead(r)}{actions(r)}
+                            </span>
+                        </li>
+                    ))}
+                </ul>
+            )}
             {rows.length > shown ? <Button type="button" size="sm" variant="outline" onClick={() => setShown((n) => n + 50)}>Show 50 more ({rows.length - shown} left)</Button> : null}
+            <ConfirmDialog open={Boolean(ask)} onOpenChange={(open) => { if (!open) setAsk(null) }}
+                title={ask?.kind === 'detach' ? `Remove ${ask.rows[0]?.title} from the organization?` : `Archive ${ask?.rows.length === 1 ? ask.rows[0]!.title : `${ask?.rows.length ?? 0} workspaces`}?`}
+                description={ask?.kind === 'detach'
+                    ? 'It becomes a private personal workspace for its workspace lead. Unsubmitted group work goes and its sprints unlink. The workspace lead is told.'
+                    : `${people(ask?.rows.reduce((n, r) => n + r.members, 0) ?? 0)} will have read-only access. They’ll be told. Unarchive it from the Archived filter.`}
+                confirmLabel={ask?.kind === 'detach' ? 'Remove' : 'Archive'} variant="destructive"
+                onConfirm={async () => {
+                    if (!ask) return
+                    let done = 0
+                    for (const r of ask.rows) {
+                        const res = ask.kind === 'detach' ? await detachChildAction(r.id) : await archiveChildAction(r.id)
+                        if (res.success) done += 1
+                    }
+                    toast.success(ask.kind === 'detach' ? 'Removed from the organization' : `Archived ${done}${done < ask.rows.length ? `, skipped ${ask.rows.length - done}` : ''}`)
+                    setSelected(new Set())
+                    load()
+                }} />
+            {assigning ? <AssignLeadDialog row={assigning} onClose={() => setAssigning(null)} onDone={load} /> : null}
         </div>
+    )
+}
+
+/** Assign a lead (report §35.4): team members first, then anyone in the organization; Archive when nobody fits. */
+function AssignLeadDialog({ row, onClose, onDone }: { row: OrgWorkspaceRow; onClose: () => void; onDone: () => void }) {
+    const candidates = useQuery({ queryKey: ['lead-candidates', row.id], queryFn: () => readLeadCandidatesAction(row.id) })
+    const [q, setQ] = useState('')
+    const [pick, setPick] = useState<{ id: string; name: string } | null>(null)
+    const [busy, setBusy] = useState(false)
+    const list = (candidates.data?.success ? candidates.data.people : []).filter((p) => !q.trim() || p.name.toLowerCase().includes(q.trim().toLowerCase()))
+    return (
+        <Dialog open onOpenChange={(open) => { if (!open) onClose() }}>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Assign a workspace lead for {row.title}</DialogTitle>
+                    <DialogDescription>{row.lead?.name ?? 'Someone'} holds it until then. Viewers and outside people can’t lead it.</DialogDescription>
+                </DialogHeader>
+                <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search the organization" aria-label="Search people" />
+                {candidates.isPending ? <div className="nb-skeleton h-24 rounded" /> : list.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">Nobody here can lead it. You can archive it instead.</p>
+                ) : (
+                    <ul className="max-h-64 space-y-1 overflow-y-auto">
+                        {list.map((p) => (
+                            <li key={p.id}><button type="button" onClick={() => setPick(p)} aria-pressed={pick?.id === p.id}
+                                className={cn('flex w-full justify-between rounded px-2 py-1.5 text-left text-sm hover:bg-muted', pick?.id === p.id && 'bg-muted font-medium')}>
+                                {p.name}<span className="text-[12px] text-muted-foreground">{p.onTeam ? 'On the team' : 'In the organization'}</span>
+                            </button></li>
+                        ))}
+                    </ul>
+                )}
+                {pick ? <p className="text-sm">{pick.name} will lead {row.title}. {row.lead?.name ?? 'The holder'} steps back to admin access.</p> : null}
+                <div className="flex justify-end gap-2">
+                    <Button variant="outline" size="sm" onClick={onClose}>Cancel</Button>
+                    <Button size="sm" disabled={!pick || busy} onClick={async () => {
+                        setBusy(true)
+                        const r = await assignChildLeadAction(row.id, pick!.id).finally(() => setBusy(false))
+                        if (!r.success) return void toast.error(r.error)
+                        toast.success(`${pick!.name} leads ${row.title} now`)
+                        onDone()
+                        onClose()
+                    }}>Assign</Button>
+                </div>
+            </DialogContent>
+        </Dialog>
     )
 }
 
@@ -374,6 +484,7 @@ export function ChildOrgLine({ projectId }: { projectId: string }) {
     if (!line) return null
     return (
         <div className="mb-4 space-y-4">
+            {line.github ? <p className="text-[12px] text-muted-foreground" data-testid="child-github-line">Synced to <span className="font-mono">{line.github.repo}</span>{line.github.syncedAt ? ` · ${ago(line.github.syncedAt)}` : ''}</p> : null}
             {/* What's happening = Needs you + This sprint (report §27.5); Activity stays in the rail. */}
             {line.needsYou.length || line.ownSprint ? (
                 <RailSection title="What’s happening">

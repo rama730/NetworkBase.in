@@ -367,6 +367,12 @@ export type OrgWorkspaceRow = {
     lastActivityAt: string; reasons: string[]; mine: boolean;
     /** Journey stage, the running sprint and whether it sits inside the org's running sprint (report §28.2–28.3). */
     stage: string | null; sprint: { name: string; inOrgSprint: boolean } | null; newInOrg: boolean;
+    /** Report §25.4: seats still open across its teams, for Apply and the Has open seats filter. */
+    openSeats: number;
+    /** Report §35.4: its lead left and someone holds it until admins assign one. */
+    needsLead: boolean;
+    /** Report §35.5: who archived it, and whether an admin did. */
+    archivedBy: { name: string; admin: boolean } | null;
 };
 
 /** Projects tab (report §28): admins see every child project (Private too) with Needs attention; others what they may. */
@@ -388,6 +394,10 @@ export async function readOrgWorkspacesAction(orgId: string): Promise<{ success:
         sprintName: sql<string | null>`(SELECT s.name FROM workspace_sprints s WHERE s.workspace_id = ${workspaces.id} AND s.status = 'active' ORDER BY s.start_date DESC LIMIT 1)`,
         inOrgSprint: sql<boolean>`EXISTS (SELECT 1 FROM workspace_sprints s JOIN workspace_sprints o ON o.id = s.parent_sprint_id AND o.status = 'active' WHERE s.workspace_id = ${workspaces.id} AND s.status = 'active')`,
         newInOrg: sql<boolean>`coalesce((${workspaces.orgSettings}->>'movedInAt')::timestamptz > now() - interval '7 days', false)`,
+        openSeats: sql<number>`(SELECT coalesce(sum(greatest(r.count - r.filled, 0)), 0)::int FROM ${workspaceOpenRoles} r WHERE r.workspace_id = ${workspaces.id})`,
+        needsLead: sql<boolean>`${workspaces.orgSettings} ? 'leadHandover'`,
+        archivedByAdmin: sql<boolean | null>`(${workspaces.orgSettings}->'archivedBy'->>'admin')::boolean`,
+        archivedByName: sql<string | null>`(SELECT coalesce(ap.full_name, ap.username) FROM profiles ap WHERE ap.id::text = ${workspaces.orgSettings}->'archivedBy'->>'userId')`,
         mine: v.userId ? sql<boolean>`EXISTS (SELECT 1 FROM workspace_members pm WHERE pm.workspace_id = ${workspaces.id} AND pm.user_id = ${v.userId})` : sql<boolean>`false`,
         leadInOrg: sql<boolean>`(${workspaces.ownerId} = ${v.access.project!.ownerId} OR EXISTS (SELECT 1 FROM workspace_members pm WHERE pm.workspace_id = ${orgId} AND pm.user_id = ${workspaces.ownerId}))`,
     }).from(workspaces).leftJoin(profiles, eq(profiles.id, workspaces.ownerId))
@@ -410,6 +420,9 @@ export async function readOrgWorkspacesAction(orgId: string): Promise<{ success:
             stage: r.stage ?? null,
             sprint: r.sprintName ? { name: r.sprintName, inOrgSprint: Boolean(r.inOrgSprint) } : null,
             newInOrg: Boolean(r.newInOrg),
+            openSeats: Number(r.openSeats ?? 0),
+            needsLead: Boolean(r.needsLead),
+            archivedBy: r.status === 'archived' && r.archivedByAdmin !== null ? { name: r.archivedByName ?? 'Someone', admin: Boolean(r.archivedByAdmin) } : null,
         };
     });
     const [{ n: notInProject } = { n: 0 }] = v.isAdmin ? await db.select({ n: sql<number>`count(*)::int` }).from(workspaceMembers).where(and(
@@ -433,7 +446,7 @@ export async function readOrgWorkspacesAction(orgId: string): Promise<{ success:
 /** `Part of CSE-3A · CO2 ends Fri · 1 assignment due` on a child project's Dashboard (report §22.5, §27.5). */
 export async function readChildOrgLineAction(childProjectId: string) {
     const { userId } = await getViewerAuthContext();
-    const [child] = await db.select({ parentId: workspaces.parentId, ownerId: workspaces.ownerId, slug: workspaces.slug }).from(workspaces).where(and(eq(workspaces.id, childProjectId), isNull(workspaces.deletedAt))).limit(1);
+    const [child] = await db.select({ parentId: workspaces.parentId, ownerId: workspaces.ownerId, slug: workspaces.slug, repo: workspaces.githubRepoUrl, syncedAt: workspaces.githubLastSyncAt }).from(workspaces).where(and(eq(workspaces.id, childProjectId), isNull(workspaces.deletedAt))).limit(1);
     if (!child?.parentId || !(await readViewerOrgRole(child.parentId, userId))) return null; // outside people don't get the org line
     // Org membership alone doesn't open a private child project: its sprint and group copies need read access.
     if (!userId || !(await getWorkspaceAccessById(childProjectId, userId)).canRead) return null;
@@ -457,6 +470,8 @@ export async function readChildOrgLineAction(childProjectId: string) {
         orgTitle: org.title, orgSlug: org.slug, sprint: sprint ? { name: sprint.name, endDate: sprint.endDate.toISOString() } : null, dueCount: open.length,
         needsYou: needsYou.slice(0, 5),
         ownSprint: ownSprint ? { name: ownSprint.name, endDate: ownSprint.end_date, parent: ownSprint.parent } : null,
+        // Report §24.3: the team and organization admins see where it syncs; the lead has the full GitHub view.
+        github: child.repo && child.ownerId !== userId ? { repo: child.repo.replace(/^https?:\/\/github\.com\//i, '').replace(/\.git$/i, ''), syncedAt: child.syncedAt?.toISOString() ?? null } : null,
     };
 }
 
