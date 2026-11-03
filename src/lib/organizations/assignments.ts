@@ -53,6 +53,21 @@ export function assignmentColumn(p: { draft: boolean; closed: boolean; started: 
   return p.started > 0 ? "in_progress" : "todo";
 }
 
+/** Class progress for main assignments, from their copies in one query (the board card and the sprint list). */
+export async function readMasterProgress(masterIds: string[]) {
+  if (masterIds.length === 0) return new Map<string, { total: number; started: number; done: number; to_review: number; excused: number }>();
+  const rows = await db.execute<{ master_id: string; total: number; started: number; done: number; to_review: number; excused: number }>(sql`
+    SELECT c.assignment_id AS master_id,
+           count(*) FILTER (WHERE c.excused_at IS NULL)::int AS total,
+           count(*) FILTER (WHERE c.excused_at IS NULL AND (c.status <> 'todo' OR c.submission IS NOT NULL))::int AS started,
+           count(*) FILTER (WHERE c.excused_at IS NULL AND c.status = 'done' AND c.review_status <> 'pending')::int AS done,
+           count(*) FILTER (WHERE c.excused_at IS NULL AND c.review_status = 'pending')::int AS to_review,
+           count(*) FILTER (WHERE c.excused_at IS NOT NULL)::int AS excused
+    FROM tasks c WHERE c.assignment_id IN (${sql.join(masterIds.map((id) => sql`${id}::uuid`), sql`, `)}) AND c.deleted_at IS NULL
+    GROUP BY c.assignment_id`);
+  return new Map(Array.from(rows).map((r) => [r.master_id, r]));
+}
+
 /** Whether one task passes the same rule (task detail, sprint rows, the extension). */
 export async function canSeeOrgTask(access: WorkspaceAccess, viewerId: string | null, taskId: string) {
   const filter = orgTaskReadFilter(access, viewerId, "review");

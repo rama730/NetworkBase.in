@@ -21,6 +21,7 @@ stubNextAfter();
 let assignments: typeof import("../../src/app/actions/assignments");
 let tasks: typeof import("../../src/lib/workspaces/server/tasks");
 let taskActions: typeof import("../../src/app/actions/task");
+let sprints: typeof import("../../src/lib/workspaces/server/sprints");
 before(async () => {
   const viewerContext = await loadAppModule(() => import("../../src/lib/server/viewer-context"));
   moduleStubs.set("@/lib/server/viewer-context", {
@@ -30,6 +31,7 @@ before(async () => {
   assignments = await loadAppModule(() => import("../../src/app/actions/assignments"));
   tasks = await loadAppModule(() => import("../../src/lib/workspaces/server/tasks"));
   taskActions = await loadAppModule(() => import("../../src/app/actions/task"));
+  sprints = await loadAppModule(() => import("../../src/lib/workspaces/server/sprints"));
 });
 
 const created: string[] = [];
@@ -107,4 +109,17 @@ test("review fix: an admin's Mine includes their own copy of an assignment given
   const r = await tasks.fetchWorkspaceTasksAction(org, 50, undefined, "mine");
   assert.ok(r.success);
   assert.ok(r.success && r.tasks.some((t) => t.title === "Staff survey" && t.assignmentId), "own copy in Mine");
+});
+
+test("live-fix 31: in a sprint's work list a main assignment shows class progress, not Unassigned", async () => {
+  const { owner, org, masterId } = await classWithLab();
+  const [sprint] = await sql`INSERT INTO workspace_sprints (workspace_id, creator_id, name, start_date, end_date, status) VALUES (${org}, ${owner}, 'CO1', now() - interval '1 day', now() + interval '13 days', 'active') RETURNING id`;
+  await sql`UPDATE tasks SET sprint_id = ${sprint!.id} WHERE id = ${masterId}`;
+  await sql`INSERT INTO sprint_task_memberships (workspace_id, sprint_id, task_id, added_at) VALUES (${org}, ${sprint!.id}, ${masterId}, now())`;
+  viewerId = owner;
+  const r = await sprints.fetchWorkspaceSprintDetailAction({ projectId: org, sprintId: sprint!.id });
+  assert.ok(r.success, JSON.stringify(r));
+  const row = r.success ? r.data.rows.find((x) => x.kind === "task" && x.task.id === masterId) : undefined;
+  assert.ok(row && row.kind === "task");
+  assert.deepEqual(row && row.kind === "task" ? row.task.assignmentProgress : null, { done: 0, total: 1 });
 });

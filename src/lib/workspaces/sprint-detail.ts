@@ -56,6 +56,8 @@ export type SprintHealthSummary = {
 };
 
 export type SprintTaskTimelineEntity = {
+  /** A main assignment's class progress (live-fix 31); null for everything else. */
+  assignmentProgress?: { done: number; total: number } | null;
   id: string;
   projectId: string;
   sprintId: string;
@@ -331,6 +333,13 @@ export function computeSprintStatus(sprint: SprintListItem): SprintStatus {
   // Schedule reconciliation owns activation. The UI only presents the
   // persisted transition and never derives a conflicting local state.
   return sprint.status;
+}
+
+/** Whole days until a running sprint's end date (live-fix 30); null when it isn't running. */
+export function sprintDaysLeft(sprint: Pick<SprintListItem, "status" | "endDate">, now = new Date()) {
+  if (sprint.status !== "active" || !sprint.endDate) return null;
+  const end = new Date(sprint.endDate).getTime();
+  return Number.isFinite(end) ? Math.max(0, Math.ceil((end - now.getTime()) / 86_400_000)) : null;
 }
 
 export function isSprintReadyToClose(sprint: Pick<SprintListItem, "status" | "endDate">, now = new Date()) {

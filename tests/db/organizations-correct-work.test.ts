@@ -131,10 +131,8 @@ test("smaller bugs 1, 4 and 5: excused people leave sprint totals and the review
   viewerId = o.owner;
   assert.equal((await assignments.excuseCopyAction(await copyOf(o.b), "Medical leave")).success, true);
 
-  const { readSprintAssignmentsAction: readSprintAssignmentRowsAction } = await loadAppModule(() => import("../../src/app/actions/sprint-assignments"));
-  const rows = await readSprintAssignmentRowsAction(o.org, sprint!.id);
-  const row = rows && "rows" in rows ? rows.rows.find((r) => r.masterId === master) : null;
-  assert.equal(row?.counts.total, 1, "the excused person leaves the total (smaller bug 1)");
+  const { readMasterProgress } = await loadAppModule(() => import("../../src/lib/organizations/assignments"));
+  assert.equal((await readMasterProgress([master])).get(master)?.total, 1, "the excused person leaves the total (smaller bug 1)");
 
   const queue = await tasks.fetchWorkspaceTasksAction(o.org, 100, undefined, "review");
   assert.deepEqual(queue.success ? queue.tasks.map((t) => t.assigneeId) : null, [o.a], "excused work leaves the review queue (smaller bug 4)");

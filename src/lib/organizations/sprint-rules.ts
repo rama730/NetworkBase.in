@@ -37,6 +37,15 @@ export function buildSprintSeries(input: { prefix: string; count: number; length
 }
 
 /** The next number for a prefix: CO1–CO3 exist, so Repeat continues at CO4 (report §28.2). */
+/** A new organization sprint starts the day after the latest planned or running one ends, never before today (live-fix 33). */
+export function nextOrgSprintStart(sprints: Array<{ status: string; endDate: string | null }>, today: string) {
+  const ends = sprints.filter((s) => (s.status === "planning" || s.status === "active") && s.endDate).map((s) => s.endDate!.slice(0, 10)).sort();
+  const last = ends.at(-1);
+  if (!last) return today;
+  const next = new Date(Date.parse(`${last}T00:00:00Z`) + 86_400_000).toISOString().slice(0, 10);
+  return next > today ? next : today;
+}
+
 export function nextSeriesNumber(prefix: string, names: string[]) {
   const numbers = names.flatMap((name) => {
     const rest = name.startsWith(prefix) ? name.slice(prefix.length) : "";

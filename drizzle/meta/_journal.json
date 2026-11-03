@@ -421,6 +421,13 @@
       "when": 1793482146300,
       "tag": "0060_update_hidden_for_user",
       "breakpoints": true
+    },
+    {
+      "idx": 60,
+      "version": "7",
+      "when": 1793482206300,
+      "tag": "0061_sprint_shared_workspaces",
+      "breakpoints": true
     }
   ]
 }

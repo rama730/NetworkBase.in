@@ -67,14 +67,13 @@ test("members can't manage sprints; the owner creates and starts one", async () 
   assert.equal(row!.status, "active");
 });
 
-test("Complete before the end date is refused; after it, Keep leaves unfinished work in the sprint", async () => {
+test("Live-fix 30: a running sprint can be completed early; after it ends, Keep leaves unfinished work in the sprint", async () => {
   const w = await workspace();
   viewerId = w.owner;
   const early = await sprints.createSprintAction({ projectId: w.id, name: "Running", startDate: day(-1), endDate: day(5) });
   const earlyId = early.success ? early.sprint.id : "";
   await sprints.startSprintNowAction(earlyId, w.id);
-  assert.equal((await sprints.completeSprintAction(earlyId, w.id)).success, false);
-  await sprints.cancelSprintAction(earlyId, w.id);
+  assert.equal((await sprints.completeSprintAction(earlyId, w.id)).success, true, "Complete is there while it runs");
   const s = await endedSprint(w, "Sprint 1");
   assert.equal((await sprints.completeSprintAction(s.id, w.id, { unfinished: "keep" })).success, true);
   assert.deepEqual([await sprintOf(s.open), await sprintOf(s.done)], [s.id, s.id]);

@@ -2,7 +2,7 @@
 
 import React from "react";
 import { typeProfile } from "@/lib/organizations/type-profile";
-import { buildSprintSeries, insideError, nextSeriesNumber, seriesPreview } from "@/lib/organizations/sprint-rules";
+import { buildSprintSeries, insideError, nextOrgSprintStart, nextSeriesNumber, seriesPreview } from "@/lib/organizations/sprint-rules";
 import { AlertTriangle, Trash2, X } from "lucide-react";
 import { z } from "zod";
 
@@ -54,6 +54,8 @@ interface SprintEditorModalProps {
     termEnd?: string | null;
     followsOrgSprints?: boolean;
     groupBacklog?: number;
+    /** Orgs: the workspaces a sprint can be shared with (live-fix 34). */
+    children?: Array<{ id: string; title: string }>;
   } | null;
   initialOrgFields?: SprintOrgFields;
   /** This workspace's sprints: Repeat numbering and overlaps, and Move later sprints (report §28.2). */
@@ -157,6 +159,9 @@ export default function SprintEditorModal({
   const [orgFields, setOrgFields] = React.useState<SprintOrgFields>(() => ({
     autoStart: initialOrgFields?.autoStart ?? org?.defaults?.autoStart ?? true,
     showInChildren: initialOrgFields?.showInChildren ?? org?.defaults?.showInChildren ?? true,
+    sharedWith: initialOrgFields?.sharedWith ?? ((initialOrgFields?.showInChildren ?? org?.defaults?.showInChildren ?? true) ? "all" : "none"),
+    sharedWorkspaceIds: initialOrgFields?.sharedWorkspaceIds ?? [],
+    announce: false,
     createMatching: mode === "create" ? org?.defaults?.createMatching ?? false : false,
     parentSprintId: initialOrgFields?.parentSprintId ?? defaultParent?.id ?? null,
     notifyOnStart: initialOrgFields?.notifyOnStart ?? org?.defaults?.notifyOnStart ?? true,
@@ -168,14 +173,19 @@ export default function SprintEditorModal({
   const [planEach, setPlanEach] = React.useState(false);
   const plannedOrgSprints = org?.kind === "child" ? org.orgSprints.filter((s) => s.status === "planning").length : 0;
   const [repeatCount, setRepeatCount] = React.useState(4);
+  // Live-fix 32, 33: the next name in the series, starting the day after the last planned or running sprint ends.
+  const orgDefaults = React.useCallback((base: Pick<SprintEditorDraft, "startDate" | "endDate">) => {
+    if (org?.kind !== "org") return {};
+    const prefix = typeProfile(org.orgType).sprintPrefix;
+    const startDate = nextOrgSprintStart(existingSprints, base.startDate);
+    const length = Math.round((Date.parse(`${base.endDate}T00:00:00Z`) - Date.parse(`${base.startDate}T00:00:00Z`)) / 86_400_000);
+    return { name: `${prefix}${nextSeriesNumber(prefix, existingSprints.map((s) => s.name))}`, startDate, endDate: addDaysToSprintDateInput(startDate, Number.isFinite(length) ? length : 13) };
+  }, [existingSprints, org]);
   const initialDraft = React.useCallback((): SprintEditorDraft => {
     const base = buildSprintEditorDraft({ sprint, sprintCount });
     if (mode !== "create") return base;
     // Report §7.6, smaller bug 14: an organization's next name follows its type ("CO4" for Education).
-    if (org?.kind === "org") {
-      const prefix = typeProfile(org.orgType).sprintPrefix;
-      return { ...base, name: `${prefix}${nextSeriesNumber(prefix, existingSprints.map((s) => s.name))}` };
-    }
+    if (org?.kind === "org") return { ...base, ...orgDefaults(base) };
     // A team sprint's name is its own (report §18.2); its dates start inside the organization sprint.
     if (org?.kind === "child" && defaultParent) {
       const today = new Date().toISOString().slice(0, 10);
@@ -183,8 +193,22 @@ export default function SprintEditorModal({
       return { ...base, name: "", startDate: start, endDate: defaultParent.endDate.slice(0, 10) };
     }
     return base;
-  }, [defaultParent, existingSprints, mode, org, sprint, sprintCount]);
+  }, [defaultParent, mode, org, orgDefaults, sprint, sprintCount]);
   const [draft, setDraft] = React.useState<SprintEditorDraft>(initialDraft);
+  // Post an announcement: prefilled from the form, editable (report §37.2).
+  const defaultAnnouncement = `${draft.name.trim() || "A new sprint"} is planned${draft.startDate ? ` · starts ${SHORT.format(utc(draft.startDate))}` : ""}.`;
+  // Sprints can arrive after the form opens: move the untouched defaults along (CO1 → CO2, not CO1 again).
+  const defaultsRef = React.useRef<{ name?: string; startDate?: string; endDate?: string }>({});
+  React.useEffect(() => {
+    if (mode !== "create" || org?.kind !== "org") return;
+    setDraft((d) => {
+      const before = defaultsRef.current;
+      const next = orgDefaults(buildSprintEditorDraft({ sprint, sprintCount }));
+      defaultsRef.current = next;
+      const keep = (field: "name" | "startDate" | "endDate") => before[field] !== undefined && d[field] !== before[field];
+      return { ...d, name: keep("name") ? d.name : next.name ?? d.name, startDate: keep("startDate") ? d.startDate : next.startDate ?? d.startDate, endDate: keep("endDate") ? d.endDate : next.endDate ?? d.endDate };
+    });
+  }, [mode, org, orgDefaults, sprint, sprintCount]);
   const [fieldErrors, setFieldErrors] = React.useState<FieldErrors>({});
   const [errorMessage, setErrorMessage] = React.useState("");
   const [pendingAction, setPendingAction] = React.useState<PendingAction>(null);
@@ -302,7 +326,8 @@ export default function SprintEditorModal({
           : await onSubmit({
           ...parsed.data,
           autoStart: orgFields.autoStart,
-          ...(org?.kind === "org" ? { showInChildren: orgFields.showInChildren, createMatching: mode === "create" && orgFields.createMatching, notifyOnStart: orgFields.notifyOnStart, ...(mode === "edit" ? { moveDueDates: orgFields.moveDueDates } : {}) } : {}),
+          ...(org?.kind === "org" ? { sharedWith: orgFields.sharedWith, sharedWorkspaceIds: orgFields.sharedWith === "selected" ? orgFields.sharedWorkspaceIds ?? [] : [], createMatching: mode === "create" && orgFields.sharedWith !== "none" && orgFields.createMatching,
+            notifyOnStart: orgFields.notifyOnStart, ...(mode === "create" && orgFields.announce ? { announcement: (orgFields.announcement ?? defaultAnnouncement).trim() } : {}), ...(mode === "edit" ? { moveDueDates: orgFields.moveDueDates } : {}) } : {}),
           ...(org?.kind === "child" ? { parentSprintId: orgFields.parentSprintId ?? null, ...(mode === "create" ? { includeGroupWork: orgFields.includeGroupWork } : {}) } : {}),
           ...(mode === "edit" && laterSprints.length && shiftDays ? { moveLaterSprints: orgFields.moveLaterSprints } : {}),
         });
@@ -577,20 +602,41 @@ export default function SprintEditorModal({
               </label>
               {org?.kind === "org" ? (
                 <>
-                  <label className="flex items-center gap-2 text-[13px] text-foreground">
-                    <input type="checkbox" checked={orgFields.showInChildren ?? true} onChange={(e) => setOrgFields((f) => ({ ...f, showInChildren: e.target.checked }))} />
-                    Add to every workspace in the organization
-                  </label>
-                  {mode === "create" ? (
+                  {/* Live-fix 34 (report §37.2): All, Selected or None, in plain words. */}
+                  <fieldset className="space-y-1.5">
+                    <legend className="text-[13px] font-medium text-foreground">Share with workspaces</legend>
+                    <div className="flex flex-wrap gap-3 text-[13px]">
+                      {([["all", "All"], ["selected", "Selected"], ["none", "None"]] as const).map(([value, label]) => (
+                        <label key={value} className="flex items-center gap-1.5"><input type="radio" name="sprint-share" value={value} checked={orgFields.sharedWith === value} onChange={() => setOrgFields((f) => ({ ...f, sharedWith: value }))} />{label}</label>
+                      ))}
+                    </div>
+                    {orgFields.sharedWith === "selected" ? (
+                      (org.children ?? []).length ? (
+                        <ul className="max-h-40 space-y-1 overflow-y-auto rounded-[5px] border border-border p-2" aria-label="Workspaces to share with">
+                          {(org.children ?? []).map((c) => (
+                            <li key={c.id}><label className="flex items-center gap-2 text-[13px]"><input type="checkbox" checked={orgFields.sharedWorkspaceIds?.includes(c.id) ?? false}
+                              onChange={(e) => setOrgFields((f) => ({ ...f, sharedWorkspaceIds: e.target.checked ? [...(f.sharedWorkspaceIds ?? []), c.id] : (f.sharedWorkspaceIds ?? []).filter((id) => id !== c.id) }))} />{c.title}</label></li>
+                          ))}
+                        </ul>
+                      ) : <p className="text-[12px] text-muted-foreground">No workspaces in the organization yet.</p>
+                    ) : null}
+                  </fieldset>
+                  {mode === "create" && orgFields.sharedWith !== "none" ? (
                     <label className="flex items-center gap-2 text-[13px] text-foreground">
                       <input type="checkbox" checked={orgFields.createMatching ?? false} onChange={(e) => setOrgFields((f) => ({ ...f, createMatching: e.target.checked }))} />
-                      Create a matching sprint in every workspace in the organization
+                      Teams plan their own sprint inside it
                     </label>
                   ) : null}
-                  <label className="flex items-center gap-2 text-[13px] text-foreground">
-                    <input type="checkbox" checked={orgFields.notifyOnStart ?? true} onChange={(e) => setOrgFields((f) => ({ ...f, notifyOnStart: e.target.checked }))} />
-                    Notify members when it starts
-                  </label>
+                  {mode === "create" ? (
+                    <div className="space-y-1.5">
+                      <label className="flex items-center gap-2 text-[13px] text-foreground">
+                        <input type="checkbox" checked={orgFields.announce ?? false} onChange={(e) => setOrgFields((f) => ({ ...f, announce: e.target.checked }))} />
+                        Post an announcement
+                      </label>
+                      {orgFields.announce ? <textarea aria-label="Announcement" rows={2} maxLength={5000} value={orgFields.announcement ?? defaultAnnouncement}
+                        onChange={(e) => setOrgFields((f) => ({ ...f, announcement: e.target.value }))} className="w-full rounded-[5px] border border-border bg-background px-3 py-2 text-[13px]" /> : null}
+                    </div>
+                  ) : null}
                   {mode === "edit" ? (
                     <label className="flex items-start gap-2 text-[13px] text-foreground">
                       <input type="checkbox" className="mt-0.5" checked={orgFields.moveDueDates ?? false} onChange={(e) => setOrgFields((f) => ({ ...f, moveDueDates: e.target.checked }))} />

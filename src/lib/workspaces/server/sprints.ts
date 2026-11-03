@@ -1,4 +1,4 @@
-import { assertOrgSprintRules, createMatchingChildSprints, readSprintMaterials, readSprintOrgContext, unlinkSprints } from "@/lib/organizations/sprints";
+import { assertOrgSprintRules, createMatchingChildSprints, readSprintMaterials, readSprintOrgContext, saveSprintSharing, unlinkSprints } from "@/lib/organizations/sprints";
 import { notifyOrg, remindedRecently } from "@/lib/organizations/notify";
 import { buildSprintSeries, nextSeriesNumber } from "@/lib/organizations/sprint-rules";
 import { readOrgWork } from "@/lib/organizations/settings";
@@ -8,6 +8,7 @@ import { startSprint } from "@/lib/workspaces/sprint-schedule";
 import { postOrgAnnouncement } from "@/lib/organizations/org-updates";
 import { notifyChildSprintsUnlinked, notifyLinkedSprintsOutside, notifyOrgSprintCompleted, orgSprintNotifyDefault, readLinkedChildSprints, shiftOrgSprintDueDates, type LinkedChildSprint } from "@/lib/organizations/sprint-notify";
 import "server-only";
+import { readMasterProgress } from "@/lib/organizations/assignments";
 
 import { isMissingRelationError } from "@/lib/db/errors";
 import { db } from "@/lib/db";
@@ -15,7 +16,7 @@ import { sql, and, eq, inArray, desc, ilike, isNotNull, isNull, ne, or } from "d
 import { getWorkspaceAccessById, assertWorkspaceTabReadAccess, type WorkspaceAccess, canReadWorkspaceTab, WorkspaceTabForbiddenError } from "@/lib/data/workspace-access";
 import { createClient } from "@/lib/supabase/server";
 import { runInFlightDeduped } from "@/lib/utils/inflight-dedupe";
-import { type SprintTaskTimelineEntity, type SprintListItem, buildSprintHealthSummary, type SprintDetailPayload, buildSprintPermissionSet, isSprintReadyToClose } from "@/lib/workspaces/sprint-detail";
+import { type SprintTaskTimelineEntity, type SprintListItem, buildSprintHealthSummary, type SprintDetailPayload, buildSprintPermissionSet } from "@/lib/workspaces/sprint-detail";
 import { workspaceSprintEvents, workspaceSprints, profiles, workspaceMembers, sprintTaskMemberships, tasks, taskNodeLinks, workspaceNodes, taskSubtasks, workspaces, workspaceDocuments, sprintMaterials } from "@/lib/db/schema";
 import { toDateValue, toIsoString } from "@/lib/utils/date";
 import { z } from "zod";
@@ -166,6 +167,8 @@ type SprintTaskActivityQueryRow = {
   linked_file_count: number;
   assignee_id: string | null;
   creator_id: string | null;
+  kind: string | null;
+  assignment_id: string | null;
 };
 
 
@@ -652,6 +655,8 @@ async function readSprintTaskActivityPage(input: {
                 t.deleted_at,
                 t.assignee_id,
                 t.creator_id,
+                t.kind,
+                t.assignment_id,
                 COALESCE(m.added_at, t.created_at) AS activity_at,
                 m.removed_at AS membership_removed_at,
                 0::int AS linked_file_count
@@ -739,6 +744,8 @@ async function readSprintTaskActivityPage(input: {
                 t.deleted_at,
                 t.assignee_id,
                 t.creator_id,
+                t.kind,
+                t.assignment_id,
                 COALESCE(m.added_at, t.created_at) AS activity_at,
                 m.removed_at AS membership_removed_at,
                 0::int AS linked_file_count
@@ -825,6 +832,8 @@ async function readSprintTaskActivityPage(input: {
   ]);
 
   const actorById = new Map(actorRows.map((row) => [row.id, row]));
+  // Live-fix 31: a main assignment shows its class progress ("12/40"), not "Unassigned".
+  const progressByMaster = await readMasterProgress(pageRows.filter((row) => row.kind === "assignment" && !row.assignment_id).map((row) => row.id));
 
   const filesByTaskId = new Map<
     string,
@@ -903,6 +912,7 @@ async function readSprintTaskActivityPage(input: {
     removedAt: toIsoString(row.membership_removed_at),
     linkedFiles: filesByTaskId.get(row.id) ?? [],
     subtasks: subtasksByTaskId.get(row.id) ?? [],
+    assignmentProgress: progressByMaster.has(row.id) ? { done: progressByMaster.get(row.id)!.done, total: progressByMaster.get(row.id)!.total } : null,
     assignee: row.assignee_id
       ? actorById.get(row.assignee_id)
         ? {
@@ -1383,7 +1393,7 @@ export async function createSprintAction(data: CreateSprintInput) {
           endDate,
           status: "planning",
           autoStart: validated.autoStart ?? true,
-          showInChildren: validated.showInChildren ?? true,
+          showInChildren: validated.sharedWith ? validated.sharedWith !== "none" : validated.showInChildren ?? true,
           notifyOnStart: validated.notifyOnStart ?? (await orgSprintNotifyDefault(tx, validated.projectId)),
           parentSprintId,
         })
@@ -1396,11 +1406,16 @@ export async function createSprintAction(data: CreateSprintInput) {
           .returning({ id: tasks.id });
         if (moved.length) await tx.insert(sprintTaskMemberships).values(moved.map((t) => ({ projectId: validated.projectId, sprintId: created.id, taskId: t.id, addedBy: user.id, addedAt: new Date() })));
       }
-      if (created && validated.createMatching) {
+      if (created && validated.sharedWith) {
+        await saveSprintSharing(tx, { orgId: validated.projectId, sprintId: created.id, sharedWith: validated.sharedWith, workspaceIds: validated.sharedWorkspaceIds ?? [] });
+      }
+      // Teams plan their own sprint inside it, in the workspaces it's shared with.
+      if (created && validated.createMatching && validated.sharedWith !== "none") {
         await createMatchingChildSprints(tx, {
           orgId: validated.projectId,
           orgSprint: { id: created.id, name: validated.name, goal: validated.goal ?? null, startDate, endDate },
           actorId: user.id,
+          ...(validated.sharedWith === "selected" ? { onlyWorkspaceIds: validated.sharedWorkspaceIds ?? [] } : {}),
         });
       }
       if (created) {
@@ -1434,6 +1449,11 @@ export async function createSprintAction(data: CreateSprintInput) {
       throw new Error("Couldn’t load created sprint");
     }
 
+    // Post an announcement (report §37.2), off by default; organizations only, after the sprint is saved.
+    if (validated.announcement?.trim()) {
+      const [project] = await db.select({ kind: workspaces.kind }).from(workspaces).where(eq(workspaces.id, validated.projectId)).limit(1);
+      if (project?.kind === "organization") await postOrgAnnouncement(validated.projectId, user.id, validated.announcement);
+    }
     await revalidateWorkspacePaths(validated.projectId);
 
     await enqueueWorkspaceNotificationBestEffort(
@@ -1555,7 +1575,7 @@ export async function updateSprintAction(data: UpdateSprintInput) {
           endDate,
           parentSprintId,
           ...(validated.autoStart === undefined ? {} : { autoStart: validated.autoStart }),
-          ...(validated.showInChildren === undefined ? {} : { showInChildren: validated.showInChildren }),
+          ...(validated.sharedWith ? { showInChildren: validated.sharedWith !== "none" } : validated.showInChildren === undefined ? {} : { showInChildren: validated.showInChildren }),
           ...(validated.notifyOnStart === undefined ? {} : { notifyOnStart: validated.notifyOnStart }),
           updatedAt: changedAt,
         })
@@ -1569,6 +1589,7 @@ export async function updateSprintAction(data: UpdateSprintInput) {
         .returning({ id: workspaceSprints.id });
       if (!updated)
         throw new Error("The Sprint changed before it could be saved");
+      if (validated.sharedWith) await saveSprintSharing(tx, { orgId: validated.projectId, sprintId: validated.sprintId, sharedWith: validated.sharedWith, workspaceIds: validated.sharedWorkspaceIds ?? [] });
       for (const id of movedLater) {
         const [later] = await tx.select({ startDate: workspaceSprints.startDate, endDate: workspaceSprints.endDate, parentSprintId: workspaceSprints.parentSprintId }).from(workspaceSprints).where(eq(workspaceSprints.id, id)).limit(1);
         if (later) await assertOrgSprintRules(tx, { projectId: validated.projectId, ...later, excludeSprintId: id });
@@ -1875,11 +1896,8 @@ export async function completeSprintAction(
         ),
         columns: { endDate: true },
       });
+      // Live-fix 30 (report §37.2): a running sprint can be completed early, not only after its end date.
       if (!activeSprint) throw new Error("Only an active sprint can be completed");
-      // The same inclusive end-of-day (UTC) rule the sprint page uses to offer close-out.
-      if (!isSprintReadyToClose({ status: "active", endDate: activeSprint.endDate?.toISOString() ?? null }, now)) {
-        throw new Error("This sprint can be closed after its scheduled end date");
-      }
       // Claim the transition first. The status predicate serializes
       // duplicate completion requests before memberships are moved or
       // a second lifecycle event can be written.
@@ -2322,6 +2340,7 @@ export async function planOneForEachAction(input: { projectId: string; name: str
       const targets = await tx.execute<{ id: string; start_date: Date; end_date: Date }>(sql`
         SELECT o.id, o.start_date, o.end_date FROM ${workspaceSprints} o JOIN ${workspaces} p ON p.parent_id = o.workspace_id
         WHERE p.id = ${input.projectId} AND o.status = 'planning' AND o.show_in_children
+          AND (NOT EXISTS (SELECT 1 FROM sprint_shared_workspaces ss WHERE ss.sprint_id = o.id) OR EXISTS (SELECT 1 FROM sprint_shared_workspaces ss WHERE ss.sprint_id = o.id AND ss.workspace_id = p.id))
           AND NOT EXISTS (SELECT 1 FROM ${workspaceSprints} c WHERE c.workspace_id = p.id AND c.parent_sprint_id = o.id AND c.status <> 'cancelled')
         ORDER BY o.start_date`);
       let n = 0;

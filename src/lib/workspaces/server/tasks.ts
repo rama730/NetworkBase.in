@@ -1,4 +1,4 @@
-import { assignmentColumn, assignmentWriteContext, orgTaskReadFilter } from "@/lib/organizations/assignments";
+import { assignmentColumn, assignmentWriteContext, orgTaskReadFilter, readMasterProgress } from "@/lib/organizations/assignments";
 import { assignmentWriteBlock } from "@/lib/organizations/assignment-rules";
 import { orgCan, orgRoleOf } from "@/lib/organizations/permissions";
 import { assignmentPeopleOf, notifyAssignmentRemoved } from "@/lib/organizations/assignment-notify";
@@ -378,16 +378,7 @@ async function fetchProjectTasksForActor(
         : null;
       // Assignment cards (decision 14, gap 24): their column and class progress come from the copies, in one query.
       const masters = limitedTasks.filter((task) => task.kind === "assignment" && !task.assignmentId);
-      const progressRows = masters.length === 0 ? [] : await db.execute<{ master_id: string; total: number; started: number; done: number; to_review: number; excused: number }>(sql`
-        SELECT c.assignment_id AS master_id,
-               count(*) FILTER (WHERE c.excused_at IS NULL)::int AS total,
-               count(*) FILTER (WHERE c.excused_at IS NULL AND (c.status <> 'todo' OR c.submission IS NOT NULL))::int AS started,
-               count(*) FILTER (WHERE c.excused_at IS NULL AND c.status = 'done' AND c.review_status <> 'pending')::int AS done,
-               count(*) FILTER (WHERE c.excused_at IS NULL AND c.review_status = 'pending')::int AS to_review,
-               count(*) FILTER (WHERE c.excused_at IS NOT NULL)::int AS excused
-        FROM tasks c WHERE c.assignment_id IN (${sql.join(masters.map((m) => sql`${m.id}::uuid`), sql`, `)}) AND c.deleted_at IS NULL
-        GROUP BY c.assignment_id`);
-      const progressByMaster = new Map(progressRows.map((r) => [r.master_id, r]));
+      const progressByMaster = await readMasterProgress(masters.map((m) => m.id));
       const defaultColumns = masters.length === 0 ? new Map<string, string>() : new Map((await db.execute<{ status: string; id: string }>(sql`
         SELECT DISTINCT ON (status) status, id FROM workspace_workflow_columns WHERE workspace_id = ${projectId} AND is_default ORDER BY status, position`)).map((r) => [r.status, r.id]));
       const normalizedTasks = limitedTasks.map((task) => {

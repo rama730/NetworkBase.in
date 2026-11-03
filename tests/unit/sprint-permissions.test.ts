@@ -77,3 +77,16 @@ describe("sprint permissions and summary", () => {
     );
   });
 });
+
+it("live-fix 30, 35: a running sprint offers Complete and days left; the goal sits on its own line", async () => {
+  const { sprintDaysLeft } = await import("../../src/lib/workspaces/sprint-detail");
+  const now = new Date("2026-11-03T10:00:00.000Z");
+  assert.equal(sprintDaysLeft({ status: "active", endDate: "2026-11-16T00:00:00.000Z" }, now), 13);
+  assert.equal(sprintDaysLeft({ status: "active", endDate: "2026-11-03T00:00:00.000Z" }, now), 0);
+  assert.equal(sprintDaysLeft({ status: "planning", endDate: "2026-11-16T00:00:00.000Z" }, now), null);
+  const { readFileSync } = await import("node:fs");
+  const header = readFileSync("src/components/workspaces/tabs/sprint/SprintHeader.tsx", "utf8");
+  assert.match(header, /const canCompleteNow = permissions\.canComplete && sprint\.status === "active"/);
+  assert.doesNotMatch(header, /text-muted-foreground">—<\/span>/);
+  assert.match(header, /"days"\} left/);
+});

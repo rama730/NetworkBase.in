@@ -20,6 +20,7 @@ import {
   formatSprintTimelineStamp,
   SPRINT_STATUS_PRESENTATION,
   isSprintReadyToClose,
+  sprintDaysLeft,
   type SprintListItem,
   type SprintPermissionSet,
 } from "@/lib/workspaces/sprint-detail";
@@ -49,9 +50,12 @@ export function SprintHeader({
   const computedStatus = sprint.status;
   const status = SPRINT_STATUS_PRESENTATION[computedStatus];
   const readyToClose = isSprintReadyToClose(sprint);
+  // Live-fix 30 (report §37.2): Complete is there the whole time a sprint runs, not only after its end date.
+  const canCompleteNow = permissions.canComplete && sprint.status === "active";
+  const daysLeft = sprintDaysLeft(sprint);
   const completedAt = sprint.completedAt ?? sprint.updatedAt ?? null;
   const canOpenMenu =
-    (permissions.canComplete && readyToClose) ||
+    canCompleteNow ||
     (permissions.canWrite && sprint.status !== "archived");
 
   return (
@@ -60,17 +64,15 @@ export function SprintHeader({
         {/* Phones stack title, meta, then actions so the title keeps the full width (spec §21). */}
         <div className="flex items-start justify-between gap-4 max-md:flex-col max-md:gap-3">
           <div className="flex flex-col gap-1">
-            <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-              <h2 className="nb-section-title text-foreground">
-                {sprint.name}
-              </h2>
-              {goal ? <span className="text-muted-foreground">—</span> : null}
-              {goal ? (
-                <p className="nb-body text-muted-foreground">
-                  {goal}
-                </p>
-              ) : null}
-            </div>
+            <h2 className="nb-section-title text-foreground">
+              {sprint.name}
+            </h2>
+            {/* Live-fix 35: the goal on its own line, no stray dash. */}
+            {goal ? (
+              <p className="nb-body text-muted-foreground">
+                {goal}
+              </p>
+            ) : null}
 
             <div className="mt-1 flex flex-wrap items-center gap-2">
               <span
@@ -98,6 +100,10 @@ export function SprintHeader({
                 <span className="nb-status nb-sprint-tone-warning">
                   Wrap-up needed
                 </span>
+              ) : daysLeft !== null ? (
+                <span className="font-mono text-xs text-muted-foreground">
+                  {daysLeft} {daysLeft === 1 ? "day" : "days"} left
+                </span>
               ) : null}
             </div>
 
@@ -115,7 +121,7 @@ export function SprintHeader({
 
             {permissions.canWrite || canOpenMenu ? (
               <div className="flex shrink-0 items-center gap-2">
-                {permissions.canComplete && readyToClose ? (
+                {canCompleteNow ? (
                   <button
                     type="button"
                     onClick={onComplete}
@@ -156,7 +162,7 @@ export function SprintHeader({
                       </button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      {permissions.canComplete && readyToClose ? (
+                      {canCompleteNow ? (
                         <DropdownMenuItem onSelect={onComplete}>
                           <CheckCircle2
                             aria-hidden="true"
@@ -165,9 +171,7 @@ export function SprintHeader({
                           Complete sprint
                         </DropdownMenuItem>
                       ) : null}
-                      {permissions.canComplete &&
-                      readyToClose &&
-                      permissions.canWrite ? (
+                      {canCompleteNow && permissions.canWrite ? (
                         <DropdownMenuSeparator />
                       ) : null}
                       {permissions.canWrite &&

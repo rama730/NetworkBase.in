@@ -39,7 +39,7 @@ import {
 
 import CreateSprintModal from "@/components/workspaces/v2/sprints/CreateSprintModal";
 import { SprintCalendarButton } from "@/components/workspaces/tabs/sprint/SprintCalendar";
-import { ChildSprintLine, LinkedWorkspacesBlock, RunningOrgSprintPrompt, SprintMaterials, StartNowButton, SprintAssignmentRows, sprintEmptyLine } from "@/components/organizations/OrgSprintParts";
+import { ChildSprintLine, LinkedWorkspacesBlock, RunningOrgSprintPrompt, SprintMaterials, StartNowButton, sprintEmptyLine } from "@/components/organizations/OrgSprintParts";
 import { SprintLifecycleModals } from "@/components/workspaces/tabs/sprint/SprintLifecycleModals";
 import { SkeletonSprints } from "@/components/workspaces/skeletons/SkeletonSprints";
 
@@ -154,7 +154,7 @@ export default function SprintPlanning({
   const isEditorOpen = editorState !== null;
   // Organizations and child projects (report §15): editor options, links and materials.
   const orgContext = detail?.org ?? null;
-  const editorOrg = orgContext ? { kind: orgContext.kind, orgTitle: orgContext.orgTitle, orgSprints: orgContext.orgSprints, orgType: orgContext.orgType, defaults: orgContext.defaults, termEnd: orgContext.termEnd, followsOrgSprints: orgContext.followsOrgSprints, groupBacklog: orgContext.groupBacklog } : null;
+  const editorOrg = orgContext ? { kind: orgContext.kind, orgTitle: orgContext.orgTitle, orgSprints: orgContext.orgSprints, orgType: orgContext.orgType, defaults: orgContext.defaults, termEnd: orgContext.termEnd, followsOrgSprints: orgContext.followsOrgSprints, groupBacklog: orgContext.groupBacklog, children: orgContext.children } : null;
   const existingSprints = useMemo(() => (detail?.sprints ?? []).map((s) => ({ id: s.id, name: s.name, startDate: s.startDate, endDate: s.endDate, status: s.status })), [detail?.sprints]);
   const editingFlags = editorState?.sprint ? orgContext?.sprintFlags[editorState.sprint.id] : undefined;
   const refreshSprints = () => void queryClient.invalidateQueries({ queryKey: queryKeys.project.detail.sprintDetailRoot(projectId) });
@@ -517,7 +517,7 @@ export default function SprintPlanning({
               <SprintMaterials projectId={projectId} sprintId={selectedSprint.id} projectSlug={projectSlug} materials={detail.materials ?? []} canManage={canManageSprints} onChanged={refreshSprints} />
             ) : null}
             {selectedSprint && orgContext?.kind === "org" && canManageSprints ? <LinkedWorkspacesBlock org={orgContext} projectId={projectId} sprintId={selectedSprint.id} /> : null}
-            {selectedSprint && orgContext ? <SprintAssignmentRows projectId={projectId} sprintId={selectedSprint.id} /> : null}
+            {/* Live-fix 31: assignments sit in the work list with their class progress, not in a block of their own. */}
             <SprintTimelineContent
               projectSlug={projectSlug}
               projectKey={projectKey}
@@ -554,7 +554,7 @@ export default function SprintPlanning({
           existingSprints={existingSprints}
           onRepeat={editorState?.mode === "edit" ? undefined : handleRepeatSprints}
           onPlanEach={editorState?.mode === "edit" ? undefined : handlePlanEach}
-          initialOrgFields={editingFlags ? { autoStart: editingFlags.autoStart, showInChildren: editingFlags.showInChildren, parentSprintId: editingFlags.parentSprintId, notifyOnStart: editingFlags.notifyOnStart } : { parentSprintId: editorState?.parentSprintId ?? null }}
+          initialOrgFields={editingFlags ? { autoStart: editingFlags.autoStart, showInChildren: editingFlags.showInChildren, sharedWith: editingFlags.sharedWith, sharedWorkspaceIds: editingFlags.sharedWorkspaceIds, parentSprintId: editingFlags.parentSprintId, notifyOnStart: editingFlags.notifyOnStart } : { parentSprintId: editorState?.parentSprintId ?? null }}
         />
       ) : null}
 

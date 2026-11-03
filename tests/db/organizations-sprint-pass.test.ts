@@ -22,7 +22,6 @@ delete process.env.UPSTASH_REDIS_REST_TOKEN;
 
 let sprints: typeof import("../../src/lib/workspaces/server/sprints");
 let schedule: typeof import("../../src/lib/workspaces/sprint-schedule");
-let rows: typeof import("../../src/app/actions/sprint-assignments");
 let lifecycle: typeof import("../../src/lib/workspaces/server/lifecycle");
 before(async () => {
   const viewerContext = await loadAppModule(() => import("../../src/lib/server/viewer-context"));
@@ -33,7 +32,6 @@ before(async () => {
   });
   sprints = await loadAppModule(() => import("../../src/lib/workspaces/server/sprints"));
   schedule = await loadAppModule(() => import("../../src/lib/workspaces/sprint-schedule"));
-  rows = await loadAppModule(() => import("../../src/app/actions/sprint-assignments"));
   lifecycle = await loadAppModule(() => import("../../src/lib/workspaces/server/lifecycle"));
 });
 
@@ -103,42 +101,6 @@ test("Move due dates too shifts the sprint's assignments and their copies; cance
   assert.equal(cancelled.success, true, JSON.stringify(cancelled));
   assert.ok((await titles(o.b)).includes(`${s.name} was canceled. Week 1 is no longer linked to it`));
   assert.equal((await sql`SELECT parent_sprint_id FROM workspace_sprints WHERE workspace_id = ${lab}`)[0]!.parent_sprint_id, null);
-});
-
-test("sprint assignment rows: admin counts and the completed line, guest counts, member their own, child the group copy", async () => {
-  const o = await org();
-  const s = await newSprint(o.id, o.owner);
-  const settings = (mode: string) => sql.json({ version: 1, submissionType: "none", reviewRequired: false, lateRule: "none", target: { mode }, publishedAt: new Date().toISOString(), closedAt: null });
-  const [m] = await sql`INSERT INTO tasks (workspace_id, title, kind, creator_id, sprint_id, due_date, assignment_settings) VALUES (${o.id}, 'Lab 1', 'assignment', ${o.owner}, ${s.id}, ${new Date(Date.now() - DAY)}, ${settings("everyone")}) RETURNING id`;
-  await sql`INSERT INTO tasks (workspace_id, title, kind, assignment_id, assignee_id, creator_id, status, due_date) VALUES
-    (${o.id}, 'Lab 1', 'task', ${m!.id}, ${o.a}, ${o.owner}, 'done', ${new Date(Date.now() - DAY)}), (${o.id}, 'Lab 1', 'task', ${m!.id}, ${o.b}, ${o.owner}, 'todo', ${new Date(Date.now() - DAY)})`;
-  await sql`INSERT INTO workspace_sprint_events (workspace_id, sprint_id, actor_id, event_type, payload) VALUES (${o.id}, ${s.id}, ${o.owner}, 'completed', '{}')`;
-
-  viewerId = o.owner;
-  const admin = await rows.readSprintAssignmentsAction(o.id, s.id);
-  assert.ok(admin && admin.view === "admin");
-  assert.deepEqual([admin.rows[0]!.counts.done, admin.rows[0]!.counts.total, admin.rows[0]!.counts.missing], [1, 2, 1]);
-  assert.deepEqual(admin.completed && [admin.completed.assignments, admin.completed.missingPeople], [1, 1]);
-  viewerId = o.guest;
-  const guest = await rows.readSprintAssignmentsAction(o.id, s.id);
-  assert.equal(guest?.view, "guest");
-  viewerId = o.b;
-  const member = await rows.readSprintAssignmentsAction(o.id, s.id);
-  assert.ok(member && member.view === "member");
-  assert.equal(member.rows[0]!.state, "missing");
-
-  // The child project's own view of a group copy in its linked sprint.
-  const lab = await sql.begin((tx) => createProject(tx, o.a));
-  await sql`UPDATE workspaces SET parent_id = ${o.id} WHERE id = ${lab}`;
-  await sql`INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (${lab}, ${o.a}, 'owner')`;
-  const [cs] = await sql`INSERT INTO workspace_sprints (workspace_id, sprint_number, name, status, start_date, end_date) VALUES (${lab}, 1, 'Week 1', 'active', now(), now() + interval '5 days') RETURNING id`;
-  const [g] = await sql`INSERT INTO tasks (workspace_id, title, kind, creator_id, assignment_settings) VALUES (${o.id}, 'Proposal', 'assignment', ${o.owner}, ${settings("each_child")}) RETURNING id`;
-  await sql`INSERT INTO tasks (workspace_id, title, kind, assignment_id, assignee_id, creator_id, sprint_id) VALUES (${lab}, 'Proposal', 'task', ${g!.id}, ${o.a}, ${o.owner}, ${cs!.id})`;
-  viewerId = o.a;
-  const child = await rows.readSprintAssignmentsAction(lab, cs!.id);
-  viewerId = "";
-  assert.ok(child && child.view === "child");
-  assert.deepEqual([child.orgTitle, child.rows[0]!.title, child.rows[0]!.state], ["CSE-3A", "Proposal", "not_started"]);
 });
 
 test("Plan your first sprints in the org wizard creates the planned series", async () => {

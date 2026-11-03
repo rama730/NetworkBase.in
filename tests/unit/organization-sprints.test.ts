@@ -53,3 +53,24 @@ test("18.2: a linked sprint's dates name the organization sprint's limit", () =>
   assert.equal(insideError({ startDate: d("2026-10-30"), endDate: d("2026-11-10") }, parent), "CO1 starts Nov 1. Pick a later date.");
   assert.equal(insideError({ startDate: d("2026-11-01"), endDate: d("2026-11-15") }, parent), null);
 });
+
+test("live-fix 32, 33: a new org sprint is named after the last one and starts the day after it ends", async () => {
+  const { nextOrgSprintStart } = await import("../../src/lib/organizations/sprint-rules");
+  const co1 = { name: "CO1", status: "active", endDate: "2026-11-15T00:00:00.000Z" };
+  assert.equal(nextOrgSprintStart([co1], "2026-11-03"), "2026-11-16");
+  assert.equal(nextOrgSprintStart([{ ...co1, status: "completed" }], "2026-11-03"), "2026-11-03", "a finished one doesn't push it");
+  assert.equal(nextOrgSprintStart([{ ...co1, endDate: "2026-10-01T00:00:00.000Z" }], "2026-11-03"), "2026-11-03", "never in the past");
+  assert.equal(nextOrgSprintStart([], "2026-11-03"), "2026-11-03");
+  const modal = (await import("node:fs")).readFileSync("src/components/workspaces/v2/sprints/CreateSprintModal.tsx", "utf8");
+  assert.match(modal, /Sprints can arrive after the form opens/);
+});
+
+test("live-fix 34: the sprint form shares with All, Selected or None, in plain words, with an optional announcement", async () => {
+  const modal = (await import("node:fs")).readFileSync("src/components/workspaces/v2/sprints/CreateSprintModal.tsx", "utf8");
+  assert.match(modal, /Share with workspaces/);
+  assert.match(modal, /\[\["all", "All"\], \["selected", "Selected"\], \["none", "None"\]\]/);
+  assert.match(modal, /Teams plan their own sprint inside it/);
+  assert.doesNotMatch(modal, /Create a matching sprint|Notify members when it starts|Add to every workspace/);
+  assert.match(modal, /Post an announcement/);
+  assert.match(modal, /sharedWorkspaceIds: orgFields\.sharedWith === "selected"/);
+});

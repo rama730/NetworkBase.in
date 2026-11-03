@@ -1089,6 +1089,12 @@ export const calendarFeedTokens = pgTable("calendar_feed_tokens", {
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
+/** "Share with workspaces: Selected" (live-fix 34): the org sprint's chosen workspaces. No rows means All. Server only. */
+export const sprintSharedWorkspaces = pgTable("sprint_shared_workspaces", {
+    sprintId: uuid("sprint_id").notNull().references(() => workspaceSprints.id, { onDelete: "cascade" }),
+    workspaceId: uuid("workspace_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+}, (t) => ({ pk: primaryKey({ columns: [t.sprintId, t.workspaceId] }), workspaceIdx: index("sprint_shared_workspaces_workspace_idx").on(t.workspaceId) }));
+
 /** A pinned announcement someone hid for themselves with × on the Overview (live-fix 11). Server only. */
 export const workspaceUpdateHidden = pgTable("workspace_update_hidden", {
     userId: uuid("user_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),

@@ -1,9 +1,9 @@
 import "server-only";
 
-import { and, eq, inArray, isNull, ne, notInArray, sql } from "drizzle-orm";
+import { and, eq, inArray, isNull, ne, notInArray, sql, type AnyColumn, type SQL } from "drizzle-orm";
 
 import { db } from "@/lib/db";
-import { workspaceDocuments, workspaceNodes, workspaceSprintEvents, workspaceSprints, workspaces, sprintMaterials } from "@/lib/db/schema";
+import { workspaceDocuments, workspaceNodes, workspaceSprintEvents, workspaceSprints, workspaces, sprintMaterials, sprintSharedWorkspaces } from "@/lib/db/schema";
 import { fitsInside, insideError, overlaps } from "@/lib/organizations/sprint-rules";
 import { readOrgWork } from "@/lib/organizations/settings";
 import type { WorkspaceAccess } from "@/lib/data/workspace-access";
@@ -75,15 +75,36 @@ export async function assertOrgSprintRules(executor: Executor, input: {
 }
 
 /** "Create a matching sprint in every child project": a planned, linked sprint per live child (report §15.5). */
+export type SprintSharing = "all" | "selected" | "none";
+
+/** Whether an org sprint reaches a workspace: shared, and either with all of them or with this one (live-fix 34). */
+export function sprintSharedWithSql(sprintId: SQL | AnyColumn, workspaceId: string | SQL) {
+  return sql`(${workspaceSprints.showInChildren} AND (NOT EXISTS (SELECT 1 FROM sprint_shared_workspaces ss WHERE ss.sprint_id = ${sprintId})
+    OR EXISTS (SELECT 1 FROM sprint_shared_workspaces ss WHERE ss.sprint_id = ${sprintId} AND ss.workspace_id = ${workspaceId}::uuid)))`;
+}
+
+/** Saves the choice: All and None keep no rows; Selected keeps the chosen workspaces of this organization. */
+export async function saveSprintSharing(executor: Executor, input: { orgId: string; sprintId: string; sharedWith: SprintSharing; workspaceIds: string[] }) {
+  await executor.delete(sprintSharedWorkspaces).where(eq(sprintSharedWorkspaces.sprintId, input.sprintId));
+  if (input.sharedWith !== "selected") return;
+  const valid = input.workspaceIds.length ? await executor.select({ id: workspaces.id }).from(workspaces)
+    .where(and(eq(workspaces.parentId, input.orgId), inArray(workspaces.id, input.workspaceIds), isNull(workspaces.deletedAt))) : [];
+  if (valid.length === 0) throw new Error("Pick at least one workspace to share with.");
+  await executor.insert(sprintSharedWorkspaces).values(valid.map((w) => ({ sprintId: input.sprintId, workspaceId: w.id })));
+}
+
 export async function createMatchingChildSprints(executor: Executor, input: {
   orgId: string;
   orgSprint: { id: string; name: string; goal: string | null; startDate: Date; endDate: Date };
   actorId: string;
+  /** Selected sharing: only these workspaces get their own sprint inside it. */
+  onlyWorkspaceIds?: string[];
 }) {
   const children = await executor
     .select({ id: workspaces.id })
     .from(workspaces)
-    .where(and(eq(workspaces.parentId, input.orgId), isNull(workspaces.deletedAt), ne(workspaces.status, "archived")));
+    .where(and(eq(workspaces.parentId, input.orgId), isNull(workspaces.deletedAt), ne(workspaces.status, "archived"),
+      input.onlyWorkspaceIds?.length ? inArray(workspaces.id, input.onlyWorkspaceIds) : undefined));
   for (const child of children) {
     await executor.execute(sql`SELECT id FROM ${workspaces} WHERE id = ${child.id} FOR UPDATE`);
     const [inserted] = await executor
@@ -147,7 +168,9 @@ export type SprintOrgContext = {
   /** Orgs: the Repeat preview warns past it (report §28.2). */
   termEnd: string | null;
   /** Per sprint of this project: its link and whether it starts automatically. */
-  sprintFlags: Record<string, { parentSprintId: string | null; autoStart: boolean; showInChildren: boolean; notifyOnStart: boolean }>;
+  sprintFlags: Record<string, { parentSprintId: string | null; autoStart: boolean; showInChildren: boolean; notifyOnStart: boolean; sharedWith: SprintSharing; sharedWorkspaceIds: string[] }>;
+  /** Orgs: the workspaces a sprint can be shared with (live-fix 34). */
+  children?: Array<{ id: string; title: string }>;
   /** Orgs: the org type (name suggestions) and the Work defaults for a new sprint (report §15.2, §21). */
   orgType?: string | null;
   defaults?: { autoStart: boolean; showInChildren: boolean; createMatching: boolean; notifyOnStart: boolean };
@@ -160,7 +183,10 @@ export async function readSprintOrgContext(projectId: string, selectedSprintId: 
     .select({ id: workspaceSprints.id, parentSprintId: workspaceSprints.parentSprintId, autoStart: workspaceSprints.autoStart, showInChildren: workspaceSprints.showInChildren, notifyOnStart: workspaceSprints.notifyOnStart, status: workspaceSprints.status })
     .from(workspaceSprints)
     .where(eq(workspaceSprints.projectId, projectId));
-  const sprintFlags = Object.fromEntries(flags.map((f) => [f.id, { parentSprintId: f.parentSprintId, autoStart: f.autoStart, showInChildren: f.showInChildren, notifyOnStart: f.notifyOnStart }]));
+  const shares = flags.length ? await db.select().from(sprintSharedWorkspaces).where(inArray(sprintSharedWorkspaces.sprintId, flags.map((f) => f.id))) : [];
+  const sharedIds = (id: string) => shares.filter((r) => r.sprintId === id).map((r) => r.workspaceId);
+  const sprintFlags = Object.fromEntries(flags.map((f) => [f.id, { parentSprintId: f.parentSprintId, autoStart: f.autoStart, showInChildren: f.showInChildren, notifyOnStart: f.notifyOnStart,
+    sharedWith: !f.showInChildren ? 'none' as const : sharedIds(f.id).length ? 'selected' as const : 'all' as const, sharedWorkspaceIds: sharedIds(f.id) }]));
   const empty: SprintOrgContext = { kind: project.kind === "organization" ? "org" : "child", orgSprints: [], orgTitle: null, orgSlug: null, parentSprint: null, runningOrgSprint: null, linkedProjects: [], notLinkedCount: 0, notLinked: [], groupBacklog: 0, sprintFlags,
     followsOrgSprints: (project.orgSettings as { followOrgSprints?: unknown } | null)?.followOrgSprints === true,
     termEnd: project.termEnd ? String(project.termEnd).slice(0, 10) : null };
@@ -169,6 +195,7 @@ export async function readSprintOrgContext(projectId: string, selectedSprintId: 
     const work = readOrgWork(project.orgSettings, project.orgType);
     empty.orgType = project.orgType;
     empty.defaults = { autoStart: work.sprintAutoStart, showInChildren: work.sprintShowInChildren, createMatching: work.sprintCreateMatching, notifyOnStart: work.sprintNotifyOnStart };
+    empty.children = await db.select({ id: workspaces.id, title: workspaces.title }).from(workspaces).where(and(eq(workspaces.parentId, projectId), isNull(workspaces.deletedAt), ne(workspaces.status, "archived"))).orderBy(workspaces.title);
     if (!selectedSprintId) return empty;
     const [linked, children] = await Promise.all([
       // Per-team progress (step 12 gap): the team sprint's tasks, done of all, excused work left out.
@@ -180,7 +207,10 @@ export async function readSprintOrgContext(projectId: string, selectedSprintId: 
       db.select({ id: workspaces.id, title: workspaces.title, slug: workspaces.slug }).from(workspaces).where(and(eq(workspaces.parentId, projectId), isNull(workspaces.deletedAt), ne(workspaces.status, "archived"))),
     ]);
     const linkedIds = new Set(linked.map((row) => row.projectId));
-    const notLinked = children.filter((c) => !linkedIds.has(c.id)).map((c) => ({ projectId: c.id, title: c.title, slug: c.slug }));
+    // Only workspaces the sprint is shared with count as "not linked yet" (live-fix 34).
+    const chosen = sharedIds(selectedSprintId);
+    const sharedWithAll = flags.find((f) => f.id === selectedSprintId)?.showInChildren !== false;
+    const notLinked = children.filter((c) => sharedWithAll && (chosen.length === 0 || chosen.includes(c.id)) && !linkedIds.has(c.id)).map((c) => ({ projectId: c.id, title: c.title, slug: c.slug }));
     return { ...empty, linkedProjects: linked, notLinkedCount: notLinked.length, notLinked };
   }
 
@@ -188,7 +218,7 @@ export async function readSprintOrgContext(projectId: string, selectedSprintId: 
   const orgSprints = await db
     .select({ id: workspaceSprints.id, name: workspaceSprints.name, status: workspaceSprints.status, startDate: workspaceSprints.startDate, endDate: workspaceSprints.endDate })
     .from(workspaceSprints)
-    .where(and(eq(workspaceSprints.projectId, project.parentId!), inArray(workspaceSprints.status, ["planning", "active"]), eq(workspaceSprints.showInChildren, true)))
+    .where(and(eq(workspaceSprints.projectId, project.parentId!), inArray(workspaceSprints.status, ["planning", "active"]), sprintSharedWithSql(workspaceSprints.id, projectId)))
     .orderBy(workspaceSprints.startDate);
   const selected = flags.find((f) => f.id === selectedSprintId);
   const [own] = selected?.parentSprintId

@@ -195,3 +195,31 @@ test("18.2: Plan one for each makes a team sprint inside every planned organizat
   assert.deepEqual(rows.map((r) => [r.name, r.parent]), [["Parser week 1", "CO2"], ["Parser week 2", "CO3"]]);
   assert.equal((await sprints.planOneForEachAction({ projectId: o.child, name: "Again" })).success, false, "nothing left to plan");
 });
+
+test("live-fix 34: Share with workspaces: Selected reaches only the chosen ones, None reaches none", async () => {
+  const o = await org();
+  const other = await sql.begin((tx) => createProject(tx, o.lead, { visibility: "org" }));
+  await sql`UPDATE workspaces SET parent_id = ${o.id}, title = 'Team Osprey' WHERE id = ${other}`;
+  viewerId = o.owner;
+  const shared = await sprints.createSprintAction({ projectId: o.id, name: "CO1", startDate: day(0), endDate: day(14), sharedWith: "selected", sharedWorkspaceIds: [o.child], createMatching: true });
+  assert.equal(shared.success, true, JSON.stringify(shared));
+  viewerId = o.lead;
+  const seen = async (child: string) => ((await orgSprints.readSprintOrgContext(child, null))?.orgSprints ?? []).map((s) => s.name);
+  assert.deepEqual([await seen(o.child), await seen(other)], [["CO1"], []]);
+  assert.deepEqual([(await rows(o.child)).map((r) => r.name), (await rows(other)).map((r) => r.name)], [["CO1"], []], "Teams plan their own sprint inside it: only the chosen ones");
+
+  viewerId = o.owner;
+  const hidden = await sprints.createSprintAction({ projectId: o.id, name: "CO2", startDate: day(15), endDate: day(28), sharedWith: "none", announcement: "CO2 is planned · starts soon." });
+  assert.equal(hidden.success, true);
+  const [post] = await sql`SELECT content FROM workspace_updates WHERE workspace_id = ${o.id} AND content = 'CO2 is planned · starts soon.'`;
+  assert.ok(post, "Post an announcement posts it");
+  viewerId = o.lead;
+  assert.equal((await seen(o.child)).includes("CO2"), false);
+  viewerId = o.owner;
+  const context = await orgSprints.readSprintOrgContext(o.id, null);
+  const flags = context?.sprintFlags[shared.success ? shared.sprint.id : ""];
+  assert.deepEqual([flags?.sharedWith, flags?.sharedWorkspaceIds], ["selected", [o.child]]);
+  assert.deepEqual(context?.children?.map((c) => c.title).sort(), ["Team Falcon", "Team Osprey"]);
+  const selected = await orgSprints.readSprintOrgContext(o.id, shared.success ? shared.sprint.id : null);
+  assert.deepEqual(selected?.notLinked.map((n) => n.title), [], "Team Osprey isn't in this sprint, so it isn't 'not linked'");
+});

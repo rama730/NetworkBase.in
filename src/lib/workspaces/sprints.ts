@@ -125,6 +125,11 @@ export const createSprintDraftSchema = z
 const orgSprintFields = {
   autoStart: z.boolean().optional(),
   showInChildren: z.boolean().optional(),
+  // Live-fix 34: Share with workspaces: All, Selected (with the chosen ones) or None.
+  sharedWith: z.enum(["all", "selected", "none"]).optional(),
+  sharedWorkspaceIds: z.array(z.string().uuid()).max(200).optional(),
+  // Post an announcement (report §37.2): off by default, the text prefilled and editable.
+  announcement: z.string().trim().max(5000).nullable().optional(),
   createMatching: z.boolean().optional(),
   parentSprintId: z.string().uuid().nullable().optional(),
   // Org sprints (report §15.2–15.3): notify on start; on a date change, shift its assignments' due dates too.
@@ -220,7 +225,7 @@ export function getSprintDurationSummary(startDate: string, endDate: string) {
 
 export type CreateSprintDraftInput = z.infer<typeof createSprintDraftSchema>;
 /** What the sprint editor sends: the draft plus the org sprint choices (report §15.2, §15.5). */
-export type SprintOrgFields = { autoStart?: boolean; showInChildren?: boolean; createMatching?: boolean; parentSprintId?: string | null; notifyOnStart?: boolean; moveDueDates?: boolean; moveLaterSprints?: boolean; includeGroupWork?: boolean };
+export type SprintOrgFields = { autoStart?: boolean; showInChildren?: boolean; sharedWith?: "all" | "selected" | "none"; sharedWorkspaceIds?: string[]; announce?: boolean; announcement?: string; createMatching?: boolean; parentSprintId?: string | null; notifyOnStart?: boolean; moveDueDates?: boolean; moveLaterSprints?: boolean; includeGroupWork?: boolean };
 export type SprintEditorSubmission = CreateSprintDraftInput & SprintOrgFields;
 export type CreateSprintInput = z.infer<typeof createSprintSchema>;
 export type UpdateSprintInput = z.infer<typeof updateSprintSchema>;
