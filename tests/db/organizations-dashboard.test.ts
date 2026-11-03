@@ -78,6 +78,11 @@ test("Needs your attentionr attention: admins see reviews and requests; members 
   await sql`UPDATE workspace_sprints SET end_date = now() - interval '1 hour' WHERE id = ${o.sprint}`;
   const admin = await dashboard(o.orgId, o.admin);
   assert.deepEqual(admin!.needsYou.map((n) => n.label), ["1 submission to review · Lab 2", "1 join request", "CO2 ended · Complete it?"]);
+  // Live-fix 12: a bold title, a quiet detail line, and Approve in place for a single request.
+  const [review, request] = admin!.needsYou;
+  assert.deepEqual([review!.title, review!.detail?.startsWith("Lab 2 · oldest")], ["1 submission to review", true]);
+  const [app] = await sql`SELECT id FROM role_applications WHERE workspace_id = ${o.orgId} AND applicant_id = ${applicant}`;
+  assert.deepEqual([request!.title, request!.approveId, /ago$/.test(request!.detail ?? "")], ["1 join request", app!.id, true]);
 
   await o.copy(o.b, { review: "rejected", status: "in_progress", due: "5 days" });
   await o.copy(o.b, { due: "-2 days" });
@@ -98,6 +103,28 @@ test("This sprint and Coming up: admins see counts, members their own status", a
   const member = await dashboard(o.orgId, o.a);
   assert.deepEqual(member!.thisSprint.items.map((i) => [i.title, i.own?.state]), [["Lab 2", "submitted"]]);
   assert.ok(member!.comingUp.some((c) => c.label === "CO2 ends"));
+});
+
+test("live-fix 13: This sprint is a card with status, goal, dates, progress and ordinary tasks too", async () => {
+  const o = await org();
+  await sql`UPDATE workspace_sprints SET goal = 'Arrays and linked lists' WHERE id = ${o.sprint}`;
+  const [col] = await sql`SELECT id FROM workspace_workflow_columns WHERE workspace_id = ${o.orgId} AND status = 'done' LIMIT 1`;
+  await sql`INSERT INTO tasks (workspace_id, creator_id, title, status, workflow_column_id, sprint_id, assignee_id) VALUES (${o.orgId}, ${o.owner}, 'Prepare the rubric', 'done', ${col!.id}, ${o.sprint}, ${o.owner})`;
+  const s = (await dashboard(o.orgId, o.admin))!.thisSprint;
+  assert.deepEqual([s.sprint?.status, s.sprint?.goal, typeof s.sprint?.startDate], ["active", "Arrays and linked lists", "string"]);
+  assert.deepEqual(s.tasks.map((t) => [t.title, t.status]), [["Prepare the rubric", "done"]]);
+  assert.deepEqual(s.progress, { done: 1, total: 2 }, "the rubric is done; Lab 2 isn't");
+  await sql`UPDATE workspace_sprints SET end_date = now() - interval '1 hour' WHERE id = ${o.sprint}`;
+  assert.equal((await dashboard(o.orgId, o.admin))!.thisSprint.sprint?.status, "ended");
+});
+
+test("live-fix 15: This week includes ordinary task dues, with a type", async () => {
+  const o = await org();
+  const [col] = await sql`SELECT id FROM workspace_workflow_columns WHERE workspace_id = ${o.orgId} AND status = 'todo' LIMIT 1`;
+  await sql`INSERT INTO tasks (workspace_id, creator_id, title, status, workflow_column_id, due_date) VALUES (${o.orgId}, ${o.owner}, 'Print handouts', 'todo', ${col!.id}, now() + interval '1 day')`;
+  const week = (await dashboard(o.orgId, o.admin))!.thisWeek;
+  assert.ok(week.some((w) => w.label === "Print handouts due" && w.kind === "due"), JSON.stringify(week));
+  assert.ok(week.every((w) => w.kind === "due" || w.kind === "sprint"));
 });
 
 test("activity privacy: members never see other people's submissions; admins do", async () => {
@@ -215,4 +242,19 @@ test("§28 pass: rows carry stage, sprint inside the org sprint and New in <org>
   assert.ok(note, "the lead heard");
   viewerId = o.b;
   assert.equal((await dash.remindLeadsAction(o.orgId, [o.child])).success, false, "admins only");
+});
+
+test("live-fix 11: pinned shows who and when, a dot until you've read Updates, and × hides it for you only", async () => {
+  const o = await org();
+  await sql`UPDATE profiles SET full_name = 'Ms. Rao' WHERE id = ${o.owner}`;
+  const [post] = await sql`INSERT INTO workspace_updates (workspace_id, author_id, content, is_pinned) VALUES (${o.orgId}, ${o.owner}, 'Lab 1 is out. Due Sunday.', true) RETURNING id`;
+  const pinned = (await dashboard(o.orgId, o.a))!.pinned!;
+  assert.deepEqual([pinned.id, pinned.authorName, pinned.unread, typeof pinned.at], [post!.id, "Ms. Rao", true, "string"]);
+  await sql`UPDATE workspace_members SET last_seen_updates_at = now() + interval '1 minute' WHERE workspace_id = ${o.orgId} AND user_id = ${o.a}`;
+  assert.equal((await dashboard(o.orgId, o.a))!.pinned!.unread, false);
+
+  viewerId = o.a;
+  assert.deepEqual(await dash.hidePinnedForMeAction(o.orgId, post!.id), { success: true });
+  assert.equal((await dashboard(o.orgId, o.a))!.pinned, null, "hidden for her");
+  assert.equal((await dashboard(o.orgId, o.b))!.pinned?.id, post!.id, "still pinned for everyone else");
 });

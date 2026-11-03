@@ -414,6 +414,13 @@
       "when": 1793482086300,
       "tag": "0059_master_review_cleanup",
       "breakpoints": true
+    },
+    {
+      "idx": 59,
+      "version": "7",
+      "when": 1793482146300,
+      "tag": "0060_update_hidden_for_user",
+      "breakpoints": true
     }
   ]
 }

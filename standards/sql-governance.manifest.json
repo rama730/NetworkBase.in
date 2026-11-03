@@ -62,7 +62,8 @@
     "drizzle/0056_org_invite_message.sql",
     "drizzle/0057_org_member_away.sql",
     "drizzle/0058_calendar_feed_tokens.sql",
-    "drizzle/0059_master_review_cleanup.sql"
+    "drizzle/0059_master_review_cleanup.sql",
+    "drizzle/0060_update_hidden_for_user.sql"
   ],
   "legacyDatabaseTags": [],
   "allowedUtilitySqlFiles": [

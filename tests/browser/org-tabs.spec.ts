@@ -35,7 +35,8 @@ test.beforeAll(async () => {
               .filter((p)=>!admins||p[2]!=='member').map(([userId,name,role,projectHint,skills])=>({userId,name,username:null,avatarUrl:null,title:role==='owner'?'Teacher':null,role,projectHint,skills}));
             export const listOutsidePeopleAction=async()=>[{userId:'x1',name:'Client Person',username:'client',avatarUrl:null,title:'Mentor',role:'outside',projectHint:null}];`,
         '@/app/actions/org-profile': `export const revokeOrgVerificationAction=${ok},verifyOrgContributionsAction=${ok};`,
-        '@/app/actions/org-dashboard': `export const dismissWelcomeAction=async()=>({success:true});export const readChildOrgLineAction=async()=>null,readOrgDashboardAction=async()=>({success:false,error:'unused'});
+        '@/app/actions/workspace/updates': `export const toggleWorkspaceUpdatePinAction=async()=>({success:true});`,
+        '@/app/actions/org-dashboard': `export const dismissWelcomeAction=async()=>({success:true}),hidePinnedForMeAction=async()=>({success:true});export const readChildOrgLineAction=async()=>null,readOrgDashboardAction=async()=>({success:false,error:'unused'});
             export const readOrgWorkspacesAction=async()=>({success:true,isAdmin:true,requests:[],summary:{total:3,attention:1,quiet:1,notInProject:2},rows:['Team Falcon — Distributed Systems Capstone','Team Osprey','Team Kestrel'].map((title,i)=>({
             id:'c'+i,title,slug:'p'+i,visibility:['org','private','public'][i],status:'active',lead:{id:'l',name:'Alexandria Ramana Chandrasekhar'},members:6,units:2,open:4,overdue:i,inReview:1,
             groupCopy:i?null:{title:'Milestone 2 report',state:'submitted'},lastActivityAt:new Date(Date.now()-i*864e5).toISOString(),reasons:i===1?['2 overdue','quiet 7 days']:[],mine:i===0,

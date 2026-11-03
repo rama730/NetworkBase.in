@@ -1089,6 +1089,13 @@ export const calendarFeedTokens = pgTable("calendar_feed_tokens", {
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
+/** A pinned announcement someone hid for themselves with × on the Overview (live-fix 11). Server only. */
+export const workspaceUpdateHidden = pgTable("workspace_update_hidden", {
+    userId: uuid("user_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+    updateId: uuid("update_id").notNull().references(() => workspaceUpdates.id, { onDelete: "cascade" }),
+    hiddenAt: timestamp("hidden_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({ pk: primaryKey({ columns: [t.userId, t.updateId] }), updateIdx: index("workspace_update_hidden_update_idx").on(t.updateId) }));
+
 /** Away (report §33.5, DB7): an admin marks a member away; their work due then is excused. Server only. */
 export const orgMemberAway = pgTable("org_member_away", {
     id: uuid("id").defaultRandom().primaryKey(),

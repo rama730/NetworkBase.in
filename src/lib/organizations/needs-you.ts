@@ -9,6 +9,7 @@ import { workspaceMembers, workspaces, workspaceSprints, roleApplications, taskT
 import type { WorkspaceAccess } from "@/lib/data/workspace-access";
 import { copyState } from "@/lib/organizations/assignment-rules";
 import { reviewRow } from "@/lib/organizations/dashboard-rules";
+import { formatDistanceToNow } from "@/lib/utils/date";
 import { memberStatus } from "@/lib/organizations/member-rules";
 import { lastActiveHereSince } from "@/lib/organizations/members";
 import { JOIN_SPIKE_PER_HOUR } from "@/lib/organizations/trust-rules";
@@ -23,7 +24,8 @@ export const stateOf = (c: { status: string; reviewStatus: string; dueDate: Date
 export const copyColumns = { id: tasks.id, title: tasks.title, projectId: tasks.projectId, assigneeId: tasks.assigneeId, assignmentId: tasks.assignmentId, sprintId: tasks.sprintId, status: tasks.status, reviewStatus: tasks.reviewStatus, dueDate: tasks.dueDate, reviewSubmittedAt: tasks.reviewSubmittedAt, completedAt: tasks.completedAt, excusedAt: tasks.excusedAt }
 export const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`
 
-export type NeedsYouRow = { kind: string; label: string; href: string; tone?: 'amber' };
+/** `title` and `detail` are the row's bold line and quiet line (report §7.2); `approveId` approves one join request in place. */
+export type NeedsYouRow = { kind: string; label: string; href: string; tone?: 'amber'; title?: string; detail?: string; approveId?: string };
 
 /** A person's own assignment copies in the org, theirs or their team's. */
 export async function ownCopies(orgId: string, userId: string) {
@@ -61,13 +63,18 @@ export async function readNeedsYou(v: OrgViewer, now: Date): Promise<NeedsYouRow
                 .innerJoin(workspaces, eq(workspaces.id, tasks.projectId))
                 .where(and(isNotNull(tasks.assignmentId), isNull(tasks.deletedAt), isNull(tasks.excusedAt), eq(tasks.reviewStatus, 'pending'), or(eq(tasks.projectId, v.org.id), eq(workspaces.parentId, v.org.id))))
                 .groupBy(tasks.title).orderBy(asc(tasks.title)),
-            db.select({ n: sql<number>`count(*)::int` }).from(roleApplications).where(and(eq(roleApplications.projectId, v.org.id), isNull(roleApplications.roleId), eq(roleApplications.status, 'pending'))),
+            db.select({ n: sql<number>`count(*)::int`, id: sql<string>`min(${roleApplications.id}::text)`, at: sql<string>`min(${roleApplications.createdAt})::text`,
+                name: sql<string | null>`min(COALESCE(p.full_name, p.username))` }).from(roleApplications).leftJoin(sql`profiles p`, sql`p.id = ${roleApplications.applicantId}`)
+                .where(and(eq(roleApplications.projectId, v.org.id), isNull(roleApplications.roleId), eq(roleApplications.status, 'pending'))),
             db.select({ name: workspaceSprints.name }).from(workspaceSprints).where(and(eq(workspaceSprints.projectId, v.org.id), eq(workspaceSprints.status, 'active'), lt(workspaceSprints.endDate, now))),
             readWorkspaceRequests(v.org.id),
             db.select({ max: workspaces.maxCollaborators, members: sql<number>`(SELECT count(*)::int FROM workspace_members WHERE workspace_id = ${v.org.id})` }).from(workspaces).where(eq(workspaces.id, v.org.id)),
         ]);
-        for (const r of reviews) rows.push({ kind: 'review', ...reviewRow(r.title, r.n, r.oldest ? new Date(r.oldest) : null, now), href: `${base}?tab=tasks` });
-        if (requests && requests.n > 0) rows.push({ kind: 'requests', label: plural(requests.n, 'join request'), href: `${base}?tab=members` });
+        for (const r of reviews) rows.push({ kind: 'review', ...reviewRow(r.title, r.n, r.oldest ? new Date(r.oldest) : null, now), title: `${r.n} ${r.n === 1 ? 'submission' : 'submissions'} to review`,
+            detail: `${r.title}${r.oldest ? ` · oldest ${formatDistanceToNow(new Date(r.oldest), { addSuffix: true })}` : ''}`, href: `${base}?tab=tasks&taskScope=review` });
+        if (requests && requests.n > 0) rows.push({ kind: 'requests', label: plural(requests.n, 'join request'), title: plural(requests.n, 'join request'), href: `${base}?tab=members`,
+            detail: requests.n === 1 ? `${requests.name ?? 'Someone'} · ${formatDistanceToNow(new Date(requests.at), { addSuffix: true })}` : `oldest ${formatDistanceToNow(new Date(requests.at), { addSuffix: true })}`,
+            ...(requests.n === 1 ? { approveId: requests.id } : {}) });
         // Report §22.4: reports live in Settings → Moderation, and this row links there.
         const reports = v.userId ? (await readOrgCases(v.org.id, v.userId)).length : 0;
         if (reports > 0) rows.push({ kind: 'reports', label: `${plural(reports, 'report')} to review`, href: `${base}?tab=settings&section=org-moderation` });

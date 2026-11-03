@@ -4,7 +4,8 @@ import { typeProfile } from '@/lib/organizations/type-profile'
 import { ActivityItem } from '@/components/ui/activity-item'
 import { OrgInvitePanel } from '@/components/organizations/OrgInvitePanel'
 import { useState, type ReactNode } from 'react'
-import { X } from 'lucide-react'
+import { Pencil, X } from 'lucide-react'
+import { UserAvatar } from '@/components/ui/UserAvatar'
 import { aboutStages } from '@/lib/organizations/dashboard-rules'
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
@@ -56,11 +57,13 @@ export function OrgAboutTab({ project, isCreator, onEdit, memberRole = null, vis
                     <section aria-label="Welcome note" className="flex items-start gap-2 rounded-lg border border-border bg-card p-4">
                         <p className="nb-body min-w-0 flex-1 whitespace-pre-line text-foreground">{org.welcomeNote}</p>
                         {viewer === 'member' ? <button type="button" aria-label="Hide welcome note" className="rounded p-1 text-muted-foreground hover:bg-muted" onClick={() => setNoteTucked(true)}><X className="size-4" /></button> : null}
+                        {/* Live-fix 19: owners and admins edit it where it lives, in Settings → General. */}
+                        {viewer === 'admin' ? <Link href={`${base}?tab=settings`} aria-label="Edit welcome note" className="rounded p-1 text-muted-foreground hover:bg-muted"><Pencil className="size-4" /></Link> : null}
                     </section>
                 ) : !org?.welcomeNote && viewer === 'admin' ? (
                     <Link href={`${base}?tab=settings`} className="inline-block text-sm underline underline-offset-4">Add a welcome note</Link>
                 ) : null}
-                <ProjectOverviewCard project={project} isCreator={isCreator} onEdit={onEdit} labels={ORG_LABELS} />
+                <ProjectOverviewCard project={project} isCreator={isCreator} onEdit={onEdit} labels={ORG_LABELS} editLabel="Edit details" />
                 {/* Empty-state prompts for admins (report §22.3). */}
                 {isCreator && (!statements.problemStatement || !statements.solutionStatement) ? (
                     <p className="flex flex-wrap gap-3 text-sm">
@@ -82,7 +85,13 @@ export function OrgAboutTab({ project, isCreator, onEdit, memberRole = null, vis
                     <JourneyTimeline stages={data.journey.stages} currentStageIndex={data.journey.currentIndex} isCreator={false} stageCompletionDates={data.journey.completionDates} layout="rail" />
                 ) : stages === 'single' && data?.journey ? (
                     <RailSection title="Stages">
-                        <p className="text-sm">{data.journey.stages[0]}{data.journey.currentIndex > 0 ? ' · Completed' : ''}</p>
+                        {/* Live-fix 20: one solid stop, then a faint next one, not a line of text. */}
+                        <div className="flex items-center gap-2 text-sm">
+                            <span className="size-2.5 shrink-0 rounded-full bg-primary" aria-hidden="true" />
+                            <span className="font-medium">{data.journey.stages[0]}{data.journey.currentIndex > 0 ? ' · Completed' : ''}</span>
+                            <span className="h-px flex-1 bg-border" aria-hidden="true" />
+                            <span className="flex items-center gap-1.5 text-muted-foreground opacity-60" data-testid="org-stage-next"><span className="size-2.5 rounded-full border border-border" aria-hidden="true" />Next</span>
+                        </div>
                         {viewer === 'admin' ? <Link href={`${base}?tab=sprints`} className="text-[13px] text-primary hover:underline">Add the next sprint</Link> : null}
                     </RailSection>
                 ) : stages === 'ghost' ? (
@@ -120,11 +129,13 @@ export function OrgAboutTab({ project, isCreator, onEdit, memberRole = null, vis
                 ) : null}
                 {data?.leaders.length ? (
                     <RailSection title="Owner and admins">
-                        <ul className="space-y-1 text-sm">
+                        <ul className="space-y-2 text-sm">
                             {data.leaders.map((l) => (
-                                <li key={l.id}>
+                                <li key={l.id} className="flex min-w-0 flex-wrap items-center gap-x-1.5">
+                                    <UserAvatar identity={{ id: l.id, fullName: l.name, username: l.username, avatarUrl: l.avatarUrl }} size={24} roundedClassName="rounded-full" />
                                     {l.username ? <Link href={`/u/${l.username}`} className="font-medium hover:underline">{l.name}</Link> : <span className="font-medium">{l.name}</span>}
-                                    <span className="text-muted-foreground"> · {l.title || roleName(l.role)}</span>
+                                    {/* Live-fix 21: the role word, then their title ("Teacher · Course Instructor"). */}
+                                    <span className="text-muted-foreground">· {[roleName(l.role), l.title].filter(Boolean).join(' · ')}</span>
                                     {data.card.kind !== 'visitor' ? <> · <Link href={`/messages?userId=${l.id}`} onClick={(e) => messageUserInWindow(l.id, e)} className="text-[12px] underline underline-offset-4">Message</Link></> : null}
                                 </li>
                             ))}

@@ -12,6 +12,8 @@ interface ProjectOverviewCardProps {
     onEdit?: () => void;
     /** Organizations read the same columns as About / Who it's for / What happens here (report §34.11). */
     labels?: { description: string; problem: string; solution: string };
+    /** Organizations show an Edit button on the filled card too (live-fix 19); workspaces keep theirs in the header. */
+    editLabel?: string;
 }
 
 const StatementBox = memo(function StatementBox({
@@ -66,6 +68,7 @@ const ProjectOverviewCard = memo(function ProjectOverviewCard({
     isCreator,
     onEdit,
     labels = { description: "About this workspace", problem: "Problem", solution: "Approach" },
+    editLabel,
 }: ProjectOverviewCardProps) {
     const [statement, setStatement] = useState<StatementSelection>(null);
     const [descriptionExpanded, setDescriptionExpanded] = useState(false);
@@ -112,7 +115,10 @@ const ProjectOverviewCard = memo(function ProjectOverviewCard({
 
     return (
         <div className="flex h-fit flex-col overflow-hidden rounded-[8px] border border-border bg-card shadow-none">
-            <div className="p-4 md:p-6">
+            <div className="relative p-4 md:p-6">
+                {isCreator && onEdit && editLabel ? (
+                    <button type="button" onClick={onEdit} className="nb-touch-target absolute right-3 top-3 rounded-[5px] border border-border bg-card px-2.5 py-1 text-[12px] font-medium text-foreground hover:bg-muted">{editLabel}</button>
+                ) : null}
                 <div className="grid grid-cols-1 gap-6 md:gap-8">
                     {/* Mobile key/value rows (spec §19: category and collaboration intent). */}
                     {categoryLabel || openRoleTitles.length > 0 ? (

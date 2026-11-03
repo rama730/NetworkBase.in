@@ -3,7 +3,8 @@
 import { and, asc, desc, eq, gt, gte, inArray, isNotNull, isNull, lt, ne, or, sql } from 'drizzle-orm';
 
 import { db } from '@/lib/db';
-import { profileContributions, profiles, workspaceMembers, workspaceNodeEvents, workspaceNodes, workspaceOpenRoles, workspaces, workspaceSprints, workspaceUpdates, roleApplications, taskActivityEvents, taskTeamMembers, tasks } from '@/lib/db/schema';
+import { isUuid } from '@/lib/validations/uuid';
+import { profileContributions, profiles, workspaceMembers, workspaceUpdateHidden, workspaceNodeEvents, workspaceNodes, workspaceOpenRoles, workspaces, workspaceSprints, workspaceUpdates, roleApplications, taskActivityEvents, taskTeamMembers, tasks } from '@/lib/db/schema';
 import { getWorkspaceAccessById, type WorkspaceAccess } from '@/lib/data/workspace-access';
 import { orgFileAccessSql } from '@/lib/files/internal-helpers';
 import { copyState, type CopyState } from '@/lib/organizations/assignment-rules';
@@ -16,6 +17,7 @@ import { privateOrgLine } from '@/lib/organizations/join-rules';
 const CLASS_WORD: Record<string, string> = { education: 'class', company: 'team', research: 'lab', community: 'group', club: 'club', other: 'group' };
 import { activityMatches, activityTime } from '@/lib/organizations/activity-rules';
 import { readViewerOrgRole } from '@/lib/organizations/detail';
+import { orgTaskReadFilter } from '@/lib/organizations/assignments';
 import { childGrant, orgCan, orgRoleOf } from '@/lib/organizations/permissions';
 import { audienceSql } from '@/lib/organizations/org-updates';
 import { readOrgDocsAction } from '@/app/actions/org-docs';
@@ -121,11 +123,14 @@ export type SprintItem = { masterId: string; title: string; dueDate: string | nu
 export type OrgDashboardData = {
     success: true;
     role: 'admin' | 'member' | 'guest';
-    pinned: { id: string; content: string } | null;
+    /** Live-fix 11: megaphone, author photo, one line, time; a dot until you've opened Updates since. */
+    pinned: { id: string; content: string; at: string; authorName: string; authorAvatarUrl: string | null; unread: boolean; canUnpin: boolean } | null;
     needsYou: NeedsYouRow[];
-    thisSprint: { sprint: { id: string; name: string; endDate: string } | null; next: { name: string; startDate: string } | null; items: SprintItem[] };
-    comingUp: Array<{ date: string; label: string }>;
-    thisWeek: Array<{ date: string; label: string; group: 'Today' | 'Tomorrow' | 'This week' }>;
+    /** Live-fix 13: a real card. `ended` is a running sprint past its end date (Complete it); progress counts tasks and assignments. */
+    thisSprint: { sprint: { id: string; name: string; goal: string | null; status: 'active' | 'ended'; startDate: string; endDate: string } | null; next: { name: string; startDate: string } | null; items: SprintItem[];
+        tasks: Array<{ id: string; title: string; assignee: string | null; status: string }>; progress: { done: number; total: number } };
+    comingUp: Array<{ date: string; label: string; kind: 'sprint' | 'due' }>;
+    thisWeek: Array<{ date: string; label: string; kind: 'sprint' | 'due'; group: 'Today' | 'Tomorrow' | 'This week' }>;
     today: TodayRow[];
     standing: { onTrack: number; behind: number; inactive: number } | null;
     standingWord: string;
@@ -133,9 +138,12 @@ export type OrgDashboardData = {
     welcome: { note: string | null; start: Array<{ kind: string; label: string; href: string }>; addToProfile: boolean } | null;
     restricted: boolean;
     activity: ActivityItem[];
-    projects: Array<{ id: string; title: string; slug: string | null }>;
+    /** Live-fix 17: avatar, "Lead · N members" and an overdue chip; admins see the most in need first. */
+    projects: Array<{ id: string; title: string; slug: string | null; coverImage: string | null; lead: string | null; members: number; overdue: number }>;
     people: { avatars: Array<{ id: string; name: string; avatarUrl: string | null }>; total: number; joinedThisWeek: number; requests: number };
     getStarted: string[];
+    /** The organization's time zone, for This week's date tiles. */
+    timeZone: string | null;
     /** Archived orgs (report §27.4): "CSE-3A ended Dec 2026 · 5 sprints · 40 assignments · 64 members". */
     archivedSummary: string | null;
     /** Catch up (report §33.5): a late joiner's two weeks of "here's what you missed", with no copies. */
@@ -151,12 +159,16 @@ export async function readOrgDashboardAction(orgId: string, activityFilter = 'al
     const now = new Date();
     const audience = await viewerAudience(v);
     const [[pinned], sprints, masters, needsYou, activity, people, [counts]] = await Promise.all([
-        db.select({ id: workspaceUpdates.id, content: workspaceUpdates.content }).from(workspaceUpdates).where(and(
+        db.select({ id: workspaceUpdates.id, content: workspaceUpdates.content, createdAt: workspaceUpdates.createdAt, authorName: sql<string | null>`COALESCE(${profiles.fullName}, ${profiles.username})`,
+            authorAvatarUrl: profiles.avatarUrl,
+            unread: v.userId ? sql<boolean>`NOT EXISTS (SELECT 1 FROM workspace_members sm WHERE sm.workspace_id = ${orgId} AND sm.user_id = ${v.userId}::uuid AND sm.last_seen_updates_at >= ${workspaceUpdates.createdAt})` : sql<boolean>`false` })
+            .from(workspaceUpdates).leftJoin(profiles, eq(profiles.id, workspaceUpdates.authorId)).where(and(
             eq(workspaceUpdates.projectId, orgId), eq(workspaceUpdates.isPinned, true), isNull(workspaceUpdates.deletedAt),
             or(isNull(workspaceUpdates.pinnedUntil), gt(workspaceUpdates.pinnedUntil, now)),
             audienceSql(audience, v.userId),
+            v.userId ? sql`NOT EXISTS (SELECT 1 FROM workspace_update_hidden h WHERE h.update_id = ${workspaceUpdates.id} AND h.user_id = ${v.userId}::uuid)` : undefined,
         )).orderBy(desc(workspaceUpdates.createdAt)).limit(1),
-        db.select({ id: workspaceSprints.id, name: workspaceSprints.name, status: workspaceSprints.status, startDate: workspaceSprints.startDate, endDate: workspaceSprints.endDate })
+        db.select({ id: workspaceSprints.id, name: workspaceSprints.name, goal: workspaceSprints.goal, status: workspaceSprints.status, startDate: workspaceSprints.startDate, endDate: workspaceSprints.endDate })
             .from(workspaceSprints).where(and(eq(workspaceSprints.projectId, orgId), ne(workspaceSprints.status, 'completed'))).orderBy(asc(workspaceSprints.startDate)),
         db.select({ id: tasks.id, title: tasks.title, dueDate: tasks.dueDate, sprintId: tasks.sprintId }).from(tasks)
             .where(and(eq(tasks.projectId, orgId), eq(tasks.kind, 'assignment'), isNull(tasks.assignmentId), isNull(tasks.deletedAt), v.isAdmin ? undefined : published)),
@@ -181,6 +193,10 @@ export async function readOrgDashboardAction(orgId: string, activityFilter = 'al
     const active = sprints.find((s) => s.status === 'active') ?? null;
     const next = sprints.find((s) => s.status !== 'active' && s.startDate > now) ?? null;
     const inSprint = active ? masters.filter((m) => m.sprintId === active.id) : [];
+    // Ordinary tasks in the running sprint, by the board's read rule (members see their own).
+    const sprintTasks = active ? await db.select({ id: tasks.id, title: tasks.title, status: tasks.status, assignee: sql<string | null>`(SELECT COALESCE(p.full_name, p.username) FROM profiles p WHERE p.id = ${tasks.assigneeId})` })
+        .from(tasks).where(and(eq(tasks.projectId, orgId), eq(tasks.sprintId, active.id), eq(tasks.kind, 'task'), isNull(tasks.assignmentId), isNull(tasks.deletedAt), orgTaskReadFilter(v.access, v.userId)))
+        .orderBy(asc(tasks.createdAt)) : [];
     const copies = inSprint.length ? await db.select(copyColumns).from(tasks).where(and(inArray(tasks.assignmentId, inSprint.map((m) => m.id)), isNull(tasks.deletedAt))) : [];
     const mine = v.userId && !v.isAdmin ? new Set((await ownCopies(orgId, v.userId)).map((c) => c.id)) : new Set<string>();
     const items: SprintItem[] = inSprint.map((m) => {
@@ -197,13 +213,17 @@ export async function readOrgDashboardAction(orgId: string, activityFilter = 'al
     });
     // This week (report §33.5, decision 80; was Coming up): calendar days in the organization's zone (parity bug 7).
     const within = (d: Date | null) => Boolean(d && d.getTime() >= now.getTime() && weekGroup(d, now, zone));
-    const comingUp: Array<{ date: string; label: string }> = [];
+    const comingUp: Array<{ date: string; label: string; kind: 'sprint' | 'due' }> = [];
     for (const s of sprints) {
-        if (within(s.endDate)) comingUp.push({ date: s.endDate.toISOString(), label: `${s.name} ends` });
-        if (s.status !== 'active' && within(s.startDate)) comingUp.push({ date: s.startDate.toISOString(), label: `${s.name} starts` });
+        if (within(s.endDate)) comingUp.push({ date: s.endDate.toISOString(), label: `${s.name} ends`, kind: 'sprint' });
+        if (s.status !== 'active' && within(s.startDate)) comingUp.push({ date: s.startDate.toISOString(), label: `${s.name} starts`, kind: 'sprint' });
     }
-    if (v.isAdmin || v.isGuest) for (const m of masters) { if (within(m.dueDate)) comingUp.push({ date: m.dueDate!.toISOString(), label: `${m.title} due` }) }
-    else if (v.userId) for (const c of await ownCopies(orgId, v.userId)) { if (within(c.dueDate) && stateOf(c, now).state !== 'done') comingUp.push({ date: c.dueDate!.toISOString(), label: `${c.title} due` }) }
+    if (v.isAdmin || v.isGuest) for (const m of masters) { if (within(m.dueDate)) comingUp.push({ date: m.dueDate!.toISOString(), label: `${m.title} due`, kind: 'due' }) }
+    else if (v.userId) for (const c of await ownCopies(orgId, v.userId)) { if (within(c.dueDate) && stateOf(c, now).state !== 'done') comingUp.push({ date: c.dueDate!.toISOString(), label: `${c.title} due`, kind: 'due' }) }
+    // Ordinary tasks due this week too (report §7.2 "task and assignment dues"); members see their own.
+    const dueTasks = await db.select({ title: tasks.title, dueDate: tasks.dueDate }).from(tasks).where(and(eq(tasks.projectId, orgId), eq(tasks.kind, 'task'), isNull(tasks.assignmentId),
+        isNull(tasks.deletedAt), ne(tasks.status, 'done'), gte(tasks.dueDate, now), lt(tasks.dueDate, new Date(now.getTime() + 8 * DAY)), orgTaskReadFilter(v.access, v.userId))).limit(20);
+    for (const t of dueTasks) if (within(t.dueDate)) comingUp.push({ date: t.dueDate!.toISOString(), label: `${t.title} due`, kind: 'due' });
     comingUp.sort((a, b) => a.date.localeCompare(b.date));
     const thisWeek = comingUp.map((c) => ({ ...c, group: weekGroup(new Date(c.date), now, zone)! }));
 
@@ -251,10 +271,13 @@ export async function readOrgDashboardAction(orgId: string, activityFilter = 'al
         welcome = { note: counts?.welcomeNote ?? null, start: start.slice(0, 3), addToProfile: !v.isGuest && !entry?.publishedAt };
     }
 
-    const projectRows = await db.select({ id: workspaces.id, title: workspaces.title, slug: workspaces.slug, updatedAt: workspaces.updatedAt, visibility: workspaces.visibility }).from(workspaces)
+    const projectRows = await db.select({ id: workspaces.id, title: workspaces.title, slug: workspaces.slug, updatedAt: workspaces.updatedAt, visibility: workspaces.visibility, coverImage: workspaces.coverImage,
+        lead: sql<string | null>`(SELECT COALESCE(p.full_name, p.username) FROM profiles p WHERE p.id = ${workspaces.ownerId})`,
+        members: sql<number>`(SELECT count(*)::int FROM workspace_members pm WHERE pm.workspace_id = ${workspaces.id})`,
+        overdue: sql<number>`(SELECT count(*)::int FROM tasks t WHERE t.workspace_id = ${workspaces.id} AND t.deleted_at IS NULL AND t.status <> 'done' AND t.due_date < now())` }).from(workspaces)
         .where(and(eq(workspaces.parentId, orgId), isNull(workspaces.deletedAt), ne(workspaces.status, 'archived'),
             v.isAdmin ? undefined : sql`EXISTS (SELECT 1 FROM workspace_members pm WHERE pm.workspace_id = ${workspaces.id} AND pm.user_id = ${v.userId})`))
-        .orderBy(desc(workspaces.updatedAt)).limit(5);
+        .orderBy(v.isAdmin ? sql`(SELECT count(*) FROM tasks t WHERE t.workspace_id = ${workspaces.id} AND t.deleted_at IS NULL AND t.status <> 'done' AND t.due_date < now()) DESC` : sql`1`, desc(workspaces.updatedAt)).limit(5);
     const weekAgo = now.getTime() - 7 * DAY;
     const archived = v.org.status === 'archived';
     let archivedSummary: string | null = null;
@@ -278,12 +301,17 @@ export async function readOrgDashboardAction(orgId: string, activityFilter = 'al
     return {
         success: true,
         role: v.isAdmin ? 'admin' : v.isGuest ? 'guest' : 'member',
-        pinned: pinned ?? null,
+        pinned: pinned ? { id: pinned.id, content: pinned.content, at: pinned.createdAt.toISOString(), authorName: pinned.authorName ?? 'Someone', authorAvatarUrl: pinned.authorAvatarUrl, unread: Boolean(pinned.unread), canUnpin: v.isAdmin } : null,
         needsYou: v.isGuest ? [] : archived ? archivedNeeds : needsYou,
         thisSprint: {
-            sprint: active ? { id: active.id, name: active.name, endDate: active.endDate.toISOString() } : null,
+            sprint: active ? { id: active.id, name: active.name, goal: active.goal ?? null, status: active.endDate < now ? 'ended' : 'active', startDate: active.startDate.toISOString(), endDate: active.endDate.toISOString() } : null,
             next: !active && next ? { name: next.name, startDate: next.startDate.toISOString() } : null,
             items,
+            tasks: sprintTasks.slice(0, 8).map((t) => ({ id: t.id, title: t.title, assignee: t.assignee, status: t.status })),
+            progress: {
+                done: sprintTasks.filter((t) => t.status === 'done').length + items.filter((i) => i.counts ? i.counts.total > 0 && i.counts.done >= i.counts.total : i.own?.state === 'done').length,
+                total: sprintTasks.length + items.length,
+            },
         },
         comingUp: comingUp.slice(0, 12),
         thisWeek: thisWeek.slice(0, 12),
@@ -294,7 +322,8 @@ export async function readOrgDashboardAction(orgId: string, activityFilter = 'al
         welcome,
         restricted: Boolean(counts?.restrictedAt),
         activity,
-        projects: projectRows.map((p) => ({ id: p.id, title: p.title, slug: p.slug })),
+        timeZone: zone,
+        projects: projectRows.map((p) => ({ id: p.id, title: p.title, slug: p.slug, coverImage: p.coverImage, lead: p.lead, members: p.members, overdue: p.overdue })),
         people: {
             avatars: people.filter((p) => p.show).slice(0, 8).map((p) => ({ id: p.id, name: p.name || p.username || 'Member', avatarUrl: p.avatarUrl })),
             total: people.length,
@@ -318,7 +347,7 @@ export type OrgAboutData = {
     projects: Array<{ id: string; title: string; slug: string | null; visibility: string | null }>;
     journey: ReturnType<typeof journeyFromSprints> | null;
     activity: ActivityItem[];
-    leaders: Array<{ id: string; name: string; username: string | null; role: 'owner' | 'admin'; title: string | null }>;
+    leaders: Array<{ id: string; name: string; username: string | null; avatarUrl: string | null; role: 'owner' | 'admin'; title: string | null }>;
     card: { kind: 'invite'; joinCode: string | null } | { kind: 'member' | 'guest'; joinedAt: string | null } | { kind: 'visitor' };
 };
 
@@ -337,7 +366,7 @@ export async function readOrgAboutAction(orgId: string): Promise<OrgAboutData | 
         v.isInside || tabs.sprints
             ? db.select({ name: workspaceSprints.name, status: workspaceSprints.status, startDate: workspaceSprints.startDate, endDate: workspaceSprints.endDate, completedAt: workspaceSprints.completedAt }).from(workspaceSprints).where(eq(workspaceSprints.projectId, orgId))
             : Promise.resolve(null),
-        db.select({ id: profiles.id, name: profiles.fullName, username: profiles.username, role: workspaceMembers.role, title: workspaceMembers.title, show: workspaceMembers.showOnProfile })
+        db.select({ id: profiles.id, name: profiles.fullName, username: profiles.username, avatarUrl: profiles.avatarUrl, role: workspaceMembers.role, title: workspaceMembers.title, show: workspaceMembers.showOnProfile })
             .from(workspaceMembers).innerJoin(profiles, eq(profiles.id, workspaceMembers.userId))
             .where(and(eq(workspaceMembers.projectId, orgId), inArray(workspaceMembers.role, ['owner', 'admin']))),
         db.select({ joinCode: workspaces.joinCode, joinCodeEnabled: workspaces.joinCodeEnabled, ownerId: workspaces.ownerId }).from(workspaces).where(eq(workspaces.id, orgId)).limit(1),
@@ -361,7 +390,7 @@ export async function readOrgAboutAction(orgId: string): Promise<OrgAboutData | 
         activity: await readActivity(v, 'all', { publicOnly: true, limit: 5 }),
         // Visitors see only leaders who show the org on their profile (report §22.3).
         leaders: leaders.filter((l) => v.isInside || l.show).sort((a, b) => (a.id === org?.ownerId ? -1 : b.id === org?.ownerId ? 1 : 0))
-            .map((l) => ({ id: l.id, name: l.name || l.username || 'Admin', username: l.username, role: l.id === org?.ownerId ? 'owner' as const : 'admin' as const, title: l.title })),
+            .map((l) => ({ id: l.id, name: l.name || l.username || 'Admin', username: l.username, avatarUrl: l.avatarUrl, role: l.id === org?.ownerId ? 'owner' as const : 'admin' as const, title: l.title })),
         card,
     };
 }
@@ -521,6 +550,16 @@ export async function dismissWelcomeAction(orgId: string): Promise<{ success: tr
     if (!userId) return DENIED;
     await db.update(workspaceMembers).set({ welcomeDismissedAt: new Date() })
         .where(and(eq(workspaceMembers.projectId, orgId), eq(workspaceMembers.userId, userId)));
+    return { success: true };
+}
+
+/** × on the Overview's pinned announcement (live-fix 11): hidden for you only, on your account. */
+export async function hidePinnedForMeAction(orgId: string, updateId: string): Promise<{ success: true } | Failure> {
+    const v = await orgViewer(orgId);
+    if (!v?.isInside || !v.userId || !isUuid(updateId)) return DENIED;
+    const [post] = await db.select({ id: workspaceUpdates.id }).from(workspaceUpdates).where(and(eq(workspaceUpdates.id, updateId), eq(workspaceUpdates.projectId, orgId))).limit(1);
+    if (!post) return DENIED;
+    await db.insert(workspaceUpdateHidden).values({ userId: v.userId, updateId }).onConflictDoNothing();
     return { success: true };
 }
 
