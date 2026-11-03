@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { aboutStages, classStanding, getStartedCards, todayRows, weekGroup, weekLine } from "@/lib/organizations/dashboard-rules";
+import { aboutStages, classStanding, getStartedCards, reviewRow, todayRows, weekGroup, weekLine } from "@/lib/organizations/dashboard-rules";
 
 // Step 4 (report §7.2, §33.5): the Overview rules, pure so the server and the screen agree.
 
@@ -51,4 +51,16 @@ test("7.3, decision 79, gaps 5 and 6: About's stages teach when empty and never 
   assert.equal(aboutStages(0, "visitor"), null);
   assert.equal(aboutStages(1, "visitor"), "single");
   assert.equal(aboutStages(3, "member"), "timeline");
+});
+
+test("33.7 Nobody reviews for a week: the review row turns amber with the oldest wait", () => {
+  const now = new Date("2026-11-10T12:00:00Z");
+  assert.deepEqual(reviewRow("Lab 3", 12, new Date("2026-11-03T11:00:00Z"), now), { label: "12 waiting, oldest 7 days · Lab 3", tone: "amber" });
+  assert.deepEqual(reviewRow("Lab 3", 1, new Date("2026-11-04T12:00:00Z"), now), { label: "1 submission to review · Lab 3" });
+  assert.deepEqual(reviewRow("Lab 3", 2, null, now), { label: "2 submissions to review · Lab 3" });
+});
+
+test("33.7 Term ends with nothing archived: the prompt stays after the term, saying it ended", () => {
+  const rows = todayRows({ dueToday: [], sprintsEnding: [], termEnd: { date: "2026-11-01", ended: true, href: "/m" }, attention: [] }, new Date("2026-11-20T08:00:00Z"), "UTC");
+  assert.deepEqual(rows.map((r) => r.label), ["Term ended 1 Nov · Review open work, verify members, then archive or duplicate"]);
 });

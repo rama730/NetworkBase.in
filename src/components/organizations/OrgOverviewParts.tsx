@@ -118,7 +118,7 @@ export function OrgDashboard({ orgId, orgSlug, orgType = null }: { orgId: string
                     <RailSection title="Today">
                         {data.today.length ? (
                             <>
-                                <ul>{(moreToday ? data.today : data.today.slice(0, 5)).map((n) => <li key={`${n.kind}:${n.label}`}><Link href={n.href} className={cn(row, 'hover:text-primary')}><span className="truncate">{n.label}</span><span aria-hidden="true">→</span></Link></li>)}</ul>
+                                <ul>{(moreToday ? data.today : data.today.slice(0, 5)).map((n) => <li key={`${n.kind}:${n.label}`}><Link href={n.href} className={cn(row, 'hover:text-primary')}><span className={cn('truncate', n.tone === 'amber' && 'text-amber-700 dark:text-amber-400')}>{n.label}</span><span aria-hidden="true">→</span></Link></li>)}</ul>
                                 {!moreToday && data.today.length > 5 ? <button type="button" className="text-[12px] text-primary hover:underline" onClick={() => setMoreToday(true)}>Show {data.today.length - 5} more</button> : null}
                             </>
                         ) : <p className="flex items-center gap-1.5 text-sm text-muted-foreground"><Check className="size-3.5" aria-hidden="true" />{data.role === 'admin' ? 'Nothing needs you today' : 'You’re all caught up'}</p>}
@@ -511,7 +511,7 @@ export function ChildOrgLine({ projectId }: { projectId: string }) {
                             <span className="shrink-0 text-[12px] text-muted-foreground">{line.ownSprint.parent ? `Inside ${line.ownSprint.parent} (${line.orgTitle}) · ` : ''}ends {day(line.ownSprint.endDate)}</span>
                         </p>
                     ) : null}
-                    <ul>{line.needsYou.map((n) => <li key={`${n.kind}:${n.label}`}><Link href={n.href} className={cn(row, 'hover:text-primary')}><span className="truncate">{n.label}</span><span aria-hidden="true">→</span></Link></li>)}</ul>
+                    <ul>{line.needsYou.map((n) => <li key={`${n.kind}:${n.label}`}><Link href={n.href} className={cn(row, 'hover:text-primary')}><span className={cn('truncate', n.tone === 'amber' && 'text-amber-700 dark:text-amber-400')}>{n.label}</span><span aria-hidden="true">→</span></Link></li>)}</ul>
                 </RailSection>
             ) : null}
         </div>

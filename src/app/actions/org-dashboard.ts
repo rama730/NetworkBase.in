@@ -227,8 +227,9 @@ export async function readOrgDashboardAction(orgId: string, activityFilter = 'al
                 return { title: m.title, handedIn: of.filter((st) => st === 'submitted' || st === 'done').length, total: of.length, href: `${base}?tab=tasks` };
             }),
             sprintsEnding: ending.map((s) => ({ name: s.name, endDate: s.endDate, behind: members.filter((p) => p.behindIn.has(s.id)).length, href: `${base}?tab=sprints` })),
-            // Decision 54: Education only, from 14 days before; nothing archives by itself.
-            termEnd: profile.termDates && counts?.termEnd && daysToTermEnd !== null && daysToTermEnd >= 0 && daysToTermEnd <= 14 ? { date: counts.termEnd, href: `${base}?tab=settings` } : null,
+            // Decision 54: Education only, from 14 days before; nothing archives by itself, so once the term is over the
+            // prompt stays until someone archives or duplicates (report §33.7 "Term ends with nothing archived").
+            termEnd: profile.termDates && counts?.termEnd && daysToTermEnd !== null && daysToTermEnd <= 14 ? { date: counts.termEnd, ended: daysToTermEnd < 0, href: `${base}?tab=settings` } : null,
             attention: needsYou,
         }, now, zone);
     }

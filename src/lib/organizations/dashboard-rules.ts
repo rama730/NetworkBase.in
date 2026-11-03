@@ -93,7 +93,17 @@ export function classStanding(people: Array<{ behind: boolean; inactive: boolean
   return { onTrack: people.length - behind - inactive, behind, inactive };
 }
 
-export type TodayRow = { kind: string; label: string; href: string };
+export type TodayRow = { kind: string; label: string; href: string; tone?: "amber" };
+
+/**
+ * An assignment's review row (report §33.7 "Nobody reviews for a week"): once the oldest submission has waited a
+ * week the row turns amber and says so, "12 waiting, oldest 7 days".
+ */
+export function reviewRow(title: string, waiting: number, oldest: Date | null, now: Date): { label: string; tone?: "amber" } {
+  const days = oldest ? Math.floor((now.getTime() - oldest.getTime()) / DAY) : 0;
+  if (days >= 7) return { label: `${waiting} waiting, oldest ${days} days · ${title}`, tone: "amber" };
+  return { label: `${waiting} ${waiting === 1 ? "submission" : "submissions"} to review · ${title}` };
+}
 
 /**
  * Today (report §33.5, decision 80): what needs an admin now, most urgent first: deadlines today, sprints ending
@@ -102,7 +112,7 @@ export type TodayRow = { kind: string; label: string; href: string };
 export function todayRows(input: {
   dueToday: Array<{ title: string; handedIn: number; total: number; href: string }>;
   sprintsEnding: Array<{ name: string; endDate: Date; behind: number; href: string }>;
-  termEnd: { date: string; href: string } | null;
+  termEnd: { date: string; ended?: boolean; href: string } | null;
   attention: TodayRow[];
 }, now: Date, timeZone?: string | null): TodayRow[] {
   const zone = safeZone(timeZone);
@@ -111,7 +121,7 @@ export function todayRows(input: {
   return [
     ...input.dueToday.map((d) => ({ kind: "due_today", label: `${d.title} due today · ${d.handedIn} of ${d.total} in`, href: d.href })),
     ...input.sprintsEnding.map((s) => ({ kind: "sprint_ending", label: `${s.name} ends ${weekGroup(s.endDate, now, zone) === "Today" ? "today" : weekday(s.endDate)}${s.behind ? ` · ${s.behind} behind` : ""}`, href: s.href })),
-    ...(input.termEnd ? [{ kind: "term_end", label: `Term ends ${termDay(input.termEnd.date)} · Review open work, verify members, then archive or duplicate`, href: input.termEnd.href }] : []),
+    ...(input.termEnd ? [{ kind: "term_end", label: `Term ${input.termEnd.ended ? "ended" : "ends"} ${termDay(input.termEnd.date)} · Review open work, verify members, then archive or duplicate`, href: input.termEnd.href }] : []),
     ...input.attention,
   ];
 }

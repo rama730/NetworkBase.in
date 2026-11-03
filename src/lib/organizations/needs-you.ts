@@ -8,6 +8,7 @@ import { db } from "@/lib/db";
 import { workspaceMembers, workspaces, workspaceSprints, roleApplications, taskTeamMembers, tasks } from "@/lib/db/schema";
 import type { WorkspaceAccess } from "@/lib/data/workspace-access";
 import { copyState } from "@/lib/organizations/assignment-rules";
+import { reviewRow } from "@/lib/organizations/dashboard-rules";
 import { memberStatus } from "@/lib/organizations/member-rules";
 import { lastActiveHereSince } from "@/lib/organizations/members";
 import { JOIN_SPIKE_PER_HOUR } from "@/lib/organizations/trust-rules";
@@ -22,7 +23,7 @@ export const stateOf = (c: { status: string; reviewStatus: string; dueDate: Date
 export const copyColumns = { id: tasks.id, title: tasks.title, projectId: tasks.projectId, assigneeId: tasks.assigneeId, assignmentId: tasks.assignmentId, sprintId: tasks.sprintId, status: tasks.status, reviewStatus: tasks.reviewStatus, dueDate: tasks.dueDate, reviewSubmittedAt: tasks.reviewSubmittedAt, completedAt: tasks.completedAt, excusedAt: tasks.excusedAt }
 export const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`
 
-export type NeedsYouRow = { kind: string; label: string; href: string };
+export type NeedsYouRow = { kind: string; label: string; href: string; tone?: 'amber' };
 
 /** A person's own assignment copies in the org, theirs or their team's. */
 export async function ownCopies(orgId: string, userId: string) {
@@ -56,7 +57,7 @@ export async function readNeedsYou(v: OrgViewer, now: Date): Promise<NeedsYouRow
     const rows: NeedsYouRow[] = [];
     if (v.isAdmin) {
         const [reviews, [requests], ended, children, [cap]] = await Promise.all([
-            db.select({ title: tasks.title, n: sql<number>`count(*)::int` }).from(tasks)
+            db.select({ title: tasks.title, n: sql<number>`count(*)::int`, oldest: sql<string | null>`min(${tasks.reviewSubmittedAt})::text` }).from(tasks)
                 .innerJoin(workspaces, eq(workspaces.id, tasks.projectId))
                 .where(and(isNotNull(tasks.assignmentId), isNull(tasks.deletedAt), isNull(tasks.excusedAt), eq(tasks.reviewStatus, 'pending'), or(eq(tasks.projectId, v.org.id), eq(workspaces.parentId, v.org.id))))
                 .groupBy(tasks.title).orderBy(asc(tasks.title)),
@@ -65,7 +66,7 @@ export async function readNeedsYou(v: OrgViewer, now: Date): Promise<NeedsYouRow
             readWorkspaceRequests(v.org.id),
             db.select({ max: workspaces.maxCollaborators, members: sql<number>`(SELECT count(*)::int FROM workspace_members WHERE workspace_id = ${v.org.id})` }).from(workspaces).where(eq(workspaces.id, v.org.id)),
         ]);
-        for (const r of reviews) rows.push({ kind: 'review', label: `${plural(r.n, 'submission')} to review · ${r.title}`, href: `${base}?tab=tasks` });
+        for (const r of reviews) rows.push({ kind: 'review', ...reviewRow(r.title, r.n, r.oldest ? new Date(r.oldest) : null, now), href: `${base}?tab=tasks` });
         if (requests && requests.n > 0) rows.push({ kind: 'requests', label: plural(requests.n, 'join request'), href: `${base}?tab=members` });
         // Report §22.4: reports live in Settings → Moderation, and this row links there.
         const reports = v.userId ? (await readOrgCases(v.org.id, v.userId)).length : 0;
