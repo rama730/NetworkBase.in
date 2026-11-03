@@ -14,7 +14,7 @@ import { createCopiesForNewMember, handedInSql, releaseCopiesOnLeave } from '@/l
 import { ORG_LIMITS, orgRoleNames } from '@/lib/organizations/config';
 import { buildOrgEmail } from '@/lib/email/org-templates';
 import { orgMemberCap } from '@/lib/organizations/join-rules';
-import { acceptOrgInvite, AccountOrgLimitError, accountOrgLimit, createOrgEmailInvites, INVITE_DAYS, ledChildWorkspaces, notifyInvites, notifySeatsReopened, openInvitesFor, removeFromOrg, type ReopenedSeat } from '@/lib/organizations/members';
+import { acceptOrgInvite, AccountOrgLimitError, accountOrgLimit, createOrgEmailInvites, INVITE_DAYS, lastActiveHereSince, ledChildWorkspaces, notifyInvites, notifySeatsReopened, openInvitesFor, removeFromOrg, type ReopenedSeat } from '@/lib/organizations/members';
 import { memberChangeBlock, memberStatus, parseInviteEmails, workSummary, type OrgMemberRole, type RosterRow } from '@/lib/organizations/member-rules';
 import { addWorkspaceMemberInternal, changeWorkspaceMemberRoleInternal, removeWorkspaceMemberInternal } from '@/lib/workspaces/collaborator-lifecycle';
 import { getViewerAuthContext } from '@/lib/server/viewer-context';
@@ -125,11 +125,12 @@ export async function readOrgMembersAction(orgId: string): Promise<OrgMembersDat
     copies.forEach((c) => addCopy(c.assigneeId, c.id));
     teamCopies.forEach((t) => addCopy(t.userId, t.taskId));
 
+    const since = await lastActiveHereSince();
     const rows = people.map((p) => {
         const role: OrgMemberRole = p.userId === viewer.ownerId ? 'owner' : (p.role as OrgMemberRole);
         const work = workSummary([...(copiesByUser.get(p.userId) ?? [])].map((id) => stateByCopy.get(id)!).filter(Boolean));
         // Last active here only, never account-wide (decision 62).
-        const status = memberStatus({ missing: work.missing, lastActiveAt: p.lastActiveAt, joinedAt: p.joinedAt, now });
+        const status = memberStatus({ missing: work.missing, lastActiveAt: p.lastActiveAt, joinedAt: p.joinedAt, now, since });
         return {
             userId: p.userId,
             name: p.name || p.username || 'Member',

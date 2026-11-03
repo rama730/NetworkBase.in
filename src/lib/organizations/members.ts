@@ -11,6 +11,7 @@ import { namesOf, notifyOrg, orgLabel, queueOrgInviteSignupEmails, ROLE_LABEL } 
 import { addWorkspaceMemberInternal, removeWorkspaceMemberInternal } from "@/lib/workspaces/collaborator-lifecycle";
 import { orgMemberCap } from "@/lib/organizations/join-rules";
 import { ORG_LIMITS } from "@/lib/organizations/config";
+import { LAST_ACTIVE_HERE_MIGRATION, LAST_ACTIVE_HERE_SINCE } from "@/lib/organizations/member-rules";
 
 type Executor = typeof db | Parameters<Parameters<typeof db.transaction>[0]>[0];
 
@@ -183,4 +184,16 @@ export async function accountOrgLimit(executor: Pick<typeof db, "execute">, user
   if (kind === "own" && n >= ORG_LIMITS.orgsOwnedPerUser) return `You can own up to ${ORG_LIMITS.orgsOwnedPerUser} organizations. Contact support to raise this.`;
   if (kind === "join" && n >= ORG_LIMITS.orgsJoinedPerUser) return `You can be in up to ${ORG_LIMITS.orgsJoinedPerUser} organizations. Leave one to join another.`;
   return null;
+}
+
+let activeHereSince: Promise<Date> | null = null;
+/**
+ * When Last active here started counting (report §41.4): the moment migration 0043 ran in this database, read once
+ * per process. Until then (or if the journal can't be read) the constant in member-rules stands in.
+ */
+export function lastActiveHereSince(): Promise<Date> {
+  activeHereSince ??= db.execute<{ at: string | null }>(sql`SELECT min(applied_at)::text AS at FROM app_migration_journal WHERE tag = ${LAST_ACTIVE_HERE_MIGRATION}`)
+    .then(([row]) => (row?.at ? new Date(row.at) : LAST_ACTIVE_HERE_SINCE))
+    .catch(() => { activeHereSince = null; return LAST_ACTIVE_HERE_SINCE; });
+  return activeHereSince;
 }

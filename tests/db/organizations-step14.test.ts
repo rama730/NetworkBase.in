@@ -152,3 +152,9 @@ test("45.6, decision 175: an admin previewing as a member reads as a member and 
   await previewActions.exitMemberPreviewAction();
   assert.equal(preview, null);
 });
+
+test("41.4: Last active here and the indexing rule count from when migration 0043 ran, not a hand-set date", async () => {
+  const members = await loadAppModule(() => import("../../src/lib/organizations/members"));
+  const [row] = await sql`SELECT min(applied_at) AS at FROM app_migration_journal WHERE tag = '0043_member_last_active_here'`;
+  assert.equal((await members.lastActiveHereSince()).getTime(), new Date(row!.at).getTime());
+});

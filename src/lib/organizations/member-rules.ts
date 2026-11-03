@@ -11,17 +11,19 @@ export function workSummary(states: CopyState[]) {
 }
 
 const INACTIVE_DAYS = 14;
-// ponytail: the day Last active here (0043) went live, so nobody already in an org looks inactive on day one
-// (report §41.4). Set it to the real deploy date when 1a ships; it stops mattering 14 days after that.
+// The day Last active here (0043) went live, so nobody already in an org looks inactive on day one (report §41.4).
+// The server reads the real day from the migration journal (lastActiveHereSince); this is only the fallback.
 export const LAST_ACTIVE_HERE_SINCE = new Date("2026-11-03T00:00:00Z");
+/** The migration that added Last active here; its run time replaces the date above on the server. */
+export const LAST_ACTIVE_HERE_MIGRATION = "0043_member_last_active_here";
 
 /**
  * Behind = anything missing; Inactive = not active here for 14 days, counted from joining at the earliest
  * (report §20.2, §28.7, decision 60).
  */
-export function memberStatus(input: { missing: number; lastActiveAt: Date | null; joinedAt?: Date | null; now?: Date }) {
+export function memberStatus(input: { missing: number; lastActiveAt: Date | null; joinedAt?: Date | null; now?: Date; since?: Date }) {
   const now = input.now ?? new Date();
-  const since = Math.max(input.lastActiveAt?.getTime() ?? 0, input.joinedAt?.getTime() ?? 0, LAST_ACTIVE_HERE_SINCE.getTime());
+  const since = Math.max(input.lastActiveAt?.getTime() ?? 0, input.joinedAt?.getTime() ?? 0, (input.since ?? LAST_ACTIVE_HERE_SINCE).getTime());
   return {
     behind: input.missing > 0,
     inactive: now.getTime() - since > INACTIVE_DAYS * 86_400_000,

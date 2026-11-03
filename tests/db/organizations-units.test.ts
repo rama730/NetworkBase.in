@@ -143,7 +143,9 @@ test("units after creation: rename, seats, lead, move; @unit reaches the unit; l
   viewerId = o.c;
   const read = await units.readChildUnitsAction(id);
   assert.ok(read.success);
-  const [frontend, testing] = read.success ? read.units : [];
+  // Both teams are made in one statement, so their created times tie: pick them by name.
+  const byTitle = (title: string) => (read.success ? read.units : []).find((u) => u.title === title);
+  const [frontend, testing] = [byTitle("Frontend"), byTitle("Testing")];
   assert.equal((await units.updateUnitAction(id, frontend!.id, { title: "testing" })).success, false, "names are unique");
   assert.equal((await units.updateUnitAction(id, testing!.id, { count: 0 })).success, false, "never below the people in it");
   assert.equal((await units.moveMemberToUnitAction(id, o.a, testing!.id)).success, false, "Testing is full");

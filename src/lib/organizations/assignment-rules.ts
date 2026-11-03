@@ -1,3 +1,5 @@
+import { orgCan, type OrgRole } from "@/lib/organizations/permissions";
+
 // Assignment rules (report §16.2–16.4, §16.11), pure so the roster, the board and the server agree.
 
 export type SubmissionType = "none" | "file" | "link" | "text";
@@ -151,15 +153,20 @@ export type AssignmentWrite = "title" | "description" | "priority" | "storyPoint
  * touched (42.18). "done" is a move to Completed, which only Submit may make. Null means allowed.
  */
 export function assignmentWriteBlock(task: {
-  isMaster: boolean; isCopy: boolean; handedIn: boolean; approved: boolean; groupCopy: boolean; orgTitle: string; actorIsOrgAdmin: boolean;
+  isMaster: boolean; isCopy: boolean; handedIn: boolean; approved: boolean; groupCopy: boolean; orgTitle: string;
+  /** The actor's role in the organization the work belongs to, and whether it is their own copy or team's. */
+  actorRole: OrgRole; actorIsHolder: boolean;
 }, write: AssignmentWrite): string | null {
+  const actorIsOrgAdmin = orgCan(task.actorRole, "edit_group_task_details");
   if (task.isMaster) {
-    if (!task.actorIsOrgAdmin) return `Only ${task.orgTitle}’s admins change an assignment.`;
+    if (!orgCan(task.actorRole, "edit_for_everyone")) return `Only ${task.orgTitle}’s admins change an assignment.`;
     if (write === "status" || write === "done") return "An assignment’s state comes from its copies.";
     if (write === "delete" && task.handedIn) return "Someone has handed this in, so it can’t be deleted. Close it instead.";
     return null;
   }
   if (!task.isCopy) return null;
+  // Decisions 33 and 109: someone else's copy is never theirs to change (update_own_copy is "own" for members).
+  if (!actorIsOrgAdmin && !task.groupCopy && !orgCan(task.actorRole, "update_own_copy", task.actorIsHolder)) return "You can change only your own work.";
   switch (write) {
     case "title":
     case "description":
@@ -171,7 +178,7 @@ export function assignmentWriteBlock(task: {
     case "status":
       return task.approved ? "This was approved, so it’s locked." : null;
     case "delete":
-      if (!task.actorIsOrgAdmin) return `Only ${task.orgTitle}’s admins can remove this.`;
+      if (!actorIsOrgAdmin) return `Only ${task.orgTitle}’s admins can remove this.`;
       return task.handedIn ? "This was handed in, so it stays." : null;
     case "sprintId":
       return task.groupCopy ? null : "This moves with its assignment.";

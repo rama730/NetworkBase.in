@@ -8,9 +8,9 @@ export const REFUSE_DAYS = 7;
 const DAY_MS = 86_400_000;
 
 /** The owner hasn't been active in the organization for 30 days. Before Last active here has run that long, never. */
-export function ownerAway(lastActiveHere: Date | null, now: Date = new Date()) {
+export function ownerAway(lastActiveHere: Date | null, now: Date = new Date(), since: Date = LAST_ACTIVE_HERE_SINCE) {
   const cutoff = now.getTime() - OWNER_AWAY_DAYS * DAY_MS;
-  return (lastActiveHere?.getTime() ?? LAST_ACTIVE_HERE_SINCE.getTime()) < cutoff;
+  return (lastActiveHere?.getTime() ?? since.getTime()) < cutoff;
 }
 
 export type TakeoverState =
@@ -27,6 +27,7 @@ export function takeoverState(input: {
   ownerLastActiveHere: Date | null;
   request: { by: string; byName: string; at: Date } | null;
   now?: Date;
+  since?: Date;
 }): TakeoverState {
   const now = input.now ?? new Date();
   const { request, viewer } = input;
@@ -38,5 +39,5 @@ export function takeoverState(input: {
     if (request.by !== viewer.id) return { state: "asked_by_other", by: request.byName };
     return refuseBy!.getTime() <= now.getTime() ? { state: "ready" } : { state: "waiting", refuseBy: refuseBy!.toISOString() };
   }
-  return ownerAway(input.ownerLastActiveHere, now) ? { state: "can_ask" } : { state: "hidden" };
+  return ownerAway(input.ownerLastActiveHere, now, input.since) ? { state: "can_ask" } : { state: "hidden" };
 }

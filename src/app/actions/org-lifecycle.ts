@@ -11,7 +11,7 @@ import { getWorkspaceAccessById, writeBlockedMessage } from '@/lib/data/workspac
 import { ORG_LIMITS } from '@/lib/organizations/config';
 import { validateOrgHandle } from '@/lib/organizations/handle';
 import { isOrgHandleAvailable } from '@/lib/organizations/join';
-import { accountOrgLimit } from '@/lib/organizations/members';
+import { accountOrgLimit, lastActiveHereSince } from '@/lib/organizations/members';
 import { archiveOrg, inviteBack, orgLifecyclePreview, restoreOrg, scheduleOrgDeletion, takeOverOrg, unarchiveOrg, ORG_DELETION_GRACE_DAYS } from '@/lib/organizations/lifecycle';
 import { notifyOrg, orgHref, orgLabel } from '@/lib/organizations/notify';
 import { takeoverState, type TakeoverState } from '@/lib/organizations/takeover-rules';
@@ -141,7 +141,7 @@ async function ownershipViewer(orgId: string) {
         FROM workspaces w LEFT JOIN profiles p ON p.id = w.takeover_requested_by WHERE w.id = ${orgId}`);
     if (!row) return null;
     const request = row.by && row.at ? { by: row.by, byName: row.by_name ?? 'An admin', at: new Date(row.at) } : null;
-    const state = takeoverState({ viewer: { id: userId, role }, ownerLastActiveHere: row.last_active ? new Date(row.last_active) : null, request });
+    const state = takeoverState({ viewer: { id: userId, role }, ownerLastActiveHere: row.last_active ? new Date(row.last_active) : null, request, since: await lastActiveHereSince() });
     return { userId, access, role, ownerId: row.owner_id, state };
 }
 

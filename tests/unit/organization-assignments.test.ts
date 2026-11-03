@@ -46,27 +46,29 @@ test("auto-make teams: sizes stay within one of each other and everyone is place
 
 test("report §19.3 and §42.12: one rule for every write to assignment work", async () => {
   const { assignmentWriteBlock } = await import("../../src/lib/organizations/assignment-rules");
-  const master = { isMaster: true, isCopy: false, handedIn: false, approved: false, groupCopy: false, orgTitle: "CSE 3B", actorIsOrgAdmin: false };
+  const master = { isMaster: true, isCopy: false, handedIn: false, approved: false, groupCopy: false, orgTitle: "CSE 3B", actorRole: "member" as const, actorIsHolder: true };
   const copy = { ...master, isMaster: false, isCopy: true };
   const task = { ...master, isMaster: false };
   // Ordinary tasks: nothing changes.
   assert.equal(assignmentWriteBlock(task, "title"), null);
   // Main assignment (problems 23, 34, 22).
   assert.equal(assignmentWriteBlock(master, "title"), "Only CSE 3B’s admins change an assignment.");
-  assert.equal(assignmentWriteBlock({ ...master, actorIsOrgAdmin: true }, "title"), null);
-  assert.equal(assignmentWriteBlock({ ...master, actorIsOrgAdmin: true }, "status"), "An assignment’s state comes from its copies.");
-  assert.equal(assignmentWriteBlock({ ...master, actorIsOrgAdmin: true, handedIn: true }, "delete"), "Someone has handed this in, so it can’t be deleted. Close it instead.");
-  assert.equal(assignmentWriteBlock({ ...master, actorIsOrgAdmin: true }, "delete"), null);
+  assert.equal(assignmentWriteBlock({ ...master, actorRole: "admin" as const }, "title"), null);
+  assert.equal(assignmentWriteBlock({ ...master, actorRole: "admin" as const }, "status"), "An assignment’s state comes from its copies.");
+  assert.equal(assignmentWriteBlock({ ...master, actorRole: "admin" as const, handedIn: true }, "delete"), "Someone has handed this in, so it can’t be deleted. Close it instead.");
+  assert.equal(assignmentWriteBlock({ ...master, actorRole: "admin" as const }, "delete"), null);
   // A copy (19.3, problems 20, 32, decision 85).
   assert.equal(assignmentWriteBlock(copy, "title"), "Set by CSE 3B");
   assert.equal(assignmentWriteBlock(copy, "dueDate"), "Set by CSE 3B. Ask for an extension.");
   assert.equal(assignmentWriteBlock(copy, "priority"), null);
+  assert.equal(assignmentWriteBlock({ ...copy, actorIsHolder: false }, "priority"), "You can change only your own work.", "someone else's copy (decisions 33, 109)");
+  assert.equal(assignmentWriteBlock({ ...copy, actorRole: "guest" as const }, "status"), "You can change only your own work.", "Viewers never change copies");
   assert.equal(assignmentWriteBlock(copy, "done"), "Use Submit to hand this in.");
   assert.equal(assignmentWriteBlock(copy, "status"), null);
   assert.equal(assignmentWriteBlock({ ...copy, approved: true }, "status"), "This was approved, so it’s locked.");
   assert.equal(assignmentWriteBlock(copy, "delete"), "Only CSE 3B’s admins can remove this.");
-  assert.equal(assignmentWriteBlock({ ...copy, actorIsOrgAdmin: true, handedIn: true }, "delete"), "This was handed in, so it stays.");
-  assert.equal(assignmentWriteBlock({ ...copy, actorIsOrgAdmin: true }, "delete"), null);
+  assert.equal(assignmentWriteBlock({ ...copy, actorRole: "admin" as const, handedIn: true }, "delete"), "This was handed in, so it stays.");
+  assert.equal(assignmentWriteBlock({ ...copy, actorRole: "admin" as const }, "delete"), null);
   assert.equal(assignmentWriteBlock(copy, "sprintId"), "This moves with its assignment.");
   assert.equal(assignmentWriteBlock({ ...copy, groupCopy: true }, "sprintId"), null, "a team plans its own group work");
 });

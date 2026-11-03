@@ -14,6 +14,7 @@ import { enqueueWorkspaceNotificationEvent } from "@/lib/notifications/workspace
 import { queueCounterRefreshBestEffort } from "@/lib/my-work/counter-buffer";
 import { getTaskFileWarnings } from "@/lib/workspaces/task-file-intelligence";
 import { logger } from "@/lib/logger";
+import { orgCan, orgRoleOf, type ChildRole, type OrgRole } from "@/lib/organizations/permissions";
 import { projectTaskHref } from "@/lib/workspaces/task-presentation";
 import { taskReviewSnapshot } from "@/lib/workspaces/task-review-snapshot";
 import { assertAssignmentWrite } from "@/lib/organizations/assignments";
@@ -51,6 +52,12 @@ export async function lockTaskForWrite(
   projectId: string;
   isOwner: boolean;
   isLeader: boolean;
+  /** The actor's column in the permissions table for the organization this work belongs to. */
+  orgRole: OrgRole;
+  /** In a workspace inside an organization, the actor's column in the workspace rows of the table. */
+  childRole: ChildRole;
+  isHolder: boolean;
+  onOrgBoard: boolean;
   ownerId: string;
   reviewRequired: boolean;
   reviewContentHash: string | null;
@@ -96,7 +103,8 @@ export async function lockTaskForWrite(
     assignment_id: string | null;
     master_settings: { submissionType?: string; reviewRequired?: boolean } | null;
     in_team: boolean;
-    master_org_admin: boolean;
+    org_role: string | null;
+    project_kind: string | null;
     parent_org_admin: boolean;
   }>(sql`
         SELECT
@@ -108,9 +116,11 @@ export async function lockTaskForWrite(
             t.assignment_id,
             mt.assignment_settings AS master_settings,
             EXISTS (SELECT 1 FROM task_team_members tm WHERE tm.task_id = t.id AND tm.user_id = ${userId}) AS in_team,
-            (mp.owner_id = ${userId} OR EXISTS (
-              SELECT 1 FROM workspace_members om WHERE om.workspace_id = mp.id AND om.user_id = ${userId} AND om.role = 'admin'
-            )) AS master_org_admin,
+            -- The actor's role in the organization the work belongs to: a copy's assignment's org, or this org's board.
+            (SELECT CASE WHEN o.owner_id = ${userId} THEN 'owner'
+                    ELSE (SELECT om.role FROM workspace_members om WHERE om.workspace_id = o.id AND om.user_id = ${userId}) END
+             FROM workspaces o WHERE o.id = CASE WHEN t.assignment_id IS NOT NULL THEN mp.id WHEN p.kind = 'organization' THEN p.id END) AS org_role,
+            p.kind AS project_kind,
             -- Decision 139: an organization admin moves a workspace's tasks without being on its team.
             (p.parent_id IS NOT NULL AND EXISTS (
               SELECT 1 FROM workspaces po WHERE po.id = p.parent_id AND po.kind = 'organization' AND po.deleted_at IS NULL AND (po.owner_id = ${userId}
@@ -145,7 +155,9 @@ export async function lockTaskForWrite(
   // Assignment copies are reviewed by the assignment's org (report §16.4, §16.6): its admins act as leaders,
   // even on a group copy inside a child project they are not members of.
   const isCopy = Boolean(row.assignment_id);
-  const orgReviewer = isCopy && Boolean(row.master_org_admin);
+  const orgRole = orgRoleOf(row.org_role);
+  // Decisions 33 and 109: the permissions table says who reviews a copy (approve_return).
+  const orgReviewer = isCopy && orgCan(orgRole, "approve_return");
   if (!isOwner && !orgReviewer && !(row.parent_org_admin && !row.member_role)) {
     if (!row.member_role) {
       throw new Error("You don’t have access to this");
@@ -176,6 +188,11 @@ export async function lockTaskForWrite(
     projectKey: row.key ?? null,
     copySubmissionType: isCopy ? row.master_settings?.submissionType ?? "none" : null,
     isTeamMember: Boolean(row.in_team),
+    orgRole,
+    childRole: isOwner ? "lead" : row.member_role === "admin" ? "project_admin" : row.parent_org_admin ? "inherited_admin" : row.member_role ? "unit_member" : "visitor",
+    // Their own work: the assignee, the team, or anyone in the workspace holding a group copy.
+    isHolder: row.assignee_id === userId || Boolean(row.in_team) || (isCopy && row.project_kind !== "organization" && Boolean(row.member_role)),
+    onOrgBoard: row.project_kind === "organization",
   };
 }
 
@@ -244,7 +261,7 @@ export async function transitionTaskTx(
   // Assignment work (report §19.3, decisions 85, 140, 147): only Submit hands a copy in, approved work is locked,
   // and a main assignment has no state of its own. Return and Resubmit are review actions with their own checks.
   if (!input.reviewReason && !input.resubmit) {
-    await assertAssignmentWrite(tx, input.taskId, locked.isLeader, status === "done" && locked.currentStatus !== "done" ? "done" : "status");
+    await assertAssignmentWrite(tx, input.taskId, { role: locked.orgRole, isHolder: locked.isHolder, onOrgBoard: locked.onOrgBoard }, status === "done" && locked.currentStatus !== "done" ? "done" : "status");
   }
   if (input.resubmit && locked.reviewStatus !== "pending")
     throw new Error("Task is not pending review. Reload before submitting.");

@@ -17,6 +17,7 @@ import { shareToOrgGeneral } from '@/lib/organizations/org-chat';
 import { postOrgAnnouncement } from '@/lib/organizations/org-updates';
 import { ORG_LIMITS } from '@/lib/organizations/config';
 import { readOrgWork } from '@/lib/organizations/settings';
+import { orgCan, orgGrant, orgRoleOf, type OrgAction } from '@/lib/organizations/permissions';
 import { assignmentPeopleOf, notifyAssignmentDueChanged, notifyAssignmentPublished, notifyNewCopies, notifyAssignmentRemoved, notifyAssignmentReopened, notifyAssignmentReviewed, notifyAssignmentSubmitted, notifyTeamMoved } from '@/lib/organizations/assignment-notify';
 import { notifyOrg, orgHref, orgLabel, remindedRecently } from '@/lib/organizations/notify';
 import { taskReviewSnapshot } from '@/lib/workspaces/task-review-snapshot';
@@ -103,7 +104,7 @@ export async function createAssignmentAction(input: z.input<typeof createSchema>
     if (!parsed.success) return { success: false, error: parsed.error.issues[0]?.message ?? 'Check the assignment details.' };
     const data = parsed.data;
     const viewer = await orgRole(data.projectId);
-    if (!viewer?.isAdmin) return DENIED;
+    if (!viewer || !orgCan(orgRoleOf(viewer.role), 'create_assignments')) return DENIED;
     const lateBlock = lateRuleBlock(data, new Date(data.dueDate));
     if (lateBlock) return { success: false, error: lateBlock };
     const scheduled = data.publish ? { fields: {} } : scheduleFields(data.schedule, data.sprintId ?? null);
@@ -162,16 +163,17 @@ async function loadMaster(masterId: string) {
     return master?.assignmentSettings ? { ...master, settings: master.assignmentSettings } : null;
 }
 
-async function adminOfMaster(masterId: string) {
+/** The main assignment, when the viewer's row in the permissions table allows this action (decisions 33, 109). */
+async function adminOfMaster(masterId: string, action: OrgAction) {
     const master = await loadMaster(masterId);
     if (!master) return null;
     const viewer = await orgRole(master.projectId);
-    return viewer?.isAdmin ? { master, viewer } : null;
+    return viewer && orgCan(orgRoleOf(viewer.role), action) ? { master, viewer } : null;
 }
 
 /** Publish a draft: copies are made now. */
 export async function publishAssignmentAction(masterId: string, options: { dropMissing?: boolean } = {}): Promise<{ success: true; copies: number } | (Failure & { left?: number })> {
-    const ctx = await adminOfMaster(masterId);
+    const ctx = await adminOfMaster(masterId, 'create_assignments');
     if (!ctx) return DENIED;
     if (ctx.master.settings.publishedAt) return { success: false, error: 'Already published.' };
     try {
@@ -189,7 +191,7 @@ export async function publishAssignmentAction(masterId: string, options: { dropM
 export async function scheduleAssignmentAction(masterId: string, schedule: z.input<typeof scheduleSchema> | null): Promise<{ success: true } | Failure> {
     const parsed = schedule === null ? { success: true as const, data: null } : scheduleSchema.safeParse(schedule);
     if (!parsed.success) return { success: false, error: 'Pick when to publish.' };
-    const ctx = await adminOfMaster(masterId);
+    const ctx = await adminOfMaster(masterId, 'create_assignments');
     if (!ctx) return DENIED;
     if (ctx.master.settings.publishedAt) return { success: false, error: 'Already published.' };
     const fields = scheduleFields(parsed.data, ctx.master.sprintId);
@@ -268,7 +270,7 @@ export async function readMySubmissionsAction(): Promise<{ success: true; rows: 
 /** The composer's Materials picker (decision 128): this organization's files by name, Admins-only ones marked (137). */
 export async function searchAssignmentMaterialsAction(orgId: string, query: string): Promise<{ success: true; files: Array<{ id: string; name: string; adminsOnly: boolean }> } | Failure> {
     const viewer = await orgRole(orgId, 'read');
-    if (!viewer?.isAdmin) return DENIED;
+    if (!viewer || !orgCan(orgRoleOf(viewer.role), 'create_assignments')) return DENIED;
     const pattern = `%${query.trim().slice(0, 80).replace(/[%_\\]/g, (c) => `\\${c}`)}%`;
     const files = await db.select({ id: workspaceNodes.id, name: workspaceNodes.name,
         adminsOnly: sql<boolean>`EXISTS (SELECT 1 FROM workspace_nodes f WHERE f.workspace_id = workspace_nodes.workspace_id AND f.type = 'folder' AND f.deleted_at IS NULL AND f.metadata->>'access' = 'admins' AND starts_with(workspace_nodes.path, f.path || '/'))` })
@@ -324,7 +326,7 @@ const updateSchema = z.object({
 export async function updateAssignmentAction(masterId: string, patch: z.input<typeof updateSchema>): Promise<{ success: true } | Failure> {
     const parsed = updateSchema.safeParse(patch);
     if (!parsed.success) return { success: false, error: 'Check the changes.' };
-    const ctx = await adminOfMaster(masterId);
+    const ctx = await adminOfMaster(masterId, 'edit_for_everyone');
     if (!ctx) return DENIED;
     const { title, description, dueDate, sprintId, priority, storyPoints, tellEveryone } = parsed.data;
     const settings = ctx.master.settings;
@@ -380,7 +382,7 @@ export async function updateAssignmentAction(masterId: string, patch: z.input<ty
 
 /** Roster Remove (report §34.6): only a copy nobody has started; they're told it was removed. */
 export async function removeCopyAction(copyId: string): Promise<{ success: true } | Failure> {
-    const ctx = await adminOfCopy(copyId);
+    const ctx = await adminOfCopy(copyId, 'extend_excuse_remind');
     if (!ctx) return DENIED;
     const { copy } = ctx;
     if (copy.status !== 'todo' || copy.submission || copy.reviewSubmittedAt) return { success: false, error: 'They’ve started this, so it stays. Excuse them instead.' };
@@ -420,7 +422,7 @@ export async function returnCopiesAction(copyIds: string[], reason: string, fixB
 export async function readAssignmentExportAction(masterId: string): Promise<{ success: true; rows: string[][] } | Failure> {
     const roster = await readAssignmentRosterAction(masterId);
     if (!roster.success) return roster;
-    const ctx = await adminOfMaster(masterId);
+    const ctx = await adminOfMaster(masterId, 'export_progress');
     if (!ctx) return DENIED;
     const day = (iso: string | null | undefined) => (iso ? iso.slice(0, 10) : '');
     return {
@@ -436,7 +438,7 @@ export async function readAssignmentExportAction(masterId: string): Promise<{ su
 export async function readAssignmentForReuseAction(masterId: string): Promise<{ success: true; form: {
     title: string; description: string; submissionType: string; reviewRequired: boolean; lateRule: string; lateAfterMinutes: number; steps: string[]; target: AssignmentTarget; materials: Array<{ id: string; name: string }>; dueDate: null;
 } } | Failure> {
-    const ctx = await adminOfMaster(masterId);
+    const ctx = await adminOfMaster(masterId, 'edit_for_everyone');
     if (!ctx) return DENIED;
     const [steps, materials] = await Promise.all([
         db.execute<{ title: string }>(sql`SELECT title FROM task_subtasks WHERE task_id = ${masterId} ORDER BY position`),
@@ -452,7 +454,7 @@ export async function readAssignmentForReuseAction(masterId: string): Promise<{ 
 
 /** Delete only while nobody has submitted; afterwards, Close only (report §16.3). */
 export async function deleteAssignmentAction(masterId: string): Promise<{ success: true } | Failure> {
-    const ctx = await adminOfMaster(masterId);
+    const ctx = await adminOfMaster(masterId, 'create_assignments');
     if (!ctx) return DENIED;
     const [submitted] = await db.select({ id: tasks.id }).from(tasks).where(and(eq(tasks.assignmentId, masterId), isNull(tasks.deletedAt), handedInSql)).limit(1);
     if (submitted) return { success: false, error: 'Someone already handed this in. Close it instead.' };
@@ -467,7 +469,7 @@ export async function deleteAssignmentAction(masterId: string): Promise<{ succes
 
 /** Reopen (decision 40): submissions resume; instructions and the due date can change again. */
 export async function reopenAssignmentAction(masterId: string): Promise<{ success: true } | Failure> {
-    const ctx = await adminOfMaster(masterId);
+    const ctx = await adminOfMaster(masterId, 'close_assignment');
     if (!ctx) return DENIED;
     if (!ctx.master.settings.closedAt) return { success: false, error: 'This assignment is open.' };
     await db.update(tasks).set({ assignmentSettings: { ...ctx.master.settings, closedAt: null }, updatedAt: new Date() }).where(eq(tasks.id, masterId));
@@ -479,7 +481,7 @@ export async function reopenAssignmentAction(masterId: string): Promise<{ succes
 /** Give to (report §34.6, decisions 17 and 88): a copy for a member without one, with its own due date. They're told. */
 export async function giveCopyAction(masterId: string, userId: string, dueDate: string): Promise<{ success: true } | Failure> {
     if (!z.string().datetime({ offset: true }).safeParse(dueDate).success) return { success: false, error: 'Pick a due date.' };
-    const ctx = await adminOfMaster(masterId);
+    const ctx = await adminOfMaster(masterId, 'extend_excuse_remind');
     if (!ctx) return DENIED;
     if (!ctx.master.settings.publishedAt) return { success: false, error: 'Publish it first.' };
     const [member] = await db.select({ role: workspaceMembers.role }).from(workspaceMembers).where(and(eq(workspaceMembers.projectId, ctx.master.projectId), eq(workspaceMembers.userId, userId))).limit(1);
@@ -501,7 +503,7 @@ export async function giveCopyAction(masterId: string, userId: string, dueDate: 
 
 /** No more submissions; Missing stays in history. */
 export async function closeAssignmentAction(masterId: string): Promise<{ success: true } | Failure> {
-    const ctx = await adminOfMaster(masterId);
+    const ctx = await adminOfMaster(masterId, 'close_assignment');
     if (!ctx) return DENIED;
     await db.update(tasks).set({ assignmentSettings: { ...ctx.master.settings, closedAt: new Date().toISOString() }, updatedAt: new Date() }).where(eq(tasks.id, masterId));
     touch(ctx.viewer.slug, ctx.master.projectId);
@@ -539,6 +541,9 @@ export async function submitAssignmentAction(copyId: string, input: z.input<type
     const { copy, master } = loaded;
     const [teammate] = await db.select({ userId: taskTeamMembers.userId }).from(taskTeamMembers).where(and(eq(taskTeamMembers.taskId, copyId), eq(taskTeamMembers.userId, userId))).limit(1);
     if (copy.assigneeId !== userId && !teammate) return DENIED;
+    // Decisions 33 and 109: handing in is submit_ask_questions in the organization (Viewers read only).
+    const submitter = await orgRole(master.projectId, 'read');
+    if (copy.projectId === master.projectId && (!submitter || !orgCan(orgRoleOf(submitter.role), 'submit_ask_questions'))) return DENIED;
     if (copy.excusedAt) return { success: false, error: "You’re excused from this one." };
     const copyAccess = await getWorkspaceAccessById(copy.projectId, userId);
     if (copyAccess.writeBlocked) return { success: false, error: writeBlockedMessage(copyAccess.writeBlocked) };
@@ -649,7 +654,7 @@ export async function reviewAssignmentCopyAction(copyId: string, decision: 'appr
     if (expected && loaded.copy.projectId !== expected.projectId) return DENIED;
     if (expected?.updatedAt && loaded.copy.updatedAt.getTime() !== new Date(expected.updatedAt).getTime()) return { success: false, error: 'This changed. Reload before reviewing.' };
     const viewer = await orgRole(loaded.master.projectId);
-    if (!viewer?.isAdmin) return DENIED;
+    if (!viewer || !orgCan(orgRoleOf(viewer.role), 'approve_return')) return DENIED;
     const approved = loaded.copy.status === 'done' && loaded.copy.completionSource === 'review';
     // Decision 40: approved work can be returned while the assignment is open, as a deliberate change of decision;
     // a second admin reviewing at the same moment is still told it's done (smaller bug 15).
@@ -672,7 +677,7 @@ export async function reviewAssignmentCopyAction(copyId: string, decision: 'appr
 }
 
 export async function approveAllSubmittedAction(masterId: string): Promise<{ success: true; approved: number } | Failure> {
-    const ctx = await adminOfMaster(masterId);
+    const ctx = await adminOfMaster(masterId, 'approve_return');
     if (!ctx) return DENIED;
     const pending = await db.select({ id: tasks.id }).from(tasks).where(and(eq(tasks.assignmentId, masterId), eq(tasks.reviewStatus, 'pending'), isNull(tasks.deletedAt), isNull(tasks.excusedAt),
         sql`NOT (${tasks.assigneeId} IS NOT DISTINCT FROM ${ctx.viewer.userId}::uuid OR EXISTS (SELECT 1 FROM task_team_members tm WHERE tm.task_id = ${tasks.id} AND tm.user_id = ${ctx.viewer.userId}::uuid))`));
@@ -682,11 +687,11 @@ export async function approveAllSubmittedAction(masterId: string): Promise<{ suc
     return { success: true, approved };
 }
 
-async function adminOfCopy(copyId: string) {
+async function adminOfCopy(copyId: string, action: OrgAction) {
     const loaded = await loadCopy(copyId);
     if (!loaded) return null;
     const viewer = await orgRole(loaded.master.projectId);
-    return viewer?.isAdmin ? { ...loaded, viewer } : null;
+    return viewer && orgCan(orgRoleOf(viewer.role), action) ? { ...loaded, viewer } : null;
 }
 
 /**
@@ -695,7 +700,7 @@ async function adminOfCopy(copyId: string) {
  */
 export async function extendCopyAction(copyId: string, dueDate: string, options: { reopen?: boolean } = {}): Promise<{ success: true } | Failure> {
     if (!z.string().datetime({ offset: true }).safeParse(dueDate).success) return { success: false, error: 'Pick a date.' };
-    const ctx = await adminOfCopy(copyId);
+    const ctx = await adminOfCopy(copyId, 'extend_excuse_remind');
     if (!ctx) return DENIED;
     const closed = Boolean(ctx.master.settings.closedAt);
     if (closed && !options.reopen) return { success: false, error: 'This assignment is closed. Reopen it for this person to give them a new date.' };
@@ -707,7 +712,7 @@ export async function extendCopyAction(copyId: string, dueDate: string, options:
 
 /** Not required for this person: out of the counts, with a reason; null reason clears it. */
 export async function excuseCopyAction(copyId: string, reason: string | null): Promise<{ success: true } | Failure> {
-    const ctx = await adminOfCopy(copyId);
+    const ctx = await adminOfCopy(copyId, 'extend_excuse_remind');
     if (!ctx) return DENIED;
     await db.update(tasks).set(reason === null
         ? { excusedAt: null, excusedReason: null, updatedAt: new Date() }
@@ -820,7 +825,9 @@ export async function readAssignmentRosterAction(masterId: string): Promise<{ su
     const master = await loadMaster(masterId);
     if (!master) return DENIED;
     const viewer = await orgRole(master.projectId, 'read');
-    if (!viewer || (!viewer.isAdmin && viewer.role !== 'viewer')) return DENIED;
+    // see_roster: names for "yes", counts for "counts"; a member's "own" row is on their board, never here (7.13).
+    const grant = viewer ? orgGrant(orgRoleOf(viewer.role), 'see_roster') : 'no';
+    if (!viewer || (grant !== 'yes' && grant !== 'counts')) return DENIED;
     const copies = await db.select({
         id: tasks.id, projectId: tasks.projectId, assigneeId: tasks.assigneeId, teamName: tasks.teamName, status: tasks.status, reviewStatus: tasks.reviewStatus,
         dueDate: tasks.dueDate, reviewSubmittedAt: tasks.reviewSubmittedAt, completedAt: tasks.completedAt, excusedAt: tasks.excusedAt, excusedReason: tasks.excusedReason,
@@ -868,7 +875,7 @@ export async function readAssignmentRosterAction(masterId: string): Promise<{ su
 /** Composer pickers: the org's child projects and its planned or active sprints. */
 export async function readAssignmentComposerOptionsAction(orgId: string) {
     const viewer = await orgRole(orgId, 'read');
-    if (!viewer?.isAdmin) return { success: false as const, error: DENIED.error };
+    if (!viewer || !orgCan(orgRoleOf(viewer.role), 'create_assignments')) return { success: false as const, error: DENIED.error };
     const [children, sprints, teamAssignments, [org]] = await Promise.all([
         db.select({ id: workspaces.id, title: workspaces.title }).from(workspaces).where(and(eq(workspaces.parentId, orgId), isNull(workspaces.deletedAt))).orderBy(asc(workspaces.title)),
         db.select({ id: workspaceSprints.id, name: workspaceSprints.name, status: workspaceSprints.status }).from(workspaceSprints)
@@ -913,7 +920,7 @@ export async function listWorkspaceGroupCopiesAction(projectId: string): Promise
 
 /** A step added after publish reaches every copy; ticks already made stay. */
 export async function addAssignmentStepAction(masterId: string, title: string): Promise<{ success: true } | Failure> {
-    const ctx = await adminOfMaster(masterId);
+    const ctx = await adminOfMaster(masterId, 'edit_for_everyone');
     const step = title.trim().slice(0, 200);
     if (!ctx) return DENIED;
     if (!step) return { success: false, error: 'Write the step first.' };
@@ -927,7 +934,7 @@ export async function addAssignmentStepAction(masterId: string, title: string): 
 
 /** Remind one copy, or everyone not done (report §16.3); a person is reminded at most once per 12 hours. */
 export async function remindCopiesAction(masterId: string, copyIds?: string[]): Promise<{ success: true; reminded: number; skipped: number } | Failure> {
-    const ctx = await adminOfMaster(masterId);
+    const ctx = await adminOfMaster(masterId, 'extend_excuse_remind');
     if (!ctx) return DENIED;
     const open = await db.select({ id: tasks.id }).from(tasks).where(and(
         eq(tasks.assignmentId, masterId), isNull(tasks.deletedAt), isNull(tasks.excusedAt), sql`NOT ${handedInSql}`,
@@ -946,7 +953,7 @@ export async function remindCopiesAction(masterId: string, copyIds?: string[]): 
 
 /** Teams of an earlier teams assignment, for "Copy teams from" (report §16.11). */
 export async function readAssignmentTeamsAction(masterId: string): Promise<{ success: true; teams: Array<{ name: string; userIds: string[]; leadId: string | null }> } | Failure> {
-    const ctx = await adminOfMaster(masterId);
+    const ctx = await adminOfMaster(masterId, 'edit_for_everyone');
     if (!ctx) return DENIED;
     const rows = await db.select({ copyId: tasks.id, name: tasks.teamName, userId: taskTeamMembers.userId, isLead: taskTeamMembers.isLead }).from(tasks)
         .innerJoin(taskTeamMembers, eq(taskTeamMembers.taskId, tasks.id))
@@ -966,7 +973,7 @@ export async function readAssignmentTeamsAction(masterId: string): Promise<{ suc
  * (a late joiner) into a team at all. Only while neither team has handed in. The person hears where they are now.
  */
 export async function moveTeamMemberAction(masterId: string, userId: string, toCopyId: string | null): Promise<{ success: true } | Failure> {
-    const ctx = await adminOfMaster(masterId);
+    const ctx = await adminOfMaster(masterId, 'edit_for_everyone');
     if (!ctx) return DENIED;
     if (ctx.master.settings.target.mode !== 'teams') return { success: false, error: 'Only team assignments have teams.' };
     let title = '';
@@ -1015,7 +1022,7 @@ export async function moveTeamMemberAction(masterId: string, userId: string, toC
 export async function autoMakeGroupsAction(orgId: string, userIds: string[], size: number): Promise<{ success: true; groups: string[][] } | Failure> {
     const viewer = await orgRole(orgId, 'read');
     const parsed = z.array(z.string().uuid()).max(2000).safeParse(userIds);
-    if (!viewer?.isAdmin || !parsed.success) return DENIED;
+    if (!viewer || !orgCan(orgRoleOf(viewer.role), 'create_assignments') || !parsed.success) return DENIED;
     // Only this organization's members: the block graph of anyone else is never read (no cross-org probing).
     const ids = parsed.data.length ? (await db.select({ id: workspaceMembers.userId }).from(workspaceMembers)
         .where(and(eq(workspaceMembers.projectId, orgId), inArray(workspaceMembers.userId, [...new Set(parsed.data)]), eq(workspaceMembers.role, 'member')))).map((r) => r.id) : [];
@@ -1028,7 +1035,7 @@ export async function autoMakeGroupsAction(orgId: string, userIds: string[], siz
 
 /** Excuse one person on a team (report §16.11): the team carries on; that person leaves the counts with an excused copy. */
 export async function excuseTeamMemberAction(copyId: string, userId: string, reason: string): Promise<{ success: true } | Failure> {
-    const ctx = await adminOfCopy(copyId);
+    const ctx = await adminOfCopy(copyId, 'extend_excuse_remind');
     if (!ctx) return DENIED;
     if (!ctx.copy.teamName) return excuseCopyAction(copyId, reason);
     const [member] = await db.select({ userId: taskTeamMembers.userId }).from(taskTeamMembers).where(and(eq(taskTeamMembers.taskId, copyId), eq(taskTeamMembers.userId, userId))).limit(1);
@@ -1049,7 +1056,7 @@ export type ReviewQueueRow = {
 /** The marking inbox across every assignment (report §16.4–16.5): oldest first, with who handed in. */
 export async function readReviewQueueAction(orgId: string): Promise<{ success: true; rows: ReviewQueueRow[]; total: number } | Failure> {
     const viewer = await orgRole(orgId, 'read');
-    if (!viewer?.isAdmin) return DENIED;
+    if (!viewer || !orgCan(orgRoleOf(viewer.role), 'approve_return')) return DENIED;
     const rows = await db.execute<{ copy_id: string; master_id: string; title: string; team_name: string | null; assignee: string | null; project: string | null; submitted_by: string | null; submitted_at: string; due_date: string | null; in_org: boolean; workspace_id: string;
         updated_at: string; submission: { version?: number; link?: string | null; text?: string | null; note?: string | null } | null; files: string[] | null; steps_done: number; steps_total: number; comments: number; left_org: boolean; late_after: number | null; total: number }>(sql`
         SELECT c.id AS copy_id, m.id AS master_id, m.title, c.team_name, c.updated_at::text AS updated_at, c.submission,

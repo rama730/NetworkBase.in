@@ -5,7 +5,7 @@ import test from "node:test";
 
 import { ORG_TYPES } from "@/lib/organizations/config";
 import { ORG_TYPE_PROFILES, typeProfile } from "@/lib/organizations/type-profile";
-import { CHILD_ACTIONS, ORG_ACTIONS, orgGrant, PENDING_ENFORCEMENT } from "@/lib/organizations/permissions";
+import { ORG_ACTIONS, orgGrant, PENDING_ENFORCEMENT } from "@/lib/organizations/permissions";
 import { invitesLeftToday, orgLimitBlock } from "@/lib/organizations/limits";
 
 // Step T (report §21): one type profile, the permissions table as the real check, and limits with plain messages.
@@ -64,10 +64,12 @@ test("decisions 33 and 109: every Members action names its row, and rows not enf
     assert.ok(action, `${name} must check a row with orgManager(orgId, '<action>')`);
     assert.ok((ORG_ACTIONS as string[]).includes(action!), `${name}: ${action} is not a row`);
   }
-  for (const [action, step] of Object.entries(PENDING_ENFORCEMENT)) {
-    assert.ok((ORG_ACTIONS as string[]).includes(action) || (CHILD_ACTIONS as string[]).includes(action), action);
-    assert.match(step, /^Step (\d+|D|14)/, `${action} names the step that moves it`);
-  }
+  // Every row is enforced now: nothing waits for a later step.
+  assert.deepEqual(PENDING_ENFORCEMENT, {});
+  // Each assignment action names its row when it checks the viewer.
+  const assignments = source("src/app/actions/assignments.ts");
+  for (const [, action] of assignments.matchAll(/adminOf(?:Master|Copy)\(\w+, '(\w+)'\)/g)) assert.ok((ORG_ACTIONS as string[]).includes(action!), action);
+  assert.doesNotMatch(assignments, /adminOf(?:Master|Copy)\(\w+\)/, "every assignment helper call names a row");
   const used = walk(path.join(process.cwd(), "src")).filter((f) => !f.endsWith("permissions.ts")).some((f) => /childGrant\(/.test(fs.readFileSync(f, "utf8")));
   assert.ok(used, "childGrant is the real check for child workspaces");
 });

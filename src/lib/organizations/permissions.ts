@@ -126,17 +126,22 @@ export const CHILD_ACTIONS = Object.keys(CHILD) as ChildAction[];
  * Rows whose server check hasn't moved to this table yet, and the step that moves it (report §21.3: each action
  * moves as it's built or changed). A test keeps this list honest: every entry names a real row and a step.
  */
-export const PENDING_ENFORCEMENT: Partial<Record<OrgAction | ChildAction, string>> = {
-  create_org_tasks: "Step 13", edit_group_task_details: "Step 13", update_own_copy: "Step 13", update_assigned_task: "Step 13",
-  edit_for_everyone: "Step 13", close_assignment: "Step 13", approve_return: "Step 13", set_reviewers: "Step 13",
-  submit_ask_questions: "Step 13", see_class_overview: "Step 4",
-  mark_away: "Step 14 (after the pilot)",
-  copy_link: "Step 14",
-  team_tasks: "Step 13", reassign_group_work: "Step 13",
-};
+export const PENDING_ENFORCEMENT: Partial<Record<OrgAction | ChildAction, string>> = {};
 
 export function orgGrant(role: OrgRole, action: OrgAction): Grant {
   return ORG[action][role];
+}
+
+/** A stored membership role as a table column: the org's owner, its admins, members, Viewers (guest), or nobody. */
+export function orgRoleOf(role: string | null | undefined, isOwner = false): OrgRole {
+  if (isOwner || role === "owner") return "owner";
+  return role === "admin" ? "admin" : role === "member" ? "member" : role === "viewer" ? "guest" : "visitor";
+}
+
+/** "yes" for everyone the row allows; "own" also when it's the person's own work. */
+export function orgCan(role: OrgRole, action: OrgAction, own = false): boolean {
+  const grant = orgGrant(role, action);
+  return grant === "yes" || (grant === "own" && own);
 }
 
 export function childGrant(role: ChildRole, action: ChildAction): Grant {

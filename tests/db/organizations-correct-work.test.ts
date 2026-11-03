@@ -253,6 +253,21 @@ test("problems 23, 34 and 18: only admins edit a main assignment; it has no stat
   assert.equal(copy!.sprint_id, sprint!.id, "the copies follow (problem 18)");
 });
 
+test("decisions 33 and 109: a member changes only their own copy and the org tasks assigned to them", async () => {
+  const o = await org();
+  const { copyOf } = await published(o, "Lab 12");
+  viewerId = o.a;
+  const other = await taskActions.updateTaskFieldAction(copyOf(o.b), "priority", "urgent", o.org);
+  assert.deepEqual([other.success, (other as { error?: string }).error], [false, "You can change only your own work."]);
+  assert.equal((await taskActions.updateTaskFieldAction(copyOf(o.a), "priority", "high", o.org)).success, true);
+  const [mine] = await sql`INSERT INTO tasks (workspace_id, title, assignee_id, creator_id) VALUES (${o.org}, 'Bring the projector', ${o.a}, ${o.owner}) RETURNING id`;
+  const [theirs] = await sql`INSERT INTO tasks (workspace_id, title, assignee_id, creator_id) VALUES (${o.org}, 'Book the lab', ${o.b}, ${o.owner}) RETURNING id`;
+  assert.equal((await taskActions.updateTaskFieldAction(mine!.id, "priority", "high", o.org)).success, true);
+  assert.equal((await taskActions.updateTaskFieldAction(theirs!.id, "priority", "high", o.org)).success, false);
+  viewerId = o.admin;
+  assert.equal((await taskActions.updateTaskFieldAction(theirs!.id, "priority", "high", o.org)).success, true, "admins change any org task");
+});
+
 test("problems 20, 23 and decision 85: on a copy the brief and date are set by the organization, hand-in is only through Submit, and approved work is locked", async () => {
   const o = await org();
   const { copyOf } = await published(o, "Lab 11");

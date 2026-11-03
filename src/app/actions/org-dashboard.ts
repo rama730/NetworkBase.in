@@ -16,7 +16,7 @@ import { privateOrgLine } from '@/lib/organizations/join-rules';
 const CLASS_WORD: Record<string, string> = { education: 'class', company: 'team', research: 'lab', community: 'group', club: 'club', other: 'group' };
 import { activityTime } from '@/lib/organizations/activity-rules';
 import { readViewerOrgRole } from '@/lib/organizations/detail';
-import { childGrant } from '@/lib/organizations/permissions';
+import { childGrant, orgCan, orgRoleOf } from '@/lib/organizations/permissions';
 import { audienceSql } from '@/lib/organizations/org-updates';
 import { readOrgDocsAction } from '@/app/actions/org-docs';
 import { normalizeWorkspacePublicTabVisibility } from '@/lib/workspaces/settings-policies';
@@ -209,7 +209,8 @@ export async function readOrgDashboardAction(orgId: string, activityFilter = 'al
     const archivedNow = v.org.status === 'archived';
     let today: TodayRow[] = v.isGuest || archivedNow ? [] : needsYou;
     let standing: ReturnType<typeof classStanding> | null = null;
-    if (v.isAdmin && !archivedNow) {
+    // How the class is doing follows see_class_overview (decisions 33, 109).
+    if (orgCan(orgRoleOf(v.access?.memberRole, v.access?.isOwner), 'see_class_overview') && !archivedNow) {
         const members = await readMemberStanding(orgId, now);
         standing = classStanding(members);
         const dueMasters = masters.filter((m) => m.dueDate && m.dueDate.getTime() >= now.getTime() - 12 * 3_600_000 && weekGroup(m.dueDate, now, zone) === 'Today');

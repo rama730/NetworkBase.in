@@ -13,6 +13,7 @@ import { getViewerAuthContext } from '@/lib/server/viewer-context';
 import { closePendingApplications } from '@/lib/applications/closing';
 import { notifyClosedApplications } from '@/lib/applications/notifications';
 import { ORG_LIMITS } from '@/lib/organizations/config';
+import { childGrant, type ChildAction, type ChildRole } from '@/lib/organizations/permissions';
 
 // Units after creation (report §14.4, §21 "Units & open seats"): the lead, a project admin or an inherited org admin
 // renames units, changes seats, picks the unit lead ★ and moves people between units.
@@ -24,13 +25,14 @@ const UNIT_SEATS = 10;
 export type ChildUnit = { id: string; title: string; count: number; filled: number; leadUserId: string | null; members: Array<{ userId: string; name: string }> };
 export type ChildUnits = { success: true; units: ChildUnit[]; unplaced: Array<{ userId: string; name: string }> };
 
-async function manager(projectId: string) {
+/** A lead, workspace admin or inherited admin, checked against the workspace row named (decisions 33, 109). */
+async function manager(projectId: string, action: ChildAction = 'manage_members_units') {
     const { userId } = await getViewerAuthContext();
     if (!userId) return null;
     const access = await getWorkspaceAccessById(projectId, userId);
     if (!access.project?.parentId || access.writeBlocked) return null;
-    const can = access.isOwner || access.memberRole === 'admin' || access.isInheritedAdmin;
-    return can ? { userId, project: access.project } : null;
+    const role: ChildRole = access.isOwner ? 'lead' : access.memberRole === 'admin' ? 'project_admin' : access.isInheritedAdmin ? 'inherited_admin' : access.isMember ? 'unit_member' : 'visitor';
+    return childGrant(role, action) === 'yes' ? { userId, project: access.project } : null;
 }
 
 export async function readChildUnitsAction(projectId: string): Promise<ChildUnits | Failure> {
@@ -225,7 +227,7 @@ export async function createTeamTasksAction(projectId: string, input: {
     title: string; description?: string | null; dueDate?: string | null;
     mode: 'teams' | 'units'; teams?: Array<{ name: string; userIds: string[]; leadId?: string | null }>;
 }): Promise<{ success: true; created: number } | Failure> {
-    const m = await manager(projectId);
+    const m = await manager(projectId, 'team_tasks');
     if (!m) return DENIED;
     const title = input.title.trim().slice(0, 200);
     if (!title) return { success: false, error: 'Give the task a title.' };

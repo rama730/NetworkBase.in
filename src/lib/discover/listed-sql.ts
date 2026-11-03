@@ -22,11 +22,11 @@ export function orgQualifiesSql(): SQL<boolean> {
         ))`;
 }
 
-// ponytail: organizations already public before the indexing rule shipped stay indexed (report §41.4). Set to the
-// day deploy 1a goes live.
-const ORG_INDEX_RULE_SINCE = '2026-11-03T00:00:00Z';
+// Organizations already public before the indexing rule shipped stay indexed (report §41.4). The rule shipped with
+// deploy 1a, so its start is when that deploy's migration ran here; the date is the fallback if the journal is empty.
+const ORG_INDEX_RULE_SINCE = sql`coalesce((SELECT min(j.applied_at) FROM app_migration_journal j WHERE j.tag = '0043_member_last_active_here'), '2026-11-03T00:00:00Z'::timestamptz)`;
 
 /** Decision 69: the sitemap and page indexing follow Discover's rule, so the three can't disagree. */
 export function orgIndexableSql(): SQL<boolean> {
-    return sql<boolean>`(${orgQualifiesSql()} OR ${workspaces.createdAt} < ${ORG_INDEX_RULE_SINCE}::timestamptz)`;
+    return sql<boolean>`(${orgQualifiesSql()} OR ${workspaces.createdAt} < ${ORG_INDEX_RULE_SINCE})`;
 }

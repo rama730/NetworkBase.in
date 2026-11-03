@@ -47,7 +47,7 @@ function load(file: string, mocks: Record<string, unknown> = {}) {
 }
 
 test("lockTaskForWrite parses string updated_at into a valid Date object with working getTime()", async () => {
-  const { lockTaskForWrite } = load("src/lib/workspaces/task-transition-service.ts");
+  const { lockTaskForWrite } = load("src/lib/workspaces/task-transition-service.ts", { "@/lib/organizations/permissions": load("src/lib/organizations/permissions.ts") });
   const timestampStr = "2026-10-21 21:05:00+00";
   const mockTx: any = {
     execute: async () => [
@@ -81,7 +81,7 @@ test("lockTaskForWrite parses string updated_at into a valid Date object with wo
 });
 
 test("lockTaskForWrite keeps Date updated_at unchanged if driver returns a Date instance", async () => {
-  const { lockTaskForWrite } = load("src/lib/workspaces/task-transition-service.ts");
+  const { lockTaskForWrite } = load("src/lib/workspaces/task-transition-service.ts", { "@/lib/organizations/permissions": load("src/lib/organizations/permissions.ts") });
   const dateObj = new Date("2026-10-21T21:05:00.000Z");
   const mockTx: any = {
     execute: async () => [

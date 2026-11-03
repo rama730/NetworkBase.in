@@ -8,6 +8,7 @@ import { db } from "@/lib/db";
 import { workspaceMembers, workspaceSprints, workspaceWorkflowColumns, workspaces, sprintTaskMemberships, taskSubtasks, taskTeamMembers, tasks } from "@/lib/db/schema";
 import type { WorkspaceAccess } from "@/lib/data/workspace-access";
 import { assignmentWriteBlock, type AssignmentSettings, type AssignmentTarget, type AssignmentWrite } from "@/lib/organizations/assignment-rules";
+import { orgCan, type OrgRole } from "@/lib/organizations/permissions";
 
 // Assignments (report §16, §16.11): a master task on the org and one copy per person, team or child project.
 
@@ -321,10 +322,15 @@ export async function assignmentWriteContext(executor: Executor, taskId: string)
   return { isMaster: row.master, isCopy: row.copy, handedIn: row.handed_in, approved: row.approved, groupCopy: row.group_copy, orgTitle: row.org_title ?? "the organization", orgId: row.org_id };
 }
 
-/** Throws the plain reason when assignment work can't take this write; ordinary tasks pass (report §19.3). */
-export async function assertAssignmentWrite(executor: Executor, taskId: string, actorIsOrgAdmin: boolean, write: AssignmentWrite) {
+/**
+ * Throws the plain reason when the write isn't allowed (report §19.3, decisions 33 and 109): assignment work follows
+ * assignmentWriteBlock; an ordinary task on an organization's board follows update_assigned_task ("own" for
+ * members). Tasks in ordinary workspaces pass.
+ */
+export async function assertAssignmentWrite(executor: Executor, taskId: string, actor: { role: OrgRole; isHolder: boolean; onOrgBoard: boolean }, write: AssignmentWrite) {
   const context = await assignmentWriteContext(executor, taskId);
-  const blocked = context && assignmentWriteBlock({ ...context, actorIsOrgAdmin }, write);
+  const blocked = context ? assignmentWriteBlock({ ...context, actorRole: actor.role, actorIsHolder: actor.isHolder }, write)
+    : actor.onOrgBoard && !orgCan(actor.role, "update_assigned_task", actor.isHolder) ? "You can change only your own work." : null;
   if (blocked) throw new Error(blocked);
   return context;
 }

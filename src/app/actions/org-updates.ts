@@ -70,7 +70,7 @@ async function orgAnnouncement(orgId: string, updateId: string) {
 
 /** "Seen by 32 of 40" → who hasn't (report §28.3): admins only. */
 export async function readUnseenPeopleAction(orgId: string, updateId: string): Promise<{ success: true; people: Array<{ id: string; name: string }> } | Failure> {
-    const viewer = await orgPostManager(orgId, 'announce', 'read');
+    const viewer = await orgPostManager(orgId, 'see_class_overview', 'read');
     if (!viewer || !(await orgAnnouncement(orgId, updateId))) return DENIED;
     return { success: true, people: [...await readUnseenPeople(orgId, updateId)] };
 }

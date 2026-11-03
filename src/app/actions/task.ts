@@ -44,6 +44,7 @@ import {
 } from "@/lib/validations/task";
 
 import { canReadWorkspaceTab, getWorkspaceAccessById } from "@/lib/data/workspace-access";
+import { childGrant, orgCan } from "@/lib/organizations/permissions";
 import { taskReviewSnapshot } from "@/lib/workspaces/task-review-snapshot";
 import { taskActorSnapshot, taskContextLabel, lockTaskForWrite, transitionTaskTx, afterTaskTransition } from "@/lib/workspaces/task-transition-service";
 
@@ -102,7 +103,7 @@ export async function updateTaskFieldAction(
       if (locked.projectId !== projectId) {
         throw new Error("Task does not belong to this workspace");
       }
-      const assignment = await assertAssignmentWrite(tx, taskId, locked.isLeader, field as AssignmentWrite);
+      const assignment = await assertAssignmentWrite(tx, taskId, { role: locked.orgRole, isHolder: locked.isHolder, onOrgBoard: locked.onOrgBoard }, field as AssignmentWrite);
 
       const updatedAt = new Date();
       const updates: Partial<typeof tasks.$inferInsert> = {
@@ -518,7 +519,9 @@ export async function assignTaskAction(
       const group = Boolean(work?.copy && work.group);
       const blocked = reassignBlock({
         isMaster: Boolean(work?.master), isCopy: Boolean(work?.copy), hasTeam: Boolean(work?.team) || group,
-        actorIsAdmin: locked.isLeader, actorIsLead: Boolean(work?.lead) || (group && locked.isOwner), targetOnTeam: Boolean(work?.target) || group,
+        // Decisions 33 and 109: reassign_group_work in a workspace, the organization's admins on its own team copies.
+        actorIsAdmin: group ? childGrant(locked.childRole, "reassign_group_work") === "yes" && locked.childRole !== "lead" : orgCan(locked.orgRole, "edit_group_task_details"),
+        actorIsLead: Boolean(work?.lead) || (group && locked.isOwner), targetOnTeam: Boolean(work?.target) || group,
       });
       if (blocked) throw new Error(blocked);
 

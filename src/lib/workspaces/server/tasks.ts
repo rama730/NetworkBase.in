@@ -1,5 +1,6 @@
 import { assignmentColumn, assignmentWriteContext, orgTaskReadFilter } from "@/lib/organizations/assignments";
 import { assignmentWriteBlock } from "@/lib/organizations/assignment-rules";
+import { orgCan, orgRoleOf } from "@/lib/organizations/permissions";
 import { assignmentPeopleOf, notifyAssignmentRemoved } from "@/lib/organizations/assignment-notify";
 import { logger } from "@/lib/logger";
 import { readViewerOrgRole } from "@/lib/organizations/detail";
@@ -959,8 +960,8 @@ export async function createTaskAction(data: z.infer<typeof createTaskSchema>) {
     const access = await getWorkspaceAccessById(validated.projectId, user.id);
     if (!access.project) throw new Error("Workspace not found");
     const ownerOrAdmin = access.isOwner || access.memberRole === "admin";
-    // Decision 87: an organization's board takes tasks from its owners and admins only.
-    if (access.project.kind === "organization" && !ownerOrAdmin) {
+    // Decision 87: an organization's board takes tasks from the roles create_org_tasks allows (owners and admins).
+    if (access.project.kind === "organization" && !orgCan(orgRoleOf(access.memberRole, access.isOwner), "create_org_tasks")) {
       throw new Error("Only owners and admins add tasks here.");
     }
     // Decision 146: owners and admins plan sprints.
@@ -1319,7 +1320,7 @@ export async function deleteTaskAction(taskId: string, projectId: string) {
       const assignment = await assignmentWriteContext(tx, taskId);
       if (assignment) {
         const role = assignment.orgId ? await readViewerOrgRole(assignment.orgId, user.id) : null;
-        const blocked = assignmentWriteBlock({ ...assignment, actorIsOrgAdmin: role === "owner" || role === "admin" }, "delete");
+        const blocked = assignmentWriteBlock({ ...assignment, actorRole: orgRoleOf(role), actorIsHolder: false }, "delete");
         if (blocked) throw new Error(blocked);
         // Problems 27 and 32: whoever had it hears it was removed, once the delete commits.
         if (assignment.orgId) removed = { orgId: assignment.orgId, people: await assignmentPeopleOf(tx, taskId) };

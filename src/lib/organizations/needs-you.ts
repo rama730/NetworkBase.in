@@ -9,6 +9,7 @@ import { workspaceMembers, workspaces, workspaceSprints, roleApplications, taskT
 import type { WorkspaceAccess } from "@/lib/data/workspace-access";
 import { copyState } from "@/lib/organizations/assignment-rules";
 import { memberStatus } from "@/lib/organizations/member-rules";
+import { lastActiveHereSince } from "@/lib/organizations/members";
 import { JOIN_SPIKE_PER_HOUR } from "@/lib/organizations/trust-rules";
 
 // Needs you (report §26.4) and the copy helpers the org dashboard shares. Not a server action: it trusts its viewer.
@@ -212,9 +213,10 @@ export async function readMemberStanding(orgId: string, now: Date) {
             for (const userId of teamOf.get(c.id) ?? []) add(userId, c.sprint_id);
         }
     }
+    const since = await lastActiveHereSince();
     return people.map((p) => {
         const sprints = missing.get(p.userId) ?? new Set<string | null>();
-        const status = memberStatus({ missing: sprints.size, lastActiveAt: p.lastActiveAt, joinedAt: p.joinedAt, now });
+        const status = memberStatus({ missing: sprints.size, lastActiveAt: p.lastActiveAt, joinedAt: p.joinedAt, now, since });
         return { userId: p.userId, behind: status.behind, inactive: status.inactive, behindIn: sprints };
     });
 }
