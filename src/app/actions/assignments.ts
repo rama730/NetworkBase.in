@@ -244,6 +244,27 @@ export async function readHandInAction(copyId: string): Promise<{ success: true;
     } };
 }
 
+export type MySubmission = { copyId: string; title: string; org: string; projectId: string; version: number; at: string; state: 'waiting' | 'approved' | 'returned' | 'done'; link: string | null; files: Array<{ nodeId: string; name: string }> };
+
+/**
+ * My work → Submitted (report §30.7, decision 68): the viewer's handed-in work, latest version each, with its files to
+ * download; it stays listed while an organization is being deleted.
+ */
+export async function readMySubmissionsAction(): Promise<{ success: true; rows: MySubmission[] } | Failure> {
+    const userId = await viewerId();
+    if (!userId) return DENIED;
+    const rows = await db.execute<{ copy_id: string; title: string; org: string; project_id: string; version: number; at: string; status: string; review_status: string; completion_source: string | null; link: string | null; files: Array<{ nodeId: string; name: string }> }>(sql`
+        SELECT DISTINCT ON (c.id) c.id AS copy_id, m.title, o.title AS org, c.workspace_id AS project_id, s.version, s.submitted_at::text AS at, c.status, c.review_status, c.completion_source, s.link, s.files
+        FROM tasks c JOIN tasks m ON m.id = c.assignment_id JOIN workspaces o ON o.id = m.workspace_id
+        JOIN assignment_submissions s ON s.copy_id = c.id
+        WHERE c.deleted_at IS NULL AND (c.assignee_id = ${userId} OR EXISTS (SELECT 1 FROM task_team_members tm WHERE tm.task_id = c.id AND tm.user_id = ${userId}))
+        ORDER BY c.id, s.version DESC LIMIT 200`);
+    return { success: true, rows: rows.map((r) => ({
+        copyId: r.copy_id, title: r.title, org: r.org, projectId: r.project_id, version: r.version, at: new Date(r.at).toISOString(), link: r.link, files: r.files ?? [],
+        state: (r.review_status === 'pending' ? 'waiting' : r.review_status === 'rejected' ? 'returned' : r.completion_source === 'review' ? 'approved' : 'done') as MySubmission['state'],
+    })).sort((a, b) => b.at.localeCompare(a.at)) };
+}
+
 /** The composer's Materials picker (decision 128): this organization's files by name, Admins-only ones marked (137). */
 export async function searchAssignmentMaterialsAction(orgId: string, query: string): Promise<{ success: true; files: Array<{ id: string; name: string; adminsOnly: boolean }> } | Failure> {
     const viewer = await orgRole(orgId, 'read');

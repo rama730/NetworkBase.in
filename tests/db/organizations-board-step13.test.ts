@@ -110,3 +110,29 @@ test("problem 19, decision 139: an organization admin not on the team creates, a
   viewerId = stranger;
   assert.equal((await tasks.createTaskAction({ projectId: child, title: "Nope", status: "todo", priority: "medium" } as never)).success, false);
 });
+
+test("decisions 68, 113: My work lists handed-in work with its files; the temporary switch gives members the main card back", async () => {
+  const [owner, asha] = await Promise.all([1, 2].map(() => sql.begin((tx) => createUser(tx))));
+  const org = await sql.begin((tx) => createProject(tx, owner!));
+  await sql`INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (${org}, ${owner!}, 'owner'), (${org}, ${asha!}, 'member')`;
+  await sql`UPDATE workspaces SET kind = 'organization', org_type = 'education', title = 'CSE 3B', join_code = ${generateJoinCode()} WHERE id = ${org}`;
+  created.push(org);
+  viewerId = owner!;
+  const made = await assignments.createAssignmentAction({ projectId: org, title: "Lab 9", dueDate: new Date(Date.now() + 864e5).toISOString(), publish: true,
+    submissionType: "file", reviewRequired: false, lateRule: "none", target: { mode: "everyone" }, steps: [] });
+  const masterId = made.success ? made.masterId : "";
+  const [copy] = await sql`SELECT id FROM tasks WHERE assignment_id = ${masterId}`;
+  await sql`INSERT INTO workspace_nodes (workspace_id, type, name, path, task_id, created_by) VALUES (${org}, 'file', 'report.pdf', ${`/.system/tasks/${copy!.id}/report.pdf`}, ${copy!.id}, ${asha!})`;
+  viewerId = asha!;
+  assert.equal((await assignments.submitAssignmentAction(copy!.id, {})).success, true);
+  const mine = await assignments.readMySubmissionsAction();
+  assert.deepEqual(mine.success && mine.rows.filter((r) => r.title === "Lab 9").map((r) => [r.org, r.version, r.state, r.files.map((f) => f.name)]), [["CSE 3B", 1, "done", ["report.pdf"]]]);
+  const ids = async () => { const r = await tasks.fetchWorkspaceTasksAction(org); return r.success ? r.tasks.map((t) => t.id) : []; };
+  assert.equal((await ids()).includes(masterId), false);
+  process.env.NB_ORG_BOARD_CLASSIC = "true";
+  try {
+    assert.equal((await ids()).includes(masterId), true, "the switch brings the main card back");
+  } finally {
+    delete process.env.NB_ORG_BOARD_CLASSIC;
+  }
+});

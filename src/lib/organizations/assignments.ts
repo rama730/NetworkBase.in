@@ -35,7 +35,9 @@ export function orgTaskReadFilter(access: WorkspaceAccess, viewerId: string | nu
   );
   // Decision 15: a member's board holds their own copy, never the main assignment too. The main one stays readable
   // (scope "review") so class questions open from the copy. Viewers have no copies and see the main ones.
-  if (access.memberRole === "member" && scope !== "review") return own;
+  // ponytail: the one temporary switch (decisions 113, 166) while real classes run: NB_ORG_BOARD_CLASSIC=true gives
+  // members the main assignment back on their board. Remove it after the pilot.
+  if (access.memberRole === "member" && scope !== "review" && process.env.NB_ORG_BOARD_CLASSIC !== "true") return own;
   return or(master, own);
 }
 

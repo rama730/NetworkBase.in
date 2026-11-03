@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useState, useDeferredValue, useRef } from "r
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
+import { readMySubmissionsAction } from "@/app/actions/assignments";
 import { fetchMyWorkTasksAction } from "@/app/actions/my-work";
 import { fetchToReviewAction } from "@/app/actions/org-workspace";
 import { queryKeys } from "@/lib/query-keys";
@@ -221,7 +222,9 @@ export default function MyWorkTasksTab({ isActive = true }: MyWorkTasksTabProps)
     const [status, setStatus] = useState<MyWorkStatusFilter>("all");
     // Organization filter (All · Personal · each org), quick filters and the To review view (report §29.2).
     const [orgFilter, setOrgFilter] = useState<string>("all");
-    const [quick, setQuick] = useState<"due" | "missing" | null>(null);
+    const [quick, setQuick] = useState<"due" | "missing" | "submitted" | null>(null);
+    // Decision 68: what they've handed in, with Download.
+    const submissions = useQuery({ queryKey: ["my-submissions"], queryFn: () => readMySubmissionsAction(), enabled: isMyWorkOpen && quick === "submitted", staleTime: 30_000 });
     const [showReview, setShowReview] = useState(false);
     const [search, setSearch] = useState("");
     const [density, setDensity] = useState<ViewDensity>("cards");
@@ -496,15 +499,28 @@ export default function MyWorkTasksTab({ isActive = true }: MyWorkTasksTabProps)
             )}
 
             {/* Quick filters as plain text links: Due soon 3 · Missing 1 · To review 5 (report §29.2). */}
-            {(dueSoonCount > 0 || missingCount > 0 || toReview.length > 0) ? (
+            {(dueSoonCount > 0 || missingCount > 0 || toReview.length > 0 || tasks.some((task) => task.org?.id)) ? (
                 <p className="flex flex-wrap items-center gap-1.5 px-0.5 text-xs text-muted-foreground">
                     {dueSoonCount > 0 ? <button type="button" className={cn("hover:text-foreground hover:underline", quick === "due" && "font-semibold text-foreground")} onClick={() => { setShowReview(false); setQuick(quick === "due" ? null : "due"); }}>Due soon {dueSoonCount}</button> : null}
                     {missingCount > 0 ? <><span aria-hidden="true">·</span><button type="button" className={cn("hover:text-foreground hover:underline", quick === "missing" && "font-semibold text-foreground")} onClick={() => { setShowReview(false); setQuick(quick === "missing" ? null : "missing"); }}>Missing {missingCount}</button></> : null}
+                    <span aria-hidden="true">·</span><button type="button" className={cn("hover:text-foreground hover:underline", quick === "submitted" && "font-semibold text-foreground")} onClick={() => { setShowReview(false); setQuick(quick === "submitted" ? null : "submitted"); }}>Submitted</button>
                     {toReview.length > 0 ? <><span aria-hidden="true">·</span><button type="button" className={cn("hover:text-foreground hover:underline", showReview && "font-semibold text-foreground")} onClick={() => setShowReview(!showReview)}>To review {toReview.length}</button></> : null}
                 </p>
             ) : null}
 
-            {showReview ? (
+            {quick === "submitted" ? (
+                <ul className="space-y-1.5" aria-label="Submitted">
+                    {submissions.data?.success && submissions.data.rows.length === 0 ? <li className="px-1 text-xs text-muted-foreground">Nothing handed in yet.</li> : null}
+                    {(submissions.data?.success ? submissions.data.rows : []).map((row) => (
+                        <li key={row.copyId} className="flex min-h-[40px] flex-wrap items-center gap-2 rounded-[6px] border border-border/70 bg-card px-2.5 py-1.5 text-xs">
+                            <span className="min-w-0 flex-1 truncate"><span className="font-medium text-foreground">{row.title}</span> · <span className="text-muted-foreground">{row.org} · Version {row.version} · {row.state === "waiting" ? "Waiting for review" : row.state === "approved" ? "Approved" : row.state === "returned" ? "Returned" : "Done"}</span></span>
+                            <span className="shrink-0 font-mono text-[11px] text-muted-foreground">{format(parseISO(row.at), "MMM d")}</span>
+                            {row.files.map((f) => <a key={f.nodeId} href={`/api/v1/workspaces/${row.projectId}/files/${f.nodeId}/preview?download=1`} className="shrink-0 text-primary underline-offset-4 hover:underline">Download {f.name}</a>)}
+                            {row.link ? <a href={row.link} target="_blank" rel="noreferrer noopener" className="shrink-0 text-primary underline-offset-4 hover:underline">Open link</a> : null}
+                        </li>
+                    ))}
+                </ul>
+            ) : showReview ? (
                 <ul className="space-y-1.5" aria-label="Submissions to review">
                     {toReview.map((row) => (
                         <li key={row.id}>

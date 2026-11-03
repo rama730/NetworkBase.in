@@ -40,4 +40,4 @@ Seven commits, server first.
 ## 13g — The rest
 - Due dates entered in the organization's zone and shown in yours (74). Live roster and queue (76). Phones (78).
 - My work's Submitted filter with Download (68). Publishing progress (44.3).
-- The temporary switch while real classes run (113, 166).
+- The temporary switch while real classes run (113, 166): `NB_ORG_BOARD_CLASSIC=true` gives members the main card back on their board. Remove after the pilot.

@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react'
 import { readAssignmentComposerOptionsAction, readAssignmentForReuseAction, type AssignmentRow, type updateAssignmentAction } from '@/app/actions/assignments'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { Input } from '@/components/ui/input'
+import { isoToZonedInput, zonedInputToIso, zoneName } from '@/lib/organizations/zoned-time'
 
 // Roster dialogs (report §34.6): every browser pop-up becomes a dialog that says what happens.
 
@@ -110,13 +111,14 @@ type EditPatch = Parameters<typeof updateAssignmentAction>[1]
  * Edit for everyone (report §23.3, decision 39): the same fields as the form, sent only when changed. The hand-in
  * type locks once someone has handed in; a closed one keeps its instructions and due date until reopened.
  */
-export function EditAssignmentDialog({ orgId, row, open, onClose, onSave }: { orgId: string; row: AssignmentRow; open: boolean; onClose: () => void; onSave: (patch: EditPatch) => void }) {
+export function EditAssignmentDialog({ orgId, row, open, onClose, onSave, timeZone = null }: { orgId: string; row: AssignmentRow; open: boolean; onClose: () => void; onSave: (patch: EditPatch) => void; timeZone?: string | null }) {
     const [loaded, setLoaded] = useState<{ description: string; lateRule: string; lateAfterMinutes: number } | null>(null)
     const [sprints, setSprints] = useState<Array<{ id: string; name: string }>>([])
     const [title, setTitle] = useState(row.title)
     const [description, setDescription] = useState('')
     const [tell, setTell] = useState(false)
-    const [due, setDue] = useState(row.dueDate ? toLocalInput(new Date(row.dueDate)) : '')
+    // Decision 74: the due date in the organization's time zone.
+    const [due, setDue] = useState(row.dueDate ? isoToZonedInput(row.dueDate, timeZone) : '')
     const [lateRule, setLateRule] = useState('none')
     const [lateAfter, setLateAfter] = useState(15)
     const [submissionType, setSubmissionType] = useState(row.submissionType)
@@ -138,7 +140,7 @@ export function EditAssignmentDialog({ orgId, row, open, onClose, onSave }: { or
     const patch = (): EditPatch => ({
         ...(title.trim() && title.trim() !== row.title ? { title: title.trim() } : {}),
         ...(loaded && description !== loaded.description ? { description, tellEveryone: tell } : {}),
-        ...(due && (!row.dueDate || new Date(due).getTime() !== new Date(row.dueDate).getTime()) ? { dueDate: new Date(due).toISOString() } : {}),
+        ...(due && (!row.dueDate || zonedInputToIso(due, timeZone) !== new Date(row.dueDate).toISOString()) ? { dueDate: zonedInputToIso(due, timeZone) } : {}),
         ...(loaded && lateRule !== loaded.lateRule ? { lateRule: lateRule as 'none' | 'always' } : {}),
         ...(loaded && lateAfter !== loaded.lateAfterMinutes ? { lateAfterMinutes: lateAfter } : {}),
         ...(submissionType !== row.submissionType ? { submissionType: submissionType as 'none' | 'file' | 'link' | 'text' } : {}),
@@ -159,7 +161,7 @@ export function EditAssignmentDialog({ orgId, row, open, onClose, onSave }: { or
                 {published && loaded && description !== loaded.description ? (
                     <label className="flex items-center gap-2 sm:col-span-2"><input type="checkbox" checked={tell} onChange={(e) => setTell(e.target.checked)} /> Tell everyone</label>
                 ) : null}
-                <label className="block space-y-1"><span className="font-medium">Due</span><Input type="datetime-local" value={due} disabled={closed} onChange={(e) => setDue(e.target.value)} /></label>
+                <label className="block space-y-1"><span className="font-medium">Due <span className="font-normal text-muted-foreground">({zoneName(timeZone)})</span></span><Input type="datetime-local" value={due} disabled={closed} onChange={(e) => setDue(e.target.value)} /></label>
                 <label className="block space-y-1"><span className="font-medium">Sprint</span>
                     <select value={sprintId} onChange={(e) => setSprintId(e.target.value)} className="h-9 w-full rounded-md border border-input bg-background px-2">
                         <option value="">Keep as is</option>

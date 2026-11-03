@@ -55,6 +55,10 @@ import { ASSIGNMENT_STATE_LABELS } from '@/lib/copy/terms'
 import { EditAssignmentDialog, ExcuseDialog, ExtendDialog, GiveToDialog, ReturnDialog } from '@/components/organizations/AssignmentDialogs'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { saveBlob, toCsvBlob } from '@/lib/download'
+import { zonedInputToIso, zoneName } from '@/lib/organizations/zoned-time'
+import { useAuth } from '@/hooks/use-auth'
+import { userTopic } from '@/lib/messaging/constants'
+import { subscribeBroadcast } from '@/lib/realtime/private-broadcast'
 
 // Assignments in the org Tasks tab (report §16.2–16.5, §16.11) and group copies in a child project (§16.6).
 // The Kanban board below stays as it is: members' own copies appear there through the read rule.
@@ -139,10 +143,31 @@ function SubmitDialog({ copyId, submissionType, title, open, onOpenChange, onDon
     )
 }
 
+/**
+ * Live roster and queue (report §32.4, decision 76): a new submission reaches admins as a notice, so a notice on their
+ * own topic reloads the list, combined over 2 seconds.
+ */
+function useReloadOnNotice(reload: () => void) {
+    const viewerId = useAuth().user?.id
+    const latest = useRef(reload)
+    latest.current = reload
+    useEffect(() => {
+        if (!viewerId) return
+        let timer: ReturnType<typeof setTimeout> | null = null
+        const live = subscribeBroadcast(userTopic(viewerId), (event) => {
+            if (event === 'notification.changed' && !timer) timer = setTimeout(() => { timer = null; latest.current() }, 2_000)
+        })
+        return () => { live.unsubscribe(); if (timer) clearTimeout(timer) }
+    }, [viewerId])
+}
+
 type TeamBox = { name: string; people: OrgRosterPerson[]; leadId: string | null }
 
 /** New assignment (report §16.2): who it goes to, submission, late rule, steps; Publish or Save as draft. */
-export function AssignmentComposer({ orgId, open, onOpenChange, onCreated, reuseFrom = null, prefill = null }: { orgId: string; open: boolean; onOpenChange: (open: boolean) => void; onCreated: () => void; reuseFrom?: string | null; prefill?: { title: string; description: string; mode: AssignmentTarget['mode'] } | null }) {
+export function AssignmentComposer({ orgId, open, onOpenChange, onCreated, reuseFrom = null, prefill = null, timeZone = null }: { orgId: string; open: boolean; onOpenChange: (open: boolean) => void; onCreated: () => void; reuseFrom?: string | null; prefill?: { title: string; description: string; mode: AssignmentTarget['mode'] } | null; timeZone?: string | null }) {
+    // Decision 74: dates are entered in the organization's time zone, and the form says which.
+    const at = (local: string) => zonedInputToIso(local, timeZone)
+    const zone = zoneName(timeZone)
     const [title, setTitle] = useState('')
     const [description, setDescription] = useState('')
     const [dueLocal, setDueLocal] = useState('')
@@ -225,12 +250,12 @@ export function AssignmentComposer({ orgId, open, onOpenChange, onCreated, reuse
         if (lateRule === 'until' && !lateUntilLocal) return setError('Pick the last day late work is accepted.')
         if (when === 'date' && !publishLocal) return setError('Pick when to publish.')
         // Report §16.9: a past due date is allowed, after a check.
-        if (publish && new Date(dueLocal).getTime() < Date.now() && !window.confirm('The due date has passed. Publish as already late?')) return
+        if (publish && new Date(at(dueLocal)).getTime() < Date.now() && !window.confirm('The due date has passed. Publish as already late?')) return
         const result = await createAssignmentAction({
-            projectId: orgId, title, description, dueDate: new Date(dueLocal).toISOString(), sprintId: sprintId || null, publish,
-            submissionType, reviewRequired, lateRule, lateUntil: lateRule === 'until' && lateUntilLocal ? new Date(lateUntilLocal).toISOString() : null,
+            projectId: orgId, title, description, dueDate: at(dueLocal), sprintId: sprintId || null, publish,
+            submissionType, reviewRequired, lateRule, lateUntil: lateRule === 'until' && lateUntilLocal ? at(lateUntilLocal) : null,
             target: target(), steps, shareToGeneral, lateAfterMinutes: lateAfter, materials: materials.map((m) => m.id),
-            schedule: when === 'date' ? { at: new Date(publishLocal).toISOString() } : when === 'sprint' ? { sprintStart: true } : null,
+            schedule: when === 'date' ? { at: at(publishLocal) } : when === 'sprint' ? { sprintStart: true } : null,
             ...(publish && announce ? { announcement: (announcement ?? defaultAnnouncement).trim() } : {}),
         })
         if (!result.success) return setError(result.error)
@@ -279,7 +304,7 @@ export function AssignmentComposer({ orgId, open, onOpenChange, onCreated, reuse
                     <label className="block text-sm font-medium">Title<Input value={title} onChange={(e) => setTitle(e.target.value)} maxLength={200} className="mt-1" placeholder="Lab 1" /></label>
                     <label className="block text-sm font-medium">Instructions<textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3} maxLength={10000} className={`${area} mt-1`} /></label>
                     <div className="grid gap-3 sm:grid-cols-2">
-                        <label className="block text-sm font-medium">Due<Input type="datetime-local" value={dueLocal} onChange={(e) => setDueLocal(e.target.value)} className="mt-1" /></label>
+                        <label className="block text-sm font-medium">Due <span className="font-normal text-muted-foreground">({zone})</span><Input type="datetime-local" value={dueLocal} onChange={(e) => setDueLocal(e.target.value)} className="mt-1" /></label>
                         <label className="block text-sm font-medium">Sprint
                             <select value={sprintId} onChange={(e) => setSprintId(e.target.value)} className={`${select} mt-1 w-full`}>
                                 <option value="">No sprint</option>
@@ -464,6 +489,7 @@ export function RosterDialog({ row, orgId, open, onOpenChange, onChanged }: { ro
     const [pending, startTransition] = useTransition()
     const load = useCallback(() => void readAssignmentRosterAction(row.masterId).then((r) => { if (r.success) { setRows(r.rows); setWithoutCopy(r.withoutCopy); setClosed(r.closed) } }), [row.masterId])
     useEffect(() => { if (open) load() }, [open, load])
+    useReloadOnNotice(() => { if (open) load() })
     const run = (action: () => Promise<{ success: boolean; error?: string }>) => startTransition(async () => {
         const result = await action()
         setError(result.success ? null : result.error ?? 'Something went wrong.')
@@ -685,8 +711,8 @@ export function AssignmentsPanel({ orgId, onBoardChanged, startComposing = false
                 ))}
             </ul>
             {error ? <p role="alert" className="mt-2 text-sm text-destructive">{error}</p> : null}
-            {data.isAdmin ? <AssignmentComposer orgId={orgId} open={composing} onOpenChange={(v) => { setComposing(v); if (!v) setReuseFrom(null) }} onCreated={refresh} reuseFrom={reuseFrom} /> : null}
-            {editing ? <EditAssignmentDialog orgId={orgId} row={editing} open onClose={() => setEditing(null)} onSave={(patch) => run(() => updateAssignmentAction(editing.masterId, patch))} /> : null}
+            {data.isAdmin ? <AssignmentComposer orgId={orgId} open={composing} onOpenChange={(v) => { setComposing(v); if (!v) setReuseFrom(null) }} onCreated={refresh} reuseFrom={reuseFrom} timeZone={data.timeZone} /> : null}
+            {editing ? <EditAssignmentDialog orgId={orgId} row={editing} open timeZone={data.timeZone} onClose={() => setEditing(null)} onSave={(patch) => run(() => updateAssignmentAction(editing.masterId, patch))} /> : null}
             {roster ? <RosterDialog row={roster} orgId={orgId} open onOpenChange={(open) => { if (!open) setRoster(null) }} onChanged={load} /> : null}
             {submitting?.mine ? <SubmitDialog copyId={submitting.mine.copyId} submissionType={submitting.submissionType} title={submitting.title} open onOpenChange={(open) => { if (!open) setSubmitting(null) }} onDone={refresh} /> : null}
         </section>
@@ -745,6 +771,7 @@ export function ReviewQueue({ orgId, onChanged, onClose }: { orgId: string; onCh
     const [error, setError] = useState<string | null>(null)
     const load = useCallback(() => void readReviewQueueAction(orgId).then((r) => { setRows(r.success ? r.rows : []); setTotal(r.success ? r.total : 0); if (!r.success) setError(r.error) }), [orgId])
     useEffect(() => { load() }, [load])
+    useReloadOnNotice(load)
     const shown = useMemo(() => (rows ?? []).filter((r) => (assignment === 'all' || r.masterId === assignment) && (!lateOnly || r.late)), [rows, assignment, lateOnly])
     const current = shown[Math.min(index, Math.max(0, shown.length - 1))] ?? null
     const step = (by: number) => { setReturning(false); setIndex((i) => (shown.length ? (i + by + shown.length) % shown.length : 0)) }
@@ -823,7 +850,8 @@ export function ReviewQueue({ orgId, onChanged, onClose }: { orgId: string; onCh
                             </div>
                         </div>
                     ) : (
-                        <div className="flex flex-wrap items-center gap-2">
+                        // Report §32.7: on phones Approve and Return stay at the bottom; no swipe, so nothing decides by accident.
+                        <div className="flex flex-wrap items-center gap-2 max-md:sticky max-md:bottom-0 max-md:bg-card max-md:py-2">
                             <Button type="button" size="sm" disabled={pending} onClick={() => decide('approve')}>Approve</Button>
                             <Button type="button" size="sm" variant="outline" disabled={pending} onClick={() => decide('return')}>Return</Button>
                             <Input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Add note (optional)" aria-label="Add note" maxLength={2000} className="h-8 w-48" />
