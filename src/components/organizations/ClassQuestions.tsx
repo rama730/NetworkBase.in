@@ -3,12 +3,13 @@
 import { useState, useTransition } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 
-import { createTaskCommentAction, readClassQuestionsAction } from '@/app/actions/task-comment'
+import { createTaskCommentAction, readClassQuestionsAction, shareClassAnswerAction } from '@/app/actions/task-comment'
 import { Button } from '@/components/ui/button'
 import { formatDistanceToNow } from '@/lib/utils/date'
 
 // Class questions on a copy (report §23.5, decision 16): the main assignment's shared thread, read and asked from the
-// student's own copy. The line above the box always says who will see the message.
+// student's own copy. The line above the box always says who will see the message. On the main assignment its admins
+// answer each question, and Tell everyone shares an answer with everyone on it.
 
 const area = 'w-full resize-y rounded-md border border-input bg-transparent px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring'
 
@@ -18,6 +19,9 @@ export function ClassQuestions({ copyId }: { copyId: string }) {
     const [draft, setDraft] = useState('')
     const [error, setError] = useState<string | null>(null)
     const [pending, startTransition] = useTransition()
+    const [replyTo, setReplyTo] = useState<string | null>(null)
+    const [reply, setReply] = useState('')
+    const [tell, setTell] = useState(false)
     const data = query.data?.success ? query.data : null
     if (query.isPending) return <p className="p-6 text-sm text-muted-foreground">Loading class questions…</p>
     if (!data) return <p className="p-6 text-sm text-muted-foreground">{query.data && !query.data.success ? query.data.error : 'Couldn’t load class questions.'}</p>
@@ -26,6 +30,17 @@ export function ClassQuestions({ copyId }: { copyId: string }) {
         if (!result.success) return setError(`${result.error ?? 'Couldn’t post.'} Your text is still here.`)
         setDraft('')
         setError(null)
+        await client.invalidateQueries({ queryKey: ['class-questions', copyId] })
+    })
+    const answer = (questionId: string) => startTransition(async () => {
+        const result = await createTaskCommentAction(data.masterId, data.orgId, reply.trim(), questionId)
+        if (!result.success) return setError(`${result.error ?? 'Couldn’t post.'} Your text is still here.`)
+        const answerId = result.data.comment?.id
+        if (tell && answerId) {
+            const shared = await shareClassAnswerAction(data.masterId, answerId)
+            if (!shared.success) setError(`Answer posted, but Tell everyone failed: ${shared.error}`)
+        }
+        setReply(''); setTell(false); setReplyTo(null)
         await client.invalidateQueries({ queryKey: ['class-questions', copyId] })
     })
     return (
@@ -45,17 +60,27 @@ export function ClassQuestions({ copyId }: { copyId: string }) {
                                 <p className="whitespace-pre-line">{r.deletedAt ? 'Deleted' : r.content}</p>
                             </div>
                         ))}
+                        {data.isAdmin && data.canPost ? (replyTo === q.id ? (
+                            <div className="ml-4 space-y-2">
+                                <textarea value={reply} onChange={(e) => setReply(e.target.value)} rows={2} maxLength={5000} className={area} aria-label={`Answer ${q.author?.fullName || 'this question'}`} />
+                                <label className="flex items-center gap-2 text-[13px]"><input type="checkbox" checked={tell} onChange={(e) => setTell(e.target.checked)} />Tell everyone on this assignment</label>
+                                <span className="flex gap-2">
+                                    <Button type="button" size="sm" disabled={pending || !reply.trim()} onClick={() => answer(q.id)}>Answer</Button>
+                                    <Button type="button" size="sm" variant="ghost" onClick={() => setReplyTo(null)}>Cancel</Button>
+                                </span>
+                            </div>
+                        ) : <Button type="button" size="sm" variant="ghost" className="ml-2" onClick={() => { setReplyTo(q.id); setReply(''); setTell(false) }}>Answer</Button>) : null}
                     </li>
                 ))}
             </ul>
-            {data.canPost ? (
+            {data.canPost && !data.isAdmin ? (
                 <div className="space-y-2">
                     <p className="text-[12px] text-muted-foreground">Everyone with this assignment sees this.</p>
                     <textarea value={draft} onChange={(e) => setDraft(e.target.value)} rows={2} maxLength={5000} className={area} aria-label="Ask the class" />
                     {error ? <p role="alert" className="text-destructive">{error}</p> : null}
                     <Button type="button" size="sm" disabled={pending || !draft.trim()} onClick={post}>Ask</Button>
                 </div>
-            ) : <p className="text-[12px] text-muted-foreground">You can read class questions here.</p>}
+            ) : data.isAdmin ? (error ? <p role="alert" className="text-destructive">{error}</p> : null) : <p className="text-[12px] text-muted-foreground">You can read class questions here.</p>}
         </div>
     )
 }

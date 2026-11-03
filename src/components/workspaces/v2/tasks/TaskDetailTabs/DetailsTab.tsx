@@ -1,6 +1,7 @@
 "use client";
 
 import { HandInSection } from "@/components/organizations/HandInSection";
+import { AssignmentManageSection } from "@/components/organizations/AssignmentsPanel";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { formatTaskDueDate, isTaskOverdue } from "@/lib/workspaces/task-presentation";
 import {
@@ -90,6 +91,8 @@ interface DetailsTabProps {
   ) => Promise<{ success: boolean; error?: string }>;
   onReviewApproved: (updatedAt: string, status?: "done" | "in_progress" | "todo" | "blocked", reviewStatus?: "none" | "pending" | "rejected") => void;
   onOpenTab: (tab: TaskPanelTab) => void;
+  /** Hand in takes files straight in (step 13 gap), through the panel's own upload. */
+  onUploadFiles?: (files: File[]) => Promise<{ success: boolean; error?: string }>;
   workflowColumns?: { id: string; name: string }[];
   onMoveToColumn?: (columnId: string) => Promise<{ success: boolean; error?: string }>;
 }
@@ -112,6 +115,7 @@ export default function DetailsTab({
   onUpdateStatus,
   onUpdateAssignee,
   onReviewApproved,
+  onUploadFiles,
   onOpenTab,
   workflowColumns,
   onMoveToColumn,
@@ -306,9 +310,12 @@ export default function DetailsTab({
         </div>
       ) : null}
 
+      {/* One board (decisions 6, 10): an admin manages the main assignment from its own card. */}
+      {task.assignmentProgress && !task.assignmentId && task.projectId ? <AssignmentManageSection orgId={task.projectId} masterId={task.id} /> : null}
+
       {/* Decision 85: an assignment copy is handed in here, for every hand-in type. */}
       {task.assignmentId ? (
-        <HandInSection copyId={task.id} onOpenFiles={() => onOpenTab("files")}
+        <HandInSection copyId={task.id} onOpenFiles={() => onOpenTab("files")} onUploadFiles={onUploadFiles}
           onSubmitted={(review) => onReviewApproved(new Date().toISOString(), "done", review ? "pending" : "none")} />
       ) : null}
 

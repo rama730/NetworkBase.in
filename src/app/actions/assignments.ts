@@ -1047,6 +1047,8 @@ export async function excuseTeamMemberAction(copyId: string, userId: string, rea
 }
 
 export type ReviewQueueRow = {
+    /** Problem 33: the queue reads the same list as In review, so ordinary board tasks waiting come too ("task"). */
+    kind: 'copy' | 'task';
     copyId: string; masterId: string; title: string; who: string; submittedBy: string | null; submittedAt: string; late: boolean; href: string;
     /** The review panel (report §23.2): what was handed in, its version, steps and the private conversation. */
     projectId: string; updatedAt: string; version: number | null; link: string | null; text: string | null; note: string | null; files: string[];
@@ -1076,15 +1078,29 @@ export async function readReviewQueueAction(orgId: string): Promise<{ success: t
         FROM tasks c JOIN tasks m ON m.id = c.assignment_id
         WHERE m.workspace_id = ${orgId} AND m.deleted_at IS NULL AND c.deleted_at IS NULL AND c.excused_at IS NULL AND c.review_status = 'pending'
         ORDER BY c.review_submitted_at ASC NULLS LAST LIMIT 200`);
-    return { success: true, rows: rows.map((r) => ({
-        copyId: r.copy_id, masterId: r.master_id, title: r.title,
+    const tasksWaiting = await db.execute<{ id: string; title: string; assignee: string | null; submitted_at: string | null; due_date: string | null; updated_at: string; comments: number; steps_done: number; steps_total: number }>(sql`
+        SELECT t.id, t.title, (SELECT coalesce(p.full_name, p.username) FROM profiles p WHERE p.id = t.assignee_id) AS assignee,
+               t.review_submitted_at::text AS submitted_at, t.due_date::text AS due_date, t.updated_at::text AS updated_at,
+               (SELECT count(*)::int FROM task_comments tc WHERE tc.task_id = t.id AND tc.deleted_at IS NULL) AS comments,
+               (SELECT count(*) FILTER (WHERE st.completed)::int FROM task_subtasks st WHERE st.task_id = t.id) AS steps_done,
+               (SELECT count(*)::int FROM task_subtasks st WHERE st.task_id = t.id) AS steps_total
+        FROM tasks t WHERE t.workspace_id = ${orgId} AND t.assignment_id IS NULL AND t.kind <> 'assignment' AND t.deleted_at IS NULL AND t.review_status = 'pending'
+        ORDER BY t.review_submitted_at ASC NULLS LAST LIMIT 100`);
+    const taskRows: ReviewQueueRow[] = tasksWaiting.map((t) => ({
+        kind: 'task', copyId: t.id, masterId: 'tasks', title: t.title, who: t.assignee ?? 'Unassigned', submittedBy: null, submittedAt: t.submitted_at ?? t.updated_at,
+        late: Boolean(t.due_date && t.submitted_at && new Date(t.submitted_at).getTime() > new Date(t.due_date).getTime()), href: assignmentHref('', t.id),
+        projectId: orgId, updatedAt: new Date(t.updated_at).toISOString(), version: null, link: null, text: null, note: null, files: [],
+        steps: { done: t.steps_done, total: t.steps_total }, comments: t.comments, left: false,
+    }));
+    return { success: true, rows: [...rows.map((r): ReviewQueueRow => ({
+        kind: 'copy', copyId: r.copy_id, masterId: r.master_id, title: r.title,
         who: r.team_name ?? r.project ?? r.assignee ?? 'Member', submittedBy: r.team_name ? r.submitted_by : null,
         submittedAt: r.submitted_at, late: Boolean(r.due_date && new Date(r.submitted_at).getTime() > new Date(r.due_date).getTime() + (r.late_after ?? LATE_AFTER_DEFAULT_MINUTES) * 60_000),
         // Group work opens in its own workspace (report §42.14 problem 35, decision 133).
         href: r.in_org ? assignmentHref('', r.copy_id) : assignmentHref(`/workspaces/${r.workspace_id}`, r.copy_id),
         projectId: r.workspace_id, updatedAt: new Date(r.updated_at).toISOString(), version: r.submission?.version ?? null, link: r.submission?.link ?? null, text: r.submission?.text ?? null,
         note: r.submission?.note ?? null, files: r.files ?? [], steps: { done: r.steps_done, total: r.steps_total }, comments: r.comments, left: r.left_org,
-    })), total: rows[0]?.total ?? 0 };
+    })), ...taskRows], total: (rows[0]?.total ?? 0) + taskRows.length };
 }
 
 export type OrgTabBadges = { tasks: number; updates: boolean; members: number };

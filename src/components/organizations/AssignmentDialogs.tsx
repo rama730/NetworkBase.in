@@ -11,23 +11,22 @@ import { isoToZonedInput, zonedInputToIso, zoneName } from '@/lib/organizations/
 
 const DAY = 86_400_000
 /** A date as a datetime-local value in the viewer's own zone. */
-const toLocalInput = (d: Date) => new Date(d.getTime() - d.getTimezoneOffset() * 60_000).toISOString().slice(0, 16)
 const area = 'w-full resize-y rounded-md border border-input bg-transparent px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring'
 
 /** Return, or Change decision on approved work (decisions 40, 126): a reason they'll see, and Fix by, 3 days out. */
-export function ReturnDialog({ label, change = false, open, onClose, onReturn }: { label: string; change?: boolean; open: boolean; onClose: () => void; onReturn: (reason: string, fixBy: string) => void }) {
+export function ReturnDialog({ label, change = false, open, onClose, onReturn, timeZone = null }: { label: string; change?: boolean; open: boolean; onClose: () => void; onReturn: (reason: string, fixBy: string) => void; timeZone?: string | null }) {
     const [reason, setReason] = useState('')
     const [fixBy, setFixBy] = useState('')
-    useEffect(() => { if (open) { setReason(''); setFixBy(toLocalInput(new Date(Date.now() + 3 * DAY))) } }, [open])
+    useEffect(() => { if (open) { setReason(''); setFixBy(isoToZonedInput(new Date(Date.now() + 3 * DAY).toISOString(), timeZone)) } }, [open, timeZone])
     return (
         <ConfirmDialog open={open} onOpenChange={(v) => { if (!v) onClose() }} title={change ? `Return ${label}’s approved work?` : `Return ${label}’s work?`}
-            confirmLabel="Return" onConfirm={() => { if (reason.trim() && fixBy) onReturn(reason.trim(), new Date(fixBy).toISOString()); onClose() }}>
+            confirmLabel="Return" onConfirm={() => { if (reason.trim() && fixBy) onReturn(reason.trim(), zonedInputToIso(fixBy, timeZone)); onClose() }}>
             <div className="space-y-3 text-sm">
                 <label className="block space-y-1"><span className="font-medium">What should they change?</span>
                     <textarea required value={reason} onChange={(e) => setReason(e.target.value)} rows={3} maxLength={1000} className={area} />
                     <span className="block text-[12px] text-muted-foreground">They’ll see this.</span>
                 </label>
-                <label className="block space-y-1"><span className="font-medium">Fix by</span>
+                <label className="block space-y-1"><span className="font-medium">Fix by <span className="font-normal text-muted-foreground">({zoneName(timeZone)})</span></span>
                     <Input type="datetime-local" required value={fixBy} onChange={(e) => setFixBy(e.target.value)} />
                     <span className="block text-[12px] text-muted-foreground">They can hand it in again until then, even past the due date.</span>
                 </label>
@@ -37,22 +36,24 @@ export function ReturnDialog({ label, change = false, open, onClose, onReturn }:
 }
 
 /** Extend (report §34.6): a date with shortcuts; on a closed assignment it asks to reopen it for them (smaller bug 18). */
-export function ExtendDialog({ label, currentDue, closed, open, onClose, onExtend }: { label: string; currentDue: string | null; closed: boolean; open: boolean; onClose: () => void; onExtend: (dueIso: string, reopen: boolean) => void }) {
+export function ExtendDialog({ label, currentDue, closed, open, onClose, onExtend, timeZone = null }: { label: string; currentDue: string | null; closed: boolean; open: boolean; onClose: () => void; onExtend: (dueIso: string, reopen: boolean) => void; timeZone?: string | null }) {
     const [value, setValue] = useState('')
     const [reopen, setReopen] = useState(false)
     const base = currentDue && new Date(currentDue).getTime() > Date.now() ? new Date(currentDue) : new Date()
-    useEffect(() => { if (open) { setValue(toLocalInput(new Date(base.getTime() + DAY))); setReopen(false) } }, [open])
+    // Report §32.5: dates are entered in the organization's zone, and the form says so.
+    const inZone = (d: Date) => isoToZonedInput(d.toISOString(), timeZone)
+    useEffect(() => { if (open) { setValue(inZone(new Date(base.getTime() + DAY))); setReopen(false) } }, [open])
     const ready = Boolean(value) && (!closed || reopen)
     return (
         <ConfirmDialog open={open} onOpenChange={(v) => { if (!v) onClose() }} title={`Extend for ${label}`} confirmLabel="Extend"
-            onConfirm={() => { if (ready) onExtend(new Date(value).toISOString(), reopen); onClose() }}>
+            onConfirm={() => { if (ready) onExtend(zonedInputToIso(value, timeZone), reopen); onClose() }}>
             <div className="space-y-3 text-sm">
                 <div className="flex flex-wrap gap-1.5">
                     {[['+1 day', 1], ['+3 days', 3], ['+1 week', 7]].map(([text, days]) => (
-                        <button key={text} type="button" className="rounded-[3px] border border-border px-2 py-0.5 text-xs hover:bg-muted" onClick={() => setValue(toLocalInput(new Date(base.getTime() + Number(days) * DAY)))}>{text}</button>
+                        <button key={text} type="button" className="rounded-[3px] border border-border px-2 py-0.5 text-xs hover:bg-muted" onClick={() => setValue(inZone(new Date(base.getTime() + Number(days) * DAY)))}>{text}</button>
                     ))}
                 </div>
-                <label className="block space-y-1"><span className="font-medium">New due date</span>
+                <label className="block space-y-1"><span className="font-medium">New due date <span className="font-normal text-muted-foreground">({zoneName(timeZone)})</span></span>
                     <Input type="datetime-local" required value={value} onChange={(e) => setValue(e.target.value)} />
                 </label>
                 {closed ? (
@@ -83,20 +84,20 @@ export function ExcuseDialog({ label, open, onClose, onExcuse }: { label: string
 }
 
 /** Give to (decision 88): a copy for someone without one, with their own due date. */
-export function GiveToDialog({ people, open, onClose, onGive }: { people: Array<{ userId: string; name: string }>; open: boolean; onClose: () => void; onGive: (userId: string, dueIso: string) => void }) {
+export function GiveToDialog({ people, open, onClose, onGive, timeZone = null }: { people: Array<{ userId: string; name: string }>; open: boolean; onClose: () => void; onGive: (userId: string, dueIso: string) => void; timeZone?: string | null }) {
     const [userId, setUserId] = useState('')
     const [due, setDue] = useState('')
-    useEffect(() => { if (open) { setUserId(people[0]?.userId ?? ''); setDue(toLocalInput(new Date(Date.now() + 7 * DAY))) } }, [open, people])
+    useEffect(() => { if (open) { setUserId(people[0]?.userId ?? ''); setDue(isoToZonedInput(new Date(Date.now() + 7 * DAY).toISOString(), timeZone)) } }, [open, people, timeZone])
     return (
         <ConfirmDialog open={open} onOpenChange={(v) => { if (!v) onClose() }} title="Give this to someone" confirmLabel="Give"
-            onConfirm={() => { if (userId && due) onGive(userId, new Date(due).toISOString()); onClose() }}>
+            onConfirm={() => { if (userId && due) onGive(userId, zonedInputToIso(due, timeZone)); onClose() }}>
             <div className="space-y-3 text-sm">
                 <label className="block space-y-1"><span className="font-medium">Person</span>
                     <select value={userId} onChange={(e) => setUserId(e.target.value)} className="h-9 w-full rounded-md border border-input bg-background px-2">
                         {people.map((p) => <option key={p.userId} value={p.userId}>{p.name}</option>)}
                     </select>
                 </label>
-                <label className="block space-y-1"><span className="font-medium">Due</span>
+                <label className="block space-y-1"><span className="font-medium">Due <span className="font-normal text-muted-foreground">({zoneName(timeZone)})</span></span>
                     <Input type="datetime-local" required value={due} onChange={(e) => setDue(e.target.value)} />
                 </label>
                 <p className="text-[12px] text-muted-foreground">They get their own copy and are told.</p>

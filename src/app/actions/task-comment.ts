@@ -39,6 +39,7 @@ import { enqueueTaskCommentMentionNotifications } from "@/lib/notifications/task
 import { consumeRateLimit } from "@/lib/security/rate-limit";
 import { getViewerProfileContext } from "@/lib/server/viewer-context";
 import { logger } from "@/lib/logger";
+import { notifyOrg, orgHref, orgLabel } from "@/lib/organizations/notify";
 import {
   TASK_COMMENT_MAX_MENTIONS,
   taskCommentContentSchema,
@@ -505,15 +506,19 @@ export async function readTaskDiscussionAction(
  * Class questions (report §23.5, decision 16): a copy's people read and ask on the main assignment's thread, beside
  * their private conversation. Organization members only; a question shows Answered once an admin replies.
  */
+/** Class questions from a student's copy, or from the main assignment for its admins, who answer them (23.5). */
 export async function readClassQuestionsAction(copyId: string) {
   try {
     const viewer = await getViewerProfileContext();
     if (!viewer.userId) return { success: false as const, error: "Sign in to continue" };
-    const [row] = await db.execute<{ master_id: string; org_id: string; role: string | null; owner_id: string; closed: boolean }>(sql`
-      SELECT m.id AS master_id, m.workspace_id AS org_id, om.role, o.owner_id, (m.assignment_settings->>'closedAt') IS NOT NULL AS closed
-      FROM tasks c JOIN tasks m ON m.id = c.assignment_id AND m.deleted_at IS NULL JOIN workspaces o ON o.id = m.workspace_id
+    const [row] = await db.execute<{ master_id: string; org_id: string; role: string | null; owner_id: string; closed: boolean; is_master: boolean }>(sql`
+      SELECT m.id AS master_id, m.workspace_id AS org_id, om.role, o.owner_id, (m.assignment_settings->>'closedAt') IS NOT NULL AS closed, c.id = m.id AS is_master
+      FROM tasks c JOIN tasks m ON m.id = coalesce(c.assignment_id, c.id) AND m.kind = 'assignment' AND m.deleted_at IS NULL JOIN workspaces o ON o.id = m.workspace_id
       LEFT JOIN workspace_members om ON om.workspace_id = o.id AND om.user_id = ${viewer.userId}
       WHERE c.id = ${copyId} AND c.deleted_at IS NULL`);
+    const isAdmin = Boolean(row && (row.owner_id === viewer.userId || row.role === "admin"));
+    // The main assignment's own view is for its admins; members reach the thread from their copy.
+    if (row?.is_master && !isAdmin) return { success: false as const, error: "Class questions are for the organization." };
     // People outside the organization get no Class questions tab (23.5).
     if (!row || (!row.role && row.owner_id !== viewer.userId)) return { success: false as const, error: "Class questions are for the organization." };
     const data = await readTaskDiscussionInternal({ projectId: row.org_id, taskId: row.master_id, viewerId: viewer.userId });
@@ -525,6 +530,7 @@ export async function readClassQuestionsAction(copyId: string) {
       orgId: row.org_id,
       // Viewers read but don't post; a closed assignment is read only (23.5).
       canPost: row.role !== "viewer" && !row.closed,
+      isAdmin,
       questions: data.comments.map((c) => ({ ...c, answered: c.replies.some((r) => admins.has(r.userId)) })),
     };
   } catch (error) {
@@ -800,6 +806,45 @@ export async function createTaskCommentAction(
       }
     }
 
+    // Report §23.5: a reply in a class question also reaches the others in that thread (the asker is told above).
+    if (parentCommentId) {
+      try {
+        const others = await db.execute<{ user_id: string; title: string; org_id: string }>(sql`
+          SELECT DISTINCT r.user_id, m.title, m.workspace_id AS org_id FROM task_comments r
+          JOIN tasks m ON m.id = r.task_id AND m.kind = 'assignment' AND m.assignment_id IS NULL
+          WHERE r.task_id = ${taskId} AND r.parent_comment_id = ${parentCommentId} AND r.deleted_at IS NULL
+            AND r.user_id <> ${viewer.userId} AND r.user_id IS DISTINCT FROM ${parentCommentAuthorId ?? null}`);
+        const org = others[0] ? await orgLabel(others[0].org_id) : null;
+        if (org && others.length) {
+          await notifyOrg({ orgId: org.id, eventKey: "assignments.question_asked", actorId: viewer.userId, to: others.map((o) => o.user_id),
+            title: `${viewer.profile?.fullName ?? viewer.profile?.username ?? "Someone"} replied about ${others[0]!.title}`,
+            href: orgHref(org, "?tab=tasks"), sourceEventId: `question-reply:${inserted.id}`, refs: { taskId } });
+        }
+      } catch (notifyError) {
+        logger.warn("tasks.class_reply_notice_failed", { module: "notifications", taskId, error: notifyError instanceof Error ? notifyError.message : String(notifyError) });
+      }
+    }
+
+    // Report §23.5: a new class question (top level, on a main assignment, from someone who isn't an admin) tells
+    // the organization's admins, combined in their tray.
+    if (!parentCommentId) {
+      try {
+        const [master] = await db.execute<{ title: string; org_id: string; asker_admin: boolean }>(sql`
+          SELECT m.title, m.workspace_id AS org_id,
+                 (o.owner_id = ${viewer.userId} OR EXISTS (SELECT 1 FROM workspace_members a WHERE a.workspace_id = o.id AND a.user_id = ${viewer.userId} AND a.role = 'admin')) AS asker_admin
+          FROM tasks m JOIN workspaces o ON o.id = m.workspace_id AND o.kind = 'organization'
+          WHERE m.id = ${taskId} AND m.kind = 'assignment' AND m.assignment_id IS NULL`);
+        const org = master && !master.asker_admin ? await orgLabel(master.org_id) : null;
+        if (master && org) {
+          await notifyOrg({ orgId: org.id, eventKey: "assignments.question_asked", actorId: viewer.userId,
+            title: `${viewer.profile?.fullName ?? viewer.profile?.username ?? "Someone"} asked about ${master.title}`,
+            href: orgHref(org, `?tab=tasks&drawerType=task&drawerId=${encodeURIComponent(taskId)}`), sourceEventId: `question:${inserted.id}`, refs: { taskId } });
+        }
+      } catch (notifyError) {
+        logger.warn("tasks.class_question_notice_failed", { module: "notifications", taskId, error: notifyError instanceof Error ? notifyError.message : String(notifyError) });
+      }
+    }
+
     const comment = await readTaskDiscussionCommentInternal({
       projectId,
       taskId,
@@ -955,4 +1000,35 @@ export async function deleteTaskCommentAction(
     console.error("Failed to delete task discussion comment:", error);
     return { success: false as const, error: error?.message || "Couldn’t delete comment" };
   }
+}
+
+/**
+ * Tell everyone (report §23.5, §30.4): an admin shares an answer with everyone on the assignment, each told on their
+ * own copy: "New answer on Lab 1". Only an organization admin, and only for a reply on that assignment's questions.
+ */
+export async function shareClassAnswerAction(masterId: string, commentId: string): Promise<{ success: true; told: number } | { success: false; error: string }> {
+  const viewer = await getViewerProfileContext();
+  if (!viewer.userId) return { success: false, error: "Sign in to continue" };
+  const [row] = await db.execute<{ title: string; org_id: string; admin: boolean; ok: boolean }>(sql`
+    SELECT m.title, m.workspace_id AS org_id,
+           (o.owner_id = ${viewer.userId} OR EXISTS (SELECT 1 FROM workspace_members a WHERE a.workspace_id = o.id AND a.user_id = ${viewer.userId} AND a.role = 'admin')) AS admin,
+           EXISTS (SELECT 1 FROM task_comments c WHERE c.id = ${commentId}::uuid AND c.task_id = m.id AND c.deleted_at IS NULL) AS ok
+    FROM tasks m JOIN workspaces o ON o.id = m.workspace_id AND o.kind = 'organization'
+    WHERE m.id = ${masterId}::uuid AND m.kind = 'assignment' AND m.assignment_id IS NULL AND m.deleted_at IS NULL`);
+  if (!row?.admin || !row.ok) return { success: false, error: "You don’t have access to this" };
+  const org = await orgLabel(row.org_id);
+  if (!org) return { success: false, error: "You don’t have access to this" };
+  const copies = await db.execute<{ id: string; people: string[]; in_org: boolean; workspace_id: string }>(sql`
+    SELECT c.id, c.workspace_id, bool_and(p.kind = 'organization') AS in_org, to_jsonb(array_remove(array_agg(DISTINCT coalesce(tm.user_id, c.assignee_id)), NULL)) AS people
+    FROM tasks c JOIN workspaces p ON p.id = c.workspace_id LEFT JOIN task_team_members tm ON tm.task_id = c.id
+    WHERE c.assignment_id = ${masterId}::uuid AND c.deleted_at IS NULL AND c.excused_at IS NULL GROUP BY c.id, c.workspace_id`);
+  let told = 0;
+  for (const copy of copies) {
+    if (!copy.people.length) continue;
+    told += copy.people.length;
+    await notifyOrg({ orgId: org.id, eventKey: "assignments.answer_shared", actorId: viewer.userId, to: copy.people, title: `New answer on ${row.title}`,
+      // Group work opens in its own workspace (decision 133).
+      href: `${copy.in_org ? orgHref(org) : `/workspaces/${copy.workspace_id}`}?tab=tasks&drawerType=task&drawerId=${encodeURIComponent(copy.id)}&panelTab=comments`, sourceEventId: `answer:${commentId}:${copy.id}`, refs: { taskId: copy.id } });
+  }
+  return { success: true, told };
 }

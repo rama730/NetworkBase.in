@@ -565,6 +565,7 @@ export default function TaskDetailPanel({
               >
                 <DetailsTab
                   task={resource.task}
+                  onUploadFiles={(files) => resource.fileMutations.uploadFiles(files)}
                   canEdit={canEditTask}
                   canReadSourceMessages={isMember}
                   canManageSprint={isOwner}

@@ -27,7 +27,7 @@ function StateLine({ h }: { h: HandIn }) {
     return null
 }
 
-export function HandInSection({ copyId, onOpenFiles, onSubmitted }: { copyId: string; onOpenFiles: () => void; onSubmitted: (reviewRequired: boolean) => void }) {
+export function HandInSection({ copyId, onOpenFiles, onSubmitted, onUploadFiles }: { copyId: string; onOpenFiles: () => void; onSubmitted: (reviewRequired: boolean) => void; onUploadFiles?: (files: File[]) => Promise<{ success: boolean; error?: string }> }) {
     const client = useQueryClient()
     const query = useQuery({ queryKey: ['hand-in', copyId], queryFn: () => readHandInAction(copyId), staleTime: 0 })
     const [link, setLink] = useState('')
@@ -35,6 +35,18 @@ export function HandInSection({ copyId, onOpenFiles, onSubmitted }: { copyId: st
     const [note, setNote] = useState('')
     const [error, setError] = useState<string | null>(null)
     const [pending, startTransition] = useTransition()
+    const [uploading, setUploading] = useState(false)
+    const [dragging, setDragging] = useState(false)
+    // Files go onto the copy right here (step 13 gap); a failed upload says so and keeps nothing half done (32.6).
+    const attach = async (files: File[]) => {
+        if (!onUploadFiles || files.length === 0) return
+        setUploading(true)
+        const result = await onUploadFiles(files).catch((e: unknown) => ({ success: false, error: e instanceof Error ? e.message : undefined }))
+        setUploading(false)
+        if (!result.success) return setError(`Couldn’t add the file. Try again.${result.error ? ` ${result.error}` : ''}`)
+        setError(null)
+        await client.invalidateQueries({ queryKey: ['hand-in', copyId] })
+    }
     const h = query.data?.success ? query.data.handIn : null
     // Failure keeps the text (report §32.6); a fresh load starts from what was last handed in.
     useEffect(() => { if (h?.latest) { setLink((v) => v || h.latest!.link || ''); setText((v) => v || h.latest!.text || '') } }, [h?.latest])
@@ -58,6 +70,8 @@ export function HandInSection({ copyId, onOpenFiles, onSubmitted }: { copyId: st
                     {h.dueDate ? ` · Due ${WHEN.format(new Date(h.dueDate))}` : ''}{h.lateLabel ? ` · ${h.lateLabel}` : ''}
                     {h.reviewRequired ? ` · Reviewed by ${h.from}` : ''}
                 </p>
+                {/* Locked fields say who set them (report §17.4, §18.3), in a workspace as in the organization. */}
+                <p className="text-[12px] text-muted-foreground">Set by {h.from}: the title, instructions and due date.</p>
             </div>
             <StateLine h={h} />
             {h.latest ? (
@@ -75,16 +89,25 @@ export function HandInSection({ copyId, onOpenFiles, onSubmitted }: { copyId: st
                     {h.submissionType === 'link' ? <Input value={link} onChange={(e) => setLink(e.target.value)} placeholder="https://" aria-label="Link to your work" /> : null}
                     {h.submissionType === 'text' ? <textarea value={text} onChange={(e) => setText(e.target.value)} rows={5} maxLength={10000} className={area} aria-label="Your answer" /> : null}
                     {h.submissionType === 'file' ? (
-                        <p className="flex flex-wrap items-center gap-2">
-                            {h.files.length ? h.files.map((f) => f.name).join(', ') : 'No file attached yet.'}
-                            <Button type="button" size="sm" variant="outline" onClick={onOpenFiles}>{h.files.length ? 'Change files' : 'Attach a file'}</Button>
-                        </p>
+                        <div onDragOver={(e) => { if (onUploadFiles) { e.preventDefault(); setDragging(true) } }} onDragLeave={() => setDragging(false)}
+                            onDrop={(e) => { if (!onUploadFiles) return; e.preventDefault(); setDragging(false); void attach(Array.from(e.dataTransfer.files)) }}
+                            className={dragging ? 'rounded-md border border-dashed border-primary p-2' : onUploadFiles ? 'rounded-md border border-dashed border-border p-2' : undefined}>
+                            <p className="flex flex-wrap items-center gap-2">
+                                {uploading ? 'Adding…' : h.files.length ? h.files.map((f) => f.name).join(', ') : onUploadFiles ? 'Drop your file here, or choose one.' : 'No file attached yet.'}
+                                {onUploadFiles ? (
+                                    <label className="inline-flex cursor-pointer items-center rounded-md border border-input px-2.5 py-1 text-[13px] hover:bg-muted">
+                                        Choose file<input type="file" multiple className="sr-only" disabled={uploading} onChange={(e) => { void attach(Array.from(e.target.files ?? [])); e.target.value = '' }} />
+                                    </label>
+                                ) : null}
+                                <Button type="button" size="sm" variant="ghost" onClick={onOpenFiles}>{h.files.length ? 'Manage files' : 'Open files'}</Button>
+                            </p>
+                        </div>
                     ) : null}
                     <label className="block space-y-1"><span className="font-medium">Add a note (optional)</span>
                         <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2} maxLength={500} className={area} />
                     </label>
                     {error ? <p role="alert" className="text-destructive">{error}</p> : null}
-                    <Button type="button" disabled={pending || (h.submissionType === 'file' && h.files.length === 0)} onClick={submit}>{pending ? 'Submitting…' : label}</Button>
+                    <Button type="button" disabled={pending || uploading || (h.submissionType === 'file' && h.files.length === 0)} onClick={submit}>{pending ? 'Submitting…' : label}</Button>
                 </div>
             ) : null}
         </section>

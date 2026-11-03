@@ -77,6 +77,8 @@ const SortableTaskCard = React.memo(function SortableTaskCard({
   canEditTasks,
   currentUserId,
   isDragLocked,
+  moveTargets,
+  onMoveTo,
 }: {
   task: Task;
   onClick?: (task: Task) => void;
@@ -85,6 +87,9 @@ const SortableTaskCard = React.memo(function SortableTaskCard({
   canEditTasks?: boolean;
   currentUserId?: string;
   isDragLocked?: boolean;
+  /** Move to… (report §32.3, §32.7): the other columns, for keyboard and phones, the same rule as dragging. */
+  moveTargets?: Array<{ id: string; title: string }>;
+  onMoveTo?: (task: Task, columnId: string) => void;
 }) {
   // Mirrors the server rule in moveTaskToWorkflowColumnAction.
   const canDrag =
@@ -148,6 +153,13 @@ const SortableTaskCard = React.memo(function SortableTaskCard({
         dragAttributes={canDrag ? attributes : undefined}
         dragListeners={canDrag ? listeners : undefined}
       />
+      {canDrag && onMoveTo && moveTargets?.length ? (
+        <select aria-label={`Move ${task.title} to…`} value="" className="mt-1 h-7 w-full rounded-[5px] border border-border bg-background px-1.5 text-[12px] text-muted-foreground md:sr-only md:focus:not-sr-only"
+          onChange={(e) => { if (e.target.value) onMoveTo(task, e.target.value); }}>
+          <option value="">Move to…</option>
+          {moveTargets.filter((c) => c.id !== (task.workflowColumnId ?? "")).map((c) => <option key={c.id} value={c.id}>{c.title}</option>)}
+        </select>
+      ) : null}
     </div>
   );
 });
@@ -171,6 +183,8 @@ const KanbanColumn = React.memo(
     canEditTasks,
     currentUserId,
     isTaskDragLocked,
+    moveTargets,
+    onMoveTo,
   }: any) {
     const canReorderColumns = isLeader;
 
@@ -406,6 +420,8 @@ const KanbanColumn = React.memo(
                     canEditTasks={canEditTasks}
                     currentUserId={currentUserId}
                     isDragLocked={isTaskDragLocked}
+                    moveTargets={moveTargets}
+                    onMoveTo={onMoveTo}
                   />
                 ))}
                 {hasMoreInColumn && (
@@ -672,8 +688,19 @@ export default function KanbanBoard({
     const target =
       dragPreview ??
       (active.id === over.id ? null : resolveTaskDropTarget(over));
+    await commitTaskMove(String(active.id), target);
+  }
+
+  const moveTargets = workflow.map((col) => ({ id: String(col.id), title: String(col.title ?? col.name ?? "Column") }));
+
+  // One move path for a drop and for a card's Move to (report §32.3, §32.7: every drag has a Move to alternative).
+  async function commitTaskMove(taskId: string, target: { columnId: string; beforeTaskId?: string | null } | null) {
+    if (taskMovePendingRef.current) {
+      toast.error("Wait for the current task move to finish");
+      return;
+    }
     const snapshot = dragTasksRef.current ?? tasks;
-    const draggedTask = snapshot.find((task) => task.id === active.id);
+    const draggedTask = snapshot.find((task) => task.id === taskId);
     const targetColumn = target
       ? workflow.find((column) => column.id === target.columnId)
       : null;
@@ -830,6 +857,7 @@ export default function KanbanBoard({
 
   const boardRootRef = React.useRef<HTMLDivElement>(null);
   const scrollContainerRef = React.useRef<HTMLDivElement>(null);
+  const [columnInView, setColumnInView] = useState(0);
   const prevWorkflowLengthRef = React.useRef(workflow.length);
   const isDraggingAnyRef = React.useRef(false);
   isDraggingAnyRef.current = Boolean(activeTask || activeColumn);
@@ -997,6 +1025,12 @@ export default function KanbanBoard({
         >
           <div
             ref={scrollContainerRef}
+            onScroll={(e) => {
+              // Phones (report §32.7): the dot under the board follows the column in view.
+              const el = e.currentTarget;
+              const step = (el.querySelector<HTMLElement>("[aria-label$=' tasks']")?.offsetWidth ?? el.clientWidth) + 16;
+              setColumnInView(Math.min(workflow.length - 1, Math.max(0, Math.round(el.scrollLeft / step))));
+            }}
             className="flex items-start gap-4 overflow-x-auto overscroll-x-contain overscroll-y-auto pb-4 app-scroll app-scroll-x max-md:snap-x max-md:snap-mandatory"
           >
             <div className="my-auto ml-auto shrink-0" aria-hidden="true" />
@@ -1022,11 +1056,18 @@ export default function KanbanBoard({
                   canEditTasks={canEditTasks}
                   currentUserId={currentUserId}
                   isTaskDragLocked={hasNextPage || isTaskMovePending}
+                  moveTargets={moveTargets}
+                  onMoveTo={(task: Task, columnId: string) => void commitTaskMove(task.id, { columnId, beforeTaskId: null })}
                 />
               );
             })}
             <div className="my-auto mr-auto shrink-0" aria-hidden="true" />
           </div>
+          {workflow.length > 1 ? (
+            <div className="-mt-2 mb-2 flex justify-center gap-1.5 md:hidden" aria-hidden="true" data-testid="board-column-dots">
+              {workflow.map((col, i) => <span key={col.id} className={cn("size-1.5 rounded-full", i === columnInView ? "bg-foreground" : "bg-border")} />)}
+            </div>
+          ) : null}
         </SortableContext>
 
         <DragOverlay

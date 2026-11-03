@@ -43,6 +43,7 @@ import {
 import { listOrgRosterAction, type OrgRosterPerson } from '@/app/actions/organizations'
 import { listWorkspaceDocsAction } from '@/app/actions/workspace/doc'
 import { createTaskCommentAction } from '@/app/actions/task-comment'
+import { approveTaskReviewAction, requestTaskChangesAction } from '@/app/actions/task'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
@@ -55,6 +56,7 @@ import { ASSIGNMENT_STATE_LABELS } from '@/lib/copy/terms'
 import { EditAssignmentDialog, ExcuseDialog, ExtendDialog, GiveToDialog, ReturnDialog } from '@/components/organizations/AssignmentDialogs'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { ReasonDialog } from '@/components/organizations/ReasonDialog'
+import { ClassQuestions } from '@/components/organizations/ClassQuestions'
 import { saveBlob, toCsvBlob } from '@/lib/download'
 import { zonedInputToIso, zoneName } from '@/lib/organizations/zoned-time'
 import { useAuth } from '@/hooks/use-auth'
@@ -483,7 +485,7 @@ export function AssignmentComposer({ orgId, open, onOpenChange, onCreated, reuse
 }
 
 /** One assignment's roster: per person or team, with Approve / Return / Extend / Excuse (report §16.5). */
-export function RosterDialog({ row, orgId, open, onOpenChange, onChanged }: { row: AssignmentRow; orgId?: string; open: boolean; onOpenChange: (open: boolean) => void; onChanged: () => void }) {
+export function RosterDialog({ row, orgId, open, onOpenChange, onChanged, timeZone = null }: { row: AssignmentRow; orgId?: string; open: boolean; onOpenChange: (open: boolean) => void; onChanged: () => void; timeZone?: string | null }) {
     const [rows, setRows] = useState<RosterRow[]>([])
     const [withoutCopy, setWithoutCopy] = useState<Array<{ userId: string; name: string }>>([])
     const [closed, setClosed] = useState(false)
@@ -615,16 +617,16 @@ export function RosterDialog({ row, orgId, open, onOpenChange, onChanged }: { ro
                     </section>
                 ) : null}
                 {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}
-                <ReturnDialog label={ask && 'row' in ask ? ask.row.label : ''} change={ask?.kind === 'change'} open={ask?.kind === 'return' || ask?.kind === 'change'} onClose={() => setAsk(null)}
+                <ReturnDialog timeZone={timeZone} label={ask && 'row' in ask ? ask.row.label : ''} change={ask?.kind === 'change'} open={ask?.kind === 'return' || ask?.kind === 'change'} onClose={() => setAsk(null)}
                     onReturn={(reason, fixBy) => { if (ask && 'row' in ask) { const copyId = ask.row.copyId; const change = ask.kind === 'change'; run(() => reviewAssignmentCopyAction(copyId, 'return', reason, undefined, { fixBy, change })) } }} />
-                <ExtendDialog label={ask && 'row' in ask ? ask.row.label : ''} currentDue={ask && 'row' in ask ? ask.row.dueDate : null} closed={closed} open={ask?.kind === 'extend'} onClose={() => setAsk(null)}
+                <ExtendDialog timeZone={timeZone} label={ask && 'row' in ask ? ask.row.label : ''} currentDue={ask && 'row' in ask ? ask.row.dueDate : null} closed={closed} open={ask?.kind === 'extend'} onClose={() => setAsk(null)}
                     onExtend={(due, reopen) => { if (ask && 'row' in ask) { const copyId = ask.row.copyId; run(() => extendCopyAction(copyId, due, { reopen })) } }} />
                 <ExcuseDialog label={ask && 'row' in ask ? ask.row.label : ''} open={ask?.kind === 'excuse'} onClose={() => setAsk(null)}
                     onExcuse={(reason) => { if (ask && 'row' in ask) { const copyId = ask.row.copyId; run(() => excuseCopyAction(copyId, reason)) } }} />
-                <GiveToDialog people={withoutCopy} open={ask?.kind === 'give'} onClose={() => setAsk(null)} onGive={(userId, due) => run(() => giveCopyAction(row.masterId, userId, due))} />
-                <ReturnDialog label={`${picked.size} people`} open={ask?.kind === 'bulk-return'} onClose={() => setAsk(null)}
+                <GiveToDialog timeZone={timeZone} people={withoutCopy} open={ask?.kind === 'give'} onClose={() => setAsk(null)} onGive={(userId, due) => run(() => giveCopyAction(row.masterId, userId, due))} />
+                <ReturnDialog timeZone={timeZone} label={`${picked.size} people`} open={ask?.kind === 'bulk-return'} onClose={() => setAsk(null)}
                     onReturn={(reason, fixBy) => run(async () => { const r = await returnCopiesAction([...picked], reason, fixBy); if (r.success) { toast.success(`Returned ${r.returned}${r.skipped ? `. ${r.skipped} weren’t waiting for review.` : '.'}`); setPicked(new Set()) } return r })} />
-                <ExtendDialog label={`${picked.size} people`} currentDue={row.dueDate} closed={closed} open={ask?.kind === 'bulk-extend'} onClose={() => setAsk(null)}
+                <ExtendDialog timeZone={timeZone} label={`${picked.size} people`} currentDue={row.dueDate} closed={closed} open={ask?.kind === 'bulk-extend'} onClose={() => setAsk(null)}
                     onExtend={(due, reopen) => run(async () => { const r = await extendCopiesAction([...picked], due, { reopen }); if (r.success) setPicked(new Set()); return r })} />
                 <ConfirmDialog open={ask?.kind === 'remove'} onOpenChange={(v) => { if (!v) setAsk(null) }} variant="destructive"
                     title={`Remove ${ask && 'row' in ask ? ask.row.label : ''}’s copy?`} description="They haven’t started it. It leaves their list, and they’re told."
@@ -663,8 +665,13 @@ export function AssignmentsPanel({ orgId, onBoardChanged, startComposing = false
         setError(result.success ? null : result.error ?? 'Something went wrong.')
         refresh()
     })
-    const rows = useMemo(() => data?.rows ?? [], [data])
-    if (!data || (!data.isAdmin && rows.length === 0)) return null
+    const [showPublished, setShowPublished] = useState(false)
+    const allRows = useMemo(() => data?.rows ?? [], [data])
+    // One board (decisions 6, 10): published work lives on the board, managed from its card. Admins keep drafts and
+    // scheduled ones here (and can show the rest); members have their copies on the board with Hand in.
+    const unpublished = allRows.filter((r) => r.status === 'draft' || r.status === 'scheduled')
+    const rows = data?.isAdmin && !showPublished ? unpublished : allRows
+    if (!data || (!data.isAdmin && (allRows.length === 0 || allRows.every((r) => r.mine)))) return null
 
     return (
         <section aria-labelledby="org-assignments-heading" className="mb-5 rounded-lg border border-border bg-card p-4">
@@ -678,7 +685,13 @@ export function AssignmentsPanel({ orgId, onBoardChanged, startComposing = false
                 ) : null}
             </div>
             {reviewing ? <ReviewQueue orgId={orgId} onChanged={refresh} onClose={() => setReviewing(false)} /> : null}
-            {rows.length === 0 ? <p className="mt-2 text-sm text-muted-foreground">No assignments yet. Give everyone (or teams, or each workspace) their own assignment to submit.</p> : null}
+            {allRows.length === 0 ? <p className="mt-2 text-sm text-muted-foreground">No assignments yet. Give everyone (or teams, or each workspace) their own assignment to submit.</p> : null}
+            {data.isAdmin && allRows.length > unpublished.length ? (
+                <p className="mt-2 text-[13px] text-muted-foreground">
+                    Published assignments are on the board; open one for its roster.{' '}
+                    <button type="button" className="underline underline-offset-4" aria-expanded={showPublished} onClick={() => setShowPublished(!showPublished)}>{showPublished ? 'Hide published' : `Show published (${allRows.length - unpublished.length})`}</button>
+                </p>
+            ) : null}
             <ul className="mt-3 divide-y divide-border">
                 {rows.map((row) => (
                     <li key={row.masterId} className="flex flex-wrap items-center gap-x-3 gap-y-1 py-2 text-sm">
@@ -725,7 +738,7 @@ export function AssignmentsPanel({ orgId, onBoardChanged, startComposing = false
             {error ? <p role="alert" className="mt-2 text-sm text-destructive">{error}</p> : null}
             {data.isAdmin ? <AssignmentComposer orgId={orgId} open={composing} onOpenChange={(v) => { setComposing(v); if (!v) setReuseFrom(null) }} onCreated={refresh} reuseFrom={reuseFrom} timeZone={data.timeZone} /> : null}
             {editing ? <EditAssignmentDialog orgId={orgId} row={editing} open timeZone={data.timeZone} onClose={() => setEditing(null)} onSave={(patch) => run(() => updateAssignmentAction(editing.masterId, patch))} /> : null}
-            {roster ? <RosterDialog row={roster} orgId={orgId} open onOpenChange={(open) => { if (!open) setRoster(null) }} onChanged={load} /> : null}
+            {roster ? <RosterDialog row={roster} orgId={orgId} timeZone={data.timeZone} open onOpenChange={(open) => { if (!open) setRoster(null) }} onChanged={load} /> : null}
             {submitting?.mine ? <SubmitDialog copyId={submitting.mine.copyId} submissionType={submitting.submissionType} title={submitting.title} open onOpenChange={(open) => { if (!open) setSubmitting(null) }} onDone={refresh} /> : null}
             <ConfirmDialog open={Boolean(confirm)} onOpenChange={(v) => { if (!v) setConfirm(null) }} title={confirm?.title ?? ''} description={confirm?.description}
                 confirmLabel={confirm?.label} variant={confirm?.destructive ? 'destructive' : 'default'} onConfirm={() => { if (confirm) run(confirm.act) }} />
@@ -794,8 +807,12 @@ export function ReviewQueue({ orgId, onChanged, onClose }: { orgId: string; onCh
         if (decision === 'return' && !returning) { setReturning(true); setReason(''); setFixBy(toLocalInput(new Date(Date.now() + 3 * 86_400_000))); return }
         if (decision === 'return' && !reason.trim()) return setError('Say what to change.')
         startTransition(async () => {
-            const r = await reviewAssignmentCopyAction(current.copyId, decision, decision === 'return' ? reason.trim() : undefined,
-                { projectId: current.projectId, updatedAt: current.updatedAt }, decision === 'return' && fixBy ? { fixBy: new Date(fixBy).toISOString() } : {})
+            // An ordinary board task uses the task's own review (problem 33); a copy uses the assignment's.
+            const r: { success: true } | { success: false; error: string } = current.kind === 'task'
+                ? await (decision === 'approve' ? approveTaskReviewAction(current.copyId, current.projectId, current.updatedAt) : requestTaskChangesAction(current.copyId, current.projectId, reason.trim(), current.updatedAt))
+                    .then((x) => (x.success ? { success: true as const } : { success: false as const, error: ('error' in x && x.error) || 'Couldn’t save that. Try again.' }))
+                : await reviewAssignmentCopyAction(current.copyId, decision, decision === 'return' ? reason.trim() : undefined,
+                    { projectId: current.projectId, updatedAt: current.updatedAt }, decision === 'return' && fixBy ? { fixBy: new Date(fixBy).toISOString() } : {})
             if (!r.success) {
                 // "Already reviewed by Priya" moves on; a new version reloads to show it (23.2 awkward cases).
                 setError(r.error.startsWith('This changed') ? `${current.who} sent a new version. Showing it now.` : r.error)
@@ -827,7 +844,7 @@ export function ReviewQueue({ orgId, onChanged, onClose }: { orgId: string; onCh
         return () => window.removeEventListener('keydown', onKey)
     }, [])
     if (!rows) return <p className="mt-3 text-sm text-muted-foreground">Loading submissions…</p>
-    const titles = [...new Map(rows.map((r) => [r.masterId, r.title])).entries()]
+    const titles = [...new Map(rows.map((r) => [r.masterId, r.kind === 'task' ? 'Other tasks' : r.title])).entries()]
     return (
         <section aria-label="To review" className="mt-3 space-y-2 rounded-md border border-border p-3 text-sm">
             <div className="flex flex-wrap items-center gap-2">
@@ -857,7 +874,7 @@ export function ReviewQueue({ orgId, onChanged, onClose }: { orgId: string; onCh
                         <div className="space-y-2">
                             <label className="block space-y-1"><span className="font-medium">What should they change?</span>
                                 <textarea autoFocus value={reason} onChange={(e) => setReason(e.target.value)} rows={2} maxLength={1000} className={area} /></label>
-                            <label className="flex flex-wrap items-center gap-2">Fix by <Input type="datetime-local" value={fixBy} onChange={(e) => setFixBy(e.target.value)} className="w-auto" /></label>
+                            {current.kind === 'copy' ? <label className="flex flex-wrap items-center gap-2">Fix by <Input type="datetime-local" value={fixBy} onChange={(e) => setFixBy(e.target.value)} className="w-auto" /></label> : null}
                             <div className="flex gap-2">
                                 <Button type="button" size="sm" disabled={pending} onClick={() => decide('return')}>Return</Button>
                                 <Button type="button" size="sm" variant="ghost" onClick={() => setReturning(false)}>Cancel</Button>
@@ -875,6 +892,56 @@ export function ReviewQueue({ orgId, onChanged, onClose }: { orgId: string; onCh
                 </>
             )}
             {error ? <p role="alert" className="text-destructive">{error}</p> : null}
+        </section>
+    )
+}
+
+/**
+ * One board (report §16.1, decisions 6 and 10): an admin manages an assignment from its own card's panel, with the
+ * same Roster, Edit for everyone, Use again, Close or Reopen and Export as the list above the board.
+ */
+export function AssignmentManageSection({ orgId, masterId, onChanged }: { orgId: string; masterId: string; onChanged?: () => void }) {
+    const [data, setData] = useState<{ row: AssignmentRow; timeZone: string | null } | null>(null)
+    const [dialog, setDialog] = useState<'roster' | 'edit' | 'reuse' | null>(null)
+    const [questions, setQuestions] = useState(false)
+    const [error, setError] = useState<string | null>(null)
+    const [pending, startTransition] = useTransition()
+    const load = useCallback(() => void listAssignmentsAction(orgId).then((r) => {
+        const row = r.success && r.isAdmin ? r.rows.find((x) => x.masterId === masterId) : undefined
+        setData(row && r.success ? { row, timeZone: r.timeZone } : null)
+    }), [masterId, orgId])
+    useEffect(() => { load() }, [load])
+    if (!data) return null
+    const { row } = data
+    const run = (action: () => Promise<{ success: boolean; error?: string }>) => startTransition(async () => {
+        const result = await action()
+        setError(result.success ? null : result.error ?? 'Something went wrong.')
+        load()
+        onChanged?.()
+    })
+    const live = row.status === 'open' || row.status === 'closed'
+    return (
+        <section aria-labelledby="assignment-manage-heading" className="space-y-2 rounded-[6px] border border-border p-4 text-sm">
+            <h3 id="assignment-manage-heading" className="font-mono text-[11px] font-medium uppercase tracking-[0.09em] text-muted-foreground">Assignment</h3>
+            <p className="text-muted-foreground">{countsLine(row)}</p>
+            <div className="flex flex-wrap gap-1.5">
+                {live ? <Button type="button" size="sm" variant="outline" onClick={() => setDialog('roster')}>Roster</Button> : null}
+                <Button type="button" size="sm" variant="outline" disabled={pending} onClick={() => setDialog('edit')}>{live ? 'Edit for everyone' : 'Edit'}</Button>
+                <Button type="button" size="sm" variant="ghost" disabled={pending} onClick={() => setDialog('reuse')}>Use again</Button>
+                {row.status === 'open' ? <Button type="button" size="sm" variant="ghost" disabled={pending} onClick={() => run(() => closeAssignmentAction(row.masterId))}>Close</Button> : null}
+                {row.status === 'closed' ? <Button type="button" size="sm" variant="ghost" disabled={pending} onClick={() => run(() => reopenAssignmentAction(row.masterId))}>Reopen</Button> : null}
+                {live ? <Button type="button" size="sm" variant="ghost" disabled={pending} onClick={() => startTransition(async () => {
+                    const r = await readAssignmentExportAction(row.masterId)
+                    if (!r.success) return void setError(r.error)
+                    saveBlob(toCsvBlob(r.rows), `${row.title.replace(/[^\w-]+/g, '-')}-progress.csv`)
+                })}>Export</Button> : null}
+            </div>
+            <button type="button" className="text-[13px] underline underline-offset-4" aria-expanded={questions} onClick={() => setQuestions(!questions)}>{questions ? 'Hide class questions' : 'Class questions'}</button>
+            {questions ? <div className="-mx-6 max-md:-mx-4"><ClassQuestions copyId={row.masterId} /></div> : null}
+            {error ? <p role="alert" className="text-destructive">{error}</p> : null}
+            {dialog === 'roster' ? <RosterDialog row={row} orgId={orgId} timeZone={data.timeZone} open onOpenChange={(open) => { if (!open) setDialog(null) }} onChanged={load} /> : null}
+            {dialog === 'edit' ? <EditAssignmentDialog orgId={orgId} row={row} open timeZone={data.timeZone} onClose={() => setDialog(null)} onSave={(patch) => run(() => updateAssignmentAction(row.masterId, patch))} /> : null}
+            <AssignmentComposer orgId={orgId} open={dialog === 'reuse'} onOpenChange={(open) => { if (!open) setDialog(null) }} onCreated={() => { load(); onChanged?.() }} reuseFrom={row.masterId} timeZone={data.timeZone} />
         </section>
     )
 }

@@ -21,6 +21,8 @@ let members: typeof import("../../src/app/actions/org-members");
 let orgUpdates: typeof import("../../src/app/actions/org-updates");
 let units: typeof import("../../src/app/actions/child-units");
 let orgFiles: typeof import("../../src/app/actions/org-files");
+let assignments: typeof import("../../src/app/actions/assignments");
+let comments: typeof import("../../src/app/actions/task-comment");
 before(async () => {
   const viewerContext = await loadAppModule(() => import("../../src/lib/server/viewer-context"));
   moduleStubs.set("@/lib/server/viewer-context", {
@@ -32,6 +34,8 @@ before(async () => {
   orgUpdates = await loadAppModule(() => import("../../src/app/actions/org-updates"));
   units = await loadAppModule(() => import("../../src/app/actions/child-units"));
   orgFiles = await loadAppModule(() => import("../../src/app/actions/org-files"));
+  assignments = await loadAppModule(() => import("../../src/app/actions/assignments"));
+  comments = await loadAppModule(() => import("../../src/app/actions/task-comment"));
 });
 
 const created: string[] = [];
@@ -103,4 +107,41 @@ test("step 9: a By type row lists that type's largest files, for admins only", a
   assert.deepEqual(images.success ? images.files.map((f) => f.name) : null, ["b.png", "a.png"]);
   viewerId = o.a;
   assert.equal((await orgFiles.readOrgStorageFilesAction(o.id, "images")).success, false);
+});
+
+async function published(o: Awaited<ReturnType<typeof org>>, title: string) {
+  const [m] = await sql`INSERT INTO tasks (workspace_id, title, kind, assignment_settings, creator_id)
+    VALUES (${o.id}, ${title}, 'assignment', ${sql.json({ publishedAt: new Date().toISOString(), submissionType: "none", reviewRequired: true, target: { mode: "everyone" } })}, ${o.owner}) RETURNING id`;
+  for (const person of [o.a, o.b]) await sql`INSERT INTO tasks (workspace_id, title, kind, assignment_id, assignee_id, creator_id) VALUES (${o.id}, ${title}, 'task', ${m!.id}, ${person}, ${o.owner})`;
+  return m!.id as string;
+}
+
+test("problem 33: the review queue holds ordinary board tasks waiting for review, not only copies", async () => {
+  const o = await org();
+  const [t] = await sql`INSERT INTO tasks (workspace_id, title, assignee_id, creator_id, status, review_status, review_submitted_at) VALUES (${o.id}, 'Book the lab', ${o.a}, ${o.owner}, 'done', 'pending', now()) RETURNING id`;
+  viewerId = o.admin;
+  const queue = await assignments.readReviewQueueAction(o.id);
+  assert.ok(queue.success);
+  assert.deepEqual(queue.success ? queue.rows.filter((r) => r.kind === "task").map((r) => r.copyId) : [], [t!.id]);
+});
+
+test("23.5: a new class question tells the admins; Tell everyone tells everyone on the assignment", async () => {
+  const o = await org();
+  const master = await published(o, `Lab ${o.tag}`);
+  viewerId = o.a;
+  const asked = await comments.createTaskCommentAction(master, o.id, "Can we use Python?");
+  assert.equal(asked.success, true, JSON.stringify(asked));
+  const admins = (await sql`SELECT user_id FROM user_notifications WHERE title LIKE ${`%asked about Lab ${o.tag}`}`).map((r) => r.user_id).sort();
+  assert.deepEqual(admins, [o.owner, o.admin].sort());
+  viewerId = o.admin;
+  const question = asked.success ? asked.data.comment!.id : "";
+  const answered = await comments.createTaskCommentAction(master, o.id, "Yes, 3.11 or later.", question);
+  assert.ok(answered.success);
+  viewerId = o.b;
+  assert.equal((await comments.shareClassAnswerAction(master, answered.success ? answered.data.comment!.id : "")).success, false, "members can't");
+  viewerId = o.admin;
+  const shared = await comments.shareClassAnswerAction(master, answered.success ? answered.data.comment!.id : "");
+  assert.deepEqual(shared, { success: true, told: 2 });
+  const told = (await sql`SELECT user_id FROM user_notifications WHERE title = ${`New answer on Lab ${o.tag}`}`).map((r) => r.user_id).sort();
+  assert.deepEqual(told, [o.a, o.b].sort());
 });

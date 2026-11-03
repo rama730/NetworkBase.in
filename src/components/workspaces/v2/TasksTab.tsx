@@ -25,6 +25,7 @@ import {
 } from "@/app/actions/workspace";
 import { createWorkspaceWorkflowColumnAction, deleteWorkspaceWorkflowColumnAction, getWorkspaceWorkflowColumnsAction, updateWorkspaceWorkflowColumnsAction } from "@/app/actions/workspace/workflow";
 import { subscribeBroadcast } from "@/lib/realtime/private-broadcast";
+import { userTopic } from "@/lib/messaging/constants";
 import { liveTopics } from "@/lib/realtime/subscriptions";
 import {
   Dialog,
@@ -378,6 +379,17 @@ export default function TasksTab({
       live.unsubscribe();
     };
   }, [currentUserId, projectId, queryClient, workflowQueryKey]);
+
+  // An admin's board (report §32.4): copies don't announce on the board topic (decision 145), so a submission
+  // notice on the admin's own topic reloads the assignment columns, combined over 2 seconds.
+  useEffect(() => {
+    if (!orgId || !canManageWorkflow || !currentUserId) return;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const live = subscribeBroadcast(userTopic(currentUserId), (event) => {
+      if (event === "notification.changed" && !timer) timer = setTimeout(() => { timer = null; void queryClient.invalidateQueries({ queryKey: queryKeys.project.detail.tasksRoot(projectId) }); }, 2_000);
+    });
+    return () => { live.unsubscribe(); if (timer) clearTimeout(timer); };
+  }, [canManageWorkflow, currentUserId, orgId, projectId, queryClient]);
 
   useEffect(() => {
     if (workflowMutation.isPending || !workflowRefreshQueuedRef.current) return;
