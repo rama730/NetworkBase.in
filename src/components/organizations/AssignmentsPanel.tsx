@@ -6,6 +6,7 @@ import { ClipboardList, Plus, Shuffle, X } from 'lucide-react'
 import {
     addAssignmentStepAction,
     approveAllSubmittedAction,
+    autoMakeGroupsAction,
     closeAssignmentAction,
     createAssignmentAction,
     deleteAssignmentAction,
@@ -45,7 +46,7 @@ import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { formatDistanceToNow } from '@/lib/utils/date'
-import { splitIntoTeams, type AssignmentTarget, type CopyState } from '@/lib/organizations/assignment-rules'
+import { type AssignmentTarget, type CopyState } from '@/lib/organizations/assignment-rules'
 import { DownloadLink } from '@/components/ui/download-link'
 import { remindSummary } from '@/lib/organizations/member-rules'
 import { toast } from '@/lib/feedback'
@@ -254,10 +255,15 @@ function AssignmentComposer({ orgId, open, onOpenChange, onCreated, reuseFrom = 
         })
     })
 
-    const autoMake = () => {
-        const pool = roster.filter((p) => people.includes(p.userId))
-        setTeams(splitIntoTeams(pool, teamSize).map((group, i) => ({ name: `Team ${String.fromCharCode(65 + (i % 26))}${i >= 26 ? Math.floor(i / 26) : ''}`, people: group, leadId: group[0]?.userId ?? null })))
-    }
+    // Decision 64: made on the server, which quietly keeps blocked pairs apart.
+    const autoMake = () => void autoMakeGroupsAction(orgId, people, teamSize).then((r) => {
+        if (!r.success) return setError(r.error)
+        const byId = new Map(roster.map((p) => [p.userId, p]))
+        setTeams(r.groups.map((ids, i) => {
+            const group = ids.map((id) => byId.get(id)).filter((p): p is OrgRosterPerson => Boolean(p))
+            return { name: `Team ${String.fromCharCode(65 + (i % 26))}${i >= 26 ? Math.floor(i / 26) : ''}`, people: group, leadId: group[0]?.userId ?? null }
+        }))
+    })
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
@@ -555,6 +561,25 @@ export function RosterDialog({ row, orgId, open, onOpenChange, onChanged }: { ro
                         )
                     })}
                 </ul>
+                {/* Report §25.7, decision 47: late joiners on group work, with Add to group or Own copy. */}
+                {row.teams && withoutCopy.length ? (
+                    <section aria-label="Not in a group" className="space-y-1 border-t border-border pt-2 text-sm">
+                        <p className="font-medium">Not in a group · {withoutCopy.length}</p>
+                        <ul className="space-y-1">
+                            {withoutCopy.map((p) => (
+                                <li key={p.userId} className="flex flex-wrap items-center gap-2">
+                                    {p.name}
+                                    <select value="" aria-label={`Add ${p.name} to a group`} className="h-7 rounded border border-border bg-background px-1 text-xs" disabled={pending}
+                                        onChange={(e) => { const v = e.target.value; if (v) run(() => moveTeamMemberAction(row.masterId, p.userId, v === 'own' ? null : v)) }}>
+                                        <option value="">Add to group…</option>
+                                        {rows.filter((o) => o.people && o.state !== 'submitted' && o.state !== 'done').map((o) => <option key={o.copyId} value={o.copyId}>{o.label}</option>)}
+                                        <option value="own">Own copy</option>
+                                    </select>
+                                </li>
+                            ))}
+                        </ul>
+                    </section>
+                ) : null}
                 {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}
                 <ReturnDialog label={ask && 'row' in ask ? ask.row.label : ''} change={ask?.kind === 'change'} open={ask?.kind === 'return' || ask?.kind === 'change'} onClose={() => setAsk(null)}
                     onReturn={(reason, fixBy) => { if (ask && 'row' in ask) { const copyId = ask.row.copyId; const change = ask.kind === 'change'; run(() => reviewAssignmentCopyAction(copyId, 'return', reason, undefined, { fixBy, change })) } }} />

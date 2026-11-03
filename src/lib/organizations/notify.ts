@@ -146,7 +146,16 @@ export async function notifyJoined(orgId: string, userId: string, eventId: strin
   const org = await orgLabel(orgId);
   if (!org) return;
   const name = (await namesOf([userId])).get(userId) ?? "Someone";
-  await notifyOrg({ orgId, eventKey: "org.member_joined", actorId: userId, title: `${name} joined ${org.title}`, href: orgHref(org, "?tab=members"), sourceEventId: eventId });
+  // Group assignments don't make copies for late joiners: admins hear where to place them (report §25.7, decision 47).
+  const [group] = await db.execute<{ title: string; n: number }>(sql`
+    SELECT min(m.title) AS title, count(*)::int AS n FROM tasks m
+    WHERE m.workspace_id = ${orgId} AND m.kind = 'assignment' AND m.assignment_id IS NULL AND m.deleted_at IS NULL
+      AND m.assignment_settings->>'publishedAt' IS NOT NULL AND m.assignment_settings->>'closedAt' IS NULL AND m.assignment_settings->'target'->>'mode' = 'teams'
+      AND NOT EXISTS (SELECT 1 FROM tasks c WHERE c.assignment_id = m.id AND c.deleted_at IS NULL AND (c.assignee_id = ${userId}
+        OR EXISTS (SELECT 1 FROM task_team_members tm WHERE tm.task_id = c.id AND tm.user_id = ${userId})))
+    HAVING count(*) > 0`);
+  const title = group ? `${name} joined and isn’t in a group for ${group.n === 1 ? group.title : `${group.n} group assignments`}` : `${name} joined ${org.title}`;
+  await notifyOrg({ orgId, eventKey: "org.member_joined", actorId: userId, title, href: orgHref(org, group ? "?tab=tasks" : "?tab=members"), sourceEventId: eventId });
   await queueOrgEmails(orgId, null, `${eventId}:welcome`, { kind: "org_welcome", data: { note: org.welcomeNote } }, [userId]);
 }
 

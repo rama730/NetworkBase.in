@@ -9,7 +9,7 @@ import { db } from '@/lib/db';
 import { assignmentSubmissions, profiles, taskNodeLinks, workspaceMembers, workspaceNodes, workspaces, workspaceSprints, workspaceWorkflowColumns, taskActivityEvents, taskTeamMembers, tasks } from '@/lib/db/schema';
 import { getWorkspaceAccessById, writeBlockedMessage } from '@/lib/data/workspace-access';
 import { createClient } from '@/lib/supabase/server';
-import { assignmentHref, canStillSubmit, copyState, LATE_AFTER_DEFAULT_MINUTES, lateAfterMs, lateRuleBlock, lateWorkLabel, type AssignmentSettings, type AssignmentTarget, type CopyState } from '@/lib/organizations/assignment-rules';
+import { assignmentHref, canStillSubmit, copyState, splitIntoTeams, LATE_AFTER_DEFAULT_MINUTES, lateAfterMs, lateRuleBlock, lateWorkLabel, type AssignmentSettings, type AssignmentTarget, type CopyState } from '@/lib/organizations/assignment-rules';
 import { createCopies, createMasterTask, handedInSql, PeopleLeftError, resolveRecipients } from '@/lib/organizations/assignments';
 import { publishMaster } from '@/lib/organizations/assignment-publish';
 import { orgFileAccessSql } from '@/lib/files/internal-helpers';
@@ -938,6 +938,21 @@ export async function moveTeamMemberAction(masterId: string, userId: string, toC
         toCopyId ? eq(tasks.id, toCopyId) : eq(tasks.assigneeId, userId))).limit(1);
     if (copy) await notifyTeamMoved(copy.id, userId, ctx.viewer.userId, title, `team-move:${masterId}:${userId}:${Date.now()}`);
     return { success: true };
+}
+
+/**
+ * Auto-make groups (report §25.7, §29.3, decision 64): a random split that quietly keeps blocked pairs apart. Blocks
+ * are private, so this runs here and the composer only gets the groups back.
+ */
+export async function autoMakeGroupsAction(orgId: string, userIds: string[], size: number): Promise<{ success: true; groups: string[][] } | Failure> {
+    const viewer = await orgRole(orgId, 'read');
+    if (!viewer?.isAdmin) return DENIED;
+    const ids = [...new Set(userIds)].slice(0, 2000);
+    const blocks = ids.length ? await db.execute<{ a: string; b: string }>(sql`
+        SELECT blocker_id AS a, blocked_id AS b FROM user_blocks WHERE blocker_id IN ${ids} AND blocked_id IN ${ids}`) : [];
+    const blocked = new Set(blocks.map((r) => [r.a, r.b].sort().join('|')));
+    const groups = splitIntoTeams(ids, Math.max(1, Math.trunc(size)), Math.random, (a, b) => blocked.has([a, b].sort().join('|')));
+    return { success: true, groups };
 }
 
 /** Excuse one person on a team (report §16.11): the team carries on; that person leaves the counts with an excused copy. */

@@ -91,15 +91,41 @@ export function canStillSubmit(settings: AssignmentSettings, dueDate: Date | nul
 }
 
 /** "Auto-make teams": a random split into teams of about `size`, sizes within one of each other. */
-export function splitIntoTeams<T>(people: T[], size: number, random: () => number = Math.random): T[][] {
+export function splitIntoTeams<T>(people: T[], size: number, random: () => number = Math.random, apart: (a: T, b: T) => boolean = () => false): T[][] {
   if (people.length === 0) return [];
   const shuffled = [...people]
     .map((person) => ({ person, key: random() }))
     .sort((a, b) => a.key - b.key)
     .map((entry) => entry.person);
   const count = Math.max(1, Math.floor(shuffled.length / Math.max(1, size)));
+  const cap = Math.ceil(shuffled.length / count);
   const teams: T[][] = Array.from({ length: count }, () => []);
-  shuffled.forEach((person, index) => teams[index % count]!.push(person));
+  // Each person joins the smallest team, skipping one that holds someone they must stay apart from (decision 64:
+  // blocked pairs, quietly). When every open team has such a person, the smallest one takes them anyway.
+  for (const person of shuffled) {
+    const open = teams.map((team, i) => ({ team, i })).filter(({ team }) => team.length < cap).sort((a, b) => a.team.length - b.team.length || a.i - b.i);
+    const pick = open.find(({ team }) => !team.some((other) => apart(person, other))) ?? open[0]!;
+    pick.team.push(person);
+  }
+  // Repair: swap someone caught with a blocked partner into another team when that leaves both teams clear.
+  const clash = (team: T[], person: T, without?: T) => team.some((other) => other !== person && other !== without && apart(person, other));
+  for (let pass = 0; pass < shuffled.length; pass += 1) {
+    let swapped = false;
+    for (const team of teams) {
+      const stuck = team.find((person) => clash(team, person));
+      if (!stuck) continue;
+      for (const other of teams) {
+        if (other === team) continue;
+        const partner = other.find((candidate) => !clash(team, candidate, stuck) && !clash(other, stuck, candidate));
+        if (partner === undefined) continue;
+        team[team.indexOf(stuck)] = partner;
+        other[other.indexOf(partner)] = stuck;
+        swapped = true;
+        break;
+      }
+    }
+    if (!swapped) break;
+  }
   return teams;
 }
 

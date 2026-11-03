@@ -104,3 +104,15 @@ test("decision 171: Late after waits 15 minutes by default; 0 is strict; submit-
   assert.equal(canStillSubmit({ ...settings, lateAfterMinutes: 0 }, due, new Date(due.getTime() + 60_000)), false);
   assert.equal(canStillSubmit({ ...settings, closedAt: "2026-11-09T00:00:00Z" }, due, now, new Date(now.getTime() + 60_000)), true);
 });
+
+test("decision 64: auto-made groups quietly keep blocked pairs apart, sizes still within one", () => {
+  const people = ["a", "b", "c", "d", "e", "f"];
+  const blocked = new Set(["a|b", "c|d"]);
+  const apart = (x: string, y: string) => blocked.has(`${x}|${y}`) || blocked.has(`${y}|${x}`);
+  for (let seed = 0; seed < 20; seed += 1) {
+    let n = seed;
+    const teams = splitIntoTeams(people, 2, () => ((n = (n * 9301 + 49297) % 233280) / 233280), apart);
+    assert.deepEqual(teams.map((t) => t.length).sort(), [2, 2, 2]);
+    assert.ok(teams.every((t) => !(t.includes("a") && t.includes("b")) && !(t.includes("c") && t.includes("d"))), JSON.stringify(teams));
+  }
+});
