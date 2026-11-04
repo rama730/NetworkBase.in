@@ -20,7 +20,8 @@ export async function readCalendarEntries(userId: string, projectId?: string | n
       AND (c.assignee_id = ${userId}::uuid OR EXISTS (SELECT 1 FROM task_team_members tm WHERE tm.task_id = c.id AND tm.user_id = ${userId}::uuid)) ${scope}
     ORDER BY c.due_date LIMIT 300`);
   const sprints = await db.execute<{ id: string; name: string; start_date: string; end_date: string; place: string; kind: string; slug: string | null; project_id: string }>(sql`
-    SELECT s.id, s.name, s.start_date::text, s.end_date::text, p.title AS place, p.kind, p.slug, p.id AS project_id FROM workspace_sprints s JOIN workspaces p ON p.id = s.workspace_id AND p.deleted_at IS NULL
+    -- Board/review report §6: a sprint inside a CO shows as "CO1 · Week 1"; the CO keeps its own span.
+    SELECT s.id, coalesce((SELECT m.name || ' · ' FROM workspace_sprints m WHERE m.id = s.parent_sprint_id AND m.workspace_id = s.workspace_id), '') || s.name AS name, s.start_date::text, s.end_date::text, p.title AS place, p.kind, p.slug, p.id AS project_id FROM workspace_sprints s JOIN workspaces p ON p.id = s.workspace_id AND p.deleted_at IS NULL
     WHERE s.status IN ('planning', 'active') AND s.end_date > now() - interval '14 days' AND s.start_date < now() + interval '120 days'
       AND (p.owner_id = ${userId}::uuid OR EXISTS (SELECT 1 FROM workspace_members m WHERE m.workspace_id = p.id AND m.user_id = ${userId}::uuid)) ${scope}
     ORDER BY s.start_date LIMIT 200`);

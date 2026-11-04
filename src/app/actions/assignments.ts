@@ -24,6 +24,7 @@ import { notifyOrg, orgHref, orgLabel, remindedRecently } from '@/lib/organizati
 import { taskReviewSnapshot } from '@/lib/workspaces/task-review-snapshot';
 import { WORKSPACE_UPLOAD_MAX_FILE_BYTES } from '@/lib/upload/security';
 import { ASSIGNMENT_STATE_LABELS } from '@/lib/copy/terms';
+import { normalizeSprintOptions } from '@/lib/workspaces/task-presentation';
 
 // Assignments (report §16, §16.11). Owners and admins create, review and manage; recipients submit.
 
@@ -969,8 +970,10 @@ export async function readAssignmentComposerOptionsAction(orgId: string) {
     if (!viewer || !orgCan(orgRoleOf(viewer.role), 'create_assignments')) return { success: false as const, error: DENIED.error };
     const [children, sprints, teamAssignments, [org]] = await Promise.all([
         db.select({ id: workspaces.id, title: workspaces.title }).from(workspaces).where(and(eq(workspaces.parentId, orgId), isNull(workspaces.deletedAt))).orderBy(asc(workspaces.title)),
-        db.select({ id: workspaceSprints.id, name: workspaceSprints.name, status: workspaceSprints.status }).from(workspaceSprints)
-            .where(and(eq(workspaceSprints.projectId, orgId), inArray(workspaceSprints.status, ['planning', 'active']))).orderBy(asc(workspaceSprints.startDate)),
+        // Board/review report §6, D4: an assignment can go to a CO or to a sprint inside it ("CO1 · Week 1").
+        db.select({ id: workspaceSprints.id, name: workspaceSprints.name, status: workspaceSprints.status, parentSprintId: workspaceSprints.parentSprintId }).from(workspaceSprints)
+            .where(and(eq(workspaceSprints.projectId, orgId), inArray(workspaceSprints.status, ['planning', 'active']))).orderBy(asc(workspaceSprints.startDate))
+            .then((rows) => normalizeSprintOptions(rows).map((o) => ({ id: o.id, name: o.name, status: o.status ?? 'planning' }))),
         // "Copy teams from" (report §16.11): earlier team assignments, newest first.
         db.select({ id: tasks.id, title: tasks.title }).from(tasks)
             .where(and(eq(tasks.projectId, orgId), eq(tasks.kind, 'assignment'), isNull(tasks.deletedAt), sql`${tasks.assignmentSettings}->'target'->>'mode' = 'teams'`))

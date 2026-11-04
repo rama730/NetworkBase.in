@@ -60,9 +60,11 @@ interface SprintEditorModalProps {
   } | null;
   initialOrgFields?: SprintOrgFields;
   /** This workspace's sprints: Repeat numbering and overlaps, and Move later sprints (report §28.2). */
-  existingSprints?: Array<{ id: string; name: string; startDate: string | null; endDate: string | null; status: string }>;
+  existingSprints?: Array<{ id: string; name: string; startDate: string | null; endDate: string | null; status: string; parentSprintId?: string | null }>;
+  /** Board/review report §6: opens on "Sprint inside a CO", inside this main sprint. */
+  initialInsideOf?: string | null;
   /** Repeat ("Plan more like this", decision 9): creates the series instead of one sprint. */
-  onRepeat?: (input: { prefix: string; count: number; lengthDays: number; startDate: string; goal: string; description: string; autoStart: boolean }) => Promise<SprintEditorSubmitResult>;
+  onRepeat?: (input: { prefix: string; count: number; lengthDays: number; startDate: string; goal: string; description: string; autoStart: boolean; parentSprintId?: string | null }) => Promise<SprintEditorSubmitResult>;
   /** Workspaces in an organization: Plan one for each planned organization sprint (report §18.2). Off by default. */
   onPlanEach?: (name: string) => Promise<SprintEditorSubmitResult>;
 }
@@ -135,7 +137,15 @@ export default function SprintEditorModal({
   existingSprints = [],
   onRepeat,
   onPlanEach,
+  initialInsideOf = null,
 }: SprintEditorModalProps) {
+  // Board/review report §6: an organization plans main sprints (a CO) and sprints inside one.
+  const mainWord = typeProfile(org?.orgType).mainSprintWord;
+  const mains = existingSprints.filter((s) => !s.parentSprintId && s.startDate && s.endDate && (s.status === "planning" || s.status === "active") && s.id !== sprint?.id);
+  const [level, setLevel] = React.useState<"main" | "inside">(initialInsideOf ? "inside" : "main");
+  const [insideOf, setInsideOf] = React.useState<string>(initialInsideOf ?? mains.find((m) => m.status === "active")?.id ?? mains[0]?.id ?? "");
+  const nestedHere = org?.kind === "org" && (mode === "create" ? level === "inside" : Boolean(sprint?.parentSprintId));
+  const insideParent = nestedHere ? existingSprints.find((s) => s.id === (mode === "create" ? insideOf : sprint?.parentSprintId)) ?? null : null;
   // Plan your sprint (report §18.2): inside the running organization sprint, or the next planned one, by default.
   const defaultParent = mode === "create" && org?.kind === "child"
     ? org.orgSprints.find((s) => s.id === initialOrgFields?.parentSprintId) ?? org.orgSprints.find((s) => s.status === "active") ?? org.orgSprints[0] ?? null
@@ -198,6 +208,21 @@ export default function SprintEditorModal({
       return { ...d, name: keep("name") ? d.name : next.name ?? d.name, startDate: keep("startDate") ? d.startDate : next.startDate ?? d.startDate, endDate: keep("endDate") ? d.endDate : next.endDate ?? d.endDate };
     });
   }, [mode, org, orgDefaults, sprint, sprintCount]);
+  // Inside a CO, a new sprint starts the day after the last sprint in it (or on the CO's first day), two weeks long,
+  // never past the CO's end, and is named "Week N".
+  React.useEffect(() => {
+    if (mode !== "create" || org?.kind !== "org" || level !== "inside") return;
+    const main = existingSprints.find((s) => s.id === insideOf);
+    if (!main?.startDate || !main.endDate) return;
+    const siblings = existingSprints.filter((s) => s.parentSprintId === main.id && s.endDate).map((s) => s.endDate!.slice(0, 10)).sort();
+    const today = new Date().toISOString().slice(0, 10);
+    const after = siblings.length ? addDaysToSprintDateInput(siblings.at(-1)!, 1) : main.startDate.slice(0, 10);
+    const start = after > today ? after : main.startDate.slice(0, 10) > today ? main.startDate.slice(0, 10) : today;
+    const lastDay = main.endDate.slice(0, 10);
+    const end = addDaysToSprintDateInput(start, 13) > lastDay ? lastDay : addDaysToSprintDateInput(start, 13);
+    const names = existingSprints.filter((s) => s.parentSprintId === main.id).map((s) => s.name);
+    setDraft((d) => ({ ...d, name: `Week ${nextSeriesNumber("Week ", names)}`, startDate: start, endDate: end }));
+  }, [existingSprints, insideOf, level, mode, org?.kind]);
   const [fieldErrors, setFieldErrors] = React.useState<FieldErrors>({});
   const [errorMessage, setErrorMessage] = React.useState("");
   const [pendingAction, setPendingAction] = React.useState<PendingAction>(null);
@@ -253,33 +278,39 @@ export default function SprintEditorModal({
       orgFields.announce ? "Posts an announcement" : "No announcement",
     ] : []),
   ].join(" · ");
-  const strip = draft.startDate && draft.endDate ? termStrip({ startDate: draft.startDate, endDate: draft.endDate }, existingSprints as never, sprint?.id ?? null) : null;
-  const parent = org?.kind === "child" ? org.orgSprints.find((s) => s.id === orgFields.parentSprintId) ?? null : null;
+  // The strip compares a sprint with its own level: the sprints in the same CO, or the main sprints.
+  const sameLevel = org?.kind === "org" ? existingSprints.filter((s) => (s.parentSprintId ?? null) === (insideParent?.id ?? null)) : existingSprints;
+  const strip = draft.startDate && draft.endDate ? termStrip({ startDate: draft.startDate, endDate: draft.endDate }, sameLevel as never, sprint?.id ?? null) : null;
+  const childParent = org?.kind === "child" ? org.orgSprints.find((s) => s.id === orgFields.parentSprintId) ?? null : null;
+  const parent = childParent ?? (insideParent?.startDate && insideParent.endDate ? { id: insideParent.id, name: insideParent.name, status: insideParent.status, startDate: insideParent.startDate, endDate: insideParent.endDate } : null);
   // Report §18.2: errors appear beside the dates before saving.
   const dateError = parent && draft.startDate && draft.endDate
     ? insideError({ startDate: utc(draft.startDate), endDate: utc(draft.endDate) }, { name: parent.name, startDate: utc(parent.startDate), endDate: utc(parent.endDate) })
     : null;
   const lengthDays = draft.startDate && draft.endDate ? Math.round((utc(draft.endDate).getTime() - utc(draft.startDate).getTime()) / DAY_MS) + 1 : 0;
-  const prefix = draft.name.replace(/\d+$/, "") || "Sprint ";
+  const prefix = draft.name.replace(/\d+$/, "") || (nestedHere ? "Week " : "Sprint ");
   // Repeat's live preview (report §16.2, §28.2): organization sprints can't overlap; the term end only warns.
   const preview = React.useMemo(() => {
     if (!repeat || lengthDays < 1 || !draft.startDate) return null;
     try {
       const rows = buildSprintSeries({ prefix, count: repeatCount, lengthDays, startDate: draft.startDate, firstNumber: nextSeriesNumber(prefix, existingSprints.map((s) => s.name)) });
       const live = org?.kind === "org"
-        ? existingSprints.filter((s) => s.startDate && s.endDate && ["planning", "active", "completed"].includes(s.status)).map((s) => ({ name: s.name, startDate: utc(s.startDate!), endDate: utc(s.endDate!) }))
+        ? sameLevel.filter((s) => s.startDate && s.endDate && ["planning", "active", "completed"].includes(s.status)).map((s) => ({ name: s.name, startDate: utc(s.startDate!), endDate: utc(s.endDate!) }))
         : [];
-      return seriesPreview(rows, live, org?.kind === "org" ? org.termEnd : null);
+      // Inside a CO, the CO's end is the limit (the server refuses past it); otherwise the term end only warns.
+      return seriesPreview(rows, live, nestedHere && parent ? parent.endDate : org?.kind === "org" ? org.termEnd : null);
     } catch {
       return null;
     }
-  }, [draft.startDate, existingSprints, lengthDays, org, prefix, repeat, repeatCount]);
+  }, [draft.startDate, existingSprints, lengthDays, org, prefix, repeat, repeatCount, insideOf, level]);
   // Move later sprints too (decision 59): only Planning sprints that start after this one.
   const shiftDays = sprint?.startDate && draft.startDate ? Math.round((utc(draft.startDate).getTime() - utc(sprint.startDate).getTime()) / DAY_MS) : 0;
   const laterSprints = mode === "edit" && sprint?.status === "planning" && sprint.startDate
     ? existingSprints.filter((s) => s.id !== sprint.id && s.status === "planning" && s.startDate && s.startDate > sprint.startDate!)
     : [];
   const isRunning = mode === "edit" && sprint?.status === "active";
+  // Editing a CO: its planned sprints can move with it (board/review report §6).
+  const insideCount = mode === "edit" && sprint ? existingSprints.filter((s) => s.parentSprintId === sprint.id && (s.status === "planning" || s.status === "active")).length : 0;
 
   const handleFieldChange = React.useCallback((field: DraftField, value: string) => {
     setDraft((current) => ({ ...current, [field]: value }));
@@ -320,13 +351,15 @@ export default function SprintEditorModal({
         const result = planEach && onPlanEach
           ? await onPlanEach(parsed.data.name)
           : repeat && onRepeat
-          ? await onRepeat({ prefix, count: repeatCount, lengthDays, startDate: parsed.data.startDate, goal: parsed.data.goal ?? "", description: parsed.data.description ?? "", autoStart: orgFields.autoStart ?? true })
+          ? await onRepeat({ prefix, count: repeatCount, lengthDays, startDate: parsed.data.startDate, goal: parsed.data.goal ?? "", description: parsed.data.description ?? "", autoStart: orgFields.autoStart ?? true, parentSprintId: nestedHere && mode === "create" ? insideParent?.id ?? null : null })
           : await onSubmit({
           ...parsed.data,
           autoStart: orgFields.autoStart,
           ...(org?.kind === "org" ? { sharedWith: orgFields.sharedWith, sharedWorkspaceIds: orgFields.sharedWith === "selected" ? orgFields.sharedWorkspaceIds ?? [] : [], createMatching: mode === "create" && orgFields.sharedWith !== "none" && orgFields.createMatching,
             notifyOnStart: orgFields.notifyOnStart, ...(orgFields.announce ? { announcement: (orgFields.announcement ?? defaultAnnouncement).trim() } : {}), ...(mode === "edit" ? { moveDueDates: orgFields.moveDueDates } : {}) } : {}),
           ...(org?.kind === "child" ? { parentSprintId: orgFields.parentSprintId ?? null, ...(mode === "create" ? { includeGroupWork: orgFields.includeGroupWork } : {}) } : {}),
+          ...(org?.kind === "org" && mode === "create" ? { parentSprintId: nestedHere ? insideParent?.id ?? null : null } : {}),
+          ...(mode === "edit" && insideCount && shiftDays ? { moveInsideSprints: orgFields.moveInsideSprints } : {}),
           ...(mode === "edit" && laterSprints.length && shiftDays ? { moveLaterSprints: orgFields.moveLaterSprints } : {}),
         });
         if (!result.success) {
@@ -340,7 +373,7 @@ export default function SprintEditorModal({
         setPendingAction(null);
       }
     },
-    [dateError, draft, laterSprints.length, lengthDays, mode, onClose, onPlanEach, onRepeat, onSubmit, planEach, org?.kind, orgFields, prefix, projectId, repeat, repeatCount, shiftDays, sprint?.id],
+    [dateError, draft, laterSprints.length, lengthDays, mode, onClose, onPlanEach, onRepeat, onSubmit, planEach, org?.kind, orgFields, prefix, projectId, repeat, repeatCount, shiftDays, sprint?.id, nestedHere, insideParent?.id, insideCount],
   );
 
   const handleDelete = React.useCallback(async () => {
@@ -431,10 +464,25 @@ export default function SprintEditorModal({
               </div>
             ) : null}
 
+            {/* Board/review report §6: an organization plans a main sprint (a CO) or a sprint inside one. */}
+            {mode === "create" && org?.kind === "org" ? (
+              <UnderlineTabs label="Which kind of sprint?" idPrefix="sprint-level" controls={false} value={level} onChange={(next) => { setLevel(next); if (next === "main") setDraft(initialDraft()); }}
+                tabs={[{ key: "main", label: `${mainWord} (main sprint)` }, { key: "inside", label: `Sprint inside a ${mainWord}` }] as const} />
+            ) : null}
+            {mode === "create" && org?.kind === "org" && level === "inside" ? (
+              mains.length ? (
+                <Field label={`Inside the ${mainWord}`} htmlFor="sprint-inside-of">
+                  <select id="sprint-inside-of" value={insideOf} onChange={(e) => setInsideOf(e.target.value)} className={cn("nb-touch-target h-[34px]", inputClassName(false))}>
+                    {mains.map((m) => <option key={m.id} value={m.id}>{m.name} · {rangeLabel(m.startDate!, m.endDate!)}{m.status === "active" ? " (running)" : ""}</option>)}
+                  </select>
+                </Field>
+              ) : <p className="text-[13px] text-muted-foreground">Plan a {mainWord} first; sprints sit inside one.</p>
+            ) : null}
+            {mode === "edit" && insideParent ? <p className="text-[13px] text-muted-foreground">Inside {insideParent.name}. Its dates stay inside {insideParent.name}’s.</p> : null}
             {/* Sprint redesign §6.1: one sprint, or several to plan the term — a choice, not a checkbox halfway down. */}
             {mode === "create" && onRepeat && org?.kind !== "child" ? (
               <UnderlineTabs label="What are you planning?" idPrefix="sprint-kind" controls={false} value={repeat ? "several" : "one"} onChange={(k) => setRepeat(k === "several")}
-                tabs={[{ key: "one", label: "One sprint" }, { key: "several", label: "Several (plan the term)" }] as const} />
+                tabs={[{ key: "one", label: "One sprint" }, { key: "several", label: nestedHere && insideParent ? `Several (split ${insideParent.name})` : "Several (plan the term)" }] as const} />
             ) : null}
             {/* §6.5: a team's sprint starts from the class sprint it sits inside. */}
               {org?.kind === "child" && org.orgSprints.length > 0 ? (
@@ -577,7 +625,7 @@ export default function SprintEditorModal({
                             <li key={row.name} className={cn(row.clash ? "text-destructive" : "text-foreground")}>
                               {row.name} · {rangeLabel(row.startDate, row.endDate)}
                               {row.clash ? ` · Overlaps ${row.clash}` : ""}
-                              {row.pastTermEnd ? <span className="text-amber-600 dark:text-amber-400"> · Passes the term end</span> : null}
+                              {row.pastTermEnd ? <span className="text-amber-600 dark:text-amber-400"> · {nestedHere && insideParent ? `Passes the end of ${insideParent.name}` : "Passes the term end"}</span> : null}
                             </li>
                           ))}
                         </ul>
@@ -594,6 +642,14 @@ export default function SprintEditorModal({
                 </div>
               ) : null}
 
+              {insideCount && shiftDays ? (
+                <label className="flex items-start gap-2 text-[13px] text-foreground">
+                  <input type="checkbox" className="mt-0.5" checked={orgFields.moveInsideSprints ?? false} onChange={(e) => setOrgFields((f) => ({ ...f, moveInsideSprints: e.target.checked }))} />
+                  <span>Move the sprints inside too<span className="block text-[12px] text-muted-foreground">
+                    Its {insideCount} planned {insideCount === 1 ? "sprint moves" : "sprints move"} by {Math.abs(shiftDays)} {Math.abs(shiftDays) === 1 ? "day" : "days"}, so they stay inside.
+                  </span></span>
+                </label>
+              ) : null}
               {laterSprints.length && shiftDays ? (
                 <label className="flex items-start gap-2 text-[13px] text-foreground">
                   <input type="checkbox" className="mt-0.5" checked={orgFields.moveLaterSprints ?? false} onChange={(e) => setOrgFields((f) => ({ ...f, moveLaterSprints: e.target.checked }))} />

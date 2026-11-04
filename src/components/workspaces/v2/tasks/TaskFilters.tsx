@@ -9,6 +9,8 @@ interface TaskFiltersProps {
   setScope?: (scope: TaskFilterScope) => void;
   /** An organization's board adds Assignments and Mine (report §16.1). */
   organization?: boolean;
+  /** Board/review report §6: the running sprint's full name beside Sprint ("CO1 · Week 3–4"). */
+  sprintLabel?: string | null;
 }
 
 const options: Array<{ value: TaskFilterScope; label: string; orgOnly?: boolean }> = [
@@ -21,7 +23,7 @@ const options: Array<{ value: TaskFilterScope; label: string; orgOnly?: boolean 
 ];
 
 /** Board/review report §2: the review queue shows its waiting count on In review. */
-export default function TaskFilters({ scope, setScope, organization = false, counts }: TaskFiltersProps & { counts?: Partial<Record<string, number>> }) {
+export default function TaskFilters({ scope, setScope, organization = false, counts, sprintLabel }: TaskFiltersProps & { counts?: Partial<Record<string, number>> }) {
   return (
     <div
       role="group"
@@ -44,6 +46,7 @@ export default function TaskFilters({ scope, setScope, organization = false, cou
             )}
           >
             {option.label}
+            {option.value === "sprint" && sprintLabel ? <span className="ml-1 inline-block max-w-[12rem] truncate align-bottom text-muted-foreground" title={sprintLabel}>· {sprintLabel}</span> : null}
             {counts?.[option.value] ? <span className="ml-1 tabular-nums text-muted-foreground">{counts[option.value]}</span> : null}
           </button>
         );

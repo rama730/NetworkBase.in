@@ -24,6 +24,8 @@ export type SprintListItem = {
   completedAt: string | null;
   archivedAt: string | null;
   cancelledAt: string | null;
+  /** Board/review report §6: the main sprint this one sits inside (an organization's), or the org sprint a team's sits in. */
+  parentSprintId?: string | null;
   createdAt: string | null;
   updatedAt: string | null;
   creator?: {
@@ -137,6 +139,10 @@ export type SprintDetailPayload = {
   unassigned?: { tasks: number; points: number };
   /** Points the last closed sprints finished: the latest and the average of up to three. */
   velocity?: { last: number | null; average: number | null };
+  /** Board/review report §6: a main sprint's sprints, in date order, with their own done counts. */
+  children?: Array<{ id: string; name: string; code: string; status: SprintStatus; startDate: string | null; endDate: string | null; done: number; total: number }>;
+  /** With `children`: assignments in the CO or its sprints that haven't closed. */
+  openAssignments?: number;
 };
 
 export type SprintPersonLoad = { id: string; name: string; avatarUrl: string | null; openTasks: number; openPoints: number };

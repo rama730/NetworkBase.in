@@ -9,6 +9,8 @@ export type OrgTypeProfile = {
   finishedWork: "Submissions" | "Final files";
   termDates: boolean;
   sprintPrefix: "CO" | "Sprint ";
+  /** Board/review report §6, D1: the word for a main sprint ("CO" in Education, "Phase" elsewhere). */
+  mainSprintWord: "CO" | "Phase";
   joinMode: "instant" | "approval";
   visibility: "public" | "private";
   /** Members can post discussions and create channels. */
@@ -25,7 +27,7 @@ export type OrgTypeProfile = {
 };
 
 const WORK: Omit<OrgTypeProfile, "roleNames" | "joinMode" | "visibility" | "starterFolders"> = {
-  finishedWork: "Final files", termDates: false, sprintPrefix: "Sprint ", membersPost: true, generalNotify: "all",
+  finishedWork: "Final files", termDates: false, sprintPrefix: "Sprint ", mainSprintWord: "Phase", membersPost: true, generalNotify: "all",
   reviewRequired: false, lateRule: "always", storyPoints: "shown", showCompensation: true, planLabel: "Plan your sprints",
 };
 const ADMINS: OrgTypeProfile["starterFolders"] = ["Shared", "Docs", "Templates", "Admins"];
@@ -33,7 +35,7 @@ const ADMINS: OrgTypeProfile["starterFolders"] = ["Shared", "Docs", "Templates",
 export const ORG_TYPE_PROFILES: Record<OrgType, OrgTypeProfile> = {
   education: {
     roleNames: { owner: "Teacher", admin: "TA", member: "Student", viewer: "Viewer" },
-    finishedWork: "Submissions", termDates: true, sprintPrefix: "CO", joinMode: "instant", visibility: "private", membersPost: false,
+    finishedWork: "Submissions", termDates: true, sprintPrefix: "CO", mainSprintWord: "CO", joinMode: "instant", visibility: "private", membersPost: false,
     generalNotify: "mentions", reviewRequired: true, lateRule: "until", storyPoints: "hidden",
     starterFolders: ["Course materials", "Docs", "Templates", "Staff"], showCompensation: false, planLabel: "Plan your term",
   },

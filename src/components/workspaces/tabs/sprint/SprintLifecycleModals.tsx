@@ -67,8 +67,9 @@ export function SprintLifecycleModals({
   const carryOverSprints = useMemo(
     () =>
       // The server accepts only Planning sprints as a destination.
+      // Board/review report §6: a sprint inside this CO closes with it, so it's never where open work goes.
       sprints.filter(
-        (sprint) => sprint.id !== selectedSprint?.id && sprint.status === "planning",
+        (sprint) => sprint.id !== selectedSprint?.id && sprint.status === "planning" && sprint.parentSprintId !== selectedSprint?.id,
       ).sort((a, b) => Number(Boolean(linkedSprintIds?.has(b.id))) - Number(Boolean(linkedSprintIds?.has(a.id)))),
     [selectedSprint?.id, sprints, linkedSprintIds],
   );
@@ -78,7 +79,7 @@ export function SprintLifecycleModals({
     if (!openModal) return;
     openerRef.current = document.activeElement as HTMLElement | null;
     // The next upcoming sprint when there is one, otherwise the backlog.
-    const next = sprints.filter((sprint) => sprint.id !== selectedSprint?.id && sprint.status === "planning").sort((a, b) => (a.startDate ?? "").localeCompare(b.startDate ?? ""))[0];
+    const next = sprints.filter((sprint) => sprint.id !== selectedSprint?.id && sprint.status === "planning" && sprint.parentSprintId !== selectedSprint?.id).sort((a, b) => (a.startDate ?? "").localeCompare(b.startDate ?? ""))[0];
     setUnfinishedChoice(next ? "next_sprint" : "backlog");
     setNextSprintId(next?.id ?? "");
     setCloseAssignments(false);
@@ -87,6 +88,13 @@ export function SprintLifecycleModals({
   if (!openModal || !selectedSprint) return null;
 
   const points = summary?.totalStoryPoints ?? 0;
+  // Board/review report §6, D9: closing a CO closes its running sprint and cancels the upcoming ones; cancelling
+  // cancels them all.
+  const inside = sprints.filter((sprint) => sprint.parentSprintId === selectedSprint.id && (sprint.status === "active" || sprint.status === "planning"));
+  const insideNote = !inside.length ? null : openModal === "complete"
+    ? [inside.filter((s) => s.status === "active").map((s) => s.name).join(", "), inside.filter((s) => s.status === "planning").map((s) => s.name).join(", ")]
+      .map((names, i) => (names ? (i === 0 ? `closes ${names}` : `cancels ${names}`) : null)).filter(Boolean).join(" and ")
+    : openModal === "cancel" ? `cancels ${inside.map((s) => s.name).join(", ")}` : null;
   const title =
     openModal === "complete"
       ? `Close ${selectedSprint.name}?`
@@ -145,6 +153,7 @@ export function SprintLifecycleModals({
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
+        {insideNote ? <p role="note" className="rounded-[6px] border border-[var(--status-warning)]/40 bg-[var(--status-warning-soft)] px-3 py-2 text-sm">This also {insideNote}.</p> : null}
 
         {openModal === "complete" ? (
           <div className="space-y-3">

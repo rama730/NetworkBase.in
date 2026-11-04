@@ -57,3 +57,34 @@ test("§6.2: the form's term strip shows the neighbours and says how the new spr
   assert.equal(termStrip({ startDate: "2027-02-01", endDate: "2027-02-10" }, [] as never).line, "No other sprint around these dates.");
   assert.equal(termStrip({ startDate: "2026-11-16", endDate: "2026-11-30" }, existing as never, "co1").before, null, "editing a sprint leaves itself out");
 });
+
+test("§6: a sprint inside a main sprint is named with it, and the running one is the sprint inside when both run", async () => {
+  const { sprintPath, runningSprint, nestTerm } = await import("../../src/lib/workspaces/sprint-plan");
+  const all = [
+    { id: "co1", name: "CO1", status: "active", parentSprintId: null, startDate: "2026-11-01", endDate: "2026-12-12" },
+    { id: "w1", name: "Week 1–2", status: "completed", parentSprintId: "co1", startDate: "2026-11-01", endDate: "2026-11-14" },
+    { id: "w3", name: "Week 3–4", status: "active", parentSprintId: "co1", startDate: "2026-11-15", endDate: "2026-11-28" },
+    { id: "team", name: "Parser week", status: "active", parentSprintId: "org-sprint-elsewhere", startDate: "2026-11-02", endDate: "2026-11-08" },
+  ];
+  assert.equal(sprintPath(all[2]!, all), "CO1 · Week 3–4");
+  assert.equal(sprintPath(all[0]!, all), "CO1");
+  assert.equal(sprintPath(all[3]!, all), "Parser week", "a parent in another workspace isn't part of the name");
+  assert.equal(runningSprint(all)?.id, "w3");
+  assert.equal(runningSprint([all[0]!])?.id, "co1");
+  const nested = nestTerm(all as never);
+  assert.deepEqual(nested.top.map((s: { id: string }) => s.id), ["co1", "team"]);
+  assert.deepEqual(nested.inside.get("co1")!.map((s: { id: string }) => s.id), ["w1", "w3"]);
+});
+
+test("§6 rail: a CO counts its weeks, and the sprints inside it show the days nobody planned between them", async () => {
+  const { weekOf, withGaps } = await import("../../src/lib/workspaces/sprint-plan");
+  assert.equal(weekOf({ startDate: "2026-11-01", endDate: "2026-12-12" }, new Date("2026-11-16T10:00:00Z")), "week 3 of 6");
+  assert.equal(weekOf({ startDate: "2026-12-01", endDate: "2026-12-12" }, new Date("2026-11-16T10:00:00Z")), null, "not started");
+  const inside = [
+    { id: "w1", startDate: "2026-11-01", endDate: "2026-11-14", status: "completed" },
+    { id: "w3", startDate: "2026-11-20", endDate: "2026-11-28", status: "planning" },
+    { id: "x", startDate: "2026-11-15", endDate: "2026-11-19", status: "cancelled" },
+    { id: "w5", startDate: "2026-11-29", endDate: "2026-12-12", status: "planning" },
+  ];
+  assert.deepEqual(withGaps(inside).map((i) => (i.type === "gap" ? `gap ${i.from}–${i.to}` : i.sprint.id)), ["w1", "x", "gap 2026-11-15–2026-11-19", "w3", "w5"]);
+});

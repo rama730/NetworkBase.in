@@ -26,7 +26,7 @@ async function bundle(rows: string) {
             export const reviewAssignmentCopyAction=async(...a)=>{(window.sent??=[]).push(a);return {success:true}};`,
         '@/app/actions/files/content': `export const getFilePreviewUrl=async(p,n,d)=>({url:'/files/'+n+(d?'?download=1':'')});`,
         '@/app/actions/moderation': `export const moderatedItemsAction=async()=>[];`,
-        '@/app/actions/task-comment': `export const createTaskCommentAction=${ok};export const readTaskDiscussionAction=async()=>({success:true,data:{comments:[
+        '@/app/actions/task-comment': `export const createTaskCommentAction=${ok};export const readTaskDiscussionAction=async(_p,taskId)=>taskId!=='c1'?{success:true,data:{comments:[{id:'o-'+taskId,taskId,userId:'u3',parentCommentId:null,content:'Thread of '+taskId,createdAt:new Date().toISOString(),updatedAt:new Date().toISOString(),deletedAt:null,deletedBy:null,author:{id:'u3',fullName:'Ravi',username:'ravi',avatarUrl:null},likeCount:0,likedByViewer:false,replies:[]}],nextCursor:null,totalCount:1}}:({success:true,data:{comments:[
             {id:'m2',taskId:'c1',userId:'u1',parentCommentId:null,content:'Yes, note it in the report.',createdAt:new Date().toISOString(),updatedAt:new Date().toISOString(),deletedAt:null,deletedBy:null,author:{id:'u1',fullName:'Ms. Rao',username:'rao',avatarUrl:null},likeCount:0,likedByViewer:false,replies:[]},
             {id:'m1',taskId:'c1',userId:'u2',parentCommentId:null,content:'Can I use my own dataset?',createdAt:new Date(Date.now()-36e5).toISOString(),updatedAt:new Date(Date.now()-36e5).toISOString(),deletedAt:null,deletedBy:null,author:{id:'u2',fullName:'Asha Rao',username:'asha',avatarUrl:null},likeCount:0,likedByViewer:false,replies:[]}],nextCursor:null,totalCount:2}});`,
     };
@@ -77,6 +77,10 @@ test('the queue sits beside the work: waiting list, the file, then note, steps, 
     await expect(conversation).toContainText('Yes, note it in the report.');
     await expect(conversation.getByRole('combobox', { name: 'Add a comment' })).toBeVisible();
     await expect(page.getByRole('link', { name: 'Open the whole conversation' })).toHaveCount(0);
+    // Moving to the next person switches the conversation to theirs.
+    await page.getByRole('button', { name: /Next/ }).first().click();
+    await expect(conversation).not.toContainText('Can I use my own dataset?');
+    await expect(conversation).toContainText(/Thread of c\d/);
     await waiting.getByRole('button', { name: /Student 2/ }).click();
     await expect(work.getByTitle('Preview of lab3.zip')).toBeVisible();
     await expect(work.getByRole('link', { name: 'Download lab3.zip' })).toBeVisible();
@@ -168,4 +172,10 @@ test('board/review report §2: one line above the work — the filters, then the
     expect(waiting!.y - (search!.y + search!.height)).toBeLessThan(40);
     await expect(page.getByRole('region', { name: 'Waiting' })).toContainText('1 of 3');
     await expect(page.getByRole('button', { name: 'Back to board' })).toHaveCount(0);
+    // Esc goes back to the board — but not while typing in a field.
+    await page.getByRole('textbox', { name: 'Search names' }).press('Escape');
+    await expect(page).not.toHaveTitle('closed');
+    await page.locator('body').click({ position: { x: 5, y: 890 } });
+    await page.keyboard.press('Escape');
+    await expect(page).toHaveTitle('closed');
 });

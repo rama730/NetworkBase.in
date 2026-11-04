@@ -2220,6 +2220,8 @@ export const workspaceSprints = pgTable(
     cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
     // Org sprints (0243): a child project's sprint inside an org sprint; opt out of starting on the date.
     parentSprintId: uuid("parent_sprint_id").references((): AnyPgColumn => workspaceSprints.id, { onDelete: "set null" }),
+    // 0063 (board/review report §6): set by a trigger — a sprint inside a main sprint of this same workspace.
+    nested: boolean("nested").default(false).notNull(),
     autoStart: boolean("auto_start").default(true).notNull(),
     showInChildren: boolean("show_in_children").default(true).notNull(),
     // Org sprints: tell members when it starts (0258, report §15.2).
@@ -2237,8 +2239,9 @@ export const workspaceSprints = pgTable(
       t.projectId,
       t.sprintNumber,
     ),
+    // 0063: one running sprint per level — a main sprint and one sprint inside it can run together.
     oneActivePerProjectIdx: uniqueIndex("workspace_sprints_one_active_idx")
-      .on(t.projectId)
+      .on(t.projectId, t.nested)
       .where(sql`${t.status} = 'active'`),
     projectUpdatedIdx: index("workspace_sprints_workspace_updated_idx").on(
       t.projectId,

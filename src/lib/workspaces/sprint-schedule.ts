@@ -6,11 +6,22 @@ import { notifyOrgSprintBlocked, notifyOrgSprintCompleted, notifyOrgSprintStarte
 import { isSprintReadyToClose } from "@/lib/workspaces/sprint-detail";
 import { publishDueAssignments } from "@/lib/organizations/assignment-publish";
 
-/** Starts one planning sprint unless its project already has an active one. */
-export async function startSprint(sprintId: string, projectId: string, now: Date, actorId: string | null, source: "schedule" | "manual") {
+/**
+ * Starts one planning sprint unless another runs at its level. Board/review report §6: an organization's main sprint
+ * (a CO) and one sprint inside it run together; starting a sprint inside starts its main sprint first.
+ */
+export async function startSprint(sprintId: string, projectId: string, now: Date, actorId: string | null, source: "schedule" | "manual"): Promise<boolean> {
+  const [own] = await db.select({ parentSprintId: workspaceSprints.parentSprintId }).from(workspaceSprints)
+    .where(and(eq(workspaceSprints.id, sprintId), eq(workspaceSprints.projectId, projectId))).limit(1);
+  // Only a main sprint in this same workspace makes a level; a team's sprint inside its organization's stands alone here.
+  const [main] = own?.parentSprintId ? await db.select({ id: workspaceSprints.id, status: workspaceSprints.status }).from(workspaceSprints)
+    .where(and(eq(workspaceSprints.id, own.parentSprintId), eq(workspaceSprints.projectId, projectId))).limit(1) : [];
+  const mainId = main?.id ?? null;
+  if (main?.status === "planning" && !(await startSprint(main.id, projectId, now, actorId, source))) return false;
   const started = await db.transaction(async (tx) => {
     const active = await tx.query.workspaceSprints.findFirst({
-      where: and(eq(workspaceSprints.projectId, projectId), eq(workspaceSprints.status, "active")),
+      where: and(eq(workspaceSprints.projectId, projectId), eq(workspaceSprints.status, "active"),
+        mainId ? eq(workspaceSprints.parentSprintId, mainId) : sql`(${workspaceSprints.parentSprintId} IS NULL OR NOT EXISTS (SELECT 1 FROM workspace_sprints p WHERE p.id = ${workspaceSprints.parentSprintId} AND p.workspace_id = ${projectId}))`),
       columns: { id: true },
     });
     if (active) return false;

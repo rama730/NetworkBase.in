@@ -79,7 +79,7 @@ test("review fix: opening the panel keeps the card's assignment progress and Fro
 });
 
 test("review fix: New task's assignment fields use the organization's time zone", () => {
-  assert.match(source("src/components/workspaces/v2/TasksTab.tsx"), /<AssignmentFields orgId=\{orgId\} timeZone=\{orgTimeZone\}/);
+  assert.match(source("src/components/workspaces/v2/TasksTab.tsx"), /<AssignmentFields key=\{reuseFrom \?\? "new"\} orgId=\{orgId\} timeZone=\{orgTimeZone\} reuseFrom=\{reuseFrom\}/);
   assert.match(source("src/components/workspaces/dashboard/WorkspaceDashboardClient.tsx"), /orgTimeZone=\{organization\?\.timeZone \?\? null\}/);
 });
 
@@ -87,4 +87,12 @@ test("board/review report §4: the Assignment tab keeps every target the assignm
   const panel = source("src/components/organizations/AssignmentsPanel.tsx");
   for (const mode of ['"everyone"', '"role"', '"people"', '"teams"', '"each_child"', '"children"']) assert.ok(panel.includes(`value=${mode}`) || panel.includes(`'${mode.slice(1, -1)}'`), mode);
   assert.match(source("src/components/workspaces/v2/TasksTab.tsx"), /manyOptions=\{isChildProject && canManageWorkflow \? \[\{ value: "units"/);
+});
+
+test("board/review report §5: every “which kind” choice uses the profile's underline tabs, from one component", () => {
+  const uses = (file: string) => (source(file).match(/<UnderlineTabs /g) ?? []).length;
+  assert.equal(uses("src/components/profile/v2/ProfileTabs.tsx"), 1, "Overview · Portfolio");
+  assert.equal(uses("src/components/workspaces/v2/tasks/CreateTaskModal.tsx"), 1, "Task · Assignment");
+  assert.equal(uses("src/components/workspaces/v2/sprints/CreateSprintModal.tsx"), 2, "CO · Sprint inside a CO, and One sprint · Several");
+  assert.doesNotMatch(source("src/components/workspaces/v2/sprints/CreateSprintModal.tsx"), /role="radiogroup"[^>]*aria-label="(What are you planning|Which kind)/);
 });

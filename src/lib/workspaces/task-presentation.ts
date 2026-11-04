@@ -184,12 +184,21 @@ export function normalizeSprintOption(value: any): SprintOption {
 }
 
 export function normalizeSprintOptions(values: any[]): SprintOption[] {
-  return Array.isArray(values)
-    ? values
-        .filter(Boolean)
-        .map(normalizeSprintOption)
-        .filter((value) => value.id)
-    : [];
+  if (!Array.isArray(values)) return [];
+  const raw = values.filter(Boolean);
+  // Board/review report §6: a sprint inside a main sprint reads "CO1 · Week 3–4", listed right after its main sprint.
+  const byId = new Map(raw.map((value) => [String(value?.id ?? ""), value]));
+  const mainOf = (value: any) => (value?.parentSprintId && byId.has(String(value.parentSprintId)) ? byId.get(String(value.parentSprintId)) : null);
+  const ordered = [
+    ...raw.filter((value) => !mainOf(value)).flatMap((main) => [main, ...raw.filter((value) => mainOf(value) === main)]),
+  ];
+  return ordered
+    .map((value) => {
+      const option = normalizeSprintOption(value);
+      const main = mainOf(value);
+      return main ? { ...option, name: `${asTrimmedString(main?.name) ?? "Untitled sprint"} · ${option.name}` } : option;
+    })
+    .filter((value) => value.id);
 }
 
 export function isAssignableSprintOption(sprint: SprintOption) {

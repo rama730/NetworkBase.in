@@ -16,7 +16,7 @@ import {
 import dynamic from "next/dynamic";
 import { useSearchParams, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { AssignmentFields, ReviewQueue } from "@/components/organizations/AssignmentsPanel";
+import { AssignmentFields, ReuseAssignmentContext, ReviewQueue } from "@/components/organizations/AssignmentsPanel";
 import type { AssignmentTarget } from "@/lib/organizations/assignment-rules";
 import { useTaskCompletionPolicy } from "@/hooks/useTaskCompletionPolicy";
 import { useRealtimeTasks } from "@/hooks/useRealtimeTasks";
@@ -53,6 +53,8 @@ import {
 } from "@/lib/workspaces/task-presentation";
 import { buildTaskSubmitPayload } from "@/lib/workspaces/task-draft";
 import { patchWorkspaceTaskCaches } from "@/lib/workspaces/task-cache";
+import { runningSprint, sprintPath } from "@/lib/workspaces/sprint-plan";
+import { SprintPathContext } from "@/components/workspaces/v2/tasks/SprintPathContext";
 import {
   getColumnColors,
   WORKFLOW_COLORS,
@@ -211,9 +213,13 @@ export default function TasksTab({
   });
 
   const [showCreateModal, setShowCreateModal] = useState(false);
+  // Board/review report §4: Use again on an assignment's card opens New on the Assignment tab, filled in from it.
+  const [reuseFrom, setReuseFrom] = useState<string | null>(null);
+  const reuseAssignment = useCallback((masterId: string) => { setReuseFrom(masterId); setShowCreateModal(true); }, []);
   // Student check 7 (decision 87, create_org_tasks): an organization's board takes new tasks from its owners and admins.
   const canCreateTasks = canEditTasks && (!orgId || canManageWorkflow);
   const reviewing = Boolean(orgId && scope === "review" && canManageWorkflow);
+  const sprintPaths = useMemo(() => new Map(normalizeSprintOptions(sprints as never[]).map((s) => [s.id, s.name])), [sprints]);
   useEffect(() => {
     if (!startCreate) return;
     if (canCreateTasks) setShowCreateModal(true);
@@ -311,12 +317,17 @@ export default function TasksTab({
       (scope !== "backlog" && hasSprintReferences && sprints.length === 0);
   const { data: projectSprintsData, isFetched: hasFetchedProjectSprints } =
     useWorkspaceSprints(projectId, sprints, shouldFetchProjectSprints);
-  const sprintOptions = useMemo(() => {
-    const sprintSource = hasFetchedProjectSprints
-      ? (projectSprintsData ?? [])
-      : sprints;
-    return normalizeSprintOptions(sprintSource);
-  }, [hasFetchedProjectSprints, projectSprintsData, sprints]);
+  const sprintSource = useMemo(() => (hasFetchedProjectSprints ? (projectSprintsData ?? []) : sprints) as Array<{ id: string; name: string; status: string; parentSprintId?: string | null }>,
+    [hasFetchedProjectSprints, projectSprintsData, sprints]);
+  const sprintOptions = useMemo(() => normalizeSprintOptions(sprintSource), [sprintSource]);
+  // Board/review report §6: on an organization's board, Sprint is the running sprint, named in full ("CO1 · Week 3–4") —
+  // the sprint inside a CO when one runs, else the CO with its sprints. With nothing running it's all sprint work, as before.
+  const runningOnBoard = useMemo(() => {
+    const running = orgId ? runningSprint(sprintSource) : null;
+    if (!running) return null;
+    const ids = running.parentSprintId ? [running.id] : [running.id, ...sprintSource.filter((s) => s.parentSprintId === running.id).map((s) => s.id)];
+    return { label: sprintPath(running, sprintSource), ids: new Set(ids) };
+  }, [orgId, sprintSource]);
   const sprintById = useMemo(
     () => new Map(sprintOptions.map((sprint) => [sprint.id, sprint])),
     [sprintOptions],
@@ -643,7 +654,8 @@ export default function TasksTab({
   const [unitFilter, setUnitFilter] = useState("");
   const [teamTaskOpen, setTeamTaskOpen] = useState(false);
   const unitMembers = units.find((unit) => unit.id === unitFilter)?.memberIds;
-  const filteredTasks = unitMembers ? sprintAwareTasks.filter((task) => Boolean(task.assigneeId && unitMembers.includes(task.assigneeId))) : sprintAwareTasks;
+  const inRunning = scope === "sprint" && runningOnBoard ? sprintAwareTasks.filter((task) => Boolean(task.sprintId && runningOnBoard.ids.has(task.sprintId))) : sprintAwareTasks;
+  const filteredTasks = unitMembers ? inRunning.filter((task) => Boolean(task.assigneeId && unitMembers.includes(task.assigneeId))) : inRunning;
 
   useEffect(() => {
     if (isTaskPanelClosingRef.current) return;
@@ -776,6 +788,7 @@ export default function TasksTab({
   }
 
   return (
+    <ReuseAssignmentContext.Provider value={orgId && !isChildProject && canManageWorkflow ? reuseAssignment : null}>
     <div className="flex min-h-0 flex-col space-y-4">
       {/* Decision 139: an organization admin working in a workspace they aren't on. */}
       {reviewsGroupWork ? <p className="nb-meta"><span className="nb-status" data-status="draft">Viewing as admin</span></p> : null}
@@ -825,7 +838,7 @@ export default function TasksTab({
             </div>
 
             {/* Filter */}
-            <TaskFilters scope={scope} setScope={setScope} organization={Boolean(orgId)} />
+            <TaskFilters scope={scope} setScope={setScope} organization={Boolean(orgId)} sprintLabel={runningOnBoard?.label} />
             {units.length ? (
               <select aria-label="Team" value={unitFilter} onChange={(e) => setUnitFilter(e.target.value)}
                 className="nb-touch-target h-[34px] rounded-[5px] border border-border bg-card px-2 text-[13px] text-foreground max-md:h-11">
@@ -949,8 +962,9 @@ export default function TasksTab({
       {/* Main Content. Problem 33: on an organization, In review is the one queue the badge counts, group work included. */}
       {/* Board/review report §2: one line — the queue's filters on the left, the board's tabs on the right. */}
       {reviewing && orgId ? <ReviewQueue orgId={orgId} onChanged={() => void refetchTasks()} onClose={() => setScope("all")}
-        tabs={(waiting) => <TaskFilters scope={scope} setScope={setScope} organization counts={{ review: waiting }} />} /> : null}
+        tabs={(waiting) => <TaskFilters scope={scope} setScope={setScope} organization counts={{ review: waiting }} sprintLabel={runningOnBoard?.label} />} /> : null}
       <div className={cn("flex-1 min-h-0", reviewing && "hidden")}>
+        <SprintPathContext.Provider value={sprintPaths}>
         <KanbanBoard
           projectId={projectId}
           workflow={workflow}
@@ -969,6 +983,7 @@ export default function TasksTab({
           currentUserId={currentUserId}
           onTaskDragStateChange={setRealtimeDeferredTaskId}
         />
+        </SprintPathContext.Provider>
       </div>
 
       {/* Modals & Drawers */}
@@ -983,12 +998,12 @@ export default function TasksTab({
             setManyCarry({ ...carry, mode: "everyone" });
             setTeamTaskOpen(true);
           }}
-          initialKind={startCreateKind}
+          initialKind={reuseFrom ? "assignment" : startCreateKind}
           renderMany={orgId && !isChildProject && canManageWorkflow ? ({ choice, title, description, sprintId, onDraft, onDone }) => (
-            <AssignmentFields orgId={orgId} timeZone={orgTimeZone} prefill={{ title, description, mode: choice as AssignmentTarget["mode"], sprintId }} onDraft={onDraft} onDone={onDone}
+            <AssignmentFields key={reuseFrom ?? "new"} orgId={orgId} timeZone={orgTimeZone} reuseFrom={reuseFrom} prefill={{ title, description, mode: choice as AssignmentTarget["mode"], sprintId }} onDraft={onDraft} onDone={onDone}
               onCreated={() => void queryClient.invalidateQueries({ queryKey: queryKeys.project.detail.tasksRoot(projectId) })} />
           ) : undefined}
-          onClose={() => setShowCreateModal(false)}
+          onClose={() => { setShowCreateModal(false); setReuseFrom(null); }}
           onCreate={async (value) => {
             const payload = buildTaskSubmitPayload({
               draft: value.draft,
@@ -1152,5 +1167,6 @@ export default function TasksTab({
         onConfirm={confirmRemoveColumn}
       />
     </div>
+    </ReuseAssignmentContext.Provider>
   );
 }

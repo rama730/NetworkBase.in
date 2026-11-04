@@ -7,7 +7,7 @@ import { ChevronDown, ChevronRight, Inbox, Plus } from "lucide-react";
 
 import { SprintCalendarButton } from "@/components/workspaces/tabs/sprint/SprintCalendar";
 import { buildWorkspaceSprintDetailHref, formatSprintDateRange, type SprintListItem } from "@/lib/workspaces/sprint-detail";
-import { PHASE_WORDS, sprintPhase, sprintTime, startsIn, termRail } from "@/lib/workspaces/sprint-plan";
+import { nestTerm, PHASE_WORDS, sprintPhase, sprintTime, startsIn, termRail, weekOf, withGaps } from "@/lib/workspaces/sprint-plan";
 import { cn } from "@/lib/utils";
 
 // Sprint redesign §5.1, §8.1: the rail is the term — Now, Next, Later, Past — with the gaps nobody planned, and for a
@@ -44,7 +44,9 @@ function railLines(sprint: SprintListItem) {
 export function SprintLeftRail({ projectId, projectSlug, sprints, selectedSprintId, canCreate, onCreate, showBacklog = false, showCalendar = true }: SprintLeftRailProps) {
   const router = useRouter();
   const [pastOpen, setPastOpen] = useState(false);
-  const groups = useMemo(() => termRail(sprints), [sprints]);
+  // Board/review report §6: an organization's CO holds its sprints; the term lists COs, each with its sprints inside.
+  const nested = useMemo(() => nestTerm(sprints), [sprints]);
+  const groups = useMemo(() => termRail(nested.top), [nested]);
   const groupContentId = "sprint-group-past";
   const isCollapsed = !pastOpen;
   const href = (sprint: SprintListItem) => buildWorkspaceSprintDetailHref(projectSlug, sprint.id, { sprintCode: sprint.code });
@@ -58,7 +60,10 @@ export function SprintLeftRail({ projectId, projectSlug, sprints, selectedSprint
           {!selectedSprintId ? <option value="">Select a sprint</option> : null}
           {groups.map((group) => (
             <optgroup key={group.key} label={group.title}>
-              {group.items.flatMap((item) => (item.type === "sprint" ? [<option key={item.sprint.id} value={item.sprint.id}>{item.sprint.name}</option>] : []))}
+              {group.items.flatMap((item) => (item.type === "sprint" ? [
+                <option key={item.sprint.id} value={item.sprint.id}>{item.sprint.name}</option>,
+                ...(nested.inside.get(item.sprint.id) ?? []).map((child) => <option key={child.id} value={child.id}>{item.sprint.name} · {child.name}</option>),
+              ] : []))}
             </optgroup>
           ))}
         </select>
@@ -120,13 +125,40 @@ export function SprintLeftRail({ projectId, projectSlug, sprints, selectedSprint
                                 <span aria-hidden="true" className={cn("size-1.5 shrink-0 rounded-[1px]", phase === "running" ? "bg-[var(--status-success)]" : phase === "ended" ? "bg-[var(--status-warning)]" : phase === "upcoming" ? "bg-primary" : "bg-muted-foreground/50")} />
                                 <span className="truncate text-sm font-medium leading-tight text-foreground">{sprint.name}</span>
                               </span>
-                              <span className="pl-3.5 font-mono text-[11px] text-muted-foreground">{railLines(sprint).dates}<span className={cn("block", phase === "ended" && "text-[var(--status-warning)]")}>{railLines(sprint).note}</span></span>
+                              <span className="pl-3.5 font-mono text-[11px] text-muted-foreground">{railLines(sprint).dates}<span className={cn("block", phase === "ended" && "text-[var(--status-warning)]")}>{railLines(sprint).note}</span>
+                                {/* Board/review report §6: a CO counts its weeks. */}
+                                {nested.inside.get(sprint.id)?.length && phase === "running" && weekOf(sprint) ? <span className="block">{weekOf(sprint)}</span> : null}</span>
                               {time ? (
                                 <span className="ml-3.5 block h-1 overflow-hidden rounded-[2px] bg-muted" role="img" aria-label={`${time.percent}% of the time gone`}>
                                   <span className="block h-full bg-primary" style={{ width: `${time.percent}%` }} />
                                 </span>
                               ) : null}
                             </Link>
+                            {nested.inside.get(sprint.id)?.length ? (
+                              <ul aria-label={`Sprints in ${sprint.name}`} className="ml-3.5 mt-1 space-y-0.5 border-l border-border pl-2">
+                                {withGaps(nested.inside.get(sprint.id)!).map((entry) => {
+                                  if (entry.type === "gap") {
+                                    return (
+                                      <li key={`gap-${entry.from}`} className="px-2 py-1 text-[12px] text-[var(--status-danger)]">
+                                        <span className="block font-medium">Gap · {short(entry.from)}–{short(entry.to)}</span><span className="block text-muted-foreground">No sprint planned</span>
+                                      </li>
+                                    );
+                                  }
+                                  const child = entry.sprint;
+                                  const childPhase = sprintPhase(child);
+                                  const childTime = childPhase === "running" ? sprintTime(child) : null;
+                                  return (
+                                    <li key={child.id}>
+                                      <Link href={href(child)} aria-current={selectedSprintId === child.id ? "page" : undefined}
+                                        className={cn("flex flex-col rounded-[5px] px-2 py-1.5 text-left", selectedSprintId === child.id ? "bg-muted" : "hover:bg-muted/40")}>
+                                        <span className={cn("truncate text-[13px]", childPhase === "running" ? "font-medium text-foreground" : "text-muted-foreground")}>{child.name}</span>
+                                        <span className="font-mono text-[11px] text-muted-foreground">{childTime ? `day ${childTime.day} of ${childTime.days}` : railLines(child).note}</span>
+                                      </Link>
+                                    </li>
+                                  );
+                                })}
+                              </ul>
+                            ) : null}
                           </li>
                         );
                       })}

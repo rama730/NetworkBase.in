@@ -1,6 +1,7 @@
 import "server-only";
 
-import { and, eq, inArray, isNull, ne, notInArray, sql, type AnyColumn, type SQL } from "drizzle-orm";
+import { runningSprint, sprintPath } from "@/lib/workspaces/sprint-plan";
+import { and, eq, inArray, isNull, ne, notInArray, or, sql, type AnyColumn, type SQL } from "drizzle-orm";
 
 import { db } from "@/lib/db";
 import { workspaceDocuments, workspaceNodes, workspaceSprintEvents, workspaceSprints, workspaces, sprintMaterials, sprintSharedWorkspaces } from "@/lib/db/schema";
@@ -38,17 +39,46 @@ export async function assertOrgSprintRules(executor: Executor, input: {
   const range = { startDate: input.startDate, endDate: input.endDate };
 
   if (project.kind === "organization") {
-    if (input.parentSprintId) throw new Error("An organization’s sprints are not inside another sprint.");
-    const others = await executor
+    // Board/review report §6: two levels — main sprints (a CO) and sprints inside one. Main sprints don't overlap each
+    // other; a sprint fits inside its main sprint and doesn't overlap the other sprints in it; nothing goes deeper.
+    const sameLevel = (parentId: string | null) => executor
       .select({ name: workspaceSprints.name, startDate: workspaceSprints.startDate, endDate: workspaceSprints.endDate })
       .from(workspaceSprints)
       .where(and(
         eq(workspaceSprints.projectId, input.projectId),
         inArray(workspaceSprints.status, [...LIVE]),
+        parentId ? eq(workspaceSprints.parentSprintId, parentId) : isNull(workspaceSprints.parentSprintId),
         ...(input.excludeSprintId ? [ne(workspaceSprints.id, input.excludeSprintId)] : []),
       ));
-    const clash = others.find((other) => overlaps(range, other));
+    if (input.parentSprintId) {
+      const [parent] = await executor
+        .select({ name: workspaceSprints.name, status: workspaceSprints.status, startDate: workspaceSprints.startDate, endDate: workspaceSprints.endDate, parentSprintId: workspaceSprints.parentSprintId })
+        .from(workspaceSprints)
+        .where(and(eq(workspaceSprints.id, input.parentSprintId), eq(workspaceSprints.projectId, input.projectId)))
+        .limit(1);
+      if (!parent) throw new Error("Pick one of this organization’s main sprints.");
+      if (parent.parentSprintId) throw new Error(`${parent.name} is already inside another sprint; pick its main sprint instead.`);
+      if (input.excludeSprintId) {
+        const [inside] = await executor.select({ id: workspaceSprints.id }).from(workspaceSprints)
+          .where(and(eq(workspaceSprints.parentSprintId, input.excludeSprintId), inArray(workspaceSprints.status, [...LIVE]))).limit(1);
+        if (inside) throw new Error("This sprint holds other sprints, so it stays a main sprint.");
+      }
+      if (parent.status !== "planning" && parent.status !== "active") throw new Error(`${parent.name} has closed; pick an upcoming or running one.`);
+      const outside = insideError(range, parent);
+      if (outside) throw new Error(outside);
+      const clash = (await sameLevel(input.parentSprintId)).find((other) => overlaps(range, other));
+      if (clash) throw new Error(`Sprints inside ${parent.name} can’t overlap: this overlaps ${clash.name}.`);
+      return input.parentSprintId;
+    }
+    const clash = (await sameLevel(null)).find((other) => overlaps(range, other));
     if (clash) throw new Error(`Organization sprints can’t overlap: this overlaps ${clash.name}.`);
+    // An edited main sprint keeps the sprints inside it (callers move them first when asked to).
+    if (input.excludeSprintId) {
+      const inside = await executor.select({ name: workspaceSprints.name, startDate: workspaceSprints.startDate, endDate: workspaceSprints.endDate }).from(workspaceSprints)
+        .where(and(eq(workspaceSprints.parentSprintId, input.excludeSprintId), eq(workspaceSprints.projectId, input.projectId), inArray(workspaceSprints.status, [...LIVE])));
+      const out = inside.find((child) => !fitsInside(child, range));
+      if (out) throw new Error(`${out.name} would sit outside these dates. Tick “Move the sprints inside too”, or change ${out.name} first.`);
+    }
     return null;
   }
 
@@ -204,7 +234,9 @@ export async function readSprintOrgContext(projectId: string, selectedSprintId: 
         done: sql<number>`(SELECT count(*)::int FROM tasks t WHERE t.sprint_id = ${workspaceSprints.id} AND t.deleted_at IS NULL AND t.excused_at IS NULL AND t.status = 'done')`,
         total: sql<number>`(SELECT count(*)::int FROM tasks t WHERE t.sprint_id = ${workspaceSprints.id} AND t.deleted_at IS NULL AND t.excused_at IS NULL)` })
         .from(workspaceSprints).innerJoin(workspaces, eq(workspaces.id, workspaceSprints.projectId))
-        .where(and(eq(workspaceSprints.parentSprintId, selectedSprintId), isNull(workspaces.deletedAt), notInArray(workspaceSprints.status, ["cancelled"]))),
+        // Board/review report §6, D3: on a CO's page a team's sprint counts whether it sits in the CO or in one of its sprints.
+        .where(and(or(eq(workspaceSprints.parentSprintId, selectedSprintId), sql`${workspaceSprints.parentSprintId} IN (SELECT i.id FROM workspace_sprints i WHERE i.parent_sprint_id = ${selectedSprintId} AND i.workspace_id = ${projectId})`),
+          isNull(workspaces.deletedAt), notInArray(workspaceSprints.status, ["cancelled"]))),
       db.select({ id: workspaces.id, title: workspaces.title, slug: workspaces.slug }).from(workspaces).where(and(eq(workspaces.parentId, projectId), isNull(workspaces.deletedAt), ne(workspaces.status, "archived"))),
     ]);
     const linkedIds = new Set(linked.map((row) => row.projectId));
@@ -217,7 +249,7 @@ export async function readSprintOrgContext(projectId: string, selectedSprintId: 
 
   const [org] = await db.select({ title: workspaces.title, slug: workspaces.slug }).from(workspaces).where(eq(workspaces.id, project.parentId!)).limit(1);
   const orgSprints = await db
-    .select({ id: workspaceSprints.id, name: workspaceSprints.name, status: workspaceSprints.status, startDate: workspaceSprints.startDate, endDate: workspaceSprints.endDate })
+    .select({ id: workspaceSprints.id, name: workspaceSprints.name, status: workspaceSprints.status, startDate: workspaceSprints.startDate, endDate: workspaceSprints.endDate, parentSprintId: workspaceSprints.parentSprintId })
     .from(workspaceSprints)
     .where(and(eq(workspaceSprints.projectId, project.parentId!), inArray(workspaceSprints.status, ["planning", "active"]), sprintSharedWithSql(workspaceSprints.id, projectId)))
     .orderBy(workspaceSprints.startDate);
@@ -228,7 +260,9 @@ export async function readSprintOrgContext(projectId: string, selectedSprintId: 
   const [parent] = selected?.parentSprintId
     ? await db.select({ id: workspaceSprints.id, name: workspaceSprints.name, status: workspaceSprints.status, startDate: workspaceSprints.startDate, endDate: workspaceSprints.endDate }).from(workspaceSprints).where(eq(workspaceSprints.id, selected.parentSprintId)).limit(1)
     : [];
-  const running = orgSprints.find((s) => s.status === "active");
+  // The team's prompt names the class's running main sprint; the picker lists its sprints too, as "CO1 · Week 1".
+  // Board/review report §6: named in full ("CO1 · Week 3–4"); a team's sprint may sit in either (D3).
+  const running = runningSprint(orgSprints);
   const [backlog] = await db.execute<{ n: number }>(sql`
     SELECT count(*)::int AS n FROM tasks WHERE workspace_id = ${projectId} AND assignment_id IS NOT NULL AND sprint_id IS NULL AND deleted_at IS NULL AND status <> 'done'`);
   return {
@@ -236,15 +270,15 @@ export async function readSprintOrgContext(projectId: string, selectedSprintId: 
     groupBacklog: backlog?.n ?? 0,
     orgTitle: org?.title ?? null,
     orgSlug: org?.slug ?? null,
-    orgSprints: orgSprints.map((s) => ({ id: s.id, name: s.name, status: s.status, startDate: s.startDate.toISOString(), endDate: s.endDate.toISOString() })),
+    orgSprints: orgSprints.map((s) => ({ id: s.id, name: sprintPath(s, orgSprints), status: s.status, startDate: s.startDate.toISOString(), endDate: s.endDate.toISOString() })),
     // "Outside CO1 dates" is worked out on read: dates are never changed automatically (report §15.3).
     // Report §18.2: "CO1 ended. Complete Parser week?" while this one still runs; it never closes by itself.
     parentSprint: parent && own ? { id: parent.id, name: parent.name, endDate: parent.endDate.toISOString(), fits: fitsInside(own, parent), endedFirst: parent.status === "completed" && own.status === "active" ? own.name : null } : null,
-    runningOrgSprint: running && !flags.some((f) => f.status === "active") ? { id: running.id, name: running.name, endDate: running.endDate.toISOString() } : null,
+    runningOrgSprint: running && !flags.some((f) => f.status === "active") ? { id: running.id, name: sprintPath(running, orgSprints), endDate: running.endDate.toISOString() } : null,
   };
 }
 
-export type SprintMaterial = { id: string; kind: "file" | "doc"; title: string; nodeId: string | null; docSlug: string | null };
+export type SprintMaterial = { id: string; kind: "file" | "doc"; title: string; nodeId: string | null; docSlug: string | null; /** Board/review report §6: set when it comes from the CO this sprint sits in. */ fromMain?: string };
 
 /** A viewer's `access` hides files they can't open, names included (report §42.10 problem 16); without it, all. */
 export async function readSprintMaterials(sprintId: string, access?: WorkspaceAccess): Promise<SprintMaterial[]> {

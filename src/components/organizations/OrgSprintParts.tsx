@@ -154,7 +154,9 @@ export function SprintMaterials({ projectId, sprintId, projectSlug, materials, c
                         href={m.kind === 'doc' ? `/workspaces/${projectSlug}?tab=docs&doc=${m.docSlug}` : `/workspaces/${projectSlug}?tab=files&fileId=${m.nodeId}`}
                         className="hover:underline"
                     >{m.title}</Link>
-                    {canManage ? (
+                    {/* Board/review report §6: the CO's own materials show here too; they're managed on the CO. */}
+                    {m.fromMain ? <span className="text-[12px] text-muted-foreground">· {m.fromMain}</span> : null}
+                    {canManage && !m.fromMain ? (
                         <button type="button" aria-label={`Remove ${m.title}`} disabled={pending} className="nb-icon-button size-6 rounded-[4px]"
                             onClick={() => startTransition(async () => { await removeSprintMaterialAction({ projectId, materialId: m.id }); onChanged() })}>
                             <X className="size-3" aria-hidden="true" />

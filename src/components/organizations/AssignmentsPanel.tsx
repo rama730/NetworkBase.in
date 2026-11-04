@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, useTransition } from 'react'
 import { ClipboardList, MoreHorizontal, Plus, Shuffle, X } from 'lucide-react'
 
 import {
@@ -173,7 +173,10 @@ type TeamBox = { name: string; people: OrgRosterPerson[]; leadId: string | null 
 
 type ComposerPrefill = { title: string; description: string; mode: AssignmentTarget['mode']; sprintId?: string }
 
-/** New assignment in its own dialog: Use again, and the card's panel. */
+/** Board/review report §4: on the board, Use again opens New on its Assignment tab, filled in. Elsewhere it falls back to its own dialog. */
+export const ReuseAssignmentContext = createContext<((masterId: string) => void) | null>(null)
+
+/** New assignment in its own dialog: Use again where no board is around to open New. */
 export function AssignmentComposer({ orgId, open, onOpenChange, onCreated, reuseFrom = null, timeZone = null }: { orgId: string; open: boolean; onOpenChange: (open: boolean) => void; onCreated: () => void; reuseFrom?: string | null; timeZone?: string | null }) {
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
@@ -275,6 +278,9 @@ export function AssignmentFields({ orgId, onDone, onCreated, reuseFrom = null, p
                     : mode === 'each_child' ? `Creates ${options.children.length} assignments · one per workspace`
                         : `Creates ${childIds.length} assignments · one per workspace`
 
+    // Board/review report §4: the button says what happens — "Publish to 60".
+    const goesTo = mode === 'everyone' ? roster.filter((p) => p.role === 'member').length : mode === 'people' ? people.length
+        : mode === 'teams' ? teams.length + individuals.length : mode === 'each_child' ? options.children.length : mode === 'children' ? childIds.length : 0
     const target = (): AssignmentTarget => mode === 'everyone' ? { mode }
         : mode === 'role' ? { mode, role: 'admin' }
             : mode === 'people' ? { mode, userIds: people }
@@ -518,7 +524,7 @@ export function AssignmentFields({ orgId, onDone, onCreated, reuseFrom = null, p
                         {when === 'date' ? <Input type="datetime-local" required value={publishLocal} onChange={(e) => setPublishLocal(e.target.value)} aria-label="Publish on" className="w-auto" /> : null}
                         <Button type="button" disabled={pending || !title.trim()} onClick={() => save()}>
                             {/* Report §44.3: publishing to many takes a few seconds, so it says so. */}
-                            {pending ? (when === 'now' ? 'Publishing…' : 'Saving…') : when === 'now' ? 'Publish' : when === 'draft' ? 'Save as draft' : 'Schedule'}
+                            {pending ? (when === 'now' ? 'Publishing…' : 'Saving…') : when === 'now' ? (goesTo ? `Publish to ${goesTo}` : 'Publish') : when === 'draft' ? 'Save as draft' : 'Schedule'}
                         </Button>
                     </div>
                 </div>
@@ -741,6 +747,19 @@ export function ReviewQueue({ orgId, onChanged, onClose, tabs }: { orgId: string
     const [error, setError] = useState<string | null>(null)
     const load = useCallback(() => void readReviewQueueAction(orgId).then((r) => { setRows(r.success ? r.rows : []); setTotal(r.success ? r.total : 0); setReasons(r.success ? r.recentReasons : []); if (!r.success) setError(r.error) }), [orgId])
     useEffect(() => { load() }, [load])
+    // Board/review report §2: All tasks is the way back, and so is Esc (when nothing else is open and no field has focus).
+    const closeRef = useRef(onClose)
+    closeRef.current = onClose
+    useEffect(() => {
+        const onKey = (event: KeyboardEvent) => {
+            const target = event.target as HTMLElement | null
+            if (event.key !== 'Escape' || event.defaultPrevented || document.querySelector('[role="dialog"],[role="alertdialog"],[role="menu"]')) return
+            if (target && (target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName))) return
+            closeRef.current?.()
+        }
+        window.addEventListener('keydown', onKey)
+        return () => window.removeEventListener('keydown', onKey)
+    }, [])
     useReloadOnNotice(load)
     useEffect(() => { if (rows && assignment !== 'all' && !rows.some((r) => r.masterId === assignment)) setAssignment('all') }, [rows, assignment])
     const shown = useMemo(() => queueOrder((rows ?? []).filter((r) => !held.has(r.copyId) && (assignment === 'all' || r.masterId === assignment) && (!lateOnly || r.late) && (!mineOnly || r.mine)), sort, query),
@@ -876,6 +895,7 @@ export function ReviewQueue({ orgId, onChanged, onClose, tabs }: { orgId: string
  * same Roster, Edit for everyone, Use again, Close or Reopen and Export as the list above the board.
  */
 export function AssignmentManageSection({ orgId, masterId, onChanged }: { orgId: string; masterId: string; onChanged?: () => void }) {
+    const reuseOnBoard = useContext(ReuseAssignmentContext)
     const [data, setData] = useState<{ row: AssignmentRow; timeZone: string | null } | null>(null)
     const [dialog, setDialog] = useState<'edit' | 'reuse' | null>(null)
     const [scheduleLocal, setScheduleLocal] = useState<string | null>(null)
@@ -916,7 +936,7 @@ export function AssignmentManageSection({ orgId, masterId, onChanged }: { orgId:
                         <DropdownMenuTrigger asChild><Button type="button" size="sm" variant="ghost" aria-label="Manage assignment" disabled={pending}><MoreHorizontal className="size-4" /></Button></DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                             <DropdownMenuItem onSelect={() => setDialog('edit')}>Edit for everyone</DropdownMenuItem>
-                            <DropdownMenuItem onSelect={() => setDialog('reuse')}>Use again</DropdownMenuItem>
+                            <DropdownMenuItem onSelect={() => reuseOnBoard ? reuseOnBoard(masterId) : setDialog('reuse')}>Use again</DropdownMenuItem>
                             {row.status === 'open' ? <DropdownMenuItem onSelect={() => run(() => closeAssignmentAction(row.masterId))}>Close</DropdownMenuItem> : null}
                             {row.status === 'closed' ? <DropdownMenuItem onSelect={() => run(() => reopenAssignmentAction(row.masterId))}>Reopen</DropdownMenuItem> : null}
                             <DropdownMenuItem className="text-destructive focus:text-destructive" onSelect={askDelete}>Delete</DropdownMenuItem>
@@ -941,7 +961,7 @@ export function AssignmentManageSection({ orgId, masterId, onChanged }: { orgId:
                 {row.status === 'draft' ? <Button type="button" size="sm" variant="ghost" disabled={pending} aria-expanded={scheduleLocal !== null} onClick={() => setScheduleLocal(scheduleLocal === null ? '' : null)}>Schedule</Button> : null}
                 {!live ? <>
                     <Button type="button" size="sm" variant="outline" disabled={pending} onClick={() => setDialog('edit')}>Edit</Button>
-                    <Button type="button" size="sm" variant="ghost" disabled={pending} onClick={() => setDialog('reuse')}>Use again</Button>
+                    <Button type="button" size="sm" variant="ghost" disabled={pending} onClick={() => reuseOnBoard ? reuseOnBoard(masterId) : setDialog('reuse')}>Use again</Button>
                     <Button type="button" size="sm" variant="ghost" disabled={pending} onClick={askDelete}>Delete</Button>
                 </> : null}
             </div>

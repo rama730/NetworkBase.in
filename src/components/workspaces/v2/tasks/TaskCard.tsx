@@ -1,6 +1,7 @@
 "use client";
 
 import { memo } from "react";
+import { useSprintPath } from "@/components/workspaces/v2/tasks/SprintPathContext";
 import { formatTaskDueDate } from "@/lib/workspaces/task-presentation";
 import {
   Calendar,
@@ -148,6 +149,7 @@ export const TaskCard = memo(function TaskCard({
   dragListeners,
 }: TaskCardProps) {
   const taskRecord = normalizeTaskSurfaceRecord(task);
+  const sprintPath = useSprintPath(taskRecord.sprint?.id, taskRecord.sprint?.name ?? "");
   const titlePresentation = getTaskTitlePresentation(taskRecord);
   const bits = taskRecord.assignmentProgress ? assignmentCardBits(taskRecord.assignmentProgress) : null;
   const assigneeRemoved = Boolean(
@@ -250,7 +252,7 @@ export const TaskCard = memo(function TaskCard({
                       .toneClassName
                   : "border-border bg-muted/40 text-muted-foreground",
               )}
-              title={taskRecord.sprint.name}
+              title={sprintPath}
             >
               {taskRecord.sprint.name}
             </span>

@@ -1,5 +1,6 @@
 'use client';
 
+import { runningSprint, sprintPath } from '@/lib/workspaces/sprint-plan';
 import { Suspense, useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
@@ -1082,7 +1083,10 @@ export default function WorkspaceDashboardClient({ project, currentUserId, viewe
         return () => { delete document.documentElement.dataset.storyPoints; };
     }, [hideStoryPoints]);
     const canStartNew = isOrganization && canManageProjectSettings && project.status !== 'archived' && !organization?.suspended;
-    const activeSprintName = (sprints as Array<{ status?: string; name?: string }>).find((s) => s.status === 'active')?.name ?? null;
+    // Board/review report §6: the header chip names the running sprint inside a CO as "CO1 · Week 3–4".
+    const sprintList = (sprints as Array<{ id: string; status: string; name: string; parentSprintId?: string | null }>) ?? [];
+    const runningNow = runningSprint(sprintList);
+    const activeSprintName = runningNow ? sprintPath(runningNow, sprintList) : null;
     const filesSyncBadge = useFilesStore((s) => s.byProjectId[project.id]?.git?.syncBadge ?? null);
     // `drawerType=task&drawerId=` is the task link; `taskId` is the legacy form some old links carry.
     const initialTaskDrawerId = (searchParams?.get('drawerType') === 'task' ? searchParams.get('drawerId') : null)

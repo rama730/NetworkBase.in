@@ -1,5 +1,6 @@
 'use server';
 
+import { runningSprint, sprintPath } from '@/lib/workspaces/sprint-plan';
 import { and, asc, desc, eq, gt, gte, inArray, isNotNull, isNull, lt, ne, or, sql } from 'drizzle-orm';
 
 import { db } from '@/lib/db';
@@ -173,7 +174,7 @@ export async function readOrgDashboardAction(orgId: string, activityFilter = 'al
             audienceSql(audience, v.userId),
             v.userId ? sql`NOT EXISTS (SELECT 1 FROM workspace_update_hidden h WHERE h.update_id = ${workspaceUpdates.id} AND h.user_id = ${v.userId}::uuid)` : undefined,
         )).orderBy(desc(workspaceUpdates.createdAt)).limit(1),
-        db.select({ id: workspaceSprints.id, name: workspaceSprints.name, goal: workspaceSprints.goal, status: workspaceSprints.status, startDate: workspaceSprints.startDate, endDate: workspaceSprints.endDate })
+        db.select({ id: workspaceSprints.id, name: workspaceSprints.name, goal: workspaceSprints.goal, status: workspaceSprints.status, startDate: workspaceSprints.startDate, endDate: workspaceSprints.endDate, parentSprintId: workspaceSprints.parentSprintId })
             .from(workspaceSprints).where(and(eq(workspaceSprints.projectId, orgId), ne(workspaceSprints.status, 'completed'))).orderBy(asc(workspaceSprints.startDate)),
         db.select({ id: tasks.id, title: tasks.title, dueDate: tasks.dueDate, sprintId: tasks.sprintId }).from(tasks)
             .where(and(eq(tasks.projectId, orgId), eq(tasks.kind, 'assignment'), isNull(tasks.assignmentId), isNull(tasks.deletedAt), v.isAdmin ? undefined : published)),
@@ -197,9 +198,12 @@ export async function readOrgDashboardAction(orgId: string, activityFilter = 'al
     const me = people.find((p) => p.id === v.userId);
     const viewerName = me?.name ?? me?.username ?? null;
     const profile = typeProfile(counts?.orgType);
-    const active = sprints.find((s) => s.status === 'active') ?? null;
+    // Board/review report §6: when a CO and a sprint inside it both run, "this sprint" is the one inside, named
+    // "CO1 · Week 3–4", and its assignments include the ones given to the CO itself.
+    const active = runningSprint(sprints) ?? null;
     const next = sprints.find((s) => s.status !== 'active' && s.startDate > now) ?? null;
-    const inSprint = active ? masters.filter((m) => m.sprintId === active.id) : [];
+    const runningIds = active ? [active.id, ...(active.parentSprintId ? [active.parentSprintId] : [])] : [];
+    const inSprint = active ? masters.filter((m) => m.sprintId && runningIds.includes(m.sprintId)) : [];
     // Ordinary tasks in the running sprint, by the board's read rule (members see their own).
     const sprintTasks = active ? await db.select({ id: tasks.id, title: tasks.title, status: tasks.status, assignee: sql<string | null>`(SELECT COALESCE(p.full_name, p.username) FROM profiles p WHERE p.id = ${tasks.assigneeId})` })
         .from(tasks).where(and(eq(tasks.projectId, orgId), eq(tasks.sprintId, active.id), eq(tasks.kind, 'task'), isNull(tasks.assignmentId), isNull(tasks.deletedAt), orgTaskReadFilter(v.access, v.userId)))
@@ -322,7 +326,7 @@ export async function readOrgDashboardAction(orgId: string, activityFilter = 'al
         pinned: pinned ? { id: pinned.id, content: pinned.content, at: pinned.createdAt.toISOString(), authorName: pinned.authorName ?? 'Someone', authorAvatarUrl: pinned.authorAvatarUrl, unread: Boolean(pinned.unread), canUnpin: v.isAdmin } : null,
         needsYou: v.isGuest ? [] : archived ? archivedNeeds : needsYou,
         thisSprint: {
-            sprint: active ? { id: active.id, name: active.name, goal: active.goal ?? null, status: active.endDate < now ? 'ended' : 'active', startDate: active.startDate.toISOString(), endDate: active.endDate.toISOString() } : null,
+            sprint: active ? { id: active.id, name: sprintPath(active, sprints), goal: active.goal ?? null, status: active.endDate < now ? 'ended' : 'active', startDate: active.startDate.toISOString(), endDate: active.endDate.toISOString() } : null,
             next: !active && next ? { id: next.id, name: next.name, status: next.status, startDate: next.startDate.toISOString() } : null,
             items,
             tasks: sprintTasks.slice(0, 8).map((t) => ({ id: t.id, title: t.title, assignee: t.assignee, status: t.status })),

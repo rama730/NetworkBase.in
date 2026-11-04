@@ -329,6 +329,10 @@ test('New assignment (§42.5): publish timing choices, and Admins-only materials
     await open(page, 'compose', 1280);
     const when = page.getByLabel('When to publish');
     await expect(when.getByRole('option')).toHaveText(['Publish now', 'On a date', 'Save as draft']);
+    // Board/review report §4: the button says what happens — Publish to everyone (2 members here), Schedule, Save draft.
+    await expect(page.getByRole('button', { name: 'Publish to 2' })).toBeVisible();
+    await when.selectOption('draft');
+    await expect(page.getByRole('button', { name: 'Save as draft' })).toBeVisible();
     await when.selectOption('date');
     await expect(page.getByLabel('Publish on')).toBeVisible();
     await expect(page.getByRole('button', { name: 'Schedule' })).toBeVisible();

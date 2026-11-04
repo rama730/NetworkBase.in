@@ -224,6 +224,7 @@ function serializeSprintListItem(sprint: {
   completedAt?: Date | null;
   archivedAt?: Date | null;
   cancelledAt?: Date | null;
+  parentSprintId?: string | null;
   createdAt: Date | null;
   updatedAt: Date | null;
   creatorName?: string | null;
@@ -252,6 +253,7 @@ function serializeSprintListItem(sprint: {
     completedAt: sprint.completedAt?.toISOString() ?? null,
     archivedAt: sprint.archivedAt?.toISOString() ?? null,
     cancelledAt: sprint.cancelledAt?.toISOString() ?? null,
+    parentSprintId: sprint.parentSprintId ?? null,
     createdAt: sprint.createdAt?.toISOString() ?? null,
     updatedAt: sprint.updatedAt?.toISOString() ?? null,
     creator: sprint.creatorId
@@ -352,6 +354,7 @@ async function readProjectSprintsList(projectId: string, limit: number) {
           completedAt: workspaceSprints.completedAt,
           archivedAt: workspaceSprints.archivedAt,
           cancelledAt: workspaceSprints.cancelledAt,
+          parentSprintId: workspaceSprints.parentSprintId,
           createdAt: workspaceSprints.createdAt,
           updatedAt: workspaceSprints.updatedAt,
           creatorName: profiles.fullName,
@@ -394,6 +397,7 @@ async function readProjectSprintsList(projectId: string, limit: number) {
         completedAt: workspaceSprints.completedAt,
         archivedAt: workspaceSprints.archivedAt,
         cancelledAt: workspaceSprints.cancelledAt,
+        parentSprintId: workspaceSprints.parentSprintId,
         createdAt: workspaceSprints.createdAt,
         updatedAt: workspaceSprints.updatedAt,
         creatorName: profiles.fullName,
@@ -463,6 +467,7 @@ async function readProjectSprintListItem(projectId: string, sprintId: string) {
           completedAt: workspaceSprints.completedAt,
           archivedAt: workspaceSprints.archivedAt,
           cancelledAt: workspaceSprints.cancelledAt,
+          parentSprintId: workspaceSprints.parentSprintId,
           createdAt: workspaceSprints.createdAt,
           updatedAt: workspaceSprints.updatedAt,
           creatorName: profiles.fullName,
@@ -506,6 +511,7 @@ async function readProjectSprintListItem(projectId: string, sprintId: string) {
         completedAt: workspaceSprints.completedAt,
         archivedAt: workspaceSprints.archivedAt,
         cancelledAt: workspaceSprints.cancelledAt,
+        parentSprintId: workspaceSprints.parentSprintId,
         createdAt: workspaceSprints.createdAt,
         updatedAt: workspaceSprints.updatedAt,
         creatorName: profiles.fullName,
@@ -559,13 +565,15 @@ async function readProjectSprintListItem(projectId: string, sprintId: string) {
 }
 
 
-async function readSprintSummary(sprintId: string) {
+/** A sprint's counts; a main sprint's include the sprints inside it (board/review report §6). */
+async function readSprintSummary(sprintId: string, insideIds: string[] = []) {
+  const ids = [sprintId, ...insideIds];
   const rows = await db.execute<SprintSummaryQueryRow>(sql`
         WITH in_sprint AS (
-            SELECT t.id, t.kind, t.assignment_id, t.status, t.review_status, t.story_points
+            SELECT DISTINCT t.id, t.kind, t.assignment_id, t.status, t.review_status, t.story_points
             FROM ${sprintTaskMemberships} m
             JOIN ${tasks} t ON t.id = m.task_id AND t.deleted_at IS NULL
-            WHERE m.sprint_id = ${sprintId} AND m.removed_at IS NULL
+            WHERE m.sprint_id IN (${sql.join(ids.map((id) => sql`${id}::uuid`), sql`, `)}) AND m.removed_at IS NULL
         ), sprint_tasks AS (
             -- An assignment counts by its copies, never its main task, which never finishes (report §42.12 problem 25).
             SELECT DISTINCT ON (id) id, status, review_status, story_points FROM (
@@ -1074,8 +1082,16 @@ async function buildSprintDetailPayload(input: {
     return null;
   }
 
+  const mainSprint = selectedSprint.parentSprintId ? sprints.find((sprint) => sprint.id === selectedSprint.parentSprintId) ?? null : null;
+  // Board/review report §6: a main sprint lists the sprints inside it, each with its own count, and counts them all.
+  const inside = sprints.filter((sprint) => sprint.parentSprintId === selectedSprint.id && sprint.status !== "cancelled" && sprint.status !== "archived")
+    .sort((a, b) => new Date(a.startDate ?? 0).getTime() - new Date(b.startDate ?? 0).getTime());
+  const children = await Promise.all(inside.map(async (sprint) => {
+    const own = await readSprintSummary(sprint.id);
+    return { id: sprint.id, name: sprint.name, code: sprint.code, status: sprint.status, startDate: sprint.startDate, endDate: sprint.endDate, done: own.completedTasks, total: own.totalTasks };
+  }));
   const [summary, taskPage, org, materials, load, velocity] = await Promise.all([
-    readSprintSummary(selectedSprint.id),
+    readSprintSummary(selectedSprint.id, inside.map((sprint) => sprint.id)),
     showTasks ? readSprintTaskActivityPage({
       projectId: input.projectId,
       sprintId: selectedSprint.id,
@@ -1086,7 +1102,9 @@ async function buildSprintDetailPayload(input: {
     }) : Promise.resolve(NO_SPRINT_TASK_PAGE),
     readSprintOrgContext(input.projectId, selectedSprint.id),
     // Visitors get sprint names, goals and dates only: no materials or linked projects (report §15.4).
-    isSprintInsider ? readSprintMaterials(selectedSprint.id, access) : Promise.resolve([]),
+    // Board/review report §6: a sprint inside a CO shows the CO's materials beside its own.
+    isSprintInsider ? Promise.all([readSprintMaterials(selectedSprint.id, access), mainSprint ? readSprintMaterials(mainSprint.id, access) : Promise.resolve([])])
+      .then(([own, fromMain]) => [...own, ...fromMain.map((m) => ({ ...m, fromMain: mainSprint!.name }))]) : Promise.resolve([]),
     // Who carries what is for the team, not visitors (report §15.4).
     isSprintInsider && showTasks ? readSprintPeople(selectedSprint.id) : Promise.resolve(null),
     isSprintInsider ? readSprintVelocity(input.projectId) : Promise.resolve(null),
@@ -1114,6 +1132,7 @@ async function buildSprintDetailPayload(input: {
     materials,
     ...(load ? { people: load.people, unassigned: load.unassigned } : {}),
     ...(velocity ? { velocity } : {}),
+    ...(children.length ? { children, openAssignments: await countOpenAssignments([selectedSprint.id, ...inside.map((sprint) => sprint.id)]) } : {}),
   };
 }
 
@@ -1616,12 +1635,23 @@ export async function updateSprintAction(data: UpdateSprintInput) {
       await tx.execute(sql`SELECT id FROM ${workspaces} WHERE id = ${validated.projectId} FOR UPDATE`);
       // Move later sprints too (report §28.2, decision 59): later Planning sprints shift by the same days. They're
       // checked after every move, so a clash names the sprint and nothing is saved.
+      // Board/review report §6: later sprints at the same level move; a moved main sprint takes its sprints along.
+      const shift = sql`start_date = start_date + make_interval(secs => ${shiftMs / 1000}::double precision), end_date = end_date + make_interval(secs => ${shiftMs / 1000}::double precision), updated_at = now()`;
       if (validated.moveLaterSprints && shiftMs !== 0 && existingSprint.status === "planning") {
         const moved = await tx.execute<{ id: string }>(sql`
-          UPDATE ${workspaceSprints} SET start_date = start_date + make_interval(secs => ${shiftMs / 1000}::double precision), end_date = end_date + make_interval(secs => ${shiftMs / 1000}::double precision), updated_at = now()
+          UPDATE ${workspaceSprints} SET ${shift}
           WHERE workspace_id = ${validated.projectId} AND status = 'planning' AND id <> ${validated.sprintId} AND start_date > ${existingSprint.startDate.toISOString()}::timestamptz
+            AND parent_sprint_id IS NOT DISTINCT FROM ${existingSprint.parentSprintId}::uuid
           RETURNING id`);
         movedLater = moved.map((row) => row.id);
+        if (movedLater.length && !existingSprint.parentSprintId) {
+          const moveBy = sql`make_interval(secs => ${shiftMs / 1000}::double precision)`;
+          await tx.update(workspaceSprints).set({ startDate: sql`${workspaceSprints.startDate} + ${moveBy}`, endDate: sql`${workspaceSprints.endDate} + ${moveBy}`, updatedAt: new Date() })
+            .where(and(eq(workspaceSprints.projectId, validated.projectId), eq(workspaceSprints.status, "planning"), inArray(workspaceSprints.parentSprintId, movedLater)));
+        }
+      }
+      if (validated.moveInsideSprints && shiftMs !== 0 && !existingSprint.parentSprintId) {
+        await tx.execute(sql`UPDATE ${workspaceSprints} SET ${shift} WHERE workspace_id = ${validated.projectId} AND status = 'planning' AND parent_sprint_id = ${validated.sprintId}`);
       }
       const parentSprintId = validated.parentSprintId === undefined ? existingSprint.parentSprintId : validated.parentSprintId;
       await assertOrgSprintRules(tx, { projectId: validated.projectId, startDate, endDate, parentSprintId, excludeSprintId: validated.sprintId });
@@ -1948,6 +1978,14 @@ export async function completeSprintAction(
     if (!user) throw new Error("Sign in to continue");
     await requireSprintOwner(projectId, user.id);
     const unfinished = options.unfinished ?? "keep";
+    // Board/review report §6, D9: closing a main sprint closes its running sprint (same choice for open work) and
+    // cancels the upcoming ones inside it; open work can't move into a sprint that's closing with it.
+    const inside = await sprintsInside(projectId, sprintId);
+    if (options.nextSprintId && inside.some((child) => child.id === options.nextSprintId)) throw new Error("That sprint sits inside this one and closes with it. Pick a sprint after it.");
+    for (const child of inside) {
+      const result: { success: boolean; error?: string } = child.status === "active" ? await completeSprintAction(child.id, projectId, options) : await cancelSprintAction(child.id, projectId);
+      if (!result.success) throw new Error(`${child.name}: ${result.error ?? "couldn’t close"}`);
+    }
     const now = new Date();
     await db.transaction(async (tx) => {
       // A close-out can move or detach work, so the UI restriction must be
@@ -2165,6 +2203,20 @@ export async function archiveSprintAction(sprintId: string, projectId: string) {
 }
 
 
+/** Board/review report §6: a CO's roll-up — assignments in it or its sprints that are still open. */
+async function countOpenAssignments(sprintIds: string[]) {
+  const [row] = await db.execute<{ n: number }>(sql`
+    SELECT count(*)::int AS n FROM ${tasks} m WHERE m.sprint_id IN (${sql.join(sprintIds.map((id) => sql`${id}::uuid`), sql`, `)})
+      AND m.kind = 'assignment' AND m.assignment_id IS NULL AND m.deleted_at IS NULL AND m.assignment_settings->>'closedAt' IS NULL`);
+  return Number(row?.n ?? 0);
+}
+
+/** The upcoming and running sprints inside a main sprint (board/review report §6). */
+async function sprintsInside(projectId: string, sprintId: string) {
+  return db.select({ id: workspaceSprints.id, name: workspaceSprints.name, status: workspaceSprints.status }).from(workspaceSprints)
+    .where(and(eq(workspaceSprints.projectId, projectId), eq(workspaceSprints.parentSprintId, sprintId), inArray(workspaceSprints.status, ["planning", "active"])));
+}
+
 export async function cancelSprintAction(sprintId: string, projectId: string) {
   try {
     const supabase = await createClient();
@@ -2173,6 +2225,11 @@ export async function cancelSprintAction(sprintId: string, projectId: string) {
     } = await supabase.auth.getUser();
     if (!user) throw new Error("Sign in to continue");
     await requireSprintOwner(projectId, user.id);
+    // Board/review report §6: cancelling a main sprint cancels the sprints inside it.
+    for (const child of await sprintsInside(projectId, sprintId)) {
+      const result: { success: boolean; error?: string } = await cancelSprintAction(child.id, projectId);
+      if (!result.success) throw new Error(`${child.name}: ${result.error ?? "couldn’t cancel"}`);
+    }
     const now = new Date();
     let unlinked: LinkedChildSprint[] = [];
     await db.transaction(async (tx) => {
@@ -2263,7 +2320,9 @@ export async function cancelSprintAction(sprintId: string, projectId: string) {
  * Repeat in the sprint form ("Plan more like this", report §16.2, §28.2, decision 9), in any workspace: back-to-back
  * planned sprints, numbered on from the last one with the prefix. Organization sprints never overlap.
  */
-export async function planSprintSeriesAction(input: { projectId: string; prefix: string; count: number; lengthDays: number; startDate: string; goal?: string | null; description?: string | null; autoStart?: boolean }) {
+export async function planSprintSeriesAction(input: { projectId: string; prefix: string; count: number; lengthDays: number; startDate: string; goal?: string | null; description?: string | null; autoStart?: boolean
+  /** Board/review report §6: split a main sprint into sprints inside it. */
+  parentSprintId?: string | null }) {
   try {
     const user = await getAuthUserOrThrow();
     await requireSprintOwner(input.projectId, user.id);
@@ -2282,7 +2341,7 @@ export async function planSprintSeriesAction(input: { projectId: string; prefix:
       for (const item of series) {
         const startDate = parseSprintDateInput(item.startDate);
         const endDate = parseSprintDateInput(item.endDate);
-        const parentSprintId = await assertOrgSprintRules(tx, { projectId: input.projectId, startDate, endDate });
+        const parentSprintId = await assertOrgSprintRules(tx, { projectId: input.projectId, startDate, endDate, parentSprintId: input.parentSprintId ?? null });
         const [created] = await tx.insert(workspaceSprints).values({
           projectId: input.projectId,
           creatorId: user.id,

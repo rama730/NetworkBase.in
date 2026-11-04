@@ -76,6 +76,28 @@ export function termRail<T extends SprintLike>(sprints: T[], now = new Date()): 
   return groups.filter((g) => g.items.length);
 }
 
+/** Board/review report §6: "week 3 of 6" for a CO (or the CO around a sprint), counted from its first day. */
+export function weekOf(main: Pick<SprintLike, "startDate" | "endDate">, now = new Date()) {
+  const time = sprintTime(main, now);
+  return time && time.day > 0 ? `week ${Math.ceil(time.day / 7)} of ${Math.ceil(time.days / 7)}` : null;
+}
+
+/** The sprints inside a CO by start date, with the days nobody planned between them (cancelled ones don't count). */
+export function withGaps<T extends { startDate: string | null; endDate: string | null; status: string }>(sprints: T[]): RailItem<T>[] {
+  const items: RailItem<T>[] = [];
+  let lastEnd: string | null = null;
+  for (const sprint of [...sprints].sort((a, b) => (a.startDate ?? "").localeCompare(b.startDate ?? ""))) {
+    const counts = sprint.status !== "cancelled";
+    if (counts && lastEnd && sprint.startDate && dayNumber(sprint.startDate) - dayNumber(lastEnd) > 1) {
+      const iso = (n: number) => new Date(n * DAY).toISOString().slice(0, 10);
+      items.push({ type: "gap", from: iso(dayNumber(lastEnd) + 1), to: iso(dayNumber(sprint.startDate) - 1) });
+    }
+    items.push({ type: "sprint", sprint });
+    if (counts && sprint.endDate) lastEnd = sprint.endDate;
+  }
+  return items;
+}
+
 type WorkLike = { id: string; status: string; reviewStatus?: string | null; membershipState: string; isDeleted: boolean; assignee: { id: string; fullName: string | null } | null };
 const STATE_ORDER: Array<[string, string]> = [["in_progress", "In progress"], ["blocked", "Blocked"], ["review", "In review"], ["todo", "To do"], ["done", "Done"]];
 const stateOf = (t: WorkLike) => (t.reviewStatus === "pending" ? "review" : t.status);
@@ -111,4 +133,29 @@ export function termStrip(range: { startDate: string; endDate: string }, existin
       : before ? `Starts ${gap} ${gap === 1 ? "day" : "days"} after ${before.name}.`
         : after ? `Ends before ${after.name}.` : "No other sprint around these dates.";
   return { before: before?.name ?? null, after: after?.name ?? null, clash: clash?.name ?? null, line };
+}
+
+type Nestable = { id: string; name: string; status: string; parentSprintId?: string | null; startDate?: string | Date | null };
+
+/** Board/review report §6: "CO1 · Week 3–4" for a sprint inside a main sprint of the same list; otherwise its name. */
+export function sprintPath(sprint: Nestable, all: Nestable[]) {
+  const main = sprint.parentSprintId ? all.find((s) => s.id === sprint.parentSprintId) : null;
+  return main ? `${main.name} · ${sprint.name}` : sprint.name;
+}
+
+/** The running sprint to name: the sprint inside when a main sprint and one inside it both run. */
+export function runningSprint<T extends Nestable>(all: T[]): T | null {
+  const running = all.filter((s) => s.status === "active");
+  return running.find((s) => s.parentSprintId && all.some((m) => m.id === s.parentSprintId)) ?? running[0] ?? null;
+}
+
+/** Main sprints (and sprints whose parent isn't in this list) at the top; each main sprint's sprints by start date. */
+export function nestTerm<T extends Nestable>(all: T[]) {
+  const ids = new Set(all.map((s) => s.id));
+  const top = all.filter((s) => !s.parentSprintId || !ids.has(s.parentSprintId));
+  const inside = new Map<string, T[]>();
+  for (const s of all) if (s.parentSprintId && ids.has(s.parentSprintId)) inside.set(s.parentSprintId, [...(inside.get(s.parentSprintId) ?? []), s]);
+  const at = (s: Nestable) => (s.startDate instanceof Date ? s.startDate.toISOString() : s.startDate ?? "");
+  for (const list of inside.values()) list.sort((a, b) => at(a).localeCompare(at(b)));
+  return { top, inside };
 }

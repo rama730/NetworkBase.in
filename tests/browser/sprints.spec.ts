@@ -14,6 +14,7 @@ let script: string, css: string;
 const detail = `
 const day = (n) => new Date(Date.now() + n * 864e5).toISOString().slice(0, 10) + 'T00:00:00.000Z';
 const which = new URLSearchParams(location.search).get('sprint') ?? 'running';
+const orgMode = new URLSearchParams(location.search).has('org');
 const base = { projectId: 'w1', goal: null, description: null, startedAt: null, completedAt: null, archivedAt: null, cancelledAt: null, createdAt: day(-30), updatedAt: day(-1) };
 const sprints = [
   { ...base, id: 's3', sprintNumber: 3, code: 'SPR-3', name: 'Sprint 3 · Auth', status: 'completed', startDate: day(-17), endDate: day(-4), completedAt: day(-4) },
@@ -25,7 +26,15 @@ const person = (id, fullName) => ({ id, fullName, avatarUrl: null });
 const t = (id, title, status, points, assignee, extra = {}) => ({ id: 'r' + id, kind: 'task', occurredAt: day(-1), task: { assignmentProgress: null, id, projectId: 'w1', sprintId: 's4', taskNumber: Number(id.slice(1)), title, description: null,
   status, reviewStatus: 'none', priority: 'medium', storyPoints: points, dueDate: null, createdAt: day(-3), updatedAt: day(-1), completedAt: status === 'done' ? day(-1) : null, activityAt: day(-1),
   linkedFileCount: 0, isDeleted: false, membershipState: 'committed', addedAt: day(-3), removedAt: null, linkedFiles: [], subtasks: [], assignee, creator: null, ...extra } });
-const selected = which === 'upcoming' ? 's5' : 's4';
+// Board/review report §6: ?org= makes s4 a CO (CO1) holding two sprints, w1 running and w2 upcoming.
+if (orgMode) {
+  sprints[1] = { ...sprints[1], name: 'CO1 Arrays and lists', startDate: day(-17), endDate: day(25) };
+  sprints.push({ ...base, id: 'w1', sprintNumber: 7, code: 'SPR-7', name: 'Week 3–4', status: 'active', startDate: day(-3), endDate: day(10), parentSprintId: 's4' },
+    { ...base, id: 'w2', sprintNumber: 8, code: 'SPR-8', name: 'Week 5–6', status: 'planning', startDate: day(new URLSearchParams(location.search).has('gap') ? 14 : 11), endDate: day(20), parentSprintId: 's4' });
+  sprints[2] = { ...sprints[2], startDate: day(26), endDate: day(40) };
+  sprints[3] = { ...sprints[3], startDate: day(41), endDate: day(52) };
+}
+const selected = which === 'upcoming' ? 's5' : which === 'inside' ? 'w1' : 's4';
 export const useSprintDetail = () => ({ isLoading: false, isError: false, error: null, refetch() {}, fetchNextPage() {}, hasNextPage: false, isFetchingNextPage: false, data: {
   projectId: 'w1', projectSlug: 'search-app', sprints, selectedSprintId: selected,
   permissions: { canRead: true, canWrite: true, canCreate: true, canStart: true, canComplete: true, isOwner: true, isMember: false, memberRole: 'owner' },
@@ -38,6 +47,12 @@ export const useSprintDetail = () => ({ isLoading: false, isError: false, error:
   nextCursor: null, hasMore: false, org: null, materials: [],
   people: [{ id: 'u1', name: 'Ravi Kumar', avatarUrl: null, openTasks: 2, openPoints: 13 }, { id: 'u2', name: 'Asha Nair', avatarUrl: null, openTasks: 1, openPoints: 3 }],
   unassigned: { tasks: 1, points: 5 }, velocity: { last: 21, average: 23 },
+  ...(orgMode ? {
+    org: { kind: 'org', orgSprints: [], orgTitle: 'CSE 3B', orgSlug: 'cse', parentSprint: null, runningOrgSprint: null, linkedProjects: [], notLinkedCount: 1, notLinked: [{ projectId: 'c1', title: 'Team Falcon', slug: 'falcon' }],
+      groupBacklog: 0, followsOrgSprints: false, termEnd: null, sprintFlags: {}, children: [{ id: 'c1', title: 'Team Falcon' }], orgType: 'education', defaults: { autoStart: true, showInChildren: true, createMatching: false, notifyOnStart: true } },
+    children: selected === 's4' ? [{ id: 'w1', name: 'Week 3–4', code: 'SPR-7', status: 'active', startDate: day(-3), endDate: day(10), done: 3, total: 9 }, { id: 'w2', name: 'Week 5–6', code: 'SPR-8', status: 'planning', startDate: day(11), endDate: day(20), done: 0, total: 0 }] : undefined,
+    openAssignments: 2,
+  } : {}),
 } });`;
 
 test.beforeAll(async () => {
@@ -70,7 +85,7 @@ async function open(page: Page, sprint = 'running', width = 1440) {
     return route.fulfill({ body, contentType: url.pathname.endsWith('.js') ? 'application/javascript' : url.pathname.endsWith('.css') ? 'text/css' : 'text/html' });
   });
   await page.goto(`${origin}/?sprint=${sprint}`);
-  await expect(page.getByRole('heading', { name: /Sprint [45]/ })).toBeVisible();
+  await expect(page.getByRole('heading', { name: /Sprint [45]|CO1|Week 3–4/ }).first()).toBeVisible();
 }
 
 test('§5, §8: the rail is the term, the header has the goal and one main button, time and points sit side by side, work groups by state, People shows the load', async ({ page }) => {
@@ -175,4 +190,48 @@ test('§4: an upcoming sprint offers Add work and Start now; phones get the pick
   await expect(page.getByLabel('Select sprint')).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0);
   await page.screenshot({ path: test.info().outputPath('sprints-390.png'), fullPage: true });
+});
+
+test('board/review report §6: a CO holds its sprints — nested in the term, on a strip with its roll-up, with Add a sprint inside', async ({ page }) => {
+  await open(page, 'running&org=1');
+  const rail = page.getByRole('complementary', { name: 'Sprints' });
+  const inside = rail.getByRole('list', { name: 'Sprints in CO1 Arrays and lists' });
+  await expect(inside.getByRole('link')).toHaveText([/Week 3–4/, /Week 5–6/]);
+  // The CO counts its weeks; no gap between back-to-back sprints inside it.
+  await expect(rail.getByRole('link', { name: /CO1 Arrays and lists/ })).toContainText(/week \d+ of 7/);
+  await expect(inside.getByText('No sprint planned')).toHaveCount(0);
+  await expect(page.locator('header').getByText(/^week \d+ of 7$/)).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Add a sprint inside CO1 Arrays and lists' })).toBeVisible();
+  const strip = page.getByRole('region', { name: 'Sprints in CO1 Arrays and lists' });
+  await expect(strip.getByRole('link', { name: /Week 3–4\s*3\/9 done/ })).toBeVisible();
+  await expect(strip).toContainText('Across CO1 Arrays and lists: 1 of 5 done · 2 assignments open · 1 team has no sprint yet');
+  // New sprint opens on "Sprint inside a CO", inside this CO, starting after its last sprint.
+  await page.getByRole('button', { name: 'Add a sprint inside CO1 Arrays and lists' }).click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog.getByRole('tab', { name: 'Sprint inside a CO' })).toHaveAttribute('aria-selected', 'true');
+  await expect(dialog.getByLabel('Inside the CO')).toHaveValue('s4');
+  await expect(dialog.getByRole('textbox', { name: 'Name' })).toHaveValue(/^Week \d+$/);
+  await expect(dialog.getByRole('tab', { name: 'Several (split CO1 Arrays and lists)' })).toBeVisible();
+  await dialog.getByRole('tab', { name: 'CO (main sprint)' }).click();
+  await expect(dialog.getByLabel('Inside the CO')).toHaveCount(0);
+  // Closing the CO says it closes the running sprint and cancels the upcoming one.
+  await page.keyboard.press('Escape');
+  await page.getByRole('button', { name: 'Sprint actions' }).click();
+  await page.getByRole('menuitem', { name: 'Complete early' }).click();
+  await expect(page.getByRole('note')).toHaveText('This also closes Week 3–4 and cancels Week 5–6.');
+  await expect(page.getByRole('dialog').getByRole('radio', { name: /Week 5–6/ })).toHaveCount(0);
+});
+
+test('board/review report §6: days nobody planned between sprints inside a CO show as a gap', async ({ page }) => {
+  await open(page, 'running&org=1&gap=1');
+  const inside = page.getByRole('complementary', { name: 'Sprints' }).getByRole('list', { name: 'Sprints in CO1 Arrays and lists' });
+  await expect(inside.getByRole('listitem')).toHaveCount(3);
+  await expect(inside.getByRole('listitem').nth(1)).toContainText(/Gap · .*No sprint planned/);
+});
+
+test('board/review report §6: a sprint inside a CO says where it sits, and the phone picker names it in full', async ({ page }) => {
+  await open(page, 'inside&org=1', 390);
+  await expect(page.getByText(/^Inside CO1 Arrays and lists · week \d+ of 7$/)).toBeVisible();
+  await expect(page.getByLabel('Select sprint').locator('option', { hasText: 'CO1 Arrays and lists · Week 3–4' })).toHaveCount(1);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0);
 });

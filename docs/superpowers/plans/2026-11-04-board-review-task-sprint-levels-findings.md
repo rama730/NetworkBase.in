@@ -271,3 +271,30 @@ proposal, or the simplest choice that keeps today's data working:
 - **D8:** organizations only.
 - **D9:** closing a CO with a sprint still running closes both, with one choice for where open work goes.
 - **D10:** team channel rows show the channel's own name.
+
+### Built and checked (4 November 2026)
+
+Everything above is built on local main, not pushed. A line-by-line check of every section after building found
+the items marked *audit* below; each was built and tested before the last commit.
+
+- **§1** cache rule fixed (4b0e6c913); unit test, plus a browser test on the real board that sends a student's copy
+  through the panel's cache write three times and still sees one card (*audit*: this test was missing). It fails
+  with the fix taken out.
+- **§2** one toolbar line, In review with its count, "1 of N · Next" atop Waiting, columns fill the screen
+  (06595b5ab). *Audit:* **Esc** now goes back to All tasks (not while typing in a field or with a dialog open).
+- **§3** the copy's own comments in place (06595b5ab). *Audit:* browser test now checks that Next switches the
+  thread. *Correction:* comments are text only, so "files" in the composer doesn't apply; files stay in the hand-in.
+- **§4** New with Task · Assignment tabs, + New → Assignment, Assigned to is people only (fa6dc33d1). *Audit:*
+  the button says **"Publish to N"** (Schedule and Save as draft as before), and **Use again** on the board now opens
+  New on its Assignment tab, filled in. Outside the board (no board around) it keeps its own dialog with the same fields.
+- **§5** one `UnderlineTabs` for the profile, New and New sprint (fa6dc33d1). *Audit:* a contract test now pins all
+  three dialogs, not just New.
+- **§6** two-level sprints. *Correction:* "no migration expected" was wrong. **Migration 0063** (`nested` column and
+  one running sprint *per level*) is needed, because the database allowed one running sprint per workspace. It must
+  be applied in production before this deploys. *Audit:* the CO in the rail shows "week x of y" and the gaps between
+  the sprints inside it; the board's **Sprint** tab names and lists the running sprint ("Sprint · CO1 · Week 3–4");
+  on a CO's page a team whose sprint sits in one of its weeks counts as planned (D3); the team's prompt names the
+  running sprint in full; the CO's list of sprints is in date order (it wasn't always).
+- **§7** team channels inside their organization in both views and the chat window (4f084f34b).
+
+Not checked here: the signed-in live flows (they need a real account), and production (0063 not applied, nothing pushed).

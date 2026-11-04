@@ -103,7 +103,9 @@ describe("sprint tab target architecture contract", () => {
 
   it("groups current and historical Sprints and removes the obsolete drawer", () => {
     // Sprint redesign §5.1: the term — Now, Next, Later, Past — with gaps.
-    assert.match(sprintLeftRailSource, /termRail\(sprints\)/);
+    // Board/review report §6: the term is the top-level sprints; the sprints inside a CO sit under it.
+    assert.match(sprintLeftRailSource, /termRail\(nested\.top\)/);
+    assert.match(sprintLeftRailSource, /aria-label=\{`Sprints in \$\{/);
     assert.match(sprintLeftRailSource, /No sprint planned/);
     assert.match(sprintLeftRailSource, /Past · \{group\.items\.length\}/);
     assert.equal(

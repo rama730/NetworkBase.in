@@ -137,6 +137,8 @@ const orgSprintFields = {
   moveDueDates: z.boolean().optional(),
   // Report §28.2, decision 59: later Planning sprints move by the same days.
   moveLaterSprints: z.boolean().optional(),
+  // Board/review report §6: a main sprint's planned sprints inside move with it.
+  moveInsideSprints: z.boolean().optional(),
   // Report §42.5, decision 131: a linked sprint pulls in the workspace's group work from its backlog.
   includeGroupWork: z.boolean().optional(),
 };
@@ -225,7 +227,7 @@ export function getSprintDurationSummary(startDate: string, endDate: string) {
 
 export type CreateSprintDraftInput = z.infer<typeof createSprintDraftSchema>;
 /** What the sprint editor sends: the draft plus the org sprint choices (report §15.2, §15.5). */
-export type SprintOrgFields = { autoStart?: boolean; showInChildren?: boolean; sharedWith?: "all" | "selected" | "none"; sharedWorkspaceIds?: string[]; announce?: boolean; announcement?: string; createMatching?: boolean; parentSprintId?: string | null; notifyOnStart?: boolean; moveDueDates?: boolean; moveLaterSprints?: boolean; includeGroupWork?: boolean };
+export type SprintOrgFields = { autoStart?: boolean; showInChildren?: boolean; sharedWith?: "all" | "selected" | "none"; sharedWorkspaceIds?: string[]; announce?: boolean; announcement?: string; createMatching?: boolean; parentSprintId?: string | null; notifyOnStart?: boolean; moveDueDates?: boolean; moveLaterSprints?: boolean; moveInsideSprints?: boolean; includeGroupWork?: boolean };
 export type SprintEditorSubmission = CreateSprintDraftInput & SprintOrgFields;
 export type CreateSprintInput = z.infer<typeof createSprintSchema>;
 export type UpdateSprintInput = z.infer<typeof updateSprintSchema>;

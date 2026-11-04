@@ -28,12 +28,25 @@ export function notifyOrgSprintStarted(sprintId: string, projectId: string, acto
   return safely("started", async () => {
     const org = await projectOf(projectId);
     if (!org || org.kind !== "organization") return;
-    const [sprint] = await db.execute<{ name: string; notify: boolean; assignments: number }>(sql`
+    const [sprint] = await db.execute<{ name: string; notify: boolean; assignments: number; main: string | null }>(sql`
       SELECT s.name, s.notify_on_start AS notify, (SELECT count(*)::int FROM tasks m WHERE m.sprint_id = s.id AND m.kind = 'assignment' AND m.deleted_at IS NULL
-        AND m.assignment_settings->>'publishedAt' IS NOT NULL) AS assignments
+        AND m.assignment_settings->>'publishedAt' IS NOT NULL) AS assignments,
+        (SELECT p.name FROM workspace_sprints p WHERE p.id = s.parent_sprint_id AND p.workspace_id = s.workspace_id) AS main
       FROM workspace_sprints s WHERE s.id = ${sprintId}`);
     if (!sprint) return;
     const href = orgHref(org, "?tab=sprints");
+    // Board/review report §6, D7: a sprint inside a main sprint ("CO1 · Week 1") tells only the people with work in it:
+    // its tasks' assignees, and the people (and teams) holding copies of its assignments.
+    if (sprint.main) {
+      if (!sprint.notify) return;
+      const people = await db.execute<{ user_id: string }>(sql`
+        SELECT DISTINCT t.assignee_id AS user_id FROM tasks t WHERE t.sprint_id = ${sprintId} AND t.deleted_at IS NULL AND t.assignee_id IS NOT NULL AND t.assignment_id IS NULL AND t.kind <> 'assignment'
+        UNION SELECT c.assignee_id FROM tasks c JOIN tasks m ON m.id = c.assignment_id WHERE m.sprint_id = ${sprintId} AND c.deleted_at IS NULL AND c.excused_at IS NULL AND c.assignee_id IS NOT NULL
+        UNION SELECT tm.user_id FROM task_team_members tm JOIN tasks c ON c.id = tm.task_id JOIN tasks m ON m.id = c.assignment_id WHERE m.sprint_id = ${sprintId} AND c.deleted_at IS NULL`);
+      const to = people.map((p) => p.user_id).filter((id) => id !== actorId);
+      if (to.length) await notifyOrg({ orgId: org.id, eventKey: "org_sprints.notice", actorId, to, title: `${sprint.main} · ${sprint.name} started`, href, sourceEventId: `sprint-started:${sprintId}` });
+      return;
+    }
     if (sprint.notify) {
       const materials = (await readSprintMaterials(sprintId)).length;
       const parts = [sprint.assignments ? plural(sprint.assignments, "assignment") : null, materials ? plural(materials, "material") : null].filter(Boolean);
