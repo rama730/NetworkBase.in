@@ -545,7 +545,8 @@ export default function WorkspaceLayout({
                                 : isUpdatesTab
                                     ? "w-full p-4 sm:py-5 sm:pl-5 sm:pr-6"
                                     : isTasksTab
-                                        ? "w-full p-4 sm:p-5"
+                                        // Review full-page: In review fills the tab edge to edge, as Settings does.
+                                        ? "w-full p-4 sm:p-5 has-[[data-review-full]]:p-0"
                                         : "w-full p-4 sm:p-5"
                 )}
                 data-project-content-root={isFilesTab ? "workspace" : "page"}

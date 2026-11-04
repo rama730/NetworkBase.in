@@ -818,7 +818,7 @@ export default function TasksTab({
 
   return (
     <ReuseAssignmentContext.Provider value={orgId && !isChildProject && canManageWorkflow ? reuseAssignment : null}>
-    <div className="flex min-h-0 flex-col space-y-4">
+    <div className={cn("flex min-h-0 flex-col", reviewing ? "" : "space-y-4")}>
       {/* Decision 139: an organization admin working in a workspace they aren't on. */}
       {reviewsGroupWork ? <p className="nb-meta"><span className="nb-status" data-status="draft">Viewing as admin</span></p> : null}
       {/* Smaller bug 19: on an organization each assignment says what happens in its Hand in section instead. */}

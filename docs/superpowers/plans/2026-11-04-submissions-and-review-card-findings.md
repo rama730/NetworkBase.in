@@ -128,3 +128,17 @@ earlier versions as folders).
 Tests: DB — Submissions rows, hand-in files and versions, member refused, materials with their CO. Browser — five
 Files tests (filters and counts, columns, badges, menus, the levels with breadcrumb, Esc and links, materials, Final
 files, phone, axe) and the review card test. Not checked here: your signed-in screens.
+
+## Follow-up: In review fills the tab like Settings (4 November 2026)
+
+The user found the one-card review still boxed in and asked for the Settings tab's layout: no card; the left list,
+then the content, split by one line, filling everything under the tab bar.
+
+- The Tasks tab area drops its padding while the review queue shows (`WorkspaceLayout`: `has-[[data-review-full]]:p-0`;
+  the board keeps its padding).
+- The queue is `100dvh − top bar − tab bar` tall (Settings' column uses the same sum), with no border, corner or box.
+  The filter line runs the full width with one rule under it; the three columns start at the left edge and run to the
+  bottom, split only by vertical 1px lines. Waiting scrolls on its own like Settings' list.
+- In the 240px list the Late and Resubmitted chips moved under the name, so the name is never cut for them.
+- Tested: no tab padding, no card border or radius, the filter rule spans the width, the columns start at x = 0 and end
+  at the queue's bottom, no page scroll, the name isn't cut, and the selected row still matches the main navigation.

@@ -332,13 +332,33 @@ test('review queue §4b.8: an ordinary task shows its description and files', as
     await expect(work.getByTitle('Preview of lab3-report.pdf')).toBeVisible();
 });
 
-test('review card §3: one card split into three by hairlines; the selected person looks like the main navigation, no orange bar', async ({ page }) => {
+test('review full-page: no card — the queue fills the tab edge to edge like Settings, split only by lines; the selected person looks like the main navigation', async ({ page }) => {
     await open(page, 1440);
+    // The tab drops its padding while the queue shows; the queue has no border, corner or box.
+    expect(await page.getByTestId('tab-panel').evaluate((el) => getComputedStyle(el).paddingLeft)).toBe('0px');
     const card = page.getByTestId('review-card');
-    const style = await card.evaluate((el) => { const s = getComputedStyle(el); return { border: s.borderTopWidth, radius: s.borderTopLeftRadius, gap: s.columnGap }; });
-    expect(style.border).toBe('1px');
-    expect(style.radius).toBe('8px');
-    expect(['normal', '0px']).toContain(style.gap);
+    const style = await card.evaluate((el) => { const s = getComputedStyle(el); return { border: s.borderTopWidth, radius: s.borderTopLeftRadius }; });
+    expect(style).toEqual({ border: '0px', radius: '0px' });
+    // The filter line spans the full width with one rule under it; the columns start at the left edge and run to the bottom.
+    const filters = page.getByRole('textbox', { name: 'Search names' }).locator('..');
+    expect(await filters.evaluate((el) => [el.getBoundingClientRect().left, el.getBoundingClientRect().width, getComputedStyle(el).borderBottomWidth])).toEqual([0, 1440, '1px']);
+    const waiting = page.getByRole('region', { name: 'Waiting' });
+    expect((await waiting.boundingBox())!.x).toBe(0);
+    // The columns fill the queue to its bottom, and the queue is the screen under the top bar and tabs (as Settings' column).
+    const [cardBottom, queueBottom, expected, pageHeight] = await page.evaluate(() => {
+        const q = document.querySelector('[data-review-full]')!.getBoundingClientRect();
+        const c = document.querySelector('[data-testid="review-card"]')!.getBoundingClientRect();
+        const css = getComputedStyle(document.documentElement);
+        const px = (v: string) => Number.parseFloat(v) || 0;
+        return [c.bottom, q.bottom, window.innerHeight - px(css.getPropertyValue('--ui-topnav-height')) - px(css.getPropertyValue('--workspace-tabs-height')), document.documentElement.scrollHeight];
+    });
+    expect(Math.abs(cardBottom - queueBottom)).toBeLessThan(2);
+    expect(Math.abs(queueBottom - expected)).toBeLessThan(2);
+    expect(pageHeight).toBeLessThanOrEqual(900);
+    // The name is never cut for the Late and Resubmitted chips.
+    const name = page.getByRole('region', { name: 'Waiting' }).locator('span[title="Student 1"]');
+    expect(await name.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
+    await page.screenshot({ path: test.info().outputPath('review-full-page.png') });
     for (const name of ['Waiting', 'Submission']) {
         const part = page.getByRole('region', { name });
         expect(await part.evaluate((el) => getComputedStyle(el).borderRightWidth)).toBe('1px');

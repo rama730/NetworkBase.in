@@ -198,7 +198,8 @@ export function ReviewQueue({ orgId, onChanged, onClose, tabs }: { orgId: string
     const toggle = (on: boolean) => cn(control, 'inline-flex items-center', on ? 'border-foreground font-medium' : 'text-muted-foreground hover:text-foreground')
 
     const filters = (
-        <div className="flex flex-wrap items-center gap-2 border-b border-border pb-3">
+        // Like Settings (review full-page): the filter line runs the tab's full width with one rule under it.
+        <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border px-4 py-3 sm:px-5">
             <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search names" aria-label="Search names" className="h-[30px] w-44 text-xs max-md:w-full" />
             <select aria-label="Assignment" value={assignment} onChange={(e) => setAssignment(e.target.value)} className={control}>
                 <option value="all">All assignments</option>
@@ -223,10 +224,10 @@ export function ReviewQueue({ orgId, onChanged, onClose, tabs }: { orgId: string
             )}
         </div>
     )
-    if (!rows) return <div className="space-y-3">{filters}<p className="text-sm text-muted-foreground">Loading submissions…</p></div>
+    if (!rows) return <div data-review-full>{filters}<p className="p-5 text-sm text-muted-foreground">Loading submissions…</p></div>
 
     const empty = (
-        <div className="nb-empty-state nb-grid-ground rounded-[8px] py-16" role="status">
+        <div className="nb-empty-state nb-grid-ground m-4 rounded-[8px] py-16 sm:m-5" role="status">
             <h3 className="nb-empty-state-title">{filtered ? 'Nobody matches these filters' : 'All caught up'}</h3>
             <p className="nb-empty-state-desc">{filtered ? 'Try fewer filters.' : 'Nothing is waiting for review.'}</p>
             {filtered
@@ -239,16 +240,18 @@ export function ReviewQueue({ orgId, onChanged, onClose, tabs }: { orgId: string
     const late = current ? lateBy(current) : null
 
     return (
-        <section aria-labelledby="review-queue-heading" className="space-y-4 text-sm">
+        // Review full-page: no card — the queue fills the tab under the tab bar, as Settings does; the tab area drops its
+        // padding while this is showing (WorkspaceLayout, has-[[data-review-full]]).
+        <section aria-labelledby="review-queue-heading" data-review-full className="flex flex-col text-sm lg:h-[calc(100dvh-var(--ui-topnav-height,0px)-var(--workspace-tabs-height,0px))] lg:min-h-[560px]">
             <h2 id="review-queue-heading" className="sr-only">To review</h2>
             <p className="sr-only" aria-live="polite">{spoken}</p>
             {filters}
-            {error ? <p role="alert" className="rounded-[5px] border border-destructive/30 bg-destructive/10 px-3 py-2 text-[13px] text-destructive">{error}</p> : null}
+            {error ? <p role="alert" className="mx-4 mt-3 shrink-0 rounded-[5px] border border-destructive/30 bg-destructive/10 px-3 py-2 text-[13px] text-destructive sm:mx-5">{error}</p> : null}
             {!current ? empty : (
                 // §4: 240 · flexible · 340 (300 below 1280); below 1024 the list becomes a picker over the work; phones stack.
                 // Submissions/review-card report §3: one card, the three parts split by hairlines — no gaps, no inner cards.
-                <div data-testid="review-card" className="grid overflow-hidden rounded-[8px] border border-border bg-card lg:h-[calc(100dvh-12rem)] lg:min-h-[520px] lg:grid-cols-[240px_minmax(0,1fr)_300px] xl:grid-cols-[240px_minmax(0,1fr)_340px] max-lg:md:grid-cols-[minmax(0,1fr)_300px]">
-                    <section aria-label="Waiting" className="flex min-h-0 min-w-0 flex-col gap-3 border-r border-border p-3 max-lg:hidden">
+                <div data-testid="review-card" className="grid min-h-0 flex-1 lg:grid-cols-[240px_minmax(0,1fr)_300px] xl:grid-cols-[240px_minmax(0,1fr)_340px] max-lg:md:grid-cols-[minmax(0,1fr)_300px]">
+                    <section aria-label="Waiting" className="flex min-h-0 min-w-0 flex-col gap-3 border-r border-border px-3 py-4 max-lg:hidden">
                         <div className="flex h-6 items-center justify-between">
                             <h3 className={label}>Waiting · {total}</h3>
                             <span className="flex items-center gap-1">
@@ -266,10 +269,15 @@ export function ReviewQueue({ orgId, onChanged, onClose, tabs }: { orgId: string
                                         className={cn('flex w-full items-center gap-2.5 rounded-[5px] px-2.5 py-2 text-left transition-colors', r.copyId === current.copyId ? 'bg-[var(--sidebar-accent)] text-foreground' : 'text-muted-foreground hover:bg-muted hover:text-foreground')}>
                                         <Avatar name={r.who} url={r.people?.length === 1 ? r.people[0]!.avatarUrl : null} />
                                         <span className="min-w-0 flex-1">
-                                            <span className="flex items-center gap-2"><span className="min-w-0 flex-1 truncate text-[13px] font-medium">{r.who}</span>
-                                                {r.late ? <span className="rounded-[3px] border border-destructive/30 px-1.5 font-mono text-[10px] text-destructive">Late</span> : null}
-                                                {(r.version ?? 1) > 1 ? <span className="rounded-[3px] border border-border px-1.5 font-mono text-[10px] text-muted-foreground">Resubmitted</span> : null}</span>
+                                            <span className="block truncate text-[13px] font-medium" title={r.who}>{r.who}</span>
                                             <span className="block truncate font-mono text-[11px] text-muted-foreground">{meta(r)}</span>
+                                            {/* Late and Resubmitted on their own line, so the name never gets cut for them. */}
+                                            {r.late || (r.version ?? 1) > 1 ? (
+                                                <span className="mt-1 flex gap-1">
+                                                    {r.late ? <span className="rounded-[3px] border border-destructive/30 px-1.5 font-mono text-[10px] text-destructive">Late</span> : null}
+                                                    {(r.version ?? 1) > 1 ? <span className="rounded-[3px] border border-border px-1.5 font-mono text-[10px] text-muted-foreground">Resubmitted</span> : null}
+                                                </span>
+                                            ) : null}
                                             {r.newMessages ? <span className="flex items-center gap-1 text-[11px] font-medium text-primary"><span aria-hidden="true" className="size-1.5 rounded-full bg-primary" />New message</span> : null}
                                             {/* §4b.10: someone else has the open one in front of them (only the open row's room is watched). */}
                                             {r.copyId === current.copyId && viewers.length ? <span className="flex items-center gap-1 text-[11px] text-[var(--status-warning)]"><span aria-hidden="true" className="size-1.5 rounded-full bg-[var(--status-warning)]" />{viewers[0]} is here</span> : null}
@@ -282,7 +290,7 @@ export function ReviewQueue({ orgId, onChanged, onClose, tabs }: { orgId: string
                         <p className="border-t border-border pt-2.5 font-mono text-[11px] text-muted-foreground">J / K to move · A approve · R return · <button type="button" className="underline-offset-2 hover:underline" onClick={() => setKeysOpen(true)}>? keys</button></p>
                     </section>
 
-                    <section aria-label="Submission" className="flex min-h-0 min-w-0 flex-col gap-3.5 p-3 md:border-r md:border-border max-md:border-b max-md:border-border">
+                    <section aria-label="Submission" className="flex min-h-0 min-w-0 flex-col gap-3.5 px-4 py-4 md:border-r md:border-border max-md:border-b max-md:border-border">
                         {/* Below 1024px the waiting list is a picker over the work. */}
                         <select aria-label="Waiting" value={current.copyId} onChange={(e) => { announce.current = true; setCurrentId(e.target.value) }} className={cn(control, 'w-full lg:hidden')}>
                             {shown.map((r, i) => <option key={r.copyId} value={r.copyId}>{r.who} · {i + 1} of {shown.length}{r.late ? ' · Late' : ''}</option>)}
@@ -333,7 +341,7 @@ export function ReviewQueue({ orgId, onChanged, onClose, tabs }: { orgId: string
                         ) : null}
                     </section>
 
-                    <div className="flex min-h-0 min-w-0 flex-col p-3">
+                    <div className="flex min-h-0 min-w-0 flex-col px-4 py-4">
                         <ReviewDiscussion key={current.copyId} row={current} restoreDraft={restore?.copyId === current.copyId ? restore : null} />
                     </div>
                 </div>
