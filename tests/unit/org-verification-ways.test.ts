@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { codeSendWindow, githubOrgOf, maskEmail, ownWebsites, proofFound, recheckVerification, verificationEmailDomain, verifiedLabel, VERIFY_CODE_SENDS_PER_HOUR } from "../../src/lib/organizations/trust-rules";
+import { codeSendWindow, emailFitsWebsites, githubOrgOf, sniffDocumentType, maskEmail, ownWebsites, proofFound, recheckVerification, verificationEmailDomain, verifiedLabel, VERIFY_CODE_SENDS_PER_HOUR } from "../../src/lib/organizations/trust-rules";
 
 // Verified badge, four ways (2026-11-05-org-address-discovery-verification-findings.md §5, §7).
 
@@ -62,4 +62,16 @@ test("Settings: On Discover, Web address and Verified badge sit in Visibility an
   assert.doesNotMatch(tab, /OrgHandleSection|OrgVerificationSection/, "nothing left in Details");
   const { ORG_REUSED_LABELS } = await import("../../src/lib/organizations/settings");
   assert.equal(ORG_REUSED_LABELS.access, "Visibility and discovery");
+});
+
+test("security review: the document's bytes decide its type; the email must match a website in Links when there is one", () => {
+  const bytes = (...b: number[]) => new Uint8Array(b);
+  assert.equal(sniffDocumentType(new TextEncoder().encode("%PDF-1.7")), "application/pdf");
+  assert.equal(sniffDocumentType(bytes(0xff, 0xd8, 0xff, 0xe0)), "image/jpeg");
+  assert.equal(sniffDocumentType(bytes(0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a)), "image/png");
+  assert.equal(sniffDocumentType(new TextEncoder().encode("RIFF\0\0\0\0WEBPVP8 ")), "image/webp");
+  assert.equal(sniffDocumentType(new TextEncoder().encode("<html><script>alert(1)</script>")), null, "HTML named .pdf is refused");
+  assert.deepEqual(emailFitsWebsites("rvce.edu.in", []), { ok: true }, "no website: the email domain is the claim");
+  assert.deepEqual(emailFitsWebsites("cse.rvce.edu.in", ["https://www.rvce.edu.in", "https://github.com/rvce"]), { ok: true });
+  assert.deepEqual(emailFitsWebsites("smallco.com", ["https://www.google.com"]), { ok: false, sites: ["google.com"] });
 });

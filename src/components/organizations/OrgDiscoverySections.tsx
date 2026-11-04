@@ -227,7 +227,7 @@ function EmailStart({ orgId, pending, run }: { orgId: string; pending: boolean; 
                 <Input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="name@rvce.edu.in" autoComplete="email" className="mt-1" />
             </label>
             <Button type="submit" size="sm" disabled={pending || !email.includes('@')}>Send code</Button>
-            <p className={cn(helpClass, 'basis-full')}>It needn’t be your sign-in email. Not Gmail, Outlook and the like. The code works for 10 minutes.</p>
+            <p className={cn(helpClass, 'basis-full')}>It needn’t be your sign-in email. Not Gmail, Outlook and the like; with a website in Links, an address on its domain. The code works for 10 minutes.</p>
         </form>
     )
 }

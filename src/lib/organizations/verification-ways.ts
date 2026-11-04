@@ -97,11 +97,28 @@ export async function findCodeInDns(links: unknown, code: string, resolve: typeo
 
 /** Marks an organization verified the given way and clears any pending request or past decline. */
 export async function markVerified(orgId: string, method: VerificationMethod, against: string | null, options: { domain?: string | null; by?: string | null } = {}) {
-  await db.update(workspaces).set({
+  // Never a live-only org: one suspended, archived or deleted in the meantime gets no ✓ (security review, 5 Nov).
+  const updated = await db.update(workspaces).set({
     verifiedAt: new Date(), verifiedBy: options.by ?? null, verificationMethod: method, verifiedAgainst: against,
     verificationDomain: options.domain ?? null, verificationRequestedAt: null,
     orgSettings: sql`coalesce(${workspaces.orgSettings}, '{}'::jsonb) - 'verification' - 'verificationRequest'`,
-  }).where(and(eq(workspaces.id, orgId), eq(workspaces.kind, "organization")));
+  }).where(and(eq(workspaces.id, orgId), eq(workspaces.kind, "organization"), isNull(workspaces.deletedAt), isNull(workspaces.suspendedAt),
+    sql`${workspaces.status} IS DISTINCT FROM 'archived'`)).returning({ id: workspaces.id });
+  return updated.length > 0;
+}
+
+/**
+ * A request's document goes as soon as the request does (Try another way, a new request, a parent ask), and an older
+ * decision's document goes when the owner starts over — nothing is left in storage without a purge date.
+ */
+export async function discardVerificationDocuments(orgId: string, settings: unknown, options: { decided?: boolean } = {}) {
+  const s = (settings ?? {}) as { verificationRequest?: VerificationRequest; verificationDocument?: { key?: string } };
+  const keys = [s.verificationRequest?.document?.key, options.decided ? s.verificationDocument?.key : undefined].filter((k): k is string => Boolean(k));
+  if (keys.length === 0) return;
+  const admin = await createAdminClient();
+  const { error } = await admin.storage.from(VERIFICATION_DOCUMENTS_BUCKET).remove(keys);
+  if (error) logger.warn("org_verification.document_delete_failed", { module: "trust", orgId, error: error.message });
+  if (options.decided) await db.update(workspaces).set({ orgSettings: sql`coalesce(${workspaces.orgSettings}, '{}'::jsonb) - 'verificationDocument'` }).where(eq(workspaces.id, orgId));
 }
 
 /**

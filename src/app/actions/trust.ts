@@ -7,10 +7,10 @@ import { and, eq, ilike, isNull, ne, sql } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { orgVerificationCodes, workspaces } from '@/lib/db/schema';
 import { getWorkspaceAccessById } from '@/lib/data/workspace-access';
-import { codeSendWindow, linkUrls, maskEmail, verificationDomain, verificationEmailDomain, VERIFY_CODE_MINUTES, VERIFY_CODE_TRIES } from '@/lib/organizations/trust-rules';
+import { codeSendWindow, emailFitsWebsites, linkUrls, maskEmail, sniffDocumentType, verificationDomain, verificationEmailDomain, VERIFY_CODE_MINUTES, VERIFY_CODE_TRIES } from '@/lib/organizations/trust-rules';
 import { orgGrant, type OrgRole } from '@/lib/organizations/permissions';
 import { readViewerOrgRole } from '@/lib/organizations/detail';
-import { findCodeInDns, findCodeOnGithub, findCodeOnWebsite, hashVerifyCode, markVerified, proofCode, VERIFICATION_DOCUMENTS_BUCKET, type VerificationRequest } from '@/lib/organizations/verification-ways';
+import { discardVerificationDocuments, findCodeInDns, findCodeOnGithub, findCodeOnWebsite, hashVerifyCode, markVerified, proofCode, VERIFICATION_DOCUMENTS_BUCKET, type VerificationRequest } from '@/lib/organizations/verification-ways';
 import { notifyOrg, orgEmailBase, orgHref, orgLabel } from '@/lib/organizations/notify';
 import { queueEmails, wakeEmailWorker } from '@/lib/email/outbox';
 import { createAdminClient, createClient } from '@/lib/supabase/server';
@@ -56,7 +56,7 @@ export async function requestOrgVerificationAction(orgId: string, form: FormData
     if (org.verifiedAt) return { success: true, verified: true };
     const domain = user.email_confirmed_at ? verificationDomain(user.email, linkUrls(org.links)) : null;
     if (domain) {
-        await markVerified(orgId, 'owner_email', domain, { domain });
+        if (!(await markVerified(orgId, 'owner_email', domain, { domain }))) return DENIED;
         done(org.slug, orgId);
         return { success: true, verified: true };
     }
@@ -69,15 +69,20 @@ export async function requestOrgVerificationAction(orgId: string, form: FormData
     const file = form.get('document');
     if (file instanceof File && file.size > 0) {
         // ponytail: the file rides in the action's 4 MB body; a signed upload if documents ever need to be bigger.
-        if (!['application/pdf', 'image/jpeg', 'image/png', 'image/webp'].includes(file.type)) return { success: false, error: 'Attach a PDF, JPG, PNG or WebP.' };
         if (file.size > 3.5 * 1024 * 1024) return { success: false, error: 'The document is too large. Up to 3.5 MB.' };
-        const key = `${orgId}/${Date.now()}-${file.name.replace(/[^\w.-]+/g, '_').slice(-80)}`;
+        const bytes = Buffer.from(await file.arrayBuffer());
+        // The bytes decide the type, never the browser's claim; staff get it as a download (verificationDocumentUrlAction).
+        const type = sniffDocumentType(bytes);
+        if (!type) return { success: false, error: 'Attach a PDF, JPG, PNG or WebP.' };
+        const key = `${orgId}/${Date.now()}.${type.split('/')[1]}`;
         const admin = await createAdminClient();
-        const { error } = await admin.storage.from(VERIFICATION_DOCUMENTS_BUCKET).upload(key, Buffer.from(await file.arrayBuffer()), { contentType: file.type, upsert: false });
+        const { error } = await admin.storage.from(VERIFICATION_DOCUMENTS_BUCKET).upload(key, bytes, { contentType: type, upsert: false });
         if (error) return { success: false, error: 'Couldn’t attach the document. Try again.' };
-        document = { key, name: file.name.slice(0, 200), size: file.size, type: file.type };
+        document = { key, name: file.name.slice(0, 200), size: file.size, type };
     }
     const request: VerificationRequest = { method: 'team', at: new Date().toISOString(), explanation, links, document };
+    // Starting over: the earlier request's document and an earlier decision's go now, not orphaned.
+    await discardVerificationDocuments(orgId, org.settings, { decided: true });
     // Asking again clears a past decline or removal (report §27.9).
     await db.update(workspaces).set({
         verificationRequestedAt: new Date(),
@@ -94,6 +99,7 @@ export async function cancelOrgVerificationAction(orgId: string): Promise<{ succ
     if (!owner) return DENIED;
     // Ends a code without forgetting its sends, so "another way" can't reset the 3-an-hour limit.
     await db.update(orgVerificationCodes).set({ expiresAt: new Date() }).where(eq(orgVerificationCodes.orgId, orgId));
+    await discardVerificationDocuments(orgId, owner.org.settings);
     await db.update(workspaces).set({ verificationRequestedAt: null, orgSettings: sql`coalesce(${workspaces.orgSettings}, '{}'::jsonb) - 'verification' - 'verificationRequest'` })
         .where(and(eq(workspaces.id, orgId), isNull(workspaces.verifiedAt)));
     done(owner.org.slug, orgId);
@@ -107,6 +113,8 @@ export async function requestOrgEmailCodeAction(orgId: string, email: string): P
     if (owner.org.verifiedAt) return { success: false, error: 'This organization is already verified.' };
     const parsed = verificationEmailDomain(email);
     if ('error' in parsed) return { success: false, error: parsed.error };
+    const fits = emailFitsWebsites(parsed.domain, linkUrls(owner.org.links));
+    if (!fits.ok) return { success: false, error: `Use an address on ${fits.sites[0]}, the website in your Links.` };
     const address = email.trim().toLowerCase();
     const [current] = await db.select({ sends: orgVerificationCodes.sends }).from(orgVerificationCodes).where(eq(orgVerificationCodes.orgId, orgId)).limit(1);
     const now = new Date();
@@ -133,14 +141,19 @@ export async function confirmOrgEmailCodeAction(orgId: string, code: string): Pr
     if (!row) return { success: false, error: 'Send a code first.' };
     if (row.expiresAt.getTime() < Date.now()) return { success: false, error: 'That code has expired. Send a new one.' };
     if (row.attempts >= VERIFY_CODE_TRIES) return { success: false, error: 'Too many tries. Send a new code.' };
+    // Every try is counted before it's checked, in one statement, so parallel guesses can't share a try.
+    const [counted] = await db.update(orgVerificationCodes).set({ attempts: sql`${orgVerificationCodes.attempts} + 1` })
+        .where(and(eq(orgVerificationCodes.orgId, orgId), sql`${orgVerificationCodes.attempts} < ${VERIFY_CODE_TRIES}`)).returning({ attempts: orgVerificationCodes.attempts });
+    if (!counted) return { success: false, error: 'Too many tries. Send a new code.' };
     const given = Buffer.from(hashVerifyCode(orgId, code.replace(/\s+/g, '')));
     if (!/^\d{6}$/.test(code.replace(/\s+/g, '')) || !timingSafeEqual(given, Buffer.from(row.codeHash))) {
-        await db.update(orgVerificationCodes).set({ attempts: row.attempts + 1 }).where(eq(orgVerificationCodes.orgId, orgId));
-        const left = VERIFY_CODE_TRIES - row.attempts - 1;
+        const left = VERIFY_CODE_TRIES - counted.attempts;
         return { success: false, error: left > 0 ? `That code isn’t right. ${left} ${left === 1 ? 'try' : 'tries'} left.` : 'Too many tries. Send a new code.' };
     }
     const domain = row.email.split('@')[1]!;
-    await markVerified(orgId, 'email', domain, { by: owner.user.id });
+    // Links may have changed since the code was sent.
+    if (!emailFitsWebsites(domain, linkUrls(owner.org.links)).ok) return { success: false, error: 'Your website in Links changed. Send a code to an address on it.' };
+    if (!(await markVerified(orgId, 'email', domain, { by: owner.user.id }))) return DENIED;
     await db.delete(orgVerificationCodes).where(eq(orgVerificationCodes.orgId, orgId));
     done(owner.org.slug, orgId);
     return { success: true };
@@ -160,7 +173,7 @@ export async function checkOrgProofAction(orgId: string, where: 'website' | 'git
                     : 'We didn’t find a TXT record with the code yet. DNS changes can take up to an hour.';
         return { success: false, error: missing };
     }
-    await markVerified(orgId, where, found, { domain: where === 'website' ? found : null, by: owner.user.id });
+    if (!(await markVerified(orgId, where, found, { domain: where === 'website' ? found : null, by: owner.user.id }))) return DENIED;
     await db.delete(orgVerificationCodes).where(eq(orgVerificationCodes.orgId, orgId));
     done(org.slug, orgId);
     return { success: true };
@@ -193,6 +206,7 @@ export async function askParentOrgAction(orgId: string): Promise<{ success: true
     if (!parent || parent.suspendedAt) return { success: false, error: 'That organization isn’t available.' };
     if (!parent.verifiedAt) return { success: false, error: `${parent.title} isn’t verified yet, so it can’t confirm you.` };
     const request: VerificationRequest = { method: 'parent', at: new Date().toISOString(), parentId: parent.id, parentTitle: parent.title };
+    await discardVerificationDocuments(orgId, owner.org.settings);
     await db.update(orgVerificationCodes).set({ expiresAt: new Date() }).where(eq(orgVerificationCodes.orgId, orgId));
     await db.update(workspaces).set({ orgSettings: sql`(coalesce(${workspaces.orgSettings}, '{}'::jsonb) - 'verification') || jsonb_build_object('verificationRequest', ${JSON.stringify(request)}::jsonb)` })
         .where(eq(workspaces.id, orgId));
@@ -211,14 +225,17 @@ export async function decideParentVerificationAction(parentId: string, childId: 
     if (!user || !isUuid(parentId) || !isUuid(childId)) return DENIED;
     const role = await readViewerOrgRole(parentId, user.id);
     if (role !== 'owner' && role !== 'admin') return DENIED;
+    // Both live: a parent that was suspended or lost its ✓, or a child suspended, archived or deleted since asking,
+    // can't confirm or be confirmed (security review, 5 Nov).
+    const live = and(isNull(workspaces.deletedAt), isNull(workspaces.suspendedAt), sql`${workspaces.status} IS DISTINCT FROM 'archived'`);
     const [[parent], [child]] = await Promise.all([
-        db.select({ title: workspaces.title, verifiedAt: workspaces.verifiedAt }).from(workspaces).where(eq(workspaces.id, parentId)).limit(1),
-        db.select({ title: workspaces.title, slug: workspaces.slug, ownerId: workspaces.ownerId, settings: workspaces.orgSettings }).from(workspaces).where(and(eq(workspaces.id, childId), eq(workspaces.kind, 'organization'))).limit(1),
+        db.select({ title: workspaces.title, verifiedAt: workspaces.verifiedAt }).from(workspaces).where(and(eq(workspaces.id, parentId), eq(workspaces.kind, 'organization'), live)).limit(1),
+        db.select({ title: workspaces.title, slug: workspaces.slug, ownerId: workspaces.ownerId, settings: workspaces.orgSettings }).from(workspaces).where(and(eq(workspaces.id, childId), eq(workspaces.kind, 'organization'), live)).limit(1),
     ]);
     const request = pending(child?.settings);
     if (!parent?.verifiedAt || !child || request?.method !== 'parent' || request.parentId !== parentId) return { success: false, error: 'This request isn’t waiting any more.' };
     if (approve) {
-        await markVerified(childId, 'parent', `Part of ${parent.title}`, { by: user.id });
+        if (!(await markVerified(childId, 'parent', `Part of ${parent.title}`, { by: user.id }))) return { success: false, error: 'This request isn’t waiting any more.' };
     } else {
         const declined = { state: 'declined', reason: reason?.trim().slice(0, 500) || `${parent.title} didn’t confirm it.`, at: new Date().toISOString() };
         await db.update(workspaces).set({ orgSettings: sql`(coalesce(${workspaces.orgSettings}, '{}'::jsonb) - 'verificationRequest') || jsonb_build_object('verification', ${JSON.stringify(declined)}::jsonb)` })

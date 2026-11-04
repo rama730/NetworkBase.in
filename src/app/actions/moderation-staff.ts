@@ -473,7 +473,8 @@ export async function verificationDocumentUrlAction(orgId: string): Promise<Resu
     const [row] = await db.select({ key: sql<string | null>`${workspaces.orgSettings}->'verificationRequest'->'document'->>'key'` }).from(workspaces).where(eq(workspaces.id, orgId)).limit(1);
     if (!row?.key) return { success: false, error: 'No document.' };
     const admin = await createAdminClient();
-    const { data, error } = await admin.storage.from(VERIFICATION_DOCUMENTS_BUCKET).createSignedUrl(row.key, 300);
+    // Always a download, never rendered in the staff browser (security review, 5 Nov); the type was sniffed on upload.
+    const { data, error } = await admin.storage.from(VERIFICATION_DOCUMENTS_BUCKET).createSignedUrl(row.key, 300, { download: row.key.split('/').pop() ?? 'document' });
     if (error || !data) return { success: false, error: 'Couldn’t open the document.' };
     return { success: true, url: data.signedUrl };
 }

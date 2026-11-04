@@ -135,6 +135,31 @@ export function ownWebsites(urls: string[]) {
   });
 }
 
+/**
+ * Way 4's document: what the bytes really are (PDF, JPEG, PNG, WebP), never what the browser claimed. Null for
+ * anything else.
+ */
+export function sniffDocumentType(bytes: Uint8Array): "application/pdf" | "image/jpeg" | "image/png" | "image/webp" | null {
+  const at = (i: number, values: number[]) => values.every((v, k) => bytes[i + k] === v);
+  if (at(0, [0x25, 0x50, 0x44, 0x46, 0x2d])) return "application/pdf";
+  if (at(0, [0xff, 0xd8, 0xff])) return "image/jpeg";
+  if (at(0, [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])) return "image/png";
+  if (at(0, [0x52, 0x49, 0x46, 0x46]) && at(8, [0x57, 0x45, 0x42, 0x50])) return "image/webp";
+  return null;
+}
+
+/**
+ * Way 1 and the website the organization claims: with a website in Links, the email must be on its domain (or a
+ * subdomain either way), so the ✓ can't say "acme.com" next to someone else's address. With none — a class without a
+ * site — any school or work domain is the claim, and the ✓'s label shows it (D2).
+ */
+export function emailFitsWebsites(emailDomain: string, websites: string[]) {
+  const sites = ownWebsites(websites).map(host).filter((s): s is string => Boolean(s));
+  if (sites.length === 0) return { ok: true as const };
+  const ok = sites.some((site) => emailDomain === site || emailDomain.endsWith(`.${site}`) || site.endsWith(`.${emailDomain}`));
+  return ok ? { ok: true as const } : { ok: false as const, sites };
+}
+
 export function hostOf(url: string) {
   return host(url);
 }

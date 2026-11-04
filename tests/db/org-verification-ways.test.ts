@@ -151,7 +151,11 @@ test("way 4: team review takes an explanation, links and a document; staff see t
   const form = new FormData();
   form.set("explanation", "We are a three-person startup building parsers; reach us at the address below.");
   form.set("links", "https://www.linkedin.com/company/mini-startup");
-  form.set("document", new File([new Uint8Array([37, 80, 68, 70])], "registration.pdf", { type: "application/pdf" }));
+  const fake = new FormData();
+  fake.set("explanation", "We are a three-person startup building parsers; reach us at the address below.");
+  fake.set("document", new File([new TextEncoder().encode("<html><script>alert(1)</script>")], "registration.pdf", { type: "application/pdf" }));
+  assert.equal((await trust.requestOrgVerificationAction(o.id, fake)).success, false, "the bytes decide, not the claimed type");
+  form.set("document", new File([new TextEncoder().encode("%PDF-1.7 registration")], "registration.pdf", { type: "application/pdf" }));
   assert.deepEqual(await trust.requestOrgVerificationAction(o.id, form), { success: true, verified: false }, "a Gmail owner without a website goes to the team");
   const asked = await row(o.id);
   assert.ok(asked.verification_requested_at);
@@ -176,4 +180,36 @@ test("way 4: team review takes an explanation, links and a document; staff see t
   assert.equal(await ways.purgeOrgVerificationDocuments(new Date(Date.now() + 31 * 86_400_000)), 1);
   assert.deepEqual(storage.removed, [storage.uploaded[0]]);
   assert.equal((await row(o.id)).org_settings.verificationDocument, undefined);
+});
+
+test("security review: a matching website, counted tries, no orphaned documents, and no ✓ for a suspended child", async () => {
+  const o = await org("Acme Labs");
+  viewerId = o.owner;
+  await sql`UPDATE workspaces SET external_links = ${sql.json([{ url: "https://www.acme.com" }])} WHERE id = ${o.id}`;
+  const other = await trust.requestOrgEmailCodeAction(o.id, "me@smallco.com");
+  assert.ok(!other.success && /acme\.com/.test(other.error), "the ✓ can't say acme.com next to someone else's address");
+  assert.equal((await trust.requestOrgEmailCodeAction(o.id, "me@team.acme.com")).success, true);
+  const guesses = await Promise.all(Array.from({ length: 8 }, () => trust.confirmOrgEmailCodeAction(o.id, "000000")));
+  assert.ok(guesses.every((g) => !g.success));
+  const [tries] = await sql`SELECT attempts FROM org_verification_codes WHERE org_id = ${o.id}`;
+  assert.equal(tries!.attempts, 5, "parallel guesses can't share a try");
+
+  const before = storage.removed.length;
+  const form = new FormData();
+  form.set("explanation", "Acme Labs is a two-person studio; our accountant can confirm it.");
+  form.set("document", new File([new TextEncoder().encode("%PDF-1.7 a")], "a.pdf", { type: "application/pdf" }));
+  await trust.requestOrgVerificationAction(o.id, form);
+  const key = (await row(o.id)).org_settings.verificationRequest.document.key as string;
+  await trust.cancelOrgVerificationAction(o.id);
+  assert.deepEqual(storage.removed.slice(before), [key], "Try another way deletes the request's document at once");
+
+  const parent = await org("Parent U", { verified: true });
+  const child = await org("Child Club");
+  await sql`UPDATE workspaces SET org_settings = coalesce(org_settings, '{}'::jsonb) || jsonb_build_object('partOfOrgId', ${parent.id}::text) WHERE id = ${child.id}`;
+  viewerId = child.owner;
+  await trust.askParentOrgAction(child.id);
+  await sql`UPDATE workspaces SET suspended_at = now() WHERE id = ${child.id}`;
+  viewerId = parent.admin;
+  assert.equal((await trust.decideParentVerificationAction(parent.id, child.id, true)).success, false, "suspended since asking: no ✓");
+  assert.equal((await row(child.id)).verified_at, null);
 });

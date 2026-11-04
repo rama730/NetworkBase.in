@@ -303,3 +303,18 @@ label; Settings order; the code email. DB — Settings agrees with the feed; the
 with document, staff-only document link, approval, 30-day purge). Browser — creation field, Part of linking and the
 created screen; every On Discover state; Web address (owner and admin); the badge card's four ways and every state;
 phone width and axe. Not checked here: your signed-in screens, a real code email, or a real website/GitHub/DNS check.
+
+### Follow-up: security review of the verification code (5 November 2026)
+
+An automatic review of `c51aed3f5` found four issues; all fixed:
+- **No ✓ for an organization that isn't live.** `markVerified` now only verifies an organization that isn't deleted,
+  suspended or archived, and the parent's Confirm checks both sides are live (a child suspended since asking gets
+  nothing).
+- **No orphaned documents.** Try another way, a new team request and a parent ask delete the pending request's
+  document at once; starting a new team request also deletes an earlier decision's document.
+- **The bytes decide a document's type.** PDF, JPEG, PNG and WebP are recognised from their first bytes (HTML named
+  `.pdf` is refused), stored under that type with a generated name, and staff always get it as a download.
+- **Way 1 matches the website.** With a website in Links, the code must go to an address on its domain, and that's
+  checked again on confirm; with none (a class without a site), any school or work domain still works and the ✓ says
+  which.
+- Also found while fixing: each wrong code now counts in one statement, so parallel guesses can't share a try.
