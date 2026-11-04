@@ -269,7 +269,8 @@ test("task file move dialog is roomy and layered above the detail panel", () => 
 
   assert.match(panel, /sm:w-\[580px\]/);
   assert.match(panel, /sm:max-w-\[580px\]/);
-  assert.match(panel, /grid-cols-4/);
+  // Review UX 1.12: the tab bar takes any number of tabs (the Assignment tab is a fifth).
+  assert.match(panel, /grid-flow-col auto-cols-fr/);
   assert.match(panel, /overflow-visible/);
   // Only phones may scroll the tab strip sideways.
   assert.doesNotMatch(panel, /(?<!max-md:)overflow-x-auto/);

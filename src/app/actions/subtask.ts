@@ -32,6 +32,13 @@ export async function createSubtaskAction(
             return { success: false, error: parsedTitle.error.issues[0]?.message || "Invalid subtask title" };
         }
         const user = await requireSubtaskWriter();
+        // Review UX 1.9: a step on a main assignment goes to every copy, as Add step does.
+        const [owner] = await db.select({ kind: tasks.kind, assignmentId: tasks.assignmentId }).from(tasks).where(eq(tasks.id, taskId)).limit(1);
+        if (owner?.kind === "assignment" && !owner.assignmentId) {
+            const { addAssignmentStepAction } = await import("@/app/actions/assignments");
+            const added = await addAssignmentStepAction(taskId, parsedTitle.data);
+            return added.success ? { success: true } : { success: false, error: added.error };
+        }
 
         const created = await db.transaction(async (tx) => {
             await lockSubtaskWriteScope(tx, { taskId }, projectId, user.id);

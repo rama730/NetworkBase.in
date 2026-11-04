@@ -62,6 +62,7 @@ import SubtasksTab from "./TaskDetailTabs/SubtasksTab";
 import TaskPriorityBadge from "./badges/TaskPriorityBadge";
 import TaskStatusBadge from "./badges/TaskStatusBadge";
 import { isAssignmentMaster } from "@/lib/workspaces/task-presentation";
+import { masterChip, MASTER_TAB_NOTES } from "@/lib/organizations/assignment-rules";
 import { OpenInIdeButton, OpenInIdeSheet } from "@/components/workspaces/v2/files-tab/OpenInIdeButton";
 import {
   DropdownMenu,
@@ -75,6 +76,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ReportMenuItem, useReportDialog } from "@/components/reports/ReportDialog";
+
+const TONE_STATUS = { info: "active", warn: "draft", muted: "archived" } as const;
 
 interface TaskDetailPanelProps {
   task: TaskSurfaceRecord | any;
@@ -244,6 +247,11 @@ export default function TaskDetailPanel({
     normalizedTask,
   ]);
 
+  const progress = isAssignmentMaster(resource.task) ? resource.task.assignmentProgress : null;
+  const masterState = progress ? masterChip({ publishedAt: progress.draft ? null : "published", closedAt: progress.closed ? "closed" : null }) : null;
+  // Review UX 1.9–1.11: on a main assignment, each tab says what it holds.
+  const MASTER_TAB_NOTE = (tab: keyof typeof MASTER_TAB_NOTES) => isAssignmentMaster(resource.task)
+    ? <p className="border-b border-border bg-muted/30 px-6 py-2 text-[12px] text-muted-foreground max-md:px-4">{MASTER_TAB_NOTES[tab]}</p> : null;
   const tabs = useMemo(
     () => [
       { id: "details" as const, label: "Details", icon: CheckSquare },
@@ -366,7 +374,10 @@ export default function TaskDetailPanel({
                       <Copy className="size-3 opacity-0 group-hover:opacity-100 transition-opacity" />
                     )}
                   </button>
-                  <TaskStatusBadge status={resource.task.status} reviewStatus={resource.task.reviewStatus} />
+                  {masterState ? (
+                    // Review UX 1.7: a main assignment shows its own life, not a status derived from the copies.
+                    <span className="nb-status" data-status={TONE_STATUS[masterState.tone]}>{masterState.label}</span>
+                  ) : <TaskStatusBadge status={resource.task.status} reviewStatus={resource.task.reviewStatus} />}
                   <TaskPriorityBadge priority={resource.task.priority} />
                   {showRealtimeIssue ? (
                     <span className="rounded-[3px] border border-amber-500/20 bg-amber-500/10 px-2 py-0.5 font-mono text-[11px] font-medium text-amber-700 dark:text-amber-400">
@@ -474,7 +485,7 @@ export default function TaskDetailPanel({
             <div
               role="tablist"
               aria-label="Task details"
-              className="grid w-full grid-cols-4 items-center gap-1 overflow-visible px-3 pb-0 sm:px-4 max-md:flex max-md:overflow-x-auto"
+              className="grid w-full grid-flow-col auto-cols-fr items-center gap-1 overflow-visible px-3 pb-0 sm:px-4 max-md:flex max-md:overflow-x-auto"
             >
               {tabs.map((tab) => (
                 <button
@@ -610,6 +621,7 @@ export default function TaskDetailPanel({
                 aria-labelledby="task-tab-subtasks"
                 hidden={activeTab !== "subtasks"}
               >
+                {MASTER_TAB_NOTE("subtasks")}
                 <SubtasksTab
                   subtasks={resource.subtasks}
                   totalCount={resource.counts.subtasks}
@@ -650,6 +662,7 @@ export default function TaskDetailPanel({
                 aria-labelledby="task-tab-comments"
                 hidden={activeTab !== "comments"}
               >
+                {MASTER_TAB_NOTE("comments")}
                 {/* Decision 16: a copy has two conversations; private is the default, the worse mistake being the other. */}
                 {normalizedTask.assignmentId ? (
                   <div className="flex flex-wrap items-center gap-2 px-6 pt-4 text-sm max-md:px-4" role="group" aria-label="Conversation">
@@ -696,6 +709,7 @@ export default function TaskDetailPanel({
                 aria-labelledby="task-tab-files"
                 hidden={activeTab !== "files"}
               >
+                {MASTER_TAB_NOTE("files")}
                 <FilesTab
                   projectId={projectId}
                   projectSlug={projectSlug}

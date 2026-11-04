@@ -2,6 +2,7 @@
 
 import { HandInSection } from "@/components/organizations/HandInSection";
 import { AssignmentManageSection } from "@/components/organizations/AssignmentsPanel";
+import { MasterEditButton } from "@/components/organizations/MasterEditButton";
 import { isAssignmentMaster } from "@/lib/workspaces/task-presentation";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { formatTaskDueDate, isTaskOverdue } from "@/lib/workspaces/task-presentation";
@@ -128,7 +129,8 @@ export default function DetailsTab({
   const master = isAssignmentMaster(task);
   // Student check 5 (assignmentWriteBlock, reassignBlock): a copy's title, instructions and due date are set by the
   // organization, Submit hands it in, and only a team copy changes hands.
-  const canEditSet = canEdit && !task.assignmentId;
+  // Review UX 1.8: a main assignment's set fields change for everyone through Edit for everyone, never here.
+  const canEditSet = canEdit && !task.assignmentId && !master;
   const copyKeepsPerson = Boolean(task.assignmentId) && !task.teamName;
   const reviewState = useQuery({
     queryKey: ["task-review-state", task.id, task.updatedAt, completedSubtaskCount, attachmentCount],
@@ -329,7 +331,8 @@ export default function DetailsTab({
           onSubmitted={(review) => onReviewApproved(new Date().toISOString(), "done", review ? "pending" : "none")} />
       ) : null}
 
-      {task.reviewStatus === "pending" && !master ? (
+      {/* Review UX 2.1, 3.12: a hand-in is reviewed through its own card and the queue, not this generic box. */}
+      {task.reviewStatus === "pending" && !master && !task.assignmentId ? (
         <div className="rounded-[6px] border border-primary/20 bg-primary/10 px-4 py-3 text-sm text-foreground">
           <div className="flex items-start gap-3">
             <Lock className="mt-0.5 h-4 w-4 flex-shrink-0 text-primary" />
@@ -535,6 +538,13 @@ export default function DetailsTab({
           </div>
         </div>
       ))}
+
+      {master && canEdit && task.projectId ? (
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-[5px] border border-border bg-muted/30 px-3 py-2 text-[13px] text-muted-foreground">
+          <span>The title, instructions, due date and priority change for everyone.</span>
+          <MasterEditButton orgId={task.projectId} masterId={task.id} />
+        </div>
+      ) : null}
 
       {/* Description Block (Markdown Preview + Autogrow Editor) */}
       <div className="space-y-1.5">
@@ -777,7 +787,7 @@ export default function DetailsTab({
               <DropdownMenuTrigger asChild>
                 <button
                   type="button"
-                  disabled={!canEdit || isMutating}
+                  disabled={!canEdit || master || isMutating}
                   className="nb-touch-target h-[34px] w-full rounded-[5px] border border-border bg-background px-3 text-[13px] text-foreground flex items-center justify-between transition hover:border-foreground/30 focus:border-primary disabled:opacity-50"
                   aria-label="Select priority"
                 >
@@ -1059,7 +1069,7 @@ export default function DetailsTab({
                 }
               }}
               placeholder="No estimate"
-              disabled={!canEdit || isMutating}
+              disabled={!canEdit || master || isMutating}
               className="nb-touch-target h-[34px] w-full rounded-[5px] border border-border bg-background px-3 font-mono text-[13px] text-foreground outline-none transition focus:border-primary disabled:opacity-50"
             />
             <div className={cn("flex flex-wrap items-center gap-1 pt-0.5", !canEdit && "hidden")}>
@@ -1076,7 +1086,7 @@ export default function DetailsTab({
                       task.storyPoints === points ? null : points,
                     )
                   }
-                  disabled={!canEdit || isMutating}
+                  disabled={!canEdit || master || isMutating}
                   className={cn(
                     "inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-[3px] border font-mono text-[10px] max-md:text-[11px] font-semibold transition-colors disabled:opacity-50",
                     task.storyPoints === points

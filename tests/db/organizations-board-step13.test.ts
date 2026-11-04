@@ -20,6 +20,8 @@ stubNextAfter();
 
 let assignments: typeof import("../../src/app/actions/assignments");
 let tasks: typeof import("../../src/lib/workspaces/server/tasks");
+let taskActions: typeof import("../../src/app/actions/task");
+let subtasks: typeof import("../../src/app/actions/subtask");
 before(async () => {
   const viewerContext = await loadAppModule(() => import("../../src/lib/server/viewer-context"));
   moduleStubs.set("@/lib/server/viewer-context", {
@@ -28,6 +30,8 @@ before(async () => {
   });
   assignments = await loadAppModule(() => import("../../src/app/actions/assignments"));
   tasks = await loadAppModule(() => import("../../src/lib/workspaces/server/tasks"));
+  taskActions = await loadAppModule(() => import("../../src/app/actions/task"));
+  subtasks = await loadAppModule(() => import("../../src/app/actions/subtask"));
 });
 
 const created: string[] = [];
@@ -86,6 +90,29 @@ test("decision 85: the panel's Hand in shows what's asked, the latest version an
   viewerId = owner!;
   const admin = await assignments.readHandInAction(copy!.id);
   assert.deepEqual(admin.success && [admin.handIn.holder, admin.handIn.canSubmit], [false, false], "admins read it");
+});
+
+test("review ux 1.8, 1.9, 1.13: a main assignment's date edits go through Edit for everyone, its steps reach every copy, and one assignment reads alone", async () => {
+  const [owner, asha] = await Promise.all([1, 2].map(() => sql.begin((tx) => createUser(tx))));
+  const org = await sql.begin((tx) => createProject(tx, owner!));
+  await sql`INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (${org}, ${owner!}, 'owner'), (${org}, ${asha!}, 'member')`;
+  await sql`UPDATE workspaces SET kind = 'organization', org_type = 'education', title = 'CSE 3B', join_code = ${generateJoinCode()} WHERE id = ${org}`;
+  created.push(org);
+  viewerId = owner!;
+  const make = (title: string) => assignments.createAssignmentAction({ projectId: org, title, dueDate: new Date(Date.now() + 864e5).toISOString(), publish: true,
+    submissionType: "text", reviewRequired: true, lateRule: "none", target: { mode: "everyone" }, steps: [] });
+  const one = await make("Lab 1");
+  await make("Lab 2");
+  const masterId = one.success ? one.masterId : "";
+  const field = await taskActions.updateTaskFieldAction(masterId, "dueDate", "2026-12-01", org);
+  assert.equal(field.success, false);
+  assert.match(String((field as { error?: string }).error), /Edit for everyone/);
+  await subtasks.createSubtaskAction(masterId, "Write tests", org);
+  const steps = await sql`SELECT t.assignment_id IS NOT NULL AS copy, s.title FROM task_subtasks s JOIN tasks t ON t.id = s.task_id WHERE t.id = ${masterId} OR t.assignment_id = ${masterId}`;
+  assert.deepEqual(steps.map((r) => [r.copy, r.title]).sort(), [[false, "Write tests"], [true, "Write tests"]]);
+  const list = await assignments.listAssignmentsAction(org, { masterId });
+  assert.deepEqual(list.success && list.rows.map((r) => r.title), ["Lab 1"]);
+  viewerId = "";
 });
 
 test("mockup task 3: the hand-in says who returned it, each file's size, and whether handing in now is late", async () => {

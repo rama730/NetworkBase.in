@@ -808,11 +808,12 @@ export type AssignmentRow = {
 const emptyCounts = (): AssignmentRow['counts'] => ({ not_started: 0, in_progress: 0, submitted: 0, returned: 0, done: 0, missing: 0, excused: 0, total: 0 });
 
 /** The Assignments view (report §16.5): admins and guests get counts per master; members get their own copy. */
-export async function listAssignmentsAction(orgId: string): Promise<{ success: true; isAdmin: boolean; rows: AssignmentRow[]; timeZone: string | null } | Failure> {
+export async function listAssignmentsAction(orgId: string, options: { masterId?: string } = {}): Promise<{ success: true; isAdmin: boolean; rows: AssignmentRow[]; timeZone: string | null } | Failure> {
     const viewer = await orgRole(orgId, 'read');
     if (!viewer) return DENIED;
+    // Review UX 1.13: one assignment's panel reads only that assignment.
     const masters = await db.select().from(tasks)
-        .where(and(eq(tasks.projectId, orgId), eq(tasks.kind, 'assignment'), isNull(tasks.assignmentId), isNull(tasks.deletedAt)))
+        .where(and(eq(tasks.projectId, orgId), eq(tasks.kind, 'assignment'), isNull(tasks.assignmentId), isNull(tasks.deletedAt), options.masterId ? eq(tasks.id, options.masterId) : undefined))
         .orderBy(asc(tasks.dueDate));
     const visible = masters.filter((m) => viewer.isAdmin || m.assignmentSettings?.publishedAt);
     const ids = visible.map((m) => m.id);

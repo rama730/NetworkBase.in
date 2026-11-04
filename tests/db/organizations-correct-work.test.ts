@@ -242,7 +242,11 @@ test("problems 23, 34 and 18: only admins edit a main assignment; it has no stat
   viewerId = o.a;
   assert.equal((await taskActions.updateTaskFieldAction(master, "title", "Renamed by a student", o.org)).success, false, "members can't rename it (problem 23)");
   viewerId = o.admin;
-  assert.equal((await taskActions.updateTaskFieldAction(master, "description", "Clearer brief", o.org)).success, true);
+  // Review UX 1.8: the field path refuses a main assignment's brief; Edit for everyone changes it on every copy.
+  assert.equal((await taskActions.updateTaskFieldAction(master, "description", "Clearer brief", o.org)).success, false);
+  assert.equal((await assignments.updateAssignmentAction(master, { description: "Clearer brief" })).success, true);
+  const briefs = await sql`SELECT DISTINCT description FROM tasks WHERE id = ${master} OR assignment_id = ${master}`;
+  assert.deepEqual(briefs.map((r) => r.description), ["Clearer brief"], "every copy has the new brief");
   assert.equal((await taskActions.updateTaskStatusAction(master, "done", o.org)).success, false, "no Completed on the main assignment (problem 34)");
   const [sprint] = await sql`INSERT INTO workspace_sprints (workspace_id, name, start_date, end_date, status) VALUES (${o.org}, 'CO2', now(), now() + interval '7 days', 'planning') RETURNING id`;
   const moved = await taskActions.updateTaskFieldAction(master, "sprintId", sprint!.id, o.org);

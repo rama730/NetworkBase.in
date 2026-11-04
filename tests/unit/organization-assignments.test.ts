@@ -53,7 +53,9 @@ test("report §19.3 and §42.12: one rule for every write to assignment work", a
   assert.equal(assignmentWriteBlock(task, "title"), null);
   // Main assignment (problems 23, 34, 22).
   assert.equal(assignmentWriteBlock(master, "title"), "Only CSE 3B’s admins change an assignment.");
-  assert.equal(assignmentWriteBlock({ ...master, actorRole: "admin" as const }, "title"), null);
+  // Review UX 1.8: the field path no longer edits a main assignment; Edit for everyone does, for every copy.
+  assert.equal(assignmentWriteBlock({ ...master, actorRole: "admin" as const }, "title"), "Use Edit for everyone, so every copy changes.");
+  assert.equal(assignmentWriteBlock({ ...master, actorRole: "admin" as const }, "sprintId"), null);
   assert.equal(assignmentWriteBlock({ ...master, actorRole: "admin" as const }, "status"), "An assignment’s state comes from its copies.");
   assert.equal(assignmentWriteBlock({ ...master, actorRole: "admin" as const, handedIn: true }, "delete"), "Someone has handed this in, so it can’t be deleted. Close it instead.");
   assert.equal(assignmentWriteBlock({ ...master, actorRole: "admin" as const }, "delete"), null);

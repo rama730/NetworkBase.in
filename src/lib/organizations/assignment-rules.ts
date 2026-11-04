@@ -163,6 +163,8 @@ export function assignmentWriteBlock(task: {
   if (task.isMaster) {
     if (!orgCan(task.actorRole, "edit_for_everyone")) return `Only ${task.orgTitle}’s admins change an assignment.`;
     if (write === "status" || write === "done") return "An assignment’s state comes from its copies.";
+    // Review UX 1.8: these change only the main task through the field path; Edit for everyone changes every copy.
+    if (write === "title" || write === "description" || write === "priority" || write === "dueDate" || write === "storyPoints") return "Use Edit for everyone, so every copy changes.";
     if (write === "delete" && task.handedIn) return "Someone has handed this in, so it can’t be deleted. Close it instead.";
     return null;
   }
@@ -282,3 +284,17 @@ export function handInChip(state: CopyState, approved: boolean): { label: string
     default: return { label: "Not started", tone: "muted" };
   }
 }
+
+/** Review UX 1.7: a main assignment's chip is its own life, never a task status derived from the copies. */
+export function masterChip(s: { publishedAt: string | null; publishAt?: string | null; closedAt: string | null }): { label: string; tone: "info" | "warn" | "muted" } {
+  if (s.closedAt) return { label: "Closed", tone: "muted" };
+  if (s.publishedAt) return { label: "Open", tone: "info" };
+  return s.publishAt ? { label: "Scheduled", tone: "info" } : { label: "Draft", tone: "warn" };
+}
+
+/** Review UX 1.9–1.11: what a main assignment's own tabs hold, said once at the top of each. */
+export const MASTER_TAB_NOTES = {
+  comments: "The brief and questions everyone with this assignment sees.",
+  files: "Materials. Students open these read-only from their own copy.",
+  subtasks: "Steps. A step added here goes to every copy.",
+} as const;

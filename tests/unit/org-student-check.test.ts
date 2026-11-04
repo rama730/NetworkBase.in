@@ -16,7 +16,7 @@ test("student check 4: a member's document keeps its title, header and list; Rep
 
 test("student check 5: a copy's set fields are read-only, Submit is the only way to Completed, and one person's copy keeps its person", () => {
   const details = source("src/components/workspaces/v2/tasks/TaskDetailTabs/DetailsTab.tsx");
-  assert.match(details, /const canEditSet = canEdit && !task\.assignmentId;/);
+  assert.match(details, /const canEditSet = canEdit && !task\.assignmentId && !master;/);
   assert.match(details, /const copyKeepsPerson = Boolean\(task\.assignmentId\) && !task\.teamName;/);
   assert.match(details, /aria-label=\{titlePresentation\.ariaLabel/);
   assert.match(details, /disabled=\{!canEditSet \|\| isMutating\}\s*rows=\{1\}/, "the title");

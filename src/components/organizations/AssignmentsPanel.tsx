@@ -872,7 +872,7 @@ export function AssignmentManageSection({ orgId, masterId, onChanged }: { orgId:
     const [confirm, setConfirm] = useState<{ title: string; description?: string | null; label: string; destructive?: boolean; act: () => Promise<{ success: boolean; error?: string }> } | null>(null)
     const [error, setError] = useState<string | null>(null)
     const [pending, startTransition] = useTransition()
-    const load = useCallback(() => void listAssignmentsAction(orgId).then((r) => {
+    const load = useCallback(() => void listAssignmentsAction(orgId, { masterId }).then((r) => {
         const row = r.success && r.isAdmin ? r.rows.find((x) => x.masterId === masterId) : undefined
         setData(row && r.success ? { row, timeZone: r.timeZone } : null)
     }), [masterId, orgId])
