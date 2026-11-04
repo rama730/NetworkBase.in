@@ -14,7 +14,7 @@ const source = (relative: string) => fs.readFileSync(path.join(process.cwd(), re
 
 test("5.7, decision 84: one set of status words, kept in terms.ts", () => {
   assert.deepEqual(Object.values(ASSIGNMENT_STATE_LABELS), ["Not started", "In progress", "In review", "Returned", "Done", "Missing", "Excused"]);
-  assert.deepEqual(Object.values(SPRINT_STATUS_LABELS), ["Upcoming", "Active", "Completed", "Archived", "Canceled"]);
+  assert.deepEqual(Object.values(SPRINT_STATUS_LABELS), ["Upcoming", "Running", "Closed", "Archived", "Canceled"]);
   for (const file of ["src/components/organizations/AssignmentsPanel.tsx", "src/components/organizations/OrgOverviewParts.tsx", "src/components/organizations/OrgSprintParts.tsx", "src/components/messages/cards/MessageCard.tsx"]) {
     assert.doesNotMatch(source(file), /not_started: ['"]Not started['"]/, `${file} uses ASSIGNMENT_STATE_LABELS`);
   }

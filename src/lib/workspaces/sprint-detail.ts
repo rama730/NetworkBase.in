@@ -151,17 +151,17 @@ export const SPRINT_STATUS_PRESENTATION: Record<
   }
 > = {
   planning: {
-    label: "Planning",
+    label: "Upcoming",
     dotClassName: "nb-sprint-dot-info",
     toneClassName: "nb-sprint-tone-info",
   },
   active: {
-    label: "In progress",
+    label: "Running",
     dotClassName: "nb-sprint-dot-success",
     toneClassName: "nb-sprint-tone-success",
   },
   completed: {
-    label: "Completed",
+    label: "Closed",
     dotClassName: "nb-sprint-dot-muted",
     toneClassName: "nb-sprint-tone-muted",
   },

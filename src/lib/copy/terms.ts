@@ -23,7 +23,8 @@ export const TASK_STATUS_LABELS = { todo: 'To do', in_progress: 'In progress', i
 export const ASSIGNMENT_STATE_LABELS = { not_started: 'Not started', in_progress: 'In progress', submitted: 'In review', returned: 'Returned', done: 'Done', missing: 'Missing', excused: 'Excused' } as const;
 export const LATE_MARK = 'Late';
 
-export const SPRINT_STATUS_LABELS = { planning: 'Upcoming', active: 'Active', completed: 'Completed', archived: 'Archived', cancelled: 'Canceled' } as const;
+// Sprint redesign §4: one word per phase everywhere (an active sprint past its end reads Ended on the Sprints tab).
+export const SPRINT_STATUS_LABELS = { planning: 'Upcoming', active: 'Running', completed: 'Closed', archived: 'Archived', cancelled: 'Canceled' } as const;
 
 /** Decision 11: status only; a workspace's progress is its Stages. */
 export const WORKSPACE_STATUS_LABELS = { draft: 'Draft', active: 'Active', completed: 'Completed', archived: 'Archived' } as const;
