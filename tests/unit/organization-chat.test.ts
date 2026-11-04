@@ -45,3 +45,21 @@ test("board/review report §7: Messages keeps a team workspace inside its organi
   assert.doesNotMatch(sections, /childWorkspacesOf\(data\.projects/, "no team headings beside Channels");
   assert.match(sections, />Team workspaces</);
 });
+
+test("Messages: opening a team's channel keeps its organization selected; an outside person's team stays its own", async () => {
+  const { channelHome } = await import("../../src/lib/organizations/chat-rules");
+  const projects = [
+    { id: "cse", title: "CSE 3B", kind: "organization", parent_id: null },
+    { id: "falcon", title: "Team Falcon", kind: "project", parent_id: "cse" },
+    { id: "lone", title: "Compiler Lab", kind: "project", parent_id: "other-org" },
+    { id: "nfb", title: "Network for builders", kind: "project", parent_id: null },
+  ];
+  assert.equal(channelHome("falcon", projects), "cse");
+  assert.equal(channelHome("cse", projects), "cse");
+  assert.equal(channelHome("lone", projects), "lone", "not in its organization: the team on its own");
+  assert.equal(channelHome("nfb", projects), "nfb");
+  assert.equal(channelHome("gone", projects), null, "a workspace you're not in shows All");
+  const { readFileSync } = await import("node:fs");
+  assert.match(readFileSync("src/components/messages/useSelectedWorkspace.ts", "utf8"), /channelHome\(/);
+  assert.match(readFileSync("src/components/messages/ConversationView.tsx", "utf8"), /channelHome\(/);
+});

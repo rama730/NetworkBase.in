@@ -58,6 +58,7 @@ import { ConnectionBanner } from "@/components/messages/ConnectionBanner";
 import { DropOverlay, draftKeyOf, dropFilesTo, useFileDrop } from "@/components/messages/useFileDrop";
 import { ConversationIcon } from "@/components/messages/ConversationIcon";
 import { ConversationSkeleton, TimelineSkeleton } from "@/components/messages/ConversationSkeleton";
+import { channelHome } from "@/lib/organizations/chat-rules";
 
 type Props = {
   channelId: string;
@@ -425,7 +426,8 @@ export function ConversationView({ channelId, around = null, surface = "page", o
 
   useEffect(() => {
     const projectId = channel?.project_id;
-    if (surface === "page" && projectId && shell.data?.projects?.some((p) => p.id === projectId)) setProject(projectId);
+    const home = projectId && shell.data?.projects ? channelHome(projectId, shell.data.projects) : null;
+    if (surface === "page" && home) setProject(home);
   }, [channel?.project_id, setProject, shell.data?.projects, surface]);
 
   const openDetails = useCallback((which: DetailsTab = "about") => {

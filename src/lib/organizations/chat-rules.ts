@@ -49,3 +49,12 @@ export function childWorkspacesOf<T extends ChatWorkspaceWorkspace>(projects: T[
 export function workspaceGroups<T extends ChatWorkspaceWorkspace>(projects: T[]) {
   return workspaceWorkspaces(projects).map((project) => ({ project, teams: project.kind === "organization" ? childWorkspacesOf(projects, project.id) : [] }));
 }
+
+/** The workspace Messages shows for a channel's workspace: a team's channel stays inside its organization when you're in
+ *  both (it's one of the organization's channels); otherwise the workspace itself; null when you're not in it. */
+export function channelHome<T extends ChatWorkspaceWorkspace>(projectId: string, projects: T[]): string | null {
+  const project = projects.find((p) => p.id === projectId);
+  if (!project) return null;
+  const org = project.parent_id ? projects.find((p) => p.id === project.parent_id && p.kind === "organization") : null;
+  return org ? org.id : project.id;
+}

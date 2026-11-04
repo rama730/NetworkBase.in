@@ -12,10 +12,11 @@ let script: string, css: string;
 
 const channel = (id: string, project: string, name: string, extra = '') => `{id:'${id}',kind:'channel',name:'${name}',topic:null,project_id:'${project}',application_id:null,is_default:true,last_seq:5,last_top_seq:5,last_read_seq:5,mention_count:0,
   notify:'all',starred:false,archived_at:null,channel_archived_at:null,last_message_at:null,last_preview:null,last_author_id:null,member_count:3,role:'member',dm_user:null,members_preview:null${extra}}`;
+const FALCON = '11111111-1111-4111-8111-111111111111', LONE = '22222222-2222-4222-8222-222222222222';
 const shell = `
 const data = { server_time: new Date().toISOString(), activity_latest_at: null, channels: [
-  ${channel('c-gen', 'cse', 'general')}, ${channel('c-falcon', 'falcon', 'team-falcon-hash-table-library', ",last_seq:9,mention_count:1")},
-  ${channel('c-o1', 'osprey', 'osprey-general')}, ${channel('c-o2', 'osprey', 'osprey-design', ',is_default:false')}, ${channel('c-nfb', 'nfb', 'general')}, ${channel('c-lone', 'lone', 'compiler-lab')}],
+  ${channel('c-gen', 'cse', 'general')}, ${channel(FALCON, 'falcon', 'team-falcon-hash-table-library', ",last_seq:9,mention_count:1")},
+  ${channel('c-o1', 'osprey', 'osprey-general')}, ${channel('c-o2', 'osprey', 'osprey-design', ',is_default:false')}, ${channel('c-nfb', 'nfb', 'general')}, ${channel(LONE, 'lone', 'compiler-lab')}],
   projects: [
     { id: 'cse', title: 'CSE 3B · Data Structures 2026', slug: 'cse', cover_image: null, role: 'owner', kind: 'organization', parent_id: null },
     { id: 'falcon', title: 'Team Falcon: Hash table library', slug: 'falcon', cover_image: null, role: 'member', kind: 'workspace', parent_id: 'cse', parent_title: 'CSE 3B' },
@@ -31,7 +32,9 @@ test.beforeAll(async () => {
     'next/link': `import React from 'react';export default ({href,children,prefetch,...p})=>React.createElement('a',{href,...p},children);`,
     '@/hooks/useAuth': `export const useAuth=()=>({user:{id:'me'},profile:{id:'me',username:'me',fullName:'Me',avatarUrl:null}});`,
     '@/components/messages/ChatShellProvider': shell,
-    '@/components/messages/useSelectedWorkspace': `export const useSelectedWorkspace=()=>new URLSearchParams(location.search).get('w');`,
+    // ?w= picks a workspace; otherwise the real choice from the URL (an open channel's workspace).
+    '@/components/messages/useSelectedWorkspace': `import { useSelectedWorkspace as real } from ${JSON.stringify(path.resolve('src/components/messages/useSelectedWorkspace.ts'))};export const useSelectedWorkspace=()=>{const r=real();return new URLSearchParams(location.search).get('w') ?? r;};`,
+    'next/navigation': `export const usePathname=()=>location.pathname,useRouter=()=>({push(){},replace(){},refresh(){},prefetch(){}}),useSearchParams=()=>new URLSearchParams(location.search);`,
     '@/components/presence/usePresence': `export const usePersonPresence=()=>null;`,
   };
   // Every other presence hook answers "nobody's around".
@@ -46,14 +49,14 @@ test.beforeAll(async () => {
   css = (await postcss([tailwind()]).process(await readFile('src/app/globals.css', 'utf8'), { from: path.resolve('src/app/globals.css') })).css;
 });
 
-async function open(page: Page, query = '') {
+async function open(page: Page, path = '') {
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.route(origin + '/**', (route) => {
     const url = new URL(route.request().url());
     const body = url.pathname === '/app.js' ? script : url.pathname === '/app.css' ? css : '<html lang="en"><head><title>Chat</title><meta charset="utf-8"><link rel="stylesheet" href="/app.css"></head><body><div id="root"></div><script src="/app.js"></script></body></html>';
     return route.fulfill({ body, contentType: url.pathname.endsWith('.js') ? 'application/javascript' : url.pathname.endsWith('.css') ? 'text/css' : 'text/html' });
   });
-  await page.goto(`${origin}/messages${query}`);
+  await page.goto(`${origin}/messages${path}`);
 }
 
 test('all workspaces: teams sit inside their organization; an outside team stays alone with its organization named', async ({ page }) => {
@@ -81,4 +84,20 @@ test('organization open: team channels are inside Channels, under Team workspace
   // A team's mention counts toward Channels.
   await expect(page.getByRole('heading', { name: /Channels , 1 mentions/ })).toBeVisible();
   await page.screenshot({ path: test.info().outputPath('chat-sidebar-org.png') });
+});
+
+test('opening a team channel keeps its organization selected: the same Channels, with the team row marked', async ({ page }) => {
+  await open(page, `/${FALCON}`);
+  await expect(page.getByRole('button', { name: /CSE 3B · Data Structures 2026/ }).first()).toBeVisible();
+  const channels = page.locator('section').filter({ has: page.getByRole('button', { name: /^Channels/ }) });
+  await expect(channels.getByRole('link', { name: 'general', exact: true })).toBeVisible();
+  await expect(channels.getByRole('link', { name: /team-falcon-hash-table-library/ })).toHaveAttribute('aria-current', 'page');
+  await expect(page.getByRole('button', { name: /Team Falcon: Hash table library/ })).toHaveCount(0);
+});
+
+test('someone in a team but not its organization still gets the team on its own', async ({ page }) => {
+  await open(page, `/${LONE}`);
+  const channels = page.locator('section').filter({ has: page.getByRole('button', { name: /^Channels/ }) });
+  await expect(channels.getByRole('link', { name: /compiler-lab/ })).toHaveAttribute('aria-current', 'page');
+  await expect(channels.getByRole('link', { name: 'general', exact: true })).toHaveCount(0);
 });
