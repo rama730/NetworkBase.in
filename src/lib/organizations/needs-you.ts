@@ -26,7 +26,7 @@ export const copyColumns = { id: tasks.id, title: tasks.title, projectId: tasks.
 export const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`
 
 /** `title` and `detail` are the row's bold line and quiet line (report §7.2); `approveId` approves one join request in place. */
-export type NeedsYouRow = { kind: string; label: string; href: string; tone?: 'amber'; title?: string; detail?: string; approveId?: string; /** How many it stands for (review rows: the board's In review number adds up from these). */ count?: number };
+export type NeedsYouRow = { kind: string; label: string; href: string; tone?: 'amber'; title?: string; detail?: string; approveId?: string; /** Way 2: the organization asking this one to confirm it. */ confirmChildId?: string; /** How many it stands for (review rows: the board's In review number adds up from these). */ count?: number };
 
 /** A person's own assignment copies in the org, theirs or their team's. */
 export async function ownCopies(orgId: string, userId: string) {
@@ -90,6 +90,10 @@ export async function readNeedsYou(v: OrgViewer, now: Date): Promise<NeedsYouRow
         for (const s of ended) rows.push({ kind: 'sprint', label: `${s.name} ended · Complete it?`, href: `${base}?tab=sprints` });
         // Decision 57: move-in and leave requests, each with Approve and Decline on the Workspaces tab.
         for (const c of children) rows.push({ kind: c.kind === 'leave' ? 'detach' : 'move_in', label: `${c.title} asks to ${c.kind === 'leave' ? 'leave' : 'join'}`, href: `${base}?tab=projects` });
+        // Verified badge way 2: organizations that name this one as "Part of" ask it to confirm them; Confirm or Decline here.
+        const { readParentAsks } = await import('@/lib/organizations/verification-ways');
+        for (const ask of await readParentAsks(v.org.id)) rows.push({ kind: 'verify_child', label: `${ask.title} asks you to confirm it`, title: `${ask.title} asks you to confirm it`,
+            detail: `It names ${v.org.title} as “Part of”. Confirming gives it a ✓.`, href: `/org/${encodeURIComponent(ask.slug ?? ask.id)}`, confirmChildId: ask.id });
         const max = cap?.max ? Number.parseInt(cap.max, 10) : NaN;
         if (Number.isFinite(max) && cap && cap.members >= max) rows.push({ kind: 'full', label: `${v.org.title} is full`, href: `${base}?tab=settings` });
         // Report §30.3: 50+ joins in an hour with the code; §30.5: verify after archive; §30.7: a lead left.

@@ -36,7 +36,9 @@ export function OrgAboutTab({ project, isCreator, onEdit, memberRole = null, vis
     // A member's card already says their role; owners and admins see theirs here.
     const yourRole = data?.card.kind === 'invite' && memberRole ? org?.roleNames?.[memberRole] ?? null : null
     const details = [
-        project.slug ? ['Handle', `@${project.slug}`] : null,
+        // 2026-11-05 findings §2 (G1): the web address, not an "@"; D2: what the ✓ was checked against.
+        project.slug ? ['Web address', `networkbase.in/org/${project.slug}`] : null,
+        org?.verifiedLabel ? ['Verified', org.verifiedLabel.replace(/^Verified · /, '').replace(/^Verified by /, 'By ')] : null,
         yourRole ? ['Your role', yourRole] : null,
         org?.timeZone ? ['Time zone', org.timeZone] : null,
         project.createdAt ? ['Since', formatInZone(project.createdAt, { month: 'short', year: 'numeric' }, org?.timeZone)] : null,
@@ -150,8 +152,8 @@ export function OrgAboutTab({ project, isCreator, onEdit, memberRole = null, vis
                                     <dt className="shrink-0 text-muted-foreground">{term}</dt>
                                     <dd className="min-w-0 break-words text-right">
                                         {value}
-                                        {/* Gap 21: the handle gets a Copy button. */}
-                                        {term === 'Handle' ? <button type="button" className="ml-2 text-[12px] underline underline-offset-4" onClick={() => void navigator.clipboard.writeText(value ?? '').then(() => toast.success('Handle copied'))}>Copy</button> : null}
+                                        {/* Gap 21: the web address gets a Copy button. */}
+                                        {term === 'Web address' ? <button type="button" className="ml-2 text-[12px] underline underline-offset-4" onClick={() => void navigator.clipboard.writeText(`https://${value ?? ''}`).then(() => toast.success('Link copied'))}>Copy</button> : null}
                                     </dd>
                                 </div>
                             ))}

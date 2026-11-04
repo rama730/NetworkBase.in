@@ -13,7 +13,6 @@ import {
     previewVisibilityCapAction,
     readOrgSettingsFactsAction,
     regenerateJoinCodeAction,
-    renameOrgHandleAction,
     updateMyOrgMembershipAction,
     updateOrgSettingsAction,
 } from '@/app/actions/organizations'
@@ -29,7 +28,7 @@ import { GRANT_WORDS, PERMISSION_AREAS } from '@/lib/organizations/permission-la
 import { typeProfile } from '@/lib/organizations/type-profile'
 import { orgChatSettings } from '@/lib/organizations/chat-rules'
 import { updateOrgChatSettingsAction } from '@/app/actions/org-chat'
-import { requestOrgVerificationAction } from '@/app/actions/trust'
+import { PartOfField } from '@/components/organizations/OrgDiscoverySections'
 import type { OrgDetail } from '@/lib/organizations/detail'
 import { orgGrant, type OrgRole } from '@/lib/organizations/permissions'
 import type { OrgMemberRole, OrgSettingsSection } from '@/lib/organizations/settings'
@@ -184,34 +183,6 @@ export function OrgManagementSection({ orgId, role, title, afterLeaveHref = '/di
 /** Every zone the browser knows, for the searchable time zone field (report §22.4). */
 const TIME_ZONES: string[] = (() => { try { return Intl.supportedValuesOf('timeZone') } catch { return [] } })()
 
-/** Handle (report §22.4, §27.8): in Details, owner only, once every 7 days; the old address redirects for 90 days. */
-export function OrgHandleSection({ orgId, organization, role, handle }: SectionProps & { handle: string | null }) {
-    const router = useRouter()
-    const [newHandle, setNewHandle] = useState(handle ?? '')
-    const rename = useSave()
-    const isOwner = role === 'owner'
-    return (
-        <SettingsCard title="Handle" headingLevel={2} description="The organization’s address. People type it to find you.">
-            <div>
-                <label htmlFor="org-handle" className={labelClass}>Address</label>
-                <p className={helpClass}>{isOwner ? `networkbase.in/org/${handle}. Change it at most once every 7 days; the old one keeps redirecting for 90 days.` : OWNER_ONLY}</p>
-                <div className="mt-2 flex max-w-md items-center gap-2">
-                    <span aria-hidden="true" className="text-muted-foreground">@</span>
-                    <Input id="org-handle" value={newHandle} onChange={(e) => setNewHandle(e.target.value)} disabled={!isOwner || Boolean(organization.handleRenameAvailableAt)} maxLength={40} />
-                    {isOwner ? (
-                        <Button variant="outline" disabled={rename.pending || newHandle === handle || Boolean(organization.handleRenameAvailableAt)} onClick={() => rename.save(
-                            () => renameOrgHandleAction(orgId, newHandle),
-                            () => router.replace(`/org/${newHandle.trim().toLowerCase()}?tab=settings`),
-                        )}>Change</Button>
-                    ) : null}
-                </div>
-                {organization.handleRenameAvailableAt ? <p className={helpClass}>You can change it again on {DATE.format(new Date(organization.handleRenameAvailableAt))}.</p> : null}
-                {rename.status}
-            </div>
-        </SettingsCard>
-    )
-}
-
 export function OrgProfileSection({ orgId, organization, role }: SectionProps) {
     const [type, setType] = useState(organization.type ?? 'community')
     const [termStart, setTermStart] = useState(organization.termStart ?? '')
@@ -220,6 +191,7 @@ export function OrgProfileSection({ orgId, organization, role }: SectionProps) {
     const [welcome, setWelcome] = useState(organization.welcomeNote ?? '')
     const [typeLabel, setTypeLabel] = useState(organization.type === 'other' ? organization.typeLabel ?? '' : '')
     const [partOf, setPartOf] = useState(organization.partOf ?? '')
+    const [partOfOrg, setPartOfOrg] = useState(organization.partOfOrg)
     const [location, setLocation] = useState(organization.location ?? '')
     const [confirmType, setConfirmType] = useState(false)
     const { pending, save, status } = useSave()
@@ -257,11 +229,11 @@ export function OrgProfileSection({ orgId, organization, role }: SectionProps) {
                             onConfirm={() => typeSave.save(() => updateOrgSettingsAction(orgId, 'profile', { org_type: type, type_label: type === 'other' ? typeLabel.trim() : null }))} />
                     </div>
                     <div className="grid max-w-2xl gap-4 sm:grid-cols-2">
-                        <label className="block">
+                        <div className="block">
                             <span className={labelClass}>Part of</span>
-                            <span className={`block ${helpClass}`}>The bigger body it belongs to, for example RV College of Engineering. Shows in the header.</span>
-                            <Input value={partOf} onChange={(e) => setPartOf(e.target.value)} maxLength={100} className="mt-2" />
-                        </label>
+                            <span className={`block ${helpClass}`}>The bigger body it belongs to, for example RV College of Engineering. Shows in the header. Pick it from the list when it’s on NetworkBase; a verified one can confirm you for the badge.</span>
+                            <PartOfField orgId={orgId} value={partOf} linked={partOfOrg} onChange={(next) => { setPartOf(next.text); setPartOfOrg(next.linked ? { ...next.linked, slug: null } : null) }} />
+                        </div>
                         <label className="block">
                             <span className={labelClass}>Where</span>
                             <span className={`block ${helpClass}`}>A city, or Online. Shows in the header.</span>
@@ -290,7 +262,7 @@ export function OrgProfileSection({ orgId, organization, role }: SectionProps) {
                     </div>
                     <div className="flex items-center gap-3">
                         <Button disabled={pending || termWrong} onClick={() => save(() => updateOrgSettingsAction(orgId, 'profile', {
-                            part_of: partOf.trim() || null, location: location.trim() || null,
+                            part_of: partOf.trim() || null, part_of_org_id: partOfOrg?.id ?? null, location: location.trim() || null,
                             term_start: termStart || null, term_end: termEnd || null, time_zone: timeZone.trim() || null, welcome_note: welcome.trim() || null,
                         }))}>Save</Button>
                         {status}
@@ -312,7 +284,7 @@ export function OrgAccessSection({ orgId, organization, maxMembers, handle }: Se
     const regen = useSave()
     return (
         <Section id="org-access">
-            <SettingsCard title="Joining" headingLevel={2} description="How people join. Invites are in the Members tab; Public or Private is in Access and visibility." footer={<LastChanged organization={organization} section="access" />}>
+            <SettingsCard title="Joining" headingLevel={2} description="How people join. Invites are in the Members tab; Public or Private is in Visibility and discovery." footer={<LastChanged organization={organization} section="access" />}>
                 <div className="space-y-6">
                     <div>
                         <p className={labelClass}>Join code</p>
@@ -733,36 +705,3 @@ export function OrgUpdatesSection({ orgId, organization, memberPosts }: { orgId:
     )
 }
 
-/** Verified badge (report §22.4, §27.9): each state says what ✓ means and what to do next. Owner only. */
-export function OrgVerificationSection({ orgId, organization, onOpenLinks }: { orgId: string; organization: OrgDetail; onOpenLinks?: () => void }) {
-    const { pending, save, status } = useSave()
-    const outcome = organization.verificationOutcome
-    const ask = (label: string) => (
-        <div className="flex items-center gap-3">
-            <Button disabled={pending} onClick={() => save(async () => {
-                const result = await requestOrgVerificationAction(orgId)
-                return result.success ? { success: true } : result
-            })}>{label}</Button>
-            {status}
-        </div>
-    )
-    return (
-        <SettingsCard title="Verified badge" headingLevel={2} description="A ✓ next to the name on the header, cards and Discover. It says NetworkBase checked this organization is who it says it is.">
-            {organization.verified ? <p className="text-sm text-foreground">This organization is verified.</p>
-                : organization.verificationRequested ? <p className="text-sm text-muted-foreground">Requested. The NetworkBase team will review it.</p>
-                : !organization.hasWebsite ? (
-                    <p className="text-sm">Add your website in Links first.{onOpenLinks ? <> <button type="button" className="text-primary underline underline-offset-4" onClick={onOpenLinks}>Go to Links</button></> : null}</p>
-                ) : outcome ? (
-                    <div className="space-y-3">
-                        <p className="text-sm">{outcome.state === 'declined' ? 'Not verified this time.' : 'The badge was removed.'}{outcome.reason ? ` ${outcome.reason}` : ''}</p>
-                        {ask('Ask again')}
-                    </div>
-                ) : (
-                    <div className="space-y-3">
-                        <p className={helpClass}>Verified at once when your email address is on the same domain as the website in Links (not Gmail, Outlook and the like). Otherwise our team reviews it.</p>
-                        {ask('Request verification')}
-                    </div>
-                )}
-        </SettingsCard>
-    )
-}

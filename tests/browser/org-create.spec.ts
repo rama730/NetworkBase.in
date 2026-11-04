@@ -14,7 +14,9 @@ test.beforeAll(async () => {
     const mocks: Record<string, string> = {
         'next/link': `import React from 'react';export default ({href,children,prefetch,...p})=>React.createElement('a',{href,...p},children);`,
         'next/navigation': `export const usePathname=()=>'/workspaces/new',useRouter=()=>({refresh(){},push(){},replace(){}});`,
-        '@/app/actions/organizations': `export const checkOrgHandleAction=async(h)=>({available:h!=='taken',message:h==='taken'?'@taken is taken.':'@'+h+' is free.',handle:h}),childTitleTakenAction=async()=>false;`,
+        '@/app/actions/organizations': `export const checkOrgHandleAction=async(h)=>({available:h!=='taken',message:h==='taken'?'Taken — try taken-b':'Available',handle:h}),childTitleTakenAction=async()=>false,renameOrgHandleAction=async()=>({success:true});`,
+        '@/app/actions/trust': `export const searchParentOrgsAction=async(id,q)=>q.toLowerCase().startsWith('north')?[{id:'p1',title:'Northgate Institute',slug:'northgate',verified:true}]:[];
+            const no=async()=>({success:false,error:'unused'});export const askParentOrgAction=no,cancelOrgVerificationAction=no,checkOrgProofAction=no,confirmOrgEmailCodeAction=no,requestOrgEmailCodeAction=no,requestOrgVerificationAction=no,decideParentVerificationAction=no;`,
         '@/components/organizations/people-search': `export const findPeople=async(q)=>[{id:'11111111-1111-4111-8111-111111111111',name:'Kiran Rao',username:'kiran'}].filter(p=>p.name.toLowerCase().includes(q.toLowerCase()));`,
         '@/components/skills/SkillPicker': `export const SkillPicker=()=>null;`,
         '@/hooks/useAuth': `export const useAuth=()=>({user:{user_metadata:{full_name:'Ms. Rao'}}});`,
@@ -61,15 +63,26 @@ test('Start: nothing is picked, Other asks for its name, and the type sets defau
 test('Details: organization words, Part of and Where, no problem/solution or skills', async ({ page }) => {
     await open(page, 'step=details&type=education');
     await expect(page.getByRole('heading', { name: 'Organization details' })).toBeVisible();
-    for (const label of ['Subject', 'Name', 'Organization URL', 'Part of', 'Where', 'Time zone', 'About', "Who it’s for", 'What members do here', 'Welcome note', 'Topics']) {
+    for (const label of ['Subject', 'Name', 'Web address', 'Part of', 'Where', 'Time zone', 'About', "Who it’s for", 'What members do here', 'Welcome note', 'Topics']) {
         await expect(page.getByLabel(label, { exact: false }).first()).toBeVisible();
     }
     await expect(page.getByText('Problem statement')).toHaveCount(0);
     await expect(page.getByText('Workspace category')).toHaveCount(0);
     await expect(page.getByPlaceholder('Students of B.Tech CSE, 3rd semester, Section A')).toBeVisible();
     await page.locator('#create-project-title').fill('CSE-3A 2026');
-    await expect(page.getByLabel(/Organization URL/)).toHaveValue('cse-3a-2026');
+    await expect(page.getByLabel(/Web address/)).toHaveValue('cse-3a-2026');
     expect((await values(page)).organization.time_zone).toBeTruthy();
+    // 2026-11-05 findings §3 (G1): the whole link while typing, no "@", the live check, and that it can change later.
+    await expect(page.getByText('networkbase.in/org/', { exact: true })).toBeVisible();
+    await expect(page.locator('#create-org-handle-status')).toHaveText('✓ Available');
+    await expect(page.getByText('The link you share with people. Letters, numbers and dashes. You can change it later.')).toBeVisible();
+    await page.getByLabel(/Web address/).fill('taken');
+    await expect(page.locator('#create-org-handle-status')).toHaveText('Taken — try taken-b');
+    // G8: Part of picked from organizations on NetworkBase is linked; typing again unlinks it.
+    await page.locator('#create-org-part-of').fill('North');
+    await page.getByRole('option', { name: /Northgate Institute/ }).getByRole('button').click();
+    await expect(page.getByText('Linked to Northgate Institute on NetworkBase · verified')).toBeVisible();
+    expect((await values(page)).organization).toMatchObject({ part_of: 'Northgate Institute', part_of_org_id: 'p1' });
 });
 
 test('People: role names, a co-admin by search and by email, and the roster count', async ({ page }) => {
@@ -102,5 +115,11 @@ test('Done: the code, what was sent, and an invite message in your name', async 
     await context.grantPermissions(['clipboard-read', 'clipboard-write']).catch(() => undefined);
     await open(page, 'step=done', 375);
     await expect(page.getByTestId('org-created-invites')).toContainText('1 co-admin invite and 62 member invites sent');
+    // §3 (G9): the link with Copy link beside the code, and how it reaches Discover.
+    const link = page.getByTestId('org-created-link');
+    await expect(link).toContainText('networkbase.in/org/cse-3a-2026');
+    await expect(link).toContainText('It shows on Discover once it has a description and a workspace or a second member, or once it’s verified.');
+    await link.getByRole('button', { name: 'Copy link' }).click();
+    await expect(page.getByRole('status').filter({ hasText: 'Link copied' })).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0);
 });

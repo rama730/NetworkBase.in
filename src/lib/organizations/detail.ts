@@ -3,13 +3,14 @@ import "server-only";
 import { and, isNotNull, count, eq, gt, isNull, sql } from "drizzle-orm";
 
 import { db } from "@/lib/db";
-import { orgHandleHolds, profiles, workspaceMembers, workspaces, roleApplications } from "@/lib/db/schema";
+import { orgHandleHolds, orgVerificationCodes, profiles, workspaceMembers, workspaces, roleApplications } from "@/lib/db/schema";
 import { orgRoleNames, orgTypeLabel, type OrgType } from "@/lib/organizations/config";
 import { orgLimitBlock } from "@/lib/organizations/limits";
 import { childCreationBlock, type VisibilityCap } from "@/lib/organizations/child-rules";
 import { readOrgRules, readOrgWork, type OrgWork } from "@/lib/organizations/settings";
 import { isWorkspacePubliclyReadableVisibility } from "@/lib/workspaces/workspace-visibility";
-import { linkUrls } from "@/lib/organizations/trust-rules";
+import { codeSendWindow, linkUrls, maskEmail, verifiedLabel } from "@/lib/organizations/trust-rules";
+import { proofCode } from "@/lib/organizations/verification-ways";
 
 type OrgSettingsRecord = {
   joinMode?: string;
@@ -70,8 +71,26 @@ export type OrgDetail = {
   verificationRequested: boolean;
   /** Report §27.9: a decline or removal, with its reason; owners and admins only. */
   verificationOutcome: import("@/lib/organizations/trust-rules").VerificationOutcome | null;
-  /** A website in Links, which the badge needs. */
+  /** A website in Links (the original automatic way, and way 3). */
   hasWebsite: boolean;
+  /** Visibility and discovery (2026-11-05 findings §4, §7): what On Discover and the badge card read. */
+  createdAt: string;
+  hasDescription: boolean;
+  discoverHidden: boolean;
+  verifiedAt: string | null;
+  verificationMethod: import("@/lib/organizations/trust-rules").VerificationMethod | null;
+  /** "Verified · rvce.edu.in" (D2), or null when not verified. */
+  verifiedLabel: string | null;
+  /** Owners and admins: the request waiting, if any. */
+  verificationPending:
+    | { method: "email"; masked: string; expiresAt: string; waitSeconds: number }
+    | { method: "parent"; parentTitle: string; at: string }
+    | { method: "team"; at: string }
+    | null;
+  /** "Part of", linked to an organization on NetworkBase (G8). */
+  partOfOrg: { id: string; title: string; slug: string | null; verified: boolean } | null;
+  /** Owners and admins: way 3's code. */
+  proofCode: string | null;
   /** Owners and admins only. */
   joinCode: string | null;
   joinCodeEnabled: boolean;
@@ -106,6 +125,12 @@ export async function readOrgDetail(
       externalLinks: workspaces.externalLinks,
       joinCode: workspaces.joinCode,
       joinCodeEnabled: workspaces.joinCodeEnabled,
+      createdAt: workspaces.createdAt,
+      shortDescription: workspaces.shortDescription,
+      description: workspaces.description,
+      discoverHiddenAt: workspaces.discoverHiddenAt,
+      verificationMethod: workspaces.verificationMethod,
+      verifiedAgainst: workspaces.verifiedAgainst,
     }).from(workspaces).where(and(eq(workspaces.id, orgId), eq(workspaces.kind, "organization"))).limit(1),
     // ponytail: counts every live child project; P11's Projects tab filters by what the viewer may see.
     db.select({ n: count() }).from(workspaces).where(and(eq(workspaces.parentId, orgId), isNull(workspaces.deletedAt))),
@@ -121,6 +146,21 @@ export async function readOrgDetail(
   ]);
   if (!org) return null;
   const settings = (org.orgSettings ?? {}) as OrgSettingsRecord;
+  const partOfOrgId = (settings as { partOfOrgId?: unknown }).partOfOrgId;
+  const asked = (settings as { verificationRequest?: { method: string; at: string; parentTitle?: string } }).verificationRequest ?? null;
+  const [[parent], [code]] = await Promise.all([
+    typeof partOfOrgId === "string" && /^[0-9a-f-]{36}$/i.test(partOfOrgId)
+      ? db.select({ id: workspaces.id, title: workspaces.title, slug: workspaces.slug, verifiedAt: workspaces.verifiedAt }).from(workspaces)
+        .where(and(eq(workspaces.id, partOfOrgId), eq(workspaces.kind, "organization"), isNull(workspaces.deletedAt))).limit(1)
+      : Promise.resolve([]),
+    viewer.isAdmin && !org.verifiedAt
+      ? db.select({ email: orgVerificationCodes.email, expiresAt: orgVerificationCodes.expiresAt, sends: orgVerificationCodes.sends }).from(orgVerificationCodes).where(eq(orgVerificationCodes.orgId, orgId)).limit(1)
+      : Promise.resolve([]),
+  ]);
+  const verificationPending: OrgDetail["verificationPending"] = !viewer.isAdmin || org.verifiedAt ? null
+    : code && code.expiresAt.getTime() > Date.now() ? { method: "email", masked: maskEmail(code.email), expiresAt: code.expiresAt.toISOString(), waitSeconds: codeSendWindow(code.sends).waitSeconds }
+      : asked?.method === "parent" ? { method: "parent", parentTitle: asked.parentTitle ?? "the organization", at: asked.at }
+        : org.verificationRequestedAt ? { method: "team", at: (asked?.at ?? org.verificationRequestedAt.toISOString()) } : null;
   const type = (org.orgType as OrgType | null) ?? null;
   const renameAt = settings.handleChangedAt ? new Date(new Date(settings.handleChangedAt).getTime() + 7 * 24 * 3600 * 1000) : null;
   const text = (value: unknown) => (typeof value === "string" && value.trim() ? value.trim() : null);
@@ -157,6 +197,15 @@ export async function readOrgDetail(
     verificationRequested: Boolean(org.verificationRequestedAt),
     verificationOutcome: viewer.isAdmin ? ((settings as { verification?: import("@/lib/organizations/trust-rules").VerificationOutcome }).verification ?? null) : null,
     hasWebsite: linkUrls(org.externalLinks).length > 0,
+    createdAt: org.createdAt.toISOString(),
+    hasDescription: Boolean(text(org.shortDescription) || text(org.description)),
+    discoverHidden: Boolean(org.discoverHiddenAt),
+    verifiedAt: org.verifiedAt ? org.verifiedAt.toISOString() : null,
+    verificationMethod: (org.verificationMethod as OrgDetail["verificationMethod"]) ?? null,
+    verifiedLabel: org.verifiedAt ? verifiedLabel(org.verificationMethod, org.verifiedAgainst) : null,
+    verificationPending,
+    partOfOrg: parent ? { id: parent.id, title: parent.title, slug: parent.slug, verified: Boolean(parent.verifiedAt) } : null,
+    proofCode: viewer.isAdmin ? proofCode(orgId) : null,
     joinCode: viewer.isAdmin ? org.joinCode : null,
     joinCodeEnabled: org.joinCodeEnabled,
     handleRenameAvailableAt: renameAt && renameAt.getTime() > Date.now() ? renameAt.toISOString() : null,

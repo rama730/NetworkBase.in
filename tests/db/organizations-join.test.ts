@@ -150,7 +150,7 @@ test("creating an organization keeps the exact handle, makes a join code and app
 
   const taken = await lifecycle.createWorkspaceAction(input);
   assert.equal(taken.success, false);
-  assert.equal(taken.error, `@${handle} is taken.`);
+  assert.equal(taken.error, `networkbase.in/org/${handle} is taken.`);
 });
 
 test("plain project creation parses its input (zod 4 refused the old .extend over a refined schema)", async () => {

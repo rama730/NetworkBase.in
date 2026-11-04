@@ -40,6 +40,8 @@ type PublicProjectRow = {
     orgType: string | null
     orgTypeName: string | null
     orgVerified: boolean
+    /** D2 (2026-11-05 findings): what the ✓ was checked against. */
+    orgVerifiedLabel: string | null
     childCount: number
     externalLinks: any | null
     githubRepoUrl: string | null
@@ -91,6 +93,7 @@ function mapProjectRow(row: PublicProjectRow, counts: { openSeats: number; teamS
         org_type: row.orgType,
         org_type_label: row.orgTypeName,
         org_verified: row.orgVerified,
+        org_verified_label: row.orgVerifiedLabel,
         child_count: row.childCount,
         external_links: filterWorkspaceLinksForAudience(row.externalLinks, false),
         github_repo_url: row.githubRepoUrl,
@@ -149,6 +152,7 @@ export async function queryAndCachePublicWorkspacesFeed(limit: number, cursor: P
             // Only the type label leaves the server; the rest of org_settings stays private (security review).
             orgTypeName: sql<string | null>`${workspaces.orgSettings}->>'typeLabel'`,
             orgVerified: sql<boolean>`${workspaces.verifiedAt} IS NOT NULL`,
+            orgVerifiedLabel: sql<string | null>`CASE WHEN ${workspaces.verifiedAt} IS NULL THEN NULL WHEN ${workspaces.verifiedAgainst} IS NOT NULL AND ${workspaces.verificationMethod} IS DISTINCT FROM 'team' THEN 'Verified · ' || ${workspaces.verifiedAgainst} ELSE 'Verified by the NetworkBase team' END`,
             childCount: sql<number>`CASE WHEN ${workspaces.kind} = 'organization' THEN (SELECT count(*)::int FROM workspaces c WHERE c.parent_id = ${workspaces.id} AND c.deleted_at IS NULL AND c.visibility <> 'private') ELSE 0 END`,
             externalLinks: workspaces.externalLinks,
             githubRepoUrl: workspaces.githubRepoUrl,

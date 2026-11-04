@@ -238,8 +238,11 @@ export async function readAudit(f: { kind?: string; from?: string; to?: string; 
 
 /** Verification tab (17.9). */
 export async function readVerification(orgId?: string) {
-  const rows = await db.execute<{ id: string; title: string; slug: string | null; links: unknown; requested_at: string; owner_email: string | null }>(sql`
-    SELECT w.id, w.title, w.slug, w.external_links AS links, w.verification_requested_at::text AS requested_at, p.email AS owner_email
+  // G7: the request's own evidence — who they are and how to check, their links and an optional document.
+  const rows = await db.execute<{ id: string; title: string; slug: string | null; links: unknown; requested_at: string; owner_email: string | null; part_of: string | null;
+    request: { explanation?: string | null; links?: string[]; document?: { name: string; size: number; type: string } | null } | null }>(sql`
+    SELECT w.id, w.title, w.slug, w.external_links AS links, w.verification_requested_at::text AS requested_at, p.email AS owner_email,
+           w.org_settings->>'partOf' AS part_of, w.org_settings->'verificationRequest' AS request
     FROM workspaces w LEFT JOIN profiles p ON p.id = w.owner_id
     WHERE w.kind = 'organization' AND w.verification_requested_at IS NOT NULL AND w.verified_at IS NULL AND w.deleted_at IS NULL
       ${orgId ? sql`AND w.id = ${orgId}` : sql``}

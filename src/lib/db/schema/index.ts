@@ -812,6 +812,9 @@ export const workspaces = pgTable(
     verifiedAt: timestamp("verified_at", { withTimezone: true }),
     verifiedBy: uuid("verified_by").references((): AnyPgColumn => profiles.id, { onDelete: "set null" }),
     verificationDomain: text("verification_domain"),
+    /** 0064: how the badge was earned, and what it was checked against ("rvce.edu.in", "Part of Northgate"). */
+    verificationMethod: text("verification_method"),
+    verifiedAgainst: text("verified_against"),
     suspendedAt: timestamp("suspended_at", { withTimezone: true }),
     suspendReason: text("suspend_reason"),
     deletionScheduledAt: timestamp("deletion_scheduled_at", { withTimezone: true }),
@@ -1086,6 +1089,18 @@ export const assignmentSubmissions = pgTable("assignment_submissions", {
 export const calendarFeedTokens = pgTable("calendar_feed_tokens", {
     userId: uuid("user_id").primaryKey().references(() => profiles.id, { onDelete: "cascade" }),
     tokenHash: text("token_hash").notNull().unique(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+/** Verified badge way 1 (0064): one pending code per organization, sent to an address on its domain. Server only. */
+export const orgVerificationCodes = pgTable("org_verification_codes", {
+    orgId: uuid("org_id").primaryKey().references(() => workspaces.id, { onDelete: "cascade" }),
+    userId: uuid("user_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+    email: text("email").notNull(),
+    codeHash: text("code_hash").notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    attempts: integer("attempts").default(0).notNull(),
+    sends: timestamp("sends", { withTimezone: true }).array().default(sql`'{}'::timestamp with time zone[]`).notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
@@ -2933,7 +2948,7 @@ export const emailOutbox = pgTable("email_outbox", {
   providerIdx: uniqueIndex("email_outbox_provider_idx").on(t.providerId),
   dueIdx: index("email_outbox_due_idx").on(t.dueAt).where(sql`${t.status} = 'pending'`),
   leaseIdx: index("email_outbox_lease_idx").on(t.leaseExpiresAt).where(sql`${t.status} = 'processing'`),
-  kindCheck: check("email_outbox_kind_check", sql`${t.kind} IN ('welcome', 'task_assignment', 'org_ready', 'org_invite', 'org_invite_signup', 'org_welcome', 'org_assignment', 'org_due_soon', 'org_overdue', 'org_returned', 'org_announcement', 'org_ended', 'org_digest', 'org_removed', 'org_ownership', 'org_deleted', 'security_password_changed', 'security_mfa_changed', 'security_token_created', 'security_sessions_revoked', 'security_sign_in_method_changed', 'account_deletion_scheduled', 'account_deletion_cancelled', 'account_deletion_reminder', 'account_deletion_completed', 'trust_person', 'trust_staff')`),
+  kindCheck: check("email_outbox_kind_check", sql`${t.kind} IN ('welcome', 'task_assignment', 'org_ready', 'org_invite', 'org_invite_signup', 'org_welcome', 'org_assignment', 'org_due_soon', 'org_overdue', 'org_returned', 'org_announcement', 'org_ended', 'org_digest', 'org_removed', 'org_ownership', 'org_deleted', 'org_verify_code', 'security_password_changed', 'security_mfa_changed', 'security_token_created', 'security_sessions_revoked', 'security_sign_in_method_changed', 'account_deletion_scheduled', 'account_deletion_cancelled', 'account_deletion_reminder', 'account_deletion_completed', 'trust_person', 'trust_staff')`),
   recipientCheck: check("email_outbox_recipient_check", sql`${t.userId} IS NOT NULL OR ${t.toEmail} IS NOT NULL`),
   statusCheck: check("email_outbox_status_check", sql`${t.status} IN ('pending', 'processing', 'accepted', 'dropped', 'failed', 'needs_review')`),
   attemptsCheck: check("email_outbox_attempts_check", sql`${t.attempts} >= 0`),

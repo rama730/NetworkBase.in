@@ -1,17 +1,28 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { currentOrganizations, editorEntryStatus, entryStatus, groupProfileContributions, nestContributions, orgDiscoverable, showKeeps } from "../../src/lib/organizations/profile-rules";
+import { currentOrganizations, editorEntryStatus, entryStatus, groupProfileContributions, nestContributions, orgDiscoverable, orgDiscoverStatus, showKeeps } from "../../src/lib/organizations/profile-rules";
 import { adminsCanSeeLine, joinPageState, ORG_JOIN_MESSAGES, privateOrgLine } from "../../src/lib/organizations/join-rules";
 
-test("new public orgs reach Discover after 3 members and 7 days, or when verified", () => {
-  const now = new Date("2026-10-30T00:00:00Z");
-  const week = new Date("2026-10-22T00:00:00Z");
-  const fresh = new Date("2026-10-28T00:00:00Z");
-  assert.equal(orgDiscoverable({ members: 3, createdAt: week, verifiedAt: null, now }), true);
-  assert.equal(orgDiscoverable({ members: 2, createdAt: week, verifiedAt: null, now }), false);
-  assert.equal(orgDiscoverable({ members: 50, createdAt: fresh, verifiedAt: null, now }), false);
-  assert.equal(orgDiscoverable({ members: 1, createdAt: fresh, verifiedAt: fresh, now }), true);
+test("D7: a public org reaches Discover once it has a description and a workspace or a second member, or when verified", () => {
+  const base = { verified: false, hasDescription: true, workspaces: 0, members: 1 };
+  assert.equal(orgDiscoverable({ ...base, workspaces: 1 }), true, "description and a workspace");
+  assert.equal(orgDiscoverable({ ...base, members: 2 }), true, "description and a second member");
+  assert.equal(orgDiscoverable(base), false, "description only, nothing in it");
+  assert.equal(orgDiscoverable({ ...base, hasDescription: false, workspaces: 3, members: 40 }), false, "no description");
+  assert.equal(orgDiscoverable({ ...base, hasDescription: false, verified: true }), true, "verified always shows");
+});
+
+test("On Discover: the first state that applies, and which parts are missing", () => {
+  const org = { verified: false, hasDescription: true, workspaces: 1, members: 2, visibility: "public", archived: false, deletionScheduledAt: null, suspended: false, discoverHidden: false };
+  assert.deepEqual(orgDiscoverStatus(org), { state: "listed", verified: false });
+  assert.deepEqual(orgDiscoverStatus({ ...org, visibility: "private" }), { state: "private" });
+  assert.deepEqual(orgDiscoverStatus({ ...org, archived: true, suspended: true }), { state: "archived" });
+  assert.deepEqual(orgDiscoverStatus({ ...org, deletionScheduledAt: "2026-12-01" }), { state: "deleting" });
+  assert.deepEqual(orgDiscoverStatus({ ...org, suspended: true }), { state: "suspended" });
+  assert.deepEqual(orgDiscoverStatus({ ...org, discoverHidden: true }), { state: "hidden" });
+  assert.deepEqual(orgDiscoverStatus({ ...org, hasDescription: false, workspaces: 0, members: 1 }), { state: "waiting", parts: { description: false, content: false } });
+  assert.deepEqual(orgDiscoverStatus({ ...org, hasDescription: false, workspaces: 0, members: 1, verified: true }), { state: "listed", verified: true });
 });
 
 test("Show keeps cards by kind and update cards only for Everything and Updates", () => {

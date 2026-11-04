@@ -125,6 +125,8 @@ export interface Workspace {
   orgPartOf?: string | null;
   /** Report §31.6, decision 70: the organization's ✓, and "You're a member" in place of the count. */
   orgVerified?: boolean;
+  /** "Verified · rvce.edu.in" (D2): what the ✓ was checked against. */
+  orgVerifiedLabel?: string | null;
   viewerIsMember?: boolean;
   childProjectCount?: number;
   cardOrg?: { title: string; slug: string | null } | null;

@@ -1,12 +1,45 @@
 // Org cards, Discover and profile rules (report §24), pure so server, cards and profile agree.
 
-const DAY = 86_400_000;
+/**
+ * D7 (2026-11-05-org-address-discovery-verification-findings.md §8a, replaces decision 160): a public organization
+ * reaches Discover once it looks real — a tagline or description, and at least one workspace or a second member — or
+ * once it's verified. No waiting days. `orgQualifiesSql` (lib/discover/listed-sql.ts) is the same rule in SQL.
+ */
+export const ORG_DISCOVER_MIN_MEMBERS = 2;
+export const ORG_DISCOVER_MIN_WORKSPACES = 1;
 
-/** Decision 160: a new public org reaches Discover after 3+ members and 7+ days, or once verified. */
-export function orgDiscoverable(input: { members: number; createdAt: Date; verifiedAt: Date | null; now?: Date }) {
-  if (input.verifiedAt) return true;
-  const now = input.now ?? new Date();
-  return input.members >= 3 && now.getTime() - input.createdAt.getTime() >= 7 * DAY;
+export type OrgDiscoverInput = { verified: boolean; hasDescription: boolean; workspaces: number; members: number };
+
+/** The rule's parts, so Settings can say which are met. */
+export function orgDiscoverParts(input: OrgDiscoverInput) {
+  return { description: input.hasDescription, content: input.workspaces >= ORG_DISCOVER_MIN_WORKSPACES || input.members >= ORG_DISCOVER_MIN_MEMBERS };
+}
+
+export function orgDiscoverable(input: OrgDiscoverInput) {
+  if (input.verified) return true;
+  const parts = orgDiscoverParts(input);
+  return parts.description && parts.content;
+}
+
+export type OrgDiscoverStatus =
+  | { state: "private" | "archived" | "deleting" | "suspended" | "hidden" }
+  | { state: "waiting"; parts: { description: boolean; content: boolean } }
+  | { state: "listed"; verified: boolean };
+
+/**
+ * Settings → Visibility and discovery → On Discover (report §4): the first that applies. Mirrors the feed's
+ * conditions (`buildBaseConditions`: public, `discoverListedSql`, `orgQualifiesSql`).
+ */
+export function orgDiscoverStatus(input: OrgDiscoverInput & {
+  visibility: string | null; archived: boolean; deletionScheduledAt: string | null; suspended: boolean; discoverHidden: boolean;
+}): OrgDiscoverStatus {
+  if (input.visibility !== "public" && input.visibility !== "unlisted") return { state: "private" };
+  if (input.archived) return { state: "archived" };
+  if (input.deletionScheduledAt) return { state: "deleting" };
+  if (input.suspended) return { state: "suspended" };
+  if (input.discoverHidden) return { state: "hidden" };
+  if (orgDiscoverable(input)) return { state: "listed", verified: input.verified };
+  return { state: "waiting", parts: orgDiscoverParts(input) };
 }
 
 export type DiscoverShow = "all" | "projects" | "organizations" | "updates";

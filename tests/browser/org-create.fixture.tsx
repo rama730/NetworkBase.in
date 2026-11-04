@@ -1,5 +1,6 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { FormProvider, useForm } from 'react-hook-form';
 import { OrgCalendarFields, OrgPeopleFields, OrgSettingsFields, OrgTypePicker } from '@/components/organizations/OrgWizardFields';
 import { CreateLocationProvider } from '@/components/organizations/CreateLocation';
@@ -30,6 +31,8 @@ function Steps() {
     );
 }
 
-createRoot(document.getElementById('root')!).render(step === 'done'
-    ? <OrganizationCreatedScreen title="CSE-3A 2026" joinCode="K7M2QX" creatorTitle="Teacher" invites={{ coAdmins: 1, members: 62, skipped: 0 }} onContinue={() => undefined} />
-    : <Steps />);
+// The app wraps every page in a query client; Part of searches through it.
+const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+createRoot(document.getElementById('root')!).render(<QueryClientProvider client={client}>{step === 'done'
+    ? <OrganizationCreatedScreen title="CSE-3A 2026" joinCode="K7M2QX" handle="cse-3a-2026" creatorTitle="Teacher" invites={{ coAdmins: 1, members: 62, skipped: 0 }} onContinue={() => undefined} />
+    : <Steps />}</QueryClientProvider>);

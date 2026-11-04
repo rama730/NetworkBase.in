@@ -27,6 +27,7 @@ export type PublicWorkspacesFeedItem = {
     org_type?: string | null
     org_type_label?: string | null
     org_verified?: boolean
+    org_verified_label?: string | null
     child_count?: number
     external_links?: any
     github_repo_url?: string | null
@@ -145,6 +146,7 @@ export function mapPublicWorkspaceToDiscoverWorkspace(project: PublicWorkspacesF
         orgType: project.org_type ?? null,
         orgTypeLabel: project.kind === "organization" ? orgTypeLabel(project.org_type, { typeLabel: project.org_type_label }) : null,
         orgVerified: project.kind === "organization" && Boolean(project.org_verified),
+        orgVerifiedLabel: project.kind === "organization" ? project.org_verified_label ?? null : null,
         childProjectCount: project.kind === "organization" ? project.child_count ?? 0 : undefined,
         collaborators: Array.isArray(project.collaborators)
             ? project.collaborators.map((c) => ({

@@ -10,7 +10,7 @@ import { getTrustedHeadersIp } from '@/lib/security/request-ip';
 import { z } from 'zod';
 import { ORG_LIMITS, orgRoleNames, orgTypeLabel } from '@/lib/organizations/config';
 import { validateOrgHandle } from '@/lib/organizations/handle';
-import { and, eq, isNull, sql } from 'drizzle-orm';
+import { and, eq, isNull, ne, sql } from 'drizzle-orm';
 
 import { db } from '@/lib/db';
 import { transactionThen } from '@/lib/db/after-commit';
@@ -164,12 +164,15 @@ export async function checkOrgHandleAction(raw: string): Promise<{ available: bo
             available: false,
             handle: null,
             message: checked.reason === 'reserved'
-                ? 'That handle is reserved.'
+                ? 'That address is reserved.'
                 : 'Use 3–40 letters, numbers or single dashes, starting and ending with a letter or number.',
         };
     }
     const available = await isOrgHandleAvailable(checked.handle);
-    return { available, handle: checked.handle, message: available ? `@${checked.handle} is available.` : `@${checked.handle} is taken.` };
+    if (available) return { available, handle: checked.handle, message: 'Available' };
+    // §3: "Taken — try cse-3b-2026-b", a suggestion that is itself free.
+    const free = await (async () => { for (const suffix of ['b', 'c', '2', '3']) { const next = `${checked.handle.slice(0, 37)}-${suffix}`; if (await isOrgHandleAvailable(next)) return next; } return null; })();
+    return { available, handle: checked.handle, message: free ? `Taken — try ${free}` : 'Taken. Try another.' };
 }
 
 type OrgViewer = { userId: string; role: OrgRole; slug: string | null };
@@ -245,6 +248,15 @@ export async function updateOrgSettingsAction(orgId: string, section: OrgSetting
         if (value.org_type === 'other' && !value.type_label) return { success: false, error: 'Say what you call this organization.' };
         if ('type_label' in value) settingsPatch.typeLabel = (value.type_label as string) || null;
         if ('part_of' in value) settingsPatch.partOf = (value.part_of as string) || null;
+        if ('part_of_org_id' in value) {
+            const parentId = (value.part_of_org_id as string | null) ?? null;
+            if (parentId) {
+                const [parent] = await db.select({ id: workspaces.id }).from(workspaces)
+                    .where(and(eq(workspaces.id, parentId), eq(workspaces.kind, 'organization'), isNull(workspaces.deletedAt), ne(workspaces.id, orgId))).limit(1);
+                if (!parent) return { success: false, error: 'Choose an organization from the list, or just type the name.' };
+            }
+            settingsPatch.partOfOrgId = parentId;
+        }
         if ('location' in value) settingsPatch.location = (value.location as string) || null;
         const [start, end] = [columns.termStart ?? current?.termStart ?? null, columns.termEnd ?? current?.termEnd ?? null];
         if (start && end && end <= start) return { success: false, error: 'The term has to end after it starts.' };
@@ -323,7 +335,7 @@ export async function renameOrgHandleAction(orgId: string, raw: string): Promise
     const viewer = await orgViewer(orgId);
     if (!viewer || orgGrant(viewer.role, 'edit_identity') !== 'yes') return DENIED;
     const checked = validateOrgHandle(raw);
-    if (!checked.ok) return { success: false, error: checked.reason === 'reserved' ? 'That handle is reserved.' : 'Use 3–40 letters, numbers or single dashes.' };
+    if (!checked.ok) return { success: false, error: checked.reason === 'reserved' ? 'That address is reserved.' : 'Use 3–40 letters, numbers or single dashes.' };
     const handle = checked.handle;
 
     return db.transaction(async (tx) => {
@@ -340,7 +352,7 @@ export async function renameOrgHandleAction(orgId: string, raw: string): Promise
         const [ownHold] = await tx.select({ handle: orgHandleHolds.handle }).from(orgHandleHolds)
             .where(and(eq(orgHandleHolds.handle, handle), eq(orgHandleHolds.orgId, orgId))).limit(1);
         if (ownHold) await tx.delete(orgHandleHolds).where(eq(orgHandleHolds.handle, handle));
-        else if (!(await isOrgHandleAvailable(handle))) return { success: false as const, error: `@${handle} is taken.` };
+        else if (!(await isOrgHandleAvailable(handle))) return { success: false as const, error: `networkbase.in/org/${handle} is taken.` };
 
         await tx.update(workspaces).set({
             slug: handle,
@@ -354,7 +366,7 @@ export async function renameOrgHandleAction(orgId: string, raw: string): Promise
         }
         revalidateOrg(org.slug, orgId);
         return { success: true as const, handle };
-    }).catch(() => ({ success: false as const, error: `@${handle} is taken.` }));
+    }).catch(() => ({ success: false as const, error: `networkbase.in/org/${handle} is taken.` }));
 }
 
 /** Join or request from a public org's page, without the code. */

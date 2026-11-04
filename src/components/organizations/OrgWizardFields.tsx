@@ -7,6 +7,7 @@ import { typeProfile } from '@/lib/organizations/type-profile'
 import { X } from 'lucide-react'
 
 import { checkOrgHandleAction } from '@/app/actions/organizations'
+import { PartOfField } from '@/components/organizations/OrgDiscoverySections'
 import { findPeople, type FoundPerson } from '@/components/organizations/people-search'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -112,6 +113,8 @@ export function OrgIdentityFields() {
     const title = useWatch<CreateWorkspaceInput, 'title'>({ name: 'title' }) || ''
     const handle = useWatch<CreateWorkspaceInput, 'organization.handle'>({ name: 'organization.handle' }) || ''
     const [status, setStatus] = useState<{ available: boolean; message: string } | null>(null)
+    const partOf = useWatch<CreateWorkspaceInput, 'organization.part_of'>({ name: 'organization.part_of' }) || ''
+    const [partOfLinked, setPartOfLinked] = useState<{ id: string; title: string; verified: boolean } | null>(null)
     const edited = useRef(Boolean(getValues('organization.handle')))
     const zones = useMemo(() => (typeof Intl.supportedValuesOf === 'function' ? Intl.supportedValuesOf('timeZone') : []), [])
 
@@ -141,9 +144,10 @@ export function OrgIdentityFields() {
     return (
         <div className="space-y-5">
             <div>
-                <label htmlFor="create-org-handle" className={labelClass}>Organization URL <span aria-hidden="true">*</span><span className="sr-only">(required)</span></label>
-                <div className="mt-1.5 flex items-center gap-1">
-                    <span className="text-muted-foreground" aria-hidden="true">@</span>
+                {/* G1 (2026-11-05 findings §3): one name, the whole link while typing, no "@" (it isn't a mention). */}
+                <label htmlFor="create-org-handle" className={labelClass}>Web address <span aria-hidden="true">*</span><span className="sr-only">(required)</span></label>
+                <div className="mt-1.5 flex min-w-0 items-center gap-1.5">
+                    <span className="shrink-0 text-sm text-muted-foreground" aria-hidden="true">networkbase.in/org/</span>
                     <Input
                         id="create-org-handle"
                         {...register('organization.handle', { onChange: () => { edited.current = true } })}
@@ -151,16 +155,23 @@ export function OrgIdentityFields() {
                         autoComplete="off"
                         spellCheck={false}
                         aria-describedby="create-org-handle-help create-org-handle-status"
+                        className="min-w-0"
                     />
                 </div>
-                <p id="create-org-handle-help" className={helpClass}>Your organization’s address. Letters, numbers and dashes.</p>
-                <p id="create-org-handle-status" role="status" aria-live="polite" className={status && !status.available ? 'mt-1 text-[13px] text-destructive' : 'mt-1 text-[13px] text-muted-foreground'}>
-                    {status?.message}
+                <p id="create-org-handle-status" role="status" aria-live="polite" className={status && !status.available ? 'mt-1 text-[13px] text-destructive' : 'mt-1 text-[13px] text-[var(--status-success)]'}>
+                    {status ? (status.available ? `✓ ${status.message}` : status.message) : null}
                 </p>
+                <p id="create-org-handle-help" className={helpClass}>The link you share with people. Letters, numbers and dashes. You can change it later.</p>
             </div>
             <div>
                 <label htmlFor="create-org-part-of" className={labelClass}>Part of</label>
-                <Input id="create-org-part-of" {...register('organization.part_of')} maxLength={100} className="mt-1.5" placeholder="RV College of Engineering" />
+                {/* G8: pick it from the list when it's on NetworkBase, so it can later confirm you for the ✓. */}
+                <PartOfField orgId={null} inputId="create-org-part-of" placeholder="RV College of Engineering" value={partOf} linked={partOfLinked}
+                    onChange={(next) => {
+                        setValue('organization.part_of', next.text, { shouldDirty: true })
+                        setValue('organization.part_of_org_id', next.linked?.id ?? null, { shouldDirty: true })
+                        setPartOfLinked(next.linked)
+                    }} />
                 <p className={helpClass}>Optional. The bigger body it belongs to, shown under the name.</p>
             </div>
             <div className="grid gap-4 sm:grid-cols-2">

@@ -94,7 +94,7 @@ export function classStanding(people: Array<{ behind: boolean; inactive: boolean
 }
 
 /** `title`/`detail` are the bold and quiet lines (live-fix 12); `approveId` approves one join request in place. */
-export type TodayRow = { kind: string; label: string; href: string; tone?: "amber"; title?: string; detail?: string; approveId?: string };
+export type TodayRow = { kind: string; label: string; href: string; tone?: "amber"; title?: string; detail?: string; approveId?: string; confirmChildId?: string };
 
 /**
  * An assignment's review row (report §33.7 "Nobody reviews for a week"): once the oldest submission has waited a

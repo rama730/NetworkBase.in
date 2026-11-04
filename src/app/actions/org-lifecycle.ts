@@ -101,8 +101,8 @@ export async function duplicateOrgAction(orgId: string, input: z.input<typeof du
     const parsed = duplicateSchema.safeParse(input);
     if (!parsed.success) return { success: false, error: 'Check the name, handle and start date.' };
     const handle = validateOrgHandle(parsed.data.handle);
-    if (!handle.ok) return { success: false, error: handle.reason === 'reserved' ? 'That handle is reserved.' : 'Handles are 3–40 letters, numbers and dashes.' };
-    if (!(await isOrgHandleAvailable(handle.handle))) return { success: false, error: 'That handle is taken.' };
+    if (!handle.ok) return { success: false, error: handle.reason === 'reserved' ? 'That web address is reserved.' : 'Web addresses are 3–40 letters, numbers and dashes.' };
+    if (!(await isOrgHandleAvailable(handle.handle))) return { success: false, error: 'That web address is taken.' };
     const [owned] = await db.select({ n: count() }).from(workspaces)
         .where(and(eq(workspaces.ownerId, owner.userId), eq(workspaces.kind, 'organization'), isNull(workspaces.deletedAt)));
     if ((owned?.n ?? 0) >= ORG_LIMITS.orgsOwnedPerUser) return { success: false, error: `You can own up to ${ORG_LIMITS.orgsOwnedPerUser} organizations. Contact support to raise this.` };

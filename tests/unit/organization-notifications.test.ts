@@ -33,6 +33,7 @@ const cases: Record<OrgEmailKind, { data: Partial<OrgEmailData>; subject: string
   org_removed: { data: { reason: "Left the course" }, subject: "You were removed from CSE-3A 2026" },
   org_ownership: { data: {}, subject: "You’re now the owner of CSE-3A 2026" },
   org_deleted: { data: { personalProjects: ["Compiler Lab"] }, subject: "CSE-3A 2026 was deleted" },
+  org_verify_code: { data: { code: "424242" }, subject: "424242 is your code to verify CSE-3A 2026" },
 };
 
 test("every org email (E1–E14) has its subject, a preview, plain text and the notifications@ sender", () => {
@@ -53,7 +54,7 @@ test("always-sent emails carry no mute link; the others carry the signed one", (
     assert.equal(email.html.includes("Mute emails from CSE-3A 2026"), !ALWAYS_SENT_EMAILS.has(kind), kind);
     assert.equal(email.headers!["List-Unsubscribe"]!.includes("/m?token=t"), !ALWAYS_SENT_EMAILS.has(kind), kind);
   }
-  assert.deepEqual([...ALWAYS_SENT_EMAILS].sort(), ["org_deleted", "org_invite_signup", "org_ownership", "org_ready", "org_removed"]);
+  assert.deepEqual([...ALWAYS_SENT_EMAILS].sort(), ["org_deleted", "org_invite_signup", "org_ownership", "org_ready", "org_removed", "org_verify_code"]);
 });
 
 test("privacy: emails show only what the data carries, escaped; due times are the recipient's, org time in brackets", () => {

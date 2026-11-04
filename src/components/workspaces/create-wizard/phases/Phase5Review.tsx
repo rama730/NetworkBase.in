@@ -285,7 +285,7 @@ export default function Phase5Review({ goToPhase, onReady, projectImage = null }
                 {org && orgRoles ? (
                     <>
                         <ReviewRow label="Organization">
-                            <p className="nb-body text-foreground">@{org.handle} · {orgTypeLabel(org.org_type, { typeLabel: org.type_label })}</p>
+                            <p className="nb-body text-foreground"><span className="font-mono">networkbase.in/org/{org.handle}</span> · {orgTypeLabel(org.org_type, { typeLabel: org.type_label })}</p>
                             <p className="nb-compact mt-1 text-muted-foreground">
                                 {[org.part_of ? `Part of ${org.part_of}` : null, org.location || null, org.time_zone || null].filter(Boolean).join(' · ') || 'No place added'}
                             </p>

@@ -24,11 +24,13 @@ export type OrgTypeProfile = {
   /** Paid roles make no sense in a class. */
   showCompensation: boolean;
   planLabel: "Plan your term" | "Plan your sprints";
+  /** Verified badge (2026-11-05 findings §5): the ways listed first — a class asks its school or parent first. */
+  verifyFirst: "institution" | "proof";
 };
 
 const WORK: Omit<OrgTypeProfile, "roleNames" | "joinMode" | "visibility" | "starterFolders"> = {
   finishedWork: "Final files", termDates: false, sprintPrefix: "Sprint ", mainSprintWord: "Phase", membersPost: true, generalNotify: "all",
-  reviewRequired: false, lateRule: "always", storyPoints: "shown", showCompensation: true, planLabel: "Plan your sprints",
+  reviewRequired: false, lateRule: "always", storyPoints: "shown", showCompensation: true, planLabel: "Plan your sprints", verifyFirst: "proof",
 };
 const ADMINS: OrgTypeProfile["starterFolders"] = ["Shared", "Docs", "Templates", "Admins"];
 
@@ -37,7 +39,7 @@ export const ORG_TYPE_PROFILES: Record<OrgType, OrgTypeProfile> = {
     roleNames: { owner: "Teacher", admin: "TA", member: "Student", viewer: "Viewer" },
     finishedWork: "Submissions", termDates: true, sprintPrefix: "CO", mainSprintWord: "CO", joinMode: "instant", visibility: "private", membersPost: false,
     generalNotify: "mentions", reviewRequired: true, lateRule: "until", storyPoints: "hidden",
-    starterFolders: ["Course materials", "Docs", "Templates", "Staff"], showCompensation: false, planLabel: "Plan your term",
+    starterFolders: ["Course materials", "Docs", "Templates", "Staff"], showCompensation: false, planLabel: "Plan your term", verifyFirst: "institution",
   },
   company: { ...WORK, roleNames: { owner: "Owner", admin: "Manager", member: "Member", viewer: "Viewer" }, joinMode: "approval", visibility: "private", starterFolders: ["Shared", "Docs", "Templates", "Managers"] },
   research: { ...WORK, roleNames: { owner: "PI", admin: "Researcher", member: "Member", viewer: "Viewer" }, joinMode: "approval", visibility: "private", starterFolders: ADMINS },

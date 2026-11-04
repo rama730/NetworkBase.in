@@ -105,11 +105,12 @@ async function prepareEmail(row: OutboxRow): Promise<Prepared> {
       if (blocked) return { drop: blocked };
       return { payload: row.payload ?? buildSecurityEmail("account_deletion_completed", {}, { email, name: "there" }) };
     }
-    if (row.kind !== "org_invite_signup" || !row.toEmail || !row.data) return { drop: "invalid_recipient" };
+    // A third: the verified badge's code, sent to a school or work address (0064).
+    if ((row.kind !== "org_invite_signup" && row.kind !== "org_verify_code") || !row.toEmail || !row.data) return { drop: "invalid_recipient" };
     const email = row.toEmail.toLowerCase();
     const blocked = await addressBlocked(email);
     if (blocked) return { drop: blocked };
-    return { payload: row.payload ?? buildOrgEmail("org_invite_signup", row.data as OrgEmailData, { email }) };
+    return { payload: row.payload ?? buildOrgEmail(row.kind, row.data as OrgEmailData, { email }) };
   }
   const userId = row.userId;
   const profile = await db.query.profiles.findFirst({

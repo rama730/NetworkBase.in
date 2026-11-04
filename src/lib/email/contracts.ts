@@ -6,7 +6,9 @@ import { getPersonAvatarTone, type PersonAvatarTone } from "@/lib/ui/avatar";
 
 export type OrgEmailKind =
   | "org_ready" | "org_invite" | "org_invite_signup" | "org_welcome" | "org_assignment" | "org_due_soon" | "org_overdue"
-  | "org_returned" | "org_announcement" | "org_ended" | "org_digest" | "org_removed" | "org_ownership" | "org_deleted";
+  | "org_returned" | "org_announcement" | "org_ended" | "org_digest" | "org_removed" | "org_ownership" | "org_deleted"
+  /** Verified badge way 1 (0064): the code sent to a school or work address, which may have no account. */
+  | "org_verify_code";
 /** Account security and deletion: sent whatever the email setting says (the account itself is at stake). */
 export type SecurityEmailKind =
   | "security_password_changed" | "security_mfa_changed" | "security_token_created" | "security_sessions_revoked" | "security_sign_in_method_changed"

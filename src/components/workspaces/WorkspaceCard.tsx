@@ -86,7 +86,8 @@ export default memo(function ProjectCard({ project, viewModel, isFollowing = fal
     const typeChip = isOrg ? <span className="nb-status relative z-10 ml-auto shrink-0" data-status="active">{orgTypeLabel}</span>
         : titleChip ? <span className="relative z-10 ml-auto flex shrink-0 items-center gap-1">{titleChip}</span> : null;
     // Decision 70: a verified organization's ✓ beside its name.
-    const verifiedMark = isOrg && project.orgVerified ? <span className="ml-1 text-primary" title={`${project.title} is verified`}><span aria-hidden="true">✓</span><span className="sr-only"> Verified</span></span> : null;
+    // D2 (2026-11-05 findings): the tooltip says what the ✓ was checked against.
+    const verifiedMark = isOrg && project.orgVerified ? <span className="ml-1 text-primary" title={project.orgVerifiedLabel ?? `${project.title} is verified`}><span aria-hidden="true">✓</span><span className="sr-only"> {project.orgVerifiedLabel ?? 'Verified'}</span></span> : null;
     const linkHref = (link: (typeof links)[number]) => `/go/project/${encodeURIComponent(project.id)}/${encodeURIComponent(link.id || link.canonicalKey)}`;
 
     async function toggleFollow() {

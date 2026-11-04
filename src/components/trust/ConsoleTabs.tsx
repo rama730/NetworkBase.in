@@ -6,7 +6,7 @@ import { useState, useTransition } from 'react'
 import { BadgeCheck, ScrollText, ShieldCheck } from 'lucide-react'
 import { toast } from '@/lib/feedback'
 
-import { auditExportedAction, decideVerificationAction, liftActionAction, unsuspendOrgAction } from '@/app/actions/moderation-staff'
+import { auditExportedAction, decideVerificationAction, liftActionAction, unsuspendOrgAction, verificationDocumentUrlAction } from '@/app/actions/moderation-staff'
 import { FIELD } from '@/components/trust/NewCaseDialog'
 import { useStepUp } from '@/components/trust/StepUp'
 import { caseHref, istDate, istDateTime } from '@/components/trust/format'
@@ -129,6 +129,13 @@ export function VerificationList({ rows, onDone }: { rows: Awaited<ReturnType<ty
                             <Link href={`/org/${encodeURIComponent(r.slug ?? r.id)}`} className="font-medium underline underline-offset-4">{r.title}</Link>
                             <p className="text-muted-foreground">{sites.length ? sites.map(host).join(' · ') : 'No website'}</p>
                             <p className="text-[12px] text-muted-foreground">Owner domain {domain ?? '—'} · <span className={match ? 'text-[var(--status-success)]' : 'text-[var(--status-warning)]'}>{match ? 'Match' : 'No match'}</span> · requested {istDate(r.requested_at)}</p>
+                            {r.part_of ? <p className="text-[12px] text-muted-foreground">Part of {r.part_of}</p> : null}
+                            {/* G7: what the owner wrote, their links and the document (staff only, a 5-minute link). */}
+                            {r.request?.explanation ? <blockquote className="mt-1.5 whitespace-pre-wrap border-l-2 border-border pl-2 text-[13px] text-foreground">{r.request.explanation}</blockquote> : null}
+                            {r.request?.links?.length ? <p className="mt-1 flex flex-wrap gap-x-3 text-[12px]">{r.request.links.map((l) => <a key={l} href={l} target="_blank" rel="noopener noreferrer nofollow" className="underline underline-offset-4">{host(l) || l}</a>)}</p> : null}
+                            {r.request?.document ? <button type="button" className="mt-1 text-[12px] text-primary underline underline-offset-4" onClick={() => void verificationDocumentUrlAction(r.id).then((d) => d.success ? window.open(d.url, '_blank', 'noopener') : toast.error(d.error))}>
+                                Open {r.request.document.name} ({Math.max(1, Math.round(r.request.document.size / 1024))} KB)
+                            </button> : null}
                         </div>
                         <Button size="sm" disabled={pending} onClick={() => run(() => decideVerificationAction(r.id, true), 'Organization verified')}>Verify organization</Button>
                         <Button size="sm" variant="outline" disabled={pending} onClick={() => setDeclining({ id: r.id, title: r.title })}>Decline</Button>

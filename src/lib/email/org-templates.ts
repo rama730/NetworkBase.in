@@ -8,7 +8,7 @@ import { escapeHtml, renderEmailShell, renderPonytailAvatar, type EmailPayload, 
 // no one else's status, only their own team.
 
 /** Access, ownership and account emails: they skip the email switch and org mutes, not bounce blocking. */
-export const ALWAYS_SENT_EMAILS: ReadonlySet<OrgEmailKind> = new Set(["org_ready", "org_invite_signup", "org_removed", "org_ownership", "org_deleted"]);
+export const ALWAYS_SENT_EMAILS: ReadonlySet<OrgEmailKind> = new Set(["org_ready", "org_invite_signup", "org_removed", "org_ownership", "org_deleted", "org_verify_code"]);
 
 export type OrgEmailPerson = { id: string; name: string; username?: string | null; avatarUrl?: string | null; headline?: string | null };
 
@@ -36,6 +36,8 @@ export type OrgEmailData = {
   personalProjects?: string[];
   timeZone?: string | null;
   orgTimeZone?: string | null;
+  /** org_verify_code: the 6-digit code. */
+  code?: string | null;
 };
 
 type Link = { label: string; href: string };
@@ -136,6 +138,15 @@ function partsFor(kind: OrgEmailKind, d: OrgEmailData, url: (path: string) => st
         secondary: kind === "org_invite" ? { label: "View organization", href: url(orgPath) } : { label: "What is NetworkBase", href: url("/") },
         // "Report this invite" (trust and safety F21): unwanted invitations are reportable from the invitation itself.
         reason: `You’re receiving this because ${actor} invited this address to ${org}. Not expecting it? ${kind === "org_invite" ? "Choose Report on the invitation in NetworkBase, or reply" : "Reply"} to this email to report it.`,
+      };
+    case "org_verify_code":
+      return {
+        subject: `${d.code ?? ""} is your code to verify ${org}`, preview: `Enter it in ${org}’s settings. It works for 10 minutes.`,
+        identity: "org", label: orgLabel, headline: `Verify ${org}`,
+        paragraphs: ["Enter this code in NetworkBase → Settings → Visibility and discovery → Verified badge. It works for 10 minutes."],
+        big: d.code ?? null,
+        primary: { label: "Open settings →", href: url(`${orgPath}?tab=settings&settings=access`) }, secondary: null,
+        reason: `You’re receiving this because someone asked to verify ${org} on NetworkBase with this address. Didn’t ask? Ignore this email; nothing changes.`,
       };
     case "org_welcome":
       return {

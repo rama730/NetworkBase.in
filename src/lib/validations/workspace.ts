@@ -180,6 +180,8 @@ export const createWorkspaceSchema = z.object({
         // Report §34: Other's own label, identity, roles and the people invited at creation.
         type_label: z.string().trim().max(30).optional(),
         part_of: z.string().trim().max(100).optional(),
+        // G8 (2026-11-05 findings): "Part of" picked from organizations on NetworkBase.
+        part_of_org_id: z.string().uuid().nullable().optional(),
         location: z.string().trim().max(100).optional(),
         time_zone: z.string().trim().max(64).optional(),
         welcome_note: z.string().trim().max(500).optional(),

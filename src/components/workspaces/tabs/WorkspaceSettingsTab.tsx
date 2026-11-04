@@ -4,7 +4,8 @@ import { ChildOrgSection, ChildVisibilityPicker } from "@/components/organizatio
 import { TeamApplications } from '@/components/organizations/TeamApplications';
 import { ChildUnitsPanel } from "@/components/organizations/ChildUnitsPanel";
 import { OrgDangerZone, OrgOwnershipPanel } from "@/components/organizations/OrgDangerZone";
-import { OrgAccessSection, OrgAllowedSection, OrgChatSection, OrgHandleSection, OrgManagementSection, OrgNotificationsSection, OrgUpdatesSection, OrgVerificationSection, OrgMembershipSection, OrgPeopleSection, OrgProfileSection, OrgWorkspacesSection, OrgWorkSection } from "@/components/organizations/OrgSettingsSections";
+import { OrgOnDiscover, OrgVerifiedBadge, OrgWebAddress } from "@/components/organizations/OrgDiscoverySections";
+import { OrgAccessSection, OrgAllowedSection, OrgChatSection, OrgManagementSection, OrgNotificationsSection, OrgUpdatesSection, OrgMembershipSection, OrgPeopleSection, OrgProfileSection, OrgWorkspacesSection, OrgWorkSection } from "@/components/organizations/OrgSettingsSections";
 import { OrgStorageSection } from "@/components/organizations/OrgStorageSection";
 import { OrgModerationSection } from "@/components/organizations/OrgModerationSection";
 import { useQuery } from "@tanstack/react-query";
@@ -139,6 +140,12 @@ type ProjectNotificationSettingsData = {
 
 type CollaboratorFilter = "all" | "admin" | "member" | "viewer";
 type RemovalMode = "preserve_history" | "unassign_active_tasks" | "reassign_active_tasks";
+/** Visibility and discovery (2026-11-05 findings §4.1): the organization's own words. */
+const ORG_VISIBILITY_OPTIONS: Array<{ id: WorkspaceSettingsVisibility; title: string; description: string; detail: string }> = [
+    { id: "public", title: "Public", description: "Anyone can view its public pages.", detail: "It shows on Discover once it qualifies (below)." },
+    { id: "private", title: "Private", description: "Only members see it.", detail: "It never shows on Discover." },
+];
+
 const VISIBILITY_OPTIONS: Array<{
     id: WorkspaceSettingsVisibility;
     title: string;
@@ -1420,8 +1427,6 @@ function ProjectSettingsContent({
                         organization={Boolean(organization)}
                     />
                 )}
-                {organization && sections.some((s) => s.id === "general") ? <OrgHandleSection orgId={projectId} organization={organization} role={orgRole} handle={project?.slug ?? null} /> : null}
-                {organization && isProjectOwner && sections.some((s) => s.id === "general") ? <OrgVerificationSection orgId={projectId} organization={organization} onOpenLinks={() => handleNavigateSection("links")} /> : null}
                 {sections.some((s) => s.id === "child-org") && project ? <ChildOrgSection project={project} isLead={isProjectOwner} canManage={canManageSettings} /> : null}
                 {organization && sections.some((s) => s.id === "org-profile") && <OrgProfileSection orgId={projectId} organization={organization} role={orgRole} />}
                 {sections.some((s) => s.id === "links") && (
@@ -1451,23 +1456,23 @@ function ProjectSettingsContent({
                     <section id="project-settings-access" data-project-settings-section className="space-y-6">
                         <div className="space-y-6">
                             <SettingsCard
-                                title={organization ? "Access and visibility" : "Workspace access and visibility"}
+                                title={organization ? "Visibility and discovery" : "Workspace access and visibility"}
                                 headingLevel={2}
-                                description={organization ? (isProjectOwner ? "Who can find the organization, and what visitors see." : "Only the owner can change this.") : "This one owner-controlled policy is used by workspace cards, detail pages, search, files, applications, notifications, and public surfaces."}
+                                description={organization ? "Who can find the organization, and how." : "This one owner-controlled policy is used by workspace cards, detail pages, search, files, applications, notifications, and public surfaces."}
                             >
                                 <div className="divide-y divide-border">
                                     <div className="pb-6">
                                         <div className="mb-4">
-                                            <h3 className="nb-ui-label text-sm font-semibold text-foreground">Workspace visibility</h3>
+                                            <h3 className="nb-ui-label text-sm font-semibold text-foreground">{organization ? "Visibility" : "Workspace visibility"}</h3>
                                             <p className="nb-compact mt-0.5 text-xs text-muted-foreground">
-                                                Choose who can find and see this workspace.
+                                                {organization ? "Choose who can find and see this organization." : "Choose who can find and see this workspace."}
                                             </p>
                                         </div>
                                         {project?.parentOrg ? (
                                             <ChildVisibilityPicker project={project} canManage={canManageSettings || Boolean(project.parentOrg.viewerIsInheritedAdmin)} />
                                         ) : isProjectOwner ? (
-                                            <div role="group" aria-label="Workspace visibility" className="grid gap-3 sm:grid-cols-2">
-                                                {VISIBILITY_OPTIONS.map((option) => {
+                                            <div role="group" aria-label={organization ? "Organization visibility" : "Workspace visibility"} className="grid gap-3 sm:grid-cols-2">
+                                                {(organization ? ORG_VISIBILITY_OPTIONS : VISIBILITY_OPTIONS).map((option) => {
                                                     const isSelected = visibility === option.id;
                                                     return (
                                                         <button
@@ -1498,12 +1503,17 @@ function ProjectSettingsContent({
                                             <div className="rounded-lg border border-border bg-muted/20 p-4 text-sm text-muted-foreground">
                                                 <p className="font-medium text-foreground">Only the owner can change visibility</p>
                                                 <p className="mt-1 nb-compact">
-                                                    This workspace is currently <strong className="text-foreground">{visibility === "public" ? "Public" : "Private"}</strong>. Only the owner can change visibility.
+                                                    This {organization ? "organization" : "workspace"} is currently <strong className="text-foreground">{visibility === "public" ? "Public" : "Private"}</strong>. Only the owner can change visibility.
                                                 </p>
                                             </div>
                                         )}
                                     </div>
 
+                                    {organization ? <>
+                                        <div className="py-6"><OrgOnDiscover organization={organization} visibility={visibility} handle={project?.slug ?? null} onOpenSection={(id) => handleNavigateSection(id as WorkspaceSettingsSectionId)} /></div>
+                                        <div className="py-6"><OrgWebAddress orgId={projectId} organization={organization} role={orgRole} handle={project?.slug ?? null} /></div>
+                                        <div className="py-6"><OrgVerifiedBadge orgId={projectId} organization={organization} role={orgRole} onOpenSection={(id) => handleNavigateSection(id as WorkspaceSettingsSectionId)} /></div>
+                                    </> : null}
                                     <div className="pt-6">
                                         <div className="mb-4">
                                             <h3 className="nb-ui-label text-sm font-semibold text-foreground">What visitors can see</h3>
@@ -1518,7 +1528,7 @@ function ProjectSettingsContent({
                                             savingTabId={savingPublicTabId}
                                         />
                                         <div className="mt-4 border-t border-border pt-4 text-xs leading-relaxed text-muted-foreground">
-                                            Defaults are Dashboard, Docs, Updates, and Files on; Sprints and Tasks off. If the workspace is Private, these settings are saved but only apply after the workspace becomes Public again.
+                                            Defaults are Dashboard, Docs, Updates, and Files on; Sprints and Tasks off. If the {organization ? "organization" : "workspace"} is Private, these settings are saved but only apply after it becomes Public again.
                                         </div>
                                     </div>
                                 </div>

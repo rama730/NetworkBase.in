@@ -38,7 +38,7 @@ after(async () => {
   await closeAppDb();
 });
 
-async function org(options: { ageDays?: number; members?: number } = {}) {
+async function org(options: { ageDays?: number; members?: number; described?: boolean } = {}) {
   const tag = Math.random().toString(36).slice(2, 8);
   const owner = await sql.begin((tx) => createUser(tx));
   const [admin, member] = [await sql.begin((tx) => createUser(tx)), await sql.begin((tx) => createUser(tx))];
@@ -48,7 +48,9 @@ async function org(options: { ageDays?: number; members?: number } = {}) {
   if ((options.members ?? 3) >= 3) await sql`INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (${orgId}, ${member}, 'member')`;
   for (const u of extra) await sql`INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (${orgId}, ${u}, 'member')`;
   await sql`UPDATE workspaces SET kind = 'organization', org_type = 'education', join_code = ${generateJoinCode()}, title = ${`CSE ${tag}`}, slug = ${`cse-${tag}`},
-    created_at = now() - (${options.ageDays ?? 30} || ' days')::interval WHERE id = ${orgId}`;
+    created_at = now() - (${options.ageDays ?? 30} || ' days')::interval,
+    -- D7: an organization reaches Discover once it has a tagline or description (and a workspace or a second member).
+    short_description = ${options.described === false ? null : "Data Structures, Section B"}, description = ${options.described === false ? null : "Labs and the semester project."} WHERE id = ${orgId}`;
   const child = await sql.begin((tx) => createProject(tx, member));
   const orgOnly = await sql.begin((tx) => createProject(tx, member, { visibility: "org" }));
   await sql`INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (${child}, ${member}, 'owner'), (${orgOnly}, ${member}, 'owner')`;
@@ -66,16 +68,17 @@ async function contribution(profileId: string, projectId: string, verifiedBy: st
 const feed = async (filters: Record<string, unknown>) =>
   (await discover.getDiscoverWorkspaces({ status: "all", type: "all", tech: [], sort: "newest", ...filters } as never, undefined, 60, { view: "all", viewerId: null })).projects;
 
-test("Discover: orgs are org cards with their projects count; children carry the org line; new orgs wait", async () => {
-  const o = await org();
-  const fresh = await org({ ageDays: 1 });
+test("Discover: orgs are org cards with their projects count; children carry the org line; an empty org waits", async () => {
+  const o = await org({ ageDays: 1 });
+  const bare = await org({ ageDays: 1, described: false });
   const all = await feed({ search: o.tag });
   const orgCard = all.find((p) => p.id === o.orgId)!;
   assert.deepEqual([orgCard.kind, orgCard.childProjectCount], ["organization", 2]);
   const childCard = all.find((p) => p.id === o.child)!;
   assert.deepEqual(childCard.cardOrg, { title: `CSE ${o.tag}`, slug: `cse-${o.tag}` });
   assert.ok(!all.some((p) => p.id === o.orgOnly), "Organization projects never reach Discover");
-  assert.ok(!(await feed({ search: fresh.tag })).some((p) => p.id === fresh.orgId), "a 1-day-old org waits (decision 160)");
+  assert.ok(!(await feed({ search: bare.tag })).some((p) => p.id === bare.orgId), "no tagline or description: it waits (D7)");
+  // D7: the 1-day-old one with a description and workspaces is listed — no waiting days.
 });
 
 test("Discover: Show filter, ?org= filter and @handle search", async () => {

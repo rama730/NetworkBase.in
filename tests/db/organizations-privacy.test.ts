@@ -226,21 +226,22 @@ test("decision 62: Members shows Last active here, never the account-wide time; 
   assert.ok((await rowOf(o.a))?.lastActiveAt);
 });
 
-test("decision 69: the sitemap and page indexing use Discover's rule, so a new public organization isn't indexed until it qualifies", async () => {
-  // Dates sit after the rule's start (2026-11-03) so the test doesn't depend on today.
+test("decision 69: the sitemap and page indexing use Discover's rule (D7), so a new public organization isn't indexed until it qualifies", async () => {
+  // Dates sit after the indexing rule's start (2026-11-03) so the test doesn't depend on today.
   const fresh = await org();
-  await sql`UPDATE workspaces SET visibility = 'public', status = 'active', slug = ${"fresh-" + fresh.org.slice(0, 8)}, created_at = GREATEST(now(), '2026-11-04'::timestamptz) WHERE id = ${fresh.org}`;
+  await sql`UPDATE workspaces SET visibility = 'public', status = 'active', slug = ${"fresh-" + fresh.org.slice(0, 8)}, short_description = NULL, description = NULL, created_at = GREATEST(now(), '2026-11-04'::timestamptz) WHERE id = ${fresh.org}`;
   await sql`DELETE FROM workspace_members WHERE workspace_id = ${fresh.org} AND role <> 'owner'`;
   const grown = await org();
-  await sql`UPDATE workspaces SET visibility = 'public', status = 'active', slug = ${"grown-" + grown.org.slice(0, 8)}, created_at = now() - interval '10 days' WHERE id = ${grown.org}`;
+  // D7: a description and a second member — no waiting days.
+  await sql`UPDATE workspaces SET visibility = 'public', status = 'active', slug = ${"grown-" + grown.org.slice(0, 8)}, short_description = 'Section B', created_at = GREATEST(now(), '2026-11-04'::timestamptz) WHERE id = ${grown.org}`;
   const old = await org();
-  await sql`UPDATE workspaces SET visibility = 'public', status = 'active', slug = ${"old-" + old.org.slice(0, 8)}, created_at = '2026-01-01' WHERE id = ${old.org}`;
+  await sql`UPDATE workspaces SET visibility = 'public', status = 'active', slug = ${"old-" + old.org.slice(0, 8)}, short_description = NULL, description = NULL, created_at = '2026-01-01' WHERE id = ${old.org}`;
   await sql`DELETE FROM workspace_members WHERE workspace_id = ${old.org} AND role <> 'owner'`;
 
   const { default: sitemap } = await loadAppModule(() => import("../../src/app/sitemap"));
   const urls = (await sitemap()).map((entry) => entry.url).join(" ");
   assert.equal(urls.includes(`fresh-${fresh.org.slice(0, 8)}`), false, "too new and too small: not listed");
-  assert.equal(urls.includes(`grown-${grown.org.slice(0, 8)}`), true, "3 members and 7 days: listed");
+  assert.equal(urls.includes(`grown-${grown.org.slice(0, 8)}`), true, "a description and a second member: listed");
   assert.equal(urls.includes(`old-${old.org.slice(0, 8)}`), true, "public before the rule: stays listed (§41.4)");
 
   const { orgIndexableSql, orgQualifiesSql } = await loadAppModule(() => import("../../src/lib/discover/listed-sql"));

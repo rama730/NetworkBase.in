@@ -8,6 +8,8 @@ import { db } from '@/lib/db';
 import { workspaces } from '@/lib/db/schema';
 import { buildTrustEmail } from '@/lib/email/trust-templates';
 import { notifyOrg, orgHref, orgLabel } from '@/lib/organizations/notify';
+import { VERIFICATION_DOCUMENTS_BUCKET } from '@/lib/organizations/verification-ways';
+import { createAdminClient } from '@/lib/supabase/server';
 import { stepUpState } from '@/lib/security/fresh-verification';
 import type { SecurityStepUpMethod } from '@/lib/security/step-up-methods';
 import { getViewerAuthContext } from '@/lib/server/viewer-context';
@@ -214,9 +216,13 @@ export async function decideVerificationAction(orgId: string, approve: boolean, 
     if (!me || !uuid.safeParse(orgId).success) return DENIED;
     // Report §27.9: a decline keeps its note so the owner sees the reason and can ask again.
     const declined = { state: 'declined', reason: note?.trim().slice(0, 500) || null, at: new Date().toISOString() };
+    // D4: a document stays 30 days after the decision (purgeOrgVerificationDocuments), then goes.
+    const keepDocument = sql`CASE WHEN ${workspaces.orgSettings}->'verificationRequest'->'document'->>'key' IS NOT NULL
+        THEN jsonb_build_object('verificationDocument', jsonb_build_object('key', ${workspaces.orgSettings}->'verificationRequest'->'document'->>'key', 'decidedAt', ${new Date().toISOString()}::text)) ELSE '{}'::jsonb END`;
     await db.update(workspaces).set(approve
-        ? { verifiedAt: new Date(), verificationRequestedAt: null, orgSettings: sql`coalesce(${workspaces.orgSettings}, '{}'::jsonb) - 'verification'` }
-        : { verificationRequestedAt: null, orgSettings: sql`coalesce(${workspaces.orgSettings}, '{}'::jsonb) || jsonb_build_object('verification', ${JSON.stringify(declined)}::jsonb)` })
+        ? { verifiedAt: new Date(), verifiedBy: me.id, verificationMethod: 'team', verifiedAgainst: null, verificationDomain: null, verificationRequestedAt: null,
+            orgSettings: sql`(coalesce(${workspaces.orgSettings}, '{}'::jsonb) - 'verification' - 'verificationRequest') || ${keepDocument}` }
+        : { verificationRequestedAt: null, orgSettings: sql`(coalesce(${workspaces.orgSettings}, '{}'::jsonb) - 'verificationRequest') || jsonb_build_object('verification', ${JSON.stringify(declined)}::jsonb) || ${keepDocument}` })
         .where(and(eq(workspaces.id, orgId), eq(workspaces.kind, 'organization')));
     const org = await orgLabel(orgId);
     const [row] = await db.select({ ownerId: workspaces.ownerId }).from(workspaces).where(eq(workspaces.id, orgId)).limit(1);
@@ -459,6 +465,17 @@ export async function saveTemplateAction(key: string, message: string): Promise<
 export async function personDetailAction(handleOrId: string) {
     if (!(await staff()) || typeof handleOrId !== 'string' || handleOrId.length > 80) return null;
     return readPerson(handleOrId);
+}
+
+/** G7: the request's document, for the reviewing staff only, as a 5-minute link. */
+export async function verificationDocumentUrlAction(orgId: string): Promise<Result<{ url: string }>> {
+    if (!(await staff()) || !uuid.safeParse(orgId).success) return DENIED;
+    const [row] = await db.select({ key: sql<string | null>`${workspaces.orgSettings}->'verificationRequest'->'document'->>'key'` }).from(workspaces).where(eq(workspaces.id, orgId)).limit(1);
+    if (!row?.key) return { success: false, error: 'No document.' };
+    const admin = await createAdminClient();
+    const { data, error } = await admin.storage.from(VERIFICATION_DOCUMENTS_BUCKET).createSignedUrl(row.key, 300);
+    if (error || !data) return { success: false, error: 'Couldn’t open the document.' };
+    return { success: true, url: data.signedUrl };
 }
 
 /** One verification request, shown in the Inbox as its own type (R2). */

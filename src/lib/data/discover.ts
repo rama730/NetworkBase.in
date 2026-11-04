@@ -1,4 +1,5 @@
 import { discoverListedSql, orgQualifiesSql } from '@/lib/discover/listed-sql';
+import { verifiedLabel } from '@/lib/organizations/trust-rules';
 import { and, asc, desc, eq, ilike, inArray, isNull, lte, ne, or, sql, type SQL } from 'drizzle-orm';
 import { canonicalSkillKey } from '@/lib/skills/matching';
 import { normalizeSkillLookup } from '@/lib/skills/normalization';
@@ -83,7 +84,7 @@ type RawProjectRow = {
     orgVerified: boolean;
     orgType: string | null;
     /** Other's own label and "Part of" for the org card (report §34.11). */
-    orgCard: { typeLabel?: string | null; partOf?: string | null } | null;
+    orgCard: { typeLabel?: string | null; partOf?: string | null; method?: string | null; against?: string | null } | null;
     parentId: string | null;
     createdAt: Date;
     /** created_at as text with microseconds, for cursors. */
@@ -661,7 +662,7 @@ const projectSelectFields = {
     kind: workspaces.kind,
     orgVerified: sql<boolean>`${workspaces.verifiedAt} IS NOT NULL`,
     orgType: workspaces.orgType,
-    orgCard: sql<{ typeLabel?: string | null; partOf?: string | null } | null>`CASE WHEN ${workspaces.kind} = 'organization' THEN jsonb_build_object('typeLabel', ${workspaces.orgSettings}->>'typeLabel', 'partOf', ${workspaces.orgSettings}->>'partOf') END`,
+    orgCard: sql<{ typeLabel?: string | null; partOf?: string | null; method?: string | null; against?: string | null } | null>`CASE WHEN ${workspaces.kind} = 'organization' THEN jsonb_build_object('typeLabel', ${workspaces.orgSettings}->>'typeLabel', 'partOf', ${workspaces.orgSettings}->>'partOf', 'method', ${workspaces.verificationMethod}, 'against', ${workspaces.verifiedAgainst}) END`,
     parentId: workspaces.parentId,
     createdAt: workspaces.createdAt,
     cursorAt: cursorAtSql,
@@ -978,6 +979,7 @@ const hydrateProjects = async (
             orgTypeLabel: orgTypeLabel(project.orgType, project.orgCard),
             orgPartOf: project.orgCard?.partOf ?? null,
             orgVerified: project.kind === 'organization' && Boolean(project.orgVerified),
+            orgVerifiedLabel: project.kind === 'organization' && project.orgVerified ? verifiedLabel(project.orgCard?.method, project.orgCard?.against) : null,
             viewerIsMember: viewerProjects.has(project.id),
             childProjectCount: project.kind === 'organization' ? childCountMap.get(project.id) ?? 0 : undefined,
             cardOrg: project.parentId ? parentOrgMap.get(project.parentId) ?? null : null,

@@ -27,7 +27,7 @@ export const ORG_SECTION_DEFS: Record<OrgSettingsSectionId, { label: string; des
 
 /** Workspace sections an organization reuses, under its own names (report §22.3). */
 export const ORG_REUSED_LABELS: Partial<Record<WorkspaceSettingsSectionId, string>> = {
-  general: "Details", links: "Links", access: "Access and visibility", readme: "Documents", notifications: "Notifications", "privacy-policies": "Privacy",
+  general: "Details", links: "Links", access: "Visibility and discovery", readme: "Documents", notifications: "Notifications", "privacy-policies": "Privacy",
 };
 
 // Report §22.3, in menu order. Members, Stages, Task completion and the member upload controls aren't here: the
@@ -71,6 +71,8 @@ export const ORG_SETTINGS_PATCH = {
     // Report §34.2–34.3: Other's own label, the body it belongs to and where it is.
     type_label: z.string().trim().max(30).nullable().optional(),
     part_of: z.string().trim().max(100).nullable().optional(),
+    // G8 (2026-11-05 findings): "Part of" linked to an organization on NetworkBase, so it can confirm this one.
+    part_of_org_id: z.string().uuid().nullable().optional(),
     location: z.string().trim().max(100).nullable().optional(),
   }).strict(),
   access: z.object({

@@ -9,6 +9,8 @@ import { orgInviteMessage } from '@/lib/organizations/creation'
 export type CreatedOrganization = {
     title: string
     joinCode: string
+    /** The web address (2026-11-05 findings §3): networkbase.in/org/<handle>. */
+    handle?: string | null
     /** Invites sent at creation (report §34.8). */
     invites?: { coAdmins: number; members: number; skipped: number }
     creatorTitle?: string | null
@@ -17,7 +19,7 @@ export type CreatedOrganization = {
 }
 
 /** After creating an org (report §34.8): the join code large, Copy code, Copy invite message, what was sent, then Go to organization. */
-export function OrganizationCreatedScreen({ title, joinCode, invites, creatorTitle, joinMode, onContinue }: CreatedOrganization & { onContinue: () => void }) {
+export function OrganizationCreatedScreen({ title, joinCode, handle, invites, creatorTitle, joinMode, onContinue }: CreatedOrganization & { onContinue: () => void }) {
     const [copied, setCopied] = useState<string | null>(null)
     const { user } = useAuth()
     const name = (user?.user_metadata?.full_name as string | undefined)?.trim()
@@ -54,6 +56,16 @@ export function OrganizationCreatedScreen({ title, joinCode, invites, creatorTit
                     <Button type="button" variant="outline" className="min-h-11" onClick={() => copy(joinCode, 'Code copied')}>Copy code</Button>
                     <Button type="button" variant="outline" className="min-h-11" onClick={() => copy(invite, 'Invite message copied')}>Copy invite message</Button>
                 </div>
+                {handle ? (
+                    // §3: the link people share, beside the code people join with; and how it reaches Discover.
+                    <div className="space-y-2 border-t border-border pt-4 text-left" data-testid="org-created-link">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                            <p className="min-w-0 text-sm"><span className="block text-muted-foreground">Your organization’s link</span><span className="break-all font-mono text-foreground">networkbase.in/org/{handle}</span></p>
+                            <Button type="button" variant="outline" className="min-h-11" onClick={() => copy(`https://networkbase.in/org/${handle}`, 'Link copied')}>Copy link</Button>
+                        </div>
+                        <p className="text-[13px] text-muted-foreground">It shows on Discover once it has a description and a workspace or a second member, or once it’s verified. Settings → Visibility and discovery.</p>
+                    </div>
+                ) : null}
                 <p role="status" aria-live="polite" className="min-h-5 text-sm text-muted-foreground">{copied}</p>
                 {joining || sent ? <p className="text-sm text-foreground" data-testid="org-created-invites">{[joining, sent ? `${sent} sent` : null].filter(Boolean).join(' · ')}</p> : null}
                 {skipped ? <p className="text-sm text-muted-foreground">{skipped} {skipped === 1 ? 'address' : 'addresses'} looked wrong and {skipped === 1 ? 'was' : 'were'} skipped</p> : null}

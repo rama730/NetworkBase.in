@@ -15,6 +15,7 @@ import { UserAvatar } from '@/components/ui/UserAvatar'
 import { WorkspaceAvatar } from '@/components/workspaces/WorkspaceAvatar'
 import { OrgInvitePanel } from '@/components/organizations/OrgInvitePanel'
 import { approveJoinRequestsAction } from '@/app/actions/org-members'
+import { decideParentVerificationAction } from '@/app/actions/trust'
 import { StartNowButton } from '@/components/organizations/OrgSprintParts'
 import { toggleWorkspaceUpdatePinAction } from '@/app/actions/workspace/updates'
 import { formatInZone } from '@/lib/organizations/zoned-time'
@@ -40,7 +41,7 @@ const FILTERS = [['all', 'All'], ['assignments', 'Assignments'], ['people', 'Peo
 
 const DAY = 86_400_000
 // Today rows (report §7.2): an icon by type and the word for what you'd do.
-const TODAY_ICON: Record<string, LucideIcon> = { review: ClipboardCheck, requests: UserPlus, reports: Flag, sprint: IterationCcw, complete_sprint: IterationCcw, plan_sprint: IterationCcw, sprint_ending: IterationCcw, sprint_dates: CalendarClock, autostart: AlertTriangle, lead: UserX, full: AlertTriangle, join_spike: ShieldAlert, verify: BadgeCheck, term_end: BadgeCheck, overdue: Clock, due: Clock, due_today: Clock, returned: CornerDownLeft, doc: BookOpenText, announcement: Megaphone, team: Users, unplaced: Users, needs_projects: FolderKanban, group: FolderKanban }
+const TODAY_ICON: Record<string, LucideIcon> = { review: ClipboardCheck, requests: UserPlus, reports: Flag, sprint: IterationCcw, complete_sprint: IterationCcw, plan_sprint: IterationCcw, sprint_ending: IterationCcw, sprint_dates: CalendarClock, autostart: AlertTriangle, lead: UserX, full: AlertTriangle, join_spike: ShieldAlert, verify: BadgeCheck, verify_child: BadgeCheck, term_end: BadgeCheck, overdue: Clock, due: Clock, due_today: Clock, returned: CornerDownLeft, doc: BookOpenText, announcement: Megaphone, team: Users, unplaced: Users, needs_projects: FolderKanban, group: FolderKanban }
 const TODAY_ACTION: Record<string, string> = { review: 'Review', requests: 'Review', reports: 'Review', sprint: 'Complete', complete_sprint: 'Complete', plan_sprint: 'Plan', sprint_ending: 'Open', sprint_dates: 'Fix', autostart: 'Fix', lead: 'Assign', full: 'Manage', join_spike: 'Review', verify: 'Verify', term_end: 'Review', overdue: 'Open', due: 'Open', due_today: 'Open', returned: 'Fix', doc: 'Read', announcement: 'Read', team: 'Place', unplaced: 'Place', needs_projects: 'Create', group: 'Open' }
 const TASK_STATUS: Record<string, string> = { todo: 'To do', in_progress: 'In progress', done: 'Done', blocked: 'Blocked' }
 
@@ -84,7 +85,7 @@ function TodayItem({ orgId, n, onChanged }: { orgId: string; n: TodayRow; onChan
                 <span className={cn('block truncate text-sm font-medium', n.tone === 'amber' && 'text-amber-700 dark:text-amber-400')}>{n.title ?? n.label}</span>
                 {n.detail ? <span className="block truncate text-[12px] text-muted-foreground">{n.detail}</span> : null}
             </Link>
-            {n.approveId ? (
+            {n.confirmChildId ? <ConfirmChild parentId={orgId} childId={n.confirmChildId} onChanged={onChanged} /> : n.approveId ? (
                 // One request: approve it right here (report §7.2).
                 <Button type="button" size="sm" variant="outline" disabled={pending} onClick={() => start(async () => {
                     const r = await approveJoinRequestsAction(orgId, [n.approveId!])
@@ -94,6 +95,35 @@ function TodayItem({ orgId, n, onChanged }: { orgId: string; n: TodayRow; onChan
                 })}>Approve</Button>
             ) : <Link href={n.href} className="shrink-0 text-[12px] text-primary hover:underline">{TODAY_ACTION[n.kind] ? `${TODAY_ACTION[n.kind]} →` : <span aria-hidden="true">→</span>}</Link>}
         </li>
+    )
+}
+
+/**
+ * Verified badge way 2 (2026-11-05 findings §5): an organization naming this one as "Part of" asks it to confirm
+ * it. Confirm gives it a ✓ "Part of <this organization>"; Decline asks for an optional reason it will read.
+ */
+function ConfirmChild({ parentId, childId, onChanged }: { parentId: string; childId: string; onChanged: () => void }) {
+    const [pending, start] = useTransition()
+    const [declining, setDeclining] = useState(false)
+    const [reason, setReason] = useState('')
+    const decide = (approve: boolean) => start(async () => {
+        const r = await decideParentVerificationAction(parentId, childId, approve, reason)
+        if (!r.success) return void toast.error(r.error)
+        toast.success(approve ? 'Confirmed. It’s verified.' : 'Declined')
+        onChanged()
+    })
+    return declining ? (
+        <span className="flex shrink-0 items-center gap-1.5">
+            <input value={reason} onChange={(e) => setReason(e.target.value)} maxLength={500} placeholder="Reason (optional)" aria-label="Reason for declining"
+                className="h-8 w-36 rounded-md border border-border bg-background px-2 text-[12px]" />
+            <Button type="button" size="sm" variant="destructive" disabled={pending} onClick={() => decide(false)}>Decline</Button>
+            <Button type="button" size="sm" variant="ghost" disabled={pending} onClick={() => setDeclining(false)}>Cancel</Button>
+        </span>
+    ) : (
+        <span className="flex shrink-0 items-center gap-1.5">
+            <Button type="button" size="sm" disabled={pending} onClick={() => decide(true)}>Confirm</Button>
+            <Button type="button" size="sm" variant="outline" disabled={pending} onClick={() => setDeclining(true)}>Decline</Button>
+        </span>
     )
 }
 

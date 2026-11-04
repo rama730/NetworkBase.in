@@ -603,14 +603,21 @@ export async function createWorkspaceAction(
     if (organization) {
       const refuse = (error: string) => ({ success: false, error });
       const checked = validateOrgHandle(organization.handle);
-      if (!checked.ok) return refuse(checked.reason === "reserved" ? "That handle is reserved." : "Choose a handle of 3–40 letters, numbers or single dashes.");
-      if (!(await isOrgHandleAvailable(checked.handle))) return refuse(`@${checked.handle} is taken.`);
+      if (!checked.ok) return refuse(checked.reason === "reserved" ? "That web address is reserved." : "Choose a web address of 3–40 letters, numbers or single dashes.");
+      if (!(await isOrgHandleAvailable(checked.handle))) return refuse(`networkbase.in/org/${checked.handle} is taken.`);
       const [owned] = await db
         .select({ n: sql<number>`count(*)::int` })
         .from(workspaces)
         .where(and(eq(workspaces.ownerId, user.id), eq(workspaces.kind, "organization"), isNull(workspaces.deletedAt)));
       if ((owned?.n ?? 0) >= ORG_LIMITS.orgsOwnedPerUser) return refuse(`You can own up to ${ORG_LIMITS.orgsOwnedPerUser} organizations.`);
       orgHandle = checked.handle;
+    }
+    // G8: a "Part of" picked from the list must be a live organization; otherwise only the typed name is kept.
+    let partOfOrgId: string | null = null;
+    if (organization?.part_of_org_id) {
+      const [parent] = await db.select({ id: workspaces.id }).from(workspaces)
+        .where(and(eq(workspaces.id, organization.part_of_org_id), eq(workspaces.kind, "organization"), isNull(workspaces.deletedAt))).limit(1);
+      partOfOrgId = parent?.id ?? null;
     }
     let joinCode = organization ? generateJoinCode() : null;
 
@@ -902,6 +909,7 @@ export async function createWorkspaceAction(
                   // Report §34: Other's label, identity, and the Work defaults chosen in Setup (unset keys keep the type's).
                   ...(organization.org_type === "other" ? { typeLabel: organization.type_label?.trim() } : {}),
                   ...(organization.part_of ? { partOf: organization.part_of } : {}),
+                  ...(organization.part_of && partOfOrgId ? { partOfOrgId } : {}),
                   ...(organization.location ? { location: organization.location } : {}),
                   ...(organization.work?.review_required !== undefined ? { assignmentReview: organization.work.review_required } : {}),
                   ...(organization.work?.late_rule ? { assignmentLateRule: organization.work.late_rule } : {}),
