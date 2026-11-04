@@ -38,7 +38,10 @@ import {
 } from "@/lib/workspaces/sprints";
 
 import CreateSprintModal from "@/components/workspaces/v2/sprints/CreateSprintModal";
-import { SprintCalendarButton } from "@/components/workspaces/tabs/sprint/SprintCalendar";
+import { SprintPeople } from "@/components/workspaces/tabs/sprint/SprintPeople";
+import { SprintAddWork } from "@/components/workspaces/tabs/sprint/SprintAddWork";
+import { formatSprintTimelineStamp } from "@/lib/workspaces/sprint-detail";
+import { sprintPhase } from "@/lib/workspaces/sprint-plan";
 import { ChildSprintLine, LinkedWorkspacesBlock, RunningOrgSprintPrompt, SprintMaterials, StartNowButton, sprintEmptyLine } from "@/components/organizations/OrgSprintParts";
 import { SprintLifecycleModals } from "@/components/workspaces/tabs/sprint/SprintLifecycleModals";
 import { SkeletonSprints } from "@/components/workspaces/skeletons/SkeletonSprints";
@@ -90,6 +93,7 @@ export default function SprintPlanning({
   const [isMutatingLifecycle, setIsMutatingLifecycle] = useState(false);
   const [lifecycleError, setLifecycleError] = useState<string | null>(null);
   const [activeModal, setActiveModal] = useState<"complete" | "archive" | "cancel" | null>(null);
+  const [addingWork, setAddingWork] = useState(false);
 
   const routeSprintId = useMemo(() => {
     const match = pathname?.match(/\/(?:workspaces|projects)\/[^/]+\/sprints\/([^/?#]+)/);
@@ -444,10 +448,7 @@ export default function SprintPlanning({
 
   return (
     <>
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-        {viewingAsAdmin ? <span className="nb-status" data-status="draft">Viewing as admin</span> : <span />}
-        {isOwnerOrMember ? <SprintCalendarButton projectId={projectId} /> : null}
-      </div>
+      {viewingAsAdmin ? <div className="mb-3"><span className="nb-status" data-status="draft">Viewing as admin</span></div> : null}
       <div className="lg:hidden mb-4 flex items-center justify-between gap-3">
         <label htmlFor="mobile-sprint-select" className="sr-only">Select sprint</label>
         <select
@@ -481,6 +482,9 @@ export default function SprintPlanning({
       <div className="grid min-h-0 gap-6 lg:grid-cols-[240px_minmax(0,1fr)] lg:items-start">
         <div className="max-lg:hidden">
           <SprintLeftRail
+            projectId={projectId}
+            showCalendar={isOwnerOrMember}
+            showBacklog={isOwnerOrMember}
             projectSlug={projectSlug}
             sprints={detail.sprints}
             selectedSprintId={selectedSprint?.id ?? null}
@@ -507,16 +511,19 @@ export default function SprintPlanning({
                 onComplete={() => setActiveModal("complete")}
                 onArchive={() => setActiveModal("archive")}
                 onCancel={() => setActiveModal("cancel")}
+                onAddWork={() => setAddingWork(true)}
+                autoStart={orgContext?.sprintFlags[selectedSprint.id]?.autoStart ?? true}
+                startNow={selectedSprint.status === "planning" && permissions.canStart ? <StartNowButton projectId={projectId} sprintId={selectedSprint.id} onStarted={refreshSprints} announceAs={orgContext?.kind === "org" ? selectedSprint.name : null} /> : null}
               />
             ) : null}
+            {/* Sprint redesign §5.6: an ended sprint waits to be closed; say so above its work. */}
+            {selectedSprint && sprintPhase(selectedSprint) === "ended" ? (
+              <div role="status" className="mb-4 rounded-[6px] border border-[var(--status-warning)]/40 bg-[var(--status-warning-soft)] px-4 py-3 text-sm">
+                <span className="font-medium">{selectedSprint.name} ended {selectedSprint.endDate ? formatSprintTimelineStamp(selectedSprint.endDate) : ""}.</span>{" "}
+                {detail.summary ? `${detail.summary.completedTasks} of ${detail.summary.totalTasks} done. ` : ""}Close it to count what’s done and move what isn’t.
+              </div>
+            ) : null}
             {selectedSprint && orgContext ? <ChildSprintLine org={orgContext} projectId={projectId} sprintId={selectedSprint.id} canManage={canManageSprints} onFixed={refreshSprints} /> : null}
-            {selectedSprint?.status === "planning" && permissions.canStart ? (
-              <div className="mb-3"><StartNowButton projectId={projectId} sprintId={selectedSprint.id} onStarted={refreshSprints} announceAs={orgContext?.kind === "org" ? selectedSprint.name : null} /></div>
-            ) : null}
-            {selectedSprint ? (
-              <SprintMaterials projectId={projectId} sprintId={selectedSprint.id} projectSlug={projectSlug} materials={detail.materials ?? []} canManage={canManageSprints} onChanged={refreshSprints} />
-            ) : null}
-            {selectedSprint && orgContext?.kind === "org" && canManageSprints ? <LinkedWorkspacesBlock org={orgContext} projectId={projectId} sprintId={selectedSprint.id} /> : null}
             {/* Live-fix 31: assignments sit in the work list with their class progress, not in a block of their own. */}
             <SprintTimelineContent
               projectSlug={projectSlug}
@@ -529,6 +536,15 @@ export default function SprintPlanning({
               isLoadingMore={isFetchingNextPage}
               onLoadMore={() => void fetchNextPage()}
             />
+            {/* Sprint redesign §5.5, §8.2: People for a workspace, Teams for a class, and the sprint's materials. */}
+            {selectedSprint ? (
+              <div className="mt-6 grid gap-3 md:grid-cols-2">
+                {orgContext?.kind === "org"
+                  ? (canManageSprints ? <LinkedWorkspacesBlock org={orgContext} projectId={projectId} sprintId={selectedSprint.id} /> : null)
+                  : detail.people ? <SprintPeople people={detail.people} unassigned={detail.unassigned ?? { tasks: 0, points: 0 }} /> : null}
+                <SprintMaterials projectId={projectId} sprintId={selectedSprint.id} projectSlug={projectSlug} materials={detail.materials ?? []} canManage={canManageSprints} onChanged={refreshSprints} title={orgContext?.kind === "org" ? "Materials" : "Files"} />
+              </div>
+            ) : null}
           </div>
         </section>
       </div>
@@ -556,6 +572,12 @@ export default function SprintPlanning({
           onPlanEach={editorState?.mode === "edit" ? undefined : handlePlanEach}
           initialOrgFields={editingFlags ? { autoStart: editingFlags.autoStart, showInChildren: editingFlags.showInChildren, sharedWith: editingFlags.sharedWith, sharedWorkspaceIds: editingFlags.sharedWorkspaceIds, parentSprintId: editingFlags.parentSprintId, notifyOnStart: editingFlags.notifyOnStart } : { parentSprintId: editorState?.parentSprintId ?? null }}
         />
+      ) : null}
+
+      {selectedSprint && addingWork ? (
+        <SprintAddWork projectId={projectId} sprintId={selectedSprint.id} sprintName={selectedSprint.name} open onClose={() => setAddingWork(false)}
+          onAdded={() => { refreshSprints(); void queryClient.invalidateQueries({ queryKey: queryKeys.project.detail.tasksRoot(projectId) }); }}
+          plannedPoints={detail.summary?.totalStoryPoints ?? 0} velocity={detail.velocity} />
       ) : null}
 
       {activeModal ? (

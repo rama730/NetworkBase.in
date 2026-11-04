@@ -16,6 +16,8 @@ import { cn } from "@/lib/utils";
 import { TASK_WORKING_FILES_TITLE } from "@/lib/files/task-working-files";
 import { calculateTaskTimeHealth, getTaskTitlePresentation } from "@/lib/workspaces/task-presentation";
 import { format } from "@/lib/utils/date";
+import { useAuth } from "@/hooks/use-auth";
+import { sprintPace, sprintPhase, sprintTime, workGroups, workProgress } from "@/lib/workspaces/sprint-plan";
 
 type Props = {
   projectSlug: string;
@@ -50,92 +52,75 @@ export function SprintTimelineContent({
     .filter((r): r is Extract<SprintTimelineRow, { kind: "task" }> => r.kind === "task")
     .map((r) => r.task);
   const lifecycleRows = rows.filter((row) => row.kind !== "task");
+  const { user } = useAuth();
+  const [by, setBy] = useState<"state" | "person">("state");
+  const [mine, setMine] = useState(false);
+  const view = workGroups(tasks, by, mine ? user?.id : null);
+  const visibleCount = view.groups.reduce((n, g) => n + g.tasks.length, 0);
+  const time = sprint ? sprintTime(sprint) : null;
+  const work = workProgress(summary ?? { totalTasks: 0, completedTasks: 0, totalStoryPoints: 0, completedStoryPoints: 0 });
+  const pace = sprint && sprintPhase(sprint) === "running" && time ? sprintPace(time.percent, work.percent) : null;
 
   return (
     <div className="space-y-4">
-      {summary || lifecycleRows.length > 0 ? (
-        <div
-          aria-label="Sprint summary"
-          className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-border pb-3 text-xs"
-        >
-          <div className="flex flex-wrap items-center gap-x-3.5 gap-y-1 font-mono text-muted-foreground">
-            {summary ? (
-              <>
-                <div className="flex items-center gap-1.5">
-                  <span className="font-semibold text-foreground">{summary.completionPercentage}%</span>
-                  <span>done</span>
-                </div>
-                <span className="text-border">·</span>
-                <div className="flex items-center gap-1.5">
-                  <span className="font-semibold text-foreground">{summary.completedTasks}/{summary.totalTasks}</span>
-                  <span>tasks</span>
-                </div>
-                {summary.blockedTasks > 0 ? (
-                  <>
-                    <span className="text-border">·</span>
-                    <div className="flex items-center gap-1.5 text-destructive font-medium">
-                      <span>{summary.blockedTasks}</span>
-                      <span>blocked</span>
-                    </div>
-                  </>
-                ) : null}
-                {summary.linkedFileCount > 0 ? (
-                  <>
-                    <span className="text-border">·</span>
-                    <div className="flex items-center gap-1.5">
-                      <span className="font-semibold text-foreground">{summary.linkedFileCount}</span>
-                      <span>file{summary.linkedFileCount === 1 ? "" : "s"}</span>
-                    </div>
-                  </>
-                ) : null}
-              </>
-            ) : null}
-            {lifecycleRows.length > 0 ? (
-              <>
-                {summary ? <span className="text-border">·</span> : null}
-                <ol
-                  className="inline-flex flex-wrap items-center gap-x-3 gap-y-1"
-                  aria-label="Sprint history"
-                >
-                  {lifecycleRows.map((row) => (
-                    <li key={`${row.kind}:${row.id}`} className="inline-flex items-center gap-1 text-[11px]">
-                      <span>{row.kind === "kickoff" ? "Started" : "Completed"}</span>
-                      {row.occurredAt ? (
-                        <time dateTime={row.occurredAt} className="font-medium text-foreground">
-                          {format(new Date(row.occurredAt), "MMM d, yyyy")}
-                        </time>
-                      ) : null}
-                    </li>
-                  ))}
-                </ol>
-              </>
-            ) : null}
+      {/* Sprint redesign §5.3: time passed and work done side by side, and whether the pace holds. */}
+      {summary ? (
+        <div aria-label="Sprint summary" className="grid grid-cols-2 gap-3 max-sm:grid-cols-1">
+          <div className="rounded-[6px] bg-muted/50 p-3">
+            <p className="text-[12px] text-muted-foreground">Time{time ? ` · day ${time.day} of ${time.days}` : ""}</p>
+            <p className="text-[20px] font-semibold leading-tight text-foreground">{time ? `${time.percent}%` : "—"}</p>
+            <div className="mt-1.5 h-1.5 overflow-hidden rounded-[2px] bg-background"><div className="h-full bg-muted-foreground/60" style={{ width: `${time?.percent ?? 0}%` }} /></div>
           </div>
-
-          {summary ? (
-            <div className="flex items-center gap-2">
-              <div className="h-1.5 w-24 overflow-hidden rounded-[2px] bg-muted">
-                <div
-                  className="h-full bg-primary transition-[width] duration-[180ms] motion-reduce:transition-none"
-                  style={{ width: `${Math.min(100, Math.max(0, summary.completionPercentage))}%` }}
-                />
-              </div>
-              <span className="font-mono text-[11px] font-medium text-muted-foreground">
-                {summary.completionPercentage}%
-              </span>
-            </div>
+          <div className="rounded-[6px] bg-muted/50 p-3">
+            <p className="text-[12px] text-muted-foreground">{work.unit === "points" ? "Points" : "Tasks"} done · {work.done} of {work.total}</p>
+            <p className="text-[20px] font-semibold leading-tight text-foreground">
+              {work.percent}%
+              {pace ? <span className={cn("ml-2 text-[12px] font-normal", pace === "behind" ? "text-[var(--status-danger)]" : pace === "ahead" ? "text-[var(--status-success)]" : "text-muted-foreground")}>{pace}</span> : null}
+              {summary.blockedTasks > 0 ? <span className="ml-2 text-[12px] font-normal text-[var(--status-danger)]">{summary.blockedTasks} blocked</span> : null}
+            </p>
+            <div className="mt-1.5 h-1.5 overflow-hidden rounded-[2px] bg-background"><div className="h-full bg-primary transition-[width] duration-[180ms] motion-reduce:transition-none" style={{ width: `${Math.min(100, work.percent)}%` }} /></div>
+          </div>
+        </div>
+      ) : null}
+      {lifecycleRows.length > 0 ? (
+        <ol className="flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-[11px] text-muted-foreground" aria-label="Sprint history">
+          {lifecycleRows.map((row) => (
+            <li key={`${row.kind}:${row.id}`} className="inline-flex items-center gap-1">
+              <span>{row.kind === "kickoff" ? "Started" : "Closed"}</span>
+              {row.occurredAt ? <time dateTime={row.occurredAt} className="font-medium text-foreground">{format(new Date(row.occurredAt), "MMM d, yyyy")}</time> : null}
+            </li>
+          ))}
+          {summary && summary.linkedFileCount > 0 ? <li>· {summary.linkedFileCount} file{summary.linkedFileCount === 1 ? "" : "s"} on its work</li> : null}
+        </ol>
+      ) : null}
+      {tasks.length > 0 ? (
+        <div className="flex flex-wrap items-center gap-2 border-t border-border pt-3">
+          <h3 className="flex-1 text-[15px] font-semibold">Work in this sprint · {visibleCount}</h3>
+          <label className="flex items-center gap-1.5 text-xs text-muted-foreground">Group by
+            <select value={by} onChange={(e) => setBy(e.target.value as "state" | "person")} className="nb-touch-target h-[30px] rounded-[5px] border border-border bg-card px-2 text-xs text-foreground">
+              <option value="state">State</option>
+              <option value="person">Person</option>
+            </select>
+          </label>
+          {user?.id ? (
+            <button type="button" aria-pressed={mine} onClick={() => setMine(!mine)} className={cn("nb-touch-target inline-flex h-[30px] items-center rounded-[5px] border px-2.5 text-xs", mine ? "border-foreground font-medium text-foreground" : "border-border text-muted-foreground hover:text-foreground")}>Mine</button>
           ) : null}
         </div>
       ) : null}
       {tasks.length === 0 ? (
         <div className="nb-empty-state nb-grid-ground rounded-[8px] py-16" role="status">
           <ListTodo className="nb-empty-state-icon mb-3" aria-hidden="true" />
-          <h3 className="nb-empty-state-title">No tasks in this sprint yet.</h3>
-          <p className="nb-empty-state-desc">Add tasks from the Tasks tab to start this sprint.</p>
+          <h3 className="nb-empty-state-title">No work in this sprint yet</h3>
+          <p className="nb-empty-state-desc">Use Add work to bring tasks from the backlog.</p>
         </div>
       ) : (
-      <ul className="divide-y divide-border/60 rounded-[8px] border border-border bg-card overflow-hidden shadow-none">
-        {tasks.map((task) => {
+      <div className="space-y-4">
+      {visibleCount === 0 ? <p className="text-sm text-muted-foreground">Nothing assigned to you in this sprint.</p> : null}
+      {view.groups.map((group) => (
+      <section key={group.key} aria-labelledby={`sprint-work-${group.key}`} className="space-y-1.5">
+      <h4 id={`sprint-work-${group.key}`} className={cn("font-mono text-[11px] font-medium uppercase tracking-[0.09em]", group.key === "blocked" ? "text-[var(--status-danger)]" : "text-muted-foreground")}>{group.title} · {group.tasks.length}</h4>
+      <ul aria-labelledby={`sprint-work-${group.key}`} className="divide-y divide-border/60 rounded-[8px] border border-border bg-card overflow-hidden shadow-none">
+        {group.tasks.map((task) => {
           // Live-fix 31: a main assignment reads "12/40", its class progress, never "Unassigned".
           const assignee = task.assignmentProgress ? (task.assignmentProgress.total ? `${task.assignmentProgress.done}/${task.assignmentProgress.total}` : "Nobody has joined yet") : sprintTimelinePersonName(task.assignee, "Unassigned");
           const taskReference = task.taskNumber == null ? null : `${projectKey?.trim() || "Task"}-${task.taskNumber}`;
@@ -355,6 +340,17 @@ export function SprintTimelineContent({
           );
         })}
       </ul>
+      </section>
+      ))}
+      {view.removed.length ? (
+        <details className="text-sm">
+          <summary className="cursor-pointer text-muted-foreground hover:text-foreground">Taken out of this sprint · {view.removed.length}</summary>
+          <ul className="mt-2 space-y-1 pl-4 text-muted-foreground">
+            {view.removed.map((task) => <li key={task.id}>{task.title}{task.isDeleted ? " · deleted" : ""}</li>)}
+          </ul>
+        </details>
+      ) : null}
+      </div>
       )}
       {hasMore && onLoadMore ? (
         <div className="flex justify-center pt-2">

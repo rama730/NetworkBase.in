@@ -98,9 +98,10 @@ export function LinkedWorkspacesBlock({ org, projectId, sprintId }: { org: Sprin
         toast.success(result.skipped ? `Sent to ${result.reminded}. ${result.skipped} ${result.skipped === 1 ? 'was' : 'were'} reminded recently.` : `Sent to ${result.reminded}.`)
     })
     return (
-        <section aria-label="Workspaces" className="mb-4 rounded-md border border-border p-3">
+        <section aria-labelledby="sprint-teams-heading" className="rounded-md border border-border p-3">
+            {/* Sprint redesign §5.5: teams plan their own sprint inside this one; say who has. */}
             <div className="flex flex-wrap items-center justify-between gap-2">
-                <p className="font-mono text-[11px] font-medium uppercase tracking-[0.09em] text-muted-foreground">Workspaces · {org.linkedProjects.length} of {total} linked</p>
+                <h3 id="sprint-teams-heading" className="text-sm font-semibold">Teams <span className="font-normal text-muted-foreground">· {org.linkedProjects.length} of {total} planned</span></h3>
                 {org.notLinked.length > 1 ? <Button type="button" size="sm" variant="outline" disabled={pending} onClick={() => remind(org.notLinked.map((w) => w.projectId))}>Remind {org.notLinked.length}</Button> : null}
             </div>
             <ul className="mt-2 space-y-1 text-sm">
@@ -115,7 +116,7 @@ export function LinkedWorkspacesBlock({ org, projectId, sprintId }: { org: Sprin
                 {org.notLinked.map((row) => (
                     <li key={row.projectId} className="flex flex-wrap items-center gap-x-2">
                         <Link href={`/workspaces/${row.slug ?? row.projectId}?tab=sprints`} className="hover:underline">{row.title}</Link>
-                        <span className="text-muted-foreground">· Not planned</span>
+                        <span className="text-muted-foreground">· no sprint yet</span>
                         <button type="button" disabled={pending} className="text-xs font-medium text-primary hover:underline" onClick={() => remind([row.projectId])}>Remind</button>
                     </li>
                 ))}
@@ -125,36 +126,43 @@ export function LinkedWorkspacesBlock({ org, projectId, sprintId }: { org: Sprin
 }
 
 /** Materials under the header: always visible; owners and admins add and remove (report §15.2, §15.4). */
-export function SprintMaterials({ projectId, sprintId, projectSlug, materials, canManage, onChanged }: {
+export function SprintMaterials({ projectId, sprintId, projectSlug, materials, canManage, onChanged, title = 'Materials' }: {
     projectId: string
     sprintId: string
     projectSlug: string
     materials: SprintMaterial[]
     canManage: boolean
     onChanged: Done
+    /** Sprint redesign §5.5, §8.5: "Materials" for a class, "Files" for a workspace. */
+    title?: 'Materials' | 'Files'
 }) {
     const [open, setOpen] = useState(false)
     const [pending, startTransition] = useTransition()
     if (materials.length === 0 && !canManage) return null
     return (
-        <section aria-label="Materials" className="mb-4 flex flex-wrap items-center gap-2">
-            <span className="font-mono text-[11px] font-medium uppercase tracking-[0.09em] text-muted-foreground">Materials</span>
+        <section aria-labelledby={`sprint-${title}-heading`} className="space-y-2 rounded-md border border-border p-3">
+            <div className="flex items-center justify-between gap-2">
+                <h3 id={`sprint-${title}-heading`} className="text-sm font-semibold">{title}</h3>
+                {canManage ? <Button type="button" variant="ghost" size="sm" onClick={() => setOpen(true)}><Paperclip className="size-3.5" aria-hidden="true" />Add</Button> : null}
+            </div>
+            {materials.length === 0 ? <p className="text-[13px] text-muted-foreground">{title === 'Materials' ? 'Slides, readings or files everyone uses in this sprint.' : 'Specs and designs the whole sprint works from.'}</p> : null}
+            <div className="flex flex-wrap gap-2">
             {materials.map((m) => (
-                <span key={m.id} className="inline-flex items-center gap-1 rounded-full border border-border bg-card py-0.5 pl-2.5 pr-1 text-sm">
+                <span key={m.id} className="inline-flex items-center gap-1 rounded-[5px] border border-border bg-card py-0.5 pl-2.5 pr-1 text-sm">
                     <FileText className="size-3.5 text-muted-foreground" aria-hidden="true" />
                     <Link
                         href={m.kind === 'doc' ? `/workspaces/${projectSlug}?tab=docs&doc=${m.docSlug}` : `/workspaces/${projectSlug}?tab=files&fileId=${m.nodeId}`}
                         className="hover:underline"
                     >{m.title}</Link>
                     {canManage ? (
-                        <button type="button" aria-label={`Remove ${m.title}`} disabled={pending} className="nb-icon-button size-6 rounded-full"
+                        <button type="button" aria-label={`Remove ${m.title}`} disabled={pending} className="nb-icon-button size-6 rounded-[4px]"
                             onClick={() => startTransition(async () => { await removeSprintMaterialAction({ projectId, materialId: m.id }); onChanged() })}>
                             <X className="size-3" aria-hidden="true" />
                         </button>
                     ) : null}
                 </span>
             ))}
-            {canManage ? <Button type="button" variant="outline" size="sm" onClick={() => setOpen(true)}><Paperclip className="size-3.5" aria-hidden="true" />Add material</Button> : null}
+            </div>
             {canManage ? <MaterialPicker open={open} onOpenChange={setOpen} projectId={projectId} sprintId={sprintId} onAdded={onChanged} /> : null}
         </section>
     )

@@ -42,18 +42,19 @@ describe("sprint tab target architecture contract", () => {
   });
 
   it("shows the compact authoritative Sprint header", () => {
-    assert.match(sprintHeaderSource, /\{sprint\.code\}/);
-    assert.match(sprintHeaderSource, /SPRINT_STATUS_PRESENTATION/);
+    assert.match(sprintHeaderSource, /\{sprint\.code\}/, "the code lives in the ⋯ menu");
+    assert.match(sprintHeaderSource, /PHASE_WORDS\[phase\]/, "sprint redesign §4: one phase word");
     assert.match(sprintHeaderSource, /formatSprintDateRange/);
     assert.match(sprintHeaderSource, /\{sprint\.name\}/);
     assert.doesNotMatch(sprintHeaderSource, /Progress|Activity|Baseline/);
   });
 
   it("implements the schedule-owned lifecycle instead of a manual status toggle", () => {
-    for (const control of ["Complete sprint", "Cancel sprint", "Archive sprint"]) {
+    // Sprint redesign §4: Close sprint once it has ended, Complete early while it runs, Cancel and Archive in ⋯.
+    for (const control of ["Close sprint", "Complete early", "Cancel sprint", "Archive sprint", "Add work"]) {
       assert.match(sprintHeaderSource, new RegExp(control));
     }
-    assert.match(sprintHeaderSource, /Starts automatically on schedule/);
+    assert.match(sprintHeaderSource, /Starts by itself/);
     assert.doesNotMatch(sprintHeaderSource, /Start sprint|Reopen sprint/);
     assert.match(sprintLifecycleModalsSource, /unfinishedChoice/);
     assert.match(sprintLifecycleModalsSource, /Move to backlog/);
@@ -66,7 +67,9 @@ describe("sprint tab target architecture contract", () => {
   it("uses compact lifecycle and health summaries with explicit pagination", () => {
     assert.match(sprintTimelineSource, /aria-label="Sprint summary"/);
     assert.match(sprintTimelineSource, /aria-label="Sprint history"/);
-    assert.match(sprintTimelineSource, /Add tasks from the Tasks tab to start this sprint/);
+    assert.match(sprintTimelineSource, /Use Add work to bring tasks from the backlog\./);
+    assert.match(sprintTimelineSource, /workGroups\(tasks, by, mine \? user\?\.id : null\)/);
+    assert.match(sprintTimelineSource, /Taken out of this sprint · \{view\.removed\.length\}/);
     assert.match(sprintTimelineSource, /hasMore && onLoadMore/);
     assert.match(sprintTimelineSource, /Load more tasks/);
     assert.doesNotMatch(sprintTimelineSource, /IntersectionObserver/);
@@ -97,11 +100,10 @@ describe("sprint tab target architecture contract", () => {
   });
 
   it("groups current and historical Sprints and removes the obsolete drawer", () => {
-    assert.match(sprintLeftRailSource, /label: "Active"/);
-    assert.match(sprintLeftRailSource, /Upcoming/);
-    assert.match(sprintLeftRailSource, /Completed/);
-    assert.match(sprintLeftRailSource, /Canceled/);
-    assert.match(sprintLeftRailSource, /Archived/);
+    // Sprint redesign §5.1: the term — Now, Next, Later, Past — with gaps.
+    assert.match(sprintLeftRailSource, /termRail\(sprints\)/);
+    assert.match(sprintLeftRailSource, /No sprint planned/);
+    assert.match(sprintLeftRailSource, /Past · \{group\.items\.length\}/);
     assert.equal(
       fs.existsSync(
         path.join(

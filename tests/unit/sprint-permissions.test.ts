@@ -86,7 +86,7 @@ it("live-fix 30, 35: a running sprint offers Complete and days left; the goal si
   assert.equal(sprintDaysLeft({ status: "planning", endDate: "2026-11-16T00:00:00.000Z" }, now), null);
   const { readFileSync } = await import("node:fs");
   const header = readFileSync("src/components/workspaces/tabs/sprint/SprintHeader.tsx", "utf8");
-  assert.match(header, /const canCompleteNow = permissions\.canComplete && sprint\.status === "active"/);
-  assert.doesNotMatch(header, /text-muted-foreground">—<\/span>/);
+  assert.match(header, /const canClose = permissions\.canComplete && sprint\.status === "active"/);
+  assert.match(header, /Complete early/, "Complete is there the whole time it runs (live-fix 30), in ⋯");
   assert.match(header, /"days"\} left/);
 });
