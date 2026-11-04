@@ -1,7 +1,7 @@
 import { and, asc, eq, isNotNull, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { workspaceNodes } from "@/lib/db/schema";
-import { finishPermanentDelete } from "@/lib/files/permanent-delete";
+import { finishPermanentDelete, markExpiredTrash } from "@/lib/files/permanent-delete";
 import { logger } from "@/lib/logger";
 import { inngest } from "../client";
 
@@ -11,6 +11,9 @@ export const finishPendingFileDeletions = inngest.createFunction(
   // ponytail: 6-hourly sweep handles crashed delete tombstones without high-frequency polling. ceiling: 6-hourly cron sweep. upgrade: event-driven file.deleted trigger if instant tombstone recovery required.
   { cron: "0 */6 * * *" },
   async ({ step }) => {
+    // Trash older than 30 days joins the queue below. ponytail: 20 a run keeps Inngest steps
+    // under ~80 a day; a large expired Trash drains over a few days.
+    await step.run("mark-expired-trash", () => markExpiredTrash(20));
     const pending = await step.run("read-pending-deletions", () =>
       db
         .select({ id: workspaceNodes.id, projectId: workspaceNodes.projectId })

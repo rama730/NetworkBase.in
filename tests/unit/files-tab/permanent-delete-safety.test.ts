@@ -136,6 +136,8 @@ function fixture(
       },
     },
     "@/lib/storage/workspace-file-key": { parseWorkspaceFileKey },
+    "@/lib/logger": { logger: { warn: () => undefined } },
+    "@/lib/files/runtime-budgets": { TRASH_RETENTION_DAYS: 30 },
     "@/lib/storage/asset-deletion": {
       scheduleAssetDeletionIfUnreferenced: async (_tx: unknown, ids: string[]) => {
         events.push("schedule");

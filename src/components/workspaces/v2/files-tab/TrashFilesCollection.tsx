@@ -54,6 +54,7 @@ import { FilesViewsMenu, FilesHeaderSlot } from "./FilesHeader";
 import { UserAvatar } from "@/components/ui/UserAvatar";
 import styles from "./folder/FolderList.module.css";
 import { cn } from "@/lib/utils";
+import { TRASH_RETENTION_DAYS } from "@/lib/files/runtime-budgets";
 
 function originalLocation(path: string) {
   const parts = path.split("/").filter(Boolean);
@@ -435,6 +436,9 @@ export function TrashFilesCollection({ projectId }: { projectId: string }) {
             {filteredNodes.length === nodes.length
               ? `${nodes.length} ${nodes.length === 1 ? "item" : "items"}`
               : `Showing ${filteredNodes.length} of ${nodes.length} items`}
+          </span>
+          <span className="ml-2 text-[11px] text-[#6B7880] dark:text-muted-foreground">
+            Items are deleted for good {TRASH_RETENTION_DAYS} days after they’re moved here.
           </span>
         </div>
 

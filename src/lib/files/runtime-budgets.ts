@@ -22,3 +22,6 @@ export function clampNumber(value: number, min: number, max: number) {
   if (!Number.isFinite(value)) return min;
   return Math.min(max, Math.max(min, value));
 }
+
+// Trash empties itself this many days after an item was trashed (markExpiredTrash).
+export const TRASH_RETENTION_DAYS = 30;

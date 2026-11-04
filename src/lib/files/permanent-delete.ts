@@ -10,6 +10,8 @@ import {
   taskNodeLinks,
 } from "@/lib/db/schema";
 import { parseWorkspaceFileKey } from "@/lib/storage/workspace-file-key";
+import { logger } from "@/lib/logger";
+import { TRASH_RETENTION_DAYS } from "@/lib/files/runtime-budgets";
 import { recordNodeEvent } from "./internal-helpers";
 
 type Transaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
@@ -184,4 +186,67 @@ export async function finishPermanentDelete(projectId: string, nodeId: string) {
     }
     return { deletedIds: plan.ids };
   });
+}
+
+
+/**
+ * Trash empties itself TRASH_RETENTION_DAYS after an item was trashed. This marks the
+ * biggest expired subtrees that fit one permanent delete (MAX_PURGE_NODES) with the same
+ * tombstone a manual "Delete permanently" leaves; finishPendingFileDeletions removes them.
+ * A folder too big for one delete goes in pieces: its children first, itself on a later run.
+ * Returns how many subtrees were marked.
+ */
+export async function markExpiredTrash(limit = 20) {
+  const cutoff = new Date(Date.now() - TRASH_RETENTION_DAYS * 86_400_000);
+  const roots = Array.from(await db.execute<{ id: string; workspace_id: string }>(sql`
+    WITH RECURSIVE expired AS (
+      SELECT id, parent_id, workspace_id FROM workspace_nodes
+      WHERE deleted_at < now() - make_interval(days => ${TRASH_RETENTION_DAYS}) AND NOT coalesce(metadata ? 'permanentDeleteRoot', false)
+    ), chain AS (
+      -- every expired node paired with itself and each expired ancestor
+      SELECT id, id AS ancestor FROM expired
+      UNION ALL
+      SELECT chain.id, up.parent_id FROM chain
+        JOIN expired up ON up.id = chain.ancestor
+        JOIN expired p ON p.id = up.parent_id
+    ), fits AS (
+      SELECT e.* FROM expired e
+      JOIN (SELECT ancestor, count(*) AS n FROM chain GROUP BY ancestor) s ON s.ancestor = e.id
+      WHERE s.n <= ${MAX_PURGE_NODES}
+    )
+    SELECT f.id, f.workspace_id FROM fits f
+    WHERE NOT EXISTS (SELECT 1 FROM fits p WHERE p.id = f.parent_id)
+    LIMIT ${limit}
+  `));
+
+  let marked = 0;
+  for (const root of roots) {
+    try {
+      const done = await db.transaction(async (tx) => {
+        // Same lock finishPermanentDelete takes, so a restore cannot interleave.
+        await tx.select({ id: workspaces.id }).from(workspaces).where(eq(workspaces.id, root.workspace_id)).for("update");
+        const plan = await inspectPermanentDelete(tx, root.workspace_id, root.id);
+        if (!plan) return false;
+        // Restored and trashed again since the read, or a deletion already pending inside: next run.
+        if (plan.nodes.some((n) => !n.deletedAt || n.deletedAt >= cutoff || n.metadata?.permanentDeleteRoot)) return false;
+        await tx
+          .update(workspaceNodes)
+          .set({
+            metadata: sql`coalesce(${workspaceNodes.metadata}, '{}'::jsonb) || ${JSON.stringify({ permanentDeleteRoot: root.id, permanentDeleteActor: null, permanentDeleteRequestedAt: new Date().toISOString(), permanentDeleteReason: "trash_retention" })}::jsonb`,
+          })
+          .where(and(eq(workspaceNodes.projectId, root.workspace_id), inArray(workspaceNodes.id, plan.ids)));
+        await recordNodeEvent(root.workspace_id, null, root.id, "permanent_delete_requested", { items: plan.ids.length, reason: "trash_retention" }, tx);
+        return true;
+      });
+      if (done) marked++;
+    } catch (error) {
+      // One blocked subtree (dependent copy, pending upload) must not stop the rest.
+      logger.warn("Expired Trash item skipped", {
+        projectId: root.workspace_id,
+        nodeId: root.id,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+  return marked;
 }
