@@ -169,14 +169,13 @@ export async function stampLastActiveHere(workspaceId: string, userId: string) {
 }
 
 /**
- * Sidebar report G4: when you last opened this workspace, for the sidebar's order. One write per 5 minutes at most;
- * nothing for people who aren't members.
+ * Sidebar report G4 and the new-updates dot: when you last opened this workspace. Every open counts (opening it is
+ * seeing it, so the dot goes); nothing for people who aren't members.
  */
 export async function stampOpened(workspaceId: string, userId: string) {
   await db.execute(sql`
     UPDATE workspace_members SET last_opened_at = now()
-    WHERE workspace_id = ${workspaceId}::uuid AND user_id = ${userId}::uuid
-      AND (last_opened_at IS NULL OR last_opened_at < now() - interval '5 minutes')`);
+    WHERE workspace_id = ${workspaceId}::uuid AND user_id = ${userId}::uuid`);
 }
 
 /** A per-account limit refused the join: its message is safe to show; any other error stays redacted. */

@@ -61,13 +61,15 @@ export async function readSidebarWorkspacesAction(): Promise<SidebarWorkspaces |
     const userId = await viewer();
     if (!userId) return null;
     // G4: ordered by your own visits (0065), never by other people's edits. G5: a workspace (not an org; orgs keep their
-    // announcement rule) has unseen updates when someone else posted after you last opened its Updates.
+    // announcement rule) has unseen updates when someone else posted after you last opened it.
     const mine = await ROWS<{ id: string; title: string; slug: string | null; kind: string; status: string | null; parent_id: string | null; role: string; opened: string | null; last_seen: string | null; settings: unknown; org_title: string | null; in_org: boolean; unseen: boolean }>(sql`
         SELECT p.id, p.title, p.slug, p.kind, p.status, p.parent_id,
           CASE WHEN p.owner_id = ${userId}::uuid THEN 'owner' ELSE pm.role END AS role,
           coalesce(pm.last_opened_at, pm.joined_at, p.created_at)::text AS opened, pm.last_seen_updates_at::text AS last_seen, p.org_settings AS settings,
           (p.kind <> 'organization' AND EXISTS (SELECT 1 FROM workspace_updates u WHERE u.workspace_id = p.id AND u.deleted_at IS NULL
-            AND u.author_id IS DISTINCT FROM ${userId}::uuid AND u.created_at > coalesce(pm.last_seen_updates_at, pm.joined_at, p.created_at))) AS unseen,
+            AND u.author_id IS DISTINCT FROM ${userId}::uuid
+            -- Opening the workspace counts as seeing it (the user, 5 Nov): newer than your last visit or your last read of Updates.
+            AND u.created_at > greatest(pm.last_opened_at, pm.last_seen_updates_at, coalesce(pm.joined_at, p.created_at)))) AS unseen,
           o.title AS org_title,
           (o.id IS NOT NULL AND (o.owner_id = ${userId}::uuid OR EXISTS (SELECT 1 FROM workspace_members om WHERE om.workspace_id = o.id AND om.user_id = ${userId}::uuid))) AS in_org
         FROM workspaces p

@@ -22,10 +22,11 @@ const MAX_PERSONAL = 12;
 const FILTER_FROM = 10;
 const orgHref = (o: { slug: string | null; id: string }) => `/org/${encodeURIComponent(o.slug ?? o.id)}`;
 const projectHref = (p: { slug: string | null; id: string }) => `/workspaces/${encodeURIComponent(p.slug ?? p.id)}`;
-// Hover or keyboard focus shows a row's extra buttons; touch screens always show them (§2, D2).
-// They take no room until then, so the name keeps the row's width at rest.
-const reveal = "hidden group-hover:inline-flex group-focus-within:inline-flex data-[state=open]:inline-flex [@media(hover:none)]:inline-flex";
+// A row's + and ⋯ float over its right end (`.nb-row-tools` in globals.css), shown on hover, keyboard focus or touch:
+// they take no room, so the name, the dot and the count never move (the user, 5 Nov: "remove this jelly effect").
 const iconButton = "relative z-10 inline-flex size-6 shrink-0 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground";
+// The name link never paints its own focus box; the whole row shows it (`data-ws-row` in globals.css).
+const nameLink = "min-w-0 flex-1 truncate after:absolute after:inset-0 after:rounded-[5px] focus-visible:bg-transparent focus-visible:outline-none";
 
 function readOpen(key: string, fallback = true) {
     try { const v = window.localStorage.getItem(key); return v === null ? fallback : v !== "closed"; } catch { return fallback; }
@@ -39,7 +40,7 @@ function RowMenu({ id, title, href, pinned, onPin }: { id: string; title: string
     return (
         <DropdownMenu modal={false}>
             <DropdownMenuTrigger asChild>
-                <button type="button" className={cn(iconButton, reveal)} aria-label={`More for ${title}`}><MoreHorizontal className="size-3.5" aria-hidden="true" /></button>
+                <button type="button" className={iconButton} aria-label={`More for ${title}`}><MoreHorizontal className="size-3.5" aria-hidden="true" /></button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" side="right" className="w-44">
                 <DropdownMenuItem onSelect={() => onPin(id, !pinned)}>{pinned ? <PinOff aria-hidden="true" /> : <Pin aria-hidden="true" />}{pinned ? "Unpin" : "Pin to top"}</DropdownMenuItem>
@@ -52,16 +53,18 @@ function RowMenu({ id, title, href, pinned, onPin }: { id: string; title: string
 
 /** One workspace row: the name alone (§1), a new-updates dot (G5), and its ⋯ (G9). */
 function Row({ row, href, current, prefix, pinned, onPin, muted }: { row: SidebarRow; href: string; current: boolean; prefix?: string; pinned: boolean; onPin: (id: string, pinned: boolean) => void; muted?: boolean }) {
+    // The page you're on is seen: no dot on it.
+    const unseen = row.unseen && !current;
     return (
         <li className="group relative">
-            <div className={cn("nb-nav-link relative pr-1", muted && !current && "font-normal")} aria-current={current ? "page" : undefined} style={{ gap: 6 }}>
+            <div className={cn("nb-nav-link relative", muted && !current && "font-normal")} aria-current={current ? "page" : undefined} data-ws-row style={{ gap: 6 }}>
                 <Link prefetch={false} href={href} title={prefix ? `${prefix} / ${row.title}` : row.title} aria-current={current ? "page" : undefined}
-                    aria-label={`${prefix ? `${prefix} / ` : ""}${row.title}${row.unseen ? ", new updates" : ""}`}
-                    className="min-w-0 flex-1 truncate after:absolute after:inset-0 after:rounded-[5px] focus-visible:outline-none">
+                    aria-label={`${prefix ? `${prefix} / ` : ""}${row.title}${unseen ? ", new updates" : ""}`}
+                    className={nameLink}>
                     {prefix ? <span className="text-muted-foreground">{prefix} / </span> : null}{row.title}
                 </Link>
-                {row.unseen ? <span className="pointer-events-none size-1.5 shrink-0 rounded-full bg-primary" aria-hidden="true" data-testid="unseen-dot" /> : null}
-                <RowMenu id={row.id} title={row.title} href={href} pinned={pinned} onPin={onPin} />
+                {unseen ? <span className="pointer-events-none size-1.5 shrink-0 rounded-full bg-primary" aria-hidden="true" data-testid="unseen-dot" /> : null}
+                <span className="nb-row-tools"><RowMenu id={row.id} title={row.title} href={href} pinned={pinned} onPin={onPin} /></span>
             </div>
         </li>
     );
@@ -87,22 +90,24 @@ function OrgGroup({ org, currentId, forceOpen, filterText, pinned, onPin, active
     return (
         <li>
             <div className="group relative">
-                <div className="nb-nav-link relative gap-1 pl-1 pr-1" aria-current={here ? "page" : undefined} data-org-row style={{ gap: 4 }}>
+                <div className="nb-nav-link relative gap-1 pl-1" aria-current={here ? "page" : undefined} data-org-row data-ws-row style={{ gap: 4 }}>
                     <button type="button" onClick={toggle} className={cn(iconButton, "size-5")} aria-expanded={isOpen} aria-controls={`sidebar-org-${org.id}`}
                         aria-label={`${isOpen ? "Hide" : "Show"} ${org.title}’s workspaces`}>
                         {isOpen ? <ChevronDown className="size-3.5" aria-hidden="true" /> : <ChevronRight className="size-3.5" aria-hidden="true" />}
                     </button>
                     <Link prefetch={false} href={href} title={org.title} aria-current={here ? "page" : undefined}
                         aria-label={`${org.title}${needsLabel ? `, ${needsLabel}` : ""}${org.unseenAnnouncement ? ", new announcement" : ""}`}
-                        className="min-w-0 flex-1 truncate after:absolute after:inset-0 after:rounded-[5px] focus-visible:outline-none">{org.title}</Link>
-                    {org.canCreate ? (
-                        <Link prefetch={false} href={`/workspaces/new?org=${encodeURIComponent(org.slug ?? org.id)}`} className={cn(iconButton, reveal)} aria-label={`New workspace in ${org.title}`} title={`New workspace in ${org.title}`}>
-                            <Plus className="size-3.5" aria-hidden="true" />
-                        </Link>
-                    ) : null}
+                        className={nameLink}>{org.title}</Link>
                     {org.needsYou > 0 ? <span className="nb-nav-count pointer-events-none ml-0" title={needsLabel} aria-hidden="true">{needs}</span>
                         : org.unseenAnnouncement ? <span className="nb-nav-dot pointer-events-none mx-1 size-1.5 rounded-full bg-primary" aria-hidden="true" /> : null}
-                    <RowMenu id={org.id} title={org.title} href={href} pinned={pinned.has(org.id)} onPin={onPin} />
+                    <span className="nb-row-tools">
+                        {org.canCreate ? (
+                            <Link prefetch={false} href={`/workspaces/new?org=${encodeURIComponent(org.slug ?? org.id)}`} className={iconButton} aria-label={`New workspace in ${org.title}`} title={`New workspace in ${org.title}`}>
+                                <Plus className="size-3.5" aria-hidden="true" />
+                            </Link>
+                        ) : null}
+                        <RowMenu id={org.id} title={org.title} href={href} pinned={pinned.has(org.id)} onPin={onPin} />
+                    </span>
                 </div>
             </div>
             {isOpen ? (
@@ -148,6 +153,19 @@ export function SidebarWorkspaces({ data, autoFocusFilter = false }: { data: Dat
         for (const p of [...data.personal, ...data.outside]) if (active(projectHref(p))) return p.id;
         return null;
     }, [data, pathname]);
+
+    // Opening a workspace is seeing it (the user, 5 Nov): its dot goes at once — here, and in the cached list, so it
+    // doesn't come back before the next read (which already counts this visit; stampOpened).
+    useEffect(() => {
+        if (!currentId) return;
+        const seen = (r: SidebarRow) => (r.id === currentId && r.unseen ? { ...r, unseen: false } : r);
+        client.setQueriesData<Data | null>({ queryKey: queryKeys.profile.sidebarWorkspacesRoot() }, (old) => old ? {
+            ...old,
+            orgs: old.orgs.map((o) => ({ ...o, children: o.children.map(seen) })),
+            personal: old.personal.map(seen),
+            outside: old.outside.map((r) => ({ ...r, ...seen(r) })),
+        } : old);
+    }, [client, currentId]);
 
     const text = filter.trim().toLowerCase();
     const totalRows = data.orgs.reduce((n, o) => n + 1 + o.children.length, 0) + data.outside.length + data.personal.length + data.requested.length;

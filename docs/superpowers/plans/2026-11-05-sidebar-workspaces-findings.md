@@ -141,3 +141,18 @@ Tests: browser — seven sidebar tests (names only, the group, the current row, 
 Filter / Archived, spacing and keyboard with axe, collapsed strip). DB — order by your own visits and the 5-minute
 stamp, dots (not your own posts; cleared on reading), all children and personal rows returned, pins (membership, limit,
 order, unpin, cascade). Not checked here: your signed-in screens.
+
+## Follow-up: no "jelly", and the dot goes once you've opened the page (5 November 2026)
+
+The user saw two things on the built list: rows wobbling under the pointer, and a dot that stayed after opening the
+workspace.
+- **No jelly.** The name link no longer paints its own focus box inside the row (the app-wide focus tint landed on it
+  after a click); the whole row shows keyboard focus instead. + and ⋯ float over the row's right end with a fade
+  (`.nb-row-tools`), so on hover the name, the dot and the count stay exactly where they were.
+- **The dot means "posted since you last opened it".** Opening a workspace (any tab) counts as seeing it: the dot isn't
+  shown on the page you're on, it's cleared in the cached list at once, and the next read agrees because every open now
+  stamps `last_opened_at` (no 5-minute wait). A newer post by someone else brings it back. Reading Updates still clears
+  it too; organizations keep their announcement dot.
+
+Tests: browser — nothing moves or resizes on hover (name, dot, count), no inner box on keyboard focus, no dot on the page
+you're on; DB — opening clears the dot, a newer post brings it back, Updates still clears it.

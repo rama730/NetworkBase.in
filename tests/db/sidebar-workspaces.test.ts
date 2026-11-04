@@ -41,7 +41,7 @@ async function space(owner: string, title: string, extra: string[] = []) {
   return id;
 }
 
-test("G4: ordered by your own visits, not by other people's edits; stampOpened writes at most every 5 minutes", async () => {
+test("G4: ordered by your own visits, not by other people's edits; every open counts", async () => {
   const [me, other] = await Promise.all([1, 2].map(() => sql.begin((tx) => createUser(tx))));
   const a = await space(me!, "Alpha", [other!]);
   const b = await space(me!, "Bravo", [other!]);
@@ -52,16 +52,12 @@ test("G4: ordered by your own visits, not by other people's edits; stampOpened w
   await sql`UPDATE workspaces SET updated_at = now() + interval '1 hour' WHERE id = ${b}`;
   read = await side.readSidebarWorkspacesAction();
   assert.equal(read!.personal[0]!.title, "Alpha", "someone else's edit doesn't move Bravo up");
-  const [before] = await sql`SELECT last_opened_at FROM workspace_members WHERE workspace_id = ${a} AND user_id = ${me!}`;
-  await members.stampOpened(a, me!);
-  const [after] = await sql`SELECT last_opened_at FROM workspace_members WHERE workspace_id = ${a} AND user_id = ${me!}`;
-  assert.equal(String(after!.last_opened_at), String(before!.last_opened_at), "no second write within 5 minutes");
   await members.stampOpened(b, me!);
   read = await side.readSidebarWorkspacesAction();
   assert.equal(read!.personal[0]!.title, "Bravo", "opening it moves it up");
 });
 
-test("G5: a dot when someone else posted after you last read Updates; not for your own posts; cleared when you read them", async () => {
+test("G5: a dot when someone else posted after your last visit; not for your own posts; gone once you open the workspace or its Updates", async () => {
   const [me, other] = await Promise.all([1, 2].map(() => sql.begin((tx) => createUser(tx))));
   const ws = await space(me!, "Dots", [other!]);
   viewerId = me!;
@@ -71,8 +67,12 @@ test("G5: a dot when someone else posted after you last read Updates; not for yo
   assert.equal(await dot(), false, "your own post isn't news");
   await sql`INSERT INTO workspace_updates (workspace_id, author_id, content) VALUES (${ws}, ${other!}, 'Theirs')`;
   assert.equal(await dot(), true);
-  await sql`UPDATE workspace_members SET last_seen_updates_at = now() + interval '1 second' WHERE workspace_id = ${ws} AND user_id = ${me!}`;
-  assert.equal(await dot(), false, "opening Updates clears it");
+  await members.stampOpened(ws, me!);
+  assert.equal(await dot(), false, "opening the workspace (any tab) clears it — the user, 5 Nov");
+  await sql`INSERT INTO workspace_updates (workspace_id, author_id, content, created_at) VALUES (${ws}, ${other!}, 'Later', now() + interval '1 second')`;
+  assert.equal(await dot(), true, "a newer post brings it back");
+  await sql`UPDATE workspace_members SET last_seen_updates_at = now() + interval '2 seconds' WHERE workspace_id = ${ws} AND user_id = ${me!}`;
+  assert.equal(await dot(), false, "reading Updates clears it too");
 });
 
 test("G2, G3: every child of an organization and up to 50 personal workspaces come back", async () => {

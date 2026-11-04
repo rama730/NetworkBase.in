@@ -58,10 +58,13 @@ test('§2: the group — chevron at the left, the count says what it counts, + o
     await expect(row.locator('.nb-nav-count')).toHaveAttribute('title', '2 things need you');
     const plus = row.getByRole('link', { name: 'New workspace in CSE 3B · Data Structures 2026' });
     await expect(plus).toBeHidden();
-    const restWidth = (await name.boundingBox())!.width;
+    const rest = await name.boundingBox();
+    const count = await row.locator('.nb-nav-count').boundingBox();
     await row.hover();
     await expect(plus).toBeVisible();
-    expect(restWidth).toBeGreaterThan((await name.boundingBox())!.width, "at rest the name has the room");
+    // No "jelly" (the user, 5 Nov): + and ⋯ float over the row's end; the name and the count don't move or resize.
+    expect(await name.boundingBox()).toEqual(rest);
+    expect(await row.locator('.nb-nav-count').boundingBox()).toEqual(count);
     const kids = page.getByRole('list', { name: 'Workspaces in CSE 3B · Data Structures 2026' });
     expect(await kids.evaluate((el) => getComputedStyle(el).borderLeftWidth)).toBe('1px');
     expect((await kids.boundingBox())!.x).toBeGreaterThan((await row.boundingBox())!.x + 10);
@@ -152,4 +155,27 @@ test('D1, G7: the collapsed strip hides the list and shows the Workspaces button
     await open(page);
     await expect(page.getByRole('button', { name: 'Workspaces', exact: true })).toBeHidden();
     await expect(list(page)).toBeVisible();
+});
+
+test('no jelly: a row never paints a box inside itself, hovering a workspace moves nothing, and the page you\'re on has no dot', async ({ page }) => {
+    await open(page, 'path=/workspaces/p1');
+    const caveman = list(page).getByRole('link', { name: 'Caveman' });
+    await expect(list(page).getByRole('link', { name: 'Caveman, new updates' })).toHaveCount(0, { timeout: 2000 });
+    await expect(caveman).toHaveAttribute('aria-current', 'page');
+    const falcon = list(page).getByRole('link', { name: 'Team Falcon: Hash table library, new updates' });
+    const rest = await falcon.boundingBox();
+    const dot = await falcon.locator('xpath=..').getByTestId('unseen-dot').boundingBox();
+    await falcon.hover();
+    await expect(list(page).getByRole('button', { name: 'More for Team Falcon: Hash table library' })).toBeVisible();
+    expect(await falcon.boundingBox()).toEqual(rest);
+    expect(await falcon.locator('xpath=..').getByTestId('unseen-dot').boundingBox()).toEqual(dot);
+    // Keyboard focus: from Ponytail, Tab reaches its ⋯ (it shows while the row has focus), then Caveman.
+    await list(page).getByRole('link', { name: 'Ponytail' }).focus();
+    await page.keyboard.press('Tab');
+    await expect(list(page).getByRole('button', { name: 'More for Ponytail' })).toBeFocused();
+    await page.keyboard.press('Tab');
+    await expect(caveman).toBeFocused();
+    expect(await caveman.evaluate((el) => getComputedStyle(el).backgroundColor)).toBe('rgba(0, 0, 0, 0)');
+    const rowBg = await caveman.evaluate((el) => getComputedStyle(el.closest('[data-ws-row]')!).backgroundColor);
+    expect(rowBg).not.toBe('rgba(0, 0, 0, 0)');
 });

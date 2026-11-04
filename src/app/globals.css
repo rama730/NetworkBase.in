@@ -820,6 +820,17 @@ html[data-reduce-motion="true"] .nb-skeleton {
 .nb-sidebar[data-collapsed="true"] .nb-sidebar-brand { justify-content:center; padding-inline:6px; }
 .nb-sidebar[data-collapsed="true"] .nb-sidebar-brand .nb-wordmark .nb-brand-name,
 .nb-sidebar[data-collapsed="true"] .nb-sidebar-label { display:none; }
+/* Workspace rows in the left navigation (the user, 5 Nov: no "jelly"): the row is the one surface. Its name link
+   never paints its own focus box — the row shows keyboard focus — and + and ⋯ float over the right end on hover,
+   focus or touch, so nothing in the row moves. --nb-row-bg follows the row's own background for the fade. */
+[data-ws-row] { --nb-row-bg: var(--sidebar); }
+[data-ws-row]:hover { --nb-row-bg: var(--muted); }
+[data-ws-row][aria-current="page"] { --nb-row-bg: var(--sidebar-accent); }
+[data-ws-row]:has(a:focus-visible) { background: color-mix(in srgb, var(--primary) 14%, var(--nb-row-bg)); --nb-row-bg: color-mix(in srgb, var(--primary) 14%, var(--sidebar)); }
+.nb-row-tools { position:absolute; z-index:10; right:2px; top:50%; transform:translateY(-50%); display:none; align-items:center; gap:2px;
+  padding-left:18px; background:linear-gradient(to right, transparent, var(--nb-row-bg) 16px); border-radius:0 5px 5px 0; }
+[data-ws-row]:hover .nb-row-tools, [data-ws-row]:focus-within .nb-row-tools, .nb-row-tools:has([data-state="open"]) { display:flex; }
+@media (hover:none) { .nb-row-tools { display:flex; } }
 /* Sidebar report D1, G7: the collapsed strip has no workspace list, just one Workspaces button that opens it. */
 .nb-sidebar-workspaces-rail { display:none; }
 .nb-sidebar[data-collapsed="true"] .nb-sidebar-workspaces-rail { display:flex; }
