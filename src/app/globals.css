@@ -1091,17 +1091,17 @@ svg.lucide { stroke-width:1.75; }
 }
 .nb-portfolio-grid { display:flex; flex-direction:column; gap:16px; }
 
-/* Decision 75 (report §32.3): one visible keyboard focus ring everywhere, from --focus-ring. Components add no
-   second halo (Tailwind ring shadows stay off). Rows and fields in clipped lists draw it inside their edge. Dialog
-   and palette containers only hold focus for their contents, so they get no ring. */
+/* Sprint redesign §0 (replacing decision 75's ring): no outer line on focus, anywhere. Components add no halo either
+   (Tailwind ring shadows stay off). Keyboard focus still shows (WCAG 2.4.7): the clay tint below on links, tabs and
+   rows, a clay border on Buttons, a darker border on fields, and a thin neutral outline on native checkboxes and
+   radios, which have no surface to tint. */
 :focus-visible {
-  outline: 2px solid var(--focus-ring) !important;
-  outline-offset: 2px;
+  outline: none !important;
   --tw-ring-offset-shadow: 0 0 #0000 !important;
   --tw-ring-shadow: 0 0 #0000 !important;
 }
-:is(.nb-nav-link, .nb-tab, [data-slot="input"], input, textarea, select, [role="option"], [role="menuitem"], [role="treeitem"], [data-messages-surface] *):focus-visible { outline-offset: -2px; }
-:is([data-slot="dialog-content"], [data-command-palette-dialog], .nb-command-input, [tabindex="-1"]):focus-visible { outline: none !important; }
+:is(input:not([type="checkbox"]):not([type="radio"]), textarea, select):focus-visible { border-color: var(--foreground); }
+input:is([type="checkbox"], [type="radio"]):focus-visible { outline: 1.5px solid var(--foreground) !important; outline-offset: 1px; }
 
 .nb-avatar-fallback, .nb-avatar-fallback > div, .nb-avatar-fallback > span {
   color: var(--foreground);
@@ -1377,7 +1377,7 @@ html[data-reduce-motion="true"] .nb-typing-dots > span { animation: none; opacit
 .nb-story-input { display:block; width:100%; min-width:0; height:var(--ui-control-height); padding:8px var(--ui-control-px); border:1px solid var(--input); border-radius:4px; background:var(--card); color:var(--foreground); font-size:13px; }
 @media (pointer:coarse) { .nb-story-input { font-size:16px; min-height:44px; } }
 textarea.nb-story-input { height:auto; min-height:96px; resize:vertical; line-height:1.6; }
-.nb-story-input:focus-visible { outline:2px solid var(--primary); outline-offset:2px; }
+.nb-story-input:focus-visible { border-color:var(--foreground); }
 .nb-story-input[aria-invalid="true"] { border-color:var(--destructive); outline:2px solid var(--destructive); outline-offset:2px; }
 .nb-story-input:disabled { opacity:.5; }
 .nb-story-fields { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; }
