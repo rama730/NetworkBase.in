@@ -612,6 +612,51 @@ async function readSprintSummary(sprintId: string) {
 }
 
 
+/** Sprint redesign §8.2: open work per assignee (assignments are the class's, not one person's). */
+async function readSprintPeople(sprintId: string) {
+  const rows = await db.execute<{ id: string | null; name: string | null; avatar_url: string | null; open_tasks: number; open_points: number }>(sql`
+        SELECT t.assignee_id AS id, coalesce(p.full_name, p.username) AS name, p.avatar_url,
+               count(*)::int AS open_tasks, coalesce(sum(t.story_points), 0)::int AS open_points
+        FROM ${sprintTaskMemberships} m
+        JOIN ${tasks} t ON t.id = m.task_id AND t.deleted_at IS NULL
+        LEFT JOIN ${profiles} p ON p.id = t.assignee_id
+        WHERE m.sprint_id = ${sprintId} AND m.removed_at IS NULL AND t.kind <> 'assignment' AND t.assignment_id IS NULL
+          AND NOT (t.status = 'done' AND t.review_status <> 'pending')
+        GROUP BY t.assignee_id, p.full_name, p.username, p.avatar_url
+        ORDER BY open_points DESC, open_tasks DESC, name`);
+  const people = rows.filter((r) => r.id).map((r) => ({ id: r.id!, name: r.name ?? "Someone", avatarUrl: r.avatar_url, openTasks: Number(r.open_tasks), openPoints: Number(r.open_points) }));
+  const none = rows.find((r) => !r.id);
+  return { people, unassigned: { tasks: Number(none?.open_tasks ?? 0), points: Number(none?.open_points ?? 0) } };
+}
+
+/** Sprint redesign §8.4: points the last three closed sprints finished, newest first. */
+async function readSprintVelocity(projectId: string) {
+  const rows = await db.execute<{ points: number }>(sql`
+        SELECT coalesce((SELECT sum(t.story_points) FROM ${sprintTaskMemberships} m JOIN ${tasks} t ON t.id = m.task_id AND t.deleted_at IS NULL
+                         WHERE m.sprint_id = s.id AND m.removed_at IS NULL AND t.status = 'done' AND t.review_status <> 'pending'), 0)::int AS points
+        FROM ${workspaceSprints} s
+        WHERE s.workspace_id = ${projectId} AND s.status = 'completed'
+        ORDER BY s.completed_at DESC NULLS LAST LIMIT 3`);
+  const points = rows.map((r) => Number(r.points));
+  return { last: points[0] ?? null, average: points.length ? Math.round(points.reduce((a, b) => a + b, 0) / points.length) : null };
+}
+
+/** Sprint redesign §8.3: open work with no sprint (tasks, and main assignments on an organization's board), newest first. */
+export async function readSprintBacklogAction(input: { projectId: string; query: string }): Promise<{ success: true; rows: import("@/lib/workspaces/sprint-detail").SprintBacklogRow[] } | { success: false; error: string }> {
+  const { userId } = await getViewerAuthContext();
+  if (!userId) return { success: false, error: "Sign in to continue" };
+  const access = await getWorkspaceAccessById(input.projectId, userId);
+  if (!access.project || !canReadWorkspaceTab(access, "tasks") || !(access.isOwner || access.isMember || access.isInheritedAdmin)) return { success: false, error: "You can’t see this workspace’s tasks." };
+  const query = input.query.trim().slice(0, 100);
+  const rows = await db.execute<{ id: string; title: string; story_points: number | null; assignee: string | null; status: string; kind: string }>(sql`
+        SELECT t.id, t.title, t.story_points, coalesce(p.full_name, p.username) AS assignee, t.status, t.kind
+        FROM ${tasks} t LEFT JOIN ${profiles} p ON p.id = t.assignee_id
+        WHERE t.workspace_id = ${input.projectId} AND t.deleted_at IS NULL AND t.sprint_id IS NULL AND t.assignment_id IS NULL
+          AND t.status <> 'done' ${query ? sql`AND t.title ILIKE ${`%${query.replace(/[%_\\]/g, "\\$&")}%`}` : sql``}
+        ORDER BY t.updated_at DESC LIMIT 100`);
+  return { success: true, rows: rows.map((r) => ({ id: r.id, title: r.title, storyPoints: r.story_points == null ? null : Number(r.story_points), assignee: r.assignee, status: r.status as import("@/lib/workspaces/sprint-detail").SprintTaskStatus, kind: r.kind === "assignment" ? "assignment" : "task" })) };
+}
+
 async function readSprintTaskActivityPage(input: {
   projectId: string;
   sprintId: string;
@@ -1029,7 +1074,7 @@ async function buildSprintDetailPayload(input: {
     return null;
   }
 
-  const [summary, taskPage, org, materials] = await Promise.all([
+  const [summary, taskPage, org, materials, load, velocity] = await Promise.all([
     readSprintSummary(selectedSprint.id),
     showTasks ? readSprintTaskActivityPage({
       projectId: input.projectId,
@@ -1042,6 +1087,9 @@ async function buildSprintDetailPayload(input: {
     readSprintOrgContext(input.projectId, selectedSprint.id),
     // Visitors get sprint names, goals and dates only: no materials or linked projects (report §15.4).
     isSprintInsider ? readSprintMaterials(selectedSprint.id, access) : Promise.resolve([]),
+    // Who carries what is for the team, not visitors (report §15.4).
+    isSprintInsider && showTasks ? readSprintPeople(selectedSprint.id) : Promise.resolve(null),
+    isSprintInsider ? readSprintVelocity(input.projectId) : Promise.resolve(null),
   ]);
 
   const rows = buildSprintTimeline({
@@ -1064,6 +1112,8 @@ async function buildSprintDetailPayload(input: {
     hasMore: taskPage.hasMore,
     org: org && !isSprintInsider ? { ...org, linkedProjects: [], notLinkedCount: 0 } : org,
     materials,
+    ...(load ? { people: load.people, unassigned: load.unassigned } : {}),
+    ...(velocity ? { velocity } : {}),
   };
 }
 

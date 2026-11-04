@@ -210,6 +210,9 @@ export async function cancelSprintAction(...args: Parameters<typeof sprintsImpl.
   return sprintsImpl.cancelSprintAction(...args);
 }
 
+export async function readSprintBacklogAction(...args: Parameters<typeof sprintsImpl.readSprintBacklogAction>): ReturnType<typeof sprintsImpl.readSprintBacklogAction> {
+  return sprintsImpl.readSprintBacklogAction(...args);
+}
 export async function planSprintSeriesAction(...args: Parameters<typeof sprintsImpl.planSprintSeriesAction>): ReturnType<typeof sprintsImpl.planSprintSeriesAction> {
   return sprintsImpl.planSprintSeriesAction(...args);
 }

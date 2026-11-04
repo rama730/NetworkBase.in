@@ -132,7 +132,15 @@ export type SprintDetailPayload = {
   org?: import("@/lib/organizations/sprints").SprintOrgContext | null;
   /** The selected sprint's materials (report §15.2). */
   materials?: import("@/lib/organizations/sprints").SprintMaterial[];
+  /** Sprint redesign §8: each assignee's open tasks and points in the sprint, most points first, and the unassigned rest. */
+  people?: SprintPersonLoad[];
+  unassigned?: { tasks: number; points: number };
+  /** Points the last closed sprints finished: the latest and the average of up to three. */
+  velocity?: { last: number | null; average: number | null };
 };
+
+export type SprintPersonLoad = { id: string; name: string; avatarUrl: string | null; openTasks: number; openPoints: number };
+export type SprintBacklogRow = { id: string; title: string; storyPoints: number | null; assignee: string | null; status: SprintTaskStatus; kind: "task" | "assignment" };
 
 export const SPRINT_STATUS_PRESENTATION: Record<
   SprintStatus,

@@ -357,6 +357,23 @@ function parseExpectedVersion(expectedUpdatedAt?: string | null) {
 /**
  * Update task status
  */
+/**
+ * Sprint redesign §8.6, Add work: moves up to 30 tasks into a sprint, each through the same rules as changing one
+ * task's sprint (who may plan, the sprint's state, an assignment's copies follow it). One refusal doesn't stop the rest.
+ */
+export async function addTasksToSprintAction(input: { projectId: string; sprintId: string; taskIds: string[] }): Promise<{ added: number; failed: Array<{ id: string; error: string }> }> {
+  const ids = [...new Set(input.taskIds)];
+  if (ids.length === 0 || input.taskIds.length > 30) return { added: 0, failed: [{ id: "", error: "Add up to 30 tasks at a time." }] };
+  let added = 0;
+  const failed: Array<{ id: string; error: string }> = [];
+  for (const id of ids) {
+    const result = await updateTaskFieldAction(id, "sprintId", input.sprintId, input.projectId);
+    if (result.success) added += 1;
+    else failed.push({ id, error: ("error" in result && result.error) || "Couldn’t add this task." });
+  }
+  return { added, failed };
+}
+
 export async function updateTaskStatusAction(
   taskId: string,
   status: TaskStatus,
