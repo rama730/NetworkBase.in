@@ -176,6 +176,10 @@ test("mockup task 1: roster rows carry when and which version was handed in, and
   assert.ok(byCopy.get(ashaCopy)!.submittedAt && !Number.isNaN(Date.parse(byCopy.get(ashaCopy)!.submittedAt!)));
   assert.equal(byCopy.get(ashaCopy)!.remindedAt, null);
   assert.ok(byCopy.get(raviCopy)!.remindedAt, "the reminded copy says when");
+  // Review UX 1.5: each row carries its person (for the photo) and when the copy last changed.
+  assert.equal(byCopy.get(ashaCopy)!.userId, asha!);
+  assert.ok("avatarUrl" in byCopy.get(ashaCopy)!);
+  assert.ok(!Number.isNaN(Date.parse(byCopy.get(ashaCopy)!.updatedAt)));
   assert.equal(byCopy.get(raviCopy)!.version, null);
   viewerId = "";
 });

@@ -67,9 +67,9 @@ test.beforeAll(async () => {
             {masterId:'a1',title:'Lab 3 — Consensus protocols and failure detectors',dueDate:new Date(Date.now()+864e5).toISOString(),status:'open',submissionType:'link',reviewRequired:true,teams:true,counts,mine:null},
             {masterId:'a2',title:'Reading quiz',dueDate:null,status:'draft',submissionType:'none',reviewRequired:false,teams:false,counts,mine:null}]});
             export const readAssignmentComposerOptionsAction=async()=>({success:true,children:[],sprints:[],teamAssignments:[],defaults:{reviewRequired:true,lateRule:'until'}}),readAssignmentRosterAction=async()=>({success:true,counts,rows:[
-              {copyId:'t1',label:'Team A',members:[],people:[{id:'u1',name:'Ravi Kumar',lead:true},{id:'u2',name:'Alexandria Ramana Chandrasekhar',lead:false}],submittedBy:null,state:'in_progress',late:false,projectId:'org',dueDate:null,submission:null,excusedReason:null,submittedAt:null,version:null,remindedAt:new Date(Date.now()-3*3600e3).toISOString()},
-              {copyId:'t2',label:'Priya (individual)',members:[],state:'missing',late:false,projectId:'org',dueDate:null,submission:null,excusedReason:null,submittedAt:null,version:null,remindedAt:null},
-              {copyId:'t3',label:'Kiran',members:[],state:'submitted',late:true,projectId:'org',dueDate:null,submission:{link:'https://example.com/k'},excusedReason:null,submittedAt:new Date(Date.now()-600e3).toISOString(),version:2,remindedAt:null}],withoutCopy:[{userId:'u9',name:'Late Joiner'}],closed:false});
+              {copyId:'t1',label:'Team A',members:[],people:[{id:'u1',name:'Ravi Kumar',lead:true},{id:'u2',name:'Alexandria Ramana Chandrasekhar',lead:false}],submittedBy:null,state:'in_progress',late:false,projectId:'org',dueDate:null,submission:null,excusedReason:null,submittedAt:null,version:null,remindedAt:new Date(Date.now()-3*3600e3).toISOString(),userId:null,avatarUrl:null,updatedAt:new Date(Date.now()-5*3600e3).toISOString()},
+              {copyId:'t2',label:'Priya (individual)',members:[],state:'missing',late:false,projectId:'org',dueDate:null,submission:null,excusedReason:null,submittedAt:null,version:null,remindedAt:null,userId:'u4',avatarUrl:null,updatedAt:new Date(Date.now()-2*864e5).toISOString()},
+              {copyId:'t3',label:'Kiran',members:[],state:'submitted',late:true,projectId:'org',dueDate:null,submission:{link:'https://example.com/k'},excusedReason:null,submittedAt:new Date(Date.now()-600e3).toISOString(),version:2,remindedAt:null,userId:'u5',avatarUrl:null,updatedAt:new Date(Date.now()-600e3).toISOString()}],withoutCopy:[{userId:'u9',name:'Late Joiner'}],closed:false});
             export const listWorkspaceGroupCopiesAction=async()=>({success:true,rows:[]});
             export const approveAllSubmittedAction=${ok},closeAssignmentAction=${ok},createAssignmentAction=${ok},deleteAssignmentAction=${ok},excuseCopyAction=${ok},extendCopyAction=${ok},publishAssignmentAction=${ok},reviewAssignmentCopyAction=${ok},submitAssignmentAction=${ok},giveCopyAction=${ok},reopenAssignmentAction=${ok},scheduleAssignmentAction=${ok},updateAssignmentAction=${ok},removeCopyAction=${ok},autoMakeGroupsAction=async()=>({success:true,groups:[]});
             export const extendCopiesAction=async()=>({success:true,extended:1}),returnCopiesAction=async()=>({success:true,returned:1,skipped:0}),readAssignmentExportAction=async()=>({success:true,rows:[['Person']]});
@@ -186,28 +186,31 @@ test('Assignments (§16): the review queue steps with Next; the roster has Remin
     await expect(queue).toContainText('Fix by');
     await queue.getByRole('button', { name: 'Cancel' }).click();
     await noSideScroll(page);
-    // Published work lives on the board (decisions 6, 10); its card's panel has the roster.
-    await page.getByRole('button', { name: 'Full roster' }).first().click();
-    const dialog = page.getByRole('dialog');
-    await expect(dialog.getByRole('button', { name: 'Remind everyone not done' })).toBeVisible();
-    await expect(dialog.getByRole('textbox', { name: 'Add a step to every assignment' })).toBeVisible();
-    await expect(dialog.getByRole('combobox', { name: 'Move Alexandria Ramana Chandrasekhar to…' })).toBeVisible();
-    await expect(dialog.getByText('Ravi Kumar ★', { exact: false })).toBeVisible();
+    // Review UX 1.3: the roster's tools live in the Assignment tab itself, no pop-up.
+    const tab = page.getByRole('region', { name: /^Lab 3 — Consensus protocols/ })
+    await expect(tab.getByRole('button', { name: 'Remind 6' })).toBeVisible();
+    await expect(tab.getByText('1 person was reminded in the last 12 hours and won’t be reminded again yet.')).toBeVisible();
+    await expect(tab.getByRole('textbox', { name: 'Add a step to every copy' })).toBeVisible();
+    await expect(tab.getByRole('combobox', { name: 'Move Alexandria Ramana Chandrasekhar to…' })).toBeVisible();
+    await expect(tab.getByText('Ravi Kumar ★', { exact: false })).toBeVisible();
+    await expect(tab.getByRole('combobox', { name: 'Add Late Joiner to a group' })).toBeVisible();
     await noSideScroll(page);
-    await page.screenshot({ path: test.info().outputPath('assignments-375.png') });
+    await page.screenshot({ path: test.info().outputPath('assignments-375.png'), fullPage: true });
     // Step 13a: Return asks for a reason and Fix by; Give to lists people without a copy.
-    await dialog.getByRole('button', { name: 'Return', exact: true }).click();
+    await tab.getByRole('button', { name: 'Return Kiran' }).click();
     const returning = page.getByRole('alertdialog');
     await expect(returning).toContainText('Fix by');
     await expect(returning).toContainText('They can hand it in again until then, even past the due date.');
     await returning.getByRole('button', { name: 'Cancel' }).click();
-    await dialog.getByRole('button', { name: 'Give to…' }).click();
+    await tab.getByRole('button', { name: 'Give to…' }).click();
     await expect(page.getByRole('alertdialog')).toContainText('Late Joiner');
     await page.getByRole('alertdialog').getByRole('button', { name: 'Cancel' }).click();
     // Step 13c: tick rows for bulk actions.
-    await dialog.getByLabel('Select Kiran').check();
-    await expect(dialog.getByRole('group', { name: 'Selected' })).toContainText('1 selected');
-    await expect(dialog.getByRole('button', { name: 'Approve selected' })).toBeVisible();
+    await tab.getByLabel('Select Kiran').check();
+    const picked = tab.getByRole('group', { name: 'Selected' });
+    await expect(picked).toContainText('1 selected');
+    for (const name of ['Approve selected', 'Return selected', 'Extend for 1', 'Remind selected']) await expect(picked.getByRole('button', { name })).toBeVisible();
+    await noSideScroll(page);
 });
 
 test('Org header (§18): + New ▾ by keyboard, tab badges with spoken text, and the compact bar with the sprint chip and New items on a phone', async ({ page }) => {
@@ -332,25 +335,38 @@ test('New assignment (§42.5): publish timing choices, and Admins-only materials
     await expect(page.getByLabel('Late after, in minutes')).toHaveValue('15');
 });
 
-test('Mockup task 1: the assignment panel shows the class at a glance, with who is waiting and who is not in yet', async ({ page }) => {
+test('Mockup task 1, review UX 1.1–1.6: the Assignment tab shows everyone in sections, with search, sort, photos and each row\'s own actions', async ({ page }) => {
     await open(page, 'tasks', 1280);
-    const panel = page.getByRole('region', { name: 'Assignment' });
+    const panel = page.getByRole('region', { name: /^Lab 3 — Consensus protocols/ });
+    await expect(panel).toContainText(/Due .+ · Open/);
     const tiles = panel.getByRole('group', { name: 'Class at a glance' });
     await expect(tiles.getByRole('button', { name: '1 Done' })).toBeVisible();
     await expect(tiles.getByRole('button', { name: '4 Submitted' })).toBeVisible();
     await expect(tiles.getByRole('button', { name: '7 Not in' })).toBeVisible();
     await expect(tiles.getByRole('button', { name: '0 Excused' })).toBeVisible();
     await expect(panel.getByRole('link', { name: 'Review 4' })).toHaveAttribute('href', /taskScope=review&assignment=a1/);
-    await expect(panel.getByRole('button', { name: 'Remind 7' })).toBeVisible();
-    const waiting = panel.getByRole('list', { name: 'Waiting for review' });
+    await expect(panel.getByRole('button', { name: 'Full roster' })).toHaveCount(0);
+    const waiting = panel.getByRole('list', { name: 'Waiting for review · 1' });
     await expect(waiting.getByRole('listitem').filter({ hasText: 'Kiran' })).toContainText(/Version 2 · Late/);
-    await expect(waiting.getByRole('button', { name: 'Approve Kiran' })).toBeVisible();
-    const notIn = panel.getByRole('list', { name: 'Not in yet' });
-    await expect(notIn.getByRole('listitem').filter({ hasText: 'Team A' })).toContainText(/In progress · Reminded 3 hours ago/);
-    await expect(notIn.getByRole('button', { name: 'Extend Team A' })).toBeVisible();
-    await tiles.getByRole('button', { name: '4 Submitted' }).click();
-    await expect(notIn).toHaveCount(0);
+    for (const name of ['Open Kiran', 'Approve Kiran', 'Return Kiran']) await expect(waiting.getByRole('button', { name }).or(waiting.getByRole('link', { name }))).toBeVisible();
+    const working = panel.getByRole('list', { name: 'In progress · 1' });
+    await expect(working.getByRole('listitem').filter({ hasText: 'Team A' })).toContainText(/In progress · Reminded 3 hours ago/);
+    await expect(working.getByRole('button', { name: 'Extend Team A' })).toBeVisible();
+    await expect(panel.getByRole('list', { name: 'Missing · 1' })).toContainText(/Missing · Changed 2 days ago/);
+    await expect(panel.getByRole('heading', { name: 'Class questions' })).toBeVisible();
+    // Search and Late only narrow the sections; a tile does too.
+    await panel.getByRole('textbox', { name: 'Search people' }).fill('alexandria');
+    await expect(working).toBeVisible();
+    await expect(waiting).toHaveCount(0);
+    await panel.getByRole('textbox', { name: 'Search people' }).fill('');
+    await panel.getByLabel('Late only').check();
+    await expect(working).toHaveCount(0);
     await expect(waiting).toBeVisible();
+    await panel.getByLabel('Late only').uncheck();
+    await tiles.getByRole('button', { name: '4 Submitted' }).click();
+    await expect(working).toHaveCount(0);
+    await expect(waiting).toBeVisible();
+    expect(await axeViolations(page)).toEqual([]);
 });
 
 test('Live-fix 3: a draft is published, scheduled or deleted from its own card', async ({ page }) => {

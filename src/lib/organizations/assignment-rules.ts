@@ -298,3 +298,36 @@ export const MASTER_TAB_NOTES = {
   files: "Materials. Students open these read-only from their own copy.",
   subtasks: "Steps. A step added here goes to every copy.",
 } as const;
+
+/** The fields of a roster row the Assignment tab's grouping, search and sort read (review UX 1.2, 1.4, 1.14). */
+type RosterLike = { label: string; state: CopyState; late: boolean; approved?: boolean; submittedAt: string | null; remindedAt: string | null; members: string[]; people?: Array<{ name: string }> };
+
+const SECTIONS: Array<{ key: string; title: string; match: (r: RosterLike) => boolean }> = [
+  { key: "submitted", title: "Waiting for review", match: (r) => r.state === "submitted" },
+  { key: "returned", title: "Returned", match: (r) => r.state === "returned" },
+  { key: "in_progress", title: "In progress", match: (r) => r.state === "in_progress" },
+  { key: "not_started", title: "Not started", match: (r) => r.state === "not_started" },
+  { key: "missing", title: "Missing", match: (r) => r.state === "missing" },
+  { key: "approved", title: "Approved", match: (r) => r.state === "done" && Boolean(r.approved) },
+  { key: "done", title: "Done", match: (r) => r.state === "done" && !r.approved },
+  { key: "excused", title: "Excused", match: (r) => r.state === "excused" },
+];
+
+/** Review UX 1.2: everyone in one list, in sections by state, each sorted by name, or oldest hand-in first. */
+export function rosterSections<T extends RosterLike>(rows: T[], sort: "name" | "handedIn") {
+  const by = sort === "handedIn"
+    ? (a: T, b: T) => (a.submittedAt ?? "9").localeCompare(b.submittedAt ?? "9") || a.label.localeCompare(b.label)
+    : (a: T, b: T) => a.label.localeCompare(b.label);
+  return SECTIONS.map((s) => ({ key: s.key, title: s.title, rows: rows.filter(s.match).sort(by) })).filter((s) => s.rows.length > 0);
+}
+
+/** Review UX 1.4: search by a person's or a team member's name, and Late only. */
+export function filterRoster<T extends RosterLike>(rows: T[], f: { query: string; lateOnly: boolean }) {
+  const q = f.query.trim().toLowerCase();
+  return rows.filter((r) => (!f.lateOnly || r.late) && (!q || [r.label, ...r.members, ...(r.people ?? []).map((p) => p.name)].some((n) => n.toLowerCase().includes(q))));
+}
+
+/** Review UX 1.14: how many Remind will skip, reminded inside the 12-hour window (decision 60). */
+export function remindSkips(rows: RosterLike[], now = Date.now(), windowMs = 12 * 3_600_000) {
+  return rows.filter((r) => !["done", "excused", "submitted"].includes(r.state) && r.remindedAt && now - Date.parse(r.remindedAt) < windowMs).length;
+}

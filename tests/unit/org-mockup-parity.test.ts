@@ -54,7 +54,7 @@ test("task 5: the greeting heads Overview, the class bar has three parts, and Th
 
 test("live check: the panel's lists follow its tiles, the preview scrolls instead of clipping, and Return's box has a name", async () => {
   const { readFileSync } = await import("node:fs");
-  const glance = readFileSync("src/components/organizations/AssignmentGlance.tsx", "utf8");
+  const glance = readFileSync("src/components/organizations/AssignmentRoster.tsx", "utf8");
   assert.match(glance, /const countsKey = JSON\.stringify\(row\.counts\)/);
   assert.match(glance, /useEffect\(\(\) => \{ load\(\) \}, \[load, countsKey\]\)/);
   assert.match(readFileSync("src/components/organizations/ReviewQueueParts.tsx", "utf8"), /className="h-\[60vh\] overflow-auto rounded-md/);

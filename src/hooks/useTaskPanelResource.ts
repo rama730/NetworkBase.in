@@ -45,6 +45,7 @@ import {
 } from "@/lib/workspaces/task-subtasks";
 
 export type TaskPanelTab =
+  | "assignment"
   | "details"
   | "subtasks"
   | "comments"
@@ -221,6 +222,7 @@ export function useTaskPanelResource(params: {
   });
   const loadedTabs = useMemo<Record<TaskPanelTab, boolean>>(
     () => ({
+      assignment: true,
       details: true,
       subtasks: loadedDeferredTabs.subtasks,
       comments: loadedDeferredTabs.comments,
@@ -268,6 +270,7 @@ export function useTaskPanelResource(params: {
     if (changedTask) {
       taskIdRef.current = nextTask.id;
       const nextLoadedTabs = {
+        assignment: true,
         details: true,
         subtasks: false,
         comments: false,
@@ -594,7 +597,7 @@ export function useTaskPanelResource(params: {
         return;
       }
 
-      if (tab === "details") return;
+      if (tab === "details" || tab === "assignment") return;
       if (tab === "subtasks") {
         await loadSubtasks();
         return;

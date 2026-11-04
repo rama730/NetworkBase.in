@@ -1,7 +1,6 @@
 "use client";
 
 import { HandInSection } from "@/components/organizations/HandInSection";
-import { AssignmentManageSection } from "@/components/organizations/AssignmentsPanel";
 import { MasterEditButton } from "@/components/organizations/MasterEditButton";
 import { isAssignmentMaster } from "@/lib/workspaces/task-presentation";
 import React, { useEffect, useMemo, useRef, useState } from "react";
@@ -321,9 +320,6 @@ export default function DetailsTab({
           {mutationError}
         </div>
       ) : null}
-
-      {/* One board (decisions 6, 10): an admin manages the main assignment from its own card. */}
-      {master && task.projectId ? <AssignmentManageSection orgId={task.projectId} masterId={task.id} /> : null}
 
       {/* Decision 85: an assignment copy is handed in here, for every hand-in type. */}
       {task.assignmentId ? (

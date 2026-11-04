@@ -57,7 +57,7 @@ import { ASSIGNMENT_STATE_LABELS } from '@/lib/copy/terms'
 import { EditAssignmentDialog, ExcuseDialog, ExtendDialog, GiveToDialog, ReturnDialog, ReviewersPicker } from '@/components/organizations/AssignmentDialogs'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
-import { AssignmentGlance } from '@/components/organizations/AssignmentGlance'
+import { AssignmentRoster } from '@/components/organizations/AssignmentRoster'
 import { ReviewConversation, ReviewWork } from '@/components/organizations/ReviewQueueParts'
 import { ReasonDialog } from '@/components/organizations/ReasonDialog'
 import { ClassQuestions } from '@/components/organizations/ClassQuestions'
@@ -866,8 +866,7 @@ export function ReviewQueue({ orgId, onChanged, onClose }: { orgId: string; onCh
  */
 export function AssignmentManageSection({ orgId, masterId, onChanged }: { orgId: string; masterId: string; onChanged?: () => void }) {
     const [data, setData] = useState<{ row: AssignmentRow; timeZone: string | null } | null>(null)
-    const [dialog, setDialog] = useState<'roster' | 'edit' | 'reuse' | null>(null)
-    const [questions, setQuestions] = useState(false)
+    const [dialog, setDialog] = useState<'edit' | 'reuse' | null>(null)
     const [scheduleLocal, setScheduleLocal] = useState<string | null>(null)
     const [confirm, setConfirm] = useState<{ title: string; description?: string | null; label: string; destructive?: boolean; act: () => Promise<{ success: boolean; error?: string }> } | null>(null)
     const [error, setError] = useState<string | null>(null)
@@ -893,9 +892,13 @@ export function AssignmentManageSection({ orgId, masterId, onChanged }: { orgId:
     })
     const askDelete = () => setConfirm({ title: `Delete ${row.title}?`, description: deleteAssignmentWarning(row.counts), label: 'Delete', destructive: true, act: () => deleteAssignmentAction(row.masterId) })
     return (
-        <section aria-labelledby="assignment-manage-heading" className="space-y-2 rounded-[6px] border border-border p-4 text-sm">
+        <section aria-labelledby="assignment-manage-heading" className="space-y-4 text-sm">
+            {/* Review UX 1.1: the tab's header — what it is, when it's due, and the rarer actions in one menu. */}
             <div className="flex items-center gap-2">
-                <h3 id="assignment-manage-heading" className="flex-1 font-mono text-[11px] font-medium uppercase tracking-[0.09em] text-muted-foreground">Assignment</h3>
+                <div className="min-w-0 flex-1">
+                    <h3 id="assignment-manage-heading" className="truncate text-[15px] font-semibold">{row.title}</h3>
+                    <p className="font-mono text-[12px] text-muted-foreground">{[row.dueDate ? `Due ${new Intl.DateTimeFormat('en', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZoneName: 'short', ...(data.timeZone ? { timeZone: data.timeZone } : {}) }).format(new Date(row.dueDate))}` : 'No due date', row.status === 'open' ? 'Open' : row.status === 'closed' ? 'Closed' : row.status === 'scheduled' ? 'Scheduled' : 'Draft'].join(' · ')}</p>
+                </div>
                 {/* Mockup task 1: the rarer actions sit in one menu; the panel itself shows the class. */}
                 {live ? (
                     <DropdownMenu>
@@ -931,17 +934,19 @@ export function AssignmentManageSection({ orgId, masterId, onChanged }: { orgId:
                     <Button type="button" size="sm" variant="ghost" disabled={pending} onClick={askDelete}>Delete</Button>
                 </> : null}
             </div>
-            {live ? <AssignmentGlance row={row} orgId={orgId} timeZone={data.timeZone} onChanged={() => { load(); onChanged?.() }} onFullRoster={() => setDialog('roster')} onExport={exportCsv} /> : null}
+            {live ? <AssignmentRoster row={row} orgId={orgId} timeZone={data.timeZone} onChanged={() => { load(); onChanged?.() }} onExport={exportCsv} /> : null}
             {scheduleLocal !== null ? (
                 <div className="flex flex-wrap items-center gap-2">
                     <Input type="datetime-local" value={scheduleLocal} onChange={(e) => setScheduleLocal(e.target.value)} aria-label={`Publish on (${zoneName(data.timeZone)})`} className="h-8 w-auto" />
                     <Button type="button" size="sm" disabled={pending || !scheduleLocal} onClick={() => { const at = zonedInputToIso(scheduleLocal, data.timeZone); setScheduleLocal(null); run(() => scheduleAssignmentAction(row.masterId, { at })) }}>Save</Button>
                 </div>
             ) : null}
-            <button type="button" className="text-[13px] underline underline-offset-4" aria-expanded={questions} onClick={() => setQuestions(!questions)}>{questions ? 'Hide class questions' : 'Class questions'}</button>
-            {questions ? <div className="-mx-6 max-md:-mx-4"><ClassQuestions copyId={row.masterId} /></div> : null}
+            {/* Review UX 1.10: the class's questions are the tab's last section, not a toggle. */}
+            <section aria-labelledby="assignment-questions-heading" className="space-y-2 border-t border-border pt-4">
+                <h4 id="assignment-questions-heading" className="font-mono text-[11px] font-medium uppercase tracking-[0.09em] text-muted-foreground">Class questions</h4>
+                <div className="-mx-6 max-md:-mx-4"><ClassQuestions copyId={row.masterId} /></div>
+            </section>
             {error ? <p role="alert" className="text-destructive">{error}</p> : null}
-            {dialog === 'roster' ? <RosterDialog row={row} orgId={orgId} timeZone={data.timeZone} open onOpenChange={(open) => { if (!open) setDialog(null) }} onChanged={load} /> : null}
             {dialog === 'edit' ? <EditAssignmentDialog orgId={orgId} row={row} open timeZone={data.timeZone} onClose={() => setDialog(null)} onSave={(patch) => run(() => updateAssignmentAction(row.masterId, patch))} /> : null}
             <ConfirmDialog open={Boolean(confirm)} onOpenChange={(v) => { if (!v) setConfirm(null) }} title={confirm?.title ?? ''} description={confirm?.description ?? undefined}
                 confirmLabel={confirm?.label} variant={confirm?.destructive ? 'destructive' : 'default'} onConfirm={() => { if (confirm) run(confirm.act) }} />

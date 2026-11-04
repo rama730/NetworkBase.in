@@ -879,6 +879,8 @@ export type RosterRow = {
     approved?: boolean;
     /** The panel's lists (mockup task 1): when and which version was handed in, and the last reminder. */
     submittedAt: string | null; version: number | null; remindedAt: string | null;
+    /** Review UX 1.5: the person (photo) and when the copy last changed. */
+    userId: string | null; avatarUrl: string | null; updatedAt: string;
 };
 
 /** The roster for one assignment (report §16.5): admins see names; guests see counts without names. */
@@ -892,7 +894,7 @@ export async function readAssignmentRosterAction(masterId: string): Promise<{ su
     const copies = await db.select({
         id: tasks.id, projectId: tasks.projectId, assigneeId: tasks.assigneeId, teamName: tasks.teamName, status: tasks.status, reviewStatus: tasks.reviewStatus,
         dueDate: tasks.dueDate, reviewSubmittedAt: tasks.reviewSubmittedAt, completedAt: tasks.completedAt, excusedAt: tasks.excusedAt, excusedReason: tasks.excusedReason,
-        submission: tasks.submission, projectTitle: workspaces.title, projectParent: workspaces.parentId, completionSource: tasks.completionSource,
+        submission: tasks.submission, projectTitle: workspaces.title, projectParent: workspaces.parentId, completionSource: tasks.completionSource, updatedAt: tasks.updatedAt,
     }).from(tasks).innerJoin(workspaces, eq(workspaces.id, tasks.projectId))
         .where(and(eq(tasks.assignmentId, masterId), isNull(tasks.deletedAt)));
     const counts = emptyCounts();
@@ -914,8 +916,9 @@ export async function readAssignmentRosterAction(masterId: string): Promise<{ su
         .where(inArray(taskTeamMembers.taskId, copies.map((c) => c.id)));
     const submitterIds = copies.map((c) => (c.submission as { by?: string } | null)?.by).filter((id): id is string => Boolean(id));
     const assigneeIds = [...copies.map((c) => c.assigneeId).filter((id): id is string => Boolean(id)), ...submitterIds];
-    const names = new Map((assigneeIds.length ? await db.select({ id: profiles.id, name: profiles.fullName, username: profiles.username }).from(profiles).where(inArray(profiles.id, assigneeIds)) : [])
-        .map((p) => [p.id, p.name || p.username || 'Member']));
+    const profileRows = assigneeIds.length ? await db.select({ id: profiles.id, name: profiles.fullName, username: profiles.username, avatarUrl: profiles.avatarUrl }).from(profiles).where(inArray(profiles.id, assigneeIds)) : [];
+    const names = new Map(profileRows.map((p) => [p.id, p.name || p.username || 'Member']));
+    const avatars = new Map(profileRows.map((p) => [p.id, p.avatarUrl]));
     // The latest reminder per copy, from the notices Remind leaves (the key remindedRecently reads).
     // Only these copies' people, so the (user_id, dedupe_key) index serves it.
     const remindable = [...new Set([...copies.map((c) => c.assigneeId).filter((id): id is string => Boolean(id)), ...people.map((p) => p.userId)])];
@@ -931,6 +934,7 @@ export async function readAssignmentRosterAction(masterId: string): Promise<{ su
         const by = (c.submission as { by?: string } | null)?.by;
         return { copyId: c.id, label, members, ...states[i]!, projectId: c.projectId, dueDate: c.dueDate?.toISOString() ?? null, submission: c.submission, excusedReason: c.excusedReason,
             approved: c.status === 'done' && c.completionSource === 'review',
+            userId: c.assigneeId, avatarUrl: c.assigneeId ? avatars.get(c.assigneeId) ?? null : null, updatedAt: c.updatedAt.toISOString(),
             submittedAt: (c.submission as { at?: string } | null)?.at ?? null, version: (c.submission as { version?: number } | null)?.version ?? null, remindedAt: reminded.get(c.id) ?? null,
             ...(c.teamName ? { people: team, submittedBy: by ? names.get(by) ?? null : null } : {}) };
     });

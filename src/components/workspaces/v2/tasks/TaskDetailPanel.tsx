@@ -17,8 +17,10 @@ import {
   MoreHorizontal,
   Paperclip,
   Trash2,
+  Users,
   X,
 } from "lucide-react";
+import { AssignmentManageSection } from "@/components/organizations/AssignmentsPanel";
 
 import { deleteTaskAction, markTaskAsReadAction } from "@/app/actions/workspace";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
@@ -129,9 +131,10 @@ export default function TaskDetailPanel({
   useEffect(() => {
     openerRef.current = document.activeElement as HTMLElement | null;
   }, []);
-  const [activeTab, setActiveTab] = useState<TaskPanelTab>(
-    initialTab ?? "details",
-  );
+  // Review UX 1.1: an admin opens a main assignment on its Assignment tab, the class in full.
+  const showAssignmentTab = canEdit && isAssignmentMaster(task);
+  const startTab = (tab: TaskPanelTab | null | undefined): TaskPanelTab => (!tab || tab === "details") && showAssignmentTab ? "assignment" : tab ?? "details";
+  const [activeTab, setActiveTab] = useState<TaskPanelTab>(startTab(initialTab));
   const [showRealtimeIssue, setShowRealtimeIssue] = useState(false);
   const [conversation, setConversation] = useState<"private" | "class">("private");
   const [isDeleting, setIsDeleting] = useState(false);
@@ -201,7 +204,7 @@ export default function TaskDetailPanel({
   }, [members, currentUserId, currentUserName, currentUserAvatarUrl]);
 
   useEffect(() => {
-    setActiveTab(initialTab ?? "details");
+    setActiveTab(startTab(initialTab));
   }, [initialTab, normalizedTask.id]);
 
   useEffect(() => {
@@ -254,6 +257,7 @@ export default function TaskDetailPanel({
     ? <p className="border-b border-border bg-muted/30 px-6 py-2 text-[12px] text-muted-foreground max-md:px-4">{MASTER_TAB_NOTES[tab]}</p> : null;
   const tabs = useMemo(
     () => [
+      ...(showAssignmentTab ? [{ id: "assignment" as const, label: "Assignment", icon: Users }] : []),
       { id: "details" as const, label: "Details", icon: CheckSquare },
       {
         id: "subtasks" as const,
@@ -274,7 +278,7 @@ export default function TaskDetailPanel({
         count: resource.counts.files,
       },
     ],
-    [resource.counts.comments, resource.counts.files, resource.counts.subtasks],
+    [resource.counts.comments, resource.counts.files, resource.counts.subtasks, showAssignmentTab],
   );
   const completedSubtaskCount = resource.counts.completedSubtasks;
 
@@ -571,6 +575,18 @@ export default function TaskDetailPanel({
                 This task was deleted. It is shown read-only.
               </p>
             ) : null}
+            {showAssignmentTab && resource.task.projectId ? (
+              <div
+                id="task-panel-assignment"
+                role="tabpanel"
+                aria-labelledby="task-tab-assignment"
+                hidden={activeTab !== "assignment"}
+                className="p-6 max-md:p-4"
+              >
+                <AssignmentManageSection orgId={resource.task.projectId} masterId={resource.task.id} />
+              </div>
+            ) : null}
+
             {resource.loadedTabs.details ? (
               <div
                 id="task-panel-details"
