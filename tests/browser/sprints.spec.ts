@@ -109,6 +109,7 @@ test('§8.6: Add work plans from the backlog against what the team usually finis
   await open(page);
   await page.getByRole('button', { name: 'Add work' }).click();
   const dialog = page.getByRole('dialog', { name: 'Add work to Sprint 4 · Search' });
+  expect((await dialog.boundingBox())!.width).toBeGreaterThan(600);
   await expect(dialog).toContainText('26 points');
   await expect(dialog).toContainText('Last sprint finished 21. Recent average 23.');
   await expect(dialog).toContainText('More than you usually finish.');

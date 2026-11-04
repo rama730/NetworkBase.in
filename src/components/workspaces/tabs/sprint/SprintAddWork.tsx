@@ -50,7 +50,7 @@ export function SprintAddWork({ projectId, sprintId, sprintName, open, onClose, 
   });
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>Add work to {sprintName}</DialogTitle>
           <DialogDescription>Open work that isn’t in a sprint yet.</DialogDescription>
