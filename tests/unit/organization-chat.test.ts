@@ -26,3 +26,22 @@ test("child projects live inside their org's workspace; outside people see their
   assert.deepEqual(workspaceWorkspaces(projects).map((p) => [p.id, p.guestOf ?? null]), [["org", null], ["north", "Acme Sales"], ["solo", null]]);
   assert.deepEqual(childWorkspacesOf(projects, "org").map((p) => p.id), ["lab"]);
 });
+
+test("board/review report §7: Messages keeps a team workspace inside its organization in every view; an outside person still sees the team alone", async () => {
+  const { workspaceGroups } = await import("../../src/lib/organizations/chat-rules");
+  const projects = [
+    { id: "falcon", title: "Team Falcon: Hash table library", kind: "project", parent_id: "cse", parent_title: "CSE 3B" },
+    { id: "cse", title: "CSE 3B · Data Structures 2026", kind: "organization", parent_id: null },
+    { id: "nfb", title: "Network for builders", kind: "project", parent_id: null },
+    { id: "osprey", title: "Team Osprey", kind: "project", parent_id: "cse", parent_title: "CSE 3B" },
+    { id: "lone", title: "Compiler Lab", kind: "project", parent_id: "other-org", parent_title: "CSE-3A" },
+  ];
+  const groups = workspaceGroups(projects);
+  assert.deepEqual(groups.map((g) => [g.project.id, g.teams.map((t) => t.id)]), [["cse", ["falcon", "osprey"]], ["nfb", []], ["lone", []]], "teams nest; order follows the list");
+  assert.equal((groups[2]!.project as { guestOf?: string }).guestOf, "CSE-3A", "an outside person's team says whose it is");
+  const { readFileSync } = await import("node:fs");
+  const sections = readFileSync("src/components/messages/ChatSections.tsx", "utf8");
+  assert.match(sections, /workspaceGroups\(projects\)/);
+  assert.doesNotMatch(sections, /childWorkspacesOf\(data\.projects/, "no team headings beside Channels");
+  assert.match(sections, />Team workspaces</);
+});

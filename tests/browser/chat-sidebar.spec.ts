@@ -1,0 +1,84 @@
+import { exportedNames, serverActionsPlugin } from './server-actions-plugin';
+import path from 'node:path';
+import { readFile } from 'node:fs/promises';
+import { build } from 'esbuild';
+import postcss from 'postcss';
+import tailwind from '@tailwindcss/postcss';
+import { expect, test, type Page } from '@playwright/test';
+
+// Board/review report §7: a team workspace's channel sits inside its organization's group, in both views.
+const origin = 'https://chat-sidebar.test';
+let script: string, css: string;
+
+const channel = (id: string, project: string, name: string, extra = '') => `{id:'${id}',kind:'channel',name:'${name}',topic:null,project_id:'${project}',application_id:null,is_default:true,last_seq:5,last_top_seq:5,last_read_seq:5,mention_count:0,
+  notify:'all',starred:false,archived_at:null,channel_archived_at:null,last_message_at:null,last_preview:null,last_author_id:null,member_count:3,role:'member',dm_user:null,members_preview:null${extra}}`;
+const shell = `
+const data = { server_time: new Date().toISOString(), activity_latest_at: null, channels: [
+  ${channel('c-gen', 'cse', 'general')}, ${channel('c-falcon', 'falcon', 'team-falcon-hash-table-library', ",last_seq:9,mention_count:1")},
+  ${channel('c-o1', 'osprey', 'osprey-general')}, ${channel('c-o2', 'osprey', 'osprey-design', ',is_default:false')}, ${channel('c-nfb', 'nfb', 'general')}, ${channel('c-lone', 'lone', 'compiler-lab')}],
+  projects: [
+    { id: 'cse', title: 'CSE 3B · Data Structures 2026', slug: 'cse', cover_image: null, role: 'owner', kind: 'organization', parent_id: null },
+    { id: 'falcon', title: 'Team Falcon: Hash table library', slug: 'falcon', cover_image: null, role: 'member', kind: 'workspace', parent_id: 'cse', parent_title: 'CSE 3B' },
+    { id: 'osprey', title: 'Team Osprey', slug: 'osprey', cover_image: null, role: 'member', kind: 'workspace', parent_id: 'cse', parent_title: 'CSE 3B' },
+    { id: 'nfb', title: 'Network for builders', slug: 'nfb', cover_image: null, role: 'owner', kind: 'workspace', parent_id: null },
+    { id: 'lone', title: 'Compiler Lab', slug: 'lone', cover_image: null, role: 'viewer', kind: 'workspace', parent_id: 'cse-3a', parent_title: 'CSE-3A' },
+  ] };
+export const useChatShell = () => ({ data, loadError: null, refresh: async () => {} });
+export const ChatShellProvider = ({ children }) => children;`;
+
+test.beforeAll(async () => {
+  const mocks: Record<string, string> = {
+    'next/link': `import React from 'react';export default ({href,children,prefetch,...p})=>React.createElement('a',{href,...p},children);`,
+    '@/hooks/useAuth': `export const useAuth=()=>({user:{id:'me'},profile:{id:'me',username:'me',fullName:'Me',avatarUrl:null}});`,
+    '@/components/messages/ChatShellProvider': shell,
+    '@/components/messages/useSelectedWorkspace': `export const useSelectedWorkspace=()=>new URLSearchParams(location.search).get('w');`,
+    '@/components/presence/usePresence': `export const usePersonPresence=()=>null;`,
+  };
+  // Every other presence hook answers "nobody's around".
+  const own = new Set(exportedNames(mocks['@/components/presence/usePresence']!));
+  mocks['@/components/presence/usePresence'] += exportedNames(await readFile('src/components/presence/usePresence.ts', 'utf8').catch(() => readFile('src/components/presence/usePresence.tsx', 'utf8')))
+    .filter((n) => !own.has(n)).map((n) => `export const ${n}=()=>null;`).join('');
+  const out = await build({ entryPoints: [path.resolve('tests/browser/chat-sidebar.fixture.tsx')], bundle: true, write: false, format: 'iife', platform: 'browser', define: { 'process.env.NODE_ENV': '"test"', 'process.env': '{}' }, plugins: [{ name: 'chat-sidebar', setup(b) {
+    b.onResolve({ filter: /.*/ }, (args) => args.path in mocks ? { path: args.path, namespace: 'fixture' } : undefined);
+    b.onLoad({ filter: /.*/, namespace: 'fixture' }, (args) => ({ contents: mocks[args.path], resolveDir: process.cwd(), loader: 'js' }));
+  } }, serverActionsPlugin] });
+  script = out.outputFiles![0]!.text;
+  css = (await postcss([tailwind()]).process(await readFile('src/app/globals.css', 'utf8'), { from: path.resolve('src/app/globals.css') })).css;
+});
+
+async function open(page: Page, query = '') {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.route(origin + '/**', (route) => {
+    const url = new URL(route.request().url());
+    const body = url.pathname === '/app.js' ? script : url.pathname === '/app.css' ? css : '<html lang="en"><head><title>Chat</title><meta charset="utf-8"><link rel="stylesheet" href="/app.css"></head><body><div id="root"></div><script src="/app.js"></script></body></html>';
+    return route.fulfill({ body, contentType: url.pathname.endsWith('.js') ? 'application/javascript' : url.pathname.endsWith('.css') ? 'text/css' : 'text/html' });
+  });
+  await page.goto(`${origin}/messages${query}`);
+}
+
+test('all workspaces: teams sit inside their organization; an outside team stays alone with its organization named', async ({ page }) => {
+  await open(page);
+  const headings = page.getByRole('heading', { level: 2 });
+  await expect(headings.filter({ hasText: 'Team Falcon' })).toHaveCount(0);
+  await expect(headings.filter({ hasText: 'Team Osprey' })).toHaveCount(0);
+  const org = page.locator('section').filter({ has: page.getByRole('button', { name: /CSE 3B · Data Structures 2026/ }) });
+  await expect(org).toContainText('Team workspaces');
+  await expect(org.getByRole('link', { name: /team-falcon-hash-table-library/ })).toBeVisible();
+  await expect(org.getByRole('button', { name: /Team Osprey/ })).toContainText('2 channels');
+  await expect(headings.filter({ hasText: 'Compiler Lab' })).toContainText('CSE-3A');
+  // Names aren't cut down to a few letters any more.
+  const title = page.getByRole('button', { name: /Network for builders/ });
+  expect(await title.evaluate((el) => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
+});
+
+test('organization open: team channels are inside Channels, under Team workspaces, with no team headings', async ({ page }) => {
+  await open(page, '?w=cse');
+  const channels = page.locator('section').filter({ has: page.getByRole('button', { name: /^Channels/ }) });
+  await expect(channels.getByRole('link', { name: 'general', exact: true })).toBeVisible();
+  await expect(channels).toContainText('Team workspaces');
+  await expect(channels.getByRole('link', { name: /team-falcon-hash-table-library/ })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 2 }).filter({ hasText: 'Team Falcon' })).toHaveCount(0);
+  // A team's mention counts toward Channels.
+  await expect(page.getByRole('heading', { name: /Channels , 1 mentions/ })).toBeVisible();
+  await page.screenshot({ path: test.info().outputPath('chat-sidebar-org.png') });
+});

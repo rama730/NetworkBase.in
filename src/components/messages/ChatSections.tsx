@@ -33,7 +33,9 @@ import { APPLICATION_STATUS_LABEL, APPLICATION_STATUS_TONE, isDecidedApplication
 import type { ChatChannelSummary, ChatNotify } from "@/lib/messaging/types";
 import { copyWithToast } from "@/lib/clipboard";
 import { conversationHref } from "@/lib/messaging/routes";
-import { childWorkspacesOf, workspaceWorkspaces } from "@/lib/organizations/chat-rules";
+import { childWorkspacesOf, workspaceGroups, workspaceWorkspaces, type ChatWorkspaceWorkspace } from "@/lib/organizations/chat-rules";
+
+type TeamWorkspace = ChatWorkspaceWorkspace & Parameters<typeof WorkspaceBadge>[0]["project"];
 import { OrgBrowseWorkspaces } from "@/components/messages/OrgBrowseWorkspaces";
 import { ConversationIcon } from "@/components/messages/ConversationIcon";
 import { useConversationExit } from "@/components/messages/useConversationExit";
@@ -81,7 +83,7 @@ function Count({ value, noun = "unread", hidden = false }: { value: number; noun
   return <span className="nb-chat-count" aria-hidden={hidden || undefined}>{value > 99 ? "99+" : value}{hidden ? null : <span className="sr-only"> {noun}</span>}</span>;
 }
 
-function Row({ channel, meId, variant, onSelect, draft }: { channel: ChatChannelSummary; meId: string | null; variant: ChatSectionsVariant; onSelect?: Props["onSelect"]; draft: boolean }) {
+function Row({ channel, meId, variant, onSelect, draft, team }: { channel: ChatChannelSummary; meId: string | null; variant: ChatSectionsVariant; onSelect?: Props["onSelect"]; draft: boolean; team?: TeamWorkspace | null }) {
   const pathname = usePathname();
   const href = conversationHref(channel.id);
   const current = pathname === href || pathname?.startsWith(`${href}/`);
@@ -117,9 +119,11 @@ function Row({ channel, meId, variant, onSelect, draft }: { channel: ChatChannel
     </>
   ) : (
     <>
+      {/* Board/review report §7: a team workspace's channel sits in its organization's list, with the team's badge. */}
+      {team ? <span className="flex-none" title={team.title}><WorkspaceBadge project={team} size="sm" /></span> : null}
       <ChannelIcon channel={channel} />
       <span className="flex min-w-0 flex-1 items-baseline gap-1.5">
-        <span className="min-w-0 truncate">{title}</span>
+        <span className="min-w-0 truncate" title={team ? `${title} · ${team.title}` : undefined}>{title}</span>
         {blockedTag}
         {channel.kind === "dm" && channel.dm_user && !channel.reply_closed ? <DmStatus userId={channel.dm_user.id} /> : null}
         {/* Applications span projects, so a reviewer's row says which one. */}
@@ -397,7 +401,7 @@ function Section({ id, title, count, noun = "unread", collapsed, onToggle, actio
         <h2 className="flex min-w-0 flex-1">
           <button type="button" id={headingId} className="flex min-h-7 min-w-0 flex-1 items-center gap-1 text-left pointer-coarse:min-h-11" aria-expanded={!collapsed} onClick={() => onToggle(id)}>
             <ChevronDown size={14} aria-hidden="true" className={`flex-none ${collapsed ? "-rotate-90" : ""}`} />
-            <span className={`truncate ${plainTitle ? "nb-ui-label normal-case tracking-normal text-foreground" : ""}`}>{title}</span>
+            <span className={`truncate ${plainTitle ? "nb-ui-label font-sans normal-case tracking-normal text-foreground" : ""}`}>{title}</span>
             {count ? <span className="sr-only">, {count} {noun}</span> : null}
           </button>
         </h2>
@@ -595,6 +599,7 @@ export function ChatSections({ variant, onSelect, onNewMessage, onInbox }: Props
   // or search. upgrade: page older DMs from the server when someone has more than 100.
   const [allDms, setAllDms] = useState(false);
   const [decidedOpen, setDecidedOpen] = useState<Record<string, boolean>>({});
+  const [teamOpen, setTeamOpen] = useState<Record<string, boolean>>({});
   // An unread DM always shows, however old: "N more" only hides read ones.
   const dmRows = variant === "sidebar" && !allDms ? others.filter((c, i) => i < DM_SIDEBAR_LIMIT || needsAttention(c)) : others;
   const hiddenDms = others.length - dmRows.length;
@@ -610,7 +615,7 @@ export function ChatSections({ variant, onSelect, onNewMessage, onInbox }: Props
     else router.push(conversationHref(result.channelId));
     if (!self) void refresh();
   };
-  const row = (channel: ChatChannelSummary) => {
+  const rowFor = (channel: ChatChannelSummary, team: TeamWorkspace | null) => {
     const element = (
       <Row
         key={channel.id}
@@ -619,6 +624,7 @@ export function ChatSections({ variant, onSelect, onNewMessage, onInbox }: Props
         variant={variant}
         onSelect={onSelect}
         draft={draftChannels.has(channel.id)}
+        team={team}
       />
     );
     // The page's list screen swipes; the sidebar and the floating window get the ⋯ menu.
@@ -626,6 +632,9 @@ export function ChatSections({ variant, onSelect, onNewMessage, onInbox }: Props
       ? <SwipeActions key={channel.id} channel={channel} meId={meId}>{element}</SwipeActions>
       : <HoverMenu key={channel.id} channel={channel} meId={meId}>{element}</HoverMenu>;
   };
+  // One argument, so `.map(row)` never passes an index as a team.
+  const row = (channel: ChatChannelSummary) => rowFor(channel, null);
+  const teamRow = (channel: ChatChannelSummary, team: TeamWorkspace) => rowFor(channel, team);
 
   if (!data) {
     return loadError ? <ErrorNotice what="Conversations" onRetry={refresh} /> : <SectionsSkeleton />;
@@ -684,6 +693,31 @@ export function ChatSections({ variant, onSelect, onNewMessage, onInbox }: Props
     </>
   );
   const anyProjectRows = [...byProject.values()].flat().some((c) => !c.starred && keep(c));
+  // Board/review report §7: an organization's teams are part of its list, never groups of their own.
+  const teamChannels = (team: TeamWorkspace) => (byProject.get(team.id) ?? []).filter((c) => !c.starred);
+  const teamAttention = (teams: TeamWorkspace[]) => teams.flatMap((team) => teamChannels(team).filter(needsAttention).map((c) => teamRow(c, team)));
+  const teamCount = (teams: TeamWorkspace[]) => teams.reduce((sum, team) => sum + teamChannels(team).reduce((n, c) => n + attention(c), 0), 0);
+  const teamRows = (teams: TeamWorkspace[]) => {
+    const shown = teams.map((team) => ({ team, rows: teamChannels(team).filter(keep) })).filter((t) => t.rows.length);
+    if (!shown.length) return null;
+    return (
+      <>
+        <p className="px-2.5 pb-0.5 pt-2 text-[12px] text-muted-foreground">Team workspaces</p>
+        {shown.map(({ team, rows }) => rows.length === 1 ? teamRow(rows[0]!, team) : (
+          <div key={team.id}>
+            <button type="button" className="nb-chat-row" aria-expanded={Boolean(teamOpen[team.id])} onClick={() => setTeamOpen((current) => ({ ...current, [team.id]: !current[team.id] }))}>
+              <ChevronDown size={14} aria-hidden="true" className={`flex-none ${teamOpen[team.id] ? "" : "-rotate-90"}`} />
+              <WorkspaceBadge project={team} size="sm" />
+              <span className="min-w-0 flex-1 truncate text-left">{team.title}</span>
+              <span className="nb-meta flex-none font-normal">{rows.length} channels</span>
+            </button>
+            {teamOpen[team.id] || rows.some(needsAttention) ? <div className="pl-4">{rows.map((c) => teamRow(c, team))}</div> : null}
+          </div>
+        ))}
+      </>
+    );
+  };
+  const openTeams = open && open.kind === "organization" ? childWorkspacesOf(projects, open.id) : [];
 
   return (
     // The app sidebar's rhythm: 20px between groups, a little air between rows.
@@ -752,67 +786,45 @@ export function ChatSections({ variant, onSelect, onNewMessage, onInbox }: Props
         <Section id="starred" title="Starred" noun="unread conversations" count={starred.filter(needsAttention).length} collapsed={Boolean(collapsed.starred)} onToggle={toggle} attention={starred.filter(needsAttention).map(row)}>{starred.map(row)}</Section>
       ) : null}
 
-      {open && !(unreadsOnly && !sections.channels.some(keep)) ? (
+      {open && !(unreadsOnly && !sections.channels.some(keep) && !teamAttention(openTeams).length) ? (
         <Section
           id="channels"
           title="Channels"
           noun="mentions"
           // This list only: starred channels count under Starred.
-          count={sections.channels.reduce((sum, c) => sum + attention(c), 0)}
+          count={sections.channels.reduce((sum, c) => sum + attention(c), 0) + teamCount(openTeams)}
           collapsed={Boolean(collapsed.channels)}
           onToggle={toggle}
           action={projectActions(open.id)}
-          attention={sections.channels.filter(needsAttention).map(row)}
+          attention={[...sections.channels.filter(needsAttention).map(row), ...teamAttention(openTeams)]}
         >
           {projectRows(open.id, sections.channels.filter(keep))}
+          {teamRows(openTeams)}
+          {open.kind === "organization" && (open.role === "owner" || open.role === "admin") && !unreadsOnly ? <OrgBrowseWorkspaces orgId={open.id} onOpen={(channelId) => (onSelect ? onSelect(channelId) : router.push(conversationHref(channelId)))} onJoined={() => void refresh()} /> : null}
         </Section>
       ) : null}
-      {/* An org workspace: each child project is a channel group under Projects (report §25.1, §25.7). */}
-      {open && open.kind === "organization" ? (
-        <>
-          {childWorkspacesOf(data.projects ?? [], open.id).map((child) => {
-            const rows = (byProject.get(child.id) ?? []).filter((c) => !c.starred).filter(keep);
-            if (unreadsOnly && !rows.length) return null;
-            return (
-              <Section
-                key={child.id}
-                id={`project:${child.id}`}
-                title={<span className="inline-flex items-center gap-1.5"><WorkspaceBadge project={child} size="sm" />{child.title}</span>}
-                plainTitle
-                count={rows.reduce((sum, c) => sum + attention(c), 0)}
-                noun="mentions"
-                collapsed={Boolean(collapsed[`project:${child.id}`])}
-                onToggle={toggle}
-                attention={rows.filter(needsAttention).map(row)}
-              >
-                {rows.map(row)}
-              </Section>
-            );
-          })}
-          {(open.role === "owner" || open.role === "admin") && !unreadsOnly ? <OrgBrowseWorkspaces orgId={open.id} onOpen={(channelId) => (onSelect ? onSelect(channelId) : router.push(conversationHref(channelId)))} onJoined={() => void refresh()} /> : null}
-        </>
-      ) : null}
       {open ? null : projects.length ? (
-        projects.map((project) => {
+        workspaceGroups(projects).map(({ project, teams }) => {
           const all = (byProject.get(project.id) ?? []).filter((c) => !c.starred);
           const rows = all.filter(keep);
-          if (unreadsOnly && !rows.length) return null;
-          // This header's rows only: starred channels count under Starred.
-          const count = all.reduce((sum, c) => sum + attention(c), 0);
+          if (unreadsOnly && !rows.length && !teamAttention(teams).length) return null;
+          // This header's rows only (its teams included): starred channels count under Starred.
+          const count = all.reduce((sum, c) => sum + attention(c), 0) + teamCount(teams);
           return (
             <Section
               key={project.id}
               id={`project:${project.id}`}
-              title={<span className="inline-flex items-center gap-1.5"><WorkspaceBadge project={project} size="sm" />{project.title}</span>}
+              title={<span className="inline-flex min-w-0 items-center gap-1.5"><WorkspaceBadge project={project} size="sm" /><span className="truncate">{project.title}</span>{project.guestOf ? <span className="nb-meta flex-none font-normal">· {project.guestOf}</span> : null}</span>}
               plainTitle
               count={count}
               noun="mentions"
               collapsed={Boolean(collapsed[`project:${project.id}`])}
               onToggle={toggle}
               action={projectActions(project.id)}
-              attention={rows.filter(needsAttention).map(row)}
+              attention={[...rows.filter(needsAttention).map(row), ...teamAttention(teams)]}
             >
               {projectRows(project.id, rows)}
+              {teamRows(teams)}
             </Section>
           );
         })

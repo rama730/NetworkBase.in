@@ -40,3 +40,12 @@ export function workspaceWorkspaces<T extends ChatWorkspaceWorkspace>(projects: 
 export function childWorkspacesOf<T extends ChatWorkspaceWorkspace>(projects: T[], orgId: string): T[] {
   return projects.filter((p) => p.parent_id === orgId).sort((a, b) => a.title.localeCompare(b.title));
 }
+
+/**
+ * Board/review report §7: the Messages sidebar's groups — each top-level workspace with its team workspaces inside
+ * (organizations only), in the list's own order. A team never stands alone when its organization is listed; an
+ * outside person's team does, labelled with its organization (`guestOf`).
+ */
+export function workspaceGroups<T extends ChatWorkspaceWorkspace>(projects: T[]) {
+  return workspaceWorkspaces(projects).map((project) => ({ project, teams: project.kind === "organization" ? childWorkspacesOf(projects, project.id) : [] }));
+}
