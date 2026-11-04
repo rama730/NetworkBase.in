@@ -12,7 +12,7 @@ test("task 1: the four tiles count Done, Submitted, Not in and Excused", async (
 test("task 3: the hand-in chip names each state in its tone", async () => {
   const { handInChip } = await import("../../src/lib/organizations/assignment-rules");
   const cases: Array<[Parameters<typeof handInChip>[0], boolean, string, string]> = [
-    ["not_started", false, "Not started", "muted"], ["in_progress", false, "In progress", "info"], ["submitted", false, "Submitted", "warn"],
+    ["not_started", false, "Not started", "muted"], ["in_progress", false, "In progress", "info"], ["submitted", false, "In review", "warn"],
     ["done", true, "Approved", "ok"], ["done", false, "Done", "ok"], ["returned", false, "Returned", "danger"], ["missing", false, "Missing", "danger"], ["excused", false, "Excused", "muted"],
   ];
   for (const [state, approved, label, tone] of cases) assert.deepEqual(handInChip(state, approved), { label, tone }, state);

@@ -276,7 +276,7 @@ export function rosterTiles(counts: Record<CopyState, number> & { total: number 
 export function handInChip(state: CopyState, approved: boolean): { label: string; tone: "info" | "warn" | "ok" | "danger" | "muted" } {
   switch (state) {
     case "in_progress": return { label: "In progress", tone: "info" };
-    case "submitted": return { label: "Submitted", tone: "warn" };
+    case "submitted": return { label: "In review", tone: "warn" };
     case "done": return approved ? { label: "Approved", tone: "ok" } : { label: "Done", tone: "ok" };
     case "returned": return { label: "Returned", tone: "danger" };
     case "missing": return { label: "Missing", tone: "danger" };

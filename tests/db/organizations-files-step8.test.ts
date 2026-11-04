@@ -107,7 +107,7 @@ test("37.5: the Submissions page lists each person or group per assignment, with
   const byWho = new Map(lab!.rows.map((row) => [row.who, row]));
   assert.deepEqual([byWho.get("Group 4")?.status, byWho.get("Group 4")?.files], ["Missing", 0]);
   const mine = [...byWho.values()].find((row) => row.files === 1)!;
-  assert.deepEqual([mine.status, mine.late, mine.version, Boolean(mine.submittedAt)], ["Submitted", true, 2, true]);
+  assert.deepEqual([mine.status, mine.late, mine.version, Boolean(mine.submittedAt)], ["In review", true, 2, true]);
   viewerId = o.member;
   assert.equal((await orgFiles.readOrgSubmissionsAction(o.id)).success, false);
 });

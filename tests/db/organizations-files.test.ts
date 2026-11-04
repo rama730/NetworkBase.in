@@ -225,7 +225,7 @@ test("§23 pass: Sprint materials by access, trash-in-use warnings, storage line
   await node(o.child, `/.system/tasks/${group!.id}/parser.zip`, "file", { taskId: group!.id });
   const submissions = await orgFiles.readOrgSubmissionsAction(o.orgId);
   const groupRow = submissions.success ? submissions.assignments.flatMap((a) => a.rows).find((r) => r.copyId === group!.id) : null;
-  assert.deepEqual([groupRow?.who, groupRow?.files, groupRow?.status], ["Compiler Lab", 1, "Submitted"]);
+  assert.deepEqual([groupRow?.who, groupRow?.files, groupRow?.status], ["Compiler Lab", 1, "In review"]);
 
   const github = await loadAppModule(() => import("../../src/app/actions/github-sync"));
   const refused = await github.connectGitHubSyncRepository(o.orgId, "https://github.com/acme/repo", "main") as { success?: boolean; error?: string };

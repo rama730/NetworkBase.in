@@ -137,3 +137,14 @@ test("3.9, 3.10: the board's own buttons step aside while the queue shows; Undo 
   assert.match(source("src/lib/feedback/index.ts"), /export function deferredFeedback\(message: string, undo: \(\) => void, commit: \(\) => void, restored = 'Message restored'\)/);
   assert.match(source("src/components/organizations/ReviewQueueParts.tsx"), /'Decision taken back'\)/);
 });
+
+test("5.1, 5.2, 5.5: one word per state, the panel header uses the Hand in card's chip, and the card's parts are headings", async () => {
+  const { ASSIGNMENT_STATE_LABELS } = await import("../../src/lib/copy/terms");
+  const { handInChip } = await import("../../src/lib/organizations/assignment-rules");
+  assert.equal(ASSIGNMENT_STATE_LABELS.submitted, handInChip("submitted", false).label, "In review on every surface");
+  assert.equal(ASSIGNMENT_STATE_LABELS.done, handInChip("done", false).label, "Done when no review; Approved when reviewed");
+  assert.equal(handInChip("done", true).label, "Approved");
+  assert.match(source("src/components/workspaces/v2/tasks/TaskDetailPanel.tsx"), /<HandInChip copyId=\{resource\.task\.id\}/);
+  assert.match(source("src/components/organizations/HandInSection.tsx"), /<h4 className=\{label\}>Steps · /);
+  assert.doesNotMatch(source("src/components/organizations/AssignmentsPanel.tsx"), /submitted by \$\{current/);
+});

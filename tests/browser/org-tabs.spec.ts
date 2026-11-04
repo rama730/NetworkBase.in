@@ -173,7 +173,7 @@ test('Assignments (§16): the review queue steps with Next; the roster has Remin
     await open(page, 'tasks');
     const queue = page.getByRole('region', { name: 'To review' });
     await expect(queue.getByText('1 of 2 waiting')).toBeVisible();
-    await expect(queue.getByText(/Team A · Lab 3 — Consensus protocols · .* · Late · Version 2 · submitted by Asha Nair/)).toBeVisible();
+    await expect(queue.getByText(/Team A · Lab 3 — Consensus protocols · .* · Late · Version 2 · handed in by Asha Nair/)).toBeVisible();
     await expect(queue).toContainText('Steps · 4 of 5 ticked');
     await expect(queue).toContainText('Note: Used Raft');
     await queue.getByRole('button', { name: 'Next' }).click();
@@ -341,7 +341,7 @@ test('Mockup task 1, review UX 1.1–1.6: the Assignment tab shows everyone in s
     await expect(panel).toContainText(/Due .+ · Open/);
     const tiles = panel.getByRole('group', { name: 'Class at a glance' });
     await expect(tiles.getByRole('button', { name: '1 Done' })).toBeVisible();
-    await expect(tiles.getByRole('button', { name: '4 Submitted' })).toBeVisible();
+    await expect(tiles.getByRole('button', { name: '4 In review' })).toBeVisible();
     await expect(tiles.getByRole('button', { name: '7 Not in' })).toBeVisible();
     await expect(tiles.getByRole('button', { name: '0 Excused' })).toBeVisible();
     await expect(panel.getByRole('link', { name: 'Review 4' })).toHaveAttribute('href', /taskScope=review&assignment=a1/);
@@ -363,7 +363,7 @@ test('Mockup task 1, review UX 1.1–1.6: the Assignment tab shows everyone in s
     await expect(working).toHaveCount(0);
     await expect(waiting).toBeVisible();
     await panel.getByLabel('Late only').uncheck();
-    await tiles.getByRole('button', { name: '4 Submitted' }).click();
+    await tiles.getByRole('button', { name: '4 In review' }).click();
     await expect(working).toHaveCount(0);
     await expect(waiting).toBeVisible();
     expect(await axeViolations(page)).toEqual([]);

@@ -70,7 +70,7 @@ test("My work: masters never show, admins don't see copies, teammates see team c
   const found = await orgWorkspace.searchOrgPreviewsAction(`Secret Org ${tag}`);
   assert.equal(found.find((r) => r.kind === "org")?.chip, "Member");
   const assignment = (await orgWorkspace.searchOrgPreviewsAction(`Lab ${tag}`)).find((r) => r.kind === "assignment");
-  assert.equal(assignment?.chip, "Submitted", "a member sees their own copy's state");
+  assert.equal(assignment?.chip, "In review", "a member sees their own copy's state");
   await sql`UPDATE tasks SET review_status = 'none', status = 'in_progress' WHERE id = ${team!.id}`;
   const working = (await orgWorkspace.searchOrgPreviewsAction(`Lab ${tag}`)).find((r) => r.kind === "assignment");
   assert.equal(working?.chip, "In progress", "student check 10: a started copy doesn't read To do");

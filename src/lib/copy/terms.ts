@@ -20,7 +20,7 @@ export const TASK_STATUS_LABELS = { todo: 'To do', in_progress: 'In progress', i
 
 /** Decisions 21 and 23. */
 /** Report §5.7, §34.2, decision 84: one set of words for an assignment copy's state, plus a Late mark. */
-export const ASSIGNMENT_STATE_LABELS = { not_started: 'Not started', in_progress: 'In progress', submitted: 'Submitted', returned: 'Returned', done: 'Completed', missing: 'Missing', excused: 'Excused' } as const;
+export const ASSIGNMENT_STATE_LABELS = { not_started: 'Not started', in_progress: 'In progress', submitted: 'In review', returned: 'Returned', done: 'Done', missing: 'Missing', excused: 'Excused' } as const;
 export const LATE_MARK = 'Late';
 
 export const SPRINT_STATUS_LABELS = { planning: 'Upcoming', active: 'Active', completed: 'Completed', archived: 'Archived', cancelled: 'Canceled' } as const;

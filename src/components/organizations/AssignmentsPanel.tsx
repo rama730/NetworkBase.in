@@ -836,7 +836,7 @@ export function ReviewQueue({ orgId, onChanged, onClose }: { orgId: string; onCh
                         </ul>
                     </section>
                     <section aria-label="Submission" className="flex min-w-0 flex-col gap-2">
-                        <p><span className="font-medium">{current.who}</span> · {current.title} · {formatDistanceToNow(new Date(current.submittedAt), { addSuffix: true })}{current.late ? ' · Late' : ''}{current.version ? ` · Version ${current.version}` : ''}{current.submittedBy ? ` · submitted by ${current.submittedBy}` : ''}{current.left ? ' · Left the organization' : ''}</p>
+                        <p><span className="font-medium">{current.who}</span> · {current.title} · {formatDistanceToNow(new Date(current.submittedAt), { addSuffix: true })}{current.late ? ' · Late' : ''}{current.version ? ` · Version ${current.version}` : ''}{current.submittedBy ? ` · handed in by ${current.submittedBy}` : ''}{current.left ? ' · Left the organization' : ''}</p>
                         {current.link ? <LinkCard link={current.link} /> : null}
                         {/* Review UX 3.11: text keeps its line breaks and spacing. */}
                         {current.text ? <p className="whitespace-pre-wrap rounded-md bg-muted/40 px-3 py-2">{current.text}</p> : null}
@@ -845,7 +845,7 @@ export function ReviewQueue({ orgId, onChanged, onClose }: { orgId: string; onCh
                     </section>
                     {/* Review UX 3.1: note, steps, conversation, then the decision at the bottom. */}
                     <section aria-label="Details" className="flex min-w-0 flex-col gap-3">
-                        {current.note ? <div><p className={reviewLabel}>Their note</p><p className="mt-1">Note: {current.note}</p></div> : null}
+                        {current.note ? <div><h3 className={reviewLabel}>Their note</h3><p className="mt-1">Note: {current.note}</p></div> : null}
                         <ReviewSteps row={current} />
                         <ReviewConversation row={current} />
                         <div className="mt-auto">

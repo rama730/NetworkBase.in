@@ -21,6 +21,7 @@ import {
   X,
 } from "lucide-react";
 import { AssignmentManageSection } from "@/components/organizations/AssignmentsPanel";
+import { HandInChip } from "@/components/organizations/HandInSection";
 
 import { deleteTaskAction, markTaskAsReadAction } from "@/app/actions/workspace";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
@@ -381,6 +382,9 @@ export default function TaskDetailPanel({
                   {masterState ? (
                     // Review UX 1.7: a main assignment shows its own life, not a status derived from the copies.
                     <span className="nb-status" data-status={TONE_STATUS[masterState.tone]}>{masterState.label}</span>
+                  ) : resource.task.assignmentId ? (
+                    // Review UX 5.2: a copy's header chip is the Hand in card's own, for the student and the teacher alike.
+                    <HandInChip copyId={resource.task.id} fallback={<TaskStatusBadge status={resource.task.status} reviewStatus={resource.task.reviewStatus} />} />
                   ) : <TaskStatusBadge status={resource.task.status} reviewStatus={resource.task.reviewStatus} />}
                   <TaskPriorityBadge priority={resource.task.priority} />
                   {showRealtimeIssue ? (

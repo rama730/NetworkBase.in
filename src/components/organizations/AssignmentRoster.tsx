@@ -102,7 +102,7 @@ export function AssignmentRoster({ row, orgId, timeZone, onChanged, onExport }: 
         <div className="space-y-4">
             <div role="group" aria-label="Class at a glance" className="grid grid-cols-4 gap-2 max-sm:grid-cols-2">
                 {tileButton('done', tiles.done, 'Done', 'bg-[var(--status-success-soft)] text-[var(--status-success)]')}
-                {tileButton('submitted', tiles.submitted, 'Submitted', 'bg-[var(--status-warning-soft)] text-[var(--status-warning)]')}
+                {tileButton('submitted', tiles.submitted, 'In review', 'bg-[var(--status-warning-soft)] text-[var(--status-warning)]')}
                 {tileButton('notIn', tiles.notIn, 'Not in', 'bg-[var(--status-danger-soft)] text-[var(--status-danger)]')}
                 {tileButton('excused', tiles.excused, 'Excused', 'bg-muted text-foreground')}
             </div>

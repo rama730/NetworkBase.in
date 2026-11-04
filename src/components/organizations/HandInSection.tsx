@@ -44,6 +44,15 @@ function FileRow({ file, onRemove }: { file: HandInFile; onRemove?: () => void }
     )
 }
 
+/** Review UX 5.2: the copy's chip from the same read as the card, so the panel header and Hand in never disagree. */
+export function HandInChip({ copyId, fallback }: { copyId: string; fallback: React.ReactNode }) {
+    const query = useQuery({ queryKey: ['hand-in', copyId], queryFn: () => readHandInAction(copyId), staleTime: 0 })
+    const h = query.data?.success ? query.data.handIn : null
+    if (!h) return <>{fallback}</>
+    const chip = handInChip(h.state, h.approved)
+    return <span className="nb-status" data-status={TONE[chip.tone]}>{chip.label}</span>
+}
+
 export function HandInSection({ copyId, onOpenFiles, onSubmitted, onUploadFiles, onRemoveFile, onOpenConversation, onReviewed }: {
     copyId: string; onOpenFiles: () => void; onSubmitted: (reviewRequired: boolean) => void
     onUploadFiles?: (files: File[]) => Promise<{ success: boolean; error?: string }>; onRemoveFile?: (nodeId: string) => Promise<{ success: boolean; error?: string }>
@@ -146,7 +155,7 @@ export function HandInSection({ copyId, onOpenFiles, onSubmitted, onUploadFiles,
 
             {h.materials.length ? (
                 <div className="space-y-1.5">
-                    <p className={label}>Materials</p>
+                    <h4 className={label}>Materials</h4>
                     {/* Review UX 2.8: materials open in the file viewer, read-only. */}
                     <ul className="space-y-1" aria-label="Materials">{h.materials.map((m) => <FileRow key={m.nodeId} file={{ ...m, size: null }} />)}</ul>
                 </div>
@@ -154,7 +163,7 @@ export function HandInSection({ copyId, onOpenFiles, onSubmitted, onUploadFiles,
 
             {locked && h.latest ? (
                 <div className="space-y-1.5">
-                    <p className={label}>Handed in · Version {h.latest.version} · by {h.latest.by}</p>
+                    <h4 className={label}>Handed in · Version {h.latest.version} · by {h.latest.by}</h4>
                     {webLink(h.latest.link) ? <a href={webLink(h.latest.link)!} target="_blank" rel="noreferrer noopener" className="block break-all rounded-[5px] border border-border px-2.5 py-1.5 text-primary underline">{h.latest.link}</a> : h.latest.link ? <span className="break-all">{h.latest.link}</span> : null}
                     {h.latest.text ? <p className="whitespace-pre-line rounded-[5px] border border-border px-2.5 py-1.5">{h.latest.text}</p> : null}
                     {h.latest.note ? <p className="text-muted-foreground">Note: {h.latest.note}</p> : null}
@@ -162,7 +171,7 @@ export function HandInSection({ copyId, onOpenFiles, onSubmitted, onUploadFiles,
             ) : null}
             {shownFiles.length ? (
                 <div className="space-y-1.5">
-                {locked ? null : <p className={label}>Your files</p>}
+                {locked ? null : <h4 className={label}>Your files</h4>}
                 <ul className="space-y-1" aria-label={locked && h.latest ? `Version ${h.latest.version} files` : 'Your files'}>
                     {shownFiles.map((f) => <FileRow key={f.nodeId} file={f} onRemove={!locked && canAttach && onRemoveFile ? () => void remove(f.nodeId) : undefined} />)}
                 </ul>
@@ -172,7 +181,7 @@ export function HandInSection({ copyId, onOpenFiles, onSubmitted, onUploadFiles,
             {/* Review UX 2.7: the steps, ticked here. */}
             {h.steps.length ? (
                 <div className="space-y-1.5">
-                    <p className={label}>Steps · {h.steps.length - openSteps} of {h.steps.length}</p>
+                    <h4 className={label}>Steps · {h.steps.length - openSteps} of {h.steps.length}</h4>
                     <ul className="space-y-1" aria-label="Steps">
                         {h.steps.map((s) => (
                             <li key={s.id}><label className="flex items-center gap-2 text-[13px]">

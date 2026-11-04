@@ -82,7 +82,7 @@ export function ReviewSteps({ row }: { row: ReviewQueueRow }) {
     if (!row.steps.length) return null
     return (
         <div>
-            <p className={reviewLabel}>Steps · {row.steps.filter((s) => s.done).length} of {row.steps.length} ticked</p>
+            <h3 className={reviewLabel}>Steps · {row.steps.filter((s) => s.done).length} of {row.steps.length} ticked</h3>
             <ul className="mt-1 space-y-0.5 text-[13px]" aria-label="Steps">
                 {row.steps.map((s, i) => <li key={`${i}-${s.title}`} className={cn(!s.done && 'text-muted-foreground')}><span aria-hidden="true">{s.done ? '☑' : '☐'}</span> {s.title}<span className="sr-only">{s.done ? ', ticked' : ', not ticked'}</span></li>)}
             </ul>
@@ -115,7 +115,7 @@ export function ReviewConversation({ row }: { row: ReviewQueueRow }) {
     })
     return (
         <div className="space-y-1.5">
-            <p className={reviewLabel}>Private conversation</p>
+            <h3 className={reviewLabel}>Private conversation</h3>
             {lines.length ? (
                 <ul aria-label="Private conversation" className="space-y-1.5 text-[13px]">
                     {lines.map((l) => <li key={l.id}><span className="font-medium">{l.who}:</span> <span className="whitespace-pre-line">{l.text}</span></li>)}
@@ -231,7 +231,7 @@ export function CopyReview({ copyId, orgId, masterId, onReviewed }: { copyId: st
     }
     return (
         <section aria-label="Review this hand-in" className="space-y-2 rounded-[5px] border border-border p-3">
-            <p className={reviewLabel}>Review</p>
+            <h3 className={reviewLabel}>Review</h3>
             {held ? <p role="status" className="text-[13px] text-muted-foreground">Sending in a few seconds. Undo is in the notice.</p> : (
                 <ReviewDecision who={row.who} dueDate={row.dueDate} recentReasons={data.reasons} pending={held}
                     onApprove={(note) => decide('approve', undefined, null, note)} onReturn={(reason, fixBy) => decide('return', reason, fixBy)} />
