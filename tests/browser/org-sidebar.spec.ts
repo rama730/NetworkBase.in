@@ -151,6 +151,12 @@ test('G6: space between the organizations and your own; G10: nested lists; keybo
 test('D1, G7: the collapsed strip hides the list and shows the Workspaces button; the open sidebar shows the list, not the button', async ({ page }) => {
     await open(page, 'view=collapsed');
     await expect(page.getByRole('button', { name: 'Workspaces', exact: true })).toBeVisible();
+    // Its icon lines up with the strip's other icons (the user, 5 Nov): same box width, same icon centre.
+    const centre = async (l: ReturnType<Page['locator']>) => { const b = (await l.boundingBox())!; return Math.round(b.x + b.width / 2); };
+    const discover = page.getByRole('link', { name: 'Discover' });
+    const rail = page.getByRole('button', { name: 'Workspaces', exact: true });
+    expect((await rail.boundingBox())!.width).toBe((await discover.boundingBox())!.width);
+    expect(await centre(rail.locator('svg'))).toBe(await centre(discover.locator('svg')));
     await expect(list(page)).toBeHidden();
     await open(page);
     await expect(page.getByRole('button', { name: 'Workspaces', exact: true })).toBeHidden();

@@ -832,7 +832,8 @@ html[data-reduce-motion="true"] .nb-skeleton {
 [data-ws-row]:hover .nb-row-tools, [data-ws-row]:focus-within .nb-row-tools, .nb-row-tools:has([data-state="open"]) { display:flex; }
 @media (hover:none) { .nb-row-tools { display:flex; } }
 /* Sidebar report D1, G7: the collapsed strip has no workspace list, just one Workspaces button that opens it. */
-.nb-sidebar-workspaces-rail { display:none; }
+/* A <button>, unlike the strip's links, takes only its content's width; full width centres its icon like theirs. */
+.nb-sidebar-workspaces-rail { display:none; width:100%; }
 .nb-sidebar[data-collapsed="true"] .nb-sidebar-workspaces-rail { display:flex; }
 .nb-sidebar[data-collapsed="true"] .nb-sidebar-body { padding:12px 6px; }
 .nb-sidebar[data-collapsed="true"] .nb-sidebar-scroll { padding-right:0; }

@@ -29,10 +29,12 @@ const data = small ? { orgs: [], requested: [], outside: [], archived: [], pinne
 createRoot(document.getElementById('root')!).render(
     <QueryClientProvider client={client}>
         {params.get('view') === 'collapsed'
-            ? <aside className="nb-sidebar" data-collapsed="true" style={{ display: 'flex' }}><div className="nb-sidebar-body">
-                <button type="button" className="nb-nav-link nb-sidebar-workspaces-rail" aria-label="Workspaces">W</button>
+            // The same wrapper as AppSidebar's SidebarNav: a block container, where a <button> doesn't stretch by itself.
+            ? <aside className="nb-sidebar" data-collapsed="true" style={{ display: 'flex' }}><div className="nb-sidebar-body"><div className="nb-sidebar-scroll space-y-3">
+                <nav className="space-y-1"><a href="/discover" className="nb-nav-link" aria-label="Discover"><svg width="16" height="16" aria-hidden="true" /><span className="nb-sidebar-label">Discover</span></a></nav>
+                <button type="button" className="nb-nav-link nb-sidebar-workspaces-rail" aria-label="Workspaces"><svg width="16" height="16" aria-hidden="true" /></button>
                 <section className="nb-sidebar-workspace"><SidebarWorkspaces data={data as never} /></section>
-            </div></aside>
+            </div></div></aside>
             : <aside className="nb-sidebar" style={{ display: 'flex' }}><div className="nb-sidebar-body">
                 <button type="button" className="nb-nav-link nb-sidebar-workspaces-rail" aria-label="Workspaces">W</button>
                 <section className="nb-sidebar-workspace"><SidebarWorkspaces data={data as never} /></section>
