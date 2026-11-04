@@ -6,10 +6,11 @@ import { test } from "node:test";
 const source = (path: string) => readFileSync(path, "utf8");
 
 test("live-fix 38: workspace rows have an avatar and ⋯ says Detach", () => {
-  const overview = source("src/components/organizations/OrgOverviewParts.tsx");
+  // The Workspaces tab moved to its own file (workspaces report); the List keeps the avatar, ⋯ keeps Detach.
+  const overview = source("src/components/organizations/OrgWorkspacesTab.tsx");
   assert.match(overview, /<WorkspaceAvatar project=\{\{ title: r\.title, coverImage: r\.coverImage \}\}/);
   assert.match(overview, />Detach<\/DropdownMenuItem>/);
-  assert.match(overview, /`Detach \$\{ask\.rows\[0\]\?\.title\}\?`/);
+  assert.match(overview, /`Detach \$\{first\?\.title\}\?`/);
   assert.doesNotMatch(overview, /Remove from the organization<\/DropdownMenuItem>/);
 });
 

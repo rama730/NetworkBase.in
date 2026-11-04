@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { memo, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Users, Bell, BellRing, BarChart2, ExternalLink, Globe, MoreHorizontal } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { ROUTES } from "@/constants/routes";
@@ -37,9 +37,18 @@ interface ProjectCardProps {
     onOpenProject?: (projectId: string) => void;
     /** Keep the counts live while on screen. Only where they read from the Discover cache. */
     live?: boolean;
+    /**
+     * Inside an organization (workspaces report §2): its chip on the title line, its lines under "Updated by", more in
+     * the footer after the people, an action before the ⋯, and the admins' items in the card's own ⋯.
+     */
+    titleChip?: ReactNode;
+    orgDetails?: ReactNode;
+    footerExtra?: ReactNode;
+    footerEnd?: ReactNode;
+    menuItems?: ReactNode;
 }
 
-export default memo(function ProjectCard({ project, viewModel, isFollowing = false, followersCount: initialFollowers, applicationChip, onOpenProject, live = false }: ProjectCardProps) {
+export default memo(function ProjectCard({ project, viewModel, isFollowing = false, followersCount: initialFollowers, applicationChip, onOpenProject, live = false, titleChip, orgDetails, footerExtra, footerEnd, menuItems }: ProjectCardProps) {
     useSkillCatalog();
     const { user } = useAuth();
     const [reporting, setReporting] = useState(false);
@@ -74,7 +83,8 @@ export default memo(function ProjectCard({ project, viewModel, isFollowing = fal
     ) : null;
     // "Part of RV College of Engineering" under an org's name (report §34.11).
     const partOfLine = isOrg && project.orgPartOf ? <p className="nb-compact mt-0.5 truncate text-muted-foreground" data-testid="org-card-part-of">{project.orgPartOf}</p> : null;
-    const typeChip = isOrg ? <span className="nb-status relative z-10 ml-auto shrink-0" data-status="active">{orgTypeLabel}</span> : null;
+    const typeChip = isOrg ? <span className="nb-status relative z-10 ml-auto shrink-0" data-status="active">{orgTypeLabel}</span>
+        : titleChip ? <span className="relative z-10 ml-auto flex shrink-0 items-center gap-1">{titleChip}</span> : null;
     // Decision 70: a verified organization's ✓ beside its name.
     const verifiedMark = isOrg && project.orgVerified ? <span className="ml-1 text-primary" title={`${project.title} is verified`}><span aria-hidden="true">✓</span><span className="sr-only"> Verified</span></span> : null;
     const linkHref = (link: (typeof links)[number]) => `/go/project/${encodeURIComponent(project.id)}/${encodeURIComponent(link.id || link.canonicalKey)}`;
@@ -148,6 +158,7 @@ export default memo(function ProjectCard({ project, viewModel, isFollowing = fal
             {hiddenTechStackCount > 0 && <span className="nb-tag relative z-10" title={techStack.slice(MAX_PROJECT_CARD_SKILL_ICONS).join(", ")}>+{hiddenTechStackCount}<span className="sr-only">: {techStack.slice(MAX_PROJECT_CARD_SKILL_ICONS).join(", ")}</span></span>}
         </div>}
         <WorkspaceLastUpdate projectId={project.id} className="nb-meta block truncate" />
+        {orgDetails}
         <div className="nb-project-card-footer">
             <div className="flex min-w-0 items-center gap-3">
                 <div className="flex -space-x-1.5" role="group" aria-label={`${teamSize} ${teamSize === 1 ? "member" : "members"}`}>
@@ -162,6 +173,7 @@ export default memo(function ProjectCard({ project, viewModel, isFollowing = fal
                     {project.slug ? <Link prefetch={false} href={`/discover?org=${encodeURIComponent(project.slug)}`} className="nb-meta relative z-10 hover:text-foreground hover:underline" title={`Show everything from ${project.title}`}>Show everything</Link> : null}
                 </> : applicationChip ? <span className="nb-status relative z-10" data-status={APPLICATION_CHIP_TONE[applicationChip]} title="Your application in this workspace">{APPLICATION_CHIP_LABEL[applicationChip]}</span>
                     : totalOpenRoles > 0 && <span className="nb-meta text-primary">{totalOpenRoles} open {totalOpenRoles === 1 ? "role" : "roles"}</span>}
+                {footerExtra}
             </div>
             <div className="relative z-10 flex flex-wrap items-center gap-1">
                 {visibleLinks.map(link => <a key={link.id || link.canonicalKey} href={linkHref(link)} target="_blank" rel="noopener noreferrer" className="nb-icon-button" aria-label={`Open ${link.customLabel || link.platformLabel}: ${link.accountLabel} (opens in new tab)`}>
@@ -187,12 +199,14 @@ export default memo(function ProjectCard({ project, viewModel, isFollowing = fal
                 <button type="button" aria-disabled={busy || undefined} aria-busy={busy} aria-pressed={following} aria-label={`Follow ${project.title}, ${followers ?? "unknown"} ${followers === 1 ? "follower" : "followers"}`} title={following ? "Following" : "Follow"} className="nb-icon-button gap-1 px-1.5 font-mono text-xs" onClick={toggleFollow} data-testid={`project-card-follow-${project.id}`}>
                     {following ? <BellRing size={16} aria-hidden="true" /> : <Bell size={16} aria-hidden="true" />}{followers === undefined ? "—" : formatCount(followers)}
                 </button>
-                {/* Report (report §30.3): signed-in people other than the owner. */}
-                {user && user.id !== project.ownerId ? (
+                {footerEnd}
+                {/* Report (report §30.3): signed-in people other than the owner. An organization's admins add their items. */}
+                {menuItems || (user && user.id !== project.ownerId) ? (
                     <DropdownMenu>
                         <DropdownMenuTrigger className="nb-icon-button px-1" aria-label={`More actions for ${project.title}`}><MoreHorizontal size={16} aria-hidden="true" /></DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-48">
-                            <ReportMenuItem first noun={isOrg ? "organization" : "workspace"} target={{ kind: "project", targetId: project.id }} onReport={() => setReporting(true)} />
+                        <DropdownMenuContent align="end" className="w-52">
+                            {menuItems}
+                            {user && user.id !== project.ownerId ? <ReportMenuItem first={!menuItems} noun={isOrg ? "organization" : "workspace"} target={{ kind: "project", targetId: project.id }} onReport={() => setReporting(true)} /> : null}
                         </DropdownMenuContent>
                     </DropdownMenu>
                 ) : null}

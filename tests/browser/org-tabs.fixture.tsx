@@ -5,7 +5,6 @@ import { AssignmentComposer, AssignmentFields, AssignmentManageSection, ReviewQu
 import CreateTaskModal from '@/components/workspaces/v2/tasks/CreateTaskModal';
 import { OrgFilesCollection, OrgStorageNotice } from '@/components/organizations/OrgFilesPanel';
 import { OrgMembersTab } from '@/components/organizations/OrgMembersTab';
-import { OrgWorkspacesTab } from '@/components/organizations/OrgOverviewParts';
 import { FormProvider, useForm } from 'react-hook-form';
 import { ChildLeadAndUnassigned, InheritedAdminRows, UnitPeople } from '@/components/organizations/ChildTeamFields';
 import { ChildUnitsPanel } from '@/components/organizations/ChildUnitsPanel';
@@ -15,7 +14,7 @@ import CreateSprintModal from '@/components/workspaces/v2/sprints/CreateSprintMo
 import { OrgNewItems, OrgNewMenu } from '@/components/organizations/OrgHeaderParts';
 import { WorkspaceUpdateComposer } from '@/components/workspaces/updates/WorkspaceUpdateComposer';
 
-// The org Tasks, Members, Files and Projects tabs and the sidebar tree (report §31.2 G13, G16), one per ?tab=.
+// The org Tasks, Members and Files tabs (Workspaces has its own: org-workspaces.spec.ts) and the sidebar tree (report §31.2 G13, G16), one per ?tab=.
 const tab = new URLSearchParams(location.search).get('tab') ?? 'members';
 const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 
@@ -67,7 +66,6 @@ createRoot(document.getElementById('root')!).render(
     <QueryClientProvider client={client}>
         <main style={{ padding: 16 }}>
             {tab === 'members' ? <OrgMembersTab orgId="org" /> : null}
-            {tab === 'projects' ? <OrgWorkspacesTab orgId="org" /> : null}
             {/* One board (live-fix 3): In review's queue, and a card's assignment panel (published, then a draft). */}
             {tab === 'tasks' ? <><ReviewQueue orgId="org" onChanged={() => undefined} /><h2>Lab 3 — Consensus protocols</h2><AssignmentManageSection orgId="org" masterId="a1" /></> : null}
             {tab === 'tasks-draft' ? <><h2>Reading quiz</h2><AssignmentManageSection orgId="org" masterId="a2" /></> : null}

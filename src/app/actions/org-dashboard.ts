@@ -12,6 +12,8 @@ import { orgFileAccessSql } from '@/lib/files/internal-helpers';
 import { copyState, type CopyState } from '@/lib/organizations/assignment-rules';
 import { activityVisible, classStanding, getStartedCards, greetingFor, journeyFromSprints, needsAttention, todayRows, weekGroup, weekLine, type ActivityKind, type TodayRow } from '@/lib/organizations/dashboard-rules';
 import { localClock } from '@/lib/organizations/notify-rules';
+import { ORG_LIMITS } from '@/lib/organizations/config';
+import { workspacesSummary } from '@/lib/organizations/workspace-attention';
 import { typeProfile } from '@/lib/organizations/type-profile';
 import { readPrivateOrgState } from '@/lib/organizations/join';
 import { privateOrgLine } from '@/lib/organizations/join-rules';
@@ -430,11 +432,27 @@ export type OrgWorkspaceRow = {
     /** Report §35.4: its lead left and someone holds it until admins assign one. */
     needsLead: boolean;
     /** Report §35.5: who archived it, and whether an admin did. */
-    archivedBy: { name: string; admin: boolean } | null;
+    archivedBy: { name: string; admin: boolean; at: string | null } | null;
+    /** Workspaces report §2, G1: what Discover's card draws — the one-line description, skills, a few people, links, views. */
+    description: string | null; skills: string[];
+    people: Array<{ id: string; name: string; username: string | null; avatarUrl: string | null }>;
+    externalLinks: unknown; githubRepoUrl: string | null; views: number; followers: number;
+    /** The group copy's ids, for Open assignment and Open review (report §4 F1). */
+    groupCopyIds: { copyId: string; masterId: string | null } | null;
+    /** Admins: when its lead was last reminded about it (G13), inside the reminder window. */
+    remindedAt: string | null;
+    /** When it came into the organization (moved in, or made here), for the Newest sort. */
+    addedAt: string;
 };
 
+export type OrgWorkspacesSummary = { total: number; attention: number; quiet: number; archived: number; mine: number; notInProject: number };
+
 /** Projects tab (report §28): admins see every child project (Private too) with Needs attention; others what they may. */
-export async function readOrgWorkspacesAction(orgId: string): Promise<{ success: true; isAdmin: boolean; canCreate: boolean; rows: OrgWorkspaceRow[]; requests: OrgWorkspaceRequest[]; summary: { total: number; attention: number; quiet: number; notInProject: number } } | Failure> {
+export async function readOrgWorkspacesAction(orgId: string): Promise<{ success: true; isAdmin: boolean; canCreate: boolean; rows: OrgWorkspaceRow[]; requests: OrgWorkspaceRequest[]; summary: OrgWorkspacesSummary;
+    /** The organization is archived: read-only, no New workspace and no row actions (report §5). */
+    orgArchived: boolean;
+    /** D6: a member who can't create here may ask to bring one of their own workspaces in. */
+    canAsk: boolean } | Failure> {
     const v = await orgViewer(orgId);
     if (!v || !v.isInside) return DENIED;
     const now = new Date();
@@ -458,6 +476,18 @@ export async function readOrgWorkspacesAction(orgId: string): Promise<{ success:
         archivedByName: sql<string | null>`(SELECT coalesce(ap.full_name, ap.username) FROM profiles ap WHERE ap.id::text = ${workspaces.orgSettings}->'archivedBy'->>'userId')`,
         mine: v.userId ? sql<boolean>`EXISTS (SELECT 1 FROM workspace_members pm WHERE pm.workspace_id = ${workspaces.id} AND pm.user_id = ${v.userId})` : sql<boolean>`false`,
         leadInOrg: sql<boolean>`(${workspaces.ownerId} = ${v.access.project!.ownerId} OR EXISTS (SELECT 1 FROM workspace_members pm WHERE pm.workspace_id = ${orgId} AND pm.user_id = ${workspaces.ownerId}))`,
+        archivedAt: sql<string | null>`${workspaces.orgSettings}->'archivedBy'->>'at'`,
+        addedAt: sql<string>`coalesce((${workspaces.orgSettings}->>'movedInAt')::timestamptz, ${workspaces.createdAt})::text`,
+        description: sql<string | null>`coalesce(nullif(${workspaces.shortDescription}, ''), ${workspaces.description})`,
+        skills: workspaces.skills, externalLinks: workspaces.externalLinks, githubRepoUrl: workspaces.githubRepoUrl,
+        views: workspaces.viewCount, followers: workspaces.followersCount,
+        // The lead first, then the earliest to join; four is what the card's stack shows.
+        people: sql<Array<{ id: string; name: string | null; username: string | null; avatar_url: string | null }>>`(SELECT coalesce(jsonb_agg(to_jsonb(x)), '[]'::jsonb) FROM (
+            SELECT p.id, p.full_name AS name, p.username, p.avatar_url FROM workspace_members pm JOIN profiles p ON p.id = pm.user_id
+            WHERE pm.workspace_id = ${workspaces.id} ORDER BY (pm.user_id = ${workspaces.ownerId}) DESC, pm.joined_at ASC LIMIT 4) x)`,
+        remindedAt: v.isAdmin ? sql<string | null>`(SELECT max(n.created_at)::text FROM user_notifications n WHERE n.user_id = ${workspaces.ownerId}
+            AND n.dedupe_key LIKE ('project:' || ${orgId}::text || ':assignments.reminded:remind-lead:' || ${workspaces.id}::text || ':%')
+            AND n.created_at > now() - make_interval(hours => ${ORG_LIMITS.remindSamePersonHours}))` : sql<string | null>`NULL`,
     }).from(workspaces).leftJoin(profiles, eq(profiles.id, workspaces.ownerId))
         .where(and(eq(workspaces.parentId, orgId), isNull(workspaces.deletedAt)))
         .orderBy(desc(workspaces.updatedAt)).limit(200);
@@ -480,7 +510,15 @@ export async function readOrgWorkspacesAction(orgId: string): Promise<{ success:
             newInOrg: Boolean(r.newInOrg),
             openSeats: Number(r.openSeats ?? 0),
             needsLead: Boolean(r.needsLead),
-            archivedBy: r.status === 'archived' && r.archivedByAdmin !== null ? { name: r.archivedByName ?? 'Someone', admin: Boolean(r.archivedByAdmin) } : null,
+            archivedBy: r.status === 'archived' && r.archivedByAdmin !== null ? { name: r.archivedByName ?? 'Someone', admin: Boolean(r.archivedByAdmin), at: r.archivedAt } : null,
+            description: r.description?.trim() || null,
+            skills: Array.isArray(r.skills) ? r.skills : [],
+            people: (r.people ?? []).map((p) => ({ id: p.id, name: p.name || p.username || 'Member', username: p.username, avatarUrl: p.avatar_url })),
+            externalLinks: r.externalLinks ?? null, githubRepoUrl: r.githubRepoUrl ?? null,
+            views: Number(r.views ?? 0), followers: Number(r.followers ?? 0),
+            groupCopyIds: copy && state ? { copyId: copy.id, masterId: copy.assignmentId } : null,
+            remindedAt: r.remindedAt ? new Date(r.remindedAt).toISOString() : null,
+            addedAt: new Date(r.addedAt).toISOString(),
         };
     });
     const [{ n: notInProject } = { n: 0 }] = v.isAdmin ? await db.select({ n: sql<number>`count(*)::int` }).from(workspaceMembers).where(and(
@@ -491,13 +529,16 @@ export async function readOrgWorkspacesAction(orgId: string): Promise<{ success:
     const [org] = await db.select({ settings: workspaces.orgSettings, status: workspaces.status }).from(workspaces).where(eq(workspaces.id, orgId)).limit(1);
     const canCreate = !v.isGuest && org?.status !== 'archived' && !v.access.writeBlocked
         && (v.isAdmin || (org?.settings as { childCreation?: string } | null)?.childCreation !== 'admins');
+    const orgArchived = org?.status === 'archived';
     return {
         success: true,
         isAdmin: v.isAdmin,
         canCreate,
+        orgArchived,
+        canAsk: !canCreate && !v.isAdmin && !v.isGuest && !orgArchived && !v.access.writeBlocked,
         rows: out,
         requests: v.isAdmin ? await readWorkspaceRequests(orgId) : [],
-        summary: { total: out.length, attention: out.filter((r) => r.reasons.length > 0).length, quiet: out.filter((r) => r.reasons.includes('quiet 7 days')).length, notInProject },
+        summary: { ...workspacesSummary(out, v.isAdmin), notInProject },
     };
 }
 
@@ -542,7 +583,7 @@ export async function readChildOrgLineAction(childProjectId: string) {
  * Remind leads (report §28.4, §28.7): each selected project's lead hears what's open, "CSE-3A reminded you: Proposal
  * is missing" or "3 tasks overdue". Admins only; at most once per lead and project every 12 hours.
  */
-export async function remindLeadsAction(orgId: string, projectIds: string[]): Promise<{ success: true; reminded: number; skipped: number } | Failure> {
+export async function remindLeadsAction(orgId: string, projectIds: string[], note?: string | null): Promise<{ success: true; reminded: number; skipped: number; ids: string[] } | Failure> {
     const v = await orgViewer(orgId);
     if (!v?.isAdmin || !v.userId) return DENIED;
     const read = await readOrgWorkspacesAction(orgId);
@@ -554,17 +595,36 @@ export async function remindLeadsAction(orgId: string, projectIds: string[]): Pr
     const minute = Math.floor(Date.now() / 60_000);
     let reminded = 0;
     let skipped = 0;
+    const ids: string[] = [];
     for (const row of rows) {
         const what = row.groupCopy && ['missing', 'returned', 'not_started', 'in_progress'].includes(row.groupCopy.state)
             ? `${row.groupCopy.title} is ${row.groupCopy.state === 'missing' ? 'missing' : row.groupCopy.state === 'returned' ? 'returned' : 'not submitted yet'}`
-            : row.overdue ? `${row.overdue} ${row.overdue === 1 ? 'task is' : 'tasks are'} overdue in ${row.title}` : null;
+            : row.overdue ? `${row.overdue} ${row.overdue === 1 ? 'task is' : 'tasks are'} overdue in ${row.title}`
+                // Workspaces report §4 F1: Remind lead is the fix for a quiet workspace, so it says so.
+                : row.reasons.includes('quiet 7 days') ? `nothing has moved in ${row.title} for 7 days` : null;
         if (!what) continue;
         if (recent.has(row.id)) { skipped += 1; continue; }
-        await notifyOrg({ orgId, eventKey: 'assignments.reminded', actorId: v.userId, to: [row.lead!.id], title: `${v.org.title} reminded you: ${what}`,
+        // Workspaces report §4 F1: the admin's own words, when they wrote some, under the reminder.
+        await notifyOrg({ orgId, eventKey: 'assignments.reminded', actorId: v.userId, to: [row.lead!.id], title: `${v.org.title} reminded you: ${what}`, body: note?.trim().slice(0, 300) || null,
             href: `/workspaces/${encodeURIComponent(row.slug ?? row.id)}?tab=tasks`, sourceEventId: `remind-lead:${row.id}:${minute}` });
         reminded += 1;
+        ids.push(row.id);
     }
-    return { success: true, reminded, skipped };
+    return { success: true, reminded, skipped, ids };
+}
+
+/**
+ * Workspaces report D6: "Ask to add a workspace" lists the member's own personal workspaces (they lead it, it's in no
+ * organization); asking uses `moveWorkspaceToOrgAction`, which sends the request admins answer on this tab.
+ */
+export async function readMyMovableWorkspacesAction(orgId: string): Promise<{ success: true; rows: Array<{ id: string; title: string; asked: boolean }> } | Failure> {
+    const v = await orgViewer(orgId);
+    if (!v?.isInside || !v.userId || v.isGuest) return DENIED;
+    const rows = await db.select({ id: workspaces.id, title: workspaces.title, asked: sql<boolean>`coalesce(${workspaces.orgSettings}->'moveInRequest'->>'orgId' = ${orgId}::text, false)` })
+        .from(workspaces)
+        .where(and(eq(workspaces.ownerId, v.userId), isNull(workspaces.parentId), isNull(workspaces.deletedAt), ne(workspaces.status, 'archived'), ne(workspaces.kind, 'organization')))
+        .orderBy(desc(workspaces.updatedAt)).limit(50);
+    return { success: true, rows: rows.map((r) => ({ id: r.id, title: r.title, asked: Boolean(r.asked) })) };
 }
 
 /** The welcome panel's × (report §26.7, decision 49): hidden for good, on every device. */

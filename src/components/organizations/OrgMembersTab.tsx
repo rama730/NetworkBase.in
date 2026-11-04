@@ -66,7 +66,13 @@ const workLine = (w: RosterRow['work']) => (w.total === 0 ? '—' : `${w.done} o
 export function OrgMembersTab({ orgId, roleNames, started = null }: { orgId: string; roleNames?: RoleNames; started?: ReturnType<typeof readOrgMembersAction> | null }) {
     const [data, setData] = useState<OrgMembersData | null>(null)
     const [error, setError] = useState<string | null>(null)
-    const [filter, setFilter] = useState<RosterFilter & { invited?: boolean; outside?: boolean; former?: boolean }>({ sort: 'name' })
+    // Workspaces report §4 F5: "Place them" (and the Overview's standing links) open Members already filtered.
+    const [filter, setFilter] = useState<RosterFilter & { invited?: boolean; outside?: boolean; former?: boolean }>(() => {
+        const params = new URLSearchParams(typeof window === 'undefined' ? '' : window.location.search)
+        const project = params.get('project'); const status = params.get('status')
+        return { sort: 'name', ...(project ? { project } : {}), ...(status === 'behind' || status === 'inactive' ? { status } : {}) }
+    })
+    const [cameFromWorkspaces] = useState(() => typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('from') === 'workspaces')
     const [selected, setSelected] = useState<Set<string>>(new Set())
     const [open, setOpen] = useState<Row | null>(null)
     const [roleAsk, setRoleAsk] = useState<{ ids: string[]; names: string[]; role: 'admin' | 'member' | 'viewer' } | null>(null)
@@ -119,6 +125,8 @@ export function OrgMembersTab({ orgId, roleNames, started = null }: { orgId: str
     return (
         <div className="mx-auto grid w-full max-w-[1240px] gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
             <div className="min-w-0 space-y-3">
+                {/* Workspaces report §4 F5: came here from "Place them", so the way back is one click. */}
+                {cameFromWorkspaces ? <Link href="?tab=projects" className="inline-block text-[13px] text-muted-foreground hover:text-foreground hover:underline">← Workspaces</Link> : null}
                 <div className="flex flex-wrap items-center gap-2">
                     <Input value={filter.q ?? ''} onChange={(e) => setFilter({ ...filter, q: e.target.value })} placeholder="Search members…" aria-label="Search members" className="h-9 w-full sm:w-56" />
                     <select aria-label="Role" className={select} value={filter.role ?? 'all'} onChange={(e) => setFilter({ ...filter, role: e.target.value as RosterFilter['role'] })}>

@@ -82,9 +82,15 @@ export function CreateWorkspaceRouteClient({
         void queryClient.invalidateQueries({ queryKey: queryKeys.profile.root() })
         clearCreateWorkspaceReturnPath()
         if (organization) return setCreatedOrg({ projectId, ...organization })
+        // Workspaces report §4 F2: made inside an organization, the way back to its Workspaces tab, where it shows on top.
+        const org = initialOrgId ? createLocations.find((l) => l.id === initialOrgId) : null
+        if (org) {
+            void queryClient.invalidateQueries({ queryKey: ['org-workspaces', org.id] })
+            toast.success(`Added to ${org.title}`, { duration: 8_000, action: { label: 'Back to workspaces', onClick: () => router.push(`/org/${encodeURIComponent(org.slug ?? org.id)}?tab=projects&wnew=${encodeURIComponent(projectId)}`) } })
+        }
         // Replace so Back from the new project does not reopen the wizard.
         router.replace(`/workspaces/${projectId}`)
-    }, [queryClient, router])
+    }, [createLocations, initialOrgId, queryClient, router])
 
     const handleResumeRestored = useCallback((resumeId: string) => {
         clearGithubOAuthResume(resumeId)

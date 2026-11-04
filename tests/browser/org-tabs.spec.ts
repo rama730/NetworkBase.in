@@ -126,16 +126,13 @@ test('Members: requests come first on phones, rows stack, nothing scrolls sidewa
     expect(errors).toEqual([]);
 });
 
-test('Projects, Tasks and Files fit a phone', async ({ page }) => {
-    for (const [tab, text] of [['projects', 'Team Osprey'], ['tasks', 'Lab 3 — Consensus protocols'], ['files', 'Storage is 86% full']] as const) {
+test('Tasks and Files fit a phone', async ({ page }) => {
+    for (const [tab, text] of [['tasks', 'Lab 3 — Consensus protocols'], ['files', 'Storage is 86% full']] as const) {
         await open(page, tab);
         await expect(page.getByText(text).locator('visible=true').first()).toBeVisible();
         await noSideScroll(page);
         await page.screenshot({ path: test.info().outputPath(`${tab}-375.png`), fullPage: true });
     }
-    await open(page, 'projects', 1200);
-    await page.getByRole('button', { name: 'cards' }).click();
-    await expect(page.locator('li', { hasText: 'Team Osprey' }).getByText(/· active /)).toBeVisible();
 });
 
 test('Create wizard team (§14.4): unit lead ★, Move to…, picker filters and the Outside tab work by keyboard at phone width', async ({ page }) => {
@@ -274,30 +271,6 @@ test('Files (§23): storage nearly full, Update copy and opening an org file in 
     await expect(page.getByRole('link', { name: 'Open in CSE-3A Software Engineering' })).toBeVisible();
 });
 
-test('Projects (§28): Stage, Lead and Sprint filters, Remind leads, Cards view with Message lead and the New badge', async ({ page }) => {
-    await open(page, 'projects', 1280);
-    // Step 11a: Stage, Sprint and Has open seats live in the Filters menu.
-    await page.getByRole('button', { name: 'Filters' }).click();
-    await page.getByLabel('Sprint').selectOption('linked');
-    await page.keyboard.press('Escape');
-    await expect(page.getByRole('link', { name: 'Team Falcon — Distributed Systems Capstone' })).toBeVisible();
-    await expect(page.getByRole('link', { name: 'Team Osprey' })).toHaveCount(0);
-    await page.getByRole('button', { name: /^Filters/ }).click();
-    await page.getByLabel('Sprint').selectOption('all');
-    await page.getByLabel('Stage').selectOption('Idea');
-    await page.keyboard.press('Escape');
-    await expect(page.getByRole('link', { name: 'Team Osprey' })).toBeVisible();
-    await page.getByRole('button', { name: /^Filters/ }).click();
-    await page.getByLabel('Stage').selectOption('all');
-    await page.keyboard.press('Escape');
-    await page.getByLabel('Select Team Osprey').check();
-    await page.getByRole('button', { name: 'Remind workspace lead' }).first().click();
-    await page.getByRole('button', { name: 'cards' }).click();
-    await expect(page.getByRole('list', { name: 'Workspaces' })).toContainText('New');
-    await expect(page.getByRole('link', { name: 'Message workspace lead' }).first()).toBeVisible();
-    await noSideScroll(page);
-});
-
 test('Sprint form (§28.2): an organization names the next sprint, Repeat previews, blocks an overlap and fixes it in one click', async ({ page }) => {
     await open(page, 'sprint-org', 1280);
     // Sprint cleanup §1 (D1): with a CO planned, New sprint opens on "Sprint inside a CO"; one click plans the next CO.
@@ -405,8 +378,8 @@ test('Edit for everyone (§23.3): says how many it reaches, and the hand-in type
     await expect(edit.getByRole('textbox').nth(1)).toHaveValue('Read chapter 3');
 });
 
-test('Accessibility (§32.3): no WCAG A or AA problems on the Members, Workspaces, Tasks and Files tabs', async ({ page }) => {
-    for (const [tab, text] of [['members', 'Student 11'], ['projects', 'Team Osprey'], ['tasks', 'Lab 3 — Consensus protocols'], ['files', 'Storage is 86% full']] as const) {
+test('Accessibility (§32.3): no WCAG A or AA problems on the Members, Tasks and Files tabs', async ({ page }) => {
+    for (const [tab, text] of [['members', 'Student 11'], ['tasks', 'Lab 3 — Consensus protocols'], ['files', 'Storage is 86% full']] as const) {
         await open(page, tab, 1200);
         await expect(page.getByText(text).first()).toBeVisible();
         expect(await axeViolations(page), tab).toEqual([]);
@@ -448,4 +421,12 @@ test('sprint cleanup §4: a stage on a sprint\'s work list opens the roster on t
     await expect(panel.getByRole('group', { name: 'Class at a glance' }).getByRole('button', { name: '4 In review' })).toHaveAttribute('aria-pressed', 'true');
     await expect(panel.getByRole('heading', { level: 4, name: /^Waiting for review/ })).toBeVisible();
     await expect(panel.getByRole('heading', { level: 4, name: /^(Not started|In progress|Missing|Done|Approved)/ })).toHaveCount(0);
+});
+
+test('Members opened from Workspaces → "Place them": filtered to people not in a workspace, with the way back', async ({ page }) => {
+    await open(page, 'members&project=none&from=workspaces', 1280);
+    await expect(page.getByLabel('Workspace')).toHaveValue('none');
+    await expect(page.getByRole('link', { name: '← Workspaces' })).toHaveAttribute('href', '?tab=projects');
+    await open(page, 'members&status=behind', 1280);
+    await expect(page.getByRole('link', { name: '← Workspaces' })).toHaveCount(0);
 });
