@@ -4,6 +4,7 @@ import { cn } from '@/lib/utils';
 
 // Board/review report §5: one tab style for "which kind" choices — the profile's Overview · Portfolio look: plain
 // text, an orange line under the chosen one, a hairline under the row. Arrow keys, Home and End move between tabs.
+// It takes its surface's colour (sprint cleanup §2: a page background drew a band inside dialogs).
 
 export function UnderlineTabs<K extends string>({ tabs, value, onChange, onIntent, label, idPrefix, className, controls = true }: {
     tabs: ReadonlyArray<{ key: K; label: string }>
@@ -18,7 +19,7 @@ export function UnderlineTabs<K extends string>({ tabs, value, onChange, onInten
     controls?: boolean
 }) {
     return (
-        <div role="tablist" aria-label={label} className={cn('flex min-h-11 w-full items-end gap-5 border-b border-border bg-background', className)}>
+        <div role="tablist" aria-label={label} className={cn('flex min-h-11 w-full items-end gap-5 border-b border-border', className)}>
             {tabs.map((t) => {
                 const active = t.key === value;
                 return (

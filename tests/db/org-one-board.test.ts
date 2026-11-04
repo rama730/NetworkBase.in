@@ -156,3 +156,45 @@ test("live-check follow-up: organization search finds the organization's own tas
   viewerId = asha;
   assert.equal((await orgWorkspace.searchOrgPreviewsAction("rubric", org)).some((r) => r.kind === "task"), false, "a member sees only their own tasks, as on the board");
 });
+
+test("sprint cleanup §4: a main assignment in a sprint counts every stage with names; a student's own row says where they are", async () => {
+  const [owner, ...kids] = await Promise.all([1, 2, 3, 4, 5, 6].map(() => sql.begin((tx) => createUser(tx))));
+  const org = await sql.begin((tx) => createProject(tx, owner!));
+  await sql`INSERT INTO workspace_members (workspace_id, user_id, role) SELECT ${org}, u, 'member' FROM unnest(${kids}::uuid[]) u`;
+  await sql`INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (${org}, ${owner!}, 'owner')`;
+  await sql`UPDATE workspaces SET kind = 'organization', org_type = 'education', join_code = ${generateJoinCode()} WHERE id = ${org}`;
+  created.push(org);
+  viewerId = owner!;
+  const made = await assignments.createAssignmentAction({ projectId: org, title: "Lab 2", dueDate: new Date(Date.now() + 864e5).toISOString(), publish: true,
+    submissionType: "link", reviewRequired: true, lateRule: "none", target: { mode: "everyone" }, steps: [] });
+  assert.ok(made.success);
+  const masterId = made.success ? made.masterId : "";
+  const copyOf = async (u: string) => (await sql`SELECT id FROM tasks WHERE assignment_id = ${masterId} AND assignee_id = ${u}`)[0]!.id as string;
+  const [a, b, c, d] = kids as string[];
+  await sql`UPDATE tasks SET status = 'in_progress' WHERE id = ${await copyOf(a!)}`;
+  await sql`UPDATE tasks SET status = 'in_progress', review_status = 'pending', review_submitted_at = now() WHERE id = ${await copyOf(b!)}`;
+  await sql`UPDATE tasks SET status = 'done', review_status = 'none', review_submitted_at = now(), completed_at = now() WHERE id = ${await copyOf(c!)}`;
+  const returned = await copyOf(d!);
+  await sql`UPDATE tasks SET status = 'in_progress', review_status = 'rejected', submit_until = now() + interval '2 days' WHERE id = ${returned}`;
+  await sql`INSERT INTO task_activity_events (task_id, workspace_id, actor_id, event_type, payload) VALUES (${returned}, ${org}, ${owner!}, 'changes_requested', ${sql.json({ reason: "Fix the README" })})`;
+  const [sprint] = await sql`INSERT INTO workspace_sprints (workspace_id, creator_id, name, start_date, end_date, status) VALUES (${org}, ${owner!}, 'CO1', now() - interval '1 day', now() + interval '13 days', 'active') RETURNING id`;
+  await sql`UPDATE tasks SET sprint_id = ${sprint!.id} WHERE id = ${masterId} OR assignment_id = ${masterId}`;
+  await sql`INSERT INTO sprint_task_memberships (workspace_id, sprint_id, task_id, added_at) SELECT ${org}, ${sprint!.id}, id, now() FROM tasks WHERE id = ${masterId} OR assignment_id = ${masterId}`;
+  const r = await sprints.fetchWorkspaceSprintDetailAction({ projectId: org, sprintId: sprint!.id });
+  assert.ok(r.success, JSON.stringify(r));
+  const row = r.success ? r.data.rows.find((x) => x.kind === "task" && x.task.id === masterId) : undefined;
+  const stages = row && row.kind === "task" ? row.task.assignmentStages : null;
+  assert.ok(stages, "stages for the main assignment");
+  assert.deepEqual(stages!.counts, { not_started: 1, in_progress: 1, submitted: 1, returned: 1, done: 1, missing: 0, excused: 0 });
+  assert.equal(stages!.total, 5);
+  assert.equal(stages!.reviewRequired, true);
+  assert.equal(stages!.names.submitted.length, 1);
+  // The student's own copy says where they are.
+  viewerId = d!;
+  const mine = await sprints.fetchWorkspaceSprintDetailAction({ projectId: org, sprintId: sprint!.id });
+  const own = mine.success ? mine.data.rows.find((x) => x.kind === "task" && x.task.id === returned) : undefined;
+  const stage = own && own.kind === "task" ? own.task.copyStage : null;
+  assert.equal(stage?.state, "returned");
+  assert.equal(stage?.reason, "Fix the README");
+  assert.ok(stage?.fixBy);
+});

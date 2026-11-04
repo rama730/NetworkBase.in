@@ -7,7 +7,7 @@ import { and, eq, inArray, isNotNull, isNull, ne, or, sql, type SQL } from "driz
 import { db } from "@/lib/db";
 import { workspaceMembers, workspaceSprints, workspaceWorkflowColumns, workspaces, sprintTaskMemberships, taskSubtasks, taskTeamMembers, tasks } from "@/lib/db/schema";
 import type { WorkspaceAccess } from "@/lib/data/workspace-access";
-import { assignmentWriteBlock, type AssignmentSettings, type AssignmentTarget, type AssignmentWrite } from "@/lib/organizations/assignment-rules";
+import { assignmentWriteBlock, copyState, lateAfterMs, type AssignmentSettings, type AssignmentTarget, type AssignmentWrite, type CopyState } from "@/lib/organizations/assignment-rules";
 import { orgCan, type OrgRole } from "@/lib/organizations/permissions";
 
 // Assignments (report §16, §16.11): a master task on the org and one copy per person, team or child project.
@@ -66,6 +66,54 @@ export async function readMasterProgress(masterIds: string[]) {
     FROM tasks c WHERE c.assignment_id IN (${sql.join(masterIds.map((id) => sql`${id}::uuid`), sql`, `)}) AND c.deleted_at IS NULL
     GROUP BY c.assignment_id`);
   return new Map(Array.from(rows).map((r) => [r.master_id, r]));
+}
+
+const STAGES: CopyState[] = ["not_started", "in_progress", "submitted", "returned", "done", "missing", "excused"];
+export type AssignmentStages = { counts: Record<CopyState, number>; names: Record<CopyState, string[]>; total: number; reviewRequired: boolean; teams: boolean;
+  /** Copies still to hand in (Not started, Missing), for Remind. */ remind: { not_started: string[]; missing: string[] } };
+export type CopyStage = { state: CopyState; late: boolean; since: string | null; reason: string | null; fixBy: string | null; version: number | null; reviewRequired: boolean; handIn: { link: string | null; text: string | null } | null };
+const NAMES_PER_STAGE = 5;
+
+/**
+ * Sprint cleanup §4: where everyone is on each main assignment — the roster's own rule (copyState), so the sprint list
+ * and the Assignment tab never disagree — with up to five names per stage (teams by their team name). And, for copies,
+ * where that one person is: their stage, since when, the return reason and Fix by.
+ */
+export async function readAssignmentStages(masterIds: string[], copyIds: string[] = []) {
+  const stages = new Map<string, AssignmentStages>();
+  const copies = new Map<string, CopyStage>();
+  if (!masterIds.length && !copyIds.length) return { stages, copies };
+  const ids = (list: string[]) => sql.join(list.map((id) => sql`${id}::uuid`), sql`, `);
+  const rows = await db.execute<{ id: string; master_id: string; status: string; review_status: string; due_date: string | null; submitted_at: string | null; completed_at: string | null;
+    excused_at: string | null; submit_until: string | null; updated_at: string; who: string; is_team: boolean; hand_link: string | null; hand_text: string | null; settings: AssignmentSettings | null; reason: string | null; version: number | null }>(sql`
+    SELECT c.id, c.assignment_id AS master_id, c.status, c.review_status, c.due_date::text, c.review_submitted_at::text AS submitted_at, c.completed_at::text, c.excused_at::text,
+           c.submit_until::text, c.updated_at::text, m.assignment_settings AS settings, c.team_name IS NOT NULL AS is_team, (c.submission->>'version')::int AS version, c.submission->>'link' AS hand_link, c.submission->>'text' AS hand_text,
+           coalesce(c.team_name, (SELECT w.title FROM workspaces w WHERE w.id = c.workspace_id AND w.id <> m.workspace_id),
+                    (SELECT coalesce(p.full_name, p.username) FROM profiles p WHERE p.id = c.assignee_id), 'Member') AS who,
+           CASE WHEN c.review_status = 'rejected' THEN (SELECT e.payload->>'reason' FROM task_activity_events e WHERE e.task_id = c.id AND e.event_type = 'changes_requested' ORDER BY e.created_at DESC LIMIT 1) END AS reason
+    FROM tasks c JOIN tasks m ON m.id = c.assignment_id
+    WHERE c.deleted_at IS NULL AND (${masterIds.length ? sql`c.assignment_id IN (${ids(masterIds)})` : sql`false`} OR ${copyIds.length ? sql`c.id IN (${ids(copyIds)})` : sql`false`})
+    ORDER BY who`);
+  const now = new Date();
+  const date = (v: string | null) => (v ? new Date(v) : null);
+  for (const r of rows) {
+    const { state, late } = copyState({ status: r.status, reviewStatus: r.review_status, dueDate: date(r.due_date), submittedAt: date(r.submitted_at), completedAt: date(r.completed_at), excusedAt: date(r.excused_at) }, now, lateAfterMs(r.settings));
+    if (copyIds.includes(r.id)) {
+      const since = state === "submitted" ? r.submitted_at : state === "done" ? r.completed_at ?? r.submitted_at : state === "excused" ? r.excused_at : state === "returned" ? r.updated_at : null;
+      copies.set(r.id, { state, late, since: since ? new Date(since).toISOString() : null, reason: r.reason, fixBy: r.submit_until ? new Date(r.submit_until).toISOString() : null, version: r.version, reviewRequired: r.settings?.reviewRequired !== false,
+        handIn: r.hand_link || r.hand_text ? { link: r.hand_link, text: r.hand_text } : null });
+    }
+    if (!masterIds.includes(r.master_id)) continue;
+    const entry = stages.get(r.master_id) ?? { counts: Object.fromEntries(STAGES.map((k) => [k, 0])) as Record<CopyState, number>, names: Object.fromEntries(STAGES.map((k) => [k, []])) as unknown as Record<CopyState, string[]>,
+      total: 0, reviewRequired: r.settings?.reviewRequired !== false, teams: false, remind: { not_started: [], missing: [] } };
+    entry.counts[state] += 1;
+    if (r.is_team) entry.teams = true;
+    if (state === "not_started" || state === "missing") entry.remind[state].push(r.id);
+    if (state !== "excused") entry.total += 1;
+    if (entry.names[state].length < NAMES_PER_STAGE) entry.names[state].push(r.who + (late ? " (late)" : ""));
+    stages.set(r.master_id, entry);
+  }
+  return { stages, copies };
 }
 
 /** Whether one task passes the same rule (task detail, sprint rows, the extension). */

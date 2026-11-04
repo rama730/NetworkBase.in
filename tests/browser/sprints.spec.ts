@@ -43,7 +43,13 @@ export const useSprintDetail = () => ({ isLoading: false, isError: false, error:
   rows: selected === 's5' ? [] : [{ id: 'k', kind: 'kickoff', occurredAt: day(-3), sprint: sprints[1] },
     t('t1', 'Search API with tag filter', 'in_progress', 5, person('u1', 'Ravi Kumar')), t('t2', 'Search box on the top bar', 'in_progress', 3, person('u2', 'Asha Nair')),
     t('t3', 'Index rebuild job', 'blocked', 8, person('u1', 'Ravi Kumar')), t('t4', 'Empty results page', 'todo', 5, null), t('t5', 'Search spec', 'done', 5, person('u2', 'Asha Nair')),
-    t('t6', 'Old idea', 'todo', 2, null, { membershipState: 'historical' })],
+    t('t6', 'Old idea', 'todo', 2, null, { membershipState: 'historical' }),
+    // Sprint cleanup §4: a main assignment with everyone's stages, and one person's own copy.
+    ...(orgMode ? [t('t7', 'Lab 2: Linked lists', 'in_progress', null, null, { description: 'Implement a singly linked list.', assignmentProgress: { done: 10, total: 40 }, assignmentStages: {
+      counts: { done: 10, submitted: 6, returned: 2, in_progress: 14, not_started: 5, missing: 3, excused: 1 }, total: 40, reviewRequired: true, teams: false,
+      names: { done: [], submitted: ['Asha', 'Kiran', 'Priya', 'Ravi', 'Meena'], returned: ['Arjun', 'Sita'], in_progress: ['Leo'], not_started: ['Uma', 'Vik'], missing: ['Zed', 'Yan', 'Xi'], excused: ['Wu'] },
+      remind: { not_started: ['c1', 'c2', 'c3', 'c4', 'c5'], missing: ['c6', 'c7', 'c8'] } } }),
+      t('t8', 'Lab 1: Arrays', 'in_progress', null, person('u1', 'Ravi Kumar'), { assignmentId: 'm1', copyStage: { state: 'returned', late: false, since: day(-1), reason: 'Fix the README', fixBy: day(2), version: 2, reviewRequired: true, handIn: { link: 'https://github.com/ravi/arrays', text: null } } })] : [])],
   nextCursor: null, hasMore: false, org: null, materials: [],
   people: [{ id: 'u1', name: 'Ravi Kumar', avatarUrl: null, openTasks: 2, openPoints: 13 }, { id: 'u2', name: 'Asha Nair', avatarUrl: null, openTasks: 1, openPoints: 3 }],
   unassigned: { tasks: 1, points: 5 }, velocity: { last: 21, average: 23 },
@@ -63,9 +69,10 @@ test.beforeAll(async () => {
     '@/hooks/workspaces/useWorkspaceTasksData': detail,
     '@/app/actions/workspace': `export const readSprintBacklogAction=async({query})=>({success:true,rows:[{id:'b1',title:'Refund flow',storyPoints:5,assignee:null,status:'todo',kind:'task'},{id:'b2',title:'Invoice PDF',storyPoints:3,assignee:'Asha Nair',status:'todo',kind:'task'},{id:'b3',title:'Retry payouts',storyPoints:null,assignee:null,status:'todo',kind:'task'}].filter((r)=>r.title.toLowerCase().includes(query.toLowerCase()))});
       export const createSprintAction=async(input)=>{(window.created??=[]).push(input);return {success:true,sprint:{id:'s9',code:'SPR-9'}}};`,
+    '@/app/actions/assignments': `export const remindCopiesAction=async(masterId,ids)=>{(window.reminded??=[]).push([masterId,ids]);return {success:true,reminded:ids.length,skipped:0}};`,
     '@/app/actions/task': `export const addTasksToSprintAction=async(input)=>{(window.added??=[]).push(input);return {added:input.taskIds.length,failed:[]}};`,
   };
-  for (const [spec, source] of [['@/hooks/workspaces/useWorkspaceTasksData', 'src/hooks/workspaces/useWorkspaceTasksData.ts'], ['@/app/actions/workspace', 'src/app/actions/workspace/index.ts'], ['@/app/actions/task', 'src/app/actions/task.ts']] as const) {
+  for (const [spec, source] of [['@/hooks/workspaces/useWorkspaceTasksData', 'src/hooks/workspaces/useWorkspaceTasksData.ts'], ['@/app/actions/workspace', 'src/app/actions/workspace/index.ts'], ['@/app/actions/assignments', 'src/app/actions/assignments.ts'], ['@/app/actions/task', 'src/app/actions/task.ts']] as const) {
     const own = new Set(exportedNames(mocks[spec]!));
     mocks[spec] += exportedNames(await readFile(source, 'utf8')).filter((n) => !own.has(n)).map((n) => `export const ${n}=async()=>({success:false,error:'Not in this fixture'});`).join('');
   }
@@ -144,7 +151,9 @@ test('§6: New sprint offers one or several, folds notes, shows where it lands a
   await open(page);
   await page.getByRole('complementary', { name: 'Sprints' }).getByRole('button', { name: 'New sprint' }).click();
   const dialog = page.getByRole('dialog');
-  await expect(dialog.getByRole('tab', { name: 'One sprint' })).toHaveAttribute('aria-selected', 'true');
+  // Sprint cleanup §2: no tab row in a workspace; One or Several sits with the dates.
+  await expect(dialog.getByRole('tablist')).toHaveCount(0);
+  await expect(dialog.getByRole('radio', { name: 'One' })).toHaveAttribute('aria-checked', 'true');
   await expect(dialog.getByRole('textbox', { name: 'Notes' })).toHaveCount(0);
   await dialog.getByRole('button', { name: '+ Add notes' }).click();
   await expect(dialog.getByRole('textbox', { name: 'Notes' })).toBeVisible();
@@ -158,7 +167,8 @@ test('§6: New sprint offers one or several, folds notes, shows where it lands a
   await page.screenshot({ path: test.info().outputPath('sprint-form.png') });
   await dialog.getByLabel('Starts').fill(new Date(Date.now() + 30 * 864e5).toISOString().slice(0, 10));
   await expect(dialog.getByTestId('term-strip')).toContainText('Overlaps Sprint 6.');
-  await dialog.getByRole('tab', { name: 'Several (plan the term)' }).click();
+  await dialog.getByRole('radio', { name: 'Several' }).click();
+  await expect(dialog.getByText(/^Plan \d+ sprints\.$/)).toBeVisible();
   await expect(dialog.getByRole('list', { name: 'Sprints to create' })).toBeVisible();
   await expect(dialog.getByRole('button', { name: /^Create \d+ sprints$/ })).toBeVisible();
   for (const width of [390]) {
@@ -192,7 +202,7 @@ test('§4: an upcoming sprint offers Add work and Start now; phones get the pick
   await page.screenshot({ path: test.info().outputPath('sprints-390.png'), fullPage: true });
 });
 
-test('board/review report §6: a CO holds its sprints — nested in the term, on a strip with its roll-up, with Add a sprint inside', async ({ page }) => {
+test('board/review report §6, sprint cleanup §1–§3: a CO holds its sprints; one New sprint button opens inside it; the header is Add work, Calendar, Edit', async ({ page }) => {
   await open(page, 'running&org=1');
   const rail = page.getByRole('complementary', { name: 'Sprints' });
   const inside = rail.getByRole('list', { name: 'Sprints in CO1 Arrays and lists' });
@@ -201,18 +211,27 @@ test('board/review report §6: a CO holds its sprints — nested in the term, on
   await expect(rail.getByRole('link', { name: /CO1 Arrays and lists/ })).toContainText(/week \d+ of 7/);
   await expect(inside.getByText('No sprint planned')).toHaveCount(0);
   await expect(page.locator('header').getByText(/^week \d+ of 7$/)).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Add a sprint inside CO1 Arrays and lists' })).toBeVisible();
+  // One sprint button only, and Calendar sits right of Add work in the header.
+  await expect(page.getByRole('button', { name: /Add a sprint inside/ })).toHaveCount(0);
+  const actions = page.locator('header').getByRole('button');
+  await expect(actions).toHaveText([/Add work/, 'Calendar', /Edit/, '']);
+  await expect(rail.getByRole('button', { name: 'Calendar' })).toHaveCount(0);
   const strip = page.getByRole('region', { name: 'Sprints in CO1 Arrays and lists' });
   await expect(strip.getByRole('link', { name: /Week 3–4\s*3\/9 done/ })).toBeVisible();
   await expect(strip).toContainText('Across CO1 Arrays and lists: 1 of 5 done · 2 assignments open · 1 team has no sprint yet');
+  await expect(strip).not.toContainText('Add a sprint inside');
   // New sprint opens on "Sprint inside a CO", inside this CO, starting after its last sprint.
-  await page.getByRole('button', { name: 'Add a sprint inside CO1 Arrays and lists' }).click();
+  await rail.getByRole('button', { name: 'New sprint' }).click();
   const dialog = page.getByRole('dialog');
   await expect(dialog.getByRole('tab', { name: 'Sprint inside a CO' })).toHaveAttribute('aria-selected', 'true');
   await expect(dialog.getByLabel('Inside the CO')).toHaveValue('s4');
   await expect(dialog.getByRole('textbox', { name: 'Name' })).toHaveValue(/^Week \d+$/);
-  await expect(dialog.getByRole('tab', { name: 'Several (split CO1 Arrays and lists)' })).toBeVisible();
-  await dialog.getByRole('tab', { name: 'CO (main sprint)' }).click();
+  await expect(dialog.getByRole('tablist')).toHaveCount(1);
+  await dialog.screenshot({ path: test.info().outputPath('new-sprint-inside.png') });
+  await dialog.getByRole('radio', { name: 'Several' }).click();
+  await expect(dialog.getByText(/^Split CO1 Arrays and lists into \d+ sprints\.$/)).toBeVisible();
+  await dialog.getByRole('radio', { name: 'One' }).click();
+  await dialog.getByRole('tab', { name: 'CO', exact: true }).click();
   await expect(dialog.getByLabel('Inside the CO')).toHaveCount(0);
   // Closing the CO says it closes the running sprint and cancels the upcoming one.
   await page.keyboard.press('Escape');
@@ -234,4 +253,39 @@ test('board/review report §6: a sprint inside a CO says where it sits, and the 
   await expect(page.getByText(/^Inside CO1 Arrays and lists · week \d+ of 7$/)).toBeVisible();
   await expect(page.getByLabel('Select sprint').locator('option', { hasText: 'CO1 Arrays and lists · Week 3–4' })).toHaveCount(1);
   expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0);
+});
+
+test('sprint cleanup §4: an assignment says where everyone is — closed and open — and a person\'s own copy says where they are', async ({ page }) => {
+  await open(page, 'running&org=1');
+  const row = page.getByRole('listitem').filter({ has: page.getByRole('link', { name: 'Lab 2: Linked lists' }) });
+  await expect(row).toContainText('10 of 40 approved · 6 in review · 2 returned · 3 missing');
+  await expect(row.getByRole('img', { name: /10 approved, 6 in review/ })).toBeVisible();
+  await row.getByRole('button', { name: 'Expand Lab 2: Linked lists' }).click();
+  const stages = row.getByRole('list', { name: 'Where everyone is' });
+  await expect(stages.getByRole('listitem')).toHaveText([/In review 6\s*Asha, Kiran, Priya, Ravi, Meena, \+1\s*Review 6/, /Returned 2\s*Arjun, Sita/, /In progress 14\s*Leo, \+13/, /Not started 5\s*Uma, Vik, \+3\s*Remind 5/, /Missing 3\s*Zed, Yan, Xi\s*Remind 3/]);
+  await expect(stages.getByRole('link', { name: 'Review 6', exact: true })).toHaveAttribute('href', /taskScope=review&assignment=t7/);
+  await expect(stages.getByRole('link', { name: 'Missing 3', exact: true })).toHaveAttribute('href', /drawerId=.*rosterTile=notIn/);
+  await expect(stages.getByRole('link', { name: 'In review 6', exact: true })).toHaveAttribute('href', /rosterTile=submitted/);
+  await stages.getByRole('button', { name: 'Remind 3' }).click();
+  await expect(stages.getByRole('button', { name: 'Reminded' })).toBeDisabled();
+  expect(await page.evaluate(() => (window as unknown as { reminded: unknown }).reminded)).toEqual([['t7', ['c6', 'c7', 'c8']]]);
+  await expect(row).toContainText('Instructions: Implement a singly linked list.');
+  await expect(row).not.toContainText('No description provided');
+  const own = page.getByRole('listitem').filter({ has: page.getByRole('link', { name: 'Lab 1: Arrays' }) });
+  await expect(own).toContainText(/Returned: Fix the README · fix by \w{3} \d+/);
+  await own.getByRole('button', { name: 'Expand Lab 1: Arrays' }).click();
+  await expect(own.getByRole('link', { name: 'https://github.com/ravi/arrays' })).toBeVisible();
+  await expect(own).toContainText('Handed in (version 2):');
+  // A plain task with nothing written shows who has it and when it's due, and Open.
+  const plain = page.getByRole('listitem').filter({ has: page.getByRole('link', { name: 'Empty results page' }) });
+  await plain.getByRole('button', { name: 'Expand Empty results page' }).click();
+  await expect(plain).toContainText('Nobody assigned · No due date');
+  await expect(plain.getByRole('link', { name: 'Open', exact: true })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await row.getByRole('button', { name: 'Expand Lab 2: Linked lists' }).click();
+  await expect(stages).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0);
+  await row.screenshot({ path: test.info().outputPath('assignment-stages-390.png') });
+  await own.screenshot({ path: test.info().outputPath('own-copy-390.png') });
 });

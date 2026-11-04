@@ -60,6 +60,12 @@ export type SprintHealthSummary = {
 export type SprintTaskTimelineEntity = {
   /** A main assignment's class progress (live-fix 31); null for everything else. */
   assignmentProgress?: { done: number; total: number } | null;
+  /** Sprint cleanup §4: where everyone is on a main assignment, stage by stage (the roster's rule), with names. */
+  assignmentStages?: import("@/lib/organizations/assignments").AssignmentStages | null;
+  /** Sprint cleanup §4: on someone's own copy, where they are. */
+  copyStage?: import("@/lib/organizations/assignments").CopyStage | null;
+  /** The main assignment a copy belongs to (its Open link). */
+  assignmentId?: string | null;
   id: string;
   projectId: string;
   sprintId: string;

@@ -18,6 +18,7 @@ import { calculateTaskTimeHealth, getTaskTitlePresentation } from "@/lib/workspa
 import { format } from "@/lib/utils/date";
 import { useAuth } from "@/hooks/use-auth";
 import { sprintPace, sprintPhase, sprintTime, workGroups, workProgress } from "@/lib/workspaces/sprint-plan";
+import { AssignmentStagesPanel, copyStageLine, HandIn, Instructions, StageBar, stageSummary } from "@/components/workspaces/tabs/sprint/AssignmentStages";
 
 type Props = {
   projectSlug: string;
@@ -29,6 +30,8 @@ type Props = {
   hasMore?: boolean;
   isLoadingMore?: boolean;
   onLoadMore?: () => void;
+  /** Sprint cleanup §4: an organization's admins see Review and Remind on an assignment's stages. */
+  canManageAssignments?: boolean;
 };
 
 export function SprintTimelineContent({
@@ -41,6 +44,7 @@ export function SprintTimelineContent({
   hasMore = false,
   isLoadingMore = false,
   onLoadMore,
+  canManageAssignments = false,
 }: Props) {
   const [expandedTaskId, setExpandedTaskId] = useState<string | null>(null);
 
@@ -121,8 +125,10 @@ export function SprintTimelineContent({
       <h4 id={`sprint-work-${group.key}`} className={cn("font-mono text-[11px] font-medium uppercase tracking-[0.09em]", group.key === "blocked" ? "text-[var(--status-danger)]" : "text-muted-foreground")}>{group.title} · {group.tasks.length}</h4>
       <ul aria-labelledby={`sprint-work-${group.key}`} className="divide-y divide-border/60 rounded-[8px] border border-border bg-card overflow-hidden shadow-none">
         {group.tasks.map((task) => {
-          // Live-fix 31: a main assignment reads "12/40", its class progress, never "Unassigned".
-          const assignee = task.assignmentProgress ? (task.assignmentProgress.total ? `${task.assignmentProgress.done}/${task.assignmentProgress.total}` : "Nobody has joined yet") : sprintTimelinePersonName(task.assignee, "Unassigned");
+          // Sprint cleanup §4: a main assignment says where everyone is ("1 of 40 approved · 12 in review"), never "0/1".
+          const assignee = task.assignmentStages !== undefined && task.assignmentProgress ? stageSummary(task.assignmentStages)
+            : task.assignmentProgress ? (task.assignmentProgress.total ? `${task.assignmentProgress.done}/${task.assignmentProgress.total}` : "Nobody has joined yet") : sprintTimelinePersonName(task.assignee, "Unassigned");
+          const ownStage = task.copyStage ? copyStageLine(task.copyStage) : null;
           const taskReference = task.taskNumber == null ? null : `${projectKey?.trim() || "Task"}-${task.taskNumber}`;
 
           const completedSubtasks = task.subtasks?.filter(st => st.completed).length ?? 0;
@@ -198,10 +204,10 @@ export function SprintTimelineContent({
                     </Link>
                     {isRemoved && <span className="rounded-[3px] border border-border bg-muted px-1.5 py-0.5 font-mono text-[10px] font-medium uppercase tracking-[0.09em] text-muted-foreground">Removed</span>}
                   </div>
-                  <div className="flex items-center gap-3 font-mono text-xs text-muted-foreground font-medium">
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 font-mono text-xs text-muted-foreground font-medium [&>span]:whitespace-nowrap">
                     {taskReference ? <span>{taskReference}</span> : null}
                     {taskReference ? <span>·</span> : null}
-                    <span>{assignee}</span>
+                    <span className={cn(task.assignmentStages !== undefined && task.assignmentProgress && "!whitespace-normal")}>{assignee}</span>
                     {task.storyPoints != null && (
                       <>
                         <span>·</span>
@@ -233,6 +239,8 @@ export function SprintTimelineContent({
                       </>
                     )}
                   </div>
+                  {task.assignmentStages && !isExpanded ? <StageBar stages={task.assignmentStages} className="mt-1.5 max-w-xs" /> : null}
+                  {ownStage ? <p className={cn("mt-1 text-xs font-medium", task.copyStage?.state === "returned" || task.copyStage?.state === "missing" ? "text-[var(--status-danger)]" : "text-foreground")}>{ownStage}</p> : null}
                 </div>
               </div>
               <div className="flex shrink-0 items-center gap-2 pl-4">
@@ -259,11 +267,17 @@ export function SprintTimelineContent({
                   className="overflow-hidden animate-in fade-in duration-150"
                 >
                   <div className="px-4 pb-4 pl-[3.75rem] text-sm text-muted-foreground">
-                    {task.description ? (
+                    {/* Sprint cleanup §4: a main assignment opens to where everyone is; a copy says where this person is. */}
+                    {task.assignmentStages ? (
+                      <AssignmentStagesPanel masterId={task.id} stages={task.assignmentStages} canManage={canManageAssignments} assignmentHref={taskHref}
+                        reviewHref={`/workspaces/${encodeURIComponent(projectSlug)}?${new URLSearchParams({ tab: "tasks", taskScope: "review", assignment: task.id }).toString()}`} />
+                    ) : null}
+                    {task.copyStage ? <HandIn stage={task.copyStage} /> : null}
+                    {task.description && task.assignmentStages ? <Instructions text={task.description} /> : task.description ? (
                       <div className="whitespace-pre-wrap text-foreground">{task.description}</div>
-                    ) : (
-                      <p className="italic text-muted-foreground">No description provided.</p>
-                    )}
+                    ) : !task.assignmentStages && !ownStage && !task.subtasks?.length && !task.linkedFiles?.length ? (
+                      <p className="text-muted-foreground">{sprintTimelinePersonName(task.assignee, "Nobody assigned")}{task.dueDate ? ` · Due ${formatTaskDueDate(task.dueDate)}` : " · No due date"}</p>
+                    ) : null}
                     {/* Subtasks Section */}
                     {task.subtasks && task.subtasks.length > 0 && (
                       <div className="mt-4 space-y-2">
@@ -327,11 +341,13 @@ export function SprintTimelineContent({
                       </div>
                     )}
 
+                    {task.assignmentStages ? null : (
                     <div className="mt-4 pt-4 border-t border-border">
                       <Link href={taskHref} className="nb-ui-label text-foreground underline underline-offset-4 transition-colors hover:text-primary">
-                        View full task details
+                        Open
                       </Link>
                     </div>
+                    )}
                   </div>
                 </div>
               )}

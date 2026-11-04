@@ -93,6 +93,8 @@ test("board/review report §5: every “which kind” choice uses the profile's 
   const uses = (file: string) => (source(file).match(/<UnderlineTabs /g) ?? []).length;
   assert.equal(uses("src/components/profile/v2/ProfileTabs.tsx"), 1, "Overview · Portfolio");
   assert.equal(uses("src/components/workspaces/v2/tasks/CreateTaskModal.tsx"), 1, "Task · Assignment");
-  assert.equal(uses("src/components/workspaces/v2/sprints/CreateSprintModal.tsx"), 2, "CO · Sprint inside a CO, and One sprint · Several");
-  assert.doesNotMatch(source("src/components/workspaces/v2/sprints/CreateSprintModal.tsx"), /role="radiogroup"[^>]*aria-label="(What are you planning|Which kind)/);
+  // Sprint cleanup §2: one tab row (CO · Sprint inside a CO); One or Several is a small choice with the dates.
+  assert.equal(uses("src/components/workspaces/v2/sprints/CreateSprintModal.tsx"), 1, "CO · Sprint inside a CO");
+  assert.match(source("src/components/workspaces/v2/sprints/CreateSprintModal.tsx"), /role="radiogroup" aria-label="How many sprints"/);
+  assert.doesNotMatch(source("src/components/ui/UnderlineTabs.tsx"), /bg-background/, "tabs take their surface's colour, so no band in dialogs");
 });

@@ -5,7 +5,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ChevronDown, ChevronRight, Inbox, Plus } from "lucide-react";
 
-import { SprintCalendarButton } from "@/components/workspaces/tabs/sprint/SprintCalendar";
 import { buildWorkspaceSprintDetailHref, formatSprintDateRange, type SprintListItem } from "@/lib/workspaces/sprint-detail";
 import { nestTerm, PHASE_WORDS, sprintPhase, sprintTime, startsIn, termRail, weekOf, withGaps } from "@/lib/workspaces/sprint-plan";
 import { cn } from "@/lib/utils";
@@ -14,7 +13,7 @@ import { cn } from "@/lib/utils";
 // workspace the backlog work comes from.
 
 interface SprintLeftRailProps {
-  projectId: string;
+  projectId?: string;
   projectSlug: string;
   sprints: SprintListItem[];
   selectedSprintId: string | null;
@@ -22,7 +21,6 @@ interface SprintLeftRailProps {
   onCreate: () => void;
   /** A workspace plans from its backlog; an organization from its assignments. */
   showBacklog?: boolean;
-  showCalendar?: boolean;
 }
 
 const SHORT = new Intl.DateTimeFormat("en", { month: "short", day: "numeric", timeZone: "UTC" });
@@ -41,7 +39,7 @@ function railLines(sprint: SprintListItem) {
   return { dates, note };
 }
 
-export function SprintLeftRail({ projectId, projectSlug, sprints, selectedSprintId, canCreate, onCreate, showBacklog = false, showCalendar = true }: SprintLeftRailProps) {
+export function SprintLeftRail({ projectSlug, sprints, selectedSprintId, canCreate, onCreate, showBacklog = false }: SprintLeftRailProps) {
   const router = useRouter();
   const [pastOpen, setPastOpen] = useState(false);
   // Board/review report §6: an organization's CO holds its sprints; the term lists COs, each with its sprints inside.
@@ -78,7 +76,6 @@ export function SprintLeftRail({ projectId, projectSlug, sprints, selectedSprint
           <div className="space-y-2.5">
             <div className="flex items-center justify-between gap-2 px-1">
               <h2 className="font-mono text-[11px] font-semibold uppercase tracking-[0.09em] text-muted-foreground">Term</h2>
-              {showCalendar ? <SprintCalendarButton projectId={projectId} /> : null}
             </div>
             {canCreate ? (
               <button type="button" onClick={onCreate}

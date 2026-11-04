@@ -40,6 +40,7 @@ import {
 import CreateSprintModal from "@/components/workspaces/v2/sprints/CreateSprintModal";
 import { SprintPeople } from "@/components/workspaces/tabs/sprint/SprintPeople";
 import { SprintInsideStrip } from "@/components/workspaces/tabs/sprint/SprintInsideStrip";
+import { SprintCalendarButton } from "@/components/workspaces/tabs/sprint/SprintCalendar";
 import { SprintAddWork } from "@/components/workspaces/tabs/sprint/SprintAddWork";
 import { formatSprintTimelineStamp } from "@/lib/workspaces/sprint-detail";
 import { PHASE_WORDS, sprintPath, sprintPhase } from "@/lib/workspaces/sprint-plan";
@@ -159,6 +160,9 @@ export default function SprintPlanning({
     memberRole: isOwner ? "owner" : isOwnerOrMember ? "member" : "viewer",
   };
   const isEditorOpen = editorState !== null;
+  // Sprint cleanup §1: one New sprint button; it opens inside the CO you're looking at (the form picks the running one otherwise).
+  const startNewSprint = () => setEditorState({ mode: "create", sprint: null,
+    insideOf: orgContext?.kind === "org" && selectedSprint ? selectedSprint.parentSprintId ?? selectedSprint.id : null });
   // Organizations and child projects (report §15): editor options, links and materials.
   const orgContext = detail?.org ?? null;
   const editorOrg = orgContext ? { kind: orgContext.kind, orgTitle: orgContext.orgTitle, orgSprints: orgContext.orgSprints, orgType: orgContext.orgType, defaults: orgContext.defaults, termEnd: orgContext.termEnd, followsOrgSprints: orgContext.followsOrgSprints, groupBacklog: orgContext.groupBacklog, children: orgContext.children } : null;
@@ -423,7 +427,7 @@ export default function SprintPlanning({
           <>
             <button
               type="button"
-              onClick={() => setEditorState({ mode: "create", sprint: null })}
+              onClick={() => startNewSprint()}
               className="nb-touch-target nb-ui-label inline-flex h-[34px] items-center gap-2 rounded-[5px] border border-primary bg-primary px-4 text-primary-foreground transition-[background-color,border-color,transform] duration-150 hover:border-[var(--primary-hover)] hover:bg-[var(--primary-hover)] active:translate-y-px active:border-[var(--primary-active)] active:bg-[var(--primary-active)]"
             >
               <Plus className="h-3.5 w-3.5" />
@@ -473,7 +477,7 @@ export default function SprintPlanning({
         {permissions.canCreate ? (
           <button
             type="button"
-            onClick={() => setEditorState({ mode: "create", sprint: null })}
+            onClick={() => startNewSprint()}
             className="nb-touch-target inline-flex h-9 items-center gap-1.5 rounded-[5px] bg-primary px-3 text-xs font-medium text-primary-foreground hover:bg-[var(--primary-hover)]"
           >
             <Plus className="size-3.5" />
@@ -486,13 +490,12 @@ export default function SprintPlanning({
         <div className="max-lg:hidden">
           <SprintLeftRail
             projectId={projectId}
-            showCalendar={isOwnerOrMember}
             showBacklog={isOwnerOrMember}
             projectSlug={projectSlug}
             sprints={detail.sprints}
             selectedSprintId={selectedSprint?.id ?? null}
             canCreate={permissions.canCreate}
-            onCreate={() => setEditorState({ mode: "create", sprint: null })}
+            onCreate={() => startNewSprint()}
           />
         </div>
 
@@ -517,7 +520,8 @@ export default function SprintPlanning({
                 onAddWork={() => setAddingWork(true)}
                 autoStart={orgContext?.sprintFlags[selectedSprint.id]?.autoStart ?? true}
                 main={selectedSprint.parentSprintId ? detail.sprints.find((s) => s.id === selectedSprint.parentSprintId) ?? null : null}
-                onAddInside={orgContext?.kind === "org" && !selectedSprint.parentSprintId ? () => setEditorState({ mode: "create", sprint: null, insideOf: selectedSprint.id }) : undefined}
+                calendar={isOwnerOrMember ? <SprintCalendarButton projectId={projectId} /> : null}
+                isMain={orgContext?.kind === "org" && !selectedSprint.parentSprintId}
                 startNow={selectedSprint.status === "planning" && permissions.canStart ? <StartNowButton projectId={projectId} sprintId={selectedSprint.id} onStarted={refreshSprints} announceAs={orgContext?.kind === "org" ? selectedSprint.name : null} /> : null}
               />
             ) : null}
@@ -540,6 +544,7 @@ export default function SprintPlanning({
               projectKey={projectKey}
               sprintReference={selectedSprint?.code ?? null}
               sprint={selectedSprint}
+              canManageAssignments={orgContext?.kind === "org" && permissions.canWrite}
               summary={detail.summary}
               rows={rows}
               hasMore={Boolean(hasNextPage)}

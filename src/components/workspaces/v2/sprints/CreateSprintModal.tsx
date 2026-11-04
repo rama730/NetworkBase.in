@@ -142,8 +142,13 @@ export default function SprintEditorModal({
   // Board/review report §6: an organization plans main sprints (a CO) and sprints inside one.
   const mainWord = typeProfile(org?.orgType).mainSprintWord;
   const mains = existingSprints.filter((s) => !s.parentSprintId && s.startDate && s.endDate && (s.status === "planning" || s.status === "active") && s.id !== sprint?.id);
-  const [level, setLevel] = React.useState<"main" | "inside">(initialInsideOf ? "inside" : "main");
-  const [insideOf, setInsideOf] = React.useState<string>(initialInsideOf ?? mains.find((m) => m.status === "active")?.id ?? mains[0]?.id ?? "");
+  // Sprint cleanup §1 (D1): once a CO exists, New sprint opens on "Sprint inside a CO", in the CO you're looking at
+  // (or the running one, or the first planned one).
+  const insidePick = () => (mode === "create" && org?.kind === "org"
+    ? (initialInsideOf && mains.some((m) => m.id === initialInsideOf) ? initialInsideOf : null) ?? mains.find((m) => m.status === "active")?.id ?? mains[0]?.id ?? ""
+    : initialInsideOf ?? "");
+  const [level, setLevel] = React.useState<"main" | "inside">(() => (insidePick() ? "inside" : "main"));
+  const [insideOf, setInsideOf] = React.useState<string>(insidePick);
   const nestedHere = org?.kind === "org" && (mode === "create" ? level === "inside" : Boolean(sprint?.parentSprintId));
   const insideParent = nestedHere ? existingSprints.find((s) => s.id === (mode === "create" ? insideOf : sprint?.parentSprintId)) ?? null : null;
   // Plan your sprint (report §18.2): inside the running organization sprint, or the next planned one, by default.
@@ -251,6 +256,9 @@ export default function SprintEditorModal({
     setDraft(initialDraft());
     setRepeat(false);
     setPlanEach(false);
+    const pick = insidePick();
+    setLevel(pick ? "inside" : "main");
+    setInsideOf(pick);
     setFieldErrors({});
     setErrorMessage("");
     setPendingAction(null);
@@ -465,9 +473,10 @@ export default function SprintEditorModal({
             ) : null}
 
             {/* Board/review report §6: an organization plans a main sprint (a CO) or a sprint inside one. */}
-            {mode === "create" && org?.kind === "org" ? (
+            {mode === "create" && org?.kind === "org" && !mains.length ? <p className="text-[13px] text-muted-foreground">Start with a {mainWord} (main sprint). Shorter sprints go inside it once it exists.</p> : null}
+            {mode === "create" && org?.kind === "org" && mains.length ? (
               <UnderlineTabs label="Which kind of sprint?" idPrefix="sprint-level" controls={false} value={level} onChange={(next) => { setLevel(next); if (next === "main") setDraft(initialDraft()); }}
-                tabs={[{ key: "main", label: `${mainWord} (main sprint)` }, { key: "inside", label: `Sprint inside a ${mainWord}` }] as const} />
+                tabs={[{ key: "main", label: mainWord }, { key: "inside", label: `Sprint inside a ${mainWord}` }] as const} />
             ) : null}
             {mode === "create" && org?.kind === "org" && level === "inside" ? (
               mains.length ? (
@@ -479,11 +488,6 @@ export default function SprintEditorModal({
               ) : <p className="text-[13px] text-muted-foreground">Plan a {mainWord} first; sprints sit inside one.</p>
             ) : null}
             {mode === "edit" && insideParent ? <p className="text-[13px] text-muted-foreground">Inside {insideParent.name}. Its dates stay inside {insideParent.name}’s.</p> : null}
-            {/* Sprint redesign §6.1: one sprint, or several to plan the term — a choice, not a checkbox halfway down. */}
-            {mode === "create" && onRepeat && org?.kind !== "child" ? (
-              <UnderlineTabs label="What are you planning?" idPrefix="sprint-kind" controls={false} value={repeat ? "several" : "one"} onChange={(k) => setRepeat(k === "several")}
-                tabs={[{ key: "one", label: "One sprint" }, { key: "several", label: nestedHere && insideParent ? `Several (split ${insideParent.name})` : "Several (plan the term)" }] as const} />
-            ) : null}
             {/* §6.5: a team's sprint starts from the class sprint it sits inside. */}
               {org?.kind === "child" && org.orgSprints.length > 0 ? (
                 <Field label="Inside the class sprint" htmlFor="sprint-parent">
@@ -553,7 +557,21 @@ export default function SprintEditorModal({
             {/* Schedule Section */}
             <div className="space-y-3.5">
               <div className="space-y-1.5">
-                <span className="block text-[13px] font-medium text-foreground">{repeat ? "Each lasts" : "Dates"}</span>
+                {/* Sprint cleanup §2 (D3): one or several is a choice about dates, so it sits here, not in a second tab row. */}
+                <div className="flex items-center justify-between gap-3">
+                  <span className="block text-[13px] font-medium text-foreground">Dates</span>
+                  {mode === "create" && onRepeat && org?.kind !== "child" ? (
+                    <div role="radiogroup" aria-label="How many sprints" className="inline-flex rounded-[5px] border border-border p-0.5">
+                      {([["one", "One"], ["several", "Several"]] as const).map(([key, label]) => (
+                        <button key={key} type="button" role="radio" aria-checked={(key === "several") === repeat} onClick={() => setRepeat(key === "several")}
+                          className={cn("nb-touch-target h-[26px] rounded-[3px] px-2.5 text-[12px]", (key === "several") === repeat ? "bg-muted font-medium text-foreground" : "text-muted-foreground hover:text-foreground")}>
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+                {repeat ? <span className="block text-[12px] text-muted-foreground">Each lasts</span> : null}
                 <div className="flex flex-wrap gap-1.5" role="group" aria-label="Length">
                   {([[7, "1 week"], [14, "2 weeks"], [28, "4 weeks"]] as const).map(([days, label]) => (
                     <button key={days} type="button" onClick={() => setDuration(days)} disabled={tooLong(days)} aria-pressed={lengthDays === days}
@@ -618,6 +636,7 @@ export default function SprintEditorModal({
                         <input type="number" min={2} max={52} value={repeatCount} onChange={(e) => setRepeatCount(Math.max(2, Math.min(52, Number(e.target.value) || 2)))}
                           className={cn(inputClassName(false), "h-[30px] w-20")} />
                       </label>
+                      <p className="text-[12px] text-muted-foreground">{nestedHere && insideParent ? `Split ${insideParent.name} into ${repeatCount} sprints.` : `Plan ${repeatCount} ${org?.kind === "org" ? `${mainWord}s` : "sprints"}.`}</p>
                       {preview ? (<>
                         <p className="font-mono text-[11px] uppercase tracking-[0.09em] text-muted-foreground">You’ll get</p>
                         <ul aria-label="Sprints to create" className="max-h-40 space-y-0.5 overflow-y-auto font-mono text-[12px]">

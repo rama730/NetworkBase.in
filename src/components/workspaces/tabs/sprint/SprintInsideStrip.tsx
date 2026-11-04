@@ -15,7 +15,7 @@ export function SprintInsideStrip({ mainName, projectSlug, sprints, summary, ope
   mainName: string; projectSlug: string; sprints: Child[]; summary: SprintHealthSummary | null; openAssignments?: number; teamsWithoutSprint?: number;
 }) {
   if (!sprints.length) {
-    return <p className="mb-4 rounded-[6px] border border-dashed border-border px-3 py-2.5 text-[13px] text-muted-foreground">No sprints inside {mainName} yet. Split it into weeks with Add a sprint inside.</p>;
+    return <p className="mb-4 rounded-[6px] border border-dashed border-border px-3 py-2.5 text-[13px] text-muted-foreground">No sprints inside {mainName} yet. Split it into weeks with New sprint.</p>;
   }
   const line = [
     summary ? `${summary.completedTasks} of ${summary.totalTasks} done` : null,

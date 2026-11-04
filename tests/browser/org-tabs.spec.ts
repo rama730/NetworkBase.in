@@ -295,10 +295,16 @@ test('Projects (§28): Stage, Lead and Sprint filters, Remind leads, Cards view 
 
 test('Sprint form (§28.2): an organization names the next sprint, Repeat previews, blocks an overlap and fixes it in one click', async ({ page }) => {
     await open(page, 'sprint-org', 1280);
+    // Sprint cleanup §1 (D1): with a CO planned, New sprint opens on "Sprint inside a CO"; one click plans the next CO.
+    await expect(page.getByRole('tab', { name: 'Sprint inside a CO' })).toHaveAttribute('aria-selected', 'true');
+    await page.getByRole('tab', { name: 'CO', exact: true }).click();
     await expect(page.locator('#sprint-name')).toHaveValue('CO2');
     await page.locator('#sprint-start-date').fill('2027-01-04');
     await page.locator('#sprint-end-date').fill('2027-01-17');
-    await page.getByRole('tab', { name: 'Several (plan the term)' }).click();
+    // Sprint cleanup §2: one tab row; One or Several sits with the dates.
+    await expect(page.getByRole('tablist')).toHaveCount(1);
+    await page.getByRole('radiogroup', { name: 'How many sprints' }).getByRole('radio', { name: 'Several' }).click();
+    await expect(page.getByText('Plan 4 COs.')).toBeVisible();
     const list = page.getByRole('list', { name: 'Sprints to create' });
     await expect(list).toContainText('CO3 · Jan 18–Jan 31 · Overlaps Mid-term break');
     await expect(page.getByRole('button', { name: 'Create 4 sprints' })).toBeDisabled();
@@ -319,7 +325,7 @@ test('Sprint form (§18.2): a team sprint sits inside CO1, says its limit beside
     await page.locator('#sprint-end-date').fill('2027-01-20');
     await expect(page.getByRole('alert').filter({ hasText: 'CO1 ends Jan 17. Pick an earlier date.' })).toBeVisible();
     await expect(page.getByRole('button', { name: /^Create / })).toBeDisabled();
-    await expect(page.getByRole('tab', { name: 'Several (plan the term)' })).toHaveCount(0);
+    await expect(page.getByRole('radiogroup', { name: 'How many sprints' })).toHaveCount(0);
     await noSideScroll(page);
     await page.screenshot({ path: test.info().outputPath('sprint-child.png') });
 });
@@ -429,4 +435,12 @@ test('Board/review report §4, §5: New has Task and Assignment tabs in the prof
     await expect(page.locator('[name="title"]').first()).toHaveValue('Lab 2: Stacks');
     await open(page, 'new-assignment', 1280);
     await expect(page.getByRole('tablist', { name: 'What are you creating?' }).getByRole('tab', { name: 'Assignment' })).toHaveAttribute('aria-selected', 'true');
+});
+
+test('sprint cleanup §4: a stage on a sprint\'s work list opens the roster on that stage', async ({ page }) => {
+    await open(page, 'tasks&rosterTile=submitted', 1280);
+    const panel = page.getByRole('region', { name: /^Lab 3 — Consensus protocols/ });
+    await expect(panel.getByRole('group', { name: 'Class at a glance' }).getByRole('button', { name: '4 In review' })).toHaveAttribute('aria-pressed', 'true');
+    await expect(panel.getByRole('heading', { level: 4, name: /^Waiting for review/ })).toBeVisible();
+    await expect(panel.getByRole('heading', { level: 4, name: /^(Not started|In progress|Missing|Done|Approved)/ })).toHaveCount(0);
 });

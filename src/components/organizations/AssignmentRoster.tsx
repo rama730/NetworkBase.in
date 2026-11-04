@@ -42,7 +42,8 @@ export function AssignmentRoster({ row, orgId, timeZone, onChanged, onExport }: 
     const [rows, setRows] = useState<RosterRow[]>([])
     const [withoutCopy, setWithoutCopy] = useState<Array<{ userId: string; name: string }>>([])
     const [closed, setClosed] = useState(false)
-    const [tile, setTile] = useState<Tile>('all')
+    // Sprint cleanup §4: a stage on a sprint's work list opens the roster on that stage (?rosterTile=).
+    const [tile, setTile] = useState<Tile>(() => { const asked = typeof window === 'undefined' ? null : new URLSearchParams(window.location.search).get('rosterTile'); return asked && asked in TILE_SECTIONS ? asked as Tile : 'all' })
     const [query, setQuery] = useState('')
     const [sort, setSort] = useState<'name' | 'handedIn'>('name')
     const [lateOnly, setLateOnly] = useState(false)

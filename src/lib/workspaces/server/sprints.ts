@@ -8,7 +8,7 @@ import { startSprint } from "@/lib/workspaces/sprint-schedule";
 import { postOrgAnnouncement } from "@/lib/organizations/org-updates";
 import { notifyChildSprintsUnlinked, notifyLinkedSprintsOutside, notifyOrgSprintCompleted, orgSprintNotifyDefault, readLinkedChildSprints, shiftOrgSprintDueDates, type LinkedChildSprint } from "@/lib/organizations/sprint-notify";
 import "server-only";
-import { assignmentColumn, readMasterProgress } from "@/lib/organizations/assignments";
+import { assignmentColumn, readAssignmentStages, readMasterProgress } from "@/lib/organizations/assignments";
 
 import { isMissingRelationError } from "@/lib/db/errors";
 import { db } from "@/lib/db";
@@ -891,6 +891,8 @@ async function readSprintTaskActivityPage(input: {
   // Live-fix 31: a main assignment shows its class progress ("12/40"), not "Unassigned".
   const isMaster = (row: (typeof pageRows)[number]) => row.kind === "assignment" && !row.assignment_id;
   const progressByMaster = await readMasterProgress(pageRows.filter(isMaster).map((row) => row.id));
+  // Sprint cleanup §4: every stage for main assignments, and each copy's own stage.
+  const { stages: stagesByMaster, copies: stageByCopy } = await readAssignmentStages(pageRows.filter(isMaster).map((row) => row.id), pageRows.filter((row) => row.assignment_id).map((row) => row.id));
   // A main assignment's column comes from its copies, as on the board; its own stored status means nothing.
   const masterStatus = (row: (typeof pageRows)[number]) => {
     const p = progressByMaster.get(row.id);
@@ -976,6 +978,9 @@ async function readSprintTaskActivityPage(input: {
     subtasks: subtasksByTaskId.get(row.id) ?? [],
     // Nobody has it yet reads 0/0 ("Nobody has joined yet"), never "Unassigned".
     assignmentProgress: isMaster(row) ? { done: progressByMaster.get(row.id)?.done ?? 0, total: progressByMaster.get(row.id)?.total ?? 0 } : null,
+    assignmentStages: isMaster(row) ? stagesByMaster.get(row.id) ?? null : null,
+    copyStage: row.assignment_id ? stageByCopy.get(row.id) ?? null : null,
+    assignmentId: row.assignment_id ?? null,
     assignee: row.assignee_id
       ? actorById.get(row.assignee_id)
         ? {

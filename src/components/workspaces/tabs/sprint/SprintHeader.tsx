@@ -26,15 +26,17 @@ interface SprintHeaderProps {
   autoStart?: boolean;
   /** Board/review report §6: the CO this sprint sits inside (its dates give "week 3 of 6"). */
   main?: SprintListItem | null;
-  /** An organization's main sprint: its main button adds a sprint inside it. */
-  onAddInside?: () => void;
+  /** An organization's main sprint (a CO): its header counts its weeks. */
+  isMain?: boolean;
+  /** Sprint cleanup §3: Calendar, right of Add work. */
+  calendar?: React.ReactNode;
 }
 
 const button = "nb-touch-target nb-ui-label inline-flex h-[34px] items-center gap-1.5 rounded-[5px] border px-3 transition-[background-color,border-color,transform] duration-150 active:translate-y-px disabled:cursor-not-allowed disabled:opacity-50";
 const primary = cn(button, "border-primary bg-primary text-primary-foreground hover:border-[var(--primary-hover)] hover:bg-[var(--primary-hover)]");
 const secondary = cn(button, "border-border bg-card text-foreground hover:border-input hover:bg-muted");
 
-export function SprintHeader({ sprint, permissions, isMutatingLifecycle, onEdit, onComplete, onArchive, onCancel, onAddWork, startNow, autoStart = true, main = null, onAddInside }: SprintHeaderProps) {
+export function SprintHeader({ sprint, permissions, isMutatingLifecycle, onEdit, onComplete, onArchive, onCancel, onAddWork, startNow, autoStart = true, main = null, isMain = false, calendar = null }: SprintHeaderProps) {
   const phase = sprintPhase(sprint);
   const words = PHASE_WORDS[phase];
   const time = sprintTime(sprint);
@@ -44,7 +46,6 @@ export function SprintHeader({ sprint, permissions, isMutatingLifecycle, onEdit,
   const live = phase === "upcoming" || phase === "running" || phase === "ended";
   const canClose = permissions.canComplete && sprint.status === "active";
   const canPlan = Boolean(onAddWork) && permissions.canCreate && (phase === "upcoming" || phase === "running");
-  const canAddInside = Boolean(onAddInside) && permissions.canCreate && (phase === "upcoming" || phase === "running");
   const when = phase === "upcoming"
     ? (autoStart ? `Starts by itself ${wait === 0 ? "today" : `in ${wait} ${wait === 1 ? "day" : "days"}`}` : "Waits for Start now")
     : phase === "running" && time ? `${time.daysLeft} ${time.daysLeft === 1 ? "day" : "days"} left`
@@ -60,28 +61,24 @@ export function SprintHeader({ sprint, permissions, isMutatingLifecycle, onEdit,
           {when ? <span className={cn("font-mono text-xs", phase === "ended" ? "text-[var(--status-warning)]" : "text-muted-foreground")}>· {when}</span> : null}
         </div>
         {main ? <p className="font-mono text-[12px] text-muted-foreground">Inside {main.name}{weekOf(main) ? ` · ${weekOf(main)}` : ""}</p> : null}
-        {!main && onAddInside && weekOf(sprint) ? <p className="font-mono text-[12px] text-muted-foreground">{weekOf(sprint)}</p> : null}
+        {!main && isMain && weekOf(sprint) ? <p className="font-mono text-[12px] text-muted-foreground">{weekOf(sprint)}</p> : null}
         <h2 className="nb-section-title text-foreground">{sprint.name}</h2>
         {goal ? <p className="nb-body text-foreground"><span className="text-muted-foreground">Goal: </span>{goal}</p> : null}
         {description ? <p className="nb-compact line-clamp-2 max-w-3xl whitespace-pre-line text-muted-foreground">{description}</p> : null}
       </div>
-      {permissions.canWrite || canClose || canPlan || canAddInside ? (
+      {permissions.canWrite || canClose || canPlan || calendar ? (
         <div className="flex shrink-0 flex-wrap items-center gap-2">
           {phase === "ended" && canClose ? (
             <button type="button" onClick={onComplete} disabled={isMutatingLifecycle} className={primary}>
               <CheckCircle2 aria-hidden="true" className="h-3.5 w-3.5" />Close sprint
             </button>
           ) : null}
-          {canAddInside ? (
-            <button type="button" onClick={onAddInside} disabled={isMutatingLifecycle} className={primary}>
-              <Plus aria-hidden="true" className="h-3.5 w-3.5" />Add a sprint inside {sprint.name}
-            </button>
-          ) : null}
           {canPlan ? (
-            <button type="button" onClick={onAddWork} disabled={isMutatingLifecycle} className={canAddInside ? secondary : primary}>
+            <button type="button" onClick={onAddWork} disabled={isMutatingLifecycle} className={primary}>
               <Plus aria-hidden="true" className="h-3.5 w-3.5" />Add work
             </button>
           ) : null}
+          {calendar}
           {phase === "upcoming" ? startNow : null}
           {/* Report §37.2: Edit while upcoming or running; a running sprint keeps its start. */}
           {permissions.canWrite && (sprint.status === "planning" || sprint.status === "active") ? (
