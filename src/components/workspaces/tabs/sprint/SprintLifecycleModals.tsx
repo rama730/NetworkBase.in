@@ -39,29 +39,13 @@ type SprintLifecycleModalsProps = {
   linkedSprintIds?: ReadonlySet<string>;
 };
 
-const completionOptions: Array<{
-  value: UnfinishedWorkChoice;
-  title: string;
-  description: string;
-}> = [
-  {
-    value: "keep",
-    title: "Keep in sprint history",
-    description:
-      "Close the sprint while retaining unfinished tasks for reporting.",
-  },
-  {
-    value: "backlog",
-    title: "Move to backlog",
-    description:
-      "Remove unfinished tasks from this sprint without assigning a new sprint.",
-  },
-  {
-    value: "next_sprint",
-    title: "Move to a planning sprint",
-    description: "Carry unfinished work into a sprint that has not started yet.",
-  },
+/** Sprint redesign §8.7: where open work goes, in plain words; the next sprint is named in the dialog. */
+const completionOptions: Array<{ value: UnfinishedWorkChoice; title: string }> = [
+  { value: "next_sprint", title: "The next sprint" },
+  { value: "backlog", title: "The backlog" },
+  { value: "keep", title: "Stay here, for the record" },
 ];
+const SHORT_DAY = new Intl.DateTimeFormat("en", { month: "short", day: "numeric", timeZone: "UTC" });
 
 export function SprintLifecycleModals({
   openModal,
@@ -93,22 +77,25 @@ export function SprintLifecycleModals({
   useEffect(() => {
     if (!openModal) return;
     openerRef.current = document.activeElement as HTMLElement | null;
-    setUnfinishedChoice("keep");
-    setNextSprintId("");
+    // The next upcoming sprint when there is one, otherwise the backlog.
+    const next = sprints.filter((sprint) => sprint.id !== selectedSprint?.id && sprint.status === "planning").sort((a, b) => (a.startDate ?? "").localeCompare(b.startDate ?? ""))[0];
+    setUnfinishedChoice(next ? "next_sprint" : "backlog");
+    setNextSprintId(next?.id ?? "");
     setCloseAssignments(false);
   }, [openModal, selectedSprint?.id]);
 
   if (!openModal || !selectedSprint) return null;
 
+  const points = summary?.totalStoryPoints ?? 0;
   const title =
     openModal === "complete"
-      ? "Complete sprint"
+      ? `Close ${selectedSprint.name}?`
       : openModal === "archive"
         ? "Archive sprint"
         : "Cancel sprint";
   const description =
     openModal === "complete"
-      ? `Choose what happens to unfinished work in ${selectedSprint.name}.`
+      ? `${selectedSprint.endDate ? `Ends ${SHORT_DAY.format(new Date(selectedSprint.endDate))} · ` : ""}${points ? `${summary?.completedStoryPoints ?? 0} of ${points} points done · ` : ""}${summary?.completedTasks ?? 0} of ${summary?.totalTasks ?? 0} tasks finished.`
       : openModal === "archive"
         ? `Archive ${selectedSprint.name}. Its history stays available to the team.`
         : `Cancel ${selectedSprint.name}. All of its tasks, finished or not, move back to the backlog.`;
@@ -161,46 +148,27 @@ export function SprintLifecycleModals({
 
         {openModal === "complete" ? (
           <div className="space-y-3">
-            <p className="text-sm text-muted-foreground">
-              {summary?.completedTasks ?? 0} of {summary?.totalTasks ?? 0} task
-              {(summary?.totalTasks ?? 0) === 1 ? "" : "s"} completed
-              {remainingTasks > 0 ? ` · ${remainingTasks} remaining` : ""}
+            {remainingTasks > 0 ? (
+            <>
+            <p className="font-mono text-[11px] font-medium uppercase tracking-[0.09em] text-muted-foreground">
+              {remainingTasks} {remainingTasks === 1 ? "task" : "tasks"} still open go to
             </p>
-            <div
-              aria-label="Unfinished tasks"
-              className="space-y-2"
-              role="radiogroup"
-            >
-              {completionOptions.map((option) => (
-                <label
-                  className={cn(
-                    "flex cursor-pointer items-start gap-3 rounded-[6px] border p-3.5 transition-colors",
-                    unfinishedChoice === option.value
-                      ? "border-primary bg-primary/5"
-                      : "border-border hover:bg-muted/50",
-                  )}
-                  key={option.value}
-                >
-                  <input
-                    checked={unfinishedChoice === option.value}
-                    className="mt-1"
-                    disabled={isMutating}
-                    name="unfinished-work"
-                    onChange={() => setUnfinishedChoice(option.value)}
-                    type="radio"
-                    value={option.value}
-                  />
-                  <span>
-                    <span className="block text-sm font-medium text-foreground">
-                      {option.title}
+            <div aria-label="Unfinished tasks" className="space-y-2" role="radiogroup">
+              {completionOptions.filter((option) => option.value !== "next_sprint" || carryOverSprints.length > 0).map((option) => {
+                const target = carryOverSprints.find((sprint) => sprint.id === nextSprintId) ?? carryOverSprints[0];
+                return (
+                  <label key={option.value} className={cn("flex cursor-pointer items-center gap-3 rounded-[6px] border px-3.5 py-2.5 text-sm transition-colors", unfinishedChoice === option.value ? "border-primary bg-primary/5" : "border-border hover:bg-muted/50")}>
+                    <input checked={unfinishedChoice === option.value} disabled={isMutating} name="unfinished-work" onChange={() => { setUnfinishedChoice(option.value); if (option.value === "next_sprint" && !nextSprintId && target) setNextSprintId(target.id); }} type="radio" value={option.value} />
+                    <span className="font-medium text-foreground">
+                      {option.value === "next_sprint" && target ? target.name : option.title}
+                      {option.value === "next_sprint" && target?.startDate ? <span className="font-normal text-muted-foreground"> · starts {SHORT_DAY.format(new Date(target.startDate))}</span> : null}
                     </span>
-                    <span className="mt-1 block text-sm text-muted-foreground">
-                      {option.description}
-                    </span>
-                  </span>
-                </label>
-              ))}
+                  </label>
+                );
+              })}
             </div>
+            </>
+            ) : <p className="text-sm text-muted-foreground">Everything in it is done.</p>}
 
             {openAssignments > 0 ? (
               <label className="flex items-start gap-3 rounded-[6px] border border-border p-3.5 text-sm">
@@ -212,11 +180,11 @@ export function SprintLifecycleModals({
               </label>
             ) : null}
 
-            {requiresTargetSprint ? (
+            {requiresTargetSprint && carryOverSprints.length > 1 ? (
               <label className="block space-y-2 font-mono text-xs font-medium uppercase tracking-[0.09em] text-foreground">
-                Move to sprint
+                Which sprint
                 <select
-                  className="nb-touch-target h-[34px] w-full rounded-[5px] border border-input bg-background px-3 font-mono text-xs uppercase tracking-[0.09em] text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  className="nb-touch-target h-[34px] w-full rounded-[5px] border border-input bg-background px-3 text-[13px] text-foreground"
                   disabled={isMutating || carryOverSprints.length === 0}
                   onChange={(event) => setNextSprintId(event.target.value)}
                   value={nextSprintId}
@@ -239,7 +207,7 @@ export function SprintLifecycleModals({
 
         <DialogFooter>
           <button
-            className="nb-touch-target inline-flex h-[34px] items-center justify-center rounded-[5px] border border-border bg-card px-4 font-mono text-xs font-medium uppercase tracking-[0.09em] text-foreground transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+            className="nb-touch-target nb-ui-label inline-flex h-[34px] items-center justify-center rounded-[5px] border border-border bg-card px-4 text-foreground transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
             disabled={isMutating}
             onClick={close}
             type="button"
@@ -248,7 +216,7 @@ export function SprintLifecycleModals({
           </button>
           <button
             className={cn(
-              "nb-touch-target inline-flex h-[34px] items-center justify-center rounded-[5px] px-4 font-mono text-xs font-medium uppercase tracking-[0.09em] transition-colors disabled:cursor-not-allowed disabled:opacity-50",
+              "nb-touch-target nb-ui-label inline-flex h-[34px] items-center justify-center rounded-[5px] px-4 transition-colors disabled:cursor-not-allowed disabled:opacity-50",
               openModal === "cancel"
                 ? "bg-destructive text-destructive-foreground hover:bg-destructive/90"
                 : "bg-primary text-primary-foreground hover:bg-primary/90",
@@ -264,7 +232,7 @@ export function SprintLifecycleModals({
             {isMutating
               ? "Saving…"
               : openModal === "complete"
-                ? "Complete sprint"
+                ? "Close sprint"
                 : openModal === "archive"
                   ? "Archive sprint"
                   : "Cancel sprint"}

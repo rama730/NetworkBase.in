@@ -11,7 +11,6 @@ import {
   addDaysToSprintDateInput,
   buildSprintEditorDraft,
   createSprintDraftSchema,
-  getSprintDurationSummary,
   type SprintDeleteImpact,
   type SprintEditorSubmission,
   type SprintOrgFields,
@@ -19,6 +18,7 @@ import {
   type SprintEditorMode,
 } from "@/lib/workspaces/sprints";
 import { recordSprintMetric } from "@/lib/workspaces/sprint-observability";
+import { termStrip } from "@/lib/workspaces/sprint-plan";
 import { cn } from "@/lib/utils";
 import {
   Dialog,
@@ -84,23 +84,6 @@ function toFieldErrors(error: z.ZodError<z.infer<typeof createSprintDraftSchema>
     }
   }
   return nextErrors;
-}
-
-function SectionDivider({
-  title,
-  children,
-}: {
-  title: string;
-  children?: React.ReactNode;
-}) {
-  return (
-    <div className="flex items-center justify-between border-b border-border pb-1.5">
-      <span className="font-mono text-[11px] font-medium uppercase tracking-[0.09em] text-muted-foreground">
-        {title}
-      </span>
-      {children}
-    </div>
-  );
 }
 
 function Field({
@@ -170,6 +153,9 @@ export default function SprintEditorModal({
     includeGroupWork: true,
   }));
   const [repeat, setRepeat] = React.useState(false);
+  // Sprint redesign §6: notes and the class options fold away until asked for.
+  const [notesOpen, setNotesOpen] = React.useState(Boolean(sprint?.description));
+  const [optionsOpen, setOptionsOpen] = React.useState(false);
   const [planEach, setPlanEach] = React.useState(false);
   const plannedOrgSprints = org?.kind === "child" ? org.orgSprints.filter((s) => s.status === "planning").length : 0;
   const [repeatCount, setRepeatCount] = React.useState(4);
@@ -254,10 +240,19 @@ export default function SprintEditorModal({
     };
   }, [isOpen]);
 
-  const scheduleSummary = React.useMemo(
-    () => getSprintDurationSummary(draft.startDate, draft.endDate),
-    [draft.endDate, draft.startDate],
-  );
+  const startWord = draft.startDate ? SHORT.format(utc(draft.startDate)) : "the start date";
+  const children = org?.children?.length ?? 0;
+  const shareWord = orgFields.sharedWith === "all" ? (children ? `Shared with all ${children} ${children === 1 ? "workspace" : "workspaces"}` : "Shared with every workspace")
+    : orgFields.sharedWith === "selected" ? `Shared with ${orgFields.sharedWorkspaceIds?.length ?? 0} selected` : "Not shared with workspaces";
+  const optionsSummary = [
+    orgFields.autoStart ?? true ? (repeat ? "Each starts by itself" : `Starts by itself on ${startWord}`) : "Waits for Start now",
+    ...(org?.kind === "org" ? [
+      ...(mode === "create" && orgFields.sharedWith !== "none" && orgFields.createMatching ? ["Teams plan their own sprint inside it"] : []),
+      shareWord,
+      orgFields.announce ? "Posts an announcement" : "No announcement",
+    ] : []),
+  ].join(" · ");
+  const strip = draft.startDate && draft.endDate ? termStrip({ startDate: draft.startDate, endDate: draft.endDate }, existingSprints as never, sprint?.id ?? null) : null;
   const parent = org?.kind === "child" ? org.orgSprints.find((s) => s.id === orgFields.parentSprintId) ?? null : null;
   // Report §18.2: errors appear beside the dates before saving.
   const dateError = parent && draft.startDate && draft.endDate
@@ -367,10 +362,11 @@ export default function SprintEditorModal({
 
   const setDuration = React.useCallback((days: number) => {
     if (!draft.startDate) return;
-    handleFieldChange("endDate", addDaysToSprintDateInput(draft.startDate, days));
+    // "1 week" is seven days, its last day counted.
+    handleFieldChange("endDate", addDaysToSprintDateInput(draft.startDate, days - 1));
   }, [draft.startDate, handleFieldChange]);
   /** A shortcut that would pass the organization sprint's end is off, with the reason (report §18.2). */
-  const tooLong = (days: number) => Boolean(parent && draft.startDate && addDaysToSprintDateInput(draft.startDate, days) > parent.endDate.slice(0, 10));
+  const tooLong = (days: number) => Boolean(parent && draft.startDate && addDaysToSprintDateInput(draft.startDate, days - 1) > parent.endDate.slice(0, 10));
 
   if (!isOpen) return null;
 
@@ -398,12 +394,12 @@ export default function SprintEditorModal({
         <div className="flex shrink-0 items-center justify-between border-b border-border px-6 py-4">
           <div className="space-y-0.5">
             <DialogTitle className="text-base font-semibold text-foreground">
-              {mode === "create" ? "Create sprint" : "Edit sprint"}
+              {mode === "create" ? "New sprint" : "Edit sprint"}
             </DialogTitle>
             <DialogDescription className="text-xs text-muted-foreground">
               {mode === "create"
-                ? "Set the goal and dates."
-                : "Edit sprint details."}
+                ? "A stretch of time with one goal. Work goes into it; when it ends, you close it."
+                : "Change the name, goal or dates."}
             </DialogDescription>
           </div>
           <button
@@ -434,11 +430,43 @@ export default function SprintEditorModal({
               </div>
             ) : null}
 
-            {/* Basics Section */}
-            <div className="space-y-3.5">
-              <SectionDivider title="Basics" />
+            {/* Sprint redesign §6.1: one sprint, or several to plan the term — a choice, not a checkbox halfway down. */}
+            {mode === "create" && onRepeat && org?.kind !== "child" ? (
+              <div role="radiogroup" aria-label="What are you planning?" className="grid grid-cols-2 gap-0.5 rounded-[5px] border border-border p-0.5">
+                {([[false, "One sprint"], [true, "Several (plan the term)"]] as const).map(([value, label]) => (
+                  <button key={label} type="button" role="radio" aria-checked={repeat === value} onClick={() => setRepeat(value)}
+                    className={cn("nb-touch-target h-[32px] rounded-[4px] text-[13px]", repeat === value ? "bg-muted font-medium text-foreground" : "text-muted-foreground hover:text-foreground")}>{label}</button>
+                ))}
+              </div>
+            ) : null}
+            {/* §6.5: a team's sprint starts from the class sprint it sits inside. */}
+              {org?.kind === "child" && org.orgSprints.length > 0 ? (
+                <Field label="Inside the class sprint" htmlFor="sprint-parent">
+                  <select
+                    id="sprint-parent"
+                    value={orgFields.parentSprintId ?? ""}
+                    onChange={(e) => {
+                      const parent = org.orgSprints.find((s) => s.id === e.target.value) ?? null;
+                      setOrgFields((f) => ({ ...f, parentSprintId: parent?.id ?? null }));
+                      // Picking one starts from its dates; the lead may shorten them but not go outside.
+                      if (parent && mode === "create") {
+                        handleFieldChange("startDate", parent.startDate.slice(0, 10));
+                        handleFieldChange("endDate", parent.endDate.slice(0, 10));
+                      }
+                    }}
+                    className={cn("nb-touch-target h-[34px]", inputClassName(false))}
+                  >
+                    {/* A workspace that follows its organization's sprints always sits inside one. */}
+                    {!org.followsOrgSprints ? <option value="">Not inside a sprint</option> : null}
+                    {org.orgSprints.map((s) => <option key={s.id} value={s.id}>{s.name} · {rangeLabel(s.startDate, s.endDate)} ({s.status === "active" ? "running" : "planned"})</option>)}
+                  </select>
+                </Field>
+              ) : null}
+            {org?.kind === "child" && parent ? <p className="-mt-3 text-[12px] text-muted-foreground">Your dates start as {parent.name}’s ({rangeLabel(parent.startDate, parent.endDate)}); you can shorten them, not go outside.</p> : null}
 
-              <Field label="Sprint name" htmlFor="sprint-name" required error={fieldErrors.name}>
+            <div className="space-y-3.5">
+
+              <Field label={repeat ? "First sprint" : "Name"} htmlFor="sprint-name" required error={fieldErrors.name}>
                 <input
                   ref={firstFieldRef}
                   id="sprint-name"
@@ -450,67 +478,50 @@ export default function SprintEditorModal({
                 />
               </Field>
 
-              <Field label="Sprint goal" htmlFor="sprint-goal" error={fieldErrors.goal}>
+              {repeat && preview?.rows[1] ? <p className="-mt-2 text-[12px] text-muted-foreground">The rest follow: {preview.rows.slice(1, 3).map((r) => r.name.split(" ")[0]).join(", ")}…</p> : null}
+              <Field label={repeat ? "Goal for the first sprint" : "Goal"} htmlFor="sprint-goal" error={fieldErrors.goal}>
                 <input
                   id="sprint-goal"
                   value={draft.goal}
                   onChange={(event) => handleFieldChange("goal", event.target.value)}
-                  placeholder="What should this sprint accomplish?"
+                  placeholder="One sentence everyone will read"
                   className={cn("nb-touch-target h-[34px]", inputClassName(!!fieldErrors.goal))}
                 />
               </Field>
 
-              <Field label="Description" htmlFor="sprint-description" error={fieldErrors.description}>
+              {!notesOpen ? (
+                <button type="button" onClick={() => setNotesOpen(true)} className="-mt-1 text-[13px] text-primary underline-offset-4 hover:underline">+ Add notes</button>
+              ) : (
+              <Field label="Notes" htmlFor="sprint-description" error={fieldErrors.description}>
                 <textarea
                   id="sprint-description"
                   rows={2}
                   value={draft.description}
                   onChange={(event) => handleFieldChange("description", event.target.value)}
-                  placeholder="Additional context, scope, or coordination notes."
+                  placeholder="Scope, links, or how the team will work"
                   className={cn(inputClassName(!!fieldErrors.description), "min-h-[64px] resize-none py-2")}
                 />
               </Field>
+              )}
             </div>
 
             {/* Schedule Section */}
             <div className="space-y-3.5">
-              <SectionDivider title="Schedule">
-                <div className="flex items-center gap-1.5">
-                  <span className="font-mono text-[10px] max-md:text-[11px] uppercase tracking-[0.06em] text-muted-foreground mr-0.5">
-                    Quick dates:
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setDuration(7)}
-                    disabled={tooLong(7)}
-                    title={tooLong(7) && parent ? `Ends after ${parent.name}` : undefined}
-                    className="inline-flex h-6 items-center rounded-[3px] border border-border bg-card px-2 font-mono text-[10px] max-md:text-[11px] font-medium uppercase tracking-[0.06em] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-40"
-                  >
-                    1 week
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setDuration(14)}
-                    disabled={tooLong(14)}
-                    title={tooLong(14) && parent ? `Ends after ${parent.name}` : undefined}
-                    className="inline-flex h-6 items-center rounded-[3px] border border-border bg-card px-2 font-mono text-[10px] max-md:text-[11px] font-medium uppercase tracking-[0.06em] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-40"
-                  >
-                    2 weeks
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setDuration(28)}
-                    disabled={tooLong(28)}
-                    title={tooLong(28) && parent ? `Ends after ${parent.name}` : undefined}
-                    className="inline-flex h-6 items-center rounded-[3px] border border-border bg-card px-2 font-mono text-[10px] max-md:text-[11px] font-medium uppercase tracking-[0.06em] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-40"
-                  >
-                    4 weeks
-                  </button>
+              <div className="space-y-1.5">
+                <span className="block text-[13px] font-medium text-foreground">{repeat ? "Each lasts" : "Dates"}</span>
+                <div className="flex flex-wrap gap-1.5" role="group" aria-label="Length">
+                  {([[7, "1 week"], [14, "2 weeks"], [28, "4 weeks"]] as const).map(([days, label]) => (
+                    <button key={days} type="button" onClick={() => setDuration(days)} disabled={tooLong(days)} aria-pressed={lengthDays === days}
+                      title={tooLong(days) && parent ? `Ends after ${parent.name}` : undefined}
+                      className={cn("nb-touch-target inline-flex h-[30px] items-center rounded-[5px] border px-2.5 text-[13px] transition-colors disabled:opacity-40", lengthDays === days ? "border-primary bg-primary/10 font-medium text-foreground" : "border-border bg-card text-muted-foreground hover:text-foreground")}>
+                      {label}
+                    </button>
+                  ))}
                 </div>
-              </SectionDivider>
+              </div>
 
               <div className="grid grid-cols-2 gap-3">
-                <Field label="Start date" htmlFor="sprint-start-date" required error={fieldErrors.startDate}>
+                <Field label={repeat ? "First starts" : "Starts"} htmlFor="sprint-start-date" required error={fieldErrors.startDate}>
                   <input
                     id="sprint-start-date"
                     type="date"
@@ -525,7 +536,7 @@ export default function SprintEditorModal({
                   />
                 </Field>
 
-                <Field label="End date" htmlFor="sprint-end-date" required error={fieldErrors.endDate}>
+                <Field label={repeat ? "First ends" : "Ends"} htmlFor="sprint-end-date" required error={fieldErrors.endDate}>
                   <input
                     id="sprint-end-date"
                     type="date"
@@ -539,31 +550,31 @@ export default function SprintEditorModal({
                 </Field>
               </div>
 
-              <div className="flex items-center gap-2 rounded-[5px] border border-border bg-muted/30 px-3 py-2 font-mono text-[11px] text-muted-foreground">
-                <span className="font-medium text-foreground">
-                  {scheduleSummary?.label ?? "Set valid start and end dates to see the sprint duration."}
-                </span>
-                {sprint?.status === "active" ? (
-                  <span className="ml-auto text-[11px] font-medium text-amber-600 dark:text-amber-400">
-                    Active
-                  </span>
-                ) : null}
-              </div>
+              {/* §6.2: where the new sprint lands among the others. */}
+              {strip && draft.startDate && draft.endDate ? (
+                <div className="space-y-1" data-testid="term-strip">
+                  <div className="flex gap-0.5 text-[11px]" aria-hidden="true">
+                    {strip.before ? <span className="flex-1 truncate rounded-[3px] bg-muted px-1.5 py-1 text-muted-foreground">{strip.before}</span> : null}
+                    <span className={cn("flex-[1.4] truncate rounded-[3px] border px-1.5 py-1", strip.clash ? "border-destructive bg-destructive/10 text-destructive" : "border-primary bg-primary/10 text-foreground")}>
+                      {draft.name.trim() || "This sprint"} · {rangeLabel(draft.startDate, draft.endDate)}
+                    </span>
+                    {strip.after ? <span className="flex-1 truncate rounded-[3px] bg-muted px-1.5 py-1 text-muted-foreground">{strip.after}</span> : null}
+                  </div>
+                  <p className={cn("text-[12px]", strip.clash ? "text-destructive" : "text-muted-foreground")}>{lengthDays > 0 ? `${lengthDays} ${lengthDays === 1 ? "day" : "days"}${lengthDays % 7 === 0 ? ` (${lengthDays / 7} ${lengthDays === 7 ? "week" : "weeks"})` : ""}. ` : ""}{strip.line}</p>
+                </div>
+              ) : null}
               {dateError ? <p role="alert" className="text-xs font-mono text-destructive">{dateError}</p> : null}
 
               {mode === "create" && onRepeat && org?.kind !== "child" ? (
                 <div className="space-y-2">
-                  <label className="flex items-center gap-2 text-[13px] text-foreground">
-                    <input type="checkbox" checked={repeat} onChange={(e) => setRepeat(e.target.checked)} />
-                    Plan more sprints like this
-                  </label>
                   {repeat ? (
                     <div className="space-y-2 rounded-[5px] border border-border p-3">
-                      <label className="flex items-center gap-2 text-[13px] text-foreground">How many
+                      <label className="flex items-center gap-2 text-[13px] font-medium text-foreground">How many
                         <input type="number" min={2} max={52} value={repeatCount} onChange={(e) => setRepeatCount(Math.max(2, Math.min(52, Number(e.target.value) || 2)))}
-                          className={cn("h-[30px] w-20", inputClassName(false))} />
+                          className={cn(inputClassName(false), "h-[30px] w-20")} />
                       </label>
-                      {preview ? (
+                      {preview ? (<>
+                        <p className="font-mono text-[11px] uppercase tracking-[0.09em] text-muted-foreground">You’ll get</p>
                         <ul aria-label="Sprints to create" className="max-h-40 space-y-0.5 overflow-y-auto font-mono text-[12px]">
                           {preview.rows.map((row) => (
                             <li key={row.name} className={cn(row.clash ? "text-destructive" : "text-foreground")}>
@@ -573,7 +584,8 @@ export default function SprintEditorModal({
                             </li>
                           ))}
                         </ul>
-                      ) : <p className="text-xs text-muted-foreground">Set valid dates to see the sprints.</p>}
+                        <p className="text-[12px] text-muted-foreground">Goals for the rest can be written later, one sprint at a time.</p>
+                      </>) : <p className="text-xs text-muted-foreground">Set valid dates to see the sprints.</p>}
                       {preview?.blocked && preview.startAfter ? (
                         <button type="button" className="text-xs font-medium text-primary hover:underline"
                           onClick={() => { const start = preview.startAfter!; handleFieldChange("startDate", start); handleFieldChange("endDate", addDaysToSprintDateInput(start, lengthDays - 1)); }}>
@@ -597,7 +609,15 @@ export default function SprintEditorModal({
 
             {/* Organization: start on the date, child projects, or the org sprint this sits inside (report §15) */}
             <div className="space-y-3">
-              <SectionDivider title={org ? "Organization" : "Start"} />
+              {/* §6.4: the class options as one readable line; Change opens them in place. */}
+              <div className="flex items-start justify-between gap-3 border-t border-border pt-3">
+                <div className="min-w-0">
+                  <span className="block font-mono text-[11px] font-medium uppercase tracking-[0.09em] text-muted-foreground">{org?.kind === "org" ? "For the class" : "Start"}</span>
+                  <p className="mt-0.5 text-[13px] text-foreground" data-testid="sprint-options-summary">{optionsSummary}</p>
+                </div>
+                <button type="button" aria-expanded={optionsOpen} onClick={() => setOptionsOpen(!optionsOpen)} className="shrink-0 text-[13px] text-primary underline-offset-4 hover:underline">{optionsOpen ? "Done" : "Change"}</button>
+              </div>
+              {optionsOpen ? (<>
               <label className="flex items-center gap-2 text-[13px] text-foreground">
                 <input type="checkbox" checked={orgFields.autoStart ?? true} onChange={(e) => setOrgFields((f) => ({ ...f, autoStart: e.target.checked }))} />
                 Start automatically on the start date
@@ -646,28 +666,8 @@ export default function SprintEditorModal({
                   ) : null}
                 </>
               ) : null}
-              {org?.kind === "child" && org.orgSprints.length > 0 ? (
-                <Field label={parent ? `Inside ${parent.name} · ${rangeLabel(parent.startDate, parent.endDate)}` : "Inside"} htmlFor="sprint-parent">
-                  <select
-                    id="sprint-parent"
-                    value={orgFields.parentSprintId ?? ""}
-                    onChange={(e) => {
-                      const parent = org.orgSprints.find((s) => s.id === e.target.value) ?? null;
-                      setOrgFields((f) => ({ ...f, parentSprintId: parent?.id ?? null }));
-                      // Picking one starts from its dates; the lead may shorten them but not go outside.
-                      if (parent && mode === "create") {
-                        handleFieldChange("startDate", parent.startDate.slice(0, 10));
-                        handleFieldChange("endDate", parent.endDate.slice(0, 10));
-                      }
-                    }}
-                    className={cn("nb-touch-target h-[34px]", inputClassName(false))}
-                  >
-                    {/* A workspace that follows its organization's sprints always sits inside one. */}
-                    {!org.followsOrgSprints ? <option value="">Not inside a sprint</option> : null}
-                    {org.orgSprints.map((s) => <option key={s.id} value={s.id}>{s.name} · {rangeLabel(s.startDate, s.endDate)} ({s.status === "active" ? "running" : "planned"})</option>)}
-                  </select>
-                </Field>
-              ) : null}
+              </>) : null}
+
               {org?.kind === "child" && mode === "create" && onPlanEach && plannedOrgSprints > 1 ? (
                 <label className="flex items-center gap-2 text-[13px] text-foreground">
                   <input type="checkbox" checked={planEach} onChange={(e) => setPlanEach(e.target.checked)} />
@@ -761,16 +761,17 @@ export default function SprintEditorModal({
               type="button"
               disabled={!!pendingAction}
               onClick={onClose}
-              className="nb-touch-target inline-flex h-[34px] items-center justify-center rounded-[5px] border border-border bg-card px-4 font-mono text-xs font-medium uppercase tracking-[0.09em] text-foreground transition-colors hover:bg-muted disabled:opacity-50"
+              className="nb-touch-target nb-ui-label inline-flex h-[34px] items-center justify-center rounded-[5px] border border-border bg-card px-4 text-foreground transition-colors hover:bg-muted disabled:opacity-50"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={!!pendingAction || Boolean(repeat && preview?.blocked) || Boolean(dateError)}
-              className="nb-touch-target inline-flex h-[34px] items-center justify-center rounded-[5px] bg-primary px-4 font-mono text-xs font-medium uppercase tracking-[0.09em] text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
+              className="nb-touch-target nb-ui-label inline-flex h-[34px] items-center justify-center rounded-[5px] bg-primary px-4 text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
             >
-              {isSubmitting ? "Saving..." : mode === "create" ? (planEach && onPlanEach ? `Create ${plannedOrgSprints} sprints` : repeat && preview ? `Create ${preview.rows.length} sprints` : "Create sprint") : "Save changes"}
+              {/* §6.6: the button names what it makes. */}
+              {isSubmitting ? "Saving…" : mode === "create" ? (planEach && onPlanEach ? `Create ${plannedOrgSprints} sprints` : repeat && preview ? `Create ${preview.rows.length} sprints` : `Create ${draft.name.trim() || "sprint"}`) : "Save changes"}
             </button>
           </div>
         </form>

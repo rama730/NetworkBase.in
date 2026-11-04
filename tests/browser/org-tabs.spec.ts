@@ -297,7 +297,7 @@ test('Sprint form (§28.2): an organization names the next sprint, Repeat previe
     await expect(page.locator('#sprint-name')).toHaveValue('CO2');
     await page.locator('#sprint-start-date').fill('2027-01-04');
     await page.locator('#sprint-end-date').fill('2027-01-17');
-    await page.getByLabel('Plan more sprints like this').check();
+    await page.getByRole('radio', { name: 'Several (plan the term)' }).click();
     const list = page.getByRole('list', { name: 'Sprints to create' });
     await expect(list).toContainText('CO3 · Jan 18–Jan 31 · Overlaps Mid-term break');
     await expect(page.getByRole('button', { name: 'Create 4 sprints' })).toBeDisabled();
@@ -311,13 +311,14 @@ test('Sprint form (§28.2): an organization names the next sprint, Repeat previe
 
 test('Sprint form (§18.2): a team sprint sits inside CO1, says its limit beside the dates, and offers the group work', async ({ page }) => {
     await open(page, 'sprint-child', 1280);
-    await expect(page.getByText('Inside CO1 · Jan 4–Jan 17')).toBeVisible();
+    await expect(page.getByLabel('Inside the class sprint')).toHaveValue(/.+/);
+    await expect(page.getByText(/Your dates start as CO1’s \(Jan 4–Jan 17\)/)).toBeVisible();
     await expect(page.getByRole('option', { name: 'Not inside a sprint' })).toHaveCount(0);
     await expect(page.getByLabel('Also add 2 group assignments from the backlog')).toBeChecked();
     await page.locator('#sprint-end-date').fill('2027-01-20');
     await expect(page.getByRole('alert').filter({ hasText: 'CO1 ends Jan 17. Pick an earlier date.' })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Create sprint' })).toBeDisabled();
-    await expect(page.getByRole('button', { name: 'Plan more sprints like this' })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: /^Create / })).toBeDisabled();
+    await expect(page.getByRole('radio', { name: 'Several (plan the term)' })).toHaveCount(0);
     await noSideScroll(page);
     await page.screenshot({ path: test.info().outputPath('sprint-child.png') });
 });

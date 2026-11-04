@@ -97,3 +97,18 @@ export function workGroups<T extends WorkLike>(tasks: T[], by: "state" | "person
 export function startsIn(sprint: Pick<SprintLike, "startDate">, now = new Date()) {
   return sprint.startDate ? Math.max(0, dayNumber(sprint.startDate) - dayNumber(today(now))) : null;
 }
+
+/** §6.2: the sprints either side of new dates (upcoming and running only), any overlap, and one line saying how it fits. */
+export function termStrip(range: { startDate: string; endDate: string }, existing: Array<SprintLike & { name: string }>, skipId?: string | null) {
+  const live = existing.filter((x) => x.id !== skipId && x.startDate && x.endDate && (x.status === "planning" || x.status === "active"));
+  const start = dateOnly(range.startDate), end = dateOnly(range.endDate);
+  const clash = live.find((x) => dateOnly(x.startDate!) <= end && dateOnly(x.endDate!) >= start) ?? null;
+  const before = live.filter((x) => dateOnly(x.endDate!) < start).sort((a, b) => b.endDate!.localeCompare(a.endDate!))[0] ?? null;
+  const after = live.filter((x) => dateOnly(x.startDate!) > end).sort((a, b) => a.startDate!.localeCompare(b.startDate!))[0] ?? null;
+  const gap = before ? dayNumber(start) - dayNumber(before.endDate!) - 1 : null;
+  const line = clash ? `Overlaps ${clash.name}.`
+    : before && gap === 0 ? `Starts right after ${before.name}. No overlap.`
+      : before ? `Starts ${gap} ${gap === 1 ? "day" : "days"} after ${before.name}.`
+        : after ? `Ends before ${after.name}.` : "No other sprint around these dates.";
+  return { before: before?.name ?? null, after: after?.name ?? null, clash: clash?.name ?? null, line };
+}

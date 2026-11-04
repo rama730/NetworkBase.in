@@ -46,3 +46,14 @@ test("§5.4, §8.5: work groups by state (In progress, Blocked, In review, To do
   assert.deepEqual(byPerson.groups.map((g) => g.title), ["Ravi", "Nobody yet"]);
   assert.deepEqual(workGroups(tasks, "state", "u1").groups.map((g) => g.title), ["In progress"], "Mine");
 });
+
+test("§6.2: the form's term strip shows the neighbours and says how the new sprint fits", async () => {
+  const { termStrip } = await import("../../src/lib/workspaces/sprint-plan");
+  const existing = [s("co1", "active", "2026-11-01", "2026-11-15"), s("co3", "planning", "2026-12-01", "2026-12-14"), s("gone", "cancelled", "2026-11-16", "2026-11-20")].map((x: object, i) => ({ ...x, name: ["CO1", "CO3", "Gone"][i] }));
+  assert.deepEqual(termStrip({ startDate: "2026-11-16", endDate: "2026-11-30" }, existing as never), { before: "CO1", after: "CO3", clash: null, line: "Starts right after CO1. No overlap." });
+  assert.equal(termStrip({ startDate: "2026-11-20", endDate: "2026-11-30" }, existing as never).line, "Starts 4 days after CO1.");
+  assert.deepEqual(termStrip({ startDate: "2026-11-10", endDate: "2026-11-30" }, existing as never).clash, "CO1");
+  assert.equal(termStrip({ startDate: "2026-11-10", endDate: "2026-11-30" }, existing as never).line, "Overlaps CO1.");
+  assert.equal(termStrip({ startDate: "2027-02-01", endDate: "2027-02-10" }, [] as never).line, "No other sprint around these dates.");
+  assert.equal(termStrip({ startDate: "2026-11-16", endDate: "2026-11-30" }, existing as never, "co1").before, null, "editing a sprint leaves itself out");
+});

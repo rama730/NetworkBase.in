@@ -57,8 +57,10 @@ describe("sprint tab target architecture contract", () => {
     assert.match(sprintHeaderSource, /Starts by itself/);
     assert.doesNotMatch(sprintHeaderSource, /Start sprint|Reopen sprint/);
     assert.match(sprintLifecycleModalsSource, /unfinishedChoice/);
-    assert.match(sprintLifecycleModalsSource, /Move to backlog/);
-    assert.match(sprintLifecycleModalsSource, /Move to a planning sprint/);
+    // Sprint redesign §8.7: open work goes to the next sprint (named), the backlog, or stays here, for the record.
+    assert.match(sprintLifecycleModalsSource, /title: "The backlog"/);
+    assert.match(sprintLifecycleModalsSource, /title: "Stay here, for the record"/);
+    assert.match(sprintLifecycleModalsSource, /setUnfinishedChoice\(next \? "next_sprint" : "backlog"\)/);
     assert.match(sprintLifecycleModalsSource, /DialogContent/);
     assert.match(sprintLifecycleModalsSource, /DialogTitle/);
     assert.doesNotMatch(sprintLifecycleModalsSource, /role="alertdialog"/);

@@ -28,16 +28,17 @@ interface SprintLeftRailProps {
 const SHORT = new Intl.DateTimeFormat("en", { month: "short", day: "numeric", timeZone: "UTC" });
 const short = (iso: string) => SHORT.format(new Date(`${iso}T00:00:00Z`));
 
-/** One line under a sprint's name: where it is in its life. */
-function railLine(sprint: SprintListItem) {
+/** Under a sprint's name: its dates, then where it is in its life. */
+function railLines(sprint: SprintListItem) {
   const phase = sprintPhase(sprint);
   const time = sprintTime(sprint);
   const dates = formatSprintDateRange(sprint.startDate, sprint.endDate);
-  if (phase === "running" && time) return `${dates} · day ${time.day} of ${time.days}`;
   const wait = startsIn(sprint);
-  if (phase === "upcoming" && wait !== null) return `${dates} · ${wait === 0 ? "starts today" : `starts in ${wait} ${wait === 1 ? "day" : "days"}`}`;
-  if (phase === "ended") return `Ended ${sprint.endDate ? short(sprint.endDate.slice(0, 10)) : ""} · needs closing`;
-  return `${PHASE_WORDS[phase].label} · ${dates}`;
+  const note = phase === "running" && time ? `day ${time.day} of ${time.days}`
+    : phase === "upcoming" && wait !== null ? (wait === 0 ? "starts today" : `starts in ${wait} ${wait === 1 ? "day" : "days"}`)
+      : phase === "ended" ? `ended ${sprint.endDate ? short(sprint.endDate.slice(0, 10)) : ""} · needs closing`
+        : PHASE_WORDS[phase].label;
+  return { dates, note };
 }
 
 export function SprintLeftRail({ projectId, projectSlug, sprints, selectedSprintId, canCreate, onCreate, showBacklog = false, showCalendar = true }: SprintLeftRailProps) {
@@ -119,7 +120,7 @@ export function SprintLeftRail({ projectId, projectSlug, sprints, selectedSprint
                                 <span aria-hidden="true" className={cn("size-1.5 shrink-0 rounded-[1px]", phase === "running" ? "bg-[var(--status-success)]" : phase === "ended" ? "bg-[var(--status-warning)]" : phase === "upcoming" ? "bg-primary" : "bg-muted-foreground/50")} />
                                 <span className="truncate text-sm font-medium leading-tight text-foreground">{sprint.name}</span>
                               </span>
-                              <span className="truncate pl-3.5 font-mono text-[11px] text-muted-foreground">{railLine(sprint)}</span>
+                              <span className="pl-3.5 font-mono text-[11px] text-muted-foreground">{railLines(sprint).dates}<span className={cn("block", phase === "ended" && "text-[var(--status-warning)]")}>{railLines(sprint).note}</span></span>
                               {time ? (
                                 <span className="ml-3.5 block h-1 overflow-hidden rounded-[2px] bg-muted" role="img" aria-label={`${time.percent}% of the time gone`}>
                                   <span className="block h-full bg-primary" style={{ width: `${time.percent}%` }} />
