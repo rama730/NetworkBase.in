@@ -54,7 +54,7 @@ test("student check 13: Privacy in organization Settings says organization and p
 });
 
 test("student check 15: small words — reviewers by role, one helper line, Today's empty line, a plain hand-in error", () => {
-  assert.match(source("src/components/organizations/HandInSection.tsx"), /Reviewed by \$\{h\.reviewers\}/);
+  assert.match(source("src/components/organizations/HandInSection.tsx"), />Reviewed by<\/dt><dd>\{h\.reviewers\}<\/dd>/);
   assert.match(source("src/app/actions/assignments.ts"), /reviewers: `\$\{roles\.owner\} or \$\{roles\.admin\}`/);
   assert.doesNotMatch(source("src/components/organizations/ClassQuestions.tsx"), /Everyone with this assignment sees this/);
   assert.match(source("src/components/organizations/OrgOverviewParts.tsx"), /'Nothing due in the next 2 days'/);

@@ -6,7 +6,7 @@ import { logger } from '@/lib/logger';
 import { z } from 'zod';
 
 import { db } from '@/lib/db';
-import { assignmentSubmissions, profiles, taskNodeLinks, workspaceMembers, workspaceNodes, workspaces, workspaceSprints, workspaceWorkflowColumns, taskActivityEvents, taskTeamMembers, tasks } from '@/lib/db/schema';
+import { assignmentSubmissions, profiles, taskNodeLinks, taskSubtasks, workspaceMembers, workspaceNodes, workspaces, workspaceSprints, workspaceWorkflowColumns, taskActivityEvents, taskTeamMembers, tasks } from '@/lib/db/schema';
 import { getWorkspaceAccessById, writeBlockedMessage } from '@/lib/data/workspace-access';
 import { createClient } from '@/lib/supabase/server';
 import { orgRoleNames } from '@/lib/organizations/config';
@@ -22,6 +22,7 @@ import { orgCan, orgGrant, orgRoleOf, type OrgAction } from '@/lib/organizations
 import { assignmentPeopleOf, notifyAssignmentDueChanged, notifyAssignmentPublished, notifyNewCopies, notifyAssignmentRemoved, notifyAssignmentReopened, notifyAssignmentReviewed, notifyAssignmentSubmitted, notifyTeamMoved } from '@/lib/organizations/assignment-notify';
 import { notifyOrg, orgHref, orgLabel, remindedRecently } from '@/lib/organizations/notify';
 import { taskReviewSnapshot } from '@/lib/workspaces/task-review-snapshot';
+import { WORKSPACE_UPLOAD_MAX_FILE_BYTES } from '@/lib/upload/security';
 import { ASSIGNMENT_STATE_LABELS } from '@/lib/copy/terms';
 
 // Assignments (report §16, §16.11). Owners and admins create, review and manage; recipients submit.
@@ -240,12 +241,19 @@ export type HandIn = {
     holder: boolean; submissionType: string; reviewRequired: boolean; dueDate: string | null; lateLabel: string | null; from: string; reviewers: string;
     state: CopyState; late: boolean; canSubmit: boolean; closed: boolean; approved: boolean; excusedReason: string | null;
     returned: { reason: string | null; fixBy: string | null; by: string | null } | null;
-    latest: { version: number; at: string; by: string; link: string | null; text: string | null; note: string | null; files: Array<{ nodeId: string; name: string; size: number | null }> } | null;
-    files: Array<{ nodeId: string; name: string; size: number | null }>;
+    latest: { version: number; at: string; by: string; link: string | null; text: string | null; note: string | null; files: HandInFile[] } | null;
+    files: HandInFile[];
     /** Mockup task 3: handing in now would be marked late. */
     wouldBeLate: boolean;
-    materials: Array<{ nodeId: string; name: string }>;
+    materials: Array<{ nodeId: string; name: string; projectId: string }>;
+    /** Review UX: the copy's workspace, its steps (2.7), the upload limit (2.10), and what happened to it, newest first (2.9, 3.14, 3.15). */
+    projectId: string;
+    steps: Array<{ id: string; title: string; done: boolean }>;
+    maxFileBytes: number;
+    history: Array<{ kind: 'handed_in' | 'returned' | 'approved'; at: string; by: string | null; version?: number; late?: boolean; reason?: string | null }>;
 };
+/** A file with the workspace it lives in, so the viewer reads it from there. */
+export type HandInFile = { nodeId: string; name: string; size: number | null; projectId: string };
 
 /**
  * The task panel's Hand in section (report §34.4, decision 85): what's asked, the state with its reason or date,
@@ -268,8 +276,8 @@ export async function readHandInAction(copyId: string): Promise<{ success: true;
         SELECT e.payload->>'reason' AS reason, e.payload->>'fixBy' AS fix_by, (SELECT coalesce(p.full_name, p.username) FROM profiles p WHERE p.id = e.actor_id) AS by
         FROM task_activity_events e WHERE e.task_id = ${copyId} AND e.event_type = 'changes_requested' ORDER BY e.created_at DESC LIMIT 1`) : [];
     // Live loop 34: a file removed from the copy (detached, like the panel's Files list) isn't handed in.
-    const files = await db.execute<{ node_id: string; name: string; size: number | null }>(sql`
-        SELECT n.id AS node_id, n.name, n.size FROM workspace_nodes n WHERE n.deleted_at IS NULL AND n.type = 'file' AND ((n.task_id = ${copyId} AND (n.metadata->>'taskFileDetachedFrom') IS DISTINCT FROM ${copyId}::text) OR n.id IN (SELECT node_id FROM task_node_links WHERE task_id = ${copyId})) ORDER BY n.name`);
+    const files = await db.execute<{ node_id: string; name: string; size: number | null; project_id: string }>(sql`
+        SELECT n.id AS node_id, n.name, n.size, n.workspace_id AS project_id FROM workspace_nodes n WHERE n.deleted_at IS NULL AND n.type = 'file' AND ((n.task_id = ${copyId} AND (n.metadata->>'taskFileDetachedFrom') IS DISTINCT FROM ${copyId}::text) OR n.id IN (SELECT node_id FROM task_node_links WHERE task_id = ${copyId})) ORDER BY n.name`);
     const materials = await readAssignmentMaterialsAction(copyId);
     const byName = latest?.submittedBy ? (await db.select({ name: sql<string>`coalesce(${profiles.fullName}, ${profiles.username}, 'Someone')` }).from(profiles).where(eq(profiles.id, latest.submittedBy)).limit(1))[0]?.name : null;
     const [org] = await db.select({ title: workspaces.title, orgType: workspaces.orgType, orgSettings: workspaces.orgSettings }).from(workspaces).where(eq(workspaces.id, master.projectId)).limit(1);
@@ -280,14 +288,25 @@ export async function readHandInAction(copyId: string): Promise<{ success: true;
     const canSubmit = holder && !copy.excusedAt && !replaceLocked && canStillSubmit(master.settings, copy.dueDate, now, copy.submitUntil);
     // Mockup task 3: "This will be marked Late." when handing in now would be.
     const wouldBeLate = canSubmit && Boolean(copy.dueDate && now.getTime() > copy.dueDate.getTime() + lateAfterMs(master.settings));
-    const sizes = new Map<string, number | null>(latest?.files.length ? (await db.select({ id: workspaceNodes.id, size: workspaceNodes.size }).from(workspaceNodes).where(inArray(workspaceNodes.id, latest.files.map((f) => f.nodeId)))).map((n) => [n.id, n.size == null ? null : Number(n.size)]) : []);
+    const sizes = new Map<string, { size: number | null; projectId: string }>(latest?.files.length ? (await db.select({ id: workspaceNodes.id, size: workspaceNodes.size, projectId: workspaceNodes.projectId }).from(workspaceNodes).where(inArray(workspaceNodes.id, latest.files.map((f) => f.nodeId)))).map((n) => [n.id, { size: n.size == null ? null : Number(n.size), projectId: n.projectId }]) : []);
+    const steps = await db.select({ id: taskSubtasks.id, title: taskSubtasks.title, done: taskSubtasks.completed }).from(taskSubtasks).where(eq(taskSubtasks.taskId, copyId)).orderBy(asc(taskSubtasks.position), asc(taskSubtasks.createdAt));
+    // Every version handed in, each return and each approval, newest first.
+    const history = await db.execute<{ kind: 'handed_in' | 'returned' | 'approved'; at: Date | string; by: string | null; version: number | null; late: boolean | null; reason: string | null }>(sql`
+        SELECT * FROM (
+            SELECT 'handed_in' AS kind, s.submitted_at AS at, (SELECT coalesce(p.full_name, p.username) FROM profiles p WHERE p.id = s.submitted_by) AS by, s.version, s.late, NULL AS reason
+            FROM assignment_submissions s WHERE s.copy_id = ${copyId}
+            UNION ALL
+            SELECT CASE WHEN e.event_type = 'review_approved' THEN 'approved' ELSE 'returned' END, e.created_at, (SELECT coalesce(p.full_name, p.username) FROM profiles p WHERE p.id = e.actor_id), NULL, NULL, e.payload->>'reason'
+            FROM task_activity_events e WHERE e.task_id = ${copyId} AND e.event_type IN ('review_approved', 'changes_requested')
+        ) h ORDER BY at DESC, kind = 'handed_in'`);
     return { success: true, handIn: {
         holder, submissionType: master.settings.submissionType, reviewRequired: master.settings.reviewRequired, dueDate: copy.dueDate?.toISOString() ?? null,
         lateLabel: lateWorkLabel(master.settings), from: org?.title ?? 'the organization', reviewers: `${roles.owner} or ${roles.admin}`, state: s.state, late: s.late, canSubmit, closed: Boolean(master.settings.closedAt), approved,
         excusedReason: copy.excusedReason, returned: s.state === 'returned' ? { reason: returnedEvent?.reason ?? null, fixBy: returnedEvent?.fix_by ?? copy.submitUntil?.toISOString() ?? null, by: returnedEvent?.by ?? null } : null,
-        latest: latest ? { version: latest.version, at: latest.submittedAt.toISOString(), by: byName ?? 'Someone', link: latest.link, text: latest.body, note: latest.note, files: latest.files.map((f) => ({ nodeId: f.nodeId, name: f.name, size: sizes.get(f.nodeId) ?? null })) } : null,
-        files: files.map((f) => ({ nodeId: f.node_id, name: f.name, size: f.size == null ? null : Number(f.size) })), materials: materials.success ? materials.materials : [],
-        wouldBeLate,
+        latest: latest ? { version: latest.version, at: latest.submittedAt.toISOString(), by: byName ?? 'Someone', link: latest.link, text: latest.body, note: latest.note, files: latest.files.map((f) => ({ nodeId: f.nodeId, name: f.name, size: sizes.get(f.nodeId)?.size ?? null, projectId: sizes.get(f.nodeId)?.projectId ?? copy.projectId })) } : null,
+        files: files.map((f) => ({ nodeId: f.node_id, name: f.name, size: f.size == null ? null : Number(f.size), projectId: f.project_id })), materials: materials.success ? materials.materials : [],
+        wouldBeLate, projectId: copy.projectId, steps, maxFileBytes: WORKSPACE_UPLOAD_MAX_FILE_BYTES,
+        history: history.map((e) => ({ kind: e.kind, at: new Date(e.at).toISOString(), by: e.by, ...(e.kind === 'handed_in' ? { version: Number(e.version), late: Boolean(e.late) } : { reason: e.reason }) })),
     } };
 }
 
@@ -328,7 +347,7 @@ export async function searchAssignmentMaterialsAction(orgId: string, query: stri
  * Materials on the assignment (decision 128, problem 10): the main assignment's files, read only from each copy.
  * Admins-only files stay hidden from members, names included.
  */
-export async function readAssignmentMaterialsAction(copyId: string): Promise<{ success: true; materials: Array<{ nodeId: string; name: string }> } | Failure> {
+export async function readAssignmentMaterialsAction(copyId: string): Promise<{ success: true; materials: Array<{ nodeId: string; name: string; projectId: string }> } | Failure> {
     const userId = await viewerId();
     const loaded = await loadCopy(copyId);
     if (!userId || !loaded) return DENIED;
@@ -338,7 +357,7 @@ export async function readAssignmentMaterialsAction(copyId: string): Promise<{ s
         sql`(${tasks.assigneeId} = ${userId} OR EXISTS (SELECT 1 FROM task_team_members tm WHERE tm.task_id = ${copyId}::uuid AND tm.user_id = ${userId}))`)).limit(1);
     if (!mine) return DENIED;
     const masterId = loaded.master.id;
-    const rows = await db.select({ nodeId: workspaceNodes.id, name: workspaceNodes.name }).from(workspaceNodes)
+    const rows = await db.select({ nodeId: workspaceNodes.id, name: workspaceNodes.name, projectId: workspaceNodes.projectId }).from(workspaceNodes)
         .where(and(isNull(workspaceNodes.deletedAt), eq(workspaceNodes.type, 'file'),
             sql`(${workspaceNodes.taskId} = ${masterId} OR ${workspaceNodes.id} IN (SELECT node_id FROM task_node_links WHERE task_id = ${masterId}))`,
             orgFileAccessSql({ ...access, viewerId: userId })))

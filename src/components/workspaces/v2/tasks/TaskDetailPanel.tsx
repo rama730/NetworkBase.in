@@ -624,6 +624,7 @@ export default function TaskDetailPanel({
                     })
                   }
                   onOpenTab={setActiveTab}
+                  onOpenConversation={(kind) => { setConversation(kind); setActiveTab("comments"); }}
                   workflowColumns={workflowColumns}
                   onMoveToColumn={resource.taskMutations.moveToColumn}
                 />

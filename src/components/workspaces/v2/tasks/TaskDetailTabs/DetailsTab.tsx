@@ -92,6 +92,8 @@ interface DetailsTabProps {
   ) => Promise<{ success: boolean; error?: string }>;
   onReviewApproved: (updatedAt: string, status?: "done" | "in_progress" | "todo" | "blocked", reviewStatus?: "none" | "pending" | "rejected") => void;
   onOpenTab: (tab: TaskPanelTab) => void;
+  /** Review UX 2.11: the Hand in card opens the copy's private conversation or class questions. */
+  onOpenConversation?: (kind: "private" | "class") => void;
   /** Hand in takes files straight in (step 13 gap), through the panel's own upload. */
   onUploadFiles?: (files: File[]) => Promise<{ success: boolean; error?: string }>;
   /** Live loop 34: take an earlier file off work that's open again. */
@@ -121,6 +123,7 @@ export default function DetailsTab({
   onUploadFiles,
   onRemoveFile,
   onOpenTab,
+  onOpenConversation,
   workflowColumns,
   onMoveToColumn,
 }: DetailsTabProps) {
@@ -323,7 +326,7 @@ export default function DetailsTab({
 
       {/* Decision 85: an assignment copy is handed in here, for every hand-in type. */}
       {task.assignmentId ? (
-        <HandInSection copyId={task.id} onOpenFiles={() => onOpenTab("files")} onUploadFiles={onUploadFiles} onRemoveFile={onRemoveFile}
+        <HandInSection copyId={task.id} onOpenFiles={() => onOpenTab("files")} onUploadFiles={onUploadFiles} onRemoveFile={onRemoveFile} onOpenConversation={onOpenConversation}
           onSubmitted={(review) => onReviewApproved(new Date().toISOString(), "done", review ? "pending" : "none")} />
       ) : null}
 
@@ -375,8 +378,8 @@ export default function DetailsTab({
           </div>
         </div>
       ) : null}
-      {task.reviewStatus === "rejected" && !master && reviewState.data?.reason ? <p className="border-b border-border pb-3 text-sm"><span className="font-medium">Changes requested: </span>{reviewState.data.reason}</p> : null}
-      {reviewState.data?.completedAt ? <p className="nb-meta text-muted-foreground">Completed {format(new Date(reviewState.data.completedAt), "MMM d, yyyy h:mm a")}</p> : null}
+      {task.reviewStatus === "rejected" && !master && !task.assignmentId && reviewState.data?.reason ? <p className="border-b border-border pb-3 text-sm"><span className="font-medium">Changes requested: </span>{reviewState.data.reason}</p> : null}
+      {reviewState.data?.completedAt && !task.assignmentId ? <p className="nb-meta text-muted-foreground">Completed {format(new Date(reviewState.data.completedAt), "MMM d, yyyy h:mm a")}</p> : null}
 
       {showDoneWarnings ? (
         <div className="rounded-lg border border-amber-200 bg-amber-50/90 px-4 py-3 text-sm text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-100">
@@ -653,7 +656,8 @@ export default function DetailsTab({
         )}
       </div>
 
-      {/* Properties Section (Unboxed, direct on panel surface) */}
+      {/* Properties Section (Unboxed, direct on panel surface); review UX 2.12: on a copy they fold under More details. */}
+      <MoreDetails fold={Boolean(task.assignmentId)}>
       <div className="space-y-3 pt-1">
         <div className="border-b border-border/60 pb-2">
           <h3 className="text-xs font-semibold uppercase tracking-[0.06em] text-muted-foreground">
@@ -1097,6 +1101,17 @@ export default function DetailsTab({
           </div>
         </div>
       </div>
+      </MoreDetails>
     </div>
+  );
+}
+
+function MoreDetails({ fold, children }: { fold: boolean; children: React.ReactNode }) {
+  if (!fold) return <>{children}</>;
+  return (
+    <details className="group border-t border-border pt-3">
+      <summary className="cursor-pointer text-[13px] font-medium text-muted-foreground hover:text-foreground">More details</summary>
+      <div className="pt-3">{children}</div>
+    </details>
   );
 }

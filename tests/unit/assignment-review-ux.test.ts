@@ -70,3 +70,47 @@ test("1.1, 1.3, 1.10: admins open a main assignment on its Assignment tab, with 
   const roster = source("src/components/organizations/AssignmentRoster.tsx");
   for (const words of ["Approve selected", "Return selected", "Remind selected", "Give to…", "Add step", "Change decision", "Un-excuse", "Search people", "Late only", "Not in a group"]) assert.ok(roster.includes(words), words);
 });
+
+test("2.4, 2.6, 2.13: each hand-in state gets one box with its next step, and the button's words follow the state and the type", async () => {
+  const { handInBox, handInButton } = await import("../../src/lib/organizations/assignment-rules");
+  const base = { submissionType: "file", state: "not_started", approved: false, canSubmit: true, closed: false, late: false, excusedReason: null, returned: null, from: "CSE 3B", lateLabel: null, latest: null } as never;
+  const h = (patch: Record<string, unknown>) => ({ ...(base as object), ...patch }) as never;
+  assert.deepEqual(handInBox(base), { tone: "info", title: "Not handed in yet", lines: [], next: "Add your file below, then hand it in.", message: false });
+  assert.equal(handInBox(h({ submissionType: "link" })).next, "Paste the link below, then hand it in.");
+  assert.equal(handInBox(h({ submissionType: "none" })).next, "Mark it as done when you’ve finished.");
+  assert.deepEqual(handInBox(h({ state: "returned", returned: { by: "Ms. Rao", reason: "Add tests.", fixBy: null } })), { tone: "danger", title: "Ms. Rao returned this", lines: ["Add tests."], next: "Make the changes, then hand it in again.", message: false });
+  assert.deepEqual(handInBox(h({ state: "submitted", latest: { version: 2, at: "2026-11-04T10:00:00Z" }, late: true })).lines, ["Version 2 · Late · Waiting for review"]);
+  assert.equal(handInBox(h({ state: "submitted", latest: { version: 1, at: "2026-11-04T10:00:00Z" } })).message, true, "a waiting file can't be replaced: ask instead");
+  assert.equal(handInBox(h({ state: "submitted", submissionType: "text", latest: { version: 1, at: "2026-11-04T10:00:00Z" } })).next, "You can update it until it’s reviewed.");
+  assert.deepEqual(handInBox(h({ state: "excused", excusedReason: "Medical leave" })), { tone: "muted", title: "You’re excused", lines: ["Medical leave"], next: "Nothing to hand in.", message: true });
+  assert.deepEqual(handInBox(h({ closed: true, canSubmit: false })), { tone: "muted", title: "This assignment is closed", lines: [], next: "Message them if you need more time.", message: true });
+  assert.deepEqual(handInBox(h({ state: "missing", canSubmit: false })), { tone: "danger", title: "The due date has passed", lines: [], next: "Ask CSE 3B if you need more time.", message: true });
+  assert.equal(handInBox(h({ state: "missing", lateLabel: "Late work accepted" })).next, "Hand it in now. It will be marked Late.");
+  assert.equal(handInBox(h({ state: "done", approved: true, latest: { version: 3, at: "2026-11-04T10:00:00Z" } })).title, "Approved");
+
+  assert.deepEqual(handInButton(base), { show: true, label: "Hand in" });
+  assert.deepEqual(handInButton(h({ state: "returned" })), { show: true, label: "Hand in again" });
+  assert.deepEqual(handInButton(h({ state: "submitted" })), { show: false, label: "Hand in again" }, "no Replace while a file waits");
+  assert.deepEqual(handInButton(h({ state: "submitted", submissionType: "link" })), { show: true, label: "Update hand-in" });
+  assert.deepEqual(handInButton(h({ submissionType: "none" })), { show: true, label: "Mark as done" });
+  assert.deepEqual(handInButton(h({ submissionType: "none", state: "done" })), { show: false, label: "Mark as done" });
+  assert.equal(handInButton(h({ canSubmit: false })).show, false);
+});
+
+test("2.5, 2.14: the button says why it's off, and a link must be a web link", async () => {
+  const { handInBlocked } = await import("../../src/lib/organizations/assignment-rules");
+  assert.equal(handInBlocked({ submissionType: "file", files: 0 }), "Add a file to hand it in.");
+  assert.equal(handInBlocked({ submissionType: "file", files: 1 }), null);
+  assert.equal(handInBlocked({ submissionType: "link", link: "" }), "Add a link to hand it in.");
+  assert.equal(handInBlocked({ submissionType: "link", link: "docs.google.com/x" }), "That isn’t a web link. Start it with https://");
+  assert.equal(handInBlocked({ submissionType: "link", link: "https://docs.google.com/x" }), null);
+  assert.equal(handInBlocked({ submissionType: "text", text: "  " }), "Write your answer to hand it in.");
+  assert.equal(handInBlocked({ submissionType: "none" }), null);
+});
+
+test("2.11, 2.12: on a copy the properties fold under More details, and the card opens the private conversation or class questions", () => {
+  const details = source("src/components/workspaces/v2/tasks/TaskDetailTabs/DetailsTab.tsx");
+  assert.match(details, /<MoreDetails fold=\{Boolean\(task\.assignmentId\)\}>/);
+  assert.match(details, /onOpenConversation=\{onOpenConversation\}/);
+  assert.match(source("src/components/workspaces/v2/tasks/TaskDetailPanel.tsx"), /onOpenConversation=\{\(kind\) => \{ setConversation\(kind\); setActiveTab\("comments"\); \}\}/);
+});

@@ -149,6 +149,46 @@ test("mockup task 3: the hand-in says who returned it, each file's size, and whe
   viewerId = "";
 });
 
+test("review ux 2.7, 2.9, 2.10, 3.14, 3.15: the hand-in lists its steps, the upload limit, each file's workspace, and its history of hand-ins, returns and the approval", async () => {
+  const [owner, asha] = await Promise.all([1, 2].map(() => sql.begin((tx) => createUser(tx))));
+  const org = await sql.begin((tx) => createProject(tx, owner!));
+  await sql`INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (${org}, ${owner!}, 'owner'), (${org}, ${asha!}, 'member')`;
+  await sql`UPDATE workspaces SET kind = 'organization', org_type = 'education', title = 'CSE 3B', join_code = ${generateJoinCode()} WHERE id = ${org}`;
+  await sql`UPDATE profiles SET full_name = 'Ms. Rao' WHERE id = ${owner!}`;
+  await sql`UPDATE profiles SET full_name = 'Asha Nair' WHERE id = ${asha!}`;
+  created.push(org);
+  viewerId = owner!;
+  const made = await assignments.createAssignmentAction({ projectId: org, title: "Lab 4", dueDate: new Date(Date.now() + 864e5).toISOString(), publish: true,
+    submissionType: "file", reviewRequired: true, lateRule: "always", target: { mode: "everyone" }, steps: ["Read", "Write"] });
+  const masterId = made.success ? made.masterId : "";
+  const [copy] = await sql`SELECT id FROM tasks WHERE assignment_id = ${masterId} AND assignee_id = ${asha!}`;
+  await sql`INSERT INTO workspace_nodes (workspace_id, task_id, path, type, name, size, metadata, current_version)
+    VALUES (${org}, ${copy!.id}, ${`/.system/tasks/${copy!.id}/lab4.pdf`}, 'file', 'lab4.pdf', 1000, '{}'::jsonb, 1)`;
+  viewerId = asha!;
+  const open = await assignments.readHandInAction(copy!.id);
+  assert.ok(open.success);
+  assert.deepEqual(open.handIn.steps.map((s) => [s.title, s.done]), [["Read", false], ["Write", false]]);
+  assert.equal(open.handIn.maxFileBytes, 10 * 1024 * 1024);
+  assert.equal(open.handIn.projectId, org);
+  assert.equal(open.handIn.files[0]!.projectId, org);
+  assert.deepEqual(open.handIn.history, []);
+  assert.equal((await assignments.submitAssignmentAction(copy!.id, {})).success, true);
+  viewerId = owner!;
+  await assignments.reviewAssignmentCopyAction(copy!.id, "return", "Add the test cases.");
+  viewerId = asha!;
+  assert.equal((await assignments.submitAssignmentAction(copy!.id, {})).success, true);
+  viewerId = owner!;
+  await assignments.reviewAssignmentCopyAction(copy!.id, "approve");
+  viewerId = asha!;
+  const done = await assignments.readHandInAction(copy!.id);
+  assert.ok(done.success);
+  assert.deepEqual(done.handIn.history.map((e) => [e.kind, e.by, e.version ?? null, e.reason ?? null]), [
+    ["approved", "Ms. Rao", null, null], ["handed_in", "Asha Nair", 2, null], ["returned", "Ms. Rao", null, "Add the test cases."], ["handed_in", "Asha Nair", 1, null],
+  ], "newest first");
+  assert.equal(done.handIn.latest!.files[0]!.projectId, org);
+  viewerId = "";
+});
+
 test("mockup task 1: roster rows carry when and which version was handed in, and when the person was last reminded", async () => {
   const [owner, asha, ravi] = await Promise.all([1, 2, 3].map(() => sql.begin((tx) => createUser(tx))));
   const org = await sql.begin((tx) => createProject(tx, owner!));

@@ -22,8 +22,9 @@ test("task 3: Hand in shows its chip, a coloured state box, file rows with sizes
   const { readFileSync } = await import("node:fs");
   const hand = readFileSync("src/components/organizations/HandInSection.tsx", "utf8");
   assert.match(hand, /<span className="nb-status" data-status=\{TONE\[chip\.tone\]\}>\{chip\.label\}<\/span>/);
-  assert.match(hand, /\{h\.returned\.by \?\? h\.from\} returned this/);
-  assert.match(hand, /<FileRow key=\{f\.nodeId\} name=\{f\.name\} bytes=\{f\.size\}/);
+  assert.match(hand, /className=\{cn\('space-y-0\.5 rounded-\[5px\] px-3 py-2\.5', BOX\[box\.tone\]\)\}/);
+  assert.match(hand, /<FileRow key=\{f\.nodeId\} file=\{f\}/);
+  assert.match(hand, /\{fileSize\(file\.size\)\}/);
   assert.match(hand, /\{h\.wouldBeLate \? <p[^>]*>This will be marked Late\.<\/p> : null\}/);
 });
 

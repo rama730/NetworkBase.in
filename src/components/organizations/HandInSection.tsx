@@ -3,59 +3,52 @@
 import { useEffect, useState, useTransition } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 
-import { readHandInAction, submitAssignmentAction, type HandIn } from '@/app/actions/assignments'
+import { readHandInAction, submitAssignmentAction, type HandIn, type HandInFile } from '@/app/actions/assignments'
+import { toggleSubtaskAction } from '@/app/actions/subtask'
 import { Button } from '@/components/ui/button'
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { Input } from '@/components/ui/input'
-import { handInChip, webLink } from '@/lib/organizations/assignment-rules'
+import { FileViewer, fileSize } from '@/components/organizations/FileViewer'
+import { handInBlocked, handInBox, handInButton, handInChip, webLink } from '@/lib/organizations/assignment-rules'
 import { cn } from '@/lib/utils'
 
-// Hand in, in the task panel (report §34.4, decision 85): every hand-in type, an optional note, and the state with
-// what to do next. Files attach in the panel's Files tab; Submit locks them with this version (decision 127).
+// Hand in, in the task panel (report §34.4, decision 85; review UX phase 3): what's asked, one state box with what to
+// do next, the files once, the steps, the note and the button that says why it's off; history underneath.
 
 // Student check 21: the reader's own zone (§32.5), named, so nobody guesses whose 11 pm it is.
 const WHEN = new Intl.DateTimeFormat('en', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZoneName: 'short' })
 const ASKED: Record<string, string> = { file: 'a file', link: 'a link', text: 'text', none: 'nothing to attach' }
 const area = 'w-full resize-y rounded-md border border-input bg-transparent px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring'
-
-const size = (bytes: number | null) => (bytes == null ? '' : bytes >= 1e6 ? `${(bytes / 1e6).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1e3))} KB`)
 const TONE = { info: 'active', warn: 'draft', ok: 'completed', danger: 'blocked', muted: 'archived' } as const
 // Mockup task 3 (Submit artboard): the state in a coloured box, green when it's in, red when it came back.
-const box = (tone: 'ok' | 'danger') => cn('rounded-[5px] px-3 py-2.5', tone === 'ok' ? 'bg-[var(--status-success-soft)]' : 'bg-[var(--status-danger-soft)]')
+const BOX = { ok: 'bg-[var(--status-success-soft)]', danger: 'bg-[var(--status-danger-soft)]', info: 'bg-muted/50', muted: 'bg-muted/50' } as const
+const TITLE = { ok: 'text-[var(--status-success)]', danger: 'text-[var(--status-danger)]', info: '', muted: '' } as const
+const TEXT_MAX = 10000
+const label = 'font-mono text-[11px] font-medium uppercase tracking-[0.09em] text-muted-foreground'
 
-function StateLine({ h }: { h: HandIn }) {
-    const at = h.latest ? WHEN.format(new Date(h.latest.at)) : null
-    if (h.excusedReason) return <p>You’re excused: {h.excusedReason}</p>
-    if (h.returned) return (
-        <div className={box('danger')}>
-            <p className="font-semibold">{h.returned.by ?? h.from} returned this</p>
-            <p className="text-[13px]">{h.returned.reason ?? 'Make the changes and hand it in again.'}</p>
-            {h.returned.fixBy ? <p className="mt-0.5 font-mono text-[12px] text-muted-foreground">Fix by {WHEN.format(new Date(h.returned.fixBy))}</p> : null}
-        </div>
-    )
-    if (h.approved) return <div className={box('ok')}><p className="font-semibold text-[var(--status-success)]">Approved{at ? ` · handed in ${at}` : ''}. It’s locked now.</p></div>
-    if (h.state === 'submitted') return (
-        <div className={box('ok')}>
-            <p className="font-semibold text-[var(--status-success)]">Submitted {at}</p>
-            <p className="font-mono text-[12px] text-muted-foreground">Version {h.latest?.version ?? 1}{h.late ? ' · Late' : ''} · Waiting for review</p>
-        </div>
-    )
-    if (h.state === 'done') return <div className={box('ok')}><p className="font-semibold text-[var(--status-success)]">Done {at}{h.late ? ' · Late' : ''}</p></div>
-    if (h.closed && !h.canSubmit) return <p>This assignment is closed.</p>
-    if (h.state === 'missing') return <p className="text-[var(--status-danger)]">{h.canSubmit ? `Overdue.${h.lateLabel ? ` ${h.lateLabel}.` : ''}` : `The due date has passed. Ask ${h.from} if you need more time.`}</p>
-    return null
-}
-
-function FileRow({ name, bytes, onRemove }: { name: string; bytes: number | null; onRemove?: () => void }) {
+/** One file: name and size, Preview in place (review UX 4.6), and Remove while the work is open. */
+function FileRow({ file, onRemove }: { file: HandInFile; onRemove?: () => void }) {
+    const [open, setOpen] = useState(false)
+    const { name } = file
     return (
-        <li className="flex items-center gap-2 rounded-[5px] border border-border px-2.5 py-1.5 text-[13px]">
-            <span className="min-w-0 flex-1 truncate">{name}</span>
-            <span className="font-mono text-[12px] text-muted-foreground">{size(bytes)}</span>
-            {onRemove ? <button type="button" aria-label={`Remove ${name}`} className="rounded-[3px] px-1.5 text-muted-foreground hover:bg-muted hover:text-foreground" onClick={onRemove}>×</button> : null}
+        <li className="rounded-[5px] border border-border text-[13px]">
+            <div className="flex items-center gap-2 px-2.5 py-1.5">
+                <span className="min-w-0 flex-1 truncate">{name}</span>
+                <span className="font-mono text-[12px] text-muted-foreground">{fileSize(file.size)}</span>
+                <button type="button" aria-expanded={open} aria-label={`${open ? 'Hide' : 'Preview'} ${name}`} className="rounded-[3px] px-1.5 text-[12px] text-primary hover:bg-muted" onClick={() => setOpen(!open)}>{open ? 'Hide' : 'Preview'}</button>
+                {onRemove ? <button type="button" aria-label={`Remove ${name}`} className="rounded-[3px] px-1.5 text-muted-foreground hover:bg-muted hover:text-foreground" onClick={onRemove}>×</button> : null}
+            </div>
+            {open ? <FileViewer projectId={file.projectId} file={file} className="m-2 mt-0 h-[50vh]" /> : null}
         </li>
     )
 }
 
-export function HandInSection({ copyId, onOpenFiles, onSubmitted, onUploadFiles, onRemoveFile }: { copyId: string; onOpenFiles: () => void; onSubmitted: (reviewRequired: boolean) => void; onUploadFiles?: (files: File[]) => Promise<{ success: boolean; error?: string }>; onRemoveFile?: (nodeId: string) => Promise<{ success: boolean; error?: string }> }) {
+export function HandInSection({ copyId, onOpenFiles, onSubmitted, onUploadFiles, onRemoveFile, onOpenConversation }: {
+    copyId: string; onOpenFiles: () => void; onSubmitted: (reviewRequired: boolean) => void
+    onUploadFiles?: (files: File[]) => Promise<{ success: boolean; error?: string }>; onRemoveFile?: (nodeId: string) => Promise<{ success: boolean; error?: string }>
+    /** Review UX 2.11: Message and Class questions open the panel's conversation. */
+    onOpenConversation?: (kind: 'private' | 'class') => void
+}) {
     const client = useQueryClient()
     const query = useQuery({ queryKey: ['hand-in', copyId], queryFn: () => readHandInAction(copyId), staleTime: 0 })
     const [link, setLink] = useState('')
@@ -63,19 +56,24 @@ export function HandInSection({ copyId, onOpenFiles, onSubmitted, onUploadFiles,
     const [note, setNote] = useState('')
     const [error, setError] = useState<string | null>(null)
     const [pending, startTransition] = useTransition()
-    const [uploading, setUploading] = useState(false)
+    const [uploading, setUploading] = useState<string[] | null>(null)
     const [dragging, setDragging] = useState(false)
-    // Files go onto the copy right here (step 13 gap); a failed upload says so and keeps nothing half done (32.6).
+    const [confirmSteps, setConfirmSteps] = useState(false)
+    const refresh = () => client.invalidateQueries({ queryKey: ['hand-in', copyId] })
+    const h = query.data?.success ? query.data.handIn : null
+    // Files go onto the copy right here (step 13 gap); a failed upload says why when it can (32.6, review UX 2.10).
     const attach = async (files: File[]) => {
-        if (!onUploadFiles || files.length === 0) return
-        setUploading(true)
+        if (!onUploadFiles || files.length === 0 || !h) return
+        const big = files.find((f) => f.size > h.maxFileBytes)
+        if (big) return setError(`${big.name} is ${fileSize(big.size)}. Files can be up to ${fileSize(h.maxFileBytes)}.`)
+        setUploading(files.map((f) => f.name))
         const result = await onUploadFiles(files).catch((e: unknown) => ({ success: false, error: e instanceof Error ? e.message : undefined }))
-        setUploading(false)
+        setUploading(null)
         // Student check 1: production hides a thrown server message behind React's code, which means nothing to a student.
         const detail = result.error && !/React error|Server Components/.test(result.error) ? ` ${result.error}` : ''
         if (!result.success) return setError(`Couldn’t add the file. Try again.${detail}`)
         setError(null)
-        await client.invalidateQueries({ queryKey: ['hand-in', copyId] })
+        await refresh()
     }
     // Live loop 34: returned work can drop the earlier file instead of handing both in.
     const remove = async (nodeId: string) => {
@@ -83,79 +81,175 @@ export function HandInSection({ copyId, onOpenFiles, onSubmitted, onUploadFiles,
         const result = await onRemoveFile(nodeId)
         if (!result.success) return setError('Couldn’t remove the file. Try again.')
         setError(null)
-        await client.invalidateQueries({ queryKey: ['hand-in', copyId] })
+        await refresh()
     }
-    const h = query.data?.success ? query.data.handIn : null
     // Failure keeps the text (report §32.6); a fresh load starts from what was last handed in.
     useEffect(() => { if (h?.latest) { setLink((v) => v || h.latest!.link || ''); setText((v) => v || h.latest!.text || '') } }, [h?.latest])
     if (!h) return null
     // Decision 173: waiting for review or approved, the files are locked until it's returned.
     const canAttach = Boolean(onUploadFiles) && h.state !== 'submitted' && !h.approved
+    const locked = h.state === 'submitted' || h.approved || (h.state === 'done' && !h.canSubmit)
     const submit = () => startTransition(async () => {
+        setConfirmSteps(false)
         const withNote = note.trim() ? { note: note.trim() } : {}
-        const result = await submitAssignmentAction(copyId, h.submissionType === 'link' ? { link, ...withNote } : h.submissionType === 'text' ? { text, ...withNote } : withNote)
-        if (!result.success) return setError(`Couldn’t submit. Your work is still here. ${result.error}`)
+        const result = await submitAssignmentAction(copyId, h.submissionType === 'link' ? { link: link.trim(), ...withNote } : h.submissionType === 'text' ? { text, ...withNote } : withNote)
+        if (!result.success) return setError(`Couldn’t hand it in. Your work is still here. ${result.error}`)
         setError(null)
         setNote('')
-        await client.invalidateQueries({ queryKey: ['hand-in', copyId] })
+        await refresh()
         onSubmitted(h.reviewRequired)
     })
+    const toggleStep = (id: string, done: boolean) => startTransition(async () => {
+        const result = await toggleSubtaskAction(id, done, h.projectId)
+        setError(result.success ? null : 'Couldn’t tick that step. Try again.')
+        await refresh()
+    })
     const chip = handInChip(h.state, h.approved)
-    const label = h.state === 'returned' ? 'Submit again' : h.state === 'submitted' || h.state === 'done' ? 'Replace submission' : h.submissionType === 'none' ? 'Mark as done' : 'Submit'
+    const box = handInBox(h)
+    const button = handInButton(h)
+    const blocked = handInBlocked({ submissionType: h.submissionType, files: h.files.length, link, text })
+    const openSteps = h.steps.filter((s) => !s.done).length
+    const at = h.latest ? WHEN.format(new Date(h.latest.at)) : null
+    // Review UX 2.2, 2.15: the files once — what was handed in while it's locked, the working files while it's open.
+    const shownFiles = locked ? h.latest?.files ?? [] : h.files
+    // "Message your teacher or TA": role words lower-cased, initialisms kept.
+    const message = `Message your ${h.reviewers.replace(/\b([A-Z])([a-z])/g, (_, a: string, b: string) => a.toLowerCase() + b)}`
+    const msgButton = onOpenConversation ? <Button type="button" size="sm" variant="outline" onClick={() => onOpenConversation('private')}>{message}</Button> : null
     return (
-        <section aria-labelledby="hand-in-heading" className="space-y-3 rounded-[6px] border border-border p-4 text-sm">
-            <div className="space-y-0.5">
+        <section aria-labelledby="hand-in-heading" className="space-y-4 rounded-[6px] border border-border p-4 text-sm">
+            {/* Review UX 2.3: what's asked, when it's due, and who reviews it, each on its own line. */}
+            <div className="space-y-1">
                 <div className="flex items-center gap-2">
-                    <h3 id="hand-in-heading" className="flex-1 font-mono text-[11px] font-medium uppercase tracking-[0.09em] text-muted-foreground">Hand in</h3>
+                    <h3 id="hand-in-heading" className="flex-1 text-[15px] font-semibold">Hand in</h3>
                     <span className="nb-status" data-status={TONE[chip.tone]}>{chip.label}</span>
                 </div>
-                <p className="text-muted-foreground">
-                    What’s asked: {ASKED[h.submissionType] ?? h.submissionType}
-                    {h.dueDate ? ` · Due ${WHEN.format(new Date(h.dueDate))}` : ''}{h.lateLabel ? ` · ${h.lateLabel}` : ''}
-                    {h.reviewRequired ? ` · Reviewed by ${h.reviewers}` : ''}
-                </p>
+                <dl className="grid grid-cols-[max-content_1fr] gap-x-3 gap-y-0.5 text-[13px]">
+                    <dt className="text-muted-foreground">What’s asked</dt><dd>{ASKED[h.submissionType] ?? h.submissionType}</dd>
+                    <dt className="text-muted-foreground">Due</dt><dd>{h.dueDate ? WHEN.format(new Date(h.dueDate)) : 'No due date'}{h.lateLabel ? <span className="block text-[12px] text-muted-foreground">{h.lateLabel}</span> : null}</dd>
+                    {h.reviewRequired ? <><dt className="text-muted-foreground">Reviewed by</dt><dd>{h.reviewers}</dd></> : null}
+                </dl>
                 {/* Locked fields say who set them (report §17.4, §18.3), in a workspace as in the organization. */}
                 <p className="text-[12px] text-muted-foreground">Set by {h.from}: the title, instructions and due date.</p>
             </div>
-            <StateLine h={h} />
-            {h.latest ? (
-                <div className="space-y-1 rounded-md bg-muted/40 px-3 py-2">
-                    <p className="text-[12px] text-muted-foreground">Version {h.latest.version} · {WHEN.format(new Date(h.latest.at))} · by {h.latest.by}</p>
-                    {webLink(h.latest.link) ? <a href={webLink(h.latest.link)!} target="_blank" rel="noreferrer noopener" className="break-all text-primary underline">{h.latest.link}</a> : h.latest.link ? <span className="break-all">{h.latest.link}</span> : null}
-                    {h.latest.text ? <p className="whitespace-pre-line">{h.latest.text}</p> : null}
-                    {h.latest.files.length ? <ul className="space-y-1" aria-label={`Version ${h.latest.version} files`}>{h.latest.files.map((f) => <FileRow key={f.nodeId} name={f.name} bytes={f.size} />)}</ul> : null}
+
+            <div role="status" className={cn('space-y-0.5 rounded-[5px] px-3 py-2.5', BOX[box.tone])}>
+                <p className={cn('font-semibold', TITLE[box.tone])}>{box.title}{(box.title === 'Handed in' || box.title === 'Approved' || box.title === 'Done') && at ? ` · ${at}` : ''}</p>
+                {box.lines.map((line) => <p key={line} className={box.tone === 'ok' ? 'font-mono text-[12px] text-muted-foreground' : 'text-[13px]'}>{line}</p>)}
+                {h.returned?.fixBy ? <p className="font-mono text-[12px] text-muted-foreground">Fix by {WHEN.format(new Date(h.returned.fixBy))}</p> : null}
+                {box.next ? <p className="text-[13px] text-muted-foreground">{box.next}</p> : null}
+                {box.message && msgButton ? <div className="pt-1.5">{msgButton}</div> : null}
+            </div>
+
+            {h.materials.length ? (
+                <div className="space-y-1.5">
+                    <p className={label}>Materials</p>
+                    {/* Review UX 2.8: materials open in the file viewer, read-only. */}
+                    <ul className="space-y-1" aria-label="Materials">{h.materials.map((m) => <FileRow key={m.nodeId} file={{ ...m, size: null }} />)}</ul>
+                </div>
+            ) : null}
+
+            {locked && h.latest ? (
+                <div className="space-y-1.5">
+                    <p className={label}>Handed in · Version {h.latest.version} · by {h.latest.by}</p>
+                    {webLink(h.latest.link) ? <a href={webLink(h.latest.link)!} target="_blank" rel="noreferrer noopener" className="block break-all rounded-[5px] border border-border px-2.5 py-1.5 text-primary underline">{h.latest.link}</a> : h.latest.link ? <span className="break-all">{h.latest.link}</span> : null}
+                    {h.latest.text ? <p className="whitespace-pre-line rounded-[5px] border border-border px-2.5 py-1.5">{h.latest.text}</p> : null}
                     {h.latest.note ? <p className="text-muted-foreground">Note: {h.latest.note}</p> : null}
                 </div>
             ) : null}
-            {h.materials.length ? <p className="text-muted-foreground">Materials: {h.materials.map((m) => m.name).join(', ')}</p> : null}
-            {h.holder && h.canSubmit ? (
-                <div className="space-y-2">
-                    {h.submissionType === 'link' ? <Input value={link} onChange={(e) => setLink(e.target.value)} placeholder="https://" aria-label="Link to your work" /> : null}
-                    {h.submissionType === 'text' ? <textarea value={text} onChange={(e) => setText(e.target.value)} rows={5} maxLength={10000} className={area} aria-label="Your answer" /> : null}
+            {shownFiles.length ? (
+                <div className="space-y-1.5">
+                {locked ? null : <p className={label}>Your files</p>}
+                <ul className="space-y-1" aria-label={locked && h.latest ? `Version ${h.latest.version} files` : 'Your files'}>
+                    {shownFiles.map((f) => <FileRow key={f.nodeId} file={f} onRemove={!locked && canAttach && onRemoveFile ? () => void remove(f.nodeId) : undefined} />)}
+                </ul>
+                </div>
+            ) : null}
+
+            {/* Review UX 2.7: the steps, ticked here. */}
+            {h.steps.length ? (
+                <div className="space-y-1.5">
+                    <p className={label}>Steps · {h.steps.length - openSteps} of {h.steps.length}</p>
+                    <ul className="space-y-1" aria-label="Steps">
+                        {h.steps.map((s) => (
+                            <li key={s.id}><label className="flex items-center gap-2 text-[13px]">
+                                <input type="checkbox" checked={s.done} disabled={!h.holder || locked || pending} onChange={(e) => toggleStep(s.id, e.target.checked)} />
+                                <span className={cn(s.done && 'text-muted-foreground line-through')}>{s.title}</span>
+                            </label></li>
+                        ))}
+                    </ul>
+                </div>
+            ) : null}
+
+            {h.holder && button.show ? (
+                <div className="space-y-3">
+                    {h.submissionType === 'link' ? (
+                        <label className="block space-y-1"><span className="font-medium">Link to your work</span>
+                            <Input type="url" value={link} onChange={(e) => setLink(e.target.value)} placeholder="https://" aria-invalid={Boolean(link.trim()) && !webLink(link.trim())} />
+                        </label>
+                    ) : null}
+                    {h.submissionType === 'text' ? (
+                        <label className="block space-y-1"><span className="font-medium">Your answer</span>
+                            <textarea value={text} onChange={(e) => setText(e.target.value)} rows={5} maxLength={TEXT_MAX} className={area} aria-describedby="hand-in-count" />
+                            <span id="hand-in-count" className="block text-right font-mono text-[11px] text-muted-foreground">{text.length.toLocaleString()} / {TEXT_MAX.toLocaleString()}</span>
+                        </label>
+                    ) : null}
                     {h.submissionType === 'file' ? (
                         <div onDragOver={(e) => { if (canAttach) { e.preventDefault(); setDragging(true) } }} onDragLeave={() => setDragging(false)}
                             onDrop={(e) => { if (!canAttach) return; e.preventDefault(); setDragging(false); void attach(Array.from(e.dataTransfer.files)) }}
-                            className="space-y-2">
-                            {h.files.length ? <ul className="space-y-1" aria-label="Your files">{h.files.map((f) => <FileRow key={f.nodeId} name={f.name} bytes={f.size} onRemove={canAttach && onRemoveFile ? () => void remove(f.nodeId) : undefined} />)}</ul> : null}
-                            <p className={cn('flex flex-wrap items-center justify-center gap-2 rounded-[5px] p-3 text-center text-[13px] text-muted-foreground', canAttach && 'border border-dashed', dragging ? 'border-primary' : 'border-border')}>
-                                {uploading ? 'Adding…' : canAttach ? (h.files.length ? 'Drop another file, or' : 'Drop your file here, or') : h.files.length ? null : 'No file attached yet.'}
-                                {canAttach ? (
-                                    <label className="inline-flex cursor-pointer items-center rounded-md border border-input px-2.5 py-1 text-[13px] hover:bg-muted">
-                                        Choose file<input type="file" multiple className="sr-only" disabled={uploading} onChange={(e) => { void attach(Array.from(e.target.files ?? [])); e.target.value = '' }} />
-                                    </label>
-                                ) : null}
-                                <Button type="button" size="sm" variant="ghost" onClick={onOpenFiles}>{h.files.length ? 'Manage files' : 'Open files'}</Button>
-                            </p>
+                            className={cn('space-y-1 rounded-[5px] p-3 text-center text-[13px] text-muted-foreground', canAttach && 'border border-dashed', dragging ? 'border-primary' : 'border-border')}>
+                            {uploading ? <p role="status">Adding {uploading.join(', ')}…</p> : (
+                                <p className="flex flex-wrap items-center justify-center gap-2">
+                                    {canAttach ? (h.files.length ? 'Drop another file, or' : 'Drop your file here, or') : null}
+                                    {canAttach ? (
+                                        <label className="inline-flex cursor-pointer items-center rounded-md border border-input px-2.5 py-1 text-[13px] text-foreground hover:bg-muted">
+                                            Choose file<input type="file" multiple className="sr-only" disabled={Boolean(uploading)} onChange={(e) => { void attach(Array.from(e.target.files ?? [])); e.target.value = '' }} />
+                                        </label>
+                                    ) : null}
+                                    <Button type="button" size="sm" variant="ghost" onClick={onOpenFiles}>Open the Files tab</Button>
+                                </p>
+                            )}
+                            {canAttach ? <p className="text-[12px]">Up to {fileSize(h.maxFileBytes)} a file.</p> : null}
                         </div>
                     ) : null}
-                    <label className="block space-y-1"><span className="font-medium">Add a note (optional)</span>
-                        <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2} maxLength={500} className={area} />
-                    </label>
+                    {h.submissionType !== 'none' ? (
+                        <label className="block space-y-1"><span className="font-medium">Add a note (optional)</span>
+                            <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2} maxLength={500} className={area} />
+                        </label>
+                    ) : null}
                     {error ? <p role="alert" className="text-destructive">{error}</p> : null}
-                    <Button type="button" disabled={pending || uploading || (h.submissionType === 'file' && h.files.length === 0)} onClick={submit}>{pending ? 'Submitting…' : label}</Button>
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                        <Button type="button" disabled={pending || Boolean(uploading) || Boolean(blocked)} aria-describedby={blocked ? 'hand-in-blocked' : undefined}
+                            onClick={() => (openSteps ? setConfirmSteps(true) : submit())}>{pending ? 'Handing in…' : button.label}</Button>
+                        {blocked ? <span id="hand-in-blocked" className="text-[12px] text-muted-foreground">{blocked}</span> : null}
+                    </div>
                     {h.wouldBeLate ? <p className="font-mono text-[12px] text-[var(--status-warning)]">This will be marked Late.</p> : null}
                 </div>
+            ) : error ? <p role="alert" className="text-destructive">{error}</p> : null}
+
+            {onOpenConversation ? (
+                <div className="flex flex-wrap gap-2 border-t border-border pt-3">
+                    {box.message ? null : msgButton}
+                    <Button type="button" size="sm" variant="ghost" onClick={() => onOpenConversation('class')}>Class questions</Button>
+                </div>
             ) : null}
+
+            {/* Review UX 2.9, 3.14, 3.15: every version, each return with its reason, and the approval. */}
+            {h.history.length ? (
+                <details className="text-[13px]">
+                    <summary className="cursor-pointer font-medium text-muted-foreground hover:text-foreground">History · {h.history.length}</summary>
+                    <ol className="mt-2 space-y-1.5 border-l border-border pl-3" aria-label="History">
+                        {h.history.map((e, i) => (
+                            <li key={`${e.kind}-${e.at}-${i}`}>
+                                <span className="font-medium">{e.kind === 'handed_in' ? `Version ${e.version} handed in` : e.kind === 'returned' ? 'Returned' : 'Approved'}</span>
+                                <span className="text-muted-foreground"> · {WHEN.format(new Date(e.at))}{e.by ? ` · ${e.by}` : ''}{e.late ? ' · Late' : ''}</span>
+                                {e.reason ? <span className="block text-muted-foreground">“{e.reason}”</span> : null}
+                            </li>
+                        ))}
+                    </ol>
+                </details>
+            ) : null}
+            <ConfirmDialog open={confirmSteps} onOpenChange={setConfirmSteps} title={`${openSteps} ${openSteps === 1 ? 'step isn’t' : 'steps aren’t'} ticked`}
+                description="Hand it in anyway? You can’t change the steps while it waits for review." confirmLabel={button.label} onConfirm={submit} />
         </section>
     )
 }

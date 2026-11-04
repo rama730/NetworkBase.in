@@ -331,3 +331,42 @@ export function filterRoster<T extends RosterLike>(rows: T[], f: { query: string
 export function remindSkips(rows: RosterLike[], now = Date.now(), windowMs = 12 * 3_600_000) {
   return rows.filter((r) => !["done", "excused", "submitted"].includes(r.state) && r.remindedAt && now - Date.parse(r.remindedAt) < windowMs).length;
 }
+
+type HandInLike = {
+  submissionType: string; state: CopyState; approved: boolean; canSubmit: boolean; closed: boolean; late: boolean; excusedReason: string | null;
+  returned: { by: string | null; reason: string | null } | null; from: string; lateLabel: string | null; latest: { version: number } | null;
+};
+const NEXT_STEP: Record<string, string> = { file: "Add your file below, then hand it in.", link: "Paste the link below, then hand it in.", text: "Write your answer below, then hand it in.", none: "Mark it as done when you’ve finished." };
+
+/** Review UX 2.4, 2.13: the Hand in card's one state box — what happened, and what to do next. `message` puts Message in it. */
+export function handInBox(h: HandInLike): { tone: "info" | "ok" | "danger" | "muted"; title: string; lines: string[]; next: string | null; message: boolean } {
+  if (h.excusedReason || h.state === "excused") return { tone: "muted", title: "You’re excused", lines: h.excusedReason ? [h.excusedReason] : [], next: "Nothing to hand in.", message: true };
+  if (h.returned) return { tone: "danger", title: `${h.returned.by ?? h.from} returned this`, lines: h.returned.reason ? [h.returned.reason] : [], next: "Make the changes, then hand it in again.", message: false };
+  const version = h.latest ? `Version ${h.latest.version}` : null;
+  if (h.approved) return { tone: "ok", title: "Approved", lines: [version].filter(Boolean) as string[], next: "It’s locked now.", message: false };
+  if (h.state === "submitted") return { tone: "ok", title: "Handed in", lines: [[version ?? "Version 1", h.late ? "Late" : null, "Waiting for review"].filter(Boolean).join(" · ")],
+    next: h.submissionType === "file" ? "It’s locked while it waits. Message them to change it." : "You can update it until it’s reviewed.", message: h.submissionType === "file" };
+  if (h.state === "done") return { tone: "ok", title: "Done", lines: [[version, h.late ? "Late" : null].filter(Boolean).join(" · ")].filter(Boolean), next: null, message: false };
+  if (h.closed && !h.canSubmit) return { tone: "muted", title: "This assignment is closed", lines: [], next: "Message them if you need more time.", message: true };
+  if (h.state === "missing") return h.canSubmit
+    ? { tone: "danger", title: "Overdue", lines: h.lateLabel ? [h.lateLabel] : [], next: "Hand it in now. It will be marked Late.", message: false }
+    : { tone: "danger", title: "The due date has passed", lines: [], next: `Ask ${h.from} if you need more time.`, message: true };
+  return { tone: "info", title: "Not handed in yet", lines: [], next: NEXT_STEP[h.submissionType] ?? null, message: false };
+}
+
+/** Review UX 2.6, 5.1: Hand in / Hand in again / Update hand-in (links and text) / Mark as done; no replacing a waiting file. */
+export function handInButton(h: Pick<HandInLike, "submissionType" | "state" | "canSubmit">): { show: boolean; label: string } {
+  if (h.submissionType === "none") return { show: h.canSubmit && h.state !== "done", label: "Mark as done" };
+  const handedIn = h.state === "submitted" || h.state === "done";
+  if (handedIn && h.submissionType !== "file") return { show: h.canSubmit, label: "Update hand-in" };
+  if (handedIn || h.state === "returned") return { show: h.canSubmit && h.state !== "submitted", label: "Hand in again" };
+  return { show: h.canSubmit, label: "Hand in" };
+}
+
+/** Review UX 2.5, 2.14: why Hand in is off, in words; null when it's ready. */
+export function handInBlocked(f: { submissionType: string; files?: number; link?: string; text?: string }): string | null {
+  if (f.submissionType === "file") return f.files ? null : "Add a file to hand it in.";
+  if (f.submissionType === "link") return !f.link?.trim() ? "Add a link to hand it in." : webLink(f.link.trim()) ? null : "That isn’t a web link. Start it with https://";
+  if (f.submissionType === "text") return f.text?.trim() ? null : "Write your answer to hand it in.";
+  return null;
+}
