@@ -147,3 +147,26 @@ describe("task cache patching", () => {
     );
   });
 });
+
+// Board/review report §1: opening a student's copy must not add it to an admin's board, whose server list leaves
+// copies out; a list that already holds the copy (the student's own board) still gets the update.
+describe("assignment copies in cached lists", () => {
+  const copy = { ...buildTask({ id: "copy-1", title: "ALM-1", status: "done" }), assignmentId: "master-1" };
+  it("never inserts a copy into a list that doesn't hold it", () => {
+    const board = [buildTask({ id: "master-1", title: "ALM-1" })];
+    const next = patchTaskQueryData(board, copy, "all") as TaskSurfaceRecord[];
+    assert.deepEqual(next.map((t) => t.id), ["master-1"]);
+    const pages = { pages: [{ tasks: board, nextCursor: null }], pageParams: [null] };
+    const nextPages = patchTaskQueryData(pages, copy, "all") as typeof pages;
+    assert.deepEqual(nextPages.pages[0]!.tasks.map((t) => t.id), ["master-1"]);
+  });
+  it("still updates a copy the list already holds", () => {
+    const own = [{ ...buildTask({ id: "copy-1", title: "ALM-1", status: "in_progress" }), assignmentId: "master-1" }];
+    const next = patchTaskQueryData(own, { ...copy, updatedAt: "2026-04-18T01:00:00.000Z" }, "all") as TaskSurfaceRecord[];
+    assert.deepEqual(next.map((t) => [t.id, t.status]), [["copy-1", "done"]]);
+  });
+  it("still inserts an ordinary new task", () => {
+    const next = patchTaskQueryData([], buildTask({ id: "new-1" }), "all") as TaskSurfaceRecord[];
+    assert.deepEqual(next.map((t) => t.id), ["new-1"]);
+  });
+});

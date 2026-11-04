@@ -63,7 +63,10 @@ function patchTaskList(
     .filter((t) => t.id !== incoming.id)
     .map(normalizeTaskSurfaceRecord);
   // Mine: the cache doesn't know who you are, so it only keeps what the server already listed; the refetch adds new ones.
-  if (matchesScope(merged, scope) && (scope !== "mine" || current)) nextList.push(merged);
+  // An assignment copy is the same: an admin's board leaves copies out (orgTaskReadFilter), so opening one never adds it
+  // (board/review report §1); a list that already holds it — the student's own board — still gets the change.
+  const listedOnlyByServer = scope === "mine" || Boolean(normalizedIncoming.assignmentId);
+  if (matchesScope(merged, scope) && (!listedOnlyByServer || current)) nextList.push(merged);
 
   return nextList.sort(compareTaskSurfaceRecords);
 }
