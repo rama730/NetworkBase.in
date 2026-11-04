@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type PointerEvent, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { ChevronDown, ChevronRight, ExternalLink, Link2, MoreHorizontal, Pin, PinOff, Plus, Search } from "lucide-react";
 
@@ -27,6 +27,9 @@ const projectHref = (p: { slug: string | null; id: string }) => `/workspaces/${e
 const iconButton = "relative z-10 inline-flex size-6 shrink-0 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground";
 // The name link never paints its own focus box; the whole row shows it (`data-ws-row` in globals.css).
 const nameLink = "min-w-0 flex-1 truncate after:absolute after:inset-0 after:rounded-[5px] focus-visible:bg-transparent focus-visible:outline-none";
+// A mouse click on a name doesn't leave focus behind, so the row's + and ⋯ don't stay up once the pointer leaves (the
+// user, 5 Nov). Keyboard focus is untouched.
+const dropMouseFocus = (event: PointerEvent<HTMLElement>) => { if (event.pointerType === "mouse") event.currentTarget.blur(); };
 
 function readOpen(key: string, fallback = true) {
     try { const v = window.localStorage.getItem(key); return v === null ? fallback : v !== "closed"; } catch { return fallback; }
@@ -60,7 +63,7 @@ function Row({ row, href, current, prefix, pinned, onPin, muted }: { row: Sideba
             <div className={cn("nb-nav-link relative", muted && !current && "font-normal")} aria-current={current ? "page" : undefined} data-ws-row style={{ gap: 6 }}>
                 <Link prefetch={false} href={href} title={prefix ? `${prefix} / ${row.title}` : row.title} aria-current={current ? "page" : undefined}
                     aria-label={`${prefix ? `${prefix} / ` : ""}${row.title}${unseen ? ", new updates" : ""}`}
-                    className={nameLink}>
+                    className={nameLink} onPointerUp={dropMouseFocus}>
                     {prefix ? <span className="text-muted-foreground">{prefix} / </span> : null}{row.title}
                 </Link>
                 {unseen ? <span className="pointer-events-none size-1.5 shrink-0 rounded-full bg-primary" aria-hidden="true" data-testid="unseen-dot" /> : null}
@@ -90,14 +93,11 @@ function OrgGroup({ org, currentId, forceOpen, filterText, pinned, onPin, active
     return (
         <li>
             <div className="group relative">
-                <div className="nb-nav-link relative gap-1 pl-1" aria-current={here ? "page" : undefined} data-org-row data-ws-row style={{ gap: 4 }}>
-                    <button type="button" onClick={toggle} className={cn(iconButton, "size-5")} aria-expanded={isOpen} aria-controls={`sidebar-org-${org.id}`}
-                        aria-label={`${isOpen ? "Hide" : "Show"} ${org.title}’s workspaces`}>
-                        {isOpen ? <ChevronDown className="size-3.5" aria-hidden="true" /> : <ChevronRight className="size-3.5" aria-hidden="true" />}
-                    </button>
+                {/* The name starts where every other workspace's does (the user, 5 Nov); the arrow sits at the right end. */}
+                <div className="nb-nav-link relative pr-1" aria-current={here ? "page" : undefined} data-org-row data-ws-row style={{ gap: 4 }}>
                     <Link prefetch={false} href={href} title={org.title} aria-current={here ? "page" : undefined}
                         aria-label={`${org.title}${needsLabel ? `, ${needsLabel}` : ""}${org.unseenAnnouncement ? ", new announcement" : ""}`}
-                        className={nameLink}>{org.title}</Link>
+                        className={nameLink} onPointerUp={dropMouseFocus}>{org.title}</Link>
                     {org.needsYou > 0 ? <span className="nb-nav-count pointer-events-none ml-0" title={needsLabel} aria-hidden="true">{needs}</span>
                         : org.unseenAnnouncement ? <span className="nb-nav-dot pointer-events-none mx-1 size-1.5 rounded-full bg-primary" aria-hidden="true" /> : null}
                     <span className="nb-row-tools">
@@ -108,6 +108,10 @@ function OrgGroup({ org, currentId, forceOpen, filterText, pinned, onPin, active
                         ) : null}
                         <RowMenu id={org.id} title={org.title} href={href} pinned={pinned.has(org.id)} onPin={onPin} />
                     </span>
+                    <button type="button" onClick={toggle} className={cn(iconButton, "size-5")} aria-expanded={isOpen} aria-controls={`sidebar-org-${org.id}`}
+                        aria-label={`${isOpen ? "Hide" : "Show"} ${org.title}’s workspaces`}>
+                        {isOpen ? <ChevronDown className="size-3.5" aria-hidden="true" /> : <ChevronRight className="size-3.5" aria-hidden="true" />}
+                    </button>
                 </div>
             </div>
             {isOpen ? (
@@ -205,12 +209,10 @@ export function SidebarWorkspaces({ data, autoFocusFilter = false }: { data: Dat
                     {label("Pinned")}
                     {pinnedOrgs.filter(orgMatches).map(group)}
                     {pinnedRows.filter(rowMatches).map(plain)}
-                    <li aria-hidden="true" className="h-2" />
                 </> : null}
                 {shownOrgs.map(group)}
                 {!showAllOrgs && !text && orgs.length > MAX_ORGS ? <li><button type="button" onClick={() => setShowAllOrgs(true)} className="nb-nav-link w-full font-normal text-muted-foreground">More ({orgs.length - MAX_ORGS})</button></li> : null}
-                {/* G6: a little space between the organizations and your own workspaces. */}
-                {shownOrgs.length && (requested.length + outside.length + shownPersonal.length) ? <li aria-hidden="true" className="h-2" /> : null}
+                {/* Every row the same distance apart, organizations and workspaces alike (the user, 5 Nov; replaces G6's gap). */}
                 {requested.map((org) => (
                     <li key={org.id}>
                         <Link prefetch={false} href={`${orgHref(org)}?tab=about`} className="nb-nav-link font-normal text-muted-foreground" title={`${org.title} · Requested`}>
@@ -228,8 +230,10 @@ export function SidebarWorkspaces({ data, autoFocusFilter = false }: { data: Dat
                 <div>
                     {/* G11: remembered like an organization's group. */}
                     <button type="button" onClick={() => { setShowArchived(!showArchived); writeOpen("nb:sidebar-archived", !showArchived); }} aria-expanded={showArchived}
-                        className="nb-nav-link w-full gap-1 pl-1 font-normal text-muted-foreground" style={{ gap: 4 }}>
-                        <span className="inline-flex size-5 items-center justify-center">{showArchived ? <ChevronDown className="size-3.5" aria-hidden="true" /> : <ChevronRight className="size-3.5" aria-hidden="true" />}</span>Archived ({data.archived.length})
+                        className="nb-nav-link w-full pr-1 font-normal text-muted-foreground" style={{ gap: 4 }}>
+                        {/* Like an organization's row: the words line up with every name, the arrow at the right end. */}
+                        <span className="min-w-0 flex-1 text-left">Archived ({data.archived.length})</span>
+                        <span className="inline-flex size-5 items-center justify-center">{showArchived ? <ChevronDown className="size-3.5" aria-hidden="true" /> : <ChevronRight className="size-3.5" aria-hidden="true" />}</span>
                     </button>
                     {showArchived ? (
                         <ul aria-label="Archived workspaces" className="ml-[15px] space-y-0.5 border-l border-border pl-1.5">

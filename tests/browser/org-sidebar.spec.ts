@@ -49,12 +49,14 @@ test('§1: names only — no pictures or letters on any row; long names end in �
     await expect(list(page).getByRole('link', { name: /Robotics Club/ })).toContainText('Requested');
 });
 
-test('§2: the group — chevron at the left, the count says what it counts, + only on hover or focus, workspaces one step in under a line', async ({ page }) => {
+test('§2: the group — the name lines up with every other workspace name, the arrow at the right end, the count says what it counts, + only on hover or focus, workspaces one step in under a line', async ({ page }) => {
     await open(page);
     const row = page.locator('[data-org-row]').first();
     const chevron = row.getByRole('button', { name: 'Hide CSE 3B · Data Structures 2026’s workspaces' });
     const name = row.getByRole('link', { name: /^CSE 3B · Data Structures 2026, 2 things need you/ });
-    expect((await chevron.boundingBox())!.x).toBeLessThan((await name.boundingBox())!.x);
+    // The user, 5 Nov: the organization's name starts where the other workspace names do; the arrow sits at the right.
+    expect(Math.round((await name.boundingBox())!.x)).toBe(Math.round((await list(page).getByRole('link', { name: 'Ponytail' }).boundingBox())!.x));
+    expect((await chevron.boundingBox())!.x).toBeGreaterThan((await row.locator('.nb-nav-count').boundingBox())!.x);
     await expect(row.locator('.nb-nav-count')).toHaveAttribute('title', '2 things need you');
     const plus = row.getByRole('link', { name: 'New workspace in CSE 3B · Data Structures 2026' });
     await expect(plus).toBeHidden();
@@ -130,20 +132,39 @@ test('G3, G8, G11: More past 12, a filter past 10 rows (Esc clears), Archived re
     await expect(page.getByLabel('Filter workspaces')).toHaveCount(0);
 });
 
-test('G6: space between the organizations and your own; G10: nested lists; keyboard reaches chevron, +, ⋯', async ({ page }) => {
+test('equal distances between organizations and workspaces; G10: nested lists; keyboard reaches +, ⋯ and the arrow; a mouse click leaves no buttons up', async ({ page }) => {
     await open(page);
-    const quiet = await page.locator('[data-org-row]').nth(1).boundingBox();
-    const robotics = await list(page).getByRole('link', { name: /Robotics Club/ }).boundingBox();
-    const quietKids = await page.getByRole('list', { name: 'Workspaces in Quiet Org' }).boundingBox();
-    expect(robotics!.y - (quietKids!.y + quietKids!.height)).toBeGreaterThanOrEqual(8);
-    expect(quiet).toBeTruthy();
-    await page.getByRole('button', { name: 'Hide CSE 3B · Data Structures 2026’s workspaces' }).focus();
-    await page.keyboard.press('Tab');
-    await expect(page.getByRole('link', { name: /^CSE 3B · Data Structures 2026, 2 things need you/ })).toBeFocused();
-    await page.keyboard.press('Tab');
+    // The user, 5 Nov: the same distance everywhere — after an organization's group as between two workspaces.
+    const box = async (name: RegExp | string) => (await list(page).getByRole('link', { name }).locator('xpath=ancestor::li[1]').boundingBox())!;
+    const gap = (a: { y: number; height: number }, b: { y: number }) => Math.round(b.y - (a.y + a.height));
+    const quietGroup = (await page.getByRole('list', { name: 'Workspaces in Quiet Org' }).boundingBox())!;
+    expect(gap(quietGroup, await box(/Robotics Club/))).toBe(gap(await box('Ponytail'), await box(/^Caveman/)));
+    await page.getByRole('button', { name: 'Hide Quiet Org’s workspaces' }).click();
+    expect(gap((await page.locator('[data-org-row]').nth(1).boundingBox())!, await box(/Robotics Club/))).toBe(gap(await box('Ponytail'), await box(/^Caveman/)));
+    // Every name, organization and Archived alike, starts at the same place.
+    const left = async (l: ReturnType<Page['locator']>) => Math.round((await l.boundingBox())!.x);
+    const ponytailLeft = await left(list(page).getByRole('link', { name: 'Ponytail' }));
+    expect(await left(list(page).getByRole('link', { name: /^Quiet Org/ }))).toBe(ponytailLeft);
+    expect(await left(page.getByRole('button', { name: 'Archived (1)' }).locator('span').first())).toBe(ponytailLeft);
+    const orgName = page.getByRole('link', { name: /^CSE 3B · Data Structures 2026, 2 things need you/ });
     const plus = page.getByRole('link', { name: 'New workspace in CSE 3B · Data Structures 2026' });
+    // A mouse click (focus without the keyboard) doesn't leave + and ⋯ showing once the pointer moves away.
+    // A real mouse click on the name (navigation stopped, so the page stays), then the pointer leaves.
+    await page.evaluate(() => document.addEventListener('click', (e) => e.preventDefault(), true));
+    await orgName.click();
+    await page.mouse.move(600, 900);
+    await expect(orgName).not.toBeFocused();
+    await expect(plus).toBeHidden();
+    await page.getByLabel('Filter workspaces').focus();
+    await page.keyboard.press('Tab');
+    await expect(orgName).toBeFocused();
+    await page.keyboard.press('Tab');
     await expect(plus).toBeFocused();
     await expect(plus).toBeVisible();
+    await page.keyboard.press('Tab');
+    await expect(page.getByRole('button', { name: 'More for CSE 3B · Data Structures 2026' })).toBeFocused();
+    await page.keyboard.press('Tab');
+    await expect(page.getByRole('button', { name: 'Hide CSE 3B · Data Structures 2026’s workspaces' })).toBeFocused();
     expect(await axeViolations(page)).toEqual([]);
     await page.screenshot({ path: test.info().outputPath('sidebar-300.png'), fullPage: true });
 });
@@ -175,7 +196,7 @@ test('no jelly: a row never paints a box inside itself, hovering a workspace mov
     await expect(list(page).getByRole('button', { name: 'More for Team Falcon: Hash table library' })).toBeVisible();
     expect(await falcon.boundingBox()).toEqual(rest);
     expect(await falcon.locator('xpath=..').getByTestId('unseen-dot').boundingBox()).toEqual(dot);
-    // Keyboard focus: from Ponytail, Tab reaches its ⋯ (it shows while the row has focus), then Caveman.
+    // Keyboard focus: from Ponytail, Tab reaches its ⋯ (shown while the row has focus), then Caveman.
     await list(page).getByRole('link', { name: 'Ponytail' }).focus();
     await page.keyboard.press('Tab');
     await expect(list(page).getByRole('button', { name: 'More for Ponytail' })).toBeFocused();

@@ -829,7 +829,10 @@ html[data-reduce-motion="true"] .nb-skeleton {
 [data-ws-row]:has(a:focus-visible) { background: color-mix(in srgb, var(--primary) 14%, var(--nb-row-bg)); --nb-row-bg: color-mix(in srgb, var(--primary) 14%, var(--sidebar)); }
 .nb-row-tools { position:absolute; z-index:10; right:2px; top:50%; transform:translateY(-50%); display:none; align-items:center; gap:2px;
   padding-left:18px; background:linear-gradient(to right, transparent, var(--nb-row-bg) 16px); border-radius:0 5px 5px 0; }
+/* Hover or focus inside the row shows them (a mouse click on a name doesn't keep focus: SidebarWorkspaces blurs it).
+   An org row's arrow stays visible at its right end, so its tools sit just before it. */
 [data-ws-row]:hover .nb-row-tools, [data-ws-row]:focus-within .nb-row-tools, .nb-row-tools:has([data-state="open"]) { display:flex; }
+[data-org-row] .nb-row-tools { right:28px; }
 @media (hover:none) { .nb-row-tools { display:flex; } }
 /* Sidebar report D1, G7: the collapsed strip has no workspace list, just one Workspaces button that opens it. */
 /* A <button>, unlike the strip's links, takes only its content's width; full width centres its icon like theirs. */
