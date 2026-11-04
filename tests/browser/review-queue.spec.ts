@@ -165,9 +165,14 @@ test('3.8, 3.10: the queue names itself for screen readers, searches names and s
 test('board/review report §2: one line above the work — the filters, then the board tabs with the waiting count; the columns start right under it', async ({ page }) => {
     await open(page, 1440, '?tabs=1');
     const search = await page.getByRole('textbox', { name: 'Search names' }).boundingBox();
-    const tabs = await page.getByRole('group', { name: 'Show' }).boundingBox();
+    // Board view dropdown §2: the board's views are one View button at the end of the queue's line.
+    const view = page.getByRole('button', { name: /^Show: In review/ });
+    const tabs = await view.boundingBox();
     expect(Math.abs(search!.y + search!.height / 2 - (tabs!.y + tabs!.height / 2))).toBeLessThan(12);
-    await expect(page.getByRole('group', { name: 'Show' }).getByRole('button', { name: /In review\s*3/ })).toBeVisible();
+    await expect(view).toHaveAccessibleName('Show: In review. 1 in other views need you');
+    await view.click();
+    await expect(page.getByRole('menuitemradio', { name: /^In review ?, 3 open, 3 waiting for you$/ })).toHaveAttribute('aria-checked', 'true');
+    await page.keyboard.press('Escape');
     const waiting = await page.getByRole('region', { name: 'Waiting' }).boundingBox();
     expect(waiting!.y - (search!.y + search!.height)).toBeLessThan(40);
     await expect(page.getByRole('region', { name: 'Waiting' })).toContainText('1 of 3');

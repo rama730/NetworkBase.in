@@ -2,6 +2,8 @@
 
 import { memo } from "react";
 import { useSprintPath } from "@/components/workspaces/v2/tasks/SprintPathContext";
+import { audienceLabel, cardLine, copyChip, copyStageLine, publishLine, StageBar } from "@/components/workspaces/tabs/sprint/AssignmentStages";
+import { ClipboardCheck, ClipboardList } from "lucide-react";
 import { formatTaskDueDate } from "@/lib/workspaces/task-presentation";
 import {
   Calendar,
@@ -33,21 +35,6 @@ interface TaskCardProps {
   dragHandleRef?: (element: HTMLElement | null) => void;
   dragAttributes?: React.HTMLAttributes<HTMLButtonElement>;
   dragListeners?: Record<string, any>;
-}
-
-
-/** "Draft", "0 of 40", "12 of 40 done · 6 to review" or "All done · 2 excused" (report §16.1). */
-function assignmentProgressLine(p: { draft: boolean; closed: boolean; done: number; total: number; toReview: number; excused: number }) {
-  if (p.draft) return "Draft";
-  if (p.total === 0) return "Nobody has joined yet";
-  if (p.done >= p.total) return `All done${p.excused ? ` · ${p.excused} excused` : ""}`;
-  return [`${p.done} of ${p.total} done`, p.toReview ? `${p.toReview} to review` : null, p.closed ? "Closed" : null].filter(Boolean).join(" · ");
-}
-
-/** Mockup task 4: the card's chips, its progress bar's width and the line under it. */
-export function assignmentCardBits(p: { draft: boolean; closed: boolean; done: number; total: number; toReview: number; excused: number; teams?: boolean }) {
-  const chips = [p.draft ? "Draft" : null, "Assignment", p.teams ? "Groups" : null, p.toReview ? `${p.toReview} to review` : null].filter((c): c is string => Boolean(c));
-  return { chips, percent: p.total ? Math.round((p.done / p.total) * 100) : 0, line: assignmentProgressLine(p) };
 }
 
 export type Task = TaskSurfaceRecord;
@@ -151,7 +138,20 @@ export const TaskCard = memo(function TaskCard({
   const taskRecord = normalizeTaskSurfaceRecord(task);
   const sprintPath = useSprintPath(taskRecord.sprint?.id, taskRecord.sprint?.name ?? "");
   const titlePresentation = getTaskTitlePresentation(taskRecord);
-  const bits = taskRecord.assignmentProgress ? assignmentCardBits(taskRecord.assignmentProgress) : null;
+  const dueDateLabel = formatTaskDueDate(taskRecord.dueDate);
+  // Board view dropdown §6a: an assignment card is a task card — title, then where everyone is, then the task card's
+  // chips and footer, with who it's for where a task shows its assignee.
+  const master = taskRecord.assignmentProgress ?? null;
+  const stages = taskRecord.assignmentStages ?? null;
+  const scheduled = Boolean(master?.draft && taskRecord.publishAt);
+  const line = master && !master.draft && stages && stages.total + stages.counts.excused > 0 ? cardLine(stages) : null;
+  const allApproved = Boolean(line?.allDone);
+  const ownStage = taskRecord.copyStage ?? null;
+  const ownChip = ownStage ? copyChip(ownStage) : null;
+  const masterChip = !master ? null : master.draft ? (scheduled ? { label: "Scheduled", tone: "accent" } : { label: "Draft", tone: "muted" })
+    : master.toReview ? { label: `${master.toReview} to review`, tone: "warning" } : master.closed ? { label: "Closed", tone: "muted" } : null;
+  const cardName = master ? ["Assignment", taskRecord.title, line?.text ?? (master.draft ? (scheduled ? "scheduled" : "draft") : "nobody has it yet"),
+    master.toReview ? `${master.toReview} to review` : null, dueDateLabel ? `due ${dueDateLabel}` : null].filter(Boolean).join(", ") : undefined;
   const assigneeRemoved = Boolean(
     taskRecord.assigneeId &&
     taskRecord.assignee &&
@@ -162,7 +162,6 @@ export const TaskCard = memo(function TaskCard({
     taskRecord,
     taskRecord.sprint ?? null,
   );
-  const dueDateLabel = formatTaskDueDate(taskRecord.dueDate);
   const hasValidDueDate = Boolean(dueDateLabel);
 
   const cardButton = (
@@ -172,52 +171,60 @@ export const TaskCard = memo(function TaskCard({
       {...dragListeners}
       type="button"
       data-testid="task-card"
+      aria-label={cardName}
       onClick={() => onClick?.(taskRecord)}
       className={cn(
-        "group relative min-h-[128px] w-full min-w-0 cursor-pointer overflow-hidden rounded-[8px] bg-card transition-colors duration-[180ms]",
+        "group relative min-h-[128px] w-full min-w-0 cursor-pointer overflow-hidden rounded-[8px] bg-card text-left transition-colors duration-[180ms]",
         "border border-border shadow-2xs hover:border-border/80",
+        master?.draft && "border-dashed",
         "focus-visible:outline-none focus-visible:border-primary focus-visible:ring-1 focus-visible:ring-primary",
       )}
     >
       <div className="grid min-h-[128px] grid-rows-[auto_auto_auto] gap-3 p-3">
-        {/* Mockup task 4: an assignment's chips sit above its title, its class progress below. */}
-        {bits ? (
-          <div className="flex min-w-0 flex-wrap gap-1.5">
-            {bits.chips.map((chip) => (
-              <span key={chip} className="nb-status" data-status={chip === "Draft" || chip.endsWith("to review") ? "draft" : "archived"}>{chip}</span>
-            ))}
-          </div>
-        ) : null}
         <div className="flex min-w-0 items-center gap-1.5">
           <h4
             className={cn(
               "min-w-0 line-clamp-3 text-left text-[13px] font-medium leading-[18px] tracking-tight text-foreground",
-              titlePresentation.className,
+              master ? (allApproved ? "text-muted-foreground" : "") : titlePresentation.className,
             )}
             title={taskRecord.title}
-            aria-label={titlePresentation.ariaLabel}
+            aria-label={master ? undefined : titlePresentation.ariaLabel}
           >
             {taskRecord.title}
           </h4>
         </div>
-        {bits ? (
-          <div className="space-y-1">
-            <div className="h-[5px] overflow-hidden rounded-[3px] bg-muted" role="img" aria-label={bits.line}>
-              <div className="h-full bg-primary" style={{ width: `${bits.percent}%` }} />
+        {master ? (
+          master.draft ? (
+            <p className="font-mono text-[11px] text-muted-foreground">{scheduled ? publishLine(taskRecord.publishAt!) : `Not published · goes to ${audienceLabel(taskRecord.audience).replace(/^Everyone · (\d+)$/, "$1 people")}`}</p>
+          ) : line && stages ? (
+            <div className="space-y-1.5">
+              <StageBar stages={stages} />
+              <p className={cn("font-mono text-[11px]", allApproved ? "text-[var(--status-success)]" : "text-muted-foreground")}>{line.text}</p>
             </div>
-            <p className="font-mono text-[12px] text-muted-foreground">{bits.line}</p>
-          </div>
+          ) : (
+            <p className="font-mono text-[11px] text-muted-foreground">Nobody has it yet. People get it when they join.</p>
+          )
+        ) : ownStage && ownStage.state !== "not_started" && ownStage.state !== "in_progress" ? (
+          <p className={cn("font-mono text-[11px]", ownChip?.tone === "danger" ? "text-[var(--status-danger)]" : ownChip?.tone === "success" ? "text-[var(--status-success)]" : "text-muted-foreground")}>{copyStageLine(ownStage)}</p>
         ) : null}
 
         {/* Keep the card compact: stable status first (if enabled), then semantic labels without a horizontal scroller. */}
         <div className="flex min-h-6 min-w-0 flex-wrap items-center gap-1.5">
-          {showStatus && taskRecord.reviewStatus !== "pending" && (
+          {masterChip ? (
+            <span className={cn("shrink-0 rounded-[3px] border px-2 py-0.5 font-mono text-[11px] font-semibold",
+              masterChip.tone === "warning" ? "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400" : masterChip.tone === "accent" ? "border-primary/30 text-primary" : "border-border bg-muted/40 text-muted-foreground")}>{masterChip.label}</span>
+          ) : null}
+          {ownChip ? (
+            <span className={cn("shrink-0 rounded-[3px] border px-2 py-0.5 font-mono text-[11px] font-semibold",
+              ownChip.tone === "danger" ? "border-destructive/20 bg-destructive/10 text-destructive" : ownChip.tone === "success" ? "border-[var(--status-success)]/30 text-[var(--status-success)]" : "border-border bg-muted/40 text-muted-foreground")}>{ownChip.label}</span>
+          ) : null}
+          {showStatus && taskRecord.reviewStatus !== "pending" && !master && (
             <TaskStatusBadge status={taskRecord.status} className="shrink-0" />
           )}
           <div className="shrink-0">
             <TaskPriorityBadge priority={taskRecord.priority} />
           </div>
-          {taskRecord.reviewStatus === "pending" && (
+          {taskRecord.reviewStatus === "pending" && !ownChip && (
             <span className="inline-flex shrink-0 items-center gap-1 rounded-[3px] border border-border bg-muted/60 px-2 py-0.5 font-mono text-[11px] font-semibold text-foreground">
               <Lock className="size-3" />
               In review
@@ -246,7 +253,7 @@ export const TaskCard = memo(function TaskCard({
           {taskRecord.sprint?.name && (
             <span
               className={cn(
-                "max-w-[112px] shrink-0 truncate rounded-[3px] border px-2 py-0.5 font-mono text-[11px] font-semibold",
+                "max-w-[180px] shrink-0 truncate rounded-[3px] border px-2 py-0.5 font-mono text-[11px] font-semibold",
                 taskRecord.sprint.status
                   ? SPRINT_STATUS_PRESENTATION[taskRecord.sprint.status]
                       .toneClassName
@@ -254,7 +261,7 @@ export const TaskCard = memo(function TaskCard({
               )}
               title={sprintPath}
             >
-              {taskRecord.sprint.name}
+              {sprintPath}
             </span>
           )}
           {taskRecord.storyPoints != null && (
@@ -267,7 +274,12 @@ export const TaskCard = memo(function TaskCard({
         <div className="flex min-w-0 items-center justify-between gap-2 border-t border-border/50 pt-1.5">
           {/* Avatar + task counts share one fixed footer row; names belong in the tooltip. */}
           <div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-hidden">
-            {taskRecord.assignee ? (
+            {master ? (
+              <span className="inline-flex min-w-0 items-center gap-1 text-[11px] text-muted-foreground">
+                {allApproved ? <ClipboardCheck aria-hidden="true" className="size-3.5 shrink-0" /> : <ClipboardList aria-hidden="true" className="size-3.5 shrink-0" />}
+                <span className="truncate">{audienceLabel(taskRecord.audience)}</span>
+              </span>
+            ) : taskRecord.assignee ? (
               <div
                 className="shrink-0"
                 title={
@@ -297,12 +309,13 @@ export const TaskCard = memo(function TaskCard({
             )}
             <TaskMetaIndicators {...taskRecord} />
             {/* Decisions 6 and 14, gap 24: the assignment card shows class progress; it moves by itself. */}
-            {taskRecord.assignmentProgress ? null : taskRecord.assignmentId && !taskRecord.fromLabel ? (
-              <span className="rounded-[3px] border border-border px-1 text-[10px] text-muted-foreground">Assignment</span>
+            {taskRecord.assignmentId && !taskRecord.fromLabel ? (
+              <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground"><ClipboardList aria-hidden="true" className="size-3.5" />Assignment</span>
             ) : null}
             {taskRecord.fromLabel ? (
-              <span className="truncate rounded-[3px] border border-border px-1 text-[10px] text-muted-foreground" title={`From ${taskRecord.fromLabel}`}>
-                From {taskRecord.fromLabel}{taskRecord.teamName ? ` · ${taskRecord.teamName}` : ""}
+              <span className="inline-flex min-w-0 items-center gap-1 text-[11px] text-muted-foreground" title={`Assignment from ${taskRecord.fromLabel}`}>
+                <ClipboardList aria-hidden="true" className="size-3.5 shrink-0" />
+                <span className="truncate">From {taskRecord.fromLabel}{taskRecord.teamName ? ` · ${taskRecord.teamName}` : ""}</span>
               </span>
             ) : null}
           </div>

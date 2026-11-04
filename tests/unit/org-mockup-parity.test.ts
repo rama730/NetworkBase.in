@@ -28,12 +28,25 @@ test("task 3: Hand in shows its chip, a coloured state box, file rows with sizes
   assert.match(hand, /\{h\.wouldBeLate \? <p[^>]*>This will be marked Late\.<\/p> : null\}/);
 });
 
-test("task 4: an assignment card shows its chips, a progress bar and the done line", async () => {
-  const { assignmentCardBits } = await import("../../src/components/workspaces/v2/tasks/TaskCard");
-  assert.deepEqual(assignmentCardBits({ draft: false, closed: false, done: 22, total: 40, toReview: 6, excused: 0 }), { chips: ["Assignment", "6 to review"], percent: 55, line: "22 of 40 done · 6 to review" });
-  assert.deepEqual(assignmentCardBits({ draft: false, closed: false, done: 0, total: 0, toReview: 0, excused: 0 }), { chips: ["Assignment"], percent: 0, line: "Nobody has joined yet" });
-  assert.deepEqual(assignmentCardBits({ draft: true, closed: false, done: 0, total: 40, toReview: 0, excused: 0 }).chips, ["Draft", "Assignment"]);
-  assert.deepEqual(assignmentCardBits({ draft: false, closed: false, done: 3, total: 12, toReview: 0, excused: 0, teams: true }).chips, ["Assignment", "Groups"]);
+test("board view dropdown §6a: an assignment card says who it's for and where everyone is, in one line", async () => {
+  const { audienceLabel, cardLine, copyChip, copyStageLine } = await import("../../src/components/workspaces/tabs/sprint/AssignmentStages");
+  const stages = (counts: Record<string, number>, extra = {}) => ({ counts: { not_started: 0, in_progress: 0, submitted: 0, returned: 0, done: 0, missing: 0, excused: 0, ...counts },
+    total: Object.entries(counts).filter(([k]) => k !== "excused").reduce((n, [, v]) => n + v, 0), reviewRequired: true, teams: false, names: {} as never, remind: { not_started: [], missing: [] }, ...extra });
+  assert.deepEqual(cardLine(stages({ done: 12, submitted: 6, missing: 3, in_progress: 19 })), { text: "12 of 40 approved · 6 in review · 3 missing", allDone: false });
+  assert.deepEqual(cardLine(stages({ in_progress: 5, not_started: 3 }, { teams: true })), { text: "0 of 8 groups approved · 5 working", allDone: false });
+  assert.deepEqual(cardLine(stages({ done: 39, excused: 1 })), { text: "All 39 approved · 1 excused", allDone: true });
+  assert.equal(cardLine(stages({ done: 2, in_progress: 1 }, { reviewRequired: false })).text, "2 of 3 done · 1 working");
+  assert.equal(audienceLabel({ mode: "everyone", count: 40 }), "Everyone · 40");
+  assert.equal(audienceLabel({ mode: "teams", count: 8 }), "8 groups");
+  assert.equal(audienceLabel({ mode: "role", count: 3 }), "Admins · 3");
+  assert.equal(audienceLabel({ mode: "children", count: 1 }), "1 workspace");
+  const returned = { state: "returned" as const, late: false, since: null, reason: "fix the README", fixBy: "2026-11-13T10:00:00.000Z", version: 1, reviewRequired: true, handIn: null };
+  assert.deepEqual(copyChip(returned), { label: "Returned", tone: "danger" });
+  assert.match(copyStageLine(returned), /^Returned: fix the README · fix by Nov 13$/);
+  assert.deepEqual(copyChip({ ...returned, state: "done" }), { label: "Approved", tone: "success" });
+  const card = (await import("node:fs")).readFileSync("src/components/workspaces/v2/tasks/TaskCard.tsx", "utf8");
+  assert.doesNotMatch(card, /bits\.chips/, "no capital-letter chips above the title");
+  assert.match(card, /audienceLabel\(taskRecord\.audience\)/, "who it's for, where a task shows its assignee");
 });
 
 test("task 5: the Overview greets by time of day and first name", async () => {

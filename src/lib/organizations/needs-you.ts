@@ -26,7 +26,7 @@ export const copyColumns = { id: tasks.id, title: tasks.title, projectId: tasks.
 export const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`
 
 /** `title` and `detail` are the row's bold line and quiet line (report §7.2); `approveId` approves one join request in place. */
-export type NeedsYouRow = { kind: string; label: string; href: string; tone?: 'amber'; title?: string; detail?: string; approveId?: string };
+export type NeedsYouRow = { kind: string; label: string; href: string; tone?: 'amber'; title?: string; detail?: string; approveId?: string; /** How many it stands for (review rows: the board's In review number adds up from these). */ count?: number };
 
 /** A person's own assignment copies in the org, theirs or their team's. */
 export async function ownCopies(orgId: string, userId: string) {
@@ -59,7 +59,7 @@ export async function readNeedsYou(v: OrgViewer, now: Date): Promise<NeedsYouRow
     const base = `/org/${encodeURIComponent(v.org.slug ?? v.org.id)}`;
     const rows: NeedsYouRow[] = [];
     if (v.isAdmin) {
-        const [reviews, [requests], ended, children, [cap]] = await Promise.all([
+        const [reviews, [requests], ended, children, [cap], [plainWaiting]] = await Promise.all([
             db.select({ title: tasks.title, n: sql<number>`count(*)::int`, oldest: sql<string | null>`min(${tasks.reviewSubmittedAt})::text` }).from(tasks)
                 .innerJoin(workspaces, eq(workspaces.id, tasks.projectId))
                 .where(and(isNotNull(tasks.assignmentId), isNull(tasks.deletedAt), isNull(tasks.excusedAt), eq(tasks.reviewStatus, 'pending'), or(eq(tasks.projectId, v.org.id), eq(workspaces.parentId, v.org.id))))
@@ -72,9 +72,15 @@ export async function readNeedsYou(v: OrgViewer, now: Date): Promise<NeedsYouRow
             db.select({ name: workspaceSprints.name }).from(workspaceSprints).where(and(eq(workspaceSprints.projectId, v.org.id), eq(workspaceSprints.status, 'active'), lt(workspaceSprints.endDate, now))),
             readWorkspaceRequests(v.org.id),
             db.select({ max: workspaces.maxCollaborators, members: sql<number>`(SELECT count(*)::int FROM workspace_members WHERE workspace_id = ${v.org.id})` }).from(workspaces).where(eq(workspaces.id, v.org.id)),
+            // Board view dropdown §4: the organization's own tasks waiting for review, so these rows add up to In review.
+            db.select({ n: sql<number>`count(*)::int`, oldest: sql<string | null>`min(${tasks.reviewSubmittedAt})::text` }).from(tasks)
+                .where(and(eq(tasks.projectId, v.org.id), isNull(tasks.assignmentId), sql`${tasks.kind} <> 'assignment'`, isNull(tasks.deletedAt), isNull(tasks.excusedAt), eq(tasks.reviewStatus, 'pending'))),
         ]);
         for (const r of reviews) rows.push({ kind: 'review', ...reviewRow(r.title, r.n, r.oldest ? new Date(r.oldest) : null, now), title: `${r.n} ${r.n === 1 ? 'submission' : 'submissions'} to review`,
-            detail: `${r.title}${r.oldest ? ` · oldest ${formatDistanceToNow(new Date(r.oldest), { addSuffix: true })}` : ''}`, href: `${base}?tab=tasks&taskScope=review` });
+            detail: `${r.title}${r.oldest ? ` · oldest ${formatDistanceToNow(new Date(r.oldest), { addSuffix: true })}` : ''}`, href: `${base}?tab=tasks&taskScope=review`, count: r.n });
+        if (plainWaiting && plainWaiting.n > 0) rows.push({ kind: 'review', ...reviewRow('Other tasks', plainWaiting.n, plainWaiting.oldest ? new Date(plainWaiting.oldest) : null, now),
+            title: `${plainWaiting.n} ${plainWaiting.n === 1 ? 'task' : 'tasks'} to review`, detail: `Other tasks${plainWaiting.oldest ? ` · oldest ${formatDistanceToNow(new Date(plainWaiting.oldest), { addSuffix: true })}` : ''}`,
+            href: `${base}?tab=tasks&taskScope=review`, count: plainWaiting.n });
         if (requests && requests.n > 0) rows.push({ kind: 'requests', label: plural(requests.n, 'join request'), title: plural(requests.n, 'join request'), href: `${base}?tab=members`,
             detail: requests.n === 1 ? [requests.name ?? 'Someone', requests.viaCode ? 'via code' : null, formatDistanceToNow(new Date(requests.at), { addSuffix: true })].filter(Boolean).join(' · ') : `oldest ${formatDistanceToNow(new Date(requests.at), { addSuffix: true })}`,
             ...(requests.n === 1 ? { approveId: requests.id } : {}) });

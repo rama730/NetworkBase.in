@@ -23,6 +23,7 @@ import { useRealtimeTasks } from "@/hooks/useRealtimeTasks";
 import {
   createTaskAction,
   getWorkspaceTaskDetailAction,
+  readBoardCountsAction,
 } from "@/app/actions/workspace";
 import { createWorkspaceWorkflowColumnAction, deleteWorkspaceWorkflowColumnAction, getWorkspaceWorkflowColumnsAction, updateWorkspaceWorkflowColumnsAction } from "@/app/actions/workspace/workflow";
 import { subscribeBroadcast } from "@/lib/realtime/private-broadcast";
@@ -40,6 +41,7 @@ import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import type { WorkspaceWorkflowColumn as WorkflowColumn } from "@/lib/db/schema";
 import KanbanBoard from "@/components/workspaces/v2/tasks/KanbanBoard";
 import TaskFilters, { type TaskFilterScope } from "@/components/workspaces/v2/tasks/TaskFilters";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
 import {
   useWorkspaceInfiniteTasks,
   useWorkspaceSprints,
@@ -78,6 +80,15 @@ function getNormalizedPageTasks(page: { tasks: any[] }): TaskSurfaceRecord[] {
   }
   return cached;
 }
+
+/** Board view dropdown §6: what an empty view says (admins / everyone else where it differs). */
+const EMPTY_VIEW: Record<Exclude<TaskFilterScope, "all">, { title: (admin: boolean) => string; body: (admin: boolean) => string }> = {
+  sprint: { title: () => "Nothing in this sprint", body: () => "Plan the sprint on Sprints, or add work to it from the backlog." },
+  backlog: { title: () => "Nothing in Backlog", body: () => "Work that isn’t in a sprint waits here." },
+  review: { title: () => "Nothing waiting for review", body: (admin) => (admin ? "Hand-ins show here as they come in." : "Work you hand in waits here until it’s reviewed.") },
+  assignments: { title: (admin) => (admin ? "No open assignments" : "No assignments due"), body: (admin) => (admin ? "Give the class work with New task → Assignment." : "Assignments you’re given show here.") },
+  mine: { title: () => "Nothing assigned to you", body: () => "Tasks and assignments given to you show here." },
+};
 
 const CreateTaskModal = dynamic(
   () => import("@/components/workspaces/v2/tasks/CreateTaskModal"),
@@ -219,6 +230,7 @@ export default function TasksTab({
   // Student check 7 (decision 87, create_org_tasks): an organization's board takes new tasks from its owners and admins.
   const canCreateTasks = canEditTasks && (!orgId || canManageWorkflow);
   const reviewing = Boolean(orgId && scope === "review" && canManageWorkflow);
+  const isDesktop = useMediaQuery("(min-width: 768px)") === true;
   const sprintPaths = useMemo(() => new Map(normalizeSprintOptions(sprints as never[]).map((s) => [s.id, s.name])), [sprints]);
   useEffect(() => {
     if (!startCreate) return;
@@ -651,6 +663,23 @@ export default function TasksTab({
   // ponytail: filters the loaded pages only, like the count beside the title; a server filter if units grow large.
   const [readUnits] = useState(() => serverFirst(started?.units, () => readWorkspaceUnitsAction(projectId)));
   const { data: units = [] } = useQuery({ queryKey: ["project-units", projectId], queryFn: readUnits, staleTime: 60_000 });
+  // Board view dropdown §3, §5: every view's numbers in one read; re-read whenever the board's task lists change
+  // (a move, a review, a hand-in, a live event) — no polling.
+  const countsKey = useMemo(() => ["project", projectId, "board-counts"] as const, [projectId]);
+  const [readCounts] = useState(() => serverFirst(started?.counts, () => readBoardCountsAction(projectId)));
+  const { data: boardCounts = null } = useQuery({ queryKey: countsKey, queryFn: async () => { const r = await readCounts(); return r.success ? r.counts : null; }, staleTime: 30_000 });
+  useEffect(() => {
+    const root = queryKeys.project.detail.tasksRoot(projectId);
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const unsubscribe = queryClient.getQueryCache().subscribe((event) => {
+      if (event.type !== "updated" || event.action.type !== "success") return;
+      const key = event.query.queryKey;
+      if (!root.every((part, i) => key[i] === part)) return;
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => void queryClient.invalidateQueries({ queryKey: countsKey }), 400);
+    });
+    return () => { unsubscribe(); if (timer) clearTimeout(timer); };
+  }, [countsKey, projectId, queryClient]);
   const [unitFilter, setUnitFilter] = useState("");
   const [teamTaskOpen, setTeamTaskOpen] = useState(false);
   const unitMembers = units.find((unit) => unit.id === unitFilter)?.memberIds;
@@ -804,8 +833,8 @@ export default function TasksTab({
               Board
             </h2>
             <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-[3px] border border-border bg-muted/60 px-1.5 font-mono text-[12px] font-medium text-muted-foreground">
-              {/* Loaded so far; "+" while more pages exist (there is no total count). */}
-              {`${filteredTasks.length}${hasNextPage ? "+" : ""}`}
+              {/* Board view dropdown §3 (D4): the view's real total; while searching or narrowing to a team, what's shown. */}
+              {boardCounts && !taskSearchQuery && !unitMembers ? boardCounts[scope].total : `${filteredTasks.length}${hasNextPage ? "+" : ""}`}
             </span>
             {taskSearchQuery ? (
               <span className="hidden font-mono text-[11px] text-muted-foreground sm:inline">
@@ -838,7 +867,7 @@ export default function TasksTab({
             </div>
 
             {/* Filter */}
-            <TaskFilters scope={scope} setScope={setScope} organization={Boolean(orgId)} sprintLabel={runningOnBoard?.label} />
+            <TaskFilters scope={scope} setScope={setScope} organization={Boolean(orgId)} sprintLabel={runningOnBoard?.label} counts={boardCounts} />
             {units.length ? (
               <select aria-label="Team" value={unitFilter} onChange={(e) => setUnitFilter(e.target.value)}
                 className="nb-touch-target h-[34px] rounded-[5px] border border-border bg-card px-2 text-[13px] text-foreground max-md:h-11">
@@ -864,20 +893,27 @@ export default function TasksTab({
                 onCreated={() => void queryClient.invalidateQueries({ queryKey: queryKeys.project.detail.tasksRoot(projectId) })} />
             ) : null}
 
-            {/* New Section */}
-            {canManageWorkflow ? (
-              <button
-                type="button"
-                onClick={handleAddColumn}
-                disabled={workflow.length >= 6}
-                title={workflow.length >= 6 ? "A board can have up to six columns." : undefined}
-                className="nb-touch-target hidden h-[34px] disabled:opacity-50 disabled:cursor-not-allowed items-center gap-1.5 rounded-[5px] border border-border bg-card px-3 text-[13px] font-medium text-foreground hover:bg-muted transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring md:inline-flex"
-              >
-                <Plus className="size-3.5" />
-                <span className="hidden sm:inline">New column</span>
-              </button>
-            ) : null}
-
+            {/* ⋯: New column on every screen (board view dropdown §6, D3), and on phones the code editor handoff. */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button type="button" aria-label="More task actions" className="inline-flex size-11 items-center justify-center rounded-[5px] border border-border bg-card text-muted-foreground hover:bg-muted md:size-[34px]" hidden={!canManageWorkflow && isDesktop ? true : undefined}>
+                  <MoreHorizontal className="size-4" aria-hidden="true" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-52">
+                {canManageWorkflow ? (
+                  <DropdownMenuItem onSelect={handleAddColumn} disabled={workflow.length >= 6}>
+                    <Plus className="size-4" aria-hidden="true" />
+                    {workflow.length >= 6 ? "Six columns (maximum)" : "New column"}
+                  </DropdownMenuItem>
+                ) : null}
+                {/* Board view dropdown §6 (D3): a rare action, in ⋯ on every screen; the code editor has its own button on desktop. */}
+                <DropdownMenuItem onSelect={() => setIdeSheetOpen(true)} className="md:hidden">
+                  <Laptop className="size-4" aria-hidden="true" />
+                  Connect your code editor
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
             {/* New Task */}
             {canCreateTasks ? (
               <button
@@ -890,26 +926,6 @@ export default function TasksTab({
               </button>
             ) : null}
 
-            {/* Phone overflow: New column and the desktop IDE handoff (spec §20, primary action stays visible). */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button type="button" aria-label="More task actions" className="inline-flex size-11 items-center justify-center rounded-[5px] border border-border bg-card text-muted-foreground hover:bg-muted md:hidden">
-                  <MoreHorizontal className="size-4" aria-hidden="true" />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-52">
-                {canManageWorkflow ? (
-                  <DropdownMenuItem onSelect={handleAddColumn} disabled={workflow.length >= 6}>
-                    <Plus className="size-4" aria-hidden="true" />
-                    {workflow.length >= 6 ? "Six columns (maximum)" : "New column"}
-                  </DropdownMenuItem>
-                ) : null}
-                <DropdownMenuItem onSelect={() => setIdeSheetOpen(true)}>
-                  <Laptop className="size-4" aria-hidden="true" />
-                  Connect your code editor
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
             </>}
             <OpenInIdeSheet open={ideSheetOpen} onOpenChange={setIdeSheetOpen} projectId={projectId} projectSlug={projectSlug} taskId={editingTask?.id} />
           </div>
@@ -962,9 +978,23 @@ export default function TasksTab({
       {/* Main Content. Problem 33: on an organization, In review is the one queue the badge counts, group work included. */}
       {/* Board/review report §2: one line — the queue's filters on the left, the board's tabs on the right. */}
       {reviewing && orgId ? <ReviewQueue orgId={orgId} onChanged={() => void refetchTasks()} onClose={() => setScope("all")}
-        tabs={(waiting) => <TaskFilters scope={scope} setScope={setScope} organization counts={{ review: waiting }} sprintLabel={runningOnBoard?.label} />} /> : null}
+        tabs={() => <TaskFilters scope={scope} setScope={setScope} organization counts={boardCounts} sprintLabel={runningOnBoard?.label} />} /> : null}
       <div className={cn("flex-1 min-h-0", reviewing && "hidden")}>
         <SprintPathContext.Provider value={sprintPaths}>
+        {/* Board view dropdown §6: an empty view says which view it is and what to do next. */}
+        {scope !== "all" && !isLoading && filteredTasks.length === 0 && !taskSearchQuery && !unitMembers ? (
+          <div className="nb-empty-state nb-grid-ground rounded-[8px] py-14" role="status">
+            <h3 className="nb-empty-state-title">{EMPTY_VIEW[scope].title(canManageWorkflow)}</h3>
+            <p className="nb-empty-state-desc">{EMPTY_VIEW[scope].body(canManageWorkflow)}</p>
+            {scope === "sprint" ? (
+              <a href="?tab=sprints" className="nb-ui-label mt-3 inline-flex h-[34px] items-center rounded-[5px] border border-border bg-card px-3 text-foreground hover:bg-muted">Plan a sprint</a>
+            ) : (scope === "backlog" || scope === "mine" || (scope === "assignments" && canManageWorkflow)) && canCreateTasks ? (
+              <button type="button" onClick={() => setShowCreateModal(true)} className="nb-ui-label mt-3 inline-flex h-[34px] items-center gap-1.5 rounded-[5px] border border-border bg-card px-3 text-foreground hover:bg-muted">
+                <Plus className="size-3.5" aria-hidden="true" />New task
+              </button>
+            ) : null}
+          </div>
+        ) : (
         <KanbanBoard
           projectId={projectId}
           workflow={workflow}
@@ -983,6 +1013,7 @@ export default function TasksTab({
           currentUserId={currentUserId}
           onTaskDragStateChange={setRealtimeDeferredTaskId}
         />
+        )}
         </SprintPathContext.Provider>
       </div>
 

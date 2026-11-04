@@ -1,18 +1,19 @@
-import { assignmentColumn, assignmentWriteContext, orgTaskReadFilter, readMasterProgress } from "@/lib/organizations/assignments";
-import { assignmentWriteBlock } from "@/lib/organizations/assignment-rules";
+import { assignmentColumn, assignmentWriteContext, orgTaskReadFilter, readAssignmentStages, readMasterProgress } from "@/lib/organizations/assignments";
+import { assignmentWriteBlock, type AssignmentTarget } from "@/lib/organizations/assignment-rules";
 import { orgCan, orgRoleOf } from "@/lib/organizations/permissions";
 import { assignmentPeopleOf, notifyAssignmentRemoved } from "@/lib/organizations/assignment-notify";
 import { logger } from "@/lib/logger";
 import { readViewerOrgRole } from "@/lib/organizations/detail";
 import { lockTaskForWrite, transitionTaskTx, afterTaskTransition } from "@/lib/workspaces/task-transition-service";
 import "server-only";
+import { runningSprint } from "@/lib/workspaces/sprint-plan";
 
 type TaskListScope = "all" | "backlog" | "sprint" | "review" | "assignments" | "mine";
 const LIST_SCOPES: TaskListScope[] = ["backlog", "sprint", "review", "assignments", "mine"];
 
 import { type WorkspaceAccess, getWorkspaceAccessById, canReadWorkspaceTab, WorkspaceTabForbiddenError, getWorkspaceAccessByIdentifier, assertWorkspaceTabReadAccess } from "@/lib/data/workspace-access";
 import { normalizeSearchQuery, containsLikePattern, escapeLikePattern, tokenizeSearchQuery } from "@/lib/search/query";
-import { sql, eq, and, or, isNull, isNotNull, ilike, desc, inArray } from "drizzle-orm";
+import { sql, eq, and, or, isNull, isNotNull, ilike, desc, inArray, type SQL } from "drizzle-orm";
 import { tasks, taskReadReceipts, workspaces, workspaceMembers, roleApplications, workspaceOpenRoles, workspaceSprints, workspaceWorkflowColumns, sprintTaskMemberships, taskActivityEvents, workspaceNodes, taskNodeLinks, taskSubtasks } from "@/lib/db/schema";
 import { consumeRateLimit } from "@/lib/security/rate-limit";
 import { runInFlightDeduped } from "@/lib/utils/inflight-dedupe";
@@ -100,6 +101,90 @@ function encodeTaskPaginationCursor(cursor: TaskPaginationCursor): string {
 // ============================================================================
 
 // --- Fetch Actions (Optimization) ---
+
+/** One view's own rule — the list and the board's counts both use it (board view dropdown §5). */
+function scopeWhere(scope: TaskListScope, actorId: string | null, sprintIds?: string[]): SQL | undefined {
+  // Excused work leaves the queue (report §42.2 smaller bug 4). Live-fix 9: only a person's copy is reviewed.
+  if (scope === "review") return and(eq(tasks.reviewStatus, "pending"), isNull(tasks.excusedAt), or(sql`${tasks.kind} IS DISTINCT FROM 'assignment'`, isNotNull(tasks.assignmentId)));
+  // Live-fix 6: Assignments and Mine (yours, or your team's).
+  if (scope === "assignments") return or(eq(tasks.kind, "assignment"), isNotNull(tasks.assignmentId));
+  if (scope === "mine") return actorId ? or(eq(tasks.assigneeId, actorId), sql`EXISTS (SELECT 1 FROM task_team_members tm WHERE tm.task_id = ${tasks.id} AND tm.user_id = ${actorId})`) : sql`false`;
+  if (scope === "backlog") return isNull(tasks.sprintId);
+  if (scope === "sprint") return sprintIds ? (sprintIds.length ? inArray(tasks.sprintId, sprintIds) : sql`false`) : isNotNull(tasks.sprintId);
+  return undefined;
+}
+
+/** open: not done (the menu's grey number); total: every card the view shows (Board N); needsYou: orange. */
+export type BoardViewCount = { open: number; total: number; needsYou: number };
+export type BoardCounts = Record<TaskListScope, BoardViewCount>;
+
+/** Open = not done; a main assignment is open until it's closed or everyone is done (its board column, decision 14). */
+const OPEN = sql`(CASE WHEN ${tasks.kind} = 'assignment' AND ${tasks.assignmentId} IS NULL THEN NOT (
+    ${tasks.assignmentSettings}->>'closedAt' IS NOT NULL OR (
+      EXISTS (SELECT 1 FROM tasks c WHERE c.assignment_id = ${tasks.id} AND c.deleted_at IS NULL AND c.excused_at IS NULL)
+      AND NOT EXISTS (SELECT 1 FROM tasks c WHERE c.assignment_id = ${tasks.id} AND c.deleted_at IS NULL AND c.excused_at IS NULL AND NOT (c.status = 'done' AND c.review_status <> 'pending'))))
+  ELSE ${tasks.status} <> 'done' END)`;
+
+/**
+ * Board view dropdown §3, §5: each view's open count and what needs the viewer now, in one statement, by the list's
+ * own rules (`scopeWhere`, `orgTaskReadFilter`, the running sprint), so a number never promises cards a view doesn't show.
+ * Orange: hand-ins waiting (people who review); your copies due within 2 days or missing; your own tasks due within
+ * 2 days or overdue. The org Tasks tab badge reads the same numbers.
+ */
+export async function readBoardCounts(access: WorkspaceAccess, actorId: string | null): Promise<BoardCounts> {
+  const projectId = access.project!.id;
+  const org = access.project?.kind === "organization";
+  const reviews = org ? access.isOwner || access.memberRole === "admin" : access.isOwner || access.memberRole === "admin" || access.memberRole === "owner";
+  // The org board's Sprint is the running sprint: the sprint inside a CO, or the CO with its sprints (sprint-levels §6).
+  let sprintIds: string[] | undefined;
+  if (org) {
+    const live = await db.select({ id: workspaceSprints.id, parentSprintId: workspaceSprints.parentSprintId, status: workspaceSprints.status, name: workspaceSprints.name })
+      .from(workspaceSprints).where(and(eq(workspaceSprints.projectId, projectId), inArray(workspaceSprints.status, ["active", "planning"])));
+    const running = runningSprint(live);
+    sprintIds = !running ? undefined : running.parentSprintId && live.some((m) => m.id === running.parentSprintId) ? [running.id] : [running.id, ...live.filter((x) => x.parentSprintId === running.id).map((x) => x.id)];
+  }
+  const own = actorId ? sql`(${tasks.assigneeId} = ${actorId} OR EXISTS (SELECT 1 FROM task_team_members tm WHERE tm.task_id = ${tasks.id} AND tm.user_id = ${actorId}))` : sql`false`;
+  const notHandedIn = sql`(${tasks.status} <> 'done' AND ${tasks.reviewStatus} <> 'pending' AND ${tasks.submission} IS NULL AND ${tasks.excusedAt} IS NULL)`;
+  const masterOpen = sql`EXISTS (SELECT 1 FROM tasks m WHERE m.id = ${tasks.assignmentId} AND m.deleted_at IS NULL AND m.assignment_settings->>'closedAt' IS NULL)`;
+  const copyNeedsYou = sql`(${tasks.assignmentId} IS NOT NULL AND ${own} AND ${notHandedIn} AND ${masterOpen} AND ${tasks.dueDate} < now() + interval '2 days')`;
+  const taskNeedsYou = sql`(${tasks.assignmentId} IS NULL AND ${own} AND ${tasks.status} <> 'done' AND ${tasks.reviewStatus} <> 'pending' AND ${tasks.dueDate} < now() + interval '2 days')`;
+  const view = (scope: TaskListScope, extra?: SQL) => sql`count(*) FILTER (WHERE ${and(sql`true`, orgTaskReadFilter(access, actorId, scope), scopeWhere(scope, actorId, scope === "sprint" ? sprintIds : undefined), extra)})::int`;
+  const [row] = await db.select({
+    all: view("all", OPEN), sprint: view("sprint", OPEN), backlog: view("backlog", OPEN), review: view("review", OPEN), assignments: view("assignments", OPEN), mine: view("mine", OPEN),
+    allTotal: view("all"), sprintTotal: view("sprint"), backlogTotal: view("backlog"), reviewTotal: view("review"), assignmentsTotal: view("assignments"), mineTotal: view("mine"),
+    assignmentsNeed: sql<number>`count(*) FILTER (WHERE ${copyNeedsYou})::int`,
+    mineNeed: view("mine", taskNeedsYou),
+  }).from(tasks).where(and(eq(tasks.projectId, projectId), isNull(tasks.deletedAt)));
+  const n = (v: unknown) => Number(v ?? 0);
+  // An organization admin's In review is the review queue (readReviewQueueAction): the hand-ins of this organization's
+  // assignments wherever they were handed in (team workspaces' group work too), and its own tasks waiting.
+  const queue = org && reviews ? Number((await db.execute<{ n: number }>(sql`
+    SELECT (SELECT count(*)::int FROM tasks c JOIN tasks m ON m.id = c.assignment_id
+            WHERE m.workspace_id = ${projectId} AND m.deleted_at IS NULL AND c.deleted_at IS NULL AND c.excused_at IS NULL AND c.review_status = 'pending')
+         + (SELECT count(*)::int FROM tasks t WHERE t.workspace_id = ${projectId} AND t.assignment_id IS NULL AND t.kind <> 'assignment' AND t.deleted_at IS NULL AND t.review_status = 'pending' AND t.excused_at IS NULL) AS n`))[0]?.n ?? 0) : null;
+  return {
+    all: { open: n(row?.all), total: n(row?.allTotal), needsYou: 0 },
+    sprint: { open: n(row?.sprint), total: n(row?.sprintTotal), needsYou: 0 },
+    backlog: { open: n(row?.backlog), total: n(row?.backlogTotal), needsYou: 0 },
+    review: queue !== null ? { open: queue, total: queue, needsYou: queue } : { open: n(row?.review), total: n(row?.reviewTotal), needsYou: reviews ? n(row?.review) : 0 },
+    assignments: { open: n(row?.assignments), total: n(row?.assignmentsTotal), needsYou: org ? n(row?.assignmentsNeed) : 0 },
+    mine: { open: n(row?.mine), total: n(row?.mineTotal), needsYou: n(row?.mineNeed) },
+  };
+}
+
+export async function readBoardCountsAction(projectId: string) {
+  try {
+    if (!isLooseUuid(projectId)) return { success: false as const, error: "Workspace not found" };
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    const access = await getWorkspaceAccessById(projectId, user?.id ?? null);
+    if (!access.project || !canReadWorkspaceTab(access, "tasks")) return { success: false as const, error: "Workspace not found" };
+    return { success: true as const, counts: await readBoardCounts(access, user?.id ?? null) };
+  } catch (error) {
+    console.error("Failed to count board views:", error);
+    return { success: false as const, error: "Couldn’t count the board" };
+  }
+}
 
 async function fetchProjectTasksForActor(
   projectId: string,
@@ -210,21 +295,7 @@ async function fetchProjectTasksForActor(
             pageCursor,
             // Organizations: members see the masters and their own (or team) copies (decision 19).
             orgTaskReadFilter(access, actorId, normalizedScope),
-            // Excused work leaves the queue (report §42.2 smaller bug 4).
-            // Live-fix 9: only a person's copy is reviewed, never the main assignment.
-            normalizedScope === "review" ? and(eq(t.reviewStatus, "pending"), isNull(t.excusedAt), or(sql`${t.kind} IS DISTINCT FROM 'assignment'`, isNotNull(t.assignmentId))) : undefined,
-            // Live-fix 6: Assignments and Mine (yours, or your team's).
-            normalizedScope === "assignments" ? or(eq(t.kind, "assignment"), isNotNull(t.assignmentId)) : undefined,
-            normalizedScope === "mine"
-              ? actorId
-                ? or(eq(t.assigneeId, actorId), sql`EXISTS (SELECT 1 FROM task_team_members tm WHERE tm.task_id = ${t.id} AND tm.user_id = ${actorId})`)
-                : sql`false`
-              : undefined,
-            normalizedScope === "backlog"
-              ? isNull(t.sprintId)
-              : normalizedScope === "sprint"
-                ? isNotNull(t.sprintId)
-                : undefined,
+            scopeWhere(normalizedScope, actorId),
           );
         },
         orderBy: (t, { desc }) =>
@@ -379,6 +450,23 @@ async function fetchProjectTasksForActor(
       // Assignment cards (decision 14, gap 24): their column and class progress come from the copies, in one query.
       const masters = limitedTasks.filter((task) => task.kind === "assignment" && !task.assignmentId);
       const progressByMaster = await readMasterProgress(masters.map((m) => m.id));
+      // Board view dropdown §6a: the card's stages and a copy's own stage — the sprint list's read, so they match.
+      const { stages: stagesByMaster, copies: stageByCopy } = await readAssignmentStages(masters.map((m) => m.id), limitedTasks.filter((t) => t.assignmentId).map((t) => t.id));
+      // Who a draft would go to (no copies yet): the organization's members, admins or child workspaces.
+      const drafts = masters.filter((m) => !m.assignmentSettings?.publishedAt);
+      const [sizes] = drafts.length ? await db.execute<{ members: number; admins: number; children: number }>(sql`
+        SELECT (SELECT count(*)::int FROM workspace_members WHERE workspace_id = ${projectId} AND role = 'member') AS members,
+               (SELECT count(*)::int FROM workspace_members WHERE workspace_id = ${projectId} AND role IN ('owner', 'admin')) AS admins,
+               (SELECT count(*)::int FROM workspaces WHERE parent_id = ${projectId} AND deleted_at IS NULL AND status <> 'archived') AS children`) : [];
+      const audienceOf = (task: (typeof masters)[number]) => {
+        const target = (task.assignmentSettings as { target?: AssignmentTarget } | null)?.target ?? { mode: "everyone" as const };
+        const st = stagesByMaster.get(task.id);
+        const copies = st ? st.total + st.counts.excused : null;
+        const planned = target.mode === "people" ? target.userIds.length : target.mode === "teams" ? target.teams.length + target.individuals.length
+          : target.mode === "children" ? target.projectIds.length : target.mode === "each_child" ? Number(sizes?.children ?? 0)
+            : target.mode === "role" ? Number(sizes?.admins ?? 0) : Number(sizes?.members ?? 0);
+        return { mode: target.mode, count: copies ?? planned };
+      };
       const defaultColumns = masters.length === 0 ? new Map<string, string>() : new Map((await db.execute<{ status: string; id: string }>(sql`
         SELECT DISTINCT ON (status) status, id FROM workspace_workflow_columns WHERE workspace_id = ${projectId} AND is_default ORDER BY status, position`)).map((r) => [r.status, r.id]));
       const normalizedTasks = limitedTasks.map((task) => {
@@ -394,6 +482,10 @@ async function fetchProjectTasksForActor(
           ...rest,
           ...(column ? { status: column, workflowColumnId: defaultColumns.get(column) ?? task.workflowColumnId } : {}),
           assignmentProgress: progress,
+          assignmentStages: isMaster ? stagesByMaster.get(task.id) ?? null : null,
+          copyStage: task.assignmentId ? stageByCopy.get(task.id) ?? null : null,
+          audience: isMaster ? audienceOf(task) : null,
+          publishAt: isMaster && !task.assignmentSettings?.publishedAt ? task.assignmentSettings?.publishAt ?? null : null,
           fromLabel: task.assignmentId ? parentOrgTitle ?? (task as { creator?: { fullName?: string | null } }).creator?.fullName ?? null : null,
           subtaskCount: Number(counts?.subtask_count ?? 0),
           completedSubtaskCount: Number(counts?.completed_subtask_count ?? 0),

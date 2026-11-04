@@ -747,19 +747,6 @@ export function ReviewQueue({ orgId, onChanged, onClose, tabs }: { orgId: string
     const [error, setError] = useState<string | null>(null)
     const load = useCallback(() => void readReviewQueueAction(orgId).then((r) => { setRows(r.success ? r.rows : []); setTotal(r.success ? r.total : 0); setReasons(r.success ? r.recentReasons : []); if (!r.success) setError(r.error) }), [orgId])
     useEffect(() => { load() }, [load])
-    // Board/review report §2: All tasks is the way back, and so is Esc (when nothing else is open and no field has focus).
-    const closeRef = useRef(onClose)
-    closeRef.current = onClose
-    useEffect(() => {
-        const onKey = (event: KeyboardEvent) => {
-            const target = event.target as HTMLElement | null
-            if (event.key !== 'Escape' || event.defaultPrevented || document.querySelector('[role="dialog"],[role="alertdialog"],[role="menu"]')) return
-            if (target && (target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName))) return
-            closeRef.current?.()
-        }
-        window.addEventListener('keydown', onKey)
-        return () => window.removeEventListener('keydown', onKey)
-    }, [])
     useReloadOnNotice(load)
     useEffect(() => { if (rows && assignment !== 'all' && !rows.some((r) => r.masterId === assignment)) setAssignment('all') }, [rows, assignment])
     const shown = useMemo(() => queueOrder((rows ?? []).filter((r) => !held.has(r.copyId) && (assignment === 'all' || r.masterId === assignment) && (!lateOnly || r.late) && (!mineOnly || r.mine)), sort, query),
@@ -804,7 +791,8 @@ export function ReviewQueue({ orgId, onChanged, onClose, tabs }: { orgId: string
             const k = event.key.toLowerCase()
             if (k === 'j') keys.current.step(1)
             else if (k === 'k') keys.current.step(-1)
-            else if (k === 'escape') keys.current.onClose?.()
+            // Board/review report §2: Esc is the way back to the board — unless it closed a menu or dialog first.
+            else if (k === 'escape' && !target?.closest?.('[role="menu"],[role="dialog"],[role="alertdialog"],[role="listbox"]')) keys.current.onClose?.()
         }
         window.addEventListener('keydown', onKey)
         return () => window.removeEventListener('keydown', onKey)

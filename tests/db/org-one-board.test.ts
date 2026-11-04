@@ -189,6 +189,11 @@ test("sprint cleanup §4: a main assignment in a sprint counts every stage with 
   assert.equal(stages!.total, 5);
   assert.equal(stages!.reviewRequired, true);
   assert.equal(stages!.names.submitted.length, 1);
+  // Board view dropdown §6a: the board's card reads the same stages, and says who it's for.
+  const board = await tasks.fetchWorkspaceTasksAction(org, 50, undefined, "all");
+  const card = board.success ? board.tasks.find((t) => t.id === masterId) : undefined;
+  assert.deepEqual(card?.assignmentStages, stages, "the card and the sprint list agree");
+  assert.deepEqual(card?.audience, { mode: "everyone", count: 5 });
   // The student's own copy says where they are.
   viewerId = d!;
   const mine = await sprints.fetchWorkspaceSprintDetailAction({ projectId: org, sprintId: sprint!.id });
@@ -196,5 +201,7 @@ test("sprint cleanup §4: a main assignment in a sprint counts every stage with 
   const stage = own && own.kind === "task" ? own.task.copyStage : null;
   assert.equal(stage?.state, "returned");
   assert.equal(stage?.reason, "Fix the README");
+  const myBoard = await tasks.fetchWorkspaceTasksAction(org, 50, undefined, "all");
+  assert.equal(myBoard.success ? myBoard.tasks.find((t) => t.id === returned)?.copyStage?.state : null, "returned", "the student's own card says where they are");
   assert.ok(stage?.fixBy);
 });

@@ -203,7 +203,8 @@ export function OpenInIdeButton({
                     aria-hidden="true"
                     className="size-4 shrink-0 text-primary"
                   />
-                  <span>Code editor</span>
+                  {/* Board view dropdown §6: "Code" below 1280px so the board's toolbar stays on one line. */}
+                  <span className="xl:hidden">Code</span><span className="hidden xl:inline">Code editor</span>
                 </>
               )}
               {readOnlyNote ? <span className="rounded-[3px] border border-border px-1 text-[10px] text-muted-foreground">Read only</span> : null}

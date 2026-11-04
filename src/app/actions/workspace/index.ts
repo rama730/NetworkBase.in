@@ -142,6 +142,10 @@ export async function markTaskAsReadAction(...args: Parameters<typeof tasksImpl.
   return tasksImpl.markTaskAsReadAction(...args);
 }
 
+export async function readBoardCountsAction(...args: Parameters<typeof tasksImpl.readBoardCountsAction>): ReturnType<typeof tasksImpl.readBoardCountsAction> {
+  return tasksImpl.readBoardCountsAction(...args);
+}
+
 export async function fetchWorkspaceTasksAction(...args: Parameters<typeof tasksImpl.fetchWorkspaceTasksAction>): ReturnType<typeof tasksImpl.fetchWorkspaceTasksAction> {
   return tasksImpl.fetchWorkspaceTasksAction(...args);
 }

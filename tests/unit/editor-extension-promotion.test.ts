@@ -257,15 +257,12 @@ describe("Editor extension Desktop Deep-Linking & Promotion Contract", () => {
         "TasksTab must render OpenInIdeButton JSX element in toolbar",
       );
 
+      // Board view dropdown §6 (D3): New column moved into ⋯; the code editor button sits before New task.
       const ideBtnIndex = content.indexOf("<OpenInIdeButton");
-      const toolbarNewSectionIndex = content.indexOf(
-        '<span className="hidden sm:inline">New column</span>',
-      );
+      const newTaskIndex = content.indexOf("<span>New task</span>");
       assert.ok(
-        ideBtnIndex !== -1 &&
-          toolbarNewSectionIndex !== -1 &&
-          ideBtnIndex < toolbarNewSectionIndex,
-        "OpenInIdeButton must appear before 'New column' button in TasksTab toolbar",
+        ideBtnIndex !== -1 && newTaskIndex !== -1 && ideBtnIndex < newTaskIndex,
+        "OpenInIdeButton must appear before New task in TasksTab toolbar",
       );
     });
   });

@@ -8,6 +8,7 @@ import { z } from 'zod';
 import { db } from '@/lib/db';
 import { assignmentSubmissions, profiles, taskNodeLinks, taskSubtasks, workspaceMembers, workspaceNodes, workspaces, workspaceSprints, workspaceWorkflowColumns, taskActivityEvents, taskTeamMembers, tasks } from '@/lib/db/schema';
 import { getWorkspaceAccessById, writeBlockedMessage } from '@/lib/data/workspace-access';
+import { readBoardCounts } from '@/lib/workspaces/server/tasks';
 import { createClient } from '@/lib/supabase/server';
 import { orgRoleNames } from '@/lib/organizations/config';
 import { assignmentHref, canStillSubmit, copyState, splitIntoTeams, webLink, LATE_AFTER_DEFAULT_MINUTES, lateAfterMs, lateRuleBlock, lateWorkLabel, type AssignmentSettings, type AssignmentTarget, type CopyState, weeklyRepeats } from '@/lib/organizations/assignment-rules';
@@ -1218,22 +1219,16 @@ export async function readReviewQueueAction(orgId: string): Promise<{ success: t
 
 export type OrgTabBadges = { tasks: number; updates: boolean; members: number };
 
-/** Org tab badges (report §18.3): admins see submissions to review and join requests; members see work due
- *  within 2 days. Everyone gets a dot for announcements they haven't seen. */
+/** Org tab badges (report §18.3): admins see work waiting for review and join requests; members see their assignments
+ *  due within 2 days or missing — the board's own orange numbers (board view dropdown §3), so the two never disagree.
+ *  Everyone gets a dot for announcements they haven't seen. */
 export async function readOrgTabBadgesAction(orgId: string): Promise<OrgTabBadges | null> {
     const viewer = await orgRole(orgId, 'read');
     if (!viewer) return null;
-    const [row] = await db.execute<{ tasks: number; updates: boolean; members: number }>(sql`
+    const access = await getWorkspaceAccessById(orgId, viewer.userId)
+    const board = await readBoardCounts(access, viewer.userId)
+    const [row] = await db.execute<{ updates: boolean; members: number }>(sql`
         SELECT
-          ${viewer.isAdmin
-            ? sql`(SELECT count(*)::int FROM tasks c JOIN tasks m ON m.id = c.assignment_id
-                   WHERE m.workspace_id = ${orgId} AND m.deleted_at IS NULL AND c.deleted_at IS NULL AND c.excused_at IS NULL AND c.review_status = 'pending')`
-            : sql`(SELECT count(DISTINCT c.id)::int FROM tasks c JOIN tasks m ON m.id = c.assignment_id
-                   LEFT JOIN task_team_members tm ON tm.task_id = c.id AND tm.user_id = ${viewer.userId}
-                   WHERE m.workspace_id = ${orgId} AND m.deleted_at IS NULL AND m.assignment_settings->>'closedAt' IS NULL
-                     AND c.deleted_at IS NULL AND c.excused_at IS NULL AND (c.assignee_id = ${viewer.userId} OR tm.user_id IS NOT NULL)
-                     AND c.due_date BETWEEN now() AND now() + interval '2 days'
-                     AND NOT (c.review_status IN ('pending', 'approved') OR c.status = 'done' OR c.submission IS NOT NULL))`} AS tasks,
           EXISTS (SELECT 1 FROM workspace_updates u
                   WHERE u.workspace_id = ${orgId} AND u.update_type = 'announcement' AND u.deleted_at IS NULL AND u.author_id IS DISTINCT FROM ${viewer.userId}
                     AND u.created_at > coalesce((SELECT last_seen_updates_at FROM workspace_members WHERE workspace_id = ${orgId} AND user_id = ${viewer.userId}), '-infinity'::timestamptz)
@@ -1243,5 +1238,5 @@ export async function readOrgTabBadgesAction(orgId: string): Promise<OrgTabBadge
           ${viewer.isAdmin
             ? sql`(SELECT count(*)::int FROM role_applications WHERE workspace_id = ${orgId} AND role_id IS NULL AND status = 'pending')`
             : sql`0`} AS members`);
-    return row ? { tasks: row.tasks, updates: row.updates, members: row.members } : null;
+    return row ? { tasks: viewer.isAdmin ? board.review.needsYou : board.assignments.needsYou, updates: row.updates, members: row.members } : null;
 }

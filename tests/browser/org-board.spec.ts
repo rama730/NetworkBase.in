@@ -25,7 +25,8 @@ test.beforeAll(async () => {
       export const readAssignmentComposerOptionsAction=async()=>({success:true,children:[],sprints:[],teamAssignments:[],admins:[],defaults:{reviewRequired:true,lateRule:'always'}});
       export const readAssignmentForReuseAction=async()=>({success:true,form:{title:'Array lab',description:'Implement a dynamic array',submissionType:'link',reviewRequired:true,lateRule:'always',lateAfterMinutes:15,steps:['Push','Pop'],target:{mode:'everyone'},materials:[],dueDate:null}});`,
     '@/app/actions/organizations': `export const listOrgRosterAction=async()=>[{userId:'rama',name:'Rama',username:'rama',avatarUrl:null,title:null,role:'member',projectHint:null},{userId:'asha',name:'Asha',username:'asha',avatarUrl:null,title:null,role:'member',projectHint:null}];`,
-    '@/app/actions/workspace': `export const fetchWorkspaceTasksAction=async(_p,_n,_c,scope)=>({success:true,tasks:window.boardTasks.filter((t)=>scope!=='sprint'||t.sprintId),nextCursor:undefined,hasMore:false});`,
+    '@/app/actions/workspace': `export const fetchWorkspaceTasksAction=async(_p,_n,_c,scope)=>({success:true,tasks:scope==='mine'?[]:window.boardTasks.filter((t)=>scope!=='sprint'||t.sprintId),nextCursor:undefined,hasMore:false});
+      export const readBoardCountsAction=async()=>{window.countCalls++;return {success:true,counts:JSON.parse(JSON.stringify(window.counts))}};`,
     '@/app/actions/moderation': `export const moderatedItemsAction=async()=>[];`,
     '@/app/actions/workspace/workflow': `export const getWorkspaceWorkflowColumnsAction=async()=>({success:true,columns:[['todo','To do'],['in_progress','In progress'],['done','Completed']].map(([status,title],i)=>({id:'col-'+status,projectId:'org',status,title,accentClassName:'',emptyTitle:'Nothing here',emptyDescription:'',position:i,isDefault:true,createdAt:new Date(),updatedAt:new Date()}))});`,
   };
@@ -80,10 +81,110 @@ test('board/review report §4: Use again on an assignment\'s card opens New on i
 
 test('board/review report §6: Sprint names the running sprint in full and lists its work', async ({ page }) => {
   await open(page);
-  const sprint = page.getByRole('group', { name: 'Show' }).getByRole('button', { name: /^Sprint/ });
-  await expect(sprint).toHaveText('Sprint· CO1 · Week 3–4');
+  await page.getByRole('button', { name: /^Show: All tasks/ }).click();
+  const sprint = page.getByRole('menuitemradio', { name: /^Sprint · CO1 · Week 3–4/ });
+  await expect(sprint).toBeVisible();
   await sprint.click();
   await expect(page.getByText('Stack drill', { exact: true })).toBeVisible();
   await expect(page.getByText('Queue drill', { exact: true })).toHaveCount(0);
   await expect(page.getByText('Array lab', { exact: true })).toHaveCount(0);
+});
+
+const center = async (page: Page, locator: ReturnType<Page['getByRole']>) => { const b = (await locator.boundingBox())!; return b.y + b.height / 2; };
+
+test('board view dropdown §2, §3: one View button with counts; search, View, Code editor and New task share one line', async ({ page }) => {
+  await open(page);
+  const view = page.getByRole('button', { name: /^Show: All tasks/ });
+  await expect(view).toHaveAccessibleName('Show: All tasks. 7 in other views need you');
+  await expect(view).toContainText('7');
+  // Board N is the view's real total.
+  await expect(page.getByRole('heading', { name: 'Board' }).locator('..')).toContainText('10');
+  for (const width of [1440, 1280]) {
+    await page.setViewportSize({ width, height: 900 });
+    const row = await center(page, page.getByRole('button', { name: 'New task' }));
+    for (const other of [view, page.getByPlaceholder('Filter tasks…')]) expect(Math.abs((await center(page, other as never)) - row)).toBeLessThan(10);
+    await expect(page.getByRole('button', { name: 'New column' })).toHaveCount(0);
+  }
+  // Below 1280px the code editor button says "Code" so the row never wraps.
+  await page.setViewportSize({ width: 1200, height: 900 });
+  await expect(page.getByText('Code', { exact: true })).toBeVisible();
+  expect(Math.abs((await center(page, view)) - (await center(page, page.getByRole('button', { name: 'New task' }))))).toBeLessThan(10);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await expect(page.getByText('Code editor', { exact: true })).toBeVisible();
+  // New task is the last control on the line, after ⋯.
+  const right = async (name: string) => { const b = (await page.getByRole('button', { name, exact: true }).first().boundingBox())!; return b.x + b.width; };
+  expect(await right('New task')).toBeGreaterThan(await right('More task actions'));
+  // New column lives in ⋯.
+  await page.getByRole('button', { name: 'More task actions' }).click();
+  await expect(page.getByRole('menuitem', { name: 'New column' })).toBeVisible();
+  await page.keyboard.press('Escape');
+  // The menu: every view with its open number, and what needs you in orange.
+  await view.click();
+  const items = page.getByRole('menuitemradio');
+  await expect(items).toHaveText([/^All tasks, 7 open\s*7$/, /^Sprint · CO1 · Week 3–4, 1 open\s*1$/, /^Backlog, 5 open\s*5$/, /^In review, 6 open, 6 waiting for you\s*6\s*6$/, /^Assignments, 5 open\s*5$/, /^Mine, 2 open, 1 need you\s*1\s*2$/]);
+  await expect(page.getByRole('menuitemradio', { name: /^In review ?, 6 open, 6 waiting for you$/ })).toBeVisible();
+  await expect(page.getByRole('menuitemradio', { name: /All tasks/ })).toHaveAttribute('aria-checked', 'true');
+  await page.keyboard.press('ArrowDown');
+  await page.getByRole('menuitemradio', { name: /^Mine/ }).click();
+  await expect(page.getByRole('button', { name: /^Show: Mine/ })).toHaveAccessibleName('Show: Mine. 6 in other views need you');
+});
+
+test('board view dropdown §3, §5: the numbers update after a change on the board, without a reload', async ({ page }) => {
+  await open(page);
+  await expect(page.getByRole('button', { name: /^Show: All tasks/ })).toContainText('7');
+  const calls = await page.evaluate(() => (window as unknown as { countCalls: number }).countCalls);
+  await page.evaluate(() => { const w = window as unknown as { counts: { review: { needsYou: number } }; openCopy: () => void }; w.counts.review.needsYou = 5; w.openCopy(); });
+  await expect(page.getByRole('button', { name: /^Show: All tasks/ })).toHaveAccessibleName('Show: All tasks. 6 in other views need you');
+  expect(await page.evaluate(() => (window as unknown as { countCalls: number }).countCalls)).toBeGreaterThan(calls);
+});
+
+test('board view dropdown §2, §6: on a phone the views open as a sheet; an empty view says which it is', async ({ page }) => {
+  await open(page);
+  await page.setViewportSize({ width: 390, height: 844 });
+  const view = page.getByRole('button', { name: /^Show: All tasks/ });
+  const box = (await view.boundingBox())!;
+  expect(box.width).toBeGreaterThan(300);
+  await view.click();
+  const sheet = page.getByRole('dialog', { name: 'Show' });
+  await expect(sheet.getByRole('radio')).toHaveCount(6);
+  await sheet.getByRole('radio', { name: /^Mine/ }).click();
+  await expect(sheet).toHaveCount(0);
+  const empty = page.getByRole('status').filter({ hasText: 'Nothing assigned to you' });
+  await expect(empty).toBeVisible();
+  await expect(empty).toContainText('Tasks and assignments given to you show here.');
+  await expect(page.getByRole('button', { name: 'New task' }).first()).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0);
+});
+
+test('board view dropdown §6a: an assignment card is a task card — title, where everyone is, chips, and who it is for', async ({ page }) => {
+  await open(page);
+  const card = (title: string) => page.getByTestId('task-card').filter({ has: page.getByRole('heading', { name: title, exact: true }) });
+  const open1 = card('Array lab');
+  await expect(open1).toHaveAccessibleName(/^Assignment, Array lab, 12 of 40 approved · 2 returned · 3 missing|^Assignment, Array lab, 12 of 40 approved · 6 in review · 2 returned · 3 missing, 6 to review, due/);
+  await expect(open1).toContainText('12 of 40 approved · 6 in review · 2 returned · 3 missing');
+  await expect(open1.getByRole('img', { name: /12 approved, 6 in review/ })).toBeVisible();
+  await expect(open1).toContainText('6 to review');
+  await expect(open1).toContainText('Everyone · 40');
+  await expect(open1).not.toContainText('ASSIGNMENT');
+  await expect(open1.getByTitle('Unassigned')).toHaveCount(0);
+  // Title first, then the line, then the chips, then the footer.
+  const y = async (text: string) => (await open1.getByText(text, { exact: true }).first().boundingBox())!.y;
+  expect(await y('Array lab')).toBeLessThan(await y('12 of 40 approved · 6 in review · 2 returned · 3 missing'));
+  expect(await y('12 of 40 approved · 6 in review · 2 returned · 3 missing')).toBeLessThan(await y('6 to review'));
+  expect(await y('6 to review')).toBeLessThan(await y('Everyone · 40'));
+  await expect(card('Hash table library')).toContainText('0 of 8 groups approved · 5 working');
+  await expect(card('Hash table library')).toContainText('8 groups');
+  await expect(card('Lab 3: Stacks')).toContainText('Not published · goes to 40 people');
+  await expect(card('Lab 3: Stacks')).toContainText('Draft');
+  expect(await card('Lab 3: Stacks').evaluate((el) => getComputedStyle(el).borderStyle)).toBe('dashed');
+  await expect(card('Quiz 2')).toContainText(/Publishes Nov 12, \d+:\d\d (am|pm)/);
+  await expect(card('Quiz 2')).toContainText('Scheduled');
+  await expect(card('Lab 1: Arrays')).toContainText('All 39 approved · 1 excused');
+  expect(await card('Lab 1: Arrays').getByRole('heading').evaluate((el) => getComputedStyle(el).textDecorationLine)).toBe('none');
+  await expect(card('Lab 4: Trees')).toContainText('Nobody has it yet. People get it when they join.');
+  const own = card('Lab 2: Linked lists');
+  await expect(own).toContainText('Returned: fix the README · fix by Nov 13');
+  await expect(own).toContainText('Returned');
+  await expect(own).toContainText('Assignment');
+  await page.screenshot({ path: test.info().outputPath('board-cards.png'), fullPage: true });
 });

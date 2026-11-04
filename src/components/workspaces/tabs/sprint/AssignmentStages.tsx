@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useState, useTransition } from "react";
 
-import { remindCopiesAction } from "@/app/actions/assignments";
 import { toast } from "@/lib/feedback";
 import { ASSIGNMENT_STATE_LABELS } from "@/lib/copy/terms";
 import type { AssignmentStages, CopyStage } from "@/lib/organizations/assignments";
@@ -50,6 +49,8 @@ export function AssignmentStagesPanel({ masterId, stages, reviewHref, assignment
   const [pending, start] = useTransition();
   const [reminded, setReminded] = useState<Partial<Record<CopyState, true>>>({});
   const remind = (state: "not_started" | "missing") => start(async () => {
+    // Loaded on use: the board card shares this module, and it never needs the action.
+    const { remindCopiesAction } = await import("@/app/actions/assignments");
     const r = await remindCopiesAction(masterId, stages.remind[state]);
     if (r.success) { setReminded((x) => ({ ...x, [state]: true })); toast.success(`Reminded ${r.reminded}.`); } else toast.error(r.error);
   });
@@ -122,3 +123,42 @@ export function HandIn({ stage }: { stage: CopyStage }) {
     </p>
   );
 }
+
+// Board view dropdown §6a: the board's assignment card — who it's for, its one line, and a copy's stage chip.
+
+/** "Everyone · 40", "Admins · 3", "4 people", "8 groups", "3 workspaces". */
+export function audienceLabel(audience: { mode: string; count: number } | null | undefined) {
+  if (!audience) return "Assignment";
+  const n = audience.count;
+  switch (audience.mode) {
+    case "role": return `Admins · ${n}`;
+    case "people": return `${n} ${n === 1 ? "person" : "people"}`;
+    case "teams": return `${n} ${n === 1 ? "group" : "groups"}`;
+    case "each_child": case "children": return `${n} ${n === 1 ? "workspace" : "workspaces"}`;
+    default: return `Everyone · ${n}`;
+  }
+}
+
+/** The card's line: "12 of 40 approved · 6 in review · 3 missing", "0 of 8 groups approved · 5 working", "All 39 approved · 1 excused". */
+export function cardLine(stages: AssignmentStages) {
+  const c = stages.counts;
+  const word = stages.reviewRequired ? "approved" : "done";
+  if (stages.total > 0 && c.done >= stages.total) return { text: `All ${stages.total} ${word}${c.excused ? ` · ${c.excused} excused` : ""}`, allDone: true };
+  const parts = [`${c.done} of ${stages.total}${stages.teams ? " groups" : ""} ${word}`,
+    c.submitted ? `${c.submitted} in review` : null, c.returned ? `${c.returned} returned` : null, c.missing ? `${c.missing} missing` : null];
+  if (!c.submitted && !c.returned && !c.missing && c.in_progress) parts.push(`${c.in_progress} working`);
+  return { text: parts.filter(Boolean).join(" · "), allDone: false };
+}
+
+/** A copy's stage as a chip on the person's own card. */
+export function copyChip(stage: CopyStage): { label: string; tone: "danger" | "success" | "muted" } | null {
+  if (stage.state === "returned") return { label: "Returned", tone: "danger" };
+  if (stage.state === "missing") return { label: "Missing", tone: "danger" };
+  if (stage.state === "done") return { label: stageLabel("done", stage.reviewRequired), tone: "success" };
+  if (stage.state === "submitted") return { label: "In review", tone: "muted" };
+  if (stage.state === "excused") return { label: "Excused", tone: "muted" };
+  return null;
+}
+
+const when = (iso: string) => new Intl.DateTimeFormat("en", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }).format(new Date(iso)).replace(" AM", " am").replace(" PM", " pm");
+export const publishLine = (iso: string) => `Publishes ${when(iso)}`;
