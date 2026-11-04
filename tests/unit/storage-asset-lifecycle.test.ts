@@ -77,4 +77,9 @@ describe("storage asset lifecycle", () => {
     assert.match(publisher, /quotaTracked: false/);
     assert.match(deletion, /inArray\(storageAssets\.state, \["pending", "verified"\]\)/);
   });
+
+  it("does not hold deletions for a backup when backups are switched off", () => {
+    const deletion = readFileSync(new URL("../../src/lib/storage/asset-deletion.ts", import.meta.url), "utf8");
+    assert.match(deletion, /getS3BackupConfig\(\) \? undefined : eq\(storageAssets\.backupState, "pending"\)/);
+  });
 });

@@ -3,27 +3,45 @@
  * Keep this tiny + dependency-free (pure optimization).
  */
 
-export const IGNORED_DIRS = new Set([
+// Regenerable tool output: never worth storing, so every upload path drops it.
+// Measured 2026-11-05: one uploaded CodeQL database was 55% of all stored bytes.
+export const TOOL_OUTPUT_DIRS = new Set([
   '.git',
-  '.github',
   '.svn',
   '.hg',
   'node_modules',
   '.next',
   '.nuxt',
+  '__pycache__',
+  '.pytest_cache',
+  '.tox',
+  '.nyc_output',
+  '.venv',
+  'venv',
+  'codeql-db',
+  'codeql_db',
+  '.codeql',
+]);
+
+/** Case-insensitive whole-folder match; the file name itself is never tested. */
+export function isToolOutputPath(pathLike: string): boolean {
+  const parts = (pathLike || '').split(/[\\/]+/g).filter(Boolean).slice(0, -1);
+  return parts.some((p) => TOOL_OUTPUT_DIRS.has(p.toLowerCase()));
+}
+
+// GitHub import is stricter: it also skips build and editor folders.
+export const IGNORED_DIRS = new Set([
+  ...TOOL_OUTPUT_DIRS,
+  '.github',
   'dist',
   'build',
   'out',
   'vendor',
   '.DS_Store',
   'coverage',
-  '.nyc_output',
   '.vercel',
   '.netlify',
   '.serverless',
-  '__pycache__',
-  '.pytest_cache',
-  '.tox',
   '.idea',
   '.vscode',
   'tmp',

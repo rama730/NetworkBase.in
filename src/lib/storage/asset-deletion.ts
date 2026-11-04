@@ -23,6 +23,7 @@ import {
   uploadIntents,
 } from "@/lib/db/schema";
 import { createAdminClient } from "@/lib/supabase/server";
+import { getS3BackupConfig } from "@/lib/storage/s3-backup-client";
 
 // Runs every 2 hours, so one run has to carry what used to be spread across 24.
 const DELETE_BATCH_SIZE = 500;
@@ -248,6 +249,9 @@ export async function deleteEligibleStorageAssets() {
         or(
           eq(storageAssets.backupState, "verified"),
           eq(storageAssets.backupState, "not_required"),
+          // Backups off (no STORAGE_BACKUP_AWS_*): no backup will ever come, so waiting
+          // for one only keeps deleted files forever.
+          getS3BackupConfig() ? undefined : eq(storageAssets.backupState, "pending"),
         ),
         hasNoLiveReference(),
       ))

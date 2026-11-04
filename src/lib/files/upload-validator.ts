@@ -10,6 +10,8 @@
  * 5. Excessive payload sizes exceeding client safety ceilings (e.g. >5,000 files)
  */
 
+import { isToolOutputPath } from "@/lib/import/import-filters";
+
 export const DEFAULT_WORKSPACE_UPLOAD_MAX_FILE_BYTES = 10 * 1024 * 1024; // 10 MiB
 
 export interface UploadValidationOptions {
@@ -141,7 +143,8 @@ export function stripOsJunkFiles(files: File[]): File[] {
     if (lower.startsWith("._")) return false;
     if (lower === "__macosx") return false;
     const rel = (f as File & { webkitRelativePath?: string }).webkitRelativePath?.toLowerCase() || "";
-    if (rel.includes("/.git/") || rel.endsWith("/.git") || rel.includes("/__macosx/")) return false;
+    // Below the chosen folder only: picking node_modules itself gets the clearer system-directory error.
+    if (isToolOutputPath(rel.slice(rel.indexOf("/") + 1)) || rel.includes("/__macosx/")) return false;
     if (rel.includes("/.ds_store") || rel.includes("/thumbs.db")) return false;
     return true;
   });
