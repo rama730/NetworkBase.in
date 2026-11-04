@@ -61,7 +61,7 @@ test("23.2: the queue shows what was handed in, its version, note, steps and con
   const queue = await assignments.readReviewQueueAction(t.org);
   assert.ok(queue.success);
   const row = queue.success ? queue.rows.find((r) => r.copyId === t.copyOf(t.asha))! : null!;
-  assert.deepEqual([row.version, row.link, row.note, row.steps, row.left], [1, "https://example.com/a", "Used Raft", { done: 0, total: 2 }, false]);
+  assert.deepEqual([row.version, row.link, row.note, row.steps, row.left], [1, "https://example.com/a", "Used Raft", [{ title: "Read", done: false }, { title: "Write", done: false }], false]);
   assert.equal(queue.success && queue.total, 1);
   await sql`DELETE FROM workspace_members WHERE workspace_id = ${t.org} AND user_id = ${t.asha}`;
   const after = await assignments.readReviewQueueAction(t.org);
@@ -87,7 +87,7 @@ test("mockup task 2: the queue row carries its files with ids and sizes, and the
   const queue = await assignments.readReviewQueueAction(t.org);
   const row = queue.success ? queue.rows.find((r) => r.copyId === copy)! : null!;
   assert.deepEqual(row.files, [{ nodeId: v2, name: "lab1-v2.zip", size: 360 }]);
-  assert.deepEqual(row.versions.map((v) => [v.version, v.files]), [[1, ["lab1-v1.zip"]]]);
+  assert.deepEqual(row.versions.map((v) => [v.version, v.files.map((f) => f.name)]), [[1, ["lab1-v1.zip"]]]);
   assert.ok(!Number.isNaN(Date.parse(row.versions[0]!.at)));
 });
 

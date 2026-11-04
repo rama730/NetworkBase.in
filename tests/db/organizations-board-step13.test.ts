@@ -189,6 +189,43 @@ test("review ux 2.7, 2.9, 2.10, 3.14, 3.15: the hand-in lists its steps, the upl
   viewerId = "";
 });
 
+test("review ux 3.3, 3.5, 3.7, 3.12: the queue names each step, gives each earlier version its files, the due date and my recent reasons; the hand-in knows its organization", async () => {
+  const [owner, asha] = await Promise.all([1, 2].map(() => sql.begin((tx) => createUser(tx))));
+  const org = await sql.begin((tx) => createProject(tx, owner!));
+  await sql`INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (${org}, ${owner!}, 'owner'), (${org}, ${asha!}, 'member')`;
+  await sql`UPDATE workspaces SET kind = 'organization', org_type = 'education', title = 'CSE 3B', join_code = ${generateJoinCode()} WHERE id = ${org}`;
+  created.push(org);
+  viewerId = owner!;
+  const due = new Date(Date.now() + 864e5).toISOString();
+  const made = await assignments.createAssignmentAction({ projectId: org, title: "Lab 5", dueDate: due, publish: true,
+    submissionType: "file", reviewRequired: true, lateRule: "always", target: { mode: "everyone" }, steps: ["Read", "Write"] });
+  const masterId = made.success ? made.masterId : "";
+  const [copy] = await sql`SELECT id FROM tasks WHERE assignment_id = ${masterId} AND assignee_id = ${asha!}`;
+  await sql`INSERT INTO workspace_nodes (workspace_id, task_id, path, type, name, size, metadata, current_version)
+    VALUES (${org}, ${copy!.id}, ${`/.system/tasks/${copy!.id}/v1.pdf`}, 'file', 'v1.pdf', 1000, '{}'::jsonb, 1)`;
+  await sql`UPDATE task_subtasks SET completed = true WHERE task_id = ${copy!.id} AND title = 'Read'`;
+  viewerId = asha!;
+  await assignments.submitAssignmentAction(copy!.id, {});
+  viewerId = owner!;
+  await assignments.reviewAssignmentCopyAction(copy!.id, "return", "Add the test cases.");
+  viewerId = asha!;
+  await assignments.submitAssignmentAction(copy!.id, {});
+  viewerId = owner!;
+  const queue = await assignments.readReviewQueueAction(org);
+  assert.ok(queue.success);
+  const row = queue.rows.find((r) => r.copyId === copy!.id)!;
+  assert.deepEqual(row.steps, [{ title: "Read", done: true }, { title: "Write", done: false }]);
+  assert.equal(row.versions[0]!.version, 1);
+  assert.deepEqual(row.versions[0]!.files.map((f) => f.name), ["v1.pdf"]);
+  assert.ok(row.versions[0]!.files[0]!.nodeId);
+  const [{ due_date: copyDue }] = await sql`SELECT due_date FROM tasks WHERE id = ${copy!.id}`;
+  assert.equal(new Date(row.dueDate!).getTime(), new Date(copyDue).getTime(), "the copy's own due date, moved by the return's Fix by");
+  assert.deepEqual(queue.recentReasons, ["Add the test cases."]);
+  const hand = await assignments.readHandInAction(copy!.id);
+  assert.deepEqual(hand.success && [hand.handIn.orgId, hand.handIn.masterId, hand.handIn.holder], [org, masterId, false]);
+  viewerId = "";
+});
+
 test("mockup task 1: roster rows carry when and which version was handed in, and when the person was last reminded", async () => {
   const [owner, asha, ravi] = await Promise.all([1, 2, 3].map(() => sql.begin((tx) => createUser(tx))));
   const org = await sql.begin((tx) => createProject(tx, owner!));

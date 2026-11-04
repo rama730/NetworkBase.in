@@ -58,6 +58,8 @@ test("live check: the panel's lists follow its tiles, the preview scrolls instea
   const glance = readFileSync("src/components/organizations/AssignmentRoster.tsx", "utf8");
   assert.match(glance, /const countsKey = JSON\.stringify\(row\.counts\)/);
   assert.match(glance, /useEffect\(\(\) => \{ load\(\) \}, \[load, countsKey\]\)/);
-  assert.match(readFileSync("src/components/organizations/ReviewQueueParts.tsx", "utf8"), /className="h-\[60vh\] overflow-auto rounded-md/);
+  // Review UX 4.5: the viewer fills the column and scrolls inside itself.
+  assert.match(readFileSync("src/components/organizations/ReviewQueueParts.tsx", "utf8"), /className="h-\[70vh\] max-md:h-\[50vh\]"/);
+  assert.match(readFileSync("src/components/organizations/FileViewer.tsx", "utf8"), /className="min-h-0 flex-1 overflow-auto" data-testid="file-viewer"/);
   assert.match(readFileSync("src/components/organizations/AssignmentDialogs.tsx", "utf8"), /aria-label="What should they change\?"/);
 });

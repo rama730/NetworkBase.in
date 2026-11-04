@@ -106,12 +106,14 @@ test("live loop 30–33: the review queue labels its Return box, drops a stale c
   const { defaultFixBy } = await import("../../src/lib/organizations/assignment-rules");
   const fixBy = defaultFixBy(new Date(2026, 10, 4, 2, 43));
   assert.deepEqual([fixBy.getFullYear(), fixBy.getMonth(), fixBy.getDate(), fixBy.getHours(), fixBy.getMinutes()], [2026, 10, 7, 23, 59]);
+  // Review UX 3.7, 3.9: the decision box lives in ReviewQueueParts; Fix by starts at the later of due and three days on.
+  const parts = source("src/components/organizations/ReviewQueueParts.tsx");
+  assert.match(parts, /aria-label=\{`What should \$\{who\} change\?`\}/);
+  assert.match(parts, /aria-label="Fix by"/);
+  assert.match(parts, /setFixBy\(isoToZonedInput\(reviewFixBy\(dueDate\)\.toISOString\(\), null\)\)/);
   const panel = source("src/components/organizations/AssignmentsPanel.tsx");
-  assert.match(panel, /aria-label=\{`What should \$\{current\.who\} change\?`\}/);
-  assert.match(panel, /aria-label="Fix by"/);
-  assert.match(panel, /setFixBy\(toLocalInput\(defaultFixBy\(\)\)\)/);
   assert.match(panel, /setTotal\(\(t\) => Math\.max\(0, t - 1\)\)/);
-  assert.match(panel, /toast\.success\(decision === 'approve' \? `Approved \$\{current\.who\}’s \$\{current\.title\}\.` : `Returned \$\{current\.title\} to \$\{current\.who\}\.`\)/);
+  assert.match(panel, /deferDecision\(decision === 'approve' \? `Approved \$\{row\.who\}’s \$\{row\.title\}\.` : `Returned \$\{row\.title\} to \$\{row\.who\}\.`/);
 });
 
 test("live loop 33: the roster's Return dialog defaults Fix by to 11:59 PM three days on", () => {

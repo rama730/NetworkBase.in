@@ -25,7 +25,10 @@ const copies: Record<string, string> = {
     text: `{${base},submissionType:'text',state:'in_progress',steps:[]}`,
     excused: `{${base},state:'excused',excusedReason:'Medical leave',canSubmit:false}`,
     closed: `{${base},state:'not_started',closed:true,canSubmit:false}`,
+    admin: `{${base},holder:false,state:'submitted',latest:${latest(1)},orgId:'org',masterId:'a1'}`,
 };
+const queueRow = (id: string, who: string) => `{kind:'copy',mine:true,copyId:'${id}',masterId:'a1',title:'Lab 3',who:'${who}',submittedBy:null,submittedAt:new Date().toISOString(),late:false,href:'?tab=tasks&drawerType=task&drawerId=${id}',
+  projectId:'org',updatedAt:new Date().toISOString(),version:1,link:null,text:null,note:null,files:[],versions:[],steps:[],comments:0,left:false,dueDate:null}`;
 
 test.beforeAll(async () => {
     const mocks: Record<string, string> = {
@@ -34,7 +37,9 @@ test.beforeAll(async () => {
         '@/app/actions/files/nodes': `export const getNodesByIds=async(p,ids)=>ids.map((id)=>({id,name:id,type:'file',mimeType:null}));`,
         '@/app/actions/files/content': `export const getFilePreviewUrl=async(p,n,d)=>({url:'/files/'+n+(d?'?download=1':'')});`,
         '@/app/actions/assignments': `const copies={${Object.entries(copies).map(([k, v]) => `${k}:${v}`).join(',')}};
-            export const readHandInAction=async(id)=>({success:true,handIn:copies[id]});export const submitAssignmentAction=${ok};`,
+            export const readHandInAction=async(id)=>({success:true,handIn:copies[id]});export const submitAssignmentAction=${ok};
+            export const readReviewQueueAction=async()=>({success:true,total:2,recentReasons:['Add the test cases.'],rows:[${queueRow('admin', 'Asha Nair')},${queueRow('c9', 'Kiran')}]});
+            export const reviewAssignmentCopyAction=${ok};`,
         '@/app/actions/subtask': `export const toggleSubtaskAction=${ok};`,
     };
     for (const [spec, source] of [['@/app/actions/assignments', 'src/app/actions/assignments.ts'], ['@/app/actions/files/content', 'src/app/actions/files/content.ts'], ['@/app/actions/files/nodes', 'src/app/actions/files/nodes.ts'], ['@/app/actions/subtask', 'src/app/actions/subtask.ts']] as const) {
@@ -141,4 +146,16 @@ test('5.4: the card fits a phone', async ({ page }) => {
     await expect(card).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0);
     await page.screenshot({ path: test.info().outputPath('hand-in-375.png'), fullPage: true });
+});
+
+test('3.12, 3.13: an admin opening a waiting copy gets the same decision, Next waiting and Back to queue', async ({ page }) => {
+    const card = await open(page, 'admin');
+    const review = card.getByRole('region', { name: 'Review this hand-in' });
+    await expect(review.getByRole('button', { name: 'Approve' })).toBeVisible();
+    await review.getByRole('button', { name: 'Return' }).click();
+    await expect(review.getByLabel('Fix by')).not.toHaveValue('');
+    await expect(review.getByRole('group', { name: 'Recent reasons' })).toContainText('Add the test cases.');
+    await expect(review.getByRole('link', { name: 'Next waiting: Kiran' })).toHaveAttribute('href', /drawerId=c9/);
+    await expect(review.getByRole('link', { name: 'Back to queue' })).toHaveAttribute('href', /taskScope=review&assignment=a1/);
+    await expect(card.getByRole('button', { name: /Hand in/ })).toHaveCount(0);
 });

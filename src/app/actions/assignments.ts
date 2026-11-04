@@ -247,7 +247,7 @@ export type HandIn = {
     wouldBeLate: boolean;
     materials: Array<{ nodeId: string; name: string; projectId: string }>;
     /** Review UX: the copy's workspace, its steps (2.7), the upload limit (2.10), and what happened to it, newest first (2.9, 3.14, 3.15). */
-    projectId: string;
+    projectId: string; orgId: string; masterId: string;
     steps: Array<{ id: string; title: string; done: boolean }>;
     maxFileBytes: number;
     history: Array<{ kind: 'handed_in' | 'returned' | 'approved'; at: string; by: string | null; version?: number; late?: boolean; reason?: string | null }>;
@@ -305,7 +305,7 @@ export async function readHandInAction(copyId: string): Promise<{ success: true;
         excusedReason: copy.excusedReason, returned: s.state === 'returned' ? { reason: returnedEvent?.reason ?? null, fixBy: returnedEvent?.fix_by ?? copy.submitUntil?.toISOString() ?? null, by: returnedEvent?.by ?? null } : null,
         latest: latest ? { version: latest.version, at: latest.submittedAt.toISOString(), by: byName ?? 'Someone', link: latest.link, text: latest.body, note: latest.note, files: latest.files.map((f) => ({ nodeId: f.nodeId, name: f.name, size: sizes.get(f.nodeId)?.size ?? null, projectId: sizes.get(f.nodeId)?.projectId ?? copy.projectId })) } : null,
         files: files.map((f) => ({ nodeId: f.node_id, name: f.name, size: f.size == null ? null : Number(f.size), projectId: f.project_id })), materials: materials.success ? materials.materials : [],
-        wouldBeLate, projectId: copy.projectId, steps, maxFileBytes: WORKSPACE_UPLOAD_MAX_FILE_BYTES,
+        wouldBeLate, projectId: copy.projectId, orgId: master.projectId, masterId: master.id, steps, maxFileBytes: WORKSPACE_UPLOAD_MAX_FILE_BYTES,
         history: history.map((e) => ({ kind: e.kind, at: new Date(e.at).toISOString(), by: e.by, ...(e.kind === 'handed_in' ? { version: Number(e.version), late: Boolean(e.late) } : { reason: e.reason }) })),
     } };
 }
@@ -1151,24 +1151,25 @@ export type ReviewQueueRow = {
     /** The review panel (report §23.2): what was handed in, its version, steps and the private conversation. */
     projectId: string; updatedAt: string; version: number | null; link: string | null; text: string | null; note: string | null;
     /** Mockup task 2: the files to preview and download, and the versions before this one, newest first. */
-    files: Array<{ nodeId: string; name: string; size: number | null }>; versions: Array<{ version: number; at: string; files: string[] }>;
-    steps: { done: number; total: number }; comments: number; left: boolean;
+    files: Array<{ nodeId: string; name: string; size: number | null }>; versions: Array<{ version: number; at: string; files: Array<{ nodeId: string; name: string; size: number | null }> }>;
+    /** Review UX 3.5: each step by name; 3.7: the copy's due date, for Fix by. */
+    steps: Array<{ title: string; done: boolean }>; comments: number; left: boolean; dueDate: string | null;
 };
 
 /** The marking inbox across every assignment (report §16.4–16.5): oldest first, with who handed in. */
-export async function readReviewQueueAction(orgId: string): Promise<{ success: true; rows: ReviewQueueRow[]; total: number } | Failure> {
+export async function readReviewQueueAction(orgId: string): Promise<{ success: true; rows: ReviewQueueRow[]; total: number; recentReasons: string[] } | Failure> {
     const viewer = await orgRole(orgId, 'read');
     if (!viewer || !orgCan(orgRoleOf(viewer.role), 'approve_return')) return DENIED;
     const rows = await db.execute<{ copy_id: string; master_id: string; title: string; team_name: string | null; assignee: string | null; project: string | null; submitted_by: string | null; submitted_at: string; due_date: string | null; in_org: boolean; workspace_id: string;
-        updated_at: string; submission: { version?: number; link?: string | null; text?: string | null; note?: string | null } | null; files: Array<{ nodeId: string; name: string; size: number | null }> | null; versions: Array<{ version: number; at: string; files: string[] }> | null; steps_done: number; steps_total: number; comments: number; left_org: boolean; late_after: number | null; total: number; mine: boolean }>(sql`
+        updated_at: string; submission: { version?: number; link?: string | null; text?: string | null; note?: string | null } | null; files: Array<{ nodeId: string; name: string; size: number | null }> | null; versions: ReviewQueueRow['versions'] | null; steps: ReviewQueueRow['steps']; comments: number; left_org: boolean; late_after: number | null; total: number; mine: boolean }>(sql`
         SELECT c.id AS copy_id, m.id AS master_id, m.title, c.team_name, c.updated_at::text AS updated_at, c.submission,
                (coalesce(jsonb_array_length(m.assignment_settings->'reviewers'), 0) = 0 OR m.assignment_settings->'reviewers' ? ${viewer.userId}) AS mine,
                (SELECT jsonb_agg(jsonb_build_object('nodeId', f->>'nodeId', 'name', f->>'name', 'size', n.size)) FROM assignment_submissions s CROSS JOIN jsonb_array_elements(s.files) f
                   LEFT JOIN workspace_nodes n ON n.id = (f->>'nodeId')::uuid WHERE s.copy_id = c.id AND s.version = (c.submission->>'version')::int) AS files,
-               (SELECT jsonb_agg(jsonb_build_object('version', s.version, 'at', s.submitted_at, 'files', (SELECT coalesce(jsonb_agg(g->>'name'), '[]'::jsonb) FROM jsonb_array_elements(s.files) g)) ORDER BY s.version DESC)
+               (SELECT jsonb_agg(jsonb_build_object('version', s.version, 'at', s.submitted_at, 'files', (SELECT coalesce(jsonb_agg(jsonb_build_object('nodeId', g->>'nodeId', 'name', g->>'name', 'size', gn.size)), '[]'::jsonb)
+                    FROM jsonb_array_elements(s.files) g LEFT JOIN workspace_nodes gn ON gn.id = (g->>'nodeId')::uuid)) ORDER BY s.version DESC)
                   FROM assignment_submissions s WHERE s.copy_id = c.id AND s.version < (c.submission->>'version')::int) AS versions,
-               (SELECT count(*) FILTER (WHERE st.completed)::int FROM task_subtasks st WHERE st.task_id = c.id) AS steps_done,
-               (SELECT count(*)::int FROM task_subtasks st WHERE st.task_id = c.id) AS steps_total,
+               (SELECT coalesce(jsonb_agg(jsonb_build_object('title', st.title, 'done', st.completed) ORDER BY st.position, st.created_at), '[]'::jsonb) FROM task_subtasks st WHERE st.task_id = c.id) AS steps,
                (SELECT count(*)::int FROM task_comments tc WHERE tc.task_id = c.id AND tc.deleted_at IS NULL) AS comments,
                (c.assignee_id IS NOT NULL AND c.team_name IS NULL AND c.workspace_id = m.workspace_id
                  AND NOT EXISTS (SELECT 1 FROM workspace_members wm WHERE wm.workspace_id = m.workspace_id AND wm.user_id = c.assignee_id)) AS left_org,
@@ -1182,20 +1183,24 @@ export async function readReviewQueueAction(orgId: string): Promise<{ success: t
         FROM tasks c JOIN tasks m ON m.id = c.assignment_id
         WHERE m.workspace_id = ${orgId} AND m.deleted_at IS NULL AND c.deleted_at IS NULL AND c.excused_at IS NULL AND c.review_status = 'pending'
         ORDER BY c.review_submitted_at ASC NULLS LAST LIMIT 200`);
-    const tasksWaiting = await db.execute<{ id: string; title: string; assignee: string | null; submitted_at: string | null; due_date: string | null; updated_at: string; comments: number; steps_done: number; steps_total: number }>(sql`
+    const tasksWaiting = await db.execute<{ id: string; title: string; assignee: string | null; submitted_at: string | null; due_date: string | null; updated_at: string; comments: number; steps: ReviewQueueRow['steps'] }>(sql`
         SELECT t.id, t.title, (SELECT coalesce(p.full_name, p.username) FROM profiles p WHERE p.id = t.assignee_id) AS assignee,
                t.review_submitted_at::text AS submitted_at, t.due_date::text AS due_date, t.updated_at::text AS updated_at,
                (SELECT count(*)::int FROM task_comments tc WHERE tc.task_id = t.id AND tc.deleted_at IS NULL) AS comments,
-               (SELECT count(*) FILTER (WHERE st.completed)::int FROM task_subtasks st WHERE st.task_id = t.id) AS steps_done,
-               (SELECT count(*)::int FROM task_subtasks st WHERE st.task_id = t.id) AS steps_total
+               (SELECT coalesce(jsonb_agg(jsonb_build_object('title', st.title, 'done', st.completed) ORDER BY st.position, st.created_at), '[]'::jsonb) FROM task_subtasks st WHERE st.task_id = t.id) AS steps
         FROM tasks t WHERE t.workspace_id = ${orgId} AND t.assignment_id IS NULL AND t.kind <> 'assignment' AND t.deleted_at IS NULL AND t.review_status = 'pending'
         ORDER BY t.review_submitted_at ASC NULLS LAST LIMIT 100`);
     const taskRows: ReviewQueueRow[] = tasksWaiting.map((t) => ({
         kind: 'task', mine: true, copyId: t.id, masterId: 'tasks', title: t.title, who: t.assignee ?? 'Unassigned', submittedBy: null, submittedAt: t.submitted_at ?? t.updated_at,
         late: Boolean(t.due_date && t.submitted_at && new Date(t.submitted_at).getTime() > new Date(t.due_date).getTime()), href: assignmentHref('', t.id),
         projectId: orgId, updatedAt: new Date(t.updated_at).toISOString(), version: null, link: null, text: null, note: null, files: [], versions: [],
-        steps: { done: t.steps_done, total: t.steps_total }, comments: t.comments, left: false,
+        steps: t.steps, comments: t.comments, left: false, dueDate: t.due_date ? new Date(t.due_date).toISOString() : null,
     }));
+    // Review UX 3.7: this reviewer's own recent return reasons, newest first, as one-click chips.
+    const reasons = await db.execute<{ reason: string }>(sql`
+        SELECT reason FROM (SELECT DISTINCT ON (e.payload->>'reason') e.payload->>'reason' AS reason, e.created_at FROM task_activity_events e
+            WHERE e.actor_id = ${viewer.userId} AND e.event_type IN ('changes_requested') AND coalesce(e.payload->>'reason', '') <> ''
+            ORDER BY e.payload->>'reason', e.created_at DESC) r ORDER BY created_at DESC LIMIT 5`);
     return { success: true, rows: [...rows.map((r): ReviewQueueRow => ({
         kind: 'copy', mine: r.mine, copyId: r.copy_id, masterId: r.master_id, title: r.title,
         who: r.team_name ?? r.project ?? r.assignee ?? 'Member', submittedBy: r.team_name ? r.submitted_by : null,
@@ -1203,8 +1208,9 @@ export async function readReviewQueueAction(orgId: string): Promise<{ success: t
         // Group work opens in its own workspace (report §42.14 problem 35, decision 133).
         href: r.in_org ? assignmentHref('', r.copy_id) : assignmentHref(`/workspaces/${r.workspace_id}`, r.copy_id),
         projectId: r.workspace_id, updatedAt: new Date(r.updated_at).toISOString(), version: r.submission?.version ?? null, link: r.submission?.link ?? null, text: r.submission?.text ?? null,
-        note: r.submission?.note ?? null, files: r.files ?? [], versions: (r.versions ?? []).map((v) => ({ ...v, at: new Date(v.at).toISOString() })), steps: { done: r.steps_done, total: r.steps_total }, comments: r.comments, left: r.left_org,
-    })), ...taskRows], total: (rows[0]?.total ?? 0) + taskRows.length };
+        note: r.submission?.note ?? null, files: r.files ?? [], versions: (r.versions ?? []).map((v) => ({ ...v, at: new Date(v.at).toISOString() })), steps: r.steps, comments: r.comments, left: r.left_org,
+        dueDate: r.due_date ? new Date(r.due_date).toISOString() : null,
+    })), ...taskRows], total: (rows[0]?.total ?? 0) + taskRows.length, recentReasons: reasons.map((r) => r.reason) };
 }
 
 export type OrgTabBadges = { tasks: number; updates: boolean; members: number };

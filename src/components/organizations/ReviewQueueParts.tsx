@@ -1,77 +1,245 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import dynamic from 'next/dynamic'
+import { useEffect, useRef, useState, useTransition } from 'react'
 
-import type { ReviewQueueRow } from '@/app/actions/assignments'
-import { getFilePreviewUrl } from '@/app/actions/files/content'
-import { getNodesByIds } from '@/app/actions/files/nodes'
-import { readTaskDiscussionAction } from '@/app/actions/task-comment'
-import type { WorkspaceNode } from '@/lib/db/schema'
+import { readReviewQueueAction, reviewAssignmentCopyAction, type ReviewQueueRow } from '@/app/actions/assignments'
+import { createTaskCommentAction, readTaskDiscussionAction } from '@/app/actions/task-comment'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { FileViewer } from '@/components/organizations/FileViewer'
+import { reviewFixBy, webLink } from '@/lib/organizations/assignment-rules'
+import { isoToZonedInput } from '@/lib/organizations/zoned-time'
+import { deferredFeedback, toast } from '@/lib/feedback'
+import { cn } from '@/lib/utils'
 
-// Mockup task 2 (Review artboard): the handed-in work in the middle, the conversation on the right.
+// Mockup task 2 (Review artboard) and review UX phase 4: the work in the middle — every file, every version, Compare —
+// and on the right the note, the steps, the conversation, then the decision.
 
 const DAY = new Intl.DateTimeFormat('en', { month: 'short', day: 'numeric' })
-// The Files tab's own viewer: pdf.js for PDFs, an archive listing for zips, and the rest; loaded only when opened.
-const UniversalPreviewEngine = dynamic(() => import('@/components/workspaces/v2/preview/UniversalPreviewEngine'), { ssr: false, loading: () => null })
+const area = 'w-full resize-y rounded-md border border-input bg-transparent px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring'
+export const reviewLabel = 'font-mono text-[11px] font-medium uppercase tracking-[0.09em] text-muted-foreground'
 
-/** The current submission's first file in the Files viewer, with Download and the earlier versions. */
-export function ReviewWork({ row }: { row: ReviewQueueRow }) {
-    const file = row.files[0] ?? null
-    const [view, setView] = useState<{ node: WorkspaceNode; url: string; download: string } | 'unavailable' | null>(null)
-    useEffect(() => {
-        let live = true
-        setView(null)
-        if (!file) return
-        void Promise.all([getNodesByIds(row.projectId, [file.nodeId]), getFilePreviewUrl(row.projectId, file.nodeId), getFilePreviewUrl(row.projectId, file.nodeId, true)]).then(([nodes, url, download]) => {
-            if (!live) return
-            const node = (nodes as WorkspaceNode[])[0]
-            // A file this reviewer can't read here (a team's own workspace) says so instead of loading forever.
-            setView(node && url && 'url' in url && download && 'url' in download ? { node, url: url.url as string, download: download.url as string } : 'unavailable')
-        }).catch(() => { if (live) setView('unavailable') })
-        return () => { live = false }
-    }, [file, row.projectId])
-    const versions = row.versions ?? []
-    if (!file) return null
+/** Review UX 3.11: a handed-in link as a card — the site, then the address. */
+export function LinkCard({ link }: { link: string }) {
+    const url = webLink(link)
+    if (!url) return <span className="break-all">{link}</span>
+    const { hostname, pathname } = new URL(url)
     return (
-        <div className="flex min-h-0 flex-col gap-2">
+        <a href={url} target="_blank" rel="noreferrer noopener" className="block rounded-md border border-border px-3 py-2 hover:bg-muted/50">
+            <span className="block text-[13px] font-medium">{hostname.replace(/^www\./, '')}</span>
+            <span className="block truncate text-[12px] text-primary">{pathname === '/' ? url : `${hostname}${pathname}`}</span>
+        </a>
+    )
+}
+
+/** Every file of the version being looked at, a switcher between them, the earlier versions and Compare (3.2, 3.3, 4.3, 4.4). */
+export function ReviewWork({ row }: { row: ReviewQueueRow }) {
+    const versions = row.versions ?? []
+    const now = row.version ?? (versions[0] ? versions[0].version + 1 : 1)
+    const [version, setVersion] = useState(now)
+    const [fileIndex, setFileIndex] = useState(0)
+    const [compare, setCompare] = useState(false)
+    const filesOf = (v: number) => (v === now ? row.files : versions.find((x) => x.version === v)?.files ?? [])
+    const files = filesOf(version)
+    const file = files[Math.min(fileIndex, files.length - 1)] ?? null
+    // Compare: the same file by name in the version before, or that version's first file.
+    const before = versions.find((v) => v.version < version)
+    const beforeFile = before ? before.files.find((f) => f.name === file?.name) ?? before.files[0] ?? null : null
+    if (!row.files.length && !versions.some((v) => v.files.length)) return null
+    const unavailable = <>The preview isn’t available here. <a href={row.href} className="text-primary underline-offset-4 hover:underline">Open the hand-in</a></>
+    return (
+        <div className="flex min-h-0 flex-1 flex-col gap-2">
             <div className="flex flex-wrap items-center gap-2">
-                <span className="min-w-0 flex-1 truncate font-medium">{file.name}</span>
+                {files.length > 1 ? (
+                    <div role="tablist" aria-label="Files" className="flex min-w-0 flex-1 flex-wrap gap-1">
+                        {files.map((f, i) => (
+                            <button key={f.nodeId} type="button" role="tab" aria-selected={f.nodeId === file?.nodeId} onClick={() => setFileIndex(i)}
+                                className={cn('max-w-[14rem] truncate rounded-[4px] border px-2 py-0.5 text-[12px]', f.nodeId === file?.nodeId ? 'border-foreground font-medium' : 'border-border hover:bg-muted')}>{f.name}</button>
+                        ))}
+                    </div>
+                ) : <span className="flex-1" />}
                 {versions.length ? (
-                    <select aria-label="Versions" className="h-8 rounded-md border border-input bg-background px-2 text-xs" defaultValue="">
-                        <option value="">Version {row.version ?? versions[0]!.version + 1} · now</option>
-                        {versions.map((v) => <option key={v.version} value={v.version}>Version {v.version} · {v.files.join(', ') || 'nothing attached'} · {DAY.format(new Date(v.at))}</option>)}
+                    <select aria-label="Versions" className="h-8 rounded-md border border-input bg-background px-2 text-xs" value={version} onChange={(e) => { setVersion(Number(e.target.value)); setFileIndex(0) }}>
+                        <option value={now}>Version {now} · now</option>
+                        {versions.map((v) => <option key={v.version} value={v.version}>Version {v.version} · {v.files.map((f) => f.name).join(', ') || 'nothing attached'} · {DAY.format(new Date(v.at))}</option>)}
                     </select>
                 ) : null}
-                {view && view !== 'unavailable' ? <a href={view.download} className="text-[13px] text-primary underline-offset-4 hover:underline" aria-label={`Download ${file.name}`}>Download</a> : null}
+                {beforeFile ? <Button type="button" size="sm" variant={compare ? 'default' : 'outline'} aria-pressed={compare} onClick={() => setCompare(!compare)}>Compare</Button> : null}
             </div>
-            <div className="h-[60vh] overflow-auto rounded-md border border-border bg-card max-md:h-[50vh]" data-testid="review-preview">
-                {view === 'unavailable' ? (
-                    <p className="p-4 text-[13px] text-muted-foreground">The preview isn’t available here. <a href={row.href} className="text-primary underline-offset-4 hover:underline">Open the hand-in</a></p>
-                ) : view ? <UniversalPreviewEngine node={view.node} fileUrl={view.url} projectId={row.projectId} /> : <p className="p-4 text-[13px] text-muted-foreground">Loading {file.name}…</p>}
-            </div>
-            {row.files.length > 1 ? <p className="text-[12px] text-muted-foreground">Also: {row.files.slice(1).map((f) => f.name).join(', ')}</p> : null}
+            {file ? (
+                <div className={cn('grid min-h-0 flex-1 gap-2', compare && beforeFile && 'md:grid-cols-2')}>
+                    {compare && beforeFile && before ? <FileViewer key={`b-${beforeFile.nodeId}`} projectId={row.projectId} file={beforeFile} meta={`Version ${before.version}`} unavailable={unavailable} className="h-[70vh] max-md:h-[50vh]" /> : null}
+                    <FileViewer key={file.nodeId} projectId={row.projectId} file={file} meta={`Version ${version}${version === now ? ` · handed in ${DAY.format(new Date(row.submittedAt))}` : ''}`}
+                        unavailable={unavailable} className="h-[70vh] max-md:h-[50vh]" />
+                </div>
+            ) : <p className="text-[13px] text-muted-foreground">Version {version} had nothing attached.</p>}
         </div>
     )
 }
 
-/** The latest messages of the copy's private conversation, oldest first. */
+/** Review UX 3.5: the steps by name, ticked or not; nothing when there are none. */
+export function ReviewSteps({ row }: { row: ReviewQueueRow }) {
+    if (!row.steps.length) return null
+    return (
+        <div>
+            <p className={reviewLabel}>Steps · {row.steps.filter((s) => s.done).length} of {row.steps.length} ticked</p>
+            <ul className="mt-1 space-y-0.5 text-[13px]" aria-label="Steps">
+                {row.steps.map((s, i) => <li key={`${i}-${s.title}`} className={cn(!s.done && 'text-muted-foreground')}><span aria-hidden="true">{s.done ? '☑' : '☐'}</span> {s.title}<span className="sr-only">{s.done ? ', ticked' : ', not ticked'}</span></li>)}
+            </ul>
+        </div>
+    )
+}
+
+/** The copy's private conversation, its latest messages oldest first, with a reply in place (3.6). */
 export function ReviewConversation({ row }: { row: ReviewQueueRow }) {
     const [lines, setLines] = useState<Array<{ id: string; who: string; text: string }>>([])
+    const [reply, setReply] = useState('')
+    const [pending, startTransition] = useTransition()
+    const [reload, setReload] = useState(0)
     useEffect(() => {
         let live = true
         setLines([])
-        if (!row.comments) return
         void readTaskDiscussionAction(row.projectId, row.copyId).then((r) => {
             if (!live || !r.success) return
             setLines(r.data.comments.slice(0, 3).reverse().map((c) => ({ id: c.id, who: c.author?.fullName || c.author?.username || 'Someone', text: c.content })))
         }).catch(() => undefined)
         return () => { live = false }
-    }, [row.comments, row.copyId, row.projectId])
-    if (!lines.length) return null
+    }, [row.copyId, row.projectId, reload])
+    const send = () => startTransition(async () => {
+        const text = reply.trim()
+        if (!text) return
+        const r = await createTaskCommentAction(row.copyId, row.projectId, text).catch(() => ({ success: false }))
+        if (!r.success) return void toast.warning('Couldn’t send that. Try again.')
+        setReply('')
+        setReload((n) => n + 1)
+    })
     return (
-        <ul aria-label="Private conversation" className="space-y-1.5 text-[13px]">
-            {lines.map((l) => <li key={l.id}><span className="font-medium">{l.who}:</span> <span className="whitespace-pre-line">{l.text}</span></li>)}
-        </ul>
+        <div className="space-y-1.5">
+            <p className={reviewLabel}>Private conversation</p>
+            {lines.length ? (
+                <ul aria-label="Private conversation" className="space-y-1.5 text-[13px]">
+                    {lines.map((l) => <li key={l.id}><span className="font-medium">{l.who}:</span> <span className="whitespace-pre-line">{l.text}</span></li>)}
+                </ul>
+            ) : <p className="text-[13px] text-muted-foreground">No messages yet.</p>}
+            <form className="flex gap-1.5" onSubmit={(e) => { e.preventDefault(); send() }}>
+                <Input value={reply} onChange={(e) => setReply(e.target.value)} placeholder={`Reply to ${row.who}`} aria-label={`Reply to ${row.who}`} maxLength={2000} className="h-8" />
+                <Button type="submit" size="sm" variant="outline" disabled={pending || !reply.trim()}>Send</Button>
+            </form>
+            <a href={row.href} className="text-[12px] text-primary underline-offset-4 hover:underline">Open the whole conversation</a>
+        </div>
+    )
+}
+
+/**
+ * Approve, or Return with a reason and Fix by (review UX 3.7, 3.12): the queue and an opened copy use this one box.
+ * `keys` adds A and R. Recent reasons are one click; Fix by starts at the later of the due date and three days on.
+ */
+export function ReviewDecision({ who, kind = 'copy', dueDate, recentReasons = [], pending, keys, onApprove, onReturn, extra }: {
+    who: string; kind?: 'copy' | 'task'; dueDate: string | null; recentReasons?: string[]; pending: boolean; keys?: boolean
+    onApprove: (note: string) => void; onReturn: (reason: string, fixByIso: string | null) => void; extra?: React.ReactNode
+}) {
+    const [returning, setReturning] = useState(false)
+    const [reason, setReason] = useState('')
+    const [fixBy, setFixBy] = useState('')
+    const [note, setNote] = useState('')
+    const [error, setError] = useState<string | null>(null)
+    const openReturn = () => { setReturning(true); setReason(''); setError(null); setFixBy(isoToZonedInput(reviewFixBy(dueDate).toISOString(), null)) }
+    const sendReturn = () => {
+        if (!reason.trim()) return setError('Say what to change.')
+        setReturning(false)
+        onReturn(reason.trim(), kind === 'copy' && fixBy ? new Date(fixBy).toISOString() : null)
+    }
+    const approve = () => { onApprove(note.trim()); setNote('') }
+    const latest = useRef({ approve, openReturn, returning })
+    latest.current = { approve, openReturn, returning }
+    useEffect(() => {
+        if (!keys) return
+        const onKey = (event: KeyboardEvent) => {
+            const target = event.target as HTMLElement | null
+            if (event.metaKey || event.ctrlKey || event.altKey || (target && (target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName)))) return
+            const k = event.key.toLowerCase()
+            if (k === 'a' && !latest.current.returning) latest.current.approve()
+            else if (k === 'r') { event.preventDefault(); latest.current.openReturn() }
+        }
+        window.addEventListener('keydown', onKey)
+        return () => window.removeEventListener('keydown', onKey)
+    }, [keys])
+    return (
+        <div className="space-y-2 border-t border-border pt-3" role="group" aria-label="Decision">
+            {returning ? (
+                <div className="space-y-2">
+                    <label className="block space-y-1"><span className="font-medium">What should {who} change?</span>
+                        <textarea autoFocus value={reason} onChange={(e) => setReason(e.target.value)} rows={3} maxLength={1000} className={area} aria-label={`What should ${who} change?`} /></label>
+                    {recentReasons.length ? (
+                        <div className="flex flex-wrap gap-1" role="group" aria-label="Recent reasons">
+                            {recentReasons.map((r) => <button key={r} type="button" className="max-w-full truncate rounded-[4px] border border-border px-2 py-0.5 text-[12px] hover:bg-muted" onClick={() => setReason(r)}>{r}</button>)}
+                        </div>
+                    ) : null}
+                    {kind === 'copy' ? <label className="flex flex-wrap items-center gap-2">Fix by <Input type="datetime-local" value={fixBy} onChange={(e) => setFixBy(e.target.value)} className="w-auto" aria-label="Fix by" /></label> : null}
+                    {error ? <p role="alert" className="text-destructive">{error}</p> : null}
+                    <div className="flex gap-2">
+                        <Button type="button" size="sm" disabled={pending} onClick={sendReturn}>Return</Button>
+                        <Button type="button" size="sm" variant="ghost" onClick={() => setReturning(false)}>Cancel</Button>
+                    </div>
+                </div>
+            ) : (
+                // Report §32.7: on phones Approve and Return stay at the bottom; no swipe, so nothing decides by accident.
+                <div className="space-y-2 max-md:sticky max-md:bottom-0 max-md:bg-card max-md:py-2">
+                    <Input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Add note (optional)" aria-label="Add note" maxLength={2000} className="h-8 w-full" />
+                    <div className="flex flex-wrap items-center gap-2">
+                        <Button type="button" size="sm" disabled={pending} onClick={approve}>Approve</Button>
+                        <Button type="button" size="sm" variant="outline" disabled={pending} onClick={openReturn}>Return</Button>
+                        {extra}
+                    </div>
+                    {keys ? <p className="text-[11px] text-muted-foreground">A approve · R return · J next · K previous · Esc close</p> : null}
+                </div>
+            )}
+        </div>
+    )
+}
+
+/** Approve or Return waits 10 seconds with Undo before it's sent (review UX 3.9). */
+export function deferDecision(message: string, send: () => Promise<{ success: boolean; error?: string }>, onUndo: () => void, onSent: (ok: boolean, error?: string) => void) {
+    deferredFeedback(message, onUndo, () => void send().then((r) => onSent(r.success, r.error)).catch(() => onSent(false)), 'Decision taken back')
+}
+
+/** Review UX 3.12, 3.13: an opened copy that's waiting gets the queue's own decision, Next waiting and Back to queue. */
+export function CopyReview({ copyId, orgId, masterId, onReviewed }: { copyId: string; orgId: string; masterId: string; onReviewed: (decision: 'approve' | 'return') => void }) {
+    const [data, setData] = useState<{ row: ReviewQueueRow | null; next: ReviewQueueRow | null; reasons: string[] } | null>(null)
+    const [held, setHeld] = useState(false)
+    useEffect(() => {
+        let live = true
+        void readReviewQueueAction(orgId).then((r) => {
+            if (!live || !r.success) return
+            const rows = r.rows.filter((x) => x.kind === 'copy')
+            const at = rows.findIndex((x) => x.copyId === copyId)
+            const same = rows.filter((x) => x.masterId === masterId && x.copyId !== copyId)
+            setData({ row: rows[at] ?? null, next: same.find((x) => rows.indexOf(x) > at) ?? same[0] ?? null, reasons: r.recentReasons })
+        }).catch(() => undefined)
+        return () => { live = false }
+    }, [copyId, masterId, orgId])
+    if (!data?.row) return null
+    const { row } = data
+    const queueHref = `?tab=tasks&taskScope=review&assignment=${encodeURIComponent(masterId)}`
+    const decide = (decision: 'approve' | 'return', reason?: string, fixBy?: string | null, note?: string) => {
+        setHeld(true)
+        deferDecision(decision === 'approve' ? `Approved ${row.who}’s ${row.title}.` : `Returned ${row.title} to ${row.who}.`,
+            () => reviewAssignmentCopyAction(copyId, decision, reason, { projectId: row.projectId, updatedAt: row.updatedAt }, fixBy ? { fixBy } : {})
+                .then(async (r) => { if (r.success && note) await createTaskCommentAction(copyId, row.projectId, note).catch(() => undefined); return r }),
+            () => setHeld(false),
+            (ok, error) => { if (ok) onReviewed(decision); else { setHeld(false); toast.warning(error ?? 'Couldn’t save that. Try again.') } })
+    }
+    return (
+        <section aria-label="Review this hand-in" className="space-y-2 rounded-[5px] border border-border p-3">
+            <p className={reviewLabel}>Review</p>
+            {held ? <p role="status" className="text-[13px] text-muted-foreground">Sending in a few seconds. Undo is in the notice.</p> : (
+                <ReviewDecision who={row.who} dueDate={row.dueDate} recentReasons={data.reasons} pending={held}
+                    onApprove={(note) => decide('approve', undefined, null, note)} onReturn={(reason, fixBy) => decide('return', reason, fixBy)} />
+            )}
+            <div className="flex flex-wrap gap-3 text-[13px]">
+                {data.next ? <a href={data.next.href} className="text-primary underline-offset-4 hover:underline">Next waiting: {data.next.who}</a> : null}
+                <a href={queueHref} className="text-primary underline-offset-4 hover:underline">Back to queue</a>
+            </div>
+        </section>
     )
 }

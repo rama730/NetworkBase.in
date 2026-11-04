@@ -48,7 +48,7 @@ import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { formatDistanceToNow } from '@/lib/utils/date'
-import { defaultFixBy, deleteAssignmentWarning, webLink, type AssignmentTarget, type CopyState } from '@/lib/organizations/assignment-rules'
+import { defaultFixBy, deleteAssignmentWarning, queueOrder, webLink, type AssignmentTarget, type CopyState } from '@/lib/organizations/assignment-rules'
 import { DownloadLink } from '@/components/ui/download-link'
 import { remindSummary } from '@/lib/organizations/member-rules'
 import { toast } from '@/lib/feedback'
@@ -58,7 +58,7 @@ import { EditAssignmentDialog, ExcuseDialog, ExtendDialog, GiveToDialog, ReturnD
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { AssignmentRoster } from '@/components/organizations/AssignmentRoster'
-import { ReviewConversation, ReviewWork } from '@/components/organizations/ReviewQueueParts'
+import { deferDecision, LinkCard, ReviewConversation, ReviewDecision, reviewLabel, ReviewSteps, ReviewWork } from '@/components/organizations/ReviewQueueParts'
 import { ReasonDialog } from '@/components/organizations/ReasonDialog'
 import { ClassQuestions } from '@/components/organizations/ClassQuestions'
 import { saveBlob, toCsvBlob } from '@/lib/download'
@@ -720,78 +720,91 @@ function orgTime(iso: string | null, timeZone?: string | null) {
 export function ReviewQueue({ orgId, onChanged, onClose }: { orgId: string; onChanged: () => void; onClose?: () => void }) {
     const [rows, setRows] = useState<ReviewQueueRow[] | null>(null)
     const [total, setTotal] = useState(0)
+    const [reasons, setReasons] = useState<string[]>([])
     const [index, setIndex] = useState(0)
     // Mockup task 2: "Review N" on an assignment's panel opens the queue on that assignment.
     const [assignment, setAssignment] = useState(() => (typeof window === 'undefined' ? 'all' : new URLSearchParams(window.location.search).get('assignment') ?? 'all'))
     const [lateOnly, setLateOnly] = useState(false)
     // Reviewers (report §33.5): Mine is the work you review, plus anything nobody was picked for.
     const [mineOnly, setMineOnly] = useState(false)
-    const [returning, setReturning] = useState(false)
-    const [reason, setReason] = useState('')
-    const [fixBy, setFixBy] = useState('')
-    const [note, setNote] = useState('')
-    const [pending, startTransition] = useTransition()
+    // Review UX 3.8: search by name, sort oldest, newest or late first.
+    const [query, setQuery] = useState('')
+    const [sort, setSort] = useState<'oldest' | 'newest' | 'late'>('oldest')
+    // Review UX 3.9: decisions waiting out their 10 seconds, hidden from the list until sent or taken back.
+    const [held, setHeld] = useState<Set<string>>(new Set())
     const [error, setError] = useState<string | null>(null)
-    const load = useCallback(() => void readReviewQueueAction(orgId).then((r) => { setRows(r.success ? r.rows : []); setTotal(r.success ? r.total : 0); if (!r.success) setError(r.error) }), [orgId])
+    const load = useCallback(() => void readReviewQueueAction(orgId).then((r) => { setRows(r.success ? r.rows : []); setTotal(r.success ? r.total : 0); setReasons(r.success ? r.recentReasons : []); if (!r.success) setError(r.error) }), [orgId])
     useEffect(() => { load() }, [load])
     useReloadOnNotice(load)
     useEffect(() => { if (rows && assignment !== 'all' && !rows.some((r) => r.masterId === assignment)) setAssignment('all') }, [rows, assignment])
-    const shown = useMemo(() => (rows ?? []).filter((r) => (assignment === 'all' || r.masterId === assignment) && (!lateOnly || r.late) && (!mineOnly || r.mine)), [rows, assignment, lateOnly, mineOnly])
+    const shown = useMemo(() => queueOrder((rows ?? []).filter((r) => !held.has(r.copyId) && (assignment === 'all' || r.masterId === assignment) && (!lateOnly || r.late) && (!mineOnly || r.mine)), sort, query),
+        [rows, held, assignment, lateOnly, mineOnly, sort, query])
     const current = shown[Math.min(index, Math.max(0, shown.length - 1))] ?? null
-    const step = (by: number) => { setReturning(false); setIndex((i) => (shown.length ? (i + by + shown.length) % shown.length : 0)) }
-    const decide = (decision: 'approve' | 'return') => {
-        if (!current) return
-        if (decision === 'return' && !returning) { setReturning(true); setReason(''); setFixBy(toLocalInput(defaultFixBy())); return }
-        if (decision === 'return' && !reason.trim()) return setError('Say what to change.')
-        startTransition(async () => {
-            // An ordinary board task uses the task's own review (problem 33); a copy uses the assignment's.
-            const r: { success: true } | { success: false; error: string } = current.kind === 'task'
-                ? await (decision === 'approve' ? approveTaskReviewAction(current.copyId, current.projectId, current.updatedAt) : requestTaskChangesAction(current.copyId, current.projectId, reason.trim(), current.updatedAt))
-                    .then((x) => (x.success ? { success: true as const } : { success: false as const, error: ('error' in x && x.error) || 'Couldn’t save that. Try again.' }))
-                : await reviewAssignmentCopyAction(current.copyId, decision, decision === 'return' ? reason.trim() : undefined,
-                    { projectId: current.projectId, updatedAt: current.updatedAt }, decision === 'return' && fixBy ? { fixBy: new Date(fixBy).toISOString() } : {})
-            if (!r.success) {
-                // "Already reviewed by Priya" moves on; a new version reloads to show it (23.2 awkward cases).
-                setError(r.error.startsWith('This changed') ? `${current.who} sent a new version. Showing it now.` : r.error)
-                if (r.error.startsWith('Already reviewed')) { setRows((cur) => (cur ?? []).filter((x) => x.copyId !== current.copyId)); setTotal((t) => Math.max(0, t - 1)) }
-                else load()
+    const step = (by: number) => setIndex((i) => (shown.length ? (i + by + shown.length) % shown.length : 0))
+    const hold = (id: string, on: boolean) => setHeld((cur) => { const next = new Set(cur); if (on) next.add(id); else next.delete(id); return next })
+    const decide = (row: ReviewQueueRow, decision: 'approve' | 'return', reason?: string, fixBy?: string | null, note?: string) => {
+        hold(row.copyId, true)
+        setError(null)
+        // An ordinary board task uses the task's own review (problem 33); a copy uses the assignment's.
+        const send = async (): Promise<{ success: boolean; error?: string }> => {
+            const r = row.kind === 'task'
+                ? await (decision === 'approve' ? approveTaskReviewAction(row.copyId, row.projectId, row.updatedAt) : requestTaskChangesAction(row.copyId, row.projectId, reason ?? '', row.updatedAt))
+                    .then((x) => (x.success ? { success: true } : { success: false, error: ('error' in x && x.error) || 'Couldn’t save that. Try again.' }))
+                : await reviewAssignmentCopyAction(row.copyId, decision, reason, { projectId: row.projectId, updatedAt: row.updatedAt }, fixBy ? { fixBy } : {})
+            if (r.success && decision === 'approve' && note) await createTaskCommentAction(row.copyId, row.projectId, note).catch(() => undefined)
+            return r
+        }
+        deferDecision(decision === 'approve' ? `Approved ${row.who}’s ${row.title}.` : `Returned ${row.title} to ${row.who}.`, send, () => hold(row.copyId, false), (ok, message = 'Couldn’t save that. Try again.') => {
+            if (ok) {
+                // Live loop 31: the count follows the queue.
+                setRows((cur) => (cur ?? []).filter((x) => x.copyId !== row.copyId))
+                setTotal((t) => Math.max(0, t - 1))
+                hold(row.copyId, false)
+                onChanged()
                 return
             }
-            if (decision === 'approve' && note.trim()) await createTaskCommentAction(current.copyId, current.projectId, note.trim()).catch(() => undefined)
-            setError(null); setNote(''); setReturning(false)
-            // Live loop 31, 32: the count follows the queue, and each decision says it happened.
-            setRows((cur) => (cur ?? []).filter((x) => x.copyId !== current.copyId))
-            setTotal((t) => Math.max(0, t - 1))
-            toast.success(decision === 'approve' ? `Approved ${current.who}’s ${current.title}.` : `Returned ${current.title} to ${current.who}.`)
-            onChanged()
+            // "Already reviewed by Priya" leaves; a new version reloads to show it (23.2 awkward cases).
+            setError(message.startsWith('This changed') ? `${row.who} sent a new version. Showing it now.` : message)
+            if (message.startsWith('Already reviewed')) { setRows((cur) => (cur ?? []).filter((x) => x.copyId !== row.copyId)); setTotal((t) => Math.max(0, t - 1)) }
+            else load()
+            hold(row.copyId, false)
         })
     }
-    const keys = useRef({ decide, step, onClose })
-    keys.current = { decide, step, onClose }
+    const keys = useRef({ step, onClose })
+    keys.current = { step, onClose }
     useEffect(() => {
         const onKey = (event: KeyboardEvent) => {
             const target = event.target as HTMLElement | null
             if (event.metaKey || event.ctrlKey || event.altKey || (target && (target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName)))) return
             const k = event.key.toLowerCase()
-            if (k === 'a') keys.current.decide('approve')
-            else if (k === 'r') { event.preventDefault(); keys.current.decide('return') }
-            else if (k === 'j') keys.current.step(1)
+            if (k === 'j') keys.current.step(1)
             else if (k === 'k') keys.current.step(-1)
             else if (k === 'escape') keys.current.onClose?.()
-            else return
         }
         window.addEventListener('keydown', onKey)
         return () => window.removeEventListener('keydown', onKey)
     }, [])
     if (!rows) return <p className="mt-3 text-sm text-muted-foreground">Loading submissions…</p>
     const titles = [...new Map(rows.map((r) => [r.masterId, r.kind === 'task' ? 'Other tasks' : r.title])).entries()]
-    const label = 'font-mono text-[11px] font-medium uppercase tracking-[0.09em] text-muted-foreground'
+    const waitingCount = rows.length - held.size
     return (
-        <section aria-label="To review" className="mt-3 space-y-2 rounded-md border border-border p-3 text-sm">
+        <section aria-labelledby="review-queue-heading" className="mt-3 space-y-3 rounded-md border border-border p-3 text-sm">
+            {/* Review UX 3.10: the queue says what it is; the board's own buttons step aside while it shows. */}
             <div className="flex flex-wrap items-center gap-2">
+                <h2 id="review-queue-heading" className="text-[17px] font-semibold">To review</h2>
+                <span className="font-mono text-[12px] text-muted-foreground">{waitingCount}{total > rows.length ? ` of ${total}` : ''} waiting</span>
+                {onClose ? <button type="button" className="ml-auto text-[13px] text-primary underline-offset-4 hover:underline" onClick={onClose}>Back to board</button> : null}
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+                <Input value={query} onChange={(e) => { setQuery(e.target.value); setIndex(0) }} placeholder="Search names" aria-label="Search names" className="h-8 w-40 max-md:w-full" />
                 <select aria-label="Assignment" value={assignment} onChange={(e) => { setAssignment(e.target.value); setIndex(0) }} className={`${select} h-8 text-xs`}>
                     <option value="all">All assignments</option>
                     {titles.map(([id, title]) => <option key={id} value={id}>{title}</option>)}
+                </select>
+                <select aria-label="Sort" value={sort} onChange={(e) => { setSort(e.target.value as typeof sort); setIndex(0) }} className={`${select} h-8 text-xs`}>
+                    <option value="oldest">Oldest first</option>
+                    <option value="newest">Newest first</option>
+                    <option value="late">Late first</option>
                 </select>
                 <label className="flex items-center gap-1.5 text-xs"><input type="checkbox" checked={lateOnly} onChange={(e) => { setLateOnly(e.target.checked); setIndex(0) }} /> Late only</label>
                 {rows.some((r) => !r.mine) ? (
@@ -800,20 +813,20 @@ export function ReviewQueue({ orgId, onChanged, onClose }: { orgId: string; onCh
                         <button type="button" aria-pressed={!mineOnly} className={cn('rounded-[3px] border px-1.5', !mineOnly ? 'border-foreground font-medium' : 'border-border')} onClick={() => { setMineOnly(false); setIndex(0) }}>All</button>
                     </span>
                 ) : null}
-                <span className="ml-auto text-xs text-muted-foreground">{shown.length ? `${Math.min(index, shown.length - 1) + 1} of ${shown.length} waiting` : ''}{total > rows.length ? ` · ${rows.length} of ${total} loaded` : ''}</span>
+                <span className="ml-auto text-xs text-muted-foreground">{shown.length ? `${Math.min(index, shown.length - 1) + 1} of ${shown.length} waiting` : ''}</span>
                 <Button type="button" size="sm" variant="ghost" disabled={shown.length < 2} onClick={() => step(-1)} aria-label="Previous">‹</Button>
                 <Button type="button" size="sm" variant="ghost" disabled={shown.length < 2} onClick={() => step(1)}>Next</Button>
             </div>
             {!current ? (
-                <p>All caught up. {onClose ? <button type="button" className="text-primary underline-offset-4 hover:underline" onClick={onClose}>Back to board</button> : null}</p>
+                <p>{query || lateOnly ? 'Nobody matches.' : 'All caught up.'} {onClose ? <button type="button" className="text-primary underline-offset-4 hover:underline" onClick={onClose}>Back to board</button> : null}</p>
             ) : (
                 // Mockup task 2: who is waiting, the work itself, then everything needed to decide.
                 <div className="grid gap-4 md:grid-cols-[minmax(0,220px)_minmax(0,1fr)_minmax(0,280px)]">
                     <section aria-label="Waiting" className="min-w-0">
-                        <ul className="max-h-[60vh] space-y-1 overflow-y-auto max-md:max-h-56">
+                        <ul className="max-h-[70vh] space-y-1 overflow-y-auto max-md:max-h-56">
                             {shown.map((r, i) => (
                                 <li key={r.copyId}>
-                                    <button type="button" aria-current={r.copyId === current.copyId ? 'true' : undefined} onClick={() => { setReturning(false); setIndex(i) }}
+                                    <button type="button" aria-current={r.copyId === current.copyId ? 'true' : undefined} onClick={() => setIndex(i)}
                                         className={cn('w-full rounded-[5px] px-2 py-1.5 text-left', r.copyId === current.copyId ? 'bg-muted' : 'hover:bg-muted/60')}>
                                         <span className="block truncate text-[13px] font-medium">{r.who}</span>
                                         <span className="block truncate font-mono text-[11px] text-muted-foreground">{r.title} · {formatDistanceToNow(new Date(r.submittedAt), { addSuffix: true })}{r.late ? ' · Late' : ''}</span>
@@ -822,36 +835,24 @@ export function ReviewQueue({ orgId, onChanged, onClose }: { orgId: string; onCh
                             ))}
                         </ul>
                     </section>
-                    <section aria-label="Submission" className="min-w-0 space-y-2">
+                    <section aria-label="Submission" className="flex min-w-0 flex-col gap-2">
                         <p><span className="font-medium">{current.who}</span> · {current.title} · {formatDistanceToNow(new Date(current.submittedAt), { addSuffix: true })}{current.late ? ' · Late' : ''}{current.version ? ` · Version ${current.version}` : ''}{current.submittedBy ? ` · submitted by ${current.submittedBy}` : ''}{current.left ? ' · Left the organization' : ''}</p>
-                        {webLink(current.link) ? <a href={webLink(current.link)!} target="_blank" rel="noreferrer noopener" className="break-all text-primary underline">{current.link}</a> : current.link ? <span className="break-all">{current.link}</span> : null}
-                        {current.text ? <p className="whitespace-pre-line rounded-md bg-muted/40 px-3 py-2">{current.text}</p> : null}
-                        <ReviewWork row={current} />
-                        {!current.link && !current.text && !current.files.length ? <p className="text-muted-foreground">Marked as done, nothing attached.</p> : null}
+                        {current.link ? <LinkCard link={current.link} /> : null}
+                        {/* Review UX 3.11: text keeps its line breaks and spacing. */}
+                        {current.text ? <p className="whitespace-pre-wrap rounded-md bg-muted/40 px-3 py-2">{current.text}</p> : null}
+                        <ReviewWork key={current.copyId} row={current} />
+                        {!current.link && !current.text && !current.files.length && !current.versions.length ? <p className="text-muted-foreground">Marked as done, nothing attached.</p> : null}
                     </section>
-                    <section aria-label="Details" className="min-w-0 space-y-3">
-                        {current.note ? <div><p className={label}>Their note</p><p className="mt-1">Note: {current.note}</p></div> : null}
-                        <p className="text-xs text-muted-foreground">Steps {current.steps.done} of {current.steps.total} ticked · Private conversation ({current.comments}) · <a href={current.href} className="text-primary underline-offset-4 hover:underline">Open</a></p>
+                    {/* Review UX 3.1: note, steps, conversation, then the decision at the bottom. */}
+                    <section aria-label="Details" className="flex min-w-0 flex-col gap-3">
+                        {current.note ? <div><p className={reviewLabel}>Their note</p><p className="mt-1">Note: {current.note}</p></div> : null}
+                        <ReviewSteps row={current} />
                         <ReviewConversation row={current} />
-                        {returning ? (
-                            <div className="space-y-2">
-                                <label className="block space-y-1"><span className="font-medium">What should {current.who} change?</span>
-                                    <textarea autoFocus value={reason} onChange={(e) => setReason(e.target.value)} rows={3} maxLength={1000} className={area} aria-label={`What should ${current.who} change?`} /></label>
-                                {current.kind === 'copy' ? <label className="flex flex-wrap items-center gap-2">Fix by <Input type="datetime-local" value={fixBy} onChange={(e) => setFixBy(e.target.value)} className="w-auto" aria-label="Fix by" /></label> : null}
-                                <div className="flex gap-2">
-                                    <Button type="button" size="sm" disabled={pending} onClick={() => decide('return')}>Return</Button>
-                                    <Button type="button" size="sm" variant="ghost" onClick={() => setReturning(false)}>Cancel</Button>
-                                </div>
-                            </div>
-                        ) : (
-                            // Report §32.7: on phones Approve and Return stay at the bottom; no swipe, so nothing decides by accident.
-                            <div className="flex flex-wrap items-center gap-2 max-md:sticky max-md:bottom-0 max-md:bg-card max-md:py-2">
-                                <Button type="button" size="sm" disabled={pending} onClick={() => decide('approve')}>Approve</Button>
-                                <Button type="button" size="sm" variant="outline" disabled={pending} onClick={() => decide('return')}>Return</Button>
-                                <Input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Add note (optional)" aria-label="Add note" maxLength={2000} className="h-8 w-full" />
-                                <span className="text-[11px] text-muted-foreground">A approve · R return · J next · K previous · Esc close</span>
-                            </div>
-                        )}
+                        <div className="mt-auto">
+                            <ReviewDecision key={current.copyId} keys who={current.who} kind={current.kind} dueDate={current.dueDate} recentReasons={reasons} pending={false}
+                                onApprove={(note) => decide(current, 'approve', undefined, null, note)} onReturn={(reason, fixBy) => decide(current, 'return', reason, fixBy)}
+                                extra={<a href={current.href} className="text-[13px] text-primary underline-offset-4 hover:underline">Open</a>} />
+                        </div>
                     </section>
                 </div>
             )}

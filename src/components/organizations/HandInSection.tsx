@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { Input } from '@/components/ui/input'
 import { FileViewer, fileSize } from '@/components/organizations/FileViewer'
+import { CopyReview } from '@/components/organizations/ReviewQueueParts'
 import { handInBlocked, handInBox, handInButton, handInChip, webLink } from '@/lib/organizations/assignment-rules'
 import { cn } from '@/lib/utils'
 
@@ -43,11 +44,13 @@ function FileRow({ file, onRemove }: { file: HandInFile; onRemove?: () => void }
     )
 }
 
-export function HandInSection({ copyId, onOpenFiles, onSubmitted, onUploadFiles, onRemoveFile, onOpenConversation }: {
+export function HandInSection({ copyId, onOpenFiles, onSubmitted, onUploadFiles, onRemoveFile, onOpenConversation, onReviewed }: {
     copyId: string; onOpenFiles: () => void; onSubmitted: (reviewRequired: boolean) => void
     onUploadFiles?: (files: File[]) => Promise<{ success: boolean; error?: string }>; onRemoveFile?: (nodeId: string) => Promise<{ success: boolean; error?: string }>
     /** Review UX 2.11: Message and Class questions open the panel's conversation. */
     onOpenConversation?: (kind: 'private' | 'class') => void
+    /** Review UX 3.12: an admin decided this copy from its own panel. */
+    onReviewed?: (decision: 'approve' | 'return') => void
 }) {
     const client = useQueryClient()
     const query = useQuery({ queryKey: ['hand-in', copyId], queryFn: () => readHandInAction(copyId), staleTime: 0 })
@@ -137,8 +140,9 @@ export function HandInSection({ copyId, onOpenFiles, onSubmitted, onUploadFiles,
                 {box.lines.map((line) => <p key={line} className={box.tone === 'ok' ? 'font-mono text-[12px] text-muted-foreground' : 'text-[13px]'}>{line}</p>)}
                 {h.returned?.fixBy ? <p className="font-mono text-[12px] text-muted-foreground">Fix by {WHEN.format(new Date(h.returned.fixBy))}</p> : null}
                 {box.next ? <p className="text-[13px] text-muted-foreground">{box.next}</p> : null}
-                {box.message && msgButton ? <div className="pt-1.5">{msgButton}</div> : null}
+                {box.message && msgButton && h.holder ? <div className="pt-1.5">{msgButton}</div> : null}
             </div>
+            {!h.holder && h.state === 'submitted' ? <CopyReview copyId={copyId} orgId={h.orgId} masterId={h.masterId} onReviewed={(d) => { void refresh(); onReviewed?.(d) }} /> : null}
 
             {h.materials.length ? (
                 <div className="space-y-1.5">
@@ -226,7 +230,7 @@ export function HandInSection({ copyId, onOpenFiles, onSubmitted, onUploadFiles,
                 </div>
             ) : error ? <p role="alert" className="text-destructive">{error}</p> : null}
 
-            {onOpenConversation ? (
+            {onOpenConversation && h.holder ? (
                 <div className="flex flex-wrap gap-2 border-t border-border pt-3">
                     {box.message ? null : msgButton}
                     <Button type="button" size="sm" variant="ghost" onClick={() => onOpenConversation('class')}>Class questions</Button>

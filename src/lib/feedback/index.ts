@@ -123,13 +123,13 @@ export const toast = Object.assign(notify, {
 });
 
 /** Destructive local operations use this same active clock for their UI and commit. */
-export function deferredFeedback(message: string, undo: () => void, commit: () => void) {
+export function deferredFeedback(message: string, undo: () => void, commit: () => void, restored = 'Message restored') {
   let settled = false;
   const finish = () => { if (!settled) { settled = true; commit(); } };
   const id = toast(message, {
     duration: 10_000,
     onDismiss: finish, onAutoClose: finish,
-    action: { label: 'Undo', onClick: () => { if (settled) return; settled = true; undo(); toast.success('Message restored', { id }); } },
+    action: { label: 'Undo', onClick: () => { if (settled) return; settled = true; undo(); toast.success(restored, { id }); } },
   });
   return { id, commit: () => { finish(); feedbackStore.remove(id, 'action'); } };
 }

@@ -114,3 +114,26 @@ test("2.11, 2.12: on a copy the properties fold under More details, and the card
   assert.match(details, /onOpenConversation=\{onOpenConversation\}/);
   assert.match(source("src/components/workspaces/v2/tasks/TaskDetailPanel.tsx"), /onOpenConversation=\{\(kind\) => \{ setConversation\(kind\); setActiveTab\("comments"\); \}\}/);
 });
+
+test("3.7, 3.8: Fix by defaults to the later of the due date and three days on; the queue searches and sorts", async () => {
+  const { reviewFixBy, queueOrder } = await import("../../src/lib/organizations/assignment-rules");
+  const now = new Date(2026, 10, 4, 10, 0);
+  const three = reviewFixBy(null, now);
+  assert.deepEqual([three.getDate(), three.getHours(), three.getMinutes()], [7, 23, 59]);
+  assert.equal(reviewFixBy(new Date(2026, 10, 2).toISOString(), now).getDate(), 7, "a past due date doesn't pull it back");
+  assert.equal(reviewFixBy(new Date(2026, 10, 12, 17, 0).toISOString(), now).getTime(), new Date(2026, 10, 12, 17, 0).getTime(), "a later due date wins");
+  const rows = [{ who: "Zara", submittedBy: null, title: "Lab 1", submittedAt: "2026-11-04T08:00:00Z", late: false }, { who: "Team A", submittedBy: "Asha Nair", title: "Lab 1", submittedAt: "2026-11-04T09:00:00Z", late: true },
+    { who: "Kiran", submittedBy: null, title: "Lab 2", submittedAt: "2026-11-04T07:00:00Z", late: false }];
+  assert.deepEqual(queueOrder(rows, "oldest", "").map((r) => r.who), ["Kiran", "Zara", "Team A"]);
+  assert.deepEqual(queueOrder(rows, "newest", "").map((r) => r.who), ["Team A", "Zara", "Kiran"]);
+  assert.deepEqual(queueOrder(rows, "late", "").map((r) => r.who), ["Team A", "Kiran", "Zara"]);
+  assert.deepEqual(queueOrder(rows, "oldest", "asha").map((r) => r.who), ["Team A"], "who handed in for a team matches");
+});
+
+test("3.9, 3.10: the board's own buttons step aside while the queue shows; Undo says the decision came back", () => {
+  const tab = source("src/components/workspaces/v2/TasksTab.tsx");
+  assert.match(tab, /const reviewing = Boolean\(orgId && scope === "review" && canManageWorkflow\);/);
+  assert.match(tab, /\{reviewing \? null : <>/);
+  assert.match(source("src/lib/feedback/index.ts"), /export function deferredFeedback\(message: string, undo: \(\) => void, commit: \(\) => void, restored = 'Message restored'\)/);
+  assert.match(source("src/components/organizations/ReviewQueueParts.tsx"), /'Decision taken back'\)/);
+});

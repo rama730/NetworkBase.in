@@ -370,3 +370,18 @@ export function handInBlocked(f: { submissionType: string; files?: number; link?
   if (f.submissionType === "text") return f.text?.trim() ? null : "Write your answer to hand it in.";
   return null;
 }
+
+/** Review UX 3.7: Fix by is the later of the due date and three days on, so a return never shortens the time left. */
+export function reviewFixBy(dueIso: string | null, now: Date = new Date()) {
+  const three = defaultFixBy(now);
+  const due = dueIso ? new Date(dueIso) : null;
+  return due && due.getTime() > three.getTime() ? due : three;
+}
+
+/** Review UX 3.8: the queue searched by name (a team's hand-in person too) and sorted oldest, newest or late first. */
+export function queueOrder<T extends { who: string; submittedBy: string | null; title: string; submittedAt: string; late: boolean }>(rows: T[], sort: "oldest" | "newest" | "late", query: string) {
+  const q = query.trim().toLowerCase();
+  const at = (r: T) => Date.parse(r.submittedAt);
+  return rows.filter((r) => !q || [r.who, r.submittedBy ?? "", r.title].some((s) => s.toLowerCase().includes(q)))
+    .sort((a, b) => (sort === "late" && a.late !== b.late ? (a.late ? -1 : 1) : sort === "newest" ? at(b) - at(a) : at(a) - at(b)));
+}

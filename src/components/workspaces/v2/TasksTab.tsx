@@ -210,6 +210,7 @@ export default function TasksTab({
   const [showCreateModal, setShowCreateModal] = useState(false);
   // Student check 7 (decision 87, create_org_tasks): an organization's board takes new tasks from its owners and admins.
   const canCreateTasks = canEditTasks && (!orgId || canManageWorkflow);
+  const reviewing = Boolean(orgId && scope === "review" && canManageWorkflow);
   useEffect(() => {
     if (!startCreate) return;
     if (canCreateTasks) setShowCreateModal(true);
@@ -782,7 +783,7 @@ export default function TasksTab({
       </p>}
       <div className="w-full shrink-0">
         <div className="flex w-full flex-wrap items-center justify-between gap-3 border-b border-border pb-3">
-          <div className="flex items-center gap-2.5">
+          <div className={cn("flex items-center gap-2.5", reviewing && "hidden")}>
             <h2 className="text-[20px] font-semibold tracking-tight text-foreground">
               Board
             </h2>
@@ -799,7 +800,7 @@ export default function TasksTab({
 
           <div className="flex flex-wrap items-center gap-2 max-md:w-full">
             {/* Instant Search Filter */}
-            <div className="relative flex items-center max-md:basis-full">
+            <div className={cn("relative flex items-center max-md:basis-full", reviewing && "hidden")}>
               <Search className="pointer-events-none absolute left-2.5 size-3.5 text-muted-foreground" />
               <input
                 type="text"
@@ -830,6 +831,8 @@ export default function TasksTab({
               </select>
             ) : null}
 
+            {/* Review UX 3.10: while the queue shows, the board's own buttons step aside; only the filter stays. */}
+            {reviewing ? null : <>
             {/* Connect Desktop IDE (desktop row; phones reach it from the ⋯ menu) */}
             <span className="hidden md:contents">
               <OpenInIdeButton
@@ -891,6 +894,7 @@ export default function TasksTab({
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
+            </>}
             <OpenInIdeSheet open={ideSheetOpen} onOpenChange={setIdeSheetOpen} projectId={projectId} projectSlug={projectSlug} taskId={editingTask?.id} />
           </div>
         </div>
@@ -940,8 +944,8 @@ export default function TasksTab({
       ) : null}
 
       {/* Main Content. Problem 33: on an organization, In review is the one queue the badge counts, group work included. */}
-      {orgId && scope === "review" && canManageWorkflow ? <ReviewQueue orgId={orgId} onChanged={() => void refetchTasks()} onClose={() => setScope("all")} /> : null}
-      <div className={cn("flex-1 min-h-0", orgId && scope === "review" && canManageWorkflow && "hidden")}>
+      {reviewing && orgId ? <ReviewQueue orgId={orgId} onChanged={() => void refetchTasks()} onClose={() => setScope("all")} /> : null}
+      <div className={cn("flex-1 min-h-0", reviewing && "hidden")}>
         <KanbanBoard
           projectId={projectId}
           workflow={workflow}

@@ -327,7 +327,8 @@ export default function DetailsTab({
       {/* Decision 85: an assignment copy is handed in here, for every hand-in type. */}
       {task.assignmentId ? (
         <HandInSection copyId={task.id} onOpenFiles={() => onOpenTab("files")} onUploadFiles={onUploadFiles} onRemoveFile={onRemoveFile} onOpenConversation={onOpenConversation}
-          onSubmitted={(review) => onReviewApproved(new Date().toISOString(), "done", review ? "pending" : "none")} />
+          onSubmitted={(review) => onReviewApproved(new Date().toISOString(), "done", review ? "pending" : "none")}
+          onReviewed={(decision) => onReviewApproved(new Date().toISOString(), decision === "approve" ? "done" : "in_progress", decision === "approve" ? "none" : "rejected")} />
       ) : null}
 
       {/* Review UX 2.1, 3.12: a hand-in is reviewed through its own card and the queue, not this generic box. */}
