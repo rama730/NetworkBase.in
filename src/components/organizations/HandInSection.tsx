@@ -122,6 +122,8 @@ export function HandInSection({ copyId, onOpenFiles, onSubmitted, onUploadFiles,
     const blocked = handInBlocked({ submissionType: h.submissionType, files: h.files.length, link, text })
     const openSteps = h.steps.filter((s) => !s.done).length
     const at = h.latest ? WHEN.format(new Date(h.latest.at)) : null
+    // Review UX 3.14: an approval says who approved it and when, not only when it was handed in.
+    const approval = h.approved ? h.history.find((e) => e.kind === 'approved') : undefined
     // Review UX 2.2, 2.15: the files once — what was handed in while it's locked, the working files while it's open.
     const shownFiles = locked ? h.latest?.files ?? [] : h.files
     // "Message your teacher or TA": role words lower-cased, initialisms kept.
@@ -145,12 +147,14 @@ export function HandInSection({ copyId, onOpenFiles, onSubmitted, onUploadFiles,
             </div>
 
             <div role="status" className={cn('space-y-0.5 rounded-[5px] px-3 py-2.5', BOX[box.tone])}>
-                <p className={cn('font-semibold', TITLE[box.tone])}>{box.title}{(box.title === 'Handed in' || box.title === 'Approved' || box.title === 'Done') && at ? ` · ${at}` : ''}</p>
+                <p className={cn('font-semibold', TITLE[box.tone])}>{box.title}{approval ? ` by ${approval.by ?? h.from} · ${WHEN.format(new Date(approval.at))}` : (box.title === 'Handed in' || box.title === 'Done') && at ? ` · ${at}` : ''}</p>
                 {box.lines.map((line) => <p key={line} className={box.tone === 'ok' ? 'font-mono text-[12px] text-muted-foreground' : 'text-[13px]'}>{line}</p>)}
                 {h.returned?.fixBy ? <p className="font-mono text-[12px] text-muted-foreground">Fix by {WHEN.format(new Date(h.returned.fixBy))}</p> : null}
                 {box.next ? <p className="text-[13px] text-muted-foreground">{box.next}</p> : null}
                 {box.message && msgButton && h.holder ? <div className="pt-1.5">{msgButton}</div> : null}
             </div>
+            {/* Review UX 1.6: an admin who opened this copy from the Assignment tab gets back to it. */}
+            {!h.holder ? <a href={`?tab=tasks&drawerType=task&drawerId=${encodeURIComponent(h.masterId)}`} className="inline-block text-[13px] text-primary underline-offset-4 hover:underline">← Back to the assignment</a> : null}
             {!h.holder && h.state === 'submitted' ? <CopyReview copyId={copyId} orgId={h.orgId} masterId={h.masterId} onReviewed={(d) => { void refresh(); onReviewed?.(d) }} /> : null}
 
             {h.materials.length ? (

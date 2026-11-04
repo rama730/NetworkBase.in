@@ -26,6 +26,7 @@ const copies: Record<string, string> = {
     excused: `{${base},state:'excused',excusedReason:'Medical leave',canSubmit:false}`,
     closed: `{${base},state:'not_started',closed:true,canSubmit:false}`,
     admin: `{${base},holder:false,state:'submitted',latest:${latest(1)},orgId:'org',masterId:'a1'}`,
+    approved: `{${base},state:'done',approved:true,canSubmit:false,latest:${latest(2)},history:[{kind:'approved',at:new Date().toISOString(),by:'Ms. Rao'},{kind:'handed_in',at:new Date(Date.now()-36e5).toISOString(),by:'Asha Nair',version:2,late:false}]}`,
 };
 const queueRow = (id: string, who: string) => `{kind:'copy',mine:true,copyId:'${id}',masterId:'a1',title:'Lab 3',who:'${who}',submittedBy:null,submittedAt:new Date().toISOString(),late:false,href:'?tab=tasks&drawerType=task&drawerId=${id}',
   projectId:'org',updatedAt:new Date().toISOString(),version:1,link:null,text:null,note:null,files:[],versions:[],steps:[],comments:0,left:false,dueDate:null}`;
@@ -158,4 +159,11 @@ test('3.12, 3.13: an admin opening a waiting copy gets the same decision, Next w
     await expect(review.getByRole('link', { name: 'Next waiting: Kiran' })).toHaveAttribute('href', /drawerId=c9/);
     await expect(review.getByRole('link', { name: 'Back to queue' })).toHaveAttribute('href', /taskScope=review&assignment=a1/);
     await expect(card.getByRole('button', { name: /Hand in/ })).toHaveCount(0);
+    await expect(card.getByRole('link', { name: '← Back to the assignment' })).toHaveAttribute('href', /drawerId=a1/);
+});
+
+test('3.14: approved work says who approved it and when', async ({ page }) => {
+    const card = await open(page, 'approved');
+    await expect(card.getByRole('status')).toContainText(/Approved by Ms\. Rao · /);
+    await expect(card.getByRole('link', { name: /Back to the assignment/ })).toHaveCount(0);
 });

@@ -148,3 +148,9 @@ test("5.1, 5.2, 5.5: one word per state, the panel header uses the Hand in card'
   assert.match(source("src/components/organizations/HandInSection.tsx"), /<h4 className=\{label\}>Steps · /);
   assert.doesNotMatch(source("src/components/organizations/AssignmentsPanel.tsx"), /submitted by \$\{current/);
 });
+
+test("3.9: a decision waiting out its 10 seconds keeps the tab from closing without asking", () => {
+  const parts = source("src/components/organizations/ReviewQueueParts.tsx");
+  assert.match(parts, /window\.addEventListener\('beforeunload', stay\)/);
+  assert.match(parts, /deferredFeedback\(message, \(\) => \{ done\(\); onUndo\(\) \}, \(\) => \{ done\(\);/);
+});

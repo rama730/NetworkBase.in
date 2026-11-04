@@ -200,7 +200,11 @@ export function ReviewDecision({ who, kind = 'copy', dueDate, recentReasons = []
 
 /** Approve or Return waits 10 seconds with Undo before it's sent (review UX 3.9). */
 export function deferDecision(message: string, send: () => Promise<{ success: boolean; error?: string }>, onUndo: () => void, onSent: (ok: boolean, error?: string) => void) {
-    deferredFeedback(message, onUndo, () => void send().then((r) => onSent(r.success, r.error)).catch(() => onSent(false)), 'Decision taken back')
+    // Closing the tab inside the 10 seconds would drop the decision, so the browser asks first.
+    const stay = (event: BeforeUnloadEvent) => { event.preventDefault() }
+    window.addEventListener('beforeunload', stay)
+    const done = () => window.removeEventListener('beforeunload', stay)
+    deferredFeedback(message, () => { done(); onUndo() }, () => { done(); void send().then((r) => onSent(r.success, r.error)).catch(() => onSent(false)) }, 'Decision taken back')
 }
 
 /** Review UX 3.12, 3.13: an opened copy that's waiting gets the queue's own decision, Next waiting and Back to queue. */
