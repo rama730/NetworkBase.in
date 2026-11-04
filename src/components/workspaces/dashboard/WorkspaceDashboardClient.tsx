@@ -1072,7 +1072,7 @@ export default function WorkspaceDashboardClient({ project, currentUserId, viewe
     const startNew = useCallback((kind: OrgNewKind) => {
         if (kind === 'project') return router.push(`/workspaces/new?org=${encodeURIComponent(project.slug ?? project.id)}`);
         setNewIntent(kind);
-        handleTabChange(kind === 'task' ? 'tasks' : kind === 'announcement' ? 'updates' : 'sprints');
+        handleTabChange(kind === 'task' || kind === 'assignment' ? 'tasks' : kind === 'announcement' ? 'updates' : 'sprints');
     }, [handleTabChange, project.id, project.slug, router]);
     // Settings → Work → Story points: Hidden (report §21.2 #5) covers the board, drawers and dialogs (portals) alike.
     const hideStoryPoints = organization?.work.storyPoints === 'hidden';
@@ -1215,7 +1215,7 @@ export default function WorkspaceDashboardClient({ project, currentUserId, viewe
                     <TabErrorBoundary tabName="Tasks">
                         {/* One board (problem 3): assignments are cards on it. In child projects, the org's group copies (§16.6). */}
                         {parentOrg ? <GroupCopiesPanel projectId={project.id} onBoardChanged={() => refreshProjectData('tasks')} /> : null}
-                        <TasksTab projectId={project.id} projectSlug={project.slug || project.id} projectName={project.title} currentUserId={currentUserId || undefined} currentUserName={currentUserName} currentUserAvatarUrl={currentUserAvatarUrl} isOwner={isOwner} canEditTasks={canEditTasks} isProjectMember={isOwnerOrMember} reviewsGroupWork={isInheritedAdmin} canManageFiles={canManageFiles} canManageWorkflow={canManageProjectSettings} isChildProject={Boolean(parentOrg)} orgId={isOrganization ? project.id : null} initialTasks={tasks} started={tasksStarted} startCreate={newIntent === 'task'} onCreateStarted={() => setNewIntent(null)} orgTimeZone={organization?.timeZone ?? null} members={allMembers} sprints={sprints} initialOpenTaskId={initialTaskDrawerId ?? myWorkInitialTaskId} initialPanelTab={initialTaskPanelTab} initialCommentId={searchParams?.get('commentId')} initialFileId={searchParams?.get('fileId')} onInitialTaskOpened={myWorkInitialTaskId ? consumeMyWorkTaskHandoff : undefined} />
+                        <TasksTab projectId={project.id} projectSlug={project.slug || project.id} projectName={project.title} currentUserId={currentUserId || undefined} currentUserName={currentUserName} currentUserAvatarUrl={currentUserAvatarUrl} isOwner={isOwner} canEditTasks={canEditTasks} isProjectMember={isOwnerOrMember} reviewsGroupWork={isInheritedAdmin} canManageFiles={canManageFiles} canManageWorkflow={canManageProjectSettings} isChildProject={Boolean(parentOrg)} orgId={isOrganization ? project.id : null} initialTasks={tasks} started={tasksStarted} startCreate={newIntent === 'task' || newIntent === 'assignment'} startCreateKind={newIntent === 'assignment' ? 'assignment' : 'task'} onCreateStarted={() => setNewIntent(null)} orgTimeZone={organization?.timeZone ?? null} members={allMembers} sprints={sprints} initialOpenTaskId={initialTaskDrawerId ?? myWorkInitialTaskId} initialPanelTab={initialTaskPanelTab} initialCommentId={searchParams?.get('commentId')} initialFileId={searchParams?.get('fileId')} onInitialTaskOpened={myWorkInitialTaskId ? consumeMyWorkTaskHandoff : undefined} />
                     </TabErrorBoundary>
                 </div>
             )}

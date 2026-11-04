@@ -110,6 +110,8 @@ interface TasksTabProps {
   started?: TasksBoot | null;
   /** + New → Task (problem 4): open New task once, then clear the request. */
   startCreate?: boolean;
+  /** + New → Assignment opens New on its Assignment tab (board/review report §4). */
+  startCreateKind?: "task" | "assignment";
   onCreateStarted?: () => void;
   /** Decision 74: an organization's dates are entered in its time zone. */
   orgTimeZone?: string | null;
@@ -140,6 +142,7 @@ export default function TasksTab({
   initialTasks = [],
   started = null,
   startCreate = false,
+  startCreateKind = "task",
   onCreateStarted,
   orgTimeZone = null,
   members = [],
@@ -973,22 +976,16 @@ export default function TasksTab({
         <CreateTaskModal
           isOpen={showCreateModal}
           canAssignSprint={isOwner}
-          manyOptions={orgId && canManageWorkflow ? [
-            // Every mode the assignment's Assign to has (live-fix 5), so the one form starts where you meant.
-            { value: "everyone", label: "Everyone · an assignment" },
-            { value: "role", label: "Admins · an assignment" },
-            { value: "people", label: "Selected people · an assignment" },
-            { value: "teams", label: "Teams · an assignment" },
-            { value: "each_child", label: "Each workspace · an assignment" },
-            { value: "children", label: "Selected workspaces · an assignment" },
-          ] : isChildProject && canManageWorkflow ? [{ value: "units", label: "A team, or each team · a shared task" }] : []}
+          // Board/review report §4: an organization picks Assignment from New's tabs; a team workspace keeps its shared task.
+          manyOptions={isChildProject && canManageWorkflow ? [{ value: "units", label: "A team, or each team · a shared task" }] : []}
           onAssignMany={(_choice, carry) => {
             setShowCreateModal(false);
             setManyCarry({ ...carry, mode: "everyone" });
             setTeamTaskOpen(true);
           }}
-          renderMany={orgId && !isChildProject ? ({ choice, title, description, onBack, onDone }) => (
-            <AssignmentFields orgId={orgId} timeZone={orgTimeZone} prefill={{ title, description, mode: choice as AssignmentTarget["mode"] }} onBackToTask={onBack} onDone={onDone}
+          initialKind={startCreateKind}
+          renderMany={orgId && !isChildProject && canManageWorkflow ? ({ choice, title, description, sprintId, onDraft, onDone }) => (
+            <AssignmentFields orgId={orgId} timeZone={orgTimeZone} prefill={{ title, description, mode: choice as AssignmentTarget["mode"], sprintId }} onDraft={onDraft} onDone={onDone}
               onCreated={() => void queryClient.invalidateQueries({ queryKey: queryKeys.project.detail.tasksRoot(projectId) })} />
           ) : undefined}
           onClose={() => setShowCreateModal(false)}

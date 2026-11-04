@@ -298,7 +298,7 @@ test('Sprint form (§28.2): an organization names the next sprint, Repeat previe
     await expect(page.locator('#sprint-name')).toHaveValue('CO2');
     await page.locator('#sprint-start-date').fill('2027-01-04');
     await page.locator('#sprint-end-date').fill('2027-01-17');
-    await page.getByRole('radio', { name: 'Several (plan the term)' }).click();
+    await page.getByRole('tab', { name: 'Several (plan the term)' }).click();
     const list = page.getByRole('list', { name: 'Sprints to create' });
     await expect(list).toContainText('CO3 · Jan 18–Jan 31 · Overlaps Mid-term break');
     await expect(page.getByRole('button', { name: 'Create 4 sprints' })).toBeDisabled();
@@ -319,7 +319,7 @@ test('Sprint form (§18.2): a team sprint sits inside CO1, says its limit beside
     await page.locator('#sprint-end-date').fill('2027-01-20');
     await expect(page.getByRole('alert').filter({ hasText: 'CO1 ends Jan 17. Pick an earlier date.' })).toBeVisible();
     await expect(page.getByRole('button', { name: /^Create / })).toBeDisabled();
-    await expect(page.getByRole('radio', { name: 'Several (plan the term)' })).toHaveCount(0);
+    await expect(page.getByRole('tab', { name: 'Several (plan the term)' })).toHaveCount(0);
     await noSideScroll(page);
     await page.screenshot({ path: test.info().outputPath('sprint-child.png') });
 });
@@ -409,4 +409,20 @@ test('Live-fix 28: the composer\'s Post button stays inside the column at 1280px
         expect(button!.x + button!.width).toBeLessThanOrEqual(column!.x + column!.width + 0.5);
         await noSideScroll(page);
     }
+});
+
+test('Board/review report §4, §5: New has Task and Assignment tabs in the profile style; what is typed carries across; Assigned to is people only', async ({ page }) => {
+    await open(page, 'new', 1280);
+    const tabs = page.getByRole('tablist', { name: 'What are you creating?' });
+    await expect(tabs.getByRole('tab', { name: 'Task' })).toHaveAttribute('aria-selected', 'true');
+    await expect(page.getByLabel('Select assignee').or(page.locator('#task-assignee'))).not.toContainText('an assignment');
+    await page.locator('input[name="title"], textarea[name="title"]').first().fill('Lab 2: Stacks');
+    await tabs.getByRole('tab', { name: 'Assignment' }).click();
+    await expect(page.getByText('Everyone it goes to gets their own copy to hand in.')).toBeVisible();
+    await expect(page.getByRole('combobox', { name: 'Assign to' })).toBeVisible();
+    await expect(page.locator('input[value="Lab 2: Stacks"]')).toBeVisible();
+    await tabs.getByRole('tab', { name: 'Task' }).click();
+    await expect(page.locator('[name="title"]').first()).toHaveValue('Lab 2: Stacks');
+    await open(page, 'new-assignment', 1280);
+    await expect(page.getByRole('tablist', { name: 'What are you creating?' }).getByRole('tab', { name: 'Assignment' })).toHaveAttribute('aria-selected', 'true');
 });

@@ -9,7 +9,8 @@ test("live-fix 3, 4: no Assignments box above the board, and + New offers Task",
   const dashboard = source("src/components/workspaces/dashboard/WorkspaceDashboardClient.tsx");
   assert.doesNotMatch(dashboard, /<AssignmentsPanel/);
   assert.match(source("src/components/organizations/OrgHeaderParts.tsx"), /\{ kind: 'task', label: 'Task'/);
-  assert.match(dashboard, /startCreate=\{newIntent === 'task'\}/);
+  assert.match(dashboard, /startCreate=\{newIntent === 'task' \|\| newIntent === 'assignment'\} startCreateKind=\{newIntent === 'assignment' \? 'assignment' : 'task'\}/);
+  assert.match(source("src/components/organizations/OrgHeaderParts.tsx"), /\{ kind: 'assignment', label: 'Assignment'/, "board/review report §4");
   const search = source("src/app/actions/org-workspace.ts");
   assert.match(search, /title: `New task in \$\{scope\.title\}`/);
   assert.match(search, /\?tab=tasks&new=1/);
@@ -21,13 +22,17 @@ test("live-fix 3: drafts are published, scheduled, sent back or deleted from the
   assert.match(manage, /Back to draft/);
 });
 
-test("live-fix 5: picking many people keeps the one form open and turns it into Create assignment", () => {
+test("board/review report §4: New has Task and Assignment tabs; Assigned to is people only in an organization", () => {
   const modal = source("src/components/workspaces/v2/tasks/CreateTaskModal.tsx");
-  assert.match(modal, /many \? "Create assignment" : "Create task"/);
+  assert.match(modal, /<UnderlineTabs label="What are you creating\?"/);
+  assert.match(modal, /tabs=\{\[\{ key: "task", label: "Task" \}, \{ key: "assignment", label: "Assignment" \}\] as const\}/);
+  assert.match(modal, /const choice = renderMany \? undefined : manyOptions\.find/);
+  assert.match(modal, /\{manyOptions\.length && !renderMany \? \(/);
   assert.doesNotMatch(source("src/components/workspaces/v2/TasksTab.tsx"), /<AssignmentComposer/);
   const panel = source("src/components/organizations/AssignmentsPanel.tsx");
   assert.match(panel, /export function AssignmentFields/);
-  assert.match(panel, /<option value="task">One person · a task<\/option>/);
+  assert.doesNotMatch(panel, /<option value="task">One person · a task<\/option>/, "the tabs switch kinds now");
+  assert.match(panel, /useEffect\(\(\) => \{ draftRef\.current\?\.\(\{ title, description, sprintId \}\) \}, \[title, description, sprintId\]\)/);
 });
 
 test("live-fix 6: Assignments and Mine filters", () => {
@@ -78,7 +83,8 @@ test("review fix: New task's assignment fields use the organization's time zone"
   assert.match(source("src/components/workspaces/dashboard/WorkspaceDashboardClient.tsx"), /orgTimeZone=\{organization\?\.timeZone \?\? null\}/);
 });
 
-test("live-fix 5: New task offers every assign mode the assignment has", () => {
-  const tab = source("src/components/workspaces/v2/TasksTab.tsx");
-  for (const mode of ['"everyone"', '"role"', '"people"', '"teams"', '"each_child"', '"children"']) assert.ok(tab.includes(`{ value: ${mode}, label:`), mode);
+test("board/review report §4: the Assignment tab keeps every target the assignment has; a team workspace keeps its shared task", () => {
+  const panel = source("src/components/organizations/AssignmentsPanel.tsx");
+  for (const mode of ['"everyone"', '"role"', '"people"', '"teams"', '"each_child"', '"children"']) assert.ok(panel.includes(`value=${mode}`) || panel.includes(`'${mode.slice(1, -1)}'`), mode);
+  assert.match(source("src/components/workspaces/v2/TasksTab.tsx"), /manyOptions=\{isChildProject && canManageWorkflow \? \[\{ value: "units"/);
 });

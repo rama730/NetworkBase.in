@@ -8,7 +8,7 @@ test('profile layout keeps roles in the responsive rail without duplicate skills
   const client = read('src/components/profile/v2/ProfileV2Client.tsx')
   const shell = read('src/components/profile/v2/ProfileShell.tsx')
   const rail = read('src/components/profile/v2/ProfileRightRail.tsx')
-  const tabs = read('src/components/profile/v2/ProfileTabs.tsx')
+  const tabs = read('src/components/profile/v2/ProfileTabs.tsx') + read('src/components/ui/UnderlineTabs.tsx') // board/review report §5: the shared tabs
 
   const rolesPosition = client.indexOf('<OpenToRolesCard')
   assert.ok(rolesPosition >= 0)
@@ -46,7 +46,7 @@ test('profile summary follows the supplied NetworkBase card and tab pattern', ()
   const client = read('src/components/profile/v2/ProfileV2Client.tsx')
   const header = read('src/components/profile/v2/ProfileHeader.tsx')
   const shell = read('src/components/profile/v2/ProfileShell.tsx')
-  const tabs = read('src/components/profile/v2/ProfileTabs.tsx')
+  const tabs = read('src/components/profile/v2/ProfileTabs.tsx') + read('src/components/ui/UnderlineTabs.tsx') // board/review report §5: the shared tabs
 
   assert.match(header, /<PersonPresenceBadge userId=\{profile\?\.id \?\? null\} lastActiveAt=\{vm\.lastActiveAt\}/)
   assert.match(header, /size=\{30\} className=\"absolute -bottom-1\.5 -right-1\.5 max-md:-right-3\.5 max-md:bottom-0\"/)
@@ -100,7 +100,7 @@ test('public profile actions use the design-system hierarchy and hide unavailabl
 })
 
 test('profile surfaces use the shared typography roles', () => {
-  const tabs = read('src/components/profile/v2/ProfileTabs.tsx')
+  const tabs = read('src/components/profile/v2/ProfileTabs.tsx') + read('src/components/ui/UnderlineTabs.tsx') // board/review report §5: the shared tabs
   const rail = read('src/components/profile/v2/ProfileRightRail.tsx')
   const about = read('src/components/profile/v2/sections/AboutCard.tsx')
   const projects = read('src/components/profile/v2/sections/WorkspacesGridCard.tsx')

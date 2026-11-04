@@ -171,7 +171,7 @@ function useReloadOnNotice(reload: () => void) {
 
 type TeamBox = { name: string; people: OrgRosterPerson[]; leadId: string | null }
 
-type ComposerPrefill = { title: string; description: string; mode: AssignmentTarget['mode'] }
+type ComposerPrefill = { title: string; description: string; mode: AssignmentTarget['mode']; sprintId?: string }
 
 /** New assignment in its own dialog: Use again, and the card's panel. */
 export function AssignmentComposer({ orgId, open, onOpenChange, onCreated, reuseFrom = null, timeZone = null }: { orgId: string; open: boolean; onOpenChange: (open: boolean) => void; onCreated: () => void; reuseFrom?: string | null; timeZone?: string | null }) {
@@ -192,7 +192,9 @@ export function AssignmentComposer({ orgId, open, onOpenChange, onCreated, reuse
  * The assignment's fields (report §16.2): who it goes to, hand-in, late rule, steps; Publish or Save as draft.
  * New task shows them in place when "Assign to" is many people (problem 5), with "One person · a task" to go back.
  */
-export function AssignmentFields({ orgId, onDone, onCreated, reuseFrom = null, prefill = null, timeZone = null, onBackToTask }: { orgId: string; onDone: () => void; onCreated: () => void; reuseFrom?: string | null; prefill?: ComposerPrefill | null; timeZone?: string | null; onBackToTask?: (carry: { title: string; description: string }) => void }) {
+export function AssignmentFields({ orgId, onDone, onCreated, reuseFrom = null, prefill = null, timeZone = null, onDraft }: { orgId: string; onDone: () => void; onCreated: () => void; reuseFrom?: string | null; prefill?: ComposerPrefill | null; timeZone?: string | null
+    /** Board/review report §4: New's Assignment tab hears what's typed, so the Task tab keeps it. */
+    onDraft?: (carry: { title: string; description: string; sprintId: string }) => void }) {
     // Decision 74: dates are entered in the organization's time zone, and the form says which.
     const at = (local: string) => zonedInputToIso(local, timeZone)
     const zone = zoneName(timeZone)
@@ -202,6 +204,9 @@ export function AssignmentFields({ orgId, onDone, onCreated, reuseFrom = null, p
     // Repeat weekly until (report §33.5): later weeks are made as drafts to check before publishing.
     const [repeatUntil, setRepeatUntil] = useState('')
     const [sprintId, setSprintId] = useState('')
+    const draftRef = useRef(onDraft)
+    draftRef.current = onDraft
+    useEffect(() => { draftRef.current?.({ title, description, sprintId }) }, [title, description, sprintId])
     const [submissionType, setSubmissionType] = useState<'none' | 'file' | 'link' | 'text'>('file')
     const [reviewRequired, setReviewRequired] = useState(true)
     const [admins, setAdmins] = useState<Array<{ id: string; name: string }>>([])
@@ -248,7 +253,7 @@ export function AssignmentFields({ orgId, onDone, onCreated, reuseFrom = null, p
             setReviewRequired(r.defaults.reviewRequired)
             setLateRule(r.defaults.lateRule)
             // New task with many people (decision 10): the text typed there comes along.
-            if (prefill) { setTitle(prefill.title); setDescription(prefill.description); setMode(prefill.mode) }
+            if (prefill) { setTitle(prefill.title); setDescription(prefill.description); setMode(prefill.mode); if (prefill.sprintId) setSprintId(prefill.sprintId) }
             // Use again (report §33.5): the form filled in from an earlier assignment, with new dates to choose.
             if (reuseFrom) void readAssignmentForReuseAction(reuseFrom).then((again) => {
                 if (!again.success) return
@@ -358,8 +363,7 @@ export function AssignmentFields({ orgId, onDone, onCreated, reuseFrom = null, p
 
                     <fieldset className="space-y-2">
                         <legend className="text-sm font-medium">Assign to</legend>
-                        <select value={mode} onChange={(e) => e.target.value === 'task' ? onBackToTask?.({ title, description }) : setMode(e.target.value as AssignmentTarget['mode'])} className={select} aria-label="Assign to">
-                            {onBackToTask ? <option value="task">One person · a task</option> : null}
+                        <select value={mode} onChange={(e) => setMode(e.target.value as AssignmentTarget['mode'])} className={select} aria-label="Assign to">
                             <option value="everyone">Everyone (members)</option>
                             <option value="role">Admins</option>
                             <option value="people">Selected people</option>

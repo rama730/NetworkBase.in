@@ -129,7 +129,7 @@ test('§6: New sprint offers one or several, folds notes, shows where it lands a
   await open(page);
   await page.getByRole('complementary', { name: 'Sprints' }).getByRole('button', { name: 'New sprint' }).click();
   const dialog = page.getByRole('dialog');
-  await expect(dialog.getByRole('radio', { name: 'One sprint' })).toHaveAttribute('aria-checked', 'true');
+  await expect(dialog.getByRole('tab', { name: 'One sprint' })).toHaveAttribute('aria-selected', 'true');
   await expect(dialog.getByRole('textbox', { name: 'Notes' })).toHaveCount(0);
   await dialog.getByRole('button', { name: '+ Add notes' }).click();
   await expect(dialog.getByRole('textbox', { name: 'Notes' })).toBeVisible();
@@ -143,7 +143,7 @@ test('§6: New sprint offers one or several, folds notes, shows where it lands a
   await page.screenshot({ path: test.info().outputPath('sprint-form.png') });
   await dialog.getByLabel('Starts').fill(new Date(Date.now() + 30 * 864e5).toISOString().slice(0, 10));
   await expect(dialog.getByTestId('term-strip')).toContainText('Overlaps Sprint 6.');
-  await dialog.getByRole('radio', { name: 'Several (plan the term)' }).click();
+  await dialog.getByRole('tab', { name: 'Several (plan the term)' }).click();
   await expect(dialog.getByRole('list', { name: 'Sprints to create' })).toBeVisible();
   await expect(dialog.getByRole('button', { name: /^Create \d+ sprints$/ })).toBeVisible();
   for (const width of [390]) {

@@ -9,6 +9,7 @@ import { usePlainContentHeadings } from "@/components/workspaces/PlainContentHea
 
 import { cn } from "@/lib/utils";
 import type { WorkspaceNode } from "@/lib/db/schema";
+import { UnderlineTabs } from "@/components/ui/UnderlineTabs";
 import {
   Dialog,
   DialogContent,
@@ -59,8 +60,13 @@ interface CreateTaskModalProps {
    */
   manyOptions?: Array<{ value: string; label: string }>;
   onAssignMany?: (choice: string, carry: { title: string; description: string }) => void;
-  /** An organization (problem 5): the assignment's fields, shown in this same form in place of the task's. */
-  renderMany?: (many: { choice: string; title: string; description: string; onBack: (carry: { title: string; description: string }) => void; onDone: () => void }) => React.ReactNode;
+  /**
+   * An organization (board/review report §4): the Assignment tab's form. Title, description and sprint carry across
+   * the tabs; `onDraft` reports the assignment form's own changes back so switching to Task keeps them.
+   */
+  renderMany?: (many: { choice: string; title: string; description: string; sprintId: string; onDraft: (carry: { title: string; description: string; sprintId: string }) => void; onDone: () => void }) => React.ReactNode;
+  /** Opens on this tab (+ New → Assignment). */
+  initialKind?: "task" | "assignment";
 }
 
 function SectionDivider({
@@ -168,10 +174,22 @@ export default function CreateTaskModal({
   manyOptions = [],
   onAssignMany,
   renderMany,
+  initialKind = "task",
 }: CreateTaskModalProps) {
-  // Many people picked: the same dialog becomes "Create assignment"; going back keeps the title and description.
-  const [many, setMany] = React.useState<{ choice: string; title: string; description: string } | null>(null);
-  const [carry, setCarry] = React.useState({ title: "", description: "" });
+  // Board/review report §4: an organization's New has two tabs, Task and Assignment; what's typed carries across.
+  const [kind, setKind] = React.useState<"task" | "assignment">(renderMany ? initialKind : "task");
+  const [carry, setCarry] = React.useState({ title: "", description: "", sprintId: "" });
+  const formRef = React.useRef<HTMLFormElement>(null);
+  const switchKind = (next: "task" | "assignment") => {
+    if (next === kind) return;
+    if (next === "assignment" && formRef.current) {
+      const read = (name: string) => String((formRef.current?.elements.namedItem(name) as HTMLInputElement | null)?.value ?? "");
+      setCarry({ title: read("title"), description: read("description"), sprintId: read("sprintId") });
+    }
+    setKind(next);
+  };
+  React.useEffect(() => { if (isOpen) setKind(renderMany ? initialKind : "task"); }, [isOpen, initialKind, renderMany]);
+  const many = renderMany && kind === "assignment";
   const completionPolicy = useTaskCompletionPolicy(projectId ?? "");
   const plainContentHeadings = usePlainContentHeadings();
   const availableSprints = React.useMemo(
@@ -292,7 +310,7 @@ export default function CreateTaskModal({
     <div className="flex shrink-0 items-center justify-between border-b border-border px-6 py-4">
       <DialogHeader className="space-y-0.5 text-left">
         <DialogTitle className="text-base font-semibold text-foreground">
-          {many ? "Create assignment" : "Create task"}
+          {renderMany ? "New" : "Create task"}
         </DialogTitle>
         {/* Student check 19: screen readers hear what an assignment does (the header stays caption-free). */}
         <DialogDescription className="sr-only">
@@ -310,6 +328,14 @@ export default function CreateTaskModal({
     </div>
   );
 
+  const kindTabs = renderMany ? (
+    <div className="shrink-0 px-6">
+      <UnderlineTabs label="What are you creating?" idPrefix="new-kind" controls={false} value={kind} onChange={switchKind}
+        tabs={[{ key: "task", label: "Task" }, { key: "assignment", label: "Assignment" }] as const} />
+      {kind === "task" ? <p className="pt-2 text-[13px] text-muted-foreground">One piece of work for one person.</p> : null}
+    </div>
+  ) : null;
+
   return (
     <>
       {/* Ignore dismissal while saving, so a half-submitted task cannot be closed away. */}
@@ -325,19 +351,23 @@ export default function CreateTaskModal({
           }}
           className="z-[201] flex max-h-[88vh] w-full sm:max-w-[640px] flex-col gap-0 overflow-hidden rounded-[12px] border border-[#DBD5C8] bg-card p-0 shadow-2xl dark:border-white/10"
         >
-          {many && renderMany ? (
+          {many ? (
             <div className="flex min-h-0 w-full flex-col">
               {header}
+              {kindTabs}
               <div className="flex-1 overflow-y-auto px-6 py-5">
-                {renderMany({ ...many, onBack: (back) => { setCarry(back); setMany(null); }, onDone: onClose })}
+                <p className="mb-3 text-[13px] text-muted-foreground">Everyone it goes to gets their own copy to hand in.</p>
+                {renderMany({ choice: "everyone", title: carry.title, description: carry.description, sprintId: carry.sprintId, onDraft: setCarry, onDone: onClose })}
               </div>
             </div>
           ) : (
           <form
+            ref={formRef}
             onSubmit={handleSubmit}
             className="flex min-h-0 w-full flex-col"
           >
             {header}
+            {kindTabs}
 
             {/* Scrollable Modal Body */}
             <div className="flex-1 space-y-5 overflow-y-auto px-6 py-5">
@@ -405,7 +435,7 @@ export default function CreateTaskModal({
                       <select
                         id="task-sprint"
                         name="sprintId"
-                        defaultValue=""
+                        defaultValue={carry.sprintId}
                         className={cn(
                           inputClassName(!!fieldErrors.sprintId),
                           "appearance-none pl-9 pr-9 cursor-pointer",
@@ -443,12 +473,12 @@ export default function CreateTaskModal({
                         name="assigneeId"
                         defaultValue=""
                         onChange={(event) => {
-                          const choice = manyOptions.find((o) => o.value === event.target.value);
-                          if (!choice || (!onAssignMany && !renderMany)) return;
+                          // §4: in an organization, Assigned to is people only; the Assignment tab is where many people go.
+                          const choice = renderMany ? undefined : manyOptions.find((o) => o.value === event.target.value);
+                          if (!choice || !onAssignMany) return;
                           const form = event.currentTarget.form;
                           const read = (name: string) => String((form?.elements.namedItem(name) as HTMLInputElement | null)?.value ?? "");
-                          if (renderMany) setMany({ choice: choice.value, title: read("title"), description: read("description") });
-                          else onAssignMany?.(choice.value, { title: read("title"), description: read("description") });
+                          onAssignMany(choice.value, { title: read("title"), description: read("description") });
                         }}
                         className={cn(
                           inputClassName(!!fieldErrors.assigneeId),
@@ -461,7 +491,7 @@ export default function CreateTaskModal({
                             {member.label}
                           </option>
                         ))}
-                        {manyOptions.length ? (
+                        {manyOptions.length && !renderMany ? (
                           <optgroup label="Many people">
                             {manyOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                           </optgroup>

@@ -19,6 +19,7 @@ import {
 } from "@/lib/workspaces/sprints";
 import { recordSprintMetric } from "@/lib/workspaces/sprint-observability";
 import { termStrip } from "@/lib/workspaces/sprint-plan";
+import { UnderlineTabs } from "@/components/ui/UnderlineTabs";
 import { cn } from "@/lib/utils";
 import {
   Dialog,
@@ -432,12 +433,8 @@ export default function SprintEditorModal({
 
             {/* Sprint redesign §6.1: one sprint, or several to plan the term — a choice, not a checkbox halfway down. */}
             {mode === "create" && onRepeat && org?.kind !== "child" ? (
-              <div role="radiogroup" aria-label="What are you planning?" className="grid grid-cols-2 gap-0.5 rounded-[5px] border border-border p-0.5">
-                {([[false, "One sprint"], [true, "Several (plan the term)"]] as const).map(([value, label]) => (
-                  <button key={label} type="button" role="radio" aria-checked={repeat === value} onClick={() => setRepeat(value)}
-                    className={cn("nb-touch-target h-[32px] rounded-[4px] text-[13px]", repeat === value ? "bg-muted font-medium text-foreground" : "text-muted-foreground hover:text-foreground")}>{label}</button>
-                ))}
-              </div>
+              <UnderlineTabs label="What are you planning?" idPrefix="sprint-kind" controls={false} value={repeat ? "several" : "one"} onChange={(k) => setRepeat(k === "several")}
+                tabs={[{ key: "one", label: "One sprint" }, { key: "several", label: "Several (plan the term)" }] as const} />
             ) : null}
             {/* §6.5: a team's sprint starts from the class sprint it sits inside. */}
               {org?.kind === "child" && org.orgSprints.length > 0 ? (

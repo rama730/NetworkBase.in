@@ -1,7 +1,8 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { AssignmentComposer, AssignmentManageSection, ReviewQueue } from '@/components/organizations/AssignmentsPanel';
+import { AssignmentComposer, AssignmentFields, AssignmentManageSection, ReviewQueue } from '@/components/organizations/AssignmentsPanel';
+import CreateTaskModal from '@/components/workspaces/v2/tasks/CreateTaskModal';
 import { OrgFilesCollection, OrgStorageNotice } from '@/components/organizations/OrgFilesPanel';
 import { OrgMembersTab } from '@/components/organizations/OrgMembersTab';
 import { OrgWorkspacesTab } from '@/components/organizations/OrgOverviewParts';
@@ -76,6 +77,10 @@ createRoot(document.getElementById('root')!).render(
                     toolbar: <>{['Pin', 'Also email · 5 of 5 left today', '#general'].map((t) => <button key={t} type="button" className="inline-flex min-h-8 items-center rounded-[5px] border border-border px-2.5 text-[12px]">{t}</button>)}</> }}
                 onPost={async () => true} /></div> : null}
             {tab === 'compose' ? <AssignmentComposer orgId="org" open onOpenChange={() => undefined} onCreated={() => undefined} /> : null}
+            {/* Board/review report §4: New with Task and Assignment tabs, as an organization's board opens it. */}
+            {tab === 'new' || tab === 'new-assignment' ? <CreateTaskModal isOpen projectId="org" onClose={() => undefined} onCreate={async () => ({ success: true })} canAssignSprint
+                members={[{ id: 'u1', fullName: 'Ravi Kumar' }]} sprints={[{ id: 's1', name: 'CO1', status: 'active' }]} initialKind={tab === 'new-assignment' ? 'assignment' : 'task'}
+                renderMany={({ choice, title, description, sprintId, onDraft, onDone }) => <AssignmentFields orgId="org" prefill={{ title, description, mode: choice as never, sprintId }} onDraft={onDraft} onDone={onDone} onCreated={() => undefined} />} /> : null}
             {tab === 'files' ? <><OrgStorageNotice org={{ mode: 'org', orgId: 'org', title: 'CSE-3A', slug: 'cse-3a', isAdmin: true, canCopy: false }} /><OrgFilesCollection view="from_org" projectId="child" org={{ mode: 'child', orgId: 'org', title: 'CSE-3A Software Engineering', slug: 'cse-3a', isAdmin: false, canCopy: true }} /></> : null}
             {tab === 'team' ? <Team /> : null}
             {tab === 'units' ? <ChildUnitsPanel projectId="child" /> : null}

@@ -4,7 +4,7 @@ import { typeProfile } from '@/lib/organizations/type-profile'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState, useTransition } from 'react'
-import { Archive, Building2, ChevronDown, FolderKanban, IterationCcw, ListTodo, Megaphone, Plus, UserPlus } from 'lucide-react'
+import { Archive, Building2, ChevronDown, ClipboardList, FolderKanban, IterationCcw, ListTodo, Megaphone, Plus, UserPlus } from 'lucide-react'
 
 import { cancelJoinRequestAction, joinPublicOrgAction, regenerateJoinCodeAction } from '@/app/actions/organizations'
 import { JoinRequestNote } from '@/components/organizations/JoinOrgButton'
@@ -155,9 +155,11 @@ export function OrgStatusBanner({ orgId, organization, isOwner }: { orgId: strin
     return null
 }
 
-export type OrgNewKind = 'task' | 'announcement' | 'sprint' | 'project'
+export type OrgNewKind = 'task' | 'assignment' | 'announcement' | 'sprint' | 'project'
 const NEW_ITEMS: Array<{ kind: OrgNewKind; label: string; icon: typeof Plus }> = [
     { kind: 'task', label: 'Task', icon: ListTodo },
+    // Board/review report §4: opens New on its Assignment tab.
+    { kind: 'assignment', label: 'Assignment', icon: ClipboardList },
     { kind: 'announcement', label: 'Announcement', icon: Megaphone },
     { kind: 'sprint', label: 'Sprint', icon: IterationCcw },
     { kind: 'project', label: 'Workspace', icon: FolderKanban },
