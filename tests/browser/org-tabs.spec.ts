@@ -78,7 +78,8 @@ test.beforeAll(async () => {
             export const addAssignmentStepAction=${ok},excuseTeamMemberAction=${ok},moveTeamMemberAction=${ok},remindCopiesAction=async()=>({success:true,reminded:3}),readAssignmentTeamsAction=async()=>({success:true,teams:[]});
             const q={kind:'copy',projectId:'org',updatedAt:new Date().toISOString(),version:2,link:null,text:'Consensus answer',note:'Used Raft',files:[],versions:[],steps:[...Array(4)].map((_,i)=>({title:'Step '+i,done:true})).concat([{title:'Write up',done:false}]),comments:2,left:false,dueDate:null};
             export const readReviewQueueAction=async()=>({success:true,total:2,recentReasons:[],rows:[{...q,copyId:'c1',masterId:'a1',title:'Lab 3 — Consensus protocols',who:'Team A',submittedBy:'Asha Nair',submittedAt:new Date(Date.now()-7200000).toISOString(),late:true},{...q,copyId:'c2',masterId:'a1',title:'Lab 3',who:'Priya',submittedBy:null,submittedAt:new Date().toISOString(),late:false}]});`,
-        '@/app/actions/task-comment': `export const readTaskDiscussionAction=async()=>({success:true,data:{comments:[],nextCursor:null,totalCount:0}});export const createTaskCommentAction=async()=>({success:true,data:{comment:null}}),readClassQuestionsAction=async()=>({success:false,error:'none'}),shareClassAnswerAction=async()=>({success:true,told:0});`,
+        '@/app/actions/moderation': `export const moderatedItemsAction=async()=>[];`,
+        '@/app/actions/task-comment': `export const deleteTaskCommentAction=async()=>({success:true}),readTaskDiscussionCommentAction=async()=>({success:false}),toggleTaskCommentLikeAction=async()=>({success:true});export const readTaskDiscussionAction=async()=>({success:true,data:{comments:[],nextCursor:null,totalCount:0}});export const createTaskCommentAction=async()=>({success:true,data:{comment:null}}),readClassQuestionsAction=async()=>({success:false,error:'none'}),shareClassAnswerAction=async()=>({success:true,told:0});`,
     };
     const bundle = await build({ entryPoints: [path.resolve('tests/browser/org-tabs.fixture.tsx')], bundle: true, write: false, format: 'iife', platform: 'browser', define: { 'process.env.NODE_ENV': '"test"', 'process.env': '{}' }, plugins: [{ name: 'org-tabs-boundaries', setup(builder) {
         builder.onResolve({ filter: /.*/ }, args => args.path in mocks ? { path: args.path, namespace: 'fixture' } : undefined);
@@ -172,15 +173,15 @@ test('Units panel (§14.4): rename, seats, unit lead and Move to…, all native 
 test('Assignments (§16): the review queue steps with Next; the roster has Remind, Add step and per-person team moves, on a phone', async ({ page }) => {
     await open(page, 'tasks');
     const queue = page.getByRole('region', { name: 'To review' });
-    await expect(queue.getByText('1 of 2 waiting')).toBeVisible();
+    await expect(queue.getByRole('region', { name: 'Waiting' }).getByText('1 of 2', { exact: true })).toBeVisible();
     await expect(queue.getByText(/Team A · Lab 3 — Consensus protocols · .* · Late · Version 2 · handed in by Asha Nair/)).toBeVisible();
     await expect(queue).toContainText('Steps · 4 of 5 ticked');
     await expect(queue).toContainText('Note: Used Raft');
     await queue.getByRole('button', { name: 'Next' }).click();
-    await expect(queue.getByText('2 of 2 waiting')).toBeVisible();
+    await expect(queue.getByRole('region', { name: 'Waiting' }).getByText('2 of 2', { exact: true })).toBeVisible();
     // Keys (23.2): K goes back, R opens the reason box with Fix by.
     await page.keyboard.press('k');
-    await expect(queue.getByText('1 of 2 waiting')).toBeVisible();
+    await expect(queue.getByRole('region', { name: 'Waiting' }).getByText('1 of 2', { exact: true })).toBeVisible();
     await page.keyboard.press('r');
     await expect(queue).toContainText(/What should .+ change\?/);
     await expect(queue).toContainText('Fix by');

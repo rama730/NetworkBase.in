@@ -801,7 +801,7 @@ export const MentionComposer = React.forwardRef<MentionComposerHandle, MentionCo
                         ? `mention-option-${candidates[activeIndex].id}`
                         : undefined
                 }
-                aria-multiline="true"
+                // A combobox can't carry aria-multiline (axe aria-allowed-attr); Enter posts and Shift+Enter breaks lines either way.
                 aria-label={rest["aria-label"] ?? placeholder}
                 aria-disabled={disabled}
                 contentEditable={!disabled}

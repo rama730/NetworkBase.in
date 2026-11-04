@@ -25,9 +25,10 @@ async function bundle(rows: string) {
         '@/app/actions/assignments': `export const readReviewQueueAction=async()=>({success:true,total:${rows.split('kind:').length - 1},rows:[${rows}],recentReasons:['Add the test cases.','Cite your sources.']});
             export const reviewAssignmentCopyAction=async(...a)=>{(window.sent??=[]).push(a);return {success:true}};`,
         '@/app/actions/files/content': `export const getFilePreviewUrl=async(p,n,d)=>({url:'/files/'+n+(d?'?download=1':'')});`,
+        '@/app/actions/moderation': `export const moderatedItemsAction=async()=>[];`,
         '@/app/actions/task-comment': `export const createTaskCommentAction=${ok};export const readTaskDiscussionAction=async()=>({success:true,data:{comments:[
-            {id:'m2',content:'Yes, note it in the report.',createdAt:new Date().toISOString(),author:{fullName:'Ms. Rao',username:'rao'}},
-            {id:'m1',content:'Can I use my own dataset?',createdAt:new Date(Date.now()-36e5).toISOString(),author:{fullName:'Asha Rao',username:'asha'}}],nextCursor:null,totalCount:2}});`,
+            {id:'m2',taskId:'c1',userId:'u1',parentCommentId:null,content:'Yes, note it in the report.',createdAt:new Date().toISOString(),updatedAt:new Date().toISOString(),deletedAt:null,deletedBy:null,author:{id:'u1',fullName:'Ms. Rao',username:'rao',avatarUrl:null},likeCount:0,likedByViewer:false,replies:[]},
+            {id:'m1',taskId:'c1',userId:'u2',parentCommentId:null,content:'Can I use my own dataset?',createdAt:new Date(Date.now()-36e5).toISOString(),updatedAt:new Date(Date.now()-36e5).toISOString(),deletedAt:null,deletedBy:null,author:{id:'u2',fullName:'Asha Rao',username:'asha',avatarUrl:null},likeCount:0,likedByViewer:false,replies:[]}],nextCursor:null,totalCount:2}});`,
     };
     // Every other export of a mocked actions file answers like a refused request, as the plugin does for unmocked ones.
     for (const [spec, file] of [['@/app/actions/assignments', 'src/app/actions/assignments.ts'], ['@/app/actions/files/content', 'src/app/actions/files/content.ts'], ['@/app/actions/task-comment', 'src/app/actions/task-comment.ts'], ['@/app/actions/files/nodes', 'src/app/actions/files/nodes.ts']] as const) {
@@ -70,7 +71,12 @@ test('the queue sits beside the work: waiting list, the file, then note, steps, 
     await expect(details).toContainText('I used the second dataset.');
     await expect(details.getByRole('list', { name: 'Steps' })).toContainText('Write the tests');
     await expect(details).toContainText('Steps · 1 of 2 ticked');
-    await expect(details.getByRole('list', { name: 'Private conversation' })).toContainText('Asha Rao: Can I use my own dataset?');
+    // Board/review report §3: the whole private conversation, in place.
+    const conversation = details.getByRole('region', { name: 'Private conversation' });
+    await expect(conversation).toContainText('Can I use my own dataset?');
+    await expect(conversation).toContainText('Yes, note it in the report.');
+    await expect(conversation.getByRole('combobox', { name: 'Add a comment' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Open the whole conversation' })).toHaveCount(0);
     await waiting.getByRole('button', { name: /Student 2/ }).click();
     await expect(work.getByTitle('Preview of lab3.zip')).toBeVisible();
     await expect(work.getByRole('link', { name: 'Download lab3.zip' })).toBeVisible();
@@ -90,7 +96,7 @@ test('a file the reviewer cannot open here says so and links to the hand-in, ins
 test('Review N from the panel opens the queue on that assignment', async ({ page }) => {
     await open(page, 1440, '?assignment=a2');
     const waiting = page.getByRole('region', { name: 'Waiting' });
-    await expect(waiting.getByRole('button')).toHaveCount(1);
+    await expect(waiting.getByRole('listitem')).toHaveCount(1);
     await expect(waiting).toContainText('Student 2');
 });
 
@@ -129,7 +135,7 @@ test('3.1, 3.2, 3.3, 4.1, 4.3: every file has a tab, each version opens its own 
 test('3.6, 3.7, 3.9: reply in place; Return offers recent reasons; a decision waits with Undo before it is sent', async ({ page }) => {
     await open(page, 1440);
     const details = page.getByRole('region', { name: 'Details' });
-    await expect(details.getByRole('textbox', { name: 'Reply to Student 1' })).toBeVisible();
+    await expect(details.getByRole('combobox', { name: 'Add a comment' })).toBeVisible();
     await details.getByRole('button', { name: 'Return' }).click();
     await details.getByRole('group', { name: 'Recent reasons' }).getByRole('button', { name: 'Cite your sources.' }).click();
     await expect(details.getByRole('textbox', { name: 'What should Student 1 change?' })).toHaveValue('Cite your sources.');
@@ -141,13 +147,25 @@ test('3.6, 3.7, 3.9: reply in place; Return offers recent reasons; a decision wa
     expect(await page.evaluate(() => (window as unknown as { sent?: unknown[] }).sent?.length ?? 0)).toBe(0);
 });
 
-test('3.8, 3.10: the queue has its own heading, searches names and sorts newest first', async ({ page }) => {
+test('3.8, 3.10: the queue names itself for screen readers, searches names and sorts newest first', async ({ page }) => {
     await open(page, 1440);
-    await expect(page.getByRole('heading', { name: 'To review' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'To review' })).toBeAttached();
     const waiting = page.getByRole('region', { name: 'Waiting' });
-    await expect(waiting.getByRole('button').first()).toContainText('Student 1');
+    await expect(waiting.getByRole('listitem').first()).toContainText('Student 1');
     await page.getByRole('combobox', { name: 'Sort' }).selectOption('newest');
-    await expect(waiting.getByRole('button').first()).toContainText('Student 3');
+    await expect(waiting.getByRole('listitem').first()).toContainText('Student 3');
     await page.getByRole('textbox', { name: 'Search names' }).fill('student 2');
-    await expect(waiting.getByRole('button')).toHaveCount(1);
+    await expect(waiting.getByRole('listitem')).toHaveCount(1);
+});
+
+test('board/review report §2: one line above the work — the filters, then the board tabs with the waiting count; the columns start right under it', async ({ page }) => {
+    await open(page, 1440, '?tabs=1');
+    const search = await page.getByRole('textbox', { name: 'Search names' }).boundingBox();
+    const tabs = await page.getByRole('group', { name: 'Show' }).boundingBox();
+    expect(Math.abs(search!.y + search!.height / 2 - (tabs!.y + tabs!.height / 2))).toBeLessThan(12);
+    await expect(page.getByRole('group', { name: 'Show' }).getByRole('button', { name: /In review\s*3/ })).toBeVisible();
+    const waiting = await page.getByRole('region', { name: 'Waiting' }).boundingBox();
+    expect(waiting!.y - (search!.y + search!.height)).toBeLessThan(40);
+    await expect(page.getByRole('region', { name: 'Waiting' })).toContainText('1 of 3');
+    await expect(page.getByRole('button', { name: 'Back to board' })).toHaveCount(0);
 });

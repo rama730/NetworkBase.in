@@ -801,7 +801,7 @@ export default function CommentsTab({
                   <span className="font-semibold text-primary">@</span>
                   <span>Mention</span>
                 </button>
-                <span className="hidden sm:inline-flex items-center gap-1 font-mono text-[11px] text-muted-foreground/80">
+                <span className="hidden sm:inline-flex items-center gap-1 font-mono text-[11px] text-muted-foreground">
                   <span>Press</span>
                   <kbd className="rounded-[3px] border border-border bg-background px-1.5 py-0.5 text-[10px] max-md:text-[11px] font-medium text-foreground">
                     ⌘↵

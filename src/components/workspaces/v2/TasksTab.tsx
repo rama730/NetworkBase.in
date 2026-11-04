@@ -781,7 +781,7 @@ export default function TasksTab({
         {completionPolicy.isPending ? "Loading completion workflow…" : completionPolicy.isError ? "Completion workflow unavailable; the server will apply the current workspace setting." : completionPolicy.data?.reviewRequired ? "Marking work as completed sends it to a reviewer. An owner or admin approves it." : "Marking work as done completes it immediately."}
         {completionPolicy.data?.canManage ? <a className="underline" href={`/workspaces/${projectSlug || projectId}?tab=settings&section=tasks-workflow`}>Completion settings</a> : null}
       </p>}
-      <div className="w-full shrink-0">
+      <div className={cn("w-full shrink-0", reviewing && "hidden")}>
         <div className="flex w-full flex-wrap items-center justify-between gap-3 border-b border-border pb-3">
           <div className={cn("flex items-center gap-2.5", reviewing && "hidden")}>
             <h2 className="text-[20px] font-semibold tracking-tight text-foreground">
@@ -944,7 +944,9 @@ export default function TasksTab({
       ) : null}
 
       {/* Main Content. Problem 33: on an organization, In review is the one queue the badge counts, group work included. */}
-      {reviewing && orgId ? <ReviewQueue orgId={orgId} onChanged={() => void refetchTasks()} onClose={() => setScope("all")} /> : null}
+      {/* Board/review report §2: one line — the queue's filters on the left, the board's tabs on the right. */}
+      {reviewing && orgId ? <ReviewQueue orgId={orgId} onChanged={() => void refetchTasks()} onClose={() => setScope("all")}
+        tabs={(waiting) => <TaskFilters scope={scope} setScope={setScope} organization counts={{ review: waiting }} />} /> : null}
       <div className={cn("flex-1 min-h-0", reviewing && "hidden")}>
         <KanbanBoard
           projectId={projectId}

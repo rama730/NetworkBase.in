@@ -58,7 +58,7 @@ import { EditAssignmentDialog, ExcuseDialog, ExtendDialog, GiveToDialog, ReturnD
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { AssignmentRoster } from '@/components/organizations/AssignmentRoster'
-import { deferDecision, LinkCard, ReviewConversation, ReviewDecision, reviewLabel, ReviewSteps, ReviewWork } from '@/components/organizations/ReviewQueueParts'
+import { deferDecision, LinkCard, ReviewDecision, ReviewDiscussion, reviewLabel, ReviewSteps, ReviewWork } from '@/components/organizations/ReviewQueueParts'
 import { ReasonDialog } from '@/components/organizations/ReasonDialog'
 import { ClassQuestions } from '@/components/organizations/ClassQuestions'
 import { saveBlob, toCsvBlob } from '@/lib/download'
@@ -717,7 +717,9 @@ function orgTime(iso: string | null, timeZone?: string | null) {
  * The review queue (report §23.2): one submission at a time, oldest first, with what was handed in. Approve opens the
  * next; Return asks for a reason and Fix by right here. Keys A, R, J, K and Esc, never while typing.
  */
-export function ReviewQueue({ orgId, onChanged, onClose }: { orgId: string; onChanged: () => void; onClose?: () => void }) {
+export function ReviewQueue({ orgId, onChanged, onClose, tabs }: { orgId: string; onChanged: () => void; onClose?: () => void
+    /** Board/review report §2: the board's tabs, drawn at the end of the queue's own line, with the waiting count. */
+    tabs?: (waiting: number) => React.ReactNode }) {
     const [rows, setRows] = useState<ReviewQueueRow[] | null>(null)
     const [total, setTotal] = useState(0)
     const [reasons, setReasons] = useState<string[]>([])
@@ -784,18 +786,14 @@ export function ReviewQueue({ orgId, onChanged, onClose }: { orgId: string; onCh
         window.addEventListener('keydown', onKey)
         return () => window.removeEventListener('keydown', onKey)
     }, [])
-    if (!rows) return <p className="mt-3 text-sm text-muted-foreground">Loading submissions…</p>
+    if (!rows) return <div className="space-y-3"><div className="flex flex-wrap items-center justify-end gap-2 border-b border-border pb-3">{tabs?.(0)}</div><p className="text-sm text-muted-foreground">Loading submissions…</p></div>
     const titles = [...new Map(rows.map((r) => [r.masterId, r.kind === 'task' ? 'Other tasks' : r.title])).entries()]
     const waitingCount = rows.length - held.size
     return (
-        <section aria-labelledby="review-queue-heading" className="mt-3 space-y-3 rounded-md border border-border p-3 text-sm">
-            {/* Review UX 3.10: the queue says what it is; the board's own buttons step aside while it shows. */}
-            <div className="flex flex-wrap items-center gap-2">
-                <h2 id="review-queue-heading" className="text-[17px] font-semibold">To review</h2>
-                <span className="font-mono text-[12px] text-muted-foreground">{waitingCount}{total > rows.length ? ` of ${total}` : ''} waiting</span>
-                {onClose ? <button type="button" className="ml-auto text-[13px] text-primary underline-offset-4 hover:underline" onClick={onClose}>Back to board</button> : null}
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
+        <section aria-labelledby="review-queue-heading" className="space-y-3 text-sm">
+            {/* Board/review report §2: one line above the work — filters left, the board's tabs right; In review names the place. */}
+            <h2 id="review-queue-heading" className="sr-only">To review</h2>
+            <div className="flex flex-wrap items-center gap-2 border-b border-border pb-3">
                 <Input value={query} onChange={(e) => { setQuery(e.target.value); setIndex(0) }} placeholder="Search names" aria-label="Search names" className="h-8 w-40 max-md:w-full" />
                 <select aria-label="Assignment" value={assignment} onChange={(e) => { setAssignment(e.target.value); setIndex(0) }} className={`${select} h-8 text-xs`}>
                     <option value="all">All assignments</option>
@@ -813,17 +811,24 @@ export function ReviewQueue({ orgId, onChanged, onClose }: { orgId: string; onCh
                         <button type="button" aria-pressed={!mineOnly} className={cn('rounded-[3px] border px-1.5', !mineOnly ? 'border-foreground font-medium' : 'border-border')} onClick={() => { setMineOnly(false); setIndex(0) }}>All</button>
                     </span>
                 ) : null}
-                <span className="ml-auto text-xs text-muted-foreground">{shown.length ? `${Math.min(index, shown.length - 1) + 1} of ${shown.length} waiting` : ''}</span>
-                <Button type="button" size="sm" variant="ghost" disabled={shown.length < 2} onClick={() => step(-1)} aria-label="Previous">‹</Button>
-                <Button type="button" size="sm" variant="ghost" disabled={shown.length < 2} onClick={() => step(1)}>Next</Button>
+                <span className="ml-auto max-md:basis-full" />
+                {tabs ? <span className="max-md:order-first max-md:w-full max-md:overflow-x-auto">{tabs(waitingCount)}</span> : (
+                    <span className="text-xs text-muted-foreground">{waitingCount}{total > rows.length ? ` of ${total}` : ''} waiting</span>
+                )}
             </div>
             {!current ? (
-                <p>{query || lateOnly ? 'Nobody matches.' : 'All caught up.'} {onClose ? <button type="button" className="text-primary underline-offset-4 hover:underline" onClick={onClose}>Back to board</button> : null}</p>
+                <p>{query || lateOnly ? 'Nobody matches.' : 'All caught up.'}</p>
             ) : (
                 // Mockup task 2: who is waiting, the work itself, then everything needed to decide.
-                <div className="grid gap-4 md:grid-cols-[minmax(0,220px)_minmax(0,1fr)_minmax(0,280px)]">
-                    <section aria-label="Waiting" className="min-w-0">
-                        <ul className="max-h-[70vh] space-y-1 overflow-y-auto max-md:max-h-56">
+                // The three columns fill the screen under the line: lists and the conversation scroll inside their own column.
+                <div className="grid gap-4 md:h-[calc(100dvh-12rem)] md:min-h-[520px] md:grid-cols-[minmax(0,220px)_minmax(0,1fr)_minmax(0,300px)]">
+                    <section aria-label="Waiting" className="flex min-h-0 min-w-0 flex-col gap-1">
+                        <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                            <span className="flex-1">{shown.length ? `${Math.min(index, shown.length - 1) + 1} of ${shown.length}` : ''}{total > rows.length ? ` · ${rows.length} of ${total} loaded` : ''}</span>
+                            <Button type="button" size="sm" variant="ghost" disabled={shown.length < 2} onClick={() => step(-1)} aria-label="Previous">‹</Button>
+                            <Button type="button" size="sm" variant="ghost" disabled={shown.length < 2} onClick={() => step(1)}>Next</Button>
+                        </div>
+                        <ul className="min-h-0 flex-1 space-y-1 overflow-y-auto max-md:max-h-56">
                             {shown.map((r, i) => (
                                 <li key={r.copyId}>
                                     <button type="button" aria-current={r.copyId === current.copyId ? 'true' : undefined} onClick={() => setIndex(i)}
@@ -835,7 +840,7 @@ export function ReviewQueue({ orgId, onChanged, onClose }: { orgId: string; onCh
                             ))}
                         </ul>
                     </section>
-                    <section aria-label="Submission" className="flex min-w-0 flex-col gap-2">
+                    <section aria-label="Submission" className="flex min-h-0 min-w-0 flex-col gap-2">
                         <p><span className="font-medium">{current.who}</span> · {current.title} · {formatDistanceToNow(new Date(current.submittedAt), { addSuffix: true })}{current.late ? ' · Late' : ''}{current.version ? ` · Version ${current.version}` : ''}{current.submittedBy ? ` · handed in by ${current.submittedBy}` : ''}{current.left ? ' · Left the organization' : ''}</p>
                         {current.link ? <LinkCard link={current.link} /> : null}
                         {/* Review UX 3.11: text keeps its line breaks and spacing. */}
@@ -844,10 +849,11 @@ export function ReviewQueue({ orgId, onChanged, onClose }: { orgId: string; onCh
                         {!current.link && !current.text && !current.files.length && !current.versions.length ? <p className="text-muted-foreground">Marked as done, nothing attached.</p> : null}
                     </section>
                     {/* Review UX 3.1: note, steps, conversation, then the decision at the bottom. */}
-                    <section aria-label="Details" className="flex min-w-0 flex-col gap-3">
+                    <section aria-label="Details" className="flex min-h-0 min-w-0 flex-col gap-3">
                         {current.note ? <div><h3 className={reviewLabel}>Their note</h3><p className="mt-1">Note: {current.note}</p></div> : null}
                         <ReviewSteps row={current} />
-                        <ReviewConversation row={current} />
+                        {/* Board/review report §3: the private conversation in place — the copy's own comments. */}
+                        <ReviewDiscussion key={current.copyId} row={current} />
                         <div className="mt-auto">
                             <ReviewDecision key={current.copyId} keys who={current.who} kind={current.kind} dueDate={current.dueDate} recentReasons={reasons} pending={false}
                                 onApprove={(note) => decide(current, 'approve', undefined, null, note)} onReturn={(reason, fixBy) => decide(current, 'return', reason, fixBy)}

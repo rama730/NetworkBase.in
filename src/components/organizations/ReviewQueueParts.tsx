@@ -3,10 +3,13 @@
 import { useEffect, useRef, useState, useTransition } from 'react'
 
 import { readReviewQueueAction, reviewAssignmentCopyAction, type ReviewQueueRow } from '@/app/actions/assignments'
-import { createTaskCommentAction, readTaskDiscussionAction } from '@/app/actions/task-comment'
+import { createTaskCommentAction } from '@/app/actions/task-comment'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { FileViewer } from '@/components/organizations/FileViewer'
+import CommentsTab from '@/components/workspaces/v2/tasks/TaskDetailTabs/CommentsTab'
+import { useAuth } from '@/hooks/use-auth'
+import { useTaskDiscussionResource } from '@/hooks/useTaskDiscussionResource'
 import { reviewFixBy, webLink } from '@/lib/organizations/assignment-rules'
 import { isoToZonedInput } from '@/lib/organizations/zoned-time'
 import { deferredFeedback, toast } from '@/lib/feedback'
@@ -67,10 +70,10 @@ export function ReviewWork({ row }: { row: ReviewQueueRow }) {
                 {beforeFile ? <Button type="button" size="sm" variant={compare ? 'default' : 'outline'} aria-pressed={compare} onClick={() => setCompare(!compare)}>Compare</Button> : null}
             </div>
             {file ? (
-                <div className={cn('grid min-h-0 flex-1 gap-2', compare && beforeFile && 'md:grid-cols-2')}>
-                    {compare && beforeFile && before ? <FileViewer key={`b-${beforeFile.nodeId}`} projectId={row.projectId} file={beforeFile} meta={`Version ${before.version}`} unavailable={unavailable} className="h-[70vh] max-md:h-[50vh]" /> : null}
+                <div className={cn('grid min-h-0 flex-1 gap-2 md:grid-rows-1', compare && beforeFile && 'md:grid-cols-2')}>
+                    {compare && beforeFile && before ? <FileViewer key={`b-${beforeFile.nodeId}`} projectId={row.projectId} file={beforeFile} meta={`Version ${before.version}`} unavailable={unavailable} className="h-full min-h-[50vh] md:min-h-0" /> : null}
                     <FileViewer key={file.nodeId} projectId={row.projectId} file={file} meta={`Version ${version}${version === now ? ` · handed in ${DAY.format(new Date(row.submittedAt))}` : ''}`}
-                        unavailable={unavailable} className="h-[70vh] max-md:h-[50vh]" />
+                        unavailable={unavailable} className="h-full min-h-[50vh] md:min-h-0" />
                 </div>
             ) : <p className="text-[13px] text-muted-foreground">Version {version} had nothing attached.</p>}
         </div>
@@ -90,43 +93,24 @@ export function ReviewSteps({ row }: { row: ReviewQueueRow }) {
     )
 }
 
-/** The copy's private conversation, its latest messages oldest first, with a reply in place (3.6). */
-export function ReviewConversation({ row }: { row: ReviewQueueRow }) {
-    const [lines, setLines] = useState<Array<{ id: string; who: string; text: string }>>([])
-    const [reply, setReply] = useState('')
-    const [pending, startTransition] = useTransition()
-    const [reload, setReload] = useState(0)
-    useEffect(() => {
-        let live = true
-        setLines([])
-        void readTaskDiscussionAction(row.projectId, row.copyId).then((r) => {
-            if (!live || !r.success) return
-            setLines(r.data.comments.slice(0, 3).reverse().map((c) => ({ id: c.id, who: c.author?.fullName || c.author?.username || 'Someone', text: c.content })))
-        }).catch(() => undefined)
-        return () => { live = false }
-    }, [row.copyId, row.projectId, reload])
-    const send = () => startTransition(async () => {
-        const text = reply.trim()
-        if (!text) return
-        const r = await createTaskCommentAction(row.copyId, row.projectId, text).catch(() => ({ success: false }))
-        if (!r.success) return void toast.warning('Couldn’t send that. Try again.')
-        setReply('')
-        setReload((n) => n + 1)
-    })
+/**
+ * Board/review report §3: the copy's private conversation in place — the task panel's own comments (the whole thread,
+ * replies, likes, typing, live updates), scrolling inside the column. Keyed by the copy, so Next switches threads.
+ */
+export function ReviewDiscussion({ row }: { row: ReviewQueueRow }) {
+    const { user, profile } = useAuth()
+    const d = useTaskDiscussionResource({ taskId: row.copyId, projectId: row.projectId, canEdit: true, currentUserId: user?.id, enabled: true })
     return (
-        <div className="space-y-1.5">
-            <h3 className={reviewLabel}>Private conversation</h3>
-            {lines.length ? (
-                <ul aria-label="Private conversation" className="space-y-1.5 text-[13px]">
-                    {lines.map((l) => <li key={l.id}><span className="font-medium">{l.who}:</span> <span className="whitespace-pre-line">{l.text}</span></li>)}
-                </ul>
-            ) : <p className="text-[13px] text-muted-foreground">No messages yet.</p>}
-            <form className="flex gap-1.5" onSubmit={(e) => { e.preventDefault(); send() }}>
-                <Input value={reply} onChange={(e) => setReply(e.target.value)} placeholder={`Reply to ${row.who}`} aria-label={`Reply to ${row.who}`} maxLength={2000} className="h-8" />
-                <Button type="submit" size="sm" variant="outline" disabled={pending || !reply.trim()}>Send</Button>
-            </form>
-            <a href={row.href} className="text-[12px] text-primary underline-offset-4 hover:underline">Open the whole conversation</a>
-        </div>
+        <section aria-label="Private conversation" className="flex min-h-[220px] flex-1 flex-col">
+            <h3 className={reviewLabel}>Private conversation{d.totalCount ? ` · ${d.totalCount}` : ''}</h3>
+            <div className="min-h-0 flex-1 overflow-y-auto">
+                <CommentsTab projectId={row.projectId} taskId={row.copyId} comments={d.comments as never} totalCount={d.totalCount} hasMore={Boolean(d.nextCursor)}
+                    isLoading={d.isLoading} isLoadingMore={d.isLoadingMore} error={d.error} canEdit currentUserId={user?.id}
+                    currentUser={profile ? { fullName: profile.fullName, avatarUrl: profile.avatarUrl, username: profile.username } : null}
+                    presenceStatus={d.presenceStatus} topLevelTypingUsers={d.topLevelTypingUsers} replyTypingUsersByParentId={d.replyTypingUsersByParentId}
+                    onAddComment={d.addComment} onToggleLike={d.toggleLike} onDeleteComment={d.deleteComment} onLoadOlderComments={d.loadOlderComments} onSendTyping={d.sendTyping} />
+            </div>
+        </section>
     )
 }
 

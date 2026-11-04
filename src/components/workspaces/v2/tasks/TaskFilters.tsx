@@ -20,7 +20,8 @@ const options: Array<{ value: TaskFilterScope; label: string; orgOnly?: boolean 
   { value: "mine", label: "Mine", orgOnly: true },
 ];
 
-export default function TaskFilters({ scope, setScope, organization = false }: TaskFiltersProps) {
+/** Board/review report §2: the review queue shows its waiting count on In review. */
+export default function TaskFilters({ scope, setScope, organization = false, counts }: TaskFiltersProps & { counts?: Partial<Record<string, number>> }) {
   return (
     <div
       role="group"
@@ -43,6 +44,7 @@ export default function TaskFilters({ scope, setScope, organization = false }: T
             )}
           >
             {option.label}
+            {counts?.[option.value] ? <span className="ml-1 tabular-nums text-muted-foreground">{counts[option.value]}</span> : null}
           </button>
         );
       })}
