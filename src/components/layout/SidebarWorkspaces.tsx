@@ -2,122 +2,227 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
-import { ChevronDown, ChevronRight, Plus } from "lucide-react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { ChevronDown, ChevronRight, ExternalLink, Link2, MoreHorizontal, Pin, PinOff, Plus, Search } from "lucide-react";
 
-import type { SidebarOrg, SidebarWorkspaces as Data } from "@/app/actions/org-workspace";
+import { setSidebarPinAction, type SidebarOrg, type SidebarRow, type SidebarWorkspaces as Data } from "@/app/actions/org-workspace";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { toast } from "@/lib/feedback";
+import { queryKeys } from "@/lib/query-keys";
 import { cn } from "@/lib/utils";
 
-// Workspaces in the left navigation (report §29.3): orgs first with the child projects you belong to, Needs you
-// badges and an unseen-announcement dot; requests waiting for approval; personal projects; Archived; Join with code.
+// Workspaces in the left navigation (docs/superpowers/plans/2026-11-05-sidebar-workspaces-findings.md): names only,
+// each organization a group with its workspaces one step in under a guide line, one "All workspaces" link, the
+// workspace you're on always shown, new-updates dots, pins, a filter past 10 rows, and a ⋯ per row.
 
 const MAX_ORGS = 8;
+const MAX_CHILDREN = 5;
+const MAX_PERSONAL = 12;
+const FILTER_FROM = 10;
 const orgHref = (o: { slug: string | null; id: string }) => `/org/${encodeURIComponent(o.slug ?? o.id)}`;
 const projectHref = (p: { slug: string | null; id: string }) => `/workspaces/${encodeURIComponent(p.slug ?? p.id)}`;
+// Hover or keyboard focus shows a row's extra buttons; touch screens always show them (§2, D2).
+// They take no room until then, so the name keeps the row's width at rest.
+const reveal = "hidden group-hover:inline-flex group-focus-within:inline-flex data-[state=open]:inline-flex [@media(hover:none)]:inline-flex";
+const iconButton = "relative z-10 inline-flex size-6 shrink-0 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground";
 
-function readOpen(id: string) {
-    try { return window.localStorage.getItem(`nb:sidebar-org:${id}`) !== "closed"; } catch { return true; }
+function readOpen(key: string, fallback = true) {
+    try { const v = window.localStorage.getItem(key); return v === null ? fallback : v !== "closed"; } catch { return fallback; }
 }
-function writeOpen(id: string, open: boolean) {
-    try { window.localStorage.setItem(`nb:sidebar-org:${id}`, open ? "open" : "closed"); } catch { /* remembered for this visit only */ }
+function writeOpen(key: string, open: boolean) {
+    try { window.localStorage.setItem(key, open ? "open" : "closed"); } catch { /* remembered for this visit only */ }
 }
 
-/** Logo or initials: what stays visible when the sidebar is collapsed. */
-function Mark({ title, logo }: { title: string; logo?: string | null }) {
+/** G9: Pin to top, Copy link, Open in new tab. */
+function RowMenu({ id, title, href, pinned, onPin }: { id: string; title: string; href: string; pinned: boolean; onPin: (id: string, pinned: boolean) => void }) {
     return (
-        <span className="inline-flex size-5 shrink-0 items-center justify-center overflow-hidden rounded-[4px] bg-muted text-[10px] font-semibold text-muted-foreground" aria-hidden="true">
-            {logo ? <img src={logo} alt="" className="size-5 object-cover" /> : title.slice(0, 2).toUpperCase()}
-        </span>
+        <DropdownMenu modal={false}>
+            <DropdownMenuTrigger asChild>
+                <button type="button" className={cn(iconButton, reveal)} aria-label={`More for ${title}`}><MoreHorizontal className="size-3.5" aria-hidden="true" /></button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" side="right" className="w-44">
+                <DropdownMenuItem onSelect={() => onPin(id, !pinned)}>{pinned ? <PinOff aria-hidden="true" /> : <Pin aria-hidden="true" />}{pinned ? "Unpin" : "Pin to top"}</DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => void navigator.clipboard?.writeText(`${window.location.origin}${href}`).then(() => toast.success("Link copied"), () => toast.error("Couldn’t copy the link"))}><Link2 aria-hidden="true" />Copy link</DropdownMenuItem>
+                <DropdownMenuItem asChild><a href={href} target="_blank" rel="noopener"><ExternalLink aria-hidden="true" />Open in new tab</a></DropdownMenuItem>
+            </DropdownMenuContent>
+        </DropdownMenu>
     );
 }
 
-function OrgRow({ org, active }: { org: SidebarOrg; active: (href: string) => boolean }) {
-    const [open, setOpen] = useState(true);
-    useEffect(() => setOpen(readOpen(org.id)), [org.id]);
-    const toggle = () => { setOpen(!open); writeOpen(org.id, !open); };
-    const href = orgHref(org);
-    const current = active(href) ? "page" : undefined;
+/** One workspace row: the name alone (§1), a new-updates dot (G5), and its ⋯ (G9). */
+function Row({ row, href, current, prefix, pinned, onPin, muted }: { row: SidebarRow; href: string; current: boolean; prefix?: string; pinned: boolean; onPin: (id: string, pinned: boolean) => void; muted?: boolean }) {
     return (
-        <div>
-            {/* The row is the highlight; the name's link stretches across it, and the plus and drop-down sit above that link. */}
-            <div className="nb-nav-link relative" style={{ gap: 0 }} aria-current={current} data-org-row>
-                <Link prefetch={false} href={href} className="flex min-w-0 flex-1 items-center justify-center gap-2 after:absolute after:inset-0 after:rounded-[5px]" title={org.title} aria-current={current}
-                    aria-label={`${org.title}${org.needsYou ? `, ${org.needsYou} need you` : ""}${org.unseenAnnouncement ? ", new announcement" : ""}`}>
-                    <Mark title={org.title} logo={org.logo} />
-                    <span className="nb-sidebar-label min-w-0 flex-1 truncate pr-2">{org.title}</span>
+        <li className="group relative">
+            <div className={cn("nb-nav-link relative pr-1", muted && !current && "font-normal")} aria-current={current ? "page" : undefined} style={{ gap: 6 }}>
+                <Link prefetch={false} href={href} title={prefix ? `${prefix} / ${row.title}` : row.title} aria-current={current ? "page" : undefined}
+                    aria-label={`${prefix ? `${prefix} / ` : ""}${row.title}${row.unseen ? ", new updates" : ""}`}
+                    className="min-w-0 flex-1 truncate after:absolute after:inset-0 after:rounded-[5px] focus-visible:outline-none">
+                    {prefix ? <span className="text-muted-foreground">{prefix} / </span> : null}{row.title}
                 </Link>
-                <div className="flex shrink-0 items-center gap-1">
+                {row.unseen ? <span className="pointer-events-none size-1.5 shrink-0 rounded-full bg-primary" aria-hidden="true" data-testid="unseen-dot" /> : null}
+                <RowMenu id={row.id} title={row.title} href={href} pinned={pinned} onPin={onPin} />
+            </div>
+        </li>
+    );
+}
+
+/** §2: an organization and its workspaces as one group. */
+function OrgGroup({ org, currentId, forceOpen, filterText, pinned, onPin, active }: {
+    org: SidebarOrg; currentId: string | null; forceOpen: boolean; filterText: string; pinned: Set<string>; onPin: (id: string, pinned: boolean) => void; active: (href: string) => boolean
+}) {
+    const key = `nb:sidebar-org:${org.id}`;
+    const [open, setOpen] = useState(true);
+    useEffect(() => setOpen(readOpen(key)), [key]);
+    const toggle = () => { setOpen(!open); writeOpen(key, !open); };
+    const href = orgHref(org);
+    const here = active(href);
+    const matching = filterText ? org.children.filter((c) => c.title.toLowerCase().includes(filterText)) : org.children;
+    // G2: the one you're on always shows, even past the first five, and opens the group (without changing what's remembered).
+    const shown = filterText ? matching : [...org.children.slice(0, MAX_CHILDREN), ...org.children.slice(MAX_CHILDREN).filter((c) => c.id === currentId)];
+    const more = filterText ? 0 : org.children.length - shown.length;
+    const isOpen = open || forceOpen || Boolean(filterText);
+    const needs = org.needsYou > 99 ? "99+" : String(org.needsYou);
+    const needsLabel = org.needsYou ? `${org.needsYou} ${org.needsYou === 1 ? "thing needs" : "things need"} you` : "";
+    return (
+        <li>
+            <div className="group relative">
+                <div className="nb-nav-link relative gap-1 pl-1 pr-1" aria-current={here ? "page" : undefined} data-org-row style={{ gap: 4 }}>
+                    <button type="button" onClick={toggle} className={cn(iconButton, "size-5")} aria-expanded={isOpen} aria-controls={`sidebar-org-${org.id}`}
+                        aria-label={`${isOpen ? "Hide" : "Show"} ${org.title}’s workspaces`}>
+                        {isOpen ? <ChevronDown className="size-3.5" aria-hidden="true" /> : <ChevronRight className="size-3.5" aria-hidden="true" />}
+                    </button>
+                    <Link prefetch={false} href={href} title={org.title} aria-current={here ? "page" : undefined}
+                        aria-label={`${org.title}${needsLabel ? `, ${needsLabel}` : ""}${org.unseenAnnouncement ? ", new announcement" : ""}`}
+                        className="min-w-0 flex-1 truncate after:absolute after:inset-0 after:rounded-[5px] focus-visible:outline-none">{org.title}</Link>
                     {org.canCreate ? (
-                        <Link prefetch={false} href={`/workspaces/new?org=${encodeURIComponent(org.slug ?? org.id)}`} className="nb-sidebar-label relative z-10 rounded p-0.5 text-muted-foreground hover:text-foreground" aria-label={`New workspace in ${org.title}`} title={`New workspace in ${org.title}`}>
-                            <Plus className="size-3.5" />
+                        <Link prefetch={false} href={`/workspaces/new?org=${encodeURIComponent(org.slug ?? org.id)}`} className={cn(iconButton, reveal)} aria-label={`New workspace in ${org.title}`} title={`New workspace in ${org.title}`}>
+                            <Plus className="size-3.5" aria-hidden="true" />
                         </Link>
                     ) : null}
-                    {org.needsYou > 0 ? <span className="nb-nav-count pointer-events-none" aria-hidden="true">{org.needsYou > 99 ? "99+" : org.needsYou}</span>
-                        : org.unseenAnnouncement ? <span className="nb-nav-dot pointer-events-none size-1.5 rounded-full bg-primary" aria-hidden="true" /> : null}
-                    <button type="button" onClick={toggle} className="nb-sidebar-label relative z-10 rounded p-0.5 text-muted-foreground hover:text-foreground" aria-label={`${open ? "Collapse" : "Expand"} ${org.title}`} aria-expanded={open}>
-                        {open ? <ChevronDown className="size-3.5" /> : <ChevronRight className="size-3.5" />}
-                    </button>
+                    {org.needsYou > 0 ? <span className="nb-nav-count pointer-events-none ml-0" title={needsLabel} aria-hidden="true">{needs}</span>
+                        : org.unseenAnnouncement ? <span className="nb-nav-dot pointer-events-none mx-1 size-1.5 rounded-full bg-primary" aria-hidden="true" /> : null}
+                    <RowMenu id={org.id} title={org.title} href={href} pinned={pinned.has(org.id)} onPin={onPin} />
                 </div>
             </div>
-            {open && (org.children.length > 0 || org.isAdmin) ? (
-                <div className="nb-sidebar-label ml-7 space-y-0.5">
-                    {org.children.map((child) => (
-                        <Link prefetch={false} key={child.id} href={projectHref(child)} className="nb-nav-link py-1 text-[13px]" title={child.title} aria-current={active(projectHref(child)) ? "page" : undefined}>
-                            <span className="truncate">{child.title}</span>
-                        </Link>
-                    ))}
-                    {org.moreChildren > 0 ? <Link prefetch={false} href={`${href}?tab=projects`} className="block px-2 py-0.5 text-xs text-muted-foreground hover:text-foreground">See all</Link> : null}
-                    {org.isAdmin ? <Link prefetch={false} href={`${href}?tab=projects`} className="block px-2 py-0.5 text-xs text-muted-foreground hover:text-foreground">All workspaces</Link> : null}
-                </div>
+            {isOpen ? (
+                <ul id={`sidebar-org-${org.id}`} aria-label={`Workspaces in ${org.title}`} className="ml-[15px] space-y-0.5 border-l border-border pl-1.5" data-testid="sidebar-org-children">
+                    {shown.map((child) => <Row key={child.id} row={child} href={projectHref(child)} current={child.id === currentId} pinned={pinned.has(child.id)} onPin={onPin} muted />)}
+                    {/* §2: one closing link for everyone (D3); "· N more" when some are hidden. */}
+                    {filterText ? null : (
+                        <li><Link prefetch={false} href={`${href}?tab=projects`} className="nb-nav-link font-normal text-muted-foreground">All workspaces{more > 0 ? ` · ${more} more` : ""}</Link></li>
+                    )}
+                </ul>
             ) : null}
-        </div>
+        </li>
     );
 }
 
-export function SidebarWorkspaces({ data }: { data: Data }) {
+export function SidebarWorkspaces({ data, autoFocusFilter = false }: { data: Data; autoFocusFilter?: boolean }) {
     const pathname = usePathname();
+    const client = useQueryClient();
     const [showAllOrgs, setShowAllOrgs] = useState(false);
+    const [showAllPersonal, setShowAllPersonal] = useState(false);
     const [showArchived, setShowArchived] = useState(false);
+    const [filter, setFilter] = useState("");
+    const [pins, setPins] = useState<string[]>(data.pinned ?? []);
+    const filterRef = useRef<HTMLInputElement>(null);
+    useEffect(() => setPins(data.pinned ?? []), [data.pinned]);
+    useEffect(() => setShowArchived(readOpen("nb:sidebar-archived", false)), []);
+    useEffect(() => { if (autoFocusFilter) filterRef.current?.focus(); }, [autoFocusFilter]);
     const active = (href: string) => pathname === href || Boolean(pathname?.startsWith(`${href}/`));
-    const orgs = showAllOrgs ? data.orgs : data.orgs.slice(0, MAX_ORGS);
+    const pinned = useMemo(() => new Set(pins), [pins]);
+    const onPin = (id: string, next: boolean) => {
+        const before = pins;
+        setPins(next ? [...pins.filter((p) => p !== id), id] : pins.filter((p) => p !== id));
+        void setSidebarPinAction(id, next).then((r) => {
+            if (!r.success) { setPins(before); toast.error(r.error); return; }
+            toast.success(next ? "Pinned to top" : "Unpinned");
+            void client.invalidateQueries({ queryKey: queryKeys.profile.sidebarWorkspacesRoot() });
+        });
+    };
+
+    // The row you're on (G2): a child, a personal or outside workspace, or an organization.
+    const currentId = useMemo(() => {
+        for (const o of data.orgs) for (const c of o.children) if (active(projectHref(c))) return c.id;
+        for (const p of [...data.personal, ...data.outside]) if (active(projectHref(p))) return p.id;
+        return null;
+    }, [data, pathname]);
+
+    const text = filter.trim().toLowerCase();
+    const totalRows = data.orgs.reduce((n, o) => n + 1 + o.children.length, 0) + data.outside.length + data.personal.length + data.requested.length;
+    const orgMatches = (o: SidebarOrg) => !text || o.title.toLowerCase().includes(text) || o.children.some((c) => c.title.toLowerCase().includes(text));
+    const rowMatches = (r: { title: string; orgTitle?: string }) => !text || r.title.toLowerCase().includes(text) || Boolean(r.orgTitle?.toLowerCase().includes(text));
+
+    const pinnedOrgs = data.orgs.filter((o) => pinned.has(o.id));
+    const pinnedRows = [...data.personal, ...data.outside, ...data.orgs.flatMap((o) => o.children)].filter((r) => pinned.has(r.id));
+    const orgs = data.orgs.filter((o) => !pinned.has(o.id) && orgMatches(o));
+    const shownOrgs = showAllOrgs || text ? orgs : orgs.slice(0, MAX_ORGS);
+    const personal = data.personal.filter((p) => !pinned.has(p.id) && rowMatches(p));
+    const shownPersonal = showAllPersonal || text ? personal : [...personal.slice(0, MAX_PERSONAL), ...personal.slice(MAX_PERSONAL).filter((p) => p.id === currentId)];
+    const outside = data.outside.filter((p) => !pinned.has(p.id) && rowMatches(p));
+    const requested = data.requested.filter(rowMatches);
     const empty = data.orgs.length + data.requested.length + data.outside.length + data.personal.length === 0;
+    const nothingMatches = Boolean(text) && !pinnedOrgs.some(orgMatches) && !pinnedRows.some(rowMatches) && orgs.length + personal.length + outside.length + requested.length === 0;
+    const childFor = (id: string) => data.orgs.find((o) => o.children.some((c) => c.id === id));
+
+    const group = (o: SidebarOrg) => <OrgGroup key={o.id} org={o} currentId={currentId} forceOpen={o.children.some((c) => c.id === currentId)} filterText={text} pinned={pinned} onPin={onPin} active={active} />;
+    const plain = (r: SidebarRow & { orgTitle?: string }) => <Row key={r.id} row={r} href={projectHref(r)} current={r.id === currentId} prefix={r.orgTitle ?? childFor(r.id)?.title} pinned={pinned.has(r.id)} onPin={onPin} />;
+    const label = (children: ReactNode) => <li className="px-2 pb-0.5 pt-2 text-[11px] text-muted-foreground" aria-hidden="true">{children}</li>;
+
     return (
-        <div className="space-y-1" aria-label="Your workspaces">
-            {orgs.map((org) => <OrgRow key={org.id} org={org} active={active} />)}
-            {!showAllOrgs && data.orgs.length > MAX_ORGS ? <button type="button" onClick={() => setShowAllOrgs(true)} className="nb-sidebar-label px-2 py-1 text-xs text-muted-foreground hover:text-foreground">More ({data.orgs.length - MAX_ORGS})</button> : null}
-            {data.requested.map((org) => (
-                <Link prefetch={false} key={org.id} href={`${orgHref(org)}?tab=about`} className="nb-nav-link opacity-60" title={`${org.title} · Requested`}>
-                    <Mark title={org.title} />
-                    <span className="nb-sidebar-label truncate">{org.title}</span>
-                    <span className="nb-sidebar-label ml-auto text-[11px] text-muted-foreground">Requested</span>
-                </Link>
-            ))}
-            {data.outside.map((p) => (
-                <Link prefetch={false} key={p.id} href={projectHref(p)} className="nb-nav-link" title={`${p.orgTitle} / ${p.title}`} aria-current={active(projectHref(p)) ? "page" : undefined}>
-                    <Mark title={p.title} />
-                    <span className="nb-sidebar-label truncate"><span className="text-muted-foreground">{p.orgTitle} / </span>{p.title}</span>
-                </Link>
-            ))}
-            {data.personal.map((p) => (
-                <Link prefetch={false} key={p.id} href={projectHref(p)} className="nb-nav-link" title={p.title} aria-current={active(projectHref(p)) ? "page" : undefined}>
-                    <Mark title={p.title} logo={p.logo} />
-                    <span className="nb-sidebar-label truncate">{p.title}</span>
-                </Link>
-            ))}
-            {empty ? <p className="nb-sidebar-label px-2 py-1 text-xs text-muted-foreground">No workspaces yet</p> : null}
-            {data.archived.length > 0 ? (
-                <div className="nb-sidebar-label">
-                    <button type="button" onClick={() => setShowArchived(!showArchived)} aria-expanded={showArchived} className="flex items-center gap-1 px-2 py-1 text-xs text-muted-foreground hover:text-foreground">
-                        {showArchived ? <ChevronDown className="size-3.5" /> : <ChevronRight className="size-3.5" />}Archived ({data.archived.length})
-                    </button>
-                    {showArchived ? data.archived.map((p) => (
-                        <Link prefetch={false} key={p.id} href={p.kind === "organization" ? orgHref(p) : projectHref(p)} className={cn("nb-nav-link ml-5 py-1 text-[13px] text-muted-foreground")} title={p.title}>
-                            <span className="truncate">{p.title}</span>
+        <div className="space-y-1" data-testid="sidebar-workspaces">
+            {/* G8 (D6): a filter once the list is longer than 10 rows. */}
+            {totalRows > FILTER_FROM ? (
+                <label className="relative mx-1 mb-1 flex items-center">
+                    <Search className="pointer-events-none absolute left-2 size-3.5 text-muted-foreground" aria-hidden="true" />
+                    <input ref={filterRef} type="search" value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="Filter" aria-label="Filter workspaces"
+                        onKeyDown={(e) => { if (e.key === "Escape" && filter) { e.preventDefault(); e.stopPropagation(); setFilter(""); } }}
+                        className="h-7 w-full rounded-[5px] border border-border bg-transparent pl-7 pr-2 text-[12px] text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none" />
+                </label>
+            ) : null}
+            <ul className="space-y-0.5" aria-label="Your workspaces">
+                {/* G9: pinned first, under a quiet label. */}
+                {pinnedOrgs.length + pinnedRows.length > 0 && (!text || pinnedOrgs.some(orgMatches) || pinnedRows.some(rowMatches)) ? <>
+                    {label("Pinned")}
+                    {pinnedOrgs.filter(orgMatches).map(group)}
+                    {pinnedRows.filter(rowMatches).map(plain)}
+                    <li aria-hidden="true" className="h-2" />
+                </> : null}
+                {shownOrgs.map(group)}
+                {!showAllOrgs && !text && orgs.length > MAX_ORGS ? <li><button type="button" onClick={() => setShowAllOrgs(true)} className="nb-nav-link w-full font-normal text-muted-foreground">More ({orgs.length - MAX_ORGS})</button></li> : null}
+                {/* G6: a little space between the organizations and your own workspaces. */}
+                {shownOrgs.length && (requested.length + outside.length + shownPersonal.length) ? <li aria-hidden="true" className="h-2" /> : null}
+                {requested.map((org) => (
+                    <li key={org.id}>
+                        <Link prefetch={false} href={`${orgHref(org)}?tab=about`} className="nb-nav-link font-normal text-muted-foreground" title={`${org.title} · Requested`}>
+                            <span className="min-w-0 flex-1 truncate">{org.title}</span><span className="text-[11px] text-muted-foreground">Requested</span>
                         </Link>
-                    )) : null}
+                    </li>
+                ))}
+                {outside.map(plain)}
+                {shownPersonal.map(plain)}
+                {!showAllPersonal && !text && personal.length > shownPersonal.length ? <li><button type="button" onClick={() => setShowAllPersonal(true)} className="nb-nav-link w-full font-normal text-muted-foreground">More ({personal.length - shownPersonal.length})</button></li> : null}
+            </ul>
+            {nothingMatches ? <p className="px-2 py-1 text-xs text-muted-foreground" role="status">No workspaces match</p> : null}
+            {empty ? <p className="px-2 py-1 text-xs text-muted-foreground">No workspaces yet</p> : null}
+            {data.archived.length > 0 && !text ? (
+                <div>
+                    {/* G11: remembered like an organization's group. */}
+                    <button type="button" onClick={() => { setShowArchived(!showArchived); writeOpen("nb:sidebar-archived", !showArchived); }} aria-expanded={showArchived}
+                        className="nb-nav-link w-full gap-1 pl-1 font-normal text-muted-foreground" style={{ gap: 4 }}>
+                        <span className="inline-flex size-5 items-center justify-center">{showArchived ? <ChevronDown className="size-3.5" aria-hidden="true" /> : <ChevronRight className="size-3.5" aria-hidden="true" />}</span>Archived ({data.archived.length})
+                    </button>
+                    {showArchived ? (
+                        <ul aria-label="Archived workspaces" className="ml-[15px] space-y-0.5 border-l border-border pl-1.5">
+                            {data.archived.map((p) => (
+                                <li key={p.id}><Link prefetch={false} href={p.kind === "organization" ? orgHref(p) : projectHref(p)} className="nb-nav-link font-normal" title={p.title}><span className="truncate">{p.title}</span></Link></li>
+                            ))}
+                        </ul>
+                    ) : null}
                 </div>
             ) : null}
-            <Link prefetch={false} href="/join" className="nb-sidebar-label flex items-center gap-1.5 px-2 py-1 text-xs text-muted-foreground hover:text-foreground"><Plus className="size-3.5" aria-hidden="true" />Join with code</Link>
+            <Link prefetch={false} href="/join" className="nb-nav-link font-normal text-muted-foreground" style={{ gap: 6 }}><Plus className="size-3.5" aria-hidden="true" />Join with code</Link>
         </div>
     );
 }

@@ -122,6 +122,7 @@ export function NetworkNotificationsProvider({ children, enabled = true }: { chi
           void queryClient.invalidateQueries({ queryKey: queryKeys.connections.pending(), refetchType: "active" });
           // Live sidebar invalidation so the applicant sees the newly joined project immediately!
           void queryClient.invalidateQueries({ queryKey: queryKeys.profile.sidebarProjects(user.id), refetchType: "active" });
+          void queryClient.invalidateQueries({ queryKey: queryKeys.profile.sidebarWorkspaces(user.id), refetchType: "active" });
         }
       }, 150);
     });

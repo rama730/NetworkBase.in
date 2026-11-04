@@ -2,6 +2,7 @@
 
 import { typeProfile } from '@/lib/organizations/type-profile'
 import Link from 'next/link'
+import { useRefreshSidebar } from '@/hooks/useRefreshSidebar'
 import { useRouter } from 'next/navigation'
 import { useState, useTransition } from 'react'
 import { Archive, Building2, ChevronDown, ClipboardList, FolderKanban, IterationCcw, ListTodo, Megaphone, Plus, UserPlus } from 'lucide-react'
@@ -49,6 +50,7 @@ export function OrgVisitorActions({ orgId, href, joinMode, requestPending, logge
     loggedIn: boolean
 }) {
     const router = useRouter()
+    const refreshSidebar = useRefreshSidebar()
     const [pending, startTransition] = useTransition()
     const [error, setError] = useState<string | null>(null)
 
@@ -60,6 +62,7 @@ export function OrgVisitorActions({ orgId, href, joinMode, requestPending, logge
             const result = await action()
             if (!result.success) return setError(result.error ?? 'Something went wrong.')
             setError(null)
+            refreshSidebar()
             router.refresh()
         })
 
@@ -135,6 +138,7 @@ export function ChildOrgChips({ parentOrg, visibility, archived, isWorkspaceMemb
 /** Suspended (everyone; the reason only reaches owners and admins, decision 53) or scheduled for deletion (the owner, with Restore). Report §30.3, §30.5. */
 export function OrgStatusBanner({ orgId, organization, isOwner }: { orgId: string; organization: OrgDetail; isOwner: boolean }) {
     const router = useRouter()
+    const refreshSidebar = useRefreshSidebar()
     const [pending, start] = useTransition()
     if (organization.suspended) {
         return (
@@ -148,7 +152,7 @@ export function OrgStatusBanner({ orgId, organization, isOwner }: { orgId: strin
         return (
             <p role="status" className="mt-2 flex flex-wrap items-center gap-2 rounded-[5px] border border-destructive/30 bg-destructive/5 px-3 py-2 text-[13px] text-foreground">
                 Scheduled for deletion on {formatInZone(purge, { month: 'short', day: 'numeric', year: 'numeric' }, organization.timeZone)}
-                <button type="button" disabled={pending} className="font-medium underline underline-offset-2" onClick={() => start(async () => { const r = await restoreOrgAction(orgId); if (r.success) router.refresh() })}>Restore</button>
+                <button type="button" disabled={pending} className="font-medium underline underline-offset-2" onClick={() => start(async () => { const r = await restoreOrgAction(orgId); if (r.success) { refreshSidebar(); router.refresh() } })}>Restore</button>
             </p>
         )
     }

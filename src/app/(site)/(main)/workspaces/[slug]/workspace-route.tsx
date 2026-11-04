@@ -10,7 +10,7 @@ import WorkspaceDetailLoading from './loading';
 import { PrivateOrgHeader } from '@/components/organizations/PrivateOrgHeader';
 import { readPrivateOrgState } from '@/lib/organizations/join';
 import { isOrgOnlyWorkspace, readOrgCard, resolveHeldOrgHandle } from '@/lib/organizations/detail';
-import { stampLastActiveHere } from '@/lib/organizations/members';
+import { stampLastActiveHere, stampOpened } from '@/lib/organizations/members';
 import { copyWorkspacePath } from '@/lib/organizations/assignments';
 import { assignmentHref } from '@/lib/organizations/assignment-rules';
 import { getViewerIdentityContext, toClientViewer } from '@/lib/server/viewer-context';
@@ -163,6 +163,8 @@ async function ResolvedProjectDashboard({
     if (user && (project.organization || project.parentOrg)) {
         after(() => stampLastActiveHere(project.id, user.id).catch(() => undefined));
     }
+    // The sidebar orders your workspaces by your own visits (sidebar report G4), never holding up the page.
+    if (user) after(() => stampOpened(project.id, user.id).catch(() => undefined));
     // Canonical address: the human-readable slug, under /org for organizations and /projects otherwise.
     const canonicalBase: WorkspaceRouteBase = project.organization ? '/org' : '/workspaces';
     if ((project.slug && slug !== project.slug) || base !== canonicalBase) {

@@ -9,6 +9,7 @@ import { BadgeCheck, Building2, Check, Clock, Code2, Copy, Mail, UserCheck } fro
 import { renameOrgHandleAction } from '@/app/actions/organizations'
 import { askParentOrgAction, cancelOrgVerificationAction, checkOrgProofAction, confirmOrgEmailCodeAction, requestOrgEmailCodeAction, requestOrgVerificationAction, searchParentOrgsAction } from '@/app/actions/trust'
 import { Button } from '@/components/ui/button'
+import { useRefreshSidebar } from '@/hooks/useRefreshSidebar'
 import { Input } from '@/components/ui/input'
 import { toast } from '@/lib/feedback'
 import type { OrgDetail } from '@/lib/organizations/detail'
@@ -94,6 +95,7 @@ export function OrgOnDiscover({ organization, visibility, handle, onOpenSection 
 /** §4.3 Web address: the link people share. The owner changes it once every 7 days; the old one redirects 90 days. */
 export function OrgWebAddress({ orgId, organization, role, handle }: { orgId: string; organization: OrgDetail; role: OrgMemberRole; handle: string | null }) {
     const router = useRouter()
+    const refreshSidebar = useRefreshSidebar()
     const [value, setValue] = useState(handle ?? '')
     const [pending, start] = useTransition()
     const [error, setError] = useState<string | null>(null)
@@ -118,6 +120,7 @@ export function OrgWebAddress({ orgId, organization, role, handle }: { orgId: st
                             const r = await renameOrgHandleAction(orgId, value)
                             if (!r.success) return setError(r.error ?? 'Couldn’t change it.')
                             toast.success('Address changed')
+                            refreshSidebar()
                             router.replace(`/org/${value.trim().toLowerCase()}?tab=settings&settings=access`)
                         })}>Change</Button>
                     </div>

@@ -81,6 +81,9 @@ export const queryKeys = {
       ["profile", "collaboration-summary", userId] as const,
     projects: (userId: string) => ["profile", "projects", userId] as const,
     sidebarProjects: (userId: string) => ["profile", "sidebar-projects", userId] as const,
+    /** The left navigation's Workspaces (sidebar report G1); under profile, so profile-wide refreshes include it. */
+    sidebarWorkspaces: (userId: string) => ["profile", "sidebar-workspaces", userId] as const,
+    sidebarWorkspacesRoot: () => ["profile", "sidebar-workspaces"] as const,
     inviteOptions: (userId: string) =>
       ["profile", "project-invite-options", userId] as const,
     stats: (userId: string) => ["profile", "stats", userId] as const,

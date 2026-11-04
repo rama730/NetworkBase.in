@@ -1,5 +1,6 @@
 'use client'
 
+import { useRefreshSidebar } from '@/hooks/useRefreshSidebar'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState, useTransition } from 'react'
 
@@ -31,12 +32,13 @@ type Preview = {
 
 function useRun() {
     const router = useRouter()
+    const refreshSidebar = useRefreshSidebar()
     const [pending, start] = useTransition()
     const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null)
     const run = (action: () => Promise<{ success: boolean; error?: string }>, ok: string, after?: () => void) => start(async () => {
         const result = await action()
         setMessage(result.success ? { ok: true, text: ok } : { ok: false, text: result.error ?? 'Couldn’t finish that.' })
-        if (result.success) { after?.(); router.refresh() }
+        if (result.success) { after?.(); refreshSidebar(); router.refresh() }
     })
     const status = message ? <p role={message.ok ? 'status' : 'alert'} className={message.ok ? 'text-sm text-muted-foreground' : 'text-sm text-destructive'}>{message.text}</p> : null
     return { pending, run, status }

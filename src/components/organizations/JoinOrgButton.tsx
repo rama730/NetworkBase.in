@@ -1,5 +1,6 @@
 'use client'
 
+import { useRefreshSidebar } from '@/hooks/useRefreshSidebar'
 import { useRouter } from 'next/navigation'
 import { useState, useTransition } from 'react'
 
@@ -11,6 +12,7 @@ import type { OrgJoinMode } from '@/lib/organizations/join-rules'
 /** Join (instant mode) or Request to join (approval mode) with an optional note. */
 export function JoinOrgButton({ code, joinMode, orgHref }: { code: string; joinMode: OrgJoinMode; orgHref: string }) {
     const router = useRouter()
+    const refreshSidebar = useRefreshSidebar()
     const [note, setNote] = useState('')
     const [message, setMessage] = useState<{ kind: 'status' | 'error'; text: string } | null>(null)
     const [pending, startTransition] = useTransition()
@@ -19,6 +21,7 @@ export function JoinOrgButton({ code, joinMode, orgHref }: { code: string; joinM
         startTransition(async () => {
             const result = await joinOrganizationAction(code, joinMode === 'approval' ? note : null)
             if (!result.success) return setMessage({ kind: 'error', text: result.error })
+            refreshSidebar()
             if (result.outcome === 'joined' || result.outcome === 'already_member') return router.push(orgHref)
             setMessage({ kind: 'status', text: 'Request sent. The admins will review it.' })
         })

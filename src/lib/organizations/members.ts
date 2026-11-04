@@ -168,6 +168,17 @@ export async function stampLastActiveHere(workspaceId: string, userId: string) {
       AND (m.last_active_here_at IS NULL OR m.last_active_here_at < now() - interval '1 hour')`);
 }
 
+/**
+ * Sidebar report G4: when you last opened this workspace, for the sidebar's order. One write per 5 minutes at most;
+ * nothing for people who aren't members.
+ */
+export async function stampOpened(workspaceId: string, userId: string) {
+  await db.execute(sql`
+    UPDATE workspace_members SET last_opened_at = now()
+    WHERE workspace_id = ${workspaceId}::uuid AND user_id = ${userId}::uuid
+      AND (last_opened_at IS NULL OR last_opened_at < now() - interval '5 minutes')`);
+}
+
 /** A per-account limit refused the join: its message is safe to show; any other error stays redacted. */
 export class AccountOrgLimitError extends Error {}
 

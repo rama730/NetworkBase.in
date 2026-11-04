@@ -91,6 +91,8 @@ export function OrgWorkspacesTab({ orgId, orgSlug, started = null }: { orgId: st
     const data = query.data?.success ? query.data : null
     const reload = useCallback(() => {
         void client.invalidateQueries({ queryKey })
+        // Accept, archive, detach: the left navigation's Workspaces change too (sidebar report G1).
+        void client.invalidateQueries({ queryKey: queryKeys.profile.sidebarWorkspacesRoot() })
         // F3: the Overview's request count and workspace rows move at the same time.
         void client.invalidateQueries({ queryKey: ['org-dashboard', queryKey[1]] })
         // "Updated by" moves with the rows (G15).

@@ -5,6 +5,7 @@ import { TeamApplications } from '@/components/organizations/TeamApplications';
 import { ChildUnitsPanel } from "@/components/organizations/ChildUnitsPanel";
 import { OrgDangerZone, OrgOwnershipPanel } from "@/components/organizations/OrgDangerZone";
 import { OrgOnDiscover, OrgVerifiedBadge, OrgWebAddress } from "@/components/organizations/OrgDiscoverySections";
+import { useRefreshSidebar } from "@/hooks/useRefreshSidebar";
 import { OrgAccessSection, OrgAllowedSection, OrgChatSection, OrgManagementSection, OrgNotificationsSection, OrgUpdatesSection, OrgMembershipSection, OrgPeopleSection, OrgProfileSection, OrgWorkspacesSection, OrgWorkSection } from "@/components/organizations/OrgSettingsSections";
 import { OrgStorageSection } from "@/components/organizations/OrgStorageSection";
 import { OrgModerationSection } from "@/components/organizations/OrgModerationSection";
@@ -205,7 +206,11 @@ interface ProjectSettingsTabProps {
 }
 
 export default function WorkspaceSettingsTab(props: ProjectSettingsTabProps) {
-    return <ProjectSettingsContent key={props.projectId} {...props} />;
+    // Sidebar report G1: a rename, archive, restore or delete here changes the left navigation's Workspaces too.
+    const refreshSidebar = useRefreshSidebar();
+    const { onProjectUpdated } = props;
+    const updated = useCallback((updates?: { coverImage?: string | null }) => { refreshSidebar(); onProjectUpdated(updates); }, [onProjectUpdated, refreshSidebar]);
+    return <ProjectSettingsContent key={props.projectId} {...props} onProjectUpdated={updated} />;
 }
 
 function ProjectSettingsContent({

@@ -820,6 +820,9 @@ html[data-reduce-motion="true"] .nb-skeleton {
 .nb-sidebar[data-collapsed="true"] .nb-sidebar-brand { justify-content:center; padding-inline:6px; }
 .nb-sidebar[data-collapsed="true"] .nb-sidebar-brand .nb-wordmark .nb-brand-name,
 .nb-sidebar[data-collapsed="true"] .nb-sidebar-label { display:none; }
+/* Sidebar report D1, G7: the collapsed strip has no workspace list, just one Workspaces button that opens it. */
+.nb-sidebar-workspaces-rail { display:none; }
+.nb-sidebar[data-collapsed="true"] .nb-sidebar-workspaces-rail { display:flex; }
 .nb-sidebar[data-collapsed="true"] .nb-sidebar-body { padding:12px 6px; }
 .nb-sidebar[data-collapsed="true"] .nb-sidebar-scroll { padding-right:0; }
 .nb-sidebar[data-collapsed="true"] .nb-nav-link { position:relative; justify-content:center; min-height:44px; padding:10px; }
@@ -1123,6 +1126,7 @@ input:is([type="checkbox"], [type="radio"]):focus-visible { outline: 1.5px solid
   .nb-sidebar:not([data-collapsed]) [data-org-row] .nb-nav-count { right:4px; top:2px; }
   .nb-sidebar:not([data-collapsed]) [data-org-row] .nb-nav-dot { right:12px; top:9px; }
   .nb-sidebar:not([data-collapsed]) .nb-sidebar-workspace { display:none; }
+  .nb-sidebar:not([data-collapsed]) .nb-sidebar-workspaces-rail { display:flex; }
   .nb-sidebar:not([data-collapsed]) .nb-sidebar-footer { flex-direction:column; align-items:stretch; justify-content:flex-end; gap:4px; }
   .nb-sidebar:not([data-collapsed]) .nb-sidebar-footer > .nb-nav-link { width:100%; min-width:0; min-height:44px; flex:none; padding:10px; }
 }

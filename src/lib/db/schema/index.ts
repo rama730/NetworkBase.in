@@ -1025,6 +1025,8 @@ export const workspaceMembers = pgTable(
     lastSeenUpdatesAt: timestamp("last_seen_updates_at", { withTimezone: true }),
     /** Last time they opened this organization or one of its workspaces, at most hourly (report §29.4, 0043). */
     lastActiveHereAt: timestamp("last_active_here_at", { withTimezone: true }),
+    /** 0065: when you last opened this workspace (the sidebar's order, by your own visits). */
+    lastOpenedAt: timestamp("last_opened_at", { withTimezone: true }),
     /** Order on the profile's Organizations section, set in Manage organizations (0049, report §38.2). */
     profileOrder: integer("profile_order"),
     /** The welcome panel was closed (0050, report §26.7, DB4); null shows it once after joining. */
@@ -1091,6 +1093,13 @@ export const calendarFeedTokens = pgTable("calendar_feed_tokens", {
     tokenHash: text("token_hash").notNull().unique(),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
+
+/** Left navigation pins (0065): workspaces you pinned to the top of your Workspaces list. Server only. */
+export const sidebarPins = pgTable("sidebar_pins", {
+    userId: uuid("user_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+    workspaceId: uuid("workspace_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+    pinnedAt: timestamp("pinned_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({ pk: primaryKey({ columns: [t.userId, t.workspaceId] }), workspaceIdx: index("sidebar_pins_workspace_idx").on(t.workspaceId) }));
 
 /** Verified badge way 1 (0064): one pending code per organization, sent to an address on its domain. Server only. */
 export const orgVerificationCodes = pgTable("org_verification_codes", {

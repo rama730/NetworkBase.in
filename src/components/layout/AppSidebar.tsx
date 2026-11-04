@@ -4,7 +4,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { PanelLeftClose, PanelLeftOpen, ShieldCheck, UserRound } from "lucide-react";
+import { LayoutGrid, PanelLeftClose, PanelLeftOpen, ShieldCheck, UserRound } from "lucide-react";
+import * as Popover from "@radix-ui/react-popover";
 import { BrandMark } from "@/components/brand/BrandMark";
 import { Skeleton } from "@/components/ui/skeleton";
 import { MAIN_NAV_ITEMS, SETTINGS_NAV_ITEM, isMainNavRouteActive } from "./header/nav-items";
@@ -87,14 +88,22 @@ export function SidebarNav() {
     const projects = projectsQuery.data ?? [];
     // Organizations (report §29.3): one request returns orgs, child projects, badges and Archived. Null while the
     // feature is off, so the plain project list stays.
+    // Sidebar report G1: the list follows what you do — on focus, every 2 minutes while visible, after the actions that
+    // change it (they invalidate "sidebar-workspaces"), and on navigating once it's 15 seconds old.
     const workspacesQuery = useQuery({
-        queryKey: ["sidebar-workspaces", profileId ?? "unknown"],
+        queryKey: queryKeys.profile.sidebarWorkspaces(profileId ?? "unknown"),
         queryFn: async () => (await readShellPart("sidebarWorkspaces")) ?? null,
         enabled: Boolean(isAuthenticated && profileId),
-        staleTime: 60_000,
-        refetchOnWindowFocus: false,
+        staleTime: 15_000,
+        refetchOnWindowFocus: true,
+        refetchInterval: 120_000,
+        refetchIntervalInBackground: false,
     });
     const workspaces = workspacesQuery.data ?? null;
+    const { refetch: refetchWorkspaces, dataUpdatedAt: workspacesAt } = workspacesQuery;
+    useEffect(() => {
+        if (workspacesAt && Date.now() - workspacesAt > 15_000) void refetchWorkspaces();
+    }, [pathname]);
     // Parity bug 10: one placeholder until both lists arrive, so "No workspaces yet" and a second order never flash.
     // Pending, not loading: a query waiting to start counts too (problem 2).
     const loadingWorkspaces = projectsQuery.isPending || workspacesQuery.isPending;
@@ -121,6 +130,23 @@ export function SidebarNav() {
                     </Link>
                 ) : null}
             </nav>
+            {/* Sidebar report D1, G7: the collapsed strip hides the list and keeps one Workspaces button that opens it. */}
+            {isAuthenticated && workspaces ? (
+                <Popover.Root>
+                    <Popover.Trigger asChild>
+                        <button type="button" className="nb-nav-link nb-sidebar-workspaces-rail" aria-label="Workspaces" title="Workspaces">
+                            <LayoutGrid size={16} aria-hidden="true" />
+                        </button>
+                    </Popover.Trigger>
+                    <Popover.Portal>
+                        <Popover.Content side="right" align="start" sideOffset={8} aria-label="Workspaces"
+                            className="z-50 max-h-[70vh] w-72 overflow-y-auto rounded-lg border border-border bg-popover p-2 text-popover-foreground shadow-lg" data-testid="sidebar-workspaces-panel">
+                            <h2 className="nb-micro px-2 pb-2">Workspaces</h2>
+                            <SidebarWorkspaces data={workspaces} />
+                        </Popover.Content>
+                    </Popover.Portal>
+                </Popover.Root>
+            ) : null}
             {isAuthenticated && <section className="nb-sidebar-workspace space-y-3" aria-labelledby="sidebar-workspace-heading">
                 <div className="flex items-center gap-3 px-2">
                     <h2 id="sidebar-workspace-heading" className="nb-micro whitespace-nowrap">Workspaces</h2>

@@ -67,7 +67,8 @@
     "drizzle/0061_sprint_shared_workspaces.sql",
     "drizzle/0062_starter_folder_metadata.sql",
     "drizzle/0063_sprint_levels.sql",
-    "drizzle/0064_org_verification_ways.sql"
+    "drizzle/0064_org_verification_ways.sql",
+    "drizzle/0065_sidebar_pins_and_visits.sql"
   ],
   "legacyDatabaseTags": [],
   "allowedUtilitySqlFiles": [

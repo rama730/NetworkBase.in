@@ -29,6 +29,7 @@ import { childAudienceDefault, FILTER_EMPTY, OrgFeedFilters, OrgPinnedLine, useO
 import { rolePlural } from '@/lib/organizations/role-words';
 import type { OrgFeedFilter } from '@/lib/organizations/org-updates';
 import { markOrgUpdatesSeenAction } from '@/app/actions/org-updates';
+import { useRefreshSidebar } from "@/hooks/useRefreshSidebar";
 
 type UpdatesTabProps = {
   /** Known from the page (live-fix 29), so the wording is the organization's before the feed loads. */
@@ -217,6 +218,15 @@ export default function UpdatesTab({
     setSeenBefore(firstPage.lastSeenAt ?? null);
     void markOrgUpdatesSeenAction(projectId);
   }, [currentUserId, firstPage, projectId, seenBefore]);
+  // Sidebar report G5: opening a workspace's Updates clears its new-updates dot in the left navigation (organizations
+  // do this above, with their New markers).
+  const refreshSidebar = useRefreshSidebar();
+  const [markedWorkspace, setMarkedWorkspace] = useState(false);
+  useEffect(() => {
+    if (markedWorkspace || !firstPage || firstPage.org?.kind === "org" || !currentUserId) return;
+    setMarkedWorkspace(true);
+    void markOrgUpdatesSeenAction(projectId).then((r) => { if (r.success) refreshSidebar(); });
+  }, [currentUserId, firstPage, markedWorkspace, projectId, refreshSidebar]);
   const isNewUpdate = (update: WorkspaceUpdateView) =>
     seenBefore !== undefined && update.authorId !== currentUserId && (seenBefore === null || update.createdAt > seenBefore);
   const postWithOrgOptions = (input: Parameters<typeof createWorkspaceUpdateAction>[1]) => {

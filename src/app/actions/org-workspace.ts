@@ -4,7 +4,7 @@ import { and, desc, eq, ilike, isNull, sql } from 'drizzle-orm';
 
 import { db } from '@/lib/db';
 import { docTitle } from '@/lib/organizations/doc-rules';
-import { tasks, workspaceMembers, workspaces } from '@/lib/db/schema';
+import { sidebarPins, tasks, workspaceMembers, workspaces } from '@/lib/db/schema';
 import { orgTaskReadFilter } from '@/lib/organizations/assignments';
 import { getWorkspaceAccessById } from '@/lib/data/workspace-access';
 import { orgFileAccessSql } from '@/lib/files/internal-helpers';
@@ -33,16 +33,23 @@ async function viewer() {
     return userId;
 }
 
+/** A workspace row in the sidebar: names only (sidebar report §1); `unseen` is the new-updates dot (G5). */
+export type SidebarRow = { id: string; title: string; slug: string | null; unseen: boolean };
 export type SidebarOrg = {
-    id: string; title: string; slug: string | null; logo: string | null; isAdmin: boolean; canCreate: boolean;
-    needsYou: number; unseenAnnouncement: boolean; children: Array<{ id: string; title: string; slug: string | null }>; moreChildren: number;
+    id: string; title: string; slug: string | null; isAdmin: boolean; canCreate: boolean;
+    needsYou: number; unseenAnnouncement: boolean;
+    /** Every workspace of the org you're in, by your own visits; the list shows 5 plus the one you're on (G2). */
+    children: SidebarRow[];
 };
 export type SidebarWorkspaces = {
     orgs: SidebarOrg[];
     requested: Array<{ id: string; title: string; slug: string | null }>;
-    outside: Array<{ id: string; title: string; slug: string | null; orgTitle: string }>;
-    personal: Array<{ id: string; title: string; slug: string | null; logo: string | null }>;
+    outside: Array<SidebarRow & { orgTitle: string }>;
+    /** Up to 50; the list shows 12, then More (N) (G3). */
+    personal: SidebarRow[];
     archived: Array<{ id: string; title: string; slug: string | null; kind: string }>;
+    /** Pinned to the top, in the order they were pinned (G9). */
+    pinned: string[];
 };
 
 /**
@@ -53,10 +60,14 @@ export type SidebarWorkspaces = {
 export async function readSidebarWorkspacesAction(): Promise<SidebarWorkspaces | null> {
     const userId = await viewer();
     if (!userId) return null;
-    const mine = await ROWS<{ id: string; title: string; slug: string | null; logo: string | null; kind: string; status: string | null; parent_id: string | null; role: string; opened: string | null; last_seen: string | null; settings: unknown; org_title: string | null; in_org: boolean }>(sql`
-        SELECT p.id, p.title, p.slug, p.cover_image AS logo, p.kind, p.status, p.parent_id,
+    // G4: ordered by your own visits (0065), never by other people's edits. G5: a workspace (not an org; orgs keep their
+    // announcement rule) has unseen updates when someone else posted after you last opened its Updates.
+    const mine = await ROWS<{ id: string; title: string; slug: string | null; kind: string; status: string | null; parent_id: string | null; role: string; opened: string | null; last_seen: string | null; settings: unknown; org_title: string | null; in_org: boolean; unseen: boolean }>(sql`
+        SELECT p.id, p.title, p.slug, p.kind, p.status, p.parent_id,
           CASE WHEN p.owner_id = ${userId}::uuid THEN 'owner' ELSE pm.role END AS role,
-          greatest(pm.last_seen_updates_at, p.updated_at)::text AS opened, pm.last_seen_updates_at::text AS last_seen, p.org_settings AS settings,
+          coalesce(pm.last_opened_at, pm.joined_at, p.created_at)::text AS opened, pm.last_seen_updates_at::text AS last_seen, p.org_settings AS settings,
+          (p.kind <> 'organization' AND EXISTS (SELECT 1 FROM workspace_updates u WHERE u.workspace_id = p.id AND u.deleted_at IS NULL
+            AND u.author_id IS DISTINCT FROM ${userId}::uuid AND u.created_at > coalesce(pm.last_seen_updates_at, pm.joined_at, p.created_at))) AS unseen,
           o.title AS org_title,
           (o.id IS NOT NULL AND (o.owner_id = ${userId}::uuid OR EXISTS (SELECT 1 FROM workspace_members om WHERE om.workspace_id = o.id AND om.user_id = ${userId}::uuid))) AS in_org
         FROM workspaces p
@@ -82,24 +93,48 @@ export async function readSidebarWorkspacesAction(): Promise<SidebarWorkspaces |
         ]);
         const rules = readOrgRules(org.settings);
         return {
-            id: org.id, title: org.title, slug: org.slug, logo: org.logo, isAdmin,
+            id: org.id, title: org.title, slug: org.slug, isAdmin,
             canCreate: !access.writeBlocked && org.role !== 'viewer' && (isAdmin || rules.childCreation === 'members'),
             needsYou: needs.length,
             unseenAnnouncement: Boolean(latest?.at && (!org.last_seen || latest.at > org.last_seen)),
-            children: kids.slice(0, 5).map((c) => ({ id: c.id, title: c.title, slug: c.slug })),
-            moreChildren: Math.max(0, kids.length - 5),
+            children: kids.slice(0, 50).map((c) => ({ id: c.id, title: c.title, slug: c.slug, unseen: Boolean(c.unseen) })),
         };
     }));
+    const pins = (await db.select({ id: sidebarPins.workspaceId }).from(sidebarPins).where(eq(sidebarPins.userId, userId)).orderBy(sidebarPins.pinnedAt)).map((p) => p.id);
     const requested = await ROWS<{ id: string; title: string; slug: string | null }>(sql`
         SELECT p.id, p.title, p.slug FROM role_applications a JOIN workspaces p ON p.id = a.workspace_id AND p.kind = 'organization' AND p.deleted_at IS NULL
         WHERE a.applicant_id = ${userId}::uuid AND a.role_id IS NULL AND a.status = 'pending' ORDER BY a.created_at DESC LIMIT 10`);
     return {
         orgs,
         requested,
-        outside: mine.filter((r) => r.parent_id && !r.in_org && r.org_title && r.status !== 'archived').map((r) => ({ id: r.id, title: r.title, slug: r.slug, orgTitle: r.org_title! })),
-        personal: mine.filter((r) => r.kind === 'workspace' && !r.parent_id && r.status !== 'archived').slice(0, 12).map((r) => ({ id: r.id, title: r.title, slug: r.slug, logo: r.logo })),
+        outside: mine.filter((r) => r.parent_id && !r.in_org && r.org_title && r.status !== 'archived').map((r) => ({ id: r.id, title: r.title, slug: r.slug, orgTitle: r.org_title!, unseen: Boolean(r.unseen) })),
+        personal: mine.filter((r) => r.kind === 'workspace' && !r.parent_id && r.status !== 'archived').slice(0, 50).map((r) => ({ id: r.id, title: r.title, slug: r.slug, unseen: Boolean(r.unseen) })),
         archived: mine.filter((r) => r.status === 'archived' && (r.kind === 'organization' || !r.parent_id)).map((r) => ({ id: r.id, title: r.title, slug: r.slug, kind: r.kind })),
+        pinned: pins.filter((id) => mine.some((r) => r.id === id && r.status !== 'archived')),
     };
+}
+
+/** Up to 10 pins: the top of the list stays short. */
+const SIDEBAR_PIN_LIMIT = 10;
+
+/**
+ * Sidebar report G9, D4: pin a workspace or organization you're in to the top of your Workspaces list, on every
+ * device. Unpinning is always allowed; pinning needs membership.
+ */
+export async function setSidebarPinAction(workspaceId: string, pinned: boolean): Promise<{ success: true } | { success: false; error: string }> {
+    const userId = await viewer();
+    if (!userId || !/^[0-9a-f-]{36}$/i.test(workspaceId)) return { success: false, error: 'Sign in.' };
+    if (!pinned) {
+        await db.delete(sidebarPins).where(and(eq(sidebarPins.userId, userId), eq(sidebarPins.workspaceId, workspaceId)));
+        return { success: true };
+    }
+    const [member] = await ROWS<{ ok: boolean }>(sql`SELECT EXISTS (SELECT 1 FROM workspaces w WHERE w.id = ${workspaceId}::uuid AND w.deleted_at IS NULL
+        AND (w.owner_id = ${userId}::uuid OR EXISTS (SELECT 1 FROM workspace_members m WHERE m.workspace_id = w.id AND m.user_id = ${userId}::uuid))) AS ok`);
+    if (!member?.ok) return { success: false, error: 'You can pin only workspaces you’re in.' };
+    const [count] = await ROWS<{ n: number }>(sql`SELECT count(*)::int AS n FROM sidebar_pins WHERE user_id = ${userId}::uuid`);
+    if ((count?.n ?? 0) >= SIDEBAR_PIN_LIMIT) return { success: false, error: `You can pin up to ${SIDEBAR_PIN_LIMIT}. Unpin one first.` };
+    await db.insert(sidebarPins).values({ userId, workspaceId }).onConflictDoNothing();
+    return { success: true };
 }
 
 export type JoinRequestGroup = { orgId: string; title: string; slug: string | null; count: number; first: Array<{ id: string; userId: string; name: string; note: string | null }> };

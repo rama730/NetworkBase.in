@@ -1,113 +1,155 @@
+import { serverActionsPlugin } from './server-actions-plugin';
 import path from 'node:path';
 import { readFile } from 'node:fs/promises';
 import { build } from 'esbuild';
 import postcss from 'postcss';
 import tailwind from '@tailwindcss/postcss';
 import { expect, test, type Page } from '@playwright/test';
+import { axeViolations } from './axe';
 
-// The organization row in the left navigation, against the real component and stylesheet.
+// Left navigation → Workspaces (docs/superpowers/plans/2026-11-05-sidebar-workspaces-findings.md), against the real
+// component and stylesheet: names only, an organization's group, the current row, dots, pins, filter, ⋯, collapsed.
 const origin = 'https://org-sidebar.test';
 let script: string, css: string;
 
 test.beforeAll(async () => {
     const mocks: Record<string, string> = {
         'next/link': `import React from 'react';export default ({href,children,prefetch,...p})=>React.createElement('a',{href,...p},children);`,
-        'next/navigation': `export const usePathname=()=>'/org/cse-3b';`,
+        'next/navigation': `export const usePathname=()=>new URLSearchParams(location.search).get('path')||'/org/cse-3b';export const useRouter=()=>({push(){},replace(){},refresh(){}});`,
+        '@/app/actions/org-workspace': `export const setSidebarPinAction=async(id,pinned)=>{(window.calls=window.calls||[]).push([id,pinned]);return {success:true};};`,
     };
     const bundle = await build({ entryPoints: [path.resolve('tests/browser/org-sidebar.fixture.tsx')], bundle: true, write: false, format: 'iife', platform: 'browser', define: { 'process.env.NODE_ENV': '"test"', 'process.env': '{}' }, plugins: [{ name: 'org-sidebar-boundaries', setup(builder) {
         builder.onResolve({ filter: /.*/ }, args => args.path in mocks ? { path: args.path, namespace: 'fixture' } : undefined);
         builder.onLoad({ filter: /.*/, namespace: 'fixture' }, args => ({ contents: mocks[args.path], resolveDir: process.cwd(), loader: 'js' }));
-    } }] });
+    } }, serverActionsPlugin] });
     script = bundle.outputFiles![0]!.text;
     css = (await postcss([tailwind()]).process(await readFile('src/app/globals.css', 'utf8'), { from: path.resolve('src/app/globals.css') })).css;
 });
 
-async function open(page: Page, view: 'expanded' | 'collapsed') {
-    await page.setViewportSize({ width: 1200, height: 500 });
+async function open(page: Page, query = '', width = 300) {
+    await page.setViewportSize({ width, height: 1000 });
     await page.route(origin + '/**', route => {
         const url = new URL(route.request().url());
-        const body = url.pathname === '/app.js' ? script : url.pathname === '/app.css' ? css : '<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="/app.css"></head><body><div id="root"></div><script src="/app.js"></script></body></html>';
+        const body = url.pathname === '/app.js' ? script : url.pathname === '/app.css' ? css : '<html lang="en"><head><title>Sidebar</title><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="/app.css"></head><body><div id="root"></div><script src="/app.js"></script></body></html>';
         return route.fulfill({ body, contentType: url.pathname.endsWith('.js') ? 'application/javascript' : url.pathname.endsWith('.css') ? 'text/css' : 'text/html' });
     });
-    await page.goto(`${origin}/?view=${view}`);
-    await page.locator('[data-org-row]').first().waitFor();
+    await page.goto(`${origin}/?${query}`);
+    await page.getByTestId('sidebar-workspaces').waitFor({ state: 'attached' });
 }
+const list = (page: Page) => page.getByTestId('sidebar-workspaces');
 
-test('Reads name, plus, number, drop-down, with nothing overlapping', async ({ page }) => {
-    await open(page, 'expanded');
+test('§1: names only — no pictures or letters on any row; long names end in … with the full name on hover', async ({ page }) => {
+    await open(page);
+    await expect(list(page).locator('img')).toHaveCount(0);
+    for (const letters of ['CS', 'PO', 'CA', 'QU']) await expect(list(page).getByText(letters, { exact: true })).toHaveCount(0);
+    const falcon = list(page).getByRole('link', { name: /Team Falcon/ });
+    await expect(falcon).toHaveAttribute('title', 'Team Falcon: Hash table library');
+    expect(await falcon.evaluate((el) => getComputedStyle(el).textOverflow)).toBe('ellipsis');
+    await expect(list(page).getByRole('link', { name: 'CSE 3A / Parser Lab' })).toBeVisible();
+    await expect(list(page).getByRole('link', { name: /Robotics Club/ })).toContainText('Requested');
+});
+
+test('§2: the group — chevron at the left, the count says what it counts, + only on hover or focus, workspaces one step in under a line', async ({ page }) => {
+    await open(page);
     const row = page.locator('[data-org-row]').first();
-    const parts = await Promise.all([
-        row.getByRole('link', { name: /need you/ }).locator('span').last(),
-        row.getByRole('link', { name: /^New workspace/ }),
-        row.locator('.nb-nav-count'),
-        row.getByRole('button', { name: /^Collapse/ }),
-    ].map(async (part) => (await part.boundingBox())!));
-    for (let i = 1; i < parts.length; i++) expect(parts[i].x).toBeGreaterThanOrEqual(parts[i - 1].x + parts[i - 1].width);
-    const centers = parts.slice(1).map((box) => box.y + box.height / 2);
-    for (const center of centers) expect(Math.abs(center - centers[0])).toBeLessThanOrEqual(1);
-    await expect(row.locator('.nb-nav-dot')).toHaveCount(0);
-    await page.screenshot({ path: test.info().outputPath('expanded.png'), clip: { x: 0, y: 0, width: 240, height: 240 } });
+    const chevron = row.getByRole('button', { name: 'Hide CSE 3B · Data Structures 2026’s workspaces' });
+    const name = row.getByRole('link', { name: /^CSE 3B · Data Structures 2026, 2 things need you/ });
+    expect((await chevron.boundingBox())!.x).toBeLessThan((await name.boundingBox())!.x);
+    await expect(row.locator('.nb-nav-count')).toHaveAttribute('title', '2 things need you');
+    const plus = row.getByRole('link', { name: 'New workspace in CSE 3B · Data Structures 2026' });
+    await expect(plus).toBeHidden();
+    const restWidth = (await name.boundingBox())!.width;
+    await row.hover();
+    await expect(plus).toBeVisible();
+    expect(restWidth).toBeGreaterThan((await name.boundingBox())!.width, "at rest the name has the room");
+    const kids = page.getByRole('list', { name: 'Workspaces in CSE 3B · Data Structures 2026' });
+    expect(await kids.evaluate((el) => getComputedStyle(el).borderLeftWidth)).toBe('1px');
+    expect((await kids.boundingBox())!.x).toBeGreaterThan((await row.boundingBox())!.x + 10);
+    const fontOf = (l: ReturnType<Page['locator']>) => l.evaluate((el) => getComputedStyle(el.closest('.nb-nav-link')!).fontSize);
+    expect(await fontOf(kids.getByRole('link', { name: /Team Osprey/ }))).toBe(await fontOf(list(page).getByRole('link', { name: 'Ponytail' })));
+    await expect(kids.getByRole('listitem')).toHaveCount(6, { timeout: 2000 });
+    await expect(kids.getByRole('link', { name: 'All workspaces · 2 more' })).toHaveAttribute('href', '/org/cse-3b?tab=projects');
+    await chevron.click();
+    await expect(kids).toHaveCount(0);
+    await page.reload();
+    await expect(page.getByRole('list', { name: 'Workspaces in CSE 3B · Data Structures 2026' })).toHaveCount(0, { timeout: 3000 });
+    await expect(page.locator('[data-org-row]').first().getByRole('button', { name: /Show CSE 3B/ })).toHaveAttribute('aria-expanded', 'false');
+    await expect(page.getByRole('list', { name: 'Workspaces in Quiet Org' }).getByRole('link', { name: 'All workspaces' })).toBeVisible();
 });
 
-test('The icon lines up with the workspaces below it and carries no dot', async ({ page }) => {
-    await open(page, 'expanded');
-    const org = await page.locator('[data-org-row]').first().getByText('CS', { exact: true }).boundingBox();
-    const personal = await page.getByRole('link', { name: 'Ponytail' }).getByText('PO', { exact: true }).boundingBox();
-    expect(org!.x).toBe(personal!.x);
-    await expect(page.locator('[data-org-row]').first().getByText('CS', { exact: true }).locator('span')).toHaveCount(0);
+test('G2: the workspace you\'re on shows and its group opens, even past the first five and when remembered closed', async ({ page }) => {
+    await open(page, 'path=/workspaces/owl');
+    await page.evaluate(() => localStorage.setItem('nb:sidebar-org:org', 'closed'));
+    await page.reload();
+    const kids = page.getByRole('list', { name: 'Workspaces in CSE 3B · Data Structures 2026' });
+    await expect(kids.getByRole('link', { name: 'Team Owl' })).toHaveAttribute('aria-current', 'page');
+    await expect(kids.getByRole('link', { name: 'All workspaces · 1 more' })).toBeVisible();
+    expect(await page.evaluate(() => localStorage.getItem('nb:sidebar-org:org'))).toBe('closed');
 });
 
-test('The drop-down opens and closes the row; the row link is not triggered', async ({ page }) => {
-    await open(page, 'expanded');
-    const row = page.locator('[data-org-row]').first();
-    await expect(page.getByRole('link', { name: 'Team Falcon' })).toBeVisible();
-    await row.getByRole('button', { name: /^Collapse/ }).click();
-    await expect(page.getByRole('link', { name: 'Team Falcon' })).toBeHidden();
-    await expect(page).toHaveURL(/view=expanded/);
+test('G5: a dot for unseen updates; G9: ⋯ pins to the top, copies the link, opens a new tab', async ({ page, context }) => {
+    await context.grantPermissions(['clipboard-read', 'clipboard-write']).catch(() => undefined);
+    await open(page);
+    await expect(list(page).getByRole('link', { name: 'Caveman, new updates' })).toBeVisible();
+    await expect(list(page).getByRole('link', { name: 'Team Falcon: Hash table library, new updates' })).toBeVisible();
+    await list(page).getByRole('link', { name: 'Caveman, new updates' }).hover();
+    await list(page).getByRole('button', { name: 'More for Caveman' }).click();
+    await expect(page.getByRole('menuitem', { name: 'Open in new tab' })).toHaveAttribute('href', '/workspaces/p1');
+    await expect(page.getByRole('menuitem', { name: 'Open in new tab' })).toHaveAttribute('target', '_blank');
+    await page.getByRole('menuitem', { name: 'Pin to top' }).click();
+    expect(await page.evaluate(() => (window as unknown as { calls: unknown[] }).calls)).toEqual([['p1', true]]);
+    const items = list(page).getByRole('list', { name: 'Your workspaces' }).locator(':scope > li');
+    await expect(items.first()).toHaveText('Pinned');
+    await expect(items.nth(1)).toContainText('Caveman');
+    await open(page, 'pinned=1');
+    await list(page).getByRole('link', { name: 'Caveman, new updates' }).first().hover();
+    await list(page).getByRole('button', { name: 'More for Caveman' }).first().click();
+    await page.getByRole('menuitem', { name: 'Copy link' }).click();
+    await expect(page.getByText('Link copied').first()).toBeVisible();
 });
 
-test('Clicking the name or the number opens the organization', async ({ page }) => {
-    await open(page, 'expanded');
-    const row = page.locator('[data-org-row]').first();
-    const hit = await row.locator('.nb-nav-count').evaluate((count) => {
-        const box = count.getBoundingClientRect();
-        return document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2)?.closest('a')?.getAttribute('href');
-    });
-    expect(hit).toBe('/org/cse-3b');
-    const plus = await row.getByRole('link', { name: /^New workspace/ }).evaluate((link) => {
-        const box = link.getBoundingClientRect();
-        return document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2)?.closest('a') === link;
-    });
-    expect(plus).toBe(true);
+test('G3, G8, G11: More past 12, a filter past 10 rows (Esc clears), Archived remembered', async ({ page }) => {
+    await open(page, 'size=long');
+    await expect(list(page).getByRole('button', { name: 'More (3)' })).toBeVisible();
+    const filter = page.getByLabel('Filter workspaces');
+    await filter.fill('owl');
+    await expect(list(page).getByRole('link', { name: 'Team Owl' })).toBeVisible();
+    await expect(list(page).getByRole('link', { name: 'Ponytail' })).toHaveCount(0);
+    await filter.fill('zzz');
+    await expect(page.getByText('No workspaces match')).toBeVisible();
+    await filter.press('Escape');
+    await expect(filter).toHaveValue('');
+    await page.getByRole('button', { name: 'Archived (1)' }).click();
+    await page.reload();
+    await expect(page.getByRole('list', { name: 'Archived workspaces' })).toBeVisible();
+    await open(page, 'size=small');
+    await expect(list(page).getByRole('link', { name: 'Ponytail' })).toBeVisible();
+    await expect(page.getByLabel('Filter workspaces')).toHaveCount(0);
 });
 
-test('New workspace is reachable by keyboard', async ({ page }) => {
-    test.skip(test.info().project.name === 'webkit', 'Safari moves focus to links only with Option-Tab');
-    await open(page, 'expanded');
-    await page.locator('[data-org-row]').first().getByRole('link', { name: /need you/ }).focus();
+test('G6: space between the organizations and your own; G10: nested lists; keyboard reaches chevron, +, ⋯', async ({ page }) => {
+    await open(page);
+    const quiet = await page.locator('[data-org-row]').nth(1).boundingBox();
+    const robotics = await list(page).getByRole('link', { name: /Robotics Club/ }).boundingBox();
+    const quietKids = await page.getByRole('list', { name: 'Workspaces in Quiet Org' }).boundingBox();
+    expect(robotics!.y - (quietKids!.y + quietKids!.height)).toBeGreaterThanOrEqual(8);
+    expect(quiet).toBeTruthy();
+    await page.getByRole('button', { name: 'Hide CSE 3B · Data Structures 2026’s workspaces' }).focus();
     await page.keyboard.press('Tab');
-    await expect(page.getByRole('link', { name: /^New workspace/ })).toBeFocused();
+    await expect(page.getByRole('link', { name: /^CSE 3B · Data Structures 2026, 2 things need you/ })).toBeFocused();
+    await page.keyboard.press('Tab');
+    const plus = page.getByRole('link', { name: 'New workspace in CSE 3B · Data Structures 2026' });
+    await expect(plus).toBeFocused();
+    await expect(plus).toBeVisible();
+    expect(await axeViolations(page)).toEqual([]);
+    await page.screenshot({ path: test.info().outputPath('sidebar-300.png'), fullPage: true });
 });
 
-test('An announcement with no number takes the number\'s place; no plus without permission', async ({ page }) => {
-    await open(page, 'expanded');
-    const quiet = page.locator('[data-org-row]').nth(1);
-    await expect(quiet.locator('.nb-nav-dot')).toBeVisible();
-    await expect(quiet.getByRole('link', { name: /^New workspace/ })).toHaveCount(0);
-});
-
-test('Collapsed: number and announcement dot stay; plus and drop-down go', async ({ page }) => {
-    await open(page, 'collapsed');
-    const [busy, quiet] = [page.locator('[data-org-row]').first(), page.locator('[data-org-row]').nth(1)];
-    await expect(busy.locator('.nb-nav-count')).toBeVisible();
-    await expect(quiet.locator('.nb-nav-dot')).toBeVisible();
-    await expect(busy.getByRole('link', { name: /^New workspace/ })).toBeHidden();
-    await expect(busy.getByRole('button')).toBeHidden();
-    const personal = (await page.getByRole('link', { name: 'Ponytail' }).getByText('PO', { exact: true }).boundingBox())!;
-    expect((await busy.getByText('CS', { exact: true }).boundingBox())!.x).toBe(personal.x);
-    const dot = (await quiet.locator('.nb-nav-dot').boundingBox())!;
-    const icon = (await quiet.getByText('QU', { exact: true }).boundingBox())!;
-    expect(Math.abs(dot.x + dot.width / 2 - (icon.x + icon.width))).toBeLessThanOrEqual(4);
-    expect(Math.abs(dot.y + dot.height / 2 - icon.y)).toBeLessThanOrEqual(4);
-    await page.screenshot({ path: test.info().outputPath('collapsed.png'), clip: { x: 0, y: 0, width: 120, height: 240 } });
+test('D1, G7: the collapsed strip hides the list and shows the Workspaces button; the open sidebar shows the list, not the button', async ({ page }) => {
+    await open(page, 'view=collapsed');
+    await expect(page.getByRole('button', { name: 'Workspaces', exact: true })).toBeVisible();
+    await expect(list(page)).toBeHidden();
+    await open(page);
+    await expect(page.getByRole('button', { name: 'Workspaces', exact: true })).toBeHidden();
+    await expect(list(page)).toBeVisible();
 });

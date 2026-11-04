@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation'
 import { useMemo, useState, useTransition, type ReactNode } from 'react'
 import Link from 'next/link'
+import { useRefreshSidebar } from '@/hooks/useRefreshSidebar'
 import { useQuery } from '@tanstack/react-query'
 import { X } from 'lucide-react'
 
@@ -119,6 +120,7 @@ export function OrgMembershipSection({ orgId, organization, role }: SectionProps
  */
 export function OrgManagementSection({ orgId, role, title, afterLeaveHref = '/discover', children }: SectionProps & { title: string; afterLeaveHref?: string; children?: ReactNode }) {
     const router = useRouter()
+    const refreshSidebar = useRefreshSidebar()
     const [open, setOpen] = useState(false)
     const [preview, setPreview] = useState<LeavePreview | null>(null)
     const [error, setError] = useState<string | null>(null)
@@ -134,6 +136,7 @@ export function OrgManagementSection({ orgId, role, title, afterLeaveHref = '/di
         if (!result.success) return setError(result.error)
         // Report §26.10 and §38.6: back to About if the organization is public, with the write-up nudge.
         toast.success(`You left ${title}. You can still write up your work.`)
+        refreshSidebar()
         router.push(afterLeaveHref)
     })
     const month = new Intl.DateTimeFormat('en', { month: 'short', year: 'numeric' }).format(new Date())

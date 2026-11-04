@@ -449,6 +449,13 @@
       "when": 1793818065376,
       "tag": "0064_org_verification_ways",
       "breakpoints": true
+    },
+    {
+      "idx": 64,
+      "version": "7",
+      "when": 1793821856362,
+      "tag": "0065_sidebar_pins_and_visits",
+      "breakpoints": true
     }
   ]
 }
