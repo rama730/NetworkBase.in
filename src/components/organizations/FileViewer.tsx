@@ -20,6 +20,8 @@ export function FileViewer({ projectId, file, meta, unavailable, className }: {
 }) {
     const [view, setView] = useState<{ node: WorkspaceNode; url: string; download: string } | 'unavailable' | null>(null)
     const frame = useRef<HTMLDivElement>(null)
+    // Review queue §2: one file bar — the viewer's page and zoom join it here.
+    const [controls, setControls] = useState<HTMLSpanElement | null>(null)
     useEffect(() => {
         let live = true
         setView(null)
@@ -34,18 +36,20 @@ export function FileViewer({ projectId, file, meta, unavailable, className }: {
     const link = 'text-[13px] text-primary underline-offset-4 hover:underline'
     return (
         <div ref={frame} className={cn('flex min-h-0 flex-col overflow-hidden rounded-md border border-border bg-card', className)}>
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-border px-3 py-2">
-                <span className="min-w-0 flex-1 truncate text-[13px] font-medium">{file.name}</span>
-                {[fileSize(file.size), meta].filter(Boolean).length ? <span className="font-mono text-[12px] text-muted-foreground">{[fileSize(file.size), meta].filter(Boolean).join(' · ')}</span> : null}
+            <div className="flex min-h-9 flex-wrap items-center gap-x-3.5 gap-y-1 border-b border-border px-3 py-1.5" data-testid="file-bar">
+                <span className="min-w-0 max-w-[18rem] truncate text-[13px] font-medium" title={file.name}>{file.name}</span>
+                {[fileSize(file.size), meta].filter(Boolean).length ? <span className="min-w-0 truncate font-mono text-[11px] text-muted-foreground">{[fileSize(file.size), meta].filter(Boolean).join(' · ')}</span> : null}
+                <span className="flex-1" />
+                <span ref={setControls} className="contents" />
                 {view && view !== 'unavailable' ? <>
-                    <a href={view.download} className={link} aria-label={`Download ${file.name}`}>Download</a>
-                    <a href={view.url} target="_blank" rel="noreferrer noopener" className={link} aria-label={`Open ${file.name} in a new tab`}>Open in new tab</a>
-                    <button type="button" className={link} aria-label={`Show ${file.name} full screen`} onClick={() => void frame.current?.requestFullscreen?.().catch(() => undefined)}>Full screen</button>
+                    <a href={view.download} className={cn(link, 'whitespace-nowrap')} aria-label={`Download ${file.name}`}>Download</a>
+                    <a href={view.url} target="_blank" rel="noreferrer noopener" className={cn(link, 'whitespace-nowrap')} aria-label={`Open ${file.name} in a new tab`}>New tab</a>
+                    <button type="button" className={cn(link, 'whitespace-nowrap')} aria-label={`Show ${file.name} full screen`} onClick={() => void frame.current?.requestFullscreen?.().catch(() => undefined)}>Full screen</button>
                 </> : null}
             </div>
             <div className="min-h-0 flex-1 overflow-auto" data-testid="file-viewer">
                 {view === 'unavailable' ? <div className="p-4 text-[13px] text-muted-foreground">{unavailable ?? 'The preview isn’t available here.'}</div>
-                    : view ? <UniversalPreviewEngine node={view.node} fileUrl={view.url} projectId={projectId} />
+                    : view ? <UniversalPreviewEngine node={view.node} fileUrl={view.url} projectId={projectId} controlsTarget={controls} />
                         : <p className="p-4 text-[13px] text-muted-foreground">Loading {file.name}…</p>}
             </div>
         </div>

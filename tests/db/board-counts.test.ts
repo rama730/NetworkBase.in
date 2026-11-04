@@ -122,3 +122,57 @@ test("board counts: a stranger gets nothing", async () => {
   assert.equal(r.success, false);
   viewerId = "";
 });
+
+test("review queue §4b: every hand-in can be reached past the first 200; each row carries its story, unread messages and people; an ordinary task brings its files", async () => {
+  const [owner, kid] = await Promise.all([1, 2].map(() => sql.begin((tx) => createUser(tx))));
+  const org = await sql.begin((tx) => createProject(tx, owner!));
+  await sql`INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (${org}, ${owner!}, 'owner'), (${org}, ${kid!}, 'member') ON CONFLICT DO NOTHING`;
+  await sql`UPDATE workspaces SET kind = 'organization', org_type = 'education', join_code = ${generateJoinCode()} WHERE id = ${org}`;
+  created.push(org);
+  viewerId = owner!;
+  const made = await assignments.createAssignmentAction({ projectId: org, title: "Lab 9", dueDate: new Date(Date.now() + 864e5).toISOString(), publish: true,
+    submissionType: "link", reviewRequired: true, lateRule: "none", target: { mode: "everyone" }, steps: [] });
+  assert.ok(made.success);
+  const masterId = made.success ? made.masterId : "";
+  // 250 more hand-ins of the same assignment (as if a big class), each a copy waiting for review.
+  await sql`INSERT INTO tasks (workspace_id, creator_id, title, status, assignment_id, assignee_id, review_status, review_submitted_at)
+    SELECT ${org}, ${owner!}, 'Lab 9', 'in_progress', ${masterId}, ${kid!}, 'pending', now() - (g || ' minutes')::interval FROM generate_series(1, 250) g`;
+  // The member's own copy: handed in twice, returned once in between, with a new message.
+  const [own] = await sql`SELECT id FROM tasks WHERE assignment_id = ${masterId} AND assignee_id = ${kid!} AND review_status <> 'pending' LIMIT 1`;
+  await sql`UPDATE tasks SET review_status = 'pending', review_submitted_at = now(), submission = ${sql.json({ version: 2, link: "https://example.com/v2" })} WHERE id = ${own!.id}`;
+  await sql`INSERT INTO assignment_submissions (copy_id, workspace_id, version, submitted_by, submitted_at, link, files) VALUES (${own!.id}, ${org}, 1, ${kid!}, now() - interval '2 days', 'https://example.com/v1', '[]'), (${own!.id}, ${org}, 2, ${kid!}, now(), 'https://example.com/v2', '[]')`;
+  await sql`INSERT INTO task_activity_events (task_id, workspace_id, actor_id, event_type, payload, created_at) VALUES (${own!.id}, ${org}, ${owner!}, 'changes_requested', ${sql.json({ reason: "fix the README", fixBy: "2026-11-13T10:00:00.000Z" })}, now() - interval '1 day')`;
+  await sql`INSERT INTO task_comments (task_id, user_id, content) VALUES (${own!.id}, ${kid!}, 'Done, see v2')`;
+  // An ordinary task waiting for review, with a file.
+  const [col] = await sql`SELECT id FROM workspace_workflow_columns WHERE workspace_id = ${org} AND status = 'todo' LIMIT 1`;
+  const [plain] = await sql`INSERT INTO tasks (workspace_id, creator_id, title, description, status, workflow_column_id, assignee_id, review_status, review_submitted_at) VALUES (${org}, ${owner!}, 'Slides', 'Make 5 slides', 'in_progress', ${col!.id}, ${kid!}, 'pending', now()) RETURNING id`;
+  const [node] = await sql`INSERT INTO workspace_nodes (workspace_id, type, name, size) VALUES (${org}, 'file', 'slides.pdf', 1234) RETURNING id`;
+  await sql`INSERT INTO task_node_links (task_id, node_id) VALUES (${plain!.id}, ${node!.id})`;
+
+  const first = await assignments.readReviewQueueAction(org);
+  assert.ok(first.success, JSON.stringify(first));
+  if (!first.success) return;
+  assert.equal(first.total, 252, "250 + the member's copy + the plain task");
+  assert.ok(first.nextCursor, "there's a next page");
+  const second = await assignments.readReviewQueueAction(org, first.nextCursor);
+  assert.ok(second.success);
+  if (!second.success) return;
+  const ids = new Set([...first.rows, ...second.rows].map((r) => r.copyId));
+  assert.equal(ids.size, 252, "every hand-in reached across the two pages, none twice");
+  assert.equal(second.nextCursor, null);
+  const mine = [...first.rows, ...second.rows].find((r) => r.copyId === own!.id)!;
+  assert.deepEqual(mine.events.map((e) => e.text), ["Version 1 handed in by " + mine.people[0]!.name, "Returned by " + (await sql`SELECT coalesce(full_name, username) AS n FROM profiles WHERE id = ${owner!}`)[0]!.n + ": fix the README · fix by Nov 13", "Version 2 handed in by " + mine.people[0]!.name]);
+  assert.equal(mine.lastAsk, "fix the README");
+  assert.equal(mine.newMessages, 1);
+  assert.equal(mine.people.length, 1);
+  const task = first.rows.find((r) => r.copyId === plain!.id)!;
+  assert.equal(task.description, "Make 5 slides");
+  assert.deepEqual(task.files.map((f) => f.name), ["slides.pdf"]);
+  // Opening it marks the message read.
+  await sql`INSERT INTO task_read_receipts (task_id, user_id, last_read_at) VALUES (${own!.id}, ${owner!}, now() + interval '1 second')`;
+  const again = await assignments.readReviewQueueAction(org);
+  const later = again.success ? [...again.rows].find((r) => r.copyId === own!.id) ?? (await assignments.readReviewQueueAction(org, again.nextCursor)) : null;
+  const row = later && "copyId" in later ? later : later && "rows" in later && later.success ? later.rows.find((r) => r.copyId === own!.id) : null;
+  assert.equal(row?.newMessages, 0);
+  viewerId = "";
+});

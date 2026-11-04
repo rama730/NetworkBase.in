@@ -55,6 +55,8 @@ interface UniversalPreviewEngineProps {
   fileUrlError?: string | null;
   projectId: string;
   onRetry?: () => void;
+  /** Review queue §2: where a driver puts its page and zoom controls, in the host's file bar. */
+  controlsTarget?: HTMLElement | null;
 }
 
 interface DriverErrorBoundaryProps {
@@ -117,6 +119,7 @@ export default function UniversalPreviewEngine({
   fileUrlError,
   projectId,
   onRetry,
+  controlsTarget = null,
 }: UniversalPreviewEngineProps): React.JSX.Element {
   const previewType = React.useMemo<UniversalPreviewType>(
     () => resolvePreviewType(node),
@@ -161,7 +164,7 @@ export default function UniversalPreviewEngine({
   if (previewType === "pdf") {
     return (
       <DriverErrorBoundary fileName={node.name} onRetry={onRetry}>
-        <PdfViewerDriver node={node} fileUrl={fileUrl} projectId={projectId} />
+        <PdfViewerDriver node={node} fileUrl={fileUrl} projectId={projectId} controlsTarget={controlsTarget} />
       </DriverErrorBoundary>
     );
   }

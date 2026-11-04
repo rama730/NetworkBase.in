@@ -129,7 +129,7 @@ test('Members: requests come first on phones, rows stack, nothing scrolls sidewa
 test('Projects, Tasks and Files fit a phone', async ({ page }) => {
     for (const [tab, text] of [['projects', 'Team Osprey'], ['tasks', 'Lab 3 — Consensus protocols'], ['files', 'Storage is 86% full']] as const) {
         await open(page, tab);
-        await expect(page.getByText(text).first()).toBeVisible();
+        await expect(page.getByText(text).locator('visible=true').first()).toBeVisible();
         await noSideScroll(page);
         await page.screenshot({ path: test.info().outputPath(`${tab}-375.png`), fullPage: true });
     }
@@ -173,15 +173,20 @@ test('Units panel (§14.4): rename, seats, unit lead and Move to…, all native 
 test('Assignments (§16): the review queue steps with Next; the roster has Remind, Add step and per-person team moves, on a phone', async ({ page }) => {
     await open(page, 'tasks');
     const queue = page.getByRole('region', { name: 'To review' });
-    await expect(queue.getByRole('region', { name: 'Waiting' }).getByText('1 of 2', { exact: true })).toBeVisible();
-    await expect(queue.getByText(/Team A · Lab 3 — Consensus protocols · .* · Late · Version 2 · handed in by Asha Nair/)).toBeVisible();
-    await expect(queue).toContainText('Steps · 4 of 5 ticked');
-    await expect(queue).toContainText('Note: Used Raft');
-    await queue.getByRole('button', { name: 'Next' }).click();
-    await expect(queue.getByRole('region', { name: 'Waiting' }).getByText('2 of 2', { exact: true })).toBeVisible();
+    // Review queue §4: on a phone the waiting list is a picker over the work.
+    const picker = queue.getByRole('combobox', { name: 'Waiting' });
+    await expect(picker.locator('option:checked')).toHaveText(/^Team A · 1 of 2/);
+    const work = queue.getByRole('region', { name: 'Submission' });
+    await expect(work.getByRole('heading', { name: 'Team A' })).toBeVisible();
+    await expect(work.getByText(/Lab 3 — Consensus protocols · handed in .* · Version 2 · by Asha Nair/)).toBeVisible();
+    await expect(work).toContainText('Steps 4 of 5');
+    await expect(work).toContainText('Their note: “Used Raft”');
+    await page.locator('body').click({ position: { x: 2, y: 2 } });
+    await page.keyboard.press('j');
+    await expect(picker.locator('option:checked')).toHaveText(/ · 2 of 2/);
     // Keys (23.2): K goes back, R opens the reason box with Fix by.
     await page.keyboard.press('k');
-    await expect(queue.getByRole('region', { name: 'Waiting' }).getByText('1 of 2', { exact: true })).toBeVisible();
+    await expect(picker.locator('option:checked')).toHaveText(/^Team A · 1 of 2/);
     await page.keyboard.press('r');
     await expect(queue).toContainText(/What should .+ change\?/);
     await expect(queue).toContainText('Fix by');

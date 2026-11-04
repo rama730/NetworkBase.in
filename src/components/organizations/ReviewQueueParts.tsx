@@ -2,9 +2,16 @@
 
 import { useEffect, useRef, useState, useTransition } from 'react'
 
+import { useAuth as useAuthContext } from '@/hooks/use-auth'
+import { userTopic } from '@/lib/messaging/constants'
+import { subscribeBroadcast } from '@/lib/realtime/private-broadcast'
+
 import { readReviewQueueAction, reviewAssignmentCopyAction, type ReviewQueueRow } from '@/app/actions/assignments'
 import { createTaskCommentAction } from '@/app/actions/task-comment'
+import { ChevronDown } from 'lucide-react'
+
 import { Button } from '@/components/ui/button'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
 import { FileViewer } from '@/components/organizations/FileViewer'
 import CommentsTab from '@/components/workspaces/v2/tasks/TaskDetailTabs/CommentsTab'
@@ -14,6 +21,25 @@ import { reviewFixBy, webLink } from '@/lib/organizations/assignment-rules'
 import { isoToZonedInput } from '@/lib/organizations/zoned-time'
 import { deferredFeedback, toast } from '@/lib/feedback'
 import { cn } from '@/lib/utils'
+
+/**
+ * Live roster and queue (report §32.4, decision 76): a new submission reaches admins as a notice, so a notice on their
+ * own topic reloads the list, combined over 2 seconds.
+ */
+export function useReloadOnNotice(reload: () => void) {
+    const viewerId = useAuthContext().user?.id
+    const latest = useRef(reload)
+    latest.current = reload
+    useEffect(() => {
+        if (!viewerId) return
+        let timer: ReturnType<typeof setTimeout> | null = null
+        const live = subscribeBroadcast(userTopic(viewerId), (event) => {
+            if (event === 'notification.changed' && !timer) timer = setTimeout(() => { timer = null; latest.current() }, 2_000)
+        })
+        return () => { live.unsubscribe(); if (timer) clearTimeout(timer) }
+    }, [viewerId])
+}
+
 
 // Mockup task 2 (Review artboard) and review UX phase 4: the work in the middle — every file, every version, Compare —
 // and on the right the note, the steps, the conversation, then the decision.
@@ -41,7 +67,8 @@ export function ReviewWork({ row }: { row: ReviewQueueRow }) {
     const now = row.version ?? (versions[0] ? versions[0].version + 1 : 1)
     const [version, setVersion] = useState(now)
     const [fileIndex, setFileIndex] = useState(0)
-    const [compare, setCompare] = useState(false)
+    // Review queue §4b.4: a resubmission opens with Compare on, the same file beside the last version.
+    const [compare, setCompare] = useState(() => (row.version ?? 1) > 1 && versions.length > 0)
     const filesOf = (v: number) => (v === now ? row.files : versions.find((x) => x.version === v)?.files ?? [])
     const files = filesOf(version)
     const file = files[Math.min(fileIndex, files.length - 1)] ?? null
@@ -57,7 +84,7 @@ export function ReviewWork({ row }: { row: ReviewQueueRow }) {
                     <div role="tablist" aria-label="Files" className="flex min-w-0 flex-1 flex-wrap gap-1">
                         {files.map((f, i) => (
                             <button key={f.nodeId} type="button" role="tab" aria-selected={f.nodeId === file?.nodeId} onClick={() => setFileIndex(i)}
-                                className={cn('max-w-[14rem] truncate rounded-[4px] border px-2 py-0.5 text-[12px]', f.nodeId === file?.nodeId ? 'border-foreground font-medium' : 'border-border hover:bg-muted')}>{f.name}</button>
+                                title={f.name} className={cn('max-w-[18rem] truncate rounded-[4px] border px-2 py-0.5 text-[12px]', f.nodeId === file?.nodeId ? 'border-foreground font-medium' : 'border-border hover:bg-muted')}>{f.name}</button>
                         ))}
                     </div>
                 ) : <span className="flex-1" />}
@@ -97,18 +124,19 @@ export function ReviewSteps({ row }: { row: ReviewQueueRow }) {
  * Board/review report §3: the copy's private conversation in place — the task panel's own comments (the whole thread,
  * replies, likes, typing, live updates), scrolling inside the column. Keyed by the copy, so Next switches threads.
  */
-export function ReviewDiscussion({ row }: { row: ReviewQueueRow }) {
+export function ReviewDiscussion({ row, restoreDraft = null }: { row: ReviewQueueRow; restoreDraft?: { text: string; key: number } | null }) {
     const { user, profile } = useAuth()
     const d = useTaskDiscussionResource({ taskId: row.copyId, projectId: row.projectId, canEdit: true, currentUserId: user?.id, enabled: true })
+    // Review queue §3: the whole column is the discussion — one heading, the thread, the box at the bottom.
     return (
-        <section aria-label="Private conversation" className="flex min-h-[220px] flex-1 flex-col">
-            <h3 className={reviewLabel}>Private conversation{d.totalCount ? ` · ${d.totalCount}` : ''}</h3>
-            <div className="min-h-0 flex-1 overflow-y-auto">
+        <section aria-label="Discussion" className="flex h-full min-h-[320px] flex-col">
+            <div className="min-h-0 flex-1">
                 <CommentsTab projectId={row.projectId} taskId={row.copyId} comments={d.comments as never} totalCount={d.totalCount} hasMore={Boolean(d.nextCursor)}
                     isLoading={d.isLoading} isLoadingMore={d.isLoadingMore} error={d.error} canEdit currentUserId={user?.id}
                     currentUser={profile ? { fullName: profile.fullName, avatarUrl: profile.avatarUrl, username: profile.username } : null}
                     presenceStatus={d.presenceStatus} topLevelTypingUsers={d.topLevelTypingUsers} replyTypingUsersByParentId={d.replyTypingUsersByParentId}
-                    onAddComment={d.addComment} onToggleLike={d.toggleLike} onDeleteComment={d.deleteComment} onLoadOlderComments={d.loadOlderComments} onSendTyping={d.sendTyping} />
+                    onAddComment={d.addComment} onToggleLike={d.toggleLike} onDeleteComment={d.deleteComment} onLoadOlderComments={d.loadOlderComments} onSendTyping={d.sendTyping}
+                chat placeholder={`Write to ${row.who}…`} events={row.events ?? []} restoreDraft={restoreDraft} />
             </div>
         </section>
     )
@@ -118,10 +146,13 @@ export function ReviewDiscussion({ row }: { row: ReviewQueueRow }) {
  * Approve, or Return with a reason and Fix by (review UX 3.7, 3.12): the queue and an opened copy use this one box.
  * `keys` adds A and R. Recent reasons are one click; Fix by starts at the later of the due date and three days on.
  */
-export function ReviewDecision({ who, kind = 'copy', dueDate, recentReasons = [], pending, keys, onApprove, onReturn, extra }: {
+export function ReviewDecision({ who, kind = 'copy', dueDate, recentReasons = [], pending, keys, onApprove, onReturn, extra, layout = 'box' }: {
     who: string; kind?: 'copy' | 'task'; dueDate: string | null; recentReasons?: string[]; pending: boolean; keys?: boolean
     onApprove: (note: string) => void; onReturn: (reason: string, fixByIso: string | null) => void; extra?: React.ReactNode
+    /** Review queue §2: 'bar' puts Return · Approve ▾ · ⋯ on the work's header; their boxes open right under the buttons. */
+    layout?: 'box' | 'bar'
 }) {
+    const [noting, setNoting] = useState(false)
     const [returning, setReturning] = useState(false)
     const [reason, setReason] = useState('')
     const [fixBy, setFixBy] = useState('')
@@ -133,7 +164,7 @@ export function ReviewDecision({ who, kind = 'copy', dueDate, recentReasons = []
         setReturning(false)
         onReturn(reason.trim(), kind === 'copy' && fixBy ? new Date(fixBy).toISOString() : null)
     }
-    const approve = () => { onApprove(note.trim()); setNote('') }
+    const approve = () => { onApprove(note.trim()); setNote(''); setNoting(false) }
     const latest = useRef({ approve, openReturn, returning })
     latest.current = { approve, openReturn, returning }
     useEffect(() => {
@@ -148,25 +179,60 @@ export function ReviewDecision({ who, kind = 'copy', dueDate, recentReasons = []
         window.addEventListener('keydown', onKey)
         return () => window.removeEventListener('keydown', onKey)
     }, [keys])
+    const returnBox = (
+        <div className="space-y-2">
+            <label className="block space-y-1"><span className="font-medium">What should {who} change?</span>
+                <textarea autoFocus value={reason} onChange={(e) => setReason(e.target.value)} rows={3} maxLength={1000} className={area} aria-label={`What should ${who} change?`} /></label>
+            {recentReasons.length ? (
+                <div className="flex flex-wrap gap-1" role="group" aria-label="Recent reasons">
+                    {recentReasons.map((r) => <button key={r} type="button" className="max-w-full truncate rounded-[4px] border border-border px-2 py-0.5 text-[12px] hover:bg-muted" onClick={() => setReason(r)}>{r}</button>)}
+                </div>
+            ) : null}
+            {kind === 'copy' ? <label className="flex flex-wrap items-center gap-2">Fix by <Input type="datetime-local" value={fixBy} onChange={(e) => setFixBy(e.target.value)} className="h-[30px] w-auto" aria-label="Fix by" /></label> : null}
+            {error ? <p role="alert" className="text-destructive">{error}</p> : null}
+            <div className="flex gap-2">
+                <Button type="button" size="sm" className="h-[30px]" disabled={pending} onClick={sendReturn}>Return</Button>
+                <Button type="button" size="sm" variant="ghost" className="h-[30px]" onClick={() => setReturning(false)}>Cancel</Button>
+            </div>
+        </div>
+    )
+    if (layout === 'bar') {
+        const panel = 'absolute right-0 top-full z-30 mt-2 w-[22rem] max-w-[calc(100vw-2rem)] rounded-[8px] border border-border bg-popover p-3 text-sm shadow-md'
+        return (
+            <div className="relative flex shrink-0 items-center gap-2" role="group" aria-label="Decision">
+                <Button type="button" size="sm" variant="outline" className="h-[30px]" disabled={pending} onClick={openReturn} aria-expanded={returning}>Return</Button>
+                <span className="inline-flex">
+                    <Button type="button" size="sm" className="h-[30px] rounded-r-none" disabled={pending} onClick={approve}>Approve</Button>
+                    <DropdownMenu modal={false}>
+                        <DropdownMenuTrigger asChild>
+                            <Button type="button" size="sm" className="h-[30px] rounded-l-none border-l border-primary-foreground/30 px-1.5" disabled={pending} aria-label="More ways to approve"><ChevronDown className="size-3.5" aria-hidden="true" /></Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                            <DropdownMenuItem onSelect={() => { setReturning(false); setNoting(true) }}>Approve with a note…</DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                </span>
+                {extra}
+                {returning ? <div className={panel} role="dialog" aria-label={`Return to ${who}`}>{returnBox}</div> : null}
+                {noting ? (
+                    <div className={panel} role="dialog" aria-label="Approve with a note">
+                        <div className="space-y-2">
+                            <label className="block space-y-1"><span className="font-medium">A note for {who}</span>
+                                <textarea autoFocus value={note} onChange={(e) => setNote(e.target.value)} rows={3} maxLength={2000} className={area} aria-label={`A note for ${who}`} /></label>
+                            <p className="text-[12px] text-muted-foreground">It goes into the discussion.</p>
+                            <div className="flex gap-2">
+                                <Button type="button" size="sm" className="h-[30px]" disabled={pending || !note.trim()} onClick={approve}>Approve</Button>
+                                <Button type="button" size="sm" variant="ghost" className="h-[30px]" onClick={() => { setNoting(false); setNote('') }}>Cancel</Button>
+                            </div>
+                        </div>
+                    </div>
+                ) : null}
+            </div>
+        )
+    }
     return (
         <div className="space-y-2 border-t border-border pt-3" role="group" aria-label="Decision">
-            {returning ? (
-                <div className="space-y-2">
-                    <label className="block space-y-1"><span className="font-medium">What should {who} change?</span>
-                        <textarea autoFocus value={reason} onChange={(e) => setReason(e.target.value)} rows={3} maxLength={1000} className={area} aria-label={`What should ${who} change?`} /></label>
-                    {recentReasons.length ? (
-                        <div className="flex flex-wrap gap-1" role="group" aria-label="Recent reasons">
-                            {recentReasons.map((r) => <button key={r} type="button" className="max-w-full truncate rounded-[4px] border border-border px-2 py-0.5 text-[12px] hover:bg-muted" onClick={() => setReason(r)}>{r}</button>)}
-                        </div>
-                    ) : null}
-                    {kind === 'copy' ? <label className="flex flex-wrap items-center gap-2">Fix by <Input type="datetime-local" value={fixBy} onChange={(e) => setFixBy(e.target.value)} className="w-auto" aria-label="Fix by" /></label> : null}
-                    {error ? <p role="alert" className="text-destructive">{error}</p> : null}
-                    <div className="flex gap-2">
-                        <Button type="button" size="sm" disabled={pending} onClick={sendReturn}>Return</Button>
-                        <Button type="button" size="sm" variant="ghost" onClick={() => setReturning(false)}>Cancel</Button>
-                    </div>
-                </div>
-            ) : (
+            {returning ? returnBox : (
                 // Report §32.7: on phones Approve and Return stay at the bottom; no swipe, so nothing decides by accident.
                 <div className="space-y-2 max-md:sticky max-md:bottom-0 max-md:bg-card max-md:py-2">
                     <Input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Add note (optional)" aria-label="Add note" maxLength={2000} className="h-8 w-full" />

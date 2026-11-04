@@ -1158,15 +1158,40 @@ export type ReviewQueueRow = {
     files: Array<{ nodeId: string; name: string; size: number | null }>; versions: Array<{ version: number; at: string; files: Array<{ nodeId: string; name: string; size: number | null }> }>;
     /** Review UX 3.5: each step by name; 3.7: the copy's due date, for Fix by. */
     steps: Array<{ title: string; done: boolean }>; comments: number; left: boolean; dueDate: string | null;
+    /** Review queue §4b: who it belongs to (a person, or a team's people), for the header's avatars and presence. */
+    people: Array<{ id: string; name: string; avatarUrl: string | null }>;
+    /** §4b.5: the student's messages since you last opened it. */
+    newMessages: number;
+    /** §4b.4: the copy's story in the thread — handed in, returned (with the reason and Fix by), approved — newest last. */
+    events: Array<{ id: string; at: string; text: string }>;
+    /** §4b.4: what was asked at the last return, on a resubmission. */
+    lastAsk: string | null;
+    /** §4b.8: an ordinary task's description (its files come in `files`). */
+    description?: string | null;
+};
+
+const QUEUE_PAGE = 200;
+const encodeQueueCursor = (at: string, id: string) => Buffer.from(JSON.stringify([at, id])).toString('base64url');
+const decodeQueueCursor = (cursor: string | null | undefined): [string, string] | null => {
+    if (!cursor) return null;
+    try { const v = JSON.parse(Buffer.from(cursor, 'base64url').toString('utf8')); return Array.isArray(v) && typeof v[0] === 'string' && typeof v[1] === 'string' ? [v[0], v[1]] : null } catch { return null }
 };
 
 /** The marking inbox across every assignment (report §16.4–16.5): oldest first, with who handed in. */
-export async function readReviewQueueAction(orgId: string): Promise<{ success: true; rows: ReviewQueueRow[]; total: number; recentReasons: string[] } | Failure> {
+export async function readReviewQueueAction(orgId: string, cursor?: string | null): Promise<{ success: true; rows: ReviewQueueRow[]; total: number; recentReasons: string[]; nextCursor: string | null } | Failure> {
     const viewer = await orgRole(orgId, 'read');
     if (!viewer || !orgCan(orgRoleOf(viewer.role), 'approve_return')) return DENIED;
+    // Review queue §4b.2: pages of 200 by handed-in time, so every hand-in can be reached.
+    const after = decodeQueueCursor(cursor);
     const rows = await db.execute<{ copy_id: string; master_id: string; title: string; team_name: string | null; assignee: string | null; project: string | null; submitted_by: string | null; submitted_at: string; due_date: string | null; in_org: boolean; workspace_id: string;
-        updated_at: string; submission: { version?: number; link?: string | null; text?: string | null; note?: string | null } | null; files: Array<{ nodeId: string; name: string; size: number | null }> | null; versions: ReviewQueueRow['versions'] | null; steps: ReviewQueueRow['steps']; comments: number; left_org: boolean; late_after: number | null; total: number; mine: boolean }>(sql`
+        updated_at: string; submission: { version?: number; link?: string | null; text?: string | null; note?: string | null } | null; files: Array<{ nodeId: string; name: string; size: number | null }> | null; versions: ReviewQueueRow['versions'] | null; steps: ReviewQueueRow['steps']; comments: number; left_org: boolean; late_after: number | null; mine: boolean;
+        people: ReviewQueueRow['people'] | null; new_messages: number; sort_at: string }>(sql`
         SELECT c.id AS copy_id, m.id AS master_id, m.title, c.team_name, c.updated_at::text AS updated_at, c.submission,
+               coalesce(c.review_submitted_at, c.updated_at)::text AS sort_at,
+               (SELECT jsonb_agg(jsonb_build_object('id', p.id, 'name', coalesce(p.full_name, p.username, 'Member'), 'avatarUrl', p.avatar_url) ORDER BY p.full_name) FROM profiles p
+                  WHERE p.id = c.assignee_id OR p.id IN (SELECT tm.user_id FROM task_team_members tm WHERE tm.task_id = c.id)) AS people,
+               (SELECT count(*)::int FROM task_comments tc WHERE tc.task_id = c.id AND tc.deleted_at IS NULL AND tc.user_id IS DISTINCT FROM ${viewer.userId}
+                  AND tc.created_at > coalesce((SELECT r.last_read_at FROM task_read_receipts r WHERE r.task_id = c.id AND r.user_id = ${viewer.userId}), '-infinity'::timestamptz)) AS new_messages,
                (coalesce(jsonb_array_length(m.assignment_settings->'reviewers'), 0) = 0 OR m.assignment_settings->'reviewers' ? ${viewer.userId}) AS mine,
                (SELECT jsonb_agg(jsonb_build_object('nodeId', f->>'nodeId', 'name', f->>'name', 'size', n.size)) FROM assignment_submissions s CROSS JOIN jsonb_array_elements(s.files) f
                   LEFT JOIN workspace_nodes n ON n.id = (f->>'nodeId')::uuid WHERE s.copy_id = c.id AND s.version = (c.submission->>'version')::int) AS files,
@@ -1178,7 +1203,6 @@ export async function readReviewQueueAction(orgId: string): Promise<{ success: t
                (c.assignee_id IS NOT NULL AND c.team_name IS NULL AND c.workspace_id = m.workspace_id
                  AND NOT EXISTS (SELECT 1 FROM workspace_members wm WHERE wm.workspace_id = m.workspace_id AND wm.user_id = c.assignee_id)) AS left_org,
                (m.assignment_settings->>'lateAfterMinutes')::int AS late_after,
-               count(*) OVER ()::int AS total,
                (SELECT coalesce(p.full_name, p.username) FROM profiles p WHERE p.id = c.assignee_id) AS assignee,
                (SELECT pr.title FROM workspaces pr WHERE pr.id = c.workspace_id AND pr.id <> m.workspace_id) AS project,
                (SELECT coalesce(p.full_name, p.username) FROM profiles p WHERE p.id = (c.submission->>'by')::uuid) AS submitted_by,
@@ -1186,9 +1210,38 @@ export async function readReviewQueueAction(orgId: string): Promise<{ success: t
                (SELECT pr.kind = 'organization' FROM workspaces pr WHERE pr.id = c.workspace_id) AS in_org, c.workspace_id AS workspace_id
         FROM tasks c JOIN tasks m ON m.id = c.assignment_id
         WHERE m.workspace_id = ${orgId} AND m.deleted_at IS NULL AND c.deleted_at IS NULL AND c.excused_at IS NULL AND c.review_status = 'pending'
-        ORDER BY c.review_submitted_at ASC NULLS LAST LIMIT 200`);
-    const tasksWaiting = await db.execute<{ id: string; title: string; assignee: string | null; submitted_at: string | null; due_date: string | null; updated_at: string; comments: number; steps: ReviewQueueRow['steps'] }>(sql`
-        SELECT t.id, t.title, (SELECT coalesce(p.full_name, p.username) FROM profiles p WHERE p.id = t.assignee_id) AS assignee,
+          ${after ? sql`AND (coalesce(c.review_submitted_at, c.updated_at), c.id) > (${after[0]}::timestamptz, ${after[1]}::uuid)` : sql``}
+        ORDER BY coalesce(c.review_submitted_at, c.updated_at) ASC, c.id ASC LIMIT ${QUEUE_PAGE + 1}`);
+    const more = rows.length > QUEUE_PAGE;
+    const page = rows.slice(0, QUEUE_PAGE);
+    const [counted] = await db.execute<{ n: number }>(sql`
+        SELECT (SELECT count(*)::int FROM tasks c JOIN tasks m ON m.id = c.assignment_id
+                WHERE m.workspace_id = ${orgId} AND m.deleted_at IS NULL AND c.deleted_at IS NULL AND c.excused_at IS NULL AND c.review_status = 'pending')
+             + (SELECT count(*)::int FROM tasks t WHERE t.workspace_id = ${orgId} AND t.assignment_id IS NULL AND t.kind <> 'assignment' AND t.deleted_at IS NULL AND t.review_status = 'pending') AS n`);
+    // §4b.4: each hand-in's story for the thread, in one read for the page.
+    const story = page.length ? await db.execute<{ copy_id: string; kind: 'handed_in' | 'returned' | 'approved'; at: string; by: string | null; version: number | null; late: boolean | null; reason: string | null; fix_by: string | null; id: string }>(sql`
+        SELECT * FROM (
+            SELECT s.copy_id, 'handed_in' AS kind, s.submitted_at::text AS at, (SELECT coalesce(p.full_name, p.username) FROM profiles p WHERE p.id = s.submitted_by) AS by, s.version, s.late, NULL AS reason, NULL AS fix_by, 'v' || s.copy_id || s.version AS id
+            FROM assignment_submissions s WHERE s.copy_id IN (${sql.join(page.map((r) => sql`${r.copy_id}::uuid`), sql`, `)})
+            UNION ALL
+            SELECT e.task_id, CASE WHEN e.event_type = 'review_approved' THEN 'approved' ELSE 'returned' END, e.created_at::text, (SELECT coalesce(p.full_name, p.username) FROM profiles p WHERE p.id = e.actor_id), NULL, NULL,
+                   e.payload->>'reason', e.payload->>'fixBy', e.id::text
+            FROM task_activity_events e WHERE e.task_id IN (${sql.join(page.map((r) => sql`${r.copy_id}::uuid`), sql`, `)}) AND e.event_type IN ('review_approved', 'changes_requested')
+        ) h ORDER BY at ASC`) : [];
+    const DAY_LINE = new Intl.DateTimeFormat('en', { month: 'short', day: 'numeric' });
+    const storyOf = (copyId: string) => story.filter((e) => e.copy_id === copyId).map((e) => ({ id: e.id, at: new Date(e.at).toISOString(),
+        text: e.kind === 'handed_in' ? `Version ${e.version} handed in${e.by ? ` by ${e.by}` : ''}${e.late ? ' · late' : ''}`
+            : e.kind === 'returned' ? `Returned${e.by ? ` by ${e.by}` : ''}${e.reason ? `: ${e.reason}` : ''}${e.fix_by ? ` · fix by ${DAY_LINE.format(new Date(e.fix_by))}` : ''}`
+                : `Approved${e.by ? ` by ${e.by}` : ''}` }));
+    const lastAskOf = (copyId: string) => [...story].reverse().find((e) => e.copy_id === copyId && e.kind === 'returned')?.reason ?? null;
+    // Ordinary board tasks waiting come with the first page (at most 100), with what to look at: description and files (§4b.8).
+    const tasksWaiting = after ? [] : await db.execute<{ id: string; title: string; assignee: string | null; submitted_at: string | null; due_date: string | null; updated_at: string; comments: number; steps: ReviewQueueRow['steps'];
+        description: string | null; files: ReviewQueueRow['files'] | null; people: ReviewQueueRow['people'] | null; new_messages: number }>(sql`
+        SELECT t.id, t.title, (SELECT coalesce(p.full_name, p.username) FROM profiles p WHERE p.id = t.assignee_id) AS assignee, t.description,
+               (SELECT jsonb_agg(jsonb_build_object('nodeId', n.id, 'name', n.name, 'size', n.size) ORDER BY n.name) FROM task_node_links l JOIN workspace_nodes n ON n.id = l.node_id AND n.deleted_at IS NULL AND n.type = 'file' WHERE l.task_id = t.id) AS files,
+               (SELECT jsonb_agg(jsonb_build_object('id', p.id, 'name', coalesce(p.full_name, p.username, 'Member'), 'avatarUrl', p.avatar_url)) FROM profiles p WHERE p.id = t.assignee_id) AS people,
+               (SELECT count(*)::int FROM task_comments tc WHERE tc.task_id = t.id AND tc.deleted_at IS NULL AND tc.user_id IS DISTINCT FROM ${viewer.userId}
+                  AND tc.created_at > coalesce((SELECT r.last_read_at FROM task_read_receipts r WHERE r.task_id = t.id AND r.user_id = ${viewer.userId}), '-infinity'::timestamptz)) AS new_messages,
                t.review_submitted_at::text AS submitted_at, t.due_date::text AS due_date, t.updated_at::text AS updated_at,
                (SELECT count(*)::int FROM task_comments tc WHERE tc.task_id = t.id AND tc.deleted_at IS NULL) AS comments,
                (SELECT coalesce(jsonb_agg(jsonb_build_object('title', st.title, 'done', st.completed) ORDER BY st.position, st.created_at), '[]'::jsonb) FROM task_subtasks st WHERE st.task_id = t.id) AS steps
@@ -1197,15 +1250,17 @@ export async function readReviewQueueAction(orgId: string): Promise<{ success: t
     const taskRows: ReviewQueueRow[] = tasksWaiting.map((t) => ({
         kind: 'task', mine: true, copyId: t.id, masterId: 'tasks', title: t.title, who: t.assignee ?? 'Unassigned', submittedBy: null, submittedAt: t.submitted_at ?? t.updated_at,
         late: Boolean(t.due_date && t.submitted_at && new Date(t.submitted_at).getTime() > new Date(t.due_date).getTime()), href: assignmentHref('', t.id),
-        projectId: orgId, updatedAt: new Date(t.updated_at).toISOString(), version: null, link: null, text: null, note: null, files: [], versions: [],
+        projectId: orgId, updatedAt: new Date(t.updated_at).toISOString(), version: null, link: null, text: null, note: null, files: (t.files ?? []).map((f) => ({ ...f, size: f.size == null ? null : Number(f.size) })), versions: [],
         steps: t.steps, comments: t.comments, left: false, dueDate: t.due_date ? new Date(t.due_date).toISOString() : null,
+        people: t.people ?? [], newMessages: Number(t.new_messages ?? 0), events: [], lastAsk: null, description: t.description,
     }));
     // Review UX 3.7: this reviewer's own recent return reasons, newest first, as one-click chips.
     const reasons = await db.execute<{ reason: string }>(sql`
         SELECT reason FROM (SELECT DISTINCT ON (e.payload->>'reason') e.payload->>'reason' AS reason, e.created_at FROM task_activity_events e
             WHERE e.actor_id = ${viewer.userId} AND e.event_type IN ('changes_requested') AND coalesce(e.payload->>'reason', '') <> ''
             ORDER BY e.payload->>'reason', e.created_at DESC) r ORDER BY created_at DESC LIMIT 5`);
-    return { success: true, rows: [...rows.map((r): ReviewQueueRow => ({
+    const last = page.at(-1);
+    return { success: true, nextCursor: more && last ? encodeQueueCursor(last.sort_at, last.copy_id) : null, rows: [...page.map((r): ReviewQueueRow => ({
         kind: 'copy', mine: r.mine, copyId: r.copy_id, masterId: r.master_id, title: r.title,
         who: r.team_name ?? r.project ?? r.assignee ?? 'Member', submittedBy: r.team_name ? r.submitted_by : null,
         submittedAt: r.submitted_at, late: Boolean(r.due_date && new Date(r.submitted_at).getTime() > new Date(r.due_date).getTime() + (r.late_after ?? LATE_AFTER_DEFAULT_MINUTES) * 60_000),
@@ -1214,7 +1269,8 @@ export async function readReviewQueueAction(orgId: string): Promise<{ success: t
         projectId: r.workspace_id, updatedAt: new Date(r.updated_at).toISOString(), version: r.submission?.version ?? null, link: r.submission?.link ?? null, text: r.submission?.text ?? null,
         note: r.submission?.note ?? null, files: r.files ?? [], versions: (r.versions ?? []).map((v) => ({ ...v, at: new Date(v.at).toISOString() })), steps: r.steps, comments: r.comments, left: r.left_org,
         dueDate: r.due_date ? new Date(r.due_date).toISOString() : null,
-    })), ...taskRows], total: (rows[0]?.total ?? 0) + taskRows.length, recentReasons: reasons.map((r) => r.reason) };
+        people: r.people ?? [], newMessages: Number(r.new_messages ?? 0), events: storyOf(r.copy_id), lastAsk: (r.submission?.version ?? 1) > 1 ? lastAskOf(r.copy_id) : null,
+    })), ...taskRows], total: Number(counted?.n ?? 0), recentReasons: reasons.map((r) => r.reason) };
 }
 
 export type OrgTabBadges = { tasks: number; updates: boolean; members: number };

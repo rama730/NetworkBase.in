@@ -72,6 +72,13 @@ interface CommentsTabProps {
   onLoadOlderComments: () => Promise<void>;
   onSendTyping: (params: { isTyping: boolean; parentCommentId?: string | null }) => Promise<void>;
   initialCommentId?: string | null;
+  /** Review queue §3: the review column's chat layout — heading first, the thread scrolling, the box at the bottom. */
+  chat?: boolean;
+  placeholder?: string;
+  /** Review queue §4b.4: quiet lines in the thread (handed in, returned, approved), placed by time. */
+  events?: Array<{ id: string; at: string; text: string }>;
+  /** A message to put back in the box (a note that didn't send); `key` changes each time. */
+  restoreDraft?: { text: string; key: number } | null;
 }
 
 function displayName(comment: Pick<TaskDiscussionComment, "author">) {
@@ -403,6 +410,10 @@ export default function CommentsTab({
   onLoadOlderComments,
   onSendTyping,
   initialCommentId = null,
+  chat = false,
+  placeholder,
+  events = [],
+  restoreDraft = null,
 }: CommentsTabProps) {
   // Comments hidden or removed by moderation, above the discussion (trust and safety §7.1).
   const moderated = useModeratedItems(currentUserId && taskId ? { workspaceId: projectId } : null);
@@ -567,6 +578,17 @@ export default function CommentsTab({
       return sortOrder === "asc" ? timeA - timeB : timeB - timeA;
     });
   }, [visibleComments, sortOrder]);
+  // Comments and the quiet decision lines, in one order.
+  const timelineItems = useMemo(() => {
+    const items: Array<{ kind: "comment"; at: number; comment: TaskDiscussionComment } | { kind: "event"; at: number; event: { id: string; at: string; text: string } }> = [
+      ...sortedVisibleComments.map((comment) => ({ kind: "comment" as const, at: new Date(comment.createdAt).getTime(), comment })),
+      ...events.map((event) => ({ kind: "event" as const, at: new Date(event.at).getTime(), event })),
+    ];
+    return items.sort((a, b) => (sortOrder === "asc" ? a.at - b.at : b.at - a.at));
+  }, [events, sortedVisibleComments, sortOrder]);
+  useEffect(() => {
+    if (restoreDraft?.text) rootComposerRef.current?.setText(restoreDraft.text);
+  }, [restoreDraft?.key, restoreDraft?.text]);
 
   const topLevelTyping = useMemo(() => typingLabel(topLevelTypingUsers), [topLevelTypingUsers]);
 
@@ -715,7 +737,7 @@ export default function CommentsTab({
   };
 
   return (
-    <div className="space-y-4 p-6 max-md:p-4">
+    <div className={chat ? "flex h-full min-h-0 flex-col gap-3" : "space-y-4 p-6 max-md:p-4"}>
       {focusedThread ? (
         <button
           type="button"
@@ -743,7 +765,7 @@ export default function CommentsTab({
       ) : null}
 
       {!focusedThread && canEdit ? (
-        <div className="space-y-2 pb-1">
+        <div className={cn("space-y-2 pb-1", chat && "order-last shrink-0 pb-0")}>
           {topLevelTyping ? (
             <p className="text-xs text-muted-foreground font-mono">
               {topLevelTyping}
@@ -751,7 +773,7 @@ export default function CommentsTab({
           ) : null}
           <div className="group rounded-[6px] border border-border bg-card/70 shadow-2xs transition-all duration-200 focus-within:border-foreground/40 focus-within:bg-card focus-within:shadow-xs">
             {/* Identity & Format Header */}
-            <div className="flex items-center justify-between border-b border-border/40 bg-muted/20 px-3 py-2 rounded-t-[5px]">
+            <div className={cn("flex items-center justify-between border-b border-border/40 bg-muted/20 px-3 py-2 rounded-t-[5px]", chat && "hidden")}>
               <div className="flex items-center gap-2">
                 <UserAvatar
                   identity={{
@@ -778,7 +800,7 @@ export default function CommentsTab({
               <MentionComposer
                 ref={rootComposerRef}
                 projectId={projectId}
-                placeholder="Write a comment, use @ to mention teammates…"
+                placeholder={placeholder ?? "Write a comment, use @ to mention teammates…"}
                 disabled={submittingRoot}
                 resetKey={rootResetKey}
                 editorClassName="min-h-[76px] border-0 bg-transparent px-2.5 py-2 text-[13px] leading-relaxed text-foreground outline-none shadow-none focus:border-0 focus:ring-0 placeholder:text-muted-foreground/70"
@@ -801,7 +823,7 @@ export default function CommentsTab({
                   <span className="font-semibold text-primary">@</span>
                   <span>Mention</span>
                 </button>
-                <span className="hidden sm:inline-flex items-center gap-1 font-mono text-[11px] text-muted-foreground">
+                <span className={cn("hidden items-center gap-1 font-mono text-[11px] text-muted-foreground", !chat && "sm:inline-flex")}>
                   <span>Press</span>
                   <kbd className="rounded-[3px] border border-border bg-background px-1.5 py-0.5 text-[10px] max-md:text-[11px] font-medium text-foreground">
                     ⌘↵
@@ -827,13 +849,14 @@ export default function CommentsTab({
                   disabled={!draft.trim() || submittingRoot}
                   className="nb-touch-target h-[28px] gap-1.5 rounded-[5px] px-3.5 text-[12px] font-medium shadow-xs disabled:opacity-40"
                   aria-label="Post comment"
+                  title="⌘↵"
                 >
                   {submittingRoot ? (
                     <Loader2 className="size-3.5 animate-spin" />
                   ) : (
                     <Send className="size-3.5" />
                   )}
-                  <span>Comment</span>
+                  <span>{chat ? "Send" : "Comment"}</span>
                 </Button>
               </div>
             </div>
@@ -842,7 +865,7 @@ export default function CommentsTab({
       ) : null}
 
       {!focusedThread ? (
-        <div className="flex items-center justify-between border-b border-border/60 pb-3">
+        <div className={cn("flex items-center justify-between border-b border-border/60 pb-3", chat && "order-first h-6 shrink-0 border-0 pb-0")}>
           <div className="flex items-center gap-2">
             <h3 className="font-mono text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               Discussion
@@ -883,12 +906,13 @@ export default function CommentsTab({
         </div>
       ) : null}
 
+      <div className={chat ? "min-h-0 flex-1 overflow-y-auto pr-1" : "contents"}>
       {isLoading ? (
         <div className="space-y-3 py-2">
           <div aria-hidden="true" className="nb-skeleton h-12 rounded-md" />
           <div aria-hidden="true" className="nb-skeleton h-12 rounded-md" />
         </div>
-      ) : sortedVisibleComments.length === 0 && !moderatedComments.length ? (
+      ) : timelineItems.length === 0 && !moderatedComments.length ? (
         <div className="nb-empty-state nb-grid-ground my-4 py-12 text-center" role="status">
           <div className="nb-empty-state-icon-box">
             <MessageSquare className="nb-empty-state-icon" />
@@ -902,7 +926,16 @@ export default function CommentsTab({
         </div>
       ) : (
         <div className="space-y-4">
-          {sortedVisibleComments.map((comment) => {
+          {timelineItems.map((item) => {
+            if (item.kind === "event") {
+              return (
+                <p key={item.event.id} role="note" className="flex items-center gap-2 font-mono text-[11px] text-muted-foreground">
+                  <span aria-hidden="true" className="h-px w-3 shrink-0 bg-border" />
+                  <span className="min-w-0">{item.event.text} · {new Intl.DateTimeFormat("en", { month: "short", day: "numeric" }).format(new Date(item.event.at))}</span>
+                </p>
+              );
+            }
+            const comment = item.comment;
             const replies = comment.replies || [];
             const isExpanded = expandedCommentIds.has(comment.id);
             const needsCollapse = replies.length > 2 && !isExpanded;
@@ -1145,6 +1178,7 @@ export default function CommentsTab({
           })}
         </div>
       )}
+      </div>
     </div>
   );
 }

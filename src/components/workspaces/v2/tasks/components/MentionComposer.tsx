@@ -150,6 +150,8 @@ function findAncestorEditor(node: Node | null, editor: HTMLElement): boolean {
 export interface MentionComposerHandle {
     focus: () => void;
     triggerMention: () => void;
+    /** Put text back in the box (a note that didn't send). */
+    setText: (text: string) => void;
 }
 
 function detectMentionState(
@@ -562,6 +564,12 @@ export const MentionComposer = React.forwardRef<MentionComposerHandle, MentionCo
         () => ({
             focus: () => {
                 editorRef.current?.focus();
+            },
+            setText: (text: string) => {
+                const editor = editorRef.current;
+                if (!editor) return;
+                editor.textContent = text;
+                handleInput();
             },
             triggerMention: () => {
                 if (blurTimeoutRef.current !== null) {

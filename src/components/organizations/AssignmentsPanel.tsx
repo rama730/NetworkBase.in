@@ -58,7 +58,7 @@ import { EditAssignmentDialog, ExcuseDialog, ExtendDialog, GiveToDialog, ReturnD
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { AssignmentRoster } from '@/components/organizations/AssignmentRoster'
-import { deferDecision, LinkCard, ReviewDecision, ReviewDiscussion, reviewLabel, ReviewSteps, ReviewWork } from '@/components/organizations/ReviewQueueParts'
+import { useReloadOnNotice } from '@/components/organizations/ReviewQueueParts'
 import { ReasonDialog } from '@/components/organizations/ReasonDialog'
 import { ClassQuestions } from '@/components/organizations/ClassQuestions'
 import { saveBlob, toCsvBlob } from '@/lib/download'
@@ -149,24 +149,6 @@ function SubmitDialog({ copyId, submissionType, title, open, onOpenChange, onDon
             </DialogContent>
         </Dialog>
     )
-}
-
-/**
- * Live roster and queue (report §32.4, decision 76): a new submission reaches admins as a notice, so a notice on their
- * own topic reloads the list, combined over 2 seconds.
- */
-function useReloadOnNotice(reload: () => void) {
-    const viewerId = useAuth().user?.id
-    const latest = useRef(reload)
-    latest.current = reload
-    useEffect(() => {
-        if (!viewerId) return
-        let timer: ReturnType<typeof setTimeout> | null = null
-        const live = subscribeBroadcast(userTopic(viewerId), (event) => {
-            if (event === 'notification.changed' && !timer) timer = setTimeout(() => { timer = null; latest.current() }, 2_000)
-        })
-        return () => { live.unsubscribe(); if (timer) clearTimeout(timer) }
-    }, [viewerId])
 }
 
 type TeamBox = { name: string; people: OrgRosterPerson[]; leadId: string | null }
@@ -722,161 +704,8 @@ function orgTime(iso: string | null, timeZone?: string | null) {
     try { return `${new Intl.DateTimeFormat('en', { timeZone, weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZoneName: 'short' }).format(new Date(iso))} (organization time)` } catch { return undefined }
 }
 
-/** The marking inbox (report §16.4–16.5): oldest first; Approve or Return, then Next. */
-/**
- * The review queue (report §23.2): one submission at a time, oldest first, with what was handed in. Approve opens the
- * next; Return asks for a reason and Fix by right here. Keys A, R, J, K and Esc, never while typing.
- */
-export function ReviewQueue({ orgId, onChanged, onClose, tabs }: { orgId: string; onChanged: () => void; onClose?: () => void
-    /** Board/review report §2: the board's tabs, drawn at the end of the queue's own line, with the waiting count. */
-    tabs?: (waiting: number) => React.ReactNode }) {
-    const [rows, setRows] = useState<ReviewQueueRow[] | null>(null)
-    const [total, setTotal] = useState(0)
-    const [reasons, setReasons] = useState<string[]>([])
-    const [index, setIndex] = useState(0)
-    // Mockup task 2: "Review N" on an assignment's panel opens the queue on that assignment.
-    const [assignment, setAssignment] = useState(() => (typeof window === 'undefined' ? 'all' : new URLSearchParams(window.location.search).get('assignment') ?? 'all'))
-    const [lateOnly, setLateOnly] = useState(false)
-    // Reviewers (report §33.5): Mine is the work you review, plus anything nobody was picked for.
-    const [mineOnly, setMineOnly] = useState(false)
-    // Review UX 3.8: search by name, sort oldest, newest or late first.
-    const [query, setQuery] = useState('')
-    const [sort, setSort] = useState<'oldest' | 'newest' | 'late'>('oldest')
-    // Review UX 3.9: decisions waiting out their 10 seconds, hidden from the list until sent or taken back.
-    const [held, setHeld] = useState<Set<string>>(new Set())
-    const [error, setError] = useState<string | null>(null)
-    const load = useCallback(() => void readReviewQueueAction(orgId).then((r) => { setRows(r.success ? r.rows : []); setTotal(r.success ? r.total : 0); setReasons(r.success ? r.recentReasons : []); if (!r.success) setError(r.error) }), [orgId])
-    useEffect(() => { load() }, [load])
-    useReloadOnNotice(load)
-    useEffect(() => { if (rows && assignment !== 'all' && !rows.some((r) => r.masterId === assignment)) setAssignment('all') }, [rows, assignment])
-    const shown = useMemo(() => queueOrder((rows ?? []).filter((r) => !held.has(r.copyId) && (assignment === 'all' || r.masterId === assignment) && (!lateOnly || r.late) && (!mineOnly || r.mine)), sort, query),
-        [rows, held, assignment, lateOnly, mineOnly, sort, query])
-    const current = shown[Math.min(index, Math.max(0, shown.length - 1))] ?? null
-    const step = (by: number) => setIndex((i) => (shown.length ? (i + by + shown.length) % shown.length : 0))
-    const hold = (id: string, on: boolean) => setHeld((cur) => { const next = new Set(cur); if (on) next.add(id); else next.delete(id); return next })
-    const decide = (row: ReviewQueueRow, decision: 'approve' | 'return', reason?: string, fixBy?: string | null, note?: string) => {
-        hold(row.copyId, true)
-        setError(null)
-        // An ordinary board task uses the task's own review (problem 33); a copy uses the assignment's.
-        const send = async (): Promise<{ success: boolean; error?: string }> => {
-            const r = row.kind === 'task'
-                ? await (decision === 'approve' ? approveTaskReviewAction(row.copyId, row.projectId, row.updatedAt) : requestTaskChangesAction(row.copyId, row.projectId, reason ?? '', row.updatedAt))
-                    .then((x) => (x.success ? { success: true } : { success: false, error: ('error' in x && x.error) || 'Couldn’t save that. Try again.' }))
-                : await reviewAssignmentCopyAction(row.copyId, decision, reason, { projectId: row.projectId, updatedAt: row.updatedAt }, fixBy ? { fixBy } : {})
-            if (r.success && decision === 'approve' && note) await createTaskCommentAction(row.copyId, row.projectId, note).catch(() => undefined)
-            return r
-        }
-        deferDecision(decision === 'approve' ? `Approved ${row.who}’s ${row.title}.` : `Returned ${row.title} to ${row.who}.`, send, () => hold(row.copyId, false), (ok, message = 'Couldn’t save that. Try again.') => {
-            if (ok) {
-                // Live loop 31: the count follows the queue.
-                setRows((cur) => (cur ?? []).filter((x) => x.copyId !== row.copyId))
-                setTotal((t) => Math.max(0, t - 1))
-                hold(row.copyId, false)
-                onChanged()
-                return
-            }
-            // "Already reviewed by Priya" leaves; a new version reloads to show it (23.2 awkward cases).
-            setError(message.startsWith('This changed') ? `${row.who} sent a new version. Showing it now.` : message)
-            if (message.startsWith('Already reviewed')) { setRows((cur) => (cur ?? []).filter((x) => x.copyId !== row.copyId)); setTotal((t) => Math.max(0, t - 1)) }
-            else load()
-            hold(row.copyId, false)
-        })
-    }
-    const keys = useRef({ step, onClose })
-    keys.current = { step, onClose }
-    useEffect(() => {
-        const onKey = (event: KeyboardEvent) => {
-            const target = event.target as HTMLElement | null
-            if (event.metaKey || event.ctrlKey || event.altKey || (target && (target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName)))) return
-            const k = event.key.toLowerCase()
-            if (k === 'j') keys.current.step(1)
-            else if (k === 'k') keys.current.step(-1)
-            // Board/review report §2: Esc is the way back to the board — unless it closed a menu or dialog first.
-            else if (k === 'escape' && !target?.closest?.('[role="menu"],[role="dialog"],[role="alertdialog"],[role="listbox"]')) keys.current.onClose?.()
-        }
-        window.addEventListener('keydown', onKey)
-        return () => window.removeEventListener('keydown', onKey)
-    }, [])
-    if (!rows) return <div className="space-y-3"><div className="flex flex-wrap items-center justify-end gap-2 border-b border-border pb-3">{tabs?.(0)}</div><p className="text-sm text-muted-foreground">Loading submissions…</p></div>
-    const titles = [...new Map(rows.map((r) => [r.masterId, r.kind === 'task' ? 'Other tasks' : r.title])).entries()]
-    const waitingCount = rows.length - held.size
-    return (
-        <section aria-labelledby="review-queue-heading" className="space-y-3 text-sm">
-            {/* Board/review report §2: one line above the work — filters left, the board's tabs right; In review names the place. */}
-            <h2 id="review-queue-heading" className="sr-only">To review</h2>
-            <div className="flex flex-wrap items-center gap-2 border-b border-border pb-3">
-                <Input value={query} onChange={(e) => { setQuery(e.target.value); setIndex(0) }} placeholder="Search names" aria-label="Search names" className="h-8 w-40 max-md:w-full" />
-                <select aria-label="Assignment" value={assignment} onChange={(e) => { setAssignment(e.target.value); setIndex(0) }} className={`${select} h-8 text-xs`}>
-                    <option value="all">All assignments</option>
-                    {titles.map(([id, title]) => <option key={id} value={id}>{title}</option>)}
-                </select>
-                <select aria-label="Sort" value={sort} onChange={(e) => { setSort(e.target.value as typeof sort); setIndex(0) }} className={`${select} h-8 text-xs`}>
-                    <option value="oldest">Oldest first</option>
-                    <option value="newest">Newest first</option>
-                    <option value="late">Late first</option>
-                </select>
-                <label className="flex items-center gap-1.5 text-xs"><input type="checkbox" checked={lateOnly} onChange={(e) => { setLateOnly(e.target.checked); setIndex(0) }} /> Late only</label>
-                {rows.some((r) => !r.mine) ? (
-                    <span className="flex gap-1 text-xs" role="group" aria-label="Whose reviews">
-                        <button type="button" aria-pressed={mineOnly} className={cn('rounded-[3px] border px-1.5', mineOnly ? 'border-foreground font-medium' : 'border-border')} onClick={() => { setMineOnly(true); setIndex(0) }}>Mine</button>
-                        <button type="button" aria-pressed={!mineOnly} className={cn('rounded-[3px] border px-1.5', !mineOnly ? 'border-foreground font-medium' : 'border-border')} onClick={() => { setMineOnly(false); setIndex(0) }}>All</button>
-                    </span>
-                ) : null}
-                <span className="ml-auto max-md:basis-full" />
-                {tabs ? <span className="max-md:order-first max-md:w-full max-md:overflow-x-auto">{tabs(waitingCount)}</span> : (
-                    <span className="text-xs text-muted-foreground">{waitingCount}{total > rows.length ? ` of ${total}` : ''} waiting</span>
-                )}
-            </div>
-            {!current ? (
-                <p>{query || lateOnly ? 'Nobody matches.' : 'All caught up.'}</p>
-            ) : (
-                // Mockup task 2: who is waiting, the work itself, then everything needed to decide.
-                // The three columns fill the screen under the line: lists and the conversation scroll inside their own column.
-                <div className="grid gap-4 md:h-[calc(100dvh-12rem)] md:min-h-[520px] md:grid-cols-[minmax(0,220px)_minmax(0,1fr)_minmax(0,300px)]">
-                    <section aria-label="Waiting" className="flex min-h-0 min-w-0 flex-col gap-1">
-                        <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                            <span className="flex-1">{shown.length ? `${Math.min(index, shown.length - 1) + 1} of ${shown.length}` : ''}{total > rows.length ? ` · ${rows.length} of ${total} loaded` : ''}</span>
-                            <Button type="button" size="sm" variant="ghost" disabled={shown.length < 2} onClick={() => step(-1)} aria-label="Previous">‹</Button>
-                            <Button type="button" size="sm" variant="ghost" disabled={shown.length < 2} onClick={() => step(1)}>Next</Button>
-                        </div>
-                        <ul className="min-h-0 flex-1 space-y-1 overflow-y-auto max-md:max-h-56">
-                            {shown.map((r, i) => (
-                                <li key={r.copyId}>
-                                    <button type="button" aria-current={r.copyId === current.copyId ? 'true' : undefined} onClick={() => setIndex(i)}
-                                        className={cn('w-full rounded-[5px] px-2 py-1.5 text-left', r.copyId === current.copyId ? 'bg-muted' : 'hover:bg-muted/60')}>
-                                        <span className="block truncate text-[13px] font-medium">{r.who}</span>
-                                        <span className="block truncate font-mono text-[11px] text-muted-foreground">{r.title} · {formatDistanceToNow(new Date(r.submittedAt), { addSuffix: true })}{r.late ? ' · Late' : ''}</span>
-                                    </button>
-                                </li>
-                            ))}
-                        </ul>
-                    </section>
-                    <section aria-label="Submission" className="flex min-h-0 min-w-0 flex-col gap-2">
-                        <p><span className="font-medium">{current.who}</span> · {current.title} · {formatDistanceToNow(new Date(current.submittedAt), { addSuffix: true })}{current.late ? ' · Late' : ''}{current.version ? ` · Version ${current.version}` : ''}{current.submittedBy ? ` · handed in by ${current.submittedBy}` : ''}{current.left ? ' · Left the organization' : ''}</p>
-                        {current.link ? <LinkCard link={current.link} /> : null}
-                        {/* Review UX 3.11: text keeps its line breaks and spacing. */}
-                        {current.text ? <p className="whitespace-pre-wrap rounded-md bg-muted/40 px-3 py-2">{current.text}</p> : null}
-                        <ReviewWork key={current.copyId} row={current} />
-                        {!current.link && !current.text && !current.files.length && !current.versions.length ? <p className="text-muted-foreground">Marked as done, nothing attached.</p> : null}
-                    </section>
-                    {/* Review UX 3.1: note, steps, conversation, then the decision at the bottom. */}
-                    <section aria-label="Details" className="flex min-h-0 min-w-0 flex-col gap-3">
-                        {current.note ? <div><h3 className={reviewLabel}>Their note</h3><p className="mt-1">Note: {current.note}</p></div> : null}
-                        <ReviewSteps row={current} />
-                        {/* Board/review report §3: the private conversation in place — the copy's own comments. */}
-                        <ReviewDiscussion key={current.copyId} row={current} />
-                        <div className="mt-auto">
-                            <ReviewDecision key={current.copyId} keys who={current.who} kind={current.kind} dueDate={current.dueDate} recentReasons={reasons} pending={false}
-                                onApprove={(note) => decide(current, 'approve', undefined, null, note)} onReturn={(reason, fixBy) => decide(current, 'return', reason, fixBy)}
-                                extra={<a href={current.href} className="text-[13px] text-primary underline-offset-4 hover:underline">Open</a>} />
-                        </div>
-                    </section>
-                </div>
-            )}
-            {error ? <p role="alert" className="text-destructive">{error}</p> : null}
-        </section>
-    )
-}
+// Review queue redesign (2026-11-04): the queue lives in its own file.
+export { ReviewQueue } from '@/components/organizations/ReviewQueue'
 
 /**
  * One board (report §16.1, decisions 6 and 10): an admin manages an assignment from its own card's panel, with the

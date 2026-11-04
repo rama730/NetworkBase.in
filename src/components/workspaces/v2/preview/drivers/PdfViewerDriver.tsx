@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { createPortal } from "react-dom";
 import {
   ExternalLink,
   Download,
@@ -44,12 +45,15 @@ interface PdfViewerDriverProps {
   node: WorkspaceNode;
   fileUrl: string | null;
   projectId: string;
+  /** Review queue §2: the host's own file bar. Page and zoom go there, and the floating toolbar isn't drawn. */
+  controlsTarget?: HTMLElement | null;
 }
 
 export function PdfViewerDriver({
   node,
   fileUrl,
   projectId,
+  controlsTarget = null,
 }: PdfViewerDriverProps): React.JSX.Element {
   const [viewMode, setViewMode] = React.useState<"native" | "canvas">("canvas");
   const [loadError, setLoadError] = React.useState(false);
@@ -333,8 +337,19 @@ export function PdfViewerDriver({
 
   return (
     <div className="relative flex h-full w-full flex-col bg-muted/10 overflow-hidden">
+      {/* Review queue §2: in a host's file bar, only page and zoom — once, in line, never over the page. */}
+      {controlsTarget && viewMode === "canvas" && numPages > 0 ? createPortal(
+        <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap font-mono text-[11px] text-muted-foreground">
+          <button type="button" onClick={handlePrevPage} disabled={pageNumber <= 1} aria-label="Previous page" className="inline-flex size-6 items-center justify-center rounded-[4px] hover:bg-muted disabled:opacity-40"><ChevronLeft className="size-3.5" /></button>
+          <span aria-live="polite">{pageNumber} / {numPages}</span>
+          <button type="button" onClick={handleNextPage} disabled={pageNumber >= numPages} aria-label="Next page" className="inline-flex size-6 items-center justify-center rounded-[4px] hover:bg-muted disabled:opacity-40"><ChevronRight className="size-3.5" /></button>
+          <span aria-hidden="true" className="mx-1.5 h-3.5 w-px bg-border" />
+          <button type="button" onClick={handleZoomOut} disabled={zoom <= 0.6} aria-label="Zoom out" className="inline-flex size-6 items-center justify-center rounded-[4px] hover:bg-muted disabled:opacity-40"><ZoomOut className="size-3.5" /></button>
+          <button type="button" onClick={handleResetZoom} aria-label="Reset zoom" className="px-0.5 hover:text-foreground">{Math.round(zoom * 100)}%</button>
+          <button type="button" onClick={handleZoomIn} disabled={zoom >= 2.4} aria-label="Zoom in" className="inline-flex size-6 items-center justify-center rounded-[4px] hover:bg-muted disabled:opacity-40"><ZoomIn className="size-3.5" /></button>
+        </span>, controlsTarget) : null}
       {/* Floating Action Pill Toolbar */}
-      <div className="absolute right-4 top-4 z-20 flex items-center gap-1.5 rounded-lg border border-border/80 bg-background/90 px-2 py-1 shadow-md backdrop-blur-md">
+      <div hidden={Boolean(controlsTarget)} className="absolute right-4 top-4 z-20 flex items-center gap-1.5 rounded-lg border border-border/80 bg-background/90 px-2 py-1 shadow-md backdrop-blur-md">
         {/* Canvas Mode Controls */}
         {viewMode === "canvas" && numPages > 0 && (
           <>

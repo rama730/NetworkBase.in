@@ -111,7 +111,7 @@ test("live loop 30–33: the review queue labels its Return box, drops a stale c
   assert.match(parts, /aria-label=\{`What should \$\{who\} change\?`\}/);
   assert.match(parts, /aria-label="Fix by"/);
   assert.match(parts, /setFixBy\(isoToZonedInput\(reviewFixBy\(dueDate\)\.toISOString\(\), null\)\)/);
-  const panel = source("src/components/organizations/AssignmentsPanel.tsx");
+  const panel = source("src/components/organizations/ReviewQueue.tsx"); // the queue moved to its own file (review queue report)
   assert.match(panel, /setTotal\(\(t\) => Math\.max\(0, t - 1\)\)/);
   assert.match(panel, /deferDecision\(decision === 'approve' \? `Approved \$\{row\.who\}’s \$\{row\.title\}\.` : `Returned \$\{row\.title\} to \$\{row\.who\}\.`/);
 });
