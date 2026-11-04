@@ -246,8 +246,9 @@ export function ReviewQueue({ orgId, onChanged, onClose, tabs }: { orgId: string
             {error ? <p role="alert" className="rounded-[5px] border border-destructive/30 bg-destructive/10 px-3 py-2 text-[13px] text-destructive">{error}</p> : null}
             {!current ? empty : (
                 // §4: 240 · flexible · 340 (300 below 1280); below 1024 the list becomes a picker over the work; phones stack.
-                <div className="grid gap-4 lg:h-[calc(100dvh-12rem)] lg:min-h-[520px] lg:grid-cols-[240px_minmax(0,1fr)_300px] xl:grid-cols-[240px_minmax(0,1fr)_340px] max-lg:md:grid-cols-[minmax(0,1fr)_300px]">
-                    <section aria-label="Waiting" className="flex min-h-0 min-w-0 flex-col gap-3 rounded-[8px] border border-border bg-card p-3 max-lg:hidden">
+                // Submissions/review-card report §3: one card, the three parts split by hairlines — no gaps, no inner cards.
+                <div data-testid="review-card" className="grid overflow-hidden rounded-[8px] border border-border bg-card lg:h-[calc(100dvh-12rem)] lg:min-h-[520px] lg:grid-cols-[240px_minmax(0,1fr)_300px] xl:grid-cols-[240px_minmax(0,1fr)_340px] max-lg:md:grid-cols-[minmax(0,1fr)_300px]">
+                    <section aria-label="Waiting" className="flex min-h-0 min-w-0 flex-col gap-3 border-r border-border p-3 max-lg:hidden">
                         <div className="flex h-6 items-center justify-between">
                             <h3 className={label}>Waiting · {total}</h3>
                             <span className="flex items-center gap-1">
@@ -261,7 +262,8 @@ export function ReviewQueue({ orgId, onChanged, onClose, tabs }: { orgId: string
                             {shown.map((r) => (
                                 <li key={r.copyId}>
                                     <button type="button" aria-current={r.copyId === current.copyId ? 'true' : undefined} onClick={() => { announce.current = true; setCurrentId(r.copyId) }}
-                                        className={cn('flex w-full items-center gap-2.5 rounded-[6px] px-2.5 py-2 text-left', r.copyId === current.copyId ? 'bg-muted shadow-[inset_3px_0_0_var(--primary)]' : 'hover:bg-muted/60')}>
+                                        // The main navigation's selected item: the same background, corner and text — no bar.
+                                        className={cn('flex w-full items-center gap-2.5 rounded-[5px] px-2.5 py-2 text-left transition-colors', r.copyId === current.copyId ? 'bg-[var(--sidebar-accent)] text-foreground' : 'text-muted-foreground hover:bg-muted hover:text-foreground')}>
                                         <Avatar name={r.who} url={r.people?.length === 1 ? r.people[0]!.avatarUrl : null} />
                                         <span className="min-w-0 flex-1">
                                             <span className="flex items-center gap-2"><span className="min-w-0 flex-1 truncate text-[13px] font-medium">{r.who}</span>
@@ -280,7 +282,7 @@ export function ReviewQueue({ orgId, onChanged, onClose, tabs }: { orgId: string
                         <p className="border-t border-border pt-2.5 font-mono text-[11px] text-muted-foreground">J / K to move · A approve · R return · <button type="button" className="underline-offset-2 hover:underline" onClick={() => setKeysOpen(true)}>? keys</button></p>
                     </section>
 
-                    <section aria-label="Submission" className="flex min-h-0 min-w-0 flex-col gap-3.5 rounded-[8px] border border-border bg-card p-3">
+                    <section aria-label="Submission" className="flex min-h-0 min-w-0 flex-col gap-3.5 p-3 md:border-r md:border-border max-md:border-b max-md:border-border">
                         {/* Below 1024px the waiting list is a picker over the work. */}
                         <select aria-label="Waiting" value={current.copyId} onChange={(e) => { announce.current = true; setCurrentId(e.target.value) }} className={cn(control, 'w-full lg:hidden')}>
                             {shown.map((r, i) => <option key={r.copyId} value={r.copyId}>{r.who} · {i + 1} of {shown.length}{r.late ? ' · Late' : ''}</option>)}
@@ -331,7 +333,7 @@ export function ReviewQueue({ orgId, onChanged, onClose, tabs }: { orgId: string
                         ) : null}
                     </section>
 
-                    <div className="flex min-h-0 min-w-0 flex-col rounded-[8px] border border-border bg-card p-3">
+                    <div className="flex min-h-0 min-w-0 flex-col p-3">
                         <ReviewDiscussion key={current.copyId} row={current} restoreDraft={restore?.copyId === current.copyId ? restore : null} />
                     </div>
                 </div>

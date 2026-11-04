@@ -42,7 +42,7 @@ test.beforeAll(async () => {
             groupCopy:i?null:{title:'Milestone 2 report',state:'submitted'},lastActivityAt:new Date(Date.now()-i*864e5).toISOString(),reasons:i===1?['2 overdue','quiet 7 days']:[],mine:i===0,
             stage:['Build','Idea','Build'][i],sprint:i===0?{name:'Parser week',inOrgSprint:true}:null,newInOrg:i===2,openSeats:i,needsLead:false,archivedBy:null,github:null}))});
             export const remindLeadsAction=async()=>({success:true,reminded:2});`,
-        '@/app/actions/org-files': `export const readOrgSubmissionsAction=async()=>({success:true});export const readChildFinalFilesAction=async()=>({success:true});export const browseOrgFilesAction=async()=>({success:true,org:{id:'org',title:'CSE-3A Software Engineering',slug:'cse-3a'},nodes:[
+        '@/app/actions/org-files': `export const readOrgSubmissionsAction=async()=>({success:true});export const readChildFinalFilesAction=async()=>({success:true});export const readHandInFilesAction=async()=>({success:false});export const browseOrgFilesAction=async()=>({success:true,org:{id:'org',title:'CSE-3A Software Engineering',slug:'cse-3a'},nodes:[
             {id:'f1',name:'Week 1 — Requirements',type:'folder',path:'/w1',currentVersion:1,size:null,access:null},
             {id:'f2',name:'Distributed-systems-capstone-rubric-final-v3.pdf',type:'file',path:'/r.pdf',currentVersion:3,size:1,access:'public'}]});
             export const listOrgCopiesAction=async()=>({success:true,orgTitle:'CSE-3A',copies:[{nodeId:'n',name:'rubric.pdf',sourceNodeId:'f2',copiedVersion:1,sourceVersion:3}]});

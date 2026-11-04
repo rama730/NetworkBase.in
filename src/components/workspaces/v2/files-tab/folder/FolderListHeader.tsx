@@ -24,6 +24,8 @@ export interface FolderListHeaderProps {
   onSort?: (column: "name" | "updated" | "size") => void;
   updatedLabel?: string;
   byLabel?: string;
+  /** Files report §1: Submissions counts files in this column. */
+  sizeLabel?: string;
   hasCheckbox?: boolean;
   allSelected?: boolean;
   indeterminate?: boolean;
@@ -41,6 +43,7 @@ export function FolderListHeader({
   onSort,
   updatedLabel = "Last updated",
   byLabel = "Updated by",
+  sizeLabel = "Size",
   hasCheckbox = false,
   allSelected = false,
   indeterminate = false,
@@ -123,10 +126,10 @@ export function FolderListHeader({
             onClick={() => onSort("size")}
             className="inline-flex items-center gap-1 uppercase tracking-[0.09em] hover:text-foreground focus:outline-none focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#D14E24]"
           >
-            Size {getSortArrow("size")}
+            {sizeLabel} {getSortArrow("size")}
           </button>
         ) : (
-          "Size"
+          sizeLabel
         )}
       </div>
       <div role="columnheader" data-column="by" className="min-w-0 uppercase tracking-[0.09em]">

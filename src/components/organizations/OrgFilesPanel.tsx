@@ -7,28 +7,21 @@ import { ChevronRight, FileText, Folder } from 'lucide-react'
 import {
     browseOrgFilesAction,
     listOrgCopiesAction,
-    readChildFinalFilesAction,
-    readOrgSprintMaterialsAction,
     readOrgStorageAction,
-    readOrgSubmissionsAction,
     recordOrgCopyAction,
     setFolderAccessAction,
     setFolderTemplateAction,
-    type ChildFinalFileRow,
     type OrgBrowseNode,
     type OrgCopyRow,
-    type SprintMaterialsGroup,
-    type SubmissionGroup,
 } from '@/app/actions/org-files'
 import { uploadWorkspaceFile } from '@/components/organizations/OrgDocParts'
+import { FinalFilesBrowser, SprintMaterialsBrowser, SubmissionsBrowser } from '@/components/organizations/OrgFileViews'
 import { getWorkspaceNodes } from '@/app/actions/files/nodes'
 import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { DownloadLink } from '@/components/ui/download-link'
 import { readFolderAccess, type FolderAccess } from '@/lib/organizations/file-rules'
 import { FolderAccessChip } from '@/components/organizations/FolderAccessChip'
-import { assignmentHref } from '@/lib/organizations/assignment-rules'
 import { toast, feedbackError } from '@/lib/feedback'
 
 // Org Files (report §7.8, §16.4, §18.6, §37.5): the left panel's organization views, folder access in each
@@ -134,114 +127,16 @@ export function OrgStorageNotice({ org }: { org: OrgFilesInfo }) {
 
 /** The organization's left-panel views (report §7.8, §18.6, §37.5). */
 export function OrgFilesCollection({ view, projectId, org }: { view: 'materials' | 'submissions' | 'from_org'; projectId: string; org: OrgFilesInfo }) {
+    // Files report §1–§2: Submissions, Sprint materials and Final files are browsed the Task files way, edge to edge.
+    if (view === 'from_org') return <div className="flex-1 overflow-y-auto p-4" data-testid="org-files-from_org"><FromOrgFiles projectId={projectId} org={org} /></div>
     return (
-        <div className="flex-1 overflow-y-auto p-4" data-testid={`org-files-${view}`}>
-            {view === 'materials' ? <SprintMaterialsView org={org} />
-                : view === 'from_org' ? <FromOrgFiles projectId={projectId} org={org} />
-                    : org.mode === 'org' ? <SubmissionsView org={org} /> : <ChildFinalFiles projectId={projectId} />}
+        <div className="flex min-h-0 flex-1 flex-col" data-testid={`org-files-${view}`}>
+            {view === 'materials' ? <SprintMaterialsBrowser org={org} /> : org.mode === 'org' ? <SubmissionsBrowser org={org} /> : <FinalFilesBrowser projectId={projectId} />}
         </div>
     )
 }
 
-/** Sprint materials (report §37.5): grouped by sprint; members read; admins add from the sprint. */
-function SprintMaterialsView({ org }: { org: OrgFilesInfo }) {
-    const [groups, setGroups] = useState<SprintMaterialsGroup[] | null>(null)
-    useEffect(() => { void readOrgSprintMaterialsAction(org.orgId).then((r) => setGroups(r.success ? r.groups : [])) }, [org.orgId])
-    if (!groups) return <div className="nb-skeleton h-24 rounded-md" aria-label="Loading sprint materials" />
-    if (groups.length === 0) {
-        return (
-            <div className="nb-empty-state py-12" role="status">
-                <p className="nb-empty-state-title">No sprint materials yet</p>
-                <p className="nb-empty-state-desc">{org.isAdmin ? 'Add files to a sprint from its page in Sprints.' : 'Files your admins add to a sprint show here.'}</p>
-            </div>
-        )
-    }
-    return (
-        <div className="space-y-4">
-            {groups.map((g) => (
-                <section key={g.sprintId} aria-label={g.sprint}>
-                    <h3 className="nb-micro mb-1 text-muted-foreground">{g.sprint}{g.status === 'active' ? ' · now' : ''}</h3>
-                    <ul className="divide-y divide-border text-sm">
-                        {g.files.map((f) => (
-                            <li key={f.nodeId} className="flex items-center gap-2 py-1.5">
-                                <FileText className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-                                <Link href={fileHref(org, f.nodeId)} className="min-w-0 truncate hover:underline">{f.name}</Link>
-                            </li>
-                        ))}
-                    </ul>
-                </section>
-            ))}
-        </div>
-    )
-}
 
-const when = (iso: string | null) => (iso ? new Date(iso).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '—')
-
-/** Submissions (Final files for other types, report §37.5): per assignment, each person or group, with filters. */
-function SubmissionsView({ org }: { org: OrgFilesInfo }) {
-    const [data, setData] = useState<SubmissionGroup[] | null>(null)
-    const [assignment, setAssignment] = useState('')
-    const [status, setStatus] = useState('')
-    const [lateOnly, setLateOnly] = useState(false)
-    useEffect(() => { void readOrgSubmissionsAction(org.orgId).then((r) => setData(r.success ? r.assignments : [])) }, [org.orgId])
-    const statuses = useMemo(() => [...new Set((data ?? []).flatMap((g) => g.rows.map((r) => r.status)))], [data])
-    if (!data) return <div className="nb-skeleton h-24 rounded-md" aria-label="Loading submissions" />
-    if (data.length === 0) return <div className="nb-empty-state py-12" role="status"><p className="nb-empty-state-title">Nothing handed in yet</p><p className="nb-empty-state-desc">Work handed in for assignments shows here.</p></div>
-    const shown = data.filter((g) => !assignment || g.id === assignment)
-        .map((g) => ({ ...g, rows: g.rows.filter((r) => (!status || r.status === status) && (!lateOnly || r.late)) }))
-    return (
-        <div className="space-y-4">
-            <div className="flex flex-wrap items-center gap-2 text-sm">
-                <select aria-label="Assignment" value={assignment} onChange={(e) => setAssignment(e.target.value)} className="h-8 rounded-md border border-border bg-background px-2">
-                    <option value="">All assignments</option>
-                    {data.map((g) => <option key={g.id} value={g.id}>{g.title}</option>)}
-                </select>
-                <select aria-label="Status" value={status} onChange={(e) => setStatus(e.target.value)} className="h-8 rounded-md border border-border bg-background px-2">
-                    <option value="">Any status</option>
-                    {statuses.map((s) => <option key={s} value={s}>{s}</option>)}
-                </select>
-                <label className="flex items-center gap-1.5"><input type="checkbox" checked={lateOnly} onChange={(e) => setLateOnly(e.target.checked)} />Late</label>
-            </div>
-            {shown.map((g) => (
-                <section key={g.id} aria-label={g.title}>
-                    <div className="mb-1 flex items-center gap-2">
-                        <h3 className="text-sm font-medium">{g.title}</h3>
-                        {g.rows.some((r) => r.files > 0) ? <Button asChild size="sm" variant="outline" className="ml-auto"><DownloadLink href={`/api/v1/workspaces/${org.orgId}/tasks/${g.id}/submissions`}>Download all</DownloadLink></Button> : null}
-                    </div>
-                    {g.rows.length === 0 ? <p className="text-[13px] text-muted-foreground">Nothing matches these filters.</p> : (
-                        <ul className="divide-y divide-border text-sm">
-                            {g.rows.map((r) => (
-                                <li key={r.copyId} className="flex flex-wrap items-center gap-x-3 gap-y-0.5 py-1.5">
-                                    <Link href={assignmentHref(orgPath(org), r.copyId)} className="min-w-0 truncate font-medium hover:underline">{r.who}</Link>
-                                    <span className="text-[12px] text-muted-foreground">{r.files} {r.files === 1 ? 'file' : 'files'}{r.version ? ` · v${r.version}` : ''} · {when(r.submittedAt)}</span>
-                                    <span className="ml-auto text-[12px]">{r.status}{r.late ? ' · Late' : ''}</span>
-                                </li>
-                            ))}
-                        </ul>
-                    )}
-                </section>
-            ))}
-        </div>
-    )
-}
-
-/** A workspace's Final files (report §18.6): its group work handed in, with "Reviewed by CSE 3B". */
-function ChildFinalFiles({ projectId }: { projectId: string }) {
-    const [rows, setRows] = useState<ChildFinalFileRow[] | null>(null)
-    useEffect(() => { void readChildFinalFilesAction(projectId).then((r) => setRows(r.success ? r.rows : [])) }, [projectId])
-    if (!rows) return <div className="nb-skeleton h-24 rounded-md" aria-label="Loading final files" />
-    if (rows.length === 0) return <div className="nb-empty-state py-12" role="status"><p className="nb-empty-state-title">No final files yet</p><p className="nb-empty-state-desc">Files your team hands in for group work show here.</p></div>
-    return (
-        <ul className="divide-y divide-border text-sm">
-            {rows.map((r) => (
-                <li key={r.nodeId} className="flex flex-wrap items-center gap-x-2 py-1.5">
-                    <Link href={`?tab=files&fileId=${encodeURIComponent(r.nodeId)}`} className="min-w-0 truncate hover:underline">{r.name}</Link>
-                    <span className="text-[12px] text-muted-foreground">{r.assignment} · {r.review}</span>
-                </li>
-            ))}
-        </ul>
-    )
-}
 
 /**
  * An org file opened in place from a child project (report §23.6): `From CSE-3A · read-only · Open in CSE-3A →`.

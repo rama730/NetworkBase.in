@@ -218,7 +218,11 @@ export async function readOrgStorageAction(orgId: string): Promise<{ usedBytes: 
     return { usedBytes, limitBytes: ORG_LIMITS.orgStorageBytes, warn: usedBytes >= ORG_LIMITS.orgStorageBytes * ORG_LIMITS.orgStorageWarnRatio };
 }
 
-export type SprintMaterialsGroup = { sprintId: string; sprint: string; status: string; files: Array<{ nodeId: string; name: string }> };
+/** A file as the Files tab's lists show it: name, size, last updated and by whom (files report §1–§2). */
+export type BrowserFile = { nodeId: string; name: string; size: number | null; updatedAt: string | null; by: string | null; byAvatarUrl: string | null };
+export type SprintMaterialsGroup = { sprintId: string; sprint: string; status: string; startDate: string | null; endDate: string | null;
+    /** The CO it sits inside (sprint levels), so the folder reads "CO1 · Week 1" and its CO's materials can be shown with it. */
+    parentId: string | null; parentName: string | null; files: BrowserFile[] };
 
 /**
  * Sprint materials (report §23.3): org files linked to each sprint, newest sprint first, filtered by folder access
@@ -229,7 +233,12 @@ export async function readOrgSprintMaterialsAction(orgId: string): Promise<{ suc
     if (!userId) return DENIED;
     const access = await getWorkspaceAccessById(orgId, userId);
     if (access.project?.kind !== 'organization' || !(access.isOwner || access.isMember)) return DENIED;
-    const rows = await db.select({ sprintId: workspaceSprints.id, sprint: workspaceSprints.name, status: workspaceSprints.status, nodeId: workspaceNodes.id, name: workspaceNodes.name })
+    const rows = await db.select({ sprintId: workspaceSprints.id, sprint: workspaceSprints.name, status: workspaceSprints.status, nodeId: workspaceNodes.id, name: workspaceNodes.name,
+            startDate: workspaceSprints.startDate, endDate: workspaceSprints.endDate, parentId: workspaceSprints.parentSprintId,
+            parentName: sql<string | null>`(SELECT p.name FROM workspace_sprints p WHERE p.id = ${workspaceSprints.parentSprintId} AND p.workspace_id = ${workspaceSprints.projectId})`,
+            size: workspaceNodes.size, updatedAt: workspaceNodes.updatedAt,
+            by: sql<string | null>`(SELECT coalesce(p.full_name, p.username) FROM profiles p WHERE p.id = ${workspaceNodes.createdBy})`,
+            byAvatarUrl: sql<string | null>`(SELECT p.avatar_url FROM profiles p WHERE p.id = ${workspaceNodes.createdBy})` })
         .from(sprintMaterials)
         .innerJoin(workspaceSprints, eq(workspaceSprints.id, sprintMaterials.sprintId))
         .innerJoin(workspaceNodes, and(eq(workspaceNodes.id, sprintMaterials.nodeId), isNull(workspaceNodes.deletedAt)))
@@ -238,8 +247,9 @@ export async function readOrgSprintMaterialsAction(orgId: string): Promise<{ suc
         .limit(500);
     const groups = new Map<string, SprintMaterialsGroup>();
     for (const r of rows) {
-        const group = groups.get(r.sprintId) ?? { sprintId: r.sprintId, sprint: r.sprint, status: r.status, files: [] };
-        group.files.push({ nodeId: r.nodeId, name: r.name });
+        const group = groups.get(r.sprintId) ?? { sprintId: r.sprintId, sprint: r.sprint, status: r.status, startDate: r.startDate ? new Date(r.startDate).toISOString() : null,
+            endDate: r.endDate ? new Date(r.endDate).toISOString() : null, parentId: r.parentName ? r.parentId : null, parentName: r.parentName, files: [] };
+        group.files.push({ nodeId: r.nodeId, name: r.name, size: r.size == null ? null : Number(r.size), updatedAt: r.updatedAt ? new Date(r.updatedAt).toISOString() : null, by: r.by, byAvatarUrl: r.byAvatarUrl });
         groups.set(r.sprintId, group);
     }
     return { success: true, groups: [...groups.values()] };
@@ -262,8 +272,10 @@ export async function listOrgTemplateFoldersAction(orgId: string): Promise<Array
         .orderBy(asc(workspaceNodes.name)).limit(50);
 }
 
-export type SubmissionRow = { copyId: string; who: string; files: number; version: number | null; submittedAt: string | null; late: boolean; status: string };
-export type SubmissionGroup = { id: string; title: string; dueDate: string | null; rows: SubmissionRow[] };
+export type SubmissionRow = { copyId: string; who: string; files: number; version: number | null; submittedAt: string | null; late: boolean; status: string;
+    /** Files report §1: who handed it in (a team's member), where the copy lives, and the person's photo. */
+    by: string | null; projectId: string; avatarUrl: string | null; team: boolean };
+export type SubmissionGroup = { id: string; title: string; dueDate: string | null; rows: SubmissionRow[]; reviewRequired: boolean; closed: boolean };
 
 /**
  * The Submissions page (report §37.5; "Final files" for other types): per assignment, each person or group with
@@ -272,8 +284,13 @@ export type SubmissionGroup = { id: string; title: string; dueDate: string | nul
 export async function readOrgSubmissionsAction(orgId: string): Promise<{ success: true; assignments: SubmissionGroup[] } | Failure> {
     if (!(await orgAdmin(orgId, 'read', 'download_all'))) return DENIED;
     const rows = await db.execute<{ master_id: string; title: string; master_due: string | null; copy_id: string; who: string; files: number; version: number | null;
-        status: string; review_status: string; due_date: string | null; submitted_at: string | null; completed_at: string | null; excused_at: string | null }>(sql`
-        SELECT m.id AS master_id, m.title, m.due_date::text AS master_due, c.id AS copy_id,
+        status: string; review_status: string; due_date: string | null; submitted_at: string | null; completed_at: string | null; excused_at: string | null;
+        by: string | null; project_id: string; avatar_url: string | null; team: boolean; review_required: boolean; closed: boolean }>(sql`
+        SELECT m.id AS master_id, m.title, m.due_date::text AS master_due, c.id AS copy_id, c.workspace_id AS project_id,
+               (SELECT coalesce(pr.full_name, pr.username) FROM profiles pr WHERE pr.id = (c.submission->>'by')::uuid) AS by,
+               (SELECT pr.avatar_url FROM profiles pr WHERE pr.id = c.assignee_id AND c.team_name IS NULL) AS avatar_url,
+               (c.team_name IS NOT NULL OR c.workspace_id <> m.workspace_id) AS team,
+               coalesce((m.assignment_settings->>'reviewRequired')::boolean, true) AS review_required, (m.assignment_settings->>'closedAt') IS NOT NULL AS closed,
                coalesce(c.team_name, (SELECT p.title FROM workspaces p WHERE p.id = c.workspace_id AND p.id <> m.workspace_id),
                         (SELECT coalesce(pr.full_name, pr.username) FROM profiles pr WHERE pr.id = c.assignee_id), 'Member') AS who,
                (SELECT count(*)::int FROM workspace_nodes n WHERE n.task_id = c.id AND n.type = 'file' AND n.deleted_at IS NULL) AS files,
@@ -287,14 +304,47 @@ export async function readOrgSubmissionsAction(orgId: string): Promise<{ success
     const at = (v: string | null) => (v ? new Date(v) : null);
     for (const r of rows) {
         const { state, late } = copyState({ status: r.status, reviewStatus: r.review_status, dueDate: at(r.due_date), submittedAt: at(r.submitted_at), completedAt: at(r.completed_at), excusedAt: at(r.excused_at) });
-        const group = groups.get(r.master_id) ?? { id: r.master_id, title: r.title, dueDate: r.master_due, rows: [] };
-        group.rows.push({ copyId: r.copy_id, who: r.who, files: r.files, version: r.version, submittedAt: r.submitted_at ?? r.completed_at, late, status: ASSIGNMENT_STATE_LABELS[state] });
+        const group = groups.get(r.master_id) ?? { id: r.master_id, title: r.title, dueDate: r.master_due, rows: [], reviewRequired: r.review_required, closed: r.closed };
+        // Files report D2: accepted work reads Approved when the assignment needs review, as on the board.
+        const status = state === 'done' && r.review_required ? 'Approved' : ASSIGNMENT_STATE_LABELS[state];
+        group.rows.push({ copyId: r.copy_id, who: r.who, files: r.files, version: r.version, submittedAt: r.submitted_at ?? r.completed_at, late, status,
+            by: r.by, projectId: r.project_id, avatarUrl: r.avatar_url, team: r.team });
         groups.set(r.master_id, group);
     }
     return { success: true, assignments: [...groups.values()] };
 }
 
-export type ChildFinalFileRow = { nodeId: string; name: string; assignment: string; review: string };
+/**
+ * Files report §1 level 3: one hand-in's files (as the Files tab lists them) and its earlier versions (D3). Admins who
+ * may download submissions, as Submissions itself; group work is read where it lives (the copy's own workspace).
+ */
+export async function readHandInFilesAction(copyId: string): Promise<{ success: true; projectId: string; current: BrowserFile[]; versions: Array<{ version: number; at: string; files: BrowserFile[] }> } | Failure> {
+    if (!UUID_RE.test(copyId)) return DENIED;
+    const [copy] = await db.execute<{ org_id: string; project_id: string; version: number | null }>(sql`
+        SELECT m.workspace_id AS org_id, c.workspace_id AS project_id, (c.submission->>'version')::int AS version
+        FROM tasks c JOIN tasks m ON m.id = c.assignment_id WHERE c.id = ${copyId} AND c.deleted_at IS NULL AND m.deleted_at IS NULL`);
+    if (!copy || !(await orgAdmin(copy.org_id, 'read', 'download_all'))) return DENIED;
+    const fileCols = sql`n.id AS node_id, n.name, n.size, n.updated_at::text AS updated_at,
+        (SELECT coalesce(p.full_name, p.username) FROM profiles p WHERE p.id = n.created_by) AS by, (SELECT p.avatar_url FROM profiles p WHERE p.id = n.created_by) AS by_avatar`;
+    type F = { node_id: string; name: string; size: number | null; updated_at: string | null; by: string | null; by_avatar: string | null };
+    const asFile = (f: F): BrowserFile => ({ nodeId: f.node_id, name: f.name, size: f.size == null ? null : Number(f.size), updatedAt: f.updated_at ? new Date(f.updated_at).toISOString() : null, by: f.by, byAvatarUrl: f.by_avatar });
+    const current = await db.execute<F>(sql`SELECT ${fileCols} FROM workspace_nodes n WHERE n.task_id = ${copyId} AND n.type = 'file' AND n.deleted_at IS NULL ORDER BY n.name LIMIT 200`);
+    const older = await db.execute<F & { version: number; at: string }>(sql`
+        SELECT s.version, s.submitted_at::text AS at, ${fileCols}
+        FROM assignment_submissions s CROSS JOIN jsonb_array_elements(s.files) f JOIN workspace_nodes n ON n.id = (f->>'nodeId')::uuid AND n.deleted_at IS NULL
+        WHERE s.copy_id = ${copyId} AND s.version < coalesce(${copy.version}, 2147483647) ORDER BY s.version DESC, n.name`);
+    const versions = new Map<number, { version: number; at: string; files: BrowserFile[] }>();
+    for (const r of older) {
+        const v = versions.get(r.version) ?? { version: r.version, at: new Date(r.at).toISOString(), files: [] };
+        v.files.push(asFile(r));
+        versions.set(r.version, v);
+    }
+    return { success: true, projectId: copy.project_id, current: current.map(asFile), versions: [...versions.values()] };
+}
+
+export type ChildFinalFileRow = { nodeId: string; name: string; assignment: string; review: string;
+    /** Files report §1 (Final files the same way): grouped by assignment, with the list's columns. */
+    assignmentId: string; size: number | null; updatedAt: string | null; by: string | null };
 
 /** A workspace's Final files (report §18.6): its group work handed in, with "Reviewed by CSE 3B" once completed. */
 export async function readChildFinalFilesAction(childProjectId: string): Promise<{ success: true; orgTitle: string; rows: ChildFinalFileRow[] } | Failure> {
@@ -304,8 +354,11 @@ export async function readChildFinalFilesAction(childProjectId: string): Promise
     const [org] = access.project?.parentId ? await db.select({ id: workspaces.id, title: workspaces.title }).from(workspaces).where(eq(workspaces.id, access.project.parentId)).limit(1) : [];
     const orgRole = org ? await readViewerOrgRole(org.id, userId) : null;
     if (!org || !(access.isOwner || access.isMember || orgRole === 'owner' || orgRole === 'admin')) return DENIED;
-    const rows = await db.execute<{ node_id: string; name: string; assignment: string; status: string; review_status: string; due_date: string | null; submitted_at: string | null; completed_at: string | null; excused_at: string | null }>(sql`
-        SELECT n.id AS node_id, n.name, m.title AS assignment, c.status, c.review_status, c.due_date::text AS due_date,
+    const rows = await db.execute<{ node_id: string; name: string; assignment: string; status: string; review_status: string; due_date: string | null; submitted_at: string | null; completed_at: string | null; excused_at: string | null;
+        assignment_id: string; size: number | null; updated_at: string | null; by: string | null }>(sql`
+        SELECT n.id AS node_id, n.name, m.title AS assignment, m.id AS assignment_id, n.size, n.updated_at::text AS updated_at,
+               (SELECT coalesce(p.full_name, p.username) FROM profiles p WHERE p.id = n.created_by) AS by,
+               c.status, c.review_status, c.due_date::text AS due_date,
                c.review_submitted_at::text AS submitted_at, c.completed_at::text AS completed_at, c.excused_at::text AS excused_at
         FROM tasks c JOIN tasks m ON m.id = c.assignment_id AND m.workspace_id = ${org.id}
         JOIN workspace_nodes n ON n.task_id = c.id AND n.type = 'file' AND n.deleted_at IS NULL
@@ -316,7 +369,8 @@ export async function readChildFinalFilesAction(childProjectId: string): Promise
         success: true, orgTitle: org.title,
         rows: rows.map((r) => {
             const { state } = copyState({ status: r.status, reviewStatus: r.review_status, dueDate: at(r.due_date), submittedAt: at(r.submitted_at), completedAt: at(r.completed_at), excusedAt: at(r.excused_at) });
-            return { nodeId: r.node_id, name: r.name, assignment: r.assignment, review: state === 'done' ? `Reviewed by ${org.title}` : ASSIGNMENT_STATE_LABELS[state] };
+            return { nodeId: r.node_id, name: r.name, assignment: r.assignment, review: state === 'done' ? `Reviewed by ${org.title}` : ASSIGNMENT_STATE_LABELS[state],
+                assignmentId: r.assignment_id, size: r.size == null ? null : Number(r.size), updatedAt: r.updated_at ? new Date(r.updated_at).toISOString() : null, by: r.by };
         }),
     };
 }

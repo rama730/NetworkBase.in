@@ -176,3 +176,57 @@ test("review queue §4b: every hand-in can be reached past the first 200; each r
   assert.equal(row?.newMessages, 0);
   viewerId = "";
 });
+
+test("files §1–§2: Submissions rows say who handed in and whether review is needed; a hand-in's files and earlier versions load for admins only; sprint materials carry their CO", async () => {
+  const orgFiles = await loadAppModule(() => import("../../src/app/actions/org-files"));
+  const [owner, kid] = await Promise.all([1, 2].map(() => sql.begin((tx) => createUser(tx))));
+  const org = await sql.begin((tx) => createProject(tx, owner!));
+  await sql`INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (${org}, ${owner!}, 'owner'), (${org}, ${kid!}, 'member') ON CONFLICT DO NOTHING`;
+  await sql`UPDATE workspaces SET kind = 'organization', org_type = 'education', join_code = ${generateJoinCode()} WHERE id = ${org}`;
+  created.push(org);
+  viewerId = owner!;
+  const made = await assignments.createAssignmentAction({ projectId: org, title: "Lab 5", dueDate: new Date(Date.now() + 864e5).toISOString(), publish: true,
+    submissionType: "file", reviewRequired: true, lateRule: "none", target: { mode: "everyone" }, steps: [] });
+  assert.ok(made.success);
+  const masterId = made.success ? made.masterId : "";
+  const [copy] = await sql`SELECT id FROM tasks WHERE assignment_id = ${masterId} AND assignee_id = ${kid!}`;
+  const [v1] = await sql`INSERT INTO workspace_nodes (workspace_id, type, name, size, created_by, task_id, path) VALUES (${org}, 'file', 'draft.pdf', 900, ${kid!}, ${copy!.id}, '/draft.pdf') RETURNING id`;
+  const [v2] = await sql`INSERT INTO workspace_nodes (workspace_id, type, name, size, created_by, task_id, path) VALUES (${org}, 'file', 'final.pdf', 1200, ${kid!}, ${copy!.id}, '/final.pdf') RETURNING id`;
+  await sql`INSERT INTO assignment_submissions (copy_id, workspace_id, version, submitted_by, submitted_at, files) VALUES
+    (${copy!.id}, ${org}, 1, ${kid!}, now() - interval '1 day', ${sql.json([{ nodeId: v1!.id, name: "draft.pdf" }])}),
+    (${copy!.id}, ${org}, 2, ${kid!}, now(), ${sql.json([{ nodeId: v2!.id, name: "final.pdf" }])})`;
+  await sql`UPDATE tasks SET review_status = 'pending', review_submitted_at = now(), submission = ${sql.json({ version: 2, by: kid! })} WHERE id = ${copy!.id}`;
+  await sql`UPDATE workspace_nodes SET task_id = NULL WHERE id = ${v1!.id}`;
+
+  const subs = await orgFiles.readOrgSubmissionsAction(org);
+  assert.ok(subs.success);
+  const group = subs.success ? subs.assignments.find((g) => g.id === masterId)! : null;
+  assert.equal(group!.reviewRequired, true);
+  assert.equal(group!.closed, false);
+  const row = group!.rows.find((r) => r.copyId === copy!.id)!;
+  assert.equal(row.status, "In review");
+  assert.ok(row.by, "who handed it in");
+  assert.equal(row.projectId, org);
+
+  const files = await orgFiles.readHandInFilesAction(copy!.id);
+  assert.ok(files.success, JSON.stringify(files));
+  if (!files.success) return;
+  assert.deepEqual(files.current.map((f) => [f.name, f.size]), [["final.pdf", 1200]]);
+  assert.deepEqual(files.versions.map((v) => [v.version, v.files.map((f) => f.name)]), [[1, ["draft.pdf"]]]);
+  viewerId = kid!;
+  assert.equal((await orgFiles.readHandInFilesAction(copy!.id)).success, false, "a member can't read another hand-in through the admin's Submissions");
+
+  // Sprint materials: a sprint inside a CO says which CO.
+  viewerId = owner!;
+  const [co] = await sql`INSERT INTO workspace_sprints (workspace_id, creator_id, name, start_date, end_date, status, sprint_number) VALUES (${org}, ${owner!}, 'CO1', now() - interval '1 day', now() + interval '30 days', 'active', 1) RETURNING id`;
+  const [wk] = await sql`INSERT INTO workspace_sprints (workspace_id, creator_id, name, start_date, end_date, status, parent_sprint_id, sprint_number) VALUES (${org}, ${owner!}, 'Week 1', now() - interval '1 day', now() + interval '6 days', 'active', ${co!.id}, 2) RETURNING id`;
+  const [doc] = await sql`INSERT INTO workspace_nodes (workspace_id, type, name, size, created_by, path) VALUES (${org}, 'file', 'slides.pdf', 500, ${owner!}, '/slides.pdf') RETURNING id`;
+  await sql`INSERT INTO sprint_materials (sprint_id, node_id, added_by) VALUES (${wk!.id}, ${doc!.id}, ${owner!})`;
+  const mats = await orgFiles.readOrgSprintMaterialsAction(org);
+  assert.ok(mats.success, JSON.stringify(mats));
+  const week = mats.success ? mats.groups.find((g) => g.sprintId === wk!.id)! : null;
+  assert.equal(week!.parentId, co!.id);
+  assert.equal(week!.parentName, "CO1");
+  assert.equal(week!.files[0]!.size, 500);
+  viewerId = "";
+});

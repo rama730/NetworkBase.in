@@ -331,3 +331,27 @@ test('review queue §4b.8: an ordinary task shows its description and files', as
     await expect(work).toContainText('Make 5 slides about heaps.');
     await expect(work.getByTitle('Preview of lab3-report.pdf')).toBeVisible();
 });
+
+test('review card §3: one card split into three by hairlines; the selected person looks like the main navigation, no orange bar', async ({ page }) => {
+    await open(page, 1440);
+    const card = page.getByTestId('review-card');
+    const style = await card.evaluate((el) => { const s = getComputedStyle(el); return { border: s.borderTopWidth, radius: s.borderTopLeftRadius, gap: s.columnGap }; });
+    expect(style.border).toBe('1px');
+    expect(style.radius).toBe('8px');
+    expect(['normal', '0px']).toContain(style.gap);
+    for (const name of ['Waiting', 'Submission']) {
+        const part = page.getByRole('region', { name });
+        expect(await part.evaluate((el) => getComputedStyle(el).borderRightWidth)).toBe('1px');
+        expect(await part.evaluate((el) => getComputedStyle(el).borderTopWidth)).toBe('0px');
+    }
+    const selected = page.getByRole('region', { name: 'Waiting' }).getByRole('button', { name: /Student 1/ });
+    const looks = await selected.evaluate((el) => {
+        const probe = document.createElement('a'); probe.className = 'nb-nav-link'; probe.setAttribute('aria-current', 'page'); document.body.appendChild(probe);
+        const nav = getComputedStyle(probe); const mine = getComputedStyle(el);
+        const out = { bg: [mine.backgroundColor, nav.backgroundColor], radius: [mine.borderTopLeftRadius, nav.borderTopLeftRadius], shadow: mine.boxShadow };
+        probe.remove(); return out;
+    });
+    expect(looks.bg[0]).toBe(looks.bg[1]);
+    expect(looks.radius[0]).toBe(looks.radius[1]);
+    expect(looks.shadow).toBe('none');
+});
