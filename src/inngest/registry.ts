@@ -5,7 +5,7 @@ export type InngestExecutionRole = "web" | "worker";
 function getWorkerOnlyFunctions() {
   const loadModule = createRequire(import.meta.url);
   const { cleanupWorkspaceUpdate } = loadModule("./functions/cleanup-update");
-  const { gitPull, gitPush, gitSyncRecovery, lockCleanup, uploadIntentCleanup } = loadModule("./functions/git-sync");
+  const { cliPushPostProcessFunction, gitPull, gitPush, gitSyncRecovery, lockCleanup, uploadIntentCleanup } = loadModule("./functions/git-sync");
   const { finishPendingFileDeletions } = loadModule("./functions/workspace-files-permanent-delete");
   const { downloadHistoryRetention } = loadModule("./functions/download-history-retention");
   const { reconcileWorkspaceFiles } = loadModule("./functions/workspace-files-reconciliation");
@@ -38,6 +38,7 @@ function getWorkerOnlyFunctions() {
   return [
     projectImport,
     projectImportHydrate,
+    cliPushPostProcessFunction,
     gitPush,
     gitPull,
     gitSyncRecovery,

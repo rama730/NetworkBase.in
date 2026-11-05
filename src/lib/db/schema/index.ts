@@ -5881,3 +5881,141 @@ export const profileContributionMediaAssets = pgTable("profile_contribution_medi
   contributionId: uuid("contribution_id").notNull().references(() => profileContributions.id,{onDelete:"cascade"}),
   assetId: uuid("asset_id").notNull().references(() => storageAssets.id),
 },t=>({pk:primaryKey({columns:[t.contributionId,t.assetId]}),assetIdx:index("profile_contribution_media_assets_asset_idx").on(t.assetId)}));
+
+// ============================================================================
+// PERSONAL ACCESS TOKENS (CLI & GIT CREDENTIAL HELPER) + GIT BRANCHES / WEBHOOKS
+// ============================================================================
+export const personalAccessTokens = pgTable(
+  "personal_access_tokens",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => profiles.id, { onDelete: "cascade" }),
+    label: text("label").notNull(),
+    tokenHash: text("token_hash").notNull().unique(),
+    tokenPrefix: text("token_prefix").notNull(),
+    scopes: jsonb("scopes")
+      .$type<string[]>()
+      .default(["repo:read", "repo:write", "task:write"])
+      .notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }),
+    lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
+    revokedAt: timestamp("revoked_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (t) => ({
+    userIdx: index("personal_access_tokens_user_idx").on(t.userId),
+    tokenHashIdx: index("personal_access_tokens_hash_idx").on(t.tokenHash),
+  }),
+);
+
+export const workspaceGitBranches = pgTable(
+  "workspace_git_branches",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    projectId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    branchName: text("branch_name").notNull(),
+    headCommitSha: text("head_commit_sha").notNull(),
+    isProtected: boolean("is_protected").default(false).notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (t) => ({
+    workspaceBranchIdx: index("workspace_git_branches_ws_branch_idx").on(
+      t.projectId,
+      t.branchName,
+    ),
+  }),
+);
+
+export const workspaceGitCommits = pgTable(
+  "workspace_git_commits",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    projectId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    commitSha: text("commit_sha").notNull().unique(),
+    parentSha: text("parent_sha"),
+    authorId: uuid("author_id").references(() => profiles.id, {
+      onDelete: "set null",
+    }),
+    authorName: text("author_name").notNull(),
+    authorEmail: text("author_email").notNull(),
+    message: text("message").notNull(),
+    taskId: uuid("task_id").references(() => tasks.id, {
+      onDelete: "set null",
+    }),
+    fileRole: text("file_role").default("working").notNull(),
+    filesChangedCount: integer("files_changed_count").default(0).notNull(),
+    committedAt: timestamp("committed_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (t) => ({
+    workspaceCommitIdx: index("workspace_git_commits_ws_idx").on(
+      t.projectId,
+      t.committedAt.desc(),
+    ),
+    taskCommitIdx: index("workspace_git_commits_task_idx").on(t.taskId),
+  }),
+);
+
+export const workspaceBranchRules = pgTable(
+  "workspace_branch_rules",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    projectId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    pattern: text("pattern").notNull(),
+    preventForcePush: boolean("prevent_force_push").default(true).notNull(),
+    requireReview: boolean("require_review").default(true).notNull(),
+    allowedRoles: jsonb("allowed_roles")
+      .$type<string[]>()
+      .default(["owner", "admin"])
+      .notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (t) => ({
+    workspaceRuleIdx: index("workspace_branch_rules_ws_idx").on(t.projectId),
+  }),
+);
+
+export const workspaceWebhooks = pgTable(
+  "workspace_webhooks",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    projectId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    targetUrl: text("target_url").notNull(),
+    secretHash: text("secret_hash").notNull(),
+    events: jsonb("events")
+      .$type<string[]>()
+      .default(["git.push", "task.review"])
+      .notNull(),
+    isActive: boolean("is_active").default(true).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (t) => ({
+    workspaceWebhookIdx: index("workspace_webhooks_ws_idx").on(t.projectId),
+  }),
+);
+
+export type PersonalAccessToken = typeof personalAccessTokens.$inferSelect;
+export type NewPersonalAccessToken = typeof personalAccessTokens.$inferInsert;
+export type WorkspaceGitBranch = typeof workspaceGitBranches.$inferSelect;
+export type WorkspaceGitCommit = typeof workspaceGitCommits.$inferSelect;
+export type WorkspaceBranchRule = typeof workspaceBranchRules.$inferSelect;
+export type WorkspaceWebhook = typeof workspaceWebhooks.$inferSelect;

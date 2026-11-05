@@ -9,7 +9,7 @@ import { recordFilesMetric } from "@/lib/files/observability";
 
 export const FILE_LEASE_TTL_SECONDS = 120;
 
-export type FileLeaseClientKind = "web" | "vscode";
+export type FileLeaseClientKind = "web" | "vscode" | "cli";
 
 export interface FileLeaseCredentials {
   leaseId: string;

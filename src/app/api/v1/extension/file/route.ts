@@ -65,29 +65,31 @@ export async function GET(request: Request) {
       return jsonError("Missing projectId or path", 400, "BAD_REQUEST");
     }
 
-    const access = await assertWorkspaceFileReadAccess(projectId, user.id);
-
-    // Find the node
-    const node = await db.query.workspaceNodes.findFirst({
-      where: and(
-        eq(workspaceNodes.projectId, projectId),
-        eq(workspaceNodes.path, path),
-        eq(workspaceNodes.type, "file"),
-        isNull(workspaceNodes.deletedAt)
-      ),
-      columns: {
-        id: true,
-        name: true,
-        path: true,
-        type: true,taskId:true,deletedAt:true,
-        s3Key: true,
-        assetId: true,
-        size: true,
-        mimeType: true,
-        currentVersion: true,
-        updatedAt: true,
-      },
-    });
+    const [access, node] = await Promise.all([
+      assertWorkspaceFileReadAccess(projectId, user.id),
+      db.query.workspaceNodes.findFirst({
+        where: and(
+          eq(workspaceNodes.projectId, projectId),
+          eq(workspaceNodes.path, path),
+          eq(workspaceNodes.type, "file"),
+          isNull(workspaceNodes.deletedAt)
+        ),
+        columns: {
+          id: true,
+          name: true,
+          path: true,
+          type: true,
+          taskId: true,
+          deletedAt: true,
+          s3Key: true,
+          assetId: true,
+          size: true,
+          mimeType: true,
+          currentVersion: true,
+          updatedAt: true,
+        },
+      }),
+    ]);
 
     if (!node) {
       return jsonError("File not found", 404, "NOT_FOUND");
@@ -95,22 +97,18 @@ export async function GET(request: Request) {
     await assertFileNodeVisible(access, node);
 
     // Bytes are served only for an asset that passed verification, with its verified size and type.
-    const [verifiedAsset] = node.s3Key && node.assetId
-      ? await db.select({ size: storageAssets.verifiedSize, mimeType: storageAssets.verifiedMimeType })
-        .from(storageAssets)
-        .where(and(
-          eq(storageAssets.id, node.assetId),
-          eq(storageAssets.bucket, "project-files"),
-          eq(storageAssets.storageKey, node.s3Key),
-          eq(storageAssets.state, "verified"),
-        ))
-        .limit(1)
-      : [];
-    if (transfer !== "metadata" && node.s3Key && !verifiedAsset) {
-      return jsonError("File content unavailable", 404, "NOT_FOUND");
-    }
-
-    const [version] = await Promise.all([
+    const [verifiedAssetRows, version] = await Promise.all([
+      node.s3Key && node.assetId
+        ? db.select({ size: storageAssets.verifiedSize, mimeType: storageAssets.verifiedMimeType })
+          .from(storageAssets)
+          .where(and(
+            eq(storageAssets.id, node.assetId),
+            eq(storageAssets.bucket, "project-files"),
+            eq(storageAssets.storageKey, node.s3Key),
+            eq(storageAssets.state, "verified"),
+          ))
+          .limit(1)
+        : Promise.resolve([]),
       db.query.fileVersions.findFirst({
         where: and(
           eq(fileVersions.nodeId, node.id),
@@ -119,6 +117,10 @@ export async function GET(request: Request) {
         columns: { contentHash: true },
       }),
     ]);
+    const [verifiedAsset] = verifiedAssetRows;
+    if (transfer !== "metadata" && node.s3Key && !verifiedAsset) {
+      return jsonError("File content unavailable", 404, "NOT_FOUND");
+    }
 
     if(transfer==="metadata")return jsonSuccess({nodeId:node.id,id:node.id,path:node.path,name:node.name,type:node.type,size:node.size,mimeType:node.mimeType,currentVersion:node.currentVersion,contentHash:version?.contentHash||null,updatedAt:node.updatedAt});
 

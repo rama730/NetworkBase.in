@@ -8,17 +8,26 @@ function callbackUriForScheme(scheme: string) {
   return `${scheme}://${EXTENSION_URI_AUTHORITY}${AUTH_CALLBACK_PATH}`;
 }
 
-/** Accept only this extension's URI handler and discard untrusted URL parts. */
+/** Accept only this extension's URI handler or a local CLI loopback callback, and discard untrusted URL parts. */
 export function normalizeExtensionCallbackUri(value: string | null | undefined) {
   if (!value) return null;
 
   try {
     const uri = new URL(value);
-    if (
-      !uri.protocol ||
-      uri.hostname !== EXTENSION_URI_AUTHORITY ||
-      uri.pathname !== AUTH_CALLBACK_PATH
-    ) {
+    const isLoopbackCliCallback =
+      uri.protocol === "http:" &&
+      (uri.hostname === "127.0.0.1" || uri.hostname === "localhost") &&
+      Boolean(uri.port) &&
+      uri.pathname === AUTH_CALLBACK_PATH;
+
+    const isIdeSchemeCallback =
+      Boolean(uri.protocol) &&
+      uri.protocol !== "http:" &&
+      uri.protocol !== "https:" &&
+      uri.hostname === EXTENSION_URI_AUTHORITY &&
+      uri.pathname === AUTH_CALLBACK_PATH;
+
+    if (!isLoopbackCliCallback && !isIdeSchemeCallback) {
       return null;
     }
     uri.search = "";
@@ -37,6 +46,9 @@ export function buildExtensionRevocationUri(
   if (!normalized) return null;
 
   const uri = new URL(normalized);
+  if (uri.protocol === "http:" || uri.protocol === "https:") {
+    return null;
+  }
   uri.pathname = REVOKED_CALLBACK_PATH;
   uri.searchParams.set("sessionId", sessionId);
   return uri.toString();

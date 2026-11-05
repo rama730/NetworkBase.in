@@ -36,6 +36,7 @@ const acquireSchema = baseSchema.extend({
   action: z.literal("acquire").optional().default("acquire"),
   ttlMs: leaseTtlMsSchema.optional(),
   createIfMissing: z.boolean().optional(),
+  clientKind: z.enum(["web", "vscode", "cli"]).optional(),
 });
 
 const ownedSchema = baseSchema.extend({
@@ -122,13 +123,20 @@ export async function POST(request: Request) {
     if (resolved.error) return resolved.error;
 
     if (parsed.data.action === "acquire") {
+      const requestedKind =
+        "clientKind" in parsed.data && parsed.data.clientKind
+          ? parsed.data.clientKind
+          : request.headers.get("x-editor-host")?.toLowerCase() === "cli"
+            ? "cli"
+            : "vscode";
+      const isPatAuth = /^bearer nb_pat_/i.test(request.headers.get("authorization")?.trim() || "");
       const lease = await acquireFileLease({
         projectId: parsed.data.projectId,
         nodeId: resolved.node!.id,
         userId: auth.user.id,
         sessionId: parsed.data.clientSessionId,
-        clientKind: "vscode",
-        deviceSessionId: auth.extensionSessionId,
+        clientKind: requestedKind,
+        deviceSessionId: isPatAuth ? null : auth.extensionSessionId,
         ttlSeconds: ttlMsToSeconds(parsed.data.ttlMs),
       });
       return jsonSuccess(lease);

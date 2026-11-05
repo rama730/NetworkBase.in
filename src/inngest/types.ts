@@ -117,4 +117,15 @@ export const schemas = new EventSchemas().fromRecord<{
     /** Old name (report §12.5): queued before the rename; drop after one release. */
     "project/updates.cleanup": ProjectUpdateCleanupEvent;
     "storage/profile-image.cleanup": ProfileImageCleanupEvent;
+    "cli/push.completed": {
+        data: {
+            projectId: string;
+            taskId?: string | null;
+            userId: string;
+            commitSha: string;
+            role: "deliverable" | "working" | "reference";
+            message: string;
+            filesCount: number;
+        };
+    };
 }>();

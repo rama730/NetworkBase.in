@@ -16,6 +16,7 @@ import { db } from "@/lib/db";
 import { fileVersions, workspaceNodes, storageAssets, uploadIntents } from "@/lib/db/schema";
 import { recordExtensionMetric } from "@/lib/extension/observability";
 import { applyFileRevision } from "@/lib/files/apply-file-revision";
+import { withTransientFileLease } from "@/lib/files/file-lock-service";
 import { FILE_REVISION_MODES, normalizeRevisionComment, parseFileRevisionMode } from "@/lib/files/revision-policy";
 import { logger } from "@/lib/logger";
 import { createAdminClient } from "@/lib/supabase/server";
@@ -37,9 +38,9 @@ const intentSchema = z.object({
   revisionMode: z.enum(FILE_REVISION_MODES).optional().default("new_revision"),
   comment: z.string().max(500).optional().nullable(),
   operationId: z.string().min(8).max(200).optional().nullable(),
-  leaseId: z.string().uuid(),
-  clientSessionId: z.string().uuid(),
-  fencingToken: z.number().int().positive(),
+  leaseId: z.string().uuid().optional().nullable(),
+  clientSessionId: z.string().uuid().optional(),
+  fencingToken: z.number().int().positive().optional().nullable(),
 });
 
 const finalizeSchema = z.object({
@@ -99,7 +100,7 @@ async function markIntentFailed(uploadIntentId: string, failureReason: string) {
 
 async function handleIntent(userId: string, body: z.infer<typeof intentSchema>) {
   const startedAt = Date.now();
-  const resolved = await resolveWritableExtensionFile(body.projectId, body.path, userId);
+  const resolved = await resolveWritableExtensionFile(body.projectId, body.path, userId, { createIfMissing: true });
   if (resolved.response) return resolved.response;
   const node = resolved.node!;
 
@@ -192,9 +193,9 @@ async function handleIntent(userId: string, body: z.infer<typeof intentSchema>) 
       revisionMode: body.revisionMode,
       comment: normalizeRevisionComment(body.comment),
       operationId: body.operationId ?? null,
-      leaseId: body.leaseId,
-      clientSessionId: body.clientSessionId,
-      fencingToken: body.fencingToken,
+      leaseId: body.leaseId ?? null,
+      clientSessionId: body.clientSessionId ?? crypto.randomUUID(),
+      fencingToken: body.fencingToken ?? null,
     },
   });
   const adminClient = await createAdminClient();
@@ -279,12 +280,8 @@ async function handleFinalize(userId: string, body: z.infer<typeof finalizeSchem
   const revisionMode = parseFileRevisionMode(metadata.revisionMode);
   const comment = normalizeRevisionComment(metadata.comment);
   const operationId = typeof metadata.operationId === "string" ? metadata.operationId : null;
-  const lease = parseExtensionLeaseMetadata(metadata);
-  if (!lease) {
-    await markIntentFailed(intent.id, "Upload intent is missing editing lease metadata");
-    return jsonError("A valid editing lease is required", 409, "CONFLICT");
-  }
-  const resolved = await resolveWritableExtensionFile(intent.projectId, path, userId);
+  const explicitLease = parseExtensionLeaseMetadata(metadata);
+  const resolved = await resolveWritableExtensionFile(intent.projectId, path, userId, { createIfMissing: true });
   if (resolved.response) return resolved.response;
   if (resolved.node!.id !== nodeId) {
     await markIntentFailed(intent.id, "Upload intent metadata mismatch");
@@ -330,10 +327,10 @@ async function handleFinalize(userId: string, body: z.infer<typeof finalizeSchem
     return jsonError("File checksum mismatch", 400, "BAD_REQUEST");
   }
 
-  let result;
-  try {
-    result = await applyFileRevision({
-      projectId: intent.projectId,
+  const projectId = intent.projectId;
+  const applyWithLease = async (leaseToUse: NonNullable<typeof explicitLease>) =>
+    applyFileRevision({
+      projectId,
       nodeId,
       actorUserId: userId,
       storageKey: intent.storageKey,
@@ -345,7 +342,7 @@ async function handleFinalize(userId: string, body: z.infer<typeof finalizeSchem
       comment,
       baseVersion,
       baseHash,
-      lease,
+      lease: leaseToUse,
       eventType: "extension_file_saved",
       eventMetadata: {
         uploadIntentId: intent.id,
@@ -367,6 +364,15 @@ async function handleFinalize(userId: string, body: z.infer<typeof finalizeSchem
           .where(eq(uploadIntents.id, intent.id));
       },
     });
+
+  let result;
+  try {
+    result = explicitLease
+      ? await applyWithLease(explicitLease)
+      : await withTransientFileLease(
+          { projectId, nodeId, userId },
+          (transientLease) => applyWithLease(transientLease),
+        );
   } catch (error) {
     await markIntentFailed(
       intent.id,

@@ -4,7 +4,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import * as Dropdown from "@radix-ui/react-dropdown-menu";
-import { ChevronDown, ExternalLink, Laptop, KeyRound } from "lucide-react";
+import { Check, ChevronDown, Copy, ExternalLink, Laptop, KeyRound, Terminal } from "lucide-react";
 import {
   SUPPORTED_IDES,
   type SupportedIde,
@@ -70,6 +70,15 @@ export function OpenInIdeButton({
   const [projectPickerIde, setProjectPickerIde] = useState<SupportedIde | null>(
     null,
   );
+  const [copiedCli, setCopiedCli] = useState(false);
+  const cliCommand =
+    taskId && projectId
+      ? `npx @networkbase/cli init --workspace=${projectId} --task=${taskId}`
+      : taskId
+        ? `npx @networkbase/cli init --task=${taskId}`
+        : projectId
+          ? `npx @networkbase/cli init --workspace=${projectId}`
+          : `npx @networkbase/cli init`;
   const pickerRef = useRef<HTMLDivElement>(null);
   const mounted = useRef(false);
   useEffect(() => {
@@ -259,6 +268,39 @@ export function OpenInIdeButton({
                 setFallbackOpen(true);
               }}
             />
+            <div className="border-t border-border bg-muted/30 px-3 py-2.5">
+              <div className="flex items-center justify-between gap-2">
+                <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground">
+                  <Terminal className="size-3.5 text-foreground" />
+                  Terminal / CLI Push
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    void navigator.clipboard.writeText(cliCommand).then(() => {
+                      setCopiedCli(true);
+                      setTimeout(() => setCopiedCli(false), 2000);
+                    });
+                  }}
+                  className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] font-medium text-foreground hover:bg-muted"
+                >
+                  {copiedCli ? (
+                    <>
+                      <Check className="size-3 text-[var(--status-success)]" />
+                      Copied
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="size-3" />
+                      Copy
+                    </>
+                  )}
+                </button>
+              </div>
+              <code className="mt-1.5 block truncate rounded border border-border bg-background px-2 py-1 font-mono text-[11px] text-foreground">
+                {cliCommand}
+              </code>
+            </div>
           </Dropdown.Content>
         </Dropdown.Portal>
       </Dropdown.Root>

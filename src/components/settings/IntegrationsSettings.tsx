@@ -5,7 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { formatDistanceToNow } from "@/lib/utils/date";
-import { ChevronDown, Code2, Copy, ExternalLink, GitBranch, Github, KeyRound, Link2, Loader2, Mail } from "lucide-react";
+import { ChevronDown, Code2, Copy, ExternalLink, GitBranch, Github, KeyRound, Link2, Loader2, Mail, Terminal } from "lucide-react";
 import { toast, feedbackError } from "@/lib/feedback";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
@@ -28,6 +28,12 @@ import { startGithubIdentityLink, startGoogleIdentityLink } from "@/lib/github/o
 import { GitHubCommitAttributionSettings } from "@/components/settings/GitHubCommitAttributionSettings";
 import SecurityStepUpDialog from "@/components/settings/SecurityStepUpDialog";
 import { revokeExtensionSession, generateExtensionToken, getActiveExtensionSessions } from "@/app/actions/extension-sessions";
+import {
+  listPersonalAccessTokens,
+  createPersonalAccessToken,
+  revokePersonalAccessToken,
+  type PersonalAccessTokenSummary,
+} from "@/app/actions/personal-access-tokens";
 import type { AuthConnectionMethod, ExtensionSessionData, ExtensionSessionsData, IntegrationsAuthProvider } from "@/types/settingsTypes";
 
 const PROVIDER_ICONS: Partial<Record<IntegrationsAuthProvider, string>> = {
@@ -96,13 +102,28 @@ function ExtensionAppCard() {
           className="size-10 shrink-0 rounded-md object-cover"
         />
         <div className="min-w-0">
-          <h4 className="nb-ui-label text-foreground">NetworkBase editor extension</h4>
+          <h4 className="nb-ui-label text-foreground">NetworkBase editor extension & CLI</h4>
           <p className="nb-compact mt-1 text-muted-foreground">
-            Open workspace work in your editor and keep access under your account.
+            Open workspace work in your editor or run <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs text-foreground">npx @networkbase/cli init</code> in your terminal.
           </p>
         </div>
       </div>
-      <span className="nb-meta shrink-0 text-muted-foreground">Sign in from your editor, or use a token. Revoke any time.</span>
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        className="shrink-0 gap-1.5 font-mono text-xs"
+        onClick={() => {
+          navigator.clipboard.writeText("npx @networkbase/cli init").then(
+            () => toast.success("Copied CLI setup command"),
+            () => toast.warning("Couldn’t copy command"),
+          );
+        }}
+      >
+        <Terminal className="size-3.5" strokeWidth={1.75} />
+        npx @networkbase/cli init
+        <Copy className="size-3 text-muted-foreground" strokeWidth={1.75} />
+      </Button>
     </div>
   );
 }
@@ -110,7 +131,11 @@ function ExtensionAppCard() {
 
 function ExtensionSessionRow({ session, revoking, onRevoke }: { session: ExtensionSessionData; revoking: boolean; onRevoke: () => void }) {
   const isPending = session.clientVersion === "pending" || (!session.editorPlatform && !session.editorName);
-  const ideIcon = !isPending ? resolveIDEIcon(session) : null;
+  const isCliSession =
+    !isPending &&
+    (session.editorHost?.toLowerCase() === "cli" ||
+      (session.editorName || session.deviceName || "").toLowerCase().includes("cli"));
+  const ideIcon = !isPending && !isCliSession ? resolveIDEIcon(session) : null;
   const platform = isPending
     ? null
     : session.editorPlatform
@@ -118,13 +143,17 @@ function ExtensionSessionRow({ session, revoking, onRevoke }: { session: Extensi
       : "Connected";
   const title = isPending
     ? session.deviceName?.trim() || "Access token"
-    : session.editorName?.trim() || session.deviceName?.trim() || "Editor extension";
+    : session.editorName?.trim() || session.deviceName?.trim() || (isCliSession ? "NetworkBase CLI" : "Editor extension");
 
   return (
     <div className="flex min-h-16 flex-col justify-center gap-3 border-b border-border py-3 last:border-b-0 sm:flex-row sm:items-center sm:justify-between">
       <div className="flex min-w-0 items-center gap-3">
         {ideIcon ? (
           <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-muted"><Image src={ideIcon} alt="" width={24} height={24} unoptimized className="size-6 object-contain" /></span>
+        ) : isCliSession ? (
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-muted text-foreground">
+            <Terminal className="size-4" strokeWidth={1.75} />
+          </span>
         ) : isPending ? (
           <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
             <KeyRound className="size-4" strokeWidth={1.75} />
@@ -137,6 +166,11 @@ function ExtensionSessionRow({ session, revoking, onRevoke }: { session: Extensi
         <div className="min-w-0">
           <div className="flex items-center gap-2">
             <p className="truncate nb-ui-label text-foreground" title={title}>{title}</p>
+            {isCliSession ? (
+              <span className="rounded border border-border bg-muted px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                CLI
+              </span>
+            ) : null}
             {isPending ? (
               <span className="nb-meta text-muted-foreground">
                 Awaiting connection
@@ -150,10 +184,10 @@ function ExtensionSessionRow({ session, revoking, onRevoke }: { session: Extensi
           {isPending ? (
             <>
               <p className="nb-compact mt-1 truncate text-muted-foreground">
-                Created {formatDistanceToNow(new Date(session.createdAt), { addSuffix: true })} · Awaiting initial connection from your editor
+                Created {formatDistanceToNow(new Date(session.createdAt), { addSuffix: true })} · Awaiting initial connection from your editor or CLI
               </p>
               <p className="nb-meta mt-1 truncate text-muted-foreground">
-                Access token · Paste it into your editor to finish signing in
+                Access token · Paste it into your editor or run <code className="font-mono">nb auth login --token</code>
               </p>
             </>
           ) : (
@@ -162,7 +196,7 @@ function ExtensionSessionRow({ session, revoking, onRevoke }: { session: Extensi
                 Active {formatDistanceToNow(new Date(session.lastSeenAt), { addSuffix: true })} · v{session.clientVersion || "unknown"}
               </p>
               <p className="nb-meta mt-1 truncate text-muted-foreground">
-                {session.authMethod === "web_login" ? "Signed in from the editor" : "Access token"}
+                {isCliSession ? "Signed in from NetworkBase CLI" : session.authMethod === "web_login" ? "Signed in from the editor" : "Access token"}
                 {session.editorVersion ? ` · ${session.editorVersion}` : ""}
               </p>
             </>
@@ -210,6 +244,53 @@ export default function IntegrationsSettings() {
   const [replacementFactorId, setReplacementFactorId] = useState<string | undefined>();
   const [replacingGithub, setReplacingGithub] = useState(false);
   const [projectsExpanded, setProjectsExpanded] = useState(false);
+  const [patTokens, setPatTokens] = useState<PersonalAccessTokenSummary[]>([]);
+  const [patLabel, setPatLabel] = useState("");
+  const [showPatGen, setShowPatGen] = useState(false);
+  const [generatingPat, setGeneratingPat] = useState(false);
+  const [generatedPat, setGeneratedPat] = useState<string | null>(null);
+  const [revokingPatId, setRevokingPatId] = useState<string | null>(null);
+
+  useEffect(() => {
+    void listPersonalAccessTokens().then((res) => {
+      if (res.success) setPatTokens(res.tokens);
+    });
+  }, []);
+
+  const handleGeneratePat = async () => {
+    setGeneratingPat(true);
+    try {
+      const res = await createPersonalAccessToken({
+        label: patLabel.trim() || "CLI & Git HTTPS Token",
+        scopes: ["repo:read", "repo:write", "task:write"],
+        expiresInDays: 90,
+      });
+      if (!res.success) {
+        toast.error(res.error);
+        return;
+      }
+      setGeneratedPat(res.rawToken);
+      setPatTokens((prev) => [res.token, ...prev]);
+      toast.success("Personal Access Token created");
+    } finally {
+      setGeneratingPat(false);
+    }
+  };
+
+  const handleRevokePat = async (tokenId: string) => {
+    setRevokingPatId(tokenId);
+    try {
+      const res = await revokePersonalAccessToken(tokenId);
+      if (res.success) {
+        setPatTokens((prev) => prev.filter((t) => t.id !== tokenId));
+        toast.success("Personal Access Token revoked");
+      } else {
+        toast.error(res.error);
+      }
+    } finally {
+      setRevokingPatId(null);
+    }
+  };
 
   const extra = more && more.base === sessionData ? more : null;
   const hasMoreSessions = extra ? extra.hasMore : Boolean(sessionData?.hasMore);
@@ -580,10 +661,157 @@ export default function IntegrationsSettings() {
                   </div>
                   <div className="flex items-start gap-2 rounded-md border border-border bg-background p-3 nb-compact text-muted-foreground">
                     <KeyRound className="mt-0.5 size-4 shrink-0" strokeWidth={1.75} />
-                    <span>Paste it into your editor’s authentication prompt. It is shown only once and works for one year.</span>
+                    <span>
+                      Paste it into your editor’s authentication prompt or run{" "}
+                      <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs text-foreground">
+                        nb auth login --token {generatedToken}
+                      </code>{" "}
+                      in your terminal. It is shown only once and works for one year.
+                    </span>
                   </div>
                 </div>
               )}
+            </div>
+          )}
+        </div>
+
+        <div id="settings-integrations-pat" className="scroll-mt-6 border-t border-border pt-4">
+          <SettingsRow
+            title="Personal access tokens (CLI & Git HTTPS)"
+            description="Fine-grained tokens (nb_pat_...) for the NetworkBase CLI, Git credential helper, and CI/CD pipelines."
+            right={
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  if (showPatGen) {
+                    setGeneratedPat(null);
+                    setPatLabel("");
+                  }
+                  setShowPatGen(!showPatGen);
+                }}
+                className="pointer-coarse:h-11"
+              >
+                {showPatGen ? "Cancel" : "New CLI token"}
+              </Button>
+            }
+          />
+
+          {showPatGen && (
+            <div className="mt-3 border-t border-border pt-4">
+              {!generatedPat ? (
+                <div className="space-y-3">
+                  <div className="max-w-xs space-y-1.5">
+                    <label htmlFor="cli-pat-label" className="nb-ui-label text-foreground">
+                      Token label
+                    </label>
+                    <Input
+                      id="cli-pat-label"
+                      type="text"
+                      maxLength={80}
+                      value={patLabel}
+                      onChange={(e) => setPatLabel(e.target.value)}
+                      placeholder="e.g. MacBook Pro CLI"
+                    />
+                  </div>
+                  <Button size="sm" onClick={() => void handleGeneratePat()} disabled={generatingPat}>
+                    {generatingPat ? (
+                      <Loader2 className="size-4 animate-spin" />
+                    ) : (
+                      <Terminal className="size-4" strokeWidth={1.75} />
+                    )}
+                    Create personal access token
+                  </Button>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                    <Input
+                      type="text"
+                      readOnly
+                      aria-label="Your new personal access token"
+                      value={generatedPat}
+                      className="nb-meta font-mono"
+                      onClick={(e) => (e.target as HTMLInputElement).select()}
+                    />
+                    <Button
+                      size="sm"
+                      onClick={() => {
+                        navigator.clipboard.writeText(generatedPat).then(
+                          () => toast.success("Copied to clipboard"),
+                          () => toast.warning("Couldn’t copy"),
+                        );
+                      }}
+                      className="shrink-0"
+                    >
+                      <Copy className="size-4" strokeWidth={1.75} /> Copy
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => {
+                        setGeneratedPat(null);
+                        setShowPatGen(false);
+                        setPatLabel("");
+                      }}
+                      className="shrink-0"
+                    >
+                      Done
+                    </Button>
+                  </div>
+                  <div className="flex items-start gap-2 rounded-md border border-border bg-background p-3 nb-compact text-muted-foreground">
+                    <Terminal className="mt-0.5 size-4 shrink-0" strokeWidth={1.75} />
+                    <span>
+                      Run{" "}
+                      <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs text-foreground">
+                        nb auth login --token {generatedPat}
+                      </code>{" "}
+                      to sign in from your terminal.
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {patTokens.length > 0 && (
+            <div className="mt-3 divide-y divide-border rounded-md border border-border px-3">
+              {patTokens.map((pat) => (
+                <div
+                  key={pat.id}
+                  className="flex flex-col justify-between gap-2 py-3 sm:flex-row sm:items-center"
+                >
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="nb-ui-label text-foreground">{pat.label}</span>
+                      <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground">
+                        {pat.tokenPrefix}
+                      </code>
+                      {pat.isExpiringSoon && (
+                        <span className="rounded bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:text-amber-300">
+                          Expiring soon
+                        </span>
+                      )}
+                    </div>
+                    <p className="nb-meta mt-1 text-muted-foreground">
+                      Scopes: {pat.scopes.join(", ")} · Created{" "}
+                      {formatDistanceToNow(new Date(pat.createdAt), { addSuffix: true })}
+                      {pat.lastUsedAt
+                        ? ` · Last used ${formatDistanceToNow(new Date(pat.lastUsedAt), { addSuffix: true })}`
+                        : " · Never used"}
+                    </p>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={revokingPatId === pat.id}
+                    onClick={() => void handleRevokePat(pat.id)}
+                  >
+                    {revokingPatId === pat.id ? <Loader2 className="size-4 animate-spin" /> : null}
+                    Revoke
+                  </Button>
+                </div>
+              ))}
             </div>
           )}
         </div>

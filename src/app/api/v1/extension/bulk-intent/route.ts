@@ -19,14 +19,14 @@ const bulkIntentItemSchema = z.object({
   size: z.number().int().nonnegative(),
   mimeType: z.string().min(1).max(180),
   contentHash: checksumSchema,
-  leaseId: z.string().uuid(),
-  fencingToken: z.number().int().positive(),
+  leaseId: z.string().uuid().optional().nullable(),
+  fencingToken: z.number().int().positive().optional().nullable(),
   comment: z.string().max(500).optional().nullable(),
 });
 
 const bulkIntentSchema = z.object({
   projectId: z.string().uuid(),
-  clientSessionId: z.string().uuid(),
+  clientSessionId: z.string().uuid().optional(),
   operationId: z.string().min(8).max(200).optional().nullable(),
   files: z.array(bulkIntentItemSchema).min(1).max(50),
 });
@@ -48,7 +48,8 @@ export async function POST(request: Request) {
       return jsonError("Invalid bulk intent request", 400, "BAD_REQUEST");
     }
 
-    const { projectId, files, clientSessionId, operationId } = parsed.data;
+    const { projectId, files, operationId } = parsed.data;
+    const clientSessionId = parsed.data.clientSessionId ?? crypto.randomUUID();
 
     // 1. Verify project write access
     const access = await getWorkspaceAccessById(projectId, user.id);
@@ -65,7 +66,7 @@ export async function POST(request: Request) {
     }> = [];
     for (let offset = 0; offset < files.length; offset += 8) {
       resolvedFiles.push(...await Promise.all(files.slice(offset, offset + 8).map(async (file) => {
-        const resolved = await resolveWritableExtensionFile(projectId, file.path, user.id);
+        const resolved = await resolveWritableExtensionFile(projectId, file.path, user.id, { createIfMissing: true });
         if (resolved.response || !resolved.node) {
           throw new Error(`Couldn’t resolve file: ${file.path}`);
         }
@@ -89,9 +90,9 @@ export async function POST(request: Request) {
             nodeId: node.id,
             path: file.path,
             contentHash: file.contentHash.toLowerCase(),
-            leaseId: file.leaseId,
+            leaseId: file.leaseId ?? null,
             clientSessionId,
-            fencingToken: file.fencingToken,
+            fencingToken: file.fencingToken ?? null,
             operationId: operationId ?? uploadSessionId,
             comment: file.comment ?? null,
           },

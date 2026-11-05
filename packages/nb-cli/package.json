@@ -1,0 +1,26 @@
+{
+  "name": "@networkbase/cli",
+  "version": "1.0.0",
+  "description": "NetworkBase High-EQ CLI, Git Credential Helper & AI MCP Server",
+  "type": "module",
+  "bin": {
+    "nb": "./bin/nb.mjs",
+    "networkbase": "./bin/nb.mjs"
+  },
+  "files": [
+    "bin/",
+    "src/",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": [
+    "networkbase",
+    "cli",
+    "git",
+    "mcp",
+    "ai"
+  ],
+  "license": "Proprietary"
+}

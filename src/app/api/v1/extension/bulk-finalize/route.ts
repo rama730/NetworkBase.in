@@ -13,6 +13,7 @@ import { uploadIntents } from "@/lib/db/schema";
 import { getWorkspaceAccessById } from "@/lib/data/workspace-access";
 import { createAdminClient } from "@/lib/supabase/server";
 import { applyFileRevision } from "@/lib/files/apply-file-revision";
+import { withTransientFileLease } from "@/lib/files/file-lock-service";
 import { finalizeUploadIntent } from "@/lib/upload/upload-intents";
 import { FILE_REVISION_MODES, normalizeRevisionComment, parseFileRevisionMode } from "@/lib/files/revision-policy";
 import { validateCsrf } from "@/lib/security/csrf";
@@ -96,142 +97,173 @@ export async function POST(request: Request) {
       })).map((intent) => [intent.id, intent]),
     );
 
-    for (const item of files) {
-      const intent = intents.get(item.uploadIntentId);
+    for (let offset = 0; offset < files.length; offset += 8) {
+      const batch = files.slice(offset, offset + 8);
+      const batchOutcomes = await Promise.all(
+        batch.map(async (item) => {
+          const intent = intents.get(item.uploadIntentId);
 
-      if (!intent) {
-        return jsonError(`Upload intent not found for ${item.path}`, 404, "NOT_FOUND");
+          if (!intent) {
+            return { errorResponse: jsonError(`Upload intent not found for ${item.path}`, 404, "NOT_FOUND"), result: null };
+          }
+
+          const metadata = readIntentMetadata(intent);
+          const nodeId = typeof metadata.nodeId === "string" ? metadata.nodeId : "";
+          const contentHash = typeof metadata.contentHash === "string" ? metadata.contentHash.toLowerCase() : "";
+
+          if (!nodeId || contentHash !== item.checksum.toLowerCase()) {
+            if (intent.status === "pending") {
+              await markIntentFailed(intent.id, "Upload intent metadata mismatch");
+            }
+            return { errorResponse: jsonError(`Upload intent metadata mismatch for ${item.path}`, 400, "BAD_REQUEST"), result: null };
+          }
+
+          if (intent.status !== "pending" && intent.status !== "finalized") {
+            return { errorResponse: jsonError(`Upload intent is not pending for ${item.path}`, 409, "CONFLICT"), result: null };
+          }
+
+          if (intent.status === "pending" && intent.expiresAt.getTime() <= Date.now()) {
+            await markIntentFailed(intent.id, "Upload intent expired");
+            return { errorResponse: jsonError(`Upload intent expired for ${item.path}`, 409, "CONFLICT"), result: null };
+          }
+
+          const explicitLease = parseExtensionLeaseMetadata(metadata);
+
+          const resolved = await resolveWritableExtensionFile(projectId, item.path, user.id, { createIfMissing: true });
+          if (resolved.response || !resolved.node) {
+            return {
+              errorResponse: resolved.response || jsonError(`File node not found for ${item.path}`, 404, "NOT_FOUND"),
+              result: null,
+            };
+          }
+          // A retried batch reports files it already applied instead of re-checking
+          // their (now advanced) base version.
+          if (intent.status === "finalized" && intent.assetId && resolved.node.assetId === intent.assetId) {
+            return {
+              errorResponse: null,
+              result: {
+                path: item.path,
+                nodeId: resolved.node.id,
+                version: resolved.node.currentVersion ?? 1,
+                size: resolved.node.size ?? intent.expectedSize,
+                contentHash,
+              },
+            };
+          }
+
+          const baseVersion = typeof metadata.baseVersion === "number" ? metadata.baseVersion : null;
+          const baseHash = typeof metadata.baseHash === "string" ? metadata.baseHash : null;
+          const conflict = await assertNoExtensionWriteConflict({
+            node: resolved.node,
+            baseVersion,
+            baseHash,
+          });
+          if (conflict) {
+            if (intent.status === "pending") await markIntentFailed(intent.id, "Write conflict during finalize");
+            return { errorResponse: conflict, result: null };
+          }
+
+          // Server-side verification registers the verified asset and its digest
+          // (idempotent for an already finalized intent) (COR-004).
+          const verifiedIntent = await finalizeUploadIntent(
+            {
+              intentId: intent.id,
+              bucket: intent.bucket,
+              storageKey: intent.storageKey,
+              userId: user.id,
+              projectId,
+              expectedScope: "workspace_file",
+              expectedKind: "file",
+            },
+            intent,
+          ).catch(async (error: unknown) => {
+            if (intent.status === "pending")
+              await markIntentFailed(intent.id, error instanceof Error ? error.message : "Upload verification failed");
+            return null;
+          });
+          if (!verifiedIntent?.assetId) {
+            return {
+              errorResponse: jsonError(`Uploaded file could not be verified for ${item.path}`, 409, "CONFLICT"),
+              result: null,
+            };
+          }
+          // A retry after a successful revision reports it instead of re-applying.
+          if (resolved.node.assetId === verifiedIntent.assetId) {
+            return {
+              errorResponse: null,
+              result: {
+                path: item.path,
+                nodeId: resolved.node.id,
+                version: resolved.node.currentVersion ?? 1,
+                size: resolved.node.size ?? intent.expectedSize,
+                contentHash,
+              },
+            };
+          }
+
+          const revisionMode = parseFileRevisionMode(item.revisionMode || (metadata.revisionMode as any));
+          const comment = normalizeRevisionComment(item.comment || (metadata.comment as any));
+
+          const applyWithLease = async (leaseToUse: NonNullable<typeof explicitLease>) =>
+            applyFileRevision({
+              projectId,
+              nodeId,
+              actorUserId: user.id,
+              storageKey: intent.storageKey,
+              assetId: verifiedIntent.assetId!,
+              size: verifiedIntent.finalizedSize ?? intent.expectedSize,
+              mimeType: verifiedIntent.finalizedMimeType ?? intent.expectedMimeType,
+              contentHash,
+              mode: revisionMode,
+              comment,
+              baseVersion,
+              baseHash,
+              lease: leaseToUse,
+              eventType: "extension_file_saved",
+              eventMetadata: {
+                uploadIntentId: intent.id,
+                operationId: metadata.operationId,
+                uploadSessionId: uploadSessionId || null,
+                transfer: "bulk_signed_upload",
+              },
+              syncStatus: "merged",
+            });
+
+          const result = explicitLease
+            ? await applyWithLease(explicitLease)
+            : await withTransientFileLease(
+                { projectId, nodeId, userId: user.id },
+                (transientLease) => applyWithLease(transientLease),
+              );
+
+          recordExtensionMetric("extension.bulk_finalize.file", {
+            action: "bulk_finalize",
+            success: true,
+            userId: user.id,
+            projectId,
+            nodeId,
+            uploadIntentId: intent.id,
+            path: item.path,
+            sizeBytes: intent.expectedSize,
+          });
+
+          return {
+            errorResponse: null,
+            result: {
+              path: item.path,
+              nodeId: result.node.id,
+              version: result.version.version,
+              size: result.node.size ?? intent.expectedSize,
+              contentHash,
+            },
+          };
+        }),
+      );
+
+      for (const outcome of batchOutcomes) {
+        if (outcome.errorResponse) return outcome.errorResponse;
+        if (outcome.result) finalizedResults.push(outcome.result);
       }
-
-      const metadata = readIntentMetadata(intent);
-      const nodeId = typeof metadata.nodeId === "string" ? metadata.nodeId : "";
-      const contentHash = typeof metadata.contentHash === "string" ? metadata.contentHash.toLowerCase() : "";
-
-      if (!nodeId || contentHash !== item.checksum.toLowerCase()) {
-        if (intent.status === "pending") {
-          await markIntentFailed(intent.id, "Upload intent metadata mismatch");
-        }
-        return jsonError(`Upload intent metadata mismatch for ${item.path}`, 400, "BAD_REQUEST");
-      }
-
-      if (intent.status !== "pending" && intent.status !== "finalized") {
-        return jsonError(`Upload intent is not pending for ${item.path}`, 409, "CONFLICT");
-      }
-
-      if (intent.status === "pending" && intent.expiresAt.getTime() <= Date.now()) {
-        await markIntentFailed(intent.id, "Upload intent expired");
-        return jsonError(`Upload intent expired for ${item.path}`, 409, "CONFLICT");
-      }
-
-      const lease = parseExtensionLeaseMetadata(metadata);
-      if (!lease) {
-        await markIntentFailed(intent.id, "Missing editing lease metadata");
-        return jsonError(`Valid editing lease required for ${item.path}`, 409, "CONFLICT");
-      }
-
-      const resolved = await resolveWritableExtensionFile(projectId, item.path, user.id);
-      if (resolved.response || !resolved.node) {
-        return resolved.response || jsonError(`File node not found for ${item.path}`, 404, "NOT_FOUND");
-      }
-      // A retried batch reports files it already applied instead of re-checking
-      // their (now advanced) base version.
-      if (intent.status === "finalized" && intent.assetId && resolved.node.assetId === intent.assetId) {
-        finalizedResults.push({
-          path: item.path,
-          nodeId: resolved.node.id,
-          version: resolved.node.currentVersion ?? 1,
-          size: resolved.node.size ?? intent.expectedSize,
-          contentHash,
-        });
-        continue;
-      }
-
-      const baseVersion = typeof metadata.baseVersion === "number" ? metadata.baseVersion : null;
-      const baseHash = typeof metadata.baseHash === "string" ? metadata.baseHash : null;
-      const conflict = await assertNoExtensionWriteConflict({
-        node: resolved.node,
-        baseVersion,
-        baseHash,
-      });
-      if (conflict) {
-        if (intent.status === "pending") await markIntentFailed(intent.id, "Write conflict during finalize");
-        return conflict;
-      }
-
-      // Server-side verification registers the verified asset and its digest
-      // (idempotent for an already finalized intent) (COR-004).
-      const verifiedIntent = await finalizeUploadIntent({
-        intentId: intent.id,
-        bucket: intent.bucket,
-        storageKey: intent.storageKey,
-        userId: user.id,
-        projectId,
-        expectedScope: "workspace_file",
-        expectedKind: "file",
-      }).catch(async (error: unknown) => {
-        if (intent.status === "pending") await markIntentFailed(intent.id, error instanceof Error ? error.message : "Upload verification failed");
-        return null;
-      });
-      if (!verifiedIntent?.assetId) {
-        return jsonError(`Uploaded file could not be verified for ${item.path}`, 409, "CONFLICT");
-      }
-      // A retry after a successful revision reports it instead of re-applying.
-      if (resolved.node.assetId === verifiedIntent.assetId) {
-        finalizedResults.push({
-          path: item.path,
-          nodeId: resolved.node.id,
-          version: resolved.node.currentVersion ?? 1,
-          size: resolved.node.size ?? intent.expectedSize,
-          contentHash,
-        });
-        continue;
-      }
-
-      const revisionMode = parseFileRevisionMode(item.revisionMode || (metadata.revisionMode as any));
-      const comment = normalizeRevisionComment(item.comment || (metadata.comment as any));
-
-      const result = await applyFileRevision({
-        projectId,
-        nodeId,
-        actorUserId: user.id,
-        storageKey: intent.storageKey,
-        assetId: verifiedIntent.assetId,
-        size: verifiedIntent.finalizedSize ?? intent.expectedSize,
-        mimeType: verifiedIntent.finalizedMimeType ?? intent.expectedMimeType,
-        contentHash,
-        mode: revisionMode,
-        comment,
-        baseVersion,
-        baseHash,
-        lease,
-        eventType: "extension_file_saved",
-        eventMetadata: {
-          uploadIntentId: intent.id,
-          operationId:metadata.operationId,
-          uploadSessionId: uploadSessionId || null,
-          transfer: "bulk_signed_upload",
-        },
-        syncStatus: "merged",
-      });
-
-      finalizedResults.push({
-        path: item.path,
-        nodeId: result.node.id,
-        version: result.version.version,
-        size: result.node.size ?? intent.expectedSize,
-        contentHash,
-      });
-
-      recordExtensionMetric("extension.bulk_finalize.file", {
-        action: "bulk_finalize",
-        success: true,
-        userId: user.id,
-        projectId,
-        nodeId,
-        uploadIntentId: intent.id,
-        path: item.path,
-        sizeBytes: intent.expectedSize,
-      });
     }
 
     return jsonSuccess({

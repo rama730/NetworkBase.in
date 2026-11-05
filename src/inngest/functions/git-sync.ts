@@ -1,7 +1,8 @@
 import { inngest } from "../client";
 import { and, eq, sql } from "drizzle-orm";
+import crypto from "node:crypto";
 import { db } from "@/lib/db";
-import { githubSyncRuns, workspaceNodeLocks } from "@/lib/db/schema";
+import { githubSyncRuns, workspaceNodeLocks, workspaceWebhooks } from "@/lib/db/schema";
 import { runReviewedGitHubSync } from "@/lib/github/sync-runner";
 import { cleanupReviewedSyncSnapshots } from "@/lib/github/sync-service";
 import {
@@ -170,5 +171,62 @@ export const lockCleanup = inngest.createFunction(
       if (count < 1000) break;
     }
     return { cleaned: true, deleted };
+  },
+);
+
+export const cliPushPostProcessFunction = inngest.createFunction(
+  { id: "cli-push-post-process", retries: 2 },
+  { event: "cli/push.completed" },
+  async ({ event, step }) => {
+    const { projectId, taskId, userId, commitSha, role, message, filesCount } = event.data;
+    return step.run("dispatch-outbound-push-webhooks", async () => {
+      const hooks = await db
+        .select()
+        .from(workspaceWebhooks)
+        .where(
+          and(
+            eq(workspaceWebhooks.projectId, projectId),
+            eq(workspaceWebhooks.isActive, true),
+          ),
+        )
+        .catch(() => []);
+
+      let delivered = 0;
+      for (const hook of hooks) {
+        const events = Array.isArray(hook.events) ? hook.events : [];
+        if (!events.includes("git.push") && !events.includes("task.review")) continue;
+
+        const payload = JSON.stringify({
+          event: "git.push",
+          projectId,
+          taskId: taskId ?? null,
+          userId,
+          commitSha,
+          role,
+          message,
+          filesCount,
+          timestamp: new Date().toISOString(),
+        });
+
+        const signature = crypto
+          .createHmac("sha256", hook.secretHash)
+          .update(payload)
+          .digest("hex");
+
+        const res = await fetch(hook.targetUrl, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-NetworkBase-Event": "git.push",
+            "X-NetworkBase-Signature-256": `sha256=${signature}`,
+          },
+          body: payload,
+        }).catch(() => null);
+
+        if (res?.ok) delivered++;
+      }
+
+      return { projectId, commitSha, webhooksTriggered: delivered };
+    });
   },
 );

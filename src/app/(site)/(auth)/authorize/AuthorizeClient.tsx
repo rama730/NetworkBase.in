@@ -56,7 +56,7 @@ function getCallbackEditorName(url: string | null): string {
     if (protocol === 'windsurf') return 'Windsurf'
     if (protocol === 'vscode-insiders') return 'VS Code Insiders'
     if (protocol === 'vscode') return 'VS Code'
-    if (protocol === 'http') return 'Code editor'
+    if (protocol === 'http') return 'NetworkBase CLI'
 
     return protocol
         .split(/[-_]+/)
@@ -80,11 +80,20 @@ function validateCallback(url: string | null): boolean {
 
     try {
         const parsed = new URL(url)
-        return (
+        const isLoopbackCli =
+            parsed.protocol === 'http:'
+            && (parsed.hostname === '127.0.0.1' || parsed.hostname === 'localhost')
+            && Boolean(parsed.port)
+            && parsed.pathname === AUTH_CALLBACK_PATH
+
+        const isIdeScheme =
             /^[a-zA-Z][a-zA-Z0-9+.-]*:$/.test(parsed.protocol)
+            && parsed.protocol !== 'http:'
+            && parsed.protocol !== 'https:'
             && parsed.hostname === EXTENSION_URI_AUTHORITY
             && parsed.pathname === AUTH_CALLBACK_PATH
-        )
+
+        return isLoopbackCli || isIdeScheme
     } catch {
         return false
     }
@@ -95,6 +104,9 @@ function formatCallbackDestination(url: string | null): string {
 
     try {
         const parsed = new URL(url)
+        if (parsed.protocol === 'http:' && (parsed.hostname === '127.0.0.1' || parsed.hostname === 'localhost')) {
+            return `cli://${parsed.hostname}:${parsed.port}`
+        }
         const scheme = parsed.protocol.replace(':', '')
         if (parsed.hostname) return `${scheme}://${parsed.hostname}`
         return `${scheme} callback`
@@ -163,8 +175,11 @@ function AuthorizePageInner({ viewerEmail }: { viewerEmail?: string | null }) {
         try {
             setProgressText('Connecting…')
 
+            const protocol = parseProtocol(callbackUrl)
             const res = await generateExtensionAuthCode(editorName, {
                 authMethod: 'web_login',
+                editorHost: protocol === 'http' ? 'cli' : protocol || undefined,
+                editorName,
                 requestState: callbackState,
                 callbackUri: callbackUrl,
             })

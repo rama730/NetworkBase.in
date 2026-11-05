@@ -112,7 +112,7 @@ function carriesAuthCookie(request: Request) {
  */
 export function validateCsrf(request: Request): NextResponse | null {
   const authHeader = request.headers.get("authorization")?.trim();
-  if (authHeader && /^bearer nb_dev_/i.test(authHeader) && !carriesAuthCookie(request)) {
+  if (authHeader && /^bearer nb_(dev|pat)_/i.test(authHeader) && !carriesAuthCookie(request)) {
     return null;
   }
 

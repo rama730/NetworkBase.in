@@ -1,8 +1,8 @@
 import crypto from "crypto";
 import { and, eq, isNull } from "drizzle-orm";
-import { enforceRouteLimit, jsonError, jsonSuccess, getRequestIp } from "@/app/api/v1/_shared";
+import { enforceRouteLimit, invalidateBearerTokenCache, jsonError, jsonSuccess, getRequestIp } from "@/app/api/v1/_shared";
 import { db } from "@/lib/db";
-import { extensionDeviceSessionEvents, extensionDeviceSessions } from "@/lib/db/schema";
+import { extensionDeviceSessionEvents, extensionDeviceSessions, personalAccessTokens, profiles } from "@/lib/db/schema";
 import { EXTENSION_DEVICE_SESSION_EVENTS } from "@/lib/extension/session-events";
 import { logger } from "@/lib/logger";
 import { validateCsrf } from "@/lib/security/csrf";
@@ -17,11 +17,17 @@ function getBearerToken(request: Request) {
   }
 
   const token = authHeader.slice(7).trim();
-  return token.startsWith("nb_dev_") ? token : null;
+  return token.startsWith("nb_dev_") || token.startsWith("nb_pat_") ? token : null;
 }
 
 const SESSION_CACHE_TTL_MS = 30_000;
-type CachedSession = { sessionId: string; active: boolean; cachedAt: number };
+type CachedSession = {
+  sessionId: string;
+  active: boolean;
+  tokenType: "device" | "pat";
+  user?: { id: string; email: string | null; username: string | null; fullName: string | null } | null;
+  cachedAt: number;
+};
 const sessionStatusCache = new Map<string, CachedSession>();
 const MAX_SESSION_CACHE_SIZE = 10_000;
 
@@ -43,36 +49,106 @@ export async function GET(request: Request) {
       {
         sessionId: cached.sessionId,
         active: cached.active,
+        tokenType: cached.tokenType,
+        user: cached.active ? cached.user ?? null : null,
       },
       undefined,
       { headers: { "Cache-Control": "no-store" } },
     );
   }
 
-  const session = await db.query.extensionDeviceSessions.findFirst({
-    where: eq(extensionDeviceSessions.tokenHash, tokenHash),
-    columns: {
-      id: true,
-      expiresAt: true,
-      revokedAt: true,
-    },
-  });
+  if (token.startsWith("nb_pat_")) {
+    const [found] = await db
+      .select({
+        id: personalAccessTokens.id,
+        userId: personalAccessTokens.userId,
+        expiresAt: personalAccessTokens.expiresAt,
+        revokedAt: personalAccessTokens.revokedAt,
+        email: profiles.email,
+        username: profiles.username,
+        fullName: profiles.fullName,
+      })
+      .from(personalAccessTokens)
+      .leftJoin(profiles, eq(profiles.id, personalAccessTokens.userId))
+      .where(eq(personalAccessTokens.tokenHash, tokenHash))
+      .limit(1);
+
+    if (!found) {
+      return jsonError("Sign in to continue", 401, "UNAUTHORIZED");
+    }
+
+    const active = !found.revokedAt && (!found.expiresAt || found.expiresAt.getTime() > now);
+    const userPayload = active
+      ? { id: found.userId, email: found.email, username: found.username, fullName: found.fullName }
+      : null;
+
+    if (sessionStatusCache.size >= MAX_SESSION_CACHE_SIZE) {
+      const oldestKey = sessionStatusCache.keys().next().value;
+      if (oldestKey) sessionStatusCache.delete(oldestKey);
+    }
+    sessionStatusCache.set(tokenHash, {
+      sessionId: found.id,
+      active,
+      tokenType: "pat",
+      user: userPayload,
+      cachedAt: now,
+    });
+
+    return jsonSuccess(
+      {
+        sessionId: found.id,
+        active,
+        tokenType: "pat",
+        user: userPayload,
+      },
+      undefined,
+      { headers: { "Cache-Control": "no-store" } },
+    );
+  }
+
+  const [session] = await db
+    .select({
+      id: extensionDeviceSessions.id,
+      userId: extensionDeviceSessions.userId,
+      expiresAt: extensionDeviceSessions.expiresAt,
+      revokedAt: extensionDeviceSessions.revokedAt,
+      email: profiles.email,
+      username: profiles.username,
+      fullName: profiles.fullName,
+    })
+    .from(extensionDeviceSessions)
+    .leftJoin(profiles, eq(profiles.id, extensionDeviceSessions.userId))
+    .where(eq(extensionDeviceSessions.tokenHash, tokenHash))
+    .limit(1);
+
   if (!session) {
     return jsonError("Sign in to continue", 401, "UNAUTHORIZED");
   }
 
   const active = !session.revokedAt && session.expiresAt.getTime() > now;
+  const userPayload = active
+    ? { id: session.userId, email: session.email, username: session.username, fullName: session.fullName }
+    : null;
+
   if (sessionStatusCache.size >= MAX_SESSION_CACHE_SIZE) {
     const oldestKey = sessionStatusCache.keys().next().value;
     if (oldestKey) sessionStatusCache.delete(oldestKey);
   }
-  sessionStatusCache.set(tokenHash, { sessionId: session.id, active, cachedAt: now });
+  sessionStatusCache.set(tokenHash, {
+    sessionId: session.id,
+    active,
+    tokenType: "device",
+    user: userPayload,
+    cachedAt: now,
+  });
 
   // Revoked tokens may read only their own liveness so the IDE can erase them after web-side disconnect.
   return jsonSuccess(
     {
       sessionId: session.id,
       active,
+      tokenType: "device",
+      user: userPayload,
     },
     undefined,
     { headers: { "Cache-Control": "no-store" } },
@@ -92,6 +168,21 @@ export async function POST(request: Request) {
     }
 
     const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
+    if (token.startsWith("nb_pat_")) {
+      await db
+        .update(personalAccessTokens)
+        .set({ revokedAt: new Date() })
+        .where(
+          and(
+            eq(personalAccessTokens.tokenHash, tokenHash),
+            isNull(personalAccessTokens.revokedAt),
+          ),
+        );
+      sessionStatusCache.delete(tokenHash);
+      invalidateBearerTokenCache(tokenHash);
+      return jsonSuccess({ revoked: true });
+    }
+
     const session = await db.query.extensionDeviceSessions.findFirst({
       where: eq(extensionDeviceSessions.tokenHash, tokenHash),
     });
@@ -133,6 +224,7 @@ export async function POST(request: Request) {
     });
 
     sessionStatusCache.delete(tokenHash);
+    invalidateBearerTokenCache(tokenHash);
 
     return jsonSuccess({ revoked: true });
   } catch (error) {
