@@ -460,7 +460,7 @@ test("updates feed and detail render context references and actual images", () =
     assert.equal(mediaFrameSource.includes("mx-auto"), false);
     assert.equal(mediaFrameSource.includes("w-fit"), false);
     assert.equal(rendererSource.includes("UpdateContextIcon"), false);
-    assert.match(cardSource, /<WorkspaceUpdateContent/);
+    assert.match(cardSource, /<(WorkspaceUpdateContent|ExpandableUpdateContent)/);
     assert.match(detailSource, /<WorkspaceUpdateContent/);
     assert.match(cardSource, /<UpdateContextAndMedia update=\{update\} \/>/);
     assert.match(cardSource, /border-b border-border\/80 px-1 py-3/);

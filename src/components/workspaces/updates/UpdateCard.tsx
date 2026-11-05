@@ -24,7 +24,7 @@ import {
 } from "lucide-react";
 import { toast, feedbackError } from "@/lib/feedback";
 import { BlockPersonDialog, type BlockPerson } from "@/components/privacy/BlockDialog";
-import { BlockPostAuthorItem, CommentPreview, LikedByLine, MutePostMenuItem, ReplyPolicyMenuItems, ShareUpdateButton } from "@/components/workspaces/updates/UpdatePostParts";
+import { BlockPostAuthorItem, CommentPreview, MutePostMenuItem, ReplyPolicyMenuItems, ShareUpdateButton } from "@/components/workspaces/updates/UpdatePostParts";
 import { useToggleUpdateLike } from "@/hooks/useToggleUpdateLike";
 import { deleteWorkspaceUpdateAction, editWorkspaceUpdateAction, toggleWorkspaceUpdatePinAction, type WorkspaceUpdateView } from "@/app/actions/workspace/updates";
 import { Button } from "@/components/ui/button";
@@ -43,6 +43,7 @@ import { useUpdatePostLive } from "@/hooks/useUpdateLive";
 import { cn } from "@/lib/utils";
 import { isUpdateCardControl, removeUpdate, updateAuthorName, updateContextItems, updatePages, updateRelativeTime, type UpdatesPage } from '@/components/workspaces/updates/update-helpers';
 import { WorkspaceUpdateContent, UpdateContextAndMedia } from '@/components/workspaces/updates/UpdateContent';
+import { ExpandableUpdateContent } from '@/components/workspaces/updates/ExpandableUpdateContent';
 import { cardAudienceLabel, ChangeAudienceDialog, SeenCount, type OrgCardView } from '@/components/organizations/OrgUpdateParts';
 import { hideSharedFromOrgAction } from '@/app/actions/org-updates';
 
@@ -408,11 +409,11 @@ function UpdateCard({
               </div>
             </div>
           ) : update.content.trim() ? (
-            <WorkspaceUpdateContent
+            <ExpandableUpdateContent
               content={update.content}
               projectId={projectId}
               projectSlug={projectSlug}
-              className="mt-1 block w-full whitespace-pre-wrap break-words text-left text-[15px] leading-relaxed text-foreground/90 transition group-hover:text-foreground"
+              className="mt-1 block w-full whitespace-pre-wrap text-[15px] leading-relaxed text-foreground/90 transition group-hover:text-foreground"
             />
           ) : null}
 
@@ -421,10 +422,7 @@ function UpdateCard({
           ) : null}
 
           {!isDeleted && !isPending ? (
-            <>
-              <LikedByLine likeCount={update.likeCount} likedByViewer={update.likedByViewer} likedByName={update.preview?.likedByName} onOpen={() => setIsLikersOpen(true)} />
-              <CommentPreview preview={update.preview} commentCount={update.commentCount} onOpen={() => onOpenDetail(update.id)} />
-            </>
+            <CommentPreview preview={update.preview} commentCount={update.commentCount} onOpen={() => onOpenDetail(update.id)} />
           ) : null}
 
           {!isDeleted && !isPending ? (

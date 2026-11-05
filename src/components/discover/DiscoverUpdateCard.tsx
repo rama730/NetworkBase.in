@@ -10,7 +10,7 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { WorkspaceUpdateContent } from "@/components/workspaces/updates/UpdateContent";
+import { ExpandableUpdateContent } from "@/components/workspaces/updates/ExpandableUpdateContent";
 import { WorkspaceUpdateMediaViewer } from "@/components/workspaces/updates/WorkspaceUpdateMediaFrame";
 import { UpdateTime, isUpdateCardControl } from "@/components/workspaces/updates/update-helpers";
 import { ReportMenuItem, useReportDialog } from "@/components/reports/ReportDialog";
@@ -18,7 +18,7 @@ import { useToggleUpdateLike } from "@/hooks/useToggleUpdateLike";
 import { useUpdateCardLive } from "@/hooks/useUpdateLive";
 import { WorkspaceUpdateLikersModal } from "@/components/workspaces/updates/WorkspaceUpdateLikersModal";
 import { BlockPersonDialog, type BlockPerson } from "@/components/privacy/BlockDialog";
-import { BlockPostAuthorItem, CommentPreview, FollowWorkspaceButton, LikedByLine, MutePostMenuItem, ReplyPolicyMenuItems, ShareUpdateButton } from "@/components/workspaces/updates/UpdatePostParts";
+import { BlockPostAuthorItem, CommentPreview, FollowWorkspaceButton, MutePostMenuItem, ReplyPolicyMenuItems, ShareUpdateButton } from "@/components/workspaces/updates/UpdatePostParts";
 import { cn } from "@/lib/utils";
 import type { DiscoverUpdateMedia, DiscoverUpdateView } from "@/types/discover";
 
@@ -30,10 +30,6 @@ export interface DiscoverUpdateCardProps {
     /** The project's card was visited from here, so "Hide opened" can hide it. */
     onVisitProject: (projectId: string) => void;
 }
-
-/** Long enough that five lines will not show all of it. */
-const CLAMP_AT = 280;
-const SHOW_MORE_LINES = 6;
 
 /** An author-written description, or a plain one: the stored default is the file name, which says nothing. */
 function mediaAlt(item: DiscoverUpdateMedia, author: string) {
@@ -124,7 +120,6 @@ export default memo(function DiscoverUpdateCard({ update, viewerId, onOpen, onHi
     const like = useToggleUpdateLike(update.projectId, update.id);
     // Report, last in the menu (trust and safety C15); not on your own update, not signed out.
     const reporting = useReportDialog({ kind: "update", targetId: update.id, noun: update.updateType === "announcement" ? "announcement" : "post" });
-    const [expanded, setExpanded] = useState(false);
     const [isLikersOpen, setIsLikersOpen] = useState(false);
     const [blockAsk, setBlockAsk] = useState<(BlockPerson & { at: number }) | null>(null);
     // Live while on screen, for people signed in (the "Update card real-time" report).
@@ -133,7 +128,6 @@ export default memo(function DiscoverUpdateCard({ update, viewerId, onOpen, onHi
     const author = update.author;
     const masked = !author || author.masked;
     const authorName = masked ? "Private member" : author.fullName || author.username || "Member";
-    const canExpand = update.content.length > CLAMP_AT || update.content.split("\n").length > SHOW_MORE_LINES;
     const projectHref = `/workspaces/${encodeURIComponent(update.projectSlug || update.projectId)}`;
     const directHref = `${projectHref}?tab=updates&updateId=${encodeURIComponent(update.id)}`;
     const titleId = `discover-update-${update.id}-title`;
@@ -178,29 +172,16 @@ export default memo(function DiscoverUpdateCard({ update, viewerId, onOpen, onHi
             </div>
 
             {update.content.trim() ? (
-                <div className="mt-1">
-                    <WorkspaceUpdateContent
-                        content={update.content}
-                        projectId={update.projectId}
-                        projectSlug={update.projectSlug}
-                        className={cn("block w-full whitespace-pre-wrap break-words text-left text-[14px] leading-relaxed text-foreground/90", !expanded && "line-clamp-5")}
-                    />
-                    {canExpand ? (
-                        <button
-                            type="button"
-                            aria-expanded={expanded}
-                            onClick={() => setExpanded((open) => !open)}
-                            className="inline-flex min-h-11 items-center text-[13px] font-medium text-muted-foreground hover:text-foreground focus-visible:underline"
-                        >
-                            {expanded ? "Show less" : "Show more"}
-                        </button>
-                    ) : null}
-                </div>
+                <ExpandableUpdateContent
+                    content={update.content}
+                    projectId={update.projectId}
+                    projectSlug={update.projectSlug}
+                    className="text-[14px] leading-relaxed text-foreground/90"
+                />
             ) : null}
 
             <UpdateMedia media={update.media} author={authorName} />
 
-            <LikedByLine likeCount={update.likeCount} likedByViewer={update.likedByViewer} likedByName={update.preview?.likedByName} onOpen={() => setIsLikersOpen(true)} />
             <CommentPreview preview={update.preview} commentCount={update.commentCount} onOpen={() => onOpen(update.id, cardRef.current!)} />
 
             <div className="nb-project-card-footer">

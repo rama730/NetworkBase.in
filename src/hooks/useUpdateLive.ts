@@ -107,7 +107,6 @@ function flushCounts(queryClient: QueryClient) {
             likerTimers.set(updateId, setTimeout(() => {
                 likerTimers.delete(updateId);
                 void queryClient.invalidateQueries({ queryKey: queryKeys.project.detail.updateLikes(projectId, updateId) });
-                void refreshPreview(queryClient, projectId, updateId);
             }, LIKERS_EVERY_MS));
         }
     }

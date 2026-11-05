@@ -41,7 +41,7 @@ export function PersonCardLayout({ avatar, head, headline, location, meta = [], 
         return () => observer.disconnect();
     }, [meta, aside]);
     return <div className="nb-person-card-host" data-variant={variant}>
-        <article ref={cardRef} data-slot="person-card" className={`nb-person-card ${className}`}>
+        <article ref={cardRef} data-slot="person-card" className={`nb-person-card relative ${className}`}>
             <div className="nb-person-identity">
                 <div className="nb-person-avatar">{avatar}</div>
                 <div className="nb-person-identity-text">{head}{headline ? <div className="nb-person-subtitle">{headline}</div> : null}</div>
@@ -177,6 +177,9 @@ export function PersonCardContent({ person: input, action, variant = 'network', 
                     hoursPerWeek={person.hoursPerWeek}
                     variant="badge"
                 />
+            ) : null}
+            {!locked && person.id ? (
+                <SharedOrgChip userId={person.id} className="inline-flex max-w-[320px] max-sm:max-w-[200px] shrink-0 items-center truncate rounded-[3px] border border-border px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground" />
             ) : null}</h3>}
         headline={subtitle.text ? <Link className={subtitle.kind === 'headline' ? 'nb-compact' : 'nb-meta'} href={subtitle.kind === 'portfolio' ? `${href}?tab=portfolio` : href} title={subtitle.text} dir="auto">
             {subtitle.kind === 'location' ? <Location value={subtitle.text} /> : subtitle.text}</Link> : null}
@@ -188,8 +191,6 @@ export function PersonCardContent({ person: input, action, variant = 'network', 
         body={!locked && personCardSkills(person.skills).length ? <PersonCardSkillStrip labels={person.skills ?? []} viewerSkills={viewerSkills} /> : null}
         meta={[
             count && person.id ? <SharedConnections key="shared" person={person} count={count} /> : null,
-            // Shared-org chip (report §30.6): an org you're both in, where they show it on their profile.
-            !locked && person.id ? <SharedOrgChip key="org" userId={person.id} /> : null,
             connected ? <span key="connected" className="nb-meta nb-person-date" title={date.title}><span className="nb-person-date-full">{date.text}</span><span className="nb-person-date-compact">{date.compactText}</span></span> : footer,
         ]}
         aside={action}

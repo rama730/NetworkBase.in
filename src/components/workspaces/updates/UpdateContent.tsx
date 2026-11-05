@@ -120,11 +120,13 @@ export function WorkspaceUpdateContent({
   projectId,
   projectSlug,
   className,
+  containerRef,
 }: {
   content: string;
   projectId: string;
   projectSlug?: string | null;
   className?: string;
+  containerRef?: React.Ref<HTMLDivElement>;
 }) {
   if (!content.trim()) return null;
   // References become placeholder links in one Markdown pass, so paragraphs and lists stay whole around them.
@@ -138,7 +140,7 @@ export function WorkspaceUpdateContent({
     .join("");
 
   return (
-    <div className={className}>
+    <div ref={containerRef} className={className}>
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         skipHtml

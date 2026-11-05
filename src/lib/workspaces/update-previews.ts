@@ -4,9 +4,9 @@ import { db } from "@/lib/db";
 import { readableProfileIdentitySql } from "@/lib/privacy/resolver";
 
 export type UpdateCommentPreview = { id: string; authorName: string; authorUsername: string | null; content: string; likeCount: number };
-export type UpdatePreview = { likedByName: string | null; comments: UpdateCommentPreview[] };
+export type UpdatePreview = { comments: UpdateCommentPreview[]; likedByName?: string | null };
 
-/** What a post card shows under the text, in one query for the whole page: who liked it and two comments (UP9). */
+/** What a post card shows under the text, in one query for the whole page: two comments (UP9). */
 export async function readUpdatePreviews(updateIds: string[], viewerId: string | null) {
     const previews = new Map<string, UpdatePreview>();
     if (updateIds.length === 0) return previews;
@@ -18,9 +18,6 @@ export async function readUpdatePreviews(updateIds: string[], viewerId: string |
         : sql`true`;
     const rows = await db.execute(sql`
         SELECT u.id,
-            (SELECT coalesce(profiles.full_name, profiles.username) FROM workspace_update_likes l JOIN profiles ON profiles.id = l.user_id
-                WHERE l.update_id = u.id AND l.user_id IS DISTINCT FROM ${viewerId}::uuid AND ${readable}
-                ORDER BY l.created_at DESC, l.id DESC LIMIT 1) AS liked_by_name,
             (SELECT coalesce(jsonb_agg(x), '[]'::jsonb) FROM (
                 SELECT c.id, c.content, c.like_count AS "likeCount",
                     CASE WHEN ${readable} THEN coalesce(profiles.full_name, profiles.username, 'Member') ELSE 'Private member' END AS "authorName",
@@ -30,7 +27,7 @@ export async function readUpdatePreviews(updateIds: string[], viewerId: string |
                 ORDER BY c.like_count DESC, c.created_at DESC, c.id DESC LIMIT 2
             ) x) AS comments
         FROM workspace_updates u
-        WHERE u.id IN (SELECT value::uuid FROM jsonb_array_elements_text(${JSON.stringify(updateIds)}::jsonb))`) as unknown as Array<{ id: string; liked_by_name: string | null; comments: UpdateCommentPreview[] }>;
-    for (const row of rows) previews.set(row.id, { likedByName: row.liked_by_name, comments: row.comments });
+        WHERE u.id IN (SELECT value::uuid FROM jsonb_array_elements_text(${JSON.stringify(updateIds)}::jsonb))`) as unknown as Array<{ id: string; comments: UpdateCommentPreview[] }>;
+    for (const row of rows) previews.set(row.id, { comments: row.comments, likedByName: null });
     return previews;
 }

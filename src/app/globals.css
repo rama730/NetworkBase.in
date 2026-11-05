@@ -1293,7 +1293,7 @@ html[data-reduce-motion="true"] .nb-typing-dots > span { animation: none; opacit
 
 /* Approved person-card presentation: one geometry for Network, invitations and the Discover rail. */
 .nb-person-card-host { min-width:0; container:person-card / inline-size; }
-.nb-person-card { box-sizing:border-box; display:grid; grid-template-columns:minmax(0,1fr) auto; grid-template-rows:48px auto auto minmax(34px,1fr); gap:4px 12px; height:176px; min-height:176px; max-height:176px; padding:20px; border:1px solid var(--border); border-radius:8px; background:var(--card); color:var(--foreground); }
+.nb-person-card { position:relative; box-sizing:border-box; display:grid; grid-template-columns:minmax(0,1fr) auto; grid-template-rows:48px auto auto minmax(34px,1fr); gap:4px 12px; height:176px; min-height:176px; max-height:176px; padding:20px; border:1px solid var(--border); border-radius:8px; background:var(--card); color:var(--foreground); }
 .nb-person-card:hover { border-color:var(--input); }
 .nb-person-identity { grid-column:1; grid-row:1; display:flex; gap:14px; min-width:0; height:48px; }
 .nb-person-avatar { width:48px; height:48px; flex:none; }

@@ -18,19 +18,9 @@ import type { UpdatePreview } from '@/lib/workspaces/update-previews';
 
 // The parts every post card shares, on Discover and on the Updates tab (UP9).
 
-/** "Liked by Ravi and 12 others"; it opens "Liked by". Someone private isn't named, so then it's just the count. */
-export function LikedByLine({ likeCount, likedByViewer, likedByName, onOpen }: { likeCount: number; likedByViewer: boolean; likedByName: string | null | undefined; onOpen: () => void }) {
-  if (likeCount <= 0) return null;
-  const others = (name: string, rest: number) => `${name}${rest > 0 ? ` and ${rest} ${rest === 1 ? 'other' : 'others'}` : ''}`;
-  const label = likedByViewer && likeCount === 1 ? 'Liked by you'
-    : likedByName ? `Liked by ${others(likedByName, likeCount - 1)}`
-    : likedByViewer ? `Liked by ${others('you', likeCount - 1)}`
-    : `${likeCount} ${likeCount === 1 ? 'like' : 'likes'}`;
-  return (
-    <button type="button" onClick={(e) => { e.stopPropagation(); onOpen(); }} className="mt-2 block max-w-full truncate text-left text-xs text-muted-foreground hover:text-foreground hover:underline focus-visible:underline">
-      {label}
-    </button>
-  );
+/** @deprecated LikedByLine was removed in favor of the clean reaction footer with the like counter trigger. */
+export function LikedByLine(_props: { likeCount?: number; likedByViewer?: boolean; likedByName?: string | null | undefined; onOpen?: () => void }) {
+  return null;
 }
 
 /** Up to two comments under the post; the rest are one tap away. */
