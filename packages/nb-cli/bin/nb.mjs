@@ -11,7 +11,7 @@ import { fileURLToPath } from "node:url";
 
 const CLI_SCRIPT_PATH = fileURLToPath(import.meta.url);
 
-const CLI_VERSION = "1.0.1";
+const CLI_VERSION = "1.0.2";
 const DEFAULT_API_URL = process.env.NETWORKBASE_API_URL || "https://networkbase.in";
 const GLOBAL_CONFIG_DIR = path.join(os.homedir(), ".networkbase");
 const GLOBAL_CREDENTIALS_PATH = path.join(GLOBAL_CONFIG_DIR, "credentials.json");
@@ -1368,9 +1368,28 @@ async function loginWithBrowser(apiUrl, flags = {}) {
     let timeoutHandle;
     const server = http.createServer(async (req, res) => {
       try {
+        const origin = req.headers.origin || "";
+        const isAllowedOrigin =
+          origin.startsWith("https://networkbase.in") ||
+          origin.startsWith("https://networkbase.app") ||
+          origin.startsWith("http://localhost:3000") ||
+          origin.startsWith("http://127.0.0.1");
+
+        const corsHeaders = {
+          "Access-Control-Allow-Origin": isAllowedOrigin ? origin : "*",
+          "Access-Control-Allow-Methods": "GET, OPTIONS",
+          "Access-Control-Allow-Headers": "Content-Type, Authorization, Accept, X-Requested-With",
+        };
+
+        if (req.method === "OPTIONS") {
+          res.writeHead(204, corsHeaders);
+          res.end();
+          return;
+        }
+
         const reqUrl = new URL(req.url || "/", "http://127.0.0.1");
         if (reqUrl.pathname !== "/auth-callback") {
-          res.writeHead(404, { "Content-Type": "text/plain" });
+          res.writeHead(404, { ...corsHeaders, "Content-Type": "text/plain" });
           res.end("Not found");
           return;
         }
@@ -1379,14 +1398,39 @@ async function loginWithBrowser(apiUrl, flags = {}) {
         const message = reqUrl.searchParams.get("message");
         const code = reqUrl.searchParams.get("code");
         const returnedState = reqUrl.searchParams.get("state");
+        const isAjax =
+          req.headers["sec-fetch-mode"] === "cors" ||
+          (req.headers.accept && req.headers.accept.includes("application/json"));
 
         if (error) {
-          res.writeHead(400, { "Content-Type": "text/html; charset=utf-8" });
-          res.end(`<!doctype html><html><body style="font-family:system-ui,sans-serif;padding:40px;text-align:center;">
-            <h2>Authorization Cancelled</h2>
-            <p>${message || error}</p>
-            <p>You can close this window and return to your terminal.</p>
-          </body></html>`);
+          if (isAjax) {
+            res.writeHead(400, { ...corsHeaders, "Content-Type": "application/json; charset=utf-8" });
+            res.end(JSON.stringify({ ok: false, error: message || error }));
+          } else {
+            res.writeHead(400, { ...corsHeaders, "Content-Type": "text/html; charset=utf-8" });
+            res.end(`<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Authorization Cancelled · NetworkBase</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%23c05638'/%3E%3C/svg%3E" />
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #09090b; color: #fafafa; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; padding: 24px; }
+    .card { width: 100%; max-width: 420px; background: #121215; border: 1px solid #27272a; border-radius: 12px; padding: 32px 28px; text-align: center; }
+    h2 { font-size: 18px; margin: 0 0 8px; font-weight: 600; }
+    p { font-size: 13px; color: #a1a1aa; line-height: 1.5; margin: 0 0 20px; }
+    .btn { display: block; width: 100%; height: 40px; line-height: 40px; background: #fafafa; color: #000; font-size: 13px; font-weight: 500; border: none; border-radius: 6px; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h2>Authorization Cancelled</h2>
+    <p>${message || error || "Please restart sign-in from your terminal."}</p>
+    <button class="btn" onclick="window.close()">Close Window</button>
+  </div>
+</body>
+</html>`);
+          }
           clearTimeout(timeoutHandle);
           server.close();
           reject(new Error(message || `Browser authorization failed: ${error}`));
@@ -1394,25 +1438,223 @@ async function loginWithBrowser(apiUrl, flags = {}) {
         }
 
         if (!code || returnedState !== state) {
-          res.writeHead(400, { "Content-Type": "text/html; charset=utf-8" });
-          res.end(`<!doctype html><html><body style="font-family:system-ui,sans-serif;padding:40px;text-align:center;">
-            <h2>Invalid Callback State</h2>
-            <p>Please restart sign-in from your terminal.</p>
-          </body></html>`);
+          if (isAjax) {
+            res.writeHead(400, { ...corsHeaders, "Content-Type": "application/json; charset=utf-8" });
+            res.end(JSON.stringify({ ok: false, error: "Invalid state or missing authorization code." }));
+          } else {
+            res.writeHead(400, { ...corsHeaders, "Content-Type": "text/html; charset=utf-8" });
+            res.end(`<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Invalid Callback State · NetworkBase</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%23c05638'/%3E%3C/svg%3E" />
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #09090b; color: #fafafa; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; padding: 24px; }
+    .card { width: 100%; max-width: 420px; background: #121215; border: 1px solid #27272a; border-radius: 12px; padding: 32px 28px; text-align: center; }
+    h2 { font-size: 18px; margin: 0 0 8px; font-weight: 600; }
+    p { font-size: 13px; color: #a1a1aa; line-height: 1.5; margin: 0 0 20px; }
+    .btn { display: block; width: 100%; height: 40px; line-height: 40px; background: #fafafa; color: #000; font-size: 13px; font-weight: 500; border: none; border-radius: 6px; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h2>Invalid Callback State</h2>
+    <p>Please restart sign-in from your terminal.</p>
+    <button class="btn" onclick="window.close()">Close Window</button>
+  </div>
+</body>
+</html>`);
+          }
           clearTimeout(timeoutHandle);
           server.close();
           reject(new Error("Invalid state or missing authorization code from browser callback."));
           return;
         }
 
-        res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
-        res.end(`<!doctype html><html><body style="font-family:system-ui,-apple-system,sans-serif;background:#0a0a0a;color:#fafafa;padding:64px 24px;text-align:center;">
-          <div style="max-width:420px;margin:0 auto;border:1px solid #262626;border-radius:12px;padding:32px;background:#121212;">
-            <div style="font-size:28px;margin-bottom:12px;">✔</div>
-            <h2 style="margin:0 0 8px;font-size:18px;font-weight:600;">NetworkBase CLI Connected</h2>
-            <p style="margin:0;color:#a1a1aa;font-size:14px;line-height:1.5;">Your terminal is now authenticated. You can close this tab and return to your terminal.</p>
-          </div>
-        </body></html>`);
+        if (isAjax) {
+          res.writeHead(200, {
+            ...corsHeaders,
+            "Content-Type": "application/json; charset=utf-8",
+          });
+          res.end(JSON.stringify({ ok: true, status: "connected", message: "NetworkBase CLI Connected" }));
+        } else {
+          res.writeHead(200, {
+            ...corsHeaders,
+            "Content-Type": "text/html; charset=utf-8",
+          });
+          res.end(`<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>NetworkBase CLI Connected · NetworkBase</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%23c05638'/%3E%3Cpath d='M9 16.5l4.5 4.5 9.5-9.5' fill='none' stroke='%23ffffff' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
+  <style>
+    :root {
+      --background: #09090b;
+      --card: #121215;
+      --border: #27272a;
+      --foreground: #fafafa;
+      --muted: #a1a1aa;
+      --accent: #c05638;
+      --emerald: #10b981;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background-color: var(--background);
+      color: var(--foreground);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      -webkit-font-smoothing: antialiased;
+    }
+    .card {
+      width: 100%;
+      max-width: 440px;
+      background-color: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 32px 28px;
+      text-align: center;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    }
+    .brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      color: var(--foreground);
+      margin-bottom: 24px;
+    }
+    .brand-dot {
+      width: 10px;
+      height: 10px;
+      background-color: var(--accent);
+      border-radius: 2px;
+    }
+    .icon-container {
+      width: 52px;
+      height: 52px;
+      margin: 0 auto 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      background: rgba(16, 185, 129, 0.12);
+      border: 1px solid rgba(16, 185, 129, 0.25);
+      color: var(--emerald);
+    }
+    .title {
+      font-size: 18px;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      margin-bottom: 8px;
+    }
+    .subtitle {
+      font-size: 13px;
+      color: var(--muted);
+      line-height: 1.5;
+      margin-bottom: 24px;
+    }
+    .details {
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px 14px;
+      margin-bottom: 24px;
+      text-align: left;
+      font-size: 12px;
+    }
+    .details-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 4px 0;
+    }
+    .details-label { color: var(--muted); }
+    .details-value { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; }
+    .badge-connected {
+      color: var(--emerald);
+      background: rgba(16, 185, 129, 0.15);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-weight: 500;
+    }
+    .btn {
+      display: block;
+      width: 100%;
+      height: 40px;
+      line-height: 40px;
+      background: var(--foreground);
+      color: #000;
+      font-size: 13px;
+      font-weight: 500;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      text-decoration: none;
+      transition: opacity 0.15s ease;
+    }
+    .btn:hover { opacity: 0.9; }
+    .countdown {
+      margin-top: 14px;
+      font-size: 11px;
+      color: var(--muted);
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="brand">
+      <span class="brand-dot"></span>
+      <span>NetworkBase</span>
+    </div>
+    <div class="icon-container">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M20 6L9 17l-5-5"/>
+      </svg>
+    </div>
+    <h1 class="title">NetworkBase CLI Connected</h1>
+    <p class="subtitle">Your terminal session is now authenticated. You can safely close this window.</p>
+    <div class="details">
+      <div class="details-row">
+        <span class="details-label">Client</span>
+        <span class="details-value">NetworkBase CLI</span>
+      </div>
+      <div class="details-row">
+        <span class="details-label">Server</span>
+        <span class="details-value">networkbase.in</span>
+      </div>
+      <div class="details-row">
+        <span class="details-label">Status</span>
+        <span class="badge-connected">● CONNECTED</span>
+      </div>
+    </div>
+    <button class="btn" onclick="window.close()">Close Window</button>
+    <p class="countdown">Closing automatically in <span id="sec">3</span>s…</p>
+  </div>
+  <script>
+    let s = 3;
+    const el = document.getElementById('sec');
+    const t = setInterval(() => {
+      s--;
+      if (el) el.textContent = s;
+      if (s <= 0) {
+        clearInterval(t);
+        window.close();
+      }
+    }, 1000);
+  </script>
+</body>
+</html>`);
+        }
 
         clearTimeout(timeoutHandle);
         server.close();

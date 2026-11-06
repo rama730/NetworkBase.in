@@ -6,8 +6,8 @@ import { getViewerAuthContext } from '@/lib/server/viewer-context'
 import AuthorizeClient from './AuthorizeClient'
 
 export const metadata = buildRouteMetadata({
-    title: 'Connect your code editor · NetworkBase',
-    description: 'Connect your code editor to NetworkBase.',
+    title: 'Connect editor & CLI · NetworkBase',
+    description: 'Authorize your code editor or NetworkBase CLI to access your workspaces and tasks.',
     path: '/authorize',
 })
 

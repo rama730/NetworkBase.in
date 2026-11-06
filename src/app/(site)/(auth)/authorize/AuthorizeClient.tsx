@@ -1,6 +1,6 @@
 'use client'
 
-import { Suspense, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -144,8 +144,28 @@ function AuthorizePageInner({ viewerEmail }: { viewerEmail?: string | null }) {
     const [debugDetails, setDebugDetails] = useState<string | null>(null)
     const [authCode, setAuthCode] = useState<string | null>(null)
     const [needsSignIn, setNeedsSignIn] = useState(false)
+    const [countdown, setCountdown] = useState<number | null>(null)
 
     const isDev = process.env.NODE_ENV !== 'production'
+
+    useEffect(() => {
+        if (status === 'success' && parseProtocol(callbackUrl) === 'http') {
+            setCountdown(4)
+            const interval = setInterval(() => {
+                setCountdown((prev) => {
+                    if (prev === null || prev <= 1) {
+                        clearInterval(interval)
+                        try {
+                            window.close()
+                        } catch {}
+                        return 0
+                    }
+                    return prev - 1
+                })
+            }, 1000)
+            return () => clearInterval(interval)
+        }
+    }, [status, callbackUrl])
 
     const redirectToEditor = (params: Record<string, string>) => {
         if (!callbackUrl || !isValid) return
@@ -186,6 +206,32 @@ function AuthorizePageInner({ viewerEmail }: { viewerEmail?: string | null }) {
 
             if (res.success) {
                 setAuthCode(res.code)
+                const isCliLoopback = protocol === 'http'
+
+                if (isCliLoopback) {
+                    setProgressText('Connecting to terminal…')
+                    try {
+                        const targetUrl = buildCallbackUrl(
+                            callbackUrl,
+                            callbackState ? { code: res.code, state: callbackState } : { code: res.code },
+                        )
+                        const controller = new AbortController()
+                        const timer = setTimeout(() => controller.abort(), 3500)
+                        const fetchRes = await fetch(targetUrl, {
+                            mode: 'cors',
+                            headers: { Accept: 'application/json' },
+                            signal: controller.signal,
+                        })
+                        clearTimeout(timer)
+                        if (fetchRes.ok) {
+                            setStatus('success')
+                            return
+                        }
+                    } catch {
+                        // Background handshake didn't reach loopback; proceed to redirect fallback
+                    }
+                }
+
                 setProgressText('Opening your editor…')
                 setStatus('success')
                 redirectToEditor({ code: res.code })
@@ -300,7 +346,20 @@ function AuthorizePageInner({ viewerEmail }: { viewerEmail?: string | null }) {
 
                 {status === 'success' ? (
                     <AuthAlert tone="success" title={`${editorName} connected`}>
-                        If {editorName} didn’t open on its own, choose <strong>Open {editorName}</strong> below. You can close this tab once you’re back in your editor.
+                        {parseProtocol(callbackUrl) === 'http' ? (
+                            <>
+                                Your terminal session is authenticated. You can safely close this tab and return to your terminal.
+                                {countdown !== null && countdown > 0 ? (
+                                    <span className="block mt-1.5 font-mono text-xs text-muted-foreground">
+                                        Closing window automatically in {countdown}s…
+                                    </span>
+                                ) : null}
+                            </>
+                        ) : (
+                            <>
+                                If {editorName} didn’t open on its own, choose <strong>Open {editorName}</strong> below. You can close this tab once you’re back in your editor.
+                            </>
+                        )}
                     </AuthAlert>
                 ) : null}
 
@@ -357,10 +416,16 @@ function AuthorizePageInner({ viewerEmail }: { viewerEmail?: string | null }) {
                             Sign in to continue
                         </Button>
                     ) : status === 'success' ? (
-                        <Button type="button" onClick={handleManualLaunch} className="h-11 w-full font-medium">
-                            <ExternalLink className="size-4" aria-hidden="true" />
-                            Open {editorName}
-                        </Button>
+                        parseProtocol(callbackUrl) === 'http' ? (
+                            <Button type="button" onClick={() => window.close()} className="h-11 w-full font-medium">
+                                Close window
+                            </Button>
+                        ) : (
+                            <Button type="button" onClick={handleManualLaunch} className="h-11 w-full font-medium">
+                                <ExternalLink className="size-4" aria-hidden="true" />
+                                Open {editorName}
+                            </Button>
+                        )
                     ) : status === 'error' ? (
                         <Button type="button" onClick={handleAuthorize} disabled={!isValid} className="h-11 w-full font-medium">
                             <RefreshCw className="size-4" aria-hidden="true" />

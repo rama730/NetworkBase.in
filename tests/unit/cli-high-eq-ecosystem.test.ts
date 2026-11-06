@@ -1,5 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs";
 import Module, { createRequire } from "node:module";
 import { validateCsrf } from "@/lib/security/csrf";
 import { replaceTaskFileRoleTag } from "@/lib/workspaces/task-file-intelligence";
@@ -97,7 +98,8 @@ describe("NetworkBase High-EQ CLI & Unified Ecosystem", () => {
       const versionOut = execFileSync("node", [cliPath, "--version"], {
         encoding: "utf8",
       }).trim();
-      assert.equal(versionOut, "1.0.0");
+      const pkgJson = JSON.parse(fs.readFileSync(path.resolve(process.cwd(), "packages/nb-cli/package.json"), "utf8"));
+      assert.equal(versionOut, pkgJson.version);
 
       const helpOut = execFileSync("node", [cliPath, "--help"], {
         encoding: "utf8",
