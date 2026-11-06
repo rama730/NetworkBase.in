@@ -11,7 +11,7 @@ import { fileURLToPath } from "node:url";
 
 const CLI_SCRIPT_PATH = fileURLToPath(import.meta.url);
 
-const CLI_VERSION = "1.0.0";
+const CLI_VERSION = "1.0.1";
 const DEFAULT_API_URL = process.env.NETWORKBASE_API_URL || "https://networkbase.in";
 const GLOBAL_CONFIG_DIR = path.join(os.homedir(), ".networkbase");
 const GLOBAL_CREDENTIALS_PATH = path.join(GLOBAL_CONFIG_DIR, "credentials.json");
@@ -466,16 +466,7 @@ async function apiRequest(endpoint, options = {}) {
       signal: AbortSignal.timeout(timeoutMs),
     });
   } catch (fetchErr) {
-    if (baseUrl !== "http://localhost:3000" && !options.apiUrl) {
-      response = await fetch(`http://localhost:3000${endpoint}`, {
-        method: options.method || "GET",
-        headers,
-        body: options.body ? JSON.stringify(options.body) : undefined,
-        signal: AbortSignal.timeout(timeoutMs),
-      });
-    } else {
-      throw fetchErr;
-    }
+    throw fetchErr;
   }
 
   if (response.status === 304) {
@@ -1342,28 +1333,14 @@ async function tuiTextInput({ title, stepLabel = title, hint = "", placeholder =
   });
 }
 
-async function resolveBestApiUrl(explicitUrl) {
+async function resolveBestApiUrl(explicitUrl, flags = {}) {
   if (explicitUrl) return explicitUrl.replace(/\/+$/, "");
+  if (flags.dev || flags.local) return "http://localhost:3000";
   if (process.env.NETWORKBASE_API_URL) return process.env.NETWORKBASE_API_URL.replace(/\/+$/, "");
-  const localCfg = getLocalConfig();
-  if (localCfg?.apiUrl) return localCfg.apiUrl.replace(/\/+$/, "");
   const creds = getCredentials();
-  if (creds?.apiUrl) return creds.apiUrl.replace(/\/+$/, "");
-
-  // Probe local development server (http://localhost:3000) before defaulting to production
-  try {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 600);
-    const res = await fetch("http://localhost:3000/api/v1/extension/session", {
-      signal: controller.signal,
-    });
-    clearTimeout(timer);
-    if (res.status === 200 || res.status === 401) {
-      return "http://localhost:3000";
-    }
-  } catch {
-    // Local dev server not running; fall back to production URL
-  }
+  if (creds?.apiUrl && creds.apiUrl !== "http://localhost:3000") return creds.apiUrl.replace(/\/+$/, "");
+  const localCfg = getLocalConfig();
+  if (localCfg?.apiUrl && localCfg.apiUrl !== "http://localhost:3000") return localCfg.apiUrl.replace(/\/+$/, "");
   return DEFAULT_API_URL.replace(/\/+$/, "");
 }
 
@@ -1506,41 +1483,13 @@ async function loginWithToken(rawToken, apiUrl, explicitUrl = null) {
     throw new Error("A valid `nb_dev_...` or `nb_pat_...` token is required.");
   }
 
-  let resolvedUrl = apiUrl;
-  let sessionInfo;
-  try {
-    sessionInfo = await apiRequest("/api/v1/extension/session", {
-      apiUrl: resolvedUrl,
-      token,
-    });
-  } catch (err) {
-    if (!explicitUrl && resolvedUrl !== "http://localhost:3000") {
-      resolvedUrl = "http://localhost:3000";
-      sessionInfo = await apiRequest("/api/v1/extension/session", {
-        apiUrl: resolvedUrl,
-        token,
-      });
-    } else {
-      throw err;
-    }
-  }
+  const resolvedUrl = apiUrl;
+  const sessionInfo = await apiRequest("/api/v1/extension/session", {
+    apiUrl: resolvedUrl,
+    token,
+  });
 
-  if (!sessionInfo.active && !explicitUrl && resolvedUrl !== "http://localhost:3000") {
-    try {
-      const localInfo = await apiRequest("/api/v1/extension/session", {
-        apiUrl: "http://localhost:3000",
-        token,
-      });
-      if (localInfo?.active) {
-        resolvedUrl = "http://localhost:3000";
-        sessionInfo = localInfo;
-      }
-    } catch {
-      // Ignore fallback failure
-    }
-  }
-
-  if (!sessionInfo.active) {
+  if (!sessionInfo?.active) {
     throw new Error("This token is expired or has been revoked.");
   }
 
