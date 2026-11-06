@@ -149,22 +149,23 @@ function AuthorizePageInner({ viewerEmail }: { viewerEmail?: string | null }) {
     const isDev = process.env.NODE_ENV !== 'production'
 
     useEffect(() => {
-        if (status === 'success' && parseProtocol(callbackUrl) === 'http') {
-            setCountdown(4)
-            const interval = setInterval(() => {
-                setCountdown((prev) => {
-                    if (prev === null || prev <= 1) {
-                        clearInterval(interval)
-                        try {
-                            window.close()
-                        } catch {}
-                        return 0
-                    }
-                    return prev - 1
-                })
-            }, 1000)
-            return () => clearInterval(interval)
+        if (status !== 'success' || parseProtocol(callbackUrl) !== 'http') {
+            return
         }
+        setCountdown(4)
+        const interval = setInterval(() => {
+            setCountdown((prev) => {
+                if (prev === null || prev <= 1) {
+                    clearInterval(interval)
+                    try {
+                        window.close()
+                    } catch {}
+                    return 0
+                }
+                return prev - 1
+            })
+        }, 1000)
+        return () => clearInterval(interval)
     }, [status, callbackUrl])
 
     const redirectToEditor = (params: Record<string, string>) => {
