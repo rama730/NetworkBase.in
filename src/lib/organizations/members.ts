@@ -10,7 +10,7 @@ import { notifyNewCopies } from "@/lib/organizations/assignment-notify";
 import { namesOf, notifyOrg, orgLabel, queueOrgInviteSignupEmails, ROLE_LABEL } from "@/lib/organizations/notify";
 import { addWorkspaceMemberInternal, removeWorkspaceMemberInternal } from "@/lib/workspaces/collaborator-lifecycle";
 import { orgMemberCap } from "@/lib/organizations/join-rules";
-import { ORG_LIMITS } from "@/lib/organizations/config";
+import { ORG_LIMITS, orgRoleNames } from "@/lib/organizations/config";
 import { LAST_ACTIVE_HERE_MIGRATION, LAST_ACTIVE_HERE_SINCE } from "@/lib/organizations/member-rules";
 
 type Executor = typeof db | Parameters<Parameters<typeof db.transaction>[0]>[0];
@@ -104,7 +104,7 @@ export async function acceptOrgInvite(userId: string, inviteId: string): Promise
 export async function openInvitesFor(userId: string, orgId?: string) {
   const [profile] = await db.select({ email: profiles.email }).from(profiles).where(eq(profiles.id, userId)).limit(1);
   if (!profile?.email) return [];
-  return db.select({ id: orgEmailInvites.id, orgId: orgEmailInvites.orgId, role: orgEmailInvites.role, title: orgEmailInvites.title, orgTitle: workspaces.title, orgSlug: workspaces.slug })
+  const rows = await db.select({ id: orgEmailInvites.id, orgId: orgEmailInvites.orgId, role: orgEmailInvites.role, title: orgEmailInvites.title, orgTitle: workspaces.title, orgSlug: workspaces.slug, orgType: workspaces.orgType, orgSettings: workspaces.orgSettings })
     .from(orgEmailInvites).innerJoin(workspaces, eq(workspaces.id, orgEmailInvites.orgId))
     .where(and(
       eq(orgEmailInvites.email, profile.email.trim().toLowerCase()),
@@ -113,6 +113,8 @@ export async function openInvitesFor(userId: string, orgId?: string) {
       isNull(workspaces.deletedAt),
       orgId ? eq(orgEmailInvites.orgId, orgId) : undefined,
     ));
+  // The organization's own word for the role (org spec §2 rule 5): "Student", not "member".
+  return rows.map(({ orgType, orgSettings, ...invite }) => ({ ...invite, roleLabel: orgRoleNames(orgType, orgSettings)[invite.role as "admin" | "member" | "viewer"] ?? "Member" }));
 }
 
 /** Child projects of the org this person leads; they transfer or detach those before leaving (report §20.7). */

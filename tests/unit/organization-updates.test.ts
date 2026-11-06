@@ -54,7 +54,7 @@ test("37.3: the card's audience label names the reach in the organization's word
   const titles = new Map([["a", "Team Falcon"], ["b", "Team Owl"], ["c", "Team Kite"]]);
   assert.equal(audienceLabel({ audience: {}, visibility: "public" }, roles, titles), "Public");
   assert.equal(audienceLabel({ audience: {}, visibility: "members" }, roles, titles), "Members");
-  assert.equal(audienceLabel({ audience: { roles: ["admin"] }, visibility: "members" }, roles, titles), "Admins");
+  assert.equal(audienceLabel({ audience: { roles: ["admin"] }, visibility: "members" }, roles, titles), "Teachers");
   assert.equal(audienceLabel({ audience: { roles: ["member"] }, visibility: "members" }, roles, titles), "Students");
   assert.equal(audienceLabel({ audience: { projectIds: ["a", "b", "c"] }, visibility: "members" }, roles, titles), "Team Falcon +2");
   assert.equal(audienceLabel({ audience: { projectIds: ["z"] }, visibility: "members" }, roles, new Map()), "Selected workspaces");

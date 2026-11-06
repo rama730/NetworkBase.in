@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useRefreshSidebar } from '@/hooks/useRefreshSidebar'
 import { useRouter } from 'next/navigation'
 import { useState, useTransition } from 'react'
-import { Archive, Building2, ChevronDown, ClipboardList, FolderKanban, IterationCcw, ListTodo, Megaphone, Plus, UserPlus } from 'lucide-react'
+import { ChevronDown, ClipboardList, FolderKanban, IterationCcw, ListTodo, Megaphone, Plus } from 'lucide-react'
 
 import { cancelJoinRequestAction, joinPublicOrgAction, regenerateJoinCodeAction } from '@/app/actions/organizations'
 import { JoinRequestNote } from '@/components/organizations/JoinOrgButton'
@@ -16,6 +16,10 @@ import { OrgInvitePanel } from '@/components/organizations/OrgInvitePanel'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import type { OrgDetail, ParentOrgLink } from '@/lib/organizations/detail'
 import { formatInZone } from '@/lib/organizations/zoned-time'
+import { Notice } from '@/components/ui/notice'
+import { StatusBadge } from '@/components/organizations/org-ui'
+import WorkspaceAvatar from '@/components/workspaces/WorkspaceAvatar'
+import { toast } from '@/lib/feedback'
 
 // The organization parts of the project header (report §18.1–18.2, §18.6). WorkspaceLayout keeps its layout;
 // these fill the details, the archived line and the visitor's actions.
@@ -31,14 +35,9 @@ export function OrgHeaderDetails({ organization }: { organization: OrgDetail }) 
     return <p className="max-w-[280px] text-right text-[13px] leading-5 text-muted-foreground xl:max-w-[420px] max-md:max-w-none max-md:text-left" data-testid="org-header-details">{parts.join(' · ')}</p>
 }
 
-/** The archived line (report §18.6). */
+/** The archived line (report §18.6): the one notice for a lifecycle state. */
 export function OrgArchivedNotice() {
-    return (
-        <p className="nb-compact flex items-center gap-1.5 text-muted-foreground">
-            <span className="nb-status inline-flex items-center gap-1" data-status="archived"><Archive className="size-3" aria-hidden="true" />Archived</span>
-            This organization is archived. Everything is read-only.
-        </p>
-    )
+    return <Notice className="mt-2">This organization is archived. Everything is read-only.</Notice>
 }
 
 /** Visitors on a public org: Join, Request to join, or Request pending with Cancel (report §18.2). */
@@ -55,7 +54,7 @@ export function OrgVisitorActions({ orgId, href, joinMode, requestPending, logge
     const [error, setError] = useState<string | null>(null)
 
     if (!loggedIn) {
-        return <Button asChild size="sm"><Link href={`/login?redirect=${encodeURIComponent(href)}`}>{joinMode === 'approval' ? 'Request to join' : 'Join'}</Link></Button>
+        return <Button asChild><Link href={`/login?redirect=${encodeURIComponent(href)}`}>{joinMode === 'approval' ? 'Request to join' : 'Join'}</Link></Button>
     }
     const run = (action: () => Promise<{ success: boolean; error?: string }>) =>
         startTransition(async () => {
@@ -70,16 +69,16 @@ export function OrgVisitorActions({ orgId, href, joinMode, requestPending, logge
         <span className="inline-flex items-center gap-2">
             {requestPending ? (
                 <>
-                    <Button size="sm" variant="outline" disabled>Request pending</Button>
-                    <JoinRequestNote orgId={orgId} size="sm" />
-                    <Button size="sm" variant="ghost" disabled={pending} onClick={() => run(() => cancelJoinRequestAction(orgId))}>Cancel request</Button>
+                    <StatusBadge state="requested">Requested</StatusBadge>
+                    <JoinRequestNote orgId={orgId} />
+                    <Button variant="ghost" disabled={pending} onClick={() => run(() => cancelJoinRequestAction(orgId))}>Cancel request</Button>
                 </>
             ) : (
-                <Button size="sm" disabled={pending} onClick={() => run(() => joinPublicOrgAction(orgId))}>
+                <Button disabled={pending} onClick={() => run(() => joinPublicOrgAction(orgId))}>
                     {joinMode === 'approval' ? 'Request to join' : 'Join'}
                 </Button>
             )}
-            {error ? <span role="alert" className="text-xs text-destructive">{error}</span> : null}
+            {error ? <span role="alert" className="text-[13px] text-destructive">{error}</span> : null}
         </span>
     )
 }
@@ -94,9 +93,9 @@ export function OrgInviteDialog({ orgId, orgHandle, title, open, onOpenChange }:
 }) {
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-md">
+            <DialogContent>
                 <DialogHeader>
-                    <DialogTitle className="flex items-center gap-2"><UserPlus className="size-4" aria-hidden="true" />Invite people to {title}</DialogTitle>
+                    <DialogTitle>Invite people to {title}</DialogTitle>
                     <DialogDescription>Share the code or the link, or invite by email.</DialogDescription>
                 </DialogHeader>
                 {open ? <OrgInvitePanel orgId={orgId} orgHandle={orgHandle} /> : null}
@@ -105,15 +104,17 @@ export function OrgInviteDialog({ orgId, orgHandle, title, open, onOpenChange }:
     )
 }
 
-/** Above a child project's title: the org, linked for people who can open it (report §18.4). */
-export function OrgBreadcrumb({ parentOrg }: { parentOrg: ParentOrgLink }) {
+/** Above a child workspace's title (spec §10 Breadcrumbs): the organization, a mono slash, then this workspace, strong. */
+export function OrgBreadcrumb({ parentOrg, current }: { parentOrg: ParentOrgLink; current: string }) {
     const canOpen = Boolean(parentOrg.viewerRole) || parentOrg.isPublic
-    // Report §17.1: the one organization link, with no trailing slash above the title.
-    const label = <span className="inline-flex items-center gap-1.5"><Building2 className="size-3.5" aria-hidden="true" />{parentOrg.title}</span>
     return (
-        <p className="nb-compact text-muted-foreground" data-testid="child-org-breadcrumb">
-            {canOpen ? <Link href={`/org/${parentOrg.slug ?? parentOrg.id}`} className="hover:text-foreground hover:underline">{label}</Link> : label}
-        </p>
+        <nav aria-label="Breadcrumb" className="mb-2.5" data-testid="child-org-breadcrumb">
+            <ol className="flex min-w-0 flex-wrap items-center gap-x-1.5 text-[13px] text-muted-foreground">
+                <li className="min-w-0 truncate">{canOpen ? <Link href={`/org/${parentOrg.slug ?? parentOrg.id}`} className="hover:text-foreground hover:underline">{parentOrg.title}</Link> : parentOrg.title}</li>
+                <li aria-hidden="true" className="font-mono">/</li>
+                <li aria-current="page" className="min-w-0 truncate font-medium text-foreground">{current}</li>
+            </ol>
+        </nav>
     )
 }
 
@@ -127,10 +128,10 @@ export function ChildOrgChips({ parentOrg, visibility, archived, isWorkspaceMemb
     if (!visibilityChip && !viewingAsAdmin && !archived && !parentOrg.suspended) return null
     return (
         <p className="flex flex-wrap items-center gap-1.5" data-testid="child-org-chips">
-            {visibilityChip ? <span className="nb-status" data-status="draft">{visibilityChip}</span> : null}
-            {viewingAsAdmin ? <span className="nb-status" data-status="active">Viewing as admin</span> : null}
-            {archived && parentOrg.archived ? <span className="nb-status" data-status="archived">Archived with {parentOrg.title}</span> : null}
-            {parentOrg.suspended ? <span className="nb-status" data-status="blocked">{parentOrg.title} is suspended · read only</span> : null}
+            {visibilityChip ? <StatusBadge state="private">{visibilityChip}</StatusBadge> : null}
+            {viewingAsAdmin ? <StatusBadge state="viewing_as_admin">Viewing as admin</StatusBadge> : null}
+            {archived && parentOrg.archived ? <><StatusBadge state="archived">Archived</StatusBadge><span className="nb-compact text-muted-foreground">with {parentOrg.title}</span></> : null}
+            {parentOrg.suspended ? <><StatusBadge state="suspended">Suspended</StatusBadge><span className="nb-compact text-muted-foreground">{parentOrg.title} is read-only</span></> : null}
         </p>
     )
 }
@@ -142,18 +143,24 @@ export function OrgStatusBanner({ orgId, organization, isOwner }: { orgId: strin
     const [pending, start] = useTransition()
     if (organization.suspended) {
         return (
-            <p role="status" className="mt-2 rounded-[5px] border border-destructive/30 bg-destructive/5 px-3 py-2 text-[13px] text-foreground">
+            <Notice tone="danger" className="mt-2">
                 This organization is suspended. Everything is read-only.{organization.suspendReason ? ` Reason: ${organization.suspendReason}.` : ''}{isOwner ? ' To appeal, email support@networkbase.in.' : ''}
-            </p>
+            </Notice>
         )
     }
     if (organization.deletionScheduledAt && isOwner) {
         const purge = new Date(new Date(organization.deletionScheduledAt).getTime() + 30 * 86_400_000)
+        const restore = () => start(async () => {
+            const r = await restoreOrgAction(orgId)
+            if (!r.success) return void toast.error(r.error ?? 'Couldn’t restore it.')
+            toast.success('Organization restored')
+            refreshSidebar()
+            router.refresh()
+        })
         return (
-            <p role="status" className="mt-2 flex flex-wrap items-center gap-2 rounded-[5px] border border-destructive/30 bg-destructive/5 px-3 py-2 text-[13px] text-foreground">
-                Scheduled for deletion on {formatInZone(purge, { month: 'short', day: 'numeric', year: 'numeric' }, organization.timeZone)}
-                <button type="button" disabled={pending} className="font-medium underline underline-offset-2" onClick={() => start(async () => { const r = await restoreOrgAction(orgId); if (r.success) { refreshSidebar(); router.refresh() } })}>Restore</button>
-            </p>
+            <Notice tone="warning" className="mt-2" action={<Button size="sm" variant="outline" disabled={pending} onClick={restore}>Restore</Button>}>
+                Scheduled for deletion on {formatInZone(purge, { month: 'short', day: 'numeric', year: 'numeric' }, organization.timeZone)}. Restore it before then to keep everything.
+            </Notice>
         )
     }
     return null
@@ -179,16 +186,14 @@ export function OrgNewMenu({ onNew }: { onNew: (kind: OrgNewKind) => void }) {
     return (
         <DropdownMenu>
             <DropdownMenuTrigger asChild>
-                <Button size="sm" data-testid="org-new-menu"><Plus className="size-4" aria-hidden="true" />New<ChevronDown className="size-3.5" aria-hidden="true" /></Button>
+                <Button data-testid="org-new-menu"><Plus className="size-4" aria-hidden="true" />New<ChevronDown className="size-3.5" aria-hidden="true" /></Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48"><OrgNewItems onNew={onNew} /></DropdownMenuContent>
         </DropdownMenu>
     )
 }
 
-/** The child's compact bar on phones: the org's small logo before the project name (report §18.7). */
+/** The child's compact bar on phones: the org's small mark before the workspace name (report §18.7). */
 export function OrgCompactMark({ parentOrg }: { parentOrg: ParentOrgLink }) {
-    return parentOrg.coverImage
-        ? <img src={parentOrg.coverImage} alt={parentOrg.title} className="size-4 shrink-0 rounded-[3px] object-cover" />
-        : <Building2 className="size-4 shrink-0 text-muted-foreground" aria-label={parentOrg.title} />
+    return <span title={parentOrg.title} aria-hidden="true" className="shrink-0"><WorkspaceAvatar project={{ title: parentOrg.title, coverImage: parentOrg.coverImage }} size="row" placeholder className="size-5" /></span>
 }

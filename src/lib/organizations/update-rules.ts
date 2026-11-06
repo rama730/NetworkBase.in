@@ -77,7 +77,7 @@ export function audienceLabel(
   const ids = post.audience?.projectIds ?? [];
   if (roles.length === 0 && ids.length === 0) return "Members";
   const names = [
-    ...roles.map((r) => (r === "admin" ? "Admins" : rolePlural(roleNames[r]))),
+    ...roles.map((r) => rolePlural(roleNames[r])),
     ...ids.map((id) => workspaceTitles.get(id)).filter((t): t is string => Boolean(t)),
   ];
   if (names.length === 0) return "Selected workspaces";

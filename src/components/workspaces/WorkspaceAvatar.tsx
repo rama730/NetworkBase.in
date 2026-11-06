@@ -66,8 +66,8 @@ export function WorkspaceAvatar({
     }
 
     const isDetail = size === "detail";
-    const dimensionClasses = isDetail ? "size-[80px] rounded-xl" : size === "row" ? "size-6 rounded" : "size-11 rounded-md";
-    const imageSize = isDetail ? "80px" : size === "row" ? "24px" : "44px";
+    const dimensionClasses = isDetail ? "size-[72px] rounded-lg" : size === "row" ? "size-[26px] rounded-md" : "size-11 rounded-md";
+    const imageSize = isDetail ? "72px" : size === "row" ? "26px" : "44px";
 
     return (
         <div className="relative inline-flex shrink-0">
@@ -93,7 +93,7 @@ export function WorkspaceAvatar({
                         <Camera className="size-5" aria-hidden="true" />
                     </Link>
                 ) : (
-                    <span className={cn("font-semibold text-muted-foreground", size === "row" ? "text-[10px]" : "text-lg max-md:text-sm")} aria-hidden="true">{(project.title || "").slice(0, 2).toUpperCase()}</span>
+                    <span className={cn("font-semibold text-muted-foreground", size === "row" ? "text-[11px]" : "text-lg max-md:text-sm")} aria-hidden="true">{(project.title || "").slice(0, 2).toUpperCase()}</span>
                 )) : <>
                 <Image
                     src={avatarUrl!}

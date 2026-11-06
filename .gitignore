@@ -56,3 +56,4 @@ eslint_output.txt
 
 /scratch/
 .gstack/
+.networkbase/

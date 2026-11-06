@@ -1,26 +1,36 @@
 {
   "name": "@networkbase/cli",
   "version": "1.0.0",
-  "description": "NetworkBase High-EQ CLI, Git Credential Helper & AI MCP Server",
+  "description": "NetworkBase CLI, Local Mirror Sync, Git Credential Helper & AI MCP Server",
   "type": "module",
+  "homepage": "https://networkbase.in",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/rama730/NetworkBase.in.git",
+    "directory": "packages/nb-cli"
+  },
   "bin": {
     "nb": "./bin/nb.mjs",
-    "networkbase": "./bin/nb.mjs"
+    "networkbase": "./bin/nb.mjs",
+    "cli": "./bin/nb.mjs"
   },
   "files": [
     "bin/",
-    "src/",
     "README.md"
   ],
   "engines": {
     "node": ">=18.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "keywords": [
     "networkbase",
     "cli",
     "git",
     "mcp",
-    "ai"
+    "ai",
+    "developer-tools"
   ],
-  "license": "Proprietary"
+  "license": "Apache-2.0"
 }

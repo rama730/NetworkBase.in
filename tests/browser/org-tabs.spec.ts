@@ -19,7 +19,7 @@ test.beforeAll(async () => {
     const mocks: Record<string, string> = {
         'next/link': `import React from 'react';export default ({href,children,prefetch,...p})=>React.createElement('a',{href,...p},children);`,
         'next/navigation': `export const usePathname=()=>'/org/cse-3a',useRouter=()=>({refresh(){},push(){},replace(){}});`,
-        '@/app/actions/org-members': `export const readOrgInvitePanelAction=async()=>({success:true});export const previewOrgInviteEmailAction=async()=>({success:true});export const readOrgMembersAction=async()=>({success:true,viewerRole:'owner',joinCode:'K7M2QX',rows:${people},
+        '@/app/actions/org-members': `export const acceptOrgInviteAction=async()=>({success:true});export const declineOrgInviteAction=async()=>({success:true});export const readOrgInvitePanelAction=async()=>({success:true});export const previewOrgInviteEmailAction=async()=>({success:true});export const readOrgMembersAction=async()=>({success:true,viewerRole:'owner',joinCode:'K7M2QX',rows:${people},
             requests:[{id:'r1',userId:'x',name:'Priya Natarajan',note:'Roll 21, section B',createdAt:new Date().toISOString()}],invites:[],
             children:[{id:'c1',title:'Team Falcon',units:[{id:'un',title:'Frontend'}]}],outside:[{userId:'o1',name:'Client Person',username:null,projects:[{id:'c1',title:'Team Falcon'}]}],summary:{members:12,admins:2,guests:0,behind:4,notInProject:0,inactive:0},teamChanges:[]});
             export const readMemberAwayAction=async()=>({success:true,away:[]}),markAwayAction=async()=>({success:true,excused:0}),endAwayAction=async()=>({success:true});export const readMemberWorkAction=async()=>({success:true,work:[]}),readMemberActivityAction=async()=>({success:true,activity:[{at:new Date().toISOString(),what:'status changed',task:'Lab 2',project:'Team Falcon'}]});
@@ -246,19 +246,20 @@ test('Members (§20): bulk Remind, the Outside people filter, and the drawer has
     await expect(page.getByRole('button', { name: 'Remove from Team Falcon' })).toBeVisible();
     // Step 11c: Former, with how it ended, who and why, and Unblock.
     await page.getByLabel('Status').selectOption('former');
-    await expect(page.getByRole('list', { name: 'Former members' })).toContainText('Ms. Rao · “Repeated no-shows” · Blocked');
+    await expect(page.getByRole('list', { name: 'Former members' })).toContainText('Ms. Rao · “Repeated no-shows”Blocked');
     await expect(page.getByRole('button', { name: 'Unblock' })).toBeVisible();
     await page.getByLabel('Status').selectOption('all');
     // The Remove dialog lists what goes and what stays, with a reason and the block.
     await page.getByLabel('Select Student 4').check();
-    await page.getByRole('group', { name: 'Bulk actions' }).getByRole('button', { name: 'Remove', exact: true }).click();
+    await page.getByRole('group', { name: 'Bulk actions' }).getByRole('button', { name: 'Remove…' }).click();
+    await page.getByRole('menuitem', { name: 'Remove from organization' }).click();
     await expect(page.getByRole('alertdialog')).toContainText('Keep 3 submitted assignments for admins');
     await expect(page.getByRole('button', { name: 'Remove Student 4' })).toBeVisible();
     await page.getByRole('button', { name: 'Cancel' }).click();
     await page.getByRole('button', { name: /^Student 5/ }).click();
     await expect(page.getByRole('link', { name: 'Message' })).toBeVisible();
     await expect(page.getByText('status changed · Lab 2')).toBeVisible();
-    await page.getByLabel('Role', { exact: true }).last().selectOption('viewer');
+    await page.getByLabel('Access level', { exact: true }).last().selectOption('viewer');
     await expect(page.getByRole('alertdialog')).toContainText('2 open assignments are removed from their list');
 });
 
@@ -426,7 +427,7 @@ test('sprint cleanup §4: a stage on a sprint\'s work list opens the roster on t
 test('Members opened from Workspaces → "Place them": filtered to people not in a workspace, with the way back', async ({ page }) => {
     await open(page, 'members&project=none&from=workspaces', 1280);
     await expect(page.getByLabel('Workspace')).toHaveValue('none');
-    await expect(page.getByRole('link', { name: '← Workspaces' })).toHaveAttribute('href', '?tab=projects');
+    await expect(page.getByRole('link', { name: 'Workspaces', exact: true })).toHaveAttribute('href', '?tab=projects');
     await open(page, 'members&status=behind', 1280);
-    await expect(page.getByRole('link', { name: '← Workspaces' })).toHaveCount(0);
+    await expect(page.getByRole('link', { name: 'Workspaces', exact: true })).toHaveCount(0);
 });

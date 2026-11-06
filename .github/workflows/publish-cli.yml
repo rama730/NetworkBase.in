@@ -1,0 +1,34 @@
+name: Publish @networkbase/cli to npm
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Verify package version
+        run: |
+          cd packages/nb-cli
+          node -e 'const pkg = require("./package.json"); console.log("Publishing " + pkg.name + "@" + pkg.version);'
+
+      - name: Publish to npm
+        run: npm publish --access public
+        working-directory: packages/nb-cli
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

@@ -812,7 +812,7 @@ html[data-reduce-motion="true"] .nb-skeleton {
 /* Counts: components layer, so utilities can adjust them. */
 @layer components {
   .nb-nav-count, .nb-chat-count { margin-left:auto; padding:1px 5px; background:var(--secondary); border-radius:3px; font:11px var(--font-jetbrains-mono),monospace; font-variant-numeric:tabular-nums; }
-  .nb-tab-count { display:inline-flex; min-width:20px; align-items:center; justify-content:center; padding:1px 5px; border-radius:3px; background:var(--secondary); color:var(--secondary-foreground); font:500 11px/1.35 var(--font-jetbrains-mono),monospace; font-variant-numeric:tabular-nums; }
+  .nb-tab-count { display:inline-flex; min-width:20px; align-items:center; justify-content:center; padding:1px 5px; border-radius:3px; background:var(--secondary); color:var(--secondary-foreground); font:500 12px/1.35 var(--font-jetbrains-mono),monospace; font-variant-numeric:tabular-nums; }
 }
 .nb-main-frame { min-width:0; transition:margin-left 180ms cubic-bezier(.2,.8,.3,1); }
 .nb-sidebar[data-collapsed="true"] { width:var(--nb-sidebar-collapsed-width); }
@@ -857,6 +857,42 @@ html[data-reduce-motion="true"] .nb-skeleton {
 .nb-status[data-status="completed"] { color:var(--status-success); background:var(--status-success-soft); }
 .nb-status[data-status="blocked"] { color:var(--status-danger); background:var(--status-danger-soft); }
 .nb-status[data-status="archived"] { color:var(--muted-foreground); background:var(--muted); }
+/* Tones by meaning (org design plan, Task 2): neutral, info, warning, success, danger. */
+.nb-status[data-tone="neutral"] { color:var(--muted-foreground); background:var(--muted); }
+.nb-status[data-tone="info"] { color:var(--status-info); background:var(--status-info-soft); }
+.nb-status[data-tone="warning"] { color:var(--status-warning); background:var(--status-warning-soft); }
+.nb-status[data-tone="success"] { color:var(--status-success); background:var(--status-success-soft); }
+.nb-status[data-tone="danger"] { color:var(--status-danger); background:var(--status-danger-soft); }
+
+/* Field parts for native controls (spec §10: Select input-matched, Textarea, Checkbox, Radio) and the one text link.
+   In the components layer so a utility such as w-full or mt-2 still applies. */
+@layer components {
+  .nb-select { appearance:none; -webkit-appearance:none; height:var(--ui-control-height); min-width:0; max-width:100%; padding:0 28px 0 10px; border:1px solid var(--input); border-radius:var(--radius-md); background-color:var(--card); background-image:linear-gradient(45deg,transparent 50%,var(--muted-foreground) 50%),linear-gradient(135deg,var(--muted-foreground) 50%,transparent 50%); background-position:calc(100% - 15px) 50%,calc(100% - 10px) 50%; background-size:5px 5px; background-repeat:no-repeat; color:var(--foreground); font-size:13px; line-height:1.2; cursor:pointer; }
+  .nb-select[data-size="sm"] { height:var(--ui-control-height-sm); padding-left:8px; }
+  .nb-select:disabled, .nb-textarea:disabled, .nb-check:disabled, .nb-radio:disabled { opacity:.5; cursor:not-allowed; }
+  .nb-select[aria-invalid="true"], .nb-textarea[aria-invalid="true"] { border-color:var(--destructive); }
+  .nb-textarea { display:block; width:100%; padding:10px 12px; border:1px solid var(--input); border-radius:var(--radius-md); background:var(--card); color:var(--foreground); font-size:13px; line-height:1.5; resize:vertical; }
+  .nb-textarea[data-size="lg"] { font-size:15px; }
+  .nb-textarea::placeholder { color:var(--muted-foreground); }
+  .nb-check, .nb-radio { appearance:none; -webkit-appearance:none; flex:none; display:inline-grid; place-content:center; width:16px; height:16px; margin:0; border:1px solid var(--input); background:var(--card); cursor:pointer; vertical-align:middle; }
+  .nb-check { border-radius:var(--radius-sm); }
+  .nb-check::before { content:""; width:10px; height:10px; background:var(--primary-foreground); clip-path:polygon(14% 44%,0 65%,50% 100%,100% 16%,80% 0%,43% 62%); transform:scale(0); }
+  .nb-check:checked, .nb-check:indeterminate { border-color:var(--primary); background:var(--primary); }
+  .nb-check:checked::before { transform:scale(1); }
+  .nb-check:indeterminate::before { height:2px; clip-path:none; transform:scale(1); }
+  .nb-radio { border-radius:999px; }
+  .nb-radio::before { content:""; width:8px; height:8px; border-radius:999px; background:var(--primary); transform:scale(0); }
+  .nb-radio:checked { border-color:var(--primary); }
+  .nb-radio:checked::before { transform:scale(1); }
+  .nb-link { color:var(--primary); font-weight:500; text-underline-offset:4px; cursor:pointer; }
+  .nb-link:hover { text-decoration:underline; }
+  .nb-link:disabled { opacity:.5; cursor:not-allowed; text-decoration:none; }
+  /* A filter tag that can be on: selected tags take the ink fill (spec §05). */
+  .nb-tag[aria-pressed], .nb-tag[aria-checked], .nb-tag[aria-selected] { cursor:pointer; }
+  .nb-tag[aria-pressed]:hover, .nb-tag[aria-checked]:hover, .nb-tag[aria-selected]:hover { border-color:var(--input); }
+  .nb-tag[aria-pressed="true"], .nb-tag[aria-checked="true"], .nb-tag[aria-selected="true"] { border-color:var(--foreground); background:var(--foreground); color:var(--background); }
+  .nb-tag:disabled { opacity:.5; cursor:not-allowed; }
+}
 .nb-sprint-tone-muted { color:var(--muted-foreground); background:var(--muted); }
 .nb-sprint-tone-info { color:var(--status-info); background:var(--status-info-soft); }
 .nb-sprint-tone-success { color:var(--status-success); background:var(--status-success-soft); }

@@ -17,6 +17,7 @@ import type { OrgFeedFilter } from '@/lib/organizations/org-updates'
 import { rolePlural } from '@/lib/organizations/role-words'
 import { audienceLabel, type UpdateAudience } from '@/lib/organizations/update-rules'
 import { cn } from '@/lib/utils'
+import { NotYetDialog } from '@/components/organizations/org-ui'
 
 // Org Updates (report §7.5, §16.3, §18.4, §28.3, §37.3): the options inside the composer, the feed filters, the
 // pinned org line, and the card's audience and seen parts.
@@ -246,37 +247,11 @@ export function AudienceMenu({ org, value, label, onChange }: {
     )
 }
 
-/** "Seen by 32 of 40" on an announcement, for admins; it lists who hasn't, with Remind (report §28.3, decision 58). */
+/** "Seen by 32 of 40" on an announcement, for admins (report §28.3, decision 58): the shared NotYetDialog. */
 export function SeenCount({ orgId, updateId, seen }: { orgId: string; updateId: string; seen: { seen: number; total: number } }) {
-    const [open, setOpen] = useState(false)
-    const [busy, setBusy] = useState(false)
-    const unseen = useQuery({ queryKey: ['org-update-unseen', updateId], queryFn: () => readUnseenPeopleAction(orgId, updateId), enabled: open })
-    const list = unseen.data?.success ? unseen.data.people : []
-    const remind = async () => {
-        setBusy(true)
-        const r = await remindUnseenAction(orgId, updateId).finally(() => setBusy(false))
-        if (!r.success) return void toast.error(r.error)
-        toast.success([`Reminded ${people(r.reminded)}`, r.skipped ? `${r.skipped} reminded in the last 12 hours` : null].filter(Boolean).join(' · '))
-    }
-    return (
-        <>
-            <button type="button" onClick={(e) => { e.stopPropagation(); setOpen(true) }} className="text-[11px] text-muted-foreground hover:text-foreground hover:underline">
-                Seen by {seen.seen} of {seen.total}
-            </button>
-            <Dialog open={open} onOpenChange={setOpen}>
-                <DialogContent onClick={(e) => e.stopPropagation()}>
-                    <DialogHeader>
-                        <DialogTitle>Not seen yet</DialogTitle>
-                        <DialogDescription>People this was for who haven’t opened Updates since it was posted.</DialogDescription>
-                    </DialogHeader>
-                    {unseen.isPending ? <div className="nb-skeleton h-16 rounded" /> : list.length === 0 ? <p className="text-sm text-muted-foreground">Everyone has seen it.</p> : (
-                        <ul className="max-h-72 space-y-1 overflow-y-auto text-sm">{list.map((p) => <li key={p.id}>{p.name}</li>)}</ul>
-                    )}
-                    {list.length ? <div className="flex justify-end"><Button size="sm" disabled={busy} onClick={() => void remind()}>Remind {people(list.length)}</Button></div> : null}
-                </DialogContent>
-            </Dialog>
-        </>
-    )
+    return <NotYetDialog verb="Seen" done={seen.seen} total={seen.total} queryKey={['org-update-unseen', updateId]}
+        load={() => readUnseenPeopleAction(orgId, updateId)} remind={() => remindUnseenAction(orgId, updateId)}
+        title="Not seen yet" description="People this was for who haven’t opened Updates since it was posted." emptyLine="Everyone has seen it." />
 }
 
 /** What a post card knows about the organization feed it sits in (report §37.3). */

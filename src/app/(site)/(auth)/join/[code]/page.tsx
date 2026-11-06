@@ -46,7 +46,7 @@ export default async function JoinOrganizationPage({ params }: { params: Promise
 
     return (
         // Live-fix 49: the owner or a member is already in; only others are invited.
-        <AuthShell title={preview.title} description={preview.state === 'member' ? `You’re already in ${preview.title}.` : "You’ve been invited to join this organization."} panel={JOIN_PANEL}>
+        <AuthShell title={preview.title} description={preview.state === 'member' ? `You’re already in ${preview.title}.` : "Check the details before you join."} panel={JOIN_PANEL}>
             <div className="space-y-6">
                 <div className="flex items-center gap-3 rounded-md border border-border bg-card p-3.5">
                     <WorkspaceAvatar project={{ title: preview.title, coverImage: preview.coverImage }} />

@@ -12,7 +12,7 @@ import { fileURLToPath } from "node:url";
 const CLI_SCRIPT_PATH = fileURLToPath(import.meta.url);
 
 const CLI_VERSION = "1.0.0";
-const DEFAULT_API_URL = process.env.NETWORKBASE_API_URL || "https://networkbase.app";
+const DEFAULT_API_URL = process.env.NETWORKBASE_API_URL || "https://networkbase.in";
 const GLOBAL_CONFIG_DIR = path.join(os.homedir(), ".networkbase");
 const GLOBAL_CREDENTIALS_PATH = path.join(GLOBAL_CONFIG_DIR, "credentials.json");
 

@@ -48,7 +48,7 @@ test("WorkspaceAvatar enforces inset ring framing, 80px detail size, presence do
     const avatarSource = readFileSync(resolve(ROOT, "src/components/workspaces/WorkspaceAvatar.tsx"), "utf-8");
 
     assert.match(avatarSource, /ring-1 ring-inset ring-black\/5 dark:ring-white\/10/, "Must include inset ring framing");
-    assert.match(avatarSource, /size-\[80px\] rounded-xl/, "Detail size must be 80px");
+    assert.match(avatarSource, /size-\[72px\] rounded-lg/, "Detail size is the spec's 72px avatar with 8px corners");
     assert.match(avatarSource, /size-11 rounded-md/, "Card size must be 44px");
     assert.doesNotMatch(avatarSource, /[Pp]resence/, "A workspace has no presence");
     assert.match(avatarSource, /if \(!hasImage && !placeholder\) \{\s*return null;\s*\}/, "Must return null with no image unless the slot is kept");

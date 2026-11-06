@@ -5,7 +5,7 @@ import Link from "next/link";
 import { WORKSPACE_TAB_LABELS } from "@/lib/copy/terms";
 import {
     LayoutDashboard, ListTodo, FolderOpen, BookOpenText,
-    Settings, Share2, UserPlus, UserCheck, IterationCcw, Loader2, Newspaper, MoreHorizontal, Info, Users, FolderKanban
+    Settings, Share2, UserPlus, UserCheck, IterationCcw, Newspaper, MoreHorizontal, Info, Users, FolderKanban
 } from "lucide-react";
 import {
     DropdownMenu,
@@ -14,6 +14,7 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 import type { Workspace } from "@/types/discover";
 import WorkspaceStatsBar from "@/components/workspaces/WorkspaceStatsBar";
 import WorkspaceAvatar from "@/components/workspaces/WorkspaceAvatar";
@@ -326,7 +327,7 @@ export default function WorkspaceLayout({
                                                 isOwner={isOwner}
                                                 slugOrId={project.slug || project.id}
                                                 placeholder
-                                                className="size-16 rounded-[10px] max-md:size-12 max-md:rounded-[8px]"
+                                                className="size-16 rounded-lg max-md:size-12"
                                             />
                                         </div>
                                         <h1 className="nb-page-title min-w-0 break-words text-foreground">
@@ -357,56 +358,52 @@ export default function WorkspaceLayout({
 
                             {actionsStart}
                             {canInvite && onInvite ? (
-                                <button
+                                <Button
                                     type="button"
+                                    variant="outline"
                                     onClick={onInvite}
-                                    className="nb-touch-target nb-ui-label inline-flex h-[var(--ui-control-height)] items-center gap-1.5 rounded-md border border-border bg-card px-3 text-foreground transition-colors duration-[180ms] ease-[cubic-bezier(.2,.8,.3,1)] hover:bg-muted"
+                                    className="nb-touch-target"
                                     aria-label={isOrganization ? "Invite people" : "Invite a workspace member"}
                                     title={isOrganization ? "Invite people" : "Invite a workspace member"}
                                 >
                                     <UserPlus className="size-4" aria-hidden="true" />
-                                    <span>Invite</span>
-                                </button>
+                                    Invite
+                                </Button>
                             ) : null}
                             
                             {/* Follow */}
                             {showFollow ? (
-                            <button
+                            <Button
                                 type="button"
+                                variant="outline"
                                 onClick={onFollow}
-                                className={cn(
-                                    "nb-touch-target nb-ui-label flex h-[var(--ui-control-height)] items-center gap-1.5 rounded-md px-3 transition-colors duration-[180ms] ease-[cubic-bezier(.2,.8,.3,1)] disabled:cursor-not-allowed disabled:opacity-60",
-                                    isFollowing
-                                        ? "text-primary bg-primary/10"
-                                        : "border border-border bg-card text-muted-foreground hover:bg-muted hover:text-foreground"
-                                )}
-                                title={isFollowing ? "Unfollow workspace" : "Follow workspace"}
-                                aria-label={isFollowing ? "Unfollow workspace" : "Follow workspace"}
+                                aria-pressed={Boolean(isFollowing)}
+                                className={cn("nb-touch-target", isFollowing && "bg-muted text-foreground")}
+                                title={isFollowing ? `Unfollow ${isOrganization ? "organization" : "workspace"}` : `Follow ${isOrganization ? "organization" : "workspace"}`}
+                                aria-label={isFollowing ? `Unfollow ${isOrganization ? "organization" : "workspace"}` : `Follow ${isOrganization ? "organization" : "workspace"}`}
                                 data-testid="project-follow-toggle"
                                 disabled={followLoading}
                                 aria-busy={followLoading}
                             >
-                                {followLoading ? (
-                                    <Loader2 className="size-4 animate-spin" aria-hidden="true" />
-                                ) : (
-                                    isFollowing ? <UserCheck className="size-4" aria-hidden="true" /> : <UserPlus className="size-4" aria-hidden="true" />
-                                )}
-                                <span className="inline-block">{isFollowing ? "Following" : "Follow"}</span>
-                            </button>
+                                {isFollowing ? <UserCheck className="size-4" aria-hidden="true" /> : <UserPlus className="size-4" aria-hidden="true" />}
+                                {isFollowing ? "Following" : "Follow"}
+                            </Button>
                             ) : null}
 
                             <div className="mx-1 h-4 w-px bg-border max-md:hidden" />
 
                             {/* Share */}
-                            <button
+                            <Button
                                 type="button"
+                                variant="outline"
+                                size="icon"
                                 onClick={event => onShare?.(event.currentTarget)}
-                                className="nb-icon-button h-[var(--ui-control-height)] w-[var(--ui-control-height)] rounded-[5px] border border-border bg-card text-muted-foreground transition-colors duration-[180ms] ease-[cubic-bezier(.2,.8,.3,1)] hover:bg-muted hover:text-foreground"
+                                className="nb-touch-target text-muted-foreground hover:text-foreground"
                                 title={isOrganization ? "Share organization" : "Share workspace"}
                                 aria-label={isOrganization ? "Share organization" : "Share workspace"}
                             >
                                 <Share2 className="size-4" aria-hidden="true" />
-                            </button>
+                            </Button>
                             {actionsEnd}
 
                             {!(isOwnerOrMember ?? isOwner) && (openRolesCount > 0 || applicationLabel) && activeTab === "dashboard" ? (
@@ -442,13 +439,13 @@ export default function WorkspaceLayout({
                                     {showFollow ? (
                                         <DropdownMenuItem onSelect={() => onFollow?.()} disabled={followLoading}>
                                             {isFollowing ? <UserCheck className="size-4" aria-hidden="true" /> : <UserPlus className="size-4" aria-hidden="true" />}
-                                            {isFollowing ? "Unfollow workspace" : "Follow workspace"}
+                                            {isFollowing ? `Unfollow ${isOrganization ? "organization" : "workspace"}` : `Follow ${isOrganization ? "organization" : "workspace"}`}
                                         </DropdownMenuItem>
                                     ) : null}
                                     {canInvite && onInvite ? (
                                         <DropdownMenuItem onSelect={onInvite}>
                                             <UserPlus className="size-4" aria-hidden="true" />
-                                            Invite a member
+                                            Invite people
                                         </DropdownMenuItem>
                                     ) : null}
                                     <DropdownMenuItem onSelect={() => onShare?.(actionsTrigger.current ?? undefined)}>
@@ -497,30 +494,30 @@ export default function WorkspaceLayout({
                                     className={cn(
                                         "nb-tab nb-ui-label relative flex h-[var(--ui-control-height)] shrink-0 items-center gap-2 whitespace-nowrap px-3 transition-colors duration-[180ms] ease-[cubic-bezier(.2,.8,.3,1)]",
                                         isActive
-                                            ? "text-primary"
+                                            ? "text-foreground"
                                             : "text-muted-foreground hover:text-foreground"
                                     )}
                                 >
-                                    <tab.icon aria-hidden="true" className={cn("size-4 max-sm:hidden", isActive ? "text-primary" : "text-muted-foreground/70")} />
+                                    <tab.icon aria-hidden="true" className={cn("size-4 max-sm:hidden", isActive ? "text-primary" : "text-muted-foreground")} />
                                     {tab.label}
                                     {tab.id === "files" && filesSyncBadge && filesSyncBadge.status !== "idle" && filesSyncBadge.status !== "completed" && (
                                         <span
                                             data-testid="files-tab-sync-badge"
                                             title={filesSyncBadge.tooltip || `GitHub sync: ${filesSyncBadge.status}`}
                                             className={cn(
-                                                "ml-1 inline-flex items-center justify-center text-[10px] max-md:text-[11px] font-mono font-semibold transition-[color,background-color,border-color,box-shadow,opacity,transform]",
-                                                filesSyncBadge.status === "syncing" && "size-2 rounded-full bg-[var(--status-info)] animate-none",
-                                                filesSyncBadge.status === "incoming" && "min-w-4 h-4 px-1 rounded-[3px] bg-amber-500 text-white leading-none",
-                                                filesSyncBadge.status === "failed" && "size-2 rounded-full bg-red-500",
+                                                "ml-1 inline-flex items-center justify-center",
+                                                filesSyncBadge.status === "syncing" && "size-2 rounded-full bg-[var(--status-info)]",
+                                                filesSyncBadge.status === "incoming" && "nb-tab-count bg-[var(--status-warning-soft)] text-[var(--status-warning)]",
+                                                filesSyncBadge.status === "failed" && "size-2 rounded-full bg-[var(--status-danger)]",
                                             )}
                                         >
                                             {filesSyncBadge.status === "incoming" && filesSyncBadge.count ? filesSyncBadge.count : null}
                                         </span>
                                     )}
                                     {tabBadges[tab.id] === "dot" ? (
-                                        <span data-testid={`tab-badge-${tab.id}`} className="ml-1 size-2 rounded-full bg-primary"><span className="sr-only">(new)</span></span>
+                                        <span data-testid={`tab-badge-${tab.id}`} className="ml-1 size-1.5 rounded-full bg-primary"><span className="sr-only">(new)</span></span>
                                     ) : tabBadges[tab.id] ? (
-                                        <span data-testid={`tab-badge-${tab.id}`} className="ml-1 inline-flex h-4 min-w-4 items-center justify-center rounded-[3px] bg-primary px-1 font-mono text-[10px] font-semibold leading-none text-primary-foreground max-md:text-[11px]">
+                                        <span data-testid={`tab-badge-${tab.id}`} className="nb-tab-count ml-1">
                                             {tabBadges[tab.id]}<span className="sr-only"> waiting</span>
                                         </span>
                                     ) : null}

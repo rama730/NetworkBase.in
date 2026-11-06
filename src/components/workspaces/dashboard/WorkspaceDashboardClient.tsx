@@ -45,6 +45,7 @@ import { OrgMembersTab } from '@/components/organizations/OrgMembersTab';
 import { ChildOrgHeaderDetails, ChildOrgLine, ChildUnitsLine, OrgDashboard } from '@/components/organizations/OrgOverviewParts';
 import { OrgWorkspacesTab } from '@/components/organizations/OrgWorkspacesTab';
 import { OrgInviteBanner } from '@/components/organizations/OrgInviteBanner';
+import { VerifiedMark } from '@/components/organizations/org-ui';
 import { HeaderReportMenu } from '@/components/reports/ItemMenu';
 import { DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { ChildOrgChips, OrgArchivedNotice, OrgBreadcrumb, OrgCompactMark, OrgHeaderDetails, OrgInviteDialog, OrgNewItems, OrgNewMenu, OrgStatusBanner, OrgVisitorActions, type OrgNewKind } from '@/components/organizations/OrgHeaderParts';
@@ -1119,15 +1120,15 @@ export default function WorkspaceDashboardClient({ project, currentUserId, viewe
         <WorkspaceLayout project={projectWithLiveStats} isOwner={isOwner} canManageSettings={canManageProjectSettings} isOwnerOrMember={canSeeAllTabs} publicTabVisibility={publicTabVisibility} activeTab={activeTab ?? ''} onTabChange={handleTabChange} followersCount={followersCount} viewCount={viewCount} filesSyncBadge={filesSyncBadge} isFollowing={isFollowing} onFollow={handleFollow} followLoading={followLoading} onShare={handleShare} onInvite={() => (isOrganization ? setIsOrgInviteOpen(true) : setIsInviteModalOpen(true))} canInvite={canManageProjectSettings}
             isOrganization={isOrganization}
             canOpenSettings={isInheritedAdmin}
-            breadcrumb={parentOrg ? <OrgBreadcrumb parentOrg={parentOrg} /> : null}
-            identityExtra={parentOrg ? <ChildOrgChips parentOrg={parentOrg} visibility={project.visibility} archived={project.status === 'archived'} isWorkspaceMember={isOwnerOrMember} /> : organization ? <>{project.status === 'archived' ? <OrgArchivedNotice /> : null}<OrgStatusBanner orgId={project.id} organization={organization} isOwner={isOwner} /></> : null}
+            breadcrumb={parentOrg ? <OrgBreadcrumb parentOrg={parentOrg} current={project.title} /> : null}
+            identityExtra={parentOrg ? <ChildOrgChips parentOrg={parentOrg} visibility={project.visibility} archived={project.status === 'archived'} isWorkspaceMember={isOwnerOrMember} /> : organization ? <>{!isOwnerOrMember && currentUserId ? <OrgInviteBanner orgId={project.id} /> : null}{project.status === 'archived' ? <OrgArchivedNotice /> : null}<OrgStatusBanner orgId={project.id} organization={organization} isOwner={isOwner} /></> : null}
             headerDetails={parentOrg ? <ChildOrgHeaderDetails projectId={project.id} /> : organization ? <OrgHeaderDetails organization={organization} /> : null}
-            metadataExtra={organization?.childProjectCount ? <span className="nb-compact text-muted-foreground">· {organization.childProjectCount} {organization.childProjectCount === 1 ? 'workspace' : 'workspaces'}</span> : null}
+            metadataExtra={organization?.childProjectCount ? <span className="nb-compact text-muted-foreground">· {isOwnerOrMember ? <button type="button" className="hover:text-foreground hover:underline" onClick={() => handleTabChange('projects')}>{organization.childProjectCount} {organization.childProjectCount === 1 ? 'workspace' : 'workspaces'}</button> : <>{organization.childProjectCount} {organization.childProjectCount === 1 ? 'workspace' : 'workspaces'}</>}</span> : null}
             tabBadges={tabBadges}
             compactChip={organization ? (activeSprintName ? <span className="nb-status shrink-0" data-status="active">{activeSprintName}</span> : null) : undefined}
             compactPrefix={parentOrg ? <OrgCompactMark parentOrg={parentOrg} /> : null}
             compactMenuItems={canStartNew ? <OrgNewItems onNew={startNew} prefix="New " /> : null}
-            actionsStart={organization ? <>{canStartNew ? <OrgNewMenu onNew={startNew} /> : null}{!isOwnerOrMember && currentUserId ? <OrgInviteBanner orgId={project.id} /> : null}{!isOwnerOrMember && isWorkspacePubliclyReadableVisibility(project.visibility) && project.status !== 'archived' && !organization.suspended ? <OrgVisitorActions orgId={project.id} href={canonicalProjectHref} joinMode={organization.joinMode} requestPending={organization.viewerRequestPending} loggedIn={Boolean(currentUserId)} /> : null}</> : null}
+            actionsStart={organization ? <>{canStartNew ? <OrgNewMenu onNew={startNew} /> : null}{!isOwnerOrMember && isWorkspacePubliclyReadableVisibility(project.visibility) && project.status !== 'archived' && !organization.suspended ? <OrgVisitorActions orgId={project.id} href={canonicalProjectHref} joinMode={organization.joinMode} requestPending={organization.viewerRequestPending} loggedIn={Boolean(currentUserId)} /> : null}</> : null}
             actionsEnd={currentUserId && !isOwner ? (
                 <HeaderReportMenu targetId={project.id} noun={organization ? 'organization' : 'workspace'}>
                     {/* A member of a team inside an organization can ask to move, privately (Blocking B48). */}
@@ -1137,7 +1138,7 @@ export default function WorkspaceDashboardClient({ project, currentUserId, viewe
             // Decision 22: inside an organization, Follow is only for outsiders of a public workspace, and the counts go when it isn't public.
             showFollow={!organization && !parentOrg ? true : !isOwnerOrMember && isWorkspacePubliclyReadableVisibility(project.visibility)}
             showStats={!parentOrg || isWorkspacePubliclyReadableVisibility(project.visibility)}
-            titleBadge={organization?.verified ? <span className="ml-2 align-middle text-[0.6em] text-primary" title={organization.verifiedLabel ?? 'Verified organization'} aria-label={organization.verifiedLabel ?? 'Verified organization'}>✓</span> : null} onTabHover={handleTabHover} members={allMembers} loadingMembers={loadingMembers} stageLabel={lifecycleStageNames[optimisticStageIndex] ?? null} stageIndex={optimisticStageIndex} stageCount={lifecycleStageNames.length} applicationLabel={applicationHeaderLabel} openRolesCount={rolesWithFilled.filter((role: any) => (role?.count || 0) - (role?.filled || 0) > 0).length}>
+            titleBadge={organization?.verified ? <VerifiedMark label={organization.verifiedLabel} size={18} className="ml-2" /> : null} onTabHover={handleTabHover} members={allMembers} loadingMembers={loadingMembers} stageLabel={lifecycleStageNames[optimisticStageIndex] ?? null} stageIndex={optimisticStageIndex} stageCount={lifecycleStageNames.length} applicationLabel={applicationHeaderLabel} openRolesCount={rolesWithFilled.filter((role: any) => (role?.count || 0) - (role?.filled || 0) > 0).length}>
             {!activeTab && (
                 <div className="w-full h-full min-h-[40vh] flex items-center justify-center p-8">
                     <div className="nb-empty-state max-w-md text-center py-12" role="status">

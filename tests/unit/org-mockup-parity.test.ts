@@ -62,7 +62,7 @@ test("task 5: the greeting heads Overview, the class bar has three parts, and Th
   const o = readFileSync("src/components/organizations/OrgOverviewParts.tsx", "utf8");
   assert.match(o, /<h2 className="[^"]*">\{data\.greeting\}<\/h2>/);
   assert.match(o, /role="img" aria-label=\{`\$\{data\.standing\.onTrack\} on track, \$\{data\.standing\.behind\} behind, \$\{data\.standing\.inactive\} inactive`\}/);
-  const aside = o.slice(o.indexOf('<aside aria-label="Organization details"'), o.indexOf("</aside>"));
+  const aside = o.slice(o.indexOf('aria-label="Organization details"'), o.indexOf("</aside>"));
   assert.ok(aside.indexOf('<RailSection title="This week">') >= 0 && aside.indexOf('<RailSection title="Activity"') > aside.indexOf('<RailSection title="Workspaces"'));
 });
 

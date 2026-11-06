@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import { UserX } from 'lucide-react'
 
 import {
     changeMemberRoleAction,
@@ -18,6 +19,12 @@ import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { formatDistanceToNow } from '@/lib/utils/date'
 import { messageUserInWindow } from '@/components/messages/message-user'
+import { ErrorNotice } from '@/components/ui/ErrorNotice'
+import { EmptyState } from '@/components/ui/EmptyState'
+import { StatusBadge } from '@/components/organizations/org-ui'
+import { fieldHint, fieldLabel } from '@/lib/organizations/display'
+
+const checking = <div role="status" aria-label="Checking what changes" className="space-y-1.5">{[0, 1, 2].map((i) => <div key={i} className="nb-skeleton h-5 rounded-md" aria-hidden="true" />)}</div>
 
 // Members tab dialogs (report §36.2, §36.4, §36.5, §28.7): each says what will happen before it does.
 
@@ -46,10 +53,10 @@ export function RoleDialog({ orgId, userIds, names, role, label, run, onClose }:
         <ConfirmDialog open={Boolean(role)} onOpenChange={(open) => { if (!open) onClose() }}
             title={`Make ${who(names)} ${role ? label(role) : ''}?`} confirmLabel={lead ? 'Close' : `Make ${role ? label(role) : ''}`}
             onConfirm={() => { if (role && !lead) run(() => changeMemberRoleAction(orgId, userIds, role), 'Role changed. They’re told.'); onClose() }}>
-            {!preview ? <p className="text-sm text-muted-foreground">Checking what changes…</p> : lead ? (
-                <p className="text-sm">{lead.name} leads {lead.workspace}. <Link href={`/workspaces/${encodeURIComponent(lead.slug ?? lead.workspaceId)}?tab=settings`} className="underline underline-offset-4">Transfer {lead.workspace} first</Link>.</p>
+            {!preview ? checking : lead ? (
+                <p className="text-sm">{lead.name} leads {lead.workspace}. <Link href={`/workspaces/${encodeURIComponent(lead.slug ?? lead.workspaceId)}?tab=settings`} className="nb-link">Transfer {lead.workspace} first</Link>.</p>
             ) : (
-                <ul className="list-disc space-y-1 pl-5 text-sm">
+                <ul className="list-disc space-y-1 pl-5 text-[13px]">
                     {lines.length ? lines.map((line) => <li key={line}>{line}</li>) : <li>Nothing else changes for their work</li>}
                 </ul>
             )}
@@ -86,8 +93,8 @@ export function RemoveDialog({ orgId, userIds, names, block, run, onClose }: { o
                     (r) => ('removed' in r && r.removed === 1 && names.length === 1 ? `${names[0]} was removed. They’re under Former.` : `${'removed' in r ? r.removed : 0} removed. They’re under Former.`))
                 onClose()
             }}>
-            {!p ? <p className="text-sm text-muted-foreground">Checking what changes…</p> : (
-                <div className="space-y-3 text-sm">
+            {!p ? checking : (
+                <div className="space-y-4 text-[13px]">
                     {p.skipped.map((s) => <p key={s.userId}>{s.name} leads {s.workspaces.join(', ')}. Transfer it first; they’re left out.</p>)}
                     {p.people ? (
                         <>
@@ -95,14 +102,14 @@ export function RemoveDialog({ orgId, userIds, names, block, run, onClose }: { o
                                 <p className="font-medium">This will:</p>
                                 <ul className="list-disc space-y-1 pl-5">{lines.map((line) => <li key={line}>{line}</li>)}</ul>
                             </div>
-                            <label className="block space-y-1">
-                                <span className="font-medium">Reason (optional)</span>
-                                <textarea value={reason} onChange={(e) => setReason(e.target.value)} maxLength={500} rows={2} className="w-full rounded-md border border-border bg-background px-2 py-1.5" />
-                                <span className="block text-[12px] text-muted-foreground">They’ll see this. Leave it empty to send no reason.</span>
+                            <label className="block">
+                                <span className={fieldLabel}>Reason (optional)</span>
+                                <textarea value={reason} onChange={(e) => setReason(e.target.value)} maxLength={500} rows={2} className="nb-textarea mt-1.5" />
+                                <span className={`block ${fieldHint}`}>They’ll see this. Leave it empty to send no reason.</span>
                             </label>
                             <label className="flex items-start gap-2">
-                                <input type="checkbox" className="mt-1" checked={blocked} onChange={(e) => setBlocked(e.target.checked)} />
-                                <span>Also block them from rejoining{blocked ? <span className="block text-[12px] text-muted-foreground">They’re never told about the block. If they try, they see “You can’t join this organization.”</span> : null}</span>
+                                <input type="checkbox" className="nb-check mt-0.5" checked={blocked} onChange={(e) => setBlocked(e.target.checked)} />
+                                <span>Also block them from rejoining{blocked ? <span className={`block ${fieldHint}`}>They’re never told about the block. If they try, they see “You can’t join this organization.”</span> : null}</span>
                             </label>
                         </>
                     ) : null}
@@ -120,10 +127,10 @@ export function RevokeDialog({ orgId, person, run, onClose }: { orgId: string; p
         <ConfirmDialog open={Boolean(person)} onOpenChange={(open) => { if (!open) onClose() }} variant="destructive"
             title={`Revoke ${person?.name ?? 'their'} verification?`} confirmLabel="Revoke"
             onConfirm={() => { if (person) run(() => revokeOrgVerificationAction(orgId, person.userId, reason), 'Verification revoked. They’re told why.'); onClose() }}>
-            <label className="block space-y-1 text-sm">
-                <span className="font-medium">Reason</span>
-                <textarea required value={reason} onChange={(e) => setReason(e.target.value)} maxLength={500} rows={2} className="w-full rounded-md border border-border bg-background px-2 py-1.5" />
-                <span className="block text-[12px] text-muted-foreground">They’ll see this.</span>
+            <label className="block">
+                <span className={fieldLabel}>Reason</span>
+                <textarea required value={reason} onChange={(e) => setReason(e.target.value)} maxLength={500} rows={2} className="nb-textarea mt-1.5" />
+                <span className={`block ${fieldHint}`}>They’ll see this.</span>
             </label>
         </ConfirmDialog>
     )
@@ -137,24 +144,25 @@ export function FormerList({ orgId, q, pending, run }: { orgId: string; q: strin
     const [error, setError] = useState<string | null>(null)
     const load = () => void readFormerMembersAction(orgId).then((r) => { if (r.success) setRows(r.rows); else setError(r.error) })
     useEffect(load, [orgId])
-    if (error) return <p role="alert" className="p-4 text-sm text-muted-foreground">{error}</p>
-    if (!rows) return <p className="p-4 text-sm text-muted-foreground">Loading…</p>
+    if (error) return <ErrorNotice message={error} onRetry={() => { setError(null); load() }} />
+    if (!rows) return <div role="status" aria-label="Loading former members" className="space-y-2">{[0, 1, 2].map((i) => <div key={i} className="nb-skeleton h-14 rounded-md" aria-hidden="true" />)}</div>
     const shown = rows.filter((r) => !q.trim() || r.name.toLowerCase().includes(q.trim().toLowerCase()))
     const act: Run = (work, done) => run(async () => { const r = await work(); load(); return r }, done)
     return (
-        <ul className="divide-y divide-border rounded-lg border border-border" aria-label="Former members">
-            {shown.length === 0 ? <li className="p-4 text-sm text-muted-foreground">{rows.length ? 'No one matches.' : 'Nobody has left yet.'}</li> : null}
+        shown.length === 0 ? <EmptyState icon={UserX} title={rows.length ? 'No one matches' : 'Nobody has left yet'} description={rows.length ? 'Try another name.' : 'People who leave or are removed show here.'} /> :
+        <ul className="divide-y divide-border overflow-hidden rounded-lg border border-border bg-card" aria-label="Former members">
             {shown.map((r) => (
-                <li key={r.userId} className="flex flex-wrap items-center gap-x-3 gap-y-1 p-3 text-sm">
+                <li key={r.userId} className="flex min-h-14 flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2.5 text-[13px]">
                     <span className="font-medium">{r.name}</span>
                     <span className="text-muted-foreground">
-                        {HOW[r.how]} {formatDistanceToNow(new Date(r.at), { addSuffix: true })}{r.by ? ` · ${r.by}` : ''}{r.note ? ` · “${r.note}”` : ''}{r.blocked ? ' · Blocked' : ''}
+                        {HOW[r.how]} {formatDistanceToNow(new Date(r.at), { addSuffix: true })}{r.by ? ` · ${r.by}` : ''}{r.note ? ` · “${r.note}”` : ''}
                     </span>
-                    {r.total ? <span className="text-[12px] text-muted-foreground">{r.done} of {r.total} done</span> : null}
+                    {r.blocked ? <StatusBadge state="blocked">Blocked</StatusBadge> : null}
+                    {r.total ? <span className="nb-meta">{r.done} of {r.total} done</span> : null}
                     {r.name !== 'Deleted user' ? (
                         <span className="ml-auto flex items-center gap-1.5">
                             {/* Former has Message too (step 11 gap); their own privacy settings still decide. */}
-                            {!r.blocked ? <Link href={`/messages?userId=${r.userId}`} onClick={(e) => messageUserInWindow(r.userId, e)} className="text-[13px] underline underline-offset-4">Message</Link> : null}
+                            {!r.blocked ? <Link href={`/messages?userId=${r.userId}`} onClick={(e) => messageUserInWindow(r.userId, e)} className="nb-link px-1">Message</Link> : null}
                             {r.blocked
                                 ? <Button type="button" size="sm" variant="outline" disabled={pending} onClick={() => act(() => unblockFromOrgAction(orgId, r.userId), `${r.name} can join again`)}>Unblock</Button>
                                 : <Button type="button" size="sm" variant="outline" disabled={pending} onClick={() => act(() => inviteFormerMemberAction(orgId, r.userId), `${r.name} was invited back`)}>Invite back</Button>}

@@ -57,7 +57,7 @@ test("student check 15: small words — reviewers by role, one helper line, Toda
   assert.match(source("src/components/organizations/HandInSection.tsx"), />Reviewed by<\/dt><dd>\{h\.reviewers\}<\/dd>/);
   assert.match(source("src/app/actions/assignments.ts"), /reviewers: `\$\{roles\.owner\} or \$\{roles\.admin\}`/);
   assert.doesNotMatch(source("src/components/organizations/ClassQuestions.tsx"), /Everyone with this assignment sees this/);
-  assert.match(source("src/components/organizations/OrgOverviewParts.tsx"), /'Nothing due in the next 2 days'/);
+  assert.match(source("src/components/organizations/OrgOverviewParts.tsx"), /'Nothing due in the next 2 days\.'/);
   assert.match(source("src/components/organizations/HandInSection.tsx"), /!\/React error\|Server Components\/\.test\(result\.error\)/);
 });
 

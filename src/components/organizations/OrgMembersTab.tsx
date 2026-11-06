@@ -36,6 +36,7 @@ import { ReasonDialog } from '@/components/organizations/ReasonDialog'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { filterRoster, remindSummary, type RosterFilter, type RosterRow } from '@/lib/organizations/member-rules'
 import { toast } from '@/lib/feedback'
 import { saveBlob, toCsvBlob } from '@/lib/download'
@@ -46,6 +47,15 @@ import { subscribeBroadcast } from '@/lib/realtime/private-broadcast'
 import { OrgInvitePanel } from '@/components/organizations/OrgInvitePanel'
 import { formatDistanceToNow } from '@/lib/utils/date'
 import { cn } from '@/lib/utils'
+import { ErrorNotice } from '@/components/ui/ErrorNotice'
+import { EmptyState } from '@/components/ui/EmptyState'
+import { RailSection } from '@/components/ui/rail-section'
+import { useBottomStickyRail } from '@/hooks/useBottomStickyRail'
+import { StatusBadge, VerifiedMark } from '@/components/organizations/org-ui'
+import { fieldLabel, formatOrgDate, withCount } from '@/lib/organizations/display'
+import { rolePlural } from '@/lib/organizations/role-words'
+import { ASSIGNMENT_STATE_LABELS } from '@/lib/copy/terms'
+import { ChevronLeft, ChevronRight, Mail, Search, UserRound } from 'lucide-react'
 import { messageUserInWindow } from '@/components/messages/message-user'
 import { RELATIONSHIP_EVENT, useBlockFlow } from '@/components/privacy/BlockDialog'
 import { Ban } from 'lucide-react'
@@ -57,11 +67,10 @@ import { useQueryClient } from '@tanstack/react-query'
 type RoleNames = Partial<Record<'owner' | 'admin' | 'member' | 'viewer', string>>
 type Row = OrgMembersData['rows'][number]
 
-const select = 'h-9 rounded-md border border-border bg-background px-2 text-sm'
 const ago = (iso: string | null) => (iso ? formatDistanceToNow(new Date(iso), { addSuffix: true }) : '—')
 /** Last active here (report §29.4, §41.4): empty until they next open the organization. */
 const activeHere = (iso: string | null) => (iso ? ago(iso) : 'No data yet')
-const workLine = (w: RosterRow['work']) => (w.total === 0 ? '—' : `${w.done} of ${w.total} done${w.missing ? ` · ${w.missing} missing` : ''}`)
+const workLine = (w: RosterRow['work']) => (w.total === 0 ? 'No work yet' : `${w.done} of ${w.total} done${w.missing ? ` · ${w.missing} missing` : ''}`)
 
 export function OrgMembersTab({ orgId, roleNames, started = null }: { orgId: string; roleNames?: RoleNames; started?: ReturnType<typeof readOrgMembersAction> | null }) {
     const [data, setData] = useState<OrgMembersData | null>(null)
@@ -82,6 +91,9 @@ export function OrgMembersTab({ orgId, roleNames, started = null }: { orgId: str
     const [pending, startTransition] = useTransition()
     // Report §4.3: the organization's own name beside the base access level ("TA · Admin").
     const label = (role: string) => (role in ACCESS_LEVEL_LABELS ? accessLevelLabel(role as AccessLevel, roleNames?.[role as keyof RoleNames]) : role)
+    // The organization's own words for the filters (org spec §2 rule 5): Teachers and TAs, Students, Guests.
+    const word = (role: 'owner' | 'admin' | 'member' | 'viewer', fallback: string) => roleNames?.[role] ?? fallback
+    const stickyRail = useBottomStickyRail({ topInset: 'calc(var(--workspace-tabs-height, 0px) + 24px)' })
 
     // The page started this read on the server; a browser runs actions one at a time (live-fix phase 1).
     const [read] = useState(() => serverFirst(started, () => readOrgMembersAction(orgId)))
@@ -116,27 +128,36 @@ export function OrgMembersTab({ orgId, roleNames, started = null }: { orgId: str
         load()
     })
 
-    if (error) return <p role="alert" className="py-10 text-center text-sm text-muted-foreground">{error}</p>
-    if (!data) return <p className="py-10 text-center text-sm text-muted-foreground">Loading members…</p>
+    if (error) return <ErrorNotice message={error} onRetry={load} />
+    if (!data) return (
+        <div role="status" aria-label="Loading members" className="grid gap-6 lg:grid-cols-12">
+            <div className="space-y-3 lg:col-span-8" aria-hidden="true"><div className="nb-skeleton h-7 rounded-md" />{[0, 1, 2, 3, 4].map((i) => <div key={i} className="nb-skeleton h-14 rounded-md" />)}</div>
+            <div className="space-y-6 lg:col-span-4" aria-hidden="true">{[0, 1].map((i) => <div key={i} className="nb-skeleton h-32 rounded-lg" />)}</div>
+        </div>
+    )
     // Bulk actions reach only ticked people still on screen, so a changed filter never removes someone hidden (smaller bug 9).
     const ids = rows.filter((r) => selected.has(r.userId)).map((r) => r.userId)
     const s = data.summary
 
+    const narrowed = Boolean(filter.q?.trim() || (filter.role && filter.role !== 'all') || (filter.project && filter.project !== 'all') || (filter.status && filter.status !== 'all') || (filter.verified && filter.verified !== 'all'))
+    const people = (n: number) => `${n} ${n === 1 ? 'person' : 'people'}`
+    const plural = (role: 'owner' | 'admin' | 'member' | 'viewer', fallback: string) => rolePlural(word(role, fallback))
+
     return (
-        <div className="mx-auto grid w-full max-w-[1240px] gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
-            <div className="min-w-0 space-y-3">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
+            <div className="min-w-0 space-y-3 lg:col-span-8">
                 {/* Workspaces report §4 F5: came here from "Place them", so the way back is one click. */}
-                {cameFromWorkspaces ? <Link href="?tab=projects" className="inline-block text-[13px] text-muted-foreground hover:text-foreground hover:underline">← Workspaces</Link> : null}
-                <div className="flex flex-wrap items-center gap-2">
-                    <Input value={filter.q ?? ''} onChange={(e) => setFilter({ ...filter, q: e.target.value })} placeholder="Search members…" aria-label="Search members" className="h-9 w-full sm:w-56" />
-                    <select aria-label="Role" className={select} value={filter.role ?? 'all'} onChange={(e) => setFilter({ ...filter, role: e.target.value as RosterFilter['role'] })}>
-                        <option value="all">All roles</option><option value="admins">Admins</option><option value="members">Members</option><option value="guests">Viewers</option>
+                {cameFromWorkspaces ? <Link href="?tab=projects" className="inline-flex items-center gap-1 text-[13px] text-muted-foreground hover:text-foreground hover:underline"><ChevronLeft className="size-4" aria-hidden="true" />Workspaces</Link> : null}
+                <div className="flex flex-wrap items-center gap-2" role="toolbar" aria-label="Filter members">
+                    <Input value={filter.q ?? ''} onChange={(e) => setFilter({ ...filter, q: e.target.value })} placeholder="Search members" aria-label="Search members" className="h-[var(--ui-control-height-sm)] w-full text-[13px] sm:w-56" />
+                    <select aria-label="Role" className="nb-select" data-size="sm" value={filter.role ?? 'all'} onChange={(e) => setFilter({ ...filter, role: e.target.value as RosterFilter['role'] })}>
+                        <option value="all">All roles</option><option value="admins">{plural('owner', 'Owner')} and {plural('admin', 'Admin')}</option><option value="members">{plural('member', 'Member')}</option><option value="guests">{plural('viewer', 'Viewer')}</option>
                     </select>
-                    <select aria-label="Workspace" className={select} value={filter.project ?? 'all'} onChange={(e) => setFilter({ ...filter, project: e.target.value })}>
+                    <select aria-label="Workspace" className="nb-select" data-size="sm" value={filter.project ?? 'all'} onChange={(e) => setFilter({ ...filter, project: e.target.value })}>
                         <option value="all">All workspaces</option><option value="none">Not in a workspace</option>
                         {data.children.map((c) => <option key={c.id} value={c.id}>{c.title}</option>)}
                     </select>
-                    <select aria-label="Status" className={select}
+                    <select aria-label="Status" className="nb-select" data-size="sm"
                         value={filter.invited ? 'invited' : filter.outside ? 'outside' : filter.former ? 'former' : filter.verified && filter.verified !== 'all' ? `verified_${filter.verified}` : filter.status ?? 'all'}
                         onChange={(e) => {
                             const v = e.target.value
@@ -149,8 +170,8 @@ export function OrgMembersTab({ orgId, roleNames, started = null }: { orgId: str
                         <option value="verified_yes">Verified</option><option value="verified_no">Not verified</option><option value="invited">Invited</option>
                         <option value="outside">Outside people</option><option value="former">Former</option>
                     </select>
-                    <select aria-label="Sort" className={select} value={filter.sort ?? 'name'} onChange={(e) => setFilter({ ...filter, sort: e.target.value as RosterFilter['sort'] })}>
-                        <option value="name">Sort: Name</option><option value="behind">Needs attention</option><option value="active">Last active here</option><option value="joined">Joined</option>
+                    <select aria-label="Sort" className="nb-select" data-size="sm" value={filter.sort ?? 'name'} onChange={(e) => setFilter({ ...filter, sort: e.target.value as RosterFilter['sort'] })}>
+                        <option value="name">Sort by name</option><option value="behind">Sort by needs attention</option><option value="active">Sort by last active here</option><option value="joined">Sort by joined</option>
                     </select>
                     {/* Report §33.5: statuses and dates only, never what anyone handed in. */}
                     <Button type="button" size="sm" variant="outline" className="sm:ml-auto" disabled={pending} onClick={() => startTransition(async () => {
@@ -167,89 +188,96 @@ export function OrgMembersTab({ orgId, roleNames, started = null }: { orgId: str
                     onRemove={(block) => setRemoveAsk({ ids, names: ids.map((id) => data.rows.find((r) => r.userId === id)?.name ?? 'Someone'), block })} /> : null}
 
                 {filter.former ? <FormerList orgId={orgId} q={filter.q ?? ''} pending={pending} run={run} /> : filter.outside ? (
-                    <ul className="divide-y divide-border rounded-lg border border-border" aria-label="Outside people">
-                        {data.outside.length === 0 ? <li className="p-4 text-sm text-muted-foreground">No outside people in this organization’s workspaces.</li> : null}
+                    data.outside.length === 0 ? <EmptyState icon={UserRound} title="No outside people" description="People added to a workspace from outside the organization show here." /> : (
+                    <ul className="divide-y divide-border overflow-hidden rounded-lg border border-border bg-card" aria-label="Outside people">
                         {data.outside.map((o) => (
-                            <li key={o.userId} className="flex flex-wrap items-center gap-x-3 gap-y-1 p-3 text-sm">
+                            <li key={o.userId} className="flex min-h-14 flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2.5 text-[13px]">
                                 <span className="font-medium">{o.name}</span>
-                                <span className="rounded-[3px] border border-border px-1 text-[11px] text-muted-foreground">Outside</span>
+                                <StatusBadge state="neutral">Outside</StatusBadge>
                                 <span className="min-w-0 truncate text-muted-foreground">{o.projects.map((p) => p.title).join(', ')}</span>
-                                <span className="ml-auto flex flex-wrap gap-1.5">
-                                    <Link href={`/messages?userId=${o.userId}`} onClick={(e) => messageUserInWindow(o.userId, e)} className="text-[13px] underline underline-offset-4">Message</Link>
+                                <span className="ml-auto flex flex-wrap items-center gap-1.5">
+                                    <Link href={`/messages?userId=${o.userId}`} onClick={(e) => messageUserInWindow(o.userId, e)} className="nb-link px-1">Message</Link>
                                     {o.projects.map((p) => (
-                                        <Button key={p.id} type="button" size="sm" variant="ghost" disabled={pending} onClick={() => setOutsideAsk({ userId: o.userId, name: o.name, projectId: p.id, title: p.title })}>
+                                        <Button key={p.id} type="button" size="sm" variant="outline" disabled={pending} onClick={() => setOutsideAsk({ userId: o.userId, name: o.name, projectId: p.id, title: p.title })}>
                                             Remove from {p.title}
                                         </Button>
                                     ))}
                                 </span>
                             </li>
                         ))}
-                    </ul>
+                    </ul>)
                 ) : filter.invited ? (
-                    <ul className="divide-y divide-border rounded-lg border border-border">
-                        {data.invites.length === 0 ? <li className="p-4 text-sm text-muted-foreground">No invites waiting.</li> : null}
+                    data.invites.length === 0 ? <EmptyState icon={Mail} title="No invites waiting" description="Invites you send by email wait here until they’re accepted." /> : (
+                    <ul className="divide-y divide-border overflow-hidden rounded-lg border border-border bg-card" aria-label="Invites">
                         {data.invites.map((i) => (
-                            <li key={i.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 p-3 text-sm">
+                            <li key={i.id} className="flex min-h-14 flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2.5 text-[13px]">
                                 <span className="font-medium">{i.email}</span>
-                                <span className="text-muted-foreground">{label(i.role)}{i.title ? ` · ${i.title}` : ''} · {i.expired ? 'Expired' : `Invited · expires ${new Date(i.expiresAt).toLocaleDateString()}`}</span>
-                                {i.expired ? <span className="nb-status" data-status="archived">Expired</span> : null}
+                                <span className="text-muted-foreground">{label(i.role)}{i.title ? ` · ${i.title}` : ''}</span>
+                                {i.expired ? <StatusBadge state="expired">Expired</StatusBadge> : <span className="nb-meta">Expires {formatOrgDate(i.expiresAt, { month: 'short', day: 'numeric' })}</span>}
                                 <span className="ml-auto flex gap-1.5">
-                                    <Button type="button" size="sm" variant="outline" disabled={pending} onClick={() => run(() => resendOrgInviteAction(orgId, i.id), 'Invite extended')}>Resend</Button>
-                                    <Button type="button" size="sm" variant="ghost" disabled={pending} onClick={() => run(() => cancelOrgInviteAction(orgId, i.id), 'Invite canceled')}>Cancel</Button>
+                                    <Button type="button" size="sm" variant="outline" disabled={pending} onClick={() => run(() => resendOrgInviteAction(orgId, i.id), 'Invite resent')}>Resend</Button>
+                                    <Button type="button" size="sm" variant="ghost" disabled={pending} onClick={() => run(() => cancelOrgInviteAction(orgId, i.id), 'Invite canceled')}>Cancel invite</Button>
                                 </span>
                             </li>
                         ))}
-                    </ul>
+                    </ul>)
+                ) : rows.length === 0 && narrowed ? (
+                    <EmptyState icon={Search} title="No members match" description="Try another role, workspace or status." action={<Button type="button" variant="outline" size="sm" onClick={() => setFilter({ sort: filter.sort ?? 'name' })}>Clear filters</Button>} />
                 ) : (
-                    <ul className="divide-y divide-border rounded-lg border border-border">
-                        <li className="flex items-center gap-2 px-3 py-2 text-[12px] text-muted-foreground">
-                            <input type="checkbox" aria-label="Select all in filter" checked={rows.length > 0 && rows.every((r) => selected.has(r.userId))}
+                    <ul className="divide-y divide-border overflow-hidden rounded-lg border border-border bg-card">
+                        <li className="flex min-h-10 items-center gap-3 px-3 py-2">
+                            <input type="checkbox" className="nb-check" aria-label="Select all in filter" checked={rows.length > 0 && rows.every((r) => selected.has(r.userId))}
                                 onChange={(e) => setSelected(e.target.checked ? new Set(rows.filter((r) => r.role !== 'owner').map((r) => r.userId)) : new Set())} />
-                            {rows.length} {rows.length === 1 ? 'person' : 'people'}
+                            <span className="nb-micro">{people(rows.length)}</span>
                         </li>
                         {rows.map((r) => (
-                            <li key={r.userId} className="flex items-start gap-3 px-3 py-2.5 text-sm">
-                                <input type="checkbox" className="mt-1" aria-label={`Select ${r.name}`} disabled={r.role === 'owner'} checked={selected.has(r.userId)}
+                            <li key={r.userId} className="flex min-h-14 items-start gap-3 px-3 py-2.5 text-[13px]">
+                                <input type="checkbox" className="nb-check mt-2" aria-label={`Select ${r.name}`} disabled={r.role === 'owner'} checked={selected.has(r.userId)}
                                     onChange={(e) => setSelected((cur) => { const next = new Set(cur); if (e.target.checked) next.add(r.userId); else next.delete(r.userId); return next })} />
                                 {/* Live-fix 39: a photo on every row. */}
-                                <UserAvatar identity={{ id: r.userId, fullName: r.name, username: r.username, avatarUrl: r.avatarUrl }} size={32} roundedClassName="rounded-full" />
+                                <UserAvatar identity={{ id: r.userId, fullName: r.name, username: r.username, avatarUrl: r.avatarUrl }} size={34} />
                                 <button type="button" onClick={() => setOpen(r)} className="min-w-0 flex-1 text-left">
-                                    <span className="flex flex-wrap items-center gap-x-1.5">
-                                        <span className="font-medium">{r.name}</span>
-                                        <span className="rounded-[3px] border border-border px-1 text-[11px] text-muted-foreground">{label(r.role)}</span>
-                                        {r.verified ? <span className="text-[12px] text-muted-foreground" title="Contribution verified"><span aria-hidden="true">✓</span><span className="sr-only">Verified</span></span> : null}
+                                    <span className="flex flex-wrap items-center gap-x-1.5 gap-y-1">
+                                        <span className="font-medium text-foreground hover:underline">{r.name}</span>
+                                        {r.verified ? <VerifiedMark label="Contribution verified" size={14} /> : null}
+                                        <span className="text-muted-foreground">· {label(r.role)}</span>
                                         {/* Your personal block, seen only by you (Blocking B51). */}
-                                        {r.blockedByMe ? <span className="rounded-[3px] border border-border px-1 text-[11px] text-muted-foreground">Blocked</span> : null}
+                                        {r.blockedByMe ? <StatusBadge state="blocked">Blocked</StatusBadge> : null}
                                         {r.title ? <span className="text-muted-foreground">· {r.title}</span> : null}
                                     </span>
                                     <span className="mt-0.5 block truncate text-[12px] text-muted-foreground">
-                                        {r.projects.length ? r.projects.map((p) => (p.unit ? `${p.title} · ${p.unit}` : p.title)).join(', ') : '— not in a workspace'}
+                                        {r.projects.length ? r.projects.map((p) => (p.unit ? `${p.title} · ${p.unit}` : p.title)).join(', ') : 'Not in a workspace'}
                                     </span>
-                                    <span className={cn('mt-0.5 block text-[12px] sm:hidden', r.behind ? 'text-destructive' : 'text-muted-foreground')}>{workLine(r.work)} · active here {activeHere(r.lastActiveAt)}</span>
+                                    <span className={cn('mt-0.5 block text-[12px] sm:hidden', r.behind ? 'text-[var(--status-warning)]' : 'text-muted-foreground')}>{workLine(r.work)} · active here {activeHere(r.lastActiveAt)}</span>
                                 </button>
-                                <span className={cn('hidden shrink-0 text-[12px] sm:inline', r.behind ? 'text-destructive' : 'text-muted-foreground')}>{workLine(r.work)}</span>
-                                <span className="hidden w-24 shrink-0 text-right font-mono text-[11px] text-muted-foreground sm:inline">{activeHere(r.lastActiveAt)}</span>
+                                <span className={cn('hidden shrink-0 pt-2 text-[12px] sm:inline', r.behind ? 'text-[var(--status-warning)]' : 'text-muted-foreground')}>{workLine(r.work)}</span>
+                                <span className="nb-meta hidden w-28 shrink-0 pt-2 text-right sm:inline">{activeHere(r.lastActiveAt)}</span>
                             </li>
                         ))}
                     </ul>
                 )}
             </div>
 
-            <aside className="space-y-5">
+            <aside {...stickyRail} aria-label="Members summary" className="min-w-0 space-y-6 lg:col-span-4 lg:sticky lg:self-start">
                 <div className={data.requests.length + data.teamChanges.length > 0 ? 'hidden lg:block' : undefined}><Requests orgId={orgId} data={data} pending={pending} run={run} /></div>
-                {/* Report §7.11: the same invite panel as the header and About. */}
-                {/* Live-fix 40: alone, the invite panel leads with a plain line. */}
-                <div className="border-t border-border pt-4">
-                    {data.summary.members <= 1 ? <p className="mb-2 text-sm font-medium">You’re the only one here so far</p> : null}
+                {/* Report §7.11: the same invite panel as the header and About. Live-fix 40: alone, it leads with a plain line. */}
+                <RailSection title="Invite people">
+                    {data.summary.members <= 1 ? <p className="mb-3 text-[13px] font-medium">You’re the only one here so far</p> : null}
                     <OrgInvitePanel orgId={orgId} orgHandle={null} prominent={data.summary.members <= 1} />
-                </div>
-                <section aria-label="Summary" className="space-y-1 text-sm">
-                    <button type="button" className="block hover:underline" onClick={() => setFilter({ sort: 'name' })}>{s.members} {s.members === 1 ? 'member' : 'members'}</button>
-                    <button type="button" className="block hover:underline" onClick={() => setFilter({ role: 'admins' })}>{s.admins} {s.admins === 1 ? 'owner or admin' : 'owners and admins'} · {s.guests} {s.guests === 1 ? 'viewer' : 'viewers'}</button>
-                    <button type="button" className="block hover:underline" onClick={() => setFilter({ status: 'behind', sort: 'behind' })}>{s.behind} behind</button>
-                    <button type="button" className="block hover:underline" onClick={() => setFilter({ project: 'none' })}>{s.notInProject} not in a workspace</button>
-                    <button type="button" className="block hover:underline" onClick={() => setFilter({ status: 'inactive' })}>{s.inactive} inactive for 14 days</button>
-                </section>
+                </RailSection>
+                <RailSection title="Summary">
+                    <ul className="space-y-1 text-[13px]">
+                        {([
+                            [`${s.members} ${s.members === 1 ? 'member' : 'members'}`, { sort: 'name' }],
+                            [`${s.admins} ${plural('owner', 'Owner')} and ${plural('admin', 'Admin')} · ${s.guests} ${s.guests === 1 ? word('viewer', 'Viewer') : plural('viewer', 'Viewer')}`, { role: 'admins' }],
+                            [`${s.behind} behind`, { status: 'behind', sort: 'behind' }],
+                            [`${s.notInProject} not in a workspace`, { project: 'none' }],
+                            [`${s.inactive} inactive for 14 days`, { status: 'inactive' }],
+                        ] as Array<[string, RosterFilter]>).map(([text, next]) => (
+                            <li key={text}><button type="button" className="flex min-h-9 w-full items-center justify-between gap-2 rounded-md px-2 -mx-2 text-left hover:bg-muted" onClick={() => setFilter(next)}><span className="tabular-nums">{text}</span><ChevronRight className="size-4 text-muted-foreground" aria-hidden="true" /></button></li>
+                        ))}
+                    </ul>
+                </RailSection>
             </aside>
 
             <Dialog open={Boolean(open)} onOpenChange={(v) => { if (!v) setOpen(null) }}>
@@ -279,24 +307,24 @@ function BulkBar({ orgId, data, label, ids, pending, run, onClear, onRole, onRem
     const [unitId, setUnitId] = useState('')
     const units = data.children.find((c) => c.id === childId)?.units ?? []
     return (
-        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-muted/30 p-2 text-sm" role="group" aria-label="Bulk actions">
-            <span className="font-medium">{ids.length} selected</span>
+        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-muted p-2 text-[13px]" role="group" aria-label="Bulk actions">
+            <span className="px-1 font-medium tabular-nums">{ids.length} selected</span>
             <Button type="button" size="sm" variant="outline" disabled={pending} onClick={() => run(() => remindMembersAction(orgId, ids), (r) => ('reminded' in r ? remindSummary(r) : ''))}>Remind</Button>
-            <select aria-label="Change access level" className={select} value="" disabled={pending} onChange={(e) => {
+            <select aria-label="Change access level" className="nb-select" data-size="sm" value="" disabled={pending} onChange={(e) => {
                 const role = e.target.value as 'admin' | 'member' | 'viewer'
                 if (role) onRole(role)
             }}>
                 <option value="">Change access level…</option>
                 <option value="member">{label('member')}</option><option value="viewer">{label('viewer')}</option>
-                {data.viewerRole === 'owner' ? <option value="admin">Admin</option> : null}
+                {data.viewerRole === 'owner' ? <option value="admin">{label('admin')}</option> : null}
             </select>
-            <select aria-label="Workspace" className={select} value={childId} onChange={(e) => { setChildId(e.target.value); setUnitId('') }}>
+            <select aria-label="Add to workspace" className="nb-select" data-size="sm" value={childId} onChange={(e) => { setChildId(e.target.value); setUnitId('') }}>
                 <option value="">Add to workspace…</option>
                 {data.children.map((c) => <option key={c.id} value={c.id}>{c.title}</option>)}
             </select>
             {childId ? (
                 <>
-                    <select aria-label="Team" className={select} value={unitId} onChange={(e) => setUnitId(e.target.value)}>
+                    <select aria-label="Team" className="nb-select" data-size="sm" value={unitId} onChange={(e) => setUnitId(e.target.value)}>
                         <option value="">No team</option>
                         {units.map((u) => <option key={u.id} value={u.id}>{u.title}</option>)}
                     </select>
@@ -307,8 +335,13 @@ function BulkBar({ orgId, data, label, ids, pending, run, onClear, onRole, onRem
             <Button type="button" size="sm" variant="outline" disabled={pending} title="Verify covers role and dates, not what they wrote"
                 onClick={() => run(() => verifyOrgContributionsAction(orgId, ids), 'Verified. It covers role and dates, not what they wrote.')}>Verify {ids.length}</Button>
             {/* Two named actions, each with its own confirmation (Blocking B50): removal, and the organization's own block. */}
-            <Button type="button" size="sm" variant="destructive" className="ml-auto" disabled={pending} onClick={() => onRemove(false)}>Remove</Button>
-            <Button type="button" size="sm" variant="destructive" disabled={pending} onClick={() => onRemove(true)}>Remove and block from organization</Button>
+            <DropdownMenu>
+                <DropdownMenuTrigger asChild><Button type="button" size="sm" variant="outline" className="ml-auto text-destructive" disabled={pending}>Remove…</Button></DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                    <DropdownMenuItem className="text-destructive focus:text-destructive" onSelect={() => onRemove(false)}>Remove from organization</DropdownMenuItem>
+                    <DropdownMenuItem className="text-destructive focus:text-destructive" onSelect={() => onRemove(true)}>Remove and block from rejoining</DropdownMenuItem>
+                </DropdownMenuContent>
+            </DropdownMenu>
             <Button type="button" size="sm" variant="ghost" onClick={onClear}>Clear</Button>
         </div>
     )
@@ -316,34 +349,36 @@ function BulkBar({ orgId, data, label, ids, pending, run, onClear, onRole, onRem
 
 function Requests({ orgId, data, pending, run }: { orgId: string; data: OrgMembersData; pending: boolean; run: Run }) {
     const [declining, setDeclining] = useState<{ id: string; name: string } | null>(null)
+    const total = data.requests.length + data.teamChanges.length
     return (
-        <section aria-label="Requests" className="space-y-2">
-            <h3 className="text-sm font-semibold">Requests · {data.requests.length + data.teamChanges.length}</h3>
-            {data.requests.length + data.teamChanges.length === 0 ? <p className="text-[13px] text-muted-foreground">No one is waiting.</p> : null}
-            {/* Ask to change team (report §25.5, decision 46): admins only, since it can be about a block. */}
-            {data.teamChanges.map((c) => (
-                <div key={`${c.userId}:${c.workspaceId}`} className="space-y-1 rounded-md border border-border p-2 text-[13px]">
-                    <p><span className="font-medium">{c.name}</span> asks to change team <span className="text-muted-foreground">· in {c.workspace} · {ago(c.at)}</span></p>
-                    <MoveToWorkspace orgId={orgId} data={data} userId={c.userId} fromId={c.workspaceId} pending={pending} run={run}>
-                        <Button type="button" size="sm" variant="outline" disabled={pending} onClick={() => run(() => dismissTeamChangeAction(orgId, c.userId, c.workspaceId), 'Dismissed')}>Dismiss</Button>
-                    </MoveToWorkspace>
-                </div>
-            ))}
-            {data.requests.map((r) => (
-                <div key={r.id} className="space-y-1 rounded-md border border-border p-2 text-[13px]">
-                    <p><span className="font-medium">{r.name}</span> <span className="text-muted-foreground">· via code · {ago(r.createdAt)}</span></p>
-                    {r.note ? <p className="text-muted-foreground">“{r.note}”</p> : null}
-                    <div className="flex gap-1.5">
-                        <Button type="button" size="sm" disabled={pending} onClick={() => run(() => approveJoinRequestsAction(orgId, [r.id]), `${r.name} approved`)}>Approve</Button>
-                        <Button type="button" size="sm" variant="outline" disabled={pending} onClick={() => setDeclining({ id: r.id, name: r.name })}>Decline</Button>
-                    </div>
-                </div>
-            ))}
-            {data.requests.length > 1 ? <Button type="button" size="sm" variant="outline" disabled={pending} onClick={() => run(() => approveJoinRequestsAction(orgId, data.requests.map((r) => r.id)), 'All approved')}>Approve all</Button> : null}
+        <RailSection title={withCount('Requests', total)} action={data.requests.length > 1 ? <Button type="button" size="sm" disabled={pending} onClick={() => run(() => approveJoinRequestsAction(orgId, data.requests.map((r) => r.id)), 'All approved')}>Approve all</Button> : undefined}>
+            {total === 0 ? <p className="text-[13px] text-muted-foreground">No one is waiting.</p> : null}
+            <ul className="divide-y divide-border">
+                {/* Ask to change team (report §25.5, decision 46): admins only, since it can be about a block. */}
+                {data.teamChanges.map((c) => (
+                    <li key={`${c.userId}:${c.workspaceId}`} className="space-y-2 py-2.5 text-[13px] first:pt-0 last:pb-0">
+                        <p><span className="font-medium">{c.name}</span> asks to change team <span className="text-muted-foreground">· in {c.workspace} · {ago(c.at)}</span></p>
+                        <MoveToWorkspace orgId={orgId} data={data} userId={c.userId} fromId={c.workspaceId} pending={pending} run={run}>
+                            <Button type="button" size="sm" variant="ghost" disabled={pending} onClick={() => run(() => dismissTeamChangeAction(orgId, c.userId, c.workspaceId), 'Dismissed')}>Dismiss</Button>
+                        </MoveToWorkspace>
+                    </li>
+                ))}
+                {data.requests.map((r) => (
+                    <li key={r.id} className="space-y-2 py-2.5 text-[13px] first:pt-0 last:pb-0">
+                        <p><span className="font-medium">{r.name}</span> <span className="text-muted-foreground">· asked with the code · {ago(r.createdAt)}</span></p>
+                        {r.note ? <p className="text-muted-foreground">“{r.note}”</p> : null}
+                        <div className="flex gap-1.5">
+                            {/* Approve all is the area's filled button; each row is outline (spec §10, one dominant action). */}
+                            <Button type="button" size="sm" variant={data.requests.length > 1 ? 'outline' : 'default'} disabled={pending} onClick={() => run(() => approveJoinRequestsAction(orgId, [r.id]), `${r.name} approved`)}>Approve</Button>
+                            <Button type="button" size="sm" variant="ghost" disabled={pending} onClick={() => setDeclining({ id: r.id, name: r.name })}>Decline</Button>
+                        </div>
+                    </li>
+                ))}
+            </ul>
             <ReasonDialog open={Boolean(declining)} onOpenChange={(v) => { if (!v) setDeclining(null) }} title={`Decline ${declining?.name ?? 'this request'}?`}
                 label="Reason (optional)" confirmLabel="Decline" variant="destructive"
                 onConfirm={(reason) => { if (declining) run(() => declineJoinRequestAction(orgId, declining.id, reason || undefined), 'Request declined') }} />
-        </section>
+        </RailSection>
     )
 }
 
@@ -354,12 +389,12 @@ function MoveToWorkspace({ orgId, data, userId, fromId, pending, run, children }
     const units = data.children.find((c) => c.id === toId)?.units ?? []
     return (
         <div className="flex flex-wrap items-center gap-1.5">
-            <select aria-label="Move to workspace" className={select} value={toId} onChange={(e) => { setToId(e.target.value); setUnitId('') }}>
+            <select aria-label="Move to workspace" className="nb-select" data-size="sm" value={toId} onChange={(e) => { setToId(e.target.value); setUnitId('') }}>
                 <option value="">Move to…</option>
                 {data.children.filter((c) => c.id !== fromId).map((c) => <option key={c.id} value={c.id}>{c.title}</option>)}
             </select>
             {toId ? (
-                <select aria-label="Team" className={select} value={unitId} onChange={(e) => setUnitId(e.target.value)}>
+                <select aria-label="Team" className="nb-select" data-size="sm" value={unitId} onChange={(e) => setUnitId(e.target.value)}>
                     <option value="">No team</option>
                     {units.map((u) => <option key={u.id} value={u.id}>{u.title}</option>)}
                 </select>
@@ -385,76 +420,75 @@ function MemberDrawer({ orgId, row, isSelf, data, label, pending, run, onRole, o
         void readMemberActivityAction(orgId, row.userId).then((r) => setActivity(r.success ? r.activity : []))
     }, [orgId, row.userId])
     const canChange = row.role !== 'owner' && (data.viewerRole === 'owner' || row.role !== 'admin')
+    const section = (title: string, children: React.ReactNode) => <section className="space-y-2"><h3 className="nb-micro">{title}</h3>{children}</section>
+    const lines = <div role="status" aria-label="Loading" className="space-y-1.5" aria-busy="true">{[0, 1].map((i) => <div key={i} className="nb-skeleton h-5 rounded-md" aria-hidden="true" />)}</div>
     return (
-        <div className="space-y-5 text-sm">
-            <header className="space-y-1">
-                <p className="text-lg font-semibold">{row.name}</p>
-                <p className="text-muted-foreground">{label(row.role)}{row.title ? ` · ${row.title}` : ''}</p>
-                <p className="font-mono text-[11px] text-muted-foreground">Joined {ago(row.joinedAt)} · active here {activeHere(row.lastActiveAt)}</p>
-                <p className="flex gap-3 text-[13px]">
-                    {row.username ? <Link href={`/u/${row.username}`} className="underline underline-offset-4">View profile</Link> : null}
-                    <Link href={`/messages?userId=${row.userId}`} onClick={(e) => messageUserInWindow(row.userId, e)} className="underline underline-offset-4">Message</Link>
-                </p>
-            </header>
-            <section className="space-y-1.5">
-                <h4 className="font-semibold">Work</h4>
-                {work === null ? <p className="text-muted-foreground">Loading…</p> : work.length === 0 ? <p className="text-muted-foreground">No assignments yet.</p> : (
-                    <ul className="space-y-1">
-                        {work.map((w) => (
-                            <li key={w.copyId} className="flex justify-between gap-2">
-                                <span className="truncate">{w.title}</span>
-                                <span className={cn('shrink-0 text-[12px]', w.state === 'missing' ? 'text-destructive' : 'text-muted-foreground')}>{w.state.replace('_', ' ')}{w.late ? ' · late' : ''}</span>
-                            </li>
-                        ))}
-                    </ul>
-                )}
-            </section>
-            {row.role === 'member' ? <MemberAway orgId={orgId} userId={row.userId} name={row.name} /> : null}
-            <section className="space-y-1.5">
-                <h4 className="font-semibold">Contribution credit</h4>
-                <p className="text-muted-foreground">{row.verified ? '✓ Verified. It covers role and dates, not what they wrote.' : 'Not verified yet.'}</p>
-                <div className="flex flex-wrap gap-1.5">
-                    {isSelf ? null : row.verified
-                        ? <Button type="button" size="sm" variant="ghost" disabled={pending} onClick={onRevoke}>Revoke</Button>
-                        : <Button type="button" size="sm" variant="outline" disabled={pending} onClick={() => run(() => verifyOrgContributionsAction(orgId, [row.userId]), 'Contribution verified')}>Verify contribution</Button>}
+        <div className="space-y-6 text-[13px]">
+            <header className="flex items-start gap-3">
+                <UserAvatar identity={{ id: row.userId, fullName: row.name, username: row.username, avatarUrl: row.avatarUrl }} size={48} />
+                <div className="min-w-0 space-y-1">
+                    <h2 className="nb-section-title text-foreground">{row.name}</h2>
+                    <p className="text-muted-foreground">{label(row.role)}{row.title ? ` · ${row.title}` : ''}</p>
+                    <p className="nb-meta">Joined {ago(row.joinedAt)} · active here {activeHere(row.lastActiveAt)}</p>
+                    <p className="flex gap-4">
+                        {row.username ? <Link href={`/u/${row.username}`} className="nb-link">View profile</Link> : null}
+                        <Link href={`/messages?userId=${row.userId}`} onClick={(e) => messageUserInWindow(row.userId, e)} className="nb-link">Message</Link>
+                    </p>
                 </div>
-            </section>
-            <section className="space-y-1">
-                <h4 className="font-semibold">Workspaces and teams</h4>
-                {row.projects.length === 0 ? <p className="text-muted-foreground">Not in a workspace.</p> : row.projects.map((p) => (
-                    <div key={p.id} className="space-y-1">
-                        <p>{p.title}{p.unit ? ` · ${p.unit}` : ''}</p>
-                        {data.children.length > 1 ? <MoveToWorkspace orgId={orgId} data={data} userId={row.userId} fromId={p.id} pending={pending} run={run} /> : null}
-                    </div>
-                ))}
-            </section>
-            <section className="space-y-1.5">
-                <h4 className="font-semibold">Recent activity</h4>
-                {activity === null ? <p className="text-muted-foreground">Loading…</p> : activity.length === 0 ? <p className="text-muted-foreground">Nothing recent.</p> : (
-                    <ul className="space-y-1 text-[13px]">
-                        {activity.map((a, i) => (
-                            <li key={i} className="flex justify-between gap-2">
-                                <span className="min-w-0 truncate">{a.what} · {a.task} <span className="text-muted-foreground">in {a.project}</span></span>
-                                <span className="shrink-0 font-mono text-[11px] text-muted-foreground">{ago(a.at)}</span>
-                            </li>
-                        ))}
-                    </ul>
-                )}
-            </section>
-            <section className="space-y-2">
-                <h4 className="font-semibold">Membership</h4>
-                <form className="flex gap-1.5" onSubmit={(e) => { e.preventDefault(); run(() => setMemberTitleAction(orgId, row.userId, title), 'Title saved') }}>
-                    <Input value={title} onChange={(e) => setTitle(e.target.value)} maxLength={60} placeholder="Title" aria-label="Title" className="h-9" />
-                    <Button type="submit" size="sm" variant="outline" disabled={pending}>Save</Button>
+            </header>
+            {section('Work', work === null ? lines : work.length === 0 ? <p className="text-muted-foreground">No assignments yet.</p> : (
+                <ul className="divide-y divide-border">
+                    {work.map((w) => (
+                        <li key={w.copyId} className="flex min-h-9 items-center justify-between gap-2 py-1.5">
+                            <span className="truncate">{w.title}</span>
+                            <span className="flex shrink-0 items-center gap-1.5"><StatusBadge state={w.state}>{ASSIGNMENT_STATE_LABELS[w.state as keyof typeof ASSIGNMENT_STATE_LABELS] ?? w.state}</StatusBadge>{w.late ? <StatusBadge state="late">Late</StatusBadge> : null}</span>
+                        </li>
+                    ))}
+                </ul>
+            ))}
+            {row.role === 'member' ? <MemberAway orgId={orgId} userId={row.userId} name={row.name} /> : null}
+            {section('Contribution credit', <>
+                <p className="flex items-center gap-1.5 text-muted-foreground">{row.verified ? <><VerifiedMark label="Verified" size={14} />Verified. It covers role and dates, not what they wrote.</> : 'Not verified yet.'}</p>
+                {isSelf ? null : row.verified
+                    ? <Button type="button" size="sm" variant="outline" disabled={pending} onClick={onRevoke}>Revoke verification</Button>
+                    : <Button type="button" size="sm" variant="outline" disabled={pending} onClick={() => run(() => verifyOrgContributionsAction(orgId, [row.userId]), 'Contribution verified')}>Verify contribution</Button>}
+            </>)}
+            {section('Workspaces and teams', row.projects.length === 0 ? <p className="text-muted-foreground">Not in a workspace.</p> : <div className="space-y-3">{row.projects.map((p) => (
+                <div key={p.id} className="space-y-1.5">
+                    <p>{p.title}{p.unit ? <span className="text-muted-foreground"> · {p.unit}</span> : null}</p>
+                    {data.children.length > 1 ? <MoveToWorkspace orgId={orgId} data={data} userId={row.userId} fromId={p.id} pending={pending} run={run} /> : null}
+                </div>
+            ))}</div>)}
+            {section('Recent activity', activity === null ? lines : activity.length === 0 ? <p className="text-muted-foreground">Nothing recent.</p> : (
+                <ul className="space-y-1.5">
+                    {activity.map((a, i) => (
+                        <li key={i} className="flex justify-between gap-2">
+                            <span className="min-w-0 truncate">{a.what} · {a.task} <span className="text-muted-foreground">in {a.project}</span></span>
+                            <span className="nb-meta shrink-0">{ago(a.at)}</span>
+                        </li>
+                    ))}
+                </ul>
+            ))}
+            {section('Membership', <>
+                <form className="flex items-end gap-2" onSubmit={(e) => { e.preventDefault(); run(() => setMemberTitleAction(orgId, row.userId, title), 'Title saved') }}>
+                    <label className="min-w-0 flex-1"><span className={fieldLabel}>Title</span><Input value={title} onChange={(e) => setTitle(e.target.value)} maxLength={60} placeholder="Section B" className="mt-1.5" /></label>
+                    <Button type="submit" variant="outline" disabled={pending}>Save title</Button>
                 </form>
                 {canChange ? (
-                    <div className="flex flex-wrap gap-1.5">
-                        <select aria-label="Role" className={select} value={row.role} disabled={pending} onChange={(e) => onRole(e.target.value as 'admin' | 'member' | 'viewer')}>
-                            <option value="member">{label('member')}</option><option value="viewer">{label('viewer')}</option>
-                            {data.viewerRole === 'owner' ? <option value="admin">{label('admin')}</option> : null}
-                        </select>
-                        <Button type="button" size="sm" variant="destructive" disabled={pending} onClick={() => onRemove(false)}>Remove</Button>
-                        <Button type="button" size="sm" variant="destructive" disabled={pending} onClick={() => onRemove(true)}>Remove and block from organization</Button>
+                    <div className="flex flex-wrap items-end gap-2">
+                        <label><span className={fieldLabel}>Access level</span>
+                            <select aria-label="Access level" className="nb-select mt-1.5 block" value={row.role} disabled={pending} onChange={(e) => onRole(e.target.value as 'admin' | 'member' | 'viewer')}>
+                                <option value="member">{label('member')}</option><option value="viewer">{label('viewer')}</option>
+                                {data.viewerRole === 'owner' ? <option value="admin">{label('admin')}</option> : null}
+                            </select>
+                        </label>
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild><Button type="button" variant="outline" className="text-destructive" disabled={pending}>Remove…</Button></DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                                <DropdownMenuItem className="text-destructive focus:text-destructive" onSelect={() => onRemove(false)}>Remove from organization</DropdownMenuItem>
+                                <DropdownMenuItem className="text-destructive focus:text-destructive" onSelect={() => onRemove(true)}>Remove and block from rejoining</DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
                     </div>
                 ) : null}
                 {/* A personal block is yours alone: it changes nothing about their place here (Blocking B45, B50). */}
@@ -462,7 +496,7 @@ function MemberDrawer({ orgId, row, isSelf, data, label, pending, run, onRole, o
                     <Ban className="size-4" aria-hidden="true" /> {row.blockedByMe ? `Unblock ${row.name}` : `Block ${row.name}`}
                 </Button>}
                 {blocking.dialog}
-            </section>
+            </>)}
         </div>
     )
 }
@@ -475,7 +509,7 @@ function MemberAway({ orgId, userId, name }: { orgId: string; userId: string; na
     const [pending, startTransition] = useTransition()
     const load = useCallback(() => void readMemberAwayAction(orgId, userId).then((r) => setRows(r.success ? r.away : [])), [orgId, userId])
     useEffect(() => { load() }, [load])
-    const day = (iso: string) => new Date(iso).toLocaleDateString('en', { day: 'numeric', month: 'short' })
+    const day = (iso: string) => formatOrgDate(iso, { day: 'numeric', month: 'short' })
     const save = () => startTransition(async () => {
         if (!form) return
         const r = await markAwayAction(orgId, userId, { from: form.from, to: form.to, reason: form.reason.trim() || null })
@@ -484,23 +518,28 @@ function MemberAway({ orgId, userId, name }: { orgId: string; userId: string; na
         setForm(null); setError(null); load()
     })
     return (
-        <section className="space-y-1.5">
-            <h4 className="font-semibold">Away</h4>
+        <section className="space-y-2">
+            <h3 className="nb-micro">Away</h3>
             {rows?.length ? rows.map((a) => (
                 <p key={a.id} className="flex flex-wrap items-center gap-2">
                     {day(a.from)}–{day(a.to)}{a.reason ? ` · ${a.reason}` : ''}
-                    <Button type="button" size="sm" variant="ghost" disabled={pending} onClick={() => startTransition(async () => { await endAwayAction(orgId, a.id); load() })}>End now</Button>
+                    <Button type="button" size="sm" variant="ghost" disabled={pending} onClick={() => startTransition(async () => {
+                        const r = await endAwayAction(orgId, a.id)
+                        if (!r.success) return void toast.error(r.error ?? 'Couldn’t end it.')
+                        toast.success(`${name} is back`)
+                        load()
+                    })}>End now</Button>
                 </p>
             )) : <p className="text-muted-foreground">Not marked away.</p>}
             {form ? (
-                <div className="space-y-2 rounded-md border border-border p-3">
+                <div className="space-y-3 rounded-md bg-muted p-3">
                     <div className="flex flex-wrap gap-2">
-                        <label className="space-y-1"><span className="block text-[12px]">First day</span><Input type="date" value={form.from} onChange={(e) => setForm({ ...form, from: e.target.value })} className="h-9" /></label>
-                        <label className="space-y-1"><span className="block text-[12px]">Last day</span><Input type="date" value={form.to} min={form.from} onChange={(e) => setForm({ ...form, to: e.target.value })} className="h-9" /></label>
+                        <label><span className={fieldLabel}>First day</span><Input type="date" value={form.from} onChange={(e) => setForm({ ...form, from: e.target.value })} className="mt-1.5" /></label>
+                        <label><span className={fieldLabel}>Last day</span><Input type="date" value={form.to} min={form.from} onChange={(e) => setForm({ ...form, to: e.target.value })} className="mt-1.5" /></label>
                     </div>
-                    <Input value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} maxLength={300} placeholder="Reason (optional, they see it)" aria-label="Reason" className="h-9" />
-                    <p className="text-[12px] text-muted-foreground">Their own work due in these days is excused, and work given then starts excused.</p>
-                    {error ? <p role="alert" className="text-destructive">{error}</p> : null}
+                    <label className="block"><span className={fieldLabel}>Reason (optional)</span><Input value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} maxLength={300} className="mt-1.5" /></label>
+                    <p className="text-[13px] text-muted-foreground">They see the reason. Their own work due in these days is excused, and work given then starts excused.</p>
+                    {error ? <p role="alert" className="text-[13px] text-destructive">{error}</p> : null}
                     <span className="flex gap-1.5">
                         <Button type="button" size="sm" disabled={pending || !form.from || !form.to} onClick={save}>Mark away</Button>
                         <Button type="button" size="sm" variant="ghost" onClick={() => { setForm(null); setError(null) }}>Cancel</Button>

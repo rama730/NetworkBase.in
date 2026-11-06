@@ -6,6 +6,9 @@ import { useState, useTransition } from 'react'
 
 import { cancelJoinRequestAction, joinOrganizationAction, updateJoinRequestNoteAction } from '@/app/actions/organizations'
 import { Button } from '@/components/ui/button'
+import { Notice } from '@/components/ui/notice'
+import { StatusBadge } from '@/components/organizations/org-ui'
+import { fieldError, fieldLabel } from '@/lib/organizations/display'
 import { toast } from '@/lib/feedback'
 import type { OrgJoinMode } from '@/lib/organizations/join-rules'
 
@@ -27,14 +30,14 @@ export function JoinOrgButton({ code, joinMode, orgHref }: { code: string; joinM
         })
 
     if (message?.kind === 'status') {
-        return <p role="status" className="rounded-md border border-border bg-muted px-3 py-2 text-center text-sm">{message.text}</p>
+        return <Notice tone="info">{message.text}</Notice>
     }
 
     return (
         <div className="space-y-3">
             {joinMode === 'approval' ? (
                 <>
-                    <label htmlFor="join-note" className="text-sm font-medium">Add a note (optional)</label>
+                    <label htmlFor="join-note" className={fieldLabel}>Add a note (optional)</label>
                     <textarea
                         id="join-note"
                         value={note}
@@ -42,11 +45,11 @@ export function JoinOrgButton({ code, joinMode, orgHref }: { code: string; joinM
                         maxLength={500}
                         rows={3}
                         placeholder="Section B, roll 42"
-                        className="w-full resize-none rounded-lg border border-input bg-transparent px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        className="nb-textarea"
                     />
                 </>
             ) : null}
-            {message ? <p role="alert" className="text-sm text-destructive">{message.text}</p> : null}
+            {message ? <p role="alert" className={fieldError}>{message.text}</p> : null}
             <Button type="button" onClick={submit} disabled={pending} className="min-h-11 w-full">
                 {pending ? 'Joining…' : joinMode === 'approval' ? 'Request to join' : 'Join'}
             </Button>
@@ -54,20 +57,24 @@ export function JoinOrgButton({ code, joinMode, orgHref }: { code: string; joinM
     )
 }
 
-/** Report §26.2: "Request sent", with Cancel, on the join page itself. */
+/** Report §26.2: the one "request pending" (join page and a private organization's page): badge, line, note, Cancel. */
 export function JoinRequestPending({ orgId }: { orgId: string }) {
     const router = useRouter()
     const [pending, startTransition] = useTransition()
     const [error, setError] = useState<string | null>(null)
     return (
-        <div className="space-y-2 text-center">
-            <p role="status" className="rounded-md border border-border bg-muted px-3 py-2 text-sm">Request sent. The admins will review it.</p>
-            <Button type="button" variant="outline" className="h-11 w-full" disabled={pending} onClick={() => startTransition(async () => {
-                const result = await cancelJoinRequestAction(orgId)
-                if (!result.success) return setError(result.error)
-                router.refresh()
-            })}>Cancel request</Button>
-            {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}
+        <div className="flex flex-col items-center gap-2 text-center">
+            <StatusBadge state="requested">Requested</StatusBadge>
+            <p role="status" className="text-[13px] text-muted-foreground">Request sent. The admins will review it.</p>
+            <div className="flex flex-wrap justify-center gap-2">
+                <JoinRequestNote orgId={orgId} />
+                <Button type="button" variant="outline" disabled={pending} onClick={() => startTransition(async () => {
+                    const result = await cancelJoinRequestAction(orgId)
+                    if (!result.success) return setError(result.error)
+                    router.refresh()
+                })}>Cancel request</Button>
+            </div>
+            {error ? <p role="alert" className={fieldError}>{error}</p> : null}
         </div>
     )
 }
@@ -88,7 +95,7 @@ export function JoinRequestNote({ orgId, size = 'default' }: { orgId: string; si
                 setOpen(false)
             })
         }}>
-            <textarea aria-label="Note for the admins" value={note} onChange={(e) => setNote(e.target.value)} maxLength={500} rows={2} className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-sm" />
+            <textarea aria-label="Note for the admins" value={note} onChange={(e) => setNote(e.target.value)} maxLength={500} rows={2} className="nb-textarea" />
             <Button type="submit" size="sm" disabled={pending}>Save note</Button>
         </form>
     )

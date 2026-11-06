@@ -31,6 +31,7 @@ import { formatDistanceToNow } from '@/lib/utils/date'
 import { buildWorkspaceFileKey } from '@/lib/storage/workspace-file-key'
 import { uploadToSupabaseSignedUrl } from '@/lib/upload/supabase-signed-upload-client'
 import { cn } from '@/lib/utils'
+import { NotYetDialog } from '@/components/organizations/org-ui'
 
 // Org Docs (report §19): labels and groups in the doc rail, the From <org> section in child projects,
 // admin options, and saving a new Markdown doc (New doc, template copies).
@@ -335,35 +336,11 @@ function PublishDialog({ open, onOpenChange, required, memberCount, onPublish }:
     )
 }
 
-/** "Read by 32 of 40" (report §28.4, decision 58): it opens who hasn't, with Remind. "Read" means opened. */
+/** "Read by 32 of 40" (report §28.4, decision 58): the shared NotYetDialog. "Read" means opened. */
 function ReadByLine({ orgId, docId, readers }: { orgId: string; docId: string; readers: { read: number; total: number } }) {
-    const [open, setOpen] = useState(false)
-    const [busy, setBusy] = useState(false)
-    const unread = useQuery({ queryKey: ['org-doc-unread', docId], queryFn: () => readUnreadDocPeopleAction(orgId, docId), enabled: open })
-    const list = unread.data?.success ? unread.data.people : []
-    const remind = async () => {
-        setBusy(true)
-        const r = await remindUnreadDocAction(orgId, docId).finally(() => setBusy(false))
-        if (!r.success) return void toast.error(r.error)
-        toast.success([`Reminded ${r.reminded}`, r.skipped ? `${r.skipped} reminded in the last 12 hours` : null].filter(Boolean).join(' · '))
-    }
-    return (
-        <>
-            <button type="button" className="text-left underline underline-offset-4" onClick={() => setOpen(true)}>Read by {readers.read} of {readers.total}</button>
-            <Dialog open={open} onOpenChange={setOpen}>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>Not read yet</DialogTitle>
-                        <DialogDescription>“Read” means they opened it. We can’t know more than that.</DialogDescription>
-                    </DialogHeader>
-                    {unread.isPending ? <div className="nb-skeleton h-16 rounded" /> : list.length === 0 ? <p className="text-sm text-muted-foreground">Everyone has opened it.</p> : (
-                        <ul className="max-h-72 space-y-1 overflow-y-auto text-sm">{list.map((p) => <li key={p.id}>{p.name}</li>)}</ul>
-                    )}
-                    {list.length ? <div className="flex justify-end"><Button size="sm" disabled={busy} onClick={() => void remind()}>Remind {list.length}</Button></div> : null}
-                </DialogContent>
-            </Dialog>
-        </>
-    )
+    return <NotYetDialog verb="Read" done={readers.read} total={readers.total} queryKey={['org-doc-unread', docId]}
+        load={() => readUnreadDocPeopleAction(orgId, docId)} remind={() => remindUnreadDocAction(orgId, docId)}
+        title="Not read yet" description="“Read” means they opened it. We can’t know more than that." emptyLine="Everyone has opened it." />
 }
 
 /** Use this template (report §28.4): pick one of your workspaces; a filled copy is made there and doesn't update later. */
