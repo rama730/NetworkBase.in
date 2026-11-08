@@ -32,13 +32,13 @@ export function OrgModerationSection({ orgId }: { orgId: string }) {
     return (
         <section id="project-settings-org-moderation" data-project-settings-section className="space-y-6">
             <SettingsCard title="Standing" headingLevel={2} description="What NetworkBase thinks of this organization right now.">
-                {s === undefined ? <div className="nb-skeleton h-6 w-48 rounded" /> : s === null ? <p className="text-sm">In good standing.</p> : (
-                    <div className="space-y-1 text-sm">
+                {s === undefined ? <div className="nb-skeleton h-6 w-48 rounded-md" role="status" aria-label="Loading standing" /> : s === null ? <p className="text-[13px]">In good standing.</p> : (
+                    <div className="space-y-2 text-[13px]">
                         <p className="font-medium">{ACTION_TEXT[s.action] ?? 'NetworkBase took action on this organization.'}</p>
                         {s.reason ? <p className="text-muted-foreground">Reason: {s.reason}{s.caseLabel ? ` · ${s.caseLabel}` : ''}</p> : null}
                         {s.appealSent ? <p className="text-muted-foreground">Appeal sent. We’ll email you the decision.</p>
                             : s.canAppeal && s.caseLabel ? <Button asChild size="sm" variant="outline"><a href={`/appeal/${s.caseLabel}`}>Appeal</a></Button>
-                                : <p className="text-[12px] text-muted-foreground">Only the owner can appeal.</p>}
+                                : <p className="text-muted-foreground">Only the owner can appeal.</p>}
                     </div>
                 )}
             </SettingsCard>
@@ -46,11 +46,11 @@ export function OrgModerationSection({ orgId }: { orgId: string }) {
                 <OrgReportsSection orgId={orgId} showEmpty />
             </SettingsCard>
             <SettingsCard title="Blocked people" headingLevel={2} description="People blocked from rejoining. They see “You can’t join this organization.”">
-                {people.length === 0 ? <p className="text-sm text-muted-foreground">Nobody is blocked.</p> : (
-                    <ul className="divide-y divide-border text-sm">
+                {blocks.isPending ? <div className="nb-skeleton h-14 rounded-md" role="status" aria-label="Loading blocked people" /> : people.length === 0 ? <p className="text-[13px] text-muted-foreground">Nobody is blocked.</p> : (
+                    <ul className="divide-y divide-border text-[13px]">
                         {people.map((p) => (
-                            <li key={p.userId} className="flex flex-wrap items-center justify-between gap-2 py-2">
-                                <span>{p.name}<span className="block text-[12px] text-muted-foreground">Blocked{p.blockedBy ? ` by ${p.blockedBy}` : ''} · {DATE.format(new Date(p.at))}</span></span>
+                            <li key={p.userId} className="flex min-h-14 flex-wrap items-center justify-between gap-2 py-2">
+                                <span>{p.name}<span className="nb-meta block">Blocked{p.blockedBy ? ` by ${p.blockedBy}` : ''} · {DATE.format(new Date(p.at))}</span></span>
                                 <Button size="sm" variant="outline" onClick={() => setUnblock({ userId: p.userId, name: p.name })}>Unblock</Button>
                             </li>
                         ))}

@@ -7,21 +7,26 @@ import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { Input } from '@/components/ui/input'
 import { toast } from '@/lib/feedback'
+import { Star } from 'lucide-react'
+import { ErrorNotice } from '@/components/ui/ErrorNotice'
+import { SettingsCard } from '@/components/workspaces/settings/SettingsFormFields'
+import { fieldLabel } from '@/lib/organizations/display'
 
-// Teams and open seats (report §25.3): add, rename and remove teams, change seats, pick the team lead ★, and move
+// Teams and open seats (report §25.3): add, rename and remove teams, change seats, pick the team lead, and move
 // people, all with native controls so the keyboard reaches everything.
 
-const select = 'h-8 rounded-md border border-border bg-background px-2 text-xs'
 
 export function ChildUnitsPanel({ projectId }: { projectId: string }) {
     const [data, setData] = useState<ChildUnits | null>(null)
+    const [failed, setFailed] = useState(false)
     const [pending, startTransition] = useTransition()
     const [removing, setRemoving] = useState<ChildUnits['units'][number] | null>(null)
     const [moving, setMoving] = useState<{ userId: string; unitId: string | null; openTasks: number } | null>(null)
     const [moveTasks, setMoveTasks] = useState(true)
-    const load = useCallback(() => void readChildUnitsAction(projectId).then((r) => setData(r.success ? r : null)), [projectId])
+    const load = useCallback(() => void readChildUnitsAction(projectId).then((r) => { setFailed(!r.success); setData(r.success ? r : null) }), [projectId])
     useEffect(() => { load() }, [load])
-    if (!data) return null
+    if (failed) return <ErrorNotice what="Teams" onRetry={load} />
+    if (!data) return <div className="nb-skeleton h-40 rounded-lg" role="status" aria-label="Loading teams" />
 
     const run = (work: () => Promise<{ success: boolean; error?: string }>, done?: string) => startTransition(async () => {
         const result = await work()
@@ -30,7 +35,7 @@ export function ChildUnitsPanel({ projectId }: { projectId: string }) {
         load()
     })
     const moveTo = (userId: string, current: string | null) => (
-        <select aria-label="Move to…" className={select} value="" disabled={pending}
+        <select aria-label="Move to…" className="nb-select" data-size="sm" value="" disabled={pending}
             onChange={(e) => {
                 const to = e.target.value === 'none' ? null : e.target.value
                 if (!e.target.value) return
@@ -48,47 +53,44 @@ export function ChildUnitsPanel({ projectId }: { projectId: string }) {
     )
 
     return (
-        <section aria-labelledby="child-units-heading" className="space-y-3 rounded-lg border border-border bg-card p-4">
-            <div>
-                <h3 id="child-units-heading" className="nb-card-title text-foreground">Teams and open seats</h3>
-                <p className="nb-compact text-muted-foreground">Members by team. The team lead ★ is the team’s first contact. `@Team` in a comment reaches everyone on it.</p>
-            </div>
-            {data.units.length === 0 ? <p className="text-sm text-muted-foreground">No teams yet. A workspace works fine without them.</p> : null}
+        <SettingsCard title="Teams and open seats" description="Members by team. The team lead is the team’s first contact. @Team in a comment reaches everyone on it.">
+            <div className="space-y-4">
+            {data.units.length === 0 ? <p className="text-[13px] text-muted-foreground">No teams yet. A workspace works fine without them.</p> : null}
             <ul className="space-y-4">
                 {data.units.map((unit) => (
                     <li key={unit.id} className="space-y-2 border-t border-border pt-3 first:border-t-0 first:pt-0">
                         <div className="flex flex-wrap items-center gap-2">
-                            <Input defaultValue={unit.title} aria-label={`Name of ${unit.title}`} maxLength={100} className="h-8 w-56 text-sm"
+                            <Input defaultValue={unit.title} aria-label={`Name of ${unit.title}`} maxLength={100} className="h-[var(--ui-control-height-sm)] w-56 text-[13px]"
                                 onBlur={(e) => { const title = e.target.value.trim(); if (title && title !== unit.title) run(() => updateUnitAction(projectId, unit.id, { title }), 'Team renamed') }} />
-                            <label className="flex items-center gap-1.5 text-xs text-muted-foreground">Number of people
-                                <Input type="number" min={Math.max(1, unit.filled)} max={10} defaultValue={unit.count} className="h-8 w-16 text-sm" aria-label={`Seats in ${unit.title}`}
+                            <label className="flex items-center gap-1.5 text-[13px] text-muted-foreground">Seats
+                                <Input type="number" min={Math.max(1, unit.filled)} max={10} defaultValue={unit.count} className="h-[var(--ui-control-height-sm)] w-16 text-[13px]" aria-label={`Seats in ${unit.title}`}
                                     onBlur={(e) => { const count = Number(e.target.value); if (Number.isFinite(count) && count !== unit.count) run(() => updateUnitAction(projectId, unit.id, { count })) }} />
                             </label>
-                            <span className="text-xs text-muted-foreground">{unit.filled} of {unit.count}{unit.count > unit.filled ? ` · ${unit.count - unit.filled} open` : ''}</span>
-                            <select aria-label={`Team lead of ${unit.title}`} className={select} value={unit.leadUserId ?? ''} disabled={pending || unit.members.length === 0}
+                            <span className="nb-meta">{unit.filled} of {unit.count}{unit.count > unit.filled ? ` · ${unit.count - unit.filled} open` : ''}</span>
+                            <select aria-label={`Team lead of ${unit.title}`} className="nb-select" data-size="sm" value={unit.leadUserId ?? ''} disabled={pending || unit.members.length === 0}
                                 onChange={(e) => run(() => updateUnitAction(projectId, unit.id, { leadUserId: e.target.value || null }), 'Team lead saved')}>
                                 <option value="">No team lead</option>
-                                {unit.members.map((m) => <option key={m.userId} value={m.userId}>★ {m.name}</option>)}
+                                {unit.members.map((m) => <option key={m.userId} value={m.userId}>Lead: {m.name}</option>)}
                             </select>
                             <Button type="button" size="sm" variant="ghost" disabled={pending} onClick={() => setRemoving(unit)}>Remove</Button>
                         </div>
                         {unit.members.length ? (
                             <ul className="flex flex-wrap gap-2">
                                 {unit.members.map((m) => (
-                                    <li key={m.userId} className="inline-flex items-center gap-1.5 rounded-full border border-border px-2.5 py-0.5 text-sm">
-                                        {m.userId === unit.leadUserId ? <span aria-label="Team lead">★</span> : null}{m.name}{moveTo(m.userId, unit.id)}
+                                    <li key={m.userId} className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card py-0.5 pl-2.5 pr-0.5 text-[13px]">
+                                        {m.userId === unit.leadUserId ? <Star className="size-3.5 fill-current text-primary" aria-label="Team lead" /> : null}{m.name}{moveTo(m.userId, unit.id)}
                                     </li>
                                 ))}
                             </ul>
-                        ) : <p className="text-xs text-muted-foreground">No one yet.</p>}
+                        ) : <p className="text-[13px] text-muted-foreground">No one yet.</p>}
                     </li>
                 ))}
             </ul>
             {data.unplaced.length ? (
                 <div className="space-y-2 border-t border-border pt-3">
-                    <p className="text-sm font-medium text-foreground">Not in a team</p>
+                    <p className={fieldLabel}>Not in a team</p>
                     <ul className="flex flex-wrap gap-2">
-                        {data.unplaced.map((m) => <li key={m.userId} className="inline-flex items-center gap-1.5 rounded-full border border-border px-2.5 py-0.5 text-sm">{m.name}{moveTo(m.userId, null)}</li>)}
+                        {data.unplaced.map((m) => <li key={m.userId} className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card py-0.5 pl-2.5 pr-0.5 text-[13px]">{m.name}{moveTo(m.userId, null)}</li>)}
                     </ul>
                 </div>
             ) : null}
@@ -104,15 +106,15 @@ export function ChildUnitsPanel({ projectId }: { projectId: string }) {
                             return r
                         }, 'Team added')
                     }}>
-                    <label className="flex flex-col gap-1 text-xs text-muted-foreground">Team name
-                        <Input name="title" required maxLength={100} className="h-8 w-56 text-sm" placeholder="Frontend" />
+                    <label className="flex flex-col gap-1.5"><span className={fieldLabel}>Team name</span>
+                        <Input name="title" required maxLength={100} className="w-56" placeholder="Frontend" />
                     </label>
-                    <label className="flex flex-col gap-1 text-xs text-muted-foreground">Number of people
-                        <Input name="count" type="number" min={1} max={10} defaultValue={4} required className="h-8 w-16 text-sm" />
+                    <label className="flex flex-col gap-1.5"><span className={fieldLabel}>Seats</span>
+                        <Input name="count" type="number" min={1} max={10} defaultValue={4} required className="w-20" />
                     </label>
-                    <Button type="submit" size="sm" variant="outline" disabled={pending}>Add team</Button>
+                    <Button type="submit" variant="outline" disabled={pending}>Add team</Button>
                 </form>
-            ) : <p className="text-xs text-muted-foreground">A workspace has up to 20 teams.</p>}
+            ) : <p className="text-[13px] text-muted-foreground">A workspace has up to 20 teams.</p>}
             <ConfirmDialog open={Boolean(removing)} onOpenChange={(open) => { if (!open) setRemoving(null) }}
                 title={`Remove ${removing?.title ?? 'this team'}?`}
                 description={`${removing?.members.length ?? 0} ${removing?.members.length === 1 ? 'person stays' : 'people stay'} in the workspace, not in a team. Waiting applications close, and those people are told.`}
@@ -121,12 +123,13 @@ export function ChildUnitsPanel({ projectId }: { projectId: string }) {
             <ConfirmDialog open={Boolean(moving)} onOpenChange={(open) => { if (!open) setMoving(null) }}
                 title="Move them to another team?" confirmLabel="Move"
                 onConfirm={() => { const m = moving; setMoving(null); if (m) run(() => moveMemberToUnitAction(projectId, m.userId, m.unitId, moveTasks), 'Moved. They’re told.') }}>
-                <label className="flex items-center gap-2 text-sm">
-                    <input type="checkbox" checked={moveTasks} onChange={(e) => setMoveTasks(e.target.checked)} />
+                <label className="flex items-center gap-2.5 px-6 text-[13px]">
+                    <input type="checkbox" className="nb-check" checked={moveTasks} onChange={(e) => setMoveTasks(e.target.checked)} />
                     Also move them on {moving?.openTasks} open team task{moving?.openTasks === 1 ? '' : 's'}
                 </label>
-                <p className="text-xs text-muted-foreground">Handed-in work stays as it is.</p>
+                <p className="px-6 text-[13px] text-muted-foreground">Handed-in work stays as it is.</p>
             </ConfirmDialog>
-        </section>
+            </div>
+        </SettingsCard>
     )
 }

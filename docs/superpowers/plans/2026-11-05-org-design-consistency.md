@@ -240,7 +240,7 @@ Each row: **ID · where · what is wrong · rule broken · fix.** "Fix" names th
 | ST3 | `:318-319,487-488,497,653-657` | Browser radios | G3 | `.nb-radio` |
 | ST4 | `:215,554,629,690,697` | Four select class strings | G1 | `NativeSelect` |
 | ST5 | `:559,582` | "TASKS" / "SPRINTS" in uppercase sans | G34 | `.nb-micro` |
-| ST6 | `:648` | Admin emails card has no section wrapper, so the section index can't jump to it | §18 section index | Wrap in `Section id="org-notifications"` |
+| ST6 | `:648` | ~~Admin emails card has no section wrapper~~ Checked: it sits inside the Notifications section on purpose; a wrapper would split the index | — | No change |
 | ST7 | `:90,210,291,386,481,558,611,649,679` | Card inner gaps alternate 16/20/24px | §05 | 24px |
 | ST8 | `:57-73` | "Saved." line next to the button | G25 | Toast |
 | ST9 | `:296-306` | Copy gives no feedback; 24px code; "Make a new code" ghost + dialog | G26/IV1 | `CopyButton`, `JoinCode`, `ConfirmDialog` |

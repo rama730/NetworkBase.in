@@ -23,7 +23,11 @@ import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { Input } from '@/components/ui/input'
 import { toast } from '@/lib/feedback'
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { CopyButton } from '@/components/ui/copy-button'
+import { JoinCode } from '@/components/organizations/org-ui'
+import { fieldError, fieldHint, fieldLabel, formatOrgDate } from '@/lib/organizations/display'
+import { ORG_SETTING_LABELS, joinModeHint } from '@/lib/organizations/settings-labels'
 import { ORG_LIMITS, ORG_TYPES, orgRoleNames, orgTypeLabel } from '@/lib/organizations/config'
 import { GRANT_WORDS, PERMISSION_AREAS } from '@/lib/organizations/permission-labels'
 import { typeProfile } from '@/lib/organizations/type-profile'
@@ -32,16 +36,17 @@ import { updateOrgChatSettingsAction } from '@/app/actions/org-chat'
 import { PartOfField } from '@/components/organizations/OrgDiscoverySections'
 import type { OrgDetail } from '@/lib/organizations/detail'
 import { orgGrant, type OrgRole } from '@/lib/organizations/permissions'
+import { rolePlural } from '@/lib/organizations/role-words'
 import type { OrgMemberRole, OrgSettingsSection } from '@/lib/organizations/settings'
 
-// Org settings sections (report §21.2–21.4), rendered inside the project Settings document. Each saves on its
-// own and shows who changed it last.
+// Org settings sections (report §21.2–21.4), rendered inside the project Settings document. Switches save at once,
+// as they do in workspace Settings (spec §10, decision D1); other fields save with their section's button. Each card
+// shows who changed it last.
 
 type SectionProps = { orgId: string; organization: OrgDetail; role: OrgMemberRole }
 
-const DATE = new Intl.DateTimeFormat('en', { month: 'short', day: 'numeric', year: 'numeric' })
-const labelClass = 'nb-ui-label text-sm font-semibold text-foreground'
-const helpClass = 'nb-compact mt-0.5 text-xs text-muted-foreground'
+const labelClass = fieldLabel
+const helpClass = fieldHint
 const OWNER_ONLY = 'Only the owner can change this.'
 
 function Section({ id, children }: { id: string; children: ReactNode }) {
@@ -51,25 +56,53 @@ function Section({ id, children }: { id: string; children: ReactNode }) {
 function LastChanged({ organization, section }: { organization: OrgDetail; section: OrgSettingsSection }) {
     const change = organization.changes[section]
     if (!change) return null
-    return <p className="nb-meta text-muted-foreground">Last changed by {change.byName ?? 'someone'} · {DATE.format(new Date(change.at))}</p>
+    return <p className="nb-meta">Last changed by {change.byName ?? 'someone'} · {formatOrgDate(change.at, { month: 'short', day: 'numeric', year: 'numeric' }, organization.timeZone)}</p>
 }
 
-/** One save button and its result line per section. */
+/** One save button per section: a toast when it saved, the error kept beside the button when it didn't (spec §33). */
 function useSave() {
     const router = useRouter()
     const [pending, startTransition] = useTransition()
-    const [message, setMessage] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null)
+    const [error, setError] = useState<string | null>(null)
     const save = (action: () => Promise<{ success: boolean; error?: string }>, done?: () => void) =>
         startTransition(async () => {
             const result = await action()
-            setMessage(result.success ? { kind: 'ok', text: 'Saved.' } : { kind: 'error', text: result.error ?? 'Couldn’t save.' })
-            if (result.success) {
-                done?.()
-                router.refresh()
-            }
+            if (!result.success) return setError(result.error ?? 'Couldn’t save.')
+            setError(null)
+            toast.success('Saved')
+            done?.()
+            router.refresh()
         })
-    const status = message ? <p role={message.kind === 'error' ? 'alert' : 'status'} className={message.kind === 'error' ? 'text-sm text-destructive' : 'text-sm text-muted-foreground'}>{message.text}</p> : null
+    const status = error ? <p role="alert" className={fieldError}>{error}</p> : null
     return { pending, save, status }
+}
+
+/** A switch that saves as soon as it flips (spec §10 Switch), and flips back with the reason when the save fails. */
+function InstantSwitch({ label, help, checked, disabled, save }: { label: string; help?: ReactNode; checked: boolean; disabled?: boolean; save: (on: boolean) => Promise<{ success: boolean; error?: string }> }) {
+    const router = useRouter()
+    const [on, setOn] = useState(checked)
+    const [busy, setBusy] = useState(false)
+    const flip = async (next: boolean) => {
+        setOn(next)
+        setBusy(true)
+        const result = await save(next).catch(() => ({ success: false, error: 'Couldn’t save.' }))
+        setBusy(false)
+        if (!result.success) {
+            setOn(!next)
+            return void toast.error(result.error ?? 'Couldn’t save.')
+        }
+        toast.success(next ? `${label}: on` : `${label}: off`)
+        router.refresh()
+    }
+    return (
+        <div className="flex items-start justify-between gap-4">
+            <div>
+                <p className={labelClass}>{label}</p>
+                {help ? <p className={helpClass}>{help}</p> : null}
+            </div>
+            <SettingsSwitch checked={on} disabled={busy || disabled} onCheckedChange={(next) => void flip(next)} aria-label={label} />
+        </div>
+    )
 }
 
 /** The counts beside the fields (report §22.4), read once for the whole page. Admins only. */
@@ -82,32 +115,26 @@ const membersHref = (handle: string | null | undefined, orgId: string) => `/org/
 
 export function OrgMembershipSection({ orgId, organization, role }: SectionProps) {
     const [title, setTitle] = useState(organization.you?.title ?? '')
-    const [showOnProfile, setShowOnProfile] = useState(organization.you?.showOnProfile ?? true)
     const { pending, save, status } = useSave()
     return (
         <Section id="you-membership">
             <SettingsCard title="My membership" headingLevel={2} description="Your role, your title and whether this organization shows on your profile.">
-                <div className="space-y-5">
-                    <p className="text-sm text-foreground">
+                <div className="space-y-6">
+                    <p className="text-[13px] text-foreground">
                         {organization.roleNames[role]}{role === 'viewer' ? ' · read-only' : ''}
-                        {organization.you ? <span className="text-muted-foreground"> · joined {DATE.format(new Date(organization.you.joinedAt))}</span> : null}
+                        {organization.you ? <span className="text-muted-foreground"> · joined {formatOrgDate(organization.you.joinedAt, { month: 'short', day: 'numeric', year: 'numeric' }, organization.timeZone)}</span> : null}
                     </p>
                     <div>
                         <label htmlFor="org-my-title" className={labelClass}>Your title</label>
                         <p className={helpClass}>Shown beside your name, for example &quot;Section B&quot; or &quot;TA&quot;.</p>
-                        <Input id="org-my-title" value={title} onChange={(e) => setTitle(e.target.value)} maxLength={60} className="mt-2 max-w-sm" />
-                    </div>
-                    <div className="flex items-start justify-between gap-4">
-                        <div>
-                            <p className={labelClass}>Show this organization on my profile</p>
-                            <p className={helpClass}>On by default.</p>
+                        <div className="mt-2 flex max-w-md items-center gap-2">
+                            <Input id="org-my-title" value={title} onChange={(e) => setTitle(e.target.value)} maxLength={60} />
+                            <Button variant="outline" disabled={pending} onClick={() => save(() => updateMyOrgMembershipAction(orgId, { title: title.trim() || null }))}>Save title</Button>
                         </div>
-                        <SettingsSwitch checked={showOnProfile} onCheckedChange={setShowOnProfile} aria-label="Show this organization on my profile" />
-                    </div>
-                    <div className="flex items-center gap-3">
-                        <Button disabled={pending} onClick={() => save(() => updateMyOrgMembershipAction(orgId, { title: title.trim() || null, show_on_profile: showOnProfile }))}>Save</Button>
                         {status}
                     </div>
+                    <InstantSwitch label="Show this organization on my profile" help="On by default." checked={organization.you?.showOnProfile ?? true}
+                        save={(on) => updateMyOrgMembershipAction(orgId, { show_on_profile: on })} />
                 </div>
             </SettingsCard>
         </Section>
@@ -145,27 +172,27 @@ export function OrgManagementSection({ orgId, role, title, afterLeaveHref = '/di
             {children}
             <SettingsCard title="Leave organization" headingLevel={2} description="Stop being a member. To come back you’ll need the current code or a new invite." danger>
                 {role === 'owner' ? (
-                    <p className="text-sm text-muted-foreground">Transfer ownership first.</p>
+                    <p className="text-[13px] text-muted-foreground">Transfer ownership first, under Organization management above.</p>
                 ) : (
                     <div className="space-y-2">
                         <Button variant="destructive" disabled={pending} onClick={ask}>Leave {title}</Button>
-                        {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}
+                        {error ? <p role="alert" className={fieldError}>{error}</p> : null}
                     </div>
                 )}
             </SettingsCard>
             <Dialog open={open} onOpenChange={setOpen}>
-                <DialogContent className="max-w-md">
+                <DialogContent>
                     <DialogHeader>
                         <DialogTitle>Leave {title}?</DialogTitle>
                         <DialogDescription>{preview?.led.length ? 'You own these workspaces. Transfer or detach each one first.' : 'Here’s what happens.'}</DialogDescription>
                     </DialogHeader>
                     {preview?.led.length ? (
                         // Report §26.10: a lead sees the workspaces to hand over instead of Leave.
-                        <ul className="space-y-1.5 text-sm">
-                            {preview.led.map((w) => <li key={w.id}><a className="text-primary hover:underline" href={`/workspaces/${encodeURIComponent(w.slug ?? w.id)}?tab=settings`}>{w.title}</a> · Transfer or Detach in its Settings</li>)}
+                        <ul className="space-y-1.5 text-[13px]">
+                            {preview.led.map((w) => <li key={w.id}><a className="nb-link" href={`/workspaces/${encodeURIComponent(w.slug ?? w.id)}?tab=settings`}>{w.title}</a> · transfer or detach it in its Settings</li>)}
                         </ul>
                     ) : preview ? (
-                        <ul className="list-disc space-y-1 pl-5 text-sm">
+                        <ul className="list-disc space-y-1 pl-5 text-[13px]">
                             {preview.teams.length ? <li>You’ll leave {preview.teams.join(' and ')}; your {preview.teams.length === 1 ? 'seat reopens' : 'seats reopen'}</li> : null}
                             {preview.open ? <li>{preview.open} open {preview.open === 1 ? 'assignment is' : 'assignments are'} removed</li> : null}
                             {preview.submitted ? <li>{preview.submitted} submitted {preview.submitted === 1 ? 'assignment stays' : 'assignments stay'} with the {preview.keptBy}</li> : null}
@@ -173,17 +200,17 @@ export function OrgManagementSection({ orgId, role, title, afterLeaveHref = '/di
                             <li>To come back, you’ll need the current code or a new invite</li>
                         </ul>
                     ) : null}
-                    <div className="flex justify-end gap-2">
+                    <DialogFooter paper>
                         <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-                        {preview && !preview.led.length ? <Button variant="destructive" disabled={pending} onClick={leave}>Leave</Button> : null}
-                    </div>
+                        {preview && !preview.led.length ? <Button variant="destructive" disabled={pending} onClick={leave}>Leave {title}</Button> : null}
+                    </DialogFooter>
                 </DialogContent>
             </Dialog>
         </Section>
     )
 }
 
-/** Every zone the browser knows, for the searchable time zone field (report §22.4). */
+/** Every zone the browser knows, for the time zone select (report §22.4), the same control as creation (ST12). */
 const TIME_ZONES: string[] = (() => { try { return Intl.supportedValuesOf('timeZone') } catch { return [] } })()
 
 export function OrgProfileSection({ orgId, organization, role }: SectionProps) {
@@ -204,6 +231,7 @@ export function OrgProfileSection({ orgId, organization, role }: SectionProps) {
     // Report §22.1 #2: the confirmation lists what really changes; roles you renamed keep your names.
     const nextNames = orgRoleNames(type, { roleNames: Object.fromEntries(Object.entries(organization.roleNames).filter(([k, v]) => v !== orgRoleNames(organization.type, {})[k as keyof typeof organization.roleNames])) })
     const renamed = (Object.keys(nextNames) as Array<keyof typeof nextNames>).filter((k) => nextNames[k] !== organization.roleNames[k])
+    const zones = timeZone && !TIME_ZONES.includes(timeZone) ? [timeZone, ...TIME_ZONES] : TIME_ZONES
     return (
         <Section id="org-profile">
             <SettingsCard title="Organization profile" headingLevel={2} description="What people see on About, and how the organization keeps time." footer={<LastChanged organization={organization} section="profile" />}>
@@ -212,20 +240,20 @@ export function OrgProfileSection({ orgId, organization, role }: SectionProps) {
                         <label htmlFor="org-type" className={labelClass}>Type</label>
                         <p className={helpClass}>{isOwner ? 'It sets the words used here, such as Submissions. It has its own save.' : OWNER_ONLY}</p>
                         <div className="mt-2 flex flex-wrap items-center gap-2">
-                            <select id="org-type" value={type} disabled={!isOwner} onChange={(e) => setType(e.target.value as typeof type)} className="h-[var(--ui-control-height)] rounded-md border border-input bg-background px-2 text-sm">
+                            <select id="org-type" value={type} disabled={!isOwner} onChange={(e) => setType(e.target.value as typeof type)} className="nb-select">
                                 {ORG_TYPES.map((t) => <option key={t} value={t}>{orgTypeLabel(t)}</option>)}
                             </select>
                             {isOwner ? <Button variant="outline" disabled={typeSave.pending || (type === organization.type && (type !== 'other' || typeLabel === (organization.typeLabel ?? ''))) || (type === 'other' && !typeLabel.trim())} onClick={() => setConfirmType(true)}>Save type</Button> : null}
                         </div>
                         {type === 'other' ? (
-                            <label className="mt-3 block max-w-sm text-xs text-muted-foreground">What do you call it?
-                                <Input value={typeLabel} onChange={(e) => setTypeLabel(e.target.value)} placeholder="Nonprofit" maxLength={30} disabled={!isOwner} className="mt-1" />
+                            <label className="mt-3 block max-w-sm"><span className={labelClass}>What do you call it?</span>
+                                <Input value={typeLabel} onChange={(e) => setTypeLabel(e.target.value)} placeholder="Nonprofit" maxLength={30} disabled={!isOwner} className="mt-1.5" />
                             </label>
                         ) : null}
                         {typeSave.status}
                         <ConfirmDialog open={confirmType} onOpenChange={setConfirmType} title={`Change the type to ${orgTypeLabel(type)}?`}
                             description={[
-                                renamed.length ? `Roles become ${renamed.map((k) => `${organization.roleNames[k]} → ${nextNames[k]}`).join(', ')}.` : 'Role names stay as they are.',
+                                renamed.length ? `Roles become ${renamed.map((k) => `${organization.roleNames[k]} to ${nextNames[k]}`).join(', ')}.` : 'Role names stay as they are.',
                                 'Labels such as Submissions follow the new type. People, folders, work, joining, visibility and rules stay the same.',
                             ].join(' ')}
                             confirmLabel="Change type"
@@ -247,27 +275,29 @@ export function OrgProfileSection({ orgId, organization, role }: SectionProps) {
                         <legend className={labelClass}>Term</legend>
                         <p className={helpClass}>Optional, for example Aug–Dec 2026. Shown on About, and it sets the week line.</p>
                         <div className="mt-2 grid max-w-md gap-3 sm:grid-cols-2">
-                            <label className="text-xs text-muted-foreground">Starts<Input type="date" value={termStart} onChange={(e) => setTermStart(e.target.value)} className="mt-1" /></label>
-                            <label className="text-xs text-muted-foreground">Ends<Input type="date" value={termEnd} min={termStart || undefined} onChange={(e) => setTermEnd(e.target.value)} className="mt-1" /></label>
+                            <label><span className={labelClass}>Starts</span><Input type="date" value={termStart} onChange={(e) => setTermStart(e.target.value)} className="mt-1.5" /></label>
+                            <label><span className={labelClass}>Ends</span><Input type="date" value={termEnd} min={termStart || undefined} onChange={(e) => setTermEnd(e.target.value)} className="mt-1.5" aria-invalid={termWrong || undefined} /></label>
                         </div>
-                        {termWrong ? <p role="alert" className="mt-1 text-xs text-destructive">The term has to end after it starts.</p> : null}
+                        {termWrong ? <p role="alert" className={fieldError}>The term has to end after it starts.</p> : null}
                     </fieldset> : null}
                     <div>
                         <label htmlFor="org-tz" className={labelClass}>Time zone</label>
                         <p className={helpClass}>Due dates and the admin email use it. Empty means each person’s own.</p>
-                        <Input id="org-tz" list="org-tz-list" value={timeZone} onChange={(e) => setTimeZone(e.target.value)} placeholder="Search, for example Kolkata" maxLength={64} className="mt-2 max-w-sm" />
-                        <datalist id="org-tz-list">{TIME_ZONES.map((z) => <option key={z} value={z} />)}</datalist>
+                        <select id="org-tz" value={timeZone} onChange={(e) => setTimeZone(e.target.value)} className="nb-select mt-2 w-full max-w-sm">
+                            <option value="">Each person’s own</option>
+                            {zones.map((z) => <option key={z} value={z}>{z.replace(/_/g, ' ')}</option>)}
+                        </select>
                     </div>
                     <div>
                         <label htmlFor="org-welcome" className={labelClass}>Welcome note</label>
                         <p className={helpClass}>New members see it once when they join, and members see it on About. Up to 500 characters.</p>
-                        <textarea id="org-welcome" value={welcome} onChange={(e) => setWelcome(e.target.value)} rows={4} maxLength={500} className="mt-2 w-full resize-y rounded-md border border-input bg-transparent px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring" />
+                        <textarea id="org-welcome" value={welcome} onChange={(e) => setWelcome(e.target.value)} rows={4} maxLength={500} className="nb-textarea mt-2" />
                     </div>
-                    <div className="flex items-center gap-3">
+                    <div className="flex flex-wrap items-center gap-3">
                         <Button disabled={pending || termWrong} onClick={() => save(() => updateOrgSettingsAction(orgId, 'profile', {
                             part_of: partOf.trim() || null, part_of_org_id: partOfOrg?.id ?? null, location: location.trim() || null,
                             term_start: termStart || null, term_end: termEnd || null, time_zone: timeZone.trim() || null, welcome_note: welcome.trim() || null,
-                        }))}>Save</Button>
+                        }))}>Save profile</Button>
                         {status}
                     </div>
                 </div>
@@ -279,12 +309,13 @@ export function OrgProfileSection({ orgId, organization, role }: SectionProps) {
 export function OrgAccessSection({ orgId, organization, maxMembers, handle }: SectionProps & { maxMembers: string | null; handle?: string | null }) {
     const facts = useOrgFacts(orgId)
     const [joinMode, setJoinMode] = useState(organization.joinMode)
-    const [codeOn, setCodeOn] = useState(organization.joinCodeEnabled)
     const [max, setMax] = useState(maxMembers ?? '')
     const [code, setCode] = useState(organization.joinCode)
     const [confirming, setConfirming] = useState(false)
     const { pending, save, status } = useSave()
     const regen = useSave()
+    const memberWord = organization.roleNames.member
+    const maxWrong = Boolean(facts && max && Number(max) < facts.members)
     return (
         <Section id="org-access">
             <SettingsCard title="Joining" headingLevel={2} description="How people join. Invites are in the Members tab; Public or Private is in Visibility and discovery." footer={<LastChanged organization={organization} section="access" />}>
@@ -292,42 +323,41 @@ export function OrgAccessSection({ orgId, organization, maxMembers, handle }: Se
                     <div>
                         <p className={labelClass}>Join code</p>
                         <p className={helpClass}>People enter it at /join. A new code stops the old one at once.</p>
-                        <div className="mt-2 flex flex-wrap items-center gap-3">
-                            <span className="select-all font-mono text-2xl font-semibold tracking-[0.2em]">{code}</span>
-                            <Button variant="outline" size="sm" onClick={() => code && navigator.clipboard.writeText(code)}>Copy</Button>
-                            <Button variant="ghost" size="sm" disabled={regen.pending} onClick={() => setConfirming(true)}>Make a new code</Button>
+                        <div className="mt-2 flex flex-wrap items-center gap-3 rounded-md bg-muted p-3">
+                            {code ? <JoinCode code={code} /> : null}
+                            {code ? <CopyButton text={code} label="Copy code" /> : null}
+                            <Button variant="outline" size="sm" disabled={regen.pending} onClick={() => setConfirming(true)}>Make a new code</Button>
                         </div>
                         {regen.status}
-                        <ConfirmDialog open={confirming} onOpenChange={setConfirming} title="Make a new join code?" description="The current code stops working at once." confirmLabel="Make a new code"
+                        <ConfirmDialog open={confirming} onOpenChange={setConfirming} title="Make a new join code?" description="The current code stops working at once. People who haven’t joined need the new one." confirmLabel="Make a new code"
                             onConfirm={() => regen.save(async () => {
                                 const result = await regenerateJoinCodeAction(orgId)
                                 if (result.success) setCode(result.joinCode)
                                 return result
                             })} />
                     </div>
-                    <div className="flex items-start justify-between gap-4">
-                        <div>
-                            <p className={labelClass}>Code works</p>
-                            <p className={helpClass}>Off means nobody can join by code. The code itself doesn’t change.</p>
-                        </div>
-                        <SettingsSwitch checked={codeOn} onCheckedChange={setCodeOn} aria-label="Join code works" />
-                    </div>
+                    <InstantSwitch label="Code works" help="Off means nobody can join by code. The code itself doesn’t change." checked={organization.joinCodeEnabled}
+                        save={(on) => updateOrgSettingsAction(orgId, 'access', { join_code_enabled: on })} />
                     <fieldset>
-                        <legend className={labelClass}>Join mode</legend>
-                        <div className="mt-2 space-y-2 text-sm">
-                            <label className="flex items-center gap-2"><input type="radio" name="org-join-mode" checked={joinMode === 'instant'} onChange={() => setJoinMode('instant')} /> Instant: anyone with the code becomes a member</label>
-                            <label className="flex items-center gap-2"><input type="radio" name="org-join-mode" checked={joinMode === 'approval'} onChange={() => setJoinMode('approval')} /> Approval: the code sends a request an admin approves</label>
+                        <legend className={labelClass}>{ORG_SETTING_LABELS.joinMode.label}</legend>
+                        <div className="mt-2 space-y-2.5 text-[13px]">
+                            {(['instant', 'approval'] as const).map((mode) => (
+                                <label key={mode} className="flex items-start gap-2.5">
+                                    <input type="radio" className="nb-radio mt-0.5" name="org-join-mode" checked={joinMode === mode} onChange={() => setJoinMode(mode)} />
+                                    <span><span className="block font-medium">{ORG_SETTING_LABELS.joinMode.options[mode]}</span><span className="block text-muted-foreground">{joinModeHint(mode, memberWord)}</span></span>
+                                </label>
+                            ))}
                         </div>
-                        {facts?.waitingRequests ? <p className="mt-2 text-sm">{facts.waitingRequests} {facts.waitingRequests === 1 ? 'request' : 'requests'} waiting · <Link href={membersHref(handle, orgId)} className="text-primary hover:underline">Review</Link></p> : null}
+                        {facts?.waitingRequests ? <p className="mt-2 text-[13px]">{facts.waitingRequests} {facts.waitingRequests === 1 ? 'request' : 'requests'} waiting · <Link href={membersHref(handle, orgId)} className="nb-link">Review</Link></p> : null}
                     </fieldset>
                     <div>
                         <label htmlFor="org-max" className={labelClass}>Max members</label>
                         <p className={helpClass}>Empty means up to {ORG_LIMITS.membersPerOrg.toLocaleString('en')}. When full, the join page says &quot;This organization is full&quot;.{facts ? ` ${facts.members} ${facts.members === 1 ? 'member' : 'members'} now.` : ''}</p>
-                        <Input id="org-max" type="number" min={facts?.members ?? 1} max={ORG_LIMITS.membersPerOrg} value={max} onChange={(e) => setMax(e.target.value)} className="mt-2 w-32" />
-                        {facts && max && Number(max) < facts.members ? <p role="alert" className="mt-1 text-xs text-destructive">There are {facts.members} members now. Max members can’t be lower.</p> : null}
+                        <Input id="org-max" type="number" min={facts?.members ?? 1} max={ORG_LIMITS.membersPerOrg} value={max} onChange={(e) => setMax(e.target.value)} className="mt-2 w-32" aria-invalid={maxWrong || undefined} />
+                        {maxWrong ? <p role="alert" className={fieldError}>There are {facts!.members} members now. Max members can’t be lower.</p> : null}
                     </div>
-                    <div className="flex items-center gap-3">
-                        <Button disabled={pending} onClick={() => save(() => updateOrgSettingsAction(orgId, 'access', { join_mode: joinMode, join_code_enabled: codeOn, max_members: max ? Number(max) : null }))}>Save</Button>
+                    <div className="flex flex-wrap items-center gap-3">
+                        <Button disabled={pending || maxWrong} onClick={() => save(() => updateOrgSettingsAction(orgId, 'access', { join_mode: joinMode, max_members: max ? Number(max) : null }))}>Save joining</Button>
                         {status}
                     </div>
                 </div>
@@ -341,26 +371,26 @@ const TABLE_ROLES: Array<[OrgRole, 'owner' | 'admin' | 'member' | 'viewer']> = [
 /** What each role can do (report §22.4): every row of the real permissions, grouped by area, in the org's role names. */
 export function RolesTable({ organization, onOpenSection }: { organization: OrgDetail; onOpenSection?: (id: string) => void }) {
     return (
-        <div className="space-y-4 overflow-x-auto">
+        <div className="space-y-5 overflow-x-auto">
             {PERMISSION_AREAS.map(({ area, rows }) => (
-                <table key={area} className="w-full min-w-[30rem] text-left text-sm">
-                    <caption className="nb-micro pb-1 text-left text-muted-foreground">{area}</caption>
+                <table key={area} className="w-full min-w-[30rem] text-left text-[13px]">
+                    <caption className="nb-micro pb-2 text-left">{area}</caption>
                     <thead>
-                        <tr className="border-b border-border text-xs text-muted-foreground">
-                            <th scope="col" className="w-1/2 py-1.5 pr-3 font-medium">Can…</th>
+                        <tr className="border-b border-border text-[12px] text-muted-foreground">
+                            <th scope="col" className="w-1/2 py-1.5 pr-3 font-medium">Can</th>
                             {TABLE_ROLES.map(([, key]) => <th key={key} scope="col" className="py-1.5 pr-3 font-medium">{organization.roleNames[key]}</th>)}
                         </tr>
                     </thead>
                     <tbody>
                         {rows.map((row) => (
-                            <tr key={row.action} className="border-b border-border/60 last:border-b-0">
-                                <th scope="row" className="py-1.5 pr-3 font-normal text-foreground">{row.label}</th>
+                            <tr key={row.action} className="border-b border-border last:border-b-0">
+                                <th scope="row" className="py-2 pr-3 font-normal text-foreground">{row.label}</th>
                                 {TABLE_ROLES.map(([grantRole, key]) => {
                                     const grant = orgGrant(grantRole, row.action)
                                     return (
-                                        <td key={key} className="py-1.5 pr-3 text-muted-foreground">
+                                        <td key={key} className="py-2 pr-3 text-muted-foreground">
                                             {grant === 'setting' && row.setting && onOpenSection
-                                                ? <button type="button" className="underline underline-offset-2 hover:text-foreground" onClick={() => onOpenSection(row.setting!)}>{row.words?.[grant] ?? GRANT_WORDS[grant]}</button>
+                                                ? <button type="button" className="nb-link" onClick={() => onOpenSection(row.setting!)}>{row.words?.[grant] ?? GRANT_WORDS[grant]}</button>
                                                 : row.words?.[grant] ?? GRANT_WORDS[grant] ?? '—'}
                                         </td>
                                     )
@@ -380,6 +410,7 @@ export function OrgPeopleSection({ orgId, organization, role, handle, onOpenSect
     const facts = useOrgFacts(orgId)
     const isOwner = role === 'owner'
     const typeNames = useMemo(() => orgRoleNames(organization.type, {}), [organization.type])
+    const BASE = { owner: 'Owner', admin: 'Admin', member: 'Member', viewer: 'Viewer' } as const
     return (
         <Section id="org-people">
             <SettingsCard title="People and roles" headingLevel={2} description="Role names and what each role can do. Admins are managed in the Members tab." footer={<LastChanged organization={organization} section="people" />}>
@@ -387,16 +418,16 @@ export function OrgPeopleSection({ orgId, organization, role, handle, onOpenSect
                     <div>
                         <p className={labelClass}>Role names</p>
                         <p className={helpClass}>{isOwner ? 'For example Teacher / TA / Student / Viewer. What each role can do always comes from the role.' : OWNER_ONLY}</p>
-                        <div className="mt-2 grid max-w-md gap-2 sm:grid-cols-2">
+                        <div className="mt-2 grid max-w-md gap-3 sm:grid-cols-2">
                             {TABLE_ROLES.map(([, key]) => (
-                                <label key={key} className="text-xs capitalize text-muted-foreground">{key}
-                                    <Input value={names[key]} onChange={(e) => setNames({ ...names, [key]: e.target.value })} disabled={!isOwner} maxLength={30} className="mt-1" />
+                                <label key={key}><span className={labelClass}>{BASE[key]}</span>
+                                    <Input value={names[key]} onChange={(e) => setNames({ ...names, [key]: e.target.value })} disabled={!isOwner} maxLength={30} className="mt-1.5" />
                                 </label>
                             ))}
                         </div>
                         {isOwner ? (
                             <div className="mt-3 flex flex-wrap items-center gap-3">
-                                <Button disabled={pending} onClick={() => save(() => updateOrgSettingsAction(orgId, 'people', { role_names: names }))}>Save</Button>
+                                <Button disabled={pending} onClick={() => save(() => updateOrgSettingsAction(orgId, 'people', { role_names: names }))}>Save role names</Button>
                                 <Button variant="ghost" disabled={pending} onClick={() => { setNames(typeNames); save(() => updateOrgSettingsAction(orgId, 'people', { role_names: typeNames })) }}>Reset to {orgTypeLabel(organization.type)}’s names</Button>
                                 {status}
                             </div>
@@ -404,11 +435,11 @@ export function OrgPeopleSection({ orgId, organization, role, handle, onOpenSect
                     </div>
                     <div>
                         <p className={labelClass}>Admins</p>
-                        <p className="mt-1 text-sm">{facts ? `${facts.admins} of ${ORG_LIMITS.adminsPerOrg}` : '…'} · <Link href={membersHref(handle, orgId)} className="text-primary hover:underline">Manage in Members</Link></p>
+                        <p className="mt-1 text-[13px]">{facts ? <span className="tabular-nums">{facts.admins} of {ORG_LIMITS.adminsPerOrg} · </span> : null}<Link href={membersHref(handle, orgId)} className="nb-link">Manage in Members</Link></p>
                     </div>
                     <div>
                         <p className={labelClass}>What each role can do</p>
-                        <div className="mt-2"><RolesTable organization={organization} onOpenSection={onOpenSection} /></div>
+                        <div className="mt-3"><RolesTable organization={organization} onOpenSection={onOpenSection} /></div>
                     </div>
                 </div>
             </SettingsCard>
@@ -433,7 +464,7 @@ const CAP_OPTIONS = [
     { value: 'private', label: 'Private', hint: 'Each workspace is seen by its team and admins only.' },
 ] as const
 
-/** Default teams as chips (report §22.4): Enter adds one, × removes it; up to 20. */
+/** Default teams as tags (report §22.4): Enter adds one, × removes it; up to 20. */
 function ChipsInput({ value, onChange, label }: { value: string[]; onChange: (next: string[]) => void; label: string }) {
     const [draft, setDraft] = useState('')
     const add = () => {
@@ -442,16 +473,16 @@ function ChipsInput({ value, onChange, label }: { value: string[]; onChange: (ne
         setDraft('')
     }
     return (
-        <div className="mt-2 flex flex-wrap items-center gap-1.5 rounded-md border border-border p-1.5">
+        <div className="mt-2 flex min-h-[var(--ui-control-height)] flex-wrap items-center gap-1.5 rounded-md border border-input bg-card p-1.5">
             {value.map((chip) => (
-                <span key={chip} className="inline-flex items-center gap-1 rounded-[4px] bg-muted px-2 py-0.5 text-sm">
+                <span key={chip} className="nb-tag pr-1">
                     {chip}
-                    <button type="button" aria-label={`Remove ${chip}`} onClick={() => onChange(value.filter((c) => c !== chip))}><X className="size-3" aria-hidden="true" /></button>
+                    <button type="button" aria-label={`Remove ${chip}`} className="inline-flex size-5 items-center justify-center rounded-sm text-muted-foreground hover:bg-muted hover:text-foreground" onClick={() => onChange(value.filter((c) => c !== chip))}><X className="size-3.5" aria-hidden="true" /></button>
                 </span>
             ))}
             <input aria-label={label} value={draft} onChange={(e) => setDraft(e.target.value)} disabled={value.length >= 20}
                 onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ',') { e.preventDefault(); add() } }} onBlur={add}
-                placeholder={value.length >= 20 ? 'Up to 20' : 'Add a team'} className="min-w-28 flex-1 bg-transparent px-1 py-0.5 text-sm outline-none" />
+                placeholder={value.length >= 20 ? 'Up to 20' : 'Add a team'} className="min-w-28 flex-1 bg-transparent px-1 py-0.5 text-[13px] outline-none" />
         </div>
     )
 }
@@ -460,79 +491,66 @@ export function OrgWorkspacesSection({ orgId, organization }: SectionProps) {
     const facts = useOrgFacts(orgId)
     const [confirmCap, setConfirmCap] = useState(false)
     const [childCreation, setChildCreation] = useState(organization.childCreation)
-    const [outside, setOutside] = useState(organization.outsidePeople)
-    const [childShare, setChildShare] = useState(organization.childShare)
     const [cap, setCap] = useState(organization.visibilityCap)
     const [defaultUnits, setDefaultUnits] = useState<string[]>(organization.defaultUnits)
-    const [followSprints, setFollowSprints] = useState(organization.followSprintsDefault)
     // Impact preview (report §21.1 principle 4): how many projects a tighter cap would lower.
     const [affected, setAffected] = useState<number | null>(null)
     const { pending, save, status } = useSave()
-    const saveAll = () => save(() => updateOrgSettingsAction(orgId, 'projects', { follow_sprints: followSprints, child_creation: childCreation, outside_people: outside, child_share: childShare, default_units: defaultUnits, ...(cap !== organization.visibilityCap ? { visibility_cap: cap } : {}) }))
+    const saveAll = () => save(() => updateOrgSettingsAction(orgId, 'projects', { child_creation: childCreation, default_units: defaultUnits, ...(cap !== organization.visibilityCap ? { visibility_cap: cap } : {}) }))
     const chooseCap = async (next: typeof cap) => {
         setCap(next)
         setAffected(null)
         const preview = await previewVisibilityCapAction(orgId, next)
         if (preview.success) setAffected(preview.affected)
     }
+    const projects = (patch: Record<string, boolean>) => updateOrgSettingsAction(orgId, 'projects', patch)
     return (
         <Section id="org-projects">
             <SettingsCard title="Workspaces" headingLevel={2} description="Who creates workspaces inside the organization, and the rules they follow." footer={<LastChanged organization={organization} section="projects" />}>
                 <div className="space-y-6">
-                    <p className="text-sm text-muted-foreground">{facts ? `${facts.workspaces} of ${ORG_LIMITS.childProjectsPerOrg} workspaces` : '…'}</p>
+                    {facts ? <p className="nb-meta">{facts.workspaces} of {ORG_LIMITS.childProjectsPerOrg} workspaces</p> : null}
                     <fieldset>
-                        <legend className={labelClass}>Who can create workspaces</legend>
+                        <legend className={labelClass}>{ORG_SETTING_LABELS.childCreation.label}</legend>
                         <p className={helpClass}>Owners and admins always can. Changing this affects new workspaces only.</p>
-                        <div className="mt-2 space-y-2 text-sm">
-                            <label className="flex items-center gap-2"><input type="radio" name="org-child-creation" checked={childCreation === 'members'} onChange={() => setChildCreation('members')} /> All members</label>
-                            <label className="flex items-center gap-2"><input type="radio" name="org-child-creation" checked={childCreation === 'admins'} onChange={() => setChildCreation('admins')} /> Admins only</label>
+                        <div className="mt-2 space-y-2.5 text-[13px]">
+                            {(['members', 'admins'] as const).map((v) => (
+                                <label key={v} className="flex items-center gap-2.5"><input type="radio" className="nb-radio" name="org-child-creation" checked={childCreation === v} onChange={() => setChildCreation(v)} />{ORG_SETTING_LABELS.childCreation.options[v]}</label>
+                            ))}
                         </div>
                     </fieldset>
                     <fieldset>
                         <legend className={labelClass}>Highest allowed visibility</legend>
                         <p className={helpClass}>The most open a workspace here can be. Tightening it lowers workspaces above it, after you confirm.</p>
-                        <div className="mt-2 space-y-2 text-sm">
+                        <div className="mt-2 space-y-2.5 text-[13px]">
                             {CAP_OPTIONS.map((option) => (
-                                <label key={option.value} className="flex items-start gap-2">
-                                    <input type="radio" name="org-visibility-cap" checked={cap === option.value} onChange={() => void chooseCap(option.value)} className="mt-1" />
-                                    <span>{option.label}<span className="block text-xs text-muted-foreground">{option.hint}</span></span>
+                                <label key={option.value} className="flex items-start gap-2.5">
+                                    <input type="radio" className="nb-radio mt-0.5" name="org-visibility-cap" checked={cap === option.value} onChange={() => void chooseCap(option.value)} />
+                                    <span><span className="block font-medium">{option.label}</span><span className="block text-muted-foreground">{option.hint}</span></span>
                                 </label>
                             ))}
                         </div>
-
+                        {affected ? <p className="mt-2 text-[13px] text-[var(--status-warning)]">{affected} {affected === 1 ? 'workspace becomes' : 'workspaces become'} {cap === 'private' ? 'Private' : 'Organization only'} when you save.</p> : null}
                     </fieldset>
-                    <div className="flex items-start justify-between gap-4">
-                        <div>
-                            <p className={labelClass}>People outside the organization can be added to its workspaces</p>
-                            <p className={helpClass}>They see only that workspace, never the organization’s content. Turning it off removes nobody.{facts?.outsidePeople ? ` ${facts.outsidePeople} outside ${facts.outsidePeople === 1 ? 'person is' : 'people are'} in workspaces now.` : ''}</p>
-                        </div>
-                        <SettingsSwitch checked={outside} onCheckedChange={setOutside} aria-label="People outside the organization can be added to its workspaces" />
-                    </div>
-                    <div className="flex items-start justify-between gap-4">
-                        <div>
-                            <p className={labelClass}>Workspaces can share updates to the organization</p>
-                            <p className={helpClass}>Shared posts show in the organization’s Updates under From workspaces. Private workspaces never share.</p>
-                        </div>
-                        <SettingsSwitch checked={childShare} onCheckedChange={setChildShare} aria-label="Workspaces can share updates to the organization" />
-                    </div>
                     <div>
                         <p className={labelClass}>Default teams</p>
                         <p className={helpClass}>Every new workspace starts with these, for example Frontend, Backend, Testing. Each workspace can still change them.</p>
                         <ChipsInput value={defaultUnits} onChange={setDefaultUnits} label="Add a default team" />
                     </div>
-                    <div className="flex items-start justify-between gap-4">
-                        <div>
-                            <p className={labelClass}>New workspaces follow the organization’s sprints</p>
-                            <p className={helpClass}>New workspaces only. Each workspace has its own switch.</p>
-                        </div>
-                        <SettingsSwitch checked={followSprints} onCheckedChange={setFollowSprints} aria-label="New workspaces follow org sprints" />
-                    </div>
-                    <div className="flex items-center gap-3">
-                        <Button disabled={pending} onClick={() => (affected ? setConfirmCap(true) : saveAll())}>Save</Button>
+                    <div className="flex flex-wrap items-center gap-3">
+                        <Button disabled={pending} onClick={() => (affected ? setConfirmCap(true) : saveAll())}>Save workspace rules</Button>
                         {status}
                         <ConfirmDialog open={confirmCap} onOpenChange={setConfirmCap} title="Lower workspaces’ visibility?"
                             description={`${affected} ${affected === 1 ? 'workspace becomes' : 'workspaces become'} ${cap === 'private' ? 'Private' : 'Organization only'}. Their teams are told.`}
-                            confirmLabel="Save" onConfirm={() => saveAll()} />
+                            confirmLabel="Lower and save" onConfirm={() => saveAll()} />
+                    </div>
+                    <div className="space-y-5 border-t border-border pt-5">
+                        <InstantSwitch label={ORG_SETTING_LABELS.outsidePeople.label} checked={organization.outsidePeople}
+                            help={<>{ORG_SETTING_LABELS.outsidePeople.help} Turning it off removes nobody.{facts?.outsidePeople ? ` ${facts.outsidePeople} outside ${facts.outsidePeople === 1 ? 'person is' : 'people are'} in workspaces now.` : ''}</>}
+                            save={(on) => projects({ outside_people: on })} />
+                        <InstantSwitch label="Workspaces can share updates to the organization" help="Shared posts show in the organization’s Updates under From workspaces. Private workspaces never share."
+                            checked={organization.childShare} save={(on) => projects({ child_share: on })} />
+                        <InstantSwitch label="New workspaces follow the organization’s sprints" help="New workspaces only. Each workspace has its own switch."
+                            checked={organization.followSprintsDefault} save={(on) => projects({ follow_sprints: on })} />
                     </div>
                 </div>
             </SettingsCard>
@@ -545,52 +563,40 @@ export function OrgWorkSection({ orgId, organization }: SectionProps) {
     const [work, setWork] = useState(organization.work)
     const { pending, save, status } = useSave()
     const set = <K extends keyof typeof work>(key: K, value: (typeof work)[K]) => setWork((cur) => ({ ...cur, [key]: value }))
-    const toggle = (key: 'reviewRequired' | 'sprintAutoStart' | 'sprintNotifyOnStart' | 'sprintShowInChildren' | 'sprintCreateMatching', label: string, help: string) => (
-        <div className="flex items-start justify-between gap-4">
-            <div><p className={labelClass}>{label}</p><p className={helpClass}>{help}</p></div>
-            <SettingsSwitch checked={work[key]} onCheckedChange={(v) => set(key, v)} aria-label={label} />
-        </div>
-    )
-    const select = 'mt-2 h-9 w-full max-w-xs rounded-md border border-border bg-background px-2 text-sm'
+    const instant = (key: 'review_required' | 'sprint_auto_start' | 'sprint_notify_on_start' | 'sprint_show_in_children' | 'sprint_create_matching') => (on: boolean) => updateOrgSettingsAction(orgId, 'work', { [key]: on })
+    const L = ORG_SETTING_LABELS
     return (
         <Section id="org-work">
             <SettingsCard title="Work" headingLevel={2} description="Defaults for new tasks and sprints. Each one can still change them." footer={<LastChanged organization={organization} section="work" />}>
                 <div className="space-y-6">
-                    <p className="nb-ui-label text-[11px] font-semibold uppercase tracking-[0.09em] text-muted-foreground">Tasks</p>
-                    {toggle('reviewRequired', 'Check finished work', 'Admins approve or return finished work before it counts as done. Fills in the task form.')}
-                    <div>
-                        <label htmlFor="org-late-rule" className={labelClass}>Late work</label>
-                        <p className={helpClass}>What happens after the due date. Fills in the task form.</p>
-                        <select id="org-late-rule" className={select} value={work.lateRule} onChange={(e) => set('lateRule', e.target.value as typeof work.lateRule)}>
-                            <option value="always">Always allowed</option><option value="until">Allowed until a date</option><option value="none">Not allowed</option>
-                        </select>
+                    <h3 className="nb-micro">Tasks</h3>
+                    <InstantSwitch label={L.reviewRequired.label} help={`${L.reviewRequired.help} Fills in the task form.`} checked={organization.work.reviewRequired} save={instant('review_required')} />
+                    <div className="grid gap-5 sm:grid-cols-3">
+                        <label className="block"><span className={labelClass}>{L.lateRule.label}</span><span className={`block ${helpClass}`}>{L.lateRule.help}</span>
+                            <select className="nb-select mt-2 w-full" value={work.lateRule} onChange={(e) => set('lateRule', e.target.value as typeof work.lateRule)}>
+                                {(['always', 'until', 'none'] as const).map((v) => <option key={v} value={v}>{L.lateRule.options[v]}</option>)}
+                            </select>
+                        </label>
+                        <label className="block"><span className={labelClass}>{L.reminders.label}</span><span className={`block ${helpClass}`}>{L.reminders.help}</span>
+                            <select className="nb-select mt-2 w-full" value={work.reminders} onChange={(e) => set('reminders', e.target.value as typeof work.reminders)}>
+                                {(['both', 'day_before', 'due_day', 'off'] as const).map((v) => <option key={v} value={v}>{L.reminders.options[v]}</option>)}
+                            </select>
+                        </label>
+                        <label className="block"><span className={labelClass}>{L.storyPoints.label}</span><span className={`block ${helpClass}`}>{L.storyPoints.help}</span>
+                            <select className="nb-select mt-2 w-full" value={work.storyPoints} onChange={(e) => set('storyPoints', e.target.value as typeof work.storyPoints)}>
+                                {(['shown', 'hidden'] as const).map((v) => <option key={v} value={v}>{L.storyPoints.options[v]}</option>)}
+                            </select>
+                        </label>
                     </div>
-                    <div>
-                        <label htmlFor="org-reminders" className={labelClass}>Reminders</label>
-                        <p className={helpClass}>Sent at 9:00 in each person’s time zone to people who haven’t submitted yet.</p>
-                        <select id="org-reminders" className={select} value={work.reminders} onChange={(e) => set('reminders', e.target.value as typeof work.reminders)}>
-                            <option value="both">24 hours before and on the due day</option><option value="day_before">24 hours before</option><option value="due_day">On the due day</option><option value="off">Off</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label htmlFor="org-story-points" className={labelClass}>Story points</label>
-                        <p className={helpClass}>Hidden removes the field everywhere in this organization.</p>
-                        <select id="org-story-points" className={select} value={work.storyPoints} onChange={(e) => set('storyPoints', e.target.value as typeof work.storyPoints)}>
-                            <option value="shown">Shown</option><option value="hidden">Hidden</option>
-                        </select>
-                    </div>
-                    <p className="nb-ui-label text-[11px] font-semibold uppercase tracking-[0.09em] text-muted-foreground">Sprints</p>
-                    {toggle('sprintAutoStart', 'Start automatically', 'A sprint starts on its start date, for example CO1 on Aug 5.')}
-                    {toggle('sprintNotifyOnStart', 'Notify on start', 'Members hear when a sprint starts.')}
-                    {toggle('sprintShowInChildren', 'Show in every workspace in the organization', 'Workspaces see the running org sprint and can link theirs to it.')}
-                    {toggle('sprintCreateMatching', 'Create matching sprints', 'Off by default. Each workspace following org sprints gets its own sprint with the same dates.')}
-                    <div className="flex items-center gap-3">
-                        <Button disabled={pending} onClick={() => save(() => updateOrgSettingsAction(orgId, 'work', {
-                            review_required: work.reviewRequired, late_rule: work.lateRule, reminders: work.reminders, story_points: work.storyPoints,
-                            sprint_auto_start: work.sprintAutoStart, sprint_notify_on_start: work.sprintNotifyOnStart, sprint_show_in_children: work.sprintShowInChildren, sprint_create_matching: work.sprintCreateMatching,
-                        }))}>Save</Button>
+                    <div className="flex flex-wrap items-center gap-3">
+                        <Button disabled={pending} onClick={() => save(() => updateOrgSettingsAction(orgId, 'work', { late_rule: work.lateRule, reminders: work.reminders, story_points: work.storyPoints }))}>Save task defaults</Button>
                         {status}
                     </div>
+                    <h3 className="nb-micro border-t border-border pt-5">Sprints</h3>
+                    <InstantSwitch label="Start automatically" help="A sprint starts on its start date, for example CO1 on Aug 5." checked={organization.work.sprintAutoStart} save={instant('sprint_auto_start')} />
+                    <InstantSwitch label="Notify on start" help="Members hear when a sprint starts." checked={organization.work.sprintNotifyOnStart} save={instant('sprint_notify_on_start')} />
+                    <InstantSwitch label="Show in every workspace in the organization" help="Workspaces see the running organization sprint and can link theirs to it." checked={organization.work.sprintShowInChildren} save={instant('sprint_show_in_children')} />
+                    <InstantSwitch label="Create matching sprints" help="Off by default. Each workspace following organization sprints gets its own sprint with the same dates." checked={organization.work.sprintCreateMatching} save={instant('sprint_create_matching')} />
                 </div>
             </SettingsCard>
         </Section>
@@ -601,41 +607,29 @@ export function OrgWorkSection({ orgId, organization }: SectionProps) {
 export function OrgChatSection({ orgId, organization }: { orgId: string; organization: OrgDetail }) {
     const facts = useOrgFacts(orgId)
     const defaults = orgChatSettings(organization.chat ?? {}, organization.type)
-    const [adminsOnly, setAdminsOnly] = useState(defaults.generalAdminsOnly)
-    const [membersCreate, setMembersCreate] = useState(defaults.membersCreateChannels)
     const [generalNotify, setGeneralNotify] = useState(defaults.generalNotify)
     const { pending, save, status } = useSave()
     return (
         <Section id="org-messages">
-        <SettingsCard title="Messages" headingLevel={2} description="How the organization’s channels work for everyone in it.">
-            <div className="space-y-5">
-                <div className="flex items-start justify-between gap-4">
+            <SettingsCard title="Messages" headingLevel={2} description="How the organization’s channels work for everyone in it.">
+                <div className="space-y-6">
+                    <InstantSwitch label="Only admins post in #general" help="Everyone still reads and replies in threads. Big announcements belong in Updates."
+                        checked={defaults.generalAdminsOnly} save={(on) => updateOrgChatSettingsAction(orgId, { generalAdminsOnly: on })} />
+                    <InstantSwitch label="Members can create organization channels" help={`Workspace teams always create channels in their own workspaces.${facts ? ` ${facts.channels} of ${ORG_LIMITS.orgChatChannels} channels.` : ''}`}
+                        checked={defaults.membersCreateChannels} save={(on) => updateOrgChatSettingsAction(orgId, { membersCreateChannels: on })} />
                     <div>
-                        <p className={labelClass}>Only admins post in #general</p>
-                        <p className={helpClass}>Everyone still reads and replies in threads. Big announcements belong in Updates.</p>
+                        <label htmlFor="org-general-notify" className={labelClass}>Default notifications for #general</label>
+                        <p className={helpClass}>For people who join from now on; each person can change theirs. Mentions for Education, All otherwise.</p>
+                        <div className="mt-2 flex flex-wrap items-center gap-2">
+                            <select id="org-general-notify" value={generalNotify} onChange={(e) => setGeneralNotify(e.target.value as typeof generalNotify)} className="nb-select w-full max-w-xs">
+                                <option value="all">All messages</option><option value="mentions">Mentions only</option>
+                            </select>
+                            <Button variant="outline" disabled={pending} onClick={() => save(() => updateOrgChatSettingsAction(orgId, { generalNotify }))}>Save</Button>
+                        </div>
+                        {status}
                     </div>
-                    <SettingsSwitch checked={adminsOnly} onCheckedChange={setAdminsOnly} aria-label="Only admins post in #general" />
                 </div>
-                <div className="flex items-start justify-between gap-4">
-                    <div>
-                        <p className={labelClass}>Members can create organization channels</p>
-                        <p className={helpClass}>Workspace teams always create channels in their own workspaces.{facts ? ` ${facts.channels} of ${ORG_LIMITS.orgChatChannels} channels.` : ''}</p>
-                    </div>
-                    <SettingsSwitch checked={membersCreate} onCheckedChange={setMembersCreate} aria-label="Members can create organization channels" />
-                </div>
-                <div>
-                    <label htmlFor="org-general-notify" className={labelClass}>Default notifications for #general</label>
-                    <p className={helpClass}>For people who join from now on; each person can change theirs. Mentions for Education, All otherwise.</p>
-                    <select id="org-general-notify" value={generalNotify} onChange={(e) => setGeneralNotify(e.target.value as typeof generalNotify)} className="mt-2 h-9 w-full max-w-xs rounded-md border border-border bg-background px-2 text-sm">
-                        <option value="all">All messages</option><option value="mentions">Mentions only</option>
-                    </select>
-                </div>
-                <div className="flex items-center gap-3">
-                    <Button disabled={pending} onClick={() => save(() => updateOrgChatSettingsAction(orgId, { generalAdminsOnly: adminsOnly, membersCreateChannels: membersCreate, generalNotify }))}>Save</Button>
-                    {status}
-                </div>
-            </div>
-        </SettingsCard>
+            </SettingsCard>
         </Section>
     )
 }
@@ -645,61 +639,59 @@ export function OrgNotificationsSection({ orgId, organization }: { orgId: string
     const [digest, setDigest] = useState(organization.adminDigest)
     const { pending, save, status } = useSave()
     return (
-        <SettingsCard title="Admin emails" headingLevel={2} description="How owners and admins hear about work to review, join requests and reports." footer={<LastChanged organization={organization} section="notifications" />}>
-            <div className="space-y-4">
-                <fieldset className="space-y-2 text-sm">
-                    <legend className="sr-only">Admin emails</legend>
-                    <label className="flex items-start gap-2">
-                        <input type="radio" name="org-admin-digest" checked={digest === 'daily'} onChange={() => setDigest('daily')} className="mt-1" />
-                        <span>Daily summary<span className="block text-xs text-muted-foreground">At 8:00 in the organization’s time zone. Skipped when there’s nothing to report.</span></span>
-                    </label>
-                    <label className="flex items-start gap-2">
-                        <input type="radio" name="org-admin-digest" checked={digest === 'instant'} onChange={() => setDigest('instant')} className="mt-1" />
-                        <span>Instant<span className="block text-xs text-muted-foreground">Notifications only, as things happen. No summary email.</span></span>
-                    </label>
-                </fieldset>
-                <div className="flex items-center gap-3">
-                    <Button disabled={pending} onClick={() => save(() => updateOrgSettingsAction(orgId, 'notifications', { admin_digest: digest }))}>Save</Button>
-                    {status}
+        // Inside the Notifications section by design: its own section wrapper would split the section index.
+            <SettingsCard title="Admin emails" headingLevel={2} description="How owners and admins hear about work to review, join requests and reports." footer={<LastChanged organization={organization} section="notifications" />}>
+                <div className="space-y-5">
+                    <fieldset className="space-y-2.5 text-[13px]">
+                        <legend className="sr-only">Admin emails</legend>
+                        <label className="flex items-start gap-2.5">
+                            <input type="radio" className="nb-radio mt-0.5" name="org-admin-digest" checked={digest === 'daily'} onChange={() => setDigest('daily')} />
+                            <span><span className="block font-medium">Daily summary</span><span className="block text-muted-foreground">At 8:00 in the organization’s time zone. Skipped when there’s nothing to report.</span></span>
+                        </label>
+                        <label className="flex items-start gap-2.5">
+                            <input type="radio" className="nb-radio mt-0.5" name="org-admin-digest" checked={digest === 'instant'} onChange={() => setDigest('instant')} />
+                            <span><span className="block font-medium">Instant</span><span className="block text-muted-foreground">Notifications only, as things happen. No summary email.</span></span>
+                        </label>
+                    </fieldset>
+                    <div className="flex flex-wrap items-center gap-3">
+                        <Button disabled={pending} onClick={() => save(() => updateOrgSettingsAction(orgId, 'notifications', { admin_digest: digest }))}>Save admin emails</Button>
+                        {status}
+                    </div>
                 </div>
-            </div>
-        </SettingsCard>
+            </SettingsCard>
     )
 }
 
 /** Updates (report §22.4): member discussions, who can reply, how announcements notify. Moved from Admin batching. */
 export function OrgUpdatesSection({ orgId, organization, memberPosts }: { orgId: string; organization: OrgDetail; memberPosts: boolean }) {
-    const [posts, setPosts] = useState(memberPosts)
     const [announce, setAnnounce] = useState(organization.announcementNotify)
     const [replies, setReplies] = useState(organization.replyRule)
     const { pending, save, status } = useSave()
+    const members = rolePlural(organization.roleNames.member)
     return (
         <Section id="org-updates">
             <SettingsCard title="Updates" headingLevel={2} description="Who posts and replies in Updates, and how announcements reach people." footer={<LastChanged organization={organization} section="updates" />}>
-                <div className="space-y-5">
-                    <div className="flex items-start justify-between gap-4">
-                        <div>
-                            <p className={labelClass}>Members can post discussions</p>
-                            <p className={helpClass}>Announcements stay with owners and admins.</p>
-                        </div>
-                        <SettingsSwitch checked={posts} onCheckedChange={setPosts} aria-label="Members can post discussions" />
+                <div className="space-y-6">
+                    <InstantSwitch label={`${members} can post discussions`} help="Announcements stay with owners and admins." checked={memberPosts}
+                        save={(on) => updateOrgSettingsAction(orgId, 'updates', { member_posts: on })} />
+                    <div className="grid gap-5 sm:grid-cols-2">
+                        <label className="block">
+                            <span className={labelClass}>Who can reply</span>
+                            <span className={`block ${helpClass}`}>Where posts start; each post can change it.</span>
+                            <select value={replies} onChange={(e) => setReplies(e.target.value as typeof replies)} className="nb-select mt-2 w-full">
+                                <option value="members">People in the organization</option><option value="logged_in">Anyone signed in</option>
+                            </select>
+                        </label>
+                        <label className="block">
+                            <span className={labelClass}>Announcements notify</span>
+                            <span className={`block ${helpClass}`}>Where the composer starts. Up to {ORG_LIMITS.emailAnnouncementsPerOrgPerDay} emails a day.</span>
+                            <select value={announce} onChange={(e) => setAnnounce(e.target.value as typeof announce)} className="nb-select mt-2 w-full">
+                                <option value="in_app">In-app</option><option value="email">In-app and email</option>
+                            </select>
+                        </label>
                     </div>
-                    <label className="block">
-                        <span className={labelClass}>Who can reply</span>
-                        <span className={`block ${helpClass}`}>Where posts start; each post can change it.</span>
-                        <select value={replies} onChange={(e) => setReplies(e.target.value as typeof replies)} className="mt-2 block h-9 rounded-md border border-border bg-background px-2 text-sm">
-                            <option value="members">Members</option><option value="logged_in">Anyone signed in</option>
-                        </select>
-                    </label>
-                    <label className="block">
-                        <span className={labelClass}>Announcements notify</span>
-                        <span className={`block ${helpClass}`}>Where the composer starts. Up to {ORG_LIMITS.emailAnnouncementsPerOrgPerDay} emails a day.</span>
-                        <select value={announce} onChange={(e) => setAnnounce(e.target.value as typeof announce)} className="mt-2 block h-9 rounded-md border border-border bg-background px-2 text-sm">
-                            <option value="in_app">In-app</option><option value="email">In-app and email</option>
-                        </select>
-                    </label>
-                    <div className="flex items-center gap-3">
-                        <Button disabled={pending} onClick={() => save(() => updateOrgSettingsAction(orgId, 'updates', { member_posts: posts, reply_rule: replies, announcement_notify: announce }))}>Save</Button>
+                    <div className="flex flex-wrap items-center gap-3">
+                        <Button disabled={pending} onClick={() => save(() => updateOrgSettingsAction(orgId, 'updates', { reply_rule: replies, announcement_notify: announce }))}>Save update rules</Button>
                         {status}
                     </div>
                 </div>
@@ -707,4 +699,3 @@ export function OrgUpdatesSection({ orgId, organization, memberPosts }: { orgId:
         </Section>
     )
 }
-
