@@ -11,7 +11,7 @@ import { fileURLToPath } from "node:url";
 
 const CLI_SCRIPT_PATH = fileURLToPath(import.meta.url);
 
-const CLI_VERSION = "1.0.3";
+const CLI_VERSION = "1.0.4";
 const DEFAULT_API_URL = process.env.NETWORKBASE_API_URL || "https://networkbase.in";
 const GLOBAL_CONFIG_DIR = path.join(os.homedir(), ".networkbase");
 const GLOBAL_CREDENTIALS_PATH = path.join(GLOBAL_CONFIG_DIR, "credentials.json");
@@ -391,6 +391,33 @@ function saveCredentials(creds) {
   });
 }
 
+const BOOLEAN_FLAGS = new Set([
+  "json",
+  "force",
+  "dry-run",
+  "deliverable",
+  "draft",
+  "reference",
+  "done",
+  "wip",
+  "all",
+  "mine",
+  "yes",
+  "y",
+  "auto",
+  "reauth",
+  "allow-secrets",
+  "help",
+  "h",
+  "version",
+  "v",
+  "no-task",
+  "all-workspaces",
+  "uncheck",
+  "pull-only",
+  "daemon-worker",
+]);
+
 function parseFlags(argv) {
   const positional = [];
   const flags = {};
@@ -402,18 +429,31 @@ function parseFlags(argv) {
         flags[arg.slice(2, eqIdx)] = arg.slice(eqIdx + 1);
       } else {
         const key = arg.slice(2);
-        const next = argv[i + 1];
-        if (next && !next.startsWith("-")) {
-          flags[key] = next;
-          i++;
-        } else {
+        if (BOOLEAN_FLAGS.has(key)) {
           flags[key] = true;
+        } else {
+          const next = argv[i + 1];
+          if (next && !next.startsWith("-")) {
+            flags[key] = next;
+            i++;
+          } else {
+            flags[key] = true;
+          }
         }
       }
     } else if (arg === "-m" && argv[i + 1]) {
       flags.message = argv[++i];
     } else if (arg === "-j") {
       flags.json = true;
+    } else if (arg === "-y" || arg === "-Y") {
+      flags.yes = true;
+      flags.y = true;
+    } else if (arg === "-h") {
+      flags.help = true;
+      flags.h = true;
+    } else if (arg === "-v") {
+      flags.version = true;
+      flags.v = true;
     } else {
       positional.push(arg);
     }

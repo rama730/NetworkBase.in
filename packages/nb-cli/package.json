@@ -1,6 +1,6 @@
 {
   "name": "@networkbase/cli",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "NetworkBase CLI, Local Mirror Sync, Git Credential Helper & AI MCP Server",
   "type": "module",
   "homepage": "https://networkbase.in",
