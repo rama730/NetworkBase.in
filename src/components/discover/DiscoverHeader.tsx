@@ -209,7 +209,7 @@ export default function DiscoverHeader({ query, activeFilters, announcement, loa
                         </FilterTag>
                     ))}
                     {query.org ? (
-                        <FilterTag label={`organization ${query.org}`} onRemove={() => remove({ org: '' })}>@{query.org}</FilterTag>
+                        <FilterTag label={`organization ${query.org}`} onRemove={() => remove({ org: '' })}>In {query.org}</FilterTag>
                     ) : null}
                     {query.hideOpened ? (
                         <FilterTag label="hiding workspaces you’ve viewed" onRemove={() => remove({ hideOpened: false })}>Hiding workspaces you’ve viewed</FilterTag>

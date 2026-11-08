@@ -384,7 +384,7 @@ export function SettingsSearchResultCard({ result, onOpen, ...interaction }: Res
     );
 }
 
-const ORG_KIND_LABEL: Record<GlobalSearchOrgPreview["orgKind"], string> = { org: "Organization", assignment: "Assignment", task: "Task", doc: "Doc", child: "Workspace", sprint: "Sprint", member: "Member", file: "File", action: "Action" };
+const ORG_KIND_LABEL: Record<GlobalSearchOrgPreview["orgKind"], string> = { org: "Organization", assignment: "Assignment", task: "Task", doc: "Document", child: "Workspace", sprint: "Sprint", member: "Member", file: "File", action: "Action" };
 
 /** Organizations, assignments, docs and "Search <org>" results (report §30.1). */
 export function OrgSearchResultCard({ result, onOpen, onRemove, ...interaction }: ResultInteractionProps & { result: GlobalSearchOrgPreview; onOpen: (result: GlobalSearchPreview) => void; onRemove?: () => void }) {
@@ -398,9 +398,9 @@ export function OrgSearchResultCard({ result, onOpen, onRemove, ...interaction }
             ariaLabel={`Open ${ORG_KIND_LABEL[result.orgKind].toLowerCase()} ${result.title}`}
         >
             <div className="flex min-w-0 items-center gap-2">
-                <span className="shrink-0 font-mono text-[11px] font-medium text-muted-foreground">{ORG_KIND_LABEL[result.orgKind]}</span>
+                <span className="nb-micro shrink-0">{ORG_KIND_LABEL[result.orgKind]}</span>
                 <span className="truncate text-[15px] font-semibold text-foreground transition-colors group-hover:text-primary">{result.title}</span>
-                {result.chip ? <span className="shrink-0 rounded-[3px] border border-border px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground">{result.chip}</span> : null}
+                {result.chip ? <span className="nb-meta shrink-0">{result.chip}</span> : null}
             </div>
             <p className="mt-0.5 line-clamp-1 text-xs leading-relaxed text-muted-foreground">{result.subtitle}</p>
         </ResultShell>

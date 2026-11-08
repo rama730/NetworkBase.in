@@ -452,7 +452,7 @@ export function OrgSettingsFields() {
                         </label>
                     </div>
                 ) : null}
-                <p className={helpClass}>Set by the type; every assignment can still change them. Also in Settings → Work.</p>
+                <p className={helpClass}>Set by the type; every assignment can still change them. You can change them later in Settings, under Work.</p>
             </div>
         </div>
     )

@@ -115,7 +115,7 @@ test('G5: a dot for unseen updates; G9: ⋯ pins to the top, copies the link, op
 
 test('G3, G8, G11: More past 12, a filter past 10 rows (Esc clears), Archived remembered', async ({ page }) => {
     await open(page, 'size=long');
-    await expect(list(page).getByRole('button', { name: 'More (3)' })).toBeVisible();
+    await expect(list(page).getByRole('button', { name: 'More · 3' })).toBeVisible();
     const filter = page.getByLabel('Filter workspaces');
     await filter.fill('owl');
     await expect(list(page).getByRole('link', { name: 'Team Owl' })).toBeVisible();

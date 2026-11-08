@@ -54,7 +54,7 @@ export function OrganizationCreatedScreen({ title, joinCode, handle, invites, cr
                             <p className="min-w-0 text-[13px]"><span className="block text-muted-foreground">Your organization’s link</span><span className="nb-meta break-all text-foreground">{orgLink.replace(/^https?:\/\//, '')}</span></p>
                             <CopyButton text={orgLink} label="Copy link" size="default" className="nb-touch-target" />
                         </div>
-                        <p className="text-[13px] text-muted-foreground">It shows on Discover once it has a description and a workspace or a second member, or once it’s verified. Settings → Visibility and discovery says where it stands.</p>
+                        <p className="text-[13px] text-muted-foreground">It shows on Discover once it has a description and a workspace or a second member, or once it’s verified. Settings, under Visibility and discovery, says where it stands.</p>
                     </div>
                 ) : null}
                 {joining || sent ? <p className="text-[13px] text-foreground" data-testid="org-created-invites">{[joining, sent ? `${sent} sent` : null].filter(Boolean).join(' · ')}</p> : null}

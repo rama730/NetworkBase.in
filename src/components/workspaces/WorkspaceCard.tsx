@@ -21,6 +21,8 @@ import { WorkspaceLastUpdate } from "@/components/workspaces/WorkspaceLastUpdate
 import { ReportDialog, ReportMenuItem } from "@/components/reports/ReportDialog";
 import { useWorkspaceCardLive } from "@/hooks/useWorkspaceLiveCounts";
 import { formatCount, viewCountDisplay } from "@/lib/format-count";
+import { orgTypeLabel as orgTypeWord } from "@/lib/organizations/config";
+import { VerifiedMark } from "@/components/organizations/org-ui";
 
 const MAX_PROJECT_CARD_SKILL_ICONS = 6;
 const APPLICATION_CHIP_LABEL = { applied: "Applied", declined: "Declined", invited: "Invited" } as const;
@@ -74,20 +76,22 @@ export default memo(function ProjectCard({ project, viewModel, isFollowing = fal
     // Org cards open the org's About tab at /org/<handle> (report §24.1, §24.7).
     const isOrg = project.kind === "organization";
     const href = isOrg ? `/org/${project.slug || project.id}` : `/workspaces/${project.slug || project.id}`;
-    const orgTypeLabel = project.orgTypeLabel ?? (project.orgType ? project.orgType.charAt(0).toUpperCase() + project.orgType.slice(1) : "Organization");
+    const orgTypeLabel = project.orgTypeLabel ?? orgTypeWord(project.orgType) ?? "Organization";
     // A child project's org line, its own link above the card link (report §24.2).
     const orgLine = project.cardOrg ? (
-        <Link prefetch={false} href={`/org/${encodeURIComponent(project.cardOrg.slug ?? "")}`} className="relative z-10 -mb-1 inline-flex w-fit items-center gap-1 text-[12px] text-muted-foreground hover:text-foreground hover:underline">
-            <span aria-hidden="true" className="inline-block size-2 rounded-[2px] bg-foreground/60" />{project.cardOrg.title} /
+        // A breadcrumb above the title (spec §10): the organization, then a mono slash.
+        <Link prefetch={false} href={`/org/${encodeURIComponent(project.cardOrg.slug ?? "")}`} className="relative z-10 -mb-1 inline-flex w-fit items-center gap-1.5 text-[12px] text-muted-foreground hover:text-foreground hover:underline">
+            {project.cardOrg.title}<span aria-hidden="true" className="font-mono">/</span>
         </Link>
     ) : null;
     // "Part of RV College of Engineering" under an org's name (report §34.11).
     const partOfLine = isOrg && project.orgPartOf ? <p className="nb-compact mt-0.5 truncate text-muted-foreground" data-testid="org-card-part-of">{project.orgPartOf}</p> : null;
-    const typeChip = isOrg ? <span className="nb-status relative z-10 ml-auto shrink-0" data-status="active">{orgTypeLabel}</span>
+    // The type is a category, not a status (spec §10): quiet metadata, not a badge.
+    const typeChip = isOrg ? <span className="nb-meta relative z-10 ml-auto shrink-0">{orgTypeLabel}</span>
         : titleChip ? <span className="relative z-10 ml-auto flex shrink-0 items-center gap-1">{titleChip}</span> : null;
     // Decision 70: a verified organization's ✓ beside its name.
     // D2 (2026-11-05 findings): the tooltip says what the ✓ was checked against.
-    const verifiedMark = isOrg && project.orgVerified ? <span className="ml-1 text-primary" title={project.orgVerifiedLabel ?? `${project.title} is verified`}><span aria-hidden="true">✓</span><span className="sr-only"> {project.orgVerifiedLabel ?? 'Verified'}</span></span> : null;
+    const verifiedMark = isOrg && project.orgVerified ? <VerifiedMark label={project.orgVerifiedLabel ?? `${project.title} is verified`} size={16} className="ml-1" /> : null;
     const linkHref = (link: (typeof links)[number]) => `/go/project/${encodeURIComponent(project.id)}/${encodeURIComponent(link.id || link.canonicalKey)}`;
 
     async function toggleFollow() {

@@ -24,7 +24,7 @@ const orgHref = (o: { slug: string | null; id: string }) => `/org/${encodeURICom
 const projectHref = (p: { slug: string | null; id: string }) => `/workspaces/${encodeURIComponent(p.slug ?? p.id)}`;
 // A row's + and ⋯ float over its right end (`.nb-row-tools` in globals.css), shown on hover, keyboard focus or touch:
 // they take no room, so the name, the dot and the count never move (the user, 5 Nov: "remove this jelly effect").
-const iconButton = "relative z-10 inline-flex size-6 shrink-0 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground";
+const iconButton = "relative z-10 inline-flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground";
 // The name link never paints its own focus box; the whole row shows it (`data-ws-row` in globals.css).
 const nameLink = "min-w-0 flex-1 truncate after:absolute after:inset-0 after:rounded-[5px] focus-visible:bg-transparent focus-visible:outline-none";
 // A mouse click on a name doesn't leave focus behind, so the row's + and ⋯ don't stay up once the pointer leaves (the
@@ -108,7 +108,7 @@ function OrgGroup({ org, currentId, forceOpen, filterText, pinned, onPin, active
                         ) : null}
                         <RowMenu id={org.id} title={org.title} href={href} pinned={pinned.has(org.id)} onPin={onPin} />
                     </span>
-                    <button type="button" onClick={toggle} className={cn(iconButton, "size-5")} aria-expanded={isOpen} aria-controls={`sidebar-org-${org.id}`}
+                    <button type="button" onClick={toggle} className={cn(iconButton, "nb-touch-target size-5")} aria-expanded={isOpen} aria-controls={`sidebar-org-${org.id}`}
                         aria-label={`${isOpen ? "Hide" : "Show"} ${org.title}’s workspaces`}>
                         {isOpen ? <ChevronDown className="size-3.5" aria-hidden="true" /> : <ChevronRight className="size-3.5" aria-hidden="true" />}
                     </button>
@@ -211,18 +211,18 @@ export function SidebarWorkspaces({ data, autoFocusFilter = false }: { data: Dat
                     {pinnedRows.filter(rowMatches).map(plain)}
                 </> : null}
                 {shownOrgs.map(group)}
-                {!showAllOrgs && !text && orgs.length > MAX_ORGS ? <li><button type="button" onClick={() => setShowAllOrgs(true)} className="nb-nav-link w-full font-normal text-muted-foreground">More ({orgs.length - MAX_ORGS})</button></li> : null}
+                {!showAllOrgs && !text && orgs.length > MAX_ORGS ? <li><button type="button" onClick={() => setShowAllOrgs(true)} className="nb-nav-link w-full font-normal text-muted-foreground">More · {orgs.length - MAX_ORGS}</button></li> : null}
                 {/* Every row the same distance apart, organizations and workspaces alike (the user, 5 Nov; replaces G6's gap). */}
                 {requested.map((org) => (
                     <li key={org.id}>
                         <Link prefetch={false} href={`${orgHref(org)}?tab=about`} className="nb-nav-link font-normal text-muted-foreground" title={`${org.title} · Requested`}>
-                            <span className="min-w-0 flex-1 truncate">{org.title}</span><span className="text-[11px] text-muted-foreground">Requested</span>
+                            <span className="min-w-0 flex-1 truncate">{org.title}</span><span className="nb-meta">Requested</span>
                         </Link>
                     </li>
                 ))}
                 {outside.map(plain)}
                 {shownPersonal.map(plain)}
-                {!showAllPersonal && !text && personal.length > shownPersonal.length ? <li><button type="button" onClick={() => setShowAllPersonal(true)} className="nb-nav-link w-full font-normal text-muted-foreground">More ({personal.length - shownPersonal.length})</button></li> : null}
+                {!showAllPersonal && !text && personal.length > shownPersonal.length ? <li><button type="button" onClick={() => setShowAllPersonal(true)} className="nb-nav-link w-full font-normal text-muted-foreground">More · {personal.length - shownPersonal.length}</button></li> : null}
             </ul>
             {nothingMatches ? <p className="px-2 py-1 text-xs text-muted-foreground" role="status">No workspaces match</p> : null}
             {empty ? <p className="px-2 py-1 text-xs text-muted-foreground">No workspaces yet</p> : null}

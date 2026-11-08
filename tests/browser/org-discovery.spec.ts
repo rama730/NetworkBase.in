@@ -50,7 +50,7 @@ async function open(page: Page, query: string, width = 1100) {
 const calls = (page: Page) => page.evaluate(() => (window as unknown as { calls?: unknown[] }).calls ?? []);
 const opened = (page: Page) => page.evaluate(() => (window as unknown as { opened: string[] }).opened);
 
-test('On Discover, waiting: the rule line, the missing parts with their actions, and Verified badge ↓', async ({ page }) => {
+test('On Discover, waiting: the rule line, the missing parts with their actions, and the Verified badge link', async ({ page }) => {
     await open(page, 'case=waiting');
     const row = page.getByTestId('org-on-discover');
     await expect(row).toContainText('Not on Discover yet');
@@ -62,7 +62,7 @@ test('On Discover, waiting: the rule line, the missing parts with their actions,
     await expect(needed.getByRole('link', { name: 'Invite people' })).toHaveAttribute('href', '/org/cse-3b-data-structures-2026?tab=members');
     await needed.getByRole('button', { name: 'Go to Details' }).click();
     expect(await opened(page)).toEqual(['general']);
-    await expect(needed.getByRole('link', { name: 'Verified badge ↓' })).toHaveAttribute('href', '#org-verified-badge');
+    await expect(needed.getByRole('link', { name: 'Verified badge' })).toHaveAttribute('href', '#org-verified-badge');
 });
 
 test('On Discover: listed, private, suspended, hidden and archived each say so', async ({ page }) => {
@@ -101,7 +101,7 @@ test('Web address: the full link with Copy; the owner changes it, admins read wh
 test('Verified badge: what it is, who needs it, and four ways in that order for a class', async ({ page }) => {
     await open(page, 'case=waiting');
     const card = page.getByTestId('org-verified-badge');
-    await expect(card).toContainText('A ✓ beside the name that tells visitors NetworkBase checked you’re real.');
+    await expect(card).toContainText('A badge beside the name that tells visitors NetworkBase checked you’re real.');
     await expect(card).toContainText('Do you need it? Useful for colleges, companies and public communities. A class usually doesn’t need it');
     await expect(card).not.toContainText('Add your website in Links first');
     const ways = card.getByRole('listitem');

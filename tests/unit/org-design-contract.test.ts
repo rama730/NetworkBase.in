@@ -103,7 +103,10 @@ test('outside surfaces show organizations by the contract', async (t) => {
         assert.doesNotMatch(layout, /Invite a member/)
     })
     await t.test('creating an organization never says "workspace" in Setup', () => {
-        const setup = read('src/components/workspaces/create-wizard/phases/Phase4Settings.tsx')
-        assert.match(setup, /orgCopy|ORG_SETUP_COPY/)
+        for (const file of ['Phase4Settings.tsx', 'Phase5Review.tsx']) {
+            const step = read(`src/components/workspaces/create-wizard/phases/${file}`)
+            assert.match(step, /const noun = \w+ \? 'organization' : 'workspace'/)
+            assert.doesNotMatch(step, /title="Workspace (?:picture|links|files)"|Choose workspace visibility|'Untitled workspace'|label="Workspace (?:picture|links)"/)
+        }
     })
 })
