@@ -100,19 +100,13 @@ export async function PATCH(request: Request) {
         });
         if (
           !current ||
-          current.updatedAt.getTime() !==
-            new Date(input.expectedUpdatedAt).getTime()
+          Math.abs(current.updatedAt.getTime() - new Date(input.expectedUpdatedAt).getTime()) > 5000
         )
           return null;
         const [updated] = await tx
           .update(taskSubtasks)
           .set({ completed: input.completed, updatedAt: new Date() })
-          .where(
-            and(
-              eq(taskSubtasks.id, input.subtaskId),
-              eq(taskSubtasks.updatedAt, current.updatedAt),
-            ),
-          )
+          .where(eq(taskSubtasks.id, input.subtaskId))
           .returning();
         return updated;
       });
