@@ -26,5 +26,5 @@ function loadSharedOrg(userId: string) {
 export function SharedOrgChip({ userId, className }: { userId: string | null | undefined; className?: string }) {
     const { data } = useQuery({ queryKey: ['shared-org', userId], queryFn: () => loadSharedOrg(userId!), enabled: Boolean(userId), staleTime: 5 * 60_000 })
     if (!data) return null
-    return <span className={className ?? 'inline-flex max-w-full items-center truncate rounded-[3px] border border-border px-1.5 py-0.5 text-[11px] text-muted-foreground'} title={`You’re both in ${data.replace(/ \+(\d+)$/, ' and $1 more')}`}>{data}</span>
+    return <span className={className ?? 'inline-flex max-w-full items-center truncate rounded-sm border border-border px-1.5 py-0.5 text-[11px] text-muted-foreground'} title={`You’re both in ${data.replace(/ \+(\d+)$/, ' and $1 more')}`}>{data}</span>
 }

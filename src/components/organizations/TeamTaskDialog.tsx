@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { Plus, X } from 'lucide-react'
+import { Plus, Star, X } from 'lucide-react'
 
 import { createTeamTasksAction } from '@/app/actions/child-units'
 import { Button } from '@/components/ui/button'
@@ -24,7 +24,7 @@ export function TeamTaskDialog({ projectId, members, open, onOpenChange, onCreat
     const [pending, startTransition] = useTransition()
     const nameOf = (id: string) => { const m = members.find((x) => x.id === id); return m?.fullName || m?.username || 'Member' }
     const placed = new Set(teams.flatMap((t) => t.userIds))
-    const select = 'h-8 rounded-md border border-border bg-background px-2 text-xs'
+    const select = 'nb-select'
 
     const create = () => startTransition(async () => {
         const result = await createTeamTasksAction(projectId, { title, description, dueDate: due ? new Date(due).toISOString() : null, mode, teams: mode === 'teams' ? teams : undefined })
@@ -43,13 +43,13 @@ export function TeamTaskDialog({ projectId, members, open, onOpenChange, onCreat
                 </DialogHeader>
                 <div className="space-y-3">
                     <label className="block text-sm font-medium">Title<Input value={title} onChange={(e) => setTitle(e.target.value)} maxLength={200} className="mt-1" /></label>
-                    <label className="block text-sm font-medium">Description<textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3} className="mt-1 w-full rounded-md border border-border bg-background p-2 text-sm" /></label>
+                    <label className="block text-sm font-medium">Description<textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3} className="nb-textarea mt-1 w-full" /></label>
                     <label className="block text-sm font-medium">Due<Input type="datetime-local" value={due} onChange={(e) => setDue(e.target.value)} className="mt-1" /></label>
                     <fieldset>
                         <legend className="text-sm font-medium">Assign to</legend>
                         <div className="mt-1 flex gap-4 text-sm">
-                            <label className="flex items-center gap-1.5"><input type="radio" name="team-task-mode" checked={mode === 'units'} onChange={() => setMode('units')} /> Each team</label>
-                            <label className="flex items-center gap-1.5"><input type="radio" name="team-task-mode" checked={mode === 'teams'} onChange={() => setMode('teams')} /> Teams</label>
+                            <label className="flex items-center gap-1.5"><input className="nb-radio" type="radio" name="team-task-mode" checked={mode === 'units'} onChange={() => setMode('units')} /> Each team</label>
+                            <label className="flex items-center gap-1.5"><input className="nb-radio" type="radio" name="team-task-mode" checked={mode === 'teams'} onChange={() => setMode('teams')} /> Teams</label>
                         </div>
                     </fieldset>
                     {mode === 'units' ? <p className="text-sm text-muted-foreground">Each team with people gets one task, led by its team lead.</p> : (
@@ -64,11 +64,11 @@ export function TeamTaskDialog({ projectId, members, open, onOpenChange, onCreat
                                     <div className="flex flex-wrap gap-1.5">
                                         {team.userIds.map((id) => (
                                             <button key={id} type="button" aria-pressed={team.leadId === id} aria-label={`${nameOf(id)}, ${team.leadId === id ? 'team lead' : 'make team lead'}`}
-                                                onClick={() => setTeams((cur) => cur.map((t, i) => (i === ti ? { ...t, leadId: id } : t)))} className="rounded-full border border-border px-2 py-0.5 text-xs">
-                                                {nameOf(id)}{team.leadId === id ? ' ★' : ''}
+                                                onClick={() => setTeams((cur) => cur.map((t, i) => (i === ti ? { ...t, leadId: id } : t)))} className="nb-tag">
+                                                {team.leadId === id ? <Star className="size-3 fill-current" aria-hidden="true" /> : null}{nameOf(id)}
                                             </button>
                                         ))}
-                                        <select value="" aria-label={`Add to ${team.name}`} className={select}
+                                        <select value="" aria-label={`Add to ${team.name}`} className="nb-select"
                                             onChange={(e) => { const id = e.target.value; if (id) setTeams((cur) => cur.map((t, i) => (i === ti ? { ...t, userIds: [...t.userIds, id], leadId: t.leadId ?? id } : t))) }}>
                                             <option value="">+ Add person</option>
                                             {members.filter((m) => !placed.has(m.id)).map((m) => <option key={m.id} value={m.id}>{m.fullName || m.username}</option>)}

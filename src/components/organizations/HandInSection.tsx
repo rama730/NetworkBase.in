@@ -1,5 +1,7 @@
 'use client'
 
+import { ChevronLeft } from 'lucide-react'
+
 import { useEffect, useState, useTransition } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 
@@ -19,10 +21,11 @@ import { cn } from '@/lib/utils'
 // Student check 21: the reader's own zone (§32.5), named, so nobody guesses whose 11 pm it is.
 const WHEN = new Intl.DateTimeFormat('en', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZoneName: 'short' })
 const ASKED: Record<string, string> = { file: 'a file', link: 'a link', text: 'text', none: 'nothing to attach' }
-const area = 'w-full resize-y rounded-md border border-input bg-transparent px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring'
+// Textareas use .nb-textarea (spec §10); this only adds layout.
+const area = 'w-full'
 const TONE = { info: 'active', warn: 'draft', ok: 'completed', danger: 'blocked', muted: 'archived' } as const
 // Mockup task 3 (Submit artboard): the state in a coloured box, green when it's in, red when it came back.
-const BOX = { ok: 'bg-[var(--status-success-soft)]', danger: 'bg-[var(--status-danger-soft)]', info: 'bg-muted/50', muted: 'bg-muted/50' } as const
+const BOX = { ok: 'bg-[var(--status-success-soft)]', danger: 'bg-[var(--status-danger-soft)]', info: 'bg-muted', muted: 'bg-muted' } as const
 const TITLE = { ok: 'text-[var(--status-success)]', danger: 'text-[var(--status-danger)]', info: '', muted: '' } as const
 const TEXT_MAX = 10000
 const label = 'font-mono text-[11px] font-medium uppercase tracking-[0.09em] text-muted-foreground'
@@ -32,12 +35,12 @@ function FileRow({ file, onRemove }: { file: HandInFile; onRemove?: () => void }
     const [open, setOpen] = useState(false)
     const { name } = file
     return (
-        <li className="rounded-[5px] border border-border text-[13px]">
+        <li className="rounded-md border border-border text-[13px]">
             <div className="flex items-center gap-2 px-2.5 py-1.5">
                 <span className="min-w-0 flex-1 truncate">{name}</span>
                 <span className="font-mono text-[12px] text-muted-foreground">{fileSize(file.size)}</span>
-                <button type="button" aria-expanded={open} aria-label={`${open ? 'Hide' : 'Preview'} ${name}`} className="rounded-[3px] px-1.5 text-[12px] text-primary hover:bg-muted" onClick={() => setOpen(!open)}>{open ? 'Hide' : 'Preview'}</button>
-                {onRemove ? <button type="button" aria-label={`Remove ${name}`} className="rounded-[3px] px-1.5 text-muted-foreground hover:bg-muted hover:text-foreground" onClick={onRemove}>×</button> : null}
+                <button type="button" aria-expanded={open} aria-label={`${open ? 'Hide' : 'Preview'} ${name}`} className="rounded-sm px-1.5 text-[12px] text-primary hover:bg-muted" onClick={() => setOpen(!open)}>{open ? 'Hide' : 'Preview'}</button>
+                {onRemove ? <button type="button" aria-label={`Remove ${name}`} className="rounded-sm px-1.5 text-muted-foreground hover:bg-muted hover:text-foreground" onClick={onRemove}>×</button> : null}
             </div>
             {open ? <FileViewer projectId={file.projectId} file={file} className="m-2 mt-0 h-[50vh]" /> : null}
         </li>
@@ -130,7 +133,7 @@ export function HandInSection({ copyId, onOpenFiles, onSubmitted, onUploadFiles,
     const message = `Message your ${h.reviewers.replace(/\b([A-Z])([a-z])/g, (_, a: string, b: string) => a.toLowerCase() + b)}`
     const msgButton = onOpenConversation ? <Button type="button" size="sm" variant="outline" onClick={() => onOpenConversation('private')}>{message}</Button> : null
     return (
-        <section aria-labelledby="hand-in-heading" className="space-y-4 rounded-[6px] border border-border p-4 text-sm">
+        <section aria-labelledby="hand-in-heading" className="space-y-4 rounded-lg border border-border p-4 text-sm">
             {/* Review UX 2.3: what's asked, when it's due, and who reviews it, each on its own line. */}
             <div className="space-y-1">
                 <div className="flex items-center gap-2">
@@ -146,7 +149,7 @@ export function HandInSection({ copyId, onOpenFiles, onSubmitted, onUploadFiles,
                 <p className="text-[12px] text-muted-foreground">Set by {h.from}: the title, instructions and due date.</p>
             </div>
 
-            <div role="status" className={cn('space-y-0.5 rounded-[5px] px-3 py-2.5', BOX[box.tone])}>
+            <div role="status" className={cn('space-y-0.5 rounded-md px-3 py-2.5', BOX[box.tone])}>
                 <p className={cn('font-semibold', TITLE[box.tone])}>{box.title}{approval ? ` by ${approval.by ?? h.from} · ${WHEN.format(new Date(approval.at))}` : (box.title === 'Handed in' || box.title === 'Done') && at ? ` · ${at}` : ''}</p>
                 {box.lines.map((line) => <p key={line} className={box.tone === 'ok' ? 'font-mono text-[12px] text-muted-foreground' : 'text-[13px]'}>{line}</p>)}
                 {h.returned?.fixBy ? <p className="font-mono text-[12px] text-muted-foreground">Fix by {WHEN.format(new Date(h.returned.fixBy))}</p> : null}
@@ -154,7 +157,7 @@ export function HandInSection({ copyId, onOpenFiles, onSubmitted, onUploadFiles,
                 {box.message && msgButton && h.holder ? <div className="pt-1.5">{msgButton}</div> : null}
             </div>
             {/* Review UX 1.6: an admin who opened this copy from the Assignment tab gets back to it. */}
-            {!h.holder ? <a href={`?tab=tasks&drawerType=task&drawerId=${encodeURIComponent(h.masterId)}`} className="inline-block text-[13px] text-primary underline-offset-4 hover:underline">← Back to the assignment</a> : null}
+            {!h.holder ? <a href={`?tab=tasks&drawerType=task&drawerId=${encodeURIComponent(h.masterId)}`} className="nb-link inline-flex items-center gap-1 text-[13px]"><ChevronLeft className="size-4" aria-hidden="true" />Back to the assignment</a> : null}
             {!h.holder && h.state === 'submitted' ? <CopyReview copyId={copyId} orgId={h.orgId} masterId={h.masterId} onReviewed={(d) => { void refresh(); onReviewed?.(d) }} /> : null}
 
             {h.materials.length ? (
@@ -168,8 +171,8 @@ export function HandInSection({ copyId, onOpenFiles, onSubmitted, onUploadFiles,
             {locked && h.latest ? (
                 <div className="space-y-1.5">
                     <h4 className={label}>Handed in · Version {h.latest.version} · by {h.latest.by}</h4>
-                    {webLink(h.latest.link) ? <a href={webLink(h.latest.link)!} target="_blank" rel="noreferrer noopener" className="block break-all rounded-[5px] border border-border px-2.5 py-1.5 text-primary underline">{h.latest.link}</a> : h.latest.link ? <span className="break-all">{h.latest.link}</span> : null}
-                    {h.latest.text ? <p className="whitespace-pre-line rounded-[5px] border border-border px-2.5 py-1.5">{h.latest.text}</p> : null}
+                    {webLink(h.latest.link) ? <a href={webLink(h.latest.link)!} target="_blank" rel="noreferrer noopener" className="block break-all rounded-md border border-border px-2.5 py-1.5 text-primary underline">{h.latest.link}</a> : h.latest.link ? <span className="break-all">{h.latest.link}</span> : null}
+                    {h.latest.text ? <p className="whitespace-pre-line rounded-md border border-border px-2.5 py-1.5">{h.latest.text}</p> : null}
                     {h.latest.note ? <p className="text-muted-foreground">Note: {h.latest.note}</p> : null}
                 </div>
             ) : null}
@@ -189,7 +192,7 @@ export function HandInSection({ copyId, onOpenFiles, onSubmitted, onUploadFiles,
                     <ul className="space-y-1" aria-label="Steps">
                         {h.steps.map((s) => (
                             <li key={s.id}><label className="flex items-center gap-2 text-[13px]">
-                                <input type="checkbox" checked={s.done} disabled={!h.holder || locked || pending} onChange={(e) => toggleStep(s.id, e.target.checked)} />
+                                <input className="nb-check" type="checkbox" checked={s.done} disabled={!h.holder || locked || pending} onChange={(e) => toggleStep(s.id, e.target.checked)} />
                                 <span className={cn(s.done && 'text-muted-foreground line-through')}>{s.title}</span>
                             </label></li>
                         ))}
@@ -206,14 +209,14 @@ export function HandInSection({ copyId, onOpenFiles, onSubmitted, onUploadFiles,
                     ) : null}
                     {h.submissionType === 'text' ? (
                         <label className="block space-y-1"><span className="font-medium">Your answer</span>
-                            <textarea value={text} onChange={(e) => setText(e.target.value)} rows={5} maxLength={TEXT_MAX} className={area} aria-describedby="hand-in-count" />
+                            <textarea value={text} onChange={(e) => setText(e.target.value)} rows={5} maxLength={TEXT_MAX} className="nb-textarea" aria-describedby="hand-in-count" />
                             <span id="hand-in-count" className="block text-right font-mono text-[11px] text-muted-foreground">{text.length.toLocaleString()} / {TEXT_MAX.toLocaleString()}</span>
                         </label>
                     ) : null}
                     {h.submissionType === 'file' ? (
                         <div onDragOver={(e) => { if (canAttach) { e.preventDefault(); setDragging(true) } }} onDragLeave={() => setDragging(false)}
                             onDrop={(e) => { if (!canAttach) return; e.preventDefault(); setDragging(false); void attach(Array.from(e.dataTransfer.files)) }}
-                            className={cn('space-y-1 rounded-[5px] p-3 text-center text-[13px] text-muted-foreground', canAttach && 'border border-dashed', dragging ? 'border-primary' : 'border-border')}>
+                            className={cn('space-y-1 rounded-md p-3 text-center text-[13px] text-muted-foreground', canAttach && 'border border-dashed', dragging ? 'border-primary' : 'border-border')}>
                             {uploading ? <p role="status">Adding {uploading.join(', ')}…</p> : (
                                 <p className="flex flex-wrap items-center justify-center gap-2">
                                     {canAttach ? (h.files.length ? 'Drop another file, or' : 'Drop your file here, or') : null}
@@ -230,7 +233,7 @@ export function HandInSection({ copyId, onOpenFiles, onSubmitted, onUploadFiles,
                     ) : null}
                     {h.submissionType !== 'none' ? (
                         <label className="block space-y-1"><span className="font-medium">Add a note (optional)</span>
-                            <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2} maxLength={500} className={area} />
+                            <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2} maxLength={500} className="nb-textarea" />
                         </label>
                     ) : null}
                     {error ? <p role="alert" className="text-destructive">{error}</p> : null}

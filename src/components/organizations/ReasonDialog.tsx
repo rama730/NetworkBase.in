@@ -28,7 +28,7 @@ export function ReasonDialog({ open, onOpenChange, title, label, confirmLabel, r
             <label className="block space-y-1 px-6 text-sm">
                 <span className="font-medium">{label}</span>
                 <textarea value={text} onChange={(e) => setText(e.target.value)} rows={3} maxLength={500}
-                    className="w-full resize-y rounded-md border border-input bg-transparent px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring" />
+                    className="nb-textarea w-full" />
             </label>
         </ConfirmDialog>
     )

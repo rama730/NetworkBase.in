@@ -45,7 +45,8 @@ export function useReloadOnNotice(reload: () => void) {
 // and on the right the note, the steps, the conversation, then the decision.
 
 const DAY = new Intl.DateTimeFormat('en', { month: 'short', day: 'numeric' })
-const area = 'w-full resize-y rounded-md border border-input bg-transparent px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring'
+// Textareas use .nb-textarea (spec §10); this only adds layout.
+const area = 'w-full'
 export const reviewLabel = 'font-mono text-[11px] font-medium uppercase tracking-[0.09em] text-muted-foreground'
 
 /** Review UX 3.11: a handed-in link as a card — the site, then the address. */
@@ -54,7 +55,7 @@ export function LinkCard({ link }: { link: string }) {
     if (!url) return <span className="break-all">{link}</span>
     const { hostname, pathname } = new URL(url)
     return (
-        <a href={url} target="_blank" rel="noreferrer noopener" className="block rounded-md border border-border px-3 py-2 hover:bg-muted/50">
+        <a href={url} target="_blank" rel="noreferrer noopener" className="block rounded-md border border-border px-3 py-2 hover:bg-muted">
             <span className="block text-[13px] font-medium">{hostname.replace(/^www\./, '')}</span>
             <span className="block truncate text-[12px] text-primary">{pathname === '/' ? url : `${hostname}${pathname}`}</span>
         </a>
@@ -84,12 +85,12 @@ export function ReviewWork({ row }: { row: ReviewQueueRow }) {
                     <div role="tablist" aria-label="Files" className="flex min-w-0 flex-1 flex-wrap gap-1">
                         {files.map((f, i) => (
                             <button key={f.nodeId} type="button" role="tab" aria-selected={f.nodeId === file?.nodeId} onClick={() => setFileIndex(i)}
-                                title={f.name} className={cn('max-w-[18rem] truncate rounded-[4px] border px-2 py-0.5 text-[12px]', f.nodeId === file?.nodeId ? 'border-foreground font-medium' : 'border-border hover:bg-muted')}>{f.name}</button>
+                                title={f.name} className={cn('max-w-[18rem] truncate rounded-md border px-2 py-0.5 text-[12px]', f.nodeId === file?.nodeId ? 'border-foreground font-medium' : 'border-border hover:bg-muted')}>{f.name}</button>
                         ))}
                     </div>
                 ) : <span className="flex-1" />}
                 {versions.length ? (
-                    <select aria-label="Versions" className="h-8 rounded-md border border-input bg-background px-2 text-xs" value={version} onChange={(e) => { setVersion(Number(e.target.value)); setFileIndex(0) }}>
+                    <select aria-label="Versions" className="nb-select" data-size="sm" value={version} onChange={(e) => { setVersion(Number(e.target.value)); setFileIndex(0) }}>
                         <option value={now}>Version {now} · now</option>
                         {versions.map((v) => <option key={v.version} value={v.version}>Version {v.version} · {v.files.map((f) => f.name).join(', ') || 'nothing attached'} · {DAY.format(new Date(v.at))}</option>)}
                     </select>
@@ -182,30 +183,30 @@ export function ReviewDecision({ who, kind = 'copy', dueDate, recentReasons = []
     const returnBox = (
         <div className="space-y-2">
             <label className="block space-y-1"><span className="font-medium">What should {who} change?</span>
-                <textarea autoFocus value={reason} onChange={(e) => setReason(e.target.value)} rows={3} maxLength={1000} className={area} aria-label={`What should ${who} change?`} /></label>
+                <textarea autoFocus value={reason} onChange={(e) => setReason(e.target.value)} rows={3} maxLength={1000} className="nb-textarea" aria-label={`What should ${who} change?`} /></label>
             {recentReasons.length ? (
                 <div className="flex flex-wrap gap-1" role="group" aria-label="Recent reasons">
-                    {recentReasons.map((r) => <button key={r} type="button" className="max-w-full truncate rounded-[4px] border border-border px-2 py-0.5 text-[12px] hover:bg-muted" onClick={() => setReason(r)}>{r}</button>)}
+                    {recentReasons.map((r) => <button key={r} type="button" className="max-w-full truncate rounded-md border border-border px-2 py-0.5 text-[12px] hover:bg-muted" onClick={() => setReason(r)}>{r}</button>)}
                 </div>
             ) : null}
-            {kind === 'copy' ? <label className="flex flex-wrap items-center gap-2">Fix by <Input type="datetime-local" value={fixBy} onChange={(e) => setFixBy(e.target.value)} className="h-[30px] w-auto" aria-label="Fix by" /></label> : null}
+            {kind === 'copy' ? <label className="flex flex-wrap items-center gap-2">Fix by <Input type="datetime-local" value={fixBy} onChange={(e) => setFixBy(e.target.value)} className="h-7 w-auto" aria-label="Fix by" /></label> : null}
             {error ? <p role="alert" className="text-destructive">{error}</p> : null}
             <div className="flex gap-2">
-                <Button type="button" size="sm" className="h-[30px]" disabled={pending} onClick={sendReturn}>Return</Button>
-                <Button type="button" size="sm" variant="ghost" className="h-[30px]" onClick={() => setReturning(false)}>Cancel</Button>
+                <Button type="button" size="sm" className="h-7" disabled={pending} onClick={sendReturn}>Return</Button>
+                <Button type="button" size="sm" variant="ghost" className="h-7" onClick={() => setReturning(false)}>Cancel</Button>
             </div>
         </div>
     )
     if (layout === 'bar') {
-        const panel = 'absolute right-0 top-full z-30 mt-2 w-[22rem] max-w-[calc(100vw-2rem)] rounded-[8px] border border-border bg-popover p-3 text-sm shadow-md'
+        const panel = 'absolute right-0 top-full z-30 mt-2 w-[22rem] max-w-[calc(100vw-2rem)] rounded-lg border border-border bg-popover p-3 text-sm shadow-md'
         return (
             <div className="relative flex shrink-0 items-center gap-2" role="group" aria-label="Decision">
-                <Button type="button" size="sm" variant="outline" className="h-[30px]" disabled={pending} onClick={openReturn} aria-expanded={returning}>Return</Button>
+                <Button type="button" size="sm" variant="outline" className="h-7" disabled={pending} onClick={openReturn} aria-expanded={returning}>Return</Button>
                 <span className="inline-flex">
-                    <Button type="button" size="sm" className="h-[30px] rounded-r-none" disabled={pending} onClick={approve}>Approve</Button>
+                    <Button type="button" size="sm" className="h-7 rounded-r-none" disabled={pending} onClick={approve}>Approve</Button>
                     <DropdownMenu modal={false}>
                         <DropdownMenuTrigger asChild>
-                            <Button type="button" size="sm" className="h-[30px] rounded-l-none border-l border-primary-foreground/30 px-1.5" disabled={pending} aria-label="More ways to approve"><ChevronDown className="size-3.5" aria-hidden="true" /></Button>
+                            <Button type="button" size="sm" className="h-7 rounded-l-none border-l border-primary-foreground/30 px-1.5" disabled={pending} aria-label="More ways to approve"><ChevronDown className="size-3.5" aria-hidden="true" /></Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                             <DropdownMenuItem onSelect={() => { setReturning(false); setNoting(true) }}>Approve with a note…</DropdownMenuItem>
@@ -218,11 +219,11 @@ export function ReviewDecision({ who, kind = 'copy', dueDate, recentReasons = []
                     <div className={panel} role="dialog" aria-label="Approve with a note">
                         <div className="space-y-2">
                             <label className="block space-y-1"><span className="font-medium">A note for {who}</span>
-                                <textarea autoFocus value={note} onChange={(e) => setNote(e.target.value)} rows={3} maxLength={2000} className={area} aria-label={`A note for ${who}`} /></label>
+                                <textarea autoFocus value={note} onChange={(e) => setNote(e.target.value)} rows={3} maxLength={2000} className="nb-textarea" aria-label={`A note for ${who}`} /></label>
                             <p className="text-[12px] text-muted-foreground">It goes into the discussion.</p>
                             <div className="flex gap-2">
-                                <Button type="button" size="sm" className="h-[30px]" disabled={pending || !note.trim()} onClick={approve}>Approve</Button>
-                                <Button type="button" size="sm" variant="ghost" className="h-[30px]" onClick={() => { setNoting(false); setNote('') }}>Cancel</Button>
+                                <Button type="button" size="sm" className="h-7" disabled={pending || !note.trim()} onClick={approve}>Approve</Button>
+                                <Button type="button" size="sm" variant="ghost" className="h-7" onClick={() => { setNoting(false); setNote('') }}>Cancel</Button>
                             </div>
                         </div>
                     </div>
@@ -284,7 +285,7 @@ export function CopyReview({ copyId, orgId, masterId, onReviewed }: { copyId: st
             (ok, error) => { if (ok) onReviewed(decision); else { setHeld(false); toast.warning(error ?? 'Couldn’t save that. Try again.') } })
     }
     return (
-        <section aria-label="Review this hand-in" className="space-y-2 rounded-[5px] border border-border p-3">
+        <section aria-label="Review this hand-in" className="space-y-2 rounded-md border border-border p-3">
             <h3 className={reviewLabel}>Review</h3>
             {held ? <p role="status" className="text-[13px] text-muted-foreground">Sending in a few seconds. Undo is in the notice.</p> : (
                 <ReviewDecision who={row.who} dueDate={row.dueDate} recentReasons={data.reasons} pending={held}

@@ -75,16 +75,16 @@ export function AssignmentRoster({ row, orgId, timeZone, onChanged, onExport }: 
     })
     const tileButton = (key: Exclude<Tile, 'all'>, n: number, label: string, tone: string) => (
         <button type="button" aria-label={`${n} ${label}`} aria-pressed={tile === key} onClick={() => setTile(tile === key ? 'all' : key)}
-            className={cn('rounded-[5px] p-2.5 text-left', tone, tile === key && 'outline outline-1 outline-current')}>
-            <span className="block text-[20px] font-semibold leading-tight">{n}</span>
-            <span className="block font-mono text-[12px] text-muted-foreground">{label}</span>
+            className={cn('min-h-11 rounded-md border border-transparent p-2.5 text-left hover:border-input aria-pressed:border-foreground', tone)}>
+            <span className="block text-xl font-semibold leading-tight tabular-nums">{n}</span>
+            <span className="nb-meta block">{label}</span>
         </button>
     )
     const actions = (r: RosterRow) => {
         const open = <Button asChild size="sm" variant="outline"><a href={copyHref(r)} aria-label={`Open ${r.label}`}>Open</a></Button>
         const more = (
             <DropdownMenu>
-                <DropdownMenuTrigger asChild><Button type="button" size="sm" variant="ghost" aria-label={`More for ${r.label}`}><MoreHorizontal className="size-4" /></Button></DropdownMenuTrigger>
+                <DropdownMenuTrigger asChild><Button type="button" size="icon-sm" variant="ghost" className="nb-touch-target" aria-label={`More for ${r.label}`}><MoreHorizontal className="size-4" aria-hidden="true" /></Button></DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                     {r.state !== 'done' && r.state !== 'excused' && r.state !== 'submitted' ? <DropdownMenuItem onSelect={() => run(async () => { const res = await remindCopiesAction(row.masterId, [r.copyId]); if (res.success) toast.success(remindSummary(res)); return res.success ? { success: true } : res })}>Remind</DropdownMenuItem> : null}
                     {r.state !== 'done' && r.state !== 'excused' ? <DropdownMenuItem onSelect={() => setAsk({ kind: 'extend', row: r })}>Extend</DropdownMenuItem> : null}
@@ -118,14 +118,14 @@ export function AssignmentRoster({ row, orgId, timeZone, onChanged, onExport }: 
             {skips > 0 && tiles.notIn > 0 ? <p className="text-[12px] text-muted-foreground">{skips} {skips === 1 ? 'person was' : 'people were'} reminded in the last 12 hours and won’t be reminded again yet.</p> : null}
             <div className="flex flex-wrap items-center gap-2">
                 <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search people" aria-label="Search people" className="h-8 min-w-0 flex-1 basis-40" />
-                <select aria-label="Sort people" value={sort} onChange={(e) => setSort(e.target.value as 'name' | 'handedIn')} className="h-8 rounded-md border border-input bg-background px-2 text-xs">
+                <select aria-label="Sort people" value={sort} onChange={(e) => setSort(e.target.value as 'name' | 'handedIn')} className="nb-select" data-size="sm">
                     <option value="name">Name</option>
                     <option value="handedIn">Handed in first</option>
                 </select>
-                <label className="flex items-center gap-1.5 text-xs"><input type="checkbox" checked={lateOnly} onChange={(e) => setLateOnly(e.target.checked)} /> Late only</label>
+                <label className="flex items-center gap-1.5 text-xs"><input className="nb-check" type="checkbox" checked={lateOnly} onChange={(e) => setLateOnly(e.target.checked)} /> Late only</label>
             </div>
             {picked.size ? (
-                <div className="flex flex-wrap items-center gap-2 rounded-md border border-border bg-muted/30 p-2 text-sm" role="group" aria-label="Selected">
+                <div className="flex flex-wrap items-center gap-2 rounded-md border border-border bg-muted p-2 text-sm" role="group" aria-label="Selected">
                     <span className="font-medium">{picked.size} selected</span>
                     <Button type="button" size="sm" disabled={pending} onClick={() => run(async () => {
                         let approved = 0
@@ -147,20 +147,20 @@ export function AssignmentRoster({ row, orgId, timeZone, onChanged, onExport }: 
                         {section.rows.map((r) => (
                             <li key={r.copyId} className="border-t border-border py-2.5 first:border-t-0">
                                 <div className="flex flex-wrap items-center gap-2.5">
-                                    <input type="checkbox" aria-label={`Select ${r.label}`} checked={picked.has(r.copyId)} onChange={(e) => setPicked((cur) => { const next = new Set(cur); if (e.target.checked) next.add(r.copyId); else next.delete(r.copyId); return next })} />
-                                    <UserAvatar identity={{ id: r.userId ?? r.copyId, fullName: r.label, username: null, avatarUrl: r.avatarUrl }} size={28} roundedClassName="rounded-full" />
+                                    <input className="nb-check" type="checkbox" aria-label={`Select ${r.label}`} checked={picked.has(r.copyId)} onChange={(e) => setPicked((cur) => { const next = new Set(cur); if (e.target.checked) next.add(r.copyId); else next.delete(r.copyId); return next })} />
+                                    <UserAvatar identity={{ id: r.userId ?? r.copyId, fullName: r.label, username: null, avatarUrl: r.avatarUrl }} size={26} />
                                     <span className="min-w-0 flex-1">
                                         <span className="block truncate text-[13px] font-medium">{r.label}</span>
-                                        <span className="block truncate font-mono text-[12px] text-muted-foreground">{detail(r)}</span>
-                                        {/* Finding 6.2: a team row shows its people, ★ the lead. */}
-                                        {r.people?.length ? <span className="block truncate text-[12px] text-muted-foreground">{r.people.map((p) => `${p.name}${p.lead ? ' ★' : ''}`).join(' · ')}</span> : null}
+                                        <span className="nb-meta block truncate">{detail(r)}</span>
+                                        {/* Finding 6.2: a team row shows its people, and who leads it. */}
+                                        {r.people?.length ? <span className="block truncate text-[12px] text-muted-foreground">{r.people.map((p) => `${p.name}${p.lead ? ' (team lead)' : ''}`).join(' · ')}</span> : null}
                                     </span>
                                     <span className="flex shrink-0 flex-wrap justify-end gap-1 max-sm:w-full">{actions(r)}</span>
                                 </div>
                                 {r.people?.length && r.state !== 'submitted' && r.state !== 'done' ? (
                                     <div className="mt-1.5 flex flex-wrap gap-2 pl-10 text-xs">
                                         {r.people.map((p) => (
-                                            <select key={p.id} value="" aria-label={`Move ${p.name} to…`} className="h-7 rounded border border-border bg-background px-1 text-xs" disabled={pending}
+                                            <select key={p.id} value="" aria-label={`Move ${p.name} to…`} className="nb-select" data-size="sm" disabled={pending}
                                                 onChange={(e) => { const v = e.target.value; if (!v) return; if (v === 'excuse') { setTeamExcuse({ copyId: r.copyId, userId: p.id, name: p.name }); return } run(() => moveTeamMemberAction(row.masterId, p.id, v === 'own' ? null : v)) }}>
                                                 <option value="">{p.name}…</option>
                                                 {moveable.filter((o) => o.copyId !== r.copyId).map((o) => <option key={o.copyId} value={o.copyId}>Move to {o.label}</option>)}
@@ -183,7 +183,7 @@ export function AssignmentRoster({ row, orgId, timeZone, onChanged, onExport }: 
                         {withoutCopy.map((p) => (
                             <li key={p.userId} className="flex flex-wrap items-center gap-2">
                                 {p.name}
-                                <select value="" aria-label={`Add ${p.name} to a group`} className="h-7 rounded border border-border bg-background px-1 text-xs" disabled={pending}
+                                <select value="" aria-label={`Add ${p.name} to a group`} className="nb-select" data-size="sm" disabled={pending}
                                     onChange={(e) => { const v = e.target.value; if (v) run(() => moveTeamMemberAction(row.masterId, p.userId, v === 'own' ? null : v)) }}>
                                     <option value="">Add to group…</option>
                                     {moveable.map((o) => <option key={o.copyId} value={o.copyId}>{o.label}</option>)}

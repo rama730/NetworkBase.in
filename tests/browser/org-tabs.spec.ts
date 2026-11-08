@@ -195,7 +195,7 @@ test('Assignments (§16): the review queue steps with Next; the roster has Remin
     await expect(tab.getByText('1 person was reminded in the last 12 hours and won’t be reminded again yet.')).toBeVisible();
     await expect(tab.getByRole('textbox', { name: 'Add a step to every copy' })).toBeVisible();
     await expect(tab.getByRole('combobox', { name: 'Move Alexandria Ramana Chandrasekhar to…' })).toBeVisible();
-    await expect(tab.getByText('Ravi Kumar ★', { exact: false })).toBeVisible();
+    await expect(tab.getByText('Ravi Kumar (team lead)', { exact: false })).toBeVisible();
     await expect(tab.getByRole('combobox', { name: 'Add Late Joiner to a group' })).toBeVisible();
     await noSideScroll(page);
     await page.screenshot({ path: test.info().outputPath('assignments-375.png'), fullPage: true });

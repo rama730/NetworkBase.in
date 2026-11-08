@@ -11,7 +11,8 @@ import { formatDistanceToNow } from '@/lib/utils/date'
 // student's own copy. The line above the box always says who will see the message. On the main assignment its admins
 // answer each question, and Tell everyone shares an answer with everyone on it.
 
-const area = 'w-full resize-y rounded-md border border-input bg-transparent px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring'
+// Textareas use .nb-textarea (spec §10); this only adds layout.
+const area = 'w-full'
 
 export function ClassQuestions({ copyId }: { copyId: string }) {
     const client = useQueryClient()
@@ -62,8 +63,8 @@ export function ClassQuestions({ copyId }: { copyId: string }) {
                         ))}
                         {data.isAdmin && data.canPost ? (replyTo === q.id ? (
                             <div className="ml-4 space-y-2">
-                                <textarea value={reply} onChange={(e) => setReply(e.target.value)} rows={2} maxLength={5000} className={area} aria-label={`Answer ${q.author?.fullName || 'this question'}`} />
-                                <label className="flex items-center gap-2 text-[13px]"><input type="checkbox" checked={tell} onChange={(e) => setTell(e.target.checked)} />Tell everyone on this assignment</label>
+                                <textarea value={reply} onChange={(e) => setReply(e.target.value)} rows={2} maxLength={5000} className="nb-textarea" aria-label={`Answer ${q.author?.fullName || 'this question'}`} />
+                                <label className="flex items-center gap-2 text-[13px]"><input className="nb-check" type="checkbox" checked={tell} onChange={(e) => setTell(e.target.checked)} />Tell everyone on this assignment</label>
                                 <span className="flex gap-2">
                                     <Button type="button" size="sm" disabled={pending || !reply.trim()} onClick={() => answer(q.id)}>Answer</Button>
                                     <Button type="button" size="sm" variant="ghost" onClick={() => setReplyTo(null)}>Cancel</Button>
@@ -75,7 +76,7 @@ export function ClassQuestions({ copyId }: { copyId: string }) {
             </ul>
             {data.canPost && !data.isAdmin ? (
                 <div className="space-y-2">
-                    <textarea value={draft} onChange={(e) => setDraft(e.target.value)} rows={2} maxLength={5000} className={area} aria-label="Ask the class" />
+                    <textarea value={draft} onChange={(e) => setDraft(e.target.value)} rows={2} maxLength={5000} className="nb-textarea" aria-label="Ask the class" />
                     {error ? <p role="alert" className="text-destructive">{error}</p> : null}
                     <Button type="button" size="sm" disabled={pending || !draft.trim()} onClick={post}>Ask</Button>
                 </div>

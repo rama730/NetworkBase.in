@@ -1,7 +1,8 @@
 'use client'
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, useTransition } from 'react'
-import { ClipboardList, MoreHorizontal, Plus, Shuffle, X } from 'lucide-react'
+import { ClipboardList, MoreHorizontal, Plus, Shuffle, Star, X } from 'lucide-react'
+import { fieldError, fieldLabel } from '@/lib/organizations/display'
 
 import {
     addAssignmentStepAction,
@@ -74,8 +75,10 @@ import { subscribeBroadcast } from '@/lib/realtime/private-broadcast'
 const DUE = new Intl.DateTimeFormat('en', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
 const STATE_LABEL: Record<CopyState, string> = ASSIGNMENT_STATE_LABELS
 const due = (iso: string | null) => (iso ? `due ${DUE.format(new Date(iso))}` : 'no due date')
-const area = 'w-full resize-y rounded-md border border-input bg-transparent px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring'
-const select = 'h-[var(--ui-control-height)] rounded-md border border-input bg-background px-2 text-sm'
+// Textareas use .nb-textarea (spec §10); this only adds layout.
+const area = 'w-full'
+// Selects use .nb-select (spec §10); this only adds layout.
+const select = ''
 
 function Status({ text, tone = 'draft' }: { text: string; tone?: string }) {
     return <span className="nb-status" data-status={tone}>{text}</span>
@@ -122,30 +125,30 @@ function SubmitDialog({ copyId, submissionType, title, open, onOpenChange, onDon
     })
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-md">
+            <DialogContent>
                 <DialogHeader>
-                    <DialogTitle>Submit {title}</DialogTitle>
-                    <DialogDescription>{submissionType === 'file' ? 'Attach your file to this task first (Tasks → open the card → Files), then submit.' : 'Submit your work. You can resubmit until it is reviewed.'}</DialogDescription>
+                    <DialogTitle>Hand in {title}</DialogTitle>
+                    <DialogDescription>{submissionType === 'file' ? 'Attach your file to this task first: open the card on Tasks, then Files. Then hand it in.' : 'Hand in your work. You can hand it in again until it is reviewed.'}</DialogDescription>
                 </DialogHeader>
                 {materials.length ? (
                     <div className="text-sm"><p className="font-medium">Materials</p>
-                        <ul className="mt-1 space-y-0.5">{materials.map((m) => <li key={m.nodeId}><a href={`?tab=files&fileId=${encodeURIComponent(m.nodeId)}`} className="text-primary underline-offset-4 hover:underline">{m.name}</a></li>)}</ul>
+                        <ul className="mt-1 space-y-0.5">{materials.map((m) => <li key={m.nodeId}><a href={`?tab=files&fileId=${encodeURIComponent(m.nodeId)}`} className="nb-link">{m.name}</a></li>)}</ul>
                     </div>
                 ) : null}
                 {submissionType === 'link' ? <Input value={link} onChange={(e) => setLink(e.target.value)} placeholder="https://" aria-label="Link to your work" /> : null}
                 {submissionType === 'link' && projectDocs.length > 0 ? (
-                    <select defaultValue="" aria-label="Or pick a workspace doc" className="h-9 rounded-md border border-border bg-background px-2 text-sm"
+                    <select defaultValue="" aria-label="Or pick a workspace doc" className="nb-select"
                         onChange={(e) => { if (e.target.value) setLink(`${window.location.origin}/workspaces/${encodeURIComponent(docsProjectId!)}?tab=docs&doc=${encodeURIComponent(e.target.value)}`) }}>
                         <option value="">Or pick a workspace doc…</option>
                         {projectDocs.map((doc) => <option key={doc.slug} value={doc.slug}>{docTitle(doc.filename)}</option>)}
                     </select>
                 ) : null}
-                {submissionType === 'text' ? <textarea value={text} onChange={(e) => setText(e.target.value)} rows={6} maxLength={10000} className={area} aria-label="Your answer" /> : null}
-                <label className="block space-y-1 text-sm"><span className="font-medium">Add a note (optional)</span>
-                    <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2} maxLength={500} className={area} placeholder="I used the second dataset" />
+                {submissionType === 'text' ? <textarea value={text} onChange={(e) => setText(e.target.value)} rows={6} maxLength={10000} className="nb-textarea" aria-label="Your answer" /> : null}
+                <label className="block"><span className={fieldLabel}>Add a note (optional)</span>
+                    <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2} maxLength={500} className="nb-textarea mt-1.5" placeholder="I used the second dataset" />
                 </label>
-                {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}
-                <Button type="button" disabled={pending} onClick={submit}>Submit</Button>
+                {error ? <p role="alert" className={fieldError}>{error}</p> : null}
+                <Button type="button" disabled={pending} onClick={submit}>Hand in</Button>
             </DialogContent>
         </Dialog>
     )
@@ -331,18 +334,18 @@ export function AssignmentFields({ orgId, onDone, onCreated, reuseFrom = null, p
             <>
                 <div className="space-y-4">
                     <label className="block text-sm font-medium">Title<Input value={title} onChange={(e) => setTitle(e.target.value)} maxLength={200} className="mt-1" placeholder="Lab 1" /></label>
-                    <label className="block text-sm font-medium">Instructions<textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3} maxLength={10000} className={`${area} mt-1`} /></label>
+                    <label className="block text-sm font-medium">Instructions<textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3} maxLength={10000} className="nb-textarea mt-1" /></label>
                     <div className="grid gap-3 sm:grid-cols-2">
                         <div className="space-y-1">
                             <label className="block text-sm font-medium">Due <span className="font-normal text-muted-foreground">({zone})</span><Input type="datetime-local" value={dueLocal} onChange={(e) => setDueLocal(e.target.value)} className="mt-1" /></label>
                             <label className="flex flex-wrap items-center gap-2 text-[13px]">
-                                <input type="checkbox" checked={Boolean(repeatUntil)} disabled={!dueLocal} onChange={(e) => setRepeatUntil(e.target.checked ? new Date(new Date(dueLocal).getTime() + 28 * 86_400_000).toISOString().slice(0, 10) : '')} />
+                                <input className="nb-check" type="checkbox" checked={Boolean(repeatUntil)} disabled={!dueLocal} onChange={(e) => setRepeatUntil(e.target.checked ? new Date(new Date(dueLocal).getTime() + 28 * 86_400_000).toISOString().slice(0, 10) : '')} />
                                 Repeat weekly until
                                 {repeatUntil ? <Input type="date" value={repeatUntil} min={dueLocal.slice(0, 10)} onChange={(e) => setRepeatUntil(e.target.value)} className="h-8 w-auto" aria-label="Repeat until" /> : null}
                             </label>
                         </div>
                         <label className="block text-sm font-medium">Sprint
-                            <select value={sprintId} onChange={(e) => setSprintId(e.target.value)} className={`${select} mt-1 w-full`}>
+                            <select value={sprintId} onChange={(e) => setSprintId(e.target.value)} className="nb-select mt-1 w-full">
                                 <option value="">No sprint</option>
                                 {options.sprints.map((s) => <option key={s.id} value={s.id}>{s.name}{s.status === 'active' ? ' (running)' : ''}</option>)}
                             </select>
@@ -351,7 +354,7 @@ export function AssignmentFields({ orgId, onDone, onCreated, reuseFrom = null, p
 
                     <fieldset className="space-y-2">
                         <legend className="text-sm font-medium">Assign to</legend>
-                        <select value={mode} onChange={(e) => setMode(e.target.value as AssignmentTarget['mode'])} className={select} aria-label="Assign to">
+                        <select value={mode} onChange={(e) => setMode(e.target.value as AssignmentTarget['mode'])} className="nb-select" aria-label="Assign to">
                             <option value="everyone">Everyone (members)</option>
                             <option value="role">Admins</option>
                             <option value="people">Selected people</option>
@@ -363,7 +366,7 @@ export function AssignmentFields({ orgId, onDone, onCreated, reuseFrom = null, p
                             <ul className="max-h-48 divide-y divide-border overflow-y-auto rounded-md border border-border" aria-label="People">
                                 {roster.filter((p) => p.role !== 'viewer').map((p) => (
                                     <li key={p.userId}><label className="flex items-center gap-2 px-3 py-1.5 text-sm">
-                                        <input type="checkbox" checked={people.includes(p.userId)} onChange={(e) => setPeople((cur) => e.target.checked ? [...cur, p.userId] : cur.filter((id) => id !== p.userId))} />
+                                        <input className="nb-check" type="checkbox" checked={people.includes(p.userId)} onChange={(e) => setPeople((cur) => e.target.checked ? [...cur, p.userId] : cur.filter((id) => id !== p.userId))} />
                                         {p.name}{p.title ? <span className="text-muted-foreground"> · {p.title}</span> : null}
                                     </label></li>
                                 ))}
@@ -377,7 +380,7 @@ export function AssignmentFields({ orgId, onDone, onCreated, reuseFrom = null, p
                                     <label className="flex items-center gap-1">Auto-make teams of <Input type="number" min={1} max={100} value={teamSize} onChange={(e) => setTeamSize(Number(e.target.value))} className="w-16" /></label>
                                     <Button type="button" size="sm" variant="outline" onClick={autoMake} disabled={people.length === 0}><Shuffle className="size-3.5" aria-hidden="true" />Make</Button>
                                     {options.teamAssignments?.length ? (
-                                        <select value="" aria-label="Copy teams from" className={`${select} h-8 text-xs`} onChange={(e) => { if (e.target.value) void copyTeamsFrom(e.target.value) }}>
+                                        <select value="" aria-label="Copy teams from" className="nb-select" data-size="sm" onChange={(e) => { if (e.target.value) void copyTeamsFrom(e.target.value) }}>
                                             <option value="">Copy teams from…</option>
                                             {options.teamAssignments.map((a) => <option key={a.id} value={a.id}>{a.title}</option>)}
                                         </select>
@@ -392,16 +395,16 @@ export function AssignmentFields({ orgId, onDone, onCreated, reuseFrom = null, p
                                         </div>
                                         <div className="mt-2 flex flex-wrap gap-1.5">
                                             {team.people.map((p) => (
-                                                <span key={p.userId} className="inline-flex items-center gap-1 rounded-full border border-border py-0.5 pl-2 pr-1 text-xs">
-                                                    <button type="button" title="Make team lead" aria-pressed={team.leadId === p.userId} aria-label={`${p.name}, ${team.leadId === p.userId ? 'team lead' : 'make team lead'}`} onClick={() => setTeams((cur) => cur.map((t, i) => (i === ti ? { ...t, leadId: p.userId } : t)))}>{p.name}{team.leadId === p.userId ? ' ★' : ''}</button>
-                                                    <select value="" aria-label={`Move ${p.name} to…`} className="h-5 rounded border border-border bg-background text-[10px]" onChange={(e) => { const v = e.target.value; if (v) moveBetweenTeams(p.userId, ti, v === 'none' ? null : Number(v)) }}>
+                                                <span key={p.userId} className="inline-flex items-center gap-1 rounded-md border border-border bg-card py-0.5 pl-1 pr-0.5 text-[12px]">
+                                                    <button type="button" title="Make team lead" aria-pressed={team.leadId === p.userId} aria-label={`${p.name}, ${team.leadId === p.userId ? 'team lead' : 'make team lead'}`} className="inline-flex items-center gap-1 rounded-sm px-1 hover:bg-muted" onClick={() => setTeams((cur) => cur.map((t, i) => (i === ti ? { ...t, leadId: p.userId } : t)))}>{team.leadId === p.userId ? <Star className="size-3 fill-current text-primary" aria-hidden="true" /> : null}{p.name}</button>
+                                                    <select value="" aria-label={`Move ${p.name} to…`} className="nb-select" data-size="sm" onChange={(e) => { const v = e.target.value; if (v) moveBetweenTeams(p.userId, ti, v === 'none' ? null : Number(v)) }}>
                                                         <option value="">Move to…</option>
                                                         {teams.map((t, i) => (i === ti ? null : <option key={i} value={String(i)}>{t.name}</option>))}
                                                         <option value="none">Not in a team</option>
                                                     </select>
                                                 </span>
                                             ))}
-                                            <select value="" aria-label={`Add to ${team.name}`} className={`${select} h-7 text-xs`} onChange={(e) => {
+                                            <select value="" aria-label={`Add to ${team.name}`} className="nb-select" data-size="sm" onChange={(e) => {
                                                 const person = roster.find((p) => p.userId === e.target.value)
                                                 if (person) setTeams((cur) => cur.map((t, i) => (i === ti ? { ...t, people: [...t.people, person], leadId: t.leadId ?? person.userId } : t)))
                                             }}>
@@ -418,7 +421,7 @@ export function AssignmentFields({ orgId, onDone, onCreated, reuseFrom = null, p
                             <ul className="max-h-40 overflow-y-auto rounded-md border border-border" aria-label="Workspaces">
                                 {options.children.map((c) => (
                                     <li key={c.id}><label className="flex items-center gap-2 px-3 py-1.5 text-sm">
-                                        <input type="checkbox" checked={childIds.includes(c.id)} onChange={(e) => setChildIds((cur) => e.target.checked ? [...cur, c.id] : cur.filter((id) => id !== c.id))} />{c.title}
+                                        <input className="nb-check" type="checkbox" checked={childIds.includes(c.id)} onChange={(e) => setChildIds((cur) => e.target.checked ? [...cur, c.id] : cur.filter((id) => id !== c.id))} />{c.title}
                                     </label></li>
                                 ))}
                             </ul>
@@ -427,7 +430,7 @@ export function AssignmentFields({ orgId, onDone, onCreated, reuseFrom = null, p
 
                     <div className="grid gap-3 sm:grid-cols-2">
                         <label className="block text-sm font-medium">Submission
-                            <select value={submissionType} onChange={(e) => setSubmissionType(e.target.value as typeof submissionType)} className={`${select} mt-1 w-full`}>
+                            <select value={submissionType} onChange={(e) => setSubmissionType(e.target.value as typeof submissionType)} className="nb-select mt-1 w-full">
                                 <option value="file">A file</option><option value="link">A link</option><option value="text">Text</option><option value="none">No submission</option>
                             </select>
                         </label>
@@ -437,7 +440,7 @@ export function AssignmentFields({ orgId, onDone, onCreated, reuseFrom = null, p
                                 setLateRule(next)
                                 // Starts 7 days after the due date (report §42.10 problem 13); still required.
                                 if (next === 'until' && !lateUntilLocal && dueLocal) setLateUntilLocal(toLocalInput(new Date(new Date(dueLocal).getTime() + 7 * 86_400_000)))
-                            }} className={`${select} mt-1 w-full`}>
+                            }} className="nb-select mt-1 w-full">
                                 <option value="always">Always allowed</option><option value="until">Allowed until a date</option><option value="none">Not allowed</option>
                             </select>
                         </label>
@@ -448,7 +451,7 @@ export function AssignmentFields({ orgId, onDone, onCreated, reuseFrom = null, p
                         <Input type="number" min={0} max={60} value={lateAfter} onChange={(e) => setLateAfter(Math.max(0, Math.min(60, Number(e.target.value) || 0)))} className="w-20" aria-label="Late after, in minutes" />
                         <span className="font-normal text-muted-foreground">minutes past the due time</span>
                     </label>
-                    <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={reviewRequired} onChange={(e) => setReviewRequired(e.target.checked)} />Review required (Approve or Return each submission)</label>
+                    <label className="flex items-center gap-2 text-sm"><input className="nb-check" type="checkbox" checked={reviewRequired} onChange={(e) => setReviewRequired(e.target.checked)} />Review required (Approve or Return each submission)</label>
                     {reviewRequired ? <ReviewersPicker admins={admins} value={reviewers} onChange={setReviewers} className="text-sm" /> : null}
 
                     <div className="space-y-2">
@@ -467,8 +470,8 @@ export function AssignmentFields({ orgId, onDone, onCreated, reuseFrom = null, p
                         {materials.length ? (
                             <ul className="flex flex-wrap gap-1.5">
                                 {materials.map((m) => (
-                                    <li key={m.id} className="inline-flex items-center gap-1 rounded-full border border-border py-0.5 pl-2 pr-1 text-xs">
-                                        {m.name}{m.adminsOnly ? <span className="text-amber-700 dark:text-amber-400"> · Admins only</span> : null}
+                                    <li key={m.id} className="inline-flex items-center gap-1 rounded-md border border-border bg-card py-0.5 pl-2 pr-0.5 text-[12px]">
+                                        {m.name}{m.adminsOnly ? <span className="text-[var(--status-warning)]"> · Admins only</span> : null}
                                         <button type="button" aria-label={`Remove ${m.name}`} className="nb-icon-button size-5" onClick={() => setMaterials((cur) => cur.filter((x) => x.id !== m.id))}><X className="size-3" aria-hidden="true" /></button>
                                     </li>
                                 ))}
@@ -478,10 +481,10 @@ export function AssignmentFields({ orgId, onDone, onCreated, reuseFrom = null, p
                         {materialResults.length ? (
                             <ul className="max-h-36 divide-y divide-border overflow-y-auto rounded-md border border-border text-sm" aria-label="Files">
                                 {materialResults.filter((f) => !materials.some((m) => m.id === f.id)).map((f) => (
-                                    <li key={f.id}><button type="button" className="w-full px-3 py-1.5 text-left hover:bg-muted/50" onClick={() => { setMaterials((cur) => [...cur, f]); setMaterialQuery('') }}>
+                                    <li key={f.id}><button type="button" className="w-full px-3 py-1.5 text-left hover:bg-muted" onClick={() => { setMaterials((cur) => [...cur, f]); setMaterialQuery('') }}>
                                         {f.name}
                                         {/* Decision 137: say so before an Admins-only file becomes a material. */}
-                                        {f.adminsOnly ? <span className="block text-xs text-amber-700 dark:text-amber-400">Admins only. Members won’t be able to open this.</span> : null}
+                                        {f.adminsOnly ? <span className="block text-xs text-[var(--status-warning)]">Admins only. Members won’t be able to open this.</span> : null}
                                     </button></li>
                                 ))}
                             </ul>
@@ -492,12 +495,12 @@ export function AssignmentFields({ orgId, onDone, onCreated, reuseFrom = null, p
                     {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}
                     <div className="flex flex-wrap items-center justify-end gap-2">
                         <span className="mr-auto flex flex-wrap items-center gap-3 text-sm">
-                            <label className="flex items-center gap-1.5"><input type="checkbox" checked={shareToGeneral} onChange={(e) => setShareToGeneral(e.target.checked)} /> Also share in #general</label>
-                            <label className="flex items-center gap-1.5"><input type="checkbox" checked={announce} onChange={(e) => setAnnounce(e.target.checked)} /> Also post an announcement</label>
+                            <label className="flex items-center gap-1.5"><input className="nb-check" type="checkbox" checked={shareToGeneral} onChange={(e) => setShareToGeneral(e.target.checked)} /> Also share in #general</label>
+                            <label className="flex items-center gap-1.5"><input className="nb-check" type="checkbox" checked={announce} onChange={(e) => setAnnounce(e.target.checked)} /> Also post an announcement</label>
                         </span>
-                        {announce ? <textarea value={announcement ?? defaultAnnouncement} onChange={(e) => setAnnouncement(e.target.value)} rows={2} maxLength={5000} aria-label="Announcement" className={`${area} basis-full`} /> : null}
+                        {announce ? <textarea value={announcement ?? defaultAnnouncement} onChange={(e) => setAnnouncement(e.target.value)} rows={2} maxLength={5000} aria-label="Announcement" className="nb-textarea basis-full" /> : null}
                         {/* Publish timing (report §42.5, decision 125). */}
-                        <select value={when} onChange={(e) => setWhen(e.target.value as typeof when)} aria-label="When to publish" className={select}>
+                        <select value={when} onChange={(e) => setWhen(e.target.value as typeof when)} aria-label="When to publish" className="nb-select">
                             <option value="now">Publish now</option>
                             {sprintId ? <option value="sprint">When the sprint starts</option> : null}
                             <option value="date">On a date</option>
@@ -562,7 +565,7 @@ export function RosterDialog({ row, orgId, open, onOpenChange, onChanged, timeZo
                     <Button type="submit" size="sm" variant="outline" disabled={pending}>Add step</Button>
                 </form>
                 {picked.size ? (
-                    <div className="flex flex-wrap items-center gap-2 rounded-md border border-border bg-muted/30 p-2 text-sm" role="group" aria-label="Selected">
+                    <div className="flex flex-wrap items-center gap-2 rounded-md border border-border bg-muted p-2 text-sm" role="group" aria-label="Selected">
                         <span className="font-medium">{picked.size} selected</span>
                         <Button type="button" size="sm" disabled={pending} onClick={() => run(async () => {
                             let approved = 0
@@ -582,9 +585,9 @@ export function RosterDialog({ row, orgId, open, onOpenChange, onChanged, timeZo
                         return (
                             <li key={r.copyId} className="space-y-1 py-2 text-sm">
                                 <div className="flex flex-wrap items-center gap-2">
-                                    <input type="checkbox" aria-label={`Select ${r.label}`} checked={picked.has(r.copyId)} onChange={(e) => setPicked((cur) => { const next = new Set(cur); if (e.target.checked) next.add(r.copyId); else next.delete(r.copyId); return next })} />
+                                    <input className="nb-check" type="checkbox" aria-label={`Select ${r.label}`} checked={picked.has(r.copyId)} onChange={(e) => setPicked((cur) => { const next = new Set(cur); if (e.target.checked) next.add(r.copyId); else next.delete(r.copyId); return next })} />
                                     <span className="font-medium">{r.label}</span>
-                                    {r.people?.length ? <span className="text-muted-foreground">· {r.people.map((p) => `${p.name}${p.lead ? ' ★' : ''}`).join(' · ')}</span>
+                                    {r.people?.length ? <span className="text-muted-foreground">· {r.people.map((p) => `${p.name}${p.lead ? ' (team lead)' : ''}`).join(' · ')}</span>
                                         : r.members.length ? <span className="text-muted-foreground">· {r.members.join(' · ')}</span> : null}
                                     {r.submittedBy ? <span className="text-muted-foreground">· Submitted by {r.submittedBy}</span> : null}
                                     <Status text={STATE_LABEL[r.state] + (r.late ? ' · Late' : '')} tone={r.state === 'done' ? 'completed' : r.state === 'missing' ? 'archived' : r.state === 'submitted' ? 'active' : 'draft'} />
@@ -614,7 +617,7 @@ export function RosterDialog({ row, orgId, open, onOpenChange, onChanged, timeZo
                                     <div className="flex flex-wrap gap-2 text-xs">
                                         {r.people.map((p) => (
                                             <span key={p.id} className="inline-flex items-center gap-1">
-                                                <select value="" aria-label={`Move ${p.name} to…`} className="h-7 rounded border border-border bg-background px-1 text-xs" disabled={pending}
+                                                <select value="" aria-label={`Move ${p.name} to…`} className="nb-select" data-size="sm" disabled={pending}
                                                     onChange={(e) => { const v = e.target.value; if (!v) return; if (v === 'excuse') { setTeamExcuse({ copyId: r.copyId, userId: p.id, name: p.name }); return } run(() => moveTeamMemberAction(row.masterId, p.id, v === 'own' ? null : v)) }}>
                                                     <option value="">{p.name}…</option>
                                                     {rows.filter((o) => o.copyId !== r.copyId && o.people && o.state !== 'submitted' && o.state !== 'done').map((o) => <option key={o.copyId} value={o.copyId}>Move to {o.label}</option>)}
@@ -637,7 +640,7 @@ export function RosterDialog({ row, orgId, open, onOpenChange, onChanged, timeZo
                             {withoutCopy.map((p) => (
                                 <li key={p.userId} className="flex flex-wrap items-center gap-2">
                                     {p.name}
-                                    <select value="" aria-label={`Add ${p.name} to a group`} className="h-7 rounded border border-border bg-background px-1 text-xs" disabled={pending}
+                                    <select value="" aria-label={`Add ${p.name} to a group`} className="nb-select" data-size="sm" disabled={pending}
                                         onChange={(e) => { const v = e.target.value; if (v) run(() => moveTeamMemberAction(row.masterId, p.userId, v === 'own' ? null : v)) }}>
                                         <option value="">Add to group…</option>
                                         {rows.filter((o) => o.people && o.state !== 'submitted' && o.state !== 'done').map((o) => <option key={o.copyId} value={o.copyId}>{o.label}</option>)}
@@ -744,13 +747,13 @@ export function AssignmentManageSection({ orgId, masterId, onChanged }: { orgId:
             {/* Review UX 1.1: the tab's header — what it is, when it's due, and the rarer actions in one menu. */}
             <div className="flex items-center gap-2">
                 <div className="min-w-0 flex-1">
-                    <h3 id="assignment-manage-heading" className="truncate text-[15px] font-semibold">{row.title}</h3>
-                    <p className="font-mono text-[12px] text-muted-foreground">{[row.dueDate ? `Due ${new Intl.DateTimeFormat('en', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZoneName: 'short', ...(data.timeZone ? { timeZone: data.timeZone } : {}) }).format(new Date(row.dueDate))}` : 'No due date', row.status === 'open' ? 'Open' : row.status === 'closed' ? 'Closed' : row.status === 'scheduled' ? 'Scheduled' : 'Draft'].join(' · ')}</p>
+                    <h3 id="assignment-manage-heading" className="nb-card-title truncate">{row.title}</h3>
+                    <p className="nb-meta">{[row.dueDate ? `Due ${new Intl.DateTimeFormat('en', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZoneName: 'short', ...(data.timeZone ? { timeZone: data.timeZone } : {}) }).format(new Date(row.dueDate))}` : 'No due date', row.status === 'open' ? 'Open' : row.status === 'closed' ? 'Closed' : row.status === 'scheduled' ? 'Scheduled' : 'Draft'].join(' · ')}</p>
                 </div>
                 {/* Mockup task 1: the rarer actions sit in one menu; the panel itself shows the class. */}
                 {live ? (
                     <DropdownMenu>
-                        <DropdownMenuTrigger asChild><Button type="button" size="sm" variant="ghost" aria-label="Manage assignment" disabled={pending}><MoreHorizontal className="size-4" /></Button></DropdownMenuTrigger>
+                        <DropdownMenuTrigger asChild><Button type="button" size="icon-sm" variant="ghost" className="nb-touch-target" aria-label="Manage assignment" disabled={pending}><MoreHorizontal className="size-4" aria-hidden="true" /></Button></DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                             <DropdownMenuItem onSelect={() => setDialog('edit')}>Edit for everyone</DropdownMenuItem>
                             <DropdownMenuItem onSelect={() => reuseOnBoard ? reuseOnBoard(masterId) : setDialog('reuse')}>Use again</DropdownMenuItem>
@@ -779,13 +782,14 @@ export function AssignmentManageSection({ orgId, masterId, onChanged }: { orgId:
                 {!live ? <>
                     <Button type="button" size="sm" variant="outline" disabled={pending} onClick={() => setDialog('edit')}>Edit</Button>
                     <Button type="button" size="sm" variant="ghost" disabled={pending} onClick={() => reuseOnBoard ? reuseOnBoard(masterId) : setDialog('reuse')}>Use again</Button>
-                    <Button type="button" size="sm" variant="ghost" disabled={pending} onClick={askDelete}>Delete</Button>
+                    {/* Delete is destructive wherever it shows (spec §10), and it confirms first. */}
+                    <Button type="button" size="sm" variant="outline" className="text-destructive" disabled={pending} onClick={askDelete}>Delete…</Button>
                 </> : null}
             </div>
             {live ? <AssignmentRoster row={row} orgId={orgId} timeZone={data.timeZone} onChanged={() => { load(); onChanged?.() }} onExport={exportCsv} /> : null}
             {scheduleLocal !== null ? (
                 <div className="flex flex-wrap items-center gap-2">
-                    <Input type="datetime-local" value={scheduleLocal} onChange={(e) => setScheduleLocal(e.target.value)} aria-label={`Publish on (${zoneName(data.timeZone)})`} className="h-8 w-auto" />
+                    <Input type="datetime-local" value={scheduleLocal} onChange={(e) => setScheduleLocal(e.target.value)} aria-label={`Publish on (${zoneName(data.timeZone)})`} className="h-7 w-auto text-[13px]" />
                     <Button type="button" size="sm" disabled={pending || !scheduleLocal} onClick={() => { const at = zonedInputToIso(scheduleLocal, data.timeZone); setScheduleLocal(null); run(() => scheduleAssignmentAction(row.masterId, { at })) }}>Save</Button>
                 </div>
             ) : null}

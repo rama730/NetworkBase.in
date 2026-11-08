@@ -159,7 +159,7 @@ test('3.12, 3.13: an admin opening a waiting copy gets the same decision, Next w
     await expect(review.getByRole('link', { name: 'Next waiting: Kiran' })).toHaveAttribute('href', /drawerId=c9/);
     await expect(review.getByRole('link', { name: 'Back to queue' })).toHaveAttribute('href', /taskScope=review&assignment=a1/);
     await expect(card.getByRole('button', { name: /Hand in/ })).toHaveCount(0);
-    await expect(card.getByRole('link', { name: '← Back to the assignment' })).toHaveAttribute('href', /drawerId=a1/);
+    await expect(card.getByRole('link', { name: 'Back to the assignment' })).toHaveAttribute('href', /drawerId=a1/);
 });
 
 test('3.14: approved work says who approved it and when', async ({ page }) => {

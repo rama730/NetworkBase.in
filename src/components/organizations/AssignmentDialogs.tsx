@@ -11,7 +11,8 @@ import { isoToZonedInput, zonedInputToIso, zoneName } from '@/lib/organizations/
 
 const DAY = 86_400_000
 /** A date as a datetime-local value in the viewer's own zone. */
-const area = 'w-full resize-y rounded-md border border-input bg-transparent px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring'
+// Textareas use .nb-textarea (spec §10); this only adds layout.
+const area = 'w-full'
 
 /** Return, or Change decision on approved work (decisions 40, 126): a reason they'll see, and Fix by, 3 days out. */
 export function ReturnDialog({ label, change = false, open, onClose, onReturn, timeZone = null }: { label: string; change?: boolean; open: boolean; onClose: () => void; onReturn: (reason: string, fixBy: string) => void; timeZone?: string | null }) {
@@ -24,7 +25,7 @@ export function ReturnDialog({ label, change = false, open, onClose, onReturn, t
             confirmLabel="Return" onConfirm={() => { if (reason.trim() && fixBy) onReturn(reason.trim(), zonedInputToIso(fixBy, timeZone)); onClose() }}>
             <div className="space-y-3 text-sm">
                 <label className="block space-y-1"><span className="font-medium">What should they change?</span>
-                    <textarea required value={reason} onChange={(e) => setReason(e.target.value)} rows={3} maxLength={1000} className={area} aria-label="What should they change?" />
+                    <textarea required value={reason} onChange={(e) => setReason(e.target.value)} rows={3} maxLength={1000} className="nb-textarea" aria-label="What should they change?" />
                     <span className="block text-[12px] text-muted-foreground">They’ll see this.</span>
                 </label>
                 <label className="block space-y-1"><span className="font-medium">Fix by <span className="font-normal text-muted-foreground">({zoneName(timeZone)})</span></span>
@@ -51,7 +52,7 @@ export function ExtendDialog({ label, currentDue, closed, open, onClose, onExten
             <div className="space-y-3 text-sm">
                 <div className="flex flex-wrap gap-1.5">
                     {[['+1 day', 1], ['+3 days', 3], ['+1 week', 7]].map(([text, days]) => (
-                        <button key={text} type="button" className="rounded-[3px] border border-border px-2 py-0.5 text-xs hover:bg-muted" onClick={() => setValue(inZone(new Date(base.getTime() + Number(days) * DAY)))}>{text}</button>
+                        <button key={text} type="button" className="rounded-sm border border-border px-2 py-0.5 text-xs hover:bg-muted" onClick={() => setValue(inZone(new Date(base.getTime() + Number(days) * DAY)))}>{text}</button>
                     ))}
                 </div>
                 <label className="block space-y-1"><span className="font-medium">New due date <span className="font-normal text-muted-foreground">({zoneName(timeZone)})</span></span>
@@ -59,7 +60,7 @@ export function ExtendDialog({ label, currentDue, closed, open, onClose, onExten
                 </label>
                 {closed ? (
                     <label className="flex items-start gap-2">
-                        <input type="checkbox" className="mt-1" checked={reopen} onChange={(e) => setReopen(e.target.checked)} />
+                        <input type="checkbox" className="nb-check mt-1" checked={reopen} onChange={(e) => setReopen(e.target.checked)} />
                         <span>This assignment is closed. Reopen it for {label}?<span className="block text-[12px] text-muted-foreground">Only they can hand it in again, until the new date.</span></span>
                     </label>
                 ) : null}
@@ -77,7 +78,7 @@ export function ExcuseDialog({ label, open, onClose, onExcuse }: { label: string
         <ConfirmDialog open={open} onOpenChange={(v) => { if (!v) onClose() }} title={`Excuse ${label}?`} confirmLabel="Excuse"
             onConfirm={() => { if (reason.trim()) onExcuse(reason.trim()); onClose() }}>
             <label className="block space-y-1 text-sm"><span className="font-medium">Reason</span>
-                <textarea required value={reason} onChange={(e) => setReason(e.target.value)} rows={2} maxLength={500} className={area} aria-label="Reason" />
+                <textarea required value={reason} onChange={(e) => setReason(e.target.value)} rows={2} maxLength={500} className="nb-textarea" aria-label="Reason" />
                 <span className="block text-[12px] text-muted-foreground">They’ll see this. Their work stays, and they leave the counts.</span>
             </label>
         </ConfirmDialog>
@@ -94,7 +95,7 @@ export function GiveToDialog({ people, open, onClose, onGive, timeZone = null }:
             onConfirm={() => { if (userId && due) onGive(userId, zonedInputToIso(due, timeZone)); onClose() }}>
             <div className="space-y-3 text-sm">
                 <label className="block space-y-1"><span className="font-medium">Person</span>
-                    <select value={userId} onChange={(e) => setUserId(e.target.value)} className="h-9 w-full rounded-md border border-input bg-background px-2">
+                    <select value={userId} onChange={(e) => setUserId(e.target.value)} className="nb-select w-full">
                         {people.map((p) => <option key={p.userId} value={p.userId}>{p.name}</option>)}
                     </select>
                 </label>
@@ -162,27 +163,27 @@ export function EditAssignmentDialog({ orgId, row, open, onClose, onSave, timeZo
             <div className="grid gap-3 text-sm sm:grid-cols-2">
                 <label className="block space-y-1 sm:col-span-2"><span className="font-medium">Title</span><Input value={title} onChange={(e) => setTitle(e.target.value)} maxLength={200} /></label>
                 <label className="block space-y-1 sm:col-span-2"><span className="font-medium">Instructions</span>
-                    <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={4} maxLength={10000} disabled={closed} className={area} />
+                    <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={4} maxLength={10000} disabled={closed} className="nb-textarea" />
                     {closed ? <span className="block text-[12px] text-muted-foreground">Reopen it to change the instructions or due date.</span> : null}
                 </label>
                 {published && loaded && description !== loaded.description ? (
-                    <label className="flex items-center gap-2 sm:col-span-2"><input type="checkbox" checked={tell} onChange={(e) => setTell(e.target.checked)} /> Tell everyone</label>
+                    <label className="flex items-center gap-2 sm:col-span-2"><input className="nb-check" type="checkbox" checked={tell} onChange={(e) => setTell(e.target.checked)} /> Tell everyone</label>
                 ) : null}
                 <label className="block space-y-1"><span className="font-medium">Due <span className="font-normal text-muted-foreground">({zoneName(timeZone)})</span></span><Input type="datetime-local" value={due} disabled={closed} onChange={(e) => setDue(e.target.value)} /></label>
                 <label className="block space-y-1"><span className="font-medium">Sprint</span>
-                    <select value={sprintId} onChange={(e) => setSprintId(e.target.value)} className="h-9 w-full rounded-md border border-input bg-background px-2">
+                    <select value={sprintId} onChange={(e) => setSprintId(e.target.value)} className="nb-select w-full">
                         <option value="">Keep as is</option>
                         {sprints.map((sp) => <option key={sp.id} value={sp.id}>{sp.name}</option>)}
                     </select>
                 </label>
                 <label className="block space-y-1"><span className="font-medium">Hand-in</span>
-                    <select value={submissionType} disabled={handedIn} onChange={(e) => setSubmissionType(e.target.value)} className="h-9 w-full rounded-md border border-input bg-background px-2">
+                    <select value={submissionType} disabled={handedIn} onChange={(e) => setSubmissionType(e.target.value)} className="nb-select w-full">
                         <option value="file">A file</option><option value="link">A link</option><option value="text">Text</option><option value="none">No submission</option>
                     </select>
                     {handedIn ? <span className="block text-[12px] text-muted-foreground">Locked: someone has handed this in.</span> : null}
                 </label>
                 <label className="block space-y-1"><span className="font-medium">Late work</span>
-                    <select value={lateRule} onChange={(e) => setLateRule(e.target.value)} className="h-9 w-full rounded-md border border-input bg-background px-2">
+                    <select value={lateRule} onChange={(e) => setLateRule(e.target.value)} className="nb-select w-full">
                         <option value="always">Always allowed</option><option value="none">Not allowed</option>
                         {lateRule === 'until' ? <option value="until">Allowed until a date</option> : null}
                     </select>
@@ -191,9 +192,9 @@ export function EditAssignmentDialog({ orgId, row, open, onClose, onSave, timeZo
                 <label className="flex items-center gap-2">Late after
                     <Input type="number" min={0} max={60} value={lateAfter} onChange={(e) => setLateAfter(Math.max(0, Math.min(60, Number(e.target.value) || 0)))} className="w-20" aria-label="Late after, in minutes" /> minutes
                 </label>
-                <label className="flex items-center gap-2"><input type="checkbox" checked={review} onChange={(e) => setReview(e.target.checked)} /> Review each submission</label>
+                <label className="flex items-center gap-2"><input className="nb-check" type="checkbox" checked={review} onChange={(e) => setReview(e.target.checked)} /> Review each submission</label>
                 {review && reviewers ? <ReviewersPicker admins={admins} value={reviewers} onChange={setReviewers} className="sm:col-span-2" /> : null}
-                {published ? <p className="text-[12px] text-muted-foreground sm:col-span-2">Steps can only be added after publishing (Roster → Add step). Turning review off approves nothing already waiting.</p> : null}
+                {published ? <p className="text-[12px] text-muted-foreground sm:col-span-2">Steps can only be added after publishing, from the roster’s Add step. Turning review off approves nothing already waiting.</p> : null}
             </div>
         </ConfirmDialog>
     )
@@ -206,7 +207,7 @@ export function ReviewersPicker({ admins, value, onChange, className }: { admins
         <fieldset className={`space-y-1 ${className ?? ''}`}><legend className="font-medium">Reviewers <span className="font-normal text-muted-foreground">(none picked: everyone)</span></legend>
             <div className="flex flex-wrap gap-x-4 gap-y-1">
                 {admins.map((a) => (
-                    <label key={a.id} className="flex items-center gap-1.5"><input type="checkbox" checked={value.includes(a.id)}
+                    <label key={a.id} className="flex items-center gap-1.5"><input className="nb-check" type="checkbox" checked={value.includes(a.id)}
                         onChange={(e) => onChange(e.target.checked ? [...value, a.id] : value.filter((id) => id !== a.id))} />{a.name}</label>
                 ))}
             </div>

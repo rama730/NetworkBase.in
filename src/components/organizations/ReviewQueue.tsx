@@ -22,7 +22,7 @@ import { formatDistanceToNow } from '@/lib/utils/date'
 // Review queue report (2026-11-04-review-queue-layout-findings.md): who's waiting on the left, the work in the middle
 // with the decision on its own header, and only the discussion on the right — on one 8px grid, the three tops level.
 
-const control = 'h-[30px] rounded-[5px] border border-border bg-card px-2.5 text-xs text-foreground'
+// Filter toggles are tags: the chosen one takes the ink fill (spec §05).
 const label = 'font-mono text-[11px] font-medium uppercase tracking-[0.09em] text-muted-foreground'
 const DAY = new Intl.DateTimeFormat('en', { month: 'short', day: 'numeric' })
 const ago = (iso: string) => formatDistanceToNow(new Date(iso), { addSuffix: true })
@@ -37,7 +37,7 @@ function lateBy(row: ReviewQueueRow) {
 }
 
 function Avatar({ name, url, size = 24 }: { name: string; url?: string | null; size?: number }) {
-    return <UserAvatar identity={{ fullName: name, avatarUrl: url ?? null }} size={size} className="shrink-0" roundedClassName="rounded-[4px]" fallbackClassName="text-[10px]" />
+    return <UserAvatar identity={{ fullName: name, avatarUrl: url ?? null }} size={size} className="shrink-0" roundedClassName="rounded-md" fallbackClassName="text-[11px]" />
 }
 
 export function ReviewQueue({ orgId, onChanged, onClose, tabs }: { orgId: string; onChanged: () => void; onClose?: () => void
@@ -195,22 +195,22 @@ export function ReviewQueue({ orgId, onChanged, onClose, tabs }: { orgId: string
     const filtered = Boolean(query || lateOnly || mineOnly || assignment !== 'all')
     const clearFilters = () => { setQuery(''); setLateOnly(false); setMineOnly(false); setAssignment('all') }
     const titles = [...new Map((rows ?? []).map((r) => [r.masterId, r.kind === 'task' ? 'Other tasks' : r.title])).entries()]
-    const toggle = (on: boolean) => cn(control, 'inline-flex items-center', on ? 'border-foreground font-medium' : 'text-muted-foreground hover:text-foreground')
+    const toggle = (_on: boolean) => 'nb-tag h-7'
 
     const filters = (
         // Like Settings (review full-page): the filter line runs the tab's full width with one rule under it.
         <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border px-4 py-3 sm:px-5">
-            <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search names" aria-label="Search names" className="h-[30px] w-44 text-xs max-md:w-full" />
-            <select aria-label="Assignment" value={assignment} onChange={(e) => setAssignment(e.target.value)} className={control}>
+            <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search names" aria-label="Search names" className="h-7 w-44 text-[13px] max-md:w-full" />
+            <select aria-label="Assignment" value={assignment} onChange={(e) => setAssignment(e.target.value)} className="nb-select" data-size="sm">
                 <option value="all">All assignments</option>
                 {titles.map(([id, title]) => <option key={id} value={id}>{title}</option>)}
             </select>
-            <select aria-label="Sort" value={sort} onChange={(e) => setSort(e.target.value as typeof sort)} className={control}>
+            <select aria-label="Sort" value={sort} onChange={(e) => setSort(e.target.value as typeof sort)} className="nb-select" data-size="sm">
                 <option value="oldest">Oldest first</option>
                 <option value="newest">Newest first</option>
                 <option value="late">Late first</option>
             </select>
-            {/* §4b.12: every filter is the same 30px control. */}
+            {/* Every filter control is 28px (spec §05). */}
             <button type="button" aria-pressed={lateOnly} onClick={() => setLateOnly(!lateOnly)} className={toggle(lateOnly)}>Late only</button>
             {(rows ?? []).some((r) => !r.mine) ? (
                 <span className="inline-flex gap-1" role="group" aria-label="Whose reviews">
@@ -227,12 +227,12 @@ export function ReviewQueue({ orgId, onChanged, onClose, tabs }: { orgId: string
     if (!rows) return <div data-review-full>{filters}<p className="p-5 text-sm text-muted-foreground">Loading submissions…</p></div>
 
     const empty = (
-        <div className="nb-empty-state nb-grid-ground m-4 rounded-[8px] py-16 sm:m-5" role="status">
+        <div className="nb-empty-state nb-grid-ground m-4 rounded-lg py-16 sm:m-5" role="status">
             <h3 className="nb-empty-state-title">{filtered ? 'Nobody matches these filters' : 'All caught up'}</h3>
             <p className="nb-empty-state-desc">{filtered ? 'Try fewer filters.' : 'Nothing is waiting for review.'}</p>
             {filtered
-                ? <Button type="button" size="sm" variant="outline" className="mt-3 h-[30px]" onClick={clearFilters}>Clear filters</Button>
-                : onClose ? <Button type="button" size="sm" variant="outline" className="mt-3 h-[30px]" onClick={onClose}>Back to the board</Button> : null}
+                ? <Button type="button" size="sm" variant="outline" className="mt-3 h-7" onClick={clearFilters}>Clear filters</Button>
+                : onClose ? <Button type="button" size="sm" variant="outline" className="mt-3 h-7" onClick={onClose}>Back to the board</Button> : null}
         </div>
     )
 
@@ -246,7 +246,7 @@ export function ReviewQueue({ orgId, onChanged, onClose, tabs }: { orgId: string
             <h2 id="review-queue-heading" className="sr-only">To review</h2>
             <p className="sr-only" aria-live="polite">{spoken}</p>
             {filters}
-            {error ? <p role="alert" className="mx-4 mt-3 shrink-0 rounded-[5px] border border-destructive/30 bg-destructive/10 px-3 py-2 text-[13px] text-destructive sm:mx-5">{error}</p> : null}
+            {error ? <p role="alert" className="mx-4 mt-3 shrink-0 rounded-md border border-border bg-[var(--status-danger-soft)] px-3 py-2 text-[13px] text-destructive sm:mx-5">{error}</p> : null}
             {!current ? empty : (
                 // §4: 240 · flexible · 340 (300 below 1280); below 1024 the list becomes a picker over the work; phones stack.
                 // Submissions/review-card report §3: one card, the three parts split by hairlines — no gaps, no inner cards.
@@ -255,18 +255,18 @@ export function ReviewQueue({ orgId, onChanged, onClose, tabs }: { orgId: string
                         <div className="flex h-6 items-center justify-between">
                             <h3 className={label}>Waiting · {total}</h3>
                             <span className="flex items-center gap-1">
-                                <button type="button" aria-label="Previous" disabled={shown.length < 2} onClick={() => keys.current.step(-1)} className="inline-flex size-6 items-center justify-center rounded-[4px] border border-border text-xs hover:bg-muted disabled:opacity-40">‹</button>
+                                <button type="button" aria-label="Previous" disabled={shown.length < 2} onClick={() => keys.current.step(-1)} className="inline-flex size-6 items-center justify-center rounded-md border border-border text-xs hover:bg-muted disabled:opacity-40">‹</button>
                                 <span className="px-1 font-mono text-[11px] text-muted-foreground">{index + 1} of {shown.length}</span>
-                                <button type="button" aria-label="Next" disabled={shown.length < 2} onClick={() => keys.current.step(1)} className="inline-flex size-6 items-center justify-center rounded-[4px] border border-border text-xs hover:bg-muted disabled:opacity-40">›</button>
+                                <button type="button" aria-label="Next" disabled={shown.length < 2} onClick={() => keys.current.step(1)} className="inline-flex size-6 items-center justify-center rounded-md border border-border text-xs hover:bg-muted disabled:opacity-40">›</button>
                             </span>
                         </div>
-                        {incoming.length ? <button type="button" onClick={showIncoming} className="h-[30px] rounded-[5px] border border-primary/40 bg-primary/10 text-xs font-medium text-primary">{incoming.length} new · Show</button> : null}
+                        {incoming.length ? <button type="button" onClick={showIncoming} className="h-7 rounded-md border border-border bg-[var(--status-info-soft)] text-xs font-medium text-primary">{incoming.length} new · Show</button> : null}
                         <ul className="min-h-0 flex-1 space-y-1 overflow-y-auto">
                             {shown.map((r) => (
                                 <li key={r.copyId}>
                                     <button type="button" aria-current={r.copyId === current.copyId ? 'true' : undefined} onClick={() => { announce.current = true; setCurrentId(r.copyId) }}
                                         // The main navigation's selected item: the same background, corner and text — no bar.
-                                        className={cn('flex w-full items-center gap-2.5 rounded-[5px] px-2.5 py-2 text-left transition-colors', r.copyId === current.copyId ? 'bg-[var(--sidebar-accent)] text-foreground' : 'text-muted-foreground hover:bg-muted hover:text-foreground')}>
+                                        className={cn('flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left transition-colors', r.copyId === current.copyId ? 'bg-[var(--sidebar-accent)] text-foreground' : 'text-muted-foreground hover:bg-muted hover:text-foreground')}>
                                         <Avatar name={r.who} url={r.people?.length === 1 ? r.people[0]!.avatarUrl : null} />
                                         <span className="min-w-0 flex-1">
                                             <span className="block truncate text-[13px] font-medium" title={r.who}>{r.who}</span>
@@ -274,8 +274,8 @@ export function ReviewQueue({ orgId, onChanged, onClose, tabs }: { orgId: string
                                             {/* Late and Resubmitted on their own line, so the name never gets cut for them. */}
                                             {r.late || (r.version ?? 1) > 1 ? (
                                                 <span className="mt-1 flex gap-1">
-                                                    {r.late ? <span className="rounded-[3px] border border-destructive/30 px-1.5 font-mono text-[10px] text-destructive">Late</span> : null}
-                                                    {(r.version ?? 1) > 1 ? <span className="rounded-[3px] border border-border px-1.5 font-mono text-[10px] text-muted-foreground">Resubmitted</span> : null}
+                                                    {r.late ? <span className="rounded-sm border border-border px-1.5 font-mono text-[11px] text-destructive">Late</span> : null}
+                                                    {(r.version ?? 1) > 1 ? <span className="rounded-sm border border-border px-1.5 font-mono text-[11px] text-muted-foreground">Resubmitted</span> : null}
                                                 </span>
                                             ) : null}
                                             {r.newMessages ? <span className="flex items-center gap-1 text-[11px] font-medium text-primary"><span aria-hidden="true" className="size-1.5 rounded-full bg-primary" />New message</span> : null}
@@ -285,21 +285,21 @@ export function ReviewQueue({ orgId, onChanged, onClose, tabs }: { orgId: string
                                     </button>
                                 </li>
                             ))}
-                            {cursor ? <li><button type="button" onClick={loadMore} disabled={loadingMore} className="h-[30px] w-full rounded-[5px] border border-border text-xs text-muted-foreground hover:bg-muted">{loadingMore ? 'Loading…' : 'Load more'}</button></li> : null}
+                            {cursor ? <li><button type="button" onClick={loadMore} disabled={loadingMore} className="h-7 w-full rounded-md border border-border text-xs text-muted-foreground hover:bg-muted">{loadingMore ? 'Loading…' : 'Load more'}</button></li> : null}
                         </ul>
                         <p className="border-t border-border pt-2.5 font-mono text-[11px] text-muted-foreground">J / K to move · A approve · R return · <button type="button" className="underline-offset-2 hover:underline" onClick={() => setKeysOpen(true)}>? keys</button></p>
                     </section>
 
                     <section aria-label="Submission" className="flex min-h-0 min-w-0 flex-col gap-3.5 px-4 py-4 md:border-r md:border-border max-md:border-b max-md:border-border">
                         {/* Below 1024px the waiting list is a picker over the work. */}
-                        <select aria-label="Waiting" value={current.copyId} onChange={(e) => { announce.current = true; setCurrentId(e.target.value) }} className={cn(control, 'w-full lg:hidden')}>
+                        <select aria-label="Waiting" value={current.copyId} onChange={(e) => { announce.current = true; setCurrentId(e.target.value) }} className="nb-select w-full lg:hidden" data-size="sm">
                             {shown.map((r, i) => <option key={r.copyId} value={r.copyId}>{r.who} · {i + 1} of {shown.length}{r.late ? ' · Late' : ''}</option>)}
                         </select>
                         <div className="flex items-center gap-3 max-md:sticky max-md:top-0 max-md:z-10 max-md:flex-wrap max-md:bg-card max-md:py-2">
                             {(current.people ?? []).length > 1 ? (
                                 <span className="flex shrink-0 -space-x-1.5" aria-hidden="true">
                                     {current.people!.slice(0, 4).map((p) => <Avatar key={p.id} name={p.name} url={p.avatarUrl} size={28} />)}
-                                    {current.people!.length > 4 ? <span className="inline-flex size-7 items-center justify-center rounded-[4px] bg-muted font-mono text-[10px]">+{current.people!.length - 4}</span> : null}
+                                    {current.people!.length > 4 ? <span className="inline-flex size-7 items-center justify-center rounded-md bg-muted font-mono text-[11px]">+{current.people!.length - 4}</span> : null}
                                 </span>
                             ) : <Avatar name={current.who} url={current.people?.[0]?.avatarUrl} size={32} />}
                             <div className="min-w-0 flex-1">
@@ -317,7 +317,7 @@ export function ReviewQueue({ orgId, onChanged, onClose, tabs }: { orgId: string
                                 extra={(
                                     <DropdownMenu modal={false}>
                                         <DropdownMenuTrigger asChild>
-                                            <Button type="button" size="sm" variant="outline" className="h-[30px] w-[30px] p-0" aria-label="More for this hand-in"><MoreHorizontal className="size-4" aria-hidden="true" /></Button>
+                                            <Button type="button" size="sm" variant="outline" className="h-7 w-[30px] p-0" aria-label="More for this hand-in"><MoreHorizontal className="size-4" aria-hidden="true" /></Button>
                                         </DropdownMenuTrigger>
                                         <DropdownMenuContent align="end">
                                             <DropdownMenuItem asChild><a href={current.href}>Open the hand-in</a></DropdownMenuItem>
@@ -330,11 +330,11 @@ export function ReviewQueue({ orgId, onChanged, onClose, tabs }: { orgId: string
                         <NoteStrip row={current} />
                         {current.link ? <LinkCard link={current.link} /> : null}
                         {/* Review UX 3.11: text keeps its line breaks and spacing. */}
-                        {current.text ? <p className="whitespace-pre-wrap rounded-md bg-muted/40 px-3 py-2">{current.text}</p> : null}
-                        {current.kind === 'task' && current.description ? <p className="whitespace-pre-wrap rounded-md bg-muted/40 px-3 py-2 text-[13px]">{current.description}</p> : null}
+                        {current.text ? <p className="whitespace-pre-wrap rounded-md bg-muted px-3 py-2">{current.text}</p> : null}
+                        {current.kind === 'task' && current.description ? <p className="whitespace-pre-wrap rounded-md bg-muted px-3 py-2 text-[13px]">{current.description}</p> : null}
                         <ReviewWork key={current.copyId} row={current} />
                         {!current.link && !current.text && !current.files.length && !current.versions.length && !(current.kind === 'task' && current.description) ? (
-                            <div className="nb-empty-state flex-1 rounded-[6px] border border-dashed border-border py-12" role="status">
+                            <div className="nb-empty-state flex-1 rounded-lg border border-dashed border-border py-12" role="status">
                                 <h4 className="nb-empty-state-title">Nothing attached</h4>
                                 <p className="nb-empty-state-desc">{current.kind === 'task' ? 'Marked as done.' : `${current.who} marked it done without a file, link or text.`}</p>
                             </div>
@@ -351,7 +351,7 @@ export function ReviewQueue({ orgId, onChanged, onClose, tabs }: { orgId: string
                     <DialogHeader><DialogTitle>Keyboard shortcuts</DialogTitle><DialogDescription>Not while you’re typing.</DialogDescription></DialogHeader>
                     <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
                         {[['J', 'Next'], ['K', 'Previous'], ['A', 'Approve'], ['R', 'Return'], ['Esc', 'Back to the board'], ['?', 'These shortcuts']].map(([k, v]) => (
-                            <div key={k} className="contents"><dt><kbd className="rounded-[3px] border border-border px-1.5 font-mono text-xs">{k}</kbd></dt><dd>{v}</dd></div>
+                            <div key={k} className="contents"><dt><kbd className="rounded-sm border border-border px-1.5 font-mono text-xs">{k}</kbd></dt><dd>{v}</dd></div>
                         ))}
                     </dl>
                 </DialogContent>
@@ -366,7 +366,7 @@ function NoteStrip({ row }: { row: ReviewQueueRow }) {
     const done = row.steps.filter((s) => s.done).length
     if (!row.note && !row.lastAsk && !row.steps.length) return null
     return (
-        <div className="space-y-2 rounded-[6px] bg-muted/40 px-3 py-2 text-[12px] text-muted-foreground">
+        <div className="space-y-2 rounded-lg bg-muted px-3 py-2 text-[12px] text-muted-foreground">
             <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
                 {row.note ? <span className="min-w-0 flex-1 truncate" title={row.note}>Their note: “{row.note}”</span> : null}
                 {row.lastAsk ? <span className="min-w-0 flex-1 truncate" title={row.lastAsk}>Asked last time: {row.lastAsk}</span> : null}
