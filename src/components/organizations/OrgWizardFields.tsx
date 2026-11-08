@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useFieldArray, useFormContext, useWatch, type UseFormReturn } from 'react-hook-form'
 import { typeProfile } from '@/lib/organizations/type-profile'
-import { X } from 'lucide-react'
+import { Check, X } from 'lucide-react'
 
 import { checkOrgHandleAction } from '@/app/actions/organizations'
 import { PartOfField } from '@/components/organizations/OrgDiscoverySections'
@@ -16,15 +16,18 @@ import { ORG_CREATION_COPY, ORG_TYPE_CARDS, orgTypeDefaults } from '@/lib/organi
 import { parseInviteEmails } from '@/lib/organizations/member-rules'
 import { readOrgWork } from '@/lib/organizations/settings'
 import { cn } from '@/lib/utils'
+import { fieldError, fieldHint, fieldLabel } from '@/lib/organizations/display'
+import { ORG_SETTING_LABELS, joinModeHint } from '@/lib/organizations/settings-labels'
 import { generateSlugBase } from '@/lib/utils/slug'
 import type { CreateWorkspaceInput } from '@/lib/validations/workspace'
 
 // The organization-only fields of the create wizard (report §34). Each group drops into its phase when the
 // starting point is Organization; projects keep the wizard as it is.
 
-const labelClass = 'text-sm font-medium text-foreground'
-const helpClass = 'mt-1.5 text-[13px] leading-[1.5] text-muted-foreground'
-const textAreaClass = 'w-full resize-y rounded-md border border-input bg-card px-3 py-2 text-[15px] leading-[1.5] text-foreground outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30'
+const labelClass = fieldLabel
+const helpClass = fieldHint
+/** Required fields carry the clay mark (spec §10 Field). */
+const Required = () => <><span className="text-primary" aria-hidden="true"> *</span><span className="sr-only">(required)</span></>
 
 const useOrgCopy = () => ORG_CREATION_COPY[useWatch<CreateWorkspaceInput, 'organization.org_type'>({ name: 'organization.org_type' }) ?? 'other']
 
@@ -57,8 +60,9 @@ export function OrgTypePicker() {
                         <label
                             key={type}
                             className={cn(
-                                'flex cursor-pointer flex-col rounded-lg border p-3 transition-colors has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring',
-                                organization?.org_type === type ? 'border-primary bg-secondary' : 'border-border bg-card hover:bg-muted/60',
+                                // Spec §18 source tiles: a visible radio, and the chosen tile on the paper well.
+                                'grid cursor-pointer grid-cols-[16px_minmax(0,1fr)] gap-x-2.5 rounded-lg border p-3 transition-colors',
+                                organization?.org_type === type ? 'border-primary bg-muted' : 'border-border bg-card hover:border-input',
                             )}
                         >
                             <input
@@ -70,24 +74,24 @@ export function OrgTypePicker() {
                                     setValue('organization.org_type', type, { shouldDirty: true });
                                     applyOrgTypeDefaults(type, { setValue, getFieldState });
                                 }}
-                                className="sr-only"
+                                className="nb-radio mt-0.5"
                             />
                             <span className="nb-card-title text-foreground">{ORG_TYPE_CARDS[type].label}</span>
-                            <span className="nb-compact text-muted-foreground">{ORG_TYPE_CARDS[type].hint}</span>
-                            <span className="nb-meta mt-1.5 text-muted-foreground">{Object.values(defaultOrgRoleNames(type)).join(' · ')}</span>
+                            <span className="nb-compact col-start-2 text-muted-foreground">{ORG_TYPE_CARDS[type].hint}</span>
+                            <span className="nb-meta col-start-2 mt-1.5">{Object.values(defaultOrgRoleNames(type)).join(' · ')}</span>
                         </label>
                     ))}
                 </div>
                 {organization?.org_type === 'other' ? (
                     <div className="mt-4 max-w-sm">
-                        <label htmlFor="create-org-type-label" className="text-sm font-medium text-foreground">What do you call it? <span aria-hidden="true">*</span><span className="sr-only">(required)</span></label>
+                        <label htmlFor="create-org-type-label" className={labelClass}>What do you call it?<Required /></label>
                         <Input id="create-org-type-label" {...register('organization.type_label')} maxLength={30} placeholder="Nonprofit, Hackathon, Hostel committee" className="mt-1.5" autoFocus />
                         <p className="nb-compact mt-1 text-muted-foreground">Shown wherever the type appears.</p>
                     </div>
                 ) : null}
             </fieldset>
             <p className="nb-compact mt-5 text-muted-foreground">
-                Have a code? <Link href="/join" className="font-medium text-foreground underline underline-offset-4">Join an organization</Link>
+                Have a code? <Link href="/join" className="nb-link">Join an organization</Link>
             </p>
         </section>
         )
@@ -145,21 +149,22 @@ export function OrgIdentityFields() {
         <div className="space-y-5">
             <div>
                 {/* G1 (2026-11-05 findings §3): one name, the whole link while typing, no "@" (it isn't a mention). */}
-                <label htmlFor="create-org-handle" className={labelClass}>Web address <span aria-hidden="true">*</span><span className="sr-only">(required)</span></label>
-                <div className="mt-1.5 flex min-w-0 items-center gap-1.5">
-                    <span className="shrink-0 text-sm text-muted-foreground" aria-hidden="true">networkbase.in/org/</span>
-                    <Input
+                <label htmlFor="create-org-handle" className={labelClass}>Web address<Required /></label>
+                {/* The fixed part is the input's leading affix (spec §10 Input). */}
+                <div className="mt-1.5 flex h-[var(--ui-control-height)] min-w-0 items-stretch overflow-hidden rounded-md border border-input bg-card">
+                    <span className="nb-meta flex shrink-0 items-center border-r border-border bg-muted px-2" aria-hidden="true">networkbase.in/org/</span>
+                    <input
                         id="create-org-handle"
                         {...register('organization.handle', { onChange: () => { edited.current = true } })}
                         maxLength={40}
                         autoComplete="off"
                         spellCheck={false}
                         aria-describedby="create-org-handle-help create-org-handle-status"
-                        className="min-w-0"
+                        className="min-w-0 flex-1 bg-transparent px-2 text-[15px] outline-none"
                     />
                 </div>
-                <p id="create-org-handle-status" role="status" aria-live="polite" className={status && !status.available ? 'mt-1 text-[13px] text-destructive' : 'mt-1 text-[13px] text-[var(--status-success)]'}>
-                    {status ? (status.available ? `✓ ${status.message}` : status.message) : null}
+                <p id="create-org-handle-status" role="status" aria-live="polite" className={cn('flex items-center gap-1', status && !status.available ? fieldError : 'mt-1 text-[13px] text-[var(--status-success)]')}>
+                    {status ? (status.available ? <><Check className="size-4" aria-hidden="true" />{status.message}</> : status.message) : null}
                 </p>
                 <p id="create-org-handle-help" className={helpClass}>The link you share with people. Letters, numbers and dashes. You can change it later.</p>
             </div>
@@ -181,7 +186,7 @@ export function OrgIdentityFields() {
                 </div>
                 <div>
                     <label htmlFor="create-org-time-zone" className={labelClass}>Time zone</label>
-                    <select id="create-org-time-zone" {...register('organization.time_zone')} className="mt-1.5 h-[var(--ui-control-height)] w-full rounded-md border border-input bg-card px-2 text-sm">
+                    <select id="create-org-time-zone" {...register('organization.time_zone')} className="nb-select mt-1.5 w-full">
                         {zones.map((zone) => <option key={zone} value={zone}>{zone.replace(/_/g, ' ')}</option>)}
                     </select>
                     <p className={helpClass}>Due times and reminders use it.</p>
@@ -198,7 +203,7 @@ export function OrgWelcomeField() {
     return (
         <div className="border-t border-border pt-5">
             <label htmlFor="create-org-welcome" className={labelClass}>Welcome note</label>
-            <textarea id="create-org-welcome" {...register('organization.welcome_note')} rows={3} maxLength={500} className={`${textAreaClass} mt-1.5`} placeholder={copy.welcome} />
+            <textarea id="create-org-welcome" {...register('organization.welcome_note')} rows={3} maxLength={500} className="nb-textarea mt-1.5" data-size="lg" placeholder={copy.welcome} />
             <p className={helpClass}>Optional. People see it right after they join.</p>
         </div>
     )
@@ -215,13 +220,11 @@ export function OrgCalendarFields() {
             {termDates ? <fieldset>
                 <legend className={labelClass}>{copy.termLabel} (optional)</legend>
                 <div className="mt-1.5 grid gap-3 sm:grid-cols-2">
-                    <label className="text-[13px] text-muted-foreground">
-                        Starts
-                        <Input type="date" {...register('organization.term_start')} className="mt-1" />
+                    <label><span className={labelClass}>Starts</span>
+                        <Input type="date" {...register('organization.term_start')} className="mt-1.5" />
                     </label>
-                    <label className="text-[13px] text-muted-foreground">
-                        Ends
-                        <Input type="date" {...register('organization.term_end')} className="mt-1" />
+                    <label><span className={labelClass}>Ends</span>
+                        <Input type="date" {...register('organization.term_end')} className="mt-1.5" />
                     </label>
                 </div>
             </fieldset> : null}
@@ -241,16 +244,16 @@ function PlanFirstSprints() {
     return (
         <fieldset>
             <legend className={labelClass}>Plan your first sprints (optional)</legend>
-            <label className="mt-1.5 flex items-center gap-2 text-[13px] text-foreground">
-                <input type="checkbox" checked={Boolean(plan)} onChange={(e) => set(e.target.checked ? { prefix: orgTypeDefaults(type ?? 'other').sprintPrefix, count: 5, length_days: 7, start_date: termStart || today } : undefined)} />
+            <label className="mt-2 flex items-center gap-2.5 text-[13px] text-foreground">
+                <input type="checkbox" className="nb-check" checked={Boolean(plan)} onChange={(e) => set(e.target.checked ? { prefix: orgTypeDefaults(type ?? 'other').sprintPrefix, count: 5, length_days: 7, start_date: termStart || today } : undefined)} />
                 Plan a series of sprints now
             </label>
             {plan ? (
                 <div className="mt-2 grid gap-3 sm:grid-cols-4">
-                    <label className="text-[13px] text-muted-foreground">Name<Input value={plan.prefix} maxLength={40} onChange={(e) => set({ ...plan, prefix: e.target.value })} className="mt-1" /></label>
-                    <label className="text-[13px] text-muted-foreground">How many<Input type="number" min={1} max={20} value={plan.count} onChange={(e) => set({ ...plan, count: Math.min(20, Math.max(1, Number(e.target.value) || 1)) })} className="mt-1" /></label>
-                    <label className="text-[13px] text-muted-foreground">Days each<Input type="number" min={1} max={60} value={plan.length_days} onChange={(e) => set({ ...plan, length_days: Math.min(60, Math.max(1, Number(e.target.value) || 1)) })} className="mt-1" /></label>
-                    <label className="text-[13px] text-muted-foreground">First starts<Input type="date" value={plan.start_date} onChange={(e) => set({ ...plan, start_date: e.target.value || today })} className="mt-1" /></label>
+                    <label><span className={labelClass}>Name</span><Input value={plan.prefix} maxLength={40} onChange={(e) => set({ ...plan, prefix: e.target.value })} className="mt-1.5" /></label>
+                    <label><span className={labelClass}>How many</span><Input type="number" min={1} max={20} value={plan.count} onChange={(e) => set({ ...plan, count: Math.min(20, Math.max(1, Number(e.target.value) || 1)) })} className="mt-1.5" /></label>
+                    <label><span className={labelClass}>Days each</span><Input type="number" min={1} max={60} value={plan.length_days} onChange={(e) => set({ ...plan, length_days: Math.min(60, Math.max(1, Number(e.target.value) || 1)) })} className="mt-1.5" /></label>
+                    <label><span className={labelClass}>First starts</span><Input type="date" value={plan.start_date} onChange={(e) => set({ ...plan, start_date: e.target.value || today })} className="mt-1.5" /></label>
                 </div>
             ) : null}
             <p className={helpClass}>Named {plan ? `${plan.prefix.trim()}1–${plan.prefix.trim()}${plan.count}` : 'CO1, CO2…'}; you can rename, move or add more on the Sprints tab. The Journey on About is built from them.</p>
@@ -325,23 +328,27 @@ export function OrgPeopleFields() {
                     {query.includes('@') ? <Button type="button" variant="outline" onClick={addEmail} disabled={full}>Add</Button> : null}
                 </div>
                 {people.length ? (
-                    <ul className="mt-2 max-w-xl divide-y divide-border rounded-md border border-border" aria-label="People found">
-                        {people.slice(0, 6).map((p) => (
+                    <ul className="mt-2 max-w-xl divide-y divide-border overflow-hidden rounded-lg border border-border bg-card" aria-label="People found">
+                        {people.slice(0, 6).map((p) => {
+                            const added = coAdmins.fields.some((a) => a.user_id === p.id)
+                            return (
                             <li key={p.id}>
-                                <button type="button" className="w-full px-3 py-2 text-left text-sm hover:bg-muted disabled:opacity-50" disabled={full || coAdmins.fields.some((a) => a.user_id === p.id)}
+                                <button type="button" className="flex min-h-11 w-full items-center justify-between gap-2 px-3 py-2 text-left text-[13px] hover:bg-muted disabled:cursor-not-allowed" disabled={full || added}
                                     onClick={() => { coAdmins.append({ user_id: p.id, label: p.name }); setQuery(''); setPeople([]) }}>
-                                    {p.name}{p.username ? <span className="text-muted-foreground"> @{p.username}</span> : null}
+                                    <span>{p.name}{p.username ? <span className="text-muted-foreground"> @{p.username}</span> : null}</span>
+                                    {added ? <span className="nb-meta">Added</span> : null}
                                 </button>
                             </li>
-                        ))}
+                            )
+                        })}
                     </ul>
                 ) : null}
                 {coAdmins.fields.length ? (
                     <ul className="mt-3 flex flex-wrap gap-2" aria-label="Co-admins">
                         {coAdmins.fields.map((a, i) => (
-                            <li key={a.id} className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-sm">
+                            <li key={a.id} className="inline-flex items-center gap-1 rounded-md border border-border bg-card py-0.5 pl-2.5 pr-0.5 text-[13px]">
                                 {a.label}
-                                <button type="button" aria-label={`Remove ${a.label}`} onClick={() => coAdmins.remove(i)} className="text-muted-foreground hover:text-foreground"><X className="size-3.5" aria-hidden="true" /></button>
+                                <button type="button" aria-label={`Remove ${a.label}`} onClick={() => coAdmins.remove(i)} className="inline-flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"><X className="size-3.5" aria-hidden="true" /></button>
                             </li>
                         ))}
                     </ul>
@@ -349,21 +356,18 @@ export function OrgPeopleFields() {
             </div>
 
             <fieldset>
-                <legend className={labelClass}>How people join</legend>
+                <legend className={labelClass}>{ORG_SETTING_LABELS.joinMode.label}</legend>
                 <p className={helpClass}>Everyone can join with the code you get after creating.</p>
-                <div className="mt-3 space-y-2">
-                    <label className="flex items-start gap-3">
-                        <input type="radio" value="instant" {...register('organization.join_mode')} className="mt-1" />
-                        <span><span className="block text-sm font-medium">Instant</span><span className="block text-[13px] text-muted-foreground">Anyone with the code becomes a {roleNames.member}.</span></span>
-                    </label>
-                    <label className="flex items-start gap-3">
-                        <input type="radio" value="approval" {...register('organization.join_mode')} className="mt-1" />
-                        <span><span className="block text-sm font-medium">Approval required</span><span className="block text-[13px] text-muted-foreground">The code sends a request; an admin approves it.</span></span>
-                    </label>
+                <div className="mt-3 space-y-2.5 text-[13px]">
+                    {(['instant', 'approval'] as const).map((mode) => (
+                        <label key={mode} className="flex items-start gap-2.5">
+                            <input type="radio" value={mode} {...register('organization.join_mode')} className="nb-radio mt-0.5" />
+                            <span><span className="block font-medium">{ORG_SETTING_LABELS.joinMode.options[mode]}</span><span className="block text-muted-foreground">{joinModeHint(mode, roleNames.member)}</span></span>
+                        </label>
+                    ))}
                 </div>
-                <label className="mt-4 block max-w-xs text-[13px] text-muted-foreground">
-                    Max members (optional)
-                    <Input type="number" min={1} max={ORG_LIMITS.membersPerOrg} placeholder={String(ORG_LIMITS.membersPerOrg)} className="mt-1"
+                <label className="mt-4 block max-w-xs"><span className={labelClass}>Max members (optional)</span>
+                    <Input type="number" min={1} max={ORG_LIMITS.membersPerOrg} placeholder={String(ORG_LIMITS.membersPerOrg)} className="mt-1.5"
                         {...register('organization.max_members', { setValueAs: (v) => (v === '' || v == null ? null : Math.min(ORG_LIMITS.membersPerOrg, Math.max(1, Number(v) || 1))) })} />
                 </label>
             </fieldset>
@@ -371,8 +375,8 @@ export function OrgPeopleFields() {
             <div>
                 <label htmlFor="create-org-invites" className={labelClass}>Invite people now (optional)</label>
                 <p className={helpClass}>Paste email addresses, for example a class roster. They get a {roleNames.member} invite when the organization is created.</p>
-                <textarea id="create-org-invites" {...register('organization.invite_emails')} rows={4} className={`${textAreaClass} mt-2`} placeholder="asha@college.edu, ravi@college.edu" aria-describedby="create-org-invites-count" />
-                <p id="create-org-invites-count" role="status" aria-live="polite" className={parsed.valid.length > ORG_LIMITS.emailInvitesPerPaste ? 'mt-1 text-[13px] text-destructive' : helpClass}>
+                <textarea id="create-org-invites" {...register('organization.invite_emails')} rows={4} className="nb-textarea mt-2" data-size="lg" placeholder="asha@college.edu, ravi@college.edu" aria-describedby="create-org-invites-count" />
+                <p id="create-org-invites-count" role="status" aria-live="polite" className={parsed.valid.length > ORG_LIMITS.emailInvitesPerPaste ? fieldError : helpClass}>
                     {pasted.trim()
                         ? `${parsed.valid.length} ${parsed.valid.length === 1 ? 'email' : 'emails'}${parsed.invalid.length ? `, ${parsed.invalid.length} ${parsed.invalid.length === 1 ? 'looks' : 'look'} wrong` : ''}${parsed.valid.length > ORG_LIMITS.emailInvitesPerPaste ? ` · up to ${ORG_LIMITS.emailInvitesPerPaste} here` : ''}`
                         : null}
@@ -382,8 +386,9 @@ export function OrgPeopleFields() {
     )
 }
 
-const LATE = { none: 'Not accepted', until: 'Accepted until a date', always: 'Always accepted' } as const
-const REMINDERS = { both: '24 hours before and on the due day', day_before: '24 hours before', due_day: 'On the due day', off: 'Off' } as const
+// The same words as Settings → Work (org design plan ST15).
+const LATE = ORG_SETTING_LABELS.lateRule.options
+const REMINDERS = ORG_SETTING_LABELS.reminders.options
 
 /** Phase 4 Setup for orgs: projects inside, and the Work defaults as one line (report §34.5). */
 export function OrgSettingsFields() {
@@ -399,50 +404,50 @@ export function OrgSettingsFields() {
     }
     const [open, setOpen] = useState(false)
     const set = (patch: NonNullable<typeof chosen>) => setValue('organization.work', { ...chosen, ...patch }, { shouldDirty: true })
-    const selectClass = 'mt-1 h-[var(--ui-control-height)] w-full rounded-md border border-input bg-card px-2 text-sm'
+    const L = ORG_SETTING_LABELS
     return (
         <div className="space-y-6">
             <fieldset>
-                <legend className={labelClass}>Who can create workspaces inside the organization</legend>
-                <div className="mt-3 space-y-2">
-                    <label className="flex items-center gap-3 text-sm">
-                        <input type="radio" value="members" {...register('organization.child_creation')} /> All members
-                    </label>
-                    <label className="flex items-center gap-3 text-sm">
-                        <input type="radio" value="admins" {...register('organization.child_creation')} /> Admins only
-                    </label>
+                <legend className={labelClass}>{L.childCreation.label}</legend>
+                <div className="mt-3 space-y-2.5 text-[13px]">
+                    {(['members', 'admins'] as const).map((v) => (
+                        <label key={v} className="flex items-center gap-2.5">
+                            <input type="radio" value={v} {...register('organization.child_creation')} className="nb-radio" /> {L.childCreation.options[v]}
+                        </label>
+                    ))}
                 </div>
             </fieldset>
-            <label className="flex items-start gap-3">
-                <input type="checkbox" {...register('organization.outside_people')} className="mt-1" />
+            {/* A checkbox, not a switch: Create organization saves it (spec §10). */}
+            <label className="flex items-start gap-2.5 text-[13px]">
+                <input type="checkbox" {...register('organization.outside_people')} className="nb-check mt-0.5" />
                 <span>
-                    <span className="block text-sm font-medium">People outside the organization can be added to its workspaces</span>
-                    <span className="block text-[13px] text-muted-foreground">Off by default. They see only that workspace, never the organization’s content.</span>
+                    <span className="block font-medium">{L.outsidePeople.label}</span>
+                    <span className="block text-muted-foreground">Off by default. {L.outsidePeople.help}</span>
                 </span>
             </label>
             <div>
                 <p className={labelClass}>Work defaults</p>
                 <p className={helpClass} data-testid="create-org-work-summary">
-                    Review {work.reviewRequired ? 'on' : 'off'} · Late work {LATE[work.lateRule].toLowerCase()} · Reminders {REMINDERS[work.reminders].toLowerCase()} · Estimate {work.storyPoints}
-                    {' · '}<button type="button" className="font-medium text-foreground underline underline-offset-4" aria-expanded={open} onClick={() => setOpen((v) => !v)}>{open ? 'Done' : 'Change'}</button>
+                    Review {work.reviewRequired ? 'on' : 'off'} · Late work {LATE[work.lateRule].toLowerCase()} · Reminders {REMINDERS[work.reminders].toLowerCase()} · {L.storyPoints.label} {work.storyPoints}
+                    {' · '}<button type="button" className="nb-link" aria-expanded={open} onClick={() => setOpen((v) => !v)}>{open ? 'Done' : 'Change'}</button>
                 </p>
                 {open ? (
                     <div className="mt-3 grid max-w-2xl gap-4 sm:grid-cols-2">
-                        <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={work.reviewRequired} onChange={(e) => set({ review_required: e.target.checked })} /> Review submissions before they count as done</label>
-                        <label className="text-[13px] text-muted-foreground">Late work
-                            <select className={selectClass} value={work.lateRule} onChange={(e) => set({ late_rule: e.target.value as keyof typeof LATE })}>
+                        <label className="flex items-start gap-2.5 text-[13px] sm:col-span-2"><input type="checkbox" className="nb-check mt-0.5" checked={work.reviewRequired} onChange={(e) => set({ review_required: e.target.checked })} /><span><span className="block font-medium">{L.reviewRequired.label}</span><span className="block text-muted-foreground">{L.reviewRequired.help}</span></span></label>
+                        <label><span className={labelClass}>{L.lateRule.label}</span>
+                            <select className="nb-select mt-1.5 w-full" value={work.lateRule} onChange={(e) => set({ late_rule: e.target.value as keyof typeof LATE })}>
                                 {Object.entries(LATE).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
                             </select>
                         </label>
-                        <label className="text-[13px] text-muted-foreground">Reminders
-                            <select className={selectClass} value={work.reminders} onChange={(e) => set({ reminders: e.target.value as keyof typeof REMINDERS })}>
+                        <label><span className={labelClass}>{L.reminders.label}</span>
+                            <select className="nb-select mt-1.5 w-full" value={work.reminders} onChange={(e) => set({ reminders: e.target.value as keyof typeof REMINDERS })}>
                                 {Object.entries(REMINDERS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
                             </select>
                         </label>
-                        <label className="text-[13px] text-muted-foreground">Estimate
-                            <select className={selectClass} value={work.storyPoints} onChange={(e) => set({ story_points: e.target.value as 'shown' | 'hidden' })}>
-                                <option value="shown">Shown</option>
-                                <option value="hidden">Hidden</option>
+                        <label><span className={labelClass}>{L.storyPoints.label}</span>
+                            <select className="nb-select mt-1.5 w-full" value={work.storyPoints} onChange={(e) => set({ story_points: e.target.value as 'shown' | 'hidden' })}>
+                                <option value="shown">{L.storyPoints.options.shown}</option>
+                                <option value="hidden">{L.storyPoints.options.hidden}</option>
                             </select>
                         </label>
                     </div>

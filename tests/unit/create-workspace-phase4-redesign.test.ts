@@ -16,10 +16,10 @@ test('Phase 4 uses the flat launch-settings hierarchy and removes creation-time 
 
     assert.match(phase, /Phase 4 · \{isOrganization \? 'setup' : 'settings'\}/);
     assert.match(phase, /Choose how the workspace starts/);
-    assert.match(phase, /Choose workspace visibility/);
+    assert.match(phase, /Choose \$\{noun\} visibility/);
     // Roles are reviewed in step 5; step 4 is launch settings only.
     assert.doesNotMatch(phase, /Confirm the initial availability|Edit roles|Ready to review:/);
-    assert.match(phase, /Workspace links/);
+    assert.match(phase, /\$\{Noun\} links/);
     assert.match(phase, /min-w-0 w-full space-y-8 pb-6/);
     assert.match(phase, /border-t border-border pt-6/);
     assert.match(phase, /type="radio"/);
@@ -47,7 +47,7 @@ test('Phase 4 blocks unfinished link work and carries launch settings into revie
     const review = source('src/components/workspaces/create-wizard/phases/Phase5Review.tsx');
 
     assert.match(phase, /onPendingChange=\{onLinkComposerPending\}/);
-    assert.match(phase, /Finish the workspace links before continuing/);
+    assert.match(phase, /Finish the \{noun\} links before continuing/);
     assert.match(wizard, /phase4LinkComposerPending/);
     assert.match(wizard, /trigger\(\['visibility', 'external_links'\], \{ shouldFocus: true \}\)/);
     assert.match(modal, /showValidationSummary=\{phase4ValidationAttempted\}/);

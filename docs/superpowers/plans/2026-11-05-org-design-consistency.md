@@ -280,7 +280,7 @@ Each row: **ID · where · what is wrong · rule broken · fix.** "Fix" names th
 |---|---|---|---|---|
 | CR1 | `Phase4Settings.tsx:341,355,415,428,465,495`; `Phase5Review.tsx:165,263,386-389,414,420` | An organization's creator reads "Workspace picture", "Choose workspace visibility", "Workspace links", "Starter doc… The workspace Doc tab", "Workspace files", "Workspace-wide notification rules", "Untitled workspace", "Private workspace", "No workspace links added" | org spec §2 rule 5 | Org copy map for each section and review line |
 | CR2 | `Phase4Settings.tsx:299-307` | The org-only Calendar and "Workspaces inside and work" sections have no numbered eyebrow and are not in the sticky section index; the eight standard sections are | §18 numbered sections + index | Add them to `SECTIONS` as 01, 02… |
-| CR3 | `Phase4Settings.tsx:294-295`, `Phase3TeamRoles.tsx:98-99` | Eyebrow "Phase 4 · setup" in lower case, then the title "Setup" again | §04 sentence case | Eyebrow "Step 4 of 5", title "Setup" |
+| CR3 | `Phase4Settings.tsx:294-295` | The title "Setup" repeats the eyebrow (the eyebrow's case is CSS uppercase, so that part was fine) | §04 | Title "Choose how the organization starts", as the workspace's |
 | CR4 | `Phase4Settings.tsx:~313` | Validation summary says "Finish the workspace links" for an organization | copy | Follow the org copy map |
 | CR5 | `OrgWizardFields.tsx` OrgTypePicker | Type tiles hide the radio; selected tile is clay border + grey fill | §18 checked radio + paper active well | Visible radio, `bg-muted` selected well |
 | CR6 | `OrgWizardFields.tsx` handle, type label | Required "*" in text colour | §10 required mark clay | `text-primary` |
@@ -291,7 +291,7 @@ Each row: **ID · where · what is wrong · rule broken · fix.** "Fix" names th
 | CR11 | `OrgSettingsFields` | Work defaults as checkboxes and different words from Settings | ST15 | Shared label map |
 | CR12 | `OrgSettingsFields` | "Change / Done" underlined toggle | G6 | Disclosure button |
 | CR13 | `OrganizationCreatedScreen.tsx` | 24px title (page title is 30px); 48px code; a second `<main>` inside the app's main; copy result as a status line; link hard-codes `networkbase.in` while the join link uses `window.location.origin` | §04; §34 one main; G26 | `.nb-page-title`, `JoinCode`, `<section>`, `CopyButton`, one origin helper |
-| CR14 | `Phase5Review.tsx` | Preview card for an org: check it renders the organization card (type, Part of), not a workspace card | §18 canonical card | Pass `kind: 'organization'` |
+| CR14 | `Phase5Review.tsx` | Checked: the preview already passes `kind: 'organization'` | — | No change |
 | CR15 | `CreateLocation.tsx` | Icon before the select; "—" inside option text; locked chip on `bg-secondary` | §06; copy | Plain select; "(only admins)"; Badge |
 | CR16 | `ChildTeamFields.tsx` | Picker tabs as grey pills; 32px selects at 12px; 24px buttons inside pill chips; "Owner" heading for the workspace lead; 11px "Will be added" | G38/G1/G37/G29 | `UnderlineTabs`; primitives; "Workspace lead" |
 

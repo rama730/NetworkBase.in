@@ -8,7 +8,7 @@ import { readOrgDocsAction } from '@/app/actions/org-docs';
 import { listOrgTemplateFoldersAction } from '@/app/actions/org-files';
 import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType, type ReactNode } from 'react';
 import { useFormContext, useWatch } from 'react-hook-form';
-import { Bell, Building2, Check, ChevronDown, FileText, Folder, Globe, ImageIcon, ImagePlus, Info, Link2, Lock, Users, Workflow, X } from 'lucide-react';
+import { Bell, Building2, CalendarDays, Check, ChevronDown, FileText, Folder, FolderKanban, Globe, ImageIcon, ImagePlus, Info, Link2, Lock, Users, Workflow, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from '@/lib/feedback';
 import { Button } from '@/components/ui/button';
@@ -45,13 +45,20 @@ const SECTIONS: ReadonlyArray<{ id: string; eyebrow: string; label: string; desc
     { id: 'files', eyebrow: 'Files and storage', label: 'Files and storage', description: 'Source and upload rules', icon: Folder },
     { id: 'notifications', eyebrow: 'Notifications', label: 'Notifications', description: 'Team notification rules', icon: Bell },
 ] as const;
-type SectionId = 'picture' | 'access' | 'links' | 'documentation' | 'lifecycle' | 'permissions' | 'files' | 'notifications';
+type SectionId = 'calendar' | 'inside' | 'picture' | 'access' | 'links' | 'documentation' | 'lifecycle' | 'permissions' | 'files' | 'notifications';
+// An organization's own sections lead the step, numbered and in the index like the rest (org design plan CR2).
+const ORG_SECTIONS: typeof SECTIONS = [
+    { id: 'calendar', eyebrow: 'Calendar', label: 'Calendar', description: 'Term and first sprints', icon: CalendarDays },
+    { id: 'inside', eyebrow: 'Workspaces inside', label: 'Workspaces inside', description: 'Who creates them, work defaults', icon: FolderKanban },
+];
 
 const PUBLIC_TAB_ORDER: WorkspacePublicTabId[] = ['dashboard', 'readme', 'updates', 'files', 'sprints', 'tasks'];
 const sectionAnchor = (id: SectionId) => `create-project-launch-${id}`;
 
-function LaunchSection({ id, title, description, summary, collapsible, open, onToggle, children }: {
+function LaunchSection({ id, number, eyebrow, title, description, summary, collapsible, open, onToggle, children }: {
     id: SectionId;
+    number: number;
+    eyebrow: string;
     title: string;
     description?: string;
     summary: string;
@@ -60,10 +67,9 @@ function LaunchSection({ id, title, description, summary, collapsible, open, onT
     onToggle: () => void;
     children: ReactNode;
 }) {
-    const index = SECTIONS.findIndex((section) => section.id === id);
     const heading = (
         <>
-            <p className="nb-micro text-primary">{String(index + 1).padStart(2, '0')} · {SECTIONS[index]?.eyebrow}</p>
+            <p className="nb-micro text-primary">{String(number).padStart(2, '0')} · {eyebrow}</p>
             <h3 id={`${sectionAnchor(id)}-heading`} className="nb-card-title mt-1 text-foreground">{title}</h3>
             {description && (!collapsible || open) ? <p className="nb-compact mt-1 max-w-[65ch] text-muted-foreground">{description}</p> : null}
             {collapsible && !open ? <p className="nb-meta mt-1 truncate text-muted-foreground">{summary}</p> : null}
@@ -113,6 +119,9 @@ function ChoiceChip({ selected, onClick, children }: { selected: boolean; onClic
 export default function Phase4Settings({ showValidationSummary = false, linkComposerPending = false, onLinkComposerPending, projectImage, onProjectImageChange }: Phase4SettingsProps) {
     const { control, setValue, getFieldState, formState: { errors } } = useFormContext<CreateWorkspaceInput>();
     const isOrganization = Boolean(useWatch({ control, name: 'organization' }));
+    // One noun for this step's copy (org design plan CR1): an organization's creator never reads "workspace".
+    const noun = isOrganization ? 'organization' : 'workspace';
+    const Noun = isOrganization ? 'Organization' : 'Workspace';
     const childOrg = useCreateLocation().org;
     // Report §19.7 and §23.6: the starter doc lists the org's templates first; files can start from a Template folder.
     const [orgTemplates, setOrgTemplates] = useState<Array<{ id: string; filename: string }>>([]);
@@ -142,7 +151,7 @@ export default function Phase4Settings({ showValidationSummary = false, linkComp
     const orgType = useWatch({ control, name: 'organization.org_type' });
     const orgStarterDoc = isOrganization ? ORG_CREATION_COPY[orgType ?? 'other'].starterDoc : null;
     // Orgs don't use manual Journey stages: their Journey is built from sprints (report §22.1).
-    const sections = isOrganization ? SECTIONS.filter((s) => s.id !== 'lifecycle') : SECTIONS;
+    const sections = isOrganization ? [...ORG_SECTIONS, ...SECTIONS.filter((s) => s.id !== 'lifecycle')] : SECTIONS;
     const [
         visibilityValue, publicTabsValue, externalLinksValue, readme, docEditPolicy, lifecycleStagesValue,
         memberUpdatesEnabled, memberFileUploadDefault, notificationRowsValue,
@@ -166,7 +175,7 @@ export default function Phase4Settings({ showValidationSummary = false, linkComp
 
     const externalLinksError = (errors.external_links as { message?: string } | undefined)?.message;
     const validationMessages = [
-        linkComposerPending ? { id: sectionAnchor('links'), message: 'Finish the workspace link' } : null,
+        linkComposerPending ? { id: sectionAnchor('links'), message: `Finish the ${noun} link` } : null,
         externalLinksError ? { id: sectionAnchor('links'), message: externalLinksError } : null,
     ].filter((item): item is { id: string; message: string } => Boolean(item));
 
@@ -253,7 +262,7 @@ export default function Phase4Settings({ showValidationSummary = false, linkComp
         : sourceType === 'upload'
             ? `${Number(sourceMetadata.fileCount || 0)} files from ${String(sourceMetadata.folderName || 'your folder')} upload after creation`
             : 'Starts empty. Add files from the Files tab after creation';
-    const sectionProps = (id: SectionId) => ({ id, collapsible: isPhone, open: isOpen(id), onToggle: () => toggleSection(id) });
+    const sectionProps = (id: SectionId) => ({ id, number: sections.findIndex((s) => s.id === id) + 1, eyebrow: sections.find((s) => s.id === id)?.eyebrow ?? '', collapsible: isPhone, open: isOpen(id), onToggle: () => toggleSection(id) });
 
     return (
         <div ref={rootRef} className="min-w-0 w-full lg:grid lg:grid-cols-[220px_minmax(0,1fr)] lg:gap-6">
@@ -292,25 +301,23 @@ export default function Phase4Settings({ showValidationSummary = false, linkComp
             <div className="min-w-0 w-full space-y-8 pb-6">
                 <div className="max-w-[65ch]">
                     <p className="nb-micro text-primary">Phase 4 · {isOrganization ? 'setup' : 'settings'}</p>
-                    <h2 className="nb-section-title mt-1 text-foreground">{isOrganization ? 'Setup' : 'Choose how the workspace starts'}</h2>
+                    <h2 className="nb-section-title mt-1 text-foreground">{isOrganization ? 'Choose how the organization starts' : 'Choose how the workspace starts'}</h2>
                     <p className="nb-compact mt-1.5 text-muted-foreground">{isOrganization ? 'Who can see it and how it runs. Everything here is in Settings later.' : 'Every choice has a sensible default and can be changed later in Workspace settings.'}</p>
                 </div>
                 {isOrganization ? (
                     <>
-                        <section aria-labelledby="create-org-calendar" className="border-t border-border pt-6">
-                            <h3 id="create-org-calendar" className="nb-card-title mb-4 text-foreground">Calendar</h3>
+                        <LaunchSection {...sectionProps('calendar')} title="Term and first sprints" description="Optional. The term sets the week line; planned sprints become the Journey on About." summary="Term and sprints">
                             <OrgCalendarFields />
-                        </section>
-                        <section aria-labelledby="create-org-inside" className="border-t border-border pt-6">
-                            <h3 id="create-org-inside" className="nb-card-title mb-4 text-foreground">Workspaces inside and work</h3>
+                        </LaunchSection>
+                        <LaunchSection {...sectionProps('inside')} title="Workspaces inside and work" description="Who creates workspaces in the organization, and the defaults new work starts with." summary="Who creates workspaces · work defaults">
                             <OrgSettingsFields />
-                        </section>
+                        </LaunchSection>
                     </>
                 ) : null}
 
                 {showValidationSummary && validationMessages.length > 0 ? (
                     <div role="alert" aria-live="assertive" className="border-l-2 border-destructive bg-[var(--status-danger-soft)] px-4 py-3 text-[13px] leading-[1.5] text-foreground">
-                        <p className="font-semibold">Finish the workspace links before continuing</p>
+                        <p className="font-semibold">Finish the {noun} links before continuing</p>
                         <ul className="mt-1 list-disc space-y-0.5 pl-4 text-muted-foreground">
                             {validationMessages.map((err) => (
                                 <li key={err.message}>
@@ -338,10 +345,10 @@ export default function Phase4Settings({ showValidationSummary = false, linkComp
                     </div>
                 ) : null}
 
-                <LaunchSection {...sectionProps('picture')} title="Workspace picture" description="Shown on workspace cards, search, and the workspace header." summary={projectImage ? 'Picture added' : 'Initials until you add a picture'}>
+                <LaunchSection {...sectionProps('picture')} title={`${Noun} picture`} description={`Shown on ${noun} cards, search, and the ${noun} header.`} summary={projectImage ? 'Picture added' : 'Initials until you add a picture'}>
                     <div className="flex flex-wrap items-center gap-4">
                         <div className="flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-dashed border-input bg-muted/30 text-muted-foreground">
-                            {imagePreviewUrl ? <img src={imagePreviewUrl} alt="Selected workspace picture" className="size-full object-cover" /> : <ImagePlus className="size-5" aria-hidden="true" />}
+                            {imagePreviewUrl ? <img src={imagePreviewUrl} alt={`Selected ${noun} picture`} className="size-full object-cover" /> : <ImagePlus className="size-5" aria-hidden="true" />}
                         </div>
                         <div className="flex flex-wrap items-center gap-2">
                             <Button type="button" variant="outline" onClick={() => imageInputRef.current?.click()}>{projectImage ? 'Replace image' : 'Upload image'}</Button>
@@ -352,18 +359,18 @@ export default function Phase4Settings({ showValidationSummary = false, linkComp
                     </div>
                 </LaunchSection>
 
-                <LaunchSection {...sectionProps('access')} title="Choose workspace visibility" description="Controls who can find the workspace now, and which tabs outsiders see." summary={visibility === 'private' ? 'Private · members only' : visibility === 'org' ? `Organization only · members of ${childOrg?.title ?? 'the organization'}` : `Public · ${publicTabCount} public ${publicTabCount === 1 ? 'tab' : 'tabs'}`}>
+                <LaunchSection {...sectionProps('access')} title={`Choose ${noun} visibility`} description={`Controls who can find the ${noun} now, and which tabs outsiders see.`} summary={visibility === 'private' ? 'Private · members only' : visibility === 'org' ? `Organization only · members of ${childOrg?.title ?? 'the organization'}` : `Public · ${publicTabCount} public ${publicTabCount === 1 ? 'tab' : 'tabs'}`}>
                     <fieldset className="border-y border-border" aria-describedby="create-project-visibility-help">
-                        <legend className="sr-only">Workspace visibility</legend>
+                        <legend className="sr-only">{Noun} visibility</legend>
                         {(childOrg
                             ? [
-                                { id: 'public' as const, label: 'Public', icon: Globe, description: 'Anyone can discover the workspace and view its public tabs.' },
+                                { id: 'public' as const, label: 'Public', icon: Globe, description: `Anyone can discover the ${noun} and view its public tabs.` },
                                 { id: 'org' as const, label: 'Organization', icon: Building2, description: `Every member of ${childOrg.title} can see it.` },
                                 { id: 'private' as const, label: 'Private', icon: Lock, description: `The team and ${childOrg.title} admins.` },
                             ]
                             : [
-                                { id: 'public' as const, label: 'Public', icon: Globe, description: 'Anyone can discover the workspace and view its public tabs.' },
-                                { id: 'private' as const, label: 'Private', icon: Lock, description: 'Only members can see this workspace until you make it public.' },
+                                { id: 'public' as const, label: 'Public', icon: Globe, description: `Anyone can discover the ${noun} and view its public tabs.` },
+                                { id: 'private' as const, label: 'Private', icon: Lock, description: `Only members can see this ${noun} until you make it public.` },
                             ]).map((option) => {
                             const Icon = option.icon;
                             const isSelected = visibility === option.id;
@@ -407,12 +414,12 @@ export default function Phase4Settings({ showValidationSummary = false, linkComp
                     <p id="create-project-visibility-help" className="mt-3 max-w-[65ch] text-[13px] leading-[1.5] text-muted-foreground">
                         <span className="font-medium text-foreground">Visible when created: </span>
                         {visibility === 'public' || visibility === 'org'
-                            ? PUBLIC_TAB_ORDER.filter((tab) => publicTabs[tab]).map((tab) => WORKSPACE_PUBLIC_TAB_LABELS[tab]).join(' · ') || 'Workspace title and card only'
-                            : 'Members only. Tab choices apply once you make the workspace public.'}
+                            ? PUBLIC_TAB_ORDER.filter((tab) => publicTabs[tab]).map((tab) => WORKSPACE_PUBLIC_TAB_LABELS[tab]).join(' · ') || `${Noun} title and card only`
+                            : `Members only. Tab choices apply once you make the ${noun} public.`}
                     </p>
                 </LaunchSection>
 
-                <LaunchSection {...sectionProps('links')} title="Workspace links" description="Website, repository, demo, or community. Shown beside the workspace title and across public surfaces." summary={externalLinks.length === 0 ? 'No links yet' : `${externalLinks.length} ${externalLinks.length === 1 ? 'link' : 'links'}`}>
+                <LaunchSection {...sectionProps('links')} title={`${Noun} links`} description={`Website, repository, demo, or community. Shown beside the ${noun} title and across public surfaces.`} summary={externalLinks.length === 0 ? 'No links yet' : `${externalLinks.length} ${externalLinks.length === 1 ? 'link' : 'links'}`}>
                     <WorkspaceLinkEditorFields
                         links={externalLinks}
                         savedLinks={[]}
@@ -425,7 +432,7 @@ export default function Phase4Settings({ showValidationSummary = false, linkComp
                     {externalLinksError ? <p role="alert" className="mt-2 text-[13px] leading-[1.5] text-destructive">{externalLinksError}</p> : null}
                 </LaunchSection>
 
-                <LaunchSection {...sectionProps('documentation')} title="Starter doc" description="The workspace Doc tab: setup notes, guidance, and how to contribute." summary={docMode === 'skip' ? 'No documents yet' : `${orgTemplates.find((t) => t.id === readme?.orgTemplateDocId)?.filename.replace(/\.md$/i, '') ?? (orgStarterDoc ? `${orgStarterDoc} template` : 'Starter template')} · ${readme?.publishOnCreate ? 'published' : 'draft'}`}>
+                <LaunchSection {...sectionProps('documentation')} title="Starter doc" description={`The ${noun}’s Documents tab: setup notes, guidance, and how to take part.`} summary={docMode === 'skip' ? 'No documents yet' : `${orgTemplates.find((t) => t.id === readme?.orgTemplateDocId)?.filename.replace(/\.md$/i, '') ?? (orgStarterDoc ? `${orgStarterDoc} template` : 'Starter template')} · ${readme?.publishOnCreate ? 'published' : 'draft'}`}>
                     <div className="flex flex-wrap gap-2" role="group" aria-label="Starter doc">
                         {orgTemplates.map((t) => (
                             <ChoiceChip key={t.id} selected={docMode === 'starter' && readme?.orgTemplateDocId === t.id} onClick={() => set('readme', { ...readme, mode: 'starter', orgTemplateDocId: t.id } as CreateWorkspaceInput['readme'])}>
@@ -440,7 +447,7 @@ export default function Phase4Settings({ showValidationSummary = false, linkComp
                     ) : null}
                     {docMode === 'starter' ? (
                         <div className="mt-4 border-y border-border">
-                            <SwitchRow label="Publish the document when the workspace is created" description="Off: only the owner and admins can see it." checked={Boolean(readme?.publishOnCreate)} onCheckedChange={(checked) => set('readme', { ...readme, publishOnCreate: checked } as CreateWorkspaceInput['readme'])} />
+                            <SwitchRow label={`Publish the document when the ${noun} is created`} description="Off: only the owner and admins can see it." checked={Boolean(readme?.publishOnCreate)} onCheckedChange={(checked) => set('readme', { ...readme, publishOnCreate: checked } as CreateWorkspaceInput['readme'])} />
                             <SwitchRow label="Members can edit the doc" description="Off: only the owner and admins can edit." checked={docEditPolicy === 'members'} onCheckedChange={(checked) => set('doc_edit_policy', checked ? 'members' : 'leaders')} />
                         </div>
                     ) : null}
@@ -462,7 +469,7 @@ export default function Phase4Settings({ showValidationSummary = false, linkComp
                     </div>
                 </LaunchSection>
 
-                <LaunchSection {...sectionProps('files')} title="Workspace files" description="Where the workspace’s files come from and who can add more." summary={sourceSummary}>
+                <LaunchSection {...sectionProps('files')} title={`${Noun} files`} description={`Where the ${noun}’s files come from and who can add more.`} summary={sourceSummary}>
                     <div className="border-y border-border">
                         <div className="flex items-start gap-3 border-b border-border px-4 py-3.5">
                             <Info className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
@@ -492,7 +499,7 @@ export default function Phase4Settings({ showValidationSummary = false, linkComp
                     </div>
                 </LaunchSection>
 
-                <LaunchSection {...sectionProps('notifications')} title="What the team is told about" description="Workspace-wide notification rules. Each member can still tune their own." summary={`${notificationsOn} of ${CREATE_WORKSPACE_NOTIFICATION_ROWS.length} on`}>
+                <LaunchSection {...sectionProps('notifications')} title="What the team is told about" description={`${Noun}-wide notification rules. Each member can still tune their own.`} summary={`${notificationsOn} of ${CREATE_WORKSPACE_NOTIFICATION_ROWS.length} on`}>
                     <div className="border-y border-border">
                         {CREATE_WORKSPACE_NOTIFICATION_ROWS.map((row) => (
                             <SwitchRow key={row.id} label={row.label} description={row.description} checked={notificationRows[row.id]} onCheckedChange={(checked) => set('notification_rows', { ...notificationRows, [row.id]: checked })} />
@@ -502,7 +509,7 @@ export default function Phase4Settings({ showValidationSummary = false, linkComp
                 </LaunchSection>
 
                 <aside className="border-l-2 border-border pl-4 text-[13px] leading-[1.5] text-muted-foreground">
-                    After creation, in workspace settings: members and invitations, privacy and workspace management.
+                    After creation, in {noun} Settings: members and invitations, privacy and {noun} management.
                 </aside>
             </div>
         </div>

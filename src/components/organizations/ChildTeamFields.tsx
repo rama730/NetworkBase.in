@@ -9,6 +9,9 @@ import { useCreateLocation } from '@/components/organizations/CreateLocation'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
+import { UnderlineTabs } from '@/components/ui/UnderlineTabs'
+import { rolePlural } from '@/lib/organizations/role-words'
+import { orgRoleNames } from '@/lib/organizations/config'
 import type { CreateWorkspaceInput } from '@/lib/validations/workspace'
 
 // The child project team in the create wizard (report §14.4): units are the role boxes, filled with people
@@ -77,7 +80,6 @@ function OrgPeoplePicker({ open, onOpenChange, target, limit, onAdd }: { open: b
     const toggle = (person: OrgRosterPerson) => setTicked((current) => current.some((p) => p.user_id === person.userId)
         ? current.filter((p) => p.user_id !== person.userId)
         : current.length < limit ? [...current, { user_id: person.userId, label: person.name, ...(tab === 'outside' ? { outside: true } : {}) }] : current)
-    const select = 'h-8 rounded-md border border-border bg-background px-2 text-xs'
 
     return (
         <Dialog open={open} onOpenChange={(next) => { if (!next) setTicked([]); onOpenChange(next) }}>
@@ -87,32 +89,30 @@ function OrgPeoplePicker({ open, onOpenChange, target, limit, onAdd }: { open: b
                     <DialogDescription>From {org?.title}. Search by name, title or skill, for example &quot;Section B&quot;.</DialogDescription>
                 </DialogHeader>
                 {org?.outsidePeople ? (
-                    <div role="tablist" aria-label="Who to add" className="flex gap-1 text-sm">
-                        <button type="button" role="tab" aria-selected={tab === 'org'} onClick={() => setTab('org')} className={tab === 'org' ? 'rounded-md bg-muted px-2 py-1 font-medium' : 'px-2 py-1 text-muted-foreground'}>In {org.title}</button>
-                        <button type="button" role="tab" aria-selected={tab === 'outside'} onClick={() => setTab('outside')} className={tab === 'outside' ? 'rounded-md bg-muted px-2 py-1 font-medium' : 'px-2 py-1 text-muted-foreground'}>Outside {org.title}</button>
-                    </div>
+                    <UnderlineTabs label="Who to add" idPrefix="org-people-picker" controls={false} value={tab} onChange={setTab}
+                        tabs={[{ key: 'org' as const, label: `In ${org.title}` }, { key: 'outside' as const, label: `Outside ${org.title}` }]} />
                 ) : null}
                 <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={tab === 'outside' ? 'Search by name or @username' : 'Search people'} aria-label="Search people" autoFocus />
                 {tab === 'org' ? (
                     <div className="flex flex-wrap items-center gap-2">
-                        <select aria-label="Role" className={select} value={role} onChange={(e) => setRole(e.target.value as typeof role)}>
-                            <option value="all">Everyone</option><option value="member">Members</option><option value="admin">Admins</option>
+                        <select aria-label="Role" className="nb-select" data-size="sm" value={role} onChange={(e) => setRole(e.target.value as typeof role)}>
+                            <option value="all">Everyone</option><option value="member">{rolePlural(orgRoleNames(org?.orgType, {}).member)}</option><option value="admin">{rolePlural(orgRoleNames(org?.orgType, {}).admin)}</option>
                         </select>
-                        <label className="flex items-center gap-1.5 text-xs"><input type="checkbox" checked={notInProject} onChange={(e) => setNotInProject(e.target.checked)} /> Not in a workspace yet</label>
-                        <Input value={skill} onChange={(e) => setSkill(e.target.value)} placeholder="Skill" aria-label="Filter by skill" className="h-8 w-28 text-xs" />
+                        <label className="flex items-center gap-2 text-[13px]"><input type="checkbox" className="nb-check" checked={notInProject} onChange={(e) => setNotInProject(e.target.checked)} /> Not in a workspace yet</label>
+                        <Input value={skill} onChange={(e) => setSkill(e.target.value)} placeholder="Skill" aria-label="Filter by skill" className="h-[var(--ui-control-height-sm)] w-28 text-[13px]" />
                     </div>
-                ) : <p className="text-xs text-muted-foreground">They join only this workspace, by invitation, and never see {org?.title}&apos;s own content.</p>}
-                <ul className="max-h-80 divide-y divide-border overflow-y-auto rounded-md border border-border" aria-label={tab === 'outside' ? 'People outside the organization' : 'Organization members'}>
-                    {shown.length === 0 ? <li className="px-3 py-4 text-sm text-muted-foreground">{tab === 'outside' && query.trim().length < 2 ? 'Type at least two letters.' : 'No one matches.'}</li> : null}
+                ) : <p className="text-[13px] text-muted-foreground">They join only this workspace, by invitation, and never see {org?.title}&apos;s own content.</p>}
+                <ul className="max-h-80 divide-y divide-border overflow-y-auto rounded-lg border border-border" aria-label={tab === 'outside' ? 'People outside the organization' : 'Organization members'}>
+                    {shown.length === 0 ? <li className="px-3 py-4 text-[13px] text-muted-foreground">{tab === 'outside' && query.trim().length < 2 ? 'Type at least two letters.' : 'No one matches.'}</li> : null}
                     {shown.map((person) => {
                         const already = placed.has(person.userId)
                         const checked = already || ticked.some((p) => p.user_id === person.userId)
                         return (
                             <li key={person.userId}>
-                                <label className={`flex items-center gap-3 px-3 py-2 ${already ? 'opacity-60' : 'cursor-pointer hover:bg-muted/50'}`}>
-                                    <input type="checkbox" checked={checked} disabled={already || (!checked && ticked.length >= limit)} onChange={() => toggle(person)} />
+                                <label className={`flex min-h-11 items-center gap-3 px-3 py-2 ${already ? 'bg-muted' : 'cursor-pointer hover:bg-muted'}`}>
+                                    <input type="checkbox" className="nb-check" checked={checked} disabled={already || (!checked && ticked.length >= limit)} onChange={() => toggle(person)} />
                                     <span className="min-w-0 flex-1">
-                                        <span className="block truncate text-sm text-foreground">{person.name}{person.title ? <span className="text-muted-foreground"> · {person.title}</span> : null}</span>
+                                        <span className="block truncate text-[13px] text-foreground">{person.name}{person.title ? <span className="text-muted-foreground"> · {person.title}</span> : null}</span>
                                         {person.projectHint || person.skills?.length ? <span className="block truncate text-xs text-muted-foreground">{[person.projectHint, person.skills?.slice(0, 3).join(', ')].filter(Boolean).join(' · ')}</span> : null}
                                     </span>
                                 </label>
@@ -121,7 +121,7 @@ function OrgPeoplePicker({ open, onOpenChange, target, limit, onAdd }: { open: b
                     })}
                 </ul>
                 <div className="flex items-center justify-between gap-3">
-                    <p className="text-xs text-muted-foreground" aria-live="polite">{limit < 1 ? 'This team is full.' : `${ticked.length} of up to ${limit} picked.`}</p>
+                    <p className="text-[13px] text-muted-foreground" aria-live="polite">{limit < 1 ? 'This team is full.' : `${ticked.length} of up to ${limit} picked.`}</p>
                     <Button type="button" disabled={ticked.length === 0} onClick={() => { onAdd(ticked); setTicked([]); onOpenChange(false) }}>
                         Add {ticked.length || ''} to {target}
                     </Button>
@@ -144,22 +144,22 @@ function PeopleChips({ people, from, leadId, onLead, onRemove, isAdmin }: {
                 const name = person.label ?? 'Member'
                 const isLead = leadId === person.user_id
                 return (
-                    <li key={person.user_id} className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card py-0.5 pl-2.5 pr-1 text-sm">
+                    <li key={person.user_id} className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card py-0.5 pl-1 pr-0.5 text-[13px]">
                         {onLead ? (
                             <button type="button" aria-pressed={isLead} aria-label={isLead ? `${name} is team lead` : `Make ${name} team lead`} title={isLead ? 'Team lead' : 'Make team lead'}
-                                onClick={() => onLead(isLead ? undefined : person.user_id)} className="nb-icon-button size-6 rounded-full">
+                                onClick={() => onLead(isLead ? undefined : person.user_id)} className="nb-icon-button size-7 rounded-md">
                                 <Star className={`size-3 ${isLead ? 'fill-current text-primary' : ''}`} aria-hidden="true" />
                             </button>
                         ) : null}
                         {name}
-                        <span className="text-[11px] text-muted-foreground">{isAdmin && !person.outside ? 'Will be added' : 'Will be invited'}</span>
-                        <select aria-label={`Move ${name} to…`} value="" className="h-6 rounded border border-border bg-background px-1 text-[11px]"
+                        <span className="nb-meta">{isAdmin && !person.outside ? 'Will be added' : 'Will be invited'}</span>
+                        <select aria-label={`Move ${name} to…`} value="" className="nb-select" data-size="sm"
                             onChange={(e) => { const to = e.target.value; if (to) move(person, from, to === UNASSIGNED ? UNASSIGNED : Number(to)) }}>
                             <option value="">Move to…</option>
                             {roles.map((unit, i) => (i === from || !unit.role.trim() ? null : <option key={i} value={String(i)} disabled={(unit.people?.length ?? 0) >= UNIT_SEATS}>{unit.role}</option>))}
                             {isAdmin && from !== UNASSIGNED ? <option value={UNASSIGNED}>Not in a team</option> : null}
                         </select>
-                        <button type="button" onClick={() => onRemove(person.user_id)} aria-label={`Remove ${name}`} className="nb-icon-button size-6 rounded-full">
+                        <button type="button" onClick={() => onRemove(person.user_id)} aria-label={`Remove ${name}`} className="nb-icon-button size-7 rounded-md">
                             <X className="size-3" aria-hidden="true" />
                         </button>
                     </li>
@@ -193,7 +193,7 @@ export function UnitPeople({ index, unitName }: { index: number; unitName: strin
                 <Button type="button" variant="outline" size="sm" onClick={() => setOpen(true)} disabled={people.length >= UNIT_SEATS}>
                     <UserPlus className="size-4" aria-hidden="true" />Add people
                 </Button>
-                {people.length > 0 && !leadId ? <span className="text-xs text-muted-foreground">Optional: pick a team lead ★ to get the team’s mentions and reminders.</span> : null}
+                {people.length > 0 && !leadId ? <span className="text-[13px] text-muted-foreground">Optional: pick a team lead with the star to get the team’s mentions and reminders.</span> : null}
             </div>
             <OrgPeoplePicker open={open} onOpenChange={setOpen} target={name} limit={UNIT_SEATS - people.length} onAdd={(added) => save([...people, ...added])} />
         </div>
@@ -212,13 +212,13 @@ export function ChildLeadAndUnassigned() {
     return (
         <section aria-labelledby="child-lead-heading" className="space-y-5 border-t border-border pt-6">
             <div>
-                <h3 id="child-lead-heading" className="nb-card-title text-foreground">Owner</h3>
-                <p className="nb-compact mt-1 text-muted-foreground">Pick who owns this workspace. You stay an admin through {org.title}.</p>
+                <h3 id="child-lead-heading" className="nb-card-title text-foreground">Workspace lead</h3>
+                <p className="nb-compact mt-1 text-muted-foreground">Pick who leads this workspace; they own it. You stay an admin through {org.title}.</p>
                 <select
-                    aria-label="Owner"
+                    aria-label="Workspace lead"
                     value={lead ?? ''}
                     onChange={(e) => setValue('lead_user_id', e.target.value || undefined, { shouldDirty: true })}
-                    className="mt-2 h-[var(--ui-control-height)] w-full max-w-64 rounded-md border border-input bg-background px-2 text-sm"
+                    className="nb-select mt-2 w-full max-w-64"
                 >
                     <option value="">Me</option>
                     {roster.filter((p) => !unassigned.some((u) => u.user_id === p.userId)).map((person) => (
@@ -246,7 +246,7 @@ export function InheritedAdminRows() {
         <section aria-labelledby="child-inherited-heading" className="space-y-2 border-t border-border pt-6">
             <h3 id="child-inherited-heading" className="nb-card-title text-foreground">Admins from the organization</h3>
             <p className="nb-compact text-muted-foreground">They can see and help with this workspace through {org.title}.</p>
-            <ul className="space-y-1 text-sm">
+            <ul className="space-y-1 text-[13px]">
                 {admins.map((admin) => (
                     <li key={admin.userId} className="text-foreground">{admin.name}{admin.title ? `, ${admin.title}` : ''} <span className="text-muted-foreground">· Admin · from {org.title}</span></li>
                 ))}

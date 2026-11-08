@@ -119,6 +119,9 @@ export default function Phase5Review({ goToPhase, onReady, projectImage = null }
     const projectType = WORKSPACE_TYPE_OPTIONS.find((type) => type.id === formData.project_type);
     // Organizations (report §34.7): their own words, the type's label and gentle checks that never block.
     const org = formData.organization;
+    // One noun for this step (org design plan CR1).
+    const noun = org ? 'organization' : 'workspace';
+    const Noun = org ? 'Organization' : 'Workspace';
     const orgRoles = org ? org.role_names ?? orgTypeDefaults(org.org_type ?? 'other').roleNames : null;
     const orgInvites = org?.invite_emails ? parseInviteEmails(org.invite_emails).valid.length : 0;
     const orgChecks = org ? [
@@ -162,7 +165,7 @@ export default function Phase5Review({ goToPhase, onReady, projectImage = null }
         return {
             id: 'preview-project',
             key: 'PRV',
-            title: formData.title || 'Untitled workspace',
+            title: formData.title || `Untitled ${noun}`,
             description: formData.description || '',
             shortDescription: formData.short_description || '',
             slug: 'preview',
@@ -234,8 +237,8 @@ export default function Phase5Review({ goToPhase, onReady, projectImage = null }
                 <div className="min-w-0 space-y-8">
                     <ReviewSection eyebrow="Step 1" title="How you started" onEdit={() => goToPhase(1)}>
                         <ReviewRow label="Source" icon={SourceIcon}>
-                            <p className="nb-ui-label text-foreground">{source.title}</p>
-                            <p className="nb-compact mt-1 text-muted-foreground">{source.detail}</p>
+                            <p className="nb-ui-label text-foreground">{org ? 'An organization' : source.title}</p>
+                            <p className="nb-compact mt-1 text-muted-foreground">{org ? `${orgTypeLabel(org.org_type, { typeLabel: org.type_label })}. It starts empty; workspaces are added inside it.` : source.detail}</p>
                         </ReviewRow>
                 {sourceType === 'github' ? (
                     <>
@@ -258,9 +261,9 @@ export default function Phase5Review({ goToPhase, onReady, projectImage = null }
                 ) : null}
             </ReviewSection>
 
-            <ReviewSection eyebrow="Step 2" title="Workspace details" onEdit={() => goToPhase(2)}>
-                <ReviewRow label="Workspace title">
-                    <p className="nb-body font-medium text-foreground">{formData.title || 'Untitled workspace'}</p>
+            <ReviewSection eyebrow="Step 2" title={`${Noun} details`} onEdit={() => goToPhase(2)}>
+                <ReviewRow label={`${Noun} name`}>
+                    <p className="nb-body font-medium text-foreground">{formData.title || `Untitled ${noun}`}</p>
                 </ReviewRow>
                 {childOrg ? (
                     <ReviewRow label="Organization">
@@ -379,23 +382,23 @@ export default function Phase5Review({ goToPhase, onReady, projectImage = null }
             </ReviewSection>
 
             <ReviewSection eyebrow="Step 4" title="Starting settings" onEdit={() => goToPhase(4)}>
-                <ReviewRow label="Workspace picture">
+                <ReviewRow label={`${Noun} picture`}>
                     <p className="nb-compact text-foreground">{projectImage ? `${projectImage.name} · uploads after creation` : 'Initials until a picture is added.'}</p>
                 </ReviewRow>
                 <ReviewRow label="Visibility" icon={VisibilityIcon}>
-                    <p className="nb-ui-label text-foreground">{formData.visibility === 'private' ? 'Private workspace' : formData.visibility === 'org' ? `Organization only · members of ${childOrg?.title ?? 'the organization'}` : 'Public workspace'}</p>
+                    <p className="nb-ui-label text-foreground">{formData.visibility === 'private' ? `Private ${noun}` : formData.visibility === 'org' ? `Organization only · members of ${childOrg?.title ?? 'the organization'}` : `Public ${noun}`}</p>
                     <p className="nb-compact mt-1 text-muted-foreground">
                         {formData.visibility === 'private'
-                            ? 'Only members can see this workspace when it’s created.'
+                            ? `Only members can see this ${noun} when it’s created.`
                             : `Public tabs: ${publicTabLabels.join(' · ') || 'none'}.`}
                     </p>
                 </ReviewRow>
-                <ReviewRow label="Workspace links">
+                <ReviewRow label={`${Noun} links`}>
                     {projectLinks.length ? (
                         <ul className="space-y-3">
                             {projectLinks.map((link) => {
                                 const resolved = resolveSocialPresence(link.platform, link.url);
-                                const title = link.label || link.destinationLabel || resolved?.platformLabel || 'Workspace link';
+                                const title = link.label || link.destinationLabel || resolved?.platformLabel || `${Noun} link`;
                                 const secondary = link.destinationLabel && link.destinationLabel !== title
                                     ? link.destinationLabel
                                     : resolved?.accountLabel || link.url;
@@ -411,13 +414,13 @@ export default function Phase5Review({ goToPhase, onReady, projectImage = null }
                                 );
                             })}
                         </ul>
-                    ) : <p className="nb-compact text-muted-foreground">No workspace links added.</p>}
+                    ) : <p className="nb-compact text-muted-foreground">No {noun} links added.</p>}
                 </ReviewRow>
                 <ReviewRow label="Documentation">
                     <p className="nb-compact text-foreground">
                         {docSkipped
                             ? 'No documents yet.'
-                            : `Starter template, ${formData.readme?.publishOnCreate ? 'published when the workspace is created' : 'kept as a draft'}. ${formData.doc_edit_policy === 'members' ? 'Members can edit.' : 'The owner and admins edit.'}`}
+                            : `Starter template, ${formData.readme?.publishOnCreate ? `published when the ${noun} is created` : 'kept as a draft'}. ${formData.doc_edit_policy === 'members' ? 'Members can edit.' : 'The owner and admins edit.'}`}
                     </p>
                 </ReviewRow>
                 <ReviewRow label="Workspace journey">
@@ -453,7 +456,7 @@ export default function Phase5Review({ goToPhase, onReady, projectImage = null }
                 </div>
 
                 {/* Desktop Sticky Card Preview (>= lg) */}
-                <aside aria-label="Workspace card preview" className="hidden lg:block sticky top-24 space-y-3">
+                <aside aria-label={`${Noun} card preview`} className="hidden lg:block sticky top-24 space-y-3">
                     <div className="flex items-center justify-between">
                         <p className="nb-meta font-mono uppercase tracking-[0.12em] text-muted-foreground">Card preview</p>
                         <span className="nb-compact font-mono text-[11px] text-muted-foreground">Live preview</span>

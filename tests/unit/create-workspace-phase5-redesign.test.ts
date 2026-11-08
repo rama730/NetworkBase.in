@@ -18,15 +18,17 @@ test('Phase 5 is a complete, live review including every step 4 launch setting',
     assert.match(phase, /eyebrow="Step 3"/);
     assert.match(phase, /eyebrow="Step 4"/);
     assert.match(phase, /Workspace journey/);
-    assert.match(phase, /Workspace links/);
+    assert.match(phase, /\$\{Noun\} links/);
     assert.match(phase, /min-w-0 w-full space-y-8 pb-6/);
     assert.doesNotMatch(phase, /max-w-4xl/);
     assert.match(phase, /Nothing has been created yet/);
     assert.match(phase, /Nothing is created until you select Create workspace/);
     // Step 4 now chooses the starter doc, so Review shows it (as "Documentation"), plus the other launch settings.
-    for (const label of ['Workspace picture', 'Visibility', 'Workspace links', 'Documentation', 'Workspace journey', 'Team permissions', 'Files and storage', 'Notifications']) {
+    for (const label of ['Visibility', 'Documentation', 'Workspace journey', 'Team permissions', 'Files and storage', 'Notifications']) {
         assert.match(phase, new RegExp(`label="${label}"`));
     }
+    // Org design plan CR1: picture and links take the step's noun, so an organization's creator never reads "workspace".
+    for (const label of ['picture', 'links']) assert.match(phase, new RegExp(`label=\\{\`\\$\\{Noun\\} ${label}\`\\}`));
     assert.doesNotMatch(phase, /Collaborator availability/);
 });
 

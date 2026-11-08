@@ -74,14 +74,14 @@ test('Details: organization words, Part of and Where, no problem/solution or ski
     expect((await values(page)).organization.time_zone).toBeTruthy();
     // 2026-11-05 findings §3 (G1): the whole link while typing, no "@", the live check, and that it can change later.
     await expect(page.getByText('networkbase.in/org/', { exact: true })).toBeVisible();
-    await expect(page.locator('#create-org-handle-status')).toHaveText('✓ Available');
+    await expect(page.locator('#create-org-handle-status')).toHaveText('Available');
     await expect(page.getByText('The link you share with people. Letters, numbers and dashes. You can change it later.')).toBeVisible();
     await page.getByLabel(/Web address/).fill('taken');
     await expect(page.locator('#create-org-handle-status')).toHaveText('Taken — try taken-b');
     // G8: Part of picked from organizations on NetworkBase is linked; typing again unlinks it.
     await page.locator('#create-org-part-of').fill('North');
-    await page.getByRole('option', { name: /Northgate Institute/ }).getByRole('button').click();
-    await expect(page.getByText('Linked to Northgate Institute on NetworkBase · verified')).toBeVisible();
+    await page.getByRole('option', { name: /Northgate Institute/ }).click();
+    await expect(page.getByText(/Linked to Northgate Institute on NetworkBase/)).toContainText('Verified');
     expect((await values(page)).organization).toMatchObject({ part_of: 'Northgate Institute', part_of_org_id: 'p1' });
 });
 
@@ -120,6 +120,6 @@ test('Done: the code, what was sent, and an invite message in your name', async 
     await expect(link).toContainText('networkbase.in/org/cse-3a-2026');
     await expect(link).toContainText('It shows on Discover once it has a description and a workspace or a second member, or once it’s verified.');
     await link.getByRole('button', { name: 'Copy link' }).click();
-    await expect(page.getByRole('status').filter({ hasText: 'Link copied' })).toBeVisible();
+    await expect(link.getByRole('button', { name: 'Copied' })).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0);
 });
