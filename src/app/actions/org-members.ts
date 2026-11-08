@@ -258,7 +258,7 @@ export async function moveMemberToWorkspaceAction(orgId: string, userId: string,
             seat = member.unit ?? from.title;
             // Org admins act with the lead's powers in child projects (report §29.4).
             await removeWorkspaceMemberInternal(tx, { projectId: from.id, actorId: from.ownerId, realActorId: viewer.userId, targetUserId: userId, mode: 'unassign_active_tasks' });
-            await addWorkspaceMemberInternal(tx, { projectId: to.id, userId, role: 'member', actorId: to.ownerId, source: 'manual', roleId: unitId });
+            await addWorkspaceMemberInternal(tx, { projectId: to.id, userId, role: 'member', actorId: to.ownerId, realActorId: viewer.userId, source: 'manual', roleId: unitId });
         });
     } catch (error) {
         return { success: false, error: error instanceof Error ? error.message : 'Couldn’t move them.' };
@@ -278,25 +278,35 @@ export async function approveJoinRequestsAction(orgId: string, applicationIds: s
     if (!viewer) return DENIED;
     const result = await db.transaction(async (tx) => {
         const [org] = await tx.select({ max: workspaces.maxCollaborators }).from(workspaces).where(eq(workspaces.id, orgId)).for('update').limit(1);
+        // Audit 2.2: someone blocked since asking is never approved.
         const pending = await tx.select({ id: roleApplications.id, userId: roleApplications.applicantId }).from(roleApplications)
-            .where(and(eq(roleApplications.projectId, orgId), isNull(roleApplications.roleId), eq(roleApplications.status, 'pending'), inArray(roleApplications.id, applicationIds.slice(0, 500))));
+            .where(and(eq(roleApplications.projectId, orgId), isNull(roleApplications.roleId), eq(roleApplications.status, 'pending'), inArray(roleApplications.id, applicationIds.slice(0, 500)),
+                sql`NOT EXISTS (SELECT 1 FROM org_join_blocks b WHERE b.org_id = ${orgId}::uuid AND b.user_id = ${roleApplications.applicantId})`,
+                // Audit N8: a request hidden from this admin by a block between them isn't theirs to decide.
+                sql`NOT app_private.review_hidden_by_block(${viewer.userId}::uuid, ${roleApplications.applicantId}, ${orgId}::uuid)`));
+        // Audit N11: everyone's organization count in one read; someone already in 50 stays waiting (report §26.11).
+        const counts = pending.length === 0 ? [] : await tx.execute<{ user_id: string; n: number }>(sql`
+            SELECT m.user_id, count(*)::int AS n FROM workspace_members m JOIN workspaces w ON w.id = m.workspace_id
+            WHERE m.user_id IN (${sql.join(pending.map((p) => sql`${p.userId}::uuid`), sql`, `)}) AND w.kind = 'organization' AND w.deleted_at IS NULL GROUP BY m.user_id`);
+        const inOrgs = new Map(Array.from(counts).map((r) => [r.user_id, r.n]));
+        const addable = pending.filter((p) => (inOrgs.get(p.userId) ?? 0) < ORG_LIMITS.orgsJoinedPerUser);
         const [{ n } = { n: 0 }] = await tx.select({ n: sql<number>`count(*)::int` }).from(workspaceMembers).where(eq(workspaceMembers.projectId, orgId));
         const max = orgMemberCap(org?.max ?? null);
-        if (n + pending.length > max) return { success: false as const, error: `This organization is full (${max} members). Raise Max members in Settings first.` };
+        // Audit N10: only the people who will actually be added count against Max members.
+        if (n + addable.length > max) return { success: false as const, error: `This organization is full (${max} members). Raise Max members in Settings first.` };
         const now = new Date();
         const added: typeof pending = [];
-        for (const request of pending) {
-            // Someone already in 50 organizations stays waiting (report §26.11), and isn't told they're in.
-            if (await accountOrgLimit(tx, request.userId, 'join')) continue;
+        for (const request of addable) {
             added.push(request);
             await addWorkspaceMemberInternal(tx, { projectId: orgId, userId: request.userId, role: 'member', actorId: viewer.userId, source: 'application_accept', applicationId: request.id });
             await tx.update(roleApplications).set({ status: 'accepted', decisionAt: now, decisionBy: viewer.userId, updatedAt: now }).where(eq(roleApplications.id, request.id));
             await tx.insert(applicationEvents).values({ applicationId: request.id, actorId: viewer.userId, kind: 'accepted', fromStatus: 'pending', toStatus: 'accepted', metadata: { source: 'org_request' } });
         }
-        touch(viewer.slug, orgId);
         return { success: true as const, approved: added.length, atLimit: pending.length - added.length, pending: added };
     });
     if (!result.success) return result;
+    // Audit N12: the page refreshes after the commit, not before it.
+    touch(viewer.slug, orgId);
     // Audit N68: copies after the commit, so approving 500 people doesn't hold the organization for minutes.
     await createCopiesAfterJoin(orgId, result.pending.map((r) => r.userId));
     const org = await orgLabel(orgId);
@@ -307,6 +317,8 @@ export async function approveJoinRequestsAction(orgId: string, applicationIds: s
                 href: orgHref(org), sourceEventId: `${request.id}:accepted`, email: { kind: 'org_welcome', data: { note: org.welcomeNote } },
             });
             await notifyNewCopies(orgId, { userId: request.userId });
+            // Audit N36: the other admins see who joined, as they do for a join by code.
+            await notifyJoined(orgId, request.userId, `${request.id}:approved`).catch(() => undefined);
         }
     }
     return { success: true, approved: result.approved, atLimit: result.atLimit };
@@ -319,7 +331,8 @@ export async function declineJoinRequestAction(orgId: string, applicationId: str
     const now = new Date();
     const declined = await db.update(roleApplications)
         .set({ status: 'rejected', decisionAt: now, decisionBy: viewer.userId, decisionReasonText: reason?.trim().slice(0, 500) || null, updatedAt: now })
-        .where(and(eq(roleApplications.id, applicationId), eq(roleApplications.projectId, orgId), isNull(roleApplications.roleId), eq(roleApplications.status, 'pending')))
+        .where(and(eq(roleApplications.id, applicationId), eq(roleApplications.projectId, orgId), isNull(roleApplications.roleId), eq(roleApplications.status, 'pending'),
+            sql`NOT app_private.review_hidden_by_block(${viewer.userId}::uuid, ${roleApplications.applicantId}, ${orgId}::uuid)`))
         .returning({ id: roleApplications.id, userId: roleApplications.applicantId, reason: roleApplications.decisionReasonText });
     if (!declined.length) return { success: false, error: 'That request is no longer waiting.' };
     await db.insert(applicationEvents).values({ applicationId, actorId: viewer.userId, kind: 'rejected', fromStatus: 'pending', toStatus: 'rejected', metadata: { source: 'org_request' } });
@@ -429,10 +442,11 @@ export async function acceptOrgInviteAction(inviteId: string): Promise<{ success
     const accepted = mine ? await acceptOrgInvite(userId, inviteId).catch((error: unknown) => { if (error instanceof AccountOrgLimitError) return error; throw error }) : null;
     if (accepted instanceof AccountOrgLimitError) return { success: false, error: accepted.message };
     if (accepted && 'full' in accepted) return { success: false, error: 'This organization is full. Ask an admin to raise Max members.' };
+    if (accepted && 'blocked' in accepted) return { success: false, error: 'You can’t join this organization.' };
     if (accepted && 'adminsFull' in accepted) return { success: false, error: `This organization already has ${ORG_LIMITS.adminsPerOrg} admins. Ask the owner to free a seat.` };
     if (!accepted) return { success: false, error: 'That invite is no longer open.' };
     const { orgId } = accepted;
-    revalidatePath(`/workspaces/${orgId}`);
+    touch((await orgLabel(orgId))?.slug ?? null, orgId);
     await notifyJoined(orgId, userId, `${inviteId}:accepted`);
     return { success: true, orgId };
 }
@@ -453,10 +467,10 @@ export async function changeMemberRoleAction(orgId: string, userIds: string[], r
     for (const id of userIds) {
         const block = roles.has(id) ? memberChangeBlock(viewer.role, roles.get(id)!, role) : 'That person is no longer a member.';
         if (block) return { success: false, error: block };
-        // Viewers can't be on a workspace, so a lead transfers first (report §36.2).
-        const led = role === 'viewer' ? await ledChildWorkspaces(db, orgId, id) : [];
-        if (led[0]) return { success: false, error: `Transfer ${led[0].title} first.` };
     }
+    // Viewers can't be on a workspace, so a lead transfers first (report §36.2). One read for everyone (audit N16).
+    const led = role === 'viewer' ? await leadsOf(orgId, userIds) : [];
+    if (led[0]) return { success: false, error: `Transfer ${led[0].workspace} first.` };
     if (role === 'admin') {
         // Report §21.4: 20 admins, checked before anyone changes.
         // Open admin invites hold seats too (audit 2.3).
@@ -472,7 +486,7 @@ export async function changeMemberRoleAction(orgId: string, userIds: string[], r
             const before = roles.get(id);
             if (before === role) continue;
             // The lifecycle helper checks ranks against the project's own members; the owner acts for admin changes.
-            await changeWorkspaceMemberRoleInternal(tx, { projectId: orgId, actorId: viewer.ownerId, targetUserId: id, nextRole: role });
+            await changeWorkspaceMemberRoleInternal(tx, { projectId: orgId, actorId: viewer.ownerId, realActorId: viewer.userId, targetUserId: id, nextRole: role });
             // Report §36.2: admins and viewers hold no copies (handed-in work stays); becoming Member brings open ones.
             if (before === 'member') await releaseCopiesOnLeave(tx, orgId, id);
             if (role === 'member') await createCopiesForNewMember(tx, orgId, id);
@@ -492,7 +506,7 @@ export async function changeMemberRoleAction(orgId: string, userIds: string[], r
         if (role === 'member') for (const id of changed) await notifyNewCopies(orgId, { userId: id });
     }
     await notifySeatsReopened(orgId, seats);
-    return { success: true, changed: userIds.length };
+    return { success: true, changed: changed.length };
 }
 
 /** What the new role means, in the notice (report §36.2 "Told"). */
@@ -724,7 +738,7 @@ export async function removeMembersAction(orgId: string, userIds: string[], opti
 }
 
 /** Add to child project (report §20.6): admins add people directly, into a unit when one is picked. */
-export async function addMembersToChildAction(orgId: string, childProjectId: string, userIds: string[], unitId: string | null): Promise<{ success: true; added: number } | Failure> {
+export async function addMembersToChildAction(orgId: string, childProjectId: string, userIds: string[], unitId: string | null): Promise<{ success: true; added: number; skipped: number } | Failure> {
     const viewer = await orgManager(orgId, 'move_member_workspace');
     if (!viewer) return DENIED;
     const [child] = await db.select({ id: workspaces.id, ownerId: workspaces.ownerId, title: workspaces.title, slug: workspaces.slug }).from(workspaces)
@@ -736,22 +750,30 @@ export async function addMembersToChildAction(orgId: string, childProjectId: str
     }
     const inOrg = await rolesOf(orgId, viewer.ownerId, userIds);
     // Viewers can't be on a workspace (audit 3.5).
-    const people = userIds.filter((id) => inOrg.has(id) && inOrg.get(id) !== 'viewer');
+    const people = [...new Set(userIds)].filter((id) => inOrg.has(id) && inOrg.get(id) !== 'viewer');
     if (unitId) {
         const full = await seatBlock(db, unitId, people);
         if (full) return { success: false, error: full };
     }
-    await db.transaction(async (tx) => {
-        for (const id of people) await addWorkspaceMemberInternal(tx, { projectId: child.id, userId: id, role: 'member', actorId: child.ownerId, source: 'manual', roleId: unitId });
-    });
+    // Audit N15: only people not already there are added and told; N14: a team filling up meanwhile is a message.
+    const already = new Set(people.length ? (await db.select({ userId: workspaceMembers.userId }).from(workspaceMembers)
+        .where(and(eq(workspaceMembers.projectId, child.id), inArray(workspaceMembers.userId, people)))).map((r) => r.userId) : []);
+    const adding = people.filter((id) => !already.has(id));
+    try {
+        await db.transaction(async (tx) => {
+            for (const id of adding) await addWorkspaceMemberInternal(tx, { projectId: child.id, userId: id, role: 'member', actorId: child.ownerId, realActorId: viewer.userId, source: 'manual', roleId: unitId });
+        });
+    } catch (error) {
+        return { success: false, error: error instanceof Error && /full/i.test(error.message) ? 'That team just filled up. Add seats first, or choose fewer people.' : 'Couldn’t add them. Try again.' };
+    }
     touch(viewer.slug, orgId);
-    if (people.length) {
+    if (adding.length) {
         await notifyOrg({
-            orgId, eventKey: 'org.child_added', actorId: viewer.userId, to: people, title: `You were added to ${child.title}`,
+            orgId, eventKey: 'org.child_added', actorId: viewer.userId, to: adding, title: `You were added to ${child.title}`,
             href: `/workspaces/${encodeURIComponent(child.slug ?? child.id)}`, sourceEventId: `child:${child.id}:${unitId ?? ''}:${Date.now()}`,
         });
     }
-    return { success: true, added: people.length };
+    return { success: true, added: adding.length, skipped: userIds.length - adding.length };
 }
 
 export type MemberWorkRow = { copyId: string; title: string; dueDate: string | null; state: string; late: boolean };

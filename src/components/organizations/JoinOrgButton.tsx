@@ -22,7 +22,8 @@ export function JoinOrgButton({ code, joinMode, orgHref }: { code: string; joinM
 
     const submit = () =>
         startTransition(async () => {
-            const result = await joinOrganizationAction(code, joinMode === 'approval' ? note : null)
+            // Audit N37: a thrown server error is a message, never the page's error boundary.
+            const result = await joinOrganizationAction(code, joinMode === 'approval' ? note : null).catch(() => ({ success: false as const, error: 'Couldn’t do that. Try again.' }))
             if (!result.success) return setMessage({ kind: 'error', text: result.error })
             refreshSidebar()
             if (result.outcome === 'joined' || result.outcome === 'already_member') return router.push(orgHref)

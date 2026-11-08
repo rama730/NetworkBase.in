@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useState, useTransition, type ReactNode } from 'react'
+import { useState, useTransition, type ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 import Link from 'next/link'
@@ -114,26 +114,24 @@ export function useInviteAnswer(onDone?: () => void) {
     const refreshSidebar = useRefreshSidebar()
     const [pending, start] = useTransition()
     const [hidden, setHidden] = useState<Set<string>>(new Set())
-    const timers = useRef(new Map<string, ReturnType<typeof setTimeout>>())
     const show = (id: string, on: boolean) => setHidden((cur) => { const next = new Set(cur); if (on) next.delete(id); else next.add(id); return next })
     const accept = (invite: { id: string; orgTitle: string }) => start(async () => {
-        const r = await acceptOrgInviteAction(invite.id)
+        const r = await acceptOrgInviteAction(invite.id).catch(() => ({ success: false as const, error: 'Couldn’t do that. Try again.' }))
         if (!r.success) return void toast.error(r.error)
         toast.success(`You joined ${invite.orgTitle}`)
         refreshSidebar()
         onDone?.()
         router.refresh()
     })
-    const decline = (invite: { id: string; orgTitle: string }) => {
+    // Audit 2.9: declining happens at once (closing the tab can't lose it). The invite is deleted, so there's no Undo:
+    // the toast says how to get it back.
+    const decline = (invite: { id: string; orgTitle: string }) => start(async () => {
         show(invite.id, false)
-        timers.current.set(invite.id, setTimeout(async () => {
-            timers.current.delete(invite.id)
-            const r = await declineOrgInviteAction(invite.id)
-            if (!r.success) { show(invite.id, true); return void toast.error(r.error ?? 'Couldn’t decline it.') }
-            onDone?.()
-        }, 5_000))
-        toast.info(`Declined ${invite.orgTitle}`, { action: { label: 'Undo', onClick: () => { clearTimeout(timers.current.get(invite.id)); timers.current.delete(invite.id); show(invite.id, true) } } })
-    }
+        const r = await declineOrgInviteAction(invite.id).catch(() => ({ success: false as const, error: 'Couldn’t do that. Try again.' }))
+        if (!r.success) { show(invite.id, true); return void toast.error(r.error ?? 'Couldn’t decline it.') }
+        toast.info(`Declined ${invite.orgTitle}. Ask them to invite you again if you change your mind.`)
+        onDone?.()
+    })
     return { accept, decline, hidden, pending }
 }
 

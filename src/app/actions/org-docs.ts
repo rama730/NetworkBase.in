@@ -74,11 +74,16 @@ async function orgDocRow(orgId: string, docId: string) {
 }
 
 async function writeOrgOptions(docId: string, settings: unknown, patch: Partial<OrgDocOptions>, extra: Record<string, unknown> = {}) {
-    const current = normalizeWorkspaceDocSettings(settings);
-    await db.update(workspaceDocuments).set({
-        settings: { ...current, ...extra, org: { ...(current.org ?? {}), ...patch } },
-        updatedAt: new Date(),
-    }).where(eq(workspaceDocuments.id, docId));
+    // Audit N85: read and write under the row lock, so a publish in between isn't overwritten with older settings.
+    void settings;
+    await db.transaction(async (tx) => {
+        const [fresh] = await tx.select({ settings: workspaceDocuments.settings }).from(workspaceDocuments).where(eq(workspaceDocuments.id, docId)).for('update');
+        const current = normalizeWorkspaceDocSettings(fresh?.settings);
+        await tx.update(workspaceDocuments).set({
+            settings: { ...current, ...extra, org: { ...(current.org ?? {}), ...patch } },
+            updatedAt: new Date(),
+        }).where(eq(workspaceDocuments.id, docId));
+    });
 }
 
 const touch = (slug: string | null, id: string) => revalidatePath(`/org/${slug ?? id}`);
@@ -209,12 +214,15 @@ export async function publishOrgDocAction(orgId: string, docId: string, input: z
     const metadata = getOrBuildWorkspaceDocPublishMetadata(content);
     const now = new Date();
     await db.transaction(async (tx) => {
+        // Audit N86, N85: the document row is locked and its settings read here, so two publishes (or a publish and an
+        // options change) can't race to the same version number or overwrite each other's settings.
+        const [fresh] = await tx.select({ settings: workspaceDocuments.settings }).from(workspaceDocuments).where(eq(workspaceDocuments.id, doc.id)).for('update');
         const [{ n } = { n: 0 }] = await tx.select({ n: sql<number>`coalesce(max(${workspaceDocumentVersions.versionNumber}), 0)::int` }).from(workspaceDocumentVersions).where(eq(workspaceDocumentVersions.docId, doc.id));
         const [version] = await tx.insert(workspaceDocumentVersions).values({
             projectId: orgId, docId: doc.id, versionNumber: n + 1, content: metadata.content, excerpt: metadata.excerpt, headings: metadata.headings,
             qualityReport: metadata.qualityReport, contentHash: metadata.contentHash, changeSummary: parsed.data.summary || 'Published', createdBy: userId,
         }).returning({ id: workspaceDocumentVersions.id });
-        const current = normalizeWorkspaceDocSettings(doc.settings);
+        const current = normalizeWorkspaceDocSettings(fresh?.settings ?? doc.settings);
         await tx.update(workspaceDocuments).set({
             publishedVersionId: version!.id, updatedAt: now,
             settings: { ...current, org: { ...(current.org ?? {}), lifecycle: 'published', publishedAt: now.toISOString(), readVersion: options.required && parsed.data.reread ? options.readVersion + 1 : options.readVersion } },

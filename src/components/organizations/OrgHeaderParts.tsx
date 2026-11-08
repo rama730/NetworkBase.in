@@ -58,7 +58,8 @@ export function OrgVisitorActions({ orgId, href, joinMode, requestPending, logge
     }
     const run = (action: () => Promise<{ success: boolean; error?: string }>) =>
         startTransition(async () => {
-            const result = await action()
+            // Audit N37: a thrown server error is a message here, never the page's error boundary.
+            const result = await action().catch(() => ({ success: false as const, error: 'Couldn’t do that. Try again.' }))
             if (!result.success) return setError(result.error ?? 'Something went wrong.')
             setError(null)
             refreshSidebar()

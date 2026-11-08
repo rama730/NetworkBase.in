@@ -91,7 +91,7 @@ export function OrgRequestsSection({ joinRequests = 'decide', onNavigate, enable
                             {group.first.filter((r) => !hidden.has(r.id)).map((request) => (
                                 <li key={request.id} className={row}>
                                     <span className="min-w-0 flex-1"><span className="block truncate font-medium text-foreground">{request.name}</span>{request.note ? <span className="block truncate text-muted-foreground">“{request.note}”</span> : null}</span>
-                                    <Button size="sm" onClick={async () => { hide(request.id, true); const r = await approveJoinRequestsAction(group.orgId, [request.id]); if (!r.success) { hide(request.id, false); toast.error(r.error) } else toast.success(`${request.name} approved`); refresh() }}>Approve</Button>
+                                    <Button size="sm" onClick={async () => { hide(request.id, true); const r = await approveJoinRequestsAction(group.orgId, [request.id]); if (!r.success) { hide(request.id, false); toast.error(r.error) } else toast.success(r.approved ? `${request.name} approved` : `${request.name} stays waiting: they’re in 50 organizations`); refresh() }}>Approve</Button>
                                     <Button size="sm" variant="outline" onClick={() => setDeclining({ orgId: group.orgId, id: request.id, name: request.name })}>Decline</Button>
                                 </li>
                             ))}

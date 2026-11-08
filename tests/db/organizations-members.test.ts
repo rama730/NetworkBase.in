@@ -191,7 +191,7 @@ test("remove: out of the org and its projects; Block from rejoining stops the co
 test("add to a child project: admins add people straight into a unit", async () => {
   const o = await org();
   viewerId = o.admin;
-  assert.deepEqual(await members.addMembersToChildAction(o.orgId, o.child, [o.b, o.admin], o.unit), { success: true, added: 2 });
+  assert.deepEqual(await members.addMembersToChildAction(o.orgId, o.child, [o.b, o.admin], o.unit), { success: true, added: 2, skipped: 0 });
   const rows = await sql`SELECT user_id, unit_id, role FROM workspace_members WHERE workspace_id = ${o.child} AND user_id IN (${o.b}, ${o.admin})`;
   assert.deepEqual(rows.map((r) => [r.unit_id, r.role]), [[o.unit, "member"], [o.unit, "member"]]);
   viewerId = o.a;

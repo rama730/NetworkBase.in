@@ -348,11 +348,20 @@ function BulkBar({ orgId, data, label, ids, pending, run, onClear, onRole, onRem
     )
 }
 
+/** Audit N9: the toast says what happened, including people who stay waiting because they're in 50 organizations. */
+function approvedLine(name?: string) {
+    return (r: { success: boolean; approved?: number; atLimit?: number }) => {
+        const approved = r.approved ?? 0, waiting = r.atLimit ?? 0
+        if (name) return approved ? `${name} approved` : `${name} stays waiting: they’re in 50 organizations`
+        return waiting ? `${approved} approved · ${waiting} stay waiting (in 50 organizations)` : 'All approved'
+    }
+}
+
 function Requests({ orgId, data, pending, run }: { orgId: string; data: OrgMembersData; pending: boolean; run: Run }) {
     const [declining, setDeclining] = useState<{ id: string; name: string } | null>(null)
     const total = data.requests.length + data.teamChanges.length
     return (
-        <RailSection title={withCount('Requests', total)} action={data.requests.length > 1 ? <Button type="button" size="sm" disabled={pending} onClick={() => run(() => approveJoinRequestsAction(orgId, data.requests.map((r) => r.id)), 'All approved')}>Approve all</Button> : undefined}>
+        <RailSection title={withCount('Requests', total)} action={data.requests.length > 1 ? <Button type="button" size="sm" disabled={pending} onClick={() => run(() => approveJoinRequestsAction(orgId, data.requests.map((r) => r.id)), approvedLine())}>Approve all</Button> : undefined}>
             {total === 0 ? <p className="text-[13px] text-muted-foreground">No one is waiting.</p> : null}
             <ul className="divide-y divide-border">
                 {/* Ask to change team (report §25.5, decision 46): admins only, since it can be about a block. */}
@@ -370,7 +379,7 @@ function Requests({ orgId, data, pending, run }: { orgId: string; data: OrgMembe
                         {r.note ? <p className="text-muted-foreground">“{r.note}”</p> : null}
                         <div className="flex gap-1.5">
                             {/* Approve all is the area's filled button; each row is outline (spec §10, one dominant action). */}
-                            <Button type="button" size="sm" variant={data.requests.length > 1 ? 'outline' : 'default'} disabled={pending} onClick={() => run(() => approveJoinRequestsAction(orgId, [r.id]), `${r.name} approved`)}>Approve</Button>
+                            <Button type="button" size="sm" variant={data.requests.length > 1 ? 'outline' : 'default'} disabled={pending} onClick={() => run(() => approveJoinRequestsAction(orgId, [r.id]), approvedLine(r.name))}>Approve</Button>
                             <Button type="button" size="sm" variant="ghost" disabled={pending} onClick={() => setDeclining({ id: r.id, name: r.name })}>Decline</Button>
                         </div>
                     </li>

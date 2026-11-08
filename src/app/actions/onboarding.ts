@@ -2,6 +2,7 @@
 
 import { banIfBlockedIdentity } from '@/lib/trust/standing'
 import { acceptOrgEmailInvites, joinOrgByCode } from '@/lib/organizations/join'
+import { notifyJoinOutcome } from '@/lib/organizations/notify'
 import { normalizeJoinCode, type OrgJoinOutcome } from '@/lib/organizations/join-rules'
 import { after } from 'next/server'
 import { headers } from 'next/headers'
@@ -321,6 +322,8 @@ async function joinOrgsAfterOnboarding(userId: string, email: string, rawCode: s
     try {
         const code = rawCode ? normalizeJoinCode(rawCode) : null
         const result = code ? await joinOrgByCode(userId, code) : null
+        // Audit N3: admins hear about a join or request made at sign-up, as they do from the join page.
+        if (result) await notifyJoinOutcome(result.org.id, result.outcome, userId).catch(() => undefined)
         return result ? { title: result.org.title, slug: result.org.slug, outcome: result.outcome } : null
     } catch (error) {
         console.error('Joining an organization after onboarding failed:', error)

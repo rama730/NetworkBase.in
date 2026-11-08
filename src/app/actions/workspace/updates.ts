@@ -776,6 +776,8 @@ function sharedOrPublicSql(access: ProjectUpdateAccess) {
 function postInteractionBlock(access: ProjectUpdateAccess) {
     if (access.readOnly) return access.readOnly;
     if (access.org?.kind === "org" && access.memberRole === "viewer") return "Viewers can read posts but not reply or like.";
+    // Audit N51: an organization's viewer reading a workspace's shared post can't reply or like there either.
+    if (access.org?.kind === "child" && access.org.viewerRole === "viewer" && !access.isMember && !access.isOwner) return "Viewers can read posts but not reply or like.";
     return null;
 }
 
@@ -1726,7 +1728,8 @@ export async function createWorkspaceUpdateAction(projectId: string, input: {
             });
         }
 
-        if (input.shareToGeneral && updateType === "announcement" && access.org?.kind === "org" && access.canManage) {
+        // Audit N55: an announcement for part of the organization isn't dropped into everyone's #general.
+        if (input.shareToGeneral && updateType === "announcement" && access.org?.kind === "org" && access.canManage && !orgOptions.audience?.roles?.length && !orgOptions.audience?.projectIds?.length) {
             await shareToOrgGeneral(projectId, viewer.userId, { kind: "announcement", ref_id: inserted.id });
         }
         // Org announcements: tray and push for the audience, E9 when the post asked for email (report §26.3 E).

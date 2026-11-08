@@ -49,7 +49,7 @@ import { capChildVisibility, childCreationBlock } from "@/lib/organizations/chil
 import { orgLimitBlock } from "@/lib/organizations/limits";
 import { readViewerOrgRole } from "@/lib/organizations/detail";
 import { isTimeZone, readOrgRules } from "@/lib/organizations/settings";
-import { createOrgEmailInvites } from "@/lib/organizations/members";
+import { AccountOrgLimitError, accountOrgLimit, createOrgEmailInvites } from "@/lib/organizations/members";
 import { parseInviteEmails } from "@/lib/organizations/member-rules";
 import { createStarterFolders } from "@/lib/organizations/org-files";
 import { namesOf, notifyOrg } from "@/lib/organizations/notify";
@@ -807,7 +807,8 @@ export async function createWorkspaceAction(
     // Report §17.8, §18.7: a workspace in an organization gets its plain address when it's free; a clash still adds an ending below.
     let finalSlug = requestedSlug || (parentOrgId && generateSlugBase(input.title) ? generateSlugBase(input.title) : generateSlug(input.title));
     // A held organization handle stays free for its organization to take back.
-    const held = parentOrgId && !requestedSlug ? (await db.execute<{ n: number }>(sql`SELECT count(*)::int AS n FROM org_handle_holds WHERE handle = ${finalSlug}`))[0]?.n : 0;
+    // Audit N25: any workspace, not only one in an organization, leaves a held handle alone.
+    const held = !organization ? (await db.execute<{ n: number }>(sql`SELECT count(*)::int AS n FROM org_handle_holds WHERE handle = ${finalSlug}`))[0]?.n : 0;
     if (isReservedWorkspaceSlug(finalSlug) || held) {
       finalSlug = `${generateSlugBase(input.title) || "project"}-${Math.random().toString(36).substring(2, 7)}`;
     }
@@ -932,6 +933,11 @@ export async function createWorkspaceAction(
 
         // Project, owner membership, and the project's #general are created together.
         const result = await db.transaction(async (tx) => {
+          // Audit N23: the owned-organization limit holds under concurrency too (the check above is a fast path).
+          if (organization) {
+            const limit = await accountOrgLimit(tx, user.id, "own");
+            if (limit) throw new AccountOrgLimitError(limit);
+          }
           const [newProject] = await tx
             .insert(workspaces)
             .values(projectData)
@@ -1208,6 +1214,7 @@ export async function createWorkspaceAction(
           notices,
         };
       } catch (error: any) {
+        if (error instanceof AccountOrgLimitError) return { success: false, error: error.message };
         if (committed) {
           // The workspace exists; a follow-up step failed. Say so, and never insert it again.
           console.error("Follow-up after creating a workspace failed:", error);

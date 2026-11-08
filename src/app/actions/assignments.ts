@@ -770,15 +770,27 @@ export async function reviewAssignmentCopyAction(copyId: string, decision: 'appr
     return { success: true };
 }
 
-export async function approveAllSubmittedAction(masterId: string): Promise<{ success: true; approved: number } | Failure> {
+/**
+ * Approve everything waiting, or only the copies picked (Approve selected). Audit 9.5: one copy that changed since it
+ * was handed in is reported, not a reason to stop; the rest are approved and the result says which weren't.
+ */
+export async function approveAllSubmittedAction(masterId: string, copyIds?: string[]): Promise<{ success: true; approved: number; failed: Array<{ copyId: string; reason: string }> } | Failure> {
     const ctx = await adminOfMaster(masterId, 'approve_return');
     if (!ctx) return DENIED;
     const pending = await db.select({ id: tasks.id }).from(tasks).where(and(eq(tasks.assignmentId, masterId), eq(tasks.reviewStatus, 'pending'), isNull(tasks.deletedAt), isNull(tasks.excusedAt),
+        copyIds ? inArray(tasks.id, copyIds.slice(0, 2000)) : undefined,
         sql`NOT (${tasks.assigneeId} IS NOT DISTINCT FROM ${ctx.viewer.userId}::uuid OR EXISTS (SELECT 1 FROM task_team_members tm WHERE tm.task_id = ${tasks.id} AND tm.user_id = ${ctx.viewer.userId}::uuid))`));
     let approved = 0;
-    for (const { id } of pending) if (await reviewOne(id, ctx.viewer.userId, 'approve')) approved += 1;
+    const failed: Array<{ copyId: string; reason: string }> = [];
+    for (const { id } of pending) {
+        try {
+            if (await reviewOne(id, ctx.viewer.userId, 'approve')) approved += 1;
+        } catch (error) {
+            failed.push({ copyId: id, reason: error instanceof Error ? error.message : 'Couldn’t approve it.' });
+        }
+    }
     touch(ctx.viewer.slug, ctx.master.projectId);
-    return { success: true, approved };
+    return { success: true, approved, failed };
 }
 
 async function adminOfCopy(copyId: string, action: OrgAction) {
@@ -1311,7 +1323,7 @@ export async function readOrgTabBadgesAction(orgId: string): Promise<OrgTabBadge
                     AND u.created_at > coalesce((SELECT last_seen_updates_at FROM workspace_members WHERE workspace_id = ${orgId} AND user_id = ${viewer.userId}), '-infinity'::timestamptz)
                     AND (${viewer.isAdmin} OR u.audience = '{}'::jsonb OR u.audience->'roles' @> to_jsonb(${viewer.role}::text)
                       OR EXISTS (SELECT 1 FROM workspace_members c JOIN workspaces p ON p.id = c.workspace_id
-                                 WHERE c.user_id = ${viewer.userId} AND p.parent_id = ${orgId} AND u.audience->'projectIds' @> to_jsonb(p.id::text)))) AS updates,
+                                 WHERE c.user_id = ${viewer.userId} AND p.parent_id = ${orgId} AND p.deleted_at IS NULL AND u.audience->'projectIds' @> to_jsonb(p.id::text)))) AS updates,
           ${viewer.isAdmin
             ? sql`(SELECT count(*)::int FROM role_applications WHERE workspace_id = ${orgId} AND role_id IS NULL AND status = 'pending')`
             : sql`0`} AS members`);

@@ -142,6 +142,16 @@ export async function orgLabel(orgId: string) {
 export const ROLE_LABEL: Record<string, string> = ACCESS_LEVEL_LABELS;
 
 /** Someone joined (code, invite, approval elsewhere): a combined "N people joined" for admins, E4 to them (report §26.3 A). */
+/** Joined: admins see "N people joined" and the person gets E4. Requested: admins see "N people asked to join". */
+export async function notifyJoinOutcome(orgId: string, outcome: string, userId: string) {
+  const eventId = `join:${userId}:${Date.now()}`;
+  if (outcome === "joined") return notifyJoined(orgId, userId, eventId);
+  if (outcome !== "requested") return;
+  const org = await orgLabel(orgId);
+  const name = (await namesOf([userId])).get(userId) ?? "Someone";
+  if (org) await notifyOrg({ orgId, eventKey: "org.join_requested", actorId: userId, title: `${name} asked to join ${org.title}`, href: orgHref(org, "?tab=members"), sourceEventId: eventId });
+}
+
 export async function notifyJoined(orgId: string, userId: string, eventId: string) {
   const org = await orgLabel(orgId);
   if (!org) return;

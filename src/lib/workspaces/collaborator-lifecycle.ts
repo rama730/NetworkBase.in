@@ -210,6 +210,8 @@ export async function addWorkspaceMemberInternal(
         userId: string;
         role?: Exclude<WorkspaceMemberRole, "owner">;
         actorId: string;
+        /** Audit 3.1: an org admin adding someone with the lead's powers is recorded as themselves. */
+        realActorId?: string;
         source: "application_accept" | "workspace_invite" | "manual" | "ownership_transfer" | "join_code" | "email_invite";
         applicationId?: string | null;
         roleId?: string | null;
@@ -336,7 +338,7 @@ export async function addWorkspaceMemberInternal(
 
     const [event] = await executor.insert(workspaceNodeEvents).values({
         projectId: params.projectId,
-        actorId: params.actorId,
+        actorId: params.realActorId ?? params.actorId,
         nodeId: null,
         type: "workspace_member.added",
         metadata: {
@@ -356,7 +358,7 @@ export async function addWorkspaceMemberInternal(
         await upsertProfileWorkspaceContributionFromMembership(executor, {
             profileId: params.userId,
             projectId: params.projectId,
-            verifiedBy: params.actorId,
+            verifiedBy: params.realActorId ?? params.actorId,
             previousRole,
             nextRole,
             eventId: event?.id ?? null,
@@ -379,6 +381,8 @@ export async function changeWorkspaceMemberRoleInternal(
     params: {
         projectId: string;
         actorId: string;
+        /** Audit 3.1: who really did it (an org admin acting with the owner's powers); recorded on the event. */
+        realActorId?: string;
         targetUserId: string;
         nextRole: Exclude<WorkspaceMemberRole, "owner">;
     },
@@ -402,7 +406,7 @@ export async function changeWorkspaceMemberRoleInternal(
     await syncWorkspaceChat(executor, params.projectId, params.targetUserId, "role");
     const [event] = await executor.insert(workspaceNodeEvents).values({
         projectId: params.projectId,
-        actorId: params.actorId,
+        actorId: params.realActorId ?? params.actorId,
         nodeId: null,
         type: "workspace_member.role_changed",
         metadata: {
@@ -418,7 +422,7 @@ export async function changeWorkspaceMemberRoleInternal(
     await upsertProfileWorkspaceContributionFromMembership(executor, {
         profileId: params.targetUserId,
         projectId: params.projectId,
-        verifiedBy: params.actorId,
+        verifiedBy: params.realActorId ?? params.actorId,
         previousRole,
         nextRole: params.nextRole,
         eventId: event?.id ?? null,
@@ -667,7 +671,7 @@ export async function removeWorkspaceMemberInternal(
 
     const [event] = await executor.insert(workspaceNodeEvents).values({
         projectId: params.projectId,
-        actorId: params.actorId,
+        actorId: params.realActorId ?? params.actorId,
         nodeId: null,
         type: "workspace_member.removed",
         metadata: {
@@ -691,7 +695,7 @@ export async function removeWorkspaceMemberInternal(
     await endProfileWorkspaceContributionMembership(executor, {
         profileId: params.targetUserId,
         projectId: params.projectId,
-        verifiedBy: params.actorId,
+        verifiedBy: params.realActorId ?? params.actorId,
         eventId: event?.id ?? null,
         ending: params.ending,
     });

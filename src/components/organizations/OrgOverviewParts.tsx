@@ -94,7 +94,7 @@ function TodayItem({ orgId, n, onChanged }: { orgId: string; n: TodayRow; onChan
                 <Button type="button" size="sm" variant="outline" disabled={pending} onClick={() => start(async () => {
                     const r = await approveJoinRequestsAction(orgId, [n.approveId!])
                     if (!r.success) return void toast.error(r.error ?? 'Couldn’t approve.')
-                    toast.success('Approved')
+                    toast.success(r.approved ? 'Approved' : 'They stay waiting: they’re in 50 organizations')
                     onChanged()
                 })}>Approve</Button>
             ) : <Button asChild size="sm" variant="outline" className="shrink-0"><Link href={n.href}>{TODAY_ACTION[n.kind] ?? 'Open'}</Link></Button>}

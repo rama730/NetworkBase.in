@@ -153,6 +153,8 @@ export async function readOrgRequestsForMeAction(): Promise<{ invites: Awaited<R
             JOIN profiles pr ON pr.id = a.applicant_id
             WHERE a.role_id IS NULL AND a.status = 'pending'
               AND (o.owner_id = ${userId}::uuid OR EXISTS (SELECT 1 FROM workspace_members m WHERE m.workspace_id = o.id AND m.user_id = ${userId}::uuid AND m.role = 'admin'))
+              -- Audit N8: the same block rule as the Members tab, here too.
+              AND NOT app_private.review_hidden_by_block(${userId}::uuid, a.applicant_id, o.id)
             ORDER BY a.created_at ASC LIMIT 500`),
         // Your own requests (report §30.7): waiting, with Cancel.
         ROWS<{ org_id: string; title: string; slug: string | null; at: Date | string }>(sql`

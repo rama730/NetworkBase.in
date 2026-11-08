@@ -4,7 +4,7 @@ import type { MembershipEnding } from "@/lib/profile/collaboration";
 import { and, eq, gt, inArray, isNull, notInArray, sql } from "drizzle-orm";
 
 import { db } from "@/lib/db";
-import { orgEmailInvites, profiles, workspaceMembers, workspaces } from "@/lib/db/schema";
+import { orgEmailInvites, orgJoinBlocks, profiles, workspaceMembers, workspaces } from "@/lib/db/schema";
 import { createCopiesAfterJoin, releaseCopiesOnLeave } from "@/lib/organizations/assignments";
 import { notifyNewCopies } from "@/lib/organizations/assignment-notify";
 import { namesOf, notifyOrg, orgLabel, queueOrgInviteSignupEmails, ROLE_LABEL } from "@/lib/organizations/notify";
@@ -28,7 +28,10 @@ export async function createOrgEmailInvites(orgId: string, actorId: string, inpu
   if (valid.length === 0) return { invited: 0, existing: 0 };
   const already = new Set((await db.select({ email: profiles.email }).from(workspaceMembers).innerJoin(profiles, eq(profiles.id, workspaceMembers.userId))
     .where(and(eq(workspaceMembers.projectId, orgId), inArray(profiles.email, valid)))).map((r) => r.email.toLowerCase()));
-  const toInvite = valid.filter((e) => !already.has(e));
+  // Audit 2.1: people blocked from this organization aren't invited (the join would be refused anyway).
+  const blocked = new Set((await db.select({ email: profiles.email }).from(orgJoinBlocks).innerJoin(profiles, eq(profiles.id, orgJoinBlocks.userId))
+    .where(and(eq(orgJoinBlocks.orgId, orgId), inArray(profiles.email, valid)))).map((r) => r.email.toLowerCase()));
+  const toInvite = valid.filter((e) => !already.has(e) && !blocked.has(e));
   const expiresAt = new Date(Date.now() + INVITE_DAYS * 86_400_000);
   const invites: Array<{ id: string; email: string }> = [];
   // ponytail: one upsert per address (500 at most per paste); batch it if pastes ever grow past that.
@@ -67,12 +70,17 @@ export async function notifyInvites(orgId: string, actorId: string, invites: Arr
  * Accepts one open org invite for this person (report §20.5): the invited role and title apply, and the
  * invite's child project and unit place them there too. Returns the org id, or null when the invite is gone.
  */
-export async function acceptOrgInvite(userId: string, inviteId: string): Promise<{ orgId: string } | { full: true } | { adminsFull: true } | null> {
+export async function acceptOrgInvite(userId: string, inviteId: string): Promise<{ orgId: string; teamFull?: TeamFull } | { full: true } | { adminsFull: true } | { blocked: true } | null> {
+  let teamFull: TeamFull | undefined;
   const orgId = await db.transaction(async (tx) => {
     // Max members holds for invites too (report §20.5): a full org keeps the invite open until there's room.
+    // Audit N6: an archived, suspended, restricted or closing organization takes nobody new, by invite either.
     const [target] = await tx.select({ orgId: orgEmailInvites.orgId, role: orgEmailInvites.role, max: workspaces.maxCollaborators }).from(orgEmailInvites)
-      .innerJoin(workspaces, eq(workspaces.id, orgEmailInvites.orgId)).where(eq(orgEmailInvites.id, inviteId)).for("update", { of: workspaces }).limit(1);
+      .innerJoin(workspaces, eq(workspaces.id, orgEmailInvites.orgId)).where(and(eq(orgEmailInvites.id, inviteId), orgTakesPeople())).for("update", { of: workspaces }).limit(1);
     if (!target) return null;
+    // Audit 2.1: someone blocked from this organization can't come back through an old invite.
+    const [blockedHere] = await tx.select({ userId: orgJoinBlocks.userId }).from(orgJoinBlocks).where(and(eq(orgJoinBlocks.orgId, target.orgId), eq(orgJoinBlocks.userId, userId))).limit(1);
+    if (blockedHere) return "blocked" as const;
     const [{ n } = { n: 0 }] = await tx.select({ n: sql<number>`count(*)::int` }).from(workspaceMembers).where(eq(workspaceMembers.projectId, target.orgId));
     if (n >= orgMemberCap(target.max)) return "full" as const;
     // The 20-admin cap holds when an admin invite is accepted too (audit 2.3); the invite stays open.
@@ -93,18 +101,50 @@ export async function acceptOrgInvite(userId: string, inviteId: string): Promise
     if (invite.childProjectId && invite.role === "member") {
       const [child] = await tx.select({ id: workspaces.id }).from(workspaces)
         .where(and(eq(workspaces.id, invite.childProjectId), eq(workspaces.parentId, invite.orgId), isNull(workspaces.deletedAt))).limit(1);
-      if (child) await addWorkspaceMemberInternal(tx, { projectId: child.id, userId, role: "member", actorId: invite.invitedBy ?? userId, source: "email_invite", roleId: invite.unitId });
+      if (child) {
+        // Audit 2.4: a full team never undoes the organization join; they join the workspace without the team and
+        // its lead hears it (after the commit).
+        const added = await tx.transaction((sp) => addWorkspaceMemberInternal(sp, { projectId: child.id, userId, role: "member", actorId: invite.invitedBy ?? userId, source: "email_invite", roleId: invite.unitId }))
+          .then(() => true, () => false);
+        if (!added && invite.unitId) {
+          await addWorkspaceMemberInternal(tx, { projectId: child.id, userId, role: "member", actorId: invite.invitedBy ?? userId, source: "email_invite" });
+          teamFull = { projectId: child.id, unitId: invite.unitId };
+        }
+      }
     }
     return invite.orgId;
   });
   if (orgId === "full") return { full: true };
   if (orgId === "admins_full") return { adminsFull: true };
+  if (orgId === "blocked") return { blocked: true };
   // Copies after the commit (audit N67); only members hold copies.
   if (orgId && (await db.select({ role: workspaceMembers.role }).from(workspaceMembers).where(and(eq(workspaceMembers.projectId, orgId), eq(workspaceMembers.userId, userId))).limit(1))[0]?.role === "member") {
     await createCopiesAfterJoin(orgId, [userId]);
   }
   if (orgId) await notifyNewCopies(orgId, { userId });
-  return orgId ? { orgId } : null;
+  if (orgId && teamFull) await notifyTeamFull(orgId, userId, teamFull);
+  return orgId ? { orgId, ...(teamFull ? { teamFull } : {}) } : null;
+}
+
+/** An organization that takes new people: not deleted, archived, suspended, restricted or closing (audit N6). */
+export function orgTakesPeople() {
+  return and(isNull(workspaces.deletedAt), sql`${workspaces.status} <> 'archived'`, isNull(workspaces.suspendedAt), isNull(workspaces.restrictedAt), isNull(workspaces.deletionScheduledAt));
+}
+
+/** The address's open invite is used up when they join some other way (audit N13). */
+export async function closeOpenInvite(executor: Executor, orgId: string, userId: string) {
+  await executor.execute(sql`DELETE FROM org_email_invites WHERE org_id = ${orgId}::uuid AND accepted_at IS NULL
+    AND email = (SELECT lower(email) FROM profiles WHERE id = ${userId}::uuid)`);
+}
+
+type TeamFull = { projectId: string; unitId: string };
+/** "Priya joined without a team: Frontend is full" to the workspace's lead (audit 2.4). */
+async function notifyTeamFull(orgId: string, userId: string, full: TeamFull) {
+  const [row] = await db.select({ leadId: workspaces.ownerId, slug: workspaces.slug, team: sql<string | null>`(SELECT coalesce(r.title, r.role) FROM workspace_open_roles r WHERE r.id = ${full.unitId}::uuid)` })
+    .from(workspaces).where(eq(workspaces.id, full.projectId)).limit(1);
+  const name = (await namesOf([userId])).get(userId) ?? "Someone";
+  if (row) await notifyOrg({ orgId, eventKey: "org.child_notice", to: [row.leadId], title: `${name} joined without a team: ${row.team ?? "the team"} is full`,
+    href: `/workspaces/${encodeURIComponent(row.slug ?? full.projectId)}?tab=settings`, sourceEventId: `team-full:${full.projectId}:${userId}`, refs: { projectId: full.projectId } }).catch(() => undefined);
 }
 
 /** Admins in the org, plus open admin invites when asked (an invite holds a seat until it's accepted or expires). */
@@ -129,7 +169,7 @@ export async function openInvitesFor(userId: string, orgId?: string) {
       eq(orgEmailInvites.email, profile.email.trim().toLowerCase()),
       isNull(orgEmailInvites.acceptedAt),
       gt(orgEmailInvites.expiresAt, sql`now()`),
-      isNull(workspaces.deletedAt),
+      orgTakesPeople(),
       orgId ? eq(orgEmailInvites.orgId, orgId) : undefined,
     ));
   // The organization's own word for the role (org spec §2 rule 5): "Student", not "member".
@@ -217,6 +257,9 @@ export class AccountOrgLimitError extends Error {}
  * transferring, joining, accepting an invite and approving a request.
  */
 export async function accountOrgLimit(executor: Pick<typeof db, "execute">, userId: string, kind: "own" | "join"): Promise<string | null> {
+  // Audit 2.10: one person's joins (and creations) count one at a time, so two at once can't both pass at 49.
+  // Inside a transaction the lock holds until commit; outside one it's taken and let go at once.
+  await executor.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${`org-limit:${userId}`}))`);
   const [row] = Array.from(await executor.execute<{ n: number }>(kind === "own"
     ? sql`SELECT count(*)::int AS n FROM workspaces WHERE owner_id = ${userId}::uuid AND kind = 'organization' AND deleted_at IS NULL`
     : sql`SELECT count(*)::int AS n FROM workspace_members m JOIN workspaces w ON w.id = m.workspace_id

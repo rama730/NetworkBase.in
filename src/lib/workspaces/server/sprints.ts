@@ -1987,6 +1987,16 @@ export async function completeSprintAction(
     // cancels the upcoming ones inside it; open work can't move into a sprint that's closing with it.
     const inside = await sprintsInside(projectId, sprintId);
     if (options.nextSprintId && inside.some((child) => child.id === options.nextSprintId)) throw new Error("That sprint sits inside this one and closes with it. Pick a sprint after it.");
+    // Audit N82: the checks below run before any inner sprint closes, so a refused completion closes nothing.
+    if (inside.length) {
+      const main = await db.query.workspaceSprints.findFirst({ where: and(eq(workspaceSprints.id, sprintId), eq(workspaceSprints.projectId, projectId), eq(workspaceSprints.status, "active")), columns: { id: true } });
+      if (!main) throw new Error("Only an active sprint can be completed");
+      if (unfinished === "next_sprint") {
+        if (!options.nextSprintId || options.nextSprintId === sprintId) throw new Error("Choose a different planning sprint");
+        const target = await db.query.workspaceSprints.findFirst({ where: and(eq(workspaceSprints.id, options.nextSprintId), eq(workspaceSprints.projectId, projectId), eq(workspaceSprints.status, "planning")), columns: { id: true } });
+        if (!target) throw new Error("The destination must be a planning sprint");
+      }
+    }
     for (const child of inside) {
       const result: { success: boolean; error?: string } = child.status === "active" ? await completeSprintAction(child.id, projectId, options) : await cancelSprintAction(child.id, projectId);
       if (!result.success) throw new Error(`${child.name}: ${result.error ?? "couldn’t close"}`);

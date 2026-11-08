@@ -91,7 +91,7 @@ test("3.5: viewers are never placed in a workspace", async () => {
   const invite = await members.inviteByEmailAction(o.id, { emails: "guest@example.com", role: "viewer", childProjectId: child });
   assert.equal(invite.success, false);
   const added = await members.addMembersToChildAction(o.id, child, [viewer!], null);
-  assert.deepEqual(added, { success: true, added: 0 });
+  assert.deepEqual(added, { success: true, added: 0, skipped: 1 });
   const [{ n }] = await sql<{ n: number }[]>`SELECT count(*)::int AS n FROM workspace_members WHERE workspace_id = ${child} AND user_id = ${viewer!}`;
   assert.equal(n, 0);
 });

@@ -18,7 +18,8 @@ import { orgRoleNames } from "@/lib/organizations/config";
 import { addWorkspaceMemberInternal } from "@/lib/workspaces/collaborator-lifecycle";
 import { createCopiesAfterJoin } from "@/lib/organizations/assignments";
 import { notifyNewCopies } from "@/lib/organizations/assignment-notify";
-import { acceptOrgInvite, AccountOrgLimitError, accountOrgLimit, openInvitesFor } from "@/lib/organizations/members";
+import { notifyJoined } from "@/lib/organizations/notify";
+import { acceptOrgInvite, AccountOrgLimitError, accountOrgLimit, closeOpenInvite, openInvitesFor } from "@/lib/organizations/members";
 
 export type OrgSummary = { id: string; title: string; slug: string | null };
 
@@ -145,6 +146,7 @@ async function joinOrg(
         .where(and(eq(orgJoinBlocks.orgId, org.id), eq(orgJoinBlocks.userId, userId))).limit(1),
       tx.select({ id: roleApplications.id, status: roleApplications.status, updatedAt: roleApplications.updatedAt, decisionBy: roleApplications.decisionBy })
         .from(roleApplications)
+        // One application per person per organization (role_applications_unique_idx): a waiting one is left as it is.
         .where(and(eq(roleApplications.projectId, org.id), eq(roleApplications.applicantId, userId))).limit(1),
       tx.select({ n: count() }).from(workspaceMembers).where(eq(workspaceMembers.projectId, org.id)),
     ]);
@@ -168,6 +170,8 @@ async function joinOrg(
     if (outcome === "joined") {
       // Joining by code is always Member (decision 58); a pending request is closed by the join.
       await addWorkspaceMemberInternal(tx, { projectId: org.id, userId, role: "member", actorId: userId, source: "join_code" });
+      // Audit N13: an invite to the same address is used up by joining, so it doesn't linger as "Invited".
+      await closeOpenInvite(tx, org.id, userId);
       // Late joiners get copies of open assignments (report §16.9), after the commit (audit N67).
     } else if (outcome === "requested") {
       const message = note?.trim().slice(0, 500) || null;
@@ -202,7 +206,11 @@ export async function acceptOrgEmailInvites(userId: string, email: string): Prom
   for (const invite of invites) {
     // Audit N2: one invite that can't be accepted (full team, blocked, 50 organizations) doesn't stop the others.
     const result = await acceptOrgInvite(userId, invite.id).catch((error: unknown) => { console.error("Accepting an org invite at sign-up failed:", error); return null; });
-    if (result && "orgId" in result) accepted += 1;
+    if (result && "orgId" in result) {
+      accepted += 1;
+      // Audit N3: the admins see who joined, as they do when an invite is accepted in the app.
+      await notifyJoined(result.orgId, userId, `${invite.id}:accepted`).catch(() => undefined);
+    }
   }
   return accepted;
 }

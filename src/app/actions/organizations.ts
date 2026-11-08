@@ -29,7 +29,7 @@ import { acceptOrgInvite, AccountOrgLimitError, accountOrgLimit, ledChildWorkspa
 import { countOrgMembers, findOrgByJoinCode, isOrgHandleAvailable, joinOrgByCode, joinPublicOrg, viewerOrgStatus } from '@/lib/organizations/join';
 import { adminsCanSeeLine, joinPageState, normalizeJoinCode, orgMemberCap, ORG_JOIN_MESSAGES, type JoinPageState, type OrgJoinMode, type OrgJoinOutcome } from '@/lib/organizations/join-rules';
 import { isWorkspacePubliclyReadableVisibility } from '@/lib/workspaces/workspace-visibility';
-import { namesOf, notifyJoined, notifyOrg, orgHref, orgLabel } from '@/lib/organizations/notify';
+import { namesOf, notifyJoined, notifyJoinOutcome, notifyOrg, orgHref, orgLabel } from '@/lib/organizations/notify';
 import { moveGroupWorkToLead } from '@/lib/organizations/assignments';
 import { UUID_RE } from '@/lib/validations/uuid';
 import { syncWorkspaceChat } from '@/lib/messaging/integrations';
@@ -138,7 +138,7 @@ export async function joinOrganizationAction(
     const accepted = target && invite ? await acceptOrgInvite(userId, invite.id).catch(limitOnly) : null;
     if (accepted instanceof AccountOrgLimitError) return { success: false, error: accepted.message };
     if (target && invite && accepted && 'orgId' in accepted) {
-        revalidatePath(`/workspaces/${target.slug ?? target.id}`);
+        revalidateOrg(target.slug, target.id);
         await notifyJoined(target.id, userId, `${invite.id}:accepted`);
         return { success: true, outcome: 'joined', org: { id: target.id, title: target.title, slug: target.slug } };
     }
@@ -149,8 +149,9 @@ export async function joinOrganizationAction(
     if (outcome === 'blocked' || outcome === 'full' || outcome === 'unavailable' || outcome === 'cooldown') {
         return { success: false, error: ORG_JOIN_MESSAGES[outcome] };
     }
-    if (outcome === 'joined') revalidatePath(`/workspaces/${org.slug ?? org.id}`);
-    await afterJoin(org.id, outcome, userId);
+    // Audit N30: the org's own page is /org/<handle>.
+    if (outcome === 'joined') revalidateOrg(org.slug, org.id);
+    await notifyJoinOutcome(org.id, outcome, userId);
     return { success: true, outcome, org };
 }
 
@@ -377,26 +378,19 @@ export async function joinPublicOrgAction(
     const userId = await viewerId();
     if (!userId) return { success: false, error: 'Sign in to join an organization.' };
     if (!(await allowLookup(userId))) return TOO_MANY;
-    const result = await joinPublicOrg(userId, orgId, note);
+    // Audit 2.5: the 50-organization limit is a sentence, never a crash.
+    const result = await joinPublicOrg(userId, orgId, note).catch(limitOnly);
+    if (result instanceof AccountOrgLimitError) return { success: false, error: result.message };
     if (!result) return { success: false, error: 'This organization can be joined only with its code.' };
     const { outcome, org } = result;
     if (outcome === 'blocked' || outcome === 'full' || outcome === 'unavailable' || outcome === 'cooldown') {
         return { success: false, error: ORG_JOIN_MESSAGES[outcome] };
     }
     revalidateOrg(org.slug, org.id);
-    await afterJoin(org.id, outcome, userId);
+    await notifyJoinOutcome(org.id, outcome, userId);
     return { success: true, outcome };
 }
 
-/** Joined: admins see "N people joined" and the person gets E4. Requested: admins see "N people asked to join". */
-async function afterJoin(orgId: string, outcome: OrgJoinOutcome, userId: string) {
-    const eventId = `join:${userId}:${Date.now()}`;
-    if (outcome === 'joined') return notifyJoined(orgId, userId, eventId);
-    if (outcome !== 'requested') return;
-    const org = await orgLabel(orgId);
-    const name = (await namesOf([userId])).get(userId) ?? 'Someone';
-    if (org) await notifyOrg({ orgId, eventKey: 'org.join_requested', actorId: userId, title: `${name} asked to join ${org.title}`, href: orgHref(org, '?tab=members'), sourceEventId: eventId });
-}
 
 /** Withdraws the viewer's pending join request; withdrawing is not a decline, so there is no cool-down. */
 /** Add a note to a waiting join request (report §26.5): up to 500 characters; the admins' row shows the newest. */
@@ -423,7 +417,7 @@ export async function cancelJoinRequestAction(orgId: string): Promise<{ success:
         await db.insert(applicationEvents).values({ applicationId: row.id, actorId: userId, kind: 'withdrawn', fromStatus: 'pending', toStatus: 'withdrawn', metadata: { source: 'org_join_request' } });
     }
     if (withdrawn.length === 0) return { success: false, error: 'There is no pending request to cancel.' };
-    revalidatePath(`/workspaces/${orgId}`);
+    revalidateOrg(null, orgId);
     return { success: true };
 }
 

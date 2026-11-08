@@ -162,6 +162,13 @@ type ComposerPrefill = { title: string; description: string; mode: AssignmentTar
 export const ReuseAssignmentContext = createContext<((masterId: string) => void) | null>(null)
 
 /** New assignment in its own dialog: Use again where no board is around to open New. */
+
+/** "Approved 12. Each person is told." plus who changed their work since handing in (audit 9.5). */
+function approvedLine(r: { approved: number; failed: Array<{ reason: string }> }) {
+    const base = `Approved ${r.approved}. Each person is told.`
+    return r.failed.length ? `${base} ${r.failed.length} changed since they handed in: ask them to resubmit.` : base
+}
+
 export function AssignmentComposer({ orgId, open, onOpenChange, onCreated, reuseFrom = null, timeZone = null }: { orgId: string; open: boolean; onOpenChange: (open: boolean) => void; onCreated: () => void; reuseFrom?: string | null; timeZone?: string | null }) {
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
@@ -546,7 +553,7 @@ export function RosterDialog({ row, orgId, open, onOpenChange, onChanged, timeZo
                     <DialogDescription>{due(row.dueDate)} · {countsLine(row)}</DialogDescription>
                 </DialogHeader>
                 <div className="flex flex-wrap gap-2">
-                    {row.counts.submitted > 0 ? <Button type="button" size="sm" disabled={pending} onClick={() => run(() => approveAllSubmittedAction(row.masterId))}>Approve all submitted</Button> : null}
+                    {row.counts.submitted > 0 ? <Button type="button" size="sm" disabled={pending} onClick={() => run(async () => { const r = await approveAllSubmittedAction(row.masterId); if (r.success) toast.success(approvedLine(r)); return r.success ? { success: true } : r })}>Approve all submitted</Button> : null}
                     <Button type="button" size="sm" variant="outline" disabled={pending} onClick={() => run(async () => { const r = await remindCopiesAction(row.masterId); if (r.success) toast.success(remindSummary(r)); return r.success ? { success: true } : r })}>Remind everyone not done</Button>
                     {/* Brief and shared Q&A live on the master task (report §16.4 Conversation, §16.5 Brief / Discussion). */}
                     {/* Download all (report §23.5): one folder per person or team, latest handed-in files. */}
@@ -568,11 +575,11 @@ export function RosterDialog({ row, orgId, open, onOpenChange, onChanged, timeZo
                     <div className="flex flex-wrap items-center gap-2 rounded-md border border-border bg-muted p-2 text-sm" role="group" aria-label="Selected">
                         <span className="font-medium">{picked.size} selected</span>
                         <Button type="button" size="sm" disabled={pending} onClick={() => run(async () => {
-                            let approved = 0
-                            for (const id of picked) if ((await reviewAssignmentCopyAction(id, 'approve')).success) approved += 1
-                            toast.success(`Approved ${approved}. Each person is told.`)
+                            // Audit 9.5: one server call; anything that changed since it was handed in is named, not skipped silently.
+                            const r = await approveAllSubmittedAction(row.masterId, [...picked])
+                            if (r.success) toast.success(approvedLine(r))
                             setPicked(new Set())
-                            return { success: true }
+                            return r.success ? { success: true } : r
                         })}>Approve selected</Button>
                         <Button type="button" size="sm" variant="outline" disabled={pending} onClick={() => setAsk({ kind: 'bulk-return' })}>Return selected</Button>
                         <Button type="button" size="sm" variant="outline" disabled={pending} onClick={() => setAsk({ kind: 'bulk-extend' })}>Extend for {picked.size}</Button>

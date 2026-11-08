@@ -14,9 +14,10 @@ import { countUnregisteredWorkspaceStorage, scheduleWorkspaceStorageDeletion } f
 import { resetDuplicatedTarget, type AssignmentSettings } from "@/lib/organizations/assignment-rules";
 import { createMasterTask, moveGroupWorkToLead } from "@/lib/organizations/assignments";
 import { detachFromOrg } from "@/lib/organizations/children";
-import { accountOrgLimit, lastActiveHereSince } from "@/lib/organizations/members";
+import { accountOrgLimit, createOrgEmailInvites, lastActiveHereSince } from "@/lib/organizations/members";
 import { ownerAway, requestExpired } from "@/lib/organizations/takeover-rules";
 import { generateJoinCode } from "@/lib/organizations/join-rules";
+import { ORG_LIMITS } from "@/lib/organizations/config";
 import { notifyOrg, orgHref, orgLabel, queueOrgEmails } from "@/lib/organizations/notify";
 import { createAdminClient } from "@/lib/supabase/server";
 import { logger } from "@/lib/logger";
@@ -223,6 +224,8 @@ export async function duplicateOrg(sourceId: string, actorId: string, options: D
   const keepSettings = Object.fromEntries(Object.entries(source.orgSettings ?? {}).filter(([k]) => !["changes", "detachRequest", "moveInRequest", "archivedWithOrg", "handleChangedAt"].includes(k)));
 
   const newId = await db.transaction(async (tx) => {
+    // Audit N24: the 5-owned limit is checked again here, so duplicates queued at once can't all pass.
+    if (await accountOrgLimit(tx, actorId, "own")) return null;
     const [created] = await tx.insert(workspaces).values({
       ownerId: actorId, title: options.title, slug: options.handle, key: `${generateWorkspaceKey(options.title)}${randomUUID().slice(0, 3).toUpperCase()}`, currentTaskNumber: 0,
       kind: "organization", orgType: source.orgType, visibility: source.visibility, status: "active",
@@ -236,6 +239,12 @@ export async function duplicateOrg(sourceId: string, actorId: string, options: D
     await syncWorkspaceChat(tx, created!.id, null, "ensure_default");
     return created!.id;
   });
+  if (!newId) {
+    const sourceLabel = await orgLabel(sourceId);
+    if (sourceLabel) await notifyOrg({ orgId: sourceId, eventKey: "org.lifecycle", to: [actorId], title: `Couldn’t make ${options.title}: you can own up to ${ORG_LIMITS.orgsOwnedPerUser} organizations.`,
+      href: orgHref(sourceLabel, "?tab=settings&section=org-management"), sourceEventId: `duplicate-limit:${sourceId}:${Date.now()}` });
+    return null;
+  }
 
   try {
     return await fillDuplicate(sourceId, newId, actorId, options, deltaMs);
@@ -329,9 +338,8 @@ async function fillDuplicate(sourceId: string, newId: string, actorId: string, o
   if (options.copy.admins) {
     const admins = await db.select({ email: profiles.email }).from(workspaceMembers).innerJoin(profiles, eq(profiles.id, workspaceMembers.userId))
       .where(and(eq(workspaceMembers.projectId, sourceId), eq(workspaceMembers.role, "admin"), ne(workspaceMembers.userId, actorId)));
-    for (const admin of admins) {
-      await db.insert(orgEmailInvites).values({ orgId: newId, email: admin.email.toLowerCase(), role: "admin", invitedBy: actorId, expiresAt: new Date(Date.now() + 14 * DAY_MS) }).onConflictDoNothing();
-    }
+    // Audit N7: through the usual invite path, so each admin is told (in-app and by email).
+    if (admins.length) await createOrgEmailInvites(newId, actorId, { emails: admins.map((a) => a.email), role: "admin", title: null, childProjectId: null, unitId: null });
   }
 
   const [sourceLabel, label] = await Promise.all([orgLabel(sourceId), orgLabel(newId)]);
