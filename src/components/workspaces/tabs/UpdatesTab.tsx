@@ -399,7 +399,7 @@ export default function UpdatesTab({
             : prependUpdate(existing, update),
       );
       void queryClient.invalidateQueries({ queryKey: updatesQueryKey });
-      toast.success(orgFeed ? "Posted" : "Workspace update posted");
+      toast.success(orgFeed ? "Update posted" : "Workspace update posted");
     },
   });
 

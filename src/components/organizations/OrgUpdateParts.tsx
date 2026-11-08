@@ -17,7 +17,9 @@ import type { OrgFeedFilter } from '@/lib/organizations/org-updates'
 import { rolePlural } from '@/lib/organizations/role-words'
 import { audienceLabel, type UpdateAudience } from '@/lib/organizations/update-rules'
 import { cn } from '@/lib/utils'
-import { NotYetDialog } from '@/components/organizations/org-ui'
+import { NotYetDialog, PinnedLine } from '@/components/organizations/org-ui'
+import { UnderlineTabs } from '@/components/ui/UnderlineTabs'
+import { Input } from '@/components/ui/input'
 
 // Org Updates (report §7.5, §16.3, §18.4, §28.3, §37.3): the options inside the composer, the feed filters, the
 // pinned org line, and the card's audience and seen parts.
@@ -61,8 +63,9 @@ export type OrgComposerControls = {
 }
 
 const EMAIL_LIMIT = 5
-const chip = 'inline-flex min-h-8 items-center gap-1.5 rounded-[5px] border border-border px-2.5 text-[12px] text-foreground'
-const tool = 'size-7 rounded-[5px] flex items-center justify-center text-muted-foreground transition-colors hover:bg-muted hover:text-foreground aria-pressed:bg-muted aria-pressed:text-foreground aria-pressed:ring-1 aria-pressed:ring-border disabled:opacity-50'
+// Choices are radio tags (spec §05: a chosen tag takes the ink fill); tools are 28px icon buttons.
+const chip = 'nb-tag'
+const tool = 'nb-touch-target size-7 rounded-md flex items-center justify-center text-muted-foreground transition-colors hover:bg-muted hover:text-foreground aria-pressed:bg-muted aria-pressed:text-foreground disabled:cursor-not-allowed disabled:opacity-50'
 const DEFAULT_ROLES = { owner: 'Owner', admin: 'Admin', member: 'Member', viewer: 'Viewer' }
 
 const people = (n: number) => `${n} ${n === 1 ? 'person' : 'people'}`
@@ -95,7 +98,7 @@ export function useOrgComposer(org: OrgFeedInfo | null, orgId: string, value: Or
             <DropdownMenuContent align="end">
                 <DropdownMenuLabel>Comments</DropdownMenuLabel>
                 <DropdownMenuRadioGroup value={replyPolicy} onValueChange={(next) => onChange({ ...value, replyPolicy: next as OrgPostOptions['replyPolicy'] })}>
-                    <DropdownMenuRadioItem value="members">Members</DropdownMenuRadioItem>
+                    <DropdownMenuRadioItem value="members">People in the organization</DropdownMenuRadioItem>
                     <DropdownMenuRadioItem value="logged_in">Anyone signed in</DropdownMenuRadioItem>
                     <DropdownMenuRadioItem value="closed">Off</DropdownMenuRadioItem>
                 </DropdownMenuRadioGroup>
@@ -115,10 +118,9 @@ export function useOrgComposer(org: OrgFeedInfo | null, orgId: string, value: Or
                 <div className="mb-2 flex flex-wrap items-center gap-1.5" role="radiogroup" aria-label="Who sees this">
                     <span className="text-[12px] text-muted-foreground">Who sees this</span>
                     {options.map((o) => (
-                        <button key={o.value} type="button" role="radio" aria-checked={choice === o.value} disabled={Boolean(o.reason)} title={o.reason ?? undefined}
-                            onClick={() => onChange({ ...value, childAudience: o.value })}
-                            className={cn(chip, choice === o.value && 'border-foreground font-medium', o.reason && 'opacity-60')}>
-                            {o.label}{o.value === 'public' ? <span className="text-muted-foreground">· Also on Discover</span> : null}
+                        <button key={o.value} type="button" role="radio" aria-checked={choice === o.value} disabled={Boolean(o.reason)}
+                            onClick={() => onChange({ ...value, childAudience: o.value })} className={chip}>
+                            {o.label}{o.value === 'public' ? <span>· Also on Discover</span> : null}
                         </button>
                     ))}
                     {org.shareBlockedReason ? <span className="text-[12px] text-muted-foreground">{org.shareBlockedReason}</span> : null}
@@ -135,7 +137,7 @@ export function useOrgComposer(org: OrgFeedInfo | null, orgId: string, value: Or
     if (!org.isAdmin) {
         // Members only start discussions (decision 155); the server sets the type too.
         return {
-            top: <div className="mb-2"><span className={chip}><Users className="h-3.5 w-3.5" aria-hidden="true" />Discussion · Members</span></div>,
+            top: <p className="mb-2 flex items-center gap-1.5 text-[12px] text-muted-foreground"><Users className="size-3.5" aria-hidden="true" />A discussion for {org.title}</p>,
             toolbar: comments,
             postLabel: 'Post',
             blockedReason: null,
@@ -156,10 +158,9 @@ export function useOrgComposer(org: OrgFeedInfo | null, orgId: string, value: Or
         top: (
             <div className="mb-2 space-y-1.5">
                 <div className="flex flex-wrap items-center gap-1.5">
-                    <div className="inline-flex rounded-[5px] border border-border p-0.5" role="radiogroup" aria-label="Post type">
+                    <div className="inline-flex gap-1.5" role="radiogroup" aria-label="Post type">
                         {(['announcement', 'discussion'] as const).map((t) => (
-                            <button key={t} type="button" role="radio" aria-checked={type === t} onClick={() => onChange({ ...value, updateType: t })}
-                                className={cn('rounded-[3px] px-2 py-0.5 text-[12px]', type === t ? 'bg-muted font-medium text-foreground' : 'text-muted-foreground')}>
+                            <button key={t} type="button" role="radio" aria-checked={type === t} onClick={() => onChange({ ...value, updateType: t })} className={chip}>
                                 {t === 'announcement' ? 'Announcement' : 'Discussion'}
                             </button>
                         ))}
@@ -171,7 +172,7 @@ export function useOrgComposer(org: OrgFeedInfo | null, orgId: string, value: Or
                 {value.pin ? (
                     <label className="flex items-center gap-1.5 text-[12px] text-muted-foreground">
                         Pinned · unpin on
-                        <input type="date" className="rounded border border-border bg-transparent px-1" value={value.pinnedUntil?.slice(0, 10) ?? ''}
+                        <Input type="date" className="h-[var(--ui-control-height-sm)] w-auto text-[13px]" value={value.pinnedUntil?.slice(0, 10) ?? ''}
                             onChange={(e) => onChange({ ...value, pinnedUntil: e.target.value ? new Date(`${e.target.value}T23:59:59`).toISOString() : null })} />
                     </label>
                 ) : null}
@@ -232,7 +233,7 @@ export function AudienceMenu({ org, value, label, onChange }: {
             <DropdownMenuTrigger asChild><button type="button" className={chip} aria-label={`Audience: ${label}`}><Users className="h-3.5 w-3.5" aria-hidden="true" />{label}</button></DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="max-h-80 overflow-y-auto">
                 <DropdownMenuCheckboxItem checked={!value.isPublic && roles.length === 0 && projectIds.length === 0} onSelect={(e) => { e.preventDefault(); set({}) }}>Everyone in {org.title}</DropdownMenuCheckboxItem>
-                <DropdownMenuCheckboxItem checked={roles.includes('admin')} onSelect={(e) => { e.preventDefault(); set({ roles: toggle(roles, 'admin'), projectIds }) }}>Admins</DropdownMenuCheckboxItem>
+                <DropdownMenuCheckboxItem checked={roles.includes('admin')} onSelect={(e) => { e.preventDefault(); set({ roles: toggle(roles, 'admin'), projectIds }) }}>{rolePlural(roleNames.admin)}</DropdownMenuCheckboxItem>
                 {(['member', 'viewer'] as const).map((r) => (
                     <DropdownMenuCheckboxItem key={r} checked={roles.includes(r)} onSelect={(e) => { e.preventDefault(); set({ roles: toggle(roles, r), projectIds }) }}>{rolePlural(roleNames[r])}</DropdownMenuCheckboxItem>
                 ))}
@@ -313,35 +314,24 @@ const FILTERS: Array<{ value: OrgFeedFilter; label: string }> = [
 
 /** The empty title when a filter has nothing (report §7.5). */
 export const FILTER_EMPTY: Record<OrgFeedFilter, string> = {
-    all: 'No announcements yet',
+    all: 'No posts yet',
     announcement: 'No announcements yet',
     discussion: 'No discussions yet',
     from_projects: 'Nothing shared from workspaces yet',
 }
 
 export function OrgFeedFilters({ value, onChange }: { value: OrgFeedFilter; onChange: (next: OrgFeedFilter) => void }) {
-    return (
-        <div className="flex flex-wrap gap-1.5 px-1 pb-3" role="tablist" aria-label="Filter updates">
-            {FILTERS.map((filter) => (
-                <button key={filter.value} type="button" role="tab" aria-selected={value === filter.value} onClick={() => onChange(filter.value)}
-                    className={cn(chip, value === filter.value ? 'border-foreground font-medium' : 'text-muted-foreground')}>
-                    {filter.label}
-                </button>
-            ))}
-        </div>
-    )
+    // Views of one feed are underlined tabs with arrow keys (spec §10 Tabs).
+    return <UnderlineTabs label="Filter updates" idPrefix="org-feed" controls={false} className="mb-3" value={value} onChange={onChange} tabs={FILTERS.map((f) => ({ key: f.value, label: f.label }))} />
 }
 
-/** "📌 CSE-3A · Midterm moved to Nov 10" at the top of a child project's feed (report §17.7). */
+/** The organization's pinned announcement at the top of a child workspace's feed (report §17.7): the shared pinned line. */
 export function OrgPinnedLine({ projectId }: { projectId: string }) {
     const { data: line } = useQuery({ queryKey: ['org-pinned-line', projectId], queryFn: () => readOrgPinnedLineAction(projectId), staleTime: 60_000 })
     if (!line) return null
     return (
-        <Link href={`/org/${encodeURIComponent(line.orgSlug ?? '')}?tab=updates&updateId=${encodeURIComponent(line.id)}`}
-            className="mb-3 flex min-h-10 items-center gap-2 rounded-[5px] border border-border bg-muted/30 px-3 text-[13px] text-foreground hover:bg-muted">
-            <Pin className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-            <span className="shrink-0 font-medium">{line.orgTitle}</span>
-            <span className="truncate text-muted-foreground">· {line.content}</span>
-        </Link>
+        <div className="mb-3">
+            <PinnedLine href={`/org/${encodeURIComponent(line.orgSlug ?? '')}?tab=updates&updateId=${encodeURIComponent(line.id)}`} orgTitle={line.orgTitle} content={line.content} />
+        </div>
     )
 }

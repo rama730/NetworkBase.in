@@ -2,7 +2,11 @@
 
 import { useCallback, useEffect, useMemo, useState, useTransition } from 'react'
 import Link from 'next/link'
-import { ChevronRight, FileText, Folder } from 'lucide-react'
+import { FolderOpen } from 'lucide-react'
+import { FileTypeChip } from '@/components/workspaces/v2/files-tab/FileTypeChip'
+import { EmptyState } from '@/components/ui/EmptyState'
+import { Notice } from '@/components/ui/notice'
+import { Crumbs } from '@/components/organizations/org-ui'
 
 import {
     browseOrgFilesAction,
@@ -19,7 +23,7 @@ import { FinalFilesBrowser, SprintMaterialsBrowser, SubmissionsBrowser } from '@
 import { getWorkspaceNodes } from '@/app/actions/files/nodes'
 import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { readFolderAccess, type FolderAccess } from '@/lib/organizations/file-rules'
 import { FolderAccessChip } from '@/components/organizations/FolderAccessChip'
 import { toast, feedbackError } from '@/lib/feedback'
@@ -89,24 +93,24 @@ export function FolderAccessDialog({ orgId, orgTitle, folder, open, onOpenChange
                     <DialogTitle>Who can see {folder.name}?</DialogTitle>
                     <DialogDescription>Folders inside follow this, and can only be stricter.</DialogDescription>
                 </DialogHeader>
-                <div role="radiogroup" aria-label="Who can see this" className="space-y-1.5">
+                <div role="radiogroup" aria-label="Who can see this" className="space-y-2.5 text-[13px]">
                     {options.map((o) => (
-                        <label key={o.label} className="flex items-center gap-2 text-sm">
-                            <input type="radio" name="folder-access" checked={(choice ?? null) === o.value} onChange={() => setChoice(o.value)} />
+                        <label key={o.label} className="flex items-center gap-2.5">
+                            <input type="radio" className="nb-radio" name="folder-access" checked={(choice ?? null) === o.value} onChange={() => setChoice(o.value)} />
                             {o.label}
                         </label>
                     ))}
                 </div>
-                {line ? <p role="status" className="text-sm text-muted-foreground">{line}</p> : null}
-                <label className="flex items-center gap-2 text-sm">
-                    <input type="checkbox" checked={template && choice !== 'admins'} disabled={choice === 'admins'} onChange={(e) => setTemplate(e.target.checked)} />
+                {line ? <p role="status" className="text-[13px] text-muted-foreground">{line}</p> : null}
+                <label className="flex items-center gap-2.5 text-[13px]">
+                    <input type="checkbox" className="nb-check" checked={template && choice !== 'admins'} disabled={choice === 'admins'} onChange={(e) => setTemplate(e.target.checked)} />
                     Use as template for new workspaces
                 </label>
-                {choice === 'admins' ? <p className="text-[12px] text-muted-foreground">Admins-only folders can’t be templates.</p> : null}
-                <div className="flex justify-end gap-2">
-                    <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>Cancel</Button>
-                    <Button size="sm" disabled={pending} onClick={save}>Save</Button>
-                </div>
+                {choice === 'admins' ? <p className="text-[13px] text-muted-foreground">Admins-only folders can’t be templates.</p> : null}
+                <DialogFooter paper>
+                    <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+                    <Button disabled={pending} onClick={save}>Save access</Button>
+                </DialogFooter>
             </DialogContent>
         </Dialog>
     )
@@ -119,9 +123,9 @@ export function OrgStorageNotice({ org }: { org: OrgFilesInfo }) {
     if (!storage?.warn) return null
     const percent = Math.min(100, Math.round((storage.usedBytes / storage.limitBytes) * 100))
     return (
-        <p role="status" data-testid="org-storage" className="mb-2 text-[12px] text-amber-700 dark:text-amber-400">
-            {percent >= 100 ? 'Storage is full' : `Storage is ${percent}% full`} · <Link href={`${orgPath(org)}?tab=settings`} className="underline underline-offset-4">Manage</Link>
-        </p>
+        <div data-testid="org-storage" className="mb-2"><Notice tone={percent >= 100 ? 'danger' : 'warning'} action={<Link href={`${orgPath(org)}?tab=settings`} className="nb-link text-[13px]">Manage storage</Link>}>
+            {percent >= 100 ? 'Storage is full.' : `Storage is ${percent}% full.`}
+        </Notice></div>
     )
 }
 
@@ -160,12 +164,12 @@ function OrgFilePeek({ orgId, orgTitle, file, href, onClose }: { orgId: string; 
             <DialogContent className="max-h-[90dvh] max-w-3xl overflow-y-auto">
                 <DialogHeader>
                     <DialogTitle>{file.name}</DialogTitle>
-                    <DialogDescription>From {orgTitle} · Read only · <Link href={href} className="underline underline-offset-4">Open in {orgTitle}</Link></DialogDescription>
+                    <DialogDescription>From {orgTitle} · Read-only · <Link href={href} className="nb-link">Open in {orgTitle}</Link></DialogDescription>
                 </DialogHeader>
-                {body === null ? <p className="text-sm text-muted-foreground">Loading…</p>
+                {body === null ? <div className="nb-skeleton h-64 rounded-md" role="status" aria-label={`Loading ${file.name}`} />
                     : body.kind === 'image' ? <img src={body.url} alt={file.name} className="max-h-[70dvh] w-full object-contain" />
-                        : body.kind === 'text' ? <pre className="max-h-[70dvh] overflow-auto whitespace-pre-wrap rounded-md bg-muted/40 p-3 text-[12px]">{body.text}</pre>
-                            : <p className="text-sm text-muted-foreground">This file opens in {orgTitle}.</p>}
+                        : body.kind === 'text' ? <pre className="max-h-[70dvh] overflow-auto whitespace-pre-wrap rounded-md bg-muted p-3 font-mono text-[13px] leading-[1.55]">{body.text}</pre>
+                            : <p className="text-[13px] text-muted-foreground">This file opens in {orgTitle}.</p>}
             </DialogContent>
         </Dialog>
     )
@@ -183,34 +187,27 @@ function CopyToFolderDialog({ projectId, name, onClose, onPick }: { projectId: s
     }, [parentId, projectId])
     return (
         <Dialog open onOpenChange={(open) => { if (!open) onClose() }}>
-            <DialogContent className="max-w-md">
+            <DialogContent>
                 <DialogHeader>
                     <DialogTitle>Copy {name}</DialogTitle>
                     <DialogDescription>Pick the folder in this workspace.</DialogDescription>
                 </DialogHeader>
-                <nav aria-label="Folders" className="flex flex-wrap items-center gap-1 text-[12px] text-muted-foreground">
-                    <button type="button" onClick={() => setTrail([])} className="hover:text-foreground">Top folder</button>
-                    {trail.map((step, index) => (
-                        <span key={step.id} className="flex items-center gap-1"><ChevronRight className="size-3" aria-hidden="true" />
-                            <button type="button" onClick={() => setTrail(trail.slice(0, index + 1))} className="hover:text-foreground">{step.name}</button>
-                        </span>
-                    ))}
-                </nav>
-                {folders === null ? <div className="nb-skeleton h-16 rounded-md" aria-label="Loading folders" /> : folders.length === 0 ? <p className="text-sm text-muted-foreground">No folders inside.</p> : (
-                    <ul className="max-h-64 divide-y divide-border overflow-y-auto text-sm">
+                <Crumbs label="Folders" items={[{ key: 'top', name: 'Top folder' }, ...trail.map((t) => ({ key: t.id, name: t.name }))]} onGo={(i) => setTrail(trail.slice(0, i))} />
+                {folders === null ? <div className="nb-skeleton h-16 rounded-md" role="status" aria-label="Loading folders" /> : folders.length === 0 ? <p className="text-[13px] text-muted-foreground">No folders inside.</p> : (
+                    <ul className="max-h-64 divide-y divide-border overflow-y-auto text-[13px]">
                         {folders.map((f) => (
                             <li key={f.id}>
-                                <button type="button" className="flex w-full items-center gap-2 py-1.5 text-left hover:underline" onClick={() => setTrail([...trail, f])}>
-                                    <Folder className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />{f.name}
+                                <button type="button" className="flex min-h-11 w-full items-center gap-2.5 text-left hover:underline" onClick={() => setTrail([...trail, f])}>
+                                    <FileTypeChip name={f.name} isFolder />{f.name}
                                 </button>
                             </li>
                         ))}
                     </ul>
                 )}
-                <div className="flex justify-end gap-2">
+                <DialogFooter paper>
                     <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
                     <Button type="button" onClick={() => onPick(parentId)}>Copy to {trail.at(-1)?.name ?? 'top folder'}</Button>
-                </div>
+                </DialogFooter>
             </DialogContent>
         </Dialog>
     )
@@ -272,32 +269,23 @@ function FromOrgFiles({ projectId, org }: { projectId: string; org: OrgFilesInfo
 
     return (
         <div className="space-y-3">
-            <p className="text-[12px] text-muted-foreground">{org.title} · Read only · <Link href={`${orgPath(org)}?tab=files`} className="underline underline-offset-4">Open in {org.title}</Link></p>
-            {trail.length ? (
-                <nav aria-label={`${org.title} folders`} className="flex flex-wrap items-center gap-1 text-[12px] text-muted-foreground">
-                    <button type="button" onClick={() => setTrail([])} className="hover:text-foreground">{org.title}</button>
-                    {trail.map((step, index) => (
-                        <span key={step.id} className="flex items-center gap-1"><ChevronRight className="size-3" aria-hidden="true" />
-                            <button type="button" onClick={() => setTrail(trail.slice(0, index + 1))} className="hover:text-foreground">{step.name}</button>
-                        </span>
-                    ))}
-                </nav>
-            ) : null}
-            {nodes.length === 0 ? <p className="py-8 text-center text-sm text-muted-foreground">{trail.length ? 'Nothing here.' : `${org.title} hasn’t shared files yet.`}</p> : (
-                <ul className="divide-y divide-border text-sm">
+            <p className="text-[13px] text-muted-foreground">{org.title} · Read-only · <Link href={`${orgPath(org)}?tab=files`} className="nb-link">Open in {org.title}</Link></p>
+            {trail.length ? <Crumbs label={`${org.title} folders`} items={[{ key: 'org', name: org.title }, ...trail.map((t) => ({ key: t.id, name: t.name }))]} onGo={(i) => setTrail(trail.slice(0, i))} /> : null}
+            {nodes.length === 0 ? <EmptyState icon={FolderOpen} title={trail.length ? 'Nothing here' : `${org.title} hasn’t shared files yet`} description={trail.length ? 'This folder is empty.' : 'Files the organization shares with workspaces show here.'} /> : (
+                <ul className="divide-y divide-border overflow-hidden rounded-lg border border-border bg-card text-[13px]">
                     {nodes.map((n) => {
                         const mine = copiesBySource.get(n.id)
                         const newer = mine && mine.sourceVersion !== null && mine.sourceVersion > mine.copiedVersion
                         return (
-                            <li key={n.id} className="flex flex-wrap items-center gap-2 py-1.5">
-                                {n.type === 'folder' ? <Folder className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" /> : <FileText className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />}
+                            <li key={n.id} className="flex min-h-12 flex-wrap items-center gap-2.5 px-3 py-1.5">
+                                <FileTypeChip name={n.name} isFolder={n.type === 'folder'} />
                                 <button type="button" className="min-w-0 flex-1 truncate text-left hover:underline"
                                     onClick={() => (n.type === 'folder' ? setTrail([...trail, { id: n.id, name: n.name }]) : setPeek(n))}>{n.name}</button>
                                 <FolderAccessChip metadata={{ access: n.access }} />
-                                {n.type === 'file' && n.currentVersion > 1 ? <span className="text-[11px] text-muted-foreground">v{n.currentVersion}</span> : null}
-                                {mine && !newer ? <span className="text-[11px] text-muted-foreground">Copied · v{mine.copiedVersion}</span> : null}
+                                {n.type === 'file' && n.currentVersion > 1 ? <span className="nb-meta">v{n.currentVersion}</span> : null}
+                                {mine && !newer ? <span className="nb-meta">Copied · v{mine.copiedVersion}</span> : null}
                                 {newer && org.canCopy ? (
-                                    <button type="button" disabled={copying !== null} onClick={() => setAskUpdate(mine)} className="rounded-[3px] border border-border px-1.5 text-[11px] hover:bg-muted">Newer version · Update copy</button>
+                                    <Button type="button" size="sm" variant="outline" disabled={copying !== null} onClick={() => setAskUpdate(mine)}>Newer version · Update copy</Button>
                                 ) : null}
                                 {n.type === 'file' && org.canCopy && !mine ? (
                                     <Button type="button" size="sm" variant="outline" aria-label={`Copy ${n.name} to this workspace`} disabled={copying !== null} onClick={() => setCopyTarget(n)}>

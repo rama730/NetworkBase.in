@@ -81,7 +81,7 @@ test('files §1: Submissions — the filter bar with counts, the Task files colu
   await expect(rows(page)).toHaveText([/Home assignment 1/]);
   await page.getByRole('combobox', { name: 'Assignment' }).selectOption({ label: 'All assignments' });
   // Download all for every assignment in the header; each folder's ⋯ has its own.
-  await page.getByRole('button', { name: 'Download all ▾' }).click();
+  await page.getByRole('button', { name: 'Download all' }).click();
   await expect(page.getByRole('menuitem')).toHaveText(['ALM-1', 'Home assignment 1', 'Lab 1: Arrays and linked lists']);
   await page.keyboard.press('Escape');
   await rows(page).filter({ hasText: 'ALM-1' }).getByRole('button', { name: 'More for ALM-1' }).click();

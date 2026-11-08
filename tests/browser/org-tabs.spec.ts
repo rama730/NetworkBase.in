@@ -268,7 +268,7 @@ test('Files (§23): storage nearly full, Update copy and opening an org file in 
     await expect(page.getByTestId('org-storage')).toContainText('Storage is 86% full');
     await expect(page.getByRole('button', { name: 'Newer version · Update copy' })).toBeVisible();
     await page.getByRole('button', { name: 'Distributed-systems-capstone-rubric-final-v3.pdf', exact: true }).click();
-    await expect(page.getByRole('dialog')).toContainText('Read only');
+    await expect(page.getByRole('dialog')).toContainText('Read-only');
     await expect(page.getByRole('link', { name: 'Open in CSE-3A Software Engineering' })).toBeVisible();
 });
 

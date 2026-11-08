@@ -208,3 +208,23 @@ export function PinnedLine({ href, orgTitle, author, content, at, unread, end, t
         </div>
     )
 }
+
+/** A folder trail (spec §10 Breadcrumbs): 13px labels, a mono slash between, the current place strong. */
+export function Crumbs({ label, items, onGo }: { label: string; items: Array<{ key: string; name: string }>; onGo: (index: number) => void }) {
+    return (
+        <nav aria-label={label}>
+            <ol className="flex min-w-0 flex-wrap items-center gap-x-1.5 text-[13px] text-muted-foreground">
+                {items.map((item, index) => {
+                    const last = index === items.length - 1
+                    return (
+                        <li key={item.key} className="flex min-w-0 items-center gap-x-1.5">
+                            {index > 0 ? <span aria-hidden="true" className="font-mono">/</span> : null}
+                            {last ? <span aria-current="location" className="truncate font-medium text-foreground">{item.name}</span>
+                                : <button type="button" onClick={() => onGo(index)} className="truncate hover:text-foreground hover:underline">{item.name}</button>}
+                        </li>
+                    )
+                })}
+            </ol>
+        </nav>
+    )
+}

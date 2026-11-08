@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
+import { ChevronDown } from 'lucide-react'
 
 import {
     readChildFinalFilesAction,
@@ -68,10 +69,10 @@ export function SubmissionsBrowser({ org }: { org: OrgRef }) {
     if (row) crumbs.push({ label: row.who, onClick: () => go({ version: null, file: null }) })
     if (row && place.version) crumbs.push({ label: `Version ${place.version}`, onClick: () => go({ file: null }) })
     const downloadAll = group
-        ? (group.rows.some((r) => r.files > 0) ? <Button asChild size="sm" variant="outline" className="h-[30px]"><DownloadLink href={zipHref(org.orgId, group.id)}>Download all</DownloadLink></Button> : null)
+        ? (group.rows.some((r) => r.files > 0) ? <Button asChild size="sm" variant="outline"><DownloadLink href={zipHref(org.orgId, group.id)}>Download all</DownloadLink></Button> : null)
         : data.some((g) => g.rows.some((r) => r.files > 0)) ? (
             <DropdownMenu modal={false}>
-                <DropdownMenuTrigger asChild><Button type="button" size="sm" variant="outline" className="h-[30px]">Download all ▾</Button></DropdownMenuTrigger>
+                <DropdownMenuTrigger asChild><Button type="button" size="sm" variant="outline">Download all<ChevronDown className="size-3.5" aria-hidden="true" /></Button></DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                     {data.filter((g) => g.rows.some((r) => r.files > 0)).map((g) => <DropdownMenuItem key={g.id} asChild><DownloadLink href={zipHref(org.orgId, g.id)}>{g.title}</DownloadLink></DropdownMenuItem>)}
                 </DropdownMenuContent>
@@ -85,7 +86,7 @@ export function SubmissionsBrowser({ org }: { org: OrgRef }) {
                     <FilterBar pills={pills} value={status} onChange={setStatus} query={query} onQuery={setQuery} placeholder="Filter people…"
                         extra={group ? null : (
                             <select aria-label="Assignment" value={only} onChange={(e) => setOnly(e.target.value)}
-                                className="h-6 max-w-[12rem] rounded-[3px] border border-[#DBD5C8] bg-white px-1.5 font-mono text-[11px] text-foreground dark:border-border dark:bg-card">
+                                className="nb-select max-w-[12rem]" data-size="sm">
                                 <option value="">All assignments</option>
                                 {data.map((g) => <option key={g.id} value={g.id}>{g.title}</option>)}
                             </select>
@@ -95,7 +96,7 @@ export function SubmissionsBrowser({ org }: { org: OrgRef }) {
                     <div role="rowgroup" className={list}>
                         {data.length === 0 ? <BrowserEmpty title="Nothing handed in yet" body="Work handed in for assignments shows here." /> : group ? (() => {
                             const rows = order(group.rows.filter(matches), (r) => r.who, (r) => r.submittedAt, (r) => r.files)
-                            return rows.length === 0 ? <BrowserEmpty title="No hand-ins match these filters" action={<Button type="button" size="sm" variant="outline" className="mt-3 h-[30px]" onClick={() => { setStatus('all'); setQuery('') }}>Clear filters</Button>} />
+                            return rows.length === 0 ? <BrowserEmpty title="No hand-ins match these filters" action={<Button type="button" size="sm" variant="outline" className="mt-3" onClick={() => { setStatus('all'); setQuery('') }}>Clear filters</Button>} />
                                 : rows.map((r) => (
                                     <BrowserRow key={r.copyId} folder name={r.who} label={`${r.who}, ${r.status}${r.late ? ', late' : ''}`} updated={r.submittedAt} size={filesCount(r.files)} by={r.by ?? (r.team ? null : r.who)} byAvatarUrl={r.avatarUrl}
                                         onOpen={() => go({ copy: r.copyId, version: null, file: null })}
@@ -107,7 +108,7 @@ export function SubmissionsBrowser({ org }: { org: OrgRef }) {
                                 ))
                         })() : (() => {
                             const groups = order(data.filter((g) => (!only || g.id === only) && g.rows.some(matches)), (g) => g.title, (g) => latest(g.rows, (r) => r.submittedAt)?.submittedAt ?? null, (g) => g.rows.reduce((n, r) => n + r.files, 0))
-                            return groups.length === 0 ? <BrowserEmpty title="No hand-ins match these filters" action={<Button type="button" size="sm" variant="outline" className="mt-3 h-[30px]" onClick={() => { setStatus('all'); setQuery(''); setOnly('') }}>Clear filters</Button>} />
+                            return groups.length === 0 ? <BrowserEmpty title="No hand-ins match these filters" action={<Button type="button" size="sm" variant="outline" className="mt-3" onClick={() => { setStatus('all'); setQuery(''); setOnly('') }}>Clear filters</Button>} />
                                 : groups.map((g) => {
                                     const last = latest(g.rows, (r) => r.submittedAt)
                                     const waiting = g.rows.filter((r) => r.status === 'In review').length
@@ -137,17 +138,17 @@ function HandIn({ org, row, masterId, version, file, go }: { org: OrgRef; row: S
     const [data, setData] = useState<{ projectId: string; current: BrowserFile[]; versions: Array<{ version: number; at: string; files: BrowserFile[] }> } | null | 'denied'>(null)
     useEffect(() => { void readHandInFilesAction(row.copyId).then((r) => setData(r.success ? r : 'denied')) }, [row.copyId])
     if (data === null) return <div className="nb-skeleton m-4 h-24 rounded-md" aria-label="Loading the hand-in" />
-    if (data === 'denied') return <BrowserEmpty title="These files can’t be shown here" body="Open the hand-in to see them." action={<Link className="mt-3 text-primary hover:underline" href={assignmentHref(orgPath(org), row.copyId)}>Open the hand-in</Link>} />
+    if (data === 'denied') return <BrowserEmpty title="These files can’t be shown here" body="Open the hand-in to see them." action={<Link className="nb-link mt-3 inline-block" href={assignmentHref(orgPath(org), row.copyId)}>Open the hand-in</Link>} />
     const v = version ? data.versions.find((x) => String(x.version) === version) ?? null : null
     const files = v ? v.files : data.current
     const opened = file ? files.find((f) => f.nodeId === file) ?? null : null
     if (opened) return <OpenFile projectId={data.projectId} file={opened} />
     return (
         <>
-            <div className="flex items-center gap-2 border-b border-[#DBD5C8] bg-[#FAF8F5] px-4 py-1.5 text-[12px] text-muted-foreground dark:border-border dark:bg-card">
+            <div className="flex min-h-10 items-center gap-2 border-b border-border bg-background px-4 py-1.5 text-[12px] text-muted-foreground">
                 <span>{row.status}{row.late ? ' · Late' : ''}{row.version ? ` · Version ${v ? v.version : row.version}` : ''}{row.by ? ` · handed in by ${row.by}` : ''}</span>
                 <span className="flex-1" />
-                <Link className="text-primary hover:underline" href={`${orgPath(org)}?tab=tasks&taskScope=review&assignment=${masterId}&review=${row.copyId}`}>Open in review</Link>
+                <Link className="nb-link" href={`${orgPath(org)}?tab=tasks&taskScope=review&assignment=${masterId}&review=${row.copyId}`}>Open in review</Link>
             </div>
             <BrowserTable label="Files listing">
             <FolderListHeader updatedLabel="Last updated" byLabel="By" />
@@ -196,7 +197,7 @@ export function SprintMaterialsBrowser({ org }: { org: OrgRef }) {
     if (opened) crumbs.push({ label: opened.name })
     return (
         <div className={shell} data-testid="org-materials">
-            <BrowserHeader crumbs={crumbs} actions={group && org.isAdmin ? <Button asChild size="sm" variant="outline" className="h-[30px]"><Link href={`${orgPath(org)}?tab=sprints&sprintId=${group.sprintId}`}>Add materials</Link></Button> : null} />
+            <BrowserHeader crumbs={crumbs} actions={group && org.isAdmin ? <Button asChild size="sm" variant="outline"><Link href={`${orgPath(org)}?tab=sprints&sprintId=${group.sprintId}`}>Add materials</Link></Button> : null} />
             {opened ? <OpenFile projectId={org.orgId} file={opened} /> : group ? (
                 <>
                     <BrowserTable label="Files listing">
@@ -214,7 +215,7 @@ export function SprintMaterialsBrowser({ org }: { org: OrgRef }) {
                     <FolderListHeader updatedLabel="Last updated" byLabel="By" sizeLabel="Files" />
                     <div role="rowgroup" className={list}>
                         {groups.length === 0 ? <BrowserEmpty title="No sprint materials yet" body={org.isAdmin ? 'Add files to a sprint from its page in Sprints.' : 'Files your admins add to a sprint show here.'} />
-                            : shown.length === 0 ? <BrowserEmpty title="No sprints match these filters" action={<Button type="button" size="sm" variant="outline" className="mt-3 h-[30px]" onClick={() => { setPhase('all'); setQuery('') }}>Clear filters</Button>} />
+                            : shown.length === 0 ? <BrowserEmpty title="No sprints match these filters" action={<Button type="button" size="sm" variant="outline" className="mt-3" onClick={() => { setPhase('all'); setQuery('') }}>Clear filters</Button>} />
                                 : shown.map((g) => {
                                     const last = latest(g.files, (f) => f.updatedAt)
                                     return <BrowserRow key={g.sprintId} folder name={nameOf(g)} updated={last?.updatedAt ?? null} size={filesCount(filesOf(g).length)} by={last?.by ?? null} byAvatarUrl={last?.byAvatarUrl}

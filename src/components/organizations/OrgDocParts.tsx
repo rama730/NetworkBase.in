@@ -22,7 +22,7 @@ import {
 } from '@/app/actions/org-docs'
 import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { toast } from '@/lib/feedback'
 import { Input } from '@/components/ui/input'
 import { docTitle, type DocGroup } from '@/lib/organizations/doc-rules'
@@ -31,7 +31,9 @@ import { formatDistanceToNow } from '@/lib/utils/date'
 import { buildWorkspaceFileKey } from '@/lib/storage/workspace-file-key'
 import { uploadToSupabaseSignedUrl } from '@/lib/upload/supabase-signed-upload-client'
 import { cn } from '@/lib/utils'
-import { NotYetDialog } from '@/components/organizations/org-ui'
+import { NotYetDialog, StatusBadge } from '@/components/organizations/org-ui'
+import { fieldError, fieldHint, fieldLabel } from '@/lib/organizations/display'
+import { Notice } from '@/components/ui/notice'
 
 // Org Docs (report §19): labels and groups in the doc rail, the From <org> section in child projects,
 // admin options, and saving a new Markdown doc (New doc, template copies).
@@ -88,18 +90,17 @@ export async function createDocFile(projectId: string, filename: string, content
     return { node, slug: linked.slug, id: linked.id }
 }
 
-const chip = 'inline-flex shrink-0 items-center rounded-[3px] border border-border px-1 font-mono text-[10px] uppercase tracking-wider text-muted-foreground'
-
+/** A document's state, the same badge in the list and in the reader's header (spec §10 Badge). */
 export function OrgDocChips({ item }: { item?: OrgDocItem }) {
     if (!item) return null
     return (
         <span className="flex shrink-0 items-center gap-1">
-            {item.label === 'new' ? <span className="rounded-[3px] bg-foreground px-1 font-mono text-[10px] uppercase tracking-wider text-background">New</span> : null}
-            {item.label === 'updated' ? <span className={chip}>Updated</span> : null}
-            {item.state === 'draft' ? <span className={chip}>Draft</span> : null}
-            {item.state === 'changed' ? <span className={chip} title="Unpublished changes">Changed</span> : null}
-            {item.required ? <span className={chip} title="Required reading">Required</span> : null}
-            {item.sprint ? <span className={chip}>{item.sprint}</span> : null}
+            {item.label === 'new' ? <StatusBadge state="new">New</StatusBadge> : null}
+            {item.label === 'updated' ? <StatusBadge state="updated">Updated</StatusBadge> : null}
+            {item.state === 'draft' ? <StatusBadge state="draft">Draft</StatusBadge> : null}
+            {item.state === 'changed' ? <StatusBadge state="changed">Changed</StatusBadge> : null}
+            {item.required ? <StatusBadge state="required">Required</StatusBadge> : null}
+            {item.sprint ? <span className="nb-meta">{item.sprint}</span> : null}
         </span>
     )
 }
@@ -132,7 +133,7 @@ export function FromOrgDocs({ data, activeSlug }: { data: OrgDocsData; activeSlu
     }
     return (
         <div className="space-y-1 pt-3">
-            <p className="nb-ui-label pb-1 text-[11px] font-semibold uppercase tracking-[0.09em] text-muted-foreground">From {data.orgTitle}</p>
+            <p className="nb-micro pb-1">From {data.orgTitle}</p>
             {data.groups.map((group) => {
                 const docs = data.docs.filter((d) => d.group === group.id)
                 if (docs.length === 0) return null
@@ -142,7 +143,7 @@ export function FromOrgDocs({ data, activeSlug }: { data: OrgDocsData; activeSlu
                         {docs.map((doc) => (
                             <button key={doc.id} type="button" onClick={() => open(doc.slug)}
                                 aria-current={searchParams?.get('from') === 'org' && doc.slug === activeSlug ? 'page' : undefined}
-                                className="flex w-full items-center gap-2 rounded-[5px] border border-border bg-card px-2.5 py-2 text-left text-[13px] text-muted-foreground hover:bg-muted/40 hover:text-foreground aria-[current=page]:bg-muted aria-[current=page]:text-foreground">
+                                className="flex w-full items-center gap-2 rounded-md border border-border bg-card px-2.5 py-2 text-left text-[13px] font-medium text-foreground hover:bg-muted aria-[current=page]:bg-muted aria-[current=page]:text-foreground">
                                 <Lock className="size-3.5 shrink-0" aria-hidden="true" />
                                 <span className="min-w-0 flex-1 truncate">{docTitle(doc.filename)}</span>
                                 <OrgDocChips item={doc} />
@@ -165,43 +166,41 @@ export function OrgDocAdminTools({ data, doc, visibility }: { data: OrgDocsData;
     if (data.mode !== 'org' || !data.isAdmin || !doc) return null
     const run = (work: () => Promise<{ success: boolean; error?: string }>, done: string) => startTransition(async () => {
         const result = await work()
-        setStatus(result.success ? done : result.error ?? 'Something went wrong.')
+        if (!result.success) { setStatus(result.error ?? 'Something went wrong.'); return }
+        setStatus(null)
+        toast.success(done)
         if (result.success) await queryClient.invalidateQueries({ queryKey: ORG_DOCS_QUERY_KEY(data.orgId) })
     })
     const setOption = (patch: Parameters<typeof updateOrgDocOptionsAction>[2]) => run(() => updateOrgDocOptionsAction(data.orgId, doc.id, patch), 'Saved')
-    const box = 'flex items-center gap-2 text-[12px] text-foreground'
+    const box = 'flex items-center gap-2.5 text-[13px] text-foreground'
     return (
-        <div className="space-y-3 border-t border-border pt-3 text-[12px]" aria-label="Doc options">
-            <p className="nb-ui-label text-[11px] font-semibold uppercase tracking-[0.09em] text-muted-foreground">Doc options</p>
-            <label className="block space-y-1">
-                <span className="text-muted-foreground">Group</span>
-                <select value={doc.group} disabled={pending} onChange={(e) => setOption({ group: e.target.value })} className="h-8 w-full rounded-[5px] border border-border bg-background px-2">
+        <div className="space-y-4 text-[13px]" aria-label="Document options">
+            <label className="block"><span className={fieldLabel}>Group</span>
+                <select value={doc.group} disabled={pending} onChange={(e) => setOption({ group: e.target.value })} className="nb-select mt-1.5 w-full">
                     {data.groups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
                 </select>
             </label>
-            <label className="block space-y-1">
-                <span className="text-muted-foreground">Visibility</span>
-                <select value={visibility === 'public' ? 'public' : 'members_only'} disabled={pending} onChange={(e) => setOption({ visibility: e.target.value as 'public' | 'members_only' })} className="h-8 w-full rounded-[5px] border border-border bg-background px-2">
-                    <option value="members_only">Members only</option>
+            <label className="block"><span className={fieldLabel}>Visibility</span>
+                <select value={visibility === 'public' ? 'public' : 'members_only'} disabled={pending} onChange={(e) => setOption({ visibility: e.target.value as 'public' | 'members_only' })} className="nb-select mt-1.5 w-full] border border-border bg-background px-2">
+                    <option value="members_only">Organization only</option>
                     <option value="public">Public</option>
                 </select>
-                <span className="block text-[11px] text-muted-foreground">Public shows it to anyone once published. An empty document never shows to visitors.</span>
+                <span className={`block ${fieldHint}`}>Public shows it to anyone once published. An empty document never shows to visitors.</span>
             </label>
             {data.sprints.length > 0 || doc.sprintId ? (
-                <label className="block space-y-1">
-                    <span className="text-muted-foreground">Linked sprint</span>
-                    <select value={doc.sprintId ?? ''} disabled={pending} onChange={(e) => setOption({ sprintId: e.target.value || null })} className="h-8 w-full rounded-[5px] border border-border bg-background px-2">
+                <label className="block"><span className={fieldLabel}>Linked sprint</span>
+                    <select value={doc.sprintId ?? ''} disabled={pending} onChange={(e) => setOption({ sprintId: e.target.value || null })} className="nb-select mt-1.5 w-full">
                         <option value="">None</option>
                         {doc.sprintId && !data.sprints.some((s) => s.id === doc.sprintId) ? <option value={doc.sprintId}>{doc.sprint}</option> : null}
                         {data.sprints.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
                     </select>
                 </label>
             ) : null}
-            <label className={box}><input type="checkbox" checked={doc.required} disabled={pending} onChange={(e) => setOption({ required: e.target.checked })} /> Required reading</label>
-            <label className={box}><input type="checkbox" checked={doc.template} disabled={pending} onChange={(e) => setOption({ template: e.target.checked })} /> Template · moves it to Templates</label>
-            <label className={box}><input type="checkbox" checked={doc.showInChildren} disabled={pending} onChange={(e) => setOption({ showInChildren: e.target.checked })} /> Show in every workspace in the organization</label>
+            <label className={box}><input type="checkbox" className="nb-check" checked={doc.required} disabled={pending} onChange={(e) => setOption({ required: e.target.checked })} /> Required reading</label>
+            <label className={box}><input type="checkbox" className="nb-check" checked={doc.template} disabled={pending} onChange={(e) => setOption({ template: e.target.checked })} /> Template · moves it to Templates</label>
+            <label className={box}><input type="checkbox" className="nb-check" checked={doc.showInChildren} disabled={pending} onChange={(e) => setOption({ showInChildren: e.target.checked })} /> Show in every workspace in the organization</label>
             {/* Report §37.4, decision 101: where it stands, and Publish when there's something to publish. */}
-            <div className="space-y-1.5 rounded-[5px] border border-border p-2">
+            <div className="space-y-2 rounded-md bg-muted p-3">
                 <p>{doc.state === 'draft' ? 'Draft · only admins see it' : doc.state === 'changed' ? 'Unpublished changes · members see the last published version' : 'Published'}</p>
                 {doc.state !== 'published' ? <Button type="button" size="sm" disabled={pending} onClick={() => setPublishOpen(true)}>Publish…</Button> : null}
                 {doc.readers ? <ReadByLine orgId={data.orgId} docId={doc.id} readers={doc.readers} /> : null}
@@ -209,9 +208,9 @@ export function OrgDocAdminTools({ data, doc, visibility }: { data: OrgDocsData;
             {doc.template ? <UseTemplateButton orgId={data.orgId} docId={doc.id} /> : null}
             <PublishDialog open={publishOpen} onOpenChange={setPublishOpen} required={doc.required} memberCount={data.memberCount}
                 onPublish={(input) => run(() => publishOrgDocAction(data.orgId, doc.id, input), input.notify ? 'Published, and members were told' : 'Published')} />
-            <button type="button" className="text-muted-foreground underline underline-offset-4 hover:text-foreground" onClick={() => setEditingGroups((v) => !v)}>{editingGroups ? 'Close groups' : 'Edit groups'}</button>
+            <Button type="button" size="sm" variant="outline" aria-expanded={editingGroups} onClick={() => setEditingGroups((v) => !v)}>{editingGroups ? 'Close groups' : 'Edit groups'}</Button>
             {editingGroups ? <GroupEditor orgId={data.orgId} groups={data.groups} onSaved={() => { setEditingGroups(false); void queryClient.invalidateQueries({ queryKey: ORG_DOCS_QUERY_KEY(data.orgId) }) }} /> : null}
-            {status ? <p role="status" className="text-muted-foreground">{status}</p> : null}
+            {status ? <p role="alert" className={fieldError}>{status}</p> : null}
         </div>
     )
 }
@@ -236,7 +235,7 @@ export function OrgDocHeader({ data, doc, updatedBy, updatedAt, editHref, onRemo
                 {editHref ? <Button asChild size="sm" variant="outline"><Link href={editHref}>Edit</Link></Button> : null}
                 {admin || onRemove ? (
                     <DropdownMenu>
-                        <DropdownMenuTrigger asChild><button type="button" aria-label="Document actions" className="nb-touch-target rounded-[5px] p-1.5 text-muted-foreground hover:bg-muted"><MoreHorizontal className="size-4" /></button></DropdownMenuTrigger>
+                        <DropdownMenuTrigger asChild><button type="button" aria-label="Document actions" className="nb-touch-target inline-flex size-[var(--ui-control-height-sm)] items-center justify-center rounded-md text-muted-foreground hover:bg-muted"><MoreHorizontal className="size-4" /></button></DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                             {admin ? <DropdownMenuItem onSelect={() => setOptionsOpen(true)}>Options…</DropdownMenuItem> : null}
                             {admin && doc.state !== 'published' ? <DropdownMenuItem onSelect={() => setPublishOpen(true)}>Publish…</DropdownMenuItem> : null}
@@ -248,12 +247,12 @@ export function OrgDocHeader({ data, doc, updatedBy, updatedAt, editHref, onRemo
             </div>
             <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] text-muted-foreground">
                 {updatedAt ? <span>Updated by {updatedBy ?? 'someone'} · {formatDistanceToNow(new Date(updatedAt), { addSuffix: true })}</span> : null}
-                <span className="nb-tag">{status}</span>
+                <StatusBadge state={admin ? (doc.state === 'published' ? 'published' : doc.state) : (doc.label ?? 'read')}>{status}</StatusBadge>
                 {admin && doc.readers ? <ReadByLine orgId={data.orgId} docId={doc.id} readers={doc.readers} /> : null}
             </p>
             {admin ? (
                 <Dialog open={optionsOpen} onOpenChange={setOptionsOpen}>
-                    <DialogContent className="max-w-md">
+                    <DialogContent>
                         <DialogHeader><DialogTitle>Document options</DialogTitle><DialogDescription>Group, who can see it and where it shows.</DialogDescription></DialogHeader>
                         <OrgDocAdminTools data={data} doc={doc} visibility={visibility} />
                     </DialogContent>
@@ -287,11 +286,11 @@ function GroupEditor({ orgId, groups, onSaved }: { orgId: string; groups: DocGro
         <div className="space-y-1.5">
             {rows.map((row, index) => (
                 <div key={row.id} className="flex items-center gap-1">
-                    <Input value={row.name} maxLength={40} aria-label={`Group ${index + 1} name`} className="h-8 text-[12px]"
+                    <Input value={row.name} maxLength={40} aria-label={`Group ${index + 1} name`} className="h-[var(--ui-control-height-sm)] text-[13px]"
                         onChange={(e) => setRows((current) => current.map((g) => (g.id === row.id ? { ...g, name: e.target.value } : g)))} />
-                    <button type="button" aria-label="Move up" disabled={index === 0} onClick={() => move(index, -1)} className="p-1 text-muted-foreground disabled:opacity-30"><ArrowUp className="size-3.5" /></button>
-                    <button type="button" aria-label="Move down" disabled={index === rows.length - 1} onClick={() => move(index, 1)} className="p-1 text-muted-foreground disabled:opacity-30"><ArrowDown className="size-3.5" /></button>
-                    <button type="button" aria-label="Remove group" disabled={rows.length === 1} onClick={() => setRemoving(row)} className="p-1 text-muted-foreground disabled:opacity-30"><X className="size-3.5" /></button>
+                    <button type="button" aria-label="Move up" disabled={index === 0} onClick={() => move(index, -1)} className="nb-icon-button size-7 rounded-md text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50"><ArrowUp className="size-3.5" /></button>
+                    <button type="button" aria-label="Move down" disabled={index === rows.length - 1} onClick={() => move(index, 1)} className="nb-icon-button size-7 rounded-md text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50"><ArrowDown className="size-3.5" /></button>
+                    <button type="button" aria-label="Remove group" disabled={rows.length === 1} onClick={() => setRemoving(row)} className="nb-icon-button size-7 rounded-md text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50"><X className="size-3.5" /></button>
                 </div>
             ))}
             <div className="flex gap-1.5">
@@ -302,7 +301,7 @@ function GroupEditor({ orgId, groups, onSaved }: { orgId: string; groups: DocGro
                     onSaved()
                 })}>Save groups</Button>
             </div>
-            {error ? <p role="alert" className="text-destructive">{error}</p> : null}
+            {error ? <p role="alert" className={fieldError}>{error}</p> : null}
             {/* Report §28.4: removing a group moves its documents to the first group, after a confirmation. */}
             <ConfirmDialog open={Boolean(removing)} onOpenChange={(open) => { if (!open) setRemoving(null) }} title={`Remove ${removing?.name ?? 'this group'}?`}
                 description={`Its documents move to ${rows.find((g) => g.id !== removing?.id)?.name ?? 'the first group'}.`} confirmLabel="Remove group"
@@ -324,13 +323,13 @@ function PublishDialog({ open, onOpenChange, required, memberCount, onPublish }:
                     <DialogTitle>Publish</DialogTitle>
                     <DialogDescription>Members will read this version. Edits after this wait until you publish again.</DialogDescription>
                 </DialogHeader>
-                <Input value={summary} onChange={(e) => setSummary(e.target.value)} maxLength={200} placeholder="What changed? (optional)" aria-label="What changed" />
-                <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={notify} onChange={(e) => setNotify(e.target.checked)} /> Tell members</label>
-                {required ? <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={reread} onChange={(e) => setReread(e.target.checked)} /> Ask to re-read · Read by counts from zero</label> : null}
-                <div className="flex justify-end gap-2">
-                    <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>Cancel</Button>
-                    <Button size="sm" onClick={() => { onPublish({ summary, notify, reread: required && reread }); onOpenChange(false) }}>{notify ? `Publish and tell ${people}` : 'Publish'}</Button>
-                </div>
+                <label className="block"><span className={fieldLabel}>What changed? (optional)</span><Input value={summary} onChange={(e) => setSummary(e.target.value)} maxLength={200} className="mt-1.5" /></label>
+                <label className="flex items-center gap-2.5 text-[13px]"><input type="checkbox" className="nb-check" checked={notify} onChange={(e) => setNotify(e.target.checked)} /> Tell members</label>
+                {required ? <label className="flex items-center gap-2.5 text-[13px]"><input type="checkbox" className="nb-check" checked={reread} onChange={(e) => setReread(e.target.checked)} /> Ask to re-read · Read by counts from zero</label> : null}
+                <DialogFooter paper>
+                    <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+                    <Button onClick={() => { onPublish({ summary, notify, reread: required && reread }); onOpenChange(false) }}>{notify ? `Publish and tell ${people}` : 'Publish'}</Button>
+                </DialogFooter>
             </DialogContent>
         </Dialog>
     )
@@ -372,7 +371,7 @@ function UseTemplateButton({ orgId, docId }: { orgId: string; docId: string }) {
                         <DialogTitle>Use this template</DialogTitle>
                         <DialogDescription>A copy goes into the workspace you pick. Later changes here don’t reach it.</DialogDescription>
                     </DialogHeader>
-                    {targets.isPending ? <div className="nb-skeleton h-16 rounded" /> : list.length === 0 ? <p className="text-sm text-muted-foreground">You’re not in a workspace here yet.</p> : (
+                    {targets.isPending ? <div className="nb-skeleton h-16 rounded-md" role="status" aria-label="Loading workspaces" /> : list.length === 0 ? <p className="text-[13px] text-muted-foreground">You’re not in a workspace here yet.</p> : (
                         <ul className="space-y-1">{list.map((w) => <li key={w.id}><Button variant="ghost" className="w-full justify-start" disabled={busy} onClick={() => void use(w.id)}>{w.title}</Button></li>)}</ul>
                     )}
                 </DialogContent>
@@ -384,12 +383,8 @@ function UseTemplateButton({ orgId, docId }: { orgId: string; docId: string }) {
 /** An org doc opened inside a child project: read-only, with the way back to the org (report §19.7). */
 export function OrgDocBanner({ orgTitle, href, backHref }: { orgTitle: string; href: string; backHref: string }) {
     return (
-        <div className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-[5px] border border-border bg-muted/30 px-3 py-2 text-[13px]">
-            <Lock className="size-3.5 text-muted-foreground" aria-hidden="true" />
-            <span className="font-medium">From {orgTitle}</span>
-            <span className="text-muted-foreground">· Read only</span>
-            <Link href={href} className="ml-auto underline underline-offset-4">Open in {orgTitle} →</Link>
-            <Link href={backHref} className={cn('text-muted-foreground underline underline-offset-4')}>Workspace docs</Link>
-        </div>
+        <Notice className="mb-4" action={<><Link href={href} className="nb-link text-[13px]">Open in {orgTitle}</Link><Link href={backHref} className="nb-link text-[13px]">Workspace documents</Link></>}>
+            <span className="font-medium">From {orgTitle}</span><span className="text-muted-foreground"> · Read-only</span>
+        </Notice>
     )
 }

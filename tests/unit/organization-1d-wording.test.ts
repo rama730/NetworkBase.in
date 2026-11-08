@@ -55,7 +55,7 @@ test("smaller bug 20: organization feeds lose the follower and progress wording;
   // Live-fix 29: the page's own flags give the wording before the feed loads.
   assert.match(updates, /orgFeed \? `Announcements and discussions for \$\{org\?\.title \?\? projectName\}\.` : \(org \? org\.kind === "child" : isChild\) \? "Updates for your team\." : "Progress posts for followers and workspace visitors\."/);
   assert.match(updates, /"Post your first announcement\. Everyone gets notified\."/);
-  assert.match(updates, /toast\.success\(orgFeed \? "Posted" : "Workspace update posted"\)/);
+  assert.match(updates, /toast\.success\(orgFeed \? "Update posted" : "Workspace update posted"\)/);
 });
 
 test("parity wording 6 and 13–15: no 'Workspace or workspace', and counts use the right plural", () => {

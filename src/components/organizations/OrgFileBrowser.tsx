@@ -46,25 +46,23 @@ export function FilterBar<K extends string>({ label = 'Status', pills, value, on
     query: string; onQuery: (q: string) => void; placeholder: string; extra?: React.ReactNode
 }) {
     return (
-        <div role="toolbar" aria-label={`${label} filters`} className="flex flex-wrap items-center justify-between gap-2 border-b border-[#DBD5C8] bg-[#FAF8F5] px-4 py-1.5 dark:border-border dark:bg-card">
+        <div role="toolbar" aria-label={`${label} filters`} className="flex flex-wrap items-center justify-between gap-2 border-b border-border bg-background px-4 py-1.5">
             <div className="flex flex-wrap items-center gap-1.5">
-                <span className="mr-1 font-mono text-[11px] font-medium text-muted-foreground">{label}:</span>
+                <span className="nb-micro mr-1">{label}</span>
                 {pills.map((p) => (
-                    <button key={p.id} type="button" aria-pressed={value === p.id} onClick={() => onChange(p.id)}
-                        className={cn('inline-flex h-6 items-center gap-1.5 rounded-[3px] px-2 font-mono text-[11px] transition-colors',
-                            value === p.id ? 'bg-primary font-semibold text-primary-foreground shadow-xs'
-                                : 'border border-[#DBD5C8]/70 bg-white text-[#4C5A61] hover:bg-[#E8E3D9] hover:text-[#141A1E] dark:border-border dark:bg-card dark:text-muted-foreground dark:hover:bg-white/10 dark:hover:text-foreground')}>
+                    // Filter tags: the chosen one takes the ink fill (spec §05).
+                    <button key={p.id} type="button" aria-pressed={value === p.id} onClick={() => onChange(p.id)} className="nb-tag">
                         <span>{p.label}</span>
-                        <span className={cn('text-[10px] tabular-nums', value === p.id ? 'text-white/80' : 'text-[#8E9AA1] dark:text-muted-foreground')}>{p.count}</span>
+                        <span className="tabular-nums">{p.count}</span>
                     </button>
                 ))}
             </div>
             <div className="flex items-center gap-2">
                 {extra}
                 <div className="relative flex items-center">
-                    <Search aria-hidden="true" className="pointer-events-none absolute left-2 size-3 text-muted-foreground" />
+                    <Search aria-hidden="true" className="pointer-events-none absolute left-2 size-3.5 text-muted-foreground" />
                     <input type="search" value={query} onChange={(e) => onQuery(e.target.value)} placeholder={placeholder} aria-label={placeholder.replace('…', '')}
-                        className="h-6 w-36 rounded-[3px] border border-[#DBD5C8] bg-white pl-6 pr-2 font-mono text-[11px] text-[#141A1E] placeholder:text-[#8E9AA1] focus:border-[#D14E24] focus:outline-none dark:border-border dark:bg-card dark:text-foreground sm:w-48" />
+                        className="h-[var(--ui-control-height-sm)] w-40 rounded-md border border-input bg-card pl-7 pr-2 text-[13px] text-foreground outline-none placeholder:text-muted-foreground sm:w-52" />
                 </div>
             </div>
         </div>
@@ -78,7 +76,7 @@ export function BrowserTable({ label, children }: { label: string; children: Rea
     return <div role="table" aria-label={label} className="flex min-h-0 flex-1 flex-col">{children}</div>
 }
 
-const rowClass = 'group grid cursor-pointer items-center gap-x-3 border-b border-[#E8E3D9] px-4 text-sm outline-none transition-colors hover:bg-[#F3F0EA]/70 focus-visible:bg-[#F3F0EA]/70 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#D14E24] dark:border-white/10 dark:hover:bg-white/5'
+const rowClass = 'group grid cursor-pointer items-center gap-x-3 border-b border-border px-4 text-[13px] outline-none transition-colors hover:bg-muted focus-visible:bg-muted'
 const meta = 'min-w-0 truncate font-mono text-xs text-muted-foreground'
 
 /** One row in the Task files grid: a folder (an assignment, a person, a sprint, a version) or a file. */
@@ -92,20 +90,20 @@ export function BrowserRow({ name, folder = false, badges, updated, size, by, by
             style={{ gridTemplateColumns: FOLDER_LIST_GRID_TEMPLATE, minHeight: FOLDER_LIST_ROW_HEIGHT_PX }} className={rowClass}>
             <div role="cell" data-column="name" className="flex min-w-0 items-center gap-2.5">
                 <FileTypeChip name={name} isFolder={folder} />
-                <span className={cn('truncate', folder ? 'font-semibold text-[#141A1E] dark:text-foreground' : 'text-foreground')} title={name}>{name}</span>
+                <span className={cn('truncate text-foreground', folder && 'font-semibold')} title={name}>{name}</span>
                 {badges}
             </div>
             <div role="cell" data-column="updated" className={meta} title={updated ?? undefined}>{updated ? formatRelativeTime(updated) : '—'}</div>
             <div role="cell" data-column="size" className={cn(meta, 'text-right')}>{size}</div>
             <div role="cell" data-column="by" className="flex min-w-0 items-center gap-1.5">
-                {by ? <UserAvatar identity={{ fullName: by, avatarUrl: byAvatarUrl ?? null }} size={18} className="shrink-0" roundedClassName="rounded-[3px]" fallbackClassName="text-[9px]" /> : null}
+                {by ? <UserAvatar identity={{ fullName: by, avatarUrl: byAvatarUrl ?? null }} size={20} className="shrink-0" /> : null}
                 <span className={meta}>{by ?? '—'}</span>
             </div>
             <div role="cell" data-column="actions" className="flex justify-end" onClick={(e) => e.stopPropagation()}>
                 {menu ? (
                     <DropdownMenu modal={false}>
                         <DropdownMenuTrigger asChild>
-                            <button type="button" aria-label={`More for ${name}`} className="inline-flex size-7 items-center justify-center rounded-[4px] text-muted-foreground hover:bg-muted hover:text-foreground"><MoreHorizontal className="size-4" aria-hidden="true" /></button>
+                            <button type="button" aria-label={`More for ${name}`} className="nb-touch-target inline-flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"><MoreHorizontal className="size-4" aria-hidden="true" /></button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">{menu}</DropdownMenuContent>
                     </DropdownMenu>
@@ -115,12 +113,9 @@ export function BrowserRow({ name, folder = false, badges, updated, size, by, by
     )
 }
 
+/** The Files views' badge is the shared status badge (spec §10), with the same tones as everywhere else. */
 export const Badge = ({ children, tone = 'muted' }: { children: React.ReactNode; tone?: 'muted' | 'warning' | 'success' | 'danger' | 'info' }) => (
-    <span className={cn('shrink-0 rounded-[3px] px-1.5 py-0.5 font-mono text-[10px] font-medium uppercase tracking-wider',
-        tone === 'warning' ? 'bg-[#FCF0EA] text-[#B23F1C] dark:bg-[#B23F1C]/20 dark:text-[#FCF0EA]'
-            : tone === 'success' ? 'bg-[var(--status-success)]/10 text-[var(--status-success)]'
-                : tone === 'danger' ? 'bg-destructive/10 text-destructive'
-                    : tone === 'info' ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground')}>{children}</span>
+    <span className="nb-status shrink-0" data-tone={tone === 'muted' ? 'neutral' : tone}>{children}</span>
 )
 
 /** A file row; opening it shows the shared viewer. */
