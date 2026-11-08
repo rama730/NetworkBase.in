@@ -35,7 +35,8 @@ const prepare = !usesTransactionPooler(connectionString)
 const client = globalForDb.conn ?? postgres(connectionString, {
     prepare,
     fetch_types: false,
-    max: env.NODE_ENV === 'development' ? 5 : 10,
+    // Audit 10.1: replicas × DB_POOL_MAX must stay under the pooler's client limit; 10 when unset.
+    max: Number(process.env.DB_POOL_MAX) > 0 ? Number(process.env.DB_POOL_MAX) : env.NODE_ENV === 'development' ? 5 : 10,
     idle_timeout: 300,
     max_lifetime: 60 * 30,
     connect_timeout: 10,

@@ -20,7 +20,7 @@ import { postOrgAnnouncement } from '@/lib/organizations/org-updates';
 import { ORG_LIMITS } from '@/lib/organizations/config';
 import { readOrgWork } from '@/lib/organizations/settings';
 import { orgCan, orgGrant, orgRoleOf, type OrgAction } from '@/lib/organizations/permissions';
-import { assignmentPeopleOf, notifyAssignmentDueChanged, notifyAssignmentPublished, notifyNewCopies, notifyAssignmentRemoved, notifyAssignmentReopened, notifyAssignmentReviewed, notifyAssignmentSubmitted, notifyTeamMoved } from '@/lib/organizations/assignment-notify';
+import { assignmentPeopleOf, notifyAssignmentDueChanged, notifyCopiesDueChanged, notifyAssignmentPublished, notifyNewCopies, notifyAssignmentRemoved, notifyAssignmentReopened, notifyAssignmentReviewed, notifyAssignmentSubmitted, notifyTeamMoved } from '@/lib/organizations/assignment-notify';
 import { notifyOrg, orgHref, orgLabel, remindedRecently } from '@/lib/organizations/notify';
 import { taskReviewSnapshot } from '@/lib/workspaces/task-review-snapshot';
 import { WORKSPACE_UPLOAD_MAX_FILE_BYTES } from '@/lib/upload/security';
@@ -136,7 +136,7 @@ export async function createAssignmentAction(input: z.input<typeof createSchema>
     }
     try {
         const result = await db.transaction(async (tx) => {
-            await tx.execute(sql`SELECT id FROM ${workspaces} WHERE id = ${data.projectId} FOR UPDATE`);
+            // Audit 10.4: no lock on the organization here; numbering already serializes on its own counter update.
             if (data.sprintId) {
                 const [sprint] = await tx.select({ status: workspaceSprints.status }).from(workspaceSprints).where(and(eq(workspaceSprints.id, data.sprintId), eq(workspaceSprints.projectId, data.projectId))).limit(1);
                 if (!sprint || (sprint.status !== 'planning' && sprint.status !== 'active')) throw new Error('Pick a planned or active sprint.');
@@ -451,7 +451,7 @@ export async function updateAssignmentAction(masterId: string, patch: z.input<ty
     if (dueDate && ctx.master.dueDate && new Date(dueDate).getTime() !== ctx.master.dueDate.getTime()) {
         // Only people still working on it hear about it (smaller bug 17).
         const moved = await db.select({ id: tasks.id }).from(tasks).where(and(eq(tasks.assignmentId, masterId), isNull(tasks.deletedAt), eq(tasks.dueDate, new Date(dueDate)), sql`NOT ${handedInSql}`));
-        for (const { id } of moved) await notifyAssignmentDueChanged(id, ctx.viewer.userId, (t, day) => `${t}: due date moved to ${day(new Date(dueDate))}`, `${id}:moved:${dueDate}`);
+        await notifyCopiesDueChanged(masterId, moved.map((m) => m.id), ctx.viewer.userId, (t, day) => `${t}: due date moved to ${day(new Date(dueDate))}`, (id) => `${id}:moved:${dueDate}`);
     }
     // "Tell everyone?" (report §23.3): one notice for the change, to everyone who has it.
     if (tellEveryone && description !== undefined && settings.publishedAt) {
@@ -853,10 +853,16 @@ export async function listAssignmentsAction(orgId: string, options: { masterId?:
         .orderBy(asc(tasks.dueDate));
     const visible = masters.filter((m) => viewer.isAdmin || m.assignmentSettings?.publishedAt);
     const ids = visible.map((m) => m.id);
-    const copies = ids.length === 0 ? [] : await db.select().from(tasks).where(and(inArray(tasks.assignmentId, ids), isNull(tasks.deletedAt)));
+    // Audit N70: only the columns the counts need, and team sizes by subquery (not one bound id per copy, which
+    // fails past 65,534 copies).
+    const copies = ids.length === 0 ? [] : await db.select({ id: tasks.id, assignmentId: tasks.assignmentId, status: tasks.status, reviewStatus: tasks.reviewStatus, dueDate: tasks.dueDate,
+        reviewSubmittedAt: tasks.reviewSubmittedAt, completedAt: tasks.completedAt, excusedAt: tasks.excusedAt, assigneeId: tasks.assigneeId, teamName: tasks.teamName,
+        submission: tasks.submission, projectId: tasks.projectId }).from(tasks).where(and(inArray(tasks.assignmentId, ids), isNull(tasks.deletedAt)));
+    const copiesOf = Map.groupBy(copies, (c) => c.assignmentId!);
     const myTeams = new Set((await db.select({ taskId: taskTeamMembers.taskId }).from(taskTeamMembers).where(eq(taskTeamMembers.userId, viewer.userId))).map((r) => r.taskId));
-    const teamSizes = new Map(copies.length === 0 ? [] : (await db.select({ taskId: taskTeamMembers.taskId, n: sql<number>`count(*)::int` }).from(taskTeamMembers)
-        .where(inArray(taskTeamMembers.taskId, copies.map((c) => c.id))).groupBy(taskTeamMembers.taskId)).map((r) => [r.taskId, r.n]));
+    const teamMasters = visible.filter((m) => m.assignmentSettings?.target.mode === 'teams').map((m) => m.id);
+    const teamSizes = new Map(teamMasters.length === 0 ? [] : (await db.select({ taskId: taskTeamMembers.taskId, n: sql<number>`count(*)::int` }).from(taskTeamMembers)
+        .where(inArray(taskTeamMembers.taskId, db.select({ id: tasks.id }).from(tasks).where(inArray(tasks.assignmentId, teamMasters)))).groupBy(taskTeamMembers.taskId)).map((r) => [r.taskId, r.n]));
     const now = new Date();
     // Decision 98: nothing depends on the person who made it; "From" falls back to the organization.
     const creatorIds = [...new Set(visible.map((m) => m.creatorId).filter((id): id is string => Boolean(id)))];
@@ -869,7 +875,7 @@ export async function listAssignmentsAction(orgId: string, options: { masterId?:
         const settings = m.assignmentSettings!;
         const counts = emptyCounts();
         let mine: AssignmentRow['mine'] = null;
-        for (const c of copies.filter((c) => c.assignmentId === m.id)) {
+        for (const c of copiesOf.get(m.id) ?? []) {
             const s = copyState({ status: c.status, reviewStatus: c.reviewStatus, dueDate: c.dueDate, submittedAt: c.reviewSubmittedAt, completedAt: c.completedAt, excusedAt: c.excusedAt }, now);
             counts[s.state] += 1;
             if (s.state !== 'excused') counts.total += 1;
@@ -877,7 +883,7 @@ export async function listAssignmentsAction(orgId: string, options: { masterId?:
             if (c.assigneeId === viewer.userId || myTeams.has(c.id)) mine = { copyId: c.id, ...s, teamName: c.teamName, submission: c.submission, projectId: c.projectId,
                 dueDate: c.dueDate?.toISOString() ?? null, extended: Boolean(c.dueDate && m.dueDate && c.dueDate.getTime() !== m.dueDate.getTime()) };
         }
-        const teamPeople = settings.target.mode === 'teams' ? copies.filter((c) => c.assignmentId === m.id).reduce((acc, c) => {
+        const teamPeople = settings.target.mode === 'teams' ? (copiesOf.get(m.id) ?? []).reduce((acc, c) => {
             const size = Math.max(1, teamSizes.get(c.id) ?? 0);
             const s = copyState({ status: c.status, reviewStatus: c.reviewStatus, dueDate: c.dueDate, submittedAt: c.reviewSubmittedAt, completedAt: c.completedAt, excusedAt: c.excusedAt }, now);
             return s.state === 'excused' ? acc : { done: acc.done + (s.state === 'done' ? size : 0), total: acc.total + size };
@@ -1062,9 +1068,7 @@ export async function remindCopiesAction(masterId: string, copyIds?: string[]): 
     const send = open.filter((c) => !recent.has(c.id));
     const minute = Math.floor(Date.now() / 60_000);
     const due = ctx.master.dueDate;
-    for (const { id } of send) {
-        await notifyAssignmentDueChanged(id, ctx.viewer.userId, (t, day) => `Reminder: ${t}${due ? ` is due ${day(due)}` : ' is waiting for you'}`, `remind:${id}:${minute}`, 'assignments.reminded');
-    }
+    await notifyCopiesDueChanged(masterId, send.map((c) => c.id), ctx.viewer.userId, (t, day) => `Reminder: ${t}${due ? ` is due ${day(due)}` : ' is waiting for you'}`, (id) => `remind:${id}:${minute}`, 'assignments.reminded');
     return { success: true, reminded: send.length, skipped: open.length - send.length };
 }
 

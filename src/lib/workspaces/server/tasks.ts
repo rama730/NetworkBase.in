@@ -1095,8 +1095,10 @@ export async function createTaskAction(data: z.infer<typeof createTaskSchema>) {
                 SELECT current_task_number
                 FROM ${workspaces}
                 WHERE id = ${validated.projectId}
-                FOR UPDATE
+                FOR NO KEY UPDATE
             `);
+      // Audit lock map: NO KEY UPDATE still serializes the counter, but lets other rows that reference this workspace
+      // (new tasks, files, members) be written meanwhile.
       const current = Array.from(counterRows)[0];
       if (!current) throw new Error("Workspace not found");
 

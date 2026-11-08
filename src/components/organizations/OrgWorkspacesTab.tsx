@@ -113,8 +113,9 @@ export function OrgWorkspacesTab({ orgId, orgSlug, started = null }: { orgId: st
     // G15: other people's changes show by themselves; bursts combine over 2 seconds (as the Overview does).
     useEffect(() => {
         let timer: ReturnType<typeof setTimeout> | null = null
-        const later = () => { if (!timer) timer = setTimeout(() => { timer = null; reload() }, 2_000) }
-        const subs = [subscribeBroadcast(liveTopics.tasks(orgId), later), subscribeBroadcast(liveTopics.workspace(orgId), later)]
+        // Audit 5.2, N42: jittered, and not on the org's view or follower counts.
+        const later = () => { if (!timer) timer = setTimeout(() => { timer = null; reload() }, 2_000 + Math.random() * 3_000) }
+        const subs = [subscribeBroadcast(liveTopics.tasks(orgId), later)]
         return () => { subs.forEach((s) => s.unsubscribe()); if (timer) clearTimeout(timer) }
     }, [orgId, reload])
 

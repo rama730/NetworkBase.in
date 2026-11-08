@@ -13,7 +13,7 @@ import { notifyNewCopies } from '@/lib/organizations/assignment-notify';
 import { formatDueDay } from '@/lib/organizations/notify-rules';
 import { zonedInputToIso } from '@/lib/organizations/zoned-time';
 import { copyState } from '@/lib/organizations/assignment-rules';
-import { createCopiesForNewMember, handedInSql, releaseCopiesOnLeave } from '@/lib/organizations/assignments';
+import { createCopiesAfterJoin, createCopiesForNewMember, handedInSql, releaseCopiesOnLeave } from '@/lib/organizations/assignments';
 import { ORG_LIMITS, orgRoleNames } from '@/lib/organizations/config';
 import { buildOrgEmail } from '@/lib/email/org-templates';
 import { orgMemberCap } from '@/lib/organizations/join-rules';
@@ -290,7 +290,6 @@ export async function approveJoinRequestsAction(orgId: string, applicationIds: s
             if (await accountOrgLimit(tx, request.userId, 'join')) continue;
             added.push(request);
             await addWorkspaceMemberInternal(tx, { projectId: orgId, userId: request.userId, role: 'member', actorId: viewer.userId, source: 'application_accept', applicationId: request.id });
-            await createCopiesForNewMember(tx, orgId, request.userId);
             await tx.update(roleApplications).set({ status: 'accepted', decisionAt: now, decisionBy: viewer.userId, updatedAt: now }).where(eq(roleApplications.id, request.id));
             await tx.insert(applicationEvents).values({ applicationId: request.id, actorId: viewer.userId, kind: 'accepted', fromStatus: 'pending', toStatus: 'accepted', metadata: { source: 'org_request' } });
         }
@@ -298,6 +297,8 @@ export async function approveJoinRequestsAction(orgId: string, applicationIds: s
         return { success: true as const, approved: added.length, atLimit: pending.length - added.length, pending: added };
     });
     if (!result.success) return result;
+    // Audit N68: copies after the commit, so approving 500 people doesn't hold the organization for minutes.
+    await createCopiesAfterJoin(orgId, result.pending.map((r) => r.userId));
     const org = await orgLabel(orgId);
     if (org) {
         for (const request of result.pending) {

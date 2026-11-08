@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { tasks } from "@/lib/db/schema";
 import { logger } from "@/lib/logger";
 import { notifyAssignmentPublished } from "@/lib/organizations/assignment-notify";
+import { notifyOrg } from "@/lib/organizations/notify";
 import { createCopies, resolveRecipients } from "@/lib/organizations/assignments";
 
 // Publishing an assignment (report §16.2, §42.5): now, or later by the hourly sprint job (decision 125).
@@ -34,8 +35,8 @@ export async function publishMaster(masterId: string, actorId: string, options: 
  * left since are dropped, as a teacher would choose.
  */
 export async function publishDueAssignments(now = new Date(), where: { sprintId?: string } = {}) {
-  const due = await db.execute<{ id: string; actor: string }>(sql`
-    SELECT m.id, CASE WHEN m.creator_id = o.owner_id OR EXISTS (SELECT 1 FROM workspace_members a WHERE a.workspace_id = o.id AND a.user_id = m.creator_id AND a.role = 'admin')
+  const due = await db.execute<{ id: string; actor: string; org_id: string; title: string }>(sql`
+    SELECT m.id, m.workspace_id AS org_id, m.title, CASE WHEN m.creator_id = o.owner_id OR EXISTS (SELECT 1 FROM workspace_members a WHERE a.workspace_id = o.id AND a.user_id = m.creator_id AND a.role = 'admin')
       THEN m.creator_id ELSE o.owner_id END AS actor
     FROM tasks m JOIN workspaces o ON o.id = m.workspace_id AND o.kind = 'organization' AND o.deleted_at IS NULL
     WHERE m.kind = 'assignment' AND m.assignment_id IS NULL AND m.deleted_at IS NULL AND m.assignment_settings->>'publishedAt' IS NULL
@@ -49,7 +50,12 @@ export async function publishDueAssignments(now = new Date(), where: { sprintId?
     try {
       if ((await publishMaster(row.id, row.actor, { dropMissing: true })) !== null) published += 1;
     } catch (error) {
-      logger.warn("assignments.scheduled_publish_failed", { module: "assignments", masterId: row.id, error: error instanceof Error ? error.message : String(error) });
+      const reason = error instanceof Error ? error.message : String(error);
+      logger.warn("assignments.scheduled_publish_failed", { module: "assignments", masterId: row.id, error: reason });
+      // Audit N72: it goes back to a draft and the person publishing hears why, instead of failing every hour.
+      await db.execute(sql`UPDATE tasks SET assignment_settings = assignment_settings - 'publishAt' - 'publishOnSprintStart' WHERE id = ${row.id}::uuid`);
+      await notifyOrg({ orgId: row.org_id, eventKey: "org.lifecycle", to: [row.actor], title: `${row.title} wasn’t published: ${reason}`,
+        href: `/org/${encodeURIComponent(row.org_id)}?tab=tasks`, sourceEventId: `publish-failed:${row.id}:${now.getTime()}` }).catch(() => undefined);
     }
   }
   return { published };

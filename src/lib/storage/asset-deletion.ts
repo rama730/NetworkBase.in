@@ -26,7 +26,7 @@ import { createAdminClient } from "@/lib/supabase/server";
 import { getS3BackupConfig } from "@/lib/storage/s3-backup-client";
 
 // Runs every 2 hours, so one run has to carry what used to be spread across 24.
-const DELETE_BATCH_SIZE = 500;
+export const DELETE_BATCH_SIZE = 500;
 const DELETE_LEASE_MS = 5 * 60 * 1000;
 
 export function hasNoLiveReference() {

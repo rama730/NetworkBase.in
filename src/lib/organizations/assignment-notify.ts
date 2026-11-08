@@ -142,6 +142,33 @@ export async function notifyAssignmentDueChanged(copyId: string, actorId: string
   }
 }
 
+/**
+ * The same notice for many copies of one main assignment (audit N74): the organization, everyone's people and their
+ * time zones are read once, instead of about four reads per copy. Each copy still gets its own event id, so the
+ * 12-hour reminder check keeps working per copy.
+ */
+export async function notifyCopiesDueChanged(masterId: string, copyIds: string[], actorId: string, title: (assignment: string, day: (date: Date) => string) => string,
+  eventId: (copyId: string) => string, eventKey: "assignments.due_changed" | "assignments.reminded" = "assignments.due_changed") {
+  if (copyIds.length === 0) return;
+  const [master] = await db.select({ projectId: tasks.projectId }).from(tasks).where(eq(tasks.id, masterId)).limit(1);
+  const org = master ? await orgLabel(master.projectId) : null;
+  if (!org) return;
+  const [copies, teams] = await Promise.all([
+    db.select({ id: tasks.id, title: tasks.title, assigneeId: tasks.assigneeId }).from(tasks).where(inArray(tasks.id, copyIds)),
+    teamsOf(copyIds),
+  ]);
+  const peopleOf = new Map(copies.map((c) => [c.id, [...new Set([c.assigneeId, ...(teams.get(c.id) ?? [])].filter((id): id is string => Boolean(id)))]]));
+  const zones = await peopleByZone([...new Set([...peopleOf.values()].flat())], org.timeZone);
+  const zoneOf = new Map([...zones].flatMap(([zone, ids]) => ids.map((id) => [id, zone] as const)));
+  for (const copy of copies) {
+    const byZone = Map.groupBy(peopleOf.get(copy.id) ?? [], (id) => zoneOf.get(id) ?? org.timeZone ?? "UTC");
+    for (const [zone, to] of byZone) {
+      await notifyOrg({ orgId: org.id, eventKey, actorId, to, title: title(copy.title, (date) => formatDueDay(date, zone)),
+        href: orgHref(org, `?tab=assignments&copy=${encodeURIComponent(copy.id)}`), sourceEventId: eventId(copy.id), refs: { taskId: copy.id } });
+    }
+  }
+}
+
 /** "You’re now in Backend" to the one person who moved (report §30.4, decision 66). */
 export async function notifyTeamMoved(copyId: string, userId: string, actorId: string, teamName: string, eventId: string) {
   const ctx = await copyContext(copyId);

@@ -1,5 +1,6 @@
 import { inngest } from "../client";
 import {
+  DELETE_BATCH_SIZE,
   cleanupExpiredStorageAssetPins,
   deleteEligibleStorageAssets,
   scheduleAbandonedStorageAssets,
@@ -14,7 +15,17 @@ export const storageAssetDeletion = inngest.createFunction(
   async ({ step }) => {
     const scheduled = await step.run("schedule-abandoned-assets", scheduleAbandonedStorageAssets);
     const pins = await step.run("cleanup-expired-storage-pins", cleanupExpiredStorageAssetPins);
-    const deleted = await step.run("delete-eligible-assets", deleteEligibleStorageAssets);
+    // Audit 8.3: up to five batches in the same step while each comes back full, so freed space reaches quotas
+    // within the run instead of over days. Still one Inngest step.
+    const deleted = await step.run("delete-eligible-assets", async () => {
+      const total = { claimed: 0, deleted: 0, retryable: 0 };
+      for (let round = 0; round < 5; round += 1) {
+        const batch = await deleteEligibleStorageAssets();
+        total.claimed += batch.claimed; total.deleted += batch.deleted; total.retryable += batch.retryable;
+        if (batch.claimed < DELETE_BATCH_SIZE) break;
+      }
+      return total;
+    });
     const legacy = await step.run("delete-legacy-cleanup-targets", deleteLegacyStorageCleanupTargets);
     await step.run("emit-storage-queue-metrics", emitStorageQueueMetrics);
     logger.metric("storage.asset_cleanup.batch", {

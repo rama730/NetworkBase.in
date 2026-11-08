@@ -137,7 +137,8 @@ export async function lockTaskForWrite(
         LEFT JOIN tasks mt ON mt.id = t.assignment_id
         LEFT JOIN workspaces mp ON mp.id = mt.workspace_id
         WHERE t.id = ${taskId}
-        FOR UPDATE OF t, p
+        -- Audit N66: the task is locked; its workspace only shared, so moves on one board don't queue behind each other.
+        FOR UPDATE OF t FOR SHARE OF p
     `);
   const row = Array.from(rows)[0];
   if (!row) {

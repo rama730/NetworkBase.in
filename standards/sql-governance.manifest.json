@@ -70,7 +70,8 @@
     "drizzle/0064_org_verification_ways.sql",
     "drizzle/0065_sidebar_pins_and_visits.sql",
     "drizzle/0066_cli_tokens_and_git_branches.sql",
-    "drizzle/0067_org_chat_viewers.sql"
+    "drizzle/0067_org_chat_viewers.sql",
+    "drizzle/0068_org_hot_path_indexes.sql"
   ],
   "legacyDatabaseTags": [],
   "allowedUtilitySqlFiles": [

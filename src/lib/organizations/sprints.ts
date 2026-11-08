@@ -136,32 +136,26 @@ export async function createMatchingChildSprints(executor: Executor, input: {
     .from(workspaces)
     .where(and(eq(workspaces.parentId, input.orgId), isNull(workspaces.deletedAt), ne(workspaces.status, "archived"),
       input.onlyWorkspaceIds?.length ? inArray(workspaces.id, input.onlyWorkspaceIds) : undefined));
-  for (const child of children) {
-    await executor.execute(sql`SELECT id FROM ${workspaces} WHERE id = ${child.id} FOR UPDATE`);
-    const [inserted] = await executor
-      .insert(workspaceSprints)
-      .values({
-        projectId: child.id,
-        creatorId: input.actorId,
-        sprintNumber: sql<number>`(SELECT COALESCE(MAX(sprint_number), 0) + 1 FROM ${workspaceSprints} WHERE workspace_id = ${child.id})`,
-        name: input.orgSprint.name,
-        goal: input.orgSprint.goal,
-        description: `Created from ${input.orgSprint.name}`,
-        startDate: input.orgSprint.startDate,
-        endDate: input.orgSprint.endDate,
-        status: "planning",
-        parentSprintId: input.orgSprint.id,
-      })
-      .returning({ id: workspaceSprints.id });
-    if (inserted) {
-      await executor.insert(workspaceSprintEvents).values({
-        projectId: child.id,
-        sprintId: inserted.id,
-        actorId: input.actorId,
-        eventType: "created",
-        payload: { name: input.orgSprint.name, status: "planning", source: "org_matching_sprint", orgSprintId: input.orgSprint.id },
-      });
-    }
+  if (children.length === 0) return 0;
+  // Audit N83: one statement for every workspace instead of a lock, an insert and an event each. The unique
+  // (workspace_id, sprint_number) index still refuses a number taken by a sprint created at the same moment.
+  const ids = children.map((c) => c.id);
+  const inserted = Array.from(await executor.execute<{ id: string; workspace_id: string }>(sql`
+    INSERT INTO ${workspaceSprints} (workspace_id, creator_id, sprint_number, name, goal, description, start_date, end_date, status, parent_sprint_id)
+    SELECT w.id, ${input.actorId}::uuid,
+           (SELECT COALESCE(MAX(s.sprint_number), 0) + 1 FROM ${workspaceSprints} s WHERE s.workspace_id = w.id),
+           ${input.orgSprint.name}, ${input.orgSprint.goal}, ${`Created from ${input.orgSprint.name}`},
+           ${input.orgSprint.startDate.toISOString()}::timestamptz, ${input.orgSprint.endDate.toISOString()}::timestamptz, 'planning', ${input.orgSprint.id}::uuid
+    FROM ${workspaces} w WHERE w.id IN (${sql.join(ids.map((id) => sql`${id}::uuid`), sql`, `)})
+    RETURNING id, workspace_id`));
+  if (inserted.length) {
+    await executor.insert(workspaceSprintEvents).values(inserted.map((row) => ({
+      projectId: row.workspace_id,
+      sprintId: row.id,
+      actorId: input.actorId,
+      eventType: "created",
+      payload: { name: input.orgSprint.name, status: "planning", source: "org_matching_sprint", orgSprintId: input.orgSprint.id },
+    })));
   }
   return children.length;
 }

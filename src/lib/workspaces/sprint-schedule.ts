@@ -70,6 +70,10 @@ export async function startDueSprints(
         lte(workspaceSprints.startDate, now),
         // Archived, suspended or deleting orgs (and child projects archived with them) start nothing (report §30.5).
         sql`NOT app_private.nb_workspace_read_only(${workspaceSprints.projectId})`,
+        // Audit N71: outside organizations a running sprint blocks the next until someone completes it, so those
+        // aren't due; otherwise 100 of them would fill every run and nothing else would ever start.
+        sql`NOT EXISTS (SELECT 1 FROM workspace_sprints a JOIN workspaces w ON w.id = a.workspace_id
+          WHERE a.workspace_id = ${workspaceSprints.projectId} AND a.status = 'active' AND w.kind <> 'organization')`,
         ...(projectId ? [eq(workspaceSprints.projectId, projectId)] : []),
       ),
     )

@@ -5,7 +5,7 @@ import { and, eq, gt, inArray, isNull, notInArray, sql } from "drizzle-orm";
 
 import { db } from "@/lib/db";
 import { orgEmailInvites, profiles, workspaceMembers, workspaces } from "@/lib/db/schema";
-import { createCopiesForNewMember, releaseCopiesOnLeave } from "@/lib/organizations/assignments";
+import { createCopiesAfterJoin, releaseCopiesOnLeave } from "@/lib/organizations/assignments";
 import { notifyNewCopies } from "@/lib/organizations/assignment-notify";
 import { namesOf, notifyOrg, orgLabel, queueOrgInviteSignupEmails, ROLE_LABEL } from "@/lib/organizations/notify";
 import { addWorkspaceMemberInternal, removeWorkspaceMemberInternal } from "@/lib/workspaces/collaborator-lifecycle";
@@ -85,7 +85,6 @@ export async function acceptOrgInvite(userId: string, inviteId: string): Promise
     const limit = await accountOrgLimit(tx, userId, "join");
     if (limit) throw new AccountOrgLimitError(limit);
     await addWorkspaceMemberInternal(tx, { projectId: invite.orgId, userId, role: invite.role, actorId: userId, source: "email_invite" });
-    if (invite.role === "member") await createCopiesForNewMember(tx, invite.orgId, userId);
     if (invite.title) {
       await tx.update(workspaceMembers).set({ title: invite.title })
         .where(and(eq(workspaceMembers.projectId, invite.orgId), eq(workspaceMembers.userId, userId)));
@@ -100,6 +99,10 @@ export async function acceptOrgInvite(userId: string, inviteId: string): Promise
   });
   if (orgId === "full") return { full: true };
   if (orgId === "admins_full") return { adminsFull: true };
+  // Copies after the commit (audit N67); only members hold copies.
+  if (orgId && (await db.select({ role: workspaceMembers.role }).from(workspaceMembers).where(and(eq(workspaceMembers.projectId, orgId), eq(workspaceMembers.userId, userId))).limit(1))[0]?.role === "member") {
+    await createCopiesAfterJoin(orgId, [userId]);
+  }
   if (orgId) await notifyNewCopies(orgId, { userId });
   return orgId ? { orgId } : null;
 }
@@ -200,7 +203,9 @@ export async function stampLastActiveHere(workspaceId: string, userId: string) {
 export async function stampOpened(workspaceId: string, userId: string) {
   await db.execute(sql`
     UPDATE workspace_members SET last_opened_at = now()
-    WHERE workspace_id = ${workspaceId}::uuid AND user_id = ${userId}::uuid`);
+    WHERE workspace_id = ${workspaceId}::uuid AND user_id = ${userId}::uuid
+      -- Audit 10.5: at most once a minute, not on every page render.
+      AND (last_opened_at IS NULL OR last_opened_at < now() - interval '1 minute')`);
 }
 
 /** A per-account limit refused the join: its message is safe to show; any other error stays redacted. */

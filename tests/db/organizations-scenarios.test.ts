@@ -17,6 +17,7 @@ moduleStubs.set("@/lib/supabase/server", {
 });
 moduleStubs.set("next/cache", { revalidatePath: () => undefined, revalidateTag: () => undefined, unstable_cache: (fn: unknown) => fn, updateTag: () => undefined });
 moduleStubs.set("next/headers", { headers: async () => new Headers({ "x-forwarded-for": "203.0.113.143" }), cookies: async () => ({ get: () => undefined, set: () => undefined, delete: () => undefined }) });
+moduleStubs.set("@/lib/security/step-up", { resolveSecurityStepUp: async () => ({ ok: true, payload: { method: "test" } }) });
 
 let orgs: typeof import("../../src/app/actions/organizations");
 let members: typeof import("../../src/app/actions/org-members");

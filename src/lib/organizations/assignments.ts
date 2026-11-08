@@ -316,6 +316,17 @@ export async function createCopiesForNewMember(executor: Executor, orgId: string
   }
 }
 
+/**
+ * Copies for someone who just joined, in their own transaction after the join commits (audit N67, N68): the join
+ * holds the organization's lock only as long as the membership needs it. A failure here never undoes the join.
+ */
+export async function createCopiesAfterJoin(orgId: string, userIds: string[]) {
+  for (const userId of userIds) {
+    await db.transaction((tx) => createCopiesForNewMember(tx, orgId, userId))
+      .catch((error: unknown) => console.error("Creating assignment copies after a join failed:", error));
+  }
+}
+
 /** A new child project gets a group copy of each open "each project" assignment that isn't overdue (report §14.3 Phase 5). */
 export async function createCopiesForNewChild(executor: Executor, orgId: string, childId: string, leadId: string) {
   const masters = await executor

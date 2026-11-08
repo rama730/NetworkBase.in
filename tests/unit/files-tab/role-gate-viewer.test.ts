@@ -390,10 +390,11 @@ describe("Server-side mutation authorization (Req 19.6)", () => {
       "assertWorkspaceWriteAccessTx",
     );
     assert.ok(helperBody, "assertWorkspaceWriteAccessTx must exist");
+    // Audit N65: a shared lock still waits out a role removal, transfer or deletion, and lets many people write at once.
     assert.match(
       helperBody,
-      /FOR UPDATE/,
-      "must SELECT ... FOR UPDATE the workspace row",
+      /FOR (?:UPDATE|SHARE)/,
+      "must row-lock (FOR SHARE or FOR UPDATE) the workspace row",
     );
     assert.match(
       helperBody,

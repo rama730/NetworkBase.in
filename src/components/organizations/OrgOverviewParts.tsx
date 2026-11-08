@@ -234,8 +234,10 @@ export function OrgDashboard({ orgId, orgSlug, orgType = null, started = null }:
     // Report §32.4, decision 76: other people's changes show by themselves; bursts are combined over 2 seconds.
     useEffect(() => {
         let timer: ReturnType<typeof setTimeout> | null = null
-        const reload = () => { if (!timer) timer = setTimeout(() => { timer = null; void client.invalidateQueries({ queryKey: ['org-dashboard', orgId] }) }, 2_000) }
-        const subscriptions = [subscribeBroadcast(liveTopics.tasks(orgId), reload), subscribeBroadcast(liveTopics.workspace(orgId), reload)]
+        // Audit 5.2: 2–5 s with jitter, so a burst doesn't make every open Overview refetch at the same moment. Audit N42:
+        // the workspace topic carries view and follower counts the Overview never shows, so it isn't a reason to reload.
+        const reload = () => { if (!timer) timer = setTimeout(() => { timer = null; void client.invalidateQueries({ queryKey: ['org-dashboard', orgId] }) }, 2_000 + Math.random() * 3_000) }
+        const subscriptions = [subscribeBroadcast(liveTopics.tasks(orgId), reload)]
         return () => { subscriptions.forEach((s) => s.unsubscribe()); if (timer) clearTimeout(timer) }
     }, [client, orgId])
     if (query.isPending) return <DashboardSkeleton />

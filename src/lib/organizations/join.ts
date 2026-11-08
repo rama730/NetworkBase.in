@@ -16,7 +16,7 @@ import {
 import { decideOrgJoin, orgMemberCap, type OrgJoinMode, type OrgJoinOutcome, type PrivateOrgState } from "@/lib/organizations/join-rules";
 import { orgRoleNames } from "@/lib/organizations/config";
 import { addWorkspaceMemberInternal } from "@/lib/workspaces/collaborator-lifecycle";
-import { createCopiesForNewMember } from "@/lib/organizations/assignments";
+import { createCopiesAfterJoin } from "@/lib/organizations/assignments";
 import { notifyNewCopies } from "@/lib/organizations/assignment-notify";
 import { acceptOrgInvite, AccountOrgLimitError, accountOrgLimit, openInvitesFor } from "@/lib/organizations/members";
 
@@ -168,8 +168,7 @@ async function joinOrg(
     if (outcome === "joined") {
       // Joining by code is always Member (decision 58); a pending request is closed by the join.
       await addWorkspaceMemberInternal(tx, { projectId: org.id, userId, role: "member", actorId: userId, source: "join_code" });
-      // Late joiners get copies of open assignments (report §16.9).
-      await createCopiesForNewMember(tx, org.id, userId);
+      // Late joiners get copies of open assignments (report §16.9), after the commit (audit N67).
     } else if (outcome === "requested") {
       const message = note?.trim().slice(0, 500) || null;
       const now = new Date();
@@ -187,8 +186,11 @@ async function joinOrg(
     }
     return { outcome, org: summary };
   });
-  // After the commit: the copies they received are announced (E5, report §26 D).
-  if (result?.outcome === "joined") await notifyNewCopies(result.org.id, { userId });
+  // After the commit: their copies are made, then announced (E5, report §26 D).
+  if (result?.outcome === "joined") {
+    await createCopiesAfterJoin(result.org.id, [userId]);
+    await notifyNewCopies(result.org.id, { userId });
+  }
   return result;
 }
 

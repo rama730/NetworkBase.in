@@ -184,6 +184,8 @@ export async function assertWorkspaceUploadAccess(projectId: string, userId: str
     return { ...access, canUpload: true };
 }
 
+// Audit N65: file writes take shared locks on the workspace and member rows. They still wait out an owner transfer,
+// a deletion or a role change, but many people can upload to one organization at the same time.
 export async function assertWorkspaceWriteAccessTx(
     tx: DbTransaction,
     projectId: string,
@@ -200,7 +202,7 @@ export async function assertWorkspaceWriteAccessTx(
         SELECT id, owner_id, visibility, deleted_at, kind
         FROM workspaces
         WHERE id = ${projectId}
-        FOR UPDATE
+        FOR SHARE
     `);
     const project = Array.from(projectResult)[0];
     if (!project || project.deleted_at) {
@@ -221,7 +223,7 @@ export async function assertWorkspaceWriteAccessTx(
         FROM workspace_members
         WHERE workspace_id = ${projectId}
           AND user_id = ${userId}
-        FOR UPDATE
+        FOR SHARE
     `);
     const member = Array.from(memberResult)[0];
     if (!member) {
@@ -254,7 +256,7 @@ export async function assertWorkspaceManageFilesAccessTx(
         SELECT id, owner_id, visibility, deleted_at, kind
         FROM workspaces
         WHERE id = ${projectId}
-        FOR UPDATE
+        FOR SHARE
     `);
     const project = Array.from(projectResult)[0];
     if (!project || project.deleted_at) throw new ForbiddenError("You don’t have access to this");
@@ -270,7 +272,7 @@ export async function assertWorkspaceManageFilesAccessTx(
         FROM workspace_members
         WHERE workspace_id = ${projectId}
           AND user_id = ${userId}
-        FOR UPDATE
+        FOR SHARE
     `);
     const member = Array.from(memberResult)[0];
     if (!member || !projectMemberCan(member.role, "manage_files")) throw new ForbiddenError("You don’t have access to this");
@@ -308,7 +310,7 @@ export async function assertWorkspaceUploadAccessTx(
         SELECT id, owner_id, visibility, deleted_at, kind
         FROM workspaces
         WHERE id = ${projectId}
-        FOR UPDATE
+        FOR SHARE
     `);
     const project = Array.from(projectResult)[0];
     if (!project || project.deleted_at) {
@@ -328,7 +330,7 @@ export async function assertWorkspaceUploadAccessTx(
         FROM workspace_members
         WHERE workspace_id = ${projectId}
           AND user_id = ${userId}
-        FOR UPDATE
+        FOR SHARE
     `);
     const member = Array.from(memberResult)[0];
     if (project.kind === "organization") {
