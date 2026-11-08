@@ -40,7 +40,10 @@ test("A1: the return step names Google, GitHub or the reset link", () => {
 test("A2: reset codes and sign-in codes come from the app, the same answer whether or not the account exists", () => {
   const route = read("src/app/api/v1/auth/email-code/route.ts");
   assert.match(route, /generateLink\(\{ type: purpose === "reset" \? "recovery" : "magiclink"/);
-  assert.equal((route.match(/return jsonSuccess\(\{ sent: true \}\)/g) ?? []).length, 3);
+  // One answer for every address, and never faster than MIN_ANSWER_MS, so timing can't tell who has an account.
+  assert.equal((route.match(/sameAnswer\(startedAt\)/g) ?? []).length, 3);
+  assert.equal((route.match(/jsonSuccess\(/g) ?? []).length, 1);
+  assert.match(route, /const MIN_ANSWER_MS = 1_500;/);
   assert.match(route, /auth-email-code:email:/);
   assert.match(route, /verifyTurnstileToken\(/);
   const confirm = read("src/app/auth/confirm/route.ts");

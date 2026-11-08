@@ -20,6 +20,11 @@ const bodySchema = z.object({
 
 /** The pages whose Cloudflare widget may ask for a code. */
 const CODE_ACTIONS = ["login", "forgot-password"];
+/**
+ * Every answer takes at least this long, so an unknown address (answered early) can't be told apart from a real
+ * account (a Supabase call and an email) by timing.
+ */
+const MIN_ANSWER_MS = 1_500;
 
 /**
  * Sends a 6-digit code and a link for a password reset or a sign-in. Both work on any device: the browser that asked
@@ -47,18 +52,19 @@ export async function POST(request: Request) {
     if (!check.success) return jsonError("The security check didn’t pass. Wait for a new check, then try again.", 400, "BAD_REQUEST");
   }
 
+  const startedAt = Date.now();
   try {
     // A sign-in code is only for an existing account: Supabase would make a new one for an unknown address.
     // ponytail: a confirmed account that never finished setup has no profile row yet, so it can't get a sign-in code; it can still reset its password.
     if (purpose === "sign-in") {
       const rows = await db.execute<{ found: number }>(sql`SELECT 1 AS found FROM public.profiles WHERE lower(email) = ${email} AND deleted_at IS NULL LIMIT 1`);
-      if (rows.length === 0) return jsonSuccess({ sent: true });
+      if (rows.length === 0) return await sameAnswer(startedAt);
     }
     const admin = await createAdminClient();
     const { data, error } = await admin.auth.admin.generateLink({ type: purpose === "reset" ? "recovery" : "magiclink", email });
     const code = data?.properties?.email_otp;
     const tokenHash = data?.properties?.hashed_token;
-    if (error || !code || !tokenHash) return jsonSuccess({ sent: true });
+    if (error || !code || !tokenHash) return await sameAnswer(startedAt);
 
     const link = new URL("/auth/confirm", resolveAuthBaseUrl());
     link.searchParams.set("token_hash", tokenHash);
@@ -69,5 +75,11 @@ export async function POST(request: Request) {
   } catch (error) {
     logger.warn("auth.email_code.failed", { purpose, error: error instanceof Error ? error.message : String(error) });
   }
+  return sameAnswer(startedAt);
+}
+
+async function sameAnswer(startedAt: number) {
+  const wait = MIN_ANSWER_MS - (Date.now() - startedAt);
+  if (wait > 0) await new Promise((resolve) => setTimeout(resolve, wait));
   return jsonSuccess({ sent: true });
 }

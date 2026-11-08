@@ -60,8 +60,9 @@ export async function noteSignInDevice(userId: string, deviceId: string, userAge
     return { isNew, hadOthers: Boolean(other), label }
 }
 
-// ponytail: per-process cache, so stopping trust reaches every server within a minute; move to Redis if instances multiply.
-const TRUST_CACHE_MS = 60_000
+// Per-process cache, kept to seconds: stopping trust on one server must reach every other server almost at once,
+// and the lookup itself is one primary-key read.
+const TRUST_CACHE_MS = 5_000
 const trustCache = new Map<string, { trusted: boolean; at: number }>()
 
 /** Whether this browser may skip the two-step code for this account. */
