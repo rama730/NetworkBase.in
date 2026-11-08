@@ -75,7 +75,7 @@ const calls = (page: Page) => page.evaluate(() => (window as unknown as { ws: { 
 const card = (page: Page, title: string) => page.getByRole('list', { name: 'Workspaces' }).getByRole('listitem').filter({ hasText: title });
 const noSideScroll = async (page: Page) => expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0);
 
-test('header: requests line, status bar with counts, Place them, and one 30px toolbar ending in New workspace', async ({ page }) => {
+test('header: requests line, status bar with counts, Place them, and one 28px toolbar ending in New workspace', async ({ page }) => {
     await open(page);
     await expect(page.getByRole('tab', { name: 'All, 3' })).toHaveAttribute('aria-selected', 'true');
     await expect(page.getByRole('tab', { name: 'Needs attention, 2' })).toBeVisible();
@@ -83,7 +83,7 @@ test('header: requests line, status bar with counts, Place them, and one 30px to
     await expect(page.getByRole('link', { name: 'Place them' })).toHaveAttribute('href', '/org/cse-3b?tab=members&project=none&from=workspaces');
     const controls = [page.getByLabel('Search workspaces'), page.getByLabel('Sort'), page.getByRole('button', { name: 'Mine' }), page.getByRole('button', { name: 'Filters' }), page.getByRole('group', { name: 'View', exact: true }), page.getByRole('link', { name: 'New workspace' })]
     const boxes = await Promise.all(controls.map((c) => c.boundingBox()))
-    for (const box of boxes) { expect(Math.round(box!.height)).toBe(30); expect(Math.abs(box!.y - boxes[0]!.y)).toBeLessThan(2) }
+    for (const box of boxes) { expect(Math.round(box!.height)).toBe(28); expect(Math.abs(box!.y - boxes[0]!.y)).toBeLessThan(2) }
     expect(boxes[5]!.x).toBeGreaterThan(Math.max(...boxes.slice(0, 5).map((b) => b!.x + b!.width)))
     // F3: one line, the panel, and the line goes once answered.
     await expect(page.getByTestId('requests-line')).toContainText('1 workspace asked to join or leave');
@@ -145,7 +145,9 @@ test('reason chips, archived cards and the place kept in the link', async ({ pag
     await page.getByRole('tab', { name: 'Archived, 1' }).click();
     const old = card(page, 'Team Old');
     await expect(old).toContainText('Archived by Rama · Nov 2');
-    expect(Number(await old.evaluate((el) => getComputedStyle(el).opacity))).toBeCloseTo(0.6, 1);
+    // Design plan WS10: archived cards keep full-strength text and say Archived in a badge.
+    expect(Number(await old.evaluate((el) => getComputedStyle(el).opacity))).toBe(1);
+    await expect(old.getByText('Archived', { exact: true })).toBeVisible();
     await old.getByRole('button', { name: 'More actions for Team Old' }).click();
     await page.getByRole('menuitem', { name: 'Unarchive' }).click();
     await expect.poll(() => calls(page)).toContainEqual(['unarchiveChildAction', 'old']);
@@ -201,18 +203,18 @@ test('members: Mine first, no attention, Message lead, Apply, and Ask to add a w
     expect(await calls(page)).toContainEqual(['move', 'side', 'org']);
 });
 
-test('states: no workspaces, no match with Clear filters, and a failed read with Try again', async ({ page }) => {
+test('states: no workspaces, no match with Clear filters, and a failed read with Retry', async ({ page }) => {
     await open(page, { mode: 'empty' });
-    await expect(page.getByRole('status').filter({ hasText: 'No workspaces yet.' })).toContainText('Teams work inside workspaces.');
+    await expect(page.getByRole('status').filter({ hasText: 'No workspaces yet' })).toContainText('Teams work inside workspaces.');
     await expect(page.getByRole('link', { name: 'New workspace' }).first()).toBeVisible();
     await open(page, { query: '&wq=zzz' });
     await expect(page.getByText('No workspaces match these filters')).toBeVisible();
     await page.getByRole('button', { name: 'Clear filters' }).click();
     await expect(page.getByRole('list', { name: 'Workspaces' }).getByRole('listitem')).toHaveCount(3);
     await open(page, { mode: 'error' });
-    await expect(page.getByRole('alert')).toContainText('Couldn’t load workspaces.');
+    await expect(page.getByRole('alert')).toContainText('Workspaces couldn’t load.');
     await page.evaluate(() => { (window as unknown as { ws: { mode: string } }).ws.mode = 'admin'; });
-    await page.getByRole('button', { name: 'Try again' }).click();
+    await page.getByRole('button', { name: 'Retry' }).click();
     await expect(page.getByRole('tab', { name: 'All, 3' })).toBeVisible();
 });
 

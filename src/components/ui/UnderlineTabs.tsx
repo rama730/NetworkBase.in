@@ -7,7 +7,8 @@ import { cn } from '@/lib/utils';
 // It takes its surface's colour (sprint cleanup §2: a page background drew a band inside dialogs).
 
 export function UnderlineTabs<K extends string>({ tabs, value, onChange, onIntent, label, idPrefix, className, controls = true }: {
-    tabs: ReadonlyArray<{ key: K; label: string }>
+    /** `count`: the spec's 12px mono count after the label (§10 Tabs); `warn` tints it when it needs attention. */
+    tabs: ReadonlyArray<{ key: K; label: string; count?: number; warn?: boolean }>
     value: K
     onChange: (next: K) => void
     onIntent?: (next: K) => void
@@ -29,6 +30,7 @@ export function UnderlineTabs<K extends string>({ tabs, value, onChange, onInten
                         role="tab"
                         id={`${idPrefix}-tab-${t.key}`}
                         aria-selected={active}
+                        aria-label={t.count !== undefined ? `${t.label}, ${t.count}` : undefined}
                         aria-controls={controls ? `${idPrefix}-panel-${t.key}` : undefined}
                         tabIndex={active ? 0 : -1}
                         onClick={() => onChange(t.key)}
@@ -49,6 +51,7 @@ export function UnderlineTabs<K extends string>({ tabs, value, onChange, onInten
                         )}
                     >
                         {t.label}
+                        {t.count !== undefined ? <span className={cn('nb-tab-count ml-1.5', t.warn && t.count > 0 && 'bg-[var(--status-warning-soft)] text-[var(--status-warning)]')}>{t.count}</span> : null}
                     </button>
                 );
             })}

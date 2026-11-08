@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from 'react'
 import Link from 'next/link'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { AlertTriangle, MoreHorizontal, Plus, Search, X } from 'lucide-react'
+import { AlertTriangle, Check, MoreHorizontal, Plus, Search, FolderKanban, SearchX } from 'lucide-react'
 
 import { readMyMovableWorkspacesAction, readOrgWorkspacesAction, remindLeadsAction, type OrgWorkspaceRow } from '@/app/actions/org-dashboard'
 import { approveMoveInAction, archiveChildAction, assignChildLeadAction, cancelDetachRequestAction, cancelMoveInAction, detachChildAction, moveWorkspaceToOrgAction, readLeadCandidatesAction, unarchiveChildAction } from '@/app/actions/organizations'
@@ -33,6 +33,15 @@ import { ASSIGNMENT_STATE_LABELS } from '@/lib/copy/terms'
 import { formatDistanceToNow } from '@/lib/utils/date'
 import type { Workspace } from '@/types/discover'
 import { cn } from '@/lib/utils'
+import { DialogFooter } from '@/components/ui/dialog'
+import { DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuCheckboxItem } from '@/components/ui/dropdown-menu'
+import { EmptyState as SharedEmpty } from '@/components/ui/EmptyState'
+import { ErrorNotice } from '@/components/ui/ErrorNotice'
+import { Notice } from '@/components/ui/notice'
+import { UnderlineTabs } from '@/components/ui/UnderlineTabs'
+import { UserAvatar } from '@/components/ui/UserAvatar'
+import { StatusBadge } from '@/components/organizations/org-ui'
+import { fieldLabel, formatOrgDate, visibilityLabel, withCount } from '@/lib/organizations/display'
 
 // Workspaces report (docs/superpowers/plans/2026-11-04-org-workspaces-tab-findings.md): requests as one line, a status
 // bar with counts, one 30px toolbar ending in New workspace, Discover's own card full width with the organization's
@@ -49,11 +58,12 @@ type Place = Record<(typeof KEYS)[number], string | null>
 const PAGE = 20
 const SORTS: ReadonlyArray<[Sort, string]> = [['attention', 'Needs attention first'], ['active', 'Recently active'], ['name', 'Name'], ['overdue', 'Most overdue'], ['newest', 'Newest']]
 const REASONS: ReadonlyArray<[AttentionKind, string]> = [['overdue', 'Overdue'], ['quiet', 'Quiet 7 days'], ['lead', 'Needs a workspace lead'], ['group', 'Group work']]
-const control = 'h-[30px] rounded-[5px] border border-border bg-background px-2 text-[13px]'
+// One 28px toolbar (spec §05): small selects and buttons, one pressed look (the paper well).
+const pressed = 'aria-pressed:bg-muted aria-pressed:text-foreground'
 const people = (n: number) => `${n} ${n === 1 ? 'person' : 'people'}`
-const visWord = (v: string | null) => (v === 'org' ? 'Organization' : v === 'private' ? 'Private' : 'Public')
+const visWord = (v: string | null) => visibilityLabel(v)
 const ago = (iso: string) => formatDistanceToNow(new Date(iso), { addSuffix: true })
-const shortDay = (iso: string) => new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+const shortDay = (iso: string) => formatOrgDate(iso, { month: 'short', day: 'numeric' })
 
 function usePlace() {
     const read = (): Place => {
@@ -110,14 +120,7 @@ export function OrgWorkspacesTab({ orgId, orgSlug, started = null }: { orgId: st
 
     if (query.isPending) return <TabLoading />
     if (!data) {
-        return (
-            <div className="mx-auto w-full max-w-[1040px]">
-                <div className="nb-empty-state py-12" role="alert">
-                    <p className="nb-empty-state-title">Couldn’t load workspaces.</p>
-                    <Button type="button" variant="outline" size="sm" className="mt-2" onClick={() => void query.refetch()}>Try again</Button>
-                </div>
-            </div>
-        )
+        return <div className="mx-auto w-full max-w-[1200px]"><ErrorNotice what="Workspaces" onRetry={() => void query.refetch()} /></div>
     }
     return <WorkspacesView orgId={orgId} orgSlug={orgSlug ?? null} data={data} reload={reload} />
 }
@@ -125,9 +128,9 @@ export function OrgWorkspacesTab({ orgId, orgSlug, started = null }: { orgId: st
 /** §5 Loading: the header at once with dashes, three skeletons at the card's height. */
 function TabLoading() {
     return (
-        <div className="mx-auto w-full max-w-[1040px] space-y-3" aria-busy="true">
-            <div className="flex min-h-10 items-end gap-5 border-b border-border text-[13px] text-muted-foreground" aria-hidden="true"><span className="pb-2">All –</span><span className="pb-2">Needs attention –</span></div>
-            <div className="nb-skeleton h-[30px] rounded-[5px]" aria-hidden="true" />
+        <div className="mx-auto w-full max-w-[1200px] space-y-3" aria-busy="true">
+            <div className="flex min-h-11 items-end gap-5 border-b border-border text-[13px] text-muted-foreground" aria-hidden="true"><span className="pb-3">All</span><span className="pb-3">Needs attention</span></div>
+            <div className="nb-skeleton h-7 rounded-md" aria-hidden="true" />
             <div role="status" className="flex flex-col gap-3"><span className="sr-only">Loading workspaces</span>{[0, 1, 2].map((i) => <WorkspaceCardSkeleton key={i} />)}</div>
         </div>
     )
@@ -251,7 +254,7 @@ function WorkspacesView({ orgId, orgSlug, data, reload }: { orgId: string; orgSl
     const picked = data.rows.filter((r) => selected.has(r.id))
 
     const fix = (r: Row, i: AttentionItem) => {
-        const link = 'relative z-10 font-medium underline underline-offset-2 hover:text-foreground'
+        const link = 'nb-link relative z-10'
         if (i.action === 'board') return <Link href={`${href(r)}?tab=tasks`} className={link}>{i.actionLabel}</Link>
         if (i.action === 'assignment' && r.groupCopyIds?.masterId) return <Link href={`${base}?tab=tasks&drawerType=task&drawerId=${r.groupCopyIds.masterId}`} className={link}>{i.actionLabel}</Link>
         if (i.action === 'review' && r.groupCopyIds) return <Link href={`${base}?tab=tasks&taskScope=review&review=${r.groupCopyIds.copyId}`} className={link}>{i.actionLabel}</Link>
@@ -265,16 +268,15 @@ function WorkspacesView({ orgId, orgSlug, data, reload }: { orgId: string; orgSl
     }
     const health = (r: Row) => (
         <span className="flex shrink-0 flex-wrap items-center gap-1" role="group" aria-label={`Health: ${r.open} open, ${r.overdue} overdue, ${r.inReview} in review`}>
-            <span className="nb-tag">{r.open} open</span>
-            <span className={cn('nb-tag', r.overdue > 0 && 'text-destructive')}>{r.overdue} overdue</span>
-            <span className="nb-tag">{r.inReview} in review</span>
+            {/* Counts are metadata, not tags (spec §10). */}
+            <span className="nb-meta tabular-nums">{r.open} open · <span className={r.overdue > 0 ? 'text-destructive' : undefined}>{r.overdue} overdue</span> · {r.inReview} in review</span>
         </span>
     )
     const orgLine = (r: Row) => [r.lead ? `Lead ${r.lead.name}` : null, r.stage, r.sprint?.name].filter(Boolean).join(' · ')
     const attentionLine = (r: Row) => {
         const list = items.get(r.id) ?? []
         return list.length ? (
-            <p className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[13px] text-amber-800 dark:text-amber-300" data-testid="attention-line">
+            <p className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[13px] text-[var(--status-warning)]" data-testid="attention-line">
                 <AlertTriangle aria-hidden="true" className="size-3.5 shrink-0" />
                 {list.map((i, n) => <span key={`${i.kind}-${n}`} className="inline-flex items-center gap-1">{i.label} · {fix(r, i)}</span>)}
             </p>
@@ -284,13 +286,13 @@ function WorkspacesView({ orgId, orgSlug, data, reload }: { orgId: string; orgSl
         if (r.openSeats <= 0 || r.status === 'archived') return null
         const applied = applications.get(r.id)
         return (
-            <Link href={`${href(r)}?tab=dashboard#teams`} className="nb-meta relative z-10 text-primary hover:underline">
+            <Link href={`${href(r)}?tab=dashboard#teams`} className="nb-link relative z-10 text-[12px]">
                 {r.openSeats} open {r.openSeats === 1 ? 'seat' : 'seats'}{isAdmin || r.mine || applied ? '' : ' · Apply'}
             </Link>
         )
     }
     const messageLead = (r: Row) => !isAdmin && r.lead && r.lead.id !== user?.id
-        ? <Link href={`/messages?userId=${r.lead.id}`} onClick={(e) => messageUserInWindow(r.lead!.id, e)} className="nb-meta relative z-10 px-1 hover:text-foreground hover:underline">Message workspace lead</Link> : null
+        ? <Link href={`/messages?userId=${r.lead.id}`} onClick={(e) => messageUserInWindow(r.lead!.id, e)} className="nb-link relative z-10 px-1 text-[12px]">Message workspace lead</Link> : null
     const menu = (r: Row) => !canAct ? null : r.status === 'archived' ? <>
         <DropdownMenuItem onSelect={() => unarchive(r)}>Unarchive</DropdownMenuItem>
         <DropdownMenuItem onSelect={() => setAsk({ kind: 'detach', rows: [r] })} className="text-destructive">Detach</DropdownMenuItem>
@@ -301,8 +303,8 @@ function WorkspacesView({ orgId, orgSlug, data, reload }: { orgId: string; orgSl
         <DropdownMenuItem onSelect={() => setAsk({ kind: 'detach', rows: [r] })} className="text-destructive">Detach</DropdownMenuItem>
     </>
     const titleChip = (r: Row) => <>
-        {r.newInOrg ? <span className="rounded-[3px] border border-primary/40 px-1 text-[11px] font-medium text-primary">New</span> : null}
-        {r.status === 'archived' ? <span className="nb-status" data-status="draft">Archived</span> : <span className="rounded-[3px] border border-border px-1 text-[11px] text-muted-foreground">{visWord(r.visibility)}</span>}
+        {r.newInOrg ? <StatusBadge state="new">New</StatusBadge> : null}
+        {r.status === 'archived' ? <StatusBadge state="archived">Archived</StatusBadge> : <span className="nb-meta shrink-0">{visWord(r.visibility)}</span>}
     </>
 
     const statusTabs = tabs.map((t) => ({
@@ -313,52 +315,34 @@ function WorkspacesView({ orgId, orgSlug, data, reload }: { orgId: string; orgSl
     }))
 
     const newButton = (label: string, className?: string) => data.canCreate
-        ? <Button asChild size="sm" className={cn('h-[30px] gap-1 px-3', className)}><Link href={`/workspaces/new?org=${encodeURIComponent(orgSlug ?? orgId)}`}><Plus className="size-3.5" aria-hidden="true" />{label}</Link></Button>
-        : data.canAsk ? <Button type="button" size="sm" variant="outline" className={cn('h-[30px] px-3', className)} onClick={() => setAsking(true)}>Ask to add a workspace</Button> : null
+        ? <Button asChild size="sm" variant="outline" className={cn('gap-1', className)}><Link href={`/workspaces/new?org=${encodeURIComponent(orgSlug ?? orgId)}`}><Plus className="size-3.5" aria-hidden="true" />{label}</Link></Button>
+        : data.canAsk ? <Button type="button" size="sm" variant="outline" className={className} onClick={() => setAsking(true)}>Ask to add a workspace</Button> : null
 
     return (
-        <div className="mx-auto w-full max-w-[1040px] space-y-3" data-testid="org-workspaces">
-            {data.orgArchived ? <p role="status" className="rounded-[5px] border border-border bg-muted/40 px-3 py-2 text-[13px] text-muted-foreground">This organization is archived. Workspaces are read-only.</p> : null}
+        <div className="mx-auto w-full max-w-[1200px] space-y-3" data-testid="org-workspaces">
+            {data.orgArchived ? <Notice>This organization is archived. Workspaces are read-only.</Notice> : null}
 
             {/* §1.1 Requests: one quiet line; Review opens the side panel. */}
             {canAct && data.requests.length ? (
-                <p className="flex flex-wrap items-center gap-x-2 rounded-[5px] border border-border bg-muted/30 px-3 py-1.5 text-[13px]" data-testid="requests-line">
-                    <span>{data.requests.length} {data.requests.length === 1 ? 'workspace asked' : 'workspaces asked'} to join or leave</span>
-                    <span aria-hidden="true">·</span>
-                    <button type="button" className="font-medium text-primary hover:underline" onClick={() => setRequestsOpen(true)}>Review</button>
-                </p>
+                <div data-testid="requests-line"><Notice tone="info" action={<Button type="button" size="sm" variant="outline" onClick={() => setRequestsOpen(true)}>Review</Button>}>
+                    {data.requests.length} {data.requests.length === 1 ? 'workspace asked' : 'workspaces asked'} to join or leave.
+                </Notice></div>
             ) : null}
 
             {/* §1.2 Status bar. */}
             <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-1 border-b border-border">
-                <div role="tablist" aria-label="Workspaces by status" className="-mb-px flex min-w-0 max-w-full gap-5 overflow-x-auto">
-                    {statusTabs.map((t, index) => (
-                        <button key={t.key} id={`ws-tab-${t.key}`} type="button" role="tab" aria-selected={tab === t.key} tabIndex={tab === t.key ? 0 : -1} aria-label={`${t.label}, ${t.count}`}
-                            onClick={() => go({ ws: t.key, wr: null })}
-                            onKeyDown={(event) => {
-                                const next = event.key === 'ArrowRight' ? (index + 1) % statusTabs.length : event.key === 'ArrowLeft' ? (index + statusTabs.length - 1) % statusTabs.length : null
-                                if (next === null) return
-                                event.preventDefault()
-                                go({ ws: statusTabs[next]!.key, wr: null })
-                                document.getElementById(`ws-tab-${statusTabs[next]!.key}`)?.focus()
-                            }}
-                            className={cn('min-h-10 shrink-0 whitespace-nowrap border-b-2 px-0.5 pb-2 pt-2 text-[13px] focus-visible:bg-muted/70 focus-visible:outline-none',
-                                tab === t.key ? 'border-primary font-semibold text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground')}>
-                            {t.label}<span className={cn('ml-1.5 tabular-nums', t.warn && t.count > 0 ? 'font-semibold text-[var(--status-warning)]' : 'text-muted-foreground')}>{t.count}</span>
-                        </button>
-                    ))}
-                </div>
+                <UnderlineTabs label="Workspaces by status" idPrefix="ws" controls={false} className="w-auto min-w-0 max-w-full overflow-x-auto border-b-0" value={tab}
+                    onChange={(next) => go({ ws: next, wr: null })} tabs={statusTabs.map((t) => ({ key: t.key, label: t.label, count: t.count, warn: t.warn }))} />
                 {isAdmin && data.summary.notInProject > 0 ? (
-                    <p className="pb-2 text-[12px] text-muted-foreground">
-                        {data.summary.notInProject === 1 ? '1 person isn’t' : `${data.summary.notInProject} people aren’t`} in a workspace · <Link href={`${base}?tab=members&project=none&from=workspaces`} className="font-medium text-primary hover:underline">Place them</Link>
+                    <p className="pb-3 text-[12px] text-muted-foreground">
+                        {data.summary.notInProject === 1 ? '1 person isn’t' : `${data.summary.notInProject} people aren’t`} in a workspace · <Link href={`${base}?tab=members&project=none&from=workspaces`} className="nb-link">Place them</Link>
                     </p>
                 ) : null}
             </div>
             {tab === 'attention' ? (
                 <div role="group" aria-label="Reasons" className="flex flex-wrap gap-1.5">
                     {REASONS.map(([k, label]) => (
-                        <button key={k} type="button" aria-pressed={reason === k} onClick={() => go({ wr: reason === k ? null : k })}
-                            className={cn('inline-flex h-[26px] items-center gap-1.5 rounded-[5px] border px-2 text-[12px]', reason === k ? 'border-primary bg-primary/10 font-medium text-foreground' : 'border-border text-muted-foreground hover:text-foreground')}>
+                        <button key={k} type="button" aria-pressed={reason === k} onClick={() => go({ wr: reason === k ? null : k })} className="nb-tag">
                             {label}<span className="tabular-nums">{reasons[k]}</span>
                         </button>
                     ))}
@@ -367,11 +351,11 @@ function WorkspacesView({ orgId, orgSlug, data, reload }: { orgId: string; orgSl
 
             {/* §1.3 Toolbar, or the selection bar in its place (List). */}
             {layout === 'list' && canAct && picked.length ? (
-                <div role="toolbar" aria-label="Selected workspaces" className="flex min-h-[30px] flex-wrap items-center gap-2 text-[13px]">
+                <div role="toolbar" aria-label="Selected workspaces" className="flex min-h-[var(--ui-control-height-sm)] flex-wrap items-center gap-2 text-[13px]">
                     <span className="font-medium">{picked.length} selected</span>
-                    <Button type="button" size="sm" variant="outline" className="h-[30px]" disabled={pending} onClick={() => setReminding(picked.filter((r) => r.status !== 'archived'))}>Remind workspace {picked.length === 1 ? 'lead' : 'leads'}</Button>
-                    <Button type="button" size="sm" variant="outline" className="h-[30px]" disabled={pending || !picked.some((r) => r.status !== 'archived')} onClick={() => setAsk({ kind: 'archive', rows: picked.filter((r) => r.status !== 'archived') })}>Archive</Button>
-                    <button type="button" className="text-muted-foreground underline underline-offset-2" onClick={() => setSelected(new Set())}>Clear</button>
+                    <Button type="button" size="sm" variant="outline" disabled={pending} onClick={() => setReminding(picked.filter((r) => r.status !== 'archived'))}>Remind workspace {picked.length === 1 ? 'lead' : 'leads'}</Button>
+                    <Button type="button" size="sm" variant="outline" disabled={pending || !picked.some((r) => r.status !== 'archived')} onClick={() => setAsk({ kind: 'archive', rows: picked.filter((r) => r.status !== 'archived') })}>Archive</Button>
+                    <Button type="button" size="sm" variant="ghost" onClick={() => setSelected(new Set())}>Clear</Button>
                 </div>
             ) : (
                 <div className="flex flex-col gap-2 lg:flex-row lg:items-center">
@@ -381,51 +365,65 @@ function WorkspacesView({ orgId, orgSlug, data, reload }: { orgId: string; orgSl
                             <input ref={searchRef} type="search" value={q} onChange={(e) => go({ wq: e.target.value || null })}
                                 onKeyDown={(e) => { if (e.key === 'Escape' && q) { e.preventDefault(); go({ wq: null }) } }}
                                 placeholder="Search workspaces" aria-label="Search workspaces" aria-keyshortcuts="/"
-                                className={cn(control, 'w-full pl-7 placeholder:text-muted-foreground focus:border-primary focus:outline-none')} />
+                                className="h-[var(--ui-control-height-sm)] w-full rounded-md border border-input bg-card pl-7 pr-2 text-[13px] outline-none placeholder:text-muted-foreground" />
                         </div>
                         {newButton('New workspace', 'hidden shrink-0 md:inline-flex lg:order-3 lg:ml-auto')}
                     </div>
                     <div className="flex flex-wrap items-center gap-2 lg:order-2">
-                        <select aria-label="Sort" className={control} value={sort} onChange={(e) => go({ wsort: e.target.value })}>
+                        <select aria-label="Sort" className="nb-select" data-size="sm" value={sort} onChange={(e) => go({ wsort: e.target.value })}>
                             {SORTS.filter(([k]) => isAdmin || k !== 'attention').map(([k, label]) => <option key={k} value={k}>{label}</option>)}
                         </select>
-                        {isAdmin ? <button type="button" aria-pressed={mine} onClick={() => go({ wmine: mine ? null : '1' })}
-                            className={cn(control, 'px-2.5', mine ? 'border-primary bg-primary/10 font-medium' : 'text-muted-foreground hover:text-foreground')}>Mine</button> : null}
+                        {isAdmin ? <Button type="button" size="sm" variant="outline" aria-pressed={mine} onClick={() => go({ wmine: mine ? null : '1' })} className={pressed}>Mine</Button> : null}
                         <DropdownMenu>
-                            <DropdownMenuTrigger asChild><button type="button" className={cn(control, 'px-2.5', filtersOn ? 'font-medium' : 'text-muted-foreground hover:text-foreground')}>Filters{filtersOn ? ` · ${filtersOn}` : ''}</button></DropdownMenuTrigger>
-                            <DropdownMenuContent align="start" className="w-64 space-y-2 p-3">
-                                <select aria-label="Visibility" className={cn(control, 'w-full')} value={vis} onChange={(e) => go({ wvis: e.target.value === 'all' ? null : e.target.value })}>
-                                    <option value="all">Any visibility</option><option value="org">Organization</option><option value="private">Private</option><option value="public">Public</option>
-                                </select>
-                                {stages.length ? <select aria-label="Stage" className={cn(control, 'w-full')} value={stage} onChange={(e) => go({ wstage: e.target.value === 'all' ? null : e.target.value })}><option value="all">Any stage</option>{stages.map((st) => <option key={st} value={st}>{st}</option>)}</select> : null}
-                                <select aria-label="Workspace lead" className={cn(control, 'w-full')} value={lead} onChange={(e) => go({ wlead: e.target.value === 'all' ? null : e.target.value })}>
-                                    <option value="all">Any workspace lead</option>{leads.map(([id, name]) => <option key={id} value={id}>{name}</option>)}
-                                </select>
-                                <select aria-label="Sprint" className={cn(control, 'w-full')} value={sprint} onChange={(e) => go({ wsprint: e.target.value === 'all' ? null : e.target.value })}>
-                                    <option value="all">Any sprint</option><option value="linked">Inside the organization sprint</option><option value="not_linked">Not inside one</option>
-                                </select>
-                                <label className="flex items-center gap-1.5 text-sm"><input type="checkbox" checked={seats} onChange={(e) => go({ wseats: e.target.checked ? '1' : null })} /> Has open seats</label>
+                            <DropdownMenuTrigger asChild><Button type="button" size="sm" variant="outline" className={filtersOn ? 'bg-muted text-foreground' : undefined}>Filters{filtersOn ? ` · ${filtersOn}` : ''}</Button></DropdownMenuTrigger>
+                            {/* Menus, not native selects inside a menu (spec §10). */}
+                            <DropdownMenuContent align="start" className="max-h-[70dvh] w-64 overflow-y-auto">
+                                <DropdownMenuLabel>Visibility</DropdownMenuLabel>
+                                <DropdownMenuRadioGroup value={vis} onValueChange={(v) => go({ wvis: v === 'all' ? null : v })}>
+                                    <DropdownMenuRadioItem value="all">Any visibility</DropdownMenuRadioItem>
+                                    {(['org', 'private', 'public'] as const).map((v) => <DropdownMenuRadioItem key={v} value={v}>{visibilityLabel(v)}</DropdownMenuRadioItem>)}
+                                </DropdownMenuRadioGroup>
+                                {stages.length ? <>
+                                    <DropdownMenuSeparator /><DropdownMenuLabel>Stage</DropdownMenuLabel>
+                                    <DropdownMenuRadioGroup value={stage} onValueChange={(v) => go({ wstage: v === 'all' ? null : v })}>
+                                        <DropdownMenuRadioItem value="all">Any stage</DropdownMenuRadioItem>
+                                        {stages.map((st) => <DropdownMenuRadioItem key={st} value={st}>{st}</DropdownMenuRadioItem>)}
+                                    </DropdownMenuRadioGroup>
+                                </> : null}
+                                <DropdownMenuSeparator /><DropdownMenuLabel>Workspace lead</DropdownMenuLabel>
+                                <DropdownMenuRadioGroup value={lead} onValueChange={(v) => go({ wlead: v === 'all' ? null : v })}>
+                                    <DropdownMenuRadioItem value="all">Any workspace lead</DropdownMenuRadioItem>
+                                    {leads.map(([id, name]) => <DropdownMenuRadioItem key={id} value={id}>{name}</DropdownMenuRadioItem>)}
+                                </DropdownMenuRadioGroup>
+                                <DropdownMenuSeparator /><DropdownMenuLabel>Sprint</DropdownMenuLabel>
+                                <DropdownMenuRadioGroup value={sprint} onValueChange={(v) => go({ wsprint: v === 'all' ? null : v })}>
+                                    <DropdownMenuRadioItem value="all">Any sprint</DropdownMenuRadioItem>
+                                    <DropdownMenuRadioItem value="linked">Inside the organization sprint</DropdownMenuRadioItem>
+                                    <DropdownMenuRadioItem value="not_linked">Not inside one</DropdownMenuRadioItem>
+                                </DropdownMenuRadioGroup>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuCheckboxItem checked={seats} onCheckedChange={(on) => go({ wseats: on ? '1' : null })}>Has open seats</DropdownMenuCheckboxItem>
                             </DropdownMenuContent>
                         </DropdownMenu>
-                        {filtersOn ? <button type="button" className="text-[12px] text-muted-foreground underline underline-offset-2 hover:text-foreground" onClick={() => go({ wvis: null, wstage: null, wlead: null, wsprint: null, wseats: null })}>Clear</button> : null}
+                        {filtersOn ? <Button type="button" size="sm" variant="ghost" onClick={() => go({ wvis: null, wstage: null, wlead: null, wsprint: null, wseats: null })}>Clear</Button> : null}
                         {phone ? null : (
-                            <span role="group" aria-label="View" className="inline-flex h-[30px] overflow-hidden rounded-[5px] border border-border text-[13px]">
+                            <span role="group" aria-label="View" className="inline-flex h-[var(--ui-control-height-sm)] overflow-hidden rounded-md border border-border text-[13px]">
                                 {(['list', 'cards'] as const).map((v) => <button key={v} type="button" aria-pressed={layout === v} onClick={() => go({ wview: v === 'cards' ? null : v })}
-                                    className={cn('px-2.5', layout === v ? 'bg-muted font-medium text-foreground' : 'text-muted-foreground hover:text-foreground')}>{v === 'list' ? 'List' : 'Cards'}</button>)}
+                                    className={cn('px-2.5 text-muted-foreground hover:text-foreground', pressed)}>{v === 'list' ? 'List' : 'Cards'}</button>)}
                             </span>
                         )}
                         {newButton('New', 'ml-auto md:hidden')}
                     </div>
                 </div>
             )}
-            {narrowed && rows.length ? <p className="text-[12px] text-muted-foreground" role="status">Showing {rows.length} of {inTab.length} · <button type="button" className="underline underline-offset-2 hover:text-foreground" onClick={clear}>Clear filters</button></p> : null}
+            {narrowed && rows.length ? <p className="text-[12px] text-muted-foreground" role="status">Showing {rows.length} of {inTab.length} · <button type="button" className="nb-link" onClick={clear}>Clear filters</button></p> : null}
 
             {/* §5 States, then the cards or the list. */}
             {rows.length === 0 ? <EmptyState data={data} tab={tab} narrowed={narrowed} onClear={clear} onAll={() => go({ ws: 'all' })} newButton={newButton('New workspace')} summaryMineZeroSeats={data.rows.reduce((n, r) => n + (r.mine ? 0 : r.openSeats), 0)} />
                 : layout === 'cards' ? (
                     <ul aria-label="Workspaces" className="flex flex-col gap-3">
                         {page.map((r) => (
-                            <li key={r.id} data-workspace-row={r.id} className={cn('min-w-0 rounded-lg transition-shadow max-md:[&_[aria-label^=More]]:min-h-11 max-md:[&_[aria-label^=More]]:min-w-11', r.status === 'archived' && 'opacity-60', highlight === r.id && 'ring-2 ring-primary/60')}>
+                            <li key={r.id} data-workspace-row={r.id} className={cn('min-w-0 rounded-lg max-md:[&_[aria-label^=More]]:min-h-11 max-md:[&_[aria-label^=More]]:min-w-11', highlight === r.id && 'ring-2 ring-primary')}>
                                 <WorkspaceCard project={cards.get(r.id)!} isFollowing={followed.has(r.id)} followersCount={r.followers} applicationChip={applications.get(r.id)}
                                     titleChip={titleChip(r)}
                                     orgDetails={
@@ -446,18 +444,18 @@ function WorkspacesView({ orgId, orgSlug, data, reload }: { orgId: string; orgSl
                     </ul>
                 ) : (
                     <div role="table" aria-label="Workspaces" className="overflow-hidden rounded-lg border border-border">
-                        <div role="row" className="sticky top-0 z-10 grid items-center gap-3 border-b border-border bg-card px-3 py-1.5 text-[12px] text-muted-foreground" style={{ gridTemplateColumns: LIST_GRID }}>
+                        <div role="row" className="nb-micro sticky top-0 z-10 grid min-h-10 items-center gap-3 border-b border-border bg-card px-3 py-2" style={{ gridTemplateColumns: LIST_GRID }}>
                             <span role="columnheader" className="sr-only">Select</span>
                             {([['name', 'Name'], [null, 'Workspace lead'], [null, 'Stage'], ['overdue', 'Health'], ['active', 'Updated']] as const).map(([key, label]) => (
                                 <span key={label} role="columnheader" aria-sort={key && sort === key ? (key === 'name' ? 'ascending' : 'descending') : undefined} className={cn(label === 'Workspace lead' || label === 'Stage' ? 'hidden lg:block' : '', label === 'Updated' && 'hidden xl:block')}>
-                                    {key ? <button type="button" className={cn('hover:text-foreground', sort === key && 'font-medium text-foreground')} onClick={() => go({ wsort: key })}>{label}</button> : label}
+                                    {key ? <button type="button" className={cn('uppercase hover:text-foreground', sort === key && 'text-foreground')} onClick={() => go({ wsort: key })}>{label}</button> : label}
                                 </span>
                             ))}
                             <span role="columnheader" className="sr-only">Actions</span>
                         </div>
                         {page.map((r) => (
-                            <div key={r.id} role="row" data-workspace-row={r.id} className={cn('grid min-h-[52px] items-center gap-3 border-b border-border px-3 py-1.5 text-sm last:border-b-0', r.status === 'archived' && 'opacity-60', highlight === r.id && 'bg-primary/5')} style={{ gridTemplateColumns: LIST_GRID }}>
-                                <span role="cell">{canAct ? <input type="checkbox" aria-label={`Select ${r.title}`} checked={selected.has(r.id)} onClick={(e) => pick(r, (e.target as HTMLInputElement).checked, e.shiftKey)} onChange={() => undefined} /> : null}</span>
+                            <div key={r.id} role="row" data-workspace-row={r.id} className={cn('grid min-h-14 items-center gap-3 border-b border-border px-3 py-1.5 text-[13px] last:border-b-0', highlight === r.id && 'bg-muted')} style={{ gridTemplateColumns: LIST_GRID }}>
+                                <span role="cell">{canAct ? <input type="checkbox" className="nb-check" aria-label={`Select ${r.title}`} checked={selected.has(r.id)} onClick={(e) => pick(r, (e.target as HTMLInputElement).checked, e.shiftKey)} onChange={() => undefined} /> : null}</span>
                                 <span role="cell" className="flex min-w-0 items-center gap-2.5">
                                     <WorkspaceAvatar project={{ title: r.title, coverImage: r.coverImage }} size="row" placeholder />
                                     <span className="min-w-0">
@@ -469,11 +467,11 @@ function WorkspacesView({ orgId, orgSlug, data, reload }: { orgId: string; orgSl
                                 <span role="cell" className="hidden truncate text-[13px] text-muted-foreground lg:block">{r.lead?.name ?? '—'}</span>
                                 <span role="cell" className="hidden truncate text-[13px] text-muted-foreground lg:block">{[r.stage, r.sprint?.name].filter(Boolean).join(' · ') || '—'}</span>
                                 <span role="cell">{health(r)}</span>
-                                <span role="cell" className="hidden xl:block"><WorkspaceLastUpdate projectId={r.id} timeOnly className="font-mono text-[11px] text-muted-foreground" /></span>
+                                <span role="cell" className="hidden xl:block"><WorkspaceLastUpdate projectId={r.id} timeOnly className="nb-meta" /></span>
                                 <span role="cell" className="flex justify-end">
                                     {canAct ? (
                                         <DropdownMenu>
-                                            <DropdownMenuTrigger asChild><button type="button" aria-label={`More actions for ${r.title}`} className="nb-icon-button px-1"><MoreHorizontal className="size-4" aria-hidden="true" /></button></DropdownMenuTrigger>
+                                            <DropdownMenuTrigger asChild><Button type="button" variant="ghost" size="icon-sm" aria-label={`More actions for ${r.title}`} className="nb-touch-target"><MoreHorizontal className="size-4" aria-hidden="true" /></Button></DropdownMenuTrigger>
                                             <DropdownMenuContent align="end" className="w-52">{menu(r)}</DropdownMenuContent>
                                         </DropdownMenu>
                                     ) : messageLead(r)}
@@ -484,8 +482,8 @@ function WorkspacesView({ orgId, orgSlug, data, reload }: { orgId: string; orgSl
                 )}
             {rows.length > shown ? (
                 <div className="flex items-center gap-3">
-                    <Button type="button" size="sm" variant="outline" className="h-[30px]" onClick={() => setShown((n) => n + PAGE)}>Show more</Button>
-                    <span className="text-[12px] text-muted-foreground">{shown} of {rows.length}</span>
+                    <Button type="button" size="sm" variant="outline" onClick={() => setShown((n) => n + PAGE)}>Show more</Button>
+                    <span className="nb-meta">{shown} of {rows.length}</span>
                 </div>
             ) : null}
 
@@ -501,23 +499,20 @@ function WorkspacesView({ orgId, orgSlug, data, reload }: { orgId: string; orgSl
 const LIST_GRID = '20px minmax(0,1fr) auto auto auto auto 32px'
 
 function EmptyState({ data, tab, narrowed, onClear, onAll, newButton, summaryMineZeroSeats }: { data: Data; tab: Tab; narrowed: boolean; onClear: () => void; onAll: () => void; newButton: ReactNode; summaryMineZeroSeats: number }) {
-    const box = (title: string, body?: string | null, action?: ReactNode) => (
-        <div className="nb-empty-state py-12" role="status">
-            <p className="nb-empty-state-title">{title}</p>
-            {body ? <p className="nb-empty-state-desc">{body}</p> : null}
-            {action ? <div className="mt-3 flex flex-wrap justify-center gap-2">{action}</div> : null}
-        </div>
+    // The shared empty state (spec §33): titles without periods, one sentence, one action.
+    const box = (title: string, body?: string | null, action?: ReactNode, icon = FolderKanban) => (
+        <SharedEmpty icon={icon} title={title} description={body ?? undefined} action={action ? <div className="flex flex-wrap justify-center gap-2">{action}</div> : undefined} />
     )
-    if (narrowed) return box('No workspaces match these filters', null, <Button type="button" variant="outline" size="sm" onClick={onClear}>Clear filters</Button>)
+    if (narrowed) return box('No workspaces match these filters', 'Try another filter, or clear them.', <Button type="button" variant="outline" size="sm" onClick={onClear}>Clear filters</Button>, SearchX)
     if (data.rows.length === 0) {
         return data.isAdmin
-            ? box('No workspaces yet.', 'Teams work inside workspaces.', <>{newButton}<Link href="/help/running-a-class" className="self-center text-[13px] text-muted-foreground underline underline-offset-4 hover:text-foreground">How workspaces work</Link></>)
-            : box('No workspaces yet.', data.canAsk ? 'Your organizer adds them, or you can ask to add one of yours.' : 'Your organizer will add them.', data.canAsk ? newButton : null)
+            ? box('No workspaces yet', 'Teams work inside workspaces.', <>{newButton}<Link href="/help/running-a-class" className="nb-link self-center text-[13px]">How workspaces work</Link></>)
+            : box('No workspaces yet', data.canAsk ? 'Your organizer adds them, or you can ask to add one of yours.' : 'Your organizer will add them.', data.canAsk ? newButton : null)
     }
     if (tab === 'mine') return box('You’re not in a workspace yet', summaryMineZeroSeats ? `${summaryMineZeroSeats} open ${summaryMineZeroSeats === 1 ? 'seat' : 'seats'} across the organization.` : null, <Button type="button" variant="outline" size="sm" onClick={onAll}>Browse all</Button>)
-    if (tab === 'attention') return box('Nothing needs you. Every workspace is active.')
-    if (tab === 'archived') return box('Nothing archived.')
-    return box('No workspaces yet.', null, newButton)
+    if (tab === 'attention') return box('Nothing needs you', 'Every workspace is active.', null, Check)
+    if (tab === 'archived') return box('Nothing archived', 'Archived workspaces stay readable here.')
+    return box('No workspaces yet', null, newButton)
 }
 
 /** F1: Remind lead with a prefilled note the admin can change; one confirm for several. */
@@ -535,11 +530,13 @@ function RemindDialog({ rows, remindedAt, pending, onClose, onSend }: { rows: Ro
                         {skipped ? `${skipped} ${skipped === 1 ? 'was' : 'were'} reminded in the last 12 hours and will be skipped. ` : ''}They get a notification with what’s open and your note.
                     </DialogDescription>
                 </DialogHeader>
-                <textarea value={note} onChange={(e) => setNote(e.target.value)} maxLength={300} rows={3} aria-label="Note" className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:border-primary focus:outline-none" />
-                <div className="flex justify-end gap-2">
-                    <Button variant="outline" size="sm" onClick={onClose}>Cancel</Button>
-                    <Button size="sm" disabled={pending || fresh.length === 0} onClick={() => onSend(fresh.map((r) => r.id), note)}>Send reminder</Button>
-                </div>
+                <label className="block"><span className={fieldLabel}>Note</span>
+                    <textarea value={note} onChange={(e) => setNote(e.target.value)} maxLength={300} rows={3} className="nb-textarea mt-1.5" />
+                </label>
+                <DialogFooter paper>
+                    <Button variant="outline" onClick={onClose}>Cancel</Button>
+                    <Button disabled={pending || fresh.length === 0} onClick={() => onSend(fresh.map((r) => r.id), note)}>Send reminder</Button>
+                </DialogFooter>
             </DialogContent>
         </Dialog>
     )
@@ -554,7 +551,7 @@ function ArchiveOrDetach({ ask, onClose, onDone }: { ask: { kind: 'archive' | 'd
             description={ask?.kind === 'detach'
                 ? 'It leaves the organization’s boards, sprints and reviews and becomes a private personal workspace for its workspace lead. Its people and files stay with it; work already handed in stays here. Unsubmitted group work goes. The workspace lead is told. This can’t be undone here.'
                 : `It stays readable for its ${people(ask?.rows.reduce((n, r) => n + r.members, 0) ?? 0)}; nobody can add work. They’re told. You can unarchive it.`}
-            confirmLabel={ask?.kind === 'detach' ? 'Detach' : 'Archive'} variant="destructive"
+            confirmLabel={ask?.kind === 'detach' ? 'Detach' : 'Archive'} variant={ask?.kind === 'detach' ? 'destructive' : 'default'}
             onConfirm={async () => {
                 if (!ask) return
                 const done: Row[] = []
@@ -594,7 +591,7 @@ function RequestsPanel({ requests, onClose, onDone }: { requests: OrgWorkspaceRe
         <Dialog open onOpenChange={(o) => { if (!o) onClose() }}>
             <DialogContent presentation="right-drawer" className="sm:max-w-[420px]">
                 <DialogHeader>
-                    <DialogTitle>Requests ({open.length})</DialogTitle>
+                    <DialogTitle>{withCount('Requests', open.length)}</DialogTitle>
                     <DialogDescription>Workspaces asking to join or leave the organization.</DialogDescription>
                 </DialogHeader>
                 <ul className="-mx-6 divide-y divide-border overflow-y-auto border-y border-border">
@@ -609,7 +606,7 @@ function RequestsPanel({ requests, onClose, onDone }: { requests: OrgWorkspaceRe
                             </p>
                             {declining === r.id ? (
                                 <div className="flex flex-wrap gap-2">
-                                    <Input value={reason} onChange={(e) => setReason(e.target.value)} maxLength={300} placeholder="Reason (optional)" aria-label={`Reason for declining ${r.title}`} className="h-8 w-full" />
+                                    <label className="w-full"><span className={fieldLabel}>Reason (optional)</span><Input value={reason} onChange={(e) => setReason(e.target.value)} maxLength={300} className="mt-1.5 w-full" /></label>
                                     <Button type="button" size="sm" variant="destructive" disabled={pending} onClick={() => act(r, () => (r.kind === 'move_in' ? cancelMoveInAction(r.id, reason) : cancelDetachRequestAction(r.id, reason)), 'Request declined')}>Decline</Button>
                                     <Button type="button" size="sm" variant="ghost" disabled={pending} onClick={() => setDeclining(null)}>Cancel</Button>
                                 </div>
@@ -640,16 +637,16 @@ function AskToAddDialog({ orgId, onClose }: { orgId: string; onClose: () => void
                     <DialogTitle>Ask to add a workspace</DialogTitle>
                     <DialogDescription>Choose one of your own workspaces. An admin accepts it into the organization.</DialogDescription>
                 </DialogHeader>
-                {mine.isPending ? <div className="nb-skeleton h-20 rounded" /> : rows.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">You don’t lead a workspace outside an organization yet. Create one from your workspaces, then ask here.</p>
+                {mine.isPending ? <div className="nb-skeleton h-20 rounded-md" role="status" aria-label="Loading your workspaces" /> : rows.length === 0 ? (
+                    <p className="text-[13px] text-muted-foreground">You don’t lead a workspace outside an organization yet. Create one from your workspaces, then ask here.</p>
                 ) : (
                     <ul className="max-h-64 space-y-1 overflow-y-auto">
                         {rows.map((r) => {
                             const done = r.asked || asked.has(r.id)
                             return (
-                                <li key={r.id} className="flex items-center justify-between gap-2 rounded px-2 py-1.5 text-sm">
+                                <li key={r.id} className="flex min-h-11 items-center justify-between gap-2 text-[13px]">
                                     <span className="min-w-0 truncate">{r.title}</span>
-                                    {done ? <span className="text-[12px] text-muted-foreground">Asked</span> : (
+                                    {done ? <StatusBadge state="requested">Asked</StatusBadge> : (
                                         <Button type="button" size="sm" variant="outline" disabled={pending} onClick={() => startTransition(async () => {
                                             const res = await moveWorkspaceToOrgAction(r.id, orgId)
                                             if (!res.success) return void toast.error(res.error)
@@ -662,7 +659,7 @@ function AskToAddDialog({ orgId, onClose }: { orgId: string; onClose: () => void
                         })}
                     </ul>
                 )}
-                <div className="flex justify-end"><Button variant="outline" size="sm" onClick={onClose}><X className="size-3.5" aria-hidden="true" />Close</Button></div>
+                <DialogFooter paper><Button variant="outline" onClick={onClose}>Close</Button></DialogFooter>
             </DialogContent>
         </Dialog>
     )
@@ -683,30 +680,33 @@ function AssignLeadDialog({ row, onClose, onDone }: { row: Row; onClose: () => v
                     <DialogDescription>{row.lead?.name ?? 'Someone'} holds it until then. Viewers and outside people can’t lead it.</DialogDescription>
                 </DialogHeader>
                 <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search the organization" aria-label="Search people" />
-                {candidates.isPending ? <div className="nb-skeleton h-24 rounded" /> : list.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">Nobody here can lead it. You can archive it instead.</p>
+                {candidates.isPending ? <div className="nb-skeleton h-24 rounded-md" role="status" aria-label="Loading people" /> : list.length === 0 ? (
+                    <p className="text-[13px] text-muted-foreground">Nobody here can lead it. You can archive it instead.</p>
                 ) : (
                     <ul className="max-h-64 space-y-1 overflow-y-auto">
                         {list.map((p) => (
                             <li key={p.id}><button type="button" onClick={() => setPick(p)} aria-pressed={pick?.id === p.id}
-                                className={cn('flex w-full justify-between rounded px-2 py-1.5 text-left text-sm hover:bg-muted', pick?.id === p.id && 'bg-muted font-medium')}>
-                                {p.name}<span className="text-[12px] text-muted-foreground">{p.onTeam ? 'On the team' : 'In the organization'}</span>
+                                className={cn('flex min-h-11 w-full items-center gap-2.5 rounded-md px-2 text-left text-[13px] hover:bg-muted', pick?.id === p.id && 'bg-muted font-medium')}>
+                                <UserAvatar identity={{ id: p.id, fullName: p.name, avatarUrl: null }} size={26} />
+                                <span className="min-w-0 flex-1 truncate">{p.name}</span>
+                                <span className="text-[12px] font-normal text-muted-foreground">{p.onTeam ? 'On the team' : 'In the organization'}</span>
+                                {pick?.id === p.id ? <Check className="size-4 text-primary" aria-hidden="true" /> : null}
                             </button></li>
                         ))}
                     </ul>
                 )}
-                {pick ? <p className="text-sm">{pick.name} will lead {row.title}. {row.lead?.name ?? 'The holder'} steps back to admin access.</p> : null}
-                <div className="flex justify-end gap-2">
-                    <Button variant="outline" size="sm" onClick={onClose}>Cancel</Button>
-                    <Button size="sm" disabled={!pick || busy} onClick={async () => {
+                {pick ? <p className="text-[13px]">{pick.name} will lead {row.title}. {row.lead?.name ?? 'The holder'} steps back to admin access.</p> : null}
+                <DialogFooter paper>
+                    <Button variant="outline" onClick={onClose}>Cancel</Button>
+                    <Button disabled={!pick || busy} onClick={async () => {
                         setBusy(true)
                         const r = await assignChildLeadAction(row.id, pick!.id).finally(() => setBusy(false))
                         if (!r.success) return void toast.error(r.error)
                         toast.success(`${pick!.name} leads ${row.title} now`)
                         onDone()
                         onClose()
-                    }}>Assign</Button>
-                </div>
+                    }}>Assign workspace lead</Button>
+                </DialogFooter>
             </DialogContent>
         </Dialog>
     )
