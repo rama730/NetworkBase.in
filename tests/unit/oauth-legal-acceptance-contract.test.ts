@@ -11,8 +11,7 @@ test("Google and GitHub OAuth return through versioned legal acceptance", () => 
   const oauthButtons = readFileSync(resolve(process.cwd(), "src/components/auth/AuthShell.tsx"), "utf8");
 
   assert.match(oauthButtons, /const legalNext = `\/legal\/accept\?context=oauth_signup&next=\$\{encodeURIComponent\(next\)\}`/);
-  assert.match(oauthButtons, /signInWithGoogle\(legalNext\)/);
-  assert.match(oauthButtons, /signInWithGitHub\(legalNext\)/);
+  assert.match(oauthButtons, /startOAuthSignIn\(provider, legalNext, /);
   assert.match(login, /<OAuthButtons next=\{redirectPath\}/);
   assert.match(signup, /<OAuthButtons next=\{afterSignupPath\}/);
   assert.match(callback, /requestedUrl\.pathname === '\/legal\/accept'/);
@@ -48,9 +47,9 @@ test("Google One Tap uses a nonce, bridges the Supabase session, and preserves l
   assert.match(oneTap, /createGoogleOneTapNonce\(\)/);
   assert.match(oneTap, /use_fedcm_for_prompt: true/);
   assert.match(oneTap, /auto_select: false/);
-  assert.match(oneTap, /signInWithGoogleIdToken\(credential, raw\)/);
+  assert.match(oneTap, /signInWithGoogleIdToken\(credential, raw, /);
   assert.match(oneTap, /window\.location\.assign\(normalizedNextPath\)/);
-  assert.match(authProvider, /supabase\.auth\.signInWithIdToken/);
+  assert.match(authProvider, /fetch\('\/api\/v1\/auth\/google-one-tap'/);
   assert.match(authProvider, /syncBrowserSessionToServer\(result\.data\.session\)/);
   assert.match(mainLayout, /hasCurrentLegalAcceptance\(user\.id\)/);
 });

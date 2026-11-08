@@ -14,6 +14,8 @@ import { githubOAuthFailureCode } from '@/lib/github/oauth-errors'
 import { getSessionIdentifierFromSession } from '@/lib/auth/session-identifier'
 import { getTrustedRequestIp } from '@/lib/security/request-ip'
 import { enrichSessionDeviceInfo } from '@/lib/security/session-activity'
+import { HUMAN_CHECK_COOKIE, clearHumanCheckCookie, humanCheckMatches, markHumanChecked, readCookie } from '@/lib/auth/human-check'
+import { isTurnstileServerConfigured } from '@/lib/security/turnstile'
 
 export async function GET(request: Request) {
     const startedAt = Date.now()
@@ -98,6 +100,27 @@ export async function GET(request: Request) {
         supabase.auth.getUser(),
         supabase.auth.getSession(),
     ])
+    // Signing in with Google or GitHub needs the pass the sign-in page got from Cloudflare for this attempt.
+    // Someone already signed in is connecting an account: they passed a check when they signed in.
+    const humanCheckNeeded = !previousUserData.user && isTurnstileServerConfigured()
+    if (humanCheckNeeded && !humanCheckMatches(readCookie(request, HUMAN_CHECK_COOKIE), oauthRequestId)) {
+        logger.metric('auth.callback.exchange.failure', {
+            requestId,
+            reason: 'human_check_missing',
+            nextPath,
+            path: requestUrl.pathname,
+            oauthRequestId,
+            provider,
+            durationMs: Date.now() - startedAt,
+            phase: hardeningPhase,
+        })
+        const checkUrl = new URL(loginErrorUrl)
+        checkUrl.searchParams.set('error', 'security-check')
+        const response = NextResponse.redirect(checkUrl)
+        clearHumanCheckCookie(response)
+        response.headers.set('x-request-id', requestId)
+        return response
+    }
     const { data, error } = await supabase.auth.exchangeCodeForSession(code)
     if (error) {
         logger.metric('auth.callback.exchange.failure', {
@@ -127,6 +150,11 @@ export async function GET(request: Request) {
         durationMs: Date.now() - startedAt,
         phase: hardeningPhase,
     })
+
+    // The mark is what lets a new account accept the terms; written before the redirect so that step never races it.
+    if (humanCheckNeeded && !(await markHumanChecked(data.user))) {
+        logger.warn('auth.callback.human_check_mark_failed', { requestId, provider, userId: data.user.id })
+    }
 
     const exchangedSessionId = data?.session ? getSessionIdentifierFromSession(data.session) : null
     if (exchangedSessionId) {
@@ -284,6 +312,7 @@ export async function GET(request: Request) {
             }
         })
     }
+    if (humanCheckNeeded) clearHumanCheckCookie(response)
     response.headers.set('x-request-id', requestId)
     return response
 }

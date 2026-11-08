@@ -48,7 +48,7 @@ export default function LegalAcceptancePage() {
         }),
       });
       const payload = await response.json().catch(() => null);
-      if (!response.ok || payload?.success === false) throw new Error(payload?.error || "Couldn’t record acceptance");
+      if (!response.ok || payload?.success === false) throw new Error(payload?.message || payload?.error || "Couldn’t record acceptance");
       router.replace(normalizeAuthNextPath(searchParams.get("next")));
       router.refresh();
     } catch (cause) {

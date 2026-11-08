@@ -2,6 +2,8 @@ export function resolveAuthPageErrorMessage(code: string | null | undefined): st
     switch ((code || '').trim()) {
         case 'auth-code-error':
             return 'Google sign-in could not be completed. Try again. If you are developing locally, open the app on the same origin you started from.'
+        case 'security-check':
+            return 'The security check didn’t finish. Wait for it on this page, then choose Google or GitHub again.'
         default:
             return null
     }

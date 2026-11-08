@@ -224,21 +224,49 @@ function createAuthRequestId(): string {
     return `auth-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
-export async function startOAuthSignIn(provider: 'google' | 'github', nextPath?: string | null): Promise<OAuthResult> {
+/** Cloudflare's answer, checked by the server, becomes a pass for this one attempt that the return step needs. */
+async function getHumanCheckPass(rid: string, captchaToken: string): Promise<string | null> {
+    const response = await fetch('/api/v1/auth/human-check', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ captchaToken, rid }),
+    }).catch(() => null);
+    if (response?.ok) return null;
+    const body = await response?.json().catch(() => null) as { message?: string; error?: string } | null;
+    return body?.message || body?.error || 'The security check didn’t pass. Wait for a new check, then try again.';
+}
+
+export async function startOAuthSignIn(provider: 'google' | 'github', nextPath?: string | null, captchaToken?: string | null): Promise<OAuthResult> {
+    const rid = createAuthRequestId();
+    if (captchaToken) {
+        const failed = await getHumanCheckPass(rid, captchaToken);
+        if (failed) return { data: null, error: { message: failed } };
+    }
     const supabase = await loadBrowserSupabase();
-    const redirectTo = buildOAuthRedirectTo(resolveAuthBaseUrl(), normalizeAuthNextPath(nextPath), createAuthRequestId(), provider);
+    const redirectTo = buildOAuthRedirectTo(resolveAuthBaseUrl(), normalizeAuthNextPath(nextPath), rid, provider);
     const result = await supabase.auth.signInWithOAuth({ provider, options: { redirectTo } });
     if (!result.error) continueBrowserOAuthRedirect(result);
     return result;
 }
 
-export async function signInWithGoogleIdToken(token: string, nonce: string): Promise<AuthResult> {
+/** One Tap's credential goes to the server, which asks Cloudflare before it signs in with Supabase. */
+export async function signInWithGoogleIdToken(token: string, nonce: string, captchaToken?: string | null): Promise<AuthResult> {
     try {
-        const supabase = await loadBrowserSupabase();
-        const result = await supabase.auth.signInWithIdToken({ provider: 'google', token, nonce });
-        if (result.error) {
-            return { data: result.data, error: { message: result.error.message || 'Couldn’t complete Google sign-in' } };
+        const response = await fetch('/api/v1/auth/google-one-tap', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            credentials: 'same-origin',
+            body: JSON.stringify({ credential: token, nonce, ...(captchaToken ? { captchaToken } : {}) }),
+        });
+        const body = await response.json().catch(() => null) as SignUpApiResponse | null;
+        const session = body?.data?.session;
+        if (!response.ok || body?.success === false || !session?.accessToken || !session.refreshToken) {
+            return { data: null, error: { message: body?.message || 'Couldn’t complete Google sign-in' } };
         }
+        const supabase = await loadBrowserSupabase();
+        const result = await supabase.auth.setSession({ access_token: session.accessToken, refresh_token: session.refreshToken });
+        if (result.error) return { data: null, error: { message: 'Couldn’t complete Google sign-in' } };
         if (result.data.session) await syncBrowserSessionToServer(result.data.session);
         return { data: result.data, error: null };
     } catch {

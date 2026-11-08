@@ -62,6 +62,10 @@ export function LoginForm({ redirect, error, step: stepParam }: { redirect: stri
         setFormError(null)
         setQueryErrorDismissed(true)
     }
+    const renewCaptcha = () => {
+        setCaptchaToken(null)
+        setCaptchaKey((key) => key + 1)
+    }
 
     const handleSignIn = async (event: FormEvent) => {
         event.preventDefault()
@@ -196,8 +200,19 @@ export function LoginForm({ redirect, error, step: stepParam }: { redirect: stri
             panel={SIGN_IN_PANEL}
             footer={<>New to NetworkBase? <Link className={AUTH_LINK} href={signupHref}>Create an account</Link></>}
         >
-            <GoogleOneTap nextPath={redirectPath} onError={setFormError} />
-            <OAuthButtons next={redirectPath} disabled={busy} onError={setFormError} />
+            {/* One check for every way in: Google, GitHub and One Tap use it as well as the email form. */}
+            {requiresCaptcha ? (
+                <div className="mb-4">
+                    <TurnstileWidget
+                        key={captchaKey}
+                        action="login"
+                        onVerify={(token) => { setCaptchaToken(token); setFormError((current) => current === SECURITY_CHECK_PROMPT ? null : current) }}
+                        onExpire={() => setCaptchaToken(null)}
+                    />
+                </div>
+            ) : null}
+            <GoogleOneTap nextPath={redirectPath} onError={setFormError} captchaToken={captchaToken} onCaptchaUsed={renewCaptcha} />
+            <OAuthButtons next={redirectPath} disabled={busy} onError={setFormError} captchaToken={captchaToken} onCaptchaUsed={renewCaptcha} />
             <AuthDivider />
             <form onSubmit={handleSignIn} className="space-y-4" noValidate>
                 {shownError ? <AuthAlert tone="error">{shownError}</AuthAlert> : null}
@@ -254,14 +269,6 @@ export function LoginForm({ redirect, error, step: stepParam }: { redirect: stri
                         Forgot password?
                     </Link>
                 </div>
-                {requiresCaptcha ? (
-                    <TurnstileWidget
-                        key={captchaKey}
-                        action="login"
-                        onVerify={(token) => { setCaptchaToken(token); setFormError((current) => current === SECURITY_CHECK_PROMPT ? null : current) }}
-                        onExpire={() => setCaptchaToken(null)}
-                    />
-                ) : null}
                 <SubmitButton busy={busy} busyLabel="Signing in…">Sign in</SubmitButton>
             </form>
         </AuthShell>

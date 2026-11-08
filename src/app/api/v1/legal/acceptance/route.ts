@@ -2,6 +2,8 @@ import { z } from "zod";
 import { enforceRouteLimit, getRequestId, jsonError, jsonSuccess, requireAuthenticatedUser } from "@/app/api/v1/_shared";
 import { getLegalAcceptanceState, recordCurrentLegalAcceptance } from "@/lib/legal/acceptance";
 import { validateCsrf } from "@/lib/security/csrf";
+import { hasPassedHumanCheck } from "@/lib/auth/human-check";
+import { isTurnstileServerConfigured } from "@/lib/security/turnstile";
 
 const acceptanceSchema = z.object({
   accepted: z.literal(true),
@@ -25,6 +27,14 @@ export async function POST(request: Request) {
   if (limited) return limited;
   const parsed = acceptanceSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return jsonError("Explicit acceptance is required", 400, "BAD_REQUEST");
+  // A first acceptance is where a new account becomes a profile. Google and GitHub accounts get there only after the
+  // sign-in page's Cloudflare check, so one made by going around the page stops here. Updated terms are never blocked.
+  if (isTurnstileServerConfigured() && !hasPassedHumanCheck(auth.user)) {
+    const state = await getLegalAcceptanceState(auth.user.id);
+    if (!state.latest) {
+      return jsonError("Sign in again from the sign-in page to finish the security check.", 403, "FORBIDDEN");
+    }
+  }
   await recordCurrentLegalAcceptance({ userId: auth.user.id, request, context: parsed.data.context, ageConfirmed: parsed.data.ageConfirmed });
   return jsonSuccess({ accepted: true, requestId: getRequestId(request) });
 }

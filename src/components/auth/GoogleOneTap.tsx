@@ -9,6 +9,7 @@ import {
   getGoogleOneTapClientId,
 } from "@/lib/auth/google-one-tap";
 import { normalizeAuthNextPath } from "@/lib/auth/redirects";
+import { hasTurnstileSiteKey, SECURITY_CHECK_PROMPT } from "@/components/auth/TurnstileWidget";
 
 type GoogleCredentialResponse = {
   credential?: string;
@@ -45,22 +46,35 @@ const GOOGLE_ONE_TAP_CLIENT_ID = getGoogleOneTapClientId();
 export function GoogleOneTap({
   nextPath,
   onError,
+  captchaToken,
+  onCaptchaUsed,
 }: {
   nextPath?: string | null;
   onError?: (message: string) => void;
+  /** The page's Cloudflare check: the server asks Cloudflare before it signs in. */
+  captchaToken?: string | null;
+  onCaptchaUsed?: () => void;
 }) {
   const { nonce: cspNonce } = useSecurityRuntime();
   const [scriptReady, setScriptReady] = useState(false);
   const handlingCredentialRef = useRef(false);
   const errorRef = useRef(onError);
+  const usedRef = useRef(onCaptchaUsed);
+  const captchaTokenRef = useRef(captchaToken ?? null);
+  const requiresCaptcha = hasTurnstileSiteKey();
+  // The prompt waits for the first passed check. Later refreshes of the token must not prompt again.
+  const [armed, setArmed] = useState(!requiresCaptcha);
+  if (captchaToken && !armed) setArmed(true);
   const normalizedNextPath = normalizeAuthNextPath(nextPath);
 
   useEffect(() => {
     errorRef.current = onError;
-  }, [onError]);
+    usedRef.current = onCaptchaUsed;
+    captchaTokenRef.current = captchaToken ?? null;
+  }, [captchaToken, onCaptchaUsed, onError]);
 
   useEffect(() => {
-    if (!GOOGLE_ONE_TAP_CLIENT_ID || !scriptReady || !window.google) return;
+    if (!GOOGLE_ONE_TAP_CLIENT_ID || !scriptReady || !armed || !window.google) return;
 
     let cancelled = false;
 
@@ -74,14 +88,21 @@ export function GoogleOneTap({
             const credential = response.credential?.trim() || "";
             if (!credential || cancelled || handlingCredentialRef.current) return;
 
+            const token = captchaTokenRef.current;
+            if (requiresCaptcha && !token) {
+              errorRef.current?.(SECURITY_CHECK_PROMPT);
+              return;
+            }
             handlingCredentialRef.current = true;
             window.google?.accounts.id.cancel();
 
-            void signInWithGoogleIdToken(credential, raw)
+            void signInWithGoogleIdToken(credential, raw, requiresCaptcha ? token : null)
               .then((result) => {
                 if (cancelled) return;
                 if (result.error) {
                   handlingCredentialRef.current = false;
+                  // Cloudflare's tokens are single-use: a failed attempt needs a fresh check.
+                  if (requiresCaptcha) usedRef.current?.();
                   errorRef.current?.(result.error.message);
                   return;
                 }
@@ -93,6 +114,7 @@ export function GoogleOneTap({
               .catch(() => {
                 if (cancelled) return;
                 handlingCredentialRef.current = false;
+                if (requiresCaptcha) usedRef.current?.();
                 errorRef.current?.("Couldn’t complete Google sign-in. Try again.");
               });
           },
@@ -114,7 +136,7 @@ export function GoogleOneTap({
       cancelled = true;
       window.google?.accounts.id.cancel();
     };
-  }, [normalizedNextPath, scriptReady]);
+  }, [armed, normalizedNextPath, requiresCaptcha, scriptReady]);
 
   if (!GOOGLE_ONE_TAP_CLIENT_ID) return null;
 

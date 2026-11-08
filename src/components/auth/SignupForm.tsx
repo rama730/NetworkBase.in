@@ -95,6 +95,11 @@ export function SignupForm({ redirect, invite, referral, project }: { redirect: 
     const [resendMessage, setResendMessage] = useState<string | null>(null)
     const [resendCaptchaToken, setResendCaptchaToken] = useState<string | null>(null)
     const otpInputRef = useRef<HTMLInputElement | null>(null)
+    // Cloudflare's tokens are single-use: after a failed attempt the widget starts over for a fresh one.
+    const renewCaptcha = () => {
+        setCaptchaToken(null)
+        setCaptchaKey((key) => key + 1)
+    }
 
     const suggestedHandle = useMemo(() => (fullName.trim() ? sanitizeUsernameInput(fullName.trim().replace(/\s+/g, '_')) : ''), [fullName])
     const emailTypo = useMemo(() => detectEmailDomainTypo(email), [email])
@@ -372,9 +377,32 @@ export function SignupForm({ redirect, invite, referral, project }: { redirect: 
             panel={SIGNUP_PANEL}
             footer={<>Already have an account? <Link href={loginHref} className={AUTH_LINK}>Sign in</Link></>}
         >
-            <GoogleOneTap nextPath={oneTapNextPath} onError={setFormError} />
             {inviteParam ? <AuthAlert tone="info" className="mb-5">You’ve been invited. Create your account to accept.</AuthAlert> : null}
-            <OAuthButtons next={afterSignupPath} disabled={isLoading} onError={setFormError} />
+            {/* One check for every way in: Google, GitHub and One Tap use it as well as the email form. */}
+            <div className="mb-4">
+                {requiresCaptcha ? (
+                    <TurnstileWidget
+                        key={captchaKey}
+                        action="signup"
+                        onVerify={(token) => { setCaptchaToken(token); setFormError((current) => current === SECURITY_CHECK_PROMPT ? null : current) }}
+                        onExpire={() => setCaptchaToken(null)}
+                    />
+                ) : (
+                    // Local development without a Turnstile key: an explicit stand-in for the check.
+                    <label className="flex min-h-11 cursor-pointer items-center gap-3 rounded-md border border-border bg-muted/40 px-3 text-sm">
+                        <input
+                            type="checkbox"
+                            checked={Boolean(captchaToken)}
+                            onChange={(event) => { setCaptchaToken(event.target.checked ? 'dev-verified-token' : null); setFormError(null) }}
+                            className="size-4 accent-[var(--primary)]"
+                        />
+                        Complete the security check
+                        <span className="ml-auto text-xs text-muted-foreground">Hide from regular users</span>
+                    </label>
+                )}
+            </div>
+            <GoogleOneTap nextPath={oneTapNextPath} onError={setFormError} captchaToken={captchaToken} onCaptchaUsed={renewCaptcha} />
+            <OAuthButtons next={afterSignupPath} disabled={isLoading} onError={setFormError} captchaToken={captchaToken} onCaptchaUsed={renewCaptcha} />
             <AuthDivider />
             <form onSubmit={handleSubmit} className="space-y-4" noValidate>
                 {/* Invisible honeypot field for automated sign-ups */}
@@ -452,27 +480,6 @@ export function SignupForm({ redirect, invite, referral, project }: { redirect: 
                         {...fieldError('confirmPassword', fieldErrors.confirmPassword)}
                     />
                 </AuthField>
-
-                {requiresCaptcha ? (
-                    <TurnstileWidget
-                        key={captchaKey}
-                        action="signup"
-                        onVerify={(token) => { setCaptchaToken(token); setFormError((current) => current === SECURITY_CHECK_PROMPT ? null : current) }}
-                        onExpire={() => setCaptchaToken(null)}
-                    />
-                ) : (
-                    // Local development without a Turnstile key: an explicit stand-in for the check.
-                    <label className="flex min-h-11 cursor-pointer items-center gap-3 rounded-md border border-border bg-muted/40 px-3 text-sm">
-                        <input
-                            type="checkbox"
-                            checked={Boolean(captchaToken)}
-                            onChange={(event) => { setCaptchaToken(event.target.checked ? 'dev-verified-token' : null); setFormError(null) }}
-                            className="size-4 accent-[var(--primary)]"
-                        />
-                        Complete the security check
-                        <span className="ml-auto text-xs text-muted-foreground">Hide from regular users</span>
-                    </label>
-                )}
 
                 <div className="space-y-1.5">
                     <label className="flex min-h-11 cursor-pointer items-start gap-3 py-1 text-[13px] leading-relaxed text-muted-foreground">

@@ -7,6 +7,7 @@ import { LegalLinks } from '@/components/legal/LegalLinks'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { startOAuthSignIn } from '@/lib/auth/browser-auth-actions'
+import { hasTurnstileSiteKey, SECURITY_CHECK_PROMPT } from '@/components/auth/TurnstileWidget'
 import { cn } from '@/lib/utils'
 
 export type AuthPanelContent = { eyebrow: string; title: string; points?: readonly string[] }
@@ -198,28 +199,41 @@ function GoogleIcon() {
     )
 }
 
-const signInWithGoogle = (nextPath: string) => startOAuthSignIn('google', nextPath)
-const signInWithGitHub = (nextPath: string) => startOAuthSignIn('github', nextPath)
 
 /**
  * Google and GitHub. Both return through the versioned legal-acceptance step; someone who has already
  * agreed passes straight through it.
  */
-export function OAuthButtons({ next, disabled, onError }: { next: string; disabled?: boolean; onError: (message: string | null) => void }) {
+export function OAuthButtons({ next, disabled, onError, captchaToken, onCaptchaUsed }: {
+    next: string
+    disabled?: boolean
+    onError: (message: string | null) => void
+    /** The page's Cloudflare check: the server turns it into a pass for this attempt before leaving. */
+    captchaToken?: string | null
+    onCaptchaUsed?: () => void
+}) {
     const [loading, setLoading] = useState<'google' | 'github' | null>(null)
+    const requiresCaptcha = hasTurnstileSiteKey()
     const start = async (provider: 'google' | 'github') => {
+        if (requiresCaptcha && !captchaToken) {
+            onError(SECURITY_CHECK_PROMPT)
+            return
+        }
         onError(null)
         setLoading(provider)
         const legalNext = `/legal/accept?context=oauth_signup&next=${encodeURIComponent(next)}`
         try {
-            const { error } = provider === 'google' ? await signInWithGoogle(legalNext) : await signInWithGitHub(legalNext)
+            const { error } = await startOAuthSignIn(provider, legalNext, requiresCaptcha ? captchaToken : null)
             if (error) {
                 onError(error.message)
                 setLoading(null)
+                // Cloudflare's tokens are single-use: a failed attempt needs a fresh check.
+                if (requiresCaptcha) onCaptchaUsed?.()
             }
         } catch {
             onError(`Couldn’t start ${provider === 'google' ? 'Google' : 'GitHub'} sign-in. Try again.`)
             setLoading(null)
+            if (requiresCaptcha) onCaptchaUsed?.()
         }
     }
     const busy = disabled || loading !== null

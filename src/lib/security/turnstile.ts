@@ -28,7 +28,8 @@ export function isTurnstileServerConfigured(): boolean {
 export async function verifyTurnstileToken(params: {
     token: string;
     ip?: string | null;
-    expectedAction?: string;
+    /** One action, or the actions any of which may answer. */
+    expectedAction?: string | string[];
 }): Promise<TurnstileVerificationResult> {
     const secretKey = getTurnstileSecretKey();
 
@@ -86,7 +87,8 @@ export async function verifyTurnstileToken(params: {
             };
         }
 
-        if (params.expectedAction && data.action && data.action !== params.expectedAction) {
+        const allowedActions = params.expectedAction === undefined ? [] : [params.expectedAction].flat();
+        if (allowedActions.length > 0 && data.action && !allowedActions.includes(data.action)) {
             logger.warn('[turnstile] Action mismatch', {
                 expected: params.expectedAction,
                 received: data.action,
