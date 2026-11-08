@@ -17,9 +17,10 @@ test('one gate covers every server read, and pages lead to the code step', () =>
     const gate = readFileSync('src/lib/auth/mfa-gate.ts', 'utf8')
     const login = readFileSync('src/components/auth/LoginForm.tsx', 'utf8')
     // Pages, server actions and API routes all resolve the viewer through this one snapshot.
-    assert.match(server, /resolveAuthSnapshot\(client\)\.then\(withSecondFactorGate\)/)
+    // A browser trusted for 30 days (its nb-device cookie) skips the code; both gates pass that cookie in.
+    assert.match(server, /resolveAuthSnapshot\(client\)\.then\(\(resolution\) => withSecondFactorGate\(resolution, cookieStore\.getAll\(\)/)
     assert.match(server, /return \{ \.\.\.resolution, session: null, snapshot: null, user: null \}/)
-    assert.match(middleware, /if \(user && await isSecondFactorDue\(user\.id, userAal\)\)/)
+    assert.match(middleware, /if \(user && await isSecondFactorDue\(user\.id, userAal, request\.cookies\.get\('nb-device'\)\?\.value\)\)/)
     assert.match(middleware, /codeStepUrl\.searchParams\.set\('step', 'mfa'\)/)
     assert.match(proxy, /"\/legal\/accept"\]\)/)
     // The factor list comes from the database, never the unsigned cookie copy of the user.

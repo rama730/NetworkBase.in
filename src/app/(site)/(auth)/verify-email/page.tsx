@@ -1,13 +1,13 @@
 'use client'
 
-import { Suspense, useEffect, useState } from 'react'
+import { Suspense, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/hooks/use-auth'
 import { AuthRouteProviders } from '@/components/providers/AuthRouteProviders'
-import { AuthAlert, AuthShell } from '@/components/auth/AuthShell'
+import { AUTH_LINK, AuthAlert, AuthShell, EmailCodeForm } from '@/components/auth/AuthShell'
+import { toFriendlyAuthError } from '@/lib/auth/error-messages'
 import { loadBrowserSupabase, syncBrowserSessionToServer } from '@/lib/auth/browser-auth-actions'
 
-const RESEND_COOLDOWN_SECONDS = 60
 
 const VERIFY_PANEL = {
     eyebrow: 'One last step',
@@ -17,49 +17,11 @@ const VERIFY_PANEL = {
 
 function VerifyEmailPageInner() {
     const { user, signOut } = useAuth()
-    const [isSending, setIsSending] = useState(false)
     const [isChecking, setIsChecking] = useState(false)
     const [isSigningOut, setIsSigningOut] = useState(false)
-    const [cooldown, setCooldown] = useState(0)
     const [message, setMessage] = useState<string | null>(null)
     const [error, setError] = useState<string | null>(null)
 
-    useEffect(() => {
-        if (cooldown <= 0) return
-        const timer = setInterval(() => setCooldown((value) => Math.max(0, value - 1)), 1000)
-        return () => clearInterval(timer)
-    }, [cooldown])
-
-    const handleResend = async () => {
-        if (!user?.email) {
-            setError('Sign in again to resend the verification email.')
-            return
-        }
-
-        setIsSending(true)
-        setMessage(null)
-        setError(null)
-
-        try {
-            const response = await fetch('/api/v1/auth/verify-email', {
-                method: 'POST',
-                credentials: 'same-origin',
-            })
-            const body = await response.json().catch(() => null) as { success?: boolean; message?: string } | null;
-
-            if (!response.ok || body?.success === false) {
-                setError(body?.message || 'Couldn’t resend verification email.')
-                return
-            }
-
-            setCooldown(RESEND_COOLDOWN_SECONDS)
-            setMessage(`We sent a new link to ${user.email}.`)
-        } catch (resendError) {
-            setError(resendError instanceof Error ? resendError.message : 'Couldn’t resend verification email.')
-        } finally {
-            setIsSending(false)
-        }
-    }
 
     // The link may have been opened on another device: refresh the session and let the server route on.
     const handleContinue = async () => {
@@ -97,33 +59,44 @@ function VerifyEmailPageInner() {
         }
     }
 
-    const busy = isSending || isChecking || isSigningOut
+    const busy = isChecking || isSigningOut
 
+    const address = user?.email || ''
     return (
         <AuthShell
             title="Verify your email"
-            description={<>We sent a link to <span className="font-medium text-foreground">{user?.email || 'your email address'}</span>. Open it to finish setting up your account.</>}
+            description={<>We sent a 6-digit code to <span className="font-medium text-foreground">{address || 'your email address'}</span>. Enter it here, or open the link in the email.</>}
             panel={VERIFY_PANEL}
+            footer={<button type="button" className={AUTH_LINK} disabled={busy} onClick={() => void handleSignOut()}>{isSigningOut ? 'Signing out…' : 'Use a different account'}</button>}
         >
             <div className="space-y-4">
                 {message ? <AuthAlert tone="success">{message}</AuthAlert> : null}
                 {error ? <AuthAlert tone="error">{error}</AuthAlert> : null}
-                <Button className="h-11 w-full font-medium" onClick={() => void handleContinue()} disabled={busy}>
-                    {isChecking ? 'Checking…' : "I’ve verified my email"}
+                {address ? (
+                    <EmailCodeForm
+                        id="verify-code"
+                        email={address}
+                        label="Verification code"
+                        submitLabel="Verify email"
+                        resendAction="signup-resend"
+                        onVerify={async (code) => {
+                            const supabase = await loadBrowserSupabase()
+                            const { data, error: verifyError } = await supabase.auth.verifyOtp({ email: address, token: code, type: 'signup' })
+                            if (verifyError || !data.session) return 'That code is wrong or has expired. Check it, or send a new one.'
+                            await syncBrowserSessionToServer(data.session).catch(() => null)
+                            window.location.reload()
+                            return null
+                        }}
+                        onResend={async (token) => {
+                            const supabase = await loadBrowserSupabase()
+                            const { error: resendError } = await supabase.auth.resend({ type: 'signup', email: address, options: token ? { captchaToken: token } : undefined })
+                            return resendError ? toFriendlyAuthError(resendError.message, 'We couldn’t send a new code. Try again in a minute.') : null
+                        }}
+                    />
+                ) : null}
+                <Button variant="outline" className="h-11 w-full font-medium" onClick={() => void handleContinue()} disabled={busy}>
+                    {isChecking ? 'Checking…' : 'I opened the link on another device'}
                 </Button>
-                <div className="flex items-center justify-between gap-3 text-sm">
-                    <button type="button" className="min-h-11 text-muted-foreground hover:text-foreground disabled:opacity-60" disabled={busy} onClick={() => void handleSignOut()}>
-                        {isSigningOut ? 'Signing out…' : 'Use a different account'}
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => void handleResend()}
-                        disabled={busy || cooldown > 0}
-                        className="min-h-11 font-medium text-primary underline-offset-4 hover:underline disabled:font-normal disabled:text-muted-foreground disabled:no-underline"
-                    >
-                        {isSending ? 'Sending…' : cooldown > 0 ? `Resend email in ${cooldown}s` : 'Resend email'}
-                    </button>
-                </div>
                 <p className="nb-auth-note text-muted-foreground">
                     Emails come from <span className="font-mono text-foreground">welcome@networkbase.in</span>. Check spam if you can’t find it.
                 </p>

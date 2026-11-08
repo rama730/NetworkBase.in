@@ -3,13 +3,14 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, Check, Loader2 } from 'lucide-react'
+import { ArrowLeft } from 'lucide-react'
 import type { AuthChangeEvent, Session } from '@supabase/supabase-js'
 import { loadBrowserSupabase, signUpWithPassword as signUp, verifyEmailOtp as verifyOtp } from '@/lib/auth/browser-auth-actions'
 import { Input } from '@/components/ui/input'
 import TurnstileWidget, { hasTurnstileSiteKey, SECURITY_CHECK_PROMPT } from '@/components/auth/TurnstileWidget'
 import { GoogleOneTap } from '@/components/auth/GoogleOneTap'
-import { AUTH_INPUT, AUTH_LINK, AuthAlert, AuthDivider, AuthField, AuthShell, CodeInput, OAuthButtons, PasswordField, SubmitButton, fieldError } from '@/components/auth/AuthShell'
+import { AUTH_EMAIL_HANDOFF_KEY, AUTH_INPUT, AUTH_LINK, AuthAlert, AuthDivider, AuthField, AuthShell, CodeInput, MailAppLink, OAuthButtons, PasswordField, SubmitButton, fieldError } from '@/components/auth/AuthShell'
+import { rememberSignInMethod } from '@/lib/auth/last-method'
 import { PasswordStrengthMeter } from '@/components/settings/PasswordStrengthMeter'
 import { buildAuthPageHref, resolveAuthRedirectPath } from '@/lib/auth/redirects'
 import { toFriendlyAuthError } from '@/lib/auth/error-messages'
@@ -22,6 +23,8 @@ const DUPLICATE_EMAIL_MESSAGE = 'This email has already been used to create an a
 const SIGNUP_REQUEST_TIMEOUT_MS = 15_000
 const RESEND_COOLDOWN_SECONDS = 60
 const DRAFT_KEY = 'nb_signup_draft'
+/** The "Check your email" step survives a reload (switching to the mail app often reloads a phone's tab). */
+const VERIFY_STEP_KEY = 'nb_signup_verify'
 
 const SIGNUP_PANEL = {
     eyebrow: 'Get started',
@@ -34,7 +37,7 @@ const VERIFY_PANEL = {
     points: ['Keeps spam accounts out', 'Lets you recover your account', 'Unlocks messages and workspaces'],
 }
 
-type FieldKey = 'fullName' | 'email' | 'password' | 'confirmPassword' | 'legal'
+type FieldKey = 'fullName' | 'email' | 'password' | 'legal'
 
 function toErrorMessage(authError: unknown): string {
     const raw = typeof authError === 'object' && authError !== null && 'message' in authError
@@ -49,9 +52,19 @@ function isDuplicateObfuscatedResponse(payload: unknown): boolean {
     return Array.isArray(identities) && identities.length === 0
 }
 
+/** Carries the typed email to the sign-in or reset page (never in the address). */
+function handOffEmail(email: string) {
+    try {
+        if (email.trim()) sessionStorage.setItem(AUTH_EMAIL_HANDOFF_KEY, email.trim())
+    } catch {
+        // Storage can be blocked; the next page just starts empty.
+    }
+}
+
 function clearDraft() {
     try {
         sessionStorage.removeItem(DRAFT_KEY)
+        sessionStorage.removeItem(VERIFY_STEP_KEY)
     } catch {
         // Storage can be blocked.
     }
@@ -73,7 +86,6 @@ export function SignupForm({ redirect, invite, referral, project }: { redirect: 
     const [fullName, setFullName] = useState('')
     const [email, setEmail] = useState('')
     const [password, setPassword] = useState('')
-    const [confirmPassword, setConfirmPassword] = useState('')
     const [legalAccepted, setLegalAccepted] = useState(false)
     const [honeypot, setHoneypot] = useState('')
     const [captchaToken, setCaptchaToken] = useState<string | null>(null)
@@ -81,7 +93,7 @@ export function SignupForm({ redirect, invite, referral, project }: { redirect: 
     const [fieldErrors, setFieldErrors] = useState<Partial<Record<FieldKey, string>>>({})
     const [formError, setFormError] = useState<string | null>(null)
     const [isLoading, setIsLoading] = useState(false)
-    const [handleStatus, setHandleStatus] = useState<'idle' | 'checking' | 'available' | 'taken'>('idle')
+    const [duplicate, setDuplicate] = useState(false)
     const idempotencyKeyRef = useRef<string>(
         typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : String(Date.now())
     )
@@ -112,6 +124,8 @@ export function SignupForm({ redirect, invite, referral, project }: { redirect: 
             const draft = JSON.parse(sessionStorage.getItem(DRAFT_KEY) || 'null') as { fullName?: string; email?: string } | null
             if (draft?.fullName) setFullName(draft.fullName)
             if (draft?.email) setEmail(draft.email)
+            const waiting = sessionStorage.getItem(VERIFY_STEP_KEY)
+            if (waiting && waiting === draft?.email) setIsVerifyingOtp(true)
         } catch {
             // Ignore storage access issues
         }
@@ -124,29 +138,6 @@ export function SignupForm({ redirect, invite, referral, project }: { redirect: 
             // Ignore storage write issues
         }
     }, [fullName, email])
-
-    // Debounced live handle availability check
-    useEffect(() => {
-        if (!suggestedHandle || suggestedHandle.length < 3) {
-            setHandleStatus('idle')
-            return
-        }
-        setHandleStatus('checking')
-        const controller = new AbortController()
-        const timer = setTimeout(async () => {
-            try {
-                const res = await fetch(`/api/v1/onboarding/username-check?username=${encodeURIComponent(suggestedHandle)}`, { signal: controller.signal })
-                const json = (await res.json().catch(() => null)) as { data?: { available?: boolean } } | null
-                setHandleStatus(json?.data ? (json.data.available ? 'available' : 'taken') : 'idle')
-            } catch (err) {
-                if ((err as Error)?.name !== 'AbortError') setHandleStatus('idle')
-            }
-        }, 400)
-        return () => {
-            clearTimeout(timer)
-            controller.abort()
-        }
-    }, [suggestedHandle])
 
     // If the person confirms through the email link in another tab or device, move on automatically.
     useEffect(() => {
@@ -177,6 +168,7 @@ export function SignupForm({ redirect, invite, referral, project }: { redirect: 
 
     const clearField = (key: FieldKey) => {
         setFormError(null)
+        setDuplicate(false)
         setFieldErrors((errors) => ({ ...errors, [key]: undefined }))
     }
 
@@ -188,11 +180,10 @@ export function SignupForm({ redirect, invite, referral, project }: { redirect: 
             fullName: fullName.trim() ? undefined : 'Enter your full name.',
             email: !email.trim() ? 'Enter your email.' : isDisposable ? "Use a permanent email address. Temporary inboxes aren’t allowed." : undefined,
             password: passwordPolicy.ok ? undefined : passwordPolicy.error || 'Choose a stronger password.',
-            confirmPassword: password === confirmPassword ? undefined : "Passwords don’t match.",
             legal: legalAccepted ? undefined : 'Accept the terms to create your account.',
         }
         setFieldErrors(errors)
-        const firstInvalid = (['fullName', 'email', 'password', 'confirmPassword', 'legal'] as const).find((key) => errors[key])
+        const firstInvalid = (['fullName', 'email', 'password', 'legal'] as const).find((key) => errors[key])
         if (firstInvalid) {
             fieldRefs.current[firstInvalid]?.focus()
             return
@@ -216,7 +207,10 @@ export function SignupForm({ redirect, invite, referral, project }: { redirect: 
 
             const authError = (signUpResult as { error?: unknown } | null)?.error
             if (isDuplicateObfuscatedResponse(signUpResult) || authError) {
-                setFormError(authError ? toErrorMessage(authError) : DUPLICATE_EMAIL_MESSAGE)
+                const message = authError ? toErrorMessage(authError) : DUPLICATE_EMAIL_MESSAGE
+                // An account already exists: show the ways forward instead of a dead end.
+                setDuplicate(message === DUPLICATE_EMAIL_MESSAGE)
+                setFormError(message === DUPLICATE_EMAIL_MESSAGE ? null : message)
                 if (requiresCaptcha) {
                     setCaptchaToken(null)
                     setCaptchaKey((key) => key + 1)
@@ -231,6 +225,11 @@ export function SignupForm({ redirect, invite, referral, project }: { redirect: 
                 return
             }
             if (data?.user) {
+                try {
+                    sessionStorage.setItem(VERIFY_STEP_KEY, email.trim())
+                } catch {
+                    // Storage can be blocked; a reload then shows the form again.
+                }
                 setIsVerifyingOtp(true)
                 setResendCooldown(RESEND_COOLDOWN_SECONDS)
                 setTimeout(() => otpInputRef.current?.focus(), 150)
@@ -263,6 +262,7 @@ export function SignupForm({ redirect, invite, referral, project }: { redirect: 
                 return
             }
             clearDraft()
+            rememberSignInMethod('password')
             router.push(redirectPath)
         } catch {
             setOtpError("Couldn’t check the code. Try again.")
@@ -320,13 +320,17 @@ export function SignupForm({ redirect, invite, referral, project }: { redirect: 
                         />
                     </AuthField>
                     <SubmitButton busy={isOtpLoading} busyLabel="Verifying…">Verify email</SubmitButton>
+                    <MailAppLink email={email} />
                     {requiresCaptcha && resendCooldown === 0 ? (
                         <TurnstileWidget action="signup-resend" onVerify={setResendCaptchaToken} onExpire={() => setResendCaptchaToken(null)} />
                     ) : null}
                     <div className="flex items-center justify-between gap-3 text-sm">
                         <button
                             type="button"
-                            onClick={() => { setIsVerifyingOtp(false); setOtp(''); setOtpError(null); setResendMessage(null) }}
+                            onClick={() => {
+                                try { sessionStorage.removeItem(VERIFY_STEP_KEY) } catch { /* Storage can be blocked. */ }
+                                setIsVerifyingOtp(false); setOtp(''); setOtpError(null); setResendMessage(null)
+                            }}
                             className="inline-flex min-h-11 items-center gap-1.5 text-muted-foreground hover:text-foreground"
                         >
                             <ArrowLeft className="size-4" aria-hidden="true" />
@@ -346,14 +350,6 @@ export function SignupForm({ redirect, invite, referral, project }: { redirect: 
         )
     }
 
-    const handleNote = suggestedHandle.length >= 2 ? (
-        <p className="nb-auth-note flex items-center justify-between gap-2 text-muted-foreground" role="status">
-            <span className="truncate">Your profile link: <span className="font-mono text-foreground">@{suggestedHandle}</span></span>
-            {handleStatus === 'checking' ? <span className="inline-flex shrink-0 items-center gap-1"><Loader2 className="size-3 animate-spin" aria-hidden="true" />Checking</span> : null}
-            {handleStatus === 'available' ? <span className="inline-flex shrink-0 items-center gap-1 text-[var(--status-success)]"><Check className="size-3" aria-hidden="true" />Available</span> : null}
-            {handleStatus === 'taken' ? <span className="shrink-0 text-[var(--status-warning)]">Taken. You can pick another during setup.</span> : null}
-        </p>
-    ) : null
 
     const emailNote = isDisposable ? (
         <p className="nb-auth-note text-[var(--status-warning)]" role="status">Use a permanent email address. Temporary inboxes aren’t allowed.</p>
@@ -379,7 +375,7 @@ export function SignupForm({ redirect, invite, referral, project }: { redirect: 
         >
             {inviteParam ? <AuthAlert tone="info" className="mb-5">You’ve been invited. Create your account to accept.</AuthAlert> : null}
             {/* One check for every way in: Google, GitHub and One Tap use it as well as the email form. */}
-            <div className="mb-4">
+            <div>
                 {requiresCaptcha ? (
                     <TurnstileWidget
                         key={captchaKey}
@@ -389,7 +385,7 @@ export function SignupForm({ redirect, invite, referral, project }: { redirect: 
                     />
                 ) : (
                     // Local development without a Turnstile key: an explicit stand-in for the check.
-                    <label className="flex min-h-11 cursor-pointer items-center gap-3 rounded-md border border-border bg-muted/40 px-3 text-sm">
+                    <label className="mb-4 flex min-h-11 cursor-pointer items-center gap-3 rounded-md border border-border bg-muted/40 px-3 text-sm">
                         <input
                             type="checkbox"
                             checked={Boolean(captchaToken)}
@@ -417,8 +413,16 @@ export function SignupForm({ redirect, invite, referral, project }: { redirect: 
                     aria-hidden="true"
                 />
                 {formError ? <AuthAlert tone="error">{formError}</AuthAlert> : null}
+                {duplicate ? (
+                    <AuthAlert tone="info" title="You already have an account with this email">
+                        <span className="flex flex-wrap gap-x-4 gap-y-1">
+                            <Link href={loginHref} className={AUTH_LINK} onClick={() => handOffEmail(email)}>Sign in instead</Link>
+                            <Link href="/forgot-password" className={AUTH_LINK} onClick={() => handOffEmail(email)}>Reset your password</Link>
+                        </span>
+                    </AuthAlert>
+                ) : null}
 
-                <AuthField id="fullName" label="Full name" error={fieldErrors.fullName} note={handleNote}>
+                <AuthField id="fullName" label="Full name" error={fieldErrors.fullName}>
                     <Input
                         ref={(element) => { fieldRefs.current.fullName = element }}
                         id="fullName"
@@ -461,25 +465,6 @@ export function SignupForm({ redirect, invite, referral, project }: { redirect: 
                     />
                 </AuthField>
 
-                <AuthField
-                    id="confirmPassword"
-                    label="Confirm password"
-                    error={fieldErrors.confirmPassword}
-                    note={confirmPassword && confirmPassword === password ? (
-                        <p className="nb-auth-note inline-flex items-center gap-1 text-[var(--status-success)]" role="status"><Check className="size-3" aria-hidden="true" />Passwords match</p>
-                    ) : null}
-                >
-                    <PasswordField
-                        ref={(element) => { fieldRefs.current.confirmPassword = element }}
-                        id="confirmPassword"
-                        autoComplete="new-password"
-                        placeholder="Re-enter your password"
-                        value={confirmPassword}
-                        onChange={(event) => { clearField('confirmPassword'); setConfirmPassword(event.target.value) }}
-                        disabled={isLoading}
-                        {...fieldError('confirmPassword', fieldErrors.confirmPassword)}
-                    />
-                </AuthField>
 
                 <div className="space-y-1.5">
                     <label className="flex min-h-11 cursor-pointer items-start gap-3 py-1 text-[13px] leading-relaxed text-muted-foreground">

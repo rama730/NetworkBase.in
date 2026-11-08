@@ -9,13 +9,14 @@ import { hasCompletedOnboarding } from '@/lib/onboarding/completion'
 import { ensureDefaultGithubContributorIdentity } from '@/lib/github/contributor-identity'
 import { recordSecurityEvent } from '@/lib/security/audit'
 import { queueSecurityEmail } from '@/lib/email/security-queue'
-import { getLegalAcceptanceState } from '@/lib/legal/acceptance'
+import { getLegalAcceptanceState, recordCurrentLegalAcceptance } from '@/lib/legal/acceptance'
 import { githubOAuthFailureCode } from '@/lib/github/oauth-errors'
 import { getSessionIdentifierFromSession } from '@/lib/auth/session-identifier'
 import { getTrustedRequestIp } from '@/lib/security/request-ip'
 import { enrichSessionDeviceInfo } from '@/lib/security/session-activity'
 import { HUMAN_CHECK_COOKIE, clearHumanCheckCookie, humanCheckMatches, markHumanChecked, readCookie } from '@/lib/auth/human-check'
 import { isTurnstileServerConfigured } from '@/lib/security/turnstile'
+import { noteSignIn } from '@/lib/auth/devices'
 
 export async function GET(request: Request) {
     const startedAt = Date.now()
@@ -46,9 +47,11 @@ export async function GET(request: Request) {
         response.headers.set('x-request-id', requestId)
         return response
     }
-    const loginErrorUrl = new URL('/login', baseUrl)
-    loginErrorUrl.searchParams.set('error', 'auth-code-error')
-    loginErrorUrl.searchParams.set('redirect', nextPath)
+    // Say which way in failed: Google, GitHub, or an email link (reset links go back to the reset page).
+    const isResetLink = nextPath === '/reset-password' || nextPath.startsWith('/reset-password?')
+    const loginErrorUrl = new URL(isResetLink ? '/forgot-password' : '/login', baseUrl)
+    loginErrorUrl.searchParams.set('error', isResetLink ? 'reset-link-expired' : provider === 'google' || provider === 'github' ? `${provider}-failed` : 'link-expired')
+    if (!isResetLink) loginErrorUrl.searchParams.set('redirect', nextPath)
 
     const syncReturn = provider === 'github' && nextPath.startsWith('/workspaces/') && new URL(nextPath, baseUrl).searchParams.get('filesView') === 'github'
 
@@ -175,7 +178,15 @@ export async function GET(request: Request) {
         const acceptanceState = isLegalAcceptance
             ? await getLegalAcceptanceState(data.user.id)
             : null
-        const hasCurrentAcceptance = acceptanceState?.current === true
+        // A new account from the Google or GitHub button: the line under the buttons ("By continuing, you confirm
+        // you're 18 or older and accept…") is the agreement, recorded with the current versions, so no extra page.
+        const acceptedByContinuing = !previousUserData.user && isLegalAcceptance && !acceptanceState?.latest
+            && requestedUrl.searchParams.get('context') === 'oauth_signup'
+            && await recordCurrentLegalAcceptance({ userId: data.user.id, request, context: 'oauth_signup', ageConfirmed: true }).then(() => true, (acceptError) => {
+                logger.warn('auth.callback.acceptance_record_failed', { requestId, provider, error: acceptError instanceof Error ? acceptError.message : String(acceptError) })
+                return false
+            })
+        const hasCurrentAcceptance = acceptanceState?.current === true || acceptedByContinuing
         const complete = await hasCompletedOnboarding(data.user)
 
         if (!complete) {
@@ -313,6 +324,8 @@ export async function GET(request: Request) {
         })
     }
     if (humanCheckNeeded) clearHumanCheckCookie(response)
+    // A sign-in, not someone connecting an account: remember the browser and warn about a new one.
+    if (!previousUser) await noteSignIn(request, response, data.user.id)
     response.headers.set('x-request-id', requestId)
     return response
 }

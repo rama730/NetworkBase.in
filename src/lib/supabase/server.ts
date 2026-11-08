@@ -89,7 +89,7 @@ export async function createClient() {
     const resolveClientAuthSnapshot = () => {
         if (!authResolutionPromise) {
             const startedAt = Date.now()
-            authResolutionPromise = resolveAuthSnapshot(client).then(withSecondFactorGate)
+            authResolutionPromise = resolveAuthSnapshot(client).then((resolution) => withSecondFactorGate(resolution, cookieStore.getAll().find((cookie: { name: string }) => cookie.name === 'nb-device')?.value))
                 .then(async (resolution) => (await import('@/lib/trust/session-gate')).withModerationGate(resolution, { writes }))
                 .then((resolution) => {
                 logger.metric('auth.server.resolution', {
@@ -150,10 +150,10 @@ export async function createClient() {
  * A session that has only passed the password step, on an account with a verified second factor, is not signed in
  * yet: every server read (pages, server actions, API routes) sees no user until the code step upgrades it.
  */
-async function withSecondFactorGate(resolution: AuthSnapshotResolution): Promise<AuthSnapshotResolution> {
+async function withSecondFactorGate(resolution: AuthSnapshotResolution, deviceCookie?: string | null): Promise<AuthSnapshotResolution> {
     if (!resolution.user || resolution.snapshot?.aal === 'aal2') return resolution
     const { isSecondFactorDue } = await import('@/lib/auth/mfa-gate')
-    if (!(await isSecondFactorDue(resolution.user.id, resolution.snapshot?.aal))) return resolution
+    if (!(await isSecondFactorDue(resolution.user.id, resolution.snapshot?.aal, deviceCookie))) return resolution
     return { ...resolution, session: null, snapshot: null, user: null }
 }
 
@@ -163,7 +163,8 @@ async function withSecondFactorGate(resolution: AuthSnapshotResolution): Promise
  */
 export async function getAppealViewer() {
     const client = await createClient()
-    const resolution = await resolveAuthSnapshot(client).then(withSecondFactorGate)
+    const deviceCookie = await cookies().then((store) => store.get('nb-device')?.value).catch(() => undefined)
+    const resolution = await resolveAuthSnapshot(client).then((snapshot) => withSecondFactorGate(snapshot, deviceCookie))
     const { withModerationGate } = await import('@/lib/trust/session-gate')
     return (await withModerationGate(resolution, { writes: false })).user
 }

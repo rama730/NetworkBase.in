@@ -16,6 +16,7 @@ const PasswordManagementSection = dynamic(() => import("@/components/settings/Pa
 const MfaSetup = dynamic(() => import("@/components/auth/MfaSetup").then((mod) => mod.MfaSetup));
 const SessionsList = dynamic(() => import("@/components/settings/SessionsList").then((mod) => mod.SessionsList));
 const LoginHistory = dynamic(() => import("@/components/auth/LoginHistory"));
+const TrustedBrowsers = dynamic(() => import("@/components/settings/TrustedBrowsers"));
 
 function SecuritySectionsSkeleton() {
     return <SettingsSectionsSkeleton count={3} />;
@@ -110,6 +111,14 @@ export default function SecurityPage() {
                         primaryTotpFactorId={primaryVerifiedFactorId}
                     />
                 </div>
+                {primaryVerifiedFactorId ? <>
+                <div className="my-6 border-t border-border" />
+                <div id="settings-security-trusted" className="scroll-mt-6">
+                    <h4 className="nb-ui-label mb-1 text-foreground">Trusted browsers</h4>
+                    <p className="mb-3 text-sm text-muted-foreground">These browsers skip the two-step code for 30 days. Signing out your other devices stops trusting all of them.</p>
+                    <TrustedBrowsers />
+                </div>
+                </> : null}
                 <div className="my-6 border-t border-border" />
                 <div id="settings-security-sign-ins" data-testid="security-login-activity-section" className="scroll-mt-6">
                     <h4 className="nb-ui-label mb-3 text-foreground">Recent sign-ins</h4>

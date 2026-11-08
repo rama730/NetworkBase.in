@@ -36,8 +36,19 @@ export async function hasVerifiedMfaFactor(userId: string): Promise<boolean> {
   }
 }
 
-/** A session that has only passed the password step, on an account that has a verified second factor. */
-export async function isSecondFactorDue(userId: string, aal: string | null | undefined): Promise<boolean> {
+/** After an authenticator is removed outside the usual Settings path (a recovery code at sign-in). */
+export function forgetMfaFactorCache(userId: string) {
+  factorCache.delete(userId);
+}
+
+/**
+ * A session that has only passed the password step, on an account that has a verified second factor. A browser the
+ * person chose to trust for 30 days (its `nb-device` cookie) skips the code.
+ */
+export async function isSecondFactorDue(userId: string, aal: string | null | undefined, deviceCookie?: string | null): Promise<boolean> {
   if (aal === "aal2") return false;
-  return needsSecondFactor(aal, await hasVerifiedMfaFactor(userId));
+  if (!needsSecondFactor(aal, await hasVerifiedMfaFactor(userId))) return false;
+  if (!deviceCookie) return true;
+  const { isTrustedDevice } = await import("@/lib/auth/devices");
+  return !(await isTrustedDevice(userId, deviceCookie));
 }

@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { enforceRouteLimit, getRequestIp, jsonError, jsonSuccess } from "@/app/api/v1/_shared";
 import { HUMAN_CHECK_ACTIONS, markHumanChecked } from "@/lib/auth/human-check";
+import { getLegalAcceptanceState, recordCurrentLegalAcceptance } from "@/lib/legal/acceptance";
 import { logger } from "@/lib/logger";
 import { validateCsrf } from "@/lib/security/csrf";
 import { isTurnstileServerConfigured, verifyTurnstileToken } from "@/lib/security/turnstile";
@@ -44,6 +45,12 @@ export async function POST(request: Request) {
 
   if (isTurnstileServerConfigured() && !(await markHumanChecked(data.user))) {
     logger.warn("auth.google_one_tap.mark_failed", { userId: data.user.id });
+  }
+  // A new account: the line under the sign-in options is the agreement, recorded with the current versions.
+  const acceptance = await getLegalAcceptanceState(data.user.id).catch(() => null);
+  if (acceptance && !acceptance.latest) {
+    await recordCurrentLegalAcceptance({ userId: data.user.id, request, context: "oauth_signup", ageConfirmed: true })
+      .catch((error) => logger.warn("auth.google_one_tap.acceptance_failed", { userId: data.user.id, error: error instanceof Error ? error.message : String(error) }));
   }
 
   return jsonSuccess({

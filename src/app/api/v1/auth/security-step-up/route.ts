@@ -22,6 +22,7 @@ import {
   parseStoredRecoveryCodes,
 } from "@/lib/security/recovery-codes";
 import { recordSecurityEvent } from "@/lib/security/audit";
+import { redeemRecoveryCode } from "@/lib/security/recovery-redeem";
 import { verifyPasswordCredential } from "@/lib/security/password-auth";
 import { getVerifiedTotpFactors, listSecurityMfaFactors } from "@/lib/security/mfa";
 
@@ -241,81 +242,7 @@ export async function POST(request: Request) {
         getVerifiedTotpFactors(currentFactors).map((factor) => factor.id),
       );
 
-      const recoveryResult = await db.transaction(async (tx) => {
-        const rows = await tx.execute<{
-          security_recovery_codes: unknown;
-          recovery_codes_factor_id: string | null;
-        }>(sql`
-          SELECT security_recovery_codes, recovery_codes_factor_id
-          FROM profile_security_states
-          WHERE user_id = ${user.id}::uuid
-          FOR UPDATE
-        `);
-
-        const storedCodes = parseStoredRecoveryCodes(rows[0]?.security_recovery_codes);
-        if (storedCodes.length === 0) {
-          return { matched: false, remainingCount: 0, factorInvalidated: false };
-        }
-
-        const storedFactorId = rows[0]?.recovery_codes_factor_id ?? null;
-        // Reject when:
-        //   a) codes were bound to a factor that is no longer verified, or
-        //   b) codes were never bound (pre-SEC-H3) AND the user currently
-        //      has no verified TOTP factor — users are expected to regen.
-        const factorStillVerified = storedFactorId
-          ? verifiedTotpFactorIds.has(storedFactorId)
-          : verifiedTotpFactorIds.size > 0;
-        if (!factorStillVerified) {
-          return { matched: false, remainingCount: storedCodes.length, factorInvalidated: true };
-        }
-
-        const consumed = consumeRecoveryCode(storedCodes, rawCode);
-        if (!consumed.matched) {
-          return {
-            matched: false,
-            remainingCount: countRemainingRecoveryCodes(storedCodes),
-            factorInvalidated: false,
-          };
-        }
-
-        const redemption = await tx
-          .insert(recoveryCodeRedemptions)
-          .values({
-            userId: user.id,
-            codeId: consumed.matchedCodeId!,
-          })
-          .onConflictDoNothing()
-          .returning({ id: recoveryCodeRedemptions.id });
-
-        if (redemption.length === 0) {
-          return {
-            matched: false,
-            remainingCount: countRemainingRecoveryCodes(storedCodes),
-            factorInvalidated: false,
-          };
-        }
-
-        await tx
-          .insert(profileSecurityStates)
-          .values({
-            userId: user.id,
-            securityRecoveryCodes: consumed.updatedCodes,
-            updatedAt: new Date(),
-          })
-          .onConflictDoUpdate({
-            target: profileSecurityStates.userId,
-            set: {
-              securityRecoveryCodes: consumed.updatedCodes,
-              updatedAt: new Date(),
-            },
-          });
-
-        return {
-          matched: true,
-          remainingCount: consumed.remainingCount,
-          factorInvalidated: false,
-        };
-      });
+      const recoveryResult = await redeemRecoveryCode(user.id, rawCode, verifiedTotpFactorIds);
 
       if (!recoveryResult.matched) {
         // SEC-L7: persist a redemption-attempt record (without the submitted

@@ -69,6 +69,7 @@ export function CookieConsentRuntime() {
 
   return isReady && isOpen ? (
     <CookieConsentPanel
+      compact={AUTH_ENTRY_PATHS.has(pathname)}
       hasDecision={Boolean(decision)}
       isCustomizing={isCustomizing}
       analyticsChoice={analyticsChoice}

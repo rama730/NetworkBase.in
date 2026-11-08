@@ -12,6 +12,7 @@ import {
 import { logger } from "@/lib/logger";
 import { enrichSessionDeviceInfo } from "@/lib/security/session-activity";
 import { createClient } from "@/lib/supabase/server";
+import { noteSignIn } from "@/lib/auth/devices";
 import { clearGithubImportAccessCookie } from "@/lib/github/import-access-cookie";
 
 const AUTH_COOKIE_MARKERS = ["auth-token", "sb-access-token", "sb-refresh-token"];
@@ -183,7 +184,9 @@ export async function POST(request: Request) {
       status: 200,
     });
     // The browser already holds these tokens and never reads this body.
-    return jsonSuccess({});
+    const response = jsonSuccess({});
+    if (data.user?.id) await noteSignIn(request, response, data.user.id);
+    return response;
   } catch (error) {
     logger.error("auth.session.failed", { requestId, mode, error });
     logApiRoute(request, {

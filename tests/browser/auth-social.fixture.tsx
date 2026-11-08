@@ -2,6 +2,7 @@ import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { LoginForm } from '@/components/auth/LoginForm';
 import { SignupForm } from '@/components/auth/SignupForm';
+import ForgotPasswordPage from '@/app/(site)/(auth)/forgot-password/page';
 
 // Sign-in and sign-up with the Cloudflare check (docs/superpowers/plans/2026-11-09-social-login-cloudflare-findings.md).
 // A stand-in for Cloudflare's script: every render passes at once with a new token, unless ?hold keeps it waiting.
@@ -19,8 +20,9 @@ const win = window as Win;
     remove() {},
 };
 
+const page = params.get('page');
 createRoot(document.getElementById('root')!).render(
-    params.get('page') === 'signup'
-        ? <SignupForm redirect={null} invite={null} project={null} />
-        : <LoginForm redirect={null} error={null} step={null} />,
+    page === 'signup' ? <SignupForm redirect={null} invite={null} project={null} />
+        : page === 'forgot' ? <ForgotPasswordPage />
+        : <LoginForm redirect={null} error={params.get('error')} step={null} />,
 );

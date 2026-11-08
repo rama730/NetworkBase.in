@@ -418,6 +418,9 @@ async function deleteOtherSessions(request: Request) {
     // Editor tokens are sessions too: "other devices" includes the ones in editors.
     await revokeAllExtensionSessionsForUser(user.id).catch((error: unknown) =>
       logger.warn("sessions.extension_revoke_failed", { module: "api", error: error instanceof Error ? error.message : String(error) }));
+    // Signing out everywhere also ends "Trust this browser": every browser asks for the code again.
+    const { stopTrustingDevices } = await import("@/lib/auth/devices");
+    await stopTrustingDevices(user.id).catch(() => null);
     await queueSecurityEmail(user.id, "security_sessions_revoked", { detail: String(revokedCount) });
 
     logApiRoute(request, {

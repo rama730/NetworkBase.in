@@ -16,7 +16,7 @@ import { resolveIdeFromSession, SUPPORTED_IDES } from "@/lib/extension/ide-proto
 import { resolveAuthBaseUrl } from "@/lib/auth/redirects";
 import { ALWAYS_SENT_EMAILS, buildOrgEmail, orgMuteToken, type OrgEmailData } from "./org-templates";
 import { orgChoiceFor } from "@/lib/notifications/preferences";
-import { buildSecurityEmail, isDeletionEmailKind, isSecurityEmailKind, type SecurityEmailData } from "./security-templates";
+import { buildSecurityEmail, isAuthCodeEmailKind, isDeletionEmailKind, isSecurityEmailKind, type SecurityEmailData } from "./security-templates";
 import { buildTrustEmail, isTrustEmailKind, type TrustEmailData } from "./trust-templates";
 import {
   buildEmail, type OrgEmailKind, DELIVERY_RANK, emailEnabled, eventDeliveryState, recipientAllowed,
@@ -104,6 +104,13 @@ async function prepareEmail(row: OutboxRow): Promise<Prepared> {
       const blocked = await addressBlocked(email);
       if (blocked) return { drop: blocked };
       return { payload: row.payload ?? buildSecurityEmail("account_deletion_completed", {}, { email, name: "there" }) };
+    }
+    // The sign-in pages' codes (0069): the address typed, which may have no profile yet.
+    if (isAuthCodeEmailKind(row.kind) && row.toEmail && row.data) {
+      const email = row.toEmail.toLowerCase();
+      const blocked = await addressBlocked(email);
+      if (blocked) return { drop: blocked };
+      return { payload: row.payload ?? buildSecurityEmail(row.kind, row.data as SecurityEmailData, { email, name: "there" }) };
     }
     // A third: the verified badge's code, sent to a school or work address (0064).
     if ((row.kind !== "org_invite_signup" && row.kind !== "org_verify_code") || !row.toEmail || !row.data) return { drop: "invalid_recipient" };

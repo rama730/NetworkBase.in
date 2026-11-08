@@ -8,7 +8,7 @@ import type { AuthChangeEvent, Session } from '@supabase/supabase-js'
 import { Check } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { PasswordStrengthMeter } from '@/components/settings/PasswordStrengthMeter'
-import { AUTH_LINK, RECOVERY_PANEL, AuthAlert, AuthField, AuthShell, PasswordField, SubmitButton, fieldError } from '@/components/auth/AuthShell'
+import { AUTH_EMAIL_HANDOFF_KEY, AUTH_LINK, RECOVERY_PANEL, AuthAlert, AuthField, AuthShell, PasswordField, SubmitButton, fieldError } from '@/components/auth/AuthShell'
 import { loadBrowserSupabase } from '@/lib/auth/browser-auth-actions'
 import { getPasswordPolicyResult, PASSWORD_MIN_LENGTH } from '@/lib/security/password-policy'
 
@@ -20,7 +20,7 @@ const COPY: Record<RecoveryState, { title: string; description: string }> = {
     loading: { title: 'Checking your link…', description: 'This only takes a moment.' },
     invalid: { title: 'This link has expired', description: 'Reset links work once and expire after a short time. Ask for a new one to continue.' },
     ready: { title: 'Choose a new password', description: `Use at least ${PASSWORD_MIN_LENGTH} characters with upper and lower case letters and a number.` },
-    success: { title: 'Password updated', description: 'Sign in with your new password. Taking you there now…' },
+    success: { title: 'Password updated', description: 'For your safety, every device was signed out, this one too. Sign in with your new password: taking you there now…' },
 }
 
 export default function ResetPasswordPage() {
@@ -103,6 +103,13 @@ export default function ResetPasswordPage() {
                 throw updateError
             }
 
+            // The sign-in page starts with this email filled in (never in the address).
+            const { data: current } = await supabase.auth.getUser()
+            try {
+                if (current.user?.email) sessionStorage.setItem(AUTH_EMAIL_HANDOFF_KEY, current.user.email)
+            } catch {
+                // Storage can be blocked; the sign-in page just starts empty.
+            }
             await supabase.auth.signOut().catch(() => null)
             setStatus('success')
             if (redirectTimeoutRef.current !== undefined) {

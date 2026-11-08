@@ -1,8 +1,9 @@
 import { resolveAuthBaseUrl } from "@/lib/auth/redirects";
-import { escapeHtml, renderEmailShell, renderPonytailAvatar, type EmailPayload, type SecurityEmailKind } from "./contracts";
+import { escapeHtml, renderEmailShell, renderPonytailAvatar, type AuthCodeEmailKind, type EmailPayload, type SecurityEmailKind } from "./contracts";
 
 // Account-security emails: about the account itself, so they skip the email switch and mutes (like the org
-// "access" emails) and carry no unsubscribe header. The data is frozen at queue time and holds no secrets.
+// "access" emails) and carry no unsubscribe header. The data is frozen at queue time; only the sign-in page codes
+// (auth_reset_code, auth_sign_in_code) carry a one-time code, which expires within the hour.
 
 export type SecurityEmailData = {
   /** When it happened (ISO). */
@@ -13,6 +14,9 @@ export type SecurityEmailData = {
   hardDeleteAt?: string | null;
   /** A reminder: days left before it happens. */
   daysLeft?: number | null;
+  /** Sign-in page codes: the 6-digit code and the link that does the same on any device. */
+  code?: string | null;
+  link?: string | null;
 };
 
 type Person = { email: string; name: string; username?: string | null; avatarUrl?: string | null; userId?: string | null };
@@ -22,7 +26,10 @@ type Parts = { subject: string; preview: string; label: string; headline: string
 export const SECURITY_EMAIL_KINDS: readonly SecurityEmailKind[] = [
   "security_password_changed", "security_mfa_changed", "security_token_created", "security_sessions_revoked", "security_sign_in_method_changed",
   "account_deletion_scheduled", "account_deletion_cancelled", "account_deletion_reminder", "account_deletion_completed",
+  "security_new_sign_in",
 ];
+export const AUTH_CODE_EMAIL_KINDS: readonly AuthCodeEmailKind[] = ["auth_reset_code", "auth_sign_in_code"];
+export const isAuthCodeEmailKind = (kind: string): kind is AuthCodeEmailKind => (AUTH_CODE_EMAIL_KINDS as readonly string[]).includes(kind);
 export const isSecurityEmailKind = (kind: string): kind is SecurityEmailKind => (SECURITY_EMAIL_KINDS as readonly string[]).includes(kind);
 
 /** Deletion emails go to an account that is already hidden, so they are the one kind sent to a deactivated profile. */
@@ -36,7 +43,7 @@ const formatDate = (value: string | null | undefined) => formatUtc(value, { mont
 const formatMoment = (value: string | null | undefined) => formatUtc(value, { dateStyle: "medium", timeStyle: "short" }, " UTC");
 const oneLine = (value: string, max = 120) => value.replace(/[\r\n]+/g, " ").trim().slice(0, max);
 
-function partsFor(kind: SecurityEmailKind, data: SecurityEmailData, url: (path: string) => string): Parts {
+function partsFor(kind: SecurityEmailKind | AuthCodeEmailKind, data: SecurityEmailData, url: (path: string) => string): Parts {
   const when = formatMoment(data.at);
   const review: Link = { label: "Review account security", href: url("/settings#settings-security") };
   // "This wasn't me": the two things that take an attacker out, in the order to do them.
@@ -72,6 +79,27 @@ function partsFor(kind: SecurityEmailKind, data: SecurityEmailData, url: (path: 
         headline: "A sign-in method was changed",
         paragraphs: [`${when ? `On ${when}: ` : ""}${oneLine(data.detail ?? "A sign-in method was changed", 120)}.`, notMeLine],
         primary: review, secondary: notMe,
+      };
+    case "security_new_sign_in":
+      return {
+        subject: "New sign-in to your NetworkBase account", preview: `Signed in from ${oneLine(data.detail ?? "a new browser", 60)}.`, label: "Account security",
+        headline: "New sign-in to your account",
+        paragraphs: [`${when ? `On ${when}, your` : "Your"} account was signed in from ${oneLine(data.detail ?? "a browser it hadn’t used before", 80)}. If that was you, there’s nothing to do.`, notMeLine],
+        primary: notMe, secondary: review,
+      };
+    case "auth_reset_code":
+      return {
+        subject: `${data.code ?? ""} is your NetworkBase reset code`.trim(), preview: "Enter this code to choose a new password. It works once and expires within the hour.", label: "Account recovery",
+        headline: `Your reset code: ${data.code ?? ""}`.trim(),
+        paragraphs: ["Enter this code on the reset page to choose a new password, or use the button. Both work on any device, once, and expire within the hour.", "If you didn’t ask to reset your password, ignore this email. Your password stays the same."],
+        primary: { label: "Choose a new password", href: data.link ?? url("/forgot-password") },
+      };
+    case "auth_sign_in_code":
+      return {
+        subject: `${data.code ?? ""} is your NetworkBase sign-in code`.trim(), preview: "Enter this code to sign in. It works once and expires within the hour.", label: "Sign in",
+        headline: `Your sign-in code: ${data.code ?? ""}`.trim(),
+        paragraphs: ["Enter this code on the sign-in page, or use the button. Both work on any device, once, and expire within the hour.", "If you didn’t try to sign in, ignore this email. Nobody can sign in without this code."],
+        primary: { label: "Sign in to NetworkBase", href: data.link ?? url("/login") },
       };
     case "security_sessions_revoked": {
       const count = Number(data.detail);
@@ -127,7 +155,7 @@ function button(link: Link, primary: boolean, last: boolean) {
                   </td>`;
 }
 
-export function buildSecurityEmail(kind: SecurityEmailKind, data: SecurityEmailData, person: Person): EmailPayload {
+export function buildSecurityEmail(kind: SecurityEmailKind | AuthCodeEmailKind, data: SecurityEmailData, person: Person): EmailPayload {
   const origin = resolveAuthBaseUrl();
   const url = (path: string) => new URL(path, origin).toString();
   const p = partsFor(kind, data, url);

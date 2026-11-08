@@ -1,13 +1,14 @@
 'use client'
 
-import { useState, type ComponentProps, type KeyboardEvent, type ReactNode } from 'react'
-import { AlertCircle, CheckCircle2, Eye, EyeOff, Github, Info, Loader2, TriangleAlert } from 'lucide-react'
+import { useEffect, useState, type ComponentProps, type FormEvent, type KeyboardEvent, type ReactNode } from 'react'
+import { AlertCircle, CheckCircle2, ExternalLink, Eye, EyeOff, Github, Info, Loader2, TriangleAlert } from 'lucide-react'
 import Logo from '@/components/layout/header/Logo'
 import { LegalLinks } from '@/components/legal/LegalLinks'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { startOAuthSignIn } from '@/lib/auth/browser-auth-actions'
-import { hasTurnstileSiteKey, SECURITY_CHECK_PROMPT } from '@/components/auth/TurnstileWidget'
+import TurnstileWidget, { hasTurnstileSiteKey, SECURITY_CHECK_PROMPT } from '@/components/auth/TurnstileWidget'
+import { mailAppFor, readSignInMethod, rememberSignInMethod, type SignInMethod } from '@/lib/auth/last-method'
 import { cn } from '@/lib/utils'
 
 export type AuthPanelContent = { eyebrow: string; title: string; points?: readonly string[] }
@@ -213,6 +214,8 @@ export function OAuthButtons({ next, disabled, onError, captchaToken, onCaptchaU
     onCaptchaUsed?: () => void
 }) {
     const [loading, setLoading] = useState<'google' | 'github' | null>(null)
+    const [lastUsed, setLastUsed] = useState<SignInMethod | null>(null)
+    useEffect(() => setLastUsed(readSignInMethod()), [])
     const requiresCaptcha = hasTurnstileSiteKey()
     const start = async (provider: 'google' | 'github') => {
         if (requiresCaptcha && !captchaToken) {
@@ -223,6 +226,7 @@ export function OAuthButtons({ next, disabled, onError, captchaToken, onCaptchaU
         setLoading(provider)
         const legalNext = `/legal/accept?context=oauth_signup&next=${encodeURIComponent(next)}`
         try {
+            rememberSignInMethod(provider)
             const { error } = await startOAuthSignIn(provider, legalNext, requiresCaptcha ? captchaToken : null)
             if (error) {
                 onError(error.message)
@@ -238,13 +242,130 @@ export function OAuthButtons({ next, disabled, onError, captchaToken, onCaptchaU
     }
     const busy = disabled || loading !== null
     return (
-        <div className="grid grid-cols-2 gap-3">
-            {(['google', 'github'] as const).map((provider) => (
-                <Button key={provider} type="button" variant="outline" className="h-11 w-full font-medium" onClick={() => void start(provider)} disabled={busy}>
-                    {loading === provider ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : provider === 'google' ? <GoogleIcon /> : <Github className="size-4" aria-hidden="true" />}
-                    <span className="truncate">{loading === provider ? 'Redirecting…' : provider === 'google' ? 'Google' : 'GitHub'}</span>
-                </Button>
-            ))}
+        <div>
+            <div className="grid grid-cols-2 gap-3">
+                {(['google', 'github'] as const).map((provider) => (
+                    <Button key={provider} type="button" variant="outline" className="relative h-11 w-full font-medium" onClick={() => void start(provider)} disabled={busy}>
+                        {loading === provider ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : provider === 'google' ? <GoogleIcon /> : <Github className="size-4" aria-hidden="true" />}
+                        <span className="truncate">{loading === provider ? 'Redirecting…' : provider === 'google' ? 'Google' : 'GitHub'}</span>
+                        {lastUsed === provider && loading !== provider ? <LastUsedTag /> : null}
+                    </Button>
+                ))}
+            </div>
+            {/* The agreement for a new Google or GitHub account, recorded with the current versions when it is made. */}
+            <p className="mt-3 text-center text-xs leading-relaxed text-muted-foreground">
+                By continuing with Google or GitHub, you confirm you’re 18 or older, accept the{' '}
+                <a href="/terms" target="_blank" className="underline underline-offset-2 hover:text-foreground">Terms of Service</a> and{' '}
+                <a href="/eula" target="_blank" className="underline underline-offset-2 hover:text-foreground">EULA</a>, and acknowledge the{' '}
+                <a href="/privacy" target="_blank" className="underline underline-offset-2 hover:text-foreground">Privacy Policy</a>.
+            </p>
         </div>
+    )
+}
+
+/** Marks how this browser signed in last time. */
+export function LastUsedTag() {
+    return <span className="pointer-events-none absolute -top-2 right-2 rounded-sm bg-foreground px-1.5 py-px text-[10px] font-medium leading-4 text-background">Last used</span>
+}
+
+/** "Open Gmail" and the like on a "Check your email" screen, when the address is at a service with a web inbox. */
+export function MailAppLink({ email }: { email: string }) {
+    const app = mailAppFor(email)
+    if (!app) return null
+    return (
+        <Button asChild variant="outline" className="h-11 w-full font-medium">
+            <a href={app.href} target="_blank" rel="noopener noreferrer">{app.label}<ExternalLink className="size-3.5" aria-hidden="true" /></a>
+        </Button>
+    )
+}
+
+const RESEND_SECONDS = 60
+
+/**
+ * The one code box for every emailed code: sign-in code, confirming an email, password reset. `onVerify` and
+ * `onResend` return an error to show, or null. Resending asks Cloudflare again (invisible unless it needs a click).
+ */
+export function EmailCodeForm({ id, email, label, submitLabel, onVerify, onResend, resendAction }: {
+    id: string
+    email: string
+    label: string
+    submitLabel: string
+    onVerify: (code: string) => Promise<string | null>
+    onResend: (captchaToken: string | null) => Promise<string | null>
+    resendAction: string
+}) {
+    const [code, setCode] = useState('')
+    const [error, setError] = useState<string | null>(null)
+    const [message, setMessage] = useState<string | null>(null)
+    const [busy, setBusy] = useState(false)
+    const [cooldown, setCooldown] = useState(RESEND_SECONDS)
+    const [resendToken, setResendToken] = useState<string | null>(null)
+    const [resendKey, setResendKey] = useState(0)
+    const requiresCaptcha = hasTurnstileSiteKey()
+    useEffect(() => {
+        if (cooldown <= 0) return
+        const timer = setInterval(() => setCooldown((value) => Math.max(0, value - 1)), 1000)
+        return () => clearInterval(timer)
+    }, [cooldown])
+
+    const verify = async (value: string) => {
+        if (value.length !== 6) {
+            setError('Enter the 6-digit code.')
+            return
+        }
+        setBusy(true)
+        setError(null)
+        const failed = await onVerify(value).catch(() => 'Couldn’t check the code. Try again.')
+        if (failed) {
+            setError(failed)
+            setCode('')
+            setBusy(false)
+        }
+    }
+    const resend = async () => {
+        if (cooldown > 0) return
+        if (requiresCaptcha && !resendToken) {
+            setError(SECURITY_CHECK_PROMPT)
+            return
+        }
+        setError(null)
+        setMessage(null)
+        const failed = await onResend(resendToken).catch(() => 'We couldn’t send a new code. Try again in a minute.')
+        setResendToken(null)
+        setResendKey((key) => key + 1)
+        if (failed) {
+            setError(failed)
+            return
+        }
+        setCooldown(RESEND_SECONDS)
+        setMessage(`We sent a new code to ${email}.`)
+    }
+    return (
+        <form onSubmit={(event: FormEvent) => { event.preventDefault(); void verify(code) }} className="nb-auth-step space-y-4" noValidate>
+            {message ? <AuthAlert tone="success">{message}</AuthAlert> : null}
+            <AuthField id={id} label={label} error={error}>
+                <CodeInput
+                    id={id}
+                    value={code}
+                    onChange={(value) => { setCode(value); setError(null) }}
+                    onComplete={(value) => void verify(value)}
+                    disabled={busy}
+                    {...fieldError(id, error)}
+                />
+            </AuthField>
+            <SubmitButton busy={busy} busyLabel="Checking…">{submitLabel}</SubmitButton>
+            <MailAppLink email={email} />
+            {requiresCaptcha && cooldown === 0 ? <TurnstileWidget key={resendKey} action={resendAction} onVerify={setResendToken} onExpire={() => setResendToken(null)} /> : null}
+            <p className="flex min-h-11 items-center justify-center text-sm">
+                <button
+                    type="button"
+                    onClick={() => void resend()}
+                    disabled={cooldown > 0}
+                    className="min-h-11 font-medium text-primary underline-offset-4 hover:underline disabled:font-normal disabled:text-muted-foreground disabled:no-underline"
+                >
+                    {cooldown > 0 ? `Send a new code in ${cooldown}s` : 'Send a new code'}
+                </button>
+            </p>
+        </form>
     )
 }

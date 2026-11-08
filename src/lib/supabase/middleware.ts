@@ -246,7 +246,7 @@ export async function updateSession(request: NextRequest, options: UpdateSession
 
     // Password-only session on an account with a second factor: every page leads to the code step, which itself
     // renders with that session in place. Server reads see no user until then (lib/supabase/server.ts).
-    if (user && await isSecondFactorDue(user.id, userAal)) {
+    if (user && await isSecondFactorDue(user.id, userAal, request.cookies.get('nb-device')?.value)) {
         if (pathname === '/login' && request.nextUrl.searchParams.get('step') === 'mfa') {
             return withRequestId(supabaseResponse, requestId, routeClass)
         }

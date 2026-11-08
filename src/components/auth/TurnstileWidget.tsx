@@ -14,10 +14,13 @@ declare global {
                     action?: string
                     theme?: 'light' | 'dark' | 'auto'
                     size?: 'flexible' | 'compact'
+                    appearance?: 'always' | 'execute' | 'interaction-only'
                     callback?: (token: string) => void
                     'expired-callback'?: () => void
                     'error-callback'?: () => void
                     'timeout-callback'?: () => void
+                    'before-interactive-callback'?: () => void
+                    'after-interactive-callback'?: () => void
                 }
             ) => string
             remove: (widgetId: string) => void
@@ -29,7 +32,7 @@ const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY?.trim() ||
 // The form is the viewport less 32px of gutter, and Cloudflare's flexible box needs at least 300px.
 const NARROW_FORM = '(max-width: 331px)'
 
-export const SECURITY_CHECK_PROMPT = 'Complete the security check first.'
+export const SECURITY_CHECK_PROMPT = 'Finish the security check first. It usually takes a second.'
 
 export function hasTurnstileSiteKey() {
     return TURNSTILE_SITE_KEY.length > 0
@@ -49,6 +52,8 @@ export default function TurnstileWidget({
     const widgetIdRef = useRef<string | null>(null)
     const [scriptReady, setScriptReady] = useState(false)
     const [failed, setFailed] = useState(false)
+    // Cloudflare stays out of sight unless it needs a click from this person.
+    const [interactive, setInteractive] = useState(false)
     const [attempt, setAttempt] = useState(0)
     const verifyRef = useRef(onVerify)
     const expireRef = useRef(onExpire)
@@ -78,6 +83,9 @@ export default function TurnstileWidget({
             action,
             theme: 'auto',
             size: window.matchMedia(NARROW_FORM).matches ? 'compact' : 'flexible',
+            appearance: 'interaction-only',
+            'before-interactive-callback': () => setInteractive(true),
+            'after-interactive-callback': () => setInteractive(false),
             callback: (token) => {
                 setFailed(false)
                 verifyRef.current(token)
@@ -116,26 +124,20 @@ export default function TurnstileWidget({
                 onReady={() => setScriptReady(true)}
                 onError={handleFailure}
             />
-            {/* The fixed height hides the gap under Cloudflare's frame, so the button below never moves. */}
-            <div className="relative h-[65px] overflow-hidden max-[331px]:h-[140px]">
-                {failed ? (
-                    <div role="alert" className="flex h-full items-center justify-between gap-3 rounded-md border border-border px-3 text-sm">
-                        <span>The security check didn’t load.</span>
-                        <button
-                            type="button"
-                            onClick={retry}
-                            className="inline-flex min-h-11 shrink-0 items-center font-medium underline underline-offset-4"
-                        >
-                            Retry
-                        </button>
-                    </div>
-                ) : (
-                    <p className="absolute inset-0 flex items-center rounded-md border border-border px-3 text-xs text-muted-foreground">
-                        Loading security check…
-                    </p>
-                )}
-                <div ref={containerRef} className={failed ? 'hidden' : 'relative'} />
-            </div>
+            {failed ? (
+                <div role="alert" className="mb-4 flex min-h-[65px] items-center justify-between gap-3 rounded-md border border-border px-3 text-sm">
+                    <span>The security check didn’t load.</span>
+                    <button
+                        type="button"
+                        onClick={retry}
+                        className="inline-flex min-h-11 shrink-0 items-center font-medium underline underline-offset-4"
+                    >
+                        Retry
+                    </button>
+                </div>
+            ) : null}
+            {/* Takes no room until Cloudflare asks for a click; then the box shows where the person is looking. */}
+            <div ref={containerRef} data-interactive={interactive || undefined} className={failed ? 'hidden' : interactive ? 'mb-4' : 'h-0 overflow-hidden'} />
         </>
     )
 }

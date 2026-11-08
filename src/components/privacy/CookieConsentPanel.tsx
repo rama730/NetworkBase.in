@@ -12,7 +12,10 @@ export default function CookieConsentPanel({
   onBack,
   onAnalyticsChange,
   onSave,
+  compact = false,
 }: {
+  /** Sign-in and sign-up pages: on a phone, one short line and one row of buttons, so the form stays in view. */
+  compact?: boolean;
   hasDecision: boolean;
   isCustomizing: boolean;
   analyticsChoice: boolean;
@@ -50,6 +53,7 @@ export default function CookieConsentPanel({
         />
       ) : (
         <CookieConsentSummary
+          compact={compact}
           onAcceptAll={() => onSave(true)}
           onCustomize={onCustomize}
           onRejectOptional={() => onSave(false)}
@@ -60,18 +64,26 @@ export default function CookieConsentPanel({
 }
 
 function CookieConsentSummary({
+  compact,
   onAcceptAll,
   onCustomize,
   onRejectOptional,
 }: {
+  compact: boolean;
   onAcceptAll: () => void;
   onCustomize: () => void;
   onRejectOptional: () => void;
 }) {
   return (
     <>
-      <h2 className="pr-8 text-lg font-semibold tracking-tight max-sm:text-[17px]">Cookie settings</h2>
-      <p id="cookie-consent-description" className="mt-3 text-sm leading-6 text-muted-foreground max-sm:mt-1.5 max-sm:text-[13px] max-sm:leading-5">
+      {compact ? (
+        <p className="pr-8 text-[13px] leading-5 text-muted-foreground sm:hidden">
+          Cookies keep you signed in. Analytics only if you allow it.{" "}
+          <button type="button" className="font-medium text-foreground underline underline-offset-4" onClick={onCustomize}>Choose</button>
+        </p>
+      ) : null}
+      <h2 className={`pr-8 text-lg font-semibold tracking-tight max-sm:text-[17px] ${compact ? "max-sm:hidden" : ""}`}>Cookie settings</h2>
+      <p id="cookie-consent-description" className={`${compact ? "max-sm:sr-only " : ""}mt-3 text-sm leading-6 text-muted-foreground max-sm:mt-1.5 max-sm:text-[13px] max-sm:leading-5`}>
         We use essential cookies to secure your account and provide NetworkBase. With your permission, we also use analytics to understand and improve the service. Read our{" "}
         <a href="/cookies" className="font-medium text-foreground underline underline-offset-4">
           Cookie Notice
@@ -81,7 +93,7 @@ function CookieConsentSummary({
 
       {/* Phones: tighter spacing and a quieter Customize row keep the banner near a third of the screen (§31 mobile fit). */}
       <div className="mt-5 grid gap-2.5 max-sm:mt-3 max-sm:gap-2">
-        <Button type="button" variant="secondary" className="h-11 w-full max-sm:h-10 max-sm:bg-transparent max-sm:underline max-sm:underline-offset-4" onClick={onCustomize}>
+        <Button type="button" variant="secondary" className={`h-11 w-full max-sm:h-10 ${compact ? "max-sm:hidden " : ""}max-sm:bg-transparent max-sm:underline max-sm:underline-offset-4`} onClick={onCustomize}>
           Customize cookie settings
         </Button>
         <div className="grid grid-cols-2 gap-2.5">

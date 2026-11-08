@@ -16,14 +16,16 @@ test("the script loads as soon as the page is interactive", () => {
   assert.match(widget, /strategy="afterInteractive"/);
 });
 
-test("the box fills the form on any width and cannot move the button", () => {
+test("the box fills the form on any width and shows only when Cloudflare needs a click", () => {
   assert.match(widget, /size: window\.matchMedia\(NARROW_FORM\)\.matches \? 'compact' : 'flexible'/);
-  assert.match(widget, /h-\[65px\] overflow-hidden/);
+  assert.match(widget, /appearance: 'interaction-only'/);
+  assert.match(widget, /'before-interactive-callback': \(\) => setInteractive\(true\)/);
+  assert.match(widget, /interactive \? 'mb-4' : 'h-0 overflow-hidden'/);
   assert.doesNotMatch(widget, /Protected by Cloudflare/);
 });
 
-test("the slot is never empty, and a failure can be retried without a refresh", () => {
-  assert.match(widget, /Loading security check/);
+test("a failure can be retried without a refresh", () => {
+  assert.match(widget, /The security check didn’t load/);
   assert.match(widget, /'error-callback': handleFailure/);
   assert.match(widget, /'timeout-callback': handleFailure/);
   assert.match(widget, /<button[\s\S]*?type="button"[\s\S]*?onClick=\{retry\}/);

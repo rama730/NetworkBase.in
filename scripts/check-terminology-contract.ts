@@ -16,7 +16,7 @@ type Counts = Record<string, Partial<Record<Rule, number>>>;
 export type Baseline = { strings: Counts; paths: string[] };
 
 const BASELINE_FILE = "standards/terminology-baseline.json";
-const PROPER_NAMES = /NetworkBase|GitHub|GitLab|Google|Microsoft|Apple|VS Code|Visual Studio|Supabase|Figma|Slack|Notion|Cursor|Windsurf|LinkedIn|Product Hunt|Hacker News|Stack Overflow|Creative Commons|Data Processing|End User|Open Source|Pro Bono|Terms of|Privacy Policy|Cookie Notice|Acceptable Use/;
+const PROPER_NAMES = /NetworkBase|Gmail|Outlook|Yahoo|GitHub|GitLab|Google|Microsoft|Apple|VS Code|Visual Studio|Supabase|Figma|Slack|Notion|Cursor|Windsurf|LinkedIn|Product Hunt|Hacker News|Stack Overflow|Creative Commons|Data Processing|End User|Open Source|Pro Bono|Terms of|Privacy Policy|Cookie Notice|Acceptable Use/;
 
 const RULES: Array<[Rule, (text: string) => boolean]> = [
   ["banned", (t) => BANNED_TERMS.some((term) => term.pattern.test(t))],
