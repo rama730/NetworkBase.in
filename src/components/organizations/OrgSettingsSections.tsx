@@ -53,7 +53,8 @@ function Section({ id, children }: { id: string; children: ReactNode }) {
     return <section id={`project-settings-${id}`} data-project-settings-section className="space-y-6">{children}</section>
 }
 
-function LastChanged({ organization, section }: { organization: OrgDetail; section: OrgSettingsSection }) {
+/** A function, not a component: SettingsCard draws its footer band for any element, even one that renders nothing. */
+function lastChanged(organization: OrgDetail, section: OrgSettingsSection) {
     const change = organization.changes[section]
     if (!change) return null
     return <p className="nb-meta">Last changed by {change.byName ?? 'someone'} · {formatOrgDate(change.at, { month: 'short', day: 'numeric', year: 'numeric' }, organization.timeZone)}</p>
@@ -82,14 +83,18 @@ function InstantSwitch({ label, help, checked, disabled, save }: { label: string
     const router = useRouter()
     const [on, setOn] = useState(checked)
     const [busy, setBusy] = useState(false)
+    const [error, setError] = useState<string | null>(null)
     const flip = async (next: boolean) => {
         setOn(next)
         setBusy(true)
+        setError(null)
         const result = await save(next).catch(() => ({ success: false, error: 'Couldn’t save.' }))
         setBusy(false)
         if (!result.success) {
             setOn(!next)
-            return void toast.error(result.error ?? 'Couldn’t save.')
+            // Toasts show only allowlisted text, so the reason stays beside the switch, as with a Save button.
+            setError(`${label} wasn’t changed. ${result.error ?? 'Try again.'}`)
+            return void toast.error('Couldn’t save.')
         }
         toast.success(next ? `${label}: on` : `${label}: off`)
         router.refresh()
@@ -99,6 +104,7 @@ function InstantSwitch({ label, help, checked, disabled, save }: { label: string
             <div>
                 <p className={labelClass}>{label}</p>
                 {help ? <p className={helpClass}>{help}</p> : null}
+                {error ? <p role="alert" className={fieldError}>{error}</p> : null}
             </div>
             <SettingsSwitch checked={on} disabled={busy || disabled} onCheckedChange={(next) => void flip(next)} aria-label={label} />
         </div>
@@ -234,7 +240,7 @@ export function OrgProfileSection({ orgId, organization, role }: SectionProps) {
     const zones = timeZone && !TIME_ZONES.includes(timeZone) ? [timeZone, ...TIME_ZONES] : TIME_ZONES
     return (
         <Section id="org-profile">
-            <SettingsCard title="Organization profile" headingLevel={2} description="What people see on About, and how the organization keeps time." footer={<LastChanged organization={organization} section="profile" />}>
+            <SettingsCard title="Organization profile" headingLevel={2} description="What people see on About, and how the organization keeps time." footer={lastChanged(organization, 'profile')}>
                 <div className="space-y-6">
                     <div>
                         <label htmlFor="org-type" className={labelClass}>Type</label>
@@ -260,15 +266,15 @@ export function OrgProfileSection({ orgId, organization, role }: SectionProps) {
                             onConfirm={() => typeSave.save(() => updateOrgSettingsAction(orgId, 'profile', { org_type: type, type_label: type === 'other' ? typeLabel.trim() : null }))} />
                     </div>
                     <div className="grid max-w-2xl gap-4 sm:grid-cols-2">
-                        <div className="block">
+                        <div className="flex flex-col">
                             <span className={labelClass}>Part of</span>
                             <span className={`block ${helpClass}`}>The bigger body it belongs to, for example RV College of Engineering. Shows in the header. Pick it from the list when it’s on NetworkBase; a verified one can confirm you for the badge.</span>
-                            <PartOfField orgId={orgId} value={partOf} linked={partOfOrg} onChange={(next) => { setPartOf(next.text); setPartOfOrg(next.linked ? { ...next.linked, slug: null } : null) }} />
+                            <div className="mt-auto"><PartOfField orgId={orgId} value={partOf} linked={partOfOrg} onChange={(next) => { setPartOf(next.text); setPartOfOrg(next.linked ? { ...next.linked, slug: null } : null) }} /></div>
                         </div>
-                        <label className="block">
+                        <label className="flex flex-col">
                             <span className={labelClass}>Where</span>
-                            <span className={`block ${helpClass}`}>A city, or Online. Shows in the header.</span>
-                            <Input value={location} onChange={(e) => setLocation(e.target.value)} maxLength={100} className="mt-2" />
+                            <span className={`block pb-2 ${helpClass}`}>A city, or Online. Shows in the header.</span>
+                            <Input value={location} onChange={(e) => setLocation(e.target.value)} maxLength={100} className="mt-auto" />
                         </label>
                     </div>
                     {typeProfile(organization.type).termDates ? <fieldset>
@@ -318,7 +324,7 @@ export function OrgAccessSection({ orgId, organization, maxMembers, handle }: Se
     const maxWrong = Boolean(facts && max && Number(max) < facts.members)
     return (
         <Section id="org-access">
-            <SettingsCard title="Joining" headingLevel={2} description="How people join. Invites are in the Members tab; Public or Private is in Visibility and discovery." footer={<LastChanged organization={organization} section="access" />}>
+            <SettingsCard title="Joining" headingLevel={2} description="How people join. Invites are in the Members tab; Public or Private is in Visibility and discovery." footer={lastChanged(organization, 'access')}>
                 <div className="space-y-6">
                     <div>
                         <p className={labelClass}>Join code</p>
@@ -373,7 +379,7 @@ export function RolesTable({ organization, onOpenSection }: { organization: OrgD
     return (
         <div className="space-y-5 overflow-x-auto">
             {PERMISSION_AREAS.map(({ area, rows }) => (
-                <table key={area} className="w-full min-w-[30rem] text-left text-[13px]">
+                <table key={area} className="w-full min-w-[30rem] table-fixed text-left text-[13px]">
                     <caption className="nb-micro pb-2 text-left">{area}</caption>
                     <thead>
                         <tr className="border-b border-border text-[12px] text-muted-foreground">
@@ -413,7 +419,7 @@ export function OrgPeopleSection({ orgId, organization, role, handle, onOpenSect
     const BASE = { owner: 'Owner', admin: 'Admin', member: 'Member', viewer: 'Viewer' } as const
     return (
         <Section id="org-people">
-            <SettingsCard title="People and roles" headingLevel={2} description="Role names and what each role can do. Admins are managed in the Members tab." footer={<LastChanged organization={organization} section="people" />}>
+            <SettingsCard title="People and roles" headingLevel={2} description="Role names and what each role can do. Admins are managed in the Members tab." footer={lastChanged(organization, 'people')}>
                 <div className="space-y-6">
                     <div>
                         <p className={labelClass}>Role names</p>
@@ -506,7 +512,7 @@ export function OrgWorkspacesSection({ orgId, organization }: SectionProps) {
     const projects = (patch: Record<string, boolean>) => updateOrgSettingsAction(orgId, 'projects', patch)
     return (
         <Section id="org-projects">
-            <SettingsCard title="Workspaces" headingLevel={2} description="Who creates workspaces inside the organization, and the rules they follow." footer={<LastChanged organization={organization} section="projects" />}>
+            <SettingsCard title="Workspaces" headingLevel={2} description="Who creates workspaces inside the organization, and the rules they follow." footer={lastChanged(organization, 'projects')}>
                 <div className="space-y-6">
                     {facts ? <p className="nb-meta">{facts.workspaces} of {ORG_LIMITS.childProjectsPerOrg} workspaces</p> : null}
                     <fieldset>
@@ -567,23 +573,23 @@ export function OrgWorkSection({ orgId, organization }: SectionProps) {
     const L = ORG_SETTING_LABELS
     return (
         <Section id="org-work">
-            <SettingsCard title="Work" headingLevel={2} description="Defaults for new tasks and sprints. Each one can still change them." footer={<LastChanged organization={organization} section="work" />}>
+            <SettingsCard title="Work" headingLevel={2} description="Defaults for new tasks and sprints. Each one can still change them." footer={lastChanged(organization, 'work')}>
                 <div className="space-y-6">
                     <h3 className="nb-micro">Tasks</h3>
                     <InstantSwitch label={L.reviewRequired.label} help={`${L.reviewRequired.help} Fills in the task form.`} checked={organization.work.reviewRequired} save={instant('review_required')} />
                     <div className="grid gap-5 sm:grid-cols-3">
-                        <label className="block"><span className={labelClass}>{L.lateRule.label}</span><span className={`block ${helpClass}`}>{L.lateRule.help}</span>
-                            <select className="nb-select mt-2 w-full" value={work.lateRule} onChange={(e) => set('lateRule', e.target.value as typeof work.lateRule)}>
+                        <label className="flex flex-col"><span className={labelClass}>{L.lateRule.label}</span><span className={`block pb-2 ${helpClass}`}>{L.lateRule.help}</span>
+                            <select className="nb-select mt-auto w-full" value={work.lateRule} onChange={(e) => set('lateRule', e.target.value as typeof work.lateRule)}>
                                 {(['always', 'until', 'none'] as const).map((v) => <option key={v} value={v}>{L.lateRule.options[v]}</option>)}
                             </select>
                         </label>
-                        <label className="block"><span className={labelClass}>{L.reminders.label}</span><span className={`block ${helpClass}`}>{L.reminders.help}</span>
-                            <select className="nb-select mt-2 w-full" value={work.reminders} onChange={(e) => set('reminders', e.target.value as typeof work.reminders)}>
+                        <label className="flex flex-col"><span className={labelClass}>{L.reminders.label}</span><span className={`block pb-2 ${helpClass}`}>{L.reminders.help}</span>
+                            <select className="nb-select mt-auto w-full" value={work.reminders} onChange={(e) => set('reminders', e.target.value as typeof work.reminders)}>
                                 {(['both', 'day_before', 'due_day', 'off'] as const).map((v) => <option key={v} value={v}>{L.reminders.options[v]}</option>)}
                             </select>
                         </label>
-                        <label className="block"><span className={labelClass}>{L.storyPoints.label}</span><span className={`block ${helpClass}`}>{L.storyPoints.help}</span>
-                            <select className="nb-select mt-2 w-full" value={work.storyPoints} onChange={(e) => set('storyPoints', e.target.value as typeof work.storyPoints)}>
+                        <label className="flex flex-col"><span className={labelClass}>{L.storyPoints.label}</span><span className={`block pb-2 ${helpClass}`}>{L.storyPoints.help}</span>
+                            <select className="nb-select mt-auto w-full" value={work.storyPoints} onChange={(e) => set('storyPoints', e.target.value as typeof work.storyPoints)}>
                                 {(['shown', 'hidden'] as const).map((v) => <option key={v} value={v}>{L.storyPoints.options[v]}</option>)}
                             </select>
                         </label>
@@ -640,7 +646,7 @@ export function OrgNotificationsSection({ orgId, organization }: { orgId: string
     const { pending, save, status } = useSave()
     return (
         // Inside the Notifications section by design: its own section wrapper would split the section index.
-            <SettingsCard title="Admin emails" headingLevel={2} description="How owners and admins hear about work to review, join requests and reports." footer={<LastChanged organization={organization} section="notifications" />}>
+            <SettingsCard title="Admin emails" headingLevel={2} description="How owners and admins hear about work to review, join requests and reports." footer={lastChanged(organization, 'notifications')}>
                 <div className="space-y-5">
                     <fieldset className="space-y-2.5 text-[13px]">
                         <legend className="sr-only">Admin emails</legend>
@@ -670,22 +676,22 @@ export function OrgUpdatesSection({ orgId, organization, memberPosts }: { orgId:
     const members = rolePlural(organization.roleNames.member)
     return (
         <Section id="org-updates">
-            <SettingsCard title="Updates" headingLevel={2} description="Who posts and replies in Updates, and how announcements reach people." footer={<LastChanged organization={organization} section="updates" />}>
+            <SettingsCard title="Updates" headingLevel={2} description="Who posts and replies in Updates, and how announcements reach people." footer={lastChanged(organization, 'updates')}>
                 <div className="space-y-6">
                     <InstantSwitch label={`${members} can post discussions`} help="Announcements stay with owners and admins." checked={memberPosts}
                         save={(on) => updateOrgSettingsAction(orgId, 'updates', { member_posts: on })} />
                     <div className="grid gap-5 sm:grid-cols-2">
-                        <label className="block">
+                        <label className="flex flex-col">
                             <span className={labelClass}>Who can reply</span>
-                            <span className={`block ${helpClass}`}>Where posts start; each post can change it.</span>
-                            <select value={replies} onChange={(e) => setReplies(e.target.value as typeof replies)} className="nb-select mt-2 w-full">
+                            <span className={`block pb-2 ${helpClass}`}>Where posts start; each post can change it.</span>
+                            <select value={replies} onChange={(e) => setReplies(e.target.value as typeof replies)} className="nb-select mt-auto w-full">
                                 <option value="members">People in the organization</option><option value="logged_in">Anyone signed in</option>
                             </select>
                         </label>
-                        <label className="block">
+                        <label className="flex flex-col">
                             <span className={labelClass}>Announcements notify</span>
-                            <span className={`block ${helpClass}`}>Where the composer starts. Up to {ORG_LIMITS.emailAnnouncementsPerOrgPerDay} emails a day.</span>
-                            <select value={announce} onChange={(e) => setAnnounce(e.target.value as typeof announce)} className="nb-select mt-2 w-full">
+                            <span className={`block pb-2 ${helpClass}`}>Where the composer starts. Up to {ORG_LIMITS.emailAnnouncementsPerOrgPerDay} emails a day.</span>
+                            <select value={announce} onChange={(e) => setAnnounce(e.target.value as typeof announce)} className="nb-select mt-auto w-full">
                                 <option value="in_app">In-app</option><option value="email">In-app and email</option>
                             </select>
                         </label>

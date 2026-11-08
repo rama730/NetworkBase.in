@@ -50,7 +50,7 @@ function useRun() {
 function Row({ title, children, action }: { title: string; children: React.ReactNode; action: React.ReactNode }) {
     return (
         <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3 border-t border-border pt-5 first:border-t-0 first:pt-0">
-            <div className="min-w-0 max-w-[60ch] flex-1"><p className={label}>{title}</p><div className={help}>{children}</div></div>
+            <div className="min-w-0 max-w-[60ch] flex-1 basis-64"><p className={label}>{title}</p><div className={help}>{children}</div></div>
             <div className="flex shrink-0 flex-wrap items-center gap-2">{action}</div>
         </div>
     )

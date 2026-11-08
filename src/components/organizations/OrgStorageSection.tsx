@@ -102,8 +102,8 @@ export function OrgStorageSection({ orgId, orgTitle, handle, submissionsWord }: 
                         </div>
                     </div>
                 ) : null}
+                <div className="mt-6 border-t border-border pt-6"><DownloadHistory projectId={orgId} noun="organization" /></div>
             </SettingsCard>
-            <DownloadHistory projectId={orgId} />
             <LargeFilesDialog orgId={orgId} base={base} open={largeOpen} onOpenChange={setLargeOpen} onChanged={refresh} />
             <ConfirmDialog open={versionsAsk} onOpenChange={setVersionsAsk} title="Keep the latest 3 versions?"
                 description={s ? `Older versions of the organization’s files are removed, freeing ${formatSize(s.oldVersionBytes)}. Handed-in work keeps every version.` : undefined}

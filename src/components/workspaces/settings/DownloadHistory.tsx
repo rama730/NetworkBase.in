@@ -1,8 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Loader2 } from "lucide-react";
-
 import { readDownloadHistoryAction } from "@/app/actions/files/download-history";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,8 +31,8 @@ export function DownloadHistoryRow({ row }: { row: Row }) {
   );
 }
 
-/** Who downloaded what in this workspace, for the last 90 days. Downloads from messages are never listed. */
-export function DownloadHistory({ projectId }: { projectId: string }) {
+/** Who downloaded what in this workspace or organization, for the last 90 days. Downloads from messages are never listed. */
+export function DownloadHistory({ projectId, noun = "workspace" }: { projectId: string; noun?: "workspace" | "organization" }) {
   const [rows, setRows] = useState<Row[]>([]);
   const [cursor, setCursor] = useState<Cursor>(null);
   const [search, setSearch] = useState("");
@@ -68,7 +66,7 @@ export function DownloadHistory({ projectId }: { projectId: string }) {
     <div className="space-y-3">
       <div>
         <h3 className="text-sm font-medium text-foreground">Download history</h3>
-        <p className="text-xs text-muted-foreground">Downloads from this workspace in the last 90 days. Opening a file in the browser or syncing it to the VS Code extension isn’t listed.</p>
+        <p className="text-xs text-muted-foreground">Downloads from this {noun} in the last 90 days. Opening a file in the browser or syncing it to the VS Code extension isn’t listed.</p>
       </div>
       <form
         className="flex flex-wrap gap-2"
@@ -77,12 +75,12 @@ export function DownloadHistory({ projectId }: { projectId: string }) {
           setAppliedSearch(search);
         }}
       >
-        <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search by file name" aria-label="Search by file name" className="min-w-0 flex-1" maxLength={200} />
-        <select value={actorId} onChange={(event) => setActorId(event.target.value)} aria-label="Filter by person" className="h-[var(--ui-control-height)] rounded-md border border-border bg-background px-2 text-sm">
+        <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search by file name" aria-label="Search by file name" className="min-w-[12rem] flex-1" maxLength={200} />
+        <select value={actorId} onChange={(event) => setActorId(event.target.value)} aria-label="Filter by person" className="nb-select w-auto">
           <option value="">Everyone</option>
           {people.map((person) => <option key={person.id} value={person.id}>{person.name ?? "Unknown person"}</option>)}
         </select>
-        <Button type="submit" variant="outline" size="sm">Search</Button>
+        <Button type="submit" variant="outline">Search</Button>
       </form>
       {error ? <p role="alert" className="text-sm text-[var(--status-danger)]">{error}</p> : null}
       {!error && !loading && rows.length === 0 ? <p className="text-sm text-muted-foreground">No downloads found.</p> : null}
@@ -91,7 +89,7 @@ export function DownloadHistory({ projectId }: { projectId: string }) {
           {rows.map((row) => <DownloadHistoryRow key={row.id} row={row} />)}
         </ul>
       ) : null}
-      {loading ? <Loader2 className="size-4 animate-spin text-muted-foreground" aria-label="Loading" /> : null}
+      {loading ? <div className="nb-skeleton h-10 rounded-md" role="status" aria-label="Loading downloads" /> : null}
       {cursor && !loading ? <Button type="button" variant="outline" size="sm" onClick={() => void load(cursor)}>Load more</Button> : null}
     </div>
   );

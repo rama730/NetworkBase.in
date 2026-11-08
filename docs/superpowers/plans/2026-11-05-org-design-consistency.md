@@ -55,7 +55,18 @@ Where the build differs from a finding, on purpose:
 - OUT6: the sidebar toggle stays 20px on desktop inside the 32px row and grows to 44px on touch.
 - UP7: the organization toast reads "Update posted".
 
-Not checked: a signed-in run against real data, and the Settings sections in a browser (they are covered by type checks and unit tests only).
+Settings browser check (2026-11-09): every organization Settings section rendered with fixture data at 1280 and 390px, light and dark; no page errors, no sideways scroll. Fixed what it found:
+- Cards with no change history drew an empty grey footer band (`LastChanged` was an element even when it rendered nothing); it is now a function that returns null.
+- The roles table's columns moved between groups; the tables are now fixed-layout so Teacher/TA/Student/Guest line up.
+- Fields side by side (Part of/Where, Work's three selects, Updates' two selects) sat at different heights when help text wrapped; the controls now align at the bottom.
+- `.nb-select` and `.nb-textarea` were 13px beside 15px inputs; the spec says Select is input-matched, so both are 15px (the `sm` select stays 13px).
+- Reminder options were cut off in their select; they read "Day before and due day" / "Day before".
+- Download history sat outside the Storage card and said "workspace"; it is inside the card, names the organization, uses `.nb-select`, a skeleton instead of a spinner, and its search box no longer shrinks to a few letters on phones (shared with workspaces).
+- On phones the danger-zone rows and the verify-way rows squeezed their text into a one-word column; the action now wraps below the text.
+- A switch that failed to save rolled back, but the toast showed only the generic "Action couldn’t finish" (toasts are allowlisted); the reason now shows beside the switch, as it does beside a Save button.
+Switch save and rollback checked: the switch flips at once, is disabled while saving, stays on success with a toast, and returns with the reason on failure. The unchecked switch is the spec's "paper off".
+
+Not checked: a signed-in run against real data.
 
 ## Decisions (defaults confirmed by the user, 2026-11-05)
 

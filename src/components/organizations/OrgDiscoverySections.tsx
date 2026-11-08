@@ -214,10 +214,10 @@ function WayRow({ way, organization, isOwner, open, onToggle, children }: { way:
     const Icon = w.icon
     return (
         <li className="rounded-md border border-border" data-testid={`verify-way-${way}`}>
-            <div className="grid grid-cols-[22px_minmax(0,1fr)_auto] items-start gap-2 px-3 py-2.5 text-[13px]">
+            <div className="grid grid-cols-[22px_minmax(0,1fr)] items-start gap-2 px-3 py-2.5 text-[13px] sm:grid-cols-[22px_minmax(0,1fr)_auto]">
                 <Icon className="mt-0.5 size-4 text-muted-foreground" aria-hidden="true" />
                 <span><span className="block font-medium text-foreground">{w.title}</span><span className="block text-muted-foreground">{w.line(organization)}</span></span>
-                {isOwner ? <Button type="button" size="sm" variant="outline" aria-expanded={open} onClick={onToggle}>{w.button(organization)}</Button> : null}
+                {isOwner ? <Button type="button" size="sm" variant="outline" className="col-start-2 justify-self-start sm:col-start-auto" aria-expanded={open} onClick={onToggle}>{w.button(organization)}</Button> : null}
             </div>
             {open && isOwner ? <div className="border-t border-border px-3 py-3">{children}</div> : null}
         </li>

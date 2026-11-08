@@ -867,11 +867,11 @@ html[data-reduce-motion="true"] .nb-skeleton {
 /* Field parts for native controls (spec §10: Select input-matched, Textarea, Checkbox, Radio) and the one text link.
    In the components layer so a utility such as w-full or mt-2 still applies. */
 @layer components {
-  .nb-select { appearance:none; -webkit-appearance:none; height:var(--ui-control-height); min-width:0; max-width:100%; padding:0 28px 0 10px; border:1px solid var(--input); border-radius:var(--radius-md); background-color:var(--card); background-image:linear-gradient(45deg,transparent 50%,var(--muted-foreground) 50%),linear-gradient(135deg,var(--muted-foreground) 50%,transparent 50%); background-position:calc(100% - 15px) 50%,calc(100% - 10px) 50%; background-size:5px 5px; background-repeat:no-repeat; color:var(--foreground); font-size:13px; line-height:1.2; cursor:pointer; }
-  .nb-select[data-size="sm"] { height:var(--ui-control-height-sm); padding-left:8px; }
+  .nb-select { appearance:none; -webkit-appearance:none; height:var(--ui-control-height); min-width:0; max-width:100%; padding:0 28px 0 10px; border:1px solid var(--input); border-radius:var(--radius-md); background-color:var(--card); background-image:linear-gradient(45deg,transparent 50%,var(--muted-foreground) 50%),linear-gradient(135deg,var(--muted-foreground) 50%,transparent 50%); background-position:calc(100% - 15px) 50%,calc(100% - 10px) 50%; background-size:5px 5px; background-repeat:no-repeat; color:var(--foreground); font-size:15px; line-height:1.2; cursor:pointer; }
+  .nb-select[data-size="sm"] { height:var(--ui-control-height-sm); padding-left:8px; font-size:13px; }
   .nb-select:disabled, .nb-textarea:disabled, .nb-check:disabled, .nb-radio:disabled { opacity:.5; cursor:not-allowed; }
   .nb-select[aria-invalid="true"], .nb-textarea[aria-invalid="true"] { border-color:var(--destructive); }
-  .nb-textarea { display:block; width:100%; padding:10px 12px; border:1px solid var(--input); border-radius:var(--radius-md); background:var(--card); color:var(--foreground); font-size:13px; line-height:1.5; resize:vertical; }
+  .nb-textarea { display:block; width:100%; padding:10px 12px; border:1px solid var(--input); border-radius:var(--radius-md); background:var(--card); color:var(--foreground); font-size:15px; line-height:1.5; resize:vertical; }
   .nb-textarea[data-size="lg"] { font-size:15px; }
   .nb-textarea::placeholder { color:var(--muted-foreground); }
   .nb-check, .nb-radio { appearance:none; -webkit-appearance:none; flex:none; display:inline-grid; place-content:center; width:16px; height:16px; margin:0; border:1px solid var(--input); background:var(--card); cursor:pointer; vertical-align:middle; }
