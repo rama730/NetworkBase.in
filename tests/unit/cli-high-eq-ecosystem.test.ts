@@ -109,9 +109,12 @@ describe("NetworkBase High-EQ CLI & Unified Ecosystem", () => {
       assert.ok(helpOut.includes("nb sync"));
       assert.ok(helpOut.includes("nb watch"));
       assert.ok(helpOut.includes("nb task check"));
+      assert.ok(helpOut.includes("nb task subtask add"));
+      assert.ok(helpOut.includes("nb task create"));
       assert.ok(helpOut.includes("--deliverable"));
       assert.ok(helpOut.includes("--draft"));
       assert.ok(helpOut.includes("--reference"));
+      assert.ok(helpOut.includes("-y, --yes, --auto"));
       assert.ok(helpOut.includes("nb mcp"));
     });
 
@@ -145,6 +148,8 @@ describe("NetworkBase High-EQ CLI & Unified Ecosystem", () => {
       assert.ok(toolNames.includes("nb_task_view"));
       assert.ok(toolNames.includes("nb_task_work"));
       assert.ok(toolNames.includes("nb_task_check"));
+      assert.ok(toolNames.includes("nb_subtask_create"));
+      assert.ok(toolNames.includes("nb_task_create"));
     });
   });
 });

@@ -13,6 +13,7 @@ const schema = z.object({
   projectId: z.string().uuid(),
   title: z.string().trim().min(1).max(200),
   description: z.string().max(10000).optional(),
+  priority: z.enum(["low", "medium", "high", "urgent"]).optional(),
 });
 export async function POST(request: Request) {
   const csrf = validateCsrf(request);
@@ -26,7 +27,7 @@ export async function POST(request: Request) {
     const result = await createTaskAction({
       ...parsed.data,
       status: "todo",
-      priority: "medium",
+      priority: parsed.data.priority || "medium",
     });
     return result.success
       ? jsonSuccess(result)

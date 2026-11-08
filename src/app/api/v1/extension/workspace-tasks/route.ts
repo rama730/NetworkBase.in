@@ -12,6 +12,7 @@ import {
   taskNodeLinks,
   workspaceNodes,
   workspaceSprints,
+  fileVersions,
 } from "@/lib/db/schema";
 import { canReadWorkspaceTab, getWorkspaceAccessById } from "@/lib/data/workspace-access";
 import { and, asc, desc, eq, inArray, isNull, lt, or, sql } from "drizzle-orm";
@@ -165,10 +166,18 @@ export async function GET(request: Request) {
               size: workspaceNodes.size,
               mimeType: workspaceNodes.mimeType,
               currentVersion: workspaceNodes.currentVersion,
+              contentHash: fileVersions.contentHash,
               updatedAt: workspaceNodes.updatedAt,
             })
             .from(taskNodeLinks)
             .innerJoin(workspaceNodes, eq(taskNodeLinks.nodeId, workspaceNodes.id))
+            .leftJoin(
+              fileVersions,
+              and(
+                eq(fileVersions.nodeId, workspaceNodes.id),
+                eq(fileVersions.version, workspaceNodes.currentVersion),
+              ),
+            )
             .where(
               and(
                 inArray(taskNodeLinks.taskId, taskIds),
@@ -217,6 +226,7 @@ export async function GET(request: Request) {
         size: number | null;
         mimeType: string | null;
         currentVersion: number;
+        contentHash?: string | null;
         role: "reference" | "working" | "deliverable";
         tags: string[];
         annotation: string | null;
@@ -242,6 +252,7 @@ export async function GET(request: Request) {
         size: f.size,
         mimeType: f.mimeType,
         currentVersion: f.currentVersion,
+        contentHash: f.contentHash || null,
         role,
         tags: f.tags || [],
         annotation: f.annotation,

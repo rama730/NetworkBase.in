@@ -11,7 +11,7 @@ import { fileURLToPath } from "node:url";
 
 const CLI_SCRIPT_PATH = fileURLToPath(import.meta.url);
 
-const CLI_VERSION = "1.0.2";
+const CLI_VERSION = "1.0.3";
 const DEFAULT_API_URL = process.env.NETWORKBASE_API_URL || "https://networkbase.in";
 const GLOBAL_CONFIG_DIR = path.join(os.homedir(), ".networkbase");
 const GLOBAL_CREDENTIALS_PATH = path.join(GLOBAL_CONFIG_DIR, "credentials.json");
@@ -2213,7 +2213,9 @@ async function handleStatus(flags) {
   outputResult(statusPayload, flags, (res) => {
     const identity = res.authenticated
       ? `${c.emerald}●${c.reset} ${c.bold}${c.ink}${res.user?.username ? `@${res.user.username}` : res.user?.email || res.sessionId}${c.reset} ${c.muted}(${res.tokenType || "device"})${c.reset}`
-      : `${c.amber}○ Not signed in${c.reset}`;
+      : creds?.token && (creds?.user || creds?.sessionId)
+        ? `${c.emerald}●${c.reset} ${c.bold}${c.ink}${creds.user?.username ? `@${creds.user.username}` : creds.user?.email || creds.sessionId}${c.reset} ${c.muted}(${creds.tokenType || "device"})${c.reset}`
+        : `${c.amber}○ Not signed in${c.reset}`;
 
     const wsDisplay = res.workspace?.projectId
       ? `${c.bold}${c.ink}${res.workspace.title || res.workspace.projectId}${c.reset} ${c.muted}(${res.workspace.slug || res.workspace.projectId.slice(0, 8)})${c.reset}`
@@ -2236,6 +2238,67 @@ async function handleStatus(flags) {
   });
 
   return statusPayload;
+}
+
+async function ensureWorkspaceLinked(flags = {}, cwd = process.cwd()) {
+  const cfg = getLocalConfig(cwd);
+  const explicitWorkspace = typeof flags.workspace === "string" ? flags.workspace.trim() : null;
+  const projectId = explicitWorkspace || cfg.projectId;
+
+  if (projectId) {
+    return { projectId, cfg };
+  }
+
+  // Not linked locally. Attempt to discover accessible workspaces.
+  let workspaces = [];
+  try {
+    const creds = getCredentials();
+    const apiUrl = await resolveBestApiUrl(typeof flags.url === "string" ? flags.url : creds?.apiUrl);
+    const res = await apiRequest("/api/v1/extension/workspaces", { apiUrl });
+    workspaces = res?.workspaces || res?.projects || [];
+  } catch {
+    // Session may be missing or unauthenticated
+  }
+
+  if (workspaces.length === 0) {
+    throw new Error(
+      "No workspace linked in this directory. Run `nb login` followed by `nb init` to link a workspace.",
+    );
+  }
+
+  // If in interactive TTY and not json, offer immediate 1-click workspace selection
+  if (process.stdin.isTTY && !flags.json) {
+    renderBrandHeader({ subtitle: "Workspace Setup · Select a Workspace" });
+    const chosen = await tuiSelect({
+      title: "No workspace is linked to this directory. Choose one to link:",
+      stepLabel: "Workspace",
+      searchable: workspaces.length > 5,
+      items: workspaces.map((w) => ({
+        label: w.title,
+        badge: formatStatusBadge(w.role || "member"),
+        description: `ID: ${w.id}${w.slug ? ` · /${w.slug}` : ""}`,
+        value: w,
+      })),
+    });
+
+    if (chosen) {
+      const updatedCfg = {
+        ...cfg,
+        projectId: chosen.id,
+        title: chosen.title,
+        slug: chosen.slug,
+      };
+      saveLocalConfig(updatedCfg, cwd);
+      printStepDone("Linked Workspace", `${chosen.title} (${chosen.id})`);
+      return { projectId: chosen.id, cfg: updatedCfg };
+    }
+  }
+
+  // Non-interactive or cancelled: output accessible workspaces so user or agent can select immediately
+  const wsList = workspaces.map((w) => `  - ${w.title} (${w.id})`).join("\n");
+  throw new Error(
+    `No workspace linked. Run \`nb init\` or pass \`--workspace <id>\`.\nAvailable workspaces:\n${wsList}`,
+  );
 }
 
 async function handleWorkspace(sub, positional, flags) {
@@ -2267,9 +2330,9 @@ async function handleWorkspace(sub, positional, flags) {
   }
 
   if (sub === "info") {
-    const cfg = getLocalConfig();
-    if (!cfg.projectId) throw new Error("No workspace linked. Run `nb init` first.");
-    const summary = await apiRequest(`/api/v1/extension/workspace-summary?projectId=${cfg.projectId}`);
+    const cwd = process.cwd();
+    const { projectId, cfg } = await ensureWorkspaceLinked(flags, cwd);
+    const summary = await apiRequest(`/api/v1/extension/workspace-summary?projectId=${projectId}`);
     outputResult({ workspace: cfg, summary }, flags, (res) => {
       renderBrandHeader({
         subtitle: "Workspace Summary",
@@ -2309,16 +2372,23 @@ async function hydrateTaskAttachedFiles(projectId, attachedFiles, cwd = process.
         const cleanRel = normPath.replace(/^\/+/, "");
         const mirrorDest = path.join(mirrorDir, cleanRel);
         const expectedHash = (f.contentHash || manifestFiles[normPath]?.contentHash || "").toLowerCase();
+        const expectedVersion = f.currentVersion || f.version;
+        const manifestVersion = manifestFiles[normPath]?.version;
 
-        if (expectedHash && fs.existsSync(mirrorDest)) {
-          try {
-            const localHash = computeFileSha256(mirrorDest).hash.toLowerCase();
-            if (localHash === expectedHash) {
-              hydratedCount++;
-              return;
+        if (fs.existsSync(mirrorDest)) {
+          if (expectedHash) {
+            try {
+              const localHash = computeFileSha256(mirrorDest).hash.toLowerCase();
+              if (localHash === expectedHash) {
+                hydratedCount++;
+                return;
+              }
+            } catch {
+              // Re-download if unreadable
             }
-          } catch {
-            // Re-download if unreadable
+          } else if (expectedVersion && manifestVersion && expectedVersion === manifestVersion) {
+            hydratedCount++;
+            return;
           }
         }
 
@@ -2473,8 +2543,8 @@ function renderTaskDetailCard(res, cfg, hydratedCount = 0) {
 
 async function handleTask(sub, positional, flags) {
   const cwd = process.cwd();
-  const cfg = getLocalConfig(cwd);
-  const projectId = typeof flags.workspace === "string" ? flags.workspace : cfg.projectId;
+  let cfg = getLocalConfig(cwd);
+  let projectId = typeof flags.workspace === "string" ? flags.workspace : cfg.projectId;
 
   // Support `nb task list --all` / `nb task --all-workspaces` across all accessible workspaces
   if ((!sub || sub === "list" || sub === "ls") && (flags.all || flags["all-workspaces"])) {
@@ -2523,12 +2593,79 @@ async function handleTask(sub, positional, flags) {
     return;
   }
 
-  if (!projectId) throw new Error("No workspace linked. Run `nb init` first.");
+  ({ projectId, cfg } = await ensureWorkspaceLinked(flags, cwd));
 
   // Allow shorthand `nb task #4` or `nb task 4` to directly open `nb task view #4`
   if (sub && (/^#?\d+$/.test(sub) || /^[0-9a-f]{8}-[0-9a-f]{4}-/i.test(sub))) {
     positional = [sub, ...positional];
     sub = "view";
+  }
+
+  if (sub === "create" || sub === "new" || sub === "add") {
+    let title = typeof flags.title === "string" ? flags.title : positional.join(" ").trim();
+    if (!title && process.stdin.isTTY && !flags.json) {
+      renderBrandHeader({ subtitle: `Create Sprint Task · ${cfg.title || projectId}` });
+      title = await tuiInput({
+        title: "Enter task title",
+        stepLabel: "Task Title",
+        placeholder: "e.g., Implement OAuth callback flow",
+      });
+    }
+    if (!title) {
+      throw new Error('Usage: nb task create "<title>" [-m description] [--priority low|medium|high|urgent]');
+    }
+
+    const description =
+      typeof flags.message === "string"
+        ? flags.message
+        : typeof flags.description === "string"
+          ? flags.description
+          : undefined;
+    const priority =
+      flags.priority && ["low", "medium", "high", "urgent"].includes(flags.priority.toLowerCase())
+        ? flags.priority.toLowerCase()
+        : "medium";
+
+    const createdRes = await withSpinner(
+      "Creating sprint task…",
+      () =>
+        apiRequest("/api/v1/extension/create-task", {
+          method: "POST",
+          body: {
+            projectId,
+            title,
+            description,
+            priority,
+          },
+        }),
+      { silent: Boolean(flags.json) },
+    );
+
+    // Refresh local tasks and TASKS.md immediately
+    try {
+      const refreshed = await apiRequest(`/api/v1/extension/workspace-tasks?projectId=${projectId}&scope=all`);
+      writeLocalTaskIntelligence(projectId, cfg.title || projectId, refreshed.tasks || [], cwd);
+    } catch {}
+
+    const createdTask = createdRes.task || createdRes;
+    outputResult(
+      createdRes,
+      flags,
+      () => {
+        console.log(RAIL);
+        console.log(
+          `${STEP_DONE}  ${c.bold}${c.ink}Created Task ${createdTask.taskNumber ? `#${createdTask.taskNumber}` : createdTask.id}${c.reset} ${formatPriorityBadge(priority)} ${formatStatusBadge("todo")}`,
+        );
+        console.log(`${RAIL}    ${c.ink}${createdTask.title || title}${c.reset}`);
+        if (description) {
+          console.log(`${RAIL}    ${c.muted}${description.slice(0, 100)}${c.reset}`);
+        }
+        console.log(
+          `${c.dim}╰─${c.reset} Run ${c.accent}nb task work ${createdTask.taskNumber ? `#${createdTask.taskNumber}` : createdTask.id}${c.reset} to begin working on it.\n`,
+        );
+      },
+    );
+    return;
   }
 
   if (sub === "work") {
@@ -2788,6 +2925,77 @@ async function handleTask(sub, positional, flags) {
     return;
   }
 
+  if (sub === "subtask" || sub === "subtasks") {
+    const action = positional[0];
+    if (action === "add" || action === "create" || action === "new") {
+      let args = positional.slice(1);
+      const rawTask = flags.task ? String(flags.task) : null;
+      let targetTaskId = rawTask ? resolveTaskIdentifier(rawTask, cwd) : null;
+
+      // Check if next arg is a task identifier (e.g. #4, 4, or UUID)
+      if (!targetTaskId && args.length > 1 && (/^#?\d+$/.test(args[0]) || /^[0-9a-f]{8}-[0-9a-f]{4}-/i.test(args[0]))) {
+        targetTaskId = resolveTaskIdentifier(args.shift(), cwd);
+      }
+      if (!targetTaskId) {
+        const inferred = inferActiveTaskId(flags, cwd);
+        if (inferred) targetTaskId = resolveTaskIdentifier(inferred, cwd);
+      }
+
+      if (!targetTaskId) {
+        throw new Error("No active task bound. Specify task with `#<number>` or pass `--task <#number>`.");
+      }
+
+      const title = flags.title || flags.message || args.join(" ").trim();
+      if (!title) {
+        throw new Error('Usage: nb task subtask add [#number] "<subtask title>"');
+      }
+
+      const detail = await apiRequest(
+        `/api/v1/extension/task-detail?projectId=${projectId}&taskId=${encodeURIComponent(targetTaskId)}`,
+      );
+      const task = detail.task;
+
+      const created = await withSpinner(
+        `Creating subtask on "${task.title}"…`,
+        () =>
+          apiRequest("/api/v1/extension/task-subtask", {
+            method: "POST",
+            body: {
+              projectId,
+              taskId: task.id,
+              title,
+            },
+          }),
+        { silent: Boolean(flags.json) },
+      );
+
+      // Refresh local tasks and TASKS.md immediately
+      try {
+        const refreshed = await apiRequest(`/api/v1/extension/workspace-tasks?projectId=${projectId}&scope=all`);
+        writeLocalTaskIntelligence(projectId, cfg.title || projectId, refreshed.tasks || [], cwd);
+      } catch {}
+
+      outputResult(
+        {
+          taskId: task.id,
+          taskNumber: task.taskNumber,
+          taskTitle: task.title,
+          subtask: created.subtask,
+        },
+        flags,
+        (res) => {
+          console.log(RAIL);
+          console.log(
+            `${STEP_DONE}  ${c.bold}${c.ink}Created subtask on Task ${res.taskNumber ? `#${res.taskNumber}` : res.taskId}${c.reset} ${c.muted}("${res.taskTitle}")${c.reset}`,
+          );
+          console.log(`${RAIL}    ${c.muted}[ ]${c.reset} ${c.ink}${res.subtask.title}${c.reset}`);
+          console.log(`${c.dim}╰─${c.reset} Subtask added and synced to .networkbase/tasks/TASKS.md\n`);
+        },
+      );
+      return;
+    }
+  }
+
   if (sub === "check" || sub === "subtask" || sub === "subtasks") {
     const rawTaskTarget = flags.task ? String(flags.task) : inferActiveTaskId(flags, cwd);
     let targetTaskId = rawTaskTarget ? resolveTaskIdentifier(rawTaskTarget, cwd) : null;
@@ -2935,6 +3143,11 @@ async function handleTask(sub, positional, flags) {
         expectedUpdatedAt: new Date(task.updatedAt).toISOString(),
       },
     });
+    // Refresh local tasks and TASKS.md immediately
+    try {
+      const refreshed = await apiRequest(`/api/v1/extension/workspace-tasks?projectId=${projectId}&scope=all`);
+      writeLocalTaskIntelligence(projectId, cfg.title || projectId, refreshed.tasks || [], cwd);
+    } catch {}
     outputResult(updated, flags, () => {
       console.log(
         `\n${c.emerald}✔${c.reset} Task ${c.bold}${c.ink}"${task.title}"${c.reset} marked as ${formatStatusBadge("done")}\n`,
@@ -3003,6 +3216,11 @@ async function handleTask(sub, positional, flags) {
       method: "POST",
       body: { taskId: detail.task.id, content },
     });
+    // Refresh local tasks and TASKS.md immediately
+    try {
+      const refreshed = await apiRequest(`/api/v1/extension/workspace-tasks?projectId=${projectId}&scope=all`);
+      writeLocalTaskIntelligence(projectId, cfg.title || projectId, refreshed.tasks || [], cwd);
+    } catch {}
     outputResult(created, flags, () => {
       console.log(`\n${c.emerald}✔${c.reset} Posted comment to task "${detail.task.title}"\n`);
     });
@@ -3064,9 +3282,8 @@ async function downloadRemoteFileBuffer(projectId, remotePath, options = {}) {
 }
 
 async function handleFile(sub, positional, flags) {
-  const cfg = getLocalConfig();
-  const projectId = flags.workspace || cfg.projectId;
-  if (!projectId) throw new Error("No workspace linked. Run `nb init` first.");
+  const cwd = process.cwd();
+  const { projectId, cfg } = await ensureWorkspaceLinked(flags, cwd);
 
   if (sub === "ls" || !sub) {
     const filterQuery = positional[0] || "";
@@ -3218,9 +3435,9 @@ async function handleFile(sub, positional, flags) {
   throw new Error(`Unknown file subcommand: ${sub}`);
 }
 
-function prepareLocalFilesForPush(targetPaths, flags, cwd = process.cwd()) {
+function prepareLocalFilesForPush(targetPaths, flags, cwd = process.cwd(), explicitProjectId = null) {
   const cfg = getLocalConfig(cwd);
-  const projectId = flags.workspace || cfg.projectId;
+  const projectId = explicitProjectId || flags.workspace || cfg.projectId;
   if (!projectId) {
     throw new Error("No workspace linked in this directory. Run `nb init` first.");
   }
@@ -3306,7 +3523,7 @@ function prepareLocalFilesForPush(targetPaths, flags, cwd = process.cwd()) {
   };
 }
 
-async function executePrePushAnalysis(targetPaths, flags, cwd = process.cwd()) {
+async function executePrePushAnalysis(targetPaths, flags, cwd = process.cwd(), explicitProjectId = null) {
   const {
     projectId,
     taskId,
@@ -3314,7 +3531,7 @@ async function executePrePushAnalysis(targetPaths, flags, cwd = process.cwd()) {
     allPreparedCount,
     skippedByLocalManifestCount,
     secretViolations,
-  } = prepareLocalFilesForPush(targetPaths, flags, cwd);
+  } = prepareLocalFilesForPush(targetPaths, flags, cwd, explicitProjectId);
 
   const analysis = await apiRequest("/api/v1/extension/pre-push", {
     method: "POST",
@@ -3399,7 +3616,8 @@ async function executeFastPushRequest({
 }
 
 async function handlePush(positional, flags, { skipHeader = false } = {}) {
-  const cfg = getLocalConfig();
+  const cwd = process.cwd();
+  const { projectId, cfg } = await ensureWorkspaceLinked(flags, cwd);
   if (!flags.json && !skipHeader && !flags["dry-run"]) {
     renderBrandHeader({
       subtitle: `High-EQ Smart Push · ${cfg.title || flags.workspace || "Workspace"}`,
@@ -3407,20 +3625,20 @@ async function handlePush(positional, flags, { skipHeader = false } = {}) {
   }
 
   const explicitRole = resolveRoleFromFlags(flags);
+  const isAuto = Boolean(flags.yes || flags.y || flags.auto || !process.stdin.isTTY);
   const transitionFromFlags = flags.done ? "done" : flags.wip ? "in_progress" : undefined;
 
   // ULTRA-FAST 1-ROUND-TRIP PATH:
-  // When role is already specified (e.g. --deliverable / --draft / --reference / --json) and not dry-run,
+  // When role is already specified (e.g. --deliverable / --draft / --reference / --json) or auto/non-TTY,
   // skip /pre-push completely and execute atomic /fast-push in 1 single HTTP round-trip!
-  if (!flags["dry-run"] && (explicitRole || flags.json || !process.stdin.isTTY)) {
+  if (!flags["dry-run"] && (explicitRole || flags.json || isAuto)) {
     const {
-      projectId,
       taskId,
       preparedFiles,
       allPreparedCount,
       skippedByLocalManifestCount,
       secretViolations,
-    } = prepareLocalFilesForPush(positional, flags);
+    } = prepareLocalFilesForPush(positional, flags, cwd, projectId);
 
     if (secretViolations.length > 0 && !flags["allow-secrets"]) {
       const errPayload = {
@@ -3522,12 +3740,17 @@ async function handlePush(positional, flags, { skipHeader = false } = {}) {
           console.log(`${c.dim}╰─${c.reset} ${c.emerald}✔${c.reset} Sync complete.\n`);
         }
       });
+      if (projectId) {
+        try {
+          const refreshed = await apiRequest(`/api/v1/extension/workspace-tasks?projectId=${projectId}&scope=all`);
+          writeLocalTaskIntelligence(projectId, cfg.title || projectId, refreshed.tasks || [], cwd);
+        } catch {}
+      }
       return finalFast;
     }
   }
 
   const {
-    projectId,
     taskId,
     preparedFiles,
     skippedByLocalManifestCount,
@@ -3535,7 +3758,7 @@ async function handlePush(positional, flags, { skipHeader = false } = {}) {
     analysis,
   } = await withSpinner(
     "Analyzing local files & SHA-256 manifest…",
-    () => executePrePushAnalysis(positional, flags),
+    () => executePrePushAnalysis(positional, flags, cwd, projectId),
     { silent: Boolean(flags.json) },
   );
 
@@ -3599,7 +3822,7 @@ async function handlePush(positional, flags, { skipHeader = false } = {}) {
   let selectedRole = explicitRole;
 
   // Interactive Multi-File Selection & Role Classification when running in a terminal without flags
-  if (process.stdin.isTTY && !flags.json && !selectedRole) {
+  if (process.stdin.isTTY && !flags.json && !selectedRole && !isAuto) {
     if (changedAnalysisFiles.length > 1) {
       const chosenPaths = await tuiMultiSelect({
         title: "Select changed files to include in this push",
@@ -3669,7 +3892,8 @@ async function handlePush(positional, flags, { skipHeader = false } = {}) {
     selectedRole === "deliverable" &&
     !transitionStatus &&
     process.stdin.isTTY &&
-    !flags.json
+    !flags.json &&
+    !isAuto
   ) {
     const taskTitle = analysis.task?.title || taskId;
     const markDone = await tuiConfirm({
@@ -3904,13 +4128,19 @@ async function handlePush(positional, flags, { skipHeader = false } = {}) {
     }
   });
 
+  if (projectId) {
+    try {
+      const refreshed = await apiRequest(`/api/v1/extension/workspace-tasks?projectId=${projectId}&scope=all`);
+      writeLocalTaskIntelligence(projectId, cfg.title || projectId, refreshed.tasks || [], cwd);
+    } catch {}
+  }
+
   return finalPayload;
 }
 
 async function handlePull(positional, flags, { skipHeader = false } = {}) {
-  const cfg = getLocalConfig();
-  const projectId = flags.workspace || cfg.projectId;
-  if (!projectId) throw new Error("No workspace linked. Run `nb init` first.");
+  const cwd = process.cwd();
+  const { projectId, cfg } = await ensureWorkspaceLinked(flags, cwd);
 
   if (!flags.json && !skipHeader) {
     renderBrandHeader({ subtitle: `Pull Workspace Files · ${cfg.title || projectId}` });
@@ -4140,18 +4370,7 @@ async function hydrateWorkspaceMirror(projectId, { cwd = process.cwd(), force = 
 
 async function handleSync(positional, flags) {
   const cwd = process.cwd();
-  let cfg = getLocalConfig(cwd);
-
-  // Allow switching workspace in the same single `nb sync --workspace <slug-or-id>` call
-  if (typeof flags.workspace === "string" && flags.workspace.trim() && flags.workspace !== cfg.projectId) {
-    await handleInit([flags.workspace.trim()], { ...flags, "no-task": true, silent: true }, { skipHeader: true });
-    cfg = getLocalConfig(cwd);
-  }
-
-  const projectId = cfg.projectId;
-  if (!projectId) {
-    throw new Error("No workspace linked. Run `nb init` first.");
-  }
+  let { projectId, cfg } = await ensureWorkspaceLinked(flags, cwd);
 
   if (!flags.json) {
     renderBrandHeader({ subtitle: `Unified One-Permission Sync · ${cfg.title || projectId}` });
@@ -4277,9 +4496,7 @@ async function handleSync(positional, flags) {
 
 async function handleWatch(positional, flags) {
   const cwd = process.cwd();
-  const cfg = getLocalConfig(cwd);
-  const projectId = flags.workspace || cfg.projectId;
-  if (!projectId) throw new Error("No workspace linked. Run `nb init` first.");
+  const { projectId, cfg } = await ensureWorkspaceLinked(flags, cwd);
 
   const isDaemonWorker = Boolean(flags["daemon-worker"]);
   const role = resolveRoleFromFlags(flags) || "deliverable";
@@ -4720,6 +4937,31 @@ async function startMcpServer() {
                 properties: { paths: { type: "array", items: { type: "string" } } },
               },
             },
+            {
+              name: "nb_subtask_create",
+              description: "Create a new subtask checklist item on a Sprint Task in NetworkBase.",
+              inputSchema: {
+                type: "object",
+                properties: {
+                  taskId: { type: "string", description: "Task UUID or task number (e.g. #4 or 4)" },
+                  title: { type: "string", description: "Subtask title / description" },
+                },
+                required: ["taskId", "title"],
+              },
+            },
+            {
+              name: "nb_task_create",
+              description: "Create a new Sprint Task in the active NetworkBase workspace.",
+              inputSchema: {
+                type: "object",
+                properties: {
+                  title: { type: "string", description: "Task title" },
+                  description: { type: "string", description: "Optional markdown description" },
+                  priority: { type: "string", enum: ["low", "medium", "high", "urgent"] },
+                },
+                required: ["title"],
+              },
+            },
           ],
         });
         return;
@@ -4905,6 +5147,51 @@ async function startMcpServer() {
           return;
         }
 
+        if (toolName === "nb_subtask_create") {
+          const cfg = getLocalConfig();
+          const targetId = resolveTaskIdentifier(args.taskId || getLocalState()?.activeTaskId);
+          const detail = await apiRequest(
+            `/api/v1/extension/task-detail?projectId=${cfg.projectId}&taskId=${encodeURIComponent(targetId)}`,
+          );
+          const res = await apiRequest("/api/v1/extension/task-subtask", {
+            method: "POST",
+            body: {
+              projectId: cfg.projectId,
+              taskId: detail.task.id,
+              title: args.title,
+            },
+          });
+          try {
+            const refreshed = await apiRequest(`/api/v1/extension/workspace-tasks?projectId=${cfg.projectId}&scope=all`);
+            writeLocalTaskIntelligence(cfg.projectId, cfg.title || cfg.projectId, refreshed.tasks || []);
+          } catch {}
+          sendJsonRpc(id, {
+            content: [{ type: "text", text: JSON.stringify(res, null, 2) }],
+          });
+          return;
+        }
+
+        if (toolName === "nb_task_create") {
+          const cfg = getLocalConfig();
+          const res = await apiRequest("/api/v1/extension/create-task", {
+            method: "POST",
+            body: {
+              projectId: cfg.projectId,
+              title: args.title,
+              description: args.description,
+              priority: args.priority || "medium",
+            },
+          });
+          try {
+            const refreshed = await apiRequest(`/api/v1/extension/workspace-tasks?projectId=${cfg.projectId}&scope=all`);
+            writeLocalTaskIntelligence(cfg.projectId, cfg.title || cfg.projectId, refreshed.tasks || []);
+          } catch {}
+          sendJsonRpc(id, {
+            content: [{ type: "text", text: JSON.stringify(res, null, 2) }],
+          });
+          return;
+        }
+
         sendJsonRpc(id, null, { code: -32601, message: `Unknown tool: ${toolName}` });
       }
     } catch (err) {
@@ -4936,15 +5223,21 @@ Core Commands:
   nb auth setup-git               Configure Git HTTPS credential helper
   nb workspace list | switch      List or switch active NetworkBase workspaces
   nb task [list] [--all | --mine] View project tasks, descriptions, subtasks & attached files
+  nb task <#number|id>            Shorthand to inspect task details & mirror attached files
   nb task view <#number|id>       Inspect task description, subtasks & mirror attached files
   nb task work <#number|id>       Bind active task, transition to in_progress & mirror files
-  nb task check [1 2 | --all]     Toggle subtasks interactively (Space) or via CLI numbers
+  nb task create "<title>" [-m]   Create a new sprint task (--priority low|medium|high|urgent)
+  nb task subtask add [#id] <t>   Add a new subtask checklist item to active or specified task
+  nb task check [#id] [1 2|--all] Toggle subtasks interactively (Space) or via CLI numbers
   nb task done [#number|id]       Mark active or specified task as Done
+  nb task comment <#id> <message> Add a comment to active or specified task
+  nb task status                  View sprint & task health metrics and completion rate
   nb file ls | log | diff | lock  Inspect workspace files, history, diffs, or CLI locks
   nb hook install                 Install local .git/hooks/pre-push secret scanner
   nb pull [paths...]              Download remote workspace files to local directory
   nb watch [paths...]             Live debounced auto-sync watcher (1-RTT fast-push on save)
   nb push [paths...]              High-EQ Smart Push (SHA-256 diff + v1->v2 bump + task link)
+    -y, --yes, --auto             Non-interactive push with smart defaults (no prompt blocking)
     --deliverable                 Classify pushed files as Final Deliverable (#deliverable)
     --draft                       Classify pushed files as Working Draft (#editor_working)
     --reference                   Classify pushed files as Reference Material (#reference)
