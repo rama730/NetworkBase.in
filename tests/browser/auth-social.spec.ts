@@ -154,6 +154,18 @@ test('A3, C18: the code screen offers "Trust this browser for 30 days" and a rec
     await expect(page.getByLabel('Recovery code')).toBeVisible();
 });
 
+test('Forgot password sits on the Password label row, and Sign in plus the code button fit on one laptop screen', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 720 });
+    await open(page, 'page=login');
+    const label = (await page.getByText('Password', { exact: true }).boundingBox())!;
+    const forgot = (await page.getByRole('link', { name: 'Forgot password?' }).boundingBox())!;
+    expect(Math.abs((forgot.y + forgot.height / 2) - (label.y + label.height / 2))).toBeLessThan(4);
+    expect(forgot.x).toBeGreaterThan(label.x + label.width);
+    await expect(page.getByText(/By continuing with Google or GitHub/)).toHaveCount(0);
+    const code = (await page.getByRole('button', { name: 'Email me a sign-in code instead' }).boundingBox())!;
+    expect(code.y + code.height).toBeLessThanOrEqual(720);
+});
+
 test('A1: a failed GitHub return says GitHub, with no developer hint', async ({ page }) => {
     await open(page, 'page=login&error=github-failed');
     await expect(page.getByText('GitHub sign-in didn’t finish. Try again.')).toBeVisible();
@@ -163,7 +175,7 @@ test('B8, B9, A6: sign-up has no confirm-password or handle check, and a used em
     await open(page, 'page=signup');
     await expect(page.getByLabel('Confirm password')).toHaveCount(0);
     await expect(page.getByText(/Your profile link/)).toHaveCount(0);
-    await expect(page.getByText(/By continuing with Google or GitHub, you confirm you’re 18 or older/)).toBeVisible();
+    await expect(page.getByText(/By continuing with Google or GitHub/)).toHaveCount(0);
     await page.getByLabel('Full name').fill('Asha Rao');
     await page.getByLabel('Email').fill('used@test.local');
     await page.getByLabel('Password', { exact: true }).fill('Str0ng-enough-pass!');

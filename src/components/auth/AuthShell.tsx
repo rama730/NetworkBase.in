@@ -252,13 +252,6 @@ export function OAuthButtons({ next, disabled, onError, captchaToken, onCaptchaU
                     </Button>
                 ))}
             </div>
-            {/* The agreement for a new Google or GitHub account, recorded with the current versions when it is made. */}
-            <p className="mt-3 text-center text-xs leading-relaxed text-muted-foreground">
-                By continuing with Google or GitHub, you confirm you’re 18 or older, accept the{' '}
-                <a href="/terms" target="_blank" className="underline underline-offset-2 hover:text-foreground">Terms of Service</a> and{' '}
-                <a href="/eula" target="_blank" className="underline underline-offset-2 hover:text-foreground">EULA</a>, and acknowledge the{' '}
-                <a href="/privacy" target="_blank" className="underline underline-offset-2 hover:text-foreground">Privacy Policy</a>.
-            </p>
         </div>
     )
 }

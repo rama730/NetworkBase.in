@@ -450,6 +450,21 @@ export function LoginForm({ redirect, error, step: stepParam }: { redirect: stri
                     id="password"
                     label="Password"
                     error={fieldErrors.password}
+                    aside={
+                        <Link
+                            href="/forgot-password"
+                            onClick={() => {
+                                try {
+                                    if (email.trim()) sessionStorage.setItem(AUTH_EMAIL_HANDOFF_KEY, email.trim())
+                                } catch {
+                                    // Storage can be blocked; the forgot page just starts empty.
+                                }
+                            }}
+                            className="-my-3 inline-flex min-h-11 items-center text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+                        >
+                            Forgot password?
+                        </Link>
+                    }
                 >
                     <PasswordField
                         ref={passwordRef}
@@ -466,21 +481,6 @@ export function LoginForm({ redirect, error, step: stepParam }: { redirect: stri
                         {...fieldError('password', fieldErrors.password)}
                     />
                 </AuthField>
-                <div className="-mt-2 flex justify-end">
-                    <Link
-                        href="/forgot-password"
-                        onClick={() => {
-                            try {
-                                if (email.trim()) sessionStorage.setItem(AUTH_EMAIL_HANDOFF_KEY, email.trim())
-                            } catch {
-                                // Storage can be blocked; the forgot page just starts empty.
-                            }
-                        }}
-                        className="inline-flex min-h-11 items-center text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
-                    >
-                        Forgot password?
-                    </Link>
-                </div>
                 {showWrongPasswordHelp ? (
                     <div className="grid grid-cols-2 gap-3" role="group" aria-label="Other ways in">
                         <Button type="button" variant="outline" className="h-11" onClick={() => void startEmailCode()} disabled={busy}>Email me a code</Button>

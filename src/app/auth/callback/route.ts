@@ -9,7 +9,7 @@ import { hasCompletedOnboarding } from '@/lib/onboarding/completion'
 import { ensureDefaultGithubContributorIdentity } from '@/lib/github/contributor-identity'
 import { recordSecurityEvent } from '@/lib/security/audit'
 import { queueSecurityEmail } from '@/lib/email/security-queue'
-import { getLegalAcceptanceState, recordCurrentLegalAcceptance } from '@/lib/legal/acceptance'
+import { getLegalAcceptanceState } from '@/lib/legal/acceptance'
 import { githubOAuthFailureCode } from '@/lib/github/oauth-errors'
 import { getSessionIdentifierFromSession } from '@/lib/auth/session-identifier'
 import { getTrustedRequestIp } from '@/lib/security/request-ip'
@@ -178,15 +178,7 @@ export async function GET(request: Request) {
         const acceptanceState = isLegalAcceptance
             ? await getLegalAcceptanceState(data.user.id)
             : null
-        // A new account from the Google or GitHub button: the line under the buttons ("By continuing, you confirm
-        // you're 18 or older and accept…") is the agreement, recorded with the current versions, so no extra page.
-        const acceptedByContinuing = !previousUserData.user && isLegalAcceptance && !acceptanceState?.latest
-            && requestedUrl.searchParams.get('context') === 'oauth_signup'
-            && await recordCurrentLegalAcceptance({ userId: data.user.id, request, context: 'oauth_signup', ageConfirmed: true }).then(() => true, (acceptError) => {
-                logger.warn('auth.callback.acceptance_record_failed', { requestId, provider, error: acceptError instanceof Error ? acceptError.message : String(acceptError) })
-                return false
-            })
-        const hasCurrentAcceptance = acceptanceState?.current === true || acceptedByContinuing
+        const hasCurrentAcceptance = acceptanceState?.current === true
         const complete = await hasCompletedOnboarding(data.user)
 
         if (!complete) {

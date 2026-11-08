@@ -54,6 +54,7 @@ says whether an account exists, two-step sign-in, Cloudflare on every way in, dr
 ## Decisions for you
 
 - **D1 (item 14):** keep the separate agreement page after Google/GitHub sign-up, or use the line under the buttons. My suggestion: the line under the buttons, still recorded with versions.
+  **Changed 2026-11-09:** the line under the buttons was removed at the user's request (the terms are in the footer links). New Google/GitHub accounts accept on the agreement page again; existing accounts never see it. "Forgot password?" moved beside the Password label so Sign in and "Email me a sign-in code instead" fit on one screen.
 - **D2 (item 18):** offer "Trust this browser for 30 days", or keep asking every time. My suggestion: offer it.
 - **D3 (item 19):** passkeys now or later. My suggestion: later, after A and B.
 

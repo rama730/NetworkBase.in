@@ -76,14 +76,22 @@ test("A5, A6, B8, B9: sign-up keeps its code step, helps on a used email, drops 
   assert.doesNotMatch(signup, /username-check/);
 });
 
-test("B10, D1: the buttons show 'Last used' and carry the agreement line; a new account records it", () => {
+test("B10, D1: the buttons show 'Last used'; no agreement text under them, so a new account accepts on the agreement page", () => {
   const shell = read("src/components/auth/AuthShell.tsx");
   assert.match(shell, /lastUsed === provider/);
-  assert.match(shell, /By continuing with Google or GitHub, you confirm you’re 18 or older/);
-  const callback = read("src/app/auth/callback/route.ts");
-  assert.match(callback, /recordCurrentLegalAcceptance\(\{ userId: data\.user\.id, request, context: 'oauth_signup', ageConfirmed: true \}\)/);
-  assert.match(callback, /!previousUserData\.user && isLegalAcceptance && !acceptanceState\?\.latest/);
-  assert.match(read("src/app/api/v1/auth/google-one-tap/route.ts"), /if \(acceptance && !acceptance\.latest\)/);
+  // The user, 9 Nov: the paragraph under the buttons is not needed; the terms are in the footer links.
+  assert.doesNotMatch(shell, /By continuing with Google or GitHub/);
+  assert.doesNotMatch(read("src/app/auth/callback/route.ts"), /recordCurrentLegalAcceptance/);
+  assert.doesNotMatch(read("src/app/api/v1/auth/google-one-tap/route.ts"), /recordCurrentLegalAcceptance/);
+  assert.match(shell, /const legalNext = `\/legal\/accept\?context=oauth_signup/);
+});
+
+test("the sign-in form: Forgot password sits beside the Password label, not on its own row", () => {
+  const login = read("src/components/auth/LoginForm.tsx");
+  const field = login.slice(login.indexOf('id="password"'), login.indexOf("<PasswordField"));
+  assert.match(field, /aside=\{/);
+  assert.match(field, /Forgot password\?/);
+  assert.doesNotMatch(login, /-mt-2 flex justify-end/);
 });
 
 test("C18: a trusted browser skips the code in both gates; staff never; signing out everywhere ends trust", () => {
