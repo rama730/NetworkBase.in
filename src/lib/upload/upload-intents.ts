@@ -444,15 +444,26 @@ export async function createUploadIntent(rawParams: CreateUploadIntentParams) {
     if (handIn) {
       const [used] = await tx.execute<{ bytes: string | number }>(sql`
         SELECT coalesce(sum(v.size), 0) AS bytes FROM file_versions v JOIN workspace_nodes n ON n.id = v.node_id
-        WHERE n.workspace_id = ${projectQuota!.scopeId} AND v.uploaded_by = ${rawParams.userId}`);
+        WHERE n.workspace_id = ${projectQuota!.scopeId} AND v.uploaded_by = ${rawParams.userId}
+          -- Audit 8.2: what they still have, not trashed files or replaced versions they can't clear themselves.
+          AND n.deleted_at IS NULL AND v.version = n.current_version`);
       if (Number(used?.bytes ?? 0) + expectedSize > ORG_LIMITS.handInBytesPerPerson) {
         throw new Error("Your hand-ins have used their 50 MB. Remove an old file or ask an admin for more room.");
       }
     }
+    // Audit 8.1: hand-ins sit on the organization's quota row but never count against its 5 GB, so an admin's
+    // upload is checked against the bytes that aren't hand-ins.
+    let handInBytes = 0;
+    if (scopeProject?.kind === "organization" && !handIn) {
+      const [held] = await tx.execute<{ bytes: string | number }>(sql`
+        SELECT coalesce(sum(v.size), 0) AS bytes FROM file_versions v JOIN workspace_nodes n ON n.id = v.node_id
+        WHERE n.workspace_id = ${projectQuota!.scopeId} AND n.task_id IN (SELECT t.id FROM tasks t WHERE t.workspace_id = ${projectQuota!.scopeId} AND t.assignment_id IS NOT NULL)`);
+      handInBytes = Number(held?.bytes ?? 0);
+    }
     try {
       assertStorageQuotaAdmission({
         limitBytes: projectStorageLimit(scopeProject, byteQuota.limitBytes, handIn),
-        retainedBytes: byteQuota.retainedBytes,
+        retainedBytes: Math.max(0, Number(byteQuota.retainedBytes) - handInBytes),
         reservedBytes: byteQuota.reservedBytes,
         outstandingUploads: userQuota.outstandingUploads,
         incomingBytes: expectedSize,

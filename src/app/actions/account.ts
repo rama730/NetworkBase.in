@@ -14,7 +14,7 @@ import { eq, or, and, inArray, isNull, sql, desc, } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 import { logger } from '@/lib/logger';
 import { consumeRateLimit } from '@/lib/security/rate-limit';
-import { resolveSecurityStepUp } from '@/lib/security/step-up';
+import { resolveDestructiveStepUp } from '@/lib/security/destructive-step-up';
 import { enqueueWorkspaceNotificationEvent } from '@/lib/notifications/workspace-events';
 import { z } from 'zod';
 import { cancelAccountDeletionForUser } from '@/lib/account/deletion';
@@ -137,7 +137,8 @@ export async function transferWorkspaceOwnership(
         // SEC-C4: require a fresh step-up — same invariant as account deletion
         // because transferring ownership is effectively a silent privilege
         // hand-off on the project.
-        const stepUp = await resolveSecurityStepUp(user.id);
+        // Audit 3.3: with an authenticator on the account, a password alone isn't enough.
+        const stepUp = await resolveDestructiveStepUp(supabase, user.id);
         if (!stepUp.ok) {
             return {
                 success: false,

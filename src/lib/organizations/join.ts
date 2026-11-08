@@ -198,7 +198,8 @@ export async function acceptOrgEmailInvites(userId: string, email: string): Prom
     .where(and(eq(orgEmailInvites.email, email.trim().toLowerCase()), isNull(orgEmailInvites.acceptedAt), gt(orgEmailInvites.expiresAt, sql`now()`)));
   let accepted = 0;
   for (const invite of invites) {
-    const result = await acceptOrgInvite(userId, invite.id);
+    // Audit N2: one invite that can't be accepted (full team, blocked, 50 organizations) doesn't stop the others.
+    const result = await acceptOrgInvite(userId, invite.id).catch((error: unknown) => { console.error("Accepting an org invite at sign-up failed:", error); return null; });
     if (result && "orgId" in result) accepted += 1;
   }
   return accepted;

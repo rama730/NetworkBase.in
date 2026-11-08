@@ -118,7 +118,7 @@ function InviteEmailDialog({ orgId, data, open, onOpenChange, onSent }: { orgId:
                     </div>
                     <div className="grid gap-3 sm:grid-cols-2">
                         <label className="block"><span className={fieldLabel}>Invite as</span>
-                            <select className="nb-select mt-1.5 w-full" value={role} onChange={(e) => setRole(e.target.value as typeof role)}>
+                            <select className="nb-select mt-1.5 w-full" value={role} onChange={(e) => { const next = e.target.value as typeof role; setRole(next); if (next !== 'member') { setChildId(''); setUnitId('') } }}>
                                 <option value="member">{data.roleNames.member}</option><option value="viewer">{data.roleNames.viewer}</option>
                                 {data.viewerRole === 'owner' ? <option value="admin">{data.roleNames.admin}</option> : null}
                             </select>
@@ -126,13 +126,14 @@ function InviteEmailDialog({ orgId, data, open, onOpenChange, onSent }: { orgId:
                         <label className="block"><span className={fieldLabel}>Title (optional)</span>
                             <Input value={title} onChange={(e) => setTitle(e.target.value)} maxLength={60} className="mt-1.5" />
                         </label>
-                        <label className="block"><span className={fieldLabel}>Workspace</span>
+                        {/* Only members join a workspace; viewers and admins can't be placed in one (audit 3.5). */}
+                        {role === 'member' ? <label className="block"><span className={fieldLabel}>Workspace</span>
                             <select className="nb-select mt-1.5 w-full" value={childId} onChange={(e) => { setChildId(e.target.value); setUnitId('') }}>
                                 <option value="">No workspace</option>
                                 {data.children.map((c) => <option key={c.id} value={c.id}>{c.title}</option>)}
                             </select>
-                        </label>
-                        {childId ? (
+                        </label> : null}
+                        {childId && role === 'member' ? (
                             <label className="block"><span className={fieldLabel}>Team</span>
                                 <select className="nb-select mt-1.5 w-full" value={unitId} onChange={(e) => setUnitId(e.target.value)}>
                                     <option value="">No team</option>

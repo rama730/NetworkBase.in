@@ -271,6 +271,8 @@ export async function transitionTaskTx(
   if (!input.reviewReason && !input.resubmit) {
     await assertAssignmentWrite(tx, input.taskId, { role: locked.orgRole, isHolder: locked.isHolder, onOrgBoard: locked.onOrgBoard }, status === "done" && locked.currentStatus !== "done" ? "done" : "status");
   }
+  // Audit 9.6: assignment work goes back through Hand in, with its checks and a new version.
+  if (input.resubmit && locked.copySubmissionType != null) throw new Error("Use Hand in to send your work again.");
   if (input.resubmit && locked.reviewStatus !== "pending")
     throw new Error("Task is not pending review. Reload before submitting.");
   let reviewStatus = locked.reviewStatus;

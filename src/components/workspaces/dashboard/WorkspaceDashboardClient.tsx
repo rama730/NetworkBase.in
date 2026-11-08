@@ -300,7 +300,8 @@ export default function WorkspaceDashboardClient({ project, currentUserId, viewe
         requestedTab: normalizeProjectDetailTabParam(searchParams?.get('tab')),
         isOwnerOrMember: canSeeAllTabs,
         // Smaller bug 13: admins can open Members, so ?tab=members must not start on Overview and then jump.
-        canManageSettings: isOwner || (isMember && normalizeWorkspaceMemberRole(memberRole, 'member') === 'admin'),
+        // Audit N39: an org admin outside the team opens this workspace's Settings (its Organization section).
+        canManageSettings: isOwner || (isMember && normalizeWorkspaceMemberRole(memberRole, 'member') === 'admin') || isInheritedAdmin,
         publicTabVisibility,
         isOrganization,
     });
@@ -585,6 +586,8 @@ export default function WorkspaceDashboardClient({ project, currentUserId, viewe
         ? 'owner'
         : isMember ? normalizeWorkspaceMemberRole(memberRole, 'member') : null;
     const canManageProjectSettings = isOwner || currentProjectRole === 'admin';
+    // Which tabs open: the project's admins, plus org admins for Settings only (audit N39). Tools stay canManageProjectSettings.
+    const canOpenSettingsTab = canManageProjectSettings || isInheritedAdmin;
     // Decision 139: an organization admin not on the team creates and moves its tasks too, marked Viewing as admin.
     const canEditTasks = isOwner || currentProjectRole === 'admin' || currentProjectRole === 'member' || isInheritedAdmin;
     const canManageFiles = isOwner || currentProjectRole === 'admin';
@@ -626,7 +629,7 @@ export default function WorkspaceDashboardClient({ project, currentUserId, viewe
                 !isWorkspaceTabVisibleToViewer({
                     tabId,
                     isOwnerOrMember: canSeeAllTabs,
-                    canManageSettings: canManageProjectSettings,
+                    canManageSettings: canOpenSettingsTab,
                     publicTabVisibility,
                     isOrganization,
                 })
@@ -667,7 +670,7 @@ export default function WorkspaceDashboardClient({ project, currentUserId, viewe
             // A user's tab click is a history entry; canonicalising below stays a replace.
             router.push(nextUrl, { scroll: false });
         },
-        [activeTab, canManageProjectSettings, isOwnerOrMember, pathname, publicTabVisibility, router],
+        [activeTab, canOpenSettingsTab, canSeeAllTabs, isOrganization, pathname, publicTabVisibility, router],
     );
     const handleTabChange = useCallback((tabId: string) => confirmFileNavigation(project.id, () => switchTab(tabId)), [project.id, switchTab]);
 
@@ -682,7 +685,7 @@ export default function WorkspaceDashboardClient({ project, currentUserId, viewe
         const allowedTab = resolveAllowedWorkspaceTab({
             requestedTab: normalizedRequestedTab,
             isOwnerOrMember: canSeeAllTabs,
-            canManageSettings: canManageProjectSettings,
+            canManageSettings: canOpenSettingsTab,
             publicTabVisibility,
             isOrganization,
         });
@@ -719,8 +722,8 @@ export default function WorkspaceDashboardClient({ project, currentUserId, viewe
         const nextUrl = nextQuery ? `${safePath}?${nextQuery}` : safePath;
         router.replace(nextUrl, { scroll: false });
     }, [
-        canManageProjectSettings,
-        isOwnerOrMember,
+        canOpenSettingsTab,
+        canSeeAllTabs,
         pathname,
         project.id,
         project.slug,
@@ -737,14 +740,14 @@ export default function WorkspaceDashboardClient({ project, currentUserId, viewe
         const nextTab = resolveAllowedWorkspaceTab({
             requestedTab: normalizedRequestedTab,
             isOwnerOrMember: canSeeAllTabs,
-            canManageSettings: canManageProjectSettings,
+            canManageSettings: canOpenSettingsTab,
             publicTabVisibility,
             isOrganization,
         });
         setActiveTab((prev) => (prev === nextTab ? prev : nextTab));
     }, [
-        canManageProjectSettings,
-        isOwnerOrMember,
+        canOpenSettingsTab,
+        canSeeAllTabs,
         project.id,
         project.slug,
 

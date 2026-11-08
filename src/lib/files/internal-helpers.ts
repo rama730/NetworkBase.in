@@ -106,7 +106,7 @@ const uuidArray = (ids: string[]) => sql`ARRAY[${sql.join(ids.map((id) => sql`${
  * Decision 173 and report §42.14 (problems 38, 151): once a copy is waiting for review or approved, its files are
  * locked with that version for everyone, admins included; Returned work opens again for the resubmission.
  */
-async function assertCopyFilesOpen(executor: Executor, projectId: string, target: OwnCopyTarget) {
+export async function assertCopyFilesOpen(executor: Executor, projectId: string, target: OwnCopyTarget) {
     const nodeIds = targetNodeIds(target);
     if (!target.taskId && nodeIds.length === 0) return;
     const touched = sql`(${target.taskId ? sql`t.id = ${target.taskId}::uuid` : sql`false`}${nodeIds.length ? sql`

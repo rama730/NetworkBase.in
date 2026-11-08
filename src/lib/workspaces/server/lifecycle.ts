@@ -816,6 +816,8 @@ export async function createWorkspaceAction(
 
     let attempts = 0;
     const maxAttempts = 5;
+    // Audit N1: once the row is committed, nothing after it may retry the insert or report a failure.
+    let committed: { id: string; title: string; slug: string | null; joinCode: string | null } | null = null;
 
     while (attempts < maxAttempts) {
       try {
@@ -1056,6 +1058,7 @@ export async function createWorkspaceAction(
 
           return newProject;
         });
+        committed = result;
 
         await invalidateWorkspacePublicCaches(result.id);
         await markProfileCollaborationSummaryStale(user.id);
@@ -1205,6 +1208,15 @@ export async function createWorkspaceAction(
           notices,
         };
       } catch (error: any) {
+        if (committed) {
+          // The workspace exists; a follow-up step failed. Say so, and never insert it again.
+          console.error("Follow-up after creating a workspace failed:", error);
+          return {
+            success: true,
+            project: { id: committed.id, title: committed.title, slug: committed.slug || committed.id, joinCode: committed.joinCode, invites: { coAdmins: 0, members: 0, skipped: 0 } },
+            notices: ["It was created, but some setup didn’t finish. Check its invites and sprints."],
+          };
+        }
         // Check for Unique Constraint Violation on Slug
         // Postgres error code 23505 is unique_violation. Drizzle wraps this in `error.cause`.
         const dbError = error.cause || error;

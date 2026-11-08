@@ -1,7 +1,7 @@
 import "server-only";
 import type { MembershipEnding } from "@/lib/profile/collaboration";
 
-import { and, eq, gt, inArray, isNull, sql } from "drizzle-orm";
+import { and, eq, gt, inArray, isNull, notInArray, sql } from "drizzle-orm";
 
 import { db } from "@/lib/db";
 import { orgEmailInvites, profiles, workspaceMembers, workspaces } from "@/lib/db/schema";
@@ -34,7 +34,7 @@ export async function createOrgEmailInvites(orgId: string, actorId: string, inpu
   // ponytail: one upsert per address (500 at most per paste); batch it if pastes ever grow past that.
   for (const email of toInvite) {
     const [row] = await db.insert(orgEmailInvites).values({ orgId, email, role: input.role, title: input.title, childProjectId: input.childProjectId, unitId: input.unitId, invitedBy: actorId, expiresAt, message: input.message ?? null })
-      .onConflictDoUpdate({ target: [orgEmailInvites.orgId, orgEmailInvites.email], targetWhere: sql`${orgEmailInvites.acceptedAt} IS NULL`, set: { role: input.role, title: input.title, childProjectId: input.childProjectId, unitId: input.unitId, invitedBy: actorId, expiresAt, message: input.message ?? null } })
+      .onConflictDoUpdate({ target: [orgEmailInvites.orgId, orgEmailInvites.email], targetWhere: sql`${orgEmailInvites.acceptedAt} IS NULL`, set: { role: input.role, title: input.title, childProjectId: input.childProjectId, unitId: input.unitId, invitedBy: actorId, expiresAt, message: input.message ?? null, createdAt: new Date() } })
       .returning({ id: orgEmailInvites.id });
     if (row) invites.push({ id: row.id, email });
   }
@@ -67,14 +67,16 @@ export async function notifyInvites(orgId: string, actorId: string, invites: Arr
  * Accepts one open org invite for this person (report §20.5): the invited role and title apply, and the
  * invite's child project and unit place them there too. Returns the org id, or null when the invite is gone.
  */
-export async function acceptOrgInvite(userId: string, inviteId: string): Promise<{ orgId: string } | { full: true } | null> {
+export async function acceptOrgInvite(userId: string, inviteId: string): Promise<{ orgId: string } | { full: true } | { adminsFull: true } | null> {
   const orgId = await db.transaction(async (tx) => {
     // Max members holds for invites too (report §20.5): a full org keeps the invite open until there's room.
-    const [target] = await tx.select({ orgId: orgEmailInvites.orgId, max: workspaces.maxCollaborators }).from(orgEmailInvites)
+    const [target] = await tx.select({ orgId: orgEmailInvites.orgId, role: orgEmailInvites.role, max: workspaces.maxCollaborators }).from(orgEmailInvites)
       .innerJoin(workspaces, eq(workspaces.id, orgEmailInvites.orgId)).where(eq(orgEmailInvites.id, inviteId)).for("update", { of: workspaces }).limit(1);
     if (!target) return null;
     const [{ n } = { n: 0 }] = await tx.select({ n: sql<number>`count(*)::int` }).from(workspaceMembers).where(eq(workspaceMembers.projectId, target.orgId));
     if (n >= orgMemberCap(target.max)) return "full" as const;
+    // The 20-admin cap holds when an admin invite is accepted too (audit 2.3); the invite stays open.
+    if (target.role === "admin" && (await adminCount(tx, target.orgId)) >= ORG_LIMITS.adminsPerOrg) return "admins_full" as const;
     const [invite] = await tx.update(orgEmailInvites)
       .set({ acceptedAt: new Date() })
       .where(and(eq(orgEmailInvites.id, inviteId), isNull(orgEmailInvites.acceptedAt), gt(orgEmailInvites.expiresAt, sql`now()`)))
@@ -88,7 +90,8 @@ export async function acceptOrgInvite(userId: string, inviteId: string): Promise
       await tx.update(workspaceMembers).set({ title: invite.title })
         .where(and(eq(workspaceMembers.projectId, invite.orgId), eq(workspaceMembers.userId, userId)));
     }
-    if (invite.childProjectId) {
+    // Only members are placed in a workspace: viewers can't be on one (audit 3.5).
+    if (invite.childProjectId && invite.role === "member") {
       const [child] = await tx.select({ id: workspaces.id }).from(workspaces)
         .where(and(eq(workspaces.id, invite.childProjectId), eq(workspaces.parentId, invite.orgId), isNull(workspaces.deletedAt))).limit(1);
       if (child) await addWorkspaceMemberInternal(tx, { projectId: child.id, userId, role: "member", actorId: invite.invitedBy ?? userId, source: "email_invite", roleId: invite.unitId });
@@ -96,8 +99,21 @@ export async function acceptOrgInvite(userId: string, inviteId: string): Promise
     return invite.orgId;
   });
   if (orgId === "full") return { full: true };
+  if (orgId === "admins_full") return { adminsFull: true };
   if (orgId) await notifyNewCopies(orgId, { userId });
   return orgId ? { orgId } : null;
+}
+
+/** Admins in the org, plus open admin invites when asked (an invite holds a seat until it's accepted or expires). */
+export async function adminCount(executor: Executor, orgId: string, opts: { openInvitesExcept?: string[] } = {}) {
+  const [{ n } = { n: 0 }] = await executor.select({ n: sql<number>`count(*)::int` }).from(workspaceMembers)
+    .where(and(eq(workspaceMembers.projectId, orgId), eq(workspaceMembers.role, "admin")));
+  if (!opts.openInvitesExcept) return n;
+  const except = opts.openInvitesExcept;
+  const [{ open } = { open: 0 }] = await executor.select({ open: sql<number>`count(*)::int` }).from(orgEmailInvites)
+    .where(and(eq(orgEmailInvites.orgId, orgId), eq(orgEmailInvites.role, "admin"), isNull(orgEmailInvites.acceptedAt), gt(orgEmailInvites.expiresAt, sql`now()`),
+      except.length ? notInArray(orgEmailInvites.email, except) : undefined));
+  return n + open;
 }
 
 /** Open invites sent to this person's address (exact match, report §20.11), optionally for one org. */
@@ -144,7 +160,14 @@ export async function removeFromOrg(executor: Executor, orgId: string, userId: s
     await removeWorkspaceMemberInternal(executor, { projectId, actorId: self ? userId : leadId, realActorId: removal?.by ?? actorId, targetUserId: userId, mode: "unassign_active_tasks", allowSelf: self, ending });
   }
   await removeWorkspaceMemberInternal(executor, { projectId: orgId, actorId, targetUserId: userId, mode: "unassign_active_tasks", allowSelf: self, ending });
+  await clearTakeoverRequestBy(executor, orgId, userId);
   return childMemberships.flatMap((m) => (m.unit ? [{ projectId: m.projectId, slug: m.slug, leadId: m.leadId, unit: m.unit }] : []));
+}
+
+/** A takeover request ends when its asker leaves, is removed or stops being an admin (audit 3.7, N38). */
+export async function clearTakeoverRequestBy(executor: Executor, orgId: string, userId: string) {
+  await executor.update(workspaces).set({ takeoverRequestedBy: null, takeoverRequestedAt: null })
+    .where(and(eq(workspaces.id, orgId), eq(workspaces.takeoverRequestedBy, userId)));
 }
 
 /** Seat reopened (report §26 B): the child project's lead hears it. */

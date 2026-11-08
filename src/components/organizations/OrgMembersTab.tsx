@@ -214,10 +214,11 @@ export function OrgMembersTab({ orgId, roleNames, started = null }: { orgId: str
                                 <span className="font-medium">{i.email}</span>
                                 <span className="text-muted-foreground">{label(i.role)}{i.title ? ` · ${i.title}` : ''}</span>
                                 {i.expired ? <StatusBadge state="expired">Expired</StatusBadge> : <span className="nb-meta">Expires {formatOrgDate(i.expiresAt, { month: 'short', day: 'numeric' })}</span>}
-                                <span className="ml-auto flex gap-1.5">
+                                {/* Only the owner manages admin invites (audit 3.4). */}
+                                {i.role !== 'admin' || data.viewerRole === 'owner' ? <span className="ml-auto flex gap-1.5">
                                     <Button type="button" size="sm" variant="outline" disabled={pending} onClick={() => run(() => resendOrgInviteAction(orgId, i.id), 'Invite resent')}>Resend</Button>
                                     <Button type="button" size="sm" variant="ghost" disabled={pending} onClick={() => run(() => cancelOrgInviteAction(orgId, i.id), 'Invite canceled')}>Cancel invite</Button>
-                                </span>
+                                </span> : null}
                             </li>
                         ))}
                     </ul>)

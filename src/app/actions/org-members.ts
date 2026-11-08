@@ -1,7 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { and, asc, eq, gt, inArray, isNotNull, isNull, or, sql } from 'drizzle-orm';
+import { and, asc, eq, gt, inArray, isNotNull, isNull, ne, or, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { UUID_RE } from '@/lib/validations/uuid';
 
@@ -17,13 +17,14 @@ import { createCopiesForNewMember, handedInSql, releaseCopiesOnLeave } from '@/l
 import { ORG_LIMITS, orgRoleNames } from '@/lib/organizations/config';
 import { buildOrgEmail } from '@/lib/email/org-templates';
 import { orgMemberCap } from '@/lib/organizations/join-rules';
-import { acceptOrgInvite, AccountOrgLimitError, accountOrgLimit, createOrgEmailInvites, INVITE_DAYS, lastActiveHereSince, ledChildWorkspaces, notifyInvites, notifySeatsReopened, openInvitesFor, removeFromOrg, type ReopenedSeat } from '@/lib/organizations/members';
+import { acceptOrgInvite, AccountOrgLimitError, accountOrgLimit, adminCount, clearTakeoverRequestBy, createOrgEmailInvites, INVITE_DAYS, lastActiveHereSince, ledChildWorkspaces, notifyInvites, notifySeatsReopened, openInvitesFor, removeFromOrg, type ReopenedSeat } from '@/lib/organizations/members';
 import { memberChangeBlock, memberStatus, parseInviteEmails, workSummary, type OrgMemberRole, type RosterRow } from '@/lib/organizations/member-rules';
 import { addWorkspaceMemberInternal, changeWorkspaceMemberRoleInternal, removeWorkspaceMemberInternal } from '@/lib/workspaces/collaborator-lifecycle';
 import { getViewerAuthContext } from '@/lib/server/viewer-context';
 import { namesOf, notifyJoined, notifyOrg, orgEmailBase, orgHref, orgLabel, queueOrgInviteSignupEmails, remindedRecently } from '@/lib/organizations/notify';
 import { orgGrant, type OrgAction, type OrgRole } from '@/lib/organizations/permissions';
 import { invitesLeftToday, orgLimitBlock } from '@/lib/organizations/limits';
+import { consumeRateLimit } from '@/lib/security/rate-limit';
 
 // Org Members (report §20): the admin roster, join requests, email invites, roles and titles, removal,
 // and adding people to child projects. Each change notifies the person it is about (report §26.3 A, B).
@@ -239,7 +240,9 @@ export async function moveMemberToWorkspaceAction(orgId: string, userId: string,
     const to = kids.find((k) => k.id === toChildId);
     if (!from || !to) return { success: false, error: 'That workspace is no longer in this organization.' };
     if (userId === from.ownerId) return { success: false, error: 'They’re its workspace lead. They hand it over first.' };
-    if (!(await rolesOf(orgId, viewer.ownerId, [userId])).has(userId)) return { success: false, error: 'Only organization members can be moved.' };
+    const moving = (await rolesOf(orgId, viewer.ownerId, [userId])).get(userId);
+    if (!moving) return { success: false, error: 'Only organization members can be moved.' };
+    if (moving === 'viewer') return { success: false, error: 'Viewers can’t be on a workspace.' };
     if (unitId) {
         const [unit] = await db.select({ id: workspaceOpenRoles.id }).from(workspaceOpenRoles).where(and(eq(workspaceOpenRoles.id, unitId), eq(workspaceOpenRoles.projectId, to.id))).limit(1);
         if (!unit) return { success: false, error: 'That team is no longer in the workspace.' };
@@ -356,6 +359,15 @@ export async function inviteByEmailAction(orgId: string, input: z.input<typeof i
     // Report §21.4: 1,000 a day, checked before anything is sent so nothing goes half out.
     const left = invitesLeftToday(await invitesSentToday(orgId));
     if (valid.length > left) return { success: false, error: left === 0 ? 'No invites left today. Try again tomorrow.' : `${left} ${left === 1 ? 'invite' : 'invites'} left today. Send fewer at once.` };
+    // Viewers can't be on a workspace (audit 3.5), so only a Member invite places someone in one.
+    if (parsed.data.childProjectId && parsed.data.role !== 'member') return { success: false, error: 'Only members join a workspace. Pick Member, or no workspace.' };
+    if (parsed.data.role === 'admin') {
+        // Audit 2.3: the 20-admin cap counts open admin invites too, so invites can't push past it.
+        const held = await adminCount(db, orgId, { openInvitesExcept: valid });
+        const org = await orgLabel(orgId);
+        const block = orgLimitBlock('admins', held + valid.length - 1, { org: org?.title ?? 'This organization', isAdmin: true });
+        if (block) return { success: false, error: block };
+    }
     let unitId = parsed.data.unitId ?? null;
     if (parsed.data.childProjectId) {
         const [child] = await db.select({ id: workspaces.id }).from(workspaces).where(and(eq(workspaces.id, parsed.data.childProjectId), eq(workspaces.parentId, orgId), isNull(workspaces.deletedAt))).limit(1);
@@ -374,11 +386,15 @@ export async function inviteByEmailAction(orgId: string, input: z.input<typeof i
 export async function resendOrgInviteAction(orgId: string, inviteId: string): Promise<{ success: true } | Failure> {
     const viewer = await orgManager(orgId, 'invite_members_guests');
     if (!viewer) return DENIED;
+    // Audit 2.8: one resend a minute per invite, so a burst of clicks can't flood an inbox.
+    const limit = await consumeRateLimit(`org:invite-resend:${inviteId}`, 1, 60);
+    if (!limit.allowed) return { success: false, error: 'Already sent. Try again in a minute.' };
     const expiresAt = new Date(Date.now() + INVITE_DAYS * 86_400_000);
-    const updated = await db.update(orgEmailInvites).set({ expiresAt })
-        .where(and(eq(orgEmailInvites.id, inviteId), eq(orgEmailInvites.orgId, orgId), isNull(orgEmailInvites.acceptedAt)))
+    // A resend counts toward the day's invites (audit N5); only the owner manages admin invites (audit 3.4).
+    const updated = await db.update(orgEmailInvites).set({ expiresAt, createdAt: new Date() })
+        .where(and(eq(orgEmailInvites.id, inviteId), eq(orgEmailInvites.orgId, orgId), isNull(orgEmailInvites.acceptedAt), viewer.role === 'owner' ? undefined : ne(orgEmailInvites.role, 'admin')))
         .returning({ id: orgEmailInvites.id, email: orgEmailInvites.email, role: orgEmailInvites.role, title: orgEmailInvites.title });
-    if (!updated.length) return { success: false, error: 'That invite is no longer open.' };
+    if (!updated.length) return { success: false, error: viewer.role === 'owner' ? 'That invite is no longer open.' : 'That invite is no longer open, or only the owner manages it.' };
     const invite = updated[0]!;
     const accounts = await db.select({ id: profiles.id, email: profiles.email }).from(profiles).where(eq(profiles.email, invite.email));
     // A resend is a new event: its own key, so the email goes out again.
@@ -389,7 +405,11 @@ export async function resendOrgInviteAction(orgId: string, inviteId: string): Pr
 export async function cancelOrgInviteAction(orgId: string, inviteId: string): Promise<{ success: true } | Failure> {
     const viewer = await orgManager(orgId, 'invite_members_guests');
     if (!viewer) return DENIED;
-    await db.delete(orgEmailInvites).where(and(eq(orgEmailInvites.id, inviteId), eq(orgEmailInvites.orgId, orgId), isNull(orgEmailInvites.acceptedAt)));
+    const gone = await db.delete(orgEmailInvites)
+        .where(and(eq(orgEmailInvites.id, inviteId), eq(orgEmailInvites.orgId, orgId), isNull(orgEmailInvites.acceptedAt), viewer.role === 'owner' ? undefined : ne(orgEmailInvites.role, 'admin')))
+        .returning({ id: orgEmailInvites.id });
+    // Audit 3.4 and N17: only the owner cancels admin invites, and success means something was canceled.
+    if (!gone.length) return { success: false, error: viewer.role === 'owner' ? 'That invite was already accepted or canceled.' : 'That invite was already accepted or canceled, or only the owner manages it.' };
     touch(viewer.slug, orgId);
     return { success: true };
 }
@@ -408,6 +428,7 @@ export async function acceptOrgInviteAction(inviteId: string): Promise<{ success
     const accepted = mine ? await acceptOrgInvite(userId, inviteId).catch((error: unknown) => { if (error instanceof AccountOrgLimitError) return error; throw error }) : null;
     if (accepted instanceof AccountOrgLimitError) return { success: false, error: accepted.message };
     if (accepted && 'full' in accepted) return { success: false, error: 'This organization is full. Ask an admin to raise Max members.' };
+    if (accepted && 'adminsFull' in accepted) return { success: false, error: `This organization already has ${ORG_LIMITS.adminsPerOrg} admins. Ask the owner to free a seat.` };
     if (!accepted) return { success: false, error: 'That invite is no longer open.' };
     const { orgId } = accepted;
     revalidatePath(`/workspaces/${orgId}`);
@@ -437,7 +458,8 @@ export async function changeMemberRoleAction(orgId: string, userIds: string[], r
     }
     if (role === 'admin') {
         // Report §21.4: 20 admins, checked before anyone changes.
-        const [{ n } = { n: 0 }] = await db.select({ n: sql<number>`count(*)::int` }).from(workspaceMembers).where(and(eq(workspaceMembers.projectId, orgId), eq(workspaceMembers.role, 'admin')));
+        // Open admin invites hold seats too (audit 2.3).
+        const n = await adminCount(db, orgId, { openInvitesExcept: [] });
         const adding = userIds.filter((id) => roles.get(id) !== 'admin').length;
         const org = adding ? await orgLabel(orgId) : null;
         const block = adding ? orgLimitBlock('admins', n + adding - 1, { org: org?.title ?? 'This organization', isAdmin: true }) : null;
@@ -454,6 +476,7 @@ export async function changeMemberRoleAction(orgId: string, userIds: string[], r
             if (before === 'member') await releaseCopiesOnLeave(tx, orgId, id);
             if (role === 'member') await createCopiesForNewMember(tx, orgId, id);
             if (role === 'viewer') opened.push(...await leaveChildWorkspaces(tx, orgId, id, viewer.userId));
+            if (before === 'admin') await clearTakeoverRequestBy(tx, orgId, id);
         }
         return opened;
     });
@@ -711,7 +734,8 @@ export async function addMembersToChildAction(orgId: string, childProjectId: str
         if (!unit) return { success: false, error: 'That team is no longer in the workspace.' };
     }
     const inOrg = await rolesOf(orgId, viewer.ownerId, userIds);
-    const people = userIds.filter((id) => inOrg.has(id));
+    // Viewers can't be on a workspace (audit 3.5).
+    const people = userIds.filter((id) => inOrg.has(id) && inOrg.get(id) !== 'viewer');
     if (unitId) {
         const full = await seatBlock(db, unitId, people);
         if (full) return { success: false, error: full };

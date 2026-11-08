@@ -80,20 +80,23 @@ export async function countOutsidePeople(projectId: string, orgId: string): Prom
 
 /** Puts a personal project inside an org: visibility capped, request cleared (report §14.7). */
 export async function moveIntoOrg(projectId: string, orgId: string, currentVisibility: string | null) {
-  const org = await readOrgCap(db, orgId);
-  if (!org) throw new Error("Organization not found.");
-  const requested: ChildVisibility = isWorkspacePubliclyReadableVisibility(currentVisibility) ? "public" : currentVisibility === "org" ? "org" : "private";
-  await db.update(workspaces).set({
-    parentId: orgId,
-    visibility: capChildVisibility(requested, org.cap, org.orgPublic),
-    // "New in <org>" for 7 days on the Projects tab (report §28.6); a former org's label no longer applies.
-    orgSettings: sql`(coalesce(${workspaces.orgSettings}, '{}'::jsonb) - 'moveInRequest' - 'formerOrg') || jsonb_build_object('movedInAt', now())`,
-    updatedAt: new Date(),
-  }).where(eq(workspaces.id, projectId));  // Its channels move under the org: #general becomes #<handle> (report §25.2).
-  await db.execute(sql`SELECT app_private.chat_reparent_workspace(${projectId}::uuid)`);
-  // Open group work reaches it, as it reaches a new workspace (report §42.2 problem 7).
-  const [lead] = await db.select({ ownerId: workspaces.ownerId }).from(workspaces).where(eq(workspaces.id, projectId)).limit(1);
-  if (lead) await createCopiesForNewChild(db, orgId, projectId, lead.ownerId);
+  // Audit N48: the move, its channels and its copies happen together or not at all.
+  await db.transaction(async (tx) => {
+    const org = await readOrgCap(tx, orgId);
+    if (!org) throw new Error("Organization not found.");
+    const requested: ChildVisibility = isWorkspacePubliclyReadableVisibility(currentVisibility) ? "public" : currentVisibility === "org" ? "org" : "private";
+    const [moved] = await tx.update(workspaces).set({
+      parentId: orgId,
+      visibility: capChildVisibility(requested, org.cap, org.orgPublic),
+      // "New in <org>" for 7 days on the Projects tab (report §28.6); a former org's label no longer applies.
+      orgSettings: sql`(coalesce(${workspaces.orgSettings}, '{}'::jsonb) - 'moveInRequest' - 'formerOrg') || jsonb_build_object('movedInAt', now())`,
+      updatedAt: new Date(),
+    }).where(eq(workspaces.id, projectId)).returning({ ownerId: workspaces.ownerId });
+    // Its channels move under the org: #general becomes #<handle> (report §25.2).
+    await tx.execute(sql`SELECT app_private.chat_reparent_workspace(${projectId}::uuid)`);
+    // Open group work reaches it, as it reaches a new workspace (report §42.2 problem 7).
+    if (moved) await createCopiesForNewChild(tx, orgId, projectId, moved.ownerId);
+  });
 }
 
 /** Takes a child out of its org: it becomes a Private personal project and its sprints unlink (report §14.7, §15.8). */

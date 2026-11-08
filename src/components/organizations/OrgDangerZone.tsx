@@ -243,17 +243,20 @@ function DeleteRow({ orgId, handle, preview }: { orgId: string; handle: string |
     const [confirm, setConfirm] = useState('')
     const [choices, setChoices] = useState<Record<string, 'keep' | 'delete'>>({})
     const { run } = useRun()
+    const identity = useIdentityStepUp('Confirm it’s you', 'Deleting an organization needs a recent check.')
     const rows = preview?.childProjects ?? []
     const deleted = rows.filter((w) => w.mine && choices[w.id] === 'delete').length
     return (
         <>
+            {identity.dialog}
             <Row title="Delete" action={<Button variant="destructive" onClick={() => { setConfirm(''); setOpen(true) }}>Delete…</Button>}>
                 Hidden at once and removed for good after 30 days; you can restore it until then. Everyone gets an email with the date and a reminder to download their submissions.
             </Row>
             <ConfirmDialog open={open} onOpenChange={setOpen} variant="destructive" size="wide" title="Delete the organization?" confirmLabel="Delete organization"
                 onConfirm={() => {
                     if (confirm.trim().toLowerCase() !== (handle ?? '').toLowerCase()) throw new Error('Type the web address exactly to confirm.')
-                    run(() => deleteOrgAction(orgId, { confirmHandle: confirm, choices }), 'Scheduled for deletion.')
+                    // Audit 3.2: the identity check opens when needed, then the deletion carries on.
+                    run(async () => (await identity.withIdentity(() => deleteOrgAction(orgId, { confirmHandle: confirm, choices }))) ?? { success: false as const, error: 'Stopped.' }, 'Scheduled for deletion.')
                 }}>
                 <div className="space-y-4 px-6 text-[13px]">
                     {preview ? <p className="nb-meta">{preview.members} members · {preview.files} files</p> : null}

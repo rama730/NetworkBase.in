@@ -23,8 +23,10 @@ export async function lockSubtaskWriteScope(
     role: string | null;
     org: boolean;
     mine: boolean;
+    handed_in: boolean;
   }>(sql`
         SELECT t.id, t.workspace_id AS project_id, p.owner_id, m.role, p.kind = 'organization' AS org,
+               (t.assignment_id IS NOT NULL AND (t.review_status = 'pending' OR (t.status = 'done' AND t.completion_source = 'review'))) AS handed_in,
                (t.assignee_id = ${userId} OR EXISTS (SELECT 1 FROM task_team_members tm WHERE tm.task_id = t.id AND tm.user_id = ${userId})) AS mine
         FROM ${tasks} t
         JOIN ${workspaces} p ON p.id = t.workspace_id AND p.deleted_at IS NULL
@@ -49,6 +51,10 @@ export async function lockSubtaskWriteScope(
   // the main assignment and everything else on its board belong to owners and admins.
   if (row.org && role === "member" && !row.mine) {
     throw new Error("Only your own work’s steps can be changed here.");
+  }
+  // Audit 9.3: steps on handed-in work (waiting for review or approved) stay as they were handed in.
+  if (row.handed_in && row.mine) {
+    throw new Error("This was handed in, so its steps are locked. Ask for it back to change them.");
   }
   return row.id;
 }

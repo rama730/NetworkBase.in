@@ -33,6 +33,7 @@ import { finalizeUploadIntent } from "@/lib/upload/upload-intents";
 import { notifyForFileVersionCreated } from "@/lib/notifications/task-file";
 import { enqueueWorkspaceNotificationEvent } from "@/lib/notifications/workspace-events";
 import {
+  assertCopyFilesOpen,
   assertWorkspaceFileReadAccess,
   assertFileNodeVisible,
   assertWorkspaceManageFilesAccess,
@@ -466,6 +467,8 @@ export async function deleteFileVersionAction(
       await assertWorkspaceManageFilesAccessTx(tx, projectId, user.id);
       await tx.execute(sql`SELECT id FROM workspace_nodes WHERE id = ${nodeId} FOR UPDATE`);
       await assertOwnedFileLease(tx, { projectId, nodeId, userId: user.id, credentials: lease });
+      // Audit N73: a version that handed-in work points to can't be deleted (decision 173).
+      await assertCopyFilesOpen(tx, projectId, { nodeId });
       const node = await tx.query.workspaceNodes.findFirst({
         where: and(eq(workspaceNodes.id, nodeId), eq(workspaceNodes.projectId, projectId)),
       });

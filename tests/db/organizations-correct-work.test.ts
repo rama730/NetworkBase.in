@@ -456,6 +456,28 @@ test("problem 50 (decision 157): a full organization never blocks a hand-in; han
   assert.match(String(await intent(o.b, MB)), /50 MB/, "the per-person allowance applies");
 });
 
+test("audit 8.1, 8.2: hand-ins never fill the organization's 5 GB; trashed or replaced hand-ins free the 50 MB", async () => {
+  const o = await org();
+  const { copyOf } = await published(o, "Lab 20b");
+  const uploads = await loadAppModule(() => import("../../src/lib/upload/upload-intents"));
+  const MB = 1024 ** 2;
+  // 5 GB retained, of which 4.9 GB are hand-ins: the admin still has room.
+  await sql`INSERT INTO storage_quota_scopes (scope_type, scope_id, limit_bytes, retained_bytes) VALUES ('project', ${o.org}, ${50 * 1024 ** 3}, ${5 * 1024 ** 3})
+    ON CONFLICT (scope_type, scope_id) DO UPDATE SET retained_bytes = EXCLUDED.retained_bytes`;
+  const [handIn] = await sql`INSERT INTO workspace_nodes (workspace_id, task_id, type, name, path, current_version) VALUES (${o.org}, ${copyOf(o.a)}, 'file', 'work.zip', ${`/.system/tasks/${copyOf(o.a)}/work.zip`}, 2) RETURNING id`;
+  await sql`INSERT INTO file_versions (node_id, version, s3_key, size, mime_type, uploaded_by) VALUES
+    (${handIn!.id}, 1, 'k1', ${Math.round(4.9 * 1024 ** 3) - 40 * MB}, 'application/zip', ${o.a}), (${handIn!.id}, 2, 'k2', ${40 * MB}, 'application/zip', ${o.a})`;
+  const intent = (userId: string, size: number) => uploads.createUploadIntent({ userId, projectId: o.org, bucket: "project-files",
+    storageKey: `${o.org}/${crypto.randomUUID()}.txt`, scope: "workspace_file", kind: "file", expectedMimeType: "text/plain", expectedSize: size, metadata: {} })
+    .then(() => true, (error: Error) => error.message);
+  assert.equal(await intent(o.admin, MB), true, "8.1: hand-in bytes aren't the organization's");
+  // 8.2: only the current version counts (40 MB), so 5 MB more fits; trashing it frees it entirely.
+  assert.equal(await intent(o.a, 5 * MB), true);
+  assert.match(String(await intent(o.a, 20 * MB)), /50 MB/);
+  await sql`UPDATE workspace_nodes SET deleted_at = now() WHERE id = ${handIn!.id}`;
+  assert.equal(await intent(o.a, 20 * MB), true, "a trashed hand-in no longer counts");
+});
+
 test("problem 13 and smaller bugs 16 and 17: late dates are required and stay after the due date; finished people aren't told the date moved", async () => {
   const o = await org();
   viewerId = o.owner;

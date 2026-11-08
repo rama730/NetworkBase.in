@@ -316,8 +316,9 @@ export async function completeOnboarding(
  * with no extra click (decisions 133, 134). Never fails the onboarding itself.
  */
 async function joinOrgsAfterOnboarding(userId: string, email: string, rawCode: string | undefined): Promise<OnboardingOrgJoin | null> {
+    // Audit N2: the invites and the code are separate; a failure in one never skips the other.
+    await acceptOrgEmailInvites(userId, email).catch((error: unknown) => console.error('Accepting org invites after onboarding failed:', error))
     try {
-        await acceptOrgEmailInvites(userId, email)
         const code = rawCode ? normalizeJoinCode(rawCode) : null
         const result = code ? await joinOrgByCode(userId, code) : null
         return result ? { title: result.org.title, slug: result.org.slug, outcome: result.outcome } : null

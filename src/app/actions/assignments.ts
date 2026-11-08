@@ -1,7 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { and, asc, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, isNotNull, isNull, sql } from 'drizzle-orm';
 import { logger } from '@/lib/logger';
 import { z } from 'zod';
 
@@ -430,8 +430,16 @@ export async function updateAssignmentAction(masterId: string, patch: z.input<ty
     await db.transaction(async (tx) => {
         const shared = { ...(title !== undefined ? { title } : {}), ...(description !== undefined ? { description } : {}),
             ...(priority ? { priority } : {}), ...(storyPoints !== undefined ? { storyPoints } : {}), updatedAt: now };
+        // Audit 9.1: the title and instructions are part of a copy's review hash, so fixing a typo would make every
+        // waiting hand-in unapprovable. Copies that matched their hash before the edit are re-stamped after it.
+        const wording = title !== undefined || description !== undefined;
+        const waiting = wording ? await tx.select({ id: tasks.id, hash: tasks.reviewContentHash }).from(tasks)
+            .where(and(eq(tasks.assignmentId, masterId), eq(tasks.reviewStatus, 'pending'), isNotNull(tasks.reviewContentHash), isNull(tasks.deletedAt))).for('update') : [];
+        const unchanged: string[] = [];
+        for (const copy of waiting) if (copy.hash === await taskReviewSnapshot(tx, copy.id)) unchanged.push(copy.id);
         await tx.update(tasks).set({ ...shared, assignmentSettings: nextSettings, ...(dueDate ? { dueDate: new Date(dueDate) } : {}), ...(sprintId !== undefined ? { sprintId } : {}) }).where(eq(tasks.id, masterId));
         await tx.update(tasks).set(shared).where(eq(tasks.assignmentId, masterId));
+        for (const id of unchanged) await tx.update(tasks).set({ reviewContentHash: await taskReviewSnapshot(tx, id) }).where(eq(tasks.id, id));
         // All of the organization's own copies move with it; group copies keep their workspace's linked sprint.
         if (sprintId !== undefined) await tx.update(tasks).set({ sprintId }).where(and(eq(tasks.assignmentId, masterId), eq(tasks.projectId, ctx.master.projectId)));
         if (dueDate && ctx.master.dueDate) {
@@ -646,7 +654,12 @@ export async function submitAssignmentAction(copyId: string, input: z.input<type
     const review = master.settings.reviewRequired;
     // Late against the copy's own due date (Fix by moves it) plus Late after (decisions 126, 171).
     const late = Boolean(copy.dueDate && now.getTime() > copy.dueDate.getTime() + lateAfterMs(master.settings));
-    await db.transaction(async (tx) => {
+    const locked = await db.transaction(async (tx) => {
+        // Audit 9.4, N69: the copy row is locked first, so two teammates handing in at once get versions 1 and 2,
+        // and an approval that landed since the checks above isn't undone.
+        const [fresh] = await tx.execute<{ approved: boolean }>(sql`
+            SELECT (status = 'done' AND review_status = 'none' AND completion_source = 'review') AS approved FROM tasks WHERE id = ${copyId}::uuid FOR UPDATE`);
+        if (fresh?.approved) return true;
         // What was handed in, so the panel and Approve can tell whether it changed since (problems 21, 29).
         const reviewContentHash = review ? await taskReviewSnapshot(tx, copyId, true) : null;
         // The submission record (decision 127, problem 9): this version, its note and its files, kept for good.
@@ -674,7 +687,9 @@ export async function submitAssignmentAction(copyId: string, input: z.input<type
             eventType: review ? 'review_submitted' : 'status_changed',
             payload: { version: 1, source: 'assignment_submit', taskTitle: copy.title, taskStatus: 'done', teamName: copy.teamName },
         });
+        return false;
     });
+    if (locked) return { success: false, error: 'Approved work is locked.' };
     revalidatePath(`/workspaces/${copy.projectId}`);
     await notifyAssignmentSubmitted(copyId, userId);
     return { success: true };
@@ -1027,7 +1042,9 @@ export async function addAssignmentStepAction(masterId: string, title: string): 
     await db.execute(sql`
         INSERT INTO task_subtasks (task_id, title, position)
         SELECT t.id, ${step}, coalesce((SELECT max(s.position) + 1 FROM task_subtasks s WHERE s.task_id = t.id), 0)
-        FROM tasks t WHERE (t.id = ${masterId} OR t.assignment_id = ${masterId}) AND t.deleted_at IS NULL`);
+        FROM tasks t WHERE (t.id = ${masterId} OR t.assignment_id = ${masterId}) AND t.deleted_at IS NULL
+          -- Audit 9.2: handed-in work keeps the steps it was handed in with (waiting or approved).
+          AND NOT (t.assignment_id IS NOT NULL AND (t.review_status = 'pending' OR (t.status = 'done' AND t.completion_source = 'review')))`);
     touch(ctx.viewer.slug, ctx.master.projectId);
     return { success: true };
 }

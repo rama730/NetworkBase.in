@@ -14,7 +14,8 @@ import { countUnregisteredWorkspaceStorage, scheduleWorkspaceStorageDeletion } f
 import { resetDuplicatedTarget, type AssignmentSettings } from "@/lib/organizations/assignment-rules";
 import { createMasterTask, moveGroupWorkToLead } from "@/lib/organizations/assignments";
 import { detachFromOrg } from "@/lib/organizations/children";
-import { accountOrgLimit } from "@/lib/organizations/members";
+import { accountOrgLimit, lastActiveHereSince } from "@/lib/organizations/members";
+import { ownerAway, requestExpired } from "@/lib/organizations/takeover-rules";
 import { generateJoinCode } from "@/lib/organizations/join-rules";
 import { notifyOrg, orgHref, orgLabel, queueOrgEmails } from "@/lib/organizations/notify";
 import { createAdminClient } from "@/lib/supabase/server";
@@ -387,9 +388,17 @@ async function copyNodes(nodes: Array<typeof workspaceNodes.$inferSelect>, sourc
 export async function takeOverOrg(orgId: string, adminId: string, stepUpMethod: string | null) {
   const now = new Date();
   const outcome = await db.transaction(async (tx) => {
-    const [org] = await tx.select({ ownerId: workspaces.ownerId, by: workspaces.takeoverRequestedBy, suspendedAt: workspaces.suspendedAt, deletionScheduledAt: workspaces.deletionScheduledAt })
+    const [org] = await tx.select({ ownerId: workspaces.ownerId, by: workspaces.takeoverRequestedBy, at: workspaces.takeoverRequestedAt, suspendedAt: workspaces.suspendedAt, deletionScheduledAt: workspaces.deletionScheduledAt })
       .from(workspaces).where(eq(workspaces.id, orgId)).limit(1).for("update");
     if (!org || org.by !== adminId || org.suspendedAt || org.deletionScheduledAt) return { error: "denied" as const };
+    // Audit N4 (decision D-B): the request lasts 14 days, and the owner must still be away when it's used.
+    if (!org.at || requestExpired(org.at, now)) return { error: "This request has expired. Ask again." };
+    const [owner] = await tx.select({ lastActive: sql<string | null>`coalesce(${workspaceMembers.lastActiveHereAt}, ${workspaceMembers.joinedAt})::text` })
+      .from(workspaceMembers).where(and(eq(workspaceMembers.projectId, orgId), eq(workspaceMembers.userId, org.ownerId))).limit(1);
+    if (!ownerAway(owner?.lastActive ? new Date(owner.lastActive) : null, now, await lastActiveHereSince())) {
+      await tx.update(workspaces).set({ takeoverRequestedBy: null, takeoverRequestedAt: null }).where(eq(workspaces.id, orgId));
+      return { error: "The owner has been active here, so the request ended." };
+    }
     // Still an admin here, under the request's lock (a demotion or removal since asking ends it).
     const [asker] = await tx.select({ role: workspaceMembers.role }).from(workspaceMembers).where(and(eq(workspaceMembers.projectId, orgId), eq(workspaceMembers.userId, adminId))).limit(1).for("update");
     if (asker?.role !== "admin") return { error: "denied" as const };
