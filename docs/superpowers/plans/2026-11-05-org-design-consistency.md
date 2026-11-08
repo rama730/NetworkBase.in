@@ -39,6 +39,24 @@
 4. **Switches that now save at once (Task 7)**: a failed save must flip the switch back and say why. Pinned in Task 7's test.
 5. **Shared shell changes reach every workspace**: Task 3 edits `WorkspaceLayout.tsx`, which every workspace uses. Its browser step checks a plain workspace too.
 
+## Status (2026-11-09): implemented on local main, not pushed
+
+Commits: the first part (contract test, shared parts, header, Overview, About, Members, invites) was folded by another session into `9cdb50f5c`; then `85f4fd54d` Settings, `b8ed5494d` creation, `45f3b15cb` Workspaces tab, `d7a173e76` Updates/Documents/Files/Sprints, `178eddb96` assignments and review, `7aa7bd7e0` cards, search, Discover, sidebar.
+
+Checks: `tests/unit/org-design-contract.test.ts` passes 25 of 25; unit suite passes except four tests broken by the CLI commit `d2eaf2fa2` (IDE extensions, personal settings, migration lineage, integrations); the 110 organization and workspace browser tests pass; the failing `settings-tabs`, `person-card` and `desktop-ide` browser tests fail identically at `d2eaf2fa2`, before this work. Screenshots taken at 1280 and 390px, light and dark, for the header, Overview, About, Members and Workspaces.
+
+Where the build differs from a finding, on purpose:
+- SH1: the identity image stays 64px (sized to the name and tagline block, covered by `workspace-header.spec.ts`); only its corners changed to 8px.
+- ST6, CR14: checked and already right; no change.
+- CR3: the eyebrow is uppercase by CSS, so only the repeated title changed.
+- CH6: the organization's document rows already matched the workspace's own rows; only the heading changed.
+- TK8: the split Approve button already used the shared Button and menu; only its heights changed.
+- OUT4: the person card keeps the other session's own chip styling (and its test); the default chip used in search became metadata.
+- OUT6: the sidebar toggle stays 20px on desktop inside the 32px row and grows to 44px on touch.
+- UP7: the organization toast reads "Update posted".
+
+Not checked: a signed-in run against real data, and the Settings sections in a browser (they are covered by type checks and unit tests only).
+
 ## Decisions (defaults confirmed by the user, 2026-11-05)
 
 | # | Question | Default in this plan | Other choice |
