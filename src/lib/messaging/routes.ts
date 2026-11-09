@@ -80,3 +80,8 @@ export function showInConversationHref(channelId: string, rootSeq: number, curre
   const wide = typeof window !== "undefined" && window.matchMedia("(min-width: 1024px)").matches;
   return conversationHref(channelId, { m: rootSeq, thread: wide ? rootSeq : null, tab: null }, current);
 }
+
+/** Opened from a profile, workspace or notification rather than from Messages itself (unified back R1). */
+export function cameFromOutsideMessages(from: { path: string } | null): boolean {
+  return Boolean(from?.path) && !/^\/messages(\/|\?|$)/.test(from!.path);
+}

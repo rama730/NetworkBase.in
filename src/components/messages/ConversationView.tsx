@@ -4,7 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { Archive, ArchiveRestore, ArrowLeft, Ban, Bell, BellDot, BellOff, Bookmark, CheckCheck, ExternalLink, FileText, Hash, Link2, Lock, LogOut, MoreHorizontal, PanelRight, Pencil, Pin, Search, Star, UserPlus, Users, X } from "lucide-react";
 import { toast } from "@/lib/feedback";
 
@@ -48,7 +48,8 @@ import { APPLICATION_STATUS_LABEL, isDecidedApplication } from "@/lib/messaging/
 import { canAddPeople, counterpart, channelTitle, isSelfDm, notifiesEveryMessage, notifyChoice, notifyChoices, notifyLabel, personName } from "@/lib/messaging/channel-view";
 import { CHAT_BROADCAST_MENTION_MAX_MEMBERS } from "@/lib/messaging/constants";
 import { chatErrorMessage } from "@/lib/messaging/errors";
-import { conversationHref, messageHref, type DetailsTab } from "@/lib/messaging/routes";
+import { cameFromOutsideMessages, conversationHref, messageHref, type DetailsTab } from "@/lib/messaging/routes";
+import { currentEntry, subscribeEntry } from "@/lib/navigation/in-app-history";
 import type { ChatMessageView, ChatNotify, ChatPerson } from "@/lib/messaging/types";
 import { queryKeys } from "@/lib/query-keys";
 import { copyWithToast } from "@/lib/clipboard";
@@ -223,6 +224,9 @@ const TasksTab = dynamic(() => import("@/components/workspaces/v2/TasksTab"), { 
 export function ConversationView({ channelId, around = null, surface = "page", onBack, onOpenThread, windowActions }: Props) {
   const router = useRouter();
   const goBack = useBack("/messages");
+  // Opened from outside Messages, desktop gets the arrow too: the list beside it isn't where you came from (R1).
+  const entry = useSyncExternalStore(subscribeEntry, currentEntry, () => null);
+  const outside = cameFromOutsideMessages(entry?.from ?? null);
   const queryClient = useQueryClient();
   const { user, profile } = useAuth();
   const meId = user?.id ?? null;
@@ -537,8 +541,8 @@ export function ConversationView({ channelId, around = null, surface = "page", o
   const backButton = surface === "window" || onBack ? (
     <button type="button" onClick={onBack ?? (() => router.push("/messages"))} className="nb-icon-button nb-touch-target" aria-label="Back"><ArrowLeft size={16} /></button>
   ) : (
-    <span className="contents lg:hidden">
-      <button type="button" onClick={goBack} className="nb-icon-button nb-touch-target" aria-label="Back to conversations"><ArrowLeft size={16} /></button>
+    <span className={outside ? "contents" : "contents lg:hidden"}>
+      <button type="button" onClick={goBack} className="nb-icon-button nb-touch-target" aria-label={outside ? "Back" : "Back to conversations"}><ArrowLeft size={16} /></button>
     </span>
   );
   // A failed refetch keeps the conversation on screen; only a first load that fails says so.
