@@ -234,11 +234,13 @@ export default function TasksTab({
   const reviewing = Boolean(orgId && scope === "review" && canManageWorkflow);
   const isDesktop = useMediaQuery("(min-width: 768px)") === true;
   const sprintPaths = useMemo(() => new Map(normalizeSprintOptions(sprints as never[]).map((s) => [s.id, s.name])), [sprints]);
+  // Kept apart from startCreateKind: onCreateStarted clears the intent, which would flip New → Assignment back to Task.
+  const [createKind, setCreateKind] = useState<"task" | "assignment">("task");
   useEffect(() => {
     if (!startCreate) return;
-    if (canCreateTasks) setShowCreateModal(true);
+    if (canCreateTasks) { setCreateKind(startCreateKind); setShowCreateModal(true); }
     onCreateStarted?.();
-  }, [startCreate, canCreateTasks, onCreateStarted]);
+  }, [startCreate, startCreateKind, canCreateTasks, onCreateStarted]);
   const [ideSheetOpen, setIdeSheetOpen] = useState(false);
   const [isAddSectionOpen, setIsAddSectionOpen] = useState(false);
   const [sectionTitle, setSectionTitle] = useState("");
@@ -1031,15 +1033,16 @@ export default function TasksTab({
           manyOptions={isChildProject && canManageWorkflow ? [{ value: "units", label: "A team, or each team · a shared task" }] : []}
           onAssignMany={(_choice, carry) => {
             setShowCreateModal(false);
+            setCreateKind("task");
             setManyCarry({ ...carry, mode: "everyone" });
             setTeamTaskOpen(true);
           }}
-          initialKind={reuseFrom ? "assignment" : startCreateKind}
+          initialKind={reuseFrom ? "assignment" : createKind}
           renderMany={orgId && !isChildProject && canManageWorkflow ? ({ choice, title, description, sprintId, dueDate, onDraft, onDone }) => (
             <AssignmentFields key={reuseFrom ?? "new"} orgId={orgId} timeZone={orgTimeZone} reuseFrom={reuseFrom} prefill={{ title, description, mode: choice as AssignmentTarget["mode"], sprintId, dueDate }} onDraft={onDraft} onDone={onDone}
               onCreated={() => void queryClient.invalidateQueries({ queryKey: queryKeys.project.detail.tasksRoot(projectId) })} />
           ) : undefined}
-          onClose={() => { setShowCreateModal(false); setReuseFrom(null); }}
+          onClose={() => { setShowCreateModal(false); setReuseFrom(null); setCreateKind("task"); }}
           onCreate={async (value) => {
             const payload = buildTaskSubmitPayload({
               draft: value.draft,
