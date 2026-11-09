@@ -118,6 +118,13 @@ async function freeCopyPath(projectId: string, path: string) {
   throw new Error(`No free name for a copy of ${path}`);
 }
 
+/** Another push landed between the base-version check and this write; the transaction rolls back (A1.8). */
+class VersionRaceError extends Error {
+  constructor(readonly path: string, readonly nodeId: string, readonly baseVersion: number) {
+    super(`${path} changed on the server while you were pushing`);
+  }
+}
+
 function annotationForRole(role: TaskFileRole) {
   if (role === "deliverable") return "#deliverable";
   if (role === "reference") return "#reference";
@@ -590,7 +597,10 @@ async function handlePost(request: Request) {
           uploadedAt: now,
         });
 
-        await tx
+        // With a base version, the write only lands if nobody else's did since the check above.
+        const sentBase = files.find((f) => normalizePath(f.path) === file.normPath)?.baseVersion ?? null;
+        const guarded = sentBase != null && file.status !== "new";
+        const written = await tx
           .update(workspaceNodes)
           .set({
             s3Key: file.storageKey!,
@@ -601,7 +611,13 @@ async function handlePost(request: Request) {
             syncStatus: "merged",
             updatedAt: now,
           })
-          .where(and(eq(workspaceNodes.id, file.nodeId), eq(workspaceNodes.projectId, projectId)));
+          .where(and(
+            eq(workspaceNodes.id, file.nodeId),
+            eq(workspaceNodes.projectId, projectId),
+            ...(guarded ? [eq(workspaceNodes.currentVersion, file.currentVersion)] : []),
+          ))
+          .returning({ id: workspaceNodes.id });
+        if (guarded && written.length === 0) throw new VersionRaceError(file.normPath, file.nodeId, sentBase);
 
         committedFiles.push({
           path: file.normPath,
@@ -805,6 +821,9 @@ async function handlePost(request: Request) {
       files: txResult.committedFiles,
     });
   } catch (error) {
+    if (error instanceof VersionRaceError) {
+      return jsonError(error.message, 409, "VERSION_CONFLICT", { conflicts: [{ path: error.path, nodeId: error.nodeId, baseVersion: error.baseVersion }] });
+    }
     return routeErrorResponse(error, {
       requestId: getRequestId(request),
       scope: "api/v1/extension/fast-push",

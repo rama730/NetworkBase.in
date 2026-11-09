@@ -223,6 +223,9 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
+    // Every API path, whatever it ends in: the trusted method/path headers above must always be overwritten, or a
+    // client could send its own on a path like /api/v1/…/x.json and pass token access (token-access.ts).
+    "/api/:path*",
     "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|txt|xml|map|woff2?|ttf|eot|webmanifest|json|mp3)$).*)",
   ],
 };

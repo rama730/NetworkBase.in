@@ -70,3 +70,8 @@ it("classifies every signed-in API route for CLI and agent tokens", () => {
   assert.deepEqual(conflicting, [], "listed both as token route and browser-only");
   assert.deepEqual(unclassified, [], "decide in src/lib/security/token-access.ts or BROWSER_ONLY here");
 });
+
+it("the proxy runs on every API path, so the trusted method/path headers can't come from the client", () => {
+  const proxy = fs.readFileSync(path.join(process.cwd(), "src/proxy.ts"), "utf8");
+  assert.match(proxy, /matcher: \[\s*(\/\/[^\n]*\n\s*)*"\/api\/:path\*"/, 'src/proxy.ts matcher must list "/api/:path*" first');
+});
