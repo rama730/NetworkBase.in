@@ -274,7 +274,10 @@ export async function pullTask(ctx) {
   const got = [];
   for (const f of task.files) {
     const remotePath = f.path ?? `/${f.name}`;
-    const dest = safeJoin(root, `${dir.split(path.sep).join("/")}/${String(f.name ?? path.posix.basename(remotePath))}`);
+    // One name inside this task's folder: a server name like "../../src/app.ts" must not reach the project files.
+    const name = path.posix.basename(String(f.name ?? remotePath).replace(/\\/g, "/"));
+    if (!name || name === "." || name === "..") continue;
+    const dest = safeJoin(root, `${dir.split(path.sep).join("/")}/${name}`);
     await downloadTo(ctx.api, ctx.requireWorkspace(), remotePath, dest, f.contentHash ? String(f.contentHash).toLowerCase() : null);
     got.push(path.relative(root, dest));
   }

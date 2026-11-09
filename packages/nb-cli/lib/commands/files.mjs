@@ -1,5 +1,6 @@
 // init, unlink, status, pull, push, sync, diff, resolve, file list, file view (report §17.4, A1, A4.4).
 import { execFileSync } from "node:child_process";
+import crypto from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -10,6 +11,7 @@ import { safe } from "../print/style.mjs";
 import { unifiedDiff } from "../sync/diff.mjs";
 import { scanLocal, toRelative, toRemote } from "../sync/local.mjs";
 import { planSync, stateLabel } from "../sync/plan.mjs";
+import { enqueue, QUEUE_TTL_MS, readQueue, writeQueue } from "../sync/queue.mjs";
 import { acquireLock, pruneBaseCopies, readBaseCopy, readState, saveBaseCopy, writeState } from "../sync/state.mjs";
 import { conflictCopyPath, downloadTo, fetchManifest, safeJoin, uploadFiles } from "../sync/transfer.mjs";
 import { ask, confirm } from "../tui/ask.mjs";
@@ -85,6 +87,7 @@ export async function status(ctx) {
     startedTask: project.startedTask ?? null,
     offline,
     readOnly: !manifest.canWrite,
+    queued: readQueue(root).length,
     files: changed.map((i) => ({ path: i.path, state: i.state, action: i.action, ...(i.note ? { note: i.note } : {}), ...(i.remote ? { remoteVersion: i.remote.version } : {}) })),
     skipped,
   };
@@ -92,7 +95,8 @@ export async function status(ctx) {
   ctx.out.result("nb.status/1", data, (d) => {
     const task = d.startedTask ? ` · #${d.startedTask.number ?? ""} ${safe(d.startedTask.title ?? "")}` : "";
     const head = `${c.brand(sym.brand)} ${safe(project.slug ?? project.workspaceId)}${task}${d.readOnly ? ` · ${c.warning("read only")}` : ""}${d.offline ? ` · ${c.warning("offline: server side not checked")}` : ""}`;
-    if (!d.files.length) return [head, `  ${c.muted(`Up to date · ${root}`)}`, ...skippedLines(d.skipped)];
+    const queued = d.queued ? [`  ${c.warning(`${d.queued} push(es) queued while offline: nb sync`)}`] : [];
+    if (!d.files.length) return [head, ...queued, `  ${c.muted(`Up to date · ${root}`)}`, ...skippedLines(d.skipped)];
     const color = (/** @type {string} */ s) => (s === "conflict" ? c.danger : s === "modified" || s === "added" ? c.accent : s.startsWith("remote") ? c.info : c.muted);
     const counts = Object.entries(d.files.reduce((/** @type {Record<string, number>} */ acc, f) => ({ ...acc, [f.state]: (acc[f.state] ?? 0) + 1 }), {})).map(([s, n]) => `${n} ${s}`).join(" · ");
     const rows = ctx.out.table([
@@ -101,7 +105,7 @@ export async function status(ctx) {
       { title: "", value: (f) => (f.note ? c.muted(f.note) : "") },
     ], d.files);
     const next = conflicts.length ? `nb resolve ${safe(conflicts[0]?.path.slice(1) ?? "")} --mine|--theirs|--both` : changed.some((f) => f.action === "push") ? "nb push <files>" : "nb pull";
-    return [head, `  ${counts}`, "", ...rows, ...skippedLines(d.skipped), "", `  ${c.muted(next)}`];
+    return [head, ...queued, `  ${counts}`, "", ...rows, ...skippedLines(d.skipped), "", `  ${c.muted(next)}`];
   });
   if (conflicts.length) return EXIT.conflict;
   return offline ? EXIT.offline : EXIT.ok;
@@ -193,10 +197,17 @@ export async function push(ctx) {
   }
   const as = ctx.flags.as ?? readUserConfig(ctx.env)["default-as"] ?? null;
   if (as && !["reference", "draft", "final"].includes(as)) throw usage(`--as must be reference, draft or final (not ${as})`);
+  const keyBase = /** @type {any} */ (ctx).queueId ?? crypto.randomUUID();
+  const queueOffline = () => {
+    if (ctx.flags["dry-run"]) return new CliError("OFFLINE", "Can't reach the server", { hint: "Try again when you're online" });
+    const flags = Object.fromEntries(["task", "as", "message", "keep-both", "folder", "all"].filter((k) => ctx.flags[k] !== undefined).map((k) => [k, ctx.flags[k]]));
+    const n = enqueue(root, { id: keyBase, op: "push", paths: only, flags, queuedAt: new Date().toISOString() });
+    return new CliError("OFFLINE", `Offline: queued this push${n > 1 ? ` (${n} waiting)` : ""}`, { hint: "It sends with your next nb sync; your files are unchanged" });
+  };
   const release = ctx.flags["dry-run"] ? () => {} : await acquireLock(root, "nb push");
   try {
     const plan = await buildPlan(ctx, { only });
-    if (plan.offline) throw new CliError("OFFLINE", "Can't reach the server to push", { hint: "Your files are unchanged; push again when you're online" });
+    if (plan.offline) throw queueOffline();
     const { project, state } = plan;
     if (!plan.manifest.canWrite) throw new CliError("READ_ONLY", "You can read this workspace but not change it", { hint: "Ask an owner for member access" });
     // With no paths, only files NetworkBase already tracks; new files are pushed by naming them (A1.6, §17.4).
@@ -231,7 +242,8 @@ export async function push(ctx) {
           keepBoth: Boolean(ctx.flags["keep-both"]),
           folder: ctx.flags.folder ?? null,
           confirmSecrets: Boolean(ctx.flags["confirm-secrets"]),
-        }, (done, total) => { if (total > 1) ctx.out.note(ctx.out.c.muted(`Uploading ${done} of ${total}`)); }).catch((error) => handlePushError(ctx, root, state, error))
+          keyBase,
+        }, (done, total) => { if (total > 1) ctx.out.note(ctx.out.c.muted(`Uploading ${done} of ${total}`)); }).catch((error) => handlePushError(ctx, root, state, error instanceof CliError && error.code === "OFFLINE" ? queueOffline() : error))
       : { files: [], transition: null };
 
     for (const f of uploaded.files) {
@@ -292,6 +304,7 @@ function handlePushError(ctx, root, state, error) {
 /** Pull, then push changed tracked files; new files are pushed by naming them (report §17.4). @param {Context} ctx */
 export async function sync(ctx) {
   oldStatusFlags(ctx);
+  await replayQueue(ctx);
   const pulled = await pull(ctx, { quietResult: true });
   if (pulled === EXIT.conflict) {
     ctx.out.warn("Conflicts after pulling: settle them with nb resolve, then nb sync again");
@@ -306,6 +319,32 @@ export async function sync(ctx) {
   }
   const ctx2 = /** @type {Context} */ ({ ...ctx, positionals: [], flags: { ...ctx.flags, all: true } });
   return push(ctx2);
+}
+
+/**
+ * Sends pushes queued while offline, oldest first. A conflict stops the queue there (later pushes may depend on
+ * it); still offline keeps it; expired entries are dropped with a note (A12.4).
+ * @param {Context} ctx
+ */
+async function replayQueue(ctx) {
+  const { root } = ctx.requireRoot();
+  const entries = readQueue(root);
+  if (!entries.length) return;
+  const fresh = entries.filter((e) => Date.now() - Date.parse(e.queuedAt) < QUEUE_TTL_MS);
+  if (fresh.length < entries.length) ctx.out.warn(`Dropped ${entries.length - fresh.length} queued push(es) older than 7 days; your files are unchanged, push them again`);
+  writeQueue(root, fresh);
+  for (const entry of fresh) {
+    ctx.out.note(ctx.out.c.muted(`Sending a push queued ${entry.queuedAt.slice(0, 16).replace("T", " ")}`));
+    const ctx2 = /** @type {Context} */ ({ ...ctx, cwd: root, positionals: entry.paths, flags: { ...ctx.flags, ...entry.flags, done: false, wip: false }, queueId: entry.id });
+    try {
+      await push(ctx2);
+    } catch (error) {
+      if (error instanceof CliError && error.code === "OFFLINE") throw new CliError("OFFLINE", `Still offline: ${fresh.length} push(es) wait in the queue`, { hint: "Run nb sync when you're online" });
+      writeQueue(root, readQueue(root).filter((e) => e.id !== entry.id));
+      throw error;
+    }
+    writeQueue(root, readQueue(root).filter((e) => e.id !== entry.id));
+  }
 }
 
 // ───────────────────────────────── diff
@@ -372,7 +411,10 @@ export async function resolve(ctx) {
       // Keep both: yours goes up as name (2).ext; the server's version takes the original name here.
       const res = await uploadFiles(ctx.api, { workspaceId: project.workspaceId, items: [{ path: item.path, abs: item.local.abs, size: item.local.size, hash: item.local.hash }], keepBoth: true, message: ctx.flags.message ?? null });
       const copy = res.files[0];
+      // The server names the copy; it must sit next to the original and not replace another file here.
+      if (path.posix.dirname(copy.path) !== path.posix.dirname(item.path)) throw new CliError("UNEXPECTED_RESPONSE", `The server put your copy at ${safe(copy.path)}, not next to ${safe(item.path)}`, { hint: "Your file is unchanged here; run nb pull" });
       const copyAbs = localPathOf(root, project.remoteRoot, copy.path);
+      if (fs.existsSync(copyAbs)) throw new CliError("LOCAL_CONFLICT", `${safe(copy.path)} already exists here`, { hint: "Move it aside, then run nb pull" });
       fs.renameSync(item.local.abs, copyAbs);
       recordBase(state, copy.path, { nodeId: copy.nodeId, version: copy.version, hash: item.local.hash, abs: copyAbs });
       const got = await downloadTo(ctx.api, project.workspaceId, item.path, item.local.abs, item.remote.hash);

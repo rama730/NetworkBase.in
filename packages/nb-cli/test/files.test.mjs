@@ -2,7 +2,7 @@ import { describe, it, beforeEach, afterEach } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
-import { putFile, startFakeServer } from "./helpers/fake-server.mjs";
+import { putFile, startFakeServer, WORKSPACE_ID } from "./helpers/fake-server.mjs";
 import { runCli, tempDir } from "./helpers/run-cli.mjs";
 
 // Report A1: nothing a person or a teammate wrote is lost or silently replaced.
@@ -126,6 +126,37 @@ describe("files: init, push, pull, conflicts", () => {
     assert.ok(!fs.existsSync(path.join(cwd, "old.md")));
     const trash = fs.readdirSync(path.join(cwd, ".networkbase", "trash"));
     assert.equal(trash.length, 1, "kept, not deleted");
+  });
+
+  it("offline push is queued (exit 8) and the next sync sends it once (A12.4)", async () => {
+    write("a.txt", "v1");
+    await nb(["push", "a.txt"]);
+    write("a.txt", "v2 offline");
+    api.setFault(`/api/v1/workspaces/${WORKSPACE_ID}/manifest`, "drop");
+    const queued = await nb(["push", "a.txt"]);
+    assert.equal(queued.code, 8, queued.stderr);
+    assert.match(queued.stderr, /queued this push/);
+    assert.match((await nb(["status"])).stdout, /1 push\(es\) queued/);
+    api.setFault(`/api/v1/workspaces/${WORKSPACE_ID}/manifest`, null);
+    const synced = await nb(["sync"]);
+    assert.equal(synced.code, 0, synced.stderr);
+    assert.equal(remote("/a.txt")?.content.toString(), "v2 offline");
+    assert.equal(remote("/a.txt")?.version, 2);
+    assert.deepEqual(JSON.parse(fs.readFileSync(path.join(cwd, ".networkbase", "queue.json"), "utf8")).entries, []);
+  });
+
+  it("a queued push whose file changed on the server meanwhile becomes a conflict, not an overwrite", async () => {
+    write("a.txt", "v1");
+    await nb(["push", "a.txt"]);
+    write("a.txt", "mine");
+    api.setFault(`/api/v1/workspaces/${WORKSPACE_ID}/manifest`, "drop");
+    assert.equal((await nb(["push", "a.txt"])).code, 8);
+    api.setFault(`/api/v1/workspaces/${WORKSPACE_ID}/manifest`, null);
+    putFile(api.state, "/a.txt", Buffer.from("teammate"));
+    const r = await nb(["sync"]);
+    assert.equal(r.code, 4, r.stderr);
+    assert.equal(remote("/a.txt")?.content.toString(), "teammate");
+    assert.equal(read("a.txt"), "mine");
   });
 
   it("ignored files never upload, even with --all", async () => {

@@ -91,7 +91,7 @@ const BATCH_FILES = 50;
 /**
  * Uploads through files/place in batches (≤ 50 files, ≤ 3 MiB inline); bigger files use signed upload slots.
  * @param {Api} api
- * @param {{ workspaceId: string, items: Array<{ path: string, abs: string, size: number, hash: string, baseVersion?: number | null }>, taskId?: string | null, as?: string | null, message?: string | null, keepBoth?: boolean, folder?: string | null, confirmSecrets?: boolean }} input
+ * @param {{ workspaceId: string, items: Array<{ path: string, abs: string, size: number, hash: string, baseVersion?: number | null }>, taskId?: string | null, as?: string | null, message?: string | null, keepBoth?: boolean, folder?: string | null, confirmSecrets?: boolean, keyBase?: string }} input
  * @param {(done: number, total: number) => void} [progress]
  */
 export async function uploadFiles(api, input, progress) {
@@ -123,7 +123,9 @@ export async function uploadFiles(api, input, progress) {
         return { path: item.path, contentHash: item.hash, size: content.length, mimeType: mimeFor(item.path), contentBase64: content.toString("base64"), ...(item.baseVersion ? { baseVersion: item.baseVersion } : {}) };
       }),
     };
-    const res = /** @type {any} */ (await api.post("/api/v1/files/place", body));
+    // Same files and bases → same key, so a push replayed from the offline queue can't land twice (A12.4).
+    const key = input.keyBase ? crypto.createHash("sha256").update(`${input.keyBase}:${JSON.stringify(body.files.map((f) => [f.path, f.contentHash, f.baseVersion ?? null]))}`).digest("hex") : undefined;
+    const res = /** @type {any} */ (await api.post("/api/v1/files/place", body, { key }));
     results.push(...res.files);
     if (res.transition) lastTransition = res.transition;
     done += batch.length;

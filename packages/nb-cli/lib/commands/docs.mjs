@@ -55,10 +55,14 @@ export async function edit(ctx) {
   if (!doc.file) throw new CliError("NOT_SUPPORTED", `${slug} isn't backed by a file, so it's edited in the app`, { hint: `nb open` });
   if (!doc.canEdit) throw new CliError("FORBIDDEN", `You can read ${slug} but not edit it`);
   if (!ctx.out.interactive) throw new CliError("NEEDS_INPUT", "nb doc edit opens your editor, so it needs a terminal", { hint: `Agents: change ${doc.file.path} and nb push it` });
-  const tmp = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "nb-doc-")), path.basename(doc.file.path));
+  // The file name comes from the server, so only plain characters reach the editor's command line.
+  const name = path.posix.basename(doc.file.path).replace(/[^A-Za-z0-9._-]/g, "_").replace(/^\.+/, "") || "doc.md";
+  const tmp = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "nb-doc-")), name);
   fs.writeFileSync(tmp, doc.content);
   const [cmd, ...args] = editorCommand(ctx).split(" ");
-  const run = spawnSync(/** @type {string} */ (cmd), [...args, tmp], { stdio: "inherit", shell: process.platform === "win32" });
+  // Windows editors are often .cmd files, which need the shell; the path is quoted for it.
+  const win = process.platform === "win32";
+  const run = spawnSync(/** @type {string} */ (cmd), [...args, win ? `"${tmp}"` : tmp], { stdio: "inherit", shell: win });
   if (run.status !== 0) throw new CliError("EDITOR_FAILED", `The editor exited with ${run.status ?? run.signal}`);
   const next = fs.readFileSync(tmp, "utf8");
   fs.rmSync(path.dirname(tmp), { recursive: true, force: true });
@@ -133,6 +137,6 @@ export async function fileView(ctx) {
   }
   if (ctx.out.json) return ctx.out.result("nb.file.view/1", { path: remotePath, size: bytes.length, contentBase64: bytes.toString("base64") }, () => null);
   if (process.stdout.isTTY) {
-    ctx.out.raw(bytes.toString("utf8").replace(/[\u0000-\u0008\u000b-\u001f\u007f]/g, (ch) => `^${String.fromCharCode(ch.charCodeAt(0) + 64)}`));
+    ctx.out.raw(bytes.toString("utf8").replace(/[\u0000-\u0008\u000b-\u001f\u007f-\u009f]/g, (ch) => (ch < " " ? `^${String.fromCharCode(ch.charCodeAt(0) + 64)}` : `\\x${ch.charCodeAt(0).toString(16)}`)));
   } else ctx.out.raw(bytes);
 }
