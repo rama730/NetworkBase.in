@@ -137,9 +137,13 @@ test('password sign-in, full version: the button turns to a check, the photo lea
   const events = await meta(page);
   expect(events.map((e) => e.event)).toEqual(['signin_flight_started', 'signin_flight_completed']);
   expect(events[0]).toMatchObject({ version: 'full', from: 'button', reduced: false });
-  // About 3.4 s of flight, plus the beat for the check.
+  // About 5 s of flight, plus the beat for the check.
   const landed = samples.find((s) => s.attr === 'reveal')!.t;
-  expect(landed).toBeLessThan(4600);
+  expect(landed).toBeLessThan(6500);
+  // Each line stays up long enough to read.
+  const shown = (line: string) => { const hits = samples.filter((s) => s.captions.includes(line)); return hits.length ? hits[hits.length - 1]!.t - hits[0]!.t : 0; };
+  expect(shown('Welcome back')).toBeGreaterThan(1100);
+  expect(shown('Good to see you again, Ada')).toBeGreaterThan(1100);
 });
 
 test('the button shows a check once the sign-in is accepted, and cannot be pressed again', async ({ page }) => {
@@ -173,7 +177,11 @@ test('the second sign-in of the day is the light version: no stop in the middle,
   expect(samples.some((s) => s.hint)).toBe(false);
   expect(samples.some((s) => s.tip)).toBe(false);
   expect((await meta(page))[0]).toMatchObject({ version: 'light', from: 'button' });
-  expect(samples.find((s) => s.attr === 'reveal')!.t).toBeLessThan(3200);
+  expect(samples.find((s) => s.attr === 'reveal')!.t).toBeLessThan(4200);
+  // The photo is on screen long enough to be seen: at rest with the greeting first, then the move.
+  const span = (hits: Sample[]) => (hits.length ? hits[hits.length - 1]!.t - hits[0]!.t : 0);
+  expect(span(samples.filter((s) => (s.avatarOpacity ?? 0) > 0.5))).toBeGreaterThan(2100);
+  expect(span(samples.filter((s) => s.captions.includes('Welcome back')))).toBeGreaterThan(1100);
 });
 
 test('going somewhere in particular is light too', async ({ page }) => {
@@ -378,7 +386,8 @@ test('a slow page: the photo waits where it is, then lands once something real i
 test('the landing place is followed if the page moves it mid-flight', async ({ page }) => {
   await signIn(page);
   await submit(page);
-  await expect.poll(async () => (await trace(page)).some((s) => s.attr === 'reveal'), { timeout: 8000 }).toBe(true);
+  // Waits inside the page (every frame), not by polling from outside: the flight is only about a second long.
+  await page.waitForFunction(() => document.documentElement.getAttribute('data-welcome-flight') === 'reveal', undefined, { timeout: 15000, polling: 'raf' });
   await page.waitForTimeout(350);
   await page.evaluate(() => { const slot = document.querySelector('[data-welcome-slot]') as HTMLElement; (slot.parentElement as HTMLElement).style.marginRight = '70px'; });
   await finished(page);

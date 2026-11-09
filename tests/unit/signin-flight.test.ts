@@ -126,14 +126,19 @@ test("screen readers hear one sentence, not both visual lines", () => {
   assert.equal(signInAnnouncement(""), "Welcome back.");
 });
 
-test("timings: full is about 3.2 to 3.4 s, light about 1.3 to 1.5 s, reduced motion under a second", () => {
+test("timings: full is about 5 s, light about 2.6 s, reduced motion under a second", () => {
   const full = signInTimings("full", false);
   const fullTotal = full.rise + full.presenceHold + full.secondHold + full.fly;
-  assert.ok(fullTotal >= 3200 && fullTotal <= 3400, `full is ${fullTotal}ms`);
+  assert.ok(fullTotal >= 4700 && fullTotal <= 5200, `full is ${fullTotal}ms`);
+  // Each line stays long enough to read: line 1 at least 1.4 s, line 2 (a word at a time, then a pause) at least 1.5 s.
+  assert.ok(full.presenceHold >= 1400 && full.secondHold >= 1500);
   const light = signInTimings("light", false);
-  assert.ok(light.fly >= 1300 && light.fly <= 1500, `light is ${light.fly}ms`);
-  assert.ok(light.scrimOutAt <= 500 && light.scrimOutAt < light.fly, "the page is clickable about half a second in, before it lands");
-  assert.ok(light.captionInAt < light.captionOutAt && light.captionOutAt < light.fly);
+  const lightTotal = light.lightRest + light.fly;
+  assert.ok(lightTotal >= 2400 && lightTotal <= 2900, `light is ${lightTotal}ms`);
+  assert.ok(light.captionInAt < light.lightRest, "the greeting is there before the photo moves");
+  assert.ok(light.scrimOutAt <= 700 && light.scrimOutAt < light.fly, "the page is clickable early in the move, before it lands");
+  assert.ok(light.captionOutAt < light.fly, "the greeting is gone before the photo lands");
+  assert.ok(light.appear >= 400 && full.appear >= 400, "the photo takes a moment to arrive");
   for (const version of ["full", "light"] as const) {
     const reduced = signInTimings(version, true);
     assert.ok(reduced.fadeIn + reduced.presenceHold + reduced.secondHold + reduced.fly <= 1000, "reduced motion is under a second");

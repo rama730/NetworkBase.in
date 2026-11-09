@@ -314,3 +314,10 @@ Reported: after signing in, Discover showed first and the animation covered it a
 - The curtain's self-lift is 20 s (was 9 s), so a cold development start cannot lift it before the page can.
 - The CSS (rise, reduced motion) still lives in `globals.css`; a dev server that is not picking up stylesheet changes needs a restart.
 
+### Timing, after the second live check (2026-11-10)
+Reported: too fast, the words and the photo. Measured on Chromium: in the full version line 2 stayed on screen only about 0.4 s, and in the light version the photo moved off at once (1.5 s up in all, the greeting about 1 s). Lengthened to what a person can read:
+- **Full:** about 5 s of motion (photo rises 0.75 s, line 1 held 1.5 s, line 2 held 1.6 s, flight 1.1 s). Measured: line 1 on screen 1.46 s, line 2 1.44 s.
+- **Light:** about 2.6 s (the photo and "Welcome back" rest in place 0.9 s, then a 1.7 s move). Measured: photo on screen 2.4 s, greeting 1.5 s. This replaces "one continuous move, no stop" from items 3 and 5: a short rest at the start was needed for the greeting to be seen.
+- The photo fades in over 0.4 to 0.6 s (was 0.25 to 0.5 s), line 1 fades in over 0.4 s, and each word of line 2 over 0.35 s.
+The timings table in section 6.1 above is superseded by these numbers.
+

@@ -370,13 +370,14 @@ export default function SignInFlightOverlay({ flight, onDone }: { flight: SignIn
 
       // The photo arrives, from the button or in the middle. The light version does not stop in the middle.
       let appearing: Promise<void> = Promise.resolve()
+      const appearedAt = Date.now()
       if (!skipped) {
         if (fromButton && !reduced) {
           if (light) {
-            appearing = appear(250)
+            appearing = appear(t.appear)
           } else {
             const rising = moveTo(centre.box, t.rise)
-            await appear(250)
+            await appear(t.appear)
             await rising
           }
         } else {
@@ -434,6 +435,8 @@ export default function SignInFlightOverlay({ flight, onDone }: { flight: SignIn
       }
       if (!alive) return
       await appearing
+      // Light version: the photo and the greeting rest in place long enough to be seen before the photo moves on.
+      if (light && !skipped) await wait(Math.max(0, t.lightRest - (Date.now() - appearedAt)))
 
       const read = () => {
         const next = findSlot()
@@ -559,7 +562,7 @@ export default function SignInFlightOverlay({ flight, onDone }: { flight: SignIn
           data-signin-caption="first"
           aria-hidden="true"
           dir="auto"
-          className={cn(CAPTION, 'absolute inset-x-4 text-center transition-opacity', caption === 1 ? 'opacity-100 duration-300' : 'opacity-0 duration-150')}
+          className={cn(CAPTION, 'absolute inset-x-4 text-center transition-opacity', caption === 1 ? 'opacity-100 duration-[400ms]' : 'opacity-0 duration-150')}
         >
           {lines.first}
         </p>
@@ -571,7 +574,7 @@ export default function SignInFlightOverlay({ flight, onDone }: { flight: SignIn
         >
           {staggered
             ? wordDelays(lines.second).map(({ word, delay }, index, all) => (
-                <span key={index} className="transition-opacity duration-300" style={{ opacity: caption === 2 ? 1 : 0, transitionDelay: caption === 2 ? `${delay}ms` : '0ms' }}>
+                <span key={index} className="transition-opacity duration-[350ms]" style={{ opacity: caption === 2 ? 1 : 0, transitionDelay: caption === 2 ? `${delay}ms` : '0ms' }}>
                   {word}
                   {index < all.length - 1 ? ' ' : ''}
                 </span>
