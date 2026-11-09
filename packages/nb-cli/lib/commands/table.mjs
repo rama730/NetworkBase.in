@@ -109,6 +109,10 @@ export const COMMANDS = [
   { group: "Tasks", name: "comment add", summary: "Comment on a task", usage: "nb comment add -m \"<text>\" [--task 4]", module: "tasks", fn: "commentAdd", flags: { ...TASK, ...MESSAGE } },
 
   // Docs and workspaces
+  { group: "Agents", name: "agent setup", summary: "Connect Claude Code, Codex or Cursor to this workspace (asks first)", usage: "nb agent setup claude|codex|cursor", module: "agent", fn: "setup",
+    examples: ["nb agent setup claude", "nb agent setup codex"] },
+  { group: "Agents", name: "agent status", summary: "Which agents are connected here", usage: "nb agent status", module: "agent", fn: "status" },
+  { group: "Agents", name: "agent remove", summary: "Disconnect an agent and remove its NetworkBase notes", usage: "nb agent remove claude|codex|cursor", module: "agent", fn: "remove" },
   { group: "Agents", name: "mcp", summary: "MCP server for Claude Code, Codex and Cursor (stdio)", usage: "nb mcp", module: "mcp", fn: "serve",
     examples: ["claude mcp add networkbase -- npx -y @networkbase/cli@2 mcp"] },
   { group: "Docs and workspaces", name: "doc list", summary: "Workspace docs", usage: "nb doc list", module: "docs", fn: "list" },

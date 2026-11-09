@@ -48,6 +48,9 @@ Tasks
   comment add      Comment on a task
 
 Agents
+  agent setup      Connect Claude Code, Codex or Cursor to this workspace (asks first)
+  agent status     Which agents are connected here
+  agent remove     Disconnect an agent and remove its NetworkBase notes
   mcp              MCP server for Claude Code, Codex and Cursor (stdio)
 
 Docs and workspaces

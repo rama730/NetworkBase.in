@@ -46,7 +46,7 @@ nb task done 4 -m "Login works" --check "npm test=pass"
 ## AI agents
 
 ```bash
-claude mcp add networkbase -- npx -y @networkbase/cli@2 mcp
+nb agent setup claude     # or codex, cursor: shows the change and asks first
 ```
 
 Then ask Claude Code (or Codex, Cursor) things like "how many tasks do I have", "create a task to update the logo" or "change the README to add install steps". The agent uses the folder's linked workspace. Finishing a task, final files and doc changes wait for your yes; task text and files are passed to the agent as data, not instructions.
@@ -62,7 +62,7 @@ Run `nb help` for the list and `nb help <command>` for flags and examples.
 | Files | `pull`, `push`, `sync`, `diff`, `resolve`, `watch`, `file list`, `file view` |
 | Tasks | `task list/count/view/create/start/stop/move/done/review/resubmit/pull`, `subtask list/add/check/uncheck`, `comment add` |
 | Docs | `doc list/view/edit/set`, `workspace list`, `member list`, `search` |
-| Agents | `mcp` |
+| Agents | `agent setup/status/remove`, `mcp` |
 
 ## Coming from 1.x
 

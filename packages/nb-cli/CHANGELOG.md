@@ -18,6 +18,7 @@ A rewrite. Folders you linked with 1.x keep working; `nb init` in them moves the
 
 ### Added
 - `nb mcp` rebuilt: 22 tools for Claude Code, Codex and Cursor that run the same checks as the commands; finishing a task, final files and doc changes need the user's yes; tasks and workspaces found by words; stdout carries only protocol messages.
+- `nb agent setup claude|codex|cursor` connects an agent to `nb mcp` and adds a short NetworkBase section to its instructions file (asks first); `nb agent status`, `nb agent remove`.
 - `nb doc set` replaces a doc's text from a file or stdin.
 - `--workspace` takes a slug.
 - `nb task count`, `nb task view --context` (agent brief), `nb task review`, `nb task resubmit`, `nb task pull`.
