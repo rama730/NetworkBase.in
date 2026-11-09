@@ -4,6 +4,7 @@ import { HandInSection } from "@/components/organizations/HandInSection";
 import { MasterEditButton } from "@/components/organizations/MasterEditButton";
 import { isAssignmentMaster } from "@/lib/workspaces/task-presentation";
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useSessionDraft } from "@/hooks/useSessionDraft";
 import { formatTaskDueDate, isTaskOverdue } from "@/lib/workspaces/task-presentation";
 import {
   Calendar,
@@ -160,7 +161,11 @@ export default function DetailsTab({
 
   // Description Edit & Markdown Preview State
   const [isEditingDescription, setIsEditingDescription] = useState(false);
-  const [descriptionDraft, setDescriptionDraft] = useState(task.description || "");
+  // Kept for the tab while editing, so leaving and coming back keeps it (unified back B12).
+  const [descriptionDraft, setDescriptionDraft, clearDescriptionDraft] = useSessionDraft(
+    isEditingDescription ? `draft:task-description:${task.id}` : null,
+    task.description || "",
+  );
 
   // Concurrency Focus Protection for Description
   useEffect(() => {
@@ -240,6 +245,7 @@ export default function DetailsTab({
       // Leave edit mode only once it saved; a failure keeps the draft open to retry.
       if (!result.success) return;
     }
+    clearDescriptionDraft();
     setIsEditingDescription(false);
   };
 
@@ -576,7 +582,7 @@ export default function DetailsTab({
                   e.preventDefault();
                   void saveDescription();
                 } else if (e.key === "Escape") {
-                  setDescriptionDraft(task.description || "");
+                  clearDescriptionDraft();
                   setIsEditingDescription(false);
                 }
               }}
@@ -602,7 +608,7 @@ export default function DetailsTab({
                 <button
                   type="button"
                   onClick={() => {
-                    setDescriptionDraft(task.description || "");
+                    clearDescriptionDraft();
                     setIsEditingDescription(false);
                   }}
                   className="nb-touch-target h-7 rounded-[4px] border border-border bg-card px-2.5 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition"

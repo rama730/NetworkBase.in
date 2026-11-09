@@ -41,6 +41,7 @@ import { createVisibilityAwareInterval } from "@/lib/utils/visibility";
 
 import MentionComposer, { type MentionComposerHandle } from "../components/MentionComposer";
 import CommentBody from "../components/CommentBody";
+import { readSessionDraft, sessionDraftStore, useSessionDraft } from "@/hooks/useSessionDraft";
 
 type CommentMutationResult = { success: boolean; error?: string };
 type PresenceStatus = "connecting" | "connected" | "disconnected" | "error";
@@ -418,14 +419,19 @@ export default function CommentsTab({
   // Comments hidden or removed by moderation, above the discussion (trust and safety §7.1).
   const moderated = useModeratedItems(currentUserId && taskId ? { workspaceId: projectId } : null);
   const moderatedComments = moderated.filter((m) => m.kind === "task_comment" && m.parentId === taskId);
-  const [draft, setDraft] = useState("");
-  const [replyDraft, setReplyDraft] = useState("");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
   const [activeReplyTarget, setActiveReplyTarget] = useState<{
     parentCommentId: string;
     targetCommentId: string;
     replyToName: string;
   } | null>(null);
+  // Half-typed text survives leaving the page (unified back B12); cleared on send or cancel.
+  const rootDraftKey = taskId ? `draft:task-comment:${taskId}` : null;
+  const replyDraftKey = taskId && activeReplyTarget
+    ? `draft:task-comment:${taskId}:reply:${activeReplyTarget.targetCommentId}`
+    : null;
+  const [draft, setDraft] = useSessionDraft(rootDraftKey);
+  const [replyDraft, setReplyDraft] = useSessionDraft(replyDraftKey);
   const [expandedCommentIds, setExpandedCommentIds] = useState<Set<string>>(
     () => new Set(),
   );
@@ -589,6 +595,15 @@ export default function CommentsTab({
   useEffect(() => {
     if (restoreDraft?.text) rootComposerRef.current?.setText(restoreDraft.text);
   }, [restoreDraft?.key, restoreDraft?.text]);
+  // The composers hold their own text, so a saved draft is pushed into them once per key.
+  useEffect(() => {
+    const saved = rootDraftKey && readSessionDraft(sessionDraftStore, rootDraftKey);
+    if (saved) rootComposerRef.current?.setText(saved);
+  }, [rootDraftKey]);
+  useEffect(() => {
+    const saved = replyDraftKey && readSessionDraft(sessionDraftStore, replyDraftKey);
+    if (saved) replyComposerRef.current?.setText(saved);
+  }, [replyDraftKey]);
 
   const topLevelTyping = useMemo(() => typingLabel(topLevelTypingUsers), [topLevelTypingUsers]);
 

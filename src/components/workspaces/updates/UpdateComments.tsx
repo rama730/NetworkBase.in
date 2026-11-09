@@ -32,6 +32,7 @@ import { cn } from "@/lib/utils";
 import { getDescendants, renderCommentContent, updatePages, updateRelativeTime, type UpdatesPage } from '@/components/workspaces/updates/update-helpers';
 import { ModeratedPlaceholder, useModeratedItems, withPlaceholders } from '@/components/reports/ModeratedPlaceholder';
 import { useBlockedIds, useMutedIds } from '@/components/messages/ChatShellProvider';
+import { useSessionDraft } from '@/hooks/useSessionDraft';
 
 function CommentRow({
   comment,
@@ -55,7 +56,9 @@ function CommentRow({
   onFocusComment?: (commentId: string) => void;
 }) {
   const [replyingToId, setReplyingToId] = useState<string | null>(null);
-  const [replyDraft, setReplyDraft] = useState("");
+  const [replyDraft, setReplyDraft, clearReplyDraft] = useSessionDraft(
+    replyingToId ? `draft:update-comment:${comment.updateId}:reply:${replyingToId}` : null,
+  );
   const [showAllReplies, setShowAllReplies] = useState(false);
   // Comments from someone you blocked or muted fold until you ask (Blocking B26, B40); nothing is removed.
   const blockedIds = useBlockedIds();
@@ -261,10 +264,10 @@ function CommentRow({
                     type="button"
                     onClick={() => {
                       if (replyingToId === c.id) {
+                        clearReplyDraft();
                         setReplyingToId(null);
                       } else {
                         setReplyingToId(c.id);
-                        setReplyDraft("");
                       }
                     }}
                     className="inline-flex items-center gap-1 rounded-[4px] border border-border/60 bg-muted/30 px-2 py-0.5 font-mono text-[11px] font-medium uppercase tracking-[0.06em] text-muted-foreground transition-colors hover:border-foreground/30 hover:bg-muted hover:text-foreground"
@@ -286,7 +289,10 @@ function CommentRow({
                     </span>
                     <button
                       type="button"
-                      onClick={() => setReplyingToId(null)}
+                      onClick={() => {
+                        clearReplyDraft();
+                        setReplyingToId(null);
+                      }}
                       className="flex h-5 w-5 items-center justify-center rounded-[3px] hover:bg-muted hover:text-foreground transition-colors"
                       aria-label="Cancel reply"
                     >
@@ -315,6 +321,7 @@ function CommentRow({
                           e.preventDefault();
                           handleReplySubmit(c.id);
                         } else if (e.key === "Escape") {
+                          clearReplyDraft();
                           setReplyingToId(null);
                         }
                       }}
@@ -357,10 +364,12 @@ export function UpdateComments({
   highlightedCommentId?: string | null;
 }) {
   const queryClient = useQueryClient();
-  const [draft, setDraft] = useState("");
+  const [draft, setDraft] = useSessionDraft(`draft:update-comment:${update.id}`);
   const [focusedCommentId, setFocusedCommentId] = useState<string | null>(null);
   const [showAllAncestors, setShowAllAncestors] = useState(false);
-  const [focusedReplyDraft, setFocusedReplyDraft] = useState("");
+  const [focusedReplyDraft, setFocusedReplyDraft] = useSessionDraft(
+    focusedCommentId ? `draft:update-comment:${update.id}:focused:${focusedCommentId}` : null,
+  );
   const sectionRef = useRef<HTMLDivElement | null>(null);
   const [isNearViewport, setIsNearViewport] = useState(Boolean(highlightedCommentId));
   useEffect(() => holdUpdateThread(update.id), [update.id]);
