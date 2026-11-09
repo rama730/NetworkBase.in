@@ -433,6 +433,8 @@ function UpdateCard({
               )}>
                 <button
                   type="button"
+                  // Audit C14: read-only viewers see the count, not a Like they can't use.
+                  disabled={Boolean(orgView?.org.readOnly)}
                   onClick={(e) => {
                     e.stopPropagation();
                     if (!currentUserId) {

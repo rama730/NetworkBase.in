@@ -33,6 +33,8 @@ export type OrgFeedInfo = {
     replyDefault?: 'members' | 'logged_in'
     roleNames?: Record<'owner' | 'admin' | 'member' | 'viewer', string>
     memberPostsOn?: boolean
+    /** Audit C14: a viewer of the organization reads posts only (no Like, no comment box). */
+    readOnly?: boolean
     childIsPublic?: boolean
     emailsLeft?: number
     pins?: Array<{ id: string; excerpt: string }>

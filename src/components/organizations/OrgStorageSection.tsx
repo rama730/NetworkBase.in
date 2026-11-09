@@ -44,7 +44,8 @@ export function OrgStorageSection({ orgId, orgTitle, handle, submissionsWord }: 
     const ratio = s ? s.usedBytes / s.limitBytes : 0
     const total = s ? Object.values(s.byType).reduce((a, b) => a + b, 0) : 0
     const recommendations = s ? [
-        s.trashBytes > 0 ? { key: 'trash', label: 'Empty the Trash to free space', detail: `Free up ${formatSize(s.trashBytes)}`, action: <Button asChild size="sm" variant="outline"><Link href={`${base}?tab=files&filesView=trash`}>Open Trash</Link></Button> } : null,
+        // Audit C12: freed space reaches the bar after the next clean-up, not at once; say so.
+        s.trashBytes > 0 ? { key: 'trash', label: 'Empty the Trash to free space', detail: `Free up ${formatSize(s.trashBytes)} · within about 2 hours of emptying`, action: <Button asChild size="sm" variant="outline"><Link href={`${base}?tab=files&filesView=trash`}>Open Trash</Link></Button> } : null,
         s.largeFiles > 0 ? { key: 'large', label: 'Review large files', detail: `${s.largeFiles} ${s.largeFiles === 1 ? 'file' : 'files'} over 100 MB`, action: <Button size="sm" variant="outline" onClick={() => setLargeOpen(true)}>Review</Button> } : null,
         s.oldVersionBytes > 0 ? { key: 'versions', label: 'Old versions', detail: `Free up ${formatSize(s.oldVersionBytes)}`, action: <Button size="sm" variant="outline" onClick={() => setVersionsAsk(true)}>Review</Button> } : null,
     ].filter((r): r is NonNullable<typeof r> => Boolean(r)) : []
@@ -111,7 +112,7 @@ export function OrgStorageSection({ orgId, orgTitle, handle, submissionsWord }: 
                 onConfirm={async () => {
                     const r = await keepLatestVersionsAction(orgId, true)
                     if (!r.success) throw new Error(r.error)
-                    toast.success(`Removed ${r.versions} old ${r.versions === 1 ? 'version' : 'versions'}`)
+                    toast.success(`Removed ${r.versions} old ${r.versions === 1 ? 'version' : 'versions'}`, { description: 'The space shows as free within about 2 hours.' })
                     refresh()
                 }} />
         </section>

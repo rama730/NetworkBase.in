@@ -937,7 +937,8 @@ function normalizeUpdate(row: UpdateRow, params: {
         canPin: !deleted && canModerate && (!shared || Boolean(params.access.org?.kind === "org" && params.access.org.isOrgAdmin)),
         sharedToOrgTitle: !shared && row.sharedToOrgAt && params.access.org?.kind === "child" ? params.access.org.orgTitle : null,
         // ponytail: shared posts take comments in their own project; the card checks there on submit.
-        canComment: !deleted && Boolean(viewerId) && params.access.canRead && row.replyPolicy !== "closed" && (
+        // Audit C14: a viewer of the organization reads but can't reply, so they aren't offered a comment box.
+        canComment: !deleted && Boolean(viewerId) && params.access.canRead && row.replyPolicy !== "closed" && !postInteractionBlock(params.access) && (
             row.replyPolicy !== "members" || params.access.isOwner || params.access.isMember || shared
         ),
         editedAt: toIsoString(row.editedAt),
@@ -1281,6 +1282,8 @@ export async function readWorkspaceUpdatesAction(projectId: string, params?: {
                     replyDefault: access.org.replyDefault,
                     roleNames: access.org.roleNames,
                     memberPostsOn: access.org.memberPostsOn,
+                    // Audit C14: the card hides Like for people who can only read here.
+                    readOnly: Boolean(postInteractionBlock(access)),
                     childIsPublic: access.project.visibility === "public",
                     emailsLeft: composer?.emailsLeft ?? 0,
                     pins: composer?.pins ?? [],
