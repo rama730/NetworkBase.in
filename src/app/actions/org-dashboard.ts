@@ -378,7 +378,7 @@ export type OrgAboutData = {
     formerLine: string | null;
     /** Sprints the viewer can see; Stages teach when there are none (report §7.3). */
     stageCount: number;
-    projects: Array<{ id: string; title: string; slug: string | null; visibility: string | null }>;
+    projects: Array<{ id: string; title: string; slug: string | null; visibility: string | null; coverImage: string | null }>;
     journey: ReturnType<typeof journeyFromSprints> | null;
     activity: ActivityItem[];
     leaders: Array<{ id: string; name: string; username: string | null; avatarUrl: string | null; role: 'owner' | 'admin'; title: string | null }>;
@@ -391,7 +391,8 @@ export async function readOrgAboutAction(orgId: string): Promise<OrgAboutData | 
     if (!v) return DENIED;
     const tabs = normalizeWorkspacePublicTabVisibility(v.access.project?.publicTabVisibility);
     const [children, sprints, leaders, [org], [me]] = await Promise.all([
-        db.select({ id: workspaces.id, title: workspaces.title, slug: workspaces.slug, visibility: workspaces.visibility }).from(workspaces).where(and(
+        // Audit N58: with the cover, so a workspace looks the same on About as on the Overview.
+        db.select({ id: workspaces.id, title: workspaces.title, slug: workspaces.slug, visibility: workspaces.visibility, coverImage: workspaces.coverImage }).from(workspaces).where(and(
             eq(workspaces.parentId, orgId), isNull(workspaces.deletedAt), ne(workspaces.status, 'archived'),
             v.isAdmin ? undefined : v.isInside
                 ? or(ne(workspaces.visibility, 'private'), sql`EXISTS (SELECT 1 FROM workspace_members pm WHERE pm.workspace_id = ${workspaces.id} AND pm.user_id = ${v.userId})`)

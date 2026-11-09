@@ -97,6 +97,8 @@ import { CollaboratorCard, projectMemberRole } from '@/components/workspaces/set
 import { LifecycleSettingsEditor } from '@/components/workspaces/settings/LifecycleSettingsEditor';
 import { PublicTabVisibilityEditor } from '@/components/workspaces/settings/PublicTabVisibilityEditor';
 import { GeneralSettingsSection, resetIdentityFromWorkspace } from '@/components/workspaces/settings/GeneralSettingsSection';
+import { Notice } from '@/components/ui/notice';
+import { visibilityLabel } from '@/lib/organizations/display';
 
 const AccessTransitionDetails = dynamic(() => import("@/components/workspaces/settings/SettingsPolicyDetails").then((mod) => mod.AccessTransitionDetails));
 const RemovalImpactDetails = dynamic(() => import("@/components/workspaces/settings/SettingsPolicyDetails").then((mod) => mod.RemovalImpactDetails));
@@ -1505,12 +1507,10 @@ function ProjectSettingsContent({
                                                 })}
                                             </div>
                                         ) : (
-                                            <div className="rounded-lg border border-border bg-muted/20 p-4 text-sm text-muted-foreground">
-                                                <p className="font-medium text-foreground">Only the owner can change visibility</p>
-                                                <p className="mt-1 nb-compact">
-                                                    This {organization ? "organization" : "workspace"} is currently <strong className="text-foreground">{visibility === "public" ? "Public" : "Private"}</strong>. Only the owner can change visibility.
-                                                </p>
-                                            </div>
+                                            // Audit C8: the shared Notice and the agreed visibility words (D2: Public / Organization only / Private).
+                                            <Notice>
+                                                This {organization ? "organization" : "workspace"} is <strong>{visibilityLabel(visibility)}</strong>. Only the owner can change visibility.
+                                            </Notice>
                                         )}
                                     </div>
 

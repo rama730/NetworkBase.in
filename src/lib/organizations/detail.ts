@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, count, eq, gt, isNotNull, isNull, or, sql } from "drizzle-orm";
+import { and, count, eq, gt, inArray, isNotNull, isNull, or, sql } from "drizzle-orm";
 import { isLooseUuid } from "@/lib/validations/uuid";
 
 import { db } from "@/lib/db";
@@ -298,7 +298,10 @@ export async function readChildOrgLink(
       .where(and(eq(workspaces.kind, "organization"), isNull(workspaces.deletedAt), sql`${workspaceMembers.role} IN ('owner', 'admin', 'member')`));
     const moveIn = childSettings.moveInRequest;
     const pending = moveIn ? targets.find((t) => t.id === moveIn.orgId) : undefined;
-    return { parentOrg: null, pendingMoveIn: pending ? { orgId: pending.id, orgTitle: pending.title } : null, moveTargets: targets };
+    // Audit N62: only organizations taking workspaces are offered (the pending request still shows its org).
+    const open = new Set((targets.length ? await db.select({ id: workspaces.id }).from(workspaces).where(and(inArray(workspaces.id, targets.map((t) => t.id)), sql`${workspaces.status} <> 'archived'`,
+      isNull(workspaces.suspendedAt), isNull(workspaces.restrictedAt), isNull(workspaces.deletionScheduledAt))) : []).map((r) => r.id));
+    return { parentOrg: null, pendingMoveIn: pending ? { orgId: pending.id, orgTitle: pending.title } : null, moveTargets: targets.filter((t) => open.has(t.id)) };
   }
 
   const [[org], admins] = await Promise.all([

@@ -83,7 +83,7 @@ export function OrgAboutTab({ project, isCreator, onEdit, memberRole = null, vis
                 {data?.projects.length ? (
                     <RailSection title="Workspaces" action={data.card.kind !== 'visitor' ? <Link href={`${base}?tab=projects`} className="nb-link text-[13px]">See all</Link> : undefined}>
                         <ul className="space-y-0.5">
-                            {data.projects.map((p) => <li key={p.id}><WorkspaceRow href={`/workspaces/${encodeURIComponent(p.slug ?? p.id)}`} title={p.title} coverImage={(p as { coverImage?: string | null }).coverImage ?? null} /></li>)}
+                            {data.projects.map((p) => <li key={p.id}><WorkspaceRow href={`/workspaces/${encodeURIComponent(p.slug ?? p.id)}`} title={p.title} coverImage={p.coverImage} /></li>)}
                         </ul>
                     </RailSection>
                 ) : null}

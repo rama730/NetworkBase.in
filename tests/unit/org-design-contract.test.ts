@@ -81,6 +81,8 @@ test('organization screens follow the design contract', async (t) => {
     await t.test('dates use the organization zone', () => none(hits(/toLocaleDateString\(/), '§04: formatInZone'))
     await t.test('archived and private are not draft-coloured', () => none(hits(/data-status="draft">(?:Archived|Private)|data-status="draft"\s*>\s*\{visibilityChip\}/), '§10: system-known status'))
     await t.test('uppercase only in the mono micro label', () => none(hits(/nb-ui-label[^"']*uppercase/), '§04: uppercase is mono only'))
+    // Decision D-C (2026-11-09): tags are human topics and keep the spec's pill; status badges stay square.
+    await t.test('.nb-tag stays a pill', () => assert.match(fs.readFileSync(path.join(root, 'src/app/globals.css'), 'utf8'), /\.nb-tag \{[^}]*border-radius:999px/))
 })
 
 test('outside surfaces show organizations by the contract', async (t) => {
