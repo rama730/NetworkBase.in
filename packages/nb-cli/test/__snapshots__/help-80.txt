@@ -1,0 +1,43 @@
+
+NetworkBase High-EQ CLI (v1.0.4)
+
+Quick Start (One-Command Setup):
+  npx @networkbase/cli init       Authenticate (Browser or Token), link Workspace & Task
+
+Usage:
+  nb <command> [subcommand] [flags]
+
+Core Commands:
+  nb init [--workspace <id>]      3-step setup wizard + local mirror + auto-sync daemon
+  nb sync [paths...]              Single-permission universal sync (push edits + pull mirror + start daemon)
+  nb status                       Show active account, server, workspace, and task context
+  nb auth login [--web | --token] Sign in via Web Browser (/authorize) or Token (nb_pat_...)
+  nb auth whoami                  Display active user, session, and workspace
+  nb auth logout                  Revoke active session and clear credentials
+  nb auth setup-git               Configure Git HTTPS credential helper
+  nb workspace list | switch      List or switch active NetworkBase workspaces
+  nb task [list] [--all | --mine] View project tasks, descriptions, subtasks & attached files
+  nb task <#number|id>            Shorthand to inspect task details & mirror attached files
+  nb task view <#number|id>       Inspect task description, subtasks & mirror attached files
+  nb task work <#number|id>       Bind active task, transition to in_progress & mirror files
+  nb task create "<title>" [-m]   Create a new sprint task (--priority low|medium|high|urgent)
+  nb task subtask add [#id] <t>   Add a new subtask checklist item to active or specified task
+  nb task check [#id] [1 2|--all] Toggle subtasks interactively (Space) or via CLI numbers
+  nb task done [#number|id]       Mark active or specified task as Done
+  nb task comment <#id> <message> Add a comment to active or specified task
+  nb task status                  View sprint & task health metrics and completion rate
+  nb file ls | log | diff | lock  Inspect workspace files, history, diffs, or CLI locks
+  nb hook install                 Install local .git/hooks/pre-push secret scanner
+  nb pull [paths...]              Download remote workspace files to local directory
+  nb watch [paths...]             Live debounced auto-sync watcher (1-RTT fast-push on save)
+  nb push [paths...]              High-EQ Smart Push (SHA-256 diff + v1->v2 bump + task link)
+    -y, --yes, --auto             Non-interactive push with smart defaults (no prompt blocking)
+    --deliverable                 Classify pushed files as Final Deliverable (#deliverable)
+    --draft                       Classify pushed files as Working Draft (#editor_working)
+    --reference                   Classify pushed files as Reference Material (#reference)
+    --done                        Transition linked task to Done upon push
+    --task <uuid>                 Link push to a specific task (or auto-infer from branch)
+    -m, --message <msg>           Commit / revision summary message
+    --dry-run                     Run Pre-Push Analysis without uploading
+    --json                        Output structured JSON for AI assistants
+  nb mcp                          Start Model Context Protocol (MCP) server over stdio
