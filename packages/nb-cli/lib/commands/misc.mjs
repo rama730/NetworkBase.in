@@ -1,6 +1,7 @@
-// help, version, completion, config, open, doctor (report §17.4, A6.4, A6.6).
+// help, version, completion, config, open, doctor, feedback, prompt, setup shell (report §17.4, A6.4–A6.6, A13.9).
 import { execFile } from "node:child_process";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 
 import { commandHelp, helpData, overviewHelp } from "../args.mjs";
@@ -100,6 +101,76 @@ export async function open(ctx) {
 
 /** Health checks with a next step each (A6.4). @param {Context} ctx */
 export async function doctor(ctx) {
+  const checks = await runChecks(ctx);
+  const failed = checks.filter((c) => !c.ok);
+  ctx.out.result("nb.doctor/1", { ok: failed.length === 0, checks }, (d) =>
+    d.checks.map((c) => `${c.ok ? ctx.out.c.success(ctx.out.sym.check) : ctx.out.c.danger(ctx.out.sym.error)} ${c.check.padEnd(10)} ${c.detail}${c.fix ? `\n  ${ctx.out.c.muted(c.fix)}` : ""}`));
+  return failed.length ? 1 : 0;
+}
+
+/**
+ * A report to send with a problem (A13.9): doctor's checks without tokens, names or paths (unless
+ * --include-paths). Nothing is sent from here; there is no telemetry.
+ * @param {Context} ctx
+ */
+export async function feedback(ctx) {
+  const checks = await runChecks(ctx);
+  const scrub = (/** @type {string} */ s) => {
+    let out = s.replace(/nb_(pat|dev|agt)_[A-Za-z0-9_-]+/g, "nb_$1_…");
+    out = out.replace(/@[\w.-]+/g, "@<you>");
+    if (!ctx.flags["include-paths"]) {
+      if (ctx.root) out = out.split(ctx.root).join("<folder>");
+      if (ctx.project?.slug) out = out.split(ctx.project.slug).join("<workspace>");
+      out = out.split(os.homedir()).join("~");
+    }
+    return out;
+  };
+  const report = { cli: ctx.version, node: process.versions.node, platform: `${process.platform} ${os.release()} ${process.arch}`, checks: checks.map((c) => ({ ...c, detail: scrub(c.detail) })) };
+  // ponytail: printed, not sent; a form on networkbase.in when one exists (A13.9).
+  ctx.out.result("nb.feedback/1", report, (d) => [
+    "Send this to support@networkbase.in with what you were doing:",
+    "",
+    JSON.stringify(d, null, 2),
+  ]);
+}
+
+/** One short line for your shell prompt: the linked workspace and started task. No network; empty outside a link. @param {Context} ctx */
+export async function prompt(ctx) {
+  if (!ctx.project) return;
+  const task = ctx.project.startedTask?.number ? ` #${ctx.project.startedTask.number}` : "";
+  ctx.out.raw(`${safe(ctx.project.slug ?? "nb")}${task}`);
+}
+
+const RC = /** @type {Record<string, { file: (home: string) => string, line: string }>} */ ({
+  zsh: { file: (h) => path.join(h, ".zshrc"), line: "command -v nb >/dev/null && source <(nb completion zsh)" },
+  bash: { file: (h) => path.join(h, ".bashrc"), line: "command -v nb >/dev/null && source <(nb completion bash)" },
+  fish: { file: (h) => path.join(h, ".config", "fish", "conf.d", "nb.fish"), line: "type -q nb; and nb completion fish | source" },
+});
+
+/** Adds completions to your shell's startup file, after a yes (A6.6). @param {Context} ctx */
+export async function setupShell(ctx) {
+  const shell = ctx.positionals[0] ?? path.basename(ctx.env.SHELL ?? (process.platform === "win32" ? "powershell" : ""));
+  if (shell === "powershell" || shell === "pwsh") {
+    return ctx.out.result("nb.setup.shell/1", { shell: "powershell", added: false }, () => ["Add this line to your PowerShell profile (notepad $PROFILE):", "  nb completion powershell | Out-String | Invoke-Expression"]);
+  }
+  const rc = RC[shell];
+  if (!rc) throw usage(`No setup for ${shell || "this shell"}`, "nb setup shell zsh|bash|fish|powershell");
+  if (/[\\/]_npx[\\/]/.test(process.argv[1] ?? "")) ctx.out.warn("nb isn't installed, so completions won't find it: npm i -g @networkbase/cli");
+  const file = rc.file(os.homedir());
+  const current = fs.existsSync(file) ? fs.readFileSync(file, "utf8") : "";
+  if (current.includes("nb completion")) return ctx.out.result("nb.setup.shell/1", { shell, file, added: false }, () => `Completions are already set up in ${file}`);
+  const { confirm } = await import("../tui/ask.mjs");
+  if (!(await confirm(ctx, { key: "shell", question: `Add nb completions to ${file}?`, preview: rc.line, yesLabel: "Add", defaultYes: true }))) return 130;
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.appendFileSync(file, `${current && !current.endsWith("\n") ? "\n" : ""}# NetworkBase CLI\n${rc.line}\n`);
+  ctx.out.result("nb.setup.shell/1", { shell, file, added: true }, () => [
+    `${ctx.out.c.success(ctx.out.sym.done)} Added completions to ${file}; open a new terminal to use them`,
+    ctx.out.c.muted(`  Workspace in your prompt too: ${shell === "fish" ? "add (nb prompt) to fish_prompt" : "PS1='$(nb prompt) '$PS1"}`),
+  ]);
+}
+
+/** @param {Context} ctx */
+async function runChecks(ctx) {
   /** @type {Array<{ check: string, ok: boolean, detail: string, fix?: string }>} */
   const checks = [];
   const add = (/** @type {string} */ check, /** @type {boolean} */ ok, /** @type {string} */ detail, /** @type {string} */ fix = "") => checks.push({ check, ok, detail, ...(fix ? { fix } : {}) });
@@ -148,8 +219,5 @@ export async function doctor(ctx) {
       leftovers.length && !ctx.flags.repair ? `Run nb doctor --repair${lockStale ? " (only when no other nb is running)" : ""}` : "");
   }
 
-  const failed = checks.filter((c) => !c.ok);
-  ctx.out.result("nb.doctor/1", { ok: failed.length === 0, checks }, (d) =>
-    d.checks.map((c) => `${c.ok ? ctx.out.c.success(ctx.out.sym.check) : ctx.out.c.danger(ctx.out.sym.error)} ${c.check.padEnd(10)} ${c.detail}${c.fix ? `\n  ${ctx.out.c.muted(c.fix)}` : ""}`));
-  return failed.length ? 1 : 0;
+  return checks;
 }

@@ -19,8 +19,7 @@
   "files": [
     "bin/nb.mjs",
     "lib/",
-    "README.md",
-    "CHANGELOG.md"
+    "README.md"
   ],
   "engines": {
     "node": ">=20"

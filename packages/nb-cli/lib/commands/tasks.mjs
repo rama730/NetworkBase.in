@@ -67,8 +67,8 @@ export async function list(ctx) {
         { title: "#", value: (t) => `${t.id === started ? ctx.out.c.brand(ctx.out.sym.brand) : " "}${t.number ?? ""}`, align: "right" },
         { title: "Task", value: (t) => safe(t.title), flex: true },
         { title: "Status", value: (t) => statusWord(t) },
-        { title: "Due", value: (t) => (t.dueDate ? formatDate(t.dueDate) : "—") },
-        { title: "Assignee", value: (t) => (t.assignee ? `@${safe(t.assignee)}` : "—") },
+        { title: "Due", value: (t) => (t.dueDate ? formatDate(t.dueDate) : "—"), optional: true },
+        { title: "Assignee", value: (t) => (t.assignee ? `@${safe(t.assignee)}` : "—"), optional: true },
       ], d.tasks),
       ctx.out.c.muted(`  ${d.tasks.length} ${d.tasks.length === 1 ? "task" : "tasks"}${d.more ? ` (and ${d.more} more: --limit)` : ""} · nb task view <n>`),
     ];

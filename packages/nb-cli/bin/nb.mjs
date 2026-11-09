@@ -41,7 +41,8 @@ try {
     process.exit(EXIT.ok);
   }
   const { createContext } = await import("../lib/context.mjs");
-  const ctx = createContext({ flags, positionals });
+  // nb prompt runs on every shell prompt: errors only, no notices.
+  const ctx = createContext({ flags: spec.name === "prompt" ? { ...flags, quiet: true } : flags, positionals });
   if (alias) {
     const { remindOnce } = await import("../lib/print/remind.mjs");
     remindOnce(ctx, `alias:${alias.from}`, `nb ${alias.from} is now nb ${alias.to} (the old name works until 3.0)`);
@@ -51,6 +52,7 @@ try {
   if (typeof run !== "function") throw new CliError("INTERNAL", `nb ${spec.name} isn't built yet`);
   const code = await run(ctx);
   process.exitCode = typeof code === "number" ? code : EXIT.ok;
+  await (await import("../lib/print/notices.mjs")).afterCommand(ctx);
 } catch (error) {
   const cliError = toCliError(error);
   early.error(cliError);

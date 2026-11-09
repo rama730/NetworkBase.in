@@ -140,6 +140,7 @@ const exact = {
 
 /** Routes with ids in the path. @type {Array<[RegExp, string, Handler]>} */
 const patterns = [
+  [/^\/api\/v1\/workspaces\/([^/]+)\/members$/, "GET", (req) => ({ data: { members: [{ id: "u1", username: "tester", fullName: "Test User", role: "owner" }, { id: "u2", username: "sam", fullName: "Sam Lee", role: "member" }].filter((m) => !req.query.get("q") || m.username.includes(String(req.query.get("q")))) } })],
   [/^\/api\/v1\/workspaces\/([^/]+)\/manifest$/, "GET", (req, state) => ({ data: { files: [...state.files.values()].map(meta), nextCursor: null, canWrite: state.canWrite, limits: { largestFileBytes: 10 * 1024 * 1024 } } })],
   [/^\/api\/v1\/workspaces\/([^/]+)\/docs$/, "GET", (_req, state) => ({ data: { docs: state.docs.map((d) => ({ slug: d.slug, filename: d.filename, linkedNodeId: state.files.get(d.nodePath)?.nodeId ?? null })) } })],
   [/^\/api\/v1\/workspaces\/([^/]+)\/docs\/([^/]+)$/, "GET", (req, state) => {

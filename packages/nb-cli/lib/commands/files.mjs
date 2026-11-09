@@ -1,27 +1,24 @@
-// init, unlink, status, pull, push, sync, diff, resolve, file list, file view (report §17.4, A1, A4.4).
-import { execFileSync } from "node:child_process";
+// status, pull, push, sync and the offline queue (report §17.4, A1, A4.4, A12.4).
 import crypto from "node:crypto";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 
-import { DIR_NAME, findRoot, readUserConfig, writeProjectConfig } from "../config.mjs";
+import { DIR_NAME, readUserConfig } from "../config.mjs";
 import { CliError, EXIT, usage } from "../errors.mjs";
 import { safe } from "../print/style.mjs";
-import { unifiedDiff } from "../sync/diff.mjs";
 import { scanLocal, toRelative, toRemote } from "../sync/local.mjs";
 import { planSync, stateLabel } from "../sync/plan.mjs";
 import { enqueue, QUEUE_TTL_MS, readQueue, writeQueue } from "../sync/queue.mjs";
-import { acquireLock, pruneBaseCopies, readBaseCopy, readState, saveBaseCopy, writeState } from "../sync/state.mjs";
+import { acquireLock, pruneBaseCopies, readState, saveBaseCopy, writeState } from "../sync/state.mjs";
 import { conflictCopyPath, downloadTo, fetchManifest, safeJoin, uploadFiles } from "../sync/transfer.mjs";
-import { ask, confirm } from "../tui/ask.mjs";
+import { confirm } from "../tui/ask.mjs";
 import { resolveTask } from "./tasks.mjs";
 
 /** @typedef {import("../context.mjs").Context} Context */
 /** @typedef {import("../sync/plan.mjs").PlanItem} PlanItem */
 
 /** Paths given on the command line, as paths relative to the linked folder. @param {Context} ctx @param {string} root */
-function relativeArgs(ctx, root) {
+export function relativeArgs(ctx, root) {
   return ctx.positionals.map((p) => {
     const rel = path.relative(root, path.resolve(ctx.cwd, p));
     if (rel.startsWith("..") || path.isAbsolute(rel)) throw usage(`${p} is outside the linked folder ${root}`);
@@ -33,7 +30,7 @@ function relativeArgs(ctx, root) {
  * Server, base and local side by side. Offline: the server side is the base, and status says so (A12.4).
  * @param {Context} ctx @param {{ only?: string[] }} [options]
  */
-async function buildPlan(ctx, options = {}) {
+export async function buildPlan(ctx, options = {}) {
   const { root, project } = ctx.requireRoot();
   const state = readState(root, project.workspaceId);
   let offline = false;
@@ -58,10 +55,10 @@ async function buildPlan(ctx, options = {}) {
 }
 
 /** @param {string} root @param {string} remoteRoot @param {string} remotePath */
-const localPathOf = (root, remoteRoot, remotePath) => safeJoin(root, /** @type {string} */ (toRelative(remoteRoot, remotePath)));
+export const localPathOf = (root, remoteRoot, remotePath) => safeJoin(root, /** @type {string} */ (toRelative(remoteRoot, remotePath)));
 
 /** Moves a local file into .networkbase/trash (kept 30 days) instead of deleting it (A1.6). @param {string} root @param {string} abs */
-function moveToLocalTrash(root, abs) {
+export function moveToLocalTrash(root, abs) {
   const dest = path.join(root, DIR_NAME, "trash", new Date().toISOString().replace(/[:.]/g, "-"), path.relative(root, abs));
   fs.mkdirSync(path.dirname(dest), { recursive: true });
   fs.renameSync(abs, dest);
@@ -69,7 +66,7 @@ function moveToLocalTrash(root, abs) {
 }
 
 /** Records a synced file as the new base. @param {import("../sync/state.mjs").SyncState} state @param {string} p @param {{ nodeId: string, version: number, hash: string, abs: string }} f */
-function recordBase(state, p, f) {
+export function recordBase(state, p, f) {
   const st = fs.statSync(f.abs);
   state.files[p] = { nodeId: f.nodeId, baseVersion: f.version, baseHash: f.hash, size: st.size, mtimeMs: st.mtimeMs };
   delete state.conflicts[p];
@@ -345,86 +342,4 @@ async function replayQueue(ctx) {
     }
     writeQueue(root, readQueue(root).filter((e) => e.id !== entry.id));
   }
-}
-
-// ───────────────────────────────── diff
-
-/** @param {Context} ctx */
-export async function diff(ctx) {
-  const { root } = ctx.requireRoot();
-  const plan = await buildPlan(ctx, { only: relativeArgs(ctx, root) });
-  const changed = plan.items.filter((i) => i.local && (i.state === "modified" || i.state === "conflict" || i.state === "added"));
-  /** @type {Array<{ path: string, state: string, diff: ReturnType<typeof unifiedDiff> | null, binary: boolean }>} */
-  const files = [];
-  for (const item of changed) {
-    const mine = fs.readFileSync(/** @type {any} */ (item.local).abs);
-    const base = item.base ? readBaseCopy(root, item.base.baseHash) : Buffer.alloc(0);
-    const binary = mine.includes(0) || (base?.includes(0) ?? false);
-    files.push({ path: item.path, state: item.state, binary, diff: base && !binary ? unifiedDiff(base.toString("utf8"), mine.toString("utf8")) : null });
-  }
-  const { c } = ctx.out;
-  ctx.out.result("nb.diff/1", { files }, (d) => {
-    if (!d.files.length) return "No changes";
-    const lines = [];
-    for (const f of d.files) {
-      lines.push(c.bold(`${f.state === "added" ? "new" : f.state}: ${safe(f.path)}`));
-      if (f.binary) { lines.push(c.muted("  binary file changed")); continue; }
-      if (!f.diff) { lines.push(c.muted("  no saved copy of the last-pulled version to compare (it was large, or pulled before 2.0)")); continue; }
-      for (const l of f.diff.lines) lines.push(l.kind === "@" ? c.muted(l.text) : l.kind === "+" ? c.success(`+${safe(l.text)}`) : l.kind === "-" ? c.danger(`-${safe(l.text)}`) : ` ${safe(l.text)}`);
-    }
-    return lines;
-  });
-}
-
-// ───────────────────────────────── resolve
-
-/** @param {Context} ctx */
-export async function resolve(ctx) {
-  const { root } = ctx.requireRoot();
-  const rel = relativeArgs(ctx, root)[0];
-  if (!rel) throw usage("nb resolve <path> --mine|--theirs|--both");
-  const plan = await buildPlan(ctx, { only: [rel] });
-  const item = plan.items.find((i) => i.state === "conflict");
-  if (!item || !item.remote || !item.local) throw usage(`${rel} has no conflict to settle`, "See nb status");
-  let choice = ctx.flags.mine ? "mine" : ctx.flags.theirs ? "theirs" : ctx.flags.both ? "both" : null;
-  choice ??= await ask(ctx, {
-    key: "resolve", header: "Conflict", question: `${item.path} changed here and on the server (v${item.remote.version}). Keep which?`,
-    options: [
-      { value: "both", label: "Keep both", description: "yours stays; the server's becomes a separate file", recommended: true },
-      { value: "mine", label: "Mine", description: "replace the server's version with yours" },
-      { value: "theirs", label: "Theirs", description: "take the server's version (yours goes to .networkbase/trash)" },
-    ],
-  });
-  const { project, state } = plan;
-  const leftover = state.conflicts[item.path]?.copy;
-  const release = await acquireLock(root, "nb resolve");
-  try {
-    if (choice === "theirs") {
-      moveToLocalTrash(root, item.local.abs);
-      const got = await downloadTo(ctx.api, project.workspaceId, item.path, item.local.abs, item.remote.hash);
-      recordBase(state, item.path, { nodeId: item.remote.nodeId, version: item.remote.version, hash: got.hash, abs: item.local.abs });
-    } else if (choice === "mine") {
-      const res = await uploadFiles(ctx.api, { workspaceId: project.workspaceId, items: [{ path: item.path, abs: item.local.abs, size: item.local.size, hash: item.local.hash, baseVersion: item.remote.version }], message: ctx.flags.message ?? null });
-      const f = res.files[0];
-      recordBase(state, item.path, { nodeId: f.nodeId, version: f.version, hash: item.local.hash, abs: item.local.abs });
-    } else {
-      // Keep both: yours goes up as name (2).ext; the server's version takes the original name here.
-      const res = await uploadFiles(ctx.api, { workspaceId: project.workspaceId, items: [{ path: item.path, abs: item.local.abs, size: item.local.size, hash: item.local.hash }], keepBoth: true, message: ctx.flags.message ?? null });
-      const copy = res.files[0];
-      // The server names the copy; it must sit next to the original and not replace another file here.
-      if (path.posix.dirname(copy.path) !== path.posix.dirname(item.path)) throw new CliError("UNEXPECTED_RESPONSE", `The server put your copy at ${safe(copy.path)}, not next to ${safe(item.path)}`, { hint: "Your file is unchanged here; run nb pull" });
-      const copyAbs = localPathOf(root, project.remoteRoot, copy.path);
-      if (fs.existsSync(copyAbs)) throw new CliError("LOCAL_CONFLICT", `${safe(copy.path)} already exists here`, { hint: "Move it aside, then run nb pull" });
-      fs.renameSync(item.local.abs, copyAbs);
-      recordBase(state, copy.path, { nodeId: copy.nodeId, version: copy.version, hash: item.local.hash, abs: copyAbs });
-      const got = await downloadTo(ctx.api, project.workspaceId, item.path, item.local.abs, item.remote.hash);
-      recordBase(state, item.path, { nodeId: item.remote.nodeId, version: item.remote.version, hash: got.hash, abs: item.local.abs });
-    }
-    if (leftover && fs.existsSync(path.join(root, leftover))) fs.rmSync(path.join(root, leftover));
-    delete state.conflicts[item.path];
-    writeState(root, state);
-  } finally {
-    release();
-  }
-  ctx.out.result("nb.resolve/1", { path: item.path, choice }, (d) => `${ctx.out.c.success(ctx.out.sym.done)} Settled ${safe(d.path)}: ${d.choice === "both" ? "kept both" : d.choice === "mine" ? "kept yours" : "took the server's"}`);
 }

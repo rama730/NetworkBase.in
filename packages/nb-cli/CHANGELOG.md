@@ -20,7 +20,11 @@ A rewrite. Folders you linked with 1.x keep working; `nb init` in them moves the
 - `nb task count`, `nb task view --context` (agent brief), `nb task review`, `nb task resubmit`, `nb task pull`.
 - `nb comment add` posts a real task comment (1.x posted nowhere).
 - `nb doc list|view|edit` (edit the README in your editor; refuses if someone saved in between).
-- `nb diff` (works offline), `nb resolve`, `nb doctor`, `nb search`.
+- `nb diff` (works offline), `nb resolve`, `nb doctor`, `nb search`, `nb member list`.
+- Pushes made offline are queued (exit 8) and sent by the next `nb sync`; a teammate's change in between is a conflict.
+- `nb setup shell` adds completions (asks first); `nb prompt` prints the workspace and task for your shell prompt.
+- `nb feedback` prints a report for support with no tokens, names or paths.
+- A once-a-day notice on stderr when a newer version is out (never with `--json`, in CI, or with `NB_NO_UPDATE_CHECK=1`).
 - `nb login --with-token` reads a token from stdin; `NETWORKBASE_TOKEN` works without a file.
 - Questions show as a numbered card in a terminal; scripts answer with `--answer key=value` or `--yes`.
 

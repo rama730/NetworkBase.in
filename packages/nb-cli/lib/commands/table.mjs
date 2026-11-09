@@ -61,10 +61,14 @@ export const COMMANDS = [
   { group: "Account and setup", name: "version", summary: "CLI, Node and server versions", usage: "nb version", module: "misc", fn: "version" },
   { group: "Account and setup", name: "help", summary: "Help for a command", usage: "nb help [command]", module: "misc", fn: "help" },
   { group: "Account and setup", name: "completion", summary: "Shell completion script", usage: "nb completion zsh|bash|fish|powershell", module: "misc", fn: "completion" },
+  { group: "Account and setup", name: "setup shell", summary: "Add completions to your shell (asks first)", usage: "nb setup shell [zsh|bash|fish|powershell]", module: "misc", fn: "setupShell" },
+  { group: "Account and setup", name: "prompt", summary: "Workspace and task for your shell prompt", usage: "nb prompt", module: "misc", fn: "prompt", hidden: true },
+  { group: "Account and setup", name: "feedback", summary: "A report to send with a problem (no tokens or paths)", usage: "nb feedback [--include-paths]", module: "misc", fn: "feedback",
+    flags: { "include-paths": { type: "boolean", describe: "Keep folder paths in the report" } } },
   { group: "Account and setup", name: "config", summary: "Show or change settings", usage: "nb config list | get <key> | set <key> <value>", module: "misc", fn: "config" },
 
   // Files
-  { group: "Files", name: "diff", summary: "Changes against the version you last pulled", usage: "nb diff [path...]", module: "files", fn: "diff" },
+  { group: "Files", name: "diff", summary: "Changes against the version you last pulled", usage: "nb diff [path...]", module: "resolve", fn: "diff" },
   { group: "Files", name: "pull", summary: "Download changes; never overwrites your edits", usage: "nb pull [path...]", module: "files", fn: "pull", flags: { ...DRY }, exit: [0, 4, 8] },
   { group: "Files", name: "push", summary: "Upload changes; same path = new version", usage: "nb push <path...> [--task 4 --as draft] [-m text]", module: "files", fn: "push",
     flags: { ...TASK, ...AS, ...MESSAGE, ...DRY, ...OLD_STATUS,
@@ -75,7 +79,7 @@ export const COMMANDS = [
       "confirm-secrets": { type: "boolean", describe: "Upload even though a file looks like it holds a password or key" } },
     examples: ["nb push src/app.ts -m \"Fix login\"", "nb push report.pdf --task 4 --as final", "nb push shots/ --task 5 --as reference"], exit: [0, 2, 4, 5, 7, 8] },
   { group: "Files", name: "sync", summary: "Pull, then push changed tracked files", usage: "nb sync", module: "files", fn: "sync", flags: { ...MESSAGE, ...OLD_STATUS }, exit: [0, 4, 8] },
-  { group: "Files", name: "resolve", summary: "Settle a conflict", usage: "nb resolve <path> --mine|--theirs|--both", module: "files", fn: "resolve",
+  { group: "Files", name: "resolve", summary: "Settle a conflict", usage: "nb resolve <path> --mine|--theirs|--both", module: "resolve", fn: "resolve",
     flags: { mine: { type: "boolean", describe: "Keep yours and push it" }, theirs: { type: "boolean", describe: "Take the server's version" }, both: { type: "boolean", describe: "Keep both as separate files" } } },
   { group: "Files", name: "watch", summary: "Push saves of tracked files as drafts (foreground)", usage: "nb watch", module: "watch", fn: "watch" },
   { group: "Files", name: "file list", summary: "Files in the workspace", usage: "nb file list [folder] [--task 4]", module: "docs", fn: "fileList", flags: { ...TASK } },
@@ -109,6 +113,7 @@ export const COMMANDS = [
   { group: "Docs and workspaces", name: "doc view", summary: "Print a doc (default: the README)", usage: "nb doc view [slug] [--raw]", module: "docs", fn: "view", flags: { raw: { type: "boolean", describe: "Markdown only" } } },
   { group: "Docs and workspaces", name: "doc edit", summary: "Edit a doc in your editor, saved as a new version", usage: "nb doc edit [slug]", module: "docs", fn: "edit", flags: { ...MESSAGE } },
   { group: "Docs and workspaces", name: "workspace list", summary: "Your workspaces", usage: "nb workspace list", module: "docs", fn: "workspaceList" },
+  { group: "Docs and workspaces", name: "member list", summary: "People in the workspace", usage: "nb member list [name]", module: "docs", fn: "memberList" },
   { group: "Docs and workspaces", name: "search", summary: "Find files by name", usage: "nb search \"<text>\"", module: "docs", fn: "search" },
 ];
 

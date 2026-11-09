@@ -4,11 +4,12 @@
     "checkJs": true,
     "noEmit": true,
     "strict": true,
+    "noUnusedLocals": true,
     "target": "es2022",
     "module": "nodenext",
     "moduleResolution": "nodenext",
     "types": ["node"],
     "skipLibCheck": true
   },
-  "include": ["lib/**/*.mjs", "test/**/*.mjs"]
+  "include": ["bin/**/*.mjs", "lib/**/*.mjs", "test/**/*.mjs"]
 }

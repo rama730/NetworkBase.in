@@ -15,6 +15,8 @@ Account and setup
   version          CLI, Node and server versions
   help             Help for a command
   completion       Shell completion script
+  setup shell      Add completions to your shell (asks first)
+  feedback         A report to send with a problem (no tokens or paths)
   config           Show or change settings
 
 Files
@@ -50,6 +52,7 @@ Docs and workspaces
   doc view         Print a doc (default: the README)
   doc edit         Edit a doc in your editor, saved as a new version
   workspace list   Your workspaces
+  member list      People in the workspace
   search           Find files by name
 
 Every command takes --json, --quiet, --plain and --help.

@@ -140,3 +140,14 @@ export async function fileView(ctx) {
     ctx.out.raw(bytes.toString("utf8").replace(/[\u0000-\u0008\u000b-\u001f\u007f-\u009f]/g, (ch) => (ch < " " ? `^${String.fromCharCode(ch.charCodeAt(0) + 64)}` : `\\x${ch.charCodeAt(0).toString(16)}`)));
   } else ctx.out.raw(bytes);
 }
+
+/** Members matching a name (the server returns at most 10). @param {Context} ctx */
+export async function memberList(ctx) {
+  const workspaceId = ctx.requireWorkspace();
+  const q = ctx.positionals.join(" ");
+  const { members } = /** @type {any} */ (await ctx.api.get(`/api/v1/workspaces/${encodeURIComponent(workspaceId)}/members`, { query: q ? { q } : {} }));
+  ctx.out.result("nb.member.list/1", { query: q || null, members: members.map((/** @type {any} */ m) => ({ username: m.username, name: m.fullName, role: m.role })) }, (d) =>
+    d.members.length
+      ? [...ctx.out.table([{ title: "Member", value: (m) => (m.username ? `@${safe(m.username)}` : ""), flex: true }, { title: "Name", value: (m) => safe(m.name ?? "") }, { title: "Role", value: (m) => m.role }], d.members), ...(d.members.length >= 10 ? [ctx.out.c.muted("  First 10 shown: add a name to narrow it")] : [])]
+      : `No members match "${safe(q)}"`);
+}

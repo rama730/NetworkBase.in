@@ -76,13 +76,23 @@ export function createOutput(mode, io = {}) {
       }
       stderr.write(`${c.danger(sym.error)} ${safe(error.message)}\n`);
       if (error.hint) stderr.write(`  ${c.muted(safe(error.hint))}\n`);
+      // GitHub Actions shows this line as an error on the run's summary (A5.10).
+      if (env.GITHUB_ACTIONS === "true") stderr.write(`::error title=nb::${safe(error.message).replace(/%/g, "%25").replace(/\r?\n/g, "%0A")}\n`);
     },
     /**
-     * A table with a header, sized to content; one flexible column is cut to fit (A5.5).
-     * @param {Array<{ title: string, value: (row: any) => string, flex?: boolean, path?: boolean, align?: "right" }>} cols
+     * A table with a header, sized to content; one flexible column is cut to fit, and on a narrow terminal the
+     * optional columns go first, from the right (A5.5).
+     * @param {Array<{ title: string, value: (row: any) => string, flex?: boolean, path?: boolean, align?: "right", optional?: boolean }>} allCols
      * @param {any[]} rows
      */
-    table(cols, rows) {
+    table(allCols, rows) {
+      const natural = (/** @type {typeof allCols[number]} */ col) => Math.max(width(col.title), ...rows.map((r) => width(col.value(r))));
+      const fixedWidth = (/** @type {typeof allCols} */ cs) => cs.reduce((a, col) => a + (col.flex ? 10 : natural(col)), 0) + 2 * cs.length;
+      let cols = allCols;
+      while (fixedWidth(cols) > columns() && cols.some((col) => col.optional)) {
+        const drop = cols.map((col) => Boolean(col.optional)).lastIndexOf(true);
+        cols = cols.filter((_, i) => i !== drop);
+      }
       const cells = rows.map((row) => cols.map((col) => col.value(row)));
       const widths = cols.map((col, i) => Math.max(width(col.title), ...cells.map((r) => width(r[i] ?? ""))));
       const total = widths.reduce((a, b) => a + b, 0) + 2 * (cols.length - 1) + 2;
@@ -100,5 +110,4 @@ export function createOutput(mode, io = {}) {
 }
 
 /** @param {string} s */
- 
 const stripForJson = (s) => s.replace(/\x1b\[[0-9;]*m/g, "");

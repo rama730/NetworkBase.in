@@ -83,4 +83,37 @@ describe("nb 2.0 basics", () => {
     assert.notEqual(r.home, os.homedir());
     assert.equal(fs.existsSync(real) ? fs.statSync(real).mtimeMs : null, before);
   });
+
+  it("member list, feedback without names, prompt for the shell", async () => {
+    const cwd = await tempDir("nb-proj-");
+    const home = await tempDir("nb-home-");
+    await runCli(["init", "design-lab"], { api: api.url, cwd, home });
+    const members = await runCli(["member", "list", "sa"], { api: api.url, cwd, home });
+    assert.match(members.stdout, /@sam/);
+    assert.doesNotMatch(members.stdout, /@tester/);
+    const report = await runCli(["feedback", "--json"], { api: api.url, cwd, home });
+    assert.ok(!report.stdout.includes(cwd), "no folder path");
+    assert.ok(!report.stdout.includes("@tester"), "no username");
+    assert.ok(!report.stdout.includes("nb_pat_test"), "no token");
+    const promptOut = await runCli(["prompt"], { api: api.url, cwd, home });
+    assert.equal(promptOut.stdout, "design-lab");
+    assert.equal(promptOut.stderr, "");
+  });
+
+  it("setup shell adds completions once, after a yes", async () => {
+    const home = await tempDir("nb-home-");
+    const r = await runCli(["setup", "shell", "zsh", "--yes"], { api: api.url, home, env: { HOME: home } });
+    assert.equal(r.code, 0, r.stderr);
+    const rc = fs.readFileSync(path.join(home, ".zshrc"), "utf8");
+    assert.match(rc, /source <\(nb completion zsh\)/);
+    await runCli(["setup", "shell", "zsh", "--yes"], { api: api.url, home, env: { HOME: home } });
+    assert.equal(fs.readFileSync(path.join(home, ".zshrc"), "utf8"), rc, "not added twice");
+    assert.equal((await runCli(["setup", "shell", "zsh"], { api: api.url, home: await tempDir("nb-home-") })).code, 7, "asks first");
+  });
+
+  it("errors in GitHub Actions also print an annotation", async () => {
+    const r = await runCli(["task", "view", "1"], { api: api.url, env: { GITHUB_ACTIONS: "true" } });
+    assert.notEqual(r.code, 0);
+    assert.match(r.stderr, /^::error title=nb::/m);
+  });
 });

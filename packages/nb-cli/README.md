@@ -32,7 +32,7 @@ nb task done 4 -m "Login works" --check "npm test=pass"
 
 - `nb pull` never overwrites a file you changed. If you and the server both changed it, you get a conflict copy (`report.remote-v4.md`) and `nb resolve`.
 - `nb push` refuses when someone pushed a newer version since your last pull, and tells you to pull first.
-- `nb diff` works offline against the version you last pulled.
+- `nb diff` works offline against the version you last pulled. A push made offline waits in a queue until `nb sync`.
 - Tokens are tied to the server that issued them; a project file can't send your token somewhere else.
 
 ## Scripts and agents
@@ -49,11 +49,11 @@ Run `nb help` for the list and `nb help <command>` for flags and examples.
 
 | Area | Commands |
 |---|---|
-| Account | `login`, `logout`, `whoami`, `doctor`, `version`, `config`, `completion` |
+| Account | `login`, `logout`, `whoami`, `doctor`, `version`, `config`, `completion`, `setup shell`, `feedback` |
 | Folder | `init`, `unlink`, `status`, `open` |
 | Files | `pull`, `push`, `sync`, `diff`, `resolve`, `watch`, `file list`, `file view` |
 | Tasks | `task list/count/view/create/start/stop/move/done/review/resubmit/pull`, `subtask list/add/check/uncheck`, `comment add` |
-| Docs | `doc list/view/edit`, `workspace list`, `search` |
+| Docs | `doc list/view/edit`, `workspace list`, `member list`, `search` |
 
 ## Coming from 1.x
 
