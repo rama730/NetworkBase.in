@@ -10,6 +10,14 @@ const nextConfig: NextConfig = {
   // Keep verification builds isolated from an actively running local dev server.
   distDir: process.env.NEXT_DIST_DIR || ".next",
   output: "standalone",
+  // The hosted MCP route (/api/mcp) runs the CLI's own modules, whose runtime path joins make Next trace the whole
+  // project into the server image. It needs only the bundle, node_modules and the CLI's package.json (its version).
+  outputFileTracingExcludes: {
+    "/api/mcp": ["./docs/**", "./tests/**", "./artifacts/**", "./drizzle/**", "./scripts/**", "./standards/**", "./templates/**", "./integrations/**", "./src/**", "./public/**", "./.codex/**", "./packages/nb-cli/{bin,lib,test,schema}/**", "./*.md", "./Dockerfile"],
+  },
+  outputFileTracingIncludes: {
+    "/api/mcp": ["./packages/nb-cli/package.json"],
+  },
   // Native HTTP 308 redirects preserve query params and offload route migration to edge.
   async redirects() {
     return [

@@ -17,7 +17,8 @@ function getBearerToken(request: Request) {
   }
 
   const token = authHeader.slice(7).trim();
-  return token.startsWith("nb_dev_") || token.startsWith("nb_pat_") ? token : null;
+  // Device, AI agent (both in extension_device_sessions) and personal tokens: an agent can be signed out too.
+  return /^nb_(dev|agt|pat)_/.test(token) ? token : null;
 }
 
 export async function GET(request: Request) {

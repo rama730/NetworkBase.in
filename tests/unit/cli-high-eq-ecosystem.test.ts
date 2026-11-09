@@ -66,6 +66,14 @@ describe("NetworkBase High-EQ CLI & Unified Ecosystem", () => {
       assert.equal(validateCsrf(req), null);
     });
 
+    it("exempts stateless Bearer nb_agt_ (AI agent) requests too, but not with cookies", () => {
+      // Found in a production-mode build check (2026-11-10): agent writes were refused here.
+      const headers = { Authorization: "Bearer nb_agt_abcdef1234567890" };
+      assert.equal(validateCsrf(new Request("https://networkbase.app/api/mcp", { method: "POST", headers })), null);
+      assert.notEqual(validateCsrf(new Request("https://networkbase.app/api/mcp", { method: "POST", headers: { ...headers, Cookie: "sb-project-auth-token=x" } })), null);
+      assert.notEqual(validateCsrf(new Request("https://networkbase.app/api/mcp", { method: "POST", headers: { Authorization: "Bearer nb_agtx_123" } })), null);
+    });
+
     it("does not exempt Bearer nb_pat_ when browser auth cookies are attached", () => {
       const req = new Request("https://networkbase.app/api/v1/extension/task-push", {
         method: "POST",

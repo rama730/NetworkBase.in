@@ -106,13 +106,13 @@ function carriesAuthCookie(request: Request) {
 }
 
 /**
- * Cookie-authenticated commands always pass origin and token checks. The only exemption is an extension
- * device token on a request with no session cookie: nothing ambient exists to forge (SEC-001). A Bearer
- * header alongside cookies, or any other bearer value, gets no exemption.
+ * Cookie-authenticated commands always pass origin and token checks. The only exemption is a CLI, editor or AI
+ * agent token (nb_dev_, nb_pat_, nb_agt_) on a request with no session cookie: nothing ambient exists to forge
+ * (SEC-001). A Bearer header alongside cookies, or any other bearer value, gets no exemption.
  */
 export function validateCsrf(request: Request): NextResponse | null {
   const authHeader = request.headers.get("authorization")?.trim();
-  if (authHeader && /^bearer nb_(dev|pat)_/i.test(authHeader) && !carriesAuthCookie(request)) {
+  if (authHeader && /^bearer nb_(dev|pat|agt)_/i.test(authHeader) && !carriesAuthCookie(request)) {
     return null;
   }
 
