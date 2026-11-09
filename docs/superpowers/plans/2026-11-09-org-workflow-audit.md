@@ -457,4 +457,5 @@ The two big wins came from measuring: the badge counts re-scanned every assignme
 Still open, and why:
 - E0 signed-in checks (owner and student on the live site, notifications and emails, two browsers, calendar link): need the user's accounts and a deploy.
 - E0 compat cleanup (terminology views, workspace `status_*` columns): a production schema change, for the next release with the user's go-ahead.
-- Production: apply 0067, 0068 (non-transactional), 0070; deploy; set `DB_POOL_MAX` only if pool waits show.
+- Production: 0067, 0068 and 0070 **applied 2026-11-09** with `npm run db:setup` (session pooler, 5432); lineage checked first (0069 was already applied by the auth work, at index 68). All 13 indexes valid and ready; `chat_is_workspace_member`, `update_event_row` and `update_activity_seq` carry the new rules. The code is not deployed yet; the migrations work with the deployed code. Remaining: deploy, then set `DB_POOL_MAX` only if pool waits show.
+- Viewers who joined org channels before 0067 stay in them until their role changes (0067 stops new joins and handles role changes; it doesn't sweep existing memberships).
