@@ -20,6 +20,7 @@ import { DownloadLink } from '@/components/ui/download-link';
 import dynamic from 'next/dynamic';
 import type { MediaItem } from '@/components/ui/media-viewer';
 import { formatFileSize } from '@/lib/messaging/channel-view';
+import { useOverlayHistory } from "@/lib/navigation/overlay-history";
 
 const MediaViewerModal = dynamic(
     () => import('@/components/ui/media-viewer').then((m) => m.MediaViewerModal),
@@ -95,6 +96,8 @@ export function MessageAttachmentsV2({
     }, [attachments]);
 
     const [activeAttachmentId, setActiveAttachmentId] = useState<string | null>(null);
+    // Back or swipe closes the viewer first (unified back A3).
+    useOverlayHistory("media", activeAttachmentId !== null, () => setActiveAttachmentId(null));
     const [originRect, setOriginRect] = useState<DOMRect | null>(null);
     const [videoTime, setVideoTime] = useState<number>(0);
     const [returnedVideoState, setReturnedVideoState] = useState<{ id: string; time: number } | null>(null);

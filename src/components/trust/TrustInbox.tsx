@@ -20,6 +20,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import type { InboxFilters, InboxItem } from '@/lib/trust/inbox'
 import { caseLabel, parseCaseLabel } from '@/lib/trust/rules'
 import { keepStamp } from '@/lib/navigation/in-app-history'
+import { closeOverlay, openOverlay } from '@/lib/navigation/overlay-history'
 import { useDocumentTitlePrefix } from '@/hooks/useDocumentTitlePrefix'
 
 // The Inbox (Trust & Safety Console Redesign R2, R3, R8, S6, S8): list, case and decision as separate pieces of
@@ -102,13 +103,18 @@ export function TrustInbox() {
     const open = useCallback((i: InboxItem | undefined) => {
         if (!i) return
         anchor.current = i.id
-        if (i.type === 'verification') setUrl({ 'org-request': i.id, case: undefined, type: undefined })
-        else setUrl({ case: caseLabel(i.number ?? 0), type: i.type === 'appeal' ? 'appeal' : undefined, 'org-request': undefined })
+        const changes = i.type === 'verification'
+            ? { 'org-request': i.id, case: undefined, type: undefined }
+            : { case: caseLabel(i.number ?? 0), type: i.type === 'appeal' ? 'appeal' : undefined, 'org-request': undefined }
+        // Side by side (1024px+), picking a case adds no step; full screen on a phone it does, so back
+        // returns to the list (unified back R5, A3).
+        if (medium) setUrl(changes, true)
+        else openOverlay('trust-case', (mode) => setUrl(changes, mode === 'replace'))
         prefetch(i)
         // Opening a case moves focus to its title (S14).
         window.setTimeout(() => document.getElementById('case-title')?.focus({ preventScroll: true }), 50)
-    }, [setUrl, prefetch])
-    const close = () => setUrl({ case: undefined, type: undefined, 'org-request': undefined })
+    }, [setUrl, prefetch, medium])
+    const close = () => closeOverlay('trust-case', () => setUrl({ case: undefined, type: undefined, 'org-request': undefined }, true))
 
     // Live: refetch only what an event touched, half a second at a time (S1, S4, S6).
     const lastIds = useRef<Set<string>>(new Set())

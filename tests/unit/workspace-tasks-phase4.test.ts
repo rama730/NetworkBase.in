@@ -51,7 +51,7 @@ test("an open task is a link: drawer params are written, copy links use them", (
   assert.equal(projectTaskHref("atlas", "t1"), "/workspaces/atlas?tab=tasks&drawerType=task&drawerId=t1");
   const tab = read("src/components/workspaces/v2/TasksTab.tsx");
   assert.match(tab, /nextParams\.set\("drawerType", "task"\)/);
-  assert.match(tab, /router\.push\(nextUrl, \{ scroll: false \}\)/);
+  assert.match(tab, /openOverlay\("task", \(mode\) => router\[mode\]\(nextUrl, \{ scroll: false \}\)\)/);
   assert.doesNotMatch(read("src/components/workspaces/v2/tasks/TaskDetailPanel.tsx"), /\?tab=tasks&taskId=/);
 });
 

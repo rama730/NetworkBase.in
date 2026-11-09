@@ -25,7 +25,8 @@ test("an open task panel is a working link: its drawer params are in the URL", (
   const fileMutations = read("src/hooks/useTaskFileMutations.ts");
 
   assert.match(taskTab, /nextParams\.set\("drawerId", normalized\.id\)/);
-  assert.match(taskTab, /router\.push\(nextUrl, \{ scroll: false \}\);/);
+  // Unified back A3: opening adds one history entry (switching tasks replaces it), so back closes the drawer.
+  assert.match(taskTab, /openOverlay\("task", \(mode\) => router\[mode\]\(nextUrl, \{ scroll: false \}\)\);/);
   // Closing still removes them.
   assert.match(taskTab, /"drawerType",\s*"drawerId",\s*"panelTab",/);
   assert.match(hook, /countsFromTask/);
@@ -56,7 +57,8 @@ test("task panel close is a single deterministic URL replacement", () => {
   assert.match(taskTab, /const isTaskPanelClosingRef = useRef\(false\)/);
   assert.match(taskTab, /if \(isTaskPanelClosingRef\.current\) return;/);
   assert.match(taskTab, /isTaskPanelClosingRef\.current = true;/);
-  assert.match(taskTab, /router\.replace\(nextUrl, \{ scroll: false \}\);/);
+  // Closes with back when this page opened the drawer; a deep-linked drawer still closes with one replace.
+  assert.match(taskTab, /closeOverlay\("task", \(\) => router\.replace\(nextUrl, \{ scroll: false \}\)\);/);
   assert.doesNotMatch(taskTab, /router\.back\(\)/);
   assert.match(taskTab, /if \(isTaskPanelClosingRef\.current\) return;\s*if \(\s*!initialOpenTaskId \|\|/s);
 });

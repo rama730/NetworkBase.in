@@ -47,6 +47,7 @@ import { subscribeBroadcast } from '@/lib/realtime/private-broadcast'
 import { OrgInvitePanel } from '@/components/organizations/OrgInvitePanel'
 import { formatDistanceToNow } from '@/lib/utils/date'
 import { useUrlMirror } from '@/lib/navigation/url-state'
+import { useOverlayHistory } from '@/lib/navigation/overlay-history'
 import { cn } from '@/lib/utils'
 import { ErrorNotice } from '@/components/ui/ErrorNotice'
 import { EmptyState } from '@/components/ui/EmptyState'
@@ -105,6 +106,7 @@ export function OrgMembersTab({ orgId, roleNames, started = null }: { orgId: str
     })
     const [selected, setSelected] = useState<Set<string>>(new Set())
     const [open, setOpen] = useState<Row | null>(null)
+    useOverlayHistory('member', open !== null, () => setOpen(null)) // back closes the member drawer (A3)
     const [roleAsk, setRoleAsk] = useState<{ ids: string[]; names: string[]; role: 'admin' | 'member' | 'viewer' } | null>(null)
     const [removeAsk, setRemoveAsk] = useState<{ ids: string[]; names: string[]; block: boolean } | null>(null)
     const [revoke, setRevoke] = useState<{ userId: string; name: string } | null>(null)

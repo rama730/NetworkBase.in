@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import { useUIStore } from "@/stores/ui-store";
+import { useOverlayHistory } from "@/lib/navigation/overlay-history";
 
 const MyWorkDrawer = dynamic(() => import("../my-work/MyWorkDrawer"), { ssr: false });
 
@@ -59,6 +60,9 @@ export function MyWorkDrawerHost() {
         window.addEventListener("keydown", handleKeyDown);
         return () => window.removeEventListener("keydown", handleKeyDown);
     }, [isOpen, setMyWorkOpen]);
+
+    // Back or swipe closes My work first; closing it yourself takes its history step back (unified back A3).
+    useOverlayHistory("my-work", isOpen, () => setMyWorkOpen(false));
 
     // Below md the drawer is full screen, so a route change (including browser Back) must not leave it covering the new page.
     const previousPathnameRef = useRef(pathname);

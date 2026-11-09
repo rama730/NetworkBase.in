@@ -12,6 +12,8 @@ export type HistoryEntry = {
   from: { path: string; title: string } | null;
   /** Entries to skip on in-app Back (another site sits behind this one, R4). */
   skip?: number;
+  /** This entry was pushed to show a drawer or viewer over the page; back closes it (A3). */
+  overlay?: string;
 };
 
 type TransitionType = "push" | "replace" | "traverse";
@@ -30,6 +32,7 @@ let currentTitle = "";
 let lastLength = 0;
 let pending: TransitionType | null = null;
 let leavingTitle: string | null = null;
+let pendingOverlay: string | null = null;
 let lastTraverseAt = Number.NEGATIVE_INFINITY;
 let counter = 0;
 const listeners = new Set<(entry: HistoryEntry) => void>();
@@ -49,6 +52,11 @@ function isEntry(value: unknown): value is HistoryEntry {
 export function noteExternalDeparture() {
   if (!current || typeof sessionStorage === "undefined" || typeof window === "undefined") return;
   rememberDeparture(sessionStorage, window.history.length, Date.now(), { path: currentPath, title: document.title });
+}
+
+/** The next pushed entry shows a drawer or viewer over this page (A3). */
+export function markNextPushAsOverlay(key: string) {
+  pendingOverlay = key;
 }
 
 /** A router navigation is starting (from `onRouterTransitionStart`). */
@@ -71,11 +79,12 @@ export function stampEntry(win: WinLike): HistoryEntry {
   } else {
     const type = pending ?? (win.history.length > lastLength ? "push" : "replace");
     entry = type === "push"
-      ? { id: newId(), depth: current.depth + 1, from: { path: currentPath, title: leavingTitle ?? currentTitle } }
+      ? { id: newId(), depth: current.depth + 1, from: { path: currentPath, title: leavingTitle ?? currentTitle }, ...(pendingOverlay ? { overlay: pendingOverlay } : {}) }
       : { ...current };
   }
   pending = null;
   leavingTitle = null;
+  pendingOverlay = null;
   lastLength = win.history.length;
   if (stored !== entry) {
     // Next's patched replaceState copies its own internals into a state without them.
@@ -128,5 +137,6 @@ export function resetInAppHistory() {
   lastLength = 0;
   pending = null;
   leavingTitle = null;
+  pendingOverlay = null;
   lastTraverseAt = Number.NEGATIVE_INFINITY;
 }

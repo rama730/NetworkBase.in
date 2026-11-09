@@ -70,6 +70,7 @@ import { useDocumentTitlePrefix } from "@/hooks/useDocumentTitlePrefix";
 import { serverFirst } from "@/lib/server-first";
 import type { TasksBoot } from "@/lib/workspaces/server/tasks-boot";
 import { readUrlParam, useUrlMirror } from "@/lib/navigation/url-state";
+import { closeOverlay, openOverlay } from "@/lib/navigation/overlay-history";
 
 const PAGE_NORMALIZED_TASKS_CACHE = new WeakMap<object, TaskSurfaceRecord[]>();
 
@@ -499,7 +500,8 @@ export default function TasksTab({
         const nextUrl = `${window.location.pathname}?${nextParams.toString()}`;
         if (`${window.location.pathname}${window.location.search}` !== nextUrl) {
           openingTaskIdRef.current = normalized.id;
-          router.push(nextUrl, { scroll: false });
+          // One history entry for the drawer; switching tasks replaces it (unified back A3).
+          openOverlay("task", (mode) => router[mode](nextUrl, { scroll: false }));
         }
       }
     },
@@ -541,9 +543,9 @@ export default function TasksTab({
         ? `${window.location.pathname}?${nextQuery}`
         : window.location.pathname;
 
-      // Always replace the current drawer URL. Browser Back is not a close
-      // primitive here: its previous entry can itself include a drawerId.
-      router.replace(nextUrl, { scroll: false });
+      // Back closes the drawer when we opened it (the entry behind is the page without it);
+      // a deep-linked drawer replaces, so one back from here leaves the page (unified back A3).
+      closeOverlay("task", () => router.replace(nextUrl, { scroll: false }));
     }
   }, [router]);
 
