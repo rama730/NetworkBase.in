@@ -15,14 +15,21 @@ Local `main`, not pushed. Commits, oldest first:
 | `56c16c121` | hosted MCP, `--branch`, `--from-git`, saved filters, `--from tasks.md` |
 | `33ee733bf` | hosted MCP: configured site address only, scratch folder per token |
 
-## Before deploying (needs the user's go-ahead)
+## Done on 2026-11-10 (the user's go-ahead: "do these all and check everything before deploying")
 
-1. Apply migrations **0072–0076** in production. Until then any page or route that reads the new columns fails against the production database (the dev server on :3000 included): device sessions (settings list, every token request), file version history, subtasks in the task panel, task comments.
-2. Re-sync the Inngest worker (new function `agent-notification-flush`).
-3. Set `APP_URL` on Railway if it isn't set: the hosted MCP server refuses requests without it (503).
-4. `npm ci` once: `package.json` gained `@codemirror/language` and `@lezer/highlight` (already in node_modules as dependencies of dependencies) and dropped `@codemirror/theme-one-dark`; only the lockfile was updated, so the running dev server wasn't disturbed.
-5. Create the public plugin repository from `integrations/claude-code-plugin/` (user step).
-6. npm release steps from the plan (§42.9): re-add the trusted publisher before 2.0.
+- **0072–0076 applied in production** (one transaction each, recorded in `app_migration_journal` with checksum and index, schema reload sent). Verified: 17 new columns, the six new tables usable by `nb_app` and not by the browser role, RLS on. `npm run db:setup` was not used because it would also apply **0071** (another session's drop of `calendar_feed_tokens`, which the deployed app still uses); 0071 stays pending and ships with that session's code.
+- **0077** (FK indexes for the new tables) is committed but **not applied**: the permission check stopped it as beyond the named migrations. It's index-only on tables with 0–36 rows. Apply it alone (not with `db:setup`, which would also run 0071).
+- `APP_URL` and `NEXT_PUBLIC_APP_URL` were already set on both Railway services (`https://networkbase.in`).
+- `npm ci` done. It stopped the :3000 dev server, which was restarted.
+- Checks: full unit suite 3452/3452, CLI 126/126, DB 943/947 (the 4 known older failures), typecheck clean, lint clean except two errors in a test from another session (`6200fbf5e`). A production build of HEAD in a scratch copy, started on :3100, found and fixed two real bugs (`6f69f63cd`): agent tokens were refused by the CSRF guard on every write, and couldn't sign out; and `/api/mcp` traced the whole project into the server image.
+- Plugin repository: not created. The permission check stopped making a public repository; the user's GitHub account also has no admin or push rights in the `NetWorkBase` organization. CLI 2 isn't on npm yet (latest 1.0.4), so the plugin can't start until it is; its check now waits instead of failing.
+
+## Still before deploying (needs the user's go-ahead)
+
+1. Apply 0077 alone.
+2. Push and deploy; then re-sync the Inngest worker (new function `agent-notification-flush`) — re-syncing before the deploy registers nothing new.
+3. Create `NetWorkBase/claude-code-plugin` from `integrations/claude-code-plugin/` (needs organization rights).
+4. npm release steps from the plan (§42.9): re-add the trusted publisher before 2.0.
 
 ## Decisions taken while building (ponytail)
 
