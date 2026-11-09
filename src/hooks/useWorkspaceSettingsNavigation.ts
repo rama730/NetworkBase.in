@@ -73,7 +73,7 @@ export function useWorkspaceSettingsNavigation(
       const next = new URLSearchParams(window.location.search);
       next.set("tab", "settings");
       next.set("settings", id);
-      router.push(`?${next.toString()}#project-settings-${id}`, {
+      router.replace(`?${next.toString()}#project-settings-${id}`, {
         scroll: false,
       });
       scrollToSection(id, true);

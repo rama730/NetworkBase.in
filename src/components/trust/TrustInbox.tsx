@@ -64,9 +64,10 @@ export function TrustInbox() {
         const next = new URLSearchParams(window.location.search)
         for (const [k, v] of Object.entries(changes)) { if (v) next.set(k, v); else next.delete(k) }
         const url = `${window.location.pathname}${next.toString() ? `?${next}` : ''}`
-        if (replace) window.history.replaceState(null, '', url); else window.history.pushState(null, '', url)
+        if (replace) window.history.replaceState(window.history.state, '', url); else window.history.pushState(null, '', url)
     }, [])
-    const setFilters = useCallback((changes: Partial<InboxFilters>, replace = false) => { setChecked([]); setUrl(changes as Record<string, string | undefined>, replace) }, [setUrl])
+    // Filters replace: back leaves the inbox in one step (unified back A2).
+    const setFilters = useCallback((changes: Partial<InboxFilters>) => { setChecked([]); setUrl(changes as Record<string, string | undefined>, true) }, [setUrl])
 
     const inbox = useInfiniteQuery({
         queryKey: ['trust', 'inbox', filters],

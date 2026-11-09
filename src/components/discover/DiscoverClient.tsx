@@ -151,8 +151,6 @@ export default function DiscoverClient({
     const [filtersOpen, setFiltersOpen] = useState(false);
     const filtersButton = useRef<HTMLButtonElement>(null);
     const feedHeading = useRef<HTMLHeadingElement>(null);
-    // One history entry per visit to the Filters drawer: its first change pushes, the rest replace.
-    const drawerPushed = useRef(false);
 
     const wide = useMediaQuery('(min-width: 1200px)');
     const suggestions = useSuggestedPeople(DISCOVER_RAIL_PEOPLE_LIMIT, undefined, DISCOVER_RAIL_FILTERS, initialPeopleSuggestions, false, true);
@@ -525,10 +523,7 @@ export default function DiscoverClient({
                                 loading={isQueryTransition}
                                 onChange={updateUrlFilters}
                                 onClearFilters={() => clearFilters({ keepSearch: true })}
-                                onOpenFilters={() => {
-                                    drawerPushed.current = false;
-                                    setFiltersOpen(true);
-                                }}
+                                onOpenFilters={() => setFiltersOpen(true)}
                                 filtersButtonRef={filtersButton}
                                 people={people}
                             />
@@ -598,14 +593,8 @@ export default function DiscoverClient({
                 }}
                 query={urlFilters}
                 activeFilters={activeFilters}
-                onChange={(patch: Partial<DiscoverQuery>) => {
-                    updateUrlFilters(patch, { replace: drawerPushed.current });
-                    drawerPushed.current = true;
-                }}
-                onClear={() => {
-                    clearFilters({ keepSearch: true });
-                    drawerPushed.current = true;
-                }}
+                onChange={(patch: Partial<DiscoverQuery>) => updateUrlFilters(patch)}
+                onClear={() => clearFilters({ keepSearch: true })}
             />
         </AppScrollArea>
     );

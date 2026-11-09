@@ -213,7 +213,8 @@ test("top-nav keeps one accessible, route-aligned implementation", () => {
   assert.doesNotMatch(topNav, /OPEN_MESSAGES_SEARCH_EVENT|open-messages-local-search/);
   assert.match(source("src/components/layout/AppSidebar.tsx"), /MAIN_NAV_ITEMS/);
   assert.match(topNav, /hidden min-w-0 flex-1 items-center md:flex/);
-  assert.match(topNav, /<div className="md:hidden">\s*<Logo/);
+  // Phones: the logo, which a back arrow replaces on detail pages (unified back §7.2).
+  assert.match(topNav, /<div className="md:hidden">\s*\{authUiState === "signed-in"\s*\? <BackLogoSwap logo=\{<Logo/);
   // The label also says when there are unread messages (the dot alone isn't heard; round 3 #92).
   assert.match(topNav, /className="nb-mobile-menu-trigger[^\"]*md:hidden"\s+aria-label=\{chatUnread \? "Open mobile menu, unread messages" : "Open mobile menu"\}/);
   assert.match(globals, /@media \(min-width:768px\) \{[\s\S]*?\.nb-mobile-menu-trigger \{ display:none; \}/);

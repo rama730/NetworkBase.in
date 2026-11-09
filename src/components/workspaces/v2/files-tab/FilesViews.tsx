@@ -264,7 +264,8 @@ export function FilesViews({
     else url.searchParams.set("filesView", nextView);
     if (nextTask) url.searchParams.set("filesTask", nextTask);
     else url.searchParams.delete("filesTask");
-    window.history.pushState(window.history.state, "", url);
+    // A view or task filter replaces; folder and file moves keep their history (unified back A2, R5).
+    window.history.replaceState(window.history.state, "", url);
   }
   const selectView = (value: FilesViewId) => change(value, null);
   const selectTask = (id: string | null) => change(view, id, true);

@@ -10,7 +10,7 @@ import { activeFilterCount, isDefaultDiscoverQuery, parseDiscoverQuery, type Dis
 const DEFAULTS = parseDiscoverQuery(() => null);
 
 /**
- * Discover's filters live in the URL (shareable, Back/Forward work). Changes use history.pushState:
+ * Discover's filters live in the URL (shareable, and back returns to them). Changes use history.replaceState:
  * Next keeps useSearchParams in sync without re-running the server page, so a control never snaps back
  * while the server answers. The feed query refetches on the new key by itself.
  */
@@ -20,7 +20,7 @@ export function useDiscoverUrlFilters() {
 
     const urlFilters = useMemo(() => parseDiscoverQuery((key) => searchParams.get(key)), [searchParams]);
 
-    const updateUrlFilters = useCallback((patch: Partial<DiscoverQuery>, options: { replace?: boolean } = {}) => {
+    const updateUrlFilters = useCallback((patch: Partial<DiscoverQuery>) => {
         // From the live URL, not this render's searchParams: a debounced search firing after a filter change
         // must not write the old filters back.
         const params = new URLSearchParams(window.location.search);
@@ -35,9 +35,8 @@ export function useDiscoverUrlFilters() {
         const url = `${pathname}${query ? `?${query}` : ''}`;
         // Nothing changed (Enter on the same search, the selected option again): no history entry.
         if (url === `${window.location.pathname}${window.location.search}`) return;
-        // Typing in the search box replaces (one Back step per search, not per letter).
-        if (options.replace) window.history.replaceState(null, '', url);
-        else window.history.pushState(null, '', url);
+        // Filters replace: back leaves Discover in one step and comes back to these filters (unified back A2).
+        window.history.replaceState(window.history.state, '', url);
     }, [pathname]);
 
     /** Clears the filter tags, and the search too unless `keepSearch`. Scope and sort stay. */

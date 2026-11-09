@@ -86,7 +86,7 @@ interface DiscoverHeaderProps {
     /** Read out when results settle: "12 projects", "No projects match". */
     announcement: string;
     loading?: boolean;
-    onChange: (patch: Partial<DiscoverQuery>, options?: { replace?: boolean }) => void;
+    onChange: (patch: Partial<DiscoverQuery>) => void;
     onClearFilters: () => void;
     onOpenFilters: () => void;
     filtersButtonRef: RefObject<HTMLButtonElement | null>;
@@ -165,7 +165,7 @@ export default function DiscoverHeader({ query, activeFilters, announcement, loa
                         </label>
                     </>
                 ) : null}
-                <SearchBox value={query.q} loading={loading} onSearch={(q) => onChange({ q }, { replace: Boolean(query.q) })} />
+                <SearchBox value={query.q} loading={loading} onSearch={(q) => onChange({ q })} />
                 <div className="flex items-center gap-2 max-sm:w-full">
                     {sortable ? (
                         <Select value={query.sort} onValueChange={(value) => onChange({ sort: value as SortOption })}>

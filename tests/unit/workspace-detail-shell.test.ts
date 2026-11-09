@@ -19,11 +19,11 @@ test("the canonical slug redirect keeps repeated params repeated", () => {
   assert.doesNotMatch(page, /new URLSearchParams\(rawParams as Record<string, string>\)/);
 });
 
-test("tab, doc and settings-section clicks are history entries", () => {
-  // Audit 4.5: a tab click is a history entry without a server round trip (window.history.pushState, as Files does).
-  assert.match(read(PDC), /window\.history\.pushState\(null, '', nextUrl\)|router\.push\(nextUrl, \{ scroll: false \}\)/);
+test("tab and settings-section clicks replace; opening a doc is a history entry", () => {
+  // Unified back A2: a tab click replaces the entry (no server round trip), so back leaves the page in one step.
+  assert.match(read(PDC), /window\.history\.replaceState\(window\.history\.state, '', nextUrl\)/);
   assert.match(read("src/components/workspaces/doc/WorkspaceDocRail.tsx"), /router\[replace \? "replace" : "push"\]/);
-  assert.match(read("src/hooks/useWorkspaceSettingsNavigation.ts"), /router\.push\(`\?\$\{next\.toString\(\)\}#project-settings-/);
+  assert.match(read("src/hooks/useWorkspaceSettingsNavigation.ts"), /router\.replace\(`\?\$\{next\.toString\(\)\}#project-settings-/);
 });
 
 test("lifecycle rows are keyed by id, never by stage text", () => {

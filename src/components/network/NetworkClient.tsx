@@ -150,7 +150,8 @@ export default function NetworkClient({ initialUser }: NetworkClientProps) {
             patch,
         );
         if (patch.q !== undefined) setSearchValue(patch.q);
-        router.push(
+        // Filters and tabs replace: back leaves Network in one step (unified back A2).
+        router.replace(
             `${ROUTES.NETWORK}${params.size ? "?" + params.toString() : ""}`,
             { scroll: false },
         );
@@ -166,7 +167,7 @@ export default function NetworkClient({ initialUser }: NetworkClientProps) {
         writeNetworkQuery(params, activeTab, { q: searchValue });
         switchNetworkTab(params, next);
         setSearchValue(readNetworkQuery(params, next).q);
-        router.push(`${ROUTES.NETWORK}?${params.toString()}`, {
+        router.replace(`${ROUTES.NETWORK}?${params.toString()}`, {
             scroll: false,
         });
     }

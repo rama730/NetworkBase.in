@@ -53,7 +53,7 @@ export function SprintLeftRail({ projectSlug, sprints, selectedSprintId, canCrea
       {/* Phones: one native picker, so the selected sprint stays on screen (spec §21). */}
       <div className="flex items-center gap-2 md:hidden">
         <label className="sr-only" htmlFor="sprint-picker">Sprint</label>
-        <select id="sprint-picker" value={selectedSprintId ?? ""} onChange={(event) => { const sprint = sprints.find((item) => item.id === event.target.value); if (sprint) router.push(href(sprint)); }}
+        <select id="sprint-picker" value={selectedSprintId ?? ""} onChange={(event) => { const sprint = sprints.find((item) => item.id === event.target.value); if (sprint) router.replace(href(sprint), { scroll: false }); }}
           className="h-11 min-w-0 flex-1 rounded-[5px] border border-border bg-card px-3 text-[16px] text-foreground">
           {!selectedSprintId ? <option value="">Select a sprint</option> : null}
           {groups.map((group) => (

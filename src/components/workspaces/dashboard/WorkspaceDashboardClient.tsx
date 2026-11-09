@@ -676,9 +676,9 @@ export default function WorkspaceDashboardClient({ project, currentUserId, viewe
             const nextQuery = nextParams.toString();
             const safePath = pathname ?? window.location.pathname;
             const nextUrl = nextQuery ? `${safePath}?${nextQuery}` : safePath;
-            // A user's tab click is a history entry; canonicalising below stays a replace. Audit 4.5: the address
+            // A tab click replaces the entry; back leaves the page (unified back A2). Audit 4.5: the address
             // changes without a server round trip (the tabs read their own data), as Files and Messages already do.
-            window.history.pushState(null, '', nextUrl);
+            window.history.replaceState(window.history.state, '', nextUrl);
         },
         [activeTab, canOpenSettingsTab, canSeeAllTabs, isOrganization, pathname, publicTabVisibility, router],
     );

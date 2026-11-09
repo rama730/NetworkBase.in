@@ -204,7 +204,7 @@ export default function SprintPlanning({
         });
         // Task cards carry sprint chips: refresh them too.
         void queryClient.invalidateQueries({ queryKey: queryKeys.project.detail.tasksRoot(projectId) });
-        router.push(buildWorkspaceSprintDetailHref(projectSlug, result.sprint.id, { sprintCode: result.sprint.code }), { scroll: false });
+        router.replace(buildWorkspaceSprintDetailHref(projectSlug, result.sprint.id, { sprintCode: result.sprint.code }), { scroll: false });
         return { success: true as const };
       } catch (error) {
         return {
@@ -463,7 +463,7 @@ export default function SprintPlanning({
           value={selectedSprint?.id ?? ""}
           onChange={(e) => {
             if (e.target.value) {
-              router.push(buildWorkspaceSprintDetailHref(projectSlug, e.target.value), { scroll: false });
+              router.replace(buildWorkspaceSprintDetailHref(projectSlug, e.target.value), { scroll: false });
             }
           }}
           className="nb-touch-target h-9 min-w-0 flex-1 rounded-[5px] border border-border bg-card px-3 text-xs font-medium text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary"
