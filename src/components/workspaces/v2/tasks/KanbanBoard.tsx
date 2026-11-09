@@ -143,6 +143,7 @@ const SortableTaskCard = React.memo(function SortableTaskCard({
     <div
       ref={setNodeRef}
       data-task-id={task.id}
+      data-restore-id={`task:${task.id}`}
       style={style}
       className="will-change-transform"
     >
@@ -1035,6 +1036,7 @@ export default function KanbanBoard({
               const step = (el.querySelector<HTMLElement>("[aria-label$=' tasks']")?.offsetWidth ?? el.clientWidth) + 16;
               setColumnInView(Math.min(workflow.length - 1, Math.max(0, Math.round(el.scrollLeft / step))));
             }}
+            data-scroll-memory="kanban-board"
             className="flex items-start gap-4 overflow-x-auto overscroll-x-contain overscroll-y-auto pb-4 app-scroll app-scroll-x max-md:snap-x max-md:snap-mandatory"
           >
             <div className="my-auto ml-auto shrink-0" aria-hidden="true" />

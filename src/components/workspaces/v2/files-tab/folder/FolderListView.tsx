@@ -1125,7 +1125,7 @@ export function FolderListView({
 
       {folder.refreshError ? <div role="status" className="px-4 py-2 text-sm text-amber-700 dark:text-amber-300">Showing cached files. Refresh failed. <button type="button" onClick={folder.retry} className="underline">Retry</button></div> : null}
 
-      <div ref={scrollRef} onScroll={event => { if (folder.status === "ready") workspace?.scrollOffsets.current.set(scrollKey, event.currentTarget.scrollTop); }} className="flex-1 min-h-0 overflow-y-auto">
+      <div ref={scrollRef} data-scroll-memory="files-list" onScroll={event => { if (folder.status === "ready") workspace?.scrollOffsets.current.set(scrollKey, event.currentTarget.scrollTop); }} className="flex-1 min-h-0 overflow-y-auto">
         {folder.status === "loading" ? (
           <FolderListLoading />
         ) : folder.status === "error" ? (

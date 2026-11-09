@@ -8,6 +8,7 @@ import { PendingDeletionNotice } from './PendingDeletionNotice'
 import { MyWorkDrawerHost } from '@/components/my-work/MyWorkDrawerHost'
 import { CREATE_WORKSPACE_PATH, rememberCreateWorkspaceReturnPath } from '@/components/workspaces/create-wizard/create-workspace-return'
 import { stampEntry } from '@/lib/navigation/in-app-history'
+import { useScrollMemory } from '@/hooks/useScrollMemory'
 
 /** Stamps each history entry (unified back A7): in-app Back knows exactly what sits behind this page. */
 function HistoryStamp() {
@@ -27,6 +28,8 @@ export function MainLayout({ children }: MainLayoutProps) {
     const pathname = usePathname()
     // Messages tracks the on-screen keyboard height (report 7.12 B11).
     const messagesShell = pathname === '/messages' || pathname?.startsWith('/messages/')
+    // Back returns to where you were on every page (unified back §3.1).
+    useScrollMemory()
 
     // Closing the create-project page returns to wherever the user was before it.
     useEffect(() => {

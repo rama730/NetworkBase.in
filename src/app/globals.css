@@ -1489,3 +1489,6 @@ html[data-reduce-motion="true"][data-welcome-flight="reveal"] :is(.nb-sidebar, .
 .nb-link-pending { position:absolute; inset:0 0 auto 0; height:2px; background:var(--primary); opacity:0; transform-origin:left; pointer-events:none; }
 .nb-link-pending[data-pending="true"] { animation:nb-link-pending 1.2s ease-in-out 300ms infinite both; }
 @keyframes nb-link-pending { 0% { opacity:1; transform:scaleX(0); } 70% { opacity:1; transform:scaleX(1); } 100% { opacity:0; transform:scaleX(1); } }
+
+/* Unified back B9: the card you opened, tinted for a moment when you come back to it. */
+[data-returned] { background:color-mix(in srgb, var(--primary) 6%, transparent); transition:background-color 600ms ease-out; }

@@ -24,7 +24,7 @@ export function ListScreen({ onSelect, onNewMessage, onInbox, actions }: { onSel
         {actions}
       </header>
       <ConnectionBanner />
-      <div className="app-scroll app-scroll-y min-h-0 flex-1 px-2 py-3">
+      <div data-scroll-memory="messages-list" className="app-scroll app-scroll-y min-h-0 flex-1 px-2 py-3">
         <ChatSections variant="list" onSelect={onSelect} onNewMessage={onNewMessage} onInbox={onInbox} />
       </div>
     </div>

@@ -111,7 +111,7 @@ export function InboxList(p: Props) {
                     <button type="button" className="ml-auto text-[12px] underline underline-offset-4" onClick={p.onClearChecked}>Clear</button>
                 </div>
             ) : null}
-            <div className="min-h-0 flex-1 overflow-y-auto" data-scroll-root="inbox-list">
+            <div className="min-h-0 flex-1 overflow-y-auto" data-scroll-root="inbox-list" data-scroll-memory="inbox-list">
                 {p.error ? (
                     <p className="p-4 text-[13px]">Couldn’t load · <button type="button" className="underline underline-offset-4" onClick={p.onRetry}>Retry</button></p>
                 ) : p.loading ? (

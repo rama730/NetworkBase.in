@@ -83,18 +83,8 @@ const VIRTUOSO_INCREASE_VIEWPORT_BY = { top: 1200, bottom: 800 } as const;
 // Rendered before the scroll container exists (server HTML, first paint), then handed to Virtuoso.
 // ponytail: the 6 first-paint cards remount once when Virtuoso takes over; mount Virtuoso at first render if that ever shows.
 const FIRST_PAINT_ITEMS = 6;
-const SCROLL_KEY = 'discover-scroll:';
 
 const computeFeedItemKey = (_: number, item: DiscoverFeedItem) => feedItemKey(item);
-
-// Back/Forward (a history traverse) restores where you were; any other arrival starts at the top.
-let lastTraverseAt = 0;
-if (typeof window !== 'undefined') window.addEventListener('popstate', () => { lastTraverseAt = Date.now(); });
-const cameBackByHistory = () => {
-    if (Date.now() - lastTraverseAt < 1500) return true;
-    const entry = performance.getEntriesByType?.('navigation')[0] as PerformanceNavigationTiming | undefined;
-    return entry?.type === 'back_forward' && performance.now() < 5000;
-};
 
 /** The end of the feed: loading, the end, or a way on when a page failed. */
 const FeedFooter: Components<DiscoverFeedItem, FeedContext>['Footer'] = ({ context }) => {
@@ -295,7 +285,7 @@ export default function DiscoverClient({
         };
     }, [queryClient]);
 
-    // ---- Scroll: Back/Forward returns to the same place; a new scope or filter starts at the top.
+    // ---- Scroll: back returns to the same card (shared scroll memory, unified back §3.1); a new scope or filter starts at the top.
     const [scrollContainer, setScrollContainer] = useState<HTMLDivElement | null>(null);
     const scrollContainerRef = useCallback((node: HTMLDivElement | null) => setScrollContainer((prev) => (prev === node ? prev : node)), []);
     const feedKey = JSON.stringify([view, filters, hideOpened]);
@@ -303,36 +293,8 @@ export default function DiscoverClient({
 
     useEffect(() => {
         if (!scrollContainer) return;
-        const storageKey = `${SCROLL_KEY}${window.location.search}`;
-        if (lastFeedKey.current !== feedKey) {
-            let saved = 0;
-            if (cameBackByHistory()) {
-                try {
-                    saved = Number(sessionStorage.getItem(storageKey)) || 0;
-                } catch {
-                    // Storage blocked: start at the top.
-                }
-            }
-            if (saved > 0) requestAnimationFrame(() => scrollContainer.scrollTo({ top: saved }));
-            else if (lastFeedKey.current !== null) scrollContainer.scrollTo({ top: 0 });
-        }
+        if (lastFeedKey.current !== null && lastFeedKey.current !== feedKey) scrollContainer.scrollTo({ top: 0 });
         lastFeedKey.current = feedKey;
-        let frame = 0;
-        const save = () => {
-            cancelAnimationFrame(frame);
-            frame = requestAnimationFrame(() => {
-                try {
-                    sessionStorage.setItem(storageKey, String(Math.round(scrollContainer.scrollTop)));
-                } catch {
-                    // Storage blocked: nothing to restore later.
-                }
-            });
-        };
-        scrollContainer.addEventListener('scroll', save, { passive: true });
-        return () => {
-            cancelAnimationFrame(frame);
-            scrollContainer.removeEventListener('scroll', save);
-        };
     }, [feedKey, scrollContainer]);
 
     // A new scope or filter starts a different list: the open thread belongs to the old one.
@@ -384,7 +346,7 @@ export default function DiscoverClient({
     const renderFeedItem = useCallback((_: number, item: DiscoverFeedItem) => {
         if (item.kind === 'update') {
             return (
-                <div className="pb-4">
+                <div className="pb-4" data-restore-id={feedItemKey(item)}>
                     {/* One card that throws must not take the whole list down with it. */}
                     <ComponentErrorBoundary fallbackMessage="This update couldn’t be shown.">
                         <DiscoverUpdateCard
@@ -401,7 +363,7 @@ export default function DiscoverClient({
 
         const project = item.data;
         return (
-            <div className="pb-4">
+            <div className="pb-4" data-restore-id={feedItemKey(item)}>
                 <ProjectCard
                     project={project}
                     // In Following every card is followed; no flash of "not following" while that loads.

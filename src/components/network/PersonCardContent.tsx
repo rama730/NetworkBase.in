@@ -17,9 +17,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { PersonPresenceDot } from './PersonPresenceDot';
 import { OpenToCollaborateBadge } from '@/components/profile/OpenToCollaborateBadge';
 
-export function PersonCardLayout({ avatar, head, headline, location, meta = [], body, aside, className = '', variant = 'network' }: {
+export function PersonCardLayout({ avatar, head, headline, location, meta = [], body, aside, className = '', variant = 'network', restoreId }: {
     avatar: ReactNode; head: ReactNode; headline?: ReactNode; location?: ReactNode;
     meta?: ReactNode[]; body?: ReactNode; aside?: ReactNode; className?: string; variant?: 'network' | 'rail';
+    /** Back returns to this card (unified back A4). */
+    restoreId?: string;
 }) {
     const cardRef = useRef<HTMLElement>(null);
     useLayoutEffect(() => {
@@ -41,7 +43,7 @@ export function PersonCardLayout({ avatar, head, headline, location, meta = [], 
         return () => observer.disconnect();
     }, [meta, aside]);
     return <div className="nb-person-card-host" data-variant={variant}>
-        <article ref={cardRef} data-slot="person-card" className={`nb-person-card relative ${className}`}>
+        <article ref={cardRef} data-slot="person-card" data-restore-id={restoreId} className={`nb-person-card relative ${className}`}>
             <div className="nb-person-identity">
                 <div className="nb-person-avatar">{avatar}</div>
                 <div className="nb-person-identity-text">{head}{headline ? <div className="nb-person-subtitle">{headline}</div> : null}</div>
@@ -163,7 +165,7 @@ export function PersonCardContent({ person: input, action, variant = 'network', 
     const person = locked ? { ...input, headline: null, location: null, skills: [], portfolio: null, openToCollaborate: null, mutualConnections: null, lastActiveAt: null } : input;
     const name = personCardName(person), href = profileHref(person), subtitle = personCardSubtitle(person);
     const count = personSharedCount(person.mutualConnections), portfolio = personPortfolioText(person.portfolio), date = personConnectedDate(acceptedAt);
-    return <PersonCardLayout variant={variant} className={className}
+    return <PersonCardLayout variant={variant} className={className} restoreId={person.id ? `person:${person.id}` : undefined}
         avatar={<div className="relative"><Link href={href} tabIndex={-1} aria-hidden="true"><UserAvatar identity={person} size={48} priority={priority} /></Link>
             {!locked && person.id ? <PersonPresenceDot userId={person.id} lastActiveAt={person.lastActiveAt} /> : null}</div>}
         head={<h3 className="nb-person-name-line"><Link href={href} className="nb-person-name nb-pressable" title={name} dir="auto">{name}</Link>
