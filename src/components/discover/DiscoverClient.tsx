@@ -43,6 +43,7 @@ import { showKeeps } from '@/lib/organizations/profile-rules';
 import { useDiscoverUpdates } from '@/hooks/discover/useDiscoverUpdates';
 import { useDiscoverUpdateThread } from '@/hooks/discover/useDiscoverUpdateThread';
 import { useHiddenUpdates } from '@/hooks/discover/useHiddenUpdates';
+import { useDocumentTitlePrefix } from '@/hooks/useDocumentTitlePrefix';
 
 // The thread (comments, composer) loads only when someone opens one.
 const DiscoverUpdateThread = dynamic(
@@ -236,6 +237,7 @@ export default function DiscoverClient({
 
     const updatesQueryKey = queryKeys.discover.pulse(viewerId, view, filters);
     const thread = useDiscoverUpdateThread({ viewerId, loaded: updates, initialUpdateId, initialUpdate });
+    useDocumentTitlePrefix(thread.selected?.projectName ? `Update · ${thread.selected.projectName}` : null); // R8
     // Signed-out viewers have no people to suggest, but keep the rail column anyway when updates are showing, so
     // opening a thread doesn't squeeze the feed from under the cursor.
     const showRail = wide !== false && (hasPeople || Boolean(thread.selectedId) || shownUpdates.length > 0);

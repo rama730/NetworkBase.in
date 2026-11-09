@@ -20,6 +20,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import type { InboxFilters, InboxItem } from '@/lib/trust/inbox'
 import { caseLabel, parseCaseLabel } from '@/lib/trust/rules'
 import { keepStamp } from '@/lib/navigation/in-app-history'
+import { useDocumentTitlePrefix } from '@/hooks/useDocumentTitlePrefix'
 
 // The Inbox (Trust & Safety Console Redesign R2, R3, R8, S6, S8): list, case and decision as separate pieces of
 // data, updated in place by actions and live events; the URL holds the view and the open case without reloading.
@@ -50,6 +51,7 @@ export function TrustInbox() {
     const medium = useWide('(min-width: 1024px)')
     const filters = useMemo(() => Object.fromEntries(FILTER_KEYS.map((k) => [k, params.get(k) || undefined]).filter(([, v]) => v)) as InboxFilters, [params])
     const selectedLabel = params.get('case')
+    useDocumentTitlePrefix(selectedLabel ? selectedLabel.toUpperCase() : null) // unified back R8
     const selectedOrg = params.get('org-request')
     const selectedKey = selectedOrg ? `org:${selectedOrg}` : selectedLabel ? `${params.get('type') === 'appeal' ? 'appeal' : 'case'}:${selectedLabel.toUpperCase()}` : null
 

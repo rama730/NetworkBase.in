@@ -13,9 +13,11 @@ import { useNetworkNotifications } from "@/hooks/useNetworkNotifications";
 import MyWorkTasksTab from "./MyWorkTasksTab";
 import MyWorkRequestsTab from "./MyWorkRequestsTab";
 import { OpenInIdeButton } from "@/components/workspaces/v2/files-tab/OpenInIdeButton";
+import { useDocumentTitlePrefix } from "@/hooks/useDocumentTitlePrefix";
 
 export default function MyWorkDrawer() {
   const isMyWorkOpen = useUIStore((s) => s.isMyWorkOpen);
+  useDocumentTitlePrefix(isMyWorkOpen ? "My work" : null); // unified back R8
   const setMyWorkOpen = useUIStore((s) => s.setMyWorkOpen);
   const activeTab = useUIStore((s) => s.myWorkTab);
   const setActiveTab = useUIStore((s) => s.setMyWorkTab);

@@ -49,3 +49,29 @@ test("Canonical route metadata contract: Messages, Settings, and Workspace have 
     assert.match(workspaceSource, /path:\s*['"]\/my-work['"]/);
     assert.match(workspaceSource, /redirect\(['"]\/discover\?my-work=tasks['"]\)/);
 });
+
+// Unified back R8: every page has a clear tab title (it names browser history entries and the back
+// arrow's "Back to …"), and in-page tabs, threads and drawers keep it current.
+test("every main page has a title from itself or its layout", () => {
+    const fs = require("node:fs") as typeof import("node:fs");
+    const path = require("node:path") as typeof import("node:path");
+    const MAIN = resolve(ROOT, "src/app/(site)/(main)");
+    const hasMeta = (file: string) => fs.existsSync(file) && /export (const metadata|(async )?function generateMetadata)/.test(fs.readFileSync(file, "utf-8"));
+    const walk = (dir: string): string[] => fs.readdirSync(dir, { withFileTypes: true }).flatMap((e) => e.isDirectory() ? walk(path.join(dir, e.name)) : e.name === "page.tsx" ? [path.join(dir, e.name)] : []);
+    for (const page of walk(MAIN)) {
+        const source = fs.readFileSync(page, "utf-8");
+        if (/^\s*redirect\(/m.test(source) && !/export default function [^(]*\([^)]*\)\s*{[\s\S]*return\s*</.test(source)) continue; // redirect-only pages never show
+        let dir = path.dirname(page);
+        let titled = hasMeta(page);
+        while (!titled && dir.startsWith(MAIN)) { titled = hasMeta(path.join(dir, "layout.tsx")); dir = path.dirname(dir); }
+        assert.ok(titled, `${path.relative(ROOT, page)} has no title`);
+    }
+});
+
+test("in-page tabs, threads and drawers keep the tab title current", () => {
+    const read = (file: string) => readFileSync(resolve(ROOT, file), "utf-8");
+    assert.match(read("src/components/workspaces/dashboard/WorkspaceDashboardClient.tsx"), /document\.title = `\$\{label\} · \$\{project\.title\} · NetworkBase`/);
+    assert.match(read("src/components/discover/DiscoverClient.tsx"), /useDocumentTitlePrefix\(thread\.selected\?\.projectName/);
+    assert.match(read("src/components/my-work/MyWorkDrawer.tsx"), /useDocumentTitlePrefix\(isMyWorkOpen \? "My work" : null\)/);
+    assert.match(read("src/components/trust/TrustInbox.tsx"), /useDocumentTitlePrefix\(selectedLabel/);
+});

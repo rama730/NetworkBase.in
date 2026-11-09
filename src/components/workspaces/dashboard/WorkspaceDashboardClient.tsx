@@ -62,6 +62,7 @@ import { useReloadOnNotice } from '@/hooks/useReloadOnNotice';
 import { useBackParent } from '@/hooks/useBackParent';
 import { TAB_STATE_PARAMS } from '@/lib/navigation/url-state';
 import { keepStamp } from '@/lib/navigation/in-app-history';
+import { WORKSPACE_TAB_LABELS } from '@/lib/copy/terms';
 
 const EditWorkspaceModal = dynamic(() => import('@/components/workspaces/EditWorkspaceModal'), { ssr: false, loading: () => null });
 
@@ -319,6 +320,11 @@ export default function WorkspaceDashboardClient({ project, currentUserId, viewe
     });
 
     const [activeTab, setActiveTab] = useState(() => resolvedActiveTab);
+    // Tabs change the address without a server round trip, so the tab title follows here (unified back R8).
+    useEffect(() => {
+        const label = activeTab ? (WORKSPACE_TAB_LABELS as Record<string, string>)[activeTab] : undefined;
+        if (label) document.title = `${label} · ${project.title} · NetworkBase`;
+    }, [activeTab, project.title]);
 
     const refreshProjectData = useCallback(
         (scopeTab?: string) => {
