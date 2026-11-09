@@ -25,6 +25,7 @@ import { resetMonotonicEntity, runMonotonicUpdate } from '@/lib/state/monotonic'
 import { loadBrowserProfile, normalizeProfileRecord, profileNeedsHydration } from '@/lib/profile/browser-profile';
 import { cacheManager } from '@/lib/utils/cache-manager';
 import { unsubscribeWebPush } from '@/lib/notifications/web-push-client';
+import { shouldEjectRestoredPage } from '@/lib/auth/restored-page';
 
 // --- Types ---
 interface AuthState {
@@ -173,7 +174,7 @@ export function AuthProvider({
                             });
                         });
                         if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
-                            window.location.href = '/login';
+                            window.location.replace('/login');
                         }
                     });
                 } else if (event === 'USER_UPDATED' && session) {
@@ -300,6 +301,32 @@ export function AuthProvider({
         };
     }, [initialUser, router, transformedInitialProfile]);
 
+    // Back/forward cache can restore a private page after sign-out: hide it until the session is checked.
+    useEffect(() => {
+        const onPageShow = (event: PageTransitionEvent) => {
+            // Only pages that were rendered for a signed-in user; public pages stay.
+            if (!event.persisted || !activeUserIdRef.current) return;
+            const root = document.documentElement;
+            root.style.visibility = 'hidden';
+            void (async () => {
+                let hasSession = false;
+                try {
+                    const { data } = await createClient().auth.getSession();
+                    hasSession = Boolean(data.session);
+                } catch {
+                    // Can't confirm a session: treat as signed out.
+                }
+                if (shouldEjectRestoredPage(event.persisted, hasSession)) {
+                    window.location.replace('/login');
+                } else {
+                    root.style.visibility = '';
+                }
+            })();
+        };
+        window.addEventListener('pageshow', onPageShow);
+        return () => window.removeEventListener('pageshow', onPageShow);
+    }, []);
+
     // --- Actions ---
     const signOut = useCallback(async () => {
         toast.clear();
@@ -339,7 +366,7 @@ export function AuthProvider({
             
             // 5. Hard redirect if not already handled
             if (window.location.pathname !== '/login') {
-                window.location.href = '/login';
+                window.location.replace('/login');
             }
         }
     }, []);

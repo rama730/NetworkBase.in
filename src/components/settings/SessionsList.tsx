@@ -82,7 +82,7 @@ export function SessionsList({
     setBusy(true);
     try {
       await send(`/api/v1/sessions?id=${encodeURIComponent(id)}`, "Couldn’t sign out this device");
-      window.location.assign("/login");
+      window.location.replace("/login");
     } catch (error) {
       throw error instanceof Error ? error : new Error("Couldn’t sign out this device");
     } finally {
